@@ -26,7 +26,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Import signing certificate (macOS, only when secrets exist)
         if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
-        env: { APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }} }
+        env: { APPLE_CERTIFICATE: "${{ secrets.APPLE_CERTIFICATE }}" }
         run: echo "signing configured via tauri-action env below"
       - uses: tauri-apps/tauri-action@v0
         env:

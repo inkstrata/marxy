@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
     branches: [main]
-concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }
+concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   conventions:
     runs-on: ubuntu-latest
@@ -21,7 +21,7 @@ jobs:
         run: |
           body=$(gh pr view ${{ github.event.pull_request.number }} --json body --jq .body)
           echo "$body" | grep -q '^## Summary' || { echo "PR body must start with '## Summary' (docs/conventions.md)"; exit 1; }
-        env: { GH_TOKEN: ${{ github.token }} }
+        env: { GH_TOKEN: "${{ github.token }}" }
   gates:
     strategy:
       fail-fast: false
@@ -54,4 +54,4 @@ jobs:
       - run: pnpm gate:bundle
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: gate-results-${{ matrix.os }}, path: results/, if-no-files-found: ignore }
+        with: { name: "gate-results-${{ matrix.os }}", path: results/, if-no-files-found: ignore }
