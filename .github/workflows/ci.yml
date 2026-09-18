@@ -74,6 +74,15 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - name: CommonMark spec selftest
+        run: node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --selftest
+      - name: CommonMark spec suite
+        run: |
+          DEST=$(node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --print-dest)
+          URL=$(node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --print-url)
+          curl -fsSL "$URL" -o "$DEST"
+          pnpm --filter @marxy/core test:spec
+          test -z "$(git status --porcelain)"
       - run: pnpm gate:golden
       - run: pnpm gate:fidelity
       - run: pnpm gate:licences
