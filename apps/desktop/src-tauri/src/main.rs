@@ -1,5 +1,7 @@
 //! marxy desktop shell. Everything privileged lives here behind the shell-api contract.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod atomic_write;
+
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -9,22 +11,16 @@ fn now_ms() -> f64 { SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_m
 #[tauri::command]
 fn args() -> Vec<String> { std::env::args().skip(1).collect() }
 
+/// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
+/// handling, because everything above this reads what the reader's file actually contains.
 #[tauri::command]
 fn read_file(path: String) -> Result<Vec<u8>, String> { std::fs::read(&path).map_err(|e| format!("{path}: {e}")) }
 
-/// Write-temp-then-rename in the same directory: never in place, so a crash leaves the old file intact
-/// and watchers see one atomic event. Byte-faithful by construction: writes exactly `bytes`.
+/// Saves exactly `bytes` and nothing else about the file; see `atomic_write` for the guarantees and
+/// the cases it refuses. Checked end to end over the corpus by `pnpm gate:fidelity`.
 #[tauri::command]
 fn write_file_atomic(path: String, bytes: Vec<u8>) -> Result<(), String> {
-    let target = std::path::Path::new(&path);
-    let dir = target.parent().ok_or("no parent directory")?;
-    let tmp = dir.join(format!(".{}.marxy-tmp", target.file_name().and_then(|n| n.to_str()).unwrap_or("file")));
-    {
-        let mut f = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
-        f.write_all(&bytes).map_err(|e| e.to_string())?;
-        f.sync_all().map_err(|e| e.to_string())?;
-    }
-    std::fs::rename(&tmp, target).map_err(|e| e.to_string())
+    atomic_write::write_atomic(std::path::Path::new(&path), &bytes)
 }
 
 /// Prints `MARK <name> <epoch ms>` and, only when there is any, a trailing detail field.
