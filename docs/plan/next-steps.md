@@ -10,27 +10,28 @@ resource, so they are listed first and kept few.
    `gh auth refresh -h github.com -s workflow && git push origin main`.
 2. **First CI run.** Expect it to need one or two fixes on the runners (mise installing Rust,
    Playwright browsers, `xvfb-run` for the startup measurement on Linux). Treat the first green
-   run as MARXY-001 done; hand any failure to an agent with the log.
+   run as MARXY-5 done; hand any failure to an agent with the log.
 3. **Tag v0.0.1** once CI is green: `git tag v0.0.1 && git push --tags`. The release workflow
    produces a DMG (unsigned until Apple secrets exist; `xattr -d com.apple.quarantine` to test)
    and an AppImage and .deb. Verify each installs and opens `fixtures/corpus/02-readme-real-world.md`.
-4. **Jira.** Import `jira-issues.csv` (CSV importer) or run `scripts/jira-import.mjs` with a
-   token. Record the real key prefix in `AGENTS.md` if it is not `MARXY`.
+4. ~~**Jira.**~~ Done: the project MARXY at <https://marxy.atlassian.net> holds all 51 epics and
+   stories, keys MARXY-4 to MARXY-54, and `orchestration/jira.mjs` keeps it in step with the
+   board. Process: `docs/sdlc.md`. Credentials: `~/.config/marxy/jira.env`.
 5. **Decide two things nobody else can:** (a) whether a Linux desktop is available for
-   MARXY-022 (a laptop or a GNOME VM; the OrbStack machines are headless), and (b) whether an
+   MARXY-22 (a laptop or a GNOME VM; the OrbStack machines are headless), and (b) whether an
    Apple Developer account exists for notarization by Phase 4. Neither blocks the next four weeks.
 
 ## Week 1 — the fleet, five lanes in parallel (file ownership keeps them apart)
 
 | Lane | Stories | Paths | Note |
 | --- | --- | --- | --- |
-| Core | MARXY-010 parser → 011 sanitiser | `packages/core` | On everyone's critical path; start first, keep it small |
-| Shell | MARXY-012 shell via shell-api → 013 byte-faithful save | `apps/desktop` | Hello world already prints marks and saves atomically; the story is the contract audit and tests |
-| Process | MARXY-001, 003, 004 (002 is largely done: protection is on) | `.github`, `scripts`, `biome.json` | Small, unblocks everyone |
-| Speed | MARXY-014 startup gate in CI | `scripts/measure-startup.mjs`, `ci.yml` | Independent of the parser |
-| Typography research | "Prove ragged-right through `justif/core` on the corpus" (a research task ahead of MARXY-023) and MARXY-016 (typeface specimen for review #0) | `packages/typeset`, `docs/taste-review` | The highest-uncertainty item in Phase 1; start it now so its answer arrives before the theme lands |
+| Core | MARXY-11 parser → MARXY-12 sanitiser | `packages/core` | On everyone's critical path; start first, keep it small |
+| Shell | MARXY-13 shell via shell-api → MARXY-14 byte-faithful save | `apps/desktop` | Hello world already prints marks and saves atomically; the story is the contract audit and tests |
+| Process | MARXY-7, MARXY-8, MARXY-9 (MARXY-6 is largely done: protection is on) | `.github`, `scripts`, `biome.json` | Small, unblocks everyone |
+| Speed | MARXY-15 startup gate in CI | `scripts/measure-startup.mjs`, `ci.yml` | Independent of the parser |
+| Typography research | MARXY-19 (ragged-right through `justif/core`, ahead of MARXY-23) and MARXY-17 (typeface specimen for review #0) | `packages/typeset`, `docs/taste-review` | The highest-uncertainty item in Phase 1; start it now so its answer arrives before the theme lands |
 
-**A technical call for MARXY-010, made now so the agent does not re-derive it.** `markdown-it`
+**A technical call for MARXY-11, made now so the agent does not re-derive it.** `markdown-it`
 gives line ranges for blocks and no positions for inline tokens; byte provenance on every node
 (ADR-0003) needs a parser that positions inlines. Use `mdast-util-from-markdown` with
 `micromark-extension-gfm` (MIT, CommonMark-compliant, positions on every node) and convert its
@@ -40,17 +41,19 @@ the goldens are parser-independent, so the swap is contained.
 
 ## Weeks 2–4 — Phase 1's critical path
 
-MARXY-020 tokens and grid → 021 fonts and the Linux offset → 023 Knuth–Plass (informed by the
-research task) → 024 hanging punctuation → 025 headless render entry and the full aesthetics
-gate → 02A baselines → 02B the review #1 artifact. 026–029 (images, highlighting, KaTeX, smart
-typography) run in parallel lanes against `packages/core/src/render`. MARXY-015 (the release)
-lands as soon as 012 and 014 are green.
+MARXY-20 tokens and grid → MARXY-21 fonts and the Linux offset → MARXY-23 Knuth–Plass (informed
+by MARXY-19) → MARXY-24 hanging punctuation → MARXY-25 headless render entry and the full
+aesthetics gate → MARXY-30 baselines → MARXY-31 the review #1 artifact. MARXY-26 to MARXY-29
+(images, highlighting, KaTeX, smart typography) run in parallel lanes against
+`packages/core/src/render`. MARXY-16 (the release) lands as soon as MARXY-13 and MARXY-15 are green.
 
 Proceed with Literata as the default while review #0 runs; the tokens make a swap one line.
 
 ## The dispatcher's checklist, per story
 
-1. Story is *ready*: paths listed, acceptance machine-checkable, ADRs named.
+The full version, with the definitions of ready and done, is `docs/sdlc.md`; this is the short form.
+
+1. Story is *ready*: paths listed, acceptance machine-checkable, ADRs named, Jira issue To Do.
 2. Branch `type/KEY-slug` from `main`; the agent gets `AGENTS.md`, the story, the named ADRs,
    and nothing from the brainstorm.
 3. PR uses the template; gates green; queue entry if anything visible changed.

@@ -9,10 +9,19 @@ export default {
     'body-max-line-length': [1, 'always', 100],
     'body-leading-blank': [2, 'always'],
     'footer-leading-blank': [2, 'always'],
-    // The Jira key belongs in the subject: "(MARXY-123)" at the end. Warn (not fail) so bootstrap/spike history passes.
-    'references-empty': [1, 'never'],
+    // The Jira key belongs at the end of the subject, checked directly rather than through the
+    // parser's issue references: with issuePrefixes set, a key mentioned anywhere in the body was
+    // read as a footer, so a commit could not name a sibling story without failing.
+    'marxy-key-in-subject': [2, 'always'],
     'trailer-exists': [0],
   },
-  parserPreset: { parserOpts: { issuePrefixes: ['MARXY-'], referenceActions: null } },
+  plugins: [{
+    rules: {
+      'marxy-key-in-subject': ({ header }) => [
+        /\(MARXY-\d+\)$/.test(header ?? '') || /^(Merge|Revert|\w+(\(\w+\))?!?: .*\((bootstrap|spike)\))/.test(header ?? ''),
+        'subject must end with the Jira key in parentheses, e.g. "(MARXY-23)" — docs/conventions.md',
+      ],
+    },
+  }],
   ignores: [msg => /^(Merge|Revert)\b/.test(msg)],
 };
