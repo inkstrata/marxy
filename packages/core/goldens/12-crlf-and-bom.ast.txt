@@ -1,0 +1,14 @@
+document [0,159)
+  heading [3,17) level=1
+    text [5,17) value="CRLF and BOM"
+  paragraph [21,78)
+    text [21,78) value="This file has a byte-order mark and Windows line endings."
+  list [82,90) ordered=false tight=true
+    listItem [82,85)
+      paragraph [84,85)
+        text [84,85) value="a"
+    listItem [87,90)
+      paragraph [89,90)
+        text [89,90) value="b"
+  paragraph [94,157)
+    text [94,157) value="Saving it must keep every byte, including the BOM and every CR."

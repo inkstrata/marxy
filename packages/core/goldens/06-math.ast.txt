@@ -1,0 +1,26 @@
+document [0,1031)
+  heading [0,21) level=1
+    text [2,21) value="Math-heavy document"
+  paragraph [23,162)
+    text [23,40) value="Inline math like "
+    mathInline [40,50) value="E = mc^2"
+    text [50,55) value=" and "
+    mathInline [55,107) value="\\int_0^\\infty e^{-x^2}\\,dx = \\tfrac{\\sqrt{\\pi}}{2}"
+    text [107,162) value=" sits in the run of text and must land on the baseline."
+  mathBlock [164,471) value="\\begin{aligned}\n\\nabla \\cdot \\mathbf{E} &= \\frac{\\rho}{\\varepsilon_0} \\\\\n\\nabla \\cdot \\mathbf{B} &= 0 \\\\\n\\nabla \\times \\…"
+  paragraph [473,720)
+    text [473,588) value="A display block between paragraphs must occupy an integer number of line boxes. The badness of a line with stretch "
+    mathInline [588,591) value="t"
+    text [591,614) value=" and available stretch "
+    mathInline [614,617) value="s"
+    text [617,621) value=" is "
+    mathInline [621,635) value="100\\,(t/s)^3"
+    text [635,720) value=", which is why Knuth–Plass prefers many slightly loose lines to one very loose one."
+  mathBlock [722,827) value="\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}, \\qquad \\prod_{p \\text{ prime}} \\frac{1}{1 - p^{-s}} = \\zeta(s)"
+  paragraph [829,947)
+    text [829,839) value="Matrices: "
+    mathInline [839,885) value="\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}"
+    text [885,907) value=" inline, and a fenced "
+    code [907,913) value="math"
+    text [913,947) value=" block that some renderers accept:"
+  codeBlock [949,1030) lang=math info="math" content=[957,1027) value="f(x) = \\frac{1}{\\sqrt{2\\pi\\sigma^2}} e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}"
