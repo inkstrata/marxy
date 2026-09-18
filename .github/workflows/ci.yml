@@ -49,8 +49,19 @@ jobs:
         run: pnpm --filter @marxy/desktop build
       - name: Startup measurement (packaged app)
         run: node scripts/measure-startup.mjs
-        env: { MARXY_PERF_REQUIRED: '1' }
-      - run: pnpm gate:perf
+        env:
+          MARXY_PERF_REQUIRED: '1'
+          MARXY_PERF_ENV: ci
+          MARXY_RUNNER_CLASS: "${{ matrix.os }}"
+      - name: Perf gate rules selftest
+        run: |
+          node scripts/gate-perf.mjs --selftest
+          node scripts/measure-startup.mjs --selftest
+      - name: Perf gate (CI envelope and baseline, ADR-0022)
+        run: pnpm gate:perf
+        env:
+          MARXY_PERF_ENV: ci
+          MARXY_RUNNER_CLASS: "${{ matrix.os }}"
       - run: pnpm gate:bundle
       - uses: actions/upload-artifact@v4
         if: always()
