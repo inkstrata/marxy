@@ -1,5 +1,10 @@
 # Plan delta — 2026-09-18 (perf gate variance, out of band)
 
+> The ADR-0022 amendment recording this decision lands with MARXY-63, the story that
+> implements it, not here: an accepted ADR must not describe behaviour the tree does not yet have,
+> and ADR-0022 is in that story's paths. Until then this note is the record.
+
+
 Third delta of the day and the second on the perf gate. Trigger: PR #6 (MARXY-17, the typeface
 specimen) is red on `gates (macos-latest)` with
 
