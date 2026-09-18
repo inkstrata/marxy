@@ -1,8 +1,8 @@
 {
-  "updated": "2026-09-18T15:03:50.419Z",
+  "updated": "2026-09-18T15:18:35.915Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
-  "merges": 7,
+  "merges": 8,
   "lastPlan": "2026-09-18T11:38:45.770Z",
   "mergesAtLastPlan": 5,
   "stories": {
@@ -69,13 +69,14 @@
       "finished": "2026-09-18T14:28:51.933Z"
     },
     "MARXY-14": {
-      "status": "in_review",
+      "status": "done",
       "attempts": 1,
       "started": "2026-09-18T14:29:05.977Z",
       "worktree": "../marxy-wt/MARXY-14",
       "branch": "feat/MARXY-14-byte-faithful-open-and-save",
       "model": "grok-4.6-fast",
-      "pr": 12
+      "pr": 12,
+      "finished": "2026-09-18T15:17:48.411Z"
     },
     "MARXY-15": {
       "status": "todo",
@@ -262,16 +263,21 @@
       "pr": 15
     },
     "MARXY-60": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
       "started": "2026-09-18T15:00:23.262Z",
       "worktree": "../marxy-wt/MARXY-60",
       "branch": "feat/MARXY-60-prove-the-maths-extension-costs-nothing-",
-      "model": "grok-4.6-fast"
+      "model": "grok-4.6-fast",
+      "pr": 18
     },
     "MARXY-61": {
-      "status": "todo",
-      "attempts": 0
+      "status": "blocked",
+      "attempts": 1,
+      "started": "2026-09-18T15:08:24.247Z",
+      "worktree": "../marxy-wt/MARXY-61",
+      "branch": "feat/MARXY-61-remove-markdown-it-now-that-there-is-one",
+      "model": "grok-4.6-fast"
     },
     "MARXY-62": {
       "status": "todo",
@@ -287,12 +293,13 @@
       "pr": 10
     },
     "MARXY-64": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
       "started": "2026-09-18T14:57:25.272Z",
       "worktree": "../marxy-wt/MARXY-64",
       "branch": "feat/MARXY-64-give-the-corpus-a-document-with-real-pro",
-      "model": "grok-4.6-fast"
+      "model": "grok-4.6-fast",
+      "pr": 17
     },
     "MARXY-65": {
       "status": "todo",
@@ -308,8 +315,13 @@
       "pr": 13
     },
     "MARXY-67": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:08:25.368Z",
+      "worktree": "../marxy-wt/MARXY-67",
+      "branch": "feat/MARXY-67-read-cr-only-documents-as-carefully-as-l",
+      "model": "grok-4.6-fast",
+      "pr": 19
     },
     "MARXY-68": {
       "status": "todo",
@@ -341,6 +353,10 @@
       "attempts": 0
     },
     "MARXY-77": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-78": {
       "status": "todo",
       "attempts": 0
     }

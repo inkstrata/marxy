@@ -6,6 +6,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { ROOT, here, readJson, stories, state, saveState, models, pathsOf } from './lib.mjs';
+import { verify } from './approve.mjs';
 
 const args = process.argv.slice(2);
 const NO_MERGE = args.includes('--no-merge'), DRY = args.includes('--dry-run');
@@ -28,7 +29,7 @@ const s = state();
 const held = [];
 for (const [key, rec] of Object.entries(s.stories)) {
   if (rec.status !== 'in_review' || !rec.pr) continue;
-  const view = gh(['pr', 'view', String(rec.pr), '--json', 'state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,headRefName']);
+  const view = gh(['pr', 'view', String(rec.pr), '--json', 'state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,headRefName,headRefOid']);
   if (!view) { held.push(`${key}: PR #${rec.pr} could not be read`); continue; }
   const pr = JSON.parse(view);
   // A branch cut before main moved was tested against a main that no longer exists. Refresh it and
@@ -74,9 +75,10 @@ for (const [key, rec] of Object.entries(s.stories)) {
     !result && 'no implementor result file',
     result && result.status !== 'done' && `result says ${result.status}`,
     !files.includes('CHANGELOG.md') && 'no CHANGELOG entry',
-    // Green gates say the code works, not that it does what the story asked. A human or the
-    // orchestrator records that judgement by writing results/KEY.approved; nothing merges without it.
-    !existsSync(here(`results/${key}.approved`)) && process.env.MARXY_MERGE_UNREVIEWED !== '1' && 'not reviewed (no results/KEY.approved)',
+    // Green gates say the code works, not that it does what the story asked. That judgement is
+    // recorded in results/KEY.approved, signed against the commit it approves: two subagents once
+    // wrote their own, accurately and in good faith, which is the same as not being reviewed.
+    process.env.MARXY_MERGE_UNREVIEWED !== '1' && (() => { const v = verify(here(`results/${key}.approved`), pr.headRefOid); return v.ok ? false : v.why; })(),
   ].filter(Boolean);
   if (why.length) { held.push(`${key}: PR #${rec.pr} held — ${why.join('; ')}`); continue; }
   if (NO_MERGE || DRY) { held.push(`${key}: PR #${rec.pr} is mergeable and clean (not merging: ${NO_MERGE ? '--no-merge' : '--dry-run'})`); continue; }

@@ -88,7 +88,10 @@ finished, names what should start next, asks whether the planner is due, and rew
 
 The one thing it refuses to infer is approval. Green gates say the code works; they cannot say it
 does what the story asked. So the reviewer writes `orchestration/results/KEY.approved` with the
-review note, and until that file exists the PR is held with that as the printed reason — as is any
+review note and signs it with `node orchestration/approve.mjs KEY`, which records the commit the
+review was of; the key lives in `~/.config/marxy/`, outside the tree. An approval for an earlier
+commit is held rather than honoured, because a push after a review is an unreviewed tree wearing a
+reviewed one's name. Until the file exists and verifies, the PR is held with that as the printed reason — as is any
 PR with a red or pending check, a conflict, a file outside its paths, a missing CHANGELOG line, or
 an outstanding CODEOWNERS review.
 

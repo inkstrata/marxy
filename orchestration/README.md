@@ -61,7 +61,10 @@ on PATH), asks whether the planner is due, and writes `status.md`. It is idempot
 
 What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
 code works, not that it does what was asked, so a PR merges only once a reviewer writes
-`results/KEY.approved` (the text is the review note). Everything else about a merge — checks,
+`results/KEY.approved` (the text is the review note) and signs it with
+`node orchestration/approve.mjs KEY`, which stamps in the commit being approved. Unsigned, or
+signed against a different commit, holds the PR: a review is of a tree, and a push after it lands
+turns the approval into a note about something else. Everything else about a merge — checks,
 conflicts, CODEOWNERS, the path boundary, the CHANGELOG line, the result file — is checked
 mechanically, and a held PR always prints the reason it was held.
 
@@ -98,7 +101,7 @@ role's `inApp` slug when you spawn a subagent.
 | `cycle.mjs` | one idempotent cycle: push, merge what is finished, dispatch, plan check, report |
 | `loop.sh` | `cycle.mjs` until interrupted |
 | `results/KEY.json` | written by implementors; the only handshake |
-| `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story; no merge without it |
+| `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story, signed by `approve.mjs` against the commit it read; no merge without it |
 | `needs-human.md` | queue of things a person must do |
 | `status.md` | the orchestrator's last report |
 | `prompts/*.md` | role prompts, the source of truth for behaviour |
