@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T09:46:41.317Z",
+  "updated": "2026-09-18T09:49:31.029Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
   "merges": 0,
@@ -209,12 +209,13 @@
       "attempts": 0
     },
     "MARXY-55": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
       "branch": "fix/MARXY-55-ci-perf-envelope",
       "worktree": "../marxy-wt/MARXY-55",
       "started": "2026-09-18T09:26:49.018Z",
-      "model": "grok-4.6-fast"
+      "model": "grok-4.6-fast",
+      "pr": 3
     },
     "MARXY-57": {
       "status": "todo",

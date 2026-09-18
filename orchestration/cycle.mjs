@@ -24,9 +24,16 @@ const s = state();
 const held = [];
 for (const [key, rec] of Object.entries(s.stories)) {
   if (rec.status !== 'in_review' || !rec.pr) continue;
-  const view = gh(['pr', 'view', String(rec.pr), '--json', 'state,mergeable,reviewDecision,statusCheckRollup,headRefName']);
+  const view = gh(['pr', 'view', String(rec.pr), '--json', 'state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,headRefName']);
   if (!view) { held.push(`${key}: PR #${rec.pr} could not be read`); continue; }
   const pr = JSON.parse(view);
+  // A branch cut before main moved was tested against a main that no longer exists. Refresh it and
+  // let the next cycle read the honest result rather than merging on a stale green.
+  if (pr.state === 'OPEN' && pr.mergeStateStatus === 'BEHIND' && !DRY) {
+    const r = sh('gh', ['pr', 'update-branch', String(rec.pr)]);
+    held.push(`${key}: PR #${rec.pr} was behind main — ${typeof r === 'string' ? 'updated; CI is re-running' : `update failed: ${r.error.split('\n')[0]}`}`);
+    continue;
+  }
   const checks = (pr.statusCheckRollup ?? []).map(c => ({ name: c.name ?? c.context, state: c.conclusion ?? c.state }));
   const red = checks.filter(c => ['FAILURE', 'CANCELLED', 'TIMED_OUT', 'ERROR'].includes(c.state));
   const pending = checks.filter(c => !c.state || ['PENDING', 'IN_PROGRESS', 'QUEUED', 'EXPECTED'].includes(c.state));

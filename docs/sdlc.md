@@ -105,11 +105,15 @@ an outstanding CODEOWNERS review.
 A phase ends in a release. There is no release branch; `main` is always releasable.
 
 1. Phase's stories all Done, taste review closed, budgets green.
-2. `CHANGELOG.md`: move `Unreleased` into a version heading with the date (Keep a Changelog).
-3. `git tag v0.2.0 && git push --tags` — the release workflow builds the DMG, AppImage and .deb.
-4. Install each artifact and open `fixtures/corpus/02-readme-real-world.md`. This is manual on
+2. `MARXY_PERF_ENV=reference pnpm gate:perf` green **on reference hardware**, before the tag. CI
+   only ever proves a runner did not get slower; this is the step where the product budgets in
+   ADR-0013 are actually enforced, and a release that skips it has not measured what the reader
+   feels (ADR-0022).
+3. `CHANGELOG.md`: move `Unreleased` into a version heading with the date (Keep a Changelog).
+4. `git tag v0.2.0 && git push --tags` — the release workflow builds the DMG, AppImage and .deb.
+5. Install each artifact and open `fixtures/corpus/02-readme-real-world.md`. This is manual on
    purpose: it is the one thing CI cannot tell you.
-5. `node orchestration/jira.mjs release 2 v0.2.0` — creates the Jira version, releases it, and
+6. `node orchestration/jira.mjs release 2 v0.2.0` — creates the Jira version, releases it, and
    stamps the phase's issues with it.
 
 ## Local setup, once
