@@ -89,8 +89,13 @@ function checkTheGateIsWhatPnpmRuns() {
 }
 
 function checkCoreDoesNotReachDesktop() {
+  const oldGate = join(repoRoot, 'packages', 'core', 'scripts', 'fidelity.ts');
+  if (existsSync(oldGate)) {
+    fail('core: packages/core/scripts/fidelity.ts is back; the gate lives at scripts/gate-fidelity.mjs');
+  }
   const root = join(repoRoot, 'packages', 'core');
-  const hits = [];
+  const productionHits = [];
+  const savePathHits = [];
   const walk = dir => {
     for (const name of readdirSync(dir)) {
       if (name === 'node_modules' || name === 'dist') continue;
@@ -101,16 +106,23 @@ function checkCoreDoesNotReachDesktop() {
       }
       if (!/\.(ts|mts|cts|js|mjs|cjs|json)$/.test(name)) continue;
       const text = readFileSync(path, 'utf8');
-      if (/apps\/desktop|@marxy\/desktop/.test(text)) {
-        hits.push(relative(repoRoot, path));
-      }
+      const rel = relative(repoRoot, path);
+      if (/atomic_write\.rs/.test(text)) savePathHits.push(rel);
+      // Tests may quote the forbidden path to forbid it. Production source and scripts must not
+      // reach the shell; that is the inversion this story moved the gate to end.
+      if (/\.test\.(ts|mts|cts|js|mjs)$/.test(name)) continue;
+      if (/apps\/desktop|@marxy\/desktop/.test(text)) productionHits.push(rel);
     }
   };
   walk(root);
-  if (hits.length > 0) {
-    fail(`core: packages/core reads apps/desktop (${hits.join(', ')})`);
-  } else {
-    console.log('fidelity: no file under packages/core reads or imports apps/desktop');
+  if (savePathHits.length > 0) {
+    fail(`core: packages/core still drives the save path (${savePathHits.join(', ')})`);
+  }
+  if (productionHits.length > 0) {
+    fail(`core: packages/core reads apps/desktop (${productionHits.join(', ')})`);
+  }
+  if (savePathHits.length === 0 && productionHits.length === 0) {
+    console.log('fidelity: no production file under packages/core reads or imports apps/desktop');
   }
 }
 
@@ -360,6 +372,19 @@ function checkMarxy14CasesSurvived(source) {
 // The durability and refusal semantics, from the save path's own tests.
 // ---------------------------------------------------------------------------------------------
 
+// libtest captures stdout from passing tests. The Linux xattr/ACL markers are println!s; without
+// --nocapture they never reach checkLinuxXattrWasRequired and Ubuntu is deterministically red.
+const SAVE_PATH_TEST_ARGS = ['--nocapture', '--test-threads=1'];
+
+function checkSavePathTestsShowMarkers() {
+  if (!SAVE_PATH_TEST_ARGS.includes('--nocapture')) {
+    fail('linux-xattr: the compiled rustc --test binary is not run with --nocapture; markers would be swallowed');
+  }
+  if (!SAVE_PATH_TEST_ARGS.includes('--test-threads=1')) {
+    fail('linux-xattr: save-path tests are not single-threaded; markers could interleave');
+  }
+}
+
 function runSavePathUnitTests() {
   const binary = join(work, 'save-path-tests');
   const built = spawnSync(
@@ -371,7 +396,7 @@ function runSavePathUnitTests() {
     fail(`gate: cannot compile the save path's tests: ${built.error?.message ?? built.stderr.trim()}`);
     return '';
   }
-  const run = spawnSync(binary, [], { encoding: 'utf8' });
+  const run = spawnSync(binary, SAVE_PATH_TEST_ARGS, { encoding: 'utf8' });
   const summary = (run.stdout ?? '').split('\n').find(line => line.startsWith('test result:')) ?? '';
   if (run.status !== 0) {
     fail(`gate: the save path's own tests fail — ${summary || run.stderr.trim()}\n${run.stdout}`);
@@ -506,6 +531,65 @@ function fidelityWorkflowStep(yaml) {
   return block.join('\n');
 }
 
+const OWNERSHIP_CASES = [
+  'refuse_ownership_change_refuses_a_uid_mismatch',
+  'a_file_whose_group_differs_from_the_process_keeps_its_group_on_save',
+  'a_save_into_a_directory_whose_group_differs_from_the_users_own_succeeds',
+];
+
+function checkRefuseOwnershipChangeIsProved(source) {
+  const names = rustTestNames(source);
+  const missing = OWNERSHIP_CASES.filter(name => !names.includes(name));
+  if (missing.length > 0) {
+    fail(`ownership: refuse_ownership_change has no proving test (${missing.join(', ')})`);
+  } else {
+    console.log('fidelity: refuse_ownership_change is proved (uid mismatch refuses; a different-group directory saves)');
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// ADR-0020 records how a gate may test shell-owned code (criterion 5).
+// ---------------------------------------------------------------------------------------------
+
+function checkAdr0020RecordsHowAGateMayTestShell() {
+  const adrPath = join(repoRoot, 'docs', 'adr', '0020-core-is-shell-free.md');
+  const invented = join(repoRoot, 'docs', 'adr', '0020-shell-boundary.md');
+  if (existsSync(invented)) {
+    fail('adr-0020: docs/adr/0020-shell-boundary.md exists; that would be a second ADR-0020');
+  }
+  if (!existsSync(adrPath)) {
+    fail('adr-0020: docs/adr/0020-core-is-shell-free.md is missing');
+    return;
+  }
+  const adr = readFileSync(adrPath, 'utf8');
+  const decision = (adr.split('## Decision')[1] || '').split('## ')[0];
+  if (
+    !/apps\/desktop/.test(decision) ||
+    !/@tauri-apps\/\*/.test(decision) ||
+    !/packages\/shell-api/.test(decision)
+  ) {
+    fail('adr-0020: the Decision no longer says core and typeset never import the shell');
+  }
+  if (!/Amendment 1/.test(adr) || !/2026-09-18/.test(adr)) {
+    fail('adr-0020: missing dated Amendment 1 (2026-09-18)');
+  }
+  if (!/no longer true of fidelity/.test(adr)) {
+    fail('adr-0020: Amendment 1 does not replace the Why claim that byte-fidelity tests run in Node without a shell');
+  }
+  if (!/scripts\/gate-fidelity\.mjs/.test(adr) || !/compile and drive/.test(adr)) {
+    fail('adr-0020: does not record that scripts/gate-fidelity.mjs may compile and drive apps/desktop source');
+  }
+  if (!/must not live under `packages\/core`/.test(adr)) {
+    fail('adr-0020: does not record that the gate must not live under packages/core');
+  }
+  const readme = readFileSync(join(repoRoot, 'docs', 'adr', 'README.md'), 'utf8');
+  if (!/\[0020\]\(0020-core-is-shell-free\.md\).*\baccepted\b/.test(readme)) {
+    fail('adr-0020: docs/adr/README.md no longer lists ADR-0020 as accepted');
+  } else {
+    console.log('fidelity: ADR-0020 stays accepted and records how a gate may test shell-owned code');
+  }
+}
+
 function checkCiRunsFidelityOnBothRunners() {
   const workflow = join(repoRoot, '.github', 'workflows', 'ci.yml');
   if (!existsSync(workflow)) {
@@ -556,11 +640,14 @@ function checkTheShellKeepsBytes() {
 checkTheGateIsWhatPnpmRuns();
 checkCoreDoesNotReachDesktop();
 checkCiRunsFidelityOnBothRunners();
+checkAdr0020RecordsHowAGateMayTestShell();
+checkSavePathTestsShowMarkers();
 checkCorpusPreconditions();
 checkTheShellKeepsBytes();
 
 const saveSource = readFileSync(savePathSource, 'utf8');
 checkMarxy14CasesSurvived(saveSource);
+checkRefuseOwnershipChangeIsProved(saveSource);
 checkLinuxXattrSkipIsNotSilent(saveSource);
 
 const testStdout = runSavePathUnitTests();
