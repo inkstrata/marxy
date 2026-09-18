@@ -6,7 +6,7 @@ visible else. Everything below is summoned and dismissed.
 ## DOM skeleton (D-A19)
 
 ```html
-<body data-marxy-mode="rendered" data-marxy-variant="light">
+<body data-marxy-mode="rendered" data-marxy-variant="dark">   <!-- dark is primary (ADR-0024) -->
   <main id="marxy-main">
     <div id="marxy-notices" role="status"></div>            <!-- empty at rest -->
     <article class="marxy-article" data-marxy-s="0" data-marxy-e="…"></article>

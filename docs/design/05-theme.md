@@ -31,6 +31,7 @@ All lengths in `px` derive from tokens; nothing is hard-coded. `mod()` is the CS
   font-variation-settings: 'wght' calc(var(--marxy-weight-body) + var(--marxy-weight-offset));
   color: var(--marxy-color-text); background: var(--marxy-color-bg);
   hanging-punctuation: none;                 /* the typesetter hangs; the engine must not double it */
+  color-scheme: dark light;
   text-wrap: auto;                           /* never pretty/balance on body: the typesetter owns breaks */
 }
 /* type scale: sizes from the ratio; line boxes per role are tokens the theme sets */
@@ -113,11 +114,48 @@ in `base.css` is `calc(<token> + var(--marxy-weight-offset))`, and the variable 
 through `font-variation-settings 'wght'` as well, because WebKitGTK maps `font-weight` to the
 axis but rounds; the explicit axis value is exact.
 
-## Dark variant (MARXY-46, designed not inverted)
+## Palettes (ADR-0024: dark is primary, light is designed second)
 
-Rules in the default theme's `:root[data-marxy-variant="dark"]` block: background `#141414`,
-text `#e6e3dc`, body weight token 380 (a serif at 400 reads heavier on dark), code background
-one step lighter than the page, rules at 12 % contrast, links desaturated. Contrast gate ≥ 7:1.
+Values are the token defaults (`tokens.css`, dark) and the light block in the default theme.
+Ratios are WCAG contrast, computed and checked by the aesthetics gate (§10 check 3). Nothing
+below is an inversion of anything else; each value was chosen on its own ground.
+
+| Token | Dark (primary) | ratio on bg | Light | ratio on bg |
+| --- | --- | --- | --- | --- |
+| `--marxy-color-bg` | `#151412` warm near-black | — | `#faf8f4` warm paper | — |
+| `--marxy-color-text` | `#e8e4dc` | **14.5** | `#1c1b19` | **16.2** |
+| `--marxy-color-text-secondary` | `#a39e94` | 6.9 | `#5e5a53` | 6.5 |
+| `--marxy-color-accent` / `-link` | `#8fb4dd` | 8.5 | `#2c5f8a` | 6.4 |
+| `--marxy-color-rule` | `#2a2825` | — | `#e4e0d8` | — |
+| `--marxy-color-code-bg` | `#1d1c19` | — | `#f1eee8` | — |
+| `--marxy-color-code-text` | `#e3dfd6` | 12.8 (on code bg) | `#1c1b19` | 14.9 (on code bg) |
+| `--marxy-color-quote-rule` | `#3a3833` | — | `#d6d1c8` | — |
+| `--marxy-color-selection` | `#2a4a6e` | text on it 7.2 | `#cfe3ff` | text on it 13.2 |
+| `--marxy-color-find` | `#4a3d12` | text on it 8.4 | `#fbe9a6` | 14.2 |
+| `--marxy-color-find-current` | `#7a6218` | text on it 4.6 | `#f3c94d` | 10.9 |
+| `--marxy-color-notice` | `#1f1e1b` | — | `#f1eee8` | — |
+| `--marxy-weight-body` | 380 | | 400 | |
+
+Code tokens (ratio on the variant's code background; all ≥ 4.6):
+
+| Token | Dark | Light |
+| --- | --- | --- |
+| keyword | `#c9a0dc` 7.8 | `#6f42a8` 6.0 |
+| string | `#a8c48a` 8.9 | `#3f6e2a` 5.2 |
+| comment | `#8a857b` 4.6 | `#6a655d` 5.0 |
+| number, constant | `#d9a066` 7.4 | `#8f5410` 5.3 |
+| function | `#8fb4dd` 7.9 | `#2c5f8a` 5.8 |
+| type, attribute | `#e0c07a` 9.7 | `#7a5c10` 5.4 |
+| variable | `#e3dfd6` 12.8 | `#1c1b19` 14.9 |
+| operator | `#b5b0a6` 7.9 | `#4a4640` 8.1 |
+| punctuation | `#8f8a80` 5.0 | `#6a655d` 5.0 |
+| tag | `#e28c7a` 6.7 | `#a1412f` 5.5 |
+
+Rules that follow: `html[data-marxy-variant]` is set by the app before first paint from config
+(`dark` default, `auto` follows `prefers-color-scheme`, `light` fixed); the window background and
+the empty state are `#151412` so a white frame never appears; `color-scheme: dark light` is
+declared on `:root` so form controls and scrollbars follow the variant. Themes that declare
+only one variant are used for both with the default theme's other block filling the gaps.
 
 ## Tests
 
