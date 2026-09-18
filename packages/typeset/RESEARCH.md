@@ -1,7 +1,8 @@
 # Ragged-right line breaking: justif/core vs tex-linebreak2 on the corpus
 
-**Status:** measured, MARXY-19 · **Decides:** the engine and the tolerance MARXY-23 builds on ·
-**Constrains:** ADR-0007 (own line breaking), ADR-0006 (licences), ADR-0015 (Literata)
+**Status:** measured, MARXY-19; re-run on the MARXY-64 prose fixture · **Decides:** the engine
+and the tolerance MARXY-23 builds on · **Constrains:** ADR-0007 (own line breaking), ADR-0006
+(licences), ADR-0015 (Literata)
 
 ADR-0007 names `justif/core` as the paragraph breaker and `tex-linebreak2` as the fallback, and
 requires ragged-right output to be **proved on the corpus in Phase 1**. This is that proof. It is a
@@ -47,16 +48,16 @@ SHA-256 of its bundle, which the script checks on every run and refuses to proce
   inside the measure. Dropping a paragraph because the engine being scored overflowed it takes that
   engine's own failures out of its own score, and on a comparison this close it reverses the sign;
   the first draft of this note did exactly that and reported justif/core at 0.0358 CV and 6.4% short
-  lines when the comparable figures are 0.0339 and 4.8%. The harness now derives the set once and
-  throws if any row is ever scored over a different one — and because a guard is only as good as its
-  wiring, `--verify` counts the guard's invocations and fails if a measurement is ever taken without
-  one, which is what deleting the call site would look like.
+  lines when the comparable figures on that first corpus were 0.0339 and 4.8%. The harness now
+  derives the set once and throws if any row is ever scored over a different one — and because a
+  guard is only as good as its wiring, `--verify` counts the guard's invocations and fails if a
+  measurement is ever taken without one, which is what deleting the call site would look like.
 - **Each library runs at its own defaults, which is an asymmetry.** justif gets tolerance 200 and
   `emergencyStretch: 'auto'`; tex-linebreak2 has no equivalent of either. The generated block prices
   it: removing either escape, *and* removing both simultaneously, each reproduce justif's breakpoints
-  in 94 of 94 paragraphs — the combination matters because two changes can cancel — so it is inert on
-  this corpus — but it is inert *as measured*, not by construction, and the count is printed so a
-  larger corpus can show it changing.
+  in 191 of 191 paragraphs (it was 94 of 94 before MARXY-64) — the combination matters because two
+  changes can cancel — so it is still inert on this corpus — but it is inert *as measured*, not by
+  construction, and the count is printed so a later corpus can show it changing.
 - **The fallback's licences are audited by the run itself.** `pnpm gate:licences` cannot see
   tex-linebreak2, because keeping it out of the lockfile is the point; instead the harness reads the
   declared licence of the fetched package and all twelve packages under it and refuses to print a
@@ -115,25 +116,32 @@ Both breakers are fed the same stream: word glue of 0.6em stretch and no shrink.
 | `14-marxy-plan.md` | 30 | justif/core | 49 | 0.0412 | 6 (12.2%) | 3.6 | 9.0 | 2762 | 0 |
 |  |  | tex-linebreak2 | 48 | 0.0369 | 4 (8.3%) | 3.8 | 9.0 | 2762 | 1 |
 |  |  | greedy (baseline) | 49 | 0.0422 | 7 (14.3%) | 3.6 | 9.0 | 2762 | 0 |
-| **corpus, every paragraph** |  | **justif/core** | **173** | **0.0838** | **11 (6.4%)** | **3.3** | **8.5** | **4353** | **1** |
-| **corpus, every paragraph** |  | **tex-linebreak2** | **173** | **0.0831** | **10 (5.8%)** | **3.3** | **7.0** | **4353** | **3** |
-| **corpus, every paragraph** |  | **greedy (baseline)** | **172** | **0.0380** | **15 (8.7%)** | **3.2** | **8.5** | **4353** | **0** |
-| **corpus, the 90 paragraphs all three set inside the measure** ← the ranking |  | **justif/core** | **168** | **0.0339** | **8 (4.8%)** | **3.2** | **6.7** | **4353** | **0** |
-| **corpus, the 90 paragraphs all three set inside the measure** ← the ranking |  | **tex-linebreak2** | **169** | **0.0338** | **10 (5.9%)** | **3.4** | **7.0** | **4353** | **0** |
-| **corpus, the 90 paragraphs all three set inside the measure** ← the ranking |  | **greedy (baseline)** | **168** | **0.0361** | **12 (7.1%)** | **3.1** | **7.5** | **4353** | **0** |
-| *diagnostic: each engine over only its own successes — rows NOT comparable* |  | justif/core | 172 | 0.0358 | 11 (6.4%) | 3.3 | 8.5 | 4353 | 0 |
-| *diagnostic: each engine over only its own successes — rows NOT comparable* |  | tex-linebreak2 | 169 | 0.0338 | 10 (5.9%) | 3.4 | 7.0 | 4353 | 0 |
-| *diagnostic: each engine over only its own successes — rows NOT comparable* |  | greedy (baseline) | 172 | 0.0380 | 15 (8.7%) | 3.2 | 8.5 | 4353 | 0 |
+| `15-prose-volume.md` | 93 | justif/core | 573 | 0.0255 | 6 (1.0%) | 2.6 | 5.5 | 2799 | 0 |
+|  |  | tex-linebreak2 | 575 | 0.0257 | 9 (1.6%) | 2.9 | 5.9 | 2799 | 0 |
+|  |  | greedy (baseline) | 573 | 0.0274 | 14 (2.4%) | 2.6 | 5.9 | 2556 | 0 |
+| `README.md` | 4 | justif/core | 9 | 0.0303 | 1 (11.1%) | 3.5 | 7.1 | 857 | 0 |
+|  |  | tex-linebreak2 | 9 | 0.0303 | 1 (11.1%) | 3.5 | 7.1 | 857 | 0 |
+|  |  | greedy (baseline) | 9 | 0.0268 | 0 (0.0%) | 3.0 | 5.6 | 430 | 0 |
+| `check-prose-volume.mjs` | 0 | — | — | — | — | — | — | — | — |
+| **corpus, every paragraph** |  | **justif/core** | **755** | **0.0459** | **18 (2.4%)** | **2.8** | **6.2** | **4353** | **1** |
+| **corpus, every paragraph** |  | **tex-linebreak2** | **757** | **0.0457** | **20 (2.6%)** | **3.0** | **6.4** | **4353** | **3** |
+| **corpus, every paragraph** |  | **greedy (baseline)** | **754** | **0.0304** | **29 (3.8%)** | **2.7** | **6.5** | **4353** | **0** |
+| **corpus, the 187 paragraphs all three set inside the measure** ← the ranking |  | **justif/core** | **750** | **0.0279** | **15 (2.0%)** | **2.8** | **6.0** | **4353** | **0** |
+| **corpus, the 187 paragraphs all three set inside the measure** ← the ranking |  | **tex-linebreak2** | **753** | **0.0280** | **20 (2.7%)** | **3.0** | **6.4** | **4353** | **0** |
+| **corpus, the 187 paragraphs all three set inside the measure** ← the ranking |  | **greedy (baseline)** | **750** | **0.0298** | **26 (3.5%)** | **2.7** | **6.3** | **4353** | **0** |
+| *diagnostic: each engine over only its own successes — rows NOT comparable* |  | justif/core | 754 | 0.0286 | 18 (2.4%) | 2.8 | 6.2 | 4353 | 0 |
+| *diagnostic: each engine over only its own successes — rows NOT comparable* |  | tex-linebreak2 | 753 | 0.0280 | 20 (2.7%) | 3.0 | 6.4 | 4353 | 0 |
+| *diagnostic: each engine over only its own successes — rows NOT comparable* |  | greedy (baseline) | 754 | 0.0304 | 29 (3.8%) | 2.7 | 6.5 | 4353 | 0 |
 
-The third block is the one to read. Both other blocks pool over sets that differ between rows — the first because an overfull line still scores, the last because each row drops the paragraphs *that* engine overflowed, which removes an engine's own failures from its own score. The last block is printed only to show the size of that bias; 4 of 94 paragraphs are outside the common set.
+The third block is the one to read. Both other blocks pool over sets that differ between rows — the first because an overfull line still scores, the last because each row drops the paragraphs *that* engine overflowed, which removes an engine's own failures from its own score. The last block is printed only to show the size of that bias; 4 of 191 paragraphs are outside the common set.
 
-Paragraphs pushed past the margin, last line included: **justif/core 1**, **tex-linebreak2 4**, **greedy (baseline) 1**, out of 94.
+Paragraphs pushed past the margin, last line included: **justif/core 1**, **tex-linebreak2 4**, **greedy (baseline) 1**, out of 191.
 
-Of the 94 paragraphs long enough to break, the two Knuth–Plass engines chose **identical** breakpoints in **84** and justif/core matched the greedy baseline in **77**.
+Of the 191 paragraphs long enough to break, the two Knuth–Plass engines chose **identical** breakpoints in **148** and justif/core matched the greedy baseline in **131**.
 
-justif/core is driven at its own defaults (tolerance 200, `emergencyStretch: 'auto'`) and tex-linebreak2 at its own, so justif has two escapes its rival lacks. Removing them changes nothing here: `emergencyStretch: 0`, `tolerance` opened to 10000, and **both at once** each reproduce justif's breakpoints in **94 of 94** paragraphs.
+justif/core is driven at its own defaults (tolerance 200, `emergencyStretch: 'auto'`) and tex-linebreak2 at its own, so justif has two escapes its rival lacks. Removing them changes nothing here: `emergencyStretch: 0`, `tolerance` opened to 10000, and **both at once** each reproduce justif's breakpoints in **191 of 191** paragraphs.
 
-Knuth–Plass is not buying its rag with extra lines, and this holds paragraph by paragraph rather than only as a pooled total that could hide two paragraphs trading a line: justif/core and the greedy baseline set the same number of lines in **93 of 94** paragraphs, and in **all 90** of the common set. The 1 exception is outside it: 07-cjk.md#0, which no arrangement can set at this measure.
+Knuth–Plass is not buying its rag with extra lines, and this holds paragraph by paragraph rather than only as a pooled total that could hide two paragraphs trading a line: justif/core and the greedy baseline set the same number of lines in **190 of 191** paragraphs, and in **all 187** of the common set. The 1 exception is outside it: 07-cjk.md#0, which no arrangement can set at this measure.
 
 Licences of the out-of-tree fallback and everything under it, read from the fetched copy: ansi-regex MIT, base64-js MIT, debounce MIT, emoji-regex MIT, is-fullwidth-code-point MIT, linebreak MIT, pako MIT, string-width MIT, strip-ansi MIT, tex-linebreak2 MIT, tiny-inflate MIT, typescript-memoize MIT, unicode-trie MIT. The harness refuses to report a measurement if any of them is not permissive.
 
@@ -143,64 +151,69 @@ Each row is pooled over the common set recomputed at that stretch, with the badn
 
 | Glue stretch | Engine | Lines | CV | Short lines | Mean shortfall | Worst badness |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0.2em | justif/core | 167 | 0.0327 | 4.2% | 3.1 | 4353 |
-|  | tex-linebreak2 | 169 | 0.0328 | 5.3% | 3.3 | 4353 |
-|  | greedy (baseline) | 167 | 0.0358 | 6.6% | 3.1 | 4353 |
-| 0.6em | justif/core | 168 | 0.0339 | 4.8% | 3.2 | 4353 |
-|  | tex-linebreak2 | 169 | 0.0338 | 5.9% | 3.4 | 4353 |
-|  | greedy (baseline) | 168 | 0.0361 | 7.1% | 3.1 | 4353 |
-| 2em | justif/core | 172 | 0.0432 | 12.8% | 3.6 | 5316 |
-|  | tex-linebreak2 | 173 | 0.0428 | 12.7% | 4.0 | 10000 |
-|  | greedy (baseline) | 172 | 0.0380 | 8.7% | 3.2 | 4353 |
+| 0.2em | justif/core | 749 | 0.0270 | 1.6% | 2.7 | 4353 |
+|  | tex-linebreak2 | 752 | 0.0269 | 1.9% | 2.9 | 4353 |
+|  | greedy (baseline) | 749 | 0.0297 | 3.3% | 2.7 | 4353 |
+| 0.6em | justif/core | 750 | 0.0279 | 2.0% | 2.8 | 4353 |
+|  | tex-linebreak2 | 753 | 0.0280 | 2.7% | 3.0 | 4353 |
+|  | greedy (baseline) | 750 | 0.0298 | 3.5% | 2.7 | 4353 |
+| 2em | justif/core | 754 | 0.0327 | 4.9% | 2.8 | 5316 |
+|  | tex-linebreak2 | 758 | 0.0319 | 5.9% | 3.6 | 10000 |
+|  | greedy (baseline) | 754 | 0.0304 | 3.8% | 2.7 | 4353 |
 
 <!-- rag-table:end -->
 
 ## What the numbers say
 
-1. **The two engines are a tie on evenness and separated only on holes.** Over the 90 paragraphs all
-   three arrangements set inside the measure, CV is 0.0339 for justif/core against 0.0338 for
-   tex-linebreak2 — a difference of one ten-thousandth, which is nothing — while short lines are 4.8%
-   against 5.9%, in justif's favour. That second gap is eight short lines out of 168 against ten out
-   of 169: real, but two lines wide. The two engines pick *identical* breakpoints in 84 of the 94 paragraphs long
-   enough to break, so on this corpus the honest summary is a tie with a hair's edge to justif/core,
-   and any note reading more than that out of these numbers is over-reading them.
-2. **Knuth–Plass does beat greedy wrapping, but modestly and only at a tight tolerance.** At 0.6 em
-   of glue stretch, K–P cuts short lines from 7.1% to 4.8% and CV from 0.0361 to 0.0339 **for exactly
-   the same line count** (168 lines for both), so the improvement is not bought with extra lines. That
-   equality is per paragraph, not just in the total: justif/core and greedy set the same number of
-   lines in **all 90** paragraphs of the common set, and in 93 of all 94, the one exception being
-   `07-cjk.md#0`, which nothing can set here. No paragraph pays a line for another paragraph. It
-   differs from greedy in only 17 of 94 paragraphs; in the other 77 the optimal arrangement *is* the
-   greedy one. ADR-0007's differentiator therefore rests on about a fifth of the paragraphs in this
-   corpus.
-3. **The tolerance you feed the breaker decides whether it helps at all.** At 2 em of glue stretch,
-   both K–P engines become *worse than greedy* on every metric — short lines nearly triple, from 4.8%
-   to 12.8%, and worst badness rises. With that much stretch nearly every arrangement is feasible, badness stops
-   discriminating, and the optimiser drifts on tie-breaking demerits. This is the single most
-   actionable finding for MARXY-23: the rag tolerance is a first-class tuning parameter, not a
-   default to inherit.
-4. **tex-linebreak2 pushes four paragraphs past the margin where justif/core pushes one.** Counted
-   over the same 94 paragraphs — not over the thinned pools, which is the trap this conclusion fell
-   into in the first draft — tex-linebreak2 overflows 4, justif/core 1, greedy 1. One of those four is
-   the unsettable CJK paragraph that defeats everything; the other three, in
-   `01-long-technical.md` and `14-marxy-plan.md`, justif/core sets cleanly. An overfull line is text
-   past the margin, a visible defect rather than a metric regression, and it is the one axis on which
-   the two engines are not tied — but it is three paragraphs in two documents, so MARXY-64's corpus
-   must confirm it before MARXY-23 leans on it.
-5. **The corpus cannot support a finer conclusion.** 94 breakable paragraphs and 168 scored lines,
-   and only two documents (`01-long-technical.md`, `14-marxy-plan.md`) carry real prose volume. That
-   limit is being fixed: **MARXY-64** adds a 5,000-word prose fixture and **MARXY-23 waits on it**, so
-   every threshold below should be re-evaluated against that corpus rather than this one.
-   `07-cjk.md` cannot be set by any of the three at this measure: unspaced CJK offers no interword
-   break opportunity in a Latin item model, so it yields one overfull line. That is a real gap against
-   justif's kinsoku support, not a defect of the fixture.
+MARXY-64 added `15-prose-volume.md` (93 breakable paragraphs, 573 scored lines under justif/core)
+and re-ran this harness. The MARXY-19 comparison is **confirmed**, not overturned: the ranking, the
+modest win over greedy at a tight tolerance, the loss to greedy at 2 em, and the inert option
+asymmetry all keep their signs on a sample more than four times the old scored-line count. What
+changed is the size of the gaps, and one claim that the new prose did *not* reproduce.
+
+1. **The two engines are still a tie on evenness and separated only on holes.** Over the 187
+   paragraphs all three arrangements set inside the measure, CV is 0.0279 for justif/core against
+   0.0280 for tex-linebreak2 — still nothing — while short lines are 2.0% against 2.7%, in justif's
+   favour. That gap is fifteen short lines out of 750 against twenty out of 753: five lines on a
+   pool that used to be two lines wide. On the first corpus the same comparison was 0.0339 against
+   0.0338 and 4.8% against 5.9%. The two engines pick *identical* breakpoints in 148 of the 191
+   paragraphs long enough to break (it was 84 of 94), so the honest summary is still a tie with a
+   hair's edge to justif/core. Falsifier 1 asked for tex-linebreak2 to lead on short lines by more
+   than 1.1 points *and* on CV by more than 0.002; it leads on neither.
+2. **Knuth–Plass still beats greedy wrapping, modestly and only at a tight tolerance.** At 0.6 em
+   of glue stretch, K–P cuts short lines from 3.5% to 2.0% and CV from 0.0298 to 0.0279 **for exactly
+   the same line count** (750 lines for both; it was 168). That equality is still per paragraph:
+   justif/core and greedy set the same number of lines in **all 187** paragraphs of the common set,
+   and in 190 of all 191, the one exception remaining `07-cjk.md#0`. No paragraph pays a line for
+   another paragraph. It now differs from greedy in 60 of 191 paragraphs (it was 17 of 94), so
+   ADR-0007's differentiator rests on about a third of the paragraphs rather than a fifth — a
+   larger share, not a reversal. Falsifier 2 asked for K–P to lose on short lines or CV; it lost
+   on neither.
+3. **The tolerance you feed the breaker still decides whether it helps at all.** At 2 em of glue
+   stretch, both K–P engines become *worse than greedy* on every metric — short lines rise from 2.0%
+   to 4.9%, and worst badness rises. The old corpus saw 4.8% become 12.8%; the sign is the same and
+   the mechanism is the same. This remains the most actionable finding for MARXY-23: the rag
+   tolerance is a first-class tuning parameter, not a default to inherit.
+4. **The overfull 4-versus-1 is not a property of real prose.** Counted over the same 191
+   paragraphs, tex-linebreak2 still overflows 4, justif/core 1, greedy 1. Those four are the same
+   four as on the thin corpus: the unsettable CJK paragraph, plus three in `01-long-technical.md`
+   and `14-marxy-plan.md` that justif/core sets cleanly. The new fixture overflowed **nothing**
+   under any engine (93 paragraphs, 0 overfull). MARXY-19 asked this re-run to confirm the overflow
+   gap before MARXY-23 leaned on it; the re-run leaves it as three events in two technical
+   documents. MARXY-23 should still assert no line is overfull, but it should not treat a 4-versus-1
+   as a reason to pick an engine.
+5. **The thin-sample limit is closed.** The first run scored 90 common paragraphs and 168 lines,
+   almost all of them in two documents. This run scores 187 common paragraphs and 750 lines;
+   `15-prose-volume.md` alone is larger than the old corpus. `07-cjk.md` still cannot be set by any
+   of the three at this measure: unspaced CJK offers no interword break opportunity in a Latin item
+   model. That is a real gap against justif's kinsoku support, not a defect of the fixture.
 
 ## Recommendation for MARXY-23
 
-**Build on `justif/core`.** The rag numbers give it a hair's edge — the same evenness and 1.1 points
-fewer short lines — which is not enough to decide anything on its own. What decides it is that the
-evenness numbers are a tie, so the choice falls to everything around them, and there justif/core wins
-on every axis that matters to `packages/typeset`:
+**Build on `justif/core`.** MARXY-64 confirmed the rag ranking: the same evenness and 0.7 points
+fewer short lines (it was 1.1 on the thin corpus) — still not enough to decide anything on its own.
+What decides it is that the evenness numbers are a tie, so the choice falls to everything around
+them, and there justif/core wins on every axis that matters to `packages/typeset`:
 
 - It is **DOM-free by construction** (`justif/core` is a published subpath whose contract is
   "widths are px floats already resolved by the measurement layer"), which is precisely the shape
@@ -213,8 +226,8 @@ on every axis that matters to `packages/typeset`:
 - It is **TypeScript with real types and current** (0.9.1); tex-linebreak2 is at 0.8.4 with a
   `@deprecated` hyphenation entry point and open TODOs in its own option docs
   ("*Is somewhat buggy*", "*Does not work*").
-- It is **already the declared dependency**, and it overflowed one paragraph where the fallback
-  overflowed four.
+- It is **already the declared dependency**. The overflow count is unchanged (one paragraph against
+  the fallback's four) and, as conclusion 4 says, the new prose added none of those four.
 - Both are **MIT**, and so is every transitive dependency of tex-linebreak2. That is not asserted from
   memory: the harness reads the licence of all thirteen packages out of the copy it fetched and
   refuses to print a measurement if any is not permissive, so the licence line in the table above is
@@ -231,24 +244,23 @@ The other two are **aspirational**: nothing here can evaluate them, and saying s
 marking a claim checkable when it is not is how a decision note stops being evidence. Each names who
 can settle it.
 
-1. **Rag quality separating the engines.** *Checkable now* — the ranking block prints it. Today
-   justif/core leads on short lines by 1.1 points (4.8% against 5.9%) and ties on CV to a
-   ten-thousandth. The threshold is calibrated on those figures, not on the first draft's: if the
-   MARXY-64 corpus shows tex-linebreak2 with a **lower short-line rate than justif/core by more than
-   1.1 points** — i.e. beating it by more than justif currently leads by — *and* a CV advantage
-   greater than 0.002 (twenty times today's gap, still tiny), *and* the reversal survives the
-   glue-stretch sweep, the fallback becomes the primary. Any smaller difference is this corpus's noise
-   and must not move the decision.
-2. **K–P not beating greedy.** *Checkable now* — the ranking block prints it. If on the MARXY-64
-   corpus K–P's short-line rate and CV are not both better than greedy's at the chosen tolerance,
-   ADR-0007's Phase 1 test has failed and the breaker should be cut in a superseding ADR, exactly as
-   ADR-0007 says rather than drifted into. Today it passes by 2.3 points of short lines at equal line
-   count — a margin a different corpus could erase.
+1. **Rag quality separating the engines.** *Checkable now* — the ranking block prints it. MARXY-64
+   did not trip this: justif/core still leads on short lines, now by 0.7 points (2.0% against 2.7%)
+   and still ties on CV (0.0279 against 0.0280). The threshold written before the re-run still
+   stands: if a later corpus shows tex-linebreak2 with a **lower short-line rate than justif/core by
+   more than 1.1 points** *and* a CV advantage greater than 0.002 *and* the reversal survives the
+   glue-stretch sweep, the fallback becomes the primary. Any smaller difference is noise and must
+   not move the decision.
+2. **K–P not beating greedy.** *Checkable now* — the ranking block prints it. MARXY-64 did not trip
+   this either. If a later corpus shows K–P's short-line rate and CV not both better than greedy's at
+   the chosen tolerance, ADR-0007's Phase 1 test has failed and the breaker should be cut in a
+   superseding ADR, exactly as ADR-0007 says rather than drifted into. Today it passes by 1.5 points
+   of short lines at equal line count (it was 2.3 on the thin corpus).
 3. **The option asymmetry turning out to matter.** *Checkable now* — the block prints it. justif runs
    at tolerance 200 with `emergencyStretch: 'auto'`, escapes tex-linebreak2 has no equivalent for, and
-   removing either, or both together, reproduces justif's own breakpoints in 94 of 94 paragraphs. If that count drops below
-   94 on a larger corpus, part of justif's result is coming from the escapes and the comparison needs
-   re-levelling before it can be quoted.
+   removing either, or both together, reproduces justif's own breakpoints in 191 of 191 paragraphs
+   (it was 94 of 94). If that count drops below the printed total, part of justif's result is coming
+   from the escapes and the comparison needs re-levelling before it can be quoted.
 4. **justif/core's microtypography not paying for itself.** *Aspirational — this harness cannot
    evaluate it.* Protrusion, expansion, letterfit and kinsoku are switched **off** here by
    construction, so the argument that they earn their place is untested. **MARXY-23** must measure the
