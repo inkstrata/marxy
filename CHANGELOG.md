@@ -12,6 +12,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Conventions for commits, pull requests, comments, tags and reviews, enforced by commitlint (bootstrap)
 - The development process on one page in `docs/sdlc.md`: four board states, a WIP limit, definitions of ready and done, traceability and the release runbook (MARXY-10)
 - A Jira bridge (`orchestration/jira.mjs`) that mirrors the backlog and the board into the tracker and links pull requests to issues (MARXY-10)
+- Taste review #0: the long corpus document set in both candidate typeface pairs at the type scale and a 68ch measure, for the decision that settles ADR-0015 (MARXY-17)
 
 ### Fixed
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
@@ -19,6 +20,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Security
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
+- The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
