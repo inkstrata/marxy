@@ -11,7 +11,11 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { SELFTEST_CASE_NAMES as MEASURE_CASE_NAMES, MIN_WARM_RUNS } from './measure-startup.mjs';
 
 const METRICS = ['cold_start_first_text_ms', 'open_indexed_document_ms', 'palette_keystroke_ms', 'typeset_viewport_ms', 'live_reload_ms', 'find_first_match_ms'];
-const BASELINE_TOLERANCE = 1.1; // ADR-0022: a runner may drift 10 % before it is a regression.
+// ADR-0022 set 10 %; MARXY-83 widened it to 30 % after identical code measured 1901 ms and 2113 ms warm
+// on two macos-latest machines (11 % apart, webview initialisation being 95 % of each launch). A band
+// narrower than the runner population's spread gates on machine assignment, not on the code. The ×5
+// envelope still catches a real regression, and a breach is re-measured once before it fails.
+const BASELINE_TOLERANCE = 1.3;
 const COLD_ENFORCEMENT_STORY = 'MARXY-69';
 const CI_COLD_CEILING_STORY = 'MARXY-70';
 const round = n => Math.round(n * 10) / 10;
@@ -82,7 +86,7 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
     const baselineCeiling = ci.baseline_ms == null ? Infinity : ci.baseline_ms * BASELINE_TOLERANCE;
     const limit = Math.min(envelope, baselineCeiling);
     if (warm > envelope) fails.push(`warm_start_first_text_ms (median of launches 2..${results.runs_n}): ${warm} ms exceeds the envelope ${envelope} ms (product ${budgets.product.cold_start_first_text_ms} ms × ${ci.multiplier}) by ${round(warm - envelope)} ms`);
-    if (warm > baselineCeiling) fails.push(`warm_start_first_text_ms (median of launches 2..${results.runs_n}): ${warm} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${ci.baseline_ms} ms + 10 %) by ${round(warm - baselineCeiling)} ms`);
+    if (warm > baselineCeiling) fails.push(`warm_start_first_text_ms (median of launches 2..${results.runs_n}): ${warm} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${ci.baseline_ms} ms + 30 %) by ${round(warm - baselineCeiling)} ms`);
     if (warm <= limit) out.push(`warm_start_first_text_ms: ${warm} ms ≤ ${round(limit)} ms (min of envelope ${envelope} ms and baseline ceiling ${round(baselineCeiling)} ms)`);
   }
 
@@ -168,7 +172,7 @@ const referenceResult = (over = {}) => result({ env_class: 'reference', runner_c
 const MARXY_55_CASE_NAMES = [
   'ci: inside both rules passes',
   'ci: above the envelope fails',
-  'ci: 11 % above the baseline fails even far below the envelope',
+  'ci: 31 % above the baseline fails even far below the envelope',
   'reference: 501 ms fails the product budget',
   'reference: missing results fails',
   'reference: results measured in ci mode fails',
@@ -181,14 +185,14 @@ const has = (fails, re) => fails.some(f => re.test(f));
 const SELFTEST_CASES = [
   { name: 'ci: inside both rules passes', envClass: 'ci', results: result(), expect: 0 },
   { name: 'ci: above the envelope fails', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_500 }), expect: 1, assert: f => has(f, /exceeds the envelope 10000 ms/) },
-  { name: 'ci: 11 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ warm_start_first_text_ms: 8568 }), expect: 1, assert: f => has(f, /exceeds the baseline ceiling 8490.9 ms/) },
+  { name: 'ci: 31 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ runner_class: 'macos-latest', warm_start_first_text_ms: 2490 }), expect: 1, assert: f => has(f, /exceeds the baseline ceiling 2471.3 ms/) },
   { name: 'reference: 501 ms fails the product budget', envClass: 'reference', results: referenceResult({ warm_start_first_text_ms: 501 }), expect: 1, assert: f => has(f, /501 ms > 500 ms \(product budget\)/) },
   { name: 'reference: missing results fails', envClass: 'reference', results: null, expect: 1 },
   { name: 'reference: results measured in ci mode fails', envClass: 'reference', results: result({ warm_start_first_text_ms: 400 }), expect: 1, assert: f => has(f, /env_class is ci, expected reference/) },
   { name: 'ci: unknown runner class fails', envClass: 'ci', results: result({ runner_class: 'windows-latest' }), expect: 1 },
   { name: 'ci: a null baseline still enforces the envelope', envClass: 'ci', results: result({ runner_class: 'no-baseline', warm_start_first_text_ms: 2600 }), expect: 1, assert: f => has(f, /exceeds the envelope 2500 ms/) },
   { name: 'ci: a null baseline passes under the envelope', envClass: 'ci', results: result({ runner_class: 'no-baseline', warm_start_first_text_ms: 2400 }), expect: 0 },
-  { name: 'ci: the rule names the quantity it gates as a warm start', envClass: 'ci', results: result({ warm_start_first_text_ms: 8568 }), expect: 1, assert: f => has(f, /warm_start_first_text_ms \(median of launches 2\.\.9\)/) },
+  { name: 'ci: the rule names the quantity it gates as a warm start', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_100 }), expect: 1, assert: f => has(f, /warm_start_first_text_ms \(median of launches 2\.\.9\)/) },
   { name: 'ci: usable_runs below runs_n fails', envClass: 'ci', results: result({ usable_runs: 1 }), expect: 1, assert: f => has(f, /only 1 of 9 launches produced a first_text mark/) },
   { name: 'reference: usable_runs below runs_n fails', envClass: 'reference', results: referenceResult({ usable_runs: 0, runs: [] }), expect: 1, assert: f => has(f, /of 9 launches produced a first_text mark/) },
   { name: 'ci: a missing cold_start_first_text_ms fails', envClass: 'ci', results: result({ cold_start_first_text_ms: null }), expect: 1, assert: f => has(f, /cold_start_first_text_ms is absent/) },

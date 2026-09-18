@@ -94,7 +94,8 @@ Rules baked in:
   without it the app loads the dev server URL and never paints. `MARXY_BIN` tells the measurer
   and the smoke check which binary to launch.
 - **Perf on shared runners is noisy by nature.** The envelope and baseline rules (ADR-0022) stay,
-  and a breach is re-measured once before it fails; the parse-time budget no longer runs as a
+  the baseline band is 30 % (two macOS runner machines measured identical code 11 % apart), and a
+  breach is re-measured once before it fails; the parse-time budget no longer runs as a
   unit test on CI (it is a perf-gate concern, MARXY-59). `scripts/gate-perf.mjs --selftest`
   asserts the workflow keeps the measurement unconditional on both runner classes with no
   `continue-on-error` — keep that shape when editing the `gates` job.
