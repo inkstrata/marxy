@@ -1,5 +1,5 @@
 // The Jira bridge: Jira is the board of record, the CSV is the machine-readable story spec.
-// node orchestration/jira.mjs <doctor|bootstrap|sync|move|comment|pr|release|migrate-ids> [args]
+// node orchestration/jira.mjs <doctor|bootstrap|sync|move|comment|pr|task|release|migrate-ids> [args]
 // Credentials come from ~/.config/marxy/jira.env (never the repo) or the environment.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -45,7 +45,7 @@ function env() {
   return e;
 }
 
-const E = ['doctor', 'bootstrap', 'sync', 'push', 'move', 'comment', 'pr', 'release', 'project'].includes(cmd) ? env() : null;
+const E = ['doctor', 'bootstrap', 'sync', 'push', 'move', 'comment', 'pr', 'task', 'release', 'project'].includes(cmd) ? env() : null;
 const auth = () => 'Basic ' + Buffer.from(`${E.JIRA_EMAIL}:${E.JIRA_API_TOKEN}`).toString('base64');
 async function api(path, init = {}, base = '/rest/api/3') {
   const url = `${E.JIRA_BASE_URL}${base}${path}`;
@@ -113,6 +113,18 @@ async function project(sub) {
     }),
   });
   console.log(`created project ${created.key ?? E.JIRA_PROJECT_KEY}`);
+}
+
+// Work outside the plan (process, tooling, a one-off fix) still needs a real key for its branch,
+// commit and PR. It gets no CSV row, so check-story skips the path check; the label says why.
+async function task(summary, description = '') {
+  if (!summary) { console.error('usage: jira.mjs task "summary" ["description"]'); process.exit(2); }
+  const p = await api(`/project/${E.JIRA_PROJECT_KEY}`);
+  const type = p.issueTypes.find(t => t.name === 'Task') ?? p.issueTypes.find(t => t.name === 'Story');
+  const fields = { project: { key: E.JIRA_PROJECT_KEY }, issuetype: { id: type.id }, summary, labels: ['out-of-plan'] };
+  if (description) fields.description = doc(description);
+  const created = await api('/issue', { method: 'POST', body: JSON.stringify({ fields }) });
+  console.log(created.key);
 }
 
 // First run: create every epic and story in CSV order so the Jira numbers follow the plan order.
@@ -270,6 +282,7 @@ switch (cmd) {
   case 'move': await move(rest[0], rest[1]); break;
   case 'comment': await comment(rest[0], rest.slice(1).join(' ')); break;
   case 'pr': await pr(rest[0], rest[1]); break;
+  case 'task': await task(rest[0], rest.slice(1).join(' ')); break;
   case 'release': await release(rest[0], rest[1]); break;
   case 'migrate-ids': migrateIds(); break;
   default:
@@ -282,6 +295,7 @@ switch (cmd) {
   move KEY <${Object.keys(STATUS).join('|')}>
   comment KEY "text"
   pr KEY <number>              link the PR on the issue and move it to review
+  task "summary" ["text"]      create an out-of-plan Task and print its key
   release <phase> <tag>        create/release the version and stamp the phase's issues
   migrate-ids                  rewrite plan ids to Jira keys across the repo`);
     process.exit(2);

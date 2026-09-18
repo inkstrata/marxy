@@ -74,6 +74,13 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
   and carrying the PR link. The full list, with the definition of ready that precedes it,
   is in `docs/sdlc.md`. `docs/hygiene.md` lists what the tools enforce; `pnpm new` starts
   modules, operations and commands in the house shape.
+- **Work outside the plan** (process, tooling, a one-off fix) follows the same path with no
+  CSV row: `node orchestration/jira.mjs task "summary"` prints the key; branch in a worktree
+  and `pnpm install` before the first commit, because the commit-msg hook needs commitlint;
+  write the body from `.github/pull_request_template.md` and run
+  `node scripts/check-pr.mjs --body FILE --key MARXY-nn --range` before `gh pr create`. CI does
+  not re-run on a body edit, so after fixing a body re-run the failed jobs
+  (`gh run rerun ID --failed`).
 - **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` or
   `packages/theme/src/tokens.css` needs an ADR and a PR touching only that.
 - **Toolchain:** versions come from `mise.toml`. `pnpm` for Node, `uv` for Python,
