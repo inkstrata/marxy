@@ -45,7 +45,11 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
         pair B's italics are synthetic.
       Read them for a while rather than a page: the question is which you would still want to be
       reading on the fourth page. Record the answer in the queue's Decision column.
-- [ ] 2026-09-18 — Approve PR #1 (MARXY-10, Jira as the board of record) or send it back. I wrote
+- [ ] 2026-09-18 — Approve PR #1 (MARXY-10, Jira as the board of record) or send it back. **This now
+      has a second consequence:** `.githooks/` lives only on that branch, so every worktree cut from
+      `main` runs no `commit-msg` hook, and a `Co-authored-by: Cursor` trailer duly reached PR #7.
+      I audited all five open branches — only that one — and the merge path now refuses any PR whose
+      commits carry a trailer, but implementors will keep hitting it until this lands. I wrote
       it, so I am not the one who should also approve it: the cycle refuses to merge a PR until a
       reviewer writes `orchestration/results/KEY.approved`, and that rule is worth more than the
       one merge it is holding. If you are content with it, `printf 'reviewed by Ian\n' >

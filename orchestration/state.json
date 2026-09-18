@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T10:35:21.860Z",
+  "updated": "2026-09-18T10:39:10.101Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
   "merges": 2,
@@ -82,7 +82,7 @@
       "worktree": "../marxy-wt/MARXY-17"
     },
     "MARXY-19": {
-      "status": "in_review",
+      "status": "todo",
       "attempts": 1,
       "started": "2026-09-18T09:52:32.507Z",
       "pr": 7,

@@ -49,8 +49,15 @@ for (const [key, rec] of Object.entries(s.stories)) {
   const files = story && pr.headRefName ? (() => { const r = sh('git', ['diff', '--name-only', `origin/main...origin/${pr.headRefName}`]); return typeof r === 'string' ? r.split('\n').filter(Boolean) : []; })() : [];
   const allowed = story ? [...pathsOf(story), 'CHANGELOG.md', 'docs/taste-review/queue.md', 'pnpm-lock.yaml', `orchestration/results/${key}.json`] : [];
   const outside = files.filter(f => !allowed.some(a => f === a || f.startsWith(a.replace(/\/$/, '') + '/')));
+  // A squash merge can carry a commit message onto main, so the trailer has to be blocked here and
+  // not only by a local hook that a worktree cut from a branch without `.githooks` never ran.
+  const messages = pr.headRefName ? sh('git', ['log', `origin/main..origin/${pr.headRefName}`, '--format=%B']) : '';
+  const trailer = typeof messages === 'string' && /co-authored-by:.*(cursor|claude|gpt|grok|copilot|anthropic|openai)|generated with/i.test(messages);
   const why = [
     pr.state !== 'OPEN' && `PR is ${pr.state}`,
+    // Never merge on an unknown diff: an empty file list must read as ignorance, not innocence.
+    !files.length && 'could not compute the branch diff, so no boundary check ran',
+    trailer && 'an attribution trailer is in a commit message (AGENTS.md)',
     pr.mergeable === 'CONFLICTING' && 'conflicts with main',
     red.length && `red: ${red.map(c => c.name).join(', ')}`,
     pending.length && `pending: ${pending.map(c => c.name).join(', ')}`,
