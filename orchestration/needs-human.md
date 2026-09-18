@@ -64,3 +64,43 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
       freely; I have acted on that reading rather than letting three PRs idle, and flagged it rather
       than quietly redefining my own constraint. `docs/sdlc.md` needs whichever answer you prefer.
 - [ ] 2026-09-18 — Say whether a Linux desktop exists for MARXY-22 and whether an Apple Developer account exists for notarization.
+
+## Taste review #0 is ready — 2026-09-18
+
+PR #6 merged, so the specimen is on `main`. Two typeface pairs, five passages each, at 1x and 2x:
+`docs/taste-review/review-0/`, with the entry and the checklist in `docs/taste-review/queue.md`. Read
+that entry before the images — it now carries the measured optical-size behaviour of both faces and
+says outright that neither number tells you which is better, because this is the one decision no gate
+and no agent here can make for you. Nothing downstream of the default theme should be dispatched until
+you have chosen a pair.
+
+## The cold-start budget has not been enforced — 2026-09-18
+
+`cold_start_first_text_ms` has never measured a cold start. `scripts/measure-startup.mjs` launches the
+packaged app eight times two seconds apart and takes the median, so only the first launch is cold and
+the reported figure is a warm start by construction; on Ubuntu seven of eight launches never emit the
+mark and are dropped with nothing checking the count, leaving a median over one sample. The macOS
+numbers say the cold launch is 2400-3500 ms against ADR-0013's 500 ms budget, five to seven times over.
+Two consequences you should decide on, and the planner is drafting the reasoning: the release runbook
+step in `docs/sdlc.md` that claims to enforce product budgets on reference hardware is enforcing a warm
+number, so no release has yet measured what a reader feels; and if the true cold start really is that
+far over budget, that is a product fact about Tauri startup rather than a gate problem, and it may
+belong in `docs/risks.md` and in scope decisions rather than only in a CI fix.
+
+### Update: the budget finding has a decision — 2026-09-18
+
+The planner accepted the finding and withdrew ADR-0022's Amendment 1 before it landed. The metric splits
+in two: `cold_start_first_text_ms` becomes launch 1 alone, held to an absolute per-class ceiling, and
+`warm_start_first_text_ms` becomes the median of launches 2..N and keeps today's baseline rule and
+numbers under a name that is true. ADR-0022 needs two sentences replaced rather than extended, and the
+premise needs one added saying the opposite of what it assumed: CI does not measure a scaled version of
+the reader's experience, it detects change in a related quantity on a rented machine, and the reader's
+experience is enforced on reference hardware and nowhere else. Reasoning in
+`docs/plan/deltas/2026-09-18-cold-start-metric-falsified.md`.
+
+What still needs you: the release runbook in `docs/sdlc.md` has been comparing a warm median against the
+cold budget and passing leniently, so a tag cut today would carry a green perf run and an unmeasured
+product. MARXY-69 rewrites that step to run at least five genuinely cold launches with the cold-making
+procedure recorded. Until it lands, no release should claim the budget is met. And if the true cold start
+really is 2400-3500 ms against 500 ms, that is a product fact about Tauri startup rather than a gate
+problem, and it belongs in `docs/risks.md` and in scope.

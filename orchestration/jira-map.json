@@ -61,6 +61,12 @@
     "MARXY-NEW-specimen-in-ci": "MARXY-62",
     "MARXY-NEW-perf-floor-statistic": "MARXY-63",
     "MARXY-NEW-prose-fixture": "MARXY-64",
-    "MARXY-NEW-licence-gate-after-build": "MARXY-65"
+    "MARXY-NEW-licence-gate-after-build": "MARXY-65",
+    "MARXY-NEW-binary-attr": "MARXY-66",
+    "MARXY-NEW-cr-line-endings": "MARXY-67",
+    "MARXY-NEW-spec-in-ci": "MARXY-68",
+    "MARXY-NEW-cold-start-reference-enforcement": "MARXY-69",
+    "MARXY-NEW-perf-ci-cold-envelope-and-cross-run-tolerance": "MARXY-70",
+    "MARXY-NEW-paint-signal": "MARXY-71"
   }
 }

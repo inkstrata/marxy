@@ -208,3 +208,97 @@ breach on a docs-only diff is signal (2) above, and it would mean this delta is 
 
 Nothing visual changed; no queue entry owed. PR #6's specimen artifacts remain queued on their own
 story.
+
+## Observed samples, 2026-09-18
+
+Three independent sightings by the end of the day, all single-sample packaged-app cold starts on
+`ubuntu-latest` against the 8490.9 ms CI ceiling: 7068, 7511 and 7719 ms on `main`; 8641 ms failing
+then 7060 ms passing on the same commit of PR #4; 9576 ms failing then 6990 ms passing on PR #5. Two
+of the three runs that failed were re-run to green without a code change, which is the specific
+failure mode the floor statistic is meant to end — a gate that a diff can pass or fail by chance
+teaches implementors to re-run rather than to measure, and a real regression arriving in that noise
+would be indistinguishable from it. MARXY-63 should be dispatched before more stories learn the
+habit.
+
+## macOS, and a risk this creates for the floor statistic
+
+PR #7 then failed and passed `gates (macos-latest)` on one commit at 2448 ms and 463 ms for
+`cold_start_first_text_ms` — a 5.3x spread straddling the 1901 ms baseline, against the 1.53x this
+note recorded from four medians. Two consequences for MARXY-63, which already owns the per-class
+numbers.
+
+First, criterion 3 bounds `(max(observed_floors_ms) / min(observed_floors_ms)) * tolerance` at 1.20,
+and macOS may simply not satisfy it. That is the criterion working: a class whose floors cannot be
+bounded has no usable baseline, and criterion 7's explicit `baseline_waived` is the honest outcome —
+the envelope alone, with the reason and the measured floors written down. Reaching for a wider
+tolerance to make the rule fit would restore exactly the gate this story exists to remove.
+
+Second, and more important: 463 ms is close to the 500 ms *product* budget, which a packaged cold
+start on a shared macOS runner should not reach. The likely reading is that it was not cold — a warm
+webview, a cached binary, or the OS still holding the pages. A minimum-of-N then drifts toward
+whichever launch was warmest, and the gate ends up defending a number the reader never experiences,
+which is the same failure as a flaky gate wearing better clothes. Discarding one warm-up launch does
+not answer this, because the contamination runs the other way. MARXY-63 must show that its floor is a
+floor over *cold* launches: state what makes each launch cold, and have the selftest reject a run list
+whose minimum is implausibly far below its median rather than silently adopting it.
+
+## The metric is not measuring a cold start at all
+
+Read the `results/perf.json` artifacts from four CI jobs before designing anything further. The
+suspicion above is confirmed structurally rather than probably: `measure-startup.mjs` launches the
+packaged app 8 times two seconds apart, sorts, and takes the median, so only launch 1 is ever cold and
+`cold_start_first_text_ms` reports a **warm** start whenever all eight launches survive.
+
+```
+macos, the run that passed:  [377, 395, 432, 443, 463, 520, 564, 2393] → median 463
+macos, an earlier push:      [1798, 1824, 1968, 2029, 2054, 2061, 2062, 3557] → median 2054
+macos, the merge run:        [486, 1468, 1531, 1559, 1571, 1709, 1764, 2624] → median 1571
+ubuntu, all three runs:      [7519] / [7506] / [6898]
+```
+
+Three consequences, each of which changes MARXY-63 rather than confirming it.
+
+**A minimum is the wrong statistic, and precisely backwards.** Every macOS job carries one value far
+above an otherwise tight cluster — 2393, 3557, 2624 ms — which reads as the one genuinely cold launch,
+discarded by the median. A floor would discard it harder: the minimum of a round is the *warmest*
+launch, so gating on it would defend a number no reader ever experiences and would improve as the
+runner's cache got better. If that inference is right, the figure to hold against the 500 ms product
+budget is 2400–3500 ms, five to seven times over, and 463 ms landing near 500 is a coincidence of a
+fast runner's warm cluster rather than a packaged cold start nearly meeting budget. The inference is
+from the shape of the distribution, not from ordering, because the script sorts before writing and
+destroys launch order. Recording runs in launch order and the first launch separately settles it in one
+line, and no further design should be done before that is recorded.
+
+**The variance is between runs, not within them.** The macOS warm cluster sits at ~380–560 ms in one
+job, ~1470–1760 in another and ~1800–2060 in a third — the whole distribution moving about 4× — while
+inside any one job the cluster spans only 1.15–1.5×. So a spread guard computed over one round sees a
+tight, well-behaved distribution and concludes macOS deserves to keep its baseline. That is the wrong
+conclusion drawn from a correct measurement, and it is an argument for the waiver over any tolerance.
+
+**Ubuntu is quietly worse than macOS.** All three Ubuntu jobs report a median over a *single* sample:
+seven of eight launches never print the `first_text` mark and are silently dropped, and neither the
+measurement script nor the gate checks `runs.length`. The three readings agree within 9%, so it is a
+reproducible n=1 rather than noise — and being the lone survivor it is plausibly the *cold* launch. If
+so the two runner classes report different quantities under one metric name, roughly cold on Ubuntu and
+warm on macOS, which makes their baselines incomparable with each other and with the product budget.
+Evidence recorded by the MARXY-19 implementor in `orchestration/results/MARXY-19.json` under
+`escalation`, with the raw arrays.
+
+## The reference tier reports ok on zero samples
+
+Found by the MARXY-13 round-2 review, on a Mac asleep in dark wake where the webview receives no
+animation frames:
+
+```
+$ node scripts/measure-startup.mjs   →  cold start median null ms over 0 runs (reference mode), exit 0
+$ node scripts/gate-perf.mjs         →  perf gate: reference mode / perf gate ok, exit 0
+```
+
+`gate-perf.mjs` skips a null metric (`if (v == null) continue`) and `measure-startup.mjs` exits 0 with
+an empty `runs` array. In `ci` mode a null median does fail, so CI is safe — but ADR-0022 makes
+`reference` the default whenever `CI` is unset, and the release runbook runs exactly that before a tag.
+So the authoritative tier, the one step in the whole scheme that is supposed to measure what a reader
+feels, currently prints `perf gate ok` having measured nothing. Whatever statistic is chosen, the
+harness must refuse to report a number it does not have, and `results/perf.json` should record runs in
+launch order with the first launch separate, so that whether a figure is cold or warm is a fact in the
+file rather than an inference from the shape of a sorted array.
