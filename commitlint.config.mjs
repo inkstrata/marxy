@@ -3,10 +3,12 @@ export default {
   extends: ['@commitlint/config-conventional'],
   rules: {
     'type-enum': [2, 'always', ['feat', 'fix', 'perf', 'refactor', 'docs', 'test', 'build', 'ci', 'chore', 'style', 'revert']],
-    'scope-enum': [1, 'always', ['core', 'typeset', 'theme', 'shell', 'desktop', 'corpus', 'gates', 'ci', 'docs', 'orchestration', 'release', 'fonts', 'bootstrap', 'spike']],
-    'header-max-length': [2, 'always', 72],
+    'scope-enum': [1, 'always', ['core', 'typeset', 'theme', 'shell', 'desktop', 'corpus', 'gates', 'ci', 'docs', 'orchestration', 'release', 'fonts', 'repo', 'workspace', 'bootstrap', 'spike']],
+    // 100, not 72: the (MARXY-nnn) suffix alone takes 13 characters, and a squash merge adds (#nn).
+    'header-max-length': [2, 'always', 100],
     'subject-full-stop': [2, 'never', '.'],
     'body-max-line-length': [1, 'always', 100],
+    'footer-max-line-length': [1, 'always', 100],
     'body-leading-blank': [2, 'always'],
     'footer-leading-blank': [2, 'always'],
     // The Jira key belongs at the end of the subject, checked directly rather than through the
@@ -18,7 +20,7 @@ export default {
   plugins: [{
     rules: {
       'marxy-key-in-subject': ({ header }) => [
-        /\(MARXY-\d+\)$/.test(header ?? '') || /^(Merge|Revert|\w+(\(\w+\))?!?: .*\((bootstrap|spike)\))/.test(header ?? ''),
+        /\(MARXY-\d+\)( \(#\d+\))?$/.test(header ?? '') || /^(Merge|Revert|\w+(\(\w+\))?!?: .*\((bootstrap|spike)\))/.test(header ?? ''),
         'subject must end with the Jira key in parentheses, e.g. "(MARXY-23)" — docs/conventions.md',
       ],
     },
