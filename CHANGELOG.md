@@ -15,6 +15,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The development process on one page in `docs/sdlc.md`: four board states, a WIP limit, definitions of ready and done, traceability and the release runbook (MARXY-10)
 - A Jira bridge (`orchestration/jira.mjs`) that mirrors the backlog and the board into the tracker and links pull requests to issues (MARXY-10)
 - Taste review #0: the long corpus document set in both candidate typeface pairs at the type scale and a 68ch measure, for the decision that settles ADR-0015 (MARXY-17)
+- Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 
 ### Fixed
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
