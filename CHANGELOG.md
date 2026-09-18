@@ -11,5 +11,8 @@ tag time. Conventions in `docs/conventions.md`.
 - Orchestration kit for running the agent fleet from Cursor: role prompts, board scripts, subagent definitions (bootstrap)
 - Conventions for commits, pull requests, comments, tags and reviews, enforced by commitlint (bootstrap)
 
+### Security
+- The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
+
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
