@@ -1,10 +1,34 @@
 {
-  "note": "Hard CI failures (ADR-0013). Milliseconds unless stated. Regression tolerance 10% against the stored baseline.",
-  "cold_start_first_text_ms": 500,
-  "open_indexed_document_ms": 50,
-  "palette_keystroke_ms": 16,
-  "typeset_viewport_ms": 100,
-  "live_reload_ms": 100,
-  "find_first_match_ms": 50,
+  "note": "Two tiers (ADR-0022, amending ADR-0013). `product` is measured on reference hardware (MARXY_PERF_ENV=reference) and never relaxed; `ci` is the envelope and baseline enforced on GitHub-hosted runners (MARXY_PERF_ENV=ci). Milliseconds unless stated. A baseline moves only by an explicit edit in the pull request that costs the time.",
+  "product": {
+    "cold_start_first_text_ms": 500,
+    "open_indexed_document_ms": 50,
+    "palette_keystroke_ms": 16,
+    "typeset_viewport_ms": 100,
+    "live_reload_ms": 100,
+    "find_first_match_ms": 50
+  },
+  "ci": {
+    "ubuntu-latest": {
+      "multiplier": 20,
+      "baseline_ms": 7719,
+      "derived_from": {
+        "commit": "76437c5",
+        "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+        "reference_median_ms": null,
+        "runner_median_ms": 7719
+      }
+    },
+    "macos-latest": {
+      "multiplier": 5,
+      "baseline_ms": 1901,
+      "derived_from": {
+        "commit": "76437c5",
+        "runner_image": "macos-latest (macos-15, arm64)",
+        "reference_median_ms": null,
+        "runner_median_ms": 1901
+      }
+    }
+  },
   "bundle_installed_mb": { "linux": 25, "macos": 30 }
 }
