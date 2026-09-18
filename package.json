@@ -31,7 +31,8 @@
     "lint:rust": "cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --quiet -- -D warnings",
     "precheck": "node scripts/precheck.mjs",
     "done": "node scripts/done.mjs",
-    "new": "node scripts/new.mjs"
+    "new": "node scripts/new.mjs",
+    "check:workflows": "node scripts/check-workflows.mjs"
   },
   "devDependencies": {
     "dompurify": "^3.4.15",
