@@ -12,6 +12,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Straight quotes, double hyphens and three dots become the marks a book would use when you read a document, and a short last word stays on the line with the one before it; the file itself is not touched (MARXY-29)
 - Agents land a pull request once the quality bar is met: a signed review of that exact commit, green gates, and the story's path boundary — CODEOWNERS paths still wait for a person (MARXY-79)
 - The orchestrator fleet can run cheaper: `--low` is Sonnet 5 medium plus Grok 4.6 High Fast, `--minimal` is Grok 4.6 High Fast only
+- An open document reloads when its file changes on disk and the reading position stays put; a save will not silently overwrite a file someone else has changed (MARXY-34)
 - Opening a document can now index the repository around it — honouring ignore rules, skipping `node_modules` and the rest of the deny list, stopping at fifty thousand files — after the first page paints, and the index is kept on disk and rebuilt when a file's mtime changes (MARXY-35)
 - Hygiene tooling for the agent fleet: pre-commit story-boundary and name checks, module import rules, a dependency allow-list, a PR checker, path-aware precheck, a one-command definition of done that drafts the PR body, and generators for modules, operations and shell commands (MARXY-74)
 - Design documents for every subsystem and a task card per Phase 1–2 story, so implementors build from decisions already made; ADR-0023 fixes how rendered elements carry their byte provenance (MARXY-74)
@@ -29,6 +30,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
 - The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
 - CI can build again on Linux: the webview dependencies are installed rather than restored from a cache that dropped their metadata, and a check keeps third-party actions out of our builds (MARXY-90)
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
