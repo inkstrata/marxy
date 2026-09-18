@@ -15,6 +15,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Conventions for commits, pull requests, comments, tags and reviews, enforced by commitlint (bootstrap)
 - Open a document from the command line: `marxy README.md` reads the file and shows it, unstyled for now, and reports the moment the first text was painted (MARXY-13)
 - Taste review #0: the long corpus document set in both candidate typeface pairs at the type scale and a 68ch measure, for the decision that settles ADR-0015 (MARXY-17)
+- Saving a document puts back exactly the bytes it had: a byte-order mark, Windows line endings and a missing final newline all survive, the file is replaced by a rename rather than written in place so a crash cannot truncate it, its permissions are kept, and marxy refuses rather than silently changing a read-only, hard-linked or someone else's file (MARXY-14)
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 
 ### Security
@@ -24,4 +25,5 @@ tag time. Conventions in `docs/conventions.md`.
 ### Changed
 - Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
+- The startup measurement now reports two honestly named numbers — a cold start, which is the first launch and only the first launch, and a warm start, which is the median of the rest — after it turned out that the single number called "cold start" had always been a warm one, and that seven of eight Linux launches were being thrown away unmeasured (MARXY-63)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
