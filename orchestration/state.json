@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T09:37:08.057Z",
+  "updated": "2026-09-18T09:46:41.317Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
   "merges": 0,
@@ -39,12 +39,13 @@
       "pr": 1
     },
     "MARXY-11": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
       "branch": "feat/MARXY-11-parse-commonmark-gfm-into-the-ast-with-byte-prov",
       "worktree": "../marxy-wt/MARXY-11",
       "started": "2026-09-18T09:16:32.306Z",
-      "model": "grok-4.6-fast"
+      "model": "grok-4.6-fast",
+      "pr": 4
     },
     "MARXY-12": {
       "status": "todo",
@@ -71,8 +72,9 @@
       "attempts": 0
     },
     "MARXY-17": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_progress",
+      "attempts": 1,
+      "started": "2026-09-18T09:46:41.316Z"
     },
     "MARXY-19": {
       "status": "todo",

@@ -23,4 +23,11 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
       run implementors headlessly; they are being dispatched as in-app subagents into
       `../marxy-wt/<KEY>` worktrees instead.
 - [ ] 2026-09-18 — Taste review #0 (typeface pair) once MARXY-17 lands its artifact.
+- [ ] 2026-09-18 — Approve PR #1 (MARXY-10, Jira as the board of record) or send it back. I wrote
+      it, so I am not the one who should also approve it: the cycle refuses to merge a PR until a
+      reviewer writes `orchestration/results/KEY.approved`, and that rule is worth more than the
+      one merge it is holding. If you are content with it, `printf 'reviewed by Ian\n' >
+      orchestration/results/MARXY-10.approved` and the loop lands it as soon as the gates are green.
+      Every other story is reviewed by the reviewer agent, not by its implementor, so this is a
+      one-off.
 - [ ] 2026-09-18 — Say whether a Linux desktop exists for MARXY-22 and whether an Apple Developer account exists for notarization.
