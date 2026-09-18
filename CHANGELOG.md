@@ -18,4 +18,5 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
+- The CI cold-start gate now measures the fastest of twelve deliberately cold launches and compares it against a tolerance measured on the runner itself, so a rented machine's noise can no longer fail a merge and a real slowdown still does (MARXY-63)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)

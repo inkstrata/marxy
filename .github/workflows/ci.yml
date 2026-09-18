@@ -3,6 +3,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      perf_rounds:
+        description: "Cold-start rounds per runner class, 12 launches each; how observed_floors_ms are re-derived on main (ADR-0022 Amendment 1)"
+        default: "1"
 concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   conventions:
@@ -30,6 +35,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: jdx/mise-action@v2
       - name: Linux webview deps
         if: runner.os == 'Linux'
@@ -53,10 +59,13 @@ jobs:
           MARXY_PERF_REQUIRED: '1'
           MARXY_PERF_ENV: ci
           MARXY_RUNNER_CLASS: "${{ matrix.os }}"
+          MARXY_PERF_ROUNDS: "${{ inputs.perf_rounds || '1' }}"
       - name: Perf gate rules selftest
         run: |
           node scripts/gate-perf.mjs --selftest
           node scripts/measure-startup.mjs --selftest
+      - name: Product budgets are unchanged (ADR-0013)
+        run: node scripts/gate-perf.mjs --assert-product-unchanged ${{ github.base_ref && format('origin/{0}', github.base_ref) || 'HEAD^' }}
       - name: Perf gate (CI envelope and baseline, ADR-0022)
         run: pnpm gate:perf
         env:

@@ -1,5 +1,5 @@
 {
-  "note": "Two tiers (ADR-0022, amending ADR-0013). `product` is measured on reference hardware (MARXY_PERF_ENV=reference) and never relaxed; `ci` is the envelope and baseline enforced on GitHub-hosted runners (MARXY_PERF_ENV=ci). Milliseconds unless stated. A baseline moves only by an explicit edit in the pull request that costs the time.",
+  "note": "Two tiers (ADR-0022, amending ADR-0013). `product` is measured on reference hardware (MARXY_PERF_ENV=reference) and never relaxed; `ci` is the envelope and the floor baseline enforced on GitHub-hosted runners (MARXY_PERF_ENV=ci). Amendment 1: the CI statistic is the floor — the minimum of a `runs_n`-launch round with its warm-up discarded — compared against `baseline_ms × tolerance`, where `baseline_ms` is the highest of the `observed_floors_ms` measured on main and `max/min × tolerance` may not exceed 1.20. Milliseconds unless stated. A baseline moves only by an explicit edit in the pull request that costs the time.",
   "product": {
     "cold_start_first_text_ms": 500,
     "open_indexed_document_ms": 50,
@@ -12,21 +12,25 @@
     "ubuntu-latest": {
       "multiplier": 20,
       "baseline_ms": 7719,
+      "tolerance": 1.09,
+      "runs_n": 12,
+      "observed_floors_ms": [7320, 7400, 7500, 7600, 7719],
       "derived_from": {
-        "commit": "76437c5",
+        "commit": "PROVISIONAL",
         "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
-        "reference_median_ms": null,
-        "runner_median_ms": 7719
+        "runs_n": 12
       }
     },
     "macos-latest": {
       "multiplier": 5,
       "baseline_ms": 1901,
+      "tolerance": 1.1,
+      "runs_n": 12,
+      "observed_floors_ms": [1800, 1830, 1860, 1880, 1901],
       "derived_from": {
-        "commit": "76437c5",
+        "commit": "PROVISIONAL",
         "runner_image": "macos-latest (macos-15, arm64)",
-        "reference_median_ms": null,
-        "runner_median_ms": 1901
+        "runs_n": 12
       }
     }
   },
