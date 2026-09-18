@@ -1,6 +1,6 @@
 {
   "_note": "Which gates a change must run, by path prefix. precheck.mjs unions the entries for every changed file. 'always' runs for any change.",
-  "always": ["check:boundaries", "check:registry", "check:deps", "check:story"],
+  "always": ["check:boundaries", "check:registry", "check:deps", "check:story", "check:one-parse"],
   "packages/core": ["gate:golden", "gate:fidelity", "gate:no-network"],
   "packages/theme": ["gate:aesthetics", "lint:theme"],
   "packages/typeset": ["gate:aesthetics"],
