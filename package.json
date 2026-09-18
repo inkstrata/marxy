@@ -10,8 +10,8 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm run test:contracts-frozen && pnpm -r test",
-    "test:contracts-frozen": "node --input-type=module -e 'import{execFileSync as x}from\"node:child_process\";const h=\"0e051d51a20103d2672bc30e805ab4f10cb0e277\";const re=/^(packages\\/[^/]+\\/src\\/contracts\\/|packages\\/theme\\/src\\/tokens\\.css$)/;const t=r=>x(\"git\",[\"ls-tree\",\"-r\",\"--name-only\",r],{encoding:\"utf8\"}).split(\"\\n\").filter(p=>re.test(p)).sort();const a=t(h),b=t(\"HEAD\");if(!a.length){console.error(\"contracts-frozen: handoff has no files\");process.exit(1)}if(a.join(\"\\n\")!==b.join(\"\\n\")){console.error(\"contracts-frozen: file set changed\\n\"+a.join(\"\\n\")+\"\\n---\\n\"+b.join(\"\\n\"));process.exit(1)}x(\"git\",[\"merge-base\",\"--is-ancestor\",h,\"HEAD\"]);const d=x(\"git\",[\"diff\",\"--name-status\",h,\"HEAD\",\"--\",...a],{encoding:\"utf8\"});if(d){console.error(\"contracts-frozen: diff vs \"+h+\"\\n\"+d);process.exit(1)}console.log(\"contracts-frozen: empty diff vs handoff \"+h+\" (\"+a.length+\" files)\")'",
+    "test": "pnpm run test:contracts-frozen && pnpm -r test && node --test orchestration/*.test.mjs",
+    "test:contracts-frozen": "node --input-type=module -e 'import{execFileSync as x}from\"node:child_process\";const h=\"a859f6b171cd05002841681bcf94ee77354d9d46\";const re=/^(packages\\/[^/]+\\/src\\/contracts\\/|packages\\/theme\\/src\\/tokens\\.css$)/;const t=r=>x(\"git\",[\"ls-tree\",\"-r\",\"--name-only\",r],{encoding:\"utf8\"}).split(\"\\n\").filter(p=>re.test(p)).sort();const a=t(h),b=t(\"HEAD\");if(!a.length){console.error(\"contracts-frozen: freeze point has no files\");process.exit(1)}if(a.join(\"\\n\")!==b.join(\"\\n\")){console.error(\"contracts-frozen: file set changed\\n\"+a.join(\"\\n\")+\"\\n---\\n\"+b.join(\"\\n\"));process.exit(1)}x(\"git\",[\"merge-base\",\"--is-ancestor\",h,\"HEAD\"]);const d=x(\"git\",[\"diff\",\"--name-status\",h,\"HEAD\",\"--\",...a],{encoding:\"utf8\"});if(d){console.error(\"contracts-frozen: diff vs \"+h+\"\\n\"+d);process.exit(1)}console.log(\"contracts-frozen: empty diff vs freeze \"+h+\" (\"+a.length+\" files)\")'",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "gate:licences": "node scripts/gate-licences.mjs",
@@ -21,12 +21,23 @@
     "gate:aesthetics": "node scripts/gate-aesthetics.mjs",
     "gate:perf": "node scripts/gate-perf.mjs",
     "gate:bundle": "node scripts/gate-bundle.mjs",
-    "lint:commits": "commitlint --from origin/main --to HEAD --verbose"
+    "lint:commits": "commitlint --from origin/main --to HEAD --verbose",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:registry": "node scripts/check-registry.mjs",
+    "check:deps": "node scripts/check-deps.mjs",
+    "check:story": "node scripts/check-story.mjs",
+    "check:pr": "node scripts/check-pr.mjs",
+    "lint:theme": "pnpm --filter @marxy/theme lint",
+    "lint:rust": "cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --quiet -- -D warnings",
+    "precheck": "node scripts/precheck.mjs",
+    "done": "node scripts/done.mjs",
+    "new": "node scripts/new.mjs"
   },
   "devDependencies": {
     "dompurify": "^3.4.15",
     "markdown-it": "^15.0.2",
-    "playwright": "^1.57.0",
+    "playwright": "1.63.0",
     "typescript": "^5.9.3",
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0"

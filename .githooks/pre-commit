@@ -1,0 +1,6 @@
+#!/bin/sh
+# Story boundary and names, on the staged files only, before the commit exists (docs/hygiene.md).
+# Install: pnpm install (the prepare script sets core.hooksPath), or: git config core.hooksPath .githooks
+[ -n "$MARXY_SKIP_HOOKS" ] && exit 0
+node scripts/check-story.mjs --staged || { echo "pre-commit: see the fix lines above; nothing was committed" >&2; exit 1; }
+node scripts/check-registry.mjs --staged || { echo "pre-commit: unregistered name; see scripts/registry.json" >&2; exit 1; }

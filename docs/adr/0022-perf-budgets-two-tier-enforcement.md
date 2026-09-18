@@ -126,3 +126,12 @@ rather than promised, and a check in its pull request asserts the file is byte-i
   and in reference mode additionally fails while the product budget is unenforceable (MARXY-69).
 - The release runbook step in `docs/sdlc.md` is rewritten by MARXY-69; until then a tag is blocked,
   which is the correct thing to block while the budget cannot be proved.
+
+## Follow-up 2026-09-18 (MARXY-83) — CI baseline tolerance is 30 %, not 10 %
+
+Identical code measured a warm-start median of 1901 ms (the recorded baseline) and 2113 ms on
+two `macos-latest` machines, with WKWebView initialisation accounting for 1900–2200 ms of every
+launch. That is an 11 % spread from machine assignment alone, so the 10 % band failed a pull
+request on noise and would have failed `main`. The tolerance is now 30 %; the ×5 envelope
+remains the hard ceiling, and a breach of either rule is re-measured once before it fails. The
+baseline numbers themselves are unchanged and still guarded by the budgets-unchanged step.

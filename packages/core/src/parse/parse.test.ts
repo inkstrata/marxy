@@ -315,7 +315,12 @@ function machineFactor(): number {
   return Math.max(1, runs[2]! / PROBE_REFERENCE_MS);
 }
 
-test('parsing 01-long-technical.md stays inside the 10 ms budget', () => {
+// On a shared CI runner the machine-factor probe under-compensates under load (it measured 1.99× on a
+// run where the parse was 2.2× slower, and the job went red on a push to main). Timing is a perf-gate
+// concern with a per-runner envelope (ADR-0022; MARXY-59 moves this budget there); here it runs on
+// developer machines and on the reference tier only.
+const timingIsMeaningfulHere = !process.env.CI || process.env.MARXY_PERF_ENV === 'reference';
+test('parsing 01-long-technical.md stays inside the 10 ms budget', { skip: timingIsMeaningfulHere ? false : 'shared CI runner: timing budgets are enforced by the perf gate, not a unit test (MARXY-59)' }, () => {
   const bytes = read('01-long-technical.md');
   for (let warmup = 0; warmup < 25; warmup++) parseMarkdown(bytes, { file: '01-long-technical.md' });
   const runs: number[] = [];
