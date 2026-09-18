@@ -52,7 +52,7 @@ Three things follow:
    200–900 axis with the result still below 900 at 700. The magnitude varies with the WebKitGTK
    version and the distribution's fontconfig, so `--marxy-weight-offset` must be keyed to the
    runtime WebKitGTK version (Tauri exposes it) with a per-distribution override, and story
-   MARXY-022 measures it on real desktops. Against Chromium on the same machine, the difference
+   MARXY-22 measures it on real desktops. Against Chromium on the same machine, the difference
    is 12–34 units: within or just over the threshold, and in either case the same shape of
    fix Electron would have needed versus macOS.
 

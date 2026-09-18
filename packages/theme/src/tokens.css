@@ -1,6 +1,7 @@
-/* marxy theme token contract — version 1. FROZEN (ADR-0008).
-   Themes set these. marxy derives every vertical space from --marxy-line-box and never lets a
-   theme set margins directly. Everything not listed here is system-owned. */
+/* marxy theme token contract — version 1. FROZEN (ADR-0008). Values are the DARK variant's
+   defaults (ADR-0024). Themes set these. marxy derives every vertical space from
+   --marxy-line-box and never lets a theme set margins directly. Everything not listed here is
+   system-owned. Contrast ratios in docs/design/05-theme.md §Palettes. */
 :root {
   /* rhythm and measure */
   --marxy-line-box: 28px;
@@ -8,31 +9,50 @@
   --marxy-size-body: 17px;
   --marxy-scale-ratio: 1.25;
   --marxy-size-code: 14px;
-  --marxy-line-box-code: 22px;        /* must divide into the grid: 2 code lines ≈ 1.57 body lines; marxy pads blocks to the grid */
+  --marxy-line-box-code: 22px;        /* code lines; blocks are padded to the grid by snapToGrid */
   --marxy-size-caption: 13px;
+  --marxy-lh-h1: 40px;                /* heading line boxes; ≥ size and ≤ 2 line boxes (loader clamps) */
+  --marxy-lh-h2: 34px;
 
   /* families and weights */
   --marxy-font-text: "Literata", serif;
   --marxy-font-heading: var(--marxy-font-text);
   --marxy-font-mono: "JetBrains Mono", monospace;
-  --marxy-weight-body: 400;
+  --marxy-weight-body: 380;           /* dark ground: a serif at 400 reads heavier on dark */
   --marxy-weight-heading: 600;
   --marxy-weight-strong: 700;
   --marxy-weight-offset: 0;           /* set by marxy per platform from the weight harness; themes must not set it */
   --marxy-tracking-heading: -0.011em;
   --marxy-opsz-auto: 1;               /* 1 = let the font's opsz axis follow size */
 
-  /* colour — light */
-  --marxy-color-bg: #ffffff;
-  --marxy-color-text: #1a1a1a;
-  --marxy-color-text-secondary: #5c5c5c;
-  --marxy-color-accent: #1f4e79;
+  /* colour — dark (primary) */
+  --marxy-color-bg: #151412;
+  --marxy-color-text: #e8e4dc;
+  --marxy-color-text-secondary: #a39e94;
+  --marxy-color-accent: #8fb4dd;
   --marxy-color-link: var(--marxy-color-accent);
-  --marxy-color-rule: #e6e6e6;
-  --marxy-color-code-bg: #f6f6f4;
-  --marxy-color-code-text: #1a1a1a;
-  --marxy-color-quote-rule: #d9d9d9;
-  --marxy-color-selection: #cfe3ff;
+  --marxy-color-rule: #2a2825;
+  --marxy-color-code-bg: #1d1c19;
+  --marxy-color-code-text: #e3dfd6;
+  --marxy-color-quote-rule: #3a3833;
+  --marxy-color-selection: #2a4a6e;
+  --marxy-color-find: #4a3d12;        /* added by ADR-0024, with defaults: find highlight */
+  --marxy-color-find-current: #7a6218;
+  --marxy-color-notice: #1f1e1b;      /* notices region background */
+
+  /* code token colours (added by ADR-0024, with defaults; mapping to scopes in docs/design/02-render.md) */
+  --marxy-tok-keyword: #c9a0dc;
+  --marxy-tok-string: #a8c48a;
+  --marxy-tok-comment: #8a857b;
+  --marxy-tok-number: #d9a066;
+  --marxy-tok-function: #8fb4dd;
+  --marxy-tok-type: #e0c07a;
+  --marxy-tok-variable: #e3dfd6;
+  --marxy-tok-operator: #b5b0a6;
+  --marxy-tok-punctuation: #8f8a80;
+  --marxy-tok-constant: #d9a066;
+  --marxy-tok-tag: #e28c7a;
+  --marxy-tok-attribute: #e0c07a;
 
   /* presentation knobs (theme-owned) */
   --marxy-code-radius: 0px;
@@ -40,4 +60,5 @@
   --marxy-quote-rule-width: 2px;
   --marxy-progress-rule: none;        /* 'none' or a colour; height is fixed at 1px by marxy */
   --marxy-justify: 0;                 /* 0 ragged (default), 1 justified; K–P runs either way */
+  --marxy-typeset: auto;              /* auto | none (kill switch, docs/design/04-typeset.md) */
 }
