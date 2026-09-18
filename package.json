@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test && node --test orchestration/*.test.mjs",
+    "test": "pnpm run test:contracts-frozen && pnpm -r test && node --test orchestration/*.test.mjs scripts/check-one-parse.test.mjs",
+    "test:contracts-frozen": "node --input-type=module -e 'import{execFileSync as x}from\"node:child_process\";const h=\"a859f6b171cd05002841681bcf94ee77354d9d46\";const re=/^(packages\\/[^/]+\\/src\\/contracts\\/|packages\\/theme\\/src\\/tokens\\.css$)/;const pin={\"packages/core/src/contracts/ast.ts\":\"966e24a31c380b86d2940e7fd7c27b53d645b0ed\",\"packages/core/src/contracts/contracts.test.ts\":\"37be1baab4fb9adae1e6b7d70fcdf3cfe6826e2a\",\"packages/core/src/contracts/index-entry.ts\":\"9f73a4f4bf5ced7708f61f8c13c0ec67525de7ff\",\"packages/core/src/contracts/operation.ts\":\"744db25a685e0353f04ebdac285174fc9609a404\",\"packages/core/src/contracts/position.ts\":\"48737d0b1a6577605d8dd4b627442cf094d29939\",\"packages/theme/src/tokens.css\":\"09b7c63ef3f8e34e739e2c3311e941d9471c8fb5\"};const ok=r=>{try{x(\"git\",[\"cat-file\",\"-e\",r+\"^{tree}\"],{stdio:\"ignore\"});return 1}catch{return 0}};if(!ok(h)){try{x(\"git\",[\"fetch\",\"--depth=1\",\"--no-tags\",\"origin\",h],{stdio:\"ignore\"})}catch{}}const t=r=>ok(r)?x(\"git\",[\"ls-tree\",\"-r\",\"--name-only\",r],{encoding:\"utf8\"}).split(\"\\n\").filter(p=>re.test(p)).sort():Object.keys(pin).sort();const a=t(h),b=t(\"HEAD\");if(!a.length){console.error(\"contracts-frozen: freeze point has no files\");process.exit(1)}if(a.join(\"\\n\")!==b.join(\"\\n\")){console.error(\"contracts-frozen: file set changed\\n\"+a.join(\"\\n\")+\"\\n---\\n\"+b.join(\"\\n\"));process.exit(1)}let d=\"\";if(ok(h)){try{x(\"git\",[\"merge-base\",\"--is-ancestor\",h,\"HEAD\"])}catch{}d=x(\"git\",[\"diff\",\"--name-status\",h,\"HEAD\",\"--\",...a],{encoding:\"utf8\"})}else{d=b.filter(p=>x(\"git\",[\"rev-parse\",\"HEAD:\"+p],{encoding:\"utf8\"}).trim()!==pin[p]).map(p=>\"M\\t\"+p).join(\"\\n\");if(d)d+=\"\\n\"}if(d){console.error(\"contracts-frozen: diff vs \"+h+\"\\n\"+d);process.exit(1)}console.log(\"contracts-frozen: empty diff vs freeze \"+h+\" (\"+a.length+\" files)\")'",
     "lint": "node scripts/gate-font-attrs.mjs && pnpm -r lint",
     "gate:font-attrs": "node scripts/gate-font-attrs.mjs",
     "typecheck": "pnpm -r typecheck",
@@ -26,6 +27,7 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:registry": "node scripts/check-registry.mjs",
     "check:deps": "node scripts/check-deps.mjs",
+    "check:one-parse": "node scripts/check-one-parse.mjs",
     "check:story": "node scripts/check-story.mjs",
     "check:pr": "node scripts/check-pr.mjs",
     "lint:theme": "pnpm --filter @marxy/theme lint",
@@ -35,8 +37,6 @@
     "new": "node scripts/new.mjs"
   },
   "devDependencies": {
-    "dompurify": "^3.4.15",
-    "markdown-it": "^15.0.2",
     "playwright": "1.63.0",
     "typescript": "^5.9.3",
     "@commitlint/cli": "^19.8.0",
