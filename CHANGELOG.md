@@ -52,6 +52,7 @@ tag time. Conventions in `docs/conventions.md`.
 - CI is faster and steadier: parallel jobs with cached Rust, pnpm, apt and browsers, docs-only changes skip the build, a thin-LTO CI build profile, timeouts on every job, one required status check, and perf breaches re-measured once before they fail (MARXY-83)
 - Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)
 - First readable text is marked only after the engine reports a paint, so a hidden document can no longer produce a cold-start number (MARXY-71)
+- The licence policy now records the audit that already ships — lockfile, store, recorded-licence allow-list, fail-closed — and applies the same rule to specifications and test vectors as to code (MARXY-58)
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - Jira is now the board of record: all 51 epics and stories exist as issues, and story keys throughout the repo are the real Jira keys (MARXY-10)
 - The startup measurement now reports two honestly named numbers — a cold start, which is the first launch and only the first launch, and a warm start, which is the median of the rest — after it turned out that the single number called "cold start" had always been a warm one, and that seven of eight Linux launches were being thrown away unmeasured (MARXY-63)
