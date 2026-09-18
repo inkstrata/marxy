@@ -22,10 +22,14 @@ function random(seed: number): () => number {
   };
 }
 
-const NAMES = ['a', 'p', 'img', 'em', 'h2', 'li', 'ul', 'input', 'br', 'table', 'td', 'blockquote', 'div', 'details', 'span', 'script', 'style', 'iframe', 'svg', 'math', 'template', 'title', 'textarea', 'noscript', 'object', 'form', 'custom-el', 'svg:script', 'A', 'BASE'];
+// `plaintext` and `listing` are here because they were absent when the removal scan was wrong
+// about both of them, and the generator could not have found it.
+const NAMES = ['a', 'p', 'img', 'em', 'h2', 'li', 'ul', 'input', 'br', 'table', 'td', 'blockquote', 'div', 'details', 'span', 'script', 'style', 'iframe', 'svg', 'math', 'template', 'title', 'textarea', 'noscript', 'plaintext', 'listing', 'xmp', 'object', 'form', 'custom-el', 'svg:script', 'A', 'BASE'];
 const ATTRIBUTES = ['href', 'src', 'title', 'alt', 'id', 'class', 'onclick', 'onerror', 'style', 'srcdoc', 'formaction', 'xlink:href', 'type', 'checked', 'lang', 'data-x', 'srcset'];
 const VALUES = ['https://remote.invalid/x.png', '/\\remote.invalid/x.png', '//remote.invalid/x', 'javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'local.png', '#frag', '&bsol;&bsol;remote.invalid/x', 'alert(1)', 'a b"c', '', '\u0000', 'language-rust', 'checkbox'];
-const TEXTS = ['prose', '', 'a < b', '&amp;', '"', '</a>', '\u0000', '<!-- c -->', '<![CDATA[x]]>'];
+// `<!--` and `<!--<script>` put a script into its escaped and double-escaped states, where an
+// end tag stops being one; `</styled` and `</style\f` are the delimiter question.
+const TEXTS = ['prose', '', 'a < b', '&amp;', '"', '</a>', '\u0000', '<!-- c -->', '<![CDATA[x]]>', '<!--', '<!--<script>', '-->', '</styled', '</style\f>', '</script '];
 
 function generate(next: () => number, size: number): string {
   const pick = <T,>(list: readonly T[]): T => list[Math.floor(next() * list.length)]!;

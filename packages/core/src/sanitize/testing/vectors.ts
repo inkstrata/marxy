@@ -421,6 +421,50 @@ export const VECTORS: readonly Vector[] = [
     },
   },
   {
+    id: 'no-resurrected-raw-text',
+    why: 'text a parser keeps inside an element must not come out of the sanitiser as markup: a smuggled img makes the reader fetch a file the document never asked for',
+    // Every one of these is inert in WebKit and Chromium — the elements after the first tag are
+    // text, not markup, so the sanitiser must remove them with it. `plaintext` never ends at all,
+    // `listing` is parsed as markup like `pre`, and a `<script>` that has entered its escaped state
+    // keeps a `</script>` for itself. The sentinel is in the name: if `resurrected.png` reaches the
+    // output, the sanitiser built an element the browser would not have.
+    // `plaintext` comes last on purpose: nothing ends it, so everything after it is inside it in
+    // the engine's parse as well as in the removal, and a case written below it would check
+    // nothing. One sentinel per case for the same reason — two cases sharing a filename would let
+    // a resurrected image in one be excused by a legitimately live image in another.
+    probe: [
+      '<listing><b title="</listing>">smuggled</b><img src="resurrected-listing.png" alt="l">',
+      '',
+      '<script><!--<script>a</script><img src="resurrected-script.png" alt="s"></script>',
+      '',
+      '<plaintext>hidden</plaintext><img src="resurrected-plaintext.png" alt="p">',
+      '',
+    ].join('\n'),
+    // The same cases as HTML, because two of them cannot survive markdown: an end tag delimited by
+    // a form feed is not a tag to CommonMark, which escapes it into text the sanitiser then never
+    // sees as an end tag at all.
+    // Ordered by how much each one consumes, so that no case hides the next: the three that end
+    // where the engine ends them come first, and the one that never ends comes last.
+    probeHtml: [
+      '<xmp></xmp\f><img src="kept.png" alt="x">',
+      '<script><!--<script>a</script><img src="resurrected-script.png" alt="s"></script>',
+      '<listing><b title="</listing>">smuggled</b><img src="resurrected-listing.png" alt="l"></listing>',
+      '<plaintext>hidden</plaintext><img src="resurrected-plaintext.png" alt="p">',
+    ].join(''),
+    check: (html) => {
+      const raw = ['plaintext', 'listing', 'xmp', 'script', 'style', 'title', 'textarea', 'iframe', 'noembed', 'noframes', 'noscript'];
+      const present = elementsOf(html).filter((name) => raw.includes(name));
+      if (present.length > 0) fail('no-resurrected-raw-text', `found ${present.join(', ')}`);
+      for (const attribute of attributesOf(html)) {
+        for (const value of [attribute.raw, attribute.decoded]) {
+          if (value.includes('resurrected')) {
+            fail('no-resurrected-raw-text', `${attribute.element}[${attribute.name}] came out of a removed element as markup`);
+          }
+        }
+      }
+    },
+  },
+  {
     id: 'output-tree-is-balanced',
     why: 'an element left open swallows whatever the reader sees next, so the tree the sanitiser emits must be the tree it decided on',
     // A solidus on a non-void HTML element is ignored by every parser, so `<a href="…" />` opens an

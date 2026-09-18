@@ -140,7 +140,20 @@ test('a checkbox is the only input, and only as a checkbox', () => {
 });
 
 test('duplicate attributes resolve to the first, as the parser resolves them', () => {
+  // Both values valid, so the guard is what decides — with the earlier test alone, the second value
+  // was refused by the URL rule anyway and dropping the guard changed nothing.
+  assert.equal(clean('<a href="./a" href="./b">x</a>'), '<a href="./a">x</a>');
+  assert.equal(clean('<a href="./a" HREF="./b">x</a>'), '<a href="./a">x</a>');
   assert.equal(clean('<a href="./a" href="javascript:alert(1)">x</a>'), '<a href="./a">x</a>');
+});
+
+test('a control character inside a reference is refused rather than guessed at', () => {
+  // Not tab, newline or carriage return, which every parser deletes; these are the ones it would
+  // percent-encode, and a value whose meaning depends on that is not one to emit.
+  for (const href of ['./a\u0001b.png', './a\u007fb.png', './a\u0085b.png', './a\u009fb.png']) {
+    assert.equal(sanitizeUrl(href, 'link', DEFAULT_POLICY).allowed, false, `${JSON.stringify(href)} survived`);
+  }
+  assert.equal(clean('<img src="a\u0001b.png" alt="x">'), '<img alt="x" />');
 });
 
 test('lang and dir survive on anything, because the corpus has documents that need them', () => {
@@ -218,6 +231,23 @@ test('no rule in the policy may permit an attribute whose name begins with on', 
       assert.ok(!name.toLowerCase().startsWith('on'), `${element}[${name}] is an event handler`);
     }
   }
+});
+
+test('the raw-text names are exactly these nine, because each one changes how its end is found', () => {
+  // The parser reads these as text, so a `</name` inside a quoted attribute value really does end
+  // them — measured in both engines for all nine. Anything added here stops being parsed as markup
+  // and anything removed starts being, and either way the removal would end somewhere the browser
+  // does not. `listing` is deliberately absent: both engines parse it like `pre`.
+  assert.deepEqual([...RAW_TEXT_ELEMENTS].sort(), [
+    'iframe', 'noembed', 'noframes', 'noscript', 'plaintext', 'script', 'style', 'textarea', 'title', 'xmp',
+  ]);
+  assert.ok(!RAW_TEXT_ELEMENTS.has('listing'));
+});
+
+test('the foreign-content roots are exactly these two, because only there does a solidus close a tag', () => {
+  // Emptying this set makes `<svg/>` swallow the document (safe, but wrong), and adding to it makes
+  // a self-closed HTML element stop swallowing (not safe). Both directions need a decision here.
+  assert.deepEqual([...FOREIGN_ROOTS].sort(), ['math', 'svg']);
 });
 
 test('no element in either list changes what the parser does with the text inside it', () => {
