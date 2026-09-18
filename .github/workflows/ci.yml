@@ -119,6 +119,8 @@ jobs:
       MARXY_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci/marxy
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the budgets-unchanged step diffs against origin/main
       - uses: jdx/mise-action@v2
         with:
           cache: true
@@ -136,6 +138,7 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
           key: ci-profile
+          cache-on-failure: true   # a red perf gate must not throw away the compiled dependencies
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Rust format and clippy
         if: runner.os == 'Linux'
