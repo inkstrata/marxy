@@ -125,7 +125,48 @@ fn arm_paint_deadline(app: tauri::AppHandle, render: u64) {
     });
 }
 
+/// The deadline's state machine, checkable from outside: `marxy --paint-deadline-selftest` runs these
+/// cases and exits 0 or 1. It lives in the binary rather than in a `#[cfg(test)]` module because there
+/// is no second-document path to drive it through yet — the app renders once per launch — and because
+/// compiling a test harness for the Tauri dependency tree costs CI about two minutes for four
+/// assertions, while this costs the launch of an already-built binary.
+fn paint_deadline_selftest() -> i32 {
+    let mut failed: Vec<&str> = Vec::new();
+    let first = begin_render();
+    if !deadline_is_current(first) {
+        failed.push("a render that has not reported yet is still owed a paint");
+    }
+    settle_render();
+    if deadline_is_current(first) {
+        failed.push("a render that reported its paint is owed nothing");
+    }
+    // Fails if a render does not start a new wait: the first document's outcome would still be on
+    // record, the second document's deadline would never fire, and a launch that cannot paint would
+    // hang again — silently, because only a second render reveals it.
+    let second = begin_render();
+    if !deadline_is_current(second) {
+        failed.push("a second document must get a deadline of its own");
+    }
+    // Fails if that reset is a plain flag: the first document's thread is still sleeping, and waking to
+    // find "not reported" it would end the process over a paint that already happened.
+    if deadline_is_current(first) {
+        failed.push("a retired deadline must not fire against a later render");
+    }
+    for case in &failed {
+        println!("paint-deadline selftest failed: {case}");
+    }
+    if failed.is_empty() {
+        println!("paint-deadline selftest ok: 4 cases");
+        0
+    } else {
+        1
+    }
+}
+
 fn main() {
+    if std::env::args().any(|a| a == "--paint-deadline-selftest") {
+        std::process::exit(paint_deadline_selftest());
+    }
     mark("main_start", now_ms(), None);
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![args, read_file, write_file_atomic, mark_from_webview, startup_marks, quit])
@@ -133,28 +174,3 @@ fn main() {
         .expect("error while running marxy");
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// One test function, not several: the counters above are process-global and cargo runs test
-    /// functions on parallel threads, so the sequence has to be driven in one place.
-    #[test]
-    fn a_paint_deadline_speaks_only_for_the_render_it_was_armed_for() {
-        let first = begin_render();
-        assert!(deadline_is_current(first), "a render that has not reported yet is still owed a paint");
-
-        settle_render();
-        assert!(!deadline_is_current(first), "a render that reported its paint is owed nothing");
-
-        // Fails if a render does not start a new wait: the outcome of the first document would still be
-        // on record, the second document's deadline would never fire, and a launch that cannot paint
-        // would hang again — silently, because only a second render reveals it.
-        let second = begin_render();
-        assert!(deadline_is_current(second), "a second document must get a deadline of its own");
-
-        // Fails if that reset is a plain flag: the first document's thread is still sleeping, and waking
-        // to find "not reported" it would end the process over a paint that already happened.
-        assert!(!deadline_is_current(first), "a retired deadline must not fire against a later render");
-    }
-}

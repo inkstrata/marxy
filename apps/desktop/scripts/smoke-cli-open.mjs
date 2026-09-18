@@ -5,7 +5,7 @@
 // document with no text, and a document that cannot be read.
 // MARXY_SMOKE_REQUIRED=1 (set by the desktop build, and so by CI) makes every skip a failure instead:
 // an unbuilt binary, or an environment that delivers no animation frames at all.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -99,6 +99,14 @@ const report = (label, run) => {
   console.log(run.lines.join('\n') || '(no stdout)');
   if (run.stderr.trim()) console.log(`stderr: ${run.stderr.trim()}`);
 };
+
+// 0. The paint deadline's own state machine, run inside the binary because no launch renders twice yet.
+//    Without it the first story that shows a second document would lose the deadline and nothing would
+//    notice: see `paint_deadline_selftest` in src-tauri/src/main.rs.
+const selftest = spawnSync(bin, ['--paint-deadline-selftest'], { cwd: repoRoot, encoding: 'utf8' });
+console.log(`--- paint deadline selftest (exit ${selftest.status})`);
+console.log(selftest.stdout.trim() || '(no stdout)');
+check(selftest.status === 0, `the paint deadline selftest failed: ${selftest.stdout.trim()}`);
 
 // 1. The reader's case: open the corpus README.
 const digest = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
