@@ -9,12 +9,16 @@
 // from packages/core/src/parse/parse.test.ts). `--selftest` runs every rule over inline fixtures;
 // `--assert-budgets-unchanged <ref>` asserts no number the rules read has moved since <ref>.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { SELFTEST_CASE_NAMES as MEASURE_CASE_NAMES, MIN_WARM_RUNS } from './measure-startup.mjs';
 
 const METRICS = ['cold_start_first_text_ms', 'open_indexed_document_ms', 'palette_keystroke_ms', 'typeset_viewport_ms', 'live_reload_ms', 'find_first_match_ms'];
 const PARSE_METRIC = 'parse_long_technical_ms';
-const BASELINE_TOLERANCE = 1.1; // ADR-0022: a runner may drift 10 % before it is a regression.
+// ADR-0022 set 10 %; MARXY-83 widened it to 30 % after identical code measured 1901 ms and 2113 ms warm
+// on two macos-latest machines (11 % apart, webview initialisation being 95 % of each launch). A band
+// narrower than the runner population's spread gates on machine assignment, not on the code. The ×5
+// envelope still catches a real regression, and a breach is re-measured once before it fails.
+const BASELINE_TOLERANCE = 1.3;
 const ADR_MULTIPLIER_HEADROOM = 1.3; // ADR-0022: ceil(runner_median / product × 1.3).
 const COLD_ENFORCEMENT_STORY = 'MARXY-69';
 const CI_COLD_CEILING_STORY = 'MARXY-70';
@@ -50,9 +54,10 @@ export function mergeParseMeasurement(results, snapshot) {
   return { ...results, [PARSE_METRIC]: snapshot[PARSE_METRIC] };
 }
 
-// The one CI rule (ADR-0022): fail over the envelope or over baseline × 1.10. Every metric that has a
-// baseline goes through here, so a rule improved for one is improved for all. `label` names the
-// quantity in a failure, which is not always the key: the warm start is a median over named launches.
+// The one CI rule (ADR-0022, widened to 30 % by MARXY-83): fail over the envelope or over
+// baseline × 1.30. Every metric that has a baseline goes through here, so a rule improved for one
+// is improved for all. `label` names the quantity in a failure, which is not always the key: the
+// warm start is a median over named launches.
 function enforceTwoTier(out, fails, key, value, product, ciMetric, { label = key, required }) {
   if (value == null) {
     if (required) fails.push(`${key} missing from results/perf.json`);
@@ -66,7 +71,7 @@ function enforceTwoTier(out, fails, key, value, product, ciMetric, { label = key
   const baselineCeiling = ciMetric.baseline_ms == null ? Infinity : ciMetric.baseline_ms * BASELINE_TOLERANCE;
   const limit = Math.min(envelope, baselineCeiling);
   if (value > envelope) fails.push(`${label}: ${value} ms exceeds the envelope ${envelope} ms (product ${product} ms × ${ciMetric.multiplier}) by ${round(value - envelope)} ms`);
-  if (value > baselineCeiling) fails.push(`${label}: ${value} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${ciMetric.baseline_ms} ms + 10 %) by ${round(value - baselineCeiling)} ms`);
+  if (value > baselineCeiling) fails.push(`${label}: ${value} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${ciMetric.baseline_ms} ms + 30 %) by ${round(value - baselineCeiling)} ms`);
   if (value <= limit) out.push(`${key}: ${value} ms ≤ ${round(limit)} ms (min of envelope ${envelope} ms and baseline ceiling ${round(baselineCeiling)} ms)`);
 }
 
@@ -214,7 +219,7 @@ const referenceResult = (over = {}) => result({ env_class: 'reference', runner_c
 const MARXY_55_CASE_NAMES = [
   'ci: inside both rules passes',
   'ci: above the envelope fails',
-  'ci: 11 % above the baseline fails even far below the envelope',
+  'ci: 31 % above the baseline fails even far below the envelope',
   'reference: 501 ms fails the product budget',
   'reference: missing results fails',
   'reference: results measured in ci mode fails',
@@ -227,14 +232,14 @@ const has = (fails, re) => fails.some(f => re.test(f));
 const SELFTEST_CASES = [
   { name: 'ci: inside both rules passes', envClass: 'ci', results: result(), expect: 0 },
   { name: 'ci: above the envelope fails', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_500 }), expect: 1, assert: f => has(f, /exceeds the envelope 10000 ms/) },
-  { name: 'ci: 11 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ warm_start_first_text_ms: 8568 }), expect: 1, assert: f => has(f, /exceeds the baseline ceiling 8490.9 ms/) },
+  { name: 'ci: 31 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ runner_class: 'macos-latest', warm_start_first_text_ms: 2490 }), expect: 1, assert: f => has(f, /exceeds the baseline ceiling 2471.3 ms/) },
   { name: 'reference: 501 ms fails the product budget', envClass: 'reference', results: referenceResult({ warm_start_first_text_ms: 501 }), expect: 1, assert: f => has(f, /501 ms > 500 ms \(product budget\)/) },
   { name: 'reference: missing results fails', envClass: 'reference', results: null, expect: 1 },
   { name: 'reference: results measured in ci mode fails', envClass: 'reference', results: result({ warm_start_first_text_ms: 400 }), expect: 1, assert: f => has(f, /env_class is ci, expected reference/) },
   { name: 'ci: unknown runner class fails', envClass: 'ci', results: result({ runner_class: 'windows-latest' }), expect: 1 },
   { name: 'ci: a null baseline still enforces the envelope', envClass: 'ci', results: result({ runner_class: 'no-baseline', warm_start_first_text_ms: 2600 }), expect: 1, assert: f => has(f, /exceeds the envelope 2500 ms/) },
   { name: 'ci: a null baseline passes under the envelope', envClass: 'ci', results: result({ runner_class: 'no-baseline', warm_start_first_text_ms: 2400 }), expect: 0 },
-  { name: 'ci: the rule names the quantity it gates as a warm start', envClass: 'ci', results: result({ warm_start_first_text_ms: 8568 }), expect: 1, assert: f => has(f, /warm_start_first_text_ms \(median of launches 2\.\.9\)/) },
+  { name: 'ci: the rule names the quantity it gates as a warm start', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_100 }), expect: 1, assert: f => has(f, /warm_start_first_text_ms \(median of launches 2\.\.9\)/) },
   { name: 'ci: usable_runs below runs_n fails', envClass: 'ci', results: result({ usable_runs: 1 }), expect: 1, assert: f => has(f, /only 1 of 9 launches produced a first_text mark/) },
   { name: 'reference: usable_runs below runs_n fails', envClass: 'reference', results: referenceResult({ usable_runs: 0, runs: [] }), expect: 1, assert: f => has(f, /of 9 launches produced a first_text mark/) },
   { name: 'ci: a missing cold_start_first_text_ms fails', envClass: 'ci', results: result({ cold_start_first_text_ms: null }), expect: 1, assert: f => has(f, /cold_start_first_text_ms is absent/) },
@@ -246,10 +251,10 @@ const SELFTEST_CASES = [
   { name: 'reference: a warm median under the product budget still fails, naming the story that restores enforcement', envClass: 'reference', results: referenceResult(), expect: 1, assert: f => has(f, /not currently enforceable/) && has(f, /MARXY-69/) },
   { name: 'ci: the cold metric is recorded and printed but held to no ceiling', envClass: 'ci', results: result({ cold_start_first_text_ms: 99_000 }), expect: 0, assertOut: o => o.some(l => /cold start \(launch 1/.test(l) && /99000 ms/.test(l) && /MARXY-70/.test(l)) },
   // parse_long_technical_ms goes through the same rule as the warm start: envelope 10 × 3 = 30 ms,
-  // baseline ceiling 20 × 1.10 = 22 ms, and required to be present.
-  { name: 'ci: parse inside both rules passes', envClass: 'ci', results: result({ parse_long_technical_ms: 18 }), expect: 0, assertOut: o => o.some(l => /^parse_long_technical_ms: 18 ms ≤ 22 ms/.test(l)) },
+  // baseline ceiling 20 × 1.30 = 26 ms, and required to be present.
+  { name: 'ci: parse inside both rules passes', envClass: 'ci', results: result({ parse_long_technical_ms: 18 }), expect: 0, assertOut: o => o.some(l => /^parse_long_technical_ms: 18 ms ≤ 26 ms/.test(l)) },
   { name: 'ci: parse above the envelope fails', envClass: 'ci', results: result({ parse_long_technical_ms: 31 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 31 ms exceeds the envelope 30 ms/) },
-  { name: 'ci: parse 11 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ parse_long_technical_ms: 23 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 23 ms exceeds the baseline ceiling 22 ms/) },
+  { name: 'ci: parse 31 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ parse_long_technical_ms: 27 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 27 ms exceeds the baseline ceiling 26 ms/) },
   { name: 'ci: a missing parse measurement fails', envClass: 'ci', results: result({ parse_long_technical_ms: null }), expect: 1, assert: f => has(f, /^parse_long_technical_ms missing from results\/perf\.json$/) },
   { name: 'ci: parse with no entry for the runner class fails', envClass: 'ci', results: result({ runner_class: 'macos-latest' }), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'macos-latest': { multiplier: 5, baseline_ms: 1901 } } }, expect: 1, assert: f => has(f, /parse_long_technical_ms: no ci entry for this runner class/) },
   { name: 'reference: parse over the product budget fails', envClass: 'reference', results: referenceResult({ parse_long_technical_ms: 11 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 11 ms > 10 ms \(product budget\)/) },
@@ -259,7 +264,7 @@ const SELFTEST_CASES = [
 const MARXY_59_CASE_NAMES = [
   'ci: parse inside both rules passes',
   'ci: parse above the envelope fails',
-  'ci: parse 11 % above the baseline fails even far below the envelope',
+  'ci: parse 31 % above the baseline fails even far below the envelope',
   'ci: a missing parse measurement fails',
   'reference: parse over the product budget fails',
 ];
@@ -386,7 +391,23 @@ const raw = existsSync(resultsPath) ? JSON.parse(readFileSync(resultsPath, 'utf8
 const snapshot = existsSync(parseSnapshotPath) ? JSON.parse(readFileSync(parseSnapshotPath, 'utf8')) : null;
 const results = mergeParseMeasurement(raw, snapshot);
 console.log(`perf gate: ${envClass} mode`);
-const { ok, out, fails } = evaluate({ envClass, budgets, results, runnerClass: process.env.MARXY_RUNNER_CLASS || undefined });
-for (const line of out) console.log(line);
-if (!ok) { console.error('perf gate failed:\n - ' + fails.join('\n - ')); process.exit(1); }
-console.log('perf gate ok');
+const runnerClass = process.env.MARXY_RUNNER_CLASS || undefined;
+let verdict = evaluate({ envClass, budgets, results, runnerClass });
+for (const line of verdict.out) console.log(line);
+// A shared runner's noise is one-sided and transient: a single warm median over the envelope or the
+// baseline ceiling is confirmed by measuring once more before it fails the job. Only those two rules
+// earn a second look; a record that is insufficient, or a reference-tier breach, fails at once.
+const onlyBreach = verdict.fails.length > 0 && verdict.fails.every(f => /exceeds the (envelope|baseline ceiling)/.test(f));
+if (!verdict.ok && envClass === 'ci' && onlyBreach && results && !results.confirmed) {
+  console.log(`::warning::perf gate: ${verdict.fails.join('; ')} — re-measuring once to confirm`);
+  const m = await import('./measure-startup.mjs');
+  const launches = await m.measureLaunches({ log: console.log });
+  const again = { ...m.perfRecord(m.summarise(launches), { envClass, runnerClass, launches }), confirmed: true, first_attempt: { warm_start_first_text_ms: results.warm_start_first_text_ms, cold_start_first_text_ms: results.cold_start_first_text_ms } };
+  writeFileSync(resultsPath, JSON.stringify(again, null, 2) + '\n');
+  // measure-startup replaces the file; merge the parse snapshot back so required:true does not
+  // fail the confirmation for a metric the re-measure never re-ran.
+  verdict = evaluate({ envClass, budgets, results: mergeParseMeasurement(again, snapshot), runnerClass });
+  for (const line of verdict.out) console.log(`(confirmation) ${line}`);
+}
+if (!verdict.ok) { console.error('perf gate failed:\n - ' + verdict.fails.join('\n - ')); process.exit(1); }
+console.log(`perf gate ok${results?.confirmed ? ' (after one confirming re-measure)' : ''}`);

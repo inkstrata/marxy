@@ -49,3 +49,12 @@ argument kept, as the brainstorm's own log does.
 
 MIT (D18), two modes (D15), no plugin API, no telemetry, byte fidelity, macOS + Linux at
 parity, the six design constraints and the type scale, the theme security posture.
+
+
+## Design-pass decisions, 2026-09-18
+
+Nineteen technical decisions (D-A1…D-A19) are recorded in
+[`docs/design/00-architecture.md`](design/00-architecture.md) with their elaboration in the
+numbered design documents; ADR-0023 records the one that changes a contract's neighbourhood
+(provenance in the DOM). The rag research (MARXY-19) narrowed ADR-0007's claim to "measurably
+better on four properties"; the ADR stands and the Phase 1 review is the test.

@@ -23,3 +23,15 @@ ADR or criterion it rests on and what evidence would resolve it. Also check the 
 with a plain-language Summary and keeps agent detail inside `<details>`; a PR that opens with
 machine detail is returned with `nitpick (non-blocking)` unless the Summary is missing
 entirely, which is `blocking`.
+
+## After you decide
+
+- **merge** — write `orchestration/results/KEY.approved` with the notes (the judgement that
+  the diff satisfies the story). Sign it: `node orchestration/approve.mjs KEY`. Do not merge
+  the PR and do not leave unresolved GitHub review threads. `cycle.mjs` lands it once the
+  rest of the quality bar in `docs/sdlc.md` is green, or enables GitHub auto-merge if only
+  CI is still running.
+- **return** — write `orchestration/results/KEY.notes.md`. Do not write `KEY.approved`.
+- **escalate** — write the notes; do not write `KEY.approved`.
+
+You are not the implementor of this story. Never sign an approval for work you implemented.

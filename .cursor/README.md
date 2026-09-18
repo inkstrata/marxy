@@ -8,5 +8,7 @@
 - `environment.json` — background-agent environment (mise + pnpm). Fill `snapshot` from
   Cursor's settings if you use cloud background agents.
 
-Model ids in `agents/*.md` and `orchestration/models.json` must match Cursor's picker; verify
-once and edit both.
+Model ids in `agents/*.md` are the **default** compute profile (Opus medium, Grok 4.6 High
+Fast). `orchestration/models.json` also has `low` (Sonnet 5 medium + Grok) and `minimal`
+(Grok only). When compute is not `default`, the orchestrator passes the role's `inApp` model
+instead of the frontmatter default. Verify ids against the picker once and edit both.
