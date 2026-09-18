@@ -59,11 +59,14 @@ for (const [key, rec] of Object.entries(s.stories)) {
   ].filter(Boolean);
   if (why.length) { held.push(`${key}: PR #${rec.pr} held — ${why.join('; ')}`); continue; }
   if (NO_MERGE || DRY) { held.push(`${key}: PR #${rec.pr} is mergeable and clean (not merging: ${NO_MERGE ? '--no-merge' : '--dry-run'})`); continue; }
+  // The worktree goes first: while it exists it holds the branch checked out, and gh reports the
+  // whole merge as failed when only the branch deletion did.
+  if (rec.worktree) { sh('git', ['worktree', 'remove', '--force', rec.worktree]); sh('git', ['branch', '-D', pr.headRefName]); }
   const merged = sh('gh', ['pr', 'merge', String(rec.pr), '--squash', '--delete-branch']);
-  if (typeof merged !== 'string') { held.push(`${key}: merge failed — ${merged.error.split('\n')[0]}`); continue; }
+  const landed = typeof merged === 'string' || (gh(['pr', 'view', String(rec.pr), '--json', 'state', '-q', '.state']) ?? '') === 'MERGED';
+  if (!landed) { held.push(`${key}: merge failed — ${merged.error.split('\n')[0]}`); continue; }
   say(`merged ${key} (PR #${rec.pr})`);
   node([here('state.mjs'), 'done', key]);
-  if (rec.worktree && existsSync(`${ROOT}${rec.worktree.replace(/^\.\.\//, '../')}`)) sh('git', ['worktree', 'remove', '--force', rec.worktree]);
 }
 held.forEach(say);
 
