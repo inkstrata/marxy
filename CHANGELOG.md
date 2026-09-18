@@ -24,6 +24,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Taste review #0: the long corpus document set in both candidate typeface pairs at the type scale and a 68ch measure, for the decision that settles ADR-0015 (MARXY-17)
 - Saving a document puts back exactly the bytes it had: a byte-order mark, Windows line endings and a missing final newline all survive, the file is replaced by a rename rather than written in place so a crash cannot truncate it, its permissions are kept, and marxy refuses rather than silently changing a read-only, hard-linked or someone else's file (MARXY-14)
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
+- The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
@@ -36,6 +37,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
 ### Changed
+- Opening a document now goes through the one parse in `@marxy/core`; markdown-it and DOMPurify are gone from the desktop and the gate harnesses (MARXY-61)
 - Dispatch is uncapped: path overlap is the only parallelism limit, so returned PRs no longer sit idle waiting for a free lane
 - CI is faster and steadier: parallel jobs with cached Rust, pnpm, apt and browsers, docs-only changes skip the build, a thin-LTO CI build profile, timeouts on every job, one required status check, and perf breaches re-measured once before they fail (MARXY-83)
 - Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)
