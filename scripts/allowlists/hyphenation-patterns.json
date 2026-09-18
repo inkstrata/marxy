@@ -1,1 +1,7 @@
-{ "note": "Hyphenation pattern allow-list (ADR-0006). justif bundles TeX patterns whose module headers carry their own licences; ship only these until each is audited.", "languages": ["en-us", "en-gb"] }
+{
+  "note": "Hyphenation pattern allow-list (ADR-0006). Each TeX pattern file carries its own licence in its header; the licence below was read from that header. Ship only these until another is audited. scripts/gate-licences.mjs fails if any entry is missing a licence or carries a copyleft one — the LPPL patterns in hyph-utf8 must never be added.",
+  "languages": [
+    { "id": "en-us", "licence": "FSFAP", "source": "https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-en-us.tex" },
+    { "id": "en-gb", "licence": "MIT", "source": "https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-en-gb.tex" }
+  ]
+}

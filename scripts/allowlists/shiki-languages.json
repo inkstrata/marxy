@@ -1,4 +1,34 @@
 {
-  "note": "Grammar allow-list (ADR-0006). Only languages whose TextMate grammar licence is MIT, Apache-2.0, BSD or MPL-2.0. Verify each entry's licence in node_modules/@shikijs/langs/dist/<lang>.mjs header before adding. Known GPL-3.0 in Shiki's pack: ada, gnuplot, nginx, racket — never add.",
-  "languages": ["bash", "shellscript", "c", "cpp", "css", "diff", "dockerfile", "go", "html", "ini", "java", "javascript", "json", "jsonc", "kotlin", "markdown", "python", "rust", "sql", "swift", "toml", "typescript", "tsx", "yaml", "xml"]
+  "note": "Grammar allow-list (ADR-0006). Every entry records the licence of the TextMate grammar Shiki ships for it, read from the grammar's upstream source. Only MIT, Apache-2.0, BSD, MPL-2.0 and the permissive TextMate bundle licence may be listed; Shiki's pack also contains GPL-3.0 grammars (ada, gnuplot, nginx, racket) which must never be added. scripts/gate-licences.mjs fails if any entry is missing a licence or carries a copyleft one.",
+  "licenceRefs": {
+    "LicenseRef-TextMate-Bundle": "The TextMate bundle licence: 'Permission to copy, use, modify, sell and distribute this software is granted. This software is provided \"as is\" without express or implied warranty, and with no claim as to its suitability for any purpose.' Permissive, no copyleft, no SPDX identifier."
+  },
+  "languages": [
+    { "id": "bash", "grammar": "shellscript", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/shellscript/syntaxes/shell-unix-bash.tmLanguage.json" },
+    { "id": "shellscript", "grammar": "shellscript", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/shellscript/syntaxes/shell-unix-bash.tmLanguage.json" },
+    { "id": "c", "grammar": "c", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/cpp/syntaxes/c.tmLanguage.json" },
+    { "id": "cpp", "grammar": "cpp", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/cpp/syntaxes/cpp.tmLanguage.json" },
+    { "id": "css", "grammar": "css", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/css/syntaxes/css.tmLanguage.json" },
+    { "id": "diff", "grammar": "diff", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/diff/syntaxes/diff.tmLanguage.json" },
+    { "id": "dockerfile", "grammar": "docker", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/docker/syntaxes/docker.tmLanguage.json" },
+    { "id": "go", "grammar": "go", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/go/syntaxes/go.tmLanguage.json" },
+    { "id": "html", "grammar": "html", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/html/syntaxes/html.tmLanguage.json" },
+    { "id": "ini", "grammar": "ini", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/ini/syntaxes/ini.tmLanguage.json" },
+    { "id": "java", "grammar": "java", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/java/syntaxes/java.tmLanguage.json" },
+    { "id": "javascript", "grammar": "javascript", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/javascript/syntaxes/JavaScript.tmLanguage.json" },
+    { "id": "json", "grammar": "json", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/json/syntaxes/JSON.tmLanguage.json" },
+    { "id": "jsonc", "grammar": "jsonc", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/json/syntaxes/JSONC.tmLanguage.json" },
+    { "id": "kotlin", "grammar": "kotlin", "licence": "MIT", "source": "https://github.com/fwcd/vscode-kotlin/blob/main/syntaxes/kotlin.tmLanguage.json" },
+    { "id": "markdown", "grammar": "markdown", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/markdown-basics/syntaxes/markdown.tmLanguage.json" },
+    { "id": "python", "grammar": "python", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/python/syntaxes/MagicPython.tmLanguage.json" },
+    { "id": "rust", "grammar": "rust", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/rust/syntaxes/rust.tmLanguage.json" },
+    { "id": "sql", "grammar": "sql", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/sql/syntaxes/sql.tmLanguage.json" },
+    { "id": "swift", "grammar": "swift", "licence": "MIT", "source": "https://github.com/jtbandes/swift-tmlanguage/blob/main/Swift.tmLanguage.yaml" },
+    { "id": "toml", "grammar": "toml", "licence": "LicenseRef-TextMate-Bundle", "source": "https://github.com/textmate/toml.tmbundle/blob/master/README.mdown#license" },
+    { "id": "typescript", "grammar": "typescript", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/typescript-basics/syntaxes/TypeScript.tmLanguage.json" },
+    { "id": "tsx", "grammar": "tsx", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/typescript-basics/syntaxes/TypeScriptReact.tmLanguage.json" },
+    { "id": "yaml", "grammar": "yaml", "licence": "LicenseRef-TextMate-Bundle", "source": "https://github.com/textmate/yaml.tmbundle/blob/master/README.mdown#license" },
+    { "id": "xml", "grammar": "xml", "licence": "MIT", "source": "https://github.com/microsoft/vscode/blob/main/extensions/xml/syntaxes/xml.tmLanguage.json" }
+  ],
+  "forbiddenGrammars": ["ada", "gnuplot", "nginx", "racket"]
 }
