@@ -40,6 +40,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Changed
 - Opening a document now goes through the one parse in `@marxy/core`; markdown-it and DOMPurify are gone from the desktop and the gate harnesses (MARXY-61)
+- Importing the parser no longer pulls in a maths renderer; documents with equations still parse the same (MARXY-60)
 - Dispatch is uncapped: path overlap is the only parallelism limit, so returned PRs no longer sit idle waiting for a free lane
 - CI is faster and steadier: parallel jobs with cached Rust, pnpm, apt and browsers, docs-only changes skip the build, a thin-LTO CI build profile, timeouts on every job, one required status check, and perf breaches re-measured once before they fail (MARXY-83)
 - Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)
