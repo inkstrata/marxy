@@ -1,4 +1,4 @@
-/** Typesetting contract (ADR-0007). The implementation lands in Phase 1 (MARXY-020..024). */
+/** Typesetting contract (ADR-0007). The implementation lands in Phase 1 (MARXY-20..024). */
 export interface TypesetOptions {
   readonly justify: boolean;            /* default false: ragged-right through the same breaker */
   readonly hyphenate: boolean;
