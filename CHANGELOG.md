@@ -19,6 +19,9 @@ tag time. Conventions in `docs/conventions.md`.
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
+### Fixed
+- `pnpm build` no longer fails on a machine whose display is asleep; the smoke check skips with the environment named, and CI still requires a real paint (MARXY-72)
+
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
