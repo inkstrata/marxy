@@ -1,0 +1,6 @@
+* text=auto eol=lf
+fixtures/corpus/** -text
+fonts/** binary
+*.ttf binary
+*.png binary
+docs/plan/jira-issues.csv -text
