@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo ok",
-    "test": "echo 'lands with MARXY-020'"
+    "test": "echo 'lands with MARXY-20'"
   },
   "dependencies": {
     "justif": "^0.9.1"
