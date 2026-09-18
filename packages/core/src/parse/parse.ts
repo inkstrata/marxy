@@ -76,16 +76,17 @@ function syntax(options: ParseOptions): Syntax {
  * Drops the tree transforms from a set of mdast extensions, keeping their token handlers.
  *
  * GFM's autolink-literal extension carries one: a `findAndReplace` pass that rewrites a paragraph's
- * inline children to linkify candidates micromark's own scanner could not match, which is those
- * containing a backslash escape or a character reference — `x <a\.b@c.example> y`. That pass rebuilds
- * the children *without* position data, so every inline node in the paragraph loses its provenance,
- * and a parser that filled the gap with a default would point them at the top of the file. ADR-0003
- * makes provenance structural, so the pass has to go rather than be compensated for.
+ * inline children to linkify candidates micromark's own scanner could not match — `x <a\.b@c.example>
+ * y`. That pass rebuilds the children *without* position data, so every inline node in the paragraph
+ * loses its provenance, and a parser that filled the gap with a default would point them at the top
+ * of the file. ADR-0003 makes provenance structural, so the pass has to go rather than be compensated
+ * for.
  *
- * What this costs is narrow and visible: an autolink candidate written with an escape inside it stays
- * literal text. Every candidate micromark can scan — `https://x.com`, `www.x.com`, `a@b.com` — still
- * becomes a link, because the token handlers that build those are untouched and they position every
- * node they emit. What it buys is that no node reaches `from-mdast.ts` without offsets.
+ * What this costs was measured by diffing the link nodes of 39 autolink inputs parsed both ways
+ * (ADR-0021): a candidate stops linkifying only when an escape or a character reference falls in the
+ * part that identifies it to the scanner, which is a bare email's address or a `www.` host. Escapes
+ * and references in a path or query are unaffected, and every `http(s)://` form is unaffected because
+ * the scheme anchors the scan. What it buys is that no node reaches `from-mdast.ts` without offsets.
  */
 function withoutTransforms(extensions: MdastExtension[]): MdastExtension[] {
   return extensions.map((extension) => {

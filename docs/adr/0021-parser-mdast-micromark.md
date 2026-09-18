@@ -46,12 +46,24 @@ reads a file the developer fetches. Matching the reference implementation at all
 been possible from line-level block positions.
 
 One caveat the implementation had to resolve: `mdast-util-gfm-autolink-literal` ships a tree
-transform that rewrites a paragraph's inline children to linkify candidates micromark's scanner
-cannot match, which is those containing a backslash escape, and it rebuilds them without positions.
-`packages/core` drops that transform and keeps the extension's token handlers, so every node it
-emits carries offsets; a candidate written with an escape inside it stays literal text, which is the
-price of ADR-0003 being structural rather than best-effort. A node that reaches the converter without
-a position is refused with an error, never given a default offset.
+transform that rewrites a paragraph's inline children to linkify candidates micromark's own scanner
+cannot match, and it rebuilds them without positions, so every inline node in that paragraph loses
+its provenance. `packages/core` drops that one transform and keeps the extension's token handlers,
+so every node it emits carries offsets, and a node that reaches the converter without a position is
+refused with an error rather than given a default one.
+
+The cost of dropping it was measured, not estimated: 39 autolink inputs covering bare emails, `www.`
+hosts and `http(s)://` URLs, each with a backslash escape or a character reference placed in the
+host, the address, the path and the query, were parsed twice — with the transform and without — and
+the resulting `link` nodes diffed. Three classes lose their link and keep their exact bytes as text:
+a bare email with a backslash escape anywhere in it, a bare email with a character reference after
+the `@`, and a `www.` candidate whose escape or character reference falls inside the `www.` host.
+Everything else is byte-for-byte identical, including every `http(s)://` form tested, because the
+scheme is what anchors micromark's scanner; an escape or reference in the path or query of a `www.`
+candidate; and a character reference before the `@` of an email. The rule behind the three is that
+the candidate loses its link only when the escape or reference falls in the part that identifies it
+to the scanner. That is the price of ADR-0003 being structural rather than best-effort, and it is
+smaller than "escaped candidates stop linkifying" would suggest.
 
 ## Consequences
 - Parse cost moves onto the Phase 2 cold-start waterfall (MARXY-030) as a measured number. If

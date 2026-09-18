@@ -98,7 +98,9 @@ function isJustTheCode(content: string, value: string): boolean {
   const valueLines = value === '' ? [] : splitLines(value);
   if (lines.length !== valueLines.length) return false;
   // A content line may still carry its container's markers (`> `) and the indentation micromark
-  // stripped; what must match is the code after them.
+  // stripped; what must match is the code after them. Stripping both sides means a content range that
+  // had swallowed a `> ` marker would pass this comparison; the line count above and the opening-fence
+  // check in the caller bound how far a range can be wrong before one of them catches it.
   const strip = (line: string) => line.replace(/^[ \t>]*/, '');
   return valueLines.every((expected, index) => strip(lines[index]!) === strip(expected));
 }
