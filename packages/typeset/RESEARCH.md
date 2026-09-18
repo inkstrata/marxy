@@ -63,15 +63,14 @@ SHA-256 of its bundle, which the script checks on every run and refuses to proce
   measurement unless every one is permissive.
 
 Font advances come from a 127-line TrueType reader in `scripts/font-metrics.mjs`. **This paragraph is
-the one load-bearing claim in this note that you cannot re-run from this repository**: the reader's
-own values are checked by `--selftest` against a hex dump of the file, but the comparison below was
-made by hand in a browser and nothing in the harness re-checks it. Treat it as testimony, not as a
-gate. It was validated
-against Chromium's own layout of the same strings from the same file: with `font-kerning: none` and
-ligatures off the agreement is exact to every decimal printed, including a 43-character line. With
-kerning and ligatures on, the reader runs 0.6–1.7% wide (0.35 em over that same line). That bias is
-systematic and identical for all three engines, so it cannot move the ranking; it does mean every
-shortfall here is a fraction of a character pessimistic.
+the one load-bearing claim in the note that you cannot re-run from this repository**: the reader's own
+values are checked by `--selftest` against a hex dump of the file, but the browser comparison that
+follows was made by hand and nothing in the harness re-checks it, so read it as testimony rather than
+as a gate. The reader was validated against Chromium's own layout of the same strings from the same
+file: with `font-kerning: none` and ligatures off the agreement is exact to every decimal printed,
+including a 43-character line. With kerning and ligatures on, the reader runs 0.6–1.7% wide (0.35 em
+over that same line). That bias is systematic and identical for all three engines, so it cannot move
+the ranking; it does mean every shortfall here is a fraction of a character pessimistic.
 
 ## Results
 
