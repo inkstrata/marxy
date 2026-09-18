@@ -68,6 +68,8 @@
     "MARXY-NEW-cold-start-reference-enforcement": "MARXY-69",
     "MARXY-NEW-perf-ci-cold-envelope-and-cross-run-tolerance": "MARXY-70",
     "MARXY-NEW-paint-signal": "MARXY-71",
-    "MARXY-NEW-build-without-a-display": "MARXY-72"
+    "MARXY-NEW-build-without-a-display": "MARXY-72",
+    "MARXY-NEW-hostile-fixture-vectors": "MARXY-73",
+    "MARXY-NEW-fidelity-gate-home": "MARXY-77"
   }
 }

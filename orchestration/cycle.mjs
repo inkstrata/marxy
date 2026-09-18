@@ -2,14 +2,18 @@
 // requests that are provably finished, say what should be dispatched next, ask whether the
 // planner is due, and write the status report. Everything a machine can decide, it decides;
 // everything else it names. usage: node orchestration/cycle.mjs [--no-merge] [--dry-run]
+// [--low|--minimal|--compute=default|low|minimal]
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { ROOT, here, readJson, stories, state, saveState, models, pathsOf } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const NO_MERGE = args.includes('--no-merge'), DRY = args.includes('--dry-run');
+const m = models();
+process.env.MARXY_COMPUTE = m.compute;
 const log = [];
-const say = m => { console.log(m); log.push(m); };
+const say = line => { console.log(line); log.push(line); };
+say(`compute: ${m.compute} — orchestrator ${m.orchestrator.model} ${m.orchestrator.effort}; implementor ${m.implementor.model} ${m.implementor.effort}`);
 const sh = (cmd, a, opts = {}) => { try { return execFileSync(cmd, a, { cwd: ROOT, encoding: 'utf8', ...opts }).trim(); } catch (e) { return { error: (e.stdout ?? '') + (e.stderr ?? e.message) }; } };
 const gh = a => { const r = sh('gh', a); return typeof r === 'string' ? r : null; };
 const node = a => spawnSync(process.execPath, a, { cwd: ROOT, encoding: 'utf8' });
@@ -59,6 +63,9 @@ for (const [key, rec] of Object.entries(s.stories)) {
     !files.length && 'could not compute the branch diff, so no boundary check ran',
     trailer && 'an attribution trailer is in a commit message (AGENTS.md)',
     pr.mergeable === 'CONFLICTING' && 'conflicts with main',
+    // No checks at all is ignorance, not a clean bill: a PR that conflicts with main gets no check
+    // suite created here, so the rollup is empty rather than red and would otherwise read as green.
+    !checks.length && 'no checks have run at all (a PR in conflict never gets a check suite)',
     red.length && `red: ${red.map(c => c.name).join(', ')}`,
     pending.length && `pending: ${pending.map(c => c.name).join(', ')}`,
     pr.reviewDecision === 'CHANGES_REQUESTED' && 'changes requested',
@@ -95,7 +102,8 @@ if (ready.ready.length && hasCli && !DRY) {
   say(`dispatching ${ready.ready.map(r => r.key).join(' ')} headlessly`);
   node([here('dispatch.mjs'), ...ready.ready.map(r => r.key)]);
 } else if (ready.ready.length) {
-  say(`dispatch ${ready.ready.length} story(ies) into ${ready.lanesFree} free lane(s): ${ready.ready.map(r => r.key).join(' ')}` + (hasCli ? '' : ' (cursor-agent absent: dispatch as in-app implementor subagents)'));
+  const laneNote = ready.lanes === 'uncapped' || ready.lanesFree == null ? 'uncapped lanes' : `${ready.lanesFree} free lane(s)`;
+  say(`dispatch ${ready.ready.length} story(ies) into ${laneNote}: ${ready.ready.map(r => r.key).join(' ')}` + (hasCli ? '' : ' (cursor-agent absent: dispatch as in-app implementor subagents)'));
 } else {
   say(`no story ready; ${ready.inProgress.length} in progress (${ready.inProgress.join(', ') || 'none'})`);
 }
@@ -110,7 +118,7 @@ for (const [k, v] of Object.entries(state().stories)) (byStatus[v.status] ??= []
 const human = existsSync(here('needs-human.md')) ? readFileSync(here('needs-human.md'), 'utf8').split('\n').filter(l => l.startsWith('- [ ]')).length : 0;
 writeFileSync(here('status.md'), `# Status — ${new Date().toISOString()}
 
-Written by \`orchestration/cycle.mjs\`. ${human} open item(s) in \`needs-human.md\`.
+Written by \`orchestration/cycle.mjs\`. Compute mode **${m.compute}**. ${human} open item(s) in \`needs-human.md\`.
 
 ## Board
 

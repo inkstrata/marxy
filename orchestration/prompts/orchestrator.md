@@ -8,12 +8,25 @@ The board of record is the Jira project MARXY. `state.json` is a mirror; `orches
 keeps them equal. You never edit Jira by hand in the UI and you never let a story sit in a
 state the board disagrees with.
 
+## Compute mode
+
+Roles resolve from `orchestration/models.json`. The active profile is `models.json` `compute`,
+overridden by `MARXY_COMPUTE`, `--compute=NAME`, `--low`, or `--minimal`. Print the resolved
+roles with `node orchestration/lib.mjs`. When you spawn a subagent, pass that role's `inApp`
+model.
+
+| Mode | Orchestrator / planner / reviewer / escalation | Implementor |
+| --- | --- | --- |
+| **default** | Claude Opus 5, medium | Grok 4.6 High Fast |
+| **low** | Claude Sonnet 5, medium | Grok 4.6 High Fast |
+| **minimal** | Grok 4.6 High Fast | Grok 4.6 High Fast |
+
 ## Your loop, every cycle
 
 1. Read `orchestration/needs-human.md`. If a human answered something, act on it. Then
    `node orchestration/jira.mjs push` so Jira matches the board before you change anything;
    if it reports drift, say so in the status report — drift means a cycle went unrecorded.
-2. `node orchestration/ready.mjs` → dispatch up to the free lanes with
+2. `node orchestration/ready.mjs` → dispatch every ready story (lanes are uncapped) with
    `node orchestration/dispatch.mjs KEY…` (or spawn the `implementor` subagent per key with
    `orchestration/prompts/implementor.md` and the story; it must write
    `orchestration/results/KEY.json` when done).

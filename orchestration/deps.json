@@ -48,7 +48,9 @@
       "MARXY-69",
       "MARXY-70",
       "MARXY-71",
-      "MARXY-72"
+      "MARXY-72",
+      "MARXY-73",
+      "MARXY-77"
     ],
     "2": [
       "MARXY-33",
@@ -271,6 +273,12 @@
     ],
     "MARXY-72": [
       "MARXY-13"
+    ],
+    "MARXY-73": [
+      "MARXY-12"
+    ],
+    "MARXY-77": [
+      "MARXY-14"
     ]
   },
   "research": {

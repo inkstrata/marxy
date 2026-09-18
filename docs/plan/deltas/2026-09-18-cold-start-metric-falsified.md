@@ -366,3 +366,43 @@ a slow application, so a timeout tuned without knowing this will either kill lau
 succeeded or wait long enough to hide a real hang. Whatever cold-launch procedure MARXY-63 settles on
 should record enough context to tell "the OS suspended us" apart from "startup was slow", and the same
 question is worth asking about `ubuntu-latest`, where seven of eight launches emit no mark at all.
+
+## Addendum: four runs of byte-identical code on macos-latest
+
+From MARXY-13, which re-ran rather than touching anything: 836, 944, 1559 and 2206 ms on trees whose
+`git diff-tree` is empty, with the baseline at 1901 ms sitting inside that spread. The 2206 ms run failed
+the 2091 ms ceiling; the 944 ms run that preceded it passed by a wide margin. This is a 2.6x spread with
+the baseline in the middle of it, which is the cleanest possible statement that the current rule cannot
+distinguish a regression from a runner. Together with PR #7's 2097-then-871 pair, there are now two
+independent same-code demonstrations, from two stories that had no interest in the perf gate.
+
+## The drop-out was a missing D-Bus session bus, and the first honest cold numbers
+
+MARXY-63's diagnosis, from consecutive launches on one runner at one commit (run 35344995257): with a
+24-bit Xvfb screen and the WebKit switches, `main_start` to `script_start` is 30.9 s; the same launch
+inside `dbus-run-session` is 0.9 s. Without a session bus the GTK/WebKit startup path blocks for about
+thirty seconds before the webview runs a line of script, and the old 15 s kill turned that stall into a
+dropped launch — the occasional survivor was the stall resolving early. Ruled out with measurements
+rather than argument: the Xvfb screen depth (30.8 s at 24-bit), the `WEBKIT_DISABLE_*` switches (about
+3.5 s of EGL/DRI3 probing, not the stall), the accessibility bridge, the portals and the WebKit sandbox.
+
+This is the same error as the one that got the story rewritten, in a different place. A reader's Linux
+desktop always has a session bus, so a number measured without one was mostly a timeout rather than this
+application — and the implementor notes that its own cache-isolation code made *every* launch pay the
+stall, which it briefly read as evidence the protocol was working. The procedure's name was doing the
+thinking instead of the measurement, twice, in two different hands.
+
+Three things for whoever picks up MARXY-69 and MARXY-70.
+
+**The honest cold numbers are far over budget.** `cold_warm_ratio` is 1.93x on Linux and 6.31x on macOS,
+and the macOS cold start is 2844 ms against ADR-0013's 500 ms. The old Linux "baseline" of 7719 ms was a
+median over the one launch in eight that escaped the stall, so it describes nothing; MARXY-70 now has
+honest observations to re-derive from.
+
+**The macOS round is still warming up inside itself**: 1648, 1135, 593, 357, 355, 383, 519, 346 ms. The
+warm median is therefore taken over a decaying series rather than a stationary one, which is a real caveat
+on any claim that within-job variance is low.
+
+**macOS still moves 4.6x between jobs on identical code** on the corrected metric — warm median 2086 ms
+in one run against its 2091.1 ms ceiling, then 451 ms in the next. Decision 4's cross-run spread is now
+measured on a metric that means what it says, and it is worse than the figure that motivated the waiver.

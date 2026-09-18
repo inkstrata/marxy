@@ -21,9 +21,9 @@ board. Neither invents work.
 | **In Review** | a PR exists and the gates have run | `jira.mjs pr KEY <number>` |
 | **Done** | squash-merged into `main` | `state.mjs done KEY` |
 
-**WIP limit 3** — the dispatch lane count in `orchestration/models.json`. It is a limit on
-lanes, not ambition: three stories in flight is what one reviewer can hold in their head, and
-`ready.mjs` will not hand out a fourth.
+**No WIP cap** — `orchestration/models.json` `lanes` is `null`. Dispatch starts every ready
+story whose paths do not overlap work already in flight; path ownership is the only
+parallelism limit. A positive `lanes` value would restore a cap.
 
 Keys are Jira keys (`MARXY-23`), everywhere: branch, commit subject, PR title, result file.
 `orchestration/jira-map.json` records what each issue was called before the tracker existed,
@@ -69,7 +69,7 @@ v0.2?" in one.
 ## The loop, per story
 
 ```sh
-node orchestration/ready.mjs                 # what may start, respecting deps, paths, lanes
+node orchestration/ready.mjs                 # what may start, respecting deps and paths
 node orchestration/state.mjs start MARXY-23  # → In Progress, mirrored to Jira
 node orchestration/dispatch.mjs MARXY-23     # implementor in its own worktree
 node orchestration/review.mjs MARXY-23       # the review packet: acceptance, boundaries, gates
@@ -81,7 +81,8 @@ node orchestration/planner-trigger.mjs       # is it time to re-plan?
 
 Everything in that list except the two judgements — is this story ready, does this diff satisfy
 it — is one command, `node orchestration/cycle.mjs`, and `./orchestration/loop.sh` runs it until
-interrupted. A cycle mirrors the board into Jira, merges the pull requests that are provably
+interrupted. `--low` (Sonnet 5 medium + Grok 4.6 High Fast) and `--minimal` (Grok 4.6 High Fast
+only) spend less; the loop is the same. A cycle mirrors the board into Jira, merges the pull requests that are provably
 finished, names what should start next, asks whether the planner is due, and rewrites
 `orchestration/status.md`. It is safe to stop and restart at any point.
 

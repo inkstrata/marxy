@@ -1,8 +1,8 @@
 {
-  "updated": "2026-09-18T12:21:33.452Z",
+  "updated": "2026-09-18T15:03:50.419Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
-  "merges": 6,
+  "merges": 7,
   "lastPlan": "2026-09-18T11:38:45.770Z",
   "mergesAtLastPlan": 5,
   "stories": {
@@ -50,25 +50,32 @@
       "finished": "2026-09-18T11:33:07.538Z"
     },
     "MARXY-12": {
-      "status": "in_progress",
-      "attempts": 1,
-      "started": "2026-09-18T12:13:00.709Z",
+      "status": "in_review",
+      "attempts": 2,
+      "started": "2026-09-18T13:17:53.954Z",
       "worktree": "../marxy-wt/MARXY-12",
       "branch": "feat/MARXY-12-sanitise-rendered-html",
-      "model": "grok-4.6-fast"
+      "model": "grok-4.6-fast",
+      "pr": 11
     },
     "MARXY-13": {
-      "status": "in_review",
+      "status": "done",
       "attempts": 3,
       "branch": "feat/MARXY-13-desktop-shell-opens-a-file-from-the-cli",
       "worktree": "../marxy-wt/MARXY-13",
       "started": "2026-09-18T11:28:04.919Z",
       "model": "grok-4.6-fast",
-      "pr": 5
+      "pr": 5,
+      "finished": "2026-09-18T14:28:51.933Z"
     },
     "MARXY-14": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T14:29:05.977Z",
+      "worktree": "../marxy-wt/MARXY-14",
+      "branch": "feat/MARXY-14-byte-faithful-open-and-save",
+      "model": "grok-4.6-fast",
+      "pr": 12
     },
     "MARXY-15": {
       "status": "todo",
@@ -246,12 +253,21 @@
       "attempts": 0
     },
     "MARXY-59": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T14:50:38.874Z",
+      "worktree": "../marxy-wt/MARXY-59",
+      "branch": "feat/MARXY-59-move-the-parse-time-budget-into-the-budg",
+      "model": "grok-4.6-fast",
+      "pr": 15
     },
     "MARXY-60": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_progress",
+      "attempts": 1,
+      "started": "2026-09-18T15:00:23.262Z",
+      "worktree": "../marxy-wt/MARXY-60",
+      "branch": "feat/MARXY-60-prove-the-maths-extension-costs-nothing-",
+      "model": "grok-4.6-fast"
     },
     "MARXY-61": {
       "status": "todo",
@@ -262,24 +278,34 @@
       "attempts": 0
     },
     "MARXY-63": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
       "started": "2026-09-18T11:05:09.563Z",
       "worktree": "../marxy-wt/MARXY-63",
       "model": "grok-4.6-fast",
-      "branch": "fix/MARXY-63-measure-what-it-names"
+      "branch": "fix/MARXY-63-measure-what-it-names",
+      "pr": 10
     },
     "MARXY-64": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_progress",
+      "attempts": 1,
+      "started": "2026-09-18T14:57:25.272Z",
+      "worktree": "../marxy-wt/MARXY-64",
+      "branch": "feat/MARXY-64-give-the-corpus-a-document-with-real-pro",
+      "model": "grok-4.6-fast"
     },
     "MARXY-65": {
       "status": "todo",
       "attempts": 0
     },
     "MARXY-66": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T14:50:40.044Z",
+      "worktree": "../marxy-wt/MARXY-66",
+      "branch": "feat/MARXY-66-stop-marking-text-files-under-fonts-as-b",
+      "model": "grok-4.6-fast",
+      "pr": 13
     },
     "MARXY-67": {
       "status": "todo",
@@ -302,6 +328,19 @@
       "attempts": 0
     },
     "MARXY-72": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T14:57:26.375Z",
+      "worktree": "../marxy-wt/MARXY-72",
+      "branch": "feat/MARXY-72-let-pnpm-build-succeed-on-a-machine-that",
+      "model": "grok-4.6-fast",
+      "pr": 16
+    },
+    "MARXY-73": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-77": {
       "status": "todo",
       "attempts": 0
     }

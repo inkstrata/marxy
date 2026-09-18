@@ -56,13 +56,9 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
       orchestration/results/MARXY-10.approved` and the loop lands it as soon as the gates are green.
       Every other story is reviewed by the reviewer agent, not by its implementor, so this is a
       one-off.
-- [ ] 2026-09-18 — **A rule of mine needs your ruling, or the planner's:** the WIP limit is 3, and I
-      am at 4. Three of the four are stories whose PRs are already open and were returned by review,
-      so they are not new work — they are work I already own, waiting on its own implementor. Holding
-      a returned PR out of a lane makes the PR sit while nothing else can use the lane either, which
-      helps nobody. I think the limit should count stories with no open PR, and returns should re-enter
-      freely; I have acted on that reading rather than letting three PRs idle, and flagged it rather
-      than quietly redefining my own constraint. `docs/sdlc.md` needs whichever answer you prefer.
+- [x] 2026-09-18 — ~~**A rule of mine needs your ruling, or the planner's:** the WIP limit is 3~~
+      Ruled: uncap. `models.json` `lanes` is `null`; dispatch is limited only by path overlap.
+      Returns re-enter freely. `docs/sdlc.md` matches.
 - [ ] 2026-09-18 — Say whether a Linux desktop exists for MARXY-22 and whether an Apple Developer account exists for notarization.
 
 ## Taste review #0 is ready — 2026-09-18
@@ -104,3 +100,18 @@ product. MARXY-69 rewrites that step to run at least five genuinely cold launche
 procedure recorded. Until it lands, no release should claim the budget is met. And if the true cold start
 really is 2400-3500 ms against 500 ms, that is a product fact about Tauri startup rather than a gate
 problem, and it belongs in `docs/risks.md` and in scope.
+
+### The cold start is roughly six times its budget — 2026-09-18
+
+With the measurement fixed, the first honest numbers are 2844 ms on macOS and 1735 ms on Linux for a
+packaged cold start, against ADR-0013's 500 ms. The Linux figure is now credible because the launch is no
+longer stalling thirty seconds on a missing D-Bus session bus; the old 7719 ms "baseline" was a median
+over the one launch in eight that escaped that stall, so it never described the application.
+
+This is very likely a product fact about a packaged Tauri launch rather than a gate problem, and it is
+the kind of fact the budgets were written to surface. It wants a decision from you rather than a story:
+whether 500 ms to first readable text is still the commitment, whether it applies to a cold OS-level
+launch or to a warm one, and what the honest claim is in the meantime. `docs/risks.md` and `docs/scope.md`
+are the places it would land. Note that reference mode now fails on purpose, naming MARXY-69, so a tag is
+blocked until the product budget can be measured properly — which is the correct thing to block, but it
+does mean no release until that story lands.

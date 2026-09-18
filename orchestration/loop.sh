@@ -6,6 +6,9 @@
 #   INTERVAL=600 ./orchestration/loop.sh    # slower
 #   ./orchestration/loop.sh --no-merge      # decide everything, merge nothing
 #   ONCE=1 ./orchestration/loop.sh          # a single cycle, for cron
+#   ./orchestration/loop.sh --low           # Sonnet 5 medium + Grok 4.6 High Fast
+#   ./orchestration/loop.sh --minimal       # Grok 4.6 High Fast only
+#   MARXY_COMPUTE=low ./orchestration/loop.sh
 # Dispatching implementors still needs either the Cursor CLI on PATH (then the cycle does it
 # headlessly) or the in-app orchestrator, which the cycle tells you by naming the keys.
 set -uo pipefail
