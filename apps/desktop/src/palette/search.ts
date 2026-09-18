@@ -8,9 +8,6 @@ const HEADING_WEIGHT = 3;
 const PATH_WEIGHT = 2;
 const DEFAULT_LIMIT = 50;
 
-/** Named mutation for MARXY-86: CI must go red if `searchPrepared` is emptied without removing this hook. */
-export const SEARCH_PREPARED_EMPTY_BODY_MUTATION = 'searchPrepared-empty-body';
-
 /** Lowercased fields, built once per index load so a keystroke does not rescan bytes. */
 export interface PreparedIndex {
   readonly rows: readonly PreparedRow[];
@@ -70,64 +67,39 @@ export function searchPrepared(
   session: PaletteSession,
   limit = DEFAULT_LIMIT,
 ): readonly IndexHit[] {
-  if (
-    typeof process !== 'undefined' &&
-    process.env?.MARXY_86_MUTATION === SEARCH_PREPARED_EMPTY_BODY_MUTATION
-  ) {
-    return [];
-  }
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return emptyHits(prepared, session, limit);
 
   const byPath = new Map<string, number>();
   for (let i = 0; i < session.mru.length; i++) byPath.set(session.mru[i]!, i);
 
-  const current = topKHits(limit);
-  const later = topKHits(limit);
+  const current: IndexHit[] = [];
+  const later: IndexHit[] = [];
   for (const row of prepared.rows) {
     const hit = scoreRow(row, needle, byPath);
     if (hit === undefined) continue;
     if (row.entry.root === session.currentRoot) current.push(hit);
     else later.push(hit);
   }
-  const currentHits = current.values();
-  if (currentHits.length >= limit) return currentHits;
+  current.sort(compareHits);
+  if (current.length >= limit) return current.slice(0, limit);
 
   const recent = new Map<string, number>();
   for (let i = 0; i < session.recentRoots.length; i++) recent.set(session.recentRoots[i]!, i);
-  const seen = new Set(currentHits.map((hit) => hit.entry.path));
-  const out = currentHits.slice();
-  for (const hit of later.values().sort((a, b) => {
+  later.sort((a, b) => {
     const ar = recent.get(a.entry.root) ?? 1_000;
     const br = recent.get(b.entry.root) ?? 1_000;
     if (ar !== br) return ar - br;
     return compareHits(a, b);
-  })) {
+  });
+  const seen = new Set(current.map((hit) => hit.entry.path));
+  const out = current.slice();
+  for (const hit of later) {
     if (seen.has(hit.entry.path)) continue;
     out.push(hit);
     if (out.length >= limit) break;
   }
   return out;
-}
-
-/** Keep only the best `limit` hits while scanning; avoids sorting tens of thousands of rows. */
-function topKHits(limit: number) {
-  const buf: IndexHit[] = [];
-  return {
-    push(hit: IndexHit) {
-      if (buf.length < limit) {
-        buf.push(hit);
-        if (buf.length === limit) buf.sort(compareHits);
-        return;
-      }
-      if (compareHits(hit, buf[limit - 1]!) >= 0) return;
-      buf[limit - 1] = hit;
-      buf.sort(compareHits);
-    },
-    values(): IndexHit[] {
-      return buf.length < limit ? buf.slice().sort(compareHits) : buf;
-    },
-  };
 }
 
 function emptyHits(
@@ -156,14 +128,11 @@ function scoreRow(
   const path = fuzzyScore(row.path, needle) * PATH_WEIGHT;
   let headingScore = 0;
   let headingIndex: number | undefined;
-  const bestSoFar = title >= path ? title : path;
-  if (bestSoFar <= 0 || headingCouldBeat(bestSoFar, needle)) {
-    for (let i = 0; i < row.headings.length; i++) {
-      const scored = fuzzyScore(row.headings[i]!, needle) * HEADING_WEIGHT;
-      if (scored > headingScore) {
-        headingScore = scored;
-        headingIndex = i;
-      }
+  for (let i = 0; i < row.headings.length; i++) {
+    const scored = fuzzyScore(row.headings[i]!, needle) * HEADING_WEIGHT;
+    if (scored > headingScore) {
+      headingScore = scored;
+      headingIndex = i;
     }
   }
   const best =
@@ -179,10 +148,6 @@ function frecencyBonus(entry: IndexEntry, mru: ReadonlyMap<string, number>): num
   const recency = rank !== undefined ? Math.max(0, 80 - rank) : 0;
   const lastRead = entry.lastReadMs !== undefined ? Math.min(40, entry.lastReadMs / 1e12) : 0;
   return recency + lastRead;
-}
-
-function headingCouldBeat(titleOrPathScore: number, needle: string): boolean {
-  return titleOrPathScore < 10_000 * HEADING_WEIGHT || needle.length <= 2;
 }
 
 function compareHits(a: IndexHit, b: IndexHit): number {

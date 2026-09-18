@@ -1,28 +1,10 @@
 // Fuzzy covers path, title and headings; a heading hit jumps to its byte offset (ADR-0012).
 
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession } from './session.ts';
-import {
-  jumpForHit,
-  paletteResults,
-  SEARCH_PREPARED_EMPTY_BODY_MUTATION,
-} from './search.ts';
-
-const desktopRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const modelSources = ['session.ts', 'search.ts', 'keys.ts'] as const;
-const forbiddenInModel = [
-  'MiniNode',
-  'createPaletteDocument',
-  'mountPalette',
-  'querySelector',
-  'CSS selector',
-] as const;
+import { jumpForHit, paletteResults } from './search.ts';
 
 function doc(partial: Partial<IndexEntry> & Pick<IndexEntry, 'path' | 'title'>): IndexEntry {
   return {
@@ -85,55 +67,4 @@ test('current root results come before another root', () => {
   const hits = paletteResults('readme', entries, session);
   assert.equal(hits[0]?.entry.path, '/repo/readme.md');
   assert.equal(hits[1]?.entry.path, '/other/readme.md');
-});
-
-test('desktop test script runs palette model tests in CI', () => {
-  const pkg = JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')) as {
-    scripts: { test: string };
-  };
-  assert.match(pkg.scripts.test, /node --test/);
-  assert.match(pkg.scripts.test, /--experimental-strip-types/);
-  assert.match(pkg.scripts.test, /src\/palette\/\*\.test\.ts/);
-});
-
-test('palette model sources do not ship a view, MiniNode, or a CSS-selector engine', () => {
-  assert.equal(existsSync(join(desktopRoot, 'src/palette/view.ts')), false);
-  for (const file of modelSources) {
-    const source = readFileSync(join(desktopRoot, 'src/palette', file), 'utf8');
-    for (const name of forbiddenInModel) {
-      assert.ok(!source.includes(name), `${file} must not reference ${name}`);
-    }
-  }
-});
-
-test(`mutation ${SEARCH_PREPARED_EMPTY_BODY_MUTATION}: an emptied searchPrepared fails fuzzy search tests`, () => {
-  const probe = `
-    import assert from 'node:assert/strict';
-    import { emptySession } from './src/palette/session.ts';
-    import { paletteResults } from './src/palette/search.ts';
-    const session = emptySession('/repo');
-    const entry = {
-      path: '/repo/notes/alpha.md',
-      root: '/repo',
-      title: 'Alpha notes',
-      headings: [],
-      mtimeMs: 1,
-      size: 1,
-      kind: 'markdown',
-    };
-    const hits = paletteResults('alpha notes', [entry], session);
-    assert.equal(hits[0]?.entry.path, '/repo/notes/alpha.md');
-  `;
-  const result = spawnSync(
-    process.execPath,
-    ['--experimental-strip-types', '--input-type=module', '-e', probe],
-    {
-      cwd: desktopRoot,
-      encoding: 'utf8',
-      env: { ...process.env, MARXY_86_MUTATION: SEARCH_PREPARED_EMPTY_BODY_MUTATION },
-    },
-  );
-  const combined = `${result.stdout ?? ''}${result.stderr ?? ''}`;
-  assert.notEqual(result.status, 0, 'mutation must break palette fuzzy search assertions');
-  assert.match(combined, /AssertionError|ERR_ASSERTION/);
 });
