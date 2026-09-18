@@ -1,0 +1,293 @@
+// Fixture-board checks for ready.mjs, review.mjs and pathsOf (MARXY-9).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { pathsOf, overlap } from './lib.mjs';
+import { RULE, selectReady } from './ready.mjs';
+import { buildReview, EXTRA_BOUNDARIES } from './review.mjs';
+
+/** Stories shaped like the CSV, with the original glob that used to collapse to `packages`. */
+const STORIES = [
+  {
+    Key: 'MARXY-5',
+    Summary: 'Freeze the contracts',
+    Paths: 'packages/*/src/contracts, packages/*/package.json',
+    Acceptance: 'build is green on CI',
+    Labels: 'phase-0',
+  },
+  {
+    Key: 'MARXY-11',
+    Summary: 'Parse markdown',
+    Paths: 'packages/core/src/parse, packages/core/src/index.ts, packages/core/goldens',
+    Acceptance: 'goldens match the corpus',
+    Labels: 'phase-0',
+  },
+  {
+    Key: 'MARXY-6',
+    Summary: 'Human gated settings',
+    Paths: '.github/workflows',
+    Acceptance: 'settings verified on a real PR',
+    Labels: 'phase-0,human-gated',
+  },
+  {
+    Key: 'MARXY-7',
+    Summary: 'Licence gate',
+    Paths: 'scripts/gate-licences.mjs',
+    Acceptance: 'copyleft fails the gate',
+    Labels: 'phase-0',
+  },
+  {
+    Key: 'MARXY-8',
+    Summary: 'Lint config',
+    Paths: 'scripts/gate-licences.mjs',
+    Acceptance: 'lint is wired',
+    Labels: 'phase-0',
+  },
+  {
+    Key: 'MARXY-30',
+    Summary: 'No acceptance',
+    Paths: 'apps/desktop/src',
+    Acceptance: '',
+    Labels: 'phase-0',
+  },
+  {
+    Key: 'MARXY-31',
+    Summary: 'No paths',
+    Paths: '',
+    Acceptance: 'something observable',
+    Labels: 'phase-0',
+  },
+  {
+    Key: 'MARXY-99',
+    Summary: 'Review without a branch',
+    Paths: 'orchestration/lib.mjs',
+    Acceptance: 'packet fails without a branch',
+    Labels: 'phase-0',
+  },
+  {
+    Key: 'MARXY-20',
+    Summary: 'Phase 1 typeset',
+    Paths: 'packages/typeset/src',
+    Acceptance: 'line breaking works',
+    Labels: 'phase-1',
+  },
+  {
+    Key: 'MARXY-21',
+    Summary: 'Cross-phase ADR',
+    Paths: 'docs/adr/0099-cross.md',
+    Acceptance: 'ADR is accepted',
+    Labels: 'phase-1,cross-phase',
+  },
+];
+
+const PHASES = {
+  0: ['MARXY-5', 'MARXY-11', 'MARXY-6', 'MARXY-7', 'MARXY-8', 'MARXY-30', 'MARXY-31', 'MARXY-99'],
+  1: ['MARXY-20', 'MARXY-21'],
+};
+
+const DEPS = {
+  'MARXY-20': ['MARXY-11'],
+  'MARXY-8': ['MARXY-5'],
+};
+
+function fixtureState(over = {}) {
+  const stories = {};
+  for (const st of STORIES) stories[st.Key] = { status: 'todo', attempts: 0 };
+  for (const [k, v] of Object.entries(over)) stories[k] = { ...stories[k], ...v };
+  return { stories };
+}
+
+function readyFrom(stateOver = {}, cap = Infinity) {
+  return selectReady({
+    all: STORIES,
+    s: fixtureState(stateOver),
+    d: { phases: PHASES, deps: DEPS },
+    cap,
+  });
+}
+
+const keys = report => report.ready.map(r => r.key);
+const story = key => STORIES.find(s => s.Key === key);
+
+const claimed = {
+  key: 'MARXY-11',
+  status: 'done',
+  branch: 'feat/MARXY-11-parse',
+  gates: { test: 'ok' },
+  acceptance: [{ criterion: 'goldens match the corpus', checkedBy: 'orchestration/test' }],
+  outsidePaths: [],
+  needsAdr: false,
+  queueEntry: false,
+};
+
+function packet(key, over = {}) {
+  return buildReview(key, {
+    stories: STORIES,
+    state: fixtureState(over.stateOver),
+    result: over.result === undefined ? claimed : over.result,
+    ...over,
+  });
+}
+
+test('pathsOf keeps a mid-path glob instead of collapsing it to its first segment', () => {
+  const got = pathsOf({ Paths: 'packages/*/package.json' });
+  assert.deepEqual(got, ['packages/*/package.json']);
+  assert.notEqual(got[0], 'packages');
+});
+
+test('MARXY-5 and MARXY-11 no longer collide once globs keep their segments', () => {
+  const a = pathsOf(story('MARXY-5'));
+  const b = pathsOf(story('MARXY-11'));
+  assert.ok(!a.includes('packages'));
+  assert.equal(overlap(a, b), false);
+});
+
+test('does not dispatch phase N+1 while phase N still has todo or in_progress work', () => {
+  const open = readyFrom();
+  assert.ok(!keys(open).includes('MARXY-20'));
+  assert.ok(open.blockedByDeps.includes('MARXY-20'));
+
+  const depMet = readyFrom({ 'MARXY-11': { status: 'done' } });
+  assert.ok(!keys(depMet).includes('MARXY-20'), 'phase 0 still has todos, so phase 1 stays closed');
+  assert.ok(depMet.blockedByDeps.includes('MARXY-20'));
+
+  const phase0Settled = readyFrom({
+    'MARXY-5': { status: 'done' },
+    'MARXY-6': { status: 'in_review' },
+    'MARXY-7': { status: 'done' },
+    'MARXY-8': { status: 'done' },
+    'MARXY-11': { status: 'done' },
+    'MARXY-30': { status: 'done' },
+    'MARXY-31': { status: 'done' },
+    'MARXY-99': { status: 'in_review' },
+  });
+  assert.ok(keys(phase0Settled).includes('MARXY-20'));
+});
+
+test('a cross-phase story may start while an earlier phase is still open', () => {
+  const report = readyFrom();
+  assert.ok(keys(report).includes('MARXY-21'));
+  assert.ok(!report.blockedByDeps.includes('MARXY-21'));
+});
+
+test('output distinguishes blockedByDeps, blockedByPaths and blockedByLanes', () => {
+  const report = readyFrom(
+    { 'MARXY-5': { status: 'done' }, 'MARXY-7': { status: 'in_progress' } },
+    1,
+  );
+  assert.ok(!('waitingOnDeps' in report));
+  assert.ok(Array.isArray(report.blockedByDeps));
+  assert.ok(Array.isArray(report.blockedByPaths));
+  assert.ok(Array.isArray(report.blockedByLanes));
+  assert.ok(report.blockedByPaths.includes('MARXY-8'));
+  assert.ok(!report.blockedByDeps.includes('MARXY-8'));
+  assert.ok(report.blockedByLanes.includes('MARXY-11'));
+  assert.ok(!report.blockedByDeps.includes('MARXY-11'));
+  assert.ok(!keys(report).includes('MARXY-11'));
+});
+
+test('human-gated stories are excluded from ready', () => {
+  const report = readyFrom();
+  assert.ok(!keys(report).includes('MARXY-6'));
+  assert.deepEqual(
+    report.excluded.find(e => e.key === 'MARXY-6'),
+    { key: 'MARXY-6', rule: RULE.HUMAN_GATED },
+  );
+});
+
+test('refuses empty Acceptance, empty Paths, or a lane-limit breach, and names the rule', () => {
+  const report = readyFrom({}, 1);
+  assert.deepEqual(
+    report.excluded.find(e => e.key === 'MARXY-30'),
+    { key: 'MARXY-30', rule: RULE.EMPTY_ACCEPTANCE },
+  );
+  assert.deepEqual(
+    report.excluded.find(e => e.key === 'MARXY-31'),
+    { key: 'MARXY-31', rule: RULE.EMPTY_PATHS },
+  );
+  assert.ok(!keys(report).includes('MARXY-30'));
+  assert.ok(!keys(report).includes('MARXY-31'));
+  const lane = report.excluded.filter(e => e.rule === RULE.LANE_LIMIT);
+  assert.ok(lane.length > 0);
+  assert.ok(lane.every(e => report.blockedByLanes.includes(e.key)));
+  assert.equal(keys(report).length, 1);
+});
+
+test('a packet for a story with no branch fails', () => {
+  const got = packet('MARXY-99', { determined: false });
+  assert.equal(got.ok, false);
+  assert.equal(got.exit, 1);
+  assert.match(got.text, /cannot determine the branch for MARXY-99/);
+  assert.doesNotMatch(got.text, /files outside paths: none/);
+  assert.doesNotMatch(got.text, /attribution trailers: none/);
+});
+
+test('cannot compute the diff exits non-zero and says so', () => {
+  const got = packet('MARXY-11', {
+    rev: 'feat/MARXY-11-parse',
+    diffError: 'fatal: bad revision',
+  });
+  assert.equal(got.ok, false);
+  assert.equal(got.exit, 1);
+  assert.match(got.text, /cannot compute the diff for MARXY-11/);
+  assert.doesNotMatch(got.text, /files outside paths: none/);
+});
+
+test('boundary check allows pnpm-lock.yaml and results/ alongside CHANGELOG.md', () => {
+  assert.ok(EXTRA_BOUNDARIES.includes('pnpm-lock.yaml'));
+  assert.ok(EXTRA_BOUNDARIES.includes('results'));
+  assert.ok(EXTRA_BOUNDARIES.includes('CHANGELOG.md'));
+  const got = packet('MARXY-11', {
+    rev: 'feat/MARXY-11-parse',
+    files: [
+      'packages/core/src/parse/index.ts',
+      'CHANGELOG.md',
+      'pnpm-lock.yaml',
+      'results/MARXY-11.pr.md',
+      'orchestration/results/MARXY-11.json',
+    ],
+  });
+  assert.equal(got.ok, true);
+  assert.deepEqual(got.outside, []);
+  assert.match(got.text, /files outside paths: none/);
+});
+
+test('reports pass/fail for CHANGELOG, claimed checks, and a taste-queue row', () => {
+  const pass = packet('MARXY-11', {
+    rev: 'feat/MARXY-11-parse',
+    files: [
+      'packages/core/goldens/01.json',
+      'CHANGELOG.md',
+      'docs/taste-review/queue.md',
+    ],
+    result: { ...claimed, queueEntry: true },
+  });
+  assert.equal(pass.done.changelog, 'pass');
+  assert.equal(pass.done.acceptance, 'pass');
+  assert.equal(pass.done.tasteQueue, 'pass');
+  assert.match(pass.text, /CHANGELOG\.md entry: pass/);
+  assert.match(pass.text, /every acceptance criterion claimed by a check: pass/);
+  assert.match(pass.text, /taste-queue entry \(fixtures\/baselines changed\): pass/);
+
+  const fail = packet('MARXY-11', {
+    rev: 'feat/MARXY-11-parse',
+    files: ['packages/core/goldens/01.json'],
+    result: { ...claimed, acceptance: [{ criterion: 'goldens match the corpus', checkedBy: 'TODO' }] },
+  });
+  assert.equal(fail.done.changelog, 'fail');
+  assert.equal(fail.done.acceptance, 'fail');
+  assert.equal(fail.done.tasteQueue, 'fail');
+  assert.match(fail.text, /CHANGELOG\.md entry: fail/);
+  assert.match(fail.text, /every acceptance criterion claimed by a check: fail/);
+  assert.match(fail.text, /taste-queue entry \(fixtures\/baselines changed\): fail/);
+
+  const quiet = packet(story('MARXY-5').Key, {
+    rev: 'chore/MARXY-5',
+    files: ['packages/core/src/contracts/ast.ts', 'CHANGELOG.md'],
+    result: {
+      ...claimed,
+      key: 'MARXY-5',
+      acceptance: [{ criterion: 'build is green on CI', checkedBy: 'orchestration/test' }],
+    },
+  });
+  assert.equal(quiet.done.tasteQueue, 'n/a');
+});
