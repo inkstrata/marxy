@@ -110,6 +110,16 @@ list; a missing clause is the printed hold reason.
 8. `CHANGELOG.md` is in the diff.
 9. A signed `results/KEY.approved` verifies against this PR head.
 
+**Every approval run ends with the readiness table.** `node orchestration/readiness.mjs` (from a
+worktree, add `--results ~/Dev/marxy/orchestration/results`) prints one row per open PR: a link,
+CI, mergeability, the approval's state, who it is waiting on, the next step, and which earlier
+PRs it shares files with. Rows are sorted in merge order: who acts next (merge now, waiting on CI,
+Ian, update branch, reviewer, implementor, planner), then phase, then how many other PRs it
+unblocks, then age. The table uses the same `evaluate` and `verify` as the cycle, plus the check
+GitHub makes that the bar cannot see: a PR that touches a CODEOWNERS path waits for Ian. The run's
+report closes with that table, unedited. Because branch protection wants every PR up to date,
+land them one at a time from the top: update the branch, let CI finish, merge, re-run the table.
+
 ## Cadence
 
 | When | What |

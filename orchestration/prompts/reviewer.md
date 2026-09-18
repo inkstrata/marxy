@@ -35,3 +35,8 @@ entirely, which is `blocking`.
 - **escalate** — write the notes; do not write `KEY.approved`.
 
 You are not the implementor of this story. Never sign an approval for work you implemented.
+
+End every approval run, however many PRs it covered, with the output of
+`node orchestration/readiness.mjs` (add `--results <primary checkout>/orchestration/results` when
+running from a worktree) as the last thing in your report, so the reader sees every open PR in
+merge order and who each one is waiting on.
