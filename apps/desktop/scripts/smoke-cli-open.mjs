@@ -17,9 +17,11 @@ const repoRoot = new URL('../../../', import.meta.url).pathname;
 const doc = `${repoRoot}fixtures/corpus/02-readme-real-world.md`;
 const required = process.env.MARXY_SMOKE_REQUIRED === '1';
 const bin = [
+  process.env.MARXY_BIN, // CI builds with `--profile ci` and names the binary (docs/hygiene.md §CI)
+  `${repoRoot}apps/desktop/src-tauri/target/ci/marxy`,
   `${repoRoot}apps/desktop/src-tauri/target/release/marxy`,
   `${repoRoot}apps/desktop/src-tauri/target/release/marxy.exe`,
-].find(existsSync);
+].filter(Boolean).find(existsSync);
 
 if (!bin) {
   if (required) {
@@ -34,9 +36,12 @@ if (!bin) {
 // 24-bit colour and its DMABUF/compositing paths turned off, or the webview window stays blank and no
 // script ever runs. Those switches are for this harness only; a real Linux desktop keeps acceleration.
 const headless = process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
+// NO_AT_BRIDGE stops WebKitGTK waiting on an accessibility bus that a headless runner does not have
+// (a ~30 s stall per launch); the session bus below serves the rest. Mirrors scripts/measure-startup.mjs.
 const headlessEnv = headless
-  ? { WEBKIT_DISABLE_DMABUF_RENDERER: '1', WEBKIT_DISABLE_COMPOSITING_MODE: '1', LIBGL_ALWAYS_SOFTWARE: '1' }
+  ? { WEBKIT_DISABLE_DMABUF_RENDERER: '1', WEBKIT_DISABLE_COMPOSITING_MODE: '1', LIBGL_ALWAYS_SOFTWARE: '1', NO_AT_BRIDGE: '1' }
   : {};
+const hasDbusRunSession = headless && spawnSync('sh', ['-c', 'command -v dbus-run-session'], { stdio: 'ignore' }).status === 0;
 
 // Long enough for the 30 s WebKitGTK-under-Xvfb warm-up on a CI runner, which happens before the app
 // runs a line of script. It is a last resort: the watchdog below is what bounds a launch that renders.
@@ -53,7 +58,7 @@ const SETTLED = /MARK (?:painted|first_text|no_paint|no_text|no_document|error) 
 
 async function launch(appArgs) {
   const [cmd, args] = headless
-    ? ['xvfb-run', ['-a', '--server-args=-screen 0 1280x1024x24', bin, ...appArgs]]
+    ? ['xvfb-run', ['-a', '--server-args=-screen 0 1280x1024x24', ...(hasDbusRunSession ? ['dbus-run-session', '--'] : []), bin, ...appArgs]]
     : [bin, appArgs];
   const child = spawn(cmd, args, {
     cwd: repoRoot,

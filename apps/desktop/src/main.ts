@@ -73,7 +73,7 @@ async function main() {
   // No document means no `first_text`: nothing was read, so a launch like this must not be able to
   // hand the startup measurement a cold-start number.
   if (!file) {
-    doc.innerHTML = '<p class="empty">Open a markdown file: <code>marxy README.md</code></p>';
+    doc.innerHTML = '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>';
     await shell.mark('no_document', Date.now());
     return finish(0);
   }
