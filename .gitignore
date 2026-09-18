@@ -7,3 +7,7 @@ out/
 .DS_Store
 /results/
 /apps/desktop/src-tauri/gen/schemas/
+
+# a global ignore of macOS "Icon\r" files (pattern `Icon?`) also matches this
+# directory on case-insensitive filesystems; the app does not build without it
+!/apps/desktop/src-tauri/icons/
