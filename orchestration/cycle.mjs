@@ -67,6 +67,9 @@ for (const [key, rec] of Object.entries(s.stories)) {
   if (!landed) { held.push(`${key}: merge failed — ${merged.error.split('\n')[0]}`); continue; }
   say(`merged ${key} (PR #${rec.pr})`);
   node([here('state.mjs'), 'done', key]);
+  // results/ is local scratch, so the review that allowed the merge is copied where it survives.
+  const note = existsSync(here(`results/${key}.approved`)) ? readFileSync(here(`results/${key}.approved`), 'utf8').trim() : '';
+  if (note) node([here('jira.mjs'), 'comment', key, `Merged as PR #${rec.pr}. Review that allowed it:\n\n${note}`]);
 }
 held.forEach(say);
 
