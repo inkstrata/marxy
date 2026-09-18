@@ -1,0 +1,10 @@
+{
+  "note": "Licences for lockfile packages whose licence cannot be read from node_modules (ADR-0006). These are platform-specific optional packages: pnpm-lock.yaml lists every platform, but only the current one is installed, so the gate would otherwise have to guess. Each licence below was read from the package's own npm registry metadata at the source given. Patterns end in '*' to cover one publisher's platform family at every version; a lockfile package matching nothing here and installed nowhere fails the gate.",
+  "packages": [
+    { "match": "@esbuild/*", "licence": "MIT", "source": "https://registry.npmjs.org/@esbuild%2flinux-x64/latest", "reason": "esbuild platform binaries, one per target" },
+    { "match": "@rollup/rollup-*", "licence": "MIT", "source": "https://registry.npmjs.org/@rollup%2frollup-linux-x64-gnu/latest", "reason": "rollup native bindings, one per target" },
+    { "match": "@tauri-apps/cli-*", "licence": "Apache-2.0 OR MIT", "source": "https://registry.npmjs.org/@tauri-apps%2fcli-linux-x64-gnu/latest", "reason": "Tauri CLI binaries, one per target" },
+    { "match": "@napi-rs/lzma-*", "licence": "MIT", "source": "https://registry.npmjs.org/@napi-rs%2flzma-linux-x64-gnu/latest", "reason": "lzma native bindings, one per target" },
+    { "match": "fsevents", "licence": "MIT", "source": "https://registry.npmjs.org/fsevents/latest", "reason": "macOS-only file watcher, absent on Linux and Windows runners" }
+  ]
+}
