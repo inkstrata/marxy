@@ -1,0 +1,98 @@
+// Checks the taste review #0 artifact against MARXY-17's acceptance: two complete PNG sets at 1× and
+// 2×, set at the docs/design-language.md type scale and a 68ch measure in the two ADR-0015 pairs,
+// rendering with nothing but locally vendored OFL fonts and no network, and linked from the review
+// queue with the reviewer's checklist. Run it after render.mjs; it reads only what render.mjs wrote.
+import { existsSync, readFileSync } from 'node:fs';
+import { DPRS, OUT, SOURCE, VIEWPORT, pages, pairs, pngSize, repo, specimenPage, tokens, typeScale } from './specimen.mjs';
+
+const fails = [];
+const check = (ok, message) => { if (!ok) fails.push(message); return ok; };
+const near = (a, b, tol = 0.05) => Math.abs(a - b) <= tol;
+
+const manifestPath = `${OUT}/manifest.json`;
+if (!existsSync(repo(manifestPath))) { console.error(`specimen not rendered: ${manifestPath} is missing — run node scripts/specimen/render.mjs`); process.exit(1); }
+const manifest = JSON.parse(readFileSync(repo(manifestPath), 'utf8'));
+const scale = typeScale();
+const queue = readFileSync(repo('docs/taste-review/queue.md'), 'utf8');
+
+// 1. Two complete PNG sets, 1× and 2×, of the long document.
+check(manifest.source === SOURCE, `manifest renders ${manifest.source}, not ${SOURCE}`);
+check(manifest.pairs.length === 2, `${manifest.pairs.length} pairs rendered, expected 2`);
+for (const pair of pairs) {
+  const entry = manifest.pairs.find(p => p.slug === pair.slug);
+  if (!check(entry, `no rendered set for ${pair.slug}`)) continue;
+  for (const page of pages) {
+    const at = dpr => entry.images.find(i => i.page === page.id && i.dpr === dpr);
+    for (const dpr of DPRS) {
+      const image = at(dpr);
+      if (!check(image, `${pair.slug} is missing ${page.id} at ${dpr}×`)) continue;
+      if (!check(existsSync(repo(image.path)), `${image.path} is in the manifest but not on disk`)) continue;
+      const { width, height } = pngSize(repo(image.path));
+      check(width === VIEWPORT.width * dpr && height === VIEWPORT.height * dpr, `${image.path} is ${width}×${height}, expected ${VIEWPORT.width * dpr}×${VIEWPORT.height * dpr}`);
+      check(image.bytes > 20_000, `${image.path} is ${image.bytes} bytes — too small to be a page of text`);
+    }
+    const [one, two] = DPRS.map(at);
+    if (one && two) check(two.width === one.width * 2 && two.height === one.height * 2, `${pair.slug} ${page.id}: the 2× PNG is not twice the 1× PNG`);
+  }
+
+  // 2. Set at the type scale, in this pair's faces.
+  const m = entry.measured;
+  if (!check(m, `${pair.slug} has no measurements`)) continue;
+  for (const [key, want] of Object.entries(scale)) {
+    const got = m.roles[key];
+    if (!check(got, `${pair.slug} did not measure the ${key} role`)) continue;
+    const family = key === 'code' ? pair.mono : pair.text;
+    check(got.fontFamily === family, `${pair.slug} ${key}: rendered in ${got.fontFamily}, expected ${family}`);
+    check(got.fontSize === want.size, `${pair.slug} ${key}: ${got.fontSize}px, the scale says ${want.size}px`);
+    check(got.fontWeight === want.weight, `${pair.slug} ${key}: weight ${got.fontWeight}, the scale says ${want.weight}`);
+    const tracking = want.tracking === '0' ? 0 : parseFloat(want.tracking) * want.size;
+    check(near(parseFloat(got.letterSpacing), tracking, 0.01), `${pair.slug} ${key}: tracking ${got.letterSpacing}, the scale says ${want.tracking} (${tracking.toFixed(3)}px)`);
+    // Inline code sits on the body line box; the 22px code line box belongs to fenced blocks, and
+    // this document has none — so assert the one that applies rather than skipping the role.
+    const lineHeight = key === 'code' && m.codeBlocks === 0 ? scale.body.lineHeight : want.lineHeight;
+    check(got.lineHeight === lineHeight, `${pair.slug} ${key}: line box ${got.lineHeight}px, expected ${lineHeight}px`);
+    if (key !== 'code') check(got.marginTop === want.spaceAbove, `${pair.slug} ${key}: space above ${got.marginTop}px, the scale says ${want.spaceAbove}px`);
+  }
+
+  // 3. 68ch measure, resolved optically in this pair's body face (design constraint 1).
+  check(near(m.measureCh, 68, 0.05), `${pair.slug}: column measures ${m.measureCh}ch, expected 68ch`);
+  check(near(m.columnPx, 68 * m.chPx, 0.5), `${pair.slug}: column ${m.columnPx}px ≠ 68 × ${m.chPx}px`);
+
+  // 4. Only the vendored faces, each loaded, each under its own OFL licence.
+  for (const face of pair.faces) {
+    check(existsSync(repo(face.file)), `${face.file} is not vendored`);
+    const licence = face.file.replace(/\/[^/]+$/, '/LICENSE');
+    check(existsSync(repo(licence)) && readFileSync(repo(licence), 'utf8').includes('SIL Open Font License, Version 1.1'), `${licence} is missing or is not the OFL 1.1`);
+    check(m.fontsLoaded.some(f => f.startsWith(`${face.family} ${face.style} ${face.weight} loaded`)), `${pair.slug}: face ${face.family} ${face.style} ${face.weight} did not load (${m.fontsLoaded.join('; ')})`);
+  }
+  check(m.fontsLoaded.length === pair.faces.length, `${pair.slug}: ${m.fontsLoaded.length} faces registered, expected ${pair.faces.length}`);
+  check(new Set([pair.text, pair.mono]).size === 2 && [...new Set(pair.faces.map(f => f.family))].every(f => f === pair.text || f === pair.mono), `${pair.slug}: a face outside the pair is registered`);
+}
+
+// 5. Nothing is downloaded at render time: no remote URL in the page, none attempted, none blocked.
+check(manifest.blocked.length === 0, `the specimen attempted ${manifest.blocked.length} network requests: ${manifest.blocked.slice(0, 5).join(', ')}`);
+check(manifest.requests.every(u => /^(data|about|blob):/i.test(u)), `the specimen requested a non-local URL: ${manifest.requests.filter(u => !/^(data|about|blob):/i.test(u)).slice(0, 5).join(', ')}`);
+for (const pair of pairs) {
+  const html = specimenPage(pair);
+  const urls = [...html.matchAll(/url\(([^)]*)\)/g)].map(m => m[1]);
+  check(urls.length === pair.faces.length, `${pair.slug}: the specimen page has ${urls.length} url() references, expected one inlined face per ${pair.faces.length}`);
+  check(urls.every(u => u.startsWith('data:font/ttf;base64,')), `${pair.slug}: a font is referenced by URL rather than inlined`);
+  for (const tag of ['<script', '<link', '<img', '<iframe', '@import']) check(!html.includes(tag), `${pair.slug}: the specimen page contains ${tag}, which could fetch`);
+}
+const fontsReadme = readFileSync(repo('fonts/README.md'), 'utf8');
+for (const family of new Set(pairs.flatMap(p => [p.text, p.mono]))) check(fontsReadme.includes(family), `fonts/README.md does not list ${family}`);
+check(tokens()('measure') === '68ch', `--marxy-measure is ${tokens()('measure')}, not 68ch`);
+
+// 6. The queue entry is the deliverable: it links every PNG and carries the reviewer's checklist.
+const linked = new Set([...queue.matchAll(/\(([^)]*review-0[^)]*\.png)\)/g)].map(m => m[1].replace(/^\.\//, '')));
+for (const image of manifest.pairs.flatMap(p => p.images)) {
+  const rel = image.path.replace('docs/taste-review/', '');
+  check(linked.has(rel) || linked.has(image.path), `docs/taste-review/queue.md does not link ${image.path}`);
+}
+for (const link of linked) check(existsSync(repo(`docs/taste-review/${link.replace('docs/taste-review/', '')}`)), `docs/taste-review/queue.md links ${link}, which does not exist`);
+for (const required of ['## Review #0', 'What to compare', 'What would count as wrong', 'ADR-0015', 'Decision to record']) check(queue.includes(required), `docs/taste-review/queue.md is missing "${required}"`);
+check(pages.every(p => queue.includes(p.shows)), 'the queue entry does not say what each page shows');
+
+if (fails.length) { console.error(`specimen gate failed:\n - ${fails.join('\n - ')}`); process.exit(1); }
+const images = manifest.pairs.flatMap(p => p.images).length;
+console.log(`specimen gate ok: ${manifest.pairs.length} pairs × ${pages.length} pages × ${DPRS.length} densities = ${images} PNGs at the type scale, 68ch (${manifest.pairs.map(p => `${p.text} ${p.measured.columnPx}px`).join(', ')}), ${manifest.blocked.length} network requests, ${linked.size} linked from the queue`);
