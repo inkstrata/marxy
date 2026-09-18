@@ -7,12 +7,13 @@
   "description": "The desktop shell (Tauri) and app UI.",
   "scripts": {
     "dev": "tauri dev",
-    "build": "vite build && tauri build --no-bundle",
+    "build": "vite build && tauri build --no-bundle && MARXY_SMOKE_REQUIRED=1 node scripts/smoke-cli-open.mjs",
     "bundle": "vite build && tauri build",
     "build:web": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo ok",
-    "test": "echo 'app tests land with MARXY-012'",
+    "test": "node --test 'test/**/*.test.mjs' && node scripts/smoke-cli-open.mjs",
+    "verify:cli": "MARXY_SMOKE_REQUIRED=1 node scripts/smoke-cli-open.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
