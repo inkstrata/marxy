@@ -1,0 +1,32 @@
+document [0,1163)
+  heading [0,44) level=1
+    text [2,44) value="نص من اليمين إلى اليسار"
+  heading [46,63) level=2
+    text [49,63) value="العربية"
+  paragraph [65,496)
+    text [65,496) value="هذه فقرة مكتوبة باللغة العربية لاختبار عرض النصوص التي تُقرأ من اليمين إلى اليسار. يجب أن تُحاذى الفقرة إلى اليمين، وأن …"
+  list [498,606) ordered=false tight=true
+    listItem [498,515)
+      paragraph [500,515)
+        text [500,515) value="عنصر أول"
+    listItem [516,586)
+      paragraph [518,586)
+        text [518,554) value="عنصر ثانٍ يحتوي على "
+        strong [554,571)
+          text [556,569) value="نص عريض"
+        text [571,574) value=" و"
+        code [574,586) value="شيفرة"
+    listItem [587,606)
+      paragraph [589,606)
+        text [589,606) value="عنصر ثالث"
+  heading [608,621) level=2
+    text [611,621) value="עברית"
+  paragraph [623,909)
+    text [623,909) value="זוהי פסקה בעברית לבדיקת כיווניות. הטקסט צריך להיות מיושר לימין, וסימני הפיסוק צריכים להופיע במקום הנכון. מילים באנגלית כ…"
+  blockquote [911,966)
+    paragraph [913,966)
+      text [913,966) value="ציטוט בעברית בתוך בלוק ציטוט."
+  heading [968,986) level=2
+    text [971,986) value="Mixed direction"
+  paragraph [988,1162)
+    text [988,1162) value="A paragraph in English that quotes Arabic — «القراءة أولاً» — and Hebrew — «קריאה קודם» — inline, which is the case most…"

@@ -1,0 +1,129 @@
+document [0,1911)
+  heading [0,42) level=1
+    text [2,42) value="Migration plan: auth service to passkeys"
+  paragraph [44,120)
+    strong [44,55)
+      text [46,53) value="Status:"
+    text [55,67) value=" draft 3 · "
+    strong [67,77)
+      text [69,75) value="Owner:"
+    text [77,95) value=" platform team · "
+    strong [95,109)
+      text [97,107) value="Generated:"
+    text [109,120) value=" 2026-09-17"
+  heading [122,132) level=2
+    text [125,132) value="Summary"
+  paragraph [134,284)
+    text [134,226) value="Replace password + TOTP with passkeys (WebAuthn) across web and mobile, keeping passwords as"
+    softBreak [226,227)
+    text [227,284) value="a fallback for 90 days. Three phases, each behind a flag."
+  heading [286,298) level=2
+    text [289,298) value="Checklist"
+  list [300,677) ordered=false tight=true
+    listItem [300,341) task=checked
+      paragraph [302,341)
+        taskMarker [302,305) checked=true
+        text [306,341) value="Threat model reviewed with security"
+    listItem [342,401) task=checked
+      paragraph [344,401)
+        taskMarker [344,347) checked=true
+        text [348,382) value="WebAuthn relying-party ID agreed ("
+        code [382,400) value="auth.example.com"
+        text [400,401) value=")"
+    listItem [402,521) task=unchecked
+      paragraph [404,434)
+        taskMarker [404,407) checked=false
+        text [408,434) value="Attestation policy decided"
+      list [437,521) ordered=false tight=true
+        listItem [437,456) task=unchecked
+          paragraph [439,456)
+            taskMarker [439,442) checked=false
+            text [443,450) value="Accept "
+            code [450,456) value="none"
+        listItem [459,521) task=unchecked
+          paragraph [461,521)
+            taskMarker [461,464) checked=false
+            text [465,521) value="Log AAGUID for analytics (no telemetry to third parties)"
+    listItem [522,550) task=unchecked
+      paragraph [524,550)
+        taskMarker [524,527) checked=false
+        text [528,550) value="Recovery flow designed"
+    listItem [551,596) task=unchecked
+      paragraph [553,596)
+        taskMarker [553,556) checked=false
+        text [557,596) value="Mobile SDK spike (iOS 17+, Android 14+)"
+    listItem [597,677) task=unchecked
+      paragraph [599,624)
+        taskMarker [599,602) checked=false
+        text [603,624) value="Rollout flags created"
+      list [627,677) ordered=false tight=true
+        listItem [627,650) task=checked
+          paragraph [629,650)
+            code [633,650) value="passkeys.enroll"
+        listItem [653,677) task=unchecked
+          paragraph [655,677)
+            code [659,677) value="passkeys.require"
+  heading [679,688) level=2
+    text [682,688) value="Phases"
+  table [690,988) align=-,-,-,-
+    tableRow [690,731) header=true
+      tableCell [690,698)
+        text [692,697) value="Phase"
+      tableCell [698,706)
+        text [700,705) value="Scope"
+      tableCell [706,723)
+        text [708,722) value="Exit criterion"
+      tableCell [723,731)
+        text [725,729) value="Risk"
+    tableRow [758,819) header=false
+      tableCell [758,762)
+        text [760,761) value="1"
+      tableCell [762,790)
+        text [764,789) value="Optional enrolment on web"
+      tableCell [790,812)
+        text [792,811) value="5 % of DAU enrolled"
+      tableCell [812,819)
+        text [814,817) value="low"
+    tableRow [820,900) header=false
+      tableCell [820,824)
+        text [822,823) value="2"
+      tableCell [824,869)
+        text [826,868) value="Enrolment on mobile; login prefers passkey"
+      tableCell [869,890)
+        text [871,889) value="p95 login < 800 ms"
+      tableCell [890,900)
+        text [892,898) value="medium"
+    tableRow [901,988) header=false
+      tableCell [901,905)
+        text [903,904) value="3"
+      tableCell [905,945)
+        text [907,944) value="Passwords disabled for enrolled users"
+      tableCell [945,980)
+        text [947,979) value="support tickets flat for 2 weeks"
+      tableCell [980,988)
+        text [982,986) value="high"
+  heading [990,1004) level=2
+    text [993,1004) value="API changes"
+  codeBlock [1006,1149) lang=http info="http" content=[1014,1146) value="POST /v2/webauthn/register/options\nPOST /v2/webauthn/register/verify\nPOST /v2/webauthn/login/options\nPOST /v2/webauthn/l…"
+  codeBlock [1151,1493) lang=json info="json" content=[1159,1490) value="{\n  \"rp\": { \"id\": \"auth.example.com\", \"name\": \"Example\" },\n  \"user\": { \"id\": \"b64url\", \"name\": \"ana@example.com\", \"displ…"
+  heading [1495,1512) level=2
+    text [1498,1512) value="Open questions"
+  list [1514,1689) ordered=true tight=true start=1
+    listItem [1514,1570)
+      paragraph [1517,1570)
+        text [1517,1570) value="Do we support cross-device sign-in via QR on day one?"
+    listItem [1571,1636)
+      paragraph [1574,1636)
+        text [1574,1636) value="What happens to the 3 % of users on browsers without WebAuthn?"
+    listItem [1637,1689)
+      paragraph [1640,1689)
+        text [1640,1651) value="Should the "
+        code [1651,1669) value="passkeys.require"
+        text [1669,1689) value=" flag be per-tenant?"
+  heading [1691,1702) level=2
+    text [1694,1702) value="Rollback"
+  codeBlock [1704,1810) lang=sh info="sh" content=[1710,1807) value="flagctl set passkeys.require=false --all-tenants\nflagctl set passkeys.enroll=false --all-tenants"
+  paragraph [1812,1910)
+    text [1812,1902) value="Passwords remain valid throughout phase 1–2; phase 3 rollback re-enables them within one"
+    softBreak [1902,1903)
+    text [1903,1910) value="deploy."

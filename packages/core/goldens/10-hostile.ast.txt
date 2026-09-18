@@ -1,0 +1,25 @@
+document [0,263291)
+  heading [0,18) level=1
+    text [2,18) value="Hostile document"
+  htmlBlock [20,49) value="<script>alert('xss')</script>"
+  htmlBlock [50,679) value="<img src=x onerror=\"alert(1)\">\n<iframe src=\"https://example.invalid/track\"></iframe>\n<a href=\"javascript:alert(2)\">javas…"
+  paragraph [681,797)
+    image [681,732) url="https://example.invalid/remote.png" alt="remote image"
+    softBreak [732,733)
+    image [733,797) url="https://example.invalid/pixel.gif?doc=hostile" alt="tracking pixel"
+  paragraph [799,884)
+    html [799,822) value="<svg onload=\"alert(5)\">"
+    html [822,858) value="<a xlink:href=\"javascript:alert(6)\">"
+    html [858,864) value="<text>"
+    text [864,867) value="svg"
+    html [867,874) value="</text>"
+    html [874,878) value="</a>"
+    html [878,884) value="</svg>"
+  paragraph [886,948)
+    text [886,948) value="A huge inline data URI follows; it must not stall first paint:"
+  paragraph [950,263124)
+    image [950,263124) url="data:image/png;base64,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA…" alt="big"
+  htmlBlock [263126,263161) value="<!-- comment that must not leak -->"
+  paragraph [263163,263205)
+    code [263163,263205) value="inline code with <script> inside is fine"
+  codeBlock [263207,263290) lang=html info="html" content=[263215,263287) value="<script>fenced code is literal text and must be shown, not run</script>"

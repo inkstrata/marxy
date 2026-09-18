@@ -1,0 +1,239 @@
+document [0,5951)
+  heading [0,21) level=1
+    text [2,21) value="Implementation plan"
+  paragraph [23,396)
+    text [23,114) value="Five phases. Each ends in something runnable and reviewable, and each ends with a scheduled"
+    softBreak [114,115)
+    text [115,203) value="taste review. Risky and load-bearing work comes first: the typography path and the Linux"
+    softBreak [203,204)
+    text [204,292) value="question before the index, and the index before operations, which are easy and endlessly"
+    softBreak [292,293)
+    text [293,345) value="extensible. Stories with acceptance criteria are in "
+    code [345,367) value="plan/jira-issues.csv"
+    text [367,385) value="; this document is"
+    softBreak [385,386)
+    text [386,396) value="the shape."
+  paragraph [398,492)
+    text [398,492) value="Estimates assume an agent fleet with one human reviewing; they are for ordering, not promises."
+  heading [494,548) level=2
+    text [497,548) value="Phase 0 — Foundations and a release (≈ 2 weeks)"
+  paragraph [550,780)
+    strong [550,564)
+      text [552,562) value="Ends with:"
+    text [564,644) value=" v0.0.1 installs on macOS and Linux, opens a markdown file passed on the command"
+    softBreak [644,645)
+    text [645,737) value="line, renders it unstyled, and every CI gate exists (some as skeletons that pass trivially)."
+    softBreak [737,738)
+    text [738,780) value="Taste review #0 chooses the typeface pair."
+  list [782,2062) ordered=false tight=true
+    listItem [782,939)
+      paragraph [784,939)
+        text [784,868) value="Contracts frozen: AST + source map, operation, shell-api, theme tokens, index entry,"
+        softBreak [868,871)
+        text [871,889) value="reading position ("
+        code [889,915) value="packages/*/src/contracts"
+        text [915,939) value="). ADR needed to change."
+    listItem [940,1022)
+      paragraph [942,1022)
+        text [942,960) value="Corpus committed ("
+        code [960,977) value="fixtures/corpus"
+        text [977,1022) value=") and golden files generated from the parser."
+    listItem [1023,1190)
+      paragraph [1025,1190)
+        code [1025,1040) value="packages/core"
+        text [1040,1108) value=": parser (markdown-it, CommonMark + GFM) producing the AST with byte"
+        softBreak [1108,1111)
+        text [1111,1190) value="provenance; sanitiser; outline. Passes the CommonMark spec suite. Runs in Node."
+    listItem [1191,1372)
+      paragraph [1193,1372)
+        code [1193,1207) value="apps/desktop"
+        text [1207,1234) value=": Tauri shell implementing "
+        code [1234,1245) value="shell-api"
+        text [1245,1282) value=" (read, atomic write, watch, dialogs,"
+        softBreak [1282,1285)
+        text [1285,1372) value="clipboard, single-instance). Loads the frontend; renders the AST to HTML with no theme."
+    listItem [1373,1713)
+      paragraph [1375,1713)
+        text [1375,1464) value="CI: build/typecheck/lint/test; golden files; licence audit (real); no-network gate (real,"
+        softBreak [1464,1467)
+        text [1467,1557) value="over the corpus in Playwright); byte-fidelity property (real, over open→save); perf gate"
+        softBreak [1557,1560)
+        text [1560,1647) value="reading budgets (cold start measured on the packaged app on both runners); bundle gate;"
+        softBreak [1647,1650)
+        text [1650,1713) value="screenshot diff and aesthetics gate wired with empty baselines."
+    listItem [1714,1884)
+      paragraph [1716,1884)
+        text [1716,1805) value="Release workflow: tag → macOS DMG (signing and notarization steps gated on secrets) and"
+        softBreak [1805,1808)
+        text [1808,1884) value="Linux AppImage; publish as pre-release. Branch protection and CODEOWNERS on."
+    listItem [1885,2062)
+      paragraph [1887,2062)
+        text [1887,1977) value="Taste review #0 artifact: the long corpus document set in Literata + JetBrains Mono and in"
+        softBreak [1977,1980)
+        text [1980,2062) value="Source Serif 4 + IBM Plex Mono, at the type scale, exported as PNG at 1× and 2×."
+  heading [2064,2101) level=2
+    text [2067,2101) value="Phase 1 — The page (≈ 4 weeks)"
+  paragraph [2103,2230)
+    strong [2103,2117)
+      text [2105,2115) value="Ends with:"
+    text [2117,2197) value=" v0.1 \"reads a README beautifully\". Rendered mode passes tier 1; taste review #1"
+    softBreak [2197,2198)
+    text [2198,2230) value="is the first blind side-by-side."
+  list [2232,3398) ordered=false tight=true
+    listItem [2232,2389)
+      paragraph [2234,2389)
+        code [2234,2250) value="packages/theme"
+        text [2250,2315) value=": tokens, the default theme built as a theme, light variant; grid"
+        softBreak [2315,2318)
+        text [2318,2357) value="enforcement (all vertical spacing from "
+        code [2357,2375) value="--marxy-line-box"
+        text [2375,2389) value="); type scale."
+    listItem [2390,2561)
+      paragraph [2392,2561)
+        text [2392,2411) value="Bundled fonts with "
+        code [2411,2423) value="@font-face"
+        text [2423,2425) value=", "
+        code [2425,2439) value="font-display"
+        text [2439,2477) value=", preload; fonts on the critical path,"
+        softBreak [2477,2480)
+        text [2480,2506) value="everything else deferred; "
+        code [2506,2529) value="--marxy-weight-offset"
+        text [2529,2561) value=" on Linux with a measured value."
+    listItem [2562,2732)
+      paragraph [2564,2732)
+        strong [2564,2606)
+          text [2566,2604) value="Weight harness on a real Linux desktop"
+        text [2606,2648) value=" (the spike specimen + analyser moved into"
+        softBreak [2648,2649)
+        code [2651,2661) value="scripts/"
+        text [2661,2732) value="), run on GNOME at 1× and 2×; value recorded in ADR-0010's follow-up."
+    listItem [2733,2997)
+      paragraph [2735,2997)
+        code [2735,2753) value="packages/typeset"
+        text [2753,2790) value=": ragged-right Knuth–Plass through "
+        code [2790,2803) value="justif/core"
+        text [2803,2823) value=" on paragraphs, list"
+        softBreak [2823,2826)
+        text [2826,2914) value="items and quotes; hanging punctuation and protrusion; allow-listed hyphenation; viewport"
+        softBreak [2914,2917)
+        text [2917,2997) value="first then background; re-layout triggers. Story includes the fallback decision."
+    listItem [2998,3240)
+      paragraph [3000,3240)
+        text [3000,3086) value="Images with reserved dimensions from the file's intrinsic size (via shell-api), remote"
+        softBreak [3086,3089)
+        text [3089,3180) value="blocked with the notice; code blocks highlighted at parse time from the grammar allow-list,"
+        softBreak [3180,3183)
+        text [3183,3240) value="hanging-indent wrap, copy clean; KaTeX lazy, on the grid."
+    listItem [3241,3326)
+      paragraph [3243,3326)
+        text [3243,3326) value="Smart typography render pass. Tier 1 aesthetics gate turned on with real baselines."
+    listItem [3327,3398)
+      paragraph [3329,3398)
+        text [3329,3398) value="Screenshot baselines committed for WebKit (Playwright) and WebKitGTK."
+  heading [3400,3439) level=2
+    text [3403,3439) value="Phase 2 — The opener (≈ 3 weeks)"
+  paragraph [3441,3586)
+    strong [3441,3455)
+      text [3443,3453) value="Ends with:"
+    text [3455,3530) value=" v0.2 opens under budget, watches, switches instantly, and has Source mode."
+    softBreak [3530,3531)
+    text [3531,3586) value="Taste review #2 includes the palette-vs-tabs criterion."
+  list [3588,4249) ordered=false tight=true
+    listItem [3588,3736)
+      paragraph [3590,3736)
+        text [3590,3678) value="Cold-start work against the gate: measured waterfall, lazy grammars and KaTeX, index off"
+        softBreak [3678,3681)
+        text [3681,3736) value="the critical path, position restore before first paint."
+    listItem [3737,3811)
+      paragraph [3739,3811)
+        text [3739,3811) value="Watching with position preserved; atomic-replace, delete and move tests."
+    listItem [3812,3939)
+      paragraph [3814,3939)
+        text [3814,3826) value="Index (Rust "
+        code [3826,3834) value="ignore"
+        text [3834,3849) value=") and matcher ("
+        code [3849,3857) value="nucleo"
+        text [3857,3898) value=") behind shell-api; root rule; deny list;"
+        softBreak [3898,3901)
+        text [3901,3939) value="ceiling; persistence and invalidation."
+    listItem [3940,4062)
+      paragraph [3942,4062)
+        text [3942,4033) value="Palette: MRU with no query, fuzzy over path/title/headings, heading jump, pinning, back and"
+        softBreak [4033,4036)
+        text [4036,4062) value="forward, keystroke budget."
+    listItem [4063,4208)
+      paragraph [4065,4208)
+        text [4065,4152) value="Source mode: CodeMirror 6, per-file-type default, mode switch preserving position, code"
+        softBreak [4152,4155)
+        text [4155,4208) value="viewer defaults (line numbers optional, large files)."
+    listItem [4209,4249)
+      paragraph [4211,4249)
+        text [4211,4249) value="Reading position persistence per file."
+  heading [4251,4306) level=2
+    text [4254,4306) value="Phase 3 — Operations, safety, themes (≈ 3 weeks)"
+  paragraph [4308,4404)
+    strong [4308,4322)
+      text [4310,4320) value="Ends with:"
+    text [4322,4404) value=" v0.3 feature-complete for v1. Taste review #3 covers dark and the opt-in notices."
+  list [4406,5011) ordered=false tight=true
+    listItem [4406,4498)
+      paragraph [4408,4498)
+        text [4408,4498) value="Selection model in Rendered mode: span, block, section, document; resolves to byte ranges."
+    listItem [4499,4587)
+      paragraph [4501,4587)
+        text [4501,4587) value="The four operations with table-driven tests and the fidelity property over the corpus."
+    listItem [4588,4679)
+      paragraph [4590,4679)
+        text [4590,4679) value="Sanitiser allow-list opt-in with the discoverable notice; remote-image opt-in; CSP final."
+    listItem [4680,4851)
+      paragraph [4682,4851)
+        text [4682,4739) value="Dark variant, designed not inverted. User theme loading ("
+        code [4739,4751) value="theme.toml"
+        text [4751,4754) value=" + "
+        code [4754,4765) value="theme.css"
+        text [4765,4771) value=") with"
+        softBreak [4771,4774)
+        text [4774,4851) value="contract version check and re-layout on change; a theme opens in Source mode."
+    listItem [4852,5011)
+      paragraph [4854,5011)
+        text [4854,4942) value="Outline; find landing at reading position in Rendered mode; keyboard completeness audit;"
+        softBreak [4942,4945)
+        text [4945,5011) value="\"open in external editor\"; save (explicit, byte-faithful, atomic)."
+  heading [5013,5046) level=2
+    text [5016,5046) value="Phase 4 — Ship (≈ 2 weeks)"
+  paragraph [5048,5129)
+    strong [5048,5062)
+      text [5050,5060) value="Ends with:"
+    text [5062,5129) value=" v1.0 on both platforms. Tier 2 passed on a Linux laptop and a Mac."
+  list [5131,5411) ordered=false tight=true
+    listItem [5131,5195)
+      paragraph [5133,5195)
+        text [5133,5195) value="The taste-review backlog from phases 1–3, in priority order."
+    listItem [5196,5336)
+      paragraph [5198,5336)
+        text [5198,5243) value="Signed, notarized DMG; AppImage and Flatpak; "
+        code [5243,5267) value="THIRD_PARTY_NOTICES.md"
+        text [5267,5287) value="; about surface with"
+        softBreak [5287,5290)
+        text [5290,5336) value="attributions; README with the promises stated."
+    listItem [5337,5411)
+      paragraph [5339,5411)
+        text [5339,5411) value="Perf and bundle budgets tightened to the measured values minus headroom."
+  heading [5413,5447) level=2
+    text [5416,5447) value="After v1 (backlog, not planned)"
+  paragraph [5449,5560)
+    text [5449,5536) value="Content search; the operations catalogue; theme linter; Mermaid; settings UI; read-only"
+    softBreak [5536,5537)
+    text [5537,5560) value="spine; Windows; export."
+  heading [5562,5582) level=2
+    text [5565,5582) value="How the loop runs"
+  paragraph [5584,5950)
+    text [5584,5679) value="plan → stories with executable acceptance criteria and listed paths → implement in parallel"
+    softBreak [5679,5680)
+    text [5680,5777) value="where paths do not overlap → machine gates → PR with why, ADRs, artifacts → merge → queue"
+    softBreak [5777,5778)
+    text [5778,5824) value="entry → phase-end taste review → ADRs and "
+    code [5824,5835) value="AGENTS.md"
+    text [5835,5875) value=" updated. Context loss is handled by the"
+    softBreak [5875,5876)
+    text [5876,5950) value="repo being the memory; drift by screenshot diffs and constraints-as-gates."

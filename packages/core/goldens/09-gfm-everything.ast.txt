@@ -1,0 +1,201 @@
+document [0,1843)
+  frontmatter [0,53) value="title: Every GFM feature\ntags: [fixture, gfm]"
+  heading [55,66) level=1
+    text [57,66) value="Heading 1"
+  heading [67,79) level=2
+    text [70,79) value="Heading 2"
+  heading [80,93) level=3
+    text [84,93) value="Heading 3"
+  heading [94,108) level=4
+    text [99,108) value="Heading 4"
+  heading [109,124) level=5
+    text [115,124) value="Heading 5"
+  heading [125,141) level=6
+    text [132,141) value="Heading 6"
+  heading [143,172) level=1
+    text [143,157) value="Setext heading"
+  heading [174,203) level=2
+    text [174,188) value="Another setext"
+  paragraph [205,649)
+    text [205,220) value="Paragraph with "
+    emphasis [220,230)
+      text [221,229) value="emphasis"
+    text [230,232) value=", "
+    emphasis [232,242)
+      text [233,241) value="emphasis"
+    text [242,244) value=", "
+    strong [244,254)
+      text [246,252) value="strong"
+    text [254,256) value=", "
+    strong [256,266)
+      text [258,264) value="strong"
+    text [266,268) value=", "
+    emphasis [268,278)
+      strong [269,277)
+        text [271,275) value="both"
+    text [278,280) value=", "
+    strikethrough [280,290)
+      text [282,288) value="strike"
+    text [290,292) value=", "
+    code [292,298) value="code"
+    text [298,300) value=", "
+    code [300,324) value="code with ` backtick"
+    text [324,328) value=", a "
+    link [328,367) url="https://example.invalid" title="title"
+      text [329,333) value="link"
+    text [367,371) value=", a "
+    link [371,392) url="https://example.invalid/ref" title="Reference title"
+      text [372,386) value="reference link"
+    text [392,397) value=", an "
+    link [397,431) url="https://example.invalid/autolink"
+      text [398,430) value="https://example.invalid/autolink"
+    text [431,440) value=", a bare "
+    link [440,468) url="https://example.invalid/bare"
+      text [440,468) value="https://example.invalid/bare"
+    text [468,484) value=", and a footnote"
+    footnoteReference [484,488) label="1"
+    text [488,508) value=". Hard break follows"
+    hardBreak [508,511)
+    text [511,540) value="here. Backslash break follows"
+    hardBreak [540,542)
+    text [542,649) value="here. Entities: & © 😀 — and \"smart quotes\" with 'singles' -- and --- dashes... ellipsis."
+  footnoteDefinition [704,810) label="1"
+    paragraph [710,766)
+      text [710,734) value="The footnote text, with "
+      emphasis [734,742)
+        text [735,741) value="markup"
+      text [742,766) value=" and a second paragraph."
+    paragraph [772,810)
+      text [772,810) value="Indented continuation of the footnote."
+  blockquote [812,878)
+    paragraph [814,824)
+      text [814,824) value="Blockquote"
+    blockquote [827,878)
+      paragraph [829,878)
+        text [829,846) value="nested blockquote"
+        softBreak [846,849)
+        text [849,878) value="with a lazy continuation line"
+  list [880,898) ordered=false tight=true
+    listItem [880,898)
+      paragraph [882,898)
+        text [882,898) value="Bullet with star"
+  list [899,917) ordered=false tight=true
+    listItem [899,917)
+      paragraph [901,917)
+        text [901,917) value="Bullet with plus"
+  list [918,936) ordered=false tight=true
+    listItem [918,936)
+      paragraph [920,936)
+        text [920,936) value="Bullet with dash"
+  list [938,1023) ordered=true tight=true start=1
+    listItem [938,948)
+      paragraph [941,948)
+        text [941,948) value="Ordered"
+    listItem [949,990)
+      paragraph [952,956)
+        text [952,956) value="List"
+      list [960,990) ordered=true tight=true start=1
+        listItem [960,977)
+          paragraph [963,977)
+            text [963,977) value="Nested ordered"
+        listItem [981,990)
+          paragraph [984,990)
+            text [984,990) value="Second"
+    listItem [991,1023)
+      paragraph [995,1023)
+        text [995,1023) value="Starts at ten? No, continues"
+  list [1025,1056) ordered=true tight=true start=3
+    listItem [1025,1046)
+      paragraph [1028,1046)
+        text [1028,1046) value="Ordered with paren"
+    listItem [1047,1056)
+      paragraph [1050,1056)
+        text [1050,1056) value="Second"
+  list [1058,1167) ordered=false tight=false
+    listItem [1058,1078) task=unchecked
+      paragraph [1060,1078)
+        taskMarker [1060,1063) checked=false
+        text [1064,1078) value="Task unchecked"
+    listItem [1079,1097) task=checked
+      paragraph [1081,1097)
+        taskMarker [1081,1084) checked=true
+        text [1085,1097) value="Task checked"
+    listItem [1098,1125) task=checked
+      paragraph [1100,1125)
+        taskMarker [1100,1103) checked=true
+        text [1104,1125) value="Task checked, capital"
+    listItem [1127,1134)
+      paragraph [1129,1134)
+        text [1129,1134) value="loose"
+    listItem [1136,1167)
+      paragraph [1138,1142)
+        text [1138,1142) value="list"
+      paragraph [1148,1167)
+        text [1148,1167) value="indented code block"
+  codeBlock [1169,1196) content=[1173,1193) value="fenced, no language"
+  codeBlock [1198,1246) lang=python info="python" content=[1208,1243) value="def tilde_fence():\n    return \"ok\""
+  codeBlock [1248,1280) lang=md info="md" content=[1255,1276) value="```\nnested fence\n```"
+  table [1282,1427) align=left,center,right,-
+    tableRow [1282,1317) header=true
+      tableCell [1282,1289)
+        text [1284,1288) value="Left"
+      tableCell [1289,1298)
+        text [1291,1297) value="Center"
+      tableCell [1298,1306)
+        text [1300,1305) value="Right"
+      tableCell [1306,1317)
+        text [1308,1315) value="Default"
+    tableRow [1354,1371) header=false
+      tableCell [1354,1358)
+        text [1356,1357) value="a"
+      tableCell [1358,1362)
+        text [1360,1361) value="b"
+      tableCell [1362,1366)
+        text [1364,1365) value="c"
+      tableCell [1366,1371)
+        text [1368,1369) value="d"
+    tableRow [1372,1427) header=false
+      tableCell [1372,1394)
+        text [1374,1393) value="longer cell content"
+      tableCell [1394,1403)
+        code [1396,1402) value="code"
+      tableCell [1403,1414)
+        strong [1405,1413)
+          text [1407,1411) value="bold"
+      tableCell [1414,1427)
+        link [1416,1425) url="x"
+          text [1417,1421) value="link"
+  thematicBreak [1429,1432)
+  thematicBreak [1434,1437)
+  thematicBreak [1439,1442)
+  paragraph [1444,1505)
+    image [1444,1481) url="image.png" alt="Image alt" title="Image title"
+    softBreak [1481,1482)
+    image [1482,1505) url="image2.png" alt="Reference image"
+  htmlBlock [1526,1568) value="<details><summary>Raw HTML block</summary>"
+  paragraph [1570,1590)
+    text [1570,1590) value="Content inside HTML."
+  htmlBlock [1592,1602) value="</details>"
+  paragraph [1604,1692)
+    text [1604,1611) value="Inline "
+    html [1611,1616) value="<kbd>"
+    text [1616,1620) value="Ctrl"
+    html [1620,1626) value="</kbd>"
+    text [1626,1627) value="+"
+    html [1627,1632) value="<kbd>"
+    text [1632,1633) value="C"
+    html [1633,1639) value="</kbd>"
+    text [1639,1649) value=" HTML and "
+    html [1649,1673) value="<span style=\"color:red\">"
+    text [1673,1684) value="styled span"
+    html [1684,1691) value="</span>"
+    text [1691,1692) value="."
+  paragraph [1694,1749)
+    text [1694,1698) value="Term"
+    softBreak [1698,1699)
+    text [1699,1749) value=": Definition (not GFM; must render as a paragraph)"
+  paragraph [1751,1795)
+    text [1751,1795) value="Escaped *not emphasis* and # not heading."
+  mathBlock [1797,1806) value="x^2"
+  paragraph [1808,1843)
+    text [1808,1843) value="Last paragraph, no trailing newline"

@@ -1,0 +1,64 @@
+document [0,1322)
+  heading [0,32) level=1
+    text [2,32) value="東アジアの文字と組版"
+  heading [34,46) level=2
+    text [37,46) value="日本語"
+  paragraph [48,504)
+    text [48,438) value="日本語の文章は単語の間に空白がなく、行の折り返しは文字単位で行われます。禁則処理により、句読点「、」「。」や閉じ括弧「」」は行頭に来てはならず、開き括弧「「」は行末に来てはなりません。マークダウンのリーダーはこの規則を尊重しなければ、読みに…"
+    strong [438,448)
+      text [440,446) value="強調"
+    text [448,451) value="や"
+    code [451,462) value="コード"
+    text [462,504) value="が混在する段落でも同様です。"
+  list [506,604) ordered=false tight=true
+    listItem [506,529)
+      paragraph [508,529)
+        text [508,529) value="箇条書きの項目"
+    listItem [530,571)
+      paragraph [532,571)
+        text [532,571) value="もう一つの項目（括弧付き）"
+    listItem [572,604)
+      paragraph [574,604)
+        text [574,604) value="「引用符付きの項目」"
+  heading [606,615) level=2
+    text [609,615) value="中文"
+  paragraph [617,910)
+    text [617,910) value="中文排版同样没有词间空格。标点符号如\"，\"、\"。\"、\"？\"不应出现在行首，而引号和括号的开口部分不应出现在行尾。一个好的阅读器应当在中文、English 和数字 2026 混排时保持合理的间距，并将全角标点悬挂到边距之外。"
+  blockquote [912,974)
+    paragraph [914,974)
+      text [914,974) value="引用块中的中文文本也应该遵循相同的规则。"
+  heading [976,988) level=2
+    text [979,988) value="한국어"
+  paragraph [990,1175)
+    text [990,1109) value="한국어는 띄어쓰기를 사용하지만, 줄바꿈은 음절 단위로도 허용됩니다. 마크다운 리더는 "
+    code [1109,1131) value="word-break: keep-all"
+    text [1131,1175) value="과 같은 설정을 고려해야 합니다."
+  table [1177,1321) align=-,-,-
+    tableRow [1177,1214) header=true
+      tableCell [1177,1186)
+        text [1179,1185) value="言語"
+      tableCell [1186,1204)
+        text [1188,1203) value="分かち書き"
+      tableCell [1204,1214)
+        text [1206,1212) value="禁則"
+    tableRow [1235,1266) header=false
+      tableCell [1235,1247)
+        text [1237,1246) value="日本語"
+      tableCell [1247,1256)
+        text [1249,1255) value="なし"
+      tableCell [1256,1266)
+        text [1258,1264) value="あり"
+    tableRow [1267,1289) header=false
+      tableCell [1267,1276)
+        text [1269,1275) value="中文"
+      tableCell [1276,1282)
+        text [1278,1281) value="无"
+      tableCell [1282,1289)
+        text [1284,1287) value="有"
+    tableRow [1290,1321) header=false
+      tableCell [1290,1302)
+        text [1292,1301) value="한국어"
+      tableCell [1302,1311)
+        text [1304,1310) value="있음"
+      tableCell [1311,1321)
+        text [1313,1319) value="일부"
