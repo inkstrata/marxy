@@ -5,14 +5,14 @@ Tier 1 runs on every PR; tier 2 runs at the end of every phase and before any re
 
 ## Tier 1 — mechanical, in CI (`scripts/gate-aesthetics.mjs`)
 
-Runs the corpus through the real renderer in Playwright WebKit (macOS) and WebKitGTK (Linux),
-at three widths and three sizes, and asserts:
+Runs the corpus through the real renderer in Playwright WebKit on both platforms, at three
+widths and three sizes, dark then light, and asserts:
 
 | Check | Assertion | Source constraint |
 | --- | --- | --- |
 | Grid conformance | for every block-level element, `top mod line-box` ≤ 0.5 px | 2 |
 | Measure | column width in `ch` ∈ [60, 75] at 14, 17, 21, 24 px | 1 |
-| Contrast | body text ≥ 7:1, secondary text ≥ 4.5:1, both variants | 4 |
+| Contrast | body text ≥ 7:1, secondary text ≥ 4.5:1, every code token ≥ 4.5:1 on the code background, in **dark first**, then light | 4, ADR-0024 |
 | Zero layout shift | cumulative layout shift = 0 from first paint through fonts, images, math | images/reserved dims |
 | Rag quality | per paragraph: coefficient of variation of line lengths, count of lines < ⅓ measure (excluding last), consecutive-hyphen runs — each ≤ stored baseline + 5 % | 7 (K–P) |
 | Hanging punctuation | opening quotes and hyphens at line starts/ends sit outside the text edge by ≥ 40 % of their advance | 7 |
@@ -30,7 +30,8 @@ At each phase gate, the reviewer receives a folder prepared by the agents, never
 mid-task:
 
 1. **Blind side-by-side.** Three corpus documents (the long technical document, a real README,
-   an AI plan) rendered in marxy, Typora and Marked 2 at the same width, labelled A/B/C,
+   an AI plan) rendered in marxy, Typora and Marked 2 at the same width, all three in their
+   dark theme (marxy's primary variant, ADR-0024), labelled A/B/C,
    screenshots printed or viewed at reading distance. Reviewer ranks. **Pass:** marxy first on
    at least two of three.
 2. **The fourth page.** Scroll the 5,000-word document to its end in marxy; note whether the
