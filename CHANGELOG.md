@@ -10,6 +10,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Repository scaffold: frozen contracts, fixture corpus, CI gates, ADRs seeded from the brainstorm, a hello-world desktop app (bootstrap)
 - Orchestration kit for running the agent fleet from Cursor: role prompts, board scripts, subagent definitions (bootstrap)
 - Conventions for commits, pull requests, comments, tags and reviews, enforced by commitlint (bootstrap)
+- Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
