@@ -59,7 +59,7 @@ jobs:
           MARXY_PERF_REQUIRED: '1'
           MARXY_PERF_ENV: ci
           MARXY_RUNNER_CLASS: "${{ matrix.os }}"
-          MARXY_PERF_ROUNDS: "${{ inputs.perf_rounds || '1' }}"
+          MARXY_PERF_ROUNDS: '5'
       - name: Perf gate rules selftest
         run: |
           node scripts/gate-perf.mjs --selftest
