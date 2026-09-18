@@ -1,3 +1,9 @@
+---
+key: MARXY-34
+design: [08-position-and-watching, 06-shell]
+depends: [MARXY-14, MARXY-75]
+verify: [pnpm precheck, pnpm done MARXY-34]
+---
 # MARXY-34 — Watch the root and live-reload the open document keeping the reading position
 
 **Design:** [08-position-and-watching](../../design/08-position-and-watching.md), [06-shell](../../design/06-shell.md) §Watching · **Depends on:** MARXY-14, MARXY-75.

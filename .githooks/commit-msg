@@ -1,0 +1,21 @@
+#!/bin/sh
+# No attribution trailers, ever (AGENTS.md). Agent tooling injects them without asking, so
+# strip them, then fail loudly if anything survived. Install with:
+#   git config core.hooksPath .githooks
+msg="$1"
+tmp="$msg.marxy"
+grep -v -i -E '^(co-authored-by:.*(cursor|claude|gpt|grok|copilot|anthropic|openai)|generated with|🤖)' "$msg" > "$tmp" && mv "$tmp" "$msg"
+if grep -q -i -E '^co-authored-by:.*(cursor|claude|gpt|grok|copilot)|generated with' "$msg"; then
+  echo "commit-msg: attribution trailer present and could not be removed (AGENTS.md)" >&2
+  exit 1
+fi
+
+# Then the conventions, on this message alone. `commitlint --from…--to` over a range has been
+# seen to pass a commit that fails when linted on its own, so the only reliable moment to catch
+# an over-long subject is now, rather than in CI after a push.
+if [ -f node_modules/.bin/commitlint ]; then
+  node_modules/.bin/commitlint --edit "$msg" || {
+    echo "commit-msg: see docs/conventions.md; nothing was committed" >&2
+    exit 1
+  }
+fi

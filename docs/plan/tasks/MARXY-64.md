@@ -1,3 +1,9 @@
+---
+key: MARXY-64
+design: [04-typeset]
+depends: []
+verify: [pnpm precheck, pnpm done MARXY-64]
+---
 # MARXY-64 — A 5,000-word prose fixture
 
 **Design:** [04-typeset](../../design/04-typeset.md) (what the rag numbers are re-evaluated on) · **Blocks:** MARXY-23.

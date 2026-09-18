@@ -1,3 +1,9 @@
+---
+key: MARXY-37
+design: [09-app-shell, 08-position-and-watching, 01-buffer]
+depends: [MARXY-20, MARXY-75]
+verify: [pnpm precheck, pnpm done MARXY-37]
+---
 # MARXY-37 — Source mode in CodeMirror 6 with per-file-type default and position-preserving switch
 
 **Design:** [09-app-shell](../../design/09-app-shell.md) §Source mode, [08-position-and-watching](../../design/08-position-and-watching.md) §Mode switch, [01-buffer](../../design/01-buffer.md) `fromText` · **Depends on:** MARXY-20, MARXY-75.

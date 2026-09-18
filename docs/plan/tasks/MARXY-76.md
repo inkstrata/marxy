@@ -1,3 +1,9 @@
+---
+key: MARXY-76
+design: [05-theme]
+depends: [MARXY-17]
+verify: [pnpm precheck, pnpm done MARXY-76]
+---
 # MARXY-76 — Re-render taste review #0 in the dark variant
 
 **Design:** [05-theme](../../design/05-theme.md) §Palettes, ADR-0024 · **Depends on:** nothing (the specimen script exists from MARXY-17).

@@ -1,3 +1,9 @@
+---
+key: MARXY-28
+design: [02-render]
+depends: [MARXY-61, MARXY-20]
+verify: [pnpm precheck, pnpm done MARXY-28]
+---
 # MARXY-28 — KaTeX on first use, on the grid
 
 **Design:** [02-render](../../design/02-render.md) post-pass 6, D-A12 · **Depends on:** MARXY-61, MARXY-20.

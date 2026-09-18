@@ -1,3 +1,9 @@
+---
+key: MARXY-33
+design: [00-architecture]
+depends: [MARXY-21, MARXY-27, MARXY-28, MARXY-35]
+verify: [pnpm precheck, pnpm done MARXY-33]
+---
 # MARXY-33 — Cold start under budget: fonts eager, everything else deferred
 
 **Design:** [00-architecture](../../design/00-architecture.md) §Waterfall (targets, levers) · **Depends on:** MARXY-21, MARXY-27, MARXY-28, MARXY-35.

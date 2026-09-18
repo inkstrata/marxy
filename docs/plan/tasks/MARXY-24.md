@@ -1,3 +1,9 @@
+---
+key: MARXY-24
+design: [04-typeset]
+depends: [MARXY-23]
+verify: [pnpm precheck, pnpm done MARXY-24]
+---
 # MARXY-24 — Hanging punctuation, optical alignment and allow-listed hyphenation
 
 **Design:** [04-typeset](../../design/04-typeset.md) §Hang, §Hyphenation · **Depends on:** MARXY-23.

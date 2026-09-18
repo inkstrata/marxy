@@ -1,3 +1,9 @@
+---
+key: MARXY-38
+design: [08-position-and-watching, 11-config-and-storage]
+depends: [MARXY-34]
+verify: [pnpm precheck, pnpm done MARXY-38]
+---
 # MARXY-38 — Reading position persisted per file across launches; config file
 
 **Design:** [08-position-and-watching](../../design/08-position-and-watching.md) §Persistence, [11-config-and-storage](../../design/11-config-and-storage.md) · **Depends on:** MARXY-34.
