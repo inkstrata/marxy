@@ -24,8 +24,12 @@ They are written against the code as it is on `main` at the time of writing (the
 | [09-app-shell](09-app-shell.md) | DOM skeleton, state machine, keyboard map, outline, find, notices, Source mode, mode switch | MARXY-37, MARXY-47, MARXY-48 |
 | [10-gates-and-testing](10-gates-and-testing.md) | how to write tests per package, the headless render entry, grid and rag checks, screenshot diffs | MARXY-25, MARXY-30 |
 | [11-config-and-storage](11-config-and-storage.md) | config file, app data files, versioning, corruption handling | MARXY-38, MARXY-46 |
+| [12-trust](12-trust.md) | the wide policy, deferred remote images, grants and `trust.json`, the blocked-content and truncation notices, revoking | MARXY-44, MARXY-97, MARXY-45 |
+| [13-release](13-release.md) | artifacts, signing and notarization, Flatpak without network, notices and the about document, budget tightening, the v1 gate | MARXY-16, MARXY-52, MARXY-53, MARXY-54 |
 
-Task cards exist for MARXY-16, 20–31, 33–39, 61, 64 and 75 (`../plan/tasks/`).
+Task cards exist for MARXY-16, 20–31, 33–39, 41–49, 51–54, 61, 64, 75, 76 and the
+placeholder stories `MARXY-93`, `MARXY-94` and `MARXY-97`
+(`../plan/tasks/`).
 
 Task cards for individual stories live in `../plan/tasks/<KEY>.md` and point into these
 documents by section. An implementor reads `AGENTS.md`, its task card, and the sections the
@@ -58,7 +62,7 @@ and names the reason; the reviewer returns it unless the reason is a bug in this
 | Which Node built-ins may packages use? | None in `packages/*/src` except `packages/core/scripts`. `apps/desktop/src` uses none. Tests may use `node:test`, `node:assert/strict`, `node:fs`, `node:path`, `node:url`. |
 | Can I use `innerHTML` in the app? | Only for the sanitised `html` from `renderDocumentSafeHtml`, exactly once per render, into `<article>`. Everything else builds DOM with `createElement`/`textContent`. |
 | Which quote style, formatting, line width? | biome defaults from the repo config (MARXY-8): single quotes, semicolons, 100 columns. Do not reformat files you did not change. |
-| Naming | Files `kebab-case.ts`; exported functions `camelCase`; types `PascalCase`; CSS classes `marxy-<thing>`; data attributes only `data-marxy-s`, `data-marxy-e`, `data-marxy-done`, `data-marxy-typeset`, `data-marxy-mode`, `data-marxy-variant`; marks `snake_case`; events `marxy:<thing>`. |
+| Naming | Files `kebab-case.ts`; exported functions `camelCase`; types `PascalCase`; CSS classes `marxy-<thing>`; data attributes only `data-marxy-s`, `data-marxy-e`, `data-marxy-remote` (§12), `data-marxy-done`, `data-marxy-typeset`, `data-marxy-mode`, `data-marxy-variant`; marks `snake_case`; events `marxy:<thing>`. |
 | Which marks exist? | `main_start`, `window_shown`, `script_start`, `args`, `file_read`, `parsed`, `rendered`, `fonts_ready`, `first_text`, `typeset_viewport`, `position_restored`, `highlight_ms`, `index_loaded`, `live_reload`, `palette_keystroke`, `find_first_match`, `weight_offset`, `error`, `ready`, and the smoke-check outcomes `painted`, `no_paint`, `no_document`, `no_text`. The source is `scripts/registry.json`; add a name there in the PR that introduces it. |
 | Which events exist? | `marxy:watch`, `marxy:index-updated`, `marxy:open-files`. |
 | What is the reading line? | 40 % of the viewport height. One constant, `READING_LINE = 0.4`, in `apps/desktop/src/position/position.ts`. |
@@ -66,6 +70,9 @@ and names the reason; the reviewer returns it unless the reason is a bug in this
 | Which variant is default? | Dark (ADR-0024). Every screenshot, baseline, specimen and review lists dark first. |
 | A fixture would help but does not exist. | Add it under `fixtures/corpus/` with the next number, never edit an existing one, and add its goldens. Say so in the PR. |
 | Something in a design is wrong. | Do not silently work around it. Implement what compiles, write the discrepancy in "For the reviewer", and the planner fixes the design. |
+| I need a `shell.*` member that is not in `packages/shell-api`. | ADR-0026 lists every v1 member. Add it to the object in `src/shell/tauri.ts` under that exact name and signature; never edit the contract from a product story. A member not in ADR-0026 is `blocked`. |
+| Where does a reader-invokable action get registered? | The command registry (§03): one file per feature under `apps/desktop/src/commands/`, one line in its `index.ts`. Never a keydown listener of your own. |
+| Can anything in the webview fetch from the network? | No. Remote images go through `shell.fetchRemoteImage` after a grant (§12, ADR-0027). A `fetch(` or `new URL(…).href` assigned to `src` of an `http(s)` URL anywhere in `apps/desktop/src` fails review. |
 | Error text for a person | One sentence, no stack, names the file if there is one: "Could not read README.md: permission denied." |
 
 ## Pinned dependencies

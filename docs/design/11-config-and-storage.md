@@ -31,9 +31,11 @@ shell-free: the shell hands it the bytes). Unknown keys are ignored with a notic
 once. Invalid values fall back to the default for that key, with a notice. The file is read at
 startup and watched (§08 mechanism); changes apply live except `resident`.
 
-There is no settings UI in v1; `Mod+=`/`Mod+-` write `size` back to the file (the only write
-marxy makes to config), preserving the rest of the file byte-for-byte by editing the one line
-(or appending it).
+There is no settings UI in v1. marxy writes to the config file in exactly two cases:
+`Mod+=`/`Mod+-` write `size`, and "Use this theme" (§05) writes `theme`. Both preserve the
+rest of the file byte-for-byte by editing the one top-level line for that key (or appending
+it before the first `[table]` header, with the file's own line ending), through one function,
+`setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`.
 
 ## Data files
 
@@ -42,6 +44,7 @@ marxy makes to config), preserving the rest of the file byte-for-byte by editing
 | `index/<sha1(root)>.json` | §07 envelope | 50 000 entries; files older than 90 days unused are deleted at startup | shell |
 | `positions.json` | §08 | 5 000 paths, LRU | app |
 | `history.json` | opens, pins, recent roots (§07) | 500 opens, 12 roots | app |
+| `trust.json` | per-document grants: HTML, image hosts ([§12](12-trust.md)) | 2 000 paths, LRU | app |
 
 Every file starts with `"version": 1`. Reading a file whose `version` is newer than the app
 knows → ignore it (do not overwrite; a newer marxy wrote it). Unparseable → rename to

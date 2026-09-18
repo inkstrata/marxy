@@ -81,9 +81,12 @@ processed (`data-marxy-done` is set by the app, not the renderer, and is not pro
    reading position (§08).
 2. **Links.** `a.marxy-external` click → `shell.openExternal(href)`; `a[href^="#"]` click →
    scroll to `#id` with the reading-line offset (§09).
-3. **Images.** For each `<img>`: resolve `src` against the document's directory (`../x.png`
-   allowed only inside the directory tree; anything escaping it is treated as remote, i.e.
-   replaced by alt text and a notice); `const { width, height } = await shell.imageSize(path)`;
+3. **Images.** For each `<img src>`: resolve `src` against the **image root** (ADR-0027 §5: the
+   repository root the document is indexed under, else the document's directory). `/x.png`
+   resolves against the image root, `x.png` and `../x.png` against the document's directory,
+   and any result outside the image root is refused (alt text, counted in the notice as
+   "outside this repository"). `shell.allowAssetScope(imageRoot)` is called once per root per
+   session before the first `assetUrl`; `const { width, height } = await shell.imageSize(path)`;
    set `width`/`height` attributes and `src = shell.assetUrl(path)`. The `<img>` keeps its
    layout box from the attributes, so decode causes **no layout shift**; the grid pass (§04)
    pads its height to a line-box multiple. Images wider than the measure scale down with
@@ -91,7 +94,10 @@ processed (`data-marxy-done` is set by the app, not the renderer, and is not pro
    *before* insertion, so the box is right from the first frame.
 4. **Blocked-content notice.** If `removed` contains any subresource or island removal, one
    notice (§09): "3 remote images and 1 raw-HTML block were not loaded" with the hosts listed,
-   and (Phase 3, MARXY-44) the per-document allow action.
+   and (Phase 3, MARXY-44) the per-document allow action. Remote `https:` images arrive as
+   `<img data-marxy-remote>` with no `src` (§12 rule 2); hosts are read from those attributes
+   and from `removed[].url`. The full notice table, the grants and the fetch step that follows
+   this one are in [§12](12-trust.md).
 5. **Code highlighting** (D-A11). For each `pre > code.language-*` in visibility order:
    `highlight(code.textContent, lang)` from `packages/core/src/highlight/` (a thin wrapper over
    `@shikijs/core` with `createHighlighterCore` and lazily imported grammars from

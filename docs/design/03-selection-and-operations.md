@@ -16,21 +16,45 @@ export type Selection =
 ```
 
 - **Click on a block** (`closest('[data-marxy-s]')` that is block-level) selects that node.
-  Click on an inline `code`/`a` selects the inline node; a second click on the same element
-  selects its enclosing block. Click on empty article space → `none`.
+  Click on an inline `code` selects the inline node; a second click on the same element
+  selects its enclosing block. A plain click on a link **follows it** (§02 post-pass 2: a
+  reader clicks links to go somewhere); `Alt+click` selects the link node instead. A click on a
+  task checkbox toggles it (§02 post-pass 7) and does not change the selection. A click that
+  ends a native text drag is not a selection click. Click on empty article space → `none`.
 - **Outline** (§09) selects a `section`. `Alt+Up/Down` moves a node selection to the
-  previous/next block sibling; `Alt+Left` selects the parent block; `Esc` → `none`.
+  previous/next block sibling; `Alt+Shift+Up` selects the parent block; `Esc` → `none`.
+  (`Alt+Left/Right` are history back/forward on Linux, as MARXY-86's `keys.ts` binds them.)
 - **Native text selection** (drag) is `text`; it never resolves to bytes in v1. Copy of a
   `text` selection copies the DOM text (with smart typography, as seen).
 - **Rendering:** the selected element gets `class="marxy-selected"` (a theme-owned outline
   colour on the block's left edge; no fill). Only one selection exists at a time.
 
-**Resolution** (`apps/desktop/src/selection/resolve.ts`):
+**Resolution.** Split by what each half needs: the AST half is pure and lives in core, the DOM
+half in the app.
 
 ```ts
-export function resolve(el: Element, map: NodeMap): { node: Node; range: Source } | null;
+// packages/core/src/sourcemap/section.ts — pure, Node-testable over the corpus
 export function sectionRange(doc: Document, heading: Heading): Source;
+export function nodeAt(doc: Document, byte: number): Block | null;          // the innermost block whose range contains byte
+// apps/desktop/src/selection/resolve.ts — needs a DOM
+export function resolve(el: Element, map: NodeMap): { node: Node; range: Source } | null;
 ```
+
+**Why `text` never resolves (and what MARXY-41's acceptance means by "span").** The frozen
+contract names a `span` applicability, and the CSV's MARXY-41 row asks that "span, block,
+section and document selections resolve to ranges whose bytes match the selected text". A DOM
+text selection cannot do that honestly in v1: smart typography (§02) and the typesetter's soft
+hyphens make the painted characters differ from the source, and a drag that starts inside a
+link and ends inside a code span has no byte range that is "the selected text" in both
+directions. v1 therefore resolves **node, section and document** selections and treats a DOM
+drag as `text` (copy only). No v1 operation declares `'span'`; the contract keeps the word for
+later. The property test is stated over what does resolve:
+
+> For every element carrying provenance in every corpus document: `resolve(el)` returns the
+> node whose `src` is `{s, e}`; `textOf(buffer, range)` is at UTF-8 boundaries; re-parsing that
+> slice alone yields a first top-level node of the same `type` (blocks) or a paragraph whose
+> only child has that `type` (inlines). For every heading: `sectionRange` starts at the heading
+> and ends at the next heading of equal or higher rank or at the end of the document.
 
 `sectionRange` = `[heading.src.start, next.src.start)` where `next` is the first later
 top-level block that is a heading with `level <= heading.level`, else `doc.src.end`. Trailing
@@ -47,8 +71,9 @@ export async function apply(op: Operation, sel: Selection, ctx: AppContext): Pro
 2. `result = op.run(input)`. If `result.clipboard`, `shell.clipboardWrite(result.clipboard)`.
 3. If `result.replacement !== input.text`: `history.push({ range, before, after, label: op.title })`,
    `buffer = splice(buffer, range, result.replacement)`.
-4. Reparse, re-render (§02), **restore** reading position (§08) and selection: the selection is
-   re-resolved by `range.start` (the node that now starts at the same byte, else `none`).
+4. Reparse, re-render (§02) with `policyFor(trust.grantsFor(path))` (§12), **restore** reading
+   position (§08) and selection: the selection is re-resolved by `range.start` (the node that
+   now starts at the same byte, else `none`).
 5. Typeset re-runs with the paragraph cache (§04); unchanged paragraphs are instant.
 6. `result.summary`, if present, shows as a transient notice for 4 s ("Table aligned: 6 rows").
 
@@ -141,3 +166,31 @@ Algorithm, on `text = textOf(range)`:
 `OPERATIONS.filter(op => op.canApply(input))` for the current selection; each entry shows
 `title` and, for copy operations, a `⌘C`-style hint. `Enter` applies. After a mutation the
 palette closes; after a copy it closes and the notice says "Copied".
+
+## The command registry (`apps/desktop/src/commands/`)
+
+Operations are pure and live in core; everything else a reader can *do* (save, find, outline,
+switch mode, revoke a grant, about) is app code. The palette's operations section and the
+keyboard map read **one list**, so a command cannot be reachable by key and invisible in the
+palette, or the reverse (MARXY-48's keyboard-completeness audit is then a test over this list):
+
+```ts
+// apps/desktop/src/commands/registry.ts
+export interface Command {
+  readonly id: string;                         // 'save', 'find.open', 'op.toggle-task', 'trust.revoke-html', 'about'
+  readonly title: string;                      // palette text, sentence case, no trailing period
+  readonly key?: string;                       // the §09 keyboard-map string, e.g. 'Mod+S'; absent = palette only
+  readonly group: 'document' | 'selection' | 'view' | 'app';
+  when(ctx: AppContext): boolean;              // cheap; evaluated on every palette open
+  run(ctx: AppContext): Promise<void>;
+}
+export function fromOperation(op: Operation): Command;   // id 'op.<op.id>', group 'selection', when = canApply on the current selection, run = apply (above)
+export function commands(): readonly Command[];          // the concatenation below, in palette order
+```
+
+Each feature owns one file that exports its commands (`commands/document.ts` save and save-as,
+`commands/view.ts` mode, find, outline, size, `commands/trust.ts`, `commands/app.ts` about and
+quit), and `commands/index.ts` concatenates them with `OPERATIONS.map(fromOperation)`. MARXY-42
+creates the registry, the operation adapter and `index.ts`; every later story adds its own file
+and one line to `index.ts`. `keys.ts` (MARXY-86) binds by looking up `key` in this list rather
+than holding its own table once the registry exists; MARXY-48 moves it over.
