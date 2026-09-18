@@ -26,6 +26,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
 - The anti-attribution hook the conventions promised now exists in `.githooks/commit-msg`, so trailers injected by agent tooling are stripped rather than merely forbidden (MARXY-10)
 
