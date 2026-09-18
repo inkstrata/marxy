@@ -27,10 +27,13 @@ export function selectReady({
 } = {}) {
   const done = k => s.stories[k]?.status === 'done';
   const statusOf = k => s.stories[k]?.status ?? 'todo';
-  const busy = all.filter(st => statusOf(st.Key) === 'in_progress');
+  // in_review holds files until the PR lands; it does not consume a lane (MARXY-102).
+  const occupies = status => status === 'in_progress' || status === 'in_review';
+  const inProgress = all.filter(st => statusOf(st.Key) === 'in_progress');
+  const busy = all.filter(st => occupies(statusOf(st.Key)));
   const busyPaths = busy.flatMap(pathsOf);
   const uncapped = !Number.isFinite(cap);
-  const free = uncapped ? Infinity : Math.max(0, cap - busy.length);
+  const free = uncapped ? Infinity : Math.max(0, cap - inProgress.length);
 
   const blockedByDeps = [];
   const blockedByPaths = [];
@@ -87,7 +90,7 @@ export function selectReady({
   return {
     lanes: uncapped ? 'uncapped' : cap,
     lanesFree: uncapped ? null : free,
-    inProgress: busy.map(b => b.Key),
+    inProgress: inProgress.map(b => b.Key),
     ready: picked.map(p => ({ key: p.Key, summary: p.Summary, paths: p.Paths })),
     blockedByDeps,
     blockedByPaths,
