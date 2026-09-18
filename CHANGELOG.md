@@ -12,6 +12,9 @@ tag time. Conventions in `docs/conventions.md`.
 - Conventions for commits, pull requests, comments, tags and reviews, enforced by commitlint (bootstrap)
 - Taste review #0: the long corpus document set in both candidate typeface pairs at the type scale and a 68ch measure, for the decision that settles ADR-0015 (MARXY-17)
 
+### Security
+- The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
+
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
