@@ -13,6 +13,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Conventions for commits, pull requests, comments, tags and reviews, enforced by commitlint (bootstrap)
 - Open a document from the command line: `marxy README.md` reads the file and shows it, unstyled for now, and reports the moment the first text was painted (MARXY-13)
 - Taste review #0: the long corpus document set in both candidate typeface pairs at the type scale and a 68ch measure, for the decision that settles ADR-0015 (MARXY-17)
+- The corpus now includes a long prose document, so line-breaking work can measure real paragraph volume instead of a handful of samples (MARXY-64)
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 
 ### Security
