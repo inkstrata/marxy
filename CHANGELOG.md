@@ -15,6 +15,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 
 ### Security
+- A document now reaches the screen through a default-deny allow-list: nothing in a file a stranger wrote can execute, and nothing in it can fetch, so a remote image or a badge shows its alt text rather than telling whoever hosts it that you opened the file — checked over the whole fixture corpus in both browser engines, with a control that proves the check can see a request when one is made (MARXY-12)
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
