@@ -3,58 +3,153 @@ on:
   pull_request:
   push:
     branches: [main]
-concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
+concurrency:
+  group: "ci-${{ github.ref }}"
+  cancel-in-progress: true
+permissions: { contents: read }
+env:
+  CARGO_TERM_COLOR: always
+  PNPM_STORE: ~/.pnpm-store
+
 jobs:
-  conventions:
+  # What changed decides what runs: a docs-only change never builds the app or starts a browser.
+  changes:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.detect.outputs.docs_only }}
+      web: ${{ steps.detect.outputs.web }}
+      rust: ${{ steps.detect.outputs.rust }}
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+      - id: detect
+        run: node scripts/ci-changes.mjs ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}
+
+  conventions:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: jdx/mise-action@v2
-      - run: pnpm install --frozen-lockfile
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Commit messages follow docs/conventions.md
         run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
       - name: PR title is a valid squash subject
         run: echo "${{ github.event.pull_request.title }}" | pnpm exec commitlint --verbose
-      - name: PR body leads with a Summary section
-        run: |
-          body=$(gh pr view ${{ github.event.pull_request.number }} --json body --jq .body)
-          echo "$body" | grep -q '^## Summary' || { echo "PR body must start with '## Summary' (docs/conventions.md)"; exit 1; }
-        env: { GH_TOKEN: "${{ github.token }}" }
+      - name: PR body follows the template, changelog has the key, baselines have a queue entry
+        run: node scripts/check-pr.mjs --pr ${{ github.event.pull_request.number }} --range
+        env:
+          GH_TOKEN: "${{ github.token }}"
+      - name: Story boundary over the whole branch
+        run: node scripts/check-story.mjs --strict || echo "::warning::story boundary check reported problems (advisory until every story has a CSV row)"
+
+  # Everything that needs neither a browser nor Rust: hygiene checks, types, lint, unit tests, goldens, fidelity, licences.
+  fast:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - run: pnpm check:boundaries && pnpm check:registry && pnpm check:deps
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm gate:golden
+      - run: pnpm gate:fidelity
+      - run: pnpm gate:licences
+
+  # Browser gates in the official Playwright image: browsers and their system libraries are already there.
+  browser:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - run: pnpm gate:no-network
+      - run: pnpm gate:aesthetics
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-results
+          path: results/
+          if-no-files-found: ignore
+
+  # Build the app and measure it, on both runner classes. The measurement, its selftests and the perf
+  # gate are unconditional here by design (scripts/gate-perf.mjs checkWorkflow asserts it).
   gates:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      MARXY_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci/marxy
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
       - uses: jdx/mise-action@v2
-      - name: Linux webview deps
+        with:
+          cache: true
+      - name: Linux webview and X deps (cached)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check:boundaries && pnpm check:registry && pnpm check:deps
-      - run: pnpm typecheck && pnpm lint && pnpm test
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus
+          version: 1
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ci-profile
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Rust format and clippy
+        if: runner.os == 'Linux'
         run: pnpm lint:rust
-      - run: pnpm gate:golden
-      - run: pnpm gate:fidelity
-      - run: pnpm gate:licences
-      - name: Playwright browsers
-        run: pnpm exec playwright install --with-deps webkit chromium
-      - run: pnpm gate:no-network
-      - run: pnpm gate:aesthetics
-      - name: Build desktop app
-        run: pnpm --filter @marxy/desktop build
-      - name: Startup measurement (packaged app)
+      - name: Build the frontend
+        run: pnpm --filter @marxy/desktop build:web
+      - name: Build the desktop binary with the ci profile (thin LTO, cached dependencies)
+        run: cd apps/desktop/src-tauri && cargo build --profile ci
+      - name: CLI smoke check on the built binary
+        run: pnpm --filter @marxy/desktop verify:cli
+      - name: Startup measurement (nine launches, cold then warm)
         run: node scripts/measure-startup.mjs
         env:
-          MARXY_PERF_REQUIRED: '1'
+          MARXY_PERF_REQUIRED: "1"
           MARXY_PERF_ENV: ci
           MARXY_RUNNER_CLASS: "${{ matrix.os }}"
       - name: Perf gate rules selftest
@@ -63,12 +158,35 @@ jobs:
           node scripts/measure-startup.mjs --selftest
       - name: Perf budgets are unchanged (ADR-0013 product budgets, ADR-0022 CI numbers)
         run: node scripts/gate-perf.mjs --assert-budgets-unchanged ${{ github.base_ref && format('origin/{0}', github.base_ref) || 'HEAD^' }}
+      # In ci mode the gate re-measures once before failing on an envelope or baseline breach (scripts/gate-perf.mjs).
       - name: Perf gate (CI envelope and baseline, ADR-0022)
         run: pnpm gate:perf
         env:
           MARXY_PERF_ENV: ci
           MARXY_RUNNER_CLASS: "${{ matrix.os }}"
+          MARXY_PERF_REQUIRED: "1"
+      - name: Startup numbers in the job summary
+        if: always()
+        run: node scripts/ci-summary.mjs
       - run: pnpm gate:bundle
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: "gate-results-${{ matrix.os }}", path: results/, if-no-files-found: ignore }
+        with:
+          name: "gate-results-${{ matrix.os }}"
+          path: results/
+          if-no-files-found: ignore
+
+  # The one status check branch protection requires. Skipped jobs are fine; failed or cancelled ones are not.
+  ci:
+    needs: [changes, conventions, fast, browser, gates]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job that ran succeeded
+        run: |
+          echo '${{ toJSON(needs) }}' | node -e '
+            const needs = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const bad = Object.entries(needs).filter(([, v]) => v.result === "failure" || v.result === "cancelled");
+            for (const [k, v] of Object.entries(needs)) console.log(`${v.result === "success" ? "✓" : v.result === "skipped" ? "·" : "✗"} ${k}: ${v.result}`);
+            if (bad.length) { console.error(`failed: ${bad.map(([k]) => k).join(", ")}`); process.exit(1); }'

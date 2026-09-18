@@ -42,19 +42,35 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
 /// devices, which is exactly the truncated-file window this avoids. Hidden, and unique per attempt
 /// so that two saves of one document cannot meet in the same temporary file.
 pub fn temp_path_for(target: &Path) -> PathBuf {
-    let name = target.file_name().and_then(|n| n.to_str()).unwrap_or("document");
+    let name = target
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("document");
     let attempt = ATTEMPTS.fetch_add(1, Ordering::SeqCst);
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
-    let dir = target.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new("."));
-    dir.join(format!(".{name}.marxy-tmp-{}-{attempt}-{nanos}", std::process::id()))
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    let dir = target
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    dir.join(format!(
+        ".{name}.marxy-tmp-{}-{attempt}-{nanos}",
+        std::process::id()
+    ))
 }
 
 /// A symlinked document is saved *through* the link: the bytes of the file it points at are replaced,
 /// so the link survives instead of being quietly turned into a regular file.
 fn resolve_symlink(path: &Path) -> Result<PathBuf, String> {
     match fs::symlink_metadata(path) {
-        Ok(meta) if meta.file_type().is_symlink() => fs::canonicalize(path)
-            .map_err(|e| format!("{}: is a symlink that does not resolve: {e}", path.display())),
+        Ok(meta) if meta.file_type().is_symlink() => fs::canonicalize(path).map_err(|e| {
+            format!(
+                "{}: is a symlink that does not resolve: {e}",
+                path.display()
+            )
+        }),
         _ => Ok(path.to_path_buf()),
     }
 }
@@ -62,7 +78,10 @@ fn resolve_symlink(path: &Path) -> Result<PathBuf, String> {
 fn parent_directory(target: &Path) -> Result<PathBuf, String> {
     match target.parent().filter(|d| !d.as_os_str().is_empty()) {
         Some(dir) => Ok(dir.to_path_buf()),
-        None => Err(format!("{}: has no directory to stage a save in", target.display())),
+        None => Err(format!(
+            "{}: has no directory to stage a save in",
+            target.display()
+        )),
     }
 }
 
@@ -75,7 +94,10 @@ fn refuse_surprising_destination(target: &Path) -> Result<Option<Metadata>, Stri
         Err(e) => return Err(format!("{}: cannot be inspected: {e}", target.display())),
     };
     if !meta.is_file() {
-        return Err(format!("{}: is not a regular file; marxy saves documents only", target.display()));
+        return Err(format!(
+            "{}: is not a regular file; marxy saves documents only",
+            target.display()
+        ));
     }
     if meta.permissions().readonly() {
         return Err(format!(
@@ -96,21 +118,35 @@ fn refuse_surprising_destination(target: &Path) -> Result<Option<Metadata>, Stri
 }
 
 /// Puts the new bytes in the temporary file, with the destination's metadata already on it.
-fn stage(tmp: &Path, target: &Path, destination: Option<&Metadata>, bytes: &[u8]) -> Result<(), String> {
+fn stage(
+    tmp: &Path,
+    target: &Path,
+    destination: Option<&Metadata>,
+    bytes: &[u8],
+) -> Result<(), String> {
     // `create_new` so a temporary path planted by someone else is an error rather than a file we
     // follow, and so two concurrent saves cannot share a staging file.
     OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(tmp)
-        .map_err(|e| format!("{}: cannot stage a save beside the destination: {e}", tmp.display()))?;
+        .map_err(|e| {
+            format!(
+                "{}: cannot stage a save beside the destination: {e}",
+                tmp.display()
+            )
+        })?;
     if destination.is_some() {
         // Cloning the destination onto the staging file carries its mode everywhere and, on macOS,
         // its ACL and extended attributes too (`fs::copy` is `fcopyfile` with `COPYFILE_ALL` there).
         // Copying the old contents first is wasted I/O for a document-sized file and the only way to
         // get that metadata without a libc dependency.
-        fs::copy(target, tmp)
-            .map_err(|e| format!("{}: cannot carry the file's metadata onto the save: {e}", target.display()))?;
+        fs::copy(target, tmp).map_err(|e| {
+            format!(
+                "{}: cannot carry the file's metadata onto the save: {e}",
+                target.display()
+            )
+        })?;
         refuse_ownership_change(target, tmp)?;
     }
     let mut file = OpenOptions::new()
@@ -118,16 +154,22 @@ fn stage(tmp: &Path, target: &Path, destination: Option<&Metadata>, bytes: &[u8]
         .truncate(true)
         .open(tmp)
         .map_err(|e| format!("{}: cannot be written: {e}", tmp.display()))?;
-    file.write_all(bytes).map_err(|e| format!("{}: cannot be written: {e}", tmp.display()))?;
+    file.write_all(bytes)
+        .map_err(|e| format!("{}: cannot be written: {e}", tmp.display()))?;
     // Durability before visibility: the bytes reach the disk before any name points at them, so the
     // rename can only publish a complete file.
-    file.sync_all().map_err(|e| format!("{}: cannot be flushed to disk: {e}", tmp.display()))
+    file.sync_all()
+        .map_err(|e| format!("{}: cannot be flushed to disk: {e}", tmp.display()))
 }
 
 /// Publishes the staged file. After this the destination is the new bytes; before it, the old ones.
 fn commit(tmp: &Path, target: &Path, dir: &Path) -> Result<(), String> {
-    fs::rename(tmp, target)
-        .map_err(|e| format!("{}: cannot be replaced with the saved file: {e}", target.display()))?;
+    fs::rename(tmp, target).map_err(|e| {
+        format!(
+            "{}: cannot be replaced with the saved file: {e}",
+            target.display()
+        )
+    })?;
     sync_directory(dir);
     Ok(())
 }
@@ -202,7 +244,11 @@ mod tests {
         for (name, bytes) in payloads {
             let target = dir.join(name);
             write_atomic(&target, bytes).expect("save");
-            assert_eq!(fs::read(&target).expect("read back"), bytes, "{name} changed on save");
+            assert_eq!(
+                fs::read(&target).expect("read back"),
+                bytes,
+                "{name} changed on save"
+            );
         }
     }
 
@@ -219,10 +265,17 @@ mod tests {
         let target = Path::new("/some/deep/place/notes.md");
         let first = temp_path_for(target);
         let second = temp_path_for(target);
-        assert_eq!(first.parent(), target.parent(), "a rename across directories is not atomic");
+        assert_eq!(
+            first.parent(),
+            target.parent(),
+            "a rename across directories is not atomic"
+        );
         assert_ne!(first, second, "two saves must not share a staging file");
         let name = first.file_name().unwrap().to_string_lossy().into_owned();
-        assert!(name.starts_with('.'), "the staging file should not appear in a listing: {name}");
+        assert!(
+            name.starts_with('.'),
+            "the staging file should not appear in a listing: {name}"
+        );
     }
 
     #[test]
@@ -250,7 +303,10 @@ mod tests {
         if readable_anyway {
             return; // Running as root, where no file is unreadable; nothing to assert.
         }
-        assert!(refused.is_err(), "an unreadable destination should not be saved over");
+        assert!(
+            refused.is_err(),
+            "an unreadable destination should not be saved over"
+        );
         assert_eq!(fs::read(&target).expect("read back"), b"old");
         assert_eq!(staged_files(&dir), Vec::<String>::new());
     }
@@ -266,8 +322,14 @@ mod tests {
         write_atomic(&target, b"the new bytes, longer").expect("save");
         let mut seen = Vec::new();
         reader.read_to_end(&mut seen).expect("read");
-        assert_eq!(seen, b"the old bytes", "the save was visible to an open reader");
-        assert_eq!(fs::read(&target).expect("read back"), b"the new bytes, longer");
+        assert_eq!(
+            seen, b"the old bytes",
+            "the save was visible to an open reader"
+        );
+        assert_eq!(
+            fs::read(&target).expect("read back"),
+            b"the new bytes, longer"
+        );
     }
 
     #[test]
@@ -293,7 +355,9 @@ mod tests {
         fs::set_permissions(&target, fs::Permissions::from_mode(0o444)).expect("chmod");
         let refused = write_atomic(&target, b"new");
         fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).expect("chmod back");
-        assert!(refused.expect_err("expected a refusal").contains("read-only"));
+        assert!(refused
+            .expect_err("expected a refusal")
+            .contains("read-only"));
         assert_eq!(fs::read(&target).expect("read back"), b"old");
     }
 
@@ -311,7 +375,10 @@ mod tests {
         if writable_anyway {
             return; // Running as root, where no directory is unwritable; nothing to assert.
         }
-        assert!(refused.is_err(), "a save into an unwritable directory should fail");
+        assert!(
+            refused.is_err(),
+            "a save into an unwritable directory should fail"
+        );
         assert_eq!(fs::read(&target).expect("read back"), b"old");
     }
 
@@ -324,7 +391,10 @@ mod tests {
         fs::write(&real, b"old").expect("seed");
         std::os::unix::fs::symlink(&real, &link).expect("symlink");
         write_atomic(&link, b"new").expect("save");
-        assert!(fs::symlink_metadata(&link).expect("stat").file_type().is_symlink());
+        assert!(fs::symlink_metadata(&link)
+            .expect("stat")
+            .file_type()
+            .is_symlink());
         assert_eq!(fs::read(&real).expect("read back"), b"new");
     }
 
@@ -334,7 +404,9 @@ mod tests {
         let dir = scratch("dangling");
         let link = dir.join("link.md");
         std::os::unix::fs::symlink(dir.join("missing.md"), &link).expect("symlink");
-        assert!(write_atomic(&link, b"new").expect_err("expected a refusal").contains("symlink"));
+        assert!(write_atomic(&link, b"new")
+            .expect_err("expected a refusal")
+            .contains("symlink"));
     }
 
     #[test]
@@ -345,7 +417,9 @@ mod tests {
         let other = dir.join("other.md");
         fs::write(&target, b"old").expect("seed");
         fs::hard_link(&target, &other).expect("hard link");
-        assert!(write_atomic(&target, b"new").expect_err("expected a refusal").contains("hard links"));
+        assert!(write_atomic(&target, b"new")
+            .expect_err("expected a refusal")
+            .contains("hard links"));
         assert_eq!(fs::read(&target).expect("read back"), b"old");
     }
 
@@ -354,7 +428,9 @@ mod tests {
         let dir = scratch("directory");
         let target = dir.join("sub");
         fs::create_dir(&target).expect("mkdir");
-        assert!(write_atomic(&target, b"new").expect_err("expected a refusal").contains("regular file"));
+        assert!(write_atomic(&target, b"new")
+            .expect_err("expected a refusal")
+            .contains("regular file"));
         assert_eq!(staged_files(&dir), Vec::<String>::new());
     }
 

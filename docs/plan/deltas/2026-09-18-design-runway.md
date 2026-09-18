@@ -91,3 +91,20 @@ mapping is a fixed prefix table.
 
 Board edits for MARXY-10's owner: MARXY-46 summary and description as in Jira; add MARXY-76
 (Phase 1, deps none) and MARXY-75 (Phase 1, deps MARXY-12, MARXY-61) to the CSV and `deps.json`.
+
+## Addendum — CI solidified (MARXY-83)
+
+Measured: 6–10 min per PR; the Tauri release build alone 180–270 s uncached; Linux startup
+measurement up to 135 s waiting out launches that never painted (fixed on `main` by MARXY-63's
+Xvfb environment; confirmed 24 s after); two red `main` pushes from a perf baseline breach
+(runner noise) and a 10 ms parse assertion in a unit test that failed at 22 ms on a slow runner.
+
+Changed: the workflow is now five parallel jobs plus one aggregate `ci` check; change detection
+skips build and browser work for docs-only PRs; cargo, pnpm, apt and mise are cached; browsers
+come from the Playwright image; the app builds with a thin-LTO `ci` profile; every job has a
+timeout; a perf breach is re-measured once before it fails; the parse-time assertion is skipped
+under CI. `docs/hygiene.md` §CI holds the table and the rules.
+
+Board edit for MARXY-10's owner: add MARXY-83 (Phase 0, `agent-loop`, done by this PR) to the
+CSV. Human step after merge: point branch protection at the single `ci` context (command in
+`docs/hygiene.md`).
