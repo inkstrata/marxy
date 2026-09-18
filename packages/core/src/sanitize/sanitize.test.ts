@@ -299,6 +299,33 @@ test('a removed element ends where the parser would end it, not at a close tag i
   assert.equal(clean('<title><b title="</title>"><img src="/\\evil.example/p.png" alt="x">'), '"><img alt="x" />');
 });
 
+test('a removed raw-text element ends exactly where both engines end it', () => {
+  // Each expectation was measured in Chromium and WebKit with DOMParser: an <img> the engines keep
+  // inside the element must not come out as an element, and one they make live may come out.
+  // `</styled>` is not an end tag for style, so the image stays inside it.
+  assert.equal(clean('<style></styled><img src="x.png" alt="y"></style>'), '');
+  // A form feed is a delimiter, so this one is.
+  assert.equal(clean('<style></style\f><img src="x.png" alt="y">'), '<img src="x.png" alt="y" />');
+  // Nothing ends plaintext.
+  assert.equal(clean('<plaintext></plaintext><img src="x.png" alt="y">'), '');
+  // listing is parsed like pre, so a close tag inside a quoted value does not end it.
+  assert.equal(clean('<listing><b title="</listing>"><img src="x.png" alt="y"></b></listing>after'), 'after');
+});
+
+test('a script is scanned through its escaped and double-escaped states', () => {
+  // Inert in both engines: `<!--<script>` puts the first `</script>` inside a nested escape.
+  assert.equal(clean('<script><!--<script>a</script><img src="x.png" alt="y"></script>after'), 'after');
+  assert.equal(clean('<script><!--<script>a</script>--><img src="x.png" alt="y"></script>after'), 'after');
+  assert.equal(clean('<script><!--><img src="x.png" alt="y"></script>after'), 'after');
+  // Live in both engines: no nested `<script`, or a name that is not `script`, or `-->` first.
+  assert.equal(clean('<script><!-- </script><img src="x.png" alt="y">'), '<img src="x.png" alt="y" />');
+  assert.equal(clean('<script><!--<scripty></script><img src="x.png" alt="y">'), '<img src="x.png" alt="y" />');
+  assert.equal(clean('<script><!--<script/></script>--></script><img src="x.png" alt="y">'), '<img src="x.png" alt="y" />');
+  assert.equal(clean('<script><!--<script ><!--</script ></script><img src="x.png" alt="y">'), '<img src="x.png" alt="y" />');
+  // Unclosed, the whole rest is the script's, and the reader is told.
+  assert.equal(clean('<script><!--<script></script><img src="x.png" alt="y">'), '');
+});
+
 test('a never-closed removal is recorded as its own kind, because the reader lost the rest', () => {
   const { html, removed } = sanitizeHtml('before<script>alert(1)');
   assert.equal(html, 'before');

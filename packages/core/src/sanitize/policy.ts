@@ -68,13 +68,15 @@ export const VOID_ELEMENTS: ReadonlySet<string> = new Set([
 
 /**
  * Elements whose content the parser reads as text rather than as markup, so it ends them at the
- * first `</name` it sees — inside a quoted attribute value included. Measured in WebKit and
+ * first `</name` followed by whitespace, `/` or `>` — inside a quoted attribute value included.
+ * `plaintext` never ends, and `script` has escaped states of its own (see `skipScriptData`).
+ * `listing` is not here: both engines parse its content as markup, like `pre`. Measured in WebKit and
  * Chromium: `<style><b title="</style>">` really does end the style in both. The sanitiser removes
  * every one of these, and has to find the end of each one the way the parser will.
  */
 export const RAW_TEXT_ELEMENTS: ReadonlySet<string> = new Set([
   'script', 'style', 'title', 'textarea', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript',
-  'plaintext', 'listing',
+  'plaintext',
 ]);
 
 /**

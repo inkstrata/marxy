@@ -386,10 +386,86 @@ interface Skip {
 }
 
 function skipRawText(input: string, from: number, name: string): Skip {
-  const end = input.toLowerCase().indexOf(`</${name}`, from);
-  if (end === -1) return { end: input.length, closed: false };
-  const close = input.indexOf('>', end);
-  return { end: close === -1 ? input.length : close + 1, closed: true };
+  // Nothing ends a plaintext element: the tokenizer never leaves that state.
+  if (name === 'plaintext') return { end: input.length, closed: false };
+  if (name === 'script') return skipScriptData(input, from);
+  for (let lt = input.indexOf('</', from); lt !== -1; lt = input.indexOf('</', lt + 2)) {
+    const end = appropriateEndTag(input, lt, name);
+    if (end !== -1) return { end, closed: true };
+  }
+  return { end: input.length, closed: false };
+}
+
+/**
+ * Where `</name` at `lt` ends, or -1 when it is not an end tag for `name`. The parser only
+ * accepts the name followed by whitespace, `/` or `>` (`</styled>` does not end a style), and it
+ * reads an end tag's attributes like a start tag's, quotes and all.
+ */
+function appropriateEndTag(input: string, lt: number, name: string): number {
+  const after = lt + 2 + name.length;
+  if (input.slice(lt + 2, after).toLowerCase() !== name || after >= input.length) return -1;
+  const delimiter = input[after];
+  if (!isSpace(input.charCodeAt(after)) && delimiter !== '/' && delimiter !== '>') return -1;
+  // parseStartTag reads from the character before the name, so hand it the `/`.
+  return parseStartTag(input, lt + 1)?.end ?? input.length;
+}
+
+/**
+ * The script data states. `<!--` inside a script enters the escaped state, where `<script` enters
+ * the double-escaped state, where `</script>` only returns to escaped; `-->` returns to data from
+ * either. Both engines keep `<script><!--<script></script><img></script>` as one script, so the
+ * `<img>` stays text and must not come out as an element.
+ */
+function skipScriptData(input: string, from: number): Skip {
+  type State = 'data' | 'escaped' | 'double';
+  let state: State = 'data';
+  let dashes = 0;
+  let index = from;
+  while (index < input.length) {
+    const char = input[index];
+    if (state === 'data') {
+      if (input.startsWith('<!--', index)) {
+        state = 'escaped';
+        dashes = 2;
+        index += 4;
+        continue;
+      }
+    } else if (char === '-') {
+      dashes += 1;
+      index += 1;
+      continue;
+    } else if (char === '>' && dashes >= 2) {
+      state = 'data';
+      dashes = 0;
+      index += 1;
+      continue;
+    }
+    dashes = 0;
+    if (char === '<') {
+      if (input[index + 1] === '/' && appropriateEndTag(input, index, 'script') !== -1) {
+        if (state === 'double') {
+          state = 'escaped';
+          index += '</script'.length;
+          continue;
+        }
+        return { end: appropriateEndTag(input, index, 'script'), closed: true };
+      }
+      if (state === 'escaped' && startsScriptName(input, index + 1)) {
+        state = 'double';
+        index += '<script'.length;
+        continue;
+      }
+    }
+    index += 1;
+  }
+  return { end: input.length, closed: false };
+}
+
+/** `script` at `at`, case-insensitively, followed by whitespace, `/` or `>`. */
+function startsScriptName(input: string, at: number): boolean {
+  const after = at + 'script'.length;
+  if (input.slice(at, after).toLowerCase() !== 'script' || after >= input.length) return false;
+  return isSpace(input.charCodeAt(after)) || input[after] === '/' || input[after] === '>';
 }
 
 function skipElement(input: string, from: number, name: string): Skip {
