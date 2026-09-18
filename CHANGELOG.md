@@ -7,9 +7,12 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Only the security posture and the merge gate itself now wait for a person. Typesetting, theme, contracts, `shell-api` and ADR changes land on a signed review, and taste is checked in the review queue (MARXY-99)
 - CI now fetches the CommonMark specification examples — never committed — and fails the build if a parse diverges from them (MARXY-68)
+- Straight quotes, double hyphens and three dots become the marks a book would use when you read a document, and a short last word stays on the line with the one before it; the file itself is not touched (MARXY-29)
 - Agents land a pull request once the quality bar is met: a signed review of that exact commit, green gates, and the story's path boundary — CODEOWNERS paths still wait for a person (MARXY-79)
 - The orchestrator fleet can run cheaper: `--low` is Sonnet 5 medium plus Grok 4.6 High Fast, `--minimal` is Grok 4.6 High Fast only
+- An open document reloads when its file changes on disk and the reading position stays put; a save will not silently overwrite a file someone else has changed (MARXY-34)
 - Opening a document can now index the repository around it — honouring ignore rules, skipping `node_modules` and the rest of the deny list, stopping at fifty thousand files — after the first page paints, and the index is kept on disk and rebuilt when a file's mtime changes (MARXY-35)
 - Hygiene tooling for the agent fleet: pre-commit story-boundary and name checks, module import rules, a dependency allow-list, a PR checker, path-aware precheck, a one-command definition of done that drafts the PR body, and generators for modules, operations and shell commands (MARXY-74)
 - Design documents for every subsystem and a task card per Phase 1–2 story, so implementors build from decisions already made; ADR-0023 fixes how rendered elements carry their byte provenance (MARXY-74)
@@ -27,6 +30,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
 - The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
@@ -37,8 +41,13 @@ tag time. Conventions in `docs/conventions.md`.
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
+### Fixed
+- `pnpm build` no longer fails on a machine whose display is asleep; the smoke check skips with the environment named, and CI still requires a real paint (MARXY-72)
+- Documents saved with Classic Mac (CR-only) line endings keep code-block ranges on the code itself, not an empty span past the fence (MARXY-67)
+
 ### Changed
 - Opening a document now goes through the one parse in `@marxy/core`; markdown-it and DOMPurify are gone from the desktop and the gate harnesses (MARXY-61)
+- Importing the parser no longer pulls in a maths renderer; documents with equations still parse the same (MARXY-60)
 - Dispatch is uncapped: path overlap is the only parallelism limit, so returned PRs no longer sit idle waiting for a free lane
 - CI is faster and steadier: parallel jobs with cached Rust, pnpm, apt and browsers, docs-only changes skip the build, a thin-LTO CI build profile, timeouts on every job, one required status check, and perf breaches re-measured once before they fail (MARXY-83)
 - Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)
