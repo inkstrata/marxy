@@ -3,8 +3,13 @@
 // boundary (ADR-0009) and a second, weaker check here would only make it harder to see where the
 // boundary is. Its output is never for the DOM — `renderSafeHtml` is (ADR-0007, ADR-0020).
 
-import type { Block, Document, Inline, List, ListItem, Table, TableRow } from '../contracts/ast.ts';
+import type { Block, Document, Inline, List, ListItem, Table, TableRow, Text } from '../contracts/ast.ts';
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
+import { smarten } from './typography.ts';
+
+type Typo = { readonly lastText: Text | undefined; readonly wordsInParagraph: number };
+
+const NO_WIDONT: Typo = { lastText: undefined, wordsInParagraph: 0 };
 
 /**
  * Renders the document to HTML that has not been sanitised.
@@ -52,7 +57,9 @@ function block(node: Block, tight: boolean, footnotes: Map<string, number>): str
   switch (node.type) {
     case 'paragraph':
       // A tight list item's paragraph has no tags of its own, which is what makes the list tight.
-      return tight ? inlines(node.children, footnotes) : `<p>${inlines(node.children, footnotes)}</p>`;
+      return tight
+        ? inlines(node.children, footnotes, paragraphTypo(node.children))
+        : `<p>${inlines(node.children, footnotes, paragraphTypo(node.children))}</p>`;
     case 'heading':
       return `<h${node.level}>${inlines(node.children, footnotes)}</h${node.level}>`;
     case 'thematicBreak':
@@ -125,27 +132,85 @@ function cells(row: TableRow, owner: Table | undefined, footnotes?: Map<string, 
     .join('');
 }
 
-function inlines(nodes: readonly Inline[], footnotes: Map<string, number>): string {
+function paragraphTypo(nodes: readonly Inline[]): Typo {
+  return { lastText: lastTextNode(nodes), wordsInParagraph: wordsIn(nodes) };
+}
+
+function lastTextNode(nodes: readonly Inline[]): Text | undefined {
+  let last: Text | undefined;
+  const walk = (list: readonly Inline[]): void => {
+    for (const child of list) {
+      if (child.type === 'text') last = child;
+      else if (
+        child.type === 'emphasis' ||
+        child.type === 'strong' ||
+        child.type === 'strikethrough' ||
+        child.type === 'link'
+      ) {
+        walk(child.children);
+      }
+    }
+  };
+  walk(nodes);
+  return last;
+}
+
+function wordsIn(nodes: readonly Inline[]): number {
+  const parts: string[] = [];
+  const walk = (list: readonly Inline[]): void => {
+    for (const child of list) {
+      switch (child.type) {
+        case 'text':
+        case 'code':
+        case 'mathInline':
+          parts.push(child.value);
+          break;
+        case 'softBreak':
+        case 'hardBreak':
+          parts.push(' ');
+          break;
+        case 'emphasis':
+        case 'strong':
+        case 'strikethrough':
+        case 'link':
+          walk(child.children);
+          break;
+        default:
+          break;
+      }
+    }
+  };
+  walk(nodes);
+  const text = parts.join('').trim();
+  return text.length === 0 ? 0 : text.split(/\s+/).length;
+}
+
+function inlines(nodes: readonly Inline[], footnotes: Map<string, number>, typo: Typo = NO_WIDONT): string {
   let text = '';
-  for (const node of nodes) text += inline(node, footnotes);
+  for (const node of nodes) text += inline(node, footnotes, typo);
   return text;
 }
 
-function inline(node: Inline, footnotes: Map<string, number>): string {
+function inline(node: Inline, footnotes: Map<string, number>, typo: Typo): string {
   switch (node.type) {
     case 'text':
-      return escapeText(node.value);
+      return escapeText(
+        smarten(node.value, {
+          atParagraphEnd: typo.lastText === node,
+          wordsInParagraph: typo.wordsInParagraph,
+        }),
+      );
     case 'emphasis':
-      return `<em>${inlines(node.children, footnotes)}</em>`;
+      return `<em>${inlines(node.children, footnotes, typo)}</em>`;
     case 'strong':
-      return `<strong>${inlines(node.children, footnotes)}</strong>`;
+      return `<strong>${inlines(node.children, footnotes, typo)}</strong>`;
     case 'strikethrough':
-      return `<del>${inlines(node.children, footnotes)}</del>`;
+      return `<del>${inlines(node.children, footnotes, typo)}</del>`;
     case 'code':
       return `<code>${escapeText(node.value.replace(/\r?\n/g, ' '))}</code>`;
     case 'link': {
       const title = node.title === undefined ? '' : ` title="${escapeAttribute(node.title)}"`;
-      return `<a href="${escapeAttribute(node.url)}"${title}>${inlines(node.children, footnotes)}</a>`;
+      return `<a href="${escapeAttribute(node.url)}"${title}>${inlines(node.children, footnotes, typo)}</a>`;
     }
     case 'image': {
       // The URL is written out as it stands; whether it may load is the sanitiser's decision, and by
