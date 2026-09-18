@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T09:36:28.960Z",
+  "updated": "2026-09-18T09:37:08.057Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
   "merges": 0,
@@ -51,8 +51,12 @@
       "attempts": 0
     },
     "MARXY-13": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_progress",
+      "attempts": 1,
+      "branch": "feat/MARXY-13-desktop-shell-opens-a-file-from-the-cli",
+      "worktree": "../marxy-wt/MARXY-13",
+      "started": "2026-09-18T09:37:08.056Z",
+      "model": "grok-4.6-fast"
     },
     "MARXY-14": {
       "status": "todo",

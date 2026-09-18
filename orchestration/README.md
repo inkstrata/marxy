@@ -49,6 +49,19 @@ custom modes, or fall back to B for implementors.
 --model <implementor model>` inside each worktree, in parallel. The orchestrator itself can be
 the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
 
+Either way the mechanical half of every cycle is one command, and it is the same command in both
+modes: `node orchestration/cycle.mjs` mirrors the board into Jira, merges the pull requests that
+are provably finished, names what should start next (dispatching headlessly if `cursor-agent` is
+on PATH), asks whether the planner is due, and writes `status.md`. It is idempotent, so
+`./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
+`--no-merge` to decide without landing anything.
+
+What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
+code works, not that it does what was asked, so a PR merges only once a reviewer writes
+`results/KEY.approved` (the text is the review note). Everything else about a merge — checks,
+conflicts, CODEOWNERS, the path boundary, the CHANGELOG line, the result file — is checked
+mechanically, and a held PR always prints the reason it was held.
+
 Check model ids once: `cursor-agent --help` and the in-app model picker; put the exact names
 in `models.json`. Reasoning effort is set where Cursor exposes it (picker or agent
 frontmatter); the CLI flag, if present in your version, is read from `models.json`.
@@ -62,7 +75,10 @@ frontmatter); the CLI flag, if present in your version, is read from `models.jso
 | `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |
 | `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
 | `deps.json` | story dependencies (the CSV has none) and phase membership |
+| `cycle.mjs` | one idempotent cycle: push, merge what is finished, dispatch, plan check, report |
+| `loop.sh` | `cycle.mjs` until interrupted |
 | `results/KEY.json` | written by implementors; the only handshake |
+| `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story; no merge without it |
 | `needs-human.md` | queue of things a person must do |
 | `status.md` | the orchestrator's last report |
 | `prompts/*.md` | role prompts, the source of truth for behaviour |

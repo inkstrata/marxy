@@ -79,6 +79,18 @@ node orchestration/state.mjs done MARXY-23   # → Done, mirrored to Jira
 node orchestration/planner-trigger.mjs       # is it time to re-plan?
 ```
 
+Everything in that list except the two judgements — is this story ready, does this diff satisfy
+it — is one command, `node orchestration/cycle.mjs`, and `./orchestration/loop.sh` runs it until
+interrupted. A cycle mirrors the board into Jira, merges the pull requests that are provably
+finished, names what should start next, asks whether the planner is due, and rewrites
+`orchestration/status.md`. It is safe to stop and restart at any point.
+
+The one thing it refuses to infer is approval. Green gates say the code works; they cannot say it
+does what the story asked. So the reviewer writes `orchestration/results/KEY.approved` with the
+review note, and until that file exists the PR is held with that as the printed reason — as is any
+PR with a red or pending check, a conflict, a file outside its paths, a missing CHANGELOG line, or
+an outstanding CODEOWNERS review.
+
 ## Cadence
 
 | When | What |
