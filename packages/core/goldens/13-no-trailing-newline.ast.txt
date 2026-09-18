@@ -1,0 +1,5 @@
+document [0,51)
+  heading [0,21) level=1
+    text [2,21) value="No trailing newline"
+  paragraph [23,51)
+    text [23,51) value="The last line has no newline"

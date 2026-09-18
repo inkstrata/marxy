@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Parse → AST with byte provenance, sanitise, outline, operations, index model. Shell-free; runs in Node and in a browser.",
+  "description": "Parse \u2192 AST with byte provenance, sanitise, outline, operations, index model. Shell-free; runs in Node and in a browser.",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -12,10 +12,25 @@
     "lint": "echo lint: configure biome in MARXY-004",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "test:golden": "node --experimental-strip-types scripts/golden.ts",
-    "test:fidelity": "node --experimental-strip-types scripts/fidelity.ts"
+    "test:fidelity": "node --experimental-strip-types scripts/fidelity.ts",
+    "test:spec": "node --experimental-strip-types scripts/commonmark-spec.ts"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "@types/node": "^24.0.0"
+    "@types/commonmark": "^0.27.10",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^24.0.0",
+    "commonmark": "^0.31.2",
+    "micromark-util-sanitize-uri": "^2.0.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-frontmatter": "^2.0.1",
+    "mdast-util-gfm": "^3.1.0",
+    "mdast-util-math": "^3.0.0",
+    "micromark-extension-frontmatter": "^2.0.0",
+    "micromark-extension-gfm": "^3.0.0",
+    "micromark-extension-math": "^3.1.0",
+    "micromark-util-decode-string": "^2.0.1"
   }
 }
