@@ -52,6 +52,8 @@
     "MARXY-051": "MARXY-52",
     "MARXY-052": "MARXY-53",
     "MARXY-053": "MARXY-54",
-    "MARXY-NEW-ci-perf-envelope": "MARXY-55"
+    "MARXY-NEW-ci-perf-envelope": "MARXY-55",
+    "MARXY-NEW-cargo-licence-audit": "MARXY-57",
+    "MARXY-NEW-adr-0006-audit-scope": "MARXY-58"
   }
 }

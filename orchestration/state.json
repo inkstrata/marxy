@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T09:22:50.037Z",
+  "updated": "2026-09-18T09:36:28.960Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
   "merges": 0,
@@ -15,12 +15,13 @@
       "attempts": 0
     },
     "MARXY-7": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
       "branch": "feat/MARXY-7-run-the-licence-gate-for-real-over-the-lockfile",
       "worktree": "../marxy-wt/MARXY-7",
       "started": "2026-09-18T09:16:32.307Z",
-      "model": "grok-4.6-fast"
+      "model": "grok-4.6-fast",
+      "pr": 2
     },
     "MARXY-8": {
       "status": "todo",
@@ -202,6 +203,18 @@
       "attempts": 0
     },
     "MARXY-55": {
+      "status": "in_progress",
+      "attempts": 1,
+      "branch": "fix/MARXY-55-ci-perf-envelope",
+      "worktree": "../marxy-wt/MARXY-55",
+      "started": "2026-09-18T09:26:49.018Z",
+      "model": "grok-4.6-fast"
+    },
+    "MARXY-57": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-58": {
       "status": "todo",
       "attempts": 0
     }
