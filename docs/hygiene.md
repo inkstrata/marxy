@@ -83,8 +83,9 @@ the Ubuntu build-and-measure job. A docs-only change runs `changes`, `convention
 Rules baked in:
 
 - **One required check.** Branch protection requires `ci` only, so job names can change without
-  touching repository settings. After this workflow merges, set it once:
-  `gh api -X PUT repos/inkstrata/marxy/branches/main/protection/required_status_checks -f strict=true -f 'contexts[]=ci'`.
+  touching repository settings. Set on 2026-09-18; if it ever drifts, restore it with
+  `gh api -X PATCH repos/inkstrata/marxy/branches/main/protection/required_status_checks -F strict=true -f 'contexts[]=ci'`
+  (this endpoint answers `PUT` with a 404, and `-F` sends `strict` as a boolean rather than a string).
 - **Every job has `timeout-minutes`.** A hang costs minutes, never hours.
 - **Docs-only changes** (`docs/`, `orchestration/`, `.cursor/`, markdown outside `fixtures/`)
   run `changes`, `conventions` and `ci` only: under two minutes.
