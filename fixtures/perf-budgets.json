@@ -6,7 +6,8 @@
     "palette_keystroke_ms": 16,
     "typeset_viewport_ms": 100,
     "live_reload_ms": 100,
-    "find_first_match_ms": 50
+    "find_first_match_ms": 50,
+    "parse_long_technical_ms": 10
   },
   "ci": {
     "ubuntu-latest": {
@@ -17,6 +18,16 @@
         "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
         "reference_median_ms": null,
         "runner_median_ms": 7719
+      },
+      "parse_long_technical_ms": {
+        "multiplier": 3,
+        "baseline_ms": 19.58,
+        "derived_from": {
+          "commit": "64f0b2c",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, Node 24)",
+          "reference_median_ms": 6,
+          "runner_median_ms": 19.58
+        }
       }
     },
     "macos-latest": {
@@ -27,6 +38,16 @@
         "runner_image": "macos-latest (macos-15, arm64)",
         "reference_median_ms": null,
         "runner_median_ms": 1901
+      },
+      "parse_long_technical_ms": {
+        "multiplier": 5,
+        "baseline_ms": 31.44,
+        "derived_from": {
+          "commit": "64f0b2c",
+          "runner_image": "macos-latest (macos-15, arm64, Node 24)",
+          "reference_median_ms": 6,
+          "runner_median_ms": 31.44
+        }
       }
     }
   },

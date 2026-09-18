@@ -1,9 +1,10 @@
 // Byte provenance over the fixture corpus: the invariants, the UTF-16 → byte conversion, the
-// constructs the contract names, and the parse budget for the long technical document.
+// constructs the contract names, and the parse-time measurement the perf gate reads (ADR-0022).
 
 import { strict as assert } from 'node:assert';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { frontmatterFromMarkdown } from 'mdast-util-frontmatter';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
@@ -285,37 +286,31 @@ test('a code block content range is the code alone', () => {
   assert.equal(text.slice(code.content.start, code.content.end), 'const x = 1;\n');
 });
 
-/**
- * How much slower this machine is than the one the 10 ms budget was set on, measured rather than
- * assumed: a shared CI runner is several times slower than a developer's machine, and a budget that
- * fails for that reason stops being a signal. The workload is string building, regex scanning and
- * small-object allocation, which is the work a parser does.
- *
- * This probe is a stopgap and under-compensates under load. MARXY-59 moves the parse budget into
- * `fixtures/perf-budgets.json` with a per-runner baseline, the two-tier shape ADR-0022 set, and
- * deletes the probe; it is deliberately left as it stands here.
- */
-const PROBE_REFERENCE_MS = 4.3;
+const resultsDir = new URL('../../../../results/', import.meta.url);
+const perfPath = new URL('perf.json', resultsDir);
+const parseSnapshotPath = new URL('perf-parse.json', resultsDir);
 
-function machineFactor(): number {
-  const words = 'the quick brown fox jumps over the lazy dog'.split(' ');
-  const run = (): number => {
-    const started = performance.now();
-    let sink = 0;
-    for (let round = 0; round < 3000; round++) {
-      let line = '';
-      for (const word of words) line += `${word} *${word}* \`${word}\` `;
-      for (const match of line.matchAll(/[*`]\w+[*`]/g)) sink += match.index;
-      sink += line.split(/\s+/).map((word) => ({ word, length: word.length })).filter((token) => token.length > 3).length;
-    }
-    return performance.now() - started;
+// The gate owns pass/fail (ADR-0022). measure-startup.mjs later replaces results/perf.json, so
+// the same number is also left in a snapshot the gate merges back.
+function writeParseMeasurement(median: number): void {
+  mkdirSync(fileURLToPath(resultsDir), { recursive: true });
+  let existing: Record<string, unknown> = {};
+  if (existsSync(perfPath)) {
+    try { existing = JSON.parse(readFileSync(perfPath, 'utf8')) as Record<string, unknown>; }
+    catch { existing = {}; }
+  }
+  const envClass = process.env.MARXY_PERF_ENV ?? (process.env.CI ? 'ci' : 'reference');
+  const record = {
+    ...existing,
+    parse_long_technical_ms: median,
+    env_class: existing.env_class ?? envClass,
+    runner_class: existing.runner_class ?? process.env.MARXY_RUNNER_CLASS ?? null,
   };
-  run();
-  const runs = [run(), run(), run(), run(), run()].sort((a, b) => a - b);
-  return Math.max(1, runs[2]! / PROBE_REFERENCE_MS);
+  writeFileSync(perfPath, `${JSON.stringify(record, null, 2)}\n`);
+  writeFileSync(parseSnapshotPath, `${JSON.stringify({ parse_long_technical_ms: median }, null, 2)}\n`);
 }
 
-test('parsing 01-long-technical.md stays inside the 10 ms budget', () => {
+test('parsing 01-long-technical.md records its median in results/perf.json', () => {
   const bytes = read('01-long-technical.md');
   for (let warmup = 0; warmup < 25; warmup++) parseMarkdown(bytes, { file: '01-long-technical.md' });
   const runs: number[] = [];
@@ -326,11 +321,10 @@ test('parsing 01-long-technical.md stays inside the 10 ms budget', () => {
   }
   runs.sort((a, b) => a - b);
   const median = runs[Math.floor(runs.length / 2)]!;
-  const factor = machineFactor();
-  const budget = 10 * factor;
-  console.log(`parse 01-long-technical.md: ${median.toFixed(2)} ms median, machine ${factor.toFixed(2)}× the reference, budget ${budget.toFixed(1)} ms`);
-  assert.ok(
-    median < budget,
-    `parse took ${median.toFixed(2)} ms (median of ${runs.length}); budget is 10 ms on the reference machine, ${budget.toFixed(1)} ms on this one (measured ${factor.toFixed(2)}× slower)`,
-  );
+  writeParseMeasurement(median);
+  console.log(`parse 01-long-technical.md: ${median.toFixed(2)} ms median`);
+  const written = JSON.parse(readFileSync(perfPath, 'utf8')) as { parse_long_technical_ms: number };
+  assert.equal(written.parse_long_technical_ms, median);
+  const snapshot = JSON.parse(readFileSync(parseSnapshotPath, 'utf8')) as { parse_long_technical_ms: number };
+  assert.equal(snapshot.parse_long_technical_ms, median);
 });

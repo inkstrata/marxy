@@ -22,3 +22,4 @@ tag time. Conventions in `docs/conventions.md`.
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
+- The 10 ms parse budget now lives with the other speed budgets and is gated the same two-tier way, so a busy CI runner can no longer flip a coin on it (MARXY-59)
