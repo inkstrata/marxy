@@ -56,3 +56,6 @@ tag time. Conventions in `docs/conventions.md`.
 - Jira is now the board of record: all 51 epics and stories exist as issues, and story keys throughout the repo are the real Jira keys (MARXY-10)
 - The startup measurement now reports two honestly named numbers — a cold start, which is the first launch and only the first launch, and a warm start, which is the median of the rest — after it turned out that the single number called "cold start" had always been a warm one, and that seven of eight Linux launches were being thrown away unmeasured (MARXY-63)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
+
+### Fixed
+- READMEs and licence files under fonts/ show a normal diff again; only font binaries stay binary, so a reviewer can read a text change; nothing under fonts/, licences included, can have its line endings rewritten, and `pnpm lint` fails if that ever changes (MARXY-66)
