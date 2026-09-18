@@ -27,6 +27,17 @@ requestAnimationFrame(observeFrame);
 
 /** Two animation frames plus a macrotask: by the time this resolves the mutated DOM has been painted. */
 const FRAMES_BEFORE_PAINT = 2;
+
+/**
+ * How long a harness launch waits for a frame before the shell gives up on its behalf. Some
+ * environments deliver no frames at all — a Mac in dark wake, a locked screen — and there an unbounded
+ * wait hangs every launch until the harness kills it, which puts the pressure on the frame assertion
+ * rather than on the environment. The deadline is enforced in the shell, not here: WebKit aligns timers
+ * in a window that cannot paint to about 15 s, so a timer inside this page is not a deadline.
+ * A reader gets none of this — a display that is asleep should show the document when it wakes.
+ */
+const PAINT_DEADLINE_MS = 2500;
+
 function afterPaint(): Promise<void> {
   return new Promise(resolve => {
     let waited = 0;
@@ -50,9 +61,12 @@ function renderEvidence(doc: HTMLElement): RenderEvidence {
   };
 }
 
-/** The startup harness sets the env var; the flag exists so a person can do the same by hand. */
-async function quitRequested(args: readonly string[] = []): Promise<boolean> {
-  if (args.includes('--quit-after-paint')) return true;
+/** The arguments this launch was given, kept so the error path can honour the flag too. */
+let launchArgs: readonly string[] = [];
+
+/** True when a harness launched us: the startup harness sets the env var, the flag is for a person. */
+async function inHarness(): Promise<boolean> {
+  if (launchArgs.includes('--quit-after-paint')) return true;
   try {
     return Boolean((await shell.startupMarks()).quit_after_paint);
   } catch {
@@ -61,23 +75,24 @@ async function quitRequested(args: readonly string[] = []): Promise<boolean> {
 }
 
 /** Every path ends here: the frame observer stops so an idle window is not woken once a frame. */
-async function finish(args: readonly string[], code: number): Promise<void> {
+async function finish(harness: boolean, code: number): Promise<void> {
   observing = false;
-  if (await quitRequested(args)) await shell.quit(code);
+  if (harness) await shell.quit(code);
 }
 
 async function main() {
   await shell.mark('script_start', t0);
-  const args = await shell.args();
+  launchArgs = await shell.args();
+  const harness = await inHarness();
   // Skip flags and the macOS launcher's -psn_… argument; the first plain argument is the document.
-  const file = args.find(a => !a.startsWith('-'));
+  const file = launchArgs.find(a => !a.startsWith('-'));
   const doc = document.getElementById('doc')!;
 
   // No document means no `first_text`: nothing was read, so a launch like this must not be able to
   // hand the startup measurement a cold-start number.
   if (!file) {
     await shell.mark('no_document', Date.now());
-    return finish(args, 0);
+    return finish(harness, 0);
   }
 
   const bytes = await shell.readFile(file);
@@ -87,32 +102,40 @@ async function main() {
   document.title = `${file.split('/').pop()} — marxy`;
 
   const evidence = renderEvidence(doc);
-  const framesAtRender = framesObserved;
   const renderedAt = Date.now();
   await shell.mark('render', renderedAt, `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
 
+  // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
+  // must not be able to hand the startup measurement a number either — and it has no paint to wait for.
+  if (evidence.blocks === 0 || evidence.chars === 0) {
+    await shell.mark('no_text', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars}`);
+    return finish(harness, 1);
+  }
+
+  // The shell prints `no_paint` and exits non-zero if no frame arrives in time, so a harness launch in
+  // an environment that paints nothing says so instead of hanging. A reader is left to wait.
+  if (harness) await shell.armPaintDeadline(PAINT_DEADLINE_MS);
+
+  // Counted from here, so the number covers the wait and not the render mark's IPC round trip.
+  const framesAtRender = framesObserved;
   await afterPaint();
   // One timestamp for both marks: the paint detail costs an IPC round trip and `first_text` must not
   // be pushed later by the cost of reporting it.
   const paintedAt = Date.now();
   const frames = framesObserved - framesAtRender;
+  if (harness) await shell.paintReported();
 
-  // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
-  // must not be able to hand the startup measurement a number either.
-  if (evidence.blocks === 0 || evidence.chars === 0) {
-    await shell.mark('no_text', paintedAt, `blocks=${evidence.blocks} chars=${evidence.chars}`);
-    return finish(args, 1);
-  }
   await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt}`);
   // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
-  return finish(args, 0);
+  return finish(harness, 0);
 }
 
 main().catch(async (e) => {
   document.getElementById('doc')!.textContent = String(e);
   await shell.mark('error', Date.now(), String(e));
-  // A failed launch still has to exit when asked, or the harness waits out its whole timeout.
-  await finish([], 1);
+  // A failed launch still has to exit when asked, or the harness waits out its whole timeout. The
+  // flag counts here as well as the env var, which is why the arguments are kept.
+  await finish(await inHarness(), 1);
 });

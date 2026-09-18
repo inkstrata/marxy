@@ -1,6 +1,7 @@
 //! marxy desktop shell. Everything privileged lives here behind the shell-api contract.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn now_ms() -> f64 { SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as f64).unwrap_or(0.0) }
@@ -60,10 +61,35 @@ fn quit(app: tauri::AppHandle, code: Option<i32>) {
     std::process::exit(code.unwrap_or(0));
 }
 
+/// Set by the webview when it has its frames and is about to report the paint.
+static PAINT_REPORTED: AtomicBool = AtomicBool::new(false);
+
+/// Bounds a harness launch's wait for a paint from outside the webview, because inside it there is no
+/// such thing as a deadline: WebKit aligns timers in a window that cannot paint to about 15 s, which is
+/// the very state this guards against (a display asleep or in dark wake delivers no animation frames).
+/// This thread is not throttled. Only a harness arms it; a reader keeps waiting and gets the document
+/// when the display wakes.
+#[tauri::command]
+fn arm_paint_deadline(app: tauri::AppHandle, ms: u64) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(ms));
+        if !PAINT_REPORTED.load(Ordering::SeqCst) {
+            // No `first_text`: nothing was painted, so there is no cold start to report.
+            mark("no_paint".into(), now_ms(), Some(format!("deadline_ms={ms}")));
+            app.cleanup_before_exit();
+            std::process::exit(1);
+        }
+    });
+}
+
+/// Disarms the deadline above.
+#[tauri::command]
+fn paint_reported() { PAINT_REPORTED.store(true, Ordering::SeqCst); }
+
 fn main() {
     mark("main_start".into(), now_ms(), None);
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![args, read_file, write_file_atomic, mark, startup_marks, quit])
+        .invoke_handler(tauri::generate_handler![args, read_file, write_file_atomic, mark, startup_marks, quit, arm_paint_deadline, paint_reported])
         .run(tauri::generate_context!())
         .expect("error while running marxy");
 }
