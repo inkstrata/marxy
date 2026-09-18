@@ -335,3 +335,34 @@ Nothing visual changed; no queue entry owed.
 > `continue-on-error` or `|| true` — your acceptance carries a check that asserts both. If you
 > reach a point where the only way to make CI green is to move a number or soften a check, that is
 > an escalation, not a decision you may take.
+
+## Addendum: the strongest macOS evidence yet, from an unrelated PR
+
+A whitespace-only commit on PR #7 measured `cold_start_first_text_ms` at 2097 ms, failing the ceiling by
+5.9 ms, and 871 ms on a re-run seven minutes later — a 2.4x swing on identical code, both under today's
+eight-launch median. This is the cleanest demonstration available that the between-run movement on
+`macos-latest` exceeds the gate's entire tolerance: a band wide enough to absorb it could no longer see a
+20% regression, which is the whole point of having the gate. It is direct support for the
+`baseline_waived` path over any widened tolerance, and it is also the case to keep in mind when the
+corrected script produces its five cross-run observations — if the fix removes part of this movement, the
+class may earn its baseline back, and that must be settled by the new measurement rather than by this
+evidence, which was taken with the broken one.
+
+## Addendum: two OS mechanisms that can suspend a measurement
+
+Found by MARXY-13 while bounding its paint wait, and relevant to any story that times a launch.
+
+**WebKit aligns timers in a window that cannot paint to roughly 15 s.** A `setTimeout(resolve, 2000)`
+inside the webview fired at 15013 ms on a Mac in dark wake. So no deadline, watchdog or timeout that
+lives in page script can be trusted in exactly the conditions it exists to handle; MARXY-13's now runs on
+an unthrottled shell thread.
+
+**macOS App Nap suspends a process whose window cannot be seen, and a suspended process runs no
+deadline** — native or otherwise. One launch took 28.5 s to report, which is why MARXY-13 keeps a second
+watchdog in the harness rather than trusting the one inside the app.
+
+Both matter for the perf work. A launch that appears to take 15 or 28 s may be an OS decision rather than
+a slow application, so a timeout tuned without knowing this will either kill launches that would have
+succeeded or wait long enough to hide a real hang. Whatever cold-launch procedure MARXY-63 settles on
+should record enough context to tell "the OS suspended us" apart from "startup was slow", and the same
+question is worth asking about `ubuntu-latest`, where seven of eight launches emit no mark at all.

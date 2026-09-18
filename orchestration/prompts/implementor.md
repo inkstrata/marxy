@@ -18,8 +18,12 @@ exists for you. Read `AGENTS.md` before anything.
 3. For every acceptance criterion, add or extend a test or gate that checks it. A criterion
    with no check is not done. Comments explain why, not what; tags carry a key
    (`TODO({{KEY}}):`); every file you create starts with a one-line responsibility header.
-4. Run, from the repo root: `pnpm typecheck && pnpm lint && pnpm test`, then every
-   `pnpm gate:*` that applies to your paths. Paste the last lines of each into your result.
+4. Run, from the repo root: `pnpm build typecheck lint test`, then every `pnpm gate:*` that
+   applies to your paths. Paste the last lines of each into your result. All four, in that
+   order: `build` is in the definition of done (AGENTS.md, `docs/sdlc.md`) because a package
+   that typechecks and still fails to build is a story that is not finished. If `build` fails
+   for a reason that is about your machine rather than your diff, say which reason and how you
+   established it; do not drop the command.
 5. Commit per `docs/conventions.md`: `type(scope): imperative subject ({{KEY}})`, a blank line,
    two or three plain sentences on what changed and why, then a bulleted list of specifics,
    then `Refs: {{KEY}}` and `ADR: nnnn` trailers. No attribution trailers.

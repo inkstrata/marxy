@@ -1,10 +1,10 @@
 {
-  "updated": "2026-09-18T11:33:07.538Z",
+  "updated": "2026-09-18T12:21:33.452Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
-  "merges": 5,
-  "lastPlan": "2026-09-18T08:34:27.846Z",
-  "mergesAtLastPlan": 0,
+  "merges": 6,
+  "lastPlan": "2026-09-18T11:38:45.770Z",
+  "mergesAtLastPlan": 5,
   "stories": {
     "MARXY-5": {
       "status": "blocked",
@@ -50,11 +50,15 @@
       "finished": "2026-09-18T11:33:07.538Z"
     },
     "MARXY-12": {
-      "status": "todo",
-      "attempts": 0
+      "status": "in_progress",
+      "attempts": 1,
+      "started": "2026-09-18T12:13:00.709Z",
+      "worktree": "../marxy-wt/MARXY-12",
+      "branch": "feat/MARXY-12-sanitise-rendered-html",
+      "model": "grok-4.6-fast"
     },
     "MARXY-13": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 3,
       "branch": "feat/MARXY-13-desktop-shell-opens-a-file-from-the-cli",
       "worktree": "../marxy-wt/MARXY-13",
@@ -83,12 +87,13 @@
       "finished": "2026-09-18T11:04:25.971Z"
     },
     "MARXY-19": {
-      "status": "in_review",
+      "status": "done",
       "attempts": 2,
       "started": "2026-09-18T10:55:36.628Z",
       "pr": 7,
       "worktree": "../marxy-wt/MARXY-19",
-      "model": "grok-4.6-fast"
+      "model": "grok-4.6-fast",
+      "finished": "2026-09-18T12:12:45.070Z"
     },
     "MARXY-20": {
       "status": "todo",
@@ -293,6 +298,10 @@
       "attempts": 0
     },
     "MARXY-71": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-72": {
       "status": "todo",
       "attempts": 0
     }
