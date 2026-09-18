@@ -89,8 +89,10 @@ Rules baked in:
   binaries come with the `mcr.microsoft.com/playwright` image whose tag must equal the pinned
   `playwright` version in `package.json` (exact, no caret).
 - **The CI Cargo profile** (`[profile.ci]`, thin LTO, 16 codegen units) is what CI measures;
-  tags and `pnpm bundle` use `release`. `MARXY_BIN` tells the measurer and the smoke check which
-  binary to launch.
+  tags and `pnpm bundle` use `release`. CI calls cargo directly and must pass
+  `--features tauri/custom-protocol`, the production switch `tauri build` sets implicitly;
+  without it the app loads the dev server URL and never paints. `MARXY_BIN` tells the measurer
+  and the smoke check which binary to launch.
 - **Perf on shared runners is noisy by nature.** The envelope and baseline rules (ADR-0022) stay,
   and a breach is re-measured once before it fails; the parse-time budget no longer runs as a
   unit test on CI (it is a perf-gate concern, MARXY-59). `scripts/gate-perf.mjs --selftest`
