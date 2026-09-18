@@ -9,6 +9,10 @@ test('a PR that clears the bar and touches no code-owner path merges now', () =>
   assert.equal(tierOf(row()), 'merge now');
 });
 
+test('mergeability GitHub has not computed yet is a wait, not a merge', () => {
+  assert.equal(tierOf(row({ action: 'auto-merge', reasons: ['pending: GitHub is still working out whether it merges; re-run'] })), 'waiting on CI');
+});
+
 test('pending CI alone waits on CI', () => {
   assert.equal(tierOf(row({ action: 'auto-merge', reasons: ['pending: gates (ubuntu-latest)'] })), 'waiting on CI');
 });

@@ -81,9 +81,12 @@ function collect(resultsDir) {
     const outside = allowed ? files.filter(f => !allowed.some(a => f === a || f.startsWith(a.replace(/\/$/, '') + '/'))) : [];
     const result = key && existsSync(results(`${key}.json`)) ? readJson(results(`${key}.json`)) : null;
     const approval = key ? verify(results(`${key}.approved`), pr.headRefOid) : { ok: false, why: 'no story key in the title or branch' };
-    const { action, reasons } = evaluate({ pr, files, outside, result, approval });
+    const { reasons } = evaluate({ pr, files, outside, result, approval });
+    // Right after main moves GitHub reports UNKNOWN until it has tried the merge; that is not "clean".
+    if (pr.mergeable === 'UNKNOWN') reasons.push('pending: GitHub is still working out whether it merges; re-run');
     const ownedFiles = files.filter(f => ownedBy(patterns, f));
     if (ownedFiles.length) reasons.push(`code owner: ${ownedFiles.length} file(s) under CODEOWNERS (${ownedFiles[0]}${ownedFiles.length > 1 ? ', …' : ''})`);
+    const action = reasons.length === 0 ? 'merge' : reasons.every(r => r.startsWith('pending:')) ? 'auto-merge' : 'hold';
     const row = { number: pr.number, key, pr, files, approval, action, reasons, ownedFiles,
       mergeStateStatus: pr.mergeStateStatus, phase: key ? phaseOf(key) : 99,
       ageHours: Math.round((Date.now() - Date.parse(pr.createdAt)) / 36e5) };
@@ -102,7 +105,7 @@ const ci = row => {
 const approvalCell = ({ approval: a }) => a.ok ? `signed ${a.head.slice(0, 7)}` : /^not reviewed/.test(a.why) ? 'none' : /unsigned/.test(a.why) ? 'unsigned' : 'stale';
 const next = row => {
   if (row.tier === 'merge now') return 'cycle.mjs merges it';
-  if (row.tier === 'waiting on CI') return 'auto-merges when CI finishes';
+  if (row.tier === 'waiting on CI') return 'the next cycle merges it once CI is green';
   if (row.tier === 'update branch') return `behind main: \`gh pr update-branch ${row.number}\`, CI re-runs${row.approval.ok ? ', approval survives' : ''}`;
   if (row.tier === 'Ian' && row.reasons.every(r => /^code owner|^pending:|human review/.test(r))) return 'Ian merges (code-owner paths)';
   return row.reasons.find(r => !/^pending:/.test(r)) ?? row.reasons[0];
