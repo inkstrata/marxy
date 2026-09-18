@@ -111,6 +111,23 @@ in parentheses. Release notes are generated from the section at tag time.
 - Task-list checkboxes can be toggled in Rendered mode; only the marker bytes change (MARXY-43)
 ```
 
+## Font binaries
+
+Font files are never rewritten (Reserved Font Name; never touch a byte the user did not ask to
+change). `.gitattributes` therefore marks **font binaries by extension** (`ttf`, `otf`, `woff`,
+`woff2`) as `binary` and explicitly unsets `eol`. It does **not** mark the whole `fonts/` tree:
+`fonts/README.md` and `LICENSE` files must stay ordinary text so a reviewer can read the
+diff. A tree-wide `fonts/** binary` rule hid the MARXY-17 README row on GitHub; that is the
+wrong trade.
+
+The `*` rule sets `eol=lf`. `binary` does not unset `eol`, so each font pattern also says `-eol`,
+and `fonts/** -text` keeps every file under `fonts/` out of line-ending conversion: licences are
+verbatim too, and IBM Plex Mono's is stored with CRLF endings. `-text` does not hide a diff.
+
+`scripts/gate-font-attrs.mjs` (`pnpm gate:font-attrs`, and the first step of `pnpm lint`, which CI
+runs) fails if a font binary loses `binary` or gains `eol`, if text under `fonts/` becomes binary,
+or if any file under `fonts/` becomes eligible for line-ending conversion.
+
 ## Versions and tags
 
 Semantic Versioning. Annotated tags `vMAJOR.MINOR.PATCH`; pre-releases `v0.1.0-rc.1`. `0.x`
