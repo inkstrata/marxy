@@ -244,8 +244,12 @@ mod tests {
         // Write-only: the destination is writable, so the save begins, and unreadable, so carrying its
         // metadata onto the staging file fails partway through.
         fs::set_permissions(&target, fs::Permissions::from_mode(0o200)).expect("chmod");
+        let readable_anyway = File::open(&target).is_ok();
         let refused = write_atomic(&target, b"new");
         fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).expect("chmod back");
+        if readable_anyway {
+            return; // Running as root, where no file is unreadable; nothing to assert.
+        }
         assert!(refused.is_err(), "an unreadable destination should not be saved over");
         assert_eq!(fs::read(&target).expect("read back"), b"old");
         assert_eq!(staged_files(&dir), Vec::<String>::new());
