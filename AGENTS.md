@@ -65,11 +65,12 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
   them: a plain-language summary first, technical detail after, agent detail folded away.
   Conventional Commits with the Jira key in the subject; the PR template's order is enforced;
   review remarks use Conventional Comments; no attribution trailers (a hook blocks them).
-- **Definition of done** for a story: every acceptance criterion in the issue is
-  machine-checked by a test or gate that is in the PR; `pnpm build typecheck lint test`
-  green; the relevant gates green; `CHANGELOG.md` has a line; docs/ADRs updated if a
-  decision changed; visual artifacts queued in `docs/taste-review/queue.md` if anything
-  the reader sees changed.
+- **Definition of done** for a story is one command: `pnpm done MARXY-nn` green (story
+  boundary, precheck, drafted PR body) plus `node scripts/check-pr.mjs --body results/MARXY-nn.pr.md --range`
+  green after you fill the TODOs. Every acceptance criterion names the test or gate that
+  checks it; `CHANGELOG.md` has a line; docs/ADRs updated if a decision changed; a queue row
+  in `docs/taste-review/queue.md` if anything the reader sees changed. `docs/hygiene.md` lists
+  what the tools enforce; `pnpm new` starts modules, operations and commands in the house shape.
 - **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` or
   `packages/theme/src/tokens.css` needs an ADR and a PR touching only that.
 - **Toolchain:** versions come from `mise.toml`. `pnpm` for Node, `uv` for Python,

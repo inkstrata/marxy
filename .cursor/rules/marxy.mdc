@@ -6,6 +6,6 @@ Before doing anything in this repository read `AGENTS.md`, then the ADRs named b
 
 Non-negotiable: MIT tree with no copyleft dependencies; no telemetry; nothing phones home; never touch a byte of a user document the user did not ask to change; chrome at rest is zero; reading is primary.
 
-Workflow: one story, one branch (`type/KEY-slug`), one PR, only the story's listed paths. Conventional commits with the key; no AI attribution trailers. Every acceptance criterion gets a test or gate in the same PR. `pnpm typecheck && pnpm lint && pnpm test` and the applicable `pnpm gate:*` must be green before a PR.
+Workflow: one story, one branch (`type/KEY-slug`), one PR, only the story's listed paths. Conventional commits with the key; no AI attribution trailers. Every acceptance criterion gets a test or gate in the same PR. `pnpm precheck` must be green before a PR and `pnpm done MARXY-nn` drafts the PR body; `docs/hygiene.md` lists what the hooks and checks enforce. Start new units with `pnpm new`.
 
 If your task is orchestration, read `orchestration/README.md` and the prompt for your role in `orchestration/prompts/`.

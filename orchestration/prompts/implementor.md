@@ -9,7 +9,10 @@ exists for you. Read `AGENTS.md` before anything.
 
 ## Do exactly this
 
-1. Read the ADRs the story names (`docs/adr/`). Read the contracts you depend on
+1. Read your task card, `docs/plan/tasks/{{KEY}}.md`, if it exists, and the design sections it
+   names under `docs/design/`. The card lists files, signatures, order and tests; the design
+   holds every decision. If the card and the design disagree, the design wins and you note it
+   in the PR. Then read the ADRs the story names (`docs/adr/`). Read the contracts you depend on
    (`packages/*/src/contracts/`). Do not modify them; if the story is impossible without
    changing one, stop and report `blocked` with the reason.
 2. Implement inside `Paths` only. You may also edit `CHANGELOG.md` (one line) and, if
@@ -18,8 +21,9 @@ exists for you. Read `AGENTS.md` before anything.
 3. For every acceptance criterion, add or extend a test or gate that checks it. A criterion
    with no check is not done. Comments explain why, not what; tags carry a key
    (`TODO({{KEY}}):`); every file you create starts with a one-line responsibility header.
-4. Run, from the repo root: `pnpm typecheck && pnpm lint && pnpm test`, then every
-   `pnpm gate:*` that applies to your paths. Paste the last lines of each into your result.
+4. Run `pnpm precheck` from the repo root until it is green; it runs the typecheck, lint,
+   tests and gates your paths need and prints a `fix:` line for each failure. Start new
+   modules, operations or shell commands with `pnpm new …` so they have the house shape.
 5. Commit per `docs/conventions.md`: `type(scope): imperative subject ({{KEY}})`, a blank line,
    two or three plain sentences on what changed and why, then a bulleted list of specifics,
    then `Refs: {{KEY}}` and `ADR: nnnn` trailers. No attribution trailers.
@@ -27,7 +31,10 @@ exists for you. Read `AGENTS.md` before anything.
    template exactly: Summary (plain language, first), Changes, Verification, For the
    reviewer, then Agent detail inside `<details>`, then the checklist. The Summary is for a
    person who will never open the diff; put everything machine-oriented in Agent detail.
-7. Write `orchestration/results/{{KEY}}.json`:
+7. Run `pnpm done {{KEY}}`. It drafts `results/{{KEY}}.pr.md` from your commits and the story
+   and writes `orchestration/results/{{KEY}}.json`. Fill every TODO (the Summary in plain
+   language; the criterion → check table), then `node scripts/check-pr.mjs --body results/{{KEY}}.pr.md --key {{KEY}} --range`
+   must pass before `gh pr create --body-file results/{{KEY}}.pr.md`. The result file's shape:
    ```json
    { "key": "{{KEY}}", "status": "done | blocked | failed", "branch": "...", "pr": 123,
      "gates": { "typecheck": "ok", "test": "ok", "golden": "ok", "...": "..." },
