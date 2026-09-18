@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- CI now fetches the CommonMark specification examples — never committed — and fails the build if a parse diverges from them (MARXY-68)
 - Agents land a pull request once the quality bar is met: a signed review of that exact commit, green gates, and the story's path boundary — CODEOWNERS paths still wait for a person (MARXY-79)
 - The orchestrator fleet can run cheaper: `--low` is Sonnet 5 medium plus Grok 4.6 High Fast, `--minimal` is Grok 4.6 High Fast only
 - Opening a document can now index the repository around it — honouring ignore rules, skipping `node_modules` and the rest of the deny list, stopping at fifty thousand files — after the first page paints, and the index is kept on disk and rebuilt when a file's mtime changes (MARXY-35)
@@ -26,6 +27,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
 - The anti-attribution hook the conventions promised now exists in `.githooks/commit-msg`, so trailers injected by agent tooling are stripped rather than merely forbidden (MARXY-10)
