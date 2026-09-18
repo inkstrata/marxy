@@ -54,6 +54,9 @@
     "MARXY-053": "MARXY-54",
     "MARXY-NEW-ci-perf-envelope": "MARXY-55",
     "MARXY-NEW-cargo-licence-audit": "MARXY-57",
-    "MARXY-NEW-adr-0006-audit-scope": "MARXY-58"
+    "MARXY-NEW-adr-0006-audit-scope": "MARXY-58",
+    "MARXY-NEW-parse-budget": "MARXY-59",
+    "MARXY-NEW-katex-cost": "MARXY-60",
+    "MARXY-NEW-markdown-it-out": "MARXY-61"
   }
 }
