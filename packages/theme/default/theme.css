@@ -1,5 +1,5 @@
 /* The default theme. Built as a theme so the loader is exercised from Phase 1 (ADR-0008).
-   Light values are the token defaults; dark is designed, not inverted (Phase 3, MARXY-052). */
+   Light values are the token defaults; dark is designed, not inverted (Phase 3, MARXY-53). */
 @import url("../src/tokens.css");
 :root[data-marxy-variant="dark"] {
   --marxy-color-bg: #141414;
