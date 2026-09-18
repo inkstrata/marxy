@@ -323,6 +323,9 @@ test('parsing 01-long-technical.md records its median in results/perf.json', () 
   const median = runs[Math.floor(runs.length / 2)]!;
   writeParseMeasurement(median);
   console.log(`parse 01-long-technical.md: ${median.toFixed(2)} ms median`);
+  // Not a check on the number — the gate owns that. These read both files back because a write that
+  // silently does not happen is how the measurement stops reaching the gate, and the gate now fails
+  // when the metric is absent rather than passing without mentioning it.
   const written = JSON.parse(readFileSync(perfPath, 'utf8')) as { parse_long_technical_ms: number };
   assert.equal(written.parse_long_technical_ms, median);
   const snapshot = JSON.parse(readFileSync(parseSnapshotPath, 'utf8')) as { parse_long_technical_ms: number };
