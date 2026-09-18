@@ -166,8 +166,9 @@ function rewriteTokens(pairs) {
 async function sync() {
   const p = await api(`/project/${E.JIRA_PROJECT_KEY}`);
   const types = Object.fromEntries(p.issueTypes.map(t => [t.name.toLowerCase(), t.id]));
-  const m = map(); let created = 0, updated = 0; const renames = [];
+  const m = map(); let created = 0, updated = 0, failed = 0; const renames = [];
   for (const it of csvRows()) {
+    try {
     const placeholder = /^MARXY-NEW-/i.test(it.Key);
     const key = m.keys[it.Key] ?? it.Key;
     const issue = placeholder ? null : await api(`/issue/${key}?fields=summary,labels`).catch(() => null);
@@ -181,12 +182,18 @@ async function sync() {
     if (it.Parent) fields.parent = { key: m.keys[it.Parent] ?? it.Parent };
     const r = await api('/issue', { method: 'POST', body: JSON.stringify({ fields }) });
     if (!m.keys[it.Key]) m.keys[it.Key] = r.key;
+    // Persist the mapping before doing anything else: a crash after this point must not let the
+    // next run create a second issue for the same row.
+    if (!DRY) writeJson(MAP, m);
     if (placeholder) renames.push([it.Key, r.key]);
     created++; console.log(`created ${it.Key} → ${r.key}`);
+    // One unhappy row must not abandon the rest of the backlog half-synced.
+    } catch (e) { failed++; console.error(`${it.Key}: ${e}`); }
   }
   if (!DRY) writeJson(MAP, m);
   const touched = rewriteTokens(renames);
-  console.log(`sync: ${updated} updated, ${created} created${renames.length ? `, ${renames.length} placeholder key(s) resolved across ${touched} files` : ''}`);
+  console.log(`sync: ${updated} updated, ${created} created, ${failed} failed${renames.length ? `, ${renames.length} placeholder key(s) resolved across ${touched} files` : ''}`);
+  if (failed) process.exitCode = 1;
 }
 
 // Move an issue to the Jira status that represents a board status. Falls back and says so.

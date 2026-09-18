@@ -1,17 +1,18 @@
 {
   "_note": "Dependencies by Jira key (docs/plan/jira-issues.csv, project MARXY). A story is ready when all deps are done. Every story in the CSV appears in exactly one phase; `phases` is declarative today — ready.mjs does not read it until MARXY-9 lands. A phase is also a Jira version: `jira.mjs release <phase> <tag>`.",
   "phases": {
-    "0": ["MARXY-5","MARXY-6","MARXY-7","MARXY-8","MARXY-9","MARXY-10","MARXY-11","MARXY-12","MARXY-13","MARXY-14","MARXY-15","MARXY-16","MARXY-17"],
+    "0": ["MARXY-5","MARXY-6","MARXY-7","MARXY-8","MARXY-9","MARXY-10","MARXY-11","MARXY-12","MARXY-13","MARXY-14","MARXY-15","MARXY-16","MARXY-17","MARXY-55"],
     "1": ["MARXY-19","MARXY-20","MARXY-21","MARXY-22","MARXY-23","MARXY-24","MARXY-25","MARXY-26","MARXY-27","MARXY-28","MARXY-29","MARXY-30","MARXY-31"],
     "2": ["MARXY-33","MARXY-34","MARXY-35","MARXY-36","MARXY-37","MARXY-38","MARXY-39"],
     "3": ["MARXY-41","MARXY-42","MARXY-43","MARXY-44","MARXY-45","MARXY-46","MARXY-47","MARXY-48","MARXY-49"],
     "4": ["MARXY-51","MARXY-52","MARXY-53","MARXY-54"]
   },
   "deps": {
+    "MARXY-55": [],
     "MARXY-8": ["MARXY-5"],
     "MARXY-12": ["MARXY-11"],
     "MARXY-14": ["MARXY-13"],
-    "MARXY-15": ["MARXY-13"],
+    "MARXY-15": ["MARXY-13", "MARXY-55"],
     "MARXY-16": ["MARXY-13", "MARXY-15", "MARXY-5"],
     "MARXY-20": ["MARXY-11", "MARXY-13"],
     "MARXY-21": ["MARXY-20"],
@@ -43,7 +44,7 @@
     "MARXY-49": ["MARXY-14", "MARXY-43"],
     "MARXY-51": ["MARXY-31", "MARXY-39"],
     "MARXY-52": ["MARXY-16"],
-    "MARXY-53": ["MARXY-33"],
+    "MARXY-53": ["MARXY-33", "MARXY-55"],
     "MARXY-54": ["MARXY-51", "MARXY-52", "MARXY-53"]
   },
   "research": {
