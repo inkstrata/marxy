@@ -5,7 +5,7 @@
 // suite can prove each check is capable of failing. A sanitiser test suite that passes against a
 // sanitiser that does nothing is worse than no suite at all.
 
-import { DEFAULT_POLICY, VOID_ELEMENTS, type Policy } from '../policy.ts';
+import { BLOCK_ELEMENTS, DEFAULT_POLICY, VOID_ELEMENTS, type Policy } from '../policy.ts';
 import { decodeReferences } from '../escape.ts';
 
 export interface Attribute {
@@ -70,15 +70,48 @@ const FETCHING_ATTRIBUTES = [
   'xlink:href', 'lowsrc', 'dynsrc', 'codebase', 'cite', 'profile', 'manifest', 'imagesrcset',
 ];
 
-function schemeOf(value: string): string | undefined {
-  const head = value.replace(/[\u0000-\u0020\u007f-\u009f]/g, '').split(/[/?#]/, 1)[0] ?? '';
-  return /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(head)?.[1]?.toLowerCase();
+/**
+ * Every attribute a URL can be *used* from, which is the set a scheme may be judged in. Wider than
+ * the list above on purpose, and deliberately not read from the policy. A scheme in a value the
+ * browser never dereferences is prose — a README about XSS may say `javascript:alert(1)` in an
+ * `alt`, and a check that failed on that would be teaching the sanitiser to damage documents.
+ */
+const URL_ATTRIBUTES = [...FETCHING_ATTRIBUTES, 'href', 'longdesc', 'usemap', 'icon', 'style'];
+
+/**
+ * Resolution, written here a second time on purpose.
+ *
+ * `urls.ts` decides what a value addresses; if these checks asked it, they would agree with it by
+ * construction and could never catch it being wrong — which is exactly how `/\evil.example/p.png`
+ * passed 27 vectors while fetching from `evil.example` in both engines. These bases differ from the
+ * sanitiser's, and the question asked is the plainest one available: resolve against two bases, and
+ * if the answer is the same, the value brought its own authority.
+ */
+const CHECK_BASES = ['https://one.check.invalid/here/', 'https://two.check.invalid/here/'] as const;
+
+function resolve(value: string): URL | undefined {
+  try {
+    return new URL(value.replace(/[\t\n\r]/g, '').trim(), CHECK_BASES[0]);
+  } catch {
+    return undefined;
+  }
 }
 
+function schemeOf(value: string): string | undefined {
+  const here = resolve(value);
+  if (here === undefined) return undefined;
+  let there: URL;
+  try {
+    there = new URL(value.replace(/[\t\n\r]/g, '').trim(), CHECK_BASES[1]);
+  } catch {
+    return undefined;
+  }
+  return here.href === there.href ? here.protocol.slice(0, -1).toLowerCase() : undefined;
+}
+
+/** Remote means: addresses an authority that is not the document's own, however it is spelled. */
 function isRemote(value: string): boolean {
-  const cleaned = value.replace(/[\u0000-\u0020\u007f-\u009f]/g, '');
-  const scheme = schemeOf(cleaned);
-  return scheme !== undefined || cleaned.startsWith('//');
+  return schemeOf(value) !== undefined;
 }
 
 /** An element must not appear at all, with its subtree. */
@@ -211,7 +244,22 @@ export const VECTORS: readonly Vector[] = [
   absentAttribute(
     'no-event-handler-attribute',
     'an on* attribute is script, however it is spelled or cased',
-    '<p OnMouseOver="alert(1)" onerror=alert(2) ONLOAD=\'alert(3)\' onFocus="alert(4)" onanimationstart="alert(5)">x</p>\n\n<img src=x onerror="alert(6)">\n',
+    // Every handler a policy edit might plausibly wave through, not only the ones a sanitiser
+    // usually forgets: `onclick` on a `p` passed the earlier suite because no probe contained it.
+    [
+      '<p OnMouseOver="alert(1)" onerror=alert(2) ONLOAD=\'alert(3)\' onFocus="alert(4)">x</p>',
+      '',
+      '<p onclick="alert(5)" ondblclick="alert(6)" onauxclick="alert(7)" oncontextmenu="alert(8)">y</p>',
+      '',
+      '<p onanimationstart="alert(9)" ontransitionend="alert(10)" onscroll="alert(11)" ontoggle="alert(12)">z</p>',
+      '',
+      '<p oncopy="alert(13)" oncut="alert(14)" onpaste="alert(15)" onwheel="alert(16)" onpointerdown="alert(17)">w</p>',
+      '',
+      '<img src=x onerror="alert(18)">',
+      '',
+      '<a href="#a" onmouseenter="alert(19)" onbeforetoggle="alert(20)" onfocusin="alert(21)">v</a>',
+      '',
+    ].join('\n'),
     (name) => name.startsWith('on'),
   ),
   absentAttribute(
@@ -262,6 +310,7 @@ export const VECTORS: readonly Vector[] = [
     check: (html) => {
       const denied = new Set(['javascript', 'data', 'vbscript', 'jscript', 'livescript', 'blob', 'filesystem', 'view-source']);
       for (const attribute of attributesOf(html)) {
+        if (!URL_ATTRIBUTES.includes(attribute.name)) continue;
         for (const value of [attribute.raw, attribute.decoded]) {
           const scheme = schemeOf(value);
           if (scheme !== undefined && denied.has(scheme)) {
@@ -284,6 +333,18 @@ export const VECTORS: readonly Vector[] = [
       '<img src="HTTPS://VECTOR.INVALID/cased.gif">',
       '',
       '<img src="https:/\\/\\vector.invalid/slashes.gif">',
+      '',
+      // A URL parser reads `/\` as `//` under a special scheme, so these five all name a host while
+      // looking like a path. The first of them fetched from `evil.example` in both engines.
+      '<img src="/\\vector.invalid/backslash.png">',
+      '',
+      '<img src="/&bsol;vector.invalid/entity.png">',
+      '',
+      '<img src="/&#x5c;vector.invalid/numeric.png">',
+      '',
+      '<img src="\\\\vector.invalid/unc.png">',
+      '',
+      '<img src="http:\\\\vector.invalid/scheme-backslash.png">',
       '',
     ].join('\n'),
     check: (html) => {
@@ -360,26 +421,75 @@ export const VECTORS: readonly Vector[] = [
     },
   },
   {
-    id: 'no-stray-markup-opening',
-    why: 'an unbalanced or unclosed tag in the output is a place for the next thing in the DOM to end up inside',
-    probe: '<b>unclosed\n\n</em></p></div>\n\n<p<script>alert(1)</script>\n',
+    id: 'output-tree-is-balanced',
+    why: 'an element left open swallows whatever the reader sees next, so the tree the sanitiser emits must be the tree it decided on',
+    // A solidus on a non-void HTML element is ignored by every parser, so `<a href="…" />` opens an
+    // anchor — which, unclosed, made the rest of a document a link to the author's host in both
+    // engines. The check may not skip a tag because it ends in `/`; only a void element may.
+    // Each raw tag is a block of its own, which is the shape that swallowed a document: an inline
+    // one is closed by the paragraph's own end tag and proves nothing.
+    probe: [
+      '<a href="https://vector.invalid/" />',
+      '',
+      'ordinary prose after a self-closed anchor',
+      '',
+      '<blockquote />',
+      '',
+      'prose that is not a quotation',
+      '',
+      '<a/href="https://vector.invalid/" title="z" />',
+      '',
+      '<b>',
+      '',
+      'unclosed',
+      '',
+      '</em></p></div>',
+      '',
+    ].join('\n'),
+    check: (html) => treeOf(html, 'output-tree-is-balanced'),
+  },
+  {
+    id: 'no-formatting-element-spanning-a-block',
+    why: 'an anchor that reaches past the paragraph it started in turns the rest of the document into a link, which is a read receipt the moment the reader clicks anything',
+    probe: '<a href="https://vector.invalid/" />\n\npara\n\n## heading\n\nmore prose\n',
     check: (html) => {
-      const open: string[] = [];
-      for (const match of html.matchAll(/<(\/?)([A-Za-z][^\s/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g)) {
-        const name = match[2]!.toLowerCase();
-        if (VOID_ELEMENTS.has(name) || (match[3] ?? '').trimEnd().endsWith('/')) continue;
-        if (match[1] === '/') {
-          const at = open.lastIndexOf(name);
-          if (at === -1) fail('no-stray-markup-opening', `</${name}> closes nothing`);
-          open.length = at;
-        } else {
-          open.push(name);
+      const stack = treeOf(html, 'no-formatting-element-spanning-a-block');
+      for (const { name, ancestors } of stack) {
+        if (!BLOCK_ELEMENTS.has(name)) continue;
+        const formatting = ancestors.find((ancestor) => !BLOCK_ELEMENTS.has(ancestor));
+        if (formatting !== undefined) {
+          fail('no-formatting-element-spanning-a-block', `<${name}> sits inside <${formatting}>`);
         }
       }
-      if (open.length > 0) fail('no-stray-markup-opening', `left open: ${open.join(', ')}`);
     },
   },
 ];
+
+/**
+ * Walks the output as a tree, failing if it is not one: every element closed, in order, nothing
+ * closing what was never opened. Returns each element with its ancestors so a second check can ask
+ * about containment. Written against what a parser does with a solidus, not against what the
+ * sanitiser believes about it.
+ */
+function treeOf(html: string, id: string): { name: string; ancestors: string[] }[] {
+  const open: string[] = [];
+  const seen: { name: string; ancestors: string[] }[] = [];
+  for (const match of html.matchAll(/<(\/?)([A-Za-z][^\s/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g)) {
+    const name = match[2]!.toLowerCase();
+    if (match[1] === '/') {
+      const at = open.lastIndexOf(name);
+      if (at === -1) fail(id, `</${name}> closes nothing`);
+      if (at !== open.length - 1) fail(id, `</${name}> closes across ${open.slice(at + 1).join(', ')}`);
+      open.length = at;
+      continue;
+    }
+    seen.push({ name, ancestors: [...open] });
+    if (VOID_ELEMENTS.has(name)) continue;
+    open.push(name);
+  }
+  if (open.length > 0) fail(id, `left open: ${open.join(', ')}`);
+  return seen;
+}
 
 /** Runs every vector, collecting failures so one run names all of them. */
 export function checkAllVectors(html: string, policy: Policy = DEFAULT_POLICY): string[] {

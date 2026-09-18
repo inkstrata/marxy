@@ -11,7 +11,7 @@ import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
  *
  * The only callers are `renderSafeHtml`, which sanitises what this returns, and the tests that
  * prove the sanitiser's checks can fail — a check that passes against unsanitised output is not
- * checking anything. `render/dependencies.test.ts` keeps that list to those two.
+ * checking anything. `render/boundary.test.ts` keeps that list to those two.
  */
 export function renderToUnsanitisedHtml(document: Document): string {
   const footnotes = collectFootnotes(document);

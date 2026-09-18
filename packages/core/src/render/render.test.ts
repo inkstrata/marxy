@@ -34,7 +34,9 @@ test('a table keeps its alignment and its header', () => {
 
 test('a task item renders as a disabled checkbox, which is the one input allowed', () => {
   const list = html('- [x] done\n- [ ] not\n');
-  assert.match(list, /<input type="checkbox" disabled checked \/>/);
+  // `disabled` comes last because the sanitiser forces it on every checkbox, the document's own or
+  // the renderer's: marxy is a reader, and a control a reader can toggle would say the file changed.
+  assert.match(list, /<input type="checkbox" checked disabled \/>/);
   assert.match(list, /<input type="checkbox" disabled \/>/);
 });
 

@@ -2,14 +2,27 @@
 // and the reader's DOM (ADR-0009). It rebuilds the markup from the allow-list rather than editing
 // what it was given, so an element, an attribute or a URL that this code does not understand cannot
 // survive by being unfamiliar. Runs in Node and in a browser (ADR-0020).
+//
+// Three properties hold by construction rather than by inspection, because each one was a hole once:
+//
+//  1. One tokenizer reads everything. The scan that *removes* an element uses the same tag parser as
+//     the scan that keeps one, so a `</style>` written inside an attribute value cannot end a
+//     removal that the browser's parser would not have ended there.
+//  2. The output's tree shape is decided here and written by `writer`, which owns the open-element
+//     stack. Nothing emits a tag directly, so an element cannot be opened and never closed, and a
+//     solidus is honoured only where a parser honours it.
+//  3. Every URL is decided by resolving it (`urls.ts`), never by reading the string.
 
 import { escapeAttribute, escapeAttributeKeepingReferences, decodeReferences } from './escape.ts';
-import { DEFAULT_POLICY, VOID_ELEMENTS, type AttributeRule, type ElementRule, type Policy } from './policy.ts';
+import {
+  BLOCK_ELEMENTS, DEFAULT_POLICY, FOREIGN_ROOTS, RAW_TEXT_ELEMENTS, VOID_ELEMENTS,
+  type AttributeRule, type ElementRule, type Policy,
+} from './policy.ts';
 import { sanitizeUrl } from './urls.ts';
 
 /** One thing the sanitiser took out, so a notice can later say what a document lost and why. */
 export interface Removal {
-  readonly what: 'element' | 'attribute' | 'comment' | 'doctype';
+  readonly what: 'element' | 'attribute' | 'comment' | 'declaration' | 'structure' | 'truncation';
   /** Lowercased element name, or attribute name with `on` naming its element. */
   readonly name: string;
   readonly on?: string;
@@ -32,18 +45,17 @@ export interface SanitizeResult {
 export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY): SanitizeResult {
   const transparent = new Set(policy.transparent);
   const removed: Removal[] = [];
-  const open: string[] = [];
-  const out: string[] = [];
+  const out = writer(removed);
   const length = input.length;
   let index = 0;
 
   while (index < length) {
     const lt = input.indexOf('<', index);
     if (lt === -1) {
-      out.push(input.slice(index));
+      out.text(input.slice(index));
       break;
     }
-    out.push(input.slice(index, lt));
+    out.text(input.slice(index, lt));
 
     // A comment is a place to hide markup from a reader, never a place to keep it.
     if (input.startsWith('<!--', lt)) {
@@ -55,26 +67,19 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY): Sa
     // Doctype, CDATA and processing instructions: the parser ends them at the first `>`, so we do.
     if (input.startsWith('<!', lt) || input.startsWith('<?', lt)) {
       const end = input.indexOf('>', lt + 1);
-      removed.push({ what: 'doctype', name: '#declaration', reason: 'declarations are not content' });
+      removed.push({ what: 'declaration', name: '#declaration', reason: 'declarations are not content' });
       index = end === -1 ? length : end + 1;
       continue;
     }
     if (input.startsWith('</', lt)) {
       const tag = parseEndTag(input, lt);
       if (tag === null) {
-        out.push('&lt;');
+        out.text('<');
         index = lt + 1;
         continue;
       }
       const name = tag.name.toLowerCase();
-      if (policy.elements[name] !== undefined && !VOID_ELEMENTS.has(name)) {
-        // A close tag with nothing open would unbalance the output; the parser would ignore it too.
-        const at = open.lastIndexOf(name);
-        if (at !== -1) {
-          for (let i = open.length - 1; i >= at; i -= 1) out.push(`</${open[i]}>`);
-          open.length = at;
-        }
-      }
+      if (policy.elements[name] !== undefined && !VOID_ELEMENTS.has(name)) out.close(name);
       index = tag.end;
       continue;
     }
@@ -82,7 +87,7 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY): Sa
     const tag = parseStartTag(input, lt);
     if (tag === null) {
       // `<` that starts nothing: literal text, which is how a parser reads it too.
-      out.push('&lt;');
+      out.text('<');
       index = lt + 1;
       continue;
     }
@@ -90,17 +95,18 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY): Sa
     const rule: ElementRule | undefined = policy.elements[name];
 
     if (rule !== undefined) {
-      const isVoid = VOID_ELEMENTS.has(name);
-      const built = startTag(name, rule, tag, policy, removed, isVoid);
+      const built = attributes(name, rule, tag, policy, removed);
       const missing = (rule.requires ?? []).filter((required) => !built.kept.has(required));
       if (missing.length === 0) {
-        out.push(built.html);
-        if (!isVoid && !tag.selfClosing) open.push(name);
+        // The solidus is honoured for a void element and nowhere else: a parser ignores it on an
+        // HTML element, so `<a href="…" />` opens an anchor, and an anchor left open swallows the
+        // document. `writer.open` will close it rather than let it.
+        out.open(name, built.text);
         index = tag.end;
         continue;
       }
       removed.push({ what: 'element', name, reason: `${name} lost ${missing.join(', ')}, without which it is not the element it claimed to be` });
-      index = isVoid || tag.selfClosing ? tag.end : skipSubtree(input, tag.end, name);
+      index = removeFrom(input, tag, name, removed);
       continue;
     }
 
@@ -113,19 +119,86 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY): Sa
     // Default-deny: an element that is in neither list loses its subtree as well as its tags,
     // because its contents may be script, style, a template or anything else we cannot read.
     removed.push({ what: 'element', name, reason: `${name} is not in the ${policy.name} allow-list; removed with its contents` });
-    if (VOID_ELEMENTS.has(name) || tag.selfClosing) {
-      index = tag.end;
-      continue;
-    }
-    const after = skipSubtree(input, tag.end, name);
-    if (after === length) {
-      removed.push({ what: 'element', name, reason: `${name} was never closed; everything after it was removed` });
-    }
-    index = after;
+    index = removeFrom(input, tag, name, removed);
   }
 
-  for (let i = open.length - 1; i >= 0; i -= 1) out.push(`</${open[i]}>`);
-  return { html: out.join(''), removed };
+  return { html: out.done(), removed };
+}
+
+/** Where a removed element ends, and what it cost when it never ended. */
+function removeFrom(input: string, tag: StartTag, name: string, removed: Removal[]): number {
+  if (selfClosingHonoured(name, tag)) return tag.end;
+  const { end, closed } = skipRemoved(input, tag.end, name);
+  if (!closed) {
+    // Safe, because it is what a browser does with an unclosed raw-text element, but never silent:
+    // the reader lost the rest of the document and a notice has to be able to say so (MARXY-26).
+    removed.push({ what: 'truncation', name, reason: `${name} was never closed; everything after it was removed` });
+  }
+  return end;
+}
+
+/**
+ * A parser honours a trailing solidus on a void element, and inside foreign content, and nowhere
+ * else: `<svg/>` closes itself, `<custom-el/>` does not, and neither does `<a/>` — measured in
+ * WebKit and Chromium, not assumed.
+ */
+function selfClosingHonoured(name: string, tag: StartTag): boolean {
+  return VOID_ELEMENTS.has(name) || (tag.selfClosing && FOREIGN_ROOTS.has(name));
+}
+
+interface Writer {
+  text: (value: string) => void;
+  open: (name: string, attributesText: string) => void;
+  close: (name: string) => void;
+  done: () => string;
+}
+
+/**
+ * Owns the shape of the output. Everything is written through here, so the tree the sanitiser
+ * decided on is the tree it emits: every element it opens is closed, a close tag for nothing open is
+ * dropped rather than emitted, and a formatting element may not span a block boundary — which is
+ * what keeps an unclosed `<a>` from turning the rest of a document into a link to its author's host.
+ */
+function writer(removed: Removal[]): Writer {
+  const open: string[] = [];
+  const parts: string[] = [];
+  const closeOne = (): void => {
+    const name = open.pop();
+    if (name !== undefined) parts.push(`</${name}>`);
+  };
+  return {
+    text(value) {
+      if (value.length > 0) parts.push(value.replaceAll('<', '&lt;'));
+    },
+    open(name, attributesText) {
+      if (BLOCK_ELEMENTS.has(name)) {
+        while (open.length > 0 && !BLOCK_ELEMENTS.has(open[open.length - 1]!)) {
+          removed.push({
+            what: 'structure',
+            name: open[open.length - 1]!,
+            reason: `closed at <${name}>: a formatting element may not span a block, or an unclosed one makes the rest of the document part of it`,
+          });
+          closeOne();
+        }
+      }
+      if (VOID_ELEMENTS.has(name)) {
+        parts.push(`<${name}${attributesText} />`);
+        return;
+      }
+      parts.push(`<${name}${attributesText}>`);
+      open.push(name);
+    },
+    close(name) {
+      const at = open.lastIndexOf(name);
+      // A close tag with nothing open would unbalance the output; a parser ignores it too.
+      if (at === -1) return;
+      while (open.length > at) closeOne();
+    },
+    done() {
+      while (open.length > 0) closeOne();
+      return parts.join('');
+    },
+  };
 }
 
 interface StartTag {
@@ -136,21 +209,21 @@ interface StartTag {
   readonly end: number;
 }
 
-function startTag(
+function attributes(
   name: string,
   rule: ElementRule,
   tag: StartTag,
   policy: Policy,
   removed: Removal[],
-  isVoid: boolean,
-): { html: string; kept: Set<string> } {
-  let text = `<${name}`;
+): { text: string; kept: Set<string> } {
+  let text = '';
   const seen = new Set<string>();
   const kept = new Set<string>();
   for (const attribute of tag.attributes) {
     const key = attribute.name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
+    if (rule.forced?.[key] !== undefined) continue;
     const attributeRule: AttributeRule | undefined = rule.attributes?.[key] ?? policy.globalAttributes[key];
     if (attributeRule === undefined) {
       removed.push({ what: 'attribute', name: key, on: name, value: truncate(attribute.value), reason: `${key} is not in the ${policy.name} allow-list` });
@@ -162,7 +235,13 @@ function startTag(
       kept.add(key);
     }
   }
-  return { html: `${text}${isVoid || tag.selfClosing ? ' />' : '>'}`, kept };
+  // Forced attributes are the element's own terms: a checkbox in a document a reader cannot edit is
+  // `disabled` whatever the document said (ADR-0001).
+  for (const [key, value] of Object.entries(rule.forced ?? {})) {
+    text += value === true ? ` ${key}` : ` ${key}="${escapeAttribute(value)}"`;
+    kept.add(key);
+  }
+  return { text, kept };
 }
 
 function attributeValue(
@@ -260,6 +339,7 @@ function parseStartTag(input: string, start: number): StartTag | null {
       index += 1;
       continue;
     }
+    selfClosing = false;
     const nameFrom = index;
     while (index < length && !isSpace(input.charCodeAt(index)) && input[index] !== '=' && input[index] !== '>' && input[index] !== '/') index += 1;
     const attributeName = input.slice(nameFrom, index);
@@ -286,51 +366,73 @@ function parseStartTag(input: string, start: number): StartTag | null {
 }
 
 /**
- * Finds the end of a removed element, counting nested tags of the same name. Comments are skipped so
- * a `</div>` inside one cannot close the element around it. When there is no end tag the removal
- * runs to the end of the input, which is also what a browser does with an unclosed raw-text element,
- * and is the safe direction: too much removed rather than too little kept.
+ * Finds the end of a removed element, by the same rules the browser will use to find it.
+ *
+ * For a raw-text element the browser scans the text for `</name` and stops there, quotes and all —
+ * which is why `<style><b title="</style>">` really does end the style in both engines, and why
+ * this function must not be cleverer than that. For every other element it parses tags properly, so
+ * a `</name>` inside a quoted attribute value is not an end tag and must not end the removal here
+ * either. When there is no end tag the removal runs to the end of the input: safe, and reported by
+ * the caller as a truncation rather than silently.
  */
-function skipSubtree(input: string, from: number, name: string): number {
+function skipRemoved(input: string, from: number, name: string): Skip {
+  return RAW_TEXT_ELEMENTS.has(name) ? skipRawText(input, from, name) : skipElement(input, from, name);
+}
+
+/** Where a removal ended, and whether it ended because the element was closed or because input ran out. */
+interface Skip {
+  readonly end: number;
+  readonly closed: boolean;
+}
+
+function skipRawText(input: string, from: number, name: string): Skip {
+  const end = input.toLowerCase().indexOf(`</${name}`, from);
+  if (end === -1) return { end: input.length, closed: false };
+  const close = input.indexOf('>', end);
+  return { end: close === -1 ? input.length : close + 1, closed: true };
+}
+
+function skipElement(input: string, from: number, name: string): Skip {
   const length = input.length;
   let depth = 1;
   let index = from;
   while (index < length) {
     const lt = input.indexOf('<', index);
-    if (lt === -1) return length;
+    if (lt === -1) return { end: length, closed: false };
     if (input.startsWith('<!--', lt)) {
       const end = input.indexOf('-->', lt + 4);
       index = end === -1 ? length : end + 3;
       continue;
     }
-    const closing = input[lt + 1] === '/';
-    const nameAt = lt + (closing ? 2 : 1);
-    if (!matchesName(input, nameAt, name)) {
+    if (input.startsWith('<!', lt) || input.startsWith('<?', lt)) {
+      const end = input.indexOf('>', lt + 1);
+      index = end === -1 ? length : end + 1;
+      continue;
+    }
+    if (input.startsWith('</', lt)) {
+      const tag = parseEndTag(input, lt);
+      if (tag === null) {
+        index = lt + 1;
+        continue;
+      }
+      if (tag.name.toLowerCase() === name) {
+        depth -= 1;
+        if (depth === 0) return { end: tag.end, closed: true };
+      }
+      index = tag.end;
+      continue;
+    }
+    const tag = parseStartTag(input, lt);
+    if (tag === null) {
       index = lt + 1;
       continue;
     }
-    const after = input.charCodeAt(nameAt + name.length);
-    if (!(Number.isNaN(after) || isSpace(after) || input[nameAt + name.length] === '/' || input[nameAt + name.length] === '>')) {
-      index = lt + 1;
-      continue;
-    }
-    const close = input.indexOf('>', nameAt);
-    if (closing) {
-      depth -= 1;
-      if (depth === 0) return close === -1 ? length : close + 1;
-    } else if (!VOID_ELEMENTS.has(name) && !selfClosed(input, nameAt, close)) {
-      depth += 1;
-    }
-    index = close === -1 ? length : close + 1;
+    const found = tag.name.toLowerCase();
+    if (found === name && !selfClosingHonoured(found, tag)) depth += 1;
+    // A nested raw-text element hides end tags from the parser too, so skip it as raw text.
+    index = found !== name && RAW_TEXT_ELEMENTS.has(found) && !VOID_ELEMENTS.has(found)
+      ? skipRawText(input, tag.end, found).end
+      : tag.end;
   }
-  return length;
-}
-
-function matchesName(input: string, at: number, name: string): boolean {
-  if (at + name.length > input.length) return false;
-  return input.slice(at, at + name.length).toLowerCase() === name;
-}
-
-function selfClosed(input: string, from: number, close: number): boolean {
-  return close !== -1 && input[close - 1] === '/';
+  return { end: length, closed: false };
 }

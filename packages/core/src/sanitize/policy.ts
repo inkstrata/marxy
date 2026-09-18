@@ -31,6 +31,12 @@ export interface ElementRule {
    * to a text field, which is a form control the document never earned.
    */
   readonly requires?: readonly string[];
+  /**
+   * Attributes the element always carries, whatever the document said. `disabled` on a checkbox is
+   * the case: marxy is a reader, so a control whose state changes while the file's bytes do not is
+   * a lie to the reader (ADR-0001).
+   */
+  readonly forced?: Readonly<Record<string, string | true>>;
 }
 
 export interface Policy {
@@ -58,6 +64,34 @@ export interface Policy {
 export const VOID_ELEMENTS: ReadonlySet<string> = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source',
   'track', 'wbr',
+]);
+
+/**
+ * Elements whose content the parser reads as text rather than as markup, so it ends them at the
+ * first `</name` it sees — inside a quoted attribute value included. Measured in WebKit and
+ * Chromium: `<style><b title="</style>">` really does end the style in both. The sanitiser removes
+ * every one of these, and has to find the end of each one the way the parser will.
+ */
+export const RAW_TEXT_ELEMENTS: ReadonlySet<string> = new Set([
+  'script', 'style', 'title', 'textarea', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript',
+  'plaintext', 'listing',
+]);
+
+/**
+ * The two elements that switch the parser into foreign content, where a trailing solidus really
+ * does close a tag. Outside them a parser ignores it, which is why `<a href="…" />` opens an anchor.
+ */
+export const FOREIGN_ROOTS: ReadonlySet<string> = new Set(['svg', 'math']);
+
+/**
+ * Block-level elements, in the parsing sense that matters here: a formatting element may not span
+ * one. The writer closes any open formatting element when a block starts, so an unclosed `<a>` can
+ * capture at most the block it was opened in rather than the rest of the document.
+ */
+export const BLOCK_ELEMENTS: ReadonlySet<string> = new Set([
+  'address', 'article', 'aside', 'blockquote', 'dd', 'div', 'dl', 'dt', 'fieldset', 'figcaption',
+  'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main',
+  'nav', 'ol', 'p', 'pre', 'section', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul',
 ]);
 
 /** An anchor, an id, a footnote label: conservative, and never a value a CSS selector can smuggle. */
@@ -119,6 +153,7 @@ const MARKDOWN_EQUIVALENT: Readonly<Record<string, ElementRule>> = {
   input: {
     attributes: { type: { kind: 'enum', values: ['checkbox'] }, checked: { kind: 'boolean' }, disabled: { kind: 'boolean' } },
     requires: ['type'],
+    forced: { disabled: true },
   },
   /**
    * An image may keep a *local* reference only: `src` is a `subresource`, and the default scheme

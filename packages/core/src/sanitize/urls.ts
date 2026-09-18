@@ -1,48 +1,66 @@
-// The URL decision (ADR-0009). Two questions only: does this value carry a scheme, and is that
-// scheme allow-listed for the place it appears in. Everything else — a relative path, a fragment —
-// is local and cannot reach the network; everything undecidable is refused.
+// The URL decision (ADR-0009). Made by resolving the value with the URL parser and inspecting the
+// result, never by scanning the string for a scheme: `/\host`, `\\host`, `//host` and `http:\\host`
+// are the same attack written four ways, and only a parser is guaranteed to read them the way the
+// browser will.
 
 import { decodeReferences } from './escape.ts';
+import { RESOLUTION_BASES } from './document-origin.ts';
 import type { Policy, UrlContext } from './policy.ts';
 
 export interface UrlDecision {
   readonly allowed: boolean;
-  /** The decoded, noise-stripped value to emit. Only meaningful when `allowed`. */
+  /** The value to emit: the parsed form when it is absolute, the cleaned reference when it is local. */
   readonly value: string;
-  /** Why it was refused, for the removal report a notice will read (MARXY-26, MARXY-44). */
+  /** How the value reads under the strictest base (see `document-origin.ts`); for the record. */
+  readonly resolved?: string;
+  /** Whether the value addresses an authority of its own rather than the document's. */
+  readonly absolute?: boolean;
+  /** Why it was refused, for the notice that will read the removal report (MARXY-26, MARXY-44). */
   readonly reason?: string;
 }
 
-/** ASCII whitespace and C0/C1 controls, which a URL parser strips before it looks at the scheme. */
-const NOISE = /[\u0000-\u0020\u007f-\u009f]/g;
-const SCHEME = /^([A-Za-z][A-Za-z0-9+.-]*):/;
-/**
- * The part of a value that decides what it addresses: everything before the first `/`, `?` or `#`.
- * A query may legitimately contain `&`; the head may not, because an `&` there means the value
- * still holds something reference-shaped and we would be judging a form the parser will not see.
- */
-const UNSAFE_IN_HEAD = /[&\\<>"'`\u0000-\u0020]/;
+/** Removed anywhere in a URL by every parser, which is why `java&#9;script:` is `javascript:`. */
+const TAB_OR_NEWLINE = /[\t\n\r]/g;
+/** Stripped from both ends by every parser, NUL included. */
+const SURROUNDING_C0 = /^[\u0000-\u0020]+|[\u0000-\u0020]+$/g;
+/** What is left may not contain a control character: it would be encoded, and we would be guessing. */
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 
 export function sanitizeUrl(raw: string, context: UrlContext, policy: Policy): UrlDecision {
-  const value = decodeReferences(raw).replace(NOISE, '');
+  const value = decodeReferences(raw).replace(TAB_OR_NEWLINE, '').replace(SURROUNDING_C0, '');
   if (value === '') return { allowed: false, value: '', reason: 'empty' };
-
-  const head = value.split(/[/?#]/, 1)[0] ?? '';
-  if (UNSAFE_IN_HEAD.test(head)) {
-    return { allowed: false, value, reason: 'the part that decides the scheme is not decodable safely' };
+  if (CONTROL.test(value)) {
+    return { allowed: false, value, reason: 'a control character inside the reference' };
   }
 
-  const scheme = SCHEME.exec(head)?.[1]?.toLowerCase();
-  if (scheme !== undefined) {
-    return policy.urlSchemes[context].includes(scheme)
-      ? { allowed: true, value }
-      : { allowed: false, value, reason: `scheme ${scheme}: not allowed in a ${context}` };
+  const [first, second, third] = RESOLUTION_BASES;
+  let here: URL;
+  let elsewhere: URL;
+  let otherScheme: URL;
+  try {
+    here = new URL(value, first);
+    elsewhere = new URL(value, second);
+    otherScheme = new URL(value, third);
+  } catch {
+    return { allowed: false, value, reason: 'the URL parser refused it, so nothing here can be sure what it means' };
   }
 
-  // `//host/path` inherits the page's scheme, which makes it remote without naming one.
-  if (value.startsWith('//')) {
-    return { allowed: false, value, reason: `scheme-relative reference is remote in a ${context}` };
+  // A relative reference inherits its base, so it differs between two hosts; an absolute one does not.
+  const absolute = here.href === elsewhere.href;
+  if (!absolute) return { allowed: true, value, resolved: here.href, absolute: false };
+
+  if (here.protocol !== otherScheme.protocol) {
+    return {
+      allowed: false, value, resolved: here.href, absolute: true,
+      reason: 'a scheme-relative reference addresses a host under whatever scheme the document was loaded with, which is not ours to guess',
+    };
   }
 
-  return { allowed: true, value };
+  const scheme = here.protocol.slice(0, -1).toLowerCase();
+  if (!policy.urlSchemes[context].includes(scheme)) {
+    return { allowed: false, value, resolved: here.href, absolute: true, reason: `scheme ${scheme}: is not allowed in a ${context}` };
+  }
+  // Emitted in its parsed form: what the browser will actually use, with the host in its canonical
+  // spelling, so a confusable or punycoded host cannot read as one thing here and another there.
+  return { allowed: true, value: here.href, resolved: here.href, absolute: true };
 }
