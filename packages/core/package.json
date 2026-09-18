@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo lint: configure biome in MARXY-004",
+    "lint": "echo lint: configure biome in MARXY-8",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "test:golden": "node --experimental-strip-types scripts/golden.ts",
     "test:fidelity": "node --experimental-strip-types scripts/fidelity.ts",

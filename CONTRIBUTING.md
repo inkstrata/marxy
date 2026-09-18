@@ -6,13 +6,19 @@ enable a later proprietary relicence, which this project has refused (ADR-0006).
 
 ## How work flows
 
-1. Every change starts as a Jira issue (project key in `docs/plan/jira-issues.csv`).
+1. Every change starts as a Jira issue in project **MARXY** (<https://marxy.atlassian.net>).
+   `docs/plan/jira-issues.csv` is the same backlog in machine-readable form — acceptance
+   criteria and the paths each story may touch. `docs/sdlc.md` is the whole process on one page.
 2. One issue, one branch (`type/MARXY-123-slug`), one PR, squash-merged into `main`.
 3. `main` is protected: CI green, plus one human approval on anything touching
    `packages/typeset`, `packages/theme`, the sanitiser, the CSP, or `shell-api`.
 4. Commit messages, PR structure, comments and review remarks follow `docs/conventions.md`;
-   commitlint checks commits and the PR title in CI. No AI attribution trailers.
+   commitlint checks commits and the PR title in CI. No AI attribution trailers: run
+   `git config core.hooksPath .githooks` once, and the `commit-msg` hook strips the ones
+   agent tooling adds on its own.
 5. Add a line to `CHANGELOG.md` under `Unreleased` in the PR.
+6. The issue moves To Do → In Progress → In Review → Done; `orchestration/state.mjs` and
+   `orchestration/jira.mjs` do that for you, so the board is never updated by hand.
 
 ## What CI checks
 

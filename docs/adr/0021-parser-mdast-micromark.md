@@ -20,7 +20,7 @@ CommonMark.
 ## Why
 ADR-0003 requires **every** node — inline nodes included — to carry `{file, start, end}` byte
 provenance, because the source map is what makes editing-as-transformation, selection
-resolution (MARXY-040) and reading position (ADR-0018) work at all. `markdown-it` reports
+resolution (MARXY-41) and reading position (ADR-0018) work at all. `markdown-it` reports
 line ranges for block tokens and no positions for inline tokens, so meeting ADR-0003 on top of
 it would mean re-deriving inline positions by re-scanning source text — the kind of
 approximate mapping that eventually writes a byte the user did not ask to change.
@@ -66,7 +66,7 @@ to the scanner. That is the price of ADR-0003 being structural rather than best-
 smaller than "escaped candidates stop linkifying" would suggest.
 
 ## Consequences
-- Parse cost moves onto the Phase 2 cold-start waterfall (MARXY-030) as a measured number. If
+- Parse cost moves onto the Phase 2 cold-start waterfall (MARXY-33) as a measured number. If
   it shows there, the escape hatch is `pulldown-cmark` compiled to WASM, which produces the
   same AST by contract with native byte offsets; the golden files are parser-independent, so
   the swap is contained to `packages/core/src/parse`.
