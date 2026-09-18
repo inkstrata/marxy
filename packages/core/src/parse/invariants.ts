@@ -4,6 +4,7 @@
 
 import { AST_INVARIANTS } from '../contracts/ast.ts';
 import type { Node } from '../contracts/ast.ts';
+import { nextLineEnding, splitLines } from './line-endings.ts';
 import { decodeString } from 'micromark-util-decode-string';
 
 export interface Violation {
@@ -79,9 +80,9 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
  */
 function openingFenceLineEnd(source: string, start: number): number | undefined {
   if (!FENCE.test(source)) return undefined;
-  const firstBreak = source.indexOf('\n');
-  if (firstBreak < 0) return undefined;
-  return start + new TextEncoder().encode(source.slice(0, firstBreak + 1)).byteLength;
+  const ending = nextLineEnding(source, 0);
+  if (ending === undefined) return undefined;
+  return start + new TextEncoder().encode(source.slice(0, ending.end)).byteLength;
 }
 
 /**
@@ -93,6 +94,7 @@ function openingFenceLineEnd(source: string, start: number): number | undefined 
  * the checker cry wolf on a code block that is in fact exact.
  */
 function isJustTheCode(content: string, value: string): boolean {
+  // parse.test.ts 'a NUL in a fenced/indented code block' fails if this replace is dropped.
   const lines = splitLines(content.replace(/\u0000/g, '\ufffd'));
   if (lines.at(-1) === '') lines.pop();
   const valueLines = value === '' ? [] : splitLines(value);
@@ -103,11 +105,6 @@ function isJustTheCode(content: string, value: string): boolean {
   // check in the caller bound how far a range can be wrong before one of them catches it.
   const strip = (line: string) => line.replace(/^[ \t>]*/, '');
   return valueLines.every((expected, index) => strip(lines[index]!) === strip(expected));
-}
-
-/** CommonMark line endings: CRLF, CR alone and LF alone all end a line. */
-function splitLines(text: string): string[] {
-  return text.split(/\r\n|\r|\n/);
 }
 
 /**
