@@ -1,0 +1,1189 @@
+document [0,20378)
+  heading [0,18) level=1
+    text [2,18) value="Stack evaluation"
+  paragraph [20,88)
+    strong [20,31)
+      text [22,29) value="Status:"
+    text [31,32) value=" "
+    strong [32,56)
+      text [34,54) value="OPEN — not decided"
+    text [56,60) value=" · "
+    strong [60,77)
+      text [62,75) value="Last updated:"
+    text [77,88) value=" 2026-09-17"
+  paragraph [90,308)
+    text [90,164) value="Three weighted passes, one reversal, one user override, and a scope change"
+    softBreak [164,165)
+    text [165,233) value="that moved the numbers a third time. All of it is recorded because a"
+    softBreak [233,234)
+    text [234,308) value="decision log that keeps only the winning argument cannot be audited later."
+  paragraph [310,641)
+    strong [310,346)
+      text [312,344) value="The question is explicitly open."
+    text [346,384) value=" Pass 3 puts Tauri ahead by 15 points,"
+    softBreak [384,385)
+    text [385,459) value="which now agrees with the stated lean rather than contradicting it — but"
+    softBreak [459,460)
+    text [460,532) value="that margin comes from weights that are judgements, and the three passes"
+    softBreak [532,533)
+    text [533,605) value="disagree with each other. The framework near the end of this document is"
+    softBreak [605,606)
+    text [606,641) value="more useful than any of the totals."
+  thematicBreak [643,646)
+  heading [648,657) level=2
+    text [651,657) value="Method"
+  paragraph [659,807)
+    text [659,726) value="Metrics weighted to sum to 100, candidates scored 1–5 per metric,"
+    softBreak [726,727)
+    text [727,799) value="weighted total normalised out of 100 (a perfect score being 5 across the"
+    softBreak [799,800)
+    text [800,807) value="board)."
+  paragraph [809,1139)
+    text [809,880) value="The important property of this method, discovered rather than designed:"
+    softBreak [880,881)
+    strong [881,936)
+      text [883,934) value="the weights decide the outcome, not the candidates."
+    text [936,955) value=" The weights encode"
+    softBreak [955,956)
+    text [956,1026) value="judgements about priorities, so the exercise is really a way of making"
+    softBreak [1026,1027)
+    text [1027,1099) value="those judgements explicit and arguable. If the brief changes, the scores"
+    softBreak [1099,1100)
+    text [1100,1139) value="must be recomputed rather than assumed."
+  thematicBreak [1141,1144)
+  heading [1148,1176) level=2
+    text [1151,1176) value="Pass 1 — original brief"
+  paragraph [1178,1268)
+    text [1178,1243) value="Brief: reading-only, no editing, platforms undecided, theming not"
+    softBreak [1243,1244)
+    text [1244,1268) value="mentioned, license open."
+  table [1271,1798) align=-,-,-,-,-
+    tableRow [1271,1336) header=true
+      tableCell [1271,1299)
+        text [1273,1279) value="Metric"
+      tableCell [1299,1308)
+        text [1301,1307) value="Weight"
+      tableCell [1308,1316)
+        text [1310,1315) value="Tauri"
+      tableCell [1316,1327)
+        text [1318,1326) value="Electron"
+      tableCell [1327,1336)
+        text [1329,1334) value="Swift"
+    tableRow [1403,1468) header=false
+      tableCell [1403,1431)
+        text [1405,1424) value="Typographic ceiling"
+      tableCell [1431,1440)
+        text [1433,1435) value="25"
+      tableCell [1440,1448)
+        text [1442,1443) value="4"
+      tableCell [1448,1459)
+        text [1450,1451) value="3"
+      tableCell [1459,1468)
+        text [1461,1462) value="5"
+    tableRow [1469,1534) header=false
+      tableCell [1469,1497)
+        text [1471,1493) value="Rich content ecosystem"
+      tableCell [1497,1506)
+        text [1499,1501) value="20"
+      tableCell [1506,1514)
+        text [1508,1509) value="4"
+      tableCell [1514,1525)
+        text [1516,1517) value="5"
+      tableCell [1525,1534)
+        text [1527,1528) value="2"
+    tableRow [1535,1600) header=false
+      tableCell [1535,1563)
+        text [1537,1562) value="Design iteration velocity"
+      tableCell [1563,1572)
+        text [1565,1567) value="20"
+      tableCell [1572,1580)
+        text [1574,1575) value="3"
+      tableCell [1580,1591)
+        text [1582,1583) value="5"
+      tableCell [1591,1600)
+        text [1593,1594) value="3"
+    tableRow [1601,1666) header=false
+      tableCell [1601,1629)
+        text [1603,1628) value="Startup + perceived speed"
+      tableCell [1629,1638)
+        text [1631,1633) value="15"
+      tableCell [1638,1646)
+        text [1640,1641) value="4"
+      tableCell [1646,1657)
+        text [1648,1649) value="2"
+      tableCell [1657,1666)
+        text [1659,1660) value="5"
+    tableRow [1667,1732) header=false
+      tableCell [1667,1695)
+        text [1669,1690) value="Cross-platform parity"
+      tableCell [1695,1704)
+        text [1697,1699) value="10"
+      tableCell [1704,1712)
+        text [1706,1707) value="2"
+      tableCell [1712,1723)
+        text [1714,1715) value="5"
+      tableCell [1723,1732)
+        text [1725,1726) value="1"
+    tableRow [1733,1798) header=false
+      tableCell [1733,1761)
+        text [1735,1759) value="Footprint / distribution"
+      tableCell [1761,1770)
+        text [1763,1765) value="10"
+      tableCell [1770,1778)
+        text [1772,1773) value="5"
+      tableCell [1778,1789)
+        text [1780,1781) value="1"
+      tableCell [1789,1798)
+        text [1791,1792) value="5"
+  paragraph [1801,1845)
+    strong [1801,1845)
+      text [1803,1843) value="Result: Tauri 74, Electron 73, Swift 72."
+  paragraph [1847,1957)
+    text [1847,1920) value="Under a macOS-first variant (parity weight moved to typographic ceiling):"
+    softBreak [1920,1921)
+    strong [1921,1957)
+      text [1923,1955) value="Swift 80, Tauri 78, Electron 69."
+  paragraph [1959,2221)
+    strong [1959,1986)
+      text [1961,1984) value="Conclusion at the time:"
+    text [1986,2032) value=" a one-point spread means the framework is not"
+    softBreak [2032,2033)
+    text [2033,2099) value="the deciding factor and the choice should be made on team fit. The"
+    softBreak [2099,2100)
+    text [2100,2128) value="platform question, however, "
+    emphasis [2128,2133)
+      text [2129,2132) value="was"
+    text [2133,2172) value=" the stack question wearing a different"
+    softBreak [2172,2173)
+    text [2173,2221) value="hat — macOS-first dropped Electron decisively."
+  thematicBreak [2223,2226)
+  heading [2230,2257) level=2
+    text [2233,2257) value="Pass 2 — revised brief"
+  paragraph [2259,2392)
+    text [2259,2324) value="Brief gained: Typora-style live-render editing, macOS-first with "
+    strong [2324,2343)
+      text [2326,2331) value="Linux"
+      softBreak [2331,2332)
+      text [2332,2341) value="mandatory"
+    text [2343,2345) value=", "
+    strong [2345,2369)
+      text [2347,2367) value="user CSS first-class"
+    text [2369,2392) value=", free and open source."
+  paragraph [2394,2502)
+    text [2394,2463) value="Two metrics are new. Cross-platform parity rose from 10 to 15 because"
+    softBreak [2463,2464)
+    text [2464,2502) value="Linux moved from optional to promised."
+  table [2505,3305) align=-,-,-,-,-
+    tableRow [2505,2593) header=true
+      tableCell [2505,2556)
+        text [2507,2513) value="Metric"
+      tableCell [2556,2565)
+        text [2558,2564) value="Weight"
+      tableCell [2565,2573)
+        text [2567,2572) value="Tauri"
+      tableCell [2573,2584)
+        text [2575,2583) value="Electron"
+      tableCell [2584,2593)
+        text [2586,2591) value="Swift"
+    tableRow [2683,2771) header=false
+      tableCell [2683,2734)
+        text [2685,2733) value="Typographic quality across all shipped platforms"
+      tableCell [2734,2743)
+        text [2736,2738) value="20"
+      tableCell [2743,2751)
+        text [2745,2746) value="2"
+      tableCell [2751,2762)
+        text [2753,2754) value="4"
+      tableCell [2762,2771)
+        text [2764,2765) value="5"
+    tableRow [2772,2860) header=false
+      tableCell [2772,2823)
+        text [2774,2812) value="User CSS theming as a shipped feature "
+        emphasis [2812,2819)
+          text [2813,2818) value="(new)"
+      tableCell [2823,2832)
+        text [2825,2827) value="15"
+      tableCell [2832,2840)
+        text [2834,2835) value="5"
+      tableCell [2840,2851)
+        text [2842,2843) value="5"
+      tableCell [2851,2860)
+        text [2853,2854) value="1"
+    tableRow [2861,2949) header=false
+      tableCell [2861,2912)
+        text [2863,2895) value="Live-render editing feasibility "
+        emphasis [2895,2902)
+          text [2896,2901) value="(new)"
+      tableCell [2912,2921)
+        text [2914,2916) value="15"
+      tableCell [2921,2929)
+        text [2923,2924) value="3"
+      tableCell [2929,2940)
+        text [2931,2932) value="5"
+      tableCell [2940,2949)
+        text [2942,2943) value="2"
+    tableRow [2950,3038) header=false
+      tableCell [2950,3001)
+        text [2952,2989) value="Three-platform parity, Linux included"
+      tableCell [3001,3010)
+        text [3003,3005) value="15"
+      tableCell [3010,3018)
+        text [3012,3013) value="2"
+      tableCell [3018,3029)
+        text [3020,3021) value="5"
+      tableCell [3029,3038)
+        text [3031,3032) value="1"
+    tableRow [3039,3127) header=false
+      tableCell [3039,3090)
+        text [3041,3068) value="Startup and perceived speed"
+      tableCell [3090,3099)
+        text [3092,3094) value="13"
+      tableCell [3099,3107)
+        text [3101,3102) value="4"
+      tableCell [3107,3118)
+        text [3109,3110) value="2"
+      tableCell [3118,3127)
+        text [3120,3121) value="5"
+    tableRow [3128,3216) header=false
+      tableCell [3128,3179)
+        text [3130,3152) value="Rich content ecosystem"
+      tableCell [3179,3188)
+        text [3181,3183) value="12"
+      tableCell [3188,3196)
+        text [3190,3191) value="4"
+      tableCell [3196,3207)
+        text [3198,3199) value="5"
+      tableCell [3207,3216)
+        text [3209,3210) value="2"
+    tableRow [3217,3305) header=false
+      tableCell [3217,3268)
+        text [3219,3253) value="Footprint and solo-maintainer cost"
+      tableCell [3268,3277)
+        text [3270,3272) value="10"
+      tableCell [3277,3285)
+        text [3279,3280) value="4"
+      tableCell [3285,3296)
+        text [3287,3288) value="2"
+      tableCell [3296,3305)
+        text [3298,3299) value="3"
+  paragraph [3308,3352)
+    strong [3308,3352)
+      text [3310,3350) value="Result: Electron 82, Tauri 66, Swift 56."
+  heading [3354,3373) level=3
+    text [3358,3373) value="Why it reversed"
+  paragraph [3375,3432)
+    text [3375,3432) value="Three specific additions, each independently significant:"
+  list [3434,4423) ordered=true tight=true start=1
+    listItem [3434,3962)
+      paragraph [3437,3962)
+        strong [3437,3464)
+          text [3439,3462) value="Linux became mandatory."
+        text [3464,3508) value=" Under Tauri that means WebKitGTK, which has"
+        softBreak [3508,3511)
+        text [3511,3583) value="an open defect rasterizing text ~100 weight units heavier than specified"
+        softBreak [3583,3587)
+        text [3587,3588) value="("
+        code [3588,3612) value="tauri-apps/tauri#14286"
+        text [3612,3657) value="), and whose usual remedy is a macOS-only CSS"
+        softBreak [3657,3661)
+        text [3661,3731) value="property. For an application whose thesis is typographic quality, on a"
+        softBreak [3731,3735)
+        text [3735,3803) value="platform now promised, this is close to disqualifying. It is why the"
+        softBreak [3803,3807)
+        text [3807,3881) value="first metric's Tauri score dropped from 4 to 2 — the metric changed from"
+        softBreak [3881,3885)
+        text [3885,3899) value="measuring the "
+        emphasis [3899,3908)
+          text [3900,3907) value="ceiling"
+        text [3908,3926) value=" to measuring the "
+        emphasis [3926,3961)
+          text [3927,3947) value="floor across shipped"
+          softBreak [3947,3951)
+          text [3951,3960) value="platforms"
+        text [3961,3962) value="."
+    listItem [3963,4217)
+      paragraph [3966,4217)
+        strong [3966,4004)
+          text [3968,4002) value="Live-render editing entered scope."
+        text [4004,4005) value=" "
+        code [4005,4022) value="contenteditable"
+        text [4022,4024) value=", "
+        code [4024,4035) value="Selection"
+        text [4035,4036) value=","
+        softBreak [4036,4037)
+        code [4039,4046) value="Range"
+        text [4046,4108) value=" and IME composition are the most engine-divergent surfaces on"
+        softBreak [4108,4112)
+        text [4112,4175) value="the web platform, and Compose mode sits on all four. One engine"
+        softBreak [4175,4179)
+        text [4179,4217) value="everywhere is worth a great deal here."
+    listItem [4218,4423)
+      paragraph [4221,4423)
+        strong [4221,4251)
+          text [4223,4249) value="User CSS became a feature."
+        text [4251,4291) value=" Engine inconsistency stopped being only"
+        softBreak [4291,4294)
+        text [4294,4363) value="the maintainer's problem and became the theme authors' problem, on an"
+        softBreak [4363,4367)
+        text [4367,4423) value="engine whose version ships with the user's distribution."
+  paragraph [4425,4521)
+    text [4425,4499) value="Remove any one and the gap narrows sharply. Remove Linux and editing both,"
+    softBreak [4499,4500)
+    text [4500,4521) value="and Tauri wins again."
+  paragraph [4523,4700)
+    text [4523,4592) value="Swift's collapse is simpler: first-class user CSS requires a real CSS"
+    softBreak [4592,4593)
+    text [4593,4666) value="engine, and Linux support is impossible for a macOS-native toolkit. Ruled"
+    softBreak [4666,4667)
+    text [4667,4700) value="out rather than merely outscored."
+  thematicBreak [4702,4705)
+  heading [4709,4734) level=2
+    text [4712,4734) value="Pass 3 — pared brief"
+  paragraph [4736,4861)
+    text [4736,4807) value="Brief v3 changed the inputs materially in both directions, which is why"
+    softBreak [4807,4808)
+    text [4808,4861) value="this pass exists rather than an annotation on Pass 2."
+  paragraph [4863,5248)
+    strong [4863,4875)
+      text [4865,4873) value="Removed:"
+    text [4875,4932) value=" Typora-style live-render editing. This deletes an entire"
+    softBreak [4932,4933)
+    text [4933,5009) value="metric — the one on which Electron scored 5 and Tauri 3 — along with the"
+    softBreak [5009,5010)
+    code [5010,5027) value="contenteditable"
+    text [5027,5029) value=", "
+    code [5029,5040) value="Selection"
+    text [5040,5042) value=", "
+    code [5042,5049) value="Range"
+    text [5049,5083) value=" and IME divergence that justified"
+    softBreak [5083,5084)
+    text [5084,5155) value="it. Editing is now plain text in CodeMirror plus source transformations"
+    softBreak [5155,5156)
+    text [5156,5157) value="("
+    code [5157,5175) value="05-view-modes.md"
+    text [5175,5177) value=", "
+    code [5177,5204) value="18-document-operations.md"
+    text [5204,5231) value="), which is uncontroversial"
+    softBreak [5231,5232)
+    text [5232,5248) value="on every engine."
+  paragraph [5250,5602)
+    strong [5250,5260)
+      text [5252,5258) value="Added:"
+    text [5260,5320) value=" a fast indexed document opener with instant switching, file"
+    softBreak [5320,5321)
+    text [5321,5391) value="watching over indexed roots, and code observation as a first-class use"
+    softBreak [5391,5392)
+    text [5392,5398) value="case ("
+    code [5398,5426) value="19-navigation-and-index.md"
+    text [5426,5464) value="). These are Rust's strongest suit —"
+    softBreak [5464,5465)
+    code [5465,5473) value="nucleo"
+    text [5473,5475) value=", "
+    code [5475,5484) value="tantivy"
+    text [5484,5486) value=", "
+    code [5486,5494) value="notify"
+    text [5494,5496) value=", "
+    code [5496,5504) value="ignore"
+    text [5504,5506) value=", "
+    code [5506,5519) value="tree-sitter"
+    text [5519,5537) value=" — and they turn"
+    softBreak [5537,5538)
+    text [5538,5602) value="startup and footprint from qualities into stated product claims."
+  paragraph [5604,5793)
+    strong [5604,5617)
+      text [5606,5615) value="Softened:"
+    text [5617,5671) value=" the Linux typography gap, judged solvable rather than"
+    softBreak [5671,5672)
+    text [5672,5744) value="disqualifying. This is a user judgement, and it happens to be the single"
+    softBreak [5744,5745)
+    text [5745,5793) value="most consequential number in the whole exercise."
+  table [5795,6282) align=-,-,-,-
+    tableRow [5795,5833) header=true
+      tableCell [5795,5804)
+        text [5797,5803) value="Metric"
+      tableCell [5804,5813)
+        text [5806,5812) value="Weight"
+      tableCell [5813,5821)
+        text [5815,5820) value="Tauri"
+      tableCell [5821,5833)
+        text [5823,5831) value="Electron"
+    tableRow [5860,5928) header=false
+      tableCell [5860,5914)
+        text [5862,5890) value="Startup and perceived speed "
+        emphasis [5890,5913)
+          text [5891,5912) value="(now a product claim)"
+      tableCell [5914,5919)
+        text [5916,5918) value="20"
+      tableCell [5919,5923)
+        text [5921,5922) value="4"
+      tableCell [5923,5928)
+        text [5925,5926) value="2"
+    tableRow [5929,5990) header=false
+      tableCell [5929,5976)
+        text [5931,5975) value="Typographic quality across shipped platforms"
+      tableCell [5976,5981)
+        text [5978,5980) value="18"
+      tableCell [5981,5985)
+        text [5983,5984) value="3"
+      tableCell [5985,5990)
+        text [5987,5988) value="4"
+    tableRow [5991,6042) header=false
+      tableCell [5991,6028)
+        text [5993,6027) value="Indexing, search and file watching"
+      tableCell [6028,6033)
+        text [6030,6032) value="15"
+      tableCell [6033,6037)
+        text [6035,6036) value="5"
+      tableCell [6037,6042)
+        text [6039,6040) value="3"
+    tableRow [6043,6097) header=false
+      tableCell [6043,6083)
+        text [6045,6082) value="User CSS theming as a shipped feature"
+      tableCell [6083,6088)
+        text [6085,6087) value="12"
+      tableCell [6088,6092)
+        text [6090,6091) value="5"
+      tableCell [6092,6097)
+        text [6094,6095) value="5"
+    tableRow [6098,6141) header=false
+      tableCell [6098,6127)
+        text [6100,6126) value="Footprint and lean-OSS fit"
+      tableCell [6127,6132)
+        text [6129,6131) value="12"
+      tableCell [6132,6136)
+        text [6134,6135) value="5"
+      tableCell [6136,6141)
+        text [6138,6139) value="2"
+    tableRow [6142,6181) header=false
+      tableCell [6142,6167)
+        text [6144,6166) value="Rich content ecosystem"
+      tableCell [6167,6172)
+        text [6169,6171) value="10"
+      tableCell [6172,6176)
+        text [6174,6175) value="4"
+      tableCell [6176,6181)
+        text [6178,6179) value="5"
+    tableRow [6182,6235) header=false
+      tableCell [6182,6222)
+        text [6184,6221) value="Three-platform parity, Linux included"
+      tableCell [6222,6226)
+        text [6224,6225) value="8"
+      tableCell [6226,6230)
+        text [6228,6229) value="3"
+      tableCell [6230,6235)
+        text [6232,6233) value="5"
+    tableRow [6236,6282) header=false
+      tableCell [6236,6269)
+        text [6238,6268) value="Plain-text editing feasibility"
+      tableCell [6269,6273)
+        text [6271,6272) value="5"
+      tableCell [6273,6277)
+        text [6275,6276) value="4"
+      tableCell [6277,6282)
+        text [6279,6280) value="5"
+  paragraph [6284,6318)
+    strong [6284,6318)
+      text [6286,6316) value="Result: Tauri 81, Electron 66."
+  heading [6320,6344) level=3
+    text [6324,6344) value="Why it reversed back"
+  paragraph [6346,6422)
+    text [6346,6413) value="Not because anything was learned about the frameworks. Three inputs"
+    softBreak [6413,6414)
+    text [6414,6422) value="changed:"
+  list [6424,7021) ordered=true tight=true start=1
+    listItem [6424,6604)
+      paragraph [6427,6604)
+        strong [6427,6461)
+          text [6429,6459) value="Live-render editing left scope"
+        text [6461,6492) value=", deleting Electron's strongest"
+        softBreak [6492,6496)
+        text [6496,6565) value="remaining metric. Plain-text CodeMirror works everywhere; a decorated"
+        softBreak [6565,6566)
+        code [6569,6586) value="contenteditable"
+        text [6586,6604) value=" surface does not."
+    listItem [6605,6858)
+      paragraph [6608,6858)
+        strong [6608,6647)
+          text [6610,6645) value="Speed and footprint became promises"
+        text [6647,6678) value=", not preferences. \"A very fast"
+        softBreak [6678,6682)
+        text [6682,6749) value="document opener\" as a headline claim justifies a much higher weight"
+        softBreak [6749,6753)
+        text [6753,6824) value="than the 15 it carried in Pass 1 — and this is the axis where the gap"
+        softBreak [6824,6828)
+        text [6828,6858) value="is largest and best evidenced."
+    listItem [6859,7021)
+      paragraph [6862,7021)
+        strong [6862,6901)
+          text [6864,6899) value="Indexing and watching entered scope"
+        text [6901,6924) value=", and this is the first"
+        softBreak [6924,6928)
+        text [6928,6954) value="requirement where Rust is "
+        emphasis [6954,6965)
+          text [6955,6964) value="genuinely"
+        text [6965,6993) value=" the better tool rather than"
+        softBreak [6993,6997)
+        text [6997,7021) value="merely a defensible one."
+  paragraph [7023,7225)
+    text [7023,7096) value="The Linux weight drop from 15 to 8 also matters, and it should be flagged"
+    softBreak [7096,7097)
+    text [7097,7164) value="as the softest input in the model: it rests on a judgement that the"
+    softBreak [7164,7165)
+    text [7165,7225) value="WebKitGTK font-weight defect is solvable, which is untested."
+  paragraph [7227,7499)
+    strong [7227,7270)
+      text [7229,7268) value="The honest summary of all three passes:"
+    text [7270,7299) value=" the framework never changed,"
+    softBreak [7299,7300)
+    text [7300,7374) value="the brief did, and each time the brief changed the answer changed with it."
+    softBreak [7374,7375)
+    text [7375,7448) value="That is a property of the method working, but it is also a warning that a"
+    softBreak [7448,7449)
+    text [7449,7499) value="fourth brief revision would move the answer again."
+  thematicBreak [7501,7504)
+  heading [7506,7534) level=2
+    text [7509,7534) value="Where the question stands"
+  paragraph [7536,7830)
+    text [7536,7555) value="The stated lean is "
+    emphasis [7555,7594)
+      text [7556,7593) value="\"swift is out, leaning toward tauri,\""
+    text [7594,7611) value=" and the user has"
+    softBreak [7611,7612)
+    text [7612,7683) value="since confirmed the question remains open. Pass 3 now supports the lean"
+    softBreak [7683,7684)
+    text [7684,7757) value="rather than contradicting it, which is a meaningfully different situation"
+    softBreak [7757,7758)
+    text [7758,7830) value="from Pass 2 — the direction and the analysis agree for the first time."
+  paragraph [7832,7892)
+    text [7832,7892) value="The reasons for Tauri that are real regardless of weighting:"
+  list [7894,8454) ordered=false tight=true
+    listItem [7894,7962)
+      paragraph [7896,7962)
+        text [7896,7962) value="Roughly 19 MB against 190 MB for a comparable markdown application"
+    listItem [7963,8020)
+      paragraph [7965,8020)
+        text [7965,8020) value="Idle memory of roughly 42–109 MB against 128–186 MB"
+    listItem [8021,8147)
+      paragraph [8023,8147)
+        text [8023,8096) value="Rust's indexing, matching and watching crates — the one place where the"
+        softBreak [8096,8099)
+        text [8099,8147) value="better tool is not merely defensible but obvious"
+    listItem [8148,8231)
+      paragraph [8150,8231)
+        text [8150,8221) value="A footprint that fits a lean open-source ethos far better than shipping"
+        softBreak [8221,8222)
+        text [8222,8231) value="a browser"
+    listItem [8232,8338)
+      paragraph [8234,8338)
+        text [8234,8302) value="A declarative capability and CSP model that aligns with the security"
+        softBreak [8302,8303)
+        text [8303,8314) value="posture in "
+        code [8314,8338) value="09-theming-contract.md"
+    listItem [8339,8454)
+      paragraph [8341,8454)
+        text [8341,8407) value="A Rust core that naturally produces the separable parse-and-render"
+        softBreak [8407,8408)
+        text [8408,8454) value="library the publishing-platform ambition wants"
+  paragraph [8456,8704)
+    strong [8456,8506)
+      text [8458,8504) value="Startup is deliberately absent from that list."
+    text [8506,8529) value=" Most sources put Tauri"
+    softBreak [8529,8530)
+    text [8530,8601) value="far ahead, but they compare different applications; the one source that"
+    softBreak [8601,8602)
+    text [8602,8612) value="built the "
+    emphasis [8612,8618)
+      text [8613,8617) value="same"
+    text [8618,8671) value=" application found Electron faster. It is a reason to"
+    softBreak [8671,8672)
+    text [8672,8704) value="measure, not a reason to choose."
+  paragraph [8706,8921)
+    text [8706,8777) value="The weights are judgements, not facts. Weighting footprint at 10 rather"
+    softBreak [8777,8778)
+    text [8778,8848) value="than 25 was a choice, and someone building a lean open-source tool for"
+    softBreak [8848,8849)
+    text [8849,8921) value="people who care about such things could reasonably weight it far higher."
+  heading [8923,8965) level=3
+    text [8927,8965) value="What must be true for this to be right"
+  paragraph [8967,9068)
+    text [8967,9040) value="Recorded so it stays checkable. These are hypotheses to test in the first"
+    softBreak [9040,9041)
+    text [9041,9068) value="two weeks, not assumptions."
+  table [9071,11149) align=-,-,-,-
+    tableRow [9071,9293) header=true
+      tableCell [9071,9077)
+        text [9073,9074) value="#"
+      tableCell [9077,9188)
+        text [9079,9089) value="Hypothesis"
+      tableCell [9188,9276)
+        text [9190,9201) value="How to test"
+      tableCell [9276,9293)
+        text [9278,9291) value="Load-bearing?"
+    tableRow [9517,9739) header=false
+      tableCell [9517,9523)
+        text [9519,9520) value="1"
+      tableCell [9523,9634)
+        text [9525,9628) value="The WebKitGTK weight offset is fully compensable with bundled variable fonts plus a per-platform offset"
+      tableCell [9634,9722)
+        text [9636,9664) value="The three-way experiment in "
+        code [9664,9698) value="06-typography-engine-findings.md"
+        text [9698,9721) value=", on real distributions"
+      tableCell [9722,9739)
+        strong [9724,9731)
+          text [9726,9729) value="Yes"
+    tableRow [9740,9962) header=false
+      tableCell [9740,9746)
+        text [9742,9743) value="2"
+      tableCell [9746,9857)
+        text [9748,9825) value="Owning line breaking neutralises the remaining rag and hyphenation divergence"
+      tableCell [9857,9945)
+        text [9859,9874) value="Same experiment"
+      tableCell [9945,9962)
+        strong [9947,9954)
+          text [9949,9952) value="Yes"
+    tableRow [9963,10185) header=false
+      tableCell [9963,9969)
+        text [9965,9966) value="3"
+      tableCell [9969,10080)
+        text [9971,10059) value="Theme authors can work against a published CSS baseline without unbounded support burden"
+      tableCell [10080,10168)
+        text [10082,10114) value="Cannot be tested early; watch it"
+      tableCell [10168,10185)
+        text [10170,10172) value="No"
+    tableRow [10186,10428) header=false
+      tableCell [10186,10192)
+        text [10188,10189) value="4"
+      tableCell [10192,10282)
+        text [10194,10210) value="CodeMirror 6 in "
+        strong [10210,10224)
+          text [10212,10222) value="plain-text"
+        text [10224,10281) value=" mode behaves identically enough across all three engines"
+      tableCell [10282,10357)
+        text [10284,10356) value="Open a large file in CM6 on WebKitGTK; check selection, IME, scroll perf"
+      tableCell [10357,10428)
+        text [10359,10426) value="No — much weaker risk than the Compose version of this hypothesis"
+    tableRow [10429,10651) header=false
+      tableCell [10429,10435)
+        text [10431,10432) value="5"
+      tableCell [10435,10546)
+        text [10437,10509) value="Three-engine screenshot-diff CI is affordable to build and maintain solo"
+      tableCell [10546,10634)
+        text [10548,10576) value="Build it in week one and see"
+      tableCell [10634,10651)
+        text [10636,10638) value="No"
+    tableRow [10652,10912) header=false
+      tableCell [10652,10658)
+        text [10654,10655) value="6"
+      tableCell [10658,10771)
+        text [10660,10752) value="The index, watcher and fuzzy matcher are genuinely better in Rust than the Node equivalents "
+        emphasis [10752,10770)
+          text [10753,10769) value="at marxy's scale"
+      tableCell [10771,10849)
+        text [10773,10848) value="Index a real monorepo both ways; measure query latency and watcher fidelity"
+      tableCell [10849,10912)
+        strong [10851,10858)
+          text [10853,10856) value="Yes"
+        text [10858,10910) value=" — this is now a primary reason for choosing Tauri"
+    tableRow [10913,11149) header=false
+      tableCell [10913,10919)
+        text [10915,10916) value="7"
+      tableCell [10919,11031)
+        text [10921,11030) value="Startup on the target machine actually favours Tauri, despite the one same-app benchmark finding the opposite"
+      tableCell [11031,11099)
+        text [11033,11098) value="Build the same minimal shell in both; measure cold and warm start"
+      tableCell [11099,11149)
+        strong [11101,11108)
+          text [11103,11106) value="Yes"
+        text [11108,11147) value=" — it is now a headline product claim"
+  paragraph [11152,11480)
+    strong [11152,11199)
+      text [11154,11197) value="The load-bearing set changed with brief v3."
+    text [11199,11225) value=" Hypothesis 4 dropped from"
+    softBreak [11225,11226)
+    text [11226,11290) value="load-bearing to minor, because plain-text CodeMirror is far less"
+    softBreak [11290,11291)
+    text [11291,11325) value="engine-sensitive than a decorated "
+    code [11325,11342) value="contenteditable"
+    text [11342,11365) value=" surface. In its place,"
+    softBreak [11365,11366)
+    text [11366,11440) value="6 and 7 became load-bearing, because the pared brief promotes indexing and"
+    softBreak [11440,11441)
+    text [11441,11480) value="startup speed from qualities to claims."
+  paragraph [11482,11768)
+    strong [11482,11545)
+      text [11484,11543) value="Revisit the direction if two or more of 1, 2, 6 and 7 fail."
+    text [11545,11554) value=" Note the"
+    softBreak [11554,11555)
+    text [11555,11628) value="shape of that rule: 1 and 2 are about typography, 6 and 7 about speed. If"
+    softBreak [11628,11629)
+    text [11629,11702) value="Tauri fails on typography it fails at the thesis; if it fails on speed it"
+    softBreak [11702,11703)
+    text [11703,11768) value="fails at the headline feature. Either pair failing is sufficient."
+  heading [11770,11801) level=3
+    text [11774,11801) value="What makes revisiting cheap"
+  paragraph [11803,12194)
+    text [11803,11879) value="The frontend is portable between Tauri and Electron — same framework, same"
+    softBreak [11879,11880)
+    text [11880,11948) value="CSS, same libraries. Only the privileged-operation boundary differs."
+    softBreak [11948,11949)
+    text [11949,12001) value="Keeping file access, watching, and dialogs behind a "
+    strong [12001,12033)
+      text [12003,12021) value="thin, well-defined"
+      softBreak [12021,12022)
+      text [12022,12031) value="interface"
+    text [12033,12076) value=" — a handful of functions, not scattered "
+    code [12076,12086) value="invoke()"
+    text [12086,12102) value=" calls — makes"
+    softBreak [12102,12103)
+    text [12103,12172) value="a later switch a matter of reimplementing that interface. Worth doing"
+    softBreak [12172,12173)
+    text [12173,12194) value="regardless of intent."
+  thematicBreak [12196,12199)
+  heading [12201,12231) level=2
+    text [12204,12231) value="How to actually settle this"
+  paragraph [12233,12498)
+    text [12233,12303) value="The question has now survived three weighted analyses without closing,"
+    softBreak [12303,12304)
+    text [12304,12327) value="which is evidence that "
+    strong [12327,12363)
+      text [12329,12361) value="more analysis will not close it."
+    text [12363,12375) value=" The weights"
+    softBreak [12375,12376)
+    text [12376,12443) value="decide the outcome, the weights are judgements, and the brief keeps"
+    softBreak [12443,12444)
+    text [12444,12498) value="changing. A fourth pass would produce a fourth number."
+  paragraph [12500,12639)
+    text [12500,12572) value="What would close it is a small amount of code. Two or three days, and it"
+    softBreak [12572,12573)
+    text [12573,12639) value="answers the load-bearing hypotheses directly rather than by proxy."
+  heading [12641,12654) level=3
+    text [12645,12654) value="The spike"
+  paragraph [12656,12719)
+    text [12656,12719) value="Build the same throwaway shell twice, in Tauri and in Electron:"
+  list [12721,13131) ordered=true tight=true start=1
+    listItem [12721,12790)
+      paragraph [12724,12790)
+        text [12724,12790) value="Open a markdown file passed as an argument, render it, no styling."
+    listItem [12791,12901)
+      paragraph [12794,12901)
+        text [12794,12817) value="Set one paragraph with "
+        code [12817,12825) value="justif"
+        text [12825,12866) value=" and screenshot it on macOS and on a real"
+        softBreak [12866,12870)
+        text [12870,12901) value="Linux distribution's WebKitGTK."
+    listItem [12902,12969)
+      paragraph [12905,12969)
+        text [12905,12969) value="Open a large file in CodeMirror 6 in plain-text mode; scroll it."
+    listItem [12970,13064)
+      paragraph [12973,13064)
+        text [12973,13040) value="Index a few thousand files, then fuzzy-search them with a keystroke"
+        softBreak [13040,13044)
+        text [13044,13064) value="latency measurement."
+    listItem [13065,13131)
+      paragraph [13068,13131)
+        text [13068,13131) value="Measure cold start and warm start on the actual target machine."
+  paragraph [13133,13464)
+    text [13133,13208) value="Steps 2 and 5 are the whole exercise. Step 2 answers hypotheses 1 and 2 —"
+    softBreak [13208,13209)
+    text [13209,13283) value="whether the WebKitGTK weight defect is compensable, which is the only real"
+    softBreak [13283,13284)
+    text [13284,13354) value="argument against Tauri now that editing has left scope. Step 5 answers"
+    softBreak [13354,13355)
+    text [13355,13429) value="hypothesis 7, and it matters because the one same-application benchmark in"
+    softBreak [13429,13430)
+    text [13430,13455) value="existence found Electron "
+    emphasis [13455,13463)
+      text [13456,13462) value="faster"
+    text [13463,13464) value="."
+  heading [13466,13506) level=3
+    text [13470,13506) value="The decision rule, stated in advance"
+  paragraph [13508,13624)
+    text [13508,13581) value="Committing to a rule before seeing results is the point; it is what stops"
+    softBreak [13581,13582)
+    text [13582,13624) value="the outcome being rationalised either way."
+  table [13626,14371) align=-,-
+    tableRow [13626,13659) header=true
+      tableCell [13626,13649)
+        text [13628,13648) value="Outcome of the spike"
+      tableCell [13649,13659)
+        text [13651,13657) value="Choose"
+    tableRow [13674,13836) header=false
+      tableCell [13674,13770)
+        text [13676,13706) value="WebKitGTK text is compensable "
+        strong [13706,13713)
+          text [13708,13711) value="and"
+        text [13713,13769) value=" Tauri's startup advantage is real on the target machine"
+      tableCell [13770,13836)
+        strong [13772,13782)
+          text [13774,13780) value="Tauri."
+        text [13782,13834) value=" Both objections dissolve and Pass 3's margin stands"
+    tableRow [13837,14035) header=false
+      tableCell [13837,13891)
+        text [13839,13890) value="WebKitGTK text is compensable but startup is a wash"
+      tableCell [13891,14035)
+        strong [13893,13902)
+          text [13895,13900) value="Tauri"
+        text [13902,14033) value=", on footprint and the Rust index — but drop \"very fast opener\" as a marketing claim, or solve it with a resident proces…"
+    tableRow [14036,14226) header=false
+      tableCell [14036,14072)
+        text [14038,14071) value="WebKitGTK text is not compensable"
+      tableCell [14072,14226)
+        strong [14074,14087)
+          text [14076,14085) value="Electron."
+        text [14087,14224) value=" The typography thesis outranks everything else in the brief, and a reader that sets text badly on a promised platform i…"
+    tableRow [14227,14371) header=false
+      tableCell [14227,14278)
+        text [14229,14277) value="Startup and indexing both disappoint under Tauri"
+      tableCell [14278,14371)
+        strong [14280,14292)
+          text [14282,14290) value="Electron"
+        text [14292,14369) value=", and reconsider whether the pared brief's speed claims are achievable at all"
+  paragraph [14373,14585)
+    text [14373,14446) value="Note that only one row is genuinely bad for Tauri, and it is the row that"
+    softBreak [14446,14447)
+    text [14447,14516) value="depends on a defect in someone else's software. That is worth knowing"
+    softBreak [14516,14517)
+    text [14517,14534) value="before starting: "
+    strong [14534,14585)
+      text [14536,14583) value="the risk is concentrated in one testable place."
+  heading [14587,14626) level=3
+    text [14591,14626) value="What to do regardless of the answer"
+  paragraph [14628,14727)
+    text [14628,14701) value="Because the frontend is portable between the two, most of the work is not"
+    softBreak [14701,14702)
+    text [14702,14727) value="blocked on this decision:"
+  list [14729,15036) ordered=false tight=true
+    listItem [14729,14841)
+      paragraph [14731,14841)
+        text [14731,14801) value="The typesetting path, the theme contract, and the operations catalogue"
+        softBreak [14801,14804)
+        text [14804,14841) value="are pure frontend. None of them care."
+    listItem [14842,14905)
+      paragraph [14844,14905)
+        text [14844,14905) value="The privileged-operation interface should be thin either way."
+    listItem [14906,15036)
+      paragraph [14908,15036)
+        text [14908,14979) value="The parse-and-render pipeline should be a library with no dependency on"
+        softBreak [14979,14982)
+        text [14982,15036) value="the shell, which the publishing ambition wants anyway."
+  paragraph [15038,15326)
+    strong [15038,15088)
+      text [15040,15086) value="So the stack question does not block starting."
+    text [15088,15111) value=" It blocks distribution"
+    softBreak [15111,15112)
+    text [15112,15188) value="and it blocks the speed claims, but the reading experience — the part that"
+    softBreak [15188,15189)
+    text [15189,15262) value="is actually hard and actually differentiating — can be built before the"
+    softBreak [15262,15263)
+    text [15263,15326) value="answer arrives. That is the most useful thing in this document."
+  thematicBreak [15328,15331)
+  heading [15335,15369) level=2
+    text [15338,15369) value="Measured data behind the scores"
+  paragraph [15371,15526)
+    strong [15371,15526)
+      text [15373,15444) value="All figures from published 2026 benchmarks that disagree substantially."
+      softBreak [15444,15445)
+      text [15445,15514) value="Ratios are the stable signal; absolutes are not. Re-measure on target"
+      softBreak [15514,15515)
+      text [15515,15524) value="hardware."
+  heading [15528,15543) level=3
+    text [15532,15543) value="Bundle size"
+  table [15546,16392) align=-,-,-,-
+    tableRow [15546,15638) header=true
+      tableCell [15546,15586)
+        text [15548,15557) value="App class"
+      tableCell [15586,15600)
+        text [15588,15595) value="Tauri 2"
+      tableCell [15600,15613)
+        text [15602,15610) value="Electron"
+      tableCell [15613,15638)
+        text [15615,15621) value="Source"
+    tableRow [15732,15824) header=false
+      tableCell [15732,15772)
+        text [15734,15745) value="Hello world"
+      tableCell [15772,15786)
+        text [15774,15781) value="14.2 MB"
+      tableCell [15786,15799)
+        text [15788,15794) value="187 MB"
+      tableCell [15799,15824)
+        text [15801,15809) value="johal.in"
+    tableRow [15825,15917) header=false
+      tableCell [15825,15865)
+        strong [15827,15864)
+          text [15829,15862) value="Markdown editor with highlighting"
+      tableCell [15865,15879)
+        strong [15867,15878)
+          text [15869,15876) value="18.7 MB"
+      tableCell [15879,15892)
+        strong [15881,15891)
+          text [15883,15889) value="192 MB"
+      tableCell [15892,15917)
+        text [15894,15902) value="johal.in"
+    tableRow [15918,16010) header=false
+      tableCell [15918,15958)
+        text [15920,15927) value="SQL GUI"
+      tableCell [15958,15972)
+        text [15960,15967) value="29.5 MB"
+      tableCell [15972,15985)
+        text [15974,15980) value="215 MB"
+      tableCell [15985,16010)
+        text [15987,15995) value="johal.in"
+    tableRow [16011,16105) header=false
+      tableCell [16011,16051)
+        text [16013,16024) value="Hello world"
+      tableCell [16051,16067)
+        text [16053,16065) value="2.5–3.2 MB"
+      tableCell [16067,16080)
+        text [16069,16074) value="85 MB"
+      tableCell [16080,16105)
+        text [16082,16103) value="tech-insider, youngju"
+    tableRow [16106,16202) header=false
+      tableCell [16106,16146)
+        text [16108,16129) value="Medium (editor, chat)"
+      tableCell [16146,16162)
+        text [16148,16157) value="8–15 MB"
+      tableCell [16162,16177)
+        text [16164,16176) value="120–160 MB"
+      tableCell [16177,16202)
+        text [16179,16186) value="youngju"
+    tableRow [16203,16299) header=false
+      tableCell [16203,16243)
+        text [16205,16222) value="Heavy (IDE-class)"
+      tableCell [16243,16259)
+        text [16245,16255) value="25–40 MB"
+      tableCell [16259,16274)
+        text [16261,16273) value="180–250 MB"
+      tableCell [16274,16299)
+        text [16276,16283) value="youngju"
+    tableRow [16300,16392) header=false
+      tableCell [16300,16340)
+        text [16302,16337) value="Screen recorder (independent build)"
+      tableCell [16340,16354)
+        text [16342,16347) value="57 MB"
+      tableCell [16354,16367)
+        text [16356,16362) value="323 MB"
+      tableCell [16367,16392)
+        text [16369,16381) value="Better Stack"
+  paragraph [16395,16542)
+    text [16395,16464) value="The markdown-editor row is the directly relevant one. Note the spread"
+    softBreak [16464,16465)
+    text [16465,16542) value="between sources on identical app classes — an order of magnitude for Tauri."
+  heading [16544,16554) level=3
+    text [16548,16554) value="Memory"
+  table [16557,16943) align=-,-,-,-
+    tableRow [16557,16633) header=true
+      tableCell [16557,16584)
+        text [16559,16568) value="Condition"
+      tableCell [16584,16594)
+        text [16586,16593) value="Tauri 2"
+      tableCell [16594,16607)
+        text [16596,16604) value="Electron"
+      tableCell [16607,16633)
+        text [16609,16615) value="Source"
+    tableRow [16711,16789) header=false
+      tableCell [16711,16738)
+        text [16713,16732) value="Idle, single window"
+      tableCell [16738,16748)
+        text [16740,16745) value="42 MB"
+      tableCell [16748,16763)
+        text [16750,16762) value="168–186 MB"
+      tableCell [16763,16789)
+        text [16765,16787) value="tech-insider, johal.in"
+    tableRow [16790,16866) header=false
+      tableCell [16790,16817)
+        text [16792,16816) value="Idle (independent build)"
+      tableCell [16817,16827)
+        text [16819,16825) value="109 MB"
+      tableCell [16827,16840)
+        text [16829,16835) value="128 MB"
+      tableCell [16840,16866)
+        text [16842,16854) value="Better Stack"
+    tableRow [16867,16943) header=false
+      tableCell [16867,16894)
+        text [16869,16880) value="Six windows"
+      tableCell [16894,16904)
+        text [16896,16902) value="172 MB"
+      tableCell [16904,16917)
+        text [16906,16912) value="409 MB"
+      tableCell [16917,16943)
+        text [16919,16940) value="tech-insider, gethopp"
+  paragraph [16946,17108)
+    text [16946,17024) value="The Better Stack figures — a much narrower gap — come from the only source"
+    softBreak [17024,17025)
+    text [17025,17095) value="that built the same non-trivial application in every framework. Weight"
+    softBreak [17095,17096)
+    text [17096,17108) value="accordingly."
+  heading [17110,17121) level=3
+    text [17114,17121) value="Startup"
+  table [17124,17511) align=-,-,-,-
+    tableRow [17124,17199) header=true
+      tableCell [17124,17147)
+        text [17126,17135) value="Condition"
+      tableCell [17147,17161)
+        text [17149,17156) value="Tauri 2"
+      tableCell [17161,17174)
+        text [17163,17171) value="Electron"
+      tableCell [17174,17199)
+        text [17176,17182) value="Source"
+    tableRow [17276,17355) header=false
+      tableCell [17276,17299)
+        text [17278,17291) value="Cold, minimal"
+      tableCell [17299,17315)
+        text [17301,17314) value="0.15–0.38 s"
+      tableCell [17315,17330)
+        text [17317,17328) value="0.8–1.5 s"
+      tableCell [17330,17355)
+        text [17332,17353) value="youngju, tech-insider"
+    tableRow [17356,17435) header=false
+      tableCell [17356,17379)
+        text [17358,17370) value="Cold, medium"
+      tableCell [17379,17395)
+        text [17381,17392) value="0.4–0.9 s"
+      tableCell [17395,17410)
+        text [17397,17408) value="1.5–3.0 s"
+      tableCell [17410,17435)
+        text [17412,17419) value="youngju"
+    tableRow [17436,17511) header=false
+      tableCell [17436,17459)
+        text [17438,17458) value="Controlled, same app"
+      tableCell [17459,17473)
+        strong [17461,17471)
+          text [17463,17469) value="311 ms"
+      tableCell [17473,17486)
+        strong [17475,17485)
+          text [17477,17483) value="273 ms"
+      tableCell [17486,17511)
+        text [17488,17500) value="Better Stack"
+  paragraph [17514,17788)
+    strong [17514,17569)
+      text [17516,17567) value="The last row is important and contradicts the rest."
+    text [17569,17581) value=" In the only"
+    softBreak [17581,17582)
+    text [17582,17628) value="same-application comparison, Electron started "
+    emphasis [17628,17636)
+      text [17629,17635) value="faster"
+    text [17636,17657) value=", because Tauri still"
+    softBreak [17657,17658)
+    text [17658,17724) value="waits for the system webview to initialise. The author called it a"
+    softBreak [17724,17725)
+    text [17725,17788) value="surprise. Do not treat Tauri's startup advantage as guaranteed."
+  heading [17790,17805) level=3
+    text [17794,17805) value="Build times"
+  table [17808,18075) align=-,-,-,-
+    tableRow [17808,17872) header=true
+      tableCell [17808,17822)
+      tableCell [17822,17834)
+        text [17824,17831) value="Tauri 2"
+      tableCell [17834,17846)
+        text [17836,17844) value="Electron"
+      tableCell [17846,17872)
+        text [17848,17854) value="Source"
+    tableRow [17938,18006) header=false
+      tableCell [17938,17952)
+        text [17940,17947) value="Initial"
+      tableCell [17952,17966)
+        text [17954,17963) value="12–48 s"
+      tableCell [17966,17980)
+        text [17968,17976) value="8–22 s"
+      tableCell [17980,18006)
+        text [17982,18004) value="johal.in, tech-insider"
+    tableRow [18007,18075) header=false
+      tableCell [18007,18021)
+        text [18009,18020) value="Incremental"
+      tableCell [18021,18035)
+        text [18023,18034) value="2.0–3.5 s"
+      tableCell [18035,18049)
+        text [18037,18048) value="2.1–3.0 s"
+      tableCell [18049,18075)
+        text [18051,18055) value="same"
+  paragraph [18078,18324)
+    text [18078,18151) value="Incremental is close enough not to matter. Initial favours Electron. This"
+    softBreak [18151,18152)
+    text [18152,18225) value="taxes design iteration specifically, which matters more than usual for an"
+    softBreak [18225,18226)
+    text [18226,18294) value="aesthetics-led project — mitigated if the typography layer is pure"
+    softBreak [18294,18295)
+    text [18295,18324) value="frontend, which it should be."
+  heading [18326,18335) level=3
+    text [18330,18335) value="Other"
+  table [18338,18789) align=-,-,-
+    tableRow [18338,18412) header=true
+      tableCell [18338,18362)
+        text [18340,18346) value="Metric"
+      tableCell [18362,18388)
+        text [18364,18371) value="Tauri 2"
+      tableCell [18388,18412)
+        text [18390,18398) value="Electron"
+    tableRow [18488,18562) header=false
+      tableCell [18488,18512)
+        text [18490,18504) value="IPC round trip"
+      tableCell [18512,18538)
+        text [18514,18521) value="0.12 ms"
+      tableCell [18538,18562)
+        text [18540,18547) value="0.45 ms"
+    tableRow [18563,18639) header=false
+      tableCell [18563,18587)
+        text [18565,18573) value="CPU idle"
+      tableCell [18587,18613)
+        text [18589,18594) value="<0.5%"
+      tableCell [18613,18639)
+        text [18615,18621) value="1–5%"
+    tableRow [18640,18714) header=false
+      tableCell [18640,18664)
+        text [18642,18663) value="Rendering consistency"
+      tableCell [18664,18690)
+        text [18666,18689) value="Different engine per OS"
+      tableCell [18690,18714)
+        text [18692,18712) value="Identical everywhere"
+    tableRow [18715,18789) header=false
+      tableCell [18715,18739)
+        text [18717,18723) value="Mobile"
+      tableCell [18739,18765)
+        text [18741,18754) value="iOS + Android"
+      tableCell [18765,18789)
+        text [18767,18771) value="None"
+  paragraph [18792,18895)
+    text [18792,18861) value="Mobile is out of scope, but worth noting Tauri would make it possible"
+    softBreak [18861,18862)
+    text [18862,18895) value="later where Electron never could."
+  thematicBreak [18897,18900)
+  heading [18904,18931) level=2
+    text [18907,18931) value="Candidates not evaluated"
+  table [18934,20323) align=-,-
+    tableRow [18934,19131) header=true
+      tableCell [18934,18954)
+        text [18936,18945) value="Candidate"
+      tableCell [18954,19131)
+        text [18956,18963) value="Why not"
+    tableRow [19330,19527) header=false
+      tableCell [19330,19350)
+        strong [19332,19344)
+          text [19334,19342) value="GTK / Qt"
+      tableCell [19350,19527)
+        text [19352,19475) value="No typographic ceiling above the webview options, and more expensive than both. Would also require implementing CSS them…"
+    tableRow [19528,19725) header=false
+      tableCell [19528,19548)
+        strong [19530,19541)
+          text [19532,19539) value="Flutter"
+      tableCell [19548,19725)
+        text [19550,19682) value="Its own text stack fights you on exactly the features that matter, and custom line breaking would mean working against t…"
+    tableRow [19726,19927) header=false
+      tableCell [19726,19746)
+        strong [19728,19744)
+          text [19730,19742) value="Deno Desktop"
+      tableCell [19746,19927)
+        text [19748,19925) value="Interesting — 242 ms startup and 98 MB idle in the Better Stack test, the best of the four — but immature, and the ecosy…"
+    tableRow [19928,20125) header=false
+      tableCell [19928,19948)
+        strong [19930,19944)
+          text [19932,19942) value="Electrobun"
+      tableCell [19948,20125)
+        text [19950,20043) value="Worst on every measured axis (418 MB, 773 ms, 208 MB) and described as difficult to work with"
+    tableRow [20126,20323) header=false
+      tableCell [20126,20146)
+        strong [20128,20145)
+          text [20130,20143) value="Servo / Verso"
+      tableCell [20146,20323)
+        text [20148,20224) value="Genuinely aligned with the typography ambition long-term. Nowhere near ready"
+  paragraph [20326,20378)
+    text [20326,20378) value="Deno Desktop is the one worth re-checking in a year."
