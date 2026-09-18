@@ -61,10 +61,10 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
 
 - **Branches:** `type/MARXY-123-short-slug` off `main`. `main` is always releasable;
   no direct pushes. Squash on merge; the PR description is the durable record.
-- **Commits:** conventional commits with the Jira key: `feat(core): resolve selection to byte range (MARXY-42)`.
-  No AI attribution lines of any kind (a hook blocks them).
-- **PR description** must say *why*, name the ADRs it relies on, list the gates it
-  ran, and attach visual artifacts (before/after screenshots) for anything visible.
+- **Commits, PRs, comments, reviews, tags:** `docs/conventions.md`. The one rule under all of
+  them: a plain-language summary first, technical detail after, agent detail folded away.
+  Conventional Commits with the Jira key in the subject; the PR template's order is enforced;
+  review remarks use Conventional Comments; no attribution trailers (a hook blocks them).
 - **Definition of done** for a story: every acceptance criterion in the issue is
   machine-checked by a test or gate that is in the PR; `pnpm build typecheck lint test`
   green; the relevant gates green; `CHANGELOG.md` has a line; docs/ADRs updated if a

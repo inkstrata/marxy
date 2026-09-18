@@ -1,22 +1,53 @@
-## Why
+<!-- Title: type(scope): imperative subject (MARXY-123). See docs/conventions.md. -->
 
-<!-- The reason, not the diff. Name the Jira issue and the ADRs this relies on. -->
+## Summary
 
-## What a reader notices
+<!-- Two to four sentences in plain language: what a reader of marxy notices, or what a developer can now do, and why. -->
 
-<!-- Nothing / a visual change (attach before/after screenshots and add a queue entry in docs/taste-review/queue.md) -->
+## Changes
 
-## Gates run locally
+- 
+- 
 
-- [ ] build, typecheck, lint, test
-- [ ] golden files (`pnpm gate:golden`)
-- [ ] byte fidelity (`pnpm gate:fidelity`)
-- [ ] no-network (`pnpm gate:no-network`)
-- [ ] licences (`pnpm gate:licences`)
-- [ ] screenshots / aesthetics, if anything visible changed
+## Verification
 
-## Paths touched
+<!-- Gates run, with their result lines. One sentence on how a person could try it. -->
 
-<!-- Must match the issue's listed paths. -->
+```
+pnpm typecheck && pnpm lint && pnpm test
+pnpm gate:…
+```
 
-- [ ] `CHANGELOG.md` has a line
+## For the reviewer
+
+<!-- Trade-offs, decisions the story did not specify, ADRs relied on (ADR-00nn), before/after screenshots if anything visible changed. -->
+
+<details>
+<summary>Agent detail</summary>
+
+**Acceptance criteria → checks**
+
+| Criterion | Checked by |
+| --- | --- |
+|  |  |
+
+**Files by path**
+
+- 
+
+**Result**
+
+```json
+{ "key": "MARXY-", "status": "done" }
+```
+
+</details>
+
+## Checklist
+
+- [ ] Only the story's listed paths are touched
+- [ ] Every acceptance criterion has a test or gate in this PR
+- [ ] `CHANGELOG.md` has an entry under `Unreleased` in the right heading
+- [ ] Queue entry in `docs/taste-review/queue.md` if anything visible changed
+- [ ] No contract files changed, or an ADR is included
+- [ ] No attribution trailers

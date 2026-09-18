@@ -1,0 +1,6 @@
+---
+description: Typography, theme and security paths need a human review and must not regress the design constraints
+globs: ["packages/typeset/**", "packages/theme/**", "packages/core/src/sanitize/**", "apps/desktop/src-tauri/tauri.conf.json", "apps/desktop/src-tauri/capabilities/**"]
+alwaysApply: false
+---
+This path is covered by CODEOWNERS: a human approves the PR. Keep `docs/design-language.md` constraints intact (measure in ch, grid multiples from `--marxy-line-box`, hierarchy by size and weight only, chrome at rest zero). Any visual change needs before/after screenshots attached and a row in `docs/taste-review/queue.md`. Sanitising is never off; the CSP never gains an http(s) source; themes never get JavaScript or network access.

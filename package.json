@@ -19,12 +19,15 @@
     "gate:golden": "pnpm --filter @marxy/core test:golden",
     "gate:aesthetics": "node scripts/gate-aesthetics.mjs",
     "gate:perf": "node scripts/gate-perf.mjs",
-    "gate:bundle": "node scripts/gate-bundle.mjs"
+    "gate:bundle": "node scripts/gate-bundle.mjs",
+    "lint:commits": "commitlint --from origin/main --to HEAD --verbose"
   },
   "devDependencies": {
     "dompurify": "^3.4.15",
     "markdown-it": "^15.0.2",
     "playwright": "^1.57.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "^19.8.0"
   }
 }

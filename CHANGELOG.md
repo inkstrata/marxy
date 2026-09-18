@@ -1,9 +1,15 @@
 # Changelog
 
-Maintained per pull request, not per release. Newest at the top. Each entry is one line:
-`- <type>: <what changed and why it matters to a reader> (MARXY-nnn)`.
+Format: [Keep a Changelog](https://keepachangelog.com), one line per pull request, written for
+a reader of marxy, Jira key in parentheses. Release notes are generated from `Unreleased` at
+tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
-- chore: repository scaffold, contracts, fixture corpus, CI gates, ADRs seeded from the brainstorm (bootstrap)
-- docs: stack decision rule committed before the spike ran (bootstrap)
+### Added
+- Repository scaffold: frozen contracts, fixture corpus, CI gates, ADRs seeded from the brainstorm, a hello-world desktop app (bootstrap)
+- Orchestration kit for running the agent fleet from Cursor: role prompts, board scripts, subagent definitions (bootstrap)
+- Conventions for commits, pull requests, comments, tags and reviews, enforced by commitlint (bootstrap)
+
+### Changed
+- Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)

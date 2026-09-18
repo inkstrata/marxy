@@ -1,0 +1,8 @@
+{
+  "snapshot": "POPULATED_FROM_SETTINGS",
+  "install": "curl https://mise.run | sh && ~/.local/bin/mise install && ~/.local/bin/mise exec -- pnpm install --frozen-lockfile",
+  "start": "",
+  "terminals": [
+    { "name": "gates", "command": "~/.local/bin/mise exec -- pnpm typecheck && ~/.local/bin/mise exec -- pnpm test" }
+  ]
+}

@@ -10,8 +10,9 @@ enable a later proprietary relicence, which this project has refused (ADR-0006).
 2. One issue, one branch (`type/MARXY-123-slug`), one PR, squash-merged into `main`.
 3. `main` is protected: CI green, plus one human approval on anything touching
    `packages/typeset`, `packages/theme`, the sanitiser, the CSP, or `shell-api`.
-4. Conventional commits with the key in the subject. No AI attribution trailers.
-5. Add a line to `CHANGELOG.md` in the PR.
+4. Commit messages, PR structure, comments and review remarks follow `docs/conventions.md`;
+   commitlint checks commits and the PR title in CI. No AI attribution trailers.
+5. Add a line to `CHANGELOG.md` under `Unreleased` in the PR.
 
 ## What CI checks
 

@@ -1,0 +1,14 @@
+{
+  "_note": "Verify ids against `cursor-agent --help` / the model picker and edit. Effort is applied where Cursor exposes it; set cliEffortFlag if your CLI has one (e.g. --reasoning-effort), else leave empty.",
+  "orchestrator": { "model": "claude-opus-5", "effort": "medium" },
+  "planner": { "model": "claude-opus-5", "effort": "medium" },
+  "implementor": { "model": "grok-4.6-fast", "effort": "high" },
+  "implementorEscalation": { "model": "claude-opus-5", "effort": "medium" },
+  "reviewer": { "model": "claude-opus-5", "effort": "medium" },
+  "cliEffortFlag": "",
+  "lanes": 3,
+  "maxAttempts": 2,
+  "attemptMinutes": 45,
+  "plannerEveryMerges": 5,
+  "plannerEveryDays": 7
+}

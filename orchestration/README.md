@@ -1,0 +1,80 @@
+# Orchestration — how the fleet runs
+
+Three roles, one loop, everything on disk so any session can pick it up cold.
+
+| Role | Model (edit `models.json`) | Runs | Owns |
+| --- | --- | --- | --- |
+| **Orchestrator** | Claude Opus, medium reasoning | continuously, as the main Cursor agent in this repo | dispatch, review, merge, the board (`state.json`), `needs-human.md` |
+| **Planner** | Claude Opus, medium reasoning | periodically, as a subagent the orchestrator invokes | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
+| **Implementor** | Grok 4.6 Fast, high reasoning | one per story, in its own git worktree | exactly one story, on its own branch, inside its listed paths |
+
+The orchestrator never implements. The planner never implements. Implementors never plan.
+Humans (Ian) review taste, approve CODEOWNERS paths, and answer `needs-human.md`.
+
+## The loop (orchestrator)
+
+1. `node orchestration/ready.mjs` — stories whose dependencies are done and whose paths do
+   not overlap anything in progress, up to the lane limit (3).
+2. `node orchestration/dispatch.mjs KEY [KEY…]` — for each: create a worktree and branch, run
+   the implementor headlessly with `prompts/implementor.md` plus the story, wait. Results land
+   in `orchestration/results/KEY.json`. (Or spawn the `implementor` subagent per key in-app and
+   have it follow the same prompt; the result file is the contract either way.)
+3. `node orchestration/review.mjs KEY` — a review packet: story, acceptance criteria, diff
+   stat, files outside the listed paths (must be none), gate outputs, the implementor's notes.
+   Decide: **merge**, **return** (notes appended, attempts+1), or **escalate** (attempts ≥ 2 →
+   the planner splits it or an Opus implementor takes it).
+4. Merge only when CI is green and, for CODEOWNERS paths, a human approved. Squash. Then
+   `node orchestration/state.mjs done KEY`.
+5. `node orchestration/planner-trigger.mjs` — says whether to invoke the planner now
+   (every 5 merges, any story at 2 failures, a phase boundary, a tripwire in `docs/roadmap.md`,
+   or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`.
+6. Anything only a person can do goes in `needs-human.md`; the orchestrator continues with
+   other stories and re-checks the file each cycle. When nothing is ready and nothing is in
+   progress, write a status report to `orchestration/status.md` and stop.
+
+## Two ways to run it
+
+**A. In Cursor, in-app.** Open the repo, choose the Opus model at medium, paste
+`prompts/orchestrator.md` as the first message (or use it as a custom mode). Subagents are
+defined in `.cursor/agents/` (`planner`, `implementor`, `reviewer`); the orchestrator invokes
+them by name. If your Cursor build does not read `.cursor/agents/`, use the same files as
+custom modes, or fall back to B for implementors.
+
+**B. Headless, through the Cursor CLI.** `dispatch.mjs` shells out to `cursor-agent -p --force
+--model <implementor model>` inside each worktree, in parallel. The orchestrator itself can be
+the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
+
+Check model ids once: `cursor-agent --help` and the in-app model picker; put the exact names
+in `models.json`. Reasoning effort is set where Cursor exposes it (picker or agent
+frontmatter); the CLI flag, if present in your version, is read from `models.json`.
+
+## Files
+
+| File | What |
+| --- | --- |
+| `models.json` | model id and effort per role |
+| `state.json` | the board: status, attempts, branch, PR per story |
+| `deps.json` | story dependencies (the CSV has none) and phase membership |
+| `results/KEY.json` | written by implementors; the only handshake |
+| `needs-human.md` | queue of things a person must do |
+| `status.md` | the orchestrator's last report |
+| `prompts/*.md` | role prompts, the source of truth for behaviour |
+| `../docs/plan/jira-issues.csv` | the stories: summary, acceptance, paths, labels |
+
+## Rules the scripts enforce, so nobody has to remember them
+
+- One story, one worktree, one branch `type/KEY-slug`; branches are never shared.
+- A story's diff may touch only its `Paths` (plus `CHANGELOG.md` and its own result file).
+  `review.mjs` lists violations; a violation is an automatic **return**.
+- Contracts (`packages/*/src/contracts/**`, `packages/theme/src/tokens.css`) change only in a
+  story whose paths name them and that carries an ADR; `.cursor/rules/frozen-contracts.mdc`
+  tells the agent so before it edits.
+- Attempts are capped at 2 per implementor model. Time cap per attempt: 45 minutes.
+- Nothing is merged with a red gate. Baseline updates need a taste-queue entry.
+- No AI attribution anywhere (a hook blocks it locally; the reviewer checks too).
+
+## Budget
+
+Implementors are cheap and fast; spend them freely on retries inside the caps. Opus time goes
+to review packets, merges, and the periodic plan. If Opus is spending more than a third of its
+turns reading implementor diffs, the stories are too big: trigger the planner.

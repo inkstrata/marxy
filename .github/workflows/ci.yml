@@ -5,6 +5,23 @@ on:
     branches: [main]
 concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }
 jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Commit messages follow docs/conventions.md
+        run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
+      - name: PR title is a valid squash subject
+        run: echo "${{ github.event.pull_request.title }}" | pnpm exec commitlint --verbose
+      - name: PR body leads with a Summary section
+        run: |
+          body=$(gh pr view ${{ github.event.pull_request.number }} --json body --jq .body)
+          echo "$body" | grep -q '^## Summary' || { echo "PR body must start with '## Summary' (docs/conventions.md)"; exit 1; }
+        env: { GH_TOKEN: ${{ github.token }} }
   gates:
     strategy:
       fail-fast: false

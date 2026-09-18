@@ -1,0 +1,52 @@
+{
+  "_note": "Dependencies by plan id (docs/plan/jira-issues.csv). A story is ready when all deps are done. Phases gate on their review.",
+  "phases": {
+    "0": ["MARXY-001","MARXY-002","MARXY-003","MARXY-004","MARXY-010","MARXY-011","MARXY-012","MARXY-013","MARXY-014","MARXY-015","MARXY-016"],
+    "1": ["MARXY-020","MARXY-021","MARXY-022","MARXY-023","MARXY-024","MARXY-025","MARXY-026","MARXY-027","MARXY-028","MARXY-029","MARXY-02A","MARXY-02B"],
+    "2": ["MARXY-030","MARXY-031","MARXY-032","MARXY-033","MARXY-034","MARXY-035","MARXY-036"],
+    "3": ["MARXY-040","MARXY-041","MARXY-042","MARXY-043","MARXY-044","MARXY-045","MARXY-046","MARXY-047","MARXY-048"],
+    "4": ["MARXY-050","MARXY-051","MARXY-052","MARXY-053"]
+  },
+  "deps": {
+    "MARXY-011": ["MARXY-010"],
+    "MARXY-013": ["MARXY-012"],
+    "MARXY-014": ["MARXY-012"],
+    "MARXY-015": ["MARXY-012", "MARXY-014", "MARXY-001"],
+    "MARXY-020": ["MARXY-010", "MARXY-012"],
+    "MARXY-021": ["MARXY-020"],
+    "MARXY-022": ["MARXY-021"],
+    "MARXY-023": ["MARXY-020", "MARXY-021"],
+    "MARXY-024": ["MARXY-023"],
+    "MARXY-025": ["MARXY-020", "MARXY-023"],
+    "MARXY-026": ["MARXY-011", "MARXY-020"],
+    "MARXY-027": ["MARXY-010", "MARXY-020"],
+    "MARXY-028": ["MARXY-020"],
+    "MARXY-029": ["MARXY-010"],
+    "MARXY-02A": ["MARXY-025"],
+    "MARXY-02B": ["MARXY-02A", "MARXY-026", "MARXY-027"],
+    "MARXY-030": ["MARXY-021", "MARXY-027", "MARXY-028"],
+    "MARXY-031": ["MARXY-013"],
+    "MARXY-032": ["MARXY-013"],
+    "MARXY-033": ["MARXY-032"],
+    "MARXY-034": ["MARXY-020"],
+    "MARXY-035": ["MARXY-031"],
+    "MARXY-036": ["MARXY-033", "MARXY-034"],
+    "MARXY-040": ["MARXY-010", "MARXY-025"],
+    "MARXY-041": ["MARXY-040"],
+    "MARXY-042": ["MARXY-040"],
+    "MARXY-043": ["MARXY-011", "MARXY-026"],
+    "MARXY-044": ["MARXY-043"],
+    "MARXY-045": ["MARXY-020", "MARXY-02A"],
+    "MARXY-046": ["MARXY-020", "MARXY-034"],
+    "MARXY-047": ["MARXY-025", "MARXY-035"],
+    "MARXY-048": ["MARXY-013", "MARXY-042"],
+    "MARXY-050": ["MARXY-02B", "MARXY-036"],
+    "MARXY-051": ["MARXY-015"],
+    "MARXY-052": ["MARXY-030"],
+    "MARXY-053": ["MARXY-050", "MARXY-051", "MARXY-052"]
+  },
+  "research": {
+    "_note": "Research tasks: same protocol, output is a decision note, not a merge. Ready immediately.",
+    "MARXY-R01": { "summary": "Prove ragged-right paragraph setting through justif/core on the corpus; compare with tex-linebreak2; write packages/typeset/RESEARCH.md with measured rag metrics and a recommendation for MARXY-023", "paths": "packages/typeset", "unblocks": ["MARXY-023"] }
+  }
+}
