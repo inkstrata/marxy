@@ -19,6 +19,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Security
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
+- The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
