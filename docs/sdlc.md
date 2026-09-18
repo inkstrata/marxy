@@ -54,6 +54,25 @@ A story is not dispatched until all of this is true. `ready.mjs` enforces the me
 7. CI green, CODEOWNERS approved where required, squash-merged, branch deleted.
 8. The Jira issue is **Done** and carries the PR link.
 
+## Which of the four definition-of-done commands may skip
+
+`pnpm build`, `pnpm typecheck`, `pnpm lint` and `pnpm test` are the four commands in item 2.
+The next agent does not get to infer a skip. The rule is:
+
+- **`pnpm build`** may skip only the desktop CLI smoke, and only when the machine delivered no
+  animation frames (a display asleep, dark wake, or a locked screen over ssh). The skip must
+  name that environment and print that the frame assertion is not what is wrong. A build that
+  can paint and does not paint never skips. CI (`verify:cli` with `MARXY_SMOKE_REQUIRED=1` on
+  both runner classes) and a hand-set `MARXY_SMOKE_REQUIRED=1` never skip.
+- **`pnpm typecheck` may never skip.**
+- **`pnpm lint` may never skip.**
+- **`pnpm test`** may skip only the same desktop CLI smoke, and only on the same frameless
+  grounds or when no release binary has been built yet. Unit tests never skip.
+
+Do not delete the frames assertion to make a sleeping laptop green. Wake the display, or
+accept the named skip. `pnpm --filter @marxy/desktop verify:cli` is the hand-reachable
+required mode.
+
 ## Traceability, both directions
 
 A question like "why is this line here?" must be answerable in two hops, and "what shipped in
