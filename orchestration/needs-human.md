@@ -13,13 +13,21 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
       end without a CI run, a tag and a release.
 - [x] 2026-09-18 — Jira. Done: project MARXY exists with the four-state board, all 51 issues
       imported (MARXY-4 … MARXY-54), and an API token in `~/.config/marxy/jira.env`.
-- [ ] 2026-09-18 — **For information, no action yet:** `main` is red and so is every PR, on
-      `pnpm gate:perf` alone — the ADR-0013 product budget of 500 ms for first text is being
-      measured on GitHub runners, which report 7719 ms (ubuntu, software-rendered WebKitGTK)
-      and 1901 ms (macos) for today's hello-world shell. Nothing can merge until the policy is
-      fixed; the planner is deciding between per-environment budgets and a release-only hard
-      gate. v0.0.1 cannot be tagged before that lands.
-      Also worth knowing: `cursor-agent` is not on PATH, so `orchestration/dispatch.mjs` cannot
+- [ ] 2026-09-18 — **For information, no action:** the perf gate flaked on a docs-only PR (#6, macOS
+      measured 2244 ms against a 2091 ms ceiling), which is the risk I accepted when I approved
+      MARXY-55: baselines set to the exact observed median tolerate only 10 %, and macOS runners vary
+      by 1.5×. The planner's fix is MARXY-63 — gate the *floor* of 12 launches rather than the
+      median, since runner noise is one-sided, with a per-runner tolerance bounded by a
+      machine-checked invariant that a 20 % regression still cannot pass, and confirm a breach by
+      re-measuring before failing. The baseline is deliberately **not** being edited to make this
+      green: that would write a noise excursion into the number permanently and teach the fleet that
+      a red perf gate is fixed by raising the budget. Reasoning in
+      `docs/plan/deltas/2026-09-18-perf-variance.md`.
+- [x] 2026-09-18 — ~~**For information, no action yet:**~~ Resolved by MARXY-55. `main` was red on
+      `pnpm gate:perf` alone, because the ADR-0013 product budget of 500 ms for first text was being
+      measured on GitHub runners that report 7719 ms (ubuntu, software-rendered WebKitGTK) and
+      1901 ms (macos) for a hello-world shell. ADR-0022 split the tiers and merges flow again.
+      Still true: `cursor-agent` is not on PATH, so `orchestration/dispatch.mjs` cannot
       run implementors headlessly; they are being dispatched as in-app subagents into
       `../marxy-wt/<KEY>` worktrees instead.
 - [ ] 2026-09-18 — **Taste review #0 is ready to decide: the typeface pair.** The artifact is PR #6
