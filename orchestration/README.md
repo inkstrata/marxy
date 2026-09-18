@@ -17,17 +17,26 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
 
 ## The loop (orchestrator)
 
-1. `node orchestration/ready.mjs` — stories whose dependencies are done and whose paths do
-   not overlap anything in progress. Lanes are uncapped (`models.json` `lanes` is `null`);
-   a positive value would restore a WIP limit.
+1. `node orchestration/ready.mjs` — stories whose earlier phase is settled, whose
+   dependencies are done, and whose paths do not overlap anything in progress. It never
+   offers a story from phase N+1 while phase N still has `todo` or `in_progress` work,
+   unless the story is labelled `cross-phase`. `human-gated` stories, and stories with
+   empty Acceptance or empty Paths, are refused with the rule named. Lanes are uncapped
+   (`models.json` `lanes` is `null`); a positive value is the WIP limit and a story that
+   would exceed it is `blockedByLanes`, not a dependency wait. The other two honest
+   counters are `blockedByDeps` and `blockedByPaths`.
 2. `node orchestration/dispatch.mjs KEY [KEY…]` — for each: create a worktree and branch, run
    the implementor headlessly with `prompts/implementor.md` plus the story, wait. Results land
    in `orchestration/results/KEY.json`. (Or spawn the `implementor` subagent per key in-app and
    have it follow the same prompt; the result file is the contract either way.)
 3. `node orchestration/review.mjs KEY` — a review packet: story, acceptance criteria, diff
-   stat, files outside the listed paths (must be none), gate outputs, the implementor's notes.
-   Decide: **merge**, **return** (notes appended, attempts+1), or **escalate** (attempts ≥ 2 →
-   the planner splits it or the escalation model takes it).
+   stat, files outside the listed paths (must be none; `CHANGELOG.md`, `pnpm-lock.yaml` and
+   `results/` are allowed extras), gate outputs, the implementor's notes, and explicit
+   pass/fail lines for a CHANGELOG entry, a claimed check per acceptance criterion, and a
+   taste-queue row when fixtures/baselines changed. If it cannot determine the branch or
+   compute the diff it exits non-zero and says so — it does not print `none` for the
+   boundary checks. Decide: **merge**, **return** (notes appended, attempts+1), or
+   **escalate** (attempts ≥ 2 → the planner splits it or the escalation model takes it).
 4. `node orchestration/jira.mjs pr KEY <number>` — links the PR on the issue and moves it to
    In Review. Merge only when CI is green and, for CODEOWNERS paths, a human approved. Squash.
    Then `node orchestration/state.mjs done KEY`, which moves the Jira issue too.
@@ -115,8 +124,10 @@ role's `inApp` slug when you spawn a subagent.
 - One story, one worktree, one branch `type/KEY-slug` where KEY is the Jira key; branches are
   never shared. Every board transition is mirrored to Jira; a Jira failure prints the command
   to re-run and never stops the loop.
-- A story's diff may touch only its `Paths` (plus `CHANGELOG.md` and its own result file).
-  `review.mjs` lists violations; a violation is an automatic **return**.
+- A story's diff may touch only its `Paths` (plus `CHANGELOG.md`, `pnpm-lock.yaml`,
+  `results/` and its own result file). `review.mjs` lists violations; a violation is an
+  automatic **return**. `node --test orchestration/test` is the fixture-board check for
+  the ready and review scripts.
 - Contracts (`packages/*/src/contracts/**`, `packages/theme/src/tokens.css`) change only in a
   story whose paths name them and that carries an ADR; `.cursor/rules/frozen-contracts.mdc`
   tells the agent so before it edits.
