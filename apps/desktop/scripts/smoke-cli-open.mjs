@@ -15,9 +15,11 @@ const repoRoot = new URL('../../../', import.meta.url).pathname;
 const doc = `${repoRoot}fixtures/corpus/02-readme-real-world.md`;
 const required = process.env.MARXY_SMOKE_REQUIRED === '1';
 const bin = [
+  process.env.MARXY_BIN, // CI builds with `--profile ci` and names the binary (docs/hygiene.md §CI)
+  `${repoRoot}apps/desktop/src-tauri/target/ci/marxy`,
   `${repoRoot}apps/desktop/src-tauri/target/release/marxy`,
   `${repoRoot}apps/desktop/src-tauri/target/release/marxy.exe`,
-].find(existsSync);
+].filter(Boolean).find(existsSync);
 
 if (!bin) {
   if (required) {

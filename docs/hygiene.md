@@ -59,3 +59,42 @@ expected failure. A check must be able to fail: the PR that adds it shows one fa
 
 `MARXY_SKIP_HOOKS=1 git commit …` bypasses the local hooks for a person in a hurry. CI does not
 have a bypass.
+
+## CI — shape, time budget, and what is required
+
+Measured before this shape landed: 6–10 minutes per pull request, dominated by a from-scratch
+Tauri release build (180–270 s), a Linux startup measurement that waited out timeouts
+(up to 135 s), and browser and apt installs (40–80 s); two `main` pushes went red on
+runner-noise perf breaches and a timing assertion inside a unit test.
+
+| Job | Runs when | What | Target (warm caches) |
+| --- | --- | --- | --- |
+| `changes` | always | classifies the diff: docs-only / web / rust | 10 s |
+| `conventions` | pull requests | commitlint on commits and title, `check-pr`, story boundary (advisory) | 40 s |
+| `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, goldens, fidelity, licences | 2 min |
+| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 2 min |
+| `gates` (macOS, Ubuntu) | not docs-only | Rust fmt/clippy (Linux), frontend, `cargo build --profile ci` with `rust-cache`, CLI smoke, nine-launch startup measurement, perf gate with one confirming re-measure, bundle gate | 4–7 min |
+| `ci` | always | the single required check; fails if any job that ran failed | 5 s |
+
+Rules baked in:
+
+- **One required check.** Branch protection requires `ci` only, so job names can change without
+  touching repository settings. After this workflow merges, set it once:
+  `gh api -X PUT repos/inkstrata/marxy/branches/main/protection/required_status_checks -f strict=true -f 'contexts[]=ci'`.
+- **Every job has `timeout-minutes`.** A hang costs minutes, never hours.
+- **Docs-only changes** (`docs/`, `orchestration/`, `.cursor/`, markdown outside `fixtures/`)
+  run `changes`, `conventions` and `ci` only: under two minutes.
+- **Caches:** mise tools, the pnpm store keyed on the lockfile, cargo via `Swatinem/rust-cache`
+  keyed on `Cargo.lock` and the `ci` profile, apt packages via `cache-apt-pkgs-action`. Browser
+  binaries come with the `mcr.microsoft.com/playwright` image whose tag must equal the pinned
+  `playwright` version in `package.json` (exact, no caret).
+- **The CI Cargo profile** (`[profile.ci]`, thin LTO, 16 codegen units) is what CI measures;
+  tags and `pnpm bundle` use `release`. `MARXY_BIN` tells the measurer and the smoke check which
+  binary to launch.
+- **Perf on shared runners is noisy by nature.** The envelope and baseline rules (ADR-0022) stay,
+  and a breach is re-measured once before it fails; the parse-time budget no longer runs as a
+  unit test on CI (it is a perf-gate concern, MARXY-59). `scripts/gate-perf.mjs --selftest`
+  asserts the workflow keeps the measurement unconditional on both runner classes with no
+  `continue-on-error` — keep that shape when editing the `gates` job.
+- **Nothing retries silently.** No `retries` in Playwright, no `|| true`; a flaky test is fixed
+  or deleted, never re-run until green.

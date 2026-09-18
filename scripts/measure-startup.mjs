@@ -107,7 +107,9 @@ export function runsMatchLaunchOrder(record, launches) {
 }
 
 export function findBinary() {
-  return [`${root}apps/desktop/src-tauri/target/release/marxy`, `${root}apps/desktop/src-tauri/target/release/marxy.exe`].find(existsSync);
+  // MARXY_BIN names the binary explicitly (CI builds with `--profile ci`, docs/hygiene.md §CI); the
+  // release path stays the default for a person running this by hand.
+  return [process.env.MARXY_BIN, `${root}apps/desktop/src-tauri/target/ci/marxy`, `${root}apps/desktop/src-tauri/target/release/marxy`, `${root}apps/desktop/src-tauri/target/release/marxy.exe`].filter(Boolean).find(existsSync);
 }
 
 const hasDbusRunSession = () => process.platform === 'linux' && spawnSync('sh', ['-c', 'command -v dbus-run-session'], { stdio: 'ignore' }).status === 0;

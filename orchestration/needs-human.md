@@ -5,3 +5,4 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
 - [ ] 2026-09-18 — Push the bootstrap commits (token needs the `workflow` scope), tag v0.0.1, import Jira (`docs/plan/next-steps.md`, week 0).
 - [ ] 2026-09-18 — Taste review #0 (typeface pair) once MARXY-016 lands its artifact.
 - [ ] 2026-09-18 — Say whether a Linux desktop exists for MARXY-022 and whether an Apple Developer account exists for notarization.
+- [ ] 2026-09-18 — After PR #14 merges: switch branch protection to the single `ci` context (command in `docs/hygiene.md` §CI). Until then the old `gates (…)` contexts are required and will not exist on new runs.
