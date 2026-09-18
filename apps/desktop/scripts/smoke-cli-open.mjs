@@ -22,16 +22,23 @@ if (!bin) {
   process.exit(0);
 }
 
-// WebKitGTK needs a display; CI runners have xvfb and no DISPLAY.
+// WebKitGTK needs a display; CI runners have xvfb and no DISPLAY. On a virtual display it also needs
+// 24-bit colour and its DMABUF/compositing paths turned off, or the webview window stays blank and no
+// script ever runs. Those switches are for this harness only; a real Linux desktop keeps acceleration.
 const headless = process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
-const [cmd, args] = headless ? ['xvfb-run', ['-a', bin, doc]] : [bin, [doc]];
+const [cmd, args] = headless
+  ? ['xvfb-run', ['-a', '--server-args=-screen 0 1280x1024x24', bin, doc]]
+  : [bin, [doc]];
+const headlessEnv = headless
+  ? { WEBKIT_DISABLE_DMABUF_RENDERER: '1', WEBKIT_DISABLE_COMPOSITING_MODE: '1', LIBGL_ALWAYS_SOFTWARE: '1' }
+  : {};
 
 const digest = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
 const before = digest(doc);
 
 const child = spawn(cmd, args, {
   cwd: repoRoot,
-  env: { ...process.env, MARXY_QUIT_AFTER_PAINT: '1' },
+  env: { ...process.env, ...headlessEnv, MARXY_QUIT_AFTER_PAINT: '1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 
@@ -40,7 +47,7 @@ let stderr = '';
 child.stdout.on('data', d => { stdout += d; });
 child.stderr.on('data', d => { stderr += d; });
 
-const timeout = setTimeout(() => child.kill('SIGKILL'), 30_000);
+const timeout = setTimeout(() => child.kill('SIGKILL'), 60_000);
 const code = await new Promise(resolve => child.on('exit', c => { clearTimeout(timeout); resolve(c); }));
 
 const lines = stdout.split('\n').map(l => l.trim()).filter(Boolean);
@@ -66,7 +73,7 @@ check(digest(doc) === before, 'opening the document changed its bytes');
 
 console.log(lines.join('\n'));
 if (failures.length) {
-  if (stderr.trim()) console.error(stderr.trim());
+  console.error(`stderr:\n${stderr.trim() || '(empty)'}`);
   console.error(`smoke-cli-open failed:\n - ${failures.join('\n - ')}`);
   process.exit(1);
 }
