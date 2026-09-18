@@ -31,18 +31,19 @@ model.
    `orchestration/prompts/implementor.md` and the story; it must write
    `orchestration/results/KEY.json` when done).
 3. For each result: `node orchestration/jira.mjs pr KEY <number>` to link the PR and move the
-   issue to In Review, then `node orchestration/review.mjs KEY`, read the packet, and decide
-   against the definition of done in `docs/sdlc.md`:
-   - **merge** — every acceptance criterion maps to a test or gate in the diff, no files
-     outside `Paths`, gates green, CI green, CHANGELOG line present, queue entry if visible.
-     Merge with `gh pr merge <n> --squash --delete-branch`, then `node orchestration/state.mjs done KEY`.
+   issue to In Review, then spawn the `reviewer` with `orchestration/prompts/reviewer.md` and
+   `node orchestration/review.mjs KEY`. The reviewer writes and signs `results/KEY.approved`
+   on merge (`node orchestration/approve.mjs KEY` if they left it unsigned). You do not land
+   the PR yourself. `node orchestration/cycle.mjs` squash-merges when the quality bar in
+   `docs/sdlc.md` is met, or enables GitHub auto-merge when the only wait is CI.
    - **return** — write precise, numbered notes into `results/KEY.notes.md` (what is wrong,
      what evidence would satisfy you) and `node orchestration/state.mjs return KEY`. Never
      fix it yourself.
    - **escalate** — after two failed attempts: `node orchestration/state.mjs escalate KEY`;
      the planner splits it or the escalation model takes it.
 4. If a PR touches a CODEOWNERS path, it needs Ian: append to `needs-human.md` with the PR
-   number and what to look at; continue with other stories.
+   number and what to look at; do not sign around a `REVIEW_REQUIRED`. Continue with other
+   stories.
 5. `node orchestration/planner-trigger.mjs`; if it says yes, run the planner with
    `orchestration/prompts/planner.md` and apply its changes to `deps.json` and the CSV.
 6. At a phase boundary: taste review closed, then the release runbook in `docs/sdlc.md`,

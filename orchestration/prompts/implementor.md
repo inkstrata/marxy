@@ -44,7 +44,8 @@ exists for you. Read `AGENTS.md` before anything.
 - Touch files outside `Paths`. Widen your paths. Edit a contract. Add a dependency whose
   licence is not MIT/ISC/BSD/Apache-2.0/MPL-2.0. Add telemetry, network calls, chrome, or a
   plugin surface. Reformat a fixture or a font. Change a screenshot baseline without a queue
-  entry. Add AI attribution. Merge anything.
+  entry. Add AI attribution. Merge anything. Write `results/KEY.approved` or run
+  `approve.mjs` — that file is the reviewer's verdict, not yours.
 
 ## When stuck
 

@@ -91,9 +91,24 @@ does what the story asked. So the reviewer writes `orchestration/results/KEY.app
 review note and signs it with `node orchestration/approve.mjs KEY`, which records the commit the
 review was of; the key lives in `~/.config/marxy/`, outside the tree. An approval for an earlier
 commit is held rather than honoured, because a push after a review is an unreviewed tree wearing a
-reviewed one's name. Until the file exists and verifies, the PR is held with that as the printed reason — as is any
-PR with a red or pending check, a conflict, a file outside its paths, a missing CHANGELOG line, or
-an outstanding CODEOWNERS review.
+reviewed one's name. The reviewer agent does that handshake; the implementor never writes the
+file. `cycle.mjs` then lands the PR without a person, or enables GitHub auto-merge when the only
+remaining wait is CI.
+
+A PR is mergeable when every clause of this bar holds. `orchestration/merge-bar.mjs` is the
+list; a missing clause is the printed hold reason.
+
+1. The PR is open, mergeable, and not in conflict.
+2. The branch diff against `main` could be computed (an empty list is ignorance, not innocence).
+3. No attribution trailer in any commit on the branch.
+4. Every CI check has a conclusion; none are red. Pending checks alone enable auto-merge
+   rather than a hold, once the rest of the bar is green.
+5. GitHub has not requested changes, and CODEOWNERS has not set `REVIEW_REQUIRED`.
+6. No file outside the story's `Paths` (plus `CHANGELOG.md`, the taste queue, the lockfile
+   and the result file).
+7. The implementor result file exists and says `done`.
+8. `CHANGELOG.md` is in the diff.
+9. A signed `results/KEY.approved` verifies against this PR head.
 
 ## Cadence
 

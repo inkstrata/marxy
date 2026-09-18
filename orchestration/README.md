@@ -60,13 +60,15 @@ on PATH), asks whether the planner is due, and writes `status.md`. It is idempot
 `--no-merge` to decide without landing anything, `--low` or `--minimal` to spend less.
 
 What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
-code works, not that it does what was asked, so a PR merges only once a reviewer writes
-`results/KEY.approved` (the text is the review note) and signs it with
-`node orchestration/approve.mjs KEY`, which stamps in the commit being approved. Unsigned, or
-signed against a different commit, holds the PR: a review is of a tree, and a push after it lands
-turns the approval into a note about something else. Everything else about a merge — checks,
-conflicts, CODEOWNERS, the path boundary, the CHANGELOG line, the result file — is checked
-mechanically, and a held PR always prints the reason it was held.
+code works, not that it does what was asked, so a PR merges only once a reviewer (never the
+implementor) writes `results/KEY.approved` and signs it with `node orchestration/approve.mjs KEY`,
+which stamps in the commit being approved. That is an agent action. Unsigned, or signed against
+a different commit, holds the PR: a review is of a tree, and a push after it lands turns the
+approval into a note about something else. When the rest of the quality bar in `docs/sdlc.md`
+is green and only CI is still running, the cycle enables GitHub auto-merge rather than waiting
+for the next loop. Everything else about a merge — checks, conflicts, CODEOWNERS, the path
+boundary, the CHANGELOG line, the result file — is checked by `merge-bar.mjs`, and a held PR
+always prints the reason it was held. CODEOWNERS paths still need Ian.
 
 Check model ids once: `cursor-agent --list-models` and the in-app model picker; put the exact
 names in `models.json`. Reasoning effort is set where Cursor exposes it (picker or agent
@@ -99,6 +101,7 @@ role's `inApp` slug when you spawn a subagent.
 | `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
 | `deps.json` | story dependencies (the CSV has none) and phase membership |
 | `cycle.mjs` | one idempotent cycle: push, merge what is finished, dispatch, plan check, report |
+| `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |
 | `loop.sh` | `cycle.mjs` until interrupted |
 | `results/KEY.json` | written by implementors; the only handshake |
 | `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story, signed by `approve.mjs` against the commit it read; no merge without it |
