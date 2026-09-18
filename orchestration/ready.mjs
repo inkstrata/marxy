@@ -1,15 +1,101 @@
-// Stories that can start now: deps done, paths disjoint from in-progress work.
-// A positive `lanes` cap is honoured; null / 0 means uncapped (path overlap is the only limit).
-import { state, stories, deps, pathsOf, overlap, laneBudget } from './lib.mjs';
-const s = state(), d = deps(), all = stories();
-const done = k => s.stories[k]?.status === 'done';
-const busy = all.filter(st => s.stories[st.Key]?.status === 'in_progress');
-const busyPaths = busy.flatMap(pathsOf);
-const cap = laneBudget();
-const uncapped = !Number.isFinite(cap);
-const free = uncapped ? Infinity : Math.max(0, cap - busy.length);
-const candidates = all.filter(st => { const cur = s.stories[st.Key]?.status ?? 'todo'; if (cur !== 'todo') return false; return (d.deps[st.Key] ?? []).every(done); })
-  .filter(st => !overlap(pathsOf(st), busyPaths));
-const picked = []; const pickedPaths = [];
-for (const st of candidates) { if (picked.length >= free) break; if (overlap(pathsOf(st), pickedPaths)) continue; picked.push(st); pickedPaths.push(...pathsOf(st)); }
-console.log(JSON.stringify({ lanes: uncapped ? 'uncapped' : cap, lanesFree: uncapped ? null : free, inProgress: busy.map(b => b.Key), ready: picked.map(p => ({ key: p.Key, summary: p.Summary, paths: p.Paths })), waitingOnDeps: candidates.length - picked.length }, null, 2));
+// Stories that can start now: earlier phases settled, deps done, paths disjoint, definition of
+// ready. Reports blockedByDeps / blockedByPaths / blockedByLanes instead of a single mislabelled
+// wait, and names the rule that excluded a story (MARXY-9).
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import {
+  state, stories, deps, pathsOf, overlap, laneBudget, hasLabel, phaseOf, earlierPhaseOpen,
+} from './lib.mjs';
+
+/** Named definition-of-ready refusals, so a test can assert the exact rule. */
+export const RULE = {
+  HUMAN_GATED: 'human-gated',
+  EMPTY_ACCEPTANCE: 'empty Acceptance',
+  EMPTY_PATHS: 'empty Paths',
+  LANE_LIMIT: 'lane limit',
+};
+
+/**
+ * Classify every todo story and pick those that may start.
+ * `cap` is the WIP limit from models.json; Infinity means uncapped.
+ */
+export function selectReady({
+  all = stories(),
+  s = state(),
+  d = deps(),
+  cap = laneBudget(),
+} = {}) {
+  const done = k => s.stories[k]?.status === 'done';
+  const statusOf = k => s.stories[k]?.status ?? 'todo';
+  const busy = all.filter(st => statusOf(st.Key) === 'in_progress');
+  const busyPaths = busy.flatMap(pathsOf);
+  const uncapped = !Number.isFinite(cap);
+  const free = uncapped ? Infinity : Math.max(0, cap - busy.length);
+
+  const blockedByDeps = [];
+  const blockedByPaths = [];
+  const blockedByLanes = [];
+  const excluded = [];
+  const eligible = [];
+
+  for (const st of all) {
+    if (statusOf(st.Key) !== 'todo') continue;
+    if (hasLabel(st, 'human-gated')) {
+      excluded.push({ key: st.Key, rule: RULE.HUMAN_GATED });
+      continue;
+    }
+    if (!String(st.Acceptance ?? '').trim()) {
+      excluded.push({ key: st.Key, rule: RULE.EMPTY_ACCEPTANCE });
+      continue;
+    }
+    if (pathsOf(st).length === 0) {
+      excluded.push({ key: st.Key, rule: RULE.EMPTY_PATHS });
+      continue;
+    }
+    const phase = phaseOf(st.Key, d);
+    if (!hasLabel(st, 'cross-phase') && earlierPhaseOpen(phase, d, s)) {
+      blockedByDeps.push(st.Key);
+      continue;
+    }
+    if (!(d.deps[st.Key] ?? []).every(done)) {
+      blockedByDeps.push(st.Key);
+      continue;
+    }
+    if (overlap(pathsOf(st), busyPaths)) {
+      blockedByPaths.push(st.Key);
+      continue;
+    }
+    eligible.push(st);
+  }
+
+  const picked = [];
+  const pickedPaths = [];
+  for (const st of eligible) {
+    if (overlap(pathsOf(st), pickedPaths)) {
+      blockedByPaths.push(st.Key);
+      continue;
+    }
+    if (picked.length >= free) {
+      blockedByLanes.push(st.Key);
+      excluded.push({ key: st.Key, rule: RULE.LANE_LIMIT });
+      continue;
+    }
+    picked.push(st);
+    pickedPaths.push(...pathsOf(st));
+  }
+
+  return {
+    lanes: uncapped ? 'uncapped' : cap,
+    lanesFree: uncapped ? null : free,
+    inProgress: busy.map(b => b.Key),
+    ready: picked.map(p => ({ key: p.Key, summary: p.Summary, paths: p.Paths })),
+    blockedByDeps,
+    blockedByPaths,
+    blockedByLanes,
+    excluded,
+  };
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  console.log(JSON.stringify(selectReady(), null, 2));
+}

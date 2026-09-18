@@ -25,6 +25,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 
 ### Fixed
+- The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
 - The anti-attribution hook the conventions promised now exists in `.githooks/commit-msg`, so trailers injected by agent tooling are stripped rather than merely forbidden (MARXY-10)
 
