@@ -24,9 +24,10 @@ jsonc, toml, yaml, yml, xml, sql, dockerfile, makefile, ini, cfg`; `theme: css` 
 directory containing `theme.toml`. Anything else is skipped. Files over 4 MB are indexed by
 path only (no headings).
 
-Ceiling `INDEX_LIMITS.entriesPerRoot = 50 000`: the walk stops, `truncated = true`, and the
-palette shows "index limited to the 50,000 most recently changed files" (the walk is
-depth-first by directory, so truncation picks by order; a follow-up sorts by mtime).
+Ceiling `INDEX_LIMITS.entriesPerRoot = 50 000`: the walk always completes (it is cheap; only
+paths and stats are collected), the entries are sorted by `mtimeMs` descending, the first 50 000
+are kept and get their headings scanned, `truncated = true`, and the palette shows "index
+limited to the 50,000 most recently changed files". Nothing is chosen by directory order.
 
 ## Headings scanner (Rust, not the markdown parser)
 

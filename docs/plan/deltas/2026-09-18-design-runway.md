@@ -72,3 +72,22 @@ Gate/harness stories (55–73) fill free lanes only; none of them blocks the lis
 | Cold start > 500 ms | Fires on CI hardware, unknown on reference; levers ordered in §00; not yet a decision |
 | Weight residual > 25 on real Linux | No data; MARXY-22 needs a desktop (`needs-human.md`) |
 | Others | Not fired |
+
+## Addendum, same day — dark is primary, and the designs are hardened
+
+Ian's decision, applied now rather than after light was designed: **dark is the primary
+variant** (ADR-0024). Token defaults are the dark palette, the default theme carries the light
+block, the window and the empty state paint dark, every matrix and review lists dark first.
+Palette values and contrast ratios are in `docs/design/05-theme.md` §Palettes (body 14.5:1 dark,
+16.2:1 light; every code token ≥ 4.6:1). MARXY-46 is now "light designed, not inverted";
+MARXY-76 re-renders taste review #0 on dark before the typeface decision.
+
+Hardening: `docs/design/README.md` gained the "hardened rules" table (runner, paths,
+dependencies, naming, the complete list of marks and events, tolerances, what to do when a
+design is wrong) and a pinned dependency table with a forbidden list. Three remaining
+judgement calls were closed: the index ceiling keeps the 50,000 newest by mtime; the aesthetics
+gate runs Playwright WebKit on both runners (never Chromium); the highlighter's scope → class
+mapping is a fixed prefix table.
+
+Board edits for MARXY-10's owner: MARXY-46 summary and description as in Jira; add MARXY-76
+(Phase 1, deps none) and MARXY-75 (Phase 1, deps MARXY-12, MARXY-61) to the CSV and `deps.json`.

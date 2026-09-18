@@ -35,9 +35,12 @@ every browser-side gate uses, so a gate never re-implements rendering.
 
 ## Aesthetics gate algorithms (`scripts/gate-aesthetics.mjs`, tier 1)
 
-For each corpus markdown file × width `{ 720, 960, 1280 }` × variant `{ light, dark }` × body
-size `{ 14, 17, 21, 24 }` (sizes only at 960 to bound the matrix), in Playwright WebKit on
-macOS and Chromium standing in on Linux until a WebKitGTK runner exists:
+For each corpus markdown file × width `{ 720, 960, 1280 }` × variant `{ dark, light }` (dark
+first, ADR-0024) × body size `{ 14, 17, 21, 24 }` (sizes only at 960 to bound the matrix), in
+**Playwright WebKit on both runners**: on macOS it is CoreText (matches WKWebView within ten
+weight units, `docs/spike/outcome.md`); on Linux Playwright's WebKit is built from the GTK/WPE
+port on FreeType, which is the closest headless stand-in for WebKitGTK. Chromium is used by the
+no-network gate only and never for aesthetics.
 
 1. **Grid.** `lineBox = getComputedStyle(article).lineHeight`. For every element with
    `data-marxy-s` that is `display: block` (or `table`, `pre`): `top = rect.top − article.rect.top`;
@@ -60,7 +63,7 @@ macOS and Chromium standing in on Linux until a WebKitGTK runner exists:
    descendant of `#marxy-main`.
 10. **Screenshot diff.** `page.screenshot({ fullPage: false })` at the viewport (first screen) and
     at the reading position of the last heading; compare with `pixelmatch` (MIT) against
-    `fixtures/baselines/<engine>/<file>-<width>-<variant>.png` at threshold 0.1 and ≤ 0.1 %
+    `fixtures/baselines/<engine>/<file>-<width>-<variant>.png` (engine ∈ `webkit-macos`, `webkit-linux`) at threshold 0.1 and ≤ 0.1 %
     differing pixels. Missing baseline → written, and the gate fails with "baseline created;
     add a queue entry" so a first baseline is always a human-visible event.
 

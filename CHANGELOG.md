@@ -24,6 +24,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
 ### Changed
+- Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - The startup measurement now reports two honestly named numbers — a cold start, which is the first launch and only the first launch, and a warm start, which is the median of the rest — after it turned out that the single number called "cold start" had always been a warm one, and that seven of eight Linux launches were being thrown away unmeasured (MARXY-63)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)

@@ -14,7 +14,7 @@ wrong. Nothing here is ever about a document's content.
 
 ```toml
 theme = "~/themes/quiet"        # a directory with theme.toml; absent → the default theme
-variant = "auto"                # auto | light | dark
+variant = "dark"                # dark (default, ADR-0024) | light | auto (follows the OS)
 size = 17                       # body px, 13–24
 measure = 68                    # ch, 45–90
 typeset = true                  # the Knuth–Plass path; false = engine wrapping, grid pass only

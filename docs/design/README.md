@@ -42,3 +42,51 @@ card names — nothing else is required.
 - Byte offsets are UTF-8 byte offsets into the file, half-open `[start, end)`, as in the AST
   contract. Nothing in the app speaks in code units except at the two conversion points named
   in §01.
+
+## Hardened rules — answers to the questions an implementor would otherwise ask
+
+These are decisions, not suggestions. A PR that departs from one says so in "For the reviewer"
+and names the reason; the reviewer returns it unless the reason is a bug in this document.
+
+| Question | Answer |
+| --- | --- |
+| Which test runner? | `node --test` with `--experimental-strip-types` in packages and the app; Playwright at the root for anything needing a DOM; `cargo test` in `src-tauri`. Never vitest, jest or mocha. |
+| Where does a new file go? | Under the path the story lists, in the module the design names. A file that fits no listed path means the story is wrong: stop and report `blocked`. |
+| May I add a dependency? | Only if the card or design names it, and only from the pinned table below. Anything else is `blocked` with the reason. |
+| The design's signature does not compile against current code. | Adapt the minimum, keep the exported names, and write one line in "For the reviewer". Do not redesign. |
+| A design references a function that does not exist yet. | If it is in your paths, build it as the design specifies. If not, stub it with `throw new Error('not implemented: MARXY-nn')` naming the owning story, and note it. |
+| Which Node built-ins may packages use? | None in `packages/*/src` except `packages/core/scripts`. `apps/desktop/src` uses none. Tests may use `node:test`, `node:assert/strict`, `node:fs`, `node:path`, `node:url`. |
+| Can I use `innerHTML` in the app? | Only for the sanitised `html` from `renderDocumentSafeHtml`, exactly once per render, into `<article>`. Everything else builds DOM with `createElement`/`textContent`. |
+| Which quote style, formatting, line width? | biome defaults from the repo config (MARXY-8): single quotes, semicolons, 100 columns. Do not reformat files you did not change. |
+| Naming | Files `kebab-case.ts`; exported functions `camelCase`; types `PascalCase`; CSS classes `marxy-<thing>`; data attributes only `data-marxy-s`, `data-marxy-e`, `data-marxy-done`, `data-marxy-typeset`, `data-marxy-mode`, `data-marxy-variant`; marks `snake_case`; events `marxy:<thing>`. |
+| Which marks exist? | `main_start`, `window_shown`, `script_start`, `args`, `file_read`, `parsed`, `rendered`, `fonts_ready`, `first_text`, `typeset_viewport`, `position_restored`, `highlight_ms`, `index_loaded`, `live_reload`, `palette_keystroke`, `find_first_match`, `weight_offset`, `error`, `ready`. Add one only if a card says so. |
+| Which events exist? | `marxy:watch`, `marxy:index-updated`, `marxy:open-files`. |
+| What is the reading line? | 40 % of the viewport height. One constant, `READING_LINE = 0.4`, in `apps/desktop/src/position/position.ts`. |
+| Rounding, tolerances | Grid ± 0.5 px; overflow > 0.5 px reverts a paragraph; screenshot threshold 0.1 / 0.1 %; contrast 7:1 body, 4.5:1 secondary and tokens; keystroke budget 16 ms p95; debounce: scroll 1 frame, resize 100 ms, position save 500 ms, watch 100 ms. |
+| Which variant is default? | Dark (ADR-0024). Every screenshot, baseline, specimen and review lists dark first. |
+| A fixture would help but does not exist. | Add it under `fixtures/corpus/` with the next number, never edit an existing one, and add its goldens. Say so in the PR. |
+| Something in a design is wrong. | Do not silently work around it. Implement what compiles, write the discrepancy in "For the reviewer", and the planner fixes the design. |
+| Error text for a person | One sentence, no stack, names the file if there is one: "Could not read README.md: permission denied." |
+
+## Pinned dependencies
+
+Everything below is MIT, Apache-2.0, BSD, CC0 or MPL-2.0 and passes `pnpm gate:licences`.
+Versions are minimums; the lockfile pins exact ones.
+
+| Purpose | Package | Version |
+| --- | --- | --- |
+| parser | `mdast-util-from-markdown`, `micromark-extension-gfm`, `mdast-util-gfm`, `micromark-extension-frontmatter`, `mdast-util-frontmatter`, `micromark-extension-math`, `mdast-util-math` | as in `packages/core/package.json` |
+| line breaking | `justif` | ^0.9.1 (`justif/core`, `justif/hyphenate/en-us`, `justif/hyphenate/en-gb`) |
+| highlighting | `@shikijs/core`, `@shikijs/engine-javascript`, `@shikijs/langs` | ^4.4 |
+| math | `katex` | ^0.18 |
+| editor | `codemirror`, `@codemirror/state`, `@codemirror/view`, `@codemirror/commands`, `@codemirror/search`, `@codemirror/language`, `@codemirror/lang-{markdown,javascript,rust,python,css,json,yaml,html}` | ^6 |
+| TOML | `smol-toml` | ^1.4 |
+| screenshot diff | `pixelmatch`, `pngjs` | ^7, ^7 |
+| browser tests | `playwright` | ^1.57 |
+| Rust: walking, matching, watching | `ignore` 0.4, `nucleo-matcher` 0.3, `notify` 8, `notify-debouncer-full` 0.5 | |
+| Rust: images, opening, hashing | `imagesize` 0.13, `open` 5, `sha1_smol` 1 | |
+| Rust: Tauri plugins | `tauri-plugin-single-instance`, `tauri-plugin-clipboard-manager`, `tauri-plugin-dialog`, `tauri-plugin-opener` | 2 |
+
+Not allowed anywhere: `markdown-it`, `dompurify`, `remark`/`rehype` (slow, and the parser is
+settled), `shiki` (the full bundle; use `@shikijs/core`), `highlight.js`, `prismjs`,
+`mermaid`, any UI framework (React, Svelte, Vue), any CSS framework, `lodash`, `moment`.

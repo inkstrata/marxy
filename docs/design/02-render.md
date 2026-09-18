@@ -98,7 +98,23 @@ processed (`data-marxy-done` is set by the app, not the renderer, and is not pro
    `scripts/allowlists/shiki-languages.json`; `themes: []`, `tokens` only). The app replaces the
    `<code>` children with `<span class="marxy-tok-<scope>">` runs — trusted DOM built from
    tokens, never HTML strings. Unknown language → untouched. Colours come from
-   `--marxy-tok-*` tokens (§05). Long lines: `white-space: pre-wrap; text-indent: -2ch;
+   `--marxy-tok-*` tokens (§05). TextMate scopes map to the twelve classes by **first matching
+   prefix, in this order**; a scope matching none gets no class:
+
+   | class | scope prefixes |
+   | --- | --- |
+   | `comment` | `comment` |
+   | `string` | `string` |
+   | `number` | `constant.numeric` |
+   | `constant` | `constant` (after numeric) |
+   | `keyword` | `keyword.control`, `keyword.other`, `storage.modifier`, `keyword` (but not `keyword.operator`) |
+   | `operator` | `keyword.operator` |
+   | `function` | `entity.name.function`, `support.function`, `meta.function-call` |
+   | `type` | `entity.name.type`, `entity.name.class`, `support.type`, `support.class`, `storage.type` |
+   | `tag` | `entity.name.tag` |
+   | `attribute` | `entity.other.attribute-name` |
+   | `variable` | `variable`, `support.variable` |
+   | `punctuation` | `punctuation` | Long lines: `white-space: pre-wrap; text-indent: -2ch;
    padding-left: 2ch` gives the hanging indent; no horizontal scrollbar ever.
 6. **Math** (D-A12). If any `.marxy-math, .marxy-math-inline` exists: `import('katex')` once,
    render with `throwOnError: false`, `output: 'html'`. Before KaTeX loads, block math's height
