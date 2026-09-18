@@ -433,6 +433,8 @@ export const VECTORS: readonly Vector[] = [
     // nothing. One sentinel per case for the same reason — two cases sharing a filename would let
     // a resurrected image in one be excused by a legitimately live image in another.
     probe: [
+      '<style></style foo="><img src="resurrected-endtag.png" alt="e">"><img src="kept-endtag.png" alt="k">',
+      '',
       '<listing><b title="</listing>">smuggled</b><img src="resurrected-listing.png" alt="l">',
       '',
       '<script><!--<script>a</script><img src="resurrected-script.png" alt="s"></script>',
@@ -447,6 +449,10 @@ export const VECTORS: readonly Vector[] = [
     // where the engine ends them come first, and the one that never ends comes last.
     probeHtml: [
       '<xmp></xmp\f><img src="kept.png" alt="x">',
+      // An end tag carries attributes, so a `>` inside a quoted value on one does not end it. The
+      // engine builds one image here; ending the scan at the first `>` builds two, and the second
+      // one is fetched.
+      '<style></style foo="><img src="resurrected-endtag.png" alt="e">"><img src="kept-endtag.png" alt="k">',
       '<script><!--<script>a</script><img src="resurrected-script.png" alt="s"></script>',
       '<listing><b title="</listing>">smuggled</b><img src="resurrected-listing.png" alt="l"></listing>',
       '<plaintext>hidden</plaintext><img src="resurrected-plaintext.png" alt="p">',

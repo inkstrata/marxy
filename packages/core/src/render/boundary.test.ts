@@ -80,4 +80,20 @@ test('the gate checks that the sanitiser builds nothing the engine would not hav
   // fetching a file their document never asked for, so it may not quietly disappear.
   assert.match(gate, /DOMParser/, 'parity is asked of the engine, not of a regular expression here');
   assert.match(gate, /resurrected/);
+  assert.match(gate, /output\.names\].*!input\.names\.has/, 'parity must still compare the elements built');
+  assert.match(gate, /'src', 'href', 'poster', 'data', 'srcset'/, 'parity must still compare the references fetched');
+  assert.match(gate, /noscript/, 'the one name parity cannot measure must stay named, and said out loud');
+});
+
+test('every check the gate makes is still a check the gate makes', () => {
+  // Three rounds of review found the measurement weaker than the boundary, and each time the check
+  // that had gone missing left both the suite and the gate green. A control that no longer asserts
+  // anything is the round-1 vacuity finding one level up, so the assertions are named here too.
+  assert.match(gate, /traversal\.escaped\.length === 0/, 'control 4 must still require the traversal to be observed leaving');
+  assert.match(gate, /includes\('inside <a>'\)/, 'control 3 must still require the containment half');
+  assert.match(gate, /includes\('<marquee>'\)/, 'control 3 must still require the element half');
+  assert.match(gate, /framenavigated/, 'navigation must be witnessed by the event, not by comparing a URL');
+  assert.match(gate, /navigations <= 1/, 'and that witness must be what the live-DOM check reads');
+  assert.match(gate, /parent !== host/, 'the ancestor walk must stop at the held node, not at a name a document can take');
+  assert.match(gate, /host\.querySelectorAll/, 'the live-DOM check must be scoped by that node too');
 });

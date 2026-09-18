@@ -93,6 +93,20 @@ for (const engine of [webkit, chromium]) {
    * navigates nowhere and fetches nothing, so the question can be asked of a hostile document
    * safely. A yes means the sanitiser turned text a parser keeps inert into markup — how a
    * `<plaintext>`-smuggled image made a reader fetch a file its document never asked for.
+   *
+   * `noscript` is outside what this can measure, and is skipped by name rather than by accident.
+   * `DOMParser` parses with scripting *disabled* and a reader's DOM has it enabled; `noscript` is
+   * the one name whose parsing depends on that flag, so the two parsers genuinely disagree in both
+   * directions — measured in WebKit and Chromium. With scripting off, the content of a `<noscript>`
+   * is markup, so this reference parse would both excuse a real resurrection out of one and call a
+   * correct removal a resurrection. The sanitiser matches the reader's parser, not this one. For
+   * that name the detector is the vector's own check, which forbids the element in the output at
+   * all: if you are adding a `noscript` case, that is the assertion to write, and loosening
+   * anything here to make a failure go away would be fixing the wrong parser.
+   *
+   * Names are compared as a set over the whole document, so a legitimate `<b>` anywhere excuses a
+   * resurrected `<b>` anywhere else. The URL half is what localises a finding, which is why every
+   * case in `no-resurrected-raw-text` carries a URL-bearing element with a sentinel of its own.
    */
   const parity = async (unsanitised, sanitised) => tab.evaluate(([before, after]) => {
     const read = (html) => {
@@ -102,6 +116,10 @@ for (const engine of [webkit, chromium]) {
       for (const element of parsed.querySelectorAll('*')) {
         const tag = element.tagName.toLowerCase();
         if (tag === 'html' || tag === 'head' || tag === 'body') continue;
+        // Scripting is off in here and on in a reader's DOM, so this parser's idea of what is
+        // inside a noscript is not the reader's. Dropped from both sides, or the comparison would
+        // excuse a resurrection in one direction and invent one in the other.
+        if (tag !== 'noscript' && element.closest('noscript') !== null) continue;
         names.add(tag);
         for (const attribute of ['src', 'href', 'poster', 'data', 'srcset']) {
           if (!element.hasAttribute(attribute)) continue;

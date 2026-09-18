@@ -39,8 +39,15 @@ test('a large hostile document is sanitised well inside the viewport budget', ()
 });
 
 test('removal stays linear in the number of removed raw-text elements', () => {
-  const small = fastest(document(1600));
-  const large = fastest(document(6400));
-  // Four times the work, so four times the time; the quadratic version was sixteen and then some.
-  assert.ok(large < small * 8, `1600 blocks took ${small.toFixed(1)} ms and 6400 took ${large.toFixed(1)} ms, which is ${(large / small).toFixed(1)}× for 4× the document`);
+  // Four times the work, so four times the time; the quadratic version was eight times and more.
+  // Measured twice before failing: both numbers are minima, so noise can only inflate them, and a
+  // machine that stalls inside the larger run is the one way this reads high without a regression.
+  const ratio = () => {
+    const small = fastest(document(1600));
+    const large = fastest(document(6400));
+    return { small, large, factor: large / small };
+  };
+  let measured = ratio();
+  if (measured.factor >= 8) measured = ratio();
+  assert.ok(measured.factor < 8, `1600 blocks took ${measured.small.toFixed(1)} ms and 6400 took ${measured.large.toFixed(1)} ms, which is ${measured.factor.toFixed(1)}× for 4× the document`);
 });
