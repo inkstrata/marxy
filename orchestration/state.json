@@ -1,184 +1,197 @@
 {
-  "updated": "2026-09-18T08:34:27.846Z",
+  "updated": "2026-09-18T09:01:04.221Z",
+  "jiraProject": "MARXY",
+  "jiraSite": "https://marxy.atlassian.net",
   "merges": 0,
   "lastPlan": "2026-09-18T08:34:27.846Z",
+  "mergesAtLastPlan": 0,
   "stories": {
-    "MARXY-001": {
+    "MARXY-5": {
       "status": "blocked",
       "attempts": 0
     },
-    "MARXY-002": {
+    "MARXY-6": {
       "status": "blocked",
       "attempts": 0
     },
-    "MARXY-003": {
+    "MARXY-7": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-004": {
+    "MARXY-8": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-010": {
+    "MARXY-9": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-011": {
+    "MARXY-10": {
+      "status": "in_review",
+      "attempts": 1,
+      "branch": "chore/MARXY-10-jira-board-of-record",
+      "started": "2026-09-18T08:51:45.049Z",
+      "pr": 1
+    },
+    "MARXY-11": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-012": {
+    "MARXY-12": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-013": {
+    "MARXY-13": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-014": {
+    "MARXY-14": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-015": {
+    "MARXY-15": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-016": {
+    "MARXY-16": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-020": {
+    "MARXY-17": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-021": {
+    "MARXY-19": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-022": {
+    "MARXY-20": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-023": {
+    "MARXY-21": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-024": {
+    "MARXY-22": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-025": {
+    "MARXY-23": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-026": {
+    "MARXY-24": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-027": {
+    "MARXY-25": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-028": {
+    "MARXY-26": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-029": {
+    "MARXY-27": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-02A": {
+    "MARXY-28": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-02B": {
+    "MARXY-29": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-030": {
+    "MARXY-30": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-031": {
+    "MARXY-31": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-032": {
+    "MARXY-33": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-033": {
+    "MARXY-34": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-034": {
+    "MARXY-35": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-035": {
+    "MARXY-36": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-036": {
+    "MARXY-37": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-040": {
+    "MARXY-38": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-041": {
+    "MARXY-39": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-042": {
+    "MARXY-41": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-043": {
+    "MARXY-42": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-044": {
+    "MARXY-43": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-045": {
+    "MARXY-44": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-046": {
+    "MARXY-45": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-047": {
+    "MARXY-46": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-048": {
+    "MARXY-47": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-050": {
+    "MARXY-48": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-051": {
+    "MARXY-49": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-052": {
+    "MARXY-51": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-053": {
+    "MARXY-52": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-R01": {
+    "MARXY-53": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-54": {
       "status": "todo",
       "attempts": 0
     }
-  },
-  "mergesAtLastPlan": 0
+  }
 }

@@ -4,12 +4,16 @@ Three roles, one loop, everything on disk so any session can pick it up cold.
 
 | Role | Model (edit `models.json`) | Runs | Owns |
 | --- | --- | --- | --- |
-| **Orchestrator** | Claude Opus, medium reasoning | continuously, as the main Cursor agent in this repo | dispatch, review, merge, the board (`state.json`), `needs-human.md` |
+| **Orchestrator** | Claude Opus, medium reasoning | continuously, as the main Cursor agent in this repo | dispatch, review, merge, the board (`state.json` mirrored into Jira), `needs-human.md` |
 | **Planner** | Claude Opus, medium reasoning | periodically, as a subagent the orchestrator invokes | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
 | **Implementor** | Grok 4.6 Fast, high reasoning | one per story, in its own git worktree | exactly one story, on its own branch, inside its listed paths |
 
 The orchestrator never implements. The planner never implements. Implementors never plan.
 Humans (Ian) review taste, approve CODEOWNERS paths, and answer `needs-human.md`.
+
+**Jira is the board of record** — project MARXY at <https://marxy.atlassian.net>, four states,
+WIP limit 3. `state.json` is the local mirror the scripts read; `jira.mjs` keeps the two equal.
+The process, including the definitions of ready and done, is `docs/sdlc.md`.
 
 ## The loop (orchestrator)
 
@@ -23,8 +27,9 @@ Humans (Ian) review taste, approve CODEOWNERS paths, and answer `needs-human.md`
    stat, files outside the listed paths (must be none), gate outputs, the implementor's notes.
    Decide: **merge**, **return** (notes appended, attempts+1), or **escalate** (attempts ≥ 2 →
    the planner splits it or an Opus implementor takes it).
-4. Merge only when CI is green and, for CODEOWNERS paths, a human approved. Squash. Then
-   `node orchestration/state.mjs done KEY`.
+4. `node orchestration/jira.mjs pr KEY <number>` — links the PR on the issue and moves it to
+   In Review. Merge only when CI is green and, for CODEOWNERS paths, a human approved. Squash.
+   Then `node orchestration/state.mjs done KEY`, which moves the Jira issue too.
 5. `node orchestration/planner-trigger.mjs` — says whether to invoke the planner now
    (every 5 merges, any story at 2 failures, a phase boundary, a tripwire in `docs/roadmap.md`,
    or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`.
@@ -53,7 +58,9 @@ frontmatter); the CLI flag, if present in your version, is read from `models.jso
 | File | What |
 | --- | --- |
 | `models.json` | model id and effort per role |
-| `state.json` | the board: status, attempts, branch, PR per story |
+| `jira.mjs` | the Jira bridge: `doctor`, `sync`, `push`, `move`, `pr`, `release`, `bootstrap` |
+| `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |
+| `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
 | `deps.json` | story dependencies (the CSV has none) and phase membership |
 | `results/KEY.json` | written by implementors; the only handshake |
 | `needs-human.md` | queue of things a person must do |
@@ -63,7 +70,9 @@ frontmatter); the CLI flag, if present in your version, is read from `models.jso
 
 ## Rules the scripts enforce, so nobody has to remember them
 
-- One story, one worktree, one branch `type/KEY-slug`; branches are never shared.
+- One story, one worktree, one branch `type/KEY-slug` where KEY is the Jira key; branches are
+  never shared. Every board transition is mirrored to Jira; a Jira failure prints the command
+  to re-run and never stops the loop.
 - A story's diff may touch only its `Paths` (plus `CHANGELOG.md` and its own result file).
   `review.mjs` lists violations; a violation is an automatic **return**.
 - Contracts (`packages/*/src/contracts/**`, `packages/theme/src/tokens.css`) change only in a

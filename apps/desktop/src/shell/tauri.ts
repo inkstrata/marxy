@@ -1,4 +1,4 @@
-/** The only file that talks to Tauri. Implements the parts of shell-api Phase 0 needs (MARXY-012/013 complete it). */
+/** The only file that talks to Tauri. Implements the parts of shell-api Phase 0 needs (MARXY-13/013 complete it). */
 import { invoke } from '@tauri-apps/api/core';
 import type { Shell } from '@marxy/shell-api';
 

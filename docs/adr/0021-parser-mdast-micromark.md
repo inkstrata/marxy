@@ -1,6 +1,6 @@
 # ADR-0021 — The parser is mdast/micromark, not markdown-it
 
-**Status:** proposed (planner, 2026-09-18) · **Decided by:** MARXY-010, which moves this to
+**Status:** proposed (planner, 2026-09-18) · **Decided by:** MARXY-11, which moves this to
 accepted or supersedes it · **Constrains:** ADR-0003
 
 ## Decision
@@ -8,12 +8,12 @@ accepted or supersedes it · **Constrains:** ADR-0003
 MIT), and converts micromark's UTF-16 offsets to byte offsets once per document at parse
 time. `markdown-it` is not the parser; it stays in the tree only as long as the placeholder
 harnesses in `apps/desktop` and `scripts/gate-no-network.mjs` need it, and leaves with
-MARXY-011.
+MARXY-12.
 
 ## Why
 ADR-0003 requires **every** node — inline nodes included — to carry `{file, start, end}` byte
 provenance, because the source map is what makes editing-as-transformation, selection
-resolution (MARXY-040) and reading position (ADR-0018) work at all. `markdown-it` reports
+resolution (MARXY-41) and reading position (ADR-0018) work at all. `markdown-it` reports
 line ranges for block tokens and no positions for inline tokens, so meeting ADR-0003 on top of
 it would mean re-deriving inline positions by re-scanning source text — the kind of
 approximate mapping that eventually writes a byte the user did not ask to change.
@@ -26,7 +26,7 @@ golden files exist is cheap; a provenance retrofit after Phase 3 is not. Recordi
 is the difference.
 
 ## Consequences
-- Parse cost moves onto the Phase 2 cold-start waterfall (MARXY-030) as a measured number. If
+- Parse cost moves onto the Phase 2 cold-start waterfall (MARXY-33) as a measured number. If
   it shows there, the escape hatch is `pulldown-cmark` compiled to WASM, which produces the
   same AST by contract with native byte offsets; the golden files are parser-independent, so
   the swap is contained to `packages/core/src/parse`.

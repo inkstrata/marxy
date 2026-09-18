@@ -1,0 +1,11 @@
+#!/bin/sh
+# No attribution trailers, ever (AGENTS.md). Agent tooling injects them without asking, so
+# strip them, then fail loudly if anything survived. Install with:
+#   git config core.hooksPath .githooks
+msg="$1"
+tmp="$msg.marxy"
+grep -v -i -E '^(co-authored-by:.*(cursor|claude|gpt|grok|copilot|anthropic|openai)|generated with|🤖)' "$msg" > "$tmp" && mv "$tmp" "$msg"
+if grep -q -i -E '^co-authored-by:.*(cursor|claude|gpt|grok|copilot)|generated with' "$msg"; then
+  echo "commit-msg: attribution trailer present and could not be removed (AGENTS.md)" >&2
+  exit 1
+fi

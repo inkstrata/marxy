@@ -1,6 +1,6 @@
 // Byte-fidelity property gate: open → save must be byte-identical for every corpus file, and every
 // operation applied at every applicable node must leave bytes outside its range unchanged.
-// Until the parser and operations exist (MARXY-010, MARXY-030) this checks the round-trip of the
+// Until the parser and operations exist (MARXY-11, MARXY-33) this checks the round-trip of the
 // file layer only, which is the part that must already be true in Phase 0.
 import { readFileSync, readdirSync } from 'node:fs';
 const dir = new URL('../../../fixtures/corpus/', import.meta.url);

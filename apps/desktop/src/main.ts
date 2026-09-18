@@ -20,7 +20,7 @@ async function main() {
   const doc = document.getElementById('doc')!;
   if (file) {
     const bytes = await shell.readFile(file);
-    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes); // display only; the buffer layer (MARXY-013) keeps the raw bytes
+    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes); // display only; the buffer layer (MARXY-14) keeps the raw bytes
     doc.innerHTML = sanitize(md.render(text));
     document.title = `${file.split('/').pop()} — marxy`;
   }

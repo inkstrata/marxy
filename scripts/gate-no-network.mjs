@@ -1,6 +1,6 @@
 // No-network assertion (ADR-0009): render every corpus file through the sanitising pipeline in a real
 // browser with all network access denied, and assert that zero requests were even attempted.
-// Until apps/desktop's renderer is importable (MARXY-012) this uses the same parse→sanitise stage
+// Until apps/desktop's renderer is importable (MARXY-13) this uses the same parse→sanitise stage
 // (markdown-it + DOMPurify) in a harness page, which is the stage that must already hold.
 import { chromium, webkit } from 'playwright';
 import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';

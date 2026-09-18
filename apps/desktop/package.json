@@ -12,7 +12,7 @@
     "build:web": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo ok",
-    "test": "echo 'app tests land with MARXY-012'",
+    "test": "echo 'app tests land with MARXY-13'",
     "tauri": "tauri"
   },
   "dependencies": {
