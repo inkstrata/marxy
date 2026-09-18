@@ -59,6 +59,7 @@
     "MARXY-NEW-katex-cost": "MARXY-60",
     "MARXY-NEW-markdown-it-out": "MARXY-61",
     "MARXY-NEW-specimen-in-ci": "MARXY-62",
-    "MARXY-NEW-perf-floor-statistic": "MARXY-63"
+    "MARXY-NEW-perf-floor-statistic": "MARXY-63",
+    "MARXY-NEW-prose-fixture": "MARXY-64"
   }
 }

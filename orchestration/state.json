@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T10:16:23.706Z",
+  "updated": "2026-09-18T10:26:58.609Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
   "merges": 2,
@@ -74,7 +74,7 @@
       "attempts": 0
     },
     "MARXY-17": {
-      "status": "in_review",
+      "status": "todo",
       "attempts": 1,
       "started": "2026-09-18T09:46:41.316Z",
       "pr": 6,
@@ -82,9 +82,10 @@
       "worktree": "../marxy-wt/MARXY-17"
     },
     "MARXY-19": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
-      "started": "2026-09-18T09:52:32.507Z"
+      "started": "2026-09-18T09:52:32.507Z",
+      "pr": 7
     },
     "MARXY-20": {
       "status": "todo",
@@ -225,9 +226,10 @@
       "finished": "2026-09-18T09:51:09.339Z"
     },
     "MARXY-57": {
-      "status": "in_progress",
+      "status": "in_review",
       "attempts": 1,
-      "started": "2026-09-18T10:02:09.441Z"
+      "started": "2026-09-18T10:02:09.441Z",
+      "pr": 8
     },
     "MARXY-58": {
       "status": "todo",
@@ -250,6 +252,10 @@
       "attempts": 0
     },
     "MARXY-63": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-64": {
       "status": "todo",
       "attempts": 0
     }

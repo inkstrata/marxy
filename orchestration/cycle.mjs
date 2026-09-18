@@ -29,6 +29,13 @@ for (const [key, rec] of Object.entries(s.stories)) {
   const pr = JSON.parse(view);
   // A branch cut before main moved was tested against a main that no longer exists. Refresh it and
   // let the next cycle read the honest result rather than merging on a stale green.
+  // Never while an implementor is in the worktree: updating the branch ref under a working tree it
+  // has checked out made one agent stage a revert of somebody else's merge.
+  const live = rec.worktree && existsSync(`${ROOT}${rec.worktree}`);
+  if (pr.state === 'OPEN' && pr.mergeStateStatus === 'BEHIND' && live) {
+    held.push(`${key}: PR #${rec.pr} is behind main but ${rec.worktree} is still checked out; the implementor merges it`);
+    continue;
+  }
   if (pr.state === 'OPEN' && pr.mergeStateStatus === 'BEHIND' && !DRY) {
     const r = sh('gh', ['pr', 'update-branch', String(rec.pr)]);
     held.push(`${key}: PR #${rec.pr} was behind main — ${typeof r === 'string' ? 'updated; CI is re-running' : `update failed: ${r.error.split('\n')[0]}`}`);
