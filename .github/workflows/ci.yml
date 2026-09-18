@@ -124,9 +124,8 @@ jobs:
       - uses: jdx/mise-action@v2
         with:
           cache: true
-      # Installed directly rather than through a caching action. The cache restores the files without
-      # the package metadata, so pkg-config cannot find glib-2.0 and every Rust build on the Linux
-      # runner fails; it also puts a third-party action in the path of every build we make.
+      # Plain apt, not cache-apt-pkgs-action: its cached restore dropped glib-2.0.pc, so clippy and
+      # the build could not find glib on a cache hit and main went red (runs 35376241346, 35377516836).
       - name: Linux webview and X deps
         if: runner.os == 'Linux'
         run: |
