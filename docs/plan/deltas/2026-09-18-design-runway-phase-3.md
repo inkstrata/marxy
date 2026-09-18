@@ -50,8 +50,11 @@ changes what a reader experiences:
 4. **Grants are per path, with no global "always allow"** (§12). This is safer, and it means one
    click per README.
 
-ADR-0026 and ADR-0027 are *proposed*. ADR-0026 lands through a contracts-path PR, which needs
-Ian as code owner. ADR-0027 is accepted by the two stories that implement it.
+ADR-0026 and ADR-0027 are *proposed*. ADR-0026 lands through a contracts-path PR. Since ADR-0028
+(merged after this pass was written) that path merges on a signed review, with a non-blocking
+flag to Ian. ADR-0028 also puts the sanitiser, `tauri.conf.json` and `capabilities/` **on**
+CODEOWNERS, so MARXY-42 (capabilities), MARXY-45, MARXY-52, MARXY-96 and MARXY-97 each need
+Ian's review. ADR-0027 is accepted by the two stories that implement it.
 
 ## New stories (applied and synced 2026-09-18: MARXY-93 … MARXY-97)
 
@@ -122,7 +125,7 @@ to v1.
 Once its dependencies are done, each of these can start. Stories on the same line have
 disjoint paths:
 
-1. MARXY-93, MARXY-94 (Ian), MARXY-96. None of them waits on
+1. MARXY-93, MARXY-94, MARXY-96 (Ian reviews: sanitiser path). None of them waits on
    Phase 3, so they can land early and take pressure off the critical path.
 2. MARXY-95, then MARXY-87.
 3. MARXY-41, then MARXY-42, then MARXY-43 and MARXY-48 in parallel (their paths meet only at
@@ -142,8 +145,8 @@ disjoint paths:
 ## How we would know I was wrong
 
 1. **ADR-0026 is rejected** and Ian prefers per-story amendments. Then the MARXY-94
-   card is dropped, each card that names an ADR-0026 member gains a contract step, and those
-   stories all need code-owner review.
+   card is dropped, each card that names an ADR-0026 member gains a contract step, and each of those
+   stories amends the contract itself.
 2. **`ureq`/`rustls` fails the licence gate and `native-tls` also fails.** Then the remote-image
    opt-in cannot ship without a licence exception. The cut in scope order is to drop it from v1:
    MARXY-97 is marked dropped, ADR-0027 §1 stands, and images stay alt text with
@@ -158,7 +161,7 @@ disjoint paths:
 - **Done 2026-09-18:** the CSV rows and edits and the `deps.json` edges were applied and `jira.mjs sync` run (5 created as MARXY-93–97, 82 updated, 0 failed).
 - Dispatch MARXY-93 and MARXY-96 as soon as their dependencies are done.
   Neither blocks anything in flight.
-- MARXY-94 needs Ian (contracts path). Add a `needs-human.md` line.
+- MARXY-94 amends a frozen contract: flag it in `needs-human.md` (non-blocking since ADR-0028). MARXY-42, 45, 52, 96 and 97 touch CODEOWNERS paths under ADR-0028 and wait for Ian's review.
 - MARXY-26 and MARXY-37 cards changed (image root, buffer dependency). Re-read them before
   dispatch.
 - MARXY-75's card frontmatter no longer lists the stories it blocks as its dependencies.

@@ -8,6 +8,8 @@ verify: [pnpm precheck, pnpm done MARXY-97]
 
 **Design:** [12-trust](../../design/12-trust.md) §Fetching · [06-shell](../../design/06-shell.md) `fetchRemoteImage`, §CSP · **ADR:** [ADR-0027](../../adr/0027-remote-content-through-the-shell.md) (this story and MARXY-45 move it to accepted) · **Depends on:** MARXY-44 (grants, notice), MARXY-94.
 
+
+**Review:** touches a CODEOWNERS path under ADR-0028 (sanitiser, `tauri.conf.json` or `capabilities/`), so it waits for Ian's review as well as the signed one.
 **Outcome.** After "Load images from img.shields.io and github.com", a README's badges and screenshots appear. The request is made by marxy's Rust process, over HTTPS only, without cookies or a referrer, and only to the hosts the reader named for this document. The webview still cannot reach the network.
 
 ## Files and signatures

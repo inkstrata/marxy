@@ -8,6 +8,8 @@ verify: [pnpm precheck, pnpm done MARXY-42]
 
 **Design:** [03-selection-and-operations](../../design/03-selection-and-operations.md) §Applying an operation, §`copy-section`, §`copy-code-clean`, §The command registry · [06-shell](../../design/06-shell.md) `clipboardWrite` · [09-app-shell](../../design/09-app-shell.md) `Mod+C`, `Mod+Shift+P` · **Depends on:** MARXY-41, MARXY-87 (palette view with an operations state) · **ADRs:** ADR-0004.
 
+
+**Review:** touches a CODEOWNERS path under ADR-0028 (sanitiser, `tauri.conf.json` or `capabilities/`), so it waits for Ian's review as well as the signed one.
 **Outcome.** With a section or a code block selected, `Mod+C` (or the palette's operations list) puts clean text on the clipboard: a section as its markdown source, a code block without fences or highlight markup. The palette offers these only when they apply. This story also creates the registry every later command joins.
 
 ## Files and signatures

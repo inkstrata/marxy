@@ -22,7 +22,7 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0014](0014-aesthetics-acceptance.md) | "Aesthetics paramount" has a two-tier acceptance test | accepted |
 | [0015](0015-typeface.md) | Literata and JetBrains Mono, confirmed by the first taste review | proposed until review #0 |
 | [0016](0016-verification-split.md) | Machine gates for everything checkable; a scheduled taste-review queue for the rest | accepted |
-| [0017](0017-trunk-based-agent-workflow.md) | Trunk-based, one issue one branch one PR, CODEOWNERS for the sensitive paths | accepted |
+| [0017](0017-trunk-based-agent-workflow.md) | Trunk-based, one issue one branch one PR, CODEOWNERS for the sensitive paths | accepted, amended by 0028 (the CODEOWNERS list) |
 | [0018](0018-reading-position-coordinate.md) | Reading position is a source-map coordinate, never a scroll offset | accepted |
 | [0019](0019-scope-v1.md) | The v1 cut | accepted |
 | [0020](0020-core-is-shell-free.md) | `packages/core` and `packages/typeset` never depend on the desktop shell | accepted |
@@ -33,3 +33,4 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0025](0025-review-order-and-review-wip.md) | Review order and a WIP limit on review | proposed (MARXY-80) |
 | [0026](0026-shell-api-v1-surface.md) | The shell-api surface for v1, amended once | proposed (MARXY-94) |
 | [0027](0027-remote-content-through-the-shell.md) | Remote images reach the page through the shell, only on consent; the webview never touches the network | proposed (MARXY-97, MARXY-45) |
+| [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |

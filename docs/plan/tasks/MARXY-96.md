@@ -8,6 +8,8 @@ verify: [pnpm precheck, pnpm done MARXY-96]
 
 **Design:** [12-trust](../../design/12-trust.md) §The wide policy, §Rules every policy now carries · [02-render](../../design/02-render.md) §Two-pass sanitise · **Depends on:** MARXY-75 (two-pass pipeline, `withProvenance`) · **ADRs:** ADR-0009, ADR-0023, ADR-0027.
 
+
+**Review:** touches a CODEOWNERS path under ADR-0028 (sanitiser, `tauri.conf.json` or `capabilities/`), so it waits for Ian's review as well as the signed one.
 **Outcome.** `packages/core` can render a document under a wider but still sanitised allow-list, never lets an island claim a `marxy-` id, turns every remote `https:` image into an inert `data-marxy-remote` attribute, and says where in the file each island removal came from. Split out of MARXY-44 so the security-bearing half is reviewed on its own; no reader-visible change until MARXY-44 uses it.
 
 ## Files and signatures

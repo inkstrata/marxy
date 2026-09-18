@@ -8,6 +8,8 @@ verify: [pnpm precheck, pnpm done MARXY-52]
 
 **Design:** [13-release](../../design/13-release.md) (all sections but Budgets and The v1 gate) · **Depends on:** MARXY-16 (v0.0.1 workflow and `verify-release.mjs`), MARXY-45 (final CSP/capabilities, so the notarized binary is the final one) · **Human-gated:** the Apple secrets (`orchestration/needs-human.md`). Everything else is doable without them; the `v1.*` signing check is written now and fires only on a `v1.*` tag.
 
+
+**Review:** touches a CODEOWNERS path under ADR-0028 (sanitiser, `tauri.conf.json` or `capabilities/`), so it waits for Ian's review as well as the signed one.
 **Outcome.** A tag produces two Mac DMGs that open with no Gatekeeper warning, an AppImage, a deb and a Flatpak with no network permission, plus `SHA256SUMS`. "About marxy" in the palette opens a typeset document crediting the typefaces and every dependency, generated from the same resolver the licence gate uses.
 
 ## Files and signatures

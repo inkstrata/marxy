@@ -58,7 +58,7 @@ The interface also names two members nothing uses. MARXY-35 built the index in `
 
 ## Rejected
 
-- **Amend per story.** Seven contract PRs, each blocking a product story on a code-owner review.
+- **Amend per story.** Seven contract PRs, each amending a frozen contract in the middle of a product story (at the time of writing each also waited on a code-owner review; ADR-0028 has since removed that).
 - **Leave the contract as a floor and let `tauri.ts` be the real surface.** Then the contract is
   documentation, and it will be wrong the first time someone reads it.
 - **Remove `listRoot` and `fuzzy`.** A breaking change to a frozen contract for no reader-visible

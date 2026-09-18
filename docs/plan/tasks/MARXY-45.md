@@ -8,6 +8,8 @@ verify: [pnpm precheck, pnpm done MARXY-45]
 
 **Design:** [06-shell](../../design/06-shell.md) §CSP, §Capabilities, §Asset protocol · [12-trust](../../design/12-trust.md) · [10-gates-and-testing](../../design/10-gates-and-testing.md) §The app harness entry · **ADRs:** ADR-0009, ADR-0027 (accepted by this story with MARXY-97) · **Depends on:** MARXY-97 (the last `img-src` source), MARXY-47 (themes, so theme `url()`s are in the gate).
 
+
+**Review:** touches a CODEOWNERS path under ADR-0028 (sanitiser, `tauri.conf.json` or `capabilities/`), so it waits for Ian's review as well as the signed one.
 **Outcome.** The shipped app's content security policy is the final one in §06, its capabilities are exactly the list there, and a gate proves — over the built renderer, not a copy of it — that no corpus document, no hostile theme and no grant makes the page itself touch the network.
 
 ## Files and signatures
