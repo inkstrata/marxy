@@ -1,8 +1,8 @@
 // Classifies the desktop CLI smoke: skip only when the machine delivered no frames,
 // fail when a machine that can paint did not, and keep required mode a hard fail even
 // in the frameless state (MARXY-72). The frames >= 2 assertion (MARXY-13) is never weakened.
-// `.github/workflows/ci.yml` is outside this story's paths; CI requiredness is the equivalent
-// of MARXY_SMOKE_REQUIRED=1 when GitHub Actions runs the desktop `build` lifecycle.
+// `.github/workflows/ci.yml` is outside this story's paths; CI requiredness is the
+// `CLI smoke check on the built binary` step running `verify:cli` (`MARXY_SMOKE_REQUIRED=1`).
 
 /** The MARXY-13 floor: first_text must be at least this many animation frames after render. */
 export const MIN_FRAMES_AFTER_RENDER = 2;
@@ -11,16 +11,16 @@ export const MIN_FRAMES_AFTER_RENDER = 2;
 export const FRAME_ASSERTION_NOT_WRONG =
   'Wake the display and re-run — the frame assertion is not what is wrong.';
 
+/** Env var that forces frames=0 at the harness, as if afterPaint() returned without waiting. */
+export const NEUTRALISE_AFTER_PAINT = 'MARXY_SMOKE_NEUTRALISE_AFTER_PAINT';
+
 /**
  * Whether this smoke run must fail instead of skip.
- * `MARXY_SMOKE_REQUIRED=1` is the hand-reachable required mode (`verify:cli` and a forced build).
- * GitHub Actions always sets `GITHUB_ACTIONS=true`; the desktop `build` script is what CI
- * runs (`pnpm --filter @marxy/desktop build`). `pnpm test` also launches this harness, but
- * before the binary exists, so only the build lifecycle is required there.
+ * `MARXY_SMOKE_REQUIRED=1` is required mode: `verify:cli` sets it, and so does CI's
+ * `CLI smoke check on the built binary` step. Local `pnpm build` does not.
  */
 export function smokeIsRequired(env = process.env) {
-  if (env.MARXY_SMOKE_REQUIRED === '1') return true;
-  return env.GITHUB_ACTIONS === 'true' && env.npm_lifecycle_event === 'build';
+  return env.MARXY_SMOKE_REQUIRED === '1';
 }
 
 /** Names the environment that delivered no frames, so the skip reason is not a generic "skipped". */
@@ -53,6 +53,17 @@ export function paintedFramesOk(frames) {
 }
 
 /**
+ * Frames reported by the app, or 0 when afterPaint is neutralized at the harness boundary.
+ * Neutralization is what a stubbed afterPaint() does: the machine still painted (the line
+ * says frames=2) but the wait never happened, so the independent counter did not advance.
+ */
+export function framesFromPaintedLine(painted, { neutralizeAfterPaint = false } = {}) {
+  const reported = Number(/frames=(\d+)/.exec(painted)?.[1] ?? NaN);
+  if (neutralizeAfterPaint) return 0;
+  return reported;
+}
+
+/**
  * Final paint verdict after the other launch checks have passed.
  * `noPaint` means the machine delivered no frames (MARK no_paint or the harness watchdog).
  * A machine that can paint and reports frames below the MARXY-13 floor always fails,
@@ -74,11 +85,11 @@ export function paintVerdict({ noPaint, frames, required, how, environment }) {
   return { status: 'ok', message: '' };
 }
 
-const BUILD_STEP_NAME = 'Build desktop app';
+const CLI_SMOKE_STEP_NAME = 'CLI smoke check on the built binary';
 
-/** The named CI step that builds the desktop app, or null if the workflow has no such step. */
-export function desktopBuildStepFromWorkflow(yaml) {
-  const start = yaml.search(/^[ \t]*- name:[ \t]*Build desktop app[ \t]*$/m);
+/** The named CI step that runs verify:cli, or null if the workflow has no such step. */
+export function cliSmokeStepFromWorkflow(yaml) {
+  const start = yaml.search(/^[ \t]*- name:[ \t]*CLI smoke check on the built binary[ \t]*$/m);
   if (start < 0) return null;
   const rest = yaml.slice(start);
   const firstNewline = rest.indexOf('\n');
@@ -88,35 +99,29 @@ export function desktopBuildStepFromWorkflow(yaml) {
 }
 
 /**
- * Both GitHub-hosted runner classes must run the desktop build, and that step must not
+ * Both GitHub-hosted runner classes must run verify:cli, and that step must not
  * be softened with continue-on-error or `|| true`.
  */
-export function workflowDesktopBuildIsRequired(yaml) {
+export function workflowCliSmokeIsRequired(yaml) {
   const reasons = [];
   if (!/\bmacos-latest\b/.test(yaml)) reasons.push('workflow is missing macos-latest');
   if (!/\bubuntu-latest\b/.test(yaml)) reasons.push('workflow is missing ubuntu-latest');
-  const step = desktopBuildStepFromWorkflow(yaml);
+  const step = cliSmokeStepFromWorkflow(yaml);
   if (!step) {
-    reasons.push(`workflow has no "${BUILD_STEP_NAME}" step`);
+    reasons.push(`workflow has no "${CLI_SMOKE_STEP_NAME}" step`);
     return { ok: false, reasons };
   }
-  if (!/pnpm --filter @marxy\/desktop build/.test(step)) {
-    reasons.push('Build desktop app does not run pnpm --filter @marxy/desktop build');
+  if (!/pnpm --filter @marxy\/desktop verify:cli/.test(step)) {
+    reasons.push('CLI smoke check does not run pnpm --filter @marxy/desktop verify:cli');
   }
   if (/continue-on-error/.test(step)) {
-    reasons.push('Build desktop app sets continue-on-error');
+    reasons.push('CLI smoke check sets continue-on-error');
   }
   if (/\|\|\s*true/.test(step)) {
-    reasons.push('Build desktop app uses || true');
+    reasons.push('CLI smoke check uses || true');
   }
   if (/^[ \t]*if:/m.test(step)) {
-    reasons.push('Build desktop app is gated by if: and may skip a runner class');
+    reasons.push('CLI smoke check is gated by if: and may skip a runner class');
   }
-  const setsRequired = /MARXY_SMOKE_REQUIRED:\s*['"]?1['"]?/.test(step)
-    || /MARXY_SMOKE_REQUIRED=1/.test(step);
-  const equivalent = smokeIsRequired({ GITHUB_ACTIONS: 'true', npm_lifecycle_event: 'build' });
-  if (!setsRequired && !equivalent) {
-    reasons.push('Build desktop app neither sets MARXY_SMOKE_REQUIRED=1 nor has an equivalent required mode');
-  }
-  return { ok: reasons.length === 0, reasons, setsRequired, equivalent };
+  return { ok: reasons.length === 0, reasons };
 }

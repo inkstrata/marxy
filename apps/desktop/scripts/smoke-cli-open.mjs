@@ -3,23 +3,49 @@
 // <epoch ms>` is printed at least two animation frames after the render, and MARXY_QUIT_AFTER_PAINT=1
 // exits with code 0. Also checks the three launches that must NOT report first_text: no document, a
 // document with no text, and a document that cannot be read.
-// MARXY_SMOKE_REQUIRED=1 (verify:cli, or a forced build) makes every skip a failure instead:
-// an unbuilt binary, or an environment that delivers no animation frames at all.
-// CI requiredness is the equivalent: GitHub Actions running the desktop `build` lifecycle
-// (MARXY-72). The frames >= 2 assertion (MARXY-13) is never skipped for a build that can paint.
+// MARXY_SMOKE_REQUIRED=1 (verify:cli, which CI runs as `CLI smoke check on the built binary`)
+// makes every skip a failure instead: an unbuilt binary, or an environment that delivers no
+// animation frames at all (MARXY-72). The frames >= 2 assertion (MARXY-13) is never skipped
+// for a build that can paint.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  FRAME_ASSERTION_NOT_WRONG,
+  NEUTRALISE_AFTER_PAINT,
   framelessEnvironment,
+  framesFromPaintedLine,
   paintedFramesOk,
   paintVerdict,
   smokeIsRequired,
 } from './smoke-verdict.mjs';
 
 const repoRoot = new URL('../../../', import.meta.url).pathname;
+const neutralizeAfterPaint = process.env[NEUTRALISE_AFTER_PAINT] === '1'
+  || process.argv.includes('--selftest-neutralise-after-paint');
+
+// A canned successful paint, then afterPaint forced to frames=0 at the harness. Proves a
+// machine that delivered frames still fails when the wait is stubbed — not a frameless skip.
+if (process.argv.includes('--selftest-neutralise-after-paint')) {
+  const painted = 'MARK painted frames=2 since_render_ms=29';
+  const frames = framesFromPaintedLine(painted, { neutralizeAfterPaint: true });
+  const verdict = paintVerdict({
+    noPaint: false,
+    frames,
+    required: false,
+    how: '',
+    environment: framelessEnvironment(),
+  });
+  if (verdict.status !== 'fail' || !/frames=0/.test(verdict.message) || verdict.message.includes(FRAME_ASSERTION_NOT_WRONG)) {
+    console.error(`smoke-cli-open selftest failed: expected fail frames=0 without a skip sentence, got ${JSON.stringify(verdict)}`);
+    process.exit(2);
+  }
+  console.error(`smoke-cli-open failed: ${verdict.message}`);
+  process.exit(1);
+}
+
 const doc = `${repoRoot}fixtures/corpus/02-readme-real-world.md`;
 const required = smokeIsRequired(process.env);
 const bin = [
@@ -135,7 +161,7 @@ const painted = open.lines[paintedIndex] ?? '';
 const blocks = Number(/blocks=(\d+)/.exec(render)?.[1] ?? 0);
 const chars = Number(/chars=(\d+)/.exec(render)?.[1] ?? 0);
 const heading = /heading=(.*)$/.exec(render)?.[1] ?? '';
-const frames = Number(/frames=(\d+)/.exec(painted)?.[1] ?? NaN);
+const frames = framesFromPaintedLine(painted, { neutralizeAfterPaint });
 const sinceRender = Number(/since_render_ms=(\d+)/.exec(painted)?.[1] ?? NaN);
 
 // `MARK no_paint`, or a render that never reports a paint at all, is this environment delivering no
@@ -203,7 +229,7 @@ if (failures.length) {
 }
 
 // An environment that paints nothing cannot answer the question this check exists to ask, so it says so
-// instead of pretending either way: strict where the answer is required (CI build, MARXY_SMOKE_REQUIRED=1),
+// instead of pretending either way: strict where the answer is required (CI verify:cli, MARXY_SMOKE_REQUIRED=1),
 // skipped with the reason named where it is not. The property under test is not the thing at fault.
 if (noPaint) {
   const how = open.watchdogFired

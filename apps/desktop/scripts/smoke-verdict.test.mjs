@@ -2,17 +2,20 @@
 // hand-reachable required mode, and the definition-of-done skip table in docs/sdlc.md.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   FRAME_ASSERTION_NOT_WRONG,
   MIN_FRAMES_AFTER_RENDER,
-  desktopBuildStepFromWorkflow,
+  NEUTRALISE_AFTER_PAINT,
+  cliSmokeStepFromWorkflow,
   framelessEnvironment,
+  framesFromPaintedLine,
   paintVerdict,
   paintedFramesOk,
   smokeIsRequired,
-  workflowDesktopBuildIsRequired,
+  workflowCliSmokeIsRequired,
 } from './smoke-verdict.mjs';
 
 const repoRoot = new URL('../../../', import.meta.url).pathname;
@@ -40,24 +43,27 @@ test('frameless optional smoke skips, names the environment, and says the frame 
   );
 });
 
-test('CI desktop build requires smoke on both runner classes without continue-on-error', () => {
+test('CI verify:cli requires smoke on both runner classes without continue-on-error', () => {
   const yaml = readFileSync(join(repoRoot, '.github/workflows/ci.yml'), 'utf8');
-  const step = desktopBuildStepFromWorkflow(yaml);
-  assert.ok(step, 'workflow must have a Build desktop app step');
-  const result = workflowDesktopBuildIsRequired(yaml);
+  const step = cliSmokeStepFromWorkflow(yaml);
+  assert.ok(step, 'workflow must have a CLI smoke check on the built binary step');
+  const result = workflowCliSmokeIsRequired(yaml);
   assert.equal(result.ok, true, result.reasons.join('; '));
-  assert.equal(
-    smokeIsRequired({ GITHUB_ACTIONS: 'true', npm_lifecycle_event: 'build' }),
-    true,
-    'GITHUB_ACTIONS + the desktop build lifecycle is the equivalent of MARXY_SMOKE_REQUIRED=1',
+  const pkg = JSON.parse(readFileSync(join(repoRoot, 'apps/desktop/package.json'), 'utf8'));
+  assert.match(
+    pkg.scripts['verify:cli'],
+    /MARXY_SMOKE_REQUIRED=1/,
+    'verify:cli is how CI requires the smoke; the workflow must not rely on a build-lifecycle equivalent',
   );
   assert.equal(
-    smokeIsRequired({ GITHUB_ACTIONS: 'true', npm_lifecycle_event: 'test' }),
+    smokeIsRequired({ GITHUB_ACTIONS: 'true', npm_lifecycle_event: 'build' }),
     false,
-    'CI test must not require smoke: it runs before the binary exists',
+    'GITHUB_ACTIONS + the desktop build lifecycle is not requiredness; CI runs verify:cli instead',
   );
   assert.equal(/continue-on-error/.test(step), false);
   assert.equal(/\|\|\s*true/.test(step), false);
+  assert.match(yaml, /macos-latest/);
+  assert.match(yaml, /ubuntu-latest/);
 });
 
 test('afterPaint neutralised on a machine that delivers frames still fails the smoke', () => {
@@ -72,14 +78,18 @@ test('afterPaint neutralised on a machine that delivers frames still fails the s
   );
   assert.match(main, /neutralising afterPaint\(\) reports frames=0/);
 
+  // A machine that painted: the app printed frames=2. Neutralizing afterPaint at the
+  // harness boundary is what a stubbed afterPaint() does — the wait never happened.
+  const painted = 'MARK painted frames=2 since_render_ms=29';
+  assert.equal(framesFromPaintedLine(painted), 2);
+  const frames = framesFromPaintedLine(painted, { neutralizeAfterPaint: true });
+  assert.equal(frames, 0);
   assert.equal(MIN_FRAMES_AFTER_RENDER, 2);
-  assert.equal(paintedFramesOk(0), false);
-  assert.equal(paintedFramesOk(1), false);
-  assert.equal(paintedFramesOk(2), true);
+  assert.equal(paintedFramesOk(frames), false);
 
   const verdict = paintVerdict({
     noPaint: false,
-    frames: 0,
+    frames,
     required: false,
     how: '',
     environment: framelessEnvironment('darwin'),
@@ -88,6 +98,35 @@ test('afterPaint neutralised on a machine that delivers frames still fails the s
   assert.match(verdict.message, /frames=0/);
   assert.equal(
     verdict.message.includes(FRAME_ASSERTION_NOT_WRONG),
+    false,
+    'a neutralized afterPaint is a real defect, not a frameless skip',
+  );
+
+  // Run the smoke harness itself with neutralization forced, so this is not only a helper call.
+  const run = spawnSync(process.execPath, [join(repoRoot, 'apps/desktop/scripts/smoke-cli-open.mjs')], {
+    cwd: repoRoot,
+    env: { ...process.env, [NEUTRALISE_AFTER_PAINT]: '1', MARXY_SMOKE_REQUIRED: '' },
+    encoding: 'utf8',
+  });
+  if (/no release binary/.test(run.stdout + run.stderr)) {
+    // pnpm test in CI runs before the binary exists; the harness self-check below still runs.
+    const self = spawnSync(
+      process.execPath,
+      [join(repoRoot, 'apps/desktop/scripts/smoke-cli-open.mjs'), '--selftest-neutralise-after-paint'],
+      { cwd: repoRoot, encoding: 'utf8' },
+    );
+    assert.notEqual(self.status, 0, self.stdout + self.stderr);
+    assert.match(self.stderr + self.stdout, /frames=0/);
+    assert.equal(
+      (self.stderr + self.stdout).includes(FRAME_ASSERTION_NOT_WRONG),
+      false,
+    );
+    return;
+  }
+  assert.notEqual(run.status, 0, `neutralized afterPaint must fail the smoke, got exit ${run.status}\n${run.stdout}\n${run.stderr}`);
+  assert.match(run.stderr + run.stdout, /frames=0/);
+  assert.equal(
+    (run.stderr + run.stdout).includes(FRAME_ASSERTION_NOT_WRONG),
     false,
     'a neutralized afterPaint is a real defect, not a frameless skip',
   );
@@ -122,6 +161,14 @@ test('docs/sdlc.md states which definition-of-done commands may skip', () => {
   assert.match(sdlc, /pnpm lint[^\n]*never skip/i);
   assert.match(sdlc, /animation frames/i);
   assert.match(sdlc, /MARXY_SMOKE_REQUIRED=1/);
+  assert.match(sdlc, /verify:cli/);
   assert.match(sdlc, /frame assertion is not what is wrong/);
   assert.match(sdlc, /unit tests never skip/i);
+  assert.equal(
+    /GITHUB_ACTIONS[^\n]*build[^\n]*lifecycle/.test(sdlc),
+    false,
+    'skip table must not describe CI as a build-lifecycle equivalent; CI runs verify:cli',
+  );
+  assert.match(sdlc, /merge-bar\.mjs/);
+  assert.match(sdlc, /## Credentials/);
 });
