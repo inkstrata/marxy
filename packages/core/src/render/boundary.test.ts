@@ -5,6 +5,7 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
+import { GATE_DOCUMENT_DIRECTORY, GATE_DOCUMENT_ORIGIN } from '../sanitize/document-origin.ts';
 
 const srcDir = new URL('../', import.meta.url);
 const gate = readFileSync(new URL('../../../../scripts/gate-no-network.mjs', import.meta.url), 'utf8');
@@ -59,4 +60,24 @@ test('the no-network gate no longer drives the markdown-it and DOMPurify placeho
 test('both engines are still driven, in both directions', () => {
   assert.match(gate, /webkit/);
   assert.match(gate, /chromium/);
+});
+
+test('the gate serves documents from a directory, or its containment check means nothing', () => {
+  // Served from the origin root, `../../../../etc/passwd` resolves to `/etc/passwd`, which is
+  // inside the root, so every request is "contained" by construction and the check that a document
+  // cannot reach outside its own directory passes vacuously — the round-1 finding, in a new shape.
+  // The gate's own control 4 catches this at runtime; this catches it before a browser is started.
+  const directory = new URL(GATE_DOCUMENT_DIRECTORY);
+  assert.equal(directory.origin, new URL(GATE_DOCUMENT_ORIGIN).origin);
+  assert.notEqual(directory.pathname, '/', 'a document served from the origin root cannot be climbed out of');
+  assert.ok(directory.pathname.endsWith('/'), 'the directory must end in a slash, or a sibling file would look contained');
+  assert.ok(new URL('../../../../../../etc/passwd', directory).href.startsWith(GATE_DOCUMENT_ORIGIN));
+  assert.ok(!new URL('../../../../../../etc/passwd', directory).href.startsWith(directory.href), 'a traversal must be detectable as leaving the directory');
+});
+
+test('the gate checks that the sanitiser builds nothing the engine would not have built', () => {
+  // The parse-parity check is the only thing standing between a raw-text mistake and a reader
+  // fetching a file their document never asked for, so it may not quietly disappear.
+  assert.match(gate, /DOMParser/, 'parity is asked of the engine, not of a regular expression here');
+  assert.match(gate, /resurrected/);
 });

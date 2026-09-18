@@ -61,7 +61,7 @@ const allowed = {
   blocks: [...BLOCK_ELEMENTS],
 };
 
-const report = { files: files.length, vectors: VECTORS.length, controls: {}, contained: [], escaped: [], remote: [], violations: [], rendered: {} };
+const report = { files: files.length, vectors: VECTORS.length, controls: {}, contained: [], escaped: [], remote: [], violations: [], resurrected: [], rendered: {} };
 const failures = [];
 
 for (const engine of [webkit, chromium]) {
@@ -80,22 +80,80 @@ for (const engine of [webkit, chromium]) {
   const tab = await context.newPage();
   // A second observer, because a request the router never sees is still a request.
   tab.on('request', (request) => { const url = request.url(); if (url !== documentUrl) observed.push(url); });
+  // The witness for navigation. `tab.url()` is not one: an aborted navigation leaves it unchanged
+  // in WebKit, and a page that reloads itself ends up back at the URL it started from. Every
+  // navigation fires this, including the one `goto` performs, which is why the count is compared
+  // against one rather than against zero.
+  let navigations = 0;
+  tab.on('framenavigated', (frame) => { if (frame === tab.mainFrame()) navigations += 1; });
+
+  /**
+   * Does the engine build anything from the sanitised output that it did not build from the
+   * sanitiser's own input? The parse is the engine's, through `DOMParser`, which runs no script,
+   * navigates nowhere and fetches nothing, so the question can be asked of a hostile document
+   * safely. A yes means the sanitiser turned text a parser keeps inert into markup — how a
+   * `<plaintext>`-smuggled image made a reader fetch a file its document never asked for.
+   */
+  const parity = async (unsanitised, sanitised) => tab.evaluate(([before, after]) => {
+    const read = (html) => {
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const names = new Set();
+      const urls = new Set();
+      for (const element of parsed.querySelectorAll('*')) {
+        const tag = element.tagName.toLowerCase();
+        if (tag === 'html' || tag === 'head' || tag === 'body') continue;
+        names.add(tag);
+        for (const attribute of ['src', 'href', 'poster', 'data', 'srcset']) {
+          if (!element.hasAttribute(attribute)) continue;
+          // Normalised, because the sanitiser emits an absolute URL in the form the browser will
+          // use — a host in punycode is the same host, not a resurrected one.
+          const value = element.getAttribute(attribute);
+          let resolved = value;
+          try { resolved = new URL(value, 'https://parity.invalid/directory/').href; } catch { /* keep the raw value */ }
+          urls.add(resolved);
+        }
+      }
+      return { names, urls };
+    };
+    const input = read(before);
+    const output = read(after);
+    return [
+      ...[...output.names].filter((name) => !input.names.has(name)).map((name) => `<${name}> built from text the parser keeps inert`),
+      ...[...output.urls].filter((url) => !input.urls.has(url)).map((url) => `${url.slice(0, 80)} fetched from text the parser keeps inert`),
+    ];
+  }, [unsanitised, sanitised]).catch((error) => [`#parity-unreadable (${String(error).slice(0, 60)})`]);
 
   /** Loads a document at its own path in the corpus directory and reports what it attempted. */
   const run = async (html, where = 'document.html') => {
     body = page(html);
     documentUrl = new URL(where, GATE_DOCUMENT_DIRECTORY).href;
     observed = [];
-    await tab.goto(documentUrl, { waitUntil: 'load' });
+    navigations = 0;
+    let loaded = true;
+    // A page that navigates while loading makes `goto` time out. That fails closed either way, but
+    // recording it keeps the failure legible instead of an unhandled rejection with a stack trace.
+    try {
+      await tab.goto(documentUrl, { waitUntil: 'load', timeout: 15_000 });
+    } catch (error) {
+      loaded = false;
+      observed.push(`#navigation-during-load (${String(error).slice(0, 60)})`);
+    }
     await tab.waitForTimeout(150);
     const unique = [...new Set(observed)];
     const directory = new URL('./', documentUrl).href;
     // A document that takes the reader somewhere has already done the harm; it is also why the DOM
     // below may be unreadable, so both are recorded as what they are rather than as a quiet zero.
-    const live = tab.url() === documentUrl
+    // The `.catch` is load-bearing: a page that reloads itself destroys the execution context, and
+    // this is the only thing that turns that into a failure rather than a skipped check.
+    const live = loaded && navigations <= 1
       ? await tab.evaluate(({ elements, attributes, blocks }) => {
         const found = [];
-        for (const element of document.querySelectorAll('#doc *')) {
+        // The host node is held, not looked up again: `id` is an allow-listed attribute, so a
+        // document may call itself `doc`, and a walk that stops at the *name* would stop inside
+        // the document and report nothing.
+        const host = document.getElementById('doc');
+        if (host === null) return ['#host-missing'];
+        for (const element of host.querySelectorAll('*')) {
           const tag = element.tagName.toLowerCase();
           if (!elements.includes(tag)) { found.push(`<${tag}>`); continue; }
           for (const attribute of element.getAttributeNames()) {
@@ -105,14 +163,14 @@ for (const engine of [webkit, chromium]) {
           // formatting element is what an unclosed `<a>` looks like once a parser has had it, and
           // it means every click in that block goes wherever the anchor points.
           if (!blocks.includes(tag)) continue;
-          for (let parent = element.parentElement; parent !== null && parent.id !== 'doc'; parent = parent.parentElement) {
+          for (let parent = element.parentElement; parent !== null && parent !== host; parent = parent.parentElement) {
             const name = parent.tagName.toLowerCase();
             if (!blocks.includes(name)) found.push(`<${tag}> inside <${name}>`);
           }
         }
         return found;
       }, allowed).catch((error) => [`#dom-unreadable (${String(error).slice(0, 60)})`])
-      : [`#navigated-away to ${tab.url().slice(0, 80)}`];
+      : [`#navigated (${navigations} navigations, now at ${tab.url().slice(0, 60)})`];
     return {
       // Inside the document's own directory: what the shell will serve through `asset:`.
       contained: unique.filter((url) => url.startsWith(directory)),
@@ -140,18 +198,40 @@ for (const engine of [webkit, chromium]) {
   }
   report.controls[`${name}/unsanitised-hostile`] = hostile.remote.length;
 
-  // Control 3: the same unsanitised render is *seen* to break the allow-list in the live DOM, so the
-  // allow-list check below is a measurement of the output and not of an empty query selector.
-  if (hostile.violations.length === 0) {
-    failures.push(`${name}: the unsanitised hostile render broke no allow-list rule in the live DOM, so the allow-list check cannot fail and proves nothing`);
+  // Control 3: a page that breaks the allow-list in two ways and does *not* navigate, so both
+  // halves of the live-DOM check are shown to work in both engines. The unsanitised hostile render
+  // leaves the page in Chromium, where it therefore only ever proved that navigation is recorded.
+  // The anchor calls itself `doc` because a document legally may: `id` is allow-listed, so a walk
+  // that stopped at the *name* of the wrapper rather than at the wrapper itself would stop here,
+  // inside the document, and report nothing. This control fails if that ever comes back.
+  const dirty = await run('<marquee behavior="scroll">a marquee is not on the list</marquee>\n<a id="doc" href="https://control.invalid/"><p>a block inside a formatting element</p></a>', 'control-dirty.html');
+  if (!dirty.violations.some((violation) => violation.includes('<marquee>'))) {
+    failures.push(`${name}: the control page's un-allow-listed element was not seen in the live DOM, so the element half of the allow-list check cannot fail and proves nothing`);
   }
+  if (!dirty.violations.some((violation) => violation.includes('inside <a>'))) {
+    failures.push(`${name}: the control page's block inside an anchor was not seen in the live DOM, so the containment half of the check cannot fail and proves nothing`);
+  }
+  report.controls[`${name}/dirty-dom-violations`] = dirty.violations.length;
   report.controls[`${name}/unsanitised-dom-violations`] = hostile.violations.length;
 
-  const sweep = async (label, html, source, where) => {
+  // Control 4: a reference that climbs out of the document's directory is *seen* to leave it. This
+  // is what pins the directory itself: served from the origin root, `../../../../etc/passwd`
+  // resolves inside the root, every request is "contained" by construction, and the containment
+  // check below becomes the tautology it was in round 1.
+  const traversal = await run(sanitizeHtml('<img src="../../../../../../etc/passwd" alt="traversal">').html, 'control-traversal.html');
+  if (traversal.escaped.length === 0) {
+    failures.push(`${name}: a reference six levels above the document was not seen to leave its directory, so the containment check cannot fail and proves nothing`);
+  }
+  report.controls[`${name}/traversal-escaped`] = traversal.escaped.length;
+
+  const sweep = async (label, html, source, where, unsanitised) => {
     const result = await run(html, where);
     for (const url of result.remote) report.remote.push(`${name} ${label} ${url.slice(0, 160)}`);
     for (const url of result.escaped) report.escaped.push(`${name} ${label} ${url.slice(0, 160)}`);
     for (const violation of result.violations) report.violations.push(`${name} ${label} ${violation}`);
+    for (const resurrection of await parity(unsanitised, html)) {
+      report.resurrected.push(`${name} ${label} ${resurrection}`);
+    }
     for (const url of result.contained) {
       report.contained.push(`${name} ${label} ${url.slice(0, 160)}`);
       // The whole reference, not its last segment: `../../x/passwd` and `passwd` are different
@@ -170,7 +250,7 @@ for (const engine of [webkit, chromium]) {
     if (html.trim() === '' && source.trim() !== '') {
       failures.push(`${name}: ${file} rendered to nothing, so asserting over it would prove nothing`);
     }
-    await sweep(file, html, source, `${file}.html`);
+    await sweep(file, html, source, `${file}.html`, renderToUnsanitisedHtml(parseMarkdown(source, { file })));
     report.rendered[file] = { bytes: html.length, removed: removed.length };
   }
 
@@ -179,8 +259,9 @@ for (const engine of [webkit, chromium]) {
   // them; a vector is a document too, and the corpus cannot be the only thing an engine sees.
   for (const vector of VECTORS) {
     const source = vector.probeHtml ?? vector.probe;
+    const unsanitised = vector.probeHtml ?? renderToUnsanitisedHtml(parseMarkdown(vector.probe, { file: `${vector.id}.md` }));
     const html = vector.probeHtml === undefined ? renderSafeHtml(vector.probe).html : sanitizeHtml(vector.probeHtml).html;
-    await sweep(`vector:${vector.id}`, html, source, `vector-${vector.id}.html`);
+    await sweep(`vector:${vector.id}`, html, source, `vector-${vector.id}.html`, unsanitised);
   }
 
   await browser.close();
@@ -198,9 +279,12 @@ if (report.escaped.length > 0) {
 if (report.violations.length > 0) {
   failures.push(`${report.violations.length} element(s) or attribute(s) outside the allow-list reached the live DOM:\n - ${report.violations.slice(0, 20).join('\n - ')}`);
 }
+if (report.resurrected.length > 0) {
+  failures.push(`${report.resurrected.length} thing(s) the sanitiser built out of text a parser keeps inert:\n - ${report.resurrected.slice(0, 20).join('\n - ')}`);
+}
 if (failures.length > 0) {
   console.error(`no-network gate failed:\n - ${failures.join('\n - ')}`);
   process.exit(1);
 }
 const controls = Object.entries(report.controls).map(([key, count]) => `${key}=${count}`).join(', ');
-console.log(`no-network gate ok: ${files.length} corpus files and ${VECTORS.length} vectors × 2 engines through parse→render→sanitise, 0 remote requests, 0 requests outside the document's directory, 0 elements or attributes outside the allow-list in the live DOM, ${report.contained.length} reference(s) resolved inside the document's own directory; controls observed ${controls}`);
+console.log(`no-network gate ok: ${files.length} corpus files and ${VECTORS.length} vectors × 2 engines through parse→render→sanitise, 0 remote requests, 0 requests outside the document's directory, 0 elements or attributes outside the allow-list in the live DOM, 0 elements built out of text a parser keeps inert, ${report.contained.length} reference(s) resolved inside the document's own directory; controls observed ${controls}`);

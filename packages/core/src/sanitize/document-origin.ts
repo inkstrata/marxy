@@ -18,7 +18,21 @@
 /** The origin `scripts/gate-no-network.mjs` serves documents from. */
 export const GATE_DOCUMENT_ORIGIN = 'https://document.marxy.invalid';
 
-/** The directory the gate serves a document *in*; a request outside it has left the document. */
+/**
+ * The directory the gate serves a document *in*; a request outside it has left the document.
+ *
+ * It must be a real directory rather than the origin root, or the check that a document cannot
+ * reach outside it passes for everything: at the root, `../../../../etc/passwd` resolves to
+ * `/etc/passwd`, which is inside the root. `render/boundary.test.ts` asserts the path, and the
+ * gate's fourth control watches a traversal actually leave.
+ *
+ * There are two rules here and MARXY-45 has to pick one, because they are not the same rule. The
+ * sanitiser keeps `../sibling/diagram.png` and `/local.png` — both are ordinary in a monorepo
+ * README and neither tells anyone anything — while this gate fails any request that leaves the
+ * document's directory. Nothing conflicts today only because no corpus document uses either form.
+ * Whichever the shell enforces when it scopes `asset:`, the other should be changed to match, and
+ * the sanitiser is the wrong place to decide it: it has no idea where the document lives.
+ */
 export const GATE_DOCUMENT_DIRECTORY = `${GATE_DOCUMENT_ORIGIN}/corpus/`;
 
 /**

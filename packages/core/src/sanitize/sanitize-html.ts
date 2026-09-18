@@ -12,6 +12,18 @@
 //     stack. Nothing emits a tag directly, so an element cannot be opened and never closed, and a
 //     solidus is honoured only where a parser honours it.
 //  3. Every URL is decided by resolving it (`urls.ts`), never by reading the string.
+//
+// This is a tokenizer, not a tree builder, and the difference is visible: of 35 tree-construction
+// shapes a reviewer measured, 22 produce a live tree that differs from the one written here —
+// implied end tags, the adoption agency, foster parenting and the table insertion modes all
+// restructure what a browser is given. The reason that is safe is narrower than "the divergences
+// are only lexical", which is false: across 3,005 sanitised outputs re-parsed in both engines,
+// *every divergence made the live tree shallower than the written one*, and the only ancestor any
+// element ever gained was an implied `table`, `tbody` or `tr`. No element ever gained a formatting
+// ancestor and no block ever came to sit inside a non-block, which is the property the reader is
+// owed and the one `gate-no-network.mjs` checks in the live DOM on every run. A change that could
+// make the live tree *deeper* than the written one — allowing an element whose end tag is implied
+// by another, say — is outside what has been measured and needs a tree builder or a new proof.
 
 import { escapeAttribute, escapeAttributeKeepingReferences, decodeReferences } from './escape.ts';
 import {
