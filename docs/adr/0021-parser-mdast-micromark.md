@@ -1,6 +1,6 @@
 # ADR-0021 — The parser is mdast/micromark, not markdown-it
 
-**Status:** accepted (MARXY-11, 2026-09-18) · **Constrains:** ADR-0003
+**Status:** accepted (MARXY-11, 2026-09-18; amended MARXY-68) · **Constrains:** ADR-0003
 
 ## Decision
 `packages/core` parses with `mdast-util-from-markdown` plus `micromark-extension-gfm` (both
@@ -40,9 +40,13 @@ conversion is one `Uint32Array` pass per document (ASCII documents skip even tha
 story budget; micromark is effectively all of it, and the byte conversion does not register.
 Conformance is checked by rendering the AST to HTML and comparing it with the reference
 implementation (`commonmark`, BSD-2-Clause, dev-only) over inputs written here from the
-specification's rules plus a seeded generator that composes them; the specification's own example
-set is CC-BY-SA-4.0 and stays out of the tree (ADR-0006), reachable through an optional check that
-reads a file the developer fetches. Matching the reference implementation at all would not have
+specification's rules plus a seeded generator that composes them. The specification's own example
+set is CC-BY-SA-4.0 and stays out of the tree (ADR-0006): it is never vendored. CI fetches
+CommonMark 0.31.2 `spec.json` (SHA-256
+`d431b29d97b6f73e69d547109cf5081578fac931e72afe95639ebe766c1b2a20`) to a path outside the working
+tree, verifies that digest, and fails the build on any HTML divergence or AST invariant violation.
+The version is pinned in exactly one place, `packages/core/scripts/commonmark-spec.ts`; the digest
+is a fact, not the content. Matching the reference implementation at all would not have
 been possible from line-level block positions.
 
 One caveat the implementation had to resolve: `mdast-util-gfm-autolink-literal` ships a tree
@@ -73,4 +77,6 @@ smaller than "escaped candidates stop linkifying" would suggest.
 - The UTF-16 → byte conversion is a single pass and must be covered by the corpus fixtures
   that exercise it: `07-cjk.md`, `08-rtl.md`, `12-crlf-and-bom.md`.
 - Licence hygiene is unchanged: micromark and mdast are MIT (ADR-0006).
+- The CommonMark examples are checked in CI and never vendored (MARXY-68). A version bump is an
+  edit to the pin and its digest in `packages/core/scripts/commonmark-spec.ts`, recorded here.
 - Nothing in `packages/core` may import from `apps/desktop` to get positions (ADR-0020).
