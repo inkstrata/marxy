@@ -22,3 +22,6 @@ tag time. Conventions in `docs/conventions.md`.
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
+
+### Fixed
+- READMEs and licence files under fonts/ show a normal diff again; only font binaries stay binary, so a reviewer can read a text change without a tool being allowed to rewrite a font byte (MARXY-66)

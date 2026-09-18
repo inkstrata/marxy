@@ -1,6 +1,10 @@
 * text=auto eol=lf
 fixtures/corpus/** -text
-fonts/** binary
-*.ttf binary
+# Font bytes only. The tree-wide fonts/** rule hid README and licence diffs (MARXY-66).
+# -eol undoes the * rule: binary does not unset eol, and eol must not apply to a font.
+*.ttf binary -eol
+*.otf binary -eol
+*.woff binary -eol
+*.woff2 binary -eol
 *.png binary
 docs/plan/jira-issues.csv -text

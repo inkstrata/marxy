@@ -108,6 +108,65 @@ in parentheses. Release notes are generated from the section at tag time.
 - Task-list checkboxes can be toggled in Rendered mode; only the marker bytes change (MARXY-042)
 ```
 
+## Font binaries
+
+Font files are never rewritten (Reserved Font Name; never touch a byte the user did not ask to
+change). `.gitattributes` therefore marks **font binaries by extension** (`ttf`, `otf`, `woff`,
+`woff2`) as `binary` and explicitly unsets `eol`. It does **not** mark the whole `fonts/` tree:
+`fonts/README.md`, `LICENSE` and `OFL.txt` must stay ordinary text so a reviewer can read the
+diff. A tree-wide `fonts/** binary` rule hid the MARXY-17 README row on GitHub; that is the
+wrong trade.
+
+The `*` rule sets `eol=lf`. `binary` does not unset `eol`, so a font pattern that omits `-eol`
+would carry an eol setting a tool could treat as permission to normalise the file. The check
+below fails if a listed extension loses `binary` or gains `eol`, or if those text files become
+binary again:
+
+```sh
+# Fail if a font binary loses `binary` or gains `eol`, or if text under fonts/ is binary (MARXY-66).
+set -eu
+attr() { git check-attr "$1" -- "$2" | awk -F': ' '{print $NF}'; }
+fail() { echo "font-attrs: $*" >&2; exit 1; }
+
+if grep -Eq '^[[:space:]]*fonts/\*\*[[:space:]]+binary' .gitattributes; then
+  fail "fonts/** must not be marked binary; mark ttf/otf/woff/woff2 by extension"
+fi
+
+for path in \
+  'fonts/literata/Literata[opsz,wght].ttf' \
+  'fonts/jetbrains-mono/JetBrainsMono[wght].ttf' \
+  'fonts/source-serif-4/SourceSerif4Variable-Roman.ttf' \
+  'fonts/ibm-plex-mono/IBMPlexMono-Regular.ttf' \
+  'fonts/probe.otf' \
+  'fonts/probe.woff' \
+  'fonts/probe.woff2'
+do
+  binary=$(attr binary "$path")
+  eol=$(attr eol "$path")
+  [ "$binary" = set ] || fail "$path binary is '$binary', want set"
+  case "$eol" in
+    unset|unspecified) ;;
+    *) fail "$path eol is '$eol'; an eol setting would let a tool normalise the font" ;;
+  esac
+done
+
+for path in \
+  fonts/README.md \
+  fonts/literata/LICENSE \
+  fonts/jetbrains-mono/LICENSE \
+  fonts/ibm-plex-mono/LICENSE \
+  fonts/source-serif-4/LICENSE \
+  fonts/literata/OFL.txt
+do
+  binary=$(attr binary "$path")
+  [ "$binary" != set ] || fail "$path is binary; text under fonts/ must stay reviewable"
+done
+
+echo 'font-attrs: ok'
+```
+
+Run it from the repo root.
+
 ## Versions and tags
 
 Semantic Versioning. Annotated tags `vMAJOR.MINOR.PATCH`; pre-releases `v0.1.0-rc.1`. `0.x`
