@@ -3,7 +3,7 @@
 // rendering with nothing but locally vendored OFL fonts and no network, and linked from the review
 // queue with the reviewer's checklist. Run it after render.mjs; it reads only what render.mjs wrote.
 import { existsSync, readFileSync } from 'node:fs';
-import { DPRS, OUT, SOURCE, VIEWPORT, pages, pairs, pngSize, repo, specimenPage, tokens, typeScale } from './specimen.mjs';
+import { CONTROL_RESOURCES, DPRS, OUT, SOURCE, VIEWPORT, pages, pairs, pngSize, repo, specimenPage, tokens, typeScale } from './specimen.mjs';
 
 const fails = [];
 const check = (ok, message) => { if (!ok) fails.push(message); return ok; };
@@ -33,6 +33,7 @@ for (const pair of pairs) {
     }
     const [one, two] = DPRS.map(at);
     if (one && two) check(two.width === one.width * 2 && two.height === one.height * 2, `${pair.slug} ${page.id}: the 2× PNG is not twice the 1× PNG`);
+    if (one && two) check(JSON.stringify(one.anchor) === JSON.stringify(two.anchor), `${pair.slug} ${page.id}: the 1× and 2× captures anchored to different elements`);
   }
 
   // 2. Set at the type scale, in this pair's faces.
@@ -69,7 +70,31 @@ for (const pair of pairs) {
   check(new Set([pair.text, pair.mono]).size === 2 && [...new Set(pair.faces.map(f => f.family))].every(f => f === pair.text || f === pair.mono), `${pair.slug}: a face outside the pair is registered`);
 }
 
-// 5. Nothing is downloaded at render time: no remote URL in the page, none attempted, none blocked.
+// 5. Both sets show the same passage. The pairs set the document to different heights, so this is
+// asserted from the anchors render.mjs recorded, not inferred from the scroll offsets.
+const describe = a => (a ? `<${a.tag}> block ${a.block} "${a.text.slice(0, 40)}"` : 'nothing');
+for (const page of pages) {
+  const anchored = manifest.pairs.map(p => ({ slug: p.slug, anchor: p.images.find(i => i.page === page.id)?.anchor }));
+  const [first, ...rest] = anchored;
+  check(first?.anchor?.text, `${page.id}: no anchor was recorded, so nothing says the two sets show the same passage`);
+  for (const other of rest) check(JSON.stringify(first.anchor) === JSON.stringify(other.anchor), `${page.id}: ${first.slug} anchored to ${describe(first.anchor)}, ${other.slug} to ${describe(other.anchor)}`);
+}
+
+// 6. Nothing is downloaded at render time.
+//
+// What this proves: the render ran behind an interception that aborts and records every http(s)
+// request, and a control page referencing a remote image, video, iframe, stylesheet, @import and
+// fetch() was caught by it in the same run — so the specimen's empty request list is a measurement,
+// not an unwatched silence. Every face is inlined as a data: URL in the page the render fed the
+// browser, which the static scan below re-checks against this committed file.
+// What it does not prove: that a *future* edit renders offline. It is re-measured on every render,
+// and nothing here runs in CI yet (MARXY-62).
+const control = manifest.networkControl;
+if (check(control, 'the manifest has no network control: the zero-request claim rests on nothing')) {
+  for (const kind of CONTROL_RESOURCES) check(control.kinds.includes(kind), `the network control's remote ${kind} was not intercepted, so the interception the no-network claim rests on is not watching everything it claims`);
+  check(control.blocked.length >= CONTROL_RESOURCES.length, `the network control intercepted ${control.blocked.length} requests, expected at least ${CONTROL_RESOURCES.length}`);
+  check(control.blocked.every(u => u.includes('specimen-control.invalid')), `the network control blocked a request it did not make: ${control.blocked.filter(u => !u.includes('specimen-control.invalid')).slice(0, 3).join(', ')}`);
+}
 check(manifest.blocked.length === 0, `the specimen attempted ${manifest.blocked.length} network requests: ${manifest.blocked.slice(0, 5).join(', ')}`);
 check(manifest.requests.every(u => /^(data|about|blob):/i.test(u)), `the specimen requested a non-local URL: ${manifest.requests.filter(u => !/^(data|about|blob):/i.test(u)).slice(0, 5).join(', ')}`);
 for (const pair of pairs) {
@@ -77,13 +102,16 @@ for (const pair of pairs) {
   const urls = [...html.matchAll(/url\(([^)]*)\)/g)].map(m => m[1]);
   check(urls.length === pair.faces.length, `${pair.slug}: the specimen page has ${urls.length} url() references, expected one inlined face per ${pair.faces.length}`);
   check(urls.every(u => u.startsWith('data:font/ttf;base64,')), `${pair.slug}: a font is referenced by URL rather than inlined`);
-  for (const tag of ['<script', '<link', '<img', '<iframe', '@import']) check(!html.includes(tag), `${pair.slug}: the specimen page contains ${tag}, which could fetch`);
+  // Anything that can fetch, by attribute as well as by tag: a remote <video src> reads as neither
+  // <img> nor <script>, and the first version of this scan let one through.
+  const fetching = [...html.matchAll(/<(?:link|script|img|picture|source|iframe|frame|video|audio|track|embed|object|applet)\b|\b(?:src|srcset|poster|background|data|codebase|formaction|ping)\s*=|@import/gi)].map(m => m[0].trim());
+  check(fetching.length === 0, `${pair.slug}: the specimen page contains ${fetching.length} things that can fetch (${[...new Set(fetching)].slice(0, 5).join(', ')})`);
 }
 const fontsReadme = readFileSync(repo('fonts/README.md'), 'utf8');
 for (const family of new Set(pairs.flatMap(p => [p.text, p.mono]))) check(fontsReadme.includes(family), `fonts/README.md does not list ${family}`);
 check(tokens()('measure') === '68ch', `--marxy-measure is ${tokens()('measure')}, not 68ch`);
 
-// 6. The queue entry is the deliverable: it links every PNG and carries the reviewer's checklist.
+// 7. The queue entry is the deliverable: it links every PNG and carries the reviewer's checklist.
 const linked = new Set([...queue.matchAll(/\(([^)]*review-0[^)]*\.png)\)/g)].map(m => m[1].replace(/^\.\//, '')));
 for (const image of manifest.pairs.flatMap(p => p.images)) {
   const rel = image.path.replace('docs/taste-review/', '');
@@ -95,4 +123,4 @@ check(pages.every(p => queue.includes(p.shows)), 'the queue entry does not say w
 
 if (fails.length) { console.error(`specimen gate failed:\n - ${fails.join('\n - ')}`); process.exit(1); }
 const images = manifest.pairs.flatMap(p => p.images).length;
-console.log(`specimen gate ok: ${manifest.pairs.length} pairs × ${pages.length} pages × ${DPRS.length} densities = ${images} PNGs at the type scale, 68ch (${manifest.pairs.map(p => `${p.text} ${p.measured.columnPx}px`).join(', ')}), ${manifest.blocked.length} network requests, ${linked.size} linked from the queue`);
+console.log(`specimen gate ok: ${manifest.pairs.length} pairs × ${pages.length} pages × ${DPRS.length} densities = ${images} PNGs at the type scale, 68ch (${manifest.pairs.map(p => `${p.text} ${p.measured.columnPx}px`).join(', ')}), same ${pages.length} anchors in both sets, ${manifest.blocked.length} network requests against ${control.kinds.length}/${CONTROL_RESOURCES.length} control references intercepted, ${linked.size} linked from the queue`);

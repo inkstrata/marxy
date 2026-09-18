@@ -70,6 +70,11 @@ export const pairs = [
   },
 ];
 
+// The kinds of remote reference the render-time control page makes, to show the interception that
+// the no-network claim rests on is live. `video` is in the list because a remote video src is
+// exactly what a static scan for `<img>` and `<script>` tags misses.
+export const CONTROL_RESOURCES = ['img', 'video', 'iframe', 'stylesheet', 'import', 'fetch'];
+
 // Anchors, not scroll offsets: the two pairs set the document to different heights, and the reviewer
 // has to be looking at the same passage in both to compare anything.
 export const pages = [

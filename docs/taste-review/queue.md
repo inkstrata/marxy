@@ -20,7 +20,7 @@ reading on the fourth page.
 
 | | Pair A | Pair B |
 | --- | --- | --- |
-| Body and headings | Literata (variable, `opsz` 7–72, `wght` 200–900) | Source Serif 4 (variable, `wght` 200–900) |
+| Body and headings | Literata (variable, `opsz` 7–72 default 12, `wght` 200–900) | Source Serif 4 (variable, `opsz` 8–60 default 20, `wght` 200–900) |
 | Code | JetBrains Mono (variable, `wght` 100–800) | IBM Plex Mono (static 400) |
 | Column at 68 `ch` | 670.09 px (9.855 px per character) | 594.75 px (8.747 px per character) |
 | Whole document height | 9,381 px | 9,725 px |
@@ -28,7 +28,10 @@ reading on the fourth page.
 
 The same measure in `ch` gives the two pairs columns 75 px apart, and the narrower pair sets the
 longer document. That is design constraint 1 working as intended, not a bug, but it is the first
-thing to look at: 68 `ch` is the right number for exactly one of these faces.
+thing to look at: 68 `ch` is the right number for exactly one of these faces. A `ch` is the digit
+advance, and both faces put that on their optical-size axis, so the column moves as a reader
+enlarges the type — Literata's digit widens from 0.579 em at 13 px to 0.585 em at 33 px, Source
+Serif 4's narrows from 0.535 em to 0.491 em.
 
 ### What to compare
 
@@ -75,10 +78,22 @@ The ADR's reasoning, restated as things to confirm or overturn with the sets in 
 
 - [ ] **Extended screen reading.** The face was designed for reading on screens for long stretches,
       and passages 1 and 5 bear that out rather than just asserting it.
-- [ ] **Optical size across the scale.** The scale runs 13 px to 33 px. Literata has an `opsz` axis
-      and follows it automatically; Source Serif 4 has none, so its 13 px caption and its 33 px
-      title are the same drawing. Look at the caption row of passage 3 against the title in
-      passage 1 in both pairs and say whether the missing axis costs anything.
+- [ ] **Optical size across the scale.** The scale runs 13 px to 33 px, and **both** faces have an
+      optical-size axis that the specimen follows (`font-optical-sizing: auto`, so every size in
+      both sets is a different drawing, not one drawing scaled). The two axes do different amounts
+      of work. Measured with the specimen's own `@font-face` at weight 400, as the width of a fixed
+      70-character sentence divided by the font size — the number the measure and the rag depend on:
+
+      | | 13 px | 17 px | 33 px | axis pinned |
+      | --- | --- | --- | --- | --- |
+      | Literata (`opsz` 7–72) | 34.202 | 34.159 | 33.989 | 34.212 at every size |
+      | Source Serif 4 (`opsz` 8–60) | 34.696 | 33.266 | 31.285 | 32.193 at every size |
+
+      Literata's axis moves advances 0.6% across the scale; Source Serif 4's moves them 9.8%,
+      setting its caption sizes wider than its pinned drawing and its title sizes tighter. Neither
+      number says which is better: a face that barely changes is consistent across the scale, a
+      face that changes a lot is tuned per size and has more to get wrong. Look at the caption row
+      of passage 3 against the title of passage 1, in both pairs, and say which you prefer.
 - [ ] **A weight axis that goes below regular.** ADR-0015 rules out iA Writer Quattro because its
       axis starts at 400 and cannot be tuned down for Linux, where WebKitGTK renders lighter.
       Both pairs here start at 200, so both pass; confirm that still matters to you.
@@ -100,7 +115,7 @@ have to be vendored before it could be the default.
 
 ### Decision to record
 
-One line, in `docs/taste-review/2026-xx-review-0/decisions.md`: **pair A or pair B**, and whether
+One line, in `docs/taste-review/2026-09-review-0/decisions.md`: **pair A or pair B**, and whether
 68 `ch` survives the choice. Pair A confirms ADR-0015 and moves it from proposed to accepted; pair B
 overturns it, and the follow-up PR swaps the two `--marxy-font-*` tokens, vendors the Source Serif 4
 italic, and rewrites the ADR's decision and consequences.

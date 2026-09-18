@@ -117,6 +117,11 @@
           "page": "p1-opening",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-1x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
           "scrollY": 0,
           "width": 1000,
           "height": 900,
@@ -126,6 +131,11 @@
           "page": "p2-inline-code",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-1x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
           "scrollY": 2601,
           "width": 1000,
           "height": 900,
@@ -135,6 +145,11 @@
           "page": "p3-table",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-1x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
           "scrollY": 852,
           "width": 1000,
           "height": 900,
@@ -144,6 +159,11 @@
           "page": "p4-heading-stack",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-1x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
           "scrollY": 1748,
           "width": 1000,
           "height": 900,
@@ -153,6 +173,11 @@
           "page": "p5-late-list",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-1x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
           "scrollY": 7097,
           "width": 1000,
           "height": 900,
@@ -162,6 +187,11 @@
           "page": "p1-opening",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-2x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
           "scrollY": 0,
           "width": 2000,
           "height": 1800,
@@ -171,6 +201,11 @@
           "page": "p2-inline-code",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-2x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
           "scrollY": 2601,
           "width": 2000,
           "height": 1800,
@@ -180,6 +215,11 @@
           "page": "p3-table",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-2x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
           "scrollY": 852,
           "width": 2000,
           "height": 1800,
@@ -189,6 +229,11 @@
           "page": "p4-heading-stack",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-2x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
           "scrollY": 1748,
           "width": 2000,
           "height": 1800,
@@ -198,6 +243,11 @@
           "page": "p5-late-list",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-2x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
           "scrollY": 7097,
           "width": 2000,
           "height": 1800,
@@ -294,6 +344,11 @@
           "page": "p1-opening",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-1x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
           "scrollY": 0,
           "width": 1000,
           "height": 900,
@@ -303,6 +358,11 @@
           "page": "p2-inline-code",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-1x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
           "scrollY": 2653,
           "width": 1000,
           "height": 900,
@@ -312,6 +372,11 @@
           "page": "p3-table",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-1x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
           "scrollY": 880,
           "width": 1000,
           "height": 900,
@@ -321,6 +386,11 @@
           "page": "p4-heading-stack",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-1x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
           "scrollY": 1776,
           "width": 1000,
           "height": 900,
@@ -330,6 +400,11 @@
           "page": "p5-late-list",
           "dpr": 1,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-1x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
           "scrollY": 7365,
           "width": 1000,
           "height": 900,
@@ -339,6 +414,11 @@
           "page": "p1-opening",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-2x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
           "scrollY": 0,
           "width": 2000,
           "height": 1800,
@@ -348,6 +428,11 @@
           "page": "p2-inline-code",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-2x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
           "scrollY": 2653,
           "width": 2000,
           "height": 1800,
@@ -357,6 +442,11 @@
           "page": "p3-table",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-2x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
           "scrollY": 880,
           "width": 2000,
           "height": 1800,
@@ -366,6 +456,11 @@
           "page": "p4-heading-stack",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-2x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
           "scrollY": 1776,
           "width": 2000,
           "height": 1800,
@@ -375,6 +470,11 @@
           "page": "p5-late-list",
           "dpr": 2,
           "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-2x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
           "scrollY": 7365,
           "width": 2000,
           "height": 1800,
@@ -445,5 +545,32 @@
     }
   ],
   "requests": [],
-  "blocked": []
+  "blocked": [],
+  "networkControl": {
+    "requests": 6,
+    "blocked": [
+      "https://specimen-control.invalid/import",
+      "https://specimen-control.invalid/stylesheet",
+      "https://specimen-control.invalid/img",
+      "https://specimen-control.invalid/iframe",
+      "https://specimen-control.invalid/video",
+      "https://specimen-control.invalid/fetch"
+    ],
+    "kinds": [
+      "img",
+      "video",
+      "iframe",
+      "stylesheet",
+      "import",
+      "fetch"
+    ],
+    "expected": [
+      "img",
+      "video",
+      "iframe",
+      "stylesheet",
+      "import",
+      "fetch"
+    ]
+  }
 }
