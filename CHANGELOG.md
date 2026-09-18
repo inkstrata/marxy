@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Only the security posture and the merge gate itself now wait for a person. Typesetting, theme, contracts, `shell-api` and ADR changes land on a signed review, and taste is checked in the review queue (MARXY-99)
 - CI now fetches the CommonMark specification examples — never committed — and fails the build if a parse diverges from them (MARXY-68)
 - Agents land a pull request once the quality bar is met: a signed review of that exact commit, green gates, and the story's path boundary — CODEOWNERS paths still wait for a person (MARXY-79)
 - The orchestrator fleet can run cheaper: `--low` is Sonnet 5 medium plus Grok 4.6 High Fast, `--minimal` is Grok 4.6 High Fast only
@@ -37,8 +38,13 @@ tag time. Conventions in `docs/conventions.md`.
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 
+### Fixed
+- `pnpm build` no longer fails on a machine whose display is asleep; the smoke check skips with the environment named, and CI still requires a real paint (MARXY-72)
+- Documents saved with Classic Mac (CR-only) line endings keep code-block ranges on the code itself, not an empty span past the fence (MARXY-67)
+
 ### Changed
 - Opening a document now goes through the one parse in `@marxy/core`; markdown-it and DOMPurify are gone from the desktop and the gate harnesses (MARXY-61)
+- Importing the parser no longer pulls in a maths renderer; documents with equations still parse the same (MARXY-60)
 - Dispatch is uncapped: path overlap is the only parallelism limit, so returned PRs no longer sit idle waiting for a free lane
 - CI is faster and steadier: parallel jobs with cached Rust, pnpm, apt and browsers, docs-only changes skip the build, a thin-LTO CI build profile, timeouts on every job, one required status check, and perf breaches re-measured once before they fail (MARXY-83)
 - Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)

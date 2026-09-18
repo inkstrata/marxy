@@ -59,6 +59,30 @@ test('the HTML renderer is the only user of the URI helper, and it is a dev depe
   assert.equal(manifest.dependencies?.['micromark-util-sanitize-uri'], undefined);
 });
 
+test('the parse path loads math syntax without the package root that pulls katex', () => {
+  // micromark-extension-math's index re-exports mathHtml, which imports katex. A future import of
+  // that specifier, or of katex itself, is the regression MARXY-60 exists to catch.
+  const forbidden = new Set(['katex', 'micromark-extension-math']);
+  const offenders: string[] = [];
+  for (const file of production) {
+    for (const specifier of imports(file.text)) {
+      if (forbidden.has(specifier) || specifier.startsWith('katex/') || specifier.startsWith('micromark-extension-math/')) {
+        offenders.push(`${file.path} imports ${specifier}`);
+      }
+    }
+  }
+  assert.deepEqual(offenders, []);
+  const syntax = production.find((file) => file.path === 'parse/math-syntax.ts');
+  assert.ok(syntax, 'parse/math-syntax.ts must exist');
+  const syntaxSpecifiers = imports(syntax.text);
+  assert.equal(syntaxSpecifiers.length, 1, 'math-syntax.ts should re-export one module');
+  assert.match(
+    syntaxSpecifiers[0] ?? '',
+    /micromark-extension-math\/lib\/syntax\.js$/,
+    'math-syntax.ts must import the syntax half, not the package root',
+  );
+});
+
 test('production code runs in a browser: no node: imports outside tests and scripts', () => {
   const offenders: string[] = [];
   for (const file of production) {
