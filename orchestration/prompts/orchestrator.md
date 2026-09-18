@@ -41,9 +41,11 @@ model.
      fix it yourself.
    - **escalate** — after two failed attempts: `node orchestration/state.mjs escalate KEY`;
      the planner splits it or the escalation model takes it.
-4. If a PR touches a CODEOWNERS path, it needs Ian: append to `needs-human.md` with the PR
-   number and what to look at; do not sign around a `REVIEW_REQUIRED`. Continue with other
-   stories.
+4. If a PR touches a CODEOWNERS path (`.github/CODEOWNERS`: the security posture and the merge
+   gate only, ADR-0028), it needs Ian: append to `needs-human.md` with the PR number and what to
+   look at; do not sign around a `REVIEW_REQUIRED`. Continue with other stories. A PR that
+   reverses an accepted ADR merges on the normal bar, but add a `needs-human.md` entry so Ian
+   sees it after the fact.
 5. `node orchestration/planner-trigger.mjs`; if it says yes, run the planner with
    `orchestration/prompts/planner.md` and apply its changes to `deps.json` and the CSV.
 6. At a phase boundary: taste review closed, then the release runbook in `docs/sdlc.md`,

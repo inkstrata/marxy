@@ -1,10 +1,14 @@
-# Human review required on the paths that carry the thesis or the security posture (ADR-0017).
-/packages/typeset/            @inkstrata
-/packages/theme/              @inkstrata
-/packages/shell-api/          @inkstrata
-/packages/core/src/contracts/ @inkstrata
-/packages/core/src/sanitize/  @inkstrata
+# Human review is the floor, not the default (ADR-0028, amending ADR-0017). Only the paths
+# that could weaken the security posture or the merge gate itself wait for a person.
+# Taste-bearing paths (typeset, theme, contracts, ADRs) go through the taste-review queue instead.
+
+# Security posture (ADR-0009): the sanitiser, the CSP and the shell's capabilities.
+/packages/core/src/sanitize/            @inkstrata
 /apps/desktop/src-tauri/tauri.conf.json @inkstrata
 /apps/desktop/src-tauri/capabilities/   @inkstrata
-/.github/workflows/           @inkstrata
-/docs/adr/                    @inkstrata
+
+# The gate itself: CI, release, this file, and the code that decides a merge.
+/.github/                               @inkstrata
+/orchestration/approve.mjs              @inkstrata
+/orchestration/merge-bar.mjs            @inkstrata
+/orchestration/cycle.mjs                @inkstrata
