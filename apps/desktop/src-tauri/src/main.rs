@@ -48,7 +48,9 @@ fn mark_from_webview(app: tauri::AppHandle, name: String, t: f64, data: Option<S
     }
     match name.as_str() {
         "render" => arm_paint_deadline(app, begin_render()),
-        "painted" | "no_text" | "error" => settle_render(),
+        // `no_paint` is also emitted from the webview when `#doc` is not visible: that is not a
+        // paint, and it must disarm the deadline the same way a real paint does.
+        "painted" | "no_text" | "error" | "no_paint" => settle_render(),
         _ => {}
     }
 }
