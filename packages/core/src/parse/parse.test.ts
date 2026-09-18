@@ -13,6 +13,7 @@ import type { Block, Inline, Node } from '../contracts/ast.ts';
 import { byteOffsetTableBuilds, byteOffsets } from './byte-offsets.ts';
 import { ParseProvenanceError, documentFromMdast } from './from-mdast.ts';
 import { checkInvariants } from './invariants.ts';
+import { splitLines } from './line-endings.ts';
 import { parseMarkdown } from './parse.ts';
 
 const corpusDir = new URL('../../../../fixtures/corpus/', import.meta.url);
@@ -58,7 +59,7 @@ test('offsets are byte offsets, not code-unit offsets (07-cjk.md)', () => {
   assert.ok(heading, 'no heading in the CJK fixture');
   // The first heading's text is multi-byte, so a code-unit offset would land mid-character.
   const slice = new TextDecoder().decode(bytes.subarray(heading.src.start, heading.src.end));
-  assert.equal(slice, text.split('\n')[0]);
+  assert.equal(slice, splitLines(text)[0]);
   assert.ok(Buffer.byteLength(slice, 'utf8') > slice.length, 'the fixture is no longer multi-byte');
 });
 
@@ -284,6 +285,81 @@ test('a code block content range is the code alone', () => {
   assert.equal(code.info, 'ts meta');
   assert.equal(text.slice(code.content.start, code.content.end), 'const x = 1;\n');
 });
+
+test('a CR-only fenced block with an info string keeps content, lang and info', () => {
+  const input = '```js meta\rconst x = 1;\r```\r';
+  const bytes = new TextEncoder().encode(input);
+  const document = parseMarkdown(bytes, { file: 'cr-fence.md' });
+  const code = document.children[0] as Extract<Block, { type: 'codeBlock' }>;
+  assert.equal(code.type, 'codeBlock');
+  assert.equal(input.slice(code.content.start, code.content.end), 'const x = 1;\r');
+  assert.equal(code.lang, 'js');
+  assert.equal(code.info, 'js meta');
+  assert.ok(code.info !== undefined && !code.info.includes('const'), 'info swallowed the rest of the block');
+  assert.deepEqual(checkInvariants(document, bytes), []);
+});
+
+test('a CR-only indented block content slices to its code lines alone', () => {
+  const input = '    line one\r    line two\rpara\r';
+  const bytes = new TextEncoder().encode(input);
+  const document = parseMarkdown(bytes, { file: 'cr-indent.md' });
+  const code = document.children[0] as Extract<Block, { type: 'codeBlock' }>;
+  assert.equal(code.type, 'codeBlock');
+  assert.equal(input.slice(code.content.start, code.content.end), '    line one\r    line two');
+  assert.ok(!input.slice(code.content.start, code.content.end).includes('para'), 'content swallowed the paragraph');
+  assert.deepEqual(checkInvariants(document, bytes), []);
+});
+
+// Revert isJustTheCode's NUL → U+FFFD substitution and both of these fail: the value
+// carries the replacement character where the content bytes still hold NUL.
+test('a NUL in a fenced code block stays inside the content range', () => {
+  const input = '```\na\u0000b\n```\n';
+  const bytes = new TextEncoder().encode(input);
+  const document = parseMarkdown(bytes, { file: 'nul-fence.md' });
+  const code = document.children[0] as Extract<Block, { type: 'codeBlock' }>;
+  assert.equal(code.type, 'codeBlock');
+  assert.equal(code.value, 'a\ufffdb');
+  assert.equal(input.slice(code.content.start, code.content.end), 'a\u0000b\n');
+  assert.deepEqual(checkInvariants(document, bytes), []);
+});
+
+test('a NUL in an indented code block stays inside the content range', () => {
+  const input = '    a\u0000b\n';
+  const bytes = new TextEncoder().encode(input);
+  const document = parseMarkdown(bytes, { file: 'nul-indent.md' });
+  const code = document.children[0] as Extract<Block, { type: 'codeBlock' }>;
+  assert.equal(code.type, 'codeBlock');
+  assert.equal(code.value, 'a\ufffdb');
+  assert.equal(input.slice(code.content.start, code.content.end), '    a\u0000b');
+  assert.deepEqual(checkInvariants(document, bytes), []);
+});
+
+test('no parse source splits or searches on a bare newline literal', () => {
+  // Needles are assembled so this file does not contain the calls it forbids.
+  const nl = String.raw`\n`;
+  const pattern = new RegExp(String.raw`\b(?:indexOf|split)\(\s*(['"\`])` + nl.replaceAll('\\', '\\\\') + String.raw`\1`);
+  const parseDir = new URL('./', import.meta.url);
+  const offenders: string[] = [];
+  const walk = (directory: URL, prefix = ''): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const name = `${prefix}${entry.name}`;
+      if (entry.isDirectory()) {
+        walk(new URL(`${entry.name}/`, directory), `${name}/`);
+        continue;
+      }
+      if (!entry.name.endsWith('.ts')) continue;
+      const text = withoutComments(readFileSync(new URL(entry.name, directory), 'utf8'));
+      if (pattern.test(text)) offenders.push(name);
+    }
+  };
+  walk(parseDir);
+  assert.deepEqual(offenders, []);
+});
+
+/** Block and line comments only; a forbidden call hiding in a comment is allowed. */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"])\/\/.*$/gm, '$1');
+}
 
 /**
  * How much slower this machine is than the one the 10 ms budget was set on, measured rather than
