@@ -48,10 +48,13 @@ SHA-256 of its bundle, which the script checks on every run and refuses to proce
   engine's own failures out of its own score, and on a comparison this close it reverses the sign;
   the first draft of this note did exactly that and reported justif/core at 0.0358 CV and 6.4% short
   lines when the comparable figures are 0.0339 and 4.8%. The harness now derives the set once and
-  throws if any row is ever scored over a different one.
+  throws if any row is ever scored over a different one — and because a guard is only as good as its
+  wiring, `--verify` counts the guard's invocations and fails if a measurement is ever taken without
+  one, which is what deleting the call site would look like.
 - **Each library runs at its own defaults, which is an asymmetry.** justif gets tolerance 200 and
   `emergencyStretch: 'auto'`; tex-linebreak2 has no equivalent of either. The generated block prices
-  it: removing both escapes reproduces justif's breakpoints in 94 of 94 paragraphs, so it is inert on
+  it: removing either escape, *and* removing both simultaneously, each reproduce justif's breakpoints
+  in 94 of 94 paragraphs — the combination matters because two changes can cancel — so it is inert on
   this corpus — but it is inert *as measured*, not by construction, and the count is printed so a
   larger corpus can show it changing.
 - **The fallback's licences are audited by the run itself.** `pnpm gate:licences` cannot see
@@ -59,7 +62,11 @@ SHA-256 of its bundle, which the script checks on every run and refuses to proce
   declared licence of the fetched package and all twelve packages under it and refuses to print a
   measurement unless every one is permissive.
 
-Font advances come from a 200-line TrueType reader in `scripts/font-metrics.mjs`. It was validated
+Font advances come from a 127-line TrueType reader in `scripts/font-metrics.mjs`. **This paragraph is
+the one load-bearing claim in this note that you cannot re-run from this repository**: the reader's
+own values are checked by `--selftest` against a hex dump of the file, but the comparison below was
+made by hand in a browser and nothing in the harness re-checks it. Treat it as testimony, not as a
+gate. It was validated
 against Chromium's own layout of the same strings from the same file: with `font-kerning: none` and
 ligatures off the agreement is exact to every decimal printed, including a 43-character line. With
 kerning and ligatures on, the reader runs 0.6–1.7% wide (0.35 em over that same line). That bias is
@@ -125,7 +132,9 @@ Paragraphs pushed past the margin, last line included: **justif/core 1**, **tex-
 
 Of the 94 paragraphs long enough to break, the two Knuth–Plass engines chose **identical** breakpoints in **84** and justif/core matched the greedy baseline in **77**.
 
-justif/core is driven at its own defaults (tolerance 200, `emergencyStretch: 'auto'`) and tex-linebreak2 at its own, so justif has two escapes its rival lacks. Removing them changes nothing here: forcing `emergencyStretch: 0`, and separately opening `tolerance` to 10000, reproduce justif's breakpoints in **94 of 94** paragraphs.
+justif/core is driven at its own defaults (tolerance 200, `emergencyStretch: 'auto'`) and tex-linebreak2 at its own, so justif has two escapes its rival lacks. Removing them changes nothing here: `emergencyStretch: 0`, `tolerance` opened to 10000, and **both at once** each reproduce justif's breakpoints in **94 of 94** paragraphs.
+
+Knuth–Plass is not buying its rag with extra lines, and this holds paragraph by paragraph rather than only as a pooled total that could hide two paragraphs trading a line: justif/core and the greedy baseline set the same number of lines in **93 of 94** paragraphs, and in **all 90** of the common set. The 1 exception is outside it: 07-cjk.md#0, which no arrangement can set at this measure.
 
 Licences of the out-of-tree fallback and everything under it, read from the fetched copy: ansi-regex MIT, base64-js MIT, debounce MIT, emoji-regex MIT, is-fullwidth-code-point MIT, linebreak MIT, pako MIT, string-width MIT, strip-ansi MIT, tex-linebreak2 MIT, tiny-inflate MIT, typescript-memoize MIT, unicode-trie MIT. The harness refuses to report a measurement if any of them is not permissive.
 
@@ -158,7 +167,10 @@ Each row is pooled over the common set recomputed at that stretch, with the badn
    and any note reading more than that out of these numbers is over-reading them.
 2. **Knuth–Plass does beat greedy wrapping, but modestly and only at a tight tolerance.** At 0.6 em
    of glue stretch, K–P cuts short lines from 7.1% to 4.8% and CV from 0.0361 to 0.0339 **for exactly
-   the same line count** (168 lines for both), so the improvement is not bought with extra lines. It
+   the same line count** (168 lines for both), so the improvement is not bought with extra lines. That
+   equality is per paragraph, not just in the total: justif/core and greedy set the same number of
+   lines in **all 90** paragraphs of the common set, and in 93 of all 94, the one exception being
+   `07-cjk.md#0`, which nothing can set here. No paragraph pays a line for another paragraph. It
    differs from greedy in only 17 of 94 paragraphs; in the other 77 the optimal arrangement *is* the
    greedy one. ADR-0007's differentiator therefore rests on about a fifth of the paragraphs in this
    corpus.
@@ -173,8 +185,9 @@ Each row is pooled over the common set recomputed at that stretch, with the badn
    into in the first draft — tex-linebreak2 overflows 4, justif/core 1, greedy 1. One of those four is
    the unsettable CJK paragraph that defeats everything; the other three, in
    `01-long-technical.md` and `14-marxy-plan.md`, justif/core sets cleanly. An overfull line is text
-   past the margin, a visible defect rather than a metric regression, and it is the only place in this
-   study where the two engines differ by more than noise.
+   past the margin, a visible defect rather than a metric regression, and it is the one axis on which
+   the two engines are not tied — but it is three paragraphs in two documents, so MARXY-64's corpus
+   must confirm it before MARXY-23 leans on it.
 5. **The corpus cannot support a finer conclusion.** 94 breakable paragraphs and 168 scored lines,
    and only two documents (`01-long-technical.md`, `14-marxy-plan.md`) carry real prose volume. That
    limit is being fixed: **MARXY-64** adds a 5,000-word prose fixture and **MARXY-23 waits on it**, so
@@ -234,7 +247,7 @@ can settle it.
    count — a margin a different corpus could erase.
 3. **The option asymmetry turning out to matter.** *Checkable now* — the block prints it. justif runs
    at tolerance 200 with `emergencyStretch: 'auto'`, escapes tex-linebreak2 has no equivalent for, and
-   removing them reproduces justif's own breakpoints in 94 of 94 paragraphs. If that count drops below
+   removing either, or both together, reproduces justif's own breakpoints in 94 of 94 paragraphs. If that count drops below
    94 on a larger corpus, part of justif's result is coming from the escapes and the comparison needs
    re-levelling before it can be quoted.
 4. **justif/core's microtypography not paying for itself.** *Aspirational — this harness cannot

@@ -192,12 +192,22 @@ export function selectPool(pool, ids) {
 }
 
 /**
+ * How many times the guard below has run this process. Reverting the pooling makes the guard throw,
+ * but DELETING its call site would make it throw nothing at all, which is the cheaper mistake for a
+ * future editor: `--verify` compares this against the number of measurements taken, so a guard that
+ * is no longer wired into the path that builds the ranking row fails the run.
+ */
+let guardRuns = 0;
+export const guardInvocations = () => guardRuns;
+
+/**
  * The guard on the defect that returned this PR: two rows presented as a comparison but pooled over
  * each row's own successes. Every pooled comparison calls this with the paragraph ids it actually
  * scored per label, and it throws unless they are one set. Membership alone cannot catch the defect —
  * each engine's successes are all present in the other's pool — so the ids themselves are compared.
  */
 export function assertOneParagraphSet(idsByLabel) {
+  guardRuns++;
   const labels = Object.keys(idsByLabel);
   const reference = String(idsByLabel[labels[0]]);
   for (const label of labels.slice(1)) {

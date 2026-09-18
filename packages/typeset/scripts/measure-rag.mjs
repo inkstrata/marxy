@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFont } from './font-metrics.mjs';
-import { INF_BAD, assertOneParagraphSet, badness, buildRaggedItems, commonParagraphs, extractParagraphs, greedyBreakpoints, lineWidths, ragMetrics, selectPool } from './rag-model.mjs';
+import { INF_BAD, assertOneParagraphSet, badness, buildRaggedItems, commonParagraphs, extractParagraphs, greedyBreakpoints, guardInvocations, lineWidths, ragMetrics, selectPool } from './rag-model.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const research = join(root, 'packages/typeset/RESEARCH.md');
@@ -119,13 +119,18 @@ function fallbackBreakpoints(module, items, measure) {
 
 const ENGINES = ['justif/core', 'tex-linebreak2', 'greedy (baseline)'];
 
+/** Measurements taken this process, against which `--verify` checks the guard's invocation count. */
+let measurements = 0;
+
 function measureCorpus(engines, font, glueStretchEm) {
+  measurements++;
   const measure = CONFIG.measureCh * font.advanceOf(0x30);
   const opts = { glueStretchEm, badnessStretchEm: CONFIG.badnessStretchEm, exHyphenPenalty: CONFIG.exHyphenPenalty, shortLineFraction: CONFIG.shortLineFraction };
   const corpus = join(root, 'fixtures/corpus');
   const documents = [];
   const pooled = new Map(ENGINES.map((e) => [e, []]));
   const agreement = { paragraphs: 0, enginesAgree: 0, justifMatchesGreedy: 0, optionAudit: 0 };
+  const lineCounts = [];
   for (const file of readdirSync(corpus).sort()) {
     const source = readFileSync(join(corpus, file), 'utf8');
     const paragraphs = file.endsWith('.md') ? extractParagraphs(source).map((text) => buildRaggedItems(text, font, opts)) : [];
@@ -145,12 +150,19 @@ function measureCorpus(engines, font, glueStretchEm) {
       agreement.paragraphs++;
       if (String(chosen[ENGINES[0]][i]) === String(chosen[ENGINES[1]][i])) agreement.enginesAgree++;
       if (String(chosen[ENGINES[0]][i]) === String(chosen[ENGINES[2]][i])) agreement.justifMatchesGreedy++;
+      // Equal line count for the pooled total could hide paragraphs trading a line against each
+      // other, so the claim is checked where it is actually made: paragraph by paragraph.
+      lineCounts.push({ id: `${file}#${i}`, differs: chosen[ENGINES[0]][i].length !== chosen[ENGINES[2]][i].length });
       agreement.optionAudit += auditJustifOptions(engines.justif.module, setting[i], measure, chosen[ENGINES[0]][i]);
     }
     documents.push(row);
   }
   const pools = Object.fromEntries(ENGINES.map((e) => [e, pooled.get(e)]));
   const common = commonParagraphs(pools, measure);
+  const commonSet = new Set(common);
+  agreement.lineCountDiffers = lineCounts.filter((p) => p.differs).length;
+  agreement.lineCountDiffersInCommon = lineCounts.filter((p) => p.differs && commonSet.has(p.id)).length;
+  agreement.lineCountDifferingIds = lineCounts.filter((p) => p.differs).map((p) => p.id);
   const corpusTotals = Object.fromEntries(ENGINES.map((e) => [e, ragMetrics(pooled.get(e).map((p) => p.widths), measure, opts)]));
   /** The ranking row: one paragraph set, so no engine is scored over a pool its own failures thinned.
    * The guard re-derives what each engine was actually scored over and throws if they ever diverge. */
@@ -189,6 +201,7 @@ function auditJustifOptions(module, items, measure, baseline) {
   const variants = [
     { ...defaultBreakOptions, emergencyStretch: 0 },
     { ...defaultBreakOptions, tolerance: INF_BAD, pretolerance: INF_BAD },
+    { ...defaultBreakOptions, emergencyStretch: 0, tolerance: INF_BAD, pretolerance: INF_BAD },
   ];
   return variants.every((opts) => String(justifBreakpoints(module, items, measure, opts)) === String(baseline)) ? 1 : 0;
 }
@@ -233,7 +246,9 @@ function renderTables(main, sweep, engines, font) {
   out.push('');
   out.push(`Of the ${main.agreement.paragraphs} paragraphs long enough to break, the two Knuth–Plass engines chose **identical** breakpoints in **${main.agreement.enginesAgree}** and justif/core matched the greedy baseline in **${main.agreement.justifMatchesGreedy}**.`);
   out.push('');
-  out.push(`justif/core is driven at its own defaults (tolerance 200, \`emergencyStretch: 'auto'\`) and tex-linebreak2 at its own, so justif has two escapes its rival lacks. Removing them changes nothing here: forcing \`emergencyStretch: 0\`, and separately opening \`tolerance\` to ${INF_BAD}, reproduce justif's breakpoints in **${main.agreement.optionAudit} of ${main.agreement.paragraphs}** paragraphs.`);
+  out.push(`justif/core is driven at its own defaults (tolerance 200, \`emergencyStretch: 'auto'\`) and tex-linebreak2 at its own, so justif has two escapes its rival lacks. Removing them changes nothing here: \`emergencyStretch: 0\`, \`tolerance\` opened to ${INF_BAD}, and **both at once** each reproduce justif's breakpoints in **${main.agreement.optionAudit} of ${main.agreement.paragraphs}** paragraphs.`);
+  out.push('');
+  out.push(`Knuth–Plass is not buying its rag with extra lines, and this holds paragraph by paragraph rather than only as a pooled total that could hide two paragraphs trading a line: justif/core and the greedy baseline set the same number of lines in **${main.agreement.paragraphs - main.agreement.lineCountDiffers} of ${main.agreement.paragraphs}** paragraphs, and in **all ${main.commonParagraphs}** of the common set. The ${main.agreement.lineCountDiffers} exception${main.agreement.lineCountDiffers === 1 ? ' is' : 's are'} outside it: ${main.agreement.lineCountDifferingIds.join(', ')}, which no arrangement can set at this measure.`);
   out.push('');
   out.push(`Licences of the out-of-tree fallback and everything under it, read from the fetched copy: ${engines.fallback.licences.map((p) => `${p.name} ${p.licence}`).join(', ')}. The harness refuses to report a measurement if any of them is not permissive.`);
   out.push('');
@@ -309,6 +324,12 @@ function selftest() {
   }
   check('the guard refuses per-engine paragraph sets, which is the defect that returned round 1', refused.startsWith('refusing to rank over different paragraph sets'), refused || 'no error thrown');
   check('the per-engine pool is measurably more flattering than the common one', ragMetrics(selectPool(pools.a, ownSuccesses(pools.a)), 12, opts).cv < ragMetrics(selectPool(pools.a, common), 12, opts).cv);
+  // Reverting the pooling makes the guard throw; deleting its CALL SITE would make it throw nothing,
+  // which is the cheaper mistake. The counter is what `--verify` uses to notice that, so check that
+  // the counter is real: it must have advanced across the two calls above, and it must be readable.
+  const before = guardInvocations();
+  assertOneParagraphSet({ a: common, b: common });
+  check('the guard counts its own invocations, so an unwired guard is detectable', guardInvocations() === before + 1 && before >= 2, `${before} → ${guardInvocations()}`);
 
   // Paragraph extraction.
   const md = ['# Heading', '', 'One two', 'three four.', '', '```js', 'const x = 1;', '```', '', '- item **one**', '- item `two`', '', '| a | b |', '| - | - |', '', '> quoted text'].join('\n');
@@ -367,6 +388,8 @@ const font = readFont(join(root, CONFIG.fontPath));
 const engines = await loadEngines();
 const main = measureCorpus(engines, font, CONFIG.glueStretchEm);
 const sweep = CONFIG.sweep.map((n) => (n === CONFIG.glueStretchEm ? main : measureCorpus(engines, font, n)));
+/** Snapshot before the selftest adds invocations of its own: this is the guard's use in production. */
+const guardRunsInMeasurement = guardInvocations();
 
 if (args.includes('--json')) {
   console.log(JSON.stringify({ config: CONFIG, engines: { justif: engines.justif.version, texLinebreak2: engines.fallback.version }, main, sweep }, null, 2));
@@ -389,6 +412,10 @@ if (args.includes('--verify')) {
   const doc = readFileSync(research, 'utf8');
   const problems = assertSourceUntouched();
   if (!doc.includes(block)) problems.push('RESEARCH.md does not contain the freshly measured table; re-run with --write');
+  // Catches the deletion the selftest cannot see: the guard exists and passes its own tests, but is
+  // no longer called on the path that builds the ranking row.
+  if (guardRunsInMeasurement !== measurements)
+    problems.push(`the pooled-comparison guard ran ${guardRunsInMeasurement} times for ${measurements} measurements; assertOneParagraphSet is not wired into every ranking row`);
   if (!selftest()) problems.push('the metric selftest failed');
   if (problems.length) {
     console.error(`rag study verification failed:\n - ${problems.join('\n - ')}`);
