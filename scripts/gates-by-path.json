@@ -1,0 +1,16 @@
+{
+  "_note": "Which gates a change must run, by path prefix. precheck.mjs unions the entries for every changed file. 'always' runs for any change.",
+  "always": ["check:boundaries", "check:registry", "check:deps", "check:story"],
+  "packages/core": ["gate:golden", "gate:fidelity", "gate:no-network"],
+  "packages/theme": ["gate:aesthetics", "lint:theme"],
+  "packages/typeset": ["gate:aesthetics"],
+  "apps/desktop": ["gate:no-network", "gate:bundle"],
+  "apps/desktop/src-tauri": ["lint:rust"],
+  "fixtures/corpus": ["gate:golden", "gate:fidelity", "gate:no-network"],
+  "fixtures/perf-budgets.json": ["gate:perf"],
+  "scripts/allowlists": ["gate:licences", "check:deps"],
+  "package.json": ["gate:licences", "check:deps"],
+  "pnpm-lock.yaml": ["gate:licences"],
+  "apps/desktop/src-tauri/Cargo.toml": ["gate:licences", "check:deps"],
+  "apps/desktop/src-tauri/Cargo.lock": ["gate:licences"]
+}

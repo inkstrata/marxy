@@ -11,3 +11,7 @@ out/
 # a global ignore of macOS "Icon\r" files (pattern `Icon?`) also matches this
 # directory on case-insensitive filesystems; the app does not build without it
 !/apps/desktop/src-tauri/icons/
+
+# never commit credentials
+jira.env
+*.env

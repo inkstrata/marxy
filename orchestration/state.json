@@ -1,184 +1,424 @@
 {
-  "updated": "2026-09-18T08:34:27.846Z",
-  "merges": 0,
-  "lastPlan": "2026-09-18T08:34:27.846Z",
+  "updated": "2026-09-18T17:32:26.417Z",
+  "jiraProject": "MARXY",
+  "jiraSite": "https://marxy.atlassian.net",
+  "merges": 11,
+  "lastPlan": "2026-09-18T15:32:26.675337Z",
+  "mergesAtLastPlan": 8,
   "stories": {
-    "MARXY-001": {
+    "MARXY-5": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:54:56.570Z",
+      "branch": "chore/MARXY-5-freeze-the-contracts-and-make-the-worksp",
+      "worktree": "../marxy-wt/MARXY-5",
+      "model": "grok-4.6-fast",
+      "pr": 26
+    },
+    "MARXY-6": {
       "status": "blocked",
       "attempts": 0
     },
-    "MARXY-002": {
+    "MARXY-7": {
+      "status": "done",
+      "attempts": 1,
+      "branch": "feat/MARXY-7-run-the-licence-gate-for-real-over-the-lockfile",
+      "worktree": "../marxy-wt/MARXY-7",
+      "started": "2026-09-18T09:16:32.307Z",
+      "model": "grok-4.6-fast",
+      "pr": 2,
+      "finished": "2026-09-18T10:01:12.707Z"
+    },
+    "MARXY-8": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-9": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-10": {
+      "status": "in_review",
+      "attempts": 1,
+      "branch": "chore/MARXY-10-jira-board-of-record",
+      "started": "2026-09-18T08:51:45.049Z",
+      "pr": 1
+    },
+    "MARXY-11": {
+      "status": "done",
+      "attempts": 2,
+      "branch": "feat/MARXY-11-parse-commonmark-gfm-into-the-ast-with-byte-prov",
+      "worktree": "../marxy-wt/MARXY-11",
+      "started": "2026-09-18T10:16:23.705Z",
+      "model": "grok-4.6-fast",
+      "pr": 4,
+      "finished": "2026-09-18T11:33:07.538Z"
+    },
+    "MARXY-12": {
+      "status": "done",
+      "attempts": 2,
+      "started": "2026-09-18T13:17:53.954Z",
+      "worktree": "../marxy-wt/MARXY-12",
+      "branch": "feat/MARXY-12-sanitise-rendered-html",
+      "model": "grok-4.6-fast",
+      "pr": 11,
+      "finished": "2026-09-18T17:32:26.417Z"
+    },
+    "MARXY-13": {
+      "status": "done",
+      "attempts": 3,
+      "branch": "feat/MARXY-13-desktop-shell-opens-a-file-from-the-cli",
+      "worktree": "../marxy-wt/MARXY-13",
+      "started": "2026-09-18T11:28:04.919Z",
+      "model": "grok-4.6-fast",
+      "pr": 5,
+      "finished": "2026-09-18T14:28:51.933Z"
+    },
+    "MARXY-14": {
+      "status": "done",
+      "attempts": 1,
+      "started": "2026-09-18T14:29:05.977Z",
+      "worktree": "../marxy-wt/MARXY-14",
+      "branch": "feat/MARXY-14-byte-faithful-open-and-save",
+      "model": "grok-4.6-fast",
+      "pr": 12,
+      "finished": "2026-09-18T15:17:48.411Z"
+    },
+    "MARXY-15": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-16": {
+      "status": "todo",
+      "attempts": 0
+    },
+    "MARXY-17": {
+      "status": "done",
+      "attempts": 2,
+      "started": "2026-09-18T10:30:00.091Z",
+      "pr": 6,
+      "branch": "feat/MARXY-17-taste-review-0-typeface-specimen",
+      "finished": "2026-09-18T11:04:25.971Z"
+    },
+    "MARXY-19": {
+      "status": "done",
+      "attempts": 2,
+      "started": "2026-09-18T10:55:36.628Z",
+      "pr": 7,
+      "worktree": "../marxy-wt/MARXY-19",
+      "model": "grok-4.6-fast",
+      "finished": "2026-09-18T12:12:45.070Z"
+    },
+    "MARXY-20": {
       "status": "blocked",
       "attempts": 0
     },
-    "MARXY-003": {
+    "MARXY-21": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-004": {
+    "MARXY-22": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-010": {
+    "MARXY-23": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-011": {
+    "MARXY-24": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-012": {
+    "MARXY-25": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-013": {
+    "MARXY-26": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-014": {
+    "MARXY-27": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-015": {
+    "MARXY-28": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-016": {
+    "MARXY-29": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-020": {
+    "MARXY-30": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-021": {
+    "MARXY-31": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-022": {
+    "MARXY-33": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-023": {
+    "MARXY-34": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:44:22.081Z",
+      "worktree": "../marxy-wt/MARXY-34",
+      "branch": "feat/MARXY-34-watch-the-root-and-live-reload-the-open-",
+      "model": "grok-4.6-fast",
+      "pr": 24
+    },
+    "MARXY-35": {
+      "status": "done",
+      "attempts": 1,
+      "started": "2026-09-18T15:44:23.154Z",
+      "worktree": "../marxy-wt/MARXY-35",
+      "branch": "feat/MARXY-35-index-the-enclosing-repository-with-igno",
+      "model": "grok-4.6-fast",
+      "pr": 22,
+      "finished": "2026-09-18T16:04:40.408Z"
+    },
+    "MARXY-36": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T16:16:57.625Z",
+      "worktree": "../marxy-wt/MARXY-36",
+      "branch": "feat/MARXY-36-palette-mru-fuzzy-over-path-title-headin",
+      "model": "grok-4.6-fast",
+      "pr": 30
+    },
+    "MARXY-37": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-024": {
+    "MARXY-38": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-025": {
+    "MARXY-39": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-026": {
+    "MARXY-41": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-027": {
+    "MARXY-42": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-028": {
+    "MARXY-43": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-029": {
+    "MARXY-44": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-02A": {
+    "MARXY-45": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-02B": {
+    "MARXY-46": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-030": {
+    "MARXY-47": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-031": {
+    "MARXY-48": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-032": {
+    "MARXY-49": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-033": {
+    "MARXY-51": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-034": {
+    "MARXY-52": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-035": {
+    "MARXY-53": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-036": {
+    "MARXY-54": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-040": {
+    "MARXY-55": {
+      "status": "done",
+      "attempts": 1,
+      "branch": "fix/MARXY-55-ci-perf-envelope",
+      "worktree": "../marxy-wt/MARXY-55",
+      "started": "2026-09-18T09:26:49.018Z",
+      "model": "grok-4.6-fast",
+      "pr": 3,
+      "finished": "2026-09-18T09:51:09.339Z"
+    },
+    "MARXY-57": {
+      "status": "done",
+      "attempts": 2,
+      "started": "2026-09-18T10:02:09.441Z",
+      "pr": 8,
+      "worktree": "../marxy-wt/MARXY-57",
+      "finished": "2026-09-18T10:52:47.675Z"
+    },
+    "MARXY-58": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:49:40.187Z",
+      "branch": "feat/MARXY-58-correct-adr-0006-the-audit-that-runs-and",
+      "worktree": "../marxy-wt/MARXY-58",
+      "model": "grok-4.6-fast",
+      "pr": 25
+    },
+    "MARXY-59": {
+      "status": "in_progress",
+      "attempts": 2,
+      "started": "2026-09-18T14:50:38.874Z",
+      "worktree": "../marxy-wt/MARXY-59",
+      "branch": "feat/MARXY-59-move-the-parse-time-budget-into-the-budg",
+      "model": "grok-4.6-fast",
+      "pr": 15
+    },
+    "MARXY-60": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:00:23.262Z",
+      "worktree": "../marxy-wt/MARXY-60",
+      "branch": "feat/MARXY-60-prove-the-maths-extension-costs-nothing-",
+      "model": "grok-4.6-fast",
+      "pr": 18
+    },
+    "MARXY-61": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-041": {
+    "MARXY-62": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:49:41.288Z",
+      "branch": "feat/MARXY-62-run-the-specimen-verifier-in-ci-not-only",
+      "worktree": "../marxy-wt/MARXY-62",
+      "model": "grok-4.6-fast",
+      "pr": 23
+    },
+    "MARXY-63": {
+      "status": "done",
+      "attempts": 1,
+      "started": "2026-09-18T11:05:09.563Z",
+      "worktree": "../marxy-wt/MARXY-63",
+      "model": "grok-4.6-fast",
+      "branch": "fix/MARXY-63-measure-what-it-names",
+      "pr": 10,
+      "finished": "2026-09-18T15:51:51.295Z"
+    },
+    "MARXY-64": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T14:57:25.272Z",
+      "worktree": "../marxy-wt/MARXY-64",
+      "branch": "feat/MARXY-64-give-the-corpus-a-document-with-real-pro",
+      "model": "grok-4.6-fast",
+      "pr": 17
+    },
+    "MARXY-65": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T16:04:26.903Z",
+      "branch": "feat/MARXY-65-run-the-licence-gate-again-after-the-r",
+      "worktree": "../marxy-wt/MARXY-65",
+      "model": "grok-4.6-fast",
+      "pr": 28
+    },
+    "MARXY-66": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T14:50:40.044Z",
+      "worktree": "../marxy-wt/MARXY-66",
+      "branch": "feat/MARXY-66-stop-marking-text-files-under-fonts-as-b",
+      "model": "grok-4.6-fast",
+      "pr": 13
+    },
+    "MARXY-67": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:08:25.368Z",
+      "worktree": "../marxy-wt/MARXY-67",
+      "branch": "feat/MARXY-67-read-cr-only-documents-as-carefully-as-l",
+      "model": "grok-4.6-fast",
+      "pr": 19
+    },
+    "MARXY-68": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-042": {
+    "MARXY-69": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-043": {
+    "MARXY-70": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-044": {
+    "MARXY-71": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:55:19.957Z",
+      "worktree": "../marxy-wt/MARXY-71",
+      "branch": "feat/MARXY-71-rest-first-text-on-a-paint-signal-rather",
+      "model": "grok-4.6-fast",
+      "pr": 27
+    },
+    "MARXY-72": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T14:57:26.375Z",
+      "worktree": "../marxy-wt/MARXY-72",
+      "branch": "feat/MARXY-72-let-pnpm-build-succeed-on-a-machine-that",
+      "model": "grok-4.6-fast",
+      "pr": 16
+    },
+    "MARXY-73": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-045": {
+    "MARXY-77": {
+      "status": "in_review",
+      "attempts": 1,
+      "started": "2026-09-18T15:34:28.092Z",
+      "worktree": "../marxy-wt/MARXY-77",
+      "branch": "feat/MARXY-77-move-the-fidelity-gate-to-scripts-and-ke",
+      "model": "grok-4.6-fast",
+      "pr": 21
+    },
+    "MARXY-78": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-046": {
+    "MARXY-81": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-047": {
+    "MARXY-82": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-048": {
+    "MARXY-83": {
       "status": "todo",
       "attempts": 0
     },
-    "MARXY-050": {
-      "status": "todo",
-      "attempts": 0
-    },
-    "MARXY-051": {
-      "status": "todo",
-      "attempts": 0
-    },
-    "MARXY-052": {
-      "status": "todo",
-      "attempts": 0
-    },
-    "MARXY-053": {
-      "status": "todo",
-      "attempts": 0
-    },
-    "MARXY-R01": {
+    "MARXY-84": {
       "status": "todo",
       "attempts": 0
     }
-  },
-  "mergesAtLastPlan": 0
+  }
 }
