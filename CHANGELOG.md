@@ -25,6 +25,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 
 ### Fixed
+- Merging `main` into a story branch no longer fails the commit hook with every file the merge carried; a merge commit answers for what its author resolved (MARXY-85)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
 - The anti-attribution hook the conventions promised now exists in `.githooks/commit-msg`, so trailers injected by agent tooling are stripped rather than merely forbidden (MARXY-10)
 
