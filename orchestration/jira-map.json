@@ -57,6 +57,7 @@
     "MARXY-NEW-adr-0006-audit-scope": "MARXY-58",
     "MARXY-NEW-parse-budget": "MARXY-59",
     "MARXY-NEW-katex-cost": "MARXY-60",
-    "MARXY-NEW-markdown-it-out": "MARXY-61"
+    "MARXY-NEW-markdown-it-out": "MARXY-61",
+    "MARXY-NEW-specimen-in-ci": "MARXY-62"
   }
 }

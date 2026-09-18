@@ -22,7 +22,21 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
       Also worth knowing: `cursor-agent` is not on PATH, so `orchestration/dispatch.mjs` cannot
       run implementors headlessly; they are being dispatched as in-app subagents into
       `../marxy-wt/<KEY>` worktrees instead.
-- [ ] 2026-09-18 — Taste review #0 (typeface pair) once MARXY-17 lands its artifact.
+- [ ] 2026-09-18 — **Taste review #0 is ready to decide: the typeface pair.** The artifact is PR #6
+      (MARXY-17): 20 PNGs, both ADR-0015 pairs, five matched passages of `01-long-technical.md`, 1×
+      and 2×, with the checklist in `docs/taste-review/queue.md`. ADR-0015 is proposed until you
+      answer, and MARXY-20 and MARXY-21 build on the answer, so this is the first thing in the taste
+      queue that actually blocks work. Two things fell out of rendering that you should know before
+      looking:
+      - The same 68 `ch` measure gives the pairs columns 75 px apart (Literata 670 px, Source Serif 4
+        595 px), and the narrower pair sets the *longer* document. Constraint 1 working as intended,
+        but 68 `ch` is the right number for exactly one of these faces, so choosing the pair also
+        means revisiting the measure.
+      - IBM Plex Mono has no variable font at all, so pair B means a file per weight and no axis to
+        compensate for WebKitGTK's lighter rendering; Source Serif 4 also has no italic vendored, so
+        pair B's italics are synthetic.
+      Read them for a while rather than a page: the question is which you would still want to be
+      reading on the fourth page. Record the answer in the queue's Decision column.
 - [ ] 2026-09-18 — Approve PR #1 (MARXY-10, Jira as the board of record) or send it back. I wrote
       it, so I am not the one who should also approve it: the cycle refuses to merge a PR until a
       reviewer writes `orchestration/results/KEY.approved`, and that rule is worth more than the
