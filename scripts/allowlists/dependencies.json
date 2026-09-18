@@ -28,17 +28,13 @@
     "@tauri-apps/plugin-dialog",
     "@tauri-apps/plugin-opener",
     "@types/commonmark",
-    "@types/dompurify",
     "@types/katex",
-    "@types/markdown-it",
     "@types/mdast",
     "@types/node",
     "codemirror",
     "commonmark",
-    "dompurify",
     "justif",
     "katex",
-    "markdown-it",
     "mdast-util-from-markdown",
     "mdast-util-frontmatter",
     "mdast-util-gfm",
@@ -83,6 +79,8 @@
     "npm": [
       "markdown-it",
       "dompurify",
+      "@types/markdown-it",
+      "@types/dompurify",
       "remark",
       "remark-parse",
       "rehype",
@@ -119,10 +117,5 @@
       "sentry"
     ]
   },
-  "pendingRemoval": {
-    "markdown-it": "MARXY-61",
-    "dompurify": "MARXY-61",
-    "@types/markdown-it": "MARXY-61",
-    "@types/dompurify": "MARXY-61"
-  }
+  "pendingRemoval": {}
 }

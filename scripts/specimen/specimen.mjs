@@ -4,7 +4,7 @@
 // those numbers, so a drift in either shows up as a specimen failure.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import MarkdownIt from 'markdown-it';
+import { renderSafeHtml } from '../../packages/core/src/render/index.ts';
 
 const root = new URL('../../', import.meta.url);
 export const repo = p => new URL(p, root);
@@ -87,7 +87,7 @@ export const pages = [
 
 export function documentHtml() {
   const src = readFileSync(repo(SOURCE), 'utf8');
-  return new MarkdownIt({ html: false, linkify: false, typographer: true }).render(src);
+  return renderSafeHtml(src, { file: SOURCE }).html;
 }
 
 const dataUrl = file => `url(data:font/ttf;base64,${readFileSync(repo(file)).toString('base64')}) format("truetype")`;
