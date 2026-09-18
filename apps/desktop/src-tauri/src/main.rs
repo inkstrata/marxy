@@ -50,8 +50,15 @@ fn startup_marks() -> serde_json::Value {
     serde_json::json!({ "quit_after_paint": quit_after_paint() })
 }
 
+/// Exits with `code`: 0 for a launch that rendered, non-zero for one that failed, so a harness
+/// waiting on the process learns the difference instead of only timing out. `AppHandle::exit` is not
+/// enough — it ends the process with status 0 and never returns to `main` — so the code is applied
+/// here, after Tauri's own teardown.
 #[tauri::command]
-fn quit(app: tauri::AppHandle) { app.exit(0); }
+fn quit(app: tauri::AppHandle, code: Option<i32>) {
+    app.cleanup_before_exit();
+    std::process::exit(code.unwrap_or(0));
+}
 
 fn main() {
     mark("main_start".into(), now_ms(), None);

@@ -56,3 +56,33 @@ test('the shell directory is the one that does talk to Tauri', () => {
   const shellFiles = files.filter(f => f.rel.startsWith(shellDir + sep));
   assert.ok(shellFiles.some(f => /\binvoke\s*\(/.test(f.text)), 'no invoke() found in the shell directory');
 });
+
+/** Runtime (non-type) export names, plus the wildcard and default forms, which can re-export anything. */
+function valueExports(text) {
+  const names = [];
+  for (const m of text.matchAll(/export\s+(?:declare\s+)?(?:async\s+)?(?:const|let|var|function\s*\*?|class)\s+([A-Za-z_$][\w$]*)/g)) names.push(m[1]);
+  for (const m of text.matchAll(/export\s*\{([^}]*)\}/g)) {
+    for (const spec of m[1].split(',').map(s => s.trim()).filter(Boolean)) {
+      if (spec.startsWith('type ')) continue;
+      const as = /\bas\s+([A-Za-z_$][\w$]*)/.exec(spec);
+      names.push(as ? as[1] : spec);
+    }
+  }
+  if (/export\s+default\b/.test(text)) names.push('default');
+  if (/export\s*\*/.test(text)) names.push('*');
+  return names;
+}
+
+// The grep above checks how a call site is spelled, which a convenience wrapper defeats:
+// `export const call = invoke` inside this directory, used from anywhere, is still a hole in the
+// boundary. So the directory's runtime export surface is an allowlist — one shell object, nothing
+// that hands a caller the raw IPC channel.
+test('apps/desktop/src/shell exports only the shell object', () => {
+  const allowed = ['shell'];
+  const exported = files
+    .filter(f => f.rel.startsWith(shellDir + sep))
+    .flatMap(f => valueExports(f.text).map(name => ({ name, rel: f.rel })));
+  assert.ok(exported.length > 0, `no exports found under ${shellDir}`);
+  const offenders = exported.filter(e => !allowed.includes(e.name)).map(e => `${e.rel}:${e.name}`);
+  assert.deepEqual(offenders, [], `${shellDir} may export only ${allowed.join(', ')}; found ${offenders.join(', ')}`);
+});
