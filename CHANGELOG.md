@@ -17,6 +17,9 @@ tag time. Conventions in `docs/conventions.md`.
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
 - The anti-attribution hook the conventions promised now exists in `.githooks/commit-msg`, so trailers injected by agent tooling are stripped rather than merely forbidden (MARXY-10)
 
+### Security
+- The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
+
 ### Changed
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - Jira is now the board of record: all 51 epics and stories exist as issues, and story keys throughout the repo are the real Jira keys (MARXY-10)
