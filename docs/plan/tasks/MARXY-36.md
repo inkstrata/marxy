@@ -1,3 +1,9 @@
+---
+key: MARXY-36
+design: [07-index-and-palette, 09-app-shell]
+depends: [MARXY-35]
+verify: [pnpm precheck, pnpm done MARXY-36]
+---
 # MARXY-36 — Palette: MRU, fuzzy over path/title/headings, pinning, back/forward
 
 **Design:** [07-index-and-palette](../../design/07-index-and-palette.md) §Palette, §History; [09-app-shell](../../design/09-app-shell.md) §Keyboard · **Depends on:** MARXY-35.

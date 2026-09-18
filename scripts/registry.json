@@ -1,0 +1,82 @@
+{
+  "_note": "The single source of names. docs/design/README.md 'Hardened rules' mirrors this; scripts/check-registry.mjs enforces it. Add a name here in the PR that introduces it, never ad hoc.",
+  "marks": [
+    "main_start",
+    "window_shown",
+    "script_start",
+    "args",
+    "file_read",
+    "parsed",
+    "rendered",
+    "fonts_ready",
+    "first_text",
+    "first_paint_frame",
+    "render",
+    "typeset_viewport",
+    "position_restored",
+    "highlight_ms",
+    "index_loaded",
+    "live_reload",
+    "palette_keystroke",
+    "find_first_match",
+    "weight_offset",
+    "error",
+    "ready",
+    "app_ready",
+    "layout",
+    "shot",
+    "justif_ms",
+    "cm6_interactive",
+    "cm6_scroll",
+    "index_build",
+    "index_query",
+    "painted",
+    "no_paint",
+    "no_document",
+    "no_text"
+  ],
+  "events": [
+    "marxy:watch",
+    "marxy:index-updated",
+    "marxy:open-files"
+  ],
+  "dataAttributes": [
+    "data-marxy-s",
+    "data-marxy-e",
+    "data-marxy-done",
+    "data-marxy-typeset",
+    "data-marxy-mode",
+    "data-marxy-variant",
+    "data-marxy-doc"
+  ],
+  "classPrefix": "marxy-",
+  "tokenPrefix": "--marxy-",
+  "innerHtmlAllowedIn": [
+    "apps/desktop/src/main.ts",
+    "apps/desktop/src/render/",
+    "apps/desktop/src/palette/",
+    "apps/desktop/src/notices.ts",
+    "apps/desktop/src/outline/",
+    "scripts/",
+    "packages/core/src/render/testing/"
+  ],
+  "frozen": [
+    "packages/core/src/contracts/",
+    "packages/shell-api/src/",
+    "packages/theme/src/tokens.css"
+  ],
+  "extraAllowedPaths": [
+    "CHANGELOG.md",
+    "docs/taste-review/queue.md",
+    "pnpm-lock.yaml",
+    "apps/desktop/src-tauri/Cargo.lock"
+  ],
+  "largeFileAllowedUnder": [
+    "fonts/",
+    "fixtures/",
+    "docs/spike/results/",
+    "docs/taste-review/",
+    "apps/desktop/src-tauri/icons/"
+  ],
+  "largeFileBytes": 2000000
+}

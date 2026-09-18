@@ -1,3 +1,9 @@
+---
+key: MARXY-20
+design: [05-theme, 04-typeset]
+depends: [MARXY-61, MARXY-75]
+verify: [pnpm precheck, pnpm done MARXY-20]
+---
 # MARXY-20 — Default theme as a theme: tokens, grid-derived spacing, type scale, dark primary
 
 **Design:** [05-theme](../../design/05-theme.md) (base.css, formulas), [04-typeset](../../design/04-typeset.md) §Grid · **Depends on:** MARXY-61, MARXY-75.

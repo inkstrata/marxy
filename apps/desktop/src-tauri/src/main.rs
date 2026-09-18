@@ -6,15 +6,24 @@ use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn now_ms() -> f64 { SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as f64).unwrap_or(0.0) }
+fn now_ms() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as f64)
+        .unwrap_or(0.0)
+}
 
 #[tauri::command]
-fn args() -> Vec<String> { std::env::args().skip(1).collect() }
+fn args() -> Vec<String> {
+    std::env::args().skip(1).collect()
+}
 
 /// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
 /// handling, because everything above this reads what the reader's file actually contains.
 #[tauri::command]
-fn read_file(path: String) -> Result<Vec<u8>, String> { std::fs::read(&path).map_err(|e| format!("{path}: {e}")) }
+fn read_file(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| format!("{path}: {e}"))
+}
 
 /// Saves exactly `bytes` and nothing else about the file; see `atomic_write` for the guarantees and
 /// the cases it refuses. Checked end to end over the corpus by `pnpm gate:fidelity`.
@@ -56,8 +65,10 @@ fn mark_from_webview(app: tauri::AppHandle, name: String, t: f64, data: Option<S
 /// True when a harness launched us: the startup measurement sets the variable, and `--quit-after-paint`
 /// is the same request made by hand.
 fn quit_after_paint() -> bool {
-    matches!(std::env::var("MARXY_QUIT_AFTER_PAINT").as_deref(), Ok("1") | Ok("true"))
-        || std::env::args().any(|a| a == "--quit-after-paint")
+    matches!(
+        std::env::var("MARXY_QUIT_AFTER_PAINT").as_deref(),
+        Ok("1") | Ok("true")
+    ) || std::env::args().any(|a| a == "--quit-after-paint")
 }
 
 #[tauri::command]
@@ -114,7 +125,11 @@ fn arm_paint_deadline(app: tauri::AppHandle, render: u64) {
         std::thread::sleep(std::time::Duration::from_millis(PAINT_DEADLINE_MS));
         if deadline_is_current(render) {
             // No `first_text`: nothing was painted, so there is no cold start to report.
-            mark("no_paint", now_ms(), Some(format!("deadline_ms={PAINT_DEADLINE_MS}")));
+            mark(
+                "no_paint",
+                now_ms(),
+                Some(format!("deadline_ms={PAINT_DEADLINE_MS}")),
+            );
             app.cleanup_before_exit();
             std::process::exit(1);
         }
@@ -165,8 +180,14 @@ fn main() {
     }
     mark("main_start", now_ms(), None);
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![args, read_file, write_file_atomic, mark_from_webview, startup_marks, quit])
+        .invoke_handler(tauri::generate_handler![
+            args,
+            read_file,
+            write_file_atomic,
+            mark_from_webview,
+            startup_marks,
+            quit
+        ])
         .run(tauri::generate_context!())
         .expect("error while running marxy");
 }
-

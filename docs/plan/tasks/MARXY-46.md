@@ -1,3 +1,9 @@
+---
+key: MARXY-46
+design: [05-theme]
+depends: [MARXY-20, MARXY-30]
+verify: [pnpm precheck, pnpm done MARXY-46]
+---
 # MARXY-46 — Light variant designed, not inverted (dark is primary)
 
 **Design:** [05-theme](../../design/05-theme.md) §Palettes, ADR-0024 · **Depends on:** MARXY-20, MARXY-30.

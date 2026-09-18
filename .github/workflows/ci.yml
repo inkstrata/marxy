@@ -38,7 +38,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
       - run: pnpm install --frozen-lockfile
+      - run: pnpm check:boundaries && pnpm check:registry && pnpm check:deps
       - run: pnpm typecheck && pnpm lint && pnpm test
+      - name: Rust format and clippy
+        run: pnpm lint:rust
       - run: pnpm gate:golden
       - run: pnpm gate:fidelity
       - run: pnpm gate:licences

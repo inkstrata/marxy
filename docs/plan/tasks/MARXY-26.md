@@ -1,3 +1,9 @@
+---
+key: MARXY-26
+design: [02-render, 06-shell, 09-app-shell]
+depends: [MARXY-61, MARXY-75]
+verify: [pnpm precheck, pnpm done MARXY-26]
+---
 # MARXY-26 — Images with reserved dimensions; remote images blocked with a notice
 
 **Design:** [02-render](../../design/02-render.md) post-passes 3–4, [06-shell](../../design/06-shell.md) §Asset scoping, [09-app-shell](../../design/09-app-shell.md) §Notices · **Depends on:** MARXY-61, MARXY-75.

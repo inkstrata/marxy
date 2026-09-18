@@ -1,3 +1,9 @@
+---
+key: MARXY-16
+design: [06-shell]
+depends: [MARXY-13, MARXY-15, MARXY-5]
+verify: [pnpm precheck, pnpm done MARXY-16]
+---
 # MARXY-16 — Ship v0.0.1 on macOS and Linux from a tag
 
 **Design:** [06-shell](../../design/06-shell.md) (bundle config) · **Depends on:** MARXY-13, MARXY-15, MARXY-5.

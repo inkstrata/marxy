@@ -1,3 +1,9 @@
+---
+key: MARXY-22
+design: [05-theme]
+depends: [MARXY-21]
+verify: [pnpm precheck, pnpm done MARXY-22]
+---
 # MARXY-22 — Run the weight harness on a real Linux desktop and record the offset
 
 **Design:** [05-theme](../../design/05-theme.md) §Weight offset; `~/Dev/marxy-spike/SPIKE.md` · **Depends on:** MARXY-21. **Human-gated:** needs a Linux desktop (see `needs-human.md`).

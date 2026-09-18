@@ -1,3 +1,9 @@
+---
+key: MARXY-31
+design: []
+depends: [MARXY-30, MARXY-26, MARXY-27]
+verify: [pnpm precheck, pnpm done MARXY-31]
+---
 # MARXY-31 — Taste review #1 artifact: blind side-by-side against Typora and Marked 2
 
 **Design:** `docs/aesthetics-acceptance.md` tier 2 · **Depends on:** MARXY-30, MARXY-26, MARXY-27. **Human-gated** for the competitor captures.

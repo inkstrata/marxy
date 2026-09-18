@@ -1,3 +1,9 @@
+---
+key: MARXY-25
+design: [10-gates-and-testing]
+depends: [MARXY-20, MARXY-23]
+verify: [pnpm precheck, pnpm done MARXY-25]
+---
 # MARXY-25 — Headless render entry and the full mechanical aesthetics gate
 
 **Design:** [10-gates-and-testing](../../design/10-gates-and-testing.md) · **Depends on:** MARXY-20, MARXY-23.

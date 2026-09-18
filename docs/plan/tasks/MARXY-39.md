@@ -1,3 +1,9 @@
+---
+key: MARXY-39
+design: []
+depends: [MARXY-36, MARXY-37]
+verify: [pnpm precheck, pnpm done MARXY-39]
+---
 # MARXY-39 — Taste review #2 artifact including the palette-vs-tabs criterion
 
 **Design:** ADR-0011 reversal criterion; `docs/aesthetics-acceptance.md` · **Depends on:** MARXY-36, MARXY-37.

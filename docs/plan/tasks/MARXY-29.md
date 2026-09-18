@@ -1,3 +1,9 @@
+---
+key: MARXY-29
+design: [02-render]
+depends: [MARXY-12]
+verify: [pnpm precheck, pnpm done MARXY-29]
+---
 # MARXY-29 — Smart typography as a render pass
 
 **Design:** [02-render](../../design/02-render.md) §Smart typography, D-A13 · **Depends on:** MARXY-12.

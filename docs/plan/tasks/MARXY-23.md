@@ -1,3 +1,9 @@
+---
+key: MARXY-23
+design: [04-typeset]
+depends: [MARXY-19, MARXY-20, MARXY-21, MARXY-64, MARXY-75]
+verify: [pnpm precheck, pnpm done MARXY-23]
+---
 # MARXY-23 — Ragged-right Knuth–Plass through justif/core on paragraphs, list items and quotes
 
 **Design:** [04-typeset](../../design/04-typeset.md) (all of it) · **Depends on:** MARXY-19 (done), MARXY-20, MARXY-21, MARXY-64, MARXY-75.

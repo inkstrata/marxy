@@ -1,3 +1,9 @@
+---
+key: MARXY-21
+design: [05-theme, 00-architecture]
+depends: [MARXY-20]
+verify: [pnpm precheck, pnpm done MARXY-21]
+---
 # MARXY-21 — Bundle Literata and JetBrains Mono with the per-platform weight offset
 
 **Design:** [05-theme](../../design/05-theme.md) §Weight offset, [00-architecture](../../design/00-architecture.md) §Waterfall · **Depends on:** MARXY-20.

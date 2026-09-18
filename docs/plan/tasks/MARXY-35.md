@@ -1,3 +1,9 @@
+---
+key: MARXY-35
+design: [07-index-and-palette, 11-config-and-storage]
+depends: [MARXY-14]
+verify: [pnpm precheck, pnpm done MARXY-35]
+---
 # MARXY-35 — Index the enclosing repository with ignore rules, deny list and ceiling
 
 **Design:** [07-index-and-palette](../../design/07-index-and-palette.md) §Root, §Walking, §Headings, §Persistence; [11-config-and-storage](../../design/11-config-and-storage.md) · **Depends on:** MARXY-14.

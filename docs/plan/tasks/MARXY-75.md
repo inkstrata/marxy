@@ -1,3 +1,9 @@
+---
+key: MARXY-75
+design: [02-render]
+depends: [MARXY-12, MARXY-61, MARXY-20, MARXY-23, MARXY-38, MARXY-41]
+verify: [pnpm precheck, pnpm done MARXY-75]
+---
 # MARXY-75 — Carry byte provenance into the rendered DOM without letting a document spoof it
 
 **Design:** [02-render](../../design/02-render.md) (DOM contract, two-pass sanitise), [ADR-0023](../../adr/0023-provenance-in-the-dom.md)

@@ -1,3 +1,9 @@
+---
+key: MARXY-27
+design: [02-render]
+depends: [MARXY-61, MARXY-20]
+verify: [pnpm precheck, pnpm done MARXY-27]
+---
 # MARXY-27 — Code blocks highlighted at parse time from the grammar allow-list
 
 **Design:** [02-render](../../design/02-render.md) post-pass 5 · **Depends on:** MARXY-61, MARXY-20.
