@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "pnpm run test:contracts-frozen && pnpm -r test",
+    "test:contracts-frozen": "node --input-type=module -e 'import{execFileSync as x}from\"node:child_process\";const h=\"0e051d51a20103d2672bc30e805ab4f10cb0e277\";const re=/^(packages\\/[^/]+\\/src\\/contracts\\/|packages\\/theme\\/src\\/tokens\\.css$)/;const t=r=>x(\"git\",[\"ls-tree\",\"-r\",\"--name-only\",r],{encoding:\"utf8\"}).split(\"\\n\").filter(p=>re.test(p)).sort();const a=t(h),b=t(\"HEAD\");if(!a.length){console.error(\"contracts-frozen: handoff has no files\");process.exit(1)}if(a.join(\"\\n\")!==b.join(\"\\n\")){console.error(\"contracts-frozen: file set changed\\n\"+a.join(\"\\n\")+\"\\n---\\n\"+b.join(\"\\n\"));process.exit(1)}x(\"git\",[\"merge-base\",\"--is-ancestor\",h,\"HEAD\"]);const d=x(\"git\",[\"diff\",\"--name-status\",h,\"HEAD\",\"--\",...a],{encoding:\"utf8\"});if(d){console.error(\"contracts-frozen: diff vs \"+h+\"\\n\"+d);process.exit(1)}console.log(\"contracts-frozen: empty diff vs handoff \"+h+\" (\"+a.length+\" files)\")'",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "gate:licences": "node scripts/gate-licences.mjs",
