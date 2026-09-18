@@ -30,6 +30,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: jdx/mise-action@v2
       - name: Linux webview deps
         if: runner.os == 'Linux'
@@ -57,6 +58,8 @@ jobs:
         run: |
           node scripts/gate-perf.mjs --selftest
           node scripts/measure-startup.mjs --selftest
+      - name: Perf budgets are unchanged (ADR-0013 product budgets, ADR-0022 CI numbers)
+        run: node scripts/gate-perf.mjs --assert-budgets-unchanged ${{ github.base_ref && format('origin/{0}', github.base_ref) || 'HEAD^' }}
       - name: Perf gate (CI envelope and baseline, ADR-0022)
         run: pnpm gate:perf
         env:
