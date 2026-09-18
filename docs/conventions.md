@@ -29,13 +29,16 @@ ADR: 0007
 - **Types:** `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`, `style`, `revert`.
 - **Scopes:** `core`, `typeset`, `theme`, `shell`, `desktop`, `corpus`, `gates`, `ci`, `docs`,
   `orchestration`, `release`, `fonts`. Omit only for repo-wide changes.
-- **Key in the subject**, in parentheses at the end, so Jira and git reconcile. Bootstrap
-  commits before the tracker existed are the one exception, and that period is over.
+- **Key in the subject**, in parentheses at the end, so Jira and git reconcile; commitlint
+  enforces it as `marxy-key-in-subject`. Bootstrap and spike commits from before the tracker
+  existed are the one exception, and that period is over. A body may name other stories
+  freely — the key is what ties the commit to its issue, not where it appears.
 - **Breaking changes** exist only for contracts: `feat(core)!: …` plus a `BREAKING CHANGE:`
   footer naming the ADR. Nothing else in this project is "breaking".
 - Body is mandatory for `feat`, `fix`, `perf`, `refactor`; optional for the rest.
-- No attribution trailers of any kind (a hook blocks them). `Refs:` and `ADR:` are the only
-  trailers in use.
+- No attribution trailers of any kind. `.githooks/commit-msg` strips them and fails if it
+  cannot; install it once with `git config core.hooksPath .githooks`. `Refs:` and `ADR:` are
+  the only trailers in use.
 - Squash merges use the PR title as the subject and the PR body's Summary and Changes as the
   body, so a well-formed PR produces a well-formed commit without extra work.
 
@@ -105,7 +108,7 @@ in parentheses. Release notes are generated from the section at tag time.
 ```
 ## Unreleased
 ### Added
-- Task-list checkboxes can be toggled in Rendered mode; only the marker bytes change (MARXY-042)
+- Task-list checkboxes can be toggled in Rendered mode; only the marker bytes change (MARXY-43)
 ```
 
 ## Font binaries
@@ -113,7 +116,7 @@ in parentheses. Release notes are generated from the section at tag time.
 Font files are never rewritten (Reserved Font Name; never touch a byte the user did not ask to
 change). `.gitattributes` therefore marks **font binaries by extension** (`ttf`, `otf`, `woff`,
 `woff2`) as `binary` and explicitly unsets `eol`. It does **not** mark the whole `fonts/` tree:
-`fonts/README.md`, `LICENSE` and `OFL.txt` must stay ordinary text so a reviewer can read the
+`fonts/README.md` and `LICENSE` files must stay ordinary text so a reviewer can read the
 diff. A tree-wide `fonts/** binary` rule hid the MARXY-17 README row on GitHub; that is the
 wrong trade.
 

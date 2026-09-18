@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "marxy implementor result",
+  "type": "object",
+  "required": ["key", "status", "branch", "gates", "acceptance", "outsidePaths", "needsAdr", "queueEntry"],
+  "properties": {
+    "key": { "type": "string", "pattern": "^MARXY-" },
+    "status": { "enum": ["done", "blocked", "failed"] },
+    "branch": { "type": "string" },
+    "pr": { "type": "integer" },
+    "gates": { "type": "object", "additionalProperties": { "type": "string" } },
+    "acceptance": { "type": "array", "items": { "type": "object", "required": ["criterion", "checkedBy"], "properties": { "criterion": { "type": "string" }, "checkedBy": { "type": "string", "minLength": 3 } } } },
+    "outsidePaths": { "type": "array", "items": { "type": "string" } },
+    "needsAdr": { "type": "boolean" },
+    "queueEntry": { "type": "boolean" },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,15 +1,31 @@
-/* The default theme. Built as a theme so the loader is exercised from Phase 1 (ADR-0008).
-   Light values are the token defaults; dark is designed, not inverted (Phase 3, MARXY-052). */
+/* The default theme. Dark is primary and lives in the token defaults (ADR-0024). Light is the
+   designed second variant: its own paper, weight and token colours, never the inverse of dark
+   (MARXY-46). Contrast ratios for every value are in docs/design/05-theme.md §Palettes. */
 @import url("../src/tokens.css");
-:root[data-marxy-variant="dark"] {
-  --marxy-color-bg: #141414;
-  --marxy-color-text: #e6e3dc;
-  --marxy-color-text-secondary: #a09c93;
-  --marxy-color-accent: #8fb4dd;
-  --marxy-color-rule: #2a2a2a;
-  --marxy-color-code-bg: #1c1c1a;
-  --marxy-color-code-text: #e6e3dc;
-  --marxy-color-quote-rule: #3a3a3a;
-  --marxy-color-selection: #2a4a6e;
-  --marxy-weight-body: 380;          /* a serif at 400 reads heavier on dark */
+:root[data-marxy-variant="light"] {
+  --marxy-weight-body: 400;
+  --marxy-color-bg: #faf8f4;
+  --marxy-color-text: #1c1b19;
+  --marxy-color-text-secondary: #5e5a53;
+  --marxy-color-accent: #2c5f8a;
+  --marxy-color-rule: #e4e0d8;
+  --marxy-color-code-bg: #f1eee8;
+  --marxy-color-code-text: #1c1b19;
+  --marxy-color-quote-rule: #d6d1c8;
+  --marxy-color-selection: #cfe3ff;
+  --marxy-color-find: #fbe9a6;
+  --marxy-color-find-current: #f3c94d;
+  --marxy-color-notice: #f1eee8;
+  --marxy-tok-keyword: #6f42a8;
+  --marxy-tok-string: #3f6e2a;
+  --marxy-tok-comment: #6a655d;
+  --marxy-tok-number: #8f5410;
+  --marxy-tok-function: #2c5f8a;
+  --marxy-tok-type: #7a5c10;
+  --marxy-tok-variable: #1c1b19;
+  --marxy-tok-operator: #4a4640;
+  --marxy-tok-punctuation: #6a655d;
+  --marxy-tok-constant: #8f5410;
+  --marxy-tok-tag: #a1412f;
+  --marxy-tok-attribute: #7a5c10;
 }
