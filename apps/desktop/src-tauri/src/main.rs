@@ -26,16 +26,28 @@ fn write_file_atomic(path: String, bytes: Vec<u8>) -> Result<(), String> {
     std::fs::rename(&tmp, target).map_err(|e| e.to_string())
 }
 
+/// Prints `MARK <name> <epoch ms>` and, only when there is any, a trailing detail field.
+/// The startup measurement parses these lines, so the two-field form must stay exact.
 #[tauri::command]
 fn mark(name: String, t: f64, data: Option<String>) {
+    let detail = data.unwrap_or_default();
+    let ms = t as i64;
     let mut out = std::io::stdout().lock();
-    let _ = writeln!(out, "MARK {} {} {}", name, t, data.unwrap_or_default());
+    let _ = if detail.is_empty() {
+        writeln!(out, "MARK {} {}", name, ms)
+    } else {
+        writeln!(out, "MARK {} {} {}", name, ms, detail)
+    };
     let _ = out.flush();
+}
+
+fn quit_after_paint() -> bool {
+    matches!(std::env::var("MARXY_QUIT_AFTER_PAINT").as_deref(), Ok("1") | Ok("true"))
 }
 
 #[tauri::command]
 fn startup_marks() -> serde_json::Value {
-    serde_json::json!({ "quit_after_paint": std::env::var("MARXY_QUIT_AFTER_PAINT").is_ok() })
+    serde_json::json!({ "quit_after_paint": quit_after_paint() })
 }
 
 #[tauri::command]

@@ -1,11 +1,10 @@
-// Phase 0 hello world: open the file passed on the command line, render it sanitised and unstyled,
-// print startup marks, exit when asked (used by scripts/measure-startup.mjs).
+// Phase 0 reader: open the file named on the command line, render it sanitised and unstyled, print
+// startup marks, exit when asked. All privileged work goes through ./shell (ADR-0010, ADR-0020).
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { shell } from './shell/tauri.ts';
 
 const t0 = Date.now();
-const raf = () => new Promise<number>(r => requestAnimationFrame(r));
 const md = new MarkdownIt({ html: true, linkify: false, typographer: true });
 const sanitize = (html: string) => DOMPurify.sanitize(html, {
   USE_PROFILES: { html: true },
@@ -13,19 +12,40 @@ const sanitize = (html: string) => DOMPurify.sanitize(html, {
   ALLOWED_URI_REGEXP: /^(?:https?|mailto|#|\/)/i,
 });
 
+/** Resolves on the frame after the browser has painted the current DOM, so `first_text` is honest. */
+const afterPaint = () => new Promise<void>(resolve => {
+  requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0)));
+});
+
+/** Evidence that the document actually reached the DOM, for the CLI smoke check. */
+function renderEvidence(doc: HTMLElement): string {
+  const blocks = doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length;
+  const heading = doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '';
+  return `blocks=${blocks} chars=${doc.textContent?.length ?? 0} heading=${heading}`;
+}
+
 async function main() {
   await shell.mark('script_start', t0);
   const args = await shell.args();
+  // Skip flags and the macOS launcher's -psn_… argument; the first plain argument is the document.
   const file = args.find(a => !a.startsWith('-'));
   const doc = document.getElementById('doc')!;
   if (file) {
     const bytes = await shell.readFile(file);
-    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes); // display only; the buffer layer (MARXY-013) keeps the raw bytes
+    // Display only: the buffer layer keeps the raw bytes, and nothing in this app writes them back.
+    const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
     doc.innerHTML = sanitize(md.render(text));
     document.title = `${file.split('/').pop()} — marxy`;
+    await shell.mark('render', Date.now(), renderEvidence(doc));
+  } else {
+    await shell.mark('no_document', Date.now());
   }
-  await raf(); await raf();
-  await shell.mark('first_text', Date.now(), file ?? '');
+  await afterPaint();
+  await shell.mark('first_text', Date.now());
   if (args.includes('--quit-after-paint') || (await shell.startupMarks()).quit_after_paint) await shell.quit();
 }
-main().catch(e => { document.getElementById('doc')!.textContent = String(e); shell.mark('error', Date.now(), String(e)); });
+
+main().catch(e => {
+  document.getElementById('doc')!.textContent = String(e);
+  shell.mark('error', Date.now(), String(e));
+});
