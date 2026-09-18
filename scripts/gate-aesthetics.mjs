@@ -1,6 +1,6 @@
 // Mechanical aesthetics gate (ADR-0014). Checks that can run before the renderer exists run now;
 // grid conformance, rag metrics and screenshot diffs switch on when apps/desktop exposes a headless
-// render entry (MARXY-025). Fails hard once MARXY_AESTHETICS_REQUIRED=1 is set in CI (Phase 1).
+// render entry (MARXY-25). Fails hard once MARXY_AESTHETICS_REQUIRED=1 is set in CI (Phase 1).
 import { readFileSync, existsSync } from 'node:fs';
 const tokens = readFileSync(new URL('../packages/theme/src/tokens.css', import.meta.url), 'utf8');
 const get = k => (tokens.match(new RegExp(`${k}:\\s*([^;]+);`)) || [])[1];
@@ -17,4 +17,4 @@ if (cr < 7) fails.push(`body contrast ${cr.toFixed(2)} < 7:1 (constraint 4)`);
 const renderer = existsSync(new URL('../apps/desktop/dist/render.js', import.meta.url));
 if (!renderer && process.env.MARXY_AESTHETICS_REQUIRED === '1') fails.push('headless render entry missing; grid/rag/screenshot checks cannot run');
 if (fails.length) { console.error('aesthetics gate failed:\n - ' + fails.join('\n - ')); process.exit(1); }
-console.log(`aesthetics gate ok: measure ${measure}ch, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1${renderer ? '' : ' (grid/rag/screenshot checks pending MARXY-025)'}`);
+console.log(`aesthetics gate ok: measure ${measure}ch, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1${renderer ? '' : ' (grid/rag/screenshot checks pending MARXY-25)'}`);

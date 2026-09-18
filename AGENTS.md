@@ -59,17 +59,21 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
 
 ## Working rules
 
-- **Branches:** `type/MARXY-123-short-slug` off `main`. `main` is always releasable;
-  no direct pushes. Squash on merge; the PR description is the durable record.
+- **Branches:** `type/MARXY-123-short-slug` off `main`, where the key is the real Jira key in
+  project MARXY. `main` is always releasable; no direct pushes. Squash on merge; the PR
+  description is the durable record. The process on one page: `docs/sdlc.md`.
 - **Commits, PRs, comments, reviews, tags:** `docs/conventions.md`. The one rule under all of
   them: a plain-language summary first, technical detail after, agent detail folded away.
   Conventional Commits with the Jira key in the subject; the PR template's order is enforced;
   review remarks use Conventional Comments; no attribution trailers (a hook blocks them).
-- **Definition of done** for a story: every acceptance criterion in the issue is
-  machine-checked by a test or gate that is in the PR; `pnpm build typecheck lint test`
-  green; the relevant gates green; `CHANGELOG.md` has a line; docs/ADRs updated if a
-  decision changed; visual artifacts queued in `docs/taste-review/queue.md` if anything
-  the reader sees changed.
+- **Definition of done** for a story is one command: `pnpm done MARXY-nn` green (story
+  boundary, precheck, drafted PR body) plus `node scripts/check-pr.mjs --body results/MARXY-nn.pr.md --range`
+  green after you fill the TODOs. Every acceptance criterion names the test or gate that
+  checks it; `CHANGELOG.md` has a line; docs/ADRs updated if a decision changed; a queue row
+  in `docs/taste-review/queue.md` if anything the reader sees changed; the Jira issue Done
+  and carrying the PR link. The full list, with the definition of ready that precedes it,
+  is in `docs/sdlc.md`. `docs/hygiene.md` lists what the tools enforce; `pnpm new` starts
+  modules, operations and commands in the house shape.
 - **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` or
   `packages/theme/src/tokens.css` needs an ADR and a PR touching only that.
 - **Toolchain:** versions come from `mise.toml`. `pnpm` for Node, `uv` for Python,
@@ -108,6 +112,8 @@ carry on against the mechanical gates. The queue is reviewed at the end of each 
 - `docs/scope.md` — what v1 is and is not. `docs/plan.md` — the phases.
 - `docs/aesthetics-acceptance.md` — the test for "aesthetics paramount".
 - `docs/spike/` — the stack decision rule and the spike outcome.
-- `docs/plan/jira-issues.csv` — the story list with acceptance criteria.
+- `docs/plan/jira-issues.csv` — the story list with acceptance criteria, mirrored into the Jira
+  project MARXY, which is the board of record. `docs/sdlc.md` — the states, the definitions of
+  ready and done, traceability and the release runbook.
 - The brainstorm that preceded this repo lives at `~/Dev/marxy-brainstorm`; it is
   history, not specification. Do not import from it wholesale.

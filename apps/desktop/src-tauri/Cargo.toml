@@ -18,3 +18,11 @@ codegen-units = 1
 lto = true
 opt-level = 3
 strip = true
+
+# CI builds: thin LTO and more codegen units so a pull request pays seconds, not minutes, for the
+# link; the shipped binary still uses [profile.release] (tags and `pnpm bundle`). Startup baselines
+# in fixtures/perf-budgets.json under "ci" are measured on this profile (docs/hygiene.md §CI).
+[profile.ci]
+inherits = "release"
+lto = "thin"
+codegen-units = 16

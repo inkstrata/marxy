@@ -73,8 +73,17 @@ matched to macOS.
 
 Source mode is a code surface and is judged as one.
 
+## Colour: dark is primary (ADR-0024)
+
+marxy is designed on a dark ground first: warm near-black `#151412`, warm off-white text
+`#e8e4dc` at 14.5:1, body weight 380 because a serif at 400 reads heavier on dark, one muted
+blue accent, code one step lighter than the page. Light is a second, separately designed
+variant on warm paper `#faf8f4` at weight 400. Neither is the other inverted. The exact
+palettes and their contrast ratios are in `docs/design/05-theme.md` §Palettes; both must pass
+the contrast checks in the aesthetics gate.
+
 ## Deliberately absent
 
 Justified text by default (ragged reads better on screen; K–P makes justification *possible*
-as a theme option). A serif/sans toggle as a headline feature. Dark mode as an inversion (it
-needs its own weight and contrast decisions). Animation of any kind. Reading-time estimates.
+as a theme option). A serif/sans toggle as a headline feature. A light theme produced by
+inverting the dark one. Animation of any kind. Reading-time estimates.
