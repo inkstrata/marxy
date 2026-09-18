@@ -9,6 +9,7 @@ tag time. Conventions in `docs/conventions.md`.
 ### Added
 - Only the security posture and the merge gate itself now wait for a person. Typesetting, theme, contracts, `shell-api` and ADR changes land on a signed review, and taste is checked in the review queue (MARXY-99)
 - CI now fetches the CommonMark specification examples — never committed — and fails the build if a parse diverges from them (MARXY-68)
+- Straight quotes, double hyphens and three dots become the marks a book would use when you read a document, and a short last word stays on the line with the one before it; the file itself is not touched (MARXY-29)
 - Agents land a pull request once the quality bar is met: a signed review of that exact commit, green gates, and the story's path boundary — CODEOWNERS paths still wait for a person (MARXY-79)
 - The orchestrator fleet can run cheaper: `--low` is Sonnet 5 medium plus Grok 4.6 High Fast, `--minimal` is Grok 4.6 High Fast only
 - An open document reloads when its file changes on disk and the reading position stays put; a save will not silently overwrite a file someone else has changed (MARXY-34)
