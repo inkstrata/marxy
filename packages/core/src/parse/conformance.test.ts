@@ -48,33 +48,48 @@ test('conformance: every generated case renders as the reference implementation 
 
 // GFM on is the default every reader gets, and it is a different parse: running the invariants only
 // with GFM off is how a provenance bug in an autolink-literal candidate survived review once.
+//
+// Each input is also rewritten through the three CommonMark line endings. Before the contentRange /
+// infoString / openingFenceLineEnd fix, LF-as-written and LF-to-CRLF produced 0 AST_INVARIANTS
+// violations, and LF-to-CR produced 198 CODE_CONTENT violations across 182 parses (99 violations in
+// 91 of the 527 inputs, counted once with GFM off and once with GFM on). Measured on bd3e0eb.
+const LINE_ENDING_REWRITES = [
+  ['LF as written', (input: string) => input],
+  ['LF to CRLF', (input: string) => input.replaceAll('\n', '\r\n')],
+  ['LF to CR', (input: string) => input.replaceAll('\n', '\r')],
+] as const;
+
 for (const [label, options] of [
   ['CommonMark only', { gfm: false, frontmatter: false, math: false }],
   ['GFM, frontmatter and math on', {}],
 ] as const) {
-  test(`conformance: the invariants hold for every rule case (${label})`, () => {
-    const failures: string[] = [];
-    for (const { construct, rule, input } of RULE_CASES) {
-      const bytes = new TextEncoder().encode(input);
-      const document = parseMarkdown(bytes, { file: 'case.md', ...options });
-      for (const violation of checkInvariants(document, bytes)) {
-        failures.push(`[${construct}] ${rule}: ${violation.invariant} — ${violation.detail}`);
+  for (const [endingLabel, rewrite] of LINE_ENDING_REWRITES) {
+    test(`conformance: the invariants hold for every rule case (${label}, ${endingLabel})`, () => {
+      const failures: string[] = [];
+      for (const { construct, rule, input } of RULE_CASES) {
+        const text = rewrite(input);
+        const bytes = new TextEncoder().encode(text);
+        const document = parseMarkdown(bytes, { file: 'case.md', ...options });
+        for (const violation of checkInvariants(document, bytes)) {
+          failures.push(`[${construct}] ${rule} [${endingLabel}]: ${violation.invariant} — ${violation.detail}`);
+        }
       }
-    }
-    assert.deepEqual(failures.slice(0, 10), []);
-  });
+      assert.deepEqual(failures.slice(0, 10), []);
+    });
 
-  test(`conformance: the invariants hold for every generated case (${label})`, () => {
-    const failures: string[] = [];
-    for (const { index, shape, input } of generated) {
-      const bytes = new TextEncoder().encode(input);
-      const document = parseMarkdown(bytes, { file: `generated-${index}.md`, ...options });
-      for (const violation of checkInvariants(document, bytes)) {
-        failures.push(`seed=${seed} index=${index} shape=${shape.join('+')}: ${violation.invariant} — ${violation.detail}`);
+    test(`conformance: the invariants hold for every generated case (${label}, ${endingLabel})`, () => {
+      const failures: string[] = [];
+      for (const { index, shape, input } of generated) {
+        const text = rewrite(input);
+        const bytes = new TextEncoder().encode(text);
+        const document = parseMarkdown(bytes, { file: `generated-${index}.md`, ...options });
+        for (const violation of checkInvariants(document, bytes)) {
+          failures.push(`seed=${seed} index=${index} shape=${shape.join('+')} [${endingLabel}]: ${violation.invariant} — ${violation.detail}`);
+        }
       }
-    }
-    assert.deepEqual(failures.slice(0, 10), []);
-  });
+      assert.deepEqual(failures.slice(0, 10), []);
+    });
+  }
 }
 
 /**
