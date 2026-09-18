@@ -7,6 +7,7 @@ import type {
   Block, Document, Inline, Source, Heading, List, ListItem, TableCell, TableRow,
 } from '../contracts/ast.ts';
 import type { ByteOffsets } from './byte-offsets.ts';
+import { LINE_ENDING, LINE_ENDINGS, nextLineEnding, splitLines } from './line-endings.ts';
 import type * as md from 'mdast';
 
 export interface ConvertContext {
@@ -210,15 +211,17 @@ const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
  */
 function contentRange(raw: string, value: string, start: number, end: number, ctx: Ctx): Source {
   const fenced = FENCE_OPEN.test(raw);
-  const afterOpen = fenced ? raw.indexOf('\n') : -1;
-  if (fenced && afterOpen < 0) return span(end, end, ctx); // An unterminated, empty fenced block.
-  const offset = fenced ? afterOpen + 1 : 0;
+  const openEnding = fenced ? nextLineEnding(raw, 0) : undefined;
+  if (fenced && openEnding === undefined) return span(end, end, ctx); // An unterminated, empty fenced block.
+  const offset = openEnding === undefined ? 0 : openEnding.end;
   if (value.length === 0) return span(start + offset, start + offset, ctx);
   let cursor = offset;
-  for (let line = value.split('\n').length; line > 0; line--) {
-    const newline = raw.indexOf('\n', cursor);
-    if (newline < 0) return span(start + offset, end, ctx);
-    cursor = newline + 1;
+  // value keeps the document's own endings (CR, CRLF or LF); counting on a bare LF would
+  // collapse a multi-line Classic Mac block to a single line.
+  for (let line = splitLines(value).length; line > 0; line--) {
+    const ending = nextLineEnding(raw, cursor);
+    if (ending === undefined) return span(start + offset, end, ctx);
+    cursor = ending.end;
   }
   return span(start + offset, start + cursor, ctx);
 }
@@ -227,8 +230,9 @@ function contentRange(raw: string, value: string, start: number, end: number, ct
 function infoString(raw: string): string | undefined {
   const fence = FENCE_OPEN.exec(raw);
   if (!fence) return undefined;
-  const firstLine = raw.slice(fence[0].length, raw.indexOf('\n') < 0 ? raw.length : raw.indexOf('\n'));
-  const info = firstLine.replace(/\r$/, '').trim();
+  const ending = nextLineEnding(raw, 0);
+  const firstLine = raw.slice(fence[0].length, ending === undefined ? raw.length : ending.start);
+  const info = firstLine.trim();
   return info.length > 0 ? info : undefined;
 }
 
@@ -343,15 +347,3 @@ function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
   return out;
 }
 
-const LINE_ENDING = /\r|\n/;
-const LINE_ENDINGS = /\r\n|\r|\n/;
-
-/** The next CRLF, CR or LF at or after `from`, as the half-open range it occupies. */
-function nextLineEnding(raw: string, from: number): { start: number; end: number } | undefined {
-  for (let index = from; index < raw.length; index++) {
-    const character = raw[index];
-    if (character === '\n') return { start: index, end: index + 1 };
-    if (character === '\r') return { start: index, end: raw[index + 1] === '\n' ? index + 2 : index + 1 };
-  }
-  return undefined;
-}

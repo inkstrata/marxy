@@ -22,9 +22,10 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0014](0014-aesthetics-acceptance.md) | "Aesthetics paramount" has a two-tier acceptance test | accepted |
 | [0015](0015-typeface.md) | Literata and JetBrains Mono, confirmed by the first taste review | proposed until review #0 |
 | [0016](0016-verification-split.md) | Machine gates for everything checkable; a scheduled taste-review queue for the rest | accepted |
-| [0017](0017-trunk-based-agent-workflow.md) | Trunk-based, one issue one branch one PR, CODEOWNERS for the sensitive paths | accepted |
+| [0017](0017-trunk-based-agent-workflow.md) | Trunk-based, one issue one branch one PR, CODEOWNERS for the sensitive paths | accepted, amended by 0028 (the CODEOWNERS list) |
 | [0018](0018-reading-position-coordinate.md) | Reading position is a source-map coordinate, never a scroll offset | accepted |
 | [0019](0019-scope-v1.md) | The v1 cut | accepted |
 | [0020](0020-core-is-shell-free.md) | `packages/core` and `packages/typeset` never depend on the desktop shell | accepted |
 | [0021](0021-parser-mdast-micromark.md) | The parser is mdast/micromark, not markdown-it | accepted |
 | [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: the metric split) |
+| [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |
