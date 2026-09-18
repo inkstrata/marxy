@@ -1,8 +1,9 @@
 //! Byte-faithful saving: stage the new bytes beside the destination, then rename over it. The only
 //! place marxy writes a reader's document (AGENTS.md non-negotiable 4, ADR-0004).
 //!
-//! The module depends on `std` alone so that `pnpm gate:fidelity` can compile it with a bare `rustc`
-//! and drive this exact code over the corpus, instead of checking a second implementation of it.
+//! The module depends on `std` and, on Linux, xattr syscalls declared inline so that
+//! `pnpm gate:fidelity` can compile it with a bare `rustc` and drive this exact code over the
+//! corpus, instead of checking a second implementation of it.
 
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::Write;
@@ -11,7 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(unix)]
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{chown, MetadataExt};
 
 /// Saves attempted in this process; part of the temporary file's name so two saves never collide.
 static ATTEMPTS: AtomicU64 = AtomicU64::new(0);
@@ -107,10 +108,14 @@ fn stage(tmp: &Path, target: &Path, destination: Option<&Metadata>, bytes: &[u8]
     if destination.is_some() {
         // Cloning the destination onto the staging file carries its mode everywhere and, on macOS,
         // its ACL and extended attributes too (`fs::copy` is `fcopyfile` with `COPYFILE_ALL` there).
-        // Copying the old contents first is wasted I/O for a document-sized file and the only way to
-        // get that metadata without a libc dependency.
+        // On Linux `fs::copy` is a data+mode copy, so extended attributes and POSIX ACLs are
+        // written afterwards from the same syscalls the kernel uses. Copying the old contents first
+        // is wasted I/O for a document-sized file and the only way to get that metadata from `std`
+        // on macOS without a crate.
         fs::copy(target, tmp)
             .map_err(|e| format!("{}: cannot carry the file's metadata onto the save: {e}", target.display()))?;
+        #[cfg(target_os = "linux")]
+        linux_xattr::copy_from(target, tmp)?;
         refuse_ownership_change(target, tmp)?;
     }
     let mut file = OpenOptions::new()
@@ -141,22 +146,41 @@ fn sync_directory(dir: &Path) {
     let _ = dir;
 }
 
-/// Refuses a save that would hand the file to a different owner. marxy cannot restore the old owner
-/// without a libc dependency, so it declines instead of changing it.
+/// True when the staged file would belong to a different user than the destination. A group
+/// mismatch is not a refusal: `refuse_ownership_change` restores the group so a save into a
+/// directory whose group is not the user's own still succeeds.
+fn ownership_refuses(destination_uid: u32, staged_uid: u32) -> bool {
+    destination_uid != staged_uid
+}
+
+/// Refuses a save that would hand the file to a different user. A group mismatch is restored
+/// when the process can set that group (a user may chown a file they own to a group they belong
+/// to); only if that restore fails, or the owning user would change, does the save refuse.
 #[cfg(unix)]
 fn refuse_ownership_change(target: &Path, tmp: &Path) -> Result<(), String> {
     let destination = fs::metadata(target).map_err(|e| format!("{}: {e}", target.display()))?;
     let staged = fs::metadata(tmp).map_err(|e| format!("{}: {e}", tmp.display()))?;
-    if destination.uid() != staged.uid() || destination.gid() != staged.gid() {
+    if ownership_refuses(destination.uid(), staged.uid()) {
         return Err(format!(
-            "{}: is owned by {}:{} and marxy would save it as {}:{}; refusing rather than changing \
+            "{}: is owned by {} and marxy would save it as {}; refusing rather than changing \
              the owner",
             target.display(),
             destination.uid(),
-            destination.gid(),
-            staged.uid(),
-            staged.gid()
+            staged.uid()
         ));
+    }
+    if destination.gid() != staged.gid() {
+        chown(tmp, None, Some(destination.gid())).map_err(|_| {
+            format!(
+                "{}: is owned by {}:{} and marxy would save it as {}:{}; refusing rather than \
+                 changing the owner",
+                target.display(),
+                destination.uid(),
+                destination.gid(),
+                staged.uid(),
+                staged.gid()
+            )
+        })?;
     }
     Ok(())
 }
@@ -164,6 +188,153 @@ fn refuse_ownership_change(target: &Path, tmp: &Path) -> Result<(), String> {
 #[cfg(not(unix))]
 fn refuse_ownership_change(_target: &Path, _tmp: &Path) -> Result<(), String> {
     Ok(())
+}
+
+/// Linux `listxattr(2)` / `getxattr(2)` / `setxattr(2)`, declared inline so the fidelity gate can
+/// still compile this module with a bare `rustc`. POSIX ACLs are the `system.posix_acl_*`
+/// attributes; copying every user and ACL name is what stops a save from silently dropping them.
+#[cfg(target_os = "linux")]
+mod linux_xattr {
+    use std::ffi::{c_char, c_int, c_void, CString};
+    use std::io;
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::Path;
+
+    unsafe extern "C" {
+        fn listxattr(path: *const c_char, list: *mut c_char, size: usize) -> isize;
+        fn getxattr(path: *const c_char, name: *const c_char, value: *mut c_void, size: usize)
+            -> isize;
+        fn setxattr(
+            path: *const c_char,
+            name: *const c_char,
+            value: *const c_void,
+            size: usize,
+            flags: c_int,
+        ) -> c_int;
+    }
+
+    /// `ENOTSUP` / `EOPNOTSUPP` on Linux; the errno a filesystem returns when it has no xattrs.
+    const ENOTSUP: i32 = 95;
+    /// `ENOSYS`: the kernel has no xattr syscalls at all.
+    const ENOSYS: i32 = 38;
+
+    fn c_path(path: &Path) -> io::Result<CString> {
+        CString::new(path.as_os_str().as_bytes())
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
+    }
+
+    fn c_name(name: &str) -> io::Result<CString> {
+        CString::new(name).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
+    }
+
+    /// True only when the filesystem (or kernel) genuinely cannot store extended attributes.
+    pub fn filesystem_lacks_support(err: &io::Error) -> bool {
+        matches!(err.raw_os_error(), Some(ENOTSUP) | Some(ENOSYS))
+    }
+
+    fn must_preserve(name: &str) -> bool {
+        name.starts_with("user.")
+            || name == "system.posix_acl_access"
+            || name == "system.posix_acl_default"
+    }
+
+    pub fn list_names(path: &Path) -> io::Result<Vec<String>> {
+        let c = c_path(path)?;
+        // SAFETY: `c` is a valid C string; a null buffer with size 0 is the documented size query.
+        let mut size = unsafe { listxattr(c.as_ptr(), std::ptr::null_mut(), 0) };
+        if size < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if size == 0 {
+            return Ok(Vec::new());
+        }
+        let mut buf = vec![0u8; size as usize];
+        // SAFETY: `buf` is `size` writable bytes, which is what the previous query returned.
+        size = unsafe { listxattr(c.as_ptr(), buf.as_mut_ptr() as *mut c_char, buf.len()) };
+        if size < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        buf.truncate(size as usize);
+        Ok(buf
+            .split(|&b| b == 0)
+            .filter(|s| !s.is_empty())
+            .map(|s| String::from_utf8_lossy(s).into_owned())
+            .collect())
+    }
+
+    pub fn get(path: &Path, name: &str) -> io::Result<Vec<u8>> {
+        let c = c_path(path)?;
+        let n = c_name(name)?;
+        // SAFETY: both pointers are valid C strings; a null buffer with size 0 queries the length.
+        let mut size = unsafe { getxattr(c.as_ptr(), n.as_ptr(), std::ptr::null_mut(), 0) };
+        if size < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let mut buf = vec![0u8; size as usize];
+        // SAFETY: `buf` is `size` writable bytes, matching the query.
+        size = unsafe { getxattr(c.as_ptr(), n.as_ptr(), buf.as_mut_ptr() as *mut c_void, buf.len()) };
+        if size < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        buf.truncate(size as usize);
+        Ok(buf)
+    }
+
+    pub fn set(path: &Path, name: &str, value: &[u8]) -> io::Result<()> {
+        let c = c_path(path)?;
+        let n = c_name(name)?;
+        // SAFETY: path and name are valid C strings; `value` is `value.len()` readable bytes.
+        let rc = unsafe {
+            setxattr(c.as_ptr(), n.as_ptr(), value.as_ptr() as *const c_void, value.len(), 0)
+        };
+        if rc == 0 {
+            Ok(())
+        } else {
+            Err(io::Error::last_os_error())
+        }
+    }
+
+    /// A POSIX ACL xattr with a named user (`nobody`) so a mode-only copy cannot fake preservation.
+    pub fn named_user_acl(uid: u32) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&2u32.to_le_bytes());
+        const UNDEF: u32 = 0xffff_ffff;
+        let mut entry = |tag: u16, perm: u16, id: u32| {
+            out.extend_from_slice(&tag.to_le_bytes());
+            out.extend_from_slice(&perm.to_le_bytes());
+            out.extend_from_slice(&id.to_le_bytes());
+        };
+        entry(0x01, 6, UNDEF); // ACL_USER_OBJ rw
+        entry(0x02, 4, uid); // ACL_USER r
+        entry(0x04, 4, UNDEF); // ACL_GROUP_OBJ r
+        entry(0x10, 4, UNDEF); // ACL_MASK r
+        entry(0x20, 4, UNDEF); // ACL_OTHER r
+        out
+    }
+
+    pub fn copy_from(from: &Path, to: &Path) -> Result<(), String> {
+        let names = match list_names(from) {
+            Ok(names) => names,
+            Err(err) if filesystem_lacks_support(&err) => return Ok(()),
+            Err(err) => {
+                return Err(format!("{}: cannot read extended attributes: {err}", from.display()))
+            }
+        };
+        for name in names {
+            let value = get(from, &name).map_err(|e| {
+                format!("{}: cannot read extended attribute {name}: {e}", from.display())
+            })?;
+            if let Err(err) = set(to, &name, &value) {
+                if must_preserve(&name) {
+                    return Err(format!(
+                        "{}: cannot keep extended attribute {name}: {err}",
+                        from.display()
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -380,5 +551,113 @@ mod tests {
             .output()
             .expect("xattr -p");
         assert_eq!(String::from_utf8_lossy(&read.stdout).trim(), "kept");
+    }
+
+    /// The case `refuse_ownership_change` still refuses: a different owning user. A different
+    /// group is restored, so a save into a directory whose group is not the user's own succeeds.
+    #[test]
+    fn refuse_ownership_change_refuses_a_uid_mismatch() {
+        assert!(
+            ownership_refuses(501, 0),
+            "a file owned by someone else is the case the save refuses"
+        );
+        assert!(
+            !ownership_refuses(501, 501),
+            "a file we own is not refused for the uid"
+        );
+    }
+
+    /// A supplementary group the process belongs to, so the tests can chown without root.
+    #[cfg(unix)]
+    fn supplementary_gid() -> Option<u32> {
+        let output = std::process::Command::new("id").arg("-G").output().ok()?;
+        let gids: Vec<u32> = String::from_utf8_lossy(&output.stdout)
+            .split_whitespace()
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        let primary = gids.first().copied()?;
+        gids.into_iter().find(|&g| g != primary)
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_file_whose_group_differs_from_the_process_keeps_its_group_on_save() {
+        let Some(gid) = supplementary_gid() else {
+            panic!(
+                "process has no supplementary group, so the narrowed ownership check cannot be proved"
+            );
+        };
+        let dir = scratch("group-restore");
+        let target = dir.join("doc.md");
+        fs::write(&target, b"old").expect("seed");
+        chown(&target, None, Some(gid)).expect("chgrp the destination to a supplementary group");
+        write_atomic(&target, b"new").expect("a group mismatch must be restored, not refused");
+        assert_eq!(fs::read(&target).expect("read back"), b"new");
+        assert_eq!(
+            fs::metadata(&target).expect("stat").gid(),
+            gid,
+            "the save changed the file's group"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_save_into_a_directory_whose_group_differs_from_the_users_own_succeeds() {
+        let Some(gid) = supplementary_gid() else {
+            panic!(
+                "process has no supplementary group, so a different-group directory cannot be set up"
+            );
+        };
+        let dir = scratch("dir-group");
+        chown(&dir, None, Some(gid)).expect("chgrp the directory");
+        let target = dir.join("doc.md");
+        fs::write(&target, b"old").expect("seed");
+        write_atomic(&target, b"new").expect("saving into a different-group directory must succeed");
+        assert_eq!(fs::read(&target).expect("read back"), b"new");
+    }
+
+    /// Sets `user.marxy.test`, saves through the real path, and reads the attribute back. POSIX
+    /// ACLs are asserted the same way when the filesystem accepts them. The only skip is
+    /// `filesystem_lacks_support`; a catch-all skip fails the fidelity gate.
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn extended_attributes_and_posix_acls_survive_the_save_on_linux() {
+        let dir = scratch("linux-xattr");
+        let target = dir.join("doc.md");
+        fs::write(&target, b"old").expect("seed");
+
+        match linux_xattr::set(&target, "user.marxy.test", b"kept") {
+            Ok(()) => {}
+            Err(err) if linux_xattr::filesystem_lacks_support(&err) => {
+                println!(
+                    "linux-xattr: skipped: filesystem does not support extended attributes ({err})"
+                );
+                return;
+            }
+            Err(err) => panic!("setting user.marxy.test failed: {err}"),
+        }
+
+        let acl = linux_xattr::named_user_acl(65534);
+        let acl_set = match linux_xattr::set(&target, "system.posix_acl_access", &acl) {
+            Ok(()) => true,
+            Err(err) if linux_xattr::filesystem_lacks_support(&err) => {
+                println!("linux-acl: skipped: filesystem does not support POSIX ACLs ({err})");
+                false
+            }
+            Err(err) => panic!("setting POSIX ACL failed: {err}"),
+        };
+
+        write_atomic(&target, b"new").expect("save");
+        assert_eq!(fs::read(&target).expect("read back"), b"new");
+
+        let value = linux_xattr::get(&target, "user.marxy.test").expect("read xattr back");
+        assert_eq!(&value, b"kept", "the save dropped user.marxy.test");
+        println!("linux-xattr: preserved");
+
+        if acl_set {
+            let got = linux_xattr::get(&target, "system.posix_acl_access").expect("read ACL back");
+            assert_eq!(got, acl, "the save dropped the POSIX ACL");
+            println!("linux-acl: preserved");
+        }
     }
 }

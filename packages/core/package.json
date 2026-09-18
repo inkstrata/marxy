@@ -12,7 +12,7 @@
     "lint": "echo lint: configure biome in MARXY-004",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "test:golden": "node --experimental-strip-types scripts/golden.ts",
-    "test:fidelity": "node --experimental-strip-types scripts/fidelity.ts",
+    "test:fidelity": "node ../../scripts/gate-fidelity.mjs",
     "test:spec": "node --experimental-strip-types scripts/commonmark-spec.ts"
   },
   "devDependencies": {
