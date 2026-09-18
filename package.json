@@ -1,0 +1,30 @@
+{
+  "name": "marxy",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A markdown reader. Free, open, quiet, and set like a book.",
+  "license": "MIT",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "gate:licences": "node scripts/gate-licences.mjs",
+    "gate:fidelity": "pnpm --filter @marxy/core test:fidelity",
+    "gate:no-network": "node scripts/gate-no-network.mjs",
+    "gate:golden": "pnpm --filter @marxy/core test:golden",
+    "gate:aesthetics": "node scripts/gate-aesthetics.mjs",
+    "gate:perf": "node scripts/gate-perf.mjs",
+    "gate:bundle": "node scripts/gate-bundle.mjs"
+  },
+  "devDependencies": {
+    "dompurify": "^3.4.15",
+    "markdown-it": "^15.0.2",
+    "playwright": "^1.57.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@marxy/typeset",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Knuth–Plass line breaking, hanging punctuation, baseline-grid enforcement. DOM only; no shell.",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo ok",
+    "test": "echo 'lands with MARXY-020'"
+  },
+  "dependencies": {
+    "justif": "^0.9.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^24.0.0"
+  }
+}

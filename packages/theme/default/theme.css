@@ -1,0 +1,15 @@
+/* The default theme. Built as a theme so the loader is exercised from Phase 1 (ADR-0008).
+   Light values are the token defaults; dark is designed, not inverted (Phase 3, MARXY-052). */
+@import url("../src/tokens.css");
+:root[data-marxy-variant="dark"] {
+  --marxy-color-bg: #141414;
+  --marxy-color-text: #e6e3dc;
+  --marxy-color-text-secondary: #a09c93;
+  --marxy-color-accent: #8fb4dd;
+  --marxy-color-rule: #2a2a2a;
+  --marxy-color-code-bg: #1c1c1a;
+  --marxy-color-code-text: #e6e3dc;
+  --marxy-color-quote-rule: #3a3a3a;
+  --marxy-color-selection: #2a4a6e;
+  --marxy-weight-body: 380;          /* a serif at 400 reads heavier on dark */
+}

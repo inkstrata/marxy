@@ -1,0 +1,4 @@
+{
+  "note": "Grammar allow-list (ADR-0006). Only languages whose TextMate grammar licence is MIT, Apache-2.0, BSD or MPL-2.0. Verify each entry's licence in node_modules/@shikijs/langs/dist/<lang>.mjs header before adding. Known GPL-3.0 in Shiki's pack: ada, gnuplot, nginx, racket — never add.",
+  "languages": ["bash", "shellscript", "c", "cpp", "css", "diff", "dockerfile", "go", "html", "ini", "java", "javascript", "json", "jsonc", "kotlin", "markdown", "python", "rust", "sql", "swift", "toml", "typescript", "tsx", "yaml", "xml"]
+}

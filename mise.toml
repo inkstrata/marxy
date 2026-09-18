@@ -1,0 +1,6 @@
+[tools]
+node = "24"
+pnpm = "latest"
+rust = "stable"
+python = "3.13"
+uv = "latest"

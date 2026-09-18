@@ -1,0 +1,43 @@
+/* marxy theme token contract — version 1. FROZEN (ADR-0008).
+   Themes set these. marxy derives every vertical space from --marxy-line-box and never lets a
+   theme set margins directly. Everything not listed here is system-owned. */
+:root {
+  /* rhythm and measure */
+  --marxy-line-box: 28px;
+  --marxy-measure: 68ch;              /* clamped by marxy to 45ch–90ch */
+  --marxy-size-body: 17px;
+  --marxy-scale-ratio: 1.25;
+  --marxy-size-code: 14px;
+  --marxy-line-box-code: 22px;        /* must divide into the grid: 2 code lines ≈ 1.57 body lines; marxy pads blocks to the grid */
+  --marxy-size-caption: 13px;
+
+  /* families and weights */
+  --marxy-font-text: "Literata", serif;
+  --marxy-font-heading: var(--marxy-font-text);
+  --marxy-font-mono: "JetBrains Mono", monospace;
+  --marxy-weight-body: 400;
+  --marxy-weight-heading: 600;
+  --marxy-weight-strong: 700;
+  --marxy-weight-offset: 0;           /* set by marxy per platform from the weight harness; themes must not set it */
+  --marxy-tracking-heading: -0.011em;
+  --marxy-opsz-auto: 1;               /* 1 = let the font's opsz axis follow size */
+
+  /* colour — light */
+  --marxy-color-bg: #ffffff;
+  --marxy-color-text: #1a1a1a;
+  --marxy-color-text-secondary: #5c5c5c;
+  --marxy-color-accent: #1f4e79;
+  --marxy-color-link: var(--marxy-color-accent);
+  --marxy-color-rule: #e6e6e6;
+  --marxy-color-code-bg: #f6f6f4;
+  --marxy-color-code-text: #1a1a1a;
+  --marxy-color-quote-rule: #d9d9d9;
+  --marxy-color-selection: #cfe3ff;
+
+  /* presentation knobs (theme-owned) */
+  --marxy-code-radius: 0px;
+  --marxy-code-padding: 0.75em;
+  --marxy-quote-rule-width: 2px;
+  --marxy-progress-rule: none;        /* 'none' or a colour; height is fixed at 1px by marxy */
+  --marxy-justify: 0;                 /* 0 ragged (default), 1 justified; K–P runs either way */
+}

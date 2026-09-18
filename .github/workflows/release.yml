@@ -1,0 +1,48 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - name: Linux webview deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - run: pnpm install --frozen-lockfile
+      - name: Import signing certificate (macOS, only when secrets exist)
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        env: { APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }} }
+        run: echo "signing configured via tauri-action env below"
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS signing + notarization: unset secrets → unsigned build, still published as pre-release
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: marxy ${{ github.ref_name }}
+          releaseBody: 'See CHANGELOG.md. Pre-release; macOS build is unsigned until notarization secrets are configured.'
+          releaseDraft: false
+          prerelease: true
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}

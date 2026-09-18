@@ -1,0 +1,35 @@
+@font-face { font-family: 'Literata'; src: url('./fonts/Literata-var.ttf') format('truetype'); font-weight: 200 900; font-style: normal; }
+@font-face { font-family: 'Literata'; src: url('./fonts/Literata-Italic-var.ttf') format('truetype'); font-weight: 200 900; font-style: italic; }
+@font-face { font-family: 'Quattro'; src: url('./fonts/Quattro-var.ttf') format('truetype'); font-weight: 300 700; }
+@font-face { font-family: 'iAMono'; src: url('./fonts/iAMono-var.ttf') format('truetype'); font-weight: 300 700; }
+@font-face { font-family: 'JetBrainsMono'; src: url('./fonts/JetBrainsMono-var.ttf') format('truetype'); font-weight: 100 800; }
+html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+body { font-family: 'Literata', serif; font-size: 17px; line-height: 28px; }
+#app { padding: 0; }
+.column { max-width: 68ch; margin: 0 auto; padding: 28px 24px; }
+.column h1 { font-size: 33px; line-height: 40px; font-weight: 600; letter-spacing: -0.014em; margin: 0 0 14px; }
+.column h2 { font-size: 27px; line-height: 34px; font-weight: 600; letter-spacing: -0.011em; margin: 56px 0 6px; }
+.column h3 { font-size: 21px; line-height: 28px; font-weight: 600; letter-spacing: -0.006em; margin: 28px 0 0; }
+.column p, .column li { margin: 0 0 14px; }
+.column pre, .column code { font-family: 'JetBrainsMono', monospace; font-size: 14px; line-height: 22px; }
+.column pre { margin: 28px 0; white-space: pre-wrap; }
+.column table { border-collapse: collapse; margin: 14px 0; font-size: 15px; line-height: 24px; }
+.column td, .column th { border-bottom: 1px solid #ddd; padding: 2px 10px 2px 0; text-align: left; vertical-align: top; }
+/* specimen */
+.spec { position: relative; padding: 10px; }
+.sample { white-space: nowrap; overflow: hidden; width: 280px; display: block; }
+.cell { display: inline-block; vertical-align: top; width: 290px; }
+.spec .row { display: flex; gap: 0; }
+.label { font-family: monospace; font-size: 10px; color: #888; height: 12px; line-height: 12px; }
+/* typeset comparison */
+.ts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 20px; }
+.ts .box { width: 440px; }
+.ts .box p { margin: 0 0 14px; hyphens: auto; }
+.ts .native { text-align: start; }
+.ts .pretty { text-align: start; text-wrap: pretty; }
+.ts .justify { text-align: justify; }
+.ts .justif { text-align: justify; }
+.ts .cap { font-family: monospace; font-size: 11px; color: #666; margin: 0 0 6px; }
+/* cm6 */
+.cm-editor { height: 740px; font-family: 'JetBrainsMono', monospace; font-size: 13px; }
+.cm-scroller { overflow: auto; }

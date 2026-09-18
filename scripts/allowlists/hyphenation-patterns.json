@@ -1,0 +1,1 @@
+{ "note": "Hyphenation pattern allow-list (ADR-0006). justif bundles TeX patterns whose module headers carry their own licences; ship only these until each is audited.", "languages": ["en-us", "en-gb"] }

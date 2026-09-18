@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Turn the spike's raw results into results/summary.md, with the decision-rule thresholds applied mechanically.
+
+usage (from tools/measure so uv's venv is used):
+  uv run ../analyze.py                 # write ../../results/summary.md
+  uv run ../analyze.py --offset u26    # print the integer weight offset to compensate on that Linux label
+
+Inputs, all under results/ (produced by run-spike.sh):
+  <label>-specimen-<size>[-dpr<n>]-off<k>.png/.json   weight-fidelity captures + layout manifests
+  startup-<shell>.json                                from startup.mjs
+  <label>-cm6.marks, <label>-index.marks              CodeMirror and index marks
+The decision itself is written by a person from summary.md; this script only fills in the numbers.
+"""
+import csv, glob, io, json, os, re, subprocess, sys
+from collections import defaultdict
+import numpy as np
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+RES = os.path.join(HERE, '..', 'results')
+
+def coverage(png, manifest, page_origin):
+    m = json.load(open(manifest)); img = np.asarray(Image.open(png).convert('L'), dtype=np.float32)
+    dpr = float(m['dpr']); o = {'x': 0, 'y': 0} if page_origin else (m.get('origin') or {'x': 0, 'y': 0})
+    rows = []
+    for s in m['samples']:
+        x0 = int(round(o['x'] + s['x'] * dpr)); y0 = int(round(o['y'] + s['y'] * dpr)); x1 = int(round(o['x'] + (s['x'] + s['w']) * dpr)); y1 = int(round(o['y'] + (s['y'] + s['h']) * dpr))
+        crop = img[y0:y1, x0:x1]
+        if crop.size == 0: continue
+        rows.append(dict(face=s['face'], size=int(s['size']), weight=int(s['weight']), method=s['method'], coverage=float((255 - crop).mean() / 255)))
+    return rows, m
+
+def series(rows):
+    d = defaultdict(list)
+    for r in rows: d[(r['face'], r['size'], r['method'])].append((r['weight'], r['coverage']))
+    return {k: sorted(v) for k, v in d.items()}
+
+def effective(ref, sub):
+    """map subject coverages to effective weights on the reference curve; returns {key: [(w, eff, off)]}"""
+    out = {}
+    for k, sv in sub.items():
+        if k not in ref: continue
+        # Quattro's axis is 400-700: drop clamped requests below 400 from both curves
+        rv = [(w, c) for w, c in ref[k] if not (k[0] == 'Quattro' and w < 400)]
+        sv = [(w, c) for w, c in sv if not (k[0] == 'Quattro' and w < 400)]
+        rw = np.array([w for w, _ in rv], float); rc = np.array([c for _, c in rv], float)
+        res = []
+        for w, c in sv:
+            if c <= rc[0]: eff = rw[0] + (c - rc[0]) * (rw[1] - rw[0]) / (rc[1] - rc[0])
+            elif c >= rc[-1]: eff = rw[-1] + (c - rc[-1]) * (rw[-1] - rw[-2]) / (rc[-1] - rc[-2])
+            else: eff = float(np.interp(c, rc, rw))
+            res.append((w, eff, eff - w))
+        out[k] = res
+    return out
+
+def parse_name(p):
+    b = os.path.basename(p)[:-4]
+    m = re.match(r'(.+?)-specimen-(17|34)(?:-dpr(\d))?-off(\d+)$', b)
+    if not m: return None
+    label, size, dpr, off = m.groups()
+    return dict(label=label, size=int(size), dpr=int(dpr) if dpr else None, off=int(off), base=p[:-4])
+
+def marks(path):
+    d = {}
+    if not os.path.exists(path): return d
+    for line in open(path):
+        m = re.match(r'^MARK (\S+) (\S+)(?: (.*))?$', line.rstrip('\n'))
+        if m: d[m.group(1)] = m.group(3)
+    return d
+
+def main():
+    caps = [c for c in (parse_name(p) for p in glob.glob(os.path.join(RES, '*-specimen-*-off*.png'))) if c]
+    measured = {}
+    for c in caps:
+        j = c['base'] + '.json'
+        if not os.path.exists(j): continue
+        # X root-window grabs (Linux Tauri) are in screen coordinates; every other capture is the page itself
+        rows, man = coverage(c['base'] + '.png', j, page_origin=not (c['label'].endswith('-tauri') and c['label'][0] in 'ud'))
+        dpr = c['dpr'] or int(round(float(man['dpr'])))
+        c['dpr'] = dpr
+        measured[(c['label'], c['size'], dpr, c['off'])] = (series(rows), man.get('ua', ''))
+    # reference per DPR: WKWebView via Tauri first, then Playwright WebKit, then Electron (all on macOS)
+    def find_ref(size, dpr):
+        for lab in ('mac-tauri', 'mac-pwwebkit', 'mac-electron'):
+            k = (lab, size, dpr, 0)
+            if k in measured: return lab, measured[k][0]
+        return None, None
+    if '--offset' in sys.argv:
+        label = sys.argv[sys.argv.index('--offset') + 1]
+        offs = []
+        for size in (17, 34):
+            for dpr in (1, 2):
+                k = (label + '-tauri', size, dpr, 0)
+                if k not in measured: continue
+                rl, ref = find_ref(size, dpr)
+                if not ref: continue
+                eff = effective(ref, measured[k][0]).get(('Literata', size, 'font-weight'), [])
+                offs += [o for w, e, o in eff if w in (400, 500, 600)]
+        print(int(round(np.mean(offs) / 25.0) * 25) if offs else 0); return
+    out = io.StringIO(); w = out.write
+    w('# Spike results — generated by tools/analyze.py\n\nNumbers only. The decision is written by a person against `marxy/docs/spike/stack-decision-rule.md`.\n\n')
+    w('## M1/M2 — weight fidelity (effective weight on the reference curve; offset = effective − requested)\n\n')
+    verdict_t1 = []
+    for key in sorted(measured):
+        label, size, dpr, off = key
+        if label.startswith('mac-tauri') and off == 0: continue
+        rl, ref = find_ref(size, dpr)
+        if not ref: w(f'- {label} {size}px dpr{dpr} off{off}: **no reference at this DPR**\n'); continue
+        eff = effective(ref, measured[key][0])
+        w(f'### {label} · {size}px · dpr{dpr} · requested offset {off} · reference {rl}\n\n| face | method | @400 | @500 | @600 | @700 | mean |\n| --- | --- | --- | --- | --- | --- | --- |\n')
+        for k in sorted(eff):
+            d = {wt: o for wt, e, o in eff[k]}; mean = np.mean([o for _, _, o in eff[k]])
+            cell = lambda x: f'{x:+.0f}' if x is not None else '—'
+            w(f'| {k[0]} | {k[2]} | {cell(d.get(400))} | {cell(d.get(500))} | {cell(d.get(600))} | {cell(d.get(700))} | {mean:+.0f} |\n')
+            if k == ('Literata', size, 'font-weight') and label.endswith('-tauri') and (label.startswith('u') or label.startswith('d')):
+                verdict_t1.append((label, size, dpr, off, d.get(400), d.get(600)))
+        w('\n')
+    w('### T1 — compensable? (Linux WebKitGTK, Literata, font-weight; pass = |residual| ≤ 25 at 400 and 600 after compensation)\n\n| machine | size | dpr | offset applied | residual @400 | residual @600 | pass |\n| --- | --- | --- | --- | --- | --- | --- |\n')
+    for label, size, dpr, off, r4, r6 in verdict_t1:
+        ok = r4 is not None and r6 is not None and abs(r4) <= 25 and abs(r6) <= 25
+        w(f'| {label} | {size} | {dpr} | {off} | {r4:+.0f} | {r6:+.0f} | {"yes" if ok else "no"} |\n')
+    w('\nInspect the `-off<k>` reading-size crops by eye before calling T1: the threshold covers weight only, not hinting or synthetic bold.\n\n')
+    # startup
+    w('## M3 — cold start on the target machine (ms from spawn; median / p90 of first_text)\n\n| shell | n | app/webview ready | first_text median | first_text p90 |\n| --- | --- | --- | --- | --- |\n')
+    med = {}
+    for shell in ('tauri', 'electron'):
+        p = os.path.join(RES, f'startup-{shell}.json')
+        if not os.path.exists(p): w(f'| {shell} | — | — | — | — |\n'); continue
+        s = json.load(open(p))['stats']; ft = s.get('first_text', {}); ready = s.get('script_start', {})
+        med[shell] = ft.get('median'); w(f'| {shell} | {ft.get("n")} | {ready.get("median")} | {ft.get("median")} | {ft.get("p90")} |\n')
+    if med.get('tauri') and med.get('electron'):
+        r = med['tauri'] / med['electron']
+        t2 = 'real (≤0.8×)' if r <= 0.8 else ('wash (0.8–1.25×)' if r <= 1.25 else 'Electron faster (>1.25×)')
+        w(f'\nT2: Tauri/Electron median ratio **{r:.2f}** → **{t2}**. Budget check: Tauri {med["tauri"]} ms vs 500 ms budget → {"under" if med["tauri"] < 500 else "OVER"}.\n\n')
+    # cm6
+    w('## M4 — CodeMirror 6 plain text, multi-megabyte file (scroll frame times, ms)\n\n| run | interactive | p50 | p95 | max | frames >100ms | pass |\n| --- | --- | --- | --- | --- | --- | --- |\n')
+    for p in sorted(glob.glob(os.path.join(RES, '*cm6*.marks'))):
+        m = marks(p); sc = json.loads(m['cm6_scroll']) if m.get('cm6_scroll') else None; ti = m.get('cm6_interactive')
+        if sc: w(f'| {os.path.basename(p)[:-6]} | {ti} | {sc["p50"]} | {sc["p95"]} | {sc["max"]} | {sc["over100"]} | {"yes" if sc["over100"] == 0 and ti and int(ti) < 500 else "no"} |\n')
+    # index
+    w('\n## M5 — index and fuzzy search\n\n| run | files | build ms | keystroke p50 | p95 | max | backend p95 | T3 disappoints? |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n')
+    for p in sorted(glob.glob(os.path.join(RES, '*index*.marks'))):
+        m = marks(p); b = json.loads(m['index_build']) if m.get('index_build') else None; q = json.loads(m['index_query']) if m.get('index_query') else None
+        if b and q:
+            rt = q['roundtrip_incl_render']; w(f'| {os.path.basename(p)[:-6]} | {b["count"]} | {b["ms"]:.0f} | {rt["p50"]} | {rt["p95"]} | {rt["max"]} | {q["backend_only"]["p95"]} | {"yes" if rt["p95"] > 16 else "no"} |\n')
+    w('\n## Typesetting captures for human review\n\n')
+    for p in sorted(glob.glob(os.path.join(RES, '*typeset*.png'))): w(f'- `{os.path.basename(p)}`\n')
+    w('\n## Bundle size (context only, excluded from the rule)\n\n')
+    for p, lab in ((os.path.join(HERE, '..', 'tauri/src-tauri/target/release/marxy-spike-tauri'), 'tauri binary'), (os.path.join(HERE, '..', 'electron/out'), 'electron packaged app dir')):
+        if os.path.exists(p):
+            sz = subprocess.run(['du', '-sh', p], capture_output=True, text=True).stdout.split()[0]; w(f'- {lab}: {sz}\n')
+    open(os.path.join(RES, 'summary.md'), 'w').write(out.getvalue()); print(out.getvalue())
+
+if __name__ == '__main__':
+    main()

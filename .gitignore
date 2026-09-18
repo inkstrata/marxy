@@ -1,0 +1,9 @@
+node_modules/
+dist/
+target/
+out/
+.venv/
+*.log
+.DS_Store
+/results/
+/apps/desktop/src-tauri/gen/schemas/

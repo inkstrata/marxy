@@ -1,0 +1,32 @@
+{
+  "name": "@marxy/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "The desktop shell (Tauri) and app UI.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "vite build && tauri build --no-bundle",
+    "bundle": "vite build && tauri build",
+    "build:web": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo ok",
+    "test": "echo 'app tests land with MARXY-012'",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@marxy/core": "workspace:*",
+    "@marxy/shell-api": "workspace:*",
+    "@tauri-apps/api": "^2.11.1",
+    "dompurify": "^3.4.15",
+    "markdown-it": "^15.0.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/dompurify": "^3.0.5",
+    "@types/markdown-it": "^14.1.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0"
+  }
+}

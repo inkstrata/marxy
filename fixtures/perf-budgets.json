@@ -1,0 +1,10 @@
+{
+  "note": "Hard CI failures (ADR-0013). Milliseconds unless stated. Regression tolerance 10% against the stored baseline.",
+  "cold_start_first_text_ms": 500,
+  "open_indexed_document_ms": 50,
+  "palette_keystroke_ms": 16,
+  "typeset_viewport_ms": 100,
+  "live_reload_ms": 100,
+  "find_first_match_ms": 50,
+  "bundle_installed_mb": { "linux": 25, "macos": 30 }
+}

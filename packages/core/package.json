@@ -1,0 +1,21 @@
+{
+  "name": "@marxy/core",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Parse → AST with byte provenance, sanitise, outline, operations, index model. Shell-free; runs in Node and in a browser.",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo lint: configure biome in MARXY-004",
+    "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
+    "test:golden": "node --experimental-strip-types scripts/golden.ts",
+    "test:fidelity": "node --experimental-strip-types scripts/fidelity.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^24.0.0"
+  }
+}
