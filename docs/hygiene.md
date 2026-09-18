@@ -67,14 +67,18 @@ Tauri release build (180–270 s), a Linux startup measurement that waited out t
 (up to 135 s), and browser and apt installs (40–80 s); two `main` pushes went red on
 runner-noise perf breaches and a timing assertion inside a unit test.
 
-| Job | Runs when | What | Target (warm caches) |
+| Job | Runs when | What | Measured (run 35369360214, warm caches) |
 | --- | --- | --- | --- |
-| `changes` | always | classifies the diff: docs-only / web / rust | 10 s |
-| `conventions` | pull requests | commitlint on commits and title, `check-pr`, story boundary (advisory) | 40 s |
-| `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, goldens, fidelity, licences | 2 min |
-| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 2 min |
-| `gates` (macOS, Ubuntu) | not docs-only | Rust fmt/clippy (Linux), frontend, `cargo build --profile ci` with `rust-cache`, CLI smoke, nine-launch startup measurement, perf gate with one confirming re-measure, bundle gate | 4–7 min |
-| `ci` | always | the single required check; fails if any job that ran failed | 5 s |
+| `changes` | always | classifies the diff: docs-only / web / rust | 5 s |
+| `conventions` | pull requests | commitlint on commits and title, `check-pr`, story boundary (advisory) | 24 s |
+| `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, goldens, fidelity, licences | 51 s |
+| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 86 s |
+| `gates` (macOS) | not docs-only | frontend, `cargo build --profile ci` with `rust-cache` (67 s), CLI smoke (13 s), nine-launch startup measurement (36 s), perf gate, bundle gate | 167 s |
+| `gates` (Ubuntu) | not docs-only | the same plus Rust fmt/clippy (52 s); build 111 s, smoke 17 s, measurement 31 s | 261 s |
+| `ci` | always | the single required check; fails if any job that ran failed | 3 s |
+
+**Wall time 277 s** for a code change with warm caches (was 6–10 minutes); the critical path is
+the Ubuntu build-and-measure job. A docs-only change runs `changes`, `conventions` and `ci`.
 
 Rules baked in:
 
