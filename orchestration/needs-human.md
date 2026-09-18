@@ -138,7 +138,16 @@ Reasoning for all of them: `docs/plan/deltas/2026-09-18-review-throughput.md`.
       MARXY-6 stays yours and stays `human-gated`. The standing check that stops it drifting back is
       a new story, MARXY-82, which depends on it.
 
-- [ ] **Review PR #10's amendment to ADR-0022 before it merges.** It replaces two sentences in an
+- [ ] **Too late to review PR #10's amendment before it merged — it is on `main`.** Read it now
+      rather than before: ADR-0022 is amended at `375f8dc`, which landed through a GitHub auto-merge
+      queued by an earlier cycle and executed after I had withdrawn the approval. Nobody asked you,
+      for the reason in the item below this one, and the cycle no longer leaves such an instruction
+      standing. The work itself is sound — the branch is the reviewed tree, green on both runners,
+      and the implementor found and fixed a real falsification in its own claim on the way: since
+      MARXY-13's CLI smoke check landed, the build step launches the app four times seconds before
+      the measurement, so the "cold" launch was measuring a warm webview and the macOS ratio came
+      out at 0.78. If you disagree with the amendment, it now costs a revert rather than a hold.
+      Original note follows. It replaces two sentences in an
       **accepted** ADR and reverses its premise. `docs/adr/` is a CODEOWNERS path, so this should
       have been requested of you automatically and was not, for the reason above. The same applies to
       MARXY-69 and MARXY-70 when they arrive. Until `enforce_admins` and the approval count are
