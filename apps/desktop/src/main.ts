@@ -1,17 +1,21 @@
 // Phase 0 reader: open the file named on the command line, render it sanitised and unstyled, print
 // startup marks, exit when asked. All privileged work goes through ./shell (ADR-0010, ADR-0020).
-import MarkdownIt from 'markdown-it';
-import DOMPurify from 'dompurify';
+import { parseMarkdown, type Document } from '@marxy/core';
+import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { shell } from './shell/tauri.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 
 const t0 = Date.now();
-const md = new MarkdownIt({ html: true, linkify: false, typographer: true });
-const sanitize = (html: string) => DOMPurify.sanitize(html, {
-  USE_PROFILES: { html: true },
-  FORBID_TAGS: ['img', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'svg', 'style', 'video', 'audio'],
-  ALLOWED_URI_REGEXP: /^(?:https?|mailto|#|\/)/i,
-});
+
+/** Phase-0 document state. nodeMap and blocks land with MARXY-75. */
+interface OpenDocument {
+  readonly ast: Document;
+  readonly html: string;
+  readonly nodeMap: null;
+  readonly blocks: null;
+}
+
+const state: { document: OpenDocument | null } = { document: null };
 
 /**
  * Counts animation frames from the moment the script runs, independently of anything below. The
@@ -79,11 +83,14 @@ async function main() {
   }
 
   const bytes = await shell.readFile(file);
-  // Display only: the buffer layer keeps the raw bytes, and nothing in this app writes them back.
-  const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+  // One parse, then the sanitised render from that AST — not a second parser (ADR-0001, ADR-0021).
+  const ast = parseMarkdown(bytes, { file });
+  const { html, removed } = renderDocumentSafeHtml(ast);
+  state.document = { ast, html, nodeMap: null, blocks: null };
+  console.info(`marxy: sanitiser removed ${removed.length}`);
   // Watermark before the mutation so a blank-page first-paint cannot satisfy the wait.
   const after = performance.now();
-  doc.innerHTML = sanitize(md.render(text));
+  doc.innerHTML = html;
   document.title = `${file.split('/').pop()} — marxy`;
 
   const evidence = renderEvidence(doc);
