@@ -1,3 +1,5 @@
+// Shared board helpers. pathsOf keeps glob segments so a path like packages/*/package.json
+// is not collapsed to packages (MARXY-9).
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -51,10 +53,52 @@ export function state() {
   return readJson(p);
 }
 export function saveState(s) { s.updated = new Date().toISOString(); writeJson(here('state.json'), s); }
-export const pathsOf = st => st.Paths.split(',').map(s => s.trim()).filter(Boolean).map(s => s.replace(/\*.*$/, '').replace(/\/$/, ''));
+/** Listed paths as written. A glob keeps every segment, including `*`. */
+export function pathsOf(st) {
+  return String(st?.Paths ?? '').split(',').map(s => s.trim()).filter(Boolean).map(s => s.replace(/\/$/, ''));
+}
+
+/** Whether `file` sits on an allowed path, including a mid-path glob. */
+export function pathMatches(file, allowedPath) {
+  const q = String(allowedPath ?? '').replace(/\/$/, '');
+  if (!q) return false;
+  if (q.includes('*')) {
+    const re = new RegExp('^' + q.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '(/|$)');
+    return re.test(file);
+  }
+  return file === q || file.startsWith(q + '/');
+}
+
 export const overlap = (a, b) => a.some(x => b.some(y => x === y || x.startsWith(y + '/') || y.startsWith(x + '/') || x.startsWith(y) && y.endsWith('.json') === false && x.split('/')[0] === y.split('/')[0] && (x.startsWith(y) || y.startsWith(x))));
 export const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
 export const typeOf = st => /research/.test(st.Labels) ? 'research' : /release|agent-loop/.test(st.Labels) ? 'chore' : 'feat';
+
+/** Comma-separated Labels as a trimmed list. */
+export const labelsOf = st => String(st?.Labels ?? '').split(',').map(s => s.trim()).filter(Boolean);
+
+/** Whether the story carries this exact label. */
+export const hasLabel = (st, name) => labelsOf(st).includes(name);
+
+/** Phase number from deps.json `phases`, or null if the key is unlisted. */
+export function phaseOf(key, d = deps()) {
+  for (const [phase, keys] of Object.entries(d.phases || {})) {
+    if ((keys || []).includes(key)) return Number(phase);
+  }
+  return null;
+}
+
+/** True when any story in a lower phase is still todo or in_progress. */
+export function earlierPhaseOpen(phase, d, s) {
+  if (phase == null || !Number.isFinite(phase)) return false;
+  for (const [p, keys] of Object.entries(d.phases || {})) {
+    if (Number(p) >= phase) continue;
+    if ((keys || []).some(k => {
+      const status = s.stories[k]?.status ?? 'todo';
+      return status === 'todo' || status === 'in_progress';
+    })) return true;
+  }
+  return false;
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const m = models();
