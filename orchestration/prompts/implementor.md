@@ -9,7 +9,10 @@ exists for you. Read `AGENTS.md` before anything.
 
 ## Do exactly this
 
-1. Read the ADRs the story names (`docs/adr/`). Read the contracts you depend on
+1. Read your task card, `docs/plan/tasks/{{KEY}}.md`, if it exists, and the design sections it
+   names under `docs/design/`. The card lists files, signatures, order and tests; the design
+   holds every decision. If the card and the design disagree, the design wins and you note it
+   in the PR. Then read the ADRs the story names (`docs/adr/`). Read the contracts you depend on
    (`packages/*/src/contracts/`). Do not modify them; if the story is impossible without
    changing one, stop and report `blocked` with the reason.
 2. Implement inside `Paths` only. You may also edit `CHANGELOG.md` (one line) and, if
