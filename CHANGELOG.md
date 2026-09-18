@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Every pull request re-checks the taste-review #0 specimen against the type scale and the review queue, so a missing image or a drifted size fails the build rather than waiting for someone to remember (MARXY-62)
 - Only the security posture and the merge gate itself now wait for a person. Typesetting, theme, contracts, `shell-api` and ADR changes land on a signed review, and taste is checked in the review queue (MARXY-99)
 - CI now fetches the CommonMark specification examples — never committed — and fails the build if a parse diverges from them (MARXY-68)
 - Agents land a pull request once the quality bar is met: a signed review of that exact commit, green gates, and the story's path boundary — CODEOWNERS paths still wait for a person (MARXY-79)
