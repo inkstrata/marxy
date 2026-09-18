@@ -79,21 +79,10 @@ The ADR's reasoning, restated as things to confirm or overturn with the sets in 
 - [ ] **Extended screen reading.** The face was designed for reading on screens for long stretches,
       and passages 1 and 5 bear that out rather than just asserting it.
 - [ ] **Optical size across the scale.** The scale runs 13 px to 33 px, and **both** faces have an
-      optical-size axis that the specimen follows (`font-optical-sizing: auto`, so every size in
-      both sets is a different drawing, not one drawing scaled). The two axes do different amounts
-      of work. Measured with the specimen's own `@font-face` at weight 400, as the width of a fixed
-      70-character sentence divided by the font size — the number the measure and the rag depend on:
-
-      | | 13 px | 17 px | 33 px | axis pinned |
-      | --- | --- | --- | --- | --- |
-      | Literata (`opsz` 7–72) | 34.202 | 34.159 | 33.989 | 34.212 at every size |
-      | Source Serif 4 (`opsz` 8–60) | 34.696 | 33.266 | 31.285 | 32.193 at every size |
-
-      Literata's axis moves advances 0.6% across the scale; Source Serif 4's moves them 9.8%,
-      setting its caption sizes wider than its pinned drawing and its title sizes tighter. Neither
-      number says which is better: a face that barely changes is consistent across the scale, a
-      face that changes a lot is tuned per size and has more to get wrong. Look at the caption row
-      of passage 3 against the title of passage 1, in both pairs, and say which you prefer.
+      optical-size axis that the specimen follows, so every size in both sets is a different
+      drawing rather than one drawing scaled. The two axes do very different amounts of work —
+      measured below. Look at the caption row of passage 3 against the title of passage 1, in both
+      pairs, and say which you prefer.
 - [ ] **A weight axis that goes below regular.** ADR-0015 rules out iA Writer Quattro because its
       axis starts at 400 and cannot be tuned down for Linux, where WebKitGTK renders lighter.
       Both pairs here start at 200, so both pass; confirm that still matters to you.
@@ -101,6 +90,22 @@ The ADR's reasoning, restated as things to confirm or overturn with the sets in 
 - [ ] **Bundled unmodified, under a licence that can ship.** All four faces are OFL 1.1 with the
       licence verbatim beside them, unmodified, no network fetch (ADR-0006). Confirmed mechanically.
 - [ ] **The long document set in both pairs, and a choice recorded.** This artifact.
+
+#### Optical size, measured
+
+`specimen.mjs` sets `font-optical-sizing: auto` for both pairs, so both axes are live in the
+committed PNGs. Measured with the specimen's own `@font-face` at weight 400, as the width of a
+fixed 70-character sentence divided by the font size — the number the measure and the rag depend on:
+
+| | 13 px | 17 px | 33 px | axis pinned |
+| --- | --- | --- | --- | --- |
+| Literata (`opsz` 7–72, default 12) | 34.202 | 34.159 | 33.989 | 34.212 at every size |
+| Source Serif 4 (`opsz` 8–60, default 20) | 34.696 | 33.266 | 31.285 | 32.193 at every size |
+
+Literata's axis moves advances 0.6% across the scale; Source Serif 4's moves them 9.8%, setting its
+caption sizes wider than its pinned drawing and its title sizes tighter. Neither number says which
+is better: a face that barely changes is consistent across the scale, a face that changes a lot is
+tuned per size and has more to get wrong.
 
 ### Caveats — what this specimen is not
 
