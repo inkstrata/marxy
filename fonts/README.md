@@ -2,7 +2,8 @@
 
 All SIL Open Font License 1.1, each with its licence verbatim in its directory. Never modify
 a font file (Reserved Font Name clause). These files are not covered by the repository's MIT
-licence (ADR-0006).
+licence (ADR-0006). Only the font binaries are marked `binary` in `.gitattributes`; this README and
+the licences diff as text, and nothing here is ever line-ending converted (`pnpm gate:font-attrs`).
 
 | Family | Use | Axes | Source |
 | --- | --- | --- | --- |
