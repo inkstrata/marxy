@@ -1,11 +1,14 @@
-// Renders the AST to CommonMark's reference HTML. This is not marxy's renderer — marxy typesets, it
-// does not produce HTML documents. It exists so the conformance test can compare the AST against the
-// reference implementation's output and prove the AST lost nothing (MARXY-11).
+// Test support only: renders the AST to CommonMark's reference HTML so the conformance suite can
+// compare it with the reference implementation's output and prove the AST lost nothing (MARXY-11).
+//
+// marxy has no HTML renderer and never emits an HTML document — it typesets (ADR-0007). Nothing under
+// `src/` outside this `testing/` directory may import this file, and `dependencies.test.ts` enforces
+// that, which is also why `micromark-util-sanitize-uri` is a devDependency.
 //
 // The line-break behaviour copies cmark's: block-level output begins on a fresh line, which is why
 // everything goes through a writer with a `cr` that is a no-op at the start of a line.
 
-import type { Block, Document, Inline, List, ListItem, Table, TableRow } from '../contracts/ast.ts';
+import type { Block, Document, Inline, List, ListItem, Table, TableRow } from '../../contracts/ast.ts';
 import { normalizeUri } from 'micromark-util-sanitize-uri';
 
 export function toHtml(document: Document): string {

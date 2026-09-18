@@ -4,8 +4,14 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
+import { fromMarkdown } from 'mdast-util-from-markdown';
+import { frontmatterFromMarkdown } from 'mdast-util-frontmatter';
+import { gfmFromMarkdown } from 'mdast-util-gfm';
+import { mathFromMarkdown } from 'mdast-util-math';
+import { gfm } from 'micromark-extension-gfm';
 import type { Block, Inline, Node } from '../contracts/ast.ts';
 import { byteOffsetTableBuilds, byteOffsets } from './byte-offsets.ts';
+import { ParseProvenanceError, documentFromMdast } from './from-mdast.ts';
 import { checkInvariants } from './invariants.ts';
 import { parseMarkdown } from './parse.ts';
 
@@ -146,6 +152,118 @@ test('a reference link carries the definition url and the reference bytes', () =
   assert.ok(texts.some((value) => value.includes('[gone][missing]')), 'an unresolved reference lost its source text');
 });
 
+/**
+ * GFM's autolink-literal mdast transform used to rebuild a paragraph's inline children without
+ * positions whenever a candidate held a backslash escape, and provenance collapsed to the top of the
+ * file. These two inputs are the ones that did it; `parse.ts` removes the transform that caused it.
+ */
+for (const input of ['x <a\\.b@c.example> y\n', '- [x] a\\+b@c.example\n']) {
+  test(`no node collapses to the top of the file: ${JSON.stringify(input)}`, () => {
+    const bytes = new TextEncoder().encode(input);
+    const document = parseMarkdown(bytes, { file: 'autolink.md' });
+    const all = nodes(document);
+    // The document itself starts at 0; nothing inside it may claim a range it does not occupy.
+    for (const node of all.slice(1)) {
+      assert.ok(node.src.end > 0, `${node.type} has the empty range [0,0)`);
+      assert.ok(node.src.start > 0 || input.startsWith(sourceOf(node, input)), `${node.type} claims bytes it does not occupy`);
+    }
+    assert.deepEqual(checkInvariants(document, bytes), []);
+    // The escaped candidate stays literal text, and its bytes are exactly where it was written.
+    const texts = all.filter((node) => node.type === 'text');
+    assert.ok(texts.length > 0);
+    for (const node of texts) {
+      assert.ok(node.src.end > node.src.start, `empty text range for ${JSON.stringify(input)}`);
+    }
+  });
+}
+
+const sourceOf = (node: Node, input: string): string => input.slice(node.src.start, node.src.end);
+
+test('the removed transform is still the only one that would drop positions', () => {
+  // A canary on the dependencies, not on us: it records why `parse.ts` removes a transform, and fails
+  // if GFM starts positioning what it rebuilds (remove the workaround) or if another extension grows a
+  // transform (widen it). The frontmatter and math extensions carry none, which is why only GFM's set
+  // is filtered.
+  const gfmExtensions = gfmFromMarkdown();
+  assert.deepEqual(
+    gfmExtensions.filter((extension) => extension.transforms !== undefined).length,
+    1,
+    'the set of GFM mdast extensions carrying tree transforms changed',
+  );
+  for (const extensions of [frontmatterFromMarkdown(['yaml', 'toml']), mathFromMarkdown()]) {
+    for (const extension of [extensions].flat()) {
+      assert.equal(extension.transforms, undefined, 'an extension parse.ts does not filter grew a transform');
+    }
+  }
+  const unfiltered = fromMarkdown('x <a\\.b@c.example> y\n', { extensions: [gfm()], mdastExtensions: [gfmExtensions] });
+  const positionless: string[] = [];
+  const walk = (node: { type: string; position?: unknown; children?: unknown }): void => {
+    if (node.position === undefined) positionless.push(node.type);
+    for (const child of (node.children ?? []) as { type: string; position?: unknown }[]) walk(child);
+  };
+  walk(unfiltered);
+  assert.ok(
+    positionless.length > 0,
+    'mdast-util-gfm-autolink-literal now positions the nodes it rebuilds: remove the filter in parse.ts',
+  );
+});
+
+test('a candidate micromark can scan is still a link, with real provenance', () => {
+  const input = 'see https://marxy.invalid/r and www.marxy.invalid and reader@marxy.invalid\n';
+  const bytes = new TextEncoder().encode(input);
+  const document = parseMarkdown(bytes, { file: 'autolinks.md' });
+  const links = nodes(document).filter((node) => node.type === 'link');
+  assert.equal(links.length, 3, 'GFM autolink literals stopped working');
+  assert.deepEqual(
+    links.map((link) => sourceOf(link, input)),
+    ['https://marxy.invalid/r', 'www.marxy.invalid', 'reader@marxy.invalid'],
+  );
+  assert.deepEqual(checkInvariants(document, bytes), []);
+});
+
+test('a node without a source position is refused, not given offset zero', () => {
+  // The one way to reach this is a future mdast extension that drops positions the way GFM's
+  // autolink-literal transform did; the parser must fail loudly rather than invent provenance.
+  const root = {
+    type: 'root' as const,
+    position: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 4, offset: 3 } },
+    children: [{ type: 'paragraph' as const, children: [{ type: 'text' as const, value: 'abc' }] }],
+  };
+  assert.throws(
+    () => documentFromMdast(root as never, { file: 'broken.md', text: 'abc', offsets: byteOffsets('abc') }),
+    (error: unknown) => error instanceof ParseProvenanceError && error.nodeType === 'paragraph' && error.file === 'broken.md',
+  );
+});
+
+test('a CR-only document gets soft breaks, not carriage returns inside text', () => {
+  const input = 'old mac\rlines\r';
+  const bytes = new TextEncoder().encode(input);
+  const document = parseMarkdown(bytes, { file: 'cr.md' });
+  const paragraph = document.children[0];
+  assert.equal(paragraph?.type, 'paragraph');
+  const children = (paragraph?.children ?? []) as readonly Inline[];
+  assert.deepEqual(children.map((child) => child.type), ['text', 'softBreak', 'text']);
+  assert.equal(sourceOf(children[1]!, input), '\r');
+  for (const child of children) {
+    if (child.type === 'text') assert.ok(!child.value.includes('\r'), 'a CR survived inside a text value');
+  }
+  assert.deepEqual(checkInvariants(document, bytes), []);
+});
+
+test('an indented code block whose content looks like a fence keeps its content range', () => {
+  const input = '\t```\n\tread\n';
+  const bytes = new TextEncoder().encode(input);
+  const document = parseMarkdown(bytes, { file: 'tab-fence.md' });
+  const code = document.children[0] as Extract<Block, { type: 'codeBlock' }>;
+  assert.equal(code.type, 'codeBlock');
+  assert.equal(code.lang, undefined, 'a tab-indented line is indented code, not a fence');
+  assert.ok(code.content.end > code.content.start, 'the content range collapsed to empty');
+  // Both lines, the tabs included, and nothing past the last byte of code.
+  assert.equal(input.slice(code.content.start, code.content.end), '\t```\n\tread');
+  assert.equal(code.value, '```\nread');
+  assert.deepEqual(checkInvariants(document, bytes), []);
+});
+
 test('a soft break owns the line ending and the block markers that continue the quote', () => {
   const text = '> a\n> b\n';
   const document = parseMarkdown(text, { file: 'quote.md' });
@@ -172,6 +290,10 @@ test('a code block content range is the code alone', () => {
  * assumed: a shared CI runner is several times slower than a developer's machine, and a budget that
  * fails for that reason stops being a signal. The workload is string building, regex scanning and
  * small-object allocation, which is the work a parser does.
+ *
+ * This probe is a stopgap and under-compensates under load. MARXY-59 moves the parse budget into
+ * `fixtures/perf-budgets.json` with a per-runner baseline, the two-tier shape ADR-0022 set, and
+ * deletes the probe; it is deliberately left as it stands here.
  */
 const PROBE_REFERENCE_MS = 4.3;
 

@@ -69,7 +69,8 @@ export function checkInvariants(root: Node, bytes: Uint8Array): Violation[] {
   return violations;
 }
 
-const FENCE = /^[ \t]{0,3}(`{3,}|~{3,})/;
+// Three spaces at most, and never a tab: see FENCE_OPEN in from-mdast.ts.
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
  * The byte offset just past a fenced block's opening fence line: content must start at or after it.
@@ -86,16 +87,25 @@ function openingFenceLineEnd(source: string, start: number): number | undefined 
 /**
  * The content range holds the code and nothing else: line for line it is the block's value, give or
  * take the indentation the container, the block or a tab stop adds.
+ *
+ * Both sides are compared the way CommonMark reads a document: any of the three line endings splits a
+ * line, and a NUL in the source is the replacement character in the value. Getting either wrong makes
+ * the checker cry wolf on a code block that is in fact exact.
  */
 function isJustTheCode(content: string, value: string): boolean {
-  const lines = content.split('\n').map((line) => line.replace(/\r$/, ''));
+  const lines = splitLines(content.replace(/\u0000/g, '\ufffd'));
   if (lines.at(-1) === '') lines.pop();
-  const valueLines = value === '' ? [] : value.split('\n');
+  const valueLines = value === '' ? [] : splitLines(value);
   if (lines.length !== valueLines.length) return false;
   // A content line may still carry its container's markers (`> `) and the indentation micromark
   // stripped; what must match is the code after them.
   const strip = (line: string) => line.replace(/^[ \t>]*/, '');
   return valueLines.every((expected, index) => strip(lines[index]!) === strip(expected));
+}
+
+/** CommonMark line endings: CRLF, CR alone and LF alone all end a line. */
+function splitLines(text: string): string[] {
+  return text.split(/\r\n|\r|\n/);
 }
 
 /**

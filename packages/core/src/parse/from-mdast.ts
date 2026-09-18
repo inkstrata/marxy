@@ -49,9 +49,34 @@ interface Positioned {
   position?: { start: { offset?: number | undefined }; end: { offset?: number | undefined } } | undefined;
 }
 
-function range(node: Positioned, ctx: Ctx): Source {
-  const start = node.position?.start.offset ?? 0;
-  const end = node.position?.end.offset ?? start;
+/**
+ * A node arrived without the offsets the AST is built on. This is never recoverable here: any range
+ * we invented would be a guess that later resolves a selection to bytes the reader did not point at,
+ * and defaulting to zero would point every such node at the top of the file. The parser refuses the
+ * document instead, loudly, so the cause gets fixed where it happens (see `parse.ts`, which removes
+ * the one mdast extension known to drop positions).
+ */
+export class ParseProvenanceError extends Error {
+  readonly nodeType: string;
+  readonly file: string;
+
+  constructor(nodeType: string, file: string) {
+    super(`parse: a ${nodeType} node in ${file} has no source position, so it can carry no byte provenance (ADR-0003)`);
+    this.name = 'ParseProvenanceError';
+    this.nodeType = nodeType;
+    this.file = file;
+  }
+}
+
+function offsets(node: Positioned, type: string, ctx: Ctx): [number, number] {
+  const start = node.position?.start.offset;
+  const end = node.position?.end.offset;
+  if (start === undefined || end === undefined) throw new ParseProvenanceError(type, ctx.file);
+  return [start, end];
+}
+
+function range(node: Positioned & { type: string }, ctx: Ctx): Source {
+  const [start, end] = offsets(node, node.type, ctx);
   return { file: ctx.file, start: ctx.offsets.at(start), end: ctx.offsets.at(end) };
 }
 
@@ -59,9 +84,8 @@ function span(startUtf16: number, endUtf16: number, ctx: Ctx): Source {
   return { file: ctx.file, start: ctx.offsets.at(startUtf16), end: ctx.offsets.at(endUtf16) };
 }
 
-function utf16Range(node: Positioned): [number, number] {
-  const start = node.position?.start.offset ?? 0;
-  return [start, node.position?.end.offset ?? start];
+function utf16Range(node: Positioned & { type: string }, ctx: Ctx): [number, number] {
+  return offsets(node, node.type, ctx);
 }
 
 // --- blocks ------------------------------------------------------------------------------------
@@ -140,7 +164,7 @@ function listItem(node: md.ListItem, src: Source, ctx: Ctx): ListItem {
 function attachTaskMarker(children: Block[], node: md.ListItem, ctx: Ctx): Block[] {
   const first = children[0];
   if (!first || first.type !== 'paragraph') return children;
-  const [itemStart] = utf16Range(node);
+  const [itemStart] = utf16Range(node, ctx);
   const paragraphStartUtf16 = node.children[0]?.position?.start.offset ?? itemStart;
   const prefix = ctx.text.slice(itemStart, paragraphStartUtf16);
   const markerIndex = prefix.search(/\[[ xX]\]/);
@@ -160,7 +184,7 @@ function attachTaskMarker(children: Block[], node: md.ListItem, ctx: Ctx): Block
 }
 
 function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
-  const [start, end] = utf16Range(node);
+  const [start, end] = utf16Range(node, ctx);
   const raw = ctx.text.slice(start, end);
   const base = {
     type: 'codeBlock' as const, src, value: node.value,
@@ -174,7 +198,9 @@ function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
   };
 }
 
-const FENCE_OPEN = /^[ \t]{0,3}(`{3,}|~{3,})/;
+// Up to three *spaces* of indentation, per CommonMark: a leading tab is four columns, so a line that
+// starts with one opens an indented code block whose content may well look like a fence.
+const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
  * The bytes of a code block's content: everything but its fence lines (AST_INVARIANTS). The number of
@@ -274,7 +300,7 @@ function inline(node: md.PhrasingContent, ctx: Ctx): Inline[] {
 
 /** A construct the AST has no node for, kept as the source text it was written as. */
 function rawText(node: md.PhrasingContent, ctx: Ctx): Inline {
-  const [start, end] = utf16Range(node);
+  const [start, end] = utf16Range(node, ctx);
   return { type: 'text', src: span(start, end, ctx), value: ctx.text.slice(start, end) };
 }
 
@@ -284,29 +310,48 @@ function rawText(node: md.PhrasingContent, ctx: Ctx): Inline {
  * (`> `, list indentation) that belong to neither line's text.
  */
 function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
-  const [start, end] = utf16Range(node);
+  const [start, end] = utf16Range(node, ctx);
   const raw = ctx.text.slice(start, end);
-  if (!raw.includes('\n')) {
+  if (!LINE_ENDING.test(raw)) {
     return [{ type: 'text', src: span(start, end, ctx), value: node.value }];
   }
-  const values = node.value.split(/\r?\n/);
+  // All three CommonMark line endings split a line: a file written with CR alone gets soft-break nodes
+  // like any other, rather than carrying a CR inside a text node's value.
+  const values = node.value.split(LINE_ENDINGS);
   const out: Inline[] = [];
   let cursor = 0; // index into `raw`
   for (let line = 0; line < values.length; line++) {
-    const newline = raw.indexOf('\n', cursor);
-    const last = newline < 0 || line === values.length - 1;
-    let textEnd = last ? raw.length : newline;
-    if (!last) while (textEnd > cursor && (raw[textEnd - 1] === ' ' || raw[textEnd - 1] === '\t' || raw[textEnd - 1] === '\r')) textEnd--;
     const value = values[line] ?? '';
+    const ending = nextLineEnding(raw, cursor);
+    if (ending === undefined || line === values.length - 1) {
+      if (raw.length > cursor && value.length > 0) {
+        out.push({ type: 'text', src: span(start + cursor, start + raw.length, ctx), value });
+      }
+      break;
+    }
+    let textEnd = ending.start;
+    while (textEnd > cursor && (raw[textEnd - 1] === ' ' || raw[textEnd - 1] === '\t')) textEnd--;
     if (textEnd > cursor && value.length > 0) {
       out.push({ type: 'text', src: span(start + cursor, start + textEnd, ctx), value });
     }
-    if (last) break;
     // The break owns the line ending and whatever block markers continue the container.
-    let next = newline + 1;
+    let next = ending.end;
     while (next < raw.length && (raw[next] === ' ' || raw[next] === '\t' || raw[next] === '>')) next++;
     out.push({ type: 'softBreak', src: span(start + textEnd, start + next, ctx) });
     cursor = next;
   }
   return out;
+}
+
+const LINE_ENDING = /\r|\n/;
+const LINE_ENDINGS = /\r\n|\r|\n/;
+
+/** The next CRLF, CR or LF at or after `from`, as the half-open range it occupies. */
+function nextLineEnding(raw: string, from: number): { start: number; end: number } | undefined {
+  for (let index = from; index < raw.length; index++) {
+    const character = raw[index];
+    if (character === '\n') return { start: index, end: index + 1 };
+    if (character === '\r') return { start: index, end: raw[index + 1] === '\n' ? index + 2 : index + 1 };
+  }
+  return undefined;
 }

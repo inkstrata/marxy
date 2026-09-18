@@ -87,9 +87,6 @@ importers:
       micromark-util-decode-string:
         specifier: ^2.0.1
         version: 2.0.1
-      micromark-util-sanitize-uri:
-        specifier: ^2.0.1
-        version: 2.0.1
     devDependencies:
       '@types/commonmark':
         specifier: ^0.27.10
@@ -103,6 +100,9 @@ importers:
       commonmark:
         specifier: ^0.31.2
         version: 0.31.2
+      micromark-util-sanitize-uri:
+        specifier: ^2.0.1
+        version: 2.0.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

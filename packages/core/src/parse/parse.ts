@@ -2,7 +2,7 @@
 // CommonMark by micromark, GFM/frontmatter/math by extension, offsets converted to bytes once.
 
 import { fromMarkdown } from 'mdast-util-from-markdown';
-import type { Options as FromMarkdownOptions } from 'mdast-util-from-markdown';
+import type { Extension as MdastExtension, Options as FromMarkdownOptions } from 'mdast-util-from-markdown';
 import { gfm } from 'micromark-extension-gfm';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { frontmatter } from 'micromark-extension-frontmatter';
@@ -58,7 +58,7 @@ function syntax(options: ParseOptions): Syntax {
   const built: Syntax = { extensions: [], mdastExtensions: [] };
   if (options.gfm !== false) {
     built.extensions.push(gfm());
-    built.mdastExtensions.push(gfmFromMarkdown());
+    built.mdastExtensions.push(withoutTransforms(gfmFromMarkdown()));
   }
   if (options.frontmatter !== false) {
     built.extensions.push(frontmatter(['yaml', 'toml']));
@@ -70,4 +70,27 @@ function syntax(options: ParseOptions): Syntax {
   }
   syntaxCache.set(key, built);
   return built;
+}
+
+/**
+ * Drops the tree transforms from a set of mdast extensions, keeping their token handlers.
+ *
+ * GFM's autolink-literal extension carries one: a `findAndReplace` pass that rewrites a paragraph's
+ * inline children to linkify candidates micromark's own scanner could not match, which is those
+ * containing a backslash escape or a character reference — `x <a\.b@c.example> y`. That pass rebuilds
+ * the children *without* position data, so every inline node in the paragraph loses its provenance,
+ * and a parser that filled the gap with a default would point them at the top of the file. ADR-0003
+ * makes provenance structural, so the pass has to go rather than be compensated for.
+ *
+ * What this costs is narrow and visible: an autolink candidate written with an escape inside it stays
+ * literal text. Every candidate micromark can scan — `https://x.com`, `www.x.com`, `a@b.com` — still
+ * becomes a link, because the token handlers that build those are untouched and they position every
+ * node they emit. What it buys is that no node reaches `from-mdast.ts` without offsets.
+ */
+function withoutTransforms(extensions: MdastExtension[]): MdastExtension[] {
+  return extensions.map((extension) => {
+    if (extension.transforms === undefined) return extension;
+    const { transforms: _dropped, ...rest } = extension;
+    return rest;
+  });
 }
