@@ -1,14 +1,14 @@
 {
-  "updated": "2026-09-18T08:17:16.997Z",
+  "updated": "2026-09-18T08:34:27.846Z",
   "merges": 0,
-  "lastPlan": null,
+  "lastPlan": "2026-09-18T08:34:27.846Z",
   "stories": {
     "MARXY-001": {
-      "status": "todo",
+      "status": "blocked",
       "attempts": 0
     },
     "MARXY-002": {
-      "status": "todo",
+      "status": "blocked",
       "attempts": 0
     },
     "MARXY-003": {
@@ -179,5 +179,6 @@
       "status": "todo",
       "attempts": 0
     }
-  }
+  },
+  "mergesAtLastPlan": 0
 }

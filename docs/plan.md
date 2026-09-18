@@ -17,7 +17,7 @@ Taste review #0 chooses the typeface pair.
 - Contracts frozen: AST + source map, operation, shell-api, theme tokens, index entry,
   reading position (`packages/*/src/contracts`). ADR needed to change.
 - Corpus committed (`fixtures/corpus`) and golden files generated from the parser.
-- `packages/core`: parser (markdown-it, CommonMark + GFM) producing the AST with byte
+- `packages/core`: parser (mdast/micromark, CommonMark + GFM — ADR-0021) producing the AST with byte
   provenance; sanitiser; outline. Passes the CommonMark spec suite. Runs in Node.
 - `apps/desktop`: Tauri shell implementing `shell-api` (read, atomic write, watch, dialogs,
   clipboard, single-instance). Loads the frontend; renders the AST to HTML with no theme.
