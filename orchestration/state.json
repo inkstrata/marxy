@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T10:26:58.609Z",
+  "updated": "2026-09-18T10:30:00.092Z",
   "jiraProject": "MARXY",
   "jiraSite": "https://marxy.atlassian.net",
   "merges": 2,
@@ -53,11 +53,11 @@
       "attempts": 0
     },
     "MARXY-13": {
-      "status": "todo",
-      "attempts": 1,
+      "status": "in_progress",
+      "attempts": 2,
       "branch": "feat/MARXY-13-desktop-shell-opens-a-file-from-the-cli",
       "worktree": "../marxy-wt/MARXY-13",
-      "started": "2026-09-18T09:37:08.056Z",
+      "started": "2026-09-18T10:29:59.060Z",
       "model": "grok-4.6-fast",
       "pr": 5
     },
@@ -74,9 +74,9 @@
       "attempts": 0
     },
     "MARXY-17": {
-      "status": "todo",
-      "attempts": 1,
-      "started": "2026-09-18T09:46:41.316Z",
+      "status": "in_progress",
+      "attempts": 2,
+      "started": "2026-09-18T10:30:00.091Z",
       "pr": 6,
       "branch": "feat/MARXY-17-taste-review-0-typeface-specimen",
       "worktree": "../marxy-wt/MARXY-17"
@@ -85,7 +85,8 @@
       "status": "in_review",
       "attempts": 1,
       "started": "2026-09-18T09:52:32.507Z",
-      "pr": 7
+      "pr": 7,
+      "worktree": "../marxy-wt/MARXY-19"
     },
     "MARXY-20": {
       "status": "todo",
@@ -229,7 +230,8 @@
       "status": "in_review",
       "attempts": 1,
       "started": "2026-09-18T10:02:09.441Z",
-      "pr": 8
+      "pr": 8,
+      "worktree": "../marxy-wt/MARXY-57"
     },
     "MARXY-58": {
       "status": "todo",
