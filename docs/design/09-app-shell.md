@@ -58,7 +58,9 @@ chrome.
 | `Mod+Z` / `Mod+Shift+Z` | undo / redo | in Rendered mode: the operation history (§01); in Source: CodeMirror's |
 | `Mod+Shift+E` | open in external editor | at the current block's line |
 | `Mod+=` / `Mod+-` / `Mod+0` | body size ±1 px / reset | persisted in config; re-layout |
-| `Alt+↑` / `Alt+↓` / `Alt+←` | move block selection / select parent | §03 |
+| `Alt+↑` / `Alt+↓` / `Alt+Shift+↑` | move block selection / select parent | §03 |
+| `Alt+←` / `Alt+→` | back / forward | the Linux browser convention; also `BrowserBack`/`BrowserForward` (MARXY-86 `keys.ts`) |
+| `Mod+Shift+S` | save as | §01 |
 | `Space` / `Shift+Space`, `PageDown/Up`, `Home/End`, arrows | scroll | native |
 | `Esc` | close overlay, else clear selection | |
 | `Mod+C` | copy | with a `node`/`section` selection: runs `copy-section` or `copy-code-clean` when applicable, else the DOM selection |
@@ -72,6 +74,12 @@ right edge, width `min(320px, 40vw)`, one line per heading, indented by level. T
 heading (the last with `start ≤ position.byteOffset`) is marked; opening the dialog scrolls it
 into view. `Enter` on a heading selects its section (§03) and scrolls it to the reading line;
 `Esc` closes. Frontmatter `title:` shows as the first entry when there is no h1.
+
+While the outline is open, the current-heading mark follows scrolling (the same per-frame
+position sample §08 takes; no second scroll listener). Module: `apps/desktop/src/outline/`
+(`outline.ts` builds entries from the AST — pure, tested without a DOM; `view.ts` owns the
+dialog). Entries are plain text: inline markup in a heading is flattened with `textContent`
+semantics, smart typography applied as in the article.
 
 ## Find (D-A14)
 
@@ -87,6 +95,19 @@ into view. `Enter` on a heading selects its section (§03) and scrolls it to the
 - Navigation scrolls the current match to the reading line (40 % of the viewport), never to
   the top edge. Count shown as `3 of 41` inside the input.
 - In Source mode, find is CodeMirror's `@codemirror/search` panel with the same key.
+- **Matching folds what the renderer changed.** The article shows smart typography (§02) but a
+  reader types straight quotes and double hyphens. The query is compiled to a regular
+  expression (flags `giu`) after escaping, with these substitutions applied to the query, never
+  to the text: `'` → `['‘’]`, `"` → `["“”]`, `---` → `(?:---|—)`, then `--` → `(?:--|–)`,
+  `...` → `(?:\.\.\.|…)`, a space → `[ \u00A0]`. Everything else matches literally,
+  case-insensitively. The haystack is the text index, which never contains soft hyphens.
+- **Scope.** Text inside `.katex` subtrees is excluded from the index (it is layout glyphs, not
+  the source); the TeX source is not searchable in Rendered mode in v1. Code blocks, tables and
+  footnotes are included. Alt text is not (it is not painted unless the image is missing).
+- **Budget.** Matching reruns one frame after the last keystroke; `find_first_match` is marked
+  when the first highlight is set. < 50 ms for `01-long-technical.md` on the reference tier.
+- Module: `apps/desktop/src/find/` (`text-index.ts` pure over a list of text-node strings,
+  `query.ts` the compiler above, `view.ts` the input and highlights).
 
 ## Notices (`#marxy-notices`)
 
@@ -118,6 +139,29 @@ buffer edited in Source becomes LF with a one-time notice.
 
 Per-file-type default: `.md .markdown .mdx .txt` open Rendered; everything else Source. A
 `theme.css` next to a `theme.toml` opens in Source with a notice offering "apply this theme".
+
+## Open in external editor (`Mod+Shift+E`)
+
+`shell.revealInExternalEditor(path, line)`. `line` is 1-based: in Rendered mode the line of
+the reading position's block start (§08; the buffer's line index), in Source mode the cursor's
+line. Rust (`commands/os.rs`) reads `external_editor` from `config.toml` on each call (the
+`toml` crate, MIT/Apache-2.0; only that key), splits the template on whitespace **without a
+shell**, substitutes `{file}` and `{line}` inside each token, and runs it with
+`std::process::Command`, detached. No template → the platform opener (`open -t <file>` on macOS,
+`xdg-open <file>` on Linux; no line). Failure → notice "Could not open README.md in the
+external editor: <reason>." The template is never passed to `sh -c`, so a path with spaces or
+quotes cannot become a command.
+
+## Keyboard completeness
+
+Every command in the registry (§03) is reachable without a pointer: by its `key`, or by the
+palette (which is itself `Mod+P`). The audit is a test, not a checklist alone
+(`apps/desktop/test/keyboard.test.mjs`): for each command with a `key`, a synthetic key event
+runs it (its `when` satisfied by a fixture state); for each command, the palette lists it when
+`when` is true; at rest, `Tab` reaches the article (`tabindex="0"`, no focus ring on the article itself)
+and then its links in document order, and never an invisible element; every open dialog returns focus to the
+article on `Esc`. The PR also pastes the manual checklist: VoiceOver/Orca reads the notice
+region (`role="status"`), the palette list is a `listbox` with `aria-activedescendant`.
 
 ## Window title
 
