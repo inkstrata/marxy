@@ -1,36 +1,264 @@
-// Build the review packet for one story: node review.mjs KEY
-import { execSync } from 'node:child_process';
+// Review packet for one story. Exits non-zero when the branch or the diff cannot be determined,
+// so a missing branch cannot pass the boundary checks as "none" (MARXY-9).
+import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
-import { ROOT, here, stories, state, pathsOf } from './lib.mjs';
-const key = process.argv[2]; const st = stories().find(x => x.Key === key); if (!st) { console.error('unknown key'); process.exit(2); }
-const rec = state().stories[key] ?? {}; const localBranch = rec.branch;
-const sh = c => { try { return execSync(c, { cwd: ROOT, encoding: 'utf8' }).trim(); } catch (e) { return `(failed: ${c})`; } };
-sh('git fetch -q origin');
-// Review the commit the pull request actually contains, not the local branch or the worktree. A local
-// commit that was never pushed, or a pushed one built from a stale index, is a different tree with the
-// same subject: MARXY-63's pushed head deleted 1,097 lines of MARXY-19's merged work while its worktree
-// was clean, and a packet diffed against the local ref reported no files outside the story's paths.
-const prNumber = (existsSync(here(`results/${key}.json`)) ? JSON.parse(readFileSync(here(`results/${key}.json`), 'utf8')).pr : null) ?? rec.pr;
-const head = prNumber ? sh(`gh pr view ${prNumber} --json headRefOid --jq .headRefOid`) : '';
-const rev = /^[0-9a-f]{40}$/.test(head) ? head : localBranch;
-const drift = rev === head && localBranch && sh(`git rev-parse ${localBranch}`) !== head
-  ? `the PR head ${head.slice(0, 7)} is not ${localBranch} (${sh(`git rev-parse --short ${localBranch}`)}); this packet describes the PR`
-  : '';
-const files = rev ? sh(`git diff --name-only origin/main...${rev}`).split('\n').filter(Boolean) : [];
-const deleted = rev ? sh(`git diff --diff-filter=D --name-only origin/main...${rev}`).split('\n').filter(Boolean) : [];
-const allowed = [...pathsOf(st), 'CHANGELOG.md', 'docs/taste-review/queue.md', `orchestration/results/${key}.json`];
-const outside = files.filter(f => !allowed.some(a => f === a || f.startsWith(a.replace(/\/$/, '') + '/') || f.startsWith(a)));
-const contracts = files.filter(f => /packages\/[^/]+\/src\/contracts\//.test(f) || f === 'packages/theme/src/tokens.css');
-const fixtures = files.filter(f => f.startsWith('fixtures/corpus/') || f.startsWith('fonts/'));
-const result = existsSync(here(`results/${key}.json`)) ? JSON.parse(readFileSync(here(`results/${key}.json`), 'utf8')) : null;
-// Validate against orchestration/schema/result.schema.json without a dependency: required keys, enums, and that every criterion names its check.
-const schemaProblems = [];
-if (result) {
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { ROOT, here, stories, state, pathsOf, pathMatches } from './lib.mjs';
+
+/** Extra paths every story may touch, alongside CHANGELOG.md. */
+export const EXTRA_BOUNDARIES = [
+  'CHANGELOG.md',
+  'docs/taste-review/queue.md',
+  'pnpm-lock.yaml',
+  'results',
+  'orchestration/results',
+];
+
+const ATTRIBUTION_RE = /co-authored-by:.*(claude|cursor|gpt|grok|copilot)|generated with/i;
+
+/** Paths the boundary check treats as inside the story. */
+export function allowedFor(st, key) {
+  return [...pathsOf(st), ...EXTRA_BOUNDARIES, `orchestration/results/${key}.json`];
+}
+
+/** Whether a changed file is inside the story's paths or an allowed extra. */
+export function fileAllowed(file, allowed) {
+  return allowed.some(a => file === a || pathMatches(file, a) || file.startsWith(a.replace(/\/$/, '') + '/'));
+}
+
+/** Story Acceptance split the same way `pnpm done` splits it. */
+export function criteriaOf(st) {
+  return String(st?.Acceptance || '').split(/;\s+|\n/).map(s => s.trim()).filter(Boolean);
+}
+
+/**
+ * Every story criterion must be claimed by a result.acceptance row with a real check.
+ * Matching is exact or substring so a slightly shorter result line still counts.
+ */
+export function acceptanceClaimed(st, result) {
+  const criteria = criteriaOf(st);
+  if (!criteria.length) return { ok: false, missing: ['(story Acceptance is empty)'] };
+  if (!result?.acceptance?.length) return { ok: false, missing: criteria };
+  const missing = [];
+  for (const c of criteria) {
+    const hit = (result.acceptance || []).find(a =>
+      a.criterion === c || (a.criterion && (a.criterion.includes(c) || c.includes(a.criterion))),
+    );
+    if (!hit || !hit.checkedBy || hit.checkedBy.length < 3 || /TODO/i.test(hit.checkedBy)) {
+      missing.push(c);
+    }
+  }
+  return { ok: missing.length === 0, missing };
+}
+
+/** Golden or screenshot-baseline files, the same set check-pr.mjs watches. */
+export function baselinesChanged(files) {
+  return (files || []).some(f => /goldens\/|fixtures\/baselines\//.test(f));
+}
+
+/** pass / fail / n/a — n/a when fixtures/baselines did not change. */
+export function tasteQueueVerdict(files) {
+  if (!baselinesChanged(files)) return 'n/a';
+  return (files || []).includes('docs/taste-review/queue.md') ? 'pass' : 'fail';
+}
+
+function line(label, verdict, detail = '') {
+  return `- ${label}: ${verdict}${detail ? ` (${detail})` : ''}`;
+}
+
+function run(cmd, args, cwd = ROOT) {
+  try {
+    return { ok: true, out: execFileSync(cmd, args, { cwd, encoding: 'utf8' }).trim() };
+  } catch (e) {
+    const err = (e.stderr || e.stdout || e.message || '').toString().trim();
+    return { ok: false, out: err };
+  }
+}
+
+/**
+ * Build a review packet. When `ctx` supplies files / result / rev, no git or gh is consulted
+ * — that is how the fixture-board tests drive the script.
+ */
+export function buildReview(key, ctx = {}) {
+  const all = ctx.stories ?? stories();
+  const st = all.find(x => x.Key === key);
+  if (!st) return { ok: false, exit: 2, text: 'unknown key' };
+
+  const rec = (ctx.state ?? state()).stories[key] ?? {};
+  const result = ctx.result !== undefined
+    ? ctx.result
+    : existsSync(here(`results/${key}.json`))
+      ? JSON.parse(readFileSync(here(`results/${key}.json`), 'utf8'))
+      : null;
+
+  const injected = ctx.stories !== undefined || ctx.state !== undefined || ctx.files !== undefined
+    || ctx.rev !== undefined || ctx.determined === false || ctx.diffError !== undefined;
+
+  let rev = ctx.rev ?? rec.branch ?? null;
+  let files = ctx.files;
+  let deleted = ctx.deleted ?? [];
+  let attribution = ctx.attribution;
+  let drift = ctx.drift ?? '';
+  let prJson = ctx.pr ?? '(no PR)';
+
+  if (ctx.diffError) {
+    return {
+      ok: false,
+      exit: 1,
+      text: `cannot compute the diff for ${key}: ${ctx.diffError}`,
+    };
+  }
+
+  if (injected) {
+    if (ctx.determined === false || (!rev && files === undefined)) {
+      return noBranch(key);
+    }
+  } else {
+    const localBranch = rec.branch;
+    const prNumber = (result?.pr ?? rec.pr) || null;
+    let headSha = '';
+    if (prNumber) {
+      const viewed = run('gh', ['pr', 'view', String(prNumber), '--json', 'headRefOid', '--jq', '.headRefOid']);
+      if (viewed.ok && /^[0-9a-f]{40}$/.test(viewed.out)) headSha = viewed.out;
+    }
+    rev = headSha || localBranch;
+    if (!rev) return noBranch(key);
+    run('git', ['fetch', '-q', 'origin']);
+    const resolved = run('git', ['rev-parse', '--verify', `${rev}^{commit}`]);
+    if (!resolved.ok) {
+      return {
+        ok: false,
+        exit: 1,
+        text: `cannot determine the branch for ${key}: ${rev} is not a commit; `
+          + 'refusing to report boundary checks as clean',
+      };
+    }
+    const diff = run('git', ['diff', '--name-only', `origin/main...${rev}`]);
+    if (!diff.ok) {
+      return {
+        ok: false,
+        exit: 1,
+        text: `cannot compute the diff for ${key}: ${diff.out || 'git diff failed'}`,
+      };
+    }
+    files = diff.out.split('\n').filter(Boolean);
+    const del = run('git', ['diff', '--diff-filter=D', '--name-only', `origin/main...${rev}`]);
+    deleted = del.ok ? del.out.split('\n').filter(Boolean) : [];
+    const log = run('git', ['log', `origin/main..${rev}`, '--format=%B']);
+    attribution = log.ok && ATTRIBUTION_RE.test(log.out) ? log.out : '';
+    if (headSha && localBranch) {
+      const local = run('git', ['rev-parse', localBranch]);
+      if (local.ok && local.out !== rev) {
+        const short = run('git', ['rev-parse', '--short', localBranch]);
+        drift = `the PR head ${rev.slice(0, 7)} is not ${localBranch} (${short.ok ? short.out : '?'}); `
+          + 'this packet describes the PR';
+      }
+    }
+    if (result?.pr) {
+      const pr = run('gh', [
+        'pr', 'view', String(result.pr),
+        '--json', 'state,mergeable,statusCheckRollup,reviewDecision,additions,deletions',
+        '--jq', '{state,mergeable,reviewDecision,additions,deletions,checks:[.statusCheckRollup[]?|{name,conclusion}]}',
+      ]);
+      prJson = pr.ok ? pr.out : '(no PR)';
+    }
+  }
+
+  files = files ?? [];
+  const allowed = allowedFor(st, key);
+  const outside = files.filter(f => !fileAllowed(f, allowed));
+  const contracts = files.filter(f => /packages\/[^/]+\/src\/contracts\//.test(f) || f === 'packages/theme/src/tokens.css');
+  const fixtures = files.filter(f => f.startsWith('fixtures/corpus/') || f.startsWith('fonts/'));
+  const schemaProblems = validateResult(result);
+  const claimed = acceptanceClaimed(st, result);
+  const changelog = files.includes('CHANGELOG.md') ? 'pass' : 'fail';
+  const acceptance = claimed.ok ? 'pass' : 'fail';
+  const tasteQueue = tasteQueueVerdict(files);
+  const attrib = attribution ? 'FOUND' : 'none';
+  const stat = ctx.stat ?? (rev && !injected ? run('git', ['diff', '--stat', `origin/main...${rev}`]).out : '');
+
+  const doneLines = [
+    line('CHANGELOG.md entry', changelog),
+    line('every acceptance criterion claimed by a check', acceptance,
+      claimed.ok ? '' : `unclaimed: ${claimed.missing.map(m => JSON.stringify(m)).join(', ')}`),
+    line('taste-queue entry (fixtures/baselines changed)', tasteQueue),
+  ];
+
+  const text = [
+    `# Review packet — ${key}`,
+    '',
+    '## Story',
+    `- ${st.Summary}`,
+    `- Paths: ${st.Paths}`,
+    `- Labels: ${st.Labels}`,
+    '',
+    '## Acceptance criteria',
+    st.Acceptance,
+    '',
+    '## Diff',
+    stat || (rev ? `(${files.length} file(s))` : '(no branch)'),
+    '',
+    '## Boundary check',
+    `- files outside paths: ${outside.length ? outside.join(', ') : 'none'}`,
+    `- contract files touched: ${contracts.length ? contracts.join(', ') : 'none'}`,
+    `- fixtures/fonts touched: ${fixtures.length ? fixtures.join(', ') : 'none'}`,
+    `- files this branch deletes: ${deleted.length ? deleted.join(', ') : 'none'}`,
+    `- attribution trailers: ${attrib}${drift ? `\n- WARNING: ${drift}` : ''}`,
+    '',
+    '## Definition of done',
+    ...doneLines,
+    '',
+    '## Implementor result',
+    schemaProblems.length ? `⚠ result file problems: ${schemaProblems.join('; ')} → return` : '',
+    result ? JSON.stringify(result, null, 2) : '(missing — treat as failed)',
+    '',
+    '## PR',
+    prJson,
+    '',
+    '## Decide',
+    `merge (write and sign results/${key}.approved; do not merge) | return (write results/${key}.notes.md) | escalate`,
+  ].join('\n');
+
+  return {
+    ok: true,
+    exit: 0,
+    text,
+    files,
+    outside,
+    done: { changelog, acceptance, tasteQueue },
+  };
+}
+
+function noBranch(key) {
+  return {
+    ok: false,
+    exit: 1,
+    text: `cannot determine the branch for ${key}: state.json has no branch and no PR; `
+      + 'refusing to report boundary checks as clean',
+  };
+}
+
+function validateResult(result) {
+  const schemaProblems = [];
+  if (!result) return schemaProblems;
   const schema = JSON.parse(readFileSync(here('schema/result.schema.json'), 'utf8'));
   for (const k of schema.required) if (!(k in result)) schemaProblems.push(`missing "${k}"`);
-  if (result.status && !schema.properties.status.enum.includes(result.status)) schemaProblems.push(`status "${result.status}" not in ${schema.properties.status.enum.join('|')}`);
-  for (const a of result.acceptance || []) if (!a.checkedBy || a.checkedBy.length < 3 || /TODO/i.test(a.checkedBy)) schemaProblems.push(`criterion without a named check: "${String(a.criterion).slice(0, 60)}"`);
+  if (result.status && !schema.properties.status.enum.includes(result.status)) {
+    schemaProblems.push(`status "${result.status}" not in ${schema.properties.status.enum.join('|')}`);
+  }
+  for (const a of result.acceptance || []) {
+    if (!a.checkedBy || a.checkedBy.length < 3 || /TODO/i.test(a.checkedBy)) {
+      schemaProblems.push(`criterion without a named check: "${String(a.criterion).slice(0, 60)}"`);
+    }
+  }
+  return schemaProblems;
 }
-const pr = result?.pr ? sh(`gh pr view ${result.pr} --json state,mergeable,statusCheckRollup,reviewDecision,additions,deletions --jq '{state,mergeable,reviewDecision,additions,deletions,checks:[.statusCheckRollup[]?|{name,conclusion}]}'`) : '(no PR)';
-const attribution = rev ? sh(`git log origin/main..${rev} --format=%B | grep -i -E 'co-authored-by:.*(claude|cursor|gpt|grok|copilot)|generated with' || true`) : '';
-console.log(`# Review packet — ${key}\n\n## Story\n- ${st.Summary}\n- Paths: ${st.Paths}\n- Labels: ${st.Labels}\n\n## Acceptance criteria\n${st.Acceptance}\n\n## Diff\n${rev ? sh(`git diff --stat origin/main...${rev}`) : '(no branch)'}\n\n## Boundary check\n- files outside paths: ${outside.length ? outside.join(', ') : 'none'}\n- contract files touched: ${contracts.length ? contracts.join(', ') : 'none'}\n- fixtures/fonts touched: ${fixtures.length ? fixtures.join(', ') : 'none'}\n- files this branch deletes: ${deleted.length ? deleted.join(', ') : 'none'}\n- attribution trailers: ${attribution ? 'FOUND' : 'none'}${drift ? `\n- WARNING: ${drift}` : ''}\n\n## Implementor result\n${schemaProblems.length ? '⚠ result file problems: ' + schemaProblems.join('; ') + ' → return\n' : ''}${result ? JSON.stringify(result, null, 2) : '(missing — treat as failed)'}\n\n## PR\n${pr}\n\n## Decide\nmerge (write and sign results/${key}.approved; do not merge) | return (write results/${key}.notes.md) | escalate`);
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const key = process.argv[2];
+  if (!key) { console.error('usage: node review.mjs KEY'); process.exit(2); }
+  const packet = buildReview(key);
+  console[packet.ok ? 'log' : 'error'](packet.text);
+  process.exit(packet.exit);
+}
