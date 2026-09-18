@@ -56,6 +56,8 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
       Returns re-enter freely. `docs/sdlc.md` matches.
 - [ ] 2026-09-18 — Say whether a Linux desktop exists for MARXY-22 and whether an Apple Developer account exists for notarization.
 
+- [ ] 2026-09-18 — After PR #14 merges: switch branch protection to the single `ci` context (command in `docs/hygiene.md` §CI). Until then the old `gates (…)` contexts are required and will not exist on new runs.
+
 ## Taste review #0 is ready — 2026-09-18
 
 PR #6 merged, so the specimen is on `main`. Two typeface pairs, five passages each, at 1x and 2x:

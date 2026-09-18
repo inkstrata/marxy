@@ -4,7 +4,7 @@ A theme is a directory (ADR-0008):
 
 ```
 my-theme/
-  theme.toml      # name, author, contract = 1, variants = ["light", "dark"]
+  theme.toml      # name, author, contract = 1, variants = ["dark", "light"]   (dark first: it is primary, ADR-0024)
   theme.css       # declarative CSS; layout only through --marxy-* tokens
   fonts/          # optional, bundled, licences preserved
   LICENSE
@@ -28,7 +28,11 @@ line of the measure or becomes a seeker.
 
 ## Tokens
 
-The full list is `packages/theme/src/tokens.css` and is the frozen contract (version 1).
+The full list is `packages/theme/src/tokens.css` and is the frozen contract (version 1). Its
+`:root` values are the **dark** variant (ADR-0024); the default theme's light block overrides
+them under `[data-marxy-variant="light"]`. Tokens may be *added* within version 1 when they
+carry a default (ADR-0024 added the find, notice and code-token colours); a theme that does not
+set them renders with the defaults.
 The shape:
 
 ```css

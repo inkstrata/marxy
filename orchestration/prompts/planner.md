@@ -16,10 +16,14 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
      with disjoint paths and machine-checkable acceptance;
    - add stories for work the deltas revealed (each with Summary, Labels, Paths, Acceptance);
    - never delete a story; mark it `dropped` with a reason in the delta.
-3. **ADR proposals**, when a decision changed or a tripwire fired: a new numbered file in
+3. **Task cards.** Every story you add or split gets `docs/plan/tasks/<KEY>.md` in the format of
+   the existing cards: outcome, files and signatures, order, tests with expected results,
+   acceptance → check, do-nots, and the `docs/design/` sections it relies on. If a design
+   section does not exist for the decision the story needs, write the section first.
+4. **ADR proposals**, when a decision changed or a tripwire fired: a new numbered file in
    `docs/adr/` marked *proposed*, plus a story to land it. Do not edit accepted ADRs.
-4. **Taste-review requests**: if visual work merged without a queue entry, add one.
-5. **Scope pressure**: if the phase is behind, propose cuts in the order of
+5. **Taste-review requests**: if visual work merged without a queue entry, add one.
+6. **Scope pressure**: if the phase is behind, propose cuts in the order of
    `docs/scope.md` ("if the schedule still slips"), never new work.
 
 ## Rules
