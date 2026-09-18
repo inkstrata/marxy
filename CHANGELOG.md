@@ -24,4 +24,4 @@ tag time. Conventions in `docs/conventions.md`.
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
 
 ### Fixed
-- READMEs and licence files under fonts/ show a normal diff again; only font binaries stay binary, so a reviewer can read a text change without a tool being allowed to rewrite a font byte (MARXY-66)
+- READMEs and licence files under fonts/ show a normal diff again; only font binaries stay binary, so a reviewer can read a text change; nothing under fonts/, licences included, can have its line endings rewritten, and `pnpm lint` fails if that ever changes (MARXY-66)

@@ -1,6 +1,8 @@
 * text=auto eol=lf
 fixtures/corpus/** -text
-# Font bytes only. The tree-wide fonts/** rule hid README and licence diffs (MARXY-66).
+# Nothing under fonts/ gets line-ending conversion (a licence is verbatim, and IBM Plex's is CRLF),
+# but only font bytes are binary, so READMEs and licences show a normal diff (MARXY-66).
+fonts/** -text
 # -eol undoes the * rule: binary does not unset eol, and eol must not apply to a font.
 *.ttf binary -eol
 *.otf binary -eol
