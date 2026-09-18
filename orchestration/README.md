@@ -104,6 +104,7 @@ role's `inApp` slug when you spawn a subagent.
 | `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |
 | `loop.sh` | `cycle.mjs` until interrupted |
 | `results/KEY.json` | written by implementors; the only handshake |
+| `readiness.mjs` | every open PR in merge order with who it waits on and its next step; the last thing in every approval run (`--json` for machines, `--results DIR` to read another checkout's reviews) |
 | `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story, signed by `approve.mjs` against the commit it read; no merge without it |
 | `needs-human.md` | queue of things a person must do |
 | `status.md` | the orchestrator's last report |

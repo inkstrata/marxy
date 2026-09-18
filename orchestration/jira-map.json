@@ -75,6 +75,7 @@
     "MARXY-NEW-review-order-is-computable": "MARXY-80",
     "MARXY-NEW-loop-acts-on-the-review-order": "MARXY-81",
     "MARXY-NEW-branch-protection-gate": "MARXY-82",
-    "MARXY-84": "MARXY-84"
+    "MARXY-84": "MARXY-84",
+    "MARXY-NEW-readiness-table": "MARXY-92"
   }
 }
