@@ -50,6 +50,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Fast CI no longer fails the phases 600-line three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-114)
 - Outline tests no longer fail a later core story that edits package.json, scripts or the desktop app; that leftover three-dot lock was MARXY-109's own boundary (MARXY-113)
 - Readiness tests no longer fail a branch that edits the board files MARXY-107 owns; that leftover three-dot check is gone (MARXY-112)
+- A save on Linux keeps the file's extended attributes and POSIX ACLs instead of dropping them, and the check that proves a save puts every byte back now lives with the other gates (MARXY-77)
 - Fast CI no longer fails the readiness three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-108)
 - Merging `main` into a story branch no longer fails the commit hook with every file the merge carried; a merge commit answers for what its author resolved (MARXY-85)
 - A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
