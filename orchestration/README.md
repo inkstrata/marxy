@@ -21,9 +21,12 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    dependencies are done, and whose paths do not overlap anything in progress. It never
    offers a story from phase N+1 while phase N still has `todo` or `in_progress` work,
    unless the story is labelled `cross-phase`. `human-gated` stories, and stories with
-   empty Acceptance or empty Paths, are refused with the rule named. Lanes are uncapped
-   (`models.json` `lanes` is `null`); a positive value is the WIP limit and a story that
-   would exceed it is `blockedByLanes`, not a dependency wait. The other two honest
+   empty Acceptance or empty Paths, are refused with the rule named. Dispatch lanes stay
+   uncapped (`models.json` `lanes` is `null`); a positive value is the implementor WIP
+   limit and a story that would exceed it is `blockedByLanes`, not a dependency wait.
+   `reviewLanes` (4) is a different cap: while the count of `in_review` stories is at or
+   above it, ready dispatches nothing and prints `blockedByReviewWip` with the count and
+   the cap. A returned story leaves In Review, so it does not count. The other honest
    counters are `blockedByDeps` and `blockedByPaths`.
 2. `node orchestration/dispatch.mjs KEY [KEY…]` — for each: create a worktree and branch, run
    the implementor headlessly with `prompts/implementor.md` plus the story, wait. Results land
@@ -35,7 +38,8 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    pass/fail lines for a CHANGELOG entry, a claimed check per acceptance criterion, and a
    taste-queue row when fixtures/baselines changed. If it cannot determine the branch or
    compute the diff it exits non-zero and says so — it does not print `none` for the
-   boundary checks. Decide: **merge**, **return** (notes appended, attempts+1), or
+   boundary checks, and when `state.json` has no branch it names the four checks that
+   cannot run without one. Decide: **merge**, **return** (notes appended, attempts+1), or
    **escalate** (attempts ≥ 2 → the planner splits it or the escalation model takes it).
 4. `node orchestration/jira.mjs pr KEY <number>` — links the PR on the issue and moves it to
    In Review. Merge only when CI is green and, for CODEOWNERS paths, a human approved. Squash.
@@ -68,16 +72,27 @@ on PATH), asks whether the planner is due, and writes `status.md`. It is idempot
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
 `--no-merge` to decide without landing anything, `--low` or `--minimal` to spend less.
 
+The cycle acts on the computed review order (`review-order.mjs`, ADR-0025). It calls
+`gh pr update-branch` on **at most one** pull request per cycle — the first order entry
+that is BEHIND — and every other BEHIND pull request prints
+`behind main; waiting its turn in the review order (position N)`. A DIRTY pull request is
+returned to In Progress with `attempts` unchanged and the conflicting files named in
+`results/KEY.json`; the cycle cannot resolve a conflict and a reviewer reading one is
+reading nothing.
+
 What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
 code works, not that it does what was asked, so a PR merges only once a reviewer (never the
 implementor) writes `results/KEY.approved` and signs it with `node orchestration/approve.mjs KEY`,
-which stamps in the commit being approved. That is an agent action. Unsigned, or signed against
-a different commit, holds the PR: a review is of a tree, and a push after it lands turns the
-approval into a note about something else. When the rest of the quality bar in `docs/sdlc.md`
-is green and only CI is still running, the cycle enables GitHub auto-merge rather than waiting
-for the next loop. Everything else about a merge — checks, conflicts, CODEOWNERS, the path
-boundary, the CHANGELOG line, the result file — is checked by `merge-bar.mjs`, and a held PR
-always prints the reason it was held. CODEOWNERS paths still need Ian.
+which stamps in the commit being approved. That is an agent action. `approve.mjs` refuses to
+sign — and writes no signature — when the pull request is BEHIND, DIRTY, or not the first entry
+of the review order, and prints which of the three held it. There is no environment
+variable that skips those checks. Unsigned, or signed against a different commit, holds the
+PR: a review is of a tree, and a push after it lands turns the approval into a note about
+something else. When the rest of the quality bar in `docs/sdlc.md` is green and only CI is
+still running, the cycle enables GitHub auto-merge rather than waiting for the next loop.
+Everything else about a merge — checks, conflicts, CODEOWNERS, the path boundary, the
+CHANGELOG line, the result file — is checked by `merge-bar.mjs`, and a held PR always
+prints the reason it was held. CODEOWNERS paths still need Ian.
 
 Check model ids once: `cursor-agent --list-models` and the in-app model picker; put the exact
 names in `models.json`. Reasoning effort is set where Cursor exposes it (picker or agent
@@ -103,7 +118,7 @@ role's `inApp` slug when you spawn a subagent.
 
 | File | What |
 | --- | --- |
-| `models.json` | model id and effort per role, plus `default` / `low` / `minimal` compute profiles |
+| `models.json` | model id and effort per role, plus `default` / `low` / `minimal` compute profiles; `lanes` (dispatch, stays null) and `reviewLanes` (In Review cap, 4) |
 | `lib.mjs` | shared helpers; run it to print the resolved compute roles |
 | `jira.mjs` | the Jira bridge: `doctor`, `sync`, `push`, `move`, `pr`, `release`, `bootstrap` |
 | `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |

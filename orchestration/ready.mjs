@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   state, stories, deps, pathsOf, overlap, laneBudget, hasLabel, phaseOf, earlierPhaseOpen,
+  models,
 } from './lib.mjs';
 
 /** Named definition-of-ready refusals, so a test can assert the exact rule. */
@@ -15,25 +16,38 @@ export const RULE = {
   LANE_LIMIT: 'lane limit',
 };
 
+/** Concurrent In Review stories. null / 0 / omitted → uncapped. `lanes` is a different cap. */
+export function reviewLaneBudget(m = models()) {
+  const n = m.reviewLanes;
+  if (n == null || n === 0) return Infinity;
+  if (!Number.isFinite(n) || n < 0) throw new Error(`invalid reviewLanes ${n}`);
+  return n;
+}
+
 /**
  * Classify every todo story and pick those that may start.
- * `cap` is the WIP limit from models.json; Infinity means uncapped.
+ * `cap` is the dispatch WIP limit from models.json; Infinity means uncapped.
+ * `reviewCap` is the In Review WIP limit; dispatch is empty while that count is at or above it.
  */
 export function selectReady({
   all = stories(),
   s = state(),
   d = deps(),
   cap = laneBudget(),
+  reviewCap = reviewLaneBudget(),
 } = {}) {
   const done = k => s.stories[k]?.status === 'done';
   const statusOf = k => s.stories[k]?.status ?? 'todo';
   // in_review holds files until the PR lands; it does not consume a lane (MARXY-102).
   const occupies = status => status === 'in_progress' || status === 'in_review';
   const inProgress = all.filter(st => statusOf(st.Key) === 'in_progress');
+  const inReview = all.filter(st => statusOf(st.Key) === 'in_review');
   const busy = all.filter(st => occupies(statusOf(st.Key)));
   const busyPaths = busy.flatMap(pathsOf);
   const uncapped = !Number.isFinite(cap);
   const free = uncapped ? Infinity : Math.max(0, cap - inProgress.length);
+  const reviewUncapped = !Number.isFinite(reviewCap);
+  const reviewFull = !reviewUncapped && inReview.length >= reviewCap;
 
   const blockedByDeps = [];
   const blockedByPaths = [];
@@ -73,18 +87,20 @@ export function selectReady({
 
   const picked = [];
   const pickedPaths = [];
-  for (const st of eligible) {
-    if (overlap(pathsOf(st), pickedPaths)) {
-      blockedByPaths.push(st.Key);
-      continue;
+  if (!reviewFull) {
+    for (const st of eligible) {
+      if (overlap(pathsOf(st), pickedPaths)) {
+        blockedByPaths.push(st.Key);
+        continue;
+      }
+      if (picked.length >= free) {
+        blockedByLanes.push(st.Key);
+        excluded.push({ key: st.Key, rule: RULE.LANE_LIMIT });
+        continue;
+      }
+      picked.push(st);
+      pickedPaths.push(...pathsOf(st));
     }
-    if (picked.length >= free) {
-      blockedByLanes.push(st.Key);
-      excluded.push({ key: st.Key, rule: RULE.LANE_LIMIT });
-      continue;
-    }
-    picked.push(st);
-    pickedPaths.push(...pathsOf(st));
   }
 
   return {
@@ -95,6 +111,7 @@ export function selectReady({
     blockedByDeps,
     blockedByPaths,
     blockedByLanes,
+    blockedByReviewWip: reviewUncapped ? null : { count: inReview.length, cap: reviewCap },
     excluded,
   };
 }

@@ -13,7 +13,26 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync } from 'n
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { here } from './lib.mjs';
+import { here, state } from './lib.mjs';
+import { computeOrder, readPullRequest } from './review-order.mjs';
+
+/** The three reasons a signature is refused; printed verbatim so a test can name which one. */
+export const SIGN_HOLDS = {
+  BEHIND: 'BEHIND',
+  DIRTY: 'DIRTY',
+  NOT_FIRST: 'not the first entry of the review order',
+};
+
+/**
+ * Whether this story may be signed now. Order is BEHIND, then DIRTY, then not-first —
+ * a signature taken anywhere else is the livelock ADR-0025 exists to make impossible.
+ */
+export function approvalHoldReason({ key, mergeStateStatus, orderKeys = [] } = {}) {
+  if (mergeStateStatus === 'BEHIND') return SIGN_HOLDS.BEHIND;
+  if (mergeStateStatus === 'DIRTY') return SIGN_HOLDS.DIRTY;
+  if (orderKeys[0] !== key) return SIGN_HOLDS.NOT_FIRST;
+  return null;
+}
 
 const KEY_DIR = join(homedir(), '.config', 'marxy');
 const KEY_PATH = join(KEY_DIR, 'approval.key');
@@ -85,11 +104,84 @@ function onlyMainArrived(approved, head) {
     : { ok: true, why: `${changed.length} file(s) changed since, ${fromMain.length} taken from main and ${resolved.length} resolved from lines both sides already had` };
 }
 
+/** Read the live PR and review order. `readPr` / `orderOf` are injectable so --selftest never hits GitHub. */
+export function liveApprovalHold(key, {
+  readPr = readPullRequest,
+  orderOf = (read) => computeOrder({ readPr: read }),
+  rec = state().stories[key] ?? {},
+} = {}) {
+  let mergeStateStatus = '';
+  if (rec.pr != null && rec.pr !== '') {
+    try {
+      mergeStateStatus = readPr(rec.pr).mergeStateStatus ?? '';
+    } catch (e) {
+      return `could not read pull request: ${e.message}`;
+    }
+  }
+  let orderKeys = [];
+  try {
+    orderKeys = orderOf(readPr).order.map(r => r.key);
+  } catch (e) {
+    return e.message;
+  }
+  return approvalHoldReason({ key, mergeStateStatus, orderKeys });
+}
+
+/** Named cases for `node orchestration/approve.mjs --selftest`. Returns the process exit code. */
+export function selftest() {
+  const cases = [
+    {
+      name: 'BEHIND holds without writing a signature',
+      key: 'MARXY-A',
+      mergeStateStatus: 'BEHIND',
+      orderKeys: ['MARXY-A'],
+      hold: SIGN_HOLDS.BEHIND,
+    },
+    {
+      name: 'DIRTY holds without writing a signature',
+      key: 'MARXY-A',
+      mergeStateStatus: 'DIRTY',
+      orderKeys: ['MARXY-A'],
+      hold: SIGN_HOLDS.DIRTY,
+    },
+    {
+      name: 'not the first entry of the review order holds without writing a signature',
+      key: 'MARXY-B',
+      mergeStateStatus: 'CLEAN',
+      orderKeys: ['MARXY-A', 'MARXY-B'],
+      hold: SIGN_HOLDS.NOT_FIRST,
+    },
+  ];
+  let bad = 0;
+  for (const c of cases) {
+    const hold = approvalHoldReason(c);
+    const ok = hold === c.hold;
+    if (ok) console.log(`selftest ok: ${c.name}`);
+    else {
+      bad += 1;
+      console.error(`selftest FAIL: ${c.name} — got ${JSON.stringify(hold)}, want ${JSON.stringify(c.hold)}`);
+    }
+  }
+  if (bad) {
+    console.error(`approve selftest failed: ${bad} case(s)`);
+    return 1;
+  }
+  console.log(`approve selftest ok: ${cases.length} named cases`);
+  return 0;
+}
+
 if (process.argv[1]?.endsWith('approve.mjs')) {
+  if (process.argv.includes('--selftest')) process.exit(selftest());
   const key = process.argv[2];
   if (!key) { console.error('usage: approve.mjs KEY [--head SHA]'); process.exit(2); }
   const path = here(`results/${key}.approved`);
   if (!existsSync(path)) { console.error(`${path} does not exist — write the approval first, then sign it`); process.exit(2); }
+  const before = readFileSync(path, 'utf8');
+  const hold = liveApprovalHold(key);
+  if (hold) {
+    console.error(`${key}: not signing — ${hold}`);
+    process.exit(1);
+  }
   const flag = process.argv.indexOf('--head');
   let head = flag > 0 ? process.argv[flag + 1] : '';
   if (!head) {
@@ -97,7 +189,7 @@ if (process.argv[1]?.endsWith('approve.mjs')) {
     if (pr.length !== 1) { console.error(`found ${pr.length} PRs for ${key}; pass --head SHA`); process.exit(2); }
     head = pr[0].headRefOid;
   }
-  const body = readFileSync(path, 'utf8').replace(FOOTER, '').trimEnd();
+  const body = before.replace(FOOTER, '').trimEnd();
   writeFileSync(path, `${body}\n\nPR-HEAD: ${head}\nSIGNATURE: ${sign(body, head)}\n`);
   console.log(`${key}: approval signed for ${head.slice(0, 7)}`);
 }
