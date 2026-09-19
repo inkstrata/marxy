@@ -30,3 +30,4 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: the metric split; 2: no product cold-start ceiling) |
 | [0025](0025-review-order-and-review-wip.md) | Review order and a WIP limit on review | accepted |
 | [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |
+| [0029](0029-no-product-cold-start-ceiling.md) | There is no product cold-start ceiling | accepted |
