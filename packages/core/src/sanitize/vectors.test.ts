@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';
 import { renderSafeHtml } from '../render/pipeline.ts';
 import { renderToUnsanitisedHtml } from '../render/render-html.ts';
+import { RENDERED_POLICY } from './policy.ts';
 import { sanitizeHtml } from './sanitize-html.ts';
 import { VECTORS, attributesOf, checkAllVectors, elementsOf } from './testing/vectors.ts';
 
@@ -19,7 +20,7 @@ const safeHostile = renderSafeHtml(hostile, { file: '10-hostile.md' }).html;
 const unsafeHostile = renderToUnsanitisedHtml(parseMarkdown(hostile, { file: '10-hostile.md' }));
 
 test('the hostile fixture, rendered, trips no forbidden vector', () => {
-  assert.deepEqual(checkAllVectors(safeHostile), []);
+  assert.deepEqual(checkAllVectors(safeHostile, RENDERED_POLICY), []);
 });
 
 test('the letter of the criterion: no script, iframe, object, form, meta or link element', () => {
@@ -60,7 +61,7 @@ test('every vector is enumerated with a reason and a probe', () => {
 
 for (const vector of VECTORS) {
   test(`${vector.id}: the pipeline neutralises its probe`, () => {
-    vector.check(renderSafeHtml(vector.probe, { file: `probe/${vector.id}.md` }).html);
+    vector.check(renderSafeHtml(vector.probe, { file: `probe/${vector.id}.md` }).html, RENDERED_POLICY);
     if (vector.probeHtml !== undefined) vector.check(sanitizeHtml(vector.probeHtml).html);
   });
 
@@ -68,11 +69,11 @@ for (const vector of VECTORS) {
     // The neutralised pipeline: parse and render, and put the result in the DOM without the
     // allow-list. If a check survives that, it is not checking anything.
     const unsanitised = vector.probeHtml ?? renderToUnsanitisedHtml(parseMarkdown(vector.probe, { file: `probe/${vector.id}.md` }));
-    assert.throws(() => vector.check(unsanitised), /./, `${vector.id} passed against unsanitised output`);
+    assert.throws(() => vector.check(unsanitised, RENDERED_POLICY), /./, `${vector.id} passed against unsanitised output`);
   });
 }
 
 test('the whole enumeration fails against the unsanitised hostile render', () => {
-  const failures = checkAllVectors(unsafeHostile);
+  const failures = checkAllVectors(unsafeHostile, RENDERED_POLICY);
   assert.ok(failures.length >= 14, `expected the fixture to trip most vectors unsanitised; it tripped ${failures.length}`);
 });

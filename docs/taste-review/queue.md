@@ -7,6 +7,7 @@
 | 2026-09-18 | spike | WebKitGTK vs macOS weight at reading size | `docs/spike/results/u26-tauri-specimen-17-dpr2-off0.png`, `mac-pwwebkit-specimen-17-dpr2-off0.png` | Does the Linux rendering (lighter by ~70 units) read acceptably before compensation, and is +50 or +75 the right correction? | pending |
 | 2026-09-18 | MARXY-64 | First look at a ten-thousand-word continuous prose fixture; before this row the corpus had almost no real paragraph volume | `fixtures/corpus/15-prose-volume.md` — the document is the before/after (no page existed; now a winter essay with quotations, em dashes and footnotes) | Does a page of this essay read as the volume later typesetting stories should measure? Any hole, shout or drift that would make it a bad sample? | pending |
 | 2026-09-18 | MARXY-73 | Hostile corpus fixture now lists the missing attack families as labelled sections; the golden AST grew with those additions | `fixtures/corpus/10-hostile.md`, `packages/core/goldens/10-hostile.ast.txt` — no screenshot pair; the document is a security corpus, not a typeset page | Do the new labelled sections stay inventory rather than live markup? Any family that should not sit in the reader-facing corpus? | pending |
+| 2026-09-19 | MARXY-75 | Nothing visible: every rendered element gains `data-marxy-s`/`-e`. HTML goldens created (no visible change) | `packages/core/goldens/*.html.txt` — the sanitised render of every corpus file | None expected. Flag any corpus page that looks different from before. | pending |
 
 ## Review #0 — the default typeface pair
 

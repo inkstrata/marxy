@@ -1,0 +1,41 @@
+<h1 data-marxy-s="0" data-marxy-e="32">東アジアの文字と組版</h1>
+<h2 data-marxy-s="34" data-marxy-e="46">日本語</h2>
+<p data-marxy-s="48" data-marxy-e="504">日本語の文章は単語の間に空白がなく、行の折り返しは文字単位で行われます。禁則処理により、句読点「、」「。」や閉じ括弧「」」は行頭に来てはならず、開き括弧「「」は行末に来てはなりません。マークダウンのリーダーはこの規則を尊重しなければ、読みにくい組版になります。<strong data-marxy-s="438" data-marxy-e="448">強調</strong>や<code data-marxy-s="451" data-marxy-e="462">コード</code>が混在する段落でも同様です。</p>
+<ul data-marxy-s="506" data-marxy-e="604">
+<li data-marxy-s="506" data-marxy-e="529">箇条書きの項目</li>
+<li data-marxy-s="530" data-marxy-e="571">もう一つの項目（括弧付き）</li>
+<li data-marxy-s="572" data-marxy-e="604">「引用符付きの項目」</li>
+</ul>
+<h2 data-marxy-s="606" data-marxy-e="615">中文</h2>
+<p data-marxy-s="617" data-marxy-e="910">中文排版同样没有词间空格。标点符号如”，”、”。”、”？”不应出现在行首，而引号和括号的开口部分不应出现在行尾。一个好的阅读器应当在中文、English 和数字 2026 混排时保持合理的间距，并将全角标点悬挂到边距之外。</p>
+<blockquote data-marxy-s="912" data-marxy-e="974">
+<p data-marxy-s="914" data-marxy-e="974">引用块中的中文文本也应该遵循相同的规则。</p>
+</blockquote>
+<h2 data-marxy-s="976" data-marxy-e="988">한국어</h2>
+<p data-marxy-s="990" data-marxy-e="1175">한국어는 띄어쓰기를 사용하지만, 줄바꿈은 음절 단위로도 허용됩니다. 마크다운 리더는 <code data-marxy-s="1109" data-marxy-e="1131">word-break: keep-all</code>과 같은 설정을 고려해야 합니다.</p>
+<table data-marxy-s="1177" data-marxy-e="1321">
+<thead>
+<tr data-marxy-s="1177" data-marxy-e="1214">
+<th data-marxy-s="1177" data-marxy-e="1186">言語</th>
+<th data-marxy-s="1186" data-marxy-e="1204">分かち書き</th>
+<th data-marxy-s="1204" data-marxy-e="1214">禁則</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="1235" data-marxy-e="1266">
+<td data-marxy-s="1235" data-marxy-e="1247">日本語</td>
+<td data-marxy-s="1247" data-marxy-e="1256">なし</td>
+<td data-marxy-s="1256" data-marxy-e="1266">あり</td>
+</tr>
+<tr data-marxy-s="1267" data-marxy-e="1289">
+<td data-marxy-s="1267" data-marxy-e="1276">中文</td>
+<td data-marxy-s="1276" data-marxy-e="1282">无</td>
+<td data-marxy-s="1282" data-marxy-e="1289">有</td>
+</tr>
+<tr data-marxy-s="1290" data-marxy-e="1321">
+<td data-marxy-s="1290" data-marxy-e="1302">한국어</td>
+<td data-marxy-s="1302" data-marxy-e="1311">있음</td>
+<td data-marxy-s="1311" data-marxy-e="1321">일부</td>
+</tr>
+</tbody>
+</table>

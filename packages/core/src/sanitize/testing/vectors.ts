@@ -5,7 +5,7 @@
 // suite can prove each check is capable of failing. A sanitiser test suite that passes against a
 // sanitiser that does nothing is worse than no suite at all.
 
-import { BLOCK_ELEMENTS, DEFAULT_POLICY, VOID_ELEMENTS, type Policy } from '../policy.ts';
+import { BLOCK_ELEMENTS, DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, VOID_ELEMENTS, type Policy } from '../policy.ts';
 import { decodeReferences } from '../escape.ts';
 
 export interface Attribute {
@@ -59,6 +59,10 @@ export function attributesOf(html: string): Attribute[] {
   }
   return attributes;
 }
+
+/** An end offset no corpus document reaches, so a forged pair is recognisable wherever it lands. */
+const FORGED_END = '987654321';
+const PROVENANCE_NAMES: readonly string[] = [PROVENANCE_ATTRIBUTES.start, PROVENANCE_ATTRIBUTES.end];
 
 function fail(id: string, detail: string): never {
   throw new Error(`${id}: ${detail}`);
@@ -497,6 +501,27 @@ export const VECTORS: readonly Vector[] = [
       '',
     ].join('\n'),
     check: (html) => treeOf(html, 'output-tree-is-balanced'),
+  },
+  {
+    id: 'provenance-forgery',
+    why: 'a document that writes its own data-marxy-s/e points an operation at bytes the reader never selected, which is the one thing marxy promises never to do (ADR-0023)',
+    // Raw HTML only, so the render has no element of its own: any provenance in the output is forged.
+    // One block and one inline island, and a start past any real document, so a forged pair can
+    // never collide with a real one by accident.
+    probe: [
+      `<p data-marxy-s="0" data-marxy-e="${FORGED_END}">forged block</p>`,
+      '',
+      `inline <kbd DATA-MARXY-S="0" data-marxy-e='${FORGED_END}'>forged</kbd> and <b data-marxy-x="1">stray</b>`,
+      '',
+    ].join('\n'),
+    check: (html) => {
+      const forged = attributesOf(html).filter(
+        (attribute) => attribute.name.startsWith('data-marxy-') && (attribute.decoded === FORGED_END || !PROVENANCE_NAMES.includes(attribute.name)),
+      );
+      if (forged.length > 0) {
+        fail('provenance-forgery', `a document's own provenance survived: ${forged.map((a) => `${a.element}[${a.name}="${a.raw}"]`).join(', ')}`);
+      }
+    },
   },
   {
     id: 'no-formatting-element-spanning-a-block',

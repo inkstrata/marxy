@@ -1,0 +1,101 @@
+<h1 data-marxy-s="55" data-marxy-e="66">Heading 1</h1>
+<h2 data-marxy-s="67" data-marxy-e="79">Heading 2</h2>
+<h3 data-marxy-s="80" data-marxy-e="93">Heading 3</h3>
+<h4 data-marxy-s="94" data-marxy-e="108">Heading 4</h4>
+<h5 data-marxy-s="109" data-marxy-e="124">Heading 5</h5>
+<h6 data-marxy-s="125" data-marxy-e="141">Heading 6</h6>
+<h1 data-marxy-s="143" data-marxy-e="172">Setext heading</h1>
+<h2 data-marxy-s="174" data-marxy-e="203">Another setext</h2>
+<p data-marxy-s="205" data-marxy-e="649">Paragraph with <em data-marxy-s="220" data-marxy-e="230">emphasis</em>, <em data-marxy-s="232" data-marxy-e="242">emphasis</em>, <strong data-marxy-s="244" data-marxy-e="254">strong</strong>, <strong data-marxy-s="256" data-marxy-e="266">strong</strong>, <em data-marxy-s="268" data-marxy-e="278"><strong data-marxy-s="269" data-marxy-e="277">both</strong></em>, <del data-marxy-s="280" data-marxy-e="290">strike</del>, <code data-marxy-s="292" data-marxy-e="298">code</code>, <code data-marxy-s="300" data-marxy-e="324">code with ` backtick</code>, a <a href="https://example.invalid/" title="title" data-marxy-s="328" data-marxy-e="367">link</a>, a <a href="https://example.invalid/ref" title="Reference title" data-marxy-s="371" data-marxy-e="392">reference link</a>, an <a href="https://example.invalid/autolink" data-marxy-s="397" data-marxy-e="431">https://example.invalid/autolink</a>, a bare <a href="https://example.invalid/bare" data-marxy-s="440" data-marxy-e="468">https://example.invalid/bare</a>, and a footnote<sup class="marxy-footnote-ref" id="marxy-fnref-1" data-marxy-s="484" data-marxy-e="488"><a href="#marxy-fn-1">1</a></sup>. Hard break follows<br data-marxy-s="508" data-marxy-e="511" />
+here. Backslash break follows<br data-marxy-s="540" data-marxy-e="542" />
+here. Entities: &amp; © 😀 — and “smart quotes” with ‘singles’ – and — dashes… ellipsis.</p>
+<blockquote data-marxy-s="812" data-marxy-e="878">
+<p data-marxy-s="814" data-marxy-e="824">Blockquote</p>
+<blockquote data-marxy-s="827" data-marxy-e="878">
+<p data-marxy-s="829" data-marxy-e="878">nested blockquote
+with a lazy continuation line</p>
+</blockquote>
+</blockquote>
+<ul data-marxy-s="880" data-marxy-e="898">
+<li data-marxy-s="880" data-marxy-e="898">Bullet with star</li>
+</ul>
+<ul data-marxy-s="899" data-marxy-e="917">
+<li data-marxy-s="899" data-marxy-e="917">Bullet with plus</li>
+</ul>
+<ul data-marxy-s="918" data-marxy-e="936">
+<li data-marxy-s="918" data-marxy-e="936">Bullet with dash</li>
+</ul>
+<ol data-marxy-s="938" data-marxy-e="1023">
+<li data-marxy-s="938" data-marxy-e="948">Ordered</li>
+<li data-marxy-s="949" data-marxy-e="990">List
+<ol data-marxy-s="960" data-marxy-e="990">
+<li data-marxy-s="960" data-marxy-e="977">Nested ordered</li>
+<li data-marxy-s="981" data-marxy-e="990">Second</li>
+</ol></li>
+<li data-marxy-s="991" data-marxy-e="1023">Starts at ten? No, continues</li>
+</ol>
+<ol start="3" data-marxy-s="1025" data-marxy-e="1056">
+<li data-marxy-s="1025" data-marxy-e="1046">Ordered with paren</li>
+<li data-marxy-s="1047" data-marxy-e="1056">Second</li>
+</ol>
+<ul data-marxy-s="1058" data-marxy-e="1167">
+<li data-marxy-s="1058" data-marxy-e="1078"><p data-marxy-s="1060" data-marxy-e="1078"><input type="checkbox" data-marxy-s="1060" data-marxy-e="1063" disabled /> Task unchecked</p></li>
+<li data-marxy-s="1079" data-marxy-e="1097"><p data-marxy-s="1081" data-marxy-e="1097"><input type="checkbox" checked data-marxy-s="1081" data-marxy-e="1084" disabled /> Task checked</p></li>
+<li data-marxy-s="1098" data-marxy-e="1125"><p data-marxy-s="1100" data-marxy-e="1125"><input type="checkbox" checked data-marxy-s="1100" data-marxy-e="1103" disabled /> Task checked, capital</p></li>
+<li data-marxy-s="1127" data-marxy-e="1134"><p data-marxy-s="1129" data-marxy-e="1134">loose</p></li>
+<li data-marxy-s="1136" data-marxy-e="1167"><p data-marxy-s="1138" data-marxy-e="1142">list</p>
+<p data-marxy-s="1148" data-marxy-e="1167">indented code block</p></li>
+</ul>
+<pre data-marxy-s="1169" data-marxy-e="1196"><code data-marxy-s="1173" data-marxy-e="1193">fenced, no language
+</code></pre>
+<pre data-marxy-s="1198" data-marxy-e="1246"><code class="language-python" data-marxy-s="1208" data-marxy-e="1243">def tilde_fence():
+    return "ok"
+</code></pre>
+<pre data-marxy-s="1248" data-marxy-e="1280"><code class="language-md" data-marxy-s="1255" data-marxy-e="1276">```
+nested fence
+```
+</code></pre>
+<table data-marxy-s="1282" data-marxy-e="1427">
+<thead>
+<tr data-marxy-s="1282" data-marxy-e="1317">
+<th align="left" data-marxy-s="1282" data-marxy-e="1289">Left</th>
+<th align="center" data-marxy-s="1289" data-marxy-e="1298">Center</th>
+<th align="right" data-marxy-s="1298" data-marxy-e="1306">Right</th>
+<th data-marxy-s="1306" data-marxy-e="1317">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="1354" data-marxy-e="1371">
+<td align="left" data-marxy-s="1354" data-marxy-e="1358">a</td>
+<td align="center" data-marxy-s="1358" data-marxy-e="1362">b</td>
+<td align="right" data-marxy-s="1362" data-marxy-e="1366">c</td>
+<td data-marxy-s="1366" data-marxy-e="1371">d</td>
+</tr>
+<tr data-marxy-s="1372" data-marxy-e="1427">
+<td align="left" data-marxy-s="1372" data-marxy-e="1394">longer cell content</td>
+<td align="center" data-marxy-s="1394" data-marxy-e="1403"><code data-marxy-s="1396" data-marxy-e="1402">code</code></td>
+<td align="right" data-marxy-s="1403" data-marxy-e="1414"><strong data-marxy-s="1405" data-marxy-e="1413">bold</strong></td>
+<td data-marxy-s="1414" data-marxy-e="1427"><a href="x" data-marxy-s="1416" data-marxy-e="1425">link</a></td>
+</tr>
+</tbody>
+</table>
+<hr data-marxy-s="1429" data-marxy-e="1432" />
+<hr data-marxy-s="1434" data-marxy-e="1437" />
+<hr data-marxy-s="1439" data-marxy-e="1442" />
+<p data-marxy-s="1444" data-marxy-e="1505"><img src="image.png" alt="Image alt" title="Image title" data-marxy-s="1444" data-marxy-e="1481" />
+<img src="image2.png" alt="Reference image" data-marxy-s="1482" data-marxy-e="1505" /></p>
+Raw HTML block
+<p data-marxy-s="1570" data-marxy-e="1590">Content inside HTML.</p>
+
+<p data-marxy-s="1604" data-marxy-e="1692">Inline <kbd>Ctrl</kbd>+<kbd>C</kbd> HTML and styled span.</p>
+<p data-marxy-s="1694" data-marxy-e="1749">Term
+: Definition (not GFM; must render as a paragraph)</p>
+<p data-marxy-s="1751" data-marxy-e="1795">Escaped *not emphasis* and # not heading.</p>
+<pre class="marxy-math-block" data-marxy-s="1797" data-marxy-e="1806"><code>x^2
+</code></pre>
+<p data-marxy-s="1808" data-marxy-e="1843">Last paragraph, no trailing newline</p>
+<hr />
+<ol class="marxy-footnotes">
+<li id="marxy-fn-1" data-marxy-s="704" data-marxy-e="810"><p data-marxy-s="710" data-marxy-e="766">The footnote text, with <em data-marxy-s="734" data-marxy-e="742">markup</em> and a second paragraph.</p>
+<p data-marxy-s="772" data-marxy-e="810">Indented continuation of the footnote.</p><a href="#marxy-fnref-1" class="marxy-footnote-back">↩</a></li>
+</ol>

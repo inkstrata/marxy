@@ -2,7 +2,7 @@
 
 Builds on MARXY-12's `packages/core/src/render` (`renderDocumentSafeHtml`) and
 `packages/core/src/sanitize` (`sanitizeHtml`, `DEFAULT_POLICY`). This document fixes the HTML
-each node renders to, the provenance attributes (ADR-0023), the two-pass sanitise, and the
+each node renders to, the provenance attributes (ADR-0023), the one sanitiser pass, and the
 app-side post-passes. Core produces a string; the app owns the DOM.
 
 ## The DOM contract
@@ -21,7 +21,7 @@ marked *none*. Class names are `marxy-*` only, which the policy allows.
 | `listItem` | `<li>` | `class="marxy-task marxy-task-done"` when checked |
 | `taskMarker` | `<input type="checkbox" checked disabled>` | `disabled` so the browser never toggles it; the app handles `click` (§03). Provenance = the marker's own bytes |
 | `codeBlock` | `<pre><code class="language-<lang>">` | provenance on `<pre>` = whole block, on `<code>` = `content` range; `<code>` text is `value` verbatim |
-| `htmlBlock` | the island, sanitised with `DEFAULT_POLICY` | *none* on its elements (stripped); wrapped in nothing |
+| `htmlBlock` | the island, verbatim into the one sanitiser pass | *none* on its elements (a document's own are stripped); wrapped in nothing |
 | `thematicBreak` | `<hr>` | |
 | `table` / `tableRow` / `tableCell` | `<table><thead><tr><th align>…</thead><tbody><tr><td align>` | `align` from the table's alignment row |
 | `mathBlock` | `<pre class="marxy-math">` with the TeX source as text | KaTeX post-pass renders into it (D-A12) |
@@ -31,7 +31,7 @@ marked *none*. Class names are `marxy-*` only, which the policy allows.
 | `code` (inline) | `<code>` | |
 | `link` | `<a href title>` | href verbatim from the AST; the second sanitise pass judges it. `class="marxy-external"` when scheme is http(s)/mailto |
 | `image` | `<img src alt title>` | src verbatim; remote sources lose the element to the sanitiser and are recorded in `removed` |
-| `html` (inline) | the island, sanitised with `DEFAULT_POLICY` | *none* |
+| `html` (inline) | the island, verbatim into the one sanitiser pass | *none* |
 | `softBreak` | `"\n"` | |
 | `hardBreak` | `<br>` | |
 | `footnoteReference` | `<sup><a href="#marxy-fn-n" id="marxy-fnref-n">n</a></sup>` | |
@@ -40,19 +40,22 @@ marked *none*. Class names are `marxy-*` only, which the policy allows.
 The renderer **MUST** emit provenance on every row above not marked *none*; the parallel-walk
 test in MARXY-75 enforces it.
 
-## Two-pass sanitise (ADR-0023)
+## One pass, secret provenance names (ADR-0023 Amendment 1)
 
 ```ts
 // packages/core/src/render/pipeline.ts
 export function renderDocumentSafeHtml(document: Document, policy = DEFAULT_POLICY): RenderResult {
-  const html = renderToUnsanitisedHtml(document, { island: (raw) => sanitizeHtml(raw, policy).html });
-  return sanitizeHtml(html, withProvenance(policy));   // RENDERER_POLICY: policy + data-marxy-s/e globally, ^[0-9]{1,9}$
+  const secret = secretNames();            // data-marxy-<128-bit nonce>-s / -e, per call
+  const { html, removed } = sanitizeHtml(renderToUnsanitisedHtml(document, { provenance: secret }), withProvenance(policy, secret));
+  return { html: publish(html, secret), removed };   // rename the secret names to data-marxy-s / -e
 }
 ```
 
-`renderToUnsanitisedHtml` takes an `island` callback so the render module still makes no
-security decision: it hands the island's bytes to whatever it was given and inserts what comes
-back. `removed` from both passes is concatenated, islands first.
+Islands are inserted verbatim and judged in context with everything else, so inline raw HTML
+split across nodes (`<kbd>` … `</kbd>`) keeps its shape. The allow-list admits only the secret
+names, so a document's own `data-marxy-*` is removed. Checks judge the output against
+`RENDERED_POLICY` (`DEFAULT_POLICY` plus the public names). The first design, each island
+sanitised alone, broke inline HTML; ADR-0023 records why it was replaced.
 
 ## Smart typography (D-A13)
 

@@ -1,0 +1,2 @@
+<h1 data-marxy-s="0" data-marxy-e="21">No trailing newline</h1>
+<p data-marxy-s="23" data-marxy-e="51">The last line has no newline</p>

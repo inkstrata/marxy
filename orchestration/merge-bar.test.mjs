@@ -107,7 +107,7 @@ test('reviewer prompt requires a signed approval and forbids merging', () => {
   const text = readFileSync(join(here, 'prompts/reviewer.md'), 'utf8');
   assert.match(text, /results\/KEY\.approved/);
   assert.match(text, /approve\.mjs/);
-  assert.match(text, /[Dd]o not merge/);
+  assert.match(text, /[Dd]o not run[\s\S]*gh pr merge/);
 });
 
 test('implementor prompt forbids writing KEY.approved', () => {

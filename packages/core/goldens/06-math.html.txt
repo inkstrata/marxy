@@ -1,0 +1,15 @@
+<h1 data-marxy-s="0" data-marxy-e="21">Math-heavy document</h1>
+<p data-marxy-s="23" data-marxy-e="162">Inline math like <code class="marxy-math" data-marxy-s="40" data-marxy-e="50">E = mc^2</code> and <code class="marxy-math" data-marxy-s="55" data-marxy-e="107">\int_0^\infty e^{-x^2}\,dx = \tfrac{\sqrt{\pi}}{2}</code> sits in the run of text and must land on the baseline.</p>
+<pre class="marxy-math-block" data-marxy-s="164" data-marxy-e="471"><code>\begin{aligned}
+\nabla \cdot \mathbf{E} &amp;= \frac{\rho}{\varepsilon_0} \\
+\nabla \cdot \mathbf{B} &amp;= 0 \\
+\nabla \times \mathbf{E} &amp;= -\frac{\partial \mathbf{B}}{\partial t} \\
+\nabla \times \mathbf{B} &amp;= \mu_0\left(\mathbf{J} + \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t}\right)
+\end{aligned}
+</code></pre>
+<p data-marxy-s="473" data-marxy-e="720">A display block between paragraphs must occupy an integer number of line boxes. The badness of a line with stretch <code class="marxy-math" data-marxy-s="588" data-marxy-e="591">t</code> and available stretch <code class="marxy-math" data-marxy-s="614" data-marxy-e="617">s</code> is <code class="marxy-math" data-marxy-s="621" data-marxy-e="635">100\,(t/s)^3</code>, which is why Knuth–Plass prefers many slightly loose lines to one very loose one.</p>
+<pre class="marxy-math-block" data-marxy-s="722" data-marxy-e="827"><code>\sum_{k=1}^{n} k = \frac{n(n+1)}{2}, \qquad \prod_{p \text{ prime}} \frac{1}{1 - p^{-s}} = \zeta(s)
+</code></pre>
+<p data-marxy-s="829" data-marxy-e="947">Matrices: <code class="marxy-math" data-marxy-s="839" data-marxy-e="885">\begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix}</code> inline, and a fenced <code data-marxy-s="907" data-marxy-e="913">math</code> block that some renderers accept:</p>
+<pre data-marxy-s="949" data-marxy-e="1030"><code class="language-math" data-marxy-s="957" data-marxy-e="1027">f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}
+</code></pre>

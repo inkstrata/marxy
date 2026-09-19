@@ -1,0 +1,89 @@
+<h1 data-marxy-s="0" data-marxy-e="21">Implementation plan</h1>
+<p data-marxy-s="23" data-marxy-e="396">Five phases. Each ends in something runnable and reviewable, and each ends with a scheduled
+taste review. Risky and load-bearing work comes first: the typography path and the Linux
+question before the index, and the index before operations, which are easy and endlessly
+extensible. Stories with acceptance criteria are in <code data-marxy-s="345" data-marxy-e="367">plan/jira-issues.csv</code>; this document is
+the shape.</p>
+<p data-marxy-s="398" data-marxy-e="492">Estimates assume an agent fleet with one human reviewing; they are for ordering, not promises.</p>
+<h2 data-marxy-s="494" data-marxy-e="548">Phase 0 — Foundations and a release (≈ 2 weeks)</h2>
+<p data-marxy-s="550" data-marxy-e="780"><strong data-marxy-s="550" data-marxy-e="564">Ends with:</strong> v0.0.1 installs on macOS and Linux, opens a markdown file passed on the command
+line, renders it unstyled, and every CI gate exists (some as skeletons that pass trivially).
+Taste review #0 chooses the typeface pair.</p>
+<ul data-marxy-s="782" data-marxy-e="2062">
+<li data-marxy-s="782" data-marxy-e="939">Contracts frozen: AST + source map, operation, shell-api, theme tokens, index entry,
+reading position (<code data-marxy-s="889" data-marxy-e="915">packages/*/src/contracts</code>). ADR needed to change.</li>
+<li data-marxy-s="940" data-marxy-e="1022">Corpus committed (<code data-marxy-s="960" data-marxy-e="977">fixtures/corpus</code>) and golden files generated from the parser.</li>
+<li data-marxy-s="1023" data-marxy-e="1190"><code data-marxy-s="1025" data-marxy-e="1040">packages/core</code>: parser (markdown-it, CommonMark + GFM) producing the AST with byte
+provenance; sanitiser; outline. Passes the CommonMark spec suite. Runs in Node.</li>
+<li data-marxy-s="1191" data-marxy-e="1372"><code data-marxy-s="1193" data-marxy-e="1207">apps/desktop</code>: Tauri shell implementing <code data-marxy-s="1234" data-marxy-e="1245">shell-api</code> (read, atomic write, watch, dialogs,
+clipboard, single-instance). Loads the frontend; renders the AST to HTML with no theme.</li>
+<li data-marxy-s="1373" data-marxy-e="1713">CI: build/typecheck/lint/test; golden files; licence audit (real); no-network gate (real,
+over the corpus in Playwright); byte-fidelity property (real, over open→save); perf gate
+reading budgets (cold start measured on the packaged app on both runners); bundle gate;
+screenshot diff and aesthetics gate wired with empty baselines.</li>
+<li data-marxy-s="1714" data-marxy-e="1884">Release workflow: tag → macOS DMG (signing and notarization steps gated on secrets) and
+Linux AppImage; publish as pre-release. Branch protection and CODEOWNERS on.</li>
+<li data-marxy-s="1885" data-marxy-e="2062">Taste review #0 artifact: the long corpus document set in Literata + JetBrains Mono and in
+Source Serif 4 + IBM Plex Mono, at the type scale, exported as PNG at 1× and 2×.</li>
+</ul>
+<h2 data-marxy-s="2064" data-marxy-e="2101">Phase 1 — The page (≈ 4 weeks)</h2>
+<p data-marxy-s="2103" data-marxy-e="2230"><strong data-marxy-s="2103" data-marxy-e="2117">Ends with:</strong> v0.1 “reads a README beautifully”. Rendered mode passes tier 1; taste review #1
+is the first blind side-by-side.</p>
+<ul data-marxy-s="2232" data-marxy-e="3398">
+<li data-marxy-s="2232" data-marxy-e="2389"><code data-marxy-s="2234" data-marxy-e="2250">packages/theme</code>: tokens, the default theme built as a theme, light variant; grid
+enforcement (all vertical spacing from <code data-marxy-s="2357" data-marxy-e="2375">--marxy-line-box</code>); type scale.</li>
+<li data-marxy-s="2390" data-marxy-e="2561">Bundled fonts with <code data-marxy-s="2411" data-marxy-e="2423">@font-face</code>, <code data-marxy-s="2425" data-marxy-e="2439">font-display</code>, preload; fonts on the critical path,
+everything else deferred; <code data-marxy-s="2506" data-marxy-e="2529">--marxy-weight-offset</code> on Linux with a measured value.</li>
+<li data-marxy-s="2562" data-marxy-e="2732"><strong data-marxy-s="2564" data-marxy-e="2606">Weight harness on a real Linux desktop</strong> (the spike specimen + analyser moved into
+<code data-marxy-s="2651" data-marxy-e="2661">scripts/</code>), run on GNOME at 1× and 2×; value recorded in ADR-0010’s follow-up.</li>
+<li data-marxy-s="2733" data-marxy-e="2997"><code data-marxy-s="2735" data-marxy-e="2753">packages/typeset</code>: ragged-right Knuth–Plass through <code data-marxy-s="2790" data-marxy-e="2803">justif/core</code> on paragraphs, list
+items and quotes; hanging punctuation and protrusion; allow-listed hyphenation; viewport
+first then background; re-layout triggers. Story includes the fallback decision.</li>
+<li data-marxy-s="2998" data-marxy-e="3240">Images with reserved dimensions from the file’s intrinsic size (via shell-api), remote
+blocked with the notice; code blocks highlighted at parse time from the grammar allow-list,
+hanging-indent wrap, copy clean; KaTeX lazy, on the grid.</li>
+<li data-marxy-s="3241" data-marxy-e="3326">Smart typography render pass. Tier 1 aesthetics gate turned on with real baselines.</li>
+<li data-marxy-s="3327" data-marxy-e="3398">Screenshot baselines committed for WebKit (Playwright) and WebKitGTK.</li>
+</ul>
+<h2 data-marxy-s="3400" data-marxy-e="3439">Phase 2 — The opener (≈ 3 weeks)</h2>
+<p data-marxy-s="3441" data-marxy-e="3586"><strong data-marxy-s="3441" data-marxy-e="3455">Ends with:</strong> v0.2 opens under budget, watches, switches instantly, and has Source mode.
+Taste review #2 includes the palette-vs-tabs criterion.</p>
+<ul data-marxy-s="3588" data-marxy-e="4249">
+<li data-marxy-s="3588" data-marxy-e="3736">Cold-start work against the gate: measured waterfall, lazy grammars and KaTeX, index off
+the critical path, position restore before first paint.</li>
+<li data-marxy-s="3737" data-marxy-e="3811">Watching with position preserved; atomic-replace, delete and move tests.</li>
+<li data-marxy-s="3812" data-marxy-e="3939">Index (Rust <code data-marxy-s="3826" data-marxy-e="3834">ignore</code>) and matcher (<code data-marxy-s="3849" data-marxy-e="3857">nucleo</code>) behind shell-api; root rule; deny list;
+ceiling; persistence and invalidation.</li>
+<li data-marxy-s="3940" data-marxy-e="4062">Palette: MRU with no query, fuzzy over path/title/headings, heading jump, pinning, back and
+forward, keystroke budget.</li>
+<li data-marxy-s="4063" data-marxy-e="4208">Source mode: CodeMirror 6, per-file-type default, mode switch preserving position, code
+viewer defaults (line numbers optional, large files).</li>
+<li data-marxy-s="4209" data-marxy-e="4249">Reading position persistence per file.</li>
+</ul>
+<h2 data-marxy-s="4251" data-marxy-e="4306">Phase 3 — Operations, safety, themes (≈ 3 weeks)</h2>
+<p data-marxy-s="4308" data-marxy-e="4404"><strong data-marxy-s="4308" data-marxy-e="4322">Ends with:</strong> v0.3 feature-complete for v1. Taste review #3 covers dark and the opt-in notices.</p>
+<ul data-marxy-s="4406" data-marxy-e="5011">
+<li data-marxy-s="4406" data-marxy-e="4498">Selection model in Rendered mode: span, block, section, document; resolves to byte ranges.</li>
+<li data-marxy-s="4499" data-marxy-e="4587">The four operations with table-driven tests and the fidelity property over the corpus.</li>
+<li data-marxy-s="4588" data-marxy-e="4679">Sanitiser allow-list opt-in with the discoverable notice; remote-image opt-in; CSP final.</li>
+<li data-marxy-s="4680" data-marxy-e="4851">Dark variant, designed not inverted. User theme loading (<code data-marxy-s="4739" data-marxy-e="4751">theme.toml</code> + <code data-marxy-s="4754" data-marxy-e="4765">theme.css</code>) with
+contract version check and re-layout on change; a theme opens in Source mode.</li>
+<li data-marxy-s="4852" data-marxy-e="5011">Outline; find landing at reading position in Rendered mode; keyboard completeness audit;
+“open in external editor”; save (explicit, byte-faithful, atomic).</li>
+</ul>
+<h2 data-marxy-s="5013" data-marxy-e="5046">Phase 4 — Ship (≈ 2 weeks)</h2>
+<p data-marxy-s="5048" data-marxy-e="5129"><strong data-marxy-s="5048" data-marxy-e="5062">Ends with:</strong> v1.0 on both platforms. Tier 2 passed on a Linux laptop and a Mac.</p>
+<ul data-marxy-s="5131" data-marxy-e="5411">
+<li data-marxy-s="5131" data-marxy-e="5195">The taste-review backlog from phases 1–3, in priority order.</li>
+<li data-marxy-s="5196" data-marxy-e="5336">Signed, notarized DMG; AppImage and Flatpak; <code data-marxy-s="5243" data-marxy-e="5267">THIRD_PARTY_NOTICES.md</code>; about surface with
+attributions; README with the promises stated.</li>
+<li data-marxy-s="5337" data-marxy-e="5411">Perf and bundle budgets tightened to the measured values minus headroom.</li>
+</ul>
+<h2 data-marxy-s="5413" data-marxy-e="5447">After v1 (backlog, not planned)</h2>
+<p data-marxy-s="5449" data-marxy-e="5560">Content search; the operations catalogue; theme linter; Mermaid; settings UI; read-only
+spine; Windows; export.</p>
+<h2 data-marxy-s="5562" data-marxy-e="5582">How the loop runs</h2>
+<p data-marxy-s="5584" data-marxy-e="5950">plan → stories with executable acceptance criteria and listed paths → implement in parallel
+where paths do not overlap → machine gates → PR with why, ADRs, artifacts → merge → queue
+entry → phase-end taste review → ADRs and <code data-marxy-s="5824" data-marxy-e="5835">AGENTS.md</code> updated. Context loss is handled by the
+repo being the memory; drift by screenshot diffs and constraints-as-gates.</p>

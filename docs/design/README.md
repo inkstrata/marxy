@@ -14,7 +14,7 @@ They are written against the code as it is on `main` at the time of writing (the
 | --- | --- | --- |
 | [00-architecture](00-architecture.md) | data flow, module import rules, the startup waterfall, error policy | every story |
 | [01-buffer](01-buffer.md) | the document buffer: bytes, text, splice, undo, dirty, save | MARXY-14, MARXY-41–43, MARXY-49 |
-| [02-render](02-render.md) | AST → HTML → DOM, provenance attributes, the two-pass sanitise, images, code, math, smart typography | MARXY-61, MARXY-75, MARXY-26, MARXY-27, MARXY-28, MARXY-29 |
+| [02-render](02-render.md) | AST → HTML → DOM, provenance attributes, the one-pass sanitise with secret provenance names, images, code, math, smart typography | MARXY-61, MARXY-75, MARXY-26, MARXY-27, MARXY-28, MARXY-29 |
 | [03-selection-and-operations](03-selection-and-operations.md) | selection model, byte-range resolution, the four operations, splice → reparse → re-render | MARXY-41, MARXY-42, MARXY-43 |
 | [04-typeset](04-typeset.md) | ragged-right Knuth–Plass through justif/core, hanging punctuation, grid snapping, scheduling | MARXY-23, MARXY-24, MARXY-20 (grid half) |
 | [05-theme](05-theme.md) | the base stylesheet derived from tokens, the theme loader, variants, the weight offset | MARXY-20, MARXY-21, MARXY-22, MARXY-46, MARXY-47 |

@@ -1,0 +1,7 @@
+<h1 data-marxy-s="3" data-marxy-e="17">CRLF and BOM</h1>
+<p data-marxy-s="21" data-marxy-e="78">This file has a byte-order mark and Windows line endings.</p>
+<ul data-marxy-s="82" data-marxy-e="90">
+<li data-marxy-s="82" data-marxy-e="85">a</li>
+<li data-marxy-s="87" data-marxy-e="90">b</li>
+</ul>
+<p data-marxy-s="94" data-marxy-e="157">Saving it must keep every byte, including the BOM and every CR.</p>

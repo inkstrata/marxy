@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Every element on the page now knows which bytes of the file it came from, and a document cannot claim bytes it did not write; inline HTML such as `<kbd>Ctrl</kbd>` keeps its shape (MARXY-75)
 - Branch protection and the merge methods on main now have a standing check, so a setting that drifts (or was never set) fails instead of waiting for someone to remember to look (MARXY-82)
 - The reviewer prompt now writes and signs the approval file on a merge verdict, and the implementor prompt forbids writing it, so the merge handshake is the same rule in the prompts and on the process page (MARXY-79)
 - The after-8 plan is on main: MARXY-79 is the prompt-and-docs slice, and MARXY-109 and MARXY-110 sit in the sequence so those branches can cut from main (MARXY-111)

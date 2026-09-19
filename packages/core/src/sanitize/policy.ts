@@ -206,3 +206,30 @@ export const DEFAULT_POLICY: Policy = {
   globalAttributes: GLOBAL,
   urlSchemes: { link: ['http', 'https', 'mailto'], subresource: [] },
 };
+
+/** The two attributes that carry byte provenance into the DOM (ADR-0023), as the reader's DOM sees them. */
+export interface ProvenanceNames {
+  readonly start: string;
+  readonly end: string;
+}
+
+export const PROVENANCE_ATTRIBUTES: ProvenanceNames = { start: 'data-marxy-s', end: 'data-marxy-e' };
+
+/** A byte offset: decimal, no sign, no leading space, at most a gigabyte of document. */
+const BYTE_OFFSET: AttributeRule = { kind: 'pattern', pattern: /^[0-9]{1,9}$/ };
+
+/**
+ * A copy of `policy` that also allows the two provenance attributes on every element. Never used
+ * on its own against a document: the pipeline passes names nobody outside one render can know
+ * (ADR-0023), and the checks use the public names to judge the pipeline's output.
+ */
+export function withProvenance(policy: Policy, names: ProvenanceNames = PROVENANCE_ATTRIBUTES): Policy {
+  return {
+    ...policy,
+    name: `${policy.name}+provenance`,
+    globalAttributes: { ...policy.globalAttributes, [names.start]: BYTE_OFFSET, [names.end]: BYTE_OFFSET },
+  };
+}
+
+/** What the pipeline's output is held to by the checks: the default list plus the public provenance names. */
+export const RENDERED_POLICY: Policy = withProvenance(DEFAULT_POLICY);
