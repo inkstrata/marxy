@@ -49,6 +49,74 @@ console.log('bundle gate: parser import graph does not resolve katex (' + resolv
 
 assertParserDoesNotResolveKatex();
 
+/**
+ * The memory shell and the app harness must not ship in the production entry. A walk of main.ts's
+ * relative imports fails when memory.ts is imported from it; the built index JS is grepped when
+ * dist exists so a bundler rewrite cannot hide the marker.
+ */
+function assertProductionExcludesMemoryShell() {
+  const desktop = join(root, 'apps', 'desktop');
+  const main = join(desktop, 'src', 'main.ts');
+  if (!existsSync(main)) {
+    console.error('bundle gate: apps/desktop/src/main.ts is missing');
+    process.exit(1);
+  }
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const seen = new Set();
+  const queue = [main];
+  while (queue.length) {
+    const file = queue.pop();
+    if (seen.has(file) || !existsSync(file)) continue;
+    seen.add(file);
+    const text = strip(readFileSync(file, 'utf8'));
+    for (const m of text.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+      const spec = m[1].endsWith('.ts') || m[1].endsWith('.mjs') || m[1].endsWith('.js') ? m[1] : `${m[1]}.ts`;
+      queue.push(join(file, '..', spec));
+    }
+  }
+  const rel = (f) => f.slice(desktop.length + 1);
+  const memory = [...seen].filter((f) => /src\/shell\/memory\.ts$/.test(f) || /src\/harness\//.test(f));
+  if (memory.length > 0) {
+    console.error('bundle gate: production entry reaches the memory shell or harness:');
+    for (const f of memory) console.error('  ' + rel(f));
+    process.exit(1);
+  }
+  const distHtml = join(desktop, 'dist', 'index.html');
+  if (existsSync(distHtml)) {
+    const html = readFileSync(distHtml, 'utf8');
+    const queue = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1].replace(/^\.\//, ''));
+    if (queue.length === 0) {
+      console.error('bundle gate: dist/index.html has no script; the production check is broken');
+      process.exit(1);
+    }
+    const walked = new Set();
+    const chunks = [];
+    while (queue.length) {
+      const src = queue.pop();
+      if (walked.has(src)) continue;
+      walked.add(src);
+      const file = join(desktop, 'dist', src);
+      if (!existsSync(file)) continue;
+      const text = readFileSync(file, 'utf8');
+      chunks.push(text);
+      for (const m of text.matchAll(/from\s*["'](\.?\.?\/[^"']+)["']/g)) {
+        queue.push(new URL(m[1], `file:///${src}`).pathname.replace(/^\//, ''));
+      }
+    }
+    const bundle = chunks.join('\n');
+    if (bundle.includes('createMemoryShell') || bundle.includes('marxyApp')) {
+      console.error('bundle gate: production index JS contains createMemoryShell or the harness entry');
+      process.exit(1);
+    }
+    console.log('bundle gate: production index JS excludes createMemoryShell and the harness');
+  } else {
+    console.log('bundle gate: no vite dist; production JS string check skipped (import graph is clean)');
+  }
+  console.log(`bundle gate: main.ts import graph excludes memory.ts (${seen.size} modules)`);
+}
+
+assertProductionExcludesMemoryShell();
+
 const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json', import.meta.url), 'utf8')).bundle_installed_mb;
 const dir = new URL('../apps/desktop/src-tauri/target/release/bundle/', import.meta.url).pathname;
 if (!existsSync(dir)) {

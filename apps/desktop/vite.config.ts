@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { THEME_FILES, defaultThemeCss } from '../../packages/theme/scripts/inline.mjs';
 import { FONT_FILES } from './src/fonts/files.mjs';
+
+const dir = fileURLToPath(new URL('.', import.meta.url));
 
 const root = new URL('../../', import.meta.url);
 const fontsCss = new URL('./src/fonts/fonts.css', import.meta.url);
@@ -53,7 +57,17 @@ function inlineDefaultTheme(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [bundleFonts(), inlineDefaultTheme()],
-  build: { target: 'es2022', outDir: 'dist', emptyOutDir: true },
+  build: {
+    target: 'es2022',
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        index: resolve(dir, 'index.html'),
+        app: resolve(dir, 'app.html'),
+      },
+    },
+  },
   clearScreen: false,
   server: { strictPort: true, port: 1420 },
 });
