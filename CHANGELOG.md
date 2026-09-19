@@ -50,6 +50,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Documents saved with Classic Mac (CR-only) line endings keep code-block ranges on the code itself, not an empty span past the fence (MARXY-67)
 
 ### Changed
+- Commit messages are linted when they are written in every worktree, not first in CI, and the limits fit the story key: headers up to 100 characters, long footer lines a warning, `repo` and `workspace` scopes, squash-merge subjects accepted (MARXY-100)
 - Opening a document now goes through the one parse in `@marxy/core`; markdown-it and DOMPurify are gone from the desktop and the gate harnesses (MARXY-61)
 - Importing the parser no longer pulls in a maths renderer; documents with equations still parse the same (MARXY-60)
 - Dispatch is uncapped: path overlap is the only parallelism limit, so returned PRs no longer sit idle waiting for a free lane
