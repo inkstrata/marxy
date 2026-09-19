@@ -2,6 +2,8 @@
 // apps/desktop/src-tauri/Cargo.lock, and every allow-listed grammar and hyphenation pattern, and
 // fails on copyleft or on a licence it cannot determine. ADR-0006 forbids copyleft anywhere in the
 // tree, which includes the Rust crates linked into the shipped binary, not just node_modules.
+// CI runs it twice (MARXY-65): before the Rust build (allow-list fallback) and after, with
+// --require-registry, so a stale record cannot hide behind an empty cargo cache.
 // Its own pass/fail logic is checked against fixtures on every run (see selfCheck).
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -198,8 +200,9 @@ export function licenceFromCargoManifest(manifestText) {
  * `<cargoHome>/registry/src/<index>/`. Directory names are built from the lockfile entry rather
  * than split back apart, because `md-5-0.10.6` and `foo-1.0.0-alpha.1` cannot be split reliably.
  * This is a local read of the cache only; it comes back empty on a machine that has not built the
- * Rust side — CI runs this gate before the desktop build — which is why the recorded allow-list,
- * not the cache, is what the audit relies on.
+ * Rust side. CI's first run is that case (before the desktop build), so the recorded allow-list
+ * is what that run relies on. The second run, after the build, passes --require-registry so any
+ * crate the cache does hold is re-read and checked against its recorded row.
  */
 export function resolveRegistryCrateLicences(cargoHome, crates) {
   const licences = new Map();
@@ -241,8 +244,12 @@ export function isElectedOverCopyleft(expression) {
  * Records are matched on the exact `name@version` key, never by pattern: two versions of one crate
  * can carry different licence text, a version bump has to be re-audited rather than inherited, and
  * a pattern is a way for one record to vouch for crates nobody looked at.
+ * `requireRegistry` is the post-build mode (MARXY-65): when the local cache holds a registry
+ * crate, its licence is re-read from that copy and a recorded allow-list row that disagrees fails
+ * by name. Crates Cargo.lock lists for other targets but this host never fetched stay on the
+ * pre-build allow-list path, because the matrix build does not populate the whole lockfile tree.
  */
-export function auditCrates({ crates, registry, recorded, workspace }) {
+export function auditCrates({ crates, registry, recorded, workspace, requireRegistry = false }) {
   const failures = [];
   const resolved = [];
   if (crates.length === 0) failures.push('Cargo.lock lists no crates — parse failed');
@@ -286,11 +293,12 @@ export function auditCrates({ crates, registry, recorded, workspace }) {
  * that each record is well formed; this checks that the set of records is exactly the set of
  * registry crates in Cargo.lock, with no pattern among them.
  *
- * Both halves exist because the file is self-attested: on a machine with no cargo cache — which is
- * every CI runner, since the gate runs before the Rust build — a record is simply believed. Without
- * this, one `{ "match": "*", "licence": "MIT" }` record silently vouches for the whole tree and the
- * gate still prints a crate count and exits 0, which is worse than no gate, because it is believed.
- * The cross-check that actually re-reads the crates in CI is MARXY-65.
+ * Both halves exist because the file is self-attested: on a machine with no cargo cache — CI's
+ * first run, before the Rust build — a record is simply believed. Without this, one
+ * `{ "match": "*", "licence": "MIT" }` record silently vouches for the whole tree and the gate
+ * still prints a crate count and exits 0, which is worse than no gate, because it is believed.
+ * The second CI run, after the desktop build, passes --require-registry so the crates are
+ * actually re-read (MARXY-65).
  */
 export function auditCrateRecords(label, recorded, crates) {
   const failures = [];
@@ -361,6 +369,84 @@ export function auditAllowlist(label, allowlist) {
     if (verdict !== 'permissive') failures.push(`${label}: ${id} is ${verdict} (${entry.licence})`);
   }
   return failures;
+}
+
+/**
+ * Reads argv for the post-build flag. Unknown dashed options fail rather than being ignored,
+ * because a typo on --require-registry would otherwise silently run the pre-build mode in CI.
+ */
+export function parseGateOptions(argv) {
+  const flags = argv.filter((arg, i) => i >= 2 && arg.startsWith('-'));
+  return {
+    requireRegistry: flags.includes('--require-registry'),
+    unknown: flags.filter((arg) => arg !== '--require-registry'),
+  };
+}
+
+/**
+ * The two CI runs are only worth anything if both are required on both runners, the second
+ * happens after the desktop build (so the cargo cache is populated), and they have different
+ * names in the log. A step that can be skipped or forced green is the same as no second run.
+ */
+export function checkLicenceWorkflow(text) {
+  const errors = [];
+  const gatesStart = text.indexOf('\n  gates:');
+  if (gatesStart < 0) return ['.github/workflows/ci.yml: no gates job'];
+  const gates = text.slice(gatesStart);
+  for (const os of ['macos-latest', 'ubuntu-latest']) {
+    if (!new RegExp(`os:.*${os}`).test(gates)) {
+      errors.push(`.github/workflows/ci.yml: the gates matrix does not include ${os}`);
+    }
+  }
+  const steps = gates.split(/\n      - /).slice(1);
+  const licenceIdxs = steps
+    .map((s, i) => (/gate:licences|gate-licences\.mjs/.test(s) ? i : -1))
+    .filter((i) => i >= 0);
+  const licenceSteps = licenceIdxs.map((i) => steps[i]);
+  if (licenceSteps.length < 2) {
+    errors.push('.github/workflows/ci.yml: gate:licences must run twice '
+      + '(pre-build and post-build)');
+  }
+  const names = licenceSteps.map((s) => /^name:\s*(.+)$/m.exec(s)?.[1]?.trim() ?? null);
+  if (names.some((n) => !n)) {
+    errors.push('.github/workflows/ci.yml: each licence-gate step must have a name so the two '
+      + 'runs are distinguishable in the log');
+  } else if (names.length >= 2 && new Set(names).size < 2) {
+    errors.push('.github/workflows/ci.yml: the two licence-gate steps must have different names');
+  }
+  const buildIdx = steps.findIndex((s) => /@marxy\/desktop build/.test(s));
+  if (buildIdx < 0) {
+    errors.push('.github/workflows/ci.yml: no desktop build step');
+  } else if (licenceIdxs.length >= 2) {
+    if (!(licenceIdxs[0] < buildIdx)) {
+      errors.push('.github/workflows/ci.yml: the first licence gate must run before the desktop '
+        + 'build so a lockfile-only change still fails fast');
+    }
+    if (!licenceIdxs.some((i) => i > buildIdx)) {
+      errors.push('.github/workflows/ci.yml: a licence gate must run after the desktop build, '
+        + 'when the cargo cache is populated');
+    }
+  }
+  const post = licenceIdxs.filter((i) => i > buildIdx).map((i) => steps[i])[0];
+  if (post && !/gate-licences\.mjs --require-registry/.test(post)) {
+    errors.push('.github/workflows/ci.yml: the post-build licence gate must run '
+      + 'node scripts/gate-licences.mjs --require-registry so it reads every crate from the '
+      + 'cache rather than the allow-list');
+  }
+  for (const s of licenceSteps) {
+    const head = (/^name:\s*(.+)$/m.exec(s)?.[1] ?? s.split('\n')[0]).trim();
+    if (/continue-on-error/.test(s)) {
+      errors.push(`.github/workflows/ci.yml: "${head}" carries continue-on-error`);
+    }
+    if (/\|\|\s*true/.test(s)) {
+      errors.push(`.github/workflows/ci.yml: "${head}" swallows its exit code with || true`);
+    }
+    if (/^\s*if:/m.test(s)) {
+      errors.push(`.github/workflows/ci.yml: "${head}" is conditional, so it is not required `
+        + 'on both runners');
+    }
+  }
+  return errors;
 }
 
 /**
@@ -490,6 +576,34 @@ export function selfCheck() {
       crates: [cleanCrate], workspace, registry: new Map([['clean-crate@1.0.0', 'MPL-2.0']]),
       recorded: [cleanRecord],
     }).failures.some((f) => /disagrees with the registry copy/.test(f)));
+  // The same stale record is invisible when the cache is empty, which is every pre-build CI run.
+  // That is why the post-build run exists: without it, a PR can rewrite the allow-list and pass.
+  check('a disagreeing record is invisible with an empty cache (why the post-build run exists)',
+    auditCrates({
+      crates: [cleanCrate], workspace, registry: new Map(),
+      recorded: [{ ...cleanRecord, licence: 'ISC' }],
+    }).failures.length === 0);
+  check('the same disagreeing record fails the post-build run, naming the crate',
+    auditCrates({
+      crates: [cleanCrate], workspace, registry: new Map([['clean-crate@1.0.0', 'MIT']]),
+      recorded: [{ ...cleanRecord, licence: 'ISC' }], requireRegistry: true,
+    }).failures.some((f) => /^crate clean-crate@1\.0\.0: recorded licence ISC disagrees/.test(f)));
+  check('require-registry with an empty cache still accepts a recorded licence for unfetched crates',
+    auditCrates({
+      crates: [cleanCrate], workspace, recorded: [cleanRecord], registry: new Map(),
+      requireRegistry: true,
+    }).failures.length === 0);
+  check('require-registry with a populated cache and matching record passes',
+    auditCrates({
+      crates: [cleanCrate], workspace, recorded: [cleanRecord],
+      registry: new Map([['clean-crate@1.0.0', 'MIT']]), requireRegistry: true,
+    }).failures.length === 0);
+  check('without require-registry, an empty cache still accepts a recorded licence',
+    auditCrates({ crates: [cleanCrate], workspace, recorded: [cleanRecord], registry: new Map() })
+      .failures.length === 0);
+  check('a lockfile crate with no record fails with an empty cache (lockfile-only still fails fast)',
+    auditCrateRecords('fixture', [], [cleanCrate])
+      .some((f) => /clean-crate@1\.0\.0 is in Cargo.lock with no record/.test(f)));
   check('a workspace crate whose manifest states no licence fails',
     auditCrates({ crates: [lockCrates[0]], workspace: new Map(), recorded: [], registry: new Map() })
       .failures.some((f) => /^crate marxy@0\.0\.1: licence undetermined/.test(f)));
@@ -572,13 +686,76 @@ export function selfCheck() {
       .some((f) => /forbidden/.test(f)));
   check('an empty allow-list fails', auditAllowlist('fixture', { languages: [] }).length === 1);
 
+  check('parseGateOptions sees --require-registry',
+    parseGateOptions(['node', 'gate-licences.mjs', '--require-registry']).requireRegistry
+    && parseGateOptions(['node', 'gate-licences.mjs']).unknown.length === 0);
+  check('parseGateOptions rejects an unknown dashed option rather than ignoring it',
+    parseGateOptions(['node', 'gate-licences.mjs', '--require-registy']).unknown.length === 1);
+
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  check('package.json still exposes the pre-build licence gate',
+    pkg.scripts['gate:licences'] === 'node scripts/gate-licences.mjs');
+  const workflow = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+  const workflowErrors = checkLicenceWorkflow(workflow);
+  cases.push('ci.yml runs the licence gate twice, named, required, post-build requiring the registry');
+  assert.ok(workflowErrors.length === 0,
+    `self-check failed: ci.yml wiring — ${workflowErrors.join('; ')}`);
+  const PRE = 'Licence gate (pre-build, empty cargo cache)';
+  const POST = 'Licence gate (post-build, populated cargo cache)';
+  for (const [what, mutated] of [
+    ['continue-on-error on the post-build licence gate',
+      workflow.replace(`      - name: ${POST}\n`, `      - name: ${POST}\n        continue-on-error: true\n`)],
+    ['|| true on the post-build licence gate',
+      workflow.replace(
+        '        run: node scripts/gate-licences.mjs --require-registry\n',
+        '        run: node scripts/gate-licences.mjs --require-registry || true\n',
+      )],
+    ['the post-build licence gate skipped on one runner',
+      workflow.replace(
+        `      - name: ${POST}\n        run:`,
+        `      - name: ${POST}\n        if: runner.os == 'Linux'\n        run:`,
+      )],
+    ['the post-build licence gate dropped',
+      workflow.replace(
+        `\n      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry`,
+        '',
+      )],
+    ['--require-registry dropped from the post-build run',
+      workflow.replace(
+        '        run: node scripts/gate-licences.mjs --require-registry\n',
+        '        run: pnpm gate:licences\n',
+      )],
+    ['both licence-gate steps given the same name',
+      workflow.replace(`      - name: ${POST}\n`, `      - name: ${PRE}\n`)],
+    ['the post-build step moved before the desktop build',
+      workflow
+        .replace(`\n      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry`, '')
+        .replace(
+          '      - name: Build the frontend\n',
+          `      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry\n      - name: Build the frontend\n`,
+        )],
+    ['macos-latest dropped from the matrix',
+      workflow.replace('os: [macos-latest, ubuntu-latest]', 'os: [ubuntu-latest]')],
+  ]) {
+    check(`workflow: ${what} is rejected`, checkLicenceWorkflow(mutated).length > 0);
+  }
+
   return cases.length;
 }
 
 function main() {
+  const options = parseGateOptions(process.argv);
+  if (options.unknown.length) {
+    console.error(`licence gate: unknown option ${options.unknown.join(', ')}`);
+    process.exit(1);
+  }
   const cases = selfCheck();
   console.log(`licence gate self-check ok (${cases} cases, including a GPL npm dependency, a GPL, `
-    + 'licence-less and unaudited crate, and an allow-list neutered by a wildcard)');
+    + 'licence-less and unaudited crate, an allow-list neutered by a wildcard, and the '
+    + 'pre-build / post-build split)');
+  console.log(options.requireRegistry
+    ? 'licence gate: post-build mode (re-read cached registry crates; stale records fail)'
+    : 'licence gate: pre-build mode (allow-list fallback; empty cargo cache is ok)');
 
   const failures = [];
   const lockfile = join(ROOT, 'pnpm-lock.yaml');
@@ -614,6 +791,7 @@ function main() {
       workspace: new Map([['marxy', licenceFromCargoManifest(
         readFileSync(join(ROOT, 'apps/desktop/src-tauri/Cargo.toml'), 'utf8'),
       )]].filter(([, licence]) => licence)),
+      requireRegistry: options.requireRegistry,
     });
     failures.push(...audit.failures);
     resolvedCrates = audit.resolved;
@@ -638,8 +816,8 @@ function main() {
     + `crates, ${grammars.languages.length} grammars, `
     + `${patterns.languages.length} hyphenation patterns)`);
   // How each crate licence was resolved, because a run that re-read nothing must not be able to
-  // look like a run that re-read everything. CI has no cargo cache at this point, so it reports 0
-  // re-read and believes the records; the run that re-reads them after the build is MARXY-65.
+  // look like a run that re-read everything. The pre-build CI run reports 0 re-read and believes
+  // the records; the post-build run must re-read them (MARXY-65).
   console.log(`crate licences: ${from('cargo cache')} re-read from the local cargo cache, `
     + `${from('recorded')} taken as recorded in scripts/allowlists/crate-licences.json and `
     + `re-read by nothing on this run, ${from('workspace')} from the workspace manifest`);
