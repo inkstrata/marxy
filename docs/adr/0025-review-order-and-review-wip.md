@@ -1,6 +1,6 @@
 # ADR-0025 — Review order and a WIP limit on review
 
-- **Status:** proposed — landed by MARXY-80
+- **Status:** accepted
 - **Date:** 2026-09-18
 - **Amends:** ADR-0017 (trunk-based agent workflow). Nothing in ADR-0017 is contradicted; this
   adds the ordering and the cap that ADR-0017 left to judgement.

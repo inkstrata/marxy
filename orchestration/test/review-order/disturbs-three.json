@@ -1,0 +1,15 @@
+{
+  "name": "disturbs: a PR sharing a file with three others scores 3",
+  "deps": { "0": ["MARXY-HUB", "MARXY-A", "MARXY-B", "MARXY-C"] },
+  "stories": { "MARXY-HUB": 10, "MARXY-A": 11, "MARXY-B": 12, "MARXY-C": 13 },
+  "pulls": { "10": ["a.ts", "b.ts", "c.ts"], "11": ["a.ts"], "12": ["b.ts"], "13": ["c.ts"] },
+  "expect": {
+    "orderKeys": ["MARXY-HUB", "MARXY-A", "MARXY-B", "MARXY-C"],
+    "order": [
+      { "key": "MARXY-HUB", "disturbs": 3 },
+      { "key": "MARXY-A", "disturbs": 1 },
+      { "key": "MARXY-B", "disturbs": 1 },
+      { "key": "MARXY-C", "disturbs": 1 }
+    ]
+  }
+}

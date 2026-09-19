@@ -1,0 +1,11 @@
+{
+  "name": "excluded: in_review without a PR number carries a why and is not in order",
+  "deps": { "0": ["MARXY-A", "MARXY-B"] },
+  "stories": { "MARXY-A": null, "MARXY-B": 2 },
+  "pulls": { "2": ["b.ts"] },
+  "expect": {
+    "orderKeys": ["MARXY-B"],
+    "notInOrder": ["MARXY-A"],
+    "excluded": [{ "key": "MARXY-A", "why": "no pull request number" }]
+  }
+}

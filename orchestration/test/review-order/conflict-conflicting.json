@@ -1,0 +1,14 @@
+{
+  "name": "conflict: mergeable CONFLICTING appears only in excluded, with why naming the conflict",
+  "deps": { "0": ["MARXY-A", "MARXY-B"] },
+  "stories": { "MARXY-A": 1, "MARXY-B": 2 },
+  "pulls": {
+    "1": { "files": ["a.ts"], "mergeable": "CONFLICTING" },
+    "2": ["b.ts"]
+  },
+  "expect": {
+    "orderKeys": ["MARXY-B"],
+    "notInOrder": ["MARXY-A"],
+    "excluded": [{ "key": "MARXY-A", "why": "CONFLICTING", "notInOrder": true }]
+  }
+}

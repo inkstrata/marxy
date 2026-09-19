@@ -1,0 +1,7 @@
+{
+  "name": "sort: key decides while phase, disturbs and ageHours tie",
+  "deps": { "0": ["MARXY-B", "MARXY-A"] },
+  "stories": { "MARXY-B": 2, "MARXY-A": 1 },
+  "pulls": { "1": ["a.ts"], "2": ["b.ts"] },
+  "expect": { "orderKeys": ["MARXY-A", "MARXY-B"] }
+}

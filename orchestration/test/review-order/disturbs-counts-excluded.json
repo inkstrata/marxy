@@ -1,0 +1,14 @@
+{
+  "name": "disturbs: a conflicted PR still counts when its files intersect an ordered one",
+  "deps": { "0": ["MARXY-A", "MARXY-B"] },
+  "stories": { "MARXY-A": 1, "MARXY-B": 2 },
+  "pulls": {
+    "1": ["shared.ts"],
+    "2": { "files": ["shared.ts"], "mergeStateStatus": "DIRTY" }
+  },
+  "expect": {
+    "orderKeys": ["MARXY-A"],
+    "order": [{ "key": "MARXY-A", "disturbs": 1 }],
+    "excluded": [{ "key": "MARXY-B", "why": "DIRTY" }]
+  }
+}
