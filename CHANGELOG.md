@@ -50,6 +50,9 @@ tag time. Conventions in `docs/conventions.md`.
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
+### Changed
+- The default faces are confirmed: Literata for text and JetBrains Mono for code, after reading both candidates at the type scale; the column stays 68 characters (MARXY-127)
+
 ### Fixed
 - On a detached CI checkout the merge-bar CHANGELOG check takes the story key from the pull-request branch GitHub already knows, and skips when none of those names have a key instead of failing the build (MARXY-124)
 - The merge-bar CHANGELOG check no longer requires a finished story's line on every later pull request; an empty hunk against main skips, and a hunk that adds a story line must name the current branch's key and delete none (MARXY-123)
