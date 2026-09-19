@@ -115,10 +115,11 @@ function checkCoreDoesNotReachDesktop() {
       if (!/\.(ts|mts|cts|js|mjs|cjs|json)$/.test(name)) continue;
       const text = readFileSync(path, 'utf8');
       const rel = relative(repoRoot, path);
-      if (/atomic_write\.rs/.test(text)) savePathHits.push(rel);
-      // Tests may quote the forbidden path to forbid it. Production source and scripts must not
-      // reach the shell; that is the inversion this story moved the gate to end.
+      // Tests may quote the path (to forbid it, or to prove a later story may edit it).
+      // Production source and scripts must not reach the shell; that is the inversion
+      // this story moved the gate to end.
       if (/\.test\.(ts|mts|cts|js|mjs)$/.test(name)) continue;
+      if (/atomic_write\.rs/.test(text)) savePathHits.push(rel);
       if (/apps\/desktop|@marxy\/desktop/.test(text)) productionHits.push(rel);
     }
   };
