@@ -1,18 +1,21 @@
-// Startup measurement of the packaged desktop app, writing results/perf.json for gate-perf. Two
-// quantities under two names (ADR-0022 Amendment 1): `cold_start_first_text_ms` is launch 1 and only
-// launch 1, `warm_start_first_text_ms` is the median of launches 2..N. The raw sample is never
-// sorted, because every statement about which launch is which depends on launch order surviving.
-// Each launch records its own exit code and stderr so a launch that produces no mark can be
-// diagnosed instead of dropped. Skips when the binary is missing unless MARXY_PERF_REQUIRED=1.
+// Startup measurement of the packaged desktop app, writing results/perf.json for gate-perf.
+// CI (ADR-0022 Amendment 1): `cold_start_first_text_ms` is launch 1 only, `warm_start_first_text_ms`
+// is the median of launches 2..N. Reference (Amendment 2): a round is k ≥ 5 certified cold launches,
+// `cold_start_first_text_ms` is their median, and no warm launch enters that statistic. The raw
+// sample is never sorted. Skips when the binary is missing unless MARXY_PERF_REQUIRED=1.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 
 export const RUNS_N = 9; // one cold launch and eight warm ones: the warm median needs at least 8
 export const MIN_WARM_RUNS = 8;
+export const MIN_COLD_LAUNCHES = 5; // reference round (ADR-0022 Amendment 2); k may be larger, never smaller
 // WebKitGTK's first run under Xvfb was measured at 30.7 s between main_start and script_start
 // (MARXY-13); the old 15 s cap killed every launch that paid it and silently dropped the sample.
 export const LAUNCH_TIMEOUT_MS = 60_000;
 export const SETTLE_MS = 2000;
+// Idle after the cold-making step, before the launch: long enough for a kill and a drop-caches /
+// purge to take effect. The same gap sits between reference launches so one launch cannot warm the next.
+export const COLD_IDLE_MS = 2000;
 // What "cold" actually means here, recorded rather than implied — and stated no more strongly than
 // the procedure earns. Nothing evicts the page cache: a drop-caches launch would be colder than any
 // reader's, which is a third quantity to misname. Nor does this script own the whole job: the
@@ -22,6 +25,10 @@ export const SETTLE_MS = 2000;
 // cold round is MARXY-69's reference procedure; this string exists so no reader of the record has to
 // guess which of the two they are holding.
 export const COLD_PROCEDURE = 'process-cold only: launch 1 is the first launch of this binary by this script, with no marxy process running when it starts. Earlier steps in the same job may have launched the app already — the desktop build step runs the CLI smoke check — so the webview framework may be warm; cold_warm_ratio below 1 means it was. The runner\'s page, dyld and font caches are left as they are, so this is neither a reader\'s cold start nor a drop-caches one.';
+
+// Reference-tier labels (Amendment 2). Stated no more strongly than the step earned: a password-less
+// purge is named; everything else is "process-cold only", never implied drop-caches.
+export const PROCESS_COLD_ONLY = 'process-cold only';
 
 const root = new URL('../', import.meta.url).pathname;
 const isMain = process.argv[1]?.endsWith('measure-startup.mjs') ?? false;
@@ -74,6 +81,7 @@ export function perfRecord(summary, { envClass, runnerClass, coldProcedure = COL
 // What has to be true of a record for its two names to mean what they say. The gate has its own,
 // separate question — whether the record is sufficient to gate on — and asks it in gate-perf.
 export function recordProblems(record) {
+  if (record.env_class === 'reference' && Array.isArray(record.cold_launches)) return referenceRecordProblems(record);
   const problems = [];
   for (const k of RECORD_KEYS) if (!(k in record)) problems.push(`the record is missing ${k}`);
   const runs = record.runs;
@@ -106,10 +114,144 @@ export function runsMatchLaunchOrder(record, launches) {
   return record.runs.length === inOrder.length && record.runs.every((v, i) => v === inOrder[i]);
 }
 
+export function referenceRecordKeys(record) {
+  return ['cold_start_first_text_ms', 'cold_launches', 'cold_launches_n', 'cold_procedure', 'env_class', 'launches']
+    .filter(k => !(k in record));
+}
+
+function referenceRecordProblems(record) {
+  const problems = [];
+  for (const k of referenceRecordKeys(record)) problems.push(`the record is missing ${k}`);
+  if (!record.cold_procedure) problems.push('cold_procedure is empty; a record must say what made each launch cold, and "process-cold only" is a legitimate answer');
+  const cold = record.cold_launches;
+  if (!Array.isArray(cold)) return [...problems, 'the record carries no cold_launches array'];
+  if (record.cold_launches_n !== cold.length) {
+    problems.push(`cold_launches_n ${record.cold_launches_n} does not count cold_launches (${cold.length})`);
+  }
+  const marked = cold.filter(v => typeof v === 'number');
+  const med = median(marked);
+  if (record.cold_start_first_text_ms !== med) {
+    problems.push(`cold_start_first_text_ms ${record.cold_start_first_text_ms} is not the median of cold_launches (${med})`);
+  }
+  if (Array.isArray(record.launches) && record.launches.length
+    && (record.launches.length !== cold.length || cold.some((ms, i) => record.launches[i]?.ms !== ms))) {
+    problems.push(`cold_launches ${JSON.stringify(cold)} is not the launches in launch order; the raw sample must never be sorted`);
+  }
+  if (record.usable_runs !== marked.length) {
+    problems.push(`usable_runs ${record.usable_runs} does not count the launches that produced a mark (${marked.length})`);
+  }
+  if (record.usable_runs < record.runs_n) {
+    problems.push(`${record.usable_runs} of ${record.runs_n} launches produced a first_text mark; the launches that did not are in the launches array with their exit code and stderr`);
+  }
+  return problems;
+}
+
 export function findBinary() {
   // MARXY_BIN names the binary explicitly (CI builds with `--profile ci`, docs/hygiene.md §CI); the
   // release path stays the default for a person running this by hand.
   return [process.env.MARXY_BIN, `${root}apps/desktop/src-tauri/target/ci/marxy`, `${root}apps/desktop/src-tauri/target/release/marxy`, `${root}apps/desktop/src-tauri/target/release/marxy.exe`].filter(Boolean).find(existsSync);
+}
+
+// Kill every running marxy process. Exact-name match so this script (node) is never the target.
+export function killRunningMarxy({ spawnSyncFn = spawnSync, platform = process.platform } = {}) {
+  if (platform === 'win32') {
+    spawnSyncFn('taskkill', ['/IM', 'marxy.exe', '/F'], { stdio: 'ignore' });
+    return;
+  }
+  spawnSyncFn('pkill', ['-x', 'marxy'], { stdio: 'ignore' });
+}
+
+function defaultWriteDropCaches() {
+  try {
+    writeFileSync('/proc/sys/vm/drop_caches', '3');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Purge the OS file cache only where a password-less mechanism exists. `sudo` is always `-n`:
+// a prompt would hang the gate and would also be claiming a step the operator did not grant.
+export function tryPurgeFileCache({
+  spawnSyncFn = spawnSync,
+  platform = process.platform,
+  writeDropCaches = defaultWriteDropCaches,
+} = {}) {
+  if (platform === 'linux') {
+    if (writeDropCaches()) return { purged: true, how: 'drop-caches' };
+    const sudo = spawnSyncFn('sudo', ['-n', 'sysctl', '-w', 'vm.drop_caches=3'], { stdio: 'ignore' });
+    if (sudo.status === 0) return { purged: true, how: 'drop-caches' };
+    return { purged: false, how: null };
+  }
+  if (platform === 'darwin') {
+    const sudo = spawnSyncFn('sudo', ['-n', 'purge'], { stdio: 'ignore' });
+    if (sudo.status === 0) return { purged: true, how: 'purge' };
+    return { purged: false, how: null };
+  }
+  return { purged: false, how: null };
+}
+
+export function describeColdProcedure(how) {
+  return how ? `process-cold + ${how}` : PROCESS_COLD_ONLY;
+}
+
+export function performColdMakingStep(opts = {}) {
+  killRunningMarxy(opts);
+  return describeColdProcedure(tryPurgeFileCache(opts).how);
+}
+
+export function coldLaunchCount(k = process.env.MARXY_COLD_LAUNCHES) {
+  return Math.max(MIN_COLD_LAUNCHES, Number(k) || MIN_COLD_LAUNCHES);
+}
+
+export async function idleAfterColdMaking(ms = COLD_IDLE_MS) {
+  await new Promise(r => setTimeout(r, ms));
+}
+
+export function referencePerfRecord(launches, { envClass, runnerClass, coldProcedure }) {
+  const cold_launches = launches.map(l => l.ms);
+  const marked = cold_launches.filter(v => typeof v === 'number');
+  return {
+    cold_start_first_text_ms: median(marked),
+    warm_start_first_text_ms: null,
+    cold_warm_ratio: null,
+    cold_procedure: coldProcedure,
+    cold_launches,
+    cold_launches_n: cold_launches.length,
+    runs: cold_launches,
+    warm_runs: [],
+    warm_runs_n: 0,
+    runs_n: launches.length,
+    usable_runs: marked.length,
+    launches,
+    platform: process.platform,
+    env_class: envClass,
+    runner_class: runnerClass,
+  };
+}
+
+export async function measureColdLaunches({
+  bin,
+  doc,
+  k = MIN_COLD_LAUNCHES,
+  log = console.log,
+  launch = launchOnce,
+  makeCold = performColdMakingStep,
+  idle = idleAfterColdMaking,
+} = {}) {
+  const n = coldLaunchCount(k);
+  const binary = bin ?? findBinary();
+  const document = doc ?? `${root}fixtures/corpus/01-long-technical.md`;
+  const launches = [];
+  let cold_procedure = PROCESS_COLD_ONLY;
+  for (let i = 0; i < n; i++) {
+    cold_procedure = makeCold();
+    await idle();
+    const next = { ...await launch(binary, document, i + 1), cold: true };
+    log(`launch ${next.index} (cold): ${next.ok ? `${next.ms} ms` : 'no first_text mark'}, exit ${next.timed_out ? `killed after ${LAUNCH_TIMEOUT_MS} ms` : next.exit_code}, webview start ${next.webview_start_ms ?? '?'} ms${next.stderr_tail ? `, stderr: ${next.stderr_tail}` : ''}`);
+    launches.push(next);
+  }
+  return { launches, cold_procedure };
 }
 
 const hasDbusRunSession = () => process.platform === 'linux' && spawnSync('sh', ['-c', 'command -v dbus-run-session'], { stdio: 'ignore' }).status === 0;
@@ -188,6 +330,12 @@ export const SELFTEST_CASE_NAMES = [
   'launches: every attempted launch is recorded with its exit code and stderr',
   'linux: a headless launch gets a 24-bit screen, the WebKit switches and a session bus',
   'required: a required run with no MARXY_RUNNER_CLASS exits 1',
+  'reference: default k is 5 and every launch is preceded by the cold-making step',
+  'reference: cold_launches exclude warm launches and keep launch order',
+  'cold: procedure is process-cold only when the file cache cannot be purged without a password',
+  'cold: a password-less purge is named in cold_procedure',
+  'cold: running marxy processes are killed as part of the step',
+  'cold: sudo is never invoked without -n',
 ];
 
 async function selftest() {
@@ -241,6 +389,87 @@ async function selftest() {
   const code = await new Promise(r => child.on('exit', r));
   report(code === 1 && /MARXY_RUNNER_CLASS/.test(stderr), SELFTEST_CASE_NAMES[8], `exited ${code} saying ${JSON.stringify(stderr.trim())}`);
 
+  const calls = [];
+  const fakeLaunch = async (_bin, _doc, index) => {
+    calls.push('launch');
+    return { index, ms: 2000 + index * 10, ok: true, exit_code: 0, stderr_tail: '', timed_out: false };
+  };
+  const fakeCold = () => { calls.push('cold'); return PROCESS_COLD_ONLY; };
+  const fakeIdle = async () => { calls.push('idle'); };
+  const askedForThree = await measureColdLaunches({
+    bin: '/bin/marxy', doc: '/doc.md', k: 3, launch: fakeLaunch, makeCold: fakeCold, idle: fakeIdle, log() {},
+  });
+  const expectedOrder = Array.from({ length: MIN_COLD_LAUNCHES }, () => 'cold,idle,launch').join(',');
+  report(
+    askedForThree.launches.length === MIN_COLD_LAUNCHES
+      && askedForThree.launches.every(l => l.cold === true)
+      && askedForThree.cold_procedure === PROCESS_COLD_ONLY
+      && calls.join(',') === expectedOrder
+      && coldLaunchCount(3) === MIN_COLD_LAUNCHES
+      && coldLaunchCount(7) === 7,
+    SELFTEST_CASE_NAMES[9],
+    `n=${askedForThree.launches.length} order=${calls.join(',')}`,
+  );
+
+  const rec = referencePerfRecord(askedForThree.launches, {
+    envClass: 'reference', runnerClass: null, coldProcedure: PROCESS_COLD_ONLY,
+  });
+  report(
+    rec.cold_launches_n === MIN_COLD_LAUNCHES
+      && rec.warm_runs_n === 0
+      && rec.cold_launches.every((ms, i) => rec.launches[i]?.cold === true && rec.launches[i]?.ms === ms)
+      && rec.cold_start_first_text_ms === median(rec.cold_launches)
+      && recordProblems(rec).length === 0,
+    SELFTEST_CASE_NAMES[10],
+    `problems ${recordProblems(rec).join('; ') || 'none'}; warm_runs_n=${rec.warm_runs_n}`,
+  );
+
+  const noPurge = performColdMakingStep({
+    platform: 'darwin',
+    spawnSyncFn: () => ({ status: 1 }),
+    writeDropCaches: () => false,
+  });
+  report(noPurge === PROCESS_COLD_ONLY, SELFTEST_CASE_NAMES[11], `procedure was ${noPurge}`);
+
+  const linuxPurged = performColdMakingStep({
+    platform: 'linux',
+    spawnSyncFn: () => ({ status: 1 }),
+    writeDropCaches: () => true,
+  });
+  const macPurged = performColdMakingStep({
+    platform: 'darwin',
+    spawnSyncFn: (cmd, args) => ({ status: cmd === 'sudo' && args[0] === '-n' && args[1] === 'purge' ? 0 : 1 }),
+    writeDropCaches: () => false,
+  });
+  report(
+    linuxPurged === 'process-cold + drop-caches' && macPurged === 'process-cold + purge',
+    SELFTEST_CASE_NAMES[12],
+    `linux=${linuxPurged} darwin=${macPurged}`,
+  );
+
+  const killed = [];
+  performColdMakingStep({
+    platform: 'darwin',
+    spawnSyncFn: (cmd, args) => { killed.push([cmd, ...args].join(' ')); return { status: 1 }; },
+    writeDropCaches: () => false,
+  });
+  report(killed.includes('pkill -x marxy'), SELFTEST_CASE_NAMES[13], `commands were ${killed.join('; ')}`);
+
+  const sudoArgs = [];
+  tryPurgeFileCache({
+    platform: 'linux', writeDropCaches: () => false,
+    spawnSyncFn: (cmd, args) => { if (cmd === 'sudo') sudoArgs.push(args); return { status: 1 }; },
+  });
+  tryPurgeFileCache({
+    platform: 'darwin', writeDropCaches: () => false,
+    spawnSyncFn: (cmd, args) => { if (cmd === 'sudo') sudoArgs.push(args); return { status: 1 }; },
+  });
+  report(
+    sudoArgs.length === 2 && sudoArgs.every(a => a[0] === '-n'),
+    SELFTEST_CASE_NAMES[14],
+    `sudo invocations: ${JSON.stringify(sudoArgs)}`,
+  );
+
   if (bad) { console.error(`measure-startup selftest failed: ${bad} case(s)`); process.exit(1); }
   console.log(`measure-startup selftest ok: ${SELFTEST_CASE_NAMES.length} named cases`);
   process.exit(0);
@@ -259,11 +488,20 @@ if (isMain) {
     console.log('measure-startup: no binary; skipping');
     process.exit(0);
   }
-  const launches = await measureLaunches({ bin });
-  const record = perfRecord(summarise(launches), { envClass, runnerClass, launches });
-  mkdirSync(`${root}results`, { recursive: true });
-  writeFileSync(`${root}results/perf.json`, JSON.stringify(record, null, 2));
-  console.log(`cold start (launch 1) ${record.cold_start_first_text_ms} ms; warm start (median of launches 2..${record.runs_n}) ${record.warm_start_first_text_ms} ms over ${record.warm_runs_n} launches; cold/warm ${record.cold_warm_ratio}× (${envClass} mode${runnerClass ? `, ${runnerClass}` : ''})`);
+  let record;
+  if (envClass === 'reference') {
+    const { launches, cold_procedure } = await measureColdLaunches({ bin, k: coldLaunchCount() });
+    record = referencePerfRecord(launches, { envClass, runnerClass, coldProcedure: cold_procedure });
+    mkdirSync(`${root}results`, { recursive: true });
+    writeFileSync(`${root}results/perf.json`, JSON.stringify(record, null, 2));
+    console.log(`cold start (median of ${record.cold_launches_n} cold launches) ${record.cold_start_first_text_ms} ms (${envClass} mode${runnerClass ? `, ${runnerClass}` : ''})`);
+  } else {
+    const launches = await measureLaunches({ bin });
+    record = perfRecord(summarise(launches), { envClass, runnerClass, launches });
+    mkdirSync(`${root}results`, { recursive: true });
+    writeFileSync(`${root}results/perf.json`, JSON.stringify(record, null, 2));
+    console.log(`cold start (launch 1) ${record.cold_start_first_text_ms} ms; warm start (median of launches 2..${record.runs_n}) ${record.warm_start_first_text_ms} ms over ${record.warm_runs_n} launches; cold/warm ${record.cold_warm_ratio}× (${envClass} mode${runnerClass ? `, ${runnerClass}` : ''})`);
+  }
   console.log(`cold procedure: ${record.cold_procedure}`);
   const problems = recordProblems(record);
   // A round that measured less than it claims is a failure here as well as at the gate: a script
