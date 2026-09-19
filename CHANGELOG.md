@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Out-of-plan work has a supported path: `jira.mjs task` creates a labelled Task and prints the key, and a missing commitlint fails the commit instead of skipping (MARXY-101)
 - An approval run now ends with one table of every open pull request in merge order — CI, mergeability, approval, who it waits on, and what happens next (MARXY-92)
 - Review is capped at four in-flight pull requests, only the next branch in the computed order is updated each cycle, and an approval cannot be signed until that pull request is first, current and clean (MARXY-81)
 - The review queue is now a computed order — phase, then how many other open pull requests a merge would disturb, then age — so the branch that invalidates the most approvals lands first (MARXY-80)
