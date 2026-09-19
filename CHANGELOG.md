@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - Branch protection and the merge methods on main now have a standing check, so a setting that drifts (or was never set) fails instead of waiting for someone to remember to look (MARXY-82)
+- The reviewer prompt now writes and signs the approval file on a merge verdict, and the implementor prompt forbids writing it, so the merge handshake is the same rule in the prompts and on the process page (MARXY-79)
 - The after-8 plan is on main: MARXY-79 is the prompt-and-docs slice, and MARXY-109 and MARXY-110 sit in the sequence so those branches can cut from main (MARXY-111)
 - Headings can now be read off a document as an outline, each entry keeping the heading's place in the file, so a summoned outline has something to jump to when it lands (MARXY-109)
 - Lint now runs through biome: an unused import fails the build, the formatter only checks, and it never rewrites the fixture corpus or the fonts (MARXY-8)
