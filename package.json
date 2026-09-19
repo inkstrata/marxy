@@ -16,6 +16,7 @@
     "gate:font-attrs": "node scripts/gate-font-attrs.mjs",
     "typecheck": "pnpm -r typecheck",
     "gate:licences": "node scripts/gate-licences.mjs",
+    "gate:licences:registry": "node scripts/gate-licences.mjs --require-registry",
     "gate:fidelity": "pnpm --filter @marxy/core test:fidelity",
     "gate:no-network": "node scripts/gate-no-network.mjs",
     "gate:golden": "pnpm --filter @marxy/core test:golden",
