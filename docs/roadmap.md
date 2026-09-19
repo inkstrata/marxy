@@ -66,7 +66,7 @@ changes nothing about what is free; releases when a phase's review passes, never
 | --- | --- |
 | Authoring re-enters scope | ADR-0005 first; then the stack (Electron's single engine matters again for `contenteditable`) |
 | Weight harness on real Linux desktops shows residual > 25 after version-keyed offsets | Per-distribution offset table; if hinting makes Literata unreadable at 1×, a Linux-specific face |
-| Cold start > 500 ms after Phase 2 on either platform | Font subsetting first; resident mode default on that platform second; never a bigger bundle |
+| Resist inflation: CI never writes a higher recorded cold-start number into the repo to make a red gate green | Font subsetting first; resident mode default on that platform second; never a bigger bundle |
 | `justif/core` cannot set ragged text, and `tex-linebreak2` shows no visible gain on the corpus | Supersede ADR-0007; the claim rests on grid, measure, hanging punctuation |
 | Reviewer fails the palette task at review #2 | Reveal-on-intent tabs (ADR-0011 fallback) |
 | A supported distribution stays on WebKitGTK < 2.50 | Baseline exception documented in the theme contract |
