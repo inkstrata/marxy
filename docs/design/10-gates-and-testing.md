@@ -42,11 +42,12 @@ weight units, `docs/spike/outcome.md`); on Linux Playwright's WebKit is built fr
 port on FreeType, which is the closest headless stand-in for WebKitGTK. Chromium is used by the
 no-network gate only and never for aesthetics.
 
-1. **Grid.** `lineBox = getComputedStyle(article).lineHeight`. For every element with
-   `data-marxy-s` that is `display: block` (or `table`, `pre`): `top = rect.top − article.rect.top`;
-   assert `Math.abs((top % lineBox + lineBox) % lineBox) ≤ 0.5` or `≥ lineBox − 0.5`.
+1. **Grid.** `unit = getComputedStyle(article).lineHeight / 2` (ADR-0030). For every element with
+   `data-marxy-s` that is `display: block` (or `table`, `list-item`): `top = rect.top − article.rect.top`;
+   assert `Math.abs((top % unit + unit) % unit) ≤ 0.5` or `≥ unit − 0.5`. The reference
+   implementation is `offGrid` in `packages/theme/test/grid.test.mjs`.
 2. **Measure.** `chWidth` from a probe `<span>0</span>` in the article's font; assert
-   `article.clientWidth / chWidth ∈ [60, 75]` at every size.
+   the article's content width (`clientWidth` minus inline padding) `/ chWidth ∈ [60, 75]` at every size.
 3. **Contrast.** Relative luminance from computed `color` and `background-color` of `p`,
    `.marxy-caption`, `code`; body ≥ 7:1, secondary ≥ 4.5:1.
 4. **Layout shift.** `PerformanceObserver({ type: 'layout-shift', buffered: true })` from
