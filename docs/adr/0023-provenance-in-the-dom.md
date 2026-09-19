@@ -18,7 +18,7 @@ splice bytes the reader did not point at, which is the one thing marxy promises 
    `<input>`, the code `<pre>`, the math containers, images and links. Text nodes carry nothing.
 2. Sanitising runs **once**, over the whole render, and provenance travels under names no
    document can know. For each call the pipeline draws 128 bits from the platform's CSPRNG
-   (`globalThis.crypto`) and has the renderer write `data-marxy-<nonce>-s` / `-e`. The allow-list
+   (the Web Crypto `crypto` global) and has the renderer write `data-marxy-<nonce>-s` / `-e`. The allow-list
    for that pass is `DEFAULT_POLICY` plus exactly those two names, each constrained to
    `^[0-9]{1,9}$`; it does **not** admit the public `data-marxy-s` / `-e`, so anything a
    raw-HTML island wrote under the public names is removed like any other unlisted attribute. Only

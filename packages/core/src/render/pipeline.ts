@@ -1,7 +1,7 @@
 // The pipeline a reader's DOM is allowed to see: parse → render → sanitise (ADR-0009). One function,
 // so there is no way to reach the render stage's output without passing the allow-list, and no
 // platform dependency, so the same call runs in Node, in a gate and in the shell's webview (ADR-0020).
-// `globalThis.crypto` is the Web Crypto global, present in both; it is not a Node built-in.
+// `crypto` is the Web Crypto global, present in both; it is not a Node built-in import.
 
 import type { Document } from '../contracts/ast.ts';
 import { parseMarkdown, type ParseOptions } from '../parse/parse.ts';
@@ -45,7 +45,7 @@ export function renderDocumentSafeHtml(document: Document, policy: Policy = DEFA
 /** Attribute names nobody outside this call can predict: 128 bits from the platform's CSPRNG. */
 function secretNames(): ProvenanceNames {
   const bytes = new Uint8Array(16);
-  globalThis.crypto.getRandomValues(bytes);
+  crypto.getRandomValues(bytes);
   const nonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   return { start: `data-marxy-${nonce}-s`, end: `data-marxy-${nonce}-e` };
 }
