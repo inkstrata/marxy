@@ -4,10 +4,20 @@
 // the one the app runs. The headless render entry (MARXY-25) will replace the page builder here.
 
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-import { after, before, test } from 'node:test';
+import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+
+/**
+ * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
+ */
+const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
+  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
+  : false;
+const test = (name, fn) => nodeTest(name, { skip }, fn);
+
 import { renderSafeHtml } from '../../core/src/render/pipeline.ts';
 import { defaultThemeCss } from '../scripts/inline.mjs';
 
@@ -28,7 +38,7 @@ const SIZES = { 14: 24, 17: 28, 21: 34, 24: 40 };
 const rendered = new Map(CORPUS.map((file) => [file, renderSafeHtml(readFileSync(new URL(`fixtures/corpus/${file}`, root)), { file }).html]));
 
 let browser;
-before(async () => { browser = await webkit.launch(); });
+before(async () => { if (!skip) browser = await webkit.launch(); });
 after(async () => { await browser?.close(); });
 
 async function open(file, { width = 960, size = 17, variant = 'dark', snap = true } = {}) {
