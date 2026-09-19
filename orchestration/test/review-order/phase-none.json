@@ -1,0 +1,6 @@
+{
+  "name": "phase: a story in no phase exits 1 naming the story and the phases",
+  "deps": { "0": ["MARXY-OTHER"] },
+  "stories": { "MARXY-A": 1 },
+  "expect": { "exit": 1, "errorIncludes": "MARXY-A is in no phase" }
+}

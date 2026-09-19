@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - Design documents and a task card for every Phase 3–4 story: per-document trust for HTML and remote images (fetched only by the shell, only on consent — the page itself never touches the network), the release and v1 checklist, and ADR-0026/0027; five new stories (MARXY-93–97) close gaps found on the way (MARXY-98)
+- The review queue is now a computed order — phase, then how many other open pull requests a merge would disturb, then age — so the branch that invalidates the most approvals lands first (MARXY-80)
 - A pull request cannot be opened unless its body is the house template: `open-pr.mjs` runs the checker first, and the checker now also refuses a Why / Test plan body, a leftover TODO in the acceptance table, and an attribution line (MARXY-104)
 - Every pull request re-checks the taste-review #0 specimen against the type scale and the review queue, so a missing image or a drifted size fails the build rather than waiting for someone to remember (MARXY-62)
 - Only the security posture and the merge gate itself now wait for a person. Typesetting, theme, contracts, `shell-api` and ADR changes land on a signed review, and taste is checked in the review queue (MARXY-99)
@@ -36,6 +37,7 @@ tag time. Conventions in `docs/conventions.md`.
 ### Fixed
 - A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
 - The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
+- CI can build again on Linux: the webview dependencies are installed rather than restored from a cache that dropped their metadata, and a check keeps third-party actions out of our builds (MARXY-90)
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
 - The anti-attribution hook the conventions promised now exists in `.githooks/commit-msg`, so trailers injected by agent tooling are stripped rather than merely forbidden (MARXY-10)

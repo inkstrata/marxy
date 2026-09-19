@@ -1,0 +1,7 @@
+{
+  "name": "order: a todo story is not listed even when it has a PR number",
+  "deps": { "0": ["MARXY-A", "MARXY-B"] },
+  "stories": { "MARXY-A": { "status": "todo", "pr": 1 }, "MARXY-B": 2 },
+  "pulls": { "1": ["a.ts"], "2": ["b.ts"] },
+  "expect": { "orderKeys": ["MARXY-B"], "notListed": ["MARXY-A"] }
+}
