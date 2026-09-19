@@ -15,11 +15,16 @@ overridden by `MARXY_COMPUTE`, `--compute=NAME`, `--low`, or `--minimal`. Print 
 roles with `node orchestration/lib.mjs`. When you spawn a subagent, pass that role's `inApp`
 model.
 
-| Mode | Orchestrator / planner / reviewer / escalation | Implementor |
-| --- | --- | --- |
-| **default** | Claude Opus 5, medium | Grok 4.6 High Fast |
-| **low** | Claude Sonnet 5, medium | Grok 4.6 High Fast |
-| **minimal** | Grok 4.6 High Fast | Grok 4.6 High Fast |
+| Mode | Orchestrator | Planner | Implementor | Escalation | Reviewer |
+| --- | --- | --- | --- | --- | --- |
+| **high** | Sonnet 5, medium | Opus 5, high | Grok 4.6 | Opus 5, high | Opus 5, high |
+| **default** | Sonnet 5, medium | Sonnet 5, high | Composer 2.5 | Opus 5, high | Sonnet 5, high |
+| **low** | Sonnet 5, medium | Sonnet 5, medium | Composer 2.5 | Grok 4.6 | Sonnet 5, medium |
+| **minimal** | Composer 2.5 | Composer 2.5 | Composer 2.5 | Grok 4.6 | Composer 2.5 |
+
+`minimal` never names a Claude/GPT/Gemini model in any role — it is the floor for running on
+Cursor-included spend alone, and its escalation ceiling is Grok by construction. Do not add a
+Claude/GPT/Gemini id to `minimal` in `models.json`.
 
 ## Your loop, every cycle
 

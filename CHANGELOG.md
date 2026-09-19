@@ -6,6 +6,9 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+### Changed
+- The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
+
 ### Added
 - The app can now be started in a browser against an in-memory shell, so later stories can drive the real UI without Tauri; the startup pins now read `app.ts`, where the code actually lives, and the sanitised render write is back in the registry's innerHTML allow-list (MARXY-95)
 - `pnpm done KEY --open` is now one command from a filled acceptance table to In Review: it copies the table into the result file, opens the PR through `open-pr.mjs`, and moves the Jira issue, stopping before `gh` runs if a row is still `TODO` or the body fails `check-pr` (MARXY-121)

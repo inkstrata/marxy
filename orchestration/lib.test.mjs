@@ -51,18 +51,28 @@ test('laneBudget treats null, 0, and omitted as uncapped', () => {
   assert.throws(() => laneBudget({ lanes: -1 }), /invalid lanes/);
 });
 
-test('checked-in models.json has default, low, and minimal', () => {
+test('checked-in models.json has default, low, minimal, and high', () => {
   const d = models(undefined, ['node'], {});
   assert.equal(d.compute, 'default');
-  assert.equal(d.orchestrator.model, 'claude-opus-5');
+  assert.equal(d.orchestrator.model, 'claude-sonnet-5');
+  assert.equal(d.implementor.model, 'composer-2.5');
   const low = models(undefined, ['node', '--low'], {});
   assert.equal(low.orchestrator.model, 'claude-sonnet-5');
-  assert.equal(low.implementor.inApp, 'cursor-grok-4.6-high-fast');
-  const min = models(undefined, ['node', '--minimal'], {});
-  for (const role of ['orchestrator', 'planner', 'implementor', 'implementorEscalation', 'reviewer']) {
-    assert.equal(min[role].model, 'grok-4.6-fast');
-    assert.equal(min[role].inApp, 'cursor-grok-4.6-high-fast');
-  }
+  assert.equal(low.implementor.model, 'composer-2.5');
+  assert.equal(low.implementorEscalation.model, 'grok-4.6');
+  const high = models(undefined, ['node', '--high'], {});
+  assert.equal(high.compute, 'high');
+  assert.equal(high.reviewer.model, 'claude-opus-5');
+  assert.equal(high.planner.model, 'claude-opus-5');
   assert.equal(d.lanes, null);
   assert.equal(laneBudget(d), Infinity);
+});
+
+test('minimal compute mode never names a Claude or GPT model — the Cursor-only floor', () => {
+  const min = models(undefined, ['node', '--minimal'], {});
+  for (const role of ['orchestrator', 'planner', 'implementor', 'implementorEscalation', 'reviewer']) {
+    assert.doesNotMatch(min[role].model, /claude|gpt|gemini/i, `minimal.${role} must not name a Claude/GPT/Gemini model`);
+  }
+  // Escalation ceiling is Grok — the strongest model configured anywhere in this mode.
+  assert.equal(min.implementorEscalation.model, 'grok-4.6');
 });

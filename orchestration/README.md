@@ -4,9 +4,9 @@ Three roles, one loop, everything on disk so any session can pick it up cold.
 
 | Role | Default model (edit `models.json`) | Runs | Owns |
 | --- | --- | --- | --- |
-| **Orchestrator** | Claude Opus, medium reasoning | continuously, as the main Cursor agent in this repo | dispatch, review, merge, the board (`state.json` mirrored into Jira), `needs-human.md` |
-| **Planner** | Claude Opus, medium reasoning | periodically, as a subagent the orchestrator invokes | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
-| **Implementor** | Grok 4.6 High Fast | one per story, in its own git worktree | exactly one story, on its own branch, inside its listed paths |
+| **Orchestrator** | Claude Sonnet 5, medium reasoning | continuously, as the main Cursor agent in this repo | dispatch, review, merge, the board (`state.json` mirrored into Jira), `needs-human.md` |
+| **Planner** | Claude Sonnet 5, high reasoning | periodically, as a subagent the orchestrator invokes | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
+| **Implementor** | Composer 2.5 | one per story, in its own git worktree | exactly one story, on its own branch, inside its listed paths |
 
 The orchestrator never implements. The planner never implements. Implementors never plan.
 Humans (Ian) review taste, approve CODEOWNERS paths, and answer `needs-human.md`.
@@ -105,19 +105,34 @@ frontmatter); the CLI flag, if present in your version, is read from `models.jso
 
 ## Compute modes
 
-Same loop, cheaper models. `default` is the quality profile; the others exist so the fleet
-can keep moving when Opus time is tight.
+Four levels, weakest to strongest. `default` and `low` are Sonnet-led and are where you'll
+spend most of your time; `high` is the Opus tier for when judgement quality matters more than
+cost; `minimal` is the Cursor-only floor for when only Cursor-included spend is available.
 
-| Mode | How | Orchestrator / planner / reviewer / escalation | Implementor |
-| --- | --- | --- | --- |
-| **default** | `"compute": "default"` | Claude Opus 5, medium | Grok 4.6 High Fast |
-| **low** | `--low` or `MARXY_COMPUTE=low` | Claude Sonnet 5, medium | Grok 4.6 High Fast |
-| **minimal** | `--minimal` or `MARXY_COMPUTE=minimal` | Grok 4.6 High Fast | Grok 4.6 High Fast |
+| Mode | How | Orchestrator | Planner | Implementor | Escalation | Reviewer |
+| --- | --- | --- | --- | --- | --- | --- |
+| **high** | `--high` or `MARXY_COMPUTE=high` | Sonnet 5, medium | Opus 5, high | Grok 4.6 | Opus 5, high | Opus 5, high |
+| **default** | `"compute": "default"` | Sonnet 5, medium | Sonnet 5, high | Composer 2.5 | Opus 5, high | Sonnet 5, high |
+| **low** | `--low` or `MARXY_COMPUTE=low` | Sonnet 5, medium | Sonnet 5, medium | Composer 2.5 | Grok 4.6 | Sonnet 5, medium |
+| **minimal** | `--minimal` or `MARXY_COMPUTE=minimal` | Composer 2.5 | Composer 2.5 | Composer 2.5 | Grok 4.6 | Composer 2.5 |
 
-Precedence: `--low` / `--minimal` / `--compute=NAME`, then `MARXY_COMPUTE`, then the
+**`minimal` is Cursor-only by construction**: no role in that mode names a Claude, GPT, or
+Gemini model, so the fleet runs entirely on Cursor-included spend. Its escalation ceiling is
+Grok because that's the strongest thing configured anywhere in the mode — a story that fails
+twice under `minimal` moves to `escalate` (the planner or a human decides), it never silently
+reaches for Opus. If you need a stronger model at any point, switch modes explicitly; `minimal`
+will not do it for you.
+
+The `implementor: Composer 2.5` choice in `default`/`low` is a live experiment, not a settled
+fact — see `models.json`'s `_modelNote` for the small reviewer-judgement pilot (not a vendor
+benchmark) it's grounded in, and compare `state.json`/`results/*.json` `model` fields against
+outcomes as more stories run on it before trusting it further.
+
+Precedence: `--low` / `--minimal` / `--high` / `--compute=NAME`, then `MARXY_COMPUTE`, then the
 `compute` field in `models.json`. `cycle.mjs` pins `MARXY_COMPUTE` for the child processes
 it starts (dispatch, planner trigger), so a flag on the cycle is enough. In-app, pass each
-role's `inApp` slug when you spawn a subagent.
+role's `inApp` slug when you spawn a subagent — verify that slug in the model picker first;
+`models.json`'s `_modelNote` flags which ones are unverified as of this edit.
 
 ## Files
 

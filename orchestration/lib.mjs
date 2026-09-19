@@ -14,6 +14,7 @@ const COMPUTE_ALIASES = { 'low-compute': 'low', cheap: 'low', min: 'minimal' };
 export function computeFromArgv(argv = process.argv) {
   if (argv.includes('--low')) return 'low';
   if (argv.includes('--minimal')) return 'minimal';
+  if (argv.includes('--high')) return 'high';
   const i = argv.findIndex(x => x === '--compute' || x.startsWith('--compute='));
   if (i < 0) return null;
   const raw = argv[i].includes('=') ? argv[i].slice('--compute='.length) : argv[i + 1];
