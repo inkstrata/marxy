@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- CI now measures how long the long technical document takes to parse on both gates runners before the perf gate, so that budget can become a required check without loosening anything (MARXY-91)
 - The after-65 plan is on main: MARXY-93–98 are restored, MARXY-115 is dropped, and MARXY-93 and MARXY-95 can cut from main (MARXY-125)
 - Design documents and a task card for every Phase 3–4 story: per-document trust for HTML and remote images (fetched only by the shell, only on consent — the page itself never touches the network), the release and v1 checklist, and ADR-0026/0027; five new stories (MARXY-93–97) close gaps found on the way (MARXY-98)
 - The agent loop now merges only the commit that was approved, refreshes one out-of-date pull request at a time, and will not dispatch onto a plan that is due to change (MARXY-106)
