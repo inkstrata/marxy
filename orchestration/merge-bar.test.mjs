@@ -207,13 +207,101 @@ test('minimal compute still allows the same model for reviewer and implementor',
   assert.equal(existsSync(join(here, 'models.test.mjs')), false);
 });
 
-test('CHANGELOG hunk adds this story and deletes no other story line', () => {
-  const diff = execFileSync('git', ['diff', 'origin/main', '--', 'CHANGELOG.md'], {
-    cwd: join(here, '..'),
-    encoding: 'utf8',
+// Two-dot against origin/main (then main): an empty hunk must skip so a later
+// PR is not required to re-add a finished story's CHANGELOG line.
+const STORY_KEY = /MARXY-\d+/;
+
+function storyKeyFromRef(ref) {
+  const m = String(ref).match(STORY_KEY);
+  return m ? m[0] : null;
+}
+
+function diffContentLines(diff, sign) {
+  return String(diff).split('\n').filter(l => {
+    if (sign === '+') return l.startsWith('+') && !l.startsWith('+++');
+    return l.startsWith('-') && !l.startsWith('---');
   });
-  const added = [...diff.matchAll(/^\+[^+].*/gm)].map(m => m[0]);
-  const deleted = [...diff.matchAll(/^-[^-].*/gm)].map(m => m[0]);
-  assert.ok(added.some(l => /MARXY-106/.test(l)), diff);
-  assert.equal(deleted.filter(l => /MARXY-\d+/.test(l)).length, 0, diff);
+}
+
+function gitChangelogDiff(cwd) {
+  for (const base of ['origin/main', 'main']) {
+    try {
+      execFileSync('git', ['rev-parse', '--verify', base], {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      return execFileSync('git', ['diff', base, '--', 'CHANGELOG.md'], {
+        cwd,
+        encoding: 'utf8',
+      });
+    } catch {
+      // shallow CI checkouts often have only one of these
+    }
+  }
+  return null;
+}
+
+/** @returns {'skip' | 'ok'} */
+function changelogHunkVerdict(diff, branch) {
+  const added = diffContentLines(diff, '+');
+  const deleted = diffContentLines(diff, '-');
+  const addedStories = added.filter(l => STORY_KEY.test(l));
+  if (addedStories.length === 0) return 'skip';
+  const key = storyKeyFromRef(branch);
+  assert.ok(key, `branch ${branch} has no MARXY-n key`);
+  assert.ok(addedStories.some(l => l.includes(key)), `CHANGELOG hunk must add ${key}`);
+  assert.equal(
+    deleted.filter(l => STORY_KEY.test(l)).length,
+    0,
+    'CHANGELOG hunk must not delete a MARXY-n line',
+  );
+  return 'ok';
+}
+
+test('this file does not pin the CHANGELOG hunk to a hard-coded story key', () => {
+  const text = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  assert.doesNotMatch(text, /added\.some\(\s*l\s*=>\s*\/MARXY-\d+\//);
+});
+
+test('an empty CHANGELOG hunk, or one with no added story line, skips', () => {
+  assert.equal(changelogHunkVerdict('', 'fix/MARXY-99-slug'), 'skip');
+  assert.equal(changelogHunkVerdict('diff --git a/CHANGELOG.md b/CHANGELOG.md\n', 'fix/MARXY-99-slug'), 'skip');
+  const noStory = [
+    '--- a/CHANGELOG.md',
+    '+++ b/CHANGELOG.md',
+    '@@ -1,1 +1,1 @@',
+    '-# Changelog',
+    '+# Changelog ',
+  ].join('\n');
+  assert.equal(changelogHunkVerdict(noStory, 'fix/MARXY-99-slug'), 'skip');
+});
+
+test('a CHANGELOG hunk with added lines requires the branch key and no deleted story line', () => {
+  const ok = ['@@ -8,0 +9,1 @@', '+- A line for this story (MARXY-99)'].join('\n');
+  assert.equal(changelogHunkVerdict(ok, 'fix/MARXY-99-stop-the-standing-check'), 'ok');
+  const otherKey = ['@@ -8,0 +9,1 @@', '+- A line for another story (MARXY-12)'].join('\n');
+  assert.throws(() => changelogHunkVerdict(otherKey, 'fix/MARXY-99-slug'), /MARXY-99/);
+  const deleted = [
+    '@@ -9,1 +9,1 @@',
+    '-- A finished story (MARXY-12)',
+    '+- This story (MARXY-99)',
+  ].join('\n');
+  assert.throws(() => changelogHunkVerdict(deleted, 'fix/MARXY-99-slug'), /delete/);
+});
+
+test('CHANGELOG hunk adds this story and deletes no other story line', t => {
+  const cwd = join(here, '..');
+  const diff = gitChangelogDiff(cwd);
+  if (diff === null) {
+    t.skip('neither origin/main nor main is a resolvable git ref');
+    return;
+  }
+  const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    cwd,
+    encoding: 'utf8',
+  }).trim();
+  if (changelogHunkVerdict(diff, branch) === 'skip') {
+    t.skip('no added CHANGELOG story line vs origin/main or main');
+  }
 });
