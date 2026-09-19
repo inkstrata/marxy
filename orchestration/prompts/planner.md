@@ -34,6 +34,15 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
 
 ## Rules
 
+- **Board changes go through a PR, never the orchestrator checkout.** Everything in step 2 —
+  `docs/plan/jira-issues.csv`, `orchestration/deps.json`, `orchestration/jira-map.json`, any
+  file under `docs/plan/` or `orchestration/` — is edited in a worktree cut from `origin/main`
+  (`git worktree add ../marxy-plan-<date> origin/main`), committed, pushed and opened as an
+  ordinary PR; it merges and fast-forwards back like any other change. Never edit those files
+  in place in the orchestrator's own checkout: that checkout is read fresh every cycle, and an
+  uncommitted or unmerged edit sitting there is exactly the drift `orchestration/board-check.mjs`
+  now holds dispatch on (MARXY-117 — a checkout 14 commits behind with uncommitted CSV,
+  `deps.json` and `jira-map.json` edits dispatched from a board that had not merged #71).
 - Every story you write must be doable by a fast implementor with no memory of this
   conversation: paths, acceptance, ADRs named, nothing implied. It must satisfy the
   definition of ready in `docs/sdlc.md`; a story that cannot be checked by a machine is not

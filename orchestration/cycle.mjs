@@ -13,6 +13,7 @@ import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, readJson, stories, state, saveState, models } from './lib.mjs';
+import { boardDrift, gatherBoardCheckInput, BLOCKS_DISPATCH } from './board-check.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
@@ -205,6 +206,14 @@ function runCycle(argv = process.argv.slice(2)) {
   const push = node([here('jira.mjs'), 'push']);
   say(`jira: ${(push.stdout || push.stderr || '').trim().split('\n').pop() || 'unavailable'}`);
 
+  // Board drift (MARXY-117). origin/main is the board of record and ready.mjs reads this
+  // checkout, so a checkout behind it, off main, or carrying uncommitted edits under docs/plan
+  // or orchestration must never seed dispatch: on 2026-09-19 exactly that state (14 commits
+  // behind, uncommitted CSV/deps.json edits) dispatched from a board that lacked #71's ops lane.
+  const boardFindings = boardDrift(gatherBoardCheckInput());
+  for (const f of boardFindings) say(`board: ${f.kind} — ${f.detail}`);
+  const boardHold = boardFindings.some(f => BLOCKS_DISPATCH.includes(f.kind));
+
   // 2. Land what is finished. A PR merges only when every one of these holds, and the reason it
   // did not is printed, because an unexplained unmerged PR is how a fleet quietly stalls.
   const s = state();
@@ -292,7 +301,9 @@ function runCycle(argv = process.argv.slice(2)) {
   const ready = JSON.parse(node([here('ready.mjs')]).stdout || '{"ready":[],"lanesFree":0,"inProgress":[]}');
   const hasCli = typeof sh('sh', ['-c', 'command -v cursor-agent']) === 'string';
   const keys = ready.ready.map(r => r.key).join(' ');
-  if (ready.ready.length && planDue) {
+  if (ready.ready.length && boardHold) {
+    say(`ready but not dispatched — board drift holds it (see "board:" lines above): ${keys}`);
+  } else if (ready.ready.length && planDue) {
     say(`ready but not dispatched until the planner has run: ${keys}`);
   } else if (ready.ready.length && hasCli && !DRY) {
     say(`dispatching ${keys} headlessly`);

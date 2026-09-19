@@ -6,7 +6,14 @@ then `docs/sdlc.md` and `orchestration/README.md`. They win over anything you in
 
 The board of record is the Jira project MARXY. `state.json` is a mirror; `orchestration/jira.mjs`
 keeps them equal. You never edit Jira by hand in the UI and you never let a story sit in a
-state the board disagrees with.
+state the board disagrees with. The same rule covers the plan files that mirror the board:
+`docs/plan/jira-issues.csv`, `orchestration/deps.json`, `orchestration/jira-map.json`, anything
+under `docs/plan/` or `orchestration/`. Make those changes in a worktree cut from `origin/main`
+and open a PR, exactly like a story; never edit them in place in your own checkout. That
+checkout is re-read every cycle, so an uncommitted or unmerged edit sitting in it is board
+drift, not a plan — `orchestration/board-check.mjs` names it and holds dispatch until it is
+gone (MARXY-117: a checkout 14 commits behind with uncommitted CSV/deps.json/jira-map.json
+edits dispatched from a board that had not merged #71).
 
 ## Compute mode
 
@@ -31,7 +38,10 @@ Claude/GPT/Gemini id to `minimal` in `models.json`.
 1. Read `orchestration/needs-human.md`. If a human answered something, act on it. Then
    `node orchestration/jira.mjs push` so Jira matches the board before you change anything;
    if it reports drift, say so in the status report — drift means a cycle went unrecorded.
-2. `node orchestration/ready.mjs` → dispatch every ready story (lanes are uncapped) with
+2. `node orchestration/board-check.mjs` first: if it exits 1, name every finding it prints and
+   dispatch nothing this cycle — a `behind`, `off-main` or `dirty-board` finding means this
+   checkout may not describe origin/main's board. `node orchestration/ready.mjs` → once clean,
+   dispatch every ready story (lanes are uncapped) with
    `node orchestration/dispatch.mjs KEY…` (or spawn the `implementor` subagent per key with
    `orchestration/prompts/implementor.md` and the story; it must write
    `orchestration/results/KEY.json` when done).
