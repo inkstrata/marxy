@@ -125,7 +125,7 @@ faces are judged on inline code only. Pair B has no vendored italic — the slan
 emphasis are synthetic, which is itself a cost of choosing it: a real Source Serif 4 italic would
 have to be vendored before it could be the default.
 
-### Decision recorded
+### Decision to record
 
 **Pair A (Literata + JetBrains Mono). 68 `ch` survives.** ADR-0015 is accepted. See
 `docs/taste-review/2026-09-review-0/decisions.md`. Tunes (mono size, heading weight, italic)
