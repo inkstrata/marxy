@@ -33,6 +33,36 @@ tokens, runs the typesetter and grid pass, and resolves when `typeset.ready` and
 done. Fonts are served by the harness from `fonts/` as `data:` URLs. This is the single entry
 every browser-side gate uses, so a gate never re-implements rendering.
 
+## The app harness entry (MARXY-95)
+
+The headless render entry renders; it has no palette, no notices, no commands, no buffer and no
+save. Phase 2–3 behaviour — the palette (MARXY-87), operations (42, 43), trust (44), find and
+outline (48), save (49), themes (47) — has to be driven in a browser **through the real app
+code**, without Tauri. So the app's startup is split once:
+
+```ts
+// apps/desktop/src/app.ts — everything main.ts does today after it has a shell
+export async function startApp(shell: AppShell, opts?: { argv?: readonly string[] }): Promise<AppHandle>
+// apps/desktop/src/main.ts — shrinks to: startApp(tauriShell)
+// apps/desktop/src/harness/app-harness.ts — built to dist/app.html + dist/app.js
+window.marxyApp = { start(files: Record<string, string /* base64 */>, argv: string[]): Promise<AppHandle> }
+```
+
+`AppShell` is the ADR-0026 `Shell`. The harness passes `createMemoryShell(files)`
+(`apps/desktop/src/shell/memory.ts`): an in-memory filesystem keyed by absolute path;
+`writeFileAtomic` records every write (path, bytes, order) and applies it; `watch` returns an
+emitter the test drives (`handle.shell.emit(events)`); `clipboardWrite`, `openExternal`,
+`revealInExternalEditor` and `fetchRemoteImage` record their calls (the last returns a `data:`
+PNG); `saveDialog` returns whatever the test queued; `configPaths` returns `/config` and
+`/data` inside the same memory filesystem. `AppHandle` exposes `state` (read-only),
+`dispatch`, `commands()`, `shell` (the recorder), and `ready` (resolves after first text and
+the first idle pass).
+
+Rules: `app.ts` never imports `./shell/tauri.ts` (the boundary test asserts it);
+`memory.ts` is test-only and is excluded from the production bundle (the bundle gate greps for
+its marker string); the no-network harness can attach to `app.html` exactly as to
+`render.html`. The render entry (above) stays the one used by gates that only render.
+
 ## Aesthetics gate algorithms (`scripts/gate-aesthetics.mjs`, tier 1)
 
 For each corpus markdown file × width `{ 720, 960, 1280 }` × variant `{ dark, light }` (dark
@@ -91,4 +121,5 @@ New metrics land the same way: the app emits `MARK <metric> <ms>` lines for `typ
   fails (a deliberately broken input or a neutralised function), as MARXY-12 did.
 - Fixtures are bytes: never generate them at test time from a parser (the golden becomes a
   tautology); commit them.
-- Browser tests use the headless entry, never `apps/desktop/src/main.ts`.
+- Browser tests use the headless render entry for rendering and the app harness entry for
+  behaviour, never `apps/desktop/src/main.ts` (which would need Tauri).

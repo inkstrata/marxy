@@ -15,6 +15,7 @@ commands/watch.rs   watch_start, watch_stop; emits "marxy:watch" events
 commands/index.rs   index_build, index_query, index_load, index_save; headings scanner
 commands/os.rs   open_external, reveal_in_editor, clipboard_write, open_dialog, webkit_version
 commands/app.rs  args, mark_from_webview, startup_marks, quit, config_paths, on second-instance forwarding
+commands/net.rs  fetch_remote_image and the marxy-remote: URI scheme handler (ADR-0027); the only socket in the app
 error.rs         ShellError { code, message, path } ← std::io::ErrorKind mapping
 ```
 
@@ -38,20 +39,33 @@ error.rs         ShellError { code, message, path } ← std::io::ErrorKind mappi
 | `openDialog` → `open_dialog` | `{ directory?, multiple? }` | `string[]` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
 | `webkitVersion` → `webkit_version` | — | `{ major, minor, micro } \| null` (Linux only) | — | os (`webkit2gtk::{major,minor,micro}_version`) | MARXY-21 |
 | `configPaths` → `config_paths` | — | `{ config, data }` | — | app (`tauri::path` resolver) | MARXY-38 |
+| `readDir` → `read_dir` | `dir` | `FileStat[]` (one level; deny list applied) | not-found, permission | fs (std, like `index/mod.rs`) | MARXY-87 |
+| `setTitle` → `set_title` | `title` | `()` | — | app (`WebviewWindow::set_title`) | MARXY-49 |
+| `allowAssetScope` → `allow_asset_scope` | `dir` | `()` | invalid (not a directory) | fs | MARXY-26, MARXY-47 |
+| `saveDialog` → `save_dialog` | `{ defaultPath? }` | `string \| null` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
+| `fetchRemoteImage` → `fetch_remote_image` | `url` | `string` (a `marxy-remote:` URL) | unsupported (not https, or no network in the sandbox), invalid (not an image, too large), io | net (`ureq`, ADR-0027) | MARXY-97 |
 | `args`, `mark_from_webview`, `startup_marks`, `quit` | | | | app | done |
 | `onOpenFiles` | callback | — | — | `listen('marxy:open-files')` from the single-instance plugin | MARXY-33 |
 | `onWatch` | callback | — | — | `listen('marxy:watch')` | MARXY-34 |
 
+**Contract status (ADR-0026).** Most of this table is not in the frozen `Shell` interface on
+`main`. ADR-0026 adds it in one contract PR; until then a story adds its member to the object in
+`src/shell/tauri.ts` under exactly the name and signature above. The `listRoot`, `indexBuild`,
+`indexQuery`, `indexLoad`/`indexSave` and `fuzzy` rows describe a Rust index that was not built:
+MARXY-35 put the walker, ceiling and persistence in `packages/core/src/index-model` behind a
+`DirectoryReader`, which `readDir` implements. Treat those rows as history.
+
 `assetUrl(path)` is not a command: it is `convertFileSrc(path)` after the shell has allowed the
 directory (below).
 
-## Asset protocol and image scoping (D-A10)
+## Asset protocol and image scoping (D-A10, ADR-0027 §5)
 
 `tauri.conf.json`: `app.security.assetProtocol.enable = true`, `scope = []`. When a document
-opens, the Rust side (`fs::allow_document_dir`, called from `read_file` when the path is a
-document the app is opening, via a `scope` argument) calls
-`app.asset_protocol_scope().allow_directory(dir, /*recursive*/ true)` for the document's
-directory. Nothing outside it is ever allowed; a `../` that escapes is refused by the scope
+opens, the app calls `shell.allowAssetScope(imageRoot)` — the repository root the document is
+indexed under, else its directory (§02 post-pass 3) — and Rust calls
+`app.asset_protocol_scope().allow_directory(dir, /*recursive*/ true)`. The earlier
+`fs::allow_document_dir` via a `read_file` argument is superseded: one explicit command is
+easier to audit than a side effect of reading. Nothing outside it is ever allowed; a `../` that escapes is refused by the scope
 and, before that, by the app's path check (§02). A theme's directory is allowed the same way
 for its fonts. Scopes are not persisted (a fresh launch re-allows when it re-opens).
 
@@ -61,11 +75,16 @@ for its fonts. Scopes are not persisted (a fresh launch re-allows when it re-ope
 default-src 'none';
 script-src 'self';
 style-src 'self' 'unsafe-inline';
-img-src 'self' asset: http://asset.localhost data:;
+img-src 'self' asset: http://asset.localhost marxy-remote: http://marxy-remote.localhost data:;
 font-src 'self' asset: http://asset.localhost data:;
 connect-src ipc: http://ipc.localhost;
 frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'
 ```
+
+No `http:`/`https:` source appears, ever (ADR-0027); remote images arrive through the
+`marxy-remote:` scheme the shell serves from memory after consent. MARXY-45's gate asserts the
+string: parse the policy, fail on `*`, on any `http(s):` source other than the two
+`*.localhost` forms, and on any directive not in this list.
 
 `'unsafe-inline'` for styles is required by the theme injection and by the typesetter's inline
 margins; scripts are never inline. `data:` for images covers a markdown `![](data:…)` that the

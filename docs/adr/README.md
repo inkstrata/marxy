@@ -28,5 +28,9 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0020](0020-core-is-shell-free.md) | `packages/core` and `packages/typeset` never depend on the desktop shell | accepted |
 | [0021](0021-parser-mdast-micromark.md) | The parser is mdast/micromark, not markdown-it | accepted |
 | [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: the metric split; 2: no product cold-start ceiling) |
+| [0023](0023-provenance-in-the-dom.md) | Byte provenance rides into the DOM on attributes a document cannot forge | proposed (MARXY-75) |
+| [0024](0024-dark-is-primary.md) | Dark is the primary variant; light is designed second | accepted |
 | [0025](0025-review-order-and-review-wip.md) | Review order and a WIP limit on review | accepted |
+| [0026](0026-shell-api-v1-surface.md) | The shell-api surface for v1, amended once | proposed (MARXY-94) |
+| [0027](0027-remote-content-through-the-shell.md) | Remote images reach the page through the shell, only on consent; the webview never touches the network | proposed (MARXY-97, MARXY-45) |
 | [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |

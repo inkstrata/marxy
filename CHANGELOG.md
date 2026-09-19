@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Design documents and a task card for every Phase 3–4 story: per-document trust for HTML and remote images (fetched only by the shell, only on consent — the page itself never touches the network), the release and v1 checklist, and ADR-0026/0027; five new stories (MARXY-93–97) close gaps found on the way (MARXY-98)
 - Review is capped at four in-flight pull requests, only the next branch in the computed order is updated each cycle, and an approval cannot be signed until that pull request is first, current and clean (MARXY-81)
 - The review queue is now a computed order — phase, then how many other open pull requests a merge would disturb, then age — so the branch that invalidates the most approvals lands first (MARXY-80)
 - A pull request cannot be opened unless its body is the house template: `open-pr.mjs` runs the checker first, and the checker now also refuses a Why / Test plan body, a leftover TODO in the acceptance table, and an attribution line (MARXY-104)

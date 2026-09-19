@@ -97,6 +97,39 @@ export function applyVariant(v: 'light' | 'dark'): void;    // sets html[data-ma
 5. Hot reload: the app watches the theme directory (§08 mechanism); on change, `loadTheme` again
    and `typeset.relayout('theme')`. A theme opened *as a document* opens in Source mode (§09).
 
+### App side (MARXY-47, `apps/desktop/src/theme/`)
+
+```ts
+// apps/desktop/src/theme/user-theme.ts
+export async function startUserTheme(ctx: AppContext, dir: string | null): Promise<{ stop(): void }>
+```
+
+1. `dir` comes from config `theme` (§11), `~` expanded against the home directory the shell
+   reports in `configPaths()`'s parent; relative paths resolve against the config directory.
+   `null` → default theme only, nothing watched.
+2. `await shell.allowAssetScope(dir)` so `@font-face` and image `url()`s rewritten to
+   `assetUrl(dir/rel)` load. The scope is the theme directory only; a `url(../x)` that escapes
+   it is removed with a warning, exactly like a network URL.
+3. `loadTheme(rel => shell.readFile(join(dir, rel)), rel => shell.assetUrl(join(dir, rel)))`,
+   then `applyTheme(css)` and one notice listing `warnings` (at most three shown, "and N more").
+   A missing `theme.toml` or `theme.css` → notice "Theme at ~/themes/quiet could not be read:
+   theme.css not found." and the default theme stays.
+4. Never on the startup path: the default theme is inlined (§00); the user theme is applied
+   after `first_text`, during idle, followed by `typeset.relayout('theme')` with position kept
+   (§08). The one-frame restyle is accepted; a user who sets a theme sees their theme settle
+   in once per launch. (Inlining a user theme at build time is impossible; reading it before
+   first text would put two IPC reads on the critical path.)
+5. `shell.watch(dir)` → on any event under `dir`, reload (steps 3–4), debounced 100 ms.
+6. **Opening a theme as a document.** When the opened path is `theme.css` or `theme.toml` in
+   a directory containing both, it opens in Source mode (per-file-type default already sends
+   `.css`/`.toml` there) with a notice: "This is a marxy theme." [Use this theme] [Dismiss].
+   *Use this theme* writes `theme = "<dir>"` to `config.toml` by the same one-line edit that
+   writes `size` (§11) and calls `startUserTheme` with it. Saving the open `theme.css` then
+   hot-reloads it through step 5 — editing a theme in marxy's own Source mode is a live preview.
+
+Contract version: `contract` absent or ≠ 1 → warning "Theme 'quiet' targets contract 2;
+marxy speaks 1. It may not look as intended." The theme still applies.
+
 ## Weight offset (D-A9)
 
 `--marxy-weight-offset` is set on `:root` by the app at startup, never by a theme:

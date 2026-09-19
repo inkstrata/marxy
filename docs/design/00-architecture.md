@@ -120,3 +120,19 @@ Recorded here so `docs/decisions.md` can point at them. Each is elaborated in th
 | D-A17 | Reading position is the first visible block's `data-marxy-s` plus a fraction; persisted per path with a capped LRU | §08 |
 | D-A18 | Config is TOML (`smol-toml`, MIT) in the platform config directory; state files are versioned JSON; corruption never crashes | §11 |
 | D-A19 | The app's DOM skeleton, state machine and keyboard map are fixed (§09); no other chrome exists | §09 |
+| D-A20 | The buffer module is its own story (MARXY-93); consumers never create files under `packages/core/src/buffer/` | §01 |
+| D-A21 | shell-api is amended once for all of v1 (ADR-0026); `listRoot`/`fuzzy` deprecated because the index lives in core | §06, ADR-0026 |
+| D-A22 | The webview never has network. Remote `https:` images are deferred by the sanitiser to `data-marxy-remote`, and fetched by the shell only for hosts a reader granted for that document; `http:` images are never loaded | §12, ADR-0027 |
+| D-A23 | Local images resolve within the image root (repository root, else document directory); `/x` is repository-relative as on GitHub | §02, ADR-0027 |
+| D-A24 | Per-document grants (HTML, image hosts) persist per path in `trust.json`; no global switch in v1 | §12, §11 |
+| D-A25 | An island may not produce an `id`/`name` with the `marxy-` prefix; island removals carry the island's `src`; an unclosed raw-text element gets its own persistent notice | §12 |
+| D-A26 | Every reader action is a `Command` in one registry that the palette and the key map both read; the keyboard-completeness audit is a test over it | §03, §09 |
+| D-A27 | `Alt+←/→` are history (MARXY-86); selecting the parent block is `Alt+Shift+↑` | §03, §09 |
+| D-A28 | Link click follows the link; `Alt+click` selects it | §03 |
+| D-A29 | Closing with unsaved changes shows a notice, not a modal; a second close discards | §01 |
+| D-A30 | Find folds smart typography on the query side (quotes, dashes, ellipsis, NBSP) | §09 |
+| D-A31 | The external editor runs from a whitespace-split template, never through a shell | §09 |
+| D-A32 | A user theme applies after first text, during idle; "Use this theme" writes `theme` by the same one-line config edit as `size` | §05, §11 |
+| D-A33 | "About" is a bundled read-only markdown document opened from the palette; notices are generated from the licence gate's resolver and checked in CI | §13 |
+| D-A34 | The Flatpak has no network permission; remote images there fail with a notice that says how to allow them | §13 |
+| D-A35 | `main.ts` shrinks to `startApp(tauriShell)`; behaviour is tested in a browser through `startApp(memoryShell)` (the app harness entry) | §10 |
