@@ -3,6 +3,7 @@
 import { parseMarkdown, type Document } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { shell } from './shell/tauri.ts';
+import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 
 const t0 = Date.now();
 
@@ -21,35 +22,13 @@ const state: { document: OpenDocument | null } = { document: null };
  * paint mark reports how many frames passed between the DOM mutation and `first_text`, and the CLI
  * smoke check asserts that count is at least two — because a mark that only *claims* to be after
  * the paint would silently make every cold-start number optimistic (ADR-0013). The counter lives
- * out here, not inside afterPaint(), so that neutralising afterPaint() reports frames=0 and fails
- * the check instead of passing quietly.
+ * out here, not inside waitForEnginePaint(), so that a wait which never actually waited still
+ * reports frames=0 and fails the check instead of passing quietly.
  */
 let framesObserved = 0;
 let observing = true;
 const observeFrame = () => { framesObserved += 1; if (observing) requestAnimationFrame(observeFrame); };
 requestAnimationFrame(observeFrame);
-
-/** Two animation frames plus a macrotask: by the time this resolves the mutated DOM has been painted. */
-const FRAMES_BEFORE_PAINT = 2;
-
-/**
- * Waits for the paint, with no deadline of its own. Some environments deliver no frames at all — a Mac
- * in dark wake, a locked screen — and there this never resolves; a harness launch is ended by the
- * shell's deadline instead (`arm_paint_deadline`, armed by the `render` mark), because WebKit aligns
- * timers in a window that cannot paint to about 15 s, so a timer in this page is not a deadline. A
- * reader is deliberately left waiting: a display that is asleep should show the document when it wakes.
- */
-function afterPaint(): Promise<void> {
-  return new Promise(resolve => {
-    let waited = 0;
-    const tick = () => {
-      waited += 1;
-      if (waited < FRAMES_BEFORE_PAINT) requestAnimationFrame(tick);
-      else setTimeout(resolve, 0);
-    };
-    requestAnimationFrame(tick);
-  });
-}
 
 interface RenderEvidence { readonly blocks: number; readonly chars: number; readonly heading: string }
 
@@ -91,10 +70,14 @@ async function main() {
   // Skip flags and the macOS launcher's -psn_… argument; the first plain argument is the document.
   const file = launchArgs.find(a => !a.startsWith('-'));
   const doc = document.getElementById('doc')!;
+  // Harness-only: the negative test that `#doc { visibility: hidden }` is not first readable text.
+  // The flag only hides the element; refusing `first_text` is the visibility check below, not the flag.
+  if (launchArgs.includes('--smoke-hide-doc')) doc.style.visibility = 'hidden';
 
   // No document means no `first_text`: nothing was read, so a launch like this must not be able to
   // hand the startup measurement a cold-start number.
   if (!file) {
+    doc.innerHTML = '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>';
     await shell.mark('no_document', Date.now());
     return finish(0);
   }
@@ -105,6 +88,8 @@ async function main() {
   const { html, removed } = renderDocumentSafeHtml(ast);
   state.document = { ast, html, nodeMap: null, blocks: null };
   console.info(`marxy: sanitiser removed ${removed.length}`);
+  // Watermark before the mutation so a blank-page first-paint cannot satisfy the wait.
+  const after = performance.now();
   doc.innerHTML = html;
   document.title = `${file.split('/').pop()} — marxy`;
 
@@ -120,15 +105,25 @@ async function main() {
     return finish(1);
   }
 
+  // Hidden text is still in `textContent` and frames still tick; that is not a paint (MARXY-71).
+  if (!isDocVisible(doc)) {
+    await shell.mark('no_paint', Date.now(), 'reason=not-visible');
+    return finish(1);
+  }
+
   // Counted from here, so the number covers the wait and not the render mark's IPC round trip.
+  // The wait has no deadline of its own: some environments deliver no frames and no paint entries
+  // (a Mac in dark wake, a locked screen) and there it never resolves. A harness launch is ended
+  // by the shell's deadline instead, because WebKit aligns in-page timers in a window that cannot
+  // paint to about 15 s. A reader is left waiting and gets the document when the display wakes.
   const framesAtRender = framesObserved;
-  await afterPaint();
+  const { signal } = await waitForEnginePaint({ after });
   // One timestamp for both marks: the paint detail costs an IPC round trip and `first_text` must not
   // be pushed later by the cost of reporting it.
   const paintedAt = Date.now();
   const frames = framesObserved - framesAtRender;
 
-  await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt}`);
+  await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt} signal=${signal}`);
   // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
