@@ -4,12 +4,23 @@
 // the engine's own wrapping.
 
 import { strict as assert } from 'node:assert';
-import { after, before, test } from 'node:test';
+import { existsSync } from 'node:fs';
+import { after, before, test as nodeTest } from 'node:test';
+import { webkit } from 'playwright';
 import { ragMetrics } from '../scripts/rag-model.mjs';
 import { readLines, renderCorpus, startHarness } from './harness.mjs';
 
+/**
+ * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
+ */
+const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
+  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
+  : false;
+const test = (name, fn) => nodeTest(name, { skip }, fn);
+
 let harness;
-before(async () => { harness = await startHarness(); });
+before(async () => { if (!skip) harness = await startHarness(); });
 after(async () => { await harness?.close(); });
 
 /** Attaches with the app's options and runs every chunk now; returns the stats. */
