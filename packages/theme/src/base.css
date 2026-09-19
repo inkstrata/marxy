@@ -216,4 +216,5 @@ p > img:only-child { display: block; margin-inline: auto; }
 /* Set by the typesetter (docs/design/04-typeset.md). */
 .marxy-selected { box-shadow: -3px 0 0 var(--marxy-color-accent); }
 .marxy-set { white-space: nowrap; }
+.marxy-lb::before { content: '\A'; white-space: pre; }   /* a line break that is not text: copy and find never see it */
 .marxy-hang { display: inline-block; }

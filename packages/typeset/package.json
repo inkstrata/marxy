@@ -4,13 +4,13 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Knuth–Plass line breaking, hanging punctuation, baseline-grid enforcement. DOM only; no shell.",
+  "description": "Knuth\u2013Plass line breaking, hanging punctuation, baseline-grid enforcement. DOM only; no shell.",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",
-    "test": "echo 'lands with MARXY-20'"
+    "test": "node --test 'src/**/*.test.ts' 'test/**/*.test.mjs'"
   },
   "dependencies": {
     "justif": "^0.9.1"

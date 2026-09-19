@@ -2,7 +2,7 @@
 // startup marks, exit when asked. All privileged work goes through ./shell (ADR-0010, ADR-0020).
 import { parseMarkdown, type Document } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
-import { snapToGrid } from '@marxy/typeset';
+import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { shell } from './shell/tauri.ts';
@@ -72,21 +72,37 @@ async function finish(code: number): Promise<void> {
  * The grid pass (ADR-0030), now and whenever heights can change under it: when fonts arrive and
  * when the column is resized. Reading position is re-read after each, because tops move.
  */
+let typeset: TypesetController | null = null;
+
+function snap(article: HTMLElement): void {
+  snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
+  if (state.document) state.document.blocks = buildBlocks(article, state.document.nodeMap);
+}
+
 function keepOnGrid(article: HTMLElement): void {
-  const snap = () => {
-    snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
-    if (state.document) state.document.blocks = buildBlocks(article, state.document.nodeMap);
-  };
-  snap();
-  void document.fonts.ready.then(snap);
+  snap(article);
+  void document.fonts.ready.then(() => snap(article));
   let pending = 0;
   let width = article.clientWidth;
   new ResizeObserver(() => {
     if (article.clientWidth === width) return;
     width = article.clientWidth;
     clearTimeout(pending);
-    pending = window.setTimeout(snap, 100);
+    // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
+    pending = window.setTimeout(() => (typeset ? typeset.relayout('resize') : snap(article)), 100);
   }).observe(article);
+}
+
+/**
+ * The typesetter (MARXY-23), after first text: the reader sees the engine's wrapping for at most a
+ * frame, then the viewport set by Knuth–Plass, and the rest in idle time. Hyphenation and hanging
+ * punctuation are MARXY-24.
+ */
+async function typesetDocument(article: HTMLElement): Promise<void> {
+  const lineBox = parseFloat(getComputedStyle(article).lineHeight);
+  typeset = attach(article, { lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', onPass: () => snap(article) });
+  await typeset.ready;
+  await shell.mark('typeset_viewport', Date.now(), `ms=${typeset.stats.viewportMs.toFixed(1)} set=${typeset.stats.typeset}`);
 }
 
 async function main() {
@@ -165,6 +181,7 @@ async function main() {
   // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
+  await typesetDocument(doc);
   return finish(0);
 }
 

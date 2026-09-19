@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Paragraphs are line-broken as a whole, the way a book is set: the right edge is evener, holes at line ends are a third as common, and the text still selects, copies and searches exactly as before (MARXY-23)
 - Text is set in Literata and code in JetBrains Mono, bundled with the app and loaded before the first text appears, so a page never flashes a fallback face; on Linux every weight is lifted to match macOS (MARXY-21)
 - Documents are set in the default theme: a 68-character column on a warm dark page, a type scale in which headings are bound to what follows them, code in its own voice with long lines hanging under themselves, and every block on one grid so a long document never drifts (MARXY-20)
 - Every element on the page now knows which bytes of the file it came from, and a document cannot claim bytes it did not write; inline HTML such as `<kbd>Ctrl</kbd>` keeps its shape (MARXY-75)
