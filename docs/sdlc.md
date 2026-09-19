@@ -143,10 +143,19 @@ list; a missing clause is the printed hold reason.
 A phase ends in a release. There is no release branch; `main` is always releasable.
 
 1. Phase's stories all Done, taste review closed, budgets green.
-2. `MARXY_PERF_ENV=reference pnpm gate:perf` green **on reference hardware**, before the tag. CI
-   only ever proves a runner did not get slower; this is the step where the product budgets in
-   ADR-0013 are actually enforced, and a release that skips it has not measured what the reader
-   feels (ADR-0022).
+2. On reference hardware, before the tag: `MARXY_PERF_ENV=reference` so
+   `scripts/measure-startup.mjs` writes `results/perf.json`, then `pnpm gate:perf`. Attach that
+   artifact to the tag. The record must carry `cold_launches_n` of at least 5 and a non-empty
+   `cold_procedure`. **A tag states no cold-start duration.** CI only ever proves a runner did
+   not get slower; this is the measurement a release carries, not a ceiling it claims
+   (ADR-0022 Amendment 2).
+
+   The cold-making step — which the script runs before each of the k launches, and which a
+   person can follow by hand — is: kill any running marxy process; purge the OS file cache
+   only where a password-less mechanism exists on that platform (`sudo -n sysctl -w
+   vm.drop_caches=3` on Linux, `sudo -n purge` on macOS); leave enough idle for the step to
+   take effect; then launch. If the cache cannot be purged without a password, the procedure
+   is `process-cold only` and must be recorded as such rather than as a cache-cold start.
 3. `CHANGELOG.md`: move `Unreleased` into a version heading with the date (Keep a Changelog).
 4. `git tag v0.2.0 && git push --tags` — the release workflow builds the DMG, AppImage and .deb.
 5. Install each artifact and open `fixtures/corpus/02-readme-real-world.md`. This is manual on
