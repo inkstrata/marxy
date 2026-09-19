@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - Every element on the page now knows which bytes of the file it came from, and a document cannot claim bytes it did not write; inline HTML such as `<kbd>Ctrl</kbd>` keeps its shape (MARXY-75)
+- Branch protection and the merge methods on main now have a standing check, so a setting that drifts (or was never set) fails instead of waiting for someone to remember to look (MARXY-82)
 - The after-8 plan is on main: MARXY-79 is the prompt-and-docs slice, and MARXY-109 and MARXY-110 sit in the sequence so those branches can cut from main (MARXY-111)
 - Headings can now be read off a document as an outline, each entry keeping the heading's place in the file, so a summoned outline has something to jump to when it lands (MARXY-109)
 - Lint now runs through biome: an unused import fails the build, the formatter only checks, and it never rewrites the fixture corpus or the fonts (MARXY-8)
