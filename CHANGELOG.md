@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - The app can now be started in a browser against an in-memory shell, so later stories can drive the real UI without Tauri (MARXY-95)
+- CI now measures how long the long technical document takes to parse on both gates runners before the perf gate, so that budget can become a required check without loosening anything (MARXY-91)
 - A document is now a byte buffer with splice and undo, so an operation can change a range without rewriting the rest of the file (MARXY-93)
 - The after-65 plan is on main: MARXY-93–98 are restored, MARXY-115 is dropped, and MARXY-93 and MARXY-95 can cut from main (MARXY-125)
 - Design documents and a task card for every Phase 3–4 story: per-document trust for HTML and remote images (fetched only by the shell, only on consent — the page itself never touches the network), the release and v1 checklist, and ADR-0026/0027; five new stories (MARXY-93–97) close gaps found on the way (MARXY-98)
