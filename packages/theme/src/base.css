@@ -1,8 +1,8 @@
 /* marxy base stylesheet — system-owned layout and rhythm (docs/design/05-theme.md, ADR-0008).
    Themes set tokens; this file turns them into a page that keeps the design language by
    construction. Every vertical distance is a multiple of the grid unit, half the body line box
-   (ADR-0030): paragraphs sit half a line apart, headings close their own remainder with mod(),
-   and whatever cannot be constructed (code, images, math) is padded by snapToGrid. No margin or
+   (ADR-0030): paragraphs sit half a line apart, headings close their line-box remainder with
+   padding, and whatever cannot be constructed (code, tables, images, math) is padded by snapToGrid. No margin or
    padding here is a bare px value; scripts/lint-default-theme.mjs checks. */
 
 :root {
@@ -27,6 +27,10 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   --marxy-line-h2: min(max(var(--marxy-lh-h2), round(up, calc(var(--marxy-size-h2) * 1.2), 2px)), calc(var(--lb) * 2));
   /* Drives both font-weight and the variable axis: WebKitGTK rounds font-weight, the axis is exact. */
   --marxy-wght: calc(var(--marxy-weight-body) + var(--marxy-weight-offset));
+  /* Space belongs above (constraint 3): the named gaps are 2lb / half, both grid units. The
+     heading line box is not always a unit, so padding-bottom closes that remainder (MARXY-128). */
+  --marxy-heading-above: calc(var(--lb) * 2);
+  --marxy-heading-below: var(--marxy-half);
   box-sizing: content-box;
   max-width: clamp(45ch, var(--marxy-measure), 90ch);   /* ch, so the measure holds at any size (constraint 1) */
   margin-inline: auto;
@@ -49,9 +53,8 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 .marxy-article > :last-child { margin-bottom: 0; }
 
 /* Headings: hierarchy from size and weight only (constraint 4); space belongs above (constraint 3).
-   The margin below is half a line plus whatever returns the heading's block to the grid, so it is
-   always between half a line and a line, and 56 / 34 / 22 for h2 at 17 px falls out of the formula
-   rather than being typed. */
+   The named gaps are 2lb above and half a line below (both grid units); padding-bottom closes the
+   heading line box's remainder so 56 / 34 / 14 for h2 at 17 px falls out of the formula. */
 h1, h2, h3, h4, h5, h6 {
   --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset));
   font-family: var(--marxy-font-heading);
@@ -65,22 +68,24 @@ h1 {
   font-size: var(--marxy-size-h1);
   line-height: var(--marxy-line-h1);
   letter-spacing: calc(var(--marxy-tracking-heading) * 1.27);
-  margin: calc(var(--lb) * 2) 0 calc(mod(calc(-1 * (var(--marxy-line-h1) + var(--lb) * 2)), var(--marxy-half)) + var(--marxy-half));
+  margin: var(--marxy-heading-above) 0 var(--marxy-heading-below);
+  padding-bottom: mod(calc(-1 * (var(--marxy-line-h1) + var(--marxy-heading-above) + var(--marxy-heading-below))), var(--marxy-half));
 }
 h2 {
   font-size: var(--marxy-size-h2);
   line-height: var(--marxy-line-h2);
   letter-spacing: var(--marxy-tracking-heading);
-  margin: calc(var(--lb) * 2) 0 calc(mod(calc(-1 * (var(--marxy-line-h2) + var(--lb) * 2)), var(--marxy-half)) + var(--marxy-half));
+  margin: var(--marxy-heading-above) 0 var(--marxy-heading-below);
+  padding-bottom: mod(calc(-1 * (var(--marxy-line-h2) + var(--marxy-heading-above) + var(--marxy-heading-below))), var(--marxy-half));
 }
 h3 {
   font-size: var(--marxy-size-h3);
   line-height: var(--lb);
   letter-spacing: calc(var(--marxy-tracking-heading) * 0.55);
-  margin: var(--lb) 0 var(--marxy-half);
+  margin: var(--lb) 0 var(--marxy-heading-below);
 }
-h4, h5, h6 { font-size: var(--marxy-size-body); line-height: var(--lb); margin: var(--lb) 0 var(--marxy-half); }
-h5, h6 { font-style: italic; }
+h4, h5, h6 { font-size: var(--marxy-size-body); line-height: var(--lb); margin: var(--lb) 0 var(--marxy-heading-below); }
+h5, h6 { font-style: italic; font-synthesis: none; }
 
 /* Text blocks: half a line apart, so every top lands on the grid unit. */
 p, ul, ol, dl, blockquote, table, figure { margin: 0 0 var(--marxy-half); }
@@ -101,7 +106,8 @@ input[type="checkbox"] {
   width: 0.75em;
   height: 0.75em;
   margin: 0 0.5em 0 -1.25em;
-  vertical-align: -0.02em;
+  /* Top, not baseline: review #1 had the box sitting on the bottom of the line (MARXY-128). */
+  vertical-align: top;
   border: 1px solid var(--marxy-color-text-secondary);
   border-radius: 2px;
   background: none;
@@ -112,10 +118,12 @@ input[type="checkbox"]:checked {
   box-shadow: inset 0 0 0 2px var(--marxy-color-bg);
 }
 
-/* Quotations: indented behind a quiet rule, in the text's own colour. */
+/* Quotations: indented behind a rule mixed toward secondary so it reads at ≥ 3:1 without
+   rewriting the frozen quote-rule token (MARXY-128, review #1: too subtle). */
 blockquote {
+  --marxy-quote-edge: color-mix(in srgb, var(--marxy-color-quote-rule) 30%, var(--marxy-color-text-secondary));
   padding-inline-start: calc(var(--marxy-half) + var(--marxy-quote-rule-width));
-  border-inline-start: var(--marxy-quote-rule-width) solid var(--marxy-color-quote-rule);
+  border-inline-start: var(--marxy-quote-rule-width) solid var(--marxy-quote-edge);
   margin-inline: 0;
 }
 
@@ -129,7 +137,7 @@ code { font-size: 0.875em; color: var(--marxy-color-code-text); }
 :not(pre) > code, kbd { line-height: 1; }
 pre {
   margin: var(--lb) 0;
-  padding: var(--marxy-half) var(--marxy-code-padding);
+  padding: var(--marxy-half);
   font-size: var(--marxy-size-code);
   line-height: var(--marxy-line-box-code);
   color: var(--marxy-color-code-text);
@@ -159,9 +167,10 @@ table {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums lining-nums;
   font-size: round(calc(var(--marxy-size-body) * 0.88), 1px);
-  line-height: var(--lb);
+  /* Code's line box, not the body's: a wrap was a whole 28 px on 15 px type (MARXY-128). */
+  line-height: var(--marxy-line-box-code);
 }
-th, td { padding: 0 1.25em 0 0; text-align: start; vertical-align: top; box-shadow: inset 0 -1px 0 var(--marxy-color-rule); }
+th, td { padding: var(--marxy-half) 1.25em var(--marxy-half) 0; text-align: start; vertical-align: top; box-shadow: inset 0 -1px 0 var(--marxy-color-rule); }
 th { --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset)); font-weight: var(--marxy-wght); box-shadow: inset 0 -1px 0 var(--marxy-color-text-secondary); }
 :is(th, td):last-child { padding-inline-end: 0; }
 th[align="center"], td[align="center"] { text-align: center; }
@@ -196,8 +205,14 @@ sup, sub { font-size: 0.72em; line-height: 0; }   /* a superscript never grows i
 
 /* Inline. */
 strong, b { --marxy-wght: calc(var(--marxy-weight-strong) + var(--marxy-weight-offset)); font-weight: var(--marxy-wght); }
-em, i { font-style: italic; }
-del, s { color: var(--marxy-color-text-secondary); text-decoration-thickness: 1px; }
+em, i { font-style: italic; font-synthesis: none; }
+del, s {
+  color: var(--marxy-color-text-secondary);
+  text-decoration-line: line-through;
+  text-decoration-thickness: 0.1em;
+  text-underline-offset: 0.2em;
+  text-decoration-skip-ink: none;
+}
 a {
   color: var(--marxy-color-link);
   text-decoration-line: underline;

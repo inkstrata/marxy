@@ -29,8 +29,8 @@ const CORPUS = [
   '01-long-technical.md', '02-readme-real-world.md', '03-ai-plan.md', '05-pathological-table-and-nesting.md',
   '06-math.md', '07-cjk.md', '08-rtl.md', '09-gfm-everything.md', '10-hostile.md', '14-marxy-plan.md', '15-prose-volume.md',
 ];
-/** No code, math or images: the stylesheet alone must hold these on the grid. */
-const TEXT_ONLY = ['01-long-technical.md', '14-marxy-plan.md'];
+/** No code, math, images or tables: tables now use the code line box and are islands (MARXY-128). */
+const TEXT_ONLY = ['14-marxy-plan.md'];
 const WIDTHS = [720, 960, 1280];
 /** Body size → line box, kept an even number so half a line is whole pixels. */
 const SIZES = { 14: 24, 17: 28, 21: 34, 24: 40 };
@@ -155,13 +155,14 @@ for (const variant of ['dark', 'light']) {
   });
 }
 
-test('the design-language numbers fall out of the formulas at 17 px: h2 is 56 above, 34 tall, 22 below', async () => {
+test('the design-language numbers fall out of the formulas at 17 px: h2 is 56 above, 34 tall, 14 below', async () => {
   const page = await open('01-long-technical.md');
   const h2 = await page.evaluate(() => {
     const style = getComputedStyle(document.querySelector('h2'));
     return [style.marginTop, style.lineHeight, style.marginBottom, style.fontSize].map(parseFloat);
   });
-  assert.deepEqual(h2, [56, 34, 22, 27]);
+  // 56 / 34 / 14: the named gaps are grid units; the 8 px remainder is padding-bottom (MARXY-128).
+  assert.deepEqual(h2, [56, 34, 14, 27]);
   await page.close();
 });
 
