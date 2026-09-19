@@ -30,7 +30,9 @@ entirely, which is `blocking`.
   the diff satisfies the story). Sign it: `node orchestration/approve.mjs KEY`. Do not merge
   the PR and do not leave unresolved GitHub review threads. `cycle.mjs` lands it once the
   rest of the quality bar in `docs/sdlc.md` is green, or enables GitHub auto-merge if only
-  CI is still running.
+  CI is still running. At the end of a merge verdict, print the output of
+  `node orchestration/readiness.mjs` (add `--results <primary checkout>/orchestration/results`
+  when running from a worktree) as the last thing in the report.
 - **return** — write `orchestration/results/KEY.notes.md`. Do not write `KEY.approved`.
 - **escalate** — write the notes; do not write `KEY.approved`.
 

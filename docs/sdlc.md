@@ -129,6 +129,8 @@ list; a missing clause is the printed hold reason.
 8. `CHANGELOG.md` is in the diff.
 9. A signed `results/KEY.approved` verifies against this PR head.
 
+Every approval run ends with `node orchestration/readiness.mjs`: one row per open pull request, in the review/merge order, with CI, mergeability, approval, who it waits on, and what happens next.
+
 ## Review order and the review WIP limit
 
 Review, not implementation, is the constraint. The printable order is computed by
