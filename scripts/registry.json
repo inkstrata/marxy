@@ -52,7 +52,7 @@
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
   "innerHtmlAllowedIn": [
-    "apps/desktop/src/main.ts",
+    "apps/desktop/src/app.ts",
     "apps/desktop/src/render/",
     "apps/desktop/src/palette/",
     "apps/desktop/src/notices.ts",

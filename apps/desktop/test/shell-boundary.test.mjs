@@ -77,12 +77,31 @@ function valueExports(text) {
 // `export const call = invoke` inside this directory, used from anywhere, is still a hole in the
 // boundary. So the directory's runtime export surface is an allowlist — one shell object, nothing
 // that hands a caller the raw IPC channel.
-test('apps/desktop/src/shell exports only the shell object', () => {
-  const allowed = ['shell'];
+test('apps/desktop/src/shell exports only the shell object and the memory factory', () => {
+  const allowed = ['shell', 'createMemoryShell'];
   const exported = files
     .filter(f => f.rel.startsWith(shellDir + sep))
     .flatMap(f => valueExports(f.text).map(name => ({ name, rel: f.rel })));
   assert.ok(exported.length > 0, `no exports found under ${shellDir}`);
   const offenders = exported.filter(e => !allowed.includes(e.name)).map(e => `${e.rel}:${e.name}`);
   assert.deepEqual(offenders, [], `${shellDir} may export only ${allowed.join(', ')}; found ${offenders.join(', ')}`);
+});
+
+test('app.ts never imports shell/tauri.ts', () => {
+  const app = files.find(f => f.rel === join('apps', 'desktop', 'src', 'app.ts'));
+  assert.ok(app, 'apps/desktop/src/app.ts is missing');
+  assert.doesNotMatch(app.text, /shell\/tauri/);
+});
+
+test('memory.ts is never imported from main.ts', () => {
+  const main = files.find(f => f.rel === join('apps', 'desktop', 'src', 'main.ts'));
+  assert.ok(main, 'apps/desktop/src/main.ts is missing');
+  assert.doesNotMatch(main.text, /memory\.ts|createMemoryShell|shell\/memory/);
+});
+
+test('main.ts is at most 30 lines and contains no parse or render call', () => {
+  const raw = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'main.ts'), 'utf8');
+  const lines = raw.replace(/\n$/, '').split('\n');
+  assert.ok(lines.length <= 30, `main.ts is ${lines.length} lines; startApp must own startup`);
+  assert.doesNotMatch(stripComments(raw), /parseMarkdown|renderDocumentSafeHtml|\.innerHTML\s*=/);
 });
