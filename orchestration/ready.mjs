@@ -85,6 +85,10 @@ export function selectReady({
     eligible.push(st);
   }
 
+  // Product phases pick first: an ops story loses a contested path, so process
+  // work cannot starve the page (MARXY-107). The sort is stable.
+  const inPhase = st => Number.isFinite(phaseOf(st.Key, d));
+  eligible.sort((a, b) => Number(inPhase(b)) - Number(inPhase(a)));
   const picked = [];
   const pickedPaths = [];
   if (!reviewFull) {
