@@ -1,6 +1,6 @@
 # ADR-0007 — Own paragraph line breaking (Knuth–Plass) as the demonstrable differentiator
 
-**Status:** accepted · **Source:** brainstorm D4, docs/07, docs/16 §1; handoff §4
+**Status:** accepted, amended (1: the ragged engine) · **Source:** brainstorm D4, docs/07, docs/16 §1; handoff §4
 
 ## Decision
 Rendered mode sets paragraphs with a Knuth–Plass total-fit line breaker, with hanging
@@ -9,6 +9,17 @@ allow-listed patterns. Engine: `justif/core` (MIT, DOM-free) driven by `packages
 which must prove **ragged-right** output on the corpus in Phase 1; fallback engine is
 `tex-linebreak2`. Body text stays inline HTML so selection, find and assistive technology
 keep paragraph semantics; canvas or absolutely-positioned words are refused for on-screen text.
+
+## Amendment 1 — ragged text uses a per-line right-skip breaker (MARXY-23, 2026-09-19)
+
+Measured on the rendered corpus (`packages/typeset/RESEARCH.md`, "Rendered"), justif/core over a stream
+with stretch on every word space made technical paragraphs worse than the engine's own wrapping.
+Ragged-right in Knuth and Plass's own formulation gives each *line* a fixed stretch (TeX's
+`\rightskip`), which justif cannot express because it needs negative glue. The default ragged setting
+therefore uses `packages/typeset/src/ragged.ts`, a small total-fit breaker with a 2 em right-skip, and
+justif/core remains the engine for justified setting. Everything else in this decision is unchanged:
+own line breaking, ragged by default, inline HTML, no canvas. `tex-linebreak2` remains the named fallback
+for justification.
 
 ## Why
 This is the only identified route to being *measurably* better set than every incumbent, and

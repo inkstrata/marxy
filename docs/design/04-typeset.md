@@ -15,20 +15,24 @@ four are built here, and the aesthetics gate measures all four (§10).
 ```ts
 export interface TypesetOptions {
   readonly lineBox: number;                 // px; from --marxy-line-box
-  readonly glueStretchEm: number;           // 0.6 (research); themes may lower it
-  readonly hyphenate: boolean;              // true for lang en-*
-  readonly lastLineMinWidth: number;        // 0.33 (justif default)
-  readonly hanging: 'none' | 'left';        // v1: 'left'
+  readonly raggedStretchEm?: number;        // per-line right-skip for the ragged breaker; default 2
+  readonly glueStretchEm: number;           // per-space stretch, only for engine 'justif' (MARXY-19's 0.6)
+  readonly engine?: 'ragged' | 'justif';    // default 'ragged' (ADR-0007 Amendment 1)
+  readonly hyphenate: boolean;              // MARXY-24
+  readonly lastLineMinWidth: number;        // accepted; the ragged breaker's last line is free
+  readonly hanging: 'none' | 'left';        // MARXY-24
   readonly scheduler?: Scheduler;           // injectable for tests; default: idle-chunked
+  readonly onPass?: () => void;             // after each pass: the app re-runs the grid pass
 }
 export interface TypesetController {
   readonly ready: Promise<void>;            // first pass over the viewport done
+  readonly done: Promise<void>;             // every paragraph considered
   relayout(reason: 'fonts' | 'resize' | 'theme' | 'reload'): void;
   destroy(): void;                          // restores native wrapping everywhere
-  readonly stats: { paragraphs: number; typeset: number; fallbacks: number; viewportMs: number };
+  readonly stats: { paragraphs; typeset; fallbacks; short; viewportMs; reasons: Record<string, number> };
 }
 export function attach(article: HTMLElement, opts: TypesetOptions): TypesetController;
-export function snapToGrid(article: HTMLElement, lineBox: number): void;   // §Grid
+export function snapToGrid(article: HTMLElement, lineBox: number): number;   // §Grid
 ```
 
 ## Which elements
@@ -39,42 +43,46 @@ with a reason): paragraphs containing `img`, `.marxy-math-inline`, or elements w
 `white-space: pre`; paragraphs whose text is > 20 % CJK code points (kinsoku is v1.x); paragraphs
 shorter than the measure (one line; nothing to break).
 
-## Pipeline per paragraph
+## Pipeline per paragraph (as built, MARXY-23)
 
-1. **Runs.** Walk the paragraph's inline content into runs of `{ text, node: Text, font }` where
-   `font` changes at any element boundary whose computed `font-family`, `font-size`,
-   `font-weight`, `font-style`, `font-variation-settings` or `letter-spacing` differ. Inline
-   `code` is its own run with `hyphenate: false` and `unbreakable` inside.
-2. **Items.** Words are boxes; spaces are glue with `width = advance(' ')` in the run's font,
-   `stretch = glueStretchEm × fontSize`, `shrink = 0`; explicit hyphens and dashes are penalty-50
-   break opportunities; hyphenation points (below) are penalty-50 with a hyphen width; the
-   stream ends with justif's parfillskip idiom. Built with `justif/core`'s `buildItems` (the
-   research harness `scripts/rag-model.mjs` already shows the call shape; port, don't reinvent).
-3. **Measure** (D-A4). Word advances come from `Range.getClientRects()` on the real text nodes:
-   create one `Range` per word inside its text node and read `getBoundingClientRect().width`.
-   All ranges for a paragraph are created first and read together, so layout is forced once per
-   paragraph. Cache by `(text, fontKey)` for the document's lifetime; a reload hits the cache
-   for unchanged words. Widths are what the engine paints, including optical size and the weight
-   offset — a canvas cannot express either.
-4. **Break** with `breakParagraph(items, widths, { tolerance: 200, emergencyStretch: 'auto',
-   lastLineMinWidth })`; `widths` is the paragraph's content width (`clientWidth` minus padding)
-   for every line.
-5. **Apply.** For each break: split the text node at the break's code-unit offset, insert
-   `<br class="marxy-lb">`; at a hyphenation break insert U+00AD before the `<br>` (the engine
-   paints the hyphen because the line ends there; find and copy skip soft hyphens). Set
-   `white-space: nowrap` on the paragraph via `class="marxy-set"`. Trailing spaces before a
-   `<br>` are left in the text (they collapse visually).
-6. **Verify.** Measure each line (`Range` from line start to the `<br>`) — if any line's width
-   exceeds the content width by more than 0.5 px, **revert this paragraph** (remove the `<br>`s,
-   rejoin text nodes, drop the class) and count a fallback. Overfull lines are never shown.
-7. **Hang** (D-A6). For each line start whose first grapheme is in the hanging set
-   (`“ ‘ " ' ( [ ‹ «`) or whose protrusion value in `justif/core`'s `latinProtrusion` table is
-   non-zero, wrap that grapheme in `<span class="marxy-hang">` with
-   `margin-inline-start: -<protrusion × advance>px` (full advance for the quote set, the
-   table's fraction for letters). The right edge is ragged and gets nothing.
+A batch of paragraphs is read, broken, written and verified in that order, so a batch costs two
+layouts however many paragraphs it holds.
 
-`destroy()` and `relayout()` revert every paragraph to the original DOM (the original text nodes
-are kept by reference) before re-running, so no state accumulates.
+1. **Tokens** (`src/runs.ts`). The paragraph's text nodes in order become pieces (text between break
+   opportunities), spaces (a collapsible whitespace run, kept as the (node, offset) of its first
+   character) and dash breaks (just after `-`, `–`, `—` inside a word). Text inside `code`, `kbd` and
+   inline math has no break opportunity: a code span is never broken, not even at its hyphens, because a
+   hyphen that may belong to a filename must never end a line. A non-breaking space (the render's
+   widont) is not a space.
+2. **Measure** (`src/measure.ts`), in the paragraph's native layout, as **positions**: a token's width
+   is the distance from its first character's left edge to the next token's, on the same native line.
+   WebKit snaps a Range's rectangles to whole pixels, so summing per-word widths overstated a line by
+   ~35 px (5% more lines); left-edge differences telescope and are right to a pixel. A piece whose next
+   token is on the next native line ends at its last character's right edge. A piece the engine broke
+   inside (a code span at its hyphen) is the sum of its per-text-node fragments; a range over an element
+   also returns the element's box, so fragments are read one text node at a time. A space at a native
+   line end takes its font's width from a space measured elsewhere.
+3. **Break** (`src/ragged.ts`): total-fit, ragged-right with a per-line right-skip of 2 em
+   (`\RaggedRight`). Line cost `(10 + badness)²`, badness `100·(shortfall / 2em)³`, penalty 50 after a
+   dash, 3000 extra for two dash-ended lines in a row, last line free. justif/core over MARXY-19's
+   per-space stream is the `engine: 'justif'` option, kept for comparison and for justified setting:
+   it made technical text worse than the engine (ADR-0007 Amendment 1, RESEARCH.md "Rendered").
+4. **Apply** (`src/apply.ts`): for each break, split the text node just after the space (or dash) and
+   insert an empty `<span class="marxy-lb">`, whose `::before` is a generated newline
+   (`content: '\A'; white-space: pre`, base.css); the paragraph gets `.marxy-set` (`nowrap`). Generated
+   content is not text, so selection, copy, `window.find` and `textContent` see exactly the characters
+   they saw before. A `<br>`, as first designed, would put a newline into every copied line.
+5. **Verify.** Any glyph more than 0.5 px past the content edge: the paragraph is reverted and set once
+   more on a measure short by the overrun (positions are good to a pixel, so a line filled to the edge
+   can overrun by one); if that fails too, it is left to the engine and counted. Overfull lines are
+   never shown.
+6. **Revert** removes the spans and the class and calls `normalize()`; attach-then-destroy leaves
+   `innerHTML` byte-identical (tested).
+7. **Hang** (D-A6) is MARXY-24.
+
+Left to the engine and counted: paragraphs containing `img`, a hard `br`, math or a non-checkbox
+`input`; `white-space: pre*`; right-to-left direction; more than 20 % CJK. A task item's checkbox is
+settable: it hangs in the margin with no net advance.
 
 ## Hyphenation
 
@@ -86,16 +94,14 @@ off and on, and the on setting ships if it does not increase short lines.
 
 ## Scheduling (§00 targets)
 
-- First pass: the paragraphs intersecting the viewport plus one screen below, synchronously in
-  the animation frame after `first_text`. Budget 100 ms; the controller records `viewportMs`.
-- Remainder: idle chunks of ≤ 8 ms in document order, nearest-to-viewport first, via
-  `requestIdleCallback` or the `setTimeout(0)` polyfill (`scheduler.ts`; WebKitGTK has no
-  `requestIdleCallback`).
-- Scrolling into unset paragraphs triggers them immediately (IntersectionObserver with a
-  200 % root margin).
-- Triggers for `relayout`: `document.fonts.ready` (if the first pass ran before it), window
-  resize when the article's content width changed (debounced 100 ms), theme/token change,
-  reload. A reload reuses the measurement cache, so unchanged paragraphs re-set in ~1 ms each.
+- First pass: paragraphs within two screens of the top, synchronously, after `first_text`; the app
+  marks `typeset_viewport`. Measured on the corpus: 24 ms at most (15-prose-volume), budget 100 ms.
+- Remainder: nearest to the viewport first, batches of up to 8 paragraphs while the chunk has budget
+  (8 ms), via `requestIdleCallback` or a `setTimeout(0)` fallback (`scheduler.ts`; WebKitGTK has none).
+- An IntersectionObserver with a 200 % margin sets an unset paragraph immediately when scrolled near.
+- `relayout(reason)` reverts everything and runs again; the app calls it on a width change (debounced
+  100 ms). Fonts are ready before `attach`, so no `fonts` relayout is needed at startup.
+- After every pass the app re-runs `snapToGrid` and rebuilds the reading-position blocks (`onPass`).
 
 ## Grid (D-A7)
 
@@ -121,11 +127,13 @@ grid pass. `MARXY_DEBUG=1` adds outline colours per state (set, fallback, native
 | Case | Expect |
 | --- | --- |
 | items from `01-long-technical.md` paragraph 3 | box/glue/penalty counts match the research harness for the same text |
-| breaks applied then reverted | `article.innerHTML` identical to before `attach` |
+| breaks applied then reverted | `article.innerHTML` identical to before `attach` (`test/typeset.test.mjs`) |
+| relayout | the same breaks again; no state accumulates |
 | forced overflow (measure = 10 ch) | paragraph counted as fallback, no `<br>` left inside it |
 | find-in-page across a hyphenated break | `window.find` / Custom Highlight matches the word |
-| selection across a `<br>` | `Selection.toString()` contains no U+00AD and a single space |
+| selection across a break | `Selection.toString()` contains no newline, no U+00AD, a single space; `textContent` unchanged |
 | hanging quote | first grapheme's rect `left` < paragraph content `left` by ≥ 40 % of its advance |
 | grid | every block's `top mod lineBox` ≤ 0.5 px over the corpus at three widths |
 | budget | viewport pass on `01-long-technical.md` < 100 ms in Playwright WebKit on the reference machine; CI uses the envelope tier |
-| rag | short-line rate and CV over the corpus at 0.6 em ≤ the research's greedy figures (ADR-0007's Phase 1 test) |
+| rag | CV and short lines below the engine's own wrapping over 01, 14 and 15, same line count (±2) |
+| breaker | never worse than first-fit on its own objective over 200 random paragraphs, better on > 50 (`src/ragged.test.ts`) |
