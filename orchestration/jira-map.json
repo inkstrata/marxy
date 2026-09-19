@@ -75,6 +75,20 @@
     "MARXY-NEW-review-order-is-computable": "MARXY-80",
     "MARXY-NEW-loop-acts-on-the-review-order": "MARXY-81",
     "MARXY-NEW-branch-protection-gate": "MARXY-82",
-    "MARXY-84": "MARXY-84"
+    "MARXY-84": "MARXY-84",
+    "MARXY-NEW-parse-on-gates": "MARXY-91",
+    "MARXY-NEW-buffer": "MARXY-93",
+    "MARXY-NEW-shell-api-v1": "MARXY-94",
+    "MARXY-NEW-app-harness": "MARXY-95",
+    "MARXY-NEW-wide-policy": "MARXY-96",
+    "MARXY-NEW-remote-images": "MARXY-97",
+    "MARXY-NEW-design-runway-phase-3": "MARXY-98",
+    "MARXY-NEW-ready-in-review-busy": "MARXY-102",
+    "MARXY-NEW-relax-os-gates": "MARXY-105",
+    "MARXY-NEW-loop-correct": "MARXY-106",
+    "MARXY-NEW-ops-lane": "MARXY-107",
+    "MARXY-NEW-outline": "MARXY-109",
+    "MARXY-NEW-no-ceiling": "MARXY-110",
+    "MARXY-NEW-after-8-plan": "MARXY-111"
   }
 }
