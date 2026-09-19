@@ -1,0 +1,16 @@
+{
+  "name": "order: every in_review PR carries key, pr, phase, disturbs, ageHours, behind, dirty",
+  "deps": { "0": ["MARXY-A"] },
+  "stories": { "MARXY-A": 7 },
+  "pulls": {
+    "7": {
+      "files": ["a.ts"],
+      "mergeStateStatus": "BEHIND",
+      "createdAt": "2026-09-16T00:00:00.000Z"
+    }
+  },
+  "expect": {
+    "orderKeys": ["MARXY-A"],
+    "order": [{ "key": "MARXY-A", "pr": 7, "phase": 0, "disturbs": 0, "ageHours": 60, "behind": true, "dirty": false }]
+  }
+}

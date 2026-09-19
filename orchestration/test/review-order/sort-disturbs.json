@@ -1,0 +1,14 @@
+{
+  "name": "sort: disturbs decides while phase ties",
+  "deps": { "0": ["MARXY-A", "MARXY-B", "MARXY-C"] },
+  "stories": { "MARXY-A": 1, "MARXY-B": 2, "MARXY-C": 3 },
+  "pulls": { "1": ["shared.ts"], "2": ["alone.ts"], "3": ["shared.ts"] },
+  "expect": {
+    "orderKeys": ["MARXY-A", "MARXY-C", "MARXY-B"],
+    "order": [
+      { "key": "MARXY-A", "phase": 0, "disturbs": 1, "ageHours": 24 },
+      { "key": "MARXY-C", "phase": 0, "disturbs": 1, "ageHours": 24 },
+      { "key": "MARXY-B", "phase": 0, "disturbs": 0, "ageHours": 24 }
+    ]
+  }
+}

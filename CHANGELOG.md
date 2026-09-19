@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- The review queue is now a computed order — phase, then how many other open pull requests a merge would disturb, then age — so the branch that invalidates the most approvals lands first (MARXY-80)
 - A pull request cannot be opened unless its body is the house template: `open-pr.mjs` runs the checker first, and the checker now also refuses a Why / Test plan body, a leftover TODO in the acceptance table, and an attribution line (MARXY-104)
 - Every pull request re-checks the taste-review #0 specimen against the type scale and the review queue, so a missing image or a drifted size fails the build rather than waiting for someone to remember (MARXY-62)
 - Only the security posture and the merge gate itself now wait for a person. Typesetting, theme, contracts, `shell-api` and ADR changes land on a signed review, and taste is checked in the review queue (MARXY-99)
