@@ -89,6 +89,12 @@
     "MARXY-NEW-ops-lane": "MARXY-107",
     "MARXY-NEW-outline": "MARXY-109",
     "MARXY-NEW-no-ceiling": "MARXY-110",
-    "MARXY-NEW-after-8-plan": "MARXY-111"
+    "MARXY-NEW-after-8-plan": "MARXY-111",
+    "MARXY-NEW-board-drift": "MARXY-117",
+    "MARXY-NEW-prune-worktrees": "MARXY-118",
+    "MARXY-NEW-glob-overlap": "MARXY-119",
+    "MARXY-NEW-ops-tripwire": "MARXY-120",
+    "MARXY-NEW-done-opens": "MARXY-121",
+    "MARXY-NEW-merge-queue": "MARXY-122"
   }
 }

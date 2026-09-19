@@ -68,6 +68,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Documents saved with Classic Mac (CR-only) line endings keep code-block ranges on the code itself, not an empty span past the fence (MARXY-67)
 
 ### Changed
+- The board carries the whole-project review's remaining recommendations as six stories: board-drift detection, worktree pruning, glob-aware path overlap, a tripwire for process work outpacing product work, one-command handoff to review, and the merge queue (MARXY-116)
 - Launch time is still measured; 500 ms is not a product promise, and a release is not failed for missing that figure (MARXY-110)
 - A release now measures a genuine cold start on reference hardware — at least five launches, each made cold first — and the tag carries that measurement with no duration claim; 500 ms is not a product ceiling (MARXY-69)
 - Commit messages are linted when they are written in every worktree, not first in CI, and the limits fit the story key: headers up to 100 characters, long footer lines a warning, `repo` and `workspace` scopes, squash-merge subjects accepted (MARXY-100)
