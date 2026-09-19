@@ -400,7 +400,7 @@ export function checkLicenceWorkflow(text) {
   }
   const steps = gates.split(/\n      - /).slice(1);
   const licenceIdxs = steps
-    .map((s, i) => (/gate:licences/.test(s) ? i : -1))
+    .map((s, i) => (/gate:licences|gate-licences\.mjs/.test(s) ? i : -1))
     .filter((i) => i >= 0);
   const licenceSteps = licenceIdxs.map((i) => steps[i]);
   if (licenceSteps.length < 2) {
@@ -428,10 +428,10 @@ export function checkLicenceWorkflow(text) {
     }
   }
   const post = licenceIdxs.filter((i) => i > buildIdx).map((i) => steps[i])[0];
-  if (post && !/(?:gate:licences:registry|--require-registry)/.test(post)) {
+  if (post && !/gate-licences\.mjs --require-registry/.test(post)) {
     errors.push('.github/workflows/ci.yml: the post-build licence gate must run '
-      + 'gate:licences:registry (or pass --require-registry) so it reads every crate from '
-      + 'the cache rather than the allow-list');
+      + 'node scripts/gate-licences.mjs --require-registry so it reads every crate from the '
+      + 'cache rather than the allow-list');
   }
   for (const s of licenceSteps) {
     const head = (/^name:\s*(.+)$/m.exec(s)?.[1] ?? s.split('\n')[0]).trim();
@@ -695,10 +695,6 @@ export function selfCheck() {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   check('package.json still exposes the pre-build licence gate',
     pkg.scripts['gate:licences'] === 'node scripts/gate-licences.mjs');
-  check('package.json exposes the post-build licence gate as a named script that requires the registry',
-    typeof pkg.scripts['gate:licences:registry'] === 'string'
-    && pkg.scripts['gate:licences:registry'].includes('--require-registry'));
-
   const workflow = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
   const workflowErrors = checkLicenceWorkflow(workflow);
   cases.push('ci.yml runs the licence gate twice, named, required, post-build requiring the registry');
@@ -711,8 +707,8 @@ export function selfCheck() {
       workflow.replace(`      - name: ${POST}\n`, `      - name: ${POST}\n        continue-on-error: true\n`)],
     ['|| true on the post-build licence gate',
       workflow.replace(
-        '        run: pnpm gate:licences:registry\n',
-        '        run: pnpm gate:licences:registry || true\n',
+        '        run: node scripts/gate-licences.mjs --require-registry\n',
+        '        run: node scripts/gate-licences.mjs --require-registry || true\n',
       )],
     ['the post-build licence gate skipped on one runner',
       workflow.replace(
@@ -721,22 +717,22 @@ export function selfCheck() {
       )],
     ['the post-build licence gate dropped',
       workflow.replace(
-        `\n      - name: ${POST}\n        run: pnpm gate:licences:registry`,
+        `\n      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry`,
         '',
       )],
     ['--require-registry dropped from the post-build run',
       workflow.replace(
-        '        run: pnpm gate:licences:registry\n',
+        '        run: node scripts/gate-licences.mjs --require-registry\n',
         '        run: pnpm gate:licences\n',
       )],
     ['both licence-gate steps given the same name',
       workflow.replace(`      - name: ${POST}\n`, `      - name: ${PRE}\n`)],
     ['the post-build step moved before the desktop build',
       workflow
-        .replace(`\n      - name: ${POST}\n        run: pnpm gate:licences:registry`, '')
+        .replace(`\n      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry`, '')
         .replace(
           '      - name: Build the frontend\n',
-          `      - name: ${POST}\n        run: pnpm gate:licences:registry\n      - name: Build the frontend\n`,
+          `      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry\n      - name: Build the frontend\n`,
         )],
     ['macos-latest dropped from the matrix',
       workflow.replace('os: [macos-latest, ubuntu-latest]', 'os: [ubuntu-latest]')],
