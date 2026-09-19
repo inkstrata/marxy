@@ -77,8 +77,9 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
   and carrying the PR link. The full list, with the definition of ready that precedes it,
   is in `docs/sdlc.md`. `docs/hygiene.md` lists what the tools enforce; `pnpm new` starts
   modules, operations and commands in the house shape.
-- **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` or
-  `packages/theme/src/tokens.css` needs an ADR and a PR touching only that.
+- **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` needs an ADR
+  and a PR touching only that. The token names, units and meanings are frozen and need an
+  ADR; the default theme's values are taste and need a story with a taste-review queue row.
 - **Toolchain:** versions come from `mise.toml`. `pnpm` for Node, `uv` for Python,
   `cargo` for Rust. Never `npm install -g`.
 

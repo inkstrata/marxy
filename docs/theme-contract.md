@@ -28,11 +28,14 @@ line of the measure or becomes a seeker.
 
 ## Tokens
 
-The full list is `packages/theme/src/tokens.css` and is the frozen contract (version 1). Its
-`:root` values are the **dark** variant (ADR-0024); the default theme's light block overrides
-them under `[data-marxy-variant="light"]`. Tokens may be *added* within version 1 when they
-carry a default (ADR-0024 added the find, notice and code-token colours); a theme that does not
-set them renders with the defaults.
+The full list is `packages/theme/src/tokens.css` (version 1). The token names, units and
+meanings are frozen and need an ADR; the default theme's values are taste and need a story
+with a taste-review queue row. That is the guarantee a theme author gets (ADR-0031): the
+names, the units and the meanings, not 28px. Its `:root` values are the **dark** variant
+(ADR-0024); the default theme's light block overrides them under
+`[data-marxy-variant="light"]`. Tokens may be *added* within version 1 when they carry a
+default (ADR-0024 added the find, notice and code-token colours); a theme that does not set
+them renders with the defaults.
 The shape:
 
 ```css
