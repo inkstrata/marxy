@@ -27,7 +27,7 @@ blocked with a visible opt-in. KaTeX on first use, on the grid. Knuth–Plass ra
 hanging punctuation, hyphenation, in the default mode.
 
 **Typography and themes.** Bundled Literata and JetBrains Mono with the Linux weight offset.
-The default theme on the type scale, light and dark, implemented as a theme. User themes
+The default theme on the type scale, dark (primary, ADR-0024) and light, implemented as a theme. User themes
 loadable under the published contract.
 
 **In-document.** Outline summoned and dismissed, tracking scroll. Find landing at the reading
@@ -55,7 +55,7 @@ position, working in Rendered mode. Full keyboard navigation. "Open in external 
 
 ## If the schedule still slips, cut in this order
 
-1. Dark variant (ship light; dark is not an inversion and deserves its own pass).
+1. Light variant (ship dark, the primary per ADR-0024; light is not an inversion and deserves its own pass).
 2. Align table pipes (keep three operations).
 3. User theme loading (keep the contract and the default theme built as a theme).
 4. Flatpak (keep AppImage).

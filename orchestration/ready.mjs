@@ -71,6 +71,10 @@ export function selectReady({
     eligible.push(st);
   }
 
+  // Product phases pick first: when an ops story and a phase story want the same path, the phase
+  // story gets it, so process work cannot starve the page (MARXY-107). The sort is stable.
+  const inPhase = st => Number.isFinite(phaseOf(st.Key, d));
+  eligible.sort((a, b) => Number(inPhase(b)) - Number(inPhase(a)));
   const picked = [];
   const pickedPaths = [];
   for (const st of eligible) {

@@ -49,7 +49,13 @@ export function stories() {
 }
 export function state() {
   const p = here('state.json');
-  if (!existsSync(p)) { const s = { updated: new Date().toISOString(), merges: 0, lastPlan: null, stories: {} }; for (const st of stories()) s.stories[st.Key] = { status: 'todo', attempts: 0 }; writeJson(p, s); }
+  // state.json is local (gitignored since MARXY-107): Jira is the record, this is its cache in the
+  // orchestrator's checkout. A missing file must not quietly become "every story is todo", which
+  // would re-dispatch finished work, so starting over is an explicit act.
+  if (!existsSync(p)) {
+    if (process.env.MARXY_STATE_INIT !== '1') throw new Error(`${p} is missing. It is local to the orchestrator's checkout; copy it from there, or start every story at todo with MARXY_STATE_INIT=1 node orchestration/state.mjs init`);
+    const s = { updated: new Date().toISOString(), merges: 0, lastPlan: null, stories: {} }; for (const st of stories()) s.stories[st.Key] = { status: 'todo', attempts: 0 }; writeJson(p, s);
+  }
   return readJson(p);
 }
 export function saveState(s) { s.updated = new Date().toISOString(); writeJson(here('state.json'), s); }
@@ -91,7 +97,8 @@ export function phaseOf(key, d = deps()) {
 export function earlierPhaseOpen(phase, d, s) {
   if (phase == null || !Number.isFinite(phase)) return false;
   for (const [p, keys] of Object.entries(d.phases || {})) {
-    if (Number(p) >= phase) continue;
+    // A non-numeric phase (`ops`) is a lane beside the phases, not an earlier phase (MARXY-107).
+    if (!Number.isFinite(Number(p)) || Number(p) >= phase) continue;
     if ((keys || []).some(k => {
       const status = s.stories[k]?.status ?? 'todo';
       return status === 'todo' || status === 'in_progress';

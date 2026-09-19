@@ -21,4 +21,4 @@ verify: [pnpm precheck, pnpm done MARXY-16]
 Release exists with three assets → workflow run URL in the PR; `verify-release.mjs` output attached; a human confirms launch on each platform (`needs-human.md` entry: "install v0.0.1 on a Mac and on Ubuntu 24.04, open the README fixture, report").
 
 ## Do not
-Store any secret in the repo. Change the app's behaviour.
+Store any secret in the repo. Change the app's behaviour. Claim a cold-start time on the tag, in the pre-release notes, or in the CHANGELOG line — Ian ruled there is no product cold-start budget.

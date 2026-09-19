@@ -1,6 +1,6 @@
 # ADR-0015 — Literata for text and JetBrains Mono for code, confirmed by the first taste review
 
-**Status:** proposed until taste review #0 · **Source:** brainstorm Q6, docs/08; spike finding on axis ranges
+**Status:** accepted 2026-09-18 (taste review #0, Pair A) · **Source:** brainstorm Q6, docs/08; spike finding on axis ranges
 
 ## Decision
 Default body face **Literata** (variable, `opsz` 7–72, `wght` 200–900, OFL 1.1). Default

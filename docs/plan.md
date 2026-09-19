@@ -30,12 +30,22 @@ Taste review #0 chooses the typeface pair.
 - Taste review #0 artifact: the long corpus document set in Literata + JetBrains Mono and in
   Source Serif 4 + IBM Plex Mono, at the type scale, exported as PNG at 1× and 2×.
 
+## The ops lane — beside the phases, never in front of them
+
+Process, gate, CI and release work lives in the `ops` lane of `orchestration/deps.json`, not in a
+numbered phase (MARXY-107). An ops story still waits on its own dependencies, but it is never held
+by a phase and never holds one, and when an ops story and a phase story want the same path, the
+phase story is dispatched first. Phase 0's remaining process work moved there on 2026-09-19,
+including the release pipeline (MARXY-16): v0.0.1 ships when it is ready, and Phase 1 does not wait
+for it. The rule the lane exists to keep: the loop may improve itself, but never at the cost of the
+page.
+
 ## Phase 1 — The page (≈ 4 weeks)
 
 **Ends with:** v0.1 "reads a README beautifully". Rendered mode passes tier 1; taste review #1
 is the first blind side-by-side.
 
-- `packages/theme`: tokens, the default theme built as a theme, light variant; grid
+- `packages/theme`: tokens, the default theme built as a theme, dark primary (ADR-0024); grid
   enforcement (all vertical spacing from `--marxy-line-box`); type scale.
 - Bundled fonts with `@font-face`, `font-display`, preload; fonts on the critical path,
   everything else deferred; `--marxy-weight-offset` on Linux with a measured value.
@@ -68,12 +78,12 @@ Taste review #2 includes the palette-vs-tabs criterion.
 
 ## Phase 3 — Operations, safety, themes (≈ 3 weeks)
 
-**Ends with:** v0.3 feature-complete for v1. Taste review #3 covers dark and the opt-in notices.
+**Ends with:** v0.3 feature-complete for v1. Taste review #3 covers the light variant and the opt-in notices.
 
 - Selection model in Rendered mode: span, block, section, document; resolves to byte ranges.
 - The four operations with table-driven tests and the fidelity property over the corpus.
 - Sanitiser allow-list opt-in with the discoverable notice; remote-image opt-in; CSP final.
-- Dark variant, designed not inverted. User theme loading (`theme.toml` + `theme.css`) with
+- Light variant, designed not inverted (dark is primary, ADR-0024). User theme loading (`theme.toml` + `theme.css`) with
   contract version check and re-layout on change; a theme opens in Source mode.
 - Outline; find landing at reading position in Rendered mode; keyboard completeness audit;
   "open in external editor"; save (explicit, byte-faithful, atomic).
@@ -98,3 +108,9 @@ plan → stories with executable acceptance criteria and listed paths → implem
 where paths do not overlap → machine gates → PR with why, ADRs, artifacts → merge → queue
 entry → phase-end taste review → ADRs and `AGENTS.md` updated. Context loss is handled by the
 repo being the memory; drift by screenshot diffs and constraints-as-gates.
+
+The board spec (`docs/plan/jira-issues.csv`, `orchestration/deps.json`, task cards, deltas) changes
+only through a pull request, the planner's included. `orchestration/state.json` and
+`orchestration/needs-human.md` are local to the orchestrator's checkout and gitignored: Jira is the
+record and state.json its cache, so the orchestrator's `main` stays clean and fast-forwards every
+cycle (MARXY-107).
