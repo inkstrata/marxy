@@ -11,6 +11,7 @@ import {
 /** Named definition-of-ready refusals, so a test can assert the exact rule. */
 export const RULE = {
   HUMAN_GATED: 'human-gated',
+  DROPPED: 'dropped',
   EMPTY_ACCEPTANCE: 'empty Acceptance',
   EMPTY_PATHS: 'empty Paths',
   LANE_LIMIT: 'lane limit',
@@ -59,6 +60,13 @@ export function selectReady({
     if (statusOf(st.Key) !== 'todo') continue;
     if (hasLabel(st, 'human-gated')) {
       excluded.push({ key: st.Key, rule: RULE.HUMAN_GATED });
+      continue;
+    }
+    // A dropped story is settled, the same way plannerReasons treats the label (MARXY-120):
+    // checked before empty-Acceptance/empty-Paths so a dropped row missing them is refused
+    // for being dropped, not for looking like a badly written story.
+    if (hasLabel(st, 'dropped')) {
+      excluded.push({ key: st.Key, rule: RULE.DROPPED });
       continue;
     }
     if (!String(st.Acceptance ?? '').trim()) {

@@ -6,6 +6,9 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+### Added
+- The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
+
 ### Changed
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
 
