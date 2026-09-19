@@ -8,6 +8,8 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - `pnpm done KEY --open` is now one command from a filled acceptance table to In Review: it copies the table into the result file, opens the PR through `open-pr.mjs`, and moves the Jira issue, stopping before `gh` runs if a row is still `TODO` or the body fails `check-pr` (MARXY-121)
+- Two stories now overlap only when a listed path (glob or not) could actually match the same file, so a shared prefix like `parse`/`parser` no longer serialises unrelated work and every story's shared files (CHANGELOG.md and friends, read from the registry) no longer count as a collision (MARXY-119)
+- The MARXY-95 escalation plan is on main: its second attempt may now touch the startup test and the render allow-list, plus six new stories and ADR-0031 (proposed) for the taste-review backlog (MARXY-131)
 - CI now measures how long the long technical document takes to parse on both gates runners before the perf gate, so that budget can become a required check without loosening anything (MARXY-91)
 - A document is now a byte buffer with splice and undo, so an operation can change a range without rewriting the rest of the file (MARXY-93)
 - The after-65 plan is on main: MARXY-93–98 are restored, MARXY-115 is dropped, and MARXY-93 and MARXY-95 can cut from main (MARXY-125)
