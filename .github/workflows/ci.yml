@@ -62,6 +62,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # orchestration/phases.test.mjs diffs against origin/main
       - uses: jdx/mise-action@v2
         with:
           cache: true
