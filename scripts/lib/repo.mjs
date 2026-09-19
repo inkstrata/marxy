@@ -20,10 +20,28 @@ export const rel = p => relative(ROOT, p);
 export const stripComments = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\])\/\/.*$/gm, '$1');
 
 /** Files changed on this branch relative to origin/main, plus working-tree changes; or only the staged ones. */
+/**
+ * The staged files a commit is answerable for.
+ *
+ * In a merge commit that is not everything staged: a merge stages every file the other side brought,
+ * and against the story's paths those read as a hundred violations the author never wrote. What the
+ * author is answerable for is what they resolved — the files that differ from *both* parents. Without
+ * this, every branch that falls behind can only get back to mergeable through `--no-verify`, which
+ * skips the checks that do matter, and a guard that teaches people to bypass guards is worse than none.
+ */
+export function stagedNames({ cwd = ROOT } = {}) {
+  const names = r => new Set(sh(`git diff --cached --name-only --diff-filter=ACMR ${r}`, { cwd, soft: true }).split('\n').filter(Boolean));
+  const merging = sh('git rev-parse -q --verify MERGE_HEAD', { cwd, soft: true }).trim();
+  const head = names('HEAD');
+  if (!merging) return [...head].join('\n');
+  const other = names('MERGE_HEAD');
+  return [...head].filter(f => other.has(f)).join('\n');
+}
+
 export function changedFiles({ staged = false } = {}) {
   const set = new Set();
   const add = out => out.split('\n').filter(Boolean).forEach(f => set.add(f));
-  if (staged) { add(sh('git diff --cached --name-only --diff-filter=ACMR', { soft: true })); return [...set]; }
+  if (staged) { add(stagedNames()); return [...set]; }
   add(sh('git diff --name-only --diff-filter=ACMR origin/main...HEAD', { soft: true }));
   add(sh('git diff --name-only --diff-filter=ACMR', { soft: true }));
   add(sh('git diff --cached --name-only --diff-filter=ACMR', { soft: true }));
