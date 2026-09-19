@@ -69,7 +69,36 @@ export function pathMatches(file, allowedPath) {
   return file === q || file.startsWith(q + '/');
 }
 
-export const overlap = (a, b) => a.some(x => b.some(y => x === y || x.startsWith(y + '/') || y.startsWith(x + '/') || x.startsWith(y) && y.endsWith('.json') === false && x.split('/')[0] === y.split('/')[0] && (x.startsWith(y) || y.startsWith(x))));
+/** Whether two path segments match, treating a `*` on either side as one segment (MARXY-119). */
+function segmentEq(a, b) {
+  if (a === b) return true;
+  if (!a.includes('*') && !b.includes('*')) return false;
+  const toRe = s => new RegExp('^' + s.split('*').map(p => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '$');
+  if (a.includes('*') && toRe(a).test(b)) return true;
+  if (b.includes('*') && toRe(b).test(a)) return true;
+  return false;
+}
+
+/** Whether `x` and `y` name the same file, or one is a directory prefix of the other, glob-aware. */
+function pathsOverlap(x, y) {
+  const xs = x.replace(/\/$/, '').split('/');
+  const ys = y.replace(/\/$/, '').split('/');
+  const len = Math.min(xs.length, ys.length);
+  for (let i = 0; i < len; i++) if (!segmentEq(xs[i], ys[i])) return false;
+  return true;
+}
+
+/** The paths every story may touch regardless of its own Paths list (scripts/registry.json). */
+export const extraAllowedPaths = () => readJson(`${ROOT}scripts/registry.json`).extraAllowedPaths ?? [];
+
+/** Whether any path in `a` could touch the same file as any path in `b`, ignoring paths every
+ * story is allowed anyway (MARXY-119). */
+export function overlap(a, b) {
+  const extra = new Set(extraAllowedPaths());
+  const af = a.filter(x => !extra.has(x));
+  const bf = b.filter(y => !extra.has(y));
+  return af.some(x => bf.some(y => pathsOverlap(x, y)));
+}
 export const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
 export const typeOf = st => /research/.test(st.Labels) ? 'research' : /release|agent-loop/.test(st.Labels) ? 'chore' : 'feat';
 
