@@ -1,36 +1,14 @@
 {
-  "name": "conflict: DIRTY appears only in excluded, with why naming the conflict",
-  "now": "2026-09-18T12:00:00.000Z",
-  "deps": {
-    "phases": {
-      "0": ["MARXY-A", "MARXY-B"]
-    }
-  },
-  "state": {
-    "stories": {
-      "MARXY-A": { "status": "in_review", "pr": 1 },
-      "MARXY-B": { "status": "in_review", "pr": 2 }
-    }
-  },
+  "name": "conflict: DIRTY with mergeable not CONFLICTING appears only in excluded, with why naming the conflict",
+  "deps": { "0": ["MARXY-A", "MARXY-B"] },
+  "stories": { "MARXY-A": 1, "MARXY-B": 2 },
   "pulls": {
-    "1": {
-      "files": ["packages/core/src/a.ts"],
-      "mergeStateStatus": "DIRTY",
-      "mergeable": "CONFLICTING",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    },
-    "2": {
-      "files": ["packages/typeset/src/b.ts"],
-      "mergeStateStatus": "CLEAN",
-      "mergeable": "MERGEABLE",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    }
+    "1": { "files": ["a.ts"], "mergeStateStatus": "DIRTY" },
+    "2": ["b.ts"]
   },
   "expect": {
     "orderKeys": ["MARXY-B"],
     "notInOrder": ["MARXY-A"],
-    "excluded": [
-      { "key": "MARXY-A", "why": "conflict", "notInOrder": true }
-    ]
+    "excluded": [{ "key": "MARXY-A", "why": "DIRTY", "notInOrder": true }]
   }
 }

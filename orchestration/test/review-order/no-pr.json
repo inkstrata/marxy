@@ -1,30 +1,11 @@
 {
   "name": "excluded: in_review without a PR number carries a why and is not in order",
-  "now": "2026-09-18T12:00:00.000Z",
-  "deps": {
-    "phases": {
-      "0": ["MARXY-A", "MARXY-B"]
-    }
-  },
-  "state": {
-    "stories": {
-      "MARXY-A": { "status": "in_review" },
-      "MARXY-B": { "status": "in_review", "pr": 2 }
-    }
-  },
-  "pulls": {
-    "2": {
-      "files": ["packages/core/src/b.ts"],
-      "mergeStateStatus": "CLEAN",
-      "mergeable": "MERGEABLE",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    }
-  },
+  "deps": { "0": ["MARXY-A", "MARXY-B"] },
+  "stories": { "MARXY-A": null, "MARXY-B": 2 },
+  "pulls": { "2": ["b.ts"] },
   "expect": {
     "orderKeys": ["MARXY-B"],
     "notInOrder": ["MARXY-A"],
-    "excluded": [
-      { "key": "MARXY-A", "why": "no pull request number" }
-    ]
+    "excluded": [{ "key": "MARXY-A", "why": "no pull request number" }]
   }
 }

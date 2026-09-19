@@ -1,38 +1,8 @@
 {
   "name": "sort: disturbs decides while phase ties",
-  "now": "2026-09-18T12:00:00.000Z",
-  "deps": {
-    "phases": {
-      "0": ["MARXY-A", "MARXY-B", "MARXY-C"]
-    }
-  },
-  "state": {
-    "stories": {
-      "MARXY-A": { "status": "in_review", "pr": 1 },
-      "MARXY-B": { "status": "in_review", "pr": 2 },
-      "MARXY-C": { "status": "in_review", "pr": 3 }
-    }
-  },
-  "pulls": {
-    "1": {
-      "files": ["packages/core/src/shared.ts"],
-      "mergeStateStatus": "CLEAN",
-      "mergeable": "MERGEABLE",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    },
-    "2": {
-      "files": ["packages/typeset/src/alone.ts"],
-      "mergeStateStatus": "CLEAN",
-      "mergeable": "MERGEABLE",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    },
-    "3": {
-      "files": ["packages/core/src/shared.ts"],
-      "mergeStateStatus": "CLEAN",
-      "mergeable": "MERGEABLE",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    }
-  },
+  "deps": { "0": ["MARXY-A", "MARXY-B", "MARXY-C"] },
+  "stories": { "MARXY-A": 1, "MARXY-B": 2, "MARXY-C": 3 },
+  "pulls": { "1": ["shared.ts"], "2": ["alone.ts"], "3": ["shared.ts"] },
   "expect": {
     "orderKeys": ["MARXY-A", "MARXY-C", "MARXY-B"],
     "order": [

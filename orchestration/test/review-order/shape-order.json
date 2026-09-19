@@ -1,36 +1,16 @@
 {
   "name": "order: every in_review PR carries key, pr, phase, disturbs, ageHours, behind, dirty",
-  "now": "2026-09-18T12:00:00.000Z",
-  "deps": {
-    "phases": {
-      "0": ["MARXY-A"]
-    }
-  },
-  "state": {
-    "stories": {
-      "MARXY-A": { "status": "in_review", "pr": 7 }
-    }
-  },
+  "deps": { "0": ["MARXY-A"] },
+  "stories": { "MARXY-A": 7 },
   "pulls": {
     "7": {
-      "files": ["packages/core/src/a.ts"],
+      "files": ["a.ts"],
       "mergeStateStatus": "BEHIND",
-      "mergeable": "MERGEABLE",
       "createdAt": "2026-09-16T00:00:00.000Z"
     }
   },
   "expect": {
     "orderKeys": ["MARXY-A"],
-    "order": [
-      {
-        "key": "MARXY-A",
-        "pr": 7,
-        "phase": 0,
-        "disturbs": 0,
-        "ageHours": 60,
-        "behind": true,
-        "dirty": false
-      }
-    ]
+    "order": [{ "key": "MARXY-A", "pr": 7, "phase": 0, "disturbs": 0, "ageHours": 60, "behind": true, "dirty": false }]
   }
 }

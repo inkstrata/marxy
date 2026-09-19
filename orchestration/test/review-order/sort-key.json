@@ -1,32 +1,7 @@
 {
   "name": "sort: key decides while phase, disturbs and ageHours tie",
-  "now": "2026-09-18T12:00:00.000Z",
-  "deps": {
-    "phases": {
-      "0": ["MARXY-B", "MARXY-A"]
-    }
-  },
-  "state": {
-    "stories": {
-      "MARXY-B": { "status": "in_review", "pr": 2 },
-      "MARXY-A": { "status": "in_review", "pr": 1 }
-    }
-  },
-  "pulls": {
-    "1": {
-      "files": ["packages/core/src/a.ts"],
-      "mergeStateStatus": "CLEAN",
-      "mergeable": "MERGEABLE",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    },
-    "2": {
-      "files": ["packages/typeset/src/b.ts"],
-      "mergeStateStatus": "CLEAN",
-      "mergeable": "MERGEABLE",
-      "createdAt": "2026-09-17T12:00:00.000Z"
-    }
-  },
-  "expect": {
-    "orderKeys": ["MARXY-A", "MARXY-B"]
-  }
+  "deps": { "0": ["MARXY-B", "MARXY-A"] },
+  "stories": { "MARXY-B": 2, "MARXY-A": 1 },
+  "pulls": { "1": ["a.ts"], "2": ["b.ts"] },
+  "expect": { "orderKeys": ["MARXY-A", "MARXY-B"] }
 }
