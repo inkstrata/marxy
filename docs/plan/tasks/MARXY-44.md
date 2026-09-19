@@ -15,7 +15,7 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 - `apps/desktop/src/notices/blocked.ts` — replaces MARXY-26's placeholder action with the §12 table; the Details expansion; the truncation notice (`notices/truncation.ts` if it reads better separately).
 - `apps/desktop/src/commands/trust.ts` — `trust.revoke-html`, `trust.revoke-images`; one line in `commands/index.ts`.
 - The render path in `apps/desktop/src/app.ts` (or wherever MARXY-26 left the render call) — render with `policyFor(grantsFor(path))`; the first-document-of-launch re-render when `trust.json` arrives late (§12 §Persistence).
-- `fixtures/corpus/15-unclosed-script.md` — new fixture: three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose. Add its AST/HTML goldens.
+- `fixtures/corpus/16-unclosed-script.md` (the next free corpus number; take the next one if 16 is gone by then) — new fixture: three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose. Add its AST/HTML goldens.
 - `apps/desktop/test/trust.test.mjs` (app harness).
 
 ## Do this, in order
@@ -32,12 +32,12 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 | `02-readme-real-world.md` default | exactly one blocked-content notice; it names the image hosts and the simplified elements; zero page requests (no-network harness attached) |
 | click "Show this document's HTML" | `details`, `div[align=center]`, `img[width]` present; `script` absent; `javascript:` link has no `href`; `trust.json` written with `html: true`; same first visible block before and after |
 | restart the harness with that `trust.json` | no HTML action in the notice; wide render |
-| `15-unclosed-script.md` | truncation notice names line 5 and the remaining line count; it is not transient |
+| `16-unclosed-script.md` | truncation notice names line 5 and the remaining line count; it is not transient |
 | only-`<script>` document | no HTML action offered |
 | revoke | default render; entry removed from `trust.json` |
 
 ## Acceptance → check
-CSV row: notice naming what was removed → default case; opting in renders img/details/div align through the sanitiser → grant case; `javascript:` still stripped → grant case + core vector; choice persists per file → restart case; `marxy-` id refused → core story's `reserved-id` vector (cite it); never-closed removal renders a notice → `15-unclosed-script.md` case.
+CSV row: notice naming what was removed → default case; opting in renders img/details/div align through the sanitiser → grant case; `javascript:` still stripped → grant case + core vector; choice persists per file → restart case; `marxy-` id refused → core story's `reserved-id` vector (cite it); never-closed removal renders a notice → `16-unclosed-script.md` case.
 
 ## Do not
 Add a global "always trust" switch. Show the HTML action when it would change nothing. Fetch anything. Put trust state in `config.toml`.
