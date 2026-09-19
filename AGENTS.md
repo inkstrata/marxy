@@ -62,6 +62,9 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
 - **Branches:** `type/MARXY-123-short-slug` off `main`, where the key is the real Jira key in
   project MARXY. `main` is always releasable; no direct pushes. Squash on merge; the PR
   description is the durable record. The process on one page: `docs/sdlc.md`.
+- **Work outside the plan:** get a key with `node orchestration/jira.mjs task "summary"`
+  (creates a Task labelled `out-of-plan` and prints the key), then branch `type/KEY-slug`
+  off `main`. That is the supported path; do not invent a key or skip the board.
 - **Commits, PRs, comments, reviews, tags:** `docs/conventions.md`. The one rule under all of
   them: a plain-language summary first, technical detail after, agent detail folded away.
   Conventional Commits with the Jira key in the subject; the PR template's order is enforced;

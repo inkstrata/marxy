@@ -1,6 +1,7 @@
 // The Jira bridge: Jira is the board of record, the CSV is the machine-readable story spec.
-// node orchestration/jira.mjs <doctor|bootstrap|sync|move|comment|pr|release|migrate-ids> [args]
+// node orchestration/jira.mjs <doctor|bootstrap|sync|move|comment|pr|task|release|migrate-ids> [args]
 // Credentials come from ~/.config/marxy/jira.env (never the repo) or the environment.
+// Out-of-plan work uses `task` so it can get a key without a CSV row (MARXY-101).
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -27,6 +28,11 @@ const args = process.argv.slice(2);
 const flag = f => { const i = args.indexOf(f); if (i >= 0) args.splice(i, 1); return i >= 0; };
 const DRY = flag('--dry-run'), YES = flag('--yes');
 const [cmd, ...rest] = args;
+// `node --test` sets NODE_TEST_CONTEXT (and may pass --test in execArgv). The CLI must not run then.
+const underTest = Boolean(process.env.NODE_TEST_CONTEXT)
+  || process.execArgv.some(a => a === '--test' || a.startsWith('--test='));
+const AUTH = ['doctor', 'bootstrap', 'sync', 'push', 'move', 'comment', 'pr', 'release', 'project'];
+// `task --dry-run` must create nothing and must not need credentials, so tests can prove the path.
 
 function env() {
   const file = existsSync(ENV_FILE) ? Object.fromEntries(readFileSync(ENV_FILE, 'utf8').split('\n')
@@ -45,7 +51,7 @@ function env() {
   return e;
 }
 
-const E = ['doctor', 'bootstrap', 'sync', 'push', 'move', 'comment', 'pr', 'release', 'project'].includes(cmd) ? env() : null;
+const E = !underTest && (AUTH.includes(cmd) || (cmd === 'task' && !DRY)) ? env() : null;
 const auth = () => 'Basic ' + Buffer.from(`${E.JIRA_EMAIL}:${E.JIRA_API_TOKEN}`).toString('base64');
 async function api(path, init = {}, base = '/rest/api/3') {
   const url = `${E.JIRA_BASE_URL}${base}${path}`;
@@ -113,6 +119,36 @@ async function project(sub) {
     }),
   });
   console.log(`created project ${created.key ?? E.JIRA_PROJECT_KEY}`);
+}
+
+/** Fields posted for an out-of-plan Task. Dry-run and create share this so the label cannot drift. */
+function taskFields(summary, text, projectKey) {
+  const fields = {
+    project: { key: projectKey },
+    issuetype: { name: 'Task' },
+    summary,
+    labels: ['out-of-plan'],
+  };
+  if (text) fields.description = doc(text);
+  return fields;
+}
+
+// Work that is not a planned story still needs a Jira key. A Task labelled out-of-plan is the
+// supported path; `--dry-run` prints the payload and creates nothing.
+async function task(summary, text) {
+  if (!summary) { console.error('usage: jira.mjs task "summary" ["text"]'); process.exit(2); }
+  const fields = taskFields(summary, text, E?.JIRA_PROJECT_KEY ?? 'MARXY');
+  if (DRY) {
+    console.log(`[dry-run] POST /issue ${JSON.stringify({ fields })}`);
+    console.log('(dry-run)');
+    return;
+  }
+  const p = await api(`/project/${E.JIRA_PROJECT_KEY}`);
+  const type = p.issueTypes.find(t => t.name === 'Task');
+  if (!type) { console.error('project has no Task issue type'); process.exit(2); }
+  fields.issuetype = { id: type.id };
+  const created = await api('/issue', { method: 'POST', body: JSON.stringify({ fields }) });
+  console.log(created.key);
 }
 
 // First run: create every epic and story in CSV order so the Jira numbers follow the plan order.
@@ -261,6 +297,7 @@ function migrateIds() {
   console.log(`${DRY ? 'would rewrite' : 'rewrote'} ${touched} files (fixtures/ and fonts/ untouched by rule)`);
 }
 
+if (!underTest) {
 switch (cmd) {
   case 'doctor': await doctor(); break;
   case 'project': await project(rest[0] ?? 'create'); break;
@@ -270,6 +307,7 @@ switch (cmd) {
   case 'move': await move(rest[0], rest[1]); break;
   case 'comment': await comment(rest[0], rest.slice(1).join(' ')); break;
   case 'pr': await pr(rest[0], rest[1]); break;
+  case 'task': await task(rest[0], rest.slice(1).join(' ')); break;
   case 'release': await release(rest[0], rest[1]); break;
   case 'migrate-ids': migrateIds(); break;
   default:
@@ -282,7 +320,109 @@ switch (cmd) {
   move KEY <${Object.keys(STATUS).join('|')}>
   comment KEY "text"
   pr KEY <number>              link the PR on the issue and move it to review
+  task "summary" ["text"]      create an out-of-plan Task and print its key
   release <phase> <tag>        create/release the version and stamp the phase's issues
   migrate-ids                  rewrite plan ids to Jira keys across the repo`);
     process.exit(2);
+}
+} else {
+  const { default: test } = await import('node:test');
+  const assert = await import('node:assert/strict');
+  const { spawnSync, execFileSync } = await import('node:child_process');
+  const { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  const repoRoot = fileURLToPath(new URL('..', import.meta.url));
+  const hookPath = join(repoRoot, '.githooks/commit-msg');
+  const self = fileURLToPath(import.meta.url);
+
+  function cliEnv(extra = {}) {
+    const env = { ...process.env, ...extra };
+    delete env.NODE_TEST_CONTEXT;
+    return env;
+  }
+
+  function runTask(argv, extraEnv = {}) {
+    return spawnSync(process.execPath, [self, ...argv], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: cliEnv(extraEnv),
+    });
+  }
+
+  function cleanGitEnv(extra = {}) {
+    const env = { ...process.env, ...extra };
+    delete env.GIT_DIR;
+    delete env.GIT_WORK_TREE;
+    delete env.GIT_COMMON_DIR;
+    delete env.NODE_TEST_CONTEXT;
+    return env;
+  }
+
+  function runHook(message, { cwd, env } = {}) {
+    const dir = mkdtempSync(join(tmpdir(), 'marxy-101-msg-'));
+    const file = join(dir, 'msg');
+    writeFileSync(file, message.endsWith('\n') ? message : `${message}\n`);
+    try {
+      return spawnSync(hookPath, [file], {
+        encoding: 'utf8',
+        cwd: cwd ?? repoRoot,
+        env: cleanGitEnv(env),
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test('taskFields is a Task labelled out-of-plan', () => {
+    const fields = taskFields('a summary', 'body text', 'MARXY');
+    assert.equal(fields.issuetype.name, 'Task');
+    assert.deepEqual(fields.labels, ['out-of-plan']);
+    assert.equal(fields.summary, 'a summary');
+    assert.equal(fields.project.key, 'MARXY');
+    assert.ok(fields.description);
+  });
+
+  test('jira.mjs task without a summary prints usage and creates nothing', () => {
+    const r = runTask(['task']);
+    assert.equal(r.status, 2);
+    assert.match(`${r.stdout}${r.stderr}`, /usage: jira\.mjs task/);
+    assert.doesNotMatch(`${r.stdout}${r.stderr}`, /POST \/issue/);
+  });
+
+  test('jira.mjs task --dry-run prints the key placeholder and creates nothing', () => {
+    const r = runTask(['task', '--dry-run', 'out-of-plan dry-run']);
+    assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
+    assert.match(r.stdout, /\[dry-run\] POST \/issue/);
+    assert.match(r.stdout, /"name":"Task"/);
+    assert.match(r.stdout, /"out-of-plan"/);
+    assert.match(r.stdout, /\(dry-run\)/);
+    assert.doesNotMatch(r.stdout, /MARXY-\d+/);
+  });
+
+  test('commit-msg exits non-zero when commitlint is missing and prints run pnpm install first', () => {
+    const fake = mkdtempSync(join(tmpdir(), 'marxy-101-none-'));
+    execFileSync('git', ['init', '-q'], { cwd: fake });
+    chmodSync(hookPath, 0o755);
+    const missing = runHook('fix(orchestration): short (MARXY-101)', { cwd: fake });
+    rmSync(fake, { recursive: true, force: true });
+    assert.notEqual(missing.status, 0);
+    assert.match(`${missing.stdout}${missing.stderr}`, /run pnpm install first/);
+  });
+
+  test('commit-msg still fails a bad subject when commitlint is present', () => {
+    chmodSync(hookPath, 0o755);
+    const bad = runHook('not a conventional commit', { cwd: repoRoot });
+    assert.notEqual(bad.status, 0, `${bad.stdout}${bad.stderr}`);
+    assert.match(`${bad.stdout}${bad.stderr}`, /subject-empty|type-empty|marxy-key-in-subject|commitlint/);
+  });
+
+  test('AGENTS.md has a Work outside the plan rule naming jira.mjs task and type/KEY-slug', () => {
+    const agents = readFileSync(join(repoRoot, 'AGENTS.md'), 'utf8');
+    assert.match(agents, /Work outside the plan/);
+    assert.match(agents, /jira\.mjs task/);
+    assert.match(agents, /type\/KEY-slug/);
+  });
 }
