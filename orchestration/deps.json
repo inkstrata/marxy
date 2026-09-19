@@ -1,54 +1,32 @@
 {
-  "_note": "Dependencies by Jira key (docs/plan/jira-issues.csv, project MARXY). A story is ready when all deps are done. Every story in the CSV appears in exactly one phase; `phases` is declarative today — ready.mjs does not read it until MARXY-9 lands. A phase is also a Jira version: `jira.mjs release <phase> <tag>`.",
+  "_note": "Dependencies by Jira key (docs/plan/jira-issues.csv, project MARXY). A story is ready when all deps are done. Every story in the CSV appears in exactly one phase. A non-numeric phase (`ops`) is a lane beside the numbered phases: it never holds one and is never held by one (MARXY-107). A phase is also a Jira version: `jira.mjs release <phase> <tag>`.",
   "phases": {
     "0": [
       "MARXY-5",
       "MARXY-6",
       "MARXY-7",
-      "MARXY-8",
       "MARXY-9",
       "MARXY-10",
       "MARXY-11",
       "MARXY-12",
       "MARXY-13",
       "MARXY-14",
-      "MARXY-15",
-      "MARXY-16",
       "MARXY-17",
       "MARXY-55",
       "MARXY-57",
       "MARXY-58",
-      "MARXY-59",
       "MARXY-60",
       "MARXY-61",
       "MARXY-62",
       "MARXY-63",
       "MARXY-69",
-      "MARXY-70",
-      "MARXY-65",
       "MARXY-66",
-      "MARXY-79",
       "MARXY-71",
-      "MARXY-77",
-      "MARXY-78",
-      "MARXY-80",
-      "MARXY-81",
-      "MARXY-82",
-      "MARXY-85",
-      "MARXY-91",
-      "MARXY-90",
       "MARXY-100",
       "MARXY-102",
       "MARXY-104",
-      "MARXY-105",
-      "MARXY-92",
-      "MARXY-101",
-      "MARXY-106",
-      "MARXY-107",
-      "MARXY-108",
       "MARXY-109",
-      "MARXY-110",
-      "MARXY-111"
+      "MARXY-110"
     ],
     "1": [
       "MARXY-19",
@@ -73,7 +51,8 @@
       "MARXY-84",
       "MARXY-75",
       "MARXY-93",
-      "MARXY-94"
+      "MARXY-94",
+      "MARXY-95"
     ],
     "2": [
       "MARXY-33",
@@ -84,8 +63,7 @@
       "MARXY-87",
       "MARXY-37",
       "MARXY-38",
-      "MARXY-39",
-      "MARXY-95"
+      "MARXY-39"
     ],
     "3": [
       "MARXY-41",
@@ -106,6 +84,30 @@
       "MARXY-52",
       "MARXY-53",
       "MARXY-54"
+    ],
+    "ops": [
+      "MARXY-8",
+      "MARXY-15",
+      "MARXY-16",
+      "MARXY-59",
+      "MARXY-65",
+      "MARXY-70",
+      "MARXY-77",
+      "MARXY-78",
+      "MARXY-79",
+      "MARXY-80",
+      "MARXY-81",
+      "MARXY-82",
+      "MARXY-85",
+      "MARXY-90",
+      "MARXY-91",
+      "MARXY-92",
+      "MARXY-101",
+      "MARXY-105",
+      "MARXY-106",
+      "MARXY-107",
+      "MARXY-108",
+      "MARXY-111"
     ]
   },
   "deps": {

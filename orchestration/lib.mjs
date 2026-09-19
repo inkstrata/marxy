@@ -87,11 +87,12 @@ export function phaseOf(key, d = deps()) {
   return null;
 }
 
-/** True when any story in a lower phase is still todo or in_progress. */
+/** True when any story in a lower numbered phase is still todo or in_progress. */
 export function earlierPhaseOpen(phase, d, s) {
   if (phase == null || !Number.isFinite(phase)) return false;
   for (const [p, keys] of Object.entries(d.phases || {})) {
-    if (Number(p) >= phase) continue;
+    // A non-numeric phase (`ops`) is a lane beside the numbered phases, not an earlier one.
+    if (!Number.isFinite(Number(p)) || Number(p) >= phase) continue;
     if ((keys || []).some(k => {
       const status = s.stories[k]?.status ?? 'todo';
       return status === 'todo' || status === 'in_progress';
