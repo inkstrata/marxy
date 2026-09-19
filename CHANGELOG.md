@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Design documents and a task card for every Phase 3–4 story: per-document trust for HTML and remote images (fetched only by the shell, only on consent — the page itself never touches the network), the release and v1 checklist, and ADR-0026/0027; five new stories (MARXY-93–97) close gaps found on the way (MARXY-98)
 - The agent loop now merges only the commit that was approved, refreshes one out-of-date pull request at a time, and will not dispatch onto a plan that is due to change (MARXY-106)
 - Process work now has its own lane beside the numbered phases, so leftover fleet and CI stories no longer hold the page (MARXY-107)
 - Paragraphs are line-broken as a whole, the way a book is set: the right edge is evener, holes at line ends are a third as common, and the text still selects, copies and searches exactly as before (MARXY-23)
