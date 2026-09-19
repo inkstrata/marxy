@@ -34,6 +34,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- Merging `main` into a story branch no longer fails the commit hook with every file the merge carried; a merge commit answers for what its author resolved (MARXY-85)
 - A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
 - The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
 - CI can build again on Linux: the webview dependencies are installed rather than restored from a cache that dropped their metadata, and a check keeps third-party actions out of our builds (MARXY-90)
