@@ -52,7 +52,11 @@
       "MARXY-75",
       "MARXY-93",
       "MARXY-94",
-      "MARXY-95"
+      "MARXY-95",
+      "MARXY-128",
+      "MARXY-129",
+      "MARXY-130",
+      "MARXY-133"
     ],
     "2": [
       "MARXY-33",
@@ -116,7 +120,9 @@
       "MARXY-122",
       "MARXY-115",
       "MARXY-125",
-      "MARXY-126"
+      "MARXY-126",
+      "MARXY-131",
+      "MARXY-132"
     ]
   },
   "deps": {
@@ -441,7 +447,29 @@
     "MARXY-115": [],
     "MARXY-125": [],
     "MARXY-126": [
+      "MARXY-125",
+      "MARXY-131"
+    ],
+    "MARXY-131": [
       "MARXY-125"
+    ],
+    "MARXY-132": [
+      "MARXY-95"
+    ],
+    "MARXY-133": [
+      "MARXY-131"
+    ],
+    "MARXY-128": [
+      "MARXY-20",
+      "MARXY-23"
+    ],
+    "MARXY-129": [
+      "MARXY-128",
+      "MARXY-133"
+    ],
+    "MARXY-130": [
+      "MARXY-64",
+      "MARXY-75"
     ]
   },
   "research": {
