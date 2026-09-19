@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - Every element on the page now knows which bytes of the file it came from, and a document cannot claim bytes it did not write; inline HTML such as `<kbd>Ctrl</kbd>` keeps its shape (MARXY-75)
+- Lint now runs through biome: an unused import fails the build, the formatter only checks, and it never rewrites the fixture corpus or the fonts (MARXY-8)
 - Out-of-plan work has a supported path: `jira.mjs task` creates a labelled Task and prints the key, and a missing commitlint fails the commit instead of skipping (MARXY-101)
 - An approval run now ends with one table of every open pull request in merge order — CI, mergeability, approval, who it waits on, and what happens next (MARXY-92)
 - Review is capped at four in-flight pull requests, only the next branch in the computed order is updated each cycle, and an approval cannot be signed until that pull request is first, current and clean (MARXY-81)
@@ -38,6 +39,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- Fast CI no longer fails the readiness three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-108)
 - Merging `main` into a story branch no longer fails the commit hook with every file the merge carried; a merge commit answers for what its author resolved (MARXY-85)
 - A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
 - The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)

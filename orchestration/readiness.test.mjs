@@ -50,6 +50,52 @@ function story(key, paths) {
   return { Key: key, Paths: paths, Acceptance: 'observable', Labels: 'phase-0' };
 }
 
+const BOARD_FILES = [
+  'orchestration/deps.json',
+  'orchestration/jira-map.json',
+  'docs/plan/jira-issues.csv',
+];
+
+// Shallow CI checkouts often have no origin/main; throwing on the three-dot
+// range held every non-docs PR, including ones that never touched the board (MARXY-108).
+function resolveThreeDotBase(opts, git = execFileSync) {
+  for (const ref of ['origin/main', 'main']) {
+    try {
+      git('git', ['rev-parse', '--verify', ref], {
+        cwd: opts.cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      return ref;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+function threeDotNames(base, opts, git = execFileSync) {
+  return git('git', ['diff', '--name-only', `${base}...HEAD`], {
+    cwd: opts.cwd,
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .filter(Boolean);
+}
+
+function runThreeDotBoardCheck({ resolveBase, listNames, skip }) {
+  const base = resolveBase();
+  if (!base) {
+    skip('neither origin/main nor main is a resolvable git ref');
+    return 'skipped';
+  }
+  const names = listNames(base);
+  for (const f of BOARD_FILES) {
+    assert.ok(!names.includes(f), f);
+  }
+  return 'asserted';
+}
+
 test('readiness.mjs binds evaluate to merge-bar.mjs, and a fixture fails if collect calls another', () => {
   const src = readFileSync(join(here, 'readiness.mjs'), 'utf8');
   assert.match(src, /import\s*\{[^}]*\bevaluate\b[^}]*\}\s*from\s*['"]\.\/merge-bar\.mjs['"]/);
@@ -200,12 +246,100 @@ test('the reviewer prompt says to print the table at the end of a merge verdict'
   assert.match(text, /end of a merge verdict/i);
 });
 
-test('the three-dot diff does not contain the board files MARXY-107 owns', () => {
-  const names = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], {
-    cwd: join(here, '..'),
-    encoding: 'utf8',
-  }).split('\n').filter(Boolean);
-  for (const f of ['orchestration/deps.json', 'orchestration/jira-map.json', 'docs/plan/jira-issues.csv']) {
-    assert.ok(!names.includes(f), f);
+test('the three-dot diff does not contain the board files MARXY-107 owns', t => {
+  const cwd = join(here, '..');
+  runThreeDotBoardCheck({
+    resolveBase: () => resolveThreeDotBase({ cwd }),
+    listNames: base => threeDotNames(base, { cwd }),
+    skip: reason => t.skip(reason),
+  });
+});
+
+test('resolveThreeDotBase returns null when neither origin/main nor main verifies', () => {
+  const calls = [];
+  const git = (_cmd, args) => {
+    calls.push(args);
+    const err = new Error('fatal: Needed a single revision');
+    err.status = 128;
+    throw err;
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, git), null);
+  assert.deepEqual(calls, [
+    ['rev-parse', '--verify', 'origin/main'],
+    ['rev-parse', '--verify', 'main'],
+  ]);
+});
+
+test('resolveThreeDotBase prefers origin/main, then main', () => {
+  const originFirst = (_cmd, args) => {
+    if (args.includes('origin/main')) return 'abc\n';
+    throw new Error('must not fall through when origin/main verifies');
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, originFirst), 'origin/main');
+
+  const mainOnly = (_cmd, args) => {
+    if (args.includes('origin/main')) throw new Error('missing');
+    if (args.includes('main')) return 'def\n';
+    throw new Error('unexpected ref');
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, mainOnly), 'main');
+});
+
+test('the three-dot board check skips when no base ref resolves', () => {
+  let reason;
+  const result = runThreeDotBoardCheck({
+    resolveBase: () => null,
+    listNames: () => {
+      throw new Error('must not run git diff without a base');
+    },
+    skip: r => {
+      reason = r;
+    },
+  });
+  assert.equal(result, 'skipped');
+  assert.match(reason, /neither origin\/main nor main/);
+});
+
+test('threeDotNames asks git for the three-dot name list against the resolved base', () => {
+  const calls = [];
+  const git = (_cmd, args) => {
+    calls.push(args);
+    return 'packages/core/src/parse.ts\nCHANGELOG.md\n';
+  };
+  assert.deepEqual(threeDotNames('origin/main', { cwd: '/tmp' }, git), [
+    'packages/core/src/parse.ts',
+    'CHANGELOG.md',
+  ]);
+  assert.deepEqual(calls, [['diff', '--name-only', 'origin/main...HEAD']]);
+});
+
+test('the three-dot board check asserts board files are absent when a base resolves', () => {
+  let seenBase;
+  const result = runThreeDotBoardCheck({
+    resolveBase: () => 'origin/main',
+    listNames: base => {
+      seenBase = base;
+      return ['packages/core/src/parse.ts', 'CHANGELOG.md'];
+    },
+    skip: () => {
+      throw new Error('must not skip when a base resolves');
+    },
+  });
+  assert.equal(result, 'asserted');
+  assert.equal(seenBase, 'origin/main');
+});
+
+test('the three-dot board check fails when a board file is in the three-dot name list', () => {
+  for (const file of BOARD_FILES) {
+    assert.throws(
+      () =>
+        runThreeDotBoardCheck({
+          resolveBase: () => 'main',
+          listNames: () => [file],
+          skip: () => {
+            throw new Error('must not skip when a base resolves');
+          },
+        }),
+    );
   }
 });

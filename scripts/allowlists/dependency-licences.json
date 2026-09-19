@@ -5,6 +5,7 @@
     { "match": "@rollup/rollup-*", "licence": "MIT", "source": "https://registry.npmjs.org/@rollup%2frollup-linux-x64-gnu/latest", "reason": "rollup native bindings, one per target" },
     { "match": "@tauri-apps/cli-*", "licence": "Apache-2.0 OR MIT", "source": "https://registry.npmjs.org/@tauri-apps%2fcli-linux-x64-gnu/latest", "reason": "Tauri CLI binaries, one per target" },
     { "match": "@napi-rs/lzma-*", "licence": "MIT", "source": "https://registry.npmjs.org/@napi-rs%2flzma-linux-x64-gnu/latest", "reason": "lzma native bindings, one per target" },
-    { "match": "fsevents", "licence": "MIT", "source": "https://registry.npmjs.org/fsevents/latest", "reason": "macOS-only file watcher, absent on Linux and Windows runners" }
+    { "match": "fsevents", "licence": "MIT", "source": "https://registry.npmjs.org/fsevents/latest", "reason": "macOS-only file watcher, absent on Linux and Windows runners" },
+    { "match": "@biomejs/cli-*", "licence": "MIT OR Apache-2.0", "source": "https://registry.npmjs.org/@biomejs%2fcli-linux-x64/2.5.5", "reason": "biome platform binaries, one per target" }
   ]
 }
