@@ -1,0 +1,62 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!fixtures/corpus",
+      "!fonts",
+      "!!fixtures/corpus",
+      "!!fonts",
+      "!!**/dist",
+      "!!**/target",
+      "!!results"
+    ]
+  },
+  "assist": {
+    "enabled": false
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "includes": [
+      "biome.json",
+      "package.json",
+      "packages/*/package.json",
+      "apps/desktop/package.json"
+    ]
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "none",
+      "correctness": {
+        "noUnusedImports": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "orchestration/jira.mjs",
+        "packages/core/src/index-model/walk.test.ts",
+        "scripts/check-story.mjs",
+        "scripts/new.mjs"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ]
+}

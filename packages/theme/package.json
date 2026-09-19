@@ -1,1 +1,14 @@
-{ "name": "@marxy/theme", "version": "0.0.0", "private": true, "license": "MIT", "type": "module", "description": "The default theme and the --marxy-* token contract.", "scripts": { "build": "echo 'css only'", "typecheck": "echo ok", "lint": "node scripts/lint-default-theme.mjs", "test": "node scripts/lint-default-theme.mjs" } }
+{
+  "name": "@marxy/theme",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "The default theme and the --marxy-* token contract.",
+  "scripts": {
+    "build": "echo 'css only'",
+    "typecheck": "echo ok",
+    "lint": "biome check --formatter-enabled=false . && node scripts/lint-default-theme.mjs",
+    "test": "node scripts/lint-default-theme.mjs"
+  }
+}
