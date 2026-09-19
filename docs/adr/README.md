@@ -31,3 +31,4 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0025](0025-review-order-and-review-wip.md) | Review order and a WIP limit on review | accepted |
 | [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |
 | [0029](0029-no-product-cold-start-ceiling.md) | There is no product cold-start ceiling | accepted |
+| [0030](0030-grid-unit-is-half-a-line.md) | The grid unit is half the body line box | proposed |

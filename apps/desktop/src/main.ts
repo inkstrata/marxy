@@ -2,6 +2,7 @@
 // startup marks, exit when asked. All privileged work goes through ./shell (ADR-0010, ADR-0020).
 import { parseMarkdown, type Document } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import { snapToGrid } from '@marxy/typeset';
 import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
 import { shell } from './shell/tauri.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
@@ -66,6 +67,27 @@ async function finish(code: number): Promise<void> {
   if (await inHarness()) await shell.quit(code);
 }
 
+/**
+ * The grid pass (ADR-0030), now and whenever heights can change under it: when fonts arrive and
+ * when the column is resized. Reading position is re-read after each, because tops move.
+ */
+function keepOnGrid(article: HTMLElement): void {
+  const snap = () => {
+    snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
+    if (state.document) state.document.blocks = buildBlocks(article, state.document.nodeMap);
+  };
+  snap();
+  void document.fonts.ready.then(snap);
+  let pending = 0;
+  let width = article.clientWidth;
+  new ResizeObserver(() => {
+    if (article.clientWidth === width) return;
+    width = article.clientWidth;
+    clearTimeout(pending);
+    pending = window.setTimeout(snap, 100);
+  }).observe(article);
+}
+
 async function main() {
   await shell.mark('script_start', t0);
   launchArgs = await shell.args();
@@ -96,6 +118,7 @@ async function main() {
   state.document = { ast, html, nodeMap, blocks: [] };
   document.title = `${file.split('/').pop()} — marxy`;
 
+  keepOnGrid(doc);
   const evidence = renderEvidence(doc);
   state.document.blocks = buildBlocks(doc, nodeMap);
   const renderedAt = Date.now();

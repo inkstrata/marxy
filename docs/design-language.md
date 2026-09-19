@@ -10,11 +10,12 @@ enforced by the mechanical aesthetics gate where a machine can check them (ADR-0
    so it holds at whatever size the reader chooses. Every incumbent caps in `px`, which
    degrades the measure exactly when a reader enlarges the type to read more comfortably.
    *Gate:* measure between 60 and 75 `ch` at every size from 14 to 24 px.
-2. **One baseline grid.** Every vertical space is an integer multiple of the body line box
-   (28 px in the default theme). Headings, code, images, lists, quotes and math land on it.
+2. **One baseline grid.** Body lines are whole line boxes (28 px in the default theme), and
+   every vertical space is an integer multiple of **half** a line box, so paragraphs can sit
+   14 px apart (ADR-0030). Headings, code, images, lists, quotes and math land on it.
    The point is that a long document never accumulates drift; a reader is judged on the fourth
-   page. Themes set the unit; marxy enforces the multiples. *Gate:* every block's top edge
-   sits on a grid line ± 0.5 px across the corpus.
+   page. Themes set the line box; marxy enforces the multiples. *Gate:* every block's top edge
+   sits on a multiple of half a line box ± 0.5 px across the corpus.
 3. **Space belongs above.** A heading gets ~2.5× more space above than below, binding it to
    what it introduces. Getting this backwards is what makes Obsidian's default feel wrong.
 4. **Hierarchy from size and weight only.** No coloured headings, no rules as decoration, no

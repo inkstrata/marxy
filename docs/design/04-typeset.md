@@ -99,12 +99,16 @@ off and on, and the on setting ships if it does not increase short lines.
 
 ## Grid (D-A7)
 
-Text blocks satisfy the grid by CSS construction (§05). `snapToGrid` handles the rest:
-for each direct child of the article (and each `pre`, `img`, `table`, `.marxy-math`, island
-element anywhere), compute `outer = marginTop + height + marginBottom`; if `outer mod lineBox`
-is not 0 (± 0.5 px), add `padding-bottom` so that it is. Images centre vertically inside the
-padded box (`display: block; margin-inline: auto`). Runs once after each typeset pass and after
-each image or KaTeX load (ResizeObserver on those elements, batched to one frame).
+Text blocks satisfy the grid by CSS construction (§05). The unit is half the line box (ADR-0030).
+`snapToGrid(article, lineBox)` (`src/grid.ts`) handles the rest in two measured steps, three
+layouts in all: (1) each `pre`, block `img`, `table` and `.marxy-math` anywhere has its height
+padded (`padding-bottom`) to a whole number of units, because its margins already are; (2) the
+article's block children are read in order, and any whose top is off the grid pushes the block
+before it down by the difference (the article's own `padding-top` when there is none). Summing
+`marginTop + height + marginBottom` per child, as first designed, is wrong wherever margins
+collapse and pads headings whose margins already close their remainder. The elements a run padded
+are remembered per article (a `WeakMap`) and undone before the next run. Runs after render, after `document.fonts.ready`,
+on a width change (debounced 100 ms), and after each typeset pass and image or KaTeX load.
 
 ## Kill switch and diagnostics
 

@@ -32,6 +32,12 @@ importers:
       '@marxy/shell-api':
         specifier: workspace:*
         version: link:../../packages/shell-api
+      '@marxy/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
+      '@marxy/typeset':
+        specifier: workspace:*
+        version: link:../../packages/typeset
       '@tauri-apps/api':
         specifier: ^2.11.1
         version: 2.11.1
@@ -101,7 +107,14 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/theme: {}
+  packages/theme:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.5
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/typeset:
     dependencies:

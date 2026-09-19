@@ -18,59 +18,49 @@ time (startup path, §00). A user theme is injected after them as `<style id="ma
 
 ## base.css — the rules, with the formulas
 
-All lengths in `px` derive from tokens; nothing is hard-coded. `mod()` is the CSS function
-(WebKit 15.4+, Chromium 125+, WebKitGTK 2.36+); `--lb` is shorthand for `var(--marxy-line-box)`.
+The file is `packages/theme/src/base.css` (MARXY-20); read it rather than a copy here. All
+lengths derive from tokens; no margin or padding is a bare `px` value (the lint checks). `mod()`,
+`round()` and `pow()` are CSS functions (WebKit 15.4+, WebKitGTK 2.36+). `--lb` is the line box,
+`--marxy-half` half of it, and the grid unit is `--marxy-half` (ADR-0030).
 
-```css
-.marxy-article {
-  max-width: var(--marxy-measure);           /* ch, so it holds at any size (constraint 1) */
-  margin-inline: auto;
-  padding: calc(var(--lb) * 2) 24px;
-  font: var(--marxy-weight-body) var(--marxy-size-body) / var(--lb) var(--marxy-font-text);
-  font-optical-sizing: auto;
-  font-variation-settings: 'wght' calc(var(--marxy-weight-body) + var(--marxy-weight-offset));
-  color: var(--marxy-color-text); background: var(--marxy-color-bg);
-  hanging-punctuation: none;                 /* the typesetter hangs; the engine must not double it */
-  color-scheme: dark light;
-  text-wrap: auto;                           /* never pretty/balance on body: the typesetter owns breaks */
-}
-/* type scale: sizes from the ratio; line boxes per role are tokens the theme sets */
-h1 { font-size: var(--marxy-size-h1); line-height: var(--marxy-lh-h1); margin: 0 0 mod(calc(-1 * var(--marxy-lh-h1)), var(--lb)); }
-h2 { font-size: var(--marxy-size-h2); line-height: var(--marxy-lh-h2);
-     margin: calc(var(--lb) * 2) 0 mod(calc(-1 * (var(--marxy-lh-h2) + var(--lb) * 2)), var(--lb)); }
-h3 { font-size: var(--marxy-size-h3); line-height: var(--lb); margin: var(--lb) 0 0; }
-h4, h5, h6 { font-size: var(--marxy-size-body); line-height: var(--lb); margin: var(--lb) 0 0; font-weight: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset)); }
-p, ul, ol, blockquote, table, .marxy-math { margin: 0 0 calc(var(--lb) / 2); }   /* 14px at 28 */
-p + p { margin-top: 0; }                                                            /* rhythm: half a line between paragraphs, pairs sum to whole lines */
-li { line-height: var(--lb); }
-pre { margin: var(--lb) 0; padding: calc(var(--lb) / 2) var(--marxy-code-padding); line-height: var(--marxy-line-box-code);
-      font: var(--marxy-size-code) / var(--marxy-line-box-code) var(--marxy-font-mono); background: var(--marxy-color-code-bg);
-      white-space: pre-wrap; text-indent: -2ch; padding-left: calc(var(--marxy-code-padding) + 2ch); }
-code { font-family: var(--marxy-font-mono); font-size: 0.875em; }                 /* inline; x-height matched by family choice, not by shrinking */
-blockquote { padding-inline-start: calc(var(--lb) / 2); border-inline-start: var(--marxy-quote-rule-width) solid var(--marxy-color-quote-rule); }
-img { display: block; max-width: 100%; height: auto; margin-inline: auto; }
-table { border-collapse: collapse; font-size: var(--marxy-size-caption); line-height: calc(var(--lb) * 6 / 7); } /* 24 at 28 */
-td, th { border-bottom: 1px solid var(--marxy-color-rule); padding: 1px 10px 1px 0; }      /* 24 + 2 = 26; snapToGrid pads the table */
-strong { font-weight: calc(var(--marxy-weight-strong) + var(--marxy-weight-offset)); }
-a { color: var(--marxy-color-link); text-decoration-thickness: 1px; text-underline-offset: 0.12em; }
-.marxy-selected { box-shadow: -3px 0 0 var(--marxy-color-accent); }
-.marxy-set { white-space: nowrap; }        /* set by the typesetter */
-.marxy-hang { display: inline-block; }     /* margin applied inline by the typesetter */
-```
+| Rule | Formula | At 17 / 28 |
+| --- | --- | --- |
+| Article | `max-width: clamp(45ch, measure, 90ch)`, padding `3lb 3rem 5lb` | 68 ch ≈ 670 px |
+| Role sizes | `--marxy-size-hN = round(body × ratio^k, 1px)`, k = 3, 2, 1 | 33, 27, 21 |
+| Heading line box | `min(max(token, round(up, 1.2 × size, 2px)), 2lb)` | 40, 34 |
+| h1, h2 margin | `2lb` above; below `half + mod(−(lh + 2lb), half)` | h2 56 / 34 / 22 |
+| h3 … h6 | one line box, `lb` above, `half` below | 28 / 14 |
+| p, lists, quotes, tables | `margin: 0 0 half` | 14 between |
+| Lists | top-level markers hang in the margin; nested lists indent `1.25em`; markers secondary colour | |
+| Task items | the checkbox hangs where the bullet would be; no bullet | |
+| Code block | `lb` above and below, `half` padding, code line box token, padded to the unit by `snapToGrid` | 28 / 14 / 22 |
+| Code wrap | `white-space: pre-wrap; text-indent: 2ch hanging each-line` | |
+| Inline code, kbd | mono at `0.875em`, **no box**, `line-height: 1` so its line never grows | |
+| Table | block, rows one line box, rules as inset shadows (no height), text `0.88 × body`, tabular figures | 15 / 28 |
+| hr | one line box of space with a centred `* * *` in the secondary colour, `half` around it; not set directly before an h1 or h2 | |
+| Footnotes | body size, secondary colour, after a short quarter-width rule; `sup`/`sub` `line-height: 0` | |
+| Weight | `--marxy-wght = token + offset` drives `font-weight` **and** `font-variation-settings: 'wght'` on every descendant | 380 / 600 / 700 |
 
-Why `p + p` gets half a line: two half-line gaps between three paragraphs sum to a whole line,
-and a paragraph's own height is always whole lines, so the article never drifts. Headings use
-`mod()` to close the remainder: for h2 with `lh 34` and two lines above, `mod(-90, 28) = 22`
-below — the design-language numbers (`56 / 22`) fall out of the formula rather than being typed.
+Departures from the first version of this section, each forced by a measurement:
+
+- **Paragraph spacing vs the grid.** Half a line between paragraphs put every second paragraph
+  off a whole-line grid. ADR-0030 makes the unit half a line.
+- **`text-indent: -2ch` on `pre`** indents only the first line of the whole block, not each source
+  line, and pushes every other line 2 ch in. `text-indent: 2ch hanging each-line` is the property
+  that means "hang every wrapped continuation" (WebKit; tested in `grid.test.mjs`).
+- **`font-variation-settings` on the article alone** is inherited and overrides `font-weight` on
+  `strong` and headings, which would set them at body weight. The axis value is carried in `--marxy-wght`,
+  which each weighted element resets.
+- **Inline code at the body's line height** grows its line by about a pixel (a mono face's ascent),
+  which a long document turns into drift; hence `line-height: 1`.
+- **Table rules as borders** add a pixel a row; inset shadows do not.
+- **Heading line boxes as fixed px tokens** fall below the heading's size when a reader enlarges
+  the type (at 24 px an h2 is 38 px on a 34 px box, 2 px above its paragraph); the formula above
+  grows them.
 
 Role tokens the base needs beyond the contract's list are **derived** in `base.css`, not added
-to the contract: `--marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 3)), 1px)`
-and so on for h2 (²), h3 (¹); `--marxy-lh-h1: 40px`, `--marxy-lh-h2: 34px` are set in the default
-theme's `:root` block (a theme may set them; they must be ≥ the size and ≤ 2 line boxes; the
-loader clamps).
-
-Constraint 4 by construction: `h1..h6 { color: inherit; border: 0; }` in base, and the theme lint
-already forbids the default theme from overriding it.
+to the contract. Constraint 4 by construction: `h1..h6 { color: inherit; border: 0; }` in base,
+and the theme lint forbids any heading rule setting a colour or a border.
 
 ## Loader (`loader.ts`)
 
@@ -159,10 +149,11 @@ only one variant are used for both with the default theme's other block filling 
 
 ## Tests
 
-- `packages/theme/scripts/lint-default-theme.mjs` (exists) plus: every `margin`/`padding` in
-  `base.css` is a `calc`/`mod`/token expression, never a bare `px` (regex).
-- Playwright: a page with the default theme at 14/17/21/24 px body renders every block's top on
-  the grid (the §10 grid check) **without** `snapToGrid` for a text-only fixture — proves the
-  CSS construction alone holds.
+- `packages/theme/scripts/lint-default-theme.mjs`: headings set no colour or border (in the theme
+  and in base); every `margin`/`padding` in `base.css` is an expression of tokens, never a bare `px`.
+- `packages/theme/test/grid.test.mjs` (Playwright WebKit): the text-only fixtures sit on the grid
+  **without** `snapToGrid` (the CSS construction alone holds); every corpus file sits on it after
+  the grid pass at 720/960/1280 and at 14/17/21/24 px; measure, contrast in both variants, the h2
+  numbers, heading space below at every size, and the code block's hanging indent.
 - Loader: a theme with `url(https://x)` yields the warning and a CSS string without it; a
   manifest with `contract = 2` loads with a warning; clamping works on an out-of-range measure.

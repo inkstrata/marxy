@@ -19,6 +19,8 @@
   "dependencies": {
     "@marxy/core": "workspace:*",
     "@marxy/shell-api": "workspace:*",
+    "@marxy/theme": "workspace:*",
+    "@marxy/typeset": "workspace:*",
     "@tauri-apps/api": "^2.11.1"
   },
   "devDependencies": {

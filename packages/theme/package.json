@@ -7,8 +7,13 @@
   "description": "The default theme and the --marxy-* token contract.",
   "scripts": {
     "build": "echo 'css only'",
-    "typecheck": "echo ok",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false . && node scripts/lint-default-theme.mjs",
-    "test": "node scripts/lint-default-theme.mjs"
+    "test": "node scripts/lint-default-theme.mjs && node --test 'test/**/*.test.mjs'"
+  },
+  "main": "src/index.ts",
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^24.0.0"
   }
 }

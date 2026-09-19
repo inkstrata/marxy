@@ -1,15 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-marxy-variant="dark">
 <head>
 <meta charset="utf-8">
 <title>marxy</title>
+<!-- marxy:default-theme -->
 <style>
-  /* Phase 0: unstyled on purpose. The theme lands in Phase 1 (MARXY-20). */
-  html, body { margin: 0; background: #151412; color: #e8e4dc; }  /* dark is primary (ADR-0024); never a white flash */
-  article { max-width: 68ch; margin: 0 auto; padding: 2rem 1.5rem; font: 17px/1.65 serif; }
-  pre { overflow-x: auto; }
-  .marxy-empty { color: #a39e94; font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
+  /* The empty state only; the document is styled by the default theme above (MARXY-20). */
+  .marxy-empty { color: var(--marxy-color-text-secondary); font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
 </style>
 </head>
-<body><article id="doc"></article><script type="module" src="./src/main.ts"></script></body>
+<body><article id="doc" class="marxy-article"></article><script type="module" src="./src/main.ts"></script></body>
 </html>

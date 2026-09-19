@@ -1,4 +1,6 @@
-/** Typesetting contract (ADR-0007). The implementation lands in Phase 1 (MARXY-20..024). */
+/** Typesetting contract (ADR-0007). The line breaker lands with MARXY-23; the grid pass is here. */
+export { snapToGrid } from './grid.ts';
+
 export interface TypesetOptions {
   readonly justify: boolean;            /* default false: ragged-right through the same breaker */
   readonly hyphenate: boolean;
