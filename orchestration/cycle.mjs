@@ -7,7 +7,7 @@
 //   6. dispatch — name (or start) what is ready
 //   7. report   — status.md
 // Everything a machine can decide, it decides; everything else it names.
-// usage: node orchestration/cycle.mjs [--no-merge] [--dry-run] [--low|--minimal|--compute=NAME]
+// usage: node orchestration/cycle.mjs [--no-merge] [--dry-run] [--low|--minimal|--high|--compute=NAME]
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';

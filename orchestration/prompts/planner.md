@@ -8,7 +8,13 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
 ## Produce, in one pass
 
 1. **A plan delta** at `docs/plan/deltas/<YYYY-MM-DD>.md`: what changed since the last delta,
-   what you re-sequenced and why, risks that moved, tripwires checked (`docs/roadmap.md`).
+   what you re-sequenced and why, risks that moved, tripwires checked (`docs/roadmap.md`). Add
+   an **Escalation risk** section naming any story you expect to reach `implementorEscalation`
+   or fail twice — a contract-adjacent change, a mechanism no prior story has touched, a story
+   already returned once, or one whose Acceptance you had to write unusually loosely. This is a
+   flag for the orchestrator and for Ian, not a change to the model config: the compute mode in
+   `orchestration/models.json` decides which model actually escalates to, and under `minimal`
+   that ceiling is Grok regardless of what you flag here.
 2. **Story changes** applied to `docs/plan/jira-issues.csv` and `orchestration/deps.json`,
    then mirrored into the board of record with `node orchestration/jira.mjs sync` (which
    creates any new row as an issue and updates the ones you edited — you never open Jira):

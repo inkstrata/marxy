@@ -6,6 +6,9 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+### Changed
+- The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
+
 ### Added
 - `pnpm done KEY --open` is now one command from a filled acceptance table to In Review: it copies the table into the result file, opens the PR through `open-pr.mjs`, and moves the Jira issue, stopping before `gh` runs if a row is still `TODO` or the body fails `check-pr` (MARXY-121)
 - Two stories now overlap only when a listed path (glob or not) could actually match the same file, so a shared prefix like `parse`/`parser` no longer serialises unrelated work and every story's shared files (CHANGELOG.md and friends, read from the registry) no longer count as a collision (MARXY-119)

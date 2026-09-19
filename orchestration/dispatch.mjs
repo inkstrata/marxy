@@ -4,7 +4,7 @@ import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ROOT, here, stories, state, saveState, models, slug, typeOf } from './lib.mjs';
-const keys = process.argv.slice(2).filter(a => !a.startsWith('--')); if (!keys.length) { console.error('usage: dispatch.mjs KEY… [--low|--minimal|--compute=NAME]'); process.exit(2); }
+const keys = process.argv.slice(2).filter(a => !a.startsWith('--')); if (!keys.length) { console.error('usage: dispatch.mjs KEY… [--low|--minimal|--high|--compute=NAME]'); process.exit(2); }
 const m = models(); const bin = process.env.CURSOR_AGENT || 'cursor-agent';
 const tpl = readFileSync(here('prompts/implementor.md'), 'utf8');
 mkdirSync(resolve(ROOT, '../marxy-wt'), { recursive: true }); mkdirSync(here('results'), { recursive: true });
