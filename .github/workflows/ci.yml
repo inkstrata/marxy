@@ -166,7 +166,7 @@ jobs:
       - name: Build the desktop binary with the ci profile (thin LTO, cached dependencies)
         run: cd apps/desktop/src-tauri && cargo build --profile ci --features tauri/custom-protocol
       - name: Licence gate (post-build, populated cargo cache)
-        run: pnpm gate:licences -- --require-registry
+        run: pnpm gate:licences:registry
       - name: CLI smoke check on the built binary
         run: pnpm --filter @marxy/desktop verify:cli
       - name: Startup measurement (nine launches, cold then warm)
