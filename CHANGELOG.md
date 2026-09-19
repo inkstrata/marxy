@@ -8,6 +8,8 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - Design documents and a task card for every Phase 3–4 story: per-document trust for HTML and remote images (fetched only by the shell, only on consent — the page itself never touches the network), the release and v1 checklist, and ADR-0026/0027; five new stories (MARXY-93–97) close gaps found on the way (MARXY-98)
+- The agent loop now merges only the commit that was approved, refreshes one out-of-date pull request at a time, and will not dispatch onto a plan that is due to change (MARXY-106)
+- Process work now has its own lane beside the numbered phases, so leftover fleet and CI stories no longer hold the page (MARXY-107)
 - Paragraphs are line-broken as a whole, the way a book is set: the right edge is evener, holes at line ends are a third as common, and the text still selects, copies and searches exactly as before (MARXY-23)
 - Text is set in Literata and code in JetBrains Mono, bundled with the app and loaded before the first text appears, so a page never flashes a fallback face; on Linux every weight is lifted to match macOS (MARXY-21)
 - Documents are set in the default theme: a 68-character column on a warm dark page, a type scale in which headings are bound to what follows them, code in its own voice with long lines hanging under themselves, and every block on one grid so a long document never drifts (MARXY-20)
@@ -47,6 +49,12 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- On a detached CI checkout the merge-bar CHANGELOG check takes the story key from the pull-request branch GitHub already knows, and skips when none of those names have a key instead of failing the build (MARXY-124)
+- The merge-bar CHANGELOG check no longer requires a finished story's line on every later pull request; an empty hunk against main skips, and a hunk that adds a story line must name the current branch's key and delete none (MARXY-123)
+- Fast CI no longer fails the phases 600-line three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-114)
+- Outline tests no longer fail a later core story that edits package.json, scripts or the desktop app; that leftover three-dot lock was MARXY-109's own boundary (MARXY-113)
+- Readiness tests no longer fail a branch that edits the board files MARXY-107 owns; that leftover three-dot check is gone (MARXY-112)
+- A save on Linux keeps the file's extended attributes and POSIX ACLs instead of dropping them, and the check that proves a save puts every byte back now lives with the other gates (MARXY-77)
 - Fast CI no longer fails the readiness three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-108)
 - Merging `main` into a story branch no longer fails the commit hook with every file the merge carried; a merge commit answers for what its author resolved (MARXY-85)
 - A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
@@ -61,12 +69,14 @@ tag time. Conventions in `docs/conventions.md`.
 - A document now reaches the screen through a default-deny allow-list: nothing in a file a stranger wrote can execute, and nothing in it can fetch, so a remote image or a badge shows its alt text rather than telling whoever hosts it that you opened the file — checked over the whole fixture corpus in both browser engines, with a control that proves the check can see a request when one is made. A document also cannot make the rest of itself a link to somewhere else, and a checkbox written into a file stays as the file has it, because marxy is a reader. Text a browser keeps as text stays text: marxy will not turn something a document hid inside a `<plaintext>` or a comment into an image it then fetches for you, and a large or hostile file is cleaned in milliseconds rather than seconds (MARXY-12)
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
+- The licence gate now runs a second time after the desktop build, against the real cargo cache, so a stale crate-licence record cannot hide behind a file the same pull request wrote (MARXY-65)
 
 ### Fixed
 - `pnpm build` no longer fails on a machine whose display is asleep; the smoke check skips with the environment named, and CI still requires a real paint (MARXY-72)
 - Documents saved with Classic Mac (CR-only) line endings keep code-block ranges on the code itself, not an empty span past the fence (MARXY-67)
 
 ### Changed
+- The board carries the whole-project review's remaining recommendations as six stories: board-drift detection, worktree pruning, glob-aware path overlap, a tripwire for process work outpacing product work, one-command handoff to review, and the merge queue (MARXY-116)
 - Launch time is still measured; 500 ms is not a product promise, and a release is not failed for missing that figure (MARXY-110)
 - A release now measures a genuine cold start on reference hardware — at least five launches, each made cold first — and the tag carries that measurement with no duration claim; 500 ms is not a product ceiling (MARXY-69)
 - Commit messages are linted when they are written in every worktree, not first in CI, and the limits fit the story key: headers up to 100 characters, long footer lines a warning, `repo` and `workspace` scopes, squash-merge subjects accepted (MARXY-100)

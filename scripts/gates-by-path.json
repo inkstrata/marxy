@@ -8,6 +8,7 @@
   "apps/desktop/src-tauri": ["lint:rust"],
   "fixtures/corpus": ["gate:golden", "gate:fidelity", "gate:no-network"],
   "fixtures/perf-budgets.json": ["gate:perf"],
+  "scripts/gate-fidelity.mjs": ["gate:fidelity"],
   "scripts/allowlists": ["gate:licences", "check:deps"],
   "package.json": ["gate:licences", "check:deps"],
   "pnpm-lock.yaml": ["gate:licences"],
