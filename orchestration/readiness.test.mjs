@@ -2,6 +2,7 @@
 // and Ian's CODEOWNERS PRs wait for Ian even when CI is green (MARXY-92).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -197,4 +198,14 @@ test('the reviewer prompt says to print the table at the end of a merge verdict'
   const text = readFileSync(join(here, 'prompts/reviewer.md'), 'utf8');
   assert.match(text, /readiness\.mjs/);
   assert.match(text, /end of a merge verdict/i);
+});
+
+test('the three-dot diff does not contain the board files MARXY-107 owns', () => {
+  const names = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], {
+    cwd: join(here, '..'),
+    encoding: 'utf8',
+  }).split('\n').filter(Boolean);
+  for (const f of ['orchestration/deps.json', 'orchestration/jira-map.json', 'docs/plan/jira-issues.csv']) {
+    assert.ok(!names.includes(f), f);
+  }
 });
