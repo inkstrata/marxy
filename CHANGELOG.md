@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- The agent loop now merges only the commit that was approved, refreshes one out-of-date pull request at a time, and will not dispatch onto a plan that is due to change (MARXY-106)
 - Process work now has its own lane beside the numbered phases, so leftover fleet and CI stories no longer hold the page (MARXY-107)
 - Paragraphs are line-broken as a whole, the way a book is set: the right edge is evener, holes at line ends are a third as common, and the text still selects, copies and searches exactly as before (MARXY-23)
 - Text is set in Literata and code in JetBrains Mono, bundled with the app and loaded before the first text appears, so a page never flashes a fallback face; on Linux every weight is lifted to match macOS (MARXY-21)

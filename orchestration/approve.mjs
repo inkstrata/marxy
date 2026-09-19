@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync } from 'n
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { here, state } from './lib.mjs';
+import { ROOT, here, state } from './lib.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
 
 /** The three reasons a signature is refused; printed verbatim so a test can name which one. */
@@ -70,38 +70,63 @@ export function verify(path, prHead) {
   return { ok: true, head };
 }
 
+const rootGit = args => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+
 /**
  * Whether everything that changed since the approved commit arrived from main.
  *
- * Signing against a commit and updating every branch that falls behind are a livelock together: each
+ * Signing against a commit and updating branches that fall behind are a livelock together: each
  * merge rewrites the head of every other branch, so every signed approval is void before it can be
- * used, and the queue cannot drain by reading faster. What a review is of is the story's own work,
- * and a file whose bytes now equal main's is not something the reviewer read and disagreed with.
+ * used. What a review is of is the story's own work, so an approval survives a head change when the
+ * new head is exactly what merging the reviewed commit with main produces.
+ *
+ * That is computed, not guessed: `git merge-tree` merges the reviewed commit with the main commit the
+ * head took in, and the head must match it file for file. A file both sides touched (CHANGELOG.md,
+ * nearly every time) comes out of merge-tree in conflict and was resolved by hand, so for those the
+ * resolution is checked line by line: every line in it came from one side, and no line either side
+ * kept has gone unless the other side removed it. The earlier check only asked the first half, which
+ * let a resolution delete a line of the reviewed work, or of main, and keep the approval.
  */
-function onlyMainArrived(approved, head) {
-  const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+export function onlyMainArrived(approved, head, { git = rootGit, mainRef = 'origin/main', fetch = true } = {}) {
+  const short = sha => sha.slice(0, 7);
   try {
-    git(['fetch', '-q', 'origin']);
+    if (fetch) git(['fetch', '-q', 'origin']);
     git(['merge-base', '--is-ancestor', approved, head]);
-  } catch { return { ok: false, why: `${approved.slice(0, 7)} is not an ancestor of it, so the reviewed work is not what the pull request contains` }; }
-  const changed = git(['diff', '--name-only', `${approved}..${head}`]).split('\n').filter(Boolean);
-  if (!changed.length) return { ok: true, why: 'the head differs only in commit metadata' };
-  const fromMain = changed.filter(f => {
-    const at = r => { try { return git(['rev-parse', `${r}:${f}`]); } catch { return `absent in ${r}`; } };
-    return at('origin/main') === at(head);
-  });
-  // A file both sides touched — CHANGELOG.md, every time — is resolved rather than taken, so it
-  // matches neither. It is still not new work if every line in it came from one side or the other.
-  const lines = (r, f) => { try { return new Set(git(['show', `${r}:${f}`]).split('\n')); } catch { return new Set(); } };
-  const resolved = changed.filter(f => {
-    if (fromMain.includes(f)) return false;
-    const [ours, main] = [lines(approved, f), lines('origin/main', f)];
-    return [...lines(head, f)].every(l => ours.has(l) || main.has(l));
-  });
-  const theirs = changed.filter(f => !fromMain.includes(f) && !resolved.includes(f));
-  return theirs.length
-    ? { ok: false, why: `${theirs.length} file(s) carry lines the review never saw: ${theirs.slice(0, 5).join(', ')}` }
-    : { ok: true, why: `${changed.length} file(s) changed since, ${fromMain.length} taken from main and ${resolved.length} resolved from lines both sides already had` };
+  } catch { return { ok: false, why: `${short(approved)} is not an ancestor of it, so the reviewed work is not what the pull request contains` }; }
+  let main;
+  try { main = git(['merge-base', head, mainRef]); } catch { return { ok: false, why: `the head shares no history with ${mainRef}` }; }
+  let out;
+  try { out = git(['merge-tree', '--write-tree', '--name-only', '--no-messages', approved, main]); } catch (e) {
+    if (e.status !== 1 || !e.stdout) return { ok: false, why: `merge-tree could not merge ${short(approved)} with ${short(main)}` };
+    out = String(e.stdout).trim();
+  }
+  const [tree, ...conflicted] = out.split('\n').filter(Boolean);
+  const differ = git(['diff', '--name-only', tree, head]).split('\n').filter(Boolean);
+  if (!differ.length) return { ok: true, why: `the head is exactly ${short(approved)} merged with main at ${short(main)}` };
+  const unexplained = differ.filter(f => !conflicted.includes(f));
+  if (unexplained.length) {
+    return { ok: false, why: `${unexplained.length} file(s) differ from merging the reviewed commit with main: ${unexplained.slice(0, 5).join(', ')}` };
+  }
+  const base = git(['merge-base', approved, main]);
+  const lines = (r, f) => { try { return git(['show', `${r}:${f}`]).split('\n'); } catch { return []; } };
+  const bad = differ.filter(f => !resolutionFromSides({
+    base: lines(base, f), ours: lines(approved, f), theirs: lines(main, f), result: lines(head, f),
+  }));
+  return bad.length
+    ? { ok: false, why: `${bad.length} hand-resolved file(s) carry a line neither side had, or drop one a side kept: ${bad.slice(0, 5).join(', ')}` }
+    : { ok: true, why: `the head is ${short(approved)} merged with main at ${short(main)}; ${differ.length} conflicted file(s) resolved from both sides' lines` };
+}
+
+/**
+ * A hand resolution of one file is taken from the two sides when every line in it came from one of
+ * them, and every line a side kept is still there unless the other side deleted it.
+ */
+export function resolutionFromSides({ base, ours, theirs, result }) {
+  const [B, O, T, R] = [base, ours, theirs, result].map(a => new Set(a));
+  if (![...R].every(l => O.has(l) || T.has(l))) return false;
+  const deletedBy = (side, l) => B.has(l) && !side.has(l);
+  if (![...O].every(l => R.has(l) || deletedBy(T, l))) return false;
+  return [...T].every(l => R.has(l) || deletedBy(O, l));
 }
 
 /** Read the live PR and review order. `readPr` / `orderOf` are injectable so --selftest never hits GitHub. */
