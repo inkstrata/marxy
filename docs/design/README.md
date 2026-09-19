@@ -24,6 +24,7 @@ They are written against the code as it is on `main` at the time of writing (the
 | [09-app-shell](09-app-shell.md) | DOM skeleton, state machine, keyboard map, outline, find, notices, Source mode, mode switch | MARXY-37, MARXY-47, MARXY-48 |
 | [10-gates-and-testing](10-gates-and-testing.md) | how to write tests per package, the headless render entry, grid and rag checks, screenshot diffs | MARXY-25, MARXY-30 |
 | [11-config-and-storage](11-config-and-storage.md) | config file, app data files, versioning, corruption handling | MARXY-38, MARXY-46 |
+| [12-outline](12-outline.md) | heading list from the AST with byte provenance; frontmatter title rule | MARXY-109 |
 
 Task cards exist for MARXY-16, 20–31, 33–39, 61, 64 and 75 (`../plan/tasks/`).
 
