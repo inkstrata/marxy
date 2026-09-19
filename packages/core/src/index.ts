@@ -6,3 +6,5 @@ export { parseMarkdown } from './parse/parse.ts';
 export type { ParseOptions } from './parse/parse.ts';
 export { checkInvariants } from './parse/invariants.ts';
 export type { Violation } from './parse/invariants.ts';
+export { outlineFrom } from './outline/outline.ts';
+export type { OutlineEntry } from './outline/outline.ts';
