@@ -110,8 +110,8 @@ does what the story asked. So the reviewer writes `orchestration/results/KEY.app
 review note and signs it with `node orchestration/approve.mjs KEY`, which records the commit the
 review was of; the key lives in `~/.config/marxy/`, outside the tree. An approval for an earlier
 commit is held rather than honoured, because a push after a review is an unreviewed tree wearing a
-reviewed one's name. The reviewer agent does that handshake; the implementor never writes the
-file. `cycle.mjs` then lands the PR without a person, or enables GitHub auto-merge when the only
+reviewed one's name. A reviewer writes and signs `KEY.approved`; the implementor never writes
+it. `cycle.mjs` then lands the PR without a person, or enables GitHub auto-merge when the only
 remaining wait is CI.
 
 A PR is mergeable when every clause of this bar holds. `orchestration/merge-bar.mjs` is the

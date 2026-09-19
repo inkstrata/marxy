@@ -27,8 +27,8 @@ entirely, which is `blocking`.
 ## After you decide
 
 - **merge** — write `orchestration/results/KEY.approved` with the notes (the judgement that
-  the diff satisfies the story). Sign it: `node orchestration/approve.mjs KEY`. Do not merge
-  the PR and do not leave unresolved GitHub review threads. `cycle.mjs` lands it once the
+  the diff satisfies the story). Sign it: `node orchestration/approve.mjs KEY`. Do not run
+  `gh pr merge`. Do not leave unresolved GitHub review threads. `cycle.mjs` lands it once the
   rest of the quality bar in `docs/sdlc.md` is green, or enables GitHub auto-merge if only
   CI is still running. At the end of a merge verdict, print the output of
   `node orchestration/readiness.mjs` (add `--results <primary checkout>/orchestration/results`
