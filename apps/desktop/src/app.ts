@@ -48,9 +48,9 @@ let observing = true;
 const observeFrame = () => { framesObserved += 1; if (observing) requestAnimationFrame(observeFrame); };
 requestAnimationFrame(observeFrame);
 
-/** Sanitised (or empty-state) HTML into `#doc`. The registry still names main.ts for `.innerHTML =`. */
-function assignHtml(el: HTMLElement, html: string): void {
-  Reflect.set(el, 'innerHTML', html);
+/** Sanitised (or empty-state) HTML into `#doc`. `app.ts` is in registry.innerHtmlAllowedIn. */
+function assignHtml(doc: HTMLElement, html: string): void {
+  doc.innerHTML = html;
 }
 
 interface RenderEvidence { readonly blocks: number; readonly chars: number; readonly heading: string }

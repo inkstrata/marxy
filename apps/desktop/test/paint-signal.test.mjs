@@ -10,6 +10,7 @@ import {
   readPaintSignal,
   waitForEnginePaint,
 } from '../src/paint-signal.mjs';
+import { stripComments } from '../../../scripts/lib/repo.mjs';
 
 const repoRoot = new URL('../../../', import.meta.url).pathname;
 const desktop = join(repoRoot, 'apps', 'desktop');
@@ -100,19 +101,21 @@ test('criterion 4: MARK first_text stays two fields and measure-startup still pa
   assert.equal(m[1], 'first_text');
   assert.equal(Number(m[2]), 1710000000123);
 
-  const main = readFileSync(join(desktop, 'src', 'main.ts'), 'utf8');
-  assert.match(main, /await shell\.mark\('first_text', paintedAt\);/);
-  assert.doesNotMatch(main, /mark\('first_text',\s*paintedAt,/);
+  // Read through stripComments (scripts/lib/repo.mjs) so a comment reciting these strings —
+  // rather than the live code — cannot satisfy this pin (MARXY-95 review, criterion 8).
+  const app = stripComments(readFileSync(join(desktop, 'src', 'app.ts'), 'utf8'));
+  assert.match(app, /await shell\.mark\('first_text', paintedAt\);/);
+  assert.doesNotMatch(app, /mark\('first_text',\s*paintedAt,/);
 
   const rust = readFileSync(join(desktop, 'src-tauri', 'src', 'main.rs'), 'utf8');
   assert.match(rust, /writeln!\(out, "MARK \{\} \{\}", name, ms\)/);
 });
 
 test('criterion 5: paint-signal contract and the MARXY-72 frames verdict stay wired', () => {
-  const main = readFileSync(join(desktop, 'src', 'main.ts'), 'utf8');
-  assert.match(main, /waitForEnginePaint/);
-  assert.match(main, /signal=\$\{signal\}/);
-  assert.match(main, /frames=\$\{frames\}/);
+  const app = stripComments(readFileSync(join(desktop, 'src', 'app.ts'), 'utf8'));
+  assert.match(app, /waitForEnginePaint/);
+  assert.match(app, /signal=\$\{signal\}/);
+  assert.match(app, /frames=\$\{frames\}/);
 
   const smoke = readFileSync(join(desktop, 'scripts', 'smoke-cli-open.mjs'), 'utf8');
   assert.match(smoke, /waitForEnginePaint/);
