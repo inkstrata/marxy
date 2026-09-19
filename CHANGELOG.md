@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - A pull request cannot be opened unless its body is the house template: `open-pr.mjs` runs the checker first, and the checker now also refuses a Why / Test plan body, a leftover TODO in the acceptance table, and an attribution line (MARXY-104)
+- Every pull request re-checks the taste-review #0 specimen against the type scale and the review queue, so a missing image or a drifted size fails the build rather than waiting for someone to remember (MARXY-62)
 - Only the security posture and the merge gate itself now wait for a person. Typesetting, theme, contracts, `shell-api` and ADR changes land on a signed review, and taste is checked in the review queue (MARXY-99)
 - CI now fetches the CommonMark specification examples — never committed — and fails the build if a parse diverges from them (MARXY-68)
 - Straight quotes, double hyphens and three dots become the marks a book would use when you read a document, and a short last word stays on the line with the one before it; the file itself is not touched (MARXY-29)

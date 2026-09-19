@@ -9,6 +9,24 @@ const fails = [];
 const check = (ok, message) => { if (!ok) fails.push(message); return ok; };
 const near = (a, b, tol = 0.05) => Math.abs(a - b) <= tol;
 
+// 0. Wired into pnpm and CI as a required step, not a reminder. MARXY-17's checks only count if
+// something runs them; this section fails if the alias or the CI step drifts off, becomes
+// advisory, or starts re-rendering (which would need a browser CI does not install for this step).
+const pkg = JSON.parse(readFileSync(repo('package.json'), 'utf8'));
+check(pkg.scripts?.['gate:specimen'] === 'node scripts/specimen/verify.mjs',
+  `package.json gate:specimen is ${JSON.stringify(pkg.scripts?.['gate:specimen'])}, not node scripts/specimen/verify.mjs`);
+const ci = readFileSync(repo('.github/workflows/ci.yml'), 'utf8');
+check(/os:\s*\[macos-latest,\s*ubuntu-latest\]/.test(ci),
+  'ci.yml gates job is not on both macos-latest and ubuntu-latest');
+const specimenAt = ci.search(/^      - run: pnpm gate:specimen$/m);
+check(specimenAt !== -1, 'ci.yml does not run pnpm gate:specimen as a required step');
+check(!/pnpm gate:specimen\s*\|\|\s*true/.test(ci), 'ci.yml treats gate:specimen as advisory (|| true)');
+check(!/continue-on-error:/.test(ci.slice(Math.max(0, specimenAt - 160), specimenAt + 160)),
+  'ci.yml treats gate:specimen as advisory (continue-on-error)');
+const browsersAt = ci.search(/playwright install/);
+check(specimenAt !== -1 && (browsersAt === -1 || specimenAt < browsersAt),
+  'gate:specimen runs after Playwright browsers; verify.mjs does not need a browser');
+
 const manifestPath = `${OUT}/manifest.json`;
 if (!existsSync(repo(manifestPath))) { console.error(`specimen not rendered: ${manifestPath} is missing — run node scripts/specimen/render.mjs`); process.exit(1); }
 const manifest = JSON.parse(readFileSync(repo(manifestPath), 'utf8'));
@@ -87,8 +105,8 @@ for (const page of pages) {
 // fetch() was caught by it in the same run — so the specimen's empty request list is a measurement,
 // not an unwatched silence. Every face is inlined as a data: URL in the page the render fed the
 // browser, which the static scan below re-checks against this committed file.
-// What it does not prove: that a *future* edit renders offline. It is re-measured on every render,
-// and nothing here runs in CI yet (MARXY-62).
+// What it does not prove: that a *future* edit renders offline. It is re-measured on every render.
+// CI runs this file against the committed PNGs and does not re-render (MARXY-62).
 const control = manifest.networkControl;
 if (check(control, 'the manifest has no network control: the zero-request claim rests on nothing')) {
   for (const kind of CONTROL_RESOURCES) check(control.kinds.includes(kind), `the network control's remote ${kind} was not intercepted, so the interception the no-network claim rests on is not watching everything it claims`);
