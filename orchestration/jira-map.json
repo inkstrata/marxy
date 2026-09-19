@@ -95,6 +95,8 @@
     "MARXY-NEW-glob-overlap": "MARXY-119",
     "MARXY-NEW-ops-tripwire": "MARXY-120",
     "MARXY-NEW-done-opens": "MARXY-121",
-    "MARXY-NEW-merge-queue": "MARXY-122"
+    "MARXY-NEW-merge-queue": "MARXY-122",
+    "MARXY-NEW-land-after-65-plan": "MARXY-125",
+    "MARXY-NEW-cards-and-rows": "MARXY-126"
   }
 }
