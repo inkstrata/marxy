@@ -69,14 +69,15 @@ test('CI verify:cli requires smoke on both runner classes without continue-on-er
 test('afterPaint neutralised on a machine that delivers frames still fails the smoke', () => {
   const main = readFileSync(join(repoRoot, 'apps/desktop/src/main.ts'), 'utf8');
   const framesObserved = main.indexOf('let framesObserved');
-  const afterPaint = main.indexOf('function afterPaint(');
+  const wait = main.indexOf('await waitForEnginePaint');
   assert.ok(framesObserved >= 0, 'the independent frame counter must still exist');
-  assert.ok(afterPaint >= 0, 'afterPaint() must still exist');
+  assert.ok(wait >= 0, 'waitForEnginePaint() must still exist');
   assert.ok(
-    framesObserved < afterPaint,
-    'the frame counter lives outside afterPaint(), so neutralizing afterPaint reports frames=0',
+    framesObserved < wait,
+    'the frame counter lives outside waitForEnginePaint(), so neutralizing the wait reports frames=0',
   );
-  assert.match(main, /neutralising afterPaint\(\) reports frames=0/);
+  assert.match(main, /not inside waitForEnginePaint\(\), so that a wait which never actually waited still/);
+  assert.match(main, /reports frames=0/);
 
   // A machine that painted: the app printed frames=2. Neutralizing afterPaint at the
   // harness boundary is what a stubbed afterPaint() does — the wait never happened.
