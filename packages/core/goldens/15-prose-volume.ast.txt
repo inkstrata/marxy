@@ -1,0 +1,1635 @@
+document [0,52907)
+  htmlBlock [0,72) value="<!-- Continuous prose volume for the line-breaking study (MARXY-64). -->"
+  heading [74,102) level=1
+    text [76,102) value="A winter of borrowed rooms"
+  paragraph [104,675)
+    text [104,173) value="I have spent most of my reading life in rooms that were not built for"
+    softBreak [173,174)
+    text [174,246) value="it. Kitchens with a radio left low. Clinic chairs that face a television"
+    softBreak [246,247)
+    text [247,318) value="no one watches. The spare room of a house whose owners have gone to the"
+    softBreak [318,319)
+    text [319,390) value="coast and left the heating on a timer. A train that should have arrived"
+    softBreak [390,391)
+    text [391,456) value="before midnight and did not. The page has to live in all of those"
+    softBreak [456,457)
+    text [457,527) value="places, and I have come to think that this is not a defect in the life"
+    softBreak [527,528)
+    text [528,596) value="around the book — it is the ordinary condition of reading, and any"
+    softBreak [596,597)
+    text [597,664) value="account of a page that pretends otherwise is describing a furniture"
+    softBreak [664,665)
+    text [665,675) value="catalogue."
+  paragraph [677,1096)
+    text [677,746) value="That is a stronger claim than it sounds. It means the sentence has to"
+    softBreak [746,747)
+    text [747,819) value="survive interruption. It means a paragraph is not a chapel. It means the"
+    softBreak [819,820)
+    text [820,891) value="white at the right-hand edge of a column of type is the least of what a"
+    softBreak [891,892)
+    text [892,961) value="line has to put up with. A child asks a question. A conductor wants a"
+    softBreak [961,962)
+    text [962,1034) value="ticket. The kettle clicks off and you get up, and when you come back the"
+    softBreak [1034,1035)
+    text [1035,1096) value="sentence has not moved, and that is its only reliable virtue."
+  paragraph [1098,1152)
+    text [1098,1152) value="I am not writing a theory. I am writing down a winter."
+  paragraph [1154,1831)
+    text [1154,1223) value="The winter I mean ran from the first hard frost in November to a thaw"
+    softBreak [1223,1224)
+    text [1224,1292) value="that arrived without announcing itself, sometime in the last week of"
+    softBreak [1292,1293)
+    text [1293,1358) value="February, when the estuary stopped looking like metal and started"
+    softBreak [1358,1359)
+    text [1359,1429) value="looking like water again. I was staying, on and off, in other people's"
+    softBreak [1429,1430)
+    text [1430,1500) value="houses, because my own lease had ended and the next one had not begun,"
+    softBreak [1500,1501)
+    text [1501,1570) value="and because two friends had said, independently, that the room at the"
+    softBreak [1570,1571)
+    text [1571,1643) value="back was empty and I should use it. I took both offers. I packed one bag"
+    softBreak [1643,1644)
+    text [1644,1716) value="that was mostly books and one bag that was mostly shirts, and I learned,"
+    softBreak [1716,1717)
+    text [1717,1786) value="again, that a life can be made to fit into less than you think if you"
+    softBreak [1786,1787)
+    text [1787,1831) value="are willing to reread what you already have."
+  paragraph [1833,2091)
+    text [1833,1902) value="What follows is an account of the rooms, and of the pages that had to"
+    softBreak [1902,1903)
+    text [1903,1972) value="hold their shape inside them. I have changed a few names and left the"
+    softBreak [1972,1973)
+    text [1973,2042) value="weather alone. The quotations are as I remember them, which is to say"
+    softBreak [2042,2043)
+    text [2043,2091) value="they are as true as memory ever is, and no more."
+  heading [2093,2106) level=2
+    text [2096,2106) value="The clinic"
+  paragraph [2108,2614)
+    text [2108,2180) value="The clinic on Harbour Street keeps its magazines in a rack that has been"
+    softBreak [2180,2181)
+    text [2181,2252) value="repaired with parcel tape. Nobody reads them. People pick them up, open"
+    softBreak [2252,2253)
+    text [2253,2322) value="them at a random page, and hold them the way you hold a ticket you do"
+    softBreak [2322,2323)
+    text [2323,2397) value="not need yet. I had a paperback in my coat — a short novel I had already"
+    softBreak [2397,2398)
+    text [2398,2469) value="finished once and was walking through again, the way you walk a path in"
+    softBreak [2469,2470)
+    text [2470,2538) value="winter to see which branches came down. I was there for a blood test"
+    softBreak [2538,2539)
+    text [2539,2605) value="that would, the letter had promised, take ten minutes and take all"
+    softBreak [2605,2606)
+    text [2606,2614) value="morning."
+  paragraph [2616,3037)
+    text [2616,2688) value="A woman sat across from me with an envelope already open in her lap. She"
+    softBreak [2688,2689)
+    text [2689,2760) value="was not hiding that she was rereading it. Every so often she would fold"
+    softBreak [2760,2761)
+    text [2761,2832) value="it along a crease that already existed, as if the paper had learned her"
+    softBreak [2832,2833)
+    text [2833,2904) value="hands, and then unfold it again. When she caught me looking she did not"
+    softBreak [2904,2905)
+    text [2905,2975) value="look away. She said, as if we had already been talking, \"They write as"
+    softBreak [2975,2976)
+    text [2976,3037) value="if the news were a kindness if they space the sentences out.\""
+  paragraph [3039,3443)
+    text [3039,3110) value="I did not know what to say to that, so I said nothing, which she seemed"
+    softBreak [3110,3111)
+    text [3111,3183) value="to accept as an answer. The television on the wall was showing a cooking"
+    softBreak [3183,3184)
+    text [3184,3252) value="programme with the sound off. A man in a white jacket sprinkled salt"
+    softBreak [3252,3253)
+    text [3253,3325) value="from a height, and the salt fell through a silence that the waiting room"
+    softBreak [3325,3326)
+    text [3326,3390) value="supplied for free. Somewhere behind a door a printer started and"
+    softBreak [3390,3391)
+    text [3391,3443) value="stopped. My name was not called. I opened the novel."
+  paragraph [3445,4013)
+    text [3445,3513) value="The second time through a book is when you notice the furniture. The"
+    softBreak [3513,3514)
+    text [3514,3580) value="first time you are following someone through a house at night; the"
+    softBreak [3580,3581)
+    text [3581,3651) value="second time you see which chairs they always pass and which doors they"
+    softBreak [3651,3652)
+    text [3652,3720) value="never open. I was in a chapter that takes place almost entirely in a"
+    softBreak [3720,3721)
+    text [3721,3795) value="hallway — a conversation that keeps being interrupted by people who need"
+    softBreak [3795,3796)
+    text [3796,3868) value="to get past — and I thought, sitting under the cooking programme, that"
+    softBreak [3868,3869)
+    text [3869,3939) value="the novelist had understood waiting rooms without ever setting a scene"
+    softBreak [3939,3940)
+    text [3940,4006) value="in one. The hallway was a waiting room. The interruptions were the"
+    softBreak [4006,4007)
+    text [4007,4013) value="point."
+  paragraph [4015,4324)
+    text [4015,4083) value="A nurse opened the inner door and read a name that was not mine. The"
+    softBreak [4083,4084)
+    text [4084,4149) value="woman with the letter did not move. I turned a page and the cheap"
+    softBreak [4149,4150)
+    text [4150,4216) value="binding crackled, a sound out of proportion to the action, and two"
+    softBreak [4216,4217)
+    text [4217,4285) value="people glanced over as if I had spoken. I wanted to tell them it was"
+    softBreak [4285,4286)
+    text [4286,4324) value="only glue, aging in public. I did not."
+  paragraph [4326,4891)
+    text [4326,4397) value="There is a particular shame in reading a book you have already finished"
+    softBreak [4397,4398)
+    text [4398,4468) value="while other people are receiving news. It feels like bringing a picnic"
+    softBreak [4468,4469)
+    text [4469,4537) value="to a census. And yet the alternative — to sit with empty hands and"
+    softBreak [4537,4538)
+    text [4538,4604) value="perform patience — has never seemed more honest to me, only more"
+    softBreak [4604,4605)
+    text [4605,4675) value="visible. I have watched people in this same row of chairs scroll until"
+    softBreak [4675,4676)
+    text [4676,4741) value="their faces go slack, and I have watched people stare at the salt"
+    softBreak [4741,4742)
+    text [4742,4813) value="falling on the muted television, and I have decided that a reread is at"
+    softBreak [4813,4814)
+    text [4814,4871) value="least a form of attention that knows what it is attending"
+    softBreak [4871,4872)
+    text [4872,4875) value="to."
+    footnoteReference [4875,4891) label="clinic-letter"
+  paragraph [4893,5499)
+    text [4893,4964) value="When my name was finally called I put the novel face down on the chair,"
+    softBreak [4964,4965)
+    text [4965,5034) value="which is a superstition I cannot defend: as if the opened pages might"
+    softBreak [5034,5035)
+    text [5035,5106) value="hold my place in the room as well as in the story. The phlebotomist had"
+    softBreak [5106,5107)
+    text [5107,5178) value="cold hands and a voice trained to be unmemorable. \"Make a fist. Look at"
+    softBreak [5178,5179)
+    text [5179,5250) value="the far wall if you like.\" I looked at the far wall. There was a poster"
+    softBreak [5250,5251)
+    text [5251,5321) value="about washing your hands, and someone had drawn, very lightly, a small"
+    softBreak [5321,5322)
+    text [5322,5394) value="boat in the corner of the sink. I thought about the woman and her letter"
+    softBreak [5394,5395)
+    text [5395,5464) value="and about the way a sentence can be spaced out until it stops being a"
+    softBreak [5464,5465)
+    text [5465,5499) value="blow and becomes a weather report."
+  paragraph [5501,6059)
+    text [5501,5571) value="Afterwards I walked down to the estuary because the cotton wool in the"
+    softBreak [5571,5572)
+    text [5572,5641) value="elbow needed a destination. The water was the colour of an unpolished"
+    softBreak [5641,5642)
+    text [5642,5713) value="spoon. A man was throwing bread that the gulls could not be bothered to"
+    softBreak [5713,5714)
+    text [5714,5783) value="fight over. I stood there longer than the cotton wool required, and I"
+    softBreak [5783,5784)
+    text [5784,5856) value="understood, not for the first time, that I had come to the clinic with a"
+    softBreak [5856,5857)
+    text [5857,5925) value="book so that I would have something to return to that was not my own"
+    softBreak [5925,5926)
+    text [5926,5992) value="blood in a vial with a printed label. That is a small and ordinary"
+    softBreak [5992,5993)
+    text [5993,6059) value="cowardice. I record it because the winter was made of such things."
+  heading [6061,6090) level=2
+    text [6064,6090) value="The kitchen after midnight"
+  paragraph [6092,6568)
+    text [6092,6161) value="Mara's kitchen faced the alley, not the water, which she said was the"
+    softBreak [6161,6162)
+    text [6162,6234) value="only reason the rent was survivable. The window looked onto a brick wall"
+    softBreak [6234,6235)
+    text [6235,6305) value="and a drainpipe that rang when it rained. She had gone north for three"
+    softBreak [6305,6306)
+    text [6306,6375) value="weeks to sit with her father, and she had left me a note on the table"
+    softBreak [6375,6376)
+    text [6376,6445) value="under a jar of coffee: \"Eat whatever will go off. The good plates are"
+    softBreak [6445,6446)
+    text [6446,6516) value="the chipped ones. Do not try to be a guest.\" I tried to be a guest for"
+    softBreak [6516,6517)
+    text [6517,6568) value="two days and then, as she had predicted, I stopped."
+  paragraph [6570,7073)
+    text [6570,6639) value="At night the house made a different set of noises than it made in the"
+    softBreak [6639,6640)
+    text [6640,6710) value="day. The refrigerator had a conversation with itself. A pipe ticked as"
+    softBreak [6710,6711)
+    text [6711,6782) value="it cooled. Once, around one in the morning, a fox screamed in the alley"
+    softBreak [6782,6783)
+    text [6783,6852) value="and I stood at the sink with a glass of water and waited to see if it"
+    softBreak [6852,6853)
+    text [6853,6923) value="would do it again. It did. I wrote that down on the back of a receipt,"
+    softBreak [6923,6924)
+    text [6924,6996) value="for no reason except that the sound had a shape and I wanted a record of"
+    softBreak [6996,6997)
+    text [6997,7065) value="the shape. In the morning the receipt looked melodramatic. I kept it"
+    softBreak [7065,7066)
+    text [7066,7073) value="anyway."
+  paragraph [7075,7810)
+    text [7075,7146) value="I read at the table because the spare room's lamp had a shade that made"
+    softBreak [7146,7147)
+    text [7147,7214) value="everything sepia, and because the kitchen was the only place in the"
+    softBreak [7214,7215)
+    text [7215,7286) value="house that still felt as if someone lived there. Mara's handwriting was"
+    softBreak [7286,7287)
+    text [7287,7358) value="on a shopping list stuck to the fridge — oat milk, oranges, the cheap"
+    softBreak [7358,7359)
+    text [7359,7432) value="wine not the other cheap wine — and her coat was on the chair I did not"
+    softBreak [7432,7433)
+    text [7433,7500) value="use. A house from which the owner has only temporarily gone is more"
+    softBreak [7500,7501)
+    text [7501,7571) value="intimate than an empty house. You are surrounded by decisions that are"
+    softBreak [7571,7572)
+    text [7572,7639) value="still in force. The spices are in the order she thinks of them. The"
+    softBreak [7639,7640)
+    text [7640,7710) value="third drawer sticks and she has not fixed it, and so you do not fix it"
+    softBreak [7710,7711)
+    text [7711,7783) value="either, out of a respect that would be hard to explain to anyone who has"
+    softBreak [7783,7784)
+    text [7784,7810) value="not stayed in such a room."
+  paragraph [7812,8363)
+    text [7812,7882) value="The book I had on those nights was a collection of letters between two"
+    softBreak [7882,7883)
+    text [7883,7954) value="people who almost married and then, with great courtesy, did not. I had"
+    softBreak [7954,7955)
+    text [7955,8026) value="bought it second-hand with someone else's train ticket still serving as"
+    softBreak [8026,8027)
+    text [8027,8093) value="a bookmark at a page where nothing particular happens. That seemed"
+    softBreak [8093,8094)
+    text [8094,8162) value="right. Most of a correspondence is the weather of two minds, not the"
+    softBreak [8162,8163)
+    text [8163,8232) value="lightning. I would read four or five letters and then get up and wash"
+    softBreak [8232,8233)
+    text [8233,8303) value="the one plate I had used, because Mara's instruction not to be a guest"
+    softBreak [8303,8304)
+    text [8304,8363) value="had not, in my reading of it, extended to leaving evidence."
+  blockquote [8365,8753)
+    paragraph [8367,8753)
+      text [8367,8433) value="You asked whether I still walk to the river in the mornings. I do,"
+      softBreak [8433,8436)
+      text [8436,8503) value="though the path has been fenced where the bank slipped last spring,"
+      softBreak [8503,8506)
+      text [8506,8574) value="and so I stand at the fence and look at the water as if looking were"
+      softBreak [8574,8577)
+      text [8577,8643) value="the same as being beside it. I think of you when the light is that"
+      softBreak [8643,8646)
+      text [8646,8715) value="thin colour it goes just before it gives up. I do not know if that is"
+      softBreak [8715,8718)
+      text [8718,8753) value="allowed. I have decided not to ask."
+  paragraph [8755,9324)
+    text [8755,8825) value="I copied that passage onto the same pad I used for the fox, and then I"
+    softBreak [8825,8826)
+    text [8826,8893) value="felt foolish, because it was not my letter and not my river. What I"
+    softBreak [8893,8894)
+    text [8894,8965) value="wanted, I think, was proof that a sentence could carry a whole withheld"
+    softBreak [8965,8966)
+    text [8966,9038) value="life without raising its voice. The fence, the thin colour, the decision"
+    softBreak [9038,9039)
+    text [9039,9108) value="not to ask — those are the tools. A person who sets type would talk"
+    softBreak [9108,9109)
+    text [9109,9181) value="about the rag and the measure. A person sitting in a borrowed kitchen at"
+    softBreak [9181,9182)
+    text [9182,9253) value="ten past one talks about whether the writer looked at the water or only"
+    softBreak [9253,9254)
+    text [9254,9324) value="needed the water to be there so the feeling would have a place to sit."
+  paragraph [9326,9926)
+    text [9326,9396) value="Some nights I did not read at all. I sat with the window black and the"
+    softBreak [9396,9397)
+    text [9397,9467) value="drainpipe ticking and I let the house happen around me. This is also a"
+    softBreak [9467,9468)
+    text [9468,9536) value="kind of reading. You learn the grammar of a place that is not yours:"
+    softBreak [9536,9537)
+    text [9537,9606) value="which floorboard announces you, which tap needs a second twist, which"
+    softBreak [9606,9607)
+    text [9607,9679) value="neighbour goes to bed late enough that their light crosses the alley and"
+    softBreak [9679,9680)
+    text [9680,9750) value="lays a pale bar across the table. I came to like that bar. When it was"
+    softBreak [9750,9751)
+    text [9751,9821) value="absent I knew the neighbour had gone away or given up, and the kitchen"
+    softBreak [9821,9822)
+    text [9822,9890) value="felt more completely borrowed, which is to say more completely mine,"
+    softBreak [9890,9891)
+    text [9891,9926) value="which is a thought I did not enjoy."
+  paragraph [9928,10623)
+    text [9928,9999) value="On the Thursday before Mara came back I cooked a proper meal, as if the"
+    softBreak [9999,10000)
+    text [10000,10072) value="house required a ceremony of return. I used the chipped plates. I opened"
+    softBreak [10072,10073)
+    text [10073,10142) value="the cheap wine, the one she had meant. I set a place for myself and a"
+    softBreak [10142,10143)
+    text [10143,10209) value="place I did not use, which was theatrical and I knew it, and I ate"
+    softBreak [10209,10210)
+    text [10210,10282) value="slowly because the letters in the book were slowing down too — the two"
+    softBreak [10282,10283)
+    text [10283,10349) value="writers had begun to leave longer gaps, and the editor had started"
+    softBreak [10349,10350)
+    text [10350,10419) value="putting dates in brackets, those little asides that mean a season has"
+    softBreak [10419,10420)
+    text [10420,10490) value="passed in silence. I thought about leaving Mara a letter of my own and"
+    softBreak [10490,10491)
+    text [10491,10557) value="then did not, because anything I could have said would have been a"
+    softBreak [10557,10558)
+    text [10558,10623) value="performance of gratitude, and she had asked me not to be a guest."
+  paragraph [10625,10690)
+    text [10625,10690) value="She came back on the Sunday. The house remembered her in an hour."
+  heading [10692,10717) level=2
+    text [10695,10717) value="The twenty-three forty"
+  paragraph [10719,11228)
+    text [10719,10789) value="The last train from the city was supposed to be a convenience and was,"
+    softBreak [10789,10790)
+    text [10790,10857) value="most nights, a rehearsal for patience. It left from a platform that"
+    softBreak [10857,10858)
+    text [10858,10929) value="smelled of wet wool and orange peel. The indicator board had a habit of"
+    softBreak [10929,10930)
+    text [10930,11001) value="revising the future in increments of four minutes. I stood under it and"
+    softBreak [11001,11002)
+    text [11002,11067) value="read, or pretended to read, which in a station is almost the same"
+    softBreak [11067,11068)
+    text [11068,11138) value="activity. People glanced at the cover of whatever you were holding the"
+    softBreak [11138,11139)
+    text [11139,11208) value="way they glance at a stranger's shopping — not to know you, only to"
+    softBreak [11208,11209)
+    text [11209,11228) value="complete a picture."
+  paragraph [11230,11766)
+    text [11230,11302) value="I had, that month, a fat paperback whose spine had already given up. The"
+    softBreak [11302,11303)
+    text [11303,11372) value="pages fanned when I opened it, and I had to hold it with both thumbs,"
+    softBreak [11372,11373)
+    text [11373,11443) value="like a bird that might decide to leave. It was not a fashionable book."
+    softBreak [11443,11444)
+    text [11444,11515) value="It was a long account of a walk from one end of an island to the other,"
+    softBreak [11515,11516)
+    text [11516,11581) value="written by someone who had done the walk twice and could not stop"
+    softBreak [11581,11582)
+    text [11582,11654) value="comparing the two crossings. I liked it for its refusal to arrive. Every"
+    softBreak [11654,11655)
+    text [11655,11726) value="chapter ended on a ridge or a ferry slip, and the next chapter began by"
+    softBreak [11726,11727)
+    text [11727,11766) value="admitting that the weather had changed."
+  paragraph [11768,12378)
+    text [11768,11836) value="When the train finally accepted us it was three carriages instead of"
+    softBreak [11836,11837)
+    text [11837,11908) value="five, and the heat was on in only one of them. I sat opposite a man who"
+    softBreak [11908,11909)
+    text [11909,11981) value="was trying to finish a crossword in a newspaper that kept sliding on the"
+    softBreak [11981,11982)
+    text [11982,12053) value="table. He said \"seven down is a kind of boat\" to no one, and then, when"
+    softBreak [12053,12054)
+    text [12054,12125) value="I did not help him, to me. I said I did not do crosswords. He nodded as"
+    softBreak [12125,12126)
+    text [12126,12197) value="if I had confessed a larger failing and went back to the sliding paper."
+    softBreak [12197,12198)
+    text [12198,12266) value="The window beside us was a black mirror. Beyond it, I knew, were the"
+    softBreak [12266,12267)
+    text [12267,12339) value="sheds and the river and the back of a supermarket, but the glass offered"
+    softBreak [12339,12340)
+    text [12340,12378) value="only our own faces, tired and doubled."
+  paragraph [12380,12880)
+    text [12380,12451) value="There is no good light on a late train. The overheads are the colour of"
+    softBreak [12451,12452)
+    text [12452,12523) value="weak tea. If you sit under them long enough your page begins to look as"
+    softBreak [12523,12524)
+    text [12524,12596) value="if it has been stored in a cupboard. I have tried the little book lights"
+    softBreak [12596,12597)
+    text [12597,12666) value="that clip on, and I have tried the phone torch, and both of them turn"
+    softBreak [12666,12667)
+    text [12667,12738) value="you into a person performing reading for the carriage. Better, I think,"
+    softBreak [12738,12739)
+    text [12739,12811) value="to let the weak tea settle and to accept that some lines will have to be"
+    softBreak [12811,12812)
+    text [12812,12880) value="read twice. A sentence that survives that light has earned its keep."
+  paragraph [12882,13459)
+    text [12882,12947) value="Halfway home the train stopped for a reason no one announced. The"
+    softBreak [12947,12948)
+    text [12948,13012) value="crossword man looked up, then down, then folded the paper with a"
+    softBreak [13012,13013)
+    text [13013,13084) value="precision that suggested he had folded papers in stalled trains before."
+    softBreak [13084,13085)
+    text [13085,13151) value="A child in the next bay asked if they were there yet and was told,"
+    softBreak [13151,13152)
+    text [13152,13222) value="kindly, \"Not yet, and not for a while.\" I have heard worse definitions"
+    softBreak [13222,13223)
+    text [13223,13286) value="of a life. I went back to the island and to the walker's second"
+    softBreak [13286,13287)
+    text [13287,13358) value="crossing, in which the same headland looked smaller because he knew it,"
+    softBreak [13358,13359)
+    text [13359,13431) value="and I thought about how a reread is just that: the headland smaller, the"
+    softBreak [13431,13432)
+    text [13432,13459) value="weather differently honest."
+  paragraph [13461,14077)
+    text [13461,13533) value="When we moved again the carriage made the sound a carriage makes when it"
+    softBreak [13533,13534)
+    text [13534,13602) value="has been asked to remember its job — a gathering of small metallic"
+    softBreak [13602,13603)
+    text [13603,13674) value="agreements. Someone's bottle rolled and was captured. The crossword man"
+    softBreak [13674,13675)
+    text [13675,13747) value="said, without looking at me, \"Ketch. Seven down. I knew it was a kind of"
+    softBreak [13747,13748)
+    text [13748,13817) value="boat.\" I told him I was glad. He seemed, for the first time, as if he"
+    softBreak [13817,13818)
+    text [13818,13888) value="might smile, and then did not, which I respected. We were not going to"
+    softBreak [13888,13889)
+    text [13889,13955) value="become people who talked. We were going to share a table until the"
+    softBreak [13955,13956)
+    text [13956,14025) value="estuary towns began to appear, one after another, each with its small"
+    softBreak [14025,14026)
+    text [14026,14077) value="bright station and its dark immediately afterwards."
+  paragraph [14079,14726)
+    text [14079,14151) value="I got off two stops before the end of the line. The platform was wet and"
+    softBreak [14151,14152)
+    text [14152,14224) value="the ticket gates were open, which is the town's way of admitting that at"
+    softBreak [14224,14225)
+    text [14225,14297) value="that hour it cannot be bothered to enforce itself. I walked the long way"
+    softBreak [14297,14298)
+    text [14298,14368) value="because the short way passed a pub that would still be loud, and I was"
+    softBreak [14368,14369)
+    text [14369,14437) value="carrying a book whose spine could not take more weather. The streets"
+    softBreak [14437,14438)
+    text [14438,14506) value="were empty in the particular way of a place that has already decided"
+    softBreak [14506,14507)
+    text [14507,14575) value="tomorrow will be ordinary. A cat crossed ahead of me with a sense of"
+    softBreak [14575,14576)
+    text [14576,14647) value="appointment. I said good night to it, which is the sort of thing you do"
+    softBreak [14647,14648)
+    text [14648,14717) value="only when you are sure no person is there to hear the tone you use on"
+    softBreak [14717,14718)
+    text [14718,14726) value="animals."
+  paragraph [14728,15402)
+    text [14728,14800) value="At the door of the house I was then staying in — not Mara's, the other"
+    softBreak [14800,14801)
+    text [14801,14871) value="one, the one with the timer on the heating — I stood on the step and"
+    softBreak [14871,14872)
+    text [14872,14944) value="finished the paragraph I was in, under the porch light, because I have a"
+    softBreak [14944,14945)
+    text [14945,15015) value="superstition about carrying an unfinished sentence over a threshold at"
+    softBreak [15015,15016)
+    text [15016,15087) value="night. The walker on the island was describing a bothy with no glass in"
+    softBreak [15087,15088)
+    text [15088,15158) value="the windows, and how he had slept there on the first crossing and only"
+    softBreak [15158,15159)
+    text [15159,15229) value="sat, awake, on the second, because he already knew what the dawn would"
+    softBreak [15229,15230)
+    text [15230,15301) value="look like and wanted to watch it arrive rather than be surprised by it."
+    softBreak [15301,15302)
+    text [15302,15374) value="I closed the book on that, and went in, and the heating clicked as if it"
+    softBreak [15374,15375)
+    text [15375,15402) value="had been waiting for a cue."
+  paragraph [15404,15469)
+    text [15404,15469) value="The bothy stayed in my head for days. Some rooms you only sit in."
+  heading [15471,15488) level=2
+    text [15474,15488) value="The spare room"
+  paragraph [15490,16072)
+    text [15490,15558) value="The second house belonged to people I will call the Ellisons, though"
+    softBreak [15558,15559)
+    text [15559,15629) value="that is not their name and they will never read this. They had gone to"
+    softBreak [15629,15630)
+    text [15630,15704) value="the coast — a different coast from ours, a coast with a brochure — and"
+    softBreak [15704,15705)
+    text [15705,15775) value="they had said I should use the back room and feed the fish, which were"
+    softBreak [15775,15776)
+    text [15776,15848) value="the sort of bright, improbable fish that look designed rather than born."
+    softBreak [15848,15849)
+    text [15849,15920) value="The tank hummed. At night it threw a blue rectangle on the ceiling, and"
+    softBreak [15920,15921)
+    text [15921,15990) value="I slept under that rectangle and woke to it, and for the first week I"
+    softBreak [15990,15991)
+    text [15991,16061) value="thought of it as a kindness and for the second as a surveillance I had"
+    softBreak [16061,16062)
+    text [16062,16072) value="agreed to."
+  paragraph [16074,16607)
+    text [16074,16144) value="The spare room had a shelf of books chosen, I came to see, to describe"
+    softBreak [16144,16145)
+    text [16145,16213) value="the guest the Ellisons imagined. There were two novels that had been"
+    softBreak [16213,16214)
+    text [16214,16280) value="prizes a decade ago. There was a history of salt. There was a slim"
+    softBreak [16280,16281)
+    text [16281,16350) value="volume of poems with an uncracked spine, which is the saddest state a"
+    softBreak [16350,16351)
+    text [16351,16424) value="book can be in. There was a guide to the local birds in which someone —"
+    softBreak [16424,16425)
+    text [16425,16496) value="not recently — had ticked the robin, the blackbird, the herring gull,"
+    softBreak [16496,16497)
+    text [16497,16566) value="and then lost heart, or lost the winter, or lost the habit of looking"
+    softBreak [16566,16567)
+    text [16567,16607) value="up. I added nothing. It was not my list."
+  paragraph [16609,17317)
+    text [16609,16680) value="I did take the history of salt to bed, because the prize novels had the"
+    softBreak [16680,16681)
+    text [16681,16748) value="air of having been discussed at dinners I was not invited to, and I"
+    softBreak [16748,16749)
+    text [16749,16821) value="prefer a book that does not expect me to have been in the room. Salt, it"
+    softBreak [16821,16822)
+    text [16822,16896) value="turns out, is a story about roads and preservation and the fear of rot —"
+    softBreak [16896,16897)
+    text [16897,16969) value="which is to say it is a story about time, which every good history is. I"
+    softBreak [16969,16970)
+    text [16970,17038) value="read about caravans and taxes and the way a white crystal can decide"
+    softBreak [17038,17039)
+    text [17039,17108) value="whether a city lives inland or by the water. The fish tank hummed its"
+    softBreak [17108,17109)
+    text [17109,17173) value="agreement. Sometimes a fish would hang in the blue as if it were"
+    softBreak [17173,17174)
+    text [17174,17246) value="thinking, and I would look up from a sentence about a medieval warehouse"
+    softBreak [17246,17247)
+    text [17247,17317) value="and feel briefly, ridiculously, that we were engaged in the same work."
+  paragraph [17319,18021)
+    text [17319,17388) value="Guests leave traces they do not intend. I found, in the drawer of the"
+    softBreak [17388,17389)
+    text [17389,17459) value="bedside table, a hairpin and a paperclip and a postcard that had never"
+    softBreak [17459,17460)
+    text [17460,17526) value="been sent. The postcard showed a hotel with flags, and on the back"
+    softBreak [17526,17527)
+    text [17527,17596) value="someone had written only \"The breakfast is as they said —\" and then"
+    softBreak [17596,17597)
+    text [17597,17666) value="stopped, as if the dash were a cliff. I put it back exactly as it had"
+    softBreak [17666,17667)
+    text [17667,17737) value="been, angled against the side of the drawer. I have thought about that"
+    softBreak [17737,17738)
+    text [17738,17807) value="unfinished sentence more than about most finished books. A person had"
+    softBreak [17807,17808)
+    text [17808,17877) value="sat in this room, or in a room like it, and had begun to tell someone"
+    softBreak [17877,17878)
+    text [17878,17948) value="about breakfast, and the day had taken them away from the telling. The"
+    softBreak [17948,17949)
+    text [17949,18010) value="dash is still there, waiting for a clause that will not come."
+    footnoteReference [18010,18021) label="postcard"
+  paragraph [18023,18638)
+    text [18023,18094) value="The Ellisons had left a note about the fish that was longer than a note"
+    softBreak [18094,18095)
+    text [18095,18161) value="about fish needs to be. It had the tone of people who love a small"
+    softBreak [18161,18162)
+    text [18162,18231) value="system and want the system to outlast a fortnight. Water here, flakes"
+    softBreak [18231,18232)
+    text [18232,18303) value="there, the heater must not be adjusted, the light is on a timer and you"
+    softBreak [18303,18304)
+    text [18304,18371) value="must not override the timer even if you think the room is gloomy. I"
+    softBreak [18371,18372)
+    text [18372,18442) value="obeyed as if the note were a lease. In the evenings I sat in the chair"
+    softBreak [18442,18443)
+    text [18443,18511) value="that was not quite comfortable and I read, and the tank did its blue"
+    softBreak [18511,18512)
+    text [18512,18584) value="work, and I understood that I was part of the system now — a temporary"
+    softBreak [18584,18585)
+    text [18585,18638) value="component, rated for three weeks, not to be adjusted."
+  paragraph [18640,19176)
+    text [18640,18709) value="One afternoon a neighbour knocked because a parcel had been left with"
+    softBreak [18709,18710)
+    text [18710,18778) value="them. I signed for a box that did not belong to me and put it in the"
+    softBreak [18778,18779)
+    text [18779,18851) value="hall, and the neighbour, who had kind eyes and a dog that leaned against"
+    softBreak [18851,18852)
+    text [18852,18919) value="my shin, said, \"You're the one in the back room. They said you'd be"
+    softBreak [18919,18920)
+    text [18920,18991) value="quiet.\" I said I was trying. She laughed, not unkindly, and told me the"
+    softBreak [18991,18992)
+    text [18992,19063) value="last guest had played the piano at hours the street did not agree with."
+    softBreak [19063,19064)
+    text [19064,19135) value="\"You're already an improvement,\" she said, which is a sentence that can"
+    softBreak [19135,19136)
+    text [19136,19176) value="be lived with, if you do not examine it."
+  paragraph [19178,19991)
+    text [19178,19250) value="I did not play the piano. I walked through the rooms I had not been told"
+    softBreak [19250,19251)
+    text [19251,19321) value="I could use, which is a form of trespass so mild it barely has a name,"
+    softBreak [19321,19322)
+    text [19322,19394) value="and I looked at the photographs on the dresser: a mountain, a wedding, a"
+    softBreak [19394,19395)
+    text [19395,19467) value="child holding a fish that was not one of the bright ones. Other people's"
+    softBreak [19467,19468)
+    text [19468,19539) value="lives arranged to be glanced at. I did not open drawers in those rooms."
+    softBreak [19539,19540)
+    text [19540,19611) value="There is a line, and the unsent postcard had already taken me up to it."
+    softBreak [19611,19612)
+    text [19612,19684) value="I went back to the spare room and to the salt and to the poems I finally"
+    softBreak [19684,19685)
+    text [19685,19752) value="opened, on the last Sunday, out of a sense of duty to the uncracked"
+    softBreak [19752,19753)
+    text [19753,19823) value="spine. They were better than I had wanted them to be. I left the spine"
+    softBreak [19823,19824)
+    text [19824,19895) value="with a single white line, a scar of having been read once, which seemed"
+    softBreak [19895,19896)
+    text [19896,19966) value="the least I could do for a book that had waited on a guest shelf to be"
+    softBreak [19966,19967)
+    text [19967,19991) value="someone's idea of taste."
+  paragraph [19993,20529)
+    text [19993,20063) value="When the Ellisons returned I had a story ready about the fish, who had"
+    softBreak [20063,20064)
+    text [20064,20134) value="not died, and about the parcel, which was still in the hall, and about"
+    softBreak [20134,20135)
+    text [20135,20201) value="nothing else. They thanked me with the slightly startled warmth of"
+    softBreak [20201,20202)
+    text [20202,20271) value="people who have been on a brochure coast and have forgotten the exact"
+    softBreak [20271,20272)
+    text [20272,20343) value="dimensions of their own house. I walked out with my bag of books and my"
+    softBreak [20343,20344)
+    text [20344,20414) value="bag of shirts and I did not look up at the back window, because I knew"
+    softBreak [20414,20415)
+    text [20415,20485) value="the blue rectangle would be gone in the daytime, and I did not want to"
+    softBreak [20485,20486)
+    text [20486,20529) value="see the room returned to being only a room."
+  heading [20531,20568) level=2
+    text [20534,20568) value="A letter I was not meant to finish"
+  paragraph [20570,21099)
+    text [20570,20641) value="In the third week of January a letter arrived for me at Mara's address,"
+    softBreak [20641,20642)
+    text [20642,20712) value="forwarded by a landlord who still had a stamp and a conscience. It was"
+    softBreak [20712,20713)
+    text [20713,20784) value="from my cousin, who lives in a city I left on purpose and who writes on"
+    softBreak [20784,20785)
+    text [20785,20855) value="paper because she says a screen makes her cruel. The envelope had been"
+    softBreak [20855,20856)
+    text [20856,20928) value="rained on. The ink of my name had run into a small weather of its own. I"
+    softBreak [20928,20929)
+    text [20929,21004) value="stood in Mara's hall — I was back there by then, between houses — and I"
+    softBreak [21004,21005)
+    text [21005,21076) value="opened it with a thumb, which is an inelegant way to open anything that"
+    softBreak [21076,21077)
+    text [21077,21099) value="has survived the post."
+  blockquote [21101,22138)
+    paragraph [21103,22138)
+      text [21103,21173) value="I keep walking past the cafe where you used to sit with that notebook,"
+      softBreak [21173,21176)
+      text [21176,21245) value="and it is still there, which I resent. The new people have put plants"
+      softBreak [21245,21248)
+      text [21248,21318) value="in the window and the plants are thriving, which I resent more. I went"
+      softBreak [21318,21321)
+      text [21321,21390) value="in last Tuesday and ordered what you used to order, and it was only a"
+      softBreak [21390,21393)
+      text [21393,21462) value="drink, and I sat at the wrong table because your table was taken by a"
+      softBreak [21462,21465)
+      text [21465,21534) value="man who was marking essays with a red pen and a kind of fury I almost"
+      softBreak [21534,21537)
+      text [21537,21606) value="admired. I wanted to tell him that the work will not love him back. I"
+      softBreak [21606,21609)
+      text [21609,21673) value="did not, because I am trying, as you asked, not to narrate other"
+      softBreak [21673,21676)
+      text [21676,21746) value="people's lives for them. I am narrating yours instead, which is worse,"
+      softBreak [21746,21749)
+      text [21749,21817) value="and I know it, and I am doing it anyway because the city is too full"
+      softBreak [21817,21820)
+      text [21820,21890) value="of you now that you are not in it. Come back or do not come back. I am"
+      softBreak [21890,21893)
+      text [21893,21956) value="not in a position to make that a clean sentence. I am only in a"
+      softBreak [21956,21959)
+      text [21959,22025) value="position to say that the river froze at the edges this week, and I"
+      softBreak [22025,22028)
+      text [22028,22096) value="thought of the winter you said you needed, and I wondered whether it"
+      softBreak [22096,22099)
+      text [22099,22138) value="had arrived, and whether it was enough."
+  paragraph [22140,22702)
+    text [22140,22209) value="I sat down on the stairs to finish it, which is a bad place to read a"
+    softBreak [22209,22210)
+    text [22210,22280) value="letter that is trying to be several letters at once. Mara was out. The"
+    softBreak [22280,22281)
+    text [22281,22353) value="house had the mid-afternoon quiet of a place that believes itself empty."
+    softBreak [22353,22354)
+    text [22354,22421) value="I read the page twice, and then I read the last lines a third time,"
+    softBreak [22421,22422)
+    text [22422,22491) value="because \"whether it was enough\" is a clause that does not let you put"
+    softBreak [22491,22492)
+    text [22492,22564) value="the paper down cleanly. I had asked for a winter. I had not asked her to"
+    softBreak [22564,22565)
+    text [22565,22631) value="keep a seat at a cafe I had already left. The plants in the window"
+    softBreak [22631,22632)
+    text [22632,22702) value="seemed, at that distance, like an accusation I had no right to answer."
+  paragraph [22704,23220)
+    text [22704,22775) value="There is a cruelty in being remembered accurately. She had the notebook"
+    softBreak [22775,22776)
+    text [22776,22847) value="right, and the order, and the river. She had the thing I had said about"
+    softBreak [22847,22848)
+    text [22848,22919) value="needing a season that would not flatter me. I had said it standing on a"
+    softBreak [22919,22920)
+    text [22920,22992) value="bridge with a wind that made speech into a kind of work, and I had meant"
+    softBreak [22992,22993)
+    text [22993,23062) value="it, and I had also meant, without saying so, that I wanted someone to"
+    softBreak [23062,23063)
+    text [23063,23130) value="notice I was leaving. She had noticed. She had written it down. The"
+    softBreak [23130,23131)
+    text [23131,23203) value="letter was the bill for that noticing, arrived late and rain-stained, as"
+    softBreak [23203,23204)
+    text [23204,23220) value="bills often are."
+  paragraph [23222,23961)
+    text [23222,23287) value="I did not write back that day. I put the letter in the book I was"
+    softBreak [23287,23288)
+    text [23288,23359) value="reading, which was a habit I had promised myself I would break, because"
+    softBreak [23359,23360)
+    text [23360,23431) value="a letter used as a bookmark is a way of refusing to file a feeling. For"
+    softBreak [23431,23432)
+    text [23432,23499) value="a week it marked a chapter about a frozen harbour in someone else's"
+    softBreak [23499,23500)
+    text [23500,23570) value="century, and then I took it out and put it in the inside pocket of the"
+    softBreak [23570,23571)
+    text [23571,23640) value="coat I wore to the late train, as if the cousin's sentences needed to"
+    softBreak [23640,23641)
+    text [23641,23710) value="travel. They did not do any work there. They only waited, the way the"
+    softBreak [23710,23711)
+    text [23711,23782) value="postcard in the Ellisons' drawer was waiting, except that this dash was"
+    softBreak [23782,23783)
+    text [23783,23847) value="mine to finish, and I knew it, and I still walked around with it"
+    softBreak [23847,23848)
+    text [23848,23917) value="unfinished, which is a kind of answer and a kind of failure and, in a"
+    softBreak [23917,23918)
+    text [23918,23952) value="winter of borrowed rooms, typical."
+    footnoteReference [23952,23961) label="cousin"
+  paragraph [23963,24556)
+    text [23963,24033) value="When I did write, I wrote too little. I said the winter had arrived. I"
+    softBreak [24033,24034)
+    text [24034,24099) value="said it was not a clean sentence either. I said I had stood by an"
+    softBreak [24099,24100)
+    text [24100,24166) value="estuary that was not her river and had thought of the cafe without"
+    softBreak [24166,24167)
+    text [24167,24238) value="resenting the plants. I did not say I had read her letter on the stairs"
+    softBreak [24238,24239)
+    text [24239,24308) value="like a person in a novel, because she would have liked that too much,"
+    softBreak [24308,24309)
+    text [24309,24379) value="and I did not say come and see the estuary, because I was not sure the"
+    softBreak [24379,24380)
+    text [24380,24447) value="rooms I was in could bear another person. The reply went into a red"
+    softBreak [24447,24448)
+    text [24448,24516) value="postbox that had a seagull perched on it, which felt like a detail I"
+    softBreak [24516,24517)
+    text [24517,24556) value="should not invent and therefore report."
+  heading [24558,24597) level=2
+    text [24561,24597) value="The library that closed on Thursdays"
+  paragraph [24599,25222)
+    text [24599,24663) value="Our town library is a converted chapel with a damp problem and a"
+    softBreak [24663,24664)
+    text [24664,24733) value="librarian who has decided not to be defeated by either. She is called"
+    softBreak [24733,24734)
+    text [24734,24805) value="Helen when she is wearing her own coat and Mrs. Reed when she is behind"
+    softBreak [24805,24806)
+    text [24806,24870) value="the desk, and I have never been able to establish which name she"
+    softBreak [24870,24871)
+    text [24871,24942) value="prefers, so I use neither and she, in return, calls me the one with the"
+    softBreak [24942,24943)
+    text [24943,25014) value="returns. The building smells of paper and of the heater that sits under"
+    softBreak [25014,25015)
+    text [25015,25081) value="the west window and ticks like a patient clock. On Thursdays it is"
+    softBreak [25081,25082)
+    text [25082,25152) value="closed, which I forgot more than once, arriving with a bag of books to"
+    softBreak [25152,25153)
+    text [25153,25222) value="find the door holding a handwritten sign that said, simply, Thursday."
+  paragraph [25224,25920)
+    text [25224,25295) value="When it is open, the light comes in through glass that was chosen for a"
+    softBreak [25295,25296)
+    text [25296,25365) value="congregation and is too honest for readers. You sit in it and you are"
+    softBreak [25365,25366)
+    text [25366,25438) value="seen. I liked the corner by the local-history shelves, not because I was"
+    softBreak [25438,25439)
+    text [25439,25509) value="working on local history, but because those volumes are tall enough to"
+    softBreak [25509,25510)
+    text [25510,25579) value="make a small room around a chair. I would take down a parish register"
+    softBreak [25579,25580)
+    text [25580,25651) value="facsimile I had no claim on and rest it closed on the table, as a wall,"
+    softBreak [25651,25652)
+    text [25652,25712) value="and behind it I would read whatever I had actually come for."
+    softBreak [25712,25713)
+    text [25713,25782) value="Helen-or-Mrs. Reed knew. She once said, passing, \"The dead don't mind"
+    softBreak [25782,25783)
+    text [25783,25854) value="being furniture.\" I have been turning that sentence over ever since. It"
+    softBreak [25854,25855)
+    text [25855,25920) value="is either a kindness or a theology. In a chapel it might be both."
+  paragraph [25922,26509)
+    text [25922,25994) value="A library is the only borrowed room that expects you. The chair is not a"
+    softBreak [25994,25995)
+    text [25995,26066) value="favour. The heat, such as it is, is not a timer you must not touch. You"
+    softBreak [26066,26067)
+    text [26067,26138) value="may take a book that someone else has held and will hold again, and the"
+    softBreak [26138,26139)
+    text [26139,26210) value="transaction is designed so that none of you have to meet. I have always"
+    softBreak [26210,26211)
+    text [26211,26281) value="loved that anonymity, and I have also, this winter, been suspicious of"
+    softBreak [26281,26282)
+    text [26282,26353) value="it. To pass a book through a desk is to pretend that reading is a civic"
+    softBreak [26353,26354)
+    text [26354,26424) value="act rather than a private hunger. It is both, of course. The civic act"
+    softBreak [26424,26425)
+    text [26425,26492) value="is the building. The hunger is what you do in the corner behind the"
+    softBreak [26492,26493)
+    text [26493,26509) value="parish register."
+  paragraph [26511,27124)
+    text [26511,26578) value="I was there on a Tuesday when the school let out and the children's"
+    softBreak [26578,26579)
+    text [26579,26651) value="section became a weather system. A boy sat on the floor and narrated, at"
+    softBreak [26651,26652)
+    text [26652,26721) value="full volume, a book about a fox to a younger child who may or may not"
+    softBreak [26721,26722)
+    text [26722,26794) value="have been his sister. He did all the voices. The fox was swaggering; the"
+    softBreak [26794,26795)
+    text [26795,26863) value="chickens were unimpressed. Helen-or-Mrs. Reed did not shush him. She"
+    softBreak [26863,26864)
+    text [26864,26932) value="stood with a trolley and listened as if this were the work, which it"
+    softBreak [26932,26933)
+    text [26933,27000) value="was. I thought of the fox in Mara's alley, and of the receipt I had"
+    softBreak [27000,27001)
+    text [27001,27069) value="written on, and I felt the two foxes try to become one fox and fail,"
+    softBreak [27069,27070)
+    text [27070,27124) value="which is what images do when you ask too much of them."
+  paragraph [27126,27884)
+    text [27126,27195) value="Later that afternoon an old man at the computer asked for help with a"
+    softBreak [27195,27196)
+    text [27196,27260) value="form, and the whole desk became a quiet theatre of passwords and"
+    softBreak [27260,27261)
+    text [27261,27331) value="forgotten addresses. I could not hear the details and did not want to."
+    softBreak [27331,27332)
+    text [27332,27406) value="What I heard was the tone — the librarian lowering her voice not to hide"
+    softBreak [27406,27407)
+    text [27407,27478) value="the information but to give the man a room inside the room. I have seen"
+    softBreak [27478,27479)
+    text [27479,27550) value="priests do that, and I have seen nurses do that, and I have rarely seen"
+    softBreak [27550,27551)
+    text [27551,27621) value="it done better than it was done next to a stack of reserved thrillers."
+    softBreak [27621,27622)
+    text [27622,27692) value="When the man left he said thank you in the old way, the way that means"
+    softBreak [27692,27693)
+    text [27693,27765) value="the thanks has weight, and she said, \"That's what it's for,\" which might"
+    softBreak [27765,27766)
+    text [27766,27838) value="have been about the computer or the building or the whole idea of a desk"
+    softBreak [27838,27839)
+    text [27839,27884) value="that you can approach without an appointment."
+  paragraph [27886,28515)
+    text [27886,27957) value="I borrowed, that Tuesday, a book of essays by a woman who had lived for"
+    softBreak [27957,27958)
+    text [27958,28030) value="a year in a lighthouse, not as a keeper but as a person who had asked to"
+    softBreak [28030,28031)
+    text [28031,28099) value="be left somewhere with a rotating light. I thought it would be about"
+    softBreak [28099,28100)
+    text [28100,28171) value="solitude and it was, but it was also about maintenance — the oil, the"
+    softBreak [28171,28172)
+    text [28172,28243) value="lens, the walkway in a wind that wanted you off it. She wrote about the"
+    softBreak [28243,28244)
+    text [28244,28313) value="light as a sentence that kept being said to the water, whether or not"
+    softBreak [28313,28314)
+    text [28314,28382) value="anyone was positioned to receive it. I sat behind my parish-register"
+    softBreak [28382,28383)
+    text [28383,28450) value="wall and I underlined nothing, because it was a library book, and I"
+    softBreak [28450,28451)
+    text [28451,28515) value="remembered instead, which is a poorer system and the one I have."
+  blockquote [28517,28950)
+    paragraph [28519,28950)
+      text [28519,28586) value="The light does not care whether a ship is there. That was the first"
+      softBreak [28586,28589)
+      text [28589,28656) value="thing I had to learn, and the last thing I wanted to. I had come to"
+      softBreak [28656,28659)
+      text [28659,28727) value="the rock for a conversation with my own quiet, and I found instead a"
+      softBreak [28727,28730)
+      text [28730,28799) value="machine for being ignored by the weather. I came to love it for that."
+      softBreak [28799,28802)
+      text [28802,28871) value="A person can live beside a faithfulness that is not personal. Most of"
+      softBreak [28871,28874)
+      text [28874,28940) value="us already do. We simply prefer our lighthouses to look like other"
+      softBreak [28940,28943)
+      text [28943,28950) value="people."
+  paragraph [28952,29680)
+    text [28952,29023) value="I returned the essays a day late and paid the fine in coins, which made"
+    softBreak [29023,29024)
+    text [29024,29093) value="the transaction feel like a century I had not lived in. Helen-or-Mrs."
+    softBreak [29093,29094)
+    text [29094,29161) value="Reed wrote the amount in a little book, though the computer already"
+    softBreak [29161,29162)
+    text [29162,29231) value="knew. \"We keep both,\" she said, when she saw me looking. \"The machine"
+    softBreak [29231,29232)
+    text [29232,29301) value="forgets in its own way. This forgets in ours.\" I walked out under the"
+    softBreak [29301,29302)
+    text [29302,29374) value="honest chapel light and down the steps that still have a groove from the"
+    softBreak [29374,29375)
+    text [29375,29447) value="congregation, and I thought that a library is a lighthouse that lets you"
+    softBreak [29447,29448)
+    text [29448,29515) value="come inside, and that this is almost too neat a thought, and that I"
+    softBreak [29515,29516)
+    text [29516,29584) value="would keep it anyway, the way I kept the receipt with the fox on it,"
+    softBreak [29584,29585)
+    text [29585,29654) value="because a winter is a collection of almost-too-neat thoughts that you"
+    softBreak [29654,29655)
+    text [29655,29680) value="were cold enough to need."
+  heading [29682,29725) level=2
+    text [29685,29725) value="What a sentence does when it has to turn"
+  paragraph [29727,30343)
+    text [29727,29799) value="I said I was not writing a theory, and I am still not, but I cannot talk"
+    softBreak [29799,29800)
+    text [29800,29872) value="about a winter of pages without talking about the moment a line runs out"
+    softBreak [29872,29873)
+    text [29873,29943) value="of room. You reach the right-hand edge — in a book, in a window of a"
+    softBreak [29943,29944)
+    text [29944,30015) value="train, in the column of a cheap paperback whose margins were decided by"
+    softBreak [30015,30016)
+    text [30016,30088) value="someone who would never ride the twenty-three forty — and the sentence"
+    softBreak [30088,30089)
+    text [30089,30158) value="has to decide whether to break, and where, and whether the break will"
+    softBreak [30158,30159)
+    text [30159,30225) value="look like a choice or like an accident. Readers do not, as a rule,"
+    softBreak [30225,30226)
+    text [30226,30293) value="notice a good decision. They notice a hole. They notice a word left"
+    softBreak [30293,30294)
+    text [30294,30343) value="alone on a line like a person left on a platform."
+  paragraph [30345,31063)
+    text [30345,30412) value="I notice more than I used to, which is a professional deformation I"
+    softBreak [30412,30413)
+    text [30413,30480) value="acquired by caring about rooms. Once you have sat in a kitchen that"
+    softBreak [30480,30481)
+    text [30481,30551) value="belongs to someone else, you start to see how furniture has been asked"
+    softBreak [30551,30552)
+    text [30552,30623) value="to do jobs it was not bought for. A chair piled with post. A table that"
+    softBreak [30623,30624)
+    text [30624,30696) value="is also a desk that is also a place to put a letter you are not ready to"
+    softBreak [30696,30697)
+    text [30697,30768) value="answer. A page is furniture of that kind. It was made for a reader in a"
+    softBreak [30768,30769)
+    text [30769,30839) value="steady chair, and it is asked, daily, to perform in motion, in queues,"
+    softBreak [30839,30840)
+    text [30840,30911) value="in beds that are not your bed. The line-break is the small courtesy the"
+    softBreak [30911,30912)
+    text [30912,30984) value="page can still offer: I will not leave you with a hole if I can help it."
+    softBreak [30984,30985)
+    text [30985,31051) value="I will not push a word into the margin as if the margin were not a"
+    softBreak [31051,31052)
+    text [31052,31057) value="wall."
+    footnoteReference [31057,31063) label="rag"
+  paragraph [31065,31590)
+    text [31065,31137) value="This is why I have always distrusted the idea that a beautiful page is a"
+    softBreak [31137,31138)
+    text [31138,31209) value="page you look at. A beautiful page is a page you forget you are looking"
+    softBreak [31209,31210)
+    text [31210,31280) value="at, because nothing in the rag has called you out of the sentence, and"
+    softBreak [31280,31281)
+    text [31281,31351) value="nothing in the spacing has made you work for a rhythm that should have"
+    softBreak [31351,31352)
+    text [31352,31425) value="been given. The clinic television, the train heat, the fish-tank blue —"
+    softBreak [31425,31426)
+    text [31426,31496) value="those will interrupt you anyway. The page's job is not to compete with"
+    softBreak [31496,31497)
+    text [31497,31568) value="them. The page's job is to be the one surface in the room that does not"
+    softBreak [31568,31569)
+    text [31569,31590) value="ask you to manage it."
+  paragraph [31592,32378)
+    text [31592,31659) value="I tested this, without meaning to, on the late train, with the book"
+    softBreak [31659,31660)
+    text [31660,31728) value="whose spine had failed. Because I had to hold it with both thumbs, I"
+    softBreak [31728,31729)
+    text [31729,31796) value="turned pages less often, and I stayed longer in each opening, and I"
+    softBreak [31796,31797)
+    text [31797,31863) value="began to see the right-hand edge as a coastline. Some pages were a"
+    softBreak [31863,31864)
+    text [31864,31933) value="kindly shore, the lines arriving at almost the same sand. Some were a"
+    softBreak [31933,31934)
+    text [31934,32006) value="cliff and a rubble of short lines, and my eye kept tripping, and I would"
+    softBreak [32006,32007)
+    text [32007,32069) value="look up into the black window and lose the walker's ridge. The"
+    softBreak [32069,32070)
+    text [32070,32141) value="difference was not the writer's. The sentences were the same sentences."
+    softBreak [32141,32142)
+    text [32142,32211) value="The difference was how the lines had been asked to end. I do not know"
+    softBreak [32211,32212)
+    text [32212,32283) value="who decided those endings — some program, some tired compositor, some"
+    softBreak [32283,32284)
+    text [32284,32355) value="default no one had looked at since the file was made — but I felt the"
+    softBreak [32355,32356)
+    text [32356,32378) value="decision in my thumbs."
+  paragraph [32380,33066)
+    text [32380,32444) value="A person who has never had to care about this will say that I am"
+    softBreak [32444,32445)
+    text [32445,32517) value="describing nothing, or describing a luxury. They will say that the story"
+    softBreak [32517,32518)
+    text [32518,32589) value="is the thing, and the type is a glass you drink it from, and you do not"
+    softBreak [32589,32590)
+    text [32590,32658) value="praise the glass. I have said this myself, in rooms where it was the"
+    softBreak [32658,32659)
+    text [32659,32731) value="polite thing. I no longer believe it. I have drunk from too many chipped"
+    softBreak [32731,32732)
+    text [32732,32806) value="glasses this winter — I mean this literally, in Mara's kitchen — and I"
+    softBreak [32806,32807)
+    text [32807,32876) value="know the difference between a chip you forget and a chip that catches"
+    softBreak [32876,32877)
+    text [32877,32949) value="your lip every time. A short line in the wrong place is a chip. A column"
+    softBreak [32949,32950)
+    text [32950,33020) value="that pushes past its measure is a lip of glass you did not expect. You"
+    softBreak [33020,33021)
+    text [33021,33066) value="can still drink. You will remember the glass."
+  paragraph [33068,33845)
+    text [33068,33131) value="The walker on the island, who compared his two crossings, would"
+    softBreak [33131,33132)
+    text [33132,33201) value="understand this without the metaphor. The path was the same path. The"
+    softBreak [33201,33202)
+    text [33202,33271) value="second time, he knew where the bog began, and he stepped differently,"
+    softBreak [33271,33272)
+    text [33272,33343) value="and the island — which had not changed — became a different walk. A"
+    softBreak [33343,33344)
+    text [33344,33416) value="paragraph is an island you cross more than once if the book is any good."
+    softBreak [33416,33417)
+    text [33417,33489) value="The line-breaks are the places you put your feet. If they are chosen all"
+    softBreak [33489,33490)
+    text [33490,33560) value="at once, with a view of the whole ridge, you arrive less tired than if"
+    softBreak [33560,33561)
+    text [33561,33632) value="each step was only the next dry-looking tuft. I know how this sounds. I"
+    softBreak [33632,33633)
+    text [33633,33700) value="am going to let it sound that way. A winter of other people's rooms"
+    softBreak [33700,33701)
+    text [33701,33774) value="teaches you that the humble systems — timers, notes about fish, the way"
+    softBreak [33774,33775)
+    text [33775,33845) value="a paragraph gives up its last line — are where the life actually is."
+  paragraph [33847,34434)
+    text [33847,33910) value="Helen-or-Mrs. Reed, who keeps two records of a late fine, would"
+    softBreak [33910,33911)
+    text [33911,33981) value="understand it too. The machine forgets in its own way. The little book"
+    softBreak [33981,33982)
+    text [33982,34053) value="forgets in ours. A page that has been set with care is the little book."
+    softBreak [34053,34054)
+    text [34054,34125) value="It is not more true than the machine. It is differently answerable. You"
+    softBreak [34125,34126)
+    text [34126,34195) value="can see the hand, even when the hand was a set of rules someone chose"
+    softBreak [34195,34196)
+    text [34196,34268) value="and then stood by. I want, in the rooms I have not yet borrowed, to read"
+    softBreak [34268,34269)
+    text [34269,34336) value="pages that were stood by. That is the whole of the theory I swore I"
+    softBreak [34336,34337)
+    text [34337,34405) value="would not write. It fits in a sentence. The rest of this is only the"
+    softBreak [34405,34406)
+    text [34406,34434) value="weather the sentence needed."
+  heading [34436,34475) level=2
+    text [34439,34475) value="Weather, and the days I did not read"
+  paragraph [34477,35094)
+    text [34477,34545) value="Not every day of the winter had a page in it. I want that on record,"
+    softBreak [34545,34546)
+    text [34546,34614) value="because an account of reading can start to sound like a life made of"
+    softBreak [34614,34615)
+    text [34615,34687) value="reading, which mine is not. There were days of paid work at a table that"
+    softBreak [34687,34688)
+    text [34688,34757) value="was sometimes Mara's and sometimes a corner of a cafe that was not my"
+    softBreak [34757,34758)
+    text [34758,34830) value="cousin's cafe, and on those days the sentences I produced were the wrong"
+    softBreak [34830,34831)
+    text [34831,34904) value="kind — useful, forgettable, gone by evening. There were days of walking"
+    softBreak [34904,34905)
+    text [34905,34977) value="because the rooms had become too much room, and I went out along the sea"
+    softBreak [34977,34978)
+    text [34978,35047) value="wall with my hands in my pockets and no book, on purpose, and watched"
+    softBreak [35047,35048)
+    text [35048,35094) value="the tide decide what to do with a row of weed."
+  paragraph [35096,35766)
+    text [35096,35166) value="The weather was not dramatic, which disappointed a part of me that had"
+    softBreak [35166,35167)
+    text [35167,35236) value="wanted the winter to look like a winter in a novel. We had frost that"
+    softBreak [35236,35237)
+    text [35237,35306) value="made the estuary grass stand up like a brushed pelt. We had rain that"
+    softBreak [35306,35307)
+    text [35307,35375) value="arrived sideways and found the gap in every collar. We had a week of"
+    softBreak [35375,35376)
+    text [35376,35446) value="stillness in January when the smoke from the chimneys went straight up"
+    softBreak [35446,35447)
+    text [35447,35516) value="and hung, and the town smelled of wood that had been stored badly. We"
+    softBreak [35516,35517)
+    text [35517,35589) value="did not have snow that stayed. We had snow that visited in the night and"
+    softBreak [35589,35590)
+    text [35590,35657) value="was gone by the time the school opened, leaving only a wetness that"
+    softBreak [35657,35658)
+    text [35658,35728) value="could have been rain, and a few people saying, at the shop, that their"
+    softBreak [35728,35729)
+    text [35729,35766) value="bins had worn white hats for an hour."
+  paragraph [35768,36271)
+    text [35768,35840) value="On the still week I went to the sea wall every morning because the house"
+    softBreak [35840,35841)
+    text [35841,35914) value="I was in — the Ellisons' still, then — felt as if it were holding its"
+    softBreak [35914,35915)
+    text [35915,35984) value="breath with the rest of the town. The fish tank hummed. The timer did"
+    softBreak [35984,35985)
+    text [35985,36056) value="its work. I stood at the wall and looked at a horizon that was a single"
+    softBreak [36056,36057)
+    text [36057,36129) value="unbroken stroke, no ships, no weather worth a name, and I understood the"
+    softBreak [36129,36130)
+    text [36130,36191) value="lighthouse essayist's point without having to be on a rock. A"
+    softBreak [36191,36192)
+    text [36192,36261) value="faithfulness that is not personal. The water kept arriving. I was not"
+    softBreak [36261,36262)
+    text [36262,36271) value="required."
+  paragraph [36273,37088)
+    text [36273,36345) value="I met, on one of those mornings, a man I vaguely knew from the shop, and"
+    softBreak [36345,36346)
+    text [36346,36417) value="we stood together in the way of people who have not planned to talk. He"
+    softBreak [36417,36418)
+    text [36418,36486) value="said the stillness made his dog anxious. I said it made the chimneys"
+    softBreak [36486,36487)
+    text [36487,36559) value="look like they were thinking. He laughed, and then we both looked at the"
+    softBreak [36559,36560)
+    text [36560,36628) value="water so the laugh would have somewhere to go. \"My wife reads in the"
+    softBreak [36628,36629)
+    text [36629,36701) value="mornings,\" he said, after a bit. \"I can't do it. I have to be on my feet"
+    softBreak [36701,36702)
+    text [36702,36772) value="or I start making lists.\" I told him I read in other people's kitchens"
+    softBreak [36772,36773)
+    text [36773,36845) value="at night, which was more than he had asked for, and he nodded as if this"
+    softBreak [36845,36846)
+    text [36846,36914) value="were a known sport with rules. \"Each to their own borrowed hour,\" he"
+    softBreak [36914,36915)
+    text [36915,36986) value="said, and I have given him that line more credit than a remark on a sea"
+    softBreak [36986,36987)
+    text [36987,37057) value="wall maybe deserves, because it named the winter more cheaply and more"
+    softBreak [37057,37058)
+    text [37058,37088) value="accurately than I had managed."
+  paragraph [37090,37709)
+    text [37090,37160) value="The days I did not read were not empty. They were full of the unbooked"
+    softBreak [37160,37161)
+    text [37161,37233) value="work of being a person in a town: the queue, the bin, the email that had"
+    softBreak [37233,37234)
+    text [37234,37300) value="to be answered in a voice that was not the voice of these pages. I"
+    softBreak [37300,37301)
+    text [37301,37371) value="mention them so that the rooms do not look like a retreat. They were a"
+    softBreak [37371,37372)
+    text [37372,37439) value="way of staying in the world without having a fixed address in it. A"
+    softBreak [37439,37440)
+    text [37440,37510) value="borrowed room is not an escape from ordinary life. It is ordinary life"
+    softBreak [37510,37511)
+    text [37511,37581) value="with someone else's pictures on the dresser and someone else's fish to"
+    softBreak [37581,37582)
+    text [37582,37654) value="keep alive. The reading happened in the gaps, which is where reading has"
+    softBreak [37654,37655)
+    text [37655,37709) value="always happened, even for people who own their chairs."
+  paragraph [37711,38405)
+    text [37711,37778) value="I did, on a Friday I had marked as a day without pages, pick up the"
+    softBreak [37778,37779)
+    text [37779,37851) value="poems in the Ellisons' spare room and read three of them standing up, as"
+    softBreak [37851,37852)
+    text [37852,37921) value="if standing made it not count. One of them was about a coat left on a"
+    softBreak [37921,37922)
+    text [37922,37992) value="train, and it was short, and it ended on a dash — not a full stop, a"
+    softBreak [37992,37993)
+    text [37993,38066) value="dash — and I closed the book and went out and did the shopping and came"
+    softBreak [38066,38067)
+    text [38067,38137) value="back and read it again, still standing, because a dash at the end of a"
+    softBreak [38137,38138)
+    text [38138,38206) value="poem is a kind of porch light, and I have already admitted what I am"
+    softBreak [38206,38207)
+    text [38207,38278) value="like about thresholds. The poet had trusted the unfinished thing. I put"
+    softBreak [38278,38279)
+    text [38279,38349) value="the book back with its new white line and I went to feed the fish, who"
+    softBreak [38349,38350)
+    text [38350,38405) value="did not care about dashes, and that, too, was a relief."
+  heading [38407,38433) level=2
+    text [38410,38433) value="Two more rooms, briefly"
+  paragraph [38435,39253)
+    text [38435,38499) value="There was a week in a hostel in the city, between Mara's and the"
+    softBreak [38499,38500)
+    text [38500,38570) value="Ellisons', that I have almost left out because it does not flatter the"
+    softBreak [38570,38571)
+    text [38571,38643) value="shape of this account. The room had four beds and I used one of them for"
+    softBreak [38643,38644)
+    text [38644,38715) value="three nights, and the other three were occupied by a rotation of people"
+    softBreak [38715,38716)
+    text [38716,38783) value="who packed with head-torches and whispered in languages I could not"
+    softBreak [38783,38784)
+    text [38784,38855) value="join. I read with a torch of my own, under a blanket, like a child, and"
+    softBreak [38855,38856)
+    text [38856,38926) value="I hated the performance of it, and I did it anyway because the ceiling"
+    softBreak [38926,38927)
+    text [38927,38998) value="light was a punishment and the alternative was the glow of four phones."
+    softBreak [38998,38999)
+    text [38999,39068) value="A man in the far bed was listening to a lecture with one earphone in,"
+    softBreak [39068,39069)
+    text [39069,39135) value="and phrases escaped: \"the surplus,\" \"as we saw in week four,\" \"any"
+    softBreak [39135,39136)
+    text [39136,39203) value="questions so far.\" I never learned the subject. I learned only that"
+    softBreak [39203,39204)
+    text [39204,39253) value="someone else's education can become your weather."
+  paragraph [39255,40026)
+    text [39255,39324) value="The hostel had a kitchen that was a more desperate version of Mara's:"
+    softBreak [39324,39325)
+    text [39325,39401) value="the same problem — how to be a person among other people's jars — solved"
+    softBreak [39401,39402)
+    text [39402,39470) value="with less grace and more labelling. I cooked pasta in a pan that had"
+    softBreak [39470,39471)
+    text [39471,39543) value="been left wet, and I ate it standing, and I read two pages of the island"
+    softBreak [39543,39544)
+    text [39544,39607) value="walk taped to the tiled wall with my eyes, which is not a way I"
+    softBreak [39607,39608)
+    text [39608,39675) value="recommend. Then I went up the stairs that smelled of someone else's"
+    softBreak [39675,39676)
+    text [39676,39746) value="shampoo and I lay in the dark and I thought about all the rooms, and I"
+    softBreak [39746,39747)
+    text [39747,39818) value="had a moment of wanting a room that was mine, with a lamp I had chosen,"
+    softBreak [39818,39819)
+    text [39819,39891) value="and I let the want sit, and then I let it go, because the winter was not"
+    softBreak [39891,39892)
+    text [39892,39963) value="for settling. The winter was for finding out what a page could survive."
+    softBreak [39963,39964)
+    text [39964,40026) value="A hostel blanket is a severe test. The page survived. I slept."
+  paragraph [40028,40835)
+    text [40028,40098) value="There was also, for two afternoons only, the back room of the bookshop"
+    softBreak [40098,40099)
+    text [40099,40170) value="on the high street, where I sat because the owner had said I could if I"
+    softBreak [40170,40171)
+    text [40171,40243) value="bought something, and I bought something, and then I felt I had paid for"
+    softBreak [40243,40244)
+    text [40244,40316) value="a chair and should use it. The room was a stockroom with a window, which"
+    softBreak [40316,40317)
+    text [40317,40385) value="is a luxury in the trade. Boxes with their flaps open, a kettle on a"
+    softBreak [40385,40386)
+    text [40386,40457) value="box, a chair that had come from a kitchen. I read the first chapters of"
+    softBreak [40457,40458)
+    text [40458,40531) value="what I had bought — a novel about a translator who begins to invent the"
+    softBreak [40531,40532)
+    text [40532,40605) value="speeches she cannot find — and every few pages someone came through for"
+    softBreak [40605,40606)
+    text [40606,40674) value="a title, and the owner would say, from the front, \"It's in the back,"
+    softBreak [40674,40675)
+    text [40675,40747) value="don't mind him.\" I was him. I minded less than I expected. To be a piece"
+    softBreak [40747,40748)
+    text [40748,40819) value="of furniture that does not have to move is, after a season of moving, a"
+    softBreak [40819,40820)
+    text [40820,40835) value="kind of honour."
+  paragraph [40837,41695)
+    text [40837,40905) value="The translator in the novel starts small: a softening, a courtesy, a"
+    softBreak [40905,40906)
+    text [40906,40978) value="verb that is easier than the true one. Then she invents a whole replying"
+    softBreak [40978,40979)
+    text [40979,41051) value="letter that the original speaker never wrote, because the silence on the"
+    softBreak [41051,41052)
+    text [41052,41121) value="page feels, to her, like a failure of care. I closed the book at that"
+    softBreak [41121,41122)
+    text [41122,41194) value="point, in the stockroom, and I thought of my cousin, and of the postcard"
+    softBreak [41194,41195)
+    text [41195,41261) value="in the drawer, and of every dash this winter had offered me, and I"
+    softBreak [41261,41262)
+    text [41262,41330) value="understood the temptation as if it were a weather I had stood in. To"
+    softBreak [41330,41331)
+    text [41331,41399) value="finish other people's sentences is a way of not being able to bear a"
+    softBreak [41399,41400)
+    text [41400,41472) value="rag. The honest page leaves the short line. The honest letter leaves the"
+    softBreak [41472,41473)
+    text [41473,41544) value="question about whether the winter was enough. I put the novel in my bag"
+    softBreak [41544,41545)
+    text [41545,41617) value="and I went out through the shop, and the owner nodded without looking up"
+    softBreak [41617,41618)
+    text [41618,41685) value="from a pile of returns, and the bell on the door did the small work"
+    softBreak [41685,41686)
+    text [41686,41695) value="bells do."
+  heading [41697,41713) level=2
+    text [41700,41713) value="The last room"
+  paragraph [41715,42365)
+    text [41715,41787) value="In the last week of February the thaw came, and with it a message from a"
+    softBreak [41787,41788)
+    text [41788,41857) value="landlord who had found a set of keys and a date. I walked through the"
+    softBreak [41857,41858)
+    text [41858,41930) value="empty flat on a morning when the pavements were shining in that flat way"
+    softBreak [41930,41931)
+    text [41931,41996) value="that means the frost has given up. The rooms were nothing: white,"
+    softBreak [41996,41997)
+    text [41997,42067) value="echoing, a window that looked onto a wall not unlike Mara's, a kitchen"
+    softBreak [42067,42068)
+    text [42068,42140) value="that had not yet learned anyone's order of spices. I stood in the middle"
+    softBreak [42140,42141)
+    text [42141,42212) value="of the floor and I clapped once, which is a thing I have seen people do"
+    softBreak [42212,42213)
+    text [42213,42284) value="in empty rooms and have never understood until I did it. The sound went"
+    softBreak [42284,42285)
+    text [42285,42356) value="nowhere interesting. It would, I thought, be a place I could fail to be"
+    softBreak [42356,42357)
+    text [42357,42365) value="a guest."
+  paragraph [42367,43257)
+    text [42367,42435) value="I did not move in that day. There was still a night at Mara's, and a"
+    softBreak [42435,42436)
+    text [42436,42506) value="return of a key to the Ellisons' neighbour, and a bag to pack that had"
+    softBreak [42506,42507)
+    text [42507,42579) value="acquired, over the winter, more books than I had arrived with, because a"
+    softBreak [42579,42580)
+    text [42580,42651) value="town with a library and a bookshop will have its way with you. I sat at"
+    softBreak [42651,42652)
+    text [42652,42724) value="Mara's table for the last time with the chipped plate and the cheap wine"
+    softBreak [42724,42725)
+    text [42725,42798) value="— a glass, not a ceremony — and I read the last chapter of the island"
+    softBreak [42798,42799)
+    text [42799,42864) value="book, in which the walker admits that the two crossings cannot be"
+    softBreak [42864,42865)
+    text [42865,42928) value="compared after all, because he was not the same walker, and the"
+    softBreak [42928,42929)
+    text [42929,43000) value="admission is made without disappointment, which I liked. He sits on the"
+    softBreak [43000,43001)
+    text [43001,43073) value="final ferry and watches the island become a shape, then a smudge, then a"
+    softBreak [43073,43074)
+    text [43074,43140) value="line, and he does not take a photograph. I have tried to copy that"
+    softBreak [43140,43141)
+    text [43141,43211) value="restraint here. I have no pictures of the rooms. I have the sentences,"
+    softBreak [43211,43212)
+    text [43212,43257) value="which are a worse record and the one I trust."
+  paragraph [43259,43989)
+    text [43259,43331) value="Mara, who had been kind enough not to ask what I was writing, asked that"
+    softBreak [43331,43332)
+    text [43332,43402) value="night what I would do with a kitchen that was mine. I said I would put"
+    softBreak [43402,43403)
+    text [43403,43474) value="the lamp from the spare room out of my head and buy a lamp that did not"
+    softBreak [43474,43475)
+    text [43475,43540) value="make everything sepia. She said, \"That's a start.\" Then she said,"
+    softBreak [43540,43541)
+    text [43541,43610) value="\"You'll miss the drainpipe.\" I told her I would not, and we both knew"
+    softBreak [43610,43611)
+    text [43611,43679) value="this was a lie of the useful sort. I will miss the drainpipe. I will"
+    softBreak [43679,43680)
+    text [43680,43751) value="miss the blue rectangle and the honest chapel light and the weak tea of"
+    softBreak [43751,43752)
+    text [43752,43823) value="the carriage. I will miss being a temporary component in other people's"
+    softBreak [43823,43824)
+    text [43824,43895) value="systems. A person cannot live there forever. A person can know that the"
+    softBreak [43895,43896)
+    text [43896,43968) value="forever rooms will have to work as hard as the borrowed ones did, or the"
+    softBreak [43968,43969)
+    text [43969,43989) value="pages will go slack."
+  paragraph [43991,44861)
+    text [43991,44063) value="On the morning I left I walked to the estuary with the last of the books"
+    softBreak [44063,44064)
+    text [44064,44133) value="under my arm, the one I had reread in the clinic, and I stood where I"
+    softBreak [44133,44134)
+    text [44134,44201) value="had stood with the cotton wool in my elbow, and the water was water"
+    softBreak [44201,44202)
+    text [44202,44271) value="again, not metal. The gulls were fighting, which I took as a seasonal"
+    softBreak [44271,44272)
+    text [44272,44340) value="correction. I did not open the book. I had no superstition left that"
+    softBreak [44340,44341)
+    text [44341,44413) value="required a finished paragraph at a threshold of that size. I said, to no"
+    softBreak [44413,44414)
+    text [44414,44484) value="one, that the winter had been enough, and then I took it back, because"
+    softBreak [44484,44485)
+    text [44485,44553) value="enough is a word my cousin had used as a question, and I am not in a"
+    softBreak [44553,44554)
+    text [44554,44622) value="position, even now, to make it a clean sentence. I walked to the new"
+    softBreak [44622,44623)
+    text [44623,44695) value="door. I turned the new key. I set the bag of shirts on the floor and the"
+    softBreak [44695,44696)
+    text [44696,44763) value="bag of books beside it, and I sat on the floor because there was no"
+    softBreak [44763,44764)
+    text [44764,44832) value="chair yet, and I opened a page, and the page, which had been through"
+    softBreak [44832,44833)
+    text [44833,44861) value="worse rooms than this, held."
+  paragraph [44863,45800)
+    text [44863,44931) value="That is the end of the winter, and it is not the end of the habit. I"
+    softBreak [44931,44932)
+    text [44932,45003) value="still read in kitchens after midnight, even when the kitchen is the one"
+    softBreak [45003,45004)
+    text [45004,45069) value="with my own badly ordered spices. I still finish a paragraph on a"
+    softBreak [45069,45070)
+    text [45070,45134) value="doorstep when the sentence is mid-stride. I still use letters as"
+    softBreak [45134,45135)
+    text [45135,45203) value="bookmarks and promise to stop. I still notice the rag, the hole, the"
+    softBreak [45203,45204)
+    text [45204,45272) value="word left on the platform. I still think of Helen-or-Mrs. Reed's two"
+    softBreak [45272,45273)
+    text [45273,45340) value="records, and of the lighthouse that does not care whether a ship is"
+    softBreak [45340,45341)
+    text [45341,45411) value="there, and of the man on the sea wall who named the borrowed hour, and"
+    softBreak [45411,45412)
+    text [45412,45482) value="of the woman in the clinic who knew what spaced-out sentences are for."
+    softBreak [45482,45483)
+    text [45483,45552) value="If I have a room of my own now, it is only so that I can remember the"
+    softBreak [45552,45553)
+    text [45553,45621) value="others more clearly. The page was never the chapel. The page was the"
+    softBreak [45621,45622)
+    text [45622,45694) value="thing I carried in, and carried out, and will carry again, the next time"
+    softBreak [45694,45695)
+    text [45695,45762) value="a house is empty and a timer is ticking and a train is revising the"
+    softBreak [45762,45763)
+    text [45763,45800) value="future in increments of four minutes."
+  paragraph [45802,45881)
+    text [45802,45874) value="I have left the good plates where I found them. I have tried not to be a"
+    softBreak [45874,45875)
+    text [45875,45881) value="guest."
+  heading [45883,45911) level=2
+    text [45886,45911) value="Asides the rooms required"
+  paragraph [45913,46154)
+    text [45913,45984) value="What remains are the notes I would otherwise have put in the margin —"
+    softBreak [45984,45985)
+    text [45985,46052) value="the asides that a borrowed room teaches you to keep quiet until the"
+    softBreak [46052,46053)
+    text [46053,46122) value="owner is out. I have gathered them here so the winter can end without"
+    softBreak [46122,46123)
+    text [46123,46154) value="pretending it had no underside."
+  paragraph [46156,46500)
+    text [46156,46225) value="I have not named the novel I reread in the clinic because the hallway"
+    softBreak [46225,46226)
+    text [46226,46295) value="chapter is the point, not the title, and because a title would send a"
+    softBreak [46295,46296)
+    text [46296,46368) value="certain kind of reader out of this page and into a shop, which is a fine"
+    softBreak [46368,46369)
+    text [46369,46437) value="thing to do with an afternoon and not the thing I am doing here. The"
+    softBreak [46437,46438)
+    text [46438,46500) value="book exists. The hallway exists. The waiting room borrowed it."
+  paragraph [46502,46826)
+    text [46502,46571) value="I have not described Mara's father, or the north she went to, because"
+    softBreak [46571,46572)
+    text [46572,46638) value="those rooms were not lent to me. A winter of borrowed rooms has an"
+    softBreak [46638,46639)
+    text [46639,46708) value="ethics, even if it is only the ethics of not opening the third drawer"
+    softBreak [46708,46709)
+    text [46709,46781) value="that sticks. She came back with less sleep and the same coat. That is as"
+    softBreak [46781,46782)
+    text [46782,46826) value="much of her absence as this page is allowed."
+  paragraph [46828,47211)
+    text [46828,46894) value="The Ellisons' fish were still alive when I left, which is the only"
+    softBreak [46894,46895)
+    text [46895,46967) value="success I am prepared to claim for the fortnight. Success is too large a"
+    softBreak [46967,46968)
+    text [46968,47037) value="word. Continuity is better. A small system went on. The timer did not"
+    softBreak [47037,47038)
+    text [47038,47109) value="need me, and I did not override it, and in that refusal I came as close"
+    softBreak [47109,47110)
+    text [47110,47180) value="as I got all winter to being a good guest, which is to say a guest who"
+    softBreak [47180,47181)
+    text [47181,47211) value="knows when to stop performing."
+  paragraph [47213,47902)
+    text [47213,47282) value="If there is a method hidden in these rooms, it is only this: take the"
+    softBreak [47282,47283)
+    text [47283,47348) value="page into the place that will not flatter it, and see whether the"
+    softBreak [47348,47349)
+    text [47349,47420) value="sentences still stand. A clinic, a stalled train, a stockroom, a hostel"
+    softBreak [47420,47421)
+    text [47421,47491) value="blanket, a kitchen that ticks. If they stand, they were built for more"
+    softBreak [47491,47492)
+    text [47492,47557) value="than the furniture catalogue. If they fall over, you have learned"
+    softBreak [47557,47558)
+    text [47558,47630) value="something cheaply that a quieter room would have charged you more for. I"
+    softBreak [47630,47631)
+    text [47631,47697) value="have a preference, now, for pages that have already been through a"
+    softBreak [47697,47698)
+    text [47698,47768) value="winter. I have a suspicion of the ones that look as if they have never"
+    softBreak [47768,47769)
+    text [47769,47833) value="left a well-lit desk. This is unfair, and I stand by it, the way"
+    softBreak [47833,47834)
+    text [47834,47902) value="Helen-or-Mrs. Reed stands by the little book as well as the machine."
+  paragraph [47904,48384)
+    text [47904,47976) value="And if you, reading this in a room I cannot picture — a room with your"
+    softBreak [47976,47977)
+    text [47977,48049) value="own lamp, or no lamp, or a child asking a question at the wrong time —"
+    softBreak [48049,48050)
+    text [48050,48120) value="if you have stayed through the clinic and the drainpipe and the unsent"
+    softBreak [48120,48121)
+    text [48121,48193) value="dash, then you have done the one thing a page can actually ask. You have"
+    softBreak [48193,48194)
+    text [48194,48266) value="let a line turn when it had to. You have not required the winter to be a"
+    softBreak [48266,48267)
+    text [48267,48337) value="clean sentence. That is enough to go on with, which is not the same as"
+    softBreak [48337,48338)
+    text [48338,48384) value="enough, and is the only ending I can stand by."
+  paragraph [48386,48418)
+    text [48386,48411) value="The bothy stayed with me."
+    footnoteReference [48411,48418) label="both"
+  paragraph [48420,48474)
+    text [48420,48467) value="June's flyleaf stayed in the drawer of my head."
+    footnoteReference [48467,48474) label="salt"
+  paragraph [48476,48536)
+    text [48476,48530) value="The receipt is in the same pocket as the first letter."
+    footnoteReference [48530,48536) label="fox"
+  paragraph [48538,48593)
+    text [48538,48582) value="Thursday remains a closed door I walk up to."
+    footnoteReference [48582,48593) label="thursday"
+  paragraph [48595,48638)
+    text [48595,48630) value="Seven down is still a kind of boat."
+    footnoteReference [48630,48638) label="ketch"
+  paragraph [48640,48688)
+    text [48640,48679) value="I have not been back to see the plants."
+    footnoteReference [48679,48688) label="plants"
+  paragraph [48690,48736)
+    text [48690,48728) value="The street has its hours; I kept them."
+    footnoteReference [48728,48736) label="piano"
+  paragraph [48738,48771)
+    text [48738,48763) value="No photograph, as I said."
+    footnoteReference [48763,48771) label="ferry"
+  paragraph [48773,48809)
+    text [48773,48802) value="The door still needs lifting."
+    footnoteReference [48802,48809) label="keys"
+  paragraph [48811,48859)
+    text [48811,48852) value="The crooked shade is a daily small truth."
+    footnoteReference [48852,48859) label="lamp"
+  paragraph [48861,48891)
+    text [48861,48882) value="The verdict can wait."
+    footnoteReference [48882,48891) label="enough"
+  footnoteDefinition [48893,49164) label="clinic-letter"
+    paragraph [48911,49164)
+      text [48911,48964) value="I never learned what the letter said. I have invented"
+      softBreak [48964,48965)
+      text [48965,49033) value="nothing about its contents, which is a kind of restraint I wanted on"
+      softBreak [49033,49034)
+      text [49034,49103) value="record: the envelope was real, the folding was real, the remark about"
+      softBreak [49103,49104)
+      text [49104,49164) value="spaced sentences was real, and the news inside remains hers."
+  footnoteDefinition [49166,49407) label="postcard"
+    paragraph [49179,49407)
+      text [49179,49234) value="I have since wondered whether \"The breakfast is as they"
+      softBreak [49234,49235)
+      text [49235,49305) value="said —\" was the start of a complaint or of praise. The dash will not"
+      softBreak [49305,49306)
+      text [49306,49378) value="tell me, which is why it has lasted. A finished sentence about breakfast"
+      softBreak [49378,49379)
+      text [49379,49407) value="would have been thrown away."
+  footnoteDefinition [49409,49584) label="cousin"
+    paragraph [49420,49584)
+      text [49420,49478) value="She wrote again in March, after the thaw, a shorter letter"
+      softBreak [49478,49479)
+      text [49479,49548) value="with no cafe in it. I have not quoted that one. A person is allowed a"
+      softBreak [49548,49549)
+      text [49549,49584) value="second letter that is not evidence."
+  footnoteDefinition [49586,49947) label="rag"
+    paragraph [49594,49947)
+      text [49594,49657) value="I am using \"rag\" the way people who set type use it: the uneven"
+      softBreak [49657,49658)
+      text [49658,49730) value="right-hand edge of a column that has not been forced into a rectangle. A"
+      softBreak [49730,49731)
+      text [49731,49803) value="good rag looks like a choice. A bad one looks like a series of accidents"
+      softBreak [49803,49804)
+      text [49804,49872) value="that happened to happen in a line. I learned the word late and now I"
+      softBreak [49872,49873)
+      text [49873,49941) value="cannot stop seeing the thing it names, which is the usual price of a"
+      softBreak [49941,49942)
+      text [49942,49947) value="word."
+  footnoteDefinition [49949,50167) label="both"
+    paragraph [49958,50167)
+      text [49958,50018) value="The bothy with no glass is the room in this winter I did not"
+      softBreak [50018,50019)
+      text [50019,50087) value="enter and cannot stop furnishing. That is the risk of other people's"
+      softBreak [50087,50088)
+      text [50088,50155) value="sentences: they lend you a building and then you live in it without"
+      softBreak [50155,50156)
+      text [50156,50167) value="permission."
+  footnoteDefinition [50169,50430) label="salt"
+    paragraph [50178,50430)
+      text [50178,50236) value="The history of salt had been inscribed, on the flyleaf, to"
+      softBreak [50236,50237)
+      text [50237,50304) value="someone called June, \"for the roads we did not take.\" I put it back"
+      softBreak [50304,50305)
+      text [50305,50376) value="without adding my name, which would have been a trespass of a different"
+      softBreak [50376,50377)
+      text [50377,50430) value="order from walking through the Ellisons' other rooms."
+  footnoteDefinition [50432,50679) label="fox"
+    paragraph [50440,50679)
+      text [50440,50504) value="I still have the receipt. The ink has faded to the colour of the"
+      softBreak [50504,50505)
+      text [50505,50573) value="alley brick. The fox does not appear on it as a drawing, only as the"
+      softBreak [50573,50574)
+      text [50574,50645) value="word fox, written twice, once with a capital, as if I had not been sure"
+      softBreak [50645,50646)
+      text [50646,50679) value="which dignity the sound required."
+  footnoteDefinition [50681,50966) label="thursday"
+    paragraph [50694,50966)
+      text [50694,50752) value="Closing on Thursdays is, Helen-or-Mrs. Reed told me later,"
+      softBreak [50752,50753)
+      text [50753,50822) value="not a theology but a rota: two people cannot keep a chapel open seven"
+      softBreak [50822,50823)
+      text [50823,50893) value="days without becoming the damp. I prefer my first reading and I record"
+      softBreak [50893,50894)
+      text [50894,50966) value="her correction beside it, which is how a winter ought to keep its books."
+  footnoteDefinition [50968,51287) label="ketch"
+    paragraph [50978,51287)
+      text [50978,51031) value="I looked up ketch when I got off the train, which the"
+      softBreak [51031,51032)
+      text [51032,51096) value="crossword man would have found pitiful. Two masts, the after one"
+      softBreak [51096,51097)
+      text [51097,51165) value="shorter. A fact with no use in an estuary town that sees more barges"
+      softBreak [51165,51166)
+      text [51166,51236) value="than sailing rigs, and I have kept it anyway, the way you keep a stone"
+      softBreak [51236,51237)
+      text [51237,51287) value="from a beach you are not sure you will walk again."
+  footnoteDefinition [51289,51534) label="plants"
+    paragraph [51300,51534)
+      text [51300,51357) value="I have no idea whether the plants in the cafe window were"
+      softBreak [51357,51358)
+      text [51358,51423) value="thriving. That was her sentence, and I have borrowed it the way I"
+      softBreak [51423,51424)
+      text [51424,51495) value="borrowed the rooms: without improving it, and without asking whether it"
+      softBreak [51495,51496)
+      text [51496,51534) value="would rather have stayed where it was."
+  footnoteDefinition [51536,51818) label="piano"
+    paragraph [51546,51818)
+      text [51546,51604) value="I never heard the guest who played at the wrong hours. The"
+      softBreak [51604,51605)
+      text [51605,51672) value="neighbour's report is all I have, which makes the pianist a kind of"
+      softBreak [51672,51673)
+      text [51673,51737) value="ghost in this account — present as a standard I was already an"
+      softBreak [51737,51738)
+      text [51738,51807) value="improvement on, absent as sound. I hope they found a room that wanted"
+      softBreak [51807,51808)
+      text [51808,51818) value="the music."
+  footnoteDefinition [51820,52142) label="ferry"
+    paragraph [51830,52142)
+      text [51830,51889) value="The walker's last ferry is the one image I almost left out,"
+      softBreak [51889,51890)
+      text [51890,51961) value="because it is too willing to be an ending. I put it back in because the"
+      softBreak [51961,51962)
+      text [51962,52032) value="winter did, in fact, become a shape, then a smudge, then a line, and I"
+      softBreak [52032,52033)
+      text [52033,52102) value="did not take a photograph, and some correspondences are allowed to be"
+      softBreak [52102,52103)
+      text [52103,52142) value="obvious if you admit that you see them."
+  footnoteDefinition [52144,52403) label="keys"
+    paragraph [52153,52403)
+      text [52153,52211) value="The new keys were cut badly. I mention this only because a"
+      softBreak [52211,52212)
+      text [52212,52274) value="perfect threshold would have been a lie: the first week in the"
+      softBreak [52274,52275)
+      text [52275,52344) value="unborrowed rooms I had to lift the door as I turned the lock, a small"
+      softBreak [52344,52345)
+      text [52345,52403) value="mechanical aside that felt like the drainpipe's last joke."
+  footnoteDefinition [52405,52655) label="lamp"
+    paragraph [52414,52655)
+      text [52414,52475) value="I did buy a lamp. It was cheaper than it should have been and"
+      softBreak [52475,52476)
+      text [52476,52545) value="the shade sits slightly crooked, and in the evenings the light is not"
+      softBreak [52545,52546)
+      text [52546,52618) value="sepia and not clinic-white, only adequate, which is the first property I"
+      softBreak [52618,52619)
+      text [52619,52655) value="now ask of a room I mean to read in."
+  footnoteDefinition [52657,52906) label="enough"
+    paragraph [52668,52906)
+      text [52668,52724) value="Enough, as my cousin used it, is not a quantity. It is a"
+      softBreak [52724,52725)
+      text [52725,52797) value="verdict disguised as a measurement. I have tried, in these pages, not to"
+      softBreak [52797,52798)
+      text [52798,52869) value="deliver that verdict on her winter or on mine. The rooms were occupied."
+      softBreak [52869,52870)
+      text [52870,52906) value="The pages held. The rest is weather."
