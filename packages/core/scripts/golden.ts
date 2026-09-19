@@ -2,11 +2,14 @@
 // provenance, and diff it against the committed file in ../goldens. Run with `--update` to rewrite
 // them; a diff in CI means the parser changed what a reader sees, which belongs in a review.
 // The goldens are parser-independent by design (ADR-0021): swapping the parser must not move them.
+// Beside each AST golden is the sanitised render (`.html.txt`, MARXY-75), so a renderer or allow-list
+// change that moves what a reader's DOM receives is a diff a reviewer reads, not a surprise.
 
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { checkInvariants } from '../src/parse/invariants.ts';
 import { parseMarkdown } from '../src/parse/parse.ts';
+import { renderDocumentSafeHtml } from '../src/render/pipeline.ts';
 import type { Node } from '../src/contracts/ast.ts';
 
 const corpus = new URL('../../../fixtures/corpus/', import.meta.url);
@@ -65,32 +68,37 @@ for (const name of fixtures) {
     for (const violation of violations.slice(0, 5)) console.error(`  - ${violation.invariant}: ${violation.detail}`);
     continue;
   }
-  const expected = `${serialise(document).join('\n')}\n`;
-  const file = new URL(`${name.replace(/\.md$/, '')}.ast.txt`, goldens);
+  const base = name.replace(/\.md$/, '');
+  const ast = `${serialise(document).join('\n')}\n`;
+  const html = `${renderDocumentSafeHtml(document).html}\n`;
+  if (!compare(name, new URL(`${base}.ast.txt`, goldens), ast, 'parsed')) failed++;
+  if (!compare(name, new URL(`${base}.html.txt`, goldens), html, 'rendered')) failed++;
+}
+
+/** Writes the golden under `--update`; otherwise reports whether it matches. */
+function compare(name: string, file: URL, expected: string, what: string): boolean {
   if (update) {
     writeFileSync(file, expected);
-    continue;
+    return true;
   }
   let actual: string;
   try {
     actual = readFileSync(file, 'utf8');
   } catch {
-    failed++;
-    console.error(`golden: no golden file for ${name}; run pnpm --filter @marxy/core test:golden -- --update`);
-    continue;
+    console.error(`golden: no ${fileURLToPath(file).split('/').pop()} for ${name}; run pnpm --filter @marxy/core test:golden -- --update`);
+    return false;
   }
-  if (actual !== expected) {
-    failed++;
-    console.error(`golden: ${name} differs from its golden file:`);
-    for (const line of firstDifference(actual, expected)) console.error(`  ${line}`);
-  }
+  if (actual === expected) return true;
+  console.error(`golden: ${name} differs from its golden file:`);
+  for (const line of firstDifference(actual, expected, what)) console.error(`  ${line}`);
+  return false;
 }
 
-function firstDifference(actual: string, expected: string): string[] {
+function firstDifference(actual: string, expected: string, what: string): string[] {
   const a = actual.split('\n');
   const b = expected.split('\n');
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if (a[i] !== b[i]) return [`line ${i + 1}`, `- golden: ${a[i] ?? '<end of file>'}`, `+ parsed: ${b[i] ?? '<end of file>'}`];
+    if (a[i] !== b[i]) return [`line ${i + 1}`, `- golden: ${a[i] ?? '<end of file>'}`, `+ ${what}: ${b[i] ?? '<end of file>'}`];
   }
   return [];
 }
@@ -99,4 +107,4 @@ if (failed > 0) {
   console.error(`golden gate failed: ${failed} of ${fixtures.length} fixtures`);
   process.exit(1);
 }
-console.log(`golden: ${fixtures.length} corpus fixtures ${update ? 'written' : 'match their golden AST files'}, invariants hold`);
+console.log(`golden: ${fixtures.length} corpus fixtures ${update ? 'written' : 'match their golden AST and HTML files'}, invariants hold`);

@@ -1,0 +1,676 @@
+<h1 data-marxy-s="0" data-marxy-e="18">Stack evaluation</h1>
+<p data-marxy-s="20" data-marxy-e="88"><strong data-marxy-s="20" data-marxy-e="31">Status:</strong> <strong data-marxy-s="32" data-marxy-e="56">OPEN — not decided</strong> · <strong data-marxy-s="60" data-marxy-e="77">Last updated:</strong> 2026-09-17</p>
+<p data-marxy-s="90" data-marxy-e="308">Three weighted passes, one reversal, one user override, and a scope change
+that moved the numbers a third time. All of it is recorded because a
+decision log that keeps only the winning argument cannot be audited later.</p>
+<p data-marxy-s="310" data-marxy-e="641"><strong data-marxy-s="310" data-marxy-e="346">The question is explicitly open.</strong> Pass 3 puts Tauri ahead by 15 points,
+which now agrees with the stated lean rather than contradicting it — but
+that margin comes from weights that are judgements, and the three passes
+disagree with each other. The framework near the end of this document is
+more useful than any of the totals.</p>
+<hr data-marxy-s="643" data-marxy-e="646" />
+<h2 data-marxy-s="648" data-marxy-e="657">Method</h2>
+<p data-marxy-s="659" data-marxy-e="807">Metrics weighted to sum to 100, candidates scored 1–5 per metric,
+weighted total normalised out of 100 (a perfect score being 5 across the
+board).</p>
+<p data-marxy-s="809" data-marxy-e="1139">The important property of this method, discovered rather than designed:
+<strong data-marxy-s="881" data-marxy-e="936">the weights decide the outcome, not the candidates.</strong> The weights encode
+judgements about priorities, so the exercise is really a way of making
+those judgements explicit and arguable. If the brief changes, the scores
+must be recomputed rather than assumed.</p>
+<hr data-marxy-s="1141" data-marxy-e="1144" />
+<h2 data-marxy-s="1148" data-marxy-e="1176">Pass 1 — original brief</h2>
+<p data-marxy-s="1178" data-marxy-e="1268">Brief: reading-only, no editing, platforms undecided, theming not
+mentioned, license open.</p>
+<table data-marxy-s="1271" data-marxy-e="1798">
+<thead>
+<tr data-marxy-s="1271" data-marxy-e="1336">
+<th data-marxy-s="1271" data-marxy-e="1299">Metric</th>
+<th data-marxy-s="1299" data-marxy-e="1308">Weight</th>
+<th data-marxy-s="1308" data-marxy-e="1316">Tauri</th>
+<th data-marxy-s="1316" data-marxy-e="1327">Electron</th>
+<th data-marxy-s="1327" data-marxy-e="1336">Swift</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="1403" data-marxy-e="1468">
+<td data-marxy-s="1403" data-marxy-e="1431">Typographic ceiling</td>
+<td data-marxy-s="1431" data-marxy-e="1440">25</td>
+<td data-marxy-s="1440" data-marxy-e="1448">4</td>
+<td data-marxy-s="1448" data-marxy-e="1459">3</td>
+<td data-marxy-s="1459" data-marxy-e="1468">5</td>
+</tr>
+<tr data-marxy-s="1469" data-marxy-e="1534">
+<td data-marxy-s="1469" data-marxy-e="1497">Rich content ecosystem</td>
+<td data-marxy-s="1497" data-marxy-e="1506">20</td>
+<td data-marxy-s="1506" data-marxy-e="1514">4</td>
+<td data-marxy-s="1514" data-marxy-e="1525">5</td>
+<td data-marxy-s="1525" data-marxy-e="1534">2</td>
+</tr>
+<tr data-marxy-s="1535" data-marxy-e="1600">
+<td data-marxy-s="1535" data-marxy-e="1563">Design iteration velocity</td>
+<td data-marxy-s="1563" data-marxy-e="1572">20</td>
+<td data-marxy-s="1572" data-marxy-e="1580">3</td>
+<td data-marxy-s="1580" data-marxy-e="1591">5</td>
+<td data-marxy-s="1591" data-marxy-e="1600">3</td>
+</tr>
+<tr data-marxy-s="1601" data-marxy-e="1666">
+<td data-marxy-s="1601" data-marxy-e="1629">Startup + perceived speed</td>
+<td data-marxy-s="1629" data-marxy-e="1638">15</td>
+<td data-marxy-s="1638" data-marxy-e="1646">4</td>
+<td data-marxy-s="1646" data-marxy-e="1657">2</td>
+<td data-marxy-s="1657" data-marxy-e="1666">5</td>
+</tr>
+<tr data-marxy-s="1667" data-marxy-e="1732">
+<td data-marxy-s="1667" data-marxy-e="1695">Cross-platform parity</td>
+<td data-marxy-s="1695" data-marxy-e="1704">10</td>
+<td data-marxy-s="1704" data-marxy-e="1712">2</td>
+<td data-marxy-s="1712" data-marxy-e="1723">5</td>
+<td data-marxy-s="1723" data-marxy-e="1732">1</td>
+</tr>
+<tr data-marxy-s="1733" data-marxy-e="1798">
+<td data-marxy-s="1733" data-marxy-e="1761">Footprint / distribution</td>
+<td data-marxy-s="1761" data-marxy-e="1770">10</td>
+<td data-marxy-s="1770" data-marxy-e="1778">5</td>
+<td data-marxy-s="1778" data-marxy-e="1789">1</td>
+<td data-marxy-s="1789" data-marxy-e="1798">5</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="1801" data-marxy-e="1845"><strong data-marxy-s="1801" data-marxy-e="1845">Result: Tauri 74, Electron 73, Swift 72.</strong></p>
+<p data-marxy-s="1847" data-marxy-e="1957">Under a macOS-first variant (parity weight moved to typographic ceiling):
+<strong data-marxy-s="1921" data-marxy-e="1957">Swift 80, Tauri 78, Electron 69.</strong></p>
+<p data-marxy-s="1959" data-marxy-e="2221"><strong data-marxy-s="1959" data-marxy-e="1986">Conclusion at the time:</strong> a one-point spread means the framework is not
+the deciding factor and the choice should be made on team fit. The
+platform question, however, <em data-marxy-s="2128" data-marxy-e="2133">was</em> the stack question wearing a different
+hat — macOS-first dropped Electron decisively.</p>
+<hr data-marxy-s="2223" data-marxy-e="2226" />
+<h2 data-marxy-s="2230" data-marxy-e="2257">Pass 2 — revised brief</h2>
+<p data-marxy-s="2259" data-marxy-e="2392">Brief gained: Typora-style live-render editing, macOS-first with <strong data-marxy-s="2324" data-marxy-e="2343">Linux
+mandatory</strong>, <strong data-marxy-s="2345" data-marxy-e="2369">user CSS first-class</strong>, free and open source.</p>
+<p data-marxy-s="2394" data-marxy-e="2502">Two metrics are new. Cross-platform parity rose from 10 to 15 because
+Linux moved from optional to promised.</p>
+<table data-marxy-s="2505" data-marxy-e="3305">
+<thead>
+<tr data-marxy-s="2505" data-marxy-e="2593">
+<th data-marxy-s="2505" data-marxy-e="2556">Metric</th>
+<th data-marxy-s="2556" data-marxy-e="2565">Weight</th>
+<th data-marxy-s="2565" data-marxy-e="2573">Tauri</th>
+<th data-marxy-s="2573" data-marxy-e="2584">Electron</th>
+<th data-marxy-s="2584" data-marxy-e="2593">Swift</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="2683" data-marxy-e="2771">
+<td data-marxy-s="2683" data-marxy-e="2734">Typographic quality across all shipped platforms</td>
+<td data-marxy-s="2734" data-marxy-e="2743">20</td>
+<td data-marxy-s="2743" data-marxy-e="2751">2</td>
+<td data-marxy-s="2751" data-marxy-e="2762">4</td>
+<td data-marxy-s="2762" data-marxy-e="2771">5</td>
+</tr>
+<tr data-marxy-s="2772" data-marxy-e="2860">
+<td data-marxy-s="2772" data-marxy-e="2823">User CSS theming as a shipped feature <em data-marxy-s="2812" data-marxy-e="2819">(new)</em></td>
+<td data-marxy-s="2823" data-marxy-e="2832">15</td>
+<td data-marxy-s="2832" data-marxy-e="2840">5</td>
+<td data-marxy-s="2840" data-marxy-e="2851">5</td>
+<td data-marxy-s="2851" data-marxy-e="2860">1</td>
+</tr>
+<tr data-marxy-s="2861" data-marxy-e="2949">
+<td data-marxy-s="2861" data-marxy-e="2912">Live-render editing feasibility <em data-marxy-s="2895" data-marxy-e="2902">(new)</em></td>
+<td data-marxy-s="2912" data-marxy-e="2921">15</td>
+<td data-marxy-s="2921" data-marxy-e="2929">3</td>
+<td data-marxy-s="2929" data-marxy-e="2940">5</td>
+<td data-marxy-s="2940" data-marxy-e="2949">2</td>
+</tr>
+<tr data-marxy-s="2950" data-marxy-e="3038">
+<td data-marxy-s="2950" data-marxy-e="3001">Three-platform parity, Linux included</td>
+<td data-marxy-s="3001" data-marxy-e="3010">15</td>
+<td data-marxy-s="3010" data-marxy-e="3018">2</td>
+<td data-marxy-s="3018" data-marxy-e="3029">5</td>
+<td data-marxy-s="3029" data-marxy-e="3038">1</td>
+</tr>
+<tr data-marxy-s="3039" data-marxy-e="3127">
+<td data-marxy-s="3039" data-marxy-e="3090">Startup and perceived speed</td>
+<td data-marxy-s="3090" data-marxy-e="3099">13</td>
+<td data-marxy-s="3099" data-marxy-e="3107">4</td>
+<td data-marxy-s="3107" data-marxy-e="3118">2</td>
+<td data-marxy-s="3118" data-marxy-e="3127">5</td>
+</tr>
+<tr data-marxy-s="3128" data-marxy-e="3216">
+<td data-marxy-s="3128" data-marxy-e="3179">Rich content ecosystem</td>
+<td data-marxy-s="3179" data-marxy-e="3188">12</td>
+<td data-marxy-s="3188" data-marxy-e="3196">4</td>
+<td data-marxy-s="3196" data-marxy-e="3207">5</td>
+<td data-marxy-s="3207" data-marxy-e="3216">2</td>
+</tr>
+<tr data-marxy-s="3217" data-marxy-e="3305">
+<td data-marxy-s="3217" data-marxy-e="3268">Footprint and solo-maintainer cost</td>
+<td data-marxy-s="3268" data-marxy-e="3277">10</td>
+<td data-marxy-s="3277" data-marxy-e="3285">4</td>
+<td data-marxy-s="3285" data-marxy-e="3296">2</td>
+<td data-marxy-s="3296" data-marxy-e="3305">3</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="3308" data-marxy-e="3352"><strong data-marxy-s="3308" data-marxy-e="3352">Result: Electron 82, Tauri 66, Swift 56.</strong></p>
+<h3 data-marxy-s="3354" data-marxy-e="3373">Why it reversed</h3>
+<p data-marxy-s="3375" data-marxy-e="3432">Three specific additions, each independently significant:</p>
+<ol data-marxy-s="3434" data-marxy-e="4423">
+<li data-marxy-s="3434" data-marxy-e="3962"><strong data-marxy-s="3437" data-marxy-e="3464">Linux became mandatory.</strong> Under Tauri that means WebKitGTK, which has
+an open defect rasterizing text ~100 weight units heavier than specified
+(<code data-marxy-s="3588" data-marxy-e="3612">tauri-apps/tauri#14286</code>), and whose usual remedy is a macOS-only CSS
+property. For an application whose thesis is typographic quality, on a
+platform now promised, this is close to disqualifying. It is why the
+first metric’s Tauri score dropped from 4 to 2 — the metric changed from
+measuring the <em data-marxy-s="3899" data-marxy-e="3908">ceiling</em> to measuring the <em data-marxy-s="3926" data-marxy-e="3961">floor across shipped
+platforms</em>.</li>
+<li data-marxy-s="3963" data-marxy-e="4217"><strong data-marxy-s="3966" data-marxy-e="4004">Live-render editing entered scope.</strong> <code data-marxy-s="4005" data-marxy-e="4022">contenteditable</code>, <code data-marxy-s="4024" data-marxy-e="4035">Selection</code>,
+<code data-marxy-s="4039" data-marxy-e="4046">Range</code> and IME composition are the most engine-divergent surfaces on
+the web platform, and Compose mode sits on all four. One engine
+everywhere is worth a great deal here.</li>
+<li data-marxy-s="4218" data-marxy-e="4423"><strong data-marxy-s="4221" data-marxy-e="4251">User CSS became a feature.</strong> Engine inconsistency stopped being only
+the maintainer’s problem and became the theme authors’ problem, on an
+engine whose version ships with the user’s distribution.</li>
+</ol>
+<p data-marxy-s="4425" data-marxy-e="4521">Remove any one and the gap narrows sharply. Remove Linux and editing both,
+and Tauri wins again.</p>
+<p data-marxy-s="4523" data-marxy-e="4700">Swift’s collapse is simpler: first-class user CSS requires a real CSS
+engine, and Linux support is impossible for a macOS-native toolkit. Ruled
+out rather than merely outscored.</p>
+<hr data-marxy-s="4702" data-marxy-e="4705" />
+<h2 data-marxy-s="4709" data-marxy-e="4734">Pass 3 — pared brief</h2>
+<p data-marxy-s="4736" data-marxy-e="4861">Brief v3 changed the inputs materially in both directions, which is why
+this pass exists rather than an annotation on Pass 2.</p>
+<p data-marxy-s="4863" data-marxy-e="5248"><strong data-marxy-s="4863" data-marxy-e="4875">Removed:</strong> Typora-style live-render editing. This deletes an entire
+metric — the one on which Electron scored 5 and Tauri 3 — along with the
+<code data-marxy-s="5010" data-marxy-e="5027">contenteditable</code>, <code data-marxy-s="5029" data-marxy-e="5040">Selection</code>, <code data-marxy-s="5042" data-marxy-e="5049">Range</code> and IME divergence that justified
+it. Editing is now plain text in CodeMirror plus source transformations
+(<code data-marxy-s="5157" data-marxy-e="5175">05-view-modes.md</code>, <code data-marxy-s="5177" data-marxy-e="5204">18-document-operations.md</code>), which is uncontroversial
+on every engine.</p>
+<p data-marxy-s="5250" data-marxy-e="5602"><strong data-marxy-s="5250" data-marxy-e="5260">Added:</strong> a fast indexed document opener with instant switching, file
+watching over indexed roots, and code observation as a first-class use
+case (<code data-marxy-s="5398" data-marxy-e="5426">19-navigation-and-index.md</code>). These are Rust’s strongest suit —
+<code data-marxy-s="5465" data-marxy-e="5473">nucleo</code>, <code data-marxy-s="5475" data-marxy-e="5484">tantivy</code>, <code data-marxy-s="5486" data-marxy-e="5494">notify</code>, <code data-marxy-s="5496" data-marxy-e="5504">ignore</code>, <code data-marxy-s="5506" data-marxy-e="5519">tree-sitter</code> — and they turn
+startup and footprint from qualities into stated product claims.</p>
+<p data-marxy-s="5604" data-marxy-e="5793"><strong data-marxy-s="5604" data-marxy-e="5617">Softened:</strong> the Linux typography gap, judged solvable rather than
+disqualifying. This is a user judgement, and it happens to be the single
+most consequential number in the whole exercise.</p>
+<table data-marxy-s="5795" data-marxy-e="6282">
+<thead>
+<tr data-marxy-s="5795" data-marxy-e="5833">
+<th data-marxy-s="5795" data-marxy-e="5804">Metric</th>
+<th data-marxy-s="5804" data-marxy-e="5813">Weight</th>
+<th data-marxy-s="5813" data-marxy-e="5821">Tauri</th>
+<th data-marxy-s="5821" data-marxy-e="5833">Electron</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="5860" data-marxy-e="5928">
+<td data-marxy-s="5860" data-marxy-e="5914">Startup and perceived speed <em data-marxy-s="5890" data-marxy-e="5913">(now a product claim)</em></td>
+<td data-marxy-s="5914" data-marxy-e="5919">20</td>
+<td data-marxy-s="5919" data-marxy-e="5923">4</td>
+<td data-marxy-s="5923" data-marxy-e="5928">2</td>
+</tr>
+<tr data-marxy-s="5929" data-marxy-e="5990">
+<td data-marxy-s="5929" data-marxy-e="5976">Typographic quality across shipped platforms</td>
+<td data-marxy-s="5976" data-marxy-e="5981">18</td>
+<td data-marxy-s="5981" data-marxy-e="5985">3</td>
+<td data-marxy-s="5985" data-marxy-e="5990">4</td>
+</tr>
+<tr data-marxy-s="5991" data-marxy-e="6042">
+<td data-marxy-s="5991" data-marxy-e="6028">Indexing, search and file watching</td>
+<td data-marxy-s="6028" data-marxy-e="6033">15</td>
+<td data-marxy-s="6033" data-marxy-e="6037">5</td>
+<td data-marxy-s="6037" data-marxy-e="6042">3</td>
+</tr>
+<tr data-marxy-s="6043" data-marxy-e="6097">
+<td data-marxy-s="6043" data-marxy-e="6083">User CSS theming as a shipped feature</td>
+<td data-marxy-s="6083" data-marxy-e="6088">12</td>
+<td data-marxy-s="6088" data-marxy-e="6092">5</td>
+<td data-marxy-s="6092" data-marxy-e="6097">5</td>
+</tr>
+<tr data-marxy-s="6098" data-marxy-e="6141">
+<td data-marxy-s="6098" data-marxy-e="6127">Footprint and lean-OSS fit</td>
+<td data-marxy-s="6127" data-marxy-e="6132">12</td>
+<td data-marxy-s="6132" data-marxy-e="6136">5</td>
+<td data-marxy-s="6136" data-marxy-e="6141">2</td>
+</tr>
+<tr data-marxy-s="6142" data-marxy-e="6181">
+<td data-marxy-s="6142" data-marxy-e="6167">Rich content ecosystem</td>
+<td data-marxy-s="6167" data-marxy-e="6172">10</td>
+<td data-marxy-s="6172" data-marxy-e="6176">4</td>
+<td data-marxy-s="6176" data-marxy-e="6181">5</td>
+</tr>
+<tr data-marxy-s="6182" data-marxy-e="6235">
+<td data-marxy-s="6182" data-marxy-e="6222">Three-platform parity, Linux included</td>
+<td data-marxy-s="6222" data-marxy-e="6226">8</td>
+<td data-marxy-s="6226" data-marxy-e="6230">3</td>
+<td data-marxy-s="6230" data-marxy-e="6235">5</td>
+</tr>
+<tr data-marxy-s="6236" data-marxy-e="6282">
+<td data-marxy-s="6236" data-marxy-e="6269">Plain-text editing feasibility</td>
+<td data-marxy-s="6269" data-marxy-e="6273">5</td>
+<td data-marxy-s="6273" data-marxy-e="6277">4</td>
+<td data-marxy-s="6277" data-marxy-e="6282">5</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="6284" data-marxy-e="6318"><strong data-marxy-s="6284" data-marxy-e="6318">Result: Tauri 81, Electron 66.</strong></p>
+<h3 data-marxy-s="6320" data-marxy-e="6344">Why it reversed back</h3>
+<p data-marxy-s="6346" data-marxy-e="6422">Not because anything was learned about the frameworks. Three inputs
+changed:</p>
+<ol data-marxy-s="6424" data-marxy-e="7021">
+<li data-marxy-s="6424" data-marxy-e="6604"><strong data-marxy-s="6427" data-marxy-e="6461">Live-render editing left scope</strong>, deleting Electron’s strongest
+remaining metric. Plain-text CodeMirror works everywhere; a decorated
+<code data-marxy-s="6569" data-marxy-e="6586">contenteditable</code> surface does not.</li>
+<li data-marxy-s="6605" data-marxy-e="6858"><strong data-marxy-s="6608" data-marxy-e="6647">Speed and footprint became promises</strong>, not preferences. “A very fast
+document opener” as a headline claim justifies a much higher weight
+than the 15 it carried in Pass 1 — and this is the axis where the gap
+is largest and best evidenced.</li>
+<li data-marxy-s="6859" data-marxy-e="7021"><strong data-marxy-s="6862" data-marxy-e="6901">Indexing and watching entered scope</strong>, and this is the first
+requirement where Rust is <em data-marxy-s="6954" data-marxy-e="6965">genuinely</em> the better tool rather than
+merely a defensible one.</li>
+</ol>
+<p data-marxy-s="7023" data-marxy-e="7225">The Linux weight drop from 15 to 8 also matters, and it should be flagged
+as the softest input in the model: it rests on a judgement that the
+WebKitGTK font-weight defect is solvable, which is untested.</p>
+<p data-marxy-s="7227" data-marxy-e="7499"><strong data-marxy-s="7227" data-marxy-e="7270">The honest summary of all three passes:</strong> the framework never changed,
+the brief did, and each time the brief changed the answer changed with it.
+That is a property of the method working, but it is also a warning that a
+fourth brief revision would move the answer again.</p>
+<hr data-marxy-s="7501" data-marxy-e="7504" />
+<h2 data-marxy-s="7506" data-marxy-e="7534">Where the question stands</h2>
+<p data-marxy-s="7536" data-marxy-e="7830">The stated lean is <em data-marxy-s="7555" data-marxy-e="7594">“swift is out, leaning toward tauri,”</em> and the user has
+since confirmed the question remains open. Pass 3 now supports the lean
+rather than contradicting it, which is a meaningfully different situation
+from Pass 2 — the direction and the analysis agree for the first time.</p>
+<p data-marxy-s="7832" data-marxy-e="7892">The reasons for Tauri that are real regardless of weighting:</p>
+<ul data-marxy-s="7894" data-marxy-e="8454">
+<li data-marxy-s="7894" data-marxy-e="7962">Roughly 19 MB against 190 MB for a comparable markdown application</li>
+<li data-marxy-s="7963" data-marxy-e="8020">Idle memory of roughly 42–109 MB against 128–186 MB</li>
+<li data-marxy-s="8021" data-marxy-e="8147">Rust’s indexing, matching and watching crates — the one place where the
+better tool is not merely defensible but obvious</li>
+<li data-marxy-s="8148" data-marxy-e="8231">A footprint that fits a lean open-source ethos far better than shipping
+a browser</li>
+<li data-marxy-s="8232" data-marxy-e="8338">A declarative capability and CSP model that aligns with the security
+posture in <code data-marxy-s="8314" data-marxy-e="8338">09-theming-contract.md</code></li>
+<li data-marxy-s="8339" data-marxy-e="8454">A Rust core that naturally produces the separable parse-and-render
+library the publishing-platform ambition wants</li>
+</ul>
+<p data-marxy-s="8456" data-marxy-e="8704"><strong data-marxy-s="8456" data-marxy-e="8506">Startup is deliberately absent from that list.</strong> Most sources put Tauri
+far ahead, but they compare different applications; the one source that
+built the <em data-marxy-s="8612" data-marxy-e="8618">same</em> application found Electron faster. It is a reason to
+measure, not a reason to choose.</p>
+<p data-marxy-s="8706" data-marxy-e="8921">The weights are judgements, not facts. Weighting footprint at 10 rather
+than 25 was a choice, and someone building a lean open-source tool for
+people who care about such things could reasonably weight it far higher.</p>
+<h3 data-marxy-s="8923" data-marxy-e="8965">What must be true for this to be right</h3>
+<p data-marxy-s="8967" data-marxy-e="9068">Recorded so it stays checkable. These are hypotheses to test in the first
+two weeks, not assumptions.</p>
+<table data-marxy-s="9071" data-marxy-e="11149">
+<thead>
+<tr data-marxy-s="9071" data-marxy-e="9293">
+<th data-marxy-s="9071" data-marxy-e="9077">#</th>
+<th data-marxy-s="9077" data-marxy-e="9188">Hypothesis</th>
+<th data-marxy-s="9188" data-marxy-e="9276">How to test</th>
+<th data-marxy-s="9276" data-marxy-e="9293">Load-bearing?</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="9517" data-marxy-e="9739">
+<td data-marxy-s="9517" data-marxy-e="9523">1</td>
+<td data-marxy-s="9523" data-marxy-e="9634">The WebKitGTK weight offset is fully compensable with bundled variable fonts plus a per-platform offset</td>
+<td data-marxy-s="9634" data-marxy-e="9722">The three-way experiment in <code data-marxy-s="9664" data-marxy-e="9698">06-typography-engine-findings.md</code>, on real distributions</td>
+<td data-marxy-s="9722" data-marxy-e="9739"><strong data-marxy-s="9724" data-marxy-e="9731">Yes</strong></td>
+</tr>
+<tr data-marxy-s="9740" data-marxy-e="9962">
+<td data-marxy-s="9740" data-marxy-e="9746">2</td>
+<td data-marxy-s="9746" data-marxy-e="9857">Owning line breaking neutralises the remaining rag and hyphenation divergence</td>
+<td data-marxy-s="9857" data-marxy-e="9945">Same experiment</td>
+<td data-marxy-s="9945" data-marxy-e="9962"><strong data-marxy-s="9947" data-marxy-e="9954">Yes</strong></td>
+</tr>
+<tr data-marxy-s="9963" data-marxy-e="10185">
+<td data-marxy-s="9963" data-marxy-e="9969">3</td>
+<td data-marxy-s="9969" data-marxy-e="10080">Theme authors can work against a published CSS baseline without unbounded support burden</td>
+<td data-marxy-s="10080" data-marxy-e="10168">Cannot be tested early; watch it</td>
+<td data-marxy-s="10168" data-marxy-e="10185">No</td>
+</tr>
+<tr data-marxy-s="10186" data-marxy-e="10428">
+<td data-marxy-s="10186" data-marxy-e="10192">4</td>
+<td data-marxy-s="10192" data-marxy-e="10282">CodeMirror 6 in <strong data-marxy-s="10210" data-marxy-e="10224">plain-text</strong> mode behaves identically enough across all three engines</td>
+<td data-marxy-s="10282" data-marxy-e="10357">Open a large file in CM6 on WebKitGTK; check selection, IME, scroll perf</td>
+<td data-marxy-s="10357" data-marxy-e="10428">No — much weaker risk than the Compose version of this hypothesis</td>
+</tr>
+<tr data-marxy-s="10429" data-marxy-e="10651">
+<td data-marxy-s="10429" data-marxy-e="10435">5</td>
+<td data-marxy-s="10435" data-marxy-e="10546">Three-engine screenshot-diff CI is affordable to build and maintain solo</td>
+<td data-marxy-s="10546" data-marxy-e="10634">Build it in week one and see</td>
+<td data-marxy-s="10634" data-marxy-e="10651">No</td>
+</tr>
+<tr data-marxy-s="10652" data-marxy-e="10912">
+<td data-marxy-s="10652" data-marxy-e="10658">6</td>
+<td data-marxy-s="10658" data-marxy-e="10771">The index, watcher and fuzzy matcher are genuinely better in Rust than the Node equivalents <em data-marxy-s="10752" data-marxy-e="10770">at marxy’s scale</em></td>
+<td data-marxy-s="10771" data-marxy-e="10849">Index a real monorepo both ways; measure query latency and watcher fidelity</td>
+<td data-marxy-s="10849" data-marxy-e="10912"><strong data-marxy-s="10851" data-marxy-e="10858">Yes</strong> — this is now a primary reason for choosing Tauri</td>
+</tr>
+<tr data-marxy-s="10913" data-marxy-e="11149">
+<td data-marxy-s="10913" data-marxy-e="10919">7</td>
+<td data-marxy-s="10919" data-marxy-e="11031">Startup on the target machine actually favours Tauri, despite the one same-app benchmark finding the opposite</td>
+<td data-marxy-s="11031" data-marxy-e="11099">Build the same minimal shell in both; measure cold and warm start</td>
+<td data-marxy-s="11099" data-marxy-e="11149"><strong data-marxy-s="11101" data-marxy-e="11108">Yes</strong> — it is now a headline product claim</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="11152" data-marxy-e="11480"><strong data-marxy-s="11152" data-marxy-e="11199">The load-bearing set changed with brief v3.</strong> Hypothesis 4 dropped from
+load-bearing to minor, because plain-text CodeMirror is far less
+engine-sensitive than a decorated <code data-marxy-s="11325" data-marxy-e="11342">contenteditable</code> surface. In its place,
+6 and 7 became load-bearing, because the pared brief promotes indexing and
+startup speed from qualities to claims.</p>
+<p data-marxy-s="11482" data-marxy-e="11768"><strong data-marxy-s="11482" data-marxy-e="11545">Revisit the direction if two or more of 1, 2, 6 and 7 fail.</strong> Note the
+shape of that rule: 1 and 2 are about typography, 6 and 7 about speed. If
+Tauri fails on typography it fails at the thesis; if it fails on speed it
+fails at the headline feature. Either pair failing is sufficient.</p>
+<h3 data-marxy-s="11770" data-marxy-e="11801">What makes revisiting cheap</h3>
+<p data-marxy-s="11803" data-marxy-e="12194">The frontend is portable between Tauri and Electron — same framework, same
+CSS, same libraries. Only the privileged-operation boundary differs.
+Keeping file access, watching, and dialogs behind a <strong data-marxy-s="12001" data-marxy-e="12033">thin, well-defined
+interface</strong> — a handful of functions, not scattered <code data-marxy-s="12076" data-marxy-e="12086">invoke()</code> calls — makes
+a later switch a matter of reimplementing that interface. Worth doing
+regardless of intent.</p>
+<hr data-marxy-s="12196" data-marxy-e="12199" />
+<h2 data-marxy-s="12201" data-marxy-e="12231">How to actually settle this</h2>
+<p data-marxy-s="12233" data-marxy-e="12498">The question has now survived three weighted analyses without closing,
+which is evidence that <strong data-marxy-s="12327" data-marxy-e="12363">more analysis will not close it.</strong> The weights
+decide the outcome, the weights are judgements, and the brief keeps
+changing. A fourth pass would produce a fourth number.</p>
+<p data-marxy-s="12500" data-marxy-e="12639">What would close it is a small amount of code. Two or three days, and it
+answers the load-bearing hypotheses directly rather than by proxy.</p>
+<h3 data-marxy-s="12641" data-marxy-e="12654">The spike</h3>
+<p data-marxy-s="12656" data-marxy-e="12719">Build the same throwaway shell twice, in Tauri and in Electron:</p>
+<ol data-marxy-s="12721" data-marxy-e="13131">
+<li data-marxy-s="12721" data-marxy-e="12790">Open a markdown file passed as an argument, render it, no styling.</li>
+<li data-marxy-s="12791" data-marxy-e="12901">Set one paragraph with <code data-marxy-s="12817" data-marxy-e="12825">justif</code> and screenshot it on macOS and on a real
+Linux distribution’s WebKitGTK.</li>
+<li data-marxy-s="12902" data-marxy-e="12969">Open a large file in CodeMirror 6 in plain-text mode; scroll it.</li>
+<li data-marxy-s="12970" data-marxy-e="13064">Index a few thousand files, then fuzzy-search them with a keystroke
+latency measurement.</li>
+<li data-marxy-s="13065" data-marxy-e="13131">Measure cold start and warm start on the actual target machine.</li>
+</ol>
+<p data-marxy-s="13133" data-marxy-e="13464">Steps 2 and 5 are the whole exercise. Step 2 answers hypotheses 1 and 2 —
+whether the WebKitGTK weight defect is compensable, which is the only real
+argument against Tauri now that editing has left scope. Step 5 answers
+hypothesis 7, and it matters because the one same-application benchmark in
+existence found Electron <em data-marxy-s="13455" data-marxy-e="13463">faster</em>.</p>
+<h3 data-marxy-s="13466" data-marxy-e="13506">The decision rule, stated in advance</h3>
+<p data-marxy-s="13508" data-marxy-e="13624">Committing to a rule before seeing results is the point; it is what stops
+the outcome being rationalised either way.</p>
+<table data-marxy-s="13626" data-marxy-e="14371">
+<thead>
+<tr data-marxy-s="13626" data-marxy-e="13659">
+<th data-marxy-s="13626" data-marxy-e="13649">Outcome of the spike</th>
+<th data-marxy-s="13649" data-marxy-e="13659">Choose</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="13674" data-marxy-e="13836">
+<td data-marxy-s="13674" data-marxy-e="13770">WebKitGTK text is compensable <strong data-marxy-s="13706" data-marxy-e="13713">and</strong> Tauri’s startup advantage is real on the target machine</td>
+<td data-marxy-s="13770" data-marxy-e="13836"><strong data-marxy-s="13772" data-marxy-e="13782">Tauri.</strong> Both objections dissolve and Pass 3’s margin stands</td>
+</tr>
+<tr data-marxy-s="13837" data-marxy-e="14035">
+<td data-marxy-s="13837" data-marxy-e="13891">WebKitGTK text is compensable but startup is a wash</td>
+<td data-marxy-s="13891" data-marxy-e="14035"><strong data-marxy-s="13893" data-marxy-e="13902">Tauri</strong>, on footprint and the Rust index — but drop “very fast opener” as a marketing claim, or solve it with a resident process instead</td>
+</tr>
+<tr data-marxy-s="14036" data-marxy-e="14226">
+<td data-marxy-s="14036" data-marxy-e="14072">WebKitGTK text is not compensable</td>
+<td data-marxy-s="14072" data-marxy-e="14226"><strong data-marxy-s="14074" data-marxy-e="14087">Electron.</strong> The typography thesis outranks everything else in the brief, and a reader that sets text badly on a promised platform is not the product</td>
+</tr>
+<tr data-marxy-s="14227" data-marxy-e="14371">
+<td data-marxy-s="14227" data-marxy-e="14278">Startup and indexing both disappoint under Tauri</td>
+<td data-marxy-s="14278" data-marxy-e="14371"><strong data-marxy-s="14280" data-marxy-e="14292">Electron</strong>, and reconsider whether the pared brief’s speed claims are achievable at all</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="14373" data-marxy-e="14585">Note that only one row is genuinely bad for Tauri, and it is the row that
+depends on a defect in someone else’s software. That is worth knowing
+before starting: <strong data-marxy-s="14534" data-marxy-e="14585">the risk is concentrated in one testable place.</strong></p>
+<h3 data-marxy-s="14587" data-marxy-e="14626">What to do regardless of the answer</h3>
+<p data-marxy-s="14628" data-marxy-e="14727">Because the frontend is portable between the two, most of the work is not
+blocked on this decision:</p>
+<ul data-marxy-s="14729" data-marxy-e="15036">
+<li data-marxy-s="14729" data-marxy-e="14841">The typesetting path, the theme contract, and the operations catalogue
+are pure frontend. None of them care.</li>
+<li data-marxy-s="14842" data-marxy-e="14905">The privileged-operation interface should be thin either way.</li>
+<li data-marxy-s="14906" data-marxy-e="15036">The parse-and-render pipeline should be a library with no dependency on
+the shell, which the publishing ambition wants anyway.</li>
+</ul>
+<p data-marxy-s="15038" data-marxy-e="15326"><strong data-marxy-s="15038" data-marxy-e="15088">So the stack question does not block starting.</strong> It blocks distribution
+and it blocks the speed claims, but the reading experience — the part that
+is actually hard and actually differentiating — can be built before the
+answer arrives. That is the most useful thing in this document.</p>
+<hr data-marxy-s="15328" data-marxy-e="15331" />
+<h2 data-marxy-s="15335" data-marxy-e="15369">Measured data behind the scores</h2>
+<p data-marxy-s="15371" data-marxy-e="15526"><strong data-marxy-s="15371" data-marxy-e="15526">All figures from published 2026 benchmarks that disagree substantially.
+Ratios are the stable signal; absolutes are not. Re-measure on target
+hardware.</strong></p>
+<h3 data-marxy-s="15528" data-marxy-e="15543">Bundle size</h3>
+<table data-marxy-s="15546" data-marxy-e="16392">
+<thead>
+<tr data-marxy-s="15546" data-marxy-e="15638">
+<th data-marxy-s="15546" data-marxy-e="15586">App class</th>
+<th data-marxy-s="15586" data-marxy-e="15600">Tauri 2</th>
+<th data-marxy-s="15600" data-marxy-e="15613">Electron</th>
+<th data-marxy-s="15613" data-marxy-e="15638">Source</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="15732" data-marxy-e="15824">
+<td data-marxy-s="15732" data-marxy-e="15772">Hello world</td>
+<td data-marxy-s="15772" data-marxy-e="15786">14.2 MB</td>
+<td data-marxy-s="15786" data-marxy-e="15799">187 MB</td>
+<td data-marxy-s="15799" data-marxy-e="15824">johal.in</td>
+</tr>
+<tr data-marxy-s="15825" data-marxy-e="15917">
+<td data-marxy-s="15825" data-marxy-e="15865"><strong data-marxy-s="15827" data-marxy-e="15864">Markdown editor with highlighting</strong></td>
+<td data-marxy-s="15865" data-marxy-e="15879"><strong data-marxy-s="15867" data-marxy-e="15878">18.7 MB</strong></td>
+<td data-marxy-s="15879" data-marxy-e="15892"><strong data-marxy-s="15881" data-marxy-e="15891">192 MB</strong></td>
+<td data-marxy-s="15892" data-marxy-e="15917">johal.in</td>
+</tr>
+<tr data-marxy-s="15918" data-marxy-e="16010">
+<td data-marxy-s="15918" data-marxy-e="15958">SQL GUI</td>
+<td data-marxy-s="15958" data-marxy-e="15972">29.5 MB</td>
+<td data-marxy-s="15972" data-marxy-e="15985">215 MB</td>
+<td data-marxy-s="15985" data-marxy-e="16010">johal.in</td>
+</tr>
+<tr data-marxy-s="16011" data-marxy-e="16105">
+<td data-marxy-s="16011" data-marxy-e="16051">Hello world</td>
+<td data-marxy-s="16051" data-marxy-e="16067">2.5–3.2 MB</td>
+<td data-marxy-s="16067" data-marxy-e="16080">85 MB</td>
+<td data-marxy-s="16080" data-marxy-e="16105">tech-insider, youngju</td>
+</tr>
+<tr data-marxy-s="16106" data-marxy-e="16202">
+<td data-marxy-s="16106" data-marxy-e="16146">Medium (editor, chat)</td>
+<td data-marxy-s="16146" data-marxy-e="16162">8–15 MB</td>
+<td data-marxy-s="16162" data-marxy-e="16177">120–160 MB</td>
+<td data-marxy-s="16177" data-marxy-e="16202">youngju</td>
+</tr>
+<tr data-marxy-s="16203" data-marxy-e="16299">
+<td data-marxy-s="16203" data-marxy-e="16243">Heavy (IDE-class)</td>
+<td data-marxy-s="16243" data-marxy-e="16259">25–40 MB</td>
+<td data-marxy-s="16259" data-marxy-e="16274">180–250 MB</td>
+<td data-marxy-s="16274" data-marxy-e="16299">youngju</td>
+</tr>
+<tr data-marxy-s="16300" data-marxy-e="16392">
+<td data-marxy-s="16300" data-marxy-e="16340">Screen recorder (independent build)</td>
+<td data-marxy-s="16340" data-marxy-e="16354">57 MB</td>
+<td data-marxy-s="16354" data-marxy-e="16367">323 MB</td>
+<td data-marxy-s="16367" data-marxy-e="16392">Better Stack</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="16395" data-marxy-e="16542">The markdown-editor row is the directly relevant one. Note the spread
+between sources on identical app classes — an order of magnitude for Tauri.</p>
+<h3 data-marxy-s="16544" data-marxy-e="16554">Memory</h3>
+<table data-marxy-s="16557" data-marxy-e="16943">
+<thead>
+<tr data-marxy-s="16557" data-marxy-e="16633">
+<th data-marxy-s="16557" data-marxy-e="16584">Condition</th>
+<th data-marxy-s="16584" data-marxy-e="16594">Tauri 2</th>
+<th data-marxy-s="16594" data-marxy-e="16607">Electron</th>
+<th data-marxy-s="16607" data-marxy-e="16633">Source</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="16711" data-marxy-e="16789">
+<td data-marxy-s="16711" data-marxy-e="16738">Idle, single window</td>
+<td data-marxy-s="16738" data-marxy-e="16748">42 MB</td>
+<td data-marxy-s="16748" data-marxy-e="16763">168–186 MB</td>
+<td data-marxy-s="16763" data-marxy-e="16789">tech-insider, johal.in</td>
+</tr>
+<tr data-marxy-s="16790" data-marxy-e="16866">
+<td data-marxy-s="16790" data-marxy-e="16817">Idle (independent build)</td>
+<td data-marxy-s="16817" data-marxy-e="16827">109 MB</td>
+<td data-marxy-s="16827" data-marxy-e="16840">128 MB</td>
+<td data-marxy-s="16840" data-marxy-e="16866">Better Stack</td>
+</tr>
+<tr data-marxy-s="16867" data-marxy-e="16943">
+<td data-marxy-s="16867" data-marxy-e="16894">Six windows</td>
+<td data-marxy-s="16894" data-marxy-e="16904">172 MB</td>
+<td data-marxy-s="16904" data-marxy-e="16917">409 MB</td>
+<td data-marxy-s="16917" data-marxy-e="16943">tech-insider, gethopp</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="16946" data-marxy-e="17108">The Better Stack figures — a much narrower gap — come from the only source
+that built the same non-trivial application in every framework. Weight
+accordingly.</p>
+<h3 data-marxy-s="17110" data-marxy-e="17121">Startup</h3>
+<table data-marxy-s="17124" data-marxy-e="17511">
+<thead>
+<tr data-marxy-s="17124" data-marxy-e="17199">
+<th data-marxy-s="17124" data-marxy-e="17147">Condition</th>
+<th data-marxy-s="17147" data-marxy-e="17161">Tauri 2</th>
+<th data-marxy-s="17161" data-marxy-e="17174">Electron</th>
+<th data-marxy-s="17174" data-marxy-e="17199">Source</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="17276" data-marxy-e="17355">
+<td data-marxy-s="17276" data-marxy-e="17299">Cold, minimal</td>
+<td data-marxy-s="17299" data-marxy-e="17315">0.15–0.38 s</td>
+<td data-marxy-s="17315" data-marxy-e="17330">0.8–1.5 s</td>
+<td data-marxy-s="17330" data-marxy-e="17355">youngju, tech-insider</td>
+</tr>
+<tr data-marxy-s="17356" data-marxy-e="17435">
+<td data-marxy-s="17356" data-marxy-e="17379">Cold, medium</td>
+<td data-marxy-s="17379" data-marxy-e="17395">0.4–0.9 s</td>
+<td data-marxy-s="17395" data-marxy-e="17410">1.5–3.0 s</td>
+<td data-marxy-s="17410" data-marxy-e="17435">youngju</td>
+</tr>
+<tr data-marxy-s="17436" data-marxy-e="17511">
+<td data-marxy-s="17436" data-marxy-e="17459">Controlled, same app</td>
+<td data-marxy-s="17459" data-marxy-e="17473"><strong data-marxy-s="17461" data-marxy-e="17471">311 ms</strong></td>
+<td data-marxy-s="17473" data-marxy-e="17486"><strong data-marxy-s="17475" data-marxy-e="17485">273 ms</strong></td>
+<td data-marxy-s="17486" data-marxy-e="17511">Better Stack</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="17514" data-marxy-e="17788"><strong data-marxy-s="17514" data-marxy-e="17569">The last row is important and contradicts the rest.</strong> In the only
+same-application comparison, Electron started <em data-marxy-s="17628" data-marxy-e="17636">faster</em>, because Tauri still
+waits for the system webview to initialise. The author called it a
+surprise. Do not treat Tauri’s startup advantage as guaranteed.</p>
+<h3 data-marxy-s="17790" data-marxy-e="17805">Build times</h3>
+<table data-marxy-s="17808" data-marxy-e="18075">
+<thead>
+<tr data-marxy-s="17808" data-marxy-e="17872">
+<th data-marxy-s="17808" data-marxy-e="17822"></th>
+<th data-marxy-s="17822" data-marxy-e="17834">Tauri 2</th>
+<th data-marxy-s="17834" data-marxy-e="17846">Electron</th>
+<th data-marxy-s="17846" data-marxy-e="17872">Source</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="17938" data-marxy-e="18006">
+<td data-marxy-s="17938" data-marxy-e="17952">Initial</td>
+<td data-marxy-s="17952" data-marxy-e="17966">12–48 s</td>
+<td data-marxy-s="17966" data-marxy-e="17980">8–22 s</td>
+<td data-marxy-s="17980" data-marxy-e="18006">johal.in, tech-insider</td>
+</tr>
+<tr data-marxy-s="18007" data-marxy-e="18075">
+<td data-marxy-s="18007" data-marxy-e="18021">Incremental</td>
+<td data-marxy-s="18021" data-marxy-e="18035">2.0–3.5 s</td>
+<td data-marxy-s="18035" data-marxy-e="18049">2.1–3.0 s</td>
+<td data-marxy-s="18049" data-marxy-e="18075">same</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="18078" data-marxy-e="18324">Incremental is close enough not to matter. Initial favours Electron. This
+taxes design iteration specifically, which matters more than usual for an
+aesthetics-led project — mitigated if the typography layer is pure
+frontend, which it should be.</p>
+<h3 data-marxy-s="18326" data-marxy-e="18335">Other</h3>
+<table data-marxy-s="18338" data-marxy-e="18789">
+<thead>
+<tr data-marxy-s="18338" data-marxy-e="18412">
+<th data-marxy-s="18338" data-marxy-e="18362">Metric</th>
+<th data-marxy-s="18362" data-marxy-e="18388">Tauri 2</th>
+<th data-marxy-s="18388" data-marxy-e="18412">Electron</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="18488" data-marxy-e="18562">
+<td data-marxy-s="18488" data-marxy-e="18512">IPC round trip</td>
+<td data-marxy-s="18512" data-marxy-e="18538">0.12 ms</td>
+<td data-marxy-s="18538" data-marxy-e="18562">0.45 ms</td>
+</tr>
+<tr data-marxy-s="18563" data-marxy-e="18639">
+<td data-marxy-s="18563" data-marxy-e="18587">CPU idle</td>
+<td data-marxy-s="18587" data-marxy-e="18613">&lt;0.5%</td>
+<td data-marxy-s="18613" data-marxy-e="18639">1–5%</td>
+</tr>
+<tr data-marxy-s="18640" data-marxy-e="18714">
+<td data-marxy-s="18640" data-marxy-e="18664">Rendering consistency</td>
+<td data-marxy-s="18664" data-marxy-e="18690">Different engine per OS</td>
+<td data-marxy-s="18690" data-marxy-e="18714">Identical everywhere</td>
+</tr>
+<tr data-marxy-s="18715" data-marxy-e="18789">
+<td data-marxy-s="18715" data-marxy-e="18739">Mobile</td>
+<td data-marxy-s="18739" data-marxy-e="18765">iOS + Android</td>
+<td data-marxy-s="18765" data-marxy-e="18789">None</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="18792" data-marxy-e="18895">Mobile is out of scope, but worth noting Tauri would make it possible
+later where Electron never could.</p>
+<hr data-marxy-s="18897" data-marxy-e="18900" />
+<h2 data-marxy-s="18904" data-marxy-e="18931">Candidates not evaluated</h2>
+<table data-marxy-s="18934" data-marxy-e="20323">
+<thead>
+<tr data-marxy-s="18934" data-marxy-e="19131">
+<th data-marxy-s="18934" data-marxy-e="18954">Candidate</th>
+<th data-marxy-s="18954" data-marxy-e="19131">Why not</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="19330" data-marxy-e="19527">
+<td data-marxy-s="19330" data-marxy-e="19350"><strong data-marxy-s="19332" data-marxy-e="19344">GTK / Qt</strong></td>
+<td data-marxy-s="19350" data-marxy-e="19527">No typographic ceiling above the webview options, and more expensive than both. Would also require implementing CSS theming</td>
+</tr>
+<tr data-marxy-s="19528" data-marxy-e="19725">
+<td data-marxy-s="19528" data-marxy-e="19548"><strong data-marxy-s="19530" data-marxy-e="19541">Flutter</strong></td>
+<td data-marxy-s="19548" data-marxy-e="19725">Its own text stack fights you on exactly the features that matter, and custom line breaking would mean working against the framework</td>
+</tr>
+<tr data-marxy-s="19726" data-marxy-e="19927">
+<td data-marxy-s="19726" data-marxy-e="19746"><strong data-marxy-s="19728" data-marxy-e="19744">Deno Desktop</strong></td>
+<td data-marxy-s="19746" data-marxy-e="19927">Interesting — 242 ms startup and 98 MB idle in the Better Stack test, the best of the four — but immature, and the ecosystem risk is unacceptable for a project meant to last</td>
+</tr>
+<tr data-marxy-s="19928" data-marxy-e="20125">
+<td data-marxy-s="19928" data-marxy-e="19948"><strong data-marxy-s="19930" data-marxy-e="19944">Electrobun</strong></td>
+<td data-marxy-s="19948" data-marxy-e="20125">Worst on every measured axis (418 MB, 773 ms, 208 MB) and described as difficult to work with</td>
+</tr>
+<tr data-marxy-s="20126" data-marxy-e="20323">
+<td data-marxy-s="20126" data-marxy-e="20146"><strong data-marxy-s="20128" data-marxy-e="20145">Servo / Verso</strong></td>
+<td data-marxy-s="20146" data-marxy-e="20323">Genuinely aligned with the typography ambition long-term. Nowhere near ready</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="20326" data-marxy-e="20378">Deno Desktop is the one worth re-checking in a year.</p>

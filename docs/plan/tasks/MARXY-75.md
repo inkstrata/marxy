@@ -6,7 +6,7 @@ verify: [pnpm precheck, pnpm done MARXY-75]
 ---
 # MARXY-75 — Carry byte provenance into the rendered DOM without letting a document spoof it
 
-**Design:** [02-render](../../design/02-render.md) (DOM contract, two-pass sanitise), [ADR-0023](../../adr/0023-provenance-in-the-dom.md)
+**Design:** [02-render](../../design/02-render.md) (DOM contract, one-pass sanitise — ADR-0023 Amendment 1), [ADR-0023](../../adr/0023-provenance-in-the-dom.md)
 **Depends on:** MARXY-12, MARXY-61. **Blocks:** MARXY-20 (grid needs blocks), MARXY-23, MARXY-38, MARXY-41.
 
 ## Outcome

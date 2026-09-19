@@ -1,0 +1,78 @@
+<h1 data-marxy-s="0" data-marxy-e="42">Migration plan: auth service to passkeys</h1>
+<p data-marxy-s="44" data-marxy-e="120"><strong data-marxy-s="44" data-marxy-e="55">Status:</strong> draft 3 · <strong data-marxy-s="67" data-marxy-e="77">Owner:</strong> platform team · <strong data-marxy-s="95" data-marxy-e="109">Generated:</strong> 2026-09-17</p>
+<h2 data-marxy-s="122" data-marxy-e="132">Summary</h2>
+<p data-marxy-s="134" data-marxy-e="284">Replace password + TOTP with passkeys (WebAuthn) across web and mobile, keeping passwords as
+a fallback for 90 days. Three phases, each behind a flag.</p>
+<h2 data-marxy-s="286" data-marxy-e="298">Checklist</h2>
+<ul data-marxy-s="300" data-marxy-e="677">
+<li data-marxy-s="300" data-marxy-e="341"><input type="checkbox" checked data-marxy-s="302" data-marxy-e="305" disabled /> Threat model reviewed with security</li>
+<li data-marxy-s="342" data-marxy-e="401"><input type="checkbox" checked data-marxy-s="344" data-marxy-e="347" disabled /> WebAuthn relying-party ID agreed (<code data-marxy-s="382" data-marxy-e="400">auth.example.com</code>)</li>
+<li data-marxy-s="402" data-marxy-e="521"><input type="checkbox" data-marxy-s="404" data-marxy-e="407" disabled /> Attestation policy decided
+<ul data-marxy-s="437" data-marxy-e="521">
+<li data-marxy-s="437" data-marxy-e="456"><input type="checkbox" data-marxy-s="439" data-marxy-e="442" disabled /> Accept <code data-marxy-s="450" data-marxy-e="456">none</code></li>
+<li data-marxy-s="459" data-marxy-e="521"><input type="checkbox" data-marxy-s="461" data-marxy-e="464" disabled /> Log AAGUID for analytics (no telemetry to third parties)</li>
+</ul></li>
+<li data-marxy-s="522" data-marxy-e="550"><input type="checkbox" data-marxy-s="524" data-marxy-e="527" disabled /> Recovery flow designed</li>
+<li data-marxy-s="551" data-marxy-e="596"><input type="checkbox" data-marxy-s="553" data-marxy-e="556" disabled /> Mobile SDK spike (iOS 17+, Android 14+)</li>
+<li data-marxy-s="597" data-marxy-e="677"><input type="checkbox" data-marxy-s="599" data-marxy-e="602" disabled /> Rollout flags created
+<ul data-marxy-s="627" data-marxy-e="677">
+<li data-marxy-s="627" data-marxy-e="650"><code data-marxy-s="633" data-marxy-e="650">passkeys.enroll</code></li>
+<li data-marxy-s="653" data-marxy-e="677"><code data-marxy-s="659" data-marxy-e="677">passkeys.require</code></li>
+</ul></li>
+</ul>
+<h2 data-marxy-s="679" data-marxy-e="688">Phases</h2>
+<table data-marxy-s="690" data-marxy-e="988">
+<thead>
+<tr data-marxy-s="690" data-marxy-e="731">
+<th data-marxy-s="690" data-marxy-e="698">Phase</th>
+<th data-marxy-s="698" data-marxy-e="706">Scope</th>
+<th data-marxy-s="706" data-marxy-e="723">Exit criterion</th>
+<th data-marxy-s="723" data-marxy-e="731">Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="758" data-marxy-e="819">
+<td data-marxy-s="758" data-marxy-e="762">1</td>
+<td data-marxy-s="762" data-marxy-e="790">Optional enrolment on web</td>
+<td data-marxy-s="790" data-marxy-e="812">5 % of DAU enrolled</td>
+<td data-marxy-s="812" data-marxy-e="819">low</td>
+</tr>
+<tr data-marxy-s="820" data-marxy-e="900">
+<td data-marxy-s="820" data-marxy-e="824">2</td>
+<td data-marxy-s="824" data-marxy-e="869">Enrolment on mobile; login prefers passkey</td>
+<td data-marxy-s="869" data-marxy-e="890">p95 login &lt; 800 ms</td>
+<td data-marxy-s="890" data-marxy-e="900">medium</td>
+</tr>
+<tr data-marxy-s="901" data-marxy-e="988">
+<td data-marxy-s="901" data-marxy-e="905">3</td>
+<td data-marxy-s="905" data-marxy-e="945">Passwords disabled for enrolled users</td>
+<td data-marxy-s="945" data-marxy-e="980">support tickets flat for 2 weeks</td>
+<td data-marxy-s="980" data-marxy-e="988">high</td>
+</tr>
+</tbody>
+</table>
+<h2 data-marxy-s="990" data-marxy-e="1004">API changes</h2>
+<pre data-marxy-s="1006" data-marxy-e="1149"><code class="language-http" data-marxy-s="1014" data-marxy-e="1146">POST /v2/webauthn/register/options
+POST /v2/webauthn/register/verify
+POST /v2/webauthn/login/options
+POST /v2/webauthn/login/verify
+</code></pre>
+<pre data-marxy-s="1151" data-marxy-e="1493"><code class="language-json" data-marxy-s="1159" data-marxy-e="1490">{
+  "rp": { "id": "auth.example.com", "name": "Example" },
+  "user": { "id": "b64url", "name": "ana@example.com", "displayName": "Ana" },
+  "pubKeyCredParams": [{ "type": "public-key", "alg": -7 }, { "type": "public-key", "alg": -257 }],
+  "authenticatorSelection": { "residentKey": "preferred", "userVerification": "required" }
+}
+</code></pre>
+<h2 data-marxy-s="1495" data-marxy-e="1512">Open questions</h2>
+<ol data-marxy-s="1514" data-marxy-e="1689">
+<li data-marxy-s="1514" data-marxy-e="1570">Do we support cross-device sign-in via QR on day one?</li>
+<li data-marxy-s="1571" data-marxy-e="1636">What happens to the 3 % of users on browsers without WebAuthn?</li>
+<li data-marxy-s="1637" data-marxy-e="1689">Should the <code data-marxy-s="1651" data-marxy-e="1669">passkeys.require</code> flag be per-tenant?</li>
+</ol>
+<h2 data-marxy-s="1691" data-marxy-e="1702">Rollback</h2>
+<pre data-marxy-s="1704" data-marxy-e="1810"><code class="language-sh" data-marxy-s="1710" data-marxy-e="1807">flagctl set passkeys.require=false --all-tenants
+flagctl set passkeys.enroll=false --all-tenants
+</code></pre>
+<p data-marxy-s="1812" data-marxy-e="1910">Passwords remain valid throughout phase 1–2; phase 3 rollback re-enables them within one
+deploy.</p>

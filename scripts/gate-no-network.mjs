@@ -27,7 +27,7 @@ import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { renderSafeHtml, renderToUnsanitisedHtml } from '../packages/core/src/render/index.ts';
 import { parseMarkdown } from '../packages/core/src/parse/parse.ts';
 import { sanitizeHtml } from '../packages/core/src/sanitize/sanitize-html.ts';
-import { BLOCK_ELEMENTS, DEFAULT_POLICY } from '../packages/core/src/sanitize/policy.ts';
+import { BLOCK_ELEMENTS, RENDERED_POLICY } from '../packages/core/src/sanitize/policy.ts';
 import { GATE_DOCUMENT_DIRECTORY, GATE_DOCUMENT_ORIGIN } from '../packages/core/src/sanitize/document-origin.ts';
 import { VECTORS } from '../packages/core/src/sanitize/testing/vectors.ts';
 
@@ -51,12 +51,15 @@ const controlPage = [
 
 const page = (body) => `<!doctype html><html><head><meta charset="utf-8"></head><body><article id="doc">\n${body}\n</article></body></html>`;
 
-/** The allow-list as two flat lists, for the check that runs inside the browser. */
+/**
+ * The allow-list as two flat lists, for the check that runs inside the browser. The pipeline's
+ * output is held to the default list plus the two provenance attributes (ADR-0023).
+ */
 const allowed = {
-  elements: Object.keys(DEFAULT_POLICY.elements),
-  attributes: Object.fromEntries(Object.entries(DEFAULT_POLICY.elements).map(([element, rule]) => [
+  elements: Object.keys(RENDERED_POLICY.elements),
+  attributes: Object.fromEntries(Object.entries(RENDERED_POLICY.elements).map(([element, rule]) => [
     element,
-    [...Object.keys(DEFAULT_POLICY.globalAttributes), ...Object.keys(rule.attributes ?? {}), ...Object.keys(rule.forced ?? {})],
+    [...Object.keys(RENDERED_POLICY.globalAttributes), ...Object.keys(rule.attributes ?? {}), ...Object.keys(rule.forced ?? {})],
   ])),
   blocks: [...BLOCK_ELEMENTS],
 };

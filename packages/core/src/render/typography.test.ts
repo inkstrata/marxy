@@ -13,7 +13,9 @@ import { smarten, type SmartenContext } from './typography.ts';
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
 const gfmName = '09-gfm-everything.md';
 const gfmSource = readFileSync(new URL(gfmName, corpus), 'utf8');
-const html = (markdown: string): string => renderSafeHtml(markdown, { file: 'test.md' }).html;
+/** The HTML with its byte provenance taken out, for the tests that are about shape (ADR-0023). */
+const withoutProvenance = (html: string): string => html.replace(/ data-marxy-[se]="[0-9]+"/g, '');
+const html = (markdown: string): string => withoutProvenance(renderSafeHtml(markdown, { file: 'test.md' }).html);
 
 const none: SmartenContext = { atParagraphEnd: false, wordsInParagraph: 0 };
 const widont: SmartenContext = { atParagraphEnd: true, wordsInParagraph: 8 };
@@ -132,7 +134,7 @@ test(`${gfmName}: source bytes still carry the ASCII forms`, () => {
 });
 
 test(`${gfmName}: rendered HTML has quotes, dashes, an ellipsis and a widont`, () => {
-  const out = renderSafeHtml(gfmSource, { file: gfmName }).html;
+  const out = withoutProvenance(renderSafeHtml(gfmSource, { file: gfmName }).html);
   assert.ok(out.includes('\u201csmart quotes\u201d'), out);
   assert.ok(out.includes('\u2018singles\u2019'), out);
   assert.ok(out.includes('\u2013'), 'en dash from --');

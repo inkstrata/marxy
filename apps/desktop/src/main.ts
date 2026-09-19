@@ -2,17 +2,19 @@
 // startup marks, exit when asked. All privileged work goes through ./shell (ADR-0010, ADR-0020).
 import { parseMarkdown, type Document } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
 import { shell } from './shell/tauri.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 
 const t0 = Date.now();
 
-/** Phase-0 document state. nodeMap and blocks land with MARXY-75. */
 interface OpenDocument {
   readonly ast: Document;
   readonly html: string;
-  readonly nodeMap: null;
-  readonly blocks: null;
+  /** Rendered element → AST node, through its byte range (ADR-0023). */
+  readonly nodeMap: NodeMap;
+  /** Refreshed whenever layout moves them; built once here for now (MARXY-38 reads them). */
+  blocks: BlockList;
 }
 
 const state: { document: OpenDocument | null } = { document: null };
@@ -86,14 +88,16 @@ async function main() {
   // One parse, then the sanitised render from that AST — not a second parser (ADR-0001, ADR-0021).
   const ast = parseMarkdown(bytes, { file });
   const { html, removed } = renderDocumentSafeHtml(ast);
-  state.document = { ast, html, nodeMap: null, blocks: null };
+  const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
   // Watermark before the mutation so a blank-page first-paint cannot satisfy the wait.
   const after = performance.now();
   doc.innerHTML = html;
+  state.document = { ast, html, nodeMap, blocks: [] };
   document.title = `${file.split('/').pop()} — marxy`;
 
   const evidence = renderEvidence(doc);
+  state.document.blocks = buildBlocks(doc, nodeMap);
   const renderedAt = Date.now();
   await shell.mark('render', renderedAt, `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
 

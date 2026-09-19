@@ -5,10 +5,13 @@ import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { checkAllVectors, elementsOf } from '../sanitize/testing/vectors.ts';
+import { RENDERED_POLICY } from '../sanitize/policy.ts';
 import { renderSafeHtml } from './pipeline.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
-const html = (markdown: string): string => renderSafeHtml(markdown, { file: 'test.md' }).html;
+/** The HTML with its byte provenance taken out, for the tests that are about shape (ADR-0023). */
+const withoutProvenance = (html: string): string => html.replace(/ data-marxy-[se]="[0-9]+"/g, '');
+const html = (markdown: string): string => withoutProvenance(renderSafeHtml(markdown, { file: 'test.md' }).html);
 
 test('headings, paragraphs and emphasis are set as themselves', () => {
   assert.equal(html('# Title\n\nSome *emphasis* and **strength**.\n'), '<h1>Title</h1>\n<p>Some <em>emphasis</em> and <strong>strength</strong>.</p>');
@@ -74,7 +77,7 @@ for (const file of files) {
   test(`${file}: renders with no forbidden vector and only allow-listed elements`, () => {
     const source = readFileSync(new URL(file, corpus), 'utf8');
     const result = renderSafeHtml(source, { file });
-    assert.deepEqual(checkAllVectors(result.html), []);
+    assert.deepEqual(checkAllVectors(result.html, RENDERED_POLICY), []);
     // Idempotence: the boundary can be crossed twice without the document changing.
     assert.equal(renderSafeHtml(source, { file }).html, result.html);
     assert.ok(elementsOf(result.html).length >= 0);

@@ -1,0 +1,15 @@
+<h1 data-marxy-s="0" data-marxy-e="44">نص من اليمين إلى اليسار</h1>
+<h2 data-marxy-s="46" data-marxy-e="63">العربية</h2>
+<p data-marxy-s="65" data-marxy-e="496">هذه فقرة مكتوبة باللغة العربية لاختبار عرض النصوص التي تُقرأ من اليمين إلى اليسار. يجب أن تُحاذى الفقرة إلى اليمين، وأن تظهر علامات الترقيم في المكان الصحيح، وأن تبقى الأرقام 2026 والكلمات الإنجليزية مثل markdown في اتجاهها الطبيعي داخل النص.</p>
+<ul data-marxy-s="498" data-marxy-e="606">
+<li data-marxy-s="498" data-marxy-e="515">عنصر أول</li>
+<li data-marxy-s="516" data-marxy-e="586">عنصر ثانٍ يحتوي على <strong data-marxy-s="554" data-marxy-e="571">نص عريض</strong> و<code data-marxy-s="574" data-marxy-e="586">شيفرة</code></li>
+<li data-marxy-s="587" data-marxy-e="606">عنصر ثالث</li>
+</ul>
+<h2 data-marxy-s="608" data-marxy-e="621">עברית</h2>
+<p data-marxy-s="623" data-marxy-e="909">זוהי פסקה בעברית לבדיקת כיווניות. הטקסט צריך להיות מיושר לימין, וסימני הפיסוק צריכים להופיע במקום הנכון. מילים באנגלית כמו reader ומספרים כמו 2026 נשארים בכיוונם.</p>
+<blockquote data-marxy-s="911" data-marxy-e="966">
+<p data-marxy-s="913" data-marxy-e="966">ציטוט בעברית בתוך בלוק ציטוט.</p>
+</blockquote>
+<h2 data-marxy-s="968" data-marxy-e="986">Mixed direction</h2>
+<p data-marxy-s="988" data-marxy-e="1162">A paragraph in English that quotes Arabic — «القراءة أولاً» — and Hebrew — «קריאה קודם» — inline, which is the case most renderers get wrong.</p>
