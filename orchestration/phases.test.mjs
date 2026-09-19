@@ -131,10 +131,10 @@ function runBranchDiffGuard({ resolveBase, skip }) {
   assert.ok(added < 600, `diff is +${added}, want under 600`);
   const names = spawnSync('git', ['diff', '--name-only', range], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(names.status, 0);
+  // 2026-09-18 plan deltas stayed discarded with MARXY-107. ADR-0015 and
+  // taste-review #0 were on that same forbid list until MARXY-127 landed them.
   const forbidden = names.stdout.split('\n').filter(f =>
-    /^docs\/plan\/deltas\/2026-09-18-/.test(f)
-    || f === 'docs/adr/0015-typeface.md'
-    || f.startsWith('docs/taste-review/2026-09-review-0/'),
+    /^docs\/plan\/deltas\/2026-09-18-/.test(f),
   );
   assert.deepEqual(forbidden, []);
   return 'asserted';

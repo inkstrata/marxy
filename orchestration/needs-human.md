@@ -25,7 +25,7 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
       Still true: `cursor-agent` is not on PATH, so `orchestration/dispatch.mjs` cannot
       run implementors headlessly; they are being dispatched as in-app subagents into
       `../marxy-wt/<KEY>` worktrees instead.
-- [ ] 2026-09-18 — **Taste review #0 is ready to decide: the typeface pair.** The artifact is PR #6
+- [x] 2026-09-18 — **Taste review #0 is ready to decide: the typeface pair.** The artifact is PR #6
       (MARXY-17): 20 PNGs, both ADR-0015 pairs, five matched passages of `01-long-technical.md`, 1×
       and 2×, with the checklist in `docs/taste-review/queue.md`. ADR-0015 is proposed until you
       answer, and MARXY-20 and MARXY-21 build on the answer, so this is the first thing in the taste
@@ -40,6 +40,9 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
         pair B's italics are synthetic.
       Read them for a while rather than a page: the question is which you would still want to be
       reading on the fourth page. Record the answer in the queue's Decision column.
+      **Discharged 2026-09-19.** Pair A (Literata + JetBrains Mono); 68 `ch` stays. ADR-0015
+      accepted. Notes in `docs/taste-review/2026-09-review-0/decisions.md`. Follow-ups MARXY-128
+      (theme), MARXY-129 (pair-A tunes), MARXY-130 (more corpus formats).
 - [ ] 2026-09-18 — Approve PR #1 (MARXY-10, Jira as the board of record) or send it back. **This now
       has a second consequence:** `.githooks/` lives only on that branch, so every worktree cut from
       `main` runs no `commit-msg` hook, and a `Co-authored-by: Cursor` trailer duly reached PR #7.
@@ -59,6 +62,8 @@ Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
 - [ ] 2026-09-18 — After PR #14 merges: switch branch protection to the single `ci` context (command in `docs/hygiene.md` §CI). Until then the old `gates (…)` contexts are required and will not exist on new runs.
 
 ## Taste review #0 is ready — 2026-09-18
+
+**Discharged 2026-09-19.** Pair A; 68 `ch` stays; ADR-0015 accepted. Follow-ups MARXY-128, MARXY-129, MARXY-130.
 
 PR #6 merged, so the specimen is on `main`. Two typeface pairs, five passages each, at 1x and 2x:
 `docs/taste-review/review-0/`, with the entry and the checklist in `docs/taste-review/queue.md`. Read
@@ -208,11 +213,12 @@ Reasoning for all of them: `docs/plan/deltas/2026-09-18-review-throughput.md`.
       body because Paths allow no test file; amendment covers both the lockfile audit and the
       content-licence rule, both named in the story). Approve on GitHub if you are content.
 
-- [ ] 2026-09-18 — **MARXY-20 is now `human-gated` and blocked on the board.** ready.mjs would
+- [x] 2026-09-18 — **MARXY-20 is now `human-gated` and blocked on the board.** ready.mjs would
       have dispatched the default theme because its deps (MARXY-11, MARXY-13) are done and it
       does not read the taste queue or PR #14. It stays off the dispatch list until you resolve
       PR #14 (dark-is-primary would invalidate review #0) and record the typeface pair in
       `docs/taste-review/queue.md`. MARXY-21 and everything downstream wait on that.
+      **Discharged 2026-09-19.** Pair recorded (A). MARXY-20 and MARXY-21 already landed.
 
 - [x] 2026-09-18 — **For information, no action: `main` is green again.** The planner's item above
       says `main` has been red since 11:33 on the macOS perf gate; that was true when it was written
@@ -244,3 +250,8 @@ Reasoning for all of them: `docs/plan/deltas/2026-09-18-review-throughput.md`.
       landed into `docs/sdlc.md` by MARXY-80. Note this is now about a
       new `reviewLanes` cap on *review*, not about `lanes`: your ruling that dispatch is uncapped
       stands untouched.
+
+- [ ] 2026-09-19 — **Taste follow-ups filed, no action tonight.** MARXY-128 (theme: heading space,
+      italic/strike, code-block padding, quotes, checkboxes, tables), MARXY-129 (pair-A tunes:
+      mono size, heading weight, italic, list numbers), MARXY-130 (corpus samples for more
+      formats). Planner splits them. Linux weight (spike, MARXY-21) still waits on a desktop.
