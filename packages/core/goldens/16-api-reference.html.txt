@@ -1,0 +1,163 @@
+
+<h1 data-marxy-s="80" data-marxy-e="114"><code data-marxy-s="82" data-marxy-e="89">shelf</code> — local document index</h1>
+<p data-marxy-s="116" data-marxy-e="325">A reader-facing index for a folder of markdown. <code data-marxy-s="164" data-marxy-e="171">shelf</code> watches a root, keeps one
+row per file, and answers prefix queries without leaving the machine. Nothing in
+this document is fetched; every path is local.</p>
+<h2 data-marxy-s="327" data-marxy-e="337">Install</h2>
+<pre data-marxy-s="339" data-marxy-e="363"><code class="language-sh" data-marxy-s="345" data-marxy-e="360">pnpm add shelf
+</code></pre>
+<p data-marxy-s="365" data-marxy-e="494">The package exports three names: <code data-marxy-s="398" data-marxy-e="409">openShelf</code>, <code data-marxy-s="411" data-marxy-e="418">Shelf</code>, and <code data-marxy-s="424" data-marxy-e="436">ShelfError</code>. Types
+live next to the implementation in <code data-marxy-s="479" data-marxy-e="493">src/index.ts</code>.</p>
+<h2 data-marxy-s="496" data-marxy-e="526"><code data-marxy-s="499" data-marxy-e="526">openShelf(root, options?)</code></h2>
+<p data-marxy-s="528" data-marxy-e="603">Opens or creates the index under <code data-marxy-s="561" data-marxy-e="574">root/.shelf</code>. Returns a <code data-marxy-s="586" data-marxy-e="602">Promise&lt;Shelf&gt;</code>.</p>
+<h3 data-marxy-s="605" data-marxy-e="616">Options</h3>
+<table data-marxy-s="618" data-marxy-e="1146">
+<thead>
+<tr data-marxy-s="618" data-marxy-e="659">
+<th data-marxy-s="618" data-marxy-e="627">Option</th>
+<th data-marxy-s="627" data-marxy-e="634">Type</th>
+<th data-marxy-s="634" data-marxy-e="644">Default</th>
+<th data-marxy-s="644" data-marxy-e="659">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="702" data-marxy-e="785">
+<td data-marxy-s="702" data-marxy-e="712"><code data-marxy-s="704" data-marxy-e="711">watch</code></td>
+<td data-marxy-s="712" data-marxy-e="724"><code data-marxy-s="714" data-marxy-e="723">boolean</code></td>
+<td data-marxy-s="724" data-marxy-e="733"><code data-marxy-s="726" data-marxy-e="732">true</code></td>
+<td data-marxy-s="733" data-marxy-e="785">Subscribe to the filesystem after the first scan</td>
+</tr>
+<tr data-marxy-s="786" data-marxy-e="881">
+<td data-marxy-s="786" data-marxy-e="797"><code data-marxy-s="788" data-marxy-e="796">ignore</code></td>
+<td data-marxy-s="797" data-marxy-e="810"><code data-marxy-s="799" data-marxy-e="809">string[]</code></td>
+<td data-marxy-s="810" data-marxy-e="839"><code data-marxy-s="812" data-marxy-e="838">['node_modules', '.git']</code></td>
+<td data-marxy-s="839" data-marxy-e="881">Directory names skipped at every level</td>
+</tr>
+<tr data-marxy-s="882" data-marxy-e="963">
+<td data-marxy-s="882" data-marxy-e="890"><code data-marxy-s="884" data-marxy-e="889">ext</code></td>
+<td data-marxy-s="890" data-marxy-e="903"><code data-marxy-s="892" data-marxy-e="902">string[]</code></td>
+<td data-marxy-s="903" data-marxy-e="928"><code data-marxy-s="905" data-marxy-e="927">['.md', '.markdown']</code></td>
+<td data-marxy-s="928" data-marxy-e="963">Extensions treated as documents</td>
+</tr>
+<tr data-marxy-s="964" data-marxy-e="1062">
+<td data-marxy-s="964" data-marxy-e="974"><code data-marxy-s="966" data-marxy-e="973">limit</code></td>
+<td data-marxy-s="974" data-marxy-e="985"><code data-marxy-s="976" data-marxy-e="984">number</code></td>
+<td data-marxy-s="985" data-marxy-e="996"><code data-marxy-s="987" data-marxy-e="995">10_000</code></td>
+<td data-marxy-s="996" data-marxy-e="1062">Hard cap on indexed files; opening past it throws <code data-marxy-s="1048" data-marxy-e="1060">ShelfError</code></td>
+</tr>
+<tr data-marxy-s="1063" data-marxy-e="1146">
+<td data-marxy-s="1063" data-marxy-e="1072"><code data-marxy-s="1065" data-marxy-e="1071">hash</code></td>
+<td data-marxy-s="1072" data-marxy-e="1096"><code data-marxy-s="1074" data-marxy-e="1095">'fnv1a64' | 'none'</code></td>
+<td data-marxy-s="1096" data-marxy-e="1110"><code data-marxy-s="1098" data-marxy-e="1109">'fnv1a64'</code></td>
+<td data-marxy-s="1110" data-marxy-e="1146">Content hash written on each row</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="1148" data-marxy-e="1188">Nested behaviour when <code data-marxy-s="1170" data-marxy-e="1177">watch</code> is <code data-marxy-s="1181" data-marxy-e="1187">true</code>:</p>
+<ul data-marxy-s="1190" data-marxy-e="1572">
+<li data-marxy-s="1190" data-marxy-e="1382">A create event
+<ul data-marxy-s="1209" data-marxy-e="1382">
+<li data-marxy-s="1209" data-marxy-e="1382">under a watched directory
+<ul data-marxy-s="1241" data-marxy-e="1382">
+<li data-marxy-s="1241" data-marxy-e="1382">whose name is not in <code data-marxy-s="1264" data-marxy-e="1272">ignore</code>
+<ul data-marxy-s="1279" data-marxy-e="1382">
+<li data-marxy-s="1279" data-marxy-e="1382">and whose extension is in <code data-marxy-s="1307" data-marxy-e="1312">ext</code>
+<ul data-marxy-s="1321" data-marxy-e="1382">
+<li data-marxy-s="1321" data-marxy-e="1382">inserts a row and emits <code data-marxy-s="1347" data-marxy-e="1355">change</code> with <code data-marxy-s="1361" data-marxy-e="1382">{ op: 'add', path }</code></li>
+</ul></li>
+</ul></li>
+</ul></li>
+</ul></li>
+<li data-marxy-s="1383" data-marxy-e="1494">A delete event
+<ul data-marxy-s="1402" data-marxy-e="1494">
+<li data-marxy-s="1402" data-marxy-e="1494">for a path that already has a row
+<ul data-marxy-s="1442" data-marxy-e="1494">
+<li data-marxy-s="1442" data-marxy-e="1494">removes the row and emits <code data-marxy-s="1470" data-marxy-e="1494">{ op: 'remove', path }</code></li>
+</ul></li>
+</ul></li>
+<li data-marxy-s="1495" data-marxy-e="1572">A rename is modelled as remove-then-add; <code data-marxy-s="1538" data-marxy-e="1544">path</code> on the add is the new name.</li>
+</ul>
+<p data-marxy-s="1574" data-marxy-e="1733"><code data-marxy-s="1574" data-marxy-e="1588">hash: 'none'</code> is for fixtures. Production code should leave the default: the
+row’s <code data-marxy-s="1658" data-marxy-e="1664">hash</code> is what a later open uses to skip a file whose bytes have not
+moved.</p>
+<h2 data-marxy-s="1735" data-marxy-e="1745"><code data-marxy-s="1738" data-marxy-e="1745">Shelf</code></h2>
+<h3 data-marxy-s="1747" data-marxy-e="1773"><code data-marxy-s="1751" data-marxy-e="1773">query(prefix, opts?)</code></h3>
+<p data-marxy-s="1775" data-marxy-e="1854">Returns rows whose <code data-marxy-s="1794" data-marxy-e="1800">path</code> or <code data-marxy-s="1804" data-marxy-e="1811">title</code> starts with <code data-marxy-s="1824" data-marxy-e="1832">prefix</code>, case-folded. <code data-marxy-s="1847" data-marxy-e="1853">opts</code>:</p>
+<table data-marxy-s="1856" data-marxy-e="2160">
+<thead>
+<tr data-marxy-s="1856" data-marxy-e="1897">
+<th data-marxy-s="1856" data-marxy-e="1865">Option</th>
+<th data-marxy-s="1865" data-marxy-e="1872">Type</th>
+<th data-marxy-s="1872" data-marxy-e="1882">Default</th>
+<th data-marxy-s="1882" data-marxy-e="1897">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="1940" data-marxy-e="1995">
+<td data-marxy-s="1940" data-marxy-e="1948"><code data-marxy-s="1942" data-marxy-e="1947">max</code></td>
+<td data-marxy-s="1948" data-marxy-e="1959"><code data-marxy-s="1950" data-marxy-e="1958">number</code></td>
+<td data-marxy-s="1959" data-marxy-e="1966"><code data-marxy-s="1961" data-marxy-e="1965">20</code></td>
+<td data-marxy-s="1966" data-marxy-e="1995">Rows returned, never more</td>
+</tr>
+<tr data-marxy-s="1996" data-marxy-e="2091">
+<td data-marxy-s="1996" data-marxy-e="2003"><code data-marxy-s="1998" data-marxy-e="2002">in</code></td>
+<td data-marxy-s="2003" data-marxy-e="2035"><code data-marxy-s="2005" data-marxy-e="2034">'path' | 'title' | 'both'</code></td>
+<td data-marxy-s="2035" data-marxy-e="2046"><code data-marxy-s="2037" data-marxy-e="2045">'both'</code></td>
+<td data-marxy-s="2046" data-marxy-e="2091">Which fields the prefix is tested against</td>
+</tr>
+<tr data-marxy-s="2092" data-marxy-e="2160">
+<td data-marxy-s="2092" data-marxy-e="2102"><code data-marxy-s="2094" data-marxy-e="2101">order</code></td>
+<td data-marxy-s="2102" data-marxy-e="2124"><code data-marxy-s="2104" data-marxy-e="2123">'path' | 'mtime'</code></td>
+<td data-marxy-s="2124" data-marxy-e="2135"><code data-marxy-s="2126" data-marxy-e="2134">'path'</code></td>
+<td data-marxy-s="2135" data-marxy-e="2160">Sort after the filter</td>
+</tr>
+</tbody>
+</table>
+<p data-marxy-s="2162" data-marxy-e="2289">A query never touches the disk. The in-memory table is the only input; a
+caller that needs fresh bytes calls <code data-marxy-s="2271" data-marxy-e="2282">refresh()</code> first.</p>
+<h3 data-marxy-s="2291" data-marxy-e="2306"><code data-marxy-s="2295" data-marxy-e="2306">get(path)</code></h3>
+<p data-marxy-s="2308" data-marxy-e="2454">Exact lookup. <code data-marxy-s="2322" data-marxy-e="2328">path</code> is the POSIX form stored on the row (<code data-marxy-s="2366" data-marxy-e="2381">docs/brief.md</code>,
+never <code data-marxy-s="2389" data-marxy-e="2405">docs\\brief.md</code>). Missing paths return <code data-marxy-s="2429" data-marxy-e="2440">undefined</code>, not a throw.</p>
+<h3 data-marxy-s="2456" data-marxy-e="2471"><code data-marxy-s="2460" data-marxy-e="2471">refresh()</code></h3>
+<p data-marxy-s="2473" data-marxy-e="2599">Rescans <code data-marxy-s="2481" data-marxy-e="2487">root</code> once. Use after a burst of writes the watcher may have
+coalesced. Returns <code data-marxy-s="2562" data-marxy-e="2591">{ added, removed, updated }</code> counts.</p>
+<h3 data-marxy-s="2601" data-marxy-e="2614"><code data-marxy-s="2605" data-marxy-e="2614">close()</code></h3>
+<p data-marxy-s="2616" data-marxy-e="2711">Drops the watcher and the table. A later method call throws <code data-marxy-s="2676" data-marxy-e="2688">ShelfError</code>
+with <code data-marxy-s="2694" data-marxy-e="2710">code: 'closed'</code>.</p>
+<h2 data-marxy-s="2713" data-marxy-e="2725">Row shape</h2>
+<p data-marxy-s="2727" data-marxy-e="2793">Each row is a plain object. Fields a reader of the index will see:</p>
+<ul data-marxy-s="2795" data-marxy-e="3104">
+<li data-marxy-s="2795" data-marxy-e="2859"><code data-marxy-s="2797" data-marxy-e="2803">path</code> — relative to <code data-marxy-s="2820" data-marxy-e="2826">root</code>, <code data-marxy-s="2828" data-marxy-e="2831">/</code>-separated, no leading slash</li>
+<li data-marxy-s="2860" data-marxy-e="2930"><code data-marxy-s="2862" data-marxy-e="2869">title</code> — first ATX heading, or the file stem if the file has none</li>
+<li data-marxy-s="2931" data-marxy-e="2998"><code data-marxy-s="2933" data-marxy-e="2940">bytes</code> — length of the file as opened, not of the decoded text</li>
+<li data-marxy-s="2999" data-marxy-e="3043"><code data-marxy-s="3001" data-marxy-e="3008">mtime</code> — <code data-marxy-s="3013" data-marxy-e="3022">mtimeMs</code> from <code data-marxy-s="3028" data-marxy-e="3034">stat</code>, integer</li>
+<li data-marxy-s="3044" data-marxy-e="3104"><code data-marxy-s="3046" data-marxy-e="3052">hash</code> — lowercase hex, or <code data-marxy-s="3075" data-marxy-e="3079">''</code> when <code data-marxy-s="3085" data-marxy-e="3091">hash</code> was <code data-marxy-s="3096" data-marxy-e="3104">'none'</code></li>
+</ul>
+<pre data-marxy-s="3106" data-marxy-e="3439"><code class="language-ts" data-marxy-s="3112" data-marxy-e="3436">import { openShelf } from 'shelf';
+
+const shelf = await openShelf('/Users/reader/notes', {
+  ignore: ['node_modules', '.git', '.shelf'],
+  ext: ['.md'],
+});
+
+const hits = shelf.query('docs/ad', { max: 8, in: 'path' });
+for (const row of hits) {
+  process.stdout.write(`${row.path}  ${row.title}\n`);
+}
+
+await shelf.close();
+</code></pre>
+<h2 data-marxy-s="3441" data-marxy-e="3450">Errors</h2>
+<p data-marxy-s="3452" data-marxy-e="3501"><code data-marxy-s="3452" data-marxy-e="3464">ShelfError</code> is the only throw. <code data-marxy-s="3484" data-marxy-e="3490">code</code> is one of:</p>
+<ul data-marxy-s="3503" data-marxy-e="3730">
+<li data-marxy-s="3503" data-marxy-e="3563"><code data-marxy-s="3505" data-marxy-e="3522">not-a-directory</code> — <code data-marxy-s="3527" data-marxy-e="3533">root</code> exists and is not a directory</li>
+<li data-marxy-s="3564" data-marxy-e="3615"><code data-marxy-s="3566" data-marxy-e="3573">limit</code> — the scan would exceed <code data-marxy-s="3600" data-marxy-e="3615">options.limit</code></li>
+<li data-marxy-s="3616" data-marxy-e="3659"><code data-marxy-s="3618" data-marxy-e="3626">closed</code> — a method ran after <code data-marxy-s="3650" data-marxy-e="3659">close()</code></li>
+<li data-marxy-s="3660" data-marxy-e="3730"><code data-marxy-s="3662" data-marxy-e="3666">io</code> — a <code data-marxy-s="3673" data-marxy-e="3679">stat</code> or <code data-marxy-s="3683" data-marxy-e="3689">read</code> failed; <code data-marxy-s="3698" data-marxy-e="3705">cause</code> holds the original error</li>
+</ul>
+<p data-marxy-s="3732" data-marxy-e="3791">There is no network error code. <code data-marxy-s="3764" data-marxy-e="3771">shelf</code> does not open URLs.</p>
+<h2 data-marxy-s="3793" data-marxy-e="3804">See also</h2>
+<ul data-marxy-s="3806" data-marxy-e="3974">
+<li data-marxy-s="3806" data-marxy-e="3895">The changelog for this package: <a href="https://example.invalid/shelf/changelog" data-marxy-s="3840" data-marxy-e="3895">CHANGELOG.md</a></li>
+<li data-marxy-s="3896" data-marxy-e="3974">The type definitions in <code data-marxy-s="3922" data-marxy-e="3936">src/types.ts</code> (<code data-marxy-s="3938" data-marxy-e="3945">Shelf</code>, <code data-marxy-s="3947" data-marxy-e="3957">ShelfRow</code>, <code data-marxy-s="3959" data-marxy-e="3973">ShelfOptions</code>)</li>
+</ul>

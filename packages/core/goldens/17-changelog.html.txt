@@ -1,0 +1,71 @@
+
+<h1 data-marxy-s="86" data-marxy-e="97">Changelog</h1>
+<p data-marxy-s="99" data-marxy-e="242">All notable changes to <code data-marxy-s="122" data-marxy-e="129">shelf</code> are recorded here. Dates are the day the
+tag was cut. Compare links go to <code data-marxy-s="204" data-marxy-e="221">example.invalid</code> and are not fetched.</p>
+<h2 data-marxy-s="244" data-marxy-e="269"><a href="https://example.invalid/shelf/compare/v1.3.2...v1.4.0" data-marxy-s="247" data-marxy-e="254">1.4.0</a> — 2026-09-12</h2>
+<h3 data-marxy-s="271" data-marxy-e="280">Added</h3>
+<ul data-marxy-s="282" data-marxy-e="439">
+<li data-marxy-s="282" data-marxy-e="357"><code data-marxy-s="284" data-marxy-e="291">query</code> accepts <code data-marxy-s="300" data-marxy-e="316">order: 'mtime'</code> so a palette can show recent files first</li>
+<li data-marxy-s="358" data-marxy-e="439"><code data-marxy-s="360" data-marxy-e="371">refresh()</code> return value now includes <code data-marxy-s="398" data-marxy-e="407">updated</code>, not only <code data-marxy-s="418" data-marxy-e="425">added</code> and <code data-marxy-s="430" data-marxy-e="439">removed</code></li>
+</ul>
+<h3 data-marxy-s="441" data-marxy-e="452">Changed</h3>
+<ul data-marxy-s="454" data-marxy-e="607">
+<li data-marxy-s="454" data-marxy-e="525">Default <code data-marxy-s="464" data-marxy-e="472">ignore</code> now lists <code data-marxy-s="483" data-marxy-e="491">.shelf</code> next to <code data-marxy-s="500" data-marxy-e="514">node_modules</code> and <code data-marxy-s="519" data-marxy-e="525">.git</code></li>
+<li data-marxy-s="526" data-marxy-e="607"><code data-marxy-s="528" data-marxy-e="533">get</code> documents that Windows separators are not stored; callers normalise first</li>
+</ul>
+<h3 data-marxy-s="609" data-marxy-e="618">Fixed</h3>
+<ul data-marxy-s="620" data-marxy-e="773">
+<li data-marxy-s="620" data-marxy-e="692">A rename inside an ignored directory no longer leaked a <code data-marxy-s="678" data-marxy-e="686">change</code> event</li>
+<li data-marxy-s="693" data-marxy-e="773">Empty files kept a stale <code data-marxy-s="720" data-marxy-e="727">title</code> from the previous hash; they now use the stem</li>
+</ul>
+<h2 data-marxy-s="775" data-marxy-e="800"><a href="https://example.invalid/shelf/compare/v1.3.1...v1.3.2" data-marxy-s="778" data-marxy-e="785">1.3.2</a> — 2026-08-28</h2>
+<h3 data-marxy-s="802" data-marxy-e="811">Fixed</h3>
+<ul data-marxy-s="813" data-marxy-e="957">
+<li data-marxy-s="813" data-marxy-e="878"><code data-marxy-s="815" data-marxy-e="824">close()</code> after a failed <code data-marxy-s="840" data-marxy-e="847">watch</code> no longer threw <code data-marxy-s="864" data-marxy-e="872">closed</code> twice</li>
+<li data-marxy-s="879" data-marxy-e="957">Prefix match on a title that starts with a digit (<code data-marxy-s="931" data-marxy-e="944">12-notes.md</code>) was skipped</li>
+</ul>
+<h2 data-marxy-s="959" data-marxy-e="984"><a href="https://example.invalid/shelf/compare/v1.3.0...v1.3.1" data-marxy-s="962" data-marxy-e="969">1.3.1</a> — 2026-08-19</h2>
+<h3 data-marxy-s="986" data-marxy-e="995">Fixed</h3>
+<ul data-marxy-s="997" data-marxy-e="1066">
+<li data-marxy-s="997" data-marxy-e="1066"><code data-marxy-s="999" data-marxy-e="1013">hash: 'none'</code> still wrote a placeholder hex; the field is now <code data-marxy-s="1062" data-marxy-e="1066">''</code></li>
+</ul>
+<h2 data-marxy-s="1068" data-marxy-e="1093"><a href="https://example.invalid/shelf/compare/v1.2.0...v1.3.0" data-marxy-s="1071" data-marxy-e="1078">1.3.0</a> — 2026-08-04</h2>
+<h3 data-marxy-s="1095" data-marxy-e="1104">Added</h3>
+<ul data-marxy-s="1106" data-marxy-e="1231">
+<li data-marxy-s="1106" data-marxy-e="1176"><code data-marxy-s="1108" data-marxy-e="1121">options.ext</code> so a tree that also holds <code data-marxy-s="1148" data-marxy-e="1154">.txt</code> notes can opt them in</li>
+<li data-marxy-s="1177" data-marxy-e="1231"><code data-marxy-s="1179" data-marxy-e="1196">ShelfError.code</code> values listed in the API reference</li>
+</ul>
+<h3 data-marxy-s="1233" data-marxy-e="1244">Changed</h3>
+<ul data-marxy-s="1246" data-marxy-e="1295">
+<li data-marxy-s="1246" data-marxy-e="1295"><code data-marxy-s="1248" data-marxy-e="1255">limit</code> default raised from <code data-marxy-s="1276" data-marxy-e="1283">2_000</code> to <code data-marxy-s="1287" data-marxy-e="1295">10_000</code></li>
+</ul>
+<h3 data-marxy-s="1297" data-marxy-e="1308">Removed</h3>
+<ul data-marxy-s="1310" data-marxy-e="1388">
+<li data-marxy-s="1310" data-marxy-e="1388">The undocumented <code data-marxy-s="1329" data-marxy-e="1342">shelf.raw()</code> dump; use <code data-marxy-s="1353" data-marxy-e="1380">query('', { max: limit })</code> instead</li>
+</ul>
+<h2 data-marxy-s="1390" data-marxy-e="1415"><a href="https://example.invalid/shelf/compare/v1.1.0...v1.2.0" data-marxy-s="1393" data-marxy-e="1400">1.2.0</a> — 2026-07-15</h2>
+<h3 data-marxy-s="1417" data-marxy-e="1426">Added</h3>
+<ul data-marxy-s="1428" data-marxy-e="1578">
+<li data-marxy-s="1428" data-marxy-e="1506">Watcher coalesces bursts of writes into one <code data-marxy-s="1474" data-marxy-e="1482">change</code> with <code data-marxy-s="1488" data-marxy-e="1506">{ op: 'update' }</code></li>
+<li data-marxy-s="1507" data-marxy-e="1578"><code data-marxy-s="1509" data-marxy-e="1525">ShelfRow.bytes</code> so a caller can skip a file it already has in memory</li>
+</ul>
+<h3 data-marxy-s="1580" data-marxy-e="1589">Fixed</h3>
+<ul data-marxy-s="1591" data-marxy-e="1661">
+<li data-marxy-s="1591" data-marxy-e="1661">First open on a cold cache blocked the event loop for the whole scan</li>
+</ul>
+<h2 data-marxy-s="1663" data-marxy-e="1688"><a href="https://example.invalid/shelf/compare/v1.0.0...v1.1.0" data-marxy-s="1666" data-marxy-e="1673">1.1.0</a> — 2026-06-30</h2>
+<h3 data-marxy-s="1690" data-marxy-e="1699">Added</h3>
+<ul data-marxy-s="1701" data-marxy-e="1789">
+<li data-marxy-s="1701" data-marxy-e="1745"><code data-marxy-s="1703" data-marxy-e="1734">in: 'path' | 'title' | 'both'</code> on <code data-marxy-s="1738" data-marxy-e="1745">query</code></li>
+<li data-marxy-s="1746" data-marxy-e="1789">MIT licence file in the published tarball</li>
+</ul>
+<h3 data-marxy-s="1791" data-marxy-e="1802">Changed</h3>
+<ul data-marxy-s="1804" data-marxy-e="1876">
+<li data-marxy-s="1804" data-marxy-e="1876">Titles come from the first ATX heading, not the first line of the file</li>
+</ul>
+<h2 data-marxy-s="1878" data-marxy-e="1903"><a href="https://example.invalid/shelf/releases/tag/v1.0.0" data-marxy-s="1881" data-marxy-e="1888">1.0.0</a> — 2026-06-11</h2>
+<h3 data-marxy-s="1905" data-marxy-e="1914">Added</h3>
+<ul data-marxy-s="1916" data-marxy-e="1984">
+<li data-marxy-s="1916" data-marxy-e="1954"><code data-marxy-s="1918" data-marxy-e="1929">openShelf</code>, <code data-marxy-s="1931" data-marxy-e="1938">query</code>, <code data-marxy-s="1940" data-marxy-e="1945">get</code>, <code data-marxy-s="1947" data-marxy-e="1954">close</code></li>
+<li data-marxy-s="1955" data-marxy-e="1984">FNV-1a 64 hash on every row</li>
+</ul>

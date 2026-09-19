@@ -1,0 +1,81 @@
+<!-- Sample of a source file read as a code document: one long fence, lines past 120 characters. -->
+
+```ts
+// build-row-from-stat.ts — one ShelfRow from a stat and the previous row, if the bytes have not moved.
+
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import type { Stats } from 'node:fs';
+import type { ShelfRow } from '../types';
+import { firstAtx } from './first-atx';
+
+const EMPTY_FNV = 'cbf29ce484222325';
+
+export type BuildRowArgs = {
+  root: string;
+  rel: string;
+  stat: Stats;
+  previous: ShelfRow | undefined;
+  hashMode: 'fnv1a64' | 'none';
+};
+
+/**
+ * Reuses `previous` only when the content hash *and* the byte length match. Empty files all share EMPTY_FNV, so a hash-only short-circuit would keep a stale title after a truncate (see the 1.4.0 notes).
+ */
+export async function buildRowFromStat(args: BuildRowArgs): Promise<ShelfRow> {
+  const { rel, stat, previous, hashMode } = args;
+  const bytes = stat.size;
+  const mtime = Math.trunc(stat.mtimeMs);
+  if (hashMode === 'none') {
+    const text = bytes === 0 ? '' : await readFile(joinRoot(args.root, rel), 'utf8');
+    return { path: rel, title: firstAtx(text, stemOf(rel)), bytes, mtime, hash: '' };
+  }
+  const buffer = bytes === 0 ? new Uint8Array() : new Uint8Array(await readFile(joinRoot(args.root, rel)));
+  const hash = bytes === 0 ? EMPTY_FNV : fnv1a64(buffer);
+  if (previous && hash === previous.hash && bytes === previous.bytes) return previous;
+  const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(buffer);
+  return { path: rel, title: firstAtx(text, stemOf(rel)), bytes, mtime, hash };
+}
+
+export function fnv1a64(bytes: Uint8Array): string {
+  let h = 0xcbf29ce484222325n;
+  for (const b of bytes) h = BigInt.asUintN(64, (h ^ BigInt(b)) * 0x100000001b3n);
+  return h.toString(16).padStart(16, '0');
+}
+
+export function stemOf(rel: string): string {
+  const base = rel.slice(rel.lastIndexOf('/') + 1);
+  const dot = base.lastIndexOf('.');
+  return dot > 0 ? base.slice(0, dot) : base;
+}
+
+function joinRoot(root: string, rel: string): string {
+  if (rel.includes('\0') || rel.split('/').includes('..') || rel.startsWith('/')) {
+    throw new Error(`buildRowFromStat: refused ${rel} because it climbs out of ${root} or is not a document path`);
+  }
+  return `${root.replace(/\/$/, '')}/${rel}`;
+}
+
+export function shouldIndex(rel: string, ext: readonly string[], ignore: readonly string[]): boolean { // directory names in `ignore` drop the whole subtree, not only a matching leaf
+  const parts = rel.split('/');
+  if (parts.some((p) => ignore.includes(p))) return false;
+  const name = parts[parts.length - 1] ?? '';
+  return ext.some((e) => name.endsWith(e));
+}
+
+export function rowKey(row: Pick<ShelfRow, 'path' | 'hash' | 'bytes'>): string {
+  return `${row.path}\0${row.hash}\0${row.bytes}`;
+}
+
+export function describeSkip(previous: ShelfRow, hash: string, bytes: number): string {
+  return `skip ${previous.path}: hash ${hash} and ${bytes} bytes match the row already held (title ${JSON.stringify(previous.title)})`;
+}
+
+if (import.meta.url.endsWith('build-row-from-stat.ts')) {
+  const probe = new TextEncoder().encode('# The product, distilled\n');
+  const once = fnv1a64(probe);
+  const twice = fnv1a64(probe);
+  if (once !== twice) throw new Error(`fnv1a64 is not stable: ${once} vs ${twice}`);
+  if (fnv1a64(new Uint8Array()) !== EMPTY_FNV) throw new Error('empty hash drifted from the FNV-1a 64 offset basis');
+}
+```
