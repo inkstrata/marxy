@@ -48,6 +48,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- On a detached CI checkout the merge-bar CHANGELOG check takes the story key from the pull-request branch GitHub already knows, and skips when none of those names have a key instead of failing the build (MARXY-124)
 - The merge-bar CHANGELOG check no longer requires a finished story's line on every later pull request; an empty hunk against main skips, and a hunk that adds a story line must name the current branch's key and delete none (MARXY-123)
 - Fast CI no longer fails the phases 600-line three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-114)
 - Outline tests no longer fail a later core story that edits package.json, scripts or the desktop app; that leftover three-dot lock was MARXY-109's own boundary (MARXY-113)
