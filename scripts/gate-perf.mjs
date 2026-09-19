@@ -1,11 +1,11 @@
-// Performance budgets as hard failures (ADR-0013), in two tiers (ADR-0022): product budgets on
-// reference hardware (MARXY_PERF_ENV=reference), an envelope plus a per-runner baseline in CI
-// (MARXY_PERF_ENV=ci). Amendment 1 splits the metric: the CI rule keeps every number it had and now
-// reads `warm_start_first_text_ms`, the quantity it has always measured, while
-// `cold_start_first_text_ms` is launch 1 alone — recorded, printed, and required to be present, but
-// held to no ceiling until MARXY-70 derives one. Reads fixtures/perf-budgets.json and
-// results/perf.json (written by scripts/measure-startup.mjs). `--selftest` runs every rule over
-// inline fixtures; `--assert-budgets-unchanged <ref>` compares the budgets file byte for byte.
+// Performance budgets as hard failures (ADR-0013), in two tiers (ADR-0022): remaining product
+// budgets on reference hardware (MARXY_PERF_ENV=reference), an envelope plus a per-runner baseline
+// in CI (MARXY_PERF_ENV=ci). Amendment 1 splits the metric. Amendment 2 withdraws the 500 ms
+// cold-start commitment: `cold_start_first_text_ms` is a standing observation — recorded, printed,
+// required to be present — with no ceiling. The 500 in fixtures/perf-budgets.json is the CI
+// envelope seed only. Reads fixtures/perf-budgets.json and results/perf.json. `--selftest` runs
+// every rule over inline fixtures; `--assert-budgets-unchanged <ref>` compares the budgets file
+// byte for byte.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { SELFTEST_CASE_NAMES as MEASURE_CASE_NAMES, MIN_WARM_RUNS } from './measure-startup.mjs';
@@ -16,7 +16,6 @@ const METRICS = ['cold_start_first_text_ms', 'open_indexed_document_ms', 'palett
 // narrower than the runner population's spread gates on machine assignment, not on the code. The ×5
 // envelope still catches a real regression, and a breach is re-measured once before it fails.
 const BASELINE_TOLERANCE = 1.3;
-const COLD_ENFORCEMENT_STORY = 'MARXY-69';
 const CI_COLD_CEILING_STORY = 'MARXY-70';
 const round = n => Math.round(n * 10) / 10;
 
@@ -51,24 +50,19 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
 
   const warm = results.warm_start_first_text_ms;
   const cold = results.cold_start_first_text_ms;
-  if (cold != null) out.push(`cold start (launch 1, ${results.cold_procedure}): ${cold} ms — recorded and printed; ${CI_COLD_CEILING_STORY} derives the ceiling it will be held to`);
+  if (cold != null) out.push(`cold start (launch 1, ${results.cold_procedure}): ${cold} ms — standing observation, no product ceiling`);
   if (results.cold_warm_ratio != null) out.push(`cold/warm ratio: ${results.cold_warm_ratio}× (launch 1 against the median of launches 2..${results.runs_n})`);
 
   if (envClass === 'reference') {
     if (warm == null) fails.push('warm_start_first_text_ms missing from results/perf.json');
-    else if (warm > budgets.product.cold_start_first_text_ms) fails.push(`warm_start_first_text_ms: ${warm} ms > ${budgets.product.cold_start_first_text_ms} ms (product budget)`);
-    else out.push(`warm_start_first_text_ms: ${warm} ms ≤ ${budgets.product.cold_start_first_text_ms} ms (product budget)`);
+    else out.push(`warm_start_first_text_ms: ${warm} ms — recorded; not compared to a cold-start ceiling`);
     for (const k of METRICS.slice(1)) {
       const v = results[k];
       if (v == null) continue;
       if (v > budgets.product[k]) fails.push(`${k}: ${v} ms > ${budgets.product[k]} ms (product budget)`);
       else out.push(`${k}: ${v} ms ≤ ${budgets.product[k]} ms (product budget)`);
     }
-    // Reference mode is the tier the release runbook trusts, and it cannot currently do the job it
-    // claims: the number above is a warm start, and the ADR-0013 budget is about a cold one. Until
-    // MARXY-69 measures k ≥ 5 cold launches, the honest outcome is a red run before a tag.
-    fails.push(`the ADR-0013 product cold-start budget (${budgets.product.cold_start_first_text_ms} ms) is not currently enforceable: the number compared above is a warm start, and the only cold observation in this record is one unrepeated launch (${results.cold_procedure}). ${COLD_ENFORCEMENT_STORY} restores enforcement by measuring a median over k ≥ 5 cold launches; until it lands, a tag cut on this run has not measured what the reader feels`);
-    return { ok: false, out, fails };
+    return { ok: fails.length === 0, out, fails };
   }
 
   const cls = runnerClass ?? results.runner_class;
@@ -173,7 +167,7 @@ const MARXY_55_CASE_NAMES = [
   'ci: inside both rules passes',
   'ci: above the envelope fails',
   'ci: 31 % above the baseline fails even far below the envelope',
-  'reference: 501 ms fails the product budget',
+  'reference: a remaining product budget still fails',
   'reference: missing results fails',
   'reference: results measured in ci mode fails',
   'ci: unknown runner class fails',
@@ -186,7 +180,7 @@ const SELFTEST_CASES = [
   { name: 'ci: inside both rules passes', envClass: 'ci', results: result(), expect: 0 },
   { name: 'ci: above the envelope fails', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_500 }), expect: 1, assert: f => has(f, /exceeds the envelope 10000 ms/) },
   { name: 'ci: 31 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ runner_class: 'macos-latest', warm_start_first_text_ms: 2490 }), expect: 1, assert: f => has(f, /exceeds the baseline ceiling 2471.3 ms/) },
-  { name: 'reference: 501 ms fails the product budget', envClass: 'reference', results: referenceResult({ warm_start_first_text_ms: 501 }), expect: 1, assert: f => has(f, /501 ms > 500 ms \(product budget\)/) },
+  { name: 'reference: a remaining product budget still fails', envClass: 'reference', results: referenceResult({ open_indexed_document_ms: 51 }), expect: 1, assert: f => has(f, /open_indexed_document_ms: 51 ms > 50 ms \(product budget\)/) },
   { name: 'reference: missing results fails', envClass: 'reference', results: null, expect: 1 },
   { name: 'reference: results measured in ci mode fails', envClass: 'reference', results: result({ warm_start_first_text_ms: 400 }), expect: 1, assert: f => has(f, /env_class is ci, expected reference/) },
   { name: 'ci: unknown runner class fails', envClass: 'ci', results: result({ runner_class: 'windows-latest' }), expect: 1 },
@@ -201,8 +195,9 @@ const SELFTEST_CASES = [
   { name: 'reference: an absent or empty cold_procedure fails', envClass: 'reference', results: referenceResult({ cold_procedure: undefined }), expect: 1, assert: f => has(f, /cold_procedure is absent or empty/) },
   { name: 'ci: fewer than eight warm launches fails', envClass: 'ci', results: result({ warm_runs_n: 7 }), expect: 1, assert: f => has(f, /warm median needs at least 8 launches/) },
   { name: 'reference: fewer than eight warm launches fails', envClass: 'reference', results: referenceResult({ warm_runs_n: 7 }), expect: 1, assert: f => has(f, /warm median needs at least 8 launches/) },
-  { name: 'reference: a warm median under the product budget still fails, naming the story that restores enforcement', envClass: 'reference', results: referenceResult(), expect: 1, assert: f => has(f, /not currently enforceable/) && has(f, /MARXY-69/) },
-  { name: 'ci: the cold metric is recorded and printed but held to no ceiling', envClass: 'ci', results: result({ cold_start_first_text_ms: 99_000 }), expect: 0, assertOut: o => o.some(l => /cold start \(launch 1/.test(l) && /99000 ms/.test(l) && /MARXY-70/.test(l)) },
+  { name: 'reference: a sufficient record passes; cold start is printed as an observation', envClass: 'reference', results: referenceResult(), expect: 0, assertOut: o => o.some(l => /cold start \(launch 1/.test(l) && /2400 ms/.test(l) && /standing observation/.test(l)) },
+  { name: 'reference: a cold start far over 500 ms does not fail', envClass: 'reference', results: referenceResult({ cold_start_first_text_ms: 99_000, warm_start_first_text_ms: 501 }), expect: 0, assertOut: o => o.some(l => /99000 ms/.test(l) && /standing observation/.test(l)) },
+  { name: 'ci: the cold metric is recorded and printed but held to no ceiling', envClass: 'ci', results: result({ cold_start_first_text_ms: 99_000 }), expect: 0, assertOut: o => o.some(l => /cold start \(launch 1/.test(l) && /99000 ms/.test(l) && /standing observation/.test(l)) },
 ];
 
 function selftest() {

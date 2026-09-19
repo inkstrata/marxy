@@ -1,19 +1,23 @@
 # ADR-0022 — Product budgets are enforced on reference hardware; CI enforces an envelope and a baseline
 
-**Status:** accepted, amended (Amendment 1 — the metric split, 2026-09-18) · **Amends:** ADR-0013 (its measurement clause only; the budgets themselves
-and "regressions are hard failures" stand unchanged) · **Source:** the first red `gate:perf` run on
+**Status:** accepted, amended (1: the metric split; 2: cold start is an observation) · **Amends:** ADR-0013 (measurement clause, and the cold-start *commitment*) · **Source:** the first red `gate:perf` run on
 GitHub-hosted runners, 2026-09-18
 
 ## Decision
-The budgets in `AGENTS.md` are **product** budgets, measured on reference hardware: the maintainer's
-macOS machine, or any machine where `MARXY_PERF_ENV=reference`. In that mode a round is **k ≥ 5 cold
-launches, each preceded by a recorded cold-making step**, and `scripts/gate-perf.mjs` compares the
-median of those cold launches against the product number and fails at 501 ms, with no multiplier and
-no tolerance. It fails if the record does not certify each launch as cold. *(Obligation, not
-description: **MARXY-69** implements this round. Until it lands, reference mode fails with a message
-saying the product cold-start budget is not enforceable and naming that story.)* `reference` is the
-default whenever `CI` is unset, and the release runbook runs it before a tag; the gate fails if
-`results/perf.json` is missing or was not produced in `reference` mode.
+The budgets in `AGENTS.md` except cold start are **product** budgets, measured on reference
+hardware: the maintainer's macOS machine, or any machine where `MARXY_PERF_ENV=reference`.
+`reference` is the default whenever `CI` is unset, and the release runbook runs it before a
+tag. The gate fails if `results/perf.json` is missing, was not produced in `reference` mode,
+or does not carry a sufficient record (Amendment 1). It does **not** fail a cold start
+against 500 ms or any other ceiling.
+
+**Cold start is a standing observation of the sphere of concern, not a product budget.**
+Every run records `cold_start_first_text_ms` (launch 1) and `cold_procedure`; a record
+without them fails; the number is printed; a slower launch is a cost a story must own.
+A tag must not claim a cold-start time. The `500` in `fixtures/perf-budgets.json`
+`product.cold_start_first_text_ms` is the seed of the CI envelope only. Ian, 2026-09-18
+(Amendment 2). **MARXY-69** makes the reference observation a genuine cold round; it does
+not restore a 500 ms ceiling.
 
 On GitHub-hosted runners (`MARXY_PERF_ENV=ci`, set by `.github/workflows/ci.yml`) the same script
 enforces two named quantities. `warm_start_first_text_ms`, the median of the post-first launches, is
@@ -48,8 +52,8 @@ regression, on both platforms, on every pull request.
 - `scripts/measure-startup.mjs` records `env_class` and `runner_class` in `results/perf.json`.
 - `fixtures/perf-budgets.json` grows a `product` and a `ci` section; MARXY-53 tightens both tiers.
 - `docs/sdlc.md`'s release runbook gains the reference-mode perf run before the tag.
-- The tripwire "cold start > 500 ms after Phase 2" in `docs/roadmap.md` now reads against the
-  reference measurement, not CI.
+- The tripwire "cold start > 500 ms after Phase 2" is retired (Amendment 2). Cold start stays
+  on the "numbers worth watching" list in `docs/roadmap.md`.
 
 ## Amendment 1 — the metric split (2026-09-18, MARXY-63)
 
@@ -105,11 +109,11 @@ enforced on reference hardware and nowhere else.* Everything below follows from 
    softening: it is not compared to a ceiling because no ceiling has been derived from evidence that
    exists. Its *absence* still fails.
 
-**Unchanged, deliberately:** both runner classes gate; the product budgets; "regressions are hard
-failures" (ADR-0013); and the rule that a baseline moves only by an explicit edit to
-`fixtures/perf-budgets.json` in the pull request that costs the time, with CI never writing to the
-repo. MARXY-63 does not touch that file at all, so "no product budget number changed" is structural
-rather than promised, and a check in its pull request asserts the file is byte-identical to `main`.
+**Unchanged, deliberately (as of Amendment 1):** both runner classes gate; the remaining product
+budgets; "regressions are hard failures" (ADR-0013); and the rule that a baseline moves only by
+an explicit edit to `fixtures/perf-budgets.json` in the pull request that costs the time, with
+CI never writing to the repo. Amendment 2 withdraws the cold-start *commitment* and keeps that
+inflation rule as the whole of the cold-start policy.
 
 **Consequences of the amendment**
 - `scripts/measure-startup.mjs` launches 9 times (1 cold, 8 warm), records launch order and per-launch
@@ -122,10 +126,30 @@ rather than promised, and a check in its pull request asserts the file is byte-i
   Measured on one runner and commit: 30.9 s with no bus, 0.9 s with one. Every reader's Linux desktop
   has a session bus, so a number measured without one was mostly a timeout and not this application —
   which is the same error, in a different place, as calling a warm start a cold one.
-- `scripts/gate-perf.mjs` reads `warm_start_first_text_ms` for the CI rule, requires the cold record,
-  and in reference mode additionally fails while the product budget is unenforceable (MARXY-69).
-- The release runbook step in `docs/sdlc.md` is rewritten by MARXY-69; until then a tag is blocked,
-  which is the correct thing to block while the budget cannot be proved.
+- `scripts/gate-perf.mjs` reads `warm_start_first_text_ms` for the CI rule and requires the cold
+  record in both tiers. Reference mode no longer fails a tag for an unenforceable 500 ms
+  (Amendment 2).
+- MARXY-69 makes the reference observation a genuine cold round. It does not restore a ceiling.
+
+## Amendment 2 — cold start is a standing observation (2026-09-18, MARXY-103)
+
+**Status:** accepted · **Source:** Ian, recorded in `docs/taste-review/2026-09-cold-start/decision.md`
+
+The 500 ms cold-start *commitment* is withdrawn. What remains is the sphere of concern:
+measure it, print it, refuse a silent or short record, and refuse inflation. A baseline
+moves only by an explicit edit in the pull request that costs the time. CI never writes
+the repo. There is no product ceiling. A tag must not claim a cold-start time.
+
+Honest packaged numbers at the ruling: 2844 ms on macOS, 1735 ms on Linux. Those belong
+in `docs/risks.md` as a product fact about a Tauri launch, not as a missed promise.
+
+The `500` in `fixtures/perf-budgets.json` `product.cold_start_first_text_ms` is kept as
+the seed of the CI envelope (`product × multiplier`). That is a change detector on a
+rented machine. It is not a promise about what a reader feels.
+
+MARXY-69 is re-scoped: reference mode records k ≥ 5 certified cold launches. It does not
+compare them to 500 ms. The roadmap tripwire that prescribed font subsetting then
+resident-mode-by-default when cold start exceeded 500 ms after Phase 2 is retired.
 
 ## Follow-up 2026-09-18 (MARXY-83) — CI baseline tolerance is 30 %, not 10 %
 

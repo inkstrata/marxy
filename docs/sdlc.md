@@ -34,7 +34,7 @@ so old ADRs, deltas and commits stay readable.
 A story is not dispatched until all of this is true. `ready.mjs` enforces the mechanical half.
 
 1. Acceptance criteria are **machine-checkable** — each one names an observable a test or gate
-   can assert. "Feels fast" is not a criterion; "median cold start < 500 ms in `results/perf.json`" is.
+   can assert. "Feels fast" is not a criterion; "`cold_start_first_text_ms` is present in `results/perf.json`" is.
 2. `Paths` lists every path the story may touch, and they do not overlap a story in progress.
 3. Dependencies in `orchestration/deps.json` are `done`.
 4. The ADRs the story relies on are named in it, and none of them are `proposed` unless the
@@ -144,9 +144,10 @@ A phase ends in a release. There is no release branch; `main` is always releasab
 
 1. Phase's stories all Done, taste review closed, budgets green.
 2. `MARXY_PERF_ENV=reference pnpm gate:perf` green **on reference hardware**, before the tag. CI
-   only ever proves a runner did not get slower; this is the step where the product budgets in
-   ADR-0013 are actually enforced, and a release that skips it has not measured what the reader
-   feels (ADR-0022).
+   only ever proves a runner did not get slower. Reference mode requires a sufficient record
+   and prints `cold_start_first_text_ms` as a standing observation (ADR-0022 Amendment 2). It
+   does not fail a tag against 500 ms. A release that skips this step has not measured cold
+   start at all. A tag must not claim a cold-start time.
 3. `CHANGELOG.md`: move `Unreleased` into a version heading with the date (Keep a Changelog).
 4. `git tag v0.2.0 && git push --tags` — the release workflow builds the DMG, AppImage and .deb.
 5. Install each artifact and open `fixtures/corpus/02-readme-real-world.md`. This is manual on

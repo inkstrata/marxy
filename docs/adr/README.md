@@ -18,7 +18,7 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0010](0010-stack-tauri.md) | Tauri, decided by a pre-committed rule; privileged work behind `shell-api` | accepted |
 | [0011](0011-palette-not-tabs.md) | The palette is the tab manager; no tab bar | accepted, with a reversal criterion |
 | [0012](0012-index-root-and-search-scope.md) | The indexed root is the enclosing repository; search covers titles, headings and paths | accepted |
-| [0013](0013-speed-budgets-are-gates.md) | Speed budgets are CI gates; single-instance always; resident mode opt-in | accepted |
+| [0013](0013-speed-budgets-are-gates.md) | Speed budgets are CI gates; single-instance always; resident mode opt-in | accepted, amended (cold start is an observation) |
 | [0014](0014-aesthetics-acceptance.md) | "Aesthetics paramount" has a two-tier acceptance test | accepted |
 | [0015](0015-typeface.md) | Literata and JetBrains Mono, confirmed by the first taste review | proposed until review #0 |
 | [0016](0016-verification-split.md) | Machine gates for everything checkable; a scheduled taste-review queue for the rest | accepted |
@@ -27,5 +27,5 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0019](0019-scope-v1.md) | The v1 cut | accepted |
 | [0020](0020-core-is-shell-free.md) | `packages/core` and `packages/typeset` never depend on the desktop shell | accepted |
 | [0021](0021-parser-mdast-micromark.md) | The parser is mdast/micromark, not markdown-it | accepted |
-| [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: the metric split) |
+| [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: metric split; 2: cold start is an observation) |
 | [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |

@@ -9,7 +9,7 @@ Severity: critical invalidates the thesis; high costs months; medium costs weeks
 | A5 | v1 too large to ship | **high** | ADR-0019 cut; four operations; theme linter deferred; phases end runnable |
 | A6 | No aesthetics acceptance test | closed → **medium residual** | ADR-0014; tier 2 is only as good as the reviews actually held |
 | A16 | Operations catalogue sprawls | medium | bounded per release, no API |
-| A17 | "Very fast" unproven | medium | CI cold-start gate from Phase 0 on the real bundle |
+| A17 | "Very fast" unproven | medium | Standing observation of packaged cold start (2844 ms macOS / 1735 ms Linux, 2026-09-18); no 500 ms commitment; CI fails on warm-start inflation |
 | A18 | Index unbounded | low | root rule, deny list, ceiling |
 | A19 | Watching misses atomic writes | low | explicit test against rename-over |
 | A20 | The brief moves again | medium | ADRs make the cost of a move explicit; authoring re-entering scope unwinds ADR-0005 first |

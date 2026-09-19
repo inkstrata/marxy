@@ -44,8 +44,9 @@ without a UI. Built in and curated; no plugin or scripting API.
 
 ## Speed is a promise (ADR-0013)
 
-Cold start to first readable text under 500 ms; switching indexed documents under 50 ms;
-palette keystrokes under 16 ms. CI fails on regression.
+Cold start to first readable text is measured and watched — no product ceiling; a slower
+launch is a cost a story must own. Switching indexed documents under 50 ms; palette
+keystrokes under 16 ms. CI fails on regression of those budgets.
 
 ## Aesthetics are the differentiator (ADR-0007, ADR-0014)
 

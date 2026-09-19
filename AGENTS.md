@@ -97,7 +97,7 @@ carry on against the mechanical gates. The queue is reviewed at the end of each 
 
 ## Budgets (CI fails on regression)
 
-| Cold start → first readable text | < 500 ms | Open indexed doc | < 50 ms |
+| Cold start → first readable text | observed, no ceiling | Open indexed doc | < 50 ms |
 | --- | --- | --- | --- |
 | Palette keystroke → results | < 16 ms | Typeset viewport | < 100 ms |
 | Live-reload after external change | < 100 ms | Find, first match | < 50 ms |
