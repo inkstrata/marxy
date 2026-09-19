@@ -63,7 +63,7 @@ exists for you. Read `AGENTS.md` before anything.
   entry. Add AI attribution anywhere. Open a PR with `gh pr create --body` or any body that
   is not `results/{{KEY}}.pr.md` — `open-pr.mjs` is the only create path, because the
   commit-msg hook cannot see the PR body and agents otherwise paste Summary / Why / Test plan.
-  Merge anything. Write `results/KEY.approved` or run
+  Merge anything. Never write `results/KEY.approved` or run
   `approve.mjs` — that file is the reviewer's verdict, not yours.
 
 ## When stuck
