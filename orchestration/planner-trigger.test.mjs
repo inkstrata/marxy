@@ -2,7 +2,9 @@
 // the planner has already ruled (MARXY-120).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { plannerReasons } from './planner-trigger.mjs';
+import { ROOT } from './lib.mjs';
 
 const M = { plannerEveryMerges: 5, plannerEveryDays: 7 };
 const NOW = Date.parse('2026-02-01T00:00:00Z');
@@ -91,6 +93,13 @@ test('the merge-count trigger still fires at its threshold, unchanged', () => {
   const s = { lastPlan: new Date(2026, 0, 1).toISOString(), merges: 5, mergesAtLastPlan: 0, stories: {} };
   const reasons = plannerReasons({ s, m: M, all: [], d: NO_DEPS, now: Date.parse('2026-01-01T00:00:00Z') });
   assert.deepEqual(reasons, ['5 merges since last plan']);
+});
+
+test('docs/roadmap.md tripwire table names the ops-majority signal and what it reopens', () => {
+  const roadmap = readFileSync(`${ROOT}docs/roadmap.md`, 'utf8');
+  const row = roadmap.split('\n').find(l => /^\|.*ops.*\|.*\|$/i.test(l) && /last 10/i.test(l));
+  assert.ok(row, 'tripwire table has a row naming the ops-majority signal');
+  assert.match(row, /defers ops stories that do not unblock a phase/);
 });
 
 test('the weekly-age trigger still fires at its threshold, unchanged', () => {
