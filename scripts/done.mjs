@@ -5,6 +5,7 @@ import { spawnSync, execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, storyKey, story, changedFiles } from './lib/repo.mjs';
+import { lintPrBody } from './check-pr.mjs';
 const key = process.argv[2] && /^MARXY-/.test(process.argv[2]) ? process.argv[2] : storyKey(process.argv);
 if (!key) { console.error('usage: pnpm done MARXY-n (or run on a type/MARXY-n-slug branch)'); process.exit(2); }
 const run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', env: { ...process.env, MARXY_STORY: key } });
@@ -71,7 +72,12 @@ ${JSON.stringify({ key, status: 'done', branch: execSync('git rev-parse --abbrev
 writeFileSync(join(ROOT, `results/${key}.pr.md`), pr);
 const resultPath = join(ROOT, `orchestration/results/${key}.json`);
 if (!existsSync(resultPath)) writeFileSync(resultPath, JSON.stringify({ key, status: ok ? 'done' : 'failed', branch: execSync('git rev-parse --abbrev-ref HEAD', { cwd: ROOT, encoding: 'utf8' }).trim(), gates: Object.fromEntries(gates.split('\n').filter(Boolean).map(l => [l.slice(2).trim(), l.startsWith('✓') ? 'ok' : 'failed'])), acceptance: criteria.map(c => ({ criterion: c, checkedBy: 'TODO' })), outsidePaths: [], needsAdr: false, queueEntry: false, notes: '' }, null, 2) + '\n');
-console.log(`\nPR body drafted at results/${key}.pr.md — fill every TODO, then:\n  node scripts/check-pr.mjs --body results/${key}.pr.md --key ${key} --range\n  gh pr create --title "${title}" --body-file results/${key}.pr.md`);
+const leftover = lintPrBody(pr, { key });
+if (leftover.length) {
+  console.log(`\nPR body drafted at results/${key}.pr.md — still unfilled:`);
+  for (const l of leftover) console.log(`  · ${l.split('\n')[0]}`);
+}
+console.log(`\nFill every TODO, then open the PR with the drafted file (never gh pr create --body):\n  node scripts/open-pr.mjs ${key}`);
 console.log(`result file: orchestration/results/${key}.json (set acceptance[].checkedBy)`);
 if (!card) console.log(`note: no task card at docs/plan/tasks/${key}.md`);
 process.exit(ok ? 0 : 1);
