@@ -42,12 +42,17 @@ exists for you. Read `AGENTS.md` before anything.
    by its `head_sha`, never by its run id.
 7. Run `pnpm done {{KEY}}`. It drafts `results/{{KEY}}.pr.md` from your commits and the story
    and writes `orchestration/results/{{KEY}}.json`. Fill every TODO (the Summary in plain
-   language; the criterion → check table). The only command that may open the PR is
-   `node scripts/open-pr.mjs {{KEY}}` — it runs `check-pr` on that file and creates with
-   `--body-file`. Never `gh pr create --body`, never a Summary / Why / Test plan body, never
-   a "Made with Cursor" line. The title is the commit subject; the body is Summary (plain
-   language first), Changes, Verification, For the reviewer, Agent detail inside `<details>`,
-   then the checklist. The result file's shape:
+   language; the criterion → check table), then run the single command
+   `pnpm done {{KEY}} --open`. Filling the table first matters: `--open` reads that table back
+   out of `results/{{KEY}}.pr.md`, copies its rows into the result file's `acceptance` array, and
+   only then opens the PR through `open-pr.mjs` — the one path that may spawn `gh` — records the
+   PR number, and runs `node orchestration/jira.mjs pr {{KEY}}` with it, so nothing is written
+   twice by hand. A row still `TODO` stops everything and is named on the command line; a body
+   `check-pr` would reject stops `--open` before `gh` ever runs. `--dry-run` prints the three
+   steps and runs none of them. Never `gh pr create --body`, never a Summary / Why / Test plan
+   body, never a "Made with Cursor" line. The title is the commit subject; the body is Summary
+   (plain language first), Changes, Verification, For the reviewer, Agent detail inside
+   `<details>`, then the checklist. The result file's shape:
    ```json
    { "key": "{{KEY}}", "status": "done | blocked | failed", "branch": "...", "pr": 123,
      "gates": { "typecheck": "ok", "test": "ok", "golden": "ok", "...": "..." },

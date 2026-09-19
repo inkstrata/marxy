@@ -25,6 +25,32 @@ export function planOpenPr({ body, key, title, bodyFile }) {
   };
 }
 
+/** The real `gh`: spawn it, echo what it printed, and pull the PR number out of the URL it prints. */
+export function defaultGh(argv) {
+  const run = spawnSync(argv[0], argv.slice(1), { cwd: ROOT, encoding: 'utf8' });
+  if (run.stdout) process.stdout.write(run.stdout);
+  if (run.stderr) process.stderr.write(run.stderr);
+  if (run.status !== 0) {
+    return { ok: false, number: null, problems: [(run.stderr || run.stdout || `gh exited ${run.status}`).trim()] };
+  }
+  const url = (run.stdout || '').trim().split('\n').filter(Boolean).pop() ?? '';
+  const m = /\/pull\/(\d+)/.exec(url);
+  return { ok: true, number: m ? Number(m[1]) : null, problems: [] };
+}
+
+/**
+ * Open the PR (or, under `--dry-run`, plan it) and return its number, so `done.mjs` can record
+ * it without re-parsing `gh`'s output itself. `gh` is injected so tests can record calls
+ * instead of spawning the real CLI (MARXY-121).
+ */
+export function openPr({ body, key, bodyFile, title, dryRun = false, gh = defaultGh }) {
+  const planned = planOpenPr({ body, key, title, bodyFile });
+  if (!planned.ok) return { ok: false, number: null, problems: planned.problems, argv: null };
+  if (dryRun) return { ok: true, number: null, problems: [], argv: planned.argv };
+  const result = gh(planned.argv);
+  return { ok: result.ok, number: result.number ?? null, problems: result.problems ?? [], argv: planned.argv };
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isMain) {
   const argv = process.argv.slice(2);
@@ -40,15 +66,15 @@ if (isMain) {
     process.exit(1);
   }
   const body = readFileSync(bodyFile, 'utf8');
-  const planned = planOpenPr({ body, key, bodyFile });
-  if (fail(planned.problems)) {
+  const opened = openPr({ body, key, bodyFile, dryRun: dry });
+  if (fail(opened.problems)) {
     console.error(`    fix: fill results/${key}.pr.md from .github/pull_request_template.md; do not pass --body to gh`);
     process.exit(1);
   }
   if (dry) {
-    console.log(planned.argv.map(a => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' '));
+    console.log(opened.argv.map(a => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' '));
     process.exit(0);
   }
-  const run = spawnSync(planned.argv[0], planned.argv.slice(1), { cwd: ROOT, encoding: 'utf8', stdio: 'inherit' });
-  process.exit(run.status ?? 1);
+  console.log(opened.number != null ? `opened PR #${opened.number}` : 'gh pr create finished but no PR number was found in its output');
+  process.exit(opened.number != null ? 0 : 1);
 }
