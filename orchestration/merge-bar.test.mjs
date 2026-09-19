@@ -216,6 +216,15 @@ function storyKeyFromRef(ref) {
   return m ? m[0] : null;
 }
 
+// actions/checkout leaves HEAD detached, so rev-parse --abbrev-ref is the
+// literal HEAD and not a MARXY-n key.
+function storyRefForChangelog({ gitRef, env = process.env } = {}) {
+  for (const ref of [env.GITHUB_HEAD_REF, env.GITHUB_REF_NAME, gitRef]) {
+    if (ref && storyKeyFromRef(ref)) return String(ref);
+  }
+  return null;
+}
+
 function diffContentLines(diff, sign) {
   return String(diff).split('\n').filter(l => {
     if (sign === '+') return l.startsWith('+') && !l.startsWith('+++');
@@ -290,6 +299,32 @@ test('a CHANGELOG hunk with added lines requires the branch key and no deleted s
   assert.throws(() => changelogHunkVerdict(deleted, 'fix/MARXY-99-slug'), /delete/);
 });
 
+test('a detached checkout with a CHANGELOG story line accepts GITHUB_HEAD_REF', () => {
+  const ok = ['@@ -8,0 +9,1 @@', '+- A line for this story (MARXY-99)'].join('\n');
+  const branch = storyRefForChangelog({
+    gitRef: 'HEAD',
+    env: { GITHUB_HEAD_REF: 'fix/MARXY-99-slug', GITHUB_REF_NAME: 'HEAD' },
+  });
+  assert.equal(storyKeyFromRef(branch), 'MARXY-99');
+  assert.equal(changelogHunkVerdict(ok, branch), 'ok');
+});
+
+test('GITHUB_REF_NAME supplies the key when HEAD is detached and GITHUB_HEAD_REF is empty', () => {
+  const branch = storyRefForChangelog({
+    gitRef: 'HEAD',
+    env: { GITHUB_HEAD_REF: '', GITHUB_REF_NAME: 'fix/MARXY-99-slug' },
+  });
+  assert.equal(storyKeyFromRef(branch), 'MARXY-99');
+});
+
+test('storyRefForChangelog is null when neither git nor GitHub refs yield a MARXY-n key', () => {
+  assert.equal(storyRefForChangelog({ gitRef: 'HEAD', env: {} }), null);
+  assert.equal(
+    storyRefForChangelog({ gitRef: 'HEAD', env: { GITHUB_HEAD_REF: '', GITHUB_REF_NAME: '42/merge' } }),
+    null,
+  );
+});
+
 test('CHANGELOG hunk adds this story and deletes no other story line', t => {
   const cwd = join(here, '..');
   const diff = gitChangelogDiff(cwd);
@@ -297,10 +332,15 @@ test('CHANGELOG hunk adds this story and deletes no other story line', t => {
     t.skip('neither origin/main nor main is a resolvable git ref');
     return;
   }
-  const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+  const gitRef = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
     cwd,
     encoding: 'utf8',
   }).trim();
+  const branch = storyRefForChangelog({ gitRef });
+  if (!branch) {
+    t.skip('no MARXY-n key from git or GITHUB_HEAD_REF / GITHUB_REF_NAME');
+    return;
+  }
   if (changelogHunkVerdict(diff, branch) === 'skip') {
     t.skip('no added CHANGELOG story line vs origin/main or main');
   }
