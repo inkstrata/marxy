@@ -1,0 +1,25 @@
+/* The bundled faces (ADR-0015): Literata for text, JetBrains Mono for code. Inlined into index.html
+   by vite.config.ts ahead of the theme, with the files emitted beside it under fonts/. `block`: a
+   reader never sees the fallback face and a reflow when the real one arrives (MARXY-21); the roman
+   and mono faces are preloaded, so the block is the time to read them from the app bundle. */
+@font-face {
+  font-family: "Literata";
+  src: url("./fonts/Literata.ttf") format("truetype");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("./fonts/Literata-Italic.ttf") format("truetype");
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./fonts/JetBrainsMono.ttf") format("truetype");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: block;
+}
