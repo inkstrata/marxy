@@ -8,3 +8,4 @@ export { checkInvariants } from './parse/invariants.ts';
 export type { Violation } from './parse/invariants.ts';
 export { outlineFrom } from './outline/outline.ts';
 export type { OutlineEntry } from './outline/outline.ts';
+export * from './buffer/index.ts';
