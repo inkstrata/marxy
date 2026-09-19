@@ -1,6 +1,6 @@
 # ADR-0031 — The token contract is names and units; the default theme's values are taste
 
-**Status:** proposed (MARXY-133) · **Source:** taste review #0 and #1 (`docs/taste-review/2026-09-review-0/decisions.md`,
+**Status:** accepted 2026-09-19 (MARXY-133) · **Source:** taste review #0 and #1 (`docs/taste-review/2026-09-review-0/decisions.md`,
 `2026-09-review-1/decisions.md`), ADR-0008, ADR-0014, ADR-0024
 
 ## Context

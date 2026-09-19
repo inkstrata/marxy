@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Changed
+- A taste decision on the default theme now costs a story and a review-queue row, not an ADR: theme authors can still rely on the token names, units and meanings (MARXY-133)
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
 
 ### Added

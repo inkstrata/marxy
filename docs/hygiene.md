@@ -43,7 +43,7 @@ If `pnpm done` is green and `open-pr` is green, the reviewer only has judgement 
   note); `--strict` makes that a failure in CI once every branch is a story branch.
 - Allowed outside a story's paths: `CHANGELOG.md`, `docs/taste-review/queue.md`, lockfiles,
   the story's own task card and result file, and plan deltas.
-- Frozen: `packages/*/src/contracts/`, `packages/shell-api/src/`, `packages/theme/src/tokens.css`.
+- Frozen: `packages/*/src/contracts/`, `packages/shell-api/src/`. The token names, units and meanings are frozen and need an ADR; the default theme's values are taste and need a story with a taste-review queue row.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.
 - `innerHTML` may be assigned only where `scripts/registry.json` says (the render sites).
