@@ -62,11 +62,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # orchestration/phases.test.mjs diffs against origin/main
-      # merge-bar.test.mjs reads MARXY-n from the branch name; checkout leaves a detached HEAD.
-      - if: github.event_name == 'pull_request'
-        run: git checkout -B "${{ github.head_ref }}"
       - uses: jdx/mise-action@v2
         with:
           cache: true
