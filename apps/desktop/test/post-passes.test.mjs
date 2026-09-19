@@ -3,10 +3,19 @@
 // range, a forged range resolves to nothing, and the blocks are innermost, in order and non-overlapping.
 
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+
+/**
+ * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
+ */
+const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
+  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
+  : false;
+const test = (name, fn) => nodeTest(name, { skip }, fn);
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { renderDocumentSafeHtml } from '../../../packages/core/src/render/pipeline.ts';
 
