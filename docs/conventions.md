@@ -13,7 +13,7 @@ rustdoc for code documentation. Enforced by commitlint in CI and the PR template
 ## Commit messages
 
 ```
-type(scope): imperative subject, ≤ 72 chars, no period (MARXY-123)
+type(scope): imperative subject, no period (MARXY-123)
 
 One to three sentences a person can read: what changed for a reader or a
 developer, and why. Written for someone who will never open the diff.
@@ -28,16 +28,20 @@ ADR: 0007
 
 - **Types:** `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`, `style`, `revert`.
 - **Scopes:** `core`, `typeset`, `theme`, `shell`, `desktop`, `corpus`, `gates`, `ci`, `docs`,
-  `orchestration`, `release`, `fonts`. Omit only for repo-wide changes.
+  `orchestration`, `release`, `fonts`, `repo`, `workspace`. Omit only for repo-wide changes.
+- **Length:** the whole header, key included, is at most 100 characters; aim for about 72.
+  Body and footer lines over 100 characters are a warning, not a failure.
 - **Key in the subject**, in parentheses at the end, so Jira and git reconcile; commitlint
-  enforces it as `marxy-key-in-subject`. Bootstrap and spike commits from before the tracker
+  enforces it as `marxy-key-in-subject`, allowing the ` (#nn)` a squash merge appends. Bootstrap and spike commits from before the tracker
   existed are the one exception, and that period is over. A body may name other stories
   freely — the key is what ties the commit to its issue, not where it appears.
 - **Breaking changes** exist only for contracts: `feat(core)!: …` plus a `BREAKING CHANGE:`
   footer naming the ADR. Nothing else in this project is "breaking".
 - Body is mandatory for `feat`, `fix`, `perf`, `refactor`; optional for the rest.
 - No attribution trailers of any kind. `.githooks/commit-msg` strips them and fails if it
-  cannot; install it once with `git config core.hooksPath .githooks`. `Refs:` and `ADR:` are
+  cannot, then runs commitlint on the message — from the main checkout's `node_modules` when a
+  worktree has none, refusing the commit if neither has one; install it once with
+  `git config core.hooksPath .githooks`. `Refs:` and `ADR:` are
   the only trailers in use.
 - Squash merges use the PR title as the subject and the PR body's Summary and Changes as the
   body, so a well-formed PR produces a well-formed commit without extra work.
@@ -110,6 +114,23 @@ in parentheses. Release notes are generated from the section at tag time.
 ### Added
 - Task-list checkboxes can be toggled in Rendered mode; only the marker bytes change (MARXY-43)
 ```
+
+## Font binaries
+
+Font files are never rewritten (Reserved Font Name; never touch a byte the user did not ask to
+change). `.gitattributes` therefore marks **font binaries by extension** (`ttf`, `otf`, `woff`,
+`woff2`) as `binary` and explicitly unsets `eol`. It does **not** mark the whole `fonts/` tree:
+`fonts/README.md` and `LICENSE` files must stay ordinary text so a reviewer can read the
+diff. A tree-wide `fonts/** binary` rule hid the MARXY-17 README row on GitHub; that is the
+wrong trade.
+
+The `*` rule sets `eol=lf`. `binary` does not unset `eol`, so each font pattern also says `-eol`,
+and `fonts/** -text` keeps every file under `fonts/` out of line-ending conversion: licences are
+verbatim too, and IBM Plex Mono's is stored with CRLF endings. `-text` does not hide a diff.
+
+`scripts/gate-font-attrs.mjs` (`pnpm gate:font-attrs`, and the first step of `pnpm lint`, which CI
+runs) fails if a font binary loses `binary` or gains `eol`, if text under `fonts/` becomes binary,
+or if any file under `fonts/` becomes eligible for line-ending conversion.
 
 ## Versions and tags
 

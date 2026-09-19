@@ -28,3 +28,86 @@ A huge inline data URI follows; it must not stall first paint:
 ```html
 <script>fenced code is literal text and must be shown, not run</script>
 ```
+
+## srcdoc
+
+iframe srcdoc is a whole document in an attribute.
+
+<iframe srcdoc="<script>alert(1)</script>" src="https://hostile-srcdoc.invalid/frame.html"></iframe>
+
+## formaction
+
+formaction re-targets a submission to whoever wrote the document.
+
+<form action="https://hostile-formaction.invalid/action"><button formaction="https://hostile-formaction.invalid/submit">Send</button></form>
+<img src="https://hostile-formaction.invalid/pixel.png" alt="formaction-reachability">
+
+## srcset
+
+srcset fetches exactly like src and is forgotten exactly as often.
+
+<img src="local-srcset.png" srcset="https://hostile-srcset.invalid/2x.png 2x" alt="srcset">
+
+## poster
+
+A video poster is a tracking pixel with a name.
+
+<div>
+<video poster="https://hostile-poster.invalid/poster.jpg" src="https://hostile-poster.invalid/v.mp4"></video>
+</div>
+
+## MathML
+
+MathML has its own attributes that fetch and its own event handlers.
+
+<div>
+<math><maction actiontype="statusline#https://hostile-mathml.invalid/m" xlink:href="javascript:alert(1)">x</maction><mtext><img src="https://hostile-mathml.invalid/pixel.png" alt="mathml"></mtext></math>
+</div>
+
+## base
+
+A base element re-points every relative reference in the document at another host.
+
+<base href="https://hostile-base.invalid/">
+<img src="base-relative.png" alt="base-relative">
+
+## template
+
+template content is inert to a sanitiser that walks rendered nodes and live the moment it is cloned.
+
+<div>
+<template><img src="https://hostile-template.invalid/inside.png" alt="inside-template"><script>alert(1)</script></template>
+<img src="https://hostile-template.invalid/pixel.png" alt="template-reachability">
+</div>
+
+## namespaced element
+
+A namespaced name is a way to be a script to the parser and something else to a sanitiser.
+
+<div>
+<svg:script>alert(1)</svg:script>
+<img src="https://hostile-namespaced.invalid/n.png" alt="namespaced">
+</div>
+
+## double-encoded javascript scheme
+
+A value can be innocent after one decoding pass and dangerous after another.
+
+<a href="&amp;#106;avascript:alert(1)">double-encoded javascript</a>
+<img src="https://hostile-entity.invalid/pixel.png" alt="entity-reachability">
+
+## backslash-authority image
+
+A URL parser reads a backslash as a slash under a special scheme, so this path names a host.
+
+<img src="/\evil.example/pixel.png" alt="backslash-authority">
+
+## self-closing anchor
+
+A solidus does not close an HTML anchor, so the rest of the document becomes a link.
+
+<a href="https://evil.example/" />
+
+ordinary prose after a self-closed anchor that would become a link to evil.example
+
+### this heading would be inside the swallowed document

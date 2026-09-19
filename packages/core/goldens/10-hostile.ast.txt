@@ -1,4 +1,4 @@
-document [0,263291)
+document [0,265918)
   heading [0,18) level=1
     text [2,18) value="Hostile document"
   htmlBlock [20,49) value="<script>alert('xss')</script>"
@@ -23,3 +23,67 @@ document [0,263291)
   paragraph [263163,263205)
     code [263163,263205) value="inline code with <script> inside is fine"
   codeBlock [263207,263290) lang=html info="html" content=[263215,263287) value="<script>fenced code is literal text and must be shown, not run</script>"
+  heading [263292,263301) level=2
+    text [263295,263301) value="srcdoc"
+  paragraph [263303,263353)
+    text [263303,263353) value="iframe srcdoc is a whole document in an attribute."
+  htmlBlock [263355,263455) value="<iframe srcdoc=\"<script>alert(1)</script>\" src=\"https://hostile-srcdoc.invalid/frame.html\"></iframe>"
+  heading [263457,263470) level=2
+    text [263460,263470) value="formaction"
+  paragraph [263472,263537)
+    text [263472,263537) value="formaction re-targets a submission to whoever wrote the document."
+  htmlBlock [263539,263766) value="<form action=\"https://hostile-formaction.invalid/action\"><button formaction=\"https://hostile-formaction.invalid/submit\">…"
+  heading [263768,263777) level=2
+    text [263771,263777) value="srcset"
+  paragraph [263779,263845)
+    text [263779,263845) value="srcset fetches exactly like src and is forgotten exactly as often."
+  htmlBlock [263847,263938) value="<img src=\"local-srcset.png\" srcset=\"https://hostile-srcset.invalid/2x.png 2x\" alt=\"srcset\">"
+  heading [263940,263949) level=2
+    text [263943,263949) value="poster"
+  paragraph [263951,263998)
+    text [263951,263998) value="A video poster is a tracking pixel with a name."
+  htmlBlock [264000,264122) value="<div>\n<video poster=\"https://hostile-poster.invalid/poster.jpg\" src=\"https://hostile-poster.invalid/v.mp4\"></video>\n</di…"
+  heading [264124,264133) level=2
+    text [264127,264133) value="MathML"
+  paragraph [264135,264203)
+    text [264135,264203) value="MathML has its own attributes that fetch and its own event handlers."
+  htmlBlock [264205,264421) value="<div>\n<math><maction actiontype=\"statusline#https://hostile-mathml.invalid/m\" xlink:href=\"javascript:alert(1)\">x</mactio…"
+  heading [264423,264430) level=2
+    text [264426,264430) value="base"
+  paragraph [264432,264514)
+    text [264432,264514) value="A base element re-points every relative reference in the document at another host."
+  htmlBlock [264516,264609) value="<base href=\"https://hostile-base.invalid/\">\n<img src=\"base-relative.png\" alt=\"base-relative\">"
+  heading [264611,264622) level=2
+    text [264614,264622) value="template"
+  paragraph [264624,264724)
+    text [264624,264724) value="template content is inert to a sanitiser that walks rendered nodes and live the moment it is cloned."
+  htmlBlock [264726,264945) value="<div>\n<template><img src=\"https://hostile-template.invalid/inside.png\" alt=\"inside-template\"><script>alert(1)</script></…"
+  heading [264947,264968) level=2
+    text [264950,264968) value="namespaced element"
+  paragraph [264970,265060)
+    text [264970,265060) value="A namespaced name is a way to be a script to the parser and something else to a sanitiser."
+  htmlBlock [265062,265178) value="<div>\n<svg:script>alert(1)</svg:script>\n<img src=\"https://hostile-namespaced.invalid/n.png\" alt=\"namespaced\">\n</div>"
+  heading [265180,265215) level=2
+    text [265183,265215) value="double-encoded javascript scheme"
+  paragraph [265217,265293)
+    text [265217,265293) value="A value can be innocent after one decoding pass and dangerous after another."
+  paragraph [265295,265442)
+    html [265295,265334) value="<a href=\"&amp;#106;avascript:alert(1)\">"
+    text [265334,265359) value="double-encoded javascript"
+    html [265359,265363) value="</a>"
+    softBreak [265363,265364)
+    html [265364,265442) value="<img src=\"https://hostile-entity.invalid/pixel.png\" alt=\"entity-reachability\">"
+  heading [265444,265472) level=2
+    text [265447,265472) value="backslash-authority image"
+  paragraph [265474,265566)
+    text [265474,265566) value="A URL parser reads a backslash as a slash under a special scheme, so this path names a host."
+  htmlBlock [265568,265630) value="<img src=\"/\\evil.example/pixel.png\" alt=\"backslash-authority\">"
+  heading [265632,265654) level=2
+    text [265635,265654) value="self-closing anchor"
+  paragraph [265656,265740)
+    text [265656,265740) value="A solidus does not close an HTML anchor, so the rest of the document becomes a link."
+  htmlBlock [265742,265776) value="<a href=\"https://evil.example/\" />"
+  paragraph [265778,265860)
+    text [265778,265860) value="ordinary prose after a self-closed anchor that would become a link to evil.example"
+  heading [265862,265917) level=3
+    text [265866,265917) value="this heading would be inside the swallowed document"

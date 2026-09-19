@@ -1,8 +1,9 @@
 // Runs the packaged app the way a reader does — `marxy fixtures/corpus/02-readme-real-world.md` —
 // and checks the acceptance criteria that need a real window: the document renders, `MARK first_text
-// <epoch ms>` is printed at least two animation frames after the render, and MARXY_QUIT_AFTER_PAINT=1
-// exits with code 0. Also checks the three launches that must NOT report first_text: no document, a
-// document with no text, and a document that cannot be read.
+// <epoch ms>` is printed at least two animation frames after the render and only after an engine
+// paint signal, and MARXY_QUIT_AFTER_PAINT=1 exits with code 0. Also checks the launches that must
+// NOT report first_text: no document, a document with no text, an unreadable file, and `#doc` set
+// to visibility hidden.
 // MARXY_SMOKE_REQUIRED=1 (verify:cli, which CI runs as `CLI smoke check on the built binary`)
 // makes every skip a failure instead: an unbuilt binary, or an environment that delivers no
 // animation frames at all (MARXY-72). The frames >= 2 assertion (MARXY-13) is never skipped
@@ -12,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { waitForEnginePaint } from '../src/paint-signal.mjs';
 import {
   FRAME_ASSERTION_NOT_WRONG,
   NEUTRALISE_AFTER_PAINT,
@@ -133,6 +135,24 @@ async function launch(appArgs) {
 
 const failures = [];
 const check = (ok, message) => { if (!ok) failures.push(message); };
+
+// Criterion 3, no window needed: replace rAF with setTimeout and give the wait no paint entry.
+// Frames tick; the wait must not resolve. If it does, this check exits non-zero.
+{
+  const shimmed = waitForEnginePaint({
+    performance: { getEntriesByType: () => [] },
+    PerformanceObserver: class { observe() {} disconnect() {} },
+    requestAnimationFrame: (cb) => setTimeout(() => cb(Date.now()), 0),
+    getComputedStyle: () => ({ visibility: 'visible', display: 'block' }),
+    doc: {},
+    timeoutMs: 50,
+  });
+  const raced = await Promise.race([
+    shimmed.then(() => 'painted'),
+    new Promise(resolve => setTimeout(() => resolve('timeout'), 80)),
+  ]);
+  check(raced === 'timeout', 'a setTimeout requestAnimationFrame shim produced a paint wait; first_text would be a frame count again');
+}
 const report = (label, run) => {
   console.log(`--- ${label} (exit ${run.code}, ${run.ms} ms)`);
   console.log(run.lines.join('\n') || '(no stdout)');
@@ -163,6 +183,7 @@ const chars = Number(/chars=(\d+)/.exec(render)?.[1] ?? 0);
 const heading = /heading=(.*)$/.exec(render)?.[1] ?? '';
 const frames = framesFromPaintedLine(painted, { neutralizeAfterPaint });
 const sinceRender = Number(/since_render_ms=(\d+)/.exec(painted)?.[1] ?? NaN);
+const signal = /signal=(\S+)/.exec(painted)?.[1] ?? '';
 
 // `MARK no_paint`, or a render that never reports a paint at all, is this environment delivering no
 // animation frames — a fact about the machine (a display asleep or locked) and not about the code. It
@@ -189,6 +210,10 @@ if (noPaint) {
   check(paintedIndex >= 0, 'no MARK painted line: nothing reports how many frames passed before first_text');
   check(paintedFramesOk(frames), `first_text must be at least 2 animation frames after the render, got frames=${frames}`);
   check(Number.isFinite(sinceRender), `MARK painted carries no since_render_ms, got "${painted}"`);
+  check(
+    signal === 'first-contentful-paint' || signal === 'first-paint' || signal === 'paint',
+    `MARK painted must record the engine paint signal it waited for, got "${painted}"`,
+  );
 }
 check(renderIndex >= 0, 'no MARK render line: the document never reached the DOM');
 check(blocks >= 15, `expected at least 15 rendered block elements, got ${blocks}`);
@@ -223,6 +248,15 @@ check(broken.code === 1, `expected exit code 1 on the error path, got ${broken.c
 check(broken.lines.some(l => l.startsWith('MARK error ')), 'no MARK error line for an unreadable document');
 check(!broken.lines.some(l => l.startsWith('MARK first_text')), 'first_text was printed for a document that could not be read');
 
+// 5. `#doc { visibility: hidden }`: textContent and frames still look like a render, but nothing
+//    was painted. Today-without-this-story that launch prints first_text and exits 0.
+const hidden = await launch([doc, '--smoke-hide-doc']);
+report('hidden document', hidden);
+check(hidden.code !== 0, `expected non-zero exit with #doc visibility hidden, got ${hidden.code}`);
+check(!hidden.lines.some(l => /^MARK first_text /.test(l)), 'first_text was printed for a hidden document');
+check(hidden.mark('render') >= 0, 'hidden #doc still has to reach the DOM so the refusal is about paint, not about missing text');
+check(hidden.mark('no_paint') >= 0, 'a hidden document must report MARK no_paint rather than first_text');
+
 if (failures.length) {
   console.error(`smoke-cli-open failed:\n - ${failures.join('\n - ')}`);
   process.exit(1);
@@ -249,4 +283,4 @@ if (noPaint) {
   console.log(`smoke-cli-open skipped: ${message}`);
   process.exit(0);
 }
-console.log(`smoke-cli-open ok: ${blocks} blocks, ${chars} chars, first_text ${frames} frames / ${sinceRender} ms after render; no first_text with no document, no text, or an unreadable file`);
+console.log(`smoke-cli-open ok: ${blocks} blocks, ${chars} chars, first_text ${frames} frames / ${sinceRender} ms after render, signal=${signal}; no first_text with no document, no text, an unreadable file, or a hidden #doc`);

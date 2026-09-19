@@ -13,11 +13,10 @@ pnpm new module core buffer            # start a unit in the house shape (also: 
 pnpm precheck                          # typecheck/lint/test for what you touched + the gates your paths need
 pnpm done MARXY-nn                     # boundary over the whole branch, precheck, a drafted PR body, the result file
 …fill the TODOs in results/MARXY-nn.pr.md…
-node scripts/check-pr.mjs --body results/MARXY-nn.pr.md --key MARXY-nn --range
-gh pr create --title "<subject>" --body-file results/MARXY-nn.pr.md
+node scripts/open-pr.mjs MARXY-nn      # check-pr on that file, then gh pr create --body-file; never --body
 ```
 
-If `pnpm done` is green and `check-pr` is green, the reviewer only has judgement left to do.
+If `pnpm done` is green and `open-pr` is green, the reviewer only has judgement left to do. `gh pr create --body` is how the house template gets replaced by Summary / Why / Test plan; the wrapper will not do that.
 
 ## What is enforced, and by which tool
 
@@ -30,7 +29,8 @@ If `pnpm done` is green and `check-pr` is green, the reviewer only has judgement
 | Inventing a mark, event, data attribute, class or token name | `scripts/check-registry.mjs` against `scripts/registry.json` | pre-commit, precheck, CI |
 | Adding a dependency that is not pinned or is forbidden | `scripts/check-deps.mjs` against `scripts/allowlists/dependencies.json` | precheck, CI |
 | A dependency with the wrong licence | `scripts/gate-licences.mjs` | precheck (when manifests change), CI |
-| A PR whose body is out of order, has an empty acceptance table, lacks a changelog line, or changes baselines without a queue row | `scripts/check-pr.mjs` | `done`, CI |
+| A PR whose body is out of order, uses Why / Test plan instead of the house sections, has an empty or TODO acceptance table, carries an attribution line, lacks a changelog line, or changes baselines without a queue row | `scripts/check-pr.mjs` | `done`, `open-pr`, CI |
+| Opening a PR with a body that would fail `check-pr` (or with `gh pr create --body`) | `scripts/open-pr.mjs` | after `done`, before the PR exists |
 | A commit message off convention or carrying a trailer | `.githooks/commit-msg` (commitlint + strip) | commit |
 | Skipping the gates that a change needs | `scripts/precheck.mjs` with `scripts/gates-by-path.json` | before the PR, CI runs all |
 | A result file that omits which test checks which criterion | `orchestration/schema/result.schema.json`, validated in `review.mjs` | review |
