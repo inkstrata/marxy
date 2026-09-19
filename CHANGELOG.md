@@ -47,6 +47,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- Fast CI no longer fails the phases 600-line three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-114)
 - Readiness tests no longer fail a branch that edits the board files MARXY-107 owns; that leftover three-dot check is gone (MARXY-112)
 - Fast CI no longer fails the readiness three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-108)
 - Merging `main` into a story branch no longer fails the commit hook with every file the merge carried; a merge commit answers for what its author resolved (MARXY-85)
