@@ -1,16 +1,22 @@
-// One orchestrator cycle, safe to run repeatedly: mirror the board into Jira, land the pull
-// requests that are provably finished, say what should be dispatched next, ask whether the
-// planner is due, and write the status report. Everything a machine can decide, it decides;
-// everything else it names. usage: node orchestration/cycle.mjs [--no-merge] [--dry-run]
-// [--low|--minimal|--compute=default|low|minimal]
+// One orchestrator cycle, safe to run repeatedly. The order matters and is the point of the file:
+//   1. sync     — fetch, fast-forward the orchestrator's main, make Jira agree with the board
+//   2. land     — merge what is provably finished, pinned to the head that was evaluated
+//   3. refresh  — bring at most one BEHIND PR up to date
+//   4. review   — name every PR waiting on a reviewer, since in_review stories hold their paths
+//   5. plan     — ask whether the planner is due, before anything new starts on a stale plan
+//   6. dispatch — name (or start) what is ready
+//   7. report   — status.md
+// Everything a machine can decide, it decides; everything else it names.
+// usage: node orchestration/cycle.mjs [--no-merge] [--dry-run] [--low|--minimal|--compute=NAME]
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, readJson, stories, state, saveState, models, pathsOf } from './lib.mjs';
+import { ROOT, here, readJson, stories, state, saveState, models } from './lib.mjs';
 import { verify } from './approve.mjs';
-import { evaluate } from './merge-bar.mjs';
+import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
+import { allowedFor, fileAllowed } from './review.mjs';
 
 /** Hold-reason fragments cycle.mjs can print. The before-list is a fixture; this must stay a superset. */
 export const HOLD_REASON_STRINGS = [
@@ -69,6 +75,8 @@ export function processReviewQueue({
 } = {}) {
   const held = [];
   const updates = [];
+  const needsReview = [];
+  const behind = [];
   const firstBehindKey = (order.order ?? []).find(r => r.behind)?.key ?? null;
 
   for (const [key, rec] of Object.entries(board)) {
@@ -86,6 +94,29 @@ export function processReviewQueue({
       continue;
     }
 
+    const result = readResult(key);
+    const story = storyOf(key);
+    const files = story && pr.headRefName ? diffFiles(pr.headRefName) : [];
+    // The same boundary rule the review packet shows the reviewer; a .approved file is never inside
+    // a story, even when a listed directory would include it.
+    const allowed = story ? allowedFor(story, key) : [];
+    const outside = files.filter(f => /\.approved$/.test(f) || !fileAllowed(f, allowed));
+    // A squash merge can carry a commit message onto main, so the trailer has to be blocked here and
+    // not only by a local hook that a worktree cut from a branch without `.githooks` never ran.
+    const messages = pr.headRefName ? commitMessages(pr.headRefName) : '';
+    const trailer = typeof messages === 'string' && /co-authored-by:.*(cursor|claude|gpt|grok|copilot|anthropic|openai)|generated with/i.test(messages);
+    const approval = verifyApproval(key, pr.headRefOid);
+    if (!approval.ok) needsReview.push(`${key} (PR #${rec.pr}): ${approval.why ?? 'not reviewed (no results/KEY.approved)'}`);
+    const decision = evaluate({
+      pr,
+      files,
+      outside,
+      result,
+      attribution: trailer,
+      approval,
+      mergeUnreviewed,
+    });
+
     // A branch cut before main moved was tested against a main that no longer exists. Refresh it and
     // let the next cycle read the honest result rather than merging on a stale green.
     // Never while an implementor is in the worktree: updating the branch ref under a working tree it
@@ -95,37 +126,16 @@ export function processReviewQueue({
       continue;
     }
     if (pr.state === 'OPEN' && pr.mergeStateStatus === 'BEHIND') {
-      const position = (order.order ?? []).findIndex(r => r.key === key) + 1;
-      if (key !== firstBehindKey) {
-        held.push(`${key}: PR #${rec.pr} ${waitingTurn(position || '?')}`);
-        continue;
-      }
-      if (!dry) {
-        const r = updateBranch(rec.pr);
-        updates.push(rec.pr);
-        held.push(`${key}: PR #${rec.pr} was behind main — ${typeof r === 'string' ? 'updated; CI is re-running' : `update failed: ${r.error.split('\n')[0]}`}`);
-        continue;
-      }
+      behind.push({
+        key,
+        number: rec.pr,
+        reasons: decision.reasons,
+        live: false,
+        position: (order.order ?? []).findIndex(r => r.key === key) + 1,
+      });
+      continue;
     }
 
-    const result = readResult(key);
-    const story = storyOf(key);
-    const files = story && pr.headRefName ? diffFiles(pr.headRefName) : [];
-    const allowed = story ? [...pathsOf(story), 'CHANGELOG.md', 'docs/taste-review/queue.md', 'pnpm-lock.yaml', `orchestration/results/${key}.json`] : [];
-    const outside = files.filter(f => !allowed.some(a => f === a || f.startsWith(a.replace(/\/$/, '') + '/')));
-    // A squash merge can carry a commit message onto main, so the trailer has to be blocked here and
-    // not only by a local hook that a worktree cut from a branch without `.githooks` never ran.
-    const messages = pr.headRefName ? commitMessages(pr.headRefName) : '';
-    const trailer = typeof messages === 'string' && /co-authored-by:.*(cursor|claude|gpt|grok|copilot|anthropic|openai)|generated with/i.test(messages);
-    const decision = evaluate({
-      pr,
-      files,
-      outside,
-      result,
-      attribution: trailer,
-      approval: verifyApproval(key, pr.headRefOid),
-      mergeUnreviewed,
-    });
     if (decision.action === 'hold') {
       // Auto-merge is a decision taken now and executed later, on information that may have changed by
       // then. MARXY-63 landed that way: a cycle queued it while its checks ran, its approval was
@@ -137,21 +147,42 @@ export function processReviewQueue({
     }
     if (noMerge || dry) { held.push(`${key}: PR #${rec.pr} is ${decision.action === 'auto-merge' ? 'waiting on CI and would auto-merge' : 'mergeable and clean'} (not merging: ${noMerge ? '--no-merge' : '--dry-run'})`); continue; }
     if (decision.action === 'auto-merge') {
-      const queued = enableAutoMerge(rec.pr);
+      const queued = enableAutoMerge(rec.pr, pr.headRefOid);
       if (typeof queued === 'string') say(`auto-merge enabled ${key} (PR #${rec.pr}) — waiting on CI`);
       else held.push(`${key}: auto-merge failed — ${queued.error.split('\n')[0]}`);
       continue;
     }
     // The worktree goes first: while it exists it holds the branch checked out, and gh reports the
     // whole merge as failed when only the branch deletion did.
+    if (worktreeLive(rec)) {
+      held.push(`${key}: PR #${rec.pr} is mergeable but ${rec.worktree} has uncommitted or recent work`);
+      continue;
+    }
     if (rec.worktree) removeWorktree(rec, pr.headRefName);
-    const merged = mergeNow(rec.pr);
+    const merged = mergeNow(rec.pr, pr.headRefOid);
     const landed = typeof merged === 'string' || prState(rec.pr) === 'MERGED';
     if (!landed) { held.push(`${key}: merge failed — ${merged.error.split('\n')[0]}`); continue; }
     if (decision.approval?.note) say(`${key}: ${decision.approval.note}`);
     finish(key, rec, reviewNote(key));
   }
-  return { held, updates };
+
+  // One refresh: prefer the oldest PR that would otherwise land (chooseUpdate). When every BEHIND
+  // PR has a hard hold — the fixture-board case — fall back to the first review-order entry so a
+  // conflicted or unreviewed queue still moves (ADR-0025).
+  const picked = chooseUpdate(behind);
+  const updateKey = picked?.key ?? (behind.some(b => b.key === firstBehindKey) ? firstBehindKey : null);
+  for (const b of behind) {
+    if (b.key === updateKey && !dry) {
+      const r = updateBranch(b.number);
+      updates.push(b.number);
+      held.push(`${b.key}: PR #${b.number} was behind main — ${typeof r === 'string' ? 'updated; CI is re-running' : `update failed: ${r.error.split('\n')[0]}`}`);
+    } else if (b.key === updateKey) {
+      held.push(`${b.key}: PR #${b.number} was behind main — updated; CI is re-running`);
+    } else {
+      held.push(`${b.key}: PR #${b.number} ${waitingTurn(b.position || '?')}`);
+    }
+  }
+  return { held, updates, needsReview };
 }
 
 function runCycle(argv = process.argv.slice(2)) {
@@ -164,8 +195,13 @@ function runCycle(argv = process.argv.slice(2)) {
   const sh = (cmd, a, opts = {}) => { try { return execFileSync(cmd, a, { cwd: ROOT, encoding: 'utf8', ...opts }).trim(); } catch (e) { return { error: (e.stdout ?? '') + (e.stderr ?? e.message) }; } };
   const gh = a => { const r = sh('gh', a); return typeof r === 'string' ? r : null; };
   const node = a => spawnSync(process.execPath, a, { cwd: ROOT, encoding: 'utf8' });
-
-  // 1. Jira is the board of record; make it agree before anything else changes.
+  // 1. Sync. Every diff below is against origin/main, and ready.mjs reads the board from this
+  // checkout, so both have to describe the main that exists now.
+  sh('git', ['fetch', '-q', 'origin']);
+  if (sh('git', ['branch', '--show-current']) === 'main' && !DRY) {
+    const ff = sh('git', ['merge', '--ff-only', '-q', 'origin/main']);
+    if (typeof ff !== 'string') say(`main: could not fast-forward to origin/main; the board below may be stale`);
+  }
   const push = node([here('jira.mjs'), 'push']);
   say(`jira: ${(push.stdout || push.stderr || '').trim().split('\n').pop() || 'unavailable'}`);
 
@@ -179,7 +215,7 @@ function runCycle(argv = process.argv.slice(2)) {
     say(`review-order: ${e.message}`);
   }
 
-  const { held } = processReviewQueue({
+  const { held, needsReview } = processReviewQueue({
     board: s.stories,
     dry: DRY,
     noMerge: NO_MERGE,
@@ -189,7 +225,21 @@ function runCycle(argv = process.argv.slice(2)) {
     },
     updateBranch: pr => sh('gh', ['pr', 'update-branch', String(pr)]),
     order,
-    worktreeLive: rec => rec.worktree && existsSync(`${ROOT}${rec.worktree}`),
+    worktreeLive: rec => {
+      if (!rec.worktree) return false;
+      const wt = resolve(ROOT, rec.worktree);
+      if (!existsSync(wt)) return false;
+      const index = sh('git', ['-C', wt, 'rev-parse', '--path-format=absolute', '--git-path', 'index']);
+      let lastActivityMs = null;
+      try { if (typeof index === 'string') lastActivityMs = statSync(index).mtimeMs; } catch { /* no index yet */ }
+      const status = sh('git', ['--no-optional-locks', '-C', wt, 'status', '--porcelain']);
+      return worktreeIsLive({
+        exists: true,
+        dirty: typeof status !== 'string' || status.length > 0,
+        lastActivityMs,
+        windowMinutes: m.attemptMinutes,
+      });
+    },
     readResult: key => (existsSync(here(`results/${key}.json`)) ? readJson(here(`results/${key}.json`)) : null),
     writeResultNote: (key, note) => {
       const path = here(`results/${key}.json`);
@@ -220,35 +270,43 @@ function runCycle(argv = process.argv.slice(2)) {
     verifyApproval: (key, head) => verify(here(`results/${key}.approved`), head),
     mergeUnreviewed: process.env.MARXY_MERGE_UNREVIEWED === '1',
     disableAutoMerge: pr => { sh('gh', ['pr', 'merge', String(pr), '--disable-auto']); },
-    enableAutoMerge: pr => sh('gh', ['pr', 'merge', String(pr), '--squash', '--auto', '--delete-branch']),
-    mergeNow: pr => sh('gh', ['pr', 'merge', String(pr), '--squash', '--delete-branch']),
+    enableAutoMerge: (pr, head) => { try { return sh('gh', mergeArgs(pr, head, { auto: true })); } catch (e) { return { error: e.message }; } },
+    mergeNow: (pr, head) => { try { return sh('gh', mergeArgs(pr, head)); } catch (e) { return { error: e.message }; } },
     removeWorktree: (rec, headRefName) => { sh('git', ['worktree', 'remove', '--force', rec.worktree]); sh('git', ['branch', '-D', headRefName]); },
     prState: pr => gh(['pr', 'view', String(pr), '--json', 'state', '-q', '.state']) ?? '',
     say,
   });
   held.forEach(say);
 
-  // 3. What should start next. Headless dispatch needs the Cursor CLI; without it the in-app
+  // 3. Review. In-review stories hold their paths, so an unreviewed PR blocks dispatch silently
+  // unless it is named.
+  if (needsReview.length) say(`review needed (spawn the reviewer with orchestration/prompts/reviewer.md): ${needsReview.join(' | ')}`);
+
+  // 4. Plan before starting new work, so nothing is dispatched onto a plan about to change.
+  const plan = node([here('planner-trigger.mjs')]);
+  const planDue = plan.status === 0;
+  say(`planner: ${planDue ? 'due —' : 'not due'} ${(plan.stdout || '').trim().replace(/\n/g, ' ')}`.trim());
+
+  // 5. What should start next. Headless dispatch needs the Cursor CLI; without it the in-app
   // orchestrator is the dispatcher, so name the keys rather than pretending to start them.
   const ready = JSON.parse(node([here('ready.mjs')]).stdout || '{"ready":[],"lanesFree":0,"inProgress":[]}');
   const hasCli = typeof sh('sh', ['-c', 'command -v cursor-agent']) === 'string';
-  if (ready.ready.length && hasCli && !DRY) {
-    say(`dispatching ${ready.ready.map(r => r.key).join(' ')} headlessly`);
+  const keys = ready.ready.map(r => r.key).join(' ');
+  if (ready.ready.length && planDue) {
+    say(`ready but not dispatched until the planner has run: ${keys}`);
+  } else if (ready.ready.length && hasCli && !DRY) {
+    say(`dispatching ${keys} headlessly`);
     node([here('dispatch.mjs'), ...ready.ready.map(r => r.key)]);
   } else if (ready.ready.length) {
     const laneNote = ready.lanes === 'uncapped' || ready.lanesFree == null ? 'uncapped lanes' : `${ready.lanesFree} free lane(s)`;
-    say(`dispatch ${ready.ready.length} story(ies) into ${laneNote}: ${ready.ready.map(r => r.key).join(' ')}` + (hasCli ? '' : ' (cursor-agent absent: dispatch as in-app implementor subagents)'));
+    say(`dispatch ${ready.ready.length} story(ies) into ${laneNote}: ${keys}` + (hasCli ? '' : ' (cursor-agent absent: dispatch as in-app implementor subagents)'));
   } else {
     const wip = ready.blockedByReviewWip;
     const wipNote = wip ? `; review WIP ${wip.count}/${wip.cap}` : '';
     say(`no story ready; ${ready.inProgress.length} in progress (${ready.inProgress.join(', ') || 'none'})${wipNote}`);
   }
 
-  // 4. Is the plan stale?
-  const plan = node([here('planner-trigger.mjs')]);
-  say(`planner: ${plan.status === 0 ? 'due —' : 'not due'} ${(plan.stdout || '').trim().replace(/\n/g, ' ')}`.trim());
-
-  // 5. The report. Overwritten every cycle; the durable record is the PRs and Jira.
+  // 6. The report. Overwritten every cycle; the durable record is the PRs and Jira.
   const byStatus = {};
   for (const [k, v] of Object.entries(state().stories)) (byStatus[v.status] ??= []).push(k);
   const human = existsSync(here('needs-human.md')) ? readFileSync(here('needs-human.md'), 'utf8').split('\n').filter(l => l.startsWith('- [ ]')).length : 0;
