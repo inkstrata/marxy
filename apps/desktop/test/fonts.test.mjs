@@ -7,15 +7,26 @@ import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
-import { after, before, test } from 'node:test';
+import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
+
+/**
+ * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
+ */
+const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
+  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
+  : false;
+const test = (name, fn) => nodeTest(name, { skip }, fn);
+
 
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-fonts-'));
 let server;
 let base;
 
 before(async () => {
+  if (skip) return;
   await build({ root: new URL('..', import.meta.url).pathname, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
   const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.txt': 'text/plain' };
   server = createServer((req, res) => {
