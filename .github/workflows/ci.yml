@@ -179,8 +179,11 @@ jobs:
         run: |
           node scripts/gate-perf.mjs --selftest
           node scripts/measure-startup.mjs --selftest
+          node scripts/measure-parse.mjs --selftest
       - name: Perf budgets are unchanged (ADR-0013 product budgets, ADR-0022 CI numbers)
         run: node scripts/gate-perf.mjs --assert-budgets-unchanged ${{ github.base_ref && format('origin/{0}', github.base_ref) || 'HEAD^' }}
+      - name: Parse measurement (01-long-technical.md)
+        run: node scripts/measure-parse.mjs
       # In ci mode the gate re-measures once before failing on an envelope or baseline breach (scripts/gate-perf.mjs).
       - name: Perf gate (CI envelope and baseline, ADR-0022)
         run: pnpm gate:perf

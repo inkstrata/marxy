@@ -110,9 +110,13 @@ every PR like the AST goldens. A renderer change updates them deliberately and t
 
 `scripts/measure-startup.mjs` writes `results/perf.json` with `cold_start_first_text_ms`
 (launch 1) and `warm_start_first_text_ms` (median of 2..N); `gate-perf.mjs` applies the tier.
-New metrics land the same way: the app emits `MARK <metric> <ms>` lines for `typeset_viewport`,
-`live_reload`, `palette_keystroke` (p95 over a scripted session in the headless entry) and
-`find_first_match`; the harness collects them into the same JSON.
+Parse is measured on the gates job: `scripts/measure-parse.mjs` runs on both runner classes
+before `pnpm gate:perf` and writes only `results/perf-parse.json` as
+`{ "parse_long_technical_ms": <median> }` of `fixtures/corpus/01-long-technical.md`, so
+MARXY-59 can keep that metric required. New metrics land the same way: the app emits
+`MARK <metric> <ms>` lines for `typeset_viewport`, `live_reload`, `palette_keystroke` (p95
+over a scripted session in the headless entry) and `find_first_match`; the harness collects
+them into the same JSON.
 
 ## Writing a test an implementor cannot get wrong
 
