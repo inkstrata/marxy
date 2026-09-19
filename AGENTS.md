@@ -98,9 +98,12 @@ right?" mid-task. Produce a reviewable artifact (screenshot corpus, side-by-side
 Typora/Marked 2, before/after pairs), append it to `docs/taste-review/queue.md`, and
 carry on against the mechanical gates. The queue is reviewed at the end of each phase.
 
-## Budgets (CI fails on regression)
+## Budgets
 
-| Cold start → first readable text | < 500 ms | Open indexed doc | < 50 ms |
+CI fails on regression of the named interaction budgets below. Cold start is
+measured and recorded; there is no product ceiling (ADR-0029).
+
+| Cold start → first readable text | measured; no product ceiling | Open indexed doc | < 50 ms |
 | --- | --- | --- | --- |
 | Palette keystroke → results | < 16 ms | Typeset viewport | < 100 ms |
 | Live-reload after external change | < 100 ms | Find, first match | < 50 ms |
