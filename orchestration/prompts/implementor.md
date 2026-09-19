@@ -42,12 +42,12 @@ exists for you. Read `AGENTS.md` before anything.
    by its `head_sha`, never by its run id.
 7. Run `pnpm done {{KEY}}`. It drafts `results/{{KEY}}.pr.md` from your commits and the story
    and writes `orchestration/results/{{KEY}}.json`. Fill every TODO (the Summary in plain
-   language; the criterion → check table), then `node scripts/check-pr.mjs --body results/{{KEY}}.pr.md --key {{KEY}} --range`
-   must pass before `gh pr create --body-file results/{{KEY}}.pr.md`. Open a PR whose title
-   is that subject and whose body follows the template exactly: Summary (plain language,
-   first), Changes, Verification, For the reviewer, then Agent detail inside `<details>`,
-   then the checklist. The Summary is for a person who will never open the diff; put
-   everything machine-oriented in Agent detail. The result file's shape:
+   language; the criterion → check table). The only command that may open the PR is
+   `node scripts/open-pr.mjs {{KEY}}` — it runs `check-pr` on that file and creates with
+   `--body-file`. Never `gh pr create --body`, never a Summary / Why / Test plan body, never
+   a "Made with Cursor" line. The title is the commit subject; the body is Summary (plain
+   language first), Changes, Verification, For the reviewer, Agent detail inside `<details>`,
+   then the checklist. The result file's shape:
    ```json
    { "key": "{{KEY}}", "status": "done | blocked | failed", "branch": "...", "pr": 123,
      "gates": { "typecheck": "ok", "test": "ok", "golden": "ok", "...": "..." },
@@ -60,9 +60,10 @@ exists for you. Read `AGENTS.md` before anything.
 - Touch files outside `Paths`. Widen your paths. Edit a contract. Add a dependency whose
   licence is not MIT/ISC/BSD/Apache-2.0/MPL-2.0. Add telemetry, network calls, chrome, or a
   plugin surface. Reformat a fixture or a font. Change a screenshot baseline without a queue
-  entry. Add AI attribution anywhere, and that includes a "Made with Cursor" line in a pull
-  request body — the commit-msg hook only sees commit messages, so the PR body is on you, and two
-  reviewers have now spent a note on it. Merge anything. Write `results/KEY.approved` or run
+  entry. Add AI attribution anywhere. Open a PR with `gh pr create --body` or any body that
+  is not `results/{{KEY}}.pr.md` — `open-pr.mjs` is the only create path, because the
+  commit-msg hook cannot see the PR body and agents otherwise paste Summary / Why / Test plan.
+  Merge anything. Write `results/KEY.approved` or run
   `approve.mjs` — that file is the reviewer's verdict, not yours.
 
 ## When stuck
