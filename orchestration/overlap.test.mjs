@@ -9,8 +9,9 @@ test('a glob overlaps the concrete path it can match, in both orders', () => {
   assert.equal(overlap(['packages/core/package.json'], ['packages/*/package.json']), true);
 });
 
-test('a shared string prefix that is not a shared path segment does not overlap', () => {
+test('a shared string prefix that is not a shared path segment does not overlap, in both orders', () => {
   assert.equal(overlap(['packages/core/src/parse'], ['packages/core/src/parser']), false);
+  assert.equal(overlap(['packages/core/src/parser'], ['packages/core/src/parse']), false);
 });
 
 test('a directory overlaps a glob that can match beneath it', () => {

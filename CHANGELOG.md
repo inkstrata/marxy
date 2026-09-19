@@ -59,6 +59,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The default faces are confirmed: Literata for text and JetBrains Mono for code, after reading both candidates at the type scale; the column stays 68 characters (MARXY-127)
 
 ### Fixed
+- `overlap()`'s `parse`/`parser` regression test now checks both argument orders; the one-directional version passed even against the pre-MARXY-119 buggy implementation, so it never actually guarded the asymmetric `startsWith` collision the story fixed (MARXY-134)
 - On a detached CI checkout the merge-bar CHANGELOG check takes the story key from the pull-request branch GitHub already knows, and skips when none of those names have a key instead of failing the build (MARXY-124)
 - The merge-bar CHANGELOG check no longer requires a finished story's line on every later pull request; an empty hunk against main skips, and a hunk that adds a story line must name the current branch's key and delete none (MARXY-123)
 - Fast CI no longer fails the phases 600-line three-dot check on a shallow checkout that has no `origin/main`; the test skips when neither that ref nor `main` is resolvable (MARXY-114)
