@@ -153,6 +153,7 @@ jobs:
           key: ci-profile
           cache-on-failure: true   # a red perf gate must not throw away the compiled dependencies
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - run: pnpm gate:specimen
       - name: Rust format and clippy
         if: runner.os == 'Linux'
         run: pnpm lint:rust
