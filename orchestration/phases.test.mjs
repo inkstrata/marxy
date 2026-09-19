@@ -1,7 +1,7 @@
 // The ops lane and the phase rules the committed board must keep (MARXY-107).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { stories, deps, phaseOf, earlierPhaseOpen, ROOT } from './lib.mjs';
 import { selectReady } from './ready.mjs';
@@ -100,12 +100,36 @@ test('scope cuts light first and the plan names dark as primary', () => {
   assert.match(plan, /dark primary \(ADR-0024\)/);
 });
 
-test('the branch diff stays under 600 lines and omits the discarded extras', () => {
-  const stat = spawnSync('git', ['diff', '--stat', 'origin/main...HEAD'], { cwd: ROOT, encoding: 'utf8' });
+// Shallow CI checkouts often have no origin/main; git diff then exits 128 and held
+// every non-docs PR (MARXY-114, same class as MARXY-108).
+function resolveThreeDotBase(opts, git = execFileSync) {
+  for (const ref of ['origin/main', 'main']) {
+    try {
+      git('git', ['rev-parse', '--verify', ref], {
+        cwd: opts.cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      return ref;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+function runBranchDiffGuard({ resolveBase, skip }) {
+  const base = resolveBase();
+  if (!base) {
+    skip('neither origin/main nor main is a resolvable git ref');
+    return 'skipped';
+  }
+  const range = `${base}...HEAD`;
+  const stat = spawnSync('git', ['diff', '--stat', range], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(stat.status, 0);
   const added = Number((stat.stdout.match(/(\d+) insertions?\(\+\)/) ?? [0, 0])[1]);
   assert.ok(added < 600, `diff is +${added}, want under 600`);
-  const names = spawnSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { cwd: ROOT, encoding: 'utf8' });
+  const names = spawnSync('git', ['diff', '--name-only', range], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(names.status, 0);
   const forbidden = names.stdout.split('\n').filter(f =>
     /^docs\/plan\/deltas\/2026-09-18-/.test(f)
@@ -113,4 +137,54 @@ test('the branch diff stays under 600 lines and omits the discarded extras', () 
     || f.startsWith('docs/taste-review/2026-09-review-0/'),
   );
   assert.deepEqual(forbidden, []);
+  return 'asserted';
+}
+
+test('the branch diff stays under 600 lines and omits the discarded extras', t => {
+  runBranchDiffGuard({
+    resolveBase: () => resolveThreeDotBase({ cwd: ROOT }),
+    skip: reason => t.skip(reason),
+  });
+});
+
+test('resolveThreeDotBase returns null when neither origin/main nor main verifies', () => {
+  const calls = [];
+  const git = (_cmd, args) => {
+    calls.push(args);
+    const err = new Error('fatal: Needed a single revision');
+    err.status = 128;
+    throw err;
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, git), null);
+  assert.deepEqual(calls, [
+    ['rev-parse', '--verify', 'origin/main'],
+    ['rev-parse', '--verify', 'main'],
+  ]);
+});
+
+test('resolveThreeDotBase prefers origin/main, then main', () => {
+  const originFirst = (_cmd, args) => {
+    if (args.includes('origin/main')) return 'abc\n';
+    throw new Error('must not fall through when origin/main verifies');
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, originFirst), 'origin/main');
+
+  const mainOnly = (_cmd, args) => {
+    if (args.includes('origin/main')) throw new Error('missing');
+    if (args.includes('main')) return 'def\n';
+    throw new Error('unexpected ref');
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, mainOnly), 'main');
+});
+
+test('the branch diff guard skips when no base ref resolves', () => {
+  let skipped;
+  const outcome = runBranchDiffGuard({
+    resolveBase: () => null,
+    skip: reason => {
+      skipped = reason;
+    },
+  });
+  assert.equal(outcome, 'skipped');
+  assert.match(skipped, /resolvable git ref/);
 });
