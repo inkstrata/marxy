@@ -13,9 +13,20 @@ fi
 # Then the conventions, on this message alone. `commitlint --from…--to` over a range has been
 # seen to pass a commit that fails when linted on its own, so the only reliable moment to catch
 # an over-long subject is now, rather than in CI after a push.
-if [ -f node_modules/.bin/commitlint ]; then
-  node_modules/.bin/commitlint --edit "$msg" || {
-    echo "commit-msg: see docs/conventions.md; nothing was committed" >&2
-    exit 1
-  }
-fi
+# A worktree usually has no node_modules of its own, and skipping there is how bad messages reached
+# CI, so borrow the main checkout's install (NODE_PATH lets its config's `extends` resolve) and
+# refuse the commit rather than skip when neither has one. MARXY_SKIP_HOOKS is the way round.
+[ -n "$MARXY_SKIP_HOOKS" ] && exit 0
+main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
+for dir in "$PWD" "$main"; do
+  if [ -x "$dir/node_modules/.bin/commitlint" ]; then
+    NODE_PATH="$dir/node_modules${NODE_PATH:+:$NODE_PATH}" "$dir/node_modules/.bin/commitlint" --edit "$msg" || {
+      echo "commit-msg: see docs/conventions.md; nothing was committed" >&2
+      exit 1
+    }
+    exit 0
+  fi
+done
+echo "commit-msg: commitlint is not installed here or in $main; run pnpm install in either" >&2
+echo "commit-msg: nothing was committed (MARXY_SKIP_HOOKS=1 to bypass, and CI will lint it)" >&2
+exit 1
