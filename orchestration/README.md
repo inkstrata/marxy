@@ -94,6 +94,11 @@ Everything else about a merge — checks, conflicts, CODEOWNERS, the path bounda
 CHANGELOG line, the result file — is checked by `merge-bar.mjs`, and a held PR always
 prints the reason it was held. CODEOWNERS paths still need Ian.
 
+`node orchestration/readiness.mjs` prints that queue as one table: every open pull request,
+with its URL, CI conclusion, mergeability, approval, who it waits on, and the next action,
+in the review/merge order 80/81 already compute. `--json` prints the same rows. Every
+approval run ends with this table.
+
 Check model ids once: `cursor-agent --list-models` and the in-app model picker; put the exact
 names in `models.json`. Reasoning effort is set where Cursor exposes it (picker or agent
 frontmatter); the CLI flag, if present in your version, is read from `models.json`.
@@ -126,6 +131,7 @@ role's `inApp` slug when you spawn a subagent.
 | `deps.json` | story dependencies (the CSV has none) and phase membership |
 | `cycle.mjs` | one idempotent cycle: push, merge what is finished, dispatch, plan check, report |
 | `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |
+| `readiness.mjs` | every open PR as a merge-readiness table in review order; `--json` for machines |
 | `loop.sh` | `cycle.mjs` until interrupted |
 | `results/KEY.json` | written by implementors; the only handshake |
 | `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story, signed by `approve.mjs` against the commit it read; no merge without it |
