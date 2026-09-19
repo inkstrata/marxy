@@ -108,13 +108,21 @@ test('criterion 4: MARK first_text stays two fields and measure-startup still pa
   assert.match(rust, /writeln!\(out, "MARK \{\} \{\}", name, ms\)/);
 });
 
-test('criterion 5: the frames >= 2 assertion from MARXY-13 is unchanged', () => {
-  const smoke = readFileSync(join(desktop, 'scripts', 'smoke-cli-open.mjs'), 'utf8');
-  assert.match(
-    smoke,
-    /check\(frames >= 2, `first_text must be at least 2 animation frames after the render, got frames=\$\{frames\}`\);/,
-  );
+test('criterion 5: paint-signal contract and the MARXY-72 frames verdict stay wired', () => {
   const main = readFileSync(join(desktop, 'src', 'main.ts'), 'utf8');
+  assert.match(main, /waitForEnginePaint/);
   assert.match(main, /signal=\$\{signal\}/);
   assert.match(main, /frames=\$\{frames\}/);
+
+  const smoke = readFileSync(join(desktop, 'scripts', 'smoke-cli-open.mjs'), 'utf8');
+  assert.match(smoke, /waitForEnginePaint/);
+  assert.match(smoke, /signal=/);
+  assert.match(smoke, /paintedFramesOk/);
+  assert.match(smoke, /paintVerdict/);
+
+  const verdict = readFileSync(join(desktop, 'scripts', 'smoke-verdict.mjs'), 'utf8');
+  assert.match(verdict, /export function paintedFramesOk\(frames\)/);
+  assert.match(verdict, /frames >= MIN_FRAMES_AFTER_RENDER/);
+  assert.match(verdict, /export function paintVerdict\(/);
+  assert.match(verdict, /if \(!paintedFramesOk\(frames\)\)/);
 });
