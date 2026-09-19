@@ -27,6 +27,6 @@ for dir in "$PWD" "$main"; do
     exit 0
   fi
 done
-echo "commit-msg: commitlint is not installed here or in $main; run pnpm install in either" >&2
+echo "commit-msg: commitlint is not installed here or in $main; run pnpm install first" >&2
 echo "commit-msg: nothing was committed (MARXY_SKIP_HOOKS=1 to bypass, and CI will lint it)" >&2
 exit 1
