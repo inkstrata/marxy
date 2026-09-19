@@ -54,6 +54,7 @@ tag time. Conventions in `docs/conventions.md`.
 - Dispatch is uncapped: path overlap is the only parallelism limit, so returned PRs no longer sit idle waiting for a free lane
 - CI is faster and steadier: parallel jobs with cached Rust, pnpm, apt and browsers, docs-only changes skip the build, a thin-LTO CI build profile, timeouts on every job, one required status check, and perf breaches re-measured once before they fail (MARXY-83)
 - Dark is the primary variant: the reader opens dark by default on a warm near-black with off-white text, and light is a separately designed alternative rather than an inversion (MARXY-74, ADR-0024)
+- First readable text is marked only after the engine reports a paint, so a hidden document can no longer produce a cold-start number (MARXY-71)
 - The licence policy now records the audit that already ships — lockfile, store, recorded-licence allow-list, fail-closed — and applies the same rule to specifications and test vectors as to code (MARXY-58)
 - Stack decided: Tauri, by a rule committed before the spike ran (bootstrap)
 - Jira is now the board of record: all 51 epics and stories exist as issues, and story keys throughout the repo are the real Jira keys (MARXY-10)
