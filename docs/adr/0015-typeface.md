@@ -1,6 +1,6 @@
 # ADR-0015 — Literata for text and JetBrains Mono for code, confirmed by the first taste review
 
-**Status:** proposed until taste review #0 · **Source:** brainstorm Q6, docs/08; spike finding on axis ranges
+**Status:** accepted 2026-09-19 (Ian, taste review #0) · **Source:** brainstorm Q6, docs/08; spike finding on axis ranges
 
 ## Decision
 Default body face **Literata** (variable, `opsz` 7–72, `wght` 200–900, OFL 1.1). Default
@@ -16,6 +16,8 @@ text (design constraint 5). The fallback pair, if review #0 rejects this one, is
 and IBM Plex Mono.
 
 ## Consequences
-- Taste review #0 sets the same 5,000-word corpus document in both pairs and records a choice.
+- Taste review #0 recorded **pair A**; 68 `ch` stays. Notes and tunes are in
+  `docs/taste-review/2026-09-review-0/decisions.md`. Follow-up work is MARXY-129 (pair-A
+  tunes) and MARXY-128 (theme), not a pair swap.
 - `fonts/literata/` and `fonts/jetbrains-mono/` carry their OFL licences; attribution in the
   about surface and the README.

@@ -2,19 +2,19 @@
 
 | Date | PR / story | What the reader would notice | Artifacts | Question for the reviewer | Decision |
 | --- | --- | --- | --- | --- | --- |
-| 2026-09-18 | MARXY-29 | Smart quotes, en/em dashes, ellipses, and a non-breaking space before a short last word in Rendered mode | Render pass on `09-gfm-everything.md` (see `packages/core/src/render/typography.test.ts`); source bytes unchanged. No screenshot pair — the desktop specimen path is outside this story. | Do the substituted marks and the widont read as a book rather than as a filter? Any case that should have been left alone? | pending |
-| 2026-09-18 | MARXY-17 | Typeface pair for the default theme (review #0) | `docs/taste-review/review-0/` — 20 PNGs, both pairs, five passages, 1× and 2×; see **Review #0** below | Literata + JetBrains Mono, or Source Serif 4 + IBM Plex Mono? Live with each for a week on the long document. | pending |
-| 2026-09-18 | spike | WebKitGTK vs macOS weight at reading size | `docs/spike/results/u26-tauri-specimen-17-dpr2-off0.png`, `mac-pwwebkit-specimen-17-dpr2-off0.png` | Does the Linux rendering (lighter by ~70 units) read acceptably before compensation, and is +50 or +75 the right correction? | pending |
-| 2026-09-18 | MARXY-64 | First look at a ten-thousand-word continuous prose fixture; before this row the corpus had almost no real paragraph volume | `fixtures/corpus/15-prose-volume.md` — the document is the before/after (no page existed; now a winter essay with quotations, em dashes and footnotes) | Does a page of this essay read as the volume later typesetting stories should measure? Any hole, shout or drift that would make it a bad sample? | pending |
-| 2026-09-18 | MARXY-73 | Hostile corpus fixture now lists the missing attack families as labelled sections; the golden AST grew with those additions | `fixtures/corpus/10-hostile.md`, `packages/core/goldens/10-hostile.ast.txt` — no screenshot pair; the document is a security corpus, not a typeset page | Do the new labelled sections stay inventory rather than live markup? Any family that should not sit in the reader-facing corpus? | pending |
-| 2026-09-19 | MARXY-75 | Nothing visible: every rendered element gains `data-marxy-s`/`-e`. HTML goldens created (no visible change) | `packages/core/goldens/*.html.txt` — the sanitised render of every corpus file | None expected. Flag any corpus page that looks different from before. | pending |
-| 2026-09-19 | MARXY-20 | The first styled page: default theme, dark first, then light. Grid unit is half a line (ADR-0030); inline code has no box; a `---` before a section heading is not set; list markers hang in the margin | `docs/taste-review/2026-09-marxy-20/` — five corpus pages × dark/light at 960 px, 2×, with the bundled faces injected (MARXY-21 bundles them in the app) | Does this read as a book or as a markdown viewer? Specifically: inline code without a box, the `* * *` break, tables at 0.88 × body, hanging bullets. Remote images show as empty boxes until MARXY-26. | pending |
-| 2026-09-19 | MARXY-21 | Literata and JetBrains Mono in the app itself (the MARXY-20 screenshots already show them); Linux weights +100 until the WebKitGTK version can be read | `docs/taste-review/2026-09-marxy-20/` (same faces, injected); no Linux capture yet (MARXY-22) | On a Linux desktop, does +100 read like macOS or heavier? MARXY-94 lets 2.52 take its measured +75. | pending |
-| 2026-09-19 | MARXY-23 | Knuth–Plass ragged-right on paragraphs and tight list items: evener right edge, fewer short lines, same line count. Code spans never break inside | `docs/taste-review/2026-09-marxy-23/` — prose and plan, before (engine) and after (typeset), dark, 960 px; numbers in `packages/typeset/RESEARCH.md` "Rendered" | Is the rag visibly calmer on the prose page? On technical text it is a wash by the numbers — does the no-break-inside-code rule read right, or should a path break at a slash? | pending |
+| 2026-09-18 | MARXY-29 | Smart quotes, en/em dashes, ellipses, and a non-breaking space before a short last word in Rendered mode | Render pass on `09-gfm-everything.md` (see `packages/core/src/render/typography.test.ts`); source bytes unchanged. No screenshot pair — the desktop specimen path is outside this story. | Do the substituted marks and the widont read as a book rather than as a filter? Any case that should have been left alone? | **Book, all good.** `2026-09-review-1/decisions.md` |
+| 2026-09-18 | MARXY-17 | Typeface pair for the default theme (review #0) | `docs/taste-review/review-0/` — 20 PNGs, both pairs, five passages, 1× and 2×; see **Review #0** below | Literata + JetBrains Mono, or Source Serif 4 + IBM Plex Mono? Live with each for a week on the long document. | **Pair A** (Literata + JetBrains Mono); 68 `ch` stays. Tunes: mono slightly small, headings shout, italic weak. `2026-09-review-0/decisions.md` |
+| 2026-09-18 | spike | WebKitGTK vs macOS weight at reading size | `docs/spike/results/u26-tauri-specimen-17-dpr2-off0.png`, `mac-pwwebkit-specimen-17-dpr2-off0.png` | Does the Linux rendering (lighter by ~70 units) read acceptably before compensation, and is +50 or +75 the right correction? | deferred — needs Linux desktop |
+| 2026-09-18 | MARXY-64 | First look at a ten-thousand-word continuous prose fixture; before this row the corpus had almost no real paragraph volume | `fixtures/corpus/15-prose-volume.md` — the document is the before/after (no page existed; now a winter essay with quotations, em dashes and footnotes) | Does a page of this essay read as the volume later typesetting stories should measure? Any hole, shout or drift that would make it a bad sample? | **Fine.** Also: generate samples for other formats. `2026-09-review-1/decisions.md` |
+| 2026-09-18 | MARXY-73 | Hostile corpus fixture now lists the missing attack families as labelled sections; the golden AST grew with those additions | `fixtures/corpus/10-hostile.md`, `packages/core/goldens/10-hostile.ast.txt` — no screenshot pair; the document is a security corpus, not a typeset page | Do the new labelled sections stay inventory rather than live markup? Any family that should not sit in the reader-facing corpus? | **Fine.** Inventory only. `2026-09-review-1/decisions.md` |
+| 2026-09-19 | MARXY-75 | Nothing visible: every rendered element gains `data-marxy-s`/`-e`. HTML goldens created (no visible change) | `packages/core/goldens/*.html.txt` — the sanitised render of every corpus file | None expected. Flag any corpus page that looks different from before. | **None.** Pass. `2026-09-review-1/decisions.md` |
+| 2026-09-19 | MARXY-20 | The first styled page: default theme, dark first, then light. Grid unit is half a line (ADR-0030); inline code has no box; a `---` before a section heading is not set; list markers hang in the margin | `docs/taste-review/2026-09-marxy-20/` — five corpus pages × dark/light at 960 px, 2×, with the bundled faces injected (MARXY-21 bundles them in the app) | Does this read as a book or as a markdown viewer? Specifically: inline code without a box, the `* * *` break, tables at 0.88 × body, hanging bullets. Remote images show as empty boxes until MARXY-26. | **Not a book yet** — markdown / clumsy-nice. Heading space, weak italic/strike, code-block padding, subtle quotes, checkbox align, scuffed tables. Same in light. `2026-09-review-1/decisions.md` |
+| 2026-09-19 | MARXY-21 | Literata and JetBrains Mono in the app itself (the MARXY-20 screenshots already show them); Linux weights +100 until the WebKitGTK version can be read | `docs/taste-review/2026-09-marxy-20/` (same faces, injected); no Linux capture yet (MARXY-22) | On a Linux desktop, does +100 read like macOS or heavier? MARXY-94 lets 2.52 take its measured +75. | deferred — needs Linux desktop |
+| 2026-09-19 | MARXY-23 | Knuth–Plass ragged-right on paragraphs and tight list items: evener right edge, fewer short lines, same line count. Code spans never break inside | `docs/taste-review/2026-09-marxy-23/` — prose and plan, before (engine) and after (typeset), dark, 960 px; numbers in `packages/typeset/RESEARCH.md` "Rendered" | Is the rag visibly calmer on the prose page? On technical text it is a wash by the numbers — does the no-break-inside-code rule read right, or should a path break at a slash? | Prose: prefer after, subtle. Plan: wash. Slash-break: lean no-break, defer to incumbents, **left open**. `2026-09-review-1/decisions.md` |
 
 ## Review #0 — the default typeface pair
 
-The decision this artifact exists to settle: **ADR-0015 is proposed until this review**. Pair A is
+The decision this artifact exists to settle: **ADR-0015 is accepted** (taste review #0, 2026-09-19). Pair A is
 its default, pair B its fallback. Both sets are `fixtures/corpus/01-long-technical.md` (a 3,000-word
 technical document, tables and inline code throughout) set at the type scale in
 `docs/design-language.md` on a 68 `ch` measure, rendered by `node scripts/specimen/render.mjs` and
@@ -96,7 +96,7 @@ The ADR's reasoning, restated as things to confirm or overturn with the sets in 
 - [ ] **Monospace x-height suited to code in body text** (design constraint 5) — passage 2.
 - [ ] **Bundled unmodified, under a licence that can ship.** All four faces are OFL 1.1 with the
       licence verbatim beside them, unmodified, no network fetch (ADR-0006). Confirmed mechanically.
-- [ ] **The long document set in both pairs, and a choice recorded.** This artifact.
+- [x] **The long document set in both pairs, and a choice recorded.** Pair A; 68 `ch` stays. See `2026-09-review-0/decisions.md`.
 
 #### Optical size, measured
 
@@ -125,9 +125,8 @@ faces are judged on inline code only. Pair B has no vendored italic — the slan
 emphasis are synthetic, which is itself a cost of choosing it: a real Source Serif 4 italic would
 have to be vendored before it could be the default.
 
-### Decision to record
+### Decision recorded
 
-One line, in `docs/taste-review/2026-09-review-0/decisions.md`: **pair A or pair B**, and whether
-68 `ch` survives the choice. Pair A confirms ADR-0015 and moves it from proposed to accepted; pair B
-overturns it, and the follow-up PR swaps the two `--marxy-font-*` tokens, vendors the Source Serif 4
-italic, and rewrites the ADR's decision and consequences.
+**Pair A (Literata + JetBrains Mono). 68 `ch` survives.** ADR-0015 is accepted. See
+`docs/taste-review/2026-09-review-0/decisions.md`. Tunes (mono size, heading weight, italic)
+are MARXY-129, not a pair swap.

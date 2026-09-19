@@ -20,7 +20,7 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0012](0012-index-root-and-search-scope.md) | The indexed root is the enclosing repository; search covers titles, headings and paths | accepted |
 | [0013](0013-speed-budgets-are-gates.md) | Speed budgets are CI gates; single-instance always; resident mode opt-in | accepted |
 | [0014](0014-aesthetics-acceptance.md) | "Aesthetics paramount" has a two-tier acceptance test | accepted |
-| [0015](0015-typeface.md) | Literata and JetBrains Mono, confirmed by the first taste review | proposed until review #0 |
+| [0015](0015-typeface.md) | Literata and JetBrains Mono, confirmed by the first taste review | accepted 2026-09-19 |
 | [0016](0016-verification-split.md) | Machine gates for everything checkable; a scheduled taste-review queue for the rest | accepted |
 | [0017](0017-trunk-based-agent-workflow.md) | Trunk-based, one issue one branch one PR, CODEOWNERS for the sensitive paths | accepted, amended by 0028 (the CODEOWNERS list) |
 | [0018](0018-reading-position-coordinate.md) | Reading position is a source-map coordinate, never a scroll offset | accepted |

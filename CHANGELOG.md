@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - CI now measures how long the long technical document takes to parse on both gates runners before the perf gate, so that budget can become a required check without loosening anything (MARXY-91)
+- A document is now a byte buffer with splice and undo, so an operation can change a range without rewriting the rest of the file (MARXY-93)
 - The after-65 plan is on main: MARXY-93–98 are restored, MARXY-115 is dropped, and MARXY-93 and MARXY-95 can cut from main (MARXY-125)
 - Design documents and a task card for every Phase 3–4 story: per-document trust for HTML and remote images (fetched only by the shell, only on consent — the page itself never touches the network), the release and v1 checklist, and ADR-0026/0027; five new stories (MARXY-93–97) close gaps found on the way (MARXY-98)
 - The agent loop now merges only the commit that was approved, refreshes one out-of-date pull request at a time, and will not dispatch onto a plan that is due to change (MARXY-106)
@@ -49,6 +50,9 @@ tag time. Conventions in `docs/conventions.md`.
 - The corpus now includes a long prose document, so line-breaking work can measure real paragraph volume instead of a handful of samples (MARXY-64)
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
+
+### Changed
+- The default faces are confirmed: Literata for text and JetBrains Mono for code, after reading both candidates at the type scale; the column stays 68 characters (MARXY-127)
 
 ### Fixed
 - On a detached CI checkout the merge-bar CHANGELOG check takes the story key from the pull-request branch GitHub already knows, and skips when none of those names have a key instead of failing the build (MARXY-124)
