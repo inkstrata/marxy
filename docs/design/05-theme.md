@@ -98,7 +98,9 @@ export function applyVariant(v: 'light' | 'dark'): void;    // sets html[data-ma
 | Linux | 2.50–2.51 | 125 |
 | Linux | other | 100 |
 
-from `shell.webkitVersion()` (§06), overridden by config `[linux] weight_offset` (§11).
+from `shell.webkitVersion()` (§06), overridden by config `[linux] weight_offset` (§11). Until
+`webkitVersion` exists (it is part of the shell-api amendment, MARXY-94, which waits on Ian), the
+app passes no version and Linux takes the **other** row, 100 (MARXY-21, `apps/desktop/src/theme/offset.ts`).
 MARXY-22 measures these on real desktops and replaces the table's values. Every `font-weight`
 in `base.css` is `calc(<token> + var(--marxy-weight-offset))`, and the variable axis is driven
 through `font-variation-settings 'wght'` as well, because WebKitGTK maps `font-weight` to the

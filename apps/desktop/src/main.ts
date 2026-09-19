@@ -4,6 +4,7 @@ import { parseMarkdown, type Document } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { snapToGrid } from '@marxy/typeset';
 import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
+import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { shell } from './shell/tauri.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 
@@ -90,6 +91,10 @@ function keepOnGrid(article: HTMLElement): void {
 
 async function main() {
   await shell.mark('script_start', t0);
+  // Before anything is laid out, so no weight is set twice. The WebKitGTK version arrives with the
+  // shell-api amendment (MARXY-94); until then Linux takes the table's unknown-version row.
+  const offset = applyWeightOffset(document.documentElement, platformOf(navigator.userAgent), null);
+  void shell.mark('weight_offset', Date.now(), `offset=${offset}`);
   launchArgs = await shell.args();
   // Skip flags and the macOS launcher's -psn_… argument; the first plain argument is the document.
   const file = launchArgs.find(a => !a.startsWith('-'));
@@ -116,6 +121,12 @@ async function main() {
   const after = performance.now();
   doc.innerHTML = html;
   state.document = { ast, html, nodeMap, blocks: [] };
+  // The faces are preloaded and `font-display: block`: first text is never the fallback face, and
+  // the grid pass below measures the real one (ADR-0015).
+  // Layout first: a face is requested when text needs it, and `fonts.ready` waits only for requests.
+  void doc.offsetHeight;
+  await document.fonts.ready;
+  await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
   document.title = `${file.split('/').pop()} — marxy`;
 
   keepOnGrid(doc);
