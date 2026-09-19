@@ -1,19 +1,17 @@
 # ADR-0022 — Product budgets are enforced on reference hardware; CI enforces an envelope and a baseline
 
-**Status:** accepted, amended (Amendment 1 — the metric split, 2026-09-18) · **Amends:** ADR-0013 (its measurement clause only; the budgets themselves
+**Status:** accepted, amended (Amendment 1 — the metric split, 2026-09-18; Amendment 2 — no product cold-start ceiling, 2026-09-18) · **Amends:** ADR-0013 (its measurement clause only; the budgets themselves
 and "regressions are hard failures" stand unchanged) · **Source:** the first red `gate:perf` run on
 GitHub-hosted runners, 2026-09-18
 
 ## Decision
 The budgets in `AGENTS.md` are **product** budgets, measured on reference hardware: the maintainer's
 macOS machine, or any machine where `MARXY_PERF_ENV=reference`. In that mode a round is **k ≥ 5 cold
-launches, each preceded by a recorded cold-making step**, and `scripts/gate-perf.mjs` compares the
-median of those cold launches against the product number and fails at 501 ms, with no multiplier and
-no tolerance. It fails if the record does not certify each launch as cold. *(Obligation, not
-description: **MARXY-69** implements this round. Until it lands, reference mode fails with a message
-saying the product cold-start budget is not enforceable and naming that story.)* `reference` is the
-default whenever `CI` is unset, and the release runbook runs it before a tag; the gate fails if
-`results/perf.json` is missing or was not produced in `reference` mode.
+launches, each preceded by a recorded cold-making step**, and `scripts/gate-perf.mjs` records the
+median of those cold launches without comparing it to a product ceiling (Amendment 2). It fails if
+the record does not certify each launch as cold. `reference` is the default whenever `CI` is unset,
+and the release runbook runs it before a tag; the gate fails if `results/perf.json` is missing or
+was not produced in `reference` mode.
 
 On GitHub-hosted runners (`MARXY_PERF_ENV=ci`, set by `.github/workflows/ci.yml`) the same script
 enforces two named quantities. `warm_start_first_text_ms`, the median of the post-first launches, is
@@ -135,3 +133,41 @@ launch. That is an 11 % spread from machine assignment alone, so the 10 % band f
 request on noise and would have failed `main`. The tolerance is now 30 %; the ×5 envelope
 remains the hard ceiling, and a breach of either rule is re-measured once before it fails. The
 baseline numbers themselves are unchanged and still guarded by the budgets-unchanged step.
+
+## Amendment 2 — no product cold-start ceiling (2026-09-18, MARXY-69)
+
+**Status:** accepted · **Source:** `docs/taste-review/2026-09-cold-start/decision.md`
+
+Ian ruled on 2026-09-18: there is no product cold-start budget. The 500 ms figure in
+`AGENTS.md` and in the `product` object of `fixtures/perf-budgets.json` is a standing
+observation of the sphere of concern, not a ceiling the gate may fail a release on. Keep
+measuring `cold_start_first_text_ms`. Resist inflation: a slower launch is a cost a story
+must own; CI never writes a higher number into the repo to make a red gate green. A tag
+states no cold-start duration (MARXY-16). This amendment is this story; it does not invent
+another issue key.
+
+This withdraws the Decision paragraph's earlier obligation that reference mode "compares the
+median of those cold launches against the product number and fails at 501 ms", and withdraws
+the placeholder failure Amendment 1 added while that obligation was unimplementable.
+
+**The reference-tier procedure.** On `MARXY_PERF_ENV=reference`, a round is k ≥ 5 cold
+launches (default 5), each preceded by a recorded cold-making step and separated by enough
+idle for the step to take effect. No warm launch enters the statistic. `results/perf.json`
+records `cold_launches` in launch order, `cold_launches_n`, and `cold_procedure` naming the
+step actually performed.
+
+**The cold-making step** is executed by the script where it can be and is never implied
+where it cannot: it kills any running marxy process, purges the OS file cache only where a
+password-less mechanism exists on that platform, and otherwise records `cold_procedure` as
+`process-cold only`.
+
+**The statistic** is `median(cold_launches)`. The gate records it and never compares it to
+`product.cold_start_first_text_ms` or to any other product ceiling. A 501 ms median against
+a 500 ms product number exits 0.
+
+Honest numbers already on record: 2844 ms on macOS, 1735 ms on Linux.
+
+**Unchanged:** CI still gates the warm median against the envelope and baseline; both runner
+classes still gate; a baseline still moves only by an explicit edit to
+`fixtures/perf-budgets.json`; the product object of that file is byte-identical in this
+amendment's pull request. Nothing becomes advisory. ADR-0013 is not edited here.
