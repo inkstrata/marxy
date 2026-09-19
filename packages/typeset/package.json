@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo ok",
+    "lint": "biome check --formatter-enabled=false .",
     "test": "echo 'lands with MARXY-20'"
   },
   "dependencies": {
