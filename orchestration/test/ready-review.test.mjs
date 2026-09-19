@@ -1,9 +1,9 @@
 // Fixture-board checks for ready.mjs, review.mjs and pathsOf (MARXY-9).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pathsOf, overlap } from './lib.mjs';
-import { RULE, selectReady } from './ready.mjs';
-import { buildReview, EXTRA_BOUNDARIES } from './review.mjs';
+import { pathsOf, overlap } from '../lib.mjs';
+import { RULE, selectReady } from '../ready.mjs';
+import { buildReview, EXTRA_BOUNDARIES } from '../review.mjs';
 
 /** Stories shaped like the CSV, with the original glob that used to collapse to `packages`. */
 const STORIES = [

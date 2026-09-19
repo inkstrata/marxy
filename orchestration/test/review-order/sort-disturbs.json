@@ -1,0 +1,44 @@
+{
+  "name": "sort: disturbs decides while phase ties",
+  "now": "2026-09-18T12:00:00.000Z",
+  "deps": {
+    "phases": {
+      "0": ["MARXY-A", "MARXY-B", "MARXY-C"]
+    }
+  },
+  "state": {
+    "stories": {
+      "MARXY-A": { "status": "in_review", "pr": 1 },
+      "MARXY-B": { "status": "in_review", "pr": 2 },
+      "MARXY-C": { "status": "in_review", "pr": 3 }
+    }
+  },
+  "pulls": {
+    "1": {
+      "files": ["packages/core/src/shared.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    },
+    "2": {
+      "files": ["packages/typeset/src/alone.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    },
+    "3": {
+      "files": ["packages/core/src/shared.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    }
+  },
+  "expect": {
+    "orderKeys": ["MARXY-A", "MARXY-C", "MARXY-B"],
+    "order": [
+      { "key": "MARXY-A", "phase": 0, "disturbs": 1, "ageHours": 24 },
+      { "key": "MARXY-C", "phase": 0, "disturbs": 1, "ageHours": 24 },
+      { "key": "MARXY-B", "phase": 0, "disturbs": 0, "ageHours": 24 }
+    ]
+  }
+}

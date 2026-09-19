@@ -1,0 +1,27 @@
+{
+  "name": "phase: a story in more than one phase exits 1 naming the story and the phases",
+  "now": "2026-09-18T12:00:00.000Z",
+  "deps": {
+    "phases": {
+      "0": ["MARXY-A"],
+      "1": ["MARXY-A"]
+    }
+  },
+  "state": {
+    "stories": {
+      "MARXY-A": { "status": "in_review", "pr": 1 }
+    }
+  },
+  "pulls": {
+    "1": {
+      "files": ["packages/core/src/a.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    }
+  },
+  "expect": {
+    "exit": 1,
+    "errorIncludes": "MARXY-A is in phases 0, 1"
+  }
+}

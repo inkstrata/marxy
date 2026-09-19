@@ -129,6 +129,31 @@ list; a missing clause is the printed hold reason.
 8. `CHANGELOG.md` is in the diff.
 9. A signed `results/KEY.approved` verifies against this PR head.
 
+## Review order and the review WIP limit
+
+Review, not implementation, is the constraint. The printable order is computed by
+`orchestration/review-order.mjs` (ADR-0025), so a stalled queue can always be explained. Three
+keys, in this order:
+
+1. **Phase**, from `orchestration/deps.json`, lowest number first. The plan is sequenced to
+   de-risk in phase order; reading a later-phase pull request first would invert it.
+2. **Disturbance**, descending — the number of other open pull requests whose changed files
+   intersect this one's (always-shared files excluded). The branch that will invalidate the
+   most approvals must land before those approvals are signed, not after. Merge effort is not
+   the cost; the signatures a merge destroys are.
+3. **Age**, oldest first, so nothing starves.
+
+A conflicted pull request is returned rather than queued. `cycle.mjs` cannot resolve a conflict
+and a reviewer reading a conflicted tree is reading nothing. The story goes back to In Progress
+and `attempts` does not move: a conflict is a consequence of queue depth, not a failed attempt.
+
+A returned story does not count against the review WIP. Returning it moves it out of In Review,
+so the lane is freed by construction, and a return is the same unit of work rather than a new
+one. Charging it twice would make returning a story more expensive than abandoning it.
+
+A returned story re-enters the order at its own phase, disturbance and original age, not at the
+head, so it cannot starve by being returned.
+
 ## Cadence
 
 | When | What |

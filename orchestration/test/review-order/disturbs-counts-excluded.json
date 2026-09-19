@@ -1,0 +1,34 @@
+{
+  "name": "disturbs: a conflicted PR still counts when its files intersect an ordered one",
+  "now": "2026-09-18T12:00:00.000Z",
+  "deps": {
+    "phases": {
+      "0": ["MARXY-A", "MARXY-B"]
+    }
+  },
+  "state": {
+    "stories": {
+      "MARXY-A": { "status": "in_review", "pr": 1 },
+      "MARXY-B": { "status": "in_review", "pr": 2 }
+    }
+  },
+  "pulls": {
+    "1": {
+      "files": ["packages/core/src/shared.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    },
+    "2": {
+      "files": ["packages/core/src/shared.ts"],
+      "mergeStateStatus": "DIRTY",
+      "mergeable": "CONFLICTING",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    }
+  },
+  "expect": {
+    "orderKeys": ["MARXY-A"],
+    "order": [{ "key": "MARXY-A", "disturbs": 1 }],
+    "excluded": [{ "key": "MARXY-B", "why": "conflict" }]
+  }
+}

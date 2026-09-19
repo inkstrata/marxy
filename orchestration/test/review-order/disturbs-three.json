@@ -1,0 +1,52 @@
+{
+  "name": "disturbs: a PR sharing a file with three others scores 3",
+  "now": "2026-09-18T12:00:00.000Z",
+  "deps": {
+    "phases": {
+      "0": ["MARXY-HUB", "MARXY-A", "MARXY-B", "MARXY-C"]
+    }
+  },
+  "state": {
+    "stories": {
+      "MARXY-HUB": { "status": "in_review", "pr": 10 },
+      "MARXY-A": { "status": "in_review", "pr": 11 },
+      "MARXY-B": { "status": "in_review", "pr": 12 },
+      "MARXY-C": { "status": "in_review", "pr": 13 }
+    }
+  },
+  "pulls": {
+    "10": {
+      "files": ["a.ts", "b.ts", "c.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    },
+    "11": {
+      "files": ["a.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    },
+    "12": {
+      "files": ["b.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    },
+    "13": {
+      "files": ["c.ts"],
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "createdAt": "2026-09-17T12:00:00.000Z"
+    }
+  },
+  "expect": {
+    "orderKeys": ["MARXY-HUB", "MARXY-A", "MARXY-B", "MARXY-C"],
+    "order": [
+      { "key": "MARXY-HUB", "disturbs": 3 },
+      { "key": "MARXY-A", "disturbs": 1 },
+      { "key": "MARXY-B", "disturbs": 1 },
+      { "key": "MARXY-C", "disturbs": 1 }
+    ]
+  }
+}
