@@ -35,6 +35,7 @@ tag time. Conventions in `docs/conventions.md`.
 ### Fixed
 - A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
 - The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
+- CI can build again on Linux: the webview dependencies are installed rather than restored from a cache that dropped their metadata, and a check keeps third-party actions out of our builds (MARXY-90)
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
 - Saving a document on Linux keeps its extended attributes and POSIX ACLs instead of dropping them, and the check that proves a save puts every byte back now lives with the other gates (MARXY-77)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
