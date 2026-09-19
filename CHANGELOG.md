@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Headings can now be read off a document as an outline, each entry keeping the heading's place in the file, so a summoned outline has something to jump to when it lands (MARXY-109)
 - Lint now runs through biome: an unused import fails the build, the formatter only checks, and it never rewrites the fixture corpus or the fonts (MARXY-8)
 - Out-of-plan work has a supported path: `jira.mjs task` creates a labelled Task and prints the key, and a missing commitlint fails the commit instead of skipping (MARXY-101)
 - An approval run now ends with one table of every open pull request in merge order — CI, mergeability, approval, who it waits on, and what happens next (MARXY-92)
