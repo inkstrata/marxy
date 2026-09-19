@@ -6,6 +6,14 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, stories, state, pathsOf, pathMatches } from './lib.mjs';
 
+/** Boundary checks that need a branch; named when state.json has none (MARXY-81). */
+export const BRANCHLESS_CHECKS = [
+  'files outside paths',
+  'contract files touched',
+  'fixtures/fonts touched',
+  'files this branch deletes',
+];
+
 /** Extra paths every story may touch, alongside CHANGELOG.md. */
 export const EXTRA_BOUNDARIES = [
   'CHANGELOG.md',
@@ -111,7 +119,7 @@ export function buildReview(key, ctx = {}) {
   }
 
   if (injected) {
-    if (ctx.determined === false || (!rev && files === undefined)) {
+    if (ctx.determined === false || !rev) {
       return noBranch(key);
     }
   } else {
@@ -234,8 +242,9 @@ function noBranch(key) {
   return {
     ok: false,
     exit: 1,
-    text: `cannot determine the branch for ${key}: state.json has no branch and no PR; `
-      + 'refusing to report boundary checks as clean',
+    text: `cannot determine the branch for ${key}: state.json has no branch; `
+      + 'these boundary checks cannot run without it and will not be reported as none: '
+      + BRANCHLESS_CHECKS.join(', '),
   };
 }
 

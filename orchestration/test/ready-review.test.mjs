@@ -217,6 +217,10 @@ test('a packet for a story with no branch fails', () => {
   assert.equal(got.ok, false);
   assert.equal(got.exit, 1);
   assert.match(got.text, /cannot determine the branch for MARXY-99/);
+  assert.match(got.text, /files outside paths/);
+  assert.match(got.text, /contract files touched/);
+  assert.match(got.text, /fixtures\/fonts touched/);
+  assert.match(got.text, /files this branch deletes/);
   assert.doesNotMatch(got.text, /files outside paths: none/);
   assert.doesNotMatch(got.text, /attribution trailers: none/);
 });

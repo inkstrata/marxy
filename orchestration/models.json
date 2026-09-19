@@ -1,5 +1,5 @@
 {
-  "_note": "Verify ids against `cursor-agent --list-models` / the model picker and edit. Effort is applied where Cursor exposes it; set cliEffortFlag if your CLI has one (e.g. --reasoning-effort), else leave empty. `inApp` is the Task/subagent slug. Switch compute with models.json `compute`, MARXY_COMPUTE, --compute=NAME, --low, or --minimal. `lanes` is the dispatch WIP cap; null (or 0) means uncapped — path overlap is the only parallelism limit.",
+  "_note": "Verify ids against `cursor-agent --list-models` / the model picker and edit. Effort is applied where Cursor exposes it; set cliEffortFlag if your CLI has one (e.g. --reasoning-effort), else leave empty. `inApp` is the Task/subagent slug. Switch compute with models.json `compute`, MARXY_COMPUTE, --compute=NAME, --low, or --minimal. `lanes` is the dispatch WIP cap and stays null (uncapped — path overlap is the only parallelism limit). `reviewLanes` caps how many stories may sit In Review; ready.mjs dispatches nothing while that count is at or above the cap.",
   "compute": "default",
   "modes": {
     "default": {
@@ -26,6 +26,7 @@
   },
   "cliEffortFlag": "",
   "lanes": null,
+  "reviewLanes": 4,
   "maxAttempts": 2,
   "attemptMinutes": 45,
   "plannerEveryMerges": 5,
