@@ -40,6 +40,67 @@ function sourceFiles(directory: URL, prefix = ''): { path: string; text: string 
   return files;
 }
 
+const FORBIDDEN_PREFIXES = [
+  'packages/core/src/contracts',
+  'packages/core/package.json',
+  'packages/core/scripts',
+  'packages/core/src/sanitize',
+  'apps/desktop',
+];
+
+type GitExec = (
+  file: string,
+  args: readonly string[],
+  options?: { cwd?: string; encoding?: BufferEncoding; stdio?: readonly ('ignore' | 'pipe')[] },
+) => string;
+
+// Shallow CI checkouts often have no origin/main; throwing on the three-dot
+// range failed the suite instead of asserting the story boundary (MARXY-109).
+function resolveThreeDotBase(opts: { cwd: string }, git: GitExec = execFileSync as GitExec): string | null {
+  for (const ref of ['origin/main', 'main']) {
+    try {
+      git('git', ['rev-parse', '--verify', ref], {
+        cwd: opts.cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      return ref;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+function threeDotNames(base: string, opts: { cwd: string }, git: GitExec = execFileSync as GitExec): string[] {
+  return git('git', ['diff', '--name-only', `${base}...HEAD`], {
+    cwd: opts.cwd,
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .filter(Boolean);
+}
+
+function forbiddenIn(names: readonly string[]): string[] {
+  return names.filter((name) =>
+    FORBIDDEN_PREFIXES.some((prefix) => name === prefix || name.startsWith(`${prefix}/`)),
+  );
+}
+
+function runThreeDotForbiddenCheck(opts: {
+  resolveBase: () => string | null;
+  listNames: (base: string) => string[];
+  skip: (reason: string) => void;
+}): 'skipped' | 'asserted' {
+  const base = opts.resolveBase();
+  if (!base) {
+    opts.skip('neither origin/main nor main is a resolvable git ref');
+    return 'skipped';
+  }
+  assert.deepEqual(forbiddenIn(opts.listNames(base)), []);
+  return 'asserted';
+}
+
 for (const name of ['01-long-technical.md', '09-gfm-everything.md']) {
   test(`outlineFrom matches every AST heading in ${name}, same order, level and src`, () => {
     const source = readFileSync(new URL(name, corpus), 'utf8');
@@ -141,22 +202,102 @@ test('no file under packages/core/src/outline imports apps/desktop or packages/s
   assert.deepEqual(offenders, []);
 });
 
-test('the three-dot diff does not contain contracts, package.json, scripts, sanitize or apps/desktop', () => {
-  const names = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  })
-    .split('\n')
-    .filter(Boolean);
-  const forbidden = [
-    'packages/core/src/contracts',
+test('the three-dot diff does not contain contracts, package.json, scripts, sanitize or apps/desktop', (t) => {
+  runThreeDotForbiddenCheck({
+    resolveBase: () => resolveThreeDotBase({ cwd: repoRoot }),
+    listNames: (base) => threeDotNames(base, { cwd: repoRoot }),
+    skip: (reason) => t.skip(reason),
+  });
+});
+
+test('resolveThreeDotBase returns null when neither origin/main nor main verifies', () => {
+  const calls: string[][] = [];
+  const git: GitExec = (_cmd, args) => {
+    calls.push([...args]);
+    throw new Error('fatal: Needed a single revision');
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, git), null);
+  assert.deepEqual(calls, [
+    ['rev-parse', '--verify', 'origin/main'],
+    ['rev-parse', '--verify', 'main'],
+  ]);
+});
+
+test('resolveThreeDotBase prefers origin/main, then main', () => {
+  const originFirst: GitExec = (_cmd, args) => {
+    if (args.includes('origin/main')) return 'abc\n';
+    throw new Error('must not fall through when origin/main verifies');
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, originFirst), 'origin/main');
+
+  const mainOnly: GitExec = (_cmd, args) => {
+    if (args.includes('origin/main')) throw new Error('missing');
+    if (args.includes('main')) return 'def\n';
+    throw new Error('unexpected ref');
+  };
+  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, mainOnly), 'main');
+});
+
+test('the three-dot forbidden-path check skips when no base ref resolves', () => {
+  let reason: string | undefined;
+  const result = runThreeDotForbiddenCheck({
+    resolveBase: () => null,
+    listNames: () => {
+      throw new Error('must not run git diff without a base');
+    },
+    skip: (r) => {
+      reason = r;
+    },
+  });
+  assert.equal(result, 'skipped');
+  assert.match(reason ?? '', /neither origin\/main nor main/);
+});
+
+test('threeDotNames asks git for the three-dot name list against the resolved base', () => {
+  const calls: string[][] = [];
+  const git: GitExec = (_cmd, args) => {
+    calls.push([...args]);
+    return 'packages/core/src/outline/outline.ts\nCHANGELOG.md\n';
+  };
+  assert.deepEqual(threeDotNames('origin/main', { cwd: '/tmp' }, git), [
+    'packages/core/src/outline/outline.ts',
+    'CHANGELOG.md',
+  ]);
+  assert.deepEqual(calls, [['diff', '--name-only', 'origin/main...HEAD']]);
+});
+
+test('the three-dot forbidden-path check asserts prefixes are absent when a base resolves', () => {
+  let seenBase: string | undefined;
+  const result = runThreeDotForbiddenCheck({
+    resolveBase: () => 'origin/main',
+    listNames: (base) => {
+      seenBase = base;
+      return ['packages/core/src/outline/outline.ts', 'CHANGELOG.md'];
+    },
+    skip: () => {
+      throw new Error('must not skip when a base resolves');
+    },
+  });
+  assert.equal(result, 'asserted');
+  assert.equal(seenBase, 'origin/main');
+});
+
+test('the three-dot forbidden-path check fails when a forbidden prefix is in the name list', () => {
+  for (const file of [
+    'packages/core/src/contracts/ast.ts',
     'packages/core/package.json',
-    'packages/core/scripts',
-    'packages/core/src/sanitize',
-    'apps/desktop',
-  ];
-  const offenders = names.filter((name) =>
-    forbidden.some((prefix) => name === prefix || name.startsWith(`${prefix}/`)),
-  );
-  assert.deepEqual(offenders, []);
+    'packages/core/scripts/golden.ts',
+    'packages/core/src/sanitize/sanitize.ts',
+    'apps/desktop/src/main.ts',
+  ]) {
+    assert.throws(() =>
+      runThreeDotForbiddenCheck({
+        resolveBase: () => 'main',
+        listNames: () => [file],
+        skip: () => {
+          throw new Error('must not skip when a base resolves');
+        },
+      }),
+    );
+  }
 });
