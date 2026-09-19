@@ -33,6 +33,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
 
 ### Fixed
+- The agent loop merges only the commit it evaluated, refreshes one out-of-date pull request at a time instead of rerunning CI for all of them, keeps an approval across a merge of main only when the merge is provably mechanical, stops holding pull requests for worktrees nobody is using, and never lets an implementor's own model family review its work (MARXY-106)
 - A story whose pull request is still in review now holds its listed paths, so the board will not start a second story on the same files (MARXY-102)
 - The board scripts now sequence by phase and say why a story is waiting — a dependency, a path overlap, or a full lane — instead of counting every wait as a dependency, and a review without a branch no longer passes as clean (MARXY-9)
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
@@ -50,7 +51,6 @@ tag time. Conventions in `docs/conventions.md`.
 - Documents saved with Classic Mac (CR-only) line endings keep code-block ranges on the code itself, not an empty span past the fence (MARXY-67)
 
 ### Changed
-- A release now measures a genuine cold start on reference hardware — at least five launches, each made cold first — and the tag carries that measurement with no duration claim; 500 ms is not a product ceiling (MARXY-69)
 - Commit messages are linted when they are written in every worktree, not first in CI, and the limits fit the story key: headers up to 100 characters, long footer lines a warning, `repo` and `workspace` scopes, squash-merge subjects accepted (MARXY-100)
 - Opening a document now goes through the one parse in `@marxy/core`; markdown-it and DOMPurify are gone from the desktop and the gate harnesses (MARXY-61)
 - Importing the parser no longer pulls in a maths renderer; documents with equations still parse the same (MARXY-60)

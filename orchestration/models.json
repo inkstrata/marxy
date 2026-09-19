@@ -1,5 +1,5 @@
 {
-  "_note": "Verify ids against `cursor-agent --list-models` / the model picker and edit. Effort is applied where Cursor exposes it; set cliEffortFlag if your CLI has one (e.g. --reasoning-effort), else leave empty. `inApp` is the Task/subagent slug. Switch compute with models.json `compute`, MARXY_COMPUTE, --compute=NAME, --low, or --minimal. `lanes` is the dispatch WIP cap; null (or 0) means uncapped — path overlap is the only parallelism limit.",
+  "_note": "Verify ids against `cursor-agent --list-models` / the model picker and edit. Effort is applied where Cursor exposes it; set cliEffortFlag if your CLI has one (e.g. --reasoning-effort), else leave empty. `inApp` is the Task/subagent slug. Switch compute with models.json `compute`, MARXY_COMPUTE, --compute=NAME, --low, or --minimal. The reviewer is never the implementor's model family, in any mode (MARXY-106): a review by the same model repeats its blind spots. `lanes` is the dispatch WIP cap; null (or 0) means uncapped — path overlap is the only parallelism limit.",
   "compute": "default",
   "modes": {
     "default": {
@@ -21,7 +21,7 @@
       "planner": { "model": "grok-4.6-fast", "effort": "high", "inApp": "cursor-grok-4.6-high-fast" },
       "implementor": { "model": "grok-4.6-fast", "effort": "high", "inApp": "cursor-grok-4.6-high-fast" },
       "implementorEscalation": { "model": "grok-4.6-fast", "effort": "high", "inApp": "cursor-grok-4.6-high-fast" },
-      "reviewer": { "model": "grok-4.6-fast", "effort": "high", "inApp": "cursor-grok-4.6-high-fast" }
+      "reviewer": { "model": "claude-sonnet-5", "effort": "medium", "inApp": "claude-sonnet-5-thinking-medium" }
     }
   },
   "cliEffortFlag": "",

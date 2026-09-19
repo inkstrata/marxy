@@ -24,6 +24,9 @@ export function allowedFor(st, key) {
 
 /** Whether a changed file is inside the story's paths or an allowed extra. */
 export function fileAllowed(file, allowed) {
+  // An approval is the reviewer's verdict and lives only in the orchestrator's checkout. A branch that
+  // carries one is an implementor writing its own review, whatever directory allows it (MARXY-106).
+  if (/\.approved$/.test(file)) return false;
   return allowed.some(a => file === a || pathMatches(file, a) || file.startsWith(a.replace(/\/$/, '') + '/'));
 }
 

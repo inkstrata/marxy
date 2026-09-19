@@ -63,10 +63,27 @@ the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
 
 Either way the mechanical half of every cycle is one command, and it is the same command in both
 modes: `node orchestration/cycle.mjs` mirrors the board into Jira, merges the pull requests that
-are provably finished, names what should start next (dispatching headlessly if `cursor-agent` is
-on PATH), asks whether the planner is due, and writes `status.md`. It is idempotent, so
+are provably finished, names pull requests waiting on a reviewer, asks whether the planner is due,
+then names what should start next (dispatching headlessly if `cursor-agent` is on PATH), and writes
+`status.md`. It is idempotent, so
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
 `--no-merge` to decide without landing anything, `--low` or `--minimal` to spend less.
+
+The cycle's order is deliberate (MARXY-106): **sync** (fetch, fast-forward the orchestrator's
+`main`, push the board to Jira), **land** what the bar allows, **refresh** at most one PR that fell
+behind `main`, **name the PRs waiting on a reviewer**, **check the planner**, then **dispatch**, then
+**report**. Four rules keep that honest:
+
+- Every merge, direct or auto, is pinned with `--match-head-commit` to the head the bar evaluated,
+  so a push after evaluation cannot land unreviewed.
+- Only one BEHIND PR is updated per cycle: the oldest one that would otherwise land. Updating every
+  PR on every merge reran CI for all of them and voided every approval.
+- An approval survives a merge of `main` only when the head equals `git merge-tree` of the reviewed
+  commit and `main`, with hand-resolved conflicts built only from lines the two sides kept.
+- A worktree is live only with uncommitted changes or git activity inside `attemptMinutes`; a
+  leftover directory no longer holds a PR forever.
+
+The reviewer is never the implementor's model family, in any compute mode (`models.test.mjs`).
 
 What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
 code works, not that it does what was asked, so a PR merges only once a reviewer (never the
@@ -92,7 +109,7 @@ can keep moving when Opus time is tight.
 | --- | --- | --- | --- |
 | **default** | `"compute": "default"` | Claude Opus 5, medium | Grok 4.6 High Fast |
 | **low** | `--low` or `MARXY_COMPUTE=low` | Claude Sonnet 5, medium | Grok 4.6 High Fast |
-| **minimal** | `--minimal` or `MARXY_COMPUTE=minimal` | Grok 4.6 High Fast | Grok 4.6 High Fast |
+| **minimal** | `--minimal` or `MARXY_COMPUTE=minimal` | Grok 4.6 High Fast; reviewer Claude Sonnet 5 | Grok 4.6 High Fast |
 
 Precedence: `--low` / `--minimal` / `--compute=NAME`, then `MARXY_COMPUTE`, then the
 `compute` field in `models.json`. `cycle.mjs` pins `MARXY_COMPUTE` for the child processes

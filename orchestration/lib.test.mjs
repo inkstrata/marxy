@@ -59,10 +59,12 @@ test('checked-in models.json has default, low, and minimal', () => {
   assert.equal(low.orchestrator.model, 'claude-sonnet-5');
   assert.equal(low.implementor.inApp, 'cursor-grok-4.6-high-fast');
   const min = models(undefined, ['node', '--minimal'], {});
-  for (const role of ['orchestrator', 'planner', 'implementor', 'implementorEscalation', 'reviewer']) {
+  for (const role of ['orchestrator', 'planner', 'implementor', 'implementorEscalation']) {
     assert.equal(min[role].model, 'grok-4.6-fast');
     assert.equal(min[role].inApp, 'cursor-grok-4.6-high-fast');
   }
+  // The one exception: a review by the implementor's own model family repeats its blind spots (MARXY-106).
+  assert.equal(min.reviewer.model, 'claude-sonnet-5');
   assert.equal(d.lanes, null);
   assert.equal(laneBudget(d), Infinity);
 });

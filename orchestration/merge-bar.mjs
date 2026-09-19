@@ -51,3 +51,41 @@ export function evaluate(input) {
   const reasons = holdReasons(input);
   return { action: mergeAction(reasons), reasons };
 }
+
+/**
+ * The arguments for every merge the cycle runs. `--match-head-commit` pins the merge to the head
+ * the bar was evaluated against: without it, a push between evaluation and merge lands a tree
+ * nobody reviewed, which is the one thing a signed approval exists to prevent.
+ */
+export function mergeArgs(number, headRefOid, { auto = false } = {}) {
+  if (!/^[0-9a-f]{40}$/.test(headRefOid ?? '')) throw new Error(`refusing to merge PR #${number} without a head to pin`);
+  return ['pr', 'merge', String(number), '--squash', ...(auto ? ['--auto'] : []), '--delete-branch', '--match-head-commit', headRefOid];
+}
+
+/**
+ * Which one BEHIND pull request to bring up to date this cycle, or null.
+ *
+ * With strict branch protection every merge puts every other PR behind main. Updating all of them
+ * reruns CI for each and moves every head, so the queue spends its CI on PRs that are not next.
+ * Only a PR that would otherwise land (nothing held but pending checks) is worth refreshing, and
+ * only one at a time, oldest first: it merges, the next one is refreshed, and so on.
+ * `candidates` are `{ key, number, reasons, live }` for PRs whose mergeStateStatus is BEHIND.
+ */
+export function chooseUpdate(candidates = []) {
+  const eligible = candidates
+    .filter(c => !c.live && (c.reasons ?? []).every(r => r.startsWith('pending:')))
+    .sort((a, b) => a.number - b.number);
+  return eligible[0] ?? null;
+}
+
+/**
+ * Whether someone is still working in a story's worktree. A directory that exists is not
+ * evidence: worktrees outlive their implementors until the merge removes them, so treating
+ * existence as life held every PR with a leftover worktree behind main forever. Uncommitted
+ * changes, or git activity inside the attempt window, are.
+ */
+export function worktreeLive({ exists, dirty, lastActivityMs, nowMs = Date.now(), windowMinutes = 45 }) {
+  if (!exists) return false;
+  if (dirty) return true;
+  return lastActivityMs != null && nowMs - lastActivityMs < windowMinutes * 60_000;
+}
