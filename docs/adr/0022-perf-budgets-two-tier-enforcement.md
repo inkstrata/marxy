@@ -200,6 +200,12 @@ ceiling is confirmed by up to **two** re-measures in `MARXY_PERF_ENV=ci` before 
 reference mode never re-measures. `cold_warm_ratio < 1` fails in CI — launch 1 must not be
 faster than the warm median.
 
+**Parse metric.** `parse_long_technical_ms` (MARXY-59) still uses the same two-tier rule as the
+warm start, but its baseline tolerance is stored on the per-class `parse_long_technical_ms`
+entry (`tolerance`, default 1.30 as in MARXY-83), not on the class-level `ci.tolerance` that
+the cross-run spread guard uses for warm baselines. Narrowing Ubuntu warm tolerance to 12 % for
+MARXY-70 does not tighten the parse ceiling.
+
 **Supersedes** the adoption paragraph's `ubuntu-latest` baseline 7719 ms and `macos-latest`
 baseline 1901 ms; both were derived from a warm median or a broken sample, not from the
 quantities CI now names.

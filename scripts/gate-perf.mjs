@@ -157,6 +157,11 @@ export function referenceSufficiency(results) {
 // scripts/measure-parse.mjs writes only results/perf-parse.json, on both gates runners, before the
 // startup measurement runs on the same job; this puts that number back onto the startup record the
 // gate reads, without either script touching a file it does not own.
+// Warm-start spread guard uses ci.tolerance; parse_long_technical_ms uses its own entry (MARXY-70).
+export function parseBaselineTolerance(ciMetric) {
+  return ciMetric?.tolerance ?? BASELINE_TOLERANCE;
+}
+
 export function mergeParseMeasurement(results, snapshot) {
   if (!results) return results;
   if (results[PARSE_METRIC] != null) return results;
@@ -254,9 +259,10 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
   // regresses, because the parse number reaches here through measure-parse.mjs, a snapshot it does
   // not own, and a merge, and any broken link would otherwise leave a green run that never mentions
   // the metric (the failure that discarded MARXY-59's first pull request).
+  const parseTolerance = parseBaselineTolerance(ci[PARSE_METRIC]);
   enforceTwoTier(out, fails, PARSE_METRIC, results[PARSE_METRIC], budgets.product[PARSE_METRIC], ci[PARSE_METRIC], {
     required: true,
-    tolerance,
+    tolerance: parseTolerance,
     classBaselineMs: ci[PARSE_METRIC]?.baseline_ms ?? ci.baseline_ms,
   });
 
@@ -367,7 +373,7 @@ const SELFTEST_BUDGETS = {
       cold_envelope_ms: 1343,
       observed_warm_ms: UBUNTU_OBS_WARM,
       observed_cold_ms: UBUNTU_OBS_COLD,
-      parse_long_technical_ms: { multiplier: 3, baseline_ms: 20 },
+      parse_long_technical_ms: { multiplier: 3, baseline_ms: 20, tolerance: 1.3 },
     },
     'macos-latest': {
       multiplier: 5,
@@ -378,7 +384,7 @@ const SELFTEST_BUDGETS = {
       baseline_waived: { reason: 'spread', observed_warm_ms: [2423, 1700.5, 1572, 2116, 1658.5], cross_run_spread: 1.542, escalated_to: 'MARXY-53', date: '2026-09-19' },
       observed_warm_ms: MAC_OBS_WARM,
       observed_cold_ms: MAC_OBS_COLD,
-      parse_long_technical_ms: { multiplier: 5, baseline_ms: 31.44 },
+      parse_long_technical_ms: { multiplier: 5, baseline_ms: 31.44, tolerance: 1.3 },
     },
     'no-baseline': { multiplier: 5, tolerance: 1.3, runs_n: 9, baseline_ms: null, cold_envelope_ms: 3000, parse_long_technical_ms: { multiplier: 3, baseline_ms: null } },
   },
@@ -508,11 +514,11 @@ const SELFTEST_CASES = [
       { index: 5, ms: 400, ok: true, cold: false, exit_code: 0, stderr_tail: '' },
     ],
   }), expect: 1, assert: f => has(f, /not certified cold/) },
-  // parse_long_technical_ms goes through the same rule as the warm start: envelope 10 × 3 = 30 ms,
-  // baseline ceiling 20 × 1.30 = 26 ms, and required to be present, on the SELFTEST_BUDGETS fixture.
-  { name: 'ci: parse inside both rules passes', envClass: 'ci', results: result({ parse_long_technical_ms: 18 }), expect: 0, assertOut: o => o.some(l => /^parse_long_technical_ms: 18 ms ≤ 22.4 ms/.test(l)) },
+  // parse_long_technical_ms uses the same two-tier rule as the warm start but its own tolerance:
+  // envelope 10 × 3 = 30 ms, baseline ceiling 20 × 1.30 = 26 ms on the SELFTEST_BUDGETS fixture.
+  { name: 'ci: parse inside both rules passes', envClass: 'ci', results: result({ parse_long_technical_ms: 18 }), expect: 0, assertOut: o => o.some(l => /^parse_long_technical_ms: 18 ms ≤ 26 ms/.test(l)) },
   { name: 'ci: parse above the envelope fails', envClass: 'ci', results: result({ parse_long_technical_ms: 31 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 31 ms exceeds the envelope 30 ms/) },
-  { name: 'ci: parse 12 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ parse_long_technical_ms: 23 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 23 ms exceeds the baseline ceiling 22.4 ms/) },
+  { name: 'ci: parse 12 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ parse_long_technical_ms: 27 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 27 ms exceeds the baseline ceiling 26 ms/) },
   { name: 'ci: a missing parse measurement fails', envClass: 'ci', results: result({ parse_long_technical_ms: null }), expect: 1, assert: f => has(f, /^parse_long_technical_ms missing from results\/perf\.json$/) },
   { name: 'ci: parse with no entry for the runner class fails', envClass: 'ci', results: result({ runner_class: 'macos-latest' }), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'macos-latest': { multiplier: 5, baseline_ms: 1901 } } }, expect: 1, assert: f => has(f, /parse_long_technical_ms: no ci entry for this runner class/) },
   { name: 'reference: parse over the product budget fails', envClass: 'reference', results: referenceResult({ parse_long_technical_ms: 11 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 11 ms > 10 ms \(product budget\)/) },
@@ -700,6 +706,21 @@ async function selftest() {
     badBudget(`budgets: ${name}`, b);
   }
 
+  {
+    const parseLimitLine = (budgets, ms) => {
+      const { out } = evaluate({ envClass: 'ci', budgets, results: result({ parse_long_technical_ms: ms }) });
+      return out.find(l => l.startsWith('parse_long_technical_ms:'));
+    };
+    const base = goodCi();
+    const before = parseLimitLine(base, 18);
+    base.ci['ubuntu-latest'].tolerance = 1.05;
+    const afterWarmOnly = parseLimitLine(base, 18);
+    report(before === afterWarmOnly, 'parse: warm ci.tolerance alone does not tighten the parse ceiling', `${before} → ${afterWarmOnly}`);
+    base.ci['ubuntu-latest'].parse_long_technical_ms.tolerance = 1.12;
+    const afterParseTol = parseLimitLine(base, 18);
+    report(afterParseTol !== before && /≤ 22.4 ms/.test(afterParseTol), 'parse: parse_long_technical_ms.tolerance sets the parse ceiling', afterParseTol ?? 'missing line');
+  }
+
   // Confirmation-before-failure (ci mode only, up to two re-measures).
   const confirmBudgets = goodCi();
   const breachWarm = () => result({ warm_start_first_text_ms: 10_500, cold_start_first_text_ms: 1200 });
@@ -715,6 +736,17 @@ async function selftest() {
     });
     report(!three.verdict.ok && three.rounds.length === 3, 'confirmation: three breaching rounds exit 1', `rounds ${three.rounds.length}, ok=${three.verdict.ok}`);
     report(three.verdict.fails.some(f => /exceeds the envelope/.test(f)), 'confirmation: three breaching rounds name the envelope margin');
+    const failLines = [];
+    const saveErr = console.error;
+    console.error = (...args) => failLines.push(args.join(' '));
+    console.error(`perf gate failed after ${three.rounds.length} rounds:`);
+    three.rounds.forEach((r, i) => console.error(` - round ${i + 1}: ${r.fails.join('; ')}`));
+    console.error = saveErr;
+    report(
+      failLines.some(l => /round 1:/.test(l)) && failLines.some(l => /round 2:/.test(l)) && failLines.some(l => /round 3:/.test(l)),
+      'confirmation CLI: three breaching rounds print every round margin',
+      failLines.join(' | '),
+    );
 
     calls = 0;
     const noise = await runConfirmationGate({
@@ -726,6 +758,14 @@ async function selftest() {
     });
     report(noise.verdict.ok && noise.remeasures === 1, 'confirmation: breach then clean exits 0 after one re-measure');
     report(noise.finalResults?.first_attempt?.warm_start_first_text_ms === 10_500, 'confirmation: confirmed noise records the first round margin');
+    const noiseLines = [];
+    const saveLog = console.log;
+    console.log = (...args) => noiseLines.push(args.join(' '));
+    if (noise.verdict.ok && noise.rounds[0] && !noise.rounds[0].ok) {
+      console.log(`confirmed noise: first round breached (${noise.rounds[0].fails.join('; ')})`);
+    }
+    console.log = saveLog;
+    report(noiseLines.some(l => l.includes('confirmed noise')), 'confirmation CLI: confirmed noise line is printed', noiseLines.join(' | '));
 
     calls = 0;
     const clean = await runConfirmationGate({
