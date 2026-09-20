@@ -18,6 +18,7 @@
 | 2026-09-19 | MARXY-129 | Pair-A tune from review #0: inline code and code blocks one step larger (`--marxy-size-code` 15 px), headings lighter (`--marxy-weight-heading` 560), numbered-list markers tabular and right-aligned in the hanging margin | `docs/taste-review/2026-09-marxy-129/` — review #0 passages 2 and 4 on `01-long-technical.md`, dark, 1× and 2×, before/after. [before inline code](2026-09-marxy-129/before-p2-inline-code-2x.png) · [after inline code](2026-09-marxy-129/after-p2-inline-code-2x.png); [before heading stack](2026-09-marxy-129/before-p4-heading-stack-2x.png) · [after heading stack](2026-09-marxy-129/after-p4-heading-stack-2x.png) | Are the code size and the heading voice right now at 1× and 2×? Do numbered lists still look odd? | |
 | 2026-09-20 | MARXY-28 | Rendered math on `06-math.md`: display equations and inline `$…$` after KaTeX | `fixtures/corpus/06-math.md` — Playwright checks in `packages/core/src/render/math.acceptance.test.mjs`; full-page screenshot baseline stays with MARXY-30 | Do display blocks sit on the grid without looking cramped? Is inline math on the text baseline? | |
 | 2026-09-20 | MARXY-138 | A local image on `09-gfm-everything.md` loads in the reserved box; `10-hostile.md` shows one blocked-host notice above the article instead of remote pixels in the page | Retroactive before/after for merged PR #115 AC11 (MARXY-155): `docs/taste-review/2026-09-marxy-138/` — `09-gfm-everything.md` and `10-hostile.md`, dark, 960 px, 2×. [before GFM image](2026-09-marxy-138/before-09-gfm-everything-dark-960-2x.png) · [after GFM image](2026-09-marxy-138/after-09-gfm-everything-dark-960-2x.png); [before hostile](2026-09-marxy-138/before-10-hostile-dark-960-2x.png) · [after hostile](2026-09-marxy-138/after-10-hostile-dark-960-2x.png) | Does the reserved box read as stable typesetting rather than an empty frame? Is the blocked-host line legible without feeling like an error banner? | |
+| 2026-09-20 | MARXY-76 | Review #0 re-rendered on the shipping dark and light palettes (dark first, ADR-0024); colours come from `tokens.css` and the light block of `default/theme.css` | `docs/taste-review/review-0/` — 40 PNGs, both pairs, five passages, dark then light, 1× and 2×; [README](review-0/README.md) · see **Review #0** below | **Decide on dark; confirm light does not change the choice.** Does either pair read differently enough in light that you would swap the recorded decision? | |
 | 2026-09-20 | MARXY-31 | Tier-2 review #1 kit: three corpus pages in marxy at 68 `ch`, light, 2×; blind A/B/C manifest (Typora and Marked 2 pending human capture) | [review-1 README](review-1/README.md) · [marxy captures](review-1/marxy/) · [ranking form](review-1/README.md#ranking-form--tier-2-items-1-3) | After competitor PNGs land, does marxy rank first on at least two of the three documents at reading distance? Any grid or rag drift on the long doc at ~70% scroll? | |
 | 2026-09-20 | MARXY-30 | First committed screenshot baselines: every corpus page at 960 px dark and light, first viewport and last-heading viewport, per engine; CI now pixel-diff’s against them (≤ 0.1 % at threshold 0.1) | First seed — [09 GFM macOS dark](../../fixtures/baselines/webkit-macos/09-gfm-everything-960-dark.png) · [09 GFM Linux dark](../../fixtures/baselines/webkit-linux/09-gfm-everything-960-dark.png) · [15 prose macOS light](../../fixtures/baselines/webkit-macos/15-prose-volume-960-light.png) · [15 prose Linux light](../../fixtures/baselines/webkit-linux/15-prose-volume-960-light.png); full tree under `fixtures/baselines/webkit-macos/` and `webkit-linux/` | Do these captures match the pages you already preferred after MARXY-128/129/137, separately on macOS and Linux? Any engine pair that should not gate merges yet? | |
 | 2026-09-19 | MARXY-137 | Hyphenation and hanging punctuation on in the app: even rag, hung opening quotes, generated hyphens that are not document bytes | `docs/taste-review/2026-09-typeset-defaults/` — review #0 passages 2 and 4 at 1× and 2×, before (greedy rag) and after (hyphenate + hang) | Does the rag and the hung punctuation read better than the greedy rag they replace? Any hyphen that looks like a mistake on the technical page? | |
@@ -27,9 +28,10 @@
 The decision this artifact exists to settle: **ADR-0015 is accepted** (taste review #0, 2026-09-19). Pair A is
 its default, pair B its fallback. Both sets are `fixtures/corpus/01-long-technical.md` (a 3,000-word
 technical document, tables and inline code throughout) set at the type scale in
-`docs/design-language.md` on a 68 `ch` measure, rendered by `node scripts/specimen/render.mjs` and
-checked by `node scripts/specimen/verify.mjs`. Every face is vendored under `fonts/` and inlined
-into the page, so the specimen downloads nothing.
+`docs/design-language.md` on a 68 `ch` measure, in **dark and light** (dark first, ADR-0024), rendered by
+`node scripts/specimen/render.mjs` and checked by `node scripts/specimen/verify.mjs`. **Decide on dark;
+confirm light does not change the choice.** Every face is vendored under `fonts/` and inlined into the
+page, so the specimen downloads nothing.
 
 Read each pair for a week's worth of attention before comparing them side by side. The pairs are
 not meant to be judged a page at a time — the question is which one you would still want to be
@@ -52,20 +54,20 @@ Serif 4's narrows from 0.535 em to 0.491 em.
 
 ### What to compare
 
-Each passage is captured at the same point in the document in both pairs, at 1× and 2×. Compare
-across a row, never down a column.
+Each passage is captured at the same point in the document in both pairs, in dark and light, at 1× and 2×.
+Compare across a row, never down a column. Judge **dark first**; scan light only to confirm the choice
+stands.
 
 | Passage | What it shows | Pair A | Pair B |
 | --- | --- | --- | --- |
-| 1 | title, opening prose, first section heading | [1×](review-0/pair-a-literata-jetbrains-mono/p1-opening-1x.png) · [2×](review-0/pair-a-literata-jetbrains-mono/p1-opening-2x.png) | [1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-1x.png) · [2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-2x.png) |
-| 2 | inline code inside body text (design constraint 5) | [1×](review-0/pair-a-literata-jetbrains-mono/p2-inline-code-1x.png) · [2×](review-0/pair-a-literata-jetbrains-mono/p2-inline-code-2x.png) | [1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-1x.png) · [2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-2x.png) |
-| 3 | a wide data table and its figures | [1×](review-0/pair-a-literata-jetbrains-mono/p3-table-1x.png) · [2×](review-0/pair-a-literata-jetbrains-mono/p3-table-2x.png) | [1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-1x.png) · [2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-2x.png) |
-| 4 | h2 above h3 above body, space-above ratios | [1×](review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-1x.png) · [2×](review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-2x.png) | [1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-1x.png) · [2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-2x.png) |
-| 5 | a bulleted list late in the document (grid drift) | [1×](review-0/pair-a-literata-jetbrains-mono/p5-late-list-1x.png) · [2×](review-0/pair-a-literata-jetbrains-mono/p5-late-list-2x.png) | [1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-1x.png) · [2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-2x.png) |
+| 1 | title, opening prose, first section heading | [dark 1×](review-0/pair-a-literata-jetbrains-mono/p1-opening-dark-1x.png) · [dark 2×](review-0/pair-a-literata-jetbrains-mono/p1-opening-dark-2x.png) · [light 1×](review-0/pair-a-literata-jetbrains-mono/p1-opening-light-1x.png) · [light 2×](review-0/pair-a-literata-jetbrains-mono/p1-opening-light-2x.png) | [dark 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-dark-1x.png) · [dark 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-dark-2x.png) · [light 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-light-1x.png) · [light 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-light-2x.png) |
+| 2 | inline code inside body text (design constraint 5) | [dark 1×](review-0/pair-a-literata-jetbrains-mono/p2-inline-code-dark-1x.png) · [dark 2×](review-0/pair-a-literata-jetbrains-mono/p2-inline-code-dark-2x.png) · [light 1×](review-0/pair-a-literata-jetbrains-mono/p2-inline-code-light-1x.png) · [light 2×](review-0/pair-a-literata-jetbrains-mono/p2-inline-code-light-2x.png) | [dark 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-dark-1x.png) · [dark 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-dark-2x.png) · [light 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-light-1x.png) · [light 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-light-2x.png) |
+| 3 | a wide data table and its figures | [dark 1×](review-0/pair-a-literata-jetbrains-mono/p3-table-dark-1x.png) · [dark 2×](review-0/pair-a-literata-jetbrains-mono/p3-table-dark-2x.png) · [light 1×](review-0/pair-a-literata-jetbrains-mono/p3-table-light-1x.png) · [light 2×](review-0/pair-a-literata-jetbrains-mono/p3-table-light-2x.png) | [dark 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-dark-1x.png) · [dark 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-dark-2x.png) · [light 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-light-1x.png) · [light 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-light-2x.png) |
+| 4 | h2 above h3 above body, space-above ratios | [dark 1×](review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-dark-1x.png) · [dark 2×](review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-dark-2x.png) · [light 1×](review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-light-1x.png) · [light 2×](review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-light-2x.png) | [dark 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-dark-1x.png) · [dark 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-dark-2x.png) · [light 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-light-1x.png) · [light 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-light-2x.png) |
+| 5 | a bulleted list late in the document (grid drift) | [dark 1×](review-0/pair-a-literata-jetbrains-mono/p5-late-list-dark-1x.png) · [dark 2×](review-0/pair-a-literata-jetbrains-mono/p5-late-list-dark-2x.png) · [light 1×](review-0/pair-a-literata-jetbrains-mono/p5-late-list-light-1x.png) · [light 2×](review-0/pair-a-literata-jetbrains-mono/p5-late-list-light-2x.png) | [dark 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-dark-1x.png) · [dark 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-dark-2x.png) · [light 1×](review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-light-1x.png) · [light 2×](review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-light-2x.png) |
 
-The 1× set is the one to judge: it is the density most readers are on, and it is where a face with
-too much stroke contrast or too small an x-height falls apart. The 2× set is for looking closely at
-letterforms, terminals and the fit of inline code against the body.
+The dark 1× set is the one to judge: it is the primary variant and the density most readers are on.
+The 2× set is for letterforms; light is a confirmation pass only.
 
 ### What would count as wrong
 
@@ -84,8 +86,8 @@ Any one of these is a reason to reject a pair outright rather than tune it:
 5. **Figures that do not line up.** Passage 3: the score columns are numerals in the body face; if
    they read as ragged or as a different size from the text around them, the face's figures are
    wrong for a reader who reads tables.
-6. **Stroke contrast that thins out at 1×.** Compare the two 1× captures of passage 1 directly: a
-   face whose thins disappear at reading size on a white page is disqualified.
+6. **Stroke contrast that thins out at 1×.** Compare the two dark 1× captures of passage 1 directly: a
+   face whose thins disappear at reading size on the dark ground is disqualified.
 7. **A pair that reads as two documents.** The body and the mono should look like they were chosen
    together. Passage 2 at 2× is where a mismatch of weight, width or x-height shows.
 

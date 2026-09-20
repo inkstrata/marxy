@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderSafeHtml } from '../../packages/core/src/render/index.ts';
+import { themePalettes, themeToken } from './parse-theme.mjs';
 
 const root = new URL('../../', import.meta.url);
 export const repo = p => new URL(p, root);
@@ -14,14 +15,10 @@ export const SOURCE = 'fixtures/corpus/01-long-technical.md';
 export const OUT = 'docs/taste-review/review-0';
 export const VIEWPORT = { width: 1000, height: 900 };
 export const DPRS = [1, 2];
+export const VARIANTS = ['dark', 'light'];
 
-export function tokens() {
-  const css = readFileSync(repo('packages/theme/src/tokens.css'), 'utf8');
-  return key => {
-    const m = css.match(new RegExp(`--marxy-${key}:\\s*([^;]+);`));
-    if (!m) throw new Error(`token --marxy-${key} is not in packages/theme/src/tokens.css`);
-    return m[1].split('/*')[0].trim();
-  };
+export function tokens(variant = 'dark') {
+  return key => themeToken(variant, key);
 }
 
 const ROLE_KEYS = { 'Title (h1)': 'title', 'Section (h2)': 'section', 'Sub (h3)': 'sub', Body: 'body', 'Code block': 'code', 'Caption, meta': 'caption' };
@@ -92,14 +89,14 @@ export function documentHtml() {
 
 const dataUrl = file => `url(data:font/ttf;base64,${readFileSync(repo(file)).toString('base64')}) format("truetype")`;
 
-export function stylesheet(pair) {
-  const t = tokens(), s = typeScale();
+export function stylesheet(pair, variant = 'dark') {
+  const t = tokens(variant), s = typeScale();
   const faces = pair.faces.map(f => `@font-face{font-family:"${f.family}";font-style:${f.style};font-weight:${f.weight};font-display:block;src:${dataUrl(f.file)}}`).join('\n');
   const text = `"${pair.text}", serif`, mono = `"${pair.mono}", monospace`;
   const type = r => `font-size:${r.size}px;line-height:${r.lineHeight}px;font-weight:${r.weight};letter-spacing:${r.tracking}`;
   const role = (sel, r) => `${sel}{${type(r)};margin:${r.spaceAbove}px 0 0}`;
   return `${faces}
-:root{color-scheme:light}
+:root{color-scheme:${variant}}
 *{box-sizing:border-box}
 html,body{margin:0;background:${t('color-bg')};color:${t('color-text')}}
 body{font-family:${text};${type(s.body)};font-optical-sizing:auto;text-rendering:optimizeLegibility}
@@ -109,7 +106,7 @@ article>:first-child{margin-top:0}
 ${role('h1', s.title)}
 ${role('h2', s.section)}
 ${role('h3', s.sub)}
-h1,h2,h3{font-family:${t('font-heading') === 'var(--marxy-font-text)' ? text : t('font-heading')};color:inherit}
+h1,h2,h3{font-family:${/^var\(\s*--marxy-font-text\s*\)/.test(themePalettes()[variant]['--marxy-font-heading']) ? text : t('font-heading')};color:inherit}
 ${role('p, ul, ol, blockquote, table', s.body)}
 li{margin:0}
 ul,ol{padding-left:${s.body.lineHeight}px}
@@ -133,6 +130,7 @@ export function pngSize(url) {
   return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) };
 }
 
-export function specimenPage(pair) {
-  return `<!doctype html><html lang=en><meta charset=utf-8><title>marxy specimen — ${pair.text} + ${pair.mono}</title><style>${stylesheet(pair)}</style><body><article>${documentHtml()}</article><span id=ch-probe>${'0'.repeat(68)}</span>`;
+export function specimenPage(pair, variant = 'dark') {
+  const attr = variant === 'light' ? ' data-marxy-variant=light' : '';
+  return `<!doctype html><html lang=en${attr}><meta charset=utf-8><title>marxy specimen — ${pair.text} + ${pair.mono} (${variant})</title><style>${stylesheet(pair, variant)}</style><body><article>${documentHtml()}</article><span id=ch-probe>${'0'.repeat(68)}</span>`;
 }

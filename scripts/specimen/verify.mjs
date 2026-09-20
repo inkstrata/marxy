@@ -2,8 +2,16 @@
 // 2×, set at the docs/design-language.md type scale and a 68ch measure in the two ADR-0015 pairs,
 // rendering with nothing but locally vendored OFL fonts and no network, and linked from the review
 // queue with the reviewer's checklist. Run it after render.mjs; it reads only what render.mjs wrote.
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { CONTROL_RESOURCES, DPRS, OUT, SOURCE, VIEWPORT, pages, pairs, pngSize, repo, specimenPage, tokens, typeScale } from './specimen.mjs';
+import { fileURLToPath } from 'node:url';
+import { CONTROL_RESOURCES, DPRS, OUT, SOURCE, VARIANTS, VIEWPORT, pages, pairs, pngSize, repo, repoPath, specimenPage, tokens, typeScale } from './specimen.mjs';
+
+const unit = spawnSync(process.execPath, ['--test', fileURLToPath(new URL('./specimen.test.mjs', import.meta.url))], { cwd: repoPath('.'), encoding: 'utf8' });
+if (unit.status !== 0) {
+  console.error((unit.stdout + unit.stderr).trim() || 'specimen unit checks failed');
+  process.exit(1);
+}
 
 const fails = [];
 const check = (ok, message) => { if (!ok) fails.push(message); return ok; };
@@ -33,25 +41,35 @@ const manifest = JSON.parse(readFileSync(repo(manifestPath), 'utf8'));
 const scale = typeScale();
 const queue = readFileSync(repo('docs/taste-review/queue.md'), 'utf8');
 
-// 1. Two complete PNG sets, 1× and 2×, of the long document.
+check(JSON.stringify(manifest.variants) === JSON.stringify(VARIANTS), `manifest variants are ${JSON.stringify(manifest.variants)}, expected ${JSON.stringify(VARIANTS)}`);
+
+// 1. Two complete PNG sets per variant, 1× and 2×, of the long document.
 check(manifest.source === SOURCE, `manifest renders ${manifest.source}, not ${SOURCE}`);
 check(manifest.pairs.length === 2, `${manifest.pairs.length} pairs rendered, expected 2`);
 for (const pair of pairs) {
   const entry = manifest.pairs.find(p => p.slug === pair.slug);
   if (!check(entry, `no rendered set for ${pair.slug}`)) continue;
-  for (const page of pages) {
-    const at = dpr => entry.images.find(i => i.page === page.id && i.dpr === dpr);
-    for (const dpr of DPRS) {
-      const image = at(dpr);
-      if (!check(image, `${pair.slug} is missing ${page.id} at ${dpr}×`)) continue;
-      if (!check(existsSync(repo(image.path)), `${image.path} is in the manifest but not on disk`)) continue;
-      const { width, height } = pngSize(repo(image.path));
-      check(width === VIEWPORT.width * dpr && height === VIEWPORT.height * dpr, `${image.path} is ${width}×${height}, expected ${VIEWPORT.width * dpr}×${VIEWPORT.height * dpr}`);
-      check(image.bytes > 20_000, `${image.path} is ${image.bytes} bytes — too small to be a page of text`);
+  for (const variant of VARIANTS) {
+    for (const page of pages) {
+      const at = dpr => entry.images.find(i => i.page === page.id && i.variant === variant && i.dpr === dpr);
+      for (const dpr of DPRS) {
+        const image = at(dpr);
+        if (!check(image, `${pair.slug} is missing ${page.id} ${variant} at ${dpr}×`)) continue;
+        if (!check(existsSync(repo(image.path)), `${image.path} is in the manifest but not on disk`)) continue;
+        const { width, height } = pngSize(repo(image.path));
+        check(width === VIEWPORT.width * dpr && height === VIEWPORT.height * dpr, `${image.path} is ${width}×${height}, expected ${VIEWPORT.width * dpr}×${VIEWPORT.height * dpr}`);
+        check(image.bytes > 20_000, `${image.path} is ${image.bytes} bytes — too small to be a page of text`);
+      }
+      const [one, two] = DPRS.map(at);
+      if (one && two) check(two.width === one.width * 2 && two.height === one.height * 2, `${pair.slug} ${page.id} ${variant}: the 2× PNG is not twice the 1× PNG`);
+      if (one && two) check(JSON.stringify(one.anchor) === JSON.stringify(two.anchor), `${pair.slug} ${page.id} ${variant}: the 1× and 2× captures anchored to different elements`);
     }
-    const [one, two] = DPRS.map(at);
-    if (one && two) check(two.width === one.width * 2 && two.height === one.height * 2, `${pair.slug} ${page.id}: the 2× PNG is not twice the 1× PNG`);
-    if (one && two) check(JSON.stringify(one.anchor) === JSON.stringify(two.anchor), `${pair.slug} ${page.id}: the 1× and 2× captures anchored to different elements`);
+  }
+  for (const page of pages) {
+    for (const dpr of DPRS) {
+      const legacy = `${OUT}/${pair.slug}/${page.id}-${dpr}x.png`;
+      check(!existsSync(repo(legacy)), `${legacy} is the pre-variant name and must be removed`);
+    }
   }
 
   // 2. Set at the type scale, in this pair's faces.
@@ -116,18 +134,20 @@ if (check(control, 'the manifest has no network control: the zero-request claim 
 check(manifest.blocked.length === 0, `the specimen attempted ${manifest.blocked.length} network requests: ${manifest.blocked.slice(0, 5).join(', ')}`);
 check(manifest.requests.every(u => /^(data|about|blob):/i.test(u)), `the specimen requested a non-local URL: ${manifest.requests.filter(u => !/^(data|about|blob):/i.test(u)).slice(0, 5).join(', ')}`);
 for (const pair of pairs) {
-  const html = specimenPage(pair);
-  const urls = [...html.matchAll(/url\(([^)]*)\)/g)].map(m => m[1]);
-  check(urls.length === pair.faces.length, `${pair.slug}: the specimen page has ${urls.length} url() references, expected one inlined face per ${pair.faces.length}`);
-  check(urls.every(u => u.startsWith('data:font/ttf;base64,')), `${pair.slug}: a font is referenced by URL rather than inlined`);
-  // Anything that can fetch, by attribute as well as by tag: a remote <video src> reads as neither
-  // <img> nor <script>, and the first version of this scan let one through.
-  const fetching = [...html.matchAll(/<(?:link|script|img|picture|source|iframe|frame|video|audio|track|embed|object|applet)\b|\b(?:src|srcset|poster|background|data|codebase|formaction|ping)\s*=|@import/gi)].map(m => m[0].trim());
-  check(fetching.length === 0, `${pair.slug}: the specimen page contains ${fetching.length} things that can fetch (${[...new Set(fetching)].slice(0, 5).join(', ')})`);
+  for (const variant of VARIANTS) {
+    const html = specimenPage(pair, variant);
+    const urls = [...html.matchAll(/url\(([^)]*)\)/g)].map(m => m[1]);
+    check(urls.length === pair.faces.length, `${pair.slug} ${variant}: the specimen page has ${urls.length} url() references, expected one inlined face per ${pair.faces.length}`);
+    check(urls.every(u => u.startsWith('data:font/ttf;base64,')), `${pair.slug} ${variant}: a font is referenced by URL rather than inlined`);
+    // Anything that can fetch, by attribute as well as by tag: a remote <video src> reads as neither
+    // <img> nor <script>, and the first version of this scan let one through.
+    const fetching = [...html.matchAll(/<(?:link|script|img|picture|source|iframe|frame|video|audio|track|embed|object|applet)\b|\b(?:src|srcset|poster|background|data|codebase|formaction|ping)\s*=|@import/gi)].map(m => m[0].trim());
+    check(fetching.length === 0, `${pair.slug} ${variant}: the specimen page contains ${fetching.length} things that can fetch (${[...new Set(fetching)].slice(0, 5).join(', ')})`);
+  }
 }
 const fontsReadme = readFileSync(repo('fonts/README.md'), 'utf8');
 for (const family of new Set(pairs.flatMap(p => [p.text, p.mono]))) check(fontsReadme.includes(family), `fonts/README.md does not list ${family}`);
-check(tokens()('measure') === '68ch', `--marxy-measure is ${tokens()('measure')}, not 68ch`);
+check(tokens('dark')('measure') === '68ch', `--marxy-measure is ${tokens('dark')('measure')}, not 68ch`);
 
 // 7. The queue entry is the deliverable: it links every PNG and carries the reviewer's checklist.
 const linked = new Set([...queue.matchAll(/\(([^)]*review-0[^)]*\.png)\)/g)].map(m => m[1].replace(/^\.\//, '')));
@@ -141,4 +161,4 @@ check(pages.every(p => queue.includes(p.shows)), 'the queue entry does not say w
 
 if (fails.length) { console.error(`specimen gate failed:\n - ${fails.join('\n - ')}`); process.exit(1); }
 const images = manifest.pairs.flatMap(p => p.images).length;
-console.log(`specimen gate ok: ${manifest.pairs.length} pairs × ${pages.length} pages × ${DPRS.length} densities = ${images} PNGs at the type scale, 68ch (${manifest.pairs.map(p => `${p.text} ${p.measured.columnPx}px`).join(', ')}), same ${pages.length} anchors in both sets, ${manifest.blocked.length} network requests against ${control.kinds.length}/${CONTROL_RESOURCES.length} control references intercepted, ${linked.size} linked from the queue`);
+console.log(`specimen gate ok: ${manifest.pairs.length} pairs × ${VARIANTS.length} variants × ${pages.length} pages × ${DPRS.length} densities = ${images} PNGs at the type scale, 68ch (${manifest.pairs.map(p => `${p.text} ${p.measured.columnPx}px`).join(', ')}), same ${pages.length} anchors in both sets, ${manifest.blocked.length} network requests against ${control.kinds.length}/${CONTROL_RESOURCES.length} control references intercepted, ${linked.size} linked from the queue`);
