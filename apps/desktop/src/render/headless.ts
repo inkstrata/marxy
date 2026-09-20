@@ -361,14 +361,11 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
 
   let stats: TypesetStats = emptyStats();
   if (opts.typeset !== false) {
-    // Same literals as apps/desktop/src/app.ts typesetDocument. hyphenate and hanging stay
-    // off until MARXY-24 flips them there and here, and re-baselines fixtures/baselines/rag/.
+    // Same option set as apps/desktop/src/app.ts typesetDocument (package defaults for hyphenate and hanging).
     const controller = attach(article, {
       lineBox,
       glueStretchEm: 0.6,
-      hyphenate: false,
       lastLineMinWidth: 0.33,
-      hanging: 'none',
       onPass: () => snapToGrid(article, lineBox),
     });
     await controller.ready;
