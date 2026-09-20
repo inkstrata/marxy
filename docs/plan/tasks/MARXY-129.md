@@ -1,7 +1,7 @@
 ---
 key: MARXY-129
 design: [05-theme]
-depends: [MARXY-128, MARXY-133]
+depends: [MARXY-128, MARXY-133, MARXY-139, MARXY-145]
 verify: [node scripts/check-tokens.mjs, node --test packages/theme/test/grid.test.mjs, pnpm gate:specimen]
 ---
 # MARXY-129 — Tune pair A: the mono size and the heading voice

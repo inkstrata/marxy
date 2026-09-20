@@ -13,7 +13,7 @@ verify: [pnpm precheck, pnpm done MARXY-53]
 ## Files and signatures
 - `scripts/tighten-budgets.mjs` + `scripts/tighten-budgets.test.mjs` — `--from <run id…> --reference <reference.json> [--write]`: downloads (via `gh run download`) the `results/perf.json` artifact of each run, validates five distinct `main` commits per runner class, computes the §13 values, prints a before/after table, and with `--write` edits `fixtures/perf-budgets.json` in place preserving key order and formatting.
 - `fixtures/perf-budgets.json` — the new numbers.
-- `docs/plan/deltas/<date>-budgets.md` — a short delta: the table, the runs, the reference file's commit.
+- `docs/plan/deltas/` — a short delta (for example `docs/plan/deltas/2026-09-20-budgets.md`): the table, the runs, the reference file's commit.
 
 ## Do this, in order
 1. `tighten-budgets.mjs` against a fixture set of five fake `perf.json` files; the test asserts the arithmetic (1.2× median; max of five; envelope from observed cold with the unchanged multiplier), that four runs or two from the same commit are refused, and that a run class breaking `(max/min) × tolerance ≤ 1.20` keeps its old baseline with a printed reason.
