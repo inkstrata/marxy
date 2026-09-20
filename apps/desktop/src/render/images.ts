@@ -33,6 +33,24 @@ function measurePx(article: HTMLElement): number {
 }
 
 /**
+ * Drops `src` on images that cannot be local assets (no shell IPC). Runs on the critical path so
+ * refused paths never reach `first_text` with a fetchable URL (MARXY-138, MARXY-33).
+ */
+export function stripNonLocalImages(article: HTMLElement, documentPath: string): void {
+  const { documentDir, imageRoot } = pathsForDocument(documentPath);
+  const measure = measurePx(article);
+  const opts = { documentDir, imageRoot, measurePx: measure };
+  for (const img of article.querySelectorAll<HTMLImageElement>('img[src]')) {
+    if (img.dataset.marxyRemote !== undefined || img.dataset.marxyDone === 'images') continue;
+    const resolved = resolveImageSrc(img.getAttribute('src') ?? '', opts);
+    if (resolved.kind !== 'local') {
+      img.removeAttribute('src');
+      img.dataset.marxyDone = 'images';
+    }
+  }
+}
+
+/**
  * Resolve each local `<img src>`, allow the image root once, reserve width/height, then set `src`.
  * Skips remote placeholders (dataset.marxyRemote) and images this pass already processed.
  */

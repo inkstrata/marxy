@@ -4,13 +4,12 @@ import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
-import { applyImages, pathsForDocument } from './render/images.ts';
-import { applyMath } from './render/math.ts';
-import { startCodeHighlight } from './render/highlight.ts';
+import { stripNonLocalImages } from './render/images.ts';
 import { blockedContentNotice } from './notices/blocked.ts';
 import { ensureNoticesRegion } from './notices/index.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
+import { runDeferredStartup, whenIdle } from './startup/idle-work.ts';
 
 /** The Phase 0 shell surface: frozen Shell members tauri.ts already implements, plus startup extras. */
 export type AppShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks'> & {
@@ -148,6 +147,7 @@ async function boot(): Promise<void> {
   const offset = applyWeightOffset(document.documentElement, platformOf(navigator.userAgent), null);
   void shell.mark('weight_offset', Date.now(), `offset=${offset}`);
   launchArgs = launchArgs.length > 0 ? launchArgs : await shell.args();
+  await shell.mark('args', Date.now(), `n=${launchArgs.length}`);
   // Skip flags and the macOS launcher's -psn_… argument; the first plain argument is the document.
   const file = launchArgs.find(a => !a.startsWith('-'));
   const doc = document.getElementById('doc')!;
@@ -164,8 +164,10 @@ async function boot(): Promise<void> {
   }
 
   const bytes = await shell.readFile(file);
+  await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
   // One parse, then the sanitised render from that AST — not a second parser (ADR-0001, ADR-0021).
   const ast = parseMarkdown(bytes, { file });
+  await shell.mark('parsed', Date.now());
   const { html, removed, blockedImages } = renderDocumentSafeHtml(ast);
   const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
@@ -174,10 +176,9 @@ async function boot(): Promise<void> {
   const after = performance.now();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap, blocks: [] };
-  const { documentDir, imageRoot } = pathsForDocument(file);
-  await applyImages(doc, { documentPath: file, documentDir, imageRoot, shell, scopedRoots: scopedAssetRoots });
+  await shell.mark('rendered', Date.now());
+  stripNonLocalImages(doc, file);
   blockedContentNotice(blockedImages);
-  await applyMath(doc);
   // The faces are preloaded and `font-display: block`: first text is never the fallback face, and
   // the grid pass below measures the real one (ADR-0015).
   // Layout first: a face is requested when text needs it, and `fonts.ready` waits only for requests.
@@ -223,16 +224,16 @@ async function boot(): Promise<void> {
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
   await typesetDocument(doc);
-  scheduleHighlightWhenIdle(doc);
+  await shell.mark('position_restored', Date.now());
+  await whenIdle(() =>
+    runDeferredStartup({
+      shell,
+      file,
+      doc,
+      imageCtx: { shell, scopedRoots: scopedAssetRoots },
+    }),
+  );
   return finish(0);
-}
-
-/** Code highlighting is idle work after first text and the viewport typeset pass (MARXY-164). */
-function scheduleHighlightWhenIdle(article: HTMLElement): void {
-  const run = () => startCodeHighlight(article);
-  const idle = (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-  if (idle !== undefined) idle(run);
-  else void Promise.resolve().then(run);
 }
 
 /**
