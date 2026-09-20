@@ -7,6 +7,7 @@ mod error;
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::Manager;
 
 fn now_ms() -> f64 {
     SystemTime::now()
