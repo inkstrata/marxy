@@ -7,6 +7,7 @@ mod error;
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::Manager;
 
 fn now_ms() -> f64 {
     SystemTime::now()
@@ -195,6 +196,12 @@ fn main() {
     }
     mark("main_start", now_ms(), None);
     tauri::Builder::default()
+        .setup(|app| {
+            if app.webview_windows().values().next().is_some() {
+                mark("window_shown", now_ms(), None);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             args,
             read_file,
