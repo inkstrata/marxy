@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ragMetrics } from '../packages/typeset/scripts/rag-model.mjs';
 import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
@@ -16,7 +16,6 @@ const dist = join(desktop, 'dist');
 const corpusDir = join(root, 'fixtures/corpus');
 const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
-const SHOTS = process.argv.includes('--shots');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
 const repeatIdx = process.argv.indexOf('--repeat');
 // The CLS repeat pass re-renders the whole corpus to prove the font/image window is deterministic.
@@ -441,7 +440,83 @@ function shotName(file, width, variant, where) {
   return `${stem}-${width}-${variant}${where === 'last' ? '-last' : ''}.png`;
 }
 
-/** §10 check 10. Pixel compare without adding pixelmatch (package.json is outside Paths); MARXY-30 owns the dep. */
+/** §10 check 10: 960 px dark/light only; same threshold and 0.1 % budget as `pixelmatch` (MIT). */
+function screenshotCombo(opts) {
+  return opts.width === 960 && opts.size === 17 && (opts.variant === 'dark' || opts.variant === 'light');
+}
+
+function diffDir() {
+  return join(root, 'results/diffs', engineName());
+}
+
+const SHOT_THRESHOLD = 0.1;
+const SHOT_MAX_PCT = 0.1;
+
+/** RGBA compare in-page (Playwright WebKit has createImageBitmap); matches pixelmatch threshold semantics. */
+async function compareScreenshotPng(page, expected, actual, { writeDiffPath } = {}) {
+  const payload = await page.evaluate(
+    async ({ a, b, threshold, diffPath }) => {
+      const decode = async (bytes) => {
+        const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' });
+        const bitmap = await createImageBitmap(blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+        return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      };
+      const left = await decode(a);
+      const right = await decode(b);
+      if (left.width !== right.width || left.height !== right.height) {
+        return { pct: 100, reason: `size ${left.width}×${left.height} vs ${right.width}×${right.height}`, diffPng: null };
+      }
+      let differ = 0;
+      const n = left.data.length / 4;
+      const out = new Uint8ClampedArray(left.data.length);
+      for (let i = 0; i < left.data.length; i += 4) {
+        const dr = left.data[i] - right.data[i];
+        const dg = left.data[i + 1] - right.data[i + 1];
+        const db = left.data[i + 2] - right.data[i + 2];
+        const da = left.data[i + 3] - right.data[i + 3];
+        const dist = Math.sqrt(dr * dr + dg * dg + db * db + da * da) / 510;
+        if (dist > threshold) {
+          differ++;
+          out[i] = 255;
+          out[i + 1] = out[i + 2] = 0;
+          out[i + 3] = 255;
+        } else {
+          out[i] = left.data[i];
+          out[i + 1] = left.data[i + 1];
+          out[i + 2] = left.data[i + 2];
+          out[i + 3] = left.data[i + 3];
+        }
+      }
+      let diffPng = null;
+      if (diffPath && differ > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = left.width;
+        canvas.height = left.height;
+        canvas.getContext('2d').putImageData(new ImageData(out, left.width, left.height), 0, 0);
+        const dataUrl = canvas.toDataURL('image/png');
+        diffPng = [...atob(dataUrl.slice(dataUrl.indexOf(',') + 1))].map((c) => c.charCodeAt(0));
+      }
+      return { pct: (differ / n) * 100, diffPng };
+    },
+    {
+      a: [...expected],
+      b: [...actual],
+      threshold: SHOT_THRESHOLD,
+      diffPath: writeDiffPath ?? null,
+    },
+  );
+  if (writeDiffPath && payload.diffPng?.length) {
+    mkdirSync(dirname(writeDiffPath), { recursive: true });
+    writeFileSync(writeDiffPath, Buffer.from(payload.diffPng));
+  }
+  return payload;
+}
+
 async function checkScreenshot(page, { file, width, variant, update }) {
   const dir = shotDir();
   const out = [];
@@ -459,44 +534,21 @@ async function checkScreenshot(page, { file, width, variant, update }) {
       await page.evaluate(() => window.scrollTo(0, 0));
     }
     const png = await page.screenshot({ fullPage: false, type: 'png' });
-    const dest = join(dir, shotName(file, width, variant, where));
+    const name = shotName(file, width, variant, where);
+    const dest = join(dir, name);
     if (update || !existsSync(dest)) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(dest, png);
-      out.push(`baseline created; add a queue entry (${engineName()}/${shotName(file, width, variant, where)})`);
+      out.push(`baseline created; add a queue entry (${engineName()}/${name})`);
       continue;
     }
     const expected = readFileSync(dest);
     if (expected.equals(png)) continue;
-    const diff = await page.evaluate(async ({ a, b }) => {
-      const decode = async (bytes) => {
-        const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' });
-        const bitmap = await createImageBitmap(blob);
-        const canvas = document.createElement('canvas');
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(bitmap, 0, 0);
-        return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-      };
-      const left = await decode(a);
-      const right = await decode(b);
-      if (left.width !== right.width || left.height !== right.height) {
-        return { pct: 100, reason: `size ${left.width}×${left.height} vs ${right.width}×${right.height}` };
-      }
-      let differ = 0;
-      const n = left.data.length / 4;
-      for (let i = 0; i < left.data.length; i += 4) {
-        const dr = left.data[i] - right.data[i];
-        const dg = left.data[i + 1] - right.data[i + 1];
-        const db = left.data[i + 2] - right.data[i + 2];
-        const da = left.data[i + 3] - right.data[i + 3];
-        const dist = Math.sqrt(dr * dr + dg * dg + db * db + da * da) / 510;
-        if (dist > 0.1) differ++;
-      }
-      return { pct: (differ / n) * 100 };
-    }, { a: [...expected], b: [...png] });
-    if (diff.pct > 0.1) out.push(`${file} ${width} ${variant} ${where}: ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''}`);
+    const diffPath = join(diffDir(), name.replace(/\.png$/, '.diff.png'));
+    const diff = await compareScreenshotPng(page, expected, png, { writeDiffPath: diffPath });
+    if (diff.pct > SHOT_MAX_PCT) {
+      out.push(`${file} ${width} ${variant} ${where}: ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''} (diff ${diffPath.slice(root.length + 1)})`);
+    }
   }
   return out;
 }
@@ -647,6 +699,27 @@ async function selftest(browser, origin) {
   if (opticalProblems.length) {
     throw new Error(`selftest: valid ~5% optical protrusion must pass checkHanging (${opticalProblems.join('; ')})`);
   }
+
+  const shotPage = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  await shotPage.setContent(
+    crafted('<h2 data-marxy-s="0" data-marxy-e="1" style="display:block;margin:0">Title</h2><p>Body text for the viewport shot.</p>'),
+    { waitUntil: 'domcontentloaded' },
+  );
+  const shotBase = await shotPage.screenshot({ fullPage: false, type: 'png' });
+  const same = await compareScreenshotPng(shotPage, shotBase, shotBase);
+  if (same.pct > SHOT_MAX_PCT) {
+    throw new Error(`selftest: identical screenshot reruns must match (got ${same.pct.toFixed(3)}% differ)`);
+  }
+  await shotPage.evaluate(() => {
+    document.querySelector('h2').style.marginTop = '1px';
+  });
+  const shotShift = await shotPage.screenshot({ fullPage: false, type: 'png' });
+  const shifted = await compareScreenshotPng(shotPage, shotBase, shotShift);
+  await shotPage.close();
+  if (shifted.pct <= SHOT_MAX_PCT) {
+    throw new Error(`selftest: 1px h2 margin must fail screenshot diff (got ${shifted.pct.toFixed(3)}% differ)`);
+  }
+
   return {
     rectWidth: opticalSizing.width,
     marginPx: opticalSizing.marginPx,
@@ -795,7 +868,7 @@ async function main() {
             writeRagBaseline(file, metrics);
             created++;
           }
-          const shot = opts.size === 17 && (SHOTS || existsSync(join(shotDir(), shotName(file, opts.width, opts.variant, 'first'))));
+          const shot = screenshotCombo(opts);
           return await runPageChecks(page, result, {
             file,
             ...opts,
