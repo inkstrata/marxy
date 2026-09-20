@@ -77,8 +77,9 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
   and carrying the PR link. The full list, with the definition of ready that precedes it,
   is in `docs/sdlc.md`. `docs/hygiene.md` lists what the tools enforce; `pnpm new` starts
   modules, operations and commands in the house shape.
-- **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` or
-  `packages/theme/src/tokens.css` needs an ADR and a PR touching only that.
+- **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` needs an ADR
+  and a PR touching only that. The token names, units and meanings are frozen and need an
+  ADR; the default theme's values are taste and need a story with a taste-review queue row.
 - **Toolchain:** versions come from `mise.toml`. `pnpm` for Node, `uv` for Python,
   `cargo` for Rust. Never `npm install -g`.
 
@@ -89,9 +90,9 @@ queue for a human.
 
 **Machine (CI, `scripts/gate-*.mjs`):** build/typecheck/lint/format; unit tests;
 golden AST+source-map files over the corpus; screenshot diff over the corpus per
-engine; performance budgets as hard failures; bundle size; licence audit;
-byte-fidelity property test; no-network assertion; the mechanical half of the
-aesthetics test (`docs/aesthetics-acceptance.md`).
+engine; performance numbers recorded (not gated, ADR-0032); bundle size; licence
+audit; byte-fidelity property test; no-network assertion; the mechanical half of
+the aesthetics test (`docs/aesthetics-acceptance.md`).
 
 **Human (scheduled, batched):** whether it is *beautiful*. Never ask "does this look
 right?" mid-task. Produce a reviewable artifact (screenshot corpus, side-by-side vs
@@ -100,10 +101,10 @@ carry on against the mechanical gates. The queue is reviewed at the end of each 
 
 ## Budgets
 
-CI fails on regression of the named interaction budgets below. Cold start is
-measured and recorded; there is no product ceiling (ADR-0029).
+Interaction times are measured and printed. None of them fail CI (ADR-0032).
+The numbers below are the sphere of concern, not a merge-bar ceiling.
 
-| Cold start → first readable text | measured; no product ceiling | Open indexed doc | < 50 ms |
+| Cold start → first readable text | measured; no ceiling | Open indexed doc | < 50 ms |
 | --- | --- | --- | --- |
 | Palette keystroke → results | < 16 ms | Typeset viewport | < 100 ms |
 | Live-reload after external change | < 100 ms | Find, first match | < 50 ms |

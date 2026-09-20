@@ -5,6 +5,8 @@
  */
 
 import { SET, applyBreaks, contentBox, overflow, revert } from './apply.ts';
+import { applyHang } from './hang.ts';
+import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
 import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
 import { FontSizes, measureTokens } from './measure.ts';
 import { DEFAULT_RAGGED, breakRagged } from './ragged.ts';
@@ -23,12 +25,12 @@ export interface TypesetOptions {
   readonly glueStretchEm: number;
   /** 'ragged' (default): the per-line right-skip breaker. 'justif': justif/core over MARXY-19's stream. */
   readonly engine?: 'ragged' | 'justif';
-  /** MARXY-24; false until then. */
-  readonly hyphenate: boolean;
+  /** Allow-listed hyphenation; default true. */
+  readonly hyphenate?: boolean;
   /** Accepted for the §04 surface; the ending pressure stays justif's default, see RESEARCH.md "Rendered". */
   readonly lastLineMinWidth: number;
-  /** MARXY-24; 'none' until then. */
-  readonly hanging: 'none' | 'left';
+  /** Left-edge hanging and optical alignment; default 'left'. The right edge stays ragged. */
+  readonly hanging?: 'none' | 'left';
   /** Injectable for tests; default: idle-chunked. */
   readonly scheduler?: Scheduler;
   /** Called after each pass that changed line breaks, so the app can re-run the grid pass and re-read positions. */
@@ -89,7 +91,10 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   const settings = { ...DEFAULT_BREAK, glueStretchEm: opts.glueStretchEm };
   const ragged = { ...DEFAULT_RAGGED, stretchEm: opts.raggedStretchEm ?? DEFAULT_RAGGED.stretchEm };
   const engine = opts.engine ?? 'ragged';
+  const hyphenateOn = opts.hyphenate !== false;
+  const hanging = opts.hanging ?? 'left';
   const stats: TypesetStats = { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0, viewportMs: 0, reasons: {} };
+  let hyphenators: Record<'en-us' | 'en-gb', Hyphenator> | null = null;
   let queue: HTMLElement[] = [];
   let generation = 0;
   let observer: IntersectionObserver | null = null;
@@ -122,7 +127,11 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     if (cs.direction === 'rtl') return (fallback('right-to-left'), null);
     const text = p.textContent ?? '';
     if ((text.match(CJK)?.length ?? 0) > text.length * 0.2) return (fallback('CJK'), null);
-    const tokens = collectTokens(p);
+    let tokens = collectTokens(p);
+    const lang = p.closest('[lang]')?.getAttribute('lang') ?? p.ownerDocument.documentElement.getAttribute('lang') ?? '';
+    const pattern = hyphenateOn ? resolvePattern(lang) : null;
+    const hyphenator = pattern !== null && hyphenators !== null ? hyphenators[pattern] : null;
+    if (hyphenator !== null) tokens = insertHyphens(tokens, hyphenator);
     if (tokens.length < 3) return (stats.short++, null);
     const box = contentBox(p);
     return { p, tokens, right: box.right, width: box.width };
@@ -139,7 +148,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     for (const c of candidates) {
       const measured = measureTokens(c.tokens, fonts);
       let natural = 0;
-      for (const m of measured) if (m.kind !== 'dash') natural += m.width;
+      for (const m of measured) if (m.kind === 'piece' || m.kind === 'space') natural += m.width;
       if (natural <= c.width) {
         stats.short++;
         continue;
@@ -169,16 +178,37 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       fallback('overflow after setting');
     }
     stats.typeset += plans.length - over.length + retried.length - failed.length;
+    if (hanging === 'left') {
+      const overSet = new Set(over.map(({ plan }) => plan.p));
+      const failedSet = new Set(failed.map((f) => f.p));
+      for (const { p } of plans) if (!overSet.has(p)) applyHang(p);
+      for (const { p } of retried) if (!failedSet.has(p)) applyHang(p);
+    }
     for (const p of paragraphs) observer?.unobserve(p);
   };
 
   const run = (): void => {
     const mine = ++generation;
-    if (killed()) {
-      resolveReady();
-      resolveDone();
+    const go = (): void => {
+      if (mine !== generation) return;
+      if (killed()) {
+        resolveReady();
+        resolveDone();
+        return;
+      }
+      layout(mine);
+    };
+    if (hyphenateOn && hyphenators === null) {
+      void loadHyphenators().then((loaded) => {
+        hyphenators = loaded;
+        go();
+      });
       return;
     }
+    go();
+  };
+
+  const layout = (mine: number): void => {
     const all = [...article.querySelectorAll<HTMLElement>(CANDIDATES)];
     // Viewport plus one screen below, synchronously: the first thing a reader sees is already set.
     const t0 = performance.now();

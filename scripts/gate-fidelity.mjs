@@ -31,6 +31,9 @@ const thisFile = fileURLToPath(import.meta.url);
 /** The two fixtures that exist because every plausible save path gets them wrong. */
 const HARD_FIXTURES = ['12-crlf-and-bom.md', '13-no-trailing-newline.md'];
 
+/** Binary corpus assets referenced by markdown fixtures; not documents and not round-tripped (MARXY-138). */
+const CORPUS_ASSETS = new Set(['image.png']);
+
 /** The signature the gate compiles against; also the anchor the deliberately broken copies patch. */
 const SAVE_SIGNATURE = 'pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {';
 
@@ -158,6 +161,7 @@ function checkCorpusPreconditions() {
   // A precondition on the corpus rather than on the code: the view decodes for display, and a file
   // that cannot survive that decode would make a display-side bug look like a save-side one.
   for (const name of corpus) {
+    if (CORPUS_ASSETS.has(name)) continue;
     const bytes = bytesOf(name);
     const decoded = Buffer.from(new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes), 'utf-8');
     if (!bytes.equals(decoded)) {
@@ -219,6 +223,7 @@ function roundTrip(binary, names, label) {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   for (const name of names) {
+    if (CORPUS_ASSETS.has(name)) continue;
     const original = bytesOf(name);
     const destination = join(dir, name);
     // Seeded with something longer than most documents, so a save that failed to truncate would

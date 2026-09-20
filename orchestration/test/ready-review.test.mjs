@@ -77,6 +77,20 @@ const STORIES = [
     Acceptance: 'ADR is accepted',
     Labels: 'phase-1,cross-phase',
   },
+  {
+    Key: 'MARXY-900',
+    Summary: 'Dropped, but otherwise looks dispatchable',
+    Paths: 'apps/desktop/src/dropped',
+    Acceptance: 'would be observable if the row were not dropped',
+    Labels: 'phase-0,dropped',
+  },
+  {
+    Key: 'MARXY-901',
+    Summary: 'Dropped, and missing Paths and Acceptance too',
+    Paths: '',
+    Acceptance: '',
+    Labels: 'phase-0,dropped',
+  },
 ];
 
 const PHASES = {
@@ -192,6 +206,25 @@ test('human-gated stories are excluded from ready', () => {
     report.excluded.find(e => e.key === 'MARXY-6'),
     { key: 'MARXY-6', rule: RULE.HUMAN_GATED },
   );
+});
+
+test('a dropped story is refused by its own rule, ahead of empty-acceptance and empty-paths, and never queued', () => {
+  const report = readyFrom();
+  assert.deepEqual(
+    report.excluded.find(e => e.key === 'MARXY-900'),
+    { key: 'MARXY-900', rule: RULE.DROPPED },
+    'a dropped story with paths and acceptance is refused as dropped, not dispatched',
+  );
+  assert.deepEqual(
+    report.excluded.find(e => e.key === 'MARXY-901'),
+    { key: 'MARXY-901', rule: RULE.DROPPED },
+    'a dropped story missing paths/acceptance is refused as dropped, not for the wrong reason',
+  );
+  for (const key of ['MARXY-900', 'MARXY-901']) {
+    assert.ok(!keys(report).includes(key));
+    assert.ok(!report.blockedByDeps.includes(key));
+    assert.ok(!report.blockedByPaths.includes(key));
+  }
 });
 
 test('refuses empty Acceptance, empty Paths, or a lane-limit breach, and names the rule', () => {

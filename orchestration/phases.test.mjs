@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { stories, deps, phaseOf, earlierPhaseOpen, ROOT } from './lib.mjs';
 import { selectReady } from './ready.mjs';
 import { plannerReasons } from './planner-trigger.mjs';
+import { LIMIT, isPlanSurface, budgetedInsertions, forbiddenNames } from './branch-diff.mjs';
 
 const story = (Key, Paths, Labels = '') => ({ Key, Type: 'Story', Summary: Key, Paths, Labels, Acceptance: 'a check' });
 const board = statuses => ({ stories: Object.fromEntries(Object.entries(statuses).map(([k, status]) => [k, { status, attempts: 0 }])) });
@@ -118,6 +119,19 @@ function resolveThreeDotBase(opts, git = execFileSync) {
   return null;
 }
 
+function parseNumstat(stdout) {
+  return stdout.split('\n').filter(Boolean).map(line => {
+    const [added, , file] = line.split('\t');
+    return { added, file };
+  });
+}
+
+function assertBudgeted(rows) {
+  const added = budgetedInsertions(rows);
+  assert.ok(added < LIMIT, `diff is +${added}, want under ${LIMIT}`);
+  return added;
+}
+
 function runBranchDiffGuard({ resolveBase, skip }) {
   const base = resolveBase();
   if (!base) {
@@ -125,18 +139,14 @@ function runBranchDiffGuard({ resolveBase, skip }) {
     return 'skipped';
   }
   const range = `${base}...HEAD`;
-  const stat = spawnSync('git', ['diff', '--stat', range], { cwd: ROOT, encoding: 'utf8' });
-  assert.equal(stat.status, 0);
-  const added = Number((stat.stdout.match(/(\d+) insertions?\(\+\)/) ?? [0, 0])[1]);
-  assert.ok(added < 600, `diff is +${added}, want under 600`);
+  const numstat = spawnSync('git', ['diff', '--numstat', range], { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(numstat.status, 0);
+  assertBudgeted(parseNumstat(numstat.stdout));
   const names = spawnSync('git', ['diff', '--name-only', range], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(names.status, 0);
   // 2026-09-18 plan deltas stayed discarded with MARXY-107. ADR-0015 and
   // taste-review #0 were on that same forbid list until MARXY-127 landed them.
-  const forbidden = names.stdout.split('\n').filter(f =>
-    /^docs\/plan\/deltas\/2026-09-18-/.test(f),
-  );
-  assert.deepEqual(forbidden, []);
+  assert.deepEqual(forbiddenNames(names.stdout.split('\n').filter(Boolean)), []);
   return 'asserted';
 }
 
@@ -187,4 +197,114 @@ test('the branch diff guard skips when no base ref resolves', () => {
   });
   assert.equal(outcome, 'skipped');
   assert.match(skipped, /resolvable git ref/);
+});
+
+const PLAN_SURFACE_900 = [
+  { added: 150, file: 'docs/plan/jira-issues.csv' },
+  { added: 150, file: 'docs/plan/deltas/x.md' },
+  { added: 150, file: 'docs/plan/tasks/K.md' },
+  { added: 150, file: 'orchestration/deps.json' },
+  { added: 150, file: 'orchestration/jira-map.json' },
+  { added: 150, file: 'CHANGELOG.md' },
+];
+
+test('LIMIT is 600, isPlanSurface matches only the plan surface, and a binary row is 0', () => {
+  assert.equal(LIMIT, 600);
+  for (const f of [
+    'docs/plan/jira-issues.csv',
+    'docs/plan/deltas/x.md',
+    'docs/plan/tasks/K.md',
+    'orchestration/deps.json',
+    'orchestration/jira-map.json',
+    'orchestration/results/MARXY-142.json',
+    'CHANGELOG.md',
+  ]) {
+    assert.equal(isPlanSurface(f), true, f);
+  }
+  for (const f of [
+    'packages/core/src/render/images.ts',
+    'apps/desktop/src/app.ts',
+    'orchestration/cycle.mjs',
+    'docs/hygiene.md',
+    'docs/plan.md',
+  ]) {
+    assert.equal(isPlanSurface(f), false, f);
+  }
+  assert.equal(budgetedInsertions([{ added: '-', file: 'packages/core/src/x.bin' }]), 0);
+});
+
+test('branch-diff.mjs never shells out to git', () => {
+  const src = readFileSync(new URL('./branch-diff.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /child_process|execFileSync|spawnSync|execSync|execFile\(/);
+});
+
+test('900 plan-surface insertions are not budgeted and the guard passes', () => {
+  assert.equal(budgetedInsertions(PLAN_SURFACE_900), 0);
+  assertBudgeted(PLAN_SURFACE_900);
+});
+
+test('plan-surface rows plus 601 in images.ts fail naming the counted total', () => {
+  const rows = [...PLAN_SURFACE_900, { added: 601, file: 'packages/core/src/render/images.ts' }];
+  assert.equal(budgetedInsertions(rows), 601);
+  assert.throws(() => assertBudgeted(rows), /601/);
+});
+
+test('plan-surface rows plus 599 in images.ts pass', () => {
+  const rows = [...PLAN_SURFACE_900, { added: 599, file: 'packages/core/src/render/images.ts' }];
+  assert.equal(budgetedInsertions(rows), 599);
+  assertBudgeted(rows);
+});
+
+test('601 insertions in apps/desktop/src/app.ts alone fail', () => {
+  const rows = [{ added: 601, file: 'apps/desktop/src/app.ts' }];
+  assert.equal(budgetedInsertions(rows), 601);
+  assert.throws(() => assertBudgeted(rows), /601/);
+});
+
+test('601 insertions in orchestration/cycle.mjs alone fail', () => {
+  const rows = [{ added: 601, file: 'orchestration/cycle.mjs' }];
+  assert.equal(budgetedInsertions(rows), 601);
+  assert.throws(() => assertBudgeted(rows), /601/);
+});
+
+test('forbiddenNames returns only the discarded 2026-09-18 delta', () => {
+  assert.deepEqual(
+    forbiddenNames([
+      'docs/plan/deltas/2026-09-18-perf-budget.md',
+      'docs/plan/deltas/2026-09-19-after-8.md',
+    ]),
+    ['docs/plan/deltas/2026-09-18-perf-budget.md'],
+  );
+});
+
+test('a plan-surface-only change that re-adds a 2026-09-18 delta still fails', () => {
+  const names = [
+    ...PLAN_SURFACE_900.map(r => r.file),
+    'docs/plan/deltas/2026-09-18-perf-budget.md',
+  ];
+  assert.equal(budgetedInsertions(PLAN_SURFACE_900), 0);
+  assert.deepEqual(forbiddenNames(names), ['docs/plan/deltas/2026-09-18-perf-budget.md']);
+  assert.throws(() => assert.deepEqual(forbiddenNames(names), []));
+});
+
+test('the live guard still uses the module, numstat, and every test from before the rewrite', () => {
+  const src = readFileSync(new URL('./phases.test.mjs', import.meta.url), 'utf8');
+  assert.match(src, /\['diff', '--numstat', range\]/);
+  assert.match(src, /budgetedInsertions\(/);
+  assert.match(src, /forbiddenNames\(/);
+  for (const title of [
+    'a story in a non-numeric phase is never phase-blocked and never holds a numbered phase',
+    'the committed board: every CSV story is in exactly one phase',
+    'the committed board: no story depends on a story in a later numbered phase',
+    'Phase 1 opens while ops work is still todo; a phase story takes a contested path',
+    'the planner is not kept due by a dropped story',
+    'orchestration/state.json is untracked and gitignored',
+    'scope cuts light first and the plan names dark as primary',
+    'the branch diff stays under 600 lines and omits the discarded extras',
+    'resolveThreeDotBase returns null when neither origin/main nor main verifies',
+    'resolveThreeDotBase prefers origin/main, then main',
+    'the branch diff guard skips when no base ref resolves',
+  ]) {
+    assert.ok(src.includes(`test('${title}'`), `missing test: ${title}`);
+  }
 });

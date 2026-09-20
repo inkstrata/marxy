@@ -30,7 +30,14 @@ export interface DashBreak {
   readonly offset: number;
 }
 
-export type Token = Piece | Space | DashBreak;
+/** A hyphenation point inside a word; `offset` is where the word splits if this break is taken. */
+export interface HyphenBreak {
+  readonly kind: 'hyphen';
+  readonly node: Text;
+  readonly offset: number;
+}
+
+export type Token = Piece | Space | DashBreak | HyphenBreak;
 
 const COLLAPSIBLE = new Set([' ', '\n', '\t', '\r', '\f']);
 const DASHES = new Set(['-', '–', '—']);

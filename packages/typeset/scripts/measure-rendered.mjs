@@ -14,7 +14,8 @@ const corpus = new URL('../../../fixtures/corpus/', import.meta.url);
 const research = new URL('../RESEARCH.md', import.meta.url);
 const files = readdirSync(corpus).filter((f) => f.endsWith('.md')).sort();
 const OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };
-const ENGINE = { name: process.env.ENGINE ?? 'ragged', stretch: Number(process.env.STRETCH ?? 2) };
+const HYPHENATE = process.env.HYPHENATE === '1' || process.argv.includes('--hyphenate');
+const ENGINE = { name: process.env.ENGINE ?? 'ragged', stretch: Number(process.env.STRETCH ?? 2), hyphenate: HYPHENATE };
 const STRETCHES = [ENGINE.stretch];
 /** The alternatives the decision was made between, each pooled over the same paragraphs. */
 const ALTERNATIVES = [
@@ -35,7 +36,7 @@ for (const file of files) {
   const page = await harness.open(renderCorpus(file));
   const native = await readLines(page);
   const stats = await page.evaluate(async (engine) => {
-    const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, glueStretchEm: 0.6, raggedStretchEm: engine.stretch, engine: engine.name, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
+    const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, glueStretchEm: 0.6, raggedStretchEm: engine.stretch, engine: engine.name, hyphenate: engine.hyphenate, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
     await c.done;
     return JSON.parse(JSON.stringify(c.stats));
   }, ENGINE);
@@ -55,13 +56,13 @@ for (const file of files) {
   for (const [k, v] of Object.entries(stats.reasons)) totals.reasons[k] = (totals.reasons[k] ?? 0) + v;
 }
 const alternatives = [];
-for (const alt of ALTERNATIVES) {
+for (const alt of HYPHENATE ? [] : ALTERNATIVES) {
   const pool = [];
   for (const file of files) {
     const page = await harness.open(renderCorpus(file), { extraCss: alt.css ?? '' });
     if (alt.engine) {
       await page.evaluate(async (engine) => {
-        const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, glueStretchEm: 0.6, raggedStretchEm: engine.stretch, engine: engine.name, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
+        const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, glueStretchEm: 0.6, raggedStretchEm: engine.stretch, engine: engine.name, hyphenate: engine.hyphenate === true, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
         await c.done;
       }, alt.engine);
     }
@@ -82,29 +83,34 @@ if (process.argv.includes('--json')) {
 }
 
 const lines = [
-  `Rendered in Playwright WebKit (\`${JSON.stringify(process.versions.node)}\` Node), default theme, bundled Literata at 17 px, measure ${measure.toFixed(1)} px (68 ch), glue stretch ${STRETCHES[0]} em, hyphenation off. Widths are real line boxes, px; a line is short when its shortfall exceeds 10% of the measure. Last lines excluded.`,
+  `Rendered in Playwright WebKit (\`${JSON.stringify(process.versions.node)}\` Node), default theme, bundled Literata at 17 px, measure ${measure.toFixed(1)} px (68 ch), glue stretch ${STRETCHES[0]} em, hyphenation ${HYPHENATE ? 'on (en-us/en-gb)' : 'off'}. Widths are real line boxes, px; a line is short when its shortfall exceeds 10% of the measure. Last lines excluded.`,
   '',
   '| Document | Paras | Lines native → set | CV native | CV set | Short native | Short set |',
   '| --- | --- | --- | --- | --- | --- | --- |',
   ...rows.filter((r) => r.native.cv !== null).map((r) => `| \`${r.file}\` | ${r.paragraphs} | ${r.linesNative} → ${r.linesSet} | ${r.native.cv.toFixed(4)} | ${r.set.cv.toFixed(4)} | ${r.native.shortLines} (${r.native.shortLineRate.toFixed(1)}%) | ${r.set.shortLines} (${r.set.shortLineRate.toFixed(1)}%) |`),
   `| **corpus** | **${pooled.native.length}** | **${pooled.native.reduce((a, w) => a + w.length, 0)} → ${pooled.set.reduce((a, w) => a + w.length, 0)}** | **${all.native.cv.toFixed(4)}** | **${all.set.cv.toFixed(4)}** (${pct(all.native.cv, all.set.cv)}) | **${all.native.shortLines} (${all.native.shortLineRate.toFixed(1)}%)** | **${all.set.shortLines} (${all.set.shortLineRate.toFixed(1)}%)** |`,
-  '',
-  '',
-  'Every alternative over the whole corpus, paragraphs of two or more lines, same measure:',
-  '',
-  '| Arrangement | Lines | CV | Short lines | Mean shortfall (px) |',
-  '| --- | --- | --- | --- | --- |',
-  ...alternatives.map((a) => `| ${a.label} | ${a.lines} | ${a.m.cv.toFixed(4)} | ${a.m.shortLines} (${a.m.shortLineRate.toFixed(1)}%) | ${a.m.meanShortfall.toFixed(1)} |`),
+  ...(alternatives.length === 0 ? [] : [
+    '',
+    '',
+    'Every alternative over the whole corpus, paragraphs of two or more lines, same measure:',
+    '',
+    '| Arrangement | Lines | CV | Short lines | Mean shortfall (px) |',
+    '| --- | --- | --- | --- | --- |',
+    ...alternatives.map((a) => `| ${a.label} | ${a.lines} | ${a.m.cv.toFixed(4)} | ${a.m.shortLines} (${a.m.shortLineRate.toFixed(1)}%) | ${a.m.meanShortfall.toFixed(1)} |`),
+  ]),
   '',
   `Typesetter over the corpus: ${totals.paragraphs} candidates, ${totals.typeset} set, ${totals.short} already one line, ${totals.fallbacks} left to the engine${Object.keys(totals.reasons).length ? ` (${Object.entries(totals.reasons).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}. Viewport pass: ${totals.viewportMs.map((v) => `${v.file.replace('.md', '')} ${v.ms.toFixed(0)} ms`).join(', ')}.`,
 ];
 const table = lines.join('\n');
 if (process.argv.includes('--write')) {
   const text = readFileSync(research, 'utf8');
-  const start = '<!-- rendered-table:start (generated by packages/typeset/scripts/measure-rendered.mjs; do not edit by hand) -->';
-  const end = '<!-- rendered-table:end -->';
+  const start = HYPHENATE
+    ? '<!-- hyphenated-table:start (generated by packages/typeset/scripts/measure-rendered.mjs --hyphenate; do not edit by hand) -->'
+    : '<!-- rendered-table:start (generated by packages/typeset/scripts/measure-rendered.mjs; do not edit by hand) -->';
+  const end = HYPHENATE ? '<!-- hyphenated-table:end -->' : '<!-- rendered-table:end -->';
+  const heading = HYPHENATE ? '## Rendered, hyphenation on (MARXY-24)' : '## Rendered (MARXY-23)';
   const block = `${start}\n\n${table}\n\n${end}`;
-  const next = text.includes(start) ? text.replace(new RegExp(`${start.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?${end}`), block) : `${text.trimEnd()}\n\n## Rendered (MARXY-23)\n\n${block}\n`;
+  const next = text.includes(start) ? text.replace(new RegExp(`${start.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?${end}`), block) : `${text.trimEnd()}\n\n${heading}\n\n${block}\n`;
   writeFileSync(research, next);
 }
 console.log(table);

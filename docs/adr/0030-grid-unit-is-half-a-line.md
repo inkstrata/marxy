@@ -1,6 +1,6 @@
 # ADR-0030 — The grid unit is half the body line box
 
-**Status:** proposed (lands with MARXY-20) · **Amends:** `docs/design-language.md` constraint 2,
+**Status:** accepted, amended (Amendment 1 — a table is an island the grid pass pads, 2026-09-19) · **Amends:** `docs/design-language.md` constraint 2,
 `docs/design/05-theme.md`, `docs/design/04-typeset.md` §Grid, `docs/design/10-gates-and-testing.md` check 1
 
 ## Context
@@ -49,3 +49,66 @@ paragraphs — where an indent reads as a mistake.
   A theme may still choose it; the grid unit is unaffected.
 - **Leaving the contradiction and relying on snapToGrid:** padding every other paragraph by half a
   line is the same page with the arithmetic hidden in a script.
+
+## Amendment 1 — a table is an island the grid pass pads (2026-09-19, MARXY-141)
+
+**Status:** accepted · **Source:** the MARXY-128 review of PR #94 (`orchestration/results/MARXY-128.notes.md`)
+
+This amendment supersedes the table clause of decision 3 and the `snapToGrid` enumeration in
+decision 4. The original numbered decisions remain as first written; nothing above is deleted.
+
+**What it supersedes.** Decision 3's sentence "Tables sit on the grid by construction (one line box
+per row, rules drawn as inset shadows that take no height)" no longer holds. Tables move out of
+decision 3's by-construction list and into decision 4's `snapToGrid` set.
+A table is an island the grid pass pads — `snapToGrid` measures it rather than the stylesheet constructing it.
+
+Decision 3's heading construction is restated: a heading's margin below is `half`, and a
+`padding-bottom` remainder closes the line box onto the unit. Decision 2's 22 px total at 17 px is
+unchanged — the remainder moved from the margin into padding, so a reader should not think the type
+scale moved.
+
+Decision 4, as this amendment supersedes it, is: what the stylesheet cannot construct — code on its
+own line box, images, math, inline content in a raw-HTML island, and tables — `snapToGrid` pads,
+measuring the result rather than predicting it.
+
+**Consequence.** The CSS-alone guarantee no longer covers a document containing a table.
+`grid.test.mjs`'s `TEXT_ONLY` set — the set the stylesheet alone must hold, without `snapToGrid` —
+therefore narrows to `14-marxy-plan.md`. Re-adding `01-long-technical.md` at PR #94's head failed
+with ten blocks 8 px off the 14 px unit, starting at the first block after the weighted-passes
+table. The ten measured offsets from the MARXY-128 review: `<p s=3308> top 2122.00`,
+`<h3 s=3354> top 2178.00`, … `<h2 s=4709> top 2850.00`. Every corpus file still passes after the
+grid pass, so the page is correct in the app. What moved is the "CSS alone" guarantee, and this
+amendment records that cost rather than letting it happen quietly.
+
+**What would falsify it.** If a table can be made a whole number of grid units by construction at
+any cell padding the design wants, this amendment is wrong and decision 3 stands.
+
+**Unchanged, deliberately:** decision 1 (the grid unit is half the body line box); decision 2, whose
+22 px total at 17 px is unchanged.
+
+## Checks (MARXY-141)
+
+These commands fail if this amendment is reverted. They are the acceptance checks.
+
+```sh
+adr=docs/adr/0030-grid-unit-is-half-a-line.md
+theme=docs/design/05-theme.md
+grep -q '## Amendment 1 — a table is an island the grid pass pads (2026-09-19, MARXY-141)' "$adr"
+grep -q 'Tables sit on the grid by construction (one line box per row, rules drawn as inset shadows that take no height)' "$adr"
+grep -q 'code on its own line box, images, math, inline content' "$adr"
+grep -q 'into decision 4'\''s `snapToGrid` set' "$adr"
+grep -q 'padding-bottom' "$adr"
+grep -q "Decision 2's 22 px total at 17 px is unchanged" "$adr"
+grep -q 'TEXT_ONLY' "$adr"
+grep -q '14-marxy-plan.md' "$adr"
+grep -q '<p s=3308> top 2122.00' "$adr"
+grep -q '<h3 s=3354> top 2178.00' "$adr"
+grep -q '<h2 s=4709> top 2850.00' "$adr"
+grep -q 'If a table can be made a whole number of grid units by construction at' "$adr"
+grep -q 'this amendment is wrong and decision 3 stands' "$adr"
+grep -F '| [0030](0030-grid-unit-is-half-a-line.md) | The grid unit is half the body line box | accepted, amended (1: a table is an island the grid pass pads, 2026-09-19) |' docs/adr/README.md
+sentence="A table is an island the grid pass pads — \`snapToGrid\` measures it rather than the stylesheet constructing it."
+grep -F "$sentence" "$adr"
+grep -F "$sentence" "$theme"
+grep -q 'MARXY-141' CHANGELOG.md
+```

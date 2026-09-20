@@ -1,0 +1,247 @@
+[
+  {
+    "name": "--marxy-line-box",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-measure",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-size-body",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-scale-ratio",
+    "kind": "ratio",
+    "comment": false
+  },
+  {
+    "name": "--marxy-size-code",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-line-box-code",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-size-caption",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-lh-h1",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-lh-h2",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-font-text",
+    "kind": "family",
+    "comment": false
+  },
+  {
+    "name": "--marxy-font-heading",
+    "kind": "family",
+    "comment": false
+  },
+  {
+    "name": "--marxy-font-mono",
+    "kind": "family",
+    "comment": false
+  },
+  {
+    "name": "--marxy-weight-body",
+    "kind": "number",
+    "comment": true
+  },
+  {
+    "name": "--marxy-weight-heading",
+    "kind": "number",
+    "comment": false
+  },
+  {
+    "name": "--marxy-weight-strong",
+    "kind": "number",
+    "comment": false
+  },
+  {
+    "name": "--marxy-weight-offset",
+    "kind": "number",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tracking-heading",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-opsz-auto",
+    "kind": "number",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-bg",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-text",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-text-secondary",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-accent",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-link",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-rule",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-code-bg",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-code-text",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-quote-rule",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-selection",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-find",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-find-current",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-color-notice",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-keyword",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-string",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-comment",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-number",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-function",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-type",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-variable",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-operator",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-punctuation",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-constant",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-tag",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-tok-attribute",
+    "kind": "colour",
+    "comment": false
+  },
+  {
+    "name": "--marxy-code-radius",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-code-padding",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-quote-rule-width",
+    "kind": "length",
+    "comment": false
+  },
+  {
+    "name": "--marxy-progress-rule",
+    "kind": "keyword",
+    "comment": true
+  },
+  {
+    "name": "--marxy-justify",
+    "kind": "number",
+    "comment": true
+  },
+  {
+    "name": "--marxy-typeset",
+    "kind": "keyword",
+    "comment": true
+  }
+]

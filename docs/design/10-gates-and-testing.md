@@ -2,7 +2,8 @@
 
 How each kind of check is written, where it lives, and the algorithms behind the mechanical
 aesthetics tier (ADR-0014). Extends what exists: `node:test` with type stripping in packages,
-Playwright at the root, `cargo test` in the shell, the perf tiers of ADR-0022.
+Playwright at the root, `cargo test` in the shell, the perf observations of ADR-0022
+(recorded, not gated, ADR-0032).
 
 ## The pyramid, per package
 
@@ -106,17 +107,59 @@ checks that cannot run print `pending MARXY-25`.
 `packages/core/goldens/<file>.html.txt`: the sanitised render of every corpus file, diffed on
 every PR like the AST goldens. A renderer change updates them deliberately and the PR says why.
 
-## Perf (ADR-0022, as landed)
+## Perf (ADR-0022 observations, ADR-0032)
 
 `scripts/measure-startup.mjs` writes `results/perf.json` with `cold_start_first_text_ms`
-(launch 1) and `warm_start_first_text_ms` (median of 2..N); `gate-perf.mjs` applies the tier.
+(launch 1) and `warm_start_first_text_ms` (median of 2..N); `gate-perf.mjs` prints the
+comparison against the standing observation and does not fail on the milliseconds.
 Parse is measured on the gates job: `scripts/measure-parse.mjs` runs on both runner classes
 before `pnpm gate:perf` and writes only `results/perf-parse.json` as
-`{ "parse_long_technical_ms": <median> }` of `fixtures/corpus/01-long-technical.md`, so
-MARXY-59 can keep that metric required. New metrics land the same way: the app emits
-`MARK <metric> <ms>` lines for `typeset_viewport`, `live_reload`, `palette_keystroke` (p95
-over a scripted session in the headless entry) and `find_first_match`; the harness collects
-them into the same JSON.
+`{ "parse_long_technical_ms": <median> }` of `fixtures/corpus/01-long-technical.md`. The
+parse snapshot must be present; its value is not a merge-bar ceiling. New metrics land the
+same way: the app emits `MARK <metric> <ms>` lines for `typeset_viewport`, `live_reload`,
+`palette_keystroke` (p95 over a scripted session in the headless entry) and
+`find_first_match`; the harness collects them into the same JSON.
+
+## Skipping the gates jobs when they cannot change the result (MARXY-105)
+
+The `gates` job (macOS and Linux, the from-scratch Tauri build and the nine-launch startup
+measurement) is the most expensive part of the run — `docs/hygiene.md` measures it at 167–261 s
+against 5 s for `changes` and 51 s for `fast`. A change that cannot touch the built binary or the
+numbers measured against it should not pay that cost, and neither should a push that only adds
+more such non-relevant files after a real dual-OS success already proved the gates-relevant
+content clean.
+
+`scripts/ci-changes.mjs` runs in two phases inside the `changes` job:
+
+1. **Detect** (`node scripts/ci-changes.mjs <base>`): classifies `base...HEAD` the same way as
+   before (`docs_only`, `web`, `rust`, `workflow`) and additionally hashes the tree content of the
+   paths that decide the built binary (`GATES_HASH_PATHS`: `apps/desktop`, `packages`, `fixtures`,
+   `scripts`, `.github/workflows/ci.yml`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
+   `mise.toml`) as `gates_hash`.
+2. A workflow step restores `results/gates-record.json` from `actions/cache@v4`, keyed
+   `gates-ok-${{ gates_hash }}` — a hit only if some other push with byte-identical gates-relevant
+   content already ran the real matrix and it succeeded.
+3. **Resolve** (`node scripts/ci-changes.mjs --resolve`): calls the pure `decideGates({ docsOnly,
+   currentHash, record })`, which returns `gates=false` when `docsOnly` is true (**not-required** —
+   nothing gates-relevant changed at all) or when `record` names a real dual-OS success whose hash
+   matches `currentHash` (**reuse**); it insists on `record.hash === currentHash` itself, on top of
+   the cache already being keyed by that hash, so a **stale** record left over from a different
+   push cannot be reused by construction. A `record` with `status: 'stand-in'` (a gates run that was
+   itself skipped, so it proves nothing) or `'in-progress'` (a real build for this content has not
+   finished) is refused — `gates=true`, run for real — and so is no record at all. A rust,
+   `measure-startup.mjs` or `ci.yml` change always changes `gates_hash`, so it can never reuse a
+   record computed before it (criterion 3).
+
+The real `gates` job's `if:` is exactly `needs.changes.outputs.gates == 'true'`. Because a matrix
+job whose own `if:` is false does not reliably post one check per matrix value, `gates-skip` is a
+second job, `needs.changes.outputs.gates != 'true'`, with `name: gates` and the same
+`os: [macos-latest, ubuntu-latest]` matrix (written one value per line so its text does not
+collide with the single-line matrix `scripts/gate-perf.mjs`'s own workflow check greps for), so
+"gates (macos-latest)" and "gates (ubuntu-latest)" resolve either way. `gates-record` writes and
+caches the record after a real success only — `needs.gates.result` is `'success'` solely when
+every matrix combination ran and passed, never when the job was skipped. Branch protection still
+requires only the single `ci` context (`docs/hygiene.md`); nothing here changes a required check
+name.
 
 ## Writing a test an implementor cannot get wrong
 

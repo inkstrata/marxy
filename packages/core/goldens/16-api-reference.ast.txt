@@ -1,0 +1,337 @@
+document [0,3975)
+  htmlBlock [0,78) value="<!-- Sample of an API reference: nested lists, option tables, inline code. -->"
+  heading [80,114) level=1
+    code [82,89) value="shelf"
+    text [89,114) value=" — local document index"
+  paragraph [116,325)
+    text [116,164) value="A reader-facing index for a folder of markdown. "
+    code [164,171) value="shelf"
+    text [171,197) value=" watches a root, keeps one"
+    softBreak [197,198)
+    text [198,278) value="row per file, and answers prefix queries without leaving the machine. Nothing in"
+    softBreak [278,279)
+    text [279,325) value="this document is fetched; every path is local."
+  heading [327,337) level=2
+    text [330,337) value="Install"
+  codeBlock [339,363) lang=sh info="sh" content=[345,360) value="pnpm add shelf"
+  paragraph [365,494)
+    text [365,398) value="The package exports three names: "
+    code [398,409) value="openShelf"
+    text [409,411) value=", "
+    code [411,418) value="Shelf"
+    text [418,424) value=", and "
+    code [424,436) value="ShelfError"
+    text [436,443) value=". Types"
+    softBreak [443,444)
+    text [444,479) value="live next to the implementation in "
+    code [479,493) value="src/index.ts"
+    text [493,494) value="."
+  heading [496,526) level=2
+    code [499,526) value="openShelf(root, options?)"
+  paragraph [528,603)
+    text [528,561) value="Opens or creates the index under "
+    code [561,574) value="root/.shelf"
+    text [574,586) value=". Returns a "
+    code [586,602) value="Promise<Shelf>"
+    text [602,603) value="."
+  heading [605,616) level=3
+    text [609,616) value="Options"
+  table [618,1146) align=-,-,-,-
+    tableRow [618,659) header=true
+      tableCell [618,627)
+        text [620,626) value="Option"
+      tableCell [627,634)
+        text [629,633) value="Type"
+      tableCell [634,644)
+        text [636,643) value="Default"
+      tableCell [644,659)
+        text [646,657) value="Description"
+    tableRow [702,785) header=false
+      tableCell [702,712)
+        code [704,711) value="watch"
+      tableCell [712,724)
+        code [714,723) value="boolean"
+      tableCell [724,733)
+        code [726,732) value="true"
+      tableCell [733,785)
+        text [735,783) value="Subscribe to the filesystem after the first scan"
+    tableRow [786,881) header=false
+      tableCell [786,797)
+        code [788,796) value="ignore"
+      tableCell [797,810)
+        code [799,809) value="string[]"
+      tableCell [810,839)
+        code [812,838) value="['node_modules', '.git']"
+      tableCell [839,881)
+        text [841,879) value="Directory names skipped at every level"
+    tableRow [882,963) header=false
+      tableCell [882,890)
+        code [884,889) value="ext"
+      tableCell [890,903)
+        code [892,902) value="string[]"
+      tableCell [903,928)
+        code [905,927) value="['.md', '.markdown']"
+      tableCell [928,963)
+        text [930,961) value="Extensions treated as documents"
+    tableRow [964,1062) header=false
+      tableCell [964,974)
+        code [966,973) value="limit"
+      tableCell [974,985)
+        code [976,984) value="number"
+      tableCell [985,996)
+        code [987,995) value="10_000"
+      tableCell [996,1062)
+        text [998,1048) value="Hard cap on indexed files; opening past it throws "
+        code [1048,1060) value="ShelfError"
+    tableRow [1063,1146) header=false
+      tableCell [1063,1072)
+        code [1065,1071) value="hash"
+      tableCell [1072,1096)
+        code [1074,1095) value="'fnv1a64' | 'none'"
+      tableCell [1096,1110)
+        code [1098,1109) value="'fnv1a64'"
+      tableCell [1110,1146)
+        text [1112,1144) value="Content hash written on each row"
+  paragraph [1148,1188)
+    text [1148,1170) value="Nested behaviour when "
+    code [1170,1177) value="watch"
+    text [1177,1181) value=" is "
+    code [1181,1187) value="true"
+    text [1187,1188) value=":"
+  list [1190,1572) ordered=false tight=true
+    listItem [1190,1382)
+      paragraph [1192,1206)
+        text [1192,1206) value="A create event"
+      list [1209,1382) ordered=false tight=true
+        listItem [1209,1382)
+          paragraph [1211,1236)
+            text [1211,1236) value="under a watched directory"
+          list [1241,1382) ordered=false tight=true
+            listItem [1241,1382)
+              paragraph [1243,1272)
+                text [1243,1264) value="whose name is not in "
+                code [1264,1272) value="ignore"
+              list [1279,1382) ordered=false tight=true
+                listItem [1279,1382)
+                  paragraph [1281,1312)
+                    text [1281,1307) value="and whose extension is in "
+                    code [1307,1312) value="ext"
+                  list [1321,1382) ordered=false tight=true
+                    listItem [1321,1382)
+                      paragraph [1323,1382)
+                        text [1323,1347) value="inserts a row and emits "
+                        code [1347,1355) value="change"
+                        text [1355,1361) value=" with "
+                        code [1361,1382) value="{ op: 'add', path }"
+    listItem [1383,1494)
+      paragraph [1385,1399)
+        text [1385,1399) value="A delete event"
+      list [1402,1494) ordered=false tight=true
+        listItem [1402,1494)
+          paragraph [1404,1437)
+            text [1404,1437) value="for a path that already has a row"
+          list [1442,1494) ordered=false tight=true
+            listItem [1442,1494)
+              paragraph [1444,1494)
+                text [1444,1470) value="removes the row and emits "
+                code [1470,1494) value="{ op: 'remove', path }"
+    listItem [1495,1572)
+      paragraph [1497,1572)
+        text [1497,1538) value="A rename is modelled as remove-then-add; "
+        code [1538,1544) value="path"
+        text [1544,1572) value=" on the add is the new name."
+  paragraph [1574,1733)
+    code [1574,1588) value="hash: 'none'"
+    text [1588,1651) value=" is for fixtures. Production code should leave the default: the"
+    softBreak [1651,1652)
+    text [1652,1658) value="row's "
+    code [1658,1664) value="hash"
+    text [1664,1726) value=" is what a later open uses to skip a file whose bytes have not"
+    softBreak [1726,1727)
+    text [1727,1733) value="moved."
+  heading [1735,1745) level=2
+    code [1738,1745) value="Shelf"
+  heading [1747,1773) level=3
+    code [1751,1773) value="query(prefix, opts?)"
+  paragraph [1775,1854)
+    text [1775,1794) value="Returns rows whose "
+    code [1794,1800) value="path"
+    text [1800,1804) value=" or "
+    code [1804,1811) value="title"
+    text [1811,1824) value=" starts with "
+    code [1824,1832) value="prefix"
+    text [1832,1847) value=", case-folded. "
+    code [1847,1853) value="opts"
+    text [1853,1854) value=":"
+  table [1856,2160) align=-,-,-,-
+    tableRow [1856,1897) header=true
+      tableCell [1856,1865)
+        text [1858,1864) value="Option"
+      tableCell [1865,1872)
+        text [1867,1871) value="Type"
+      tableCell [1872,1882)
+        text [1874,1881) value="Default"
+      tableCell [1882,1897)
+        text [1884,1895) value="Description"
+    tableRow [1940,1995) header=false
+      tableCell [1940,1948)
+        code [1942,1947) value="max"
+      tableCell [1948,1959)
+        code [1950,1958) value="number"
+      tableCell [1959,1966)
+        code [1961,1965) value="20"
+      tableCell [1966,1995)
+        text [1968,1993) value="Rows returned, never more"
+    tableRow [1996,2091) header=false
+      tableCell [1996,2003)
+        code [1998,2002) value="in"
+      tableCell [2003,2035)
+        code [2005,2034) value="'path' | 'title' | 'both'"
+      tableCell [2035,2046)
+        code [2037,2045) value="'both'"
+      tableCell [2046,2091)
+        text [2048,2089) value="Which fields the prefix is tested against"
+    tableRow [2092,2160) header=false
+      tableCell [2092,2102)
+        code [2094,2101) value="order"
+      tableCell [2102,2124)
+        code [2104,2123) value="'path' | 'mtime'"
+      tableCell [2124,2135)
+        code [2126,2134) value="'path'"
+      tableCell [2135,2160)
+        text [2137,2158) value="Sort after the filter"
+  paragraph [2162,2289)
+    text [2162,2234) value="A query never touches the disk. The in-memory table is the only input; a"
+    softBreak [2234,2235)
+    text [2235,2271) value="caller that needs fresh bytes calls "
+    code [2271,2282) value="refresh()"
+    text [2282,2289) value=" first."
+  heading [2291,2306) level=3
+    code [2295,2306) value="get(path)"
+  paragraph [2308,2454)
+    text [2308,2322) value="Exact lookup. "
+    code [2322,2328) value="path"
+    text [2328,2366) value=" is the POSIX form stored on the row ("
+    code [2366,2381) value="docs/brief.md"
+    text [2381,2382) value=","
+    softBreak [2382,2383)
+    text [2383,2389) value="never "
+    code [2389,2405) value="docs\\\\brief.md"
+    text [2405,2429) value="). Missing paths return "
+    code [2429,2440) value="undefined"
+    text [2440,2454) value=", not a throw."
+  heading [2456,2471) level=3
+    code [2460,2471) value="refresh()"
+  paragraph [2473,2599)
+    text [2473,2481) value="Rescans "
+    code [2481,2487) value="root"
+    text [2487,2542) value=" once. Use after a burst of writes the watcher may have"
+    softBreak [2542,2543)
+    text [2543,2562) value="coalesced. Returns "
+    code [2562,2591) value="{ added, removed, updated }"
+    text [2591,2599) value=" counts."
+  heading [2601,2614) level=3
+    code [2605,2614) value="close()"
+  paragraph [2616,2711)
+    text [2616,2676) value="Drops the watcher and the table. A later method call throws "
+    code [2676,2688) value="ShelfError"
+    softBreak [2688,2689)
+    text [2689,2694) value="with "
+    code [2694,2710) value="code: 'closed'"
+    text [2710,2711) value="."
+  heading [2713,2725) level=2
+    text [2716,2725) value="Row shape"
+  paragraph [2727,2793)
+    text [2727,2793) value="Each row is a plain object. Fields a reader of the index will see:"
+  list [2795,3104) ordered=false tight=true
+    listItem [2795,2859)
+      paragraph [2797,2859)
+        code [2797,2803) value="path"
+        text [2803,2820) value=" — relative to "
+        code [2820,2826) value="root"
+        text [2826,2828) value=", "
+        code [2828,2831) value="/"
+        text [2831,2859) value="-separated, no leading slash"
+    listItem [2860,2930)
+      paragraph [2862,2930)
+        code [2862,2869) value="title"
+        text [2869,2930) value=" — first ATX heading, or the file stem if the file has none"
+    listItem [2931,2998)
+      paragraph [2933,2998)
+        code [2933,2940) value="bytes"
+        text [2940,2998) value=" — length of the file as opened, not of the decoded text"
+    listItem [2999,3043)
+      paragraph [3001,3043)
+        code [3001,3008) value="mtime"
+        text [3008,3013) value=" — "
+        code [3013,3022) value="mtimeMs"
+        text [3022,3028) value=" from "
+        code [3028,3034) value="stat"
+        text [3034,3043) value=", integer"
+    listItem [3044,3104)
+      paragraph [3046,3104)
+        code [3046,3052) value="hash"
+        text [3052,3075) value=" — lowercase hex, or "
+        code [3075,3079) value="''"
+        text [3079,3085) value=" when "
+        code [3085,3091) value="hash"
+        text [3091,3096) value=" was "
+        code [3096,3104) value="'none'"
+  codeBlock [3106,3439) lang=ts info="ts" content=[3112,3436) value="import { openShelf } from 'shelf';\n\nconst shelf = await openShelf('/Users/reader/notes', {\n  ignore: ['node_modules', '.…"
+  heading [3441,3450) level=2
+    text [3444,3450) value="Errors"
+  paragraph [3452,3501)
+    code [3452,3464) value="ShelfError"
+    text [3464,3484) value=" is the only throw. "
+    code [3484,3490) value="code"
+    text [3490,3501) value=" is one of:"
+  list [3503,3730) ordered=false tight=true
+    listItem [3503,3563)
+      paragraph [3505,3563)
+        code [3505,3522) value="not-a-directory"
+        text [3522,3527) value=" — "
+        code [3527,3533) value="root"
+        text [3533,3563) value=" exists and is not a directory"
+    listItem [3564,3615)
+      paragraph [3566,3615)
+        code [3566,3573) value="limit"
+        text [3573,3600) value=" — the scan would exceed "
+        code [3600,3615) value="options.limit"
+    listItem [3616,3659)
+      paragraph [3618,3659)
+        code [3618,3626) value="closed"
+        text [3626,3650) value=" — a method ran after "
+        code [3650,3659) value="close()"
+    listItem [3660,3730)
+      paragraph [3662,3730)
+        code [3662,3666) value="io"
+        text [3666,3673) value=" — a "
+        code [3673,3679) value="stat"
+        text [3679,3683) value=" or "
+        code [3683,3689) value="read"
+        text [3689,3698) value=" failed; "
+        code [3698,3705) value="cause"
+        text [3705,3730) value=" holds the original error"
+  paragraph [3732,3791)
+    text [3732,3764) value="There is no network error code. "
+    code [3764,3771) value="shelf"
+    text [3771,3791) value=" does not open URLs."
+  heading [3793,3804) level=2
+    text [3796,3804) value="See also"
+  list [3806,3974) ordered=false tight=true
+    listItem [3806,3895)
+      paragraph [3808,3895)
+        text [3808,3840) value="The changelog for this package: "
+        link [3840,3895) url="https://example.invalid/shelf/changelog"
+          text [3841,3853) value="CHANGELOG.md"
+    listItem [3896,3974)
+      paragraph [3898,3974)
+        text [3898,3922) value="The type definitions in "
+        code [3922,3936) value="src/types.ts"
+        text [3936,3938) value=" ("
+        code [3938,3945) value="Shelf"
+        text [3945,3947) value=", "
+        code [3947,3957) value="ShelfRow"
+        text [3957,3959) value=", "
+        code [3959,3973) value="ShelfOptions"
+        text [3973,3974) value=")"

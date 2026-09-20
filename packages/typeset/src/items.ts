@@ -9,7 +9,8 @@ import { INF_PENALTY, ItemType, breakParagraph, defaultBreakOptions, withSums, t
 export type Measured =
   | { readonly kind: 'piece'; readonly width: number }
   | { readonly kind: 'space'; readonly width: number; readonly fontSize: number }
-  | { readonly kind: 'dash' };
+  | { readonly kind: 'dash' }
+  | { readonly kind: 'hyphen'; readonly width: number };
 
 export interface BreakSettings {
   readonly glueStretchEm: number;
@@ -41,6 +42,17 @@ export function breakTokens(tokens: readonly Measured[], measure: number, settin
     } else if (token.kind === 'space') {
       counts.glue++;
       items.push({ type: ItemType.Glue, width: token.width, stretch: settings.glueStretchEm * token.fontSize, stretchFil: 0, shrink: 0, run: 0 } as Item);
+    } else if (token.kind === 'hyphen') {
+      counts.penalty++;
+      items.push({
+        type: ItemType.Penalty,
+        penalty: settings.dashPenalty,
+        width: token.width,
+        flagged: true,
+        hyphen: true,
+        rp: 0,
+        run: 0,
+      } as Item);
     } else {
       counts.penalty++;
       items.push({ type: ItemType.Penalty, penalty: settings.dashPenalty, width: 0, flagged: true, hyphen: false, rp: 0, run: 0 } as Item);

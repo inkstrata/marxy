@@ -4,6 +4,9 @@ import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
+import { applyImages, pathsForDocument } from './render/images.ts';
+import { blockedContentNotice } from './notices/blocked.ts';
+import { ensureNoticesRegion } from './notices/index.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 
@@ -12,6 +15,9 @@ export type AppShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'p
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
+  imageSize(path: string): Promise<{ width: number; height: number } | null>;
+  allowAssetScope(dir: string): Promise<void>;
+  assetUrl(path: string): string;
 };
 
 export interface OpenDocument {
@@ -70,6 +76,9 @@ let launchArgs: readonly string[] = [];
 /** The shell this launch is using; set by startApp, never imported from tauri.ts. */
 let shell: AppShell;
 
+/** Asset-protocol roots allowed this session (post-pass 3). */
+const scopedAssetRoots = new Set<string>();
+
 /** True when a harness launched us: the startup harness sets the env var, the flag is for a person. */
 async function inHarness(): Promise<boolean> {
   if (launchArgs.includes('--quit-after-paint')) return true;
@@ -125,7 +134,7 @@ function keepOnGrid(article: HTMLElement): void {
  */
 async function typesetDocument(article: HTMLElement): Promise<void> {
   const lineBox = parseFloat(getComputedStyle(article).lineHeight);
-  typeset = attach(article, { lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', onPass: () => snap(article) });
+  typeset = attach(article, { lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, onPass: () => snap(article) });
   await typeset.ready;
   await shell.mark('typeset_viewport', Date.now(), `ms=${typeset.stats.viewportMs.toFixed(1)} set=${typeset.stats.typeset}`);
 }
@@ -155,13 +164,17 @@ async function boot(): Promise<void> {
   const bytes = await shell.readFile(file);
   // One parse, then the sanitised render from that AST — not a second parser (ADR-0001, ADR-0021).
   const ast = parseMarkdown(bytes, { file });
-  const { html, removed } = renderDocumentSafeHtml(ast);
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast);
   const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
+  ensureNoticesRegion();
   // Watermark before the mutation so a blank-page first-paint cannot satisfy the wait.
   const after = performance.now();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap, blocks: [] };
+  const { documentDir, imageRoot } = pathsForDocument(file);
+  await applyImages(doc, { documentPath: file, documentDir, imageRoot, shell, scopedRoots: scopedAssetRoots });
+  blockedContentNotice(blockedImages);
   // The faces are preloaded and `font-display: block`: first text is never the fallback face, and
   // the grid pass below measures the real one (ADR-0015).
   // Layout first: a face is requested when text needs it, and `fonts.ready` waits only for requests.

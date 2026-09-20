@@ -1,0 +1,3 @@
+document [0,3472)
+  htmlBlock [0,100) value="<!-- Sample of a source file read as a code document: one long fence, lines past 120 characters. -->"
+  codeBlock [102,3471) lang=ts info="ts" content=[108,3468) value="// build-row-from-stat.ts — one ShelfRow from a stat and the previous row, if the bytes have not moved.\n\nimport { create…"

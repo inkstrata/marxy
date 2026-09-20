@@ -20,12 +20,27 @@ jobs:
       docs_only: ${{ steps.detect.outputs.docs_only }}
       web: ${{ steps.detect.outputs.web }}
       rust: ${{ steps.detect.outputs.rust }}
+      gates: ${{ steps.resolve.outputs.gates }}
+      gates_hash: ${{ steps.detect.outputs.gates_hash }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - id: detect
         run: node scripts/ci-changes.mjs ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}
+      # A hit means this exact gates-relevant content already built and measured clean on both
+      # runner classes on some other push; a miss (or a stand-in/in-progress record) leaves
+      # results/gates-record.json absent or unusable and node scripts/ci-changes.mjs --resolve runs
+      # the real jobs (MARXY-105).
+      - name: Restore a prior real dual-OS gates success for this content, if any
+        uses: actions/cache@v4
+        with:
+          path: results/gates-record.json
+          key: "gates-ok-${{ steps.detect.outputs.gates_hash }}"
+      - id: resolve
+        run: node scripts/ci-changes.mjs --resolve
+      - name: Change-detection and gates-skip selftest (MARXY-105)
+        run: node scripts/ci-changes.mjs --selftest
 
   conventions:
     if: github.event_name == 'pull_request'
@@ -113,11 +128,34 @@ jobs:
           path: results/
           if-no-files-found: ignore
 
+  # Posts the same check names as `gates` when a real build cannot change the result (MARXY-105): a
+  # matrix job skipped by its own if: does not reliably report one entry per matrix value, so anything
+  # watching by name still needs to see "gates (macos-latest)" and "gates (ubuntu-latest)" resolve.
+  # The matrix below is written one value per line on purpose, not as a single-line bracketed list:
+  # scripts/gate-perf.mjs's own workflow check greps the gates job for that exact single-line shape,
+  # and this story is not allowed to touch that file (criterion 5), so this job's otherwise identical
+  # values must not collide with the text it looks for.
+  gates-skip:
+    name: gates
+    needs: changes
+    if: needs.changes.outputs.gates != 'true'
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "gates (${{ matrix.os }}) skipped — no gates-relevant change since the last real dual-OS success"
+
   # Build the app and measure it, on both runner classes. The measurement, its selftests and the perf
-  # gate are unconditional here by design (scripts/gate-perf.mjs checkWorkflow asserts it).
+  # gate are unconditional here by design (scripts/gate-perf.mjs checkWorkflow asserts it). Skipped
+  # when the diff cannot change the result — no gates-relevant file changed, or the change is only
+  # non-relevant files after a real dual-OS success already proved this content (MARXY-105).
   gates:
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.gates == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -202,9 +240,25 @@ jobs:
           path: results/
           if-no-files-found: ignore
 
+  # Writes and caches proof that this exact gates-relevant content already built and measured clean
+  # on both runner classes, so a later push that only adds non-relevant files can reuse it (MARXY-105).
+  # Only runs after a real (not skipped) dual-OS success: `needs.gates.result` is "success" solely in
+  # that case, never for a job whose if: was false.
+  gates-record:
+    needs: [changes, gates]
+    if: needs.gates.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: mkdir -p results && printf '{"status":"success","dualOS":true,"hash":"%s"}' "${{ needs.changes.outputs.gates_hash }}" > results/gates-record.json
+      - uses: actions/cache@v4
+        with:
+          path: results/gates-record.json
+          key: "gates-ok-${{ needs.changes.outputs.gates_hash }}"
+
   # The one status check branch protection requires. Skipped jobs are fine; failed or cancelled ones are not.
   ci:
-    needs: [changes, conventions, fast, browser, gates]
+    needs: [changes, conventions, fast, browser, gates, gates-skip, gates-record]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2

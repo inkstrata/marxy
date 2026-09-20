@@ -72,6 +72,7 @@ changes nothing about what is free; releases when a phase's review passes, never
 | A supported distribution stays on WebKitGTK < 2.50 | Baseline exception documented in the theme contract |
 | Tauri ships a single cross-platform engine (Verso/Servo) that passes the harness | Re-run the spike; one engine would delete the per-engine testing cost |
 | A first-time user's first reaction is about a feature | Stop feature work; the aesthetics tier is not doing its job |
+| More than half of the last 10 merges are ops (`planner-trigger.mjs`) | The planner defers ops stories that do not unblock a phase, and says which ones in its delta |
 
 ## Numbers worth watching over years
 

@@ -1,4 +1,4 @@
-document [0,915)
+document [0,1007)
   htmlBlock [0,72) value="<!-- Inventory and provenance for the fixture corpus the gates walk. -->"
   heading [74,90) level=1
     text [76,90) value="Fixture corpus"
@@ -26,9 +26,14 @@ document [0,915)
     text [754,791) value=" stays green because nothing copyleft"
     softBreak [791,792)
     text [792,827) value="entered the lockfile or the corpus."
-  paragraph [829,914)
+  paragraph [829,1006)
     text [829,871) value="The machine check for volume and shape is "
     code [871,895) value="check-prose-volume.mjs"
     text [895,903) value=" in this"
     softBreak [903,904)
-    text [904,914) value="directory."
+    text [904,915) value="directory. "
+    code [915,926) value="image.png"
+    text [926,970) value=" is a 1200×400 PNG for local image tests in"
+    softBreak [970,971)
+    code [971,993) value="09-gfm-everything.md"
+    text [993,1006) value=" (MARXY-138)."

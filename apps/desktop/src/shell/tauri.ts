@@ -6,10 +6,25 @@
  * endings and a last line grows a newline it never had (AGENTS.md non-negotiable 4). Text is the
  * view's business; `pnpm gate:fidelity` fails if this directory starts converting.
  */
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
+import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import type { Shell, WatchEvent } from '@marxy/shell-api';
+
+/** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
+const assetScopes = new Set<string>();
+
+function assertAssetScope(path: string): void {
+  for (const dir of assetScopes) {
+    if (isInsideImageRoot(path, dir)) return;
+  }
+  const error = new Error(`asset scope does not include ${path}`) as Error & { code: 'permission'; path: string };
+  error.code = 'permission';
+  error.path = path;
+  throw error;
+}
 
 /** Bytes last returned by `readFile` for a path; a save is refused if disk no longer matches. */
 const lastRead = new Map<string, Uint8Array>();
@@ -22,6 +37,9 @@ export const shell: Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'plat
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
+  imageSize(path: string): Promise<{ width: number; height: number } | null>;
+  allowAssetScope(dir: string): Promise<void>;
+  assetUrl(path: string): string;
 } = {
   platform: navigator.platform.startsWith('Mac') ? 'macos' : navigator.platform.startsWith('Win') ? 'windows' : 'linux',
   args: () => invoke<string[]>('args'),
@@ -77,4 +95,13 @@ export const shell: Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'plat
   mark: (name, t, data) => invoke('mark_from_webview', { name, t, data: data ?? null }),
   quit: (code) => invoke('quit', { code: code ?? 0 }),
   startupMarks: () => invoke('startup_marks'),
+  imageSize: (path) => invoke<{ width: number; height: number } | null>('image_size', { path }),
+  allowAssetScope: async (dir) => {
+    await invoke('allow_asset_scope', { dir });
+    assetScopes.add(normalizePath(dir));
+  },
+  assetUrl: (path) => {
+    assertAssetScope(path);
+    return convertFileSrc(path);
+  },
 };

@@ -1,6 +1,6 @@
 # ADR-0022 — Product budgets are enforced on reference hardware; CI enforces an envelope and a baseline
 
-**Status:** accepted, amended (Amendment 1 — the metric split, 2026-09-18; Amendment 2 — no product cold-start ceiling, 2026-09-18) · **Amends:** ADR-0013 (its measurement clause only; the budgets themselves
+**Status:** accepted, amended (Amendment 1 — the metric split, 2026-09-18; Amendment 2 — no product cold-start ceiling, 2026-09-18; Amendment 3 — cross-run CI numbers, 2026-09-19) · **Amends:** ADR-0013 (its measurement clause only; the budgets themselves
 and "regressions are hard failures" stand unchanged) · **Source:** the first red `gate:perf` run on
 GitHub-hosted runners, 2026-09-18
 
@@ -171,3 +171,41 @@ Honest numbers already on record: 2844 ms on macOS, 1735 ms on Linux.
 classes still gate; a baseline still moves only by an explicit edit to
 `fixtures/perf-budgets.json`; the product object of that file is byte-identical in this
 amendment's pull request. Nothing becomes advisory. ADR-0013 is not edited here.
+
+## Amendment 3 — cross-run CI numbers (2026-09-19, MARXY-70)
+
+**Status:** accepted · **Source:** `docs/plan/deltas/2026-09-18-cold-start-metric-falsified.md`
+decisions 1 and 4, and five or more corrected CI jobs per runner class after MARXY-63.
+
+**Evidence.** Each runner class carries `observed_warm_ms` and `observed_cold_ms` arrays of at
+least five entries, each with `commit`, `job_id`, `runner_image` and the measured milliseconds
+from a green gates job where `usable_runs === runs_n`. The spread guard is **cross-run only**:
+`spread = max(observed_warm_ms) / min(observed_warm_ms)` over those observations, and a class
+may keep `baseline_ms = max(observed_warm_ms)` only when `spread × tolerance ≤ 1.20` at a
+`tolerance ≥ 1.05`. A within-round dispersion is never an input to the guard.
+
+**Adopted values.**
+
+| Runner class | Tolerance | Warm baseline | Cold envelope | Notes |
+| --- | --- | --- | --- | --- |
+| `ubuntu-latest` | 1.12 (12 %) | 1030 ms | 1343 ms (`ceil(1033 × 1.3)`) | Re-derived from corrected warm medians; the 7719 ms value is withdrawn |
+| `macos-latest` | 1.30 (30 %, unchanged) | `null` (`baseline_waived`) | 3397 ms (`ceil(2613 × 1.3)`) | Cross-run spread 1.542× at tolerance 1.05 exceeds 1.20; envelope-only warm gating |
+
+Both classes record `runs_n: 9` (one cold launch plus eight warm). The product object in
+`fixtures/perf-budgets.json` is byte-identical to `main`.
+
+**Cold metric.** `cold_start_first_text_ms` is held to `cold_envelope_ms` per class with no
+baseline and no tolerance. A breach of the warm rule, the cold envelope, or either baseline
+ceiling is confirmed by up to **two** re-measures in `MARXY_PERF_ENV=ci` before the job fails;
+reference mode never re-measures. `cold_warm_ratio < 1` fails in CI — launch 1 must not be
+faster than the warm median.
+
+**Parse metric.** `parse_long_technical_ms` (MARXY-59) still uses the same two-tier rule as the
+warm start, but its baseline tolerance is stored on the per-class `parse_long_technical_ms`
+entry (`tolerance`, default 1.30 as in MARXY-83), not on the class-level `ci.tolerance` that
+the cross-run spread guard uses for warm baselines. Narrowing Ubuntu warm tolerance to 12 % for
+MARXY-70 does not tighten the parse ceiling.
+
+**Supersedes** the adoption paragraph's `ubuntu-latest` baseline 7719 ms and `macos-latest`
+baseline 1901 ms; both were derived from a warm median or a broken sample, not from the
+quantities CI now names.
