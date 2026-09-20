@@ -12,12 +12,99 @@
   "ci": {
     "ubuntu-latest": {
       "multiplier": 20,
-      "baseline_ms": 7719,
+      "tolerance": 1.12,
+      "runs_n": 9,
+      "baseline_ms": 1030,
+      "cold_envelope_ms": 1343,
+      "observed_warm_ms": [
+        {
+          "ms": 968.5,
+          "commit": "cecb977",
+          "job_id": "106029587340",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492438720/job/106029587340"
+        },
+        {
+          "ms": 1011.5,
+          "commit": "e597beb",
+          "job_id": "106029512305",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492411429/job/106029512305"
+        },
+        {
+          "ms": 1030,
+          "commit": "5404d40",
+          "job_id": "106029010702",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491808680/job/106029010702"
+        },
+        {
+          "ms": 1009.5,
+          "commit": "ba31732",
+          "job_id": "106027167582",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491515872/job/106027167582"
+        },
+        {
+          "ms": 1011.5,
+          "commit": "adf62f6",
+          "job_id": "106017736554",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35487972038/job/106017736554"
+        }
+      ],
+      "observed_cold_ms": [
+        {
+          "ms": 985,
+          "commit": "cecb977",
+          "job_id": "106029587340",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492438720/job/106029587340"
+        },
+        {
+          "ms": 1009,
+          "commit": "e597beb",
+          "job_id": "106029512305",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492411429/job/106029512305"
+        },
+        {
+          "ms": 1033,
+          "commit": "5404d40",
+          "job_id": "106029010702",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491808680/job/106029010702"
+        },
+        {
+          "ms": 1030,
+          "commit": "ba31732",
+          "job_id": "106027167582",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491515872/job/106027167582"
+        },
+        {
+          "ms": 1014,
+          "commit": "adf62f6",
+          "job_id": "106017736554",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35487972038/job/106017736554"
+        }
+      ],
       "derived_from": {
-        "commit": "76437c5",
+        "commit": "5404d40",
         "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
         "reference_median_ms": null,
-        "runner_median_ms": 7719
+        "runner_median_ms": null,
+        "supersedes": "7719 ms baseline was a median over one unidentified launch from a broken sample (ADR-0022 Amendment 3, MARXY-70)",
+        "cross_run_spread": 1.064,
+        "observations_n": 5
+      },
+      "cold_envelope_derived_from": {
+        "commit": "5404d40",
+        "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+        "max_observed_cold_ms": 1033,
+        "formula": "ceil(max(observed_cold_ms) × 1.3)",
+        "supersedes": "the ×20 envelope on cold_start_first_text_ms was derived from a warm median and is not used for the cold metric"
       },
       "parse_long_technical_ms": {
         "multiplier": 2,
@@ -33,12 +120,120 @@
     },
     "macos-latest": {
       "multiplier": 5,
-      "baseline_ms": 1901,
+      "tolerance": 1.3,
+      "runs_n": 9,
+      "baseline_ms": null,
+      "cold_envelope_ms": 3397,
+      "baseline_waived": {
+        "reason": "cross-run warm spread × tolerance exceeds 1.20 at every tolerance ≥ 1.05; a band wide enough to absorb runner assignment would not catch a 20 % regression",
+        "observed_warm_ms": [2423, 1700.5, 1572, 2116, 1658.5, 2203],
+        "cross_run_spread": 1.542,
+        "escalated_to": "MARXY-53",
+        "date": "2026-09-19"
+      },
+      "observed_warm_ms": [
+        {
+          "ms": 2423,
+          "commit": "7436e1d",
+          "job_id": "106030100883",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492634872/job/106030100883"
+        },
+        {
+          "ms": 1700.5,
+          "commit": "cecb977",
+          "job_id": "106029587414",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492438720/job/106029587414"
+        },
+        {
+          "ms": 1572,
+          "commit": "e597beb",
+          "job_id": "106029512339",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492411429/job/106029512339"
+        },
+        {
+          "ms": 2116,
+          "commit": "5404d40",
+          "job_id": "106029010430",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491808680/job/106029010430"
+        },
+        {
+          "ms": 1658.5,
+          "commit": "ba31732",
+          "job_id": "106027167564",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491515872/job/106027167564"
+        },
+        {
+          "ms": 2203,
+          "commit": "adf62f6",
+          "job_id": "106017736434",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35487972038/job/106017736434"
+        }
+      ],
+      "observed_cold_ms": [
+        {
+          "ms": 2613,
+          "commit": "7436e1d",
+          "job_id": "106030100883",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492634872/job/106030100883"
+        },
+        {
+          "ms": 1817,
+          "commit": "cecb977",
+          "job_id": "106029587414",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492438720/job/106029587414"
+        },
+        {
+          "ms": 1657,
+          "commit": "e597beb",
+          "job_id": "106029512339",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35492411429/job/106029512339"
+        },
+        {
+          "ms": 2418,
+          "commit": "5404d40",
+          "job_id": "106029010430",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491808680/job/106029010430"
+        },
+        {
+          "ms": 1885,
+          "commit": "ba31732",
+          "job_id": "106027167564",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35491515872/job/106027167564"
+        },
+        {
+          "ms": 2068,
+          "commit": "adf62f6",
+          "job_id": "106017736434",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35487972038/job/106017736434"
+        }
+      ],
       "derived_from": {
-        "commit": "76437c5",
+        "commit": "5404d40",
         "runner_image": "macos-latest (macos-15, arm64)",
         "reference_median_ms": null,
-        "runner_median_ms": 1901
+        "runner_median_ms": null,
+        "supersedes": "1901 ms baseline was a warm median, not launch 1 (ADR-0022 Amendment 3, MARXY-70)",
+        "cross_run_spread": 1.542,
+        "observations_n": 6
+      },
+      "cold_envelope_derived_from": {
+        "commit": "7436e1d",
+        "runner_image": "macos-latest (macos-15, arm64)",
+        "max_observed_cold_ms": 2613,
+        "formula": "ceil(max(observed_cold_ms) × 1.3)",
+        "supersedes": "the ×5 envelope on cold_start_first_text_ms was derived from a warm median and is not used for the cold metric"
       },
       "parse_long_technical_ms": {
         "multiplier": 3,
