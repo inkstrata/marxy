@@ -6,7 +6,8 @@
     "palette_keystroke_ms": 16,
     "typeset_viewport_ms": 100,
     "live_reload_ms": 100,
-    "find_first_match_ms": 50
+    "find_first_match_ms": 50,
+    "parse_long_technical_ms": 10
   },
   "ci": {
     "ubuntu-latest": {
@@ -17,6 +18,17 @@
         "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
         "reference_median_ms": null,
         "runner_median_ms": 7719
+      },
+      "parse_long_technical_ms": {
+        "multiplier": 2,
+        "baseline_ms": 12.31,
+        "derived_from": {
+          "commit": "3ad53ff",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35473569234/job/105978808011",
+          "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
+          "reference_median_ms": null,
+          "runner_median_ms": 12.31
+        }
       }
     },
     "macos-latest": {
@@ -27,6 +39,17 @@
         "runner_image": "macos-latest (macos-15, arm64)",
         "reference_median_ms": null,
         "runner_median_ms": 1901
+      },
+      "parse_long_technical_ms": {
+        "multiplier": 3,
+        "baseline_ms": 17.34,
+        "derived_from": {
+          "commit": "3ad53ff",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35473569234/job/105978808020",
+          "runner_image": "macos-latest (macos-15, arm64)",
+          "reference_median_ms": null,
+          "runner_median_ms": 17.34
+        }
       }
     }
   },

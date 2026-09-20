@@ -29,6 +29,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The 600-line branch-diff budget now counts only source, scripts, orchestration code and workflows, not board rows, plan deltas or task cards, so a plan landing is judged on the work a reviewer holds — the over-600 rule in `docs/conventions.md` (MARXY-142)
 
 ### Added
+- The parse-time budget for the long technical document now lives in `fixtures/perf-budgets.json` with a required, per-runner CI entry derived from a recorded measurement, alongside the warm-start rule it shares; the self-calibrating unit assertion is gone, and the parse test now records its measurement for the gate to read (MARXY-59)
 - The no-network gate now prints which request classes it can and cannot observe (WebSocket, dns-prefetch, service worker registration), proves the allow-list refuses each one's required element, and fails on its own silence if the set of checks it runs ever drifts from the list it declares; a mutation-coverage suite fails a named test for each of those checks if it is ever deleted (MARXY-83)
 - The fixture corpus now has a real API reference, changelog, agent transcript and source file, so typesetting and aesthetics judgements are no longer made only on prose and a README (MARXY-130)
 - Opening quotes hang into the margin and long English words can hyphenate from allow-listed en-us/en-gb patterns, so the left edge reads flush and a long word no longer leaves a hole (MARXY-24)
