@@ -7,6 +7,7 @@ import type { Document } from '../contracts/ast.ts';
 import { parseMarkdown, type ParseOptions } from '../parse/parse.ts';
 import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
 import { sanitizeHtml, type Removal } from '../sanitize/sanitize-html.ts';
+import { blockedImagesFrom, type BlockedImage } from './images.ts';
 import { renderToUnsanitisedHtml } from './render-html.ts';
 
 export interface RenderOptions extends ParseOptions {
@@ -19,6 +20,11 @@ export interface RenderResult {
   readonly html: string;
   /** What the allow-list took out, in order, so a notice can name it (MARXY-26, MARXY-44). */
   readonly removed: readonly Removal[];
+  /**
+   * Remote images the allow-list stripped of `src`, with hosts already parsed. The article HTML
+   * must not name those hosts (the hostile fixture fails if it does); the app's notice does.
+   */
+  readonly blockedImages: readonly BlockedImage[];
 }
 
 /** Parses a document's bytes and returns sanitised HTML. */
@@ -39,7 +45,7 @@ export function renderSafeHtml(source: string | Uint8Array, options: RenderOptio
 export function renderDocumentSafeHtml(document: Document, policy: Policy = DEFAULT_POLICY): RenderResult {
   const secret = secretNames();
   const { html, removed } = sanitizeHtml(renderToUnsanitisedHtml(document, { provenance: secret }), withProvenance(policy, secret));
-  return { html: publish(html, secret), removed };
+  return { html: publish(html, secret), removed, blockedImages: blockedImagesFrom(removed) };
 }
 
 /** Attribute names nobody outside this call can predict: 128 bits from the platform's CSPRNG. */
