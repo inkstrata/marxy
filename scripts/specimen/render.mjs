@@ -5,14 +5,15 @@
 // nothing" is a measurement rather than the absence of one.
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
-import { CONTROL_RESOURCES, DPRS, OUT, SOURCE, VIEWPORT, pages, pairs, pngSize, repo, repoPath, specimenPage, tokens, typeScale } from './specimen.mjs';
+import { CONTROL_RESOURCES, DPRS, OUT, SOURCE, VARIANTS, VIEWPORT, pages, pairs, pngSize, repo, repoPath, specimenPage, tokens, typeScale } from './specimen.mjs';
 
 const manifest = {
   generated: new Date().toISOString().slice(0, 10),
   source: SOURCE,
   viewport: VIEWPORT,
   dprs: DPRS,
-  measure: tokens()('measure'),
+  variants: [...VARIANTS],
+  measure: tokens('dark')('measure'),
   scale: typeScale(),
   pages,
   pairs: [],
@@ -36,26 +37,28 @@ try {
     const dir = `${OUT}/${pair.slug}`;
     rmSync(repo(dir), { recursive: true, force: true });
     mkdirSync(repo(dir), { recursive: true });
-    const html = specimenPage(pair);
     const entry = { ...pair, faces: pair.faces.map(f => ({ ...f, bytes: statSync(repo(f.file)).size })), images: [] };
 
-    for (const dpr of DPRS) {
-      const ctx = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: dpr, offline: true });
-      await intercept(ctx, manifest);
-      const page = await ctx.newPage();
-      await page.setContent(html, { waitUntil: 'load' });
-      await page.evaluate(() => document.fonts.ready);
+    for (const variant of VARIANTS) {
+      const html = specimenPage(pair, variant);
+      for (const dpr of DPRS) {
+        const ctx = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: dpr, offline: true });
+        await intercept(ctx, manifest);
+        const page = await ctx.newPage();
+        await page.setContent(html, { waitUntil: 'load' });
+        await page.evaluate(() => document.fonts.ready);
 
-      if (dpr === DPRS[0]) entry.measured = await page.evaluate(measure);
-      for (const p of pages) {
-        const { y, anchor } = await page.evaluate(anchorOffset, p.id);
-        await page.evaluate(top => window.scrollTo(0, top), y);
-        const path = `${dir}/${p.id}-${dpr}x.png`;
-        await page.screenshot({ path: repoPath(path) });
-        const { width, height } = pngSize(repo(path));
-        entry.images.push({ page: p.id, dpr, path, anchor, scrollY: y, width, height, bytes: statSync(repo(path)).size });
+        if (variant === VARIANTS[0] && dpr === DPRS[0]) entry.measured = await page.evaluate(measure);
+        for (const p of pages) {
+          const { y, anchor } = await page.evaluate(anchorOffset, p.id);
+          await page.evaluate(top => window.scrollTo(0, top), y);
+          const path = `${dir}/${p.id}-${variant}-${dpr}x.png`;
+          await page.screenshot({ path: repoPath(path) });
+          const { width, height } = pngSize(repo(path));
+          entry.images.push({ page: p.id, variant, dpr, path, anchor, scrollY: y, width, height, bytes: statSync(repo(path)).size });
+        }
+        await ctx.close();
       }
-      await ctx.close();
     }
     manifest.pairs.push(entry);
     console.log(`${pair.slug}: ${entry.images.length} PNGs, column ${entry.measured.columnPx}px = ${entry.measured.measureCh}ch`);
@@ -68,7 +71,7 @@ try {
 }
 
 writeFileSync(repo(`${OUT}/manifest.json`), JSON.stringify(manifest, null, 2) + '\n');
-console.log(`specimen rendered: ${manifest.pairs.length} pairs × ${pages.length} pages × ${DPRS.length} densities, ${manifest.blocked.length} network requests`);
+console.log(`specimen rendered: ${manifest.pairs.length} pairs × ${VARIANTS.length} variants × ${pages.length} pages × ${DPRS.length} densities, ${manifest.blocked.length} network requests`);
 
 async function runNetworkControl(browser) {
   const sink = { requests: [], blocked: [] };

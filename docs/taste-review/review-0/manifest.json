@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-18",
+  "generated": "2026-09-20",
   "source": "fixtures/corpus/01-long-technical.md",
   "viewport": {
     "width": 1000,
@@ -8,6 +8,10 @@
   "dprs": [
     1,
     2
+  ],
+  "variants": [
+    "dark",
+    "light"
   ],
   "measure": "68ch",
   "scale": {
@@ -115,8 +119,9 @@
       "images": [
         {
           "page": "p1-opening",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-1x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-dark-1x.png",
           "anchor": {
             "tag": "h1",
             "block": 0,
@@ -125,12 +130,13 @@
           "scrollY": 0,
           "width": 1000,
           "height": 900,
-          "bytes": 123250
+          "bytes": 104327
         },
         {
           "page": "p2-inline-code",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-1x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-dark-1x.png",
           "anchor": {
             "tag": "p",
             "block": 29,
@@ -139,12 +145,13 @@
           "scrollY": 2601,
           "width": 1000,
           "height": 900,
-          "bytes": 160069
+          "bytes": 142484
         },
         {
           "page": "p3-table",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-1x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-dark-1x.png",
           "anchor": {
             "tag": "table",
             "block": 11,
@@ -153,12 +160,13 @@
           "scrollY": 852,
           "width": 1000,
           "height": 900,
-          "bytes": 129931
+          "bytes": 123826
         },
         {
           "page": "p4-heading-stack",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-1x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-dark-1x.png",
           "anchor": {
             "tag": "h3",
             "block": 21,
@@ -167,26 +175,28 @@
           "scrollY": 1748,
           "width": 1000,
           "height": 900,
-          "bytes": 148231
+          "bytes": 131806
         },
         {
           "page": "p5-late-list",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-1x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-dark-1x.png",
           "anchor": {
             "tag": "ul",
             "block": 67,
             "text": "The typesetting path, the theme contract, and the operations"
           },
-          "scrollY": 7097,
+          "scrollY": 7019,
           "width": 1000,
           "height": 900,
-          "bytes": 136541
+          "bytes": 118813
         },
         {
           "page": "p1-opening",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-2x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-dark-2x.png",
           "anchor": {
             "tag": "h1",
             "block": 0,
@@ -195,12 +205,13 @@
           "scrollY": 0,
           "width": 2000,
           "height": 1800,
-          "bytes": 285841
+          "bytes": 236656
         },
         {
           "page": "p2-inline-code",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-2x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-dark-2x.png",
           "anchor": {
             "tag": "p",
             "block": 29,
@@ -209,12 +220,13 @@
           "scrollY": 2601,
           "width": 2000,
           "height": 1800,
-          "bytes": 376140
+          "bytes": 325098
         },
         {
           "page": "p3-table",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-2x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-dark-2x.png",
           "anchor": {
             "tag": "table",
             "block": 11,
@@ -223,12 +235,13 @@
           "scrollY": 852,
           "width": 2000,
           "height": 1800,
-          "bytes": 310108
+          "bytes": 286299
         },
         {
           "page": "p4-heading-stack",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-2x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-dark-2x.png",
           "anchor": {
             "tag": "h3",
             "block": 21,
@@ -237,29 +250,180 @@
           "scrollY": 1748,
           "width": 2000,
           "height": 1800,
-          "bytes": 350348
+          "bytes": 295568
         },
         {
           "page": "p5-late-list",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-2x.png",
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-dark-2x.png",
           "anchor": {
             "tag": "ul",
             "block": 67,
             "text": "The typesetting path, the theme contract, and the operations"
           },
-          "scrollY": 7097,
+          "scrollY": 7019,
           "width": 2000,
           "height": 1800,
-          "bytes": 319666
+          "bytes": 269607
+        },
+        {
+          "page": "p1-opening",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-light-1x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
+          "scrollY": 0,
+          "width": 1000,
+          "height": 900,
+          "bytes": 97264
+        },
+        {
+          "page": "p2-inline-code",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-light-1x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
+          "scrollY": 2601,
+          "width": 1000,
+          "height": 900,
+          "bytes": 132828
+        },
+        {
+          "page": "p3-table",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-light-1x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
+          "scrollY": 852,
+          "width": 1000,
+          "height": 900,
+          "bytes": 114574
+        },
+        {
+          "page": "p4-heading-stack",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-light-1x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
+          "scrollY": 1748,
+          "width": 1000,
+          "height": 900,
+          "bytes": 121244
+        },
+        {
+          "page": "p5-late-list",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-light-1x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
+          "scrollY": 7019,
+          "width": 1000,
+          "height": 900,
+          "bytes": 110057
+        },
+        {
+          "page": "p1-opening",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p1-opening-light-2x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
+          "scrollY": 0,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 224785
+        },
+        {
+          "page": "p2-inline-code",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p2-inline-code-light-2x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
+          "scrollY": 2601,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 305395
+        },
+        {
+          "page": "p3-table",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p3-table-light-2x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
+          "scrollY": 852,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 268185
+        },
+        {
+          "page": "p4-heading-stack",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p4-heading-stack-light-2x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
+          "scrollY": 1748,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 279376
+        },
+        {
+          "page": "p5-late-list",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-a-literata-jetbrains-mono/p5-late-list-light-2x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
+          "scrollY": 7019,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 254498
         }
       ],
       "measured": {
         "codeBlocks": 0,
-        "columnPx": 670.09,
-        "chPx": 9.855,
+        "columnPx": 680,
+        "chPx": 10,
         "measureCh": 68,
-        "documentHeightPx": 9381,
+        "documentHeightPx": 9275,
         "roles": {
           "title": {
             "fontFamily": "Literata",
@@ -342,8 +506,9 @@
       "images": [
         {
           "page": "p1-opening",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-1x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-dark-1x.png",
           "anchor": {
             "tag": "h1",
             "block": 0,
@@ -352,68 +517,73 @@
           "scrollY": 0,
           "width": 1000,
           "height": 900,
-          "bytes": 122612
+          "bytes": 97454
         },
         {
           "page": "p2-inline-code",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-1x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-dark-1x.png",
           "anchor": {
             "tag": "p",
             "block": 29,
             "text": "Removed: Typora-style live-render editing. This deletes an e"
           },
-          "scrollY": 2653,
+          "scrollY": 2709,
           "width": 1000,
           "height": 900,
-          "bytes": 153450
+          "bytes": 128774
         },
         {
           "page": "p3-table",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-1x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-dark-1x.png",
           "anchor": {
             "tag": "table",
             "block": 11,
             "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
           },
-          "scrollY": 880,
+          "scrollY": 936,
           "width": 1000,
           "height": 900,
-          "bytes": 127904
+          "bytes": 115572
         },
         {
           "page": "p4-heading-stack",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-1x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-dark-1x.png",
           "anchor": {
             "tag": "h3",
             "block": 21,
             "text": "Why it reversed"
           },
-          "scrollY": 1776,
+          "scrollY": 1832,
           "width": 1000,
           "height": 900,
-          "bytes": 147489
+          "bytes": 124078
         },
         {
           "page": "p5-late-list",
+          "variant": "dark",
           "dpr": 1,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-1x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-dark-1x.png",
           "anchor": {
             "tag": "ul",
             "block": 67,
             "text": "The typesetting path, the theme contract, and the operations"
           },
-          "scrollY": 7365,
+          "scrollY": 7421,
           "width": 1000,
           "height": 900,
-          "bytes": 133379
+          "bytes": 111126
         },
         {
           "page": "p1-opening",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-2x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-dark-2x.png",
           "anchor": {
             "tag": "h1",
             "block": 0,
@@ -422,71 +592,225 @@
           "scrollY": 0,
           "width": 2000,
           "height": 1800,
-          "bytes": 284057
+          "bytes": 220700
         },
         {
           "page": "p2-inline-code",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-2x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-dark-2x.png",
           "anchor": {
             "tag": "p",
             "block": 29,
             "text": "Removed: Typora-style live-render editing. This deletes an e"
           },
-          "scrollY": 2653,
+          "scrollY": 2709,
           "width": 2000,
           "height": 1800,
-          "bytes": 362189
+          "bytes": 299557
         },
         {
           "page": "p3-table",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-2x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-dark-2x.png",
           "anchor": {
             "tag": "table",
             "block": 11,
             "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
           },
-          "scrollY": 880,
+          "scrollY": 936,
           "width": 2000,
           "height": 1800,
-          "bytes": 309355
+          "bytes": 266718
         },
         {
           "page": "p4-heading-stack",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-2x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-dark-2x.png",
           "anchor": {
             "tag": "h3",
             "block": 21,
             "text": "Why it reversed"
           },
-          "scrollY": 1776,
+          "scrollY": 1832,
           "width": 2000,
           "height": 1800,
-          "bytes": 344182
+          "bytes": 285347
         },
         {
           "page": "p5-late-list",
+          "variant": "dark",
           "dpr": 2,
-          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-2x.png",
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-dark-2x.png",
           "anchor": {
             "tag": "ul",
             "block": 67,
             "text": "The typesetting path, the theme contract, and the operations"
           },
-          "scrollY": 7365,
+          "scrollY": 7421,
           "width": 2000,
           "height": 1800,
-          "bytes": 311328
+          "bytes": 255296
+        },
+        {
+          "page": "p1-opening",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-light-1x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
+          "scrollY": 0,
+          "width": 1000,
+          "height": 900,
+          "bytes": 90895
+        },
+        {
+          "page": "p2-inline-code",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-light-1x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
+          "scrollY": 2709,
+          "width": 1000,
+          "height": 900,
+          "bytes": 119759
+        },
+        {
+          "page": "p3-table",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-light-1x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
+          "scrollY": 936,
+          "width": 1000,
+          "height": 900,
+          "bytes": 107005
+        },
+        {
+          "page": "p4-heading-stack",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-light-1x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
+          "scrollY": 1832,
+          "width": 1000,
+          "height": 900,
+          "bytes": 115120
+        },
+        {
+          "page": "p5-late-list",
+          "variant": "light",
+          "dpr": 1,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-light-1x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
+          "scrollY": 7421,
+          "width": 1000,
+          "height": 900,
+          "bytes": 103133
+        },
+        {
+          "page": "p1-opening",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p1-opening-light-2x.png",
+          "anchor": {
+            "tag": "h1",
+            "block": 0,
+            "text": "Stack evaluation"
+          },
+          "scrollY": 0,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 207160
+        },
+        {
+          "page": "p2-inline-code",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p2-inline-code-light-2x.png",
+          "anchor": {
+            "tag": "p",
+            "block": 29,
+            "text": "Removed: Typora-style live-render editing. This deletes an e"
+          },
+          "scrollY": 2709,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 280054
+        },
+        {
+          "page": "p3-table",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p3-table-light-2x.png",
+          "anchor": {
+            "tag": "table",
+            "block": 11,
+            "text": "Metric Weight Tauri Electron Swift Typographic ceiling 25 4 "
+          },
+          "scrollY": 936,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 249659
+        },
+        {
+          "page": "p4-heading-stack",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p4-heading-stack-light-2x.png",
+          "anchor": {
+            "tag": "h3",
+            "block": 21,
+            "text": "Why it reversed"
+          },
+          "scrollY": 1832,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 265557
+        },
+        {
+          "page": "p5-late-list",
+          "variant": "light",
+          "dpr": 2,
+          "path": "docs/taste-review/review-0/pair-b-source-serif-4-ibm-plex-mono/p5-late-list-light-2x.png",
+          "anchor": {
+            "tag": "ul",
+            "block": 67,
+            "text": "The typesetting path, the theme contract, and the operations"
+          },
+          "scrollY": 7421,
+          "width": 2000,
+          "height": 1800,
+          "bytes": 238851
         }
       ],
       "measured": {
         "codeBlocks": 0,
-        "columnPx": 594.75,
-        "chPx": 8.747,
+        "columnPx": 612,
+        "chPx": 9,
         "measureCh": 68,
-        "documentHeightPx": 9725,
+        "documentHeightPx": 9837,
         "roles": {
           "title": {
             "fontFamily": "Source Serif 4",
