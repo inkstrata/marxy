@@ -19,7 +19,11 @@ const SHOTS = process.argv.includes('--shots');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
 const repeatIdx = process.argv.indexOf('--repeat');
 const REPEAT =
-  repeatIdx === -1 ? 0 : Math.max(1, Number.parseInt(process.argv[repeatIdx + 1] ?? '', 10) || 0);
+  repeatIdx === -1
+    ? process.env.CI
+      ? 3
+      : 0
+    : Math.max(1, Number.parseInt(process.argv[repeatIdx + 1] ?? '', 10) || 0);
 const REQUIRED = process.env.MARXY_AESTHETICS_REQUIRED === '1' || process.env.GITHUB_ACTIONS === 'true';
 const RAG_OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };
 const WIDTHS = [720, 960, 1280];

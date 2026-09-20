@@ -149,3 +149,14 @@ test('MARXY-143: gate-aesthetics CLS thresholds and matrix literals match main',
     assert.ok(src.includes(text), `${name} must stay byte-identical to main`);
   }
 });
+
+test('MARXY-143: gate-aesthetics defaults CLS corpus to 3 passes in CI when --repeat is omitted', () => {
+  const src = gateSource();
+  const repeatBlock = src.slice(src.indexOf("const repeatIdx = process.argv.indexOf('--repeat')"));
+  assert.match(
+    repeatBlock,
+    /repeatIdx === -1[\s\S]*process\.env\.CI[\s\S]*\?\s*3\s*:\s*0/,
+    'CI must default REPEAT to 3 when --repeat is not passed',
+  );
+  assert.match(repeatBlock, /Math\.max\(1, Number\.parseInt\(process\.argv\[repeatIdx \+ 1\]/, '--repeat N must stay explicit for local runs');
+});
