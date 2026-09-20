@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- The MARXY-26 split is on main: that story now owns only the core image resolver, and four new stories cover images on the page, typeset defaults in the app, the tokens.css boundary, and the ADR-0030 amendment (MARXY-140)
 - The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
 
 ### Changed
