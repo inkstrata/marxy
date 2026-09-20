@@ -104,10 +104,10 @@ carry on against the mechanical gates. The queue is reviewed at the end of each 
 Interaction times are measured and printed. None of them fail CI (ADR-0032).
 The numbers below are the sphere of concern, not a merge-bar ceiling.
 
-| Cold start → first readable text | measured; no ceiling | Open indexed doc | measured; 50 ms concern |
+| Cold start → first readable text | measured; no ceiling | Open indexed doc | < 50 ms |
 | --- | --- | --- | --- |
-| Palette keystroke → results | measured; 16 ms concern | Typeset viewport | measured; 100 ms concern |
-| Live-reload after external change | measured; 100 ms concern | Find, first match | measured; 50 ms concern |
+| Palette keystroke → results | < 16 ms | Typeset viewport | < 100 ms |
+| Live-reload after external change | < 100 ms | Find, first match | < 50 ms |
 
 ## Where things are
 
