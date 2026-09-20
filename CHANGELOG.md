@@ -7,8 +7,14 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+<<<<<<< HEAD
 - MARXY-33 acceptance criteria now match ADR-0029/0032 and the checks PR #137 already ships, so the escalated cold-start story can merge without a fictional 400 ms gate or out-of-scope waterfall attachment (MARXY-167)
 - Cold-start instrumentation now emits a full waterfall of marks, defers KaTeX, local images, highlighting and index work until after reading position is restored, and the desktop entry chunk is tested to keep grammars and CodeMirror off the static graph (MARXY-33)
+||||||| parent of 3a47ce9 (fix(desktop): lazy-load highlight off cold-start path (MARXY-33))
+- Cold-start instrumentation now emits a full waterfall of marks, defers KaTeX, local images, highlighting and index work until after reading position is restored, and the desktop entry chunk is tested to keep grammars and CodeMirror off the static graph (MARXY-33)
+=======
+- Cold-start instrumentation now emits a full waterfall of marks, defers KaTeX, local images, Shiki highlighting and index work until after reading position is restored, and the desktop entry chunk is tested to keep Shiki, grammars and CodeMirror off the static graph (MARXY-33)
+>>>>>>> 3a47ce9 (fix(desktop): lazy-load highlight off cold-start path (MARXY-33))
 - Fenced code blocks pick up syntax colour after first paint: an idle post-pass tokenises allow-listed languages into trusted `marxy-tok-*` spans and `base.css` maps those classes to the theme's `--marxy-tok-*` tokens (MARXY-164)
 - The aesthetics gate now pixel-diff every corpus page at 960 px in dark and light against committed WebKit baselines on macOS and Linux; a 1 px heading shift fails, and refreshing baselines requires a taste-queue row (MARXY-30)
 - MARXY-138's taste-review queue row now has real before/after PNGs for `09-gfm-everything.md` and `10-hostile.md`, rendered retroactively after PR #115 merged without them (MARXY-155)

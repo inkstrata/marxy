@@ -1,7 +1,6 @@
 // Deferred startup work after reading position is restored (MARXY-33): index, MRU, pins, highlight, math, images.
 import { applyImages, pathsForDocument, type ApplyImagesContext } from '../render/images.ts';
 import { applyMath } from '../render/math.ts';
-import { startCodeHighlight } from '../render/highlight.ts';
 
 interface MarkShell {
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -42,6 +41,7 @@ export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<v
   const highlightStart = Date.now();
   await applyImages(doc, { ...ctx.imageCtx, documentPath: file, documentDir, imageRoot });
   await applyMath(doc);
+  const { startCodeHighlight } = await import('../render/highlight.ts');
   startCodeHighlight(doc);
   await shell.mark('highlight_ms', Date.now(), `ms=${Date.now() - highlightStart}`);
   await loadIndexMruPins();
