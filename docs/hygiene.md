@@ -48,7 +48,12 @@ The 600-line branch-diff budget in `orchestration/phases.test.mjs` counts insert
 - Frozen: byte-pinned contracts under `packages/*/src/contracts/` and `packages/shell-api/src/`, name-and-unit contract for `packages/theme/src/tokens.css`.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.
-- `innerHTML` may be assigned only where `scripts/registry.json` says (the render sites).
+- Parsed markup may enter the DOM only on paths in `innerHtmlAllowedIn`
+  (`scripts/registry.json`): `check-registry.mjs` matches every route (`.innerHTML =`,
+  bracket assignment, `Reflect.set(…, 'innerHTML', …)`, `.outerHTML =`, `.insertAdjacentHTML`,
+  `.setHTMLUnsafe`, `document.write`, `.createContextualFragment`), not a single regex an
+  implementor can walk around. A gate is satisfied, never routed around; a check pinned to a
+  source path moves with that code in the same PR.
 - Names: `scripts/registry.json` is the source; `docs/design/README.md` mirrors it for reading.
 
 ## Writing a gate or check

@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- `check-registry.mjs` now flags every route from a string to parsed markup (not only `.innerHTML =`), with tests (MARXY-132)
 - MARXY-137's paths now include `scripts/gate-aesthetics.mjs` and the parse-diff-guard retirement story (MARXY-147) is on the board with its MARXY-59 dependency edge, so attempt 3 of PR #104 and MARXY-147 can proceed once this lands (MARXY-148)
 - The MARXY-129 token-test companion (MARXY-145) and its dependency edge from MARXY-129 are on main so `check-story.mjs` and `ready.mjs` see the board before the companion is dispatched (MARXY-146)
 - The MARXY-137 path widening and the CLS-window story (MARXY-143) are on main: the headless render entry is in MARXY-137's boundary, and attempt 2 of PR #104 can proceed once this lands (MARXY-144)
