@@ -56,7 +56,7 @@ export async function startHarness() {
   async function open(html, { width = 960, height = 900, extraCss = '', variant = 'dark' } = {}) {
     const path = `/page-${n++}.html`;
     pages.set(path, `<!doctype html><html lang="en" data-marxy-variant="${variant}"><head><meta charset="utf-8">
-<script type="importmap">{"imports":{"justif/core":"/justif/core.js"}}</script>
+<script type="importmap">{"imports":{"justif/core":"/justif/core.js","justif/hyphenate/en-us":"/justif/hyphenate/en-us.js","justif/hyphenate/en-gb":"/justif/hyphenate/en-gb.js"}}</script>
 <style>${fontsCss}${defaultThemeCss()}${extraCss}</style></head>
 <body><article class="marxy-article" id="doc">${html}</article>
 <script type="module">import * as typeset from '/src/index.ts'; import { immediateScheduler } from '/src/scheduler.ts';

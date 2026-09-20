@@ -23,6 +23,7 @@ interface Font {
 export class FontSizes {
   private fonts = new WeakMap<Element, Font>();
   private readonly spaces = new Map<string, number>();
+  private readonly hyphens = new Map<string, number>();
 
   of(el: Element): Font {
     let font = this.fonts.get(el);
@@ -42,10 +43,25 @@ export class FontSizes {
     if (width > 0.5 && !this.spaces.has(font.key)) this.spaces.set(font.key, width);
   }
 
+  /** Advance of the hyphen glyph in this font; measured once from a probe so a missing `-` in the text still costs the right amount. */
+  hyphen(font: Font, owner: Element): number {
+    const cached = this.hyphens.get(font.key);
+    if (cached !== undefined) return cached;
+    const probe = owner.ownerDocument.createElement('span');
+    probe.style.cssText = 'position:absolute;left:-9999px;visibility:hidden;pointer-events:none';
+    probe.textContent = '-';
+    owner.appendChild(probe);
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+    this.hyphens.set(font.key, width > 0 ? width : font.size * 0.33);
+    return this.hyphens.get(font.key)!;
+  }
+
   /** After a theme or font change. */
   reset(): void {
     this.fonts = new WeakMap();
     this.spaces.clear();
+    this.hyphens.clear();
   }
 }
 
@@ -89,6 +105,10 @@ export function measureTokens(tokens: readonly Token[], fonts: FontSizes): Measu
   });
   return tokens.map((t, i): Measured => {
     if (t.kind === 'dash') return { kind: 'dash' };
+    if (t.kind === 'hyphen') {
+      const parent = t.node.parentElement!;
+      return { kind: 'hyphen', width: fonts.hyphen(fonts.of(parent), parent) };
+    }
     const next = nextEdge(i);
     if (t.kind === 'space') {
       const font = fonts.of(t.node.parentElement!);

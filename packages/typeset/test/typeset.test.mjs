@@ -134,3 +134,91 @@ test('the kill switch leaves everything to the engine', async () => {
   assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-set, .marxy-lb').length), 0);
   await page.close();
 });
+
+/** Attaches with hanging and hyphenation, the story's defaults. */
+const attachOn = (page) =>
+  page.evaluate(async () => {
+    window.controller = window.typeset.attach(document.getElementById('doc'), {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: true, lastLineMinWidth: 0.33, hanging: 'left', scheduler: window.immediateScheduler(),
+    });
+    await window.controller.done;
+    return JSON.parse(JSON.stringify(window.controller.stats));
+  });
+
+test('an opening quote hangs left of the content edge by at least 40% of its advance', async () => {
+  const html = '<p data-marxy-s="0">“When the ice finally let go of the harbour wall the whole town seemed to exhale, and the first boats nosed out toward a horizon that had been a rumour all winter, carrying the same stores they had carried every spring and the same arguments about weather.”</p>';
+  const page = await harness.open(html);
+  await attachOn(page);
+  const result = await page.evaluate(() => {
+    const p = document.querySelector('p.marxy-set');
+    const hang = p?.querySelector('.marxy-hang');
+    if (p === null || hang === null) return { hung: false };
+    const cs = getComputedStyle(p);
+    const left = p.getBoundingClientRect().left + parseFloat(cs.paddingLeft);
+    const rect = hang.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(hang);
+    let advance = 0;
+    for (const r of range.getClientRects()) advance = Math.max(advance, r.width);
+    return { hung: true, delta: left - rect.left, advance, text: hang.textContent };
+  });
+  assert.equal(result.hung, true, 'expected a hang span on a quoted paragraph');
+  assert.match(result.text, /[“"]/);
+  assert.ok(result.delta >= 0.4 * result.advance, `hung ${result.delta.toFixed(2)} px of ${result.advance.toFixed(2)} px advance`);
+  await page.close();
+});
+
+test('a hyphenated break shows a hyphen, keeps find and selection clean, and never splits code', async () => {
+  const html = '<p data-marxy-s="0" lang="en-us">Hyphenation internationalization responsibility demonstration of a deliberately overlong paragraph so the breaker must take a hyphenation point rather than leave a hole.</p><p data-marxy-s="1" lang="en-us">A filename like <code>internationalization-config</code> stays whole beside ordinary words that fill the rest of this line enough to typeset.</p>';
+  const page = await harness.open(html, { extraCss: '.marxy-article { max-width: 28ch !important; }' });
+  await attachOn(page);
+  const result = await page.evaluate(() => {
+    const hyphens = [...document.querySelectorAll('.marxy-lb.marxy-hyphen')];
+    const first = hyphens[0];
+    let selected = '';
+    if (first !== undefined) {
+      const before = first.previousSibling;
+      const after = first.nextSibling;
+      if (before?.nodeType === Node.TEXT_NODE && after?.nodeType === Node.TEXT_NODE) {
+        const range = document.createRange();
+        range.setStart(before, Math.max(0, before.length - 4));
+        range.setEnd(after, Math.min(after.length, 4));
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        selected = getSelection().toString();
+        getSelection().removeAllRanges();
+      }
+    }
+    const codeHyphens = [...document.querySelectorAll('code .marxy-hyphen, code .marxy-lb')].length;
+    return {
+      hyphenCount: hyphens.length,
+      hyphenPainted: first !== undefined && [...first.getClientRects()].some((r) => r.width > 0),
+      selected,
+      found: window.find('internationalization', false, false, true)
+        || window.find('Hyphenation', false, false, true)
+        || window.find('responsibility', false, false, true),
+      codeHyphens,
+      hasSoft: selected.includes('\u00ad'),
+    };
+  });
+  assert.ok(result.hyphenCount > 0, 'expected at least one hyphenated break on a narrow measure');
+  assert.equal(result.hyphenPainted, true, 'the hyphen at the line end must be visible');
+  assert.equal(result.hasSoft, false, `selection contained a soft hyphen: ${JSON.stringify(result.selected)}`);
+  assert.equal(result.found, true, 'find must match the word across the hyphen');
+  assert.equal(result.codeHyphens, 0, 'a code span must never hyphenate or break inside');
+  await page.close();
+});
+
+test('relayout reverts hang spans so no state accumulates', async () => {
+  const html = '<p data-marxy-s="0">“A quoted paragraph long enough that the typesetter will break it and hang the opening quote on the first line and again after a relayout, without leaving a nested hang span behind.”</p>';
+  const page = await harness.open(html);
+  await attachOn(page);
+  const first = await page.evaluate(() => document.querySelectorAll('.marxy-hang').length);
+  await page.evaluate(async () => { window.controller.relayout('reload'); await window.controller.done; });
+  const second = await page.evaluate(() => document.querySelectorAll('.marxy-hang').length);
+  assert.ok(first > 0);
+  assert.equal(second, first);
+  await page.evaluate(() => window.controller.destroy());
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-hang, .marxy-hyphen, .marxy-lb').length), 0);
+  await page.close();
+});

@@ -53,9 +53,9 @@ export function breakRagged(tokens: readonly Measured[], measure: number, fontSi
   const prefix = new Float64Array(n + 1);
   for (let i = 0; i < n; i++) {
     const t = tokens[i]!;
-    prefix[i + 1] = prefix[i]! + (t.kind === 'dash' ? 0 : t.width);
+    prefix[i + 1] = prefix[i]! + (t.kind === 'piece' || t.kind === 'space' ? t.width : 0);
   }
-  // Breakpoints: -1 is the paragraph's start; otherwise a space or dash token index.
+  // Breakpoints: -1 is the paragraph's start; otherwise a space, dash or hyphen token index.
   const breaks: number[] = [-1];
   for (let i = 0; i < n; i++) if (tokens[i]!.kind !== 'piece') breaks.push(i);
   const lineStart = (b: number): number => b + 1;
@@ -68,7 +68,7 @@ export function breakRagged(tokens: readonly Measured[], measure: number, fontSi
   best[0] = 0;
   for (let k = 1; k < breaks.length; k++) {
     const at = breaks[k]!;
-    const dash = tokens[at]!.kind === 'dash';
+    const dash = tokens[at]!.kind === 'dash' || tokens[at]!.kind === 'hyphen';
     for (let j = k - 1; j >= 0; j--) {
       if (best[j] === Number.POSITIVE_INFINITY) continue;
       const w = width(breaks[j]!, at);
