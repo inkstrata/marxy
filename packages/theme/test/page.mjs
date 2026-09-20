@@ -38,11 +38,11 @@ export function renderCorpus(file) {
  * A page of rendered markdown in the default theme. Fonts are inlined so italic resolves to
  * Literata's real italic, not a synthetic slant.
  */
-export async function openPage(browser, html, { width = 960, variant = 'dark', snap = true, height = 900 } = {}) {
+export async function openPage(browser, html, { width = 960, variant = 'dark', snap = true, height = 900, extraCss = '' } = {}) {
   const page = await browser.newPage({ viewport: { width, height } });
   await page.setContent(
     `<!doctype html><html lang="en" data-marxy-variant="${variant}"><head><meta charset="utf-8">` +
-      `<style>${facesCss()}${css}</style></head>` +
+      `<style>${facesCss()}${css}${extraCss}</style></head>` +
       `<body><article class="marxy-article" id="doc">${html}</article></body></html>`,
   );
   await page.evaluate(() => document.fonts.ready);
