@@ -88,3 +88,30 @@ test('hygiene frozen-files section states the split in one sentence', () => {
   assert.match(sentence, /packages\/theme\/src\/tokens\.css/);
   assert.doesNotMatch(sentence, /\.\s+[A-Z]/);
 });
+
+// MARXY-153: the CI story-boundary step was wrapped in `|| echo "::warning::"` and so could never
+// fail. The reason was not the CSV row its comment blamed — a pull-request checkout is detached,
+// `git rev-parse --abbrev-ref HEAD` answers "HEAD", and no key could be read from it, so the step
+// could never *pass* either. Reading GITHUB_HEAD_REF is what lets it run unguarded on CI.
+test('MARXY-153: a story key is read from the branch slug, wherever the branch name comes from', async () => {
+  const { keyFromBranch } = await import('./lib/repo.mjs');
+  assert.equal(keyFromBranch('ci/MARXY-153-minimal-fast-ci'), 'MARXY-153');
+  assert.equal(keyFromBranch('feat/MARXY-26-images'), 'MARXY-26');
+  assert.equal(keyFromBranch('MARXY-7'), 'MARXY-7');
+  assert.equal(keyFromBranch('HEAD'), null, 'a detached checkout yields no key, which is the bug this fixes');
+  assert.equal(keyFromBranch(''), null);
+  assert.equal(keyFromBranch(undefined), null);
+});
+
+test('MARXY-153: on a detached pull-request checkout the branch comes from GITHUB_HEAD_REF', async () => {
+  const { branchName } = await import('./lib/repo.mjs');
+  // The real checkout here is not detached, so the fallback is exercised through the env argument.
+  assert.equal(branchName({ GITHUB_HEAD_REF: 'ci/MARXY-153-x', GITHUB_REF_NAME: 'merge' }), branchName(), 'a real branch wins over the env');
+  assert.match(branchName(), /MARXY-153/);
+});
+
+test('MARXY-153: the CI story-boundary step runs unguarded', () => {
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /run: node scripts\/check-story\.mjs --strict\n/, 'the step must run the check plainly');
+  assert.doesNotMatch(ci, /check-story\.mjs --strict \|\|/, 'no `||` may swallow its exit code');
+});

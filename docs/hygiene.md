@@ -88,7 +88,7 @@ runner-noise perf breaches and a timing assertion inside a unit test.
 | `changes` | always | classifies the diff: docs-only / web / rust | 5 s |
 | `conventions` | pull requests | commitlint on commits and title, `check-pr`, story boundary | 24 s |
 | `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, goldens, fidelity, licences | 51 s |
-| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 445 s → see MARXY-153 below |
+| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 445 s → **165 s** (MARXY-153) |
 | `gates` (macOS) | not docs-only | frontend, `cargo build --profile ci` with `rust-cache` (67 s), CLI smoke (13 s), nine-launch startup measurement (36 s), perf gate, bundle gate | 167 s |
 | `gates` (Ubuntu) | not docs-only | the same plus Rust fmt/clippy (52 s); build 111 s, smoke 17 s, measurement 31 s | 261 s |
 | `ci` | always | the single required check; fails if any job that ran failed | 3 s |
@@ -116,15 +116,29 @@ the growth was one step — `gate:aesthetics` at 356 s — and it broke down as 
   now runs `min(4, cpus)` pages at a time (`--workers N`, or `MARXY_AESTHETICS_WORKERS`). Measured
   locally on the same corpus and matrix, same verdict: **60.5 s → 17.3 s**.
 
+Measured on CI, run 35501272193 against run 35499870306: **`gate:aesthetics` 356 s → 81 s**
+(4.4×), and the `browser` job 445 s → 165 s, of which 60 s is now fixed setup (container, mise,
+install) rather than work. Locally, same corpus and verdict, 60.5 s → 17.3 s. The CI figure is
+below 4× rather than at it because a standard runner shares four vCPUs with the container.
+
 The matrix itself is untouched: same 19 files, same 12 combos, same ten page checks, same
 thresholds. The gate asserts exactly what it asserted before, and MARXY-143's repeat signal is
 kept rather than dropped — `apps/desktop/test/layout-shift-window.test.mjs` pins both halves, so
 deleting the nightly run fails the suite.
 
-Also retired here: the `conventions` job ran `check-story.mjs --strict || echo "::warning::"`,
-which made it a step that could not fail. Its comment said "advisory until every story has a CSV
-row", but out-of-plan tasks never get a CSV row, so that condition could not arrive — and the
-check already skips its path assertion by itself in exactly that case. It now runs unguarded.
+Also fixed here: the `conventions` job ran `check-story.mjs --strict || echo "::warning::"`, which
+made it a step that could not fail. Its comment blamed CSV rows — "advisory until every story has a
+CSV row" — but that was not the reason, and removing the guard on its own turned the step red on
+this very pull request. The real cause is that a pull-request checkout is **detached**:
+`git rev-parse --abbrev-ref HEAD` answers `HEAD`, `storyKey()` could read no key from it, and
+`--strict` failed with "no story key in the branch name" on every pull request ever run. The step
+could not pass, so it was wrapped rather than fixed. `branchName()` now falls back to
+`GITHUB_HEAD_REF` (pull request) and `GITHUB_REF_NAME` (push) when the checkout is detached, a real
+local branch still wins over both, and the step runs unguarded.
+
+The general lesson is worth more than the fix: **a check wrapped in `|| true` or `|| echo` is a
+check whose failure nobody has read.** This one had been green-by-construction long enough that its
+comment described a cause that was never the cause.
 
 **A check earns its place on the pull-request path by being able to fail for something in the
 diff.** Monitoring goes nightly; a step that cannot fail gets deleted or made real.
