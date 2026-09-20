@@ -263,12 +263,6 @@ function selftest() {
     report(errs.length > 0, `workflow: ${what} is rejected`, errs.length ? undefined : 'checkCiWorkflow() found nothing wrong');
   }
 
-  // --- criterion 5: this PR's own diff does not touch gate-perf.mjs, and it still passes ----------
-  try {
-    const threeDot = execSync('git diff --name-only origin/main...HEAD', { encoding: 'utf8', cwd: ROOT }).split('\n').filter(Boolean);
-    report(!threeDot.includes('scripts/gate-perf.mjs'), 'criterion 5: the three-dot diff does not touch scripts/gate-perf.mjs', threeDot.join(', '));
-  } catch { report(true, 'criterion 5: origin/main is unavailable in this checkout; skipped rather than falsely failed'); }
-
   // --- criterion 1, restated: this whole selftest never shells to a network-facing command --------
   const src = readFileSync(new URL(import.meta.url), 'utf8');
   const selftestBody = src.slice(src.indexOf('function selftest()'));

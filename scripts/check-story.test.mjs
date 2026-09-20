@@ -88,3 +88,35 @@ test('hygiene frozen-files section states the split in one sentence', () => {
   assert.match(sentence, /packages\/theme\/src\/tokens\.css/);
   assert.doesNotMatch(sentence, /\.\s+[A-Z]/);
 });
+
+// MARXY-153: the CI story-boundary step was wrapped in `|| echo "::warning::"` and so could never
+// fail. The reason was not the CSV row its comment blamed — a pull-request checkout is detached,
+// `git rev-parse --abbrev-ref HEAD` answers "HEAD", and no key could be read from it, so the step
+// could never *pass* either. Reading GITHUB_HEAD_REF is what lets it run unguarded on CI.
+test('MARXY-153: a story key is read from the branch slug, wherever the branch name comes from', async () => {
+  const { keyFromBranch } = await import('./lib/repo.mjs');
+  assert.equal(keyFromBranch('ci/MARXY-153-minimal-fast-ci'), 'MARXY-153');
+  assert.equal(keyFromBranch('feat/MARXY-26-images'), 'MARXY-26');
+  assert.equal(keyFromBranch('MARXY-7'), 'MARXY-7');
+  assert.equal(keyFromBranch('HEAD'), null, 'a detached checkout yields no key, which is the bug this fixes');
+  assert.equal(keyFromBranch(''), null);
+  assert.equal(keyFromBranch(undefined), null);
+});
+
+test('MARXY-153: on a detached pull-request checkout the branch comes from GITHUB_HEAD_REF', async () => {
+  const { resolveBranch } = await import('./lib/repo.mjs');
+  const pr = { GITHUB_HEAD_REF: 'ci/MARXY-153-slug', GITHUB_REF_NAME: '121/merge' };
+  // Detached, as every pull-request checkout is: the env answers, and the PR head beats the ref.
+  assert.equal(resolveBranch('HEAD', pr), 'ci/MARXY-153-slug');
+  assert.equal(resolveBranch('HEAD', { GITHUB_REF_NAME: 'main' }), 'main', 'a push has no HEAD_REF');
+  assert.equal(resolveBranch('HEAD', {}), 'HEAD', 'outside CI a detached checkout still has no name');
+  // Attached: the real branch wins, so `pnpm done` and the commit hook are unaffected by the env.
+  assert.equal(resolveBranch('ci/MARXY-153-minimal-fast-ci', pr), 'ci/MARXY-153-minimal-fast-ci');
+  assert.equal(resolveBranch('main', pr), 'main');
+});
+
+test('MARXY-153: the CI story-boundary step runs unguarded', () => {
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /run: node scripts\/check-story\.mjs --strict\n/, 'the step must run the check plainly');
+  assert.doesNotMatch(ci, /check-story\.mjs --strict \|\|/, 'no `||` may swallow its exit code');
+});

@@ -145,7 +145,7 @@ function selftest(): void {
     ['continue-on-error on the spec suite step', workflow.replace('      - name: CommonMark spec suite', '      - name: CommonMark spec suite\n        continue-on-error: true')],
     ['|| true on test:spec', workflow.replace('pnpm --filter @marxy/core test:spec', 'pnpm --filter @marxy/core test:spec || true')],
     ['porcelain assertion removed', workflow.replace('\n          test -z "$(git status --porcelain)"', '')],
-    ['spec suite step removed', workflow.replace(/      - name: CommonMark spec suite\n        run: \|\n(?:          .*\n)+/, '')],
+    ['spec suite step removed', workflow.replace(/      - name: CommonMark spec suite\n(?:(?:        |          ).*\n)+/, '')],
   ] as const) {
     report(checkWorkflow(mutated).length > 0, `workflow: ${what} is rejected`);
   }

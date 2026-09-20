@@ -1,4 +1,7 @@
-// Index build of a 20k-file tree stays under 2 s. Creation time is not part of the budget.
+// A 20k-file tree indexes correctly: every file found, node_modules skipped, no notice. How long
+// that took is printed, not asserted (MARXY-153): the old `elapsed < 2_000` was a wall-clock
+// ceiling on a shared runner, which fails for a busy machine exactly as it fails for a regression,
+// and ADR-0032 already settled that no speed number fails the build.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,9 +12,8 @@ import { buildIndex, collectFiles } from './index.ts';
 import { nodeReader } from './node-reader.test.ts';
 
 const TREE = 20_000;
-const BUDGET_MS = 2_000;
 
-test('a 20,000-file tree indexes in under two seconds and skips node_modules', { timeout: 120_000 }, () => {
+test('a 20,000-file tree indexes every file and skips node_modules', { timeout: 120_000 }, () => {
   const root = mkdtempSync(join(tmpdir(), 'marxy-index-20k-'));
   try {
     const dirs = 200;
@@ -35,7 +37,7 @@ test('a 20,000-file tree indexes in under two seconds and skips node_modules', {
       false,
     );
     assert.equal(built.notice, undefined);
-    assert.ok(elapsed < BUDGET_MS, `indexed ${TREE} files in ${elapsed.toFixed(1)} ms; budget ${BUDGET_MS} ms`);
+    console.log(`index: ${TREE} files in ${elapsed.toFixed(1)} ms`);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
