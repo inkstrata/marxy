@@ -5,6 +5,7 @@ import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
 import { applyImages, pathsForDocument } from './render/images.ts';
+import { applyMath } from './render/math.ts';
 import { blockedContentNotice } from './notices/blocked.ts';
 import { ensureNoticesRegion } from './notices/index.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
@@ -175,6 +176,7 @@ async function boot(): Promise<void> {
   const { documentDir, imageRoot } = pathsForDocument(file);
   await applyImages(doc, { documentPath: file, documentDir, imageRoot, shell, scopedRoots: scopedAssetRoots });
   blockedContentNotice(blockedImages);
+  await applyMath(doc);
   // The faces are preloaded and `font-display: block`: first text is never the fallback face, and
   // the grid pass below measures the real one (ADR-0015).
   // Layout first: a face is requested when text needs it, and `fonts.ready` waits only for requests.
