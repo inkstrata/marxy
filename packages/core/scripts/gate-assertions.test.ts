@@ -13,6 +13,7 @@
 // which is what catches the `check(...)` call being deleted while this list is left alone.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { GATE_ASSERTION_IDS } from './gate-assertions.ts';
 import {
@@ -133,5 +134,25 @@ test('every declared gate assertion was proved above, and nothing else was', () 
     [...GATE_ASSERTION_IDS].sort(),
     'the ids this suite covered must equal GATE_ASSERTION_IDS exactly: a mismatch means a covering ' +
       'test was deleted, or an id was added or removed from the gate\'s declared list without the other',
+  );
+});
+
+// Criterion 4 (MARXY-84): the tree-depth harness runs in the no-network gate on both engines, with
+// no skip path — the same spawn the gate uses for this file, so deleting either half fails CI.
+test('tree-depth harness runs as part of the no-network gate', () => {
+  const repoRoot = new URL('../../../', import.meta.url).pathname;
+  const depth = spawnSync(process.execPath, ['packages/core/scripts/gate-tree-depth.mjs'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: { ...process.env, MARXY_84_MUTATION: undefined },
+  });
+  process.stdout.write(depth.stdout ?? '');
+  if (depth.status !== 0) {
+    process.stderr.write(depth.stderr ?? '');
+  }
+  assert.equal(
+    depth.status,
+    0,
+    'packages/core/scripts/gate-tree-depth.mjs must pass when spawned from the gate\'s mutation-coverage suite',
   );
 });
