@@ -28,7 +28,15 @@ function resolveRelative(fromDir, spec) {
 function resolveMarxyCore(corePkgDir, spec) {
   if (spec === '@marxy/core') return join(corePkgDir, 'src/index.ts');
   if (spec.startsWith('@marxy/core/')) {
-    return resolveRelative(corePkgDir, spec.slice('@marxy/core/'.length));
+    let path = join(corePkgDir, spec.slice('@marxy/core/'.length));
+    if (!extname(path)) {
+      for (const suffix of ['.ts', '.mts', '.js', '.mjs']) {
+        const candidate = path + suffix;
+        if (existsSync(candidate)) return candidate;
+      }
+      return null;
+    }
+    return existsSync(path) ? path : null;
   }
   return null;
 }
