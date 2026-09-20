@@ -1,5 +1,5 @@
 // Assigns marxy, Typora and Marked 2 to blind labels A/B/C and writes manifest.key.json (MARXY-31).
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
