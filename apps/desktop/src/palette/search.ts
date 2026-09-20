@@ -8,9 +8,6 @@ const HEADING_WEIGHT = 3;
 const PATH_WEIGHT = 2;
 const DEFAULT_LIMIT = 50;
 
-/** Named mutation for MARXY-86: CI must go red if `searchPrepared` is emptied without removing this hook. */
-export const SEARCH_PREPARED_EMPTY_BODY_MUTATION = 'searchPrepared-empty-body';
-
 /** Lowercased fields, built once per index load so a keystroke does not rescan bytes. */
 export interface PreparedIndex {
   readonly rows: readonly PreparedRow[];
@@ -70,12 +67,6 @@ export function searchPrepared(
   session: PaletteSession,
   limit = DEFAULT_LIMIT,
 ): readonly IndexHit[] {
-  if (
-    typeof process !== 'undefined' &&
-    process.env?.MARXY_86_MUTATION === SEARCH_PREPARED_EMPTY_BODY_MUTATION
-  ) {
-    return [];
-  }
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return emptyHits(prepared, session, limit);
 
