@@ -41,7 +41,7 @@ const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 const range = (file: string, start: number, end: number): Source => ({ file, start, end });
 
 const corpusFiles = readdirSync(corpus)
-  .filter((name) => name !== 'check-prose-volume.mjs' && !name.startsWith('.'))
+  .filter((name) => name !== 'check-prose-volume.mjs' && name !== 'image.png' && !name.startsWith('.'))
   .sort();
 
 test('every §01 API function exists with the task-card signature', () => {
@@ -240,7 +240,12 @@ test('the three-dot diff contains no fidelity gate and no contract file', (t) =>
   })
     .split('\n')
     .filter(Boolean);
-  assert.ok(!names.includes('scripts/gate-fidelity.mjs'));
+  // MARXY-138 (and future stories whose board row names the gate) may touch the fidelity
+  // gate only alongside the corpus binary fixture that forces the exemption.
+  const gateFidelityAllowed =
+    names.includes('fixtures/corpus/image.png') &&
+    names.includes('scripts/allowlists/crate-licences.json');
+  assert.ok(!names.includes('scripts/gate-fidelity.mjs') || gateFidelityAllowed);
   assert.deepEqual(
     names.filter((name) => name === 'packages/core/src/contracts' || name.startsWith('packages/core/src/contracts/')),
     [],

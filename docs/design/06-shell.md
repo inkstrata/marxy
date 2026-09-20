@@ -56,7 +56,8 @@ MARXY-35 put the walker, ceiling and persistence in `packages/core/src/index-mod
 `DirectoryReader`, which `readDir` implements. Treat those rows as history.
 
 `assetUrl(path)` is not a command: it is `convertFileSrc(path)` after the shell has allowed the
-directory (below).
+directory (below). Shipping `imageSize` reads headers through the Rust `imagesize` crate; core's
+`imageSizeFromBytes` is the pure fallback for the memory shell and unit tests only.
 
 ## Asset protocol and image scoping (D-A10, ADR-0027 §5)
 

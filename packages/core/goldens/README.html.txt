@@ -11,5 +11,6 @@ CommonMark or GFM specification examples (those are CC-BY-SA-4.0; ADR-0006).</p
 <p data-marxy-s="644" data-marxy-e="827">Licence: MIT, same as the rest of this repository. No third-party text is
 vendored in it. <code data-marxy-s="734" data-marxy-e="754">pnpm gate:licences</code> stays green because nothing copyleft
 entered the lockfile or the corpus.</p>
-<p data-marxy-s="829" data-marxy-e="914">The machine check for volume and shape is <code data-marxy-s="871" data-marxy-e="895">check-prose-volume.mjs</code> in this
-directory.</p>
+<p data-marxy-s="829" data-marxy-e="1006">The machine check for volume and shape is <code data-marxy-s="871" data-marxy-e="895">check-prose-volume.mjs</code> in this
+directory. <code data-marxy-s="915" data-marxy-e="926">image.png</code> is a 1200×400 PNG for local image tests in
+<code data-marxy-s="971" data-marxy-e="993">09-gfm-everything.md</code> (MARXY-138).</p>
