@@ -8,7 +8,21 @@
 <style>
   /* The empty state only; the document is styled by the default theme above (MARXY-20). */
   .marxy-empty { color: var(--marxy-color-text-secondary); font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
+  #marxy-main { min-height: 100vh; }
+  #marxy-notices:empty { display: none; }
+  #marxy-palette:not([open]) { display: none; }
+  #marxy-outline:not([open]), #marxy-find[hidden], #marxy-source[hidden] { display: none; }
 </style>
 </head>
-<body><article id="doc" class="marxy-article"></article><script type="module" src="./src/main.ts"></script></body>
+<body data-marxy-mode="rendered" data-marxy-variant="dark">
+  <main id="marxy-main">
+    <div id="marxy-notices" role="status"></div>
+    <article id="doc" class="marxy-article"></article>
+  </main>
+  <div id="marxy-source" hidden></div>
+  <dialog id="marxy-palette"></dialog>
+  <dialog id="marxy-outline"></dialog>
+  <div id="marxy-find" hidden></div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
 </html>
