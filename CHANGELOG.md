@@ -7,7 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
-- MARXY-33 acceptance criteria now match ADR-0029/0032 and the checks PR #137 already ships, so the escalated cold-start story can merge without a fictional 400 ms gate or out-of-scope waterfall attachment (plan delta 2026-09-20-marxy-33-acceptance)
+- MARXY-33 acceptance criteria now match ADR-0029/0032 and the checks PR #137 already ships, so the escalated cold-start story can merge without a fictional 400 ms gate or out-of-scope waterfall attachment (MARXY-167)
 - Fenced code blocks pick up syntax colour after first paint: an idle post-pass tokenises allow-listed languages into trusted `marxy-tok-*` spans and `base.css` maps those classes to the theme's `--marxy-tok-*` tokens (MARXY-164)
 - Planner pass acknowledging the "6 of the last 10 merges were ops" trigger: no board edit, because every one of those six merges was the previous plan delta landing or a named fixup for it, not an ops story ahead of phase work; MARXY-164 is confirmed as the one real ready story and MARXY-118 is named as already merged but not yet reconciled in `state.json` (`docs/plan/deltas/2026-09-20-after-165.md`, MARXY-166)
 - Palette session, fuzzy search, pins, and history keys as a DOM-free model with CI palette tests and a scaled searchPrepared perf gate (MARXY-86)

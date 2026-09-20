@@ -8,3 +8,4 @@ full per-mark waterfall JSON attached to the PR (never in the story Paths; PR bo
 This pass rewrites MARXY-33 acceptance to machine-checkable criteria the open PR already meets,
 so the fleet can merge #137 and dispatch phase-2 work. A dense waterfall artifact remains
 future hygiene (MARXY-110 class docs), not a blocker on this row.
+
