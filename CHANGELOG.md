@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- MARXY-27's Paths now cover `packages/core/package.json` and MARXY-126's cover `orchestration/deps.json`, both landed as their own board rows rather than by either story self-widening its row (MARXY-159, MARXY-160)
 - The aesthetics gate now pixel-diff every corpus page at 960 px in dark and light against committed WebKit baselines on macOS and Linux; a 1 px heading shift fails, and refreshing baselines requires a taste-queue row (MARXY-30)
 - CI now compares sanitiser output to the live DOM on 35 pinned tree-construction shapes in WebKit and Chromium, and fails if any node is deeper than written except implied table sections (MARXY-84)
 - KaTeX loads on first math in a document, with display blocks snapped to the grid and bundled OFL math fonts (MARXY-28)
