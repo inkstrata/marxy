@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Parse \u2192 AST with byte provenance, sanitise, outline, operations, index model. Shell-free; runs in Node and in a browser.",
+  "description": "Parse → AST with byte provenance, sanitise, outline, operations, index model. Shell-free; runs in Node and in a browser.",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -24,6 +24,9 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@shikijs/core": "^4.4.3",
+    "@shikijs/engine-javascript": "^4.4.3",
+    "@shikijs/langs": "^4.4.3",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",
