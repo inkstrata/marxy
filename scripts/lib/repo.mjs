@@ -53,8 +53,32 @@ export function changedFiles({ staged = false } = {}) {
 export function storyKey(argv = process.argv) {
   const i = argv.indexOf('--key'); if (i >= 0) return argv[i + 1];
   if (process.env.MARXY_STORY) return process.env.MARXY_STORY;
-  const branch = sh('git rev-parse --abbrev-ref HEAD', { soft: true });
-  const m = /\/(MARXY-(?:\d+|[0-9A-Z]{3}|R\d+))-/.exec(branch) || /^(MARXY-\d+)/.exec(branch);
+  return keyFromBranch(branchName());
+}
+
+/**
+ * The branch this change is on. A pull-request checkout is detached, so `rev-parse` answers "HEAD"
+ * and no key can be read from it — which is why the CI story-boundary step could never pass and
+ * was wrapped in `|| echo ::warning::` rather than fixed (MARXY-153). On a pull request the source
+ * branch is GITHUB_HEAD_REF; GITHUB_REF_NAME covers a push. Local runs keep using the real branch.
+ */
+export function branchName(env = process.env) {
+  return resolveBranch(sh('git rev-parse --abbrev-ref HEAD', { soft: true }), env);
+}
+
+/**
+ * The resolution on its own, so it can be tested from both sides. Testing it through
+ * `branchName()` cannot work: whether the checkout is detached is the very thing under test,
+ * and the answer differs between a local run and a CI one (MARXY-153).
+ */
+export function resolveBranch(local, env = {}) {
+  if (local && local !== 'HEAD') return local;
+  return env.GITHUB_HEAD_REF || env.GITHUB_REF_NAME || local;
+}
+
+/** Exported so the detached-checkout case can be tested without a detached checkout. */
+export function keyFromBranch(branch) {
+  const m = /\/(MARXY-(?:\d+|[0-9A-Z]{3}|R\d+))-/.exec(branch ?? '') || /^(MARXY-\d+)/.exec(branch ?? '');
   return m ? m[1] : null;
 }
 

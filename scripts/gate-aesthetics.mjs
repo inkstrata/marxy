@@ -4,6 +4,7 @@
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ragMetrics } from '../packages/typeset/scripts/rag-model.mjs';
@@ -18,12 +19,34 @@ const UPDATE = process.argv.includes('--update');
 const SHOTS = process.argv.includes('--shots');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
 const repeatIdx = process.argv.indexOf('--repeat');
-const REPEAT =
-  repeatIdx === -1
-    ? process.env.CI
-      ? 3
-      : 0
-    : Math.max(1, Number.parseInt(process.argv[repeatIdx + 1] ?? '', 10) || 0);
+// The CLS repeat pass re-renders the whole corpus to prove the font/image window is deterministic.
+// It is a flake detector, not an assertion: the single pass below already measures fontWindow on
+// every file × combo and fails on it. Three more full passes cost 266s of the browser job's 356s,
+// which is the pull-request critical path, so nothing implies --repeat any more. The nightly
+// workflow runs `--repeat 3` and keeps the signal off the path we iterate on (MARXY-153).
+const REPEAT = repeatIdx === -1 ? 0 : Math.max(1, Number.parseInt(process.argv[repeatIdx + 1] ?? '', 10) || 0);
+// Every corpus render is an independent page against a static harness, and nothing in the checks is
+// wall-clock: snapshots are taken after document.fonts.ready and rAF pairs, rag and grid read
+// geometry, screenshots rasterise deterministically. So contention delays a pass, it cannot change
+// its verdict, and the matrix can run several pages at a time. The cap matches a standard runner.
+const workersIdx = process.argv.indexOf('--workers');
+const WORKERS = Math.max(
+  1,
+  Number.parseInt(workersIdx === -1 ? (process.env.MARXY_AESTHETICS_WORKERS ?? '') : (process.argv[workersIdx + 1] ?? ''), 10) ||
+    Math.min(4, Math.max(1, cpus().length)),
+);
+
+/** Run `task` over `items`, at most WORKERS in flight, results in input order so failures are stable. */
+async function pool(items, task) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(WORKERS, items.length) }, async () => {
+      for (let i = next++; i < items.length; i = next++) out[i] = await task(items[i]);
+    }),
+  );
+  return out;
+}
 const REQUIRED = process.env.MARXY_AESTHETICS_REQUIRED === '1' || process.env.GITHUB_ACTIONS === 'true';
 const RAG_OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };
 const WIDTHS = [720, 960, 1280];
@@ -646,22 +669,22 @@ function fontWindowOffenders(result, ctx) {
 }
 
 async function clsCorpusPass(browser, harness, files, combos) {
-  const offenders = new Set();
-  for (const file of files) {
+  const tasks = files.flatMap((file) => {
     const source = readFileSync(join(corpusDir, file), 'utf8');
-    for (const opts of combos) {
-      const page = await browser.newPage({ viewport: { width: opts.width, height: 900 } });
-      try {
-        const result = await renderCorpus(page, harness.origin, source, opts);
-        for (const p of fontWindowOffenders(result, { file, ...opts })) offenders.add(p);
-      } catch (e) {
-        offenders.add(`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`);
-      } finally {
-        await page.close();
-      }
+    return combos.map((opts) => ({ file, source, opts }));
+  });
+  const found = await pool(tasks, async ({ file, source, opts }) => {
+    const page = await browser.newPage({ viewport: { width: opts.width, height: 900 } });
+    try {
+      const result = await renderCorpus(page, harness.origin, source, opts);
+      return fontWindowOffenders(result, { file, ...opts });
+    } catch (e) {
+      return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
+    } finally {
+      await page.close();
     }
-  }
-  return offenders;
+  });
+  return new Set(found.flat());
 }
 
 function sameOffenderSet(a, b) {
@@ -751,18 +774,19 @@ async function main() {
         throw new Error(`selftest: marxyRender did not typeset without the shell (${JSON.stringify(painted)})`);
       }
       notes.push('selftest: dist/render.js painted a document through marxyRender');
-      for (const file of files) {
+      const tasks = files.flatMap((file) => {
         const source = readFileSync(join(corpusDir, file), 'utf8');
         const ragBase = loadRagBaseline(file);
-        for (const opts of combos) {
-          const page = await browser.newPage({ viewport: { width: opts.width, height: 900 } });
+        return combos.map((opts) => ({ file, source, ragBase, opts }));
+      });
+      const batched = await pool(tasks, async ({ file, source, ragBase, opts }) => {
+        const page = await browser.newPage({ viewport: { width: opts.width, height: 900 } });
+        try {
           let result;
           try {
             result = await renderCorpus(page, harness.origin, source, opts);
           } catch (e) {
-            fails.push(`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`);
-            await page.close();
-            continue;
+            return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
           }
           const atRef = opts.width === 960 && opts.variant === 'dark' && opts.size === 17;
           const lines = atRef ? await readSetLines(page) : [];
@@ -772,16 +796,18 @@ async function main() {
             created++;
           }
           const shot = opts.size === 17 && (SHOTS || existsSync(join(shotDir(), shotName(file, opts.width, opts.variant, 'first'))));
-          const problems = await runPageChecks(page, result, {
+          return await runPageChecks(page, result, {
             file,
             ...opts,
             rag: atRef && metrics ? { metrics, baseline: UPDATE ? metrics : ragBase.data } : null,
             shot: shot ? { file, width: opts.width, variant: opts.variant, update: UPDATE } : null,
           });
-          fails.push(...problems);
+        } finally {
           await page.close();
         }
-      }
+      });
+      for (const problems of batched) fails.push(...problems);
+      notes.push(`corpus: ${tasks.length} render(s) = ${files.length} file(s) × ${combos.length} combo(s), ${WORKERS} page(s) at a time`);
 
     if (UPDATE || created) {
       fails.push('baseline created; add a queue entry');
