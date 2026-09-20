@@ -294,17 +294,27 @@ function checkRag(metrics, baseline, file) {
   return out;
 }
 
-/** §10 check 6. Vacuous until MARXY-24 hangs anything. */
+/** §10 check 6 — full quote hangs (hangFraction 1) use the 40 % floor; optical protrusion matches margin. */
 async function checkHanging(page) {
   return page.evaluate(() => {
     const out = [];
+    const tol = 0.75;
     for (const el of document.querySelectorAll('.marxy-hang')) {
       const p = el.closest('p, li, blockquote') ?? el.parentElement;
       if (!p) continue;
       const cs = getComputedStyle(p);
       const contentLeft = p.getBoundingClientRect().left + parseFloat(cs.paddingLeft);
       const rect = el.getBoundingClientRect();
-      if (!(rect.left < contentLeft - 0.4 * rect.width)) out.push(`hang ${el.textContent.slice(0, 12)} does not sit outside the edge`);
+      const marginPx = -parseFloat(getComputedStyle(el).marginInlineStart) || 0;
+      if (marginPx <= 0) continue;
+      const outside = contentLeft - rect.left;
+      if (marginPx >= 0.4 * rect.width) {
+        if (!(rect.left < contentLeft - 0.4 * rect.width)) {
+          out.push(`hang ${el.textContent.slice(0, 12)} does not sit outside the edge`);
+        }
+      } else if (Math.abs(outside - marginPx) > tol) {
+        out.push(`hang ${el.textContent.slice(0, 12)} does not sit outside the edge`);
+      }
     }
     return out;
   });
@@ -553,6 +563,13 @@ async function selftest(browser, origin) {
       html: crafted('<p>Body <code>x</code></p>', 'p,code{font-family:serif}'),
       run: (page) => checkCodeVoice(page, { xHeight: true }),
     },
+    {
+      name: 'hanging-quote',
+      html: crafted(
+        '<p style="margin:0;padding-left:20px"><span class="marxy-hang" style="display:inline-block;margin-inline-start:-14px;position:relative;left:13px">\u201c</span>Short</p>',
+      ),
+      run: checkHanging,
+    },
   ];
   const missed = [];
   for (const c of cases) {
@@ -563,6 +580,19 @@ async function selftest(browser, origin) {
     if (problems.length === 0) missed.push(c.name);
   }
   if (missed.length) throw new Error(`selftest: these checks did not fail on a crafted page: ${missed.join(', ')}`);
+
+  const optical = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  await optical.setContent(
+    crafted(
+      '<p style="margin:0;padding-left:20px"><span class="marxy-hang" style="display:inline-block;margin-inline-start:-4px">T</span>ext</p>',
+    ),
+    { waitUntil: 'domcontentloaded' },
+  );
+  const opticalProblems = await checkHanging(optical);
+  await optical.close();
+  if (opticalProblems.length) {
+    throw new Error(`selftest: valid ~5% optical protrusion must pass checkHanging (${opticalProblems.join('; ')})`);
+  }
 }
 
 async function renderCorpus(page, origin, source, opts) {
@@ -653,7 +683,9 @@ async function main() {
   const harness = await startHarness();
   try {
     await selftest(browser, harness.origin);
-    notes.push('selftest: grid, measure, contrast, cls, rag, chrome, hierarchy, code-voice each fail on a crafted page');
+    notes.push(
+      'selftest: grid, measure, contrast, cls, rag, chrome, hierarchy, code-voice, hanging-quote each fail on a crafted page; optical protrusion passes',
+    );
     if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
       throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
     }
