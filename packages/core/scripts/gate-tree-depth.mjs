@@ -69,7 +69,7 @@ if (enginesRun.size !== 2) {
 
 if (failures.length > 0) {
   console.error(`tree-depth gate failed:\n - ${failures.join('\n - ')}`);
-  console.error(`    fix: restore the writer stack / table rules in packages/core/src/sanitize/sanitize-html.ts, or revert a change to packages/core/src/sanitize/testing/tree-depth-cases.ts`);
+  console.error(`    fix: restore the writer stack / table rules in packages/core/src/sanitize/sanitize-html.ts, or revert a change to packages/core/scripts/tree-depth-cases.ts`);
   process.exit(1);
 }
 

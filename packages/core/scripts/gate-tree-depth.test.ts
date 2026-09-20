@@ -13,7 +13,7 @@ import {
 import {
   TREE_DEPTH_CASES,
   TREE_DEPTH_CASE_COUNT,
-} from '../src/sanitize/testing/tree-depth-cases.ts';
+} from './tree-depth-cases.ts';
 import { sanitizeHtml } from '../src/sanitize/sanitize-html.ts';
 
 const gateAssertions = readFileSync(new URL('./gate-assertions.test.ts', import.meta.url), 'utf8');

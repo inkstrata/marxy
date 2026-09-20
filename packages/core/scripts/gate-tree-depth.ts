@@ -2,7 +2,7 @@
 // whether any node gained an ancestor other than an implied table section; the mutation hook proves
 // the check fails when a formatting element closes late.
 
-import { TREE_DEPTH_CASES, type TreeDepthCase } from '../src/sanitize/testing/tree-depth-cases.ts';
+import { TREE_DEPTH_CASES, type TreeDepthCase } from './tree-depth-cases.ts';
 
 /** The only ancestors a live tree may gain over the written one (review measurement, MARXY-12). */
 export const IMPLIED_TABLE_SECTION = new Set(['table', 'tbody', 'thead', 'tfoot', 'tr']);
