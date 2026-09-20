@@ -12,6 +12,6 @@ const files = readdirSync(here)
 const result = spawnSync(
   process.execPath,
   ['--test', '--experimental-strip-types', ...files],
-  { stdio: 'inherit', cwd: join(here, '../../..') },
+  { stdio: 'inherit', cwd: join(here, '../..') },
 );
 process.exit(result.status ?? 1);
