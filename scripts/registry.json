@@ -1,5 +1,5 @@
 {
-  "_note": "The single source of names. docs/design/README.md 'Hardened rules' mirrors this; scripts/check-registry.mjs enforces it. Add a name here in the PR that introduces it, never ad hoc.",
+  "_note": "The single source of names. docs/design/README.md 'Hardened rules' mirrors this; scripts/check-registry.mjs enforces it. Add a name here in the PR that introduces it, never ad hoc. tokens.css's contract is its names and units, checked by scripts/check-tokens.mjs (ADR-0031), not its bytes.",
   "marks": [
     "main_start",
     "window_shown",
@@ -62,8 +62,7 @@
   ],
   "frozen": [
     "packages/core/src/contracts/",
-    "packages/shell-api/src/",
-    "packages/theme/src/tokens.css"
+    "packages/shell-api/src/"
   ],
   "extraAllowedPaths": [
     "CHANGELOG.md",
