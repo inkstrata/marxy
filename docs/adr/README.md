@@ -35,5 +35,5 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0027](0027-remote-content-through-the-shell.md) | Remote images reach the page through the shell, only on consent; the webview never touches the network | proposed (MARXY-97, MARXY-45) |
 | [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |
 | [0029](0029-no-product-cold-start-ceiling.md) | There is no product cold-start ceiling | accepted |
-| [0030](0030-grid-unit-is-half-a-line.md) | The grid unit is half the body line box | proposed |
+| [0030](0030-grid-unit-is-half-a-line.md) | The grid unit is half the body line box | accepted, amended (1: a table is an island the grid pass pads, 2026-09-19) |
 | [0031](0031-token-values-are-taste.md) | The token contract is names and units; the default theme's values are taste | accepted 2026-09-19 |

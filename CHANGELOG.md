@@ -11,6 +11,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
 
 ### Changed
+- A table is an island the grid pass pads, not a block the stylesheet holds on the grid by construction; the decision record now matches the page (MARXY-141)
 - A taste decision on the default theme now costs a story and a review-queue row, not an ADR: theme authors can still rely on the token names, units and meanings (MARXY-133)
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
 
