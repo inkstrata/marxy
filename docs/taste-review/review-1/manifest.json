@@ -1,0 +1,80 @@
+{
+  "review": 1,
+  "measure": "68ch",
+  "bodySize": "17px",
+  "variant": "light",
+  "viewport": {
+    "width": 960,
+    "height": 900
+  },
+  "dpr": 2,
+  "corpus": [
+    {
+      "file": "01-long-technical.md",
+      "slug": "01-long-technical",
+      "captures": [
+        {
+          "kind": "first",
+          "blind": {
+            "A": "blind/01-long-technical/first-A.png",
+            "B": "blind/01-long-technical/first-B.png",
+            "C": "blind/01-long-technical/first-C.png"
+          }
+        },
+        {
+          "kind": "scroll70",
+          "blind": {
+            "A": "blind/01-long-technical/scroll70-A.png",
+            "B": "blind/01-long-technical/scroll70-B.png",
+            "C": "blind/01-long-technical/scroll70-C.png"
+          }
+        }
+      ]
+    },
+    {
+      "file": "02-readme-real-world.md",
+      "slug": "02-readme-real-world",
+      "captures": [
+        {
+          "kind": "first",
+          "blind": {
+            "A": "blind/02-readme-real-world/first-A.png",
+            "B": "blind/02-readme-real-world/first-B.png",
+            "C": "blind/02-readme-real-world/first-C.png"
+          }
+        },
+        {
+          "kind": "scroll70",
+          "blind": {
+            "A": "blind/02-readme-real-world/scroll70-A.png",
+            "B": "blind/02-readme-real-world/scroll70-B.png",
+            "C": "blind/02-readme-real-world/scroll70-C.png"
+          }
+        }
+      ]
+    },
+    {
+      "file": "03-ai-plan.md",
+      "slug": "03-ai-plan",
+      "captures": [
+        {
+          "kind": "first",
+          "blind": {
+            "A": "blind/03-ai-plan/first-A.png",
+            "B": "blind/03-ai-plan/first-B.png",
+            "C": "blind/03-ai-plan/first-C.png"
+          }
+        },
+        {
+          "kind": "scroll70",
+          "blind": {
+            "A": "blind/03-ai-plan/scroll70-A.png",
+            "B": "blind/03-ai-plan/scroll70-B.png",
+            "C": "blind/03-ai-plan/scroll70-C.png"
+          }
+        }
+      ]
+    }
+  ],
+  "instructions": "Open captures under blind/ only. Rank A/B/C per document before opening manifest.key.json."
+}

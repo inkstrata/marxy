@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Tier-2 taste review #1 kit under `docs/taste-review/review-1/`: deterministic marxy captures at 68 `ch`, light, 2×, blind A/B/C manifest, and a human brief for Typora and Marked 2 captures (MARXY-31)
 - The aesthetics gate now pixel-diff every corpus page at 960 px in dark and light against committed WebKit baselines on macOS and Linux; a 1 px heading shift fails, and refreshing baselines requires a taste-queue row (MARXY-30)
 - MARXY-138's taste-review queue row now has real before/after PNGs for `09-gfm-everything.md` and `10-hostile.md`, rendered retroactively after PR #115 merged without them (MARXY-155)
 - CI now compares sanitiser output to the live DOM on 35 pinned tree-construction shapes in WebKit and Chromium, and fails if any node is deeper than written except implied table sections (MARXY-84)
