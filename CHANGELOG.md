@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Every cycle now names board drift — the checkout behind origin/main, off main, or carrying uncommitted edits under `docs/plan` or `orchestration`, an open PR with no board row, an in-review story whose PR already closed — and holds dispatch while the checkout itself is stale (MARXY-117)
 - Local images load with a reserved box so text does not jump, and one line above the article names remote hosts that were blocked (MARXY-138)
 - MARXY-138's path widening is on main so PR #115 attempt 2 can rebase without editing its own board row (MARXY-152)
 - `check-registry.mjs` now flags every route from a string to parsed markup (not only `.innerHTML =`), with tests (MARXY-132)
