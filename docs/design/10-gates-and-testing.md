@@ -2,7 +2,8 @@
 
 How each kind of check is written, where it lives, and the algorithms behind the mechanical
 aesthetics tier (ADR-0014). Extends what exists: `node:test` with type stripping in packages,
-Playwright at the root, `cargo test` in the shell, the perf tiers of ADR-0022.
+Playwright at the root, `cargo test` in the shell, the perf observations of ADR-0022
+(recorded, not gated, ADR-0032).
 
 ## The pyramid, per package
 
@@ -106,17 +107,18 @@ checks that cannot run print `pending MARXY-25`.
 `packages/core/goldens/<file>.html.txt`: the sanitised render of every corpus file, diffed on
 every PR like the AST goldens. A renderer change updates them deliberately and the PR says why.
 
-## Perf (ADR-0022, as landed)
+## Perf (ADR-0022 observations, ADR-0032)
 
 `scripts/measure-startup.mjs` writes `results/perf.json` with `cold_start_first_text_ms`
-(launch 1) and `warm_start_first_text_ms` (median of 2..N); `gate-perf.mjs` applies the tier.
+(launch 1) and `warm_start_first_text_ms` (median of 2..N); `gate-perf.mjs` prints the
+comparison against the standing observation and does not fail on the milliseconds.
 Parse is measured on the gates job: `scripts/measure-parse.mjs` runs on both runner classes
 before `pnpm gate:perf` and writes only `results/perf-parse.json` as
-`{ "parse_long_technical_ms": <median> }` of `fixtures/corpus/01-long-technical.md`, so
-MARXY-59 can keep that metric required. New metrics land the same way: the app emits
-`MARK <metric> <ms>` lines for `typeset_viewport`, `live_reload`, `palette_keystroke` (p95
-over a scripted session in the headless entry) and `find_first_match`; the harness collects
-them into the same JSON.
+`{ "parse_long_technical_ms": <median> }` of `fixtures/corpus/01-long-technical.md`. The
+parse snapshot must be present; its value is not a merge-bar ceiling. New metrics land the
+same way: the app emits `MARK <metric> <ms>` lines for `typeset_viewport`, `live_reload`,
+`palette_keystroke` (p95 over a scripted session in the headless entry) and
+`find_first_match`; the harness collects them into the same JSON.
 
 ## Skipping the gates jobs when they cannot change the result (MARXY-105)
 

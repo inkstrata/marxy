@@ -27,7 +27,7 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0019](0019-scope-v1.md) | The v1 cut | accepted |
 | [0020](0020-core-is-shell-free.md) | `packages/core` and `packages/typeset` never depend on the desktop shell | accepted |
 | [0021](0021-parser-mdast-micromark.md) | The parser is mdast/micromark, not markdown-it | accepted |
-| [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: the metric split; 2: no product cold-start ceiling) |
+| [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: the metric split; 2: no product cold-start ceiling; 3: cross-run CI numbers; 4: timing numbers are recorded, not CI failures, ADR-0032) |
 | [0023](0023-provenance-in-the-dom.md) | Byte provenance rides into the DOM on attributes a document cannot forge | accepted (MARXY-75) |
 | [0024](0024-dark-is-primary.md) | Dark is the primary variant; light is designed second | accepted |
 | [0025](0025-review-order-and-review-wip.md) | Review order and a WIP limit on review | accepted |
@@ -37,3 +37,4 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 | [0029](0029-no-product-cold-start-ceiling.md) | There is no product cold-start ceiling | accepted |
 | [0030](0030-grid-unit-is-half-a-line.md) | The grid unit is half the body line box | accepted, amended (1: a table is an island the grid pass pads, 2026-09-19) |
 | [0031](0031-token-values-are-taste.md) | The token contract is names and units; the default theme's values are taste | accepted 2026-09-19 |
+| [0032](0032-speed-numbers-are-recorded.md) | Speed numbers are recorded; they are not CI failures | accepted 2026-09-20 |
