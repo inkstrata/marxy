@@ -133,7 +133,9 @@
       "MARXY-143",
       "MARXY-144",
       "MARXY-145",
-      "MARXY-146"
+      "MARXY-146",
+      "MARXY-147",
+      "MARXY-148"
     ]
   },
   "deps": {
@@ -334,8 +336,11 @@
     "MARXY-59": [
       "MARXY-11",
       "MARXY-55",
-      "MARXY-91"
+      "MARXY-91",
+      "MARXY-147"
     ],
+    "MARXY-147": [],
+    "MARXY-148": [],
     "MARXY-60": [
       "MARXY-11"
     ],
