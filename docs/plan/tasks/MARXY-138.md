@@ -8,6 +8,19 @@ verify: [pnpm precheck, pnpm done MARXY-138]
 
 **Design:** [02-render](../../design/02-render.md) post-passes 3 and 4, [06-shell](../../design/06-shell.md) §Asset protocol and image scoping, [09-app-shell](../../design/09-app-shell.md) §Notices · **Depends on:** MARXY-26 (the core resolver), MARXY-25 (the headless render entry and the baselines), MARXY-95 (`startApp(shell)` and the harness), MARXY-137 (`app.ts` overlap and the baselines) · **ADRs:** ADR-0026, ADR-0027 §5.
 
+> **Revised 2026-09-20, after PR #115 attempt 1 (`7e55ae4`) was returned.** PR #115 stays open; amend
+> it, do not cut a new branch and do not close it. The return was **only** about boundary, not the
+> feature: the product commit widened this story's own `Paths` cell in `docs/plan/jira-issues.csv` and
+> then used that room to touch four other files. The landing story `MARXY-152` puts
+> the real widening on `main` first (`docs/plan/deltas/2026-09-20-marxy-138-paths.md`); attempt 2
+> rebases on top of it and **must not re-touch `docs/plan/jira-issues.csv` at all** — that file is not
+> and never becomes one of this story's paths. Five files join `Files and signatures` below because the
+> new PNG fixture genuinely needs them (the licence entry, the fidelity gate's binary exemption, the two
+> buffer round-trip tests, the regenerated golden). AC11 ("only the two baselines moved") needs the
+> re-submission to state, against `gate:aesthetics`'s own output, whether it re-rasterized `09` and `10`
+> and found zero pixel delta, or short-circuited because nothing upstream of the raster changed — "the
+> headless path unchanged" was plausible but unverified in the returned attempt.
+
 **Outcome.** A local image loads and the text under it does not move; one line above the article says
 which hosts were not loaded. This is the **first story a reader sees anything from**, so it carries a
 `docs/taste-review/queue.md` row. The app half of the MARXY-26 split — read
@@ -46,6 +59,18 @@ review. Step 3 below is the check that makes the class impossible, and it matter
   a line saying what it is for.
 - `docs/design/06-shell.md` — one sentence: `imageSize` is the Rust `imagesize` crate; core's
   `imageSizeFromBytes` is the pure fallback for the memory shell and the tests only.
+- `scripts/allowlists/crate-licences.json` — one entry, `imagesize@0.13.0`, MIT. Nothing else in this
+  file changes.
+- `scripts/gate-fidelity.mjs` — the new binary `fixtures/corpus/image.png` needs a narrow, named
+  exemption from the UTF-8 round-trip precondition the gate otherwise applies to every corpus file
+  (a `CORPUS_ASSETS`-shaped allowlist of the exact filenames that are not text, not a general binary
+  bypass). No other corpus file may be added to it without its own story.
+- `packages/core/src/buffer/buffer.test.ts`, `packages/core/src/buffer/splice.property.test.ts` — the
+  same named exemption for `image.png`, so the byte-fidelity property tests do not assert a PNG
+  round-trips as UTF-8 text. No other change to either file.
+- `packages/core/goldens` — regenerate only the entries the corpus `README.md`'s new sentence about
+  `image.png` changes (`README.ast.txt`, `README.html.txt` or their equivalents). No other golden may
+  move; a golden diff outside the README pair is a sign the fixture step leaked into parsing.
 
 ## Do this, in order
 1. **The fixture first**, because two criteria are vacuous without it. `09-gfm-everything.md` line 81
@@ -92,11 +117,18 @@ review. Step 3 below is the check that makes the class impossible, and it matter
 | `apps/desktop/src/notices/**` | contains no `innerHTML` |
 | `assetUrl` arguments over the corpus | none parses as an `http`/`https` URL |
 | `pnpm gate:no-network` | green with both post-passes running over every corpus file |
-| `pnpm gate:aesthetics` | green; only the two baselines moved |
+| `pnpm gate:aesthetics` | green; report, pasted in the PR body, states whether `09-gfm-everything.md` and `10-hostile.md` re-rasterized with zero pixel delta or short-circuited, and names which — not inferred from an empty `fixtures/baselines` diff |
+| `scripts/allowlists/crate-licences.json` | `imagesize@0.13.0`, MIT, and no other entry changed |
+| `pnpm gate:fidelity` | green; `image.png` is exempted from the UTF-8 round-trip check by exact filename, no other corpus file is |
+| `packages/core/src/buffer/buffer.test.ts`, `splice.property.test.ts` | green; `image.png` excluded by the same named list, no other fixture excluded |
+| `git diff -- packages/core/goldens` | touches only the corpus `README.*` golden pair |
+| `git diff -- docs/plan/jira-issues.csv` on this branch | empty |
 
 ## Acceptance → check
 The row's eleven criteria map one-to-one onto the table above, in order; criterion 3 is step 3's check and
 criterion 6 is the Playwright CLS measurement. Every one is a named case, not a grep for a member name.
+AC11 additionally requires the `gate:aesthetics` re-rasterization statement above, stated against the
+acceptance wording rather than assumed from a quiet diff.
 
 ## Do not
 Add `http:` or `https:` to any CSP directive; touch `img-src` or `csp` at all. Fetch anything — the fetch
@@ -104,4 +136,7 @@ path is MARXY-97 and it is Rust, not the webview. Add the per-document allow act
 `innerHTML` anywhere under `apps/desktop/src/notices`. Touch `packages/core` or `packages/shell-api`
 (frozen; these members go on the concrete shell objects, per ADR-0026's transition rule). Regenerate a
 baseline for a document that has no image. Set a `src` on an `img[data-marxy-remote]` (MARXY-96/97 own
-those). Raise a budget to make a gate green.
+those). Raise a budget to make a gate green. **Edit `docs/plan/jira-issues.csv` at all** — this story's
+`Paths` cell is fixed by the `MARXY-152` landing story, not by this story; a diff to that
+file on this branch, for any reason, is an automatic return regardless of what else is correct. Add any
+file to `scripts/gate-fidelity.mjs`'s or the buffer tests' exemption list beyond `image.png`.
