@@ -17,6 +17,13 @@ const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
 const SHOTS = process.argv.includes('--shots');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
+const repeatIdx = process.argv.indexOf('--repeat');
+const REPEAT =
+  repeatIdx === -1
+    ? process.env.CI
+      ? 3
+      : 0
+    : Math.max(1, Number.parseInt(process.argv[repeatIdx + 1] ?? '', 10) || 0);
 const REQUIRED = process.env.MARXY_AESTHETICS_REQUIRED === '1' || process.env.GITHUB_ACTIONS === 'true';
 const RAG_OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };
 const WIDTHS = [720, 960, 1280];
@@ -564,6 +571,37 @@ async function renderCorpus(page, origin, source, opts) {
   return page.evaluate(async ({ source, opts }) => window.marxyRender(source, opts), { source, opts });
 }
 
+/** Documents whose font/image window (snaps[0]→[1]) scored movement; used by --repeat. */
+function fontWindowOffenders(result, ctx) {
+  if ((result?.stats?.fontWindow ?? 0) <= 0) return [];
+  return [`${ctx.file} ${ctx.width}×${ctx.size} ${ctx.variant}: layout shift ${result.stats.cls} (font/image ${result.stats.fontWindow})`];
+}
+
+async function clsCorpusPass(browser, harness, files, combos) {
+  const offenders = new Set();
+  for (const file of files) {
+    const source = readFileSync(join(corpusDir, file), 'utf8');
+    for (const opts of combos) {
+      const page = await browser.newPage({ viewport: { width: opts.width, height: 900 } });
+      try {
+        const result = await renderCorpus(page, harness.origin, source, opts);
+        for (const p of fontWindowOffenders(result, { file, ...opts })) offenders.add(p);
+      } catch (e) {
+        offenders.add(`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`);
+      } finally {
+        await page.close();
+      }
+    }
+  }
+  return offenders;
+}
+
+function sameOffenderSet(a, b) {
+  if (a.size !== b.size) return false;
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+}
+
 /** Same split as shotDir(): FreeType (webkit-linux) and CoreText (webkit-macos) do not share rag numbers. */
 function ragDir() {
   return join(ragRoot, engineName());
@@ -673,6 +711,29 @@ async function main() {
 
     if (UPDATE || created) {
       fails.push('baseline created; add a queue entry');
+    }
+
+    if (REPEAT > 0) {
+      const passSets = [];
+      for (let pass = 1; pass <= REPEAT; pass++) {
+        const offenders = await clsCorpusPass(browser, harness, files, combos);
+        const list = [...offenders].sort();
+        console.log(
+          `CLS repeat pass ${pass}/${REPEAT}: ${list.length === 0 ? 'ok (no font/image window)' : list.join('; ')}`,
+        );
+        passSets.push(offenders);
+        if (offenders.size > 0) {
+          for (const p of list) fails.push(`CLS repeat pass ${pass}: ${p}`);
+        }
+      }
+      for (let i = 1; i < passSets.length; i++) {
+        if (!sameOffenderSet(passSets[0], passSets[i])) {
+          fails.push(
+            `CLS repeat: pass 1 offenders (${[...passSets[0]].join('; ') || 'none'}) ≠ pass ${i + 1} (${[...passSets[i]].join('; ') || 'none'})`,
+          );
+        }
+      }
+      notes.push(`CLS repeat: ${REPEAT} identical pass(es), no font/image window`);
     }
   } finally {
     harness.close();
