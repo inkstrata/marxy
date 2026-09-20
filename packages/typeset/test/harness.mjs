@@ -6,7 +6,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { stripTypeScriptTypes } from 'node:module';
-import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { renderSafeHtml } from '../../core/src/render/pipeline.ts';
 import { defaultThemeCss } from '../../theme/scripts/inline.mjs';
 
@@ -46,7 +46,7 @@ export async function startHarness() {
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await webkit.launch();
+  const browser = await launchWebkit();
   let n = 0;
 
   /**

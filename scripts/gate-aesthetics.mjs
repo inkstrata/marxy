@@ -717,7 +717,8 @@ async function main() {
     return;
   }
 
-  const browser = await webkit.launch();
+  const { launchWebkit } = await import('./playwright-webkit.mjs');
+  const browser = await launchWebkit();
   const harness = await startHarness();
   try {
     const opticalSelftest = await selftest(browser, harness.origin);

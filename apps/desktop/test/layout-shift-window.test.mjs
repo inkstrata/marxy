@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const root = new URL('../../../', import.meta.url);
 const headlessPath = new URL('apps/desktop/src/render/headless.ts', root);
@@ -94,11 +95,13 @@ test('MARXY-143: an unreserved image after the first snapshot still yields fontW
       res.statusCode = 404;
       return res.end('not found');
     }
+    if (file.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    else if (file.endsWith('.html')) res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(readFileSync(file));
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await webkit.launch();
+  const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });

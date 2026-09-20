@@ -4,6 +4,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { onGrid, openPage, renderMarkdown } from './page.mjs';
 
 /** Headings must stay lighter than this effective weight (token is 560). */
@@ -17,7 +18,7 @@ const test = (name, fn) => nodeTest(name, { skip }, fn);
 
 let browser;
 before(async () => {
-  if (!skip) browser = await webkit.launch();
+  if (!skip) browser = await launchWebkit();
 });
 after(async () => {
   await browser?.close();

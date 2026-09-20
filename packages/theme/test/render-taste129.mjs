@@ -1,7 +1,7 @@
 // Renders review #0 passages 2 (inline code) and 4 (heading stack) at 1× and 2× for MARXY-129.
 // usage: node packages/theme/test/render-taste129.mjs --prefix before|after
 import { mkdirSync } from 'node:fs';
-import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { css, facesCss, renderCorpus } from './page.mjs';
 
 const prefix = process.argv.includes('--prefix') ? process.argv[process.argv.indexOf('--prefix') + 1] : 'after';
@@ -29,7 +29,7 @@ function anchorOffset(id) {
   throw new Error(`unknown passage ${id}`);
 }
 
-const browser = await webkit.launch();
+const browser = await launchWebkit();
 const html = renderCorpus('01-long-technical.md');
 for (const dpr of [1, 2]) {
   const ctx = await browser.newContext({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: dpr });

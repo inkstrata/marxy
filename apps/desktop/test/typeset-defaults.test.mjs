@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
 
 /**
@@ -92,7 +93,7 @@ test('app.ts attach() does not pass hyphenate or hanging, and no other argument 
 });
 
 test('01-long-technical.md through the app ends a line on the generated hyphen, which is not selectable text', async () => {
-  const browser = await webkit.launch();
+  const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     const marks = await startDoc(page, { '/doc/01-long-technical.md': longTechnical.toString('base64') }, ['/doc/01-long-technical.md']);
@@ -139,7 +140,7 @@ test('a hanging quote sits left of the measure; a letter-started line does not',
     '',
     'Some ordinary sentences begin with a letter and sit flush with the measure even when the typesetter has broken the paragraph into several lines of body text long enough that a later line might also start with a letter rather than a quote.',
   ].join('\n');
-  const browser = await webkit.launch();
+  const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await startDoc(page, { '/doc/hang.md': Buffer.from(quoted).toString('base64') }, ['/doc/hang.md']);
