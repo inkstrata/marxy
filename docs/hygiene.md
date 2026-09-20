@@ -140,8 +140,32 @@ The general lesson is worth more than the fix: **a check wrapped in `|| true` or
 check whose failure nobody has read.** This one had been green-by-construction long enough that its
 comment described a cause that was never the cause.
 
+### The rule, and everything it removed
+
 **A check earns its place on the pull-request path by being able to fail for something in the
-diff.** Monitoring goes nightly; a step that cannot fail gets deleted or made real.
+diff.** A check that fails for the machine it ran on is not a gate, it is a coin flip with a
+changelog. Monitoring goes nightly; a step that cannot fail gets deleted or made real.
+
+Applied across the repository, that rule removed five things (MARXY-153). None of them cost any
+correctness coverage — every one was a wall-clock or network number standing in for a property
+that is either asserted elsewhere or not asserted at all.
+
+| Was | Why it could not stay | Now |
+| --- | --- | --- |
+| `gate-aesthetics` CLS repeat, 3 whole-corpus passes | re-runs identical work and compares; can only fail for the environment | nightly `--repeat 3` |
+| `gate-perf` `cold_warm_ratio < 1` hard fail | the gates job runs the CLI smoke check on the same binary seconds earlier, so launch 1 is never cold; cold and warm differ by noise and the gate failed on which side of 1.0 the noise landed | recorded; fails only below 0.8, which is a broken record rather than noise |
+| `sanitize/budget.test.ts` `ms < 150` | an absolute ceiling cannot tell a regression from a busy runner | printed; the linearity ratio beside it is the real assertion and keeps the 122× quadratic caught |
+| `index-model/build-perf.test.ts` `elapsed < 2000` | same, on a test that also creates 20,000 files | printed; the correctness assertions (every file, no `node_modules`, no notice) stay |
+| `curl` of the CommonMark spec on every pull request | a red build because `spec.commonmark.org` was slow has nothing to do with the diff | fetched once and cached on the script's hash; the suite itself is unchanged |
+
+Two of these — the perf breach and the timing assertion inside a unit test — are the same two
+failures named at the top of this section as having turned `main` red before. They were treated as
+bad luck at the time. They were a category.
+
+What deliberately stayed: the sanitiser's **ratio** test (two timings on one machine, so machine
+speed cancels and algorithmic shape is what is left), `gate:bundle` (a byte count, not a duration),
+and every measurement that is recorded and printed. ADR-0032 already held that no speed number
+fails the build; this finishes applying it.
 
 Rules baked in:
 
