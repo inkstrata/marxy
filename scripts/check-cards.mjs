@@ -37,6 +37,27 @@ function parseCsv(t) {
   return rest.filter(r => r.length === h.length).map(r => Object.fromEntries(h.map((k, i) => [k, r[i]])));
 }
 
+/** Blank Key or duplicate Key values — one row per key in the board CSV. */
+export function csvRowProblems(csvRows) {
+  const problems = [];
+  const seen = new Set();
+  for (let i = 0; i < csvRows.length; i++) {
+    const k = (csvRows[i].Key ?? '').trim();
+    if (!k) {
+      problems.push(
+        `jira-issues.csv row ${i + 2}: empty Key${fix('remove blank data rows or add a Key')}`,
+      );
+      continue;
+    }
+    if (seen.has(k)) {
+      problems.push(
+        `${k}: duplicate Key in docs/plan/jira-issues.csv${fix(`keep one row for ${k}`)}`,
+      );
+    } else seen.add(k);
+  }
+  return problems;
+}
+
 /** First backticked path token on each bullet under ## Files and signatures. */
 export function filePathsFromCard(body) {
   const m = body.match(/^## Files and signatures\r?\n([\s\S]*?)(?=^## |\Z)/m);
@@ -125,13 +146,13 @@ export function loadBoardInput(root = ROOT) {
   const csvRows = parseCsv(readFileSync(join(root, 'docs/plan/jira-issues.csv'), 'utf8'));
   const rows = Object.fromEntries(csvRows.map(r => [r.Key, r]));
   const deps = JSON.parse(readFileSync(join(root, 'orchestration/deps.json'), 'utf8'));
-  return { cards, rows, deps };
+  return { cards, rows, deps, csvRows };
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isMain) {
   const input = loadBoardInput();
-  const problems = cardsAndRows(input);
+  const problems = [...csvRowProblems(input.csvRows), ...cardsAndRows(input)];
   if (fail(problems)) process.exit(1);
   console.log(`check-cards ok (${Object.keys(input.cards).length} cards)`);
 }

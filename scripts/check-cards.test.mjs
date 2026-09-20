@@ -2,10 +2,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cardsAndRows, loadBoardInput } from './check-cards.mjs';
+import { cardsAndRows, csvRowProblems, loadBoardInput } from './check-cards.mjs';
 import { fail } from './lib/repo.mjs';
 
 const ROOT = process.cwd();
+
+test('fixture: duplicate CSV Key fails and names the key', () => {
+  const problems = csvRowProblems([
+    { Key: 'MARXY-1', Paths: 'a' },
+    { Key: 'MARXY-1', Paths: 'a' },
+  ]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /MARXY-1/);
+  assert.match(problems[0], /duplicate Key/);
+  assert.equal(fail(problems), true);
+});
 
 test('fixture: card with no CSV row fails and names the key', () => {
   const problems = cardsAndRows({

@@ -43,6 +43,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
 
 ### Fixed
+- check-cards rejects duplicate CSV keys; the board CSV no longer carries a second MARXY-131/132/133 block or blank data rows, finishing the dedupe PR #134 left on main (MARXY-161)
 - The parse-measurement selftest no longer reads the branch's own diff, so MARXY-59 can finally land the two-tier perf metric the guard was written to protect (MARXY-147)
 - The aesthetics font and image window in headless render now waits on each face the article uses and on decode of reserved images before the first scored snapshot, so `gate:aesthetics` is deterministic on webkit-linux (MARXY-143)
 - Token contract tests now read `--marxy-size-code` and `--marxy-weight-heading` from the committed theme file when building mutations, so a values-only tune cannot turn a real re-kind check into a no-op (MARXY-145)
