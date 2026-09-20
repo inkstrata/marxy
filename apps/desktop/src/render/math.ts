@@ -10,7 +10,7 @@ async function injectKatexCss(): Promise<void> {
   cssInjected = true;
   const [{ default: css }, fonts] = await Promise.all([
     import('katex/dist/katex.min.css?raw'),
-    import.meta.glob('../../../node_modules/katex/dist/fonts/*.{woff2,woff,ttf}', {
+    import.meta.glob('../../node_modules/katex/dist/fonts/*.{woff2,woff,ttf}', {
       query: '?url',
       import: 'default',
     }),
