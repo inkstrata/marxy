@@ -51,7 +51,9 @@ test('p95 keystroke-to-results is under 16 ms on a 20,000-entry index', { timeou
     'd3/file',
   ];
 
-  for (const query of queries) searchPrepared(query, prepared, session);
+  for (let round = 0; round < 3; round++) {
+    for (const query of queries) searchPrepared(query, prepared, session);
+  }
 
   const samples: number[] = [];
   for (let i = 0; i < SAMPLES; i++) {
