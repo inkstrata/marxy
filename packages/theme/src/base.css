@@ -99,6 +99,19 @@ ul, ol { padding-inline-start: 1.25em; }
 li { margin: 0; }
 li > :is(ul, ol) { margin-bottom: 0; }
 li::marker { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
+/* Top-level ordered lists: hang decimal markers in the margin with tabular figures right-aligned
+   so 1 and 10 share an edge (review #0, MARXY-129). */
+.marxy-article > ol { list-style: none; counter-reset: marxy-ol; }
+.marxy-article > ol > li { counter-increment: marxy-ol; }
+.marxy-article > ol > li::before {
+  content: counter(marxy-ol) ".";
+  display: inline-block;
+  width: 2.25em;
+  margin-inline: -2.25em 0.35em;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  color: var(--marxy-color-text-secondary);
+}
 li:has(> input[type="checkbox"]:first-child, > p:first-child > input[type="checkbox"]:first-child) { list-style: none; }
 input[type="checkbox"] {
   appearance: none;
@@ -131,7 +144,7 @@ blockquote {
    padded back onto the grid by snapToGrid. Long lines wrap with a hanging indent on every source
    line — never a scrollbar per block. */
 code, kbd, pre { font-family: var(--marxy-font-mono); }
-code { font-size: 0.875em; color: var(--marxy-color-code-text); }
+code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em); color: var(--marxy-color-code-text); }
 /* An inline box in another face must not grow its line: at the body's line height a mono run's
    taller ascent adds about a pixel, which a long document turns into drift. */
 :not(pre) > code, kbd { line-height: 1; }
@@ -149,7 +162,7 @@ pre {
   tab-size: 4;
 }
 pre code, a code { font-size: inherit; color: inherit; }
-a code { font-size: 0.875em; }
+a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em); }
 kbd {
   font-size: 0.8em;
   padding: 0 0.35em;
