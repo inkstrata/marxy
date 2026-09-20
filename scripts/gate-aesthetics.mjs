@@ -218,9 +218,18 @@ async function checkContrast(page) {
   return out;
 }
 
-/** §10 check 4. */
-async function checkCls(page, reported) {
-  if (reported > 0) return [`layout shift ${reported}`];
+/**
+ * §10 check 4. WebKit does not implement PerformanceObserver `layout-shift`, so a missing
+ * measurement is a failure, not cls: 0. The number itself comes from in-page block rects.
+ */
+function checkCls(reported) {
+  if (reported == null || reported.observed !== true) {
+    return [`layout shift unobserved: ${reported?.reason ?? 'no measurement'}`];
+  }
+  if ((reported.snapshots ?? 0) < 2) {
+    return [`layout shift unobserved: ${reported.snapshots ?? 0} snapshot(s)`];
+  }
+  if (reported.cls > 0) return [`layout shift ${reported.cls}`];
   return [];
 }
 
@@ -433,7 +442,7 @@ async function runPageChecks(page, result, ctx) {
   add(await checkGrid(page));
   add(await checkMeasure(page));
   add(await checkContrast(page));
-  add(await checkCls(page, result?.stats?.cls ?? 0));
+  add(checkCls(result?.stats));
   add(await checkHanging(page));
   add(await checkHierarchy(page));
   add(await checkCodeVoice(page));
@@ -452,7 +461,32 @@ ${extraCss}
 </style></head><body><main id="marxy-main"><article id="doc" class="marxy-article">${body}</article></main></body></html>`;
 }
 
-async function selftest(browser) {
+/** Image swap that moves a following block, using the same in-page geometry as marxyRender. */
+async function craftedClsShift(page, origin) {
+  await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.marxyLayoutShift?.snapshot === 'function');
+  return page.evaluate(async () => {
+    const article = document.getElementById('doc');
+    article.innerHTML =
+      '<p data-marxy-s="0" data-marxy-e="1" style="display:block;margin:0">Above</p>' +
+      '<img id="late" alt="" style="display:block">' +
+      '<p data-marxy-s="2" data-marxy-e="3" style="display:block;margin:0">Moves when the image arrives</p>';
+    const shift = window.marxyLayoutShift;
+    shift.assertCanObserve();
+    const first = shift.snapshot(article);
+    const img = document.getElementById('late');
+    const canvas = document.createElement('canvas');
+    canvas.width = 40;
+    canvas.height = 200;
+    img.src = canvas.toDataURL();
+    await img.decode();
+    void article.offsetHeight;
+    const second = shift.snapshot(article);
+    return { cls: shift.movedFraction(first, second), observed: true, snapshots: 2 };
+  });
+}
+
+async function selftest(browser, origin) {
   const cases = [
     {
       name: 'grid',
@@ -468,6 +502,18 @@ async function selftest(browser) {
       name: 'contrast',
       html: crafted('<p style="color:#a0a0a0">Grey</p>', '.marxy-article{color:#a0a0a0;background:#fff}'),
       run: checkContrast,
+    },
+    {
+      name: 'cls',
+      html: null,
+      run: async (page) => {
+        const reported = await craftedClsShift(page, origin);
+        const problems = checkCls(reported);
+        // Silence is a failure: an unobserved 0 must not pass the way WebKit's no-op observer did.
+        const silence = checkCls({ cls: 0, observed: false, reason: 'engine cannot observe' });
+        if (silence.length === 0) return [];
+        return problems;
+      },
     },
     {
       name: 'rag',
@@ -496,7 +542,7 @@ async function selftest(browser) {
   const missed = [];
   for (const c of cases) {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
-    await page.setContent(c.html, { waitUntil: 'domcontentloaded' });
+    if (c.html) await page.setContent(c.html, { waitUntil: 'domcontentloaded' });
     const problems = await c.run(page);
     await page.close();
     if (problems.length === 0) missed.push(c.name);
@@ -553,20 +599,19 @@ async function main() {
   }
 
   const browser = await webkit.launch();
+  const harness = await startHarness();
   try {
-    await selftest(browser);
-    notes.push('selftest: grid, measure, contrast, rag, chrome, hierarchy, code-voice each fail on a crafted page');
+    await selftest(browser, harness.origin);
+    notes.push('selftest: grid, measure, contrast, cls, rag, chrome, hierarchy, code-voice each fail on a crafted page');
     if (SELFTEST_ONLY) {
       console.log(`aesthetics gate ok: selftest passed; ${notes.join('; ')}`);
       return;
     }
 
-    const harness = await startHarness();
     const files = corpusFiles();
     const combos = matrix();
     let created = 0;
-    try {
-      const smoke = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const smoke = await browser.newPage({ viewport: { width: 960, height: 800 } });
       const result = await renderCorpus(smoke, harness.origin, '# Hello\n\nA short paragraph.', { variant: 'dark', width: 960, size: 17 });
       const painted = await smoke.evaluate(() => ({
         heading: document.querySelector('#doc h1')?.textContent,
@@ -609,14 +654,12 @@ async function main() {
           await page.close();
         }
       }
-    } finally {
-      harness.close();
-    }
 
     if (UPDATE || created) {
       fails.push('baseline created; add a queue entry');
     }
   } finally {
+    harness.close();
     await browser.close();
   }
 

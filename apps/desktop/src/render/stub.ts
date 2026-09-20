@@ -25,7 +25,7 @@ export interface StubShell {
   startupMarks(): Promise<never>;
 }
 
-const unsupported = (name: string) => (): Promise<never> => Promise.reject(new Error('unsupported'));
+const unsupported = (name: string) => (): Promise<never> => Promise.reject(new Error(`unsupported: ${name}`));
 
 /** Decodes a `data:` URL (or any src the in-page `Image` can load) for reserved width/height. */
 export function decodeImageSize(src: string): Promise<ImageSize | null> {
