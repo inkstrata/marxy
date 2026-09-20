@@ -13,6 +13,7 @@ tag time. Conventions in `docs/conventions.md`.
 ### Changed
 - A table is an island the grid pass pads, not a block the stylesheet holds on the grid by construction; the decision record now matches the page (MARXY-141)
 - Headings now bind to what follows on clean half-line gaps, italic is Literata's real italic, strike is thicker, code blocks and quotes have more room and contrast, task-list ticks sit on the line, and a wrapped table cell is no looser than a short one (MARXY-128)
+- A values-only theme tune can now be committed without an ADR: the story boundary no longer byte-pins tokens.css (MARXY-139)
 - A taste decision on the default theme now costs a story and a review-queue row, not an ADR: theme authors can still rely on the token names, units and meanings (MARXY-133)
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
 
