@@ -31,3 +31,8 @@ export {
   type PositionsEnvelope,
   type LoadPositionsResult,
 } from './storage.ts';
+export {
+  PositionPersistence,
+  POSITIONS_DEBOUNCE_MS,
+  type PositionPersistenceIo,
+} from './persistence.ts';

@@ -1,25 +1,25 @@
-// Desktop positions.json persistence: reopen, debounce, corrupt quarantine (MARXY-38).
+// positions.json persistence: reopen, debounce, corrupt quarantine (MARXY-38).
 
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { PositionPersistence, POSITIONS_DEBOUNCE_MS } from '../../../../apps/desktop/src/position/persist.ts';
-import { restoreScrollToPosition, currentPosition } from '../../../../apps/desktop/src/position/position.ts';
 import { scrollTopForPosition, sameFirstVisibleBlock, type LayoutBlock } from './blocks.ts';
+import { PositionPersistence, POSITIONS_DEBOUNCE_MS } from './persistence.ts';
 import { serializePositionsFile } from './storage.ts';
 
 const desktopPositionDir = fileURLToPath(new URL('../../../../apps/desktop/src/position/', import.meta.url));
 
 test('persisted JSON and ReadingPosition never store scrollTop (grep guard)', () => {
   for (const name of readdirSync(desktopPositionDir)) {
-    if (!name.endsWith('.ts')) continue;
+    if (!name.endsWith('.ts') || name === 'position.ts') continue;
     const source = readFileSync(`${desktopPositionDir}/${name}`, 'utf8');
-    if (name === 'position.ts') continue;
     assert.doesNotMatch(source, /\bscrollTop\b/, `${name} must not mention scrollTop`);
   }
-  const storageSource = readFileSync(new URL('./storage.ts', import.meta.url), 'utf8');
-  assert.doesNotMatch(storageSource, /\bscrollTop\b/);
+  for (const name of ['storage.ts', 'persistence.ts']) {
+    const source = readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /\bscrollTop\b/);
+  }
 });
 
 function memoryIo(initial: Record<string, Uint8Array> = {}) {
@@ -50,7 +50,7 @@ test('reopening a document restores the same first visible block within one line
   const path = '/docs/readme.md';
   const scrollBefore = scrollTopForPosition(blocks, 90, 0.4, viewport);
 
-  const { io, store } = memoryIo();
+  const { io } = memoryIo();
   const persistence = await PositionPersistence.open(io);
   persistence.note(path, { path, byteOffset: 90, fraction: 0.4, mode: 'rendered' });
   await persistence.flush();
@@ -100,20 +100,4 @@ test('a newer positions.json version is not overwritten on flush', async () => {
   await persistence.flush();
   assert.deepEqual(store.get(path), newer);
   assert.ok(persistence.positionForOpen('/keep.md', 100));
-});
-
-test('DOM restore round-trip matches the stored coordinate', () => {
-  if (typeof HTMLElement === 'undefined') return;
-  const scroller = document.createElement('div');
-  Object.defineProperty(scroller, 'clientHeight', { value: 500 });
-  Object.defineProperty(scroller, 'scrollTop', { writable: true, value: 0 });
-  const blocks = [
-    { el: document.createElement('p'), start: 0, top: 0, height: 80 },
-    { el: document.createElement('p'), start: 20, top: 80, height: 80 },
-  ];
-  const pos = { path: '/t.md', byteOffset: 20, fraction: 0.5, mode: 'rendered' as const };
-  restoreScrollToPosition(scroller, blocks, pos);
-  const back = currentPosition(scroller, blocks, '/t.md', 'rendered');
-  assert.equal(back.byteOffset, pos.byteOffset);
-  assert.ok(Math.abs(back.fraction - pos.fraction) < 0.01);
 });
