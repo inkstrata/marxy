@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 /**
  * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
@@ -27,7 +28,7 @@ const post = stripTypeScriptTypes(readFileSync(new URL('apps/desktop/src/render/
 async function withPage(file, run) {
   const ast = parseMarkdown(readFileSync(new URL(`fixtures/corpus/${file}`, root)), { file });
   const { html } = renderDocumentSafeHtml(ast);
-  const browser = await webkit.launch();
+  const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await page.setContent(`<!doctype html><meta charset="utf-8"><article id="doc" style="max-width:68ch;margin:auto">${html}</article>`);

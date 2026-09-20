@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
 import { createMemoryShell } from '../src/shell/memory.ts';
 
@@ -75,7 +76,7 @@ test('pnpm build produces dist/app.html and the production index excludes the me
 });
 
 test('window.marxyApp.start boots the real app and records one readFile', async () => {
-  const browser = await webkit.launch();
+  const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     await page.goto(`${base}app.html`);
