@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeFromArgv, laneBudget, models } from './lib.mjs';
+import { chmodSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { computeFromArgv, laneBudget, models, cursorAgentBin } from './lib.mjs';
 
 const fixture = {
   compute: 'default',
@@ -75,4 +78,17 @@ test('minimal compute mode never names a Claude or GPT model — the Cursor-only
   }
   // Escalation ceiling is Grok — the strongest model configured anywhere in this mode.
   assert.equal(min.implementorEscalation.model, 'grok-4.6');
+});
+
+test('cursorAgentBin honors CURSOR_AGENT and ~/.local/bin', () => {
+  const home = mkdtempSync(join(tmpdir(), 'marxy-cursor-agent-'));
+  const bin = join(home, '.local/bin/cursor-agent');
+  mkdirSync(join(home, '.local/bin'), { recursive: true });
+  writeFileSync(bin, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  chmodSync(bin, 0o755);
+  const emptyPath = { PATH: home };
+  assert.equal(cursorAgentBin(emptyPath, home), bin);
+  const other = join(home, 'custom-agent');
+  writeFileSync(other, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  assert.equal(cursorAgentBin({ CURSOR_AGENT: other }, home), other);
 });

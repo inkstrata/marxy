@@ -14,6 +14,8 @@
 # headlessly) or the in-app orchestrator, which the cycle tells you by naming the keys.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+# Cursor's installer puts cursor-agent here; orchestration also resolves it, but the loop should see it on PATH.
+case ":${PATH}:" in *":${HOME}/.local/bin:"*) ;; *) export PATH="${HOME}/.local/bin:${PATH}";; esac
 INTERVAL=${INTERVAL:-120}
 trap 'echo; echo "loop: interrupted; orchestration/status.md holds the last cycle"; exit 0' INT TERM
 while true; do

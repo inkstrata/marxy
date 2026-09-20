@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { state, saveState, stories, here } from './lib.mjs';
+import { logEscalate, logReturn } from './model-stats.mjs';
 
 /**
  * Apply one board verb to a story's entry (and, for `done`, the merges counter). `now` is
@@ -47,6 +48,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   } else if (!transition(cmd, s, st)) {
     console.error('usage: state.mjs <show|start|review KEY PR|done|return|escalate|block|planned> [KEY]');
     process.exit(2);
+  } else if (cmd === 'return') {
+    logReturn({ key, reason: 'reviewer_return', model: st.model });
+    if (st.status === 'escalate') logEscalate({ key, model: st.model });
+  } else if (cmd === 'escalate') {
+    logEscalate({ key, model: st.model });
   }
   saveState(s);
   if (key) {

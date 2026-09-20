@@ -1,8 +1,35 @@
 // Shared board helpers. pathsOf keeps glob segments so a path like packages/*/package.json
 // is not collapsed to packages (MARXY-9).
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, accessSync, constants } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+
+function executable(path) {
+  try {
+    accessSync(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Cursor Agent CLI for headless implementors. Honors CURSOR_AGENT, then PATH, then ~/.local/bin. */
+export function cursorAgentBin(env = process.env, home = homedir()) {
+  const named = env.CURSOR_AGENT?.trim();
+  if (named) {
+    if (named.includes('/') && executable(named)) return named;
+    const w = spawnSync('sh', ['-c', `command -v ${JSON.stringify(named)}`], { encoding: 'utf8', env });
+    const p = w.stdout?.trim();
+    if (p && executable(p)) return p;
+  }
+  const onPath = spawnSync('sh', ['-c', 'command -v cursor-agent'], { encoding: 'utf8', env }).stdout?.trim();
+  if (onPath && executable(onPath)) return onPath;
+  const local = resolve(home, '.local/bin/cursor-agent');
+  if (executable(local)) return local;
+  return null;
+}
 export const ROOT = new URL('../', import.meta.url).pathname;
 export const here = p => `${ROOT}orchestration/${p}`;
 export const readJson = p => JSON.parse(readFileSync(p, 'utf8'));

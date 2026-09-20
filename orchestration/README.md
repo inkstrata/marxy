@@ -67,8 +67,9 @@ the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
 
 Either way the mechanical half of every cycle is one command, and it is the same command in both
 modes: `node orchestration/cycle.mjs` mirrors the board into Jira, merges the pull requests that
-are provably finished, names what should start next (dispatching headlessly if `cursor-agent` is
-on PATH), asks whether the planner is due, and writes `status.md`. It is idempotent, so
+are provably finished, names what should start next (dispatching headlessly when the Cursor
+Agent CLI resolves — `CURSOR_AGENT`, `PATH`, or `~/.local/bin/cursor-agent`), asks whether the
+planner is due, and writes `status.md`. It is idempotent, so
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
 `--no-merge` to decide without landing anything, `--low` or `--minimal` to spend less.
 

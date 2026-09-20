@@ -12,7 +12,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, readJson, stories, state, saveState, models } from './lib.mjs';
+import { ROOT, here, readJson, stories, state, saveState, models, cursorAgentBin } from './lib.mjs';
+import { parseDispatchLines, printPhaseRow, writeTurnReport } from './cycle-report.mjs';
+import { orchestrationStoreDir } from './orch-store.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
@@ -190,11 +192,16 @@ function runCycle(argv = process.argv.slice(2)) {
   const m = models();
   process.env.MARXY_COMPUTE = m.compute;
   const log = [];
+  /** @type {import('./cycle-report.mjs').TurnPhase[]} */
+  const phases = [];
   const say = line => { console.log(line); log.push(line); };
   say(`compute: ${m.compute} — orchestrator ${m.orchestrator.model} ${m.orchestrator.effort}; implementor ${m.implementor.model} ${m.implementor.effort}`);
+  say(`turn report → ${orchestrationStoreDir()}/turn-latest.md`);
+  console.log('| Phase | Delivered | Failed | Blockers |');
+  console.log('| --- | --- | --- | --- |');
   const sh = (cmd, a, opts = {}) => { try { return execFileSync(cmd, a, { cwd: ROOT, encoding: 'utf8', ...opts }).trim(); } catch (e) { return { error: (e.stdout ?? '') + (e.stderr ?? e.message) }; } };
   const gh = a => { const r = sh('gh', a); return typeof r === 'string' ? r : null; };
-  const node = a => spawnSync(process.execPath, a, { cwd: ROOT, encoding: 'utf8' });
+  const node = (a, opts = {}) => spawnSync(process.execPath, a, { cwd: ROOT, encoding: 'utf8', ...opts });
   // 1. Sync. Every diff below is against origin/main, and ready.mjs reads the board from this
   // checkout, so both have to describe the main that exists now.
   sh('git', ['fetch', '-q', 'origin']);
@@ -290,13 +297,15 @@ function runCycle(argv = process.argv.slice(2)) {
   // 5. What should start next. Headless dispatch needs the Cursor CLI; without it the in-app
   // orchestrator is the dispatcher, so name the keys rather than pretending to start them.
   const ready = JSON.parse(node([here('ready.mjs')]).stdout || '{"ready":[],"lanesFree":0,"inProgress":[]}');
-  const hasCli = typeof sh('sh', ['-c', 'command -v cursor-agent']) === 'string';
+  const agentBin = cursorAgentBin();
+  const hasCli = agentBin != null;
+  if (agentBin) process.env.CURSOR_AGENT = agentBin;
   const keys = ready.ready.map(r => r.key).join(' ');
   if (ready.ready.length && planDue) {
     say(`ready but not dispatched until the planner has run: ${keys}`);
   } else if (ready.ready.length && hasCli && !DRY) {
     say(`dispatching ${keys} headlessly`);
-    node([here('dispatch.mjs'), ...ready.ready.map(r => r.key)]);
+    node([here('dispatch.mjs'), ...ready.ready.map(r => r.key)], { env: process.env });
   } else if (ready.ready.length) {
     const laneNote = ready.lanes === 'uncapped' || ready.lanesFree == null ? 'uncapped lanes' : `${ready.lanesFree} free lane(s)`;
     say(`dispatch ${ready.ready.length} story(ies) into ${laneNote}: ${keys}` + (hasCli ? '' : ' (cursor-agent absent: dispatch as in-app implementor subagents)'));

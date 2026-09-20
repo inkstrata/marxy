@@ -255,3 +255,43 @@ Reasoning for all of them: `docs/plan/deltas/2026-09-18-review-throughput.md`.
       italic/strike, code-block padding, quotes, checkboxes, tables), MARXY-129 (pair-A tunes:
       mono size, heading weight, italic, list numbers), MARXY-130 (corpus samples for more
       formats). Planner splits them. Linux weight (spike, MARXY-21) still waits on a desktop.
+
+- [x] 2026-09-19 — **MARXY-95 escalation closed.** #82 landed as `f6eeaf7` after MARXY-131 widened its paths.
+
+- [x] 2026-09-19 — **#89 (MARXY-135)** landed as `681b6e1`. Board-path correction for MARXY-83.
+
+- [x] 2026-09-19 — **#87 (MARXY-83)** landed as `a815cea`.
+
+- [ ] 2026-09-19 — **Planner: leftovers from this wave.** (1) `scripts/registry.json` still lists `packages/theme/src/tokens.css` as frozen, which will block MARXY-129 after 133. (2) The desktop app still passes `hyphenate: false, hanging: 'none'` in `apps/desktop/src/app.ts`; 24 correctly left that file alone. Capture MARXY-25 aesthetics baselines after that one-line story, not before. (3) MARXY-128 (#94) escalated: table-as-island criterion contradicts ADR-0030; amend/supersede the ADR in its own PR, then #94 can merge. Do not land #94 or #95.
+      **All three are stories now.** (3) is **MARXY-141**, an ADR-only amendment to ADR-0030 moving
+      tables into the `snapToGrid` set, restating decision 3's heading construction, and recording the
+      cost the reviewer measured: with #94's table rule the stylesheet alone no longer puts text on the
+      grid in a document containing a table, so `grid.test.mjs`'s `TEXT_ONLY` set narrows to one fixture.
+      MARXY-128 now depends on MARXY-141, so **#94 stays held until the amendment lands** and then merges
+      as it stands — no rework, and no widening of MARXY-128's paths to `docs/adr/`, which is the mistake
+      PR #87 was returned for. (1) is **MARXY-139**:
+      `check-story.mjs` refuses any change to a file in `registry.json`'s `frozen` array unless a
+      `docs/adr/*.md` is in the same commit, so MARXY-129 — a values-only tune — is refused at commit time
+      by the exact rule ADR-0031 retired. MARXY-129 now depends on MARXY-139. (2) is **MARXY-137**, which
+      owns the one line *and* the baseline recapture, because turning hyphenation and hanging on moves
+      every line of every screenshot; its own diff is then the before/after artifact the taste queue wants.
+      On the ordering you asked about: let MARXY-25 (#97) merge with the un-hyphenated baselines rather
+      than holding the only mechanical aesthetics gate, and dispatch MARXY-137 immediately after it lands.
+
+- [ ] 2026-09-19 — **MARXY-26 escalation (PR #95): split; no ruling needed from you.** All three
+      acceptance criteria failed and none of them could be met inside the story's paths — the notice is
+      app chrome (`apps/desktop/src/notices/`), the reserved box needs a real `<img>`, and `assetUrl`
+      needed two Rust commands that `main.rs` never registered. It is the third story in this class after
+      MARXY-36 and MARXY-66: the `Paths` cell narrower than the acceptance the row carried. The code in
+      #95 is good and is **not** discarded — it is the tree MARXY-26 attempt 2 starts from, minus the two
+      shell files and a test that grepped `tauri.ts` for member names. MARXY-26 becomes core-only;
+      **MARXY-138** takes the Rust, the asset scope, the post-pass, the notices region, a 1200×400
+      `fixtures/corpus/image.png` (no corpus document had a local image that exists, so "CLS = 0 across
+      image decode" was vacuous), and the check that would have caught this: every `invoke(name)` in
+      `tauri.ts` must be registered in `generate_handler!`. `imageSize` goes to the Rust `imagesize` crate
+      as `docs/design/06-shell.md` always said, with core's `imageSizeFromBytes` kept as the pure fallback
+      for the memory shell and the tests. Reasoning in
+      `docs/plan/deltas/2026-09-19-marxy-26-split.md`. Two things for your eye rather than your decision:
+      MARXY-138 is the first story a reader sees anything from, so it will put a real before/after in the
+      taste queue; and `fixtures/baselines` is now named by four stories (25, 137, 138, 30), sequenced
+      only by `deps.json`.
