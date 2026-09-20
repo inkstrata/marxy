@@ -99,6 +99,12 @@
     "MARXY-NEW-land-after-65-plan": "MARXY-125",
     "MARXY-NEW-cards-and-rows": "MARXY-126",
     "MARXY-NEW-indirect-html-gate": "MARXY-132",
-    "MARXY-NEW-token-values-are-taste": "MARXY-133"
+    "MARXY-NEW-token-values-are-taste": "MARXY-133",
+    "MARXY-NEW-desktop-typeset-defaults": "MARXY-137",
+    "MARXY-NEW-images-on-the-page": "MARXY-138",
+    "MARXY-NEW-unpin-tokens-css-boundary": "MARXY-139",
+    "MARXY-NEW-land-26-split": "MARXY-140",
+    "MARXY-NEW-adr-0030-tables": "MARXY-141",
+    "MARXY-NEW-branch-budget-guard": "MARXY-142"
   }
 }
