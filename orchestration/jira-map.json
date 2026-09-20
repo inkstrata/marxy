@@ -99,6 +99,18 @@
     "MARXY-NEW-land-after-65-plan": "MARXY-125",
     "MARXY-NEW-cards-and-rows": "MARXY-126",
     "MARXY-NEW-indirect-html-gate": "MARXY-132",
-    "MARXY-NEW-token-values-are-taste": "MARXY-133"
+    "MARXY-NEW-token-values-are-taste": "MARXY-133",
+    "MARXY-NEW-desktop-typeset-defaults": "MARXY-137",
+    "MARXY-NEW-images-on-the-page": "MARXY-138",
+    "MARXY-NEW-unpin-tokens-css-boundary": "MARXY-139",
+    "MARXY-NEW-land-26-split": "MARXY-140",
+    "MARXY-NEW-adr-0030-tables": "MARXY-141",
+    "MARXY-NEW-branch-budget-guard": "MARXY-142",
+    "MARXY-NEW-cls-window": "MARXY-143",
+    "MARXY-NEW-land-137-cls-plan": "MARXY-144",
+    "MARXY-NEW-tokens-test-live-values": "MARXY-145",
+    "MARXY-NEW-land-129-tokens-companion": "MARXY-146",
+    "MARXY-NEW-retire-parse-diff-guard": "MARXY-147",
+    "MARXY-NEW-land-hang-check-and-parse-guard": "MARXY-148"
   }
 }

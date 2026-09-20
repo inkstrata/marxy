@@ -6,6 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { checkAllVectors, elementsOf } from '../sanitize/testing/vectors.ts';
 import { RENDERED_POLICY } from '../sanitize/policy.ts';
+import { blockedHosts } from './images.ts';
 import { renderSafeHtml } from './pipeline.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
@@ -61,6 +62,8 @@ test('frontmatter is metadata, not prose, and is not set', () => {
 test('a local image keeps its source; a remote one keeps only its alt text', () => {
   assert.equal(html('![a](diagram.png)\n'), '<p><img src="diagram.png" alt="a" /></p>');
   assert.equal(html('![a](https://example.com/p.png)\n'), '<p><img alt="a" /></p>');
+  const remote = renderSafeHtml('![a](https://example.com/p.png)\n', { file: 'test.md' });
+  assert.deepEqual(blockedHosts(remote.blockedImages), ['example.com']);
 });
 
 test('right-to-left and CJK documents render without losing their direction attributes', () => {

@@ -1,0 +1,105 @@
+document [0,2514)
+  htmlBlock [0,107) value="<!-- Sample of an AI/agent artifact: interleaved prose, tool output, mixed-language fences, long paths. -->"
+  heading [109,158) level=1
+    text [111,158) value="Session — stale title after a zero-byte write"
+  paragraph [160,352)
+    text [160,178) value="The reader opened "
+    code [178,213) value="/Users/reader/notes/docs/brief.md"
+    text [213,238) value=", then an external editor"
+    softBreak [238,239)
+    text [239,313) value="saved the file as zero bytes. The palette still showed the old title. This"
+    softBreak [313,314)
+    text [314,352) value="transcript is the pass that found why."
+  heading [354,373) level=2
+    text [357,373) value="What I was asked"
+  paragraph [375,532)
+    code [375,386) value="refresh()"
+    text [386,396) value=" reported "
+    code [396,434) value="{ added: 0, removed: 0, updated: 1 }"
+    text [434,439) value=" but "
+    code [439,455) value="query('brief')"
+    softBreak [455,456)
+    text [456,471) value="kept returning "
+    code [471,504) value="title: \"The product, distilled\""
+    text [504,532) value=". The file on disk is empty."
+  heading [534,550) level=2
+    text [537,550) value="What I opened"
+  paragraph [552,710)
+    text [552,572) value="The row is built in "
+    code [572,582) value="buildRow"
+    text [582,601) value=". Title comes from "
+    code [601,611) value="firstAtx"
+    text [611,628) value=", which walks the"
+    softBreak [628,629)
+    text [629,704) value="decoded text and returns the first heading, or the stem when the walk finds"
+    softBreak [704,705)
+    text [705,710) value="none."
+  codeBlock [712,924) lang=ts info="ts" content=[718,921) value="export function firstAtx(text: string, stem: string): string {\n  for (const line of text.split('\\n')) {\n    const m = /^…"
+  paragraph [926,1016)
+    text [926,951) value="That function is fine on "
+    code [951,955) value="''"
+    text [955,968) value=": it returns "
+    code [968,974) value="stem"
+    text [974,998) value=". The stale title is not"
+    softBreak [998,999)
+    text [999,1016) value="coming from here."
+  heading [1018,1050) level=2
+    text [1021,1050) value="Tool: the row that was served"
+  codeBlock [1052,1200) lang=json info="json" content=[1060,1197) value="{\n  \"path\": \"docs/brief.md\",\n  \"title\": \"The product, distilled\",\n  \"bytes\": 0,\n  \"mtime\": 1758312044123,\n  \"hash\": \"cbf…"
+  paragraph [1202,1447)
+    code [1202,1209) value="bytes"
+    text [1209,1219) value=" is 0 and "
+    code [1219,1225) value="hash"
+    text [1225,1258) value=" is the empty FNV-1a 64. The row "
+    emphasis [1258,1263)
+      text [1259,1262) value="was"
+    text [1263,1278) value=" rewritten. The"
+    softBreak [1278,1279)
+    text [1279,1329) value="title field was copied from the previous row when "
+    code [1329,1335) value="hash"
+    text [1335,1350) value=" matched. Empty"
+    softBreak [1350,1351)
+    text [1351,1424) value="files all share that hash, so a file that used to have a heading keeps it"
+    softBreak [1424,1425)
+    text [1425,1447) value="after being truncated."
+  heading [1449,1466) level=2
+    text [1452,1466) value="Tool: the skip"
+  codeBlock [1468,1579) lang=sh info="sh" content=[1474,1576) value="rg -n \"hash === previous.hash\" /Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts"
+  codeBlock [1581,1725) lang=text info="text" content=[1589,1722) value="/Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts:41:  if (previous && hash === previous.hash) retu…"
+  paragraph [1727,1840)
+    text [1727,1799) value="That is the line. A truncated file and a never-written file both hash to"
+    softBreak [1799,1800)
+    code [1800,1818) value="cbf29ce484222325"
+    text [1818,1840) value=", so the old row wins."
+  heading [1842,1865) level=2
+    text [1845,1865) value="The fix I would take"
+  paragraph [1867,1926)
+    text [1867,1900) value="Keep the short-circuit only when "
+    code [1900,1907) value="bytes"
+    text [1907,1926) value=" is also unchanged:"
+  codeBlock [1928,2022) lang=ts info="ts" content=[1934,2019) value="if (previous && hash === previous.hash && bytes === previous.bytes) return previous;"
+  paragraph [2024,2159)
+    text [2024,2064) value="A zero-byte write then falls through to "
+    code [2064,2084) value="firstAtx('', stem)"
+    text [2084,2100) value=" and the palette"
+    softBreak [2100,2101)
+    text [2101,2107) value="shows "
+    code [2107,2114) value="brief"
+    text [2114,2159) value=". I have not applied this; the file is yours."
+  heading [2161,2193) level=2
+    text [2164,2193) value="Paths I touched while reading"
+  list [2195,2404) ordered=false tight=true
+    listItem [2195,2269)
+      paragraph [2197,2269)
+        code [2197,2269) value="/Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts"
+    listItem [2270,2349)
+      paragraph [2272,2349)
+        code [2272,2349) value="/Users/reader/Dev/shelf/packages/index/src/query/compile-term-expression.ts"
+    listItem [2350,2404)
+      paragraph [2352,2404)
+        code [2352,2404) value="/Users/reader/notes/.shelf/rows/docs/brief.md.json"
+  paragraph [2406,2513)
+    text [2406,2479) value="None of those paths were written. The document on disk is still the empty"
+    softBreak [2479,2480)
+    code [2480,2495) value="docs/brief.md"
+    text [2495,2513) value=" the reader saved."

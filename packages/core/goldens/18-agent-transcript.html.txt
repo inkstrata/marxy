@@ -1,0 +1,56 @@
+
+<h1 data-marxy-s="109" data-marxy-e="158">Session — stale title after a zero-byte write</h1>
+<p data-marxy-s="160" data-marxy-e="352">The reader opened <code data-marxy-s="178" data-marxy-e="213">/Users/reader/notes/docs/brief.md</code>, then an external editor
+saved the file as zero bytes. The palette still showed the old title. This
+transcript is the pass that found why.</p>
+<h2 data-marxy-s="354" data-marxy-e="373">What I was asked</h2>
+<p data-marxy-s="375" data-marxy-e="532"><code data-marxy-s="375" data-marxy-e="386">refresh()</code> reported <code data-marxy-s="396" data-marxy-e="434">{ added: 0, removed: 0, updated: 1 }</code> but <code data-marxy-s="439" data-marxy-e="455">query('brief')</code>
+kept returning <code data-marxy-s="471" data-marxy-e="504">title: "The product, distilled"</code>. The file on disk is empty.</p>
+<h2 data-marxy-s="534" data-marxy-e="550">What I opened</h2>
+<p data-marxy-s="552" data-marxy-e="710">The row is built in <code data-marxy-s="572" data-marxy-e="582">buildRow</code>. Title comes from <code data-marxy-s="601" data-marxy-e="611">firstAtx</code>, which walks the
+decoded text and returns the first heading, or the stem when the walk finds
+none.</p>
+<pre data-marxy-s="712" data-marxy-e="924"><code class="language-ts" data-marxy-s="718" data-marxy-e="921">export function firstAtx(text: string, stem: string): string {
+  for (const line of text.split('\n')) {
+    const m = /^#{1,6}\s+(\S.*)$/.exec(line);
+    if (m) return m[1]!.trim();
+  }
+  return stem;
+}
+</code></pre>
+<p data-marxy-s="926" data-marxy-e="1016">That function is fine on <code data-marxy-s="951" data-marxy-e="955">''</code>: it returns <code data-marxy-s="968" data-marxy-e="974">stem</code>. The stale title is not
+coming from here.</p>
+<h2 data-marxy-s="1018" data-marxy-e="1050">Tool: the row that was served</h2>
+<pre data-marxy-s="1052" data-marxy-e="1200"><code class="language-json" data-marxy-s="1060" data-marxy-e="1197">{
+  "path": "docs/brief.md",
+  "title": "The product, distilled",
+  "bytes": 0,
+  "mtime": 1758312044123,
+  "hash": "cbf29ce484222325"
+}
+</code></pre>
+<p data-marxy-s="1202" data-marxy-e="1447"><code data-marxy-s="1202" data-marxy-e="1209">bytes</code> is 0 and <code data-marxy-s="1219" data-marxy-e="1225">hash</code> is the empty FNV-1a 64. The row <em data-marxy-s="1258" data-marxy-e="1263">was</em> rewritten. The
+title field was copied from the previous row when <code data-marxy-s="1329" data-marxy-e="1335">hash</code> matched. Empty
+files all share that hash, so a file that used to have a heading keeps it
+after being truncated.</p>
+<h2 data-marxy-s="1449" data-marxy-e="1466">Tool: the skip</h2>
+<pre data-marxy-s="1468" data-marxy-e="1579"><code class="language-sh" data-marxy-s="1474" data-marxy-e="1576">rg -n "hash === previous.hash" /Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts
+</code></pre>
+<pre data-marxy-s="1581" data-marxy-e="1725"><code class="language-text" data-marxy-s="1589" data-marxy-e="1722">/Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts:41:  if (previous &amp;&amp; hash === previous.hash) return previous;
+</code></pre>
+<p data-marxy-s="1727" data-marxy-e="1840">That is the line. A truncated file and a never-written file both hash to
+<code data-marxy-s="1800" data-marxy-e="1818">cbf29ce484222325</code>, so the old row wins.</p>
+<h2 data-marxy-s="1842" data-marxy-e="1865">The fix I would take</h2>
+<p data-marxy-s="1867" data-marxy-e="1926">Keep the short-circuit only when <code data-marxy-s="1900" data-marxy-e="1907">bytes</code> is also unchanged:</p>
+<pre data-marxy-s="1928" data-marxy-e="2022"><code class="language-ts" data-marxy-s="1934" data-marxy-e="2019">if (previous &amp;&amp; hash === previous.hash &amp;&amp; bytes === previous.bytes) return previous;
+</code></pre>
+<p data-marxy-s="2024" data-marxy-e="2159">A zero-byte write then falls through to <code data-marxy-s="2064" data-marxy-e="2084">firstAtx('', stem)</code> and the palette
+shows <code data-marxy-s="2107" data-marxy-e="2114">brief</code>. I have not applied this; the file is yours.</p>
+<h2 data-marxy-s="2161" data-marxy-e="2193">Paths I touched while reading</h2>
+<ul data-marxy-s="2195" data-marxy-e="2404">
+<li data-marxy-s="2195" data-marxy-e="2269"><code data-marxy-s="2197" data-marxy-e="2269">/Users/reader/Dev/shelf/packages/index/src/scan/build-row-from-stat.ts</code></li>
+<li data-marxy-s="2270" data-marxy-e="2349"><code data-marxy-s="2272" data-marxy-e="2349">/Users/reader/Dev/shelf/packages/index/src/query/compile-term-expression.ts</code></li>
+<li data-marxy-s="2350" data-marxy-e="2404"><code data-marxy-s="2352" data-marxy-e="2404">/Users/reader/notes/.shelf/rows/docs/brief.md.json</code></li>
+</ul>
+<p data-marxy-s="2406" data-marxy-e="2513">None of those paths were written. The document on disk is still the empty
+<code data-marxy-s="2480" data-marxy-e="2495">docs/brief.md</code> the reader saved.</p>

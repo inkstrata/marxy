@@ -125,7 +125,7 @@ function keepOnGrid(article: HTMLElement): void {
  */
 async function typesetDocument(article: HTMLElement): Promise<void> {
   const lineBox = parseFloat(getComputedStyle(article).lineHeight);
-  typeset = attach(article, { lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', onPass: () => snap(article) });
+  typeset = attach(article, { lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, onPass: () => snap(article) });
   await typeset.ready;
   await shell.mark('typeset_viewport', Date.now(), `ms=${typeset.stats.viewportMs.toFixed(1)} set=${typeset.stats.typeset}`);
 }

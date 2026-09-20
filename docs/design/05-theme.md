@@ -28,15 +28,15 @@ lengths derive from tokens; no margin or padding is a bare `px` value (the lint 
 | Article | `max-width: clamp(45ch, measure, 90ch)`, padding `3lb 3rem 5lb` | 68 ch ≈ 670 px |
 | Role sizes | `--marxy-size-hN = round(body × ratio^k, 1px)`, k = 3, 2, 1 | 33, 27, 21 |
 | Heading line box | `min(max(token, round(up, 1.2 × size, 2px)), 2lb)` | 40, 34 |
-| h1, h2 margin | `2lb` above; below `half + mod(−(lh + 2lb), half)` | h2 56 / 34 / 22 |
+| h1, h2 margin | `2lb` above, `half` below; `padding-bottom: mod(−(lh + 2lb + half), half)` closes the line box | h2 56 / 34 / 14 (+ 8 pad) |
 | h3 … h6 | one line box, `lb` above, `half` below | 28 / 14 |
 | p, lists, quotes, tables | `margin: 0 0 half` | 14 between |
 | Lists | top-level markers hang in the margin; nested lists indent `1.25em`; markers secondary colour | |
-| Task items | the checkbox hangs where the bullet would be; no bullet | |
-| Code block | `lb` above and below, `half` padding, code line box token, padded to the unit by `snapToGrid` | 28 / 14 / 22 |
+| Task items | the checkbox hangs where the bullet would be, `vertical-align: top` so the box sits on the line | |
+| Code block | `lb` above and below, `half` padding on all four sides, code line box token, padded to the unit by `snapToGrid` | 28 / 14 / 22 |
 | Code wrap | `white-space: pre-wrap; text-indent: 2ch hanging each-line` | |
 | Inline code, kbd | mono at `0.875em`, **no box**, `line-height: 1` so its line never grows | |
-| Table | block, rows one line box, rules as inset shadows (no height), text `0.88 × body`, tabular figures | 15 / 28 |
+| Table | A table is an island the grid pass pads — `snapToGrid` measures it rather than the stylesheet constructing it. Rows use the code line box and one grid unit of vertical padding; rules as inset shadows (no height), text `0.88 × body`, tabular figures | 15 / 22 / 14 |
 | hr | one line box of space with a centred `* * *` in the secondary colour, `half` around it; not set directly before an h1 or h2 | |
 | Footnotes | body size, secondary colour, after a short quarter-width rule; `sup`/`sub` `line-height: 0` | |
 | Weight | `--marxy-wght = token + offset` drives `font-weight` **and** `font-variation-settings: 'wght'` on every descendant | 380 / 600 / 700 |
@@ -54,9 +54,20 @@ Departures from the first version of this section, each forced by a measurement:
 - **Inline code at the body's line height** grows its line by about a pixel (a mono face's ascent),
   which a long document turns into drift; hence `line-height: 1`.
 - **Table rules as borders** add a pixel a row; inset shadows do not.
+- **A table is an island the grid pass pads — `snapToGrid` measures it rather than the stylesheet constructing it.**
+  Decision 3 of ADR-0030 claimed one line box per row; that clause is superseded (ADR-0030
+  Amendment 1, MARXY-141).
 - **Heading line boxes as fixed px tokens** fall below the heading's size when a reader enlarges
   the type (at 24 px an h2 is 38 px on a 34 px box, 2 px above its paragraph); the formula above
   grows them.
+- **Heading remainder in the margin** made the space below a heading (22 px at 17) neither a half
+  line nor a line, which review #1 read as a tick. The named gaps are now `2lb` / `half`; the
+  remainder is `padding-bottom` so both margins are grid units (MARXY-128).
+- **Table rows at the body line box** made a wrapped cell looser than the dense (zero) cell
+  padding. Rows now use the code line box and one grid unit of vertical padding, and `snapToGrid`
+  treats the table as an island (MARXY-128).
+- **Quote rule at the token colour** was 1.6:1 on the page. Base mixes it toward secondary so the
+  rule is ≥ 3:1 without rewriting the frozen token (MARXY-128).
 
 Role tokens the base needs beyond the contract's list are **derived** in `base.css`, not added
 to the contract. Constraint 4 by construction: `h1..h6 { color: inherit; border: 0; }` in base,
@@ -186,9 +197,13 @@ only one variant are used for both with the default theme's other block filling 
 
 - `packages/theme/scripts/lint-default-theme.mjs`: headings set no colour or border (in the theme
   and in base); every `margin`/`padding` in `base.css` is an expression of tokens, never a bare `px`.
-- `packages/theme/test/grid.test.mjs` (Playwright WebKit): the text-only fixtures sit on the grid
-  **without** `snapToGrid` (the CSS construction alone holds); every corpus file sits on it after
-  the grid pass at 720/960/1280 and at 14/17/21/24 px; measure, contrast in both variants, the h2
-  numbers, heading space below at every size, and the code block's hanging indent.
+- `packages/theme/test/grid.test.mjs` (Playwright WebKit): the text-only fixture (`14-marxy-plan.md`)
+  sits on the grid **without** `snapToGrid` (the CSS construction alone holds for a document with no
+  table); every corpus file sits on it after the grid pass at 720/960/1280 and at 14/17/21/24 px;
+  measure, contrast in both variants, the h2 numbers, heading space below at every size, and the
+  code block's hanging indent. The CSS-alone guarantee no longer covers a document containing a
+  table (ADR-0030 Amendment 1).
+- `packages/theme/test/taste.test.mjs`: one named case per review #1 fault — heading 2:1 on the
+  grid unit, real Literata italic, code-block padding, quote contrast, checkbox alignment, table wrap.
 - Loader: a theme with `url(https://x)` yields the warning and a CSS string without it; a
   manifest with `contract = 2` loads with a warning; clamping works on an out-of-range measure.

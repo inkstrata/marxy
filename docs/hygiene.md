@@ -37,13 +37,15 @@ If `pnpm done` is green and `open-pr` is green, the reviewer only has judgement 
 | Rust formatting and warnings | `pnpm lint:rust` (`cargo fmt --check`, `clippy -D warnings`) | precheck (when `src-tauri` changes), CI |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |
 
+The 600-line branch-diff budget in `orchestration/phases.test.mjs` counts insertions in source, scripts, orchestration code and workflows — the lines a reviewer has to hold — and excludes `docs/plan/`, `orchestration/deps.json`, `orchestration/jira-map.json`, `orchestration/results/` and `CHANGELOG.md`, because `docs/conventions.md`'s over-600-lines rule is about that work, not about how verbose the board is.
+
 ## Rules the tools encode (so nobody re-derives them)
 
 - The story key comes from the branch: `type/MARXY-nn-slug`. No key, no path check (and a
   note); `--strict` makes that a failure in CI once every branch is a story branch.
 - Allowed outside a story's paths: `CHANGELOG.md`, `docs/taste-review/queue.md`, lockfiles,
   the story's own task card and result file, and plan deltas.
-- Frozen: `packages/*/src/contracts/`, `packages/shell-api/src/`, `packages/theme/src/tokens.css`.
+- Frozen: byte-pinned contracts under `packages/*/src/contracts/` and `packages/shell-api/src/`, name-and-unit contract for `packages/theme/src/tokens.css`.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.
 - `innerHTML` may be assigned only where `scripts/registry.json` says (the render sites).

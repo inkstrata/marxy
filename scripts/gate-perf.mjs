@@ -2,18 +2,24 @@
 // reference hardware (MARXY_PERF_ENV=reference), an envelope plus a per-runner baseline in CI
 // (MARXY_PERF_ENV=ci). Amendment 1 splits the CI metric. Amendment 2: reference records
 // median(cold_launches) over k ≥ 5 certified cold launches and never compares it to a product
-// ceiling. Reads fixtures/perf-budgets.json and results/perf.json. `--selftest` runs every rule
-// over inline fixtures; `--assert-budgets-unchanged <ref>` compares the budgets file byte for byte.
+// ceiling. `parse_long_technical_ms` (MARXY-59) goes through the same CI rule as the warm start,
+// from the same budgets file, and is required in both tiers; scripts/measure-parse.mjs (MARXY-91)
+// leaves it in results/perf-parse.json on both gates runners and mergeParseMeasurement puts it
+// back onto the startup record. Reads fixtures/perf-budgets.json, results/perf.json and
+// results/perf-parse.json. `--selftest` runs every rule over inline fixtures;
+// `--assert-budgets-unchanged <ref>` asserts no number the rules read has moved since <ref>.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { SELFTEST_CASE_NAMES as MEASURE_CASE_NAMES, MIN_WARM_RUNS, MIN_COLD_LAUNCHES, median } from './measure-startup.mjs';
 
 const METRICS = ['cold_start_first_text_ms', 'open_indexed_document_ms', 'palette_keystroke_ms', 'typeset_viewport_ms', 'live_reload_ms', 'find_first_match_ms'];
+const PARSE_METRIC = 'parse_long_technical_ms';
 // ADR-0022 set 10 %; MARXY-83 widened it to 30 % after identical code measured 1901 ms and 2113 ms warm
 // on two macos-latest machines (11 % apart, webview initialisation being 95 % of each launch). A band
 // narrower than the runner population's spread gates on machine assignment, not on the code. The ×5
 // envelope still catches a real regression, and a breach is re-measured once before it fails.
 const BASELINE_TOLERANCE = 1.3;
+const ADR_MULTIPLIER_HEADROOM = 1.3; // ADR-0022: ceil(runner_median / product × 1.3).
 const CI_COLD_CEILING_STORY = 'MARXY-70';
 const round = n => Math.round(n * 10) / 10;
 
@@ -67,6 +73,37 @@ export function referenceSufficiency(results) {
   return fails;
 }
 
+// scripts/measure-parse.mjs writes only results/perf-parse.json, on both gates runners, before the
+// startup measurement runs on the same job; this puts that number back onto the startup record the
+// gate reads, without either script touching a file it does not own.
+export function mergeParseMeasurement(results, snapshot) {
+  if (!results) return results;
+  if (results[PARSE_METRIC] != null) return results;
+  if (snapshot?.[PARSE_METRIC] == null) return results;
+  return { ...results, [PARSE_METRIC]: snapshot[PARSE_METRIC] };
+}
+
+// The one CI rule (ADR-0022, widened to 30 % by MARXY-83): fail over the envelope or over
+// baseline × 1.30. `warm_start_first_text_ms` and `parse_long_technical_ms` both go through here,
+// so a rule improved for one is improved for both. `label` names the quantity in a failure, which
+// is not always the key: the warm start is a median over named launches.
+function enforceTwoTier(out, fails, key, value, product, ciMetric, { label = key, required }) {
+  if (value == null) {
+    if (required) fails.push(`${key} missing from results/perf.json`);
+    return;
+  }
+  if (!ciMetric || ciMetric.multiplier == null) {
+    fails.push(`${key}: no ci entry for this runner class; add it to fixtures/perf-budgets.json`);
+    return;
+  }
+  const envelope = product * ciMetric.multiplier;
+  const baselineCeiling = ciMetric.baseline_ms == null ? Infinity : ciMetric.baseline_ms * BASELINE_TOLERANCE;
+  const limit = Math.min(envelope, baselineCeiling);
+  if (value > envelope) fails.push(`${label}: ${value} ms exceeds the envelope ${envelope} ms (product ${product} ms × ${ciMetric.multiplier}) by ${round(value - envelope)} ms`);
+  if (value > baselineCeiling) fails.push(`${label}: ${value} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${ciMetric.baseline_ms} ms + 30 %) by ${round(value - baselineCeiling)} ms`);
+  if (value <= limit) out.push(`${key}: ${value} ms ≤ ${round(limit)} ms (min of envelope ${envelope} ms and baseline ceiling ${round(baselineCeiling)} ms)`);
+}
+
 // Pure so --selftest can drive it: results === null means results/perf.json was absent.
 export function evaluate({ envClass, budgets, results, runnerClass }) {
   const out = [];
@@ -89,7 +126,7 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
       fails.push(...recordSufficiency(results));
       fails.push(`cold_launches_n is ${results.cold_launches_n ?? 'absent'}; the reference statistic needs at least ${MIN_COLD_LAUNCHES} certified cold launches`);
     }
-    for (const k of METRICS.slice(1)) {
+    for (const k of [...METRICS.slice(1), PARSE_METRIC]) {
       const v = results[k];
       if (v == null) continue;
       if (v > budgets.product[k]) fails.push(`${k}: ${v} ms > ${budgets.product[k]} ms (product budget)`);
@@ -110,16 +147,13 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
   }
   out.push(`runner class ${cls}: envelope ×${ci.multiplier}, baseline ${ci.baseline_ms ?? 'none'} ms`);
 
-  if (warm == null) {
-    fails.push('warm_start_first_text_ms missing from results/perf.json');
-  } else {
-    const envelope = budgets.product.cold_start_first_text_ms * ci.multiplier;
-    const baselineCeiling = ci.baseline_ms == null ? Infinity : ci.baseline_ms * BASELINE_TOLERANCE;
-    const limit = Math.min(envelope, baselineCeiling);
-    if (warm > envelope) fails.push(`warm_start_first_text_ms (median of launches 2..${results.runs_n}): ${warm} ms exceeds the envelope ${envelope} ms (product ${budgets.product.cold_start_first_text_ms} ms × ${ci.multiplier}) by ${round(warm - envelope)} ms`);
-    if (warm > baselineCeiling) fails.push(`warm_start_first_text_ms (median of launches 2..${results.runs_n}): ${warm} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${ci.baseline_ms} ms + 30 %) by ${round(warm - baselineCeiling)} ms`);
-    if (warm <= limit) out.push(`warm_start_first_text_ms: ${warm} ms ≤ ${round(limit)} ms (min of envelope ${envelope} ms and baseline ceiling ${round(baselineCeiling)} ms)`);
-  }
+  enforceTwoTier(out, fails, 'warm_start_first_text_ms', warm, budgets.product.cold_start_first_text_ms, ci, { label: `warm_start_first_text_ms (median of launches 2..${results.runs_n})`, required: true });
+  // The warm start reads the class's own multiplier and baseline; parse reads the per-metric entry
+  // beside them. Both are required: a measurement that goes missing must be as loud as one that
+  // regresses, because the parse number reaches here through measure-parse.mjs, a snapshot it does
+  // not own, and a merge, and any broken link would otherwise leave a green run that never mentions
+  // the metric (the failure that discarded MARXY-59's first pull request).
+  enforceTwoTier(out, fails, PARSE_METRIC, results[PARSE_METRIC], budgets.product[PARSE_METRIC], ci[PARSE_METRIC], { required: true });
 
   // The remaining product budgets still gate in CI, against the same runner envelope: a check
   // that stops running is a check that has been removed.
@@ -133,17 +167,34 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
   return { ok: fails.length === 0, out, fails };
 }
 
-// This story may not move a number in the budgets file, and the cheapest proof is the file itself
-// compared byte for byte with the revision it is supposed to match.
+// A pull request may add a budget (MARXY-59 adds parse_long_technical_ms); it may not quietly
+// loosen or remove one. So the comparison is asymmetric: every number the base revision carried
+// must still be there with the same value, and keys that did not exist before are allowed. Byte
+// equality would have said the same thing until a metric was added.
+export function loosenedBudgets(before, after, trail = '') {
+  if (before === after) return [];
+  const at = trail || '(root)';
+  const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  if (!isObject(before) || !isObject(after)) return [`${at}: ${JSON.stringify(before)} → ${JSON.stringify(after)}`];
+  const changed = [];
+  for (const [key, value] of Object.entries(before)) {
+    if (!(key in after)) changed.push(`${trail}${trail ? '.' : ''}${key}: removed (was ${JSON.stringify(value)})`);
+    else changed.push(...loosenedBudgets(value, after[key], `${trail}${trail ? '.' : ''}${key}`));
+  }
+  return changed;
+}
+
 function assertBudgetsUnchanged(ref) {
   const path = 'fixtures/perf-budgets.json';
-  const before = execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8' });
-  const after = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-  if (before !== after) {
-    console.error(`perf gate: ${path} differs from ${ref}; MARXY-69 does not change a number in ${path}`);
+  const before = JSON.parse(execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8' }));
+  const after = JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
+  const changed = loosenedBudgets(before, after);
+  if (changed.length) {
+    console.error(`perf gate: ${path} moves numbers the rules read since ${ref}; a pull request may add a budget, never move one:\n - ${changed.join('\n - ')}`);
     process.exit(1);
   }
-  console.log(`perf gate: ${path} is byte-identical to ${ref} (${after.length} bytes)`);
+  const added = loosenedBudgets(after, before).length;
+  console.log(`perf gate: ${path} moves no number the rules read since ${ref}${added ? ` (${added} key(s) added)` : ''}`);
   process.exit(0);
 }
 
@@ -171,13 +222,13 @@ export function checkWorkflow(text) {
   return errors;
 }
 
-const PRODUCT = { cold_start_first_text_ms: 500, open_indexed_document_ms: 50, palette_keystroke_ms: 16, typeset_viewport_ms: 100, live_reload_ms: 100, find_first_match_ms: 50 };
+const PRODUCT = { cold_start_first_text_ms: 500, open_indexed_document_ms: 50, palette_keystroke_ms: 16, typeset_viewport_ms: 100, live_reload_ms: 100, find_first_match_ms: 50, parse_long_technical_ms: 10 };
 const SELFTEST_BUDGETS = {
   product: PRODUCT,
   ci: {
-    'ubuntu-latest': { multiplier: 20, baseline_ms: 7719 },
-    'macos-latest': { multiplier: 5, baseline_ms: 1901 },
-    'no-baseline': { multiplier: 5, baseline_ms: null },
+    'ubuntu-latest': { multiplier: 20, baseline_ms: 7719, parse_long_technical_ms: { multiplier: 3, baseline_ms: 20 } },
+    'macos-latest': { multiplier: 5, baseline_ms: 1901, parse_long_technical_ms: { multiplier: 5, baseline_ms: 31.44 } },
+    'no-baseline': { multiplier: 5, baseline_ms: null, parse_long_technical_ms: { multiplier: 3, baseline_ms: null } },
   },
 };
 
@@ -189,6 +240,7 @@ const result = (over = {}) => ({
   warm_start_first_text_ms: 7000,
   cold_warm_ratio: 1.29,
   cold_procedure: 'process-cold only',
+  parse_long_technical_ms: 18,
   runs: [9000, 7000, 7100, 6900, 7200, 6950, 7050, 6980, 7020],
   warm_runs: [7000, 7100, 6900, 7200, 6950, 7050, 6980, 7020],
   warm_runs_n: 8,
@@ -299,6 +351,23 @@ const SELFTEST_CASES = [
       { index: 5, ms: 400, ok: true, cold: false, exit_code: 0, stderr_tail: '' },
     ],
   }), expect: 1, assert: f => has(f, /not certified cold/) },
+  // parse_long_technical_ms goes through the same rule as the warm start: envelope 10 × 3 = 30 ms,
+  // baseline ceiling 20 × 1.30 = 26 ms, and required to be present, on the SELFTEST_BUDGETS fixture.
+  { name: 'ci: parse inside both rules passes', envClass: 'ci', results: result({ parse_long_technical_ms: 18 }), expect: 0, assertOut: o => o.some(l => /^parse_long_technical_ms: 18 ms ≤ 26 ms/.test(l)) },
+  { name: 'ci: parse above the envelope fails', envClass: 'ci', results: result({ parse_long_technical_ms: 31 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 31 ms exceeds the envelope 30 ms/) },
+  { name: 'ci: parse 31 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ parse_long_technical_ms: 27 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 27 ms exceeds the baseline ceiling 26 ms/) },
+  { name: 'ci: a missing parse measurement fails', envClass: 'ci', results: result({ parse_long_technical_ms: null }), expect: 1, assert: f => has(f, /^parse_long_technical_ms missing from results\/perf\.json$/) },
+  { name: 'ci: parse with no entry for the runner class fails', envClass: 'ci', results: result({ runner_class: 'macos-latest' }), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'macos-latest': { multiplier: 5, baseline_ms: 1901 } } }, expect: 1, assert: f => has(f, /parse_long_technical_ms: no ci entry for this runner class/) },
+  { name: 'reference: parse over the product budget fails', envClass: 'reference', results: referenceResult({ parse_long_technical_ms: 11 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 11 ms > 10 ms \(product budget\)/) },
+];
+
+// The cases MARXY-59 added, for the same reason the MARXY-55 list exists.
+const MARXY_59_CASE_NAMES = [
+  'ci: parse inside both rules passes',
+  'ci: parse above the envelope fails',
+  'ci: parse 31 % above the baseline fails even far below the envelope',
+  'ci: a missing parse measurement fails',
+  'reference: parse over the product budget fails',
 ];
 
 function selftest() {
@@ -307,7 +376,7 @@ function selftest() {
   const report = (ok, name, detail) => { ran++; if (ok) console.log(`selftest ok: ${name}`); else { bad++; console.error(`selftest FAIL: ${name}${detail ? ` — ${detail}` : ''}`); } };
 
   for (const c of SELFTEST_CASES) {
-    const { ok, out, fails } = evaluate({ envClass: c.envClass, budgets: SELFTEST_BUDGETS, results: c.results, runnerClass: c.results?.runner_class ?? undefined });
+    const { ok, out, fails } = evaluate({ envClass: c.envClass, budgets: c.budgets ?? SELFTEST_BUDGETS, results: c.results, runnerClass: c.results?.runner_class ?? undefined });
     const code = ok ? 0 : 1;
     let detail = null;
     if (code !== c.expect) detail = `exit ${code}, want ${c.expect}${fails.length ? `: ${fails.join(' / ')}` : ''}`;
@@ -340,6 +409,23 @@ function selftest() {
     if (!SELFTEST_CASES.some(c => c.name === name)) { bad++; console.error(`selftest FAIL: the MARXY-63 case "${name}" is no longer in the suite`); }
   }
 
+  for (const name of MARXY_59_CASE_NAMES) {
+    if (!SELFTEST_CASES.some(c => c.name === name)) { bad++; console.error(`selftest FAIL: the MARXY-59 case "${name}" is no longer in the suite`); }
+  }
+
+  // The parse number survives measure-startup.mjs replacing results/perf.json only through this
+  // merge, so the merge is checked here rather than trusted.
+  for (const c of [
+    { name: 'fills parse from the snapshot when results dropped it', results: { env_class: 'ci' }, snapshot: { parse_long_technical_ms: 18 }, want: 18 },
+    { name: 'keeps a parse already on results', results: { parse_long_technical_ms: 12 }, snapshot: { parse_long_technical_ms: 99 }, want: 12 },
+    { name: 'leaves results unchanged when the snapshot has no parse', results: { env_class: 'ci' }, snapshot: {}, want: undefined },
+    { name: 'leaves a missing results file missing', results: null, snapshot: { parse_long_technical_ms: 18 }, want: 'null' },
+  ]) {
+    const got = mergeParseMeasurement(c.results, c.snapshot);
+    const value = got == null ? 'null' : got.parse_long_technical_ms;
+    report(value === c.want, `mergeParseMeasurement ${c.name}`, value === c.want ? null : `gave ${value}, want ${c.want}`);
+  }
+
   // The env-class resolution rules are part of the contract, so they are checked too.
   for (const c of [
     { env: {}, want: 'reference' },
@@ -360,15 +446,41 @@ function selftest() {
   const shippedOk = shipped.product.cold_start_first_text_ms === 500 && Object.entries(shipped.ci).every(([, ci]) => typeof ci.multiplier === 'number' && ('baseline_ms' in ci));
   report(shippedOk, 'budgets: the shipped fixtures/perf-budgets.json carries the numbers this rule reads');
   report(budgetsText !== budgetsText.replace('"cold_start_first_text_ms": 500', '"cold_start_first_text_ms": 900'), 'budgets: an edited budgets file is detected byte for byte');
-  let mainProduct = null;
+  let mainBudgets = null;
   try {
-    mainProduct = JSON.stringify(JSON.parse(execFileSync('git', ['show', 'origin/main:fixtures/perf-budgets.json'], { encoding: 'utf8' })).product);
+    mainBudgets = JSON.parse(execFileSync('git', ['show', 'origin/main:fixtures/perf-budgets.json'], { encoding: 'utf8' }));
   } catch { /* origin/main may be missing in a shallow clone; the case then fails on purpose */ }
   report(
-    mainProduct === JSON.stringify(shipped.product),
-    'budgets: every number in the product object is byte-identical to origin/main',
-    mainProduct == null ? 'could not read origin/main:fixtures/perf-budgets.json' : undefined,
+    mainBudgets != null && loosenedBudgets(mainBudgets, shipped).length === 0,
+    'budgets: every number origin/main carries in fixtures/perf-budgets.json is still there, unmoved',
+    mainBudgets == null ? 'could not read origin/main:fixtures/perf-budgets.json' : loosenedBudgets(mainBudgets, shipped).join('; '),
   );
+  report(shipped.product[PARSE_METRIC] === 10, 'budgets: the shipped product parse budget is the ADR-0013 10 ms', `got ${shipped.product[PARSE_METRIC]}`);
+  // A ci parse entry must be arithmetic on a number that was actually observed. `derived_from` is
+  // the human audit trail for *which* run that was — it is recorded, not machine-verified against
+  // CI, and re-deriving the baselines from a defensible statistic is MARXY-70's job for every class
+  // at once.
+  for (const cls of ['ubuntu-latest', 'macos-latest']) {
+    const entry = shipped.ci[cls]?.[PARSE_METRIC];
+    const runnerMedian = entry?.derived_from?.runner_median_ms;
+    const derivedMultiplier = runnerMedian == null ? null : Math.ceil((runnerMedian / 10) * ADR_MULTIPLIER_HEADROOM);
+    const ok = Boolean(entry) && runnerMedian != null && entry.multiplier === derivedMultiplier && entry.baseline_ms === runnerMedian;
+    report(ok, `budgets: ci.${cls}.${PARSE_METRIC} is derived from its recorded median`, `must have baseline_ms = runner_median_ms and multiplier = ceil(runner_median / 10 × 1.3), got ${JSON.stringify(entry)}`);
+  }
+
+  // The budgets comparison is the only thing standing between a pull request and a quietly raised
+  // ceiling, so it is driven over a moved number, a deleted one and an added one.
+  const { [PARSE_METRIC]: _parse, ...productWithoutParse } = shipped.product;
+  for (const [what, before, after, want] of [
+    ['a raised product budget is rejected', shipped, { ...shipped, product: { ...shipped.product, cold_start_first_text_ms: 900 } }, true],
+    ['a raised parse baseline is rejected', shipped, { ...shipped, ci: { ...shipped.ci, 'ubuntu-latest': { ...shipped.ci['ubuntu-latest'], [PARSE_METRIC]: { ...shipped.ci['ubuntu-latest'][PARSE_METRIC], baseline_ms: 100 } } } }, true],
+    ['a deleted budget is rejected', shipped, { ...shipped, product: { cold_start_first_text_ms: 500 } }, true],
+    ['an added metric is allowed', { ...shipped, product: productWithoutParse }, shipped, false],
+    ['an unchanged file is allowed', shipped, JSON.parse(budgetsText), false],
+  ]) {
+    const changed = loosenedBudgets(before, after).length > 0;
+    report(changed === want, `budgets: ${what}`, `loosenedBudgets said ${changed}`);
+  }
 
   const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
   report(checkWorkflow(workflow).length === 0, 'workflow: the measurement, the selftests and the perf gate are required on both runner classes, with no continue-on-error and no || true', checkWorkflow(workflow).join('; '));
@@ -407,7 +519,7 @@ function selftest() {
 
   // No case may be lost: the two suites together are asserted against a floor on their own size.
   const cases = ran + MEASURE_CASE_NAMES.length;
-  if (cases < 30) { bad++; console.error(`selftest FAIL: ${cases} named cases across both suites, which must be at least 30`); }
+  if (cases < 50) { bad++; console.error(`selftest FAIL: ${cases} named cases across both suites, which must be at least 50`); }
   if (bad) { console.error(`perf gate selftest failed: ${bad} case(s)`); process.exit(1); }
   console.log(`perf gate selftest ok: ${ran} named cases here, ${MEASURE_CASE_NAMES.length} in measure-startup, ${cases} together`);
   process.exit(0);
@@ -421,7 +533,10 @@ const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json',
 const { envClass, error } = resolveEnvClass(process.env);
 if (error) { console.error(`perf gate: ${error}`); process.exit(1); }
 const resultsPath = new URL('../results/perf.json', import.meta.url);
-const results = existsSync(resultsPath) ? JSON.parse(readFileSync(resultsPath, 'utf8')) : null;
+const parseSnapshotPath = new URL('../results/perf-parse.json', import.meta.url);
+const raw = existsSync(resultsPath) ? JSON.parse(readFileSync(resultsPath, 'utf8')) : null;
+const snapshot = existsSync(parseSnapshotPath) ? JSON.parse(readFileSync(parseSnapshotPath, 'utf8')) : null;
+const results = mergeParseMeasurement(raw, snapshot);
 console.log(`perf gate: ${envClass} mode`);
 const runnerClass = process.env.MARXY_RUNNER_CLASS || undefined;
 let verdict = evaluate({ envClass, budgets, results, runnerClass });
@@ -436,7 +551,9 @@ if (!verdict.ok && envClass === 'ci' && onlyBreach && results && !results.confir
   const launches = await m.measureLaunches({ log: console.log });
   const again = { ...m.perfRecord(m.summarise(launches), { envClass, runnerClass, launches }), confirmed: true, first_attempt: { warm_start_first_text_ms: results.warm_start_first_text_ms, cold_start_first_text_ms: results.cold_start_first_text_ms } };
   writeFileSync(resultsPath, JSON.stringify(again, null, 2) + '\n');
-  verdict = evaluate({ envClass, budgets, results: again, runnerClass });
+  // measure-startup replaces the file; merge the parse snapshot back so required:true does not
+  // fail the confirmation for a metric the re-measure never re-ran.
+  verdict = evaluate({ envClass, budgets, results: mergeParseMeasurement(again, snapshot), runnerClass });
   for (const line of verdict.out) console.log(`(confirmation) ${line}`);
 }
 if (!verdict.ok) { console.error('perf gate failed:\n - ' + verdict.fails.join('\n - ')); process.exit(1); }

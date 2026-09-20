@@ -3,6 +3,19 @@
 
 export { renderSafeHtml, renderDocumentSafeHtml } from './pipeline.ts';
 export type { RenderOptions, RenderResult } from './pipeline.ts';
+export {
+  blockedHosts,
+  blockedImageNoticeText,
+  blockedImagesFrom,
+  collapsePath,
+  hostOfRefusedSrc,
+  imageSizeFromBytes,
+  isInsideImageRoot,
+  presentLocalImage,
+  reserveImageBox,
+  resolveImageSrc,
+} from './images.ts';
+export type { BlockedImage, ImagePresentation, ImageResolution, ImageSize } from './images.ts';
 /** Unsanitised, and not for the DOM: see the note on the function. Exported for the gate's control. */
 export { renderToUnsanitisedHtml } from './render-html.ts';
 export { smarten } from './typography.ts';

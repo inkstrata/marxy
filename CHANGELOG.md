@@ -6,11 +6,36 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+### Added
+- MARXY-137's paths now include `scripts/gate-aesthetics.mjs` and the parse-diff-guard retirement story (MARXY-147) is on the board with its MARXY-59 dependency edge, so attempt 3 of PR #104 and MARXY-147 can proceed once this lands (MARXY-148)
+- The MARXY-129 token-test companion (MARXY-145) and its dependency edge from MARXY-129 are on main so `check-story.mjs` and `ready.mjs` see the board before the companion is dispatched (MARXY-146)
+- The MARXY-137 path widening and the CLS-window story (MARXY-143) are on main: the headless render entry is in MARXY-137's boundary, and attempt 2 of PR #104 can proceed once this lands (MARXY-144)
+- The render pipeline now lists every blocked remote-image host and resolves a local image against the repository root, so a later story can name those hosts and reserve a box without core talking to the shell (MARXY-26)
+- The MARXY-26 split is on main: that story now owns only the core image resolver, four new stories cover images on the page, typeset defaults in the app, the tokens.css boundary and the ADR-0030 amendment, and a fifth story will fix the 600-line branch-diff guard this landing overruns (MARXY-140)
+- The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
+
 ### Changed
+- Inline code and code blocks are a step larger, headings sit at 560 instead of 600, and numbered-list markers hang with tabular figures aligned on the right edge (MARXY-129)
+- A table is an island the grid pass pads, not a block the stylesheet holds on the grid by construction; the decision record now matches the page (MARXY-141)
+- Headings now bind to what follows on clean half-line gaps, italic is Literata's real italic, strike is thicker, code blocks and quotes have more room and contrast, task-list ticks sit on the line, and a wrapped table cell is no looser than a short one (MARXY-128)
+- A values-only theme tune can now be committed without an ADR: the story boundary no longer byte-pins tokens.css (MARXY-139)
+- Long English words hyphenate and opening quotes hang into the margin in the documents a reader opens, so the rag is the one the typesetter already knew how to set (MARXY-137)
+- A taste decision on the default theme now costs a story and a review-queue row, not an ADR: theme authors can still rely on the token names, units and meanings (MARXY-133)
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
+
+### Fixed
+- The parse-measurement selftest no longer reads the branch's own diff, so MARXY-59 can finally land the two-tier perf metric the guard was written to protect (MARXY-147)
+- The aesthetics font and image window in headless render now waits on each face the article uses and on decode of reserved images before the first scored snapshot, so `gate:aesthetics` is deterministic on webkit-linux (MARXY-143)
+- Token contract tests now read `--marxy-size-code` and `--marxy-weight-heading` from the committed theme file when building mutations, so a values-only tune cannot turn a real re-kind check into a no-op (MARXY-145)
+- The 600-line branch-diff budget now counts only source, scripts, orchestration code and workflows, not board rows, plan deltas or task cards, so a plan landing is judged on the work a reviewer holds — the over-600 rule in `docs/conventions.md` (MARXY-142)
 
 ### Added
 - The macOS and Linux gates jobs are skipped when the diff cannot change their result — nothing gates-relevant changed, or a real dual-OS success already proved this exact content clean — while a rust, `measure-startup.mjs` or `ci.yml` change still runs the full matrix, and a sibling job still posts the same check names when the real one is skipped (MARXY-105)
+- The parse-time budget for the long technical document now lives in `fixtures/perf-budgets.json` with a required, per-runner CI entry derived from a recorded measurement, alongside the warm-start rule it shares; the self-calibrating unit assertion is gone, and the parse test now records its measurement for the gate to read (MARXY-59)
+- The no-network gate now prints which request classes it can and cannot observe (WebSocket, dns-prefetch, service worker registration), proves the allow-list refuses each one's required element, and fails on its own silence if the set of checks it runs ever drifts from the list it declares; a mutation-coverage suite fails a named test for each of those checks if it is ever deleted (MARXY-83)
+- The fixture corpus now has a real API reference, changelog, agent transcript and source file, so typesetting and aesthetics judgements are no longer made only on prose and a README (MARXY-130)
+- Opening quotes hang into the margin and long English words can hyphenate from allow-listed en-us/en-gb patterns, so the left edge reads flush and a long word no longer leaves a hole (MARXY-24)
+- A document can now be typeset in a headless page — the same column, faces and line-breaker the app uses, without opening a window — and CI fails if the grid, measure, contrast, rag or headings drift on the corpus (MARXY-25)
 - The app can now be started in a browser against an in-memory shell, so later stories can drive the real UI without Tauri; the startup pins now read `app.ts`, where the code actually lives, and the sanitised render write is back in the registry's innerHTML allow-list (MARXY-95)
 - `pnpm done KEY --open` is now one command from a filled acceptance table to In Review: it copies the table into the result file, opens the PR through `open-pr.mjs`, and moves the Jira issue, stopping before `gh` runs if a row is still `TODO` or the body fails `check-pr` (MARXY-121)
 - Two stories now overlap only when a listed path (glob or not) could actually match the same file, so a shared prefix like `parse`/`parser` no longer serialises unrelated work and every story's shared files (CHANGELOG.md and friends, read from the registry) no longer count as a collision (MARXY-119)
