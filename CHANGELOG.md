@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- The MARXY-129 token-test companion (MARXY-145) and its dependency edge from MARXY-129 are on main so `check-story.mjs` and `ready.mjs` see the board before the companion is dispatched (MARXY-146)
 - The MARXY-137 path widening and the CLS-window story (MARXY-143) are on main: the headless render entry is in MARXY-137's boundary, and attempt 2 of PR #104 can proceed once this lands (MARXY-144)
 - The MARXY-26 split is on main: that story now owns only the core image resolver, four new stories cover images on the page, typeset defaults in the app, the tokens.css boundary and the ADR-0030 amendment, and a fifth story will fix the 600-line branch-diff guard this landing overruns (MARXY-140)
 - The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
