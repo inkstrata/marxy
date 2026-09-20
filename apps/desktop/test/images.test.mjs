@@ -53,27 +53,77 @@ async function boot(page, files, argv) {
   }, { files, argv });
 }
 
+function rustImageSizeCrate() {
+  const srcTauri = join(repoRoot, 'apps', 'desktop', 'src-tauri');
+  const toml = readFileSync(join(srcTauri, 'Cargo.toml'), 'utf8');
+  const imagesize = /imagesize = "([^"]+)"/.exec(toml)?.[1];
+  assert.ok(imagesize, 'Cargo.toml must pin imagesize');
+  const fsSource = readFileSync(join(srcTauri, 'src', 'commands', 'fs.rs'), 'utf8');
+  assert.match(fsSource, /#\[tauri::command\]/);
+  assert.match(fsSource, /pub fn image_size/);
+  assert.match(fsSource, /fn scope_directory/);
+  const root = repoRoot.replaceAll('\\', '/').replaceAll('"', '\\"');
+  const stripped = fsSource
+    .replace(/^use tauri::Manager;\n/m, '')
+    .replace(/^#\[tauri::command\]\n/gm, '')
+    .replace(/\n\/\/\/ Adds a recursive asset-protocol scope[\s\S]*?\npub fn allow_asset_scope\([\s\S]*?\n}\n/, '\n')
+    .replace(
+      /PathBuf::from\(env!\("CARGO_MANIFEST_DIR"\)\)\.join\("\.\.\/\.\.\/\.\.\/fixtures\/corpus\/([^"]+)"\)/g,
+      (_, name) => `PathBuf::from("${root}/fixtures/corpus/${name}")`,
+    );
+  assert.match(stripped, /pub fn image_size/);
+  assert.match(stripped, /fn scope_directory/);
+  assert.doesNotMatch(stripped, /tauri::/);
+  const work = mkdtempSync(join(tmpdir(), 'marxy-image-size-'));
+  mkdirSync(join(work, 'src'));
+  writeFileSync(join(work, 'Cargo.toml'), [
+    '[package]',
+    'name = "marxy_image_size_test"',
+    'version = "0.0.0"',
+    'edition = "2021"',
+    'publish = false',
+    '',
+    '[dependencies]',
+    `imagesize = "${imagesize}"`,
+    'serde = { version = "1", features = ["derive"] }',
+    '',
+  ].join('\n'));
+  writeFileSync(join(work, 'src', 'error.rs'), readFileSync(join(srcTauri, 'src', 'error.rs')));
+  writeFileSync(join(work, 'src', 'fs.rs'), stripped);
+  writeFileSync(join(work, 'src', 'lib.rs'), 'pub mod error;\nmod fs;\n');
+  return work;
+}
+
+function resolveCargo() {
+  const fromMise = spawnSync('mise', ['which', 'cargo'], { cwd: repoRoot, encoding: 'utf8' });
+  if (fromMise.status === 0 && fromMise.stdout.trim()) return fromMise.stdout.trim();
+  return 'cargo';
+}
+
 nodeTest('Rust image_size and allow_asset_scope (cargo test fs)', () => {
-  // `--lib --no-default-features` keeps Tauri (and webkit2gtk) out of the
-  // compile. The fast job does not install those libraries; compiling the
-  // desktop binary's test harness here is what the paint-deadline comment in
-  // main.rs already refuses to do.
-  const run = spawnSync(
-    'cargo',
-    ['test', '--lib', '--no-default-features', '--', 'commands::fs', '--nocapture'],
-    {
-      cwd: join(repoRoot, 'apps', 'desktop', 'src-tauri'),
+  // The desktop crate's test harness pulls in Tauri and needs webkit2gtk, which
+  // the fast job does not install (see the paint-deadline comment in main.rs).
+  // Compile the same fs.rs body without Tauri, the way gate-fidelity rustc's
+  // atomic_write.rs, so AC1 and AC2 still run on every `pnpm test`.
+  const work = rustImageSizeCrate();
+  try {
+    const run = spawnSync(resolveCargo(), ['test', '--lib', '--', '--nocapture'], {
+      cwd: work,
       encoding: 'utf8',
       maxBuffer: 16 * 1024 * 1024,
-    },
-  );
-  if (run.stdout) process.stdout.write(run.stdout);
-  if (run.stderr) process.stderr.write(run.stderr);
-  assert.equal(
-    run.status,
-    0,
-    `cargo test --lib commands::fs failed\n${run.error?.message ?? ''}\n${run.stderr ?? ''}\n${run.stdout ?? ''}`,
-  );
+    });
+    if (run.stdout) process.stdout.write(run.stdout);
+    if (run.stderr) process.stderr.write(run.stderr);
+    assert.equal(
+      run.status,
+      0,
+      `image_size rust tests failed\n${run.error?.message ?? ''}\n${run.stderr ?? ''}\n${run.stdout ?? ''}`,
+    );
+    assert.match(run.stdout ?? '', /image_size_on_corpus_png_is_1200_by_400/);
+    assert.match(run.stdout ?? '', /allow_asset_scope_on_a_file_is_invalid/);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 });
 
 test('post-pass 3: allowAssetScope once per image root for two images under one root', async () => {
