@@ -163,6 +163,18 @@ pre {
 }
 pre code, a code { font-size: inherit; color: inherit; }
 a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em); }
+.marxy-tok-keyword { color: var(--marxy-tok-keyword); }
+.marxy-tok-string { color: var(--marxy-tok-string); }
+.marxy-tok-comment { color: var(--marxy-tok-comment); }
+.marxy-tok-number { color: var(--marxy-tok-number); }
+.marxy-tok-function { color: var(--marxy-tok-function); }
+.marxy-tok-type { color: var(--marxy-tok-type); }
+.marxy-tok-variable { color: var(--marxy-tok-variable); }
+.marxy-tok-operator { color: var(--marxy-tok-operator); }
+.marxy-tok-punctuation { color: var(--marxy-tok-punctuation); }
+.marxy-tok-constant { color: var(--marxy-tok-constant); }
+.marxy-tok-tag { color: var(--marxy-tok-tag); }
+.marxy-tok-attribute { color: var(--marxy-tok-attribute); }
 kbd {
   font-size: 0.8em;
   padding: 0 0.35em;
