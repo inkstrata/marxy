@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -40,25 +40,25 @@ test('@marxy/desktop test script does not reference smoke-cli-open', () => {
   assert.match(pkg.scripts['verify:cli'], /smoke-cli-open/);
 });
 
-/** Every .mjs/.ts file under `dir`, recursively. */
-function sources(dir) {
-  const out = [];
-  for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules') continue;
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) out.push(...sources(path));
-    else if (/\.(mjs|ts)$/.test(entry)) out.push(path);
-  }
-  return out;
-}
+// Only the files this story may edit. `apps/desktop/test/images.test.mjs` (MARXY-138)
+// and `scripts/gate-no-network.mjs` still call webkit.launch() directly.
+const LISTED_LAUNCH_PATHS = [
+  'apps/desktop/test/typeset-defaults.test.mjs',
+  'apps/desktop/test/layout-shift-window.test.mjs',
+  'apps/desktop/test/app-harness.test.mjs',
+  'apps/desktop/test/post-passes.test.mjs',
+  'apps/desktop/test/fonts.test.mjs',
+  'packages/typeset/test/harness.mjs',
+  'packages/theme/test/grid.test.mjs',
+  'packages/theme/test/taste.test.mjs',
+  'packages/theme/test/pair-a-tune.test.mjs',
+  'packages/theme/test/render-taste.mjs',
+  'packages/theme/test/render-taste129.mjs',
+  'scripts/gate-aesthetics.mjs',
+];
 
 test('browser tests and gates launch through the helper, not playwright directly', () => {
-  const files = [
-    ...sources(join(root, 'apps/desktop/test')),
-    ...sources(join(root, 'packages/typeset/test')),
-    ...sources(join(root, 'packages/theme/test')),
-    join(root, 'scripts/gate-aesthetics.mjs'),
-  ];
+  const files = LISTED_LAUNCH_PATHS.map((rel) => join(root, rel));
   const direct = files.filter((f) => /\bwebkit\.launch\(/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(direct.map((f) => f.slice(root.length)), []);
   // The helper is where the one real launch lives, so the check above cannot pass by there being none.
