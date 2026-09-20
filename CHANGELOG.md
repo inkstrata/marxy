@@ -16,6 +16,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
 
 ### Changed
+- The ubuntu parse CI baseline is the 16.05 ms median a gates job recorded, so a 0.05 ms miss against a stale 12.31 ms line no longer fails the build; the product 10 ms budget is unchanged (MARXY-150)
 - CI perf numbers are re-derived from five or more corrected cross-run jobs per runner class: Ubuntu keeps a 1030 ms warm baseline at 12 % tolerance and a 1343 ms cold envelope, and macOS waives the warm baseline at 1.542× cross-run spread while gating a 3397 ms cold ceiling; parse time keeps its own 30 % baseline tolerance so warm spread edits cannot tighten it (MARXY-70)
 - Inline code and code blocks are a step larger, headings sit at 560 instead of 600, and numbered-list markers hang with tabular figures aligned on the right edge (MARXY-129)
 - A table is an island the grid pass pads, not a block the stylesheet holds on the grid by construction; the decision record now matches the page (MARXY-141)

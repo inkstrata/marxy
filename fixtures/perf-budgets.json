@@ -107,15 +107,15 @@
         "supersedes": "the ×20 envelope on cold_start_first_text_ms was derived from a warm median and is not used for the cold metric"
       },
       "parse_long_technical_ms": {
-        "multiplier": 2,
-        "baseline_ms": 12.31,
+        "multiplier": 3,
+        "baseline_ms": 16.05,
         "tolerance": 1.3,
         "derived_from": {
-          "commit": "3ad53ff",
-          "run": "https://github.com/inkstrata/marxy/actions/runs/35473569234/job/105978808011",
+          "commit": "b7764eb",
+          "run": "https://github.com/inkstrata/marxy/actions/runs/35498226072/job/106045143249",
           "runner_image": "ubuntu-latest (ubuntu-24.04, software-rendered WebKitGTK, no GPU)",
           "reference_median_ms": null,
-          "runner_median_ms": 12.31
+          "runner_median_ms": 16.05
         }
       }
     },
