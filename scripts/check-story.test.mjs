@@ -104,10 +104,15 @@ test('MARXY-153: a story key is read from the branch slug, wherever the branch n
 });
 
 test('MARXY-153: on a detached pull-request checkout the branch comes from GITHUB_HEAD_REF', async () => {
-  const { branchName } = await import('./lib/repo.mjs');
-  // The real checkout here is not detached, so the fallback is exercised through the env argument.
-  assert.equal(branchName({ GITHUB_HEAD_REF: 'ci/MARXY-153-x', GITHUB_REF_NAME: 'merge' }), branchName(), 'a real branch wins over the env');
-  assert.match(branchName(), /MARXY-153/);
+  const { resolveBranch } = await import('./lib/repo.mjs');
+  const pr = { GITHUB_HEAD_REF: 'ci/MARXY-153-slug', GITHUB_REF_NAME: '121/merge' };
+  // Detached, as every pull-request checkout is: the env answers, and the PR head beats the ref.
+  assert.equal(resolveBranch('HEAD', pr), 'ci/MARXY-153-slug');
+  assert.equal(resolveBranch('HEAD', { GITHUB_REF_NAME: 'main' }), 'main', 'a push has no HEAD_REF');
+  assert.equal(resolveBranch('HEAD', {}), 'HEAD', 'outside CI a detached checkout still has no name');
+  // Attached: the real branch wins, so `pnpm done` and the commit hook are unaffected by the env.
+  assert.equal(resolveBranch('ci/MARXY-153-minimal-fast-ci', pr), 'ci/MARXY-153-minimal-fast-ci');
+  assert.equal(resolveBranch('main', pr), 'main');
 });
 
 test('MARXY-153: the CI story-boundary step runs unguarded', () => {

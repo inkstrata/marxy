@@ -63,7 +63,15 @@ export function storyKey(argv = process.argv) {
  * branch is GITHUB_HEAD_REF; GITHUB_REF_NAME covers a push. Local runs keep using the real branch.
  */
 export function branchName(env = process.env) {
-  const local = sh('git rev-parse --abbrev-ref HEAD', { soft: true });
+  return resolveBranch(sh('git rev-parse --abbrev-ref HEAD', { soft: true }), env);
+}
+
+/**
+ * The resolution on its own, so it can be tested from both sides. Testing it through
+ * `branchName()` cannot work: whether the checkout is detached is the very thing under test,
+ * and the answer differs between a local run and a CI one (MARXY-153).
+ */
+export function resolveBranch(local, env = {}) {
   if (local && local !== 'HEAD') return local;
   return env.GITHUB_HEAD_REF || env.GITHUB_REF_NAME || local;
 }
