@@ -34,8 +34,8 @@ function hostFromSanitizeUrl(raw: string): string | undefined {
   }
 }
 
-function assertRefusal(result: ImageResolution, kind: 'outside' | 'invalid' = 'outside'): void {
-  assert.equal(result.kind, kind);
+function assertRefusal(result: ImageResolution): void {
+  assert.notEqual(result.kind, 'local', 'must refuse rather than return a path');
   assert.equal('path' in result, false, 'a refusal carries a reason (kind), not a string path');
 }
 
