@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - The aesthetics gate now pixel-diff every corpus page at 960 px in dark and light against committed WebKit baselines on macOS and Linux; a 1 px heading shift fails, and refreshing baselines requires a taste-queue row (MARXY-30)
+- MARXY-138's taste-review queue row now has real before/after PNGs for `09-gfm-everything.md` and `10-hostile.md`, rendered retroactively after PR #115 merged without them (MARXY-155)
 - CI now compares sanitiser output to the live DOM on 35 pinned tree-construction shapes in WebKit and Chromium, and fails if any node is deeper than written except implied table sections (MARXY-84)
 - KaTeX loads on first math in a document, with display blocks snapped to the grid and bundled OFL math fonts (MARXY-28)
 - MARXY-27's row now covers `packages/core/package.json` and MARXY-126's row covers `orchestration/deps.json`, so PR #124 can drop its self-widening CSV hunk and MARXY-126 can restore MARXY-76's phase entry without a boundary miss (MARXY-158)
