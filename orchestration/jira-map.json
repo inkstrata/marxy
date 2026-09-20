@@ -114,6 +114,9 @@
     "MARXY-NEW-land-hang-check-and-parse-guard": "MARXY-148",
     "MARXY-NEW-headless-playwright-skip-local-smoke": "MARXY-149",
     "MARXY-NEW-land-138-paths": "MARXY-152",
-    "MARXY-NEW-land-138-taste-paths": "MARXY-154"
+    "MARXY-NEW-land-138-taste-paths": "MARXY-154",
+    "MARXY-NEW-138-taste-pngs": "MARXY-155",
+    "MARXY-NEW-headless-auth-guard": "MARXY-156",
+    "MARXY-NEW-plan-2026-09-20-after-154": "MARXY-157"
   }
 }
