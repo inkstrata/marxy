@@ -20,6 +20,27 @@ verify: [pnpm precheck, pnpm done MARXY-138]
 > re-submission to state, against `gate:aesthetics`'s own output, whether it re-rasterized `09` and `10`
 > and found zero pixel delta, or short-circuited because nothing upstream of the raster changed — "the
 > headless path unchanged" was plausible but unverified in the returned attempt.
+>
+> **Revised again 2026-09-20, after PR #115 attempt 2 was returned**
+> (`orchestration/results/MARXY-138.notes.md`). PR #115 **stays open**; amend it, do not cut a new
+> branch. Attempt 2's feature diff and its CSV boundary were both sound (independently re-verified —
+> see the notes). The one blocking issue: `docs/taste-review/queue.md`'s new row pointed at
+> `docs/taste-review/2026-09-marxy-138/`, a directory **not in this story's `Paths` and not in the
+> diff**. `scripts/registry.json`'s `extraAllowedPaths` names exactly `docs/taste-review/queue.md` —
+> one file, not the directory beneath it — so that PNG directory needed its own entry in `Paths`, the
+> same way `MARXY-128` and `MARXY-129` each carry `docs/taste-review/2026-09-marxy-<key>` in their own
+> row. This story could not add that entry itself (a story may not edit its own board row), so the
+> landing story `MARXY-154` puts the widened `Paths` and
+> the restated AC11 on `main` first
+> (`docs/plan/deltas/2026-09-20-marxy-138-taste.md`). **Attempt 3 rebases on top of it and must not
+> re-touch `docs/plan/jira-issues.csv` at all**, same rule as attempt 2. AC11 is restated below —
+> read it fresh, it no longer asks for "baselines... regenerated"; `gate:aesthetics`'s pixel-compare
+> mechanism stays a no-op for every corpus file until `MARXY-30` seeds pixelmatch (unrelated to this
+> story, and not this story's job to fix). What AC11 now asks for is real hand-made before/after PNGs
+> under `docs/taste-review/2026-09-marxy-138/` for `09-gfm-everything.md` and `10-hostile.md` — same
+> shape as `MARXY-128`/`MARXY-129` — linked from a `docs/taste-review/queue.md` row, plus an explicit
+> per-file statement in the PR body of whether `gate:aesthetics`'s `checkScreenshot` ran or
+> short-circuited, and why.
 
 **Outcome.** A local image loads and the text under it does not move; one line above the article says
 which hosts were not loaded. This is the **first story a reader sees anything from**, so it carries a
@@ -71,6 +92,10 @@ review. Step 3 below is the check that makes the class impossible, and it matter
 - `packages/core/goldens` — regenerate only the entries the corpus `README.md`'s new sentence about
   `image.png` changes (`README.ast.txt`, `README.html.txt` or their equivalents). No other golden may
   move; a golden diff outside the README pair is a sign the fixture step leaked into parsing.
+- `docs/taste-review/2026-09-marxy-138/` — real, hand-made before/after PNGs for
+  `09-gfm-everything.md` and `10-hostile.md` (same rendering path and naming shape as
+  `docs/taste-review/2026-09-marxy-128/` and `2026-09-marxy-129/`), added 2026-09-20 by the
+  `MARXY-154` landing story that put this path on the row.
 
 ## Do this, in order
 1. **The fixture first**, because two criteria are vacuous without it. `09-gfm-everything.md` line 81
@@ -95,8 +120,14 @@ review. Step 3 below is the check that makes the class impossible, and it matter
    story declines the permission, because host names come from a hostile document.
 7. **Post-pass 4.** One notice per document from `blockedImages`, each host named once with a count. No
    allow action — MARXY-44 adds it.
-8. Regenerate the baselines for `09-gfm-everything.md` and `10-hostile.md` only; list them in the PR body
-   with a reason each. Add the taste-review row.
+8. Render real before/after PNGs for `09-gfm-everything.md` and `10-hostile.md` into
+   `docs/taste-review/2026-09-marxy-138/` (before = pre-post-pass 3/4 render, after = with this
+   story's images and notice), name them the way `2026-09-marxy-128`/`129` do, and add a
+   `docs/taste-review/queue.md` row linking them. In the PR body, state per file whether
+   `gate:aesthetics`'s `checkScreenshot` ran (an existing baseline or `--shots`) or short-circuited as
+   a no-op, and why — do not infer it from an empty `fixtures/baselines` diff. Only regenerate a
+   `fixtures/baselines` entry if you can show, against the gate's own output, that it actually
+   re-rasterized; do not add one that would only ever be a no-op placeholder.
 
 ## Tests → expected
 | Check | Expect |
@@ -117,7 +148,8 @@ review. Step 3 below is the check that makes the class impossible, and it matter
 | `apps/desktop/src/notices/**` | contains no `innerHTML` |
 | `assetUrl` arguments over the corpus | none parses as an `http`/`https` URL |
 | `pnpm gate:no-network` | green with both post-passes running over every corpus file |
-| `pnpm gate:aesthetics` | green; report, pasted in the PR body, states whether `09-gfm-everything.md` and `10-hostile.md` re-rasterized with zero pixel delta or short-circuited, and names which — not inferred from an empty `fixtures/baselines` diff |
+| `pnpm gate:aesthetics` | green; PR body states per file, for `09-gfm-everything.md` and `10-hostile.md`, whether `checkScreenshot` ran and found zero pixel delta or short-circuited as a no-op, and why — not inferred from an empty `fixtures/baselines` diff |
+| `docs/taste-review/2026-09-marxy-138/` | real before/after PNGs for both files exist in the diff, same shape as `2026-09-marxy-128`/`129`, linked from a `docs/taste-review/queue.md` row |
 | `scripts/allowlists/crate-licences.json` | `imagesize@0.13.0`, MIT, and no other entry changed |
 | `pnpm gate:fidelity` | green; `image.png` is exempted from the UTF-8 round-trip check by exact filename, no other corpus file is |
 | `packages/core/src/buffer/buffer.test.ts`, `splice.property.test.ts` | green; `image.png` excluded by the same named list, no other fixture excluded |
@@ -127,8 +159,12 @@ review. Step 3 below is the check that makes the class impossible, and it matter
 ## Acceptance → check
 The row's eleven criteria map one-to-one onto the table above, in order; criterion 3 is step 3's check and
 criterion 6 is the Playwright CLS measurement. Every one is a named case, not a grep for a member name.
-AC11 additionally requires the `gate:aesthetics` re-rasterization statement above, stated against the
-acceptance wording rather than assumed from a quiet diff.
+AC11 (restated 2026-09-20 by `MARXY-154`) requires: the `gate:aesthetics`
+per-file ran/short-circuited statement above; real before/after PNGs under
+`docs/taste-review/2026-09-marxy-138/` for both files; the linking `docs/taste-review/queue.md` row;
+and the `CHANGELOG.md` line. It no longer asks for `fixtures/baselines` to be "regenerated" — none
+existed before this story, so nothing was ever regeneratable, and seeding the first-ever
+`webkit-macos` pixel baselines is `MARXY-30`'s job, not this one's.
 
 ## Do not
 Add `http:` or `https:` to any CSP directive; touch `img-src` or `csp` at all. Fetch anything — the fetch
@@ -137,6 +173,8 @@ path is MARXY-97 and it is Rust, not the webview. Add the per-document allow act
 (frozen; these members go on the concrete shell objects, per ADR-0026's transition rule). Regenerate a
 baseline for a document that has no image. Set a `src` on an `img[data-marxy-remote]` (MARXY-96/97 own
 those). Raise a budget to make a gate green. **Edit `docs/plan/jira-issues.csv` at all** — this story's
-`Paths` cell is fixed by the `MARXY-152` landing story, not by this story; a diff to that
-file on this branch, for any reason, is an automatic return regardless of what else is correct. Add any
-file to `scripts/gate-fidelity.mjs`'s or the buffer tests' exemption list beyond `image.png`.
+`Paths` cell is fixed by the `MARXY-152` and `MARXY-154` landing stories, not by
+this story; a diff to that file on this branch, for any reason, is an automatic return regardless of
+what else is correct. Add any file to `scripts/gate-fidelity.mjs`'s or the buffer tests' exemption
+list beyond `image.png`. Claim a `fixtures/baselines` regeneration that the gate's own output does not
+back up. Put anything under `docs/taste-review/` outside `2026-09-marxy-138/` and `queue.md`.
