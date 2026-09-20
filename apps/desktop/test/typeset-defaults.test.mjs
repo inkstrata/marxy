@@ -40,12 +40,21 @@ before(async () => {
 });
 after(() => server?.close());
 
-/** The attach() options object in app.ts, so the file's only change is deleting the two overrides. */
-function attachOptions() {
-  const src = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'app.ts'), 'utf8');
-  const match = src.match(/typeset = attach\(article, \{([^}]+)\}\)/);
-  assert.ok(match, 'typesetDocument still calls attach(article, { … })');
-  return match[1];
+/** Normalised attach() option literals from a source file (app.ts or headless.ts). */
+function attachOptionsFrom(src) {
+  const match = src.match(/attach\(article, \{([^}]+)\}\)/);
+  assert.ok(match, 'source still calls attach(article, { … })');
+  return match[1].replace(/\s+/g, ' ').trim();
+}
+
+function attachOptionsApp() {
+  return attachOptionsFrom(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'app.ts'), 'utf8'));
+}
+
+function attachOptionsHeadless() {
+  const src = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'render', 'headless.ts'), 'utf8');
+  assert.doesNotMatch(src, /hyphenate and hanging stay\s*\n\s*off until MARXY-24/, 'stale MARXY-24 comment must be gone from headless.ts');
+  return attachOptionsFrom(src);
 }
 
 async function startDoc(page, files, argv) {
@@ -58,8 +67,22 @@ async function startDoc(page, files, argv) {
   }, { files, argv });
 }
 
+test('app.ts and headless.ts pass attach() the same option set', () => {
+  const app = attachOptionsApp();
+  const headless = attachOptionsHeadless();
+  const keys = (opts) => [...opts.matchAll(/(\w+):/g)].map((m) => m[1]).sort();
+  assert.deepEqual(keys(app), keys(headless), 'attach() property names must match');
+  for (const opts of [app, headless]) {
+    assert.doesNotMatch(opts, /\bhyphenate\b/);
+    assert.doesNotMatch(opts, /\bhanging\b/);
+    assert.match(opts, /glueStretchEm:\s*0\.6/);
+    assert.match(opts, /lastLineMinWidth:\s*0\.33/);
+    assert.match(opts, /onPass:/);
+  }
+});
+
 test('app.ts attach() does not pass hyphenate or hanging, and no other argument changes', () => {
-  const opts = attachOptions();
+  const opts = attachOptionsApp();
   assert.doesNotMatch(opts, /\bhyphenate\b/, 'hyphenate must not be passed; the package default is true');
   assert.doesNotMatch(opts, /\bhanging\b/, "hanging must not be passed; the package default is 'left'");
   assert.match(opts, /\blineBox\b/);
