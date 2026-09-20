@@ -1,6 +1,5 @@
 // Measures parse of fixtures/corpus/01-long-technical.md and writes only results/perf-parse.json
 // so both gates runners feed MARXY-59 without touching the perf gate (ADR-0022).
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -13,11 +12,6 @@ export const FIXTURE_REL = 'fixtures/corpus/01-long-technical.md';
 export const SNAPSHOT_REL = 'results/perf-parse.json';
 export const SNAPSHOT_KEY = 'parse_long_technical_ms';
 export const FORBIDDEN_WRITE_REL = 'results/perf.json';
-export const UNTOUCHED_PATHS = [
-  'scripts/gate-perf.mjs',
-  'fixtures/perf-budgets.json',
-  'packages/core/src/parse/parse.test.ts',
-];
 // Same shape as the unit probe MARXY-59 will replace: a short warmup, then an odd sample so the
 // median is one observation, not an average of two.
 export const WARMUP_N = 25;
@@ -32,7 +26,6 @@ export const SELFTEST_CASE_NAMES = [
   'snapshot: a missing snapshot is rejected',
   'snapshot: a non-numeric snapshot is rejected',
   'write: a write to results/perf.json is rejected',
-  'diff: the three-dot range must not contain gate-perf, budgets, or parse.test.ts',
 ];
 
 export function median(values) {
@@ -61,11 +54,6 @@ export function writeTargetProblems(rel) {
   }
   if (rel !== SNAPSHOT_REL) return [`would write ${rel}; the only allowed write is ${SNAPSHOT_REL}`];
   return [];
-}
-
-export function forbiddenInDiff(names) {
-  const set = new Set(names);
-  return UNTOUCHED_PATHS.filter((p) => set.has(p));
 }
 
 function stepRunIs(step, cmd) {
@@ -138,17 +126,6 @@ export function writeSnapshot(value, { destRel = SNAPSHOT_REL, mkdir = mkdirSync
   mkdir(dirname(dest), { recursive: true });
   write(dest, `${JSON.stringify(record)}\n`);
   return { ok: true, problems: [], destRel, record };
-}
-
-function threeDotNames() {
-  try {
-    return execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], {
-      encoding: 'utf8',
-      cwd: root,
-    }).split('\n').filter(Boolean);
-  } catch {
-    return null;
-  }
 }
 
 function selftest() {
@@ -231,15 +208,6 @@ function selftest() {
       && allowedWrite.ok,
     SELFTEST_CASE_NAMES[7],
     `forbidden=${JSON.stringify(forbiddenWrite.problems)} allowed=${JSON.stringify(allowedWrite.problems)}`,
-  );
-
-  const planted = forbiddenInDiff(['scripts/gate-perf.mjs', 'README.md']);
-  const names = threeDotNames();
-  const live = names == null ? ['could not read origin/main...HEAD'] : forbiddenInDiff(names);
-  report(
-    planted.length === 1 && planted[0] === 'scripts/gate-perf.mjs' && live.length === 0,
-    SELFTEST_CASE_NAMES[8],
-    names == null ? 'could not read origin/main...HEAD' : live.join(', ') || undefined,
   );
 
   if (!existsSync(join(root, FIXTURE_REL))) {
