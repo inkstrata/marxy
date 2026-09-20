@@ -114,11 +114,10 @@ Rules baked in:
   `--features tauri/custom-protocol`, the production switch `tauri build` sets implicitly;
   without it the app loads the dev server URL and never paints. `MARXY_BIN` tells the measurer
   and the smoke check which binary to launch.
-- **Perf on shared runners is noisy by nature.** The envelope and baseline rules (ADR-0022) stay,
-  the baseline band is 30 % (two macOS runner machines measured identical code 11 % apart), and a
-  breach is re-measured once before it fails; the parse-time budget no longer runs as a
-  unit test on CI (it is a perf-gate concern, MARXY-59). `scripts/gate-perf.mjs --selftest`
-  asserts the workflow keeps the measurement unconditional on both runner classes with no
-  `continue-on-error` — keep that shape when editing the `gates` job.
+- **Perf on shared runners is noisy by nature.** Timing numbers are recorded and printed;
+  they are not CI failures (ADR-0032). The gate still fails if the measurement is missing or
+  dishonest. `scripts/gate-perf.mjs --selftest` asserts the workflow keeps the measurement
+  unconditional on both runner classes with no `continue-on-error` — keep that shape when
+  editing the `gates` job.
 - **Nothing retries silently.** No `retries` in Playwright, no `|| true`; a flaky test is fixed
   or deleted, never re-run until green.

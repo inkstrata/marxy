@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- MARXY-138's path widening is on main so PR #115 attempt 2 can rebase without editing its own board row (MARXY-152)
 - `check-registry.mjs` now flags every route from a string to parsed markup (not only `.innerHTML =`), with tests (MARXY-132)
 - MARXY-137's paths now include `scripts/gate-aesthetics.mjs` and the parse-diff-guard retirement story (MARXY-147) is on the board with its MARXY-59 dependency edge, so attempt 3 of PR #104 and MARXY-147 can proceed once this lands (MARXY-148)
 - The MARXY-129 token-test companion (MARXY-145) and its dependency edge from MARXY-129 are on main so `check-story.mjs` and `ready.mjs` see the board before the companion is dispatched (MARXY-146)
@@ -17,6 +18,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Changed
 - Local `pnpm precheck` and `pnpm test` launch Playwright headless through `scripts/playwright-webkit.mjs` — browser tests, `gate:aesthetics` and both engines of `gate:no-network` — and the desktop `test` script no longer runs CLI smoke, so neither a browser nor the marxy window flashes locally; `MARXY_BROWSER_HEADED=1` still opens a real window, and `verify:cli` and the CI gates are unchanged (MARXY-149)
+- Startup, parse and the other named interaction times are still measured and printed; none of them fail the build. A missing or dishonest measurement still fails. Bundle size stays a gate (MARXY-151)
 - CI perf numbers are re-derived from five or more corrected cross-run jobs per runner class: Ubuntu keeps a 1030 ms warm baseline at 12 % tolerance and a 1343 ms cold envelope, and macOS waives the warm baseline at 1.542× cross-run spread while gating a 3397 ms cold ceiling; parse time keeps its own 30 % baseline tolerance so warm spread edits cannot tighten it (MARXY-70)
 - Inline code and code blocks are a step larger, headings sit at 560 instead of 600, and numbered-list markers hang with tabular figures aligned on the right edge (MARXY-129)
 - A table is an island the grid pass pads, not a block the stylesheet holds on the grid by construction; the decision record now matches the page (MARXY-141)
