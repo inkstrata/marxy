@@ -88,7 +88,7 @@ runner-noise perf breaches and a timing assertion inside a unit test.
 | `changes` | always | classifies the diff: docs-only / web / rust | 5 s |
 | `conventions` | pull requests | commitlint on commits and title, `check-pr`, story boundary | 24 s |
 | `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, goldens, fidelity, licences | 51 s |
-| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 445 s → **165 s** (MARXY-153) |
+| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 445 s → **170 s** (MARXY-153) |
 | `gates` (macOS) | not docs-only | frontend, `cargo build --profile ci` with `rust-cache` (67 s), CLI smoke (13 s), nine-launch startup measurement (36 s), perf gate, bundle gate | 167 s |
 | `gates` (Ubuntu) | not docs-only | the same plus Rust fmt/clippy (52 s); build 111 s, smoke 17 s, measurement 31 s | 261 s |
 | `ci` | always | the single required check; fails if any job that ran failed | 3 s |
@@ -116,10 +116,23 @@ the growth was one step — `gate:aesthetics` at 356 s — and it broke down as 
   now runs `min(4, cpus)` pages at a time (`--workers N`, or `MARXY_AESTHETICS_WORKERS`). Measured
   locally on the same corpus and matrix, same verdict: **60.5 s → 17.3 s**.
 
-Measured on CI, run 35501272193 against run 35499870306: **`gate:aesthetics` 356 s → 81 s**
-(4.4×), and the `browser` job 445 s → 165 s, of which 60 s is now fixed setup (container, mise,
-install) rather than work. Locally, same corpus and verdict, 60.5 s → 17.3 s. The CI figure is
-below 4× rather than at it because a standard runner shares four vCPUs with the container.
+Measured on CI, run 35502253191 (all green) against run 35499870306:
+
+| Job | Before | After |
+| --- | --- | --- |
+| `changes` | 9 s | 7 s |
+| `conventions` | 20 s | 17 s |
+| `fast` | 88 s | 92 s |
+| `browser` | **445 s** | **170 s** |
+| `gates` (macOS) | 149 s | 168 s |
+| `gates` (Ubuntu) | 146 s | 186 s |
+| `ci` | 3 s | 4 s |
+| **wall clock** | **~455 s** | **~197 s** |
+
+`gate:aesthetics` itself went 356 s → 81 s (4.4×); locally, same corpus and verdict, 60.5 s →
+17.3 s. The CI figure is below 4× because a standard runner shares four vCPUs with the container,
+and ~60 s of the remaining `browser` time is fixed setup rather than work. The critical path is
+the Ubuntu build-and-measure job again, which is what the shape above was designed around.
 
 The matrix itself is untouched: same 19 files, same 12 combos, same ten page checks, same
 thresholds. The gate asserts exactly what it asserted before, and MARXY-143's repeat signal is
