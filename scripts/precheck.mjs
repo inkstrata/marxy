@@ -15,7 +15,7 @@ for (const f of files) {
 }
 const steps = [{ name: 'check:cards', cmd: ['node', ['scripts/check-cards.mjs']] }];
 for (const p of pkgs) for (const s of ['typecheck', 'lint', 'test']) steps.push({ name: `${p} ${s}`, cmd: ['pnpm', ['--filter', `./${p}`, s]] });
-for (const g of gates) steps.push({ name: g, cmd: ['pnpm', ['-s', g]] });
+for (const g of gates) steps.push({ name: g, cmd: ['pnpm', ['run', '-s', g]] });
 if (steps.length === 1) { console.log('precheck: only board/card check (no package changes)'); }
 const results = [];
 for (const s of steps) {
