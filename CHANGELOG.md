@@ -21,6 +21,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Fixed
 - The aesthetics font and image window in headless render now waits on each face the article uses and on decode of reserved images before the first scored snapshot, so `gate:aesthetics` is deterministic on webkit-linux (MARXY-143)
+- Token contract tests now read `--marxy-size-code` and `--marxy-weight-heading` from the committed theme file when building mutations, so a values-only tune cannot turn a real re-kind check into a no-op (MARXY-145)
 - The 600-line branch-diff budget now counts only source, scripts, orchestration code and workflows, not board rows, plan deltas or task cards, so a plan landing is judged on the work a reviewer holds — the over-600 rule in `docs/conventions.md` (MARXY-142)
 
 ### Added
