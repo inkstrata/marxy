@@ -13,7 +13,7 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const desktop = join(root, 'apps/desktop');
 const dist = join(desktop, 'dist');
 const corpusDir = join(root, 'fixtures/corpus');
-const ragDir = join(root, 'fixtures/baselines/rag');
+const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
 const SHOTS = process.argv.includes('--shots');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
@@ -221,6 +221,9 @@ async function checkContrast(page) {
 /**
  * §10 check 4. WebKit does not implement PerformanceObserver `layout-shift`, so a missing
  * measurement is a failure, not cls: 0. The number itself comes from in-page block rects.
+ * `snapshots >= 2` is the floor the crafted --selftest report uses (two rects around a late
+ * image). finishShift never returns fewer than 3; tightening this to 3 would make that
+ * selftest throw instead of scoring the late-image miss.
  */
 function checkCls(reported) {
   if (reported == null || reported.observed !== true) {
@@ -229,7 +232,12 @@ function checkCls(reported) {
   if ((reported.snapshots ?? 0) < 2) {
     return [`layout shift unobserved: ${reported.snapshots ?? 0} snapshot(s)`];
   }
-  if (reported.cls > 0) return [`layout shift ${reported.cls}`];
+  if (reported.cls > 0) {
+    const bits = [];
+    if ((reported.fontWindow ?? 0) > 0) bits.push(`font/image ${reported.fontWindow}`);
+    if ((reported.settleWindow ?? 0) > 0) bits.push(`settle ${reported.settleWindow}`);
+    return [`layout shift ${reported.cls}${bits.length ? ` (${bits.join(', ')})` : ''}`];
+  }
   return [];
 }
 
@@ -556,15 +564,20 @@ async function renderCorpus(page, origin, source, opts) {
   return page.evaluate(async ({ source, opts }) => window.marxyRender(source, opts), { source, opts });
 }
 
+/** Same split as shotDir(): FreeType (webkit-linux) and CoreText (webkit-macos) do not share rag numbers. */
+function ragDir() {
+  return join(ragRoot, engineName());
+}
+
 function loadRagBaseline(file) {
-  const path = join(ragDir, file.replace(/\.md$/, '') + '.json');
+  const path = join(ragDir(), file.replace(/\.md$/, '') + '.json');
   if (!existsSync(path)) return { path, data: null };
   return { path, data: JSON.parse(readFileSync(path, 'utf8')) };
 }
 
 function writeRagBaseline(file, metrics) {
-  mkdirSync(ragDir, { recursive: true });
-  const path = join(ragDir, file.replace(/\.md$/, '') + '.json');
+  mkdirSync(ragDir(), { recursive: true });
+  const path = join(ragDir(), file.replace(/\.md$/, '') + '.json');
   writeFileSync(path, `${JSON.stringify({ file, cv: metrics.cv, shortLineRate: metrics.shortLineRate }, null, 2)}\n`);
   return path;
 }
@@ -603,6 +616,9 @@ async function main() {
   try {
     await selftest(browser, harness.origin);
     notes.push('selftest: grid, measure, contrast, cls, rag, chrome, hierarchy, code-voice each fail on a crafted page');
+    if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
+      throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
+    }
     if (SELFTEST_ONLY) {
       console.log(`aesthetics gate ok: selftest passed; ${notes.join('; ')}`);
       return;

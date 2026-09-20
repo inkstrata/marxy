@@ -20,6 +20,10 @@ export interface LayoutShift {
   readonly observed: boolean;
   readonly snapshots: number;
   readonly reason?: string;
+  /** snaps[0]→[1]; unexpected font/image movement after size and grid have settled. */
+  readonly fontWindow?: number;
+  /** Last two snapshots; unexpected movement after typeset has painted. */
+  readonly settleWindow?: number;
 }
 
 export interface MarxyRenderResult {
@@ -172,20 +176,81 @@ function takeSnapshot(article: HTMLElement, snaps: BlockRect[][]): void {
   snaps.push(snap);
 }
 
+function frames(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
+function applyGrid(article: HTMLElement, lineBox: number): void {
+  snapToGrid(article, lineBox);
+  void article.offsetHeight;
+}
+
+/**
+ * Two grid passes with a layout flush between them, so padding applied on the first pass is
+ * visible to the second. The measured CLS window starts after this, not during it.
+ */
+function settleGrid(article: HTMLElement, lineBox: number): void {
+  applyGrid(article, lineBox);
+  applyGrid(article, lineBox);
+}
+
+/**
+ * Flush `--marxy-size-body` / `--marxy-line-box` and load the body face at that size before
+ * innerHTML, so the first paint of the document is already at the matrix size. A 17 → 21
+ * reflow after innerHTML is a harness artefact, not a page a reader of a 21 px document sees.
+ */
+async function settleSize(article: HTMLElement, size: number): Promise<number> {
+  const expected = LINE_BOX[size] ?? LINE_BOX[17];
+  if (expected === undefined) throw new Error(`layout shift: no line box token for size ${size}`);
+  void document.documentElement.offsetHeight;
+  const probe = document.createElement('span');
+  probe.setAttribute('aria-hidden', 'true');
+  probe.textContent = 'Hg';
+  article.append(probe);
+  void article.offsetHeight;
+  await document.fonts.ready;
+  const lineBox = parseFloat(getComputedStyle(article).lineHeight);
+  const fontSize = parseFloat(getComputedStyle(article).fontSize);
+  probe.remove();
+  if (Math.abs(lineBox - expected) > 0.5 || Math.abs(fontSize - size) > 0.5) {
+    throw new Error(
+      `layout shift: size tokens did not settle (line-box ${lineBox}px, font ${fontSize}px; expected ${expected}px / ${size}px)`,
+    );
+  }
+  return expected;
+}
+
 function finishShift(snaps: readonly BlockRect[][]): LayoutShift {
   if (snaps.length < 3) {
     throw new Error(
-      `layout shift: ${snaps.length} snapshot(s); need after innerHTML, fonts.ready and the last typeset pass`,
+      `layout shift: ${snaps.length} snapshot(s); need after size/grid settle, fonts.ready and the last typeset pass`,
     );
   }
-  // innerHTML → fonts.ready is the font/image window ADR-0014 names. The typeset pass may
-  // change a paragraph's line count (14-marxy-plan at 960/1280: one list item loses a line);
-  // that is the breaker working, not the shift this check forbids. A settle frame after the
-  // last typeset pass catches anything that still moves once the page is set.
+  // Counted intervals, in order:
+  //   snaps[0]→[1]  font/image window (ADR-0014). Size tokens, content fonts, and the grid
+  //                 have already settled; snapToGrid is not run again in this interval, so a
+  //                 non-idempotent grid pass cannot masquerade as shift. A swap here is a
+  //                 face that loaded after we thought fonts were ready, or a late image
+  //                 whose box was not reserved. Removing the reservation loop still fails
+  //                 --selftest (movedFraction on a late canvas image); observed:false still
+  //                 fails. If this interval is often 0 on the corpus, that is the page a
+  //                 reader of an already-sized document sees, not a dead check.
+  //   typeset       excluded. The breaker may change a line count (14-marxy-plan at 960/1280);
+  //                 ADR-0014's window is fonts and images, not Knuth–Plass. That paint is
+  //                 flushed before the post-typeset snapshot so it does not leak into settle.
+  //   last two      settle frame after the set page. A late image after typeset still fails.
   const fontSwap = movedFraction(snaps[0], snaps[1]);
   const last = snaps[snaps.length - 1];
   const afterTypeset = snaps.length >= 4 ? movedFraction(snaps[snaps.length - 2], last) : 0;
-  return { cls: fontSwap + afterTypeset, observed: true, snapshots: snaps.length };
+  return {
+    cls: fontSwap + afterTypeset,
+    observed: true,
+    snapshots: snaps.length,
+    fontWindow: fontSwap,
+    settleWindow: afterTypeset,
+  };
 }
 
 /**
@@ -229,8 +294,7 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
   const article = document.getElementById('doc');
   if (article === null) throw new Error('headless render: #doc is missing');
 
-  // Faces load before first text (MARXY-21), so the first snapshot is not a fallback-face flash.
-  await document.fonts.ready;
+  const lineBox = await settleSize(article, size);
   article.innerHTML = html;
 
   // Reserve image boxes from the stub decoder before the first snapshot, so a data: image
@@ -247,14 +311,16 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
 
   const nodeMap = buildNodeMap(ast);
   const snaps: BlockRect[][] = [];
-  // Each snapshot is a settled layout: grid pass first, so the check measures unexpected
-  // movement (font swap, late image) rather than the snap we just applied.
-  const lineBoxOf = () => parseFloat(getComputedStyle(article).lineHeight);
-  snapToGrid(article, lineBoxOf());
+  // Content faces (italic, mono, heading weights) load on innerHTML; wait for them and let
+  // the grid settle before the first snapshot. The measured window then only contains
+  // movement after that page — not the size-token reflow or snapToGrid's own second pass.
+  await document.fonts.ready;
+  settleGrid(article, lineBox);
+  await frames();
+  settleGrid(article, lineBox);
   takeSnapshot(article, snaps);
 
   await document.fonts.ready;
-  snapToGrid(article, lineBoxOf());
   takeSnapshot(article, snaps);
 
   let stats: TypesetStats = emptyStats();
@@ -262,22 +328,26 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
     // Same literals as apps/desktop/src/app.ts typesetDocument. hyphenate and hanging stay
     // off until MARXY-24 flips them there and here, and re-baselines fixtures/baselines/rag/.
     const controller = attach(article, {
-      lineBox: lineBoxOf(),
+      lineBox,
       glueStretchEm: 0.6,
       hyphenate: false,
       lastLineMinWidth: 0.33,
       hanging: 'none',
-      onPass: () => snapToGrid(article, lineBoxOf()),
+      onPass: () => snapToGrid(article, lineBox),
     });
     await controller.ready;
     await controller.done;
     stats = controller.stats;
+    // Flush the breaker's paint (and the grid pass it triggers) before the post-typeset
+    // snapshot. That interval is excluded; leaking it into the settle frame would charge
+    // Knuth–Plass as CLS. A late image after this still moves the last two snapshots.
+    settleGrid(article, lineBox);
+    await frames();
+    settleGrid(article, lineBox);
   }
 
   takeSnapshot(article, snaps);
-  await new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-  });
+  await frames();
   takeSnapshot(article, snaps);
   buildBlocks(article, nodeMap);
   return { removed, stats: { ...stats, ...finishShift(snaps) } };
