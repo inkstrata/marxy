@@ -8,7 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - Taste review #0 re-rendered in dark and light (dark first): forty PNGs, theme colours from `tokens.css` and the default light block, manifest lists variants dark then light (MARXY-76)
-- Reading position is saved per file in `positions.json` (LRU 5,000 paths, 500 ms debounced writes, corrupt files quarantined as `.bad-*`) and restored on reopen when the stored byte offset still fits the file (MARXY-38)
+- `@marxy/core` and the desktop position module save reading position per file in `positions.json` (LRU 5,000 paths, 500 ms debounced writes, corrupt files quarantined as `.bad-*`) and can restore the stored byte offset when wired; app startup does not call them yet (MARXY-38)
 - Tier-2 taste review #1 kit under `docs/taste-review/review-1/`: deterministic marxy captures at 68 `ch`, light, 2×, blind A/B/C manifest, and a human brief for Typora and Marked 2 captures (MARXY-31)
 - The aesthetics gate now pixel-diff every corpus page at 960 px in dark and light against committed WebKit baselines on macOS and Linux; a 1 px heading shift fails, and refreshing baselines requires a taste-queue row (MARXY-30)
 - MARXY-138's taste-review queue row now has real before/after PNGs for `09-gfm-everything.md` and `10-hostile.md`, rendered retroactively after PR #115 merged without them (MARXY-155)
