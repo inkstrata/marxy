@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cardsAndRows, filesFromCard, parseCard } from './check-cards.mjs';
+import { cardsAndRows, filesFromCard } from './check-cards.mjs';
 
 const ROOT = new URL('../', import.meta.url).pathname;
 
