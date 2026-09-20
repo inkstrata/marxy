@@ -15,6 +15,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
 
 ### Changed
+- CI perf numbers are re-derived from five or more corrected cross-run jobs per runner class: Ubuntu keeps a 1030 ms warm baseline at 12 % tolerance and a 1343 ms cold envelope, and macOS waives the warm baseline at 1.542× cross-run spread while gating a 3397 ms cold ceiling; parse time keeps its own 30 % baseline tolerance so warm spread edits cannot tighten it (MARXY-70)
 - Inline code and code blocks are a step larger, headings sit at 560 instead of 600, and numbered-list markers hang with tabular figures aligned on the right edge (MARXY-129)
 - A table is an island the grid pass pads, not a block the stylesheet holds on the grid by construction; the decision record now matches the page (MARXY-141)
 - Headings now bind to what follows on clean half-line gaps, italic is Literata's real italic, strike is thicker, code blocks and quotes have more room and contrast, task-list ticks sit on the line, and a wrapped table cell is no looser than a short one (MARXY-128)
