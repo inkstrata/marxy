@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" data-marxy-variant="dark">
+<head>
+<meta charset="utf-8">
+<title>marxy source harness</title>
+<style>
+  :root {
+    --marxy-color-code-bg: #1d1c19;
+    --marxy-color-code-text: #e3dfd6;
+    --marxy-color-accent: #8fb4dd;
+    --marxy-color-selection: #2a4a6e;
+    --marxy-color-text-secondary: #a39e94;
+    --marxy-font-mono: ui-monospace, monospace;
+    --marxy-size-body: 17px;
+  }
+  html, body { margin: 0; height: 100%; background: var(--marxy-color-code-bg); }
+  #host { height: 100%; overflow: auto; }
+</style>
+</head>
+<body><div id="host"></div><script type="module" src="./harness-entry.ts"></script></body>
+</html>
