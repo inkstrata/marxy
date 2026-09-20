@@ -182,6 +182,42 @@ function frames(): Promise<void> {
   });
 }
 
+function fontLoadSpec(family: string, weight: string, style: string, size: string): string {
+  return `${style} ${weight} ${size} ${family}`;
+}
+
+/** Every face the article's own elements report, so FreeType cannot swap after `fonts.ready` alone. */
+export async function awaitArticleFonts(article: HTMLElement): Promise<void> {
+  const specs = new Set<string>();
+  const note = (el: Element) => {
+    const cs = getComputedStyle(el);
+    specs.add(fontLoadSpec(cs.fontFamily, cs.fontWeight, cs.fontStyle, cs.fontSize));
+  };
+  note(article);
+  for (const el of article.querySelectorAll('*')) note(el);
+  await Promise.all([...specs].map((font) => document.fonts.load(font)));
+  await document.fonts.ready;
+}
+
+/** Reserved boxes only — unreserved images may still move the font/image window by design. */
+export async function awaitReservedImages(article: HTMLElement): Promise<void> {
+  const waits: Promise<void>[] = [];
+  for (const img of article.querySelectorAll<HTMLImageElement>('img[width][height][src]')) {
+    if (img.complete && img.naturalWidth > 0) continue;
+    if (typeof img.decode === 'function') {
+      waits.push(img.decode().then(() => undefined, () => undefined));
+    } else {
+      waits.push(
+        new Promise((resolve) => {
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+        }),
+      );
+    }
+  }
+  await Promise.all(waits);
+}
+
 function applyGrid(article: HTMLElement, lineBox: number): void {
   snapToGrid(article, lineBox);
   void article.offsetHeight;
@@ -311,10 +347,10 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
 
   const nodeMap = buildNodeMap(ast);
   const snaps: BlockRect[][] = [];
-  // Content faces (italic, mono, heading weights) load on innerHTML; wait for them and let
-  // the grid settle before the first snapshot. The measured window then only contains
-  // movement after that page — not the size-token reflow or snapToGrid's own second pass.
-  await document.fonts.ready;
+  // Content faces (italic, mono, heading weights) load on innerHTML; wait for each face the
+  // article uses and every reserved image decode before the first scored snapshot.
+  await awaitArticleFonts(article);
+  await awaitReservedImages(article);
   settleGrid(article, lineBox);
   await frames();
   settleGrid(article, lineBox);
@@ -360,6 +396,7 @@ declare global {
       snapshot: typeof snapshotBlocks;
       movedFraction: typeof movedFraction;
       assertCanObserve: typeof assertCanObserveShift;
+      finishShift: typeof finishShift;
     };
   }
 }
@@ -369,4 +406,5 @@ window.marxyLayoutShift = {
   snapshot: snapshotBlocks,
   movedFraction,
   assertCanObserve: assertCanObserveShift,
+  finishShift,
 };
