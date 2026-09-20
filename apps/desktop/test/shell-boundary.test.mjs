@@ -142,19 +142,28 @@ test('the invoke ↔ handler check fails when a handler name is removed', () => 
   assert.deepEqual(missing, ['image_size']);
 });
 
+// Byte-identical to main's `app.security.csp` at the time of this story. The
+// fast job's checkout is shallow and often has no `origin/main`; the literal
+// is the check that still runs there so this story cannot pre-empt MARXY-45.
+const MAIN_CSP =
+  "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self' asset: http://asset.localhost; connect-src ipc: http://ipc.localhost";
+
+function tauriConfFromMain() {
+  for (const ref of ['origin/main', 'main']) {
+    const shown = spawnSync('git', ['show', `${ref}:apps/desktop/src-tauri/tauri.conf.json`], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    if (shown.status === 0) return JSON.parse(shown.stdout);
+  }
+  return null;
+}
+
 test('tauri.conf.json enables assetProtocol with an empty scope and leaves csp unchanged from main', () => {
   const conf = JSON.parse(readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.equal(conf.app.security.assetProtocol.enable, true);
   assert.deepEqual(conf.app.security.assetProtocol.scope, []);
-  const mainConf = JSON.parse(
-    readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'), 'utf8'),
-  );
-  const cspMain = spawnSync('git', ['show', 'origin/main:apps/desktop/src-tauri/tauri.conf.json'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
-  assert.equal(cspMain.status, 0, cspMain.stderr);
-  const fromMain = JSON.parse(cspMain.stdout);
-  assert.equal(conf.app.security.csp, fromMain.app.security.csp);
-  assert.equal(mainConf.app.security.csp, fromMain.app.security.csp);
+  assert.equal(conf.app.security.csp, MAIN_CSP);
+  const fromMain = tauriConfFromMain();
+  if (fromMain) assert.equal(conf.app.security.csp, fromMain.app.security.csp);
 });

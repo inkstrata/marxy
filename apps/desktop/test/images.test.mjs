@@ -1,7 +1,7 @@
 // Local images, asset scope, notices and layout shift (MARXY-138).
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
@@ -54,13 +54,26 @@ async function boot(page, files, argv) {
 }
 
 nodeTest('Rust image_size and allow_asset_scope (cargo test fs)', () => {
-  const run = spawnSync('cargo', ['test', '-p', 'marxy', 'commands::fs'], {
-    cwd: join(repoRoot, 'apps', 'desktop', 'src-tauri'),
-    encoding: 'utf8',
-  });
+  // `--lib --no-default-features` keeps Tauri (and webkit2gtk) out of the
+  // compile. The fast job does not install those libraries; compiling the
+  // desktop binary's test harness here is what the paint-deadline comment in
+  // main.rs already refuses to do.
+  const run = spawnSync(
+    'cargo',
+    ['test', '--lib', '--no-default-features', '--', 'commands::fs', '--nocapture'],
+    {
+      cwd: join(repoRoot, 'apps', 'desktop', 'src-tauri'),
+      encoding: 'utf8',
+      maxBuffer: 16 * 1024 * 1024,
+    },
+  );
   if (run.stdout) process.stdout.write(run.stdout);
   if (run.stderr) process.stderr.write(run.stderr);
-  assert.equal(run.status, 0, 'cargo test commands::fs failed');
+  assert.equal(
+    run.status,
+    0,
+    `cargo test --lib commands::fs failed\n${run.error?.message ?? ''}\n${run.stderr ?? ''}\n${run.stdout ?? ''}`,
+  );
 });
 
 test('post-pass 3: allowAssetScope once per image root for two images under one root', async () => {

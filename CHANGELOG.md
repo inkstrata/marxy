@@ -8,6 +8,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Added
 - Local images load with a reserved box so text does not jump, and one line above the article names remote hosts that were blocked (MARXY-138)
+- MARXY-138's path widening is on main so PR #115 attempt 2 can rebase without editing its own board row (MARXY-152)
 - `check-registry.mjs` now flags every route from a string to parsed markup (not only `.innerHTML =`), with tests (MARXY-132)
 - MARXY-137's paths now include `scripts/gate-aesthetics.mjs` and the parse-diff-guard retirement story (MARXY-147) is on the board with its MARXY-59 dependency edge, so attempt 3 of PR #104 and MARXY-147 can proceed once this lands (MARXY-148)
 - The MARXY-129 token-test companion (MARXY-145) and its dependency edge from MARXY-129 are on main so `check-story.mjs` and `ready.mjs` see the board before the companion is dispatched (MARXY-146)

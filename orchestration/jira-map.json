@@ -111,6 +111,8 @@
     "MARXY-NEW-tokens-test-live-values": "MARXY-145",
     "MARXY-NEW-land-129-tokens-companion": "MARXY-146",
     "MARXY-NEW-retire-parse-diff-guard": "MARXY-147",
-    "MARXY-NEW-land-hang-check-and-parse-guard": "MARXY-148"
+    "MARXY-NEW-land-hang-check-and-parse-guard": "MARXY-148",
+    "MARXY-NEW-headless-playwright-skip-local-smoke": "MARXY-149",
+    "MARXY-NEW-land-138-paths": "MARXY-152"
   }
 }
