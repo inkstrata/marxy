@@ -67,7 +67,7 @@ jobs:
         env:
           GH_TOKEN: "${{ github.token }}"
       - name: Story boundary over the whole branch
-        run: node scripts/check-story.mjs --strict || echo "::warning::story boundary check reported problems (advisory until every story has a CSV row)"
+        run: node scripts/check-story.mjs --strict
 
   # Everything that needs neither a browser nor Rust: hygiene checks, types, lint, unit tests, goldens, fidelity, licences.
   fast:

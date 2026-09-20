@@ -86,15 +86,48 @@ runner-noise perf breaches and a timing assertion inside a unit test.
 | Job | Runs when | What | Measured (run 35369360214, warm caches) |
 | --- | --- | --- | --- |
 | `changes` | always | classifies the diff: docs-only / web / rust | 5 s |
-| `conventions` | pull requests | commitlint on commits and title, `check-pr`, story boundary (advisory) | 24 s |
+| `conventions` | pull requests | commitlint on commits and title, `check-pr`, story boundary | 24 s |
 | `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, goldens, fidelity, licences | 51 s |
-| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 86 s |
+| `browser` | web changed | no-network and aesthetics gates in the Playwright image (browsers preinstalled) | 445 s → see MARXY-153 below |
 | `gates` (macOS) | not docs-only | frontend, `cargo build --profile ci` with `rust-cache` (67 s), CLI smoke (13 s), nine-launch startup measurement (36 s), perf gate, bundle gate | 167 s |
 | `gates` (Ubuntu) | not docs-only | the same plus Rust fmt/clippy (52 s); build 111 s, smoke 17 s, measurement 31 s | 261 s |
 | `ci` | always | the single required check; fails if any job that ran failed | 3 s |
 
 **Wall time 277 s** for a code change with warm caches (was 6–10 minutes); the critical path is
 the Ubuntu build-and-measure job. A docs-only change runs `changes`, `conventions` and `ci`.
+
+### What the numbers drifted to, and what MARXY-153 cut
+
+By run 35499870306 the table above was stale in one place that mattered: `browser` had grown to
+445 s and was the critical path, three times the Ubuntu build it was written to sit behind. All of
+the growth was one step — `gate:aesthetics` at 356 s — and it broke down as two separate problems.
+
+- **Three quarters of it was a flake detector.** The gate's CLS repeat pass re-rendered the whole
+  corpus three more times (19 files × 12 combos × 3 = 684 extra renders, ~266 s) to check that the
+  font/image window it *already measures once per combo in the main pass* came out the same each
+  time. Re-running work to see whether the answer changes cannot fail for anything the diff under
+  review introduced, so it is not a gate on a pull request; it is monitoring. It now runs in
+  `.github/workflows/nightly.yml` as `gate-aesthetics.mjs --repeat 3`, against `main`, once a day.
+  Nothing implies `--repeat` any longer — an omitted flag means zero passes on CI as locally.
+- **The rest was serial.** The 228 remaining renders each opened a page, rendered and closed, one
+  at a time, at 16% CPU. Nothing in the checks is wall-clock — CLS snapshots are taken after
+  `document.fonts.ready` and rAF pairs, rag and grid read geometry, screenshots rasterise
+  deterministically — so contention can delay a pass but cannot change its verdict, and the matrix
+  now runs `min(4, cpus)` pages at a time (`--workers N`, or `MARXY_AESTHETICS_WORKERS`). Measured
+  locally on the same corpus and matrix, same verdict: **60.5 s → 17.3 s**.
+
+The matrix itself is untouched: same 19 files, same 12 combos, same ten page checks, same
+thresholds. The gate asserts exactly what it asserted before, and MARXY-143's repeat signal is
+kept rather than dropped — `apps/desktop/test/layout-shift-window.test.mjs` pins both halves, so
+deleting the nightly run fails the suite.
+
+Also retired here: the `conventions` job ran `check-story.mjs --strict || echo "::warning::"`,
+which made it a step that could not fail. Its comment said "advisory until every story has a CSV
+row", but out-of-plan tasks never get a CSV row, so that condition could not arrive — and the
+check already skips its path assertion by itself in exactly that case. It now runs unguarded.
+
+**A check earns its place on the pull-request path by being able to fail for something in the
+diff.** Monitoring goes nightly; a step that cannot fail gets deleted or made real.
 
 Rules baked in:
 
