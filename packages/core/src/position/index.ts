@@ -8,3 +8,26 @@ export { effectForOpenDocument } from './watch-events.ts';
 export type { RootWatchEvent, WatchKind, OpenDocumentEffect } from './watch-events.ts';
 export { diffSnapshots } from './snapshot.ts';
 export type { FileIdentity, DirSnapshot } from './snapshot.ts';
+export {
+  READING_LINE_FRACTION,
+  readingLine,
+  blockIndexAtReadingLine,
+  positionAtScroll,
+  scrollTopForPosition,
+  sameFirstVisibleBlock,
+  type LayoutBlock,
+} from './blocks.ts';
+export {
+  POSITIONS_FILE_VERSION,
+  POSITIONS_LRU_CAP,
+  emptyPositionsEnvelope,
+  parsePositionsFile,
+  serializePositionsFile,
+  upsertStoredPosition,
+  canRestoreStored,
+  readingPositionFromStored,
+  quarantinePathFor,
+  type StoredPosition,
+  type PositionsEnvelope,
+  type LoadPositionsResult,
+} from './storage.ts';
