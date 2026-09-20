@@ -66,12 +66,14 @@ The next agent does not get to infer a skip. The rule is:
   both runner classes) and a hand-set `MARXY_SMOKE_REQUIRED=1` never skip.
 - **`pnpm typecheck` may never skip.**
 - **`pnpm lint` may never skip.**
-- **`pnpm test`** may skip only the same desktop CLI smoke, and only on the same frameless
-  grounds or when no release binary has been built yet. Unit tests never skip.
+- **`pnpm test`** does not launch the desktop app; browser tests use headless WebKit via
+  `scripts/playwright-webkit.mjs`. Unit tests never skip. Real binary smoke is not part of
+  `test` — run `pnpm --filter @marxy/desktop verify:cli` by hand before merge when shell,
+  paint, or CLI paths changed (CI gates job runs the same with `MARXY_SMOKE_REQUIRED=1`).
 
 Do not delete the frames assertion to make a sleeping laptop green. Wake the display, or
-accept the named skip. `pnpm --filter @marxy/desktop verify:cli` is the hand-reachable
-required mode.
+accept the named skip on **`pnpm build`**. `pnpm --filter @marxy/desktop verify:cli` is the
+hand-reachable required mode for the CLI smoke check.
 
 ## Traceability, both directions
 

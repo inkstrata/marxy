@@ -4,6 +4,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { contrast, onGrid, openPage, renderCorpus, renderMarkdown } from './page.mjs';
 
 const skip =
@@ -14,7 +15,7 @@ const test = (name, fn) => nodeTest(name, { skip }, fn);
 
 let browser;
 before(async () => {
-  if (!skip) browser = await webkit.launch();
+  if (!skip) browser = await launchWebkit();
 });
 after(async () => {
   await browser?.close();

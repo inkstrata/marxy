@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 /**
  * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
@@ -38,7 +39,7 @@ const SIZES = { 14: 24, 17: 28, 21: 34, 24: 40 };
 const rendered = new Map(CORPUS.map((file) => [file, renderSafeHtml(readFileSync(new URL(`fixtures/corpus/${file}`, root)), { file }).html]));
 
 let browser;
-before(async () => { if (!skip) browser = await webkit.launch(); });
+before(async () => { if (!skip) browser = await launchWebkit(); });
 after(async () => { await browser?.close(); });
 
 async function open(file, { width = 960, size = 17, variant = 'dark', snap = true } = {}) {

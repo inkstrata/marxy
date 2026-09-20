@@ -18,6 +18,15 @@ node scripts/open-pr.mjs MARXY-nn      # check-pr on that file, then gh pr creat
 
 If `pnpm done` is green and `open-pr` is green, the reviewer only has judgement left to do. `gh pr create --body` is how the house template gets replaced by Summary / Why / Test plan; the wrapper will not do that.
 
+## Local precheck vs the real app
+
+`pnpm precheck` and `pnpm test` launch Playwright through `scripts/playwright-webkit.mjs`, which is
+headless unless `MARXY_BROWSER_HEADED=1` — browser tests, `gate:aesthetics` and the two engines of
+`gate:no-network` all go through it. They do not open the marxy desktop window. A local
+`pnpm --filter @marxy/desktop build` still runs `smoke-cli-open.mjs` after the binary is built.
+Before merge when you changed shell, paint, or CLI paths, run
+`pnpm --filter @marxy/desktop verify:cli` — the same required smoke CI runs on the gates job.
+
 ## What is enforced, and by which tool
 
 | Failure mode | Tool | When |

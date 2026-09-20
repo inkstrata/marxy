@@ -27,6 +27,7 @@
 // without something failing, are recorded in ADR-0009 (MARXY-83): the printed observability report
 // covers the first, `GATE_ASSERTION_IDS` plus `gate-assertions.test.ts` cover the second.
 import { chromium, webkit } from 'playwright';
+import { launchBrowser } from './playwright-webkit.mjs';
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { renderSafeHtml, renderToUnsanitisedHtml } from '../packages/core/src/render/index.ts';
@@ -116,7 +117,7 @@ for (const engine of [webkit, chromium]) {
     ran.add(id);
     if (!ok && message !== null) failures.push(message);
   };
-  const browser = await engine.launch();
+  const browser = await launchBrowser(engine);
   const context = await browser.newContext();
   let body = page('');
   let documentUrl = `${GATE_DOCUMENT_DIRECTORY}document.html`;

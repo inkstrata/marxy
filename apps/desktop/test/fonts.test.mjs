@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
 
 /**
@@ -49,7 +50,7 @@ test('each face ships with its OFL licence beside it', () => {
 });
 
 test('text is set in Literata and code in JetBrains Mono, and no frame shows a fallback face', async () => {
-  const browser = await webkit.launch();
+  const browser = await launchWebkit();
   try {
     const page = await browser.newPage();
     await page.route('**/assets/*.js', (route) => route.abort());

@@ -1,7 +1,7 @@
 // Renders the five MARXY-20 corpus pages in dark and light at 960 px, 2×, for the
 // MARXY-128 taste-review pair. usage: node packages/theme/test/render-taste.mjs --prefix before|after
 import { mkdirSync } from 'node:fs';
-import { webkit } from 'playwright';
+import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { facesCss, css, renderCorpus } from './page.mjs';
 
 const PAGES = [
@@ -15,7 +15,7 @@ const prefix = process.argv.includes('--prefix') ? process.argv[process.argv.ind
 const out = new URL('../../../docs/taste-review/2026-09-marxy-128/', import.meta.url);
 mkdirSync(out, { recursive: true });
 
-const browser = await webkit.launch();
+const browser = await launchWebkit();
 for (const variant of ['dark', 'light']) {
   for (const file of PAGES) {
     const ctx = await browser.newContext({ viewport: { width: 960, height: 900 }, deviceScaleFactor: 2 });
