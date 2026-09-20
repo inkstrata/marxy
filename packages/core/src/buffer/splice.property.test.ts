@@ -9,7 +9,7 @@ import { bytesOf, createBuffer, splice, type Buffer } from './buffer.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
 const files = readdirSync(corpus)
-  .filter((name) => name !== 'check-prose-volume.mjs' && !name.startsWith('.'))
+  .filter((name) => name !== 'check-prose-volume.mjs' && name !== 'image.png' && !name.startsWith('.'))
   .sort();
 const read = (name: string): Uint8Array => new Uint8Array(readFileSync(new URL(name, corpus)));
 

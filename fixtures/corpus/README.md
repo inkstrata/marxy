@@ -18,4 +18,5 @@ vendored in it. `pnpm gate:licences` stays green because nothing copyleft
 entered the lockfile or the corpus.
 
 The machine check for volume and shape is `check-prose-volume.mjs` in this
-directory.
+directory. `image.png` is a 1200×400 PNG for local image tests in
+`09-gfm-everything.md` (MARXY-138).

@@ -1,6 +1,8 @@
 //! marxy desktop shell. Everything privileged lives here behind the shell-api contract.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod atomic_write;
+mod commands;
+mod error;
 
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -82,6 +84,17 @@ fn startup_marks() -> serde_json::Value {
 /// waiting on the process learns the difference instead of only timing out. `AppHandle::exit` is not
 /// enough — it ends the process with status 0 and never returns to `main` — so the code is applied
 /// here, after Tauri's own teardown.
+/// Phase 0 placeholder until MARXY-34 registers the real watcher (docs/design/06-shell.md).
+#[tauri::command]
+fn watch_root(_root: String) -> Result<(), String> {
+    Ok(())
+}
+
+#[tauri::command]
+fn unwatch_root(_root: String) -> Result<(), String> {
+    Ok(())
+}
+
 #[tauri::command]
 fn quit(app: tauri::AppHandle, code: Option<i32>) {
     app.cleanup_before_exit();
@@ -188,7 +201,11 @@ fn main() {
             write_file_atomic,
             mark_from_webview,
             startup_marks,
-            quit
+            quit,
+            watch_root,
+            unwatch_root,
+            commands::fs::image_size,
+            commands::fs::allow_asset_scope,
         ])
         .run(tauri::generate_context!())
         .expect("error while running marxy");
