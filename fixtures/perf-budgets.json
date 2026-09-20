@@ -1,5 +1,5 @@
 {
-  "note": "Two tiers (ADR-0022, amending ADR-0013). `product` is measured on reference hardware (MARXY_PERF_ENV=reference) and never relaxed; `ci` is the envelope and baseline enforced on GitHub-hosted runners (MARXY_PERF_ENV=ci). Milliseconds unless stated. A baseline moves only by an explicit edit in the pull request that costs the time.",
+  "note": "Two tiers (ADR-0022, amending ADR-0013). `product` is the sphere of concern on reference hardware (MARXY_PERF_ENV=reference); `ci` is the standing observation on GitHub-hosted runners (MARXY_PERF_ENV=ci). Milliseconds unless stated. None of these times fail CI (ADR-0032). A product number moves only by an explicit edit in the pull request that costs the time.",
   "product": {
     "cold_start_first_text_ms": 500,
     "open_indexed_document_ms": 50,

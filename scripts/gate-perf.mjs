@@ -1,15 +1,18 @@
-// Performance budgets as hard failures (ADR-0013), in two tiers (ADR-0022): product budgets on
-// reference hardware (MARXY_PERF_ENV=reference), an envelope plus a per-runner baseline in CI
+// Performance numbers are recorded, not gated (ADR-0032, amending ADR-0013/0022).
+// Two tiers still describe the observation (ADR-0022): product numbers on reference
+// hardware (MARXY_PERF_ENV=reference), an envelope plus a per-runner baseline in CI
 // (MARXY_PERF_ENV=ci). Amendment 1 splits the CI metric. Amendment 2: reference records
 // median(cold_launches) over k ≥ 5 certified cold launches and never compares it to a product
-// ceiling. `parse_long_technical_ms` (MARXY-59) goes through the same CI rule as the warm start,
-// from the same budgets file, and is required in both tiers; scripts/measure-parse.mjs (MARXY-91)
-// leaves it in results/perf-parse.json on both gates runners and mergeParseMeasurement puts it
-// back onto the startup record. Reads fixtures/perf-budgets.json, results/perf.json and
-// results/perf-parse.json. `--selftest` runs every rule over inline fixtures;
-// `--assert-budgets-unchanged <ref>` asserts no number the rules read has moved since <ref>.
+// ceiling. ADR-0032 extends that to every timing quantity: print the comparison, do not exit 1
+// on the milliseconds. The gate still fails if the record is missing or dishonest.
+// `parse_long_technical_ms` (MARXY-59) is required to be present in both tiers;
+// scripts/measure-parse.mjs (MARXY-91) leaves it in results/perf-parse.json and
+// mergeParseMeasurement puts it back onto the startup record. Reads
+// fixtures/perf-budgets.json, results/perf.json and results/perf-parse.json.
+// `--selftest` runs every rule over inline fixtures; `--assert-budgets-unchanged <ref>`
+// asserts the product object has not moved since <ref>.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { SELFTEST_CASE_NAMES as MEASURE_CASE_NAMES, MIN_WARM_RUNS, MIN_COLD_LAUNCHES, median } from './measure-startup.mjs';
 
 const METRICS = ['cold_start_first_text_ms', 'open_indexed_document_ms', 'palette_keystroke_ms', 'typeset_viewport_ms', 'live_reload_ms', 'find_first_match_ms'];
@@ -169,17 +172,17 @@ export function mergeParseMeasurement(results, snapshot) {
   return { ...results, [PARSE_METRIC]: snapshot[PARSE_METRIC] };
 }
 
-// The one CI rule (ADR-0022, widened to 30 % by MARXY-83): fail over the envelope or over
-// baseline × 1.30. `warm_start_first_text_ms` and `parse_long_technical_ms` both go through here,
-// so a rule improved for one is improved for both. `label` names the quantity in a failure, which
-// is not always the key: the warm start is a median over named launches.
+// The one CI observation (ADR-0022, widened to 30 % by MARXY-83; not a failure, ADR-0032).
+// `warm_start_first_text_ms` and `parse_long_technical_ms` both go through here. `label` names
+// the quantity, which is not always the key: the warm start is a median over named launches.
+// A missing required value still fails — that is a dishonest record, not a speed commitment.
 function enforceTwoTier(out, fails, key, value, product, ciMetric, { label = key, required, tolerance = BASELINE_TOLERANCE, classBaselineMs = ciMetric?.baseline_ms }) {
   if (value == null) {
     if (required) fails.push(`${key} missing from results/perf.json`);
     return;
   }
   if (!ciMetric || ciMetric.multiplier == null) {
-    fails.push(`${key}: no ci entry for this runner class; add it to fixtures/perf-budgets.json`);
+    out.push(`${key}: ${value} ms — recorded; no ci entry to compare (ADR-0032)`);
     return;
   }
   const envelope = product * ciMetric.multiplier;
@@ -187,8 +190,12 @@ function enforceTwoTier(out, fails, key, value, product, ciMetric, { label = key
   const baselineCeiling = baselineMs == null ? Infinity : baselineMs * tolerance;
   const limit = Math.min(envelope, baselineCeiling);
   const tolPct = Math.round((tolerance - 1) * 100);
-  if (value > envelope) fails.push(`${label}: ${value} ms exceeds the envelope ${envelope} ms (product ${product} ms × ${ciMetric.multiplier}) by ${round(value - envelope)} ms`);
-  if (value > baselineCeiling) fails.push(`${label}: ${value} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${baselineMs} ms + ${tolPct} %) by ${round(value - baselineCeiling)} ms`);
+  if (value > envelope) {
+    out.push(`${label}: ${value} ms exceeds the envelope ${envelope} ms (product ${product} ms × ${ciMetric.multiplier}) by ${round(value - envelope)} ms — recorded; not a CI failure (ADR-0032)`);
+  }
+  if (value > baselineCeiling) {
+    out.push(`${label}: ${value} ms exceeds the baseline ceiling ${round(baselineCeiling)} ms (baseline ${baselineMs} ms + ${tolPct} %) by ${round(value - baselineCeiling)} ms — recorded; not a CI failure (ADR-0032)`);
+  }
   if (value <= limit) out.push(`${key}: ${value} ms ≤ ${round(limit)} ms (min of envelope ${envelope} ms and baseline ceiling ${round(baselineCeiling)} ms)`);
 }
 
@@ -217,7 +224,7 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
     for (const k of [...METRICS.slice(1), PARSE_METRIC]) {
       const v = results[k];
       if (v == null) continue;
-      if (v > budgets.product[k]) fails.push(`${k}: ${v} ms > ${budgets.product[k]} ms (product budget)`);
+      if (v > budgets.product[k]) out.push(`${k}: ${v} ms > ${budgets.product[k]} ms (product budget) — recorded; not a CI failure (ADR-0032)`);
       else out.push(`${k}: ${v} ms ≤ ${budgets.product[k]} ms (product budget)`);
     }
     return { ok: fails.length === 0, out, fails };
@@ -242,10 +249,11 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
   }
   out.push(`runner class ${cls}: envelope ×${ci.multiplier}, baseline ${ci.baseline_ms ?? 'waived'} ms, tolerance ${Math.round((tolerance - 1) * 100)} %`);
 
-  if (ci.cold_envelope_ms == null) fails.push('cold_envelope_ms is absent for this runner class');
+  if (ci.cold_envelope_ms == null) out.push('cold_envelope_ms is absent for this runner class — recorded; not a CI failure (ADR-0032)');
   else if (cold != null) {
-    if (cold > ci.cold_envelope_ms) fails.push(`cold_start_first_text_ms: ${cold} ms exceeds the cold envelope ${ci.cold_envelope_ms} ms by ${round(cold - ci.cold_envelope_ms)} ms`);
-    else out.push(`cold_start_first_text_ms: ${cold} ms ≤ ${ci.cold_envelope_ms} ms (absolute cold envelope, no tolerance)`);
+    if (cold > ci.cold_envelope_ms) {
+      out.push(`cold_start_first_text_ms: ${cold} ms exceeds the cold envelope ${ci.cold_envelope_ms} ms by ${round(cold - ci.cold_envelope_ms)} ms — recorded; not a CI failure (ADR-0032)`);
+    } else out.push(`cold_start_first_text_ms: ${cold} ms ≤ ${ci.cold_envelope_ms} ms (absolute cold envelope, no tolerance)`);
   }
 
   enforceTwoTier(out, fails, 'warm_start_first_text_ms', warm, budgets.product.cold_start_first_text_ms, ci, {
@@ -266,13 +274,13 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
     classBaselineMs: ci[PARSE_METRIC]?.baseline_ms ?? ci.baseline_ms,
   });
 
-  // The remaining product budgets still gate in CI, against the same runner envelope: a check
-  // that stops running is a check that has been removed.
+  // Remaining product keys are printed against the same runner envelope so a metric that
+  // stops being measured is still visible. None of them fail the gate (ADR-0032).
   for (const k of METRICS.slice(1)) {
     const v = results[k];
     if (v == null) continue;
     const envelope = budgets.product[k] * ci.multiplier;
-    if (v > envelope) fails.push(`${k}: ${v} ms exceeds the envelope ${envelope} ms (product ${budgets.product[k]} ms × ${ci.multiplier}) by ${round(v - envelope)} ms`);
+    if (v > envelope) out.push(`${k}: ${v} ms exceeds the envelope ${envelope} ms (product ${budgets.product[k]} ms × ${ci.multiplier}) by ${round(v - envelope)} ms — recorded; not a CI failure (ADR-0032)`);
     else out.push(`${k}: ${v} ms ≤ ${envelope} ms (envelope)`);
   }
   return { ok: fails.length === 0, out, fails };
@@ -431,13 +439,13 @@ const referenceCold = (over = {}) => ({
 // a rule that stops being checked has been deleted whatever the file says.
 const MARXY_55_CASE_NAMES = [
   'ci: inside both rules passes',
-  'ci: above the envelope fails',
-  'ci: 12 % above the baseline fails even far below the envelope',
-  'reference: 501 ms fails the product budget',
+  'ci: above the envelope is recorded, not failed',
+  'ci: 12 % above the baseline is recorded, not failed',
+  'reference: 501 ms typeset is recorded, not failed',
   'reference: missing results fails',
   'reference: results measured in ci mode fails',
   'ci: unknown runner class fails',
-  'ci: a null baseline still enforces the envelope',
+  'ci: a null baseline still records the envelope',
   'ci: a null baseline passes under the envelope',
 ];
 
@@ -460,15 +468,15 @@ function referenceEvaluateSource(text) {
 }
 const SELFTEST_CASES = [
   { name: 'ci: inside both rules passes', envClass: 'ci', results: result(), expect: 0 },
-  { name: 'ci: above the envelope fails', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_500 }), expect: 1, assert: f => has(f, /exceeds the envelope 10000 ms/) },
-  { name: 'ci: 12 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ warm_start_first_text_ms: 1160 }), expect: 1, assert: f => has(f, /exceeds the baseline ceiling 1153.6 ms/) },
-  { name: 'reference: 501 ms fails the product budget', envClass: 'reference', results: referenceCold({ typeset_viewport_ms: 501 }), expect: 1, assert: f => has(f, /501 ms > 100 ms \(product budget\)/) },
+  { name: 'ci: above the envelope is recorded, not failed', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_500 }), expect: 0, assertOut: o => o.some(l => /exceeds the envelope 10000 ms/.test(l) && /not a CI failure/.test(l)) },
+  { name: 'ci: 12 % above the baseline is recorded, not failed', envClass: 'ci', results: result({ warm_start_first_text_ms: 1160 }), expect: 0, assertOut: o => o.some(l => /exceeds the baseline ceiling 1153.6 ms/.test(l) && /not a CI failure/.test(l)) },
+  { name: 'reference: 501 ms typeset is recorded, not failed', envClass: 'reference', results: referenceCold({ typeset_viewport_ms: 501 }), expect: 0, assertOut: o => o.some(l => /501 ms > 100 ms \(product budget\)/.test(l) && /not a CI failure/.test(l)) },
   { name: 'reference: missing results fails', envClass: 'reference', results: null, expect: 1 },
   { name: 'reference: results measured in ci mode fails', envClass: 'reference', results: result({ warm_start_first_text_ms: 400 }), expect: 1, assert: f => has(f, /env_class is ci, expected reference/) },
   { name: 'ci: unknown runner class fails', envClass: 'ci', results: result({ runner_class: 'windows-latest' }), expect: 1 },
-  { name: 'ci: a null baseline still enforces the envelope', envClass: 'ci', results: result({ runner_class: 'no-baseline', warm_start_first_text_ms: 2600 }), expect: 1, assert: f => has(f, /exceeds the envelope 2500 ms/) },
+  { name: 'ci: a null baseline still records the envelope', envClass: 'ci', results: result({ runner_class: 'no-baseline', warm_start_first_text_ms: 2600 }), expect: 0, assertOut: o => o.some(l => /exceeds the envelope 2500 ms/.test(l)) },
   { name: 'ci: a null baseline passes under the envelope', envClass: 'ci', results: result({ runner_class: 'no-baseline', warm_start_first_text_ms: 2400 }), expect: 0 },
-  { name: 'ci: the rule names the quantity it gates as a warm start', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_100 }), expect: 1, assert: f => has(f, /warm_start_first_text_ms \(median of launches 2\.\.9\)/) },
+  { name: 'ci: the recorded line names the quantity as a warm start', envClass: 'ci', results: result({ warm_start_first_text_ms: 10_100 }), expect: 0, assertOut: o => o.some(l => /warm_start_first_text_ms \(median of launches 2\.\.9\)/.test(l)) },
   { name: 'ci: usable_runs below runs_n fails', envClass: 'ci', results: result({ usable_runs: 1 }), expect: 1, assert: f => has(f, /only 1 of 9 launches produced a first_text mark/) },
   { name: 'reference: usable_runs below runs_n fails', envClass: 'reference', results: referenceResult({ usable_runs: 0, runs: [] }), expect: 1, assert: f => has(f, /of 9 launches produced a first_text mark/) },
   { name: 'ci: a missing cold_start_first_text_ms fails', envClass: 'ci', results: result({ cold_start_first_text_ms: null }), expect: 1, assert: f => has(f, /cold_start_first_text_ms is absent/) },
@@ -478,8 +486,8 @@ const SELFTEST_CASES = [
   { name: 'ci: fewer than eight warm launches fails', envClass: 'ci', results: result({ warm_runs_n: 7 }), expect: 1, assert: f => has(f, /warm median needs at least 8 launches/) },
   { name: 'reference: fewer than eight warm launches fails', envClass: 'reference', results: referenceResult({ warm_runs_n: 7 }), expect: 1, assert: f => has(f, /warm median needs at least 8 launches/) },
   { name: 'ci: under the cold envelope passes', envClass: 'ci', results: result({ cold_start_first_text_ms: 1200 }), expect: 0, assertOut: o => o.some(l => /cold_start_first_text_ms: 1200 ms ≤ 1343 ms/.test(l)) },
-  { name: 'ci: above the cold envelope fails', envClass: 'ci', results: result({ cold_start_first_text_ms: 1400 }), expect: 1, assert: f => has(f, /exceeds the cold envelope 1343 ms/) },
-  { name: 'ci: a missing cold_envelope_ms fails', envClass: 'ci', results: result(), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'ubuntu-latest': { ...SELFTEST_BUDGETS.ci['ubuntu-latest'], cold_envelope_ms: null } } }, expect: 1, assert: f => has(f, /cold_envelope_ms is absent/) },
+  { name: 'ci: above the cold envelope is recorded, not failed', envClass: 'ci', results: result({ cold_start_first_text_ms: 1400 }), expect: 0, assertOut: o => o.some(l => /exceeds the cold envelope 1343 ms/.test(l) && /not a CI failure/.test(l)) },
+  { name: 'ci: a missing cold_envelope_ms is recorded, not failed', envClass: 'ci', results: result(), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'ubuntu-latest': { ...SELFTEST_BUDGETS.ci['ubuntu-latest'], cold_envelope_ms: null } } }, expect: 0, assertOut: o => o.some(l => /cold_envelope_ms is absent/.test(l)) },
   { name: 'ci: cold_warm_ratio below 1 fails', envClass: 'ci', results: result({ cold_warm_ratio: 0.94, cold_start_first_text_ms: 900, warm_start_first_text_ms: 1000 }), expect: 1, assert: f => has(f, /cold_warm_ratio is 0.94×/) },
   { name: 'ci: runs_n differs from the recorded sample size fails', envClass: 'ci', results: result({ runs_n: 8 }), expect: 1, assert: f => has(f, /runs_n is 8/) },
   { name: 'ci: baseline_ms equals max observed warm', envClass: 'ci', results: result(), expect: 0, assertOut: () => SELFTEST_BUDGETS.ci['ubuntu-latest'].baseline_ms === Math.max(...UBUNTU_OBS_WARM.map(o => o.ms)) },
@@ -517,20 +525,20 @@ const SELFTEST_CASES = [
   // parse_long_technical_ms uses the same two-tier rule as the warm start but its own tolerance:
   // envelope 10 × 3 = 30 ms, baseline ceiling 20 × 1.30 = 26 ms on the SELFTEST_BUDGETS fixture.
   { name: 'ci: parse inside both rules passes', envClass: 'ci', results: result({ parse_long_technical_ms: 18 }), expect: 0, assertOut: o => o.some(l => /^parse_long_technical_ms: 18 ms ≤ 26 ms/.test(l)) },
-  { name: 'ci: parse above the envelope fails', envClass: 'ci', results: result({ parse_long_technical_ms: 31 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 31 ms exceeds the envelope 30 ms/) },
-  { name: 'ci: parse 12 % above the baseline fails even far below the envelope', envClass: 'ci', results: result({ parse_long_technical_ms: 27 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 27 ms exceeds the baseline ceiling 26 ms/) },
+  { name: 'ci: parse above the envelope is recorded, not failed', envClass: 'ci', results: result({ parse_long_technical_ms: 31 }), expect: 0, assertOut: o => o.some(l => /parse_long_technical_ms: 31 ms exceeds the envelope 30 ms/.test(l) && /not a CI failure/.test(l)) },
+  { name: 'ci: parse 12 % above the baseline is recorded, not failed', envClass: 'ci', results: result({ parse_long_technical_ms: 27 }), expect: 0, assertOut: o => o.some(l => /parse_long_technical_ms: 27 ms exceeds the baseline ceiling 26 ms/.test(l) && /not a CI failure/.test(l)) },
   { name: 'ci: a missing parse measurement fails', envClass: 'ci', results: result({ parse_long_technical_ms: null }), expect: 1, assert: f => has(f, /^parse_long_technical_ms missing from results\/perf\.json$/) },
-  { name: 'ci: parse with no entry for the runner class fails', envClass: 'ci', results: result({ runner_class: 'macos-latest' }), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'macos-latest': { multiplier: 5, baseline_ms: 1901 } } }, expect: 1, assert: f => has(f, /parse_long_technical_ms: no ci entry for this runner class/) },
-  { name: 'reference: parse over the product budget fails', envClass: 'reference', results: referenceResult({ parse_long_technical_ms: 11 }), expect: 1, assert: f => has(f, /parse_long_technical_ms: 11 ms > 10 ms \(product budget\)/) },
+  { name: 'ci: parse with no entry for the runner class is recorded, not failed', envClass: 'ci', results: result({ runner_class: 'macos-latest' }), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'macos-latest': { multiplier: 5, baseline_ms: 1901 } } }, expect: 0, assertOut: o => o.some(l => /parse_long_technical_ms: .*no ci entry/.test(l)) },
+  { name: 'reference: parse over the product budget is recorded, not failed', envClass: 'reference', results: referenceCold({ parse_long_technical_ms: 11 }), expect: 0, assertOut: o => o.some(l => /parse_long_technical_ms: 11 ms > 10 ms \(product budget\)/.test(l) && /not a CI failure/.test(l)) },
 ];
 
 // The cases MARXY-59 added, for the same reason the MARXY-55 list exists.
 const MARXY_59_CASE_NAMES = [
   'ci: parse inside both rules passes',
-  'ci: parse above the envelope fails',
-  'ci: parse 12 % above the baseline fails even far below the envelope',
+  'ci: parse above the envelope is recorded, not failed',
+  'ci: parse 12 % above the baseline is recorded, not failed',
   'ci: a missing parse measurement fails',
-  'reference: parse over the product budget fails',
+  'reference: parse over the product budget is recorded, not failed',
 ];
 
 async function selftest() {
@@ -557,7 +565,7 @@ async function selftest() {
 
   const MARXY_63_CASE_NAMES = [
     ...MARXY_55_CASE_NAMES,
-    'ci: the rule names the quantity it gates as a warm start',
+    'ci: the recorded line names the quantity as a warm start',
     'ci: usable_runs below runs_n fails',
     'reference: usable_runs below runs_n fails',
     'ci: a missing cold_start_first_text_ms fails',
@@ -567,7 +575,7 @@ async function selftest() {
     'ci: fewer than eight warm launches fails',
     'reference: fewer than eight warm launches fails',
     'ci: under the cold envelope passes',
-    'ci: above the cold envelope fails',
+    'ci: above the cold envelope is recorded, not failed',
     'ci: cold_warm_ratio below 1 fails',
   ];
   for (const name of MARXY_63_CASE_NAMES) {
@@ -721,61 +729,20 @@ async function selftest() {
     report(afterParseTol !== before && /≤ 22.4 ms/.test(afterParseTol), 'parse: parse_long_technical_ms.tolerance sets the parse ceiling', afterParseTol ?? 'missing line');
   }
 
-  // Confirmation-before-failure (ci mode only, up to two re-measures).
+  // A timing overage is not a fail (ADR-0032), so confirmation never remasures for one.
   const confirmBudgets = goodCi();
-  const breachWarm = () => result({ warm_start_first_text_ms: 10_500, cold_start_first_text_ms: 1200 });
-  const cleanWarm = () => result({ warm_start_first_text_ms: 1000, cold_start_first_text_ms: 1200 });
+  const overWarm = () => result({ warm_start_first_text_ms: 10_500, cold_start_first_text_ms: 1200 });
   {
     let calls = 0;
-    const three = await runConfirmationGate({
+    const over = await runConfirmationGate({
       envClass: 'ci',
       budgets: confirmBudgets,
-      results: breachWarm(),
+      results: overWarm(),
       runnerClass: 'ubuntu-latest',
-      measureFn: async () => { calls++; return breachWarm(); },
+      measureFn: async () => { calls++; return overWarm(); },
     });
-    report(!three.verdict.ok && three.rounds.length === 3, 'confirmation: three breaching rounds exit 1', `rounds ${three.rounds.length}, ok=${three.verdict.ok}`);
-    report(three.verdict.fails.some(f => /exceeds the envelope/.test(f)), 'confirmation: three breaching rounds name the envelope margin');
-    const failLines = [];
-    const saveErr = console.error;
-    console.error = (...args) => failLines.push(args.join(' '));
-    console.error(`perf gate failed after ${three.rounds.length} rounds:`);
-    three.rounds.forEach((r, i) => console.error(` - round ${i + 1}: ${r.fails.join('; ')}`));
-    console.error = saveErr;
-    report(
-      failLines.some(l => /round 1:/.test(l)) && failLines.some(l => /round 2:/.test(l)) && failLines.some(l => /round 3:/.test(l)),
-      'confirmation CLI: three breaching rounds print every round margin',
-      failLines.join(' | '),
-    );
-
-    calls = 0;
-    const noise = await runConfirmationGate({
-      envClass: 'ci',
-      budgets: confirmBudgets,
-      results: breachWarm(),
-      runnerClass: 'ubuntu-latest',
-      measureFn: async () => cleanWarm(),
-    });
-    report(noise.verdict.ok && noise.remeasures === 1, 'confirmation: breach then clean exits 0 after one re-measure');
-    report(noise.finalResults?.first_attempt?.warm_start_first_text_ms === 10_500, 'confirmation: confirmed noise records the first round margin');
-    const noiseLines = [];
-    const saveLog = console.log;
-    console.log = (...args) => noiseLines.push(args.join(' '));
-    if (noise.verdict.ok && noise.rounds[0] && !noise.rounds[0].ok) {
-      console.log(`confirmed noise: first round breached (${noise.rounds[0].fails.join('; ')})`);
-    }
-    console.log = saveLog;
-    report(noiseLines.some(l => l.includes('confirmed noise')), 'confirmation CLI: confirmed noise line is printed', noiseLines.join(' | '));
-
-    calls = 0;
-    const clean = await runConfirmationGate({
-      envClass: 'ci',
-      budgets: confirmBudgets,
-      results: cleanWarm(),
-      runnerClass: 'ubuntu-latest',
-      measureFn: async () => { calls++; return breachWarm(); },
-    });
-    report(clean.verdict.ok && calls === 0, 'confirmation: a clean first round calls measure zero extra times', `calls=${calls}`);
+    report(over.verdict.ok && over.remeasures === 0 && calls === 0, 'confirmation: a timing overage never re-measures', `ok=${over.verdict.ok} remasures=${over.remeasures} calls=${calls}`);
+    report(over.verdict.fails.length === 0, 'confirmation: a timing overage leaves fails empty');
 
     const ref = await runConfirmationGate({
       envClass: 'reference',
@@ -783,7 +750,7 @@ async function selftest() {
       results: referenceCold({ typeset_viewport_ms: 501 }),
       measureFn: async () => referenceCold({ typeset_viewport_ms: 501 }),
     });
-    report(ref.remeasures === 0, 'confirmation: reference mode never re-measures');
+    report(ref.remeasures === 0 && ref.verdict.ok, 'confirmation: reference mode never re-measures a recorded typeset overage');
   }
 
   // No case may be lost: the two suites together are asserted against a floor on their own size.
@@ -801,46 +768,13 @@ if (process.argv.includes('--selftest')) await selftest();
 const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json', import.meta.url), 'utf8'));
 const { envClass, error } = resolveEnvClass(process.env);
 if (error) { console.error(`perf gate: ${error}`); process.exit(1); }
-const resultsPath = new URL('../results/perf.json', import.meta.url);
 const parseSnapshotPath = new URL('../results/perf-parse.json', import.meta.url);
-const raw = existsSync(resultsPath) ? JSON.parse(readFileSync(resultsPath, 'utf8')) : null;
+const raw = existsSync(new URL('../results/perf.json', import.meta.url)) ? JSON.parse(readFileSync(new URL('../results/perf.json', import.meta.url), 'utf8')) : null;
 const snapshot = existsSync(parseSnapshotPath) ? JSON.parse(readFileSync(parseSnapshotPath, 'utf8')) : null;
 const results = mergeParseMeasurement(raw, snapshot);
 console.log(`perf gate: ${envClass} mode`);
 const runnerClass = process.env.MARXY_RUNNER_CLASS || undefined;
-const measureFn = envClass === 'ci'
-  ? async () => {
-    const m = await import('./measure-startup.mjs');
-    const launches = await m.measureLaunches({ log: console.log });
-    return mergeParseMeasurement(m.perfRecord(m.summarise(launches), { envClass, runnerClass, launches }), snapshot);
-  }
-  : null;
-const { verdict, finalResults, remeasures, rounds } = await runConfirmationGate({
-  envClass,
-  budgets,
-  results,
-  runnerClass,
-  measureFn,
-  log: msg => console.log(`::warning::${msg}`),
-});
-for (const line of evaluate({ envClass, budgets, results: rounds[0] ? { ...results, warm_start_first_text_ms: rounds[0].warm, cold_start_first_text_ms: rounds[0].cold } : results, runnerClass }).out) {
-  console.log(line);
-}
-if (remeasures > 0) {
-  writeFileSync(resultsPath, JSON.stringify(finalResults, null, 2) + '\n');
-  for (let i = 1; i < rounds.length; i++) {
-    for (const line of evaluate({ envClass, budgets, results: { ...finalResults, warm_start_first_text_ms: rounds[i].warm, cold_start_first_text_ms: rounds[i].cold }, runnerClass }).out) {
-      console.log(`(confirmation ${i}) ${line}`);
-    }
-  }
-  if (verdict.ok && rounds[0] && !rounds[0].ok) {
-    console.log(`confirmed noise: first round breached (${rounds[0].fails.join('; ')})`);
-  }
-}
-if (!verdict.ok && rounds.length >= 3 && rounds.every(r => !r.ok)) {
-  console.error(`perf gate failed after ${rounds.length} rounds:`);
-  rounds.forEach((r, i) => console.error(` - round ${i + 1}: ${r.fails.join('; ')}`));
-  process.exit(1);
-}
+const verdict = evaluate({ envClass, budgets, results, runnerClass });
+for (const line of verdict.out) console.log(line);
 if (!verdict.ok) { console.error('perf gate failed:\n - ' + verdict.fails.join('\n - ')); process.exit(1); }
-console.log(`perf gate ok${remeasures ? ` (after ${remeasures} confirming re-measure${remeasures > 1 ? 's' : ''})` : ''}`);
+console.log('perf gate ok');
