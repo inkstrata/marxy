@@ -18,6 +18,7 @@ import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
 import { allowedFor, fileAllowed } from './review.mjs';
+import { runWorktreePrune } from './worktrees.mjs';
 
 /** Hold-reason fragments cycle.mjs can print. The before-list is a fixture; this must stay a superset. */
 export const HOLD_REASON_STRINGS = [
@@ -286,6 +287,9 @@ function runCycle(argv = process.argv.slice(2)) {
     say,
   });
   held.forEach(say);
+
+  // 2b. Drop story worktrees whose PR already landed elsewhere, and name strays we keep.
+  runWorktreePrune({ dryRun: DRY, root: ROOT, say });
 
   // 3. Review. In-review stories hold their paths, so an unreviewed PR blocks dispatch silently
   // unless it is named.
