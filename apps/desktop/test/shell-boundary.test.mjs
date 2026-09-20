@@ -2,6 +2,7 @@
 // only under apps/desktop/src/shell, so replacing the shell means rewriting that directory alone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
@@ -104,4 +105,56 @@ test('main.ts is at most 30 lines and contains no parse or render call', () => {
   const lines = raw.replace(/\n$/, '').split('\n');
   assert.ok(lines.length <= 30, `main.ts is ${lines.length} lines; startApp must own startup`);
   assert.doesNotMatch(stripComments(raw), /parseMarkdown|renderDocumentSafeHtml|\.innerHTML\s*=/);
+});
+
+/** Every `invoke('name')` in tauri.ts must appear in `generate_handler!` (MARXY-138). */
+function invokeCommandNames(tauriText) {
+  return [...new Set([...tauriText.matchAll(/\binvoke(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]))];
+}
+
+function handlerCommandNames(mainText) {
+  const block = /generate_handler!\[([\s\S]*?)\]/.exec(mainText)?.[1] ?? '';
+  const names = [];
+  for (const part of block.split(',')) {
+    const token = part.trim().replace(/\s+/g, ' ');
+    const fs = /commands::fs::(\w+)/.exec(token);
+    if (fs) names.push(fs[1]);
+    else if (/^[a-z][a-z0-9_]*$/.test(token)) names.push(token);
+  }
+  return names;
+}
+
+test('every invoke() name in tauri.ts is registered in generate_handler!', () => {
+  const tauri = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'shell', 'tauri.ts'), 'utf8');
+  const main = readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'src', 'main.rs'), 'utf8');
+  const invoked = invokeCommandNames(stripComments(tauri));
+  const registered = new Set(handlerCommandNames(main));
+  const missing = invoked.filter((name) => !registered.has(name));
+  assert.deepEqual(missing, [], `unregistered invoke(): ${missing.join(', ')}`);
+});
+
+test('the invoke ↔ handler check fails when a handler name is removed', () => {
+  const tauri = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'shell', 'tauri.ts'), 'utf8');
+  const main = readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'src', 'main.rs'), 'utf8');
+  const invoked = invokeCommandNames(stripComments(tauri));
+  const registered = handlerCommandNames(main).filter((name) => name !== 'image_size');
+  const missing = invoked.filter((name) => !registered.includes(name));
+  assert.deepEqual(missing, ['image_size']);
+});
+
+test('tauri.conf.json enables assetProtocol with an empty scope and leaves csp unchanged from main', () => {
+  const conf = JSON.parse(readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  assert.equal(conf.app.security.assetProtocol.enable, true);
+  assert.deepEqual(conf.app.security.assetProtocol.scope, []);
+  const mainConf = JSON.parse(
+    readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'), 'utf8'),
+  );
+  const cspMain = spawnSync('git', ['show', 'origin/main:apps/desktop/src-tauri/tauri.conf.json'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(cspMain.status, 0, cspMain.stderr);
+  const fromMain = JSON.parse(cspMain.stdout);
+  assert.equal(conf.app.security.csp, fromMain.app.security.csp);
+  assert.equal(mainConf.app.security.csp, fromMain.app.security.csp);
 });

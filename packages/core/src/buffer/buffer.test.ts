@@ -41,7 +41,7 @@ const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 const range = (file: string, start: number, end: number): Source => ({ file, start, end });
 
 const corpusFiles = readdirSync(corpus)
-  .filter((name) => name !== 'check-prose-volume.mjs' && !name.startsWith('.'))
+  .filter((name) => name !== 'check-prose-volume.mjs' && name !== 'image.png' && !name.startsWith('.'))
   .sort();
 
 test('every §01 API function exists with the task-card signature', () => {

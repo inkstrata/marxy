@@ -1,4 +1,6 @@
 // In-memory Shell for the app harness: a recorded filesystem keyed by POSIX path (MARXY-95).
+import { imageSizeFromBytes, isInsideImageRoot } from '@marxy/core/src/render/images.ts';
+import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import type { Shell, WatchEvent } from '@marxy/shell-api';
 
 export type Call = {
@@ -22,6 +24,9 @@ export type MemoryShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' |
   openExternal(url: string): Promise<void>;
   fetchRemoteImage(url: string): Promise<string>;
   configPaths(): Promise<{ config: string; data: string }>;
+  imageSize(path: string): Promise<{ width: number; height: number } | null>;
+  allowAssetScope(dir: string): Promise<void>;
+  assetUrl(path: string): string;
 };
 
 function notFound(path: string): Error & { code: 'not-found'; path: string } {
@@ -49,6 +54,17 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
   const record = (method: string, args: readonly unknown[] = []) => { calls.push({ method, args }); };
   const listeners: Array<(events: readonly WatchEvent[]) => void> = [];
   let queuedSave: string | null | undefined;
+  const assetScopes = new Set<string>();
+
+  const assertAssetScope = (path: string): void => {
+    for (const dir of assetScopes) {
+      if (isInsideImageRoot(path, dir)) return;
+    }
+    const err = new Error(`asset scope does not include ${path}`) as Error & { code: 'permission'; path: string };
+    err.code = 'permission';
+    err.path = path;
+    throw err;
+  };
 
   const shell: MemoryShell = {
     calls,
@@ -115,6 +131,24 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     async configPaths() {
       record('configPaths');
       return { config: '/config', data: '/data' };
+    },
+    async imageSize(path) {
+      record('imageSize', [path]);
+      const bytes = store.get(path);
+      if (!bytes) throw notFound(path);
+      return imageSizeFromBytes(bytes);
+    },
+    async allowAssetScope(dir) {
+      record('allowAssetScope', [dir]);
+      assetScopes.add(normalizePath(dir));
+    },
+    assetUrl(path) {
+      record('assetUrl', [path]);
+      assertAssetScope(path);
+      const bytes = store.get(path);
+      if (!bytes) throw notFound(path);
+      const blob = new Blob([bytes.slice()], { type: 'image/png' });
+      return URL.createObjectURL(blob);
     },
   };
   return shell;
