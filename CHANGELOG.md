@@ -47,6 +47,7 @@ tag time. Conventions in `docs/conventions.md`.
 ### Fixed
 - check-cards rejects duplicate CSV keys; the board CSV no longer carries a second MARXY-131/132/133 block or blank data rows, finishing the dedupe PR #134 left on main (MARXY-161)
 - The review-1 shuffle manifest no longer imports unused `readFileSync`, so repo lint is green again (MARXY-162)
+- KaTeX OFL fonts now land in the desktop web bundle: the Vite glob resolves to `apps/desktop/node_modules` so hashed `KaTeX_*` assets replace the bare `url(fonts/KaTeX_*)` paths that 404 in the packaged app (MARXY-163)
 - The parse-measurement selftest no longer reads the branch's own diff, so MARXY-59 can finally land the two-tier perf metric the guard was written to protect (MARXY-147)
 - The aesthetics font and image window in headless render now waits on each face the article uses and on decode of reserved images before the first scored snapshot, so `gate:aesthetics` is deterministic on webkit-linux (MARXY-143)
 - Token contract tests now read `--marxy-size-code` and `--marxy-weight-heading` from the committed theme file when building mutations, so a values-only tune cannot turn a real re-kind check into a no-op (MARXY-145)
