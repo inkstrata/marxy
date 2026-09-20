@@ -14,6 +14,9 @@ tag time. Conventions in `docs/conventions.md`.
 - A taste decision on the default theme now costs a story and a review-queue row, not an ADR: theme authors can still rely on the token names, units and meanings (MARXY-133)
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
 
+### Fixed
+- The 600-line branch-diff budget now counts only source, scripts, orchestration code and workflows, not board rows, plan deltas or task cards, so a plan landing is judged on the work a reviewer holds — the over-600 rule in `docs/conventions.md` (MARXY-142)
+
 ### Added
 - The no-network gate now prints which request classes it can and cannot observe (WebSocket, dns-prefetch, service worker registration), proves the allow-list refuses each one's required element, and fails on its own silence if the set of checks it runs ever drifts from the list it declares; a mutation-coverage suite fails a named test for each of those checks if it is ever deleted (MARXY-83)
 - The fixture corpus now has a real API reference, changelog, agent transcript and source file, so typesetting and aesthetics judgements are no longer made only on prose and a README (MARXY-130)
