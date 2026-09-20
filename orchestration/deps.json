@@ -60,7 +60,8 @@
       "MARXY-137",
       "MARXY-138",
       "MARXY-139",
-      "MARXY-141"
+      "MARXY-141",
+      "MARXY-NEW-katex-fonts"
     ],
     "2": [
       "MARXY-33",
@@ -142,7 +143,8 @@
       "MARXY-155",
       "MARXY-156",
       "MARXY-157",
-      "MARXY-158"
+      "MARXY-158",
+      "MARXY-NEW-katex-fonts-land"
     ]
   },
   "deps": {
@@ -531,7 +533,9 @@
     "MARXY-155": [],
     "MARXY-156": [],
     "MARXY-157": [],
-    "MARXY-158": []
+    "MARXY-158": [],
+    "MARXY-NEW-katex-fonts": [],
+    "MARXY-NEW-katex-fonts-land": []
   },
   "research": {
     "_note": "Empty by design: research tasks are ordinary rows in the CSV and ordinary issues in Jira (MARXY-19 is the first), labelled `research`. Their output is a decision note rather than product code, which the story's acceptance says."

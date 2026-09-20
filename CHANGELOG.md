@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- A follow-up story is on the board to bundle KaTeX OFL fonts after MARXY-28's merged glob missed `apps/desktop/node_modules` (cherry-pick source `a07bb6f`; landing row `MARXY-NEW-katex-fonts-land`)
 - The aesthetics gate now pixel-diff every corpus page at 960 px in dark and light against committed WebKit baselines on macOS and Linux; a 1 px heading shift fails, and refreshing baselines requires a taste-queue row (MARXY-30)
 - CI now compares sanitiser output to the live DOM on 35 pinned tree-construction shapes in WebKit and Chromium, and fails if any node is deeper than written except implied table sections (MARXY-84)
 - KaTeX loads on first math in a document, with display blocks snapped to the grid and bundled OFL math fonts (MARXY-28)
