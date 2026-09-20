@@ -42,6 +42,7 @@ Before merge when you changed shell, paint, or CLI paths, run
 | Opening a PR with a body that would fail `check-pr` (or with `gh pr create --body`) | `scripts/open-pr.mjs` | after `done`, before the PR exists |
 | A commit message off convention or carrying a trailer | `.githooks/commit-msg` (commitlint + strip) | commit |
 | Skipping the gates that a change needs | `scripts/precheck.mjs` with `scripts/gates-by-path.json` | before the PR, CI runs all |
+| A task card and its CSV row disagree (missing row, Paths miss a card file, a `deps.json` key has no row, or `depends:` ≠ `deps.json`) | `scripts/check-cards.mjs` | precheck |
 | A result file that omits which test checks which criterion | `orchestration/schema/result.schema.json`, validated in `review.mjs` | review |
 | Rust formatting and warnings | `pnpm lint:rust` (`cargo fmt --check`, `clippy -D warnings`) | precheck (when `src-tauri` changes), CI |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |
@@ -50,6 +51,12 @@ The 600-line branch-diff budget in `orchestration/phases.test.mjs` counts insert
 
 ## Rules the tools encode (so nobody re-derives them)
 
+- A story's task card (`docs/plan/tasks/KEY.md`) and its CSV row are one spec: write them
+  together or not at all. `scripts/check-cards.mjs` enforces that every card has a row, every
+  `## Files and signatures` path (first backtick per bullet, skipping tokens with no `/` or `.`)
+  is covered by the row's Paths under the same rule as `check-story`, every key in
+  `orchestration/deps.json` has a row, and each card's `depends:` front matter matches
+  `deps.json`.
 - The story key comes from the branch: `type/MARXY-nn-slug`. No key, no path check (and a
   note); `--strict` makes that a failure in CI once every branch is a story branch.
 - Allowed outside a story's paths: `CHANGELOG.md`, `docs/taste-review/queue.md`, lockfiles,

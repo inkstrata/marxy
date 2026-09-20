@@ -1,7 +1,7 @@
 ---
 key: MARXY-126
 design: [10-gates-and-testing]
-depends: [MARXY-125]
+depends: [MARXY-125, MARXY-131]
 verify: [node scripts/check-cards.mjs, node --test scripts/check-cards.test.mjs, node --test orchestration/phases.test.mjs]
 ---
 # MARXY-126 — Make the board one spec: every card has a row, every row's paths cover its card

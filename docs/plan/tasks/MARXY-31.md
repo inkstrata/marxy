@@ -1,7 +1,7 @@
 ---
 key: MARXY-31
 design: []
-depends: [MARXY-30, MARXY-26, MARXY-27]
+depends: [MARXY-30, MARXY-138, MARXY-27]
 verify: [pnpm precheck, pnpm done MARXY-31]
 ---
 # MARXY-31 — Taste review #1 artifact: blind side-by-side against Typora and Marked 2

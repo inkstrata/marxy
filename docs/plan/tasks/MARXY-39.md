@@ -1,7 +1,7 @@
 ---
 key: MARXY-39
 design: []
-depends: [MARXY-36, MARXY-37]
+depends: [MARXY-87, MARXY-37]
 verify: [pnpm precheck, pnpm done MARXY-39]
 ---
 # MARXY-39 — Taste review #2 artifact including the palette-vs-tabs criterion

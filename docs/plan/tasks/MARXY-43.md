@@ -13,7 +13,7 @@ verify: [pnpm precheck, pnpm done MARXY-43]
 ## Files and signatures
 - `packages/core/src/operations/toggle-task.ts`, `align-table-pipes.ts`, `display-width.ts` (the §03 step-4 width function, exported for tests), added to `OPERATIONS`.
 - `packages/core/src/operations/operations.test.ts` — extend with both tables.
-- `packages/core/scripts/fidelity.ts` — the operations property: every operation at every applicable node of every corpus file changes nothing outside `range`.
+- `scripts/gate-fidelity.mjs` — the operations property: every operation at every applicable node of every corpus file changes nothing outside `range`.
 - `apps/desktop/src/render/tasks.ts` — post-pass 7: checkbox `click` → `preventDefault()`, resolve marker via the node map, `apply(toggleTask, …)`.
 - `apps/desktop/src/commands/document.ts` — `undo` (`Mod+Z`) and `redo` (`Mod+Shift+Z`) in Rendered mode over `History`; one line in `commands/index.ts`.
 - `apps/desktop/test/operations-edit.test.mjs` (app harness).

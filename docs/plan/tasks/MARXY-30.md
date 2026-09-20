@@ -1,7 +1,7 @@
 ---
 key: MARXY-30
 design: [10-gates-and-testing]
-depends: [MARXY-25]
+depends: [MARXY-25, MARXY-137, MARXY-138]
 verify: [pnpm precheck, pnpm done MARXY-30]
 ---
 # MARXY-30 — Screenshot baselines and diff gate per engine

@@ -1,7 +1,7 @@
 ---
 key: MARXY-61
 design: [02-render, 00-architecture]
-depends: [MARXY-12, MARXY-75, MARXY-20, MARXY-26]
+depends: [MARXY-12]
 verify: [pnpm precheck, pnpm done MARXY-61]
 ---
 # MARXY-61 — The desktop renders through `@marxy/core`; markdown-it and DOMPurify leave the tree
