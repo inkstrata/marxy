@@ -110,6 +110,7 @@ story's job, the same shape as MARXY-131, MARXY-135 and MARXY-140.
 | **MARXY-144** | new, ops lane, no deps: commits this delta, the widened MARXY-137 row, the MARXY-143 row and the cards. **Dispatch first.** |
 | **MARXY-143** | new, ops lane, depends on MARXY-25 (done): the CLS-window fix. Dispatch after MARXY-144 lands. |
 | MARXY-137 | `Paths` gain `apps/desktop/src/render/headless.ts`; criterion 4 rewritten; criterion 8 added; card rewritten; **now depends on MARXY-143**. |
+| MARXY-30 | now depends on MARXY-137 — no row change, a `deps.json` edge only (see below). |
 
 MARXY-137 and MARXY-143 both edit `headless.ts`, so the dependency edge — not just the path-overlap
 guard — keeps them from being dispatched together, and it puts them in the only order that works:
@@ -120,6 +121,15 @@ depending on an ops key is MARXY-109 and MARXY-110 on MARXY-111; the MARXY-107 r
 
 So: **MARXY-144 lands → MARXY-143 merges → #104 is returned for MARXY-137 attempt 2 → #95 rebases
 and merges.**
+
+One more edge falls out of that queue. **MARXY-30** ("screenshot baselines and diff gate per
+engine") is `todo`, ready by dependency, and its `Paths` are `fixtures/baselines,
+scripts/gate-aesthetics.mjs` — it collides with MARXY-143 on the gate and with MARXY-137 on the
+baselines, and it would commit screenshot baselines of the un-hyphenated page that MARXY-137 then
+has to move again. `node orchestration/ready.mjs` already shows MARXY-143 in `blockedByPaths`
+behind it, which is the overlap guard picking the wrong winner. MARXY-30 therefore **now depends on
+MARXY-137**, so the three stories run in the only order in which each captures a page the next one
+does not immediately invalidate.
 
 Nothing else moves. MARXY-138 still waits on MARXY-26, MARXY-25, MARXY-95 and MARXY-137; MARXY-128
 (#94) and MARXY-139 (#105) are untouched by this pass.

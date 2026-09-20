@@ -23,7 +23,8 @@ was returned). The planner writes the edits into the working tree; a landing sto
 - `docs/plan/jira-issues.csv` — MARXY-137's `Paths` gain `apps/desktop/src/render/headless.ts`, its
   criterion 4 is rewritten and a criterion 8 added; `MARXY-143` and `MARXY-144` are new rows.
 - `orchestration/deps.json` — `MARXY-143` and `MARXY-144` placed in the `ops` lane; `MARXY-137`
-  gains a dependency on `MARXY-143`; `MARXY-143` depends on `MARXY-25`.
+  gains a dependency on `MARXY-143`; `MARXY-143` depends on `MARXY-25`; `MARXY-30` gains a
+  dependency on `MARXY-137` (it collides with both on `fixtures/baselines` and the gate).
 - `orchestration/jira-map.json` — the two placeholder→key entries, already written by
   `jira.mjs sync` (`MARXY-NEW-cls-window → MARXY-143`, `MARXY-NEW-land-137-cls-plan → MARXY-144`).
 - `docs/plan/deltas/2026-09-19-marxy-137-headless.md` — the delta behind both changes.
