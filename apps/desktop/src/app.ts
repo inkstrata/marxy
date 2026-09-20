@@ -6,6 +6,7 @@ import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
 import { applyImages, pathsForDocument } from './render/images.ts';
 import { applyMath } from './render/math.ts';
+import { startCodeHighlight } from './render/highlight.ts';
 import { blockedContentNotice } from './notices/blocked.ts';
 import { ensureNoticesRegion } from './notices/index.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
@@ -222,7 +223,16 @@ async function boot(): Promise<void> {
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
   await typesetDocument(doc);
+  scheduleHighlightWhenIdle(doc);
   return finish(0);
+}
+
+/** Code highlighting is idle work after first text and the viewport typeset pass (MARXY-164). */
+function scheduleHighlightWhenIdle(article: HTMLElement): void {
+  const run = () => startCodeHighlight(article);
+  const idle = (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+  if (idle !== undefined) idle(run);
+  else void Promise.resolve().then(run);
 }
 
 /**
