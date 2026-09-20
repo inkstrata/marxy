@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Planner pass acknowledging the "6 of the last 10 merges were ops" trigger: no board edit, because every one of those six merges was the previous plan delta landing or a named fixup for it, not an ops story ahead of phase work; MARXY-164 is confirmed as the one real ready story and MARXY-118 is named as already merged but not yet reconciled in `state.json` (`docs/plan/deltas/2026-09-20-after-165.md`, MARXY-166)
 - Palette session, fuzzy search, pins, and history keys as a DOM-free model with CI palette tests and a scaled searchPrepared perf gate (MARXY-86)
 - Two new stories are on the board: cherry-pick the already-fixed KaTeX font bundle glob onto a real key rather than the placeholder PR #135 fought the CSV over (MARXY-163), and wire MARXY-27's code-highlight tokeniser into the desktop render pipeline and theme, which its own PR left unwired (MARXY-164). The Linux weight harness (MARXY-22) and the shell-api v1 amendment (MARXY-94) move to the ops lane — both are human-gated on an unanswered question, and neither is a reader-facing phase-1 promise, but leaving them numbered in phase 1 silently held phase 2's entire backlog open (MARXY-33 through MARXY-97) behind two indefinite waits; MARXY-163 and MARXY-164 are the real, dispatchable finish line for phase 1 now (MARXY-165)
 - Taste review #0 re-rendered in dark and light (dark first): forty PNGs, theme colours from `tokens.css` and the default light block, manifest lists variants dark then light (MARXY-76)
