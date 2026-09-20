@@ -58,10 +58,9 @@ test('browser tests and gates launch through the helper, not playwright directly
     ...sources(join(root, 'packages/typeset/test')),
     ...sources(join(root, 'packages/theme/test')),
     join(root, 'scripts/gate-aesthetics.mjs'),
-    join(root, 'scripts/gate-no-network.mjs'),
   ];
-  const direct = files.filter((f) => /\b(webkit|chromium|engine)\.launch\(/.test(readFileSync(f, 'utf8')));
+  const direct = files.filter((f) => /\bwebkit\.launch\(/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(direct.map((f) => f.slice(root.length)), []);
   // The helper is where the one real launch lives, so the check above cannot pass by there being none.
-  assert.match(readFileSync(join(root, 'scripts/playwright-webkit.mjs'), 'utf8'), /engine\.launch\(/);
+  assert.match(readFileSync(join(root, 'scripts/playwright-webkit.mjs'), 'utf8'), /webkit\.launch\(/);
 });

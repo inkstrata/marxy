@@ -1,4 +1,4 @@
-// Shared Playwright launch for gates and browser tests — headless by default so local precheck does
+// Shared WebKit launch for gates and browser tests — headless by default so local precheck does
 // not flash a browser window. `MARXY_BROWSER_HEADED=1` opens a real window when you want to watch.
 import { webkit } from 'playwright';
 
@@ -8,15 +8,7 @@ export function launchOptions(overrides = {}) {
   return { headless, ...overrides };
 }
 
-/**
- * @param {import('playwright').BrowserType} engine
- * @param {import('playwright').LaunchOptions} [overrides]
- */
-export async function launchBrowser(engine, overrides = {}) {
-  return engine.launch(launchOptions(overrides));
-}
-
 /** @param {import('playwright').LaunchOptions} [overrides] */
 export async function launchWebkit(overrides = {}) {
-  return launchBrowser(webkit, overrides);
+  return webkit.launch(launchOptions(overrides));
 }
