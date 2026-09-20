@@ -153,13 +153,20 @@ test('MARXY-143: gate-aesthetics CLS thresholds and matrix literals match main',
   }
 });
 
-test('MARXY-143: gate-aesthetics defaults CLS corpus to 3 passes in CI when --repeat is omitted', () => {
+// MARXY-153 moved the repeat pass off the pull-request path: re-rendering the corpus to see whether
+// the answer changes is a flake detector, it cannot fail for anything in the diff under review, and
+// it was 266s of the browser job's 356s. MARXY-143's signal is kept, not dropped — so this test now
+// pins both halves of that bargain: nothing implies --repeat, and the nightly workflow passes it.
+test('MARXY-153: gate-aesthetics runs no CLS repeat pass unless --repeat asks for one', () => {
   const src = gateSource();
   const repeatBlock = src.slice(src.indexOf("const repeatIdx = process.argv.indexOf('--repeat')"));
-  assert.match(
-    repeatBlock,
-    /repeatIdx === -1[\s\S]*process\.env\.CI[\s\S]*\?\s*3\s*:\s*0/,
-    'CI must default REPEAT to 3 when --repeat is not passed',
-  );
-  assert.match(repeatBlock, /Math\.max\(1, Number\.parseInt\(process\.argv\[repeatIdx \+ 1\]/, '--repeat N must stay explicit for local runs');
+  assert.match(repeatBlock, /const REPEAT = repeatIdx === -1 \? 0 :/, 'an omitted --repeat must mean no repeat pass, on CI as locally');
+  assert.doesNotMatch(repeatBlock, /process\.env\.CI/, 'CI must not imply a repeat pass: it is the path every pull request waits on');
+  assert.match(repeatBlock, /Math\.max\(1, Number\.parseInt\(process\.argv\[repeatIdx \+ 1\]/, '--repeat N must stay explicit for local and nightly runs');
+});
+
+test('MARXY-153: the nightly workflow still runs the CLS repeat passes MARXY-143 added', () => {
+  const nightly = readFileSync(new URL('.github/workflows/nightly.yml', root), 'utf8');
+  assert.match(nightly, /gate-aesthetics\.mjs --repeat 3/, 'nightly must run the repeat passes, or MARXY-143 loses its signal entirely');
+  assert.match(nightly, /schedule:/, 'nightly must be scheduled, not only dispatchable');
 });

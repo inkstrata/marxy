@@ -67,7 +67,7 @@ jobs:
         env:
           GH_TOKEN: "${{ github.token }}"
       - name: Story boundary over the whole branch
-        run: node scripts/check-story.mjs --strict || echo "::warning::story boundary check reported problems (advisory until every story has a CSV row)"
+        run: node scripts/check-story.mjs --strict
 
   # Everything that needs neither a browser nor Rust: hygiene checks, types, lint, unit tests, goldens, fidelity, licences.
   fast:
@@ -91,11 +91,23 @@ jobs:
       - run: pnpm test
       - name: CommonMark spec selftest
         run: node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --selftest
+      # The spec is an immutable pinned version, and it was re-downloaded on every pull request: a
+      # red build because spec.commonmark.org was slow or rate-limiting is a failure that has
+      # nothing to do with the diff under review (MARXY-153). Fetched once and cached instead. The
+      # key is the script's own hash, because the version pin lives only in that file and the
+      # workflow is not allowed to name it.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/marxy-commonmark
+          key: "commonmark-${{ hashFiles('packages/core/scripts/commonmark-spec.ts') }}"
       - name: CommonMark spec suite
+        env:
+          MARXY_COMMONMARK_SPEC: ${{ runner.temp }}/marxy-commonmark/spec.json
         run: |
           DEST=$(node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --print-dest)
           URL=$(node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --print-url)
-          curl -fsSL "$URL" -o "$DEST"
+          mkdir -p "$(dirname "$DEST")"
+          test -s "$DEST" || curl -fsSL --retry 3 --retry-all-errors "$URL" -o "$DEST"
           pnpm --filter @marxy/core test:spec
           test -z "$(git status --porcelain)"
       - run: pnpm gate:golden

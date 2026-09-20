@@ -1,16 +1,17 @@
-// What the sanitiser costs, asserted, because reading is primary and this runs before a reader sees
-// anything (AGENTS.md's budgets; ADR-0013 makes them hard failures).
+// What the sanitiser costs, measured because reading is primary and this runs before a reader sees
+// anything (AGENTS.md's budgets). The cost is printed; the *shape* of the cost is asserted.
 //
 // The regression this exists to prevent was real and was not caught by anything: finding the end of
 // a removed raw-text element with `input.toLowerCase()` made removal quadratic in the number of
 // removed elements, and a 1.3 MiB document went from 2.5 ms to 305 ms — 122× — while every test and
 // every gate stayed green. `gate:perf` measures the packaged app's cold start, not this function.
 //
-// Two assertions, because either alone can be fooled. The ceiling is generous enough for a slow CI
-// runner and still catches a regression of that size by more than an order of magnitude; the ratio
-// catches a quadratic that a fast machine would sail under the ceiling with, since doubling the
-// work twice must not quadruple the time. When `fixtures/perf-budgets.json` settles — MARXY-59 is
-// reshaping it in PR #15 and owns that file — the two numbers below belong there with the others.
+// The ratio is the assertion, and it is the only one (MARXY-153). An absolute ceiling here — the
+// old `ms < 150` — could not tell a regression from a slow runner: both look like one wall-clock
+// number being larger than another, and a shared CI runner produces that on its own. The ratio
+// compares two timings taken on the same machine moments apart, so machine speed cancels and what
+// is left is the shape of the algorithm: doubling the work twice must not quadruple the time. That
+// is what the 122× quadratic regression did, and what a ceiling that no runner trips would miss.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -31,11 +32,13 @@ function fastest(html: string, runs = 5): number {
   return best;
 }
 
-test('a large hostile document is sanitised well inside the viewport budget', () => {
+test('a large hostile document is sanitised, and what it cost is recorded', () => {
   const html = document(6400);
   assert.ok(html.length > 500 * 1024, 'the budget should be measured on a document worth measuring');
   const ms = fastest(html);
-  assert.ok(ms < 150, `sanitising ${(html.length / 1024).toFixed(0)} KiB of removed raw text took ${ms.toFixed(1)} ms, and the whole viewport budget is 100 ms`);
+  // Printed, never asserted: ADR-0032 keeps speed numbers out of pass/fail, and the linearity test
+  // below is what actually catches the regression this file exists for.
+  console.log(`sanitise: ${(html.length / 1024).toFixed(0)} KiB of removed raw text in ${ms.toFixed(1)} ms`);
 });
 
 test('removal stays linear in the number of removed raw-text elements', () => {

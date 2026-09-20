@@ -1,0 +1,40 @@
+# What does not belong on the pull-request path.
+#
+# A check that re-runs work to see whether the answer changes is a flake detector, not an assertion:
+# it cannot fail for a reason the author of the diff introduced, and every minute it costs is paid by
+# every pull request. The aesthetics gate's CLS repeat pass was three more full corpus renders — 266s
+# of the browser job's 356s — to confirm that a font/image window the single pass already measures is
+# deterministic. It runs here instead, once a day, against main (MARXY-153).
+name: nightly
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+concurrency:
+  group: "nightly-${{ github.ref }}"
+  cancel-in-progress: true
+permissions: { contents: read }
+
+jobs:
+  aesthetics-determinism:
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - name: Aesthetics gate with the CLS repeat passes (MARXY-153)
+        run: node scripts/gate-aesthetics.mjs --repeat 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-results
+          path: results/
+          if-no-files-found: ignore

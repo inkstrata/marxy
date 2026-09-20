@@ -7,12 +7,9 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
-<<<<<<< Updated upstream
-- Two new stories are on the board: real before/after PNGs for MARXY-138's merged-but-unmet taste-review criterion (MARXY-155), and a dispatcher guard so a headless `cursor-agent` authentication failure no longer spends an implementor's attempt budget (MARXY-156); the never-committed 2026-09-20 plan delta is backfilled (MARXY-157)
-||||||| Stash base
-=======
+- CI now compares sanitiser output to the live DOM on 35 pinned tree-construction shapes in WebKit and Chromium, and fails if any node is deeper than written except implied table sections (MARXY-84)
 - KaTeX loads on first math in a document, with display blocks snapped to the grid and bundled OFL math fonts (MARXY-28)
->>>>>>> Stashed changes
+- Two new stories are on the board: real before/after PNGs for MARXY-138's merged-but-unmet taste-review criterion (MARXY-155), and a dispatcher guard so a headless `cursor-agent` authentication failure no longer spends an implementor's attempt budget (MARXY-156); the never-committed 2026-09-20 plan delta is backfilled (MARXY-157)
 - Every cycle now names board drift — the checkout behind origin/main, off main, or carrying uncommitted edits under `docs/plan` or `orchestration`, an open PR with no board row, an in-review story whose PR already closed — and holds dispatch while the checkout itself is stale (MARXY-117)
 - Local images load with a reserved box so text does not jump, and one line above the article names remote hosts that were blocked (MARXY-138)
 - MARXY-138's path widening is on main so PR #115 attempt 2 can rebase without editing its own board row (MARXY-152)
@@ -27,6 +24,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ### Changed
 - Local `pnpm precheck` and `pnpm test` launch Playwright headless through `scripts/playwright-webkit.mjs` — browser tests, `gate:aesthetics` and both engines of `gate:no-network` — and the desktop `test` script no longer runs CLI smoke, so neither a browser nor the marxy window flashes locally; `MARXY_BROWSER_HEADED=1` still opens a real window, and `verify:cli` and the CI gates are unchanged (MARXY-149)
+- Pull requests wait about four minutes less: the aesthetics gate's three whole-corpus repeat passes were a flake detector that could not fail for anything in the diff, so they moved to a nightly run against `main`, and the corpus matrix it still checks now renders four pages at a time instead of one (356 s → 81 s on CI, same files, combos, checks and thresholds). Six checks that could not fail for anything in the diff under review no longer gate a pull request: the aesthetics CLS repeat passes, the perf gate's cold/warm ratio, two wall-clock ceilings inside unit tests, the per-PR download of the CommonMark spec, and a past story's own scope rule that had been left in a shared script where it forbade every later PR from touching `scripts/gate-perf.mjs` — all recorded, cached or moved nightly, with no correctness coverage lost. The story-boundary check now works on CI at all: a pull-request checkout is detached, so it could never read a story key from the branch and was wired to warn instead of fail; it reads `GITHUB_HEAD_REF` now and runs unguarded (MARXY-153)
 - Startup, parse and the other named interaction times are still measured and printed; none of them fail the build. A missing or dishonest measurement still fails. Bundle size stays a gate (MARXY-151)
 - CI perf numbers are re-derived from five or more corrected cross-run jobs per runner class: Ubuntu keeps a 1030 ms warm baseline at 12 % tolerance and a 1343 ms cold envelope, and macOS waives the warm baseline at 1.542× cross-run spread while gating a 3397 ms cold ceiling; parse time keeps its own 30 % baseline tolerance so warm spread edits cannot tighten it (MARXY-70)
 - Inline code and code blocks are a step larger, headings sit at 560 instead of 600, and numbered-list markers hang with tabular figures aligned on the right edge (MARXY-129)
