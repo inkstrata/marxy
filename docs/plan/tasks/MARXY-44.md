@@ -1,7 +1,7 @@
 ---
 key: MARXY-44
 design: [13-trust, 09-app-shell, 11-config-and-storage, 08-position-and-watching]
-depends: [MARXY-96, MARXY-26, MARXY-42, MARXY-38]
+depends: [MARXY-96, MARXY-138, MARXY-42, MARXY-38]
 verify: [pnpm precheck, pnpm done MARXY-44]
 ---
 # MARXY-44 — Per-document opt-in that widens the allow-list, with a discoverable notice

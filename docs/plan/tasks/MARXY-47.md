@@ -1,7 +1,7 @@
 ---
 key: MARXY-47
 design: [05-theme, 11-config-and-storage, 09-app-shell, 08-position-and-watching]
-depends: [MARXY-20, MARXY-37, MARXY-38, MARXY-95]
+depends: [MARXY-138, MARXY-20, MARXY-37, MARXY-38, MARXY-95]
 verify: [pnpm precheck, pnpm done MARXY-47]
 ---
 # MARXY-47 — User theme loading under the contract; a theme opens as a document

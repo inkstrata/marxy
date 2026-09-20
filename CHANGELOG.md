@@ -13,6 +13,7 @@ tag time. Conventions in `docs/conventions.md`.
 - CI now compares sanitiser output to the live DOM on 35 pinned tree-construction shapes in WebKit and Chromium, and fails if any node is deeper than written except implied table sections (MARXY-84)
 - KaTeX loads on first math in a document, with display blocks snapped to the grid and bundled OFL math fonts (MARXY-28)
 - MARXY-27's row now covers `packages/core/package.json` and MARXY-126's row covers `orchestration/deps.json`, so PR #124 can drop its self-widening CSV hunk and MARXY-126 can restore MARXY-76's phase entry without a boundary miss (MARXY-158)
+- `check-cards.mjs` keeps every task card, CSV row and `deps.json` entry in sync before a PR (MARXY-126)
 - Two new stories are on the board: real before/after PNGs for MARXY-138's merged-but-unmet taste-review criterion (MARXY-155), and a dispatcher guard so a headless `cursor-agent` authentication failure no longer spends an implementor's attempt budget (MARXY-156); the never-committed 2026-09-20 plan delta is backfilled (MARXY-157)
 - Code blocks can be tokenised at parse time from the Shiki grammar allow-list: twenty-five languages return scope classes only, unknown fences stay plain, and copy can recover the source text without markup (MARXY-27)
 - Every cycle now names board drift — the checkout behind origin/main, off main, or carrying uncommitted edits under `docs/plan` or `orchestration`, an open PR with no board row, an in-review story whose PR already closed — and holds dispatch while the checkout itself is stale (MARXY-117)

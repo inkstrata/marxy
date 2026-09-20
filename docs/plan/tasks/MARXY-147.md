@@ -1,7 +1,7 @@
 ---
 key: MARXY-147
 design: []
-depends: [MARXY-91]
+depends: []
 verify: [pnpm precheck, pnpm done MARXY-147]
 ---
 # retire measure-parse's three-dot diff guard now that MARXY-59 is its sanctioned user

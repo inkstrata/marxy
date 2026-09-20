@@ -1,7 +1,7 @@
 ---
 key: MARXY-110
 design: []
-depends: [MARXY-69]
+depends: [MARXY-69, MARXY-111]
 verify: [node --test scripts/lib/no-ceiling.test.mjs, pnpm done MARXY-110]
 ---
 # MARXY-110 — Stop claiming a 500 ms cold-start ceiling

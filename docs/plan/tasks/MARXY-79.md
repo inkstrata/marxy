@@ -1,7 +1,7 @@
 ---
 key: MARXY-79
 design: []
-depends: [MARXY-81]
+depends: [MARXY-81, MARXY-111]
 verify: [node --test orchestration/prompt-handshake.test.mjs, pnpm done MARXY-79]
 ---
 # MARXY-79 — Reviewer prompt writes the approval file (prompt slice)

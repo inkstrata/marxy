@@ -42,6 +42,7 @@ Before merge when you changed shell, paint, or CLI paths, run
 | Opening a PR with a body that would fail `check-pr` (or with `gh pr create --body`) | `scripts/open-pr.mjs` | after `done`, before the PR exists |
 | A commit message off convention or carrying a trailer | `.githooks/commit-msg` (commitlint + strip) | commit |
 | Skipping the gates that a change needs | `scripts/precheck.mjs` with `scripts/gates-by-path.json` | before the PR, CI runs all |
+| A task card and its CSV row disagree (missing row, Paths too narrow, deps.json orphan, or `depends:` drift) | `scripts/check-cards.mjs` | precheck |
 | A result file that omits which test checks which criterion | `orchestration/schema/result.schema.json`, validated in `review.mjs` | review |
 | Rust formatting and warnings | `pnpm lint:rust` (`cargo fmt --check`, `clippy -D warnings`) | precheck (when `src-tauri` changes), CI |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |
@@ -64,6 +65,10 @@ The 600-line branch-diff budget in `orchestration/phases.test.mjs` counts insert
   implementor can walk around. A gate is satisfied, never routed around; a check pinned to a
   source path moves with that code in the same PR.
 - Names: `scripts/registry.json` is the source; `docs/design/README.md` mirrors it for reading.
+- Board: every `docs/plan/tasks/MARXY-*.md` card has a row in `docs/plan/jira-issues.csv`, the row's
+  `Paths` cover every file path named in the card's **Files and signatures** section (same rule as
+  `check-story.mjs`), every key in `orchestration/deps.json` has a CSV row, and each card's
+  `depends:` frontmatter matches `deps.json`. Write the row and the card together or not at all.
 
 ## Writing a gate or check
 

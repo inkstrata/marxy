@@ -1,7 +1,7 @@
 ---
 key: MARXY-128
 design: [05-theme]
-depends: [MARXY-20, MARXY-23]
+depends: [MARXY-141, MARXY-20, MARXY-23]
 verify: [node --test packages/theme/test/grid.test.mjs, node packages/theme/scripts/lint-default-theme.mjs, pnpm test]
 ---
 # MARXY-128 — Tune the default theme against taste review #1

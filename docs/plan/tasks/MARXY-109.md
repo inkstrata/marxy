@@ -1,7 +1,7 @@
 ---
 key: MARXY-109
 design: [12-outline]
-depends: [MARXY-11]
+depends: [MARXY-11, MARXY-111]
 verify: [pnpm --filter @marxy/core test, pnpm done MARXY-109]
 ---
 # MARXY-109 — Extract a document outline from the AST

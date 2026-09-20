@@ -1,7 +1,7 @@
 ---
 key: MARXY-64
 design: [04-typeset]
-depends: []
+depends: [MARXY-11]
 verify: [pnpm precheck, pnpm done MARXY-64]
 ---
 # MARXY-64 — A 5,000-word prose fixture
