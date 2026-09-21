@@ -17,6 +17,12 @@ const corpusDir = join(root, 'fixtures/corpus');
 const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
+const variantIdx = process.argv.indexOf('--variant');
+const VARIANT_FILTER = variantIdx === -1 ? null : process.argv[variantIdx + 1];
+if (VARIANT_FILTER && !['dark', 'light'].includes(VARIANT_FILTER)) {
+  console.error(`aesthetics gate failed:\n - unknown --variant ${VARIANT_FILTER} (expected dark or light)`);
+  process.exit(1);
+}
 const repeatIdx = process.argv.indexOf('--repeat');
 // The CLS repeat pass re-renders the whole corpus to prove the font/image window is deterministic.
 // It is a flake detector, not an assertion: the single pass below already measures fontWindow on
@@ -90,9 +96,10 @@ function corpusFiles() {
 }
 
 function matrix() {
+  const variants = VARIANT_FILTER ? VARIANTS.filter((v) => v === VARIANT_FILTER) : VARIANTS;
   const out = [];
   for (const width of WIDTHS) {
-    for (const variant of VARIANTS) {
+    for (const variant of variants) {
       if (width === 960) {
         for (const size of SIZES) out.push({ width, variant, size });
       } else {

@@ -3,8 +3,15 @@
 // needs now, and the same two calls a user theme will go through.
 
 export type Variant = 'light' | 'dark';
+export type VariantPreference = Variant | 'auto';
 
 const THEME_ID = 'marxy-theme';
+
+/** Maps `config.variant` to the palette block the default theme applies (docs/design/05-theme.md §Loader). */
+export function resolveVariantPreference(preference: VariantPreference, prefersDark: boolean): Variant {
+  if (preference === 'auto') return prefersDark ? 'dark' : 'light';
+  return preference;
+}
 
 /** Replaces the user theme's stylesheet, injected after the built-in ones so it wins ties. */
 export function applyTheme(css: string, doc: Document = document): void {
