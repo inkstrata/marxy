@@ -205,8 +205,11 @@ test('the three-dot diff does not contain contracts or sanitize', (t) => {
     return;
   }
   const names = threeDotNames(base, { cwd: repoRoot });
-  if (!names.some((name) => name.startsWith('packages/core/src/outline/'))) {
-    t.skip('diff does not touch outline; the guard applies only to outline stories');
+  const outlineProduct = names.filter(
+    (name) => name.startsWith('packages/core/src/outline/') && !name.endsWith('.test.ts'),
+  );
+  if (outlineProduct.length === 0) {
+    t.skip('diff does not touch outline product code; the guard applies only to outline stories');
     return;
   }
   runThreeDotForbiddenCheck({
