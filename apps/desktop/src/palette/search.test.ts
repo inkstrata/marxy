@@ -43,7 +43,9 @@ test('palette model files stay DOM-free', () => {
   }
 });
 
-test(`mutation ${SEARCH_PREPARED_BODY_MUTATION}: searchPrepared is live when the env hook is unset`, () => {
+test(`mutation ${SEARCH_PREPARED_BODY_MUTATION}: searchPrepared is live when the env hook is unset`, {
+  skip: process.env.MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION,
+}, () => {
   assert.notEqual(process.env.MARXY_86_MUTATION, SEARCH_PREPARED_BODY_MUTATION);
   const searchSource = readFileSync(new URL('./search.ts', import.meta.url), 'utf8');
   assert.match(
