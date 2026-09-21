@@ -15,6 +15,7 @@ export const RULE = {
   EMPTY_ACCEPTANCE: 'empty Acceptance',
   EMPTY_PATHS: 'empty Paths',
   LANE_LIMIT: 'lane limit',
+  YIELDS_TO_PRODUCT: 'yields to product',
 };
 
 /** Concurrent In Review stories. null / 0 / omitted → uncapped. `lanes` is a different cap. */
@@ -56,29 +57,39 @@ export function selectReady({
   const excluded = [];
   const eligible = [];
 
+  // The definition of ready that does not depend on the rest of the board. A dropped story is
+  // settled, the same way plannerReasons treats the label (MARXY-120): checked before
+  // empty-Acceptance/empty-Paths so a dropped row missing them is refused for being dropped, not
+  // for looking like a badly written story.
+  const refusal = st => {
+    if (hasLabel(st, 'human-gated')) return RULE.HUMAN_GATED;
+    if (hasLabel(st, 'dropped')) return RULE.DROPPED;
+    if (!String(st.Acceptance ?? '').trim()) return RULE.EMPTY_ACCEPTANCE;
+    if (pathsOf(st).length === 0) return RULE.EMPTY_PATHS;
+    return null;
+  };
+  const inPhase = st => Number.isFinite(phaseOf(st.Key, d));
+  const phaseOpen = st => hasLabel(st, 'cross-phase') || !earlierPhaseOpen(phaseOf(st.Key, d), d, s);
+
+  // Product-over-ops (MARXY-107, MARXY-170). Sorting product first only decides between stories
+  // that are eligible in the same cycle, and ops paths (orchestration/, scripts/) almost never
+  // overlap product paths, so on its own the sort never fires: an ops story simply started first and
+  // held the corpus or the shell while a product story waited its turn behind it. A product story
+  // that is ready, or waits only on work already under way, therefore reserves its paths against
+  // ops even while it is not startable itself. One waiting on a story that has not started reserves
+  // nothing, so an ops story it depends on is never held by it.
+  const underway = k => done(k) || occupies(statusOf(k));
+  const reserved = all.filter(st => inPhase(st) && statusOf(st.Key) === 'todo' && !refusal(st) && phaseOpen(st)
+    && (d.deps[st.Key] ?? []).every(underway));
+
   for (const st of all) {
     if (statusOf(st.Key) !== 'todo') continue;
-    if (hasLabel(st, 'human-gated')) {
-      excluded.push({ key: st.Key, rule: RULE.HUMAN_GATED });
+    const rule = refusal(st);
+    if (rule) {
+      excluded.push({ key: st.Key, rule });
       continue;
     }
-    // A dropped story is settled, the same way plannerReasons treats the label (MARXY-120):
-    // checked before empty-Acceptance/empty-Paths so a dropped row missing them is refused
-    // for being dropped, not for looking like a badly written story.
-    if (hasLabel(st, 'dropped')) {
-      excluded.push({ key: st.Key, rule: RULE.DROPPED });
-      continue;
-    }
-    if (!String(st.Acceptance ?? '').trim()) {
-      excluded.push({ key: st.Key, rule: RULE.EMPTY_ACCEPTANCE });
-      continue;
-    }
-    if (pathsOf(st).length === 0) {
-      excluded.push({ key: st.Key, rule: RULE.EMPTY_PATHS });
-      continue;
-    }
-    const phase = phaseOf(st.Key, d);
-    if (!hasLabel(st, 'cross-phase') && earlierPhaseOpen(phase, d, s)) {
+    if (!phaseOpen(st)) {
       blockedByDeps.push(st.Key);
       continue;
     }
@@ -90,12 +101,19 @@ export function selectReady({
       blockedByPaths.push(st.Key);
       continue;
     }
+    if (!inPhase(st)) {
+      const to = reserved.filter(p => overlap(pathsOf(st), pathsOf(p))).map(p => p.Key);
+      if (to.length) {
+        blockedByPaths.push(st.Key);
+        excluded.push({ key: st.Key, rule: RULE.YIELDS_TO_PRODUCT, to });
+        continue;
+      }
+    }
     eligible.push(st);
   }
 
-  // Product phases pick first: an ops story loses a contested path, so process
-  // work cannot starve the page (MARXY-107). The sort is stable.
-  const inPhase = st => Number.isFinite(phaseOf(st.Key, d));
+  // Product phases still pick first among what remains, so a lane cap cannot starve the page either.
+  // The sort is stable.
   eligible.sort((a, b) => Number(inPhase(b)) - Number(inPhase(a)));
   const picked = [];
   const pickedPaths = [];
