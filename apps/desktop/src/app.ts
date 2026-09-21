@@ -1,5 +1,5 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
-import { parseMarkdown, type Document } from '@marxy/core';
+import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
@@ -10,6 +10,19 @@ import { ensureNoticesRegion } from './notices/index.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { runDeferredStartup, whenIdle } from './startup/idle-work.ts';
+import { currentPosition, restoreScrollToPosition } from './position/index.ts';
+import { defaultModeForPath } from './source/default-mode.ts';
+import { leaveSourceMode } from './source/buffer-commit.ts';
+
+/** Minimal surface used by the shell; CM6 types stay on the lazy chunk (MARXY-33). */
+interface MountedSourceEditor {
+  docText(): string;
+  scrollToByte(byteOffset: number): void;
+  readonly view: {
+    scrollDOM: HTMLElement;
+    lineBlockAtHeight(height: number): { from: number };
+  };
+}
 
 /** The Phase 0 shell surface: frozen Shell members tauri.ts already implements, plus startup extras. */
 export type AppShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks'> & {
@@ -36,11 +49,138 @@ export type AppHandle = {
   commands(): readonly unknown[];
   readonly shell: AppShell;
   readonly ready: Promise<void>;
+  /** Playwright harness: buffer fingerprint and reading position (MARXY-169). */
+  sourceHarness(): {
+    readonly mode: 'rendered' | 'source';
+    readonly bufferHash: string;
+    readonly byteOffset: number;
+  } | null;
 };
 
 const t0 = Date.now();
 
 const state: { document: OpenDocument | null } = { document: null };
+
+let openPath: string | null = null;
+let documentBuffer: Buffer | null = null;
+let viewMode: 'rendered' | 'source' = 'rendered';
+let sourceEditor: MountedSourceEditor | null = null;
+let keysInstalled = false;
+let lastReadingByteOffset = 0;
+let lastReadingFraction = 0;
+let modeToggleBusy = false;
+
+function readingScroller(): HTMLElement {
+  return document.documentElement;
+}
+
+function sourceMount(): HTMLElement {
+  let host = document.getElementById('marxy-source');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'marxy-source';
+    host.hidden = true;
+    document.body.appendChild(host);
+  }
+  return host;
+}
+
+function setModeChrome(mode: 'rendered' | 'source'): void {
+  const doc = document.getElementById('doc')!;
+  const host = sourceMount();
+  viewMode = mode;
+  document.body.dataset.marxyMode = mode;
+  if (mode === 'source') {
+    doc.hidden = true;
+    host.hidden = false;
+  } else {
+    doc.hidden = false;
+    host.hidden = true;
+  }
+}
+
+async function ensureSourceEditor(): Promise<MountedSourceEditor> {
+  if (sourceEditor) return sourceEditor;
+  if (!documentBuffer) throw new Error('source editor requires an open buffer');
+  const { createSourceEditor } = await import('./source/editor.ts');
+  sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer: documentBuffer, lineNumbers: false });
+  return sourceEditor;
+}
+
+async function showSource(byteOffset: number): Promise<void> {
+  lastReadingByteOffset = byteOffset;
+  const editor = await ensureSourceEditor();
+  setModeChrome('source');
+  editor.scrollToByte(byteOffset);
+}
+
+async function showRendered(byteOffset: number, fraction: number): Promise<void> {
+  setModeChrome('rendered');
+  if (state.document && openPath) {
+    restoreScrollToPosition(readingScroller(), state.document.blocks, {
+      path: openPath,
+      byteOffset,
+      fraction,
+      mode: 'rendered',
+    });
+  }
+}
+
+async function enterSourceFromRendered(): Promise<void> {
+  if (!documentBuffer || !state.document || !openPath) return;
+  const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+  lastReadingByteOffset = pos.byteOffset;
+  lastReadingFraction = pos.fraction;
+  await showSource(pos.byteOffset);
+}
+
+async function leaveSourceForRendered(): Promise<void> {
+  if (!sourceEditor || !documentBuffer) return;
+  const docText = sourceEditor.docText();
+  const left = leaveSourceMode(documentBuffer, docText);
+  documentBuffer = left.buffer;
+  let byteOffset = lastReadingByteOffset;
+  let fraction = lastReadingFraction;
+  if (left.changed) {
+    const { sourceVisibleByteOffset } = await import('./source/mode-switch.ts');
+    byteOffset = sourceVisibleByteOffset(documentBuffer, sourceEditor.view as never);
+    fraction = 0;
+  }
+  lastReadingByteOffset = byteOffset;
+  lastReadingFraction = fraction;
+  await showRendered(byteOffset, fraction);
+}
+
+async function toggleViewMode(): Promise<void> {
+  if (modeToggleBusy || !documentBuffer) return;
+  modeToggleBusy = true;
+  try {
+    if (viewMode === 'rendered') await enterSourceFromRendered();
+    else await leaveSourceForRendered();
+  } finally {
+    modeToggleBusy = false;
+  }
+}
+
+function installKeyDispatcher(): void {
+  if (keysInstalled) return;
+  keysInstalled = true;
+  document.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+    if (e.key !== 'e' && e.key !== 'E') return;
+    e.preventDefault();
+    void toggleViewMode();
+  });
+}
+
+function sourceHarness(): ReturnType<AppHandle['sourceHarness']> {
+  if (!documentBuffer || !openPath) return null;
+  const byteOffset =
+    viewMode === 'rendered' && state.document
+      ? currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered').byteOffset
+      : lastReadingByteOffset;
+  return { mode: viewMode, bufferHash: contentHash(documentBuffer.bytes), byteOffset };
+}
 
 /**
  * Counts animation frames from the moment the script runs, independently of anything below. The
@@ -164,6 +304,10 @@ async function boot(): Promise<void> {
   }
 
   const bytes = await shell.readFile(file);
+  openPath = file;
+  documentBuffer = createBuffer(file, bytes);
+  sourceMount();
+  installKeyDispatcher();
   await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
   // One parse, then the sanitised render from that AST — not a second parser (ADR-0001, ADR-0021).
   const ast = parseMarkdown(bytes, { file });
@@ -233,6 +377,11 @@ async function boot(): Promise<void> {
       imageCtx: { shell, scopedRoots: scopedAssetRoots },
     }),
   );
+  if (defaultModeForPath(file) === 'source') {
+    await showSource(0);
+  } else {
+    setModeChrome('rendered');
+  }
   return finish(0);
 }
 
@@ -252,6 +401,7 @@ export async function startApp(injected: AppShell, opts?: { argv?: readonly stri
     commands() { return []; },
     shell: injected,
     ready,
+    sourceHarness,
   };
   try {
     await boot();
