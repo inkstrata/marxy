@@ -4,11 +4,12 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
-import { after, before, test as nodeTest } from 'node:test';
+import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
 import { contentHash } from '../../../packages/core/src/buffer/buffer.ts';
+import { forbiddenStaticImportsFromEntry } from '../src/startup/static-import-graph.test.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -16,34 +17,41 @@ const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_T
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
 const repoRoot = new URL('../../../', import.meta.url).pathname;
+const desktopSrc = join(repoRoot, 'apps', 'desktop', 'src');
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
-const outDir = mkdtempSync(join(tmpdir(), 'marxy-source-shell-'));
-let server;
-let base;
-
 const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-before(async () => {
-  if (skip) return;
-  await build({ root: new URL('..', import.meta.url).pathname, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
-  const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.txt': 'text/plain', '.css': 'text/css' };
-  server = createServer((req, res) => {
-    const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    const path = join(outDir, pathname.endsWith('/') ? `${pathname}index.html` : pathname);
-    if (!existsSync(path)) { res.statusCode = 404; return res.end(); }
-    res.setHeader('Content-Type', types[extname(path)] ?? 'application/octet-stream');
-    res.end(readFileSync(path));
-  });
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  base = `http://127.0.0.1:${server.address().port}/`;
-});
-after(() => server?.close());
+/** Lazy Vite build + static server so static checks finish before this runs (palette perf budget). */
+let harnessPromise;
+let closeHarness = () => {};
+async function harnessBase() {
+  if (!harnessPromise) {
+    harnessPromise = (async () => {
+      const outDir = mkdtempSync(join(tmpdir(), 'marxy-source-shell-'));
+      await build({ root: join(repoRoot, 'apps', 'desktop'), logLevel: 'silent', build: { outDir, emptyOutDir: true } });
+      const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.txt': 'text/plain', '.css': 'text/css' };
+      const server = createServer((req, res) => {
+        const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+        const path = join(outDir, pathname.endsWith('/') ? `${pathname}index.html` : pathname);
+        if (!existsSync(path)) { res.statusCode = 404; return res.end(); }
+        res.setHeader('Content-Type', types[extname(path)] ?? 'application/octet-stream');
+        res.end(readFileSync(path));
+      });
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+      closeHarness = () => server.close();
+      return `http://127.0.0.1:${server.address().port}/`;
+    })();
+  }
+  return harnessPromise;
+}
+after(() => closeHarness());
 
 function b64(path) {
   return readFileSync(path).toString('base64');
 }
 
 async function boot(page, files, argv) {
+  const base = await harnessBase();
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
@@ -53,36 +61,14 @@ async function boot(page, files, argv) {
   }, { files, argv });
 }
 
-function startupBundleText() {
-  const html = readFileSync(join(outDir, 'index.html'), 'utf8');
-  const queue = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1].replace(/^\.\//, ''));
-  const walked = new Set();
-  const chunks = [];
-  while (queue.length) {
-    const src = queue.pop();
-    if (walked.has(src)) continue;
-    walked.add(src);
-    const file = join(outDir, src);
-    if (!existsSync(file)) continue;
-    const text = readFileSync(file, 'utf8');
-    chunks.push(text);
-    for (const m of text.matchAll(/from\s*["'](\.?\.?\/[^"']+)["']/g)) {
-      queue.push(new URL(m[1], `file:///${src}`).pathname.replace(/^\//, ''));
-    }
-  }
-  return chunks.join('\n');
-}
-
 nodeTest('app.ts does not statically import @codemirror (startup deferral)', () => {
-  const app = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'app.ts'), 'utf8');
+  const app = readFileSync(join(desktopSrc, 'app.ts'), 'utf8');
   assert.doesNotMatch(app, /@codemirror/);
 });
 
-nodeTest('production index startup graph excludes CodeMirror until Mod+E', () => {
-  if (skip) return;
-  const bundle = startupBundleText();
-  assert.doesNotMatch(bundle, /@codemirror/);
-  assert.doesNotMatch(bundle, /lang-rust/);
+nodeTest('main.ts static import walk still excludes CodeMirror after app wiring', () => {
+  const hits = forbiddenStaticImportsFromEntry(desktopSrc).filter((h) => /@codemirror/.test(h.spec));
+  assert.equal(hits.length, 0, hits.map((h) => `${h.from} → ${h.spec}`).join('; '));
 });
 
 test('04-source.rs opens in Source: #marxy-source visible, #doc hidden', async () => {
