@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT } from './lib.mjs';
+import { ROOT, here, readJson } from './lib.mjs';
 
 export const DETACHED_AGE_HOURS = 24;
 
@@ -12,14 +12,21 @@ export function removeArgs(path) {
   return ['worktree', 'remove', path];
 }
 
+/** Branches of stories an implementor is working on right now, from the board mirror. Reads
+ * state.json without creating it: lib.state() seeds a missing file, and a prune must not write. */
+export function inProgressBranches(s = existsSync(here('state.json')) ? readJson(here('state.json')) : {}) {
+  return Object.values(s.stories ?? {}).filter(r => r.status === 'in_progress' && r.branch).map(r => r.branch);
+}
+
 /**
  * @param {Array<{ path: string, branch: string | null, detached: boolean, dirty: boolean, prState: string | null, ageHours: number }>} entries
- * @param {{ orchestratorPath?: string }} [opts]
+ * @param {{ orchestratorPath?: string, activeBranches?: string[] }} [opts]
  */
-export function prunePlan(entries, { orchestratorPath = ROOT } = {}) {
+export function prunePlan(entries, { orchestratorPath = ROOT, activeBranches = [] } = {}) {
   const remove = [];
   const keep = [];
   const orch = resolve(orchestratorPath);
+  const active = new Set(activeBranches);
 
   for (const entry of entries) {
     const at = resolve(entry.path);
@@ -29,6 +36,12 @@ export function prunePlan(entries, { orchestratorPath = ROOT } = {}) {
     }
     if (entry.dirty) {
       keep.push({ ...entry, reason: 'uncommitted work' });
+      continue;
+    }
+    // A second attempt reuses the branch, and the first attempt's PR may already be closed. A
+    // fresh worktree is clean, so "closed" alone would remove it from under the implementor.
+    if (entry.branch && active.has(entry.branch)) {
+      keep.push({ ...entry, reason: 'story in progress' });
       continue;
     }
     if (entry.prState === 'OPEN') {
@@ -80,10 +93,31 @@ function defaultSh(cmd, args, opts = {}) {
   }
 }
 
+/** `gh pr list` defaults to open PRs only, so without --state a merged branch looks PR-less. */
+export function prListArgs(branch) {
+  return ['pr', 'list', '--head', branch, '--state', 'all', '--limit', '100', '--json', 'state'];
+}
+
+/**
+ * One state for a branch that may have had several PRs. A live PR outranks a landed one, and a
+ * landed one outranks an abandoned one, so a closed first attempt never hides the open second.
+ */
+export function pickPrState(raw) {
+  let rows;
+  try {
+    rows = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(rows)) return null;
+  const states = new Set(rows.map(r => r?.state));
+  return ['OPEN', 'MERGED', 'CLOSED'].find(s => states.has(s)) ?? null;
+}
+
 function prStateForBranch(branch, gh) {
   if (!branch) return null;
-  const raw = gh(['pr', 'list', '--head', branch, '--json', 'state', '-q', '.[0].state']);
-  return typeof raw === 'string' && raw ? raw : null;
+  const raw = gh(prListArgs(branch));
+  return typeof raw === 'string' && raw ? pickPrState(raw) : null;
 }
 
 function worktreeAgeHours(wtPath, gitAtRoot) {
@@ -137,9 +171,10 @@ export function runWorktreePrune({
   git,
   gh,
   gather,
+  activeBranches = inProgressBranches(),
 } = {}) {
   const entries = gather ? gather() : gatherWorktreeEntries({ root, git, gh });
-  const plan = prunePlan(entries, { orchestratorPath: root });
+  const plan = prunePlan(entries, { orchestratorPath: root, activeBranches });
   const gitAtRoot = git ?? (a => defaultSh('git', a, { cwd: root }));
   for (const entry of plan.remove) {
     say(`worktree remove ${entry.path} — ${entry.reason}`);
