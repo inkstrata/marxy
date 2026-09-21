@@ -8,7 +8,9 @@
 <style>
   /* The empty state only; the document is styled by the default theme above (MARXY-20). */
   .marxy-empty { color: var(--marxy-color-text-secondary); font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
+  /* Source mode mount (§09); visible only while `data-marxy-mode="source"`. */
+  #marxy-source:not([hidden]) { position: fixed; inset: 0; overflow: auto; }
 </style>
 </head>
-<body><article id="doc" class="marxy-article"></article><script type="module" src="./src/main.ts"></script></body>
+<body data-marxy-mode="rendered"><article id="doc" class="marxy-article"></article><div id="marxy-source" hidden></div><script type="module" src="./src/main.ts"></script></body>
 </html>
