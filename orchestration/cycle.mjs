@@ -64,6 +64,7 @@ export function processReviewQueue({
   finish = () => {},
   reviewNote = () => '',
   diffFiles = () => [],
+  codeOwners = () => null,
   commitMessages = () => '',
   storyOf = () => null,
   verifyApproval = () => ({ ok: false }),
@@ -117,6 +118,7 @@ export function processReviewQueue({
       attribution: trailer,
       approval,
       mergeUnreviewed,
+      codeowners: codeOwners(),
     });
 
     // A branch cut before main moved was tested against a main that no longer exists. Refresh it and
@@ -230,7 +232,7 @@ function runCycle(argv = process.argv.slice(2)) {
     dry: DRY,
     noMerge: NO_MERGE,
     viewPr: pr => {
-      const view = gh(['pr', 'view', String(pr), '--json', 'state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,headRefName,headRefOid,autoMergeRequest,files']);
+      const view = gh(['pr', 'view', String(pr), '--json', 'state,mergeable,mergeStateStatus,reviewDecision,latestReviews,statusCheckRollup,headRefName,headRefOid,autoMergeRequest,files']);
       return view ? JSON.parse(view) : null;
     },
     updateBranch: pr => sh('gh', ['pr', 'update-branch', String(pr)]),
@@ -275,6 +277,9 @@ function runCycle(argv = process.argv.slice(2)) {
       const r = sh('git', ['diff', '--name-only', `origin/main...origin/${headRefName}`]);
       return typeof r === 'string' ? r.split('\n').filter(Boolean) : [];
     },
+    // The base branch's file is the one GitHub applies; a PR cannot rewrite its own reviewers.
+    // null when unreadable, so the merge bar holds instead of treating the repo as unowned.
+    codeOwners: () => { const r = sh('git', ['show', 'origin/main:.github/CODEOWNERS']); return typeof r === 'string' ? r : null; },
     commitMessages: headRefName => sh('git', ['log', `origin/main..origin/${headRefName}`, '--format=%B']),
     storyOf: key => stories().find(x => x.Key === key),
     verifyApproval: (key, head) => verify(here(`results/${key}.approved`), head),

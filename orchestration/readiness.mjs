@@ -10,31 +10,15 @@ import { pathToFileURL } from 'node:url';
 import { ROOT, here, readJson, stories, state, deps, pathsOf, pathMatches } from './lib.mjs';
 import { classifyChecks, evaluate } from './merge-bar.mjs';
 import { verify } from './approve.mjs';
+import { codeOwnerPatterns, ownedBy } from './codeowners.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
 
-export { evaluate, verify, computeOrder };
+export { evaluate, verify, computeOrder, codeOwnerPatterns, ownedBy };
 
 /** GitHub login on CODEOWNERS and the repo; the account the overlay names. */
 export const IAN = 'inkstrata';
 
 const EXTRAS = ['CHANGELOG.md', 'docs/taste-review/queue.md', 'pnpm-lock.yaml'];
-
-/** CODEOWNERS lines as `{ pattern, owners }` with the leading slash stripped. */
-export function codeOwnerPatterns(text) {
-  return String(text ?? '')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l && !l.startsWith('#'))
-    .map(l => {
-      const [pattern, ...owners] = l.split(/\s+/);
-      return { pattern: pattern.replace(/^\//, ''), owners: owners.map(o => o.replace(/^@/, '')) };
-    })
-    .filter(p => p.pattern);
-}
-
-export function ownedBy(patterns, file) {
-  return patterns.some(p => (p.pattern.endsWith('/') ? file.startsWith(p.pattern) : file === p.pattern));
-}
 
 export function ciConclusion(pr) {
   const { checks, red, pending } = classifyChecks(pr.statusCheckRollup);
@@ -148,13 +132,14 @@ export function collect({
   mergeUnreviewed = false,
 } = {}) {
   if (!Array.isArray(prs)) throw new Error('collect requires prs');
-  const patterns = codeOwnerPatterns(
-    codeownersText !== undefined
-      ? codeownersText
-      : existsSync(`${ROOT}.github/CODEOWNERS`)
-        ? readFileSync(`${ROOT}.github/CODEOWNERS`, 'utf8')
-        : '',
-  );
+  // Read once and hand the same text to the bar, so the table cannot name an owner the cycle ignores.
+  // A missing file is null, not '': the bar holds on it rather than treating the repo as unowned.
+  const codeowners = codeownersText !== undefined
+    ? codeownersText
+    : existsSync(`${ROOT}.github/CODEOWNERS`)
+      ? readFileSync(`${ROOT}.github/CODEOWNERS`, 'utf8')
+      : null;
+  const patterns = codeOwnerPatterns(codeowners);
   const storyList = all ?? stories();
   const rows = prs.map(pr => {
     const key = storyKeyOf(pr);
@@ -180,6 +165,7 @@ export function collect({
       attribution: false,
       approval,
       mergeUnreviewed,
+      codeowners,
     });
     const waiting = waitingOn({ pr, files, decision, patterns });
     return {
@@ -216,7 +202,7 @@ function livePrs() {
         '--limit',
         '200',
         '--json',
-        'number,title,url,headRefName,headRefOid,state,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,createdAt,files,author',
+        'number,title,url,headRefName,headRefOid,state,mergeable,mergeStateStatus,reviewDecision,latestReviews,statusCheckRollup,createdAt,files,author',
       ],
       { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 },
     ).trim(),

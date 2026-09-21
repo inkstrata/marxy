@@ -171,6 +171,8 @@ test('a PR from Ian touching a CODEOWNERS path waits for Ian even if CI is green
     stories: [story('MARXY-9', '.github/workflows')],
     codeownersText: '/.github/ @inkstrata\n',
   });
+  // The bar used to say `merge` here and left the wait to readiness alone, so the cycle would have
+  // landed it (MARXY-172). It now holds on the owned path itself.
   const decision = mergeBarEvaluate({
     pr: ian,
     files: ['.github/workflows/ci.yml', 'CHANGELOG.md'],
@@ -178,8 +180,11 @@ test('a PR from Ian touching a CODEOWNERS path waits for Ian even if CI is green
     result: { status: 'done' },
     attribution: false,
     approval: { ok: true, head: HEAD },
+    codeowners: '/.github/ @inkstrata\n',
   });
-  assert.equal(decision.action, 'merge');
+  assert.equal(decision.action, 'hold');
+  assert.match(decision.reasons.join('\n'), /human review required \(CODEOWNERS\): \.github\/workflows\/ci\.yml/);
+  assert.equal(rows[0].action, 'hold');
   assert.equal(rows[0].ci, 'green');
   assert.equal(rows[0].waitingOn, 'Ian');
   assert.match(rows[0].next, /Ian/);
