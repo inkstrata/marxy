@@ -86,7 +86,6 @@ nested fence
 <img src="image2.png" alt="Reference image" data-marxy-s="1482" data-marxy-e="1505" /></p>
 Raw HTML block
 <p data-marxy-s="1570" data-marxy-e="1590">Content inside HTML.</p>
-
 <p data-marxy-s="1604" data-marxy-e="1692">Inline <kbd>Ctrl</kbd>+<kbd>C</kbd> HTML and styled span.</p>
 <p data-marxy-s="1694" data-marxy-e="1749">Term
 : Definition (not GFM; must render as a paragraph)</p>

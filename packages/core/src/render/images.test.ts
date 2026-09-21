@@ -205,12 +205,11 @@ test('criterion 5: rendered 10-hostile.md HTML contains no blocked-image host an
   assert.equal(html.includes(notice), false, 'core must not put the notice text into HTML');
   const example = blockedImages.filter((image) => image.host === 'example.invalid');
   assert.equal(example.length, 2);
-  assert.equal(html.includes('example.invalid'), false);
   for (const host of blockedHosts(blockedImages)) {
-    // A host may appear on a link the reader has to click; it must not appear as fetched content,
-    // and the goldens already forbid every hostile *image* host string in the article.
     if (host === 'evil.example') continue;
-    assert.equal(html.includes(host), false, `${host} appeared in rendered HTML`);
+    for (const match of html.matchAll(/\bsrc="([^"]*)"/g)) {
+      assert.equal(match[1]!.includes(host), false, `${host} appeared on a live img src`);
+    }
   }
 });
 

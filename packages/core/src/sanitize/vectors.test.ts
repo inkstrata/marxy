@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';
 import { renderSafeHtml } from '../render/pipeline.ts';
 import { renderToUnsanitisedHtml } from '../render/render-html.ts';
-import { RENDERED_POLICY } from './policy.ts';
+import { DEFAULT_POLICY, RENDERED_POLICY, WIDE_POLICY, WIDE_RENDERED_POLICY } from './policy.ts';
 import { sanitizeHtml } from './sanitize-html.ts';
 import { VECTORS, attributesOf, checkAllVectors, elementsOf } from './testing/vectors.ts';
 
@@ -58,6 +58,20 @@ test('every vector is enumerated with a reason and a probe', () => {
     assert.ok(vector.probe.length > 0, `${vector.id} must carry a probe`);
   }
 });
+
+for (const [label, checkPolicy, renderPolicy] of [
+  ['default', RENDERED_POLICY, DEFAULT_POLICY],
+  ['wide', WIDE_RENDERED_POLICY, WIDE_POLICY],
+] as const) {
+  test(`wide-still-no-script: every vector passes under ${label}`, () => {
+    for (const vector of VECTORS) {
+      const html = vector.probeHtml === undefined
+        ? renderSafeHtml(vector.probe, { file: `probe/${vector.id}.md`, policy: renderPolicy }).html
+        : sanitizeHtml(vector.probeHtml, renderPolicy).html;
+      vector.check(html, checkPolicy);
+    }
+  });
+}
 
 for (const vector of VECTORS) {
   test(`${vector.id}: the pipeline neutralises its probe`, () => {

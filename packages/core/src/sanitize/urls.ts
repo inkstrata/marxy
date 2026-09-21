@@ -15,6 +15,8 @@ export interface UrlDecision {
   readonly resolved?: string;
   /** Whether the value addresses an authority of its own rather than the document's. */
   readonly absolute?: boolean;
+  /** Lowercase scheme when the value is absolute; present on refusals so callers need not re-parse. */
+  readonly scheme?: string;
   /** Why it was refused, for the notice that will read the removal report (MARXY-26, MARXY-44). */
   readonly reason?: string;
 }
@@ -58,7 +60,10 @@ export function sanitizeUrl(raw: string, context: UrlContext, policy: Policy): U
 
   const scheme = here.protocol.slice(0, -1).toLowerCase();
   if (!policy.urlSchemes[context].includes(scheme)) {
-    return { allowed: false, value, resolved: here.href, absolute: true, reason: `scheme ${scheme}: is not allowed in a ${context}` };
+    return {
+      allowed: false, value: here.href, resolved: here.href, absolute: true, scheme,
+      reason: `scheme ${scheme}: is not allowed in a ${context}`,
+    };
   }
   // Emitted in its parsed form: what the browser will actually use, with the host in its canonical
   // spelling, so a confusable or punycoded host cannot read as one thing here and another there.

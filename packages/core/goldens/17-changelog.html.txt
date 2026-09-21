@@ -1,4 +1,3 @@
-
 <h1 data-marxy-s="86" data-marxy-e="97">Changelog</h1>
 <p data-marxy-s="99" data-marxy-e="242">All notable changes to <code data-marxy-s="122" data-marxy-e="129">shelf</code> are recorded here. Dates are the day the
 tag was cut. Compare links go to <code data-marxy-s="204" data-marxy-e="221">example.invalid</code> and are not fetched.</p>

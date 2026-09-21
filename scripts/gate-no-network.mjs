@@ -32,7 +32,7 @@ import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { renderSafeHtml, renderToUnsanitisedHtml } from '../packages/core/src/render/index.ts';
 import { parseMarkdown } from '../packages/core/src/parse/parse.ts';
 import { sanitizeHtml } from '../packages/core/src/sanitize/sanitize-html.ts';
-import { BLOCK_ELEMENTS, RENDERED_POLICY } from '../packages/core/src/sanitize/policy.ts';
+import { BLOCK_ELEMENTS, RENDERED_POLICY, WIDE_POLICY, WIDE_RENDERED_POLICY } from '../packages/core/src/sanitize/policy.ts';
 import { GATE_DOCUMENT_DIRECTORY, GATE_DOCUMENT_ORIGIN } from '../packages/core/src/sanitize/document-origin.ts';
 import { VECTORS } from '../packages/core/src/sanitize/testing/vectors.ts';
 import { formatObservabilityReport } from '../packages/core/scripts/gate-observability.ts';
@@ -83,18 +83,17 @@ const controlPage = [
 
 const page = (body) => `<!doctype html><html><head><meta charset="utf-8"></head><body><article id="doc">\n${body}\n</article></body></html>`;
 
-/**
- * The allow-list as two flat lists, for the check that runs inside the browser. The pipeline's
- * output is held to the default list plus the two provenance attributes (ADR-0023).
- */
-const allowed = {
-  elements: Object.keys(RENDERED_POLICY.elements),
-  attributes: Object.fromEntries(Object.entries(RENDERED_POLICY.elements).map(([element, rule]) => [
+/** Flat allow-lists for the live-DOM check, one per policy the gate renders under (MARXY-96). */
+const buildAllowed = (policy) => ({
+  elements: Object.keys(policy.elements),
+  attributes: Object.fromEntries(Object.entries(policy.elements).map(([element, rule]) => [
     element,
-    [...Object.keys(RENDERED_POLICY.globalAttributes), ...Object.keys(rule.attributes ?? {}), ...Object.keys(rule.forced ?? {})],
+    [...Object.keys(policy.globalAttributes), ...Object.keys(rule.attributes ?? {}), ...Object.keys(rule.forced ?? {})],
   ])),
   blocks: [...BLOCK_ELEMENTS],
-};
+});
+const allowedDefault = buildAllowed(RENDERED_POLICY);
+const allowedWide = buildAllowed(WIDE_RENDERED_POLICY);
 
 const report = {
   files: files.length, vectors: VECTORS.length, controls: {}, contained: [], escaped: [], remote: [],
@@ -197,7 +196,7 @@ for (const engine of [webkit, chromium]) {
   }, [unsanitised, sanitised]).catch((error) => [`#parity-unreadable (${String(error).slice(0, 60)})`]);
 
   /** Loads a document at its own path in the corpus directory and reports what it attempted. */
-  const run = async (html, where = 'document.html') => {
+  const run = async (html, where = 'document.html', allowList = allowedDefault) => {
     body = page(html);
     documentUrl = new URL(where, GATE_DOCUMENT_DIRECTORY).href;
     observed = [];
@@ -247,8 +246,8 @@ for (const engine of [webkit, chromium]) {
       : collected === null
         ? ['#host-missing']
         : [
-          ...findAllowListViolations(collected, allowed.elements, allowed.attributes),
-          ...findContainmentViolations(collected, allowed.blocks),
+          ...findAllowListViolations(collected, allowList.elements, allowList.attributes),
+          ...findContainmentViolations(collected, allowList.blocks),
         ];
     const classified = unique.map((url) => ({ url, kind: classifyRequestUrl(url, GATE_DOCUMENT_ORIGIN, directory) }));
     return {
@@ -303,8 +302,8 @@ for (const engine of [webkit, chromium]) {
     `${name}: a reference six levels above the document was not seen to leave its directory, so the containment check cannot fail and proves nothing`);
   report.controls[`${name}/traversal-escaped`] = traversal.escaped.length;
 
-  const sweep = async (label, html, source, where, unsanitised) => {
-    const result = await run(html, where);
+  const sweep = async (label, html, source, where, unsanitised, allowList = allowedDefault) => {
+    const result = await run(html, where, allowList);
     for (const url of result.remote) report.remote.push(`${name} ${label} ${url.slice(0, 160)}`);
     for (const url of result.escaped) report.escaped.push(`${name} ${label} ${url.slice(0, 160)}`);
     for (const violation of result.violations) report.violations.push(`${name} ${label} ${violation}`);
@@ -330,8 +329,11 @@ for (const engine of [webkit, chromium]) {
     const { html, removed } = renderSafeHtml(source, { file });
     check('rendered-not-empty', !isRenderedBlank(html, source),
       `${name}: ${file} rendered to nothing, so asserting over it would prove nothing`);
-    await sweep(file, html, source, `${file}.html`, renderToUnsanitisedHtml(parseMarkdown(source, { file })));
-    report.rendered[file] = { bytes: html.length, removed: removed.length };
+    const unsanitised = renderToUnsanitisedHtml(parseMarkdown(source, { file }));
+    await sweep(file, html, source, `${file}.html`, unsanitised, allowedDefault);
+    const wide = renderSafeHtml(source, { file, policy: WIDE_POLICY });
+    await sweep(`${file}:wide`, wide.html, source, `${file}.wide.html`, unsanitised, allowedWide);
+    report.rendered[file] = { bytes: html.length, removed: removed.length, wideBytes: wide.html.length };
   }
 
   // Every named vector, in a real browser. The two exploits that reached `evil.example` from a

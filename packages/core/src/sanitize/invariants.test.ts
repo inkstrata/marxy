@@ -9,7 +9,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { DEFAULT_POLICY } from './policy.ts';
+import { DEFAULT_POLICY, RENDERED_POLICY, withProvenance } from './policy.ts';
 import { sanitizeHtml } from './sanitize-html.ts';
 import { VECTORS } from './testing/vectors.ts';
 
@@ -79,20 +79,21 @@ const BLOCK = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'u
 
 test('every generated input holds every invariant the boundary is supposed to have', () => {
   const next = random(20_260_918);
-  const allowed = new Set(Object.keys(DEFAULT_POLICY.elements));
-  const globals = new Set(Object.keys(DEFAULT_POLICY.globalAttributes));
+  const policy = withProvenance(DEFAULT_POLICY);
+  const allowed = new Set(Object.keys(RENDERED_POLICY.elements));
+  const globals = new Set(Object.keys(RENDERED_POLICY.globalAttributes));
   let checked = 0;
 
   for (let iteration = 0; iteration < 20_000; iteration += 1) {
     const input = generate(next, 1 + Math.floor(next() * 8));
-    const { html } = sanitizeHtml(input);
+    const { html } = sanitizeHtml(input, policy);
     const context = () => `input ${JSON.stringify(input)}\noutput ${JSON.stringify(html)}`;
 
     // 1. Nothing outside the allow-list, and no attribute outside the element's own rule.
     const { elements, open } = tree(html);
     for (const element of elements) {
       assert.ok(allowed.has(element.name), `${element.name} is not allow-listed\n${context()}`);
-      const rule = DEFAULT_POLICY.elements[element.name]!;
+      const rule = RENDERED_POLICY.elements[element.name]!;
       for (const attribute of element.attributes) {
         const permitted = globals.has(attribute) || rule.attributes?.[attribute] !== undefined || rule.forced?.[attribute] !== undefined;
         assert.ok(permitted, `${element.name}[${attribute}] is not allow-listed\n${context()}`);
@@ -118,11 +119,11 @@ test('every generated input holds every invariant the boundary is supposed to ha
     }
 
     // 4. Idempotent: the boundary can be crossed twice, which is what makes it a boundary.
-    assert.equal(sanitizeHtml(html).html, html, `a second pass changed the output\n${context()}`);
+    assert.equal(sanitizeHtml(html, policy).html, html, `a second pass changed the output\n${context()}`);
 
     // 5. And every named vector agrees, on a sample, because the vectors are the expensive check.
     if (iteration % 25 === 0) {
-      for (const vector of VECTORS) vector.check(html, DEFAULT_POLICY);
+      for (const vector of VECTORS) vector.check(html, RENDERED_POLICY);
       checked += 1;
     }
   }

@@ -4,8 +4,8 @@
 export { sanitizeHtml } from './sanitize-html.ts';
 export type { Removal, SanitizeResult } from './sanitize-html.ts';
 export {
-  BLOCK_ELEMENTS, DEFAULT_POLICY, FOREIGN_ROOTS, PROVENANCE_ATTRIBUTES, RAW_TEXT_ELEMENTS, RENDERED_POLICY, VOID_ELEMENTS,
-  withProvenance,
+  BLOCK_ELEMENTS, DEFAULT_POLICY, FOREIGN_ROOTS, PROVENANCE_ATTRIBUTES, RAW_TEXT_ELEMENTS, RENDERED_POLICY,
+  VOID_ELEMENTS, WIDE_POLICY, WIDE_RENDERED_POLICY, policyFor, withProvenance,
 } from './policy.ts';
 export { GATE_DOCUMENT_DIRECTORY, GATE_DOCUMENT_ORIGIN, RESOLUTION_BASES } from './document-origin.ts';
 export type { AttributeRule, ElementRule, Policy, ProvenanceNames, UrlContext } from './policy.ts';

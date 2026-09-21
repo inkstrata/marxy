@@ -1,10 +1,10 @@
 
-  <img alt="logo" />
+  <img data-marxy-remote="https://example.invalid/logo.png" alt="logo" />
   <h1>widgetlib</h1>
   <p><strong>Fast, tiny widgets for the terminal and the browser.</strong></p>
-  <a href="https://example.invalid/ci"><img alt="build" /></a>
-  <a href="https://example.invalid/npm"><img alt="npm" /></a>
-  <img alt="MIT" />
+  <a href="https://example.invalid/ci"><img data-marxy-remote="https://img.shields.io/badge/build-passing-brightgreen" alt="build" /></a>
+  <a href="https://example.invalid/npm"><img data-marxy-remote="https://img.shields.io/npm/v/widgetlib" alt="npm" /></a>
+  <img data-marxy-remote="https://img.shields.io/badge/license-MIT-blue" alt="MIT" />
 
 <h2 data-marxy-s="496" data-marxy-e="506">Install</h2>
 <pre data-marxy-s="508" data-marxy-e="536"><code class="language-sh" data-marxy-s="514" data-marxy-e="533">pnpm add widgetlib
@@ -71,7 +71,6 @@ w.render(process.stdout);
 
 Why another widget library?
 <p data-marxy-s="1303" data-marxy-e="1388">Because the existing ones are either enormous or abandoned. This one is neither, yet.</p>
-
 <h2 data-marxy-s="1402" data-marxy-e="1417">Contributing</h2>
 <ol data-marxy-s="1419" data-marxy-e="1528">
 <li data-marxy-s="1419" data-marxy-e="1426">Fork</li>

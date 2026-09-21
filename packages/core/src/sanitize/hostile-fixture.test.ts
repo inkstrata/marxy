@@ -10,7 +10,18 @@ import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';
 import { renderSafeHtml } from '../render/pipeline.ts';
 import { renderToUnsanitisedHtml } from '../render/render-html.ts';
+import { REMOTE_IMAGE_ATTR } from './policy.ts';
 import { attributesOf, elementsOf, VECTORS } from './testing/vectors.ts';
+
+/** MARXY-96: a deferred image may name a host on the inert attribute only; links may still href it. */
+function assertNoLiveFetch(html: string, host: string): void {
+  for (const attribute of attributesOf(html)) {
+    if (attribute.name === REMOTE_IMAGE_ATTR || attribute.name === 'href') continue;
+    if ([attribute.raw, attribute.decoded].some((value) => value.includes(host))) {
+      throw new Error(`${host} survived on ${attribute.element}[${attribute.name}]`);
+    }
+  }
+}
 
 const hostilePath = new URL('../../../../fixtures/corpus/10-hostile.md', import.meta.url);
 const goldenPath = new URL('../../goldens/10-hostile.ast.txt', import.meta.url);
@@ -66,7 +77,7 @@ const FAMILIES: readonly Family[] = [
     check: (html) => {
       if (hasAttr(html, 'srcdoc')) throw new Error('srcdoc: srcdoc survived');
       if (hasElement(html, 'iframe')) throw new Error('srcdoc: iframe survived');
-      if (html.includes('hostile-srcdoc.invalid')) throw new Error('srcdoc: host survived');
+      assertNoLiveFetch(html, 'hostile-srcdoc.invalid');
     },
     live: (html) => hasAttr(html, 'srcdoc') && hasAttr(html, 'src', 'hostile-srcdoc.invalid'),
   },
@@ -76,7 +87,7 @@ const FAMILIES: readonly Family[] = [
     check: (html) => {
       if (hasAttr(html, 'formaction')) throw new Error('formaction: formaction survived');
       if (hasElement(html, 'form') || hasElement(html, 'button')) throw new Error('formaction: form control survived');
-      if (html.includes('hostile-formaction.invalid')) throw new Error('formaction: host survived');
+      assertNoLiveFetch(html, 'hostile-formaction.invalid');
     },
     live: (html) => hasAttr(html, 'formaction', 'hostile-formaction.invalid') && hasAttr(html, 'src', 'hostile-formaction.invalid'),
   },
@@ -85,7 +96,7 @@ const FAMILIES: readonly Family[] = [
     heading: 'srcset',
     check: (html) => {
       if (hasAttr(html, 'srcset') || hasAttr(html, 'imagesrcset')) throw new Error('srcset: srcset survived');
-      if (html.includes('hostile-srcset.invalid')) throw new Error('srcset: host survived');
+      assertNoLiveFetch(html, 'hostile-srcset.invalid');
     },
     live: (html) => hasAttr(html, 'srcset', 'hostile-srcset.invalid'),
   },
@@ -95,7 +106,7 @@ const FAMILIES: readonly Family[] = [
     check: (html) => {
       if (hasAttr(html, 'poster')) throw new Error('poster: poster survived');
       if (hasElement(html, 'video')) throw new Error('poster: video survived');
-      if (html.includes('hostile-poster.invalid')) throw new Error('poster: host survived');
+      assertNoLiveFetch(html, 'hostile-poster.invalid');
     },
     live: (html) => hasAttr(html, 'poster', 'hostile-poster.invalid'),
   },
@@ -104,7 +115,7 @@ const FAMILIES: readonly Family[] = [
     heading: 'MathML',
     check: (html) => {
       if (['math', 'maction', 'mtext'].some((name) => hasElement(html, name))) throw new Error('mathml: MathML survived');
-      if (html.includes('hostile-mathml.invalid')) throw new Error('mathml: host survived');
+      assertNoLiveFetch(html, 'hostile-mathml.invalid');
     },
     live: (html) => hasElement(html, 'math') && hasAttr(html, 'src', 'hostile-mathml.invalid'),
   },
@@ -113,7 +124,7 @@ const FAMILIES: readonly Family[] = [
     heading: 'base',
     check: (html) => {
       if (hasElement(html, 'base')) throw new Error('base: base survived');
-      if (html.includes('hostile-base.invalid')) throw new Error('base: host survived');
+      assertNoLiveFetch(html, 'hostile-base.invalid');
     },
     live: (html) => hasElement(html, 'base') && hasAttr(html, 'href', 'hostile-base.invalid'),
   },
@@ -122,7 +133,7 @@ const FAMILIES: readonly Family[] = [
     heading: 'template',
     check: (html) => {
       if (hasElement(html, 'template')) throw new Error('template: template survived');
-      if (html.includes('hostile-template.invalid')) throw new Error('template: host survived');
+      assertNoLiveFetch(html, 'hostile-template.invalid');
     },
     live: (html) => hasElement(html, 'template') && hasAttr(html, 'src', 'hostile-template.invalid'),
   },
@@ -132,9 +143,8 @@ const FAMILIES: readonly Family[] = [
     check: (html) => {
       const namespaced = elementsOf(html).filter((name) => name.includes(':'));
       if (namespaced.length > 0) throw new Error(`namespaced: found ${namespaced.join(', ')}`);
-      if (html.includes('svg:script') || html.includes('hostile-namespaced.invalid')) {
-        throw new Error('namespaced: namespaced markup or host survived');
-      }
+      if (html.includes('svg:script')) throw new Error('namespaced: namespaced markup survived');
+      assertNoLiveFetch(html, 'hostile-namespaced.invalid');
     },
     live: (html) => elementsOf(html).some((name) => name.includes(':')) && hasAttr(html, 'src', 'hostile-namespaced.invalid'),
   },
@@ -148,7 +158,7 @@ const FAMILIES: readonly Family[] = [
           throw new Error('double-encoded: javascript: survived a second decoding');
         }
       }
-      if (html.includes('hostile-entity.invalid')) throw new Error('double-encoded: host survived');
+      assertNoLiveFetch(html, 'hostile-entity.invalid');
     },
     live: (html) =>
       attributesOf(html).some((attribute) => attribute.name === 'href' && attribute.decoded.startsWith('javascript:'))
@@ -230,7 +240,7 @@ test('the two MARXY-12 review exploits are their own sections and the regression
   const backslash = sectionOf(hostile, 'backslash-authority image');
   assert.match(backslash, /src="\/\\evil\.example\/pixel\.png"/);
   const { safe: safeSlash, unsafe: unsafeSlash } = render(backslash, 'hostile/exploit-backslash.md');
-  assert.doesNotMatch(safeSlash, /evil\.example/);
+  assert.ok(!attributesOf(safeSlash).some((attribute) => attribute.name === 'src' && attribute.decoded.includes('evil.example')));
   assert.match(unsafeSlash, /\/\\evil\.example\/pixel\.png/);
 
   const anchor = sectionOf(hostile, 'self-closing anchor');
@@ -263,7 +273,7 @@ test('the appended suffix, unsanitised, carries a fetchable host per family', ()
   ];
   for (const host of hosts) {
     assert.ok(unsafe.includes(host), `${host} never reached the unsanitised render`);
-    assert.ok(!safe.includes(host) || host === 'evil.example', `${host} survived sanitising`);
+    assert.doesNotThrow(() => assertNoLiveFetch(safe, host), `${host} survived sanitising as a live fetch`);
   }
   // evil.example is allowed as a *link* (a reader has to click); it must not be a fetched src.
   assert.ok(!attributesOf(safe).some((attribute) => attribute.name === 'src' && attribute.decoded.includes('evil.example')));
