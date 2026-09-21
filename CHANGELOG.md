@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Rendered-mode structured selection resolves through `data-marxy-s`/`data-marxy-e`, core `sectionRange`/`nodeAt`, and Playwright corpus checks; production wiring still needs `installRenderedSelection` from `app.ts` (MARXY-41)
 - Phase 2 is closed on the board: MARXY-41 acceptance matches its task card, MARXY-78 waits on MARXY-96 before touching shared goldens, and the MARXY-87 taste-queue row points at review-2 PNGs (MARXY-174 lands the 2026-09-21-after-127 plan delta)
 - The palette mounts from the real app shell: `Mod+P` opens `dialog#marxy-palette` with search and results, ADR-0011 is asserted on the live document, and keystroke-to-rows perf is recorded (MARXY-87)
 - Palette session, fuzzy search, pins, and history keys as a DOM-free model with CI palette tests and a scaled searchPrepared perf gate (MARXY-86)
