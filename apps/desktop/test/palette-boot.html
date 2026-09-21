@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-marxy-variant="dark">
+<head>
+<meta charset="utf-8">
+<title>marxy palette harness</title>
+<!-- marxy:fonts -->
+<!-- marxy:default-theme -->
+<style>
+  .marxy-empty { color: var(--marxy-color-text-secondary); font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
+  #marxy-main { min-height: 100vh; }
+  #marxy-notices:empty { display: none; }
+  #marxy-palette:not([open]) { display: none; }
+</style>
+</head>
+<body data-marxy-mode="rendered">
+  <main id="marxy-main">
+    <div id="marxy-notices" role="status"></div>
+    <article id="doc" class="marxy-article"></article>
+  </main>
+  <dialog id="marxy-palette"></dialog>
+  <script type="module">
+    import { bootApplication } from '../src/main.ts';
+    import { createMemoryShell } from '../src/shell/memory.ts';
+
+    function decodeBase64(b64) {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+
+    window.marxyPaletteBoot = {
+      async start(files, argv, indexEntries) {
+        const bytes = {};
+        for (const [path, b64] of Object.entries(files)) bytes[path] = decodeBase64(b64);
+        const shell = createMemoryShell(bytes);
+        const handle = await bootApplication(shell, { argv });
+        await handle.ready;
+        if (indexEntries?.length) handle.palette.setIndexEntries(indexEntries);
+        return { handle, marks: shell.calls.filter((c) => c.method === 'mark') };
+      },
+    };
+  </script>
+</body>
+</html>
