@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- The palette model — MRU, pins, fuzzy search over a prepared index, and back/forward history keys — now runs in CI under `@marxy/desktop` with a scaled 16 ms keystroke budget on a 20k index and a named mutation that fails if `searchPrepared` is gutted (MARXY-86)
 - MARXY-37's row now covers `apps/desktop/package.json` so its own CodeMirror dependencies can enter the lockfile, and a new story mounts Source mode into the real app shell (`Mod+E`, `#marxy-source`) — the analogous view slice to MARXY-87, since MARXY-37's own module never touched `main.ts` (MARXY-168)
 - A summoned palette searches titles, headings and paths, lists recent documents with pinned ones on top, and walks back and forward — there is still no tab bar (MARXY-36)
 - Source mode in CodeMirror 6 under `apps/desktop/src/source/`: per-file-type default, position-preserving mode switch helpers, and byte-faithful leave-Source commit (MARXY-37)
