@@ -8,7 +8,6 @@ import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { defaultThemeCss } from '../../../packages/theme/scripts/inline.mjs';
-import { resolveVariantPreference } from '../../../packages/theme/test/resolve-variant.mjs';
 
 const root = new URL('../../../', import.meta.url);
 const desktop = join(root.pathname, 'apps/desktop');
@@ -64,12 +63,12 @@ function startServer() {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
-async function bgForVariant(page, origin, variant) {
+async function bgForVariant(page, origin, variantPreference) {
   await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.marxyRender === 'function');
   await page.evaluate(async (v) => {
     await window.marxyRender('# Hi\n\nBody.', { variant: v, width: 960, size: 17 });
-  }, variant);
+  }, variantPreference);
   return page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim());
 }
 
@@ -80,9 +79,7 @@ test('MARXY-46: variant light paints the designed paper through marxyRender', as
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
-    const variant = resolveVariantPreference('light', true);
-    assert.equal(variant, 'light');
-    const bg = await bgForVariant(page, origin, variant);
+    const bg = await bgForVariant(page, origin, 'light');
     assert.equal(bg, palettes.light['--marxy-color-bg']);
   } finally {
     await browser.close();
@@ -98,19 +95,19 @@ test('MARXY-46: variant auto follows prefers-color-scheme on the headless entry'
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await page.emulateMedia({ colorScheme: 'light' });
-    const prefersDark = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
-    assert.equal(prefersDark, false);
-    const variant = resolveVariantPreference('auto', prefersDark);
-    assert.equal(variant, 'light');
-    const bg = await bgForVariant(page, origin, variant);
+    assert.equal(
+      await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches),
+      false,
+    );
+    const bg = await bgForVariant(page, origin, 'auto');
     assert.equal(bg, palettes.light['--marxy-color-bg']);
 
     await page.emulateMedia({ colorScheme: 'dark' });
-    const prefersDark2 = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
-    assert.equal(prefersDark2, true);
-    const variantDark = resolveVariantPreference('auto', prefersDark2);
-    assert.equal(variantDark, 'dark');
-    const bgDark = await bgForVariant(page, origin, variantDark);
+    assert.equal(
+      await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches),
+      true,
+    );
+    const bgDark = await bgForVariant(page, origin, 'auto');
     assert.equal(bgDark, palettes.dark['--marxy-color-bg']);
   } finally {
     await browser.close();
