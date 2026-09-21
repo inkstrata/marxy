@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- Phase 2 is closed on the board: MARXY-41 acceptance matches its task card, MARXY-78 waits on MARXY-96 before touching shared goldens, and the MARXY-87 taste-queue row points at review-2 PNGs (MARXY-174 lands the 2026-09-21-after-127 plan delta)
 - The palette mounts from the real app shell: `Mod+P` opens `dialog#marxy-palette` with search and results, ADR-0011 is asserted on the live document, and keystroke-to-rows perf is recorded (MARXY-87)
 - Palette session, fuzzy search, pins, and history keys as a DOM-free model with CI palette tests and a scaled searchPrepared perf gate (MARXY-86)
 - Two new stories are on the board: cherry-pick the already-fixed KaTeX font bundle glob onto a real key rather than the placeholder PR #135 fought the CSV over (MARXY-163), and wire MARXY-27's code-highlight tokeniser into the desktop render pipeline and theme, which its own PR left unwired (MARXY-164). The Linux weight harness (MARXY-22) and the shell-api v1 amendment (MARXY-94) move to the ops lane — both are human-gated on an unanswered question, and neither is a reader-facing phase-1 promise, but leaving them numbered in phase 1 silently held phase 2's entire backlog open (MARXY-33 through MARXY-97) behind two indefinite waits; MARXY-163 and MARXY-164 are the real, dispatchable finish line for phase 1 now (MARXY-165)
