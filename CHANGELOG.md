@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- MARXY-37's row now covers `apps/desktop/package.json` so its own CodeMirror dependencies can enter the lockfile, and a new story mounts Source mode into the real app shell (`Mod+E`, `#marxy-source`) — the analogous view slice to MARXY-87, since MARXY-37's own module never touched `main.ts` (MARXY-168)
 - A summoned palette searches titles, headings and paths, lists recent documents with pinned ones on top, and walks back and forward — there is still no tab bar (MARXY-36)
 - MARXY-33 acceptance criteria now match ADR-0029/0032 and the checks PR #137 already ships, so the escalated cold-start story can merge without a fictional 400 ms gate or out-of-scope waterfall attachment (MARXY-167)
 - Cold-start instrumentation now emits a full waterfall of marks, defers KaTeX, local images, Shiki highlighting and index work until after reading position is restored, and the desktop entry chunk is tested to keep Shiki, grammars and CodeMirror off the static graph (MARXY-33)
