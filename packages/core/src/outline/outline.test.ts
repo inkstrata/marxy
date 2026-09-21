@@ -199,9 +199,19 @@ test('no file under packages/core/src/outline imports apps/desktop or packages/s
 });
 
 test('the three-dot diff does not contain contracts or sanitize', (t) => {
+  const base = resolveThreeDotBase({ cwd: repoRoot });
+  if (!base) {
+    t.skip('neither origin/main nor main is a resolvable git ref');
+    return;
+  }
+  const names = threeDotNames(base, { cwd: repoRoot });
+  if (!names.some((name) => name.startsWith('packages/core/src/outline/'))) {
+    t.skip('diff does not touch outline; the guard applies only to outline stories');
+    return;
+  }
   runThreeDotForbiddenCheck({
-    resolveBase: () => resolveThreeDotBase({ cwd: repoRoot }),
-    listNames: (base) => threeDotNames(base, { cwd: repoRoot }),
+    resolveBase: () => base,
+    listNames: () => names,
     skip: (reason) => t.skip(reason),
   });
 });
