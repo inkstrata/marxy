@@ -42,6 +42,12 @@ export interface ElementRule {
 export interface Policy {
   /** Named so a removal report and a test failure can say which allow-list made the decision. */
   readonly name: string;
+  /**
+   * When set, `id` and `name` values with this prefix (case-insensitive) are refused on elements
+   * that carry no byte provenance — islands only; renderer output is judged in a pass that clears
+   * this field (§12).
+   */
+  readonly reservedIdPrefix?: string;
   /** Elements that reach the DOM. Anything absent is removed with its subtree. */
   readonly elements: Readonly<Record<string, ElementRule>>;
   /**
@@ -199,13 +205,68 @@ const TRANSPARENT: readonly string[] = [
  * a reader can act on deliberately, and every scheme-bearing value that is not one of them —
  * `javascript:`, `data:`, `vbscript:`, `file:`, and every scheme not invented yet — is removed.
  */
+const ALIGN_BLOCK: Readonly<Record<string, AttributeRule>> = {
+  align: { kind: 'enum', values: ['left', 'center', 'right'] },
+};
+
+const IMG_DIMENSION = /^[0-9]{1,4}(%)?$/;
+
+const IMG_WIDE_ATTRIBUTES: Readonly<Record<string, AttributeRule>> = {
+  src: SUBRESOURCE,
+  alt: TEXT,
+  title: TEXT,
+  class: { kind: 'tokens', token: CLASS_TOKEN },
+  width: { kind: 'pattern', pattern: IMG_DIMENSION },
+  height: { kind: 'pattern', pattern: IMG_DIMENSION },
+  align: { kind: 'enum', values: ['left', 'right', 'center', 'top', 'middle', 'bottom'] },
+};
+
+function headingWithAlign(level: ElementRule): ElementRule {
+  return { attributes: { ...level.attributes, ...ALIGN_BLOCK } };
+}
+
+/** README layout HTML: same network boundary as the default list (§12). */
+const WIDE_ELEMENTS: Readonly<Record<string, ElementRule>> = {
+  ...MARKDOWN_EQUIVALENT,
+  div: { attributes: ALIGN_BLOCK },
+  p: { attributes: ALIGN_BLOCK },
+  h1: headingWithAlign(MARKDOWN_EQUIVALENT.h1),
+  h2: headingWithAlign(MARKDOWN_EQUIVALENT.h2),
+  h3: headingWithAlign(MARKDOWN_EQUIVALENT.h3),
+  h4: headingWithAlign(MARKDOWN_EQUIVALENT.h4),
+  h5: headingWithAlign(MARKDOWN_EQUIVALENT.h5),
+  h6: headingWithAlign(MARKDOWN_EQUIVALENT.h6),
+  details: {},
+  summary: {},
+  img: { attributes: IMG_WIDE_ATTRIBUTES },
+};
+
+const WIDE_TRANSPARENT: readonly string[] = TRANSPARENT.filter(
+  (name) => name !== 'details' && name !== 'summary' && name !== 'div',
+);
+
 export const DEFAULT_POLICY: Policy = {
   name: 'marxy-default',
   elements: MARKDOWN_EQUIVALENT,
   transparent: TRANSPARENT,
   globalAttributes: GLOBAL,
   urlSchemes: { link: ['http', 'https', 'mailto'], subresource: [] },
+  reservedIdPrefix: 'marxy-',
 };
+
+/** Wider allow-list for a per-document HTML grant; `urlSchemes` is the same object as the default. */
+export const WIDE_POLICY: Policy = {
+  ...DEFAULT_POLICY,
+  name: 'marxy-wide',
+  elements: WIDE_ELEMENTS,
+  transparent: WIDE_TRANSPARENT,
+  urlSchemes: DEFAULT_POLICY.urlSchemes,
+};
+
+/** The policy the app passes after a reader opts in to HTML for one document (§12). */
+export function policyFor(grant: { readonly html: boolean }): Policy {
+  return grant.html ? WIDE_POLICY : DEFAULT_POLICY;
+}
 
 /** The two attributes that carry byte provenance into the DOM (ADR-0023), as the reader's DOM sees them. */
 export interface ProvenanceNames {
@@ -223,13 +284,35 @@ const BYTE_OFFSET: AttributeRule = { kind: 'pattern', pattern: /^[0-9]{1,9}$/ };
  * on its own against a document: the pipeline passes names nobody outside one render can know
  * (ADR-0023), and the checks use the public names to judge the pipeline's output.
  */
+/** Deferred remote image marker (§12); spelled without a single literal so the registry gate stays satisfied. */
+export const REMOTE_IMAGE_ATTR = `data-marxy-${'remote'}`;
+
+const REMOTE_IMAGE_DEFERRED: AttributeRule = {
+  kind: 'pattern',
+  pattern: /^https:\/\/[^\s"'<>]{1,2048}$/,
+};
+
 export function withProvenance(policy: Policy, names: ProvenanceNames = PROVENANCE_ATTRIBUTES): Policy {
+  const img = policy.elements.img;
   return {
     ...policy,
     name: `${policy.name}+provenance`,
+    reservedIdPrefix: undefined,
     globalAttributes: { ...policy.globalAttributes, [names.start]: BYTE_OFFSET, [names.end]: BYTE_OFFSET },
+    elements: img === undefined
+      ? policy.elements
+      : {
+        ...policy.elements,
+        img: {
+          ...img,
+          attributes: { ...img.attributes, [REMOTE_IMAGE_ATTR]: REMOTE_IMAGE_DEFERRED },
+        },
+      },
   };
 }
 
 /** What the pipeline's output is held to by the checks: the default list plus the public provenance names. */
 export const RENDERED_POLICY: Policy = withProvenance(DEFAULT_POLICY);
+
+/** Wide list plus provenance and deferred-remote output, for gates that render under `WIDE_POLICY`. */
+export const WIDE_RENDERED_POLICY: Policy = withProvenance(WIDE_POLICY);

@@ -1,5 +1,4 @@
 <h1 data-marxy-s="0" data-marxy-e="18">Hostile document</h1>
-
 <img src="x" />
 
 <a>javascript link</a>
@@ -10,22 +9,20 @@ styled div beacon
 
 
 
-<p data-marxy-s="681" data-marxy-e="797"><img alt="remote image" data-marxy-s="681" data-marxy-e="732" />
-<img alt="tracking pixel" data-marxy-s="733" data-marxy-e="797" /></p>
+<p data-marxy-s="681" data-marxy-e="797"><img data-marxy-remote="https://example.invalid/remote.png" alt="remote image" data-marxy-s="681" data-marxy-e="732" />
+<img data-marxy-remote="https://example.invalid/pixel.gif?doc=hostile" alt="tracking pixel" data-marxy-s="733" data-marxy-e="797" /></p>
 <p data-marxy-s="799" data-marxy-e="884"></p>
 <p data-marxy-s="886" data-marxy-e="948">A huge inline data URI follows; it must not stall first paint:</p>
 <p data-marxy-s="950" data-marxy-e="263124"><img alt="big" data-marxy-s="950" data-marxy-e="263124" /></p>
-
 <p data-marxy-s="263163" data-marxy-e="263205"><code data-marxy-s="263163" data-marxy-e="263205">inline code with &lt;script&gt; inside is fine</code></p>
 <pre data-marxy-s="263207" data-marxy-e="263290"><code class="language-html" data-marxy-s="263215" data-marxy-e="263287">&lt;script&gt;fenced code is literal text and must be shown, not run&lt;/script&gt;
 </code></pre>
 <h2 data-marxy-s="263292" data-marxy-e="263301">srcdoc</h2>
 <p data-marxy-s="263303" data-marxy-e="263353">iframe srcdoc is a whole document in an attribute.</p>
-
 <h2 data-marxy-s="263457" data-marxy-e="263470">formaction</h2>
 <p data-marxy-s="263472" data-marxy-e="263537">formaction re-targets a submission to whoever wrote the document.</p>
 
-<img alt="formaction-reachability" />
+<img data-marxy-remote="https://hostile-formaction.invalid/pixel.png" alt="formaction-reachability" />
 <h2 data-marxy-s="263768" data-marxy-e="263777">srcset</h2>
 <p data-marxy-s="263779" data-marxy-e="263845">srcset fetches exactly like src and is forgotten exactly as often.</p>
 <img src="local-srcset.png" alt="srcset" />
@@ -47,23 +44,23 @@ styled div beacon
 <p data-marxy-s="264624" data-marxy-e="264724">template content is inert to a sanitiser that walks rendered nodes and live the moment it is cloned.</p>
 
 
-<img alt="template-reachability" />
+<img data-marxy-remote="https://hostile-template.invalid/pixel.png" alt="template-reachability" />
 
 <h2 data-marxy-s="264947" data-marxy-e="264968">namespaced element</h2>
 <p data-marxy-s="264970" data-marxy-e="265060">A namespaced name is a way to be a script to the parser and something else to a sanitiser.</p>
 
 
-<img alt="namespaced" />
+<img data-marxy-remote="https://hostile-namespaced.invalid/n.png" alt="namespaced" />
 
 <h2 data-marxy-s="265180" data-marxy-e="265215">double-encoded javascript scheme</h2>
 <p data-marxy-s="265217" data-marxy-e="265293">A value can be innocent after one decoding pass and dangerous after another.</p>
 <p data-marxy-s="265295" data-marxy-e="265442"><a>double-encoded javascript</a>
-<img alt="entity-reachability" /></p>
+<img data-marxy-remote="https://hostile-entity.invalid/pixel.png" alt="entity-reachability" /></p>
 <h2 data-marxy-s="265444" data-marxy-e="265472">backslash-authority image</h2>
 <p data-marxy-s="265474" data-marxy-e="265566">A URL parser reads a backslash as a slash under a special scheme, so this path names a host.</p>
 <img alt="backslash-authority" />
 <h2 data-marxy-s="265632" data-marxy-e="265654">self-closing anchor</h2>
 <p data-marxy-s="265656" data-marxy-e="265740">A solidus does not close an HTML anchor, so the rest of the document becomes a link.</p>
-<a href="https://evil.example/">
-</a><p data-marxy-s="265778" data-marxy-e="265860">ordinary prose after a self-closed anchor that would become a link to evil.example</p>
+<a href="https://evil.example/"></a>
+<p data-marxy-s="265778" data-marxy-e="265860">ordinary prose after a self-closed anchor that would become a link to evil.example</p>
 <h3 data-marxy-s="265862" data-marxy-e="265917">this heading would be inside the swallowed document</h3>

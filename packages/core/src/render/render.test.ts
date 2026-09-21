@@ -61,7 +61,7 @@ test('frontmatter is metadata, not prose, and is not set', () => {
 
 test('a local image keeps its source; a remote one keeps only its alt text', () => {
   assert.equal(html('![a](diagram.png)\n'), '<p><img src="diagram.png" alt="a" /></p>');
-  assert.equal(html('![a](https://example.com/p.png)\n'), '<p><img alt="a" /></p>');
+  assert.equal(html('![a](https://example.com/p.png)\n'), '<p><img data-marxy-remote="https://example.com/p.png" alt="a" /></p>');
   const remote = renderSafeHtml('![a](https://example.com/p.png)\n', { file: 'test.md' });
   assert.deepEqual(blockedHosts(remote.blockedImages), ['example.com']);
 });

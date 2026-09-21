@@ -1,4 +1,3 @@
-
 <h1 data-marxy-s="80" data-marxy-e="114"><code data-marxy-s="82" data-marxy-e="89">shelf</code> — local document index</h1>
 <p data-marxy-s="116" data-marxy-e="325">A reader-facing index for a folder of markdown. <code data-marxy-s="164" data-marxy-e="171">shelf</code> watches a root, keeps one
 row per file, and answers prefix queries without leaving the machine. Nothing in

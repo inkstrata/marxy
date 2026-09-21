@@ -1,4 +1,3 @@
-
 <h1 data-marxy-s="74" data-marxy-e="90">Fixture corpus</h1>
 <p data-marxy-s="92" data-marxy-e="303">The documents every golden, fidelity, no-network and aesthetics walk uses.
 Numbered files are the cases. This file records provenance for anything whose

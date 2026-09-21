@@ -4,7 +4,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { decodeReferences, escapeAttribute, escapeText } from './escape.ts';
-import { DEFAULT_POLICY, FOREIGN_ROOTS, RAW_TEXT_ELEMENTS } from './policy.ts';
+import { DEFAULT_POLICY, FOREIGN_ROOTS, RAW_TEXT_ELEMENTS, withProvenance } from './policy.ts';
 import { sanitizeHtml } from './sanitize-html.ts';
 import { sanitizeUrl } from './urls.ts';
 
@@ -68,10 +68,33 @@ test('a javascript: target goes, through whatever spelling reaches the parser', 
   }
 });
 
+test('MARXY-96: https images defer to data-marxy-remote with a full-url removal; http images refuse both attributes', () => {
+  const https = sanitizeHtml('<img src="https://a/b.png" alt="a">');
+  assert.equal(https.html, '<img data-marxy-remote="https://a/b.png" alt="a" />');
+  assert.ok(https.removed.some((removal) => removal.url === 'https://a/b.png' && removal.reason === 'remote image, not loaded'));
+  const http = sanitizeHtml('<img src="http://a/b.png" alt="a">');
+  assert.equal(http.html, '<img alt="a" />');
+  assert.ok(http.removed.some((removal) => removal.url === 'http://a/b.png' && removal.reason.includes('plain http')));
+});
+
+test('MARXY-96: reserved marxy- ids go on islands; renderer footnote ids stay', () => {
+  assert.equal(clean('<a id="marxy-fnref-1">x</a>'), '<a>x</a>');
+  assert.equal(clean('<a name="MARXY-x">x</a>'), '<a>x</a>');
+  const footnote = sanitizeHtml(
+    '<sup><a href="#marxy-fn-1" id="marxy-fnref-1" data-marxy-s="1" data-marxy-e="2">1</a></sup>',
+    DEFAULT_POLICY,
+    { provenanceNames: { start: 'data-marxy-s', end: 'data-marxy-e' } },
+  );
+  assert.match(footnote.html, /id="marxy-fnref-1"/);
+});
+
 test('a link may be remote, because a reader has to act on it, and a subresource may not', () => {
   assert.equal(clean('<a href="https://example.com/p">x</a>'), '<a href="https://example.com/p">x</a>');
   assert.equal(clean('<a href="mailto:a@example.com">x</a>'), '<a href="mailto:a@example.com">x</a>');
-  assert.equal(clean('<img src="https://example.com/p.png" alt="a">'), '<img alt="a" />');
+  assert.equal(
+    clean('<img src="https://example.com/p.png" alt="a">'),
+    '<img data-marxy-remote="https://example.com/p.png" alt="a" />',
+  );
   assert.equal(clean('<img src="//example.com/p.png" alt="a">'), '<img alt="a" />');
   assert.equal(clean('<img src="diagram.png" alt="a">'), '<img src="diagram.png" alt="a" />');
   assert.equal(clean('<img src="./deep/diagram.png" alt="a">'), '<img src="./deep/diagram.png" alt="a" />');
@@ -119,8 +142,9 @@ test('a close tag with nothing open is dropped, and an open element is closed at
 });
 
 test('the output is idempotent: one pass is the boundary, so a second changes nothing', () => {
-  const once = clean('<div style="x"><p onclick="a">t</p><script>s</script><img src="https://x.invalid/p.png"></div>');
-  assert.equal(clean(once), once);
+  const policy = withProvenance(DEFAULT_POLICY);
+  const once = sanitizeHtml('<div style="x"><p onclick="a">t</p><script>s</script><img src="https://x.invalid/p.png"></div>', policy).html;
+  assert.equal(sanitizeHtml(once, policy).html, once);
 });
 
 test('class survives only as a token the renderer or the highlighter could have written', () => {
@@ -266,7 +290,7 @@ test('a subresource may name no scheme at all, and a link may name exactly three
 });
 
 test('an id is pinned by example, not by whatever pattern the policy happens to hold', () => {
-  for (const id of ['install', 'marxy-fn-1', 'a.b:c_d', 'H2']) {
+  for (const id of ['install', 'a.b:c_d', 'H2']) {
     assert.equal(clean(`<h2 id="${id}">x</h2>`), `<h2 id="${id}">x</h2>`, `${id} should be an id`);
   }
   for (const id of ['1', '-x', '#a', 'a/b', 'a b', '../x', '{}', 'a(b)', "a'b", 'a'.repeat(100)]) {

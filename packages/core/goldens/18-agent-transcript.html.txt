@@ -1,4 +1,3 @@
-
 <h1 data-marxy-s="109" data-marxy-e="158">Session — stale title after a zero-byte write</h1>
 <p data-marxy-s="160" data-marxy-e="352">The reader opened <code data-marxy-s="178" data-marxy-e="213">/Users/reader/notes/docs/brief.md</code>, then an external editor
 saved the file as zero bytes. The palette still showed the old title. This

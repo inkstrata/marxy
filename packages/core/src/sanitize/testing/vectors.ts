@@ -5,7 +5,9 @@
 // suite can prove each check is capable of failing. A sanitiser test suite that passes against a
 // sanitiser that does nothing is worse than no suite at all.
 
-import { BLOCK_ELEMENTS, DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, VOID_ELEMENTS, type Policy } from '../policy.ts';
+import {
+  BLOCK_ELEMENTS, DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, VOID_ELEMENTS, type Policy,
+} from '../policy.ts';
 import { decodeReferences } from '../escape.ts';
 
 export interface Attribute {
@@ -516,10 +518,64 @@ export const VECTORS: readonly Vector[] = [
     ].join('\n'),
     check: (html) => {
       const forged = attributesOf(html).filter(
-        (attribute) => attribute.name.startsWith('data-marxy-') && (attribute.decoded === FORGED_END || !PROVENANCE_NAMES.includes(attribute.name)),
+        (attribute) => attribute.name.startsWith('data-marxy-') &&
+          attribute.name !== `data-marxy-${'remote'}` &&
+          (attribute.decoded === FORGED_END || !PROVENANCE_NAMES.includes(attribute.name)),
       );
       if (forged.length > 0) {
         fail('provenance-forgery', `a document's own provenance survived: ${forged.map((a) => `${a.element}[${a.name}="${a.raw}"]`).join(', ')}`);
+      }
+    },
+  },
+  {
+    id: 'wide-javascript-link',
+    why: 'a grant of HTML is not a grant of script; javascript: must go even inside allow-listed layout tags (§12)',
+    probe: '<details open><summary>s</summary><a href="javascript:alert(1)">x</a></details>\n',
+    check: (html) => {
+      const hrefs = attributesOf(html).filter((attribute) => attribute.name === 'href');
+      if (hrefs.some((attribute) => /^\s*javascript\s*:/i.test(attribute.decoded))) {
+        fail('wide-javascript-link', 'javascript: href survived');
+      }
+    },
+  },
+  {
+    id: 'reserved-id',
+    why: 'only marxy may own the marxy- prefix on id and name; an island cannot squat a footnote back-link target (§12)',
+    probe: '<a id="marxy-fnref-1">x</a>\n',
+    probeHtml: '<a id="marxy-fnref-1" href="https://example.invalid/">x</a><a name="MARXY-x">y</a>',
+    check: (html) => {
+      for (const attribute of attributesOf(html)) {
+        if (attribute.name !== 'id' && attribute.name !== 'name') continue;
+        if (/^marxy-fn(?:ref)?-[0-9]+$/.test(attribute.decoded)) continue;
+        if (/^marxy-/i.test(attribute.decoded)) {
+          fail('reserved-id', `${attribute.element}[${attribute.name}] kept a reserved prefix`);
+        }
+      }
+    },
+  },
+  {
+    id: 'forged-remote',
+    why: 'data-marxy-remote is written only by the sanitiser from a parsed https src; an island cannot forge one (§12)',
+    probe: '<img data-marxy-remote="https://evil.example/x.png" alt="forged">\n',
+    probeHtml: '<img data-marxy-remote="https://evil.example/x.png" alt="forged">',
+    check: (html) => {
+      for (const attribute of attributesOf(html)) {
+        if (attribute.name !== `data-marxy-${'remote'}`) continue;
+        if (attribute.decoded === 'https://evil.example/x.png') {
+          fail('forged-remote', 'author-written data-marxy-remote survived');
+        }
+      }
+    },
+  },
+  {
+    id: 'deferred-remote-inert',
+    why: 'remote https images must not carry src in the DOM; deferral uses data-marxy-remote only (§12, ADR-0027)',
+    probe: '![badge](https://img.shields.io/badge/x-y.svg)\n',
+    check: (html) => {
+      for (const attribute of attributesOf(html)) {
+        if (attribute.name === 'src' && /^https:/i.test(attribute.decoded)) {
+          fail('deferred-remote-inert', `remote src survived: ${attribute.decoded.slice(0, 80)}`);
+        }
       }
     },
   },

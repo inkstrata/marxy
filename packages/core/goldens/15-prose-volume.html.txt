@@ -1,4 +1,3 @@
-
 <h1 data-marxy-s="74" data-marxy-e="102">A winter of borrowed rooms</h1>
 <p data-marxy-s="104" data-marxy-e="675">I have spent most of my reading life in rooms that were not built for
 it. Kitchens with a radio left low. Clinic chairs that face a television

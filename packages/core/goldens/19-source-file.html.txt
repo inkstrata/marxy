@@ -1,4 +1,3 @@
-
 <pre data-marxy-s="102" data-marxy-e="3471"><code class="language-ts" data-marxy-s="108" data-marxy-e="3468">// build-row-from-stat.ts — one ShelfRow from a stat and the previous row, if the bytes have not moved.
 
 import { createHash } from 'node:crypto';

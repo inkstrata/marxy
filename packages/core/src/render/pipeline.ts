@@ -3,12 +3,17 @@
 // platform dependency, so the same call runs in Node, in a gate and in the shell's webview (ADR-0020).
 // `crypto` is the Web Crypto global, present in both; it is not a Node built-in import.
 
-import type { Document } from '../contracts/ast.ts';
+import type { Block, Document, Inline, ListItem, Source, TableCell, TableRow } from '../contracts/ast.ts';
 import { parseMarkdown, type ParseOptions } from '../parse/parse.ts';
 import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
 import { sanitizeHtml, type Removal } from '../sanitize/sanitize-html.ts';
 import { blockedImagesFrom, type BlockedImage } from './images.ts';
 import { renderToUnsanitisedHtml } from './render-html.ts';
+
+/** A removal tagged with the island it came from when the first pass took it out (§12). */
+export interface RenderRemoval extends Removal {
+  readonly src?: Source;
+}
 
 export interface RenderOptions extends ParseOptions {
   /** The allow-list to hold the document to. Defaults to the narrow one; widening it is MARXY-44. */
@@ -19,7 +24,7 @@ export interface RenderResult {
   /** HTML that has been through the allow-list and is safe to put in the DOM. */
   readonly html: string;
   /** What the allow-list took out, in order, so a notice can name it (MARXY-26, MARXY-44). */
-  readonly removed: readonly Removal[];
+  readonly removed: readonly RenderRemoval[];
   /**
    * Remote images the allow-list stripped of `src`, with hosts already parsed. The article HTML
    * must not name those hosts (the hostile fixture fails if it does); the app's notice does.
@@ -35,17 +40,71 @@ export function renderSafeHtml(source: string | Uint8Array, options: RenderOptio
 /**
  * The same, for a document that has already been parsed once (the parse is the expensive half).
  *
- * Every element made for a node carries `data-marxy-s` / `data-marxy-e`, its byte range (ADR-0023),
- * and nothing a document wrote can carry them. The renderer writes provenance under two names drawn
- * for this call alone, the allow-list admits those names and not the public ones, and only then are
- * they renamed. Raw HTML in the file cannot guess the names, so whatever it wrote as `data-marxy-*`
- * is removed by the same single pass that judges everything else — over the whole document, so an
- * inline `<kbd>…</kbd>` split across two raw-HTML nodes keeps its shape.
+ * Block HTML islands are sanitised first so their removals carry the island's `src`; inline raw HTML
+ * is judged in the document pass so a tag split across nodes keeps its shape (ADR-0023 Amendment 1).
+ * The renderer pass then adds byte provenance under secret names and clears the reserved-id rule.
  */
 export function renderDocumentSafeHtml(document: Document, policy: Policy = DEFAULT_POLICY): RenderResult {
   const secret = secretNames();
-  const { html, removed } = sanitizeHtml(renderToUnsanitisedHtml(document, { provenance: secret }), withProvenance(policy, secret));
-  return { html: publish(html, secret), removed, blockedImages: blockedImagesFrom(removed) };
+  const { document: prepared, removed: islandRemoved } = sanitizeBlockIslands(document, policy);
+  const pass = sanitizeHtml(
+    renderToUnsanitisedHtml(prepared, { provenance: secret }),
+    withProvenance(policy, secret),
+    { provenanceNames: secret },
+  );
+  const removed: RenderRemoval[] = [...islandRemoved, ...pass.removed];
+  return {
+    html: publish(pass.html, secret),
+    removed,
+    blockedImages: blockedImagesFrom(removed),
+  };
+}
+
+function sanitizeBlockIslands(document: Document, policy: Policy): { document: Document; removed: RenderRemoval[] } {
+  const removed: RenderRemoval[] = [];
+  return {
+    document: { ...document, children: document.children.map((block) => mapBlock(block, policy, removed)) },
+    removed,
+  };
+}
+
+function mapBlock(block: Block, policy: Policy, removed: RenderRemoval[]): Block {
+  if (block.type === 'htmlBlock') {
+    const pass = sanitizeHtml(block.value, policy);
+    for (const entry of pass.removed) removed.push({ ...entry, src: block.src });
+    return { ...block, value: pass.html };
+  }
+  switch (block.type) {
+    case 'blockquote':
+    case 'footnoteDefinition':
+      return { ...block, children: block.children.map((child) => mapBlock(child, policy, removed)) };
+    case 'list':
+      return { ...block, children: block.children.map((item) => mapBlock(item, policy, removed) as ListItem) };
+    case 'listItem':
+      return { ...block, children: block.children.map((child) => mapBlock(child, policy, removed)) };
+    case 'table':
+      return { ...block, children: block.children.map((row) => mapBlock(row, policy, removed) as TableRow) };
+    case 'tableRow':
+      return { ...block, children: block.children.map((cell) => mapBlock(cell, policy, removed) as TableCell) };
+    case 'heading':
+    case 'paragraph':
+    case 'tableCell':
+      return { ...block, children: block.children.map((inline) => mapInline(inline, policy, removed)) };
+    default:
+      return block;
+  }
+}
+
+function mapInline(inline: Inline, policy: Policy, removed: RenderRemoval[]): Inline {
+  switch (inline.type) {
+    case 'emphasis':
+    case 'strong':
+    case 'strikethrough':
+    case 'link':
+      return { ...inline, children: inline.children.map((child) => mapInline(child, policy, removed)) };
+    default:
+      return inline;
+  }
 }
 
 /** Attribute names nobody outside this call can predict: 128 bits from the platform's CSPRNG. */

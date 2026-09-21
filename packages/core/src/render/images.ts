@@ -45,13 +45,14 @@ export function blockedImagesFrom(removed: readonly Removal[]): readonly Blocked
   const seen = new Set<string>();
   for (const removal of removed) {
     if (removal.what !== 'attribute' || removal.name !== 'src' || removal.on !== 'img') continue;
-    if (removal.value === undefined) continue;
-    const host = hostOfRefusedSrc(removal.value);
+    const reference = removal.url ?? removal.value;
+    if (reference === undefined) continue;
+    const host = hostOfRefusedSrc(reference);
     if (host === undefined) continue;
-    const key = `${host}\0${removal.value}`;
+    const key = `${host}\0${reference}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    images.push({ host, url: removal.value });
+    images.push({ host, url: reference });
   }
   return images;
 }

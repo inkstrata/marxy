@@ -27,8 +27,8 @@
 
 import { escapeAttribute, escapeAttributeKeepingReferences, decodeReferences } from './escape.ts';
 import {
-  BLOCK_ELEMENTS, DEFAULT_POLICY, FOREIGN_ROOTS, RAW_TEXT_ELEMENTS, VOID_ELEMENTS,
-  type AttributeRule, type ElementRule, type Policy,
+  BLOCK_ELEMENTS, DEFAULT_POLICY, FOREIGN_ROOTS, PROVENANCE_ATTRIBUTES, RAW_TEXT_ELEMENTS, REMOTE_IMAGE_ATTR,
+  VOID_ELEMENTS, type AttributeRule, type ElementRule, type Policy, type ProvenanceNames,
 } from './policy.ts';
 import { sanitizeUrl } from './urls.ts';
 
@@ -40,7 +40,14 @@ export interface Removal {
   readonly on?: string;
   /** The refused value, truncated; absent when the value never mattered. */
   readonly value?: string;
+  /** Full parsed URL on a refused URL attribute, when parsing succeeded (§12). */
+  readonly url?: string;
   readonly reason: string;
+}
+
+export interface SanitizeOptions {
+  /** Names provenance is written under; tags carrying them skip the reserved-id rule. */
+  readonly provenanceNames?: ProvenanceNames;
 }
 
 export interface SanitizeResult {
@@ -54,7 +61,7 @@ export interface SanitizeResult {
  * Idempotent: the output of one pass is the input of the next unchanged, which is what lets the
  * pipeline treat this as a boundary that can be applied again anywhere without being thought about.
  */
-export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY): SanitizeResult {
+export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, options: SanitizeOptions = {}): SanitizeResult {
   const transparent = new Set(policy.transparent);
   const removed: Removal[] = [];
   const out = writer(removed);
@@ -107,7 +114,7 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY): Sa
     const rule: ElementRule | undefined = policy.elements[name];
 
     if (rule !== undefined) {
-      const built = attributes(name, rule, tag, policy, removed);
+      const built = attributes(name, rule, tag, policy, removed, options);
       const missing = (rule.requires ?? []).filter((required) => !built.kept.has(required));
       if (missing.length === 0) {
         // The solidus is honoured for a void element and nowhere else: a parser ignores it on an
@@ -221,13 +228,24 @@ interface StartTag {
   readonly end: number;
 }
 
+function tagCarriesProvenance(tag: StartTag, names?: ProvenanceNames): boolean {
+  for (const attribute of tag.attributes) {
+    const key = attribute.name.toLowerCase();
+    if (key === PROVENANCE_ATTRIBUTES.start || key === PROVENANCE_ATTRIBUTES.end) return true;
+    if (names !== undefined && (key === names.start || key === names.end)) return true;
+  }
+  return false;
+}
+
 function attributes(
   name: string,
   rule: ElementRule,
   tag: StartTag,
   policy: Policy,
   removed: Removal[],
+  options: SanitizeOptions,
 ): { text: string; kept: Set<string> } {
+  const rendererOwned = tagCarriesProvenance(tag, options.provenanceNames);
   let text = '';
   const seen = new Set<string>();
   const kept = new Set<string>();
@@ -241,7 +259,7 @@ function attributes(
       removed.push({ what: 'attribute', name: key, on: name, value: truncate(attribute.value), reason: `${key} is not in the ${policy.name} allow-list` });
       continue;
     }
-    const emitted = attributeValue(key, attribute.value, attributeRule, name, policy, removed);
+    const emitted = attributeValue(key, attribute.value, attributeRule, name, policy, removed, rendererOwned);
     if (emitted !== null) {
       text += emitted;
       kept.add(key);
@@ -263,9 +281,10 @@ function attributeValue(
   element: string,
   policy: Policy,
   removed: Removal[],
+  rendererOwned: boolean,
 ): string | null {
-  const refuse = (reason: string): null => {
-    removed.push({ what: 'attribute', name: key, on: element, value: truncate(raw), reason });
+  const refuse = (reason: string, url?: string): null => {
+    removed.push({ what: 'attribute', name: key, on: element, value: truncate(raw), url, reason });
     return null;
   };
   switch (rule.kind) {
@@ -275,9 +294,20 @@ function attributeValue(
       return ` ${key}="${escapeAttributeKeepingReferences(raw ?? '')}"`;
     case 'url': {
       const decision = sanitizeUrl(raw ?? '', rule.context, policy);
-      return decision.allowed
-        ? ` ${key}="${escapeAttribute(decision.value)}"`
-        : refuse(decision.reason ?? 'refused');
+      if (decision.allowed) return ` ${key}="${escapeAttribute(decision.value)}"`;
+      const parsed = decision.resolved ?? (decision.absolute ? decision.value : undefined);
+      const url = parsed ?? decision.value;
+      if (element === 'img' && key === 'src' && decision.absolute && decision.scheme === 'https') {
+        removed.push({
+          what: 'attribute', name: key, on: element, value: truncate(raw), url,
+          reason: 'remote image, not loaded',
+        });
+        return ` ${REMOTE_IMAGE_ATTR}="${escapeAttribute(url)}"`;
+      }
+      if (element === 'img' && key === 'src' && decision.absolute && decision.scheme === 'http') {
+        return refuse('remote image over plain http; marxy never loads these', url);
+      }
+      return refuse(decision.reason ?? 'refused', url);
     }
     case 'enum': {
       const value = decodeReferences(raw ?? '').trim().toLowerCase();
@@ -287,9 +317,17 @@ function attributeValue(
     }
     case 'pattern': {
       const value = decodeReferences(raw ?? '').trim();
-      return rule.pattern.test(value)
-        ? ` ${key}="${escapeAttribute(value)}"`
-        : refuse(`${key} does not match ${String(rule.pattern)}`);
+      if (!rule.pattern.test(value)) return refuse(`${key} does not match ${String(rule.pattern)}`);
+      const prefix = policy.reservedIdPrefix;
+      if (
+        !rendererOwned &&
+        prefix !== undefined &&
+        (key === 'id' || key === 'name') &&
+        value.toLowerCase().startsWith(prefix.toLowerCase())
+      ) {
+        return refuse('the marxy- prefix is reserved for marxy');
+      }
+      return ` ${key}="${escapeAttribute(value)}"`;
     }
     case 'tokens': {
       const tokens = decodeReferences(raw ?? '').trim().split(/\s+/).filter((token) => rule.token.test(token));
