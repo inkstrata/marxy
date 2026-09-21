@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- MARXY-46 and MARXY-47 board rows on main now match their task cards and PR #163/#164 file sets so review reads the right Paths and Acceptance (MARXY-176)
 - Core wide HTML policy, reserved `marxy-` ids, deferred `https:` images as `data-marxy-remote`, and island-scoped removal provenance for the trust notice (MARXY-96)
 - Rendered-mode structured selection resolves through `data-marxy-s`/`data-marxy-e`, core `sectionRange`/`nodeAt`, and Playwright corpus checks; production wiring still needs `installRenderedSelection` from `app.ts` (MARXY-41)
 - Phase 2 is closed on the board: MARXY-41 acceptance matches its task card, MARXY-78 waits on MARXY-96 before touching shared goldens, and the MARXY-87 taste-queue row points at review-2 PNGs (MARXY-174 lands the 2026-09-21-after-127 plan delta)
