@@ -1,10 +1,57 @@
 // Fuzzy covers path, title and headings; a heading hit jumps to its byte offset (ADR-0012).
 
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession } from './session.ts';
-import { jumpForHit, paletteResults } from './search.ts';
+import { jumpForHit, paletteResults, SEARCH_PREPARED_BODY_MUTATION } from './search.ts';
+
+const MODEL_FILES = ['session.ts', 'search.ts', 'keys.ts'] as const;
+const MODEL_FORBIDDEN = [/MiniNode/i, /\bview\.ts\b/, /querySelector\s*\(/, /createElement\s*\(/];
+
+test('desktop test script runs palette model tests in CI', () => {
+  const pkg = JSON.parse(
+    readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+  ) as { scripts: { test: string } };
+  const script = pkg.scripts.test;
+  assert.match(script, /node --test/, 'test script must invoke node --test');
+  assert.match(script, /--experimental-strip-types/, 'palette tests are TypeScript');
+  assert.match(
+    script,
+    /src\/palette\/\*\.test\.ts|src\/\*\*\/\*\.test\.ts/,
+    'test script must include palette model tests',
+  );
+  assert.match(
+    script,
+    new RegExp(`MARXY_86_MUTATION=${SEARCH_PREPARED_BODY_MUTATION}`),
+    'test script must prove the searchPrepared body mutation fails the model suite',
+  );
+  assert.ok(
+    script.includes('test $? -eq 1'),
+    'mutation coverage expects a failing child exit status',
+  );
+});
+
+test('palette model files stay DOM-free', () => {
+  const dir = new URL('./', import.meta.url);
+  for (const name of MODEL_FILES) {
+    const src = readFileSync(new URL(name, dir), 'utf8');
+    for (const pattern of MODEL_FORBIDDEN) {
+      assert.ok(!pattern.test(src), `${name} must not reference ${pattern}`);
+    }
+  }
+});
+
+test(`mutation ${SEARCH_PREPARED_BODY_MUTATION}: searchPrepared is live when the env hook is unset`, () => {
+  assert.notEqual(process.env.MARXY_86_MUTATION, SEARCH_PREPARED_BODY_MUTATION);
+  const searchSource = readFileSync(new URL('./search.ts', import.meta.url), 'utf8');
+  assert.match(
+    searchSource,
+    new RegExp(`MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION`),
+    'searchPrepared must honor the named body mutation',
+  );
+});
 
 function doc(partial: Partial<IndexEntry> & Pick<IndexEntry, 'path' | 'title'>): IndexEntry {
   return {

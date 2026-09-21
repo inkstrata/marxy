@@ -3,6 +3,9 @@
 import type { IndexEntry, IndexHit } from '@marxy/core';
 import { emptyQueryPaths, type PaletteSession } from './session.ts';
 
+/** Named in search.test.ts: with `MARXY_86_MUTATION` set, searchPrepared is a no-op so CI goes red. */
+export const SEARCH_PREPARED_BODY_MUTATION = 'search-prepared-body';
+
 const TITLE_WEIGHT = 4;
 const HEADING_WEIGHT = 3;
 const PATH_WEIGHT = 2;
@@ -67,6 +70,7 @@ export function searchPrepared(
   session: PaletteSession,
   limit = DEFAULT_LIMIT,
 ): readonly IndexHit[] {
+  if (process.env.MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION) return [];
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return emptyHits(prepared, session, limit);
 

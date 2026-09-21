@@ -12,7 +12,7 @@
     "build:web": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",
-    "test": "node --test --experimental-strip-types 'src/palette/*.test.ts' 'test/**/*.test.mjs' 'scripts/**/*.test.mjs'",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types 'src/palette/*.test.ts' 'test/**/*.test.mjs' 'scripts/**/*.test.mjs' && ( MARXY_86_MUTATION=search-prepared-body node --test --test-concurrency=1 --experimental-strip-types src/palette/session.test.ts src/palette/search.test.ts src/palette/search-perf.test.ts src/palette/keys.test.ts ; test $? -eq 1 )",
     "verify:cli": "MARXY_SMOKE_REQUIRED=1 node scripts/smoke-cli-open.mjs",
     "tauri": "tauri"
   },
