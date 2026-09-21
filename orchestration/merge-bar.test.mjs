@@ -31,6 +31,7 @@ function clean(over = {}) {
     attribution: false,
     approval: { ok: true, head: HEAD },
     mergeUnreviewed: false,
+    codeowners: '',
     ...over,
   };
 }
@@ -344,4 +345,87 @@ test('CHANGELOG hunk adds this story and deletes no other story line', t => {
   if (changelogHunkVerdict(diff, branch) === 'skip') {
     t.skip('no added CHANGELOG story line vs origin/main or main');
   }
+});
+
+// MARXY-172: live protection is require_code_owner_reviews: true with required_approving_review_count: 0.
+// Under that pairing GitHub sets reviewDecision to '' (never REVIEW_REQUIRED), so the bar has to work
+// out ownership itself.
+const OWNERS = '/orchestration/merge-bar.mjs @inkstrata\n/.github/ @inkstrata\n/packages/core/src/sanitize/ @inkstrata\n';
+const owned = files => ({ codeowners: OWNERS, files: [...files, 'CHANGELOG.md', 'orchestration/results/MARXY-79.json'] });
+const review = (login, state, oid = HEAD) => ({ author: { login }, state, commit: { oid } });
+// clean() replaces `pr` wholesale, so a test that varies one field needs the rest of a clean PR.
+const prWith = extra => ({ state: 'OPEN', mergeable: 'MERGEABLE', reviewDecision: '', statusCheckRollup: green, headRefOid: HEAD, ...extra });
+
+test('a CODEOWNERS path with no reviewDecision from GitHub still holds for a person', () => {
+  const d = evaluate(clean(owned(['orchestration/merge-bar.mjs'])));
+  assert.equal(d.action, 'hold');
+  assert.equal(d.reasons.filter(r => /human review required/.test(r)).length, 1);
+  assert.match(d.reasons.join('\n'), /human review required \(CODEOWNERS\): orchestration\/merge-bar\.mjs/);
+});
+
+test('an approval by the code owner on the merged head releases the hold', () => {
+  const pr = prWith({ latestReviews: [review('inkstrata', 'APPROVED')] });
+  assert.equal(evaluate(clean({ ...owned(['.github/workflows/ci.yml']), pr })).action, 'merge');
+});
+
+test('an owner approval is case-insensitive on the login', () => {
+  const pr = prWith({ latestReviews: [review('InkStrata', 'APPROVED')] });
+  assert.equal(evaluate(clean({ ...owned(['.github/workflows/ci.yml']), pr })).action, 'merge');
+});
+
+test('an owner approval of an older commit does not cover the head', () => {
+  const pr = prWith({ latestReviews: [review('inkstrata', 'APPROVED', 'b'.repeat(40))] });
+  assert.equal(evaluate(clean({ ...owned(['.github/workflows/ci.yml']), pr })).action, 'hold');
+});
+
+test('an approval by someone who is not an owner does not count', () => {
+  const pr = prWith({ latestReviews: [review('some-agent', 'APPROVED')] });
+  assert.equal(evaluate(clean({ ...owned(['packages/core/src/sanitize/x.ts']), pr })).action, 'hold');
+});
+
+test('the latest review being CHANGES_REQUESTED or DISMISSED is not an approval', () => {
+  for (const state of ['CHANGES_REQUESTED', 'DISMISSED', 'COMMENTED']) {
+    const pr = prWith({ latestReviews: [review('inkstrata', state)] });
+    assert.equal(evaluate(clean({ ...owned(['.github/workflows/ci.yml']), pr })).action, 'hold', state);
+  }
+});
+
+test('a PR that touches no owned path is not held by CODEOWNERS', () => {
+  assert.equal(evaluate(clean(owned(['packages/core/src/parse.ts']))).action, 'merge');
+});
+
+test('one unapproved owned file holds a PR that also touches unowned ones', () => {
+  const d = evaluate(clean(owned(['packages/core/src/parse.ts', 'orchestration/merge-bar.mjs'])));
+  assert.equal(d.action, 'hold');
+  assert.match(d.reasons.join('\n'), /merge-bar\.mjs/);
+  assert.doesNotMatch(d.reasons.join('\n'), /parse\.ts/);
+});
+
+test('an unreadable or missing CODEOWNERS holds instead of treating the repo as unowned', () => {
+  for (const codeowners of [null, undefined]) {
+    const d = evaluate(clean({ codeowners }));
+    assert.equal(d.action, 'hold');
+    assert.match(d.reasons.join('\n'), /could not read \.github\/CODEOWNERS/);
+  }
+});
+
+test('MARXY_MERGE_UNREVIEWED waives the signed approval, never the code owner', () => {
+  const d = evaluate(clean({ ...owned(['orchestration/merge-bar.mjs']), mergeUnreviewed: true, approval: { ok: false } }));
+  assert.equal(d.action, 'hold');
+  assert.match(d.reasons.join('\n'), /human review required/);
+});
+
+test('GitHub REVIEW_REQUIRED still holds, and is not reported twice beside our own reason', () => {
+  const d = evaluate(clean({ ...owned(['orchestration/merge-bar.mjs']), pr: prWith({ reviewDecision: 'REVIEW_REQUIRED' }) }));
+  assert.equal(d.reasons.filter(r => /human review required/.test(r)).length, 1);
+  assert.equal(evaluate(clean({ pr: prWith({ reviewDecision: 'REVIEW_REQUIRED' }) })).action, 'hold');
+});
+
+test('the repo\'s real CODEOWNERS holds the files that decide a merge', () => {
+  const real = readFileSync(join(here, '..', '.github', 'CODEOWNERS'), 'utf8');
+  for (const file of ['orchestration/merge-bar.mjs', 'orchestration/cycle.mjs', 'orchestration/approve.mjs', '.github/workflows/ci.yml', 'packages/core/src/sanitize/index.ts']) {
+    const d = evaluate(clean({ codeowners: real, files: [file, 'CHANGELOG.md'] }));
+    assert.equal(d.action, 'hold', file);
+  }
+  assert.equal(evaluate(clean({ codeowners: real, files: ['packages/core/src/parse.ts', 'CHANGELOG.md'] })).action, 'merge');
 });
