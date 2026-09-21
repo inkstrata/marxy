@@ -5,11 +5,15 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { state, saveState, stories, here } from './lib.mjs';
+import { boardTotals } from './board-check.mjs';
 
 /**
  * Apply one board verb to a story's entry (and, for `done`, the merges counter). `now` is
  * injected so a test can assert an exact stamp. Returns `false` for an unknown verb instead
  * of exiting, so the caller decides what "unknown" means.
+ *
+ * `block KEY [reason…]` records why as `parkedReason`; `start`, `done` and `return` clear it, since a
+ * story that moves again is no longer parked (MARXY-173).
  *
  * `block` and `escalate` stamp `blockedAt`, and `return` stamps it when it lands on
  * `escalate`, so a ruling the planner has already read does not make it due again
@@ -17,15 +21,21 @@ import { state, saveState, stories, here } from './lib.mjs';
  */
 export function transition(cmd, s, st, { argv = process.argv, now = () => new Date().toISOString() } = {}) {
   switch (cmd) {
-    case 'start': st.status = 'in_progress'; st.attempts += 1; st.started = now(); break;
+    case 'start': st.status = 'in_progress'; st.attempts += 1; st.started = now(); delete st.parkedReason; break;
     case 'review': st.status = 'in_review'; if (argv[4]) st.pr = Number(argv[4]); break;
-    case 'done': st.status = 'done'; st.finished = now(); s.merges += 1; break;
+    case 'done': st.status = 'done'; st.finished = now(); s.merges += 1; delete st.parkedReason; break;
     case 'return':
+      delete st.parkedReason;
       st.status = st.attempts >= 2 ? 'escalate' : 'todo';
       if (st.status === 'escalate') st.blockedAt = now();
       break;
     case 'escalate': st.status = 'escalate'; st.blockedAt = now(); break;
-    case 'block': st.status = 'blocked'; st.blockedAt = now(); break;
+    case 'block': {
+      st.status = 'blocked'; st.blockedAt = now();
+      const reason = argv.slice(4).join(' ').trim();
+      if (reason) st.parkedReason = reason;
+      break;
+    }
     default: return false;
   }
   return true;
@@ -38,14 +48,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   if (key && !known.has(key)) { console.error(`unknown story ${key}`); process.exit(2); }
   const st = key ? (s.stories[key] ??= { status: 'todo', attempts: 0 }) : null;
   if (cmd === 'init' || cmd === 'show') {
-    const by = {};
-    for (const [k, v] of Object.entries(s.stories)) (by[v.status] ??= []).push(k);
-    console.log(JSON.stringify({ merges: s.merges, lastPlan: s.lastPlan, ...by }, null, 2));
+    const { byStatus, orphans } = boardTotals(s.stories);
+    console.log(JSON.stringify({ merges: s.merges, lastPlan: s.lastPlan, ...byStatus, ...(orphans.length ? { orphans } : {}) }, null, 2));
   } else if (cmd === 'planned') {
     s.lastPlan = new Date().toISOString();
     s.mergesAtLastPlan = s.merges;
   } else if (!transition(cmd, s, st)) {
-    console.error('usage: state.mjs <show|start|review KEY PR|done|return|escalate|block|planned> [KEY]');
+    console.error('usage: state.mjs <show|start|review KEY PR|done|return|escalate|block KEY [reason]|planned> [KEY]');
     process.exit(2);
   }
   saveState(s);

@@ -48,6 +48,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
 
 ### Fixed
+- A story dispatched under a `MARXY-NEW-` placeholder key can no longer start: placeholder rows are not board stories until `jira.mjs sync` gives them a real key, and every cycle now names any `state.json` entry that is not a Jira key (it stays out of the status totals) and any blocked story with no `parkedReason`; `state.mjs block KEY "reason"` records one (MARXY-173)
 - The merge bar now holds any PR that touches a CODEOWNERS path until an owner has approved its head, computed from `.github/CODEOWNERS` on main instead of waiting for GitHub's `REVIEW_REQUIRED`, which is never sent when required approvals is 0 (MARXY-172)
 - check-cards rejects duplicate CSV keys; the board CSV no longer carries a second MARXY-131/132/133 block or blank data rows, finishing the dedupe PR #134 left on main (MARXY-161)
 - The review-1 shuffle manifest no longer imports unused `readFileSync`, so repo lint is green again (MARXY-162)

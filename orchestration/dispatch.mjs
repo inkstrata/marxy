@@ -4,7 +4,7 @@ import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, stories, state, saveState, models, slug, typeOf } from './lib.mjs';
+import { ROOT, here, stories, state, saveState, models, slug, typeOf, isPlaceholderKey } from './lib.mjs';
 
 export const AUTH_FAILURE_LOG =
   "Error: Authentication required. Please run 'agent login' first, or set CURSOR_API_KEY environment variable.";
@@ -67,7 +67,11 @@ async function runDispatch(keys) {
   git(['fetch', '-q', 'origin']);
   const runs = keys.map(async key => {
     const st = stories().find(x => x.Key === key);
-    if (!st) throw new Error(`unknown ${key}`);
+    if (!st) {
+      throw new Error(isPlaceholderKey(key)
+        ? `${key} is a placeholder key with no Jira issue yet; run node orchestration/jira.mjs sync to give it a real one first`
+        : `unknown ${key}`);
+    }
     const s = state();
     const rec = s.stories[key] ??= { status: 'todo', attempts: 0 };
     const attemptsBefore = rec.attempts;
@@ -82,6 +86,7 @@ async function runDispatch(keys) {
     const resultPath = here(`results/${key}.json`);
     rmSync(resultPath, { force: true });
     rec.status = 'in_progress';
+    delete rec.parkedReason;
     rec.attempts += 1;
     rec.branch = branch;
     rec.worktree = rel;
