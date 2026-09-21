@@ -35,7 +35,9 @@ Taste review #0 chooses the typeface pair.
 Process, gate, CI and release work lives in the `ops` lane of `orchestration/deps.json`, not in a
 numbered phase (MARXY-107). An ops story still waits on its own dependencies, but it is never held
 by a phase and never holds one, and when an ops story and a phase story want the same path, the
-phase story is dispatched first. The loop may improve itself, but never at the cost of the page.
+phase story gets it. A phase story that is ready, or waits only on work already under way, reserves
+its paths against ops, so an ops story that overlaps them waits even while the phase story is held
+back by something else (MARXY-170). The loop may improve itself, but never at the cost of the page.
 
 ## Phase 1 — The page (≈ 4 weeks)
 
