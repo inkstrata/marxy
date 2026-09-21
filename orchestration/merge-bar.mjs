@@ -1,5 +1,7 @@
 // The quality bar a PR must clear before an agent may land it. cycle.mjs is the only
 // caller that merges; this module only decides. The clauses live in docs/sdlc.md.
+import { codeOwnerStatus } from './codeowners.mjs';
+
 const RED = new Set(['FAILURE', 'CANCELLED', 'TIMED_OUT', 'ERROR']);
 const PENDING = new Set(['PENDING', 'IN_PROGRESS', 'QUEUED', 'EXPECTED']);
 
@@ -27,8 +29,15 @@ export function holdReasons({
   attribution = false,
   approval,
   mergeUnreviewed = false,
+  codeowners,
 }) {
   const { checks, red, pending } = classifyChecks(pr.statusCheckRollup);
+  // `codeowners` is the text of .github/CODEOWNERS on main. A caller that could not read it passes
+  // null, and one that forgot it passes nothing: both hold, because ownership went unchecked.
+  const ownership = typeof codeowners === 'string'
+    ? codeOwnerStatus({ files, codeowners, reviews: pr.latestReviews, headRefOid: pr.headRefOid })
+    : null;
+  const needsOwner = pr.reviewDecision === 'REVIEW_REQUIRED' || ownership?.unapproved.length > 0;
   return [
     pr.state !== 'OPEN' && `PR is ${pr.state}`,
     !files?.length && 'could not compute the branch diff, so no boundary check ran',
@@ -38,7 +47,8 @@ export function holdReasons({
     red.length && `red: ${red.map(c => c.name).join(', ')}`,
     pending.length && `pending: ${pending.map(c => c.name).join(', ')}`,
     pr.reviewDecision === 'CHANGES_REQUESTED' && 'changes requested',
-    pr.reviewDecision === 'REVIEW_REQUIRED' && 'human review required (CODEOWNERS)',
+    !ownership && 'could not read .github/CODEOWNERS, so code ownership was not checked',
+    needsOwner && `human review required (CODEOWNERS)${ownership?.unapproved.length ? `: ${ownership.unapproved.join(', ')}` : ''}`,
     outside.length && `files outside the story's paths: ${outside.join(', ')}`,
     !result && 'no implementor result file',
     result && result.status !== 'done' && `result says ${result.status}`,
