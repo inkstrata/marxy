@@ -1,0 +1,44 @@
+{
+  "review": 2,
+  "criterion": "ADR-0011 palette-vs-tabs reversal",
+  "passSeconds": 5,
+  "viewport": { "width": 960, "height": 900, "dpr": 2 },
+  "variant": "dark",
+  "root": "/corpus",
+  "openSequence": [
+    {
+      "file": "01-long-technical.md",
+      "path": "/corpus/01-long-technical.md",
+      "label": "Long technical"
+    },
+    {
+      "file": "02-readme-real-world.md",
+      "path": "/corpus/02-readme-real-world.md",
+      "label": "Real README",
+      "target": true
+    },
+    {
+      "file": "03-ai-plan.md",
+      "path": "/corpus/03-ai-plan.md",
+      "label": "AI plan"
+    },
+    {
+      "file": "15-prose-volume.md",
+      "path": "/corpus/15-prose-volume.md",
+      "label": "Prose volume"
+    },
+    {
+      "file": "09-gfm-everything.md",
+      "path": "/corpus/09-gfm-everything.md",
+      "label": "GFM everything"
+    }
+  ],
+  "targetRule": "After opening the five documents in order, reach the document from three switches ago using only the palette (not Mod+[ history).",
+  "captures": [
+    "palette-empty-dark-960-2x.png",
+    "palette-typing-dark-960-2x.png",
+    "palette-headings-dark-960-2x.png",
+    "palette-operations-dark-960-2x.png",
+    "source-04-source-rs-dark-960-2x.png"
+  ]
+}
