@@ -76,3 +76,42 @@ test('minimal compute mode never names a Claude or GPT model — the Cursor-only
   // Escalation ceiling is Grok — the strongest model configured anywhere in this mode.
   assert.equal(min.implementorEscalation.model, 'grok-4.6');
 });
+
+// MARXY-173: a row still carrying its MARXY-NEW- placeholder has no Jira issue, and `jira.mjs sync` is
+// about to rename it. Dispatched in that window it was run twice, once under each key.
+const CSV = [
+  'Key,Type,Summary,Labels,Paths,Acceptance',
+  'MARXY-1,Story,real story,phase-1,packages/core,"1. it works"',
+  'MARXY-NEW-tokens-test-live-values,Story,not synced yet,ops,scripts/x,"1. it works"',
+  'MARXY-2,Epic,an epic,,,',
+].join('\n');
+
+test('isPlaceholderKey matches MARXY-NEW- keys only, in any case', async () => {
+  const { isPlaceholderKey } = await import('./lib.mjs');
+  assert.equal(isPlaceholderKey('MARXY-NEW-tokens-test-live-values'), true);
+  assert.equal(isPlaceholderKey('marxy-new-x'), true);
+  assert.equal(isPlaceholderKey('MARXY-145'), false);
+  assert.equal(isPlaceholderKey(undefined), false);
+});
+
+test('stories() leaves out a placeholder row and keeps the real ones', async () => {
+  const { stories } = await import('./lib.mjs');
+  const keys = stories(CSV).map(s => s.Key);
+  assert.ok(keys.includes('MARXY-1'));
+  assert.ok(!keys.some(k => /^MARXY-NEW-/i.test(k)));
+});
+
+test('isBoardKey accepts a numbered Jira key and nothing else', async () => {
+  const { isBoardKey } = await import('./lib.mjs');
+  for (const ok of ['MARXY-1', 'MARXY-145']) assert.equal(isBoardKey(ok), true, ok);
+  for (const no of ['MARXY-NEW-x', 'MARXY-', 'marxy-1', 'MARXY-1a', 'x MARXY-1', '', undefined]) assert.equal(isBoardKey(no), false, String(no));
+});
+
+test('a placeholder row is never ready, so it cannot be dispatched before sync', async () => {
+  const { stories } = await import('./lib.mjs');
+  const { selectReady } = await import('./ready.mjs');
+  const report = selectReady({ all: stories(CSV), s: { stories: {} }, d: { phases: {}, deps: {} }, cap: Infinity });
+  const named = [...report.ready.map(r => r.key), ...report.blockedByDeps, ...report.blockedByPaths, ...report.excluded.map(e => e.key)];
+  assert.ok(report.ready.some(r => r.key === 'MARXY-1'));
+  assert.ok(!named.some(k => /^MARXY-NEW-/.test(k)));
+});

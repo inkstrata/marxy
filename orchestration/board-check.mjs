@@ -5,19 +5,21 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, parseCsv, state } from './lib.mjs';
+import { ROOT, parseCsv, state, isBoardKey, isPlaceholderKey } from './lib.mjs';
 
-/** The five kinds `boardDrift` can report. */
+/** The kinds `boardDrift` can report. */
 export const KIND = {
   BEHIND: 'behind',
   OFF_MAIN: 'off-main',
   DIRTY_BOARD: 'dirty-board',
   UNBOARDED_PR: 'unboarded-pr',
   STALE_REVIEW: 'stale-review',
+  ORPHAN_STATE: 'orphan-state',
+  UNEXPLAINED_BLOCK: 'unexplained-block',
 };
 
-/** The findings that must hold dispatch (`cycle.mjs` step 6). `unboarded-pr` and `stale-review`
- * are named every cycle but never hold — they are someone else's next action, not this
+/** The findings that must hold dispatch (`cycle.mjs` step 6). Every other kind
+ * is named every cycle but never holds — they are someone else's next action, not this
  * checkout's staleness. */
 export const BLOCKS_DISPATCH = [KIND.BEHIND, KIND.OFF_MAIN, KIND.DIRTY_BOARD];
 
@@ -41,6 +43,8 @@ export function boardDrift({
   csvKeys = [],
   outOfPlanKeys = [],
   inReview = [],
+  stateStories = {},
+  renames = {},
 } = {}) {
   const findings = [];
   if (Number(behind) > 0) {
@@ -72,7 +76,46 @@ export function boardDrift({
       });
     }
   }
+
+  // A key that is not shaped like a Jira key is invisible to every script that matches /MARXY-\d+/, yet
+  // it still counts in the totals. A numeric key with no CSV row is fine: that is an out-of-plan task.
+  for (const [key, rec] of Object.entries(stateStories)) {
+    if (isBoardKey(key)) continue;
+    const why = renames[key]
+      ? `jira.mjs sync renamed it to ${renames[key]}, and state.json is untracked so the rename never reached this entry`
+      : isPlaceholderKey(key)
+        ? 'it was dispatched under a placeholder key, which has no Jira issue'
+        : 'it is not a Jira key';
+    const leftovers = rec.branch ? `; its branch ${rec.branch}${rec.worktree ? ` and worktree ${rec.worktree}` : ''} are left for a person to remove` : '';
+    findings.push({
+      kind: KIND.ORPHAN_STATE,
+      detail: `${key} is in state.json (${rec.status}) but is not a board key, so it counts in no total: ${why}${leftovers}`,
+    });
+  }
+
+  // A blocked story with nothing saying what it waits for looks the same as one that is stuck.
+  for (const [key, rec] of Object.entries(stateStories)) {
+    if (rec.status !== 'blocked' || rec.parkedReason) continue;
+    findings.push({
+      kind: KIND.UNEXPLAINED_BLOCK,
+      detail: `${key} is blocked but has no parkedReason; say why with: node orchestration/state.mjs block ${key} "<reason>"`,
+    });
+  }
   return findings;
+}
+
+/**
+ * The board's tally by status. Only a Jira-shaped key counts; anything else in state.json is listed
+ * apart, so a stray entry cannot inflate a total or hide inside one.
+ */
+export function boardTotals(stateStories = {}) {
+  const byStatus = {};
+  const orphans = [];
+  for (const [key, rec] of Object.entries(stateStories)) {
+    if (!isBoardKey(key)) orphans.push(key);
+    else (byStatus[rec.status] ??= []).push(key);
+  }
+  return { byStatus, orphans };
 }
 
 // No .trim() here: `git status --porcelain` lines can start with a leading space (" M path")
@@ -133,7 +176,16 @@ export function gatherBoardCheckInput() {
       return { key, pr: rec.pr, prState };
     });
 
-  return { branch, behind, dirtyTracked, openPrs, csvKeys, outOfPlanKeys: [], inReview };
+  let renames = {};
+  try {
+    renames = JSON.parse(readFileSync(`${ROOT}orchestration/jira-map.json`, 'utf8')).keys ?? {};
+  } catch {
+    /* no map: an orphan simply gets no rename hint */
+  }
+  return {
+    branch, behind, dirtyTracked, openPrs, csvKeys, outOfPlanKeys: [], inReview,
+    stateStories: state().stories ?? {}, renames,
+  };
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;

@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { boardDrift, gatherBoardCheckInput, KIND, BLOCKS_DISPATCH } from './board-check.mjs';
+import { boardDrift, gatherBoardCheckInput, boardTotals, KIND, BLOCKS_DISPATCH } from './board-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -138,15 +138,21 @@ test('every kind actually appears when its own condition is deliberately broken,
     csvKeys: ['MARXY-1'],
     outOfPlanKeys: [],
     inReview: [{ key: 'MARXY-2', pr: 9, prState: 'MERGED' }],
+    stateStories: { 'MARXY-NEW-stray': { status: 'todo' }, 'MARXY-3': { status: 'blocked' } },
   });
   const kinds = boardDrift(broken).map(f => f.kind).sort();
-  assert.deepEqual(kinds, [KIND.BEHIND, KIND.DIRTY_BOARD, KIND.OFF_MAIN, KIND.STALE_REVIEW, KIND.UNBOARDED_PR].sort());
+  assert.deepEqual(kinds, [
+    KIND.BEHIND, KIND.DIRTY_BOARD, KIND.OFF_MAIN, KIND.STALE_REVIEW, KIND.UNBOARDED_PR,
+    KIND.ORPHAN_STATE, KIND.UNEXPLAINED_BLOCK,
+  ].sort());
 });
 
 test('BLOCKS_DISPATCH names exactly behind, off-main and dirty-board — never the two that are only informational', () => {
   assert.deepEqual(new Set(BLOCKS_DISPATCH), new Set([KIND.BEHIND, KIND.OFF_MAIN, KIND.DIRTY_BOARD]));
   assert.ok(!BLOCKS_DISPATCH.includes(KIND.UNBOARDED_PR));
   assert.ok(!BLOCKS_DISPATCH.includes(KIND.STALE_REVIEW));
+  assert.ok(!BLOCKS_DISPATCH.includes(KIND.ORPHAN_STATE));
+  assert.ok(!BLOCKS_DISPATCH.includes(KIND.UNEXPLAINED_BLOCK));
 });
 
 test('gatherBoardCheckInput reads the real checkout: shape matches what boardDrift expects', () => {
@@ -174,7 +180,7 @@ test('node orchestration/board-check.mjs runs standalone: exit 0 and "clean" wit
   } else {
     assert.equal(r.status, 1);
     assert.ok(lines.length > 0);
-    for (const line of lines) assert.match(line, /^(behind|off-main|dirty-board|unboarded-pr|stale-review):/);
+    for (const line of lines) assert.match(line, /^(behind|off-main|dirty-board|unboarded-pr|stale-review|orphan-state|unexplained-block):/);
   }
 });
 
@@ -212,4 +218,64 @@ test('the planner and orchestrator prompts say board changes go in a worktree of
     assert.match(text, /never/i, `${path} does not say never to edit the orchestrator checkout directly`);
     assert.match(text, /MARXY-117/, `${path} does not cite MARXY-117`);
   }
+});
+
+// MARXY-173: MARXY-NEW-tokens-test-live-values sat in state.json with no CSV row and no Jira issue.
+// jira.mjs sync had renamed the row to MARXY-145; state.json is untracked, so the entry never followed.
+test('a state.json key that is not a Jira key is an orphan-state finding, with the rename hint when sync recorded one', () => {
+  const findings = boardDrift(clean({
+    stateStories: {
+      'MARXY-1': { status: 'todo' },
+      'MARXY-145': { status: 'done' },
+      'MARXY-NEW-tokens-test-live-values': { status: 'todo', branch: 'feat/MARXY-NEW-tokens-test-live-values-x', worktree: '../marxy-wt/MARXY-NEW-tokens-test-live-values' },
+    },
+    renames: { 'MARXY-NEW-tokens-test-live-values': 'MARXY-145' },
+  }));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, KIND.ORPHAN_STATE);
+  assert.match(findings[0].detail, /MARXY-NEW-tokens-test-live-values/);
+  assert.match(findings[0].detail, /renamed it to MARXY-145/);
+  assert.match(findings[0].detail, /branch feat\/MARXY-NEW-tokens-test-live-values-x and worktree/);
+});
+
+test('an orphan with no rename on record says it was a placeholder, or that it is not a Jira key', () => {
+  const input = key => clean({ stateStories: { [key]: { status: 'todo' } } });
+  assert.match(boardDrift(input('MARXY-NEW-x'))[0].detail, /placeholder key/);
+  assert.match(boardDrift(input('marxy-9'))[0].detail, /not a Jira key/);
+});
+
+test('an out-of-plan task has a real key and no CSV row, and is not an orphan', () => {
+  // MARXY-112, 123, 161 and others are done tasks like this on the live board.
+  assert.deepEqual(boardDrift(clean({ csvKeys: ['MARXY-1'], stateStories: { 'MARXY-161': { status: 'done', branch: 'fix/MARXY-161-x' } } })), []);
+});
+
+test('a blocked story with no parkedReason is named; one with a reason, and other statuses, are not', () => {
+  const findings = boardDrift(clean({
+    stateStories: {
+      'MARXY-115': { status: 'blocked' },
+      'MARXY-78': { status: 'blocked', parkedReason: 'paths MARXY-138 needs' },
+      'MARXY-5': { status: 'todo' },
+      'MARXY-6': { status: 'escalate' },
+    },
+  }));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, KIND.UNEXPLAINED_BLOCK);
+  assert.match(findings[0].detail, /MARXY-115/);
+  assert.match(findings[0].detail, /state\.mjs block MARXY-115/);
+});
+
+test('boardTotals counts Jira-shaped keys, out-of-plan ones included, and lists the rest apart', () => {
+  const { byStatus, orphans } = boardTotals({
+    'MARXY-1': { status: 'todo' },
+    'MARXY-161': { status: 'done' },
+    'MARXY-NEW-x': { status: 'todo' },
+  });
+  assert.deepEqual(byStatus, { todo: ['MARXY-1'], done: ['MARXY-161'] });
+  assert.deepEqual(orphans, ['MARXY-NEW-x']);
+});
+
+test('gatherBoardCheckInput hands boardDrift the local state, and a real checkout has no orphans', () => {
+  const input = gatherBoardCheckInput();
+  assert.equal(typeof input.stateStories, 'object');
+  assert.deepEqual(boardDrift(input).filter(f => f.kind === KIND.ORPHAN_STATE), []);
 });

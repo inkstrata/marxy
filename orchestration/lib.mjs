@@ -43,8 +43,26 @@ export function models(raw = readJson(here('models.json')), argv = process.argv,
 
 export const deps = () => readJson(here('deps.json'));
 export function parseCsv(t) { const rows = []; let row = [], cell = '', q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; } else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; } else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (c !== '\r') cell += c; } if (cell || row.length) { row.push(cell); rows.push(row); } const [h, ...rest] = rows; return rest.filter(r => r.length === h.length).map(r => Object.fromEntries(h.map((k, i) => [k, r[i]]))); }
-export function stories() {
-  const csv = parseCsv(readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 'utf8')).filter(r => r.Type === 'Story');
+/**
+ * A row the planner wrote before `jira.mjs sync` gave it a real key (`MARXY-NEW-<slug>`). It has no
+ * Jira issue yet, and `sync` renames it everywhere git tracks, but never in the untracked state.json.
+ */
+export const isPlaceholderKey = key => /^MARXY-NEW-/i.test(String(key ?? ''));
+
+/**
+ * Whether `key` is shaped like a Jira key, the only kind every script here matches (`/MARXY-\d+/`).
+ * A key with no CSV row can still be one: out-of-plan tasks (`jira.mjs task`) never get a row.
+ */
+export const isBoardKey = key => /^MARXY-\d+$/.test(String(key ?? ''));
+
+/**
+ * The stories the board can act on. A placeholder row is not one of them: dispatched under its
+ * placeholder, it gets a state entry, a branch and a worktree that `sync` then renames the row out
+ * from under, and the story is dispatched again under its real key (MARXY-145 ran twice this way).
+ */
+export function stories(text = readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 'utf8')) {
+  const csv = parseCsv(text)
+    .filter(r => r.Type === 'Story' && !isPlaceholderKey(r.Key));
   const research = Object.entries(deps().research || {}).filter(([k]) => !k.startsWith('_')).map(([k, v]) => ({ Key: k, Type: 'Research', Summary: v.summary, Paths: v.paths, Acceptance: 'A decision note committed at the path named in the summary, with measurements.', Labels: 'research', Parent: '' }));
   return [...csv, ...research];
 }

@@ -13,7 +13,7 @@ import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, readJson, stories, state, saveState, models } from './lib.mjs';
-import { boardDrift, gatherBoardCheckInput, BLOCKS_DISPATCH } from './board-check.mjs';
+import { boardDrift, gatherBoardCheckInput, boardTotals, BLOCKS_DISPATCH } from './board-check.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
@@ -322,8 +322,7 @@ function runCycle(argv = process.argv.slice(2)) {
   }
 
   // 6. The report. Overwritten every cycle; the durable record is the PRs and Jira.
-  const byStatus = {};
-  for (const [k, v] of Object.entries(state().stories)) (byStatus[v.status] ??= []).push(k);
+  const { byStatus, orphans } = boardTotals(state().stories);
   const human = existsSync(here('needs-human.md')) ? readFileSync(here('needs-human.md'), 'utf8').split('\n').filter(l => l.startsWith('- [ ]')).length : 0;
   writeFileSync(here('status.md'), `# Status — ${new Date().toISOString()}
 
@@ -331,7 +330,7 @@ Written by \`orchestration/cycle.mjs\`. Compute mode **${m.compute}**. ${human} 
 
 ## Board
 
-${Object.entries(byStatus).map(([k, v]) => `- **${k}** (${v.length}): ${v.join(', ')}`).join('\n')}
+${Object.entries(byStatus).map(([k, v]) => `- **${k}** (${v.length}): ${v.join(', ')}`).join('\n')}${orphans.length ? `\n- **not on the board, in no total** (${orphans.length}): ${orphans.join(', ')}` : ''}
 
 ## This cycle
 
