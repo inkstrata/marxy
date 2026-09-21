@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { prunePlan, removeArgs, runWorktreePrune, removeWorktreeAt } from './worktrees.mjs';
+import {
+  prunePlan, removeArgs, runWorktreePrune, removeWorktreeAt,
+  prListArgs, pickPrState, gatherWorktreeEntries, inProgressBranches,
+} from './worktrees.mjs';
 
 const orch = '/repo/marxy';
 
@@ -137,4 +140,66 @@ test('CLI --dry-run exits zero and removes nothing', () => {
   const root = join(here, '..');
   const r = spawnSync(process.execPath, [join(here, 'worktrees.mjs'), '--dry-run'], { cwd: root, encoding: 'utf8' });
   assert.equal(r.status, 0);
+});
+
+// MARXY-171: `gh pr list --head B` lists open PRs only. The arms above were tested with prState
+// injected, so nothing noticed that production never produced MERGED or CLOSED.
+test('the gh query asks for every PR state, not just open ones', () => {
+  const args = prListArgs('feat/MARXY-8-x');
+  assert.deepEqual(args.slice(0, 4), ['pr', 'list', '--head', 'feat/MARXY-8-x']);
+  assert.equal(args[args.indexOf('--state') + 1], 'all');
+});
+
+test('pickPrState prefers OPEN, then MERGED, then CLOSED', () => {
+  const rows = (...s) => JSON.stringify(s.map(state => ({ state })));
+  assert.equal(pickPrState(rows('CLOSED', 'OPEN')), 'OPEN');
+  assert.equal(pickPrState(rows('CLOSED', 'MERGED')), 'MERGED');
+  assert.equal(pickPrState(rows('CLOSED')), 'CLOSED');
+  assert.equal(pickPrState('[]'), null);
+  assert.equal(pickPrState(''), null);
+  assert.equal(pickPrState('not json'), null);
+});
+
+test('gatherWorktreeEntries reads a merged branch as MERGED through the real query shape', () => {
+  // A fake gh that behaves like gh: it answers only for the states the argv asks for.
+  const prs = { 'feat/MARXY-8-x': [{ state: 'MERGED' }], 'feat/MARXY-9-y': [{ state: 'OPEN' }] };
+  const gh = argv => {
+    const branch = argv[argv.indexOf('--head') + 1];
+    const wanted = argv.includes('--state') ? argv[argv.indexOf('--state') + 1] : 'open';
+    const rows = (prs[branch] ?? []).filter(r => wanted === 'all' || r.state.toLowerCase() === wanted);
+    return JSON.stringify(rows);
+  };
+  const porcelain = [
+    'worktree /repo/marxy', 'HEAD 0', 'branch refs/heads/main', '',
+    'worktree /repo/marxy-wt/MARXY-8', 'HEAD 1', 'branch refs/heads/feat/MARXY-8-x', '',
+    'worktree /repo/marxy-wt/MARXY-9', 'HEAD 2', 'branch refs/heads/feat/MARXY-9-y', '',
+  ].join('\n');
+  const git = argv => (argv[0] === 'worktree' ? porcelain : '');
+  const entries = gatherWorktreeEntries({ root: '/repo/marxy', git, gh });
+  const byPath = Object.fromEntries(entries.map(e => [e.path, e.prState]));
+  assert.equal(byPath['/repo/marxy-wt/MARXY-8'], 'MERGED');
+  assert.equal(byPath['/repo/marxy-wt/MARXY-9'], 'OPEN');
+  const { remove } = prunePlan(entries, { orchestratorPath: '/repo/marxy' });
+  assert.deepEqual(remove.map(e => e.path), ['/repo/marxy-wt/MARXY-8']);
+});
+
+test('a story in progress keeps its worktree even when an earlier attempt\'s PR is closed', () => {
+  const { remove, keep } = prunePlan(
+    [entry({ prState: 'CLOSED' })],
+    { orchestratorPath: orch, activeBranches: ['feat/MARXY-1-slug'] },
+  );
+  assert.equal(remove.length, 0);
+  assert.equal(keep[0].reason, 'story in progress');
+});
+
+test('inProgressBranches lists only in_progress stories that have a branch', () => {
+  assert.deepEqual(
+    inProgressBranches({ stories: {
+      a: { status: 'in_progress', branch: 'b/a' },
+      b: { status: 'in_review', branch: 'b/b' },
+      c: { status: 'in_progress' },
+      d: { status: 'done', branch: 'b/d' },
+    } }),
+    ['b/a'],
+  );
 });
