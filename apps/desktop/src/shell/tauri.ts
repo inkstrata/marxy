@@ -32,7 +32,7 @@ const lastRead = new Map<string, Uint8Array>();
 const readBytes = async (path: string): Promise<Uint8Array> =>
   new Uint8Array(await invoke<number[]>('read_file', { path }));
 
-export const shell: Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks'> & {
+export const shell: Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'onOpenFiles'> & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -103,5 +103,10 @@ export const shell: Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'plat
   assetUrl: (path) => {
     assertAssetScope(path);
     return convertFileSrc(path);
+  },
+  onOpenFiles: (cb) => {
+    void listen<string[]>('marxy:open-files', (event) => {
+      cb(event.payload);
+    });
   },
 };

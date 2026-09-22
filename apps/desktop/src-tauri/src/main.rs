@@ -5,9 +5,10 @@ mod commands;
 mod error;
 
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::Manager;
+use tauri::{Emitter, Manager, RunEvent};
 
 fn now_ms() -> f64 {
     SystemTime::now()
@@ -157,6 +158,44 @@ fn arm_paint_deadline(app: tauri::AppHandle, render: u64) {
 /// is no second-document path to drive it through yet — the app renders once per launch — and because
 /// compiling a test harness for the Tauri dependency tree costs CI about two minutes for four
 /// assertions, while this costs the launch of an already-built binary.
+/// Absolute paths for `onOpenFiles`: skip flags and the macOS `-psn_…` launcher token.
+fn document_paths_from_argv(argv: &[String], cwd: &str) -> Vec<String> {
+    let base = Path::new(cwd);
+    argv.iter()
+        .skip(1)
+        .filter(|a| !a.starts_with('-'))
+        .filter_map(|a| {
+            let path = PathBuf::from(a);
+            let resolved = if path.is_absolute() {
+                path
+            } else {
+                base.join(path)
+            };
+            resolved
+                .canonicalize()
+                .unwrap_or(resolved)
+                .to_str()
+                .map(String::from)
+        })
+        .collect()
+}
+
+fn focus_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn emit_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+    focus_main_window(app);
+    let _ = app.emit("marxy:open-files", paths);
+}
+
 fn paint_deadline_selftest() -> i32 {
     let mut failed: Vec<&str> = Vec::new();
     let first = begin_render();
@@ -196,6 +235,9 @@ fn main() {
     }
     mark("main_start", now_ms(), None);
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            emit_open_files(app, document_paths_from_argv(&argv, &cwd));
+        }))
         .setup(|app| {
             if app.webview_windows().values().next().is_some() {
                 mark("window_shown", now_ms(), None);
@@ -214,6 +256,21 @@ fn main() {
             commands::fs::image_size,
             commands::fs::allow_asset_scope,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running marxy");
+        .build(tauri::generate_context!())
+        .expect("error while building marxy")
+        .run(|app, event| {
+            #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+            if let RunEvent::Opened { urls } = event {
+                let paths: Vec<String> = urls
+                    .iter()
+                    .filter(|url| url.scheme() == "file")
+                    .filter_map(|url| {
+                        url.to_file_path()
+                            .ok()
+                            .and_then(|p| p.to_str().map(String::from))
+                    })
+                    .collect();
+                emit_open_files(app, paths);
+            }
+        });
 }

@@ -45,7 +45,7 @@ error.rs         ShellError { code, message, path } ← std::io::ErrorKind mappi
 | `saveDialog` → `save_dialog` | `{ defaultPath? }` | `string \| null` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
 | `fetchRemoteImage` → `fetch_remote_image` | `url` | `string` (a `marxy-remote:` URL) | unsupported (not https, or no network in the sandbox), invalid (not an image, too large), io | net (`ureq`, ADR-0027) | MARXY-97 |
 | `args`, `mark_from_webview`, `startup_marks`, `quit` | | | | app | done |
-| `onOpenFiles` | callback | — | — | `listen('marxy:open-files')` from the single-instance plugin | MARXY-33 |
+| `onOpenFiles` | callback | — | — | `listen('marxy:open-files')` from the single-instance plugin | MARXY-183 |
 | `onWatch` | callback | — | — | `listen('marxy:watch')` | MARXY-34 |
 
 **Contract status (ADR-0026).** Most of this table is not in the frozen `Shell` interface on
