@@ -3,7 +3,7 @@
 **Status:** accepted 2026-09-20 (MARXY-151) · **Amends:** ADR-0013 (the "regressions are hard
 failures" clause for named interaction times), ADR-0022 (CI envelope, baseline, cold envelope
 and parse two-tier rules), ADR-0029 (extends "no product cold-start ceiling" to every timing
-quantity) · **Source:** Ian's ruling 2026-09-20, after a 0.05 ms ubuntu parse miss failed
+quantity) · **Source:** the author's ruling 2026-09-20, after a 0.05 ms ubuntu parse miss failed
 main and PR #99 on a rented runner
 
 ## Decision
@@ -30,7 +30,7 @@ those numbers.
 
 The two-tier machinery (ADR-0022) was built to keep "very fast" as a promise on hardware
 that cannot keep it. Shared runners then spent a week failing on noise: an 11 % macOS
-spread, a 0.05 ms parse miss against a 16.00 ms ceiling, a `cold_warm_ratio` of 0.99. Ian
+spread, a 0.05 ms parse miss against a 16.00 ms ceiling, a `cold_warm_ratio` of 0.99. The author
 ruled there are no hard speed commitments. A gate that fails the merge bar on a number we
 do not promise is worse than no gate.
 

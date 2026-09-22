@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The author's personal name no longer appears in docs prose or the readiness table's "waiting on" label; both now say "the author" (MARXY-181)
 - The orchestrator human queue lists only the three items still waiting on a person, and a leftover `MARXY-NEW-` board cache row is renamed onto its real Jira key so it stops counting as an orphan (MARXY-179)
 - The desktop shell applies a configured user theme after first readable text, hot-reloads theme files, and offers “Use this theme” when a theme file is opened in Source (MARXY-177)
 - The theme package loads `theme.toml` + `theme.css`, rewrites local `url()` paths for the asset scope, warns on contract mismatch, and exposes byte-faithful `setTopLevelKey` for the shell story (MARXY-47)

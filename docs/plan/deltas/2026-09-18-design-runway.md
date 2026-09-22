@@ -75,7 +75,7 @@ Gate/harness stories (55–73) fill free lanes only; none of them blocks the lis
 
 ## Addendum, same day — dark is primary, and the designs are hardened
 
-Ian's decision, applied now rather than after light was designed: **dark is the primary
+The author's decision, applied now rather than after light was designed: **dark is the primary
 variant** (ADR-0024). Token defaults are the dark palette, the default theme carries the light
 block, the window and the empty state paint dark, every matrix and review lists dark first.
 Palette values and contrast ratios are in `docs/design/05-theme.md` §Palettes (body 14.5:1 dark,

@@ -1,6 +1,6 @@
 # Plan delta — 2026-09-21: Mac-shell gaps, and unblocking MARXY-16
 
-Trigger: an investigation session into what a proper macOS app for marxy still needs, and Ian's
+Trigger: an investigation session into what a proper macOS app for marxy still needs, and the author's
 follow-up ruling: "we are no longer guaranteeing the 500 ms budget. Let's unblock as much as
 possible."
 
@@ -17,7 +17,7 @@ still a commitment and whether MARXY-16 (the v0.0.1 release) should wait on it b
 - **ADR-0032 — Speed numbers are recorded; they are not CI failures.** Accepted 2026-09-20,
   extending the same ruling to every timing quantity, not only cold start.
 
-Both amend ADR-0013 and are sourced to "Ian's ruling." The `needs-human.md` checklist item asking
+Both amend ADR-0013 and are sourced to "the author's ruling." The `needs-human.md` checklist item asking
 for this ruling was simply never marked discharged, and `orchestration/deps.json` was never
 updated to match, so MARXY-16 kept waiting on MARXY-15 for three days after the question that
 dependency existed for had an answer on record. This delta fixes the board; a parallel PR is
@@ -71,7 +71,7 @@ DMG matrix row, notices/about, Flatpak (all MARXY-52); the open/save dialog comm
 clipboard and opener (MARXY-42/45/47); the app icon (`.icns`/`.ico`, MARXY-16 itself). No updater,
 crash reporter or telemetry is being proposed anywhere in this delta (ADR-0009 §4 stands).
 
-## Still open, still Ian's
+## Still open, still the author's
 
 `needs-human.md`'s 2026-09-18 question — whether a Linux desktop exists for MARXY-22 (the weight
 harness) and whether an Apple Developer account exists for notarization (MARXY-52, MARXY-54) — is

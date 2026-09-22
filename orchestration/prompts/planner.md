@@ -12,7 +12,7 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
    an **Escalation risk** section naming any story you expect to reach `implementorEscalation`
    or fail twice — a contract-adjacent change, a mechanism no prior story has touched, a story
    already returned once, or one whose Acceptance you had to write unusually loosely. This is a
-   flag for the orchestrator and for Ian, not a change to the model config: the compute mode in
+   flag for the orchestrator and for the author, not a change to the model config: the compute mode in
    `orchestration/models.json` decides which model actually escalates to, and under `minimal`
    that ceiling is Grok regardless of what you flag here.
 2. **Story changes** applied to `docs/plan/jira-issues.csv` and `orchestration/deps.json`,

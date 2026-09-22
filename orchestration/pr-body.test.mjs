@@ -63,7 +63,7 @@ Cold start is no longer a 500 ms promise.
 
 ## Why
 
-Ian ruled we should keep measuring it and resist inflation.
+The author ruled we should keep measuring it and resist inflation.
 
 ## Acceptance
 

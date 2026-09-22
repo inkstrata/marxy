@@ -1,5 +1,5 @@
 // Fixture board for the readiness table: same evaluate as merge-bar, same order as 80/81,
-// and Ian's CODEOWNERS PRs wait for Ian even when CI is green (MARXY-92).
+// and the author's CODEOWNERS PRs wait for the author even when CI is green (MARXY-92).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -153,8 +153,8 @@ test('--json prints the same rows as the text table', () => {
   }
 });
 
-test('a PR from Ian touching a CODEOWNERS path waits for Ian even if CI is green', () => {
-  const ian = pr({
+test('a PR from the author touching a CODEOWNERS path waits for the author even if CI is green', () => {
+  const authorPr = pr({
     number: 9,
     key: 'MARXY-9',
     title: 'feat: x (MARXY-9)',
@@ -163,7 +163,7 @@ test('a PR from Ian touching a CODEOWNERS path waits for Ian even if CI is green
     reviewDecision: '',
   });
   const rows = collect({
-    prs: [ian],
+    prs: [authorPr],
     evaluate,
     verify: () => ({ ok: true, head: HEAD }),
     computeOrder: () => ({ order: [], excluded: [] }),
@@ -174,7 +174,7 @@ test('a PR from Ian touching a CODEOWNERS path waits for Ian even if CI is green
   // The bar used to say `merge` here and left the wait to readiness alone, so the cycle would have
   // landed it (MARXY-172). It now holds on the owned path itself.
   const decision = mergeBarEvaluate({
-    pr: ian,
+    pr: authorPr,
     files: ['.github/workflows/ci.yml', 'CHANGELOG.md'],
     outside: [],
     result: { status: 'done' },
@@ -186,8 +186,8 @@ test('a PR from Ian touching a CODEOWNERS path waits for Ian even if CI is green
   assert.match(decision.reasons.join('\n'), /human review required \(CODEOWNERS\): \.github\/workflows\/ci\.yml/);
   assert.equal(rows[0].action, 'hold');
   assert.equal(rows[0].ci, 'green');
-  assert.equal(rows[0].waitingOn, 'Ian');
-  assert.match(rows[0].next, /Ian/);
+  assert.equal(rows[0].waitingOn, 'author');
+  assert.match(rows[0].next, /author/);
 });
 
 test('CODEOWNERS patterns match directories by prefix and files exactly', () => {

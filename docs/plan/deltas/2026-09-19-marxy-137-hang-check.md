@@ -6,7 +6,7 @@
 > 1. **MARXY-137** reported `blocked` on attempt 2 (PR #104, head `2877622`) —
 >    `orchestration/results/MARXY-137.json`.
 > 2. **MARXY-59** (PR #100) is red on both gates runners for a reason its own `Paths` cannot fix —
->    surfaced by Ian, not a returned review.
+>    surfaced by the author, not a returned review.
 
 ## Trigger 1 — `checkHanging` cannot tell a hanging quote from a 5 % optical nudge
 

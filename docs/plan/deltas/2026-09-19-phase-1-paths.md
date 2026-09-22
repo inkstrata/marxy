@@ -1,6 +1,6 @@
 # Plan delta — 2026-09-19 (Phase 1 paths match their task cards)
 
-> Out-of-cadence planner correction, written while implementing MARXY-20 at Ian's request.
+> Out-of-cadence planner correction, written while implementing MARXY-20 at the author's request.
 
 ## What was wrong
 
