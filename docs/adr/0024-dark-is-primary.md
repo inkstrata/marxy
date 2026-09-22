@@ -29,7 +29,7 @@ costs one file of values.
 ## Consequences
 
 - `tokens.css` `:root` values change (dark); the *names* do not, except the additive set.
-  ADR-0008's rule "themes set tokens, marxy derives distances" is untouched.
+  ADR-0008's rule "themes set tokens, Marxy derives distances" is untouched.
 - Window `backgroundColor` and the inline empty-state styles are dark so there is never a
   white flash before the theme applies.
 - Taste review #0 is re-rendered on dark before the typeface decision (MARXY-76); MARXY-46

@@ -1,19 +1,19 @@
 # Human capture needed — review #1 competitors
 
-This cloud environment has **no Typora or Marked 2**. marxy captures are committed under `marxy/`.
+This cloud environment has **no Typora or Marked 2**. Marxy captures are committed under `marxy/`.
 Please add matching captures before the blind review.
 
-## Capture spec (match marxy)
+## Capture spec (match Marxy)
 
 | Setting | Value |
 | --- | --- |
 | Documents | `fixtures/corpus/01-long-technical.md`, `02-readme-real-world.md`, `03-ai-plan.md` |
-| Column width | **68 `ch`** (same effective measure as marxy) |
+| Column width | **68 `ch`** (same effective measure as Marxy) |
 | Body size | **17 px** |
 | Theme | **Light** |
 | Scale | **2×** (Retina / equivalent sharp capture) |
 | Viewport | **960×900** px content area where possible |
-| Shots | **First screen** and **~70% scroll** for each document (same scroll fraction as marxy) |
+| Shots | **First screen** and **~70% scroll** for each document (same scroll fraction as Marxy) |
 
 ## Where to put files
 

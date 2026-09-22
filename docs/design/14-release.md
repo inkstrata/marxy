@@ -29,7 +29,7 @@ signing identity string, an app-specific password for notarization, and the team
 
 - Hardened runtime on; entitlements file `apps/desktop/src-tauri/entitlements.plist` with
   **only** `com.apple.security.cs.allow-jit` (WebKit's JavaScriptCore JIT). No network client
-  entitlement is needed outside the App Sandbox, and marxy does not use the App Sandbox in v1
+  entitlement is needed outside the App Sandbox, and Marxy does not use the App Sandbox in v1
   (sandboxed apps cannot read an arbitrary file named on the command line without a user-selected
   bookmark, which breaks `marxy file.md`).
 - The workflow **fails** on a tag matching `v1.*` if any `APPLE_*` secret is empty. Pre-1.0 tags
@@ -56,15 +56,15 @@ signing identity string, an app-specific password for notarization, and the team
   --filesystem=xdg-config/marxy:create --filesystem=xdg-data/marxy:create
   ```
 
-  **No `--share=network`.** A Flatpak marxy cannot fetch remote images even after consent
+  **No `--share=network`.** A Flatpak Marxy cannot fetch remote images even after consent
   (ADR-0027). `fetchRemoteImage` then fails with `unsupported`, and the image notice says so once:
-  "This copy of marxy has no network access (Flatpak). Images from other sites cannot be loaded."
+  "This copy of Marxy has no network access (Flatpak). Images from other sites cannot be loaded."
   A reader who wants them runs `flatpak override --user --share=network dev.marxy.app`; the
   README says so. The sandbox enforcing the promise is worth more than badges.
 
 ## Notices and the about document
 
-The app has no about window and no menu item that opens one. "About marxy" is a **palette
+The app has no about window and no menu item that opens one. "About Marxy" is a **palette
 command** that opens a bundled document, `about.md`, in Rendered mode, read-only (it is compiled
 into the frontend bundle as text and opened as a buffer whose path is `marxy:about`; `Mod+S` on
 it is a no-op with a notice). It is a real markdown

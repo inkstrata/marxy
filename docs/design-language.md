@@ -14,7 +14,7 @@ enforced by the mechanical aesthetics gate where a machine can check them (ADR-0
    every vertical space is an integer multiple of **half** a line box, so paragraphs can sit
    14 px apart (ADR-0030). Headings, code, images, lists, quotes and math land on it.
    The point is that a long document never accumulates drift; a reader is judged on the fourth
-   page. Themes set the line box; marxy enforces the multiples. *Gate:* every block's top edge
+   page. Themes set the line box; Marxy enforces the multiples. *Gate:* every block's top edge
    sits on a multiple of half a line box ± 0.5 px across the corpus.
 3. **Space belongs above.** A heading gets ~2.5× more space above than below, binding it to
    what it introduces. Getting this backwards is what makes Obsidian's default feel wrong.
@@ -76,7 +76,7 @@ Source mode is a code surface and is judged as one.
 
 ## Colour: dark is primary (ADR-0024)
 
-marxy is designed on a dark ground first: warm near-black `#151412`, warm off-white text
+Marxy is designed on a dark ground first: warm near-black `#151412`, warm off-white text
 `#e8e4dc` at 14.5:1, body weight 380 because a serif at 400 reads heavier on dark, one muted
 blue accent, code one step lighter than the page. Light is a second, separately designed
 variant on warm paper `#faf8f4` at weight 400. Neither is the other inverted. The exact

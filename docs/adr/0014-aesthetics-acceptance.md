@@ -11,8 +11,8 @@ paragraph (coefficient of variation of line lengths, short-line count, hyphen ru
 than the stored baseline; no colour on headings and no decorative rules in the default theme.
 
 **Tier 2, human, scheduled at the end of each phase:** blind side-by-side of three corpus
-documents in marxy, Typora and Marked 2 at reading distance; pass when marxy is preferred on
-at least two of three; plus one fresh person's *first reaction* on opening marxy, which must be
+documents in Marxy, Typora and Marked 2 at reading distance; pass when Marxy is preferred on
+at least two of three; plus one fresh person's *first reaction* on opening Marxy, which must be
 about how it looks, not about a feature. Results are recorded in `docs/taste-review/`.
 
 ## Why

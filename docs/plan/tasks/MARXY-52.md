@@ -8,7 +8,7 @@ verify: [pnpm precheck, pnpm done MARXY-52]
 
 **Design:** [14-release](../../design/14-release.md) (all sections but Budgets and The v1 gate) · **Depends on:** MARXY-16 (v0.0.1 workflow and `verify-release.mjs`), MARXY-45 (final CSP/capabilities, so the notarized binary is the final one) · **Human-gated:** the Apple secrets (`orchestration/needs-human.md`). Everything else is doable without them; the `v1.*` signing check is written now and fires only on a `v1.*` tag.
 
-**Outcome.** A tag produces two Mac DMGs that open with no Gatekeeper warning, an AppImage, a deb and a Flatpak with no network permission, plus `SHA256SUMS`. "About marxy" in the palette opens a typeset document crediting the typefaces and every dependency, generated from the same resolver the licence gate uses.
+**Outcome.** A tag produces two Mac DMGs that open with no Gatekeeper warning, an AppImage, a deb and a Flatpak with no network permission, plus `SHA256SUMS`. "About Marxy" in the palette opens a typeset document crediting the typefaces and every dependency, generated from the same resolver the licence gate uses.
 
 ## Files and signatures
 - `.github/workflows/release.yml` — Intel DMG matrix row; the `v1.*` secrets check; `spctl`/`stapler` verification; a `flatpak` job (container `ghcr.io/flathub-infra/flatpak-github-actions:gnome-<branch>`) consuming the Linux job's binary artifact; `SHA256SUMS`; `verify-release.mjs` on every artifact.

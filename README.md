@@ -1,9 +1,9 @@
-# marxy
+# Marxy
 
 A markdown **reader**. Free and open source, quiet, fast, and set like a book.
 
 Reading markdown in existing tools feels wrong: every one of them is a writing tool
-with a preview pane bolted on. marxy is the other thing — a very fast document opener
+with a preview pane bolted on. Marxy is the other thing — a very fast document opener
 with an index you can flip through instantly, typography that owns its own line
 breaking, code and AI artifacts as first-class content, and operations that let you
 act on what you read without turning it into an editor.

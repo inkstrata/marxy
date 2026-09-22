@@ -83,7 +83,7 @@ export function applyVariant(v: 'light' | 'dark'): void;    // sets html[data-ma
 ```
 
 1. `theme.toml` parsed with `smol-toml`; missing or wrong `contract` → warning "theme targets
-   contract N; marxy speaks 1" and the theme still loads (nothing worse than mis-styling can
+   contract N; Marxy speaks 1" and the theme still loads (nothing worse than mis-styling can
    happen: the CSP blocks everything else).
 2. `theme.css` is text; every `url(...)` is rewritten: relative → `assetUrl(themeDir/rel)`,
    absolute `http(s)://`/`//` → removed and a warning recorded ("theme referenced
@@ -123,13 +123,13 @@ export async function startUserTheme(ctx: AppContext, dir: string | null): Promi
 5. `shell.watch(dir)` → on any event under `dir`, reload (steps 3–4), debounced 100 ms.
 6. **Opening a theme as a document.** When the opened path is `theme.css` or `theme.toml` in
    a directory containing both, it opens in Source mode (per-file-type default already sends
-   `.css`/`.toml` there) with a notice: "This is a marxy theme." [Use this theme] [Dismiss].
+   `.css`/`.toml` there) with a notice: "This is a Marxy theme." [Use this theme] [Dismiss].
    *Use this theme* writes `theme = "<dir>"` to `config.toml` by the same one-line edit that
    writes `size` (§11) and calls `startUserTheme` with it. Saving the open `theme.css` then
-   hot-reloads it through step 5 — editing a theme in marxy's own Source mode is a live preview.
+   hot-reloads it through step 5 — editing a theme in Marxy's own Source mode is a live preview.
 
 Contract version: `contract` absent or ≠ 1 → warning "Theme 'quiet' targets contract 2;
-marxy speaks 1. It may not look as intended." The theme still applies.
+Marxy speaks 1. It may not look as intended." The theme still applies.
 
 ## Weight offset (D-A9)
 

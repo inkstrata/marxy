@@ -153,7 +153,7 @@ async function renderPath(
   const { html } = renderDocumentSafeHtml(ast);
   deps.article.innerHTML = html;
   setCurrentPath(path);
-  document.title = `${path.split('/').pop()} — marxy`;
+  document.title = `${path.split('/').pop()} — Marxy`;
   if (byteOffset !== undefined) scrollToByteOffset(deps.article, deps.scroller, byteOffset);
 }
 

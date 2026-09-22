@@ -30,13 +30,13 @@ At each phase gate, the reviewer receives a folder prepared by the agents, never
 mid-task:
 
 1. **Blind side-by-side.** Three corpus documents (the long technical document, a real README,
-   an AI plan) rendered in marxy, Typora and Marked 2 at the same width, all three in their
-   dark theme (marxy's primary variant, ADR-0024), labelled A/B/C,
-   screenshots printed or viewed at reading distance. Reviewer ranks. **Pass:** marxy first on
+   an AI plan) rendered in Marxy, Typora and Marked 2 at the same width, all three in their
+   dark theme (Marxy's primary variant, ADR-0024), labelled A/B/C,
+   screenshots printed or viewed at reading distance. Reviewer ranks. **Pass:** Marxy first on
    at least two of three.
-2. **The fourth page.** Scroll the 5,000-word document to its end in marxy; note whether the
+2. **The fourth page.** Scroll the 5,000-word document to its end in Marxy; note whether the
    grid has drifted or the rag has degraded anywhere. **Pass:** nothing noted.
-3. **First reaction.** One person who has not seen marxy opens a README in it and says the
+3. **First reaction.** One person who has not seen Marxy opens a README in it and says the
    first thing that comes to mind, recorded verbatim. **Pass:** the remark is about how it
    looks, not about a feature or a missing one.
 4. **The Linux check.** Items 1–2 repeated on a Linux laptop at 1× and 2× scale, once per phase.

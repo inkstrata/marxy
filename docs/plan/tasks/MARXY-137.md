@@ -25,7 +25,7 @@ verify: [pnpm precheck, pnpm done MARXY-137]
 > criterion 8 pinned the two entry points to the same option set. The returned attempt flipped
 > `app.ts` only, which left the gate measuring a render path no reader gets.
 
-**Outcome.** The two typesetting features marxy competes on are on for the reader. Two call sites
+**Outcome.** The two typesetting features Marxy competes on are on for the reader. Two call sites
 and a whole corpus of baselines.
 
 ## The one line, in two places

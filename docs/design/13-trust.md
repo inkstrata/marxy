@@ -37,7 +37,7 @@ export function policyFor(grant: { html: boolean }): Policy;   // DEFAULT_POLICY
 `urlSchemes` are **identical** to the default: a grant of HTML is not a grant of network.
 
 `align` is presentational and the base stylesheet maps it (`[align=center] { text-align: center }`,
-`img[align=left] { float: none; display: inline }` — marxy never floats, because floats break
+`img[align=left] { float: none; display: inline }` — Marxy never floats, because floats break
 the grid; an aligned image is laid out inline and snapped like any other). `width`/`height` on an
 `img` become the reserved box (§02 post-pass 3) and are capped by `max-width: 100%`.
 

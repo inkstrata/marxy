@@ -4,7 +4,7 @@
 
 ## Decision
 - **Root:** the nearest ancestor directory of the opened file containing `.git`; otherwise
-  the file's own directory. marxy remembers the last twelve roots and the palette searches
+  the file's own directory. Marxy remembers the last twelve roots and the palette searches
   the current root first, then recent roots. No settings surface for roots in v1.
 - **What is indexed:** files under the root that pass `.gitignore`, `.ignore` and a built-in
   deny list (`node_modules`, `target`, `.venv`, `dist`, build outputs, binaries), with an

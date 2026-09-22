@@ -24,7 +24,7 @@ they read betrays them. This is the ethos enforced, and no incumbent promises it
 - `scripts/gate-no-network.mjs` renders every corpus file with network denied and asserts
   zero attempted requests, including the hostile fixture.
 - Stripping breaks badge-heavy READMEs visibly; the opt-in must be discoverable or users will
-  think marxy renders their files wrong (story in Phase 3).
+  think Marxy renders their files wrong (story in Phase 3).
 
 ## What the no-network gate can and cannot observe (MARXY-83)
 

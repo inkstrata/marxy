@@ -1,6 +1,6 @@
 # Plan delta — 2026-09-21: Mac-shell gaps, and unblocking MARXY-16
 
-Trigger: an investigation session into what a proper macOS app for marxy still needs, and Ian's
+Trigger: an investigation session into what a proper macOS app for Marxy still needs, and Ian's
 follow-up ruling: "we are no longer guaranteeing the 500 ms budget. Let's unblock as much as
 possible."
 

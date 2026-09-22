@@ -8,7 +8,7 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 
 **Design:** [13-trust](../../design/13-trust.md) §The unclosed-element case, §Persistence, §The notice, §Revoking · [09-app-shell](../../design/09-app-shell.md) §Notices · [11-config-and-storage](../../design/11-config-and-storage.md) §Data files · [08-position-and-watching](../../design/08-position-and-watching.md) (re-render keeps position) · **Depends on:** MARXY-96 (core), MARXY-26 (notices region and the blocked-content notice it starts), MARXY-42 (command registry), MARXY-38 (data-file storage helpers) · **ADRs:** ADR-0009, ADR-0027.
 
-**Outcome.** `02-readme-real-world.md` opens with one quiet line saying what was simplified and which image hosts were not contacted. "Show this document's HTML" re-renders it with `<details>`, centred title blocks and sized images, still sanitised, and marxy remembers the choice for that file. A document cut short by an unclosed `<script>` says so instead of looking short. Images from hosts still need their own grant (MARXY-97); this story records host grants in the store and offers the action, but fetching is that story's.
+**Outcome.** `02-readme-real-world.md` opens with one quiet line saying what was simplified and which image hosts were not contacted. "Show this document's HTML" re-renders it with `<details>`, centred title blocks and sized images, still sanitised, and Marxy remembers the choice for that file. A document cut short by an unclosed `<script>` says so instead of looking short. Images from hosts still need their own grant (MARXY-97); this story records host grants in the store and offers the action, but fetching is that story's.
 
 ## Files and signatures
 - `apps/desktop/src/trust/trust.ts` — `TrustStore` (`loadTrust`, `grantsFor`, `grant`, `revoke`), pure over parsed JSON plus an injected `write(bytes)`; `trust.test.ts`.
@@ -21,7 +21,7 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 ## Do this, in order
 1. `TrustStore` + tests (LRU 2,000, punycode host normalisation with `new URL('https://' + host).hostname`, version handling and corruption per §11).
 2. The notice: counts, host list (Unicode and punycode when they differ), element names from allow-list removals only; suppress the HTML action when `WIDE_POLICY` would remove every removed element (test with a document whose only removal is `<script>`).
-3. Grant HTML → `grant(path, { html: true })` → re-render with position kept → transient summary. Grant images → `grant(path, { imageHosts })` (fetching is the next story; until it lands, the images stay alt text and the summary says "Images will load when marxy can fetch them" — delete that string in MARXY-97).
+3. Grant HTML → `grant(path, { html: true })` → re-render with position kept → transient summary. Grant images → `grant(path, { imageHosts })` (fetching is the next story; until it lands, the images stay alt text and the summary says "Images will load when Marxy can fetch them" — delete that string in MARXY-97).
 4. Truncation notice with **Show source** (mode switch at the line via `lineOf`; if MARXY-37 has not landed, the action is omitted and the PR says so).
 5. Revoke commands.
 

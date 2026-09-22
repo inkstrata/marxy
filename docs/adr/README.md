@@ -6,7 +6,7 @@ the decisions made at handoff. Append-only: to change one, add a new ADR that su
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0001](0001-reader-not-editor.md) | marxy is a reader, not an editor with a preview | accepted |
+| [0001](0001-reader-not-editor.md) | Marxy is a reader, not an editor with a preview | accepted |
 | [0002](0002-webview-shell.md) | A webview shell; native toolkits are out | accepted |
 | [0003](0003-one-buffer-one-ast.md) | One buffer, one AST with byte provenance, two layout paths | accepted |
 | [0004](0004-editing-is-transformation.md) | Editing is transformation over byte ranges; no plugin or scripting API | accepted |

@@ -14,4 +14,4 @@ verify: [pnpm precheck, pnpm done MARXY-31]
 3. `docs/taste-review/review-1/README.md`: the ranking form (tier 2 items 1–3) with the pass criteria.
 
 ## Acceptance → check
-The marxy captures exist and are byte-identical across two runs; the manifest and form exist; the queue has the entry.
+The Marxy captures exist and are byte-identical across two runs; the manifest and form exist; the queue has the entry.

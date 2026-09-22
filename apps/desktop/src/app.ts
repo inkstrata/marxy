@@ -349,7 +349,7 @@ async function boot(): Promise<void> {
   void doc.offsetHeight;
   await document.fonts.ready;
   await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
-  document.title = `${file.split('/').pop()} — marxy`;
+  document.title = `${file.split('/').pop()} — Marxy`;
 
   keepOnGrid(doc);
   const evidence = renderEvidence(doc);

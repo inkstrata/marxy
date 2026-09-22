@@ -84,7 +84,7 @@ enforced on reference hardware and nowhere else.* Everything below follows from 
    diagnosable rather than invisible.
 3. **Coldness is stated, not implied, and stated no more strongly than the procedure earns.**
    `cold_procedure` records what was actually done to make launch 1 cold. On CI that is
-   `"process-cold only"`: first launch by the measuring script, no marxy process running when it
+   `"process-cold only"`: first launch by the measuring script, no Marxy process running when it
    starts, and the runner's page, dyld and font caches left alone. Evicting them was considered and
    rejected — it costs minutes per round and produces a *colder-than-reader* number, a third quantity
    to misname. What the script does **not** control is the rest of the job: the desktop build step
@@ -157,7 +157,7 @@ records `cold_launches` in launch order, `cold_launches_n`, and `cold_procedure`
 step actually performed.
 
 **The cold-making step** is executed by the script where it can be and is never implied
-where it cannot: it kills any running marxy process, purges the OS file cache only where a
+where it cannot: it kills any running Marxy process, purges the OS file cache only where a
 password-less mechanism exists on that platform, and otherwise records `cold_procedure` as
 `process-cold only`.
 

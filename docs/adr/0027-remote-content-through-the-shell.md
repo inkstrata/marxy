@@ -53,7 +53,7 @@ request that leaves the document's directory. One of the two rules has to change
 
 ## Consequences
 
-- The only code in marxy that opens a socket is one Rust function, reached only after a reader
+- The only code in Marxy that opens a socket is one Rust function, reached only after a reader
   clicked "Load images from …" for a named host. That function is the whole audit surface for
   "nothing phones home".
 - A new Rust dependency for HTTPS (`ureq` 3, MIT/Apache-2.0, `rustls` with the platform
@@ -72,6 +72,6 @@ request that leaves the document's directory. One of the two rules has to change
 - **Per-document CSP via a `<meta>` tag.** A meta CSP can only tighten, never loosen, the header
   policy, and Tauri's policy is the header.
 - **Drop the remote-image opt-in from v1.** Badge-heavy READMEs are the first content type in
-  priority order; ADR-0009 already records that stripping them makes readers think marxy is broken.
+  priority order; ADR-0009 already records that stripping them makes readers think Marxy is broken.
 - **Allow `http:` on consent.** A plaintext fetch leaks the reader's interest to the network, not
   just to the host they consented to.

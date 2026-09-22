@@ -43,7 +43,7 @@ changes what a reader experiences:
 
 1. **`http:` images are never loaded, even after consent** (ADR-0027 §3). A few old READMEs
    lose images for good.
-2. **The Flatpak ships with no network permission** (§13). Badges in a Flatpak marxy need a
+2. **The Flatpak ships with no network permission** (§13). Badges in a Flatpak Marxy need a
    `flatpak override`, and the notice says how.
 3. **Closing with unsaved changes stops the reader once, with a notice** (§01). This is the only
    interruption in the app. It is queued for taste review #3.

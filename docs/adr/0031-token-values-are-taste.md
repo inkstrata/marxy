@@ -20,7 +20,7 @@ slightly small and the headings shout. Under the rule as written, every one of t
 contract change needing its own ADR, so the one thing the project competes on is the one thing it is
 hardest to change. That is the rule inverting its own purpose: the freeze exists so a *theme author*
 can rely on the tokens, and a theme author relies on the names, the units and the meanings — not on
-marxy's choice of 28px.
+Marxy's choice of 28px.
 
 ## Decision
 

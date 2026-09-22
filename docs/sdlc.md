@@ -1,4 +1,4 @@
-# SDLC — how one developer and a fleet of agents ship marxy
+# SDLC — how one developer and a fleet of agents ship Marxy
 
 One person owns this project and cannot be the bottleneck for everything, so the process is
 built around two ideas: **Jira holds the truth about state, git holds the truth about code**,
@@ -180,7 +180,7 @@ A phase ends in a release. There is no release branch; `main` is always releasab
    (ADR-0022 Amendment 2).
 
    The cold-making step — which the script runs before each of the k launches, and which a
-   person can follow by hand — is: kill any running marxy process; purge the OS file cache
+   person can follow by hand — is: kill any running Marxy process; purge the OS file cache
    only where a password-less mechanism exists on that platform (`sudo -n sysctl -w
    vm.drop_caches=3` on Linux, `sudo -n purge` on macOS); leave enough idle for the step to
    take effect; then launch. If the cache cannot be purged without a password, the procedure
