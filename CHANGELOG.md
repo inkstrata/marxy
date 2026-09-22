@@ -6,6 +6,8 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- MARXY-183: second launches and macOS open events route to the running window via single-instance and `onOpenFiles`
+
 - Planner delta for 2026-09-22: task cards for the three Mac-shell stories MARXY-186 filed (single instance/open events, native menu, CLI on PATH); no board rows changed (MARXY-187)
 - The window title, app name, and document title now read "Marxy"; README and docs prose follow, while package names and identifiers stay lowercase "marxy" (MARXY-181)
 - The author's personal name no longer appears in docs prose or the readiness table's "waiting on" label; both now say "the author" (MARXY-181)

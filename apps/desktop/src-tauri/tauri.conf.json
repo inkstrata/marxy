@@ -42,6 +42,14 @@
       "icons/icon.png"
     ],
     "category": "Productivity",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "name": "Markdown",
+        "mimeType": "text/markdown",
+        "role": "Viewer"
+      }
+    ],
     "shortDescription": "A markdown reader",
     "longDescription": "A very fast document opener that sets text like a book. No telemetry. Never touches a byte you did not ask to change.",
     "linux": {

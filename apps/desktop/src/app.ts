@@ -35,6 +35,7 @@ export type AppShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'p
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
   configPaths?(): Promise<{ config: string; data: string }>;
+  onOpenFiles?(cb: (paths: readonly string[]) => void): void;
 };
 
 export interface OpenDocument {
@@ -300,6 +301,70 @@ async function typesetDocument(article: HTMLElement): Promise<void> {
   await shell.mark('typeset_viewport', Date.now(), `ms=${typeset.stats.viewportMs.toFixed(1)} set=${typeset.stats.typeset}`);
 }
 
+/** Read and render `file` through the `render` mark; cold-start paint runs after this (MARXY-183). */
+async function openDocumentThroughRenderMark(file: string, doc: HTMLElement): Promise<RenderEvidence> {
+  if (openPath !== file) sourceEditor = null;
+  const bytes = await shell.readFile(file);
+  openPath = file;
+  documentBuffer = createBuffer(file, bytes);
+  sourceMount();
+  installKeyDispatcher();
+  await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
+  const ast = parseMarkdown(bytes, { file });
+  await shell.mark('parsed', Date.now());
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast);
+  const nodeMap = buildNodeMap(ast);
+  console.info(`marxy: sanitiser removed ${removed.length}`);
+  ensureNoticesRegion();
+  assignHtml(doc, html);
+  state.document = { ast, html, nodeMap, blocks: [] };
+  await shell.mark('rendered', Date.now());
+  stripNonLocalImages(doc, file);
+  blockedContentNotice(blockedImages);
+  void doc.offsetHeight;
+  await document.fonts.ready;
+  await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
+  document.title = `${file.split('/').pop()} — Marxy`;
+  keepOnGrid(doc);
+  const evidence = renderEvidence(doc);
+  state.document.blocks = buildBlocks(doc, nodeMap);
+  await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
+  return evidence;
+}
+
+async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void> {
+  await typesetDocument(doc);
+  await shell.mark('position_restored', Date.now());
+  await whenIdle(async () => {
+    await runDeferredStartup({
+      shell,
+      file,
+      doc,
+      imageCtx: { shell, scopedRoots: scopedAssetRoots },
+    });
+    const themeDir = await themeDirFromConfig(shell);
+    await restartUserTheme(themeDir);
+  });
+  if (defaultModeForPath(file) === 'source') {
+    await showSource(0);
+  } else {
+    setModeChrome('rendered');
+  }
+  await maybeThemeDocumentNotice(userThemeContext(doc), file, async (dir) => {
+    userThemeHandle = await adoptThemeDirectory(userThemeContext(doc), dir, userThemeHandle);
+  });
+}
+
+async function replaceOpenDocument(file: string): Promise<void> {
+  const doc = document.getElementById('doc')!;
+  try {
+    await openDocumentThroughRenderMark(file, doc);
+    await finishDocumentOpen(file, doc);
+  } catch (e) {
+    assignHtml(doc, `<p>${String(e)}</p>`);
+  }
+}
+
 async function boot(): Promise<void> {
   await shell.mark('script_start', t0);
   // Before anything is laid out, so no weight is set twice. The WebKitGTK version arrives with the
@@ -323,39 +388,9 @@ async function boot(): Promise<void> {
     return finish(0);
   }
 
-  const bytes = await shell.readFile(file);
-  openPath = file;
-  documentBuffer = createBuffer(file, bytes);
-  sourceMount();
-  installKeyDispatcher();
-  await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
-  // One parse, then the sanitised render from that AST — not a second parser (ADR-0001, ADR-0021).
-  const ast = parseMarkdown(bytes, { file });
-  await shell.mark('parsed', Date.now());
-  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast);
-  const nodeMap = buildNodeMap(ast);
-  console.info(`marxy: sanitiser removed ${removed.length}`);
-  ensureNoticesRegion();
-  // Watermark before the mutation so a blank-page first-paint cannot satisfy the wait.
   const after = performance.now();
-  assignHtml(doc, html);
-  state.document = { ast, html, nodeMap, blocks: [] };
-  await shell.mark('rendered', Date.now());
-  stripNonLocalImages(doc, file);
-  blockedContentNotice(blockedImages);
-  // The faces are preloaded and `font-display: block`: first text is never the fallback face, and
-  // the grid pass below measures the real one (ADR-0015).
-  // Layout first: a face is requested when text needs it, and `fonts.ready` waits only for requests.
-  void doc.offsetHeight;
-  await document.fonts.ready;
-  await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
-  document.title = `${file.split('/').pop()} — Marxy`;
-
-  keepOnGrid(doc);
-  const evidence = renderEvidence(doc);
-  state.document.blocks = buildBlocks(doc, nodeMap);
+  const evidence = await openDocumentThroughRenderMark(file, doc);
   const renderedAt = Date.now();
-  await shell.mark('render', renderedAt, `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
 
   // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
   // must not be able to hand the startup measurement a number either — and it has no paint to wait for,
@@ -387,26 +422,7 @@ async function boot(): Promise<void> {
   // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
-  await typesetDocument(doc);
-  await shell.mark('position_restored', Date.now());
-  await whenIdle(async () => {
-    await runDeferredStartup({
-      shell,
-      file,
-      doc,
-      imageCtx: { shell, scopedRoots: scopedAssetRoots },
-    });
-    const themeDir = await themeDirFromConfig(shell);
-    await restartUserTheme(themeDir);
-  });
-  if (defaultModeForPath(file) === 'source') {
-    await showSource(0);
-  } else {
-    setModeChrome('rendered');
-  }
-  await maybeThemeDocumentNotice(userThemeContext(doc), file, async (dir) => {
-    userThemeHandle = await adoptThemeDirectory(userThemeContext(doc), dir, userThemeHandle);
-  });
+  await finishDocumentOpen(file, doc);
   return finish(0);
 }
 
@@ -417,6 +433,10 @@ async function boot(): Promise<void> {
 export async function startApp(injected: AppShell, opts?: { argv?: readonly string[] }): Promise<AppHandle> {
   shell = injected;
   launchArgs = opts?.argv ? [...opts.argv] : [];
+  injected.onOpenFiles?.((paths) => {
+    const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
+    if (file) void replaceOpenDocument(file);
+  });
   let resolveReady!: () => void;
   const ready = new Promise<void>((resolve) => { resolveReady = resolve; });
   settleReady = () => resolveReady();

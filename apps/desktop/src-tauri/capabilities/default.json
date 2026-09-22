@@ -1,1 +1,6 @@
-{ "identifier": "default", "description": "Phase 0: the main window may call the shell commands only.", "windows": ["main"], "permissions": ["core:default"] }
+{
+  "identifier": "default",
+  "description": "Phase 0: the main window may call the shell commands only.",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:event:allow-listen"]
+}
