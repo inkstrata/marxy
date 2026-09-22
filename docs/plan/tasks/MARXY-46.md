@@ -18,11 +18,4 @@ The light variant renders from its own palette (already in `packages/theme/defau
 4. `config.variant = "light"` and `"auto"` paths exercised in a Playwright test on the headless entry (`prefers-color-scheme` emulation for `auto`).
 
 ## Acceptance → check
-| Criterion | Checked by |
-| --- | --- |
-| §Palettes contrast ratios (light and dark) | `packages/theme/test/grid.test.mjs`; `gate:aesthetics` |
-| Light palette fixture match | `packages/theme/test/palettes.test.mjs` |
-| No 255-complement inversion | `packages/theme/test/palettes.test.mjs` |
-| Screenshot baselines for light | `packages/theme/test/palettes.test.mjs`; `gate:aesthetics` |
-| Headless `light` and `auto` (`prefers-color-scheme`) | `apps/desktop/test/variant-render.test.mjs` |
-| Queue entry | `docs/taste-review/queue.md` |
+Contrast table (gate); the complement test; baselines present; the `auto` test.
