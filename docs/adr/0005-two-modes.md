@@ -1,6 +1,6 @@
 # ADR-0005 — Two view modes: Rendered (default) and Source
 
-**Status:** accepted · **Source:** brainstorm D13, D15, C13
+**Status:** accepted
 
 ## Decision
 **Rendered**: typeset, no caret, selection and operations. **Source**: the raw text in

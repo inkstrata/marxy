@@ -54,8 +54,8 @@ Proceed with Literata as the default while review #0 runs; the tokens make a swa
 The full version, with the definitions of ready and done, is `docs/sdlc.md`; this is the short form.
 
 1. Story is *ready*: paths listed, acceptance machine-checkable, ADRs named, Jira issue To Do.
-2. Branch `type/KEY-slug` from `main`; the agent gets `AGENTS.md`, the story, the named ADRs,
-   and nothing from the brainstorm.
+2. Branch `type/KEY-slug` from `main`; the agent gets `AGENTS.md`, the story and the named
+   ADRs, and nothing else.
 3. PR uses the template; gates green; queue entry if anything visible changed.
 4. Squash-merge; the PR body is the record; `CHANGELOG.md` line present.
 5. After merge: if a decision changed, the ADR and `AGENTS.md` are updated in the same PR.

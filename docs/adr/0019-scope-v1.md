@@ -1,6 +1,6 @@
 # ADR-0019 — The v1 cut
 
-**Status:** accepted · **Source:** `docs/scope.md`; brainstorm docs/13, A5
+**Status:** accepted · **Source:** `docs/scope.md`
 
 ## Decision
 v1 is the smallest thing that is categorically better than the incumbents at reading, on

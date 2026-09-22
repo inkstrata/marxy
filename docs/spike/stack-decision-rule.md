@@ -3,9 +3,9 @@
 **Date:** 2026-09-18 · **Status:** frozen. The commit that introduces this
 file predates every spike measurement; the git history is the proof.
 
-The brainstorm ran three weighted stack analyses and got three answers,
+Three weighted stack analyses were run before this file and got three answers,
 because the weights moved with the brief while the frameworks stood still
-(`marxy-brainstorm/docs/11-stack-evaluation.md`, A20). This file replaces a
+(A20). This file replaces a
 fourth analysis with a measurement and a rule written down before the
 measurement is taken, so that the outcome cannot be rationalised in either
 direction.
@@ -71,7 +71,7 @@ fixed script of 200 queries.
 | --- | --- |
 | T1 pass **and** T2 real | **Tauri.** Both objections dissolve. |
 | T1 pass **and** T2 wash | **Tauri**, on footprint and the Rust index. The "very fast opener" claim is then delivered by a resident process (Q13 decided *yes*) or dropped as a claim. |
-| T1 pass **and** Electron faster | **Tauri only if** its absolute median cold start is still under the 500 ms budget; otherwise **Electron**. The budget is the promise, not the ratio. (This row is new; the brainstorm's rule did not cover both being under budget.) |
+| T1 pass **and** Electron faster | **Tauri only if** its absolute median cold start is still under the 500 ms budget; otherwise **Electron**. The budget is the promise, not the ratio. (This row is new; the earlier rule did not cover both being under budget.) |
 | T1 **fail** | **Electron.** The typography thesis outranks everything else in the brief. A reader that sets text wrongly on a promised platform is not the product. |
 | T1 pass, T2 Electron faster **and** T3 disappoints | **Electron**, and the speed claims are re-examined. |
 

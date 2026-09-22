@@ -1,7 +1,6 @@
 # The brief, distilled
 
-**Status:** the product as decided at handoff, 2026-09-18. History and argument live in
-`~/Dev/marxy-brainstorm`; this is the specification.
+**Status:** the product as decided at handoff, 2026-09-18. This is the specification.
 
 ## What Marxy is
 

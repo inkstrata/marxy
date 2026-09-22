@@ -1,8 +1,8 @@
 # The decision pass — open questions settled, and what was overturned
 
-**Date:** 2026-09-18. The brainstorm left Q3, Q6, Q9, Q10, Q11, Q13 open and marked D4,
-D15, D16 and the scope proposal as mine to revisit. Each is settled below with the losing
-argument kept, as the brainstorm's own log does.
+**Date:** 2026-09-18. Q3, Q6, Q9, Q10, Q11 and Q13 were left open at handoff, and D4,
+D15, D16 and the scope proposal were marked as mine to revisit. Each is settled below, with
+the losing argument kept.
 
 ## Settled
 
@@ -29,7 +29,7 @@ argument kept, as the brainstorm's own log does.
 - **D15 two modes** kept as is.
 - **D16 palette, not tabs** kept with a reversal criterion (ADR-0011).
 
-## Overturned or changed from the brainstorm
+## Overturned or changed at handoff
 
 | Inherited | Changed to | Why |
 | --- | --- | --- |

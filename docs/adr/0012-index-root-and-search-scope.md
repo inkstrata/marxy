@@ -1,6 +1,6 @@
 # ADR-0012 — The indexed root is the enclosing repository; search covers titles, headings and paths
 
-**Status:** accepted · **Source:** brainstorm Q10, Q11, A18, docs/19
+**Status:** accepted
 
 ## Decision
 - **Root:** the nearest ancestor directory of the opened file containing `.git`; otherwise

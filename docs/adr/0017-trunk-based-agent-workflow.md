@@ -11,6 +11,6 @@ release workflow. Each issue lists the paths it may touch; an agent that needs a
 opens another issue. `CHANGELOG.md` is updated in every PR.
 
 ## Why
-Long-lived branches and parallel agents combine badly. Two agents editing one document
-concurrently damaged the brainstorm. The PR description is the durable record because agents
+Long-lived branches and parallel agents combine badly: two agents editing one document
+concurrently corrupt both changes. The PR description is the durable record because agents
 produce noisy intermediate commits.

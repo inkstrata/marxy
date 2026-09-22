@@ -1,6 +1,6 @@
 # ADR-0014 — "Aesthetics paramount" has a two-tier acceptance test
 
-**Status:** accepted · **Source:** brainstorm Q3, A6, C3; handoff §9. Full text: `docs/aesthetics-acceptance.md`
+**Status:** accepted · **Source:** handoff §9. Full text: `docs/aesthetics-acceptance.md`
 
 ## Decision
 **Tier 1, mechanical, in CI on every PR** (`scripts/gate-aesthetics.mjs`, over the corpus):

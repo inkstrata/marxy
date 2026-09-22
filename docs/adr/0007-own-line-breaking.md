@@ -1,6 +1,6 @@
 # ADR-0007 — Own paragraph line breaking (Knuth–Plass) as the demonstrable differentiator
 
-**Status:** accepted, amended (1: the ragged engine) · **Source:** brainstorm D4, docs/07, docs/16 §1; handoff §4
+**Status:** accepted, amended (1: the ragged engine) · **Source:** handoff §4
 
 ## Decision
 Rendered mode sets paragraphs with a Knuth–Plass total-fit line breaker, with hanging

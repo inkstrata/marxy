@@ -1,6 +1,6 @@
 # Risk register
 
-Carried from the brainstorm (`concerns/agent-concerns.md`, A1–A21), re-scored at handoff.
+Carried forward as A1–A21 and re-scored at handoff.
 Severity: critical invalidates the thesis; high costs months; medium costs weeks.
 
 | Id | Risk | Now | Mitigation in the plan |
