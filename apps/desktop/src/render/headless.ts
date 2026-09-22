@@ -2,13 +2,15 @@
 import { parseMarkdown } from '@marxy/core';
 import { renderDocumentSafeHtml, type RenderResult } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetStats } from '@marxy/typeset';
+import { resolveVariantPreference, type VariantPreference } from '@marxy/theme';
 import { applyWeightOffset, platformOf } from '../theme/offset.ts';
 import { buildBlocks, buildNodeMap } from './post.ts';
 import { createStubShell } from './stub.ts';
 
 export interface MarxyRenderOpts {
   theme?: string;
-  variant: 'light' | 'dark';
+  /** Resolved palette: `auto` follows `prefers-color-scheme` (docs/design/05-theme.md §Loader). */
+  variant: VariantPreference;
   width: number;
   size?: number;
   typeset?: boolean;
@@ -299,7 +301,11 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
   const shell = createStubShell();
 
   const root = document.documentElement;
-  root.dataset.marxyVariant = opts.variant;
+  const variant = resolveVariantPreference(
+    opts.variant,
+    window.matchMedia('(prefers-color-scheme: dark)').matches,
+  );
+  root.dataset.marxyVariant = variant;
   const size = opts.size ?? 17;
   const lineToken = LINE_BOX[size];
   if (size !== 17 && lineToken !== undefined) {

@@ -116,6 +116,7 @@ const luminance = ([r, g, b]) => {
 };
 const contrast = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
+// MARXY-46: §Palettes contrast table — light is designed on its own ground, not inverted from dark.
 for (const variant of ['dark', 'light']) {
   test(`contrast, ${variant}: body ≥ 7:1, secondary ≥ 4.5:1, code and every code token ≥ 4.5:1`, async () => {
     const page = await open('09-gfm-everything.md', { variant });
