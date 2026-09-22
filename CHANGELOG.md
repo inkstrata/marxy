@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 ### Added
+- MARXY-47 splits into a theme-package story and a desktop shell follow-on; MARXY-45 now depends on the shell story and hostile-theme gating stays on MARXY-45 (MARXY-178)
 - MARXY-46 and MARXY-47 board rows on main now match their task cards and PR #163/#164 file sets so review reads the right Paths and Acceptance (MARXY-176)
 - Core wide HTML policy, reserved `marxy-` ids, deferred `https:` images as `data-marxy-remote`, and island-scoped removal provenance for the trust notice (MARXY-96)
 - Rendered-mode structured selection resolves through `data-marxy-s`/`data-marxy-e`, core `sectionRange`/`nodeAt`, and Playwright corpus checks; production wiring still needs `installRenderedSelection` from `app.ts` (MARXY-41)
