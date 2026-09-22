@@ -10,4 +10,4 @@ already shipped, MARXY-6 Done). Taste rows still waiting on a person sit in
 
 - [ ] 2026-09-18 — Say whether a Linux desktop exists for MARXY-22 (weight harness on real GNOME) and whether an Apple Developer account exists for notarization.
 - [ ] 2026-09-21 — **MARXY-94** is `human-gated` on ADR-0026 (the v1 `shell-api` surface). Accept the ADR, or say what to change, so the label can come off.
-- [ ] 2026-09-21 — **MARXY-122** is `human-gated` on a GitHub merge-queue ruleset only you can turn on. Decide, then remove the label to dispatch it.
+- [x] 2026-09-22 — **MARXY-122** merge-queue ruleset: not available on User-owned repos; orchestrator code and CI `merge_group` are on main with `mergeQueue` false until marxy lives under an organization (MARXY-182).
