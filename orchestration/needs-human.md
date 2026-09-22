@@ -1,6 +1,6 @@
 # Needs a human
 
-Appended by the orchestrator; cleared by Ian when done. Newest at the bottom.
+Appended by the orchestrator; cleared by the author when done. Newest at the bottom.
 
 Only unanswered work belongs here. Discharged 2026-09-21: twelve stale open
 bullets (merged PRs #1/#10/#14/#23/#25/#28, typeface and cold-start rulings

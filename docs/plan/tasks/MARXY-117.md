@@ -6,7 +6,7 @@ verify: [node --test orchestration/board-check.test.mjs, node orchestration/boar
 ---
 # MARXY-117 — Name board drift every cycle and hold dispatch on a stale board
 
-**Depends on:** MARXY-106 (cycle.mjs order and fast-forward) · **ADRs:** none · **CODEOWNERS:** `cycle.mjs`, so Ian approves.
+**Depends on:** MARXY-106 (cycle.mjs order and fast-forward) · **ADRs:** none · **CODEOWNERS:** `cycle.mjs`, so the author approves.
 
 **Outcome.** The cycle can no longer dispatch from a board that is not `origin/main`'s. When the
 orchestrator checkout is behind, off `main`, or has tracked edits under `docs/plan/` or

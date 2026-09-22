@@ -1,7 +1,7 @@
 // Merge-readiness table for every open PR. Decisions come from merge-bar evaluate and
 // approve verify so the print and the cycle cannot disagree; order is the one 80/81 already
-// compute. GitHub never sets REVIEW_REQUIRED on Ian's own CODEOWNERS PRs, so those wait
-// for Ian even when CI is green (MARXY-92).
+// compute. GitHub never sets REVIEW_REQUIRED on the author's own CODEOWNERS PRs, so those wait
+// for the author even when CI is green (MARXY-92).
 // usage: node orchestration/readiness.mjs [--json] [--results DIR]
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -16,7 +16,7 @@ import { computeOrder, readPullRequest } from './review-order.mjs';
 export { evaluate, verify, computeOrder, codeOwnerPatterns, ownedBy };
 
 /** GitHub login on CODEOWNERS and the repo; the account the overlay names. */
-export const IAN = 'inkstrata';
+export const AUTHOR = 'inkstrata';
 
 const EXTRAS = ['CHANGELOG.md', 'docs/taste-review/queue.md', 'pnpm-lock.yaml'];
 
@@ -44,9 +44,9 @@ function storyKeyOf(pr) {
   return (String(pr.title ?? '').match(/MARXY-\d+/) ?? String(pr.headRefName ?? '').match(/MARXY-\d+/))?.[0] ?? null;
 }
 
-function isIan(pr) {
+function isAuthor(pr) {
   const login = pr.author?.login ?? pr.author;
-  return login === IAN;
+  return login === AUTHOR;
 }
 
 function resultPath(resultsDir, name) {
@@ -55,12 +55,12 @@ function resultPath(resultsDir, name) {
 
 /**
  * Who still has to act. Evaluate already names CODEOWNERS when GitHub sets REVIEW_REQUIRED;
- * Ian's own PRs never get that signal, so a CODEOWNERS path on his account is Ian regardless
- * of a green evaluate.
+ * the author's own PRs never get that signal, so a CODEOWNERS path on their account is the
+ * author regardless of a green evaluate.
  */
 export function waitingOn({ pr, files, decision, patterns }) {
-  if (isIan(pr) && files.some(f => ownedBy(patterns, f))) return 'Ian';
-  if (decision.reasons.some(r => /human review required/.test(r))) return 'Ian';
+  if (isAuthor(pr) && files.some(f => ownedBy(patterns, f))) return 'author';
+  if (decision.reasons.some(r => /human review required/.test(r))) return 'author';
   if (decision.action === 'merge') return '—';
   if (decision.action === 'auto-merge') return 'CI';
   if (decision.reasons.some(r => /not reviewed|approval|changes requested/.test(r))) return 'reviewer';
@@ -69,7 +69,7 @@ export function waitingOn({ pr, files, decision, patterns }) {
 }
 
 export function nextAction({ waiting, decision }) {
-  if (waiting === 'Ian') return 'wait for Ian to approve on GitHub';
+  if (waiting === 'author') return 'wait for the author to approve on GitHub';
   if (decision.action === 'merge') return 'cycle.mjs merges it';
   if (decision.action === 'auto-merge') return 'waiting on CI; cycle enables auto-merge';
   return decision.reasons.find(r => !r.startsWith('pending:')) ?? decision.reasons[0] ?? 'hold';

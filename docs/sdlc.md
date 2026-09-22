@@ -17,7 +17,7 @@ board. Neither invents work.
 | State | Means | Who moves it |
 | --- | --- | --- |
 | **To Do** | ready, or waiting on a dependency; a `blocked` or `escalated` label says which | the orchestrator, via `state.mjs` |
-| **In Progress** | an implementor is in a worktree on it, or Ian is | `state.mjs start KEY` |
+| **In Progress** | an implementor is in a worktree on it, or the author is | `state.mjs start KEY` |
 | **In Review** | a PR exists and the gates have run | `jira.mjs pr KEY <number>` |
 | **Done** | squash-merged into `main` | `state.mjs done KEY` |
 

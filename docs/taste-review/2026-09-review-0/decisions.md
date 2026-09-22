@@ -1,6 +1,6 @@
 # Taste review #0
 
-Recorded 2026-09-19 with Ian.
+Recorded 2026-09-19 with the author.
 
 ## Decision
 
@@ -22,7 +22,7 @@ This confirms ADR-0015. Follow-ups below are tunes, not a pair swap.
 ## Passage 3 at 1× (table)
 
 - Figures and text tables look fine on both; no ragged or off-size numerals.
-- Tables are cramped vertically and dense, and **smaller than body prose**. Ian likes that; not sure it generalizes. Not a pair reject.
+- Tables are cramped vertically and dense, and **smaller than body prose**. The author likes that; not sure it generalizes. Not a pair reject.
 
 ## Passage 4 at 1× (heading stack)
 

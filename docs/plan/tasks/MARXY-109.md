@@ -41,5 +41,5 @@ Do **not** edit `packages/core/src/contracts/**`, `packages/core/package.json`,
 CSV criteria 1–8. Criterion 8 is the boundary.
 
 ## Do not
-Build the dialog (MARXY-47). Change the AST contract. Touch the sanitiser (Ian /
+Build the dialog (MARXY-47). Change the AST contract. Touch the sanitiser (the author /
 MARXY-75). Touch `packages/core/package.json` (MARXY-77). Add a YAML parser.

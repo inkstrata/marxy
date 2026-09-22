@@ -9,7 +9,7 @@ Three roles, one loop, everything on disk so any session can pick it up cold.
 | **Implementor** | Composer 2.5 | one per story, in its own git worktree | exactly one story, on its own branch, inside its listed paths |
 
 The orchestrator never implements. The planner never implements. Implementors never plan.
-Humans (Ian) review taste, approve CODEOWNERS paths, and answer `needs-human.md`.
+Humans (the author) review taste, approve CODEOWNERS paths, and answer `needs-human.md`.
 
 **Jira is the board of record** — project MARXY at <https://marxy.atlassian.net>, four states,
 no WIP cap. `state.json` is the local mirror the scripts read; `jira.mjs` keeps the two equal.
@@ -92,7 +92,7 @@ something else. When the rest of the quality bar in `docs/sdlc.md` is green and 
 still running, the cycle enables GitHub auto-merge rather than waiting for the next loop.
 Everything else about a merge — checks, conflicts, CODEOWNERS, the path boundary, the
 CHANGELOG line, the result file — is checked by `merge-bar.mjs`, and a held PR always
-prints the reason it was held. CODEOWNERS paths still need Ian.
+prints the reason it was held. CODEOWNERS paths still need the author.
 
 `node orchestration/readiness.mjs` prints that queue as one table: every open pull request,
 with its URL, CI conclusion, mergeability, approval, who it waits on, and the next action,

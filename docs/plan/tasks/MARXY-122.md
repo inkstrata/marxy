@@ -6,9 +6,9 @@ verify: [node --test orchestration/merge-bar.test.mjs, node scripts/gate-protect
 ---
 # MARXY-122 — Land pull requests through the GitHub merge queue
 
-**Human-gated.** Ian decides whether to turn on the merge queue for `main` (a ruleset change). Until
+**Human-gated.** The author decides whether to turn on the merge queue for `main` (a ruleset change). Until
 then this story is not dispatched. Remove the `human-gated` label to release it; the ruleset change
-itself stays Ian's. **CODEOWNERS:** `.github/`, `cycle.mjs`, `merge-bar.mjs`.
+itself stays the author's. **CODEOWNERS:** `.github/`, `cycle.mjs`, `merge-bar.mjs`.
 
 **Outcome.** No branch is ever updated to catch up with `main`. The cycle enqueues an approved PR
 pinned to its head, and GitHub tests it on top of the PRs ahead of it. The one-at-a-time refresh

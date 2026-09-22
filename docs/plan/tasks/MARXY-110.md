@@ -10,7 +10,7 @@ verify: [node --test scripts/lib/no-ceiling.test.mjs, pnpm done MARXY-110]
 do not edit ADR-0013.
 
 **Outcome.** A new session no longer reads "cold start < 500 ms" as a CI
-failure. The roadmap tripwire matches Ian's resist-inflation ruling.
+failure. The roadmap tripwire matches the author's resist-inflation ruling.
 
 ## Files and signatures
 - `docs/adr/0029-no-product-cold-start-ceiling.md` — Status: accepted

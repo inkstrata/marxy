@@ -1,6 +1,6 @@
 # Taste review — 2026-09-19
 
-Recorded with Ian. Review #0 (typeface) is in `../2026-09-review-0/decisions.md`.
+Recorded with the author. Review #0 (typeface) is in `../2026-09-review-0/decisions.md`.
 
 ## MARXY-20 — first styled page
 

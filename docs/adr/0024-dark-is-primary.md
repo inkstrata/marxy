@@ -1,6 +1,6 @@
 # ADR-0024 — Dark is the primary variant; light is designed second
 
-**Status:** accepted 2026-09-18 (Ian) · **Amends:** ADR-0008 (token defaults), ADR-0015 (weights), `docs/design-language.md`
+**Status:** accepted 2026-09-18 (the author) · **Amends:** ADR-0008 (token defaults), ADR-0015 (weights), `docs/design-language.md`
 
 ## Decision
 
@@ -21,7 +21,7 @@
 
 ## Why
 
-Ian's call, made early so nothing is designed twice: a reader used at length is used in the
+The author's call, made early so nothing is designed twice: a reader used at length is used in the
 evening; the serif at 17 px needs its weight and contrast chosen for a dark ground, and doing
 that after light would mean re-tuning every specimen, baseline and review. Deciding it now
 costs one file of values.

@@ -104,7 +104,7 @@ licence text once and its copyright lines>
 
 Exactly as the CSV states it, with the procedure fixed so it can be run by an agent:
 
-1. `node scripts/measure-startup.mjs --reference --runs 5` on the reference machine (Ian's Mac;
+1. `node scripts/measure-startup.mjs --reference --runs 5` on the reference machine (the author's Mac;
    `needs-human.md`), per corpus document the budget file names. Product budget := ceil(1.2 ×
    median). Record `derived_from` as `{ commit, machine, date, runs_n }`.
 2. For each CI runner class: take `observed_warm_ms` from five `ci` workflow runs on five distinct

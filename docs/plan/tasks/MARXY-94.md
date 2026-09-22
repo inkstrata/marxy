@@ -6,7 +6,7 @@ verify: [pnpm precheck, pnpm done MARXY-94]
 ---
 # MARXY-94 — Amend the frozen shell-api once, for all of v1 (lands ADR-0026)
 
-**Design:** [06-shell](../../design/06-shell.md) §Commands · **ADR:** [ADR-0026](../../adr/0026-shell-api-v1-surface.md) (proposed; this story moves it to accepted) · **Code owner:** Ian (contracts path).
+**Design:** [06-shell](../../design/06-shell.md) §Commands · **ADR:** [ADR-0026](../../adr/0026-shell-api-v1-surface.md) (proposed; this story moves it to accepted) · **Code owner:** the author (contracts path).
 
 **Outcome.** `packages/shell-api/src/index.ts` names every privileged operation v1 uses, so the Tauri implementation is a complete implementation of the contract rather than `Pick<Shell, …> & extras`. No behaviour changes.
 

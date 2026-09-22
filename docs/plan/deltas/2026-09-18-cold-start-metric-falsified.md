@@ -77,7 +77,7 @@ inversion the escalation identified and I have no defence of it.
   minutes and everything after it in the job gets slower too. Worse, it does not reproduce the
   reader's cold start either: the reader's OS has its dyld shared cache and font caches warm, so
   drop-caches produces a *colder-than-reader* number, a third quantity to misname. The cheap part
-  of coldness — no Marxy process running, no warm webview, first launch after the build — is
+  of coldness — no marxy process running, no warm webview, first launch after the build — is
   exactly what launch 1 has, and that is what we will name. What we *will not* do is imply
   coldness we did not create: the record carries a `cold_procedure` string stating what was
   actually done, and `"process-cold only"` is a legitimate and honest value.

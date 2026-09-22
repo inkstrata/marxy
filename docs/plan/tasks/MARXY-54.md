@@ -6,7 +6,7 @@ verify: [pnpm precheck, pnpm done MARXY-54]
 ---
 # MARXY-54 — Tier 2 review on a Linux laptop and a Mac; v1.0 tag
 
-**Design:** [14-release](../../design/14-release.md) §The v1 gate · **ADRs:** ADR-0014 (tier 2), ADR-0019 · **Depends on:** MARXY-51, MARXY-52, MARXY-53 · **Human-led:** the review and the tag are Ian's; an agent prepares everything and verifies the table.
+**Design:** [14-release](../../design/14-release.md) §The v1 gate · **ADRs:** ADR-0014 (tier 2), ADR-0019 · **Depends on:** MARXY-51, MARXY-52, MARXY-53 · **Human-led:** the review and the tag are the author's; an agent prepares everything and verifies the table.
 
 **Outcome.** Marxy 1.0.0 exists on both platforms, and the record shows a person read with it, blind against the incumbents, on real hardware, and chose it.
 
@@ -16,7 +16,7 @@ verify: [pnpm precheck, pnpm done MARXY-54]
 3. After the review: fill §13's v1 gate table with evidence links in the PR that bumps `apps/desktop/src-tauri/tauri.conf.json` and `package.json` versions to `1.0.0` and moves `CHANGELOG.md`'s Unreleased to `1.0.0`.
 4. Verify every row; any row false → the PR stays draft and says which.
 
-## Human part (Ian)
+## Human part (the author)
 The blind review on both machines; the decision in `decisions.md`; `git tag v1.0.0` on the merged version commit.
 
 ## Tests → expected

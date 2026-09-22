@@ -138,7 +138,7 @@ baseline numbers themselves are unchanged and still guarded by the budgets-uncha
 
 **Status:** accepted · **Source:** `docs/taste-review/2026-09-cold-start/decision.md`
 
-Ian ruled on 2026-09-18: there is no product cold-start budget. The 500 ms figure in
+The author ruled on 2026-09-18: there is no product cold-start budget. The 500 ms figure in
 `AGENTS.md` and in the `product` object of `fixtures/perf-budgets.json` is a standing
 observation of the sphere of concern, not a ceiling the gate may fail a release on. Keep
 measuring `cold_start_first_text_ms`. Resist inflation: a slower launch is a cost a story
