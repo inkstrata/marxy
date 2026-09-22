@@ -1,0 +1,4 @@
+name = "quiet"
+author = "marxy fixtures"
+contract = 1
+variants = ["dark", "light"]
