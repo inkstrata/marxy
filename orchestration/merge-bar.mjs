@@ -67,9 +67,12 @@ export function evaluate(input) {
  * the bar was evaluated against: without it, a push between evaluation and merge lands a tree
  * nobody reviewed, which is the one thing a signed approval exists to prevent.
  */
-export function mergeArgs(number, headRefOid, { auto = false } = {}) {
+export function mergeArgs(number, headRefOid, { auto = false, queue = false } = {}) {
   if (!/^[0-9a-f]{40}$/.test(headRefOid ?? '')) throw new Error(`refusing to merge PR #${number} without a head to pin`);
-  return ['pr', 'merge', String(number), '--squash', ...(auto ? ['--auto'] : []), '--delete-branch', '--match-head-commit', headRefOid];
+  // `--auto` is how `gh` both enables classic auto-merge and enqueues onto a merge queue.
+  // When `queue` is on, every land goes through that path so GitHub tests the PR on top of
+  // those ahead of it instead of merging a head that was never rebased onto main.
+  return ['pr', 'merge', String(number), '--squash', ...(auto || queue ? ['--auto'] : []), '--delete-branch', '--match-head-commit', headRefOid];
 }
 
 /**
@@ -81,7 +84,8 @@ export function mergeArgs(number, headRefOid, { auto = false } = {}) {
  * only one at a time, oldest first: it merges, the next one is refreshed, and so on.
  * `candidates` are `{ key, number, reasons, live }` for PRs whose mergeStateStatus is BEHIND.
  */
-export function chooseUpdate(candidates = []) {
+export function chooseUpdate(candidates = [], { queue = false } = {}) {
+  if (queue) return null;
   const eligible = candidates
     .filter(c => !c.live && (c.reasons ?? []).every(r => r.startsWith('pending:')))
     .sort((a, b) => a.number - b.number);

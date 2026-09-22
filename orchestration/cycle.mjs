@@ -1,7 +1,7 @@
 // One orchestrator cycle, safe to run repeatedly. The order matters and is the point of the file:
 //   1. sync     — fetch, fast-forward the orchestrator's main, make Jira agree with the board
 //   2. land     — merge what is provably finished, pinned to the head that was evaluated
-//   3. refresh  — bring at most one BEHIND PR up to date
+//   3. refresh  — bring at most one BEHIND PR up to date, unless models.mergeQueue is on
 //   4. review   — name every PR waiting on a reviewer, since in_review stories hold their paths
 //   5. plan     — ask whether the planner is due, before anything new starts on a stale plan
 //   6. dispatch — name (or start) what is ready
@@ -36,6 +36,8 @@ export const HOLD_REASON_STRINGS = [
   'auto-merge failed —',
   'merge failed —',
   'behind main; waiting its turn in the review order (position ',
+  'merge queue tests it on top of those ahead',
+  'the branch is not updated',
 ];
 
 export function waitingTurn(position) {
@@ -75,6 +77,7 @@ export function processReviewQueue({
   removeWorktree = () => {},
   prState = () => '',
   say = () => {},
+  mergeQueue = false,
 } = {}) {
   const held = [];
   const updates = [];
@@ -172,11 +175,14 @@ export function processReviewQueue({
 
   // One refresh: prefer the oldest PR that would otherwise land (chooseUpdate). When every BEHIND
   // PR has a hard hold — the fixture-board case — fall back to the first review-order entry so a
-  // conflicted or unreviewed queue still moves (ADR-0025).
-  const picked = chooseUpdate(behind);
-  const updateKey = picked?.key ?? (behind.some(b => b.key === firstBehindKey) ? firstBehindKey : null);
+  // conflicted or unreviewed queue still moves (ADR-0025). The merge queue is the other path:
+  // GitHub tests each PR on top of those ahead, so no branch is ever updated.
+  const picked = chooseUpdate(behind, { queue: mergeQueue });
+  const updateKey = mergeQueue ? null : (picked?.key ?? (behind.some(b => b.key === firstBehindKey) ? firstBehindKey : null));
   for (const b of behind) {
-    if (b.key === updateKey && !dry) {
+    if (mergeQueue) {
+      held.push(`${b.key}: PR #${b.number} is behind main — merge queue tests it on top of those ahead; the branch is not updated`);
+    } else if (b.key === updateKey && !dry) {
       const r = updateBranch(b.number);
       updates.push(b.number);
       held.push(`${b.key}: PR #${b.number} was behind main — ${typeof r === 'string' ? 'updated; CI is re-running' : `update failed: ${r.error.split('\n')[0]}`}`);
@@ -235,6 +241,7 @@ function runCycle(argv = process.argv.slice(2)) {
       const view = gh(['pr', 'view', String(pr), '--json', 'state,mergeable,mergeStateStatus,reviewDecision,latestReviews,statusCheckRollup,headRefName,headRefOid,autoMergeRequest,files']);
       return view ? JSON.parse(view) : null;
     },
+    mergeQueue: Boolean(m.mergeQueue),
     updateBranch: pr => sh('gh', ['pr', 'update-branch', String(pr)]),
     order,
     worktreeLive: rec => {
@@ -285,8 +292,8 @@ function runCycle(argv = process.argv.slice(2)) {
     verifyApproval: (key, head) => verify(here(`results/${key}.approved`), head),
     mergeUnreviewed: process.env.MARXY_MERGE_UNREVIEWED === '1',
     disableAutoMerge: pr => { sh('gh', ['pr', 'merge', String(pr), '--disable-auto']); },
-    enableAutoMerge: (pr, head) => { try { return sh('gh', mergeArgs(pr, head, { auto: true })); } catch (e) { return { error: e.message }; } },
-    mergeNow: (pr, head) => { try { return sh('gh', mergeArgs(pr, head)); } catch (e) { return { error: e.message }; } },
+    enableAutoMerge: (pr, head) => { try { return sh('gh', mergeArgs(pr, head, { auto: true, queue: m.mergeQueue })); } catch (e) { return { error: e.message }; } },
+    mergeNow: (pr, head) => { try { return sh('gh', mergeArgs(pr, head, { queue: m.mergeQueue })); } catch (e) { return { error: e.message }; } },
     removeWorktree: (rec, headRefName) => { sh('git', ['worktree', 'remove', '--force', rec.worktree]); sh('git', ['branch', '-D', headRefName]); },
     prState: pr => gh(['pr', 'view', String(pr), '--json', 'state', '-q', '.state']) ?? '',
     say,

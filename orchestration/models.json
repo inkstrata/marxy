@@ -36,6 +36,7 @@
   "cliEffortFlag": "",
   "lanes": null,
   "reviewLanes": 4,
+  "mergeQueue": true,
   "maxAttempts": 2,
   "attemptMinutes": 45,
   "plannerEveryMerges": 5,

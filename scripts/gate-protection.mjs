@@ -84,6 +84,12 @@ const CONDITIONS = [
     holds: (s) => s.repository?.delete_branch_on_merge === true,
     fail: (s) => `delete_branch_on_merge: expected true, got ${s.repository?.delete_branch_on_merge ?? 'absent'}`,
   },
+  {
+    name: 'merge_group',
+    holds: (s) => !s.queueRequired || workflowHasMergeGroup(s.workflow),
+    fail: () =>
+      'merge_group: merge queue is required but the workflow has no merge_group trigger',
+  },
 ];
 
 export const CONDITION_NAMES = CONDITIONS.map((c) => c.name);
@@ -119,6 +125,11 @@ export function createGhReader({ execFile = execFileSync } = {}) {
 
 export function workflowsReferenceGate(text) {
   return text.includes('gate-protection');
+}
+
+/** A workflow that will run the required `ci` check on a GitHub merge-group event. */
+export function workflowHasMergeGroup(text) {
+  return /^\s*merge_group\s*:/m.test(String(text ?? ''));
 }
 
 export function hygieneDocumentsPatch(text) {
@@ -259,7 +270,11 @@ function selftest() {
   );
 
   report(fileUnchanged('package.json'), 'package.json is byte-identical to origin/main');
-  report(fileUnchanged('orchestration/cycle.mjs'), 'cycle.mjs is byte-identical to origin/main');
+  const cycleSrc = readFileSync(join(ROOT, 'orchestration/cycle.mjs'), 'utf8');
+  report(/\bmergeQueue\b/.test(cycleSrc), 'cycle.mjs reads mergeQueue');
+  const ciYml = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+  report(workflowHasMergeGroup(ciYml), 'ci.yml listens for merge_group');
+  report(/^name:\s*ci\s*$/m.test(ciYml), 'required check name ci is unchanged');
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   report(!pkg.scripts['gate:protection'], 'package.json has no gate:protection script');
 

@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive } from './merge-bar.mjs';
+import { processReviewQueue } from './cycle.mjs';
 import { fileAllowed, allowedFor } from './review.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -128,7 +129,8 @@ test('orchestrator prompt lands merges through the cycle, not gh pr merge', () =
 test('cycle.mjs enables GitHub auto-merge when the bar says so', () => {
   const text = readFileSync(join(here, 'cycle.mjs'), 'utf8');
   assert.match(text, /decision\.action === 'auto-merge'/);
-  assert.match(text, /mergeArgs\(pr, head, \{ auto: true \}\)/);
+  assert.match(text, /mergeArgs\(pr, head, \{ auto: true, queue: m\.mergeQueue \}\)/);
+  assert.match(text, /mergeArgs\(pr, head, \{ queue: m\.mergeQueue \}\)/);
   assert.doesNotMatch(text, /'pr', 'merge', String\(rec\.pr\), '--squash'/, 'every merge goes through mergeArgs, which pins the head');
 });
 
@@ -143,6 +145,9 @@ test('every merge is pinned to the evaluated head, direct or auto', () => {
   }
   assert.ok(auto.includes('--auto'));
   assert.ok(!direct.includes('--auto'));
+  const queued = mergeArgs(41, HEAD, { queue: true });
+  assert.ok(queued.includes('--auto'), 'queue lands through --auto so GitHub enqueues');
+  assert.ok(queued.includes('--match-head-commit'));
   assert.throws(() => mergeArgs(41, ''), /without a head/);
 });
 
@@ -157,6 +162,43 @@ test('chooseUpdate refreshes one BEHIND PR, the oldest that would otherwise land
   assert.equal(pick.key, 'A');
   assert.equal(chooseUpdate([{ key: 'C', number: 1, reasons: ['red: ci'] }]), null);
   assert.equal(chooseUpdate([]), null);
+  assert.equal(chooseUpdate([{ key: 'A', number: 21, reasons: ['pending: ci'] }], { queue: true }), null);
+});
+
+test('with mergeQueue on, processReviewQueue never updates a branch', () => {
+  const called = [];
+  const { held, updates } = processReviewQueue({
+    board: {
+      'MARXY-A': { status: 'in_review', pr: 1 },
+      'MARXY-B': { status: 'in_review', pr: 2 },
+    },
+    viewPr: n => ({ state: 'OPEN', mergeStateStatus: 'BEHIND', files: [] }),
+    updateBranch: n => { called.push(n); return 'ok'; },
+    mergeQueue: true,
+    order: {
+      order: [
+        { key: 'MARXY-A', pr: 1, behind: true },
+        { key: 'MARXY-B', pr: 2, behind: true },
+      ],
+      excluded: [],
+    },
+  });
+  assert.deepEqual(called, []);
+  assert.deepEqual(updates, []);
+  assert.ok(held.every(l => /merge queue tests it on top of those ahead; the branch is not updated/.test(l)));
+});
+
+test('with mergeQueue off, processReviewQueue still refreshes one BEHIND PR', () => {
+  const called = [];
+  const { updates } = processReviewQueue({
+    board: { 'MARXY-A': { status: 'in_review', pr: 1 } },
+    viewPr: () => ({ state: 'OPEN', mergeStateStatus: 'BEHIND', files: [] }),
+    updateBranch: n => { called.push(n); return 'ok'; },
+    mergeQueue: false,
+    order: { order: [{ key: 'MARXY-A', pr: 1, behind: true }], excluded: [] },
+  });
+  assert.deepEqual(called, [1]);
+  assert.deepEqual(updates, [1]);
 });
 
 test('a worktree is live only with uncommitted changes or recent git activity', () => {
