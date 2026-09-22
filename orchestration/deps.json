@@ -73,7 +73,8 @@
       "MARXY-37",
       "MARXY-169",
       "MARXY-38",
-      "MARXY-39"
+      "MARXY-39",
+      "MARXY-183"
     ],
     "3": [
       "MARXY-41",
@@ -88,13 +89,15 @@
       "MARXY-49",
       "MARXY-96",
       "MARXY-97",
-      "MARXY-98"
+      "MARXY-98",
+      "MARXY-184"
     ],
     "4": [
       "MARXY-51",
       "MARXY-52",
       "MARXY-53",
-      "MARXY-54"
+      "MARXY-54",
+      "MARXY-185"
     ],
     "ops": [
       "MARXY-8",
@@ -151,7 +154,8 @@
       "MARXY-165",
       "MARXY-174",
       "MARXY-176",
-      "MARXY-178"
+      "MARXY-178",
+      "MARXY-186"
     ]
   },
   "deps": {
@@ -183,7 +187,6 @@
     ],
     "MARXY-16": [
       "MARXY-13",
-      "MARXY-15",
       "MARXY-5"
     ],
     "MARXY-20": [
@@ -559,7 +562,15 @@
     "MARXY-165": [],
     "MARXY-174": [],
     "MARXY-176": [],
-    "MARXY-178": []
+    "MARXY-178": [],
+    "MARXY-183": [],
+    "MARXY-184": [
+      "MARXY-49"
+    ],
+    "MARXY-185": [
+      "MARXY-16"
+    ],
+    "MARXY-186": []
   },
   "research": {
     "_note": "Empty by design: research tasks are ordinary rows in the CSV and ordinary issues in Jira (MARXY-19 is the first), labelled `research`. Their output is a decision note rather than product code, which the story's acceptance says."
