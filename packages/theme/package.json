@@ -9,11 +9,14 @@
     "build": "echo 'css only'",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false . && node scripts/lint-default-theme.mjs",
-    "test": "node scripts/lint-default-theme.mjs && node --test 'test/**/*.test.mjs'"
+    "test": "node scripts/lint-default-theme.mjs && node --test --experimental-strip-types 'src/**/*.test.ts' 'test/**/*.test.mjs'"
   },
   "main": "src/index.ts",
+  "dependencies": {
+    "smol-toml": "^1.8.0"
+  },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "@types/node": "^24.0.0"
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
   }
 }

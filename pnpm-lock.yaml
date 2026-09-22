@@ -159,6 +159,10 @@ importers:
         version: 5.9.3
 
   packages/theme:
+    dependencies:
+      smol-toml:
+        specifier: ^1.8.0
+        version: 1.8.0
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
@@ -1376,6 +1380,10 @@ packages:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
     engines: {node: '>=10'}
     hasBin: true
+
+  smol-toml@1.8.0:
+    resolution: {integrity: sha512-kCZr2V3ch9i00x8zXRhjUNVcjG9ijES5dDudkXvUVCT5QlJNQWElSJdZqyPemffHoLNUYwOcou0Fy+ojN0uHSQ==}
+    engines: {node: '>= 18'}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -2856,6 +2864,8 @@ snapshots:
       fsevents: 2.3.3
 
   semver@7.8.5: {}
+
+  smol-toml@1.8.0: {}
 
   source-map-js@1.2.1: {}
 

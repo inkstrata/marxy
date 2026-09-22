@@ -20,6 +20,7 @@
     "palette_keystroke",
     "find_first_match",
     "weight_offset",
+    "user_theme",
     "error",
     "ready",
     "app_ready",
