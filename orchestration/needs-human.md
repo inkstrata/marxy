@@ -8,6 +8,10 @@ already recorded as ADR-0015 and ADR-0029, taste follow-ups MARXY-128/129/130
 already shipped, MARXY-6 Done). Taste rows still waiting on a person sit in
 `docs/taste-review/queue.md`, not here.
 
-- [ ] 2026-09-18 — Say whether a Linux desktop exists for MARXY-22 (weight harness on real GNOME) and whether an Apple Developer account exists for notarization.
-- [ ] 2026-09-21 — **MARXY-94** is `human-gated` on ADR-0026 (the v1 `shell-api` surface). Accept the ADR, or say what to change, so the label can come off.
-- [x] 2026-09-22 — **MARXY-122** merge-queue ruleset: not available on User-owned repos; orchestrator code and CI `merge_group` are on main with `mergeQueue` false until marxy lives under an organization (MARXY-182).
+Discharged 2026-09-22 (author rulings):
+
+- [x] **PR #180 / MARXY-183** — merged on `main` (`063ee42`); single-instance and open-file routing.
+- [x] **MARXY-22** — no Linux desktop and no Apple Developer notarization account for now; **deferred** (story stays `human-gated` until hardware/account exist).
+- [x] **MARXY-94 / ADR-0026** — author **accepts** the proposed v1 `Shell` surface; `human-gated` removed from the CSV row so MARXY-94 can dispatch (ADR moves to accepted when that story lands).
+- [x] **Timing promises** — no hard CI merge gates on interaction-speed numbers; keep measuring per ADR-0032, do not fail PRs on budget overruns alone.
+- [x] **MARXY-122** — merge-queue ruleset: not available on User-owned repos; `mergeQueue` false until org transfer (MARXY-182).
