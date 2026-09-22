@@ -1,6 +1,7 @@
 name: ci
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
 concurrency:
@@ -27,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: detect
-        run: node scripts/ci-changes.mjs ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}
+        run: node scripts/ci-changes.mjs ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
       # A hit means this exact gates-relevant content already built and measured clean on both
       # runner classes on some other push; a miss (or a stand-in/in-progress record) leaves
       # results/gates-record.json absent or unusable and node scripts/ci-changes.mjs --resolve runs

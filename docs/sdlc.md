@@ -116,6 +116,14 @@ reviewed one's name. A reviewer writes and signs `KEY.approved`; the implementor
 it. `cycle.mjs` then lands the PR without a person, or enables GitHub auto-merge when the only
 remaining wait is CI.
 
+Which merge path is live is `orchestration/models.json` `mergeQueue`. When it is true, the
+cycle enqueues with `gh pr merge --auto --match-head-commit` and never runs
+`gh pr update-branch`: GitHub's merge queue tests each PR on top of those ahead of it. When
+it is false, one BEHIND pull request is refreshed per cycle (MARXY-106). Flip the flag to
+switch. The GitHub ruleset that actually enables the queue is a repository setting, not this
+flag; leave that switch off until `.github/workflows/ci.yml` listens for `merge_group`
+(otherwise the required `ci` check never runs on a queued group).
+
 A PR is mergeable when every clause of this bar holds. `orchestration/merge-bar.mjs` is the
 list; a missing clause is the printed hold reason.
 
