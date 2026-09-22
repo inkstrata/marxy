@@ -11,6 +11,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The theme package loads `theme.toml` + `theme.css`, rewrites local `url()` paths for the asset scope, warns on contract mismatch, and exposes byte-faithful `setTopLevelKey` for the shell story (MARXY-47)
 
 ### Added
+- MARXY-16 no longer depends on MARXY-15 now that ADR-0029/ADR-0032 have already withdrawn the cold-start budget as a release gate; files MARXY-183 (single instance and macOS/Linux open events), MARXY-184 (native File/Edit menu), and MARXY-185 (CLI on PATH) for the Mac-shell gaps found in review (MARXY-186)
 - MARXY-47 splits into a theme-package story and a desktop shell follow-on; MARXY-45 now depends on the shell story and hostile-theme gating stays on MARXY-45 (MARXY-178)
 - MARXY-46 and MARXY-47 board rows on main now match their task cards and PR #163/#164 file sets so review reads the right Paths and Acceptance (MARXY-176)
 - Core wide HTML policy, reserved `marxy-` ids, deferred `https:` images as `data-marxy-remote`, and island-scoped removal provenance for the trust notice (MARXY-96)

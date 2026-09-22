@@ -1,12 +1,15 @@
 ---
 key: MARXY-16
 design: [06-shell]
-depends: [MARXY-13, MARXY-15, MARXY-5]
+depends: [MARXY-13, MARXY-5]
 verify: [pnpm precheck, pnpm done MARXY-16]
 ---
 # MARXY-16 — Ship v0.0.1 on macOS and Linux from a tag
 
-**Design:** [06-shell](../../design/06-shell.md) (bundle config) · **Depends on:** MARXY-13, MARXY-15, MARXY-5.
+**Design:** [06-shell](../../design/06-shell.md) (bundle config) · **Depends on:** MARXY-13, MARXY-5.
+No longer depends on MARXY-15: ADR-0029 and ADR-0032 (both accepted) already withdrew the
+cold-start budget as a release gate, so this story does not wait on the perf-reporting work
+MARXY-15 still carries. See `docs/plan/deltas/2026-09-21-mac-shell-gaps.md`.
 
 ## Outcome
 `git tag v0.0.1 && git push --tags` produces a GitHub pre-release with a `.dmg`, an `.AppImage` and a `.deb`; each installs and opens `02-readme-real-world.md`.
