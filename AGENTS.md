@@ -48,9 +48,11 @@ Two things worth knowing before you touch anything:
   (`git worktree list`). The main checkout at `~/Dev/marxy` may be mid-story under another
   session, and its branch can change under you. **Work in your own worktree** unless you know
   you own the checkout.
-- **The GitHub merge queue is not on yet.** `orchestration/models.json` has a `mergeQueue` flag,
-  but the repository ruleset stays off until `.github/workflows/ci.yml` listens for
-  `merge_group` — otherwise the required `ci` check never runs on a queued group.
+- **GitHub's native merge queue is off.** This repo is **User-owned**; GitHub only offers merge
+  queue on **organization-owned** repos (public org repo, or private on Enterprise Cloud). CI already
+  listens for `merge_group` (MARXY-122); keep `orchestration/models.json` **`mergeQueue` false** so
+  the cycle still refreshes one BEHIND PR per cycle (MARXY-106). After an org transfer, enable the
+  queue in GitHub and flip `mergeQueue` to true.
 
 ## Architecture in one paragraph
 

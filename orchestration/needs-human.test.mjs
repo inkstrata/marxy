@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { here } from './lib.mjs';
 
 const AUTH = /Headless auth failure:/;
-const ALLOWED = new Set(['MARXY-22', 'MARXY-94', 'MARXY-122']);
+const ALLOWED = new Set(['MARXY-22', 'MARXY-94']);
 const STALE_PRS = /\bPR #(?:1|10|14|23|25|28)\b/;
 
 function openItems(text = readFileSync(here('needs-human.md'), 'utf8')) {
@@ -30,5 +30,4 @@ test('unchecked bullets name only still-open human-gated work, or a same-day aut
   }
   assert.ok(open.some(l => l.includes('MARXY-22')));
   assert.ok(open.some(l => l.includes('MARXY-94')));
-  assert.ok(open.some(l => l.includes('MARXY-122')));
 });
