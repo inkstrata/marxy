@@ -8,7 +8,9 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{Emitter, Manager, RunEvent};
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+use tauri::RunEvent;
+use tauri::{Emitter, Manager};
 
 fn now_ms() -> f64 {
     SystemTime::now()
@@ -272,5 +274,7 @@ fn main() {
                     .collect();
                 emit_open_files(app, paths);
             }
+            #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+            let _ = (app, event);
         });
 }
