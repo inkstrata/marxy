@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeFromArgv, laneBudget, models } from './lib.mjs';
+import { applyJiraRenames, computeFromArgv, laneBudget, models } from './lib.mjs';
 
 const fixture = {
   compute: 'default',
@@ -105,6 +105,38 @@ test('isBoardKey accepts a numbered Jira key and nothing else', async () => {
   const { isBoardKey } = await import('./lib.mjs');
   for (const ok of ['MARXY-1', 'MARXY-145']) assert.equal(isBoardKey(ok), true, ok);
   for (const no of ['MARXY-NEW-x', 'MARXY-', 'marxy-1', 'MARXY-1a', 'x MARXY-1', '', undefined]) assert.equal(isBoardKey(no), false, String(no));
+});
+
+test('applyJiraRenames moves a leftover placeholder onto its real key', () => {
+  const leftover = { status: 'todo', attempts: 1, branch: 'feat/MARXY-NEW-x' };
+  const { stories, moved } = applyJiraRenames(
+    { 'MARXY-1': { status: 'done' }, 'MARXY-NEW-tokens-test-live-values': leftover },
+    { 'MARXY-NEW-tokens-test-live-values': 'MARXY-145' },
+  );
+  assert.deepEqual(moved, [['MARXY-NEW-tokens-test-live-values', 'MARXY-145']]);
+  assert.equal(stories['MARXY-NEW-tokens-test-live-values'], undefined);
+  assert.deepEqual(stories['MARXY-145'], leftover);
+  assert.equal(stories['MARXY-1'].status, 'done');
+});
+
+test('applyJiraRenames keeps the real-key row when both exist, and drops the leftover', () => {
+  const real = { status: 'done', pr: 110 };
+  const leftover = { status: 'todo', attempts: 1, branch: 'feat/MARXY-NEW-x' };
+  const { stories, moved } = applyJiraRenames(
+    { 'MARXY-145': real, 'MARXY-NEW-tokens-test-live-values': leftover },
+    { 'MARXY-NEW-tokens-test-live-values': 'MARXY-145' },
+  );
+  assert.deepEqual(moved, [['MARXY-NEW-tokens-test-live-values', 'MARXY-145']]);
+  assert.equal(stories['MARXY-NEW-tokens-test-live-values'], undefined);
+  assert.deepEqual(stories['MARXY-145'], real);
+});
+
+test('applyJiraRenames leaves a stories object unchanged when nothing maps', () => {
+  const input = { 'MARXY-1': { status: 'todo' } };
+  const { stories, moved } = applyJiraRenames(input, { 'MARXY-NEW-x': 'MARXY-2' });
+  assert.deepEqual(moved, []);
+  assert.deepEqual(stories, input);
+  assert.notEqual(stories, input);
 });
 
 test('a placeholder row is never ready, so it cannot be dispatched before sync', async () => {

@@ -45,9 +45,35 @@ export const deps = () => readJson(here('deps.json'));
 export function parseCsv(t) { const rows = []; let row = [], cell = '', q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; } else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; } else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (c !== '\r') cell += c; } if (cell || row.length) { row.push(cell); rows.push(row); } const [h, ...rest] = rows; return rest.filter(r => r.length === h.length).map(r => Object.fromEntries(h.map((k, i) => [k, r[i]]))); }
 /**
  * A row the planner wrote before `jira.mjs sync` gave it a real key (`MARXY-NEW-<slug>`). It has no
- * Jira issue yet, and `sync` renames it everywhere git tracks, but never in the untracked state.json.
+ * Jira issue yet. `sync` rewrites the key in every tracked file; `applyJiraRenames` does the same
+ * for the untracked state.json cache (MARXY-179).
  */
 export const isPlaceholderKey = key => /^MARXY-NEW-/i.test(String(key ?? ''));
+
+/**
+ * Move placeholder keys in a state.stories object onto the real keys `jira.mjs sync` recorded.
+ * If the real key already has a row, that row wins and the leftover is dropped — MARXY-145
+ * finished under its real key while `MARXY-NEW-tokens-test-live-values` stayed behind.
+ */
+export function applyJiraRenames(stories = {}, renames = {}) {
+  const next = { ...stories };
+  const moved = [];
+  for (const [from, to] of Object.entries(renames)) {
+    if (!from || !to || from === to || !Object.hasOwn(next, from)) continue;
+    if (!Object.hasOwn(next, to)) next[to] = next[from];
+    delete next[from];
+    moved.push([from, to]);
+  }
+  return { stories: next, moved };
+}
+
+function jiraMapKeys() {
+  try {
+    return readJson(here('jira-map.json')).keys ?? {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Whether `key` is shaped like a Jira key, the only kind every script here matches (`/MARXY-\d+/`).
@@ -69,7 +95,13 @@ export function stories(text = readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 
 export function state() {
   const p = here('state.json');
   if (!existsSync(p)) { const s = { updated: new Date().toISOString(), merges: 0, lastPlan: null, stories: {} }; for (const st of stories()) s.stories[st.Key] = { status: 'todo', attempts: 0 }; writeJson(p, s); }
-  return readJson(p);
+  const s = readJson(p);
+  const { stories: healed, moved } = applyJiraRenames(s.stories ?? {}, jiraMapKeys());
+  if (moved.length) {
+    s.stories = healed;
+    saveState(s);
+  }
+  return s;
 }
 export function saveState(s) { s.updated = new Date().toISOString(); writeJson(here('state.json'), s); }
 /** Listed paths as written. A glob keeps every segment, including `*`. */
