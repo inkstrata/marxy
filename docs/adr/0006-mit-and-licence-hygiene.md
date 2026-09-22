@@ -1,6 +1,6 @@
 # ADR-0006 — MIT for the whole tree; OFL fonts isolated; grammar and pattern allow-lists
 
-**Status:** accepted · **Source:** brainstorm D18 (overriding D12), docs/17-licensing
+**Status:** accepted
 **Amended:** 2026-09-18 (MARXY-58) — records the licence gate that already shipped; not a new decision
 
 ## Decision

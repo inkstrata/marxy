@@ -1,6 +1,6 @@
 # ADR-0002 — A webview shell; native toolkits are out
 
-**Status:** accepted · **Source:** brainstorm D3, rejected-outright table
+**Status:** accepted
 
 ## Decision
 The renderer is a web engine. Native Swift, GTK, Qt and Flutter are out.

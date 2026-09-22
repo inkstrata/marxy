@@ -1,6 +1,6 @@
 # ADR-0004 — Editing is transformation over byte ranges; no plugin or scripting API
 
-**Status:** accepted · **Source:** brainstorm D14, A16, Q12, C16
+**Status:** accepted
 
 ## Decision
 An edit in Rendered mode is: a selection (span, block, section or document) resolves through

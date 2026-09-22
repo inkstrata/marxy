@@ -1,6 +1,6 @@
 # ADR-0003 — One buffer, one AST with byte provenance, two layout paths
 
-**Status:** accepted · **Source:** brainstorm D7, D11, D14, A8
+**Status:** accepted
 
 ## Decision
 The source text buffer is the only truth. One parse produces one AST in which **every node

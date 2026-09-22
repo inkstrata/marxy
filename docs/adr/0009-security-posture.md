@@ -1,6 +1,6 @@
 # ADR-0009 — Always sanitise; block remote content; no telemetry; strict CSP
 
-**Status:** accepted · **Source:** brainstorm A7, Q5 (refined), docs/09 problem 2, C4
+**Status:** accepted
 
 ## Decision
 1. Raw HTML from a file never reaches the DOM unsanitised. The parser is not the boundary:

@@ -1,6 +1,6 @@
 # ADR-0011 — The palette is the tab manager; no tab bar
 
-**Status:** accepted, with a reversal criterion · **Source:** brainstorm D16, A21, C14
+**Status:** accepted, with a reversal criterion
 
 ## Decision
 No persistent tab bar. Opening the palette with no query shows the most-recently-used stack,

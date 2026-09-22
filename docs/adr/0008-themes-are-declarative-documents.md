@@ -1,6 +1,6 @@
 # ADR-0008 — Themes are declarative CSS documents under a system-owned typography contract
 
-**Status:** accepted · **Source:** brainstorm docs/09, A3, A13, C9
+**Status:** accepted
 
 ## Decision
 A theme is a directory: `theme.toml` (name, author, contract version, variants), `theme.css`,

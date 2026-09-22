@@ -1,8 +1,7 @@
 # Architecture decision records
 
-One short record per decision that constrains implementation. Seeded from the brainstorm's
-decision log (D1–D18, `~/Dev/marxy-brainstorm/docs/01-decision-log.md`) and extended with
-the decisions made at handoff. Append-only: to change one, add a new ADR that supersedes it.
+One short record per decision that constrains implementation, starting from the decisions made
+at handoff. Append-only: to change one, add a new ADR that supersedes it.
 
 | ADR | Title | Status |
 | --- | --- | --- |

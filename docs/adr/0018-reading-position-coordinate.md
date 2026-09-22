@@ -1,6 +1,6 @@
 # ADR-0018 — Reading position is a source-map coordinate, never a scroll offset
 
-**Status:** accepted · **Source:** brainstorm docs/16 §5, docs/05, A19
+**Status:** accepted
 
 ## Decision
 A reading position is `{ path, byteOffset, fraction }`: the first visible block's start offset

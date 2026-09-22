@@ -1,6 +1,6 @@
 # ADR-0001 — Marxy is a reader, not an editor with a preview
 
-**Status:** accepted · **Source:** brainstorm D1, D13, C1–C3
+**Status:** accepted
 
 ## Decision
 Reading is the primary use case. Every incumbent treats reading as a mode you toggle into

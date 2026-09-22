@@ -76,7 +76,7 @@ Three things follow:
   The bug reports came from real desktops. **Re-run the harness on a real Linux desktop
   in Phase 1** (story MARXY-1xx in the plan); A1 is downgraded from critical to medium, not closed.
 - Only WebKitGTK 2.52 (Ubuntu 22.04–26.04 all ship 2.50–2.52 as security updates; Debian 12
-  ships 2.50.6). The brainstorm's "2.36 on older distros" is stale. Debian 12 capture is
+  ships 2.50.6). The earlier "2.36 on older distros" figure is stale. Debian 12 capture is
   in `results/` if the background run completed.
 - One typeface pair. The harness takes any font; re-run when the face changes.
 

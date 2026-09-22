@@ -1,6 +1,6 @@
 # ADR-0020 — `packages/core` and `packages/typeset` never depend on the desktop shell
 
-**Status:** accepted, amended (Amendment 1 — how a gate may test shell-owned code, 2026-09-18) · **Source:** brainstorm C6 (the parked publishing ambition), docs/00 "deliberately deferred"
+**Status:** accepted, amended (Amendment 1 — how a gate may test shell-owned code, 2026-09-18)
 
 ## Decision
 Parsing, the AST and source map, sanitising, the outline, operations and the index model live

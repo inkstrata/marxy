@@ -1,19 +1,22 @@
 # AGENTS.md — read this first, every session
 
-You are working on **marxy**, a markdown *reader*. Sessions start cold; this file plus
-`docs/adr/` is the project's memory. If something here contradicts a document elsewhere
-in the tree, this file and the ADRs win, and you fix the other document in your PR.
+You are working on **Marxy**, a markdown *reader*. Sessions start cold; this file, `docs/adr/`
+and `docs/ci-contract.md` are the project's memory. If something here contradicts a document
+elsewhere in the tree, this file and the ADRs win, and you fix the other document in your PR.
+
+**Before you push anything, read [`docs/ci-contract.md`](docs/ci-contract.md).** It is the
+complete list of what can turn a pull request red and the exact local command that reproduces
+each one. Most red CI on this project is not a code failure — it is a commit subject, a PR body,
+a missing changelog line, or a file outside the story's paths. All of it is checkable locally.
 
 ## The spirit (not negotiable)
 
-marxy exists because reading markdown in every existing tool feels *wrong*, not
-feature-poor. It is a very fast document opener with an index you can flip through
-instantly, that sets text like a well-made book, treats code and AI artifacts as
-first-class content, and lets you operate on what you read without becoming a writing
-tool. Content types in priority order: **READMEs, AI/agent artifacts, source files,
-prose.** None of them are written in marxy.
+Marxy opens a document instantly, gives you an index you can flip through, sets text like a
+well-made book, treats code and AI artifacts as first-class content, and lets you operate on
+what you read without becoming a writing tool. Content types in priority order: **READMEs,
+AI/agent artifacts, source files, prose.** None of them are written in Marxy.
 
-The name is an instruction — Marx and Banksy. Four hard consequences:
+Four commitments, never traded away:
 
 1. **MIT, free, no paid tier, no accounts.** Never ship a GPL dependency or grammar (ADR-0006).
 2. **No telemetry, ever.** Not opt-out. None.
@@ -27,8 +30,27 @@ differentiator** and the thing you cannot verify yourself — see "Verification"
 Chrome at rest is zero: no toolbar, no tab bar, no sidebar; everything is summoned and
 dismissed.
 
-What failure looks like: a competent, ordinary-looking markdown viewer. That is worse
-than nothing because the world already has it.
+The bar: a competent, ordinary-looking markdown viewer is a failure. Clear it.
+
+## Where the project actually is
+
+Pre-v1, mid-build, and the machinery is further along than the product. Phase 0 is behind us;
+the current work is phases 1–3 (the page, the opener, operations and themes) with an ops lane
+running beside them. `docs/plan.md` has the phases and `docs/roadmap.md` the long horizon.
+
+For live board state, run `node orchestration/cycle.mjs` or read `orchestration/status.md` — it
+is **generated and gitignored**, so it exists only in a checkout a cycle has run in, and it is
+the only honest answer to "what is done". Never trust a count written into a document.
+
+Two things worth knowing before you touch anything:
+
+- **The repository is worked by a fleet.** Several worktrees are usually live at once
+  (`git worktree list`). The main checkout at `~/Dev/marxy` may be mid-story under another
+  session, and its branch can change under you. **Work in your own worktree** unless you know
+  you own the checkout.
+- **The GitHub merge queue is not on yet.** `orchestration/models.json` has a `mergeQueue` flag,
+  but the repository ruleset stays off until `.github/workflows/ci.yml` listens for
+  `merge_group` — otherwise the required `ci` check never runs on a queued group.
 
 ## Architecture in one paragraph
 
@@ -53,9 +75,13 @@ Privileged work (files, watching, dialogs, clipboard) goes through the thin
 | `fixtures/corpus` | the fixture corpus that golden files, screenshots and perf gates run on | — |
 | `scripts/` | CI gates | — |
 
+`scripts/check-boundaries.mjs` enforces this on every build: core takes no DOM and no Node
+built-ins, `@tauri-apps` appears only under `apps/desktop/src/shell`, `shell-api` imports
+nothing, and raw `invoke(` outside `src/shell` is a failure.
+
 **One issue, one branch, one PR, one owner.** Do not edit files outside your issue's
-listed paths. If you need a change elsewhere, open a separate issue. Two agents
-editing one file concurrently damaged the brainstorm that preceded this repo.
+listed paths. If you need a change elsewhere, open a separate issue. Two agents editing one
+file concurrently corrupt both changes and cost more than the work they saved.
 
 ## Working rules
 
@@ -64,7 +90,8 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
   description is the durable record. The process on one page: `docs/sdlc.md`.
 - **Work outside the plan:** get a key with `node orchestration/jira.mjs task "summary"`
   (creates a Task labelled `out-of-plan` and prints the key), then branch `type/KEY-slug`
-  off `main`. That is the supported path; do not invent a key or skip the board.
+  off `main`. That is the supported path; do not invent a key or skip the board. A branch with
+  no `MARXY-nnn` in its name cannot pass `check-story --strict`, which CI runs on every PR.
 - **Commits, PRs, comments, reviews, tags:** `docs/conventions.md`. The one rule under all of
   them: a plain-language summary first, technical detail after, agent detail folded away.
   Conventional Commits with the Jira key in the subject; the PR template's order is enforced;
@@ -78,10 +105,36 @@ editing one file concurrently damaged the brainstorm that preceded this repo.
   is in `docs/sdlc.md`. `docs/hygiene.md` lists what the tools enforce; `pnpm new` starts
   modules, operations and commands in the house shape.
 - **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` needs an ADR
-  and a PR touching only that. The token names, units and meanings are frozen and need an
-  ADR; the default theme's values are taste and need a story with a taste-review queue row.
+  and a PR touching only that — `pnpm test` byte-compares them against a pinned hash and fails
+  on any diff. The token names, units and meanings are frozen and need an ADR; the default
+  theme's values are taste and need a story with a taste-review queue row.
+- **Names come from the registry.** A new mark, event, data attribute, class or token goes into
+  `scripts/registry.json` first. Parsed markup may reach the DOM only on paths listed in
+  `innerHtmlAllowedIn`; every route is matched, not just `.innerHTML =`.
+- **The name is written `Marxy` in prose and `marxy` in technical contexts.** Sentences, headings,
+  alt text, changelog lines and release notes say Marxy. Anything a machine reads stays lowercase:
+  `@marxy/core`, `--marxy-*`, `MARXY_*`, `data-marxy-*`, `marxy-key-in-subject`, the binary, the
+  repository, and paths like `~/Dev/marxy`. When in doubt, ask whether a tool would break if the
+  letter changed — if yes, it is lowercase.
+- **No rotting paths.** Do not cite a dated or generated location from a document meant to last.
+  Taste-review kits (`docs/taste-review/<date>/`) are regenerated per review and `results/` is
+  per-run; if a lasting document needs one of their files, copy it to a stable path and reference
+  that. `docs/screenshot.png` is the README's copy of one such render.
 - **Toolchain:** versions come from `mise.toml`. `pnpm` for Node, `uv` for Python,
   `cargo` for Rust. Never `npm install -g`.
+
+## The three commands
+
+```bash
+pnpm precheck                        # typecheck/lint/test for what you touched + the gates your paths map to
+pnpm done MARXY-nnn                  # boundary over the branch, precheck, drafts results/MARXY-nnn.pr.md
+node scripts/open-pr.mjs MARXY-nnn   # check-pr on that body, then gh pr create --body-file; never --body
+```
+
+Fill the TODOs in the drafted body between steps two and three. `pnpm precheck --all` runs
+everything rather than the subset your paths map to. If all three are green, the reviewer has
+only judgement left. Everything these commands check, and every other way CI can go red, is in
+[`docs/ci-contract.md`](docs/ci-contract.md).
 
 ## Verification — what you can and cannot check
 
@@ -99,9 +152,14 @@ right?" mid-task. Produce a reviewable artifact (screenshot corpus, side-by-side
 Typora/Marked 2, before/after pairs), append it to `docs/taste-review/queue.md`, and
 carry on against the mechanical gates. The queue is reviewed at the end of each phase.
 
+**A check that cannot fail for something in your diff does not belong on the pull-request
+path.** No `|| true`, no `continue-on-error`, no Playwright retries. Monitoring goes to
+`.github/workflows/nightly.yml`. A flaky test is fixed or deleted, never re-run until green.
+
 ## Budgets
 
-Interaction times are measured and printed. None of them fail CI (ADR-0032).
+Interaction times are measured and printed. None of them fail CI (ADR-0032). A red perf gate
+means the measurement is missing or dishonest, never that the machine was slow.
 The numbers below are the sphere of concern, not a merge-bar ceiling.
 
 | Cold start → first readable text | measured; no ceiling | Open indexed doc | < 50 ms |
@@ -111,16 +169,20 @@ The numbers below are the sphere of concern, not a merge-bar ceiling.
 
 ## Where things are
 
+- `docs/ci-contract.md` — **every way CI can go red, and the local command for each.**
 - `docs/brief.md` — the product, distilled. `docs/design-language.md` — the six
   constraints and the type scale. `docs/theme-contract.md`, `docs/operations.md`,
   `docs/navigation.md`, `docs/risks.md`.
 - `docs/adr/` — every decision that constrains implementation. Read the index.
-- `docs/decisions.md` — the open-question pass and what was overturned from the brainstorm.
+- `docs/decisions.md` — the open questions resolved at handoff, and what has been overturned since.
 - `docs/scope.md` — what v1 is and is not. `docs/plan.md` — the phases.
+  `docs/roadmap.md` — the horizons past v1.
+- `docs/hygiene.md` — every tool, the failure mode it answers, and when it runs.
 - `docs/aesthetics-acceptance.md` — the test for "aesthetics paramount".
 - `docs/spike/` — the stack decision rule and the spike outcome.
 - `docs/plan/jira-issues.csv` — the story list with acceptance criteria, mirrored into the Jira
   project MARXY, which is the board of record. `docs/sdlc.md` — the states, the definitions of
   ready and done, traceability and the release runbook.
-- The brainstorm that preceded this repo lives at `~/Dev/marxy-brainstorm`; it is
-  history, not specification. Do not import from it wholesale.
+- `orchestration/` — the fleet: `needs-human.md` for what is waiting on a person,
+  `merge-bar.mjs` for the nine clauses a PR must satisfy to land, and `status.md` (generated,
+  gitignored) for live board state.

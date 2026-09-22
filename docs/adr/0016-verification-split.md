@@ -1,6 +1,6 @@
 # ADR-0016 — Machine gates for everything checkable; a scheduled taste-review queue for the rest
 
-**Status:** accepted · **Source:** handoff §8–9, brainstorm A6
+**Status:** accepted · **Source:** handoff §8–9
 
 ## Decision
 Everything an agent could silently regress fails a build: build, typecheck, lint, format,

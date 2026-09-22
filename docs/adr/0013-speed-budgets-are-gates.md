@@ -1,6 +1,6 @@
 # ADR-0013 — Speed budgets are CI gates; single-instance always; resident mode opt-in
 
-**Status:** accepted · **Source:** brainstorm A17, Q13, docs/14, docs/19
+**Status:** accepted
 
 ## Decision
 The budgets in `AGENTS.md` (cold start < 500 ms to first readable text; open indexed
