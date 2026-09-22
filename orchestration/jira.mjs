@@ -5,7 +5,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { ROOT, here, readJson, writeJson, stories, parseCsv } from './lib.mjs';
+import { ROOT, here, readJson, writeJson, stories, parseCsv, state } from './lib.mjs';
 
 const ENV_FILE = process.env.MARXY_JIRA_ENV ?? `${homedir()}/.config/marxy/jira.env`;
 const MAP = here('jira-map.json');
@@ -227,6 +227,9 @@ async function sync() {
     } catch (e) { failed++; console.error(`${it.Key}: ${e}`); }
   }
   if (!DRY) writeJson(MAP, m);
+  // state.json is gitignored, so rewriteTokens never sees it. Re-read through state() so any
+  // leftover MARXY-NEW- cache row moves onto the real key (MARXY-179).
+  if (!DRY) state();
   const touched = rewriteTokens(renames);
   console.log(`sync: ${updated} updated, ${created} created, ${failed} failed${renames.length ? `, ${renames.length} placeholder key(s) resolved across ${touched} files` : ''}`);
   if (failed) process.exitCode = 1;
@@ -294,6 +297,7 @@ function migrateIds() {
   const pairs = Object.entries(map().keys).filter(([from, to]) => from !== to).sort((a, b) => b[0].length - a[0].length);
   if (!pairs.length) { console.log('nothing to migrate (no map, or ids already are Jira keys)'); return; }
   const touched = rewriteTokens(pairs);
+  if (!DRY) state();
   console.log(`${DRY ? 'would rewrite' : 'rewrote'} ${touched} files (fixtures/ and fonts/ untouched by rule)`);
 }
 
