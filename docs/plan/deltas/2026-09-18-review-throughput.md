@@ -11,7 +11,7 @@
 
 | Tripwire | State |
 | --- | --- |
-| **Cold start > 500 ms after Phase 2 on either platform** | **Fired, and early — in Phase 0, on both platforms.** 2844 ms on macOS, 1735 ms on Linux, against 500 ms. The roadmap's prescribed response is already written: font subsetting first, resident mode default on that platform second, never a bigger bundle. No story written for either, because which one is right depends on Ian's ruling on the budget (decision 4). |
+| **Cold start > 500 ms after Phase 2 on either platform** | **Fired, and early — in Phase 0, on both platforms.** 2844 ms on macOS, 1735 ms on Linux, against 500 ms. The roadmap's prescribed response is already written: font subsetting first, resident mode default on that platform second, never a bigger bundle. No story written for either, because which one is right depends on the author's ruling on the budget (decision 4). |
 | Weight harness residual > 25 after version-keyed offsets | Not fired. The spike measured ~70 lighter on WebKitGTK but that is before offsets and not on real desktops; it is an open taste-queue row, not a tripwire. |
 | `justif/core` cannot set ragged text | Not fired. MARXY-19 merged: both engines beat greedy, modestly, and only at tight tolerance. Recommendation holds for reasons other than rag. |
 | Reviewer fails the palette task at review #2 | Not reached (review #0 is still pending). |
@@ -90,10 +90,10 @@ Two gaps remain, one setting each, and the second one matters much more than it 
    GitHub is not sending. The security-posture path and the project's memory are both currently
    mergeable without their owner.
 
-MARXY-6 stays `human-gated` and stays blocked — they are repository settings and only Ian can flip
+MARXY-6 stays `human-gated` and stays blocked — they are repository settings and only the author can flip
 them — but it is **split**, because it now contains two different kinds of work:
 
-- **MARXY-6 (kept, narrowed):** Ian flips `enforce_admins`, settles the approval count, and
+- **MARXY-6 (kept, narrowed):** the author flips `enforce_admins`, settles the approval count, and
   demonstrates each criterion against a real pull request whose number goes on the issue.
 - **MARXY-82 (new, phase 0):** `scripts/gate-protection.mjs` asserts the
   whole shape, so the settings cannot drift back and the next session does not have to remember to
@@ -147,7 +147,7 @@ a reviewer reading a conflicted tree is reading nothing.
 
 **MARXY-81** (phase 0, `agent-loop`; deps the above, MARXY-10):
 
-1. **`reviewLanes: 4`** in `models.json`. `lanes` stays `null` — Ian's ruling on *dispatch* stands
+1. **`reviewLanes: 4`** in `models.json`. `lanes` stays `null` — the author's ruling on *dispatch* stands
    and is untouched — but `ready.mjs` dispatches nothing while the In Review count is at or above
    `reviewLanes`, and prints `blockedByReviewWip`. Four, because one merge then disturbs at most
    three other branches. Implementation is throttled by review rather than review being asked to
@@ -250,27 +250,27 @@ its Done is the honest marker that cold start is measured and enforced.
 **Nothing in the set waits on an unrecorded human decision.** Three things wait on a *recorded* one
 or on a person, and one of them was not recorded:
 
-- **The cold-start budget ruling is Ian's and is recorded.** I have not touched it. What it actually
+- **The cold-start budget ruling is the author's and is recorded.** I have not touched it. What it actually
   blocks, stated precisely: **MARXY-16 only.** MARXY-69 can be built and merged without it —
   criterion 3 lands a reference-mode gate that is red by design at 2844 ms against 500 ms, and
   reference mode runs before a tag rather than on pull requests, so it blocks a tag and nothing
-  else. That is the correct thing to block. The work that is genuinely stopped until Ian rules is
+  else. That is the correct thing to block. The work that is genuinely stopped until the author rules is
   the *response*: the roadmap prescribes font subsetting first and resident-mode-by-default second,
   and which of those is written depends on whether 500 ms is still the commitment and whether it
   applies to a cold OS-level launch. No story written for either. Phase 0 cannot be released until
-  he answers.
+  the author answers.
 - **Not recorded, and now is:** MARXY-63, MARXY-69 and MARXY-70 all edit `docs/adr/`, a CODEOWNERS
   path, and MARXY-63's PR #10 **amends an accepted ADR** (ADR-0022, two sentences replaced and a
   premise reversed). GitHub is requesting no review on it — see decision 1's MARXY-6 finding — so
-  the ADR owner is about to be bypassed on his own ADR by a mechanism that believes it is asking
-  him. Added to `needs-human.md`.
+  the ADR owner is about to be bypassed on their own ADR by a mechanism that believes it is asking
+  them. Added to `needs-human.md`.
 
-## Decision 5 — board drift that is Ian's to resolve: PR #14
+## Decision 5 — board drift that is the author's to resolve: PR #14
 
 Recorded because it is the largest single source of drift on the board and no story can be
 sequenced around it, not because the planner has a view on its content.
 
-PR #14 (`docs/design-runway`, three commits, **76 files**, authored by Ian) is open, in conflict and
+PR #14 (`docs/design-runway`, three commits, **76 files**, authored by the author) is open, in conflict and
 red. It carries: two new ADRs (0023 provenance-in-the-DOM, 0024 dark-is-primary); an edit to
 `packages/theme/src/tokens.css`, which is a **frozen contract**; edits to `AGENTS.md`,
 `.github/workflows/ci.yml`, `orchestration/prompts/planner.md` and `orchestration/review.mjs`; a

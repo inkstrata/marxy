@@ -6,7 +6,7 @@ verify: [pnpm precheck, pnpm done MARXY-53]
 ---
 # MARXY-53 — Tighten perf and bundle budgets to measured values minus headroom
 
-**Design:** [14-release](../../design/14-release.md) §Budgets before v1 · **ADRs:** ADR-0013, ADR-0022 (and Amendment 3 as cited in the CSV row) · **Depends on:** MARXY-33, MARXY-55, MARXY-63, MARXY-70 · **Human step:** the reference-tier runs on Ian's machine (step 1 below); request it in `needs-human.md` the day this story starts, not the day it needs the numbers.
+**Design:** [14-release](../../design/14-release.md) §Budgets before v1 · **ADRs:** ADR-0013, ADR-0022 (and Amendment 3 as cited in the CSV row) · **Depends on:** MARXY-33, MARXY-55, MARXY-63, MARXY-70 · **Human step:** the reference-tier runs on the author's machine (step 1 below); request it in `needs-human.md` the day this story starts, not the day it needs the numbers.
 
 **Outcome.** The budgets in `fixtures/perf-budgets.json` stop being guesses: each is the measured value plus a stated margin, so a real regression goes red and noise does not.
 

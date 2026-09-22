@@ -7,7 +7,7 @@ Corpus: `01-long-technical.md`, `02-readme-real-world.md`, `03-ai-plan.md` at **
 ## Before you rank
 
 1. Read `manifest.json` for capture ids (`first`, `scroll70`) per document.
-2. View PNGs under `blind/` when populated (after Ian adds Typora and Marked 2 captures and re-runs
+2. View PNGs under `blind/` when populated (after the author adds Typora and Marked 2 captures and re-runs
    `node docs/taste-review/review-1/shuffle-manifest.mjs`). Until then, marxy-only references live
    under `marxy/`.
 3. Do **not** open `manifest.key.json` until rankings are recorded below.

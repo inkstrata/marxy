@@ -22,7 +22,7 @@ branch stands — do not redo the split.
 
 **Re-sequenced 2026-09-19 (after-65 delta):** the dependency on MARXY-94 is dropped. `createMemoryShell`
 implements `Shell` as frozen today — the same `Pick<Shell, …> & extras` shape `tauri.ts` already uses — and
-MARXY-94 is a CODEOWNERS contract amendment waiting on Ian, which was holding this story and MARXY-26
+MARXY-94 is a CODEOWNERS contract amendment waiting on the author, which was holding this story and MARXY-26
 behind a person for no structural reason. MARXY-97 keeps its MARXY-94 edge, because `fetchRemoteImage` is
 genuinely a new member. When MARXY-94 lands, narrowing `memory.ts` to the full interface is a typecheck fix,
 not a redesign.

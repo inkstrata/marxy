@@ -2,7 +2,7 @@
 
 **Status:** accepted · **Amends:** ADR-0013 (the 500 ms product-ceiling clause only;
 "regressions are hard failures" and the other named budgets stand) · **Source:**
-Ian's ruling 2026-09-18, `docs/taste-review/2026-09-cold-start/decision.md`;
+the author's ruling 2026-09-18, `docs/taste-review/2026-09-cold-start/decision.md`;
 already recorded as ADR-0022 Amendment 2 (MARXY-69)
 
 ## Decision
@@ -23,7 +23,7 @@ Honest numbers already on record: 2844 ms on macOS, 1735 ms on Linux (packaged).
 ## Why
 
 A packaged Tauri launch is several times 500 ms. Treating 500 ms as a promise
-makes every later story either lie or reopen the budget. Ian ruled it is not a
+makes every later story either lie or reopen the budget. The author ruled it is not a
 promise. The tripwire in `docs/roadmap.md` that reopens foundations when
 "cold start > 500 ms after Phase 2" has already fired, and fired on a number
 that is not a commitment.

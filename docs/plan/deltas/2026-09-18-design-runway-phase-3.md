@@ -17,7 +17,7 @@ implementor finish something that contradicted another story.
 | # | Finding | What it would have cost | Resolution |
 | --- | --- | --- | --- |
 | 1 | **Nothing owns the buffer.** §01 says MARXY-14 builds `packages/core/src/buffer/`. MARXY-14 landed the Rust save path and no buffer. MARXY-37's card says "if MARXY-14 did not land them, coordinate by checking the module first". MARXY-34, 37, 41, 42, 43 and 49 all need it. | Two or three agents creating the same files, which is the failure `AGENTS.md` names. | New story **MARXY-93** (Phase 1). Consumers depend on it and never create files there (§01, D-A20). |
-| 2 | **The frozen shell-api does not describe the app.** `Shell` lacks `imageSize`, `openExternal`, `webkitVersion`, `configPaths`, `setTitle`, `saveDialog`, asset scoping, `args`/`mark`/`quit`. `tauri.ts` already routes around this with `Pick<Shell,…> & {…}`, and MARXY-34 adds more members the same way. `listRoot` and `fuzzy` describe a Rust index that MARXY-35 built in TypeScript instead. | Seven contract PRs that each need Ian, or a contract that stops meaning anything. | **ADR-0026** (proposed): one additive amendment for all of v1. Story **MARXY-94**. Until it lands, stories add members to `tauri.ts` under the ADR's names. |
+| 2 | **The frozen shell-api does not describe the app.** `Shell` lacks `imageSize`, `openExternal`, `webkitVersion`, `configPaths`, `setTitle`, `saveDialog`, asset scoping, `args`/`mark`/`quit`. `tauri.ts` already routes around this with `Pick<Shell,…> & {…}`, and MARXY-34 adds more members the same way. `listRoot` and `fuzzy` describe a Rust index that MARXY-35 built in TypeScript instead. | Seven contract PRs that each need the author, or a contract that stops meaning anything. | **ADR-0026** (proposed): one additive amendment for all of v1. Story **MARXY-94**. Until it lands, stories add members to `tauri.ts` under the ADR's names. |
 | 3 | **The remote-image opt-in contradicts the final CSP.** `docs/scope.md` and ADR-0009 §3 promise a per-document opt-in for remote images. MARXY-45 and §06 promise a CSP with no `http(s)` source. Tauri cannot widen a CSP for one document. | MARXY-45 or MARXY-44 fails its own acceptance, or `https:` goes into the CSP for every document. | **ADR-0027** (proposed). The webview never has network. The sanitiser defers `https:` images to an inert `data-marxy-remote`. The shell fetches only hosts the reader granted for that document, over HTTPS only, with no cookies and no referrer. `http:` images are never loaded. Story **MARXY-97**. |
 | 4 | **Two rules for local images.** MARXY-12 left an open question in `document-origin.ts`: the sanitiser keeps `../x` and `/x`, while the gate fails anything outside the document's directory. | MARXY-26 and MARXY-45 each pick a rule, and the two rules differ. | ADR-0027 §5: resolve against the **image root**, which is the repository root, else the document's directory. `/x` is repository-relative, as on GitHub. The shell's asset scope is the same root (§02, §06; MARXY-26's card updated). |
 | 5 | **The first runway's dependency edits never reached `deps.json`.** `MARXY-75` is absent from it. `MARXY-20` still depends on `[11, 13]` rather than `[61, 75]`. | `ready.mjs` offers MARXY-20 before provenance exists. | Re-listed below. Apply with the rest. |
@@ -36,7 +36,7 @@ no network permission (D-A34). §06's Rust-index rows are marked historical. §0
 `eolString` and `lineOf`. The command registry (§03, D-A26) is the one list that both the palette
 and the keyboard map read.
 
-## Decisions Ian may want to overrule
+## Decisions the author may want to overrule
 
 Each is written into a design and can be reversed there. They are listed because each one
 changes what a reader experiences:
@@ -51,7 +51,7 @@ changes what a reader experiences:
    click per README.
 
 ADR-0026 and ADR-0027 are *proposed*. ADR-0026 lands through a contracts-path PR, which needs
-Ian as code owner. ADR-0027 is accepted by the two stories that implement it.
+the author as code owner. ADR-0027 is accepted by the two stories that implement it.
 
 ## New stories (applied and synced 2026-09-18: MARXY-93 … MARXY-97)
 
@@ -122,7 +122,7 @@ to v1.
 Once its dependencies are done, each of these can start. Stories on the same line have
 disjoint paths:
 
-1. MARXY-93, MARXY-94 (Ian), MARXY-96. None of them waits on
+1. MARXY-93, MARXY-94 (the author), MARXY-96. None of them waits on
    Phase 3, so they can land early and take pressure off the critical path.
 2. MARXY-95, then MARXY-87.
 3. MARXY-41, then MARXY-42, then MARXY-43 and MARXY-48 in parallel (their paths meet only at
@@ -135,13 +135,13 @@ disjoint paths:
 
 | Tripwire | State |
 | --- | --- |
-| Cold start > 500 ms | Unchanged: still Ian's call. Nothing here adds to the startup path. The user theme and `trust.json` were deliberately kept off it (§05, §12). |
+| Cold start > 500 ms | Unchanged: still the author's call. Nothing here adds to the startup path. The user theme and `trust.json` were deliberately kept off it (§05, §12). |
 | A licence problem in a new dependency | New crates: `ureq` + `rustls` (ADR-0027 names the fallback), `toml`, `tauri-plugin-dialog`, `tauri-plugin-clipboard-manager`. The licence gate decides for each. |
 | Machinery outgrowing the product | Of the five new stories, three are product (buffer, wide policy, remote images). One is a contract and one is a test harness that eight product stories need. |
 
 ## How we would know I was wrong
 
-1. **ADR-0026 is rejected** and Ian prefers per-story amendments. Then the MARXY-94
+1. **ADR-0026 is rejected** and the author prefers per-story amendments. Then the MARXY-94
    card is dropped, each card that names an ADR-0026 member gains a contract step, and those
    stories all need code-owner review.
 2. **`ureq`/`rustls` fails the licence gate and `native-tls` also fails.** Then the remote-image
@@ -158,7 +158,7 @@ disjoint paths:
 - **Done 2026-09-18:** the CSV rows and edits and the `deps.json` edges were applied and `jira.mjs sync` run (5 created as MARXY-93–97, 82 updated, 0 failed).
 - Dispatch MARXY-93 and MARXY-96 as soon as their dependencies are done.
   Neither blocks anything in flight.
-- MARXY-94 needs Ian (contracts path). Add a `needs-human.md` line.
+- MARXY-94 needs the author (contracts path). Add a `needs-human.md` line.
 - MARXY-26 and MARXY-37 cards changed (image root, buffer dependency). Re-read them before
   dispatch.
 - MARXY-75's card frontmatter no longer lists the stories it blocks as its dependencies.

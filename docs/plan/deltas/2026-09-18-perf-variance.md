@@ -177,7 +177,7 @@ implemented is what needs amending.
   against the recorded floors, must keep the 1.20 invariant true after tightening, and still may not
   raise a multiplier or a tolerance.
 
-### Dependencies for Ian to wire
+### Dependencies for the author to wire
 
 | Edge | Why |
 | --- | --- |

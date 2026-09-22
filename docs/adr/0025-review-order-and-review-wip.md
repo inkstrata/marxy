@@ -10,7 +10,7 @@
 ## Context
 
 Eight merges into Phase 0, review is the constraint and implementation is not. Nine stories sit in
-In Review against a backlog that dispatch can fill without limit, because Ian ruled the dispatch WIP
+In Review against a backlog that dispatch can fill without limit, because the author ruled the dispatch WIP
 cap off and path overlap is the only parallelism limit (`models.json` `lanes` is `null`). At the time
 of writing, six of the nine pull requests are BEHIND `main`, three are in conflict, and only two are
 green and clean.
@@ -31,7 +31,7 @@ because reading is not what invalidates the work. This is a livelock, not a back
 ## Decision
 
 **1. Review gets its own WIP limit, and dispatch takes back-pressure from it.**
-`lanes` stays `null`; Ian's ruling on dispatch stands. A separate `reviewLanes` caps how many
+`lanes` stays `null`; the author's ruling on dispatch stands. A separate `reviewLanes` caps how many
 stories may be in In Review at once, and `ready.mjs` dispatches nothing while the count is at or
 above it. `reviewLanes` is **4**: one merge then disturbs at most three other branches, which is
 the number that can plausibly be re-read between merges.

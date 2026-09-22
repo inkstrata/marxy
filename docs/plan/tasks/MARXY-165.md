@@ -15,7 +15,7 @@ source file, the same shape as MARXY-131/135/140/144/146/148/152/154/157/158.
 - `orchestration/ready.mjs` refuses to *offer* a `human-gated` story, but `earlierPhaseOpen()` still
   counts one sitting `todo` in a numbered phase as holding that phase open for everything in the next
   phase. MARXY-22 (Linux weight harness, needs hardware nobody has confirmed exists,
-  `needs-human.md` since 2026-09-18) and MARXY-94 (ADR-0026 shell-api amendment, needs Ian's ruling,
+  `needs-human.md` since 2026-09-18) and MARXY-94 (ADR-0026 shell-api amendment, needs the author's ruling,
   unanswered since 2026-09-19) were both phase-1 and `todo`, so **every phase-2 and phase-3 story**
   (MARXY-33 through MARXY-97) was `blockedByDeps` for a reason that was actually two indefinite human
   waits, not a real dependency.

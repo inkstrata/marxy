@@ -33,11 +33,11 @@ CODEOWNERS covers only the paths where an autonomous mistake cannot be caught la
 `packages/typeset`, `packages/theme`, `packages/shell-api`, `packages/core/src/contracts` and
 `docs/adr/` leave CODEOWNERS. A change there lands on the signed-review bar like any other path.
 Visual changes still get a taste-queue row (ADR-0016). A change that reverses an accepted ADR
-still gets flagged to Ian in `needs-human.md`, but the flag no longer blocks the merge.
+still gets flagged to the author in `needs-human.md`, but the flag no longer blocks the merge.
 
 ## Consequences
 
-- Most stories merge with no human in the loop. Ian vets after the fact, through the taste queue
+- Most stories merge with no human in the loop. The author vets after the fact, through the taste queue
   and `needs-human.md`.
 - A bad typographic or contract change can reach `main` and is found by review #N or a failing
   gate, not before merge. Trunk is always releasable (ADR-0017), so a revert is cheap. A leaked
