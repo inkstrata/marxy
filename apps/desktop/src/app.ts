@@ -8,6 +8,8 @@ import { stripNonLocalImages } from './render/images.ts';
 import { blockedContentNotice } from './notices/blocked.ts';
 import { ensureNoticesRegion } from './notices/index.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
+import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
+import { startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { runDeferredStartup, whenIdle } from './startup/idle-work.ts';
 import { currentPosition, restoreScrollToPosition } from './position/index.ts';
@@ -32,6 +34,7 @@ export type AppShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'p
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
+  configPaths?(): Promise<{ config: string; data: string }>;
 };
 
 export interface OpenDocument {
@@ -248,6 +251,23 @@ async function finish(code: number): Promise<void> {
  * when the column is resized. Reading position is re-read after each, because tops move.
  */
 let typeset: TypesetController | null = null;
+let userThemeHandle: { stop(): void } | null = null;
+
+function userThemeContext(doc: HTMLElement): UserThemeContext {
+  return {
+    shell,
+    article: doc,
+    getTypeset: () => typeset,
+    readingScroller,
+    getOpenPath: () => openPath,
+    getBlocks: () => state.document?.blocks ?? null,
+  };
+}
+
+async function restartUserTheme(dir: string | null): Promise<void> {
+  userThemeHandle?.stop();
+  userThemeHandle = await startUserTheme(userThemeContext(document.getElementById('doc')!), dir);
+}
 
 function snap(article: HTMLElement): void {
   snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
@@ -369,19 +389,24 @@ async function boot(): Promise<void> {
   await shell.mark('first_text', paintedAt);
   await typesetDocument(doc);
   await shell.mark('position_restored', Date.now());
-  await whenIdle(() =>
-    runDeferredStartup({
+  await whenIdle(async () => {
+    await runDeferredStartup({
       shell,
       file,
       doc,
       imageCtx: { shell, scopedRoots: scopedAssetRoots },
-    }),
-  );
+    });
+    const themeDir = await themeDirFromConfig(shell);
+    await restartUserTheme(themeDir);
+  });
   if (defaultModeForPath(file) === 'source') {
     await showSource(0);
   } else {
     setModeChrome('rendered');
   }
+  await maybeThemeDocumentNotice(userThemeContext(doc), file, async (dir) => {
+    userThemeHandle = await adoptThemeDirectory(userThemeContext(doc), dir, userThemeHandle);
+  });
   return finish(0);
 }
 
