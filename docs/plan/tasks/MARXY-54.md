@@ -8,7 +8,7 @@ verify: [pnpm precheck, pnpm done MARXY-54]
 
 **Design:** [14-release](../../design/14-release.md) §The v1 gate · **ADRs:** ADR-0014 (tier 2), ADR-0019 · **Depends on:** MARXY-51, MARXY-52, MARXY-53 · **Human-led:** the review and the tag are the author's; an agent prepares everything and verifies the table.
 
-**Outcome.** marxy 1.0.0 exists on both platforms, and the record shows a person read with it, blind against the incumbents, on real hardware, and chose it.
+**Outcome.** Marxy 1.0.0 exists on both platforms, and the record shows a person read with it, blind against the incumbents, on real hardware, and chose it.
 
 ## Agent part
 1. `docs/taste-review/review-4/` — the tier-2 kit: the blind pairing script from MARXY-31 re-run against the release candidate on the corpus's READMEs and AI artifacts, instructions for the reviewer (install from the release assets, not a dev build; one Mac, one Linux laptop with a real display), and an empty `decisions.md` with the ADR-0014 questions and a "first reaction, verbatim" field per machine.

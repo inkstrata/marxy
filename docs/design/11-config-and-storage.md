@@ -1,6 +1,6 @@
 # 11 — Config and storage
 
-What marxy writes to disk about itself, where, in what format, and what happens when it is
+What Marxy writes to disk about itself, where, in what format, and what happens when it is
 wrong. Nothing here is ever about a document's content.
 
 ## Locations (`shell.configPaths()`)
@@ -31,7 +31,7 @@ shell-free: the shell hands it the bytes). Unknown keys are ignored with a notic
 once. Invalid values fall back to the default for that key, with a notice. The file is read at
 startup and watched (§08 mechanism); changes apply live except `resident`.
 
-There is no settings UI in v1. marxy writes to the config file in exactly two cases:
+There is no settings UI in v1. Marxy writes to the config file in exactly two cases:
 `Mod+=`/`Mod+-` write `size`, and "Use this theme" (§05) writes `theme`. Both preserve the
 rest of the file byte-for-byte by editing the one top-level line for that key (or appending
 it before the first `[table]` header, with the file's own line ending), through one function,
@@ -47,7 +47,7 @@ it before the first `[table]` header, with the file's own line ending), through 
 | `trust.json` | per-document grants: HTML, image hosts ([§12](13-trust.md)) | 2 000 paths, LRU | app |
 
 Every file starts with `"version": 1`. Reading a file whose `version` is newer than the app
-knows → ignore it (do not overwrite; a newer marxy wrote it). Unparseable → rename to
+knows → ignore it (do not overwrite; a newer Marxy wrote it). Unparseable → rename to
 `<name>.bad-<timestamp>` and start fresh; never crash, never block first paint (these reads are
 off the critical path). Writes are atomic through `shell.writeFileAtomic`.
 

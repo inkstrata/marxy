@@ -3,7 +3,7 @@
 **Status:** the product as decided at handoff, 2026-09-18. History and argument live in
 `~/Dev/marxy-brainstorm`; this is the specification.
 
-## What marxy is
+## What Marxy is
 
 A markdown **reader**. A very fast document opener with an index you can flip through
 instantly, that sets text beautifully, treats code and AI artifacts as first-class content,
@@ -28,7 +28,7 @@ the file is never touched beyond what the reader asked. See ADR-0006 and ADR-000
 3. **Source files and code snippets** — Source mode is a real code viewer.
 4. General prose.
 
-None of these are written in marxy.
+None of these are written in Marxy.
 
 ## Two modes (ADR-0005)
 
@@ -49,7 +49,7 @@ palette keystrokes under 16 ms. CI fails on regression.
 
 ## Aesthetics are the differentiator (ADR-0007, ADR-0014)
 
-marxy must look demonstrably better set than Typora, Marked 2 and Obsidian — the way a
+Marxy must look demonstrably better set than Typora, Marked 2 and Obsidian — the way a
 well-made book is better set than a web page. A first-time user's first reaction must be about
 how it looks. The mechanism: owned line breaking, hanging punctuation, a baseline grid with
 zero drift, a measure in `ch`, a bundled typeface; the test is in `aesthetics-acceptance.md`.
@@ -61,7 +61,7 @@ summoned and dismissed. The palette carries recency instead of a tab bar (ADR-00
 
 ## Themes are documents (ADR-0008)
 
-User CSS is a headline feature. A theme is a CSS file you can open in marxy, working against a
+User CSS is a headline feature. A theme is a CSS file you can open in Marxy, working against a
 published token contract, with no network access, ever.
 
 ## Platforms

@@ -9,7 +9,7 @@ Reference captures: dark theme, **960×900** px viewport, **2×**, Playwright We
 
 ## Before you start
 
-1. Build and run marxy from this commit (palette mounted, Source mode on `.rs`, no tab bar at rest).
+1. Build and run Marxy from this commit (palette mounted, Source mode on `.rs`, no tab bar at rest).
 2. Confirm chrome at rest is still zero — no tab strip, no persistent palette.
 3. Use the five corpus paths in **exact order** below (paths match `fixtures/corpus/`).
 
@@ -35,7 +35,7 @@ palette and jump to **the document from three switches ago**.
 **Pass:** step 7 completes in **under 5 s**. **Fail:** 5 s or more, or you needed Mod+[ / Mod+]
 instead of the palette — record either outcome in `docs/taste-review/2026-09-review-2/decisions.md`.
 
-## Reference screenshots (marxy)
+## Reference screenshots (Marxy)
 
 | State | Capture |
 | --- | --- |

@@ -8,7 +8,7 @@ Corpus: `01-long-technical.md`, `02-readme-real-world.md`, `03-ai-plan.md` at **
 
 1. Read `manifest.json` for capture ids (`first`, `scroll70`) per document.
 2. View PNGs under `blind/` when populated (after the author adds Typora and Marked 2 captures and re-runs
-   `node docs/taste-review/review-1/shuffle-manifest.mjs`). Until then, marxy-only references live
+   `node docs/taste-review/review-1/shuffle-manifest.mjs`). Until then, Marxy-only references live
    under `marxy/`.
 3. Do **not** open `manifest.key.json` until rankings are recorded below.
 
@@ -28,7 +28,7 @@ All three viewers were captured at the same width and theme intent (light).
 | AI plan (`03-ai-plan.md`) — first screen | | | | |
 | AI plan — scroll ~70% | | | | |
 
-**Pass (item 1):** marxy is **first** on at least **two of the three** documents (compare first-screen
+**Pass (item 1):** Marxy is **first** on at least **two of the three** documents (compare first-screen
 captures; scroll rows inform item 2).
 
 ### 2. The fourth page (long document)
@@ -40,7 +40,7 @@ degraded anywhere in the viewport.
 
 ### 3. First reaction (README)
 
-One person who has not seen marxy opens `02-readme-real-world.md` in marxy and records the first
+One person who has not seen Marxy opens `02-readme-real-world.md` in Marxy and records the first
 remark verbatim (about how it **looks**, not a feature request).
 
 **Pass (item 3):** the remark is aesthetic, not functional.

@@ -1,4 +1,4 @@
-# ADR-0001 — marxy is a reader, not an editor with a preview
+# ADR-0001 — Marxy is a reader, not an editor with a preview
 
 **Status:** accepted · **Source:** brainstorm D1, D13, C1–C3
 

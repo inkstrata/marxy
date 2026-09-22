@@ -26,7 +26,7 @@ release so the palette stays quiet.
    repo, not a marketplace; no accounts, no ratings, no downloads that phone home).
 5. **Windows** — WebView2. Chromium lacks `hanging-punctuation`, which the typesetter already
    supplies; run the weight harness there before shipping.
-6. **Settings as a document** — a config file opened in marxy like a theme is; still no chrome.
+6. **Settings as a document** — a config file opened in Marxy like a theme is; still no chrome.
 7. **Accessibility pass** — verify with VoiceOver and Orca that typeset paragraphs keep
    paragraph semantics (the inline-HTML promise), and fix what does not.
 8. **CJK and RTL correctness** — the fixtures exist; kinsoku in the breaker, `keep-all` for

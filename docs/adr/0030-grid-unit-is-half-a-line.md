@@ -15,7 +15,7 @@ of every block top in between, which is what the gate measures.
 There are three ways out: a whole line between paragraphs, no space and a first-line indent, or a
 grid of half lines. A whole blank line at 17/28 reads as double spacing and makes a README of short
 paragraphs fall apart. Indented paragraphs are the book convention and would be lovely for prose,
-but marxy's first content types are READMEs and agent artifacts — lists, code and one-sentence
+but Marxy's first content types are READMEs and agent artifacts — lists, code and one-sentence
 paragraphs — where an indent reads as a mistake.
 
 ## Decision
@@ -45,7 +45,7 @@ paragraphs — where an indent reads as a mistake.
 ## Rejected
 
 - **Whole-line paragraph spacing:** double-spaced at the default size; READMEs fall apart.
-- **Indented paragraphs, no spacing:** right for novels, wrong for the content marxy reads first.
+- **Indented paragraphs, no spacing:** right for novels, wrong for the content Marxy reads first.
   A theme may still choose it; the grid unit is unaffected.
 - **Leaving the contradiction and relying on snapToGrid:** padding every other paragraph by half a
   line is the same page with the arithmetic hidden in a script.

@@ -89,7 +89,7 @@ export async function save(ctx: AppContext, opts?: { as?: boolean }): Promise<'s
 2. If `!dirty && !opts.as` → `'unchanged'`; nothing is written (no mtime bump, no watch echo).
 3. Path: `buffer.path`, or for `untitled`/`opts.as`, `await shell.saveDialog({ defaultPath })`;
    `null` → `'cancelled'`. A read-only document (any path with the `marxy:` scheme, i.e. the bundled `about.md`, §13) → notice
-   "about.md is part of marxy and cannot be saved", `'cancelled'`.
+   "about.md is part of Marxy and cannot be saved", `'cancelled'`.
 4. `await shell.writeFileAtomic(path, buffer.bytes)`. The Rust side already refuses read-only
    files, foreign owners and hard-linked files with a message; those refusals arrive as
    `ShellError { code: 'permission' }` and become the persistent save-failed notice (§09):
@@ -104,7 +104,7 @@ There is no autosave. Closing or quitting with a dirty buffer is intercepted (Ta
 not a modal: "README.md has changes that are not saved." [Save and close] [Close without
 saving]. A second close request while that notice is up closes without saving — the reader
 asked twice. Opening another document from the palette while dirty takes the same path. This
-is the only place marxy stops the reader, and it is queued for taste review #3.
+is the only place Marxy stops the reader, and it is queued for taste review #3.
 
 ## Tests (`packages/core/src/buffer/buffer.test.ts`)
 

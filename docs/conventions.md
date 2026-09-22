@@ -52,7 +52,7 @@ ADR: 0007
 
 **Body**, in this order (the template enforces it):
 
-1. **Summary** — two to four sentences, plain language: what a reader of marxy notices, or
+1. **Summary** — two to four sentences, plain language: what a reader of Marxy notices, or
    what a developer can now do, and why it was worth doing.
 2. **Changes** — a short bulleted list, human-readable, one idea each.
 3. **Verification** — how it was checked: gates run with their result lines, and one
@@ -106,7 +106,7 @@ several, most severe first. No unlabeled remarks.
 ## Changelog
 
 `CHANGELOG.md` follows Keep a Changelog: an `Unreleased` section with `Added`, `Changed`,
-`Fixed`, `Removed`, `Security` headings; one line per PR, written for a reader of marxy, key
+`Fixed`, `Removed`, `Security` headings; one line per PR, written for a reader of Marxy, key
 in parentheses. Release notes are generated from the section at tag time.
 
 ```

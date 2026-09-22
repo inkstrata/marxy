@@ -9,7 +9,7 @@ to resolve back to that range. The renderer that lands with MARXY-12 emits plain
 sanitiser strips every `data-*` attribute, so today nothing in the DOM says which bytes an
 element came from. Whatever carries provenance must survive the sanitiser **and** must not be
 something a hostile document can write for itself: a forged range would make an operation
-splice bytes the reader did not point at, which is the one thing marxy promises never to do.
+splice bytes the reader did not point at, which is the one thing Marxy promises never to do.
 
 ## Decision
 

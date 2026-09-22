@@ -22,7 +22,7 @@ If `pnpm done` is green and `open-pr` is green, the reviewer only has judgement 
 
 `pnpm precheck` and `pnpm test` launch Playwright through `scripts/playwright-webkit.mjs`, which is
 headless unless `MARXY_BROWSER_HEADED=1` — browser tests, `gate:aesthetics` and the two engines of
-`gate:no-network` all go through it. They do not open the marxy desktop window. A local
+`gate:no-network` all go through it. They do not open the Marxy desktop window. A local
 `pnpm --filter @marxy/desktop build` still runs `smoke-cli-open.mjs` after the binary is built.
 Before merge when you changed shell, paint, or CLI paths, run
 `pnpm --filter @marxy/desktop verify:cli` — the same required smoke CI runs on the gates job.

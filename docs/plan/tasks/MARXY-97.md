@@ -8,7 +8,7 @@ verify: [pnpm precheck, pnpm done MARXY-97]
 
 **Design:** [13-trust](../../design/13-trust.md) §Fetching · [06-shell](../../design/06-shell.md) `fetchRemoteImage`, §CSP · **ADR:** [ADR-0027](../../adr/0027-remote-content-through-the-shell.md) (this story and MARXY-45 move it to accepted) · **Depends on:** MARXY-44 (grants, notice), MARXY-94.
 
-**Outcome.** After "Load images from img.shields.io and github.com", a README's badges and screenshots appear. The request is made by marxy's Rust process, over HTTPS only, without cookies or a referrer, and only to the hosts the reader named for this document. The webview still cannot reach the network.
+**Outcome.** After "Load images from img.shields.io and github.com", a README's badges and screenshots appear. The request is made by Marxy's Rust process, over HTTPS only, without cookies or a referrer, and only to the hosts the reader named for this document. The webview still cannot reach the network.
 
 ## Files and signatures
 - `apps/desktop/src-tauri/src/net.rs` (or `commands/net.rs` if the commands split exists) — `fetch_remote_image(url) -> Result<String, ShellError>` returning `marxy-remote://localhost/<sha1 of url>` (the form Tauri 2 uses for custom schemes on macOS and Linux; `http://marxy-remote.localhost/<key>` on Windows); an in-memory `Mutex<HashMap<String, (mime, Vec<u8>)>>`; the `marxy-remote` URI scheme handler (`register_uri_scheme_protocol`) serving from it.
@@ -16,7 +16,7 @@ verify: [pnpm precheck, pnpm done MARXY-97]
 - `apps/desktop/src-tauri/tauri.conf.json` — CSP `img-src` gains `marxy-remote: http://marxy-remote.localhost` (MARXY-45 finalises the rest).
 - `apps/desktop/src/shell/tauri.ts` — `fetchRemoteImage`.
 - `apps/desktop/src/render/remote-images.ts` — §12 §Fetching loop.
-- Remove the "Images will load when marxy can fetch them" string MARXY-44 left.
+- Remove the "Images will load when Marxy can fetch them" string MARXY-44 left.
 - Tests: Rust unit tests in `net.rs`; `apps/desktop/test/remote-images.test.mjs` (app harness, memory shell returns a `data:` PNG).
 
 ## Do this, in order

@@ -4,7 +4,7 @@ design: [10-gates-and-testing]
 depends: [MARXY-64, MARXY-75]
 verify: [pnpm test, pnpm gate:no-network, pnpm gate:fidelity, node scripts/measure-parse.mjs]
 ---
-# MARXY-130 — Give the corpus a real document of every format marxy is for
+# MARXY-130 — Give the corpus a real document of every format Marxy is for
 
 **Design:** [10-gates-and-testing](../../design/10-gates-and-testing.md) §Writing a test an implementor cannot get wrong · **Review:** [2026-09-review-1](../../taste-review/2026-09-review-1/decisions.md) (MARXY-64 follow-up) · **Depends on:** MARXY-64, MARXY-75.
 

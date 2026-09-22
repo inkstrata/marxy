@@ -21,7 +21,7 @@ optional 1 px progress rule.
 
 ## System-owned (themes cannot override)
 
-The line-breaking algorithm; baseline-grid snapping (themes set the unit, marxy computes
+The line-breaking algorithm; baseline-grid snapping (themes set the unit, Marxy computes
 every vertical space as a multiple of it); reserved image dimensions; hanging punctuation and
 hyphenation behaviour; Rendered-mode immutability; that the progress rule never steals a
 line of the measure or becomes a seeker.
@@ -65,7 +65,7 @@ All four re-run typesetting; forgetting one looks like a bug in the line breaker
 
 WebKitGTK 2.50+, WKWebView on macOS 26+, WebView2 (later). Write against WebKit; do not rely
 on Chromium-only properties; `@supports` anything newer than Safari 17. Theme issues on
-engines below the baseline are not marxy bugs. A theme linter that flags out-of-baseline
+engines below the baseline are not Marxy bugs. A theme linter that flags out-of-baseline
 properties is v1.1.
 
 ## Security
