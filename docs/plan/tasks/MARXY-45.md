@@ -1,12 +1,12 @@
 ---
 key: MARXY-45
 design: [06-shell, 13-trust, 10-gates-and-testing]
-depends: [MARXY-97, MARXY-47]
+depends: [MARXY-97, MARXY-177]
 verify: [pnpm precheck, pnpm done MARXY-45]
 ---
 # MARXY-45 — Final CSP and capability set; the no-network gate over the packaged renderer
 
-**Design:** [06-shell](../../design/06-shell.md) §CSP, §Capabilities, §Asset protocol · [13-trust](../../design/13-trust.md) · [10-gates-and-testing](../../design/10-gates-and-testing.md) §The app harness entry · **ADRs:** ADR-0009, ADR-0027 (accepted by this story with MARXY-97) · **Depends on:** MARXY-97 (the last `img-src` source), MARXY-47 (themes, so theme `url()`s are in the gate).
+**Design:** [06-shell](../../design/06-shell.md) §CSP, §Capabilities, §Asset protocol · [13-trust](../../design/13-trust.md) · [10-gates-and-testing](../../design/10-gates-and-testing.md) §The app harness entry · **ADRs:** ADR-0009, ADR-0027 (accepted by this story with MARXY-97) · **Depends on:** MARXY-97 (the last `img-src` source), MARXY-177 (user theme in the shell, so hostile theme `url()`s load through the real path the gate exercises).
 
 **Outcome.** The shipped app's content security policy is the final one in §06, its capabilities are exactly the list there, and a gate proves — over the built renderer, not a copy of it — that no corpus document, no hostile theme and no grant makes the page itself touch the network.
 
