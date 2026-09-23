@@ -2,10 +2,13 @@
 // 2×, set at the docs/design-language.md type scale and a 68ch measure in the two ADR-0015 pairs,
 // rendering with nothing but locally vendored OFL fonts and no network, and linked from the review
 // queue with the reviewer's checklist. Run it after render.mjs; it reads only what render.mjs wrote.
+// The kit is the record of what review #0 looked at, and ADR-0033 has since moved the scale (20/30,
+// a measure in characters). So the kit is held to the scale and measure it was rendered at, which
+// render.mjs writes into its manifest, not to today's: re-rendering it would rewrite the record.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { CONTROL_RESOURCES, DPRS, OUT, SOURCE, VARIANTS, VIEWPORT, pages, pairs, pngSize, repo, repoPath, specimenPage, tokens, typeScale } from './specimen.mjs';
+import { CONTROL_RESOURCES, DPRS, OUT, SOURCE, VARIANTS, VIEWPORT, pages, pairs, pngSize, repo, repoPath, specimenPage } from './specimen.mjs';
 
 const unit = spawnSync(process.execPath, ['--test', fileURLToPath(new URL('./specimen.test.mjs', import.meta.url))], { cwd: repoPath('.'), encoding: 'utf8' });
 if (unit.status !== 0) {
@@ -38,7 +41,9 @@ check(specimenAt !== -1 && (browsersAt === -1 || specimenAt < browsersAt),
 const manifestPath = `${OUT}/manifest.json`;
 if (!existsSync(repo(manifestPath))) { console.error(`specimen not rendered: ${manifestPath} is missing — run node scripts/specimen/render.mjs`); process.exit(1); }
 const manifest = JSON.parse(readFileSync(repo(manifestPath), 'utf8'));
-const scale = typeScale();
+// The scale the kit was set at, recorded by render.mjs (see the header): every role must be there.
+const scale = manifest.scale ?? {};
+for (const key of ['title', 'section', 'sub', 'body', 'code', 'caption']) check(scale[key], `manifest.json records no ${key} role in its scale`);
 const queue = readFileSync(repo('docs/taste-review/queue.md'), 'utf8');
 
 check(JSON.stringify(manifest.variants) === JSON.stringify(VARIANTS), `manifest variants are ${JSON.stringify(manifest.variants)}, expected ${JSON.stringify(VARIANTS)}`);
@@ -147,7 +152,7 @@ for (const pair of pairs) {
 }
 const fontsReadme = readFileSync(repo('fonts/README.md'), 'utf8');
 for (const family of new Set(pairs.flatMap(p => [p.text, p.mono]))) check(fontsReadme.includes(family), `fonts/README.md does not list ${family}`);
-check(tokens('dark')('measure') === '68ch', `--marxy-measure is ${tokens('dark')('measure')}, not 68ch`);
+check(manifest.measure === '68ch', `the kit was rendered at a measure of ${manifest.measure}, not the 68ch review #0 judged`);
 
 // 7. The queue entry is the deliverable: it links every PNG and carries the reviewer's checklist.
 const linked = new Set([...queue.matchAll(/\(([^)]*review-0[^)]*\.png)\)/g)].map(m => m[1].replace(/^\.\//, '')));
