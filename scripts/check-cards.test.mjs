@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cardsAndRows, csvRowProblems, loadBoardInput, placeholderProblems } from './check-cards.mjs';
+import { cardsAndRows, csvRowProblems, loadBoardInput, parseCardMarkdown, placeholderProblems } from './check-cards.mjs';
 import { fail } from './lib/repo.mjs';
 
 const ROOT = process.cwd();
@@ -87,4 +87,9 @@ test('a placeholder key anywhere on the board fails with the command that resolv
   assert.equal(problems.length, 3);
   assert.ok(problems.every(p => /jira\.mjs sync --new/.test(p)));
   assert.deepEqual(placeholderProblems({ rows: { 'MARXY-2': {} }, cards: {}, deps: { phases: {}, deps: {} } }), []);
+});
+
+test('card depends keeps MARXY-NEW placeholders so a new story may depend on another new one', () => {
+  const card = parseCardMarkdown('---\nkey: MARXY-NEW-b\ndepends: [MARXY-NEW-a, MARXY-94]\n---\n# b\n');
+  assert.deepEqual(card.depends, ['MARXY-NEW-a', 'MARXY-94']);
 });

@@ -51,11 +51,13 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
   ready, it is a wish.
 - New rows keep the `MARXY-` prefix but not the number. Draft them as `MARXY-NEW-<slug>`, then,
   **before opening the PR**, run `node orchestration/jira.mjs sync --new` in your worktree: it
-  creates the issues, rewrites every placeholder to its real key and renames the task cards.
+  creates the issues, rewrites every placeholder to its real key, renames the task cards and
+  records each rename in `orchestration/jira-map.json` (so that file belongs in your Paths).
   A placeholder never reaches `main` (`check-cards` fails one), so no second PR renames it.
 - Your pass lands as one PR under its own key: start it with
   `node orchestration/out-of-plan.mjs start "Land the <date> plan delta" --type chore --paths
-  "docs/plan/jira-issues.csv, orchestration/deps.json, docs/plan/tasks, docs/plan/deltas"
+  "docs/plan/jira-issues.csv, orchestration/deps.json, orchestration/jira-map.json,
+  docs/plan/tasks, docs/plan/deltas"
   --acceptance "…"` rather than `git worktree add` by hand, so the landing key has a row and the
   cycle adopts and lands the PR. Never write a "land the path widening" story: a story widens its
   own Paths in its own PR, where the reviewer sees it.
