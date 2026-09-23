@@ -121,11 +121,11 @@ Each needs its own story; none is contradicted here.
 
 ## Consequences
 
-- Every screenshot and rag baseline moved. The macOS baselines were regenerated with this change.
-  **The Linux baselines (`fixtures/baselines/webkit-linux/`, `fixtures/baselines/rag/webkit-linux/`)
-  must be regenerated in the pinned Linux container before CI is green on ubuntu.** The rag numbers
-  are not comparable across the change: at 66 characters a line fewer paragraphs fit on one line, and
-  short documents' coefficients rose from zero.
+- Every screenshot and rag baseline moved, and both engines' were regenerated with this change. The
+  Linux ones were captured by the MARXY-25 route (`gate-aesthetics --update` inside
+  `mcr.microsoft.com/playwright:v1.63.0-noble`, the image CI's browser job runs, as `linux/amd64`).
+  The rag numbers are not comparable across the change: at 66 characters a line fewer paragraphs fit
+  on one line, and short documents' coefficients rose from zero.
 - The measure gate (aesthetics §10 check 2 and `grid.test.mjs`) counts average characters (66 ± 10 %)
   rather than `ch`, and the matrix runs at 16, 20, 24 and 28 px.
 - A theme author who sets `--marxy-measure` in `ch` still gets a column, clamped to 45–80 real
