@@ -28,3 +28,21 @@ test('a story that starts, is returned or lands is no longer parked', () => {
     assert.equal('parkedReason' in st, false, cmd);
   }
 });
+
+test('plan-landed is done plus the planner stamp: status, finished, merges, planLanded, lastPlan, mergesAtLastPlan', () => {
+  const s = { merges: 4 };
+  const st = { status: 'in_review', attempts: 1 };
+  transition('plan-landed', s, st, { argv: argv(), now: at });
+  assert.equal(st.status, 'done');
+  assert.equal(st.finished, at());
+  assert.equal(st.planLanded, true);
+  assert.equal(s.merges, 5);
+  assert.equal(s.lastPlan, at());
+  assert.equal(s.mergesAtLastPlan, 5);
+});
+
+test('plan-landed also clears parkedReason, like done', () => {
+  const st = { status: 'blocked', attempts: 0, parkedReason: 'old reason' };
+  transition('plan-landed', { merges: 0 }, st, { argv: argv(), now: at });
+  assert.equal('parkedReason' in st, false);
+});

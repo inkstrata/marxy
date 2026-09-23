@@ -48,7 +48,14 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    `state.mjs done KEY`, which moves the Jira issue too. Nobody runs `gh pr merge` by hand.
 5. `node orchestration/planner-trigger.mjs` — says whether to invoke the planner now
    (every 5 merges, any story at 2 failures, a phase boundary, a tripwire in `docs/roadmap.md`,
-   or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`.
+   or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`. Only two of
+   those reasons — the plan was never run, or an escalation the planner has not yet read — hold
+   dispatch; the rest (merge count, weekly age, ops-majority) name the planner as due without
+   stopping ready stories from starting, since a planner pass can take hours (MARXY-200). A merge
+   whose diff adds a file under `docs/plan/deltas/` — the planner's own PR — self-records: the
+   cycle stamps `lastPlan`/`mergesAtLastPlan` and excludes that merge from the ops-window count,
+   so nobody has to run `state.mjs planned` by hand and a run of plan/board-sync landings cannot
+   make the trigger fire on its own output.
 6. Anything only a person can do goes in `needs-human.md`; the orchestrator continues with
    other stories and re-checks the file each cycle. When nothing is ready and nothing is in
    progress, write a status report to `orchestration/status.md` and stop.

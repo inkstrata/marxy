@@ -3,7 +3,10 @@
 //   2. land     — merge what is provably finished, pinned to the head that was evaluated
 //   3. refresh  — bring at most one BEHIND PR up to date, unless models.mergeQueue is on
 //   4. review   — name every PR waiting on a reviewer, since in_review stories hold their paths
-//   5. plan     — ask whether the planner is due, before anything new starts on a stale plan
+//   5. plan     — ask whether the planner is due; only 'never planned' or an unread escalation
+//                 holds dispatch — a cadence reason (merge count, weekly age, ops-majority) names
+//                 the planner as due without stalling the fleet for however long it takes to run
+//                 (MARXY-200)
 //   6. dispatch — name (or start) what is ready
 //   7. report   — status.md
 // Everything a machine can decide, it decides; everything else it names.
@@ -20,8 +23,12 @@ import { computeOrder, readPullRequest } from './review-order.mjs';
 import { allowedFor, fileAllowed } from './review.mjs';
 import { runWorktreePrune, parseWorktreeList } from './worktrees.mjs';
 import { loadSnapshot, prime } from './github.mjs';
-import { adoptions, applyAdoption, settlements } from './adopt.mjs';
+import { adoptions, applyAdoption, settlements, keyOfPr } from './adopt.mjs';
 import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
+import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
+
+/** A landed PR's own files self-record as the planner's output when they touch a plan delta. */
+const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
 
 /** Hold-reason fragments cycle.mjs can print. The before-list is a fixture; this must stay a superset. */
 export const HOLD_REASON_STRINGS = [
@@ -95,7 +102,7 @@ export function processReviewQueue({
     if (rec.status !== 'in_review' || !rec.pr) continue;
     const pr = viewPr(rec.pr);
     if (!pr) { held.push(`${key}: PR #${rec.pr} could not be read`); continue; }
-    if (pr.state === 'MERGED') { finish(key, rec, reviewNote(key)); continue; }
+    if (pr.state === 'MERGED') { finish(key, rec, reviewNote(key), pathsFromView(pr)); continue; }
 
     if (pr.state === 'OPEN' && pr.mergeStateStatus === 'DIRTY') {
       const files = pathsFromView(pr);
@@ -186,7 +193,7 @@ export function processReviewQueue({
     const landed = typeof merged === 'string' || prState(rec.pr) === 'MERGED';
     if (!landed) { held.push(`${key}: merge failed — ${merged.error.split('\n')[0]}`); continue; }
     if (decision.approval?.note) say(`${key}: ${decision.approval.note}`);
-    finish(key, rec, reviewNote(key));
+    finish(key, rec, reviewNote(key), files);
   }
 
   // One refresh: prefer the oldest PR that would otherwise land (chooseUpdate). When every BEHIND
@@ -273,8 +280,13 @@ function runCycle(argv = process.argv.slice(2)) {
     }
     // A row that brought its own PR is Done once that PR merged, however it merged (MARXY-190).
     for (const key of settlements({ rows: stories(), stories: state().stories, recentPrs: snapshot.recent ?? [] })) {
-      say(`settle${DRY ? ' (dry-run, not written)' : ''}: ${key} — its PR merged; recording it done`);
-      if (!DRY) node([here('state.mjs'), 'done', key]);
+      // Settled outside the review queue (merged by hand, or before adoption saw it), so `files`
+      // was never read for it; one extra call names whether it was a plan landing too (MARXY-200).
+      const prNum = (snapshot.recent ?? []).find(pr => keyOfPr(pr) === key)?.number;
+      const settleFiles = prNum ? (gh(['pr', 'view', String(prNum), '--json', 'files', '-q', '.files[].path']) ?? '').split('\n').filter(Boolean) : [];
+      const planLanding = landsPlanDelta(settleFiles);
+      say(`settle${DRY ? ' (dry-run, not written)' : ''}: ${key} — its PR merged; recording it done${planLanding ? ' (plan landed)' : ''}`);
+      if (!DRY) node([here('state.mjs'), planLanding ? 'plan-landed' : 'done', key]);
     }
   }
 
@@ -343,9 +355,14 @@ function runCycle(argv = process.argv.slice(2)) {
       saveState(board);
       node([here('jira.mjs'), 'move', key, 'in_progress']);
     },
-    finish: (key, rec, note) => {
+    finish: (key, rec, note, files) => {
       say(`merged ${key} (PR #${rec.pr})`);
-      node([here('state.mjs'), 'done', key]);
+      if (landsPlanDelta(files)) {
+        node([here('state.mjs'), 'plan-landed', key]);
+        say(`planner: ${key} landed a plan delta — recorded planned, excluded from the ops window`);
+      } else {
+        node([here('state.mjs'), 'done', key]);
+      }
       if (note) node([here('jira.mjs'), 'comment', key, `Merged as PR #${rec.pr}. Review that allowed it:\n\n${note}`]);
     },
     reviewNote: key => (existsSync(here(`results/${key}.approved`)) ? readFileSync(here(`results/${key}.approved`), 'utf8').trim() : ''),
@@ -380,10 +397,20 @@ function runCycle(argv = process.argv.slice(2)) {
   // unless it is named.
   if (needsReview.length) say(`review needed (spawn the reviewer with orchestration/prompts/reviewer.md): ${needsReview.join(' | ')}`);
 
-  // 4. Plan before starting new work, so nothing is dispatched onto a plan about to change.
+  // 4. Plan before starting new work onto a plan about to change — but only for a reason that
+  // means the plan is missing or wrong ('never planned', an unread escalation), not merely due
+  // for a refresh. A cadence reason (merge count, weekly age, ops-majority) names the planner as
+  // due without freezing the fleet for however long that run takes: MARXY-197 sat blocked for
+  // hours on exactly that (MARXY-200). Spawned for its own reporting (kept in sync with
+  // plannerReasons by construction); planDue itself is decided from the pure function so a
+  // landed plan delta earlier in *this* cycle (see finish/settle above) is reflected immediately.
   const plan = node([here('planner-trigger.mjs')]);
-  const planDue = plan.status === 0;
-  say(`planner: ${planDue ? 'due —' : 'not due'} ${(plan.stdout || '').trim().replace(/\n/g, ' ')}`.trim());
+  const reasons = plannerReasons();
+  const planDueAny = plan.status === 0;
+  const planDue = blocksDispatch(reasons);
+  const advisoryOnly = planDueAny && !planDue;
+  say(`planner: ${planDueAny ? 'due —' : 'not due'} ${(plan.stdout || '').trim().replace(/\n/g, ' ')}`.trim()
+    + (advisoryOnly ? ' (advisory only — dispatch continues; run the planner when you can)' : ''));
 
   // 5. What should start next. Headless dispatch needs the Cursor CLI; without it the in-app
   // orchestrator is the dispatcher, so name the keys rather than pretending to start them.

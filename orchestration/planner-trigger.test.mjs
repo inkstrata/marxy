@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { plannerReasons } from './planner-trigger.mjs';
+import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
 import { ROOT } from './lib.mjs';
 
 const M = { plannerEveryMerges: 5, plannerEveryDays: 7 };
@@ -108,4 +108,41 @@ test('the weekly-age trigger still fires at its threshold, unchanged', () => {
   const s = { lastPlan, merges: 0, mergesAtLastPlan: 0, stories: {} };
   const reasons = plannerReasons({ s, m: M, all: [], d: NO_DEPS, now });
   assert.deepEqual(reasons, ['plan older than a week']);
+});
+
+test('a planLanded merge is excluded from the ops-window count entirely, not merely counted as non-ops', () => {
+  // 10 finished, none in a numbered phase (all ops), but the most recent is tagged planLanded:
+  // excluding it drops the window to 9, below OPS_WINDOW, so the reason must not fire.
+  const stories = finishedStories(10);
+  stories.S9.planLanded = true;
+  const s = { lastPlan: new Date(2026, 0, 20).toISOString(), merges: 0, mergesAtLastPlan: 0, stories };
+  const reasons = plannerReasons({ s, m: M, all: [], d: NO_DEPS, now: NOW });
+  assert.ok(!reasons.some(r => /merges were ops/.test(r)), 'a planLanded merge must not fill an ops-window slot');
+});
+
+test('a planLanded merge does not let an 11th, older ops merge back into the window either', () => {
+  // 11 finished; excluding the planLanded one still leaves exactly 10 real merges in the window.
+  const stories = finishedStories(11);
+  stories.S10.planLanded = true;
+  const d = { phases: { 0: ['S1', 'S2', 'S3', 'S4'] }, deps: {} }; // S0, S5..S9 ops = 6 of the 10 counted
+  const s = { lastPlan: new Date(2026, 0, 20).toISOString(), merges: 0, mergesAtLastPlan: 0, stories };
+  const reasons = plannerReasons({ s, m: M, all: [], d, now: NOW });
+  assert.ok(reasons.includes('6 of the last 10 merges were ops'), 'the window still fills from the 10 real merges, not the planLanded one');
+});
+
+test('blocksDispatch: never-planned and an unread escalation hold dispatch', () => {
+  assert.equal(blocksDispatch(['never planned']), true);
+  assert.equal(blocksDispatch(['escalated/blocked: X']), true);
+  assert.equal(blocksDispatch(['never planned', '7 merges since last plan']), true);
+});
+
+test('blocksDispatch: cadence reasons alone are advisory, not blocking', () => {
+  assert.equal(blocksDispatch(['5 merges since last plan']), false);
+  assert.equal(blocksDispatch(['plan older than a week']), false);
+  assert.equal(blocksDispatch(['6 of the last 10 merges were ops']), false);
+  assert.equal(blocksDispatch(['5 merges since last plan', 'plan older than a week']), false);
+});
+
+test('blocksDispatch: no reasons means nothing to block', () => {
+  assert.equal(blocksDispatch([]), false);
 });

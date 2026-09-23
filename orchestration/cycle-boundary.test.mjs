@@ -63,3 +63,23 @@ test('the result file is looked up with the board record, so a worktree fallback
   });
   assert.deepEqual(seen, [['MARXY-9', 'chore/MARXY-9-x']]);
 });
+
+test('finish is called with the merged diff files, so cycle.mjs can tell a plan-delta landing apart from an ordinary one (MARXY-200)', () => {
+  const finished = [];
+  const files = ['docs/plan/jira-issues.csv', 'orchestration/deps.json', 'CHANGELOG.md', 'docs/plan/deltas/2026-09-23.md'];
+  run({ story: row('docs/plan/deltas, docs/plan/jira-issues.csv, orchestration/deps.json'), ownOnly: true, others: [], added: false, widened: [] }, files, {
+    finish: (key, rec, note, seenFiles) => finished.push([key, seenFiles]),
+  });
+  assert.deepEqual(finished, [['MARXY-9', files]]);
+});
+
+test('finish also gets the file list when the PR was already MERGED on read, before boundary/diff run', () => {
+  const finished = [];
+  const files = ['a/1', 'docs/plan/deltas/2026-09-23.md'];
+  processReviewQueue({
+    board: { 'MARXY-9': { status: 'in_review', pr: 9, branch: 'chore/MARXY-9-x' } },
+    viewPr: () => ({ ...green, state: 'MERGED', files: files.map(path => ({ path })) }),
+    finish: (key, rec, note, seenFiles) => finished.push([key, seenFiles]),
+  });
+  assert.deepEqual(finished, [['MARXY-9', files]]);
+});
