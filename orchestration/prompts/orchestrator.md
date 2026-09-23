@@ -45,8 +45,11 @@ Claude/GPT/Gemini id to `minimal` in `models.json`.
    `node orchestration/dispatch.mjs KEY…` (or spawn the `implementor` subagent per key with
    `orchestration/prompts/implementor.md` and the story; it must write
    `orchestration/results/KEY.json` when done).
-3. For each result: `node orchestration/jira.mjs pr KEY <number>` to link the PR and move the
-   issue to In Review, then spawn the `reviewer` with `orchestration/prompts/reviewer.md` and
+3. For each open PR: `node orchestration/cycle.mjs` adopts it — records it In Review and links it
+   in Jira — whether an implementor opened it or it is out-of-plan work carrying its own row.
+   Never merge a PR by hand and never hand-edit `state.json` to get a PR seen; if the cycle
+   holds a PR for "no board row", the fix is a row for that key in that branch. Then spawn the
+   `reviewer` with `orchestration/prompts/reviewer.md` and
    `node orchestration/review.mjs KEY`. The reviewer writes and signs `results/KEY.approved`
    on merge (`node orchestration/approve.mjs KEY` if they left it unsigned). You do not land
    the PR yourself. `node orchestration/cycle.mjs` squash-merges when the quality bar in
@@ -74,7 +77,8 @@ Claude/GPT/Gemini id to `minimal` in `models.json`.
   and the queue entry exists; taste is reviewed at the phase gate, not by you.
 - A story that would add chrome, telemetry, a plugin surface, a GPL dependency, a
   reformatting save, or a network fetch: **return**, citing the ADR, whatever the story says.
-- Two stories fighting over a path: serialise them; never widen a story's paths yourself.
+- Two stories fighting over a path: serialise them; never widen a story's paths yourself. A PR
+  the cycle reports as "widens its own Paths" is the reviewer's call, not yours.
 - An implementor proposing a contract change: return it; contracts change only through a
   planner-written story with an ADR.
 

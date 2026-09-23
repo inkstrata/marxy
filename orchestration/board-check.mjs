@@ -64,7 +64,7 @@ export function boardDrift({
     if (!key || csv.has(key) || outOfPlan.has(key)) continue;
     findings.push({
       kind: KIND.UNBOARDED_PR,
-      detail: `PR #${pr.number} "${pr.title ?? ''}" (${key}) has no row in docs/plan/jira-issues.csv and is not an out-of-plan task`,
+      detail: `PR #${pr.number} "${pr.title ?? ''}" (${key}) has no row in docs/plan/jira-issues.csv and the cycle has not adopted it (a draft, or a key already in review); give it a row with node orchestration/out-of-plan.mjs row ${key}`,
     });
   }
 
@@ -185,7 +185,9 @@ export function gatherBoardCheckInput({ snapshot = null } = {}) {
     /* no map: an orphan simply gets no rename hint */
   }
   return {
-    branch, behind, dirtyTracked, openPrs, csvKeys, outOfPlanKeys: [], inReview,
+    branch, behind, dirtyTracked, openPrs, csvKeys, inReview,
+    // Adopted out-of-plan PRs carry their row on their own branch until they merge (MARXY-190).
+    outOfPlanKeys: Object.entries(state().stories ?? {}).filter(([, r]) => r.outOfPlan).map(([k]) => k),
     stateStories: state().stories ?? {}, renames,
   };
 }

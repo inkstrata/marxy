@@ -49,10 +49,13 @@ Before merge when you changed shell, paint, or CLI paths, run
 
 ## Rules the tools encode (so nobody re-derives them)
 
-- The story key comes from the branch: `type/MARXY-nn-slug`. No key, no path check (and a
-  note); `--strict` makes that a failure in CI once every branch is a story branch.
+- The story key comes from the branch: `type/MARXY-nn-slug`. No key, or a key with no row on
+  `main` or in the branch, is a note locally and a failure under `--strict` (CI, every PR).
 - Allowed outside a story's paths: `CHANGELOG.md`, `docs/taste-review/queue.md`, lockfiles,
-  the story's own task card and result file, and plan deltas.
+  the story's own task card and result file, plan deltas, and the story's own board row and
+  `deps.json` entry — never another story's. The branch is judged by its own row as it leaves it,
+  so out-of-plan work brings its row and a story may widen its own Paths where the reviewer sees
+  it (`scripts/lib/own-row.mjs`, shared by `check-story` and the cycle's merge bar).
 - Frozen: byte-pinned contracts under `packages/*/src/contracts/` and `packages/shell-api/src/`, name-and-unit contract for `packages/theme/src/tokens.css`.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.

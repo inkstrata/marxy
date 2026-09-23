@@ -44,7 +44,7 @@ runs a subset. `pnpm precheck --all` runs everything. CI always runs everything.
 | --- | --- | --- | --- |
 | `changes` | always | classifies the diff into `docs_only` / `web` / `rust` / `gates`; self-tests the classifier | `node scripts/ci-changes.mjs --selftest` |
 | `conventions` | pull requests only | commitlint over every commit **and** the PR title; `check-pr` on the body; `check-story --strict` over the branch | `pnpm lint:commits`, `node scripts/check-pr.mjs --body results/KEY.pr.md --range`, `node scripts/check-story.mjs --strict` |
-| `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, CommonMark spec, goldens, fidelity, licences | `pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm typecheck && pnpm lint && pnpm test && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
+| `fast` | not docs-only (orchestration `.mjs`/`.json` and the board CSV are code, not docs) | hygiene checks, typecheck, lint, unit tests, CommonMark spec, goldens, fidelity, licences | `pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm typecheck && pnpm lint && pnpm test && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
 | `browser` | `web` changed | no-network and aesthetics gates in the pinned Playwright container | `pnpm gate:no-network && pnpm gate:aesthetics` |
 | `gates` (macOS + Ubuntu) | gates-relevant change | specimen, licences twice, Rust fmt/clippy, frontend + `cargo build --profile ci`, CLI smoke, startup and parse measurement, perf gate, bundle gate | `pnpm gate:specimen`, `pnpm lint:rust`, `pnpm --filter @marxy/desktop verify:cli`, `pnpm gate:bundle` |
 | `gates-skip` | no gates-relevant change | posts the same two check names so anything watching by name still resolves | — |
@@ -89,10 +89,14 @@ that does not match `package.json` fails every one of them before a single test 
 | `CHANGELOG.md has no line with MARXY-nnn` | no changelog entry | one line under `Unreleased` in the right Keep a Changelog heading, key in parentheses |
 | `golden/baseline files changed but docs/taste-review/queue.md did not` | baselines moved with no human queue row | add the before/after row; a baseline change is a human-visible event |
 | `the body carries an AI attribution line` | attribution in the PR body | remove it — the commit-msg hook cannot see the PR body |
-| story boundary failure | a file outside the story's `Paths` | split it out, or widen `Paths` in `docs/plan/jira-issues.csv` **and** the task card together |
+| story boundary failure | a file outside the story's `Paths` | split it out, or widen your own row's `Paths` in `docs/plan/jira-issues.csv` **and** the task card together, in this branch — the reviewer is told and decides (implementors report `blocked` instead) |
+| `MARXY-n has no row in docs/plan/jira-issues.csv on main or in this branch` | work that is not a planned story, without its board row | add the row and a `deps.json` entry for your key in this branch (`docs/sdlc.md`) |
+| `… changes other stories' board entries (MARXY-…)` | a branch edited a row or `deps.json` entry that is not its own | move those edits to a planner PR whose `Paths` list the board files |
 
 Allowed outside a story's paths without widening anything: `CHANGELOG.md`,
-`docs/taste-review/queue.md`, lockfiles, the story's own task card and result file, plan deltas.
+`docs/taste-review/queue.md`, lockfiles, the story's own task card and result file, plan deltas,
+and the story's **own** row in `docs/plan/jira-issues.csv` and entry in `orchestration/deps.json`
+(`scripts/lib/own-row.mjs`; the branch is then judged by its row as it leaves it).
 
 `check-story --strict` reads the key from the branch name. On a detached CI checkout it falls
 back to `GITHUB_HEAD_REF` then `GITHUB_REF_NAME`. **A branch with no `MARXY-nnn` in its name
