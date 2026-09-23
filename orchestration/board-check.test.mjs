@@ -199,14 +199,15 @@ test('cycle.mjs prints every board finding every cycle and holds step 6 (dispatc
   assert.match(src, /const boardHold = boardFindings\.some\(f => BLOCKS_DISPATCH\.includes\(f\.kind\)\);/);
   // The board-hold branch is checked, and dispatches nothing, before the headless and the
   // named-only branches get a chance to run.
-  const boardBranch = src.indexOf('if (ready.ready.length && boardHold)');
-  const plannerBranch = src.indexOf('else if (ready.ready.length && planDue)');
+  const dispatchGate = src.indexOf('if (ready.ready.length && holdsReadyDispatch');
+  const plannerHoldMsg = src.indexOf('ready but not dispatched until the planner has run');
   const headlessBranch = src.indexOf('say(`dispatching ${keys} headlessly`)');
   const namedBranch = src.indexOf('dispatch ${ready.ready.length} story(ies) into');
-  assert.ok(boardBranch > -1, 'no board-hold branch in the dispatch step');
+  assert.ok(dispatchGate > -1, 'no holdsReadyDispatch gate in the dispatch step');
+  assert.match(src, /export function holdsReadyDispatch/);
   assert.ok(
-    boardBranch < plannerBranch && plannerBranch < headlessBranch && headlessBranch < namedBranch,
-    'board-hold must be checked before planner-due, headless dispatch and named-only dispatch',
+    dispatchGate < headlessBranch && headlessBranch < namedBranch && plannerHoldMsg > dispatchGate,
+    'hold gate must precede headless and named dispatch; planner-hold message lives in the hold branch',
   );
 });
 

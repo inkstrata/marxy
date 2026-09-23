@@ -1,0 +1,44 @@
+{
+  "key": "MARXY-200",
+  "status": "done",
+  "branch": "chore/MARXY-200-planner-cadence-stops-blocking-dispatch-",
+  "gates": {
+    "check-cards": "ok",
+    "check:boundaries": "ok",
+    "check:registry": "ok",
+    "check:deps": "ok",
+    "check:story": "ok",
+    "check:one-parse": "ok"
+  },
+  "acceptance": [
+    {
+      "criterion": "1. Landing a PR whose merged diff adds under docs/plan/deltas/ self-records lastPlan/mergesAtLastPlan in the same cycle with no manual state.mjs planned",
+      "checkedBy": "orchestration/cycle-boundary.test.mjs (\"landing a plan delta through recordMergeLanding stamps lastPlan…\"), orchestration/state.test.mjs (plan-landed transition)"
+    },
+    {
+      "criterion": "2. planLanded merges excluded from plannerReasons ops-window count",
+      "checkedBy": "orchestration/planner-trigger.test.mjs (planLanded / ops-window cases)"
+    },
+    {
+      "criterion": "3. Cadence planner reasons advisory only; never-planned / unread escalation still hold dispatch",
+      "checkedBy": "orchestration/cycle-boundary.test.mjs (\"cadence-only planner due does not hold dispatch…\"), orchestration/planner-trigger.test.mjs (blocksDispatch cases)"
+    },
+    {
+      "criterion": "4. When planner is due and cursor-agent on PATH (not --dry-run), cycle starts planner headlessly like dispatch.mjs",
+      "checkedBy": "orchestration/plan-dispatch.mjs + orchestration/plan-dispatch.test.mjs (spawn argv); orchestration/cycle-boundary.test.mjs (shouldSpawnHeadlessPlanner); cycle.mjs calls plan-dispatch.mjs"
+    },
+    {
+      "criterion": "5. docs/sdlc.md and orchestration/README.md describe hold vs advisory cadence and plan-delta self-recording",
+      "checkedBy": "docs/sdlc.md Cadence table; orchestration/README.md step 5"
+    },
+    {
+      "criterion": "6. CHANGELOG.md has a line",
+      "checkedBy": "CHANGELOG.md Unreleased entry"
+    }
+  ],
+  "outsidePaths": [],
+  "needsAdr": false,
+  "queueEntry": false,
+  "notes": "Reviewer return addressed: AC1/3 cycle fixtures, AC4 plan-dispatch.mjs, AC5 sdlc self-recording, result file restored. CODEOWNERS on cycle.mjs still needs author GitHub approval before merge.",
+  "pr": 188
+}

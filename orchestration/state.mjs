@@ -1,4 +1,4 @@
-// Board operations: node state.mjs <init|show|start|done|return|escalate|block> [KEY]
+// Board operations: node state.mjs <init|show|start|done|plan-landed|return|escalate|block> [KEY]
 // Jira is the board of record, so every transition here is mirrored there; a Jira failure
 // is reported, never fatal, because the local board must stay usable offline.
 import { spawnSync } from 'node:child_process';
@@ -18,12 +18,24 @@ import { boardTotals } from './board-check.mjs';
  * `block` and `escalate` stamp `blockedAt`, and `return` stamps it when it lands on
  * `escalate`, so a ruling the planner has already read does not make it due again
  * (MARXY-120). Not backfilled: a story blocked before this landed has no stamp.
+ *
+ * `plan-landed` is `done` plus the planner's own bookkeeping, for a merge whose diff added a
+ * `docs/plan/deltas/` file: it stamps `lastPlan`/`mergesAtLastPlan` itself, the way a person
+ * used to have to after every plan PR, and tags the story `planLanded` so plannerReasons excludes
+ * it from the ops-window count — a run of plan/board-sync landings must not pad the ops-majority
+ * signal it is itself the answer to (MARXY-200).
  */
 export function transition(cmd, s, st, { argv = process.argv, now = () => new Date().toISOString() } = {}) {
   switch (cmd) {
     case 'start': st.status = 'in_progress'; st.attempts += 1; st.started = now(); delete st.parkedReason; break;
     case 'review': st.status = 'in_review'; if (argv[4]) st.pr = Number(argv[4]); break;
     case 'done': st.status = 'done'; st.finished = now(); s.merges += 1; delete st.parkedReason; break;
+    case 'plan-landed': {
+      const stamp = now();
+      st.status = 'done'; st.finished = stamp; s.merges += 1; delete st.parkedReason; st.planLanded = true;
+      s.lastPlan = stamp; s.mergesAtLastPlan = s.merges;
+      break;
+    }
     case 'return':
       delete st.parkedReason;
       st.status = st.attempts >= 2 ? 'escalate' : 'todo';
@@ -57,7 +69,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     s.lastPlan = new Date().toISOString();
     s.mergesAtLastPlan = s.merges;
   } else if (!transition(cmd, s, st)) {
-    console.error('usage: state.mjs <show|start|review KEY PR|done|return|escalate|block KEY [reason]|planned> [KEY]');
+    console.error('usage: state.mjs <show|start|review KEY PR|done|plan-landed KEY|return|escalate|block KEY [reason]|planned> [KEY]');
     process.exit(2);
   }
   saveState(s);
