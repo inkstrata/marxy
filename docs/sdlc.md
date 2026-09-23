@@ -94,11 +94,18 @@ node orchestration/ready.mjs                 # what may start, respecting deps a
 node orchestration/state.mjs start MARXY-23  # → In Progress, mirrored to Jira
 node orchestration/dispatch.mjs MARXY-23     # implementor in its own worktree
 node orchestration/review.mjs MARXY-23       # the review packet: acceptance, boundaries, gates
-node orchestration/jira.mjs pr MARXY-23 41   # link the PR, → In Review
-gh pr merge 41 --squash --delete-branch
-node orchestration/state.mjs done MARXY-23   # → Done, mirrored to Jira
+node orchestration/approve.mjs MARXY-23      # the reviewer signs results/MARXY-23.approved
+node orchestration/cycle.mjs                 # adopts the open PR (→ In Review), lands it once the bar holds, → Done
 node orchestration/planner-trigger.mjs       # is it time to re-plan?
 ```
+
+Nobody runs `gh pr merge` by hand, and nobody has to move a story to In Review: the cycle
+**adopts** every open, non-draft pull request whose title or branch names a key the board does
+not already have in review, links it in Jira, and from then on the merge bar decides
+(`orchestration/adopt.mjs`). A done, blocked or escalated story's PR is not adopted — that is a
+person's call — and neither is a second PR for a key that already has one in review. A row
+labelled `no-dispatch` (work that arrives with its own PR) is never dispatched to an implementor,
+and the cycle records it Done as soon as its PR has merged, however it merged.
 
 Everything in that list except the two judgements — is this story ready, does this diff satisfy
 it — is one command, `node orchestration/cycle.mjs`, and `./orchestration/loop.sh` runs it until
@@ -134,12 +141,48 @@ list; a missing clause is the printed hold reason.
    rather than a hold, once the rest of the bar is green.
 5. GitHub has not requested changes, and CODEOWNERS has not set `REVIEW_REQUIRED`.
 6. No file outside the story's `Paths` (plus `CHANGELOG.md`, the taste queue, the lockfile
-   and the result file).
-7. The implementor result file exists and says `done`.
+   and the result file). The row is the one the branch leaves when it edits only its own story's
+   board entries, so an out-of-plan PR's row and a story's widened `Paths` count; a branch that
+   edits another story's row is held and names whose, and a PR with no row on `main` or on its
+   branch is held with the command that adds one (`scripts/lib/own-row.mjs`, which CI's
+   `check-story` also uses).
+7. The implementor result file exists and says `done` — in this checkout's
+   `orchestration/results/`, or in the worktree that has the branch checked out.
 8. `CHANGELOG.md` is in the diff.
 9. A signed `results/KEY.approved` verifies against this PR head.
 
 Every approval run ends with `node orchestration/readiness.mjs`: one row per open pull request, in the review/merge order, with CI, mergeability, approval, who it waits on, and what happens next.
+
+## Work outside the plan — one pull request
+
+Anything that is not a planned story — a fix found in passing, a tooling change, a planner's
+landing PR — is still **one issue, one branch, one PR**, and it lands through the same cycle and
+the same bar as a story. It used to take up to three PRs and a hand merge: a bare Jira Task had
+no board row, so the cycle could not see its PR, `state.mjs` refused the key, the merge bar had
+no paths to judge it by, and a placeholder key or a path widening each needed a PR of its own.
+Now the change carries its own row.
+
+```sh
+node orchestration/out-of-plan.mjs start "Fix the thing" --type fix \
+  --paths "orchestration/thing.mjs, orchestration/thing.test.mjs" \
+  --acceptance "1. thing.test.mjs covers the case; 2. …"   # Jira Task + ../marxy-wt/KEY + its own row
+# …work in ../marxy-wt/KEY; a CHANGELOG line ending (KEY); commit subjects end in (KEY)
+pnpm done KEY                    # boundary (strict), precheck, drafts results/KEY.pr.md
+pnpm done KEY --open             # pushes, opens the PR, links it in Jira
+```
+
+- **The row travels in the PR.** `out-of-plan.mjs` writes the key's CSV row
+  (`ops,out-of-plan,no-dispatch`, or `phase-N,…` with `--phase`) and its `deps.json` entry in the
+  branch; `no-dispatch` keeps an implementor off work that is already being done. A branch that
+  already exists gets its row with `out-of-plan.mjs row KEY --paths … --acceptance …`.
+- **The cycle adopts and lands it** (merge bar clause 6): no hand merge, no `state.mjs` call.
+- **A story may widen its own `Paths` in its own PR**, where the review packet and the cycle say
+  so out loud; implementors still report `blocked` instead.
+- **Placeholders never reach `main`.** A planner drafts new rows as `MARXY-NEW-<slug>` and runs
+  `node orchestration/jira.mjs sync --new` in its own worktree before opening the PR: it creates
+  the issues, rewrites every placeholder to its real key and renames the task cards.
+  `check-cards` fails any placeholder left on a branch. If the PR is abandoned, close the issues
+  it created.
 
 ## Review order and the review WIP limit
 
@@ -148,7 +191,10 @@ Review, not implementation, is the constraint. The printable order is computed b
 keys, in this order:
 
 1. **Phase**, from `orchestration/deps.json`, lowest number first. The plan is sequenced to
-   de-risk in phase order; reading a later-phase pull request first would invert it.
+   de-risk in phase order; reading a later-phase pull request first would invert it. The `ops`
+   lane is not a phase and ranks after every numbered one — product is reviewed first
+   (MARXY-107). An adopted PR whose row is still only on its branch takes the lane its branch's
+   `deps.json` names.
 2. **Disturbance**, descending — the number of other open pull requests whose changed files
    intersect this one's (always-shared files excluded). The branch that will invalidate the
    most approvals must land before those approvals are signed, not after. Merge effort is not

@@ -18,7 +18,12 @@ const STATE_PATH = `${RESULTS_DIR}/ci-changes.json`;
 const RECORD_PATH = `${RESULTS_DIR}/gates-record.json`;
 const WORKFLOW_PATH = `${ROOT}.github/workflows/ci.yml`;
 
-const isDoc = f => /^(docs\/|orchestration\/|\.cursor\/|\.githooks\/|README\.md$|CONTRIBUTING\.md$|CHANGELOG\.md$|AGENTS\.md$|LICENSE$|\.editorconfig$|\.gitattributes$|fonts\/.*\/(LICENSE|README)|docs\/.*\.png$)/.test(f) || (/\.md$/.test(f) && !f.startsWith('fixtures/'));
+// Prose only. orchestration/*.mjs and *.json are the fleet's code and board, and docs/plan's CSV is
+// the board every gate reads: all used to count as docs, so a PR touching only them skipped `fast`
+// and no orchestration test or board check ran in CI — which is how a red needs-human test reached
+// main (MARXY-191). Their gates hash is main's, so `gates` still reuses main's record; only `fast` runs.
+const BOARD_OR_CODE = /^(orchestration\/.*\.(mjs|js|json)$|docs\/plan\/jira-issues\.csv$)/;
+const isDoc = f => !BOARD_OR_CODE.test(f) && (/^(docs\/|orchestration\/|\.cursor\/|\.githooks\/|README\.md$|CONTRIBUTING\.md$|CHANGELOG\.md$|AGENTS\.md$|LICENSE$|\.editorconfig$|\.gitattributes$|fonts\/.*\/(LICENSE|README)|docs\/.*\.png$)/.test(f) || (/\.md$/.test(f) && !f.startsWith('fixtures/')));
 
 // Unchanged from before MARXY-105: which broad categories a diff touches, so `fast` and `browser`
 // keep skipping exactly as they did. `docs_only` is also "not-required" for the gates decision below.
@@ -175,6 +180,10 @@ function selftest() {
 
   // --- classify() / docs_only, unchanged behaviour ---------------------------------------------
   report(classify(['docs/foo.md']).docs_only === true, 'classify: a docs-only diff is docs_only');
+  report(classify(['orchestration/prompts/planner.md', 'docs/plan/tasks/MARXY-1.md']).docs_only === true, 'classify: orchestration prose and task cards are docs_only');
+  report(classify(['orchestration/cycle.mjs']).docs_only === false, 'classify: orchestration code is not docs_only, so fast runs its tests (MARXY-191)');
+  report(classify(['orchestration/deps.json']).docs_only === false, 'classify: deps.json is the board, not docs (MARXY-191)');
+  report(classify(['docs/plan/jira-issues.csv']).docs_only === false, 'classify: the board CSV is not docs, so check-cards runs in CI (MARXY-191)');
   report(classify(['apps/desktop/src-tauri/src/main.rs']).docs_only === false, 'classify: a rust diff is not docs_only');
   report(classify(['.github/workflows/ci.yml']).docs_only === false, 'classify: a workflow diff is not docs_only');
   report(classify(['.github/notes.md']).docs_only === false, 'classify: an .md file under .github/ is still workflow, not docs_only');

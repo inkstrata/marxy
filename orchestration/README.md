@@ -41,9 +41,11 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    boundary checks, and when `state.json` has no branch it names the four checks that
    cannot run without one. Decide: **merge**, **return** (notes appended, attempts+1), or
    **escalate** (attempts ≥ 2 → the planner splits it or the escalation model takes it).
-4. `node orchestration/jira.mjs pr KEY <number>` — links the PR on the issue and moves it to
-   In Review. Merge only when CI is green and, for CODEOWNERS paths, a human approved. Squash.
-   Then `node orchestration/state.mjs done KEY`, which moves the Jira issue too.
+4. The cycle **adopts** the open PR (`adopt.mjs`): any non-draft PR whose title or branch names a
+   key the board does not have In Review becomes In Review with its number and is linked in Jira —
+   a story's PR, and an out-of-plan PR whose row is only on its branch alike. It lands once CI is
+   green, a reviewer has signed it, and, for CODEOWNERS paths, a human approved; squash, then
+   `state.mjs done KEY`, which moves the Jira issue too. Nobody runs `gh pr merge` by hand.
 5. `node orchestration/planner-trigger.mjs` — says whether to invoke the planner now
    (every 5 merges, any story at 2 failures, a phase boundary, a tripwire in `docs/roadmap.md`,
    or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`.
@@ -66,11 +68,18 @@ or fall back to B for implementors.
 the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
 
 Either way the mechanical half of every cycle is one command, and it is the same command in both
-modes: `node orchestration/cycle.mjs` mirrors the board into Jira, merges the pull requests that
-are provably finished, names what should start next (dispatching headlessly if `cursor-agent` is
+modes: `node orchestration/cycle.mjs` mirrors the board into Jira, reads GitHub once (two `gh pr
+list` calls, `github.mjs`, where it used to make three calls per open PR plus one per worktree),
+adopts open PRs the board does not know are in review, merges the pull requests that are provably
+finished, names what should start next (dispatching headlessly if `cursor-agent` is
 on PATH), asks whether the planner is due, and writes `status.md`. It is idempotent, so
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
-`--no-merge` to decide without landing anything, `--low` or `--minimal` to spend less.
+`--no-merge` to decide without landing anything, `--dry-run` to change nothing anywhere (Jira
+included), `--low` or `--minimal` to spend less.
+
+Out-of-plan work is one PR, not a side channel: `out-of-plan.mjs start` gives it a key, a worktree
+and its own board row, the cycle adopts its PR, and the merge bar judges it by that row. The
+protocol is `docs/sdlc.md` "Work outside the plan".
 
 The cycle acts on the computed review order (`review-order.mjs`, ADR-0025). It calls
 `gh pr update-branch` on **at most one** pull request per cycle — the first order entry
@@ -140,11 +149,14 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
 | --- | --- |
 | `models.json` | model id and effort per role, plus `default` / `low` / `minimal` compute profiles; `lanes` (dispatch, stays null) and `reviewLanes` (In Review cap, 4) |
 | `lib.mjs` | shared helpers; run it to print the resolved compute roles |
-| `jira.mjs` | the Jira bridge: `doctor`, `sync`, `push`, `move`, `pr`, `release`, `bootstrap` |
+| `jira.mjs` | the Jira bridge: `doctor`, `sync` (`--new`: only placeholder rows, run before a planner PR opens), `push`, `move`, `pr`, `task`, `release`, `bootstrap` |
+| `out-of-plan.mjs` | `start` (Jira Task + worktree + the change's own row) and `row` (a row for an existing branch) |
 | `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |
 | `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
 | `deps.json` | story dependencies (the CSV has none) and phase membership |
-| `cycle.mjs` | one idempotent cycle: push, merge what is finished, dispatch, plan check, report |
+| `cycle.mjs` | one idempotent cycle: push, snapshot GitHub, adopt, merge what is finished, dispatch, plan check, report |
+| `github.mjs` | the cycle's one read of GitHub: every open PR, and recent PR states by branch |
+| `adopt.mjs` | which open PRs the cycle moves to In Review, and how |
 | `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |
 | `readiness.mjs` | every open PR as a merge-readiness table in review order; `--json` for machines |
 | `loop.sh` | `cycle.mjs` until interrupted |
@@ -161,7 +173,8 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
   never shared. Every board transition is mirrored to Jira; a Jira failure prints the command
   to re-run and never stops the loop.
 - A story's diff may touch only its `Paths` (plus `CHANGELOG.md`, `pnpm-lock.yaml`,
-  `results/` and its own result file). `review.mjs` lists violations; a violation is an
+  `results/` and its own result file), and its own board row and `deps.json` entry — never
+  another story's. `review.mjs` lists violations; a violation is an
   automatic **return**. `node --test orchestration/test` is the fixture-board check for
   the ready and review scripts.
 - Contracts (`packages/*/src/contracts/**`, `packages/theme/src/tokens.css`) change only in a
