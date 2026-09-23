@@ -25,6 +25,9 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
     replaceBuffer(next: Buffer) {
       buffer = next;
       const { doc: nextDoc } = editorDocConfig(next);
+      // The buffer this editor's own edits were folded into already reads as its text: keep the
+      // editor's history and selection, and take only the new byte mapping.
+      if (nextDoc === view.state.doc.toString()) return;
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
       });

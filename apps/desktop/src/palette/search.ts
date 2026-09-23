@@ -79,8 +79,9 @@ export function searchPrepared(
 
   const current = topKHits(limit);
   const later = topKHits(limit);
+  const now = Date.now();
   for (const row of prepared.rows) {
-    const hit = scoreRow(row, needle, byPath);
+    const hit = scoreRow(row, needle, byPath, now);
     if (hit === undefined) continue;
     if (row.entry.root === session.currentRoot) current.push(hit);
     else later.push(hit);
@@ -146,6 +147,7 @@ function scoreRow(
   row: PreparedRow,
   needle: string,
   mru: ReadonlyMap<string, number>,
+  now: number,
 ): IndexHit | undefined {
   const title = fuzzyScore(row.title, needle) * TITLE_WEIGHT;
   const path = fuzzyScore(row.path, needle) * PATH_WEIGHT;
@@ -164,15 +166,21 @@ function scoreRow(
   const best =
     title >= path && title >= headingScore ? title : path >= headingScore ? path : headingScore;
   if (best <= 0) return undefined;
-  const frecency = frecencyBonus(row.entry, mru);
+  const frecency = frecencyBonus(row.entry, mru, now);
   const heading = headingScore > title && headingScore > path ? headingIndex : undefined;
   return { entry: row.entry, heading, score: best + frecency };
 }
 
-function frecencyBonus(entry: IndexEntry, mru: ReadonlyMap<string, number>): number {
+/** Read in the last day is worth up to 40, halving every week since; never read is worth nothing. */
+const LAST_READ_WEIGHT = 40;
+const LAST_READ_HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function frecencyBonus(entry: IndexEntry, mru: ReadonlyMap<string, number>, now: number): number {
   const rank = mru.get(entry.path);
   const recency = rank !== undefined ? Math.max(0, 80 - rank) : 0;
-  const lastRead = entry.lastReadMs !== undefined ? Math.min(40, entry.lastReadMs / 1e12) : 0;
+  // An epoch time divided by 1e12 was ~1.8 for every file ever read, so it ranked nothing.
+  const age = entry.lastReadMs === undefined ? Number.POSITIVE_INFINITY : Math.max(0, now - entry.lastReadMs);
+  const lastRead = LAST_READ_WEIGHT * 2 ** (-age / LAST_READ_HALF_LIFE_MS);
   return recency + lastRead;
 }
 

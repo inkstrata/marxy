@@ -208,3 +208,13 @@ test('neutralised copy-section canApply fails the paragraph guard', () => {
   const input = { document: doc, node: para, range: para.src };
   assert.equal(copySection.canApply(input), false);
 });
+
+test('copy-section keeps a reference link whose definition is outside the section', () => {
+  const source = '# Title\n\n## Install\n\nSee [the docs][d].\n\n## Next\n\nMore.\n\n[d]: https://example.com/docs\n';
+  const document = parse(source);
+  const heading = document.children.find((block): block is Heading => block.type === 'heading' && block.level === 2)!;
+  const range = sectionRange(document, heading);
+  const result = copySection.run({ document, node: heading, range, text: sliceText(source, range.start, range.end) });
+  assert.match(result.clipboard?.html ?? '', /<a href="https:\/\/example\.com\/docs">the docs<\/a>/);
+  assert.ok(!(result.clipboard?.html ?? '').includes('More.'));
+});

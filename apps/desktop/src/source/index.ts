@@ -9,7 +9,6 @@ export {
   everyLineEndingIsCrlf,
   bytesFingerprint,
   type LeaveSourceResult,
-  type LeaveSourceNotice,
 } from './buffer-commit.ts';
 export {
   renderedByteToCmPos,

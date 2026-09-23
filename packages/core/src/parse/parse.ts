@@ -10,7 +10,7 @@ import { frontmatterFromMarkdown } from 'mdast-util-frontmatter';
 import { mathFromMarkdown } from 'mdast-util-math';
 import { math } from './math-syntax.ts';
 import type { Document } from '../contracts/ast.ts';
-import { byteOffsets } from './byte-offsets.ts';
+import { byteOffsets, decodeWithOffsets, type ByteOffsets } from './byte-offsets.ts';
 import { documentFromMdast } from './from-mdast.ts';
 
 export interface ParseOptions {
@@ -24,22 +24,28 @@ export interface ParseOptions {
   readonly math?: boolean;
 }
 
-const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
-
 /** Parse a document's bytes. Accepts a string for callers that already hold the buffer decoded. */
 export function parseMarkdown(source: string | Uint8Array, options: ParseOptions = {}): Document {
   const file = options.file ?? 'untitled';
-  const text = typeof source === 'string' ? source : decoder.decode(source);
-
-  // A byte-order mark is bytes of the file but not markdown: leaving it in would make the first line
-  // start with U+FEFF and stop being a heading. It is skipped for parsing and paid for in `base`.
-  const hasBom = text.charCodeAt(0) === 0xfeff;
-  const body = hasBom ? text.slice(1) : text;
-  const offsets = byteOffsets(body, hasBom ? 3 : 0);
-
+  const { body, offsets } = typeof source === 'string' ? fromString(source) : fromBytes(source);
   const { extensions, mdastExtensions } = syntax(options);
   const tree = fromMarkdown(body, { extensions, mdastExtensions });
   return documentFromMdast(tree, { file, text: body, offsets });
+}
+
+// A byte-order mark is bytes of the file but not markdown: leaving it in would make the first line
+// start with U+FEFF and stop being a heading. It is skipped for parsing and paid for in `base`.
+function fromString(text: string): { body: string; offsets: ByteOffsets } {
+  const hasBom = text.charCodeAt(0) === 0xfeff;
+  const body = hasBom ? text.slice(1) : text;
+  return { body, offsets: byteOffsets(body, hasBom ? 3 : 0) };
+}
+
+/** Offsets come from the bytes, so a file that is not valid UTF-8 still gets offsets into itself. */
+function fromBytes(bytes: Uint8Array): { body: string; offsets: ByteOffsets } {
+  const hasBom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const { text, offsets } = decodeWithOffsets(bytes, hasBom ? 3 : 0);
+  return { body: text, offsets };
 }
 
 interface Syntax {

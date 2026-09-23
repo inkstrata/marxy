@@ -90,3 +90,10 @@ for (const file of files) {
 test('an empty document renders to nothing rather than to something', () => {
   assert.equal(html(''), '');
 });
+
+test('a footnote reference finds its definition whatever the case, and a duplicate definition is dropped', () => {
+  const out = html('Note[^A].\n\n[^a]: first\n\n[^A]: second\n');
+  assert.match(out, /<sup class="marxy-footnote-ref" id="marxy-fnref-1"><a href="#marxy-fn-1">1<\/a><\/sup>/);
+  assert.equal([...out.matchAll(/id="marxy-fn-1"/g)].length, 1);
+  assert.ok(!out.includes('second'));
+});

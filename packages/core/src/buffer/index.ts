@@ -7,6 +7,7 @@ export {
   textOf,
   splice,
   fromText,
+  foldText,
   byteToUtf16,
   utf16ToByte,
   contentHash,

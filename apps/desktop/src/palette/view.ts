@@ -47,6 +47,12 @@ export interface PaletteDeps {
   readonly getCurrentPath: () => string | null;
   readonly setCurrentPath: (path: string) => void;
   readonly onSessionChange?: (session: PaletteSession) => void;
+  /**
+   * The app's one way to open a document: buffer, parse, render, typeset, grid, deferred passes,
+   * and teardown of the one before. When present the palette opens through it rather than setting
+   * `innerHTML` itself, so the app never holds one file's buffer while showing another.
+   */
+  readonly openDocument?: (path: string) => Promise<void>;
 }
 
 export interface PaletteController {
@@ -161,6 +167,12 @@ async function renderPath(
   setCurrentPath: (path: string) => void,
   byteOffset?: number,
 ): Promise<void> {
+  if (deps.openDocument !== undefined) {
+    await deps.openDocument(path);
+    setCurrentPath(path);
+    if (byteOffset !== undefined) scrollToByteOffset(deps.article, deps.scroller, byteOffset);
+    return;
+  }
   const bytes = await deps.shell.readFile(path);
   const ast = parseMarkdown(bytes, { file: path });
   const { html } = renderDocumentSafeHtml(ast);
@@ -514,7 +526,7 @@ export function mountPaletteFromHandle(
     throw new Error('palette mount: expected #doc and dialog#marxy-palette in the document');
   }
   const scroller = document.documentElement;
-  const pathState = { current: opts?.initialPath ?? null };
+  const pathState = { current: opts?.initialPath ?? handle.currentPath() };
   const controller = mountPaletteApp({
     shell: handle.shell,
     article,
@@ -524,6 +536,7 @@ export function mountPaletteFromHandle(
     setCurrentPath: (path) => {
       pathState.current = path;
     },
+    openDocument: (path) => handle.open(path),
     onSessionChange: (next) => {
       const tip = next.history[next.historyIndex];
       if (tip !== undefined) pathState.current = tip;

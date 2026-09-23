@@ -10,8 +10,8 @@ import { frontmatterFromMarkdown } from 'mdast-util-frontmatter';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { mathFromMarkdown } from 'mdast-util-math';
 import { gfm } from 'micromark-extension-gfm';
-import type { Block, Inline, Node } from '../contracts/ast.ts';
-import { byteOffsetTableBuilds, byteOffsets } from './byte-offsets.ts';
+import type { Block, Inline, List, Node, Paragraph } from '../contracts/ast.ts';
+import { byteOffsetTableBuilds, byteOffsets, decodeWithOffsets } from './byte-offsets.ts';
 import { ParseProvenanceError, documentFromMdast } from './from-mdast.ts';
 import { checkInvariants } from './invariants.ts';
 import { splitLines } from './line-endings.ts';
@@ -412,4 +412,51 @@ test('parsing 01-long-technical.md records its median in results/perf.json', () 
   assert.equal(written.parse_long_technical_ms, median);
   const snapshot = JSON.parse(readFileSync(parseSnapshotPath, 'utf8')) as { parse_long_technical_ms: number };
   assert.equal(snapshot.parse_long_technical_ms, median);
+});
+
+test('a file that is not valid UTF-8 gets byte offsets into its own bytes', () => {
+  // "# \xffA\nb\n": one stray byte, charged one byte, not the three U+FFFD would encode to.
+  const bytes = new Uint8Array([0x23, 0x20, 0xff, 0x41, 0x0a, 0x62, 0x0a]);
+  const document = parseMarkdown(bytes, { file: 'latin1.md' });
+  assert.equal(document.src.end, bytes.length);
+  const paragraph = document.children[1]!;
+  assert.equal(paragraph.type, 'paragraph');
+  assert.deepEqual([paragraph.src.start, paragraph.src.end], [5, 6]);
+  assert.equal(new TextDecoder().decode(bytes.subarray(paragraph.src.start, paragraph.src.end)), 'b');
+  const withBom = new Uint8Array([0xef, 0xbb, 0xbf, ...bytes]);
+  assert.equal(parseMarkdown(withBom, { file: 'bom.md' }).children[1]!.src.start, 8);
+});
+
+test('a character reference that decodes to a line ending keeps every line of text', () => {
+  const document = parseMarkdown('a&#10;b\nc\n', { file: 'ref.md' });
+  const paragraph = document.children[0];
+  assert.equal(paragraph?.type, 'paragraph');
+  const texts = (paragraph as Paragraph).children
+    .filter((node) => node.type === 'text')
+    .map((node) => (node as { value: string }).value);
+  assert.deepEqual(texts, ['a\nb', 'c']);
+});
+
+test('a task marker with a tab inside is its own node', () => {
+  const document = parseMarkdown('- [\t] todo\n', { file: 'task.md' });
+  const item = (document.children[0] as List).children[0]!;
+  assert.equal(item.task, 'unchecked');
+  const first = (item.children[0] as Paragraph).children[0]!;
+  assert.equal(first.type, 'taskMarker');
+  assert.deepEqual([first.src.start, first.src.end], [2, 5]);
+});
+
+test('decodeWithOffsets decodes exactly as TextDecoder and charges each replacement its own bytes', () => {
+  const lossy = new TextDecoder('utf-8', { ignoreBOM: true });
+  const pool = [0x41, 0x0a, 0xc3, 0xa9, 0xe2, 0x82, 0xac, 0xf0, 0x9f, 0x98, 0x80, 0xff, 0x80, 0xed, 0xa0, 0xe0, 0xf4, 0x90, 0xc0];
+  let seed = 7;
+  const next = (): number => (seed = (seed * 1103515245 + 12345) & 0x7fffffff);
+  for (let n = 0; n < 5000; n++) {
+    const bytes = new Uint8Array(1 + (n % 10)).map(() => pool[next() % pool.length]!);
+    const { text, offsets } = decodeWithOffsets(bytes);
+    assert.equal(text, lossy.decode(bytes), `decode of [${[...bytes]}]`);
+    assert.equal(offsets.byteLength, bytes.length);
+    assert.equal(offsets.at(text.length), bytes.length);
+    for (let i = 1; i <= text.length; i++) assert.ok(offsets.at(i) >= offsets.at(i - 1), `monotone at ${i} of [${[...bytes]}]`);
+  }
 });

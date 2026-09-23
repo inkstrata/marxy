@@ -89,7 +89,8 @@ test('app.ts attach() does not pass hyphenate or hanging, and no other argument 
   assert.match(opts, /\blineBox\b/);
   assert.match(opts, /glueStretchEm:\s*0\.6/);
   assert.match(opts, /lastLineMinWidth:\s*0\.33/);
-  assert.match(opts, /onPass:\s*\(\)\s*=>\s*snap\(article\)/);
+  // Background idle batches are coalesced; a pass the reader can see is snapped at once (MARXY-198).
+  assert.match(opts, /onPass:\s*\(kind\)\s*=>\s*\(kind === 'background' \? scheduleSnap\(article\) : snap\(article\)\)/);
 });
 
 test('01-long-technical.md through the app ends a line on the generated hyphen, which is not selectable text', async () => {

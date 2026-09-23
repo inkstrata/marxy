@@ -38,3 +38,21 @@ test('toggle twice without edits leaves bytes identical', () => {
   assert.equal(twice.changed, false);
   assert.equal(bytesFingerprint(twice.buffer), bytesFingerprint(buffer));
 });
+
+test('an edit in a mixed-ending file changes only the edited bytes', () => {
+  const bytes = new TextEncoder().encode('# A\r\n\r\nfirst\nsecond\r\nthird\n');
+  const buffer = createBuffer('/tmp/mixed.md', bytes);
+  assert.equal(buffer.eol, 'mixed');
+  const out = leaveSourceMode(buffer, buffer.text.replace('second', 'SECOND'));
+  assert.equal(out.changed, true);
+  assert.equal(new TextDecoder().decode(out.buffer.bytes), '# A\r\n\r\nfirst\nSECOND\r\nthird\n');
+  assert.equal(out.edit.after.length, out.edit.before.length);
+  assert.ok(out.edit.range.end - out.edit.range.start < 8, 'the edit is the changed word, not the file');
+});
+
+test('an edit leaves bytes that are not UTF-8 alone', () => {
+  const bytes = new Uint8Array([0x63, 0x61, 0x66, 0xe9, 0x0a, 0x78, 0x0a]); // "caf\xe9\nx\n", Latin-1
+  const buffer = createBuffer('/tmp/latin1.md', bytes);
+  const out = leaveSourceMode(buffer, buffer.text.replace('x', 'y'));
+  assert.deepEqual([...out.buffer.bytes], [0x63, 0x61, 0x66, 0xe9, 0x0a, 0x79, 0x0a]);
+});

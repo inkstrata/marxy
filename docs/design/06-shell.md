@@ -21,10 +21,14 @@ error.rs         ShellError { code, message, path } ← std::io::ErrorKind mappi
 
 ## Commands
 
+Document bytes cross IPC as raw bodies in both directions, never as `Vec<u8>` / `number[]`: those
+serialise as a JSON array of numbers, about 3.7 bytes of JSON per byte of document, encoded on
+one side and parsed on the other (MARXY-198).
+
 | Command (TS name → Rust) | Args | Returns | Errors | Module | Story |
 | --- | --- | --- | --- | --- | --- |
-| `readFile` → `read_file` | `path` | `Vec<u8>` | not-found, permission, io | fs | done |
-| `writeFileAtomic` → `write_file_atomic` | `path, bytes` | `()` | permission, io | fs | MARXY-14 |
+| `readFile` → `read_file` | `path` | raw body (`ipc::Response`), an `ArrayBuffer` in the webview | not-found, permission, io | fs | done |
+| `writeFileAtomic` → `write_file_atomic` | raw body = bytes; header `x-marxy-path` = `encodeURIComponent(path)` | `()` | permission, io | fs | MARXY-14 |
 | `stat` | `path` | `FileStat \| null` | permission | fs | MARXY-14 |
 | `imageSize` → `image_size` | `path` | `{ width, height } \| null` | not-found | fs (`imagesize` crate, MIT) | MARXY-26 |
 | `repositoryRoot` → `repository_root` | `path` | `string \| null` | — | fs | MARXY-35 |

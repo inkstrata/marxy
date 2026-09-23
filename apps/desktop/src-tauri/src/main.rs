@@ -44,16 +44,56 @@ fn clipboard_write(
 
 /// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
 /// handling, because everything above this reads what the reader's file actually contains.
+///
+/// Returned as a raw IPC body, which the webview receives as an `ArrayBuffer`. A `Vec<u8>` would be
+/// serialised as a JSON array of numbers: about 3.7 bytes of JSON per byte of document, built here
+/// and parsed there, on the cold-start path.
 #[tauri::command]
-fn read_file(path: String) -> Result<Vec<u8>, String> {
-    std::fs::read(&path).map_err(|e| format!("{path}: {e}"))
+fn read_file(path: String) -> Result<tauri::ipc::Response, String> {
+    std::fs::read(&path)
+        .map(tauri::ipc::Response::new)
+        .map_err(|e| format!("{path}: {e}"))
 }
 
-/// Saves exactly `bytes` and nothing else about the file; see `atomic_write` for the guarantees and
-/// the cases it refuses. Checked end to end over the corpus by `pnpm gate:fidelity`.
+/// The header `write_file_atomic` reads its destination from, percent-encoded by the webview.
+const WRITE_PATH_HEADER: &str = "x-marxy-path";
+
+/// Saves exactly the request's raw body and nothing else about the file; see `atomic_write` for the
+/// guarantees and the cases it refuses. The bytes arrive as a raw body, not a JSON array of numbers,
+/// and the path in `x-marxy-path`. Checked end to end over the corpus by `pnpm gate:fidelity`.
 #[tauri::command]
-fn write_file_atomic(path: String, bytes: Vec<u8>) -> Result<(), String> {
-    atomic_write::write_atomic(std::path::Path::new(&path), &bytes)
+fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("write_file_atomic: expected the document's bytes as a raw body".into());
+    };
+    let encoded = request
+        .headers()
+        .get(WRITE_PATH_HEADER)
+        .ok_or_else(|| format!("write_file_atomic: missing {WRITE_PATH_HEADER}"))?
+        .to_str()
+        .map_err(|e| format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}"))?;
+    let path = percent_decode(encoded)?;
+    atomic_write::write_atomic(std::path::Path::new(&path), bytes)
+}
+
+/// Decodes `encodeURIComponent` output: `%XX` escapes back to bytes, then UTF-8.
+fn percent_decode(encoded: &str) -> Result<String, String> {
+    let bytes = encoded.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = encoded
+                .get(i + 1..i + 3)
+                .ok_or_else(|| format!("bad escape in {encoded}"))?;
+            out.push(u8::from_str_radix(hex, 16).map_err(|_| format!("bad escape in {encoded}"))?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).map_err(|e| format!("path is not UTF-8: {e}"))
 }
 
 /// Prints `MARK <name> <epoch ms>` and, only when there is any, a trailing detail field.
@@ -297,4 +337,24 @@ fn main() {
             #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
             let _ = (app, event);
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::percent_decode;
+
+    #[test]
+    fn percent_decode_undoes_encode_uri_component() {
+        // encodeURIComponent("/Users/a b/résumé #1.md")
+        assert_eq!(
+            percent_decode("%2FUsers%2Fa%20b%2Fr%C3%A9sum%C3%A9%20%231.md").unwrap(),
+            "/Users/a b/résumé #1.md"
+        );
+        assert!(percent_decode("%zz").is_err());
+        assert!(percent_decode("%2").is_err());
+        assert!(
+            percent_decode("%FF").is_err(),
+            "a path that is not UTF-8 is refused, not guessed at"
+        );
+    }
 }

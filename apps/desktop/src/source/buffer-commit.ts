@@ -1,15 +1,11 @@
 // Folding Source mode edits back into the buffer (§01 fromText, §09 unchanged → keep bytes).
 
-import type { Source } from '@marxy/core';
-import { type Buffer, type Edit, contentHash, fromText } from '@marxy/core';
-
-export type LeaveSourceNotice = { readonly kind: 'mixed-to-lf'; readonly message: string };
+import { type Buffer, type Edit, contentHash, foldText, splice } from '@marxy/core';
 
 export interface LeaveSourceResult {
   readonly buffer: Buffer;
   readonly changed: boolean;
-  readonly notice: LeaveSourceNotice | null;
-  /** When `changed`, one edit covering the whole document for `History.push`. */
+  /** When `changed`, the one edit — the bytes of what differs, not the whole file — for `History.push`. */
   readonly edit: Edit | null;
 }
 
@@ -19,29 +15,19 @@ export function cmDocText(buffer: Buffer): string {
 }
 
 /**
- * Leaving Source: unchanged text keeps the original bytes; otherwise `fromText` and one history edit.
+ * Leaving Source: unchanged text keeps the original bytes; otherwise one splice over the part that
+ * changed, so every byte outside it — a mixed file's line endings, a byte that is not UTF-8 — stays.
  */
 export function leaveSourceMode(buffer: Buffer, docText: string): LeaveSourceResult {
-  const prior = cmDocText(buffer);
-  if (docText === prior) {
-    return { buffer, changed: false, notice: null, edit: null };
-  }
-  const wasMixed = buffer.eol === 'mixed';
-  const next = fromText(buffer.path, docText, buffer);
-  const range: Source = { file: buffer.path, start: 0, end: buffer.bytes.length };
+  const fold = foldText(buffer, docText);
+  if (fold === null) return { buffer, changed: false, edit: null };
   const edit: Edit = {
-    range,
-    before: buffer.bytes,
-    after: next.bytes,
+    range: fold.range,
+    before: buffer.bytes.slice(fold.range.start, fold.range.end),
+    after: fold.replacement,
     label: 'edit in Source',
   };
-  const notice: LeaveSourceNotice | null = wasMixed
-    ? {
-        kind: 'mixed-to-lf',
-        message: 'Line endings were mixed; editing in Source normalised the file to LF.',
-      }
-    : null;
-  return { buffer: next, changed: true, notice, edit };
+  return { buffer: splice(buffer, fold.range, fold.replacement), changed: true, edit };
 }
 
 /** True when every line ending in `bytes` is CRLF (ignoring a UTF-8 BOM). */
