@@ -60,7 +60,9 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
   docs/plan/tasks, docs/plan/deltas"
   --acceptance "…"` rather than `git worktree add` by hand, so the landing key has a row and the
   cycle adopts and lands the PR. Never write a "land the path widening" story: a story widens its
-  own Paths in its own PR, where the reviewer sees it.
+  own Paths in its own PR, where the reviewer sees it. Once that PR merges, the cycle records
+  `lastPlan`/`mergesAtLastPlan` itself, because your diff adds a file under `docs/plan/deltas/`
+  (MARXY-200) — do not tell a human to run `state.mjs planned` by hand in your delta or summary.
 - Keep the mechanism-over-catalogue bias: prefer one story that proves a mechanism to four
   that add content.
 - Do not touch `packages/*/src/contracts/**` yourself; write the story and the ADR.

@@ -48,7 +48,14 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    `state.mjs done KEY`, which moves the Jira issue too. Nobody runs `gh pr merge` by hand.
 5. `node orchestration/planner-trigger.mjs` — says whether to invoke the planner now
    (every 5 merges, any story at 2 failures, a phase boundary, a tripwire in `docs/roadmap.md`,
-   or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`.
+   or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`. Only two of
+   those reasons — the plan was never run, or an escalation the planner has not yet read — hold
+   dispatch; the rest (merge count, weekly age, ops-majority) name the planner as due without
+   stopping ready stories from starting, since a planner pass can take hours (MARXY-200). A merge
+   whose diff adds a file under `docs/plan/deltas/` — the planner's own PR — self-records: the
+   cycle stamps `lastPlan`/`mergesAtLastPlan` and excludes that merge from the ops-window count,
+   so nobody has to run `state.mjs planned` by hand and a run of plan/board-sync landings cannot
+   make the trigger fire on its own output.
 6. Anything only a person can do goes in `needs-human.md`; the orchestrator continues with
    other stories and re-checks the file each cycle. When nothing is ready and nothing is in
    progress, write a status report to `orchestration/status.md` and stop.
@@ -72,7 +79,8 @@ modes: `node orchestration/cycle.mjs` mirrors the board into Jira, reads GitHub 
 list` calls, `github.mjs`, where it used to make three calls per open PR plus one per worktree),
 adopts open PRs the board does not know are in review, merges the pull requests that are provably
 finished, names what should start next (dispatching headlessly if `cursor-agent` is
-on PATH), asks whether the planner is due, and writes `status.md`. It is idempotent, so
+on PATH), asks whether the planner is due (starting it headlessly when it is, same as implementor
+dispatch), and writes `status.md`. It is idempotent, so
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
 `--no-merge` to decide without landing anything, `--dry-run` to change nothing anywhere (Jira
 included), `--low` or `--minimal` to spend less.

@@ -217,7 +217,7 @@ head, so it cannot starve by being returned.
 | When | What |
 | --- | --- |
 | every cycle | `needs-human.md` read, board pushed, status report written |
-| every 5 merges, any second failure, weekly, or a phase boundary | the planner runs (`planner-trigger.mjs` decides) |
+| every 5 merges, any second failure, weekly, or a phase boundary | the planner runs (`planner-trigger.mjs` decides). Only "never planned" or an unread escalation holds dispatch meanwhile; the others just name it due (MARXY-200). When `cursor-agent` is on PATH, the cycle starts the planner headlessly like implementors; otherwise it only names it due. A merge whose diff adds under `docs/plan/deltas/` self-records (`lastPlan` / `mergesAtLastPlan` via `state.mjs plan-landed`) — nobody runs `state.mjs planned` by hand after a plan PR lands |
 | end of each phase | taste review from `docs/taste-review/queue.md`, then the release |
 | never | a status meeting, an estimate, a burndown chart |
 
