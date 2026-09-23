@@ -153,6 +153,37 @@ list; a missing clause is the printed hold reason.
 
 Every approval run ends with `node orchestration/readiness.mjs`: one row per open pull request, in the review/merge order, with CI, mergeability, approval, who it waits on, and what happens next.
 
+## Work outside the plan — one pull request
+
+Anything that is not a planned story — a fix found in passing, a tooling change, a planner's
+landing PR — is still **one issue, one branch, one PR**, and it lands through the same cycle and
+the same bar as a story. It used to take up to three PRs and a hand merge: a bare Jira Task had
+no board row, so the cycle could not see its PR, `state.mjs` refused the key, the merge bar had
+no paths to judge it by, and a placeholder key or a path widening each needed a PR of its own.
+Now the change carries its own row.
+
+```sh
+node orchestration/out-of-plan.mjs start "Fix the thing" --type fix \
+  --paths "orchestration/thing.mjs, orchestration/thing.test.mjs" \
+  --acceptance "1. thing.test.mjs covers the case; 2. …"   # Jira Task + ../marxy-wt/KEY + its own row
+# …work in ../marxy-wt/KEY; a CHANGELOG line ending (KEY); commit subjects end in (KEY)
+pnpm done KEY                    # boundary (strict), precheck, drafts results/KEY.pr.md
+pnpm done KEY --open             # pushes, opens the PR, links it in Jira
+```
+
+- **The row travels in the PR.** `out-of-plan.mjs` writes the key's CSV row
+  (`ops,out-of-plan,no-dispatch`, or `phase-N,…` with `--phase`) and its `deps.json` entry in the
+  branch; `no-dispatch` keeps an implementor off work that is already being done. A branch that
+  already exists gets its row with `out-of-plan.mjs row KEY --paths … --acceptance …`.
+- **The cycle adopts and lands it** (merge bar clause 6): no hand merge, no `state.mjs` call.
+- **A story may widen its own `Paths` in its own PR**, where the review packet and the cycle say
+  so out loud; implementors still report `blocked` instead.
+- **Placeholders never reach `main`.** A planner drafts new rows as `MARXY-NEW-<slug>` and runs
+  `node orchestration/jira.mjs sync --new` in its own worktree before opening the PR: it creates
+  the issues, rewrites every placeholder to its real key and renames the task cards.
+  `check-cards` fails any placeholder left on a branch. If the PR is abandoned, close the issues
+  it created.
+
 ## Review order and the review WIP limit
 
 Review, not implementation, is the constraint. The printable order is computed by

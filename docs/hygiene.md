@@ -13,8 +13,12 @@ pnpm new module core buffer            # start a unit in the house shape (also: 
 pnpm precheck                          # typecheck/lint/test for what you touched + the gates your paths need
 pnpm done MARXY-nn                     # boundary over the whole branch, precheck, a drafted PR body, the result file
 …fill the TODOs in results/MARXY-nn.pr.md…
-node scripts/open-pr.mjs MARXY-nn      # check-pr on that file, then gh pr create --body-file; never --body
+pnpm done MARXY-nn --open              # push, check-pr, gh pr create --body-file (never --body), link Jira
 ```
+
+Work that is not a planned story starts with `node orchestration/out-of-plan.mjs start "summary"
+--paths "…" --acceptance "…"` instead of a hand-made branch: key, worktree and its own board row
+in one step, then the same commands (`docs/sdlc.md` "Work outside the plan").
 
 If `pnpm done` is green and `open-pr` is green, the reviewer only has judgement left to do. `gh pr create --body` is how the house template gets replaced by Summary / Why / Test plan; the wrapper will not do that.
 
@@ -56,6 +60,7 @@ Before merge when you changed shell, paint, or CLI paths, run
   `deps.json` entry — never another story's. The branch is judged by its own row as it leaves it,
   so out-of-plan work brings its row and a story may widen its own Paths where the reviewer sees
   it (`scripts/lib/own-row.mjs`, shared by `check-story` and the cycle's merge bar).
+- No `MARXY-NEW-` placeholder on a branch: `check-cards` fails it; `jira.mjs sync --new` resolves it.
 - Frozen: byte-pinned contracts under `packages/*/src/contracts/` and `packages/shell-api/src/`, name-and-unit contract for `packages/theme/src/tokens.css`.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.

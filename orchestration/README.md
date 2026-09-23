@@ -77,6 +77,10 @@ on PATH), asks whether the planner is due, and writes `status.md`. It is idempot
 `--no-merge` to decide without landing anything, `--dry-run` to change nothing anywhere (Jira
 included), `--low` or `--minimal` to spend less.
 
+Out-of-plan work is one PR, not a side channel: `out-of-plan.mjs start` gives it a key, a worktree
+and its own board row, the cycle adopts its PR, and the merge bar judges it by that row. The
+protocol is `docs/sdlc.md` "Work outside the plan".
+
 The cycle acts on the computed review order (`review-order.mjs`, ADR-0025). It calls
 `gh pr update-branch` on **at most one** pull request per cycle — the first order entry
 that is BEHIND — and every other BEHIND pull request prints
@@ -145,7 +149,8 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
 | --- | --- |
 | `models.json` | model id and effort per role, plus `default` / `low` / `minimal` compute profiles; `lanes` (dispatch, stays null) and `reviewLanes` (In Review cap, 4) |
 | `lib.mjs` | shared helpers; run it to print the resolved compute roles |
-| `jira.mjs` | the Jira bridge: `doctor`, `sync`, `push`, `move`, `pr`, `release`, `bootstrap` |
+| `jira.mjs` | the Jira bridge: `doctor`, `sync` (`--new`: only placeholder rows, run before a planner PR opens), `push`, `move`, `pr`, `task`, `release`, `bootstrap` |
+| `out-of-plan.mjs` | `start` (Jira Task + worktree + the change's own row) and `row` (a row for an existing branch) |
 | `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |
 | `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
 | `deps.json` | story dependencies (the CSV has none) and phase membership |

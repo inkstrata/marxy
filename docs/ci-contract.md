@@ -90,7 +90,7 @@ that does not match `package.json` fails every one of them before a single test 
 | `golden/baseline files changed but docs/taste-review/queue.md did not` | baselines moved with no human queue row | add the before/after row; a baseline change is a human-visible event |
 | `the body carries an AI attribution line` | attribution in the PR body | remove it — the commit-msg hook cannot see the PR body |
 | story boundary failure | a file outside the story's `Paths` | split it out, or widen your own row's `Paths` in `docs/plan/jira-issues.csv` **and** the task card together, in this branch — the reviewer is told and decides (implementors report `blocked` instead) |
-| `MARXY-n has no row in docs/plan/jira-issues.csv on main or in this branch` | work that is not a planned story, without its board row | add the row and a `deps.json` entry for your key in this branch (`docs/sdlc.md`) |
+| `MARXY-n has no row in docs/plan/jira-issues.csv on main or in this branch` | work that is not a planned story, without its board row | `node orchestration/out-of-plan.mjs row MARXY-n --paths "…" --acceptance "…"` in the branch; next time start with `out-of-plan.mjs start` (`docs/sdlc.md` "Work outside the plan") |
 | `… changes other stories' board entries (MARXY-…)` | a branch edited a row or `deps.json` entry that is not its own | move those edits to a planner PR whose `Paths` list the board files |
 
 Allowed outside a story's paths without widening anything: `CHANGELOG.md`,
@@ -112,6 +112,7 @@ cannot pass `--strict`.**
 | `calls the Tauri IPC function directly` | raw `invoke(` outside `src/shell` | add a method to `src/shell/tauri.ts` and call that |
 | registry failure | a new mark, event, data attribute, class or token name | add it to `scripts/registry.json` first; names are the registry's, not yours |
 | innerHTML route failure | parsed markup entering the DOM off-path | only paths in `innerHtmlAllowedIn` may; every route is matched, not just `.innerHTML =` |
+| `MARXY-NEW-… is a placeholder key` | a planner branch still carries a draft key | `node orchestration/jira.mjs sync --new` in the branch: creates the issues, rewrites the keys, renames the cards |
 | `check:deps` failure | a dependency missing from the allowlist, unpinned, or forbidden | add it to `scripts/allowlists/dependencies.json` with a pin, or do not add it |
 | `check:workflows` failure | a GitHub Action not on the accepted list | a third-party action runs with our token on the machine that builds what we ship; justify and add it deliberately |
 | `noUnusedImports` | an unused import | remove it; do not add a biome override |

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cardsAndRows, csvRowProblems, loadBoardInput } from './check-cards.mjs';
+import { cardsAndRows, csvRowProblems, loadBoardInput, placeholderProblems } from './check-cards.mjs';
 import { fail } from './lib/repo.mjs';
 
 const ROOT = process.cwd();
@@ -76,4 +76,15 @@ test('the committed tree passes check-cards', () => {
 test('loadBoardInput covers every task card on disk', () => {
   const { cards } = loadBoardInput();
   assert.ok(cards['MARXY-126']);
+});
+
+test('a placeholder key anywhere on the board fails with the command that resolves it', () => {
+  const problems = placeholderProblems({
+    rows: { 'MARXY-NEW-a': {}, 'MARXY-2': {} },
+    cards: { 'MARXY-NEW-b': { depends: [], files: [] } },
+    deps: { phases: { ops: ['MARXY-NEW-c'] }, deps: {} },
+  });
+  assert.equal(problems.length, 3);
+  assert.ok(problems.every(p => /jira\.mjs sync --new/.test(p)));
+  assert.deepEqual(placeholderProblems({ rows: { 'MARXY-2': {} }, cards: {}, deps: { phases: {}, deps: {} } }), []);
 });

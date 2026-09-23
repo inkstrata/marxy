@@ -26,8 +26,15 @@ text, not as API responses.
 - **Acceptance criteria** are machine-checkable; each maps to a test or gate in the PR.
 - **Paths** lists the directories the branch may touch (ADR-0017). One agent per story.
 - **Labels**: `phase-0..4`, `typography`, `speed`, `security`, `agent-loop`, `release`,
-  `research`, `human-gated`; `blocked` and `escalated` are applied by the orchestrator.
+  `research`, `human-gated`, `out-of-plan`, `no-dispatch` (the row arrived with its own PR; never
+  dispatched, recorded Done when that PR merges); `blocked` and `escalated` are applied by the
+  orchestrator.
 - **Key ordering** follows the plan: epics and stories were imported in plan order, so
   MARXY-4 is the Phase 0 epic and MARXY-5 its first story.
-- A story the planner adds arrives with a placeholder key (`MARXY-NEW-<slug>`); `jira.mjs sync`
-  creates the issue and rewrites the placeholder to the key Jira assigned.
+- A story the planner adds is drafted with a placeholder key (`MARXY-NEW-<slug>`);
+  `jira.mjs sync --new`, run in the planner's branch before its PR opens, creates the issue,
+  rewrites the placeholder to the key Jira assigned and renames the task card. No placeholder
+  reaches `main` (`check-cards` fails one).
+- Out-of-plan work carries its own row (`ops,out-of-plan,no-dispatch`), written by `orchestration/out-of-plan.mjs`
+  in the same PR as the work; a branch may edit its own row and never another's
+  (`docs/sdlc.md` "Work outside the plan").
