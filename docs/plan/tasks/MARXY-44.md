@@ -1,12 +1,12 @@
 ---
 key: MARXY-44
 design: [13-trust, 09-app-shell, 11-config-and-storage, 08-position-and-watching]
-depends: [MARXY-96, MARXY-138, MARXY-42, MARXY-38]
+depends: [MARXY-96, MARXY-138, MARXY-42, MARXY-38, MARXY-198]
 verify: [pnpm precheck, pnpm done MARXY-44]
 ---
 # MARXY-44 — Per-document opt-in that widens the allow-list, with a discoverable notice
 
-**Design:** [13-trust](../../design/13-trust.md) §The unclosed-element case, §Persistence, §The notice, §Revoking · [09-app-shell](../../design/09-app-shell.md) §Notices · [11-config-and-storage](../../design/11-config-and-storage.md) §Data files · [08-position-and-watching](../../design/08-position-and-watching.md) (re-render keeps position) · **Depends on:** MARXY-96 (core), MARXY-26 (notices region and the blocked-content notice it starts), MARXY-42 (command registry), MARXY-38 (data-file storage helpers) · **ADRs:** ADR-0009, ADR-0027.
+**Design:** [13-trust](../../design/13-trust.md) §The unclosed-element case, §Persistence, §The notice, §Revoking · [09-app-shell](../../design/09-app-shell.md) §Notices · [11-config-and-storage](../../design/11-config-and-storage.md) §Data files · [08-position-and-watching](../../design/08-position-and-watching.md) (re-render keeps position) · **Depends on:** MARXY-96 (core), MARXY-26 (notices region and the blocked-content notice it starts), MARXY-42 (command registry), MARXY-38 (data-file storage helpers), MARXY-198 (rewrites `app.ts`'s open path — the render call this story hooks is `rerenderFromBuffer` / `openReplacing` after it lands; rebase on it, never re-implement it) · **ADRs:** ADR-0009, ADR-0027. · **Sequencing:** labelled `cross-phase` (delta 2026-09-23) so it dispatches while the Phase 2 wiring tail (MARXY-193 to 196) is still open; `ready.mjs` still holds it by path against any of them In Progress.
 
 **Outcome.** `02-readme-real-world.md` opens with one quiet line saying what was simplified and which image hosts were not contacted. "Show this document's HTML" re-renders it with `<details>`, centred title blocks and sized images, still sanitised, and Marxy remembers the choice for that file. A document cut short by an unclosed `<script>` says so instead of looking short. Images from hosts still need their own grant (MARXY-97); this story records host grants in the store and offers the action, but fetching is that story's.
 

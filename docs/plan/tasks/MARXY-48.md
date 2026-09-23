@@ -1,12 +1,12 @@
 ---
 key: MARXY-48
 design: [09-app-shell, 03-selection-and-operations, 08-position-and-watching, 06-shell]
-depends: [MARXY-42, MARXY-38, MARXY-23, MARXY-95]
+depends: [MARXY-42, MARXY-38, MARXY-23, MARXY-95, MARXY-198]
 verify: [pnpm precheck, pnpm done MARXY-48]
 ---
 # MARXY-48 — Outline, find at the reading position, keyboard completeness, open in external editor
 
-**Design:** [09-app-shell](../../design/09-app-shell.md) §Outline, §Find, §Open in external editor, §Keyboard completeness · [03-selection-and-operations](../../design/03-selection-and-operations.md) §The command registry (sections) · [08-position-and-watching](../../design/08-position-and-watching.md) (reading line) · [06-shell](../../design/06-shell.md) `revealInExternalEditor` · **Depends on:** MARXY-42 (registry), MARXY-38 (position), MARXY-23 (typesetter split records, which find must stay in sync with), MARXY-95 · **ADRs:** ADR-0011, ADR-0018.
+**Design:** [09-app-shell](../../design/09-app-shell.md) §Outline, §Find, §Open in external editor, §Keyboard completeness · [03-selection-and-operations](../../design/03-selection-and-operations.md) §The command registry (sections) · [08-position-and-watching](../../design/08-position-and-watching.md) (reading line) · [06-shell](../../design/06-shell.md) `revealInExternalEditor` · **Depends on:** MARXY-42 (registry), MARXY-38 (position), MARXY-23 (typesetter split records, which find must stay in sync with), MARXY-95, MARXY-198 (changes `main.rs`'s command list, `shell/tauri.ts` and the palette; rebase on it) · **ADRs:** ADR-0011, ADR-0018. · **Sequencing:** labelled `cross-phase` (delta 2026-09-23) so it dispatches while the Phase 2 wiring tail (MARXY-193 to 196) is still open; `ready.mjs` still holds it by path against MARXY-194/196 (`src-tauri/src`, `palette/`) while either is In Progress.
 
 **Outcome.** `Mod+Shift+O` shows the headings and follows the reader as they scroll; `Enter` lands a section at the reading line. `Mod+F` finds text even across smart quotes and the typesetter's line breaks and puts each match where the eye already is. Every action works from the keyboard, proven by a test over the command list. `Mod+Shift+E` opens the file in the reader's editor at the line they are reading.
 

@@ -6,7 +6,7 @@ verify: [pnpm precheck, pnpm done MARXY-43]
 ---
 # MARXY-43 — Operations: toggle task item and align table pipes
 
-**Design:** [03-selection-and-operations](../../design/03-selection-and-operations.md) §`toggle-task`, §`align-table-pipes`, §Applying an operation · [01-buffer](../../design/01-buffer.md) §Undo, §Line endings · [02-render](../../design/02-render.md) post-pass 7 · **Depends on:** MARXY-42 (registry and `apply`) · **ADRs:** ADR-0004.
+**Design:** [03-selection-and-operations](../../design/03-selection-and-operations.md) §`toggle-task`, §`align-table-pipes`, §Applying an operation · [01-buffer](../../design/01-buffer.md) §Undo, §Line endings · [02-render](../../design/02-render.md) post-pass 7 · **Depends on:** MARXY-42 (registry and `apply`) · **ADRs:** ADR-0004. · **Sequencing:** labelled `cross-phase` (delta 2026-09-23) so it dispatches while the Phase 2 wiring tail (MARXY-193 to 196) is open. The author's MARXY-198 branch edits `packages/core/src/operations/copy-section.ts` and `operations.test.ts`; if its PR is open when you start, rebase on it before touching `operations.test.ts`.
 
 **Outcome.** Clicking a task checkbox rewrites only its three marker bytes and the document re-renders in place; "Align table" in the palette lines up a table's pipes and says what it did. `Mod+Z` undoes either in one step. The buffer is now dirty (`state.dirty`); the title indicator and saving are MARXY-49.
 
