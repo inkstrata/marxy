@@ -53,12 +53,20 @@ export function buildAppContext(): AppContext | null {
   };
 }
 
+/** Text fields (the palette query, find, Source mode) keep their own copy and editing keys. */
+function inEditable(event: KeyboardEvent): boolean {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || target.closest('input, textarea, select') !== null;
+}
+
 let keysInstalled = false;
 
 export function installCommandKeys(): void {
   if (keysInstalled || typeof document === 'undefined') return;
   keysInstalled = true;
   document.addEventListener('keydown', (event) => {
+    if (inEditable(event)) return;
     if (event.key === 'c' || event.key === 'C') {
       if ((isMac() ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey) {
         const appCtx = buildAppContext();

@@ -129,6 +129,31 @@ test('Mod+C on a code block copies plain source without fences or highlight mark
   }
 });
 
+test('Mod+C in the palette query copies the query text, not the selected section', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    await page.locator('#doc h2').filter({ hasText: 'Install' }).click();
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyP`);
+    const query = page.locator('#marxy-palette .marxy-palette-query');
+    await query.fill('install');
+    await query.selectText();
+    await page.keyboard.press(`${mod}+KeyC`);
+    const copies = await page.evaluate(() =>
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+    );
+    assert.equal(copies.length, 0);
+    const kind = await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind);
+    assert.notEqual(kind, 'none', 'the article selection survives copying in the query');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('palette lists no copy operations for a paragraph selection', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
