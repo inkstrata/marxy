@@ -12,6 +12,23 @@ function isWholeDocument(input: Omit<OperationInput, 'text'>, doc: Document): bo
   );
 }
 
+/**
+ * The section as a document of the open document's own blocks. Its links were resolved against the
+ * whole file, so a `[text][ref]` whose definition sits elsewhere stays a link; a re-parse of the
+ * section alone would turn it back into brackets. A range that cuts through a top-level block is
+ * re-parsed on its own, which is the best that text can do.
+ */
+function sectionOf(input: OperationInput): Document {
+  const { document, range } = input;
+  const inside = document.children.filter((block) => block.src.start >= range.start && block.src.end <= range.end);
+  const covered = inside.length > 0 && document.children.every(
+    (block) => inside.includes(block) || block.src.end <= range.start || block.src.start >= range.end,
+  );
+  if (covered) return { ...document, src: range, children: inside };
+  const clipText = input.text.replace(/\s+$/, '') + '\n';
+  return parseMarkdown(new TextEncoder().encode(clipText), { file: document.path });
+}
+
 /** Copy section. Pure: text in, text out; never touches bytes outside input.range. */
 export const copySection: Operation = {
   id: 'copy-section',
@@ -23,8 +40,7 @@ export const copySection: Operation = {
   },
   run(input: OperationInput): OperationResult {
     const clipText = input.text.replace(/\s+$/, '') + '\n';
-    const parsed = parseMarkdown(new TextEncoder().encode(clipText), { file: input.document.path });
-    let html = renderDocumentSafeHtml(parsed).html;
+    let html = renderDocumentSafeHtml(sectionOf(input)).html;
     html = html.replace(/\sdata-marxy-[a-z0-9-]+="[^"]*"/gi, '');
     html = html.replace(/<script\b[\s\S]*?<\/script>/gi, '');
     return {

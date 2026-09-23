@@ -9,6 +9,7 @@ import type {
 import type { ByteOffsets } from './byte-offsets.ts';
 import { LINE_ENDING, LINE_ENDINGS, nextLineEnding, splitLines } from './line-endings.ts';
 import type * as md from 'mdast';
+import { decodeString } from 'micromark-util-decode-string';
 
 export interface ConvertContext {
   /** Absolute path, or a stable identifier for an untitled buffer. */
@@ -168,7 +169,7 @@ function attachTaskMarker(children: Block[], node: md.ListItem, ctx: Ctx): Block
   const [itemStart] = utf16Range(node, ctx);
   const paragraphStartUtf16 = node.children[0]?.position?.start.offset ?? itemStart;
   const prefix = ctx.text.slice(itemStart, paragraphStartUtf16);
-  const markerIndex = prefix.search(/\[[ xX]\]/);
+  const markerIndex = prefix.search(/\[[ \txX]\]/);
   if (markerIndex < 0) return children;
   const markerStart = itemStart + markerIndex;
   const marker: Inline = {
@@ -321,13 +322,19 @@ function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
   }
   // All three CommonMark line endings split a line: a file written with CR alone gets soft-break nodes
   // like any other, rather than carrying a CR inside a text node's value.
+  // The value's lines line up with the source's unless a character reference (`&#10;`) decoded to a
+  // line ending that is not one in the source. Then each source line is decoded on its own, rather
+  // than handing one line the next line's value and dropping the last.
   const values = node.value.split(LINE_ENDINGS);
+  const aligned = values.length === raw.split(LINE_ENDINGS).length;
+  const valueOf = (line: number, from: number, to: number): string =>
+    aligned ? (values[line] ?? '') : decodeString(raw.slice(from, to));
   const out: Inline[] = [];
   let cursor = 0; // index into `raw`
-  for (let line = 0; line < values.length; line++) {
-    const value = values[line] ?? '';
+  for (let line = 0; ; line++) {
     const ending = nextLineEnding(raw, cursor);
-    if (ending === undefined || line === values.length - 1) {
+    if (ending === undefined) {
+      const value = valueOf(line, cursor, raw.length);
       if (raw.length > cursor && value.length > 0) {
         out.push({ type: 'text', src: span(start + cursor, start + raw.length, ctx), value });
       }
@@ -335,6 +342,7 @@ function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
     }
     let textEnd = ending.start;
     while (textEnd > cursor && (raw[textEnd - 1] === ' ' || raw[textEnd - 1] === '\t')) textEnd--;
+    const value = valueOf(line, cursor, textEnd);
     if (textEnd > cursor && value.length > 0) {
       out.push({ type: 'text', src: span(start + cursor, start + textEnd, ctx), value });
     }

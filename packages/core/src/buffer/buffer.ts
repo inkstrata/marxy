@@ -2,14 +2,10 @@
 // Splice concatenates; nothing here re-serialises or normalises the file.
 
 import type { Source } from '../contracts/ast.ts';
-import { byteOffsets, type ByteOffsets } from '../parse/byte-offsets.ts';
+import { decodeWithOffsets, type ByteOffsets } from '../parse/byte-offsets.ts';
 
 const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
 const encoder = new TextEncoder();
-
-const FNV_OFFSET = 0xcbf29ce484222325n;
-const FNV_PRIME = 0x100000001b3n;
-const FNV_MASK = 0xffffffffffffffffn;
 
 const utf16Cache = new WeakMap<object, Uint32Array>();
 
@@ -67,11 +63,56 @@ export function splice(
  * into the buffer — the file's convention, not the editor's, wins.
  */
 export function fromText(path: string, text: string, like: Buffer): Buffer {
-  const eol = eolString(like);
-  let next = text.replace(/\r\n|\n/g, eol);
-  if (like.bom && !next.startsWith('\uFEFF')) next = `\uFEFF${next}`;
-  return createBuffer(path, encoder.encode(next));
+  const fold = foldText(like, text);
+  if (fold === null) return makeBuffer(path, new Uint8Array(like.bytes), 0);
+  const { range, replacement } = fold;
+  const { bytes } = like;
+  const next = new Uint8Array(range.start + replacement.length + (bytes.length - range.end));
+  next.set(bytes.subarray(0, range.start), 0);
+  next.set(replacement, range.start);
+  next.set(bytes.subarray(range.end), range.start + replacement.length);
+  return makeBuffer(path, next, 0);
 }
+
+/**
+ * The one splice that turns `like` into the editor's `text` (which carries no BOM): the bytes of the
+ * part that differs, and nothing else. Everything before and after the edit keeps its bytes as they
+ * were — a mixed-ending file keeps each line's ending and a byte that is not UTF-8 is not rewritten
+ * as U+FFFD — so an edit in Source touches only what the reader changed. Inside the edit, line endings
+ * follow the file (CRLF for a CRLF file). `null` when nothing differs.
+ */
+export function foldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null {
+  const skip = like.bom ? 1 : 0;
+  const old = like.text;
+  const oldLength = old.length - skip;
+  const limit = Math.min(oldLength, text.length);
+  let prefix = 0;
+  while (prefix < limit && old.charCodeAt(skip + prefix) === text.charCodeAt(prefix)) prefix++;
+  if (prefix === oldLength && prefix === text.length) return null;
+  let suffix = 0;
+  while (
+    suffix < limit - prefix &&
+    old.charCodeAt(old.length - 1 - suffix) === text.charCodeAt(text.length - 1 - suffix)
+  ) {
+    suffix++;
+  }
+  // Never cut a surrogate pair or a CRLF: the edit widens to take the whole of either.
+  const cuts = (at: number): boolean =>
+    at > 0 &&
+    at < text.length &&
+    ((isHigh(text.charCodeAt(at - 1)) && isLow(text.charCodeAt(at))) || (text[at - 1] === '\r' && text[at] === '\n'));
+  while (prefix > 0 && cuts(prefix)) prefix--;
+  while (suffix > 0 && cuts(text.length - suffix)) suffix--;
+  const middle = text.slice(prefix, text.length - suffix);
+  const converted = like.eol === 'crlf' ? middle.replace(/\r\n|\n/g, '\r\n') : middle;
+  return {
+    range: { file: like.path, start: like.offsets.at(skip + prefix), end: like.offsets.at(old.length - suffix) },
+    replacement: encoder.encode(converted),
+  };
+}
+
+const isHigh = (code: number): boolean => code >= 0xd800 && code < 0xdc00;
+const isLow = (code: number): boolean => code >= 0xdc00 && code < 0xe000;
 
 /** CodeMirror's UTF-16 offset for `byte`. ASCII is identity; otherwise a cached inverse table. */
 export function byteToUtf16(buffer: Buffer, byte: number): number {
@@ -93,12 +134,26 @@ export function utf16ToByte(buffer: Buffer, cu: number): number {
 
 /** FNV-1a 64 of `bytes` as 16 lowercase hex chars. Empty input is the offset basis. */
 export function contentHash(bytes: Uint8Array): string {
-  let hash = FNV_OFFSET;
-  for (const octet of bytes) {
-    hash ^= BigInt(octet);
-    hash = (hash * FNV_PRIME) & FNV_MASK;
+  // The 64-bit state in four 16-bit limbs, so the loop does small-integer arithmetic and allocates
+  // nothing (a BigInt per byte cost ~24 ms a megabyte). The prime is 2^40 + 0x1b3.
+  let h0 = 0x2325;
+  let h1 = 0x8422;
+  let h2 = 0x9ce4;
+  let h3 = 0xcbf2;
+  for (let i = 0; i < bytes.length; i++) {
+    h0 ^= bytes[i]!;
+    const t0 = h0 * 0x1b3;
+    const t1 = h1 * 0x1b3 + (t0 >>> 16);
+    // h << 40 lands h0 eight bits into the third limb and h1 eight bits into the fourth; h2 and h3
+    // shift past bit 64 and drop.
+    const t2 = h2 * 0x1b3 + (t1 >>> 16) + (h0 << 8);
+    const t3 = h3 * 0x1b3 + (t2 >>> 16) + (h1 << 8);
+    h0 = t0 & 0xffff;
+    h1 = t1 & 0xffff;
+    h2 = t2 & 0xffff;
+    h3 = t3 & 0xffff;
   }
-  return hash.toString(16).padStart(16, '0');
+  return [h3, h2, h1, h0].map((limb) => limb.toString(16).padStart(4, '0')).join('');
 }
 
 /**
@@ -128,7 +183,8 @@ export function lineOf(buffer: Buffer, byte: number): number {
 }
 
 function makeBuffer(path: string, bytes: Uint8Array, version: number): Buffer {
-  const text = decoder.decode(bytes);
+  // Offsets from the bytes: a file that is not valid UTF-8 still maps every code unit to its own bytes.
+  const { text, offsets } = decodeWithOffsets(bytes);
   return {
     path,
     bytes,
@@ -136,7 +192,7 @@ function makeBuffer(path: string, bytes: Uint8Array, version: number): Buffer {
     bom: bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf,
     eol: detectEol(bytes),
     version,
-    offsets: byteOffsets(text),
+    offsets,
   };
 }
 

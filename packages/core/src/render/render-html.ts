@@ -3,7 +3,7 @@
 // boundary (ADR-0009) and a second, weaker check here would only make it harder to see where the
 // boundary is. Its output is never for the DOM — `renderSafeHtml` is (ADR-0007, ADR-0020).
 
-import type { Block, Document, Inline, List, ListItem, Source, Table, TableRow, Text } from '../contracts/ast.ts';
+import type { Block, Document, FootnoteDefinition, Inline, List, ListItem, Source, Table, TableRow, Text } from '../contracts/ast.ts';
 import { PROVENANCE_ATTRIBUTES, type ProvenanceNames } from '../sanitize/policy.ts';
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 import { smarten } from './typography.ts';
@@ -55,16 +55,29 @@ export function renderToUnsanitisedHtml(document: Document, options: Unsanitised
 function collectFootnotes(document: Document): Map<string, number> {
   const labels = new Map<string, number>();
   for (const child of document.children) {
-    if (child.type === 'footnoteDefinition' && !labels.has(child.label)) labels.set(child.label, labels.size + 1);
+    if (child.type === 'footnoteDefinition' && !labels.has(footnoteKey(child.label))) {
+      labels.set(footnoteKey(child.label), labels.size + 1);
+    }
   }
   return labels;
 }
 
+/** GFM matches a footnote reference to its definition as it matches link labels: case and runs of whitespace do not count. */
+function footnoteKey(label: string): string {
+  return label.replace(/[\t\n\r ]+/g, ' ').trim().toLowerCase().toUpperCase();
+}
+
 function footnoteList(document: Document, ctx: Context): string {
-  const definitions = document.children.filter((child) => child.type === 'footnoteDefinition');
+  // The first definition of a label is the one references reach; a duplicate would repeat its id.
+  const seen = new Set<string>();
+  const definitions = document.children.filter((child): child is FootnoteDefinition => {
+    if (child.type !== 'footnoteDefinition' || seen.has(footnoteKey(child.label))) return false;
+    seen.add(footnoteKey(child.label));
+    return true;
+  });
   if (definitions.length === 0) return '';
   const items = definitions.map((definition) => {
-    const number = ctx.footnotes.get(definition.label) ?? 0;
+    const number = ctx.footnotes.get(footnoteKey(definition.label)) ?? 0;
     const body = definition.children.map((child) => block(child, false, ctx)).join('\n');
     return `<li id="marxy-fn-${number}"${prov(definition.src, ctx)}>${body}<a href="#marxy-fnref-${number}" class="marxy-footnote-back">\u21a9</a></li>`;
   });
@@ -247,7 +260,7 @@ function inline(node: Inline, ctx: Context, typo: Typo): string {
     case 'hardBreak':
       return `<br${prov(node.src, ctx)} />\n`;
     case 'footnoteReference': {
-      const number = ctx.footnotes.get(node.label);
+      const number = ctx.footnotes.get(footnoteKey(node.label));
       if (number === undefined) return escapeText(`[^${node.label}]`);
       return `<sup class="marxy-footnote-ref" id="marxy-fnref-${number}"${prov(node.src, ctx)}><a href="#marxy-fn-${number}">${number}</a></sup>`;
     }

@@ -18,22 +18,30 @@ export type OpenDocumentUpdate =
   | { readonly action: 'ignore' };
 
 /**
- * The live-reload path: new bytes → one AST → the same first-visible-block coordinate.
+ * The live-reload path: new bytes → one AST → the same first-visible-block coordinate, carried
+ * through the edit when the bytes the position was read against are given.
  * Typesetting is a later story; this is the work that must stay under 100 ms.
  */
-export function reloadOpenDocument(bytes: Uint8Array, previous: ReadingPosition): ReloadedDocument {
+export function reloadOpenDocument(
+  bytes: Uint8Array,
+  previous: ReadingPosition,
+  previousBytes?: Uint8Array,
+): ReloadedDocument {
   const document = parseMarkdown(bytes, { file: previous.path });
-  return { document, position: restorePosition(previous, document) };
+  const edit = previousBytes === undefined ? undefined : { before: previousBytes, after: bytes };
+  return { document, position: restorePosition(previous, document, edit) };
 }
 
 /**
  * What to do with the open document after one debounced watch batch. `nextBytes` is the file
- * currently at `previous.path`; pass `null` when that path cannot be read.
+ * currently at `previous.path`; pass `null` when that path cannot be read. `previousBytes`, the bytes
+ * the position was read against, lets the position survive an edit above it.
  */
 export function applyWatchToOpenDocument(
   events: readonly RootWatchEvent[],
   previous: ReadingPosition,
   nextBytes: Uint8Array | null,
+  previousBytes?: Uint8Array,
 ): OpenDocumentUpdate {
   const effect = effectForOpenDocument(events, previous.path);
   if (effect.action === 'follow') {
@@ -42,7 +50,7 @@ export function applyWatchToOpenDocument(
   if (effect.action === 'gone') return { action: 'gone' };
   if (effect.action === 'reload') {
     if (nextBytes === null) return { action: 'gone' };
-    const reloaded = reloadOpenDocument(nextBytes, previous);
+    const reloaded = reloadOpenDocument(nextBytes, previous, previousBytes);
     return { action: 'reload', document: reloaded.document, position: reloaded.position };
   }
   return { action: 'ignore' };
