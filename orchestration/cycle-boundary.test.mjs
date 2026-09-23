@@ -1,7 +1,8 @@
 // The review queue judges a PR against the row its branch brings, when it edits only its own (MARXY-190).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { processReviewQueue } from './cycle.mjs';
+import { processReviewQueue, holdsReadyDispatch, mergeLandingVerb, recordMergeLanding, shouldSpawnHeadlessPlanner } from './cycle.mjs';
+import { transition } from './state.mjs';
 
 const HEAD_OID = 'a'.repeat(40);
 const green = { state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', headRefName: 'chore/MARXY-9-x', headRefOid: HEAD_OID, statusCheckRollup: [{ name: 'ci', conclusion: 'SUCCESS' }], latestReviews: [] };
@@ -71,6 +72,37 @@ test('finish is called with the merged diff files, so cycle.mjs can tell a plan-
     finish: (key, rec, note, seenFiles) => finished.push([key, seenFiles]),
   });
   assert.deepEqual(finished, [['MARXY-9', files]]);
+});
+
+test('landing a plan delta through recordMergeLanding stamps lastPlan with no manual planned step (MARXY-200 AC1)', () => {
+  const s = { merges: 4, stories: { 'MARXY-9': { status: 'in_review', attempts: 1 } } };
+  const st = s.stories['MARXY-9'];
+  const files = ['docs/plan/deltas/2026-09-23.md', 'CHANGELOG.md'];
+  assert.equal(mergeLandingVerb(files), 'plan-landed');
+  const stateCalls = [];
+  recordMergeLanding('MARXY-9', files, a => {
+    stateCalls.push(a);
+    transition(a[1], s, st, { now: () => '2026-09-23T12:00:00.000Z' });
+  });
+  assert.equal(stateCalls.length, 1);
+  assert.equal(stateCalls[0][1], 'plan-landed');
+  assert.equal(stateCalls[0][2], 'MARXY-9');
+  assert.equal(s.lastPlan, '2026-09-23T12:00:00.000Z');
+  assert.equal(s.mergesAtLastPlan, 5);
+  assert.equal(st.planLanded, true);
+});
+
+test('cadence-only planner due does not hold dispatch; never-planned and escalation still do (MARXY-200 AC3)', () => {
+  assert.equal(holdsReadyDispatch({ boardHold: false, planDue: false }), false);
+  assert.equal(holdsReadyDispatch({ boardHold: false, planDue: true }), true);
+  assert.equal(holdsReadyDispatch({ boardHold: true, planDue: false }), true);
+});
+
+test('headless planner spawn follows the same gate as dispatch: due, CLI present, not dry-run (MARXY-200 AC4)', () => {
+  assert.equal(shouldSpawnHeadlessPlanner({ planDueAny: true, hasCli: true, dry: false }), true);
+  assert.equal(shouldSpawnHeadlessPlanner({ planDueAny: true, hasCli: false, dry: false }), false);
+  assert.equal(shouldSpawnHeadlessPlanner({ planDueAny: true, hasCli: true, dry: true }), false);
+  assert.equal(shouldSpawnHeadlessPlanner({ planDueAny: false, hasCli: true, dry: false }), false);
 });
 
 test('finish also gets the file list when the PR was already MERGED on read, before boundary/diff run', () => {

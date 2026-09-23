@@ -79,7 +79,8 @@ modes: `node orchestration/cycle.mjs` mirrors the board into Jira, reads GitHub 
 list` calls, `github.mjs`, where it used to make three calls per open PR plus one per worktree),
 adopts open PRs the board does not know are in review, merges the pull requests that are provably
 finished, names what should start next (dispatching headlessly if `cursor-agent` is
-on PATH), asks whether the planner is due, and writes `status.md`. It is idempotent, so
+on PATH), asks whether the planner is due (starting it headlessly when it is, same as implementor
+dispatch), and writes `status.md`. It is idempotent, so
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
 `--no-merge` to decide without landing anything, `--dry-run` to change nothing anywhere (Jira
 included), `--low` or `--minimal` to spend less.

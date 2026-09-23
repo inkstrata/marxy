@@ -28,7 +28,27 @@ import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
 
 /** A landed PR's own files self-record as the planner's output when they touch a plan delta. */
-const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
+export const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
+
+/** Which state.mjs verb finishes a landed PR from its merged file list (MARXY-200 AC1). */
+export function mergeLandingVerb(files) {
+  return landsPlanDelta(files) ? 'plan-landed' : 'done';
+}
+
+/** Whether step 6 must wait on the planner before starting ready stories (MARXY-200 AC3). */
+export function holdsReadyDispatch({ boardHold, planDue }) {
+  return Boolean(boardHold || planDue);
+}
+
+/** Whether step 5 should spawn plan-dispatch.mjs headlessly (MARXY-200 AC4). */
+export function shouldSpawnHeadlessPlanner({ planDueAny, hasCli, dry }) {
+  return Boolean(planDueAny && hasCli && !dry);
+}
+
+/** Apply the landing stamp the cycle uses after a merge (MARXY-200 AC1). */
+export function recordMergeLanding(key, files, node) {
+  node([here('state.mjs'), mergeLandingVerb(files), key]);
+}
 
 /** Hold-reason fragments cycle.mjs can print. The before-list is a fixture; this must stay a superset. */
 export const HOLD_REASON_STRINGS = [
@@ -357,12 +377,8 @@ function runCycle(argv = process.argv.slice(2)) {
     },
     finish: (key, rec, note, files) => {
       say(`merged ${key} (PR #${rec.pr})`);
-      if (landsPlanDelta(files)) {
-        node([here('state.mjs'), 'plan-landed', key]);
-        say(`planner: ${key} landed a plan delta — recorded planned, excluded from the ops window`);
-      } else {
-        node([here('state.mjs'), 'done', key]);
-      }
+      recordMergeLanding(key, files, node);
+      if (landsPlanDelta(files)) say(`planner: ${key} landed a plan delta — recorded planned, excluded from the ops window`);
       if (note) node([here('jira.mjs'), 'comment', key, `Merged as PR #${rec.pr}. Review that allowed it:\n\n${note}`]);
     },
     reviewNote: key => (existsSync(here(`results/${key}.approved`)) ? readFileSync(here(`results/${key}.approved`), 'utf8').trim() : ''),
@@ -409,18 +425,22 @@ function runCycle(argv = process.argv.slice(2)) {
   const planDueAny = plan.status === 0;
   const planDue = blocksDispatch(reasons);
   const advisoryOnly = planDueAny && !planDue;
+  const hasCli = typeof sh('sh', ['-c', 'command -v cursor-agent']) === 'string';
   say(`planner: ${planDueAny ? 'due —' : 'not due'} ${(plan.stdout || '').trim().replace(/\n/g, ' ')}`.trim()
     + (advisoryOnly ? ' (advisory only — dispatch continues; run the planner when you can)' : ''));
+
+  if (shouldSpawnHeadlessPlanner({ planDueAny, hasCli, dry: DRY })) {
+    say('starting planner headlessly');
+    node([here('plan-dispatch.mjs')]);
+  }
 
   // 5. What should start next. Headless dispatch needs the Cursor CLI; without it the in-app
   // orchestrator is the dispatcher, so name the keys rather than pretending to start them.
   const ready = JSON.parse(node([here('ready.mjs')]).stdout || '{"ready":[],"lanesFree":0,"inProgress":[]}');
-  const hasCli = typeof sh('sh', ['-c', 'command -v cursor-agent']) === 'string';
   const keys = ready.ready.map(r => r.key).join(' ');
-  if (ready.ready.length && boardHold) {
-    say(`ready but not dispatched — board drift holds it (see "board:" lines above): ${keys}`);
-  } else if (ready.ready.length && planDue) {
-    say(`ready but not dispatched until the planner has run: ${keys}`);
+  if (ready.ready.length && holdsReadyDispatch({ boardHold, planDue })) {
+    if (boardHold) say(`ready but not dispatched — board drift holds it (see "board:" lines above): ${keys}`);
+    else say(`ready but not dispatched until the planner has run: ${keys}`);
   } else if (ready.ready.length && hasCli && !DRY) {
     say(`dispatching ${keys} headlessly`);
     node([here('dispatch.mjs'), ...ready.ready.map(r => r.key)]);
