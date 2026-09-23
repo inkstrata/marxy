@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Broad-review planner delta: live-reload, the palette's index and reading-position persistence were Done as modules but never reached the running app; four Phase 2 stories wire them through one open path, an ops gate stops a "later story" deferral from outliving the story it names, and the card check now reads `MARXY-NEW-` placeholders in a card's dependencies (MARXY-189)
 - The orchestrator human queue is cleared with author rulings: MARXY-183 landed (#180), MARXY-22 stays deferred without a Linux desktop or notarization account, ADR-0026 is accepted so MARXY-94 can dispatch, and interaction-speed numbers remain measured-only without CI merge gates (MARXY-188)
 - MARXY-183: second launches and macOS open events route to the running window via single-instance and `onOpenFiles`
 

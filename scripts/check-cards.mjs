@@ -78,7 +78,8 @@ export function parseCardMarkdown(text) {
   const key = /^key:\s*(MARXY-\S+)/m.exec(fm[1])?.[1]?.trim();
   if (!key) return null;
   const depLine = /^depends:\s*\[([^\]]*)\]/m.exec(fm[1]);
-  const depends = depLine ? [...depLine[1].matchAll(/MARXY-\d+/g)].map(x => x[0]) : [];
+  // A planner writes MARXY-NEW-<slug> until jira.mjs sync assigns the number (prompts/planner.md).
+  const depends = depLine ? [...depLine[1].matchAll(/MARXY-(?:\d+|NEW-[a-z0-9-]+)/g)].map(x => x[0]) : [];
   const body = text.slice(fm[0].length);
   return { key, depends, files: filePathsFromCard(body) };
 }

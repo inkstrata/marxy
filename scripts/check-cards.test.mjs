@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cardsAndRows, csvRowProblems, loadBoardInput } from './check-cards.mjs';
+import { cardsAndRows, csvRowProblems, loadBoardInput, parseCardMarkdown } from './check-cards.mjs';
 import { fail } from './lib/repo.mjs';
 
 const ROOT = process.cwd();
@@ -76,4 +76,9 @@ test('the committed tree passes check-cards', () => {
 test('loadBoardInput covers every task card on disk', () => {
   const { cards } = loadBoardInput();
   assert.ok(cards['MARXY-126']);
+});
+
+test('card depends keeps MARXY-NEW placeholders so a new story may depend on another new one', () => {
+  const card = parseCardMarkdown('---\nkey: MARXY-NEW-b\ndepends: [MARXY-NEW-a, MARXY-94]\n---\n# b\n');
+  assert.deepEqual(card.depends, ['MARXY-NEW-a', 'MARXY-94']);
 });
