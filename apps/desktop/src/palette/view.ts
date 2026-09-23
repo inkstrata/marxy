@@ -5,6 +5,9 @@ import { parseMarkdown } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { READING_LINE_FRACTION } from '@marxy/core/src/position/blocks.ts';
 import type { AppHandle, AppShell } from '../app.ts';
+import { commands, type Command } from '../commands/index.ts';
+import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
+import { installRenderedSelection } from '../selection/view.ts';
 import { historyDirection, type PaletteKey } from './keys.ts';
 import { jumpForHit, paletteResults, prepareIndex, type PreparedIndex } from './search.ts';
 import {
@@ -31,6 +34,7 @@ export interface PaletteModel {
   readonly section: PaletteListSection;
   readonly query: string;
   readonly hits: readonly IndexHit[];
+  readonly operationCommands: readonly Command[];
   readonly selected: number;
   readonly notice?: string;
 }
@@ -80,6 +84,12 @@ function filterHits(hits: readonly IndexHit[], section: PaletteListSection): rea
   return hits;
 }
 
+function operationCommandsForPalette(): readonly Command[] {
+  const ctx = buildAppContext();
+  if (!ctx) return [];
+  return commands().filter((c) => c.id.startsWith('op.') && c.when(ctx));
+}
+
 function queryPalette(
   query: string,
   section: PaletteListSection,
@@ -89,13 +99,15 @@ function queryPalette(
 ): PaletteModel {
   const phase = palettePhase(query, section);
   if (phase === 'operations') {
+    const operationCommands = operationCommandsForPalette();
     return {
       phase: 'operations',
       section: 'operations',
       query,
       hits: [],
+      operationCommands,
       selected: 0,
-      notice: 'No operations yet',
+      notice: operationCommands.length === 0 ? 'No operations for this selection' : undefined,
     };
   }
   const trimmed = query.trim();
@@ -106,6 +118,7 @@ function queryPalette(
     section: phase === 'empty' ? 'documents' : section,
     query,
     hits: filtered.slice(0, PALETTE_ROW_LIMIT),
+    operationCommands: [],
     selected: 0,
   };
 }
@@ -260,6 +273,30 @@ function ownerDocumentOf(node: HTMLElement): Document {
   throw new Error('paintRows requires an owner document');
 }
 
+function paintOperationRows(
+  list: HTMLOListElement,
+  cmds: readonly Command[],
+  selected: number,
+): void {
+  const doc = ownerDocumentOf(list);
+  const next =
+    'createDocumentFragment' in doc
+      ? (doc as Document).createDocumentFragment()
+      : document.createDocumentFragment();
+  for (let i = 0; i < cmds.length; i++) {
+    const cmd = cmds[i]!;
+    const row = doc.createElement('li') as HTMLLIElement;
+    row.className = 'marxy-palette-row';
+    row.dataset.rowKey = cmd.id;
+    row.setAttribute('role', 'option');
+    const hint = cmd.id.startsWith('op.copy-') ? ' ⌘C' : '';
+    row.textContent = `${cmd.title}${hint}`;
+    row.toggleAttribute('aria-selected', i === selected);
+    next.appendChild(row);
+  }
+  list.replaceChildren(next);
+}
+
 function paintRows(list: HTMLOListElement, hits: readonly IndexHit[], selected: number): void {
   const doc = ownerDocumentOf(list);
   const keyed = new Map<string, HTMLLIElement>();
@@ -324,8 +361,11 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
 
   const repaint = (markPerf?: number) => {
     model = queryPalette(input.value, section, entries, session, prepared);
-    selected = Math.min(selected, Math.max(0, model.hits.length - 1));
-    paintRows(list, model.hits, selected);
+    const rowCount =
+      model.phase === 'operations' ? model.operationCommands.length : model.hits.length;
+    selected = Math.min(selected, Math.max(0, rowCount - 1));
+    if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
+    else paintRows(list, model.hits, selected);
     if (model.notice) {
       notice.textContent = model.notice;
       notice.hidden = false;
@@ -391,21 +431,31 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       repaint();
       return;
     }
+    const rowCount =
+      model.phase === 'operations' ? model.operationCommands.length : model.hits.length;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      selected = Math.min(model.hits.length - 1, selected + 1);
-      paintRows(list, model.hits, selected);
+      selected = Math.min(rowCount - 1, selected + 1);
+      if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
+      else paintRows(list, model.hits, selected);
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       selected = Math.max(0, selected - 1);
-      paintRows(list, model.hits, selected);
+      if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
+      else paintRows(list, model.hits, selected);
       return;
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      void activateHit(model.hits[selected]);
+      if (model.phase === 'operations') {
+        const cmd = model.operationCommands[selected];
+        const ctx = buildAppContext();
+        if (cmd && ctx) void cmd.run(ctx);
+      } else {
+        void activateHit(model.hits[selected]);
+      }
     }
   });
 
@@ -454,6 +504,9 @@ export function mountPaletteFromHandle(
   handle: AppHandle,
   opts?: { initialPath?: string | null },
 ): PaletteController {
+  void installRenderedSelection(handle).then(() => {
+    installCommandKeys();
+  });
   const main = document.getElementById('marxy-main');
   const article = document.getElementById('doc') ?? document.querySelector('.marxy-article');
   const dialog = document.getElementById('marxy-palette');
@@ -462,7 +515,7 @@ export function mountPaletteFromHandle(
   }
   const scroller = document.documentElement;
   const pathState = { current: opts?.initialPath ?? null };
-  return mountPaletteApp({
+  const controller = mountPaletteApp({
     shell: handle.shell,
     article,
     scroller,
@@ -476,6 +529,8 @@ export function mountPaletteFromHandle(
       if (tip !== undefined) pathState.current = tip;
     },
   });
+  setPaletteCloser(() => controller.close());
+  return controller;
 }
 
 /** Legacy model tests re-exported from palette.ts; production uses mountPaletteFromHandle. */

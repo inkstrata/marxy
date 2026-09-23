@@ -17,7 +17,7 @@ const ALLOWLISTS = join(ROOT, 'scripts/allowlists');
 const PERMISSIVE = new Set([
   'MIT', 'MIT-0', 'ISC', '0BSD', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', 'MPL-2.0',
   'Unlicense', 'CC0-1.0', 'BlueOak-1.0.0', 'Python-2.0', 'PSF-2.0', 'OFL-1.1', 'Zlib',
-  'FSFAP', 'LicenseRef-TextMate-Bundle', 'Unicode-3.0',
+  'FSFAP', 'LicenseRef-TextMate-Bundle', 'Unicode-3.0', 'BSL-1.0',
 ]);
 
 /** Copyleft and non-commercial families ADR-0006 forbids outright, reported as such. */

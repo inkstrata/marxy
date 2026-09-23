@@ -24,6 +24,24 @@ fn args() -> Vec<String> {
     std::env::args().skip(1).collect()
 }
 
+#[tauri::command]
+fn clipboard_write(
+    app: tauri::AppHandle,
+    text: String,
+    html: Option<String>,
+) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    app.clipboard()
+        .write_text(text)
+        .map_err(|e| e.to_string())?;
+    if let Some(html) = html {
+        app.clipboard()
+            .write_html(html, None)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
 /// handling, because everything above this reads what the reader's file actually contains.
 #[tauri::command]
@@ -237,6 +255,7 @@ fn main() {
     }
     mark("main_start", now_ms(), None);
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             emit_open_files(app, document_paths_from_argv(&argv, &cwd));
         }))
@@ -257,6 +276,7 @@ fn main() {
             unwatch_root,
             commands::fs::image_size,
             commands::fs::allow_asset_scope,
+            clipboard_write,
         ])
         .build(tauri::generate_context!())
         .expect("error while building marxy")
