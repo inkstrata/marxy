@@ -68,7 +68,8 @@ ADR: 0007
 `agent-loop`, `release`) plus, when applicable: `needs-human`, `taste-review`,
 `contract-change`, `baseline-update`.
 
-**Size:** one story. Over ~600 changed lines or two concerns → split before review.
+**Size:** one story, one concern. Two concerns → split before review. There is no line limit: a
+change that is one concern stays one PR, however long (MARXY-191).
 
 ## Review remarks
 

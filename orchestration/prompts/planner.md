@@ -18,7 +18,7 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
 2. **Story changes** applied to `docs/plan/jira-issues.csv` and `orchestration/deps.json`,
    then mirrored into the board of record with `node orchestration/jira.mjs sync` (which
    creates any new row as an issue and updates the ones you edited — you never open Jira):
-   - split any story that failed twice or whose diff exceeded ~600 lines into vertical slices
+   - split any story that failed twice or that does two things into vertical slices
      with disjoint paths and machine-checkable acceptance;
    - add stories for work the deltas revealed (each with Summary, Labels, Paths, Acceptance);
    - never delete a story; mark it `dropped` with a reason in the delta.

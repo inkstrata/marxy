@@ -15,7 +15,8 @@ Check, in order, and stop at the first failure:
    entry must exist.
 4. **Spirit.** Anything that adds chrome, reformats a document, fetches, or phones home, even
    if the story implied it → **return**, cite the ADR; suggest the planner revisit the story.
-5. **Size and clarity.** Over ~600 lines or doing two things → **return** with a split.
+5. **Size and clarity.** Doing two things → **return** with a split. Length alone is not a reason:
+   one concern is one PR, however many lines it takes.
 
 Output: `merge` | `return` | `escalate`, then numbered notes as Conventional Comments
 (`blocking:`, `suggestion:`, `question:`, `nitpick:`), most severe first, each naming the rule,
