@@ -61,6 +61,22 @@ async function api(path, init = {}, base = '/rest/api/3') {
   return r.status === 204 ? null : r.json();
 }
 
+/**
+ * Every issue a JQL query matches. /search/jql pages with nextPageToken, and a single call stops at
+ * maxResults: at 200 the board had ~190 issues, so push was one planning pass from silently
+ * skipping the newest stories' status (MARXY-191).
+ */
+async function searchAll(jql, fields) {
+  const issues = [];
+  let token = null;
+  do {
+    const page = await api(`/search/jql?jql=${encodeURIComponent(jql)}&fields=${fields}&maxResults=100${token ? `&nextPageToken=${encodeURIComponent(token)}` : ''}`);
+    issues.push(...(page.issues ?? []));
+    token = page.isLast === false || page.nextPageToken ? page.nextPageToken ?? null : null;
+  } while (token);
+  return issues;
+}
+
 const map = () => (existsSync(MAP) ? readJson(MAP) : { _note: 'plan id (pre-Jira) → the real Jira key. Written once by `jira.mjs bootstrap`; kept so old commits, ADRs and deltas stay readable.', keys: {} });
 const jiraKey = k => map().keys[k] ?? k; // after migrate-ids the CSV already holds real keys
 const doc = text => ({ type: 'doc', version: 1, content: text.split('\n\n').filter(Boolean).map(p => ({ type: 'paragraph', content: [{ type: 'text', text: p }] })) });
@@ -82,8 +98,7 @@ async function doctor() {
   const project = await api(`/project/${E.JIRA_PROJECT_KEY}`).catch(e => ({ error: String(e) }));
   const names = project.error ? [] : await statusNames();
   const rows = csvRows(), board = readJson(here('state.json')).stories;
-  const jql = encodeURIComponent(`project = ${E.JIRA_PROJECT_KEY}`);
-  const live = project.error ? [] : (await api(`/search/jql?jql=${jql}&fields=summary&maxResults=200`)).issues.map(i => i.key);
+  const live = project.error ? [] : (await searchAll(`project = ${E.JIRA_PROJECT_KEY}`, 'summary')).map(i => i.key);
   const csvStories = rows.filter(r => r.Type === 'Story').map(r => r.Key);
   console.log(JSON.stringify({
     site: E.JIRA_BASE_URL, user: me.emailAddress ?? me.displayName,
@@ -275,8 +290,7 @@ async function release(phase, tag) {
 // forgot to move an issue shows up as output rather than as a stale board.
 async function push() {
   const board = readJson(here('state.json')).stories;
-  const jql = encodeURIComponent(`project = ${E.JIRA_PROJECT_KEY} AND issuetype != Epic`);
-  const { issues } = await api(`/search/jql?jql=${jql}&fields=status,labels&maxResults=200`);
+  const issues = await searchAll(`project = ${E.JIRA_PROJECT_KEY} AND issuetype != Epic`, 'status,labels');
   const live = Object.fromEntries(issues.map(i => [i.key, { status: i.fields.status.name, labels: i.fields.labels ?? [] }]));
   let moved = 0;
   for (const [key, rec] of Object.entries(board)) {

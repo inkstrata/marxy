@@ -137,7 +137,8 @@ function sh(cmd, args) {
  * look, never one that hides real drift. TODO(MARXY-117): wire the Jira query once a story
  * gives `jira.mjs` an importable out-of-plan search.
  */
-export function gatherBoardCheckInput() {
+/** `snapshot` is the cycle's one GitHub read (github.mjs); without it this falls back to per-PR calls. */
+export function gatherBoardCheckInput({ snapshot = null } = {}) {
   const branch = sh('git', ['branch', '--show-current'])?.trim() ?? '';
   const behindRaw = sh('git', ['rev-list', '--count', 'HEAD..origin/main'])?.trim();
   const behind = behindRaw ? Number(behindRaw) : 0;
@@ -149,8 +150,8 @@ export function gatherBoardCheckInput() {
     .filter(line => !line.startsWith('??'))
     .map(line => line.slice(3).trim());
 
-  const prJson = sh('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number,title,headRefName'])?.trim();
-  let openPrs = [];
+  const prJson = snapshot ? null : sh('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number,title,headRefName'])?.trim();
+  let openPrs = snapshot ? snapshot.open : [];
   if (prJson) {
     try {
       openPrs = JSON.parse(prJson);
@@ -164,6 +165,7 @@ export function gatherBoardCheckInput() {
   const inReview = Object.entries(state().stories ?? {})
     .filter(([, rec]) => rec.status === 'in_review' && rec.pr)
     .map(([key, rec]) => {
+      if (snapshot?.byNumber.has(Number(rec.pr))) return { key, pr: rec.pr, prState: 'OPEN' };
       const view = sh('gh', ['pr', 'view', String(rec.pr), '--json', 'state'])?.trim();
       let prState = null;
       if (view) {

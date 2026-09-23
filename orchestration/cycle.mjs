@@ -19,6 +19,7 @@ import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } fro
 import { computeOrder, readPullRequest } from './review-order.mjs';
 import { allowedFor, fileAllowed } from './review.mjs';
 import { runWorktreePrune } from './worktrees.mjs';
+import { loadSnapshot, prime } from './github.mjs';
 
 /** Hold-reason fragments cycle.mjs can print. The before-list is a fixture; this must stay a superset. */
 export const HOLD_REASON_STRINGS = [
@@ -212,14 +213,22 @@ function runCycle(argv = process.argv.slice(2)) {
     const ff = sh('git', ['merge', '--ff-only', '-q', 'origin/main']);
     if (typeof ff !== 'string') say(`main: could not fast-forward to origin/main; the board below may be stale`);
   }
-  const push = node([here('jira.mjs'), 'push']);
+  // --dry-run means nothing outside this process changes, Jira included: push plans its moves and
+  // makes none (MARXY-191). A dry cycle from a checkout with a stale state.json used to move real issues.
+  const push = node([here('jira.mjs'), 'push', ...(DRY ? ['--dry-run'] : [])]);
   say(`jira: ${(push.stdout || push.stderr || '').trim().split('\n').pop() || 'unavailable'}`);
 
   // Board drift (MARXY-117). origin/main is the board of record and ready.mjs reads this
   // checkout, so a checkout behind it, off main, or carrying uncommitted edits under docs/plan
   // or orchestration must never seed dispatch: on 2026-09-19 exactly that state (14 commits
   // behind, uncommitted CSV/deps.json edits) dispatched from a board that lacked #71's ops lane.
-  const boardFindings = boardDrift(gatherBoardCheckInput());
+  // One read of GitHub for the whole cycle (MARXY-191): board-check, the review queue, the review
+  // order and the worktree prune all read this, and fall back to a single call per PR only for a PR
+  // it does not hold (one merged or closed since).
+  let snapshot = null;
+  try { snapshot = loadSnapshot(); prime(snapshot); } catch (e) { say(`github: snapshot failed, reading PR by PR — ${String(e.message ?? e).split('\n')[0]}`); }
+
+  const boardFindings = boardDrift(gatherBoardCheckInput({ snapshot }));
   for (const f of boardFindings) say(`board: ${f.kind} — ${f.detail}`);
   const boardHold = boardFindings.some(f => BLOCKS_DISPATCH.includes(f.kind));
 
@@ -238,6 +247,8 @@ function runCycle(argv = process.argv.slice(2)) {
     dry: DRY,
     noMerge: NO_MERGE,
     viewPr: pr => {
+      const cached = snapshot?.byNumber.get(Number(pr));
+      if (cached) return cached;
       const view = gh(['pr', 'view', String(pr), '--json', 'state,mergeable,mergeStateStatus,reviewDecision,latestReviews,statusCheckRollup,headRefName,headRefOid,autoMergeRequest,files']);
       return view ? JSON.parse(view) : null;
     },
@@ -301,7 +312,7 @@ function runCycle(argv = process.argv.slice(2)) {
   held.forEach(say);
 
   // 2b. Drop story worktrees whose PR already landed elsewhere, and name strays we keep.
-  runWorktreePrune({ dryRun: DRY, root: ROOT, say });
+  runWorktreePrune({ dryRun: DRY, root: ROOT, say, ...(snapshot ? { branchState: snapshot.branchState } : {}) });
 
   // 3. Review. In-review stories hold their paths, so an unreviewed PR blocks dispatch silently
   // unless it is named.
@@ -334,7 +345,10 @@ function runCycle(argv = process.argv.slice(2)) {
   }
 
   // 6. The report. Overwritten every cycle; the durable record is the PRs and Jira.
-  const { byStatus, orphans } = boardTotals(state().stories);
+  // Every CSV story is on the board, not only the ones state.json happened to be seeded with: a row
+  // added after the seed used to appear under no heading while ready.mjs treated it as todo.
+  const reportBoard = { ...Object.fromEntries(stories().map(x => [x.Key, { status: 'todo' }])), ...state().stories };
+  const { byStatus, orphans } = boardTotals(reportBoard);
   const human = existsSync(here('needs-human.md')) ? readFileSync(here('needs-human.md'), 'utf8').split('\n').filter(l => l.startsWith('- [ ]')).length : 0;
   writeFileSync(here('status.md'), `# Status — ${new Date().toISOString()}
 

@@ -136,6 +136,8 @@ export function gatherWorktreeEntries({
   root = ROOT,
   git = a => defaultSh('git', a, { cwd: root }),
   gh = a => defaultSh('gh', a, { cwd: root }),
+  // The cycle's snapshot answers every branch in one call (MARXY-191); without it, one call each.
+  branchState = null,
 } = {}) {
   const list = git(['worktree', 'list', '--porcelain']);
   if (typeof list !== 'string') return [];
@@ -148,7 +150,7 @@ export function gatherWorktreeEntries({
       branch,
       detached: row.detached,
       dirty,
-      prState: branch ? prStateForBranch(branch, gh) : null,
+      prState: branch ? (branchState ? branchState(branch) : prStateForBranch(branch, gh)) : null,
       ageHours: worktreeAgeHours(row.path, git),
     };
   });
@@ -171,9 +173,10 @@ export function runWorktreePrune({
   git,
   gh,
   gather,
+  branchState,
   activeBranches = inProgressBranches(),
 } = {}) {
-  const entries = gather ? gather() : gatherWorktreeEntries({ root, git, gh });
+  const entries = gather ? gather() : gatherWorktreeEntries({ root, git, gh, branchState });
   const plan = prunePlan(entries, { orchestratorPath: root, activeBranches });
   const gitAtRoot = git ?? (a => defaultSh('git', a, { cwd: root }));
   for (const entry of plan.remove) {
