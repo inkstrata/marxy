@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The frozen `Shell` interface now lists every privileged operation v1 uses, including startup marks, asset scoping, dialogs, and remote-image fetch; `listRoot` and `fuzzy` are deprecated in place (MARXY-94)
 - The orchestrator human queue is cleared with author rulings: MARXY-183 landed (#180), MARXY-22 stays deferred without a Linux desktop or notarization account, ADR-0026 is accepted so MARXY-94 can dispatch, and interaction-speed numbers remain measured-only without CI merge gates (MARXY-188)
 - MARXY-183: second launches and macOS open events route to the running window via single-instance and `onOpenFiles`
 
