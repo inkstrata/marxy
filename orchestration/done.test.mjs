@@ -126,7 +126,7 @@ function recorder(result) {
   return fn;
 }
 
-test('--open --dry-run prints the three steps and calls neither gh nor jira', () => {
+test('--open --dry-run prints the four steps and calls neither gh nor jira', () => {
   const body = fixtureBody(FILLED_ROWS);
   const gh = recorder({ ok: true, number: 7, problems: [] });
   const jiraRun = recorder({ status: 0 });
@@ -134,10 +134,11 @@ test('--open --dry-run prints the three steps and calls neither gh nor jira', ()
   assert.equal(outcome.ok, true);
   assert.equal(outcome.dryRun, true);
   assert.deepEqual(outcome.steps, openSteps('MARXY-121'));
-  assert.equal(outcome.steps.length, 3);
-  assert.match(outcome.steps[0], /open-pr\.mjs MARXY-121/);
-  assert.match(outcome.steps[1], /record the PR number/);
-  assert.match(outcome.steps[2], /jira\.mjs pr MARXY-121/);
+  assert.equal(outcome.steps.length, 4);
+  assert.match(outcome.steps[0], /git push/);
+  assert.match(outcome.steps[1], /open-pr\.mjs MARXY-121/);
+  assert.match(outcome.steps[2], /record the PR number/);
+  assert.match(outcome.steps[3], /jira\.mjs pr MARXY-121/);
   assert.equal(gh.calls.length, 0);
   assert.equal(jiraRun.calls.length, 0);
 });
@@ -223,4 +224,26 @@ test('step 7 of the implementor prompt is the single command pnpm done KEY --ope
   assert.match(step7, /`pnpm done \{\{KEY\}\} --open`/, 'step 7 must name the single command');
   assert.match(step7, /[Ff]ill(?:ing)?[\s\S]{0,120}table/, 'step 7 must say to fill the table first');
   assert.doesNotMatch(step7, /node scripts\/open-pr\.mjs \{\{KEY\}\}/, 'step 7 must not also tell the implementor to run open-pr.mjs separately');
+});
+
+test('opening pushes first: -u origin HEAD with no upstream, nothing when up to date, and a failed push stops gh', async () => {
+  const { pushBranch } = await import('../scripts/open-pr.mjs');
+  const calls = [];
+  const fake = answers => (cmd, args) => { calls.push(args.join(' ')); return answers(args) ?? { status: 0, stdout: '' }; };
+  calls.length = 0;
+  assert.equal(pushBranch(fake(a => (a[0] === 'rev-parse' ? { status: 128, stdout: '' } : null))).pushed, true);
+  assert.ok(calls.includes('push -q -u origin HEAD'), calls.join(' | '));
+  calls.length = 0;
+  assert.equal(pushBranch(fake(a => (a[0] === 'rev-list' ? { status: 0, stdout: '0\n' } : null))).pushed, false);
+  assert.ok(!calls.some(c => c.startsWith('push')));
+  const ghCalls = [];
+  const outcome = openPr({
+    body: fixtureBody(FILLED_ROWS), key: 'MARXY-121', bodyFile: 'x',
+    gh: argv => { ghCalls.push(argv); return { ok: true, number: 1, problems: [] }; },
+    push: () => ({ ok: false, problems: ['git push failed: denied'] }),
+  });
+  assert.ok(outcome.argv, 'the fixture body passes check-pr, so only the push can stop it');
+  assert.equal(outcome.ok, false);
+  assert.deepEqual(ghCalls, []);
+  assert.match(outcome.problems[0], /push failed/);
 });

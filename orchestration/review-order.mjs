@@ -5,6 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deps, state } from './lib.mjs';
+import { primed } from './github.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +24,16 @@ export function realReadCount() {
 
 /** The only function that talks to the network. Selftest replaces it. */
 export function readPullRequest(pr) {
+  // The cycle's one snapshot already holds every open PR (MARXY-191); only a PR it lacks costs a call.
+  const cached = primed()?.byNumber.get(Number(pr));
+  if (cached) {
+    return {
+      files: (cached.files ?? []).map(f => f.path),
+      mergeStateStatus: cached.mergeStateStatus,
+      mergeable: cached.mergeable,
+      createdAt: cached.createdAt,
+    };
+  }
   realGithubReads += 1;
   const data = JSON.parse(
     execFileSync('gh', ['pr', 'view', String(pr), '--json', 'files,mergeStateStatus,mergeable,createdAt'], {
@@ -85,7 +96,9 @@ export function computeOrder({ s = state(), d = deps(), readPr, now = Date.now()
       excluded.push({ key, why: 'no pull request number' });
       continue;
     }
-    const phases = index.get(key) ?? [];
+    // An adopted PR whose row is still only on its own branch carries the phase it was adopted with
+    // (MARXY-190); every key on main must still be in exactly one phase.
+    const phases = index.get(key) ?? (rec.phase != null ? [Number(rec.phase)] : []);
     if (phases.length !== 1) throw new PhaseError(key, phases);
     let prData;
     try {
@@ -129,8 +142,11 @@ export function computeOrder({ s = state(), d = deps(), readPr, now = Date.now()
     } else order.push(row);
   }
 
+  // The ops lane (`phase` NaN) is beside the numbered phases, and product is reviewed first
+  // (MARXY-107), so it ranks after them. NaN used to make this comparator inconsistent (MARXY-191).
+  const rank = p => (Number.isFinite(p) ? p : Number.POSITIVE_INFINITY);
   order.sort((a, b) => {
-    if (a.phase !== b.phase) return a.phase - b.phase;
+    if (rank(a.phase) !== rank(b.phase)) return rank(a.phase) - rank(b.phase);
     if (a.disturbs !== b.disturbs) return b.disturbs - a.disturbs;
     if (a.ageHours !== b.ageHours) return b.ageHours - a.ageHours;
     return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;

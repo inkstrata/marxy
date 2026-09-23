@@ -3,7 +3,7 @@
 // Credentials come from ~/.config/marxy/jira.env (never the repo) or the environment.
 // Out-of-plan work uses `task` so it can get a key without a CSV row (MARXY-101).
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { ROOT, here, readJson, writeJson, stories, parseCsv, state } from './lib.mjs';
 
@@ -26,7 +26,7 @@ const LABELLED = { blocked: 'blocked', escalate: 'escalated' };
 
 const args = process.argv.slice(2);
 const flag = f => { const i = args.indexOf(f); if (i >= 0) args.splice(i, 1); return i >= 0; };
-const DRY = flag('--dry-run'), YES = flag('--yes');
+const DRY = flag('--dry-run'), YES = flag('--yes'), NEW_ONLY = flag('--new');
 const [cmd, ...rest] = args;
 // `node --test` sets NODE_TEST_CONTEXT (and may pass --test in execArgv). The CLI must not run then.
 const underTest = Boolean(process.env.NODE_TEST_CONTEXT)
@@ -61,6 +61,22 @@ async function api(path, init = {}, base = '/rest/api/3') {
   return r.status === 204 ? null : r.json();
 }
 
+/**
+ * Every issue a JQL query matches. /search/jql pages with nextPageToken, and a single call stops at
+ * maxResults: at 200 the board had ~190 issues, so push was one planning pass from silently
+ * skipping the newest stories' status (MARXY-191).
+ */
+async function searchAll(jql, fields) {
+  const issues = [];
+  let token = null;
+  do {
+    const page = await api(`/search/jql?jql=${encodeURIComponent(jql)}&fields=${fields}&maxResults=100${token ? `&nextPageToken=${encodeURIComponent(token)}` : ''}`);
+    issues.push(...(page.issues ?? []));
+    token = page.isLast === false || page.nextPageToken ? page.nextPageToken ?? null : null;
+  } while (token);
+  return issues;
+}
+
 const map = () => (existsSync(MAP) ? readJson(MAP) : { _note: 'plan id (pre-Jira) → the real Jira key. Written once by `jira.mjs bootstrap`; kept so old commits, ADRs and deltas stay readable.', keys: {} });
 const jiraKey = k => map().keys[k] ?? k; // after migrate-ids the CSV already holds real keys
 const doc = text => ({ type: 'doc', version: 1, content: text.split('\n\n').filter(Boolean).map(p => ({ type: 'paragraph', content: [{ type: 'text', text: p }] })) });
@@ -82,8 +98,7 @@ async function doctor() {
   const project = await api(`/project/${E.JIRA_PROJECT_KEY}`).catch(e => ({ error: String(e) }));
   const names = project.error ? [] : await statusNames();
   const rows = csvRows(), board = readJson(here('state.json')).stories;
-  const jql = encodeURIComponent(`project = ${E.JIRA_PROJECT_KEY}`);
-  const live = project.error ? [] : (await api(`/search/jql?jql=${jql}&fields=summary&maxResults=200`)).issues.map(i => i.key);
+  const live = project.error ? [] : (await searchAll(`project = ${E.JIRA_PROJECT_KEY}`, 'summary')).map(i => i.key);
   const csvStories = rows.filter(r => r.Type === 'Story').map(r => r.Key);
   console.log(JSON.stringify({
     site: E.JIRA_BASE_URL, user: me.emailAddress ?? me.displayName,
@@ -176,11 +191,18 @@ async function bootstrap() {
 
 // Replace whole-word keys across the tree, skipping the corpus and the fonts whose bytes are
 // never touched, and the map itself, which is the record of what the old keys were.
+export function tokenPattern(pairs) {
+  // Longest first: `MARXY-NEW-a` must not match inside `MARXY-NEW-a-b`, and `-` is a word boundary.
+  const sorted = [...pairs].sort((a, b) => b[0].length - a[0].length);
+  return new RegExp(`\\b(${sorted.map(([f]) => f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'g');
+}
+
 function rewriteTokens(pairs) {
   if (!pairs.length) return 0;
-  const re = new RegExp(`\\b(${pairs.map(([f]) => f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'g');
+  const re = tokenPattern(pairs);
   const to = Object.fromEntries(pairs);
-  const files = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n')
+  // Untracked files too: a planner's new task cards are usually not committed yet when it resolves keys.
+  const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: ROOT, encoding: 'utf8' }).split('\n')
     .filter(f => f && !f.startsWith('fixtures/') && !f.startsWith('fonts/') && f !== 'orchestration/jira-map.json');
   let touched = 0;
   for (const f of files) {
@@ -198,7 +220,9 @@ function rewriteTokens(pairs) {
 
 // Keep Jira's summary, description and labels equal to the CSV. Creates anything missing.
 // A row the planner wrote with a placeholder key (MARXY-NEW-slug) gets Jira's real key here,
-// and the placeholder is rewritten wherever it appears.
+// and the placeholder is rewritten wherever it appears, task card file names included.
+// `--new` touches only placeholder rows: it is what a planner runs in its worktree before opening
+// the PR, so a placeholder never reaches main and no follow-up PR is needed to rename it (MARXY-190).
 async function sync() {
   const p = await api(`/project/${E.JIRA_PROJECT_KEY}`);
   const types = Object.fromEntries(p.issueTypes.map(t => [t.name.toLowerCase(), t.id]));
@@ -206,6 +230,7 @@ async function sync() {
   for (const it of csvRows()) {
     try {
     const placeholder = /^MARXY-NEW-/i.test(it.Key);
+    if (NEW_ONLY && !placeholder) continue;
     const key = m.keys[it.Key] ?? it.Key;
     const issue = placeholder ? null : await api(`/issue/${key}?fields=summary,labels`).catch(() => null);
     const fields = { summary: it.Summary, description: doc(body(it, key)) };
@@ -231,6 +256,12 @@ async function sync() {
   // leftover MARXY-NEW- cache row moves onto the real key (MARXY-179).
   if (!DRY) state();
   const touched = rewriteTokens(renames);
+  for (const [from, to] of renames) {
+    const card = `${ROOT}docs/plan/tasks/${from}.md`;
+    if (!existsSync(card)) continue;
+    if (DRY) console.log(`would rename docs/plan/tasks/${from}.md → ${to}.md`);
+    else renameSync(card, `${ROOT}docs/plan/tasks/${to}.md`);
+  }
   console.log(`sync: ${updated} updated, ${created} created, ${failed} failed${renames.length ? `, ${renames.length} placeholder key(s) resolved across ${touched} files` : ''}`);
   if (failed) process.exitCode = 1;
 }
@@ -275,8 +306,7 @@ async function release(phase, tag) {
 // forgot to move an issue shows up as output rather than as a stale board.
 async function push() {
   const board = readJson(here('state.json')).stories;
-  const jql = encodeURIComponent(`project = ${E.JIRA_PROJECT_KEY} AND issuetype != Epic`);
-  const { issues } = await api(`/search/jql?jql=${jql}&fields=status,labels&maxResults=200`);
+  const issues = await searchAll(`project = ${E.JIRA_PROJECT_KEY} AND issuetype != Epic`, 'status,labels');
   const live = Object.fromEntries(issues.map(i => [i.key, { status: i.fields.status.name, labels: i.fields.labels ?? [] }]));
   let moved = 0;
   for (const [key, rec] of Object.entries(board)) {
@@ -319,7 +349,7 @@ switch (cmd) {
   doctor                       credentials, project, statuses, map health
   project create|delete KEY    create the project, or delete one (needs --yes)
   bootstrap                    create every epic and story from the CSV, write jira-map.json
-  sync                         make Jira's summary/description/labels match the CSV
+  sync [--new]                 make Jira match the CSV; --new only creates placeholder rows and renames them
   push                         move every issue to the status the local board says
   move KEY <${Object.keys(STATUS).join('|')}>
   comment KEY "text"
@@ -423,10 +453,17 @@ switch (cmd) {
     assert.match(`${bad.stdout}${bad.stderr}`, /subject-empty|type-empty|marxy-key-in-subject|commitlint/);
   });
 
-  test('AGENTS.md has a Work outside the plan rule naming jira.mjs task and type/KEY-slug', () => {
+  test('AGENTS.md has a Work outside the plan rule naming out-of-plan.mjs and type/KEY-slug', () => {
     const agents = readFileSync(join(repoRoot, 'AGENTS.md'), 'utf8');
     assert.match(agents, /Work outside the plan/);
-    assert.match(agents, /jira\.mjs task/);
+    assert.match(agents, /out-of-plan\.mjs start/);
     assert.match(agents, /type\/KEY-slug/);
+  });
+
+  test('placeholder renames match longest first, so one slug inside another is not split', async () => {
+    const { tokenPattern } = await import('./jira.mjs');
+    const to = { 'MARXY-NEW-a': 'MARXY-1', 'MARXY-NEW-a-b': 'MARXY-2' };
+    const re = tokenPattern(Object.entries(to));
+    assert.equal('MARXY-NEW-a-b and MARXY-NEW-a.'.replace(re, k => to[k]), 'MARXY-2 and MARXY-1.');
   });
 }

@@ -16,9 +16,11 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
    `orchestration/models.json` decides which model actually escalates to, and under `minimal`
    that ceiling is Grok regardless of what you flag here.
 2. **Story changes** applied to `docs/plan/jira-issues.csv` and `orchestration/deps.json`,
-   then mirrored into the board of record with `node orchestration/jira.mjs sync` (which
-   creates any new row as an issue and updates the ones you edited — you never open Jira):
-   - split any story that failed twice or whose diff exceeded ~600 lines into vertical slices
+   then mirrored into the board of record with `node orchestration/jira.mjs sync --new` in your
+   worktree before the PR opens (it creates each new row's issue and rewrites the placeholder),
+   and `node orchestration/jira.mjs sync` after it merges if you edited existing rows — you
+   never open Jira:
+   - split any story that failed twice or that does two things into vertical slices
      with disjoint paths and machine-checkable acceptance;
    - add stories for work the deltas revealed (each with Summary, Labels, Paths, Acceptance);
    - never delete a story; mark it `dropped` with a reason in the delta.
@@ -37,7 +39,7 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
 - **Board changes go through a PR, never the orchestrator checkout.** Everything in step 2 —
   `docs/plan/jira-issues.csv`, `orchestration/deps.json`, `orchestration/jira-map.json`, any
   file under `docs/plan/` or `orchestration/` — is edited in a worktree cut from `origin/main`
-  (`git worktree add ../marxy-plan-<date> origin/main`), committed, pushed and opened as an
+  (`out-of-plan.mjs start`, below, cuts it for you), committed, pushed and opened as an
   ordinary PR; it merges and fast-forwards back like any other change. Never edit those files
   in place in the orchestrator's own checkout: that checkout is read fresh every cycle, and an
   uncommitted or unmerged edit sitting there is exactly the drift `orchestration/board-check.mjs`
@@ -47,8 +49,18 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
   conversation: paths, acceptance, ADRs named, nothing implied. It must satisfy the
   definition of ready in `docs/sdlc.md`; a story that cannot be checked by a machine is not
   ready, it is a wish.
-- New rows keep the `MARXY-` prefix but not the number: Jira assigns that at sync. Use a
-  placeholder key of the form `MARXY-NEW-<slug>` and let `jira.mjs sync` replace it.
+- New rows keep the `MARXY-` prefix but not the number. Draft them as `MARXY-NEW-<slug>`, then,
+  **before opening the PR**, run `node orchestration/jira.mjs sync --new` in your worktree: it
+  creates the issues, rewrites every placeholder to its real key, renames the task cards and
+  records each rename in `orchestration/jira-map.json` (so that file belongs in your Paths).
+  A placeholder never reaches `main` (`check-cards` fails one), so no second PR renames it.
+- Your pass lands as one PR under its own key: start it with
+  `node orchestration/out-of-plan.mjs start "Land the <date> plan delta" --type chore --paths
+  "docs/plan/jira-issues.csv, orchestration/deps.json, orchestration/jira-map.json,
+  docs/plan/tasks, docs/plan/deltas"
+  --acceptance "…"` rather than `git worktree add` by hand, so the landing key has a row and the
+  cycle adopts and lands the PR. Never write a "land the path widening" story: a story widens its
+  own Paths in its own PR, where the reviewer sees it.
 - Keep the mechanism-over-catalogue bias: prefer one story that proves a mechanism to four
   that add content.
 - Do not touch `packages/*/src/contracts/**` yourself; write the story and the ADR.

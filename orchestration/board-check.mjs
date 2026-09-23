@@ -64,7 +64,7 @@ export function boardDrift({
     if (!key || csv.has(key) || outOfPlan.has(key)) continue;
     findings.push({
       kind: KIND.UNBOARDED_PR,
-      detail: `PR #${pr.number} "${pr.title ?? ''}" (${key}) has no row in docs/plan/jira-issues.csv and is not an out-of-plan task`,
+      detail: `PR #${pr.number} "${pr.title ?? ''}" (${key}) has no row in docs/plan/jira-issues.csv and the cycle has not adopted it (a draft, or a key already in review); give it a row with node orchestration/out-of-plan.mjs row ${key}`,
     });
   }
 
@@ -137,7 +137,8 @@ function sh(cmd, args) {
  * look, never one that hides real drift. TODO(MARXY-117): wire the Jira query once a story
  * gives `jira.mjs` an importable out-of-plan search.
  */
-export function gatherBoardCheckInput() {
+/** `snapshot` is the cycle's one GitHub read (github.mjs); without it this falls back to per-PR calls. */
+export function gatherBoardCheckInput({ snapshot = null } = {}) {
   const branch = sh('git', ['branch', '--show-current'])?.trim() ?? '';
   const behindRaw = sh('git', ['rev-list', '--count', 'HEAD..origin/main'])?.trim();
   const behind = behindRaw ? Number(behindRaw) : 0;
@@ -149,8 +150,8 @@ export function gatherBoardCheckInput() {
     .filter(line => !line.startsWith('??'))
     .map(line => line.slice(3).trim());
 
-  const prJson = sh('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number,title,headRefName'])?.trim();
-  let openPrs = [];
+  const prJson = snapshot ? null : sh('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number,title,headRefName'])?.trim();
+  let openPrs = snapshot ? snapshot.open : [];
   if (prJson) {
     try {
       openPrs = JSON.parse(prJson);
@@ -164,6 +165,7 @@ export function gatherBoardCheckInput() {
   const inReview = Object.entries(state().stories ?? {})
     .filter(([, rec]) => rec.status === 'in_review' && rec.pr)
     .map(([key, rec]) => {
+      if (snapshot?.byNumber.has(Number(rec.pr))) return { key, pr: rec.pr, prState: 'OPEN' };
       const view = sh('gh', ['pr', 'view', String(rec.pr), '--json', 'state'])?.trim();
       let prState = null;
       if (view) {
@@ -183,7 +185,9 @@ export function gatherBoardCheckInput() {
     /* no map: an orphan simply gets no rename hint */
   }
   return {
-    branch, behind, dirtyTracked, openPrs, csvKeys, outOfPlanKeys: [], inReview,
+    branch, behind, dirtyTracked, openPrs, csvKeys, inReview,
+    // Adopted out-of-plan PRs carry their row on their own branch until they merge (MARXY-190).
+    outOfPlanKeys: Object.entries(state().stories ?? {}).filter(([, r]) => r.outOfPlan).map(([k]) => k),
     stateStories: state().stories ?? {}, renames,
   };
 }
