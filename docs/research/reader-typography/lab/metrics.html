@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Font metrics lab</title>
+<style>
+  body { font: 13px/1.4 system-ui, sans-serif; margin: 16px; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td, th { border: 1px solid #ccc; padding: 2px 6px; text-align: right; }
+  td:first-child, th:first-child { text-align: left; }
+  #probe { position: absolute; left: -99999px; top: 0; white-space: nowrap; }
+  pre { white-space: pre-wrap; font-size: 11px; }
+</style>
+<script>
+// family name -> Google Fonts CSS2 family spec (null = system font, not requested)
+const FONTS = {
+  // serif text faces
+  'Literata': 'Literata:opsz,wght@7..72,400',
+  'Source Serif 4': 'Source+Serif+4:opsz,wght@8..60,400',
+  'Newsreader': 'Newsreader:opsz,wght@6..72,400',
+  'Roboto Serif': 'Roboto+Serif:opsz,wght@8..144,400',
+  'Piazzolla': 'Piazzolla:opsz,wght@8..30,400',
+  'Crimson Pro': 'Crimson+Pro',
+  'EB Garamond': 'EB+Garamond',
+  'Libre Baskerville': 'Libre+Baskerville',
+  'Libre Caslon Text': 'Libre+Caslon+Text',
+  'Merriweather': 'Merriweather',
+  'Spectral': 'Spectral',
+  'Lora': 'Lora',
+  'Alegreya': 'Alegreya',
+  'Vollkorn': 'Vollkorn',
+  'PT Serif': 'PT+Serif',
+  'Noto Serif': 'Noto+Serif',
+  'IBM Plex Serif': 'IBM+Plex+Serif',
+  'STIX Two Text': 'STIX+Two+Text',
+  'Gentium Book Plus': 'Gentium+Book+Plus',
+  'Charis SIL': 'Charis+SIL',
+  'Petrona': 'Petrona',
+  'Besley': 'Besley',
+  'Bitter': 'Bitter',
+  'Frank Ruhl Libre': 'Frank+Ruhl+Libre',
+  // sans text faces
+  'Source Sans 3': 'Source+Sans+3',
+  'Inter': 'Inter:opsz,wght@14..32,400',
+  'IBM Plex Sans': 'IBM+Plex+Sans',
+  'Noto Sans': 'Noto+Sans',
+  'Atkinson Hyperlegible': 'Atkinson+Hyperlegible',
+  'Atkinson Hyperlegible Next': 'Atkinson+Hyperlegible+Next',
+  'Public Sans': 'Public+Sans',
+  'Fira Sans': 'Fira+Sans',
+  'Open Sans': 'Open+Sans',
+  'Lato': 'Lato',
+  'Work Sans': 'Work+Sans',
+  'Figtree': 'Figtree',
+  'Red Hat Text': 'Red+Hat+Text',
+  'Lexend': 'Lexend',
+  'Andika': 'Andika',
+  'Hanken Grotesk': 'Hanken+Grotesk',
+  'Instrument Sans': 'Instrument+Sans',
+  'PT Sans': 'PT+Sans',
+  'Overpass': 'Overpass',
+  'Geist': 'Geist',
+  'Mona Sans': 'Mona+Sans',
+  'Roboto': 'Roboto',
+  'Recursive': 'Recursive',
+  'B612': 'B612',
+  // monospace
+  'JetBrains Mono': 'JetBrains+Mono',
+  'Fira Code': 'Fira+Code',
+  'Fira Mono': 'Fira+Mono',
+  'Source Code Pro': 'Source+Code+Pro',
+  'IBM Plex Mono': 'IBM+Plex+Mono',
+  'Inconsolata': 'Inconsolata',
+  'Red Hat Mono': 'Red+Hat+Mono',
+  'Noto Sans Mono': 'Noto+Sans+Mono',
+  'Atkinson Hyperlegible Mono': 'Atkinson+Hyperlegible+Mono',
+  'Courier Prime': 'Courier+Prime',
+  'Ubuntu Mono': 'Ubuntu+Mono',
+  'Roboto Mono': 'Roboto+Mono',
+  'Geist Mono': 'Geist+Mono',
+  'Martian Mono': 'Martian+Mono',
+  'Victor Mono': 'Victor+Mono',
+  'Space Mono': 'Space+Mono',
+  'Intel One Mono': 'Intel+One+Mono',
+  'Cascadia Code': 'Cascadia+Code',
+  // system fonts on this Windows 11 machine, for comparison only (not open source)
+  'Georgia': null, 'Times New Roman': null, 'Cambria': null, 'Constantia': null,
+  'Sitka Text': null, 'Palatino Linotype': null, 'Segoe UI': null, 'Calibri': null,
+  'Arial': null, 'Verdana': null, 'Consolas': null, 'Courier New': null, 'Cascadia Mono': null,
+};
+const CATEGORY = {};
+(function () {
+  const groups = [
+    ['serif', 'Literata','Source Serif 4','Newsreader','Roboto Serif','Piazzolla','Crimson Pro','EB Garamond','Libre Baskerville','Libre Caslon Text','Merriweather','Spectral','Lora','Alegreya','Vollkorn','PT Serif','Noto Serif','IBM Plex Serif','STIX Two Text','Gentium Book Plus','Charis SIL','Petrona','Besley','Bitter','Frank Ruhl Libre','Georgia','Times New Roman','Cambria','Constantia','Sitka Text','Palatino Linotype'],
+    ['sans', 'Source Sans 3','Inter','IBM Plex Sans','Noto Sans','Atkinson Hyperlegible','Atkinson Hyperlegible Next','Public Sans','Fira Sans','Open Sans','Lato','Work Sans','Figtree','Red Hat Text','Lexend','Andika','Hanken Grotesk','Instrument Sans','PT Sans','Overpass','Geist','Mona Sans','Roboto','Recursive','B612','Segoe UI','Calibri','Arial','Verdana'],
+    ['mono', 'JetBrains Mono','Fira Code','Fira Mono','Source Code Pro','IBM Plex Mono','Inconsolata','Red Hat Mono','Noto Sans Mono','Atkinson Hyperlegible Mono','Courier Prime','Ubuntu Mono','Roboto Mono','Geist Mono','Martian Mono','Victor Mono','Space Mono','Intel One Mono','Cascadia Code','Consolas','Courier New','Cascadia Mono'],
+  ];
+  for (const [cat, ...names] of groups) for (const n of names) CATEGORY[n] = cat;
+})();
+for (const [name, spec] of Object.entries(FONTS)) {
+  if (!spec) continue;
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=' + spec + '&display=block';
+  l.dataset.family = name;
+  l.onerror = () => { l.dataset.failed = '1'; };
+  document.head.appendChild(l);
+}
+</script>
+</head>
+<body>
+<h1>Font metrics lab</h1>
+<p id="status">Loading...</p>
+<div id="probe"></div>
+<table id="tbl"></table>
+<pre id="out"></pre>
+<script>
+// English prose sample: the Grimm "Frog King" paragraph used in Knuth & Plass (1981), Margaret Hunt translation (public domain),
+// followed by original prose. Only aggregate widths are used.
+const SAMPLE = "In olden times when wishing still helped one, there lived a king whose daughters were all beautiful; and the youngest was so beautiful that the sun itself, which has seen so much, was astonished whenever it shone in her face. Close by the king's castle lay a great dark forest, and under an old lime-tree in the forest was a well, and when the day was very warm, the king's child went out into the forest and sat down by the side of the cool fountain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favorite plaything. " +
+  "A page that reads well is rarely noticed for its own sake. The reader follows the argument, not the letters, and the only sign of the work behind it is that nothing gets in the way. Choosing a typeface, a size, a line length and the spacing between lines is not four decisions but one, because each depends on the others: a larger face wants a longer line, a longer line wants more space between lines, and a face with a small x-height wants a larger size to match the apparent size of its neighbours. The same text may also be read on a phone held close to the face in a dark room, on a laptop at arm's length, or on a large monitor across a desk, so the choices have to hold across devices and distances. Technical writing adds tables, figures, notes and code, each with its own conventions, and a reader who switches between languages expects every script to be set by the rules of its own tradition rather than by habits borrowed from English.";
+
+function familyLoaded(name) {
+  for (const f of document.fonts) {
+    if (f.family.replace(/["']/g, '') === name && f.status === 'loaded') return true;
+  }
+  return false;
+}
+const probe = document.getElementById('probe');
+function spanWidth(text, family, px, extraStyle) {
+  const s = document.createElement('span');
+  s.textContent = text;
+  s.style.fontFamily = `"${family}", "Adobe Blank", monospace`;
+  s.style.fontSize = px + 'px';
+  s.style.fontWeight = '400';
+  s.style.fontStyle = 'normal';
+  if (extraStyle) Object.assign(s.style, extraStyle);
+  probe.appendChild(s);
+  const w = s.getBoundingClientRect().width;
+  probe.removeChild(s);
+  return w;
+}
+function systemPresent(name) {
+  const t = 'abcdefghijklmnopqrstuvwxyz0123456789 ABCDEFGHIJ';
+  const a = document.createElement('span'); a.textContent = t; a.style.font = `400 40px "${name}", monospace`;
+  const b = document.createElement('span'); b.textContent = t; b.style.font = `400 40px monospace`;
+  const c = document.createElement('span'); c.textContent = t; c.style.font = `400 40px "${name}", serif`;
+  const d = document.createElement('span'); d.textContent = t; d.style.font = `400 40px serif`;
+  for (const e of [a, b, c, d]) probe.appendChild(e);
+  const res = a.getBoundingClientRect().width !== b.getBoundingClientRect().width || c.getBoundingClientRect().width !== d.getBoundingClientRect().width;
+  for (const e of [a, b, c, d]) probe.removeChild(e);
+  return res;
+}
+// measureText's ink boxes are whole pixels at text sizes, so draw the glyph at the specified
+// size under a large canvas transform and scan pixels. Chromium derives opsz from the specified
+// size, not the transformed one, so this yields text-size (opsz = px) outlines at sub-pixel precision.
+const inkCanvas = document.createElement('canvas');
+inkCanvas.width = 1400; inkCanvas.height = 1400;
+const ig = inkCanvas.getContext('2d', { willReadFrequently: true });
+function inkEdge(family, px, ch) {
+  const scale = 800 / px;
+  ig.setTransform(1, 0, 0, 1, 0, 0);
+  ig.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+  ig.setTransform(scale, 0, 0, scale, 0, 0);
+  ig.font = `400 ${px}px "${family}", monospace`;
+  ig.textBaseline = 'alphabetic';
+  ig.fillStyle = '#000';
+  const base = Math.round(inkCanvas.height * 0.72) / scale;
+  ig.fillText(ch, 2, base);
+  const img = ig.getImageData(0, 0, inkCanvas.width, inkCanvas.height).data;
+  let top = -1, bot = -1;
+  for (let y = 0; y < inkCanvas.height; y++) {
+    let hit = false;
+    for (let x = 0; x < inkCanvas.width; x++) if (img[(y * inkCanvas.width + x) * 4 + 3] > 127) { hit = true; break; }
+    if (hit) { if (top < 0) top = y; bot = y; }
+  }
+  const baseDev = base * scale;
+  return { asc: (baseDev - top) / scale / px, desc: (bot + 1 - baseDev) / scale / px };
+}
+function ink(family, px, chars) {
+  let asc = 0, desc = 0;
+  for (const ch of chars) { const e = inkEdge(family, px, ch); asc += e.asc; desc += e.desc; }
+  return { asc: asc / chars.length, desc: desc / chars.length };
+}
+const OPSZ = ['Literata', 'Source Serif 4', 'Newsreader', 'Roboto Serif', 'Piazzolla', 'Inter'];
+const advCanvas = document.createElement('canvas').getContext('2d');
+function lineHeightNormal(family) {
+  const d = document.createElement('div');
+  d.textContent = 'Hxp';
+  d.style.cssText = `position:absolute;left:-99999px;font:400 100px "${family}", monospace;line-height:normal;white-space:nowrap`;
+  document.body.appendChild(d);
+  const h = d.getBoundingClientRect().height;
+  document.body.removeChild(d);
+  return h / 100;
+}
+const r3 = (x) => Math.round(x * 1000) / 1000;
+
+async function run() {
+  const status = document.getElementById('status');
+  const names = Object.keys(FONTS);
+  // fonts.load() resolves empty if the @font-face rules are not parsed yet, so wait for every stylesheet first.
+  await Promise.all([...document.querySelectorAll('link[data-family]')].map((l) => l.sheet ? null :
+    new Promise((res) => { l.addEventListener('load', res); l.addEventListener('error', res); })));
+  await Promise.allSettled(names.filter((n) => FONTS[n]).map((n) => document.fonts.load(`400 16px "${n}"`, 'abcxyz0123')));
+  await document.fonts.ready;
+  const rows = [];
+  for (const name of names) {
+    const system = FONTS[name] === null;
+    const present = system ? systemPresent(name) : familyLoaded(name);
+    const row = { name, category: CATEGORY[name], source: system ? 'system' : 'google-fonts', present };
+    if (present) {
+      const w16 = spanWidth(SAMPLE, name, 16);
+      row.avgCharEm = r3(w16 / SAMPLE.length / 16);
+      row.chEm = r3(spanWidth('0'.repeat(100), name, 16) / 100 / 16);
+      row.spaceEm = r3((spanWidth('a'.repeat(20).split('').join(' '), name, 100) - spanWidth('a'.repeat(20), name, 100)) / 19 / 100);
+      row.charsPer66ch = Math.round(66 * row.chEm / row.avgCharEm * 10) / 10;
+      row.xHeight = r3(ink(name, 16, 'xz').asc);
+      row.capHeight = r3(ink(name, 16, 'HE').asc);
+      if (OPSZ.includes(name) || name === 'Georgia') {
+        row.xHeightAt72 = r3(ink(name, 72, 'xz').asc);
+        // advance width of a fixed string per em at several sizes: changes only if opsz is applied
+        const s = 'The quick brown fox jumps over the lazy dog, handgloves and minimum.';
+        row.advancePerEm = [12, 16, 24, 48, 72].map((px) => { advCanvas.font = `400 ${px}px "${name}"`; return r3(advCanvas.measureText(s).width / px); });
+      }
+      row.ascender = r3(ink(name, 16, 'dh').asc);
+      row.descender = r3(ink(name, 16, 'pq').desc);
+      row.lineHeightNormal = r3(lineHeightNormal(name));
+      // Feature heuristics: a width change when the feature is requested means the font has it.
+      // No change is inconclusive (e.g., figures already tabular), so report null rather than false.
+      const digits = '0123456789'.repeat(3);
+      const dNorm = spanWidth(digits, name, 100);
+      const dOld = spanWidth(digits, name, 100, { fontVariantNumeric: 'oldstyle-nums' });
+      row.onum = dOld !== dNorm ? true : null;
+      const ones = spanWidth('1'.repeat(20), name, 100), zeros = spanWidth('0'.repeat(20), name, 100);
+      const onesT = spanWidth('1'.repeat(20), name, 100, { fontVariantNumeric: 'tabular-nums' });
+      const zerosT = spanWidth('0'.repeat(20), name, 100, { fontVariantNumeric: 'tabular-nums' });
+      row.defaultFigures = Math.abs(ones - zeros) < 0.5 ? 'tabular' : 'proportional';
+      row.tnum = (row.defaultFigures === 'proportional' && Math.abs(onesT - zerosT) < 0.5) ? true : (row.defaultFigures === 'tabular' ? null : false);
+      const lc = 'handgloves quick brown';
+      const sc = spanWidth(lc, name, 100, { fontVariantCaps: 'small-caps', fontSynthesis: 'none' });
+      row.smcp = sc !== spanWidth(lc, name, 100) ? true : null;
+    }
+    rows.push(row);
+  }
+  const ua = navigator.userAgent;
+  const out = { measuredAt: new Date().toISOString(), userAgent: ua, devicePixelRatio: devicePixelRatio, sampleLength: SAMPLE.length, rows };
+  document.getElementById('out').textContent = JSON.stringify(out);
+  window.__metrics = out;
+  try { await fetch('/save/metrics.json', { method: 'POST', body: JSON.stringify(out) }); } catch (e) { /* plain static server: no save endpoint */ }
+  const cols = ['name', 'category', 'present', 'avgCharEm', 'chEm', 'charsPer66ch', 'spaceEm', 'xHeight', 'xHeightAt72', 'capHeight', 'ascender', 'descender', 'lineHeightNormal', 'defaultFigures', 'onum', 'tnum', 'smcp'];
+  const tbl = document.getElementById('tbl');
+  tbl.innerHTML = '<tr>' + cols.map((c) => `<th>${c}</th>`).join('') + '</tr>' +
+    rows.map((r) => '<tr>' + cols.map((c) => `<td>${r[c] === undefined ? '' : r[c]}</td>`).join('') + '</tr>').join('');
+  status.textContent = 'Done: ' + rows.filter((r) => r.present).length + ' of ' + rows.length + ' present';
+}
+run().catch((e) => { document.getElementById('status').textContent = 'Error: ' + e; });
+</script>
+</body>
+</html>

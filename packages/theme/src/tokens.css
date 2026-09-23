@@ -4,15 +4,17 @@
    system-owned. Contrast ratios in docs/design/05-theme.md §Palettes. */
 :root {
   /* rhythm and measure */
-  --marxy-line-box: 28px;
-  --marxy-measure: 68ch;              /* clamped by marxy to 45ch–90ch */
-  --marxy-size-body: 17px;
+  --marxy-line-box: 30px;            /* 1.5 × body (ADR-0033); the grid unit is half of it (ADR-0030) */
+  --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);   /* a length; never ch (ADR-0033) */
+  --marxy-measure-chars: 66;          /* average characters per line; clamped by marxy to 45–80 */
+  --marxy-avg-char: 0.463;            /* the text face's average character advance in em, measured (ADR-0033) */
+  --marxy-size-body: 20px;
   --marxy-scale-ratio: 1.25;
-  --marxy-size-code: 15px;
-  --marxy-line-box-code: 28px;        /* code lines; two grid units; blocks are padded by snapToGrid */
-  --marxy-size-caption: 13px;
-  --marxy-lh-h1: 40px;                /* heading line boxes; ≥ size and ≤ 2 line boxes (loader clamps) */
-  --marxy-lh-h2: 34px;
+  --marxy-size-code: 18px;            /* the mono x-height matched to the text's (constraint 5) */
+  --marxy-line-box-code: 30px;        /* code lines; two grid units; blocks are padded by snapToGrid */
+  --marxy-size-caption: 15px;
+  --marxy-lh-h1: 48px;                /* heading line boxes; ≥ size and ≤ 2 line boxes (loader clamps) */
+  --marxy-lh-h2: 38px;
 
   /* families and weights */
   --marxy-font-text: "Literata", serif;
@@ -35,24 +37,27 @@
   --marxy-color-code-bg: #1d1c19;
   --marxy-color-code-text: #e3dfd6;
   --marxy-color-quote-rule: #3a3833;
-  --marxy-color-selection: #2a4a6e;
-  --marxy-color-find: #4a3d12;        /* added by ADR-0024, with defaults: find highlight */
-  --marxy-color-find-current: #7a6218;
+  --marxy-color-selection: #1f3651;
+  --marxy-color-find: #3a3010;        /* added by ADR-0024, with defaults: find highlight */
+  --marxy-color-find-current: #403510; /* told apart by an outline too, never colour alone (ADR-0033) */
   --marxy-color-notice: #1f1e1b;      /* notices region background */
 
-  /* code token colours (added by ADR-0024, with defaults; mapping to scopes in docs/design/02-render.md) */
-  --marxy-tok-keyword: #c9a0dc;
+  /* code token colours (added by ADR-0024, with defaults; mapping to scopes in docs/design/02-render.md).
+     Restrained (ADR-0033): colour marks what a reader looks for — strings, literals, comments and
+     names being defined or called. Keywords, types, variables, operators and punctuation stay in
+     the code text colour. Comments are read, not dimmed. */
+  --marxy-tok-keyword: var(--marxy-color-code-text);
   --marxy-tok-string: #a8c48a;
-  --marxy-tok-comment: #8a857b;
-  --marxy-tok-number: #d9a066;
+  --marxy-tok-comment: #d4ad73;
+  --marxy-tok-number: #c9a0dc;
   --marxy-tok-function: #8fb4dd;
-  --marxy-tok-type: #e0c07a;
-  --marxy-tok-variable: #e3dfd6;
-  --marxy-tok-operator: #b5b0a6;
-  --marxy-tok-punctuation: #8f8a80;
-  --marxy-tok-constant: #d9a066;
-  --marxy-tok-tag: #e28c7a;
-  --marxy-tok-attribute: #e0c07a;
+  --marxy-tok-type: var(--marxy-color-code-text);
+  --marxy-tok-variable: var(--marxy-color-code-text);
+  --marxy-tok-operator: var(--marxy-color-code-text);
+  --marxy-tok-punctuation: var(--marxy-color-code-text);
+  --marxy-tok-constant: #c9a0dc;
+  --marxy-tok-tag: #8fb4dd;
+  --marxy-tok-attribute: var(--marxy-color-code-text);
 
   /* presentation knobs (theme-owned) */
   --marxy-code-radius: 0px;

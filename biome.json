@@ -9,7 +9,8 @@
       "!!fonts",
       "!!**/dist",
       "!!**/target",
-      "!!results"
+      "!!results",
+      "!!docs/research"
     ]
   },
   "assist": {

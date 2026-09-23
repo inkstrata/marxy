@@ -92,6 +92,19 @@ letters on each side (justif defaults). Never hyphenate inside `code`, URLs, or 
 digits. The research measured with hyphenation off; MARXY-23's rag numbers are recorded twice,
 off and on, and the on setting ships if it does not increase short lines.
 
+The costs are TeX's (ADR-0033, `docs/research/reader-typography/05-line-breaking.md`), in
+`ragged.ts`: a first pass with no hyphenation points is kept when no line's badness exceeds
+`pretolerance` (100, a shortfall of the full 2 em right-skip), so text that sets well is never
+hyphenated; otherwise a second pass may break at hyphens with `hyphenPenalty` 50. Two lines in a
+row ending in a dash or a hyphen cost `doubleDashDemerits` (3,000), and a hyphen ending the
+second-to-last line costs `finalHyphenDemerits` (5,000), so a paragraph never closes on a word
+fragment. A line ending at a hyphen counts the hyphen's advance against the measure.
+
+Justification, when it is wired (it is not yet; `--marxy-justify` is read nowhere), runs only at a
+measure of 45 characters or more, with 3 em of emergency stretch rather than unlimited tolerance,
+because below that no breaker makes the spacing even (research: 11 very loose lines in 17 at
+30 characters, for first-fit and total-fit alike).
+
 ## Scheduling (§00 targets)
 
 - First pass: paragraphs within two screens of the top, synchronously, after `first_text`; the app

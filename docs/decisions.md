@@ -58,3 +58,21 @@ Nineteen technical decisions (D-A1…D-A19) are recorded in
 numbered design documents; ADR-0023 records the one that changes a contract's neighbourhood
 (provenance in the DOM). The rag research (MARXY-19) narrowed ADR-0007's claim to "measurably
 better on four properties"; the ADR stands and the Phase 1 review is the test.
+
+## The reader-typography research, 2026-09-23
+
+The author commissioned the Reader Typography Handbook (`docs/research/reader-typography/`) and
+ruled that **it supersedes every earlier taste decision, including the font choices**. ADR-0033
+records what that overturned:
+
+| Was | Now | Why |
+| --- | --- | --- |
+| 68 `ch` measure (review #0, "68 `ch` stays") | 66 average characters (≈ 611 px at 20 px) | A `ch` is the digit zero, 0.58 em in Literata against a 0.463 em average character: 68 `ch` set 85 characters |
+| 17 px on 28 (1.65), grid unit 14 | 20 px on 30 (1.5), grid unit 15 | Critical x-height ≈ 0.2°, Literata at 18.5 px; a dark default needs generous size |
+| Every token coloured, comments dimmed | Restrained: strings, literals, comments, defined names; comments read, not dimmed | Highlighting's benefit is small (C); colour is for navigation |
+| Code confined to the column, ligatures on | Authored width into the margin, marked wrap past the line's own indent, ligatures off | Code is verbatim; a wrapped line must not read as two |
+| — | Fonts unchanged: Literata and JetBrains Mono are the research's own picks | No Reserved Font Name on either; full feature sets in the bundled files |
+
+The losing argument, kept: review #0 found 17 px "readable" and approved the 68 `ch` column by eye.
+Both were judged on a single reader's preference, and the research's strongest finding on
+preference is that it does not predict performance (B).

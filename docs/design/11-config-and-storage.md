@@ -15,8 +15,8 @@ wrong. Nothing here is ever about a document's content.
 ```toml
 theme = "~/themes/quiet"        # a directory with theme.toml; absent → the default theme
 variant = "dark"                # dark (default, ADR-0024) | light | auto (follows the OS)
-size = 17                       # body px, 13–24
-measure = 68                    # ch, 45–90
+size = 20                       # body px, 15–50 (75–250 % of the default, ADR-0033)
+measure = 66                    # average characters per line, 45–80 (never ch, ADR-0033)
 typeset = true                  # the Knuth–Plass path; false = engine wrapping, grid pass only
 line_numbers = false            # Source mode
 external_editor = "code --goto {file}:{line}"   # {file} {line} substituted; absent → the OS default opener

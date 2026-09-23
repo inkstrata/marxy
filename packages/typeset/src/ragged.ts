@@ -10,6 +10,11 @@
 // 01-long-technical.md that made the rag worse than the engine's own wrapping (see RESEARCH.md,
 // "Rendered"). TeX's trick for a per-line stretch needs negative glue, which justif forbids. This
 // breaker is that trick without the trick: the stretch belongs to the line. Pure; runs in Node.
+//
+// Hyphenation follows TeX (docs/research/reader-typography/05-line-breaking.md, ADR-0033): a first
+// pass with no hyphens is kept when every line is within \pretolerance, so text that sets well is
+// never hyphenated; two hyphenated lines in a row cost \doublehyphendemerits and a hyphen that
+// leaves only a fragment on the last line costs \finalhyphendemerits.
 
 import type { Measured } from './items.ts';
 
@@ -20,11 +25,25 @@ export interface RaggedSettings {
   readonly linePenalty: number;
   /** Penalty for ending a line after an explicit dash. */
   readonly dashPenalty: number;
-  /** Extra demerits for two dash-ended lines in a row (TeX's \doublehyphendemerits). */
+  /** Penalty for ending a line at a hyphenation point (TeX's \hyphenpenalty). */
+  readonly hyphenPenalty: number;
+  /** Extra demerits for two dash- or hyphen-ended lines in a row (TeX's \doublehyphendemerits). */
   readonly doubleDashDemerits: number;
+  /** Extra demerits when the second-to-last line ends in a hyphen (TeX's \finalhyphendemerits). */
+  readonly finalHyphenDemerits: number;
+  /** Worst badness the no-hyphen first pass may keep (TeX's \pretolerance); below 0 skips the pass. */
+  readonly pretolerance: number;
 }
 
-export const DEFAULT_RAGGED: RaggedSettings = { stretchEm: 2, linePenalty: 10, dashPenalty: 50, doubleDashDemerits: 3000 };
+export const DEFAULT_RAGGED: RaggedSettings = {
+  stretchEm: 2,
+  linePenalty: 10,
+  dashPenalty: 50,
+  hyphenPenalty: 50,
+  doubleDashDemerits: 3000,
+  finalHyphenDemerits: 5000,
+  pretolerance: 100,
+};
 
 export interface RaggedResult {
   /** Token indices (a space or a dash) after which a line ends; excludes the paragraph's end. */
@@ -47,6 +66,16 @@ export function badness(shortfall: number, stretch: number): number {
  * line): each break looks back only as far as a line can reach.
  */
 export function breakRagged(tokens: readonly Measured[], measure: number, fontSize: number, settings: RaggedSettings = DEFAULT_RAGGED): RaggedResult {
+  const hasHyphens = tokens.some((t) => t.kind === 'hyphen');
+  if (hasHyphens && settings.pretolerance >= 0) {
+    const first = pass(tokens, measure, fontSize, settings, false);
+    if (!first.overfull && first.worst <= settings.pretolerance) return { after: first.after, overfull: false };
+  }
+  const { after, overfull } = pass(tokens, measure, fontSize, settings, true);
+  return { after, overfull };
+}
+
+function pass(tokens: readonly Measured[], measure: number, fontSize: number, settings: RaggedSettings, hyphenate: boolean): RaggedResult & { worst: number } {
   const n = tokens.length;
   const stretch = settings.stretchEm * fontSize;
   // prefix[i] = width of tokens[0..i).
@@ -57,10 +86,17 @@ export function breakRagged(tokens: readonly Measured[], measure: number, fontSi
   }
   // Breakpoints: -1 is the paragraph's start; otherwise a space, dash or hyphen token index.
   const breaks: number[] = [-1];
-  for (let i = 0; i < n; i++) if (tokens[i]!.kind !== 'piece') breaks.push(i);
+  for (let i = 0; i < n; i++) {
+    const kind = tokens[i]!.kind;
+    if (kind === 'space' || kind === 'dash' || (kind === 'hyphen' && hyphenate)) breaks.push(i);
+  }
   const lineStart = (b: number): number => b + 1;
-  /** Width of a line from after break `from` up to (not including) token `to`. */
-  const width = (from: number, to: number): number => prefix[to]! - prefix[lineStart(from)]!;
+  /** Width of a line from after break `from` up to token `to`, plus the hyphen drawn when `to` is one. */
+  const width = (from: number, to: number): number => {
+    const t = tokens[to];
+    return prefix[to]! - prefix[lineStart(from)]! + (t?.kind === 'hyphen' ? t.width : 0);
+  };
+  const endsInDash = (b: number): boolean => b >= 0 && (tokens[b]!.kind === 'dash' || tokens[b]!.kind === 'hyphen');
 
   const best = new Float64Array(breaks.length).fill(Number.POSITIVE_INFINITY);
   const prev = new Int32Array(breaks.length).fill(-1);
@@ -68,7 +104,8 @@ export function breakRagged(tokens: readonly Measured[], measure: number, fontSi
   best[0] = 0;
   for (let k = 1; k < breaks.length; k++) {
     const at = breaks[k]!;
-    const dash = tokens[at]!.kind === 'dash' || tokens[at]!.kind === 'hyphen';
+    const dash = endsInDash(at);
+    const penalty = tokens[at]!.kind === 'hyphen' ? settings.hyphenPenalty : settings.dashPenalty;
     for (let j = k - 1; j >= 0; j--) {
       if (best[j] === Number.POSITIVE_INFINITY) continue;
       const w = width(breaks[j]!, at);
@@ -81,8 +118,8 @@ export function breakRagged(tokens: readonly Measured[], measure: number, fontSi
         break;
       }
       const b = badness(measure - w, stretch);
-      let demerits = (settings.linePenalty + b) ** 2 + (dash ? settings.dashPenalty ** 2 : 0);
-      if (dash && j > 0 && tokens[breaks[j]!]!.kind === 'dash') demerits += settings.doubleDashDemerits;
+      let demerits = (settings.linePenalty + b) ** 2 + (dash ? penalty ** 2 : 0);
+      if (dash && j > 0 && endsInDash(breaks[j]!)) demerits += settings.doubleDashDemerits;
       const cost = best[j]! + demerits;
       if (cost < best[k]!) { best[k] = cost; prev[k] = j; forced[k] = 0; }
     }
@@ -98,13 +135,15 @@ export function breakRagged(tokens: readonly Measured[], measure: number, fontSi
       if (end === -1) { end = j; endCost = best[j]!; overfull = true; }
       break;
     }
-    const cost = best[j]! + settings.linePenalty ** 2;
+    const cost = best[j]! + settings.linePenalty ** 2 + (j > 0 && tokens[breaks[j]!]!.kind === 'hyphen' ? settings.finalHyphenDemerits : 0);
     if (cost < endCost) { endCost = cost; end = j; overfull = false; }
   }
   const after: number[] = [];
+  let worst = 0;
   for (let k = end; k > 0; k = prev[k]!) {
     after.push(breaks[k]!);
     if (forced[k]) overfull = true;
+    worst = Math.max(worst, badness(measure - width(breaks[prev[k]!]!, breaks[k]!), stretch));
   }
-  return { after: after.reverse(), overfull };
+  return { after: after.reverse(), overfull, worst };
 }

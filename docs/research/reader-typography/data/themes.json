@@ -1,0 +1,526 @@
+[
+ {
+  "name": "GitHub Light Default",
+  "mode": "light",
+  "bg": "#ffffff",
+  "colors": {
+   "fg": "#1f2328",
+   "comment": "#6e7781",
+   "string": "#0a3069",
+   "keyword": "#cf222e",
+   "function": "#8250df",
+   "number": "#0550ae",
+   "type": "#953800"
+  },
+  "ratios": {
+   "fg": 15.8,
+   "comment": 4.55,
+   "string": 12.81,
+   "keyword": 5.36,
+   "function": 5.05,
+   "number": 7.59,
+   "type": 7.39
+  },
+  "failing": []
+ },
+ {
+  "name": "GitHub Dark Default",
+  "mode": "dark",
+  "bg": "#0d1117",
+  "colors": {
+   "fg": "#e6edf3",
+   "comment": "#8b949e",
+   "string": "#a5d6ff",
+   "keyword": "#ff7b72",
+   "function": "#d2a8ff",
+   "number": "#79c0ff",
+   "type": "#ffa657"
+  },
+  "ratios": {
+   "fg": 16.02,
+   "comment": 6.15,
+   "string": 12.31,
+   "keyword": 7.51,
+   "function": 9.72,
+   "number": 9.73,
+   "type": 9.77
+  },
+  "failing": []
+ },
+ {
+  "name": "Solarized Dark",
+  "mode": "dark",
+  "bg": "#002b36",
+  "colors": {
+   "fg": "#839496",
+   "comment": "#586e75",
+   "string": "#2aa198",
+   "keyword": "#859900",
+   "function": "#268bd2",
+   "number": "#2aa198",
+   "type": "#b58900"
+  },
+  "ratios": {
+   "fg": 4.75,
+   "comment": 2.79,
+   "string": 4.75,
+   "keyword": 4.69,
+   "function": 4.08,
+   "number": 4.75,
+   "type": 4.68
+  },
+  "failing": [
+   "comment",
+   "function"
+  ]
+ },
+ {
+  "name": "Solarized Light",
+  "mode": "light",
+  "bg": "#fdf6e3",
+  "colors": {
+   "fg": "#657b83",
+   "comment": "#93a1a1",
+   "string": "#2aa198",
+   "keyword": "#859900",
+   "function": "#268bd2",
+   "number": "#2aa198",
+   "type": "#b58900"
+  },
+  "ratios": {
+   "fg": 4.13,
+   "comment": 2.48,
+   "string": 2.93,
+   "keyword": 2.97,
+   "function": 3.41,
+   "number": 2.93,
+   "type": 2.98
+  },
+  "failing": [
+   "fg",
+   "comment",
+   "string",
+   "keyword",
+   "function",
+   "number",
+   "type"
+  ]
+ },
+ {
+  "name": "One Dark",
+  "mode": "dark",
+  "bg": "#282c34",
+  "colors": {
+   "fg": "#abb2bf",
+   "comment": "#5c6370",
+   "string": "#98c379",
+   "keyword": "#c678dd",
+   "function": "#61afef",
+   "number": "#d19a66",
+   "type": "#e5c07b"
+  },
+  "ratios": {
+   "fg": 6.57,
+   "comment": 2.32,
+   "string": 6.94,
+   "keyword": 4.75,
+   "function": 5.92,
+   "number": 5.68,
+   "type": 8.1
+  },
+  "failing": [
+   "comment"
+  ]
+ },
+ {
+  "name": "Monokai (original)",
+  "mode": "dark",
+  "bg": "#272822",
+  "colors": {
+   "fg": "#f8f8f2",
+   "comment": "#75715e",
+   "string": "#e6db74",
+   "keyword": "#f92672",
+   "function": "#a6e22e",
+   "number": "#ae81ff",
+   "type": "#66d9ef"
+  },
+  "ratios": {
+   "fg": 13.94,
+   "comment": 3.03,
+   "string": 10.44,
+   "keyword": 3.93,
+   "function": 9.58,
+   "number": 5.23,
+   "type": 9.01
+  },
+  "failing": [
+   "comment",
+   "keyword"
+  ]
+ },
+ {
+  "name": "Dracula",
+  "mode": "dark",
+  "bg": "#282a36",
+  "colors": {
+   "fg": "#f8f8f2",
+   "comment": "#6272a4",
+   "string": "#f1fa8c",
+   "keyword": "#ff79c6",
+   "function": "#50fa7b",
+   "number": "#ffb86c",
+   "type": "#8be9fd"
+  },
+  "ratios": {
+   "fg": 13.36,
+   "comment": 3.03,
+   "string": 12.74,
+   "keyword": 5.97,
+   "function": 10.38,
+   "number": 8.36,
+   "type": 10.29
+  },
+  "failing": [
+   "comment"
+  ]
+ },
+ {
+  "name": "Nord (VS Code port)",
+  "mode": "dark",
+  "bg": "#2e3440",
+  "colors": {
+   "fg": "#d8dee9",
+   "comment": "#616e88",
+   "string": "#a3be8c",
+   "keyword": "#81a1c1",
+   "function": "#88c0d0",
+   "number": "#b48ead",
+   "type": "#8fbcbb"
+  },
+  "ratios": {
+   "fg": 9.25,
+   "comment": 2.43,
+   "string": 6.13,
+   "keyword": 4.64,
+   "function": 6.24,
+   "number": 4.41,
+   "type": 5.99
+  },
+  "failing": [
+   "comment",
+   "number"
+  ]
+ },
+ {
+  "name": "Gruvbox Dark (medium)",
+  "mode": "dark",
+  "bg": "#282828",
+  "colors": {
+   "fg": "#ebdbb2",
+   "comment": "#928374",
+   "string": "#b8bb26",
+   "keyword": "#fb4934",
+   "function": "#b8bb26",
+   "number": "#d3869b",
+   "type": "#fabd2f"
+  },
+  "ratios": {
+   "fg": 10.75,
+   "comment": 4.02,
+   "string": 7.14,
+   "keyword": 4.29,
+   "function": 7.14,
+   "number": 5.37,
+   "type": 8.69
+  },
+  "failing": [
+   "comment",
+   "keyword"
+  ]
+ },
+ {
+  "name": "Gruvbox Light (medium)",
+  "mode": "light",
+  "bg": "#fbf1c7",
+  "colors": {
+   "fg": "#3c3836",
+   "comment": "#928374",
+   "string": "#79740e",
+   "keyword": "#9d0006",
+   "function": "#79740e",
+   "number": "#8f3f71",
+   "type": "#b57614"
+  },
+  "ratios": {
+   "fg": 10.22,
+   "comment": 3.24,
+   "string": 4.29,
+   "keyword": 7.6,
+   "function": 4.29,
+   "number": 5.94,
+   "type": 3.33
+  },
+  "failing": [
+   "comment",
+   "string",
+   "function",
+   "type"
+  ]
+ },
+ {
+  "name": "Tomorrow",
+  "mode": "light",
+  "bg": "#ffffff",
+  "colors": {
+   "fg": "#4d4d4c",
+   "comment": "#8e908c",
+   "string": "#718c00",
+   "keyword": "#8959a8",
+   "function": "#4271ae",
+   "number": "#f5871f",
+   "type": "#c99e00"
+  },
+  "ratios": {
+   "fg": 8.46,
+   "comment": 3.22,
+   "string": 3.85,
+   "keyword": 5.17,
+   "function": 4.99,
+   "number": 2.51,
+   "type": 2.51
+  },
+  "failing": [
+   "comment",
+   "string",
+   "number",
+   "type"
+  ]
+ },
+ {
+  "name": "Tomorrow Night",
+  "mode": "dark",
+  "bg": "#1d1f21",
+  "colors": {
+   "fg": "#c5c8c6",
+   "comment": "#969896",
+   "string": "#b5bd68",
+   "keyword": "#b294bb",
+   "function": "#81a2be",
+   "number": "#de935f",
+   "type": "#f0c674"
+  },
+  "ratios": {
+   "fg": 9.8,
+   "comment": 5.69,
+   "string": 8.22,
+   "keyword": 6.18,
+   "function": 6.18,
+   "number": 6.65,
+   "type": 10.26
+  },
+  "failing": []
+ },
+ {
+  "name": "Catppuccin Latte",
+  "mode": "light",
+  "bg": "#eff1f5",
+  "colors": {
+   "fg": "#4c4f69",
+   "comment": "#7c7f93",
+   "string": "#40a02b",
+   "keyword": "#8839ef",
+   "function": "#1e66f5",
+   "number": "#fe640b",
+   "type": "#df8e1d"
+  },
+  "ratios": {
+   "fg": 7.06,
+   "comment": 3.49,
+   "string": 2.96,
+   "keyword": 4.79,
+   "function": 4.34,
+   "number": 2.64,
+   "type": 2.31
+  },
+  "failing": [
+   "comment",
+   "string",
+   "function",
+   "number",
+   "type"
+  ]
+ },
+ {
+  "name": "Catppuccin Mocha",
+  "mode": "dark",
+  "bg": "#1e1e2e",
+  "colors": {
+   "fg": "#cdd6f4",
+   "comment": "#9399b2",
+   "string": "#a6e3a1",
+   "keyword": "#cba6f7",
+   "function": "#89b4fa",
+   "number": "#fab387",
+   "type": "#f9e2af"
+  },
+  "ratios": {
+   "fg": 11.34,
+   "comment": 5.81,
+   "string": 11.03,
+   "keyword": 8.07,
+   "function": 7.79,
+   "number": 9.27,
+   "type": 12.91
+  },
+  "failing": []
+ },
+ {
+  "name": "Tokyo Night",
+  "mode": "dark",
+  "bg": "#1a1b26",
+  "colors": {
+   "fg": "#a9b1d6",
+   "comment": "#51597d",
+   "string": "#9ece6a",
+   "keyword": "#bb9af7",
+   "function": "#7aa2f7",
+   "number": "#ff9e64",
+   "type": "#0db9d7"
+  },
+  "ratios": {
+   "fg": 8.1,
+   "comment": 2.5,
+   "string": 9.35,
+   "keyword": 7.39,
+   "function": 6.79,
+   "number": 8.4,
+   "type": 7.27
+  },
+  "failing": [
+   "comment"
+  ]
+ },
+ {
+  "name": "VS Code Dark Modern",
+  "mode": "dark",
+  "bg": "#1f1f1f",
+  "colors": {
+   "fg": "#cccccc",
+   "comment": "#6a9955",
+   "string": "#ce9178",
+   "keyword": "#569cd6",
+   "function": "#dcdcaa",
+   "number": "#b5cea8",
+   "type": "#4ec9b0"
+  },
+  "ratios": {
+   "fg": 10.26,
+   "comment": 4.95,
+   "string": 6.24,
+   "keyword": 5.59,
+   "function": 11.66,
+   "number": 9.7,
+   "type": 8.09
+  },
+  "failing": []
+ },
+ {
+  "name": "VS Code Light Modern",
+  "mode": "light",
+  "bg": "#ffffff",
+  "colors": {
+   "fg": "#3b3b3b",
+   "comment": "#008000",
+   "string": "#a31515",
+   "keyword": "#0000ff",
+   "function": "#795e26",
+   "number": "#098658",
+   "type": "#267f99"
+  },
+  "ratios": {
+   "fg": 11.2,
+   "comment": 5.14,
+   "string": 7.85,
+   "keyword": 8.59,
+   "function": 6.1,
+   "number": 4.6,
+   "type": 4.59
+  },
+  "failing": []
+ },
+ {
+  "name": "Alabaster (light)",
+  "mode": "light",
+  "bg": "#f7f7f7",
+  "colors": {
+   "fg": "#000000",
+   "comment": "#aa3731",
+   "string": "#448c27",
+   "keyword": "#000000",
+   "function": "#325cc0",
+   "number": "#7a3e9d",
+   "type": "#325cc0"
+  },
+  "ratios": {
+   "fg": 19.6,
+   "comment": 5.94,
+   "string": 3.9,
+   "keyword": 19.6,
+   "function": 5.72,
+   "number": 6.53,
+   "type": 5.72
+  },
+  "failing": [
+   "string"
+  ]
+ },
+ {
+  "name": "This handbook, dark",
+  "mode": "dark",
+  "bg": "#101316",
+  "colors": {
+   "fg": "#d7dde0",
+   "comment": "#a3afb6",
+   "string": "#b8d5a3",
+   "keyword": "#c8b4e6",
+   "function": "#7fc3da",
+   "number": "#e6c28f",
+   "type": "#7fc3da"
+  },
+  "ratios": {
+   "fg": 13.59,
+   "comment": 8.31,
+   "string": 11.61,
+   "keyword": 9.88,
+   "function": 9.51,
+   "number": 11.07,
+   "type": 9.51
+  },
+  "failing": []
+ },
+ {
+  "name": "This handbook, light",
+  "mode": "light",
+  "bg": "#fbfcfc",
+  "colors": {
+   "fg": "#1c2226",
+   "comment": "#56646b",
+   "string": "#3b6a26",
+   "keyword": "#6a45a3",
+   "function": "#17627e",
+   "number": "#85540f",
+   "type": "#17627e"
+  },
+  "ratios": {
+   "fg": 15.64,
+   "comment": 5.96,
+   "string": 6.24,
+   "keyword": 6.83,
+   "function": 6.62,
+   "number": 6.24,
+   "type": 6.62
+  },
+  "failing": []
+ }
+]

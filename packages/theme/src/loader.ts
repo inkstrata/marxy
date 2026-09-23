@@ -71,6 +71,17 @@ function clampCssLength(
   });
 }
 
+function clampCssNumber(css: string, prop: string, min: number, max: number, warnings: string[]): string {
+  const re = new RegExp(`(${escapeRegExp(prop)}\\s*:\\s*)([^;\\n]+)`, 'g');
+  return css.replace(re, (_full, prefix: string, value: string) => {
+    const n = Number(value.trim());
+    if (!Number.isFinite(n) || (n >= min && n <= max)) return `${prefix}${value}`;
+    const clamped = Math.min(max, Math.max(min, n));
+    warnings.push(`${prop} was ${value.trim()}; clamped to ${clamped}`);
+    return `${prefix}${clamped}`;
+  });
+}
+
 function parseCh(value: string): number | null {
   const m = /(-?\d+(?:\.\d+)?)\s*ch\b/i.exec(value.trim());
   return m ? Number(m[1]) : null;
@@ -87,9 +98,12 @@ function escapeRegExp(s: string): string {
 
 function clampThemeValues(css: string, warnings: string[]): string {
   let out = css;
+  // The measure is counted in average characters (ADR-0033); base.css clamps the drawn column to
+  // 45–80 of them whatever a theme writes, and a legacy ch value is still held to its old range.
+  out = clampCssNumber(out, '--marxy-measure-chars', 45, 80, warnings);
   out = clampCssLength(out, '--marxy-measure', '45ch', '90ch', warnings);
   out = clampCssLength(out, '--marxy-line-box', '20px', '48px', warnings);
-  out = clampCssLength(out, '--marxy-size-body', '13px', '24px', warnings);
+  out = clampCssLength(out, '--marxy-size-body', '13px', '28px', warnings);
   return out;
 }
 

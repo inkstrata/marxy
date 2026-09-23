@@ -52,3 +52,17 @@ test('remote url in theme css is stripped', async () => {
   assert.doesNotMatch(css, /https:\/\/evil/);
   assert.ok(warnings.some((w) => w.includes('not loaded')));
 });
+
+test('an out-of-range measure in characters is clamped to 45–80 with a warning (ADR-0033)', async () => {
+  const files = new Map<string, Uint8Array>([
+    ['theme.toml', new TextEncoder().encode('name = "wide"\ncontract = 1\n')],
+    ['theme.css', new TextEncoder().encode(':root { --marxy-measure-chars: 120; }\n')],
+  ]);
+  const { css, warnings } = await loadTheme(
+    dir,
+    (rel) => Promise.resolve(files.get(rel)!),
+    (p) => p,
+  );
+  assert.match(css, /--marxy-measure-chars:\s*80;/);
+  assert.ok(warnings.some((w) => w.includes('--marxy-measure-chars')));
+});

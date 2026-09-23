@@ -42,7 +42,7 @@ export interface BlockRect {
 }
 
 /** Body size → even line box, same table as packages/theme/test/grid.test.mjs, so half a line is whole pixels. */
-const LINE_BOX: Readonly<Record<number, number>> = { 14: 24, 17: 28, 21: 34, 24: 40 };
+const LINE_BOX: Readonly<Record<number, number>> = { 16: 24, 20: 30, 24: 36, 28: 42 };
 const BLOCK_DISPLAYS: ReadonlySet<string> = new Set(['block', 'table', 'list-item', 'flow-root']);
 /** Same 0.5 px band as the grid check — subpixel paint is not a shift. */
 const MOVE_EPS = 0.5;
@@ -236,11 +236,11 @@ function settleGrid(article: HTMLElement, lineBox: number): void {
 
 /**
  * Flush `--marxy-size-body` / `--marxy-line-box` and load the body face at that size before
- * innerHTML, so the first paint of the document is already at the matrix size. A 17 → 21
+ * innerHTML, so the first paint of the document is already at the matrix size. A 20 → 24
  * reflow after innerHTML is a harness artefact, not a page a reader of a 21 px document sees.
  */
 async function settleSize(article: HTMLElement, size: number): Promise<number> {
-  const expected = LINE_BOX[size] ?? LINE_BOX[17];
+  const expected = LINE_BOX[size] ?? LINE_BOX[20];
   if (expected === undefined) throw new Error(`layout shift: no line box token for size ${size}`);
   void document.documentElement.offsetHeight;
   const probe = document.createElement('span');
@@ -306,9 +306,9 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
     window.matchMedia('(prefers-color-scheme: dark)').matches,
   );
   root.dataset.marxyVariant = variant;
-  const size = opts.size ?? 17;
+  const size = opts.size ?? 20;
   const lineToken = LINE_BOX[size];
-  if (size !== 17 && lineToken !== undefined) {
+  if (size !== 20 && lineToken !== undefined) {
     root.style.setProperty('--marxy-size-body', `${size}px`);
     root.style.setProperty('--marxy-line-box', `${lineToken}px`);
   } else {
