@@ -66,11 +66,13 @@ or fall back to B for implementors.
 the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
 
 Either way the mechanical half of every cycle is one command, and it is the same command in both
-modes: `node orchestration/cycle.mjs` mirrors the board into Jira, merges the pull requests that
-are provably finished, names what should start next (dispatching headlessly if `cursor-agent` is
+modes: `node orchestration/cycle.mjs` mirrors the board into Jira, reads GitHub once (two `gh pr
+list` calls, `github.mjs`, where it used to make three calls per open PR plus one per worktree),
+merges the pull requests that are provably finished, names what should start next (dispatching headlessly if `cursor-agent` is
 on PATH), asks whether the planner is due, and writes `status.md`. It is idempotent, so
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
-`--no-merge` to decide without landing anything, `--low` or `--minimal` to spend less.
+`--no-merge` to decide without landing anything, `--dry-run` to change nothing anywhere (Jira
+included), `--low` or `--minimal` to spend less.
 
 The cycle acts on the computed review order (`review-order.mjs`, ADR-0025). It calls
 `gh pr update-branch` on **at most one** pull request per cycle — the first order entry
@@ -144,7 +146,8 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
 | `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |
 | `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
 | `deps.json` | story dependencies (the CSV has none) and phase membership |
-| `cycle.mjs` | one idempotent cycle: push, merge what is finished, dispatch, plan check, report |
+| `cycle.mjs` | one idempotent cycle: push, snapshot GitHub, merge what is finished, dispatch, plan check, report |
+| `github.mjs` | the cycle's one read of GitHub: every open PR, and recent PR states by branch |
 | `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |
 | `readiness.mjs` | every open PR as a merge-readiness table in review order; `--json` for machines |
 | `loop.sh` | `cycle.mjs` until interrupted |

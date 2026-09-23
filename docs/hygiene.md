@@ -47,8 +47,6 @@ Before merge when you changed shell, paint, or CLI paths, run
 | Rust formatting and warnings | `pnpm lint:rust` (`cargo fmt --check`, `clippy -D warnings`) | precheck (when `src-tauri` changes), CI |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |
 
-The 600-line branch-diff budget in `orchestration/phases.test.mjs` counts insertions in source, scripts, orchestration code and workflows — the lines a reviewer has to hold — and excludes `docs/plan/`, `orchestration/deps.json`, `orchestration/jira-map.json`, `orchestration/results/` and `CHANGELOG.md`, because `docs/conventions.md`'s over-600-lines rule is about that work, not about how verbose the board is.
-
 ## Rules the tools encode (so nobody re-derives them)
 
 - The story key comes from the branch: `type/MARXY-nn-slug`. No key, no path check (and a

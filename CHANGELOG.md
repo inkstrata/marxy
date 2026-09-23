@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The orchestrator reads GitHub once per cycle (two list calls instead of three per open PR plus one per worktree), `cycle.mjs --dry-run` no longer moves Jira issues, Jira search pages past 200 issues, the ops lane reviews after the numbered phases instead of in an inconsistent order, and `status.md` lists every CSV story; CI's fast job now runs for orchestration code and the board CSV, which it had been skipping as docs, and the two tests that were red on main behind that gap are fixed; the 600-line branch-size budget is gone, so one concern is one PR however long it is (MARXY-191)
 - The orchestrator human queue is cleared with author rulings: MARXY-183 landed (#180), MARXY-22 stays deferred without a Linux desktop or notarization account, ADR-0026 is accepted so MARXY-94 can dispatch, and interaction-speed numbers remain measured-only without CI merge gates (MARXY-188)
 - MARXY-183: second launches and macOS open events route to the running window via single-instance and `onOpenFiles`
 
