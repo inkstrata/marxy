@@ -20,6 +20,9 @@ import { leaveSourceMode } from './source/buffer-commit.ts';
 interface MountedSourceEditor {
   docText(): string;
   scrollToByte(byteOffset: number): void;
+  /** The buffer the editor maps bytes through; its text is kept when it already matches. */
+  replaceBuffer(buffer: Buffer): void;
+  destroy(): void;
   readonly view: {
     scrollDOM: HTMLElement;
     lineBlockAtHeight(height: number): { from: number };
@@ -53,6 +56,10 @@ export type AppHandle = {
   commands(): readonly unknown[];
   readonly shell: AppShell;
   readonly ready: Promise<void>;
+  /** Opens `path` through the one open path, after any open already under way (the palette uses it). */
+  open(path: string): Promise<void>;
+  /** The document on screen, or null before the first one. */
+  currentPath(): string | null;
   /** Playwright harness: buffer fingerprint and reading position (MARXY-169). */
   sourceHarness(): {
     readonly mode: 'rendered' | 'source';
@@ -147,8 +154,12 @@ async function leaveSourceForRendered(): Promise<void> {
   let fraction = lastReadingFraction;
   if (left.changed) {
     const { sourceVisibleByteOffset } = await import('./source/mode-switch.ts');
+    sourceEditor.replaceBuffer(documentBuffer);
     byteOffset = sourceVisibleByteOffset(documentBuffer, sourceEditor.view as never);
     fraction = 0;
+    // The AST, the node map and the blocks were built from the old bytes; an operation resolved
+    // through them now would splice at offsets that no longer name what the reader sees.
+    rerenderFromBuffer(document.getElementById('doc')!);
   }
   lastReadingByteOffset = byteOffset;
   lastReadingFraction = fraction;
@@ -159,11 +170,25 @@ async function toggleViewMode(): Promise<void> {
   if (modeToggleBusy || !documentBuffer) return;
   modeToggleBusy = true;
   try {
-    if (viewMode === 'rendered') await enterSourceFromRendered();
-    else await leaveSourceForRendered();
+    await serially(async () => {
+      if (viewMode === 'rendered') await enterSourceFromRendered();
+      else await leaveSourceForRendered();
+    });
   } finally {
     modeToggleBusy = false;
   }
+}
+
+/**
+ * Opens and mode switches run one at a time: each reads and replaces the same module state (the
+ * buffer, the typesetter, the editor), so two interleaved would leave one file's buffer behind
+ * another's page. A failure does not stop the next one from running.
+ */
+let chain: Promise<unknown> = Promise.resolve();
+function serially<T>(fn: () => Promise<T>): Promise<T> {
+  const run = chain.then(fn, fn);
+  chain = run.catch(() => undefined);
+  return run;
 }
 
 function installKeyDispatcher(): void {
@@ -271,22 +296,87 @@ async function restartUserTheme(dir: string | null): Promise<void> {
 }
 
 function snap(article: HTMLElement): void {
+  cancelScheduledSnap();
+  lastSnapAt = performance.now();
   snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
   if (state.document) state.document.blocks = buildBlocks(article, state.document.nodeMap);
 }
+
+/**
+ * The grid pass and the block list each read the whole article, so running them after every idle
+ * batch of eight paragraphs made background typesetting quadratic in the document's length (a
+ * 516 KB document: 357,000 layout reads). A pass the reader can see — the viewport, or paragraphs
+ * scrolling into view — is snapped at once; background passes are coalesced to one snap per
+ * SNAP_INTERVAL_MS, with a trailing one so the last batch is always on the grid.
+ */
+const SNAP_INTERVAL_MS = 250;
+let lastSnapAt = 0;
+let snapTimer = 0;
+let snapFrame = 0;
+
+function cancelScheduledSnap(): void {
+  if (snapTimer !== 0) clearTimeout(snapTimer);
+  if (snapFrame !== 0) cancelAnimationFrame(snapFrame);
+  snapTimer = 0;
+  snapFrame = 0;
+}
+
+function scheduleSnap(article: HTMLElement): void {
+  if (snapTimer !== 0 || snapFrame !== 0) return;
+  const wait = Math.max(0, lastSnapAt + SNAP_INTERVAL_MS - performance.now());
+  snapTimer = window.setTimeout(() => {
+    snapTimer = 0;
+    snapFrame = requestAnimationFrame(() => {
+      snapFrame = 0;
+      snap(article);
+    });
+  }, wait);
+}
+
+let resizeObserver: ResizeObserver | null = null;
 
 function keepOnGrid(article: HTMLElement): void {
   snap(article);
   void document.fonts.ready.then(() => snap(article));
   let pending = 0;
   let width = article.clientWidth;
-  new ResizeObserver(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = new ResizeObserver(() => {
     if (article.clientWidth === width) return;
     width = article.clientWidth;
     clearTimeout(pending);
     // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
     pending = window.setTimeout(() => (typeset ? typeset.relayout('resize') : snap(article)), 100);
-  }).observe(article);
+  });
+  resizeObserver.observe(article);
+}
+
+/**
+ * Everything one open document started: its typesetter, its resize observer, a pending grid pass
+ * and its Source editor. Run before the next document replaces it, so N opens leave one of each and
+ * not N — each old observer would otherwise relayout on every resize.
+ */
+function teardownDocument(): void {
+  typeset?.destroy();
+  typeset = null;
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  cancelScheduledSnap();
+  sourceEditor?.destroy();
+  sourceEditor = null;
+  document.getElementById('marxy-source')?.replaceChildren();
+}
+
+function startTypeset(article: HTMLElement): TypesetController {
+  const lineBox = parseFloat(getComputedStyle(article).lineHeight);
+  typeset?.destroy();
+  typeset = attach(article, {
+    lineBox,
+    glueStretchEm: 0.6,
+    lastLineMinWidth: 0.33,
+    onPass: (kind) => (kind === 'background' ? scheduleSnap(article) : snap(article)),
+  });
+  return typeset;
 }
 
 /**
@@ -295,16 +385,37 @@ function keepOnGrid(article: HTMLElement): void {
  * punctuation are MARXY-24.
  */
 async function typesetDocument(article: HTMLElement): Promise<void> {
-  const lineBox = parseFloat(getComputedStyle(article).lineHeight);
-  typeset = attach(article, { lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, onPass: () => snap(article) });
-  await typeset.ready;
-  await shell.mark('typeset_viewport', Date.now(), `ms=${typeset.stats.viewportMs.toFixed(1)} set=${typeset.stats.typeset}`);
+  const controller = startTypeset(article);
+  await controller.ready;
+  const { viewportMs, hyphenationLoadMs, typeset: set } = controller.stats;
+  await shell.mark('typeset_viewport', Date.now(), `ms=${viewportMs.toFixed(1)} hyphenation_load_ms=${hyphenationLoadMs.toFixed(1)} set=${set}`);
+}
+
+/**
+ * The page again from `documentBuffer`, after its bytes changed under the open document (an edit in
+ * Source). Same parse, render and passes as an open; the reading position is the caller's.
+ */
+function rerenderFromBuffer(doc: HTMLElement): void {
+  if (!documentBuffer || !openPath) return;
+  const file = openPath;
+  const ast = parseMarkdown(documentBuffer.bytes, { file });
+  const { html, blockedImages } = renderDocumentSafeHtml(ast);
+  typeset?.destroy();
+  assignHtml(doc, html);
+  state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
+  stripNonLocalImages(doc, file);
+  blockedContentNotice(blockedImages);
+  snap(doc);
+  startTypeset(doc);
+  void whenIdle(() =>
+    runDeferredStartup({ shell, file, doc, imageCtx: { shell, scopedRoots: scopedAssetRoots } }),
+  );
 }
 
 /** Read and render `file` through the `render` mark; cold-start paint runs after this (MARXY-183). */
 async function openDocumentThroughRenderMark(file: string, doc: HTMLElement): Promise<RenderEvidence> {
-  if (openPath !== file) sourceEditor = null;
   const bytes = await shell.readFile(file);
+  teardownDocument();
   openPath = file;
   documentBuffer = createBuffer(file, bytes);
   sourceMount();
@@ -325,9 +436,9 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement): Pr
   await document.fonts.ready;
   await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
   document.title = `${file.split('/').pop()} — Marxy`;
+  // The grid pass also builds the block list the reading position is read from.
   keepOnGrid(doc);
   const evidence = renderEvidence(doc);
-  state.document.blocks = buildBlocks(doc, nodeMap);
   await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
   return evidence;
 }
@@ -355,7 +466,11 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
   });
 }
 
-async function replaceOpenDocument(file: string): Promise<void> {
+function replaceOpenDocument(file: string): Promise<void> {
+  return serially(() => openReplacing(file));
+}
+
+async function openReplacing(file: string): Promise<void> {
   const doc = document.getElementById('doc')!;
   try {
     await openDocumentThroughRenderMark(file, doc);
@@ -446,10 +561,12 @@ export async function startApp(injected: AppShell, opts?: { argv?: readonly stri
     commands() { return []; },
     shell: injected,
     ready,
+    open: replaceOpenDocument,
+    currentPath: () => openPath,
     sourceHarness,
   };
   try {
-    await boot();
+    await serially(boot);
   } catch (e) {
     document.getElementById('doc')!.textContent = String(e);
     await shell.mark('error', Date.now(), String(e));

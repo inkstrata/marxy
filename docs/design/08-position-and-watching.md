@@ -60,12 +60,19 @@ on marxy:watch batch:
      if contentHash(bytes) == savedHash: ignore        // our own save
      if contentHash(bytes) == contentHash(buffer.bytes): ignore
      if dirty: notice "The file changed on disk" [Reload, discarding your changes] [Keep mine]; stop
-     pos = current(); history.clear(); buffer = createBuffer(path, bytes)
+     pos = current(); pos.byteOffset = offsetThroughEdit(pos.byteOffset, buffer.bytes, bytes)
+     history.clear(); buffer = createBuffer(path, bytes)
      reparse → re-render → typeset viewport (cache) → restore(pos)        // budget 100 ms at 200 KB
   if event.kind == 'removed' && event.path == buffer.path:
      notice "The file was deleted" [Keep showing it] [Close]; the buffer stays; saving recreates the file
   else: index update only (§07)
 ```
+
+A byte offset is not stable across an edit above it: an agent inserting a section before the
+reader moves every later byte. `offsetThroughEdit` (core, `position/restore.ts`) finds the one
+changed run between the old and new bytes' common prefix and suffix; an offset before it stays,
+one after it moves by the change in length, one inside it lands at the run's start
+(`reloadOpenDocument(bytes, previous, previousBytes)`, MARXY-198).
 
 The `mark('live_reload', …)` pair around this path feeds the perf gate's `live_reload_ms`.
 

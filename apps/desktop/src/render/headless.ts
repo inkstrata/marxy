@@ -48,7 +48,7 @@ const BLOCK_DISPLAYS: ReadonlySet<string> = new Set(['block', 'table', 'list-ite
 const MOVE_EPS = 0.5;
 
 function emptyStats(): TypesetStats {
-  return { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0, viewportMs: 0, reasons: {} };
+  return { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0, viewportMs: 0, hyphenationLoadMs: 0, reasons: {} };
 }
 
 /** WebKit does not implement PerformanceObserver `layout-shift`; claiming that API would silently report 0. */

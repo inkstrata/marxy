@@ -29,8 +29,9 @@ function assertAssetScope(path: string): void {
 /** Bytes last returned by `readFile` for a path; a save is refused if disk no longer matches. */
 const lastRead = new Map<string, Uint8Array>();
 
+/** The shell returns the file as a raw IPC body, so the bytes arrive as an ArrayBuffer rather than JSON. */
 const readBytes = async (path: string): Promise<Uint8Array> =>
-  new Uint8Array(await invoke<number[]>('read_file', { path }));
+  new Uint8Array(await invoke<ArrayBuffer>('read_file', { path }));
 
 export const shell: Pick<
   Shell,
@@ -63,12 +64,15 @@ export const shell: Pick<
       const error = staleWriteError(path, expected, await readBytes(path));
       if (error) throw new Error(error);
     }
-    await invoke('write_file_atomic', { path, bytes: Array.from(bytes) });
+    // A raw body, not `Array.from(bytes)`: a JSON array costs ~3.7 bytes per byte each way. The path
+    // goes in a header, percent-encoded so any file name survives it.
+    await invoke('write_file_atomic', bytes, { headers: { 'x-marxy-path': encodeURIComponent(path) } });
     lastRead.set(path, bytes.slice());
   },
   /**
-   * Recurring watch of `root`. The Rust `watch` module polls the directory (not the inode);
-   * events arrive on `fs-watch` and are debounced here, as the contract requires. No chrome.
+   * Recurring watch of `root`. Events arrive on the one `fs-watch` channel every watcher listens to,
+   * so each keeps only its own root's and debounces them, as the contract requires. No chrome.
+   * The Rust side is still a placeholder (`watch_root` in main.rs): no events arrive until MARXY-34.
    */
   watch: async (root, onEvents) => {
     await invoke('watch_root', { root });
@@ -82,7 +86,9 @@ export const shell: Pick<
       onEvents(batch);
     };
     const stop = await listen<WatchEvent[]>('fs-watch', (event) => {
-      pending.push(...event.payload);
+      const mine = event.payload.filter((e) => isInsideImageRoot(e.path, root) || (e.to !== undefined && isInsideImageRoot(e.to, root)));
+      if (mine.length === 0) return;
+      pending.push(...mine);
       if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(flush, 25);
     });

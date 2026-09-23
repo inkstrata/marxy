@@ -34,7 +34,8 @@ export function createBuffer(path: string, bytes: Uint8Array): Buffer;
 export function bytesOf(buffer: Buffer, range: Source): Uint8Array;      // view, not copy
 export function textOf(buffer: Buffer, range: Source): string;           // decode of that slice; MUST throw RangeError if range is not at UTF-8 boundaries
 export function splice(buffer: Buffer, range: Source, replacement: string | Uint8Array): Buffer;  // pure: returns a new Buffer, version + 1
-export function fromText(path: string, text: string, like: Buffer): Buffer;  // encode with `like.eol` and `like.bom`; used when leaving Source mode with edits (§09)
+export function fromText(path: string, text: string, like: Buffer): Buffer;  // `like` with `foldText`'s splice applied; used when leaving Source mode with edits (§09)
+export function foldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null;  // the one splice between `like` and the editor's text; null when equal
 export function byteToUtf16(buffer: Buffer, byte: number): number;       // for CodeMirror positions (§09); linear-scan fallback for non-ASCII, cached
 export function utf16ToByte(buffer: Buffer, cu: number): number;         // = buffer.offsets.at(cu)
 export function contentHash(bytes: Uint8Array): string;                  // FNV-1a 64 as hex; used by watch reload (§08)
@@ -68,6 +69,19 @@ that produce line breaks (align table pipes, §03) **MUST** use `eolString(buffe
 `crlf`, `'\n'` for `lf` and `none`, and for `mixed` the ending of the *line they are rewriting*
 (each rewritten line keeps its own ending). Nothing ever converts an untouched line.
 
+Leaving Source with edits is the same rule: `foldText` finds the longest common prefix and
+suffix of the old text and the editor's, and splices only the part between them (widened so it
+never cuts a surrogate pair or a CRLF). Inside that part a CRLF file's lone `\n` becomes `\r\n`;
+every byte outside it is untouched, so a mixed file keeps each line's ending and a byte that is
+not UTF-8 is not rewritten as U+FFFD (MARXY-198).
+
+## Bytes that are not UTF-8
+
+`createBuffer` and `parseMarkdown(bytes)` decode exactly as a non-fatal `TextDecoder` does, but
+build the offset table from the bytes (`decodeWithOffsets`): each U+FFFD is charged the bytes it
+replaced, not the three bytes U+FFFD would encode to. Otherwise every offset after a stray
+Latin-1 byte would point past the bytes it names and a splice there would land in the wrong place.
+
 ## Dirty state and the disk
 
 - `dirty = buffer.version !== savedVersion`. Shown in the window title as ` •`, nowhere else.
@@ -84,7 +98,7 @@ export async function save(ctx: AppContext, opts?: { as?: boolean }): Promise<'s
 ```
 
 1. In Source mode, first fold the editor into the buffer exactly as leaving Source does (§09):
-   unchanged text → buffer untouched; changed → `fromText` + one history entry. Saving never
+   unchanged text → buffer untouched; changed → `foldText`'s splice + one history entry. Saving never
    takes bytes from anywhere but `buffer.bytes`.
 2. If `!dirty && !opts.as` → `'unchanged'`; nothing is written (no mtime bump, no watch echo).
 3. Path: `buffer.path`, or for `untitled`/`opts.as`, `await shell.saveDialog({ defaultPath })`;

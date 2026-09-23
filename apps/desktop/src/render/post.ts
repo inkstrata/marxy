@@ -50,12 +50,24 @@ export function nodeFor(map: NodeMap, target: Element): Node | undefined {
 const BLOCK_DISPLAYS: ReadonlySet<string> = new Set(['block', 'table', 'list-item', 'flow-root']);
 
 /**
+ * The elements the renderer makes for block nodes. Inline carriers (`em`, `a`, `code`, …) are most
+ * of a document's provenance attributes and can never be blocks here, and asking each one for its
+ * computed style was most of what rebuilding this list cost. A theme may still make one of these
+ * inline, which the display check below catches.
+ */
+const BLOCK_CARRIERS = [
+  'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'hr',
+]
+  .map((tag) => `${tag}[data-marxy-s]`)
+  .join(',');
+
+/**
  * The innermost block-level elements that carry provenance, in document order. Innermost, so the
  * list is a sequence of non-overlapping boxes whose tops only increase — a list's paragraphs, not
  * the list around them — which is what the binary search in §08 assumes.
  */
 export function buildBlocks(article: HTMLElement, map: NodeMap): BlockList {
-  const candidates = [...article.querySelectorAll<HTMLElement>('[data-marxy-s]')].filter(
+  const candidates = [...article.querySelectorAll<HTMLElement>(BLOCK_CARRIERS)].filter(
     (el) => BLOCK_DISPLAYS.has(getComputedStyle(el).display) && nodeFor(map, el) !== undefined,
   );
   const inner = new Set(candidates);

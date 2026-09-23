@@ -33,8 +33,12 @@ export interface TypesetOptions {
   readonly hanging?: 'none' | 'left';
   /** Injectable for tests; default: idle-chunked. */
   readonly scheduler?: Scheduler;
-  /** Called after each pass that changed line breaks, so the app can re-run the grid pass and re-read positions. */
-  readonly onPass?: () => void;
+  /**
+   * Called after each pass that changed line breaks, so the app can re-run the grid pass and re-read
+   * positions. `viewport` and `visible` passes set what the reader is looking at; `background` passes
+   * are the idle batches, which a caller may coalesce.
+   */
+  readonly onPass?: (kind: 'viewport' | 'visible' | 'background') => void;
 }
 
 export interface TypesetStats {
@@ -47,6 +51,8 @@ export interface TypesetStats {
   /** One line already: nothing to break. */
   short: number;
   viewportMs: number;
+  /** Waiting for the hyphenation patterns before the first pass; not in `viewportMs`. 0 once loaded. */
+  hyphenationLoadMs: number;
   readonly reasons: Record<string, number>;
 }
 
@@ -93,7 +99,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   const engine = opts.engine ?? 'ragged';
   const hyphenateOn = opts.hyphenate !== false;
   const hanging = opts.hanging ?? 'left';
-  const stats: TypesetStats = { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0, viewportMs: 0, reasons: {} };
+  const stats: TypesetStats = { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0, viewportMs: 0, hyphenationLoadMs: 0, reasons: {} };
   let hyphenators: Record<'en-us' | 'en-gb', Hyphenator> | null = null;
   let queue: HTMLElement[] = [];
   let generation = 0;
@@ -199,7 +205,9 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       layout(mine);
     };
     if (hyphenateOn && hyphenators === null) {
+      const loadStart = performance.now();
       void loadHyphenators().then((loaded) => {
+        stats.hyphenationLoadMs = performance.now() - loadStart;
         hyphenators = loaded;
         go();
       });
@@ -217,7 +225,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const first = all.filter((_, i) => tops[i]!.bottom > 0 && tops[i]!.top < horizon);
     setBatch(first);
     stats.viewportMs = performance.now() - t0;
-    if (first.length > 0) opts.onPass?.();
+    if (first.length > 0) opts.onPass?.('viewport');
     resolveReady();
     // The rest nearest the viewport first, in chunks that leave the frame to the reader.
     const firstSet = new Set(first);
@@ -235,7 +243,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
           if (now.length === 0 || mine !== generation) return;
           queue = queue.filter((p) => !now.includes(p));
           setBatch(now);
-          opts.onPass?.();
+          opts.onPass?.('visible');
         },
         { rootMargin: '200% 0px' },
       );
@@ -248,7 +256,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
       if (batch.length > 0) {
         setBatch(batch);
-        opts.onPass?.();
+        opts.onPass?.('background');
       }
       if (queue.length > 0) scheduler.schedule(step);
       else {

@@ -54,7 +54,8 @@ before(async () => {
   viteServer = await createViteServer({
     root: desktopRoot,
     configFile: join(desktopRoot, 'vite.config.ts'),
-    server: { port: 0, strictPort: false },
+    // Bound where the test dials it: on macOS `localhost` is ::1, and 127.0.0.1 then refuses.
+    server: { host: '127.0.0.1', port: 0, strictPort: false },
   });
   await viteServer.listen();
   const addr = viteServer.httpServer.address();
@@ -140,6 +141,11 @@ test('second launch, Finder open, and Dock drop replace the open document', asyn
         const afterFinder = await waitForHeading('second doc');
         simulateOpenedUrl(`file://${secondPath}`);
         const afterDock = await waitForHeading('second doc');
+        // Opens run one at a time (MARXY-198), so a reopen of the file already on screen is queued
+        // behind the one before it rather than raced against it: wait for each route's read.
+        for (let i = 0; i < 300 && reads.filter((p) => p === secondPath).length < 3; i++) {
+          await new Promise((r) => setTimeout(r, 10));
+        }
         return {
           firstHeading,
           afterSecond,

@@ -117,3 +117,15 @@ test('current root results come before another root', () => {
   assert.equal(hits[0]?.entry.path, '/repo/readme.md');
   assert.equal(hits[1]?.entry.path, '/other/readme.md');
 });
+
+test('a file read yesterday outranks one read months ago on a near-equal match', () => {
+  const day = 24 * 60 * 60 * 1000;
+  const entry = (path: string, title: string, lastReadMs: number): IndexEntry => ({
+    path, root: '/r', title, headings: [], bytes: 1, mtimeMs: 0, kind: 'markdown', lastReadMs,
+  } as unknown as IndexEntry);
+  // The old file's title matches a hair better (8 points); only recency can put the other first.
+  const old = entry('/r/a.md', 'notes', Date.now() - 120 * day);
+  const recent = entry('/r/b.md', 'notes x', Date.now() - day);
+  const hits = paletteResults('notes', [old, recent], emptySession('/r'));
+  assert.deepEqual(hits.map((hit) => hit.entry.path), ['/r/b.md', '/r/a.md']);
+});

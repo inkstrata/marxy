@@ -139,3 +139,68 @@ test('Mod+E twice without edits keeps buffer hash and reading byte offset', asyn
     await browser.close();
   }
 });
+
+test('an edit in Source re-renders Rendered from the new buffer (MARXY-198)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const mdPath = '/doc/edit.md';
+    const source = '# Before\n\nFirst paragraph.\n\nSecond paragraph.\n';
+    await boot(page, { [mdPath]: Buffer.from(source).toString('base64') }, [mdPath]);
+    await page.keyboard.press(`${modKey}+e`);
+    await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
+    await page.click('#marxy-source .cm-line >> nth=0');
+    await page.keyboard.press('End');
+    await page.keyboard.type(' and After');
+    await page.keyboard.press(`${modKey}+e`);
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+    const seen = await page.evaluate(() => {
+      const h1 = document.querySelector('#doc h1');
+      const doc = window.__marxyHandle.state.document;
+      return {
+        heading: h1?.textContent,
+        end: Number(h1?.getAttribute('data-marxy-e')),
+        astEnd: doc.ast.children[0].src.end,
+        blocksFromNewPage: doc.blocks.every((block) => block.el.isConnected),
+      };
+    });
+    assert.equal(seen.heading, 'Before and After');
+    assert.equal(seen.end, '# Before and After'.length, 'provenance is from the new bytes');
+    assert.equal(seen.astEnd, '# Before and After'.length);
+    assert.equal(seen.blocksFromNewPage, true);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('opening a second document tears down the first one\'s editor and typesetter (MARXY-198)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const first = '/doc/first.rs';
+    const second = '/doc/second.md';
+    await boot(page, {
+      [first]: b64(join(corpusDir, '04-source.rs')),
+      [second]: b64(join(corpusDir, '01-long-technical.md')),
+    }, [first]);
+    await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
+    await page.evaluate((path) => window.__marxyHandle.open(path), second);
+    const seen = await page.evaluate(() => ({
+      editors: document.querySelectorAll('#marxy-source .cm-editor').length,
+      mode: document.body.dataset.marxyMode,
+      current: window.__marxyHandle.currentPath(),
+      hash: window.__marxyHandle.sourceHarness().bufferHash,
+    }));
+    assert.equal(seen.editors, 0, 'the first document\'s editor is gone');
+    assert.equal(seen.mode, 'rendered');
+    assert.equal(seen.current, second);
+    assert.equal(seen.hash, contentHash(readFileSync(join(corpusDir, '01-long-technical.md'))));
+    await page.keyboard.press(`${modKey}+e`);
+    await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
+    const text = await page.evaluate(() => document.querySelector('#marxy-source .cm-content').textContent);
+    assert.ok(text.includes('#'), 'Source shows the second document, not the first');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#marxy-source .cm-editor').length), 1);
+  } finally {
+    await browser.close();
+  }
+});

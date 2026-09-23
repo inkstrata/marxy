@@ -10,7 +10,7 @@ import { frontmatterFromMarkdown } from 'mdast-util-frontmatter';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { mathFromMarkdown } from 'mdast-util-math';
 import { gfm } from 'micromark-extension-gfm';
-import type { Block, Inline, Node } from '../contracts/ast.ts';
+import type { Block, Inline, List, Node, Paragraph } from '../contracts/ast.ts';
 import { byteOffsetTableBuilds, byteOffsets, decodeWithOffsets } from './byte-offsets.ts';
 import { ParseProvenanceError, documentFromMdast } from './from-mdast.ts';
 import { checkInvariants } from './invariants.ts';
@@ -429,7 +429,9 @@ test('a file that is not valid UTF-8 gets byte offsets into its own bytes', () =
 
 test('a character reference that decodes to a line ending keeps every line of text', () => {
   const document = parseMarkdown('a&#10;b\nc\n', { file: 'ref.md' });
-  const texts = (document.children[0] as { children: Inline[] }).children
+  const paragraph = document.children[0];
+  assert.equal(paragraph?.type, 'paragraph');
+  const texts = (paragraph as Paragraph).children
     .filter((node) => node.type === 'text')
     .map((node) => (node as { value: string }).value);
   assert.deepEqual(texts, ['a\nb', 'c']);
@@ -437,9 +439,9 @@ test('a character reference that decodes to a line ending keeps every line of te
 
 test('a task marker with a tab inside is its own node', () => {
   const document = parseMarkdown('- [\t] todo\n', { file: 'task.md' });
-  const item = (document.children[0] as { children: Block[] }).children[0] as { task?: string; children: Block[] };
+  const item = (document.children[0] as List).children[0]!;
   assert.equal(item.task, 'unchecked');
-  const first = (item.children[0] as { children: Inline[] }).children[0]!;
+  const first = (item.children[0] as Paragraph).children[0]!;
   assert.equal(first.type, 'taskMarker');
   assert.deepEqual([first.src.start, first.src.end], [2, 5]);
 });
