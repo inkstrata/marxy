@@ -44,7 +44,7 @@ runs a subset. `pnpm precheck --all` runs everything. CI always runs everything.
 | --- | --- | --- | --- |
 | `changes` | always | classifies the diff into `docs_only` / `web` / `rust` / `gates`; self-tests the classifier | `node scripts/ci-changes.mjs --selftest` |
 | `conventions` | pull requests only | commitlint over every commit **and** the PR title; `check-pr` on the body; `check-story --strict` over the branch | `pnpm lint:commits`, `node scripts/check-pr.mjs --body results/KEY.pr.md --range`, `node scripts/check-story.mjs --strict` |
-| `fast` | not docs-only | hygiene checks, typecheck, lint, unit tests, CommonMark spec, goldens, fidelity, licences | `pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm typecheck && pnpm lint && pnpm test && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
+| `fast` | not docs-only (orchestration `.mjs`/`.json` and the board CSV are code, not docs) | hygiene checks, typecheck, lint, unit tests, CommonMark spec, goldens, fidelity, licences | `pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm typecheck && pnpm lint && pnpm test && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
 | `browser` | `web` changed | no-network and aesthetics gates in the pinned Playwright container | `pnpm gate:no-network && pnpm gate:aesthetics` |
 | `gates` (macOS + Ubuntu) | gates-relevant change | specimen, licences twice, Rust fmt/clippy, frontend + `cargo build --profile ci`, CLI smoke, startup and parse measurement, perf gate, bundle gate | `pnpm gate:specimen`, `pnpm lint:rust`, `pnpm --filter @marxy/desktop verify:cli`, `pnpm gate:bundle` |
 | `gates-skip` | no gates-relevant change | posts the same two check names so anything watching by name still resolves | — |
@@ -89,10 +89,14 @@ that does not match `package.json` fails every one of them before a single test 
 | `CHANGELOG.md has no line with MARXY-nnn` | no changelog entry | one line under `Unreleased` in the right Keep a Changelog heading, key in parentheses |
 | `golden/baseline files changed but docs/taste-review/queue.md did not` | baselines moved with no human queue row | add the before/after row; a baseline change is a human-visible event |
 | `the body carries an AI attribution line` | attribution in the PR body | remove it — the commit-msg hook cannot see the PR body |
-| story boundary failure | a file outside the story's `Paths` | split it out, or widen `Paths` in `docs/plan/jira-issues.csv` **and** the task card together |
+| story boundary failure | a file outside the story's `Paths` | split it out, or widen your own row's `Paths` in `docs/plan/jira-issues.csv` **and** the task card together, in this branch — the reviewer is told and decides (implementors report `blocked` instead) |
+| `MARXY-n has no row in docs/plan/jira-issues.csv on main or in this branch` | work that is not a planned story, without its board row | `node orchestration/out-of-plan.mjs row MARXY-n --paths "…" --acceptance "…"` in the branch; next time start with `out-of-plan.mjs start` (`docs/sdlc.md` "Work outside the plan") |
+| `… changes other stories' board entries (MARXY-…)` | a branch edited a row or `deps.json` entry that is not its own | move those edits to a planner PR whose `Paths` list the board files |
 
 Allowed outside a story's paths without widening anything: `CHANGELOG.md`,
-`docs/taste-review/queue.md`, lockfiles, the story's own task card and result file, plan deltas.
+`docs/taste-review/queue.md`, lockfiles, the story's own task card and result file, plan deltas,
+and the story's **own** row in `docs/plan/jira-issues.csv` and entry in `orchestration/deps.json`
+(`scripts/lib/own-row.mjs`; the branch is then judged by its row as it leaves it).
 
 `check-story --strict` reads the key from the branch name. On a detached CI checkout it falls
 back to `GITHUB_HEAD_REF` then `GITHUB_REF_NAME`. **A branch with no `MARXY-nnn` in its name
@@ -108,6 +112,7 @@ cannot pass `--strict`.**
 | `calls the Tauri IPC function directly` | raw `invoke(` outside `src/shell` | add a method to `src/shell/tauri.ts` and call that |
 | registry failure | a new mark, event, data attribute, class or token name | add it to `scripts/registry.json` first; names are the registry's, not yours |
 | innerHTML route failure | parsed markup entering the DOM off-path | only paths in `innerHtmlAllowedIn` may; every route is matched, not just `.innerHTML =` |
+| `MARXY-NEW-… is a placeholder key` | a planner branch still carries a draft key | `node orchestration/jira.mjs sync --new` in the branch: creates the issues, rewrites the keys, renames the cards |
 | `check:deps` failure | a dependency missing from the allowlist, unpinned, or forbidden | add it to `scripts/allowlists/dependencies.json` with a pin, or do not add it |
 | `check:workflows` failure | a GitHub Action not on the accepted list | a third-party action runs with our token on the machine that builds what we ship; justify and add it deliberately |
 | `noUnusedImports` | an unused import | remove it; do not add a biome override |

@@ -44,8 +44,11 @@ export function transition(cmd, s, st, { argv = process.argv, now = () => new Da
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [cmd, key] = process.argv.slice(2);
   const s = state();
-  const known = new Set(stories().map(x => x.Key));
-  if (key && !known.has(key)) { console.error(`unknown story ${key}`); process.exit(2); }
+  // A key the board already tracks is known even before its row is on this checkout's main: the
+  // cycle adopts an out-of-plan PR whose row is only on its branch, and records it done in the same
+  // cycle that merges it, before the next fast-forward brings the row (MARXY-190).
+  const known = new Set([...stories().map(x => x.Key), ...Object.keys(s.stories ?? {})]);
+  if (key && !known.has(key)) { console.error(`unknown story ${key}: no CSV row and not on the board; out-of-plan work gets a row with node orchestration/out-of-plan.mjs`); process.exit(2); }
   const st = key ? (s.stories[key] ??= { status: 'todo', attempts: 0 }) : null;
   if (cmd === 'init' || cmd === 'show') {
     const { byStatus, orphans } = boardTotals(s.stories);

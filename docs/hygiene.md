@@ -13,8 +13,12 @@ pnpm new module core buffer            # start a unit in the house shape (also: 
 pnpm precheck                          # typecheck/lint/test for what you touched + the gates your paths need
 pnpm done MARXY-nn                     # boundary over the whole branch, precheck, a drafted PR body, the result file
 …fill the TODOs in results/MARXY-nn.pr.md…
-node scripts/open-pr.mjs MARXY-nn      # check-pr on that file, then gh pr create --body-file; never --body
+pnpm done MARXY-nn --open              # push, check-pr, gh pr create --body-file (never --body), link Jira
 ```
+
+Work that is not a planned story starts with `node orchestration/out-of-plan.mjs start "summary"
+--paths "…" --acceptance "…"` instead of a hand-made branch: key, worktree and its own board row
+in one step, then the same commands (`docs/sdlc.md` "Work outside the plan").
 
 If `pnpm done` is green and `open-pr` is green, the reviewer only has judgement left to do. `gh pr create --body` is how the house template gets replaced by Summary / Why / Test plan; the wrapper will not do that.
 
@@ -47,14 +51,16 @@ Before merge when you changed shell, paint, or CLI paths, run
 | Rust formatting and warnings | `pnpm lint:rust` (`cargo fmt --check`, `clippy -D warnings`) | precheck (when `src-tauri` changes), CI |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |
 
-The 600-line branch-diff budget in `orchestration/phases.test.mjs` counts insertions in source, scripts, orchestration code and workflows — the lines a reviewer has to hold — and excludes `docs/plan/`, `orchestration/deps.json`, `orchestration/jira-map.json`, `orchestration/results/` and `CHANGELOG.md`, because `docs/conventions.md`'s over-600-lines rule is about that work, not about how verbose the board is.
-
 ## Rules the tools encode (so nobody re-derives them)
 
-- The story key comes from the branch: `type/MARXY-nn-slug`. No key, no path check (and a
-  note); `--strict` makes that a failure in CI once every branch is a story branch.
+- The story key comes from the branch: `type/MARXY-nn-slug`. No key, or a key with no row on
+  `main` or in the branch, is a note locally and a failure under `--strict` (CI, every PR).
 - Allowed outside a story's paths: `CHANGELOG.md`, `docs/taste-review/queue.md`, lockfiles,
-  the story's own task card and result file, and plan deltas.
+  the story's own task card and result file, plan deltas, and the story's own board row and
+  `deps.json` entry — never another story's. The branch is judged by its own row as it leaves it,
+  so out-of-plan work brings its row and a story may widen its own Paths where the reviewer sees
+  it (`scripts/lib/own-row.mjs`, shared by `check-story` and the cycle's merge bar).
+- No `MARXY-NEW-` placeholder on a branch: `check-cards` fails it; `jira.mjs sync --new` resolves it.
 - Frozen: byte-pinned contracts under `packages/*/src/contracts/` and `packages/shell-api/src/`, name-and-unit contract for `packages/theme/src/tokens.css`.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.

@@ -39,14 +39,34 @@ export function defaultGh(argv) {
 }
 
 /**
- * Open the PR (or, under `--dry-run`, plan it) and return its number, so `done.mjs` can record
- * it without re-parsing `gh`'s output itself. `gh` is injected so tests can record calls
- * instead of spawning the real CLI (MARXY-121).
+ * Push the current branch so `gh pr create` has something to open: with no upstream, `-u origin HEAD`;
+ * with one, only when there is something new. `gh pr create` itself refuses an unpushed branch, and
+ * that refusal used to be the first thing every out-of-plan PR hit (MARXY-190).
  */
-export function openPr({ body, key, bodyFile, title, dryRun = false, gh = defaultGh }) {
+export function pushBranch(run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' })) {
+  const upstream = run('git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
+  if (upstream.status === 0) {
+    const ahead = run('git', ['rev-list', '--count', '@{u}..HEAD']);
+    if (ahead.status === 0 && ahead.stdout.trim() === '0') return { ok: true, pushed: false, problems: [] };
+  }
+  const args = upstream.status === 0 ? ['push', '-q'] : ['push', '-q', '-u', 'origin', 'HEAD'];
+  const r = run('git', args);
+  return r.status === 0
+    ? { ok: true, pushed: true, problems: [] }
+    : { ok: false, pushed: false, problems: [`git ${args.join(' ')} failed: ${(r.stderr || r.stdout || '').trim()}`] };
+}
+
+/**
+ * Open the PR (or, under `--dry-run`, plan it) and return its number, so `done.mjs` can record
+ * it without re-parsing `gh`'s output itself. `gh` and `push` are injected so tests can record calls
+ * instead of spawning the real CLI (MARXY-121); the CLIs pass the real `pushBranch`.
+ */
+export function openPr({ body, key, bodyFile, title, dryRun = false, gh = defaultGh, push = () => ({ ok: true, problems: [] }) }) {
   const planned = planOpenPr({ body, key, title, bodyFile });
   if (!planned.ok) return { ok: false, number: null, problems: planned.problems, argv: null };
   if (dryRun) return { ok: true, number: null, problems: [], argv: planned.argv };
+  const pushed = push();
+  if (!pushed.ok) return { ok: false, number: null, problems: pushed.problems, argv: planned.argv };
   const result = gh(planned.argv);
   return { ok: result.ok, number: result.number ?? null, problems: result.problems ?? [], argv: planned.argv };
 }
@@ -66,7 +86,7 @@ if (isMain) {
     process.exit(1);
   }
   const body = readFileSync(bodyFile, 'utf8');
-  const opened = openPr({ body, key, bodyFile, dryRun: dry });
+  const opened = openPr({ body, key, bodyFile, dryRun: dry, push: pushBranch });
   if (fail(opened.problems)) {
     console.error(`    fix: fill results/${key}.pr.md from .github/pull_request_template.md; do not pass --body to gh`);
     process.exit(1);

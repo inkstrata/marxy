@@ -90,10 +90,13 @@ file concurrently corrupt both changes and cost more than the work they saved.
 - **Branches:** `type/MARXY-123-short-slug` off `main`, where the key is the real Jira key in
   project MARXY. `main` is always releasable; no direct pushes. Squash on merge; the PR
   description is the durable record. The process on one page: `docs/sdlc.md`.
-- **Work outside the plan:** get a key with `node orchestration/jira.mjs task "summary"`
-  (creates a Task labelled `out-of-plan` and prints the key), then branch `type/KEY-slug`
-  off `main`. That is the supported path; do not invent a key or skip the board. A branch with
-  no `MARXY-nnn` in its name cannot pass `check-story --strict`, which CI runs on every PR.
+- **Work outside the plan:** `node orchestration/out-of-plan.mjs start "summary" --paths "…"
+  --acceptance "…"` creates the Jira Task, a worktree on `type/KEY-slug` off `origin/main`, and
+  the change's **own board row**, which travels in the same PR. That is the supported path, and
+  it is one PR: the cycle adopts the PR when it opens and lands it once a reviewer signs it — never
+  merge by hand. Do not invent a key or skip the row; `check-story --strict` (CI, every PR) fails
+  a branch with no `MARXY-nnn` in its name or a key with no row. A branch may edit its own row,
+  never another story's. The whole protocol: `docs/sdlc.md` "Work outside the plan".
 - **Commits, PRs, comments, reviews, tags:** `docs/conventions.md`. The one rule under all of
   them: a plain-language summary first, technical detail after, agent detail folded away.
   Conventional Commits with the Jira key in the subject; the PR template's order is enforced;

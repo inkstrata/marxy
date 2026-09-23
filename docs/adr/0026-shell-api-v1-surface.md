@@ -1,6 +1,6 @@
 # ADR-0026 — The shell-api surface for v1, amended once
 
-**Status:** proposed (lands with MARXY-94) · **Source:** design pass 2026-09-18 (Phase 3 runway); ADR-0010, ADR-0020
+**Status:** accepted 2026-09-22 (MARXY-94) · **Source:** design pass 2026-09-18 (Phase 3 runway); ADR-0010, ADR-0020
 
 ## Context
 

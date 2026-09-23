@@ -193,7 +193,8 @@ test('cycle.mjs prints every board finding every cycle and holds step 6 (dispatc
   );
   assert.doesNotMatch(src, /function\s+boardDrift\s*\(/);
   // Every finding prints, every cycle, before land/review/dispatch even run.
-  assert.match(src, /const boardFindings = boardDrift\(gatherBoardCheckInput\(\)\);/);
+  // The cycle hands board-check its one GitHub snapshot (MARXY-191).
+  assert.match(src, /const boardFindings = boardDrift\(gatherBoardCheckInput\(\{ snapshot \}\)\);/);
   assert.match(src, /for \(const f of boardFindings\) say\(`board: \$\{f\.kind\} — \$\{f\.detail\}`\);/);
   assert.match(src, /const boardHold = boardFindings\.some\(f => BLOCKS_DISPATCH\.includes\(f\.kind\)\);/);
   // The board-hold branch is checked, and dispatches nothing, before the headless and the

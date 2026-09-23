@@ -3,17 +3,29 @@
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, registry, changedFiles, storyKey, story, pathsOf, allowedByPaths, isFrozen, fail, fix, sh } from './lib/repo.mjs';
+import { BOARD_FILES, reviewBoundary } from './lib/own-row.mjs';
 const argv = process.argv; const staged = argv.includes('--staged'); const strict = argv.includes('--strict');
 const reg = registry(); const key = storyKey(argv); const files = changedFiles({ staged });
 const problems = [], notes = [];
 if (files.length === 0) { console.log('story-check: nothing to check'); process.exit(0); }
-const row = story(key);
+// A branch may bring or widen its own row, never touch another's (MARXY-190); its row as the branch
+// leaves it is then the one it is judged by.
+const headText = f => (existsSync(join(ROOT, f)) ? readFileSync(join(ROOT, f), 'utf8') : '');
+const board = key ? reviewBoundary(key, {
+  baseCsv: sh(`git show origin/main:${BOARD_FILES[0]}`, { soft: true }), headCsv: headText(BOARD_FILES[0]),
+  baseDeps: sh(`git show origin/main:${BOARD_FILES[1]}`, { soft: true }) || '{}', headDeps: headText(BOARD_FILES[1]) || '{}',
+}) : null;
+const row = board?.story ?? story(key);
+const noRowFix = fix(`every change has a board row; add yours in this branch: node orchestration/out-of-plan.mjs row ${key} --paths "…" --acceptance "…" (docs/sdlc.md "Work outside the plan")`);
 if (!key) { if (strict) problems.push(`no story key in the branch name${fix('branches are type/MARXY-nn-slug (docs/conventions.md)')}`); else notes.push('no story key in the branch name; path check skipped (pass --strict to fail)'); }
-else if (!row) notes.push(`story ${key} not found in docs/plan/jira-issues.csv; path check skipped`);
+else if (!row) { if (strict) problems.push(`${key} has no row in docs/plan/jira-issues.csv on main or in this branch${noRowFix}`); else notes.push(`story ${key} not found in docs/plan/jira-issues.csv; path check skipped (pass --strict to fail)`); }
+if (board?.widened.length && !board.added) notes.push(`${key} widens its own Paths in this branch: ${board.widened.join(', ')} — the reviewer sees this`);
+const ownBoardEdit = f => BOARD_FILES.includes(f) && board != null; // allowed when own-only; named above when not
 const paths = row ? pathsOf(row) : [];
 const extras = [...reg.extraAllowedPaths, `orchestration/results/${key}`, `docs/plan/tasks/${key}.md`, `docs/plan/deltas/`];
 for (const f of files) {
-  if (row && !allowedByPaths(f, paths) && !extras.some(e => f === e || f.startsWith(e))) problems.push(`${f} is outside ${key}'s paths (${paths.join(', ') || 'none listed'})${fix('revert it, or if the story genuinely needs it, stop and report blocked so the planner widens the paths')}`);
+  if (row && BOARD_FILES.includes(f) && !allowedByPaths(f, paths) && board && !board.ownOnly) { problems.push(`${f} changes other stories' board entries (${board.others.join(', ')}); a branch may edit only its own row${fix('move those edits to a planner PR that lists the board files in its Paths')}`); }
+  if (row && !ownBoardEdit(f) && !allowedByPaths(f, paths) && !extras.some(e => f === e || f.startsWith(e))) problems.push(`${f} is outside ${key}'s paths (${paths.join(', ') || 'none listed'})${fix('revert it, or if the story genuinely needs it, stop and report blocked so the planner widens the paths')}`);
   if (isFrozen(f, reg) && !files.some(g => g.startsWith('docs/adr/') && g.endsWith('.md'))) problems.push(`${f} is a frozen contract file and no docs/adr/*.md is in this change${fix('contracts change only with an ADR in the same commit (AGENTS.md)')}`);
   const full = join(ROOT, f); if (!existsSync(full) || !statSync(full).isFile()) continue;
   const size = statSync(full).size;

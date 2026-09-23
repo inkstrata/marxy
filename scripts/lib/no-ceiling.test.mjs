@@ -63,7 +63,7 @@ test('the roadmap tripwire is the resist-inflation rule, not a 500 ms Phase-2 ce
   );
 });
 
-test('the three-dot diff does not reopen ADR-0013 or the files this story must not touch', t => {
+test('the three-dot diff does not reopen ADR-0013', t => {
   const names = threeDotNames();
   if (names == null) {
     t.skip('origin/main is not resolvable');
@@ -73,11 +73,6 @@ test('the three-dot diff does not reopen ADR-0013 or the files this story must n
     !names.includes('docs/adr/0013-speed-budgets-are-gates.md'),
     'ADR-0013 is append-only and must not appear in the three-dot diff',
   );
-  const landing = names.includes('docs/adr/0029-no-product-cold-start-ceiling.md')
-    || names.includes('AGENTS.md')
-    || names.includes('docs/roadmap.md');
-  if (!landing) return;
-  assert.ok(!names.includes('fixtures/perf-budgets.json'), 'perf-budgets.json is MARXY-70');
-  assert.ok(!names.includes('package.json'), 'package.json is outside this story');
-  assert.ok(!names.some(f => f === '.github' || f.startsWith('.github/')), '.github is outside this story');
+  // The rest of this test policed the landing story's own paths (package.json, .github) for every
+  // later branch that touched AGENTS.md; a path boundary is check-story.mjs's job (MARXY-191).
 });

@@ -17,6 +17,9 @@ function fixture() {
   git('init', '-q', '-b', 'main');
   git('config', 'user.email', 'test@example.invalid');
   git('config', 'user.name', 'test');
+  // A developer's global signing (an SSH key behind a passphrase) must not decide whether this passes.
+  git('config', 'commit.gpgsign', 'false');
+  git('config', 'tag.gpgsign', 'false');
   write('mine.txt', 'one\n'); write('shared.txt', 'base\n');
   git('add', '-A'); git('commit', '-q', '-m', 'base');
   git('checkout', '-q', '-b', 'story');
