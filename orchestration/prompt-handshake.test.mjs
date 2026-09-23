@@ -1,7 +1,6 @@
 // The reviewer and implementor prompts must name the same approval handshake (MARXY-79).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,38 +11,6 @@ const reviewer = readFileSync(join(here, 'prompts/reviewer.md'), 'utf8');
 const implementor = readFileSync(join(here, 'prompts/implementor.md'), 'utf8');
 const sdlc = readFileSync(join(root, 'docs/sdlc.md'), 'utf8');
 const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
-
-const FORBIDDEN_THREE_DOT = [
-  'orchestration/cycle.mjs',
-  'orchestration/approve.mjs',
-  'orchestration/merge-bar.mjs',
-  'package.json',
-];
-
-function resolveThreeDotBase(opts, git = execFileSync) {
-  for (const ref of ['origin/main', 'main']) {
-    try {
-      git('git', ['rev-parse', '--verify', ref], {
-        cwd: opts.cwd,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-      return ref;
-    } catch {
-      // shallow checkouts may have neither
-    }
-  }
-  return null;
-}
-
-function threeDotNames(base, opts, git = execFileSync) {
-  return git('git', ['diff', '--name-only', `${base}...HEAD`], {
-    cwd: opts.cwd,
-    encoding: 'utf8',
-  })
-    .split('\n')
-    .filter(Boolean);
-}
 
 test('reviewer prompt requires the approved path and approve.mjs', () => {
   assert.match(reviewer, /results\/KEY\.approved/);
@@ -79,14 +46,6 @@ test('CHANGELOG.md has a MARXY-79 line under Unreleased', () => {
   assert.match(unreleased, /MARXY-79/);
 });
 
-test('the three-dot diff does not contain cycle, approve, merge-bar, or package.json', t => {
-  const base = resolveThreeDotBase({ cwd: root });
-  if (!base) {
-    t.skip('neither origin/main nor main is a resolvable git ref');
-    return;
-  }
-  const names = threeDotNames(base, { cwd: root });
-  for (const f of FORBIDDEN_THREE_DOT) {
-    assert.ok(!names.includes(f), f);
-  }
-});
+// A three-dot check that this branch avoided MARXY-79's files lived here and ran against every
+// branch after MARXY-79 merged; it only stayed quiet because CI skipped orchestration tests. A path
+// boundary belongs to check-story.mjs, not a test (MARXY-191; see readiness.test.mjs, MARXY-107).
