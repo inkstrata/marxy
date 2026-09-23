@@ -68,6 +68,8 @@ export default defineConfig({
       },
     },
   },
+  // The highlight worker lazy-loads grammars with dynamic import, which needs an ES-module worker.
+  worker: { format: 'es' },
   clearScreen: false,
   server: { strictPort: true, port: 1420 },
 });

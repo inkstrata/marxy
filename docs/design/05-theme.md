@@ -23,23 +23,23 @@ lengths derive from tokens; no margin or padding is a bare `px` value (the lint 
 `round()` and `pow()` are CSS functions (WebKit 15.4+, WebKitGTK 2.36+). `--lb` is the line box,
 `--marxy-half` half of it, and the grid unit is `--marxy-half` (ADR-0030).
 
-| Rule | Formula | At 17 / 28 |
+| Rule | Formula | At 20 / 30 |
 | --- | --- | --- |
-| Article | `max-width: clamp(45ch, measure, 90ch)`, padding `3lb 3rem 5lb` | 68 ch ≈ 670 px |
-| Role sizes | `--marxy-size-hN = round(body × ratio^k, 1px)`, k = 3, 2, 1 | 33, 27, 21 |
-| Heading line box | `min(max(token, round(up, 1.2 × size, 2px)), 2lb)` | 40, 34 |
-| h1, h2 margin | `2lb` above, `half` below; `padding-bottom: mod(−(lh + 2lb + half), half)` closes the line box | h2 56 / 34 / 14 (+ 8 pad) |
-| h3 … h6 | one line box, `lb` above, `half` below | 28 / 14 |
-| p, lists, quotes, tables | `margin: 0 0 half` | 14 between |
-| Lists | top-level markers hang in the margin; nested lists indent `1.25em`; markers secondary colour | |
+| Article | `--marxy-column = clamp(45, chars, 80) × avg-char em` (a registered `<length>`, so it is px everywhere below); `max-width: column`, padding `3lb 3rem 5lb` (ADR-0033) | 66 characters ≈ 611 px |
+| Role sizes | `--marxy-size-hN = round(body × ratio^k, 1px)`, k = 3, 2, 1 | 39, 31, 25 |
+| Heading line box | `min(max(token, round(up, 1.2 × size, 2px)), 2lb)` | 48, 38 |
+| h1, h2 margin | `2lb` above, `half` below; `padding-bottom: mod(−(lh + 2lb + half), half)` closes a one-line heading's box; a heading that wraps is padded by `snapToGrid` (ADR-0033) | h2 60 / 38 / 15 (+ 7 pad) |
+| h3 … h6 | one line box, `lb` above, `half` below | 30 / 15 |
+| p, lists, quotes, tables | `margin: 0 0 half` | 15 between |
+| Lists | top-level markers hang in the margin, the gap inside the hanging box so the first line aligns with the rest; nested lists indent `1.25em`; markers secondary colour | |
 | Task items | the checkbox hangs where the bullet would be, `vertical-align: top` so the box sits on the line | |
-| Code block | `lb` above and below, `half` padding on all four sides, code line box token, padded to the unit by `snapToGrid` | 28 / 14 / 22 |
-| Code wrap | `white-space: pre-wrap; text-indent: 2ch hanging each-line` | |
-| Inline code, kbd | mono at `0.875em`, **no box**, `line-height: 1` so its line never grows | |
+| Code block | `lb` above and below, `half` padding on all four sides, code line box token, padded to the unit by `snapToGrid`; `width: max-content`, at least the column, at most `min(100% + room, 100ch + padding)` where room runs to 3rem from the window's edge | 30 / 15 / 30 |
+| Code wrap | `white-space: pre-wrap`; each source line is a `.marxy-line` inline-block whose rows hang `min(indent + 2ch, 50%)`, with a 1 px rule beside continuation rows only; no ligatures (`calt`, `liga` off) | |
+| Inline code, kbd | mono at `size-code / size-body` (0.9 em), **no box**, `line-height: 1` so its line never grows | |
 | Table | A table is an island the grid pass pads — `snapToGrid` measures it rather than the stylesheet constructing it. Rows use the code line box and one grid unit of vertical padding; rules as inset shadows (no height), text `0.88 × body`, tabular figures | 15 / 22 / 14 |
 | hr | one line box of space with a centred `* * *` in the secondary colour, `half` around it; not set directly before an h1 or h2 | |
 | Footnotes | body size, secondary colour, after a short quarter-width rule; `sup`/`sub` `line-height: 0` | |
-| Weight | `--marxy-wght = token + offset` drives `font-weight` **and** `font-variation-settings: 'wght'` on every descendant | 380 / 600 / 700 |
+| Weight | `--marxy-wght = token + offset` drives `font-weight` **and** `font-variation-settings: 'wght'` on every descendant | 380 / 560 / 700 dark, 400 / 580 / 700 light |
 
 Departures from the first version of this section, each forced by a measurement:
 
@@ -166,26 +166,30 @@ below is an inversion of anything else; each value was chosen on its own ground.
 | `--marxy-color-code-bg` | `#1d1c19` | — | `#f1eee8` | — |
 | `--marxy-color-code-text` | `#e3dfd6` | 12.8 (on code bg) | `#1c1b19` | 14.9 (on code bg) |
 | `--marxy-color-quote-rule` | `#3a3833` | — | `#d6d1c8` | — |
-| `--marxy-color-selection` | `#2a4a6e` | text on it 7.2 | `#cfe3ff` | text on it 13.2 |
-| `--marxy-color-find` | `#4a3d12` | text on it 8.4 | `#fbe9a6` | 14.2 |
-| `--marxy-color-find-current` | `#7a6218` | text on it 4.6 | `#f3c94d` | 10.9 |
+| `--marxy-color-selection` | `#1f3651` | text on it 9.7 | `#dbe9ff` | text on it 14.0 |
+| `--marxy-color-find` | `#3a3010` | text on it 10.3 | `#fcefc0` | 15.0 |
+| `--marxy-color-find-current` | `#403510` + an outline | text on it 9.5 | `#f8df8f` + an outline | 13.1 |
 | `--marxy-color-notice` | `#1f1e1b` | — | `#f1eee8` | — |
 | `--marxy-weight-body` | 380 | | 400 | |
+| `--marxy-weight-heading` | 560 | | 580 | |
 
-Code tokens (ratio on the variant's code background; all ≥ 4.6):
+The selection and find colours were chosen so that **every code token** also clears 4.5:1 on them,
+not only body text (research `10-spec.md` "Verification"). The current find match is darker (dark) or
+deeper (light) than the others but not by enough to rely on: it also carries an outline, so colour
+is never the only signal (ADR-0033).
+
+Code tokens are restrained (ADR-0033, research `06-code.md`): colour marks strings, literals,
+comments and the names being defined or called. Keywords, types, variables, operators, punctuation
+and attributes are `var(--marxy-color-code-text)`. Ratios on the variant's code background, then the
+lowest on selection, find and current find:
 
 | Token | Dark | Light |
 | --- | --- | --- |
-| keyword | `#c9a0dc` 7.8 | `#6f42a8` 6.0 |
-| string | `#a8c48a` 8.9 | `#3f6e2a` 5.2 |
-| comment | `#8a857b` 4.6 | `#6a655d` 5.0 |
-| number, constant | `#d9a066` 7.4 | `#8f5410` 5.3 |
-| function | `#8fb4dd` 7.9 | `#2c5f8a` 5.8 |
-| type, attribute | `#e0c07a` 9.7 | `#7a5c10` 5.4 |
-| variable | `#e3dfd6` 12.8 | `#1c1b19` 14.9 |
-| operator | `#b5b0a6` 7.9 | `#4a4640` 8.1 |
-| punctuation | `#8f8a80` 5.0 | `#6a655d` 5.0 |
-| tag | `#e28c7a` 6.7 | `#a1412f` 5.5 |
+| string | `#a8c48a` 8.9 · 6.3 | `#356024` 6.4 · 5.6 |
+| comment (read, not dimmed) | `#d4ad73` 8.1 · 5.8 | `#85521a` 5.6 · 5.0 |
+| number, constant | `#c9a0dc` 7.7 · 5.5 | `#6f42a8` 6.0 · 5.3 |
+| function, tag | `#8fb4dd` 7.9 · 5.6 | `#2c5f8a` 5.8 · 5.1 |
+| keyword, type, variable, operator, punctuation, attribute | code text 12.8 · 9.1 | code text 14.9 · 13.1 |
 
 Rules that follow: `html[data-marxy-variant]` is set by the app before first paint from config
 (`dark` default, `auto` follows `prefers-color-scheme`, `light` fixed); the window background and
@@ -197,11 +201,12 @@ only one variant are used for both with the default theme's other block filling 
 
 - `packages/theme/scripts/lint-default-theme.mjs`: headings set no colour or border (in the theme
   and in base); every `margin`/`padding` in `base.css` is an expression of tokens, never a bare `px`.
-- `packages/theme/test/grid.test.mjs` (Playwright WebKit): the text-only fixture (`14-marxy-plan.md`)
-  sits on the grid **without** `snapToGrid` (the CSS construction alone holds for a document with no
-  table); every corpus file sits on it after the grid pass at 720/960/1280 and at 14/17/21/24 px;
-  measure, contrast in both variants, the h2 numbers, heading space below at every size, and the
-  code block's hanging indent. The CSS-alone guarantee no longer covers a document containing a
+- `packages/theme/test/grid.test.mjs` (Playwright WebKit): a text-only case whose headings set on one
+  line sits on the grid **without** `snapToGrid` at 16/20/24/28 px (the CSS construction alone holds
+  for a document with no table and no wrapped heading, ADR-0033); every corpus file sits on it after
+  the grid pass at 720/960/1280 and at 16/24/28 px; the measure is 66 average characters ± 10 % in
+  Literata; contrast in both variants; the h2 numbers; heading space below at every size; the code
+  block's hanging indent; and a wrapped code line continuing past its own indentation. The CSS-alone guarantee no longer covers a document containing a
   table (ADR-0030 Amendment 1).
 - `packages/theme/test/taste.test.mjs`: one named case per review #1 fault — heading 2:1 on the
   grid unit, real Literata italic, code-block padding, quote contrast, checkbox alignment, table wrap.

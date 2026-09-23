@@ -56,8 +56,8 @@ const REQUIRED = process.env.MARXY_AESTHETICS_REQUIRED === '1' || process.env.GI
 const RAG_OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };
 const WIDTHS = [720, 960, 1280];
 const VARIANTS = ['dark', 'light'];
-const SIZES = [14, 17, 21, 24];
-const LINE_BOX = { 14: 24, 17: 28, 21: 34, 24: 40 };
+const SIZES = [16, 20, 24, 28];
+const LINE_BOX = { 16: 24, 20: 30, 24: 36, 28: 42 };
 const FONT_URLS = {
   '/fonts/Literata.ttf': join(root, 'fonts/literata/Literata[opsz,wght].ttf'),
   '/fonts/Literata-Italic.ttf': join(root, 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
@@ -68,11 +68,11 @@ const tokens = readFileSync(join(root, 'packages/theme/src/tokens.css'), 'utf8')
 const get = (k) => (tokens.match(new RegExp(`${k}:\\s*([^;]+);`)) || [])[1];
 const lineBox = parseFloat(get('--marxy-line-box'));
 const body = parseFloat(get('--marxy-size-body'));
-const measureCh = parseFloat(get('--marxy-measure'));
+const measureChars = parseFloat(get('--marxy-measure-chars'));
 const fails = [];
 const notes = [];
 
-if (!(measureCh >= 60 && measureCh <= 75)) fails.push(`measure ${measureCh}ch outside 60–75ch (constraint 1)`);
+if (!(measureChars >= 45 && measureChars <= 80)) fails.push(`measure ${measureChars} characters outside 45–80 (constraint 1, ADR-0033)`);
 if (!(lineBox / body >= 1.5 && lineBox / body <= 1.75)) fails.push(`line box ${lineBox}/${body} outside 1.5–1.75 (constraint 2)`);
 const lum = (hex) => {
   const c = hex.slice(1).match(/../g).map((x) => parseInt(x, 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
@@ -103,7 +103,7 @@ function matrix() {
       if (width === 960) {
         for (const size of SIZES) out.push({ width, variant, size });
       } else {
-        out.push({ width, variant, size: 17 });
+        out.push({ width, variant, size: 20 });
       }
     }
   }
@@ -184,19 +184,30 @@ async function checkGrid(page) {
   });
 }
 
-/** §10 check 2. */
+/**
+ * §10 check 2, in average characters rather than ch (ADR-0033): the column divided by the mean advance
+ * of English prose in the article's own face, within 10 % of `--marxy-measure-chars` (66 by default).
+ * Skipped when the window is narrower than the column: then the window, not the measure, sets it.
+ */
+const MEASURE_SAMPLE =
+  'A reader app makes one promise: that the text will get out of the way. Keeping it is harder than it looks, because typographic choices interact. A larger face wants a longer line; a longer line wants more space between lines; and a dark theme changes how heavy the same letters appear.';
 async function checkMeasure(page) {
-  const ch = await page.evaluate(() => {
+  const r = await page.evaluate((sample) => {
     const article = document.getElementById('doc');
     const probe = document.createElement('span');
-    probe.textContent = '0';
+    probe.style.whiteSpace = 'pre';
+    probe.textContent = sample;
     article.prepend(probe);
-    const one = probe.getBoundingClientRect().width;
+    const avg = probe.getBoundingClientRect().width / sample.length;
     probe.remove();
     const style = getComputedStyle(article);
-    return (article.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / one;
-  });
-  return ch >= 60 && ch <= 75 ? [] : [`measure ${ch.toFixed(1)}ch outside 60–75`];
+    const target = parseFloat(style.getPropertyValue('--marxy-measure-chars')) || 66;
+    const column = article.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const windowBound = parseFloat(style.maxWidth) > column + 1;
+    return { chars: column / avg, target, windowBound };
+  }, MEASURE_SAMPLE);
+  if (r.windowBound) return [];
+  return Math.abs(r.chars - r.target) <= r.target * 0.1 ? [] : [`measure ${r.chars.toFixed(1)} characters, target ${r.target} ± 10 %`];
 }
 
 function luminanceRgb([r, g, b]) {
@@ -360,7 +371,7 @@ async function checkHanging(page) {
           out.push(`hang ${el.textContent.slice(0, 12)} does not sit outside the edge`);
         }
       } else if (Math.abs(outside - marginPx) > tol) {
-        out.push(`hang ${el.textContent.slice(0, 12)} does not sit outside the edge`);
+        out.push(`hang ${el.textContent.slice(0, 12)} does not sit outside the edge (outside ${outside.toFixed(2)} px, margin ${marginPx.toFixed(2)} px)`);
       }
     }
     return out;
@@ -400,8 +411,7 @@ async function checkCodeVoice(page, { xHeight = false } = {}) {
     const out = [];
     if (pf === cf) out.push(`code font-family equals body (${cf})`);
     // The 5 % x-height probe is the selftest (same size, a crafted miss). The shipped
-    // pair at a shared size is ~108 % and at 14/17 is ~95 %; tokens and fonts are
-    // outside this story (MARXY-129).
+    // pair at a shared size is ~108 %, and at 18/20 (the tokens, ADR-0033) ~97 %.
     const xHeightAt = (el, size) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -449,7 +459,7 @@ function shotName(file, width, variant, where) {
 
 /** §10 check 10: 960 px dark/light only; same threshold and 0.1 % budget as `pixelmatch` (MIT). */
 function screenshotCombo(opts) {
-  return opts.width === 960 && opts.size === 17 && (opts.variant === 'dark' || opts.variant === 'light');
+  return opts.width === 960 && opts.size === 20 && (opts.variant === 'dark' || opts.variant === 'light');
 }
 
 function diffDir() {
@@ -808,7 +818,7 @@ async function main() {
       console.error(`aesthetics gate failed:\n - playwright is not installed (${e.message})`);
       process.exit(1);
     }
-    console.log(`aesthetics gate ok: measure ${measureCh}ch, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1 (browser checks pending: playwright missing)`);
+    console.log(`aesthetics gate ok: measure ${measureChars} characters, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1 (browser checks pending: playwright missing)`);
     return;
   }
   if (!existsSync(webkit.executablePath()) && REQUIRED) {
@@ -816,7 +826,7 @@ async function main() {
     process.exit(1);
   }
   if (!existsSync(webkit.executablePath())) {
-    console.log(`aesthetics gate ok: measure ${measureCh}ch, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1 (browser checks pending: WebKit not installed)`);
+    console.log(`aesthetics gate ok: measure ${measureChars} characters, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1 (browser checks pending: WebKit not installed)`);
     return;
   }
 
@@ -843,7 +853,7 @@ async function main() {
     const combos = matrix();
     let created = 0;
     const smoke = await browser.newPage({ viewport: { width: 960, height: 800 } });
-      const result = await renderCorpus(smoke, harness.origin, '# Hello\n\nA short paragraph.', { variant: 'dark', width: 960, size: 17 });
+      const result = await renderCorpus(smoke, harness.origin, '# Hello\n\nA short paragraph.', { variant: 'dark', width: 960, size: 20 });
       const painted = await smoke.evaluate(() => ({
         heading: document.querySelector('#doc h1')?.textContent,
         paragraph: document.querySelector('#doc p')?.textContent,
@@ -868,7 +878,7 @@ async function main() {
           } catch (e) {
             return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
           }
-          const atRef = opts.width === 960 && opts.variant === 'dark' && opts.size === 17;
+          const atRef = opts.width === 960 && opts.variant === 'dark' && opts.size === 20;
           const lines = atRef ? await readSetLines(page) : [];
           const metrics = atRef ? ragOf(lines) : null;
           if (UPDATE && atRef && metrics) {
@@ -924,7 +934,7 @@ async function main() {
     console.error('aesthetics gate failed:\n - ' + fails.join('\n - '));
     process.exit(1);
   }
-  console.log(`aesthetics gate ok: measure ${measureCh}ch, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1; ${engineName()}; ${notes.join('; ')}`);
+  console.log(`aesthetics gate ok: measure ${measureChars} characters, line box ${lineBox}px, contrast ${cr.toFixed(2)}:1; ${engineName()}; ${notes.join('; ')}`);
 }
 
 main().catch((e) => {

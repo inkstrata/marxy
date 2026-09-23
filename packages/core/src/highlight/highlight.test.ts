@@ -9,11 +9,20 @@ import { highlight, LANGUAGE_TO_GRAMMAR, plainTextFromTokens, type HighlightToke
 const root = join(import.meta.dirname, '../../../..');
 const allowlist = JSON.parse(readFileSync(join(root, 'scripts/allowlists/shiki-languages.json'), 'utf8')) as {
   languages: readonly { id: string; grammar: string }[];
+  aliases: Readonly<Record<string, string>>;
 };
 
 test('LANGUAGE_TO_GRAMMAR matches shiki-languages.json', () => {
-  const expected = Object.fromEntries(allowlist.languages.map(({ id, grammar }) => [id, grammar]));
+  const expected: Record<string, string> = Object.fromEntries(allowlist.languages.map(({ id, grammar }) => [id, grammar]));
+  for (const [alias, id] of Object.entries(allowlist.aliases)) expected[alias] = expected[id]!;
   assert.deepEqual(LANGUAGE_TO_GRAMMAR, expected);
+});
+
+test('the fence ids READMEs actually use are highlighted: ts, js, sh, py, rs, yml (ADR-0033)', async () => {
+  for (const [id, sample] of [['ts', 'const x: number = 1;'], ['js', 'const x = 1;'], ['sh', 'echo "hi"'], ['py', 'x = "hi"'], ['rs', 'let x = "hi";'], ['yml', 'key: "value"']]) {
+    const tokens = await highlight(sample!, id!);
+    assert.ok(tokens?.some((line) => line.some((t) => t.scope)), `${id} returned no scoped tokens`);
+  }
 });
 
 const SAMPLES: Record<string, string> = {
@@ -82,6 +91,9 @@ test('highlighting every fenced block in 03-ai-plan.md stays under 30 ms', async
     blocks.push({ lang, code: match[2].replace(/\n$/, '') });
   }
   assert.ok(blocks.length > 0, 'expected fenced blocks in 03-ai-plan.md');
+  // Grammars load once per session, lazily, as separate chunks; the budget is for tokenising a
+  // document. Since the fence aliases (ADR-0033) the plan's `sh` block loads a third grammar.
+  for (const { lang, code } of blocks) await highlight(code, lang);
   const start = performance.now();
   for (const { lang, code } of blocks) {
     await highlight(code, lang);

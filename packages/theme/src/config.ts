@@ -23,8 +23,8 @@ export interface ParseConfigResult {
 const DEFAULTS: Config = {
   theme: null,
   variant: 'dark',
-  size: 17,
-  measure: 68,
+  size: 20,
+  measure: 66,
   typeset: true,
   lineNumbers: false,
   externalEditor: null,
@@ -70,12 +70,12 @@ export function parseConfig(bytes: Uint8Array): ParseConfigResult {
   else if (raw.variant !== undefined) warnings.push('variant was invalid; using dark');
 
   let size = DEFAULTS.size;
-  if (typeof raw.size === 'number') size = clamp(Math.round(raw.size), 13, 24);
-  else if (raw.size !== undefined) warnings.push('size was invalid; using 17');
+  if (typeof raw.size === 'number') size = clamp(Math.round(raw.size), 15, 50);
+  else if (raw.size !== undefined) warnings.push('size was invalid; using 20');
 
   let measure = DEFAULTS.measure;
-  if (typeof raw.measure === 'number') measure = clamp(Math.round(raw.measure), 45, 90);
-  else if (raw.measure !== undefined) warnings.push('measure was invalid; using 68');
+  if (typeof raw.measure === 'number') measure = clamp(Math.round(raw.measure), 45, 80);
+  else if (raw.measure !== undefined) warnings.push('measure was invalid; using 66');
 
   let typeset = DEFAULTS.typeset;
   if (typeof raw.typeset === 'boolean') typeset = raw.typeset;

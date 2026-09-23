@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Line-breaking lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400&family=Source+Serif+4:opsz,wght@8..60,400&family=EB+Garamond&family=Inter:opsz,wght@14..32,400&display=block">
+<style>
+  body { font: 13px/1.4 system-ui, sans-serif; margin: 16px; }
+  #stage { position: absolute; left: -99999px; top: 0; }
+  pre { white-space: pre-wrap; font-size: 11px; }
+</style>
+<script src="kp.js"></script>
+</head>
+<body>
+<h1>Line-breaking lab</h1>
+<p id="status">Running...</p>
+<div id="stage"></div>
+<pre id="out"></pre>
+<script>
+// "~" marks a discretionary hyphen (U+00AD). Paragraph 1 is the Grimm "Frog King" paragraph that
+// Knuth & Plass (1981) used as their running example (Margaret Hunt translation, public domain).
+const TEXTS = {
+  frog: "In olden times when wish~ing still helped one, there lived a king whose daugh~ters were all beau~ti~ful; and the young~est was so beau~ti~ful that the sun it~self, which has seen so much, was as~ton~ished when~ev~er it shone in her face. Close by the king's cas~tle lay a great dark for~est, and un~der an old lime-tree in the for~est was a well, and when the day was very warm, the king's child went out into the for~est and sat down by the side of the cool foun~tain; and when she was bored she took a gold~en ball, and threw it up on high and caught it; and this ball was her fa~vor~ite play~thing.",
+  method: "A para~graph is set well when its lines are even~ly filled and its spac~es are even~ly wide, so that no line draws the eye be~fore the words do. The sim~plest meth~od fills each line in turn, tak~ing as many words as will fit and mov~ing on; it nev~er looks back, so one un~lucky break can force a string of loose lines be~low it. The meth~od Knuth and Plass de~scribed in 1981 con~sid~ers the whole para~graph at once, weigh~ing every pos~si~ble break against every oth~er, and choos~es the set of breaks whose to~tal cost is small~est.",
+  hyphens: "Hy~phen~ation gives the al~go~rithm more places to break, and so more free~dom to even out the spac~ing, but type~set~ters have long treat~ed each hy~phen as a small blem~ish. A col~umn of hy~phens down the right mar~gin looks care~less, so good sys~tems charge a pen~al~ty for every hy~phen, a larg~er one for two in a row, and a larg~er one still for a hy~phen on the sec~ond-to-last line, where it would leave a lone frag~ment at the end of the para~graph.",
+  narrow: "Nar~row col~umns make the prob~lem hard~er. On a phone held up~right, a line may hold only thir~ty or for~ty char~ac~ters, so each line has few spac~es to ab~sorb the slack, and a sin~gle long word can leave a gap that no amount of stretch~ing will hide. Wide col~umns are more for~giv~ing: with a doz~en spac~es on every line, even a greedy meth~od rare~ly has to stretch any one of them far.",
+};
+// Drop discretionary hyphens that violate TeX's \lefthyphenmin/\righthyphenmin so the browser
+// and the models all see exactly the same break opportunities.
+function tidyHyphens(word) {
+  const clean = word.replace(/~/g, '');
+  let out = '', ci = 0;
+  for (const ch of word) {
+    if (ch === '~') { if (ci >= 2 && clean.length - ci >= 3) out += '­'; continue; }
+    out += ch; ci++;
+  }
+  return out;
+}
+for (const k in TEXTS) TEXTS[k] = TEXTS[k].split(' ').map(tidyHyphens).join(' ');
+
+const FONTS = [
+  { family: 'Literata', avg: 0.46 },
+  { family: 'Source Serif 4', avg: 0.455 },
+  { family: 'EB Garamond', avg: 0.368 },
+  { family: 'Inter', avg: 0.463 },
+];
+const SIZE = 18;
+const MEASURES = [30, 40, 50, 66, 80]; // target average characters per line
+
+const cv = document.createElement('canvas').getContext('2d');
+
+// Line breaks the browser itself chooses, recovered from per-character client rects.
+function browserBreaks(text, family, widthPx, wrapStyle, align, words) {
+  const stage = document.getElementById('stage');
+  const div = document.createElement('div');
+  div.lang = 'en';
+  div.style.cssText = `width:${widthPx}px;font:400 ${SIZE}px "${family}";text-align:${align};hyphens:manual;text-wrap:${wrapStyle};white-space:normal;line-height:1.5`;
+  div.textContent = text;
+  stage.appendChild(div);
+  const node = div.firstChild, range = document.createRange();
+  const tops = new Array(text.length).fill(null);
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === ' ' || text[i] === '­') continue;
+    range.setStart(node, i); range.setEnd(node, i + 1);
+    // After a hyphenated break the next character also reports a zero-width rect at the end of
+    // the previous line; the last rect with real width is the one on the line it renders on.
+    const rs = range.getClientRects();
+    let hit = null;
+    for (const r of rs) if (r.width > 0) hit = r;
+    if (!hit && rs.length) hit = rs[rs.length - 1];
+    if (hit) tops[i] = Math.round(hit.top);
+  }
+  stage.removeChild(div);
+  // word/fragment index for every visible character, matching KP.itemize's numbering
+  const charKey = new Array(text.length).fill(null);
+  let w = 0, frag = 0;
+  const clean = text.split(' ');
+  let pos = 0;
+  for (const word of clean) {
+    let ci = 0;
+    const cleanLen = word.replace(/­/g, '').length;
+    for (let j = 0; j < word.length; j++) {
+      const ch = word[j];
+      if (ch === '­') { if (ci >= KP.DEFAULTS.leftHyphenMin && cleanLen - ci >= KP.DEFAULTS.rightHyphenMin) frag++; continue; }
+      charKey[pos + j] = { w, frag };
+      ci++;
+      if (ci < cleanLen && (ch === '-' || ch === '‐' || ch === '–')) frag++;
+    }
+    pos += word.length + 1; w++; frag = 0;
+  }
+  const keys = [];
+  let prevTop = null, prevIdx = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (tops[i] === null) continue;
+    if (prevTop !== null && tops[i] !== prevTop) {
+      const a = charKey[prevIdx], b = charKey[i];
+      if (b.w !== a.w) keys.push(a.w + ':end');
+      else if (b.frag !== a.frag) keys.push(a.w + ':' + a.frag);
+      else keys.push('illegal:' + a.w); // emergency break inside a word: not a model breakpoint
+    }
+    prevTop = tops[i]; prevIdx = i;
+  }
+  keys.push('final');
+  return keys;
+}
+
+function stats(ev, items, spacePx) {
+  const body = ev.lines.filter((l) => !l.final);
+  const gaps = (l) => { let g = 0; for (let j = l.start + 1; j < l.end; j++) if (items[j].type === 'glue' && items[j].width > 0) g++; return g; };
+  const r = body.map((l) => l.ratio);
+  const slack = body.map((l) => (l.width - l.natural) / SIZE); // in em
+  const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
+  const sd = (a) => { const m = mean(a); return Math.sqrt(mean(a.map((x) => (x - m) ** 2))); };
+  const hyph = ev.lines.filter((l) => l.auto).length;
+  let consec = 0;
+  for (let i = 1; i < ev.lines.length; i++) if (ev.lines[i].flagged && ev.lines[i - 1].flagged) consec++;
+  const last = ev.lines[ev.lines.length - 1];
+  const r2 = (x) => Math.round(x * 100) / 100;
+  return {
+    lines: ev.lines.length,
+    meanR: r2(mean(r)), maxR: r2(Math.max(...r, 0)), minR: r2(Math.min(...r, 0)), sdR: r2(sd(r)),
+    veryLoose: r.filter((x) => x > 1).length, beyondTol: r.filter((x) => x > 1.26).length,
+    // widest interword space when the line is justified, in em (the plain space is spacePx)
+    maxSpaceEm: r2(Math.max(...body.map((l) => (spacePx + (l.width - l.natural) / Math.max(1, gaps(l))) / SIZE), 0)),
+    spaceEm: r2(spacePx / SIZE),
+    meanSlackEm: r2(mean(slack)), sdSlackEm: r2(sd(slack)), maxSlackEm: r2(Math.max(...slack, 0)),
+    hyphens: hyph, consecutiveHyphens: consec,
+    lastLineFill: r2(last.natural / last.width),
+    demerits: Math.round(ev.totalDemerits),
+  };
+}
+
+const results = [];
+function runAll() {
+  for (const f of FONTS) {
+    cv.font = `400 ${SIZE}px "${f.family}"`;
+    const measure = (s) => cv.measureText(s).width;
+    for (const n of MEASURES) {
+      const width = Math.round(n * f.avg * SIZE);
+      for (const [name, text] of Object.entries(TEXTS)) {
+        for (const mode of ['justified', 'ragged']) {
+          const opt = mode === 'ragged' ? { raggedStretch: 2 * SIZE, emergencyStretch: 3 * SIZE } : { emergencyStretch: 3 * SIZE };
+          const { items, keyIndex } = KP.itemize(text, measure, opt);
+          const space = measure(' ');
+          const kp = KP.knuthPlass(items, width, opt);
+          const ff = KP.firstFit(items, width);
+          const align = mode === 'ragged' ? 'left' : 'justify';
+          const toIdx = (keys) => keys.map((k) => keyIndex.get(k));
+          const bw = toIdx(browserBreaks(text, f.family, width, 'wrap', align));
+          const bp = toIdx(browserBreaks(text, f.family, width, 'pretty', align));
+          const row = { font: f.family, measure: n, width, text: name, mode, kpPass: kp.pass };
+          for (const [label, br] of [['firstFit', ff], ['knuthPlass', kp.breaks], ['chromeWrap', bw], ['chromePretty', bp]]) {
+            if (br.some((x) => x === undefined)) { row[label] = { error: 'unmapped break' }; continue; }
+            row[label] = stats(KP.evaluate(items, br, width, opt), items, space);
+            row[label].breaks = br.join(',');
+          }
+          row.wrapEqualsFirstFit = row.chromeWrap.breaks === row.firstFit.breaks;
+          row.prettyEqualsWrap = row.chromePretty.breaks === row.chromeWrap.breaks;
+          row.prettyEqualsKP = row.chromePretty.breaks === row.knuthPlass.breaks;
+          results.push(row);
+        }
+      }
+    }
+  }
+}
+
+(async () => {
+  await document.fonts.ready;
+  await Promise.all(FONTS.map((f) => document.fonts.load(`400 ${SIZE}px "${f.family}"`, 'abc')));
+  runAll();
+  window.__lb = { measuredAt: new Date().toISOString(), userAgent: navigator.userAgent, size: SIZE, fonts: FONTS, measures: MEASURES, texts: TEXTS, params: KP.DEFAULTS, emergencyStretchEm: 3, raggedStretchEm: 2, results };
+  try { await fetch('/save/linebreak.json', { method: 'POST', body: JSON.stringify(window.__lb) }); } catch (e) { /* plain static server */ }
+  document.getElementById('status').textContent = 'Done: ' + results.length + ' configurations';
+  document.getElementById('out').textContent = JSON.stringify(window.__lb).slice(0, 2000);
+})().catch((e) => { document.getElementById('status').textContent = 'Error: ' + e.stack; });
+</script>
+</body>
+</html>

@@ -11,8 +11,8 @@ widths and three sizes, dark then light, and asserts:
 | Check | Assertion | Source constraint |
 | --- | --- | --- |
 | Grid conformance | for every block-level element, `top mod line-box` ≤ 0.5 px | 2 |
-| Measure | column width in `ch` ∈ [60, 75] at 14, 17, 21, 24 px | 1 |
-| Contrast | body text ≥ 7:1, secondary text ≥ 4.5:1, every code token ≥ 4.5:1 on the code background, in **dark first**, then light | 4, ADR-0024 |
+| Measure | column in average characters of the text face = 66 ± 10 % at 16, 20, 24, 28 px (never `ch`, ADR-0033) | 1 |
+| Contrast | body text ≥ 7:1, secondary text ≥ 4.5:1, every code token ≥ 4.5:1 on the code background, in **dark first**, then light; the palette is also held to 4.5:1 for tokens on selection and find (`docs/design/05-theme.md` §Palettes) | 4, ADR-0024, ADR-0033 |
 | Zero layout shift | cumulative layout shift = 0 from first paint through fonts, images, math | images/reserved dims |
 | Rag quality | per paragraph: coefficient of variation of line lengths, count of lines < ⅓ measure (excluding last), consecutive-hyphen runs — each ≤ stored baseline + 5 % | 7 (K–P) |
 | Hanging punctuation | opening quotes and hyphens at line starts/ends sit outside the text edge by ≥ 40 % of their advance | 7 |
