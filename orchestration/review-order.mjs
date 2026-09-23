@@ -96,7 +96,9 @@ export function computeOrder({ s = state(), d = deps(), readPr, now = Date.now()
       excluded.push({ key, why: 'no pull request number' });
       continue;
     }
-    const phases = index.get(key) ?? [];
+    // An adopted PR whose row is still only on its own branch carries the phase it was adopted with
+    // (MARXY-190); every key on main must still be in exactly one phase.
+    const phases = index.get(key) ?? (rec.phase != null ? [Number(rec.phase)] : []);
     if (phases.length !== 1) throw new PhaseError(key, phases);
     let prData;
     try {

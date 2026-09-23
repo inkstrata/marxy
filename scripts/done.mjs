@@ -10,7 +10,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, storyKey, story, changedFiles, fix } from './lib/repo.mjs';
 import { lintPrBody } from './check-pr.mjs';
-import { openPr } from './open-pr.mjs';
+import { openPr, pushBranch } from './open-pr.mjs';
 
 function cells(line) {
   return line.split('|').slice(1, -1).map(c => c.trim());
@@ -39,6 +39,7 @@ export function mergeResult(existing, patch) {
 /** The three steps `--open` runs, for `--dry-run` to print and a reader to recognise. */
 export function openSteps(key, number = '<number>') {
   return [
+    'git push (-u origin HEAD when the branch has no upstream)',
     `node scripts/open-pr.mjs ${key}`,
     `record the PR number in orchestration/results/${key}.json`,
     `node orchestration/jira.mjs pr ${key} ${number}`,
@@ -54,11 +55,11 @@ function defaultJiraRun(argv) {
  * PR, record its number and move Jira. `gh` and `jiraRun` are injected so tests can record
  * calls instead of touching the network or the real CLI.
  */
-export function runOpen({ key, body, bodyFile, dryRun = false, gh, jiraRun = defaultJiraRun }) {
+export function runOpen({ key, body, bodyFile, dryRun = false, gh, push, jiraRun = defaultJiraRun }) {
   const problems = lintPrBody(body, { key });
   if (problems.length) return { ok: false, problems, opened: false };
   if (dryRun) return { ok: true, dryRun: true, steps: openSteps(key) };
-  const opened = openPr({ body, key, bodyFile, gh });
+  const opened = openPr({ body, key, bodyFile, gh, ...(push ? { push } : {}) });
   if (!opened.ok || opened.number == null) {
     return {
       ok: false,
@@ -183,7 +184,7 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
     process.exit(1);
   }
 
-  const outcome = runOpen({ key, body, bodyFile: bodyPath, dryRun: DRY });
+  const outcome = runOpen({ key, body, bodyFile: bodyPath, dryRun: DRY, push: pushBranch });
   if (!outcome.ok) {
     for (const p of outcome.problems ?? []) console.log(`✗ ${p}`);
     process.exit(1);

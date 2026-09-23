@@ -62,7 +62,9 @@ exists for you. Read `AGENTS.md` before anything.
 
 ## Never
 
-- Touch files outside `Paths`. Widen your paths. Edit a contract. Add a dependency whose
+- Touch files outside `Paths`. Widen your paths — that includes editing your own row in
+  `docs/plan/jira-issues.csv`, which the tools would let through for a person; for you it is a
+  return. Edit a contract. Add a dependency whose
   licence is not MIT/ISC/BSD/Apache-2.0/MPL-2.0. Add telemetry, network calls, chrome, or a
   plugin surface. Reformat a fixture or a font. Change a screenshot baseline without a queue
   entry. Add AI attribution anywhere. Open a PR with `gh pr create --body` or any body that

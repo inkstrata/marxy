@@ -18,8 +18,10 @@ import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
 import { allowedFor, fileAllowed } from './review.mjs';
-import { runWorktreePrune } from './worktrees.mjs';
+import { runWorktreePrune, parseWorktreeList } from './worktrees.mjs';
 import { loadSnapshot, prime } from './github.mjs';
+import { adoptions, applyAdoption, settlements } from './adopt.mjs';
+import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 
 /** Hold-reason fragments cycle.mjs can print. The before-list is a fixture; this must stay a superset. */
 export const HOLD_REASON_STRINGS = [
@@ -70,6 +72,9 @@ export function processReviewQueue({
   codeOwners = () => null,
   commitMessages = () => '',
   storyOf = () => null,
+  // `(key, pr) => reviewBoundary(...)` (scripts/lib/own-row.mjs): the row the PR is judged against,
+  // which is its own row as the branch leaves it when it edits no other story's (MARXY-190).
+  boundaryOf = null,
   verifyApproval = () => ({ ok: false }),
   mergeUnreviewed = false,
   disableAutoMerge = () => {},
@@ -101,13 +106,23 @@ export function processReviewQueue({
       continue;
     }
 
-    const result = readResult(key);
-    const story = storyOf(key);
+    const result = readResult(key, rec);
+    const boundary = boundaryOf ? boundaryOf(key, pr) : null;
+    const story = boundary ? boundary.story : storyOf(key);
     const files = story && pr.headRefName ? diffFiles(pr.headRefName) : [];
     // The same boundary rule the review packet shows the reviewer; a .approved file is never inside
-    // a story, even when a listed directory would include it.
+    // a story, even when a listed directory would include it. The board files are inside when the
+    // branch edits only its own story; otherwise they name whose rows it touched.
     const allowed = story ? allowedFor(story, key) : [];
-    const outside = files.filter(f => /\.approved$/.test(f) || !fileAllowed(f, allowed));
+    const outside = files
+      .filter(f => /\.approved$/.test(f) || !(fileAllowed(f, allowed) || (boundary?.ownOnly && BOARD_FILES.includes(f))))
+      .map(f => (boundary && !boundary.ownOnly && BOARD_FILES.includes(f) ? `${f} (edits ${boundary.others.join(', ')})` : f));
+    if (boundary?.widened.length && !boundary.added) say(`${key}: PR #${rec.pr} widens its own Paths: ${boundary.widened.join(', ')}`);
+    if (!story && boundaryOf) {
+      if (pr.autoMergeRequest) disableAutoMerge(rec.pr);
+      held.push(`${key}: PR #${rec.pr} held — no board row on main or on its branch, so no boundary check can run; add one there: node orchestration/out-of-plan.mjs row ${key}`);
+      continue;
+    }
     // A squash merge can carry a commit message onto main, so the trailer has to be blocked here and
     // not only by a local hook that a worktree cut from a branch without `.githooks` never ran.
     const messages = pr.headRefName ? commitMessages(pr.headRefName) : '';
@@ -227,6 +242,41 @@ function runCycle(argv = process.argv.slice(2)) {
   // it does not hold (one merged or closed since).
   let snapshot = null;
   try { snapshot = loadSnapshot(); prime(snapshot); } catch (e) { say(`github: snapshot failed, reading PR by PR — ${String(e.message ?? e).split('\n')[0]}`); }
+  const git = a => { const r = sh('git', a); return typeof r === 'string' ? r : null; };
+  const headText = (branch, file) => git(['show', `origin/${branch}:${file}`]);
+  const mainText = file => git(['show', `origin/main:${file}`]);
+  const worktrees = parseWorktreeList(git(['worktree', 'list', '--porcelain']) ?? '');
+  const worktreeOf = branch => worktrees.find(w => w.branch === branch)?.path ?? null;
+
+  // Adoption (MARXY-190). Any open PR naming a key the board does not have In Review becomes In
+  // Review here, so out-of-plan work and a PR opened without `state.mjs review` both reach the merge
+  // bar instead of waiting for a person to merge them by hand.
+  if (snapshot) {
+    const mainKeys = new Set(stories().map(x => x.Key));
+    const phaseIn = text => { try { const d = JSON.parse(text ?? ''); return key => Object.entries(d.phases ?? {}).find(([, ks]) => ks.includes(key))?.[0] ?? null; } catch { return () => null; } };
+    const mainPhase = phaseIn(mainText('orchestration/deps.json'));
+    const { adopt, skipped } = adoptions({
+      openPrs: snapshot.open,
+      stories: state().stories,
+      mainKeys,
+      phaseOf: (key, pr) => mainPhase(key) ?? phaseIn(headText(pr.headRefName, 'orchestration/deps.json'))(key),
+    });
+    for (const x of skipped) if (x.why !== 'draft') say(`adopt: skipped PR #${x.pr} — ${x.why}`);
+    if (adopt.length && !DRY) {
+      const board = state();
+      for (const a of adopt) applyAdoption(board, a);
+      saveState(board);
+    }
+    for (const a of adopt) {
+      say(`adopt${DRY ? ' (dry-run, not written)' : ''}: ${a.key} PR #${a.pr} → in_review${a.onMain ? '' : ` (out-of-plan, ${a.phase} lane, row on its branch)`}`);
+      if (!DRY) node([here('jira.mjs'), 'pr', a.key, String(a.pr)]);
+    }
+    // A row that brought its own PR is Done once that PR merged, however it merged (MARXY-190).
+    for (const key of settlements({ rows: stories(), stories: state().stories, recentPrs: snapshot.recent ?? [] })) {
+      say(`settle${DRY ? ' (dry-run, not written)' : ''}: ${key} — its PR merged; recording it done`);
+      if (!DRY) node([here('state.mjs'), 'done', key]);
+    }
+  }
 
   const boardFindings = boardDrift(gatherBoardCheckInput({ snapshot }));
   for (const f of boardFindings) say(`board: ${f.kind} — ${f.detail}`);
@@ -270,7 +320,15 @@ function runCycle(argv = process.argv.slice(2)) {
         windowMinutes: m.attemptMinutes,
       });
     },
-    readResult: key => (existsSync(here(`results/${key}.json`)) ? readJson(here(`results/${key}.json`)) : null),
+    // The result file lives where `pnpm done` ran: this checkout for a dispatched story, the branch's
+    // own worktree for work a person or another session did (MARXY-190).
+    readResult: (key, rec) => {
+      const candidates = [here(`results/${key}.json`)];
+      const wt = rec?.branch ? worktreeOf(rec.branch) : null;
+      if (wt) candidates.push(resolve(wt, `orchestration/results/${key}.json`));
+      const found = candidates.find(p => existsSync(p));
+      return found ? readJson(found) : null;
+    },
     writeResultNote: (key, note) => {
       const path = here(`results/${key}.json`);
       const result = existsSync(path) ? readJson(path) : { key, notes: '' };
@@ -300,6 +358,10 @@ function runCycle(argv = process.argv.slice(2)) {
     codeOwners: () => { const r = sh('git', ['show', 'origin/main:.github/CODEOWNERS']); return typeof r === 'string' ? r : null; },
     commitMessages: headRefName => sh('git', ['log', `origin/main..origin/${headRefName}`, '--format=%B']),
     storyOf: key => stories().find(x => x.Key === key),
+    boundaryOf: (key, pr) => reviewBoundary(key, {
+      baseCsv: mainText(BOARD_FILES[0]) ?? '', headCsv: headText(pr.headRefName, BOARD_FILES[0]) ?? '',
+      baseDeps: mainText(BOARD_FILES[1]) ?? '{}', headDeps: headText(pr.headRefName, BOARD_FILES[1]) ?? '{}',
+    }),
     verifyApproval: (key, head) => verify(here(`results/${key}.approved`), head),
     mergeUnreviewed: process.env.MARXY_MERGE_UNREVIEWED === '1',
     disableAutoMerge: pr => { sh('gh', ['pr', 'merge', String(pr), '--disable-auto']); },

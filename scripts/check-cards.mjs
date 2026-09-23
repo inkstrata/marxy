@@ -133,6 +133,17 @@ export function cardsAndRows({ cards, rows, deps }) {
   return problems;
 }
 
+/**
+ * A placeholder key (`MARXY-NEW-<slug>`) is a draft's name, not a board key: `stories()` hides it, so
+ * on main it is a story nothing can dispatch until somebody syncs and opens a second PR to rename
+ * it. The planner resolves it in its own branch before the PR opens (MARXY-190).
+ */
+export function placeholderProblems({ cards, rows, deps }) {
+  const keys = new Set([...Object.keys(rows), ...Object.keys(cards), ...depsKeys(deps)]);
+  return [...keys].filter(k => /^MARXY-NEW-/i.test(k)).sort().map(k =>
+    `${k} is a placeholder key${fix('run node orchestration/jira.mjs sync --new in this branch: it creates the Jira issues, rewrites every placeholder to its real key and renames the task cards')}`);
+}
+
 export function loadBoardInput(root = ROOT) {
   const cards = {};
   const tasksDir = join(root, 'docs/plan/tasks');
@@ -152,7 +163,7 @@ export function loadBoardInput(root = ROOT) {
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isMain) {
   const input = loadBoardInput();
-  const problems = [...csvRowProblems(input.csvRows), ...cardsAndRows(input)];
+  const problems = [...csvRowProblems(input.csvRows), ...cardsAndRows(input), ...placeholderProblems(input)];
   if (fail(problems)) process.exit(1);
   console.log(`check-cards ok (${Object.keys(input.cards).length} cards)`);
 }

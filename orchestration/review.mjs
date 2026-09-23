@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, stories, state, pathsOf, pathMatches } from './lib.mjs';
+import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 
 /** Boundary checks that need a branch; named when state.json has none (MARXY-81). */
 export const BRANCHLESS_CHECKS = [
@@ -26,6 +27,15 @@ export const EXTRA_BOUNDARIES = [
 const ATTRIBUTION_RE = /co-authored-by:.*(claude|cursor|gpt|grok|copilot)|generated with/i;
 
 /** Paths the boundary check treats as inside the story. */
+/** reviewBoundary for a live branch ref against origin/main. */
+function liveBoundary(key, ref) {
+  const show = spec => { const r = run('git', ['show', spec]); return r.ok ? r.out : null; };
+  return reviewBoundary(key, {
+    baseCsv: show(`origin/main:${BOARD_FILES[0]}`) ?? '', headCsv: show(`${ref}:${BOARD_FILES[0]}`) ?? '',
+    baseDeps: show(`origin/main:${BOARD_FILES[1]}`) ?? '{}', headDeps: show(`${ref}:${BOARD_FILES[1]}`) ?? '{}',
+  });
+}
+
 export function allowedFor(st, key) {
   return [...pathsOf(st), ...EXTRA_BOUNDARIES, `orchestration/results/${key}.json`];
 }
@@ -90,10 +100,14 @@ function run(cmd, args, cwd = ROOT) {
  */
 export function buildReview(key, ctx = {}) {
   const all = ctx.stories ?? stories();
-  const st = all.find(x => x.Key === key);
-  if (!st) return { ok: false, exit: 2, text: 'unknown key' };
-
   const rec = (ctx.state ?? state()).stories[key] ?? {};
+  const injectedBoard = ctx.stories !== undefined || ctx.state !== undefined;
+  // The row the merge bar will judge by (MARXY-190): the branch's own row when it edits no other
+  // story's, so an out-of-plan PR's row and a story's widened Paths are what the reviewer sees too.
+  const boundary = ctx.boundary !== undefined ? ctx.boundary
+    : !injectedBoard && rec.branch ? liveBoundary(key, `origin/${rec.branch}`) : null;
+  const st = boundary?.story ?? all.find(x => x.Key === key);
+  if (!st) return { ok: false, exit: 2, text: `unknown key: ${key} has no row on main${rec.branch ? ' or on its branch' : ''}` };
   const result = ctx.result !== undefined
     ? ctx.result
     : existsSync(here(`results/${key}.json`))
@@ -175,7 +189,13 @@ export function buildReview(key, ctx = {}) {
 
   files = files ?? [];
   const allowed = allowedFor(st, key);
-  const outside = files.filter(f => !fileAllowed(f, allowed));
+  const outside = files
+    .filter(f => !(fileAllowed(f, allowed) || (boundary?.ownOnly && BOARD_FILES.includes(f))))
+    .map(f => (boundary && !boundary.ownOnly && BOARD_FILES.includes(f) ? `${f} (edits ${boundary.others.join(', ')})` : f));
+  const boardLine = !boundary ? null
+    : boundary.added ? `- board row: brought by this branch (out-of-plan; ${boundary.story?.Labels ?? ''})`
+      : boundary.widened.length ? `- WARNING: this branch widens its own Paths: ${boundary.widened.join(', ')} — accept only if an acceptance criterion needs it`
+        : null;
   const contracts = files.filter(f => /packages\/[^/]+\/src\/contracts\//.test(f) || f === 'packages/theme/src/tokens.css');
   const fixtures = files.filter(f => f.startsWith('fixtures/corpus/') || f.startsWith('fonts/'));
   const schemaProblems = validateResult(result);
@@ -209,6 +229,7 @@ export function buildReview(key, ctx = {}) {
     '',
     '## Boundary check',
     `- files outside paths: ${outside.length ? outside.join(', ') : 'none'}`,
+    ...(boardLine ? [boardLine] : []),
     `- contract files touched: ${contracts.length ? contracts.join(', ') : 'none'}`,
     `- fixtures/fonts touched: ${fixtures.length ? fixtures.join(', ') : 'none'}`,
     `- files this branch deletes: ${deleted.length ? deleted.join(', ') : 'none'}`,

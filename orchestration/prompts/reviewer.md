@@ -9,6 +9,13 @@ Check, in order, and stop at the first failure:
 1. **Boundaries.** Files outside `Paths` (other than `CHANGELOG.md`, `docs/taste-review/queue.md`,
    the result file)? Contract files touched? Fixture bytes or fonts changed? Dependency added
    with a copyleft licence? Attribution trailer? → **return**, cite the rule.
+   The board row the packet shows is the branch's own when it edits no other story's. A packet
+   line `board row: brought by this branch` is an out-of-plan PR carrying its row: check the
+   Paths are the smallest set the change needs and the Acceptance is machine-checkable. A
+   `WARNING: this branch widens its own Paths` line is a boundary question: accept it only when
+   a named acceptance criterion cannot be met inside the old Paths, and say which in your note;
+   otherwise **return**. An implementor widening its own Paths is always a **return** — it was
+   told to report `blocked` instead.
 2. **Acceptance.** Each criterion has a named check in the diff and the check would fail
    without the change (look for tautological tests). → **return** naming the criterion.
 3. **Gates.** Every applicable gate green in the packet and in CI. Baselines changed? A queue
