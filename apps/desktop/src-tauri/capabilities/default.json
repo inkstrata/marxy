@@ -2,5 +2,10 @@
   "identifier": "default",
   "description": "Phase 0: the main window may call the shell commands only.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:event:allow-listen"]
+  "permissions": [
+    "core:default",
+    "core:event:allow-listen",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-write-html"
+  ]
 }

@@ -53,13 +53,15 @@ function paintSelected(article: HTMLElement, selection: Selection): void {
   if (selection.kind === 'node') selection.el.classList.add('marxy-selected');
 }
 
-interface Ctx {
+export interface SelectionRuntime {
   article: HTMLElement;
   nodeMap: NodeMap;
   document: Document;
   buffer: Buffer;
-  shell: AppShell;
+  shell: AppShell & { clipboardWrite(data: { readonly text: string; readonly html?: string }): Promise<void> };
 }
+
+interface Ctx extends SelectionRuntime {}
 
 let ctx: Ctx | null = null;
 let state: SelectionState = { selection: { kind: 'none' } };
@@ -69,6 +71,55 @@ let installedOn: HTMLElement | null = null;
 
 export function getSelectionState(): SelectionState {
   return state;
+}
+
+export function getSelectionBufferContext(): (SelectionRuntime & { state: SelectionState }) | null {
+  if (!ctx) return null;
+  return { ...ctx, state };
+}
+
+export function structuredSelectionActive(): boolean {
+  const kind = state.selection.kind;
+  return kind === 'node' || kind === 'section' || kind === 'document';
+}
+
+export function clearStructuredSelection(): void {
+  if (!ctx) return;
+  state = select(state, { kind: 'none' });
+  paintSelected(ctx.article, state.selection);
+}
+
+export function moveSelectionDown(): void {
+  if (!ctx) return;
+  const { article, document } = ctx;
+  state = select(state, moveSibling(document, state.selection, 1));
+  if (state.selection.kind === 'node') {
+    const el = elementForRange(article, state.selection.node.src.start, state.selection.node.src.end);
+    if (el) state = select(state, { ...state.selection, el });
+  }
+  paintSelected(article, state.selection);
+}
+
+export function moveSelectionUp(): void {
+  if (!ctx) return;
+  const { article, document } = ctx;
+  state = select(state, moveSibling(document, state.selection, -1));
+  if (state.selection.kind === 'node') {
+    const el = elementForRange(article, state.selection.node.src.start, state.selection.node.src.end);
+    if (el) state = select(state, { ...state.selection, el });
+  }
+  paintSelected(article, state.selection);
+}
+
+export function moveSelectionParent(): void {
+  if (!ctx) return;
+  const { article, document } = ctx;
+  state = select(state, parentOf(document, state.selection));
+  if (state.selection.kind === 'node') {
+    const el = elementForRange(article, state.selection.node.src.start, state.selection.node.src.end);
+    if (el) state = select(state, { ...state.selection, el });
+  }
+  paintSelected(article, state.selection);
 }
 
 /** Re-resolve the structured selection after the DOM was replaced with the same bytes (§03). */
@@ -171,44 +222,7 @@ async function onClick(ev: MouseEvent): Promise<void> {
   paintSelected(article, state.selection);
 }
 
-function onKeyDown(ev: KeyboardEvent): void {
-  if (!ctx) return;
-  const { article, document } = ctx;
-  if (ev.key === 'Escape') {
-    state = select(state, { kind: 'none' });
-    paintSelected(article, state.selection);
-    ev.preventDefault();
-    return;
-  }
-  if (!ev.altKey || ev.metaKey || ev.ctrlKey) return;
-  if (ev.key === 'ArrowDown') {
-    state = select(state, moveSibling(document, state.selection, 1));
-    if (state.selection.kind === 'node') {
-      const el = elementForRange(article, state.selection.node.src.start, state.selection.node.src.end);
-      if (el) state = select(state, { ...state.selection, el });
-    }
-    paintSelected(article, state.selection);
-    ev.preventDefault();
-  } else if (ev.key === 'ArrowUp' && ev.shiftKey) {
-    state = select(state, parentOf(document, state.selection));
-    if (state.selection.kind === 'node') {
-      const el = elementForRange(article, state.selection.node.src.start, state.selection.node.src.end);
-      if (el) state = select(state, { ...state.selection, el });
-    }
-    paintSelected(article, state.selection);
-    ev.preventDefault();
-  } else if (ev.key === 'ArrowUp') {
-    state = select(state, moveSibling(document, state.selection, -1));
-    if (state.selection.kind === 'node') {
-      const el = elementForRange(article, state.selection.node.src.start, state.selection.node.src.end);
-      if (el) state = select(state, { ...state.selection, el });
-    }
-    paintSelected(article, state.selection);
-    ev.preventDefault();
-  }
-}
-
-/** Attach listeners once; MARXY-42 may move keys into the command registry. */
+/** Attach listeners once; keyboard chords live in the command registry (MARXY-42). */
 export async function installRenderedSelection(handle: AppHandle): Promise<void> {
   const open = handle.state.document;
   const article = document.getElementById('doc');
@@ -218,13 +232,18 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
   const path = open.ast.path;
   const bytes = await handle.shell.readFile(path);
   const buffer = createBuffer(path, bytes);
-  ctx = { article, nodeMap: open.nodeMap, document: open.ast, buffer, shell: handle.shell };
+  ctx = {
+    article,
+    nodeMap: open.nodeMap,
+    document: open.ast,
+    buffer,
+    shell: handle.shell as SelectionRuntime['shell'],
+  };
 
   article.addEventListener('mousedown', () => { pointerDrag = false; });
   article.addEventListener('mousemove', () => { pointerDrag = true; });
   article.addEventListener('mouseup', () => onPointerUp());
   article.addEventListener('click', (ev) => { void onClick(ev); });
-  document.addEventListener('keydown', onKeyDown);
 
   const w = window as Window & {
     marxySelection?: {

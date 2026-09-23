@@ -1,5 +1,6 @@
 // Patches `marxyApp.start` in the Playwright harness so selection installs without touching app.ts (MARXY-41).
 
+import { installCommandKeys } from './bind.ts';
 import { installRenderedSelection } from './view.ts';
 
 declare global {
@@ -15,6 +16,7 @@ if (typeof window !== 'undefined' && !window.__marxySelectionHarnessPatched && w
     const handle = await original(files, argv);
     await handle.ready;
     await installRenderedSelection(handle);
+    installCommandKeys();
     return handle;
   };
 }

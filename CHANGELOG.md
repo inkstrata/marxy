@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Copy section and copy code block reach the clipboard from Mod+C or the palette operations list, backed by the core operation registry and Tauri clipboard write (MARXY-42)
 - The orchestrator human queue is cleared with author rulings: MARXY-183 landed (#180), MARXY-22 stays deferred without a Linux desktop or notarization account, ADR-0026 is accepted so MARXY-94 can dispatch, and interaction-speed numbers remain measured-only without CI merge gates (MARXY-188)
 - MARXY-183: second launches and macOS open events route to the running window via single-instance and `onOpenFiles`
 
