@@ -144,3 +144,10 @@ test('a product story in progress does not also reserve: its busy paths already 
   assert.ok(r.blockedByPaths.includes('MARXY-OPS'));
   assert.deepEqual(yielded(r), []);
 });
+
+test('a no-dispatch row is never dispatched, and says why (MARXY-190)', () => {
+  const all = [{ ...story('MARXY-OOP', 'orchestration/x'), Labels: 'ops,out-of-plan,no-dispatch' }, story('MARXY-S', 'scripts/y')];
+  const r = readyFrom(all);
+  assert.deepEqual(r.ready.map(x => x.key), ['MARXY-S']);
+  assert.deepEqual(r.excluded, [{ key: 'MARXY-OOP', rule: 'no-dispatch' }]);
+});

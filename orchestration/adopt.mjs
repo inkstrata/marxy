@@ -38,6 +38,19 @@ export function adoptions({ openPrs = [], stories = {}, mainKeys = new Set(), ph
   return { adopt, skipped };
 }
 
+/**
+ * Keys to record Done: a `no-dispatch` row (work that brought its own PR) not yet done whose PR has
+ * merged, however it merged — by the cycle, by hand while the cycle was stopped, or before the cycle
+ * ever adopted it. Without this such a row sat `todo` on the board forever.
+ */
+export function settlements({ rows = [], stories = {}, recentPrs = [] } = {}) {
+  const merged = new Set(recentPrs.filter(pr => pr.state === 'MERGED').map(keyOfPr).filter(Boolean));
+  return rows
+    .filter(r => String(r.Labels ?? '').split(',').map(s => s.trim()).includes('no-dispatch'))
+    .filter(r => stories[r.Key]?.status !== 'done' && merged.has(r.Key))
+    .map(r => r.Key);
+}
+
 /** Apply one adoption to a state.json object. Attempts are left alone: adoption is not a dispatch. */
 export function applyAdoption(s, a, now = new Date().toISOString()) {
   const rec = s.stories[a.key] ?? { status: 'todo', attempts: 0 };

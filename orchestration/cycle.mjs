@@ -20,7 +20,7 @@ import { computeOrder, readPullRequest } from './review-order.mjs';
 import { allowedFor, fileAllowed } from './review.mjs';
 import { runWorktreePrune, parseWorktreeList } from './worktrees.mjs';
 import { loadSnapshot, prime } from './github.mjs';
-import { adoptions, applyAdoption } from './adopt.mjs';
+import { adoptions, applyAdoption, settlements } from './adopt.mjs';
 import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 
 /** Hold-reason fragments cycle.mjs can print. The before-list is a fixture; this must stay a superset. */
@@ -270,6 +270,11 @@ function runCycle(argv = process.argv.slice(2)) {
     for (const a of adopt) {
       say(`adopt${DRY ? ' (dry-run, not written)' : ''}: ${a.key} PR #${a.pr} → in_review${a.onMain ? '' : ` (out-of-plan, ${a.phase} lane, row on its branch)`}`);
       if (!DRY) node([here('jira.mjs'), 'pr', a.key, String(a.pr)]);
+    }
+    // A row that brought its own PR is Done once that PR merged, however it merged (MARXY-190).
+    for (const key of settlements({ rows: stories(), stories: state().stories, recentPrs: snapshot.recent ?? [] })) {
+      say(`settle${DRY ? ' (dry-run, not written)' : ''}: ${key} — its PR merged; recording it done`);
+      if (!DRY) node([here('state.mjs'), 'done', key]);
     }
   }
 

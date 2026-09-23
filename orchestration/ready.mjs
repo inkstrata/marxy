@@ -12,6 +12,7 @@ import {
 export const RULE = {
   HUMAN_GATED: 'human-gated',
   DROPPED: 'dropped',
+  NO_DISPATCH: 'no-dispatch',
   EMPTY_ACCEPTANCE: 'empty Acceptance',
   EMPTY_PATHS: 'empty Paths',
   LANE_LIMIT: 'lane limit',
@@ -64,6 +65,9 @@ export function selectReady({
   const refusal = st => {
     if (hasLabel(st, 'human-gated')) return RULE.HUMAN_GATED;
     if (hasLabel(st, 'dropped')) return RULE.DROPPED;
+    // Work that arrives with its own PR (out-of-plan.mjs) is adopted and landed, never dispatched: a
+    // row merged before the cycle adopted it must not send an implementor to redo it (MARXY-190).
+    if (hasLabel(st, 'no-dispatch')) return RULE.NO_DISPATCH;
     if (!String(st.Acceptance ?? '').trim()) return RULE.EMPTY_ACCEPTANCE;
     if (pathsOf(st).length === 0) return RULE.EMPTY_PATHS;
     return null;

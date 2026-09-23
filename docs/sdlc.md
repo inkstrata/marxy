@@ -103,7 +103,9 @@ Nobody runs `gh pr merge` by hand, and nobody has to move a story to In Review: 
 **adopts** every open, non-draft pull request whose title or branch names a key the board does
 not already have in review, links it in Jira, and from then on the merge bar decides
 (`orchestration/adopt.mjs`). A done, blocked or escalated story's PR is not adopted — that is a
-person's call — and neither is a second PR for a key that already has one in review.
+person's call — and neither is a second PR for a key that already has one in review. A row
+labelled `no-dispatch` (work that arrives with its own PR) is never dispatched to an implementor,
+and the cycle records it Done as soon as its PR has merged, however it merged.
 
 Everything in that list except the two judgements — is this story ready, does this diff satisfy
 it — is one command, `node orchestration/cycle.mjs`, and `./orchestration/loop.sh` runs it until

@@ -27,6 +27,7 @@ export function snapshotFrom(open = [], recent = []) {
   }
   return {
     open,
+    recent,
     byNumber,
     /** OPEN beats MERGED beats CLOSED, as worktrees.mjs pickPrState decides for one branch. */
     branchState: branch => ['OPEN', 'MERGED', 'CLOSED'].find(s => statesByBranch.get(branch)?.has(s)) ?? null,

@@ -1,7 +1,7 @@
 // The cycle adopts open pull requests the board does not know are in review (MARXY-190).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptions, applyAdoption, keyOfPr } from './adopt.mjs';
+import { adoptions, applyAdoption, keyOfPr, settlements } from './adopt.mjs';
 
 const pr = (number, key, extra = {}) => ({ number, title: `chore(x): thing (${key})`, headRefName: `chore/${key}-thing`, ...extra });
 
@@ -48,4 +48,20 @@ test('drafts, done/blocked/escalated stories and second PRs are skipped with a r
 test('an entry already In Review on this PR is left alone', () => {
   const { adopt, skipped } = adoptions({ openPrs: [pr(10, 'MARXY-3')], stories: { 'MARXY-3': { status: 'in_review', pr: 10 } } });
   assert.deepEqual([adopt, skipped], [[], []]);
+});
+
+test('a no-dispatch row whose PR merged is settled Done, however it merged; nothing else is', () => {
+  const rows = [
+    { Key: 'MARXY-190', Labels: 'ops,out-of-plan,no-dispatch' },
+    { Key: 'MARXY-192', Labels: 'ops,out-of-plan,no-dispatch' },
+    { Key: 'MARXY-184', Labels: 'phase-3,desktop,out-of-plan' },
+    { Key: 'MARXY-7', Labels: 'ops,no-dispatch' },
+  ];
+  const recentPrs = [
+    { number: 1, headRefName: 'chore/MARXY-190-x', state: 'MERGED' },
+    { number: 2, headRefName: 'feat/MARXY-192-x', state: 'OPEN' },
+    { number: 3, headRefName: 'feat/MARXY-184-x', state: 'MERGED' },
+    { number: 4, headRefName: 'chore/MARXY-7-x', state: 'MERGED' },
+  ];
+  assert.deepEqual(settlements({ rows, stories: { 'MARXY-7': { status: 'done' } }, recentPrs }), ['MARXY-190']);
 });
