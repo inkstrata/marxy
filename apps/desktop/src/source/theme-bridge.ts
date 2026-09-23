@@ -14,9 +14,9 @@ export function marxyCodeMirrorTheme(): Extension {
   const bg = cssVar('--marxy-color-code-bg', '#1d1c19');
   const text = cssVar('--marxy-color-code-text', '#e3dfd6');
   const accent = cssVar('--marxy-color-accent', '#8fb4dd');
-  const selection = cssVar('--marxy-color-selection', '#2a4a6e');
+  const selection = cssVar('--marxy-color-selection', '#1f3651');
   const mono = cssVar('--marxy-font-mono', 'JetBrains Mono, ui-monospace, monospace');
-  const size = cssVar('--marxy-size-code', cssVar('--marxy-size-body', '17px'));
+  const size = cssVar('--marxy-size-code', cssVar('--marxy-size-body', '20px'));
 
   return EditorView.theme(
     {

@@ -7,7 +7,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const allowlist = JSON.parse(readFileSync(join(root, 'scripts/allowlists/shiki-languages.json'), 'utf8'));
 const out = join(root, 'packages/core/src/highlight/languages.generated.ts');
 
-const entries = allowlist.languages.map(({ id, grammar }) => ({ id, grammar }));
+const grammarOf = Object.fromEntries(allowlist.languages.map(({ id, grammar }) => [id, grammar]));
+const aliases = Object.entries(allowlist.aliases ?? {}).map(([id, target]) => {
+  if (!grammarOf[target]) throw new Error(`alias ${id} → ${target}: not an allow-listed id`);
+  return { id, grammar: grammarOf[target] };
+});
+const entries = [...allowlist.languages.map(({ id, grammar }) => ({ id, grammar })), ...aliases];
 const uniqueGrammars = [...new Set(entries.map((e) => e.grammar))].sort();
 
 const lines = [

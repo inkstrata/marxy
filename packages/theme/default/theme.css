@@ -4,6 +4,7 @@
 @import url("../src/tokens.css");
 :root[data-marxy-variant="light"] {
   --marxy-weight-body: 400;
+  --marxy-weight-heading: 580;         /* dark sets 20 lighter, as it does the body (ADR-0033) */
   --marxy-color-bg: #faf8f4;
   --marxy-color-text: #1c1b19;
   --marxy-color-text-secondary: #5e5a53;
@@ -12,20 +13,14 @@
   --marxy-color-code-bg: #f1eee8;
   --marxy-color-code-text: #1c1b19;
   --marxy-color-quote-rule: #d6d1c8;
-  --marxy-color-selection: #cfe3ff;
-  --marxy-color-find: #fbe9a6;
-  --marxy-color-find-current: #f3c94d;
+  --marxy-color-selection: #dbe9ff;
+  --marxy-color-find: #fcefc0;
+  --marxy-color-find-current: #f8df8f;
   --marxy-color-notice: #f1eee8;
-  --marxy-tok-keyword: #6f42a8;
-  --marxy-tok-string: #3f6e2a;
-  --marxy-tok-comment: #6a655d;
-  --marxy-tok-number: #8f5410;
+  --marxy-tok-string: #356024;
+  --marxy-tok-comment: #85521a;
+  --marxy-tok-number: #6f42a8;
   --marxy-tok-function: #2c5f8a;
-  --marxy-tok-type: #7a5c10;
-  --marxy-tok-variable: #1c1b19;
-  --marxy-tok-operator: #4a4640;
-  --marxy-tok-punctuation: #6a655d;
-  --marxy-tok-constant: #8f5410;
-  --marxy-tok-tag: #a1412f;
-  --marxy-tok-attribute: #7a5c10;
+  --marxy-tok-constant: #6f42a8;
+  --marxy-tok-tag: #2c5f8a;
 }

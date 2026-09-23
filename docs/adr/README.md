@@ -19,7 +19,7 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0012](0012-index-root-and-search-scope.md) | The indexed root is the enclosing repository; search covers titles, headings and paths | accepted |
 | [0013](0013-speed-budgets-are-gates.md) | Speed budgets are CI gates; single-instance always; resident mode opt-in | accepted |
 | [0014](0014-aesthetics-acceptance.md) | "Aesthetics paramount" has a two-tier acceptance test | accepted |
-| [0015](0015-typeface.md) | Literata and JetBrains Mono, confirmed by the first taste review | accepted 2026-09-19 |
+| [0015](0015-typeface.md) | Literata and JetBrains Mono, confirmed by the first taste review | accepted 2026-09-19; the pair confirmed and its "68 `ch` stays" superseded by 0033 |
 | [0016](0016-verification-split.md) | Machine gates for everything checkable; a scheduled taste-review queue for the rest | accepted |
 | [0017](0017-trunk-based-agent-workflow.md) | Trunk-based, one issue one branch one PR, CODEOWNERS for the sensitive paths | accepted, amended by 0028 (the CODEOWNERS list) |
 | [0018](0018-reading-position-coordinate.md) | Reading position is a source-map coordinate, never a scroll offset | accepted |
@@ -37,3 +37,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0030](0030-grid-unit-is-half-a-line.md) | The grid unit is half the body line box | accepted, amended (1: a table is an island the grid pass pads, 2026-09-19) |
 | [0031](0031-token-values-are-taste.md) | The token contract is names and units; the default theme's values are taste | accepted 2026-09-19 |
 | [0032](0032-speed-numbers-are-recorded.md) | Speed numbers are recorded; they are not CI failures | accepted 2026-09-20 |
+| [0033](0033-typography-follows-the-research.md) | Typography follows the reader-typography research | accepted 2026-09-23 |

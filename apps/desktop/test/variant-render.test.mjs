@@ -67,7 +67,7 @@ async function bgForVariant(page, origin, variantPreference) {
   await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.marxyRender === 'function');
   await page.evaluate(async (v) => {
-    await window.marxyRender('# Hi\n\nBody.', { variant: v, width: 960, size: 17 });
+    await window.marxyRender('# Hi\n\nBody.', { variant: v, width: 960, size: 20 });
   }, variantPreference);
   return page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--marxy-color-bg').trim());
 }

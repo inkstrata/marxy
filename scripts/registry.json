@@ -59,7 +59,8 @@
     "apps/desktop/src/notices.ts",
     "apps/desktop/src/outline/",
     "scripts/",
-    "packages/core/src/render/testing/"
+    "packages/core/src/render/testing/",
+    "docs/research/"
   ],
   "frozen": [
     "packages/core/src/contracts/",

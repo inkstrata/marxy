@@ -43,9 +43,23 @@ export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<v
   await applyMath(doc);
   const { startCodeHighlight } = await import('../render/highlight.ts');
   startCodeHighlight(doc);
+  focusableScrollers(doc);
   await shell.mark('highlight_ms', Date.now(), `ms=${Date.now() - highlightStart}`);
   await loadIndexMruPins();
   await shell.mark('index_loaded', Date.now());
+}
+
+/**
+ * A table wider than its room scrolls; a scroll region with nothing focusable in it cannot be scrolled
+ * from the keyboard in WebKit, so it takes a tab stop and a name (ADR-0033, WCAG 2.1.1). Tables that
+ * fit get none: a tab stop on every table is noise.
+ */
+export function focusableScrollers(doc: HTMLElement): void {
+  for (const table of doc.querySelectorAll<HTMLElement>('table')) {
+    if (table.scrollWidth <= table.clientWidth + 1) continue;
+    table.tabIndex = 0;
+    if (!table.hasAttribute('aria-label')) table.setAttribute('aria-label', 'Table, scrolls sideways');
+  }
 }
 
 /** Placeholder until MARXY-34/MARXY-38 wire the real index and session state (docs/design/07-index.md). */

@@ -4,15 +4,22 @@ These are the **default theme's** rules, stated so a screen can be judged agains
 a theme author can be told which of them they may change (`theme-contract.md`). They are
 enforced by the mechanical aesthetics gate where a machine can check them (ADR-0014).
 
+The numbers follow the Reader Typography Handbook in `docs/research/reader-typography/`, which
+grades every claim by its evidence and supersedes the earlier taste decisions (ADR-0033). When this
+page and the research disagree, the research wins and this page is wrong.
+
 ## The six constraints
 
-1. **Optical measure, not pixel width.** The column is capped in `ch`, 65–70 characters,
-   so it holds at whatever size the reader chooses. Every incumbent caps in `px`, which
-   degrades the measure exactly when a reader enlarges the type to read more comfortably.
-   *Gate:* measure between 60 and 75 `ch` at every size from 14 to 24 px.
-2. **One baseline grid.** Body lines are whole line boxes (28 px in the default theme), and
+1. **Measure in characters, not pixels, and never in `ch`.** The column is 66 average characters
+   of the text face (45–80 allowed), so it holds at whatever size the reader chooses. Every
+   incumbent caps in `px`, which degrades the measure exactly when a reader enlarges the type.
+   A `ch` is no better: it is the digit zero, a quarter wider than Literata's average character, so
+   "68 ch" set 85 characters. The width is `--marxy-measure-chars × --marxy-avg-char` em, and the
+   average advance is measured per face (ADR-0033).
+   *Gate:* 66 average characters ± 10 % at every size from 16 to 28 px.
+2. **One baseline grid.** Body lines are whole line boxes (30 px in the default theme), and
    every vertical space is an integer multiple of **half** a line box, so paragraphs can sit
-   14 px apart (ADR-0030). Headings, code, images, lists, quotes and math land on it.
+   15 px apart (ADR-0030). Headings, code, images, lists, quotes and math land on it.
    The point is that a long document never accumulates drift; a reader is judged on the fourth
    page. Themes set the line box; Marxy enforces the multiples. *Gate:* every block's top edge
    sits on a multiple of half a line box ± 0.5 px across the corpus.
@@ -22,29 +29,33 @@ enforced by the mechanical aesthetics gate where a machine can check them (ADR-0
    boxes around callouts by default. Colour is for links and one sparing accent. If the
    hierarchy is not legible in greyscale it is decoration. *Gate:* lint of the default theme.
 5. **Monospace is a voice, not a size.** Code is a different family at a matched x-height,
-   on its own line box that is still a grid multiple; never the body face at `0.85em`.
+   on its own line box that is still a grid multiple; never the body face at `0.85em`. Code is
+   verbatim: no ligatures, no reader spacing, no hyphens, and it keeps its authored width.
 6. **Chrome at rest is zero.** Rendered mode at rest is a column of text and nothing else.
    Everything is summoned by intent and dismissed. This is the constraint convenience erodes
    first: every affordance will feel worth 32 px of permanent chrome, and none is.
 
 ## Type scale (default theme)
 
-Ratio 1.25 from a 17 px base, line heights snapped to the 28 px grid. Literata for text,
-JetBrains Mono for code (ADR-0015).
+Ratio 1.25 from a 20 px base on a 30 px line (1.5), the grid unit half of that. Literata for text,
+JetBrains Mono for code (ADR-0015, confirmed by the research in ADR-0033).
 
-| Role | Size / line | Weight | Tracking | Space above |
+| Role | Size / line | Weight (dark / light) | Tracking | Space above |
 | --- | --- | --- | --- | --- |
-| Title (h1) | 33 / 40 | 600 | −0.014em | — |
-| Section (h2) | 27 / 34 | 600 | −0.011em | 56 px |
-| Sub (h3) | 21 / 28 | 600 | −0.006em | 28 px |
-| Body | 17 / 28 | 400 | 0 | 14 px |
-| Code block | 14 / 22 | 400 | 0 | 28 px |
-| Caption, meta | 13 / 20 | 400 | 0.01em | 14 px |
+| Title (h1) | 39 / 48 | 560 / 580 | −0.014em | — |
+| Section (h2) | 31 / 38 | 560 / 580 | −0.011em | 60 px |
+| Sub (h3) | 25 / 30 | 560 / 580 | −0.006em | 30 px |
+| Body | 20 / 30 | 380 / 400 | 0 | 15 px |
+| Code block | 18 / 30 | 380 / 400 | 0 | 30 px |
+| Caption, meta | 15 / — | 380 / 400 | 0.01em | 15 px |
 
-17 px because desktop reading distance is greater than a phone's and a serif at 16 loses its
-italics. Headings at 600 not 700: hierarchy comes from size; 700 in a text serif shouts. The
-Linux build applies `--marxy-weight-offset` (measured, ADR-0010) to keep rendered weight
-matched to macOS.
+20 px because reading speed falls off below an x-height of about 0.2°, which is Literata at
+18.5 px, and because the legibility cost of light text on dark grows as text shrinks: a dark
+default needs generous size (research `02-evidence.md`, `09-color-access.md`). 1.5 leading is the
+research's default and WCAG's AAA floor. Code is 18 px, where JetBrains Mono's x-height matches
+Literata's at 20 within 3 %; inline code is therefore 0.9 em. Headings at 560–580, not 700:
+hierarchy comes from size and space; 700 in a text serif shouts. The Linux build applies
+`--marxy-weight-offset` (measured, ADR-0010) to keep rendered weight matched to macOS.
 
 ## The four hard problems behind "reading experience"
 
@@ -54,8 +65,12 @@ matched to macOS.
 - **Navigating long documents.** A summoned outline that tracks scroll; reading position
   remembered per file (ADR-0018); find that lands a match at the reading position, not the
   viewport edge; a progress readout that is honest about remaining length, no time estimates.
-- **Embedded code.** Highlight at parse time; long lines soft-wrap with a hanging indent;
-  never a scrollbar per block; copy without highlight markup.
+- **Embedded code.** Highlight off the main thread, only languages the fence names (never a guess),
+  in a restrained palette: strings, literals, comments and defined names carry colour; keywords,
+  operators and punctuation do not; comments are read, not dimmed. A block keeps its authored
+  width, growing into the right margin up to 100 columns; a longer line wraps, hanging past its
+  own indentation with a rule beside the continuation, so it never reads as two statements. Never
+  a scrollbar per block; no ligatures; copy without highlight markup (ADR-0033).
 - **Images, math, diagrams.** Reserve intrinsic dimensions before decode so the column never
   reflows mid-read (a correctness requirement: the line breaker measures against it). KaTeX
   on first use, on the grid. Mermaid deferred.
@@ -78,13 +93,18 @@ Source mode is a code surface and is judged as one.
 
 Marxy is designed on a dark ground first: warm near-black `#151412`, warm off-white text
 `#e8e4dc` at 14.5:1, body weight 380 because a serif at 400 reads heavier on dark, one muted
-blue accent, code one step lighter than the page. Light is a second, separately designed
+blue accent, code one step lighter than the page. Every code token clears 4.5:1 on the code
+background and on the selection and find highlights too; a find match is never told apart by
+colour alone. Light is a second, separately designed
 variant on warm paper `#faf8f4` at weight 400. Neither is the other inverted. The exact
 palettes and their contrast ratios are in `docs/design/05-theme.md` §Palettes; both must pass
 the contrast checks in the aesthetics gate.
 
 ## Deliberately absent
 
-Justified text by default (ragged reads better on screen; K–P makes justification *possible*
-as a theme option). A serif/sans toggle as a headline feature. A light theme produced by
-inverting the dark one. Animation of any kind. Reading-time estimates.
+Justified text by default (no reader study shows justification helps, crude justification hurts,
+and below 45 characters no line breaker can save it; K–P makes it *possible* as an option at
+45 characters and up). A serif/sans toggle as a headline feature. A light theme produced by
+inverting the dark one. Programming ligatures. Syntax colour on every token. Claims that any
+typeface helps dyslexia (spacing can; letterforms do not). Animation of any kind. Reading-time
+estimates.

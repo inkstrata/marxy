@@ -2,7 +2,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import type { Measured } from './items.ts';
-import { badness, breakRagged } from './ragged.ts';
+import { DEFAULT_RAGGED, badness, breakRagged } from './ragged.ts';
 
 /** Words of the given widths separated by 5 px spaces, at 17 px type. */
 const para = (...widths: number[]): Measured[] =>
@@ -84,4 +84,33 @@ test('badness is TeX’s: 100 at the full stretch, capped at 10000', () => {
   assert.equal(badness(34, 34), 100);
   assert.equal(badness(0, 34), 0);
   assert.equal(badness(1000, 34), 10000);
+});
+
+/** A word split at a hyphenation point: [left piece, hyphen, right piece]. */
+const split = (left: number, right: number, hyphen = 6): Measured[] => [{ kind: 'piece', width: left }, { kind: 'hyphen', width: hyphen }, { kind: 'piece', width: right }];
+const space: Measured = { kind: 'space', width: 5, fontSize: 17 };
+
+test('text that sets well without hyphens gets none (TeX \\pretolerance, ADR-0033)', () => {
+  // Two 40 px words then a splittable 60 px word: 40+5+40 fills an 88 px line to within 3 px, so the
+  // first pass is kept and the hyphen point is never used.
+  const tokens: Measured[] = [{ kind: 'piece', width: 40 }, space, { kind: 'piece', width: 40 }, space, ...split(30, 30)];
+  const { after } = breakRagged(tokens, 88, 17);
+  assert.ok(after.every((i) => tokens[i]!.kind !== 'hyphen'), `broke at a hyphen: ${after}`);
+});
+
+test('a line ending in a hyphen counts the hyphen it draws', () => {
+  // 50 + 5 + 30 = 85 fits 88 only without the 6 px hyphen; with it the break must not be taken.
+  const tokens: Measured[] = [{ kind: 'piece', width: 50 }, space, ...split(30, 80)];
+  const { after } = breakRagged(tokens, 88, 17, { ...DEFAULT_RAGGED, pretolerance: -1 });
+  const drawn = lines(tokens, after).map((w, k) => w + (tokens[after[k]!]?.kind === 'hyphen' ? 6 : 0));
+  assert.ok(drawn.every((w) => w <= 88), `a line overran the measure: ${drawn}`);
+});
+
+test('two hyphenated lines in a row cost \\doublehyphendemerits, as two dashes do', () => {
+  const tokens: Measured[] = [...split(40, 40), space, ...split(40, 40), space, { kind: 'piece', width: 40 }];
+  const cheap = breakRagged(tokens, 50, 17, { ...DEFAULT_RAGGED, pretolerance: -1, doubleDashDemerits: 0 });
+  const dear = breakRagged(tokens, 50, 17, { ...DEFAULT_RAGGED, pretolerance: -1, doubleDashDemerits: 1e9 });
+  const hyphenRuns = (after: readonly number[]): number => after.filter((i, k) => k > 0 && tokens[i]!.kind === 'hyphen' && tokens[after[k - 1]!]!.kind === 'hyphen').length;
+  assert.ok(hyphenRuns(dear.after) <= hyphenRuns(cheap.after));
+  assert.equal(hyphenRuns(dear.after), 0);
 });

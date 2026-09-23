@@ -30,23 +30,35 @@ const CORPUS = [
   '01-long-technical.md', '02-readme-real-world.md', '03-ai-plan.md', '05-pathological-table-and-nesting.md',
   '06-math.md', '07-cjk.md', '08-rtl.md', '09-gfm-everything.md', '10-hostile.md', '14-marxy-plan.md', '15-prose-volume.md',
 ];
-/** No code, math, images or tables: tables now use the code line box and are islands (MARXY-128). */
-const TEXT_ONLY = ['14-marxy-plan.md'];
+/**
+ * No code, math, images or tables (islands since MARXY-128), and no heading that wraps: a heading's
+ * line box is not a grid unit, so a two-line heading is an island the grid pass pads too (ADR-0033).
+ * At 66 characters the plan's long headings wrap, so the case is written here.
+ */
+const TEXT_ONLY_DOC = [
+  '# A plan', '', 'Opening paragraph with `inline code`, *italic*, **bold** and a [link](https://example.com), long enough to set on several lines of the measure so the paragraph gap is tested between real lines.', '',
+  '## Phase one', '', 'A paragraph under a section heading.', '', '- a list item', '- another with `code`', '  - nested', '', '### A small heading', '', '1. first', '2. second', '', '> A quotation that runs to more than one line so its rule and its gap are both measured by the grid check.', '',
+  '## Phase two', '', 'Closing paragraph.', '',
+].join('\n');
 const WIDTHS = [720, 960, 1280];
 /** Body size → line box, kept an even number so half a line is whole pixels. */
-const SIZES = { 14: 24, 17: 28, 21: 34, 24: 40 };
+const SIZES = { 16: 24, 20: 30, 24: 36, 28: 42 };
 
 const rendered = new Map(CORPUS.map((file) => [file, renderSafeHtml(readFileSync(new URL(`fixtures/corpus/${file}`, root)), { file }).html]));
+rendered.set('text-only', renderSafeHtml(new TextEncoder().encode(TEXT_ONLY_DOC), { file: 'text-only.md' }).html);
+/** The bundled faces, for checks whose answer depends on the face (the measure is counted in Literata's characters). */
+const fontData = (path) => readFileSync(new URL(`fonts/${path}`, root)).toString('base64');
+const FONTS = `@font-face{font-family:"Literata";src:url(data:font/ttf;base64,${fontData('literata/Literata[opsz,wght].ttf')});font-weight:200 900}`;
 
 let browser;
 before(async () => { if (!skip) browser = await launchWebkit(); });
 after(async () => { await browser?.close(); });
 
-async function open(file, { width = 960, size = 17, variant = 'dark', snap = true } = {}) {
+async function open(file, { width = 960, size = 20, variant = 'dark', snap = true, fonts = false } = {}) {
   const page = await browser.newPage({ viewport: { width, height: 900 } });
-  const tokens = size === 17 ? '' : `:root{--marxy-size-body:${size}px;--marxy-line-box:${SIZES[size]}px}`;
+  const tokens = size === 20 ? '' : `:root{--marxy-size-body:${size}px;--marxy-line-box:${SIZES[size]}px}`;
   await page.setContent(
-    `<!doctype html><html lang="en" data-marxy-variant="${variant}"><head><meta charset="utf-8"><style>${css}${tokens}</style></head>` +
+    `<!doctype html><html lang="en" data-marxy-variant="${variant}"><head><meta charset="utf-8"><style>${fonts ? FONTS : ''}${css}${tokens}</style></head>` +
       `<body><article class="marxy-article" id="doc">${rendered.get(file)}</article></body></html>`,
   );
   await page.addScriptTag({ content: `${grid}\nwindow.snapToGrid = snapToGrid;` });
@@ -72,17 +84,17 @@ function offGrid(page) {
   });
 }
 
-for (const file of TEXT_ONLY) {
-  test(`${file}: the stylesheet alone puts every block on the grid`, async () => {
-    const page = await open(file, { snap: false });
-    assert.deepEqual((await offGrid(page)).slice(0, 10), []);
+test('text with one-line headings: the stylesheet alone puts every block on the grid', async () => {
+  for (const size of [16, 20, 24, 28]) {
+    const page = await open('text-only', { snap: false, size, width: 1280 });
+    assert.deepEqual((await offGrid(page)).slice(0, 10), [], `at ${size} px`);
     await page.close();
-  });
-}
+  }
+});
 
 for (const file of CORPUS) {
   test(`${file}: every block on the grid after the grid pass, at three widths and four sizes`, async () => {
-    const cases = [...WIDTHS.map((width) => ({ width })), ...[14, 21, 24].map((size) => ({ size }))];
+    const cases = [...WIDTHS.map((width) => ({ width })), ...[16, 24, 28].map((size) => ({ size }))];
     for (const options of cases) {
       const page = await open(file, options);
       assert.deepEqual((await offGrid(page)).slice(0, 10), [], `off the grid at ${JSON.stringify(options)}`);
@@ -91,20 +103,24 @@ for (const file of CORPUS) {
   });
 }
 
-test('the measure is 60–75 ch at every size and width', async () => {
-  for (const [width, size] of [...WIDTHS.map((w) => [w, 17]), ...[14, 21, 24].map((s) => [960, s])]) {
-    const page = await open('01-long-technical.md', { width, size });
-    const ch = await page.evaluate(() => {
+test('the measure is 66 average characters ± 10 % at every size, where the window allows (ADR-0033)', async () => {
+  for (const [width, size] of [...[960, 1280].map((w) => [w, 20]), ...[16, 24].map((s) => [960, s]), [1280, 28]]) {
+    const page = await open('15-prose-volume.md', { width, size, fonts: true });
+    const chars = await page.evaluate(async () => {
+      await document.fonts.ready;
       const article = document.getElementById('doc');
+      // Average character of the document's own prose, measured unwrapped in the article's face.
+      const text = [...article.querySelectorAll('p')].slice(0, 12).map((p) => p.textContent).join(' ').replace(/\s+/g, ' ');
       const probe = document.createElement('span');
-      probe.textContent = '0';
+      probe.style.whiteSpace = 'pre';
+      probe.textContent = text;
       article.prepend(probe);
-      const one = probe.getBoundingClientRect().width;
+      const avg = probe.getBoundingClientRect().width / text.length;
       probe.remove();
       const style = getComputedStyle(article);
-      return (article.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / one;
+      return (article.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / avg;
     });
-    assert.ok(ch >= 60 && ch <= 75, `${ch.toFixed(1)} ch at ${width} px wide, ${size} px type`);
+    assert.ok(chars >= 59.4 && chars <= 72.6, `${chars.toFixed(1)} characters at ${width} px wide, ${size} px type`);
     await page.close();
   }
 });
@@ -157,19 +173,19 @@ for (const variant of ['dark', 'light']) {
   });
 }
 
-test('the design-language numbers fall out of the formulas at 17 px: h2 is 56 above, 34 tall, 14 below', async () => {
+test('the design-language numbers fall out of the formulas at 20 px: h2 is 60 above, 38 tall, 15 below', async () => {
   const page = await open('01-long-technical.md');
   const h2 = await page.evaluate(() => {
     const style = getComputedStyle(document.querySelector('h2'));
     return [style.marginTop, style.lineHeight, style.marginBottom, style.fontSize].map(parseFloat);
   });
-  // 56 / 34 / 14: the named gaps are grid units; the 8 px remainder is padding-bottom (MARXY-128).
-  assert.deepEqual(h2, [56, 34, 14, 27]);
+  // 60 / 38 / 15: the named gaps are grid units; the 7 px remainder is padding-bottom (MARXY-128).
+  assert.deepEqual(h2, [60, 38, 15, 31]);
   await page.close();
 });
 
 test('headings keep at least half a line below them at every size (constraint 3)', async () => {
-  for (const size of [14, 17, 21, 24]) {
+  for (const size of [16, 20, 24, 28]) {
     const page = await open('01-long-technical.md', { size });
     const gaps = await page.evaluate(() => {
       const half = parseFloat(getComputedStyle(document.getElementById('doc')).lineHeight) / 2;
@@ -202,5 +218,35 @@ test('a wrapped line of code hangs under its own first line, on every source lin
   });
   assert.ok(Math.abs(lefts.sourceLine - lefts.firstLine) < 0.5, 'every source line starts at the block edge');
   assert.ok(lefts.wrapped - lefts.sourceLine > lefts.ch * 1.5, `a continuation hangs: ${JSON.stringify(lefts)}`);
+  await page.close();
+});
+
+test('a wrapped code line continues past its own indentation, with a rule only beside continuation rows (ADR-0033)', async () => {
+  const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
+  const { html } = renderSafeHtml(new TextEncoder().encode(`\`\`\`py\ndef f():\n    return g(${'argument, '.repeat(20)})\n\`\`\`\n`), { file: 't.md' });
+  await page.setContent(`<!doctype html><html data-marxy-variant="dark"><head><style>${css}</style></head><body><article class="marxy-article" id="doc">${html}</article></body></html>`);
+  const r = await page.evaluate(() => {
+    // The app's highlight pass shape (apps/desktop/src/render/highlight.ts): one span per line, indent in ch.
+    const code = document.querySelector('pre code');
+    const lines = code.textContent.split('\n').slice(0, -1);
+    code.replaceChildren(...lines.flatMap((t, i) => {
+      const s = document.createElement('span');
+      s.className = 'marxy-line';
+      s.textContent = t;
+      const n = /^ */.exec(t)[0].length;
+      if (n) s.style.setProperty('--marxy-indent', `${n}ch`);
+      return i ? ['\n', s] : [s];
+    }), '\n');
+    const [first, second] = code.querySelectorAll('.marxy-line');
+    const text = second.firstChild;
+    const at = (i) => { const range = document.createRange(); range.setStart(text, i); range.setEnd(text, i + 1); return range.getBoundingClientRect(); };
+    const ret = at(text.data.indexOf('return'));
+    let i = text.data.indexOf('return');
+    while (i < text.data.length - 1 && Math.abs(at(i).top - ret.top) < 1) i++;
+    return { copy: code.textContent === `${lines.join('\n')}\n`, returnLeft: ret.left, continuationLeft: at(i).left, firstBg: getComputedStyle(first).backgroundImage !== 'none', rows: second.getBoundingClientRect().height / 30 };
+  });
+  assert.ok(r.copy, 'line spans changed the text');
+  assert.ok(r.rows >= 2, 'the long line did not wrap');
+  assert.ok(r.continuationLeft > r.returnLeft, `continuation at ${r.continuationLeft} is not past its line's indentation (${r.returnLeft})`);
   await page.close();
 });

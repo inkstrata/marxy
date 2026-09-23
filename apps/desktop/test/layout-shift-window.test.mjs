@@ -21,8 +21,8 @@ const MAIN_GATE_SNIPPETS = {
   RAG_OPTS: 'const RAG_OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };',
   WIDTHS: 'const WIDTHS = [720, 960, 1280];',
   VARIANTS: "const VARIANTS = ['dark', 'light'];",
-  SIZES: 'const SIZES = [14, 17, 21, 24];',
-  LINE_BOX: 'const LINE_BOX = { 14: 24, 17: 28, 21: 34, 24: 40 };',
+  SIZES: 'const SIZES = [16, 20, 24, 28];',
+  LINE_BOX: 'const LINE_BOX = { 16: 24, 20: 30, 24: 36, 28: 42 };',
   checkCls: `function checkCls(reported) {
   if (reported == null || reported.observed !== true) {
     return [\`layout shift unobserved: \${reported?.reason ?? 'no measurement'}\`];

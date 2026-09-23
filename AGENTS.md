@@ -152,6 +152,10 @@ engine; performance numbers recorded (not gated, ADR-0032); bundle size; licence
 audit; byte-fidelity property test; no-network assertion; the mechanical half of
 the aesthetics test (`docs/aesthetics-acceptance.md`).
 
+**Evidence first:** where the research in `docs/research/reader-typography/` gives a default
+(size, measure, leading, contrast, code colour), that is the default; taste review judges what the
+research cannot, not what it already answers.
+
 **Human (scheduled, batched):** whether it is *beautiful*. Never ask "does this look
 right?" mid-task. Produce a reviewable artifact (screenshot corpus, side-by-side vs
 Typora/Marked 2, before/after pairs), append it to `docs/taste-review/queue.md`, and
@@ -178,6 +182,10 @@ The numbers below are the sphere of concern, not a merge-bar ceiling.
 - `docs/brief.md` — the product, distilled. `docs/design-language.md` — the six
   constraints and the type scale. `docs/theme-contract.md`, `docs/operations.md`,
   `docs/navigation.md`, `docs/risks.md`.
+- `docs/research/reader-typography/` — **the typography authority.** A graded handbook of what
+  the evidence says about size, measure, leading, line breaking, code, colour and access; start at
+  `10-spec.md`. It supersedes earlier taste decisions (ADR-0033). A typographic change cites the
+  chapter it follows, or says why it departs.
 - `docs/adr/` — every decision that constrains implementation. Read the index.
 - `docs/decisions.md` — the open questions resolved at handoff, and what has been overturned since.
 - `docs/scope.md` — what v1 is and is not. `docs/plan.md` — the phases.

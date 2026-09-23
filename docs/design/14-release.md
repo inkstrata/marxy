@@ -76,7 +76,7 @@ document, so the reader sees the attribution typeset like everything else:
 A markdown reader. MIT licence. No telemetry. Nothing phones home.
 
 ## Typefaces
-Literata … (OFL-1.1, Reserved Font Name) · JetBrains Mono … (OFL-1.1)
+Literata … (OFL-1.1, no Reserved Font Name) · JetBrains Mono … (OFL-1.1, no Reserved Font Name)
 
 ## Built with
 Tauri (MIT/Apache-2.0) · CodeMirror (MIT) · Shiki core (MIT) · KaTeX (MIT) · justif (…) · mdast/micromark (MIT)

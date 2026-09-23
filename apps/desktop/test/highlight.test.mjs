@@ -70,7 +70,7 @@ test('03-ai-plan.md fences gain per-scope coloured spans after idle highlight', 
     const sample = await page.evaluate(() => {
       const code = document.querySelector('code.language-json');
       if (!code) return null;
-      const span = code.querySelector('.marxy-tok-string, .marxy-tok-keyword, .marxy-tok-punctuation');
+      const span = code.querySelector('.marxy-tok-string'); // restrained palette (ADR-0033): strings keep a colour, punctuation does not
       if (!span) return null;
       const color = getComputedStyle(span).color;
       const base = getComputedStyle(code).color;

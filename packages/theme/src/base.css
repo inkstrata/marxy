@@ -5,6 +5,10 @@
    padding, and whatever cannot be constructed (code, tables, images, math) is padded by snapToGrid. No margin or
    padding here is a bare px value; scripts/lint-default-theme.mjs checks. */
 
+/* The column, as an absolute length computed where the measure's em means the body size, so code,
+   tables and anything else in another size can reach the same edges (ADR-0033). */
+@property --marxy-column { syntax: '<length>'; inherits: true; initial-value: 0px; }
+
 :root {
   /* Role sizes derived from the scale; the contract lists only the base and the ratio. */
   --marxy-size-h1: round(calc(var(--marxy-size-body) * pow(var(--marxy-scale-ratio), 3)), 1px);
@@ -31,8 +35,14 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
      heading line box is not always a unit, so padding-bottom closes that remainder (MARXY-128). */
   --marxy-heading-above: calc(var(--lb) * 2);
   --marxy-heading-below: var(--marxy-half);
+  /* The measure in average characters of the text face, never in ch: a ch is the digit zero, which
+     in Literata is a quarter wider than an average character (constraint 1, ADR-0033). Clamped to
+     45–80 characters however a theme sets it. */
+  --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
+  /* How far wide content (code, tables) may run into the right margin: to 3rem from the window's edge. */
+  --marxy-room: max(0px, (100vw - var(--marxy-column)) / 2 - 3rem);
   box-sizing: content-box;
-  max-width: clamp(45ch, var(--marxy-measure), 90ch);   /* ch, so the measure holds at any size (constraint 1) */
+  max-width: var(--marxy-column);
   margin-inline: auto;
   padding: calc(var(--lb) * 3) 3rem calc(var(--lb) * 5);
   font-family: var(--marxy-font-text);
@@ -86,6 +96,8 @@ h3 {
 }
 h4, h5, h6 { font-size: var(--marxy-size-body); line-height: var(--lb); margin: var(--lb) 0 var(--marxy-heading-below); }
 h5, h6 { font-style: italic; font-synthesis: none; }
+/* Tracking breaks joins and conjuncts in cursive and Indic scripts (ADR-0033). */
+:is(h1, h2, h3, h4, h5, h6):lang(ar, fa, ur, ps, sd, ug, he, yi, hi, mr, ne, sa, bn, pa, gu, ta, te, kn, ml, si, th, lo, km, my) { letter-spacing: 0; }
 
 /* Text blocks: half a line apart, so every top lands on the grid unit. */
 p, ul, ol, dl, blockquote, table, figure { margin: 0 0 var(--marxy-half); }
@@ -106,8 +118,12 @@ li::marker { color: var(--marxy-color-text-secondary); font-variant-numeric: tab
 .marxy-article > ol > li::before {
   content: counter(marxy-ol) ".";
   display: inline-block;
+  box-sizing: border-box;
   width: 2.25em;
-  margin-inline: -2.25em 0.35em;
+  /* The gap sits inside the hanging box: a margin outside it pushed each item's first line 0.35em
+     right of its own continuation lines (found by the hang check, ADR-0033). */
+  margin-inline: -2.25em 0;
+  padding-inline-end: 0.35em;
   text-align: end;
   font-variant-numeric: tabular-nums;
   color: var(--marxy-color-text-secondary);
@@ -141,14 +157,28 @@ blockquote {
 }
 
 /* Code. A different voice at a matched x-height (constraint 5), on its own line box; blocks are
-   padded back onto the grid by snapToGrid. Long lines wrap with a hanging indent on every source
-   line — never a scrollbar per block. */
-code, kbd, pre { font-family: var(--marxy-font-mono); }
+   padded back onto the grid by snapToGrid. Code is verbatim (ADR-0033): no ligatures, no reader
+   spacing, no hyphens. A block keeps its authored width: it starts at the column's left edge, is at
+   least the column wide, and grows into the right margin up to 100 columns. A line longer than that
+   still wraps — never a scrollbar per block — with a hanging indent and a rule beside every
+   continuation row, so a wrapped line never reads as two. */
+code, kbd, pre {
+  font-family: var(--marxy-font-mono);
+  font-variant-ligatures: none;   /* JetBrains Mono's ligatures live in calt: `!=` must not draw as ≠ */
+  font-feature-settings: "calt" 0, "liga" 0;
+  letter-spacing: 0;
+  word-spacing: 0;
+  hyphens: manual;
+}
 code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em); color: var(--marxy-color-code-text); }
 /* An inline box in another face must not grow its line: at the body's line height a mono run's
    taller ascent adds about a pixel, which a long document turns into drift. */
 :not(pre) > code, kbd { line-height: 1; }
 pre {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+  max-width: min(calc(100% + var(--marxy-room)), calc(100ch + 2 * var(--marxy-half)));
   margin: var(--lb) 0;
   padding: var(--marxy-half);
   font-size: var(--marxy-size-code);
@@ -160,6 +190,20 @@ pre {
   overflow-wrap: anywhere;
   text-indent: 2ch hanging each-line;
   tab-size: 4;
+}
+/* One source line (the highlight pass wraps each and sets --marxy-indent to its leading whitespace).
+   A whole row of the block, so its own wrapped rows hang 2ch past the line's own indentation — a
+   wrapped line must never look dedented, which in Python or YAML reads as a different statement —
+   capped at half the block. The rule starts one code line down, so it is drawn only when the line
+   wrapped, just left of where the continuation text starts. */
+.marxy-line {
+  --marxy-hang: min(calc(var(--marxy-indent, 0ch) + 2ch), 50%);
+  display: inline-block;
+  width: 100%;
+  vertical-align: top;
+  text-indent: var(--marxy-hang) hanging;
+  background: linear-gradient(var(--marxy-color-text-secondary), var(--marxy-color-text-secondary))
+    calc(var(--marxy-hang) - 1.2ch) var(--marxy-line-box-code) / 1px calc(100% - var(--marxy-line-box-code)) no-repeat;
 }
 pre code, a code { font-size: inherit; color: inherit; }
 a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em); }
@@ -187,7 +231,8 @@ kbd {
    shadows so they take no height, and a long cell wraps onto whole lines. */
 table {
   display: block;
-  max-width: 100%;
+  width: max-content;
+  max-width: calc(100% + var(--marxy-room));   /* wide tables run into the margin like code, then scroll */
   overflow-x: auto;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums lining-nums;
@@ -200,6 +245,9 @@ th { --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset)
 :is(th, td):last-child { padding-inline-end: 0; }
 th[align="center"], td[align="center"] { text-align: center; }
 th[align="right"], td[align="right"] { text-align: end; }
+
+/* A scrolling table is reachable from the keyboard (the app gives it tabindex) and shows where focus is. */
+:is(pre, table):focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; }
 
 /* A thematic break is space with a quiet mark in it, not a rule (constraint 4). */
 hr {

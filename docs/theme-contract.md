@@ -15,7 +15,8 @@ No JavaScript, no network, no conditional logic, no AST access. Boundary, not ba
 ## Theme-owned (set freely)
 
 Colour (text, background, accent, links, code tokens); families for body, headings, code;
-base size; the measure within 45–90 `ch`; the grid unit (`--marxy-line-box`); scale ratio;
+base size; the measure within 45–80 average characters (`--marxy-measure-chars`, with
+`--marxy-avg-char` set for the theme's text face, ADR-0033); the grid unit (`--marxy-line-box`); scale ratio;
 rules and dividers; code-block and blockquote presentation; light and dark variants; an
 optional 1 px progress rule.
 
@@ -28,10 +29,11 @@ line of the measure or becomes a seeker.
 
 ## Tokens
 
-The full list is `packages/theme/src/tokens.css` (version 1). The token names, units and
+The full list is `packages/theme/src/tokens.css` (version 1). ADR-0033 added
+`--marxy-measure-chars` and `--marxy-avg-char`, with defaults. The token names, units and
 meanings are frozen and need an ADR; the default theme's values are taste and need a story
 with a taste-review queue row. That is the guarantee a theme author gets (ADR-0031): the
-names, the units and the meanings, not 28px. Its `:root` values are the **dark** variant
+names, the units and the meanings, not 30px. Its `:root` values are the **dark** variant
 (ADR-0024); the default theme's light block overrides them under
 `[data-marxy-variant="light"]`. Tokens may be *added* within version 1 when they carry a
 default (ADR-0024 added the find, notice and code-token colours); a theme that does not set
@@ -40,9 +42,11 @@ The shape:
 
 ```css
 :root {
-  --marxy-line-box: 28px;        /* the grid unit */
-  --marxy-measure: 68ch;
-  --marxy-size-body: 17px;
+  --marxy-line-box: 30px;        /* the body line; the grid unit is half of it */
+  --marxy-measure-chars: 66;     /* average characters per line, 45–80 */
+  --marxy-avg-char: 0.463;       /* the text face's average advance, em: measure it for your face */
+  --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);
+  --marxy-size-body: 20px;
   --marxy-scale-ratio: 1.25;
   --marxy-font-text: "Literata";
   --marxy-font-heading: var(--marxy-font-text);
@@ -54,7 +58,10 @@ The shape:
 ```
 
 **Give theme authors the variables, not the declarations.** A theme that wants roomier text
-sets a larger line box and everything follows.
+sets a larger line box and everything follows. A theme that changes the text face measures its
+average character (the mean advance of English prose, in em) and sets `--marxy-avg-char`, or its
+column will not hold the character count. Never set a measure in `ch`: a `ch` is the digit zero,
+which in most faces is 13–58 % wider than an average character.
 
 ## Re-layout triggers
 

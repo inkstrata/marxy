@@ -67,7 +67,7 @@ its marker string); the no-network harness can attach to `app.html` exactly as t
 ## Aesthetics gate algorithms (`scripts/gate-aesthetics.mjs`, tier 1)
 
 For each corpus markdown file × width `{ 720, 960, 1280 }` × variant `{ dark, light }` (dark
-first, ADR-0024) × body size `{ 14, 17, 21, 24 }` (sizes only at 960 to bound the matrix), in
+first, ADR-0024) × body size `{ 16, 20, 24, 28 }` (sizes only at 960 to bound the matrix), in
 **Playwright WebKit on both runners**: on macOS it is CoreText (matches WKWebView within ten
 weight units, `docs/spike/outcome.md`); on Linux Playwright's WebKit is built from the GTK/WPE
 port on FreeType, which is the closest headless stand-in for WebKitGTK. Chromium is used by the
@@ -77,8 +77,11 @@ no-network gate only and never for aesthetics.
    `data-marxy-s` that is `display: block` (or `table`, `list-item`): `top = rect.top − article.rect.top`;
    assert `Math.abs((top % unit + unit) % unit) ≤ 0.5` or `≥ unit − 0.5`. The reference
    implementation is `offGrid` in `packages/theme/test/grid.test.mjs`.
-2. **Measure.** `chWidth` from a probe `<span>0</span>` in the article's font; assert
-   the article's content width (`clientWidth` minus inline padding) `/ chWidth ∈ [60, 75]` at every size.
+2. **Measure.** The average character from a fixed English sample laid out unwrapped in the
+   article's font; assert the article's content width (`clientWidth` minus inline padding) divided
+   by it is within 10 % of `--marxy-measure-chars` (66) at every size, unless the window is what
+   bounds the column. Never `ch`: the digit zero overstates an average character by 13–58 %
+   (ADR-0033).
 3. **Contrast.** Relative luminance from computed `color` and `background-color` of `p`,
    `.marxy-caption`, `code`; body ≥ 7:1, secondary ≥ 4.5:1.
 4. **Layout shift.** `PerformanceObserver({ type: 'layout-shift', buffered: true })` from

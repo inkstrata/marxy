@@ -2,11 +2,21 @@
   {
     "name": "--marxy-line-box",
     "kind": "length",
-    "comment": false
+    "comment": true
   },
   {
     "name": "--marxy-measure",
     "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-measure-chars",
+    "kind": "number",
+    "comment": true
+  },
+  {
+    "name": "--marxy-avg-char",
+    "kind": "ratio",
     "comment": true
   },
   {
@@ -22,7 +32,7 @@
   {
     "name": "--marxy-size-code",
     "kind": "length",
-    "comment": false
+    "comment": true
   },
   {
     "name": "--marxy-line-box-code",
@@ -147,7 +157,7 @@
   {
     "name": "--marxy-color-find-current",
     "kind": "colour",
-    "comment": false
+    "comment": true
   },
   {
     "name": "--marxy-color-notice",

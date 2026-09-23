@@ -78,10 +78,9 @@ test('re-kinded token is red', () => {
 });
 
 test('comment lost is red', () => {
-  const mutated = css.replace(
-    '--marxy-measure: 68ch;              /* clamped by marxy to 45ch–90ch */',
-    '--marxy-measure: 68ch;',
-  );
+  // Strip the explaining comment from the live --marxy-measure line, whatever its value.
+  const mutated = css.replace(/^(\s*--marxy-measure:[^;]+;).*$/m, '$1');
+  assert.notEqual(mutated, css, 'the --marxy-measure line was not found');
   const found = check(mutated, contract);
   assert.ok(found.some(p => p.kind === 'comment-lost' && p.token === '--marxy-measure'), found);
   assert.equal(found.length, 1);
@@ -116,5 +115,5 @@ test('the committed tree is green and the snapshot carries no values', () => {
   }
   const run = spawnSync(process.execPath, ['scripts/check-tokens.mjs'], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr + run.stdout);
-  assert.match(run.stdout, /tokens-contract ok \(49 tokens\)/);
+  assert.match(run.stdout, /tokens-contract ok \(51 tokens\)/);
 });
