@@ -1,10 +1,10 @@
 ---
-key: MARXY-NEW-live-reload
+key: MARXY-194
 design: [08-position-and-watching, 06-shell]
-depends: [MARXY-NEW-one-open-path]
-verify: [pnpm precheck, pnpm done MARXY-NEW-live-reload]
+depends: [MARXY-193]
+verify: [pnpm precheck, pnpm done MARXY-194]
 ---
-# MARXY-NEW-live-reload — Register the watcher and reload the open document in the app
+# MARXY-194 — Register the watcher and reload the open document in the app
 
 **Design:** [08-position-and-watching](../../design/08-position-and-watching.md) ·
 [06-shell](../../design/06-shell.md) §Commands · **Delta:** [2026-09-22-broad-review](../deltas/2026-09-22-broad-review.md) ·

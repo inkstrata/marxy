@@ -1,10 +1,10 @@
 ---
-key: MARXY-NEW-palette-index
+key: MARXY-196
 design: [07-index-and-palette, 06-shell, 00-architecture]
-depends: [MARXY-NEW-one-open-path, MARXY-94]
-verify: [pnpm precheck, pnpm done MARXY-NEW-palette-index]
+depends: [MARXY-193, MARXY-94]
+verify: [pnpm precheck, pnpm done MARXY-196]
 ---
-# MARXY-NEW-palette-index — Give the palette the index it searches
+# MARXY-196 — Give the palette the index it searches
 
 **Design:** [07-index-and-palette](../../design/07-index-and-palette.md) ·
 [06-shell](../../design/06-shell.md) · [00-architecture](../../design/00-architecture.md) (index loads at idle,
@@ -37,7 +37,7 @@ show recently opened files.
   `shell.readDir`, `buildIndex`, `index_loaded` mark with `entries=N`. The ceiling notice goes through
   the notices region.
 - `apps/desktop/src/main.ts` (or `app.ts`, whichever holds the palette controller after
-  `MARXY-NEW-one-open-path`): pass the entries to `palette.setIndexEntries`.
+  `MARXY-193`): pass the entries to `palette.setIndexEntries`.
 - `apps/desktop/test/palette-index.test.mjs`: Playwright over the real boot + memory shell.
 
 ## Tests → expected

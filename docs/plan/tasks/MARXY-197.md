@@ -1,10 +1,10 @@
 ---
-key: MARXY-NEW-deferral-gate
+key: MARXY-197
 design: [10-gates-and-testing]
 depends: []
-verify: [pnpm precheck, pnpm done MARXY-NEW-deferral-gate]
+verify: [pnpm precheck, pnpm done MARXY-197]
 ---
-# MARXY-NEW-deferral-gate — A deferral in product code must name work that is still coming
+# MARXY-197 — A deferral in product code must name work that is still coming
 
 **Design:** [10-gates-and-testing](../../design/10-gates-and-testing.md) · **Delta:**
 [2026-09-22-broad-review](../deltas/2026-09-22-broad-review.md) · **Lane:** ops.
@@ -33,9 +33,9 @@ The gate fails when a marker:
   (`fail`, `fix` from `scripts/lib/repo.mjs`).
 - `scripts/allowlists/deferrals.json`: the violations on `main` when this lands, each as
   `{ file, marker, removedBy }`, where `removedBy` is the board key of the story that deletes it:
-  - `apps/desktop/src-tauri/src/main.rs` "Phase 0 placeholder until MARXY-34" → `MARXY-NEW-live-reload`
-  - `apps/desktop/src-tauri/src/watch/mod.rs` "A later story registers" → `MARXY-NEW-live-reload`
-  - `apps/desktop/src/startup/idle-work.ts` "Placeholder until MARXY-34/MARXY-38" → `MARXY-NEW-palette-index`
+  - `apps/desktop/src-tauri/src/main.rs` "Phase 0 placeholder until MARXY-34" → `MARXY-194`
+  - `apps/desktop/src-tauri/src/watch/mod.rs` "A later story registers" → `MARXY-194`
+  - `apps/desktop/src/startup/idle-work.ts` "Placeholder until MARXY-34/MARXY-38" → `MARXY-196`
   - anything else the scan finds, each with a key, or the PR says why it is not a deferral and
     narrows the pattern for that case only.
 

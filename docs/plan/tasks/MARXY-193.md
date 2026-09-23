@@ -1,10 +1,10 @@
 ---
-key: MARXY-NEW-one-open-path
+key: MARXY-193
 design: [09-app-shell, 02-render, 13-trust]
 depends: []
-verify: [pnpm precheck, pnpm done MARXY-NEW-one-open-path]
+verify: [pnpm precheck, pnpm done MARXY-193]
 ---
-# MARXY-NEW-one-open-path — One way a document reaches the page
+# MARXY-193 — One way a document reaches the page
 
 **Design:** [09-app-shell](../../design/09-app-shell.md) · [02-render](../../design/02-render.md) ·
 [13-trust](../../design/13-trust.md) · **Delta:** [2026-09-22-broad-review](../deltas/2026-09-22-broad-review.md) ·
@@ -31,7 +31,7 @@ row leaks nothing, and an error message is shown as text, never as markup.
 - `apps/desktop/src/app.ts`
   - `openDocument(file: string, opts?: { at?: number }): Promise<void>`: the only function that
     replaces `#doc`'s contents with a document. It (1) tears down the previous open: `typeset?.destroy()`,
-    Source editor dropped, previous watch handle (none yet; see `MARXY-NEW-live-reload`) closed.
+    Source editor dropped, previous watch handle (none yet; see `MARXY-194`) closed.
     (2) Runs today's `openDocumentThroughRenderMark` + `finishDocumentOpen` body. (3) If `at` is given,
     scrolls to that byte offset through the node map after the grid pass.
   - `keepOnGrid` installs its `ResizeObserver` **once per article element**, not once per open.

@@ -1,10 +1,10 @@
 ---
-key: MARXY-NEW-persist-reading
+key: MARXY-195
 design: [08-position-and-watching, 07-index-and-palette, 11-config-and-storage]
-depends: [MARXY-NEW-one-open-path, MARXY-94]
-verify: [pnpm precheck, pnpm done MARXY-NEW-persist-reading]
+depends: [MARXY-193, MARXY-94]
+verify: [pnpm precheck, pnpm done MARXY-195]
 ---
-# MARXY-NEW-persist-reading — Remember where the reader was, and what they opened, across launches
+# MARXY-195 — Remember where the reader was, and what they opened, across launches
 
 **Design:** [08-position-and-watching](../../design/08-position-and-watching.md) (`positions.json`) ·
 [07-index-and-palette](../../design/07-index-and-palette.md) §History, MRU, pins (`history.json`) ·

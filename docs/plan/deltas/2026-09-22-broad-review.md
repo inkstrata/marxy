@@ -4,9 +4,11 @@
 > `../marxy-wt/plan-2026-09-22-review`, cut from `origin/main` at `3f76e53` (MARXY-188, #181).
 > The orchestrator checkout `/Users/ian/Dev/marxy` was read and never checked out, reset,
 > written or cycled; `orchestration/state.json` was read, never written. MARXY-42 and MARXY-94
-> were live in their worktrees throughout and were not touched. New rows carry `MARXY-NEW-`
-> placeholders; `jira.mjs sync` assigns keys when this lands. Landing key **MARXY-189**, a bare
-> out-of-plan Task with no CSV row (the MARXY-187 shape).
+> were live in their worktrees throughout and were not touched. New rows were drafted as
+> `MARXY-NEW-` placeholders and resolved in this branch with `jira.mjs sync --new` before merge
+> (MARXY-193 one-open-path, MARXY-194 live-reload, MARXY-195 persist-reading, MARXY-196
+> palette-index, MARXY-197 deferral-gate). Landing key **MARXY-189**, which carries its own
+> `no-dispatch` row (the protocol MARXY-190 introduced).
 
 ## The one finding that matters
 
@@ -57,11 +59,11 @@ the path, so a file name becomes markup. CSP `script-src 'self'` stops script, n
 
 | Placeholder | Phase | Depends on | Why this order |
 | --- | --- | --- | --- |
-| `MARXY-NEW-one-open-path` | 2 | — (overlaps MARXY-42 on `palette/view.ts`; `ready.mjs` sequences it) | Every story below wires into the open path; it must be one path first. Also fixes the leak and the error-path markup. |
-| `MARXY-NEW-live-reload` | 2 | one-open-path | Register the watcher, reload in place. The interaction agent artifacts need most (brief: content priority #2). |
-| `MARXY-NEW-palette-index` | 2 | one-open-path, MARXY-94 | `readDir` (ADR-0026) → `index-model` → `setIndexEntries`. Without it the palette — ADR-0011's whole answer to "no tabs" — is an MRU list. |
-| `MARXY-NEW-persist-reading` | 2 | one-open-path, MARXY-94 | `configPaths` in the Tauri shell; `positions.json` and `history.json` (§11) written and read; lights up MARXY-177's theme config as a side effect. |
-| `MARXY-NEW-deferral-gate` | ops | — | So this cannot recur: a deferral comment in product code must name a board key that has not already merged. |
+| `MARXY-193` | 2 | — (overlaps MARXY-42 on `palette/view.ts`; `ready.mjs` sequences it) | Every story below wires into the open path; it must be one path first. Also fixes the leak and the error-path markup. |
+| `MARXY-194` | 2 | one-open-path | Register the watcher, reload in place. The interaction agent artifacts need most (brief: content priority #2). |
+| `MARXY-196` | 2 | one-open-path, MARXY-94 | `readDir` (ADR-0026) → `index-model` → `setIndexEntries`. Without it the palette — ADR-0011's whole answer to "no tabs" — is an MRU list. |
+| `MARXY-195` | 2 | one-open-path, MARXY-94 | `configPaths` in the Tauri shell; `positions.json` and `history.json` (§11) written and read; lights up MARXY-177's theme config as a side effect. |
+| `MARXY-197` | ops | — | So this cannot recur: a deferral comment in product code must name a board key that has not already merged. |
 
 **Placement is a choice, and it costs throughput.** Putting four rows in Phase 2 means
 `earlierPhaseOpen` holds every Phase 3 story (43, 44, 45, 48, 49, 97, 184) until they land. Today
@@ -91,7 +93,7 @@ placeholders. Fixed to `MARXY-(?:\d+|NEW-[a-z0-9-]+)`, with a test case in `chec
      heading of `status.md`** even though `ready.mjs`, which reads the CSV, lists them.
    - `earlierPhaseOpen` ignores the `dropped` label.
    It also holds **ADR-0033 "one index, in core"** (proposed), which decides whether
-   `src-tauri/src/index/mod.rs` is deleted. `MARXY-NEW-palette-index` is written so it neither
+   `src-tauri/src/index/mod.rs` is deleted. `MARXY-196` is written so it neither
    deletes nor wires that module and does not depend on ADR-0033. Nothing here re-files that
    work; the author decides whether that worktree is rebased and landed or discarded.
 2. **Two more stale worktrees hold uncommitted tooling.** `../marxy-wt/friction` (base #77:
@@ -108,12 +110,12 @@ placeholders. Fixed to `MARXY-(?:\d+|NEW-[a-z0-9-]+)`, with a test case in `chec
 
 ## Escalation risk
 
-- **`MARXY-NEW-one-open-path`**: a mechanism no prior story touched (the app's open lifecycle), and
+- **`MARXY-193`**: a mechanism no prior story touched (the app's open lifecycle), and
   it lands right behind MARXY-42's edit of the same file. Most likely to need a second attempt.
-- **`MARXY-NEW-live-reload`**: Rust watcher lifetime across open events, plus the rule never to
+- **`MARXY-194`**: Rust watcher lifetime across open events, plus the rule never to
   replace a buffer the reader changed in Source mode. The criteria are exact; the Rust side is new
   ground for Composer.
-- **`MARXY-NEW-deferral-gate`**: starts red over today's tree by design, so it ships with an
+- **`MARXY-197`**: starts red over today's tree by design, so it ships with an
   allow-list that may only shrink. An implementor tempted to widen the pattern until nothing matches
   will pass the tests and defeat the gate. The mutation criteria are what stop that.
 
@@ -134,5 +136,5 @@ and four are the product work the ops lane's successes had been hiding.
 6. Needs the author, not a story: land or discard `marxy-planner-integrity` (board-visibility + ADR-0033), `friction`, `train`.
 7. MARXY-78: un-park for one attempt on its existing WIP before splitting.
 8. MARXY-86/87/34/35/38/177 stay Done. The work they left is in the new rows, not re-opened.
-9. After merge, `jira.mjs sync` assigns keys. Rename the `MARXY-NEW-*` card files and `deps.json` entries to match.
+9. Keys are already real (MARXY-193 to 197): nothing to rename after merge.
 10. Taste review #2 judged a palette with an empty index; queue a re-review once `palette-index` lands.
