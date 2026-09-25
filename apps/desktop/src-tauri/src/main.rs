@@ -3,10 +3,13 @@
 mod atomic_write;
 mod commands;
 mod error;
+mod watch;
 
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
 use tauri::RunEvent;
@@ -146,14 +149,68 @@ fn startup_marks() -> serde_json::Value {
 /// waiting on the process learns the difference instead of only timing out. `AppHandle::exit` is not
 /// enough — it ends the process with status 0 and never returns to `main` — so the code is applied
 /// here, after Tauri's own teardown.
-/// Phase 0 placeholder until MARXY-34 registers the real watcher (docs/design/06-shell.md).
+struct WatchEntry {
+    running: watch::RunningWatch,
+    refs: u32,
+}
+
+fn watch_table() -> &'static Mutex<HashMap<String, WatchEntry>> {
+    static TABLE: OnceLock<Mutex<HashMap<String, WatchEntry>>> = OnceLock::new();
+    TABLE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn canonical_watch_root(root: &str) -> Result<String, String> {
+    let path = PathBuf::from(root);
+    let canon = path.canonicalize().map_err(|e| format!("{root}: {e}"))?;
+    Ok(canon.to_string_lossy().into_owned())
+}
+
+fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
+    let payload: Vec<serde_json::Value> = events
+        .iter()
+        .map(|event| {
+            let mut value = serde_json::json!({
+                "kind": watch::watch_kind_name(event.kind),
+                "path": event.path.to_string_lossy(),
+            });
+            if let Some(to) = &event.to {
+                value["to"] = serde_json::Value::String(to.to_string_lossy().into_owned());
+            }
+            value
+        })
+        .collect();
+    let _ = app.emit("fs-watch", payload);
+}
+
+/// Starts (or shares) one polling thread per canonical root; events go to `fs-watch`.
 #[tauri::command]
-fn watch_root(_root: String) -> Result<(), String> {
+fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
+    let key = canonical_watch_root(&root)?;
+    let mut table = watch_table().lock().map_err(|e| e.to_string())?;
+    if let Some(entry) = table.get_mut(&key) {
+        entry.refs += 1;
+        return Ok(());
+    }
+    let app_handle = app.clone();
+    let running = watch::spawn_poll_thread(PathBuf::from(&key), move |events| {
+        emit_fs_watch(&app_handle, events);
+    })?;
+    table.insert(key, WatchEntry { running, refs: 1 });
     Ok(())
 }
 
 #[tauri::command]
-fn unwatch_root(_root: String) -> Result<(), String> {
+fn unwatch_root(root: String) -> Result<(), String> {
+    let key = canonical_watch_root(&root)?;
+    let mut table = watch_table().lock().map_err(|e| e.to_string())?;
+    let entry = table
+        .get_mut(&key)
+        .ok_or_else(|| format!("not watching {root}"))?;
+    entry.refs -= 1;
+    if entry.refs == 0 {
+        let mut entry = table.remove(&key).expect("entry");
+        entry.running.stop();
+    }
     Ok(())
 }
 

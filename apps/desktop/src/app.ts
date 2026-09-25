@@ -1,12 +1,18 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
+import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
+import { dirname } from '@marxy/core/src/index-model/paths.ts';
+import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
+import type { WatchEvent } from '@marxy/shell-api';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
 import { blockedContentNotice } from './notices/blocked.ts';
+import { diskChangedEditsKeptNotice, fileRemovedNotice } from './notices/disk.ts';
 import { ensureNoticesRegion } from './notices/index.ts';
+import { leaveSourceMode } from './source/buffer-commit.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
 import { startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
@@ -14,7 +20,6 @@ import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { runDeferredStartup, whenIdle } from './startup/idle-work.ts';
 import { currentPosition, restoreScrollToPosition } from './position/index.ts';
 import { defaultModeForPath } from './source/default-mode.ts';
-import { leaveSourceMode } from './source/buffer-commit.ts';
 
 /** Minimal surface used by the shell; CM6 types stay on the lazy chunk (MARXY-33). */
 interface MountedSourceEditor {
@@ -81,6 +86,9 @@ const state: { document: OpenDocument | null } = { document: null };
 
 let openPath: string | null = null;
 let documentBuffer: Buffer | null = null;
+/** Bytes last read from disk for the open path; local edits are detected against this. */
+let bytesOnDisk: Uint8Array | null = null;
+let documentWatch: { close(): void } | null = null;
 let viewMode: 'rendered' | 'source' = 'rendered';
 let sourceEditor: MountedSourceEditor | null = null;
 let keysInstalled = false;
@@ -437,6 +445,9 @@ function keepOnGrid(article: HTMLElement): void {
  * not N — each old observer would otherwise relayout on every resize.
  */
 function teardownDocument(): void {
+  documentWatch?.close();
+  documentWatch = null;
+  bytesOnDisk = null;
   releaseAnchor();
   destroyTypeset();
   disconnectResizeObserver();
@@ -444,6 +455,80 @@ function teardownDocument(): void {
   sourceEditor?.destroy();
   sourceEditor = null;
   document.getElementById('marxy-source')?.replaceChildren();
+}
+
+function hasLocalEdits(diskBytes: Uint8Array): boolean {
+  if (!documentBuffer) return false;
+  if (viewMode === 'source' && sourceEditor) {
+    return leaveSourceMode(documentBuffer, sourceEditor.docText()).changed;
+  }
+  if (contentHash(documentBuffer.bytes) === contentHash(diskBytes)) return false;
+  if (!bytesOnDisk) return true;
+  return contentHash(documentBuffer.bytes) !== contentHash(bytesOnDisk);
+}
+
+async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await shell.readFile(path);
+    } catch {
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  return null;
+}
+
+async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition): Promise<void> {
+  if (!openPath) return;
+  const t0 = performance.now();
+  const doc = document.getElementById('doc')!;
+  bytesOnDisk = bytes.slice();
+  documentBuffer = createBuffer(openPath, bytes);
+  sourceEditor?.replaceBuffer(documentBuffer);
+  rerenderFromBuffer(doc);
+  if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
+  await typesetDocument(doc);
+  const ms = performance.now() - t0;
+  await shell.mark('live_reload', Date.now(), `ms=${ms.toFixed(1)}`);
+}
+
+async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
+  if (!openPath || !documentBuffer || !state.document) return;
+  const path = openPath;
+  const position = currentPosition(readingScroller(), state.document.blocks, path, viewMode);
+  const diskBytes = await readOpenFileWithRetry(path);
+  const update = applyWatchToOpenDocument(
+    events,
+    position,
+    diskBytes,
+    documentBuffer.bytes,
+  );
+  if (update.action === 'ignore') return;
+  if (update.action === 'gone') {
+    fileRemovedNotice();
+    return;
+  }
+  if (update.action === 'follow') {
+    await replaceOpenDocument(update.path, { at: update.position.byteOffset });
+    return;
+  }
+  if (diskBytes === null) {
+    fileRemovedNotice();
+    return;
+  }
+  if (contentHash(diskBytes) === contentHash(documentBuffer.bytes)) return;
+  if (hasLocalEdits(diskBytes)) {
+    diskChangedEditsKeptNotice();
+    return;
+  }
+  await reloadOpenFromDisk(diskBytes, update.position);
+}
+
+async function registerDocumentWatch(file: string): Promise<void> {
+  documentWatch?.close();
+  documentWatch = await shell.watch(dirname(file), (events) => {
+    void serially(() => handleDocumentWatch(events));
+  });
 }
 
 function startTypeset(article: HTMLElement): TypesetController {
@@ -497,6 +582,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   const bytes = await shell.readFile(file);
   teardownDocument();
   openPath = file;
+  bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(file, bytes);
   sourceMount();
   installKeyDispatcher();
@@ -545,6 +631,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
   await maybeThemeDocumentNotice(userThemeContext(doc), file, async (dir) => {
     userThemeHandle = await adoptThemeDirectory(userThemeContext(doc), dir, userThemeHandle);
   });
+  await registerDocumentWatch(file);
 }
 
 function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void> {
