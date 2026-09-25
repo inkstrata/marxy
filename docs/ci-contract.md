@@ -44,7 +44,7 @@ runs a subset. `pnpm precheck --all` runs everything. CI always runs everything.
 | --- | --- | --- | --- |
 | `changes` | always | classifies the diff into `docs_only` / `web` / `rust` / `gates`; self-tests the classifier | `node scripts/ci-changes.mjs --selftest` |
 | `conventions` | pull requests only | commitlint over every commit **and** the PR title; `check-pr` on the body; `check-story --strict` over the branch | `pnpm lint:commits`, `node scripts/check-pr.mjs --body results/KEY.pr.md --range`, `node scripts/check-story.mjs --strict` |
-| `fast` | not docs-only (orchestration `.mjs`/`.json` and the board CSV are code, not docs) | hygiene checks, typecheck, lint, unit tests, CommonMark spec, goldens, fidelity, licences | `pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm typecheck && pnpm lint && pnpm test && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
+| `fast` | not docs-only (orchestration `.mjs`/`.json` and the board CSV are code, not docs) | hygiene checks, typecheck, lint, unit tests, CommonMark spec, goldens, fidelity, licences | `pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm check:deferrals && pnpm typecheck && pnpm lint && pnpm test && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
 | `browser` | `web` changed | no-network and aesthetics gates in the pinned Playwright container | `pnpm gate:no-network && pnpm gate:aesthetics` |
 | `gates` (macOS + Ubuntu) | gates-relevant change | specimen, licences twice, Rust fmt/clippy, frontend + `cargo build --profile ci`, CLI smoke, startup and parse measurement, perf gate, bundle gate | `pnpm gate:specimen`, `pnpm lint:rust`, `pnpm --filter @marxy/desktop verify:cli`, `pnpm gate:bundle` |
 | `gates-skip` | no gates-relevant change | posts the same two check names so anything watching by name still resolves | — |
@@ -115,6 +115,7 @@ cannot pass `--strict`.**
 | `MARXY-NEW-… is a placeholder key` | a planner branch still carries a draft key | `node orchestration/jira.mjs sync --new` in the branch: creates the issues, rewrites the keys, renames the cards |
 | `check:deps` failure | a dependency missing from the allowlist, unpinned, or forbidden | add it to `scripts/allowlists/dependencies.json` with a pin, or do not add it |
 | `check:workflows` failure | a GitHub Action not on the accepted list | a third-party action runs with our token on the machine that builds what we ship; justify and add it deliberately |
+| `check:deferrals` failure | a deferral marker in `apps/` or `packages/` source names no `MARXY-nnn` key, names a key already on `main`, or a stale row in `scripts/allowlists/deferrals.json` | `pnpm check:deferrals`; name the story that removes the marker or delete it; shrink the allow-list when the marker is gone |
 | `noUnusedImports` | an unused import | remove it; do not add a biome override |
 | biome wrote a file | `format --write` was used somewhere | `pnpm lint` is check-only and must stay so |
 | CommonMark step fails on `git status --porcelain` | the spec suite left the tree dirty | the suite must not write into the repo |
