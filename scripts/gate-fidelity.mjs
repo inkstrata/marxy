@@ -650,6 +650,24 @@ function checkTheShellKeepsBytes() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Operations: splices change only the operation range (ADR-0004, MARXY-43).
+// ---------------------------------------------------------------------------------------------
+
+function checkOperationsMutationFidelity() {
+  const testFile = join(repoRoot, 'packages', 'core', 'src', 'operations', 'operations.test.ts');
+  const run = spawnSync(
+    process.execPath,
+    ['--test', '--experimental-strip-types', '--test-name-pattern', 'mutations change only their range', testFile],
+    { cwd: repoRoot, encoding: 'utf8' },
+  );
+  if (run.status !== 0) {
+    fail(`operations fidelity: ${(run.stderr || run.stdout).trim()}`);
+    return;
+  }
+  console.log('fidelity: operations property over corpus task markers and tables');
+}
+
+// ---------------------------------------------------------------------------------------------
 
 checkTheGateIsWhatPnpmRuns();
 checkGatesByPathRoutesFidelity();
@@ -659,6 +677,7 @@ checkAdr0020RecordsHowAGateMayTestShell();
 checkSavePathTestsShowMarkers();
 checkCorpusPreconditions();
 checkTheShellKeepsBytes();
+checkOperationsMutationFidelity();
 
 const saveSource = readFileSync(savePathSource, 'utf8');
 checkMarxy14CasesSurvived(saveSource);
