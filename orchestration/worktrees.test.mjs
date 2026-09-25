@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   prunePlan, removeArgs, runWorktreePrune, removeWorktreeAt,
   prListArgs, pickPrState, gatherWorktreeEntries, inProgressBranches,
+  keyOfBranch, liveClaims, formatClaimLine, sayWorktreeClaims,
 } from './worktrees.mjs';
 
 const orch = '/repo/marxy';
@@ -190,6 +191,109 @@ test('a story in progress keeps its worktree even when an earlier attempt\'s PR 
   );
   assert.equal(remove.length, 0);
   assert.equal(keep[0].reason, 'story in progress');
+});
+
+test('keyOfBranch returns the first MARXY key in the branch name', () => {
+  assert.equal(keyOfBranch('feat/MARXY-198-slug'), 'MARXY-198');
+  assert.equal(keyOfBranch('main'), null);
+  assert.equal(keyOfBranch(null), null);
+});
+
+const orchPath = '/repo/marxy';
+const wt198 = '/repo/marxy-wt/MARXY-198';
+function liveEntry(over = {}) {
+  return {
+    path: wt198,
+    branch: 'feat/MARXY-198-x',
+    detached: false,
+    dirty: false,
+    ahead: 2,
+    prState: null,
+    ageHours: 0,
+    ...over,
+  };
+}
+function rowsOf(mainRows = {}) {
+  return (key, wtPath) => mainRows[key] ?? null;
+}
+
+test('liveClaims: ahead and todo key with a main row holds that row paths', () => {
+  const paths = ['apps/desktop/src/app.ts', 'packages/core/src/parse'];
+  const claims = liveClaims([liveEntry()], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: paths.join(', ') } }),
+    isDone: () => false,
+  });
+  assert.equal(claims.length, 1);
+  assert.deepEqual(claims[0], { key: 'MARXY-198', paths, path: wt198, ahead: 2, dirty: false });
+});
+
+test('liveClaims: done key claims nothing', () => {
+  const claims = liveClaims([liveEntry()], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+    isDone: k => k === 'MARXY-198',
+  });
+  assert.deepEqual(claims, []);
+});
+
+test('liveClaims: clean and not ahead claims nothing', () => {
+  const claims = liveClaims([liveEntry({ ahead: 0, dirty: false })], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+    isDone: () => false,
+  });
+  assert.deepEqual(claims, []);
+});
+
+test('liveClaims: dirty with no ahead still claims', () => {
+  const claims = liveClaims([liveEntry({ ahead: 0, dirty: true })], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+    isDone: () => false,
+  });
+  assert.equal(claims.length, 1);
+  assert.equal(claims[0].dirty, true);
+});
+
+test('liveClaims: orchestrator checkout claims nothing even when dirty', () => {
+  const claims = liveClaims([liveEntry({ path: orchPath, branch: 'main', dirty: true })], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({}),
+    isDone: () => false,
+  });
+  assert.deepEqual(claims, []);
+});
+
+test('liveClaims: key absent on main uses the worktree CSV row', () => {
+  const wtRow = { Key: 'MARXY-505', Paths: 'orchestration/x.mjs' };
+  const claims = liveClaims([liveEntry({ branch: 'feat/MARXY-505-y', path: '/wt/o' })], {
+    orchestratorPath: orchPath,
+    rowsOf: (key, wtPath) => (key === 'MARXY-505' && wtPath === '/wt/o' ? wtRow : null),
+    isDone: () => false,
+  });
+  assert.deepEqual(claims[0].paths, ['orchestration/x.mjs']);
+});
+
+test('liveClaims: key with no row anywhere reports no row and holds no paths', () => {
+  const claims = liveClaims([liveEntry()], {
+    orchestratorPath: orchPath,
+    rowsOf: () => null,
+    isDone: () => false,
+  });
+  assert.deepEqual(claims, [{ key: 'MARXY-198', path: wt198, reason: 'no row' }]);
+});
+
+test('formatClaimLine matches the cycle wording', () => {
+  assert.equal(
+    formatClaimLine({ key: 'MARXY-198', path: '../marxy-wt/MARXY-198', ahead: 2, dirty: false }),
+    'worktree holds paths: MARXY-198 (../marxy-wt/MARXY-198, 2 commits ahead, clean, no PR)',
+  );
+  const lines = [];
+  sayWorktreeClaims([
+    { key: 'MARXY-198', path: '../marxy-wt/MARXY-198', ahead: 1, dirty: true },
+  ], { say: l => lines.push(l) });
+  assert.match(lines[0], /1 commit ahead, dirty/);
 });
 
 test('inProgressBranches lists only in_progress stories that have a branch', () => {
