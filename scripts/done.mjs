@@ -39,7 +39,7 @@ export function mergeResult(existing, patch) {
 /** The three steps `--open` runs, for `--dry-run` to print and a reader to recognise. */
 export function openSteps(key, number = '<number>') {
   return [
-    'git push (-u origin HEAD when the branch has no upstream)',
+    'git push -u origin HEAD:refs/heads/<branch> (skipped when origin/<branch> is up to date)',
     `node scripts/open-pr.mjs ${key}`,
     `record the PR number in orchestration/results/${key}.json`,
     `node orchestration/jira.mjs pr ${key} ${number}`,

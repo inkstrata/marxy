@@ -51,6 +51,6 @@ test('deps puts the key in exactly one phase', () => {
 test('start --dry-run creates nothing and names the branch and worktree', () => {
   const r = spawnSync(process.execPath, [here('out-of-plan.mjs'), 'start', 'Do a thing', '--paths', 'a', '--acceptance', '1. x', '--dry-run'], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /git worktree add -b chore\/MARXY-0-do-a-thing .*marxy-wt\/MARXY-0 origin\/main/);
+  assert.match(r.stdout, /git worktree add --no-track -b chore\/MARXY-0-do-a-thing .*marxy-wt\/MARXY-0 origin\/main/);
   assert.equal(readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 'utf8').includes('MARXY-0,'), false);
 });

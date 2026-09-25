@@ -235,7 +235,7 @@ test('cycle.mjs uses review.mjs fileAllowed and allowedFor, and names unreviewed
 test('dispatch.mjs cuts from fetched origin/main, clears a stale result, and records a PR only when named', () => {
   const text = readFileSync(join(here, 'dispatch.mjs'), 'utf8');
   assert.match(text, /\['fetch', '-q', 'origin'\]/);
-  assert.match(text, /worktree', 'add', '-B', branch, wt, 'origin\/main'/);
+  assert.match(text, /worktree', 'add', '--no-track', '-B', branch, wt, 'origin\/main'/);
   assert.match(text, /rmSync\(resultPath/);
   assert.match(text, /result\?\.status === 'done' && Number\(result\.pr\) > 0/);
   assert.match(text, /r2\.status = 'in_review'/);

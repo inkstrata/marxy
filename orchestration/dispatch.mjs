@@ -177,7 +177,7 @@ export async function work(key, { m = models(), waitForClaimMs = 30_000 } = {}) 
     git(['fetch', '-q', 'origin']);
     const { branch } = rec;
     const wt = resolve(ROOT, rec.worktree);
-    if (!existsSync(wt)) git(['worktree', 'add', '-B', branch, wt, 'origin/main']);
+    if (!existsSync(wt)) git(['worktree', 'add', '--no-track', '-B', branch, wt, 'origin/main']);
     execFileSync('pnpm', ['install', '--frozen-lockfile', '--silent'], { cwd: wt, stdio: 'inherit' });
     // A result left by the previous attempt would report this attempt as whatever that one was.
     rmSync(resultPath, { force: true });

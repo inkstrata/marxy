@@ -39,17 +39,24 @@ export function defaultGh(argv) {
 }
 
 /**
- * Push the current branch so `gh pr create` has something to open: with no upstream, `-u origin HEAD`;
- * with one, only when there is something new. `gh pr create` itself refuses an unpushed branch, and
- * that refusal used to be the first thing every out-of-plan PR hit (MARXY-190).
+ * Push the current branch so `gh pr create` has something to open. Skipped only when the branch
+ * already tracks `origin/<branch>` and has nothing new; otherwise it pushes with an explicit
+ * refspec, `-u origin HEAD:refs/heads/<branch>`. A story worktree cut from `origin/main` tracks
+ * `origin/main`, and a plain `git push` there is refused (MARXY-209); the explicit refspec also
+ * means no push.default can ever send a story branch to main. `gh pr create` itself refuses an
+ * unpushed branch, and that refusal used to be the first thing every out-of-plan PR hit (MARXY-190).
  */
 export function pushBranch(run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' })) {
+  const branch = (run('git', ['branch', '--show-current']).stdout ?? '').trim();
+  if (!branch || branch === 'main') {
+    return { ok: false, pushed: false, problems: [`refusing to push ${branch ? 'main' : 'a detached HEAD'}: run this on the story branch`] };
+  }
   const upstream = run('git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
-  if (upstream.status === 0) {
+  if (upstream.status === 0 && upstream.stdout.trim() === `origin/${branch}`) {
     const ahead = run('git', ['rev-list', '--count', '@{u}..HEAD']);
     if (ahead.status === 0 && ahead.stdout.trim() === '0') return { ok: true, pushed: false, problems: [] };
   }
-  const args = upstream.status === 0 ? ['push', '-q'] : ['push', '-q', '-u', 'origin', 'HEAD'];
+  const args = ['push', '-q', '-u', 'origin', `HEAD:refs/heads/${branch}`];
   const r = run('git', args);
   return r.status === 0
     ? { ok: true, pushed: true, problems: [] }
