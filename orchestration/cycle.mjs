@@ -2,7 +2,8 @@
 //   1. sync     — fetch, fast-forward the orchestrator's main, make Jira agree with the board
 //   2. land     — merge what is provably finished, pinned to the head that was evaluated
 //   3. refresh  — bring at most one BEHIND PR up to date, unless models.mergeQueue is on
-//   4. review   — name every PR waiting on a reviewer, since in_review stories hold their paths
+//   4. review   — name every PR waiting on a reviewer, and start one headless reviewer for the
+//                 first entry approve.mjs can sign (MARXY-215)
 //   5. plan     — ask whether the planner is due; only 'never planned' or an unread escalation
 //                 holds dispatch — a cadence reason (merge count, weekly age, ops-majority) names
 //                 the planner as due without stalling the fleet for however long it takes to run
@@ -29,7 +30,8 @@ import { loadSnapshot, prime } from './github.mjs';
 import { adoptions, applyAdoption, settlements, keyOfPr } from './adopt.mjs';
 import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
-import { acquireLock, releaseLock, CYCLE_LOCK } from './lease.mjs';
+import { acquireLock, leaseHeld, readLease, releaseLock, CYCLE_LOCK } from './lease.mjs';
+import { planHeadlessReview, reviewLeasePath } from './review-dispatch.mjs';
 import { runReap } from './reap.mjs';
 import { defaultCanvasDir, gatherCanvasData, writeCanvases } from './canvases.mjs';
 
@@ -428,8 +430,24 @@ function runLockedCycle(argv) {
   runWorktreePrune({ dryRun: DRY, root: ROOT, say, ...(snapshot ? { branchState: snapshot.branchState } : {}) });
 
   // 3. Review. In-review stories hold their paths, so an unreviewed PR blocks dispatch silently
-  // unless it is named.
+  // unless it is named. A headless loop has no in-app agent to read that line, so the cycle starts
+  // the one reviewer approve.mjs will let sign (MARXY-215).
   if (needsReview.length) say(`review needed (spawn the reviewer with orchestration/prompts/reviewer.md): ${needsReview.join(' | ')}`);
+  const hasCli = typeof sh('sh', ['-c', 'command -v cursor-agent']) === 'string';
+  const review = planHeadlessReview({
+    order: order.order ?? [],
+    needsReview,
+    holds: held,
+    hasCli,
+    dry: DRY,
+    leaseHeld: key => leaseHeld(readLease(reviewLeasePath(key))) === true,
+  });
+  if (review.spawn) {
+    const started = node([here('review-dispatch.mjs'), review.key]);
+    say((started.stdout || started.stderr || `${review.key}: reviewer produced no output`).trim().split('\n').pop());
+  } else if (review.key) {
+    say(`reviewer: ${review.key} not started — ${DRY ? '--dry-run' : 'cursor-agent absent'}`);
+  }
 
   // 3b. Reap. A story whose worker is gone holds its paths until something returns it, and nothing
   // but this does (MARXY-208). Before ready.mjs, so what it frees can start this cycle.
@@ -447,7 +465,6 @@ function runLockedCycle(argv) {
   const planDueAny = plan.status === 0;
   const planDue = blocksDispatch(reasons);
   const advisoryOnly = planDueAny && !planDue;
-  const hasCli = typeof sh('sh', ['-c', 'command -v cursor-agent']) === 'string';
   say(`planner: ${planDueAny ? 'due —' : 'not due'} ${(plan.stdout || '').trim().replace(/\n/g, ' ')}`.trim()
     + (advisoryOnly ? ' (advisory only — dispatch continues; run the planner when you can)' : ''));
 

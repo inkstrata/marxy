@@ -1,6 +1,7 @@
 // The review queue judges a PR against the row its branch brings, when it edits only its own (MARXY-190).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { processReviewQueue, holdsReadyDispatch, mergeLandingVerb, recordMergeLanding, shouldSpawnHeadlessPlanner } from './cycle.mjs';
 import { transition } from './state.mjs';
 
@@ -96,6 +97,15 @@ test('cadence-only planner due does not hold dispatch; never-planned and escalat
   assert.equal(holdsReadyDispatch({ boardHold: false, planDue: false }), false);
   assert.equal(holdsReadyDispatch({ boardHold: false, planDue: true }), true);
   assert.equal(holdsReadyDispatch({ boardHold: true, planDue: false }), true);
+});
+
+test('cycle.mjs starts the headless reviewer after naming unreviewed pull requests and before the planner (MARXY-215)', () => {
+  const text = readFileSync(new URL('./cycle.mjs', import.meta.url), 'utf8');
+  const reviewAt = text.indexOf('if (needsReview.length)');
+  const spawnAt = text.indexOf("here('review-dispatch.mjs')");
+  const planAt = text.indexOf("here('planner-trigger.mjs')");
+  assert.ok(reviewAt > 0 && spawnAt > reviewAt && planAt > spawnAt);
+  assert.match(text, /planHeadlessReview/);
 });
 
 test('headless planner spawn follows the same gate as dispatch: due, CLI present, not dry-run (MARXY-200 AC4)', () => {
