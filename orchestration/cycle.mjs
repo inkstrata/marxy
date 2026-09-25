@@ -433,6 +433,10 @@ function runLockedCycle(argv) {
   // unless it is named.
   if (needsReview.length) say(`review needed (spawn the reviewer with orchestration/prompts/reviewer.md): ${needsReview.join(' | ')}`);
 
+  // 3b. Reap. A story whose worker is gone holds its paths until something returns it, and nothing
+  // but this does (MARXY-208). Before ready.mjs, so what it frees can start this cycle.
+  const inflight = runReap({ apply: !DRY, say, m, jira: (key, to) => node([here('jira.mjs'), 'move', key, to]) });
+
   // 4. Plan before starting new work onto a plan about to change — but only for a reason that
   // means the plan is missing or wrong ('never planned', an unread escalation), not merely due
   // for a refresh. A cadence reason (merge count, weekly age, ops-majority) names the planner as
@@ -440,10 +444,6 @@ function runLockedCycle(argv) {
   // hours on exactly that (MARXY-200). Spawned for its own reporting (kept in sync with
   // plannerReasons by construction); planDue itself is decided from the pure function so a
   // landed plan delta earlier in *this* cycle (see finish/settle above) is reflected immediately.
-  // 5. Reap. A story whose worker is gone holds its paths until something returns it, and nothing
-  // but this does (MARXY-208). Before ready.mjs, so what it frees can start this cycle.
-  const inflight = runReap({ apply: !DRY, say, m, jira: (key, to) => node([here('jira.mjs'), 'move', key, to]) });
-
   const plan = node([here('planner-trigger.mjs')]);
   const reasons = plannerReasons();
   const planDueAny = plan.status === 0;
