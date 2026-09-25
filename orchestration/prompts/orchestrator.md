@@ -24,10 +24,10 @@ model.
 
 | Mode | Orchestrator | Planner | Implementor | Escalation | Reviewer |
 | --- | --- | --- | --- | --- | --- |
-| **high** | Sonnet 5, medium | Opus 5, high | Grok 4.6 | Opus 5, high | Opus 5, high |
-| **default** | Sonnet 5, medium | Sonnet 5, high | Composer 2.5 | Opus 5, high | Sonnet 5, high |
+| **high** | Sonnet 5, medium | Opus 5.5, medium | Grok 4.6 | Opus 5.5, medium | Opus 5.5, medium |
+| **default** | Sonnet 5, medium | Opus 5.5, medium | Composer 2.5 | Opus 5.5, medium | Sonnet 5, high |
 | **low** | Sonnet 5, medium | Sonnet 5, medium | Composer 2.5 | Grok 4.6 | Sonnet 5, medium |
-| **minimal** | Composer 2.5 | Composer 2.5 | Composer 2.5 | Grok 4.6 | Composer 2.5 |
+| **minimal** | Composer 2.5 | Grok 4.7, high | Composer 2.5 | Grok 4.6 | Composer 2.5 |
 
 `minimal` never names a Claude/GPT/Gemini model in any role — it is the floor for running on
 Cursor-included spend alone, and its escalation ceiling is Grok by construction. Do not add a

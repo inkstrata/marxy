@@ -5,7 +5,7 @@ Three roles, one loop, everything on disk so any session can pick it up cold.
 | Role | Default model (edit `models.json`) | Runs | Owns |
 | --- | --- | --- | --- |
 | **Orchestrator** | Claude Sonnet 5, medium reasoning | continuously, as the main Cursor agent in this repo | dispatch, review, merge, the board (`state.json` mirrored into Jira), `needs-human.md` |
-| **Planner** | Claude Sonnet 5, high reasoning | periodically, as a subagent the orchestrator invokes | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
+| **Planner** | Claude Opus 5.5, medium | periodically, as a subagent the orchestrator invokes | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
 | **Implementor** | Composer 2.5 | one per story, in its own git worktree | exactly one story, on its own branch, inside its listed paths |
 
 The orchestrator never implements. The planner never implements. Implementors never plan.
@@ -63,7 +63,7 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
 ## Two ways to run it
 
 **A. In Cursor, in-app.** Open the repo, choose the orchestrator model for the active compute
-mode (Opus medium by default; Sonnet 5 medium in `--low`; Grok 4.6 High Fast in `--minimal`),
+mode (Sonnet 5 medium by default; Sonnet 5 medium in `--low`; Composer 2.5 in `--minimal`),
 paste `prompts/orchestrator.md` as the first message (or use it as a custom mode). Subagents
 are defined in `.cursor/agents/` (`planner`, `implementor`, `reviewer`); the orchestrator
 invokes them by name and, when compute is not `default`, passes the role's `inApp` model.
@@ -122,22 +122,23 @@ frontmatter); the CLI flag, if present in your version, is read from `models.jso
 
 ## Compute modes
 
-Four levels, weakest to strongest. `default` and `low` are Sonnet-led and are where you'll
-spend most of your time; `high` is the Opus tier for when judgement quality matters more than
-cost; `minimal` is the Cursor-only floor for when only Cursor-included spend is available.
+Four levels, weakest to strongest. `default` is where you'll spend most of your time;
+`low` is the Sonnet-led cheaper profile; `high` is the Opus 5.5 tier for when judgement
+quality matters more than cost; `minimal` is the Cursor-only floor for when only
+Cursor-included spend is available.
 
 | Mode | How | Orchestrator | Planner | Implementor | Escalation | Reviewer |
 | --- | --- | --- | --- | --- | --- | --- |
-| **high** | `--high` or `MARXY_COMPUTE=high` | Sonnet 5, medium | Opus 5, high | Grok 4.6 | Opus 5, high | Opus 5, high |
-| **default** | `"compute": "default"` | Sonnet 5, medium | Sonnet 5, high | Composer 2.5 | Opus 5, high | Sonnet 5, high |
+| **high** | `--high` or `MARXY_COMPUTE=high` | Sonnet 5, medium | Opus 5.5, medium | Grok 4.6 | Opus 5.5, medium | Opus 5.5, medium |
+| **default** | `"compute": "default"` | Sonnet 5, medium | Opus 5.5, medium | Composer 2.5 | Opus 5.5, medium | Sonnet 5, high |
 | **low** | `--low` or `MARXY_COMPUTE=low` | Sonnet 5, medium | Sonnet 5, medium | Composer 2.5 | Grok 4.6 | Sonnet 5, medium |
-| **minimal** | `--minimal` or `MARXY_COMPUTE=minimal` | Composer 2.5 | Composer 2.5 | Composer 2.5 | Grok 4.6 | Composer 2.5 |
+| **minimal** | `--minimal` or `MARXY_COMPUTE=minimal` | Composer 2.5 | Grok 4.7, high | Composer 2.5 | Grok 4.6 | Composer 2.5 |
 
 **`minimal` is Cursor-only by construction**: no role in that mode names a Claude, GPT, or
 Gemini model, so the fleet runs entirely on Cursor-included spend. Its escalation ceiling is
 Grok because that's the strongest thing configured anywhere in the mode — a story that fails
 twice under `minimal` moves to `escalate` (the planner or a human decides), it never silently
-reaches for Opus. If you need a stronger model at any point, switch modes explicitly; `minimal`
+reaches for Opus 5.5. If you need a stronger model at any point, switch modes explicitly; `minimal`
 will not do it for you.
 
 The `implementor: Composer 2.5` choice in `default`/`low` is a live experiment, not a settled
@@ -195,7 +196,7 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
 ## Budget
 
 Implementors are cheap and fast; spend them freely on retries inside the caps. In `default`,
-Opus time goes to review packets, merges, and the periodic plan. If that model is spending
+Opus 5.5 time goes to review packets, merges, and the periodic plan. If that model is spending
 more than a third of its turns reading implementor diffs, the stories are too big: trigger
 the planner. `--low` and `--minimal` spend the same turns on cheaper models; they do not
 change the lane budget or the attempt cap.
