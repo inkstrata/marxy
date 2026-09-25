@@ -94,3 +94,14 @@ test('killOrphans signals the dead leader\'s process group, and never a live lea
   assert.equal(killOrphans(undefined, { kill }), false);
   assert.equal(killOrphans({ pid: 79 }, { alive: () => false, kill: () => { throw new Error('ESRCH'); } }), false);
 });
+
+test('writeJson replaces the file whole, leaving no temporary behind', async () => {
+  const { writeJson } = await import('./lib.mjs');
+  const { readdirSync } = await import('node:fs');
+  const dir = tmp();
+  const path = join(dir, 'state.json');
+  writeJson(path, { a: 1 });
+  writeJson(path, { a: 2 });
+  assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), { a: 2 });
+  assert.deepEqual(readdirSync(dir), ['state.json']);
+});
