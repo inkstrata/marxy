@@ -1,7 +1,7 @@
 ---
 key: MARXY-213
 design: []
-depends: []
+depends: [MARXY-202]
 verify: [pnpm precheck, pnpm done MARXY-213]
 ---
 # MARXY-213 — A merged story is never offered again
@@ -11,7 +11,9 @@ verify: [pnpm precheck, pnpm done MARXY-213]
 fleet; the README is the design for orchestration behaviour, and this story edits it. · **Delta:**
 [2026-09-25](../deltas/2026-09-25.md) · **Lane:** ops. Dispatch it **alongside** a product story, never
 instead of one (roadmap ops-majority tripwire). It shares `ready.mjs`, `cycle.mjs` and the README with
-MARXY-202; `ready.mjs` sequences the two by path, and this one goes first.
+MARXY-202, which reached review first (PR #196), so this story depends on it: cut it from
+`origin/main` after MARXY-202 merges, and build `selectReady`'s `merged` input on top of MARXY-202's
+worktree reservations rather than beside them.
 
 **Outcome.** The board cannot send an implementor to redo work that is already on `main`. The cycle
 reads `main`'s squash subjects once per cycle, settles as done any merged key that the board has no
