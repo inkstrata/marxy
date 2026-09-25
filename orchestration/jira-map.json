@@ -129,6 +129,7 @@
     "MARXY-NEW-persist-reading": "MARXY-195",
     "MARXY-NEW-palette-index": "MARXY-196",
     "MARXY-NEW-deferral-gate": "MARXY-197",
-    "MARXY-NEW-worktree-reserves-paths": "MARXY-202"
+    "MARXY-NEW-worktree-reserves-paths": "MARXY-202",
+    "MARXY-NEW-blocked-worktree": "MARXY-220"
   }
 }

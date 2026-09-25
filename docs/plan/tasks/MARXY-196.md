@@ -23,8 +23,9 @@ show recently opened files.
 - `apps/desktop/src/palette/view.ts`: `setIndexEntries(entries)` on the controller. No caller.
 - `apps/desktop/src/startup/idle-work.ts`: `loadIndexMruPins()` is `await Promise.resolve()`.
 - `Shell.readDir(dir): Promise<readonly FileStat[]>` lands with MARXY-94 (a type only). Nothing implements it.
-- `apps/desktop/src-tauri/src/index/mod.rs`: a second, Rust walker. **Leave it alone.** Proposed
-  ADR-0033 (not on `main`) decides its fate. Do not wire it, do not delete it.
+- `apps/desktop/src-tauri/src/index/mod.rs`: a second, Rust walker. **Leave it alone.** ADR-0033
+  is typography and is not about this file. Do not wire the walker, do not delete it, and do not
+  add an ADR in this story.
 
 ## Files and signatures
 - `apps/desktop/src-tauri/src/commands/fs.rs` (or a new `commands/dir.rs`): `read_dir(dir) ->
