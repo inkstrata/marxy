@@ -55,7 +55,6 @@
   "innerHtmlAllowedIn": [
     "apps/desktop/src/app.ts",
     "apps/desktop/src/render/",
-    "apps/desktop/src/palette/",
     "apps/desktop/src/notices.ts",
     "apps/desktop/src/outline/",
     "scripts/",
