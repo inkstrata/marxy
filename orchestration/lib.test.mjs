@@ -51,21 +51,54 @@ test('laneBudget treats null, 0, and omitted as uncapped', () => {
   assert.throws(() => laneBudget({ lanes: -1 }), /invalid lanes/);
 });
 
-test('checked-in models.json has default, low, minimal, and high', () => {
+/** Every role in every mode. A model change that does not update this object is not a change. */
+const BINDING = {
+  high: {
+    orchestrator: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    planner: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
+    implementor: { model: 'grok-4.6', effort: 'high', inApp: 'cursor-grok-4.6-high' },
+    implementorEscalation: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
+    reviewer: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
+  },
+  default: {
+    orchestrator: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    planner: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
+    implementor: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },
+    implementorEscalation: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
+    reviewer: { model: 'claude-sonnet-5', effort: 'high', inApp: 'claude-sonnet-5-thinking-high' },
+  },
+  low: {
+    orchestrator: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    planner: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    implementor: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },
+    implementorEscalation: { model: 'grok-4.6', effort: 'high', inApp: 'cursor-grok-4.6-high' },
+    reviewer: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+  },
+  minimal: {
+    orchestrator: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },
+    planner: { model: 'grok-4.7-high', effort: 'high', inApp: 'grok-4.7-high' },
+    implementor: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },
+    implementorEscalation: { model: 'grok-4.6', effort: 'high', inApp: 'cursor-grok-4.6-high' },
+    reviewer: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },
+  },
+};
+
+test('checked-in models.json role matrix is binding', () => {
   const d = models(undefined, ['node'], {});
   assert.equal(d.compute, 'default');
-  assert.equal(d.orchestrator.model, 'claude-sonnet-5');
-  assert.equal(d.implementor.model, 'composer-2.5');
-  const low = models(undefined, ['node', '--low'], {});
-  assert.equal(low.orchestrator.model, 'claude-sonnet-5');
-  assert.equal(low.implementor.model, 'composer-2.5');
-  assert.equal(low.implementorEscalation.model, 'grok-4.6');
-  const high = models(undefined, ['node', '--high'], {});
-  assert.equal(high.compute, 'high');
-  assert.equal(high.reviewer.model, 'claude-opus-5');
-  assert.equal(high.planner.model, 'claude-opus-5');
   assert.equal(d.lanes, null);
   assert.equal(laneBudget(d), Infinity);
+  for (const mode of Object.keys(BINDING)) {
+    const got = models(undefined, ['node', `--compute=${mode}`], {});
+    assert.equal(got.compute, mode);
+    for (const role of Object.keys(BINDING[mode])) {
+      assert.deepEqual(
+        { model: got[role].model, effort: got[role].effort, inApp: got[role].inApp },
+        BINDING[mode][role],
+        `${mode}.${role}`,
+      );
+    }
+  }
 });
 
 test('minimal compute mode never names a Claude or GPT model — the Cursor-only floor', () => {
@@ -74,6 +107,9 @@ test('minimal compute mode never names a Claude or GPT model — the Cursor-only
     assert.doesNotMatch(min[role].model, /claude|gpt|gemini/i, `minimal.${role} must not name a Claude/GPT/Gemini model`);
   }
   // Escalation ceiling is Grok — the strongest model configured anywhere in this mode.
+  assert.equal(min.planner.model, 'grok-4.7-high');
+  assert.equal(min.planner.inApp, 'grok-4.7-high');
+  assert.doesNotMatch(min.planner.model, /-fast/);
   assert.equal(min.implementorEscalation.model, 'grok-4.6');
 });
 

@@ -1,20 +1,20 @@
 {
-  "_note": "Verify ids against `cursor-agent --list-models` / the model picker and edit. Effort is applied where Cursor exposes it; set cliEffortFlag if your CLI has one (e.g. --reasoning-effort), else leave empty. `inApp` is the Task/subagent slug. Switch compute with models.json `compute`, MARXY_COMPUTE, --compute=NAME, --low, --minimal, or --high. `lanes` is the dispatch WIP cap and stays null (uncapped — path overlap is the only parallelism limit). `reviewLanes` caps how many stories may sit In Review; ready.mjs dispatches nothing while that count is at or above the cap.",
+  "_note": "The modes object is the fleet's model assignment. orchestration/lib.test.mjs pins every role's model, effort, and inApp; a change that does not update that test is not a change. Ids were checked against `cursor-agent --list-models` on 2026-09-24. Effort is applied where Cursor exposes it; set cliEffortFlag if your CLI has one (e.g. --reasoning-effort), else leave empty. `inApp` is the Task/subagent slug. Switch compute with models.json `compute`, MARXY_COMPUTE, --compute=NAME, --low, --minimal, or --high. `lanes` is the dispatch WIP cap and stays null (uncapped — path overlap is the only parallelism limit). `reviewLanes` caps how many stories may sit In Review; ready.mjs dispatches nothing while that count is at or above the cap.",
   "_modelNote": "grok-4.6 (not -fast) and composer-2.5 (not -fast) below are UNVERIFIED ids/slugs as of 2026-09-19 — the only Task-subagent slugs confirmed reachable this session were cursor-grok-4.6-high-fast and composer-2.5-fast. Check `cursor-agent --list-models` and the in-app picker before relying on a mode that uses the plain (non-fast) forms; if the plain slug does not resolve, fall back to the -fast suffix for `inApp` (the `model` id for headless dispatch may still differ — verify separately). This relevel (MARXY-136) is grounded in a small reviewer-judgement pilot, not vendor benchmarks: see the PR for the two-round comparison across composer-2.5-fast / cursor-grok-4.6-high-fast / claude-sonnet-5-thinking-medium / claude-opus-5-thinking-medium / gpt-5.6-sol-medium / gpt-5.6-terra-medium on one real merged PR (subtle-defect case) and one synthetic boundary violation.",
   "compute": "default",
   "modes": {
     "high": {
       "orchestrator": { "model": "claude-sonnet-5", "effort": "medium", "inApp": "claude-sonnet-5-thinking-medium" },
-      "planner": { "model": "claude-opus-5", "effort": "high", "inApp": "claude-opus-5-thinking-high" },
+      "planner": { "model": "claude-opus-5-5-medium", "effort": "medium", "inApp": "claude-opus-5-5-medium" },
       "implementor": { "model": "grok-4.6", "effort": "high", "inApp": "cursor-grok-4.6-high" },
-      "implementorEscalation": { "model": "claude-opus-5", "effort": "high", "inApp": "claude-opus-5-thinking-high" },
-      "reviewer": { "model": "claude-opus-5", "effort": "high", "inApp": "claude-opus-5-thinking-high" }
+      "implementorEscalation": { "model": "claude-opus-5-5-medium", "effort": "medium", "inApp": "claude-opus-5-5-medium" },
+      "reviewer": { "model": "claude-opus-5-5-medium", "effort": "medium", "inApp": "claude-opus-5-5-medium" }
     },
     "default": {
       "orchestrator": { "model": "claude-sonnet-5", "effort": "medium", "inApp": "claude-sonnet-5-thinking-medium" },
-      "planner": { "model": "claude-sonnet-5", "effort": "high", "inApp": "claude-sonnet-5-thinking-high" },
+      "planner": { "model": "claude-opus-5-5-medium", "effort": "medium", "inApp": "claude-opus-5-5-medium" },
       "implementor": { "model": "composer-2.5", "effort": "high", "inApp": "composer-2.5-fast" },
-      "implementorEscalation": { "model": "claude-opus-5", "effort": "high", "inApp": "claude-opus-5-thinking-high" },
+      "implementorEscalation": { "model": "claude-opus-5-5-medium", "effort": "medium", "inApp": "claude-opus-5-5-medium" },
       "reviewer": { "model": "claude-sonnet-5", "effort": "high", "inApp": "claude-sonnet-5-thinking-high" }
     },
     "low": {
@@ -26,13 +26,13 @@
     },
     "minimal": {
       "orchestrator": { "model": "composer-2.5", "effort": "high", "inApp": "composer-2.5-fast" },
-      "planner": { "model": "composer-2.5", "effort": "high", "inApp": "composer-2.5-fast" },
+      "planner": { "model": "grok-4.7-high", "effort": "high", "inApp": "grok-4.7-high" },
       "implementor": { "model": "composer-2.5", "effort": "high", "inApp": "composer-2.5-fast" },
       "implementorEscalation": { "model": "grok-4.6", "effort": "high", "inApp": "cursor-grok-4.6-high" },
       "reviewer": { "model": "composer-2.5", "effort": "high", "inApp": "composer-2.5-fast" }
     }
   },
-  "_minimalNote": "minimal is the Cursor-only floor: every role is Composer or Grok, never Claude/GPT/Gemini, so the fleet runs on Cursor-included spend alone. Its escalation ceiling is Grok by construction — there is no stronger model configured in this mode to escalate into, so a story that fails twice here goes to `escalate` (planner/human), never to Opus. Do not add a Claude/GPT/Gemini id anywhere in this mode.",
+  "_minimalNote": "minimal is the Cursor-only floor: every role is Composer or Grok, never Claude/GPT/Gemini, so the fleet runs on Cursor-included spend alone. Its escalation ceiling is Grok by construction — there is no stronger model configured in this mode to escalate into, so a story that fails twice here goes to `escalate` (planner/human), never to Opus 5.5. Do not add a Claude/GPT/Gemini id anywhere in this mode.",
   "cliEffortFlag": "",
   "lanes": null,
   "reviewLanes": 4,

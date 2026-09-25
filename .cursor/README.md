@@ -8,7 +8,10 @@
 - `environment.json` — background-agent environment (mise + pnpm). Fill `snapshot` from
   Cursor's settings if you use cloud background agents.
 
-Model ids in `agents/*.md` are the **default** compute profile (Opus medium, Grok 4.6 High
-Fast). `orchestration/models.json` also has `low` (Sonnet 5 medium + Grok) and `minimal`
-(Grok only). When compute is not `default`, the orchestrator passes the role's `inApp` model
-instead of the frontmatter default. Verify ids against the picker once and edit both.
+Model ids in `agents/*.md` are the **default** compute profile (Opus 5.5 medium for the
+planner, Sonnet 5 high for the reviewer, Composer 2.5 for the implementor). Escalation in
+that profile is Opus 5.5 medium. `orchestration/models.json` also has `high` (Opus 5.5 medium for planner, escalation,
+and reviewer), `low` (Sonnet 5 medium, Grok escalation), and `minimal` (Composer 2.5, with the
+planner on Grok 4.7 high and escalation on Grok 4.6). When compute is not `default`, the
+orchestrator passes the role's `inApp` model instead of the frontmatter default. Verify ids
+against the picker once and edit both.
