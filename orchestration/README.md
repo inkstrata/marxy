@@ -142,7 +142,12 @@ that is BEHIND — and every other BEHIND pull request prints
 `behind main; waiting its turn in the review order (position N)`. A DIRTY pull request is
 returned to In Progress with `attempts` unchanged and the conflicting files named in
 `results/KEY.json`; the cycle cannot resolve a conflict and a reviewer reading one is
-reading nothing.
+reading nothing. Adoption does not take that same pull request back while it still conflicts,
+or the return is undone in the next cycle and the story never leaves the loop. The cycle
+starts one resolution attempt for it (`conflict-dispatch.mjs`), in the story's worktree,
+without charging an attempt; a second cycle does not start another while that lease is held.
+After three unresolved tries it is left In Progress and named. Once the pull request is
+BEHIND or clean, adoption moves the story back to In Review.
 
 What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
 code works, not that it does what was asked, so a PR merges only once a reviewer (never the

@@ -34,6 +34,7 @@ import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
 import { acquireLock, leaseHeld, readLease, releaseLock, CYCLE_LOCK } from './lease.mjs';
 import { planHeadlessReview, reviewLeasePath } from './review-dispatch.mjs';
+import { planConflictDispatch, conflictLeasePath } from './conflict-dispatch.mjs';
 import { runReap } from './reap.mjs';
 import { defaultCanvasDir, gatherCanvasData, writeCanvases } from './canvases.mjs';
 
@@ -454,6 +455,24 @@ function runLockedCycle(argv) {
     say((started.stdout || started.stderr || `${review.key}: reviewer produced no output`).trim().split('\n').pop());
   } else if (review.key) {
     say(`reviewer: ${review.key} not started — ${DRY ? '--dry-run' : 'cursor-agent absent'}`);
+  }
+
+  // A DIRTY return leaves the story in_progress with its PR. Adoption will not take that PR back
+  // while it still conflicts (MARXY-217); this starts the one attempt that resolves it.
+  const conflict = planConflictDispatch({
+    stories: state().stories,
+    openPrs: snapshot?.open ?? [],
+    hasCli,
+    dry: DRY,
+    held: key => leaseHeld(readLease(conflictLeasePath(key))) === true,
+  });
+  if (conflict.spawn) {
+    const started = node([here('conflict-dispatch.mjs'), conflict.key]);
+    say((started.stdout || started.stderr || `${conflict.key}: conflict resolver produced no output`).trim().split('\n').pop());
+  } else if (conflict.key) {
+    say(`conflict: ${conflict.key} not started — ${DRY ? '--dry-run' : 'cursor-agent absent'}`);
+  } else if (conflict.exhausted?.length) {
+    say(`conflict: ${conflict.why}`);
   }
 
   // 3b. Reap. A story whose worker is gone holds its paths until something returns it, and nothing
