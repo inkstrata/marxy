@@ -1,5 +1,6 @@
 // Run implementors headlessly through the Cursor CLI, one worktree per story, in parallel.
-// usage: node dispatch.mjs KEY [KEY…] [--wait]   (env CURSOR_AGENT overrides the binary name)
+// usage: node dispatch.mjs KEY [KEY…] [--wait]
+//   env CURSOR_AGENT overrides the binary when it names a command (see resolveAgentBin)
 // By default each story runs in a detached worker (`--worker KEY`) holding a lease on its row, and
 // this returns at once; `--wait` runs the attempts in this process instead (MARXY-208).
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
@@ -8,6 +9,29 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, stories, state, updateState, models, slug, typeOf, isPlaceholderKey } from './lib.mjs';
 import { leaseHeld, newLease, spawnDetached } from './lease.mjs';
+
+/**
+ * Binary name for the Cursor CLI. `CURSOR_AGENT` overrides it only when `command -v` resolves the
+ * value (a name on PATH, or a path to an executable). Cursor sets the same variable to `1` inside
+ * an agent session as a marker, not a program; an empty string or any other non-command is the
+ * same. Both spawn sites call this, so inheriting the marker still runs `cursor-agent`.
+ */
+export function resolveAgentBin(
+  env = process.env,
+  { lookup = commandResolves, fallback = 'cursor-agent' } = {},
+) {
+  const raw = env.CURSOR_AGENT;
+  if (typeof raw !== 'string') return fallback;
+  const name = raw.trim();
+  if (!name || !lookup(name)) return fallback;
+  return name;
+}
+
+/** True when `name` is an executable command. The name is a parameter, not shell text. */
+export function commandResolves(name) {
+  const r = spawnSync('sh', ['-c', 'command -v "$1"', 'sh', name], { encoding: 'utf8' });
+  return r.status === 0 && r.stdout.trim().length > 0;
+}
 
 export const AUTH_FAILURE_LOG =
   "Error: Authentication required. Please run 'agent login' first, or set CURSOR_API_KEY environment variable.";
@@ -168,7 +192,7 @@ export async function work(key, { m = models(), waitForClaimMs = 30_000 } = {}) 
   let code;
   const out = [];
   try {
-    const bin = process.env.CURSOR_AGENT || 'cursor-agent';
+    const bin = resolveAgentBin();
     const tpl = readFileSync(here('prompts/implementor.md'), 'utf8');
     mkdirSync(resolve(ROOT, '../marxy-wt'), { recursive: true });
     const git = a => execFileSync('git', ['-C', ROOT, ...a], { stdio: 'inherit' });

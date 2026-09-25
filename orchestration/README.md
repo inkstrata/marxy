@@ -117,7 +117,10 @@ Either way the mechanical half of every cycle is one command, and it is the same
 modes: `node orchestration/cycle.mjs` mirrors the board into Jira, reads GitHub once (two `gh pr
 list` calls, `github.mjs`, where it used to make three calls per open PR plus one per worktree),
 adopts open PRs the board does not know are in review, merges the pull requests that are provably
-finished, names what should start next (dispatching headlessly if `cursor-agent` is
+finished, starts one reviewer for the first pull request `approve.mjs` can sign (detached,
+under `results/KEY.review.lease`, so a second cycle does not start another for that key; a
+missing diff or a missing board row is not reviewed, and a CODEOWNERS path still is until a
+signature exists), names what should start next (dispatching headlessly if `cursor-agent` is
 on PATH), asks whether the planner is due (starting it headlessly when it is: one planner at a time
 under `results/planner.lease`, its output in `results/planner.log`, and none for
 `plannerCooldownMinutes`, default 240, after the last — a cadence-only due stays true every cycle
@@ -137,7 +140,12 @@ that is BEHIND — and every other BEHIND pull request prints
 `behind main; waiting its turn in the review order (position N)`. A DIRTY pull request is
 returned to In Progress with `attempts` unchanged and the conflicting files named in
 `results/KEY.json`; the cycle cannot resolve a conflict and a reviewer reading one is
-reading nothing.
+reading nothing. Adoption does not take that same pull request back while it still conflicts,
+or the return is undone in the next cycle and the story never leaves the loop. The cycle
+starts one resolution attempt for it (`conflict-dispatch.mjs`), in the story's worktree,
+without charging an attempt; a second cycle does not start another while that lease is held.
+After three unresolved tries it is left In Progress and named. Once the pull request is
+BEHIND or clean, adoption moves the story back to In Review.
 
 What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
 code works, not that it does what was asked, so a PR merges only once a reviewer (never the
@@ -205,7 +213,8 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
 | `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |
 | `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
 | `deps.json` | story dependencies (the CSV has none) and phase membership |
-| `cycle.mjs` | one idempotent cycle: push, snapshot GitHub, adopt, merge what is finished, dispatch, plan check, report |
+| `cycle.mjs` | one idempotent cycle: push, snapshot GitHub, adopt, merge what is finished, review, dispatch, plan check, report |
+| `review-dispatch.mjs` | one detached reviewer for the first signable pull request, leased so a second cycle does not start another for that key |
 | `github.mjs` | the cycle's one read of GitHub: every open PR, and recent PR states by branch |
 | `adopt.mjs` | which open PRs the cycle moves to In Review, and how |
 | `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |

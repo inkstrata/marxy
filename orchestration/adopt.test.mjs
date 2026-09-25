@@ -1,7 +1,7 @@
 // The cycle adopts open pull requests the board does not know are in review (MARXY-190).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptions, applyAdoption, keyOfPr, settlements } from './adopt.mjs';
+import { adoptions, applyAdoption, keyOfPr, prConflicts, settlements } from './adopt.mjs';
 
 const pr = (number, key, extra = {}) => ({ number, title: `chore(x): thing (${key})`, headRefName: `chore/${key}-thing`, ...extra });
 
@@ -43,6 +43,45 @@ test('drafts, done/blocked/escalated stories and second PRs are skipped with a r
   assert.deepEqual(skipped.map(x => [x.pr, x.why.split(' ').slice(-3).join(' ')]), [
     [20, 'a person decides'], [21, 'a person decides'], [22, '#10 in review'], [23, 'draft'], [25, '#24 in review'],
   ]);
+});
+
+test('an in_progress story is not adopted again while its recorded PR still conflicts', () => {
+  const stories = { 'MARXY-43': { status: 'in_progress', attempts: 1, pr: 199, conflictTries: 1 } };
+  const dirty = adoptions({
+    openPrs: [pr(199, 'MARXY-43', { mergeStateStatus: 'DIRTY', mergeable: 'CONFLICTING' })],
+    stories,
+    mainKeys: new Set(['MARXY-43']),
+  });
+  assert.deepEqual(dirty.adopt, []);
+  assert.equal(dirty.skipped[0].why, 'conflicts with main; left in progress until it is resolved');
+  assert.equal(stories['MARXY-43'].attempts, 1);
+
+  const conflicting = adoptions({
+    openPrs: [pr(199, 'MARXY-43', { mergeable: 'CONFLICTING' })],
+    stories,
+  });
+  assert.deepEqual(conflicting.adopt, []);
+
+  const behind = adoptions({
+    openPrs: [pr(199, 'MARXY-43', { mergeStateStatus: 'BEHIND', mergeable: 'MERGEABLE' })],
+    stories,
+    mainKeys: new Set(['MARXY-43']),
+  });
+  assert.equal(behind.adopt.length, 1);
+  const s = { stories: structuredClone(stories) };
+  applyAdoption(s, behind.adopt[0], 'T');
+  assert.equal(s.stories['MARXY-43'].status, 'in_review');
+  assert.equal(s.stories['MARXY-43'].attempts, 1);
+  assert.equal(s.stories['MARXY-43'].conflictTries, undefined);
+
+  const firstSight = adoptions({
+    openPrs: [pr(199, 'MARXY-43', { mergeStateStatus: 'DIRTY' })],
+    stories: { 'MARXY-43': { status: 'todo', attempts: 1 } },
+    mainKeys: new Set(['MARXY-43']),
+  });
+  assert.equal(firstSight.adopt.length, 1, 'a PR the board has not recorded yet is still adopted once');
+  assert.equal(prConflicts({ mergeStateStatus: 'DIRTY' }), true);
+  assert.equal(prConflicts({ mergeStateStatus: 'CLEAN' }), false);
 });
 
 test('an entry already In Review on this PR is left alone', () => {

@@ -1,9 +1,6 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
-import { parseMarkdown } from '@marxy/core';
-import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
-import { READING_LINE_FRACTION } from '@marxy/core/src/position/blocks.ts';
 import type { AppHandle, AppShell } from '../app.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
@@ -48,11 +45,11 @@ export interface PaletteDeps {
   readonly setCurrentPath: (path: string) => void;
   readonly onSessionChange?: (session: PaletteSession) => void;
   /**
-   * The app's one way to open a document: buffer, parse, render, typeset, grid, deferred passes,
-   * and teardown of the one before. When present the palette opens through it rather than setting
-   * `innerHTML` itself, so the app never holds one file's buffer while showing another.
+   * The app's one way to open a document (`AppHandle.open`): buffer, parse, render, typeset, grid,
+   * deferred passes, and teardown of the one before. `at` is a byte offset to land on. The palette
+   * never writes `#doc` itself, so the app never holds one file's buffer while showing another.
    */
-  readonly openDocument?: (path: string) => Promise<void>;
+  readonly openDocument: (path: string, at?: number) => Promise<void>;
 }
 
 export interface PaletteController {
@@ -148,38 +145,9 @@ function applyTabBarMutation(doc: Document): void {
   }
 }
 
-function scrollToReadingLine(scroller: HTMLElement, target: HTMLElement): void {
-  const line = READING_LINE_FRACTION * window.innerHeight;
-  for (let pass = 0; pass < 3; pass++) {
-    scroller.scrollTop = Math.max(0, scroller.scrollTop + target.getBoundingClientRect().top - line);
-  }
-}
-
-function scrollToByteOffset(article: HTMLElement, scroller: HTMLElement, byteOffset: number): void {
-  const node = article.querySelector(`[data-marxy-s="${byteOffset}"]`);
-  const heading = node instanceof HTMLElement ? node : article.querySelector('h2,h3,h4');
-  if (heading instanceof HTMLElement) scrollToReadingLine(scroller, heading);
-}
-
-async function renderPath(
-  deps: PaletteDeps,
-  path: string,
-  setCurrentPath: (path: string) => void,
-  byteOffset?: number,
-): Promise<void> {
-  if (deps.openDocument !== undefined) {
-    await deps.openDocument(path);
-    setCurrentPath(path);
-    if (byteOffset !== undefined) scrollToByteOffset(deps.article, deps.scroller, byteOffset);
-    return;
-  }
-  const bytes = await deps.shell.readFile(path);
-  const ast = parseMarkdown(bytes, { file: path });
-  const { html } = renderDocumentSafeHtml(ast);
-  deps.article.innerHTML = html;
-  setCurrentPath(path);
-  document.title = `${path.split('/').pop()} — Marxy`;
-  if (byteOffset !== undefined) scrollToByteOffset(deps.article, deps.scroller, byteOffset);
+async function renderPath(deps: PaletteDeps, path: string, byteOffset?: number): Promise<void> {
+  await deps.openDocument(path, byteOffset);
+  deps.setCurrentPath(path);
 }
 
 function injectPaletteStyles(doc: Document): void {
@@ -407,16 +375,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     session = recordOpen(session, jump.path);
     syncSession();
     dismiss();
-    if (deps.getCurrentPath() !== jump.path) {
-      await renderPath(deps, jump.path, deps.setCurrentPath);
-    } else {
-      deps.setCurrentPath(jump.path);
-    }
-    const offset = jump.byteOffset;
-    if (offset !== undefined) {
-      scrollToByteOffset(deps.article, deps.scroller, offset);
-      requestAnimationFrame(() => scrollToByteOffset(deps.article, deps.scroller, offset));
-    }
+    // The document on screen with no heading to land on: nothing to open.
+    if (deps.getCurrentPath() === jump.path && jump.byteOffset === undefined) return;
+    await renderPath(deps, jump.path, jump.byteOffset);
   };
 
   input.addEventListener('input', () => {
@@ -479,7 +440,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       if (step === undefined) return;
       session = step.session;
       syncSession();
-      void renderPath(deps, step.path, deps.setCurrentPath);
+      void renderPath(deps, step.path);
       return;
     }
     if (isMod(event) && event.key.toLowerCase() === 'p' && !event.shiftKey) {
@@ -526,21 +487,16 @@ export function mountPaletteFromHandle(
     throw new Error('palette mount: expected #doc and dialog#marxy-palette in the document');
   }
   const scroller = document.documentElement;
-  const pathState = { current: opts?.initialPath ?? handle.currentPath() };
   const controller = mountPaletteApp({
     shell: handle.shell,
     article,
     scroller,
     dialog,
-    getCurrentPath: () => pathState.current,
-    setCurrentPath: (path) => {
-      pathState.current = path;
-    },
-    openDocument: (path) => handle.open(path),
-    onSessionChange: (next) => {
-      const tip = next.history[next.historyIndex];
-      if (tip !== undefined) pathState.current = tip;
-    },
+    // What is on screen is the app's to say. A copy kept here and moved to the history tip on every
+    // session change named the document being opened as the one already shown, so it never opened.
+    getCurrentPath: () => handle.currentPath() ?? opts?.initialPath ?? null,
+    setCurrentPath: () => {},
+    openDocument: (path, at) => handle.open(path, { at }),
   });
   setPaletteCloser(() => controller.close());
   return controller;
