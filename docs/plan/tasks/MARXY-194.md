@@ -32,7 +32,10 @@ Configured-theme hot-reload (MARXY-177) starts working too, because it rides on 
 - `apps/desktop/src-tauri/src/watch/mod.rs`: only what the thread needs (a `run`/`spawn` entry).
   Keep the existing functions and tests.
 - `apps/desktop/src-tauri/capabilities/default.json`: the event permission, if `listen` on
-  `fs-watch` needs one.
+  `fs-watch` needs one. `core:event:allow-listen` already covers it, so the file is unchanged.
+- `apps/desktop/src/shell/tauri.ts`: drop the comment that said `watch_root` was still a placeholder.
+- `scripts/allowlists/deferrals.json`: drop the rows whose markers this story removes. MARXY-197
+  fails CI while a removed marker's row remains.
 - `apps/desktop/src/app.ts`: in `openDocument`, after first text (never before), `shell.watch(dir)`
   for the open document's directory. Close the previous handle on the next open. On an event whose
   effect is *changed* for the open path: if the buffer has no local changes, reread, reparse and
