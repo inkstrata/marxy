@@ -1,6 +1,9 @@
 // Headless planner spawn mirrors dispatch.mjs argv shape (MARXY-200 AC4).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { plannerSpawnArgs } from './plan-dispatch.mjs';
 
 test('plannerSpawnArgs uses the planner role model and prompt tail like dispatch.mjs', () => {
@@ -12,6 +15,24 @@ test('plannerSpawnArgs uses the planner role model and prompt tail like dispatch
   assert.equal(bin, 'cursor-agent');
   assert.deepEqual(args.slice(0, 5), ['-p', '--force', '--model', 'claude-sonnet-5', '--output-format']);
   assert.equal(args.at(-1), 'PLAN');
+});
+
+test('plannerSpawnArgs ignores CURSOR_AGENT=1 and keeps an executable override', () => {
+  const m = { planner: { model: 'x', effort: 'high' }, cliEffortFlag: '' };
+  const prev = process.env.CURSOR_AGENT;
+  process.env.CURSOR_AGENT = '1';
+  try {
+    assert.equal(plannerSpawnArgs({ m, prompt: 'p' }).bin, 'cursor-agent');
+    const dir = mkdtempSync(join(tmpdir(), 'marxy-planner-bin-'));
+    const bin = join(dir, 'fake-agent');
+    writeFileSync(bin, '#!/bin/sh\n');
+    chmodSync(bin, 0o755);
+    process.env.CURSOR_AGENT = bin;
+    assert.equal(plannerSpawnArgs({ m, prompt: 'p' }).bin, bin);
+  } finally {
+    if (prev === undefined) delete process.env.CURSOR_AGENT;
+    else process.env.CURSOR_AGENT = prev;
+  }
 });
 
 test('plannerSpawnArgs forwards cliEffortFlag when configured', () => {

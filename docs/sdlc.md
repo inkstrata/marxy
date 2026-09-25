@@ -131,7 +131,11 @@ review note and signs it with `node orchestration/approve.mjs KEY`, which record
 review was of; the key lives in `~/.config/marxy/`, outside the tree. An approval for an earlier
 commit is held rather than honoured, because a push after a review is an unreviewed tree wearing a
 reviewed one's name. A reviewer writes and signs `KEY.approved`; the implementor never writes
-it. `cycle.mjs` then lands the PR without a person, or enables GitHub auto-merge when the only
+it. A headless cycle starts that reviewer itself — one at a time, the first entry of the review
+order that `approve.mjs` can sign, detached under a lease — because a loop has no in-app agent
+to spawn one. A pull request the cycle cannot boundary-check is not given a reviewer. A
+CODEOWNERS path still gets one until the signature exists; the author's approval stays a
+separate hold. `cycle.mjs` then lands the PR without a person, or enables GitHub auto-merge when the only
 remaining wait is CI.
 
 Which merge path is live is `orchestration/models.json` `mergeQueue`. When it is true, the
@@ -215,6 +219,10 @@ keys, in this order:
 A conflicted pull request is returned rather than queued. `cycle.mjs` cannot resolve a conflict
 and a reviewer reading a conflicted tree is reading nothing. The story goes back to In Progress
 and `attempts` does not move: a conflict is a consequence of queue depth, not a failed attempt.
+The next cycle does not adopt that pull request again while it still conflicts. It starts one
+resolution attempt instead (`orchestration/conflict-dispatch.mjs`), and after three unresolved
+tries leaves the story In Progress and says so. A pull request that is BEHIND or clean is
+adopted back into review.
 
 A returned story does not count against the review WIP. Returning it moves it out of In Review,
 so the lane is freed by construction, and a return is the same unit of work rather than a new

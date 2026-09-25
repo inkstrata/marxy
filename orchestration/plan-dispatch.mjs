@@ -5,11 +5,11 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, models } from './lib.mjs';
-import { isAuthFailure, noteAuthFailure } from './dispatch.mjs';
+import { isAuthFailure, noteAuthFailure, resolveAgentBin } from './dispatch.mjs';
 import { ageMinutes, leaseHeld, newLease, readLease, spawnDetached } from './lease.mjs';
 
 /** argv for `spawn(bin, tail)` — exported so tests need not run the CLI. */
-export function plannerSpawnArgs({ m = models(), bin = process.env.CURSOR_AGENT || 'cursor-agent', prompt = '' } = {}) {
+export function plannerSpawnArgs({ m = models(), bin = resolveAgentBin(), prompt = '' } = {}) {
   const role = m.planner;
   const args = ['-p', '--force', '--model', role.model, '--output-format', 'text'];
   if (m.cliEffortFlag && role.effort) args.push(m.cliEffortFlag, role.effort);
