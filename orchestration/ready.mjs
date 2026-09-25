@@ -7,6 +7,7 @@ import {
   state, stories, deps, pathsOf, overlap, laneBudget, hasLabel, phaseOf, earlierPhaseOpen,
   models,
 } from './lib.mjs';
+import { liveClaims, readLiveEntries, defaultRowsOf } from './worktrees.mjs';
 
 /** Named definition-of-ready refusals, so a test can assert the exact rule. */
 export const RULE = {
@@ -17,7 +18,16 @@ export const RULE = {
   EMPTY_PATHS: 'empty Paths',
   LANE_LIMIT: 'lane limit',
   YIELDS_TO_PRODUCT: 'yields to product',
+  WORKTREE_HOLDS: 'worktree holds',
 };
+
+function resolveClaims(opts, s) {
+  if (opts.claims !== undefined) return opts.claims;
+  // Fixture-board tests inject `all` or `s`; only the CLI's bare `selectReady()` reads git.
+  if (opts.all !== undefined || opts.s !== undefined) return [];
+  const isDone = k => s.stories[k]?.status === 'done';
+  return liveClaims(readLiveEntries(), { rowsOf: defaultRowsOf(), isDone });
+}
 
 /** Concurrent In Review stories. null / 0 / omitted → uncapped. `lanes` is a different cap. */
 export function reviewLaneBudget(m = models()) {
@@ -32,13 +42,13 @@ export function reviewLaneBudget(m = models()) {
  * `cap` is the dispatch WIP limit from models.json; Infinity means uncapped.
  * `reviewCap` is the In Review WIP limit; dispatch is empty while that count is at or above it.
  */
-export function selectReady({
-  all = stories(),
-  s = state(),
-  d = deps(),
-  cap = laneBudget(),
-  reviewCap = reviewLaneBudget(),
-} = {}) {
+export function selectReady(opts = {}) {
+  const all = opts.all ?? stories();
+  const s = opts.s ?? state();
+  const d = opts.d ?? deps();
+  const cap = opts.cap ?? laneBudget();
+  const reviewCap = opts.reviewCap ?? reviewLaneBudget();
+  const claimList = resolveClaims(opts, s);
   const done = k => s.stories[k]?.status === 'done';
   const statusOf = k => s.stories[k]?.status ?? 'todo';
   // in_review holds files until the PR lands; it does not consume a lane (MARXY-102).
@@ -46,7 +56,17 @@ export function selectReady({
   const inProgress = all.filter(st => statusOf(st.Key) === 'in_progress');
   const inReview = all.filter(st => statusOf(st.Key) === 'in_review');
   const busy = all.filter(st => occupies(statusOf(st.Key)));
-  const busyPaths = busy.flatMap(pathsOf);
+  const busyPathsFromState = busy.flatMap(pathsOf);
+  const activeClaimPaths = claimList.filter(
+    c => c.paths && !occupies(statusOf(c.key)),
+  );
+  const busyPaths = [...busyPathsFromState, ...activeClaimPaths.flatMap(c => c.paths)];
+  const worktreeBlocker = stPaths => {
+    for (const c of activeClaimPaths) {
+      if (overlap(stPaths, c.paths)) return c.key;
+    }
+    return null;
+  };
   const uncapped = !Number.isFinite(cap);
   const free = uncapped ? Infinity : Math.max(0, cap - inProgress.length);
   const reviewUncapped = !Number.isFinite(reviewCap);
@@ -103,6 +123,8 @@ export function selectReady({
     }
     if (overlap(pathsOf(st), busyPaths)) {
       blockedByPaths.push(st.Key);
+      const by = worktreeBlocker(pathsOf(st));
+      if (by) excluded.push({ key: st.Key, rule: RULE.WORKTREE_HOLDS, by });
       continue;
     }
     if (!inPhase(st)) {
@@ -147,6 +169,13 @@ export function selectReady({
     blockedByLanes,
     blockedByReviewWip: reviewUncapped ? null : { count: inReview.length, cap: reviewCap },
     excluded,
+    claims: claimList.map(c => ({
+      key: c.key,
+      path: c.path,
+      ahead: c.ahead ?? 0,
+      dirty: Boolean(c.dirty),
+      ...(c.reason ? { reason: c.reason } : {}),
+    })),
   };
 }
 

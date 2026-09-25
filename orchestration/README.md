@@ -18,7 +18,9 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
 ## The loop (orchestrator)
 
 1. `node orchestration/ready.mjs` — stories whose earlier phase is settled, whose
-   dependencies are done, and whose paths do not overlap anything in progress. It never
+   dependencies are done, and whose paths do not overlap anything in progress. A worktree whose
+   branch names a key, with commits or uncommitted work and no finished PR, holds that key's paths
+   as if it were In Progress, and `ready.mjs` names it (`worktree holds`). It never
    offers a story from phase N+1 while phase N still has `todo` or `in_progress` work,
    unless the story is labelled `cross-phase`. `human-gated` stories, and stories with
    empty Acceptance or empty Paths, are refused with the rule named. Dispatch lanes stay

@@ -2,6 +2,7 @@
 import type { Operation, OperationInput } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import type { Selection } from '../selection/selection.ts';
+import { attachDocumentEdits } from './edits.ts';
 import { apply } from '../selection/apply.ts';
 
 export interface AppContext {
@@ -39,7 +40,7 @@ export function fromOperation(op: Operation): Command {
     run(ctx) {
       const input = ctx.operationInput();
       if (!input || !op.canApply(input)) return Promise.resolve();
-      return apply(op, ctx, input);
+      return apply(op, attachDocumentEdits(ctx), input);
     },
   };
 }
