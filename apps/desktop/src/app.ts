@@ -3,7 +3,7 @@ import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } 
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
-import { buildBlocks, buildNodeMap, type BlockList, type NodeMap } from './render/post.ts';
+import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
 import { blockedContentNotice } from './notices/blocked.ts';
 import { ensureNoticesRegion } from './notices/index.ts';
@@ -56,8 +56,13 @@ export type AppHandle = {
   commands(): readonly unknown[];
   readonly shell: AppShell;
   readonly ready: Promise<void>;
-  /** Opens `path` through the one open path, after any open already under way (the palette uses it). */
-  open(path: string): Promise<void>;
+  /**
+   * Opens `path` through the one open path, after any open already under way: launch, open events
+   * and the palette all end here. `at` is a byte offset; the block containing it is held at the
+   * reading line until the reader scrolls. `at` for the document already on screen moves to it
+   * without reading the file again.
+   */
+  open(path: string, opts?: { at?: number }): Promise<void>;
   /** The document on screen, or null before the first one. */
   currentPath(): string | null;
   /** Playwright harness: buffer fingerprint and reading position (MARXY-169). */
@@ -66,6 +71,8 @@ export type AppHandle = {
     readonly bufferHash: string;
     readonly byteOffset: number;
   } | null;
+  /** Playwright harness: live typesetters and resize observers, so N opens are seen to leave one of each. */
+  debugCounts(): { typesetters: number; resizeObservers: number };
 };
 
 const t0 = Date.now();
@@ -119,6 +126,7 @@ async function ensureSourceEditor(): Promise<MountedSourceEditor> {
 }
 
 async function showSource(byteOffset: number): Promise<void> {
+  releaseAnchor();
   lastReadingByteOffset = byteOffset;
   const editor = await ensureSourceEditor();
   setModeChrome('source');
@@ -300,6 +308,61 @@ function snap(article: HTMLElement): void {
   lastSnapAt = performance.now();
   snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
   if (state.document) state.document.blocks = buildBlocks(article, state.document.nodeMap);
+  holdAnchor();
+}
+
+/**
+ * The byte offset an open asked to land on. Every grid pass rebuilds the block list and the
+ * background typesetter reflows paragraphs above the target after the open returns, so one scroll
+ * would land off by the reflow; the anchor is re-applied after each pass instead, until the reader
+ * scrolls, changes mode or opens something else.
+ */
+let anchor: number | null = null;
+let anchorListening = false;
+
+function releaseAnchor(): void {
+  anchor = null;
+}
+
+function listenForReaderScroll(): void {
+  if (anchorListening) return;
+  anchorListening = true;
+  // Input, not `scroll`: the anchor's own scrolls must not release it.
+  for (const type of ['wheel', 'touchstart', 'mousedown', 'keydown'] as const) {
+    window.addEventListener(type, releaseAnchor, { capture: true, passive: true });
+  }
+}
+
+/** The innermost block whose node's byte range contains `at`, else the last one starting before it. */
+function blockContaining(doc: OpenDocument, at: number): BlockList[number] | undefined {
+  let before: BlockList[number] | undefined;
+  let containing: BlockList[number] | undefined;
+  for (const block of doc.blocks) {
+    if (block.start > at) break;
+    before = block;
+    const node = nodeFor(doc.nodeMap, block.el);
+    if (node !== undefined && at < node.src.end) containing = block;
+  }
+  return containing ?? before;
+}
+
+function holdAnchor(): void {
+  if (anchor === null || !state.document || !openPath || viewMode !== 'rendered') return;
+  const block = blockContaining(state.document, anchor);
+  if (block === undefined) return;
+  restoreScrollToPosition(readingScroller(), state.document.blocks, {
+    path: openPath,
+    byteOffset: block.start,
+    fraction: 0,
+    mode: 'rendered',
+  });
+}
+
+function landOn(at: number | undefined): void {
+  if (at === undefined) return;
+  listenForReaderScroll();
+  anchor = at;
+  holdAnchor();
 }
 
 /**
@@ -335,12 +398,29 @@ function scheduleSnap(article: HTMLElement): void {
 
 let resizeObserver: ResizeObserver | null = null;
 
+/** What `debugCounts` reports: every typesetter started and not yet destroyed, and live observers. */
+const liveTypesetters = new Set<TypesetController>();
+let liveResizeObservers = 0;
+
+function destroyTypeset(): void {
+  if (typeset) liveTypesetters.delete(typeset);
+  typeset?.destroy();
+  typeset = null;
+}
+
+function disconnectResizeObserver(): void {
+  if (resizeObserver) liveResizeObservers -= 1;
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+}
+
 function keepOnGrid(article: HTMLElement): void {
   snap(article);
   void document.fonts.ready.then(() => snap(article));
   let pending = 0;
   let width = article.clientWidth;
-  resizeObserver?.disconnect();
+  disconnectResizeObserver();
+  liveResizeObservers += 1;
   resizeObserver = new ResizeObserver(() => {
     if (article.clientWidth === width) return;
     width = article.clientWidth;
@@ -357,10 +437,9 @@ function keepOnGrid(article: HTMLElement): void {
  * not N — each old observer would otherwise relayout on every resize.
  */
 function teardownDocument(): void {
-  typeset?.destroy();
-  typeset = null;
-  resizeObserver?.disconnect();
-  resizeObserver = null;
+  releaseAnchor();
+  destroyTypeset();
+  disconnectResizeObserver();
   cancelScheduledSnap();
   sourceEditor?.destroy();
   sourceEditor = null;
@@ -369,13 +448,14 @@ function teardownDocument(): void {
 
 function startTypeset(article: HTMLElement): TypesetController {
   const lineBox = parseFloat(getComputedStyle(article).lineHeight);
-  typeset?.destroy();
+  destroyTypeset();
   typeset = attach(article, {
     lineBox,
     glueStretchEm: 0.6,
     lastLineMinWidth: 0.33,
     onPass: (kind) => (kind === 'background' ? scheduleSnap(article) : snap(article)),
   });
+  liveTypesetters.add(typeset);
   return typeset;
 }
 
@@ -400,7 +480,7 @@ function rerenderFromBuffer(doc: HTMLElement): void {
   const file = openPath;
   const ast = parseMarkdown(documentBuffer.bytes, { file });
   const { html, blockedImages } = renderDocumentSafeHtml(ast);
-  typeset?.destroy();
+  destroyTypeset();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
   stripNonLocalImages(doc, file);
@@ -413,7 +493,7 @@ function rerenderFromBuffer(doc: HTMLElement): void {
 }
 
 /** Read and render `file` through the `render` mark; cold-start paint runs after this (MARXY-183). */
-async function openDocumentThroughRenderMark(file: string, doc: HTMLElement): Promise<RenderEvidence> {
+async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?: number): Promise<RenderEvidence> {
   const bytes = await shell.readFile(file);
   teardownDocument();
   openPath = file;
@@ -438,6 +518,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement): Pr
   document.title = `${file.split('/').pop()} — Marxy`;
   // The grid pass also builds the block list the reading position is read from.
   keepOnGrid(doc);
+  landOn(at);
   const evidence = renderEvidence(doc);
   await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
   return evidence;
@@ -466,17 +547,32 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
   });
 }
 
-function replaceOpenDocument(file: string): Promise<void> {
-  return serially(() => openReplacing(file));
+function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void> {
+  return serially(() => openReplacing(file, opts?.at));
 }
 
-async function openReplacing(file: string): Promise<void> {
+async function openReplacing(file: string, at?: number): Promise<void> {
   const doc = document.getElementById('doc')!;
+  if (file === openPath && state.document && at !== undefined) {
+    // A heading in the document already on screen: move, do not read and set it again.
+    if (viewMode === 'source') await leaveSourceForRendered();
+    landOn(at);
+    return;
+  }
   try {
-    await openDocumentThroughRenderMark(file, doc);
+    await openDocumentThroughRenderMark(file, doc, at);
     await finishDocumentOpen(file, doc);
   } catch (e) {
-    assignHtml(doc, `<p>${String(e)}</p>`);
+    // Nothing of the last document may outlive the page that showed it.
+    teardownDocument();
+    state.document = null;
+    documentBuffer = null;
+    openPath = null;
+    setModeChrome('rendered');
+    // A read error names the path, and a path is not markup.
+    const message = document.createElement('p');
+    message.textContent = String(e);
+    doc.replaceChildren(message);
   }
 }
 
@@ -564,6 +660,7 @@ export async function startApp(injected: AppShell, opts?: { argv?: readonly stri
     open: replaceOpenDocument,
     currentPath: () => openPath,
     sourceHarness,
+    debugCounts: () => ({ typesetters: liveTypesetters.size, resizeObservers: liveResizeObservers }),
   };
   try {
     await serially(boot);

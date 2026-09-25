@@ -1,7 +1,7 @@
 // Unit tests for headless cursor-agent auth-failure detection and needs-human notes (MARXY-156).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -10,6 +10,7 @@ import {
   authFailureBulletPrefix,
   isAuthFailure,
   noteAuthFailure,
+  resolveAgentBin,
 } from './dispatch.mjs';
 
 const authLog = () => Buffer.from(AUTH_FAILURE_LOG, 'utf8');
@@ -122,10 +123,26 @@ test('recordOutcome: blocked stays blocked, a missing or unnamed-PR result is to
   assert.equal(s.stories.K.attempts, 1);
 });
 
+test('CURSOR_AGENT=1, empty, and a non-command resolve to cursor-agent; an executable path wins', () => {
+  const miss = () => false;
+  assert.equal(resolveAgentBin({ CURSOR_AGENT: '1' }, { lookup: miss }), 'cursor-agent');
+  assert.equal(resolveAgentBin({ CURSOR_AGENT: '' }, { lookup: miss }), 'cursor-agent');
+  assert.equal(resolveAgentBin({ CURSOR_AGENT: '   ' }, { lookup: miss }), 'cursor-agent');
+  assert.equal(resolveAgentBin({}, { lookup: miss }), 'cursor-agent');
+  assert.equal(resolveAgentBin({ CURSOR_AGENT: 'no-such-bin' }, { lookup: miss }), 'cursor-agent');
+  const dir = mkdtempSync(join(tmpdir(), 'marxy-agent-bin-'));
+  const bin = join(dir, 'fake-agent');
+  writeFileSync(bin, '#!/bin/sh\n');
+  chmodSync(bin, 0o755);
+  assert.equal(resolveAgentBin({ CURSOR_AGENT: bin }), bin);
+  assert.equal(resolveAgentBin({ CURSOR_AGENT: '1' }), 'cursor-agent');
+});
+
 test('work() records through recordOutcome and releases only a row it owns', async () => {
   const { readFileSync: read } = await import('node:fs');
   const src = read(new URL('./dispatch.mjs', import.meta.url), 'utf8');
   const work = src.slice(src.indexOf('export async function work('), src.indexOf('export function recordOutcome('));
+  assert.match(work, /resolveAgentBin\(/);
   assert.match(work, /updateState\(s2 => recordOutcome\(s2, key,/);
   assert.match(work, /const release = why => \{[\s\S]*?updateState\(s2 => \{[\s\S]*?if \(!owns\(r2\)\) return false;/);
   const outsideRelease = work.replace(/const release = why => \{[\s\S]*?\n  \};/, '');
