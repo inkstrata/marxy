@@ -18,9 +18,13 @@ test('a lease is held while its pid lives and runs the command it was taken for'
   assert.equal(leaseHeld(lease, { alive: () => true, command: () => '/usr/bin/vim notes.md' }), false);
 });
 
-test('no lease, or one taken on another machine, is unknown rather than dead', () => {
+test('no lease is unknown; a live pid whose command cannot be read counts as held', () => {
   assert.equal(leaseHeld(undefined), null);
-  assert.equal(leaseHeld({ pid: 42, host: 'elsewhere' }, { alive: () => false }), null);
+  assert.equal(leaseHeld({ pid: 42, match: 'x' }, { alive: () => true, command: () => null }), true);
+});
+
+test('the host is recorded, never compared: a Mac renamed across a sleep keeps its workers', () => {
+  assert.equal(leaseHeld({ pid: 42, host: 'old-name.local', match: 'x' }, { alive: () => true, command: () => 'x' }), true);
 });
 
 test('a lease never expires by the clock: after a long sleep a live worker still holds it', () => {
@@ -56,10 +60,31 @@ test('releaseLock leaves another process\'s lock alone', () => {
   assert.equal(readLease(path).pid, 999999);
 });
 
-test('a corrupt lock file is taken over, never obeyed', () => {
+test('an unreadable lock is obeyed while fresh (it may be mid-write) and taken over once old', async () => {
+  const { utimesSync } = await import('node:fs');
   const path = join(tmp(), 'cycle.lock');
-  writeFileSync(path, '{not json');
+  writeFileSync(path, '');
+  assert.equal(acquireLock(path, { match: 'x' }).ok, false);
+  const old = new Date(Date.now() - 60_000);
+  utimesSync(path, old, old);
   assert.equal(acquireLock(path, { match: 'x' }).ok, true);
+});
+
+test('a takeover already under way elsewhere is not raced: the second taker backs off', () => {
+  const path = join(tmp(), 'cycle.lock');
+  writeFileSync(path, JSON.stringify({ pid: 999999, started: 'then' }));
+  writeFileSync(`${path}.takeover`, JSON.stringify({ pid: process.pid, started: 'now' }));
+  const r = acquireLock(path, { match: 'x', held: l => (l.pid === process.pid ? true : false) });
+  assert.equal(r.ok, false);
+  assert.equal(readLease(path).pid, 999999, 'the lock was left for the process mid-takeover');
+});
+
+test('a takeover guard left by a dead process is cleared for the next attempt', () => {
+  const path = join(tmp(), 'cycle.lock');
+  writeFileSync(path, JSON.stringify({ pid: 999999, started: 'then' }));
+  writeFileSync(`${path}.takeover`, JSON.stringify({ pid: 999998, started: 'then' }));
+  assert.equal(acquireLock(path, { match: 'x', held: () => false }).ok, false);
+  assert.equal(acquireLock(path, { match: 'x', held: () => false }).ok, true);
 });
 
 test('spawnDetached: the child outlives the process that started it and writes to its log', () => {

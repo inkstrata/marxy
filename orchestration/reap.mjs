@@ -13,14 +13,20 @@
 //          killing workers and redispatching will not fix it
 //   dead   the lease holder is gone but it left work behind: the ordinary return (the attempt
 //          counts; the worktree is reused by the next attempt)
-//   quiet  no lease, quiet for staleMinutes, but work in the worktree. An in-app subagent leaves
-//          no pid to check, so this is named for a person and never reaped by a machine
+//   quiet  no lease, quiet for staleMinutes, and either work in the worktree or no worktree to
+//          look in. An in-app subagent or a person (`state.mjs start`) leaves no pid to check, so
+//          this is named for a person and never reaped by a machine
+// A row with no lease is a ghost only when its worktree was found and holds nothing; a row that
+// carries a PR number belongs to the review queue (an adopted PR sent back for a conflict) and is
+// left alone.
+//
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, state, saveState, models } from './lib.mjs';
 import { leaseHeld, ageMinutes, killOrphans } from './lease.mjs';
+import { parseWorktreeList } from './worktrees.mjs';
 
 export const VERDICT = { LIVE: 'live', GHOST: 'ghost', DEAD: 'dead', QUIET: 'quiet' };
 
@@ -28,7 +34,8 @@ export const VERDICT = { LIVE: 'live', GHOST: 'ghost', DEAD: 'dead', QUIET: 'qui
 export const staleMinutesOf = m => m.staleMinutes ?? 2 * (m.attemptMinutes ?? 45);
 
 /**
- * facts: { held: true | false | null, ahead, dirty, logBytes, lastActivityMs }.
+ * facts: { held: true | false | null, worktree: path | null, ahead, dirty, logBytes, lastActivityMs }.
+ * `worktree` null means none was found for the story.
  * Pure, so every verdict has a test.
  */
 export function classify(rec, facts, { nowMs = Date.now(), staleMinutes = 90 } = {}) {
@@ -46,9 +53,11 @@ export function classify(rec, facts, { nowMs = Date.now(), staleMinutes = 90 } =
       ? { verdict: VERDICT.DEAD, why: `worker pid ${pid} gone; left ${left.join(', ')}` }
       : { verdict: VERDICT.GHOST, why: `worker pid ${pid} gone; left nothing` };
   }
+  if (Number(rec.pr) > 0) return { verdict: VERDICT.LIVE, why: `no lease; PR #${rec.pr} is open, the review queue owns it` };
   const since = Math.max(Date.parse(rec.started ?? '') || 0, facts.lastActivityMs ?? 0);
   const quiet = Math.round(ageMinutes(new Date(since).toISOString(), nowMs));
   if (quiet < staleMinutes) return { verdict: VERDICT.LIVE, why: `no lease; last activity ${quiet} min ago` };
+  if (!facts.worktree) return { verdict: VERDICT.QUIET, why: `no lease; quiet ${quiet} min; no worktree found to judge it by — a person decides` };
   return evidence
     ? { verdict: VERDICT.QUIET, why: `no lease; quiet ${quiet} min; left ${left.join(', ')} — a person decides` }
     : { verdict: VERDICT.GHOST, why: `no lease; quiet ${quiet} min; left nothing` };
@@ -88,12 +97,25 @@ const git = a => {
 };
 const mtime = p => { try { return statSync(p).mtimeMs; } catch { return null; } };
 
+/**
+ * Where a story's work is: the row's own worktree, the conventional ../marxy-wt/KEY, or any live
+ * worktree whose branch names the key — `state.mjs start` and adoption record no worktree at all.
+ */
+export function findWorktree(key, rec, { root = ROOT, list = () => parseWorktreeList(git(['-C', root, 'worktree', 'list', '--porcelain']) ?? '') } = {}) {
+  for (const rel of [rec.worktree, `../marxy-wt/${key}`].filter(Boolean)) {
+    const wt = resolve(root, rel);
+    if (existsSync(wt)) return wt;
+  }
+  const named = new RegExp(`(^|/)${key}(-|$)`);
+  return list().find(w => w.branch && named.test(w.branch) && existsSync(w.path))?.path ?? null;
+}
+
 /** What the machine can see of one in_progress story. */
 export function gatherFacts(key, rec, { root = ROOT, results = here('results') } = {}) {
-  const facts = { held: leaseHeld(rec.lease), ahead: 0, dirty: false, logBytes: 0, lastActivityMs: null };
+  const wt = findWorktree(key, rec, { root });
+  const facts = { held: leaseHeld(rec.lease), worktree: wt, ahead: 0, dirty: false, logBytes: 0, lastActivityMs: null };
   const times = [];
-  const wt = rec.worktree ? resolve(root, rec.worktree) : null;
-  if (wt && existsSync(wt)) {
+  if (wt) {
     // Read before `git status`, which may refresh the index and move its mtime.
     const index = git(['-C', wt, 'rev-parse', '--path-format=absolute', '--git-path', 'index']);
     if (index) times.push(mtime(index));

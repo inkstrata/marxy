@@ -19,7 +19,8 @@
 # Dispatching implementors still needs either the Cursor CLI on PATH (then the cycle does it
 # headlessly) or the in-app orchestrator, which the cycle tells you by naming the keys.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+cd "$(dirname "$SELF")/.."
 RESULTS=orchestration/results
 LEASE=$RESULTS/loop.lease
 LOG=$RESULTS/loop.log
@@ -40,7 +41,7 @@ case "${1:-run}" in
       const { spawn } = require("node:child_process"); const fs = require("node:fs");
       const fd = fs.openSync(process.argv[1], "a");
       const c = spawn("bash", process.argv.slice(2), { detached: true, stdio: ["ignore", fd, fd] });
-      c.unref(); console.log(c.pid);' "$LOG" "$0" run "$@")
+      c.unref(); console.log(c.pid);' "$LOG" "$SELF" run "$@")
     sleep 1
     if running; then echo "loop: started, pid $pid, log $LOG"; exit 0; fi
     echo "loop: did not start; the end of $LOG:"; tail -5 "$LOG"; exit 1 ;;

@@ -5,7 +5,7 @@ import { classify, reapTransition, survey, staleMinutesOf, VERDICT } from './rea
 
 const NOW = Date.parse('2026-09-24T12:00:00.000Z');
 const rec = (over = {}) => ({ status: 'in_progress', attempts: 1, started: '2026-09-23T16:30:00.000Z', ...over });
-const facts = (over = {}) => ({ held: null, ahead: 0, dirty: false, logBytes: 0, lastActivityMs: null, ...over });
+const facts = (over = {}) => ({ held: null, worktree: '/wt', ahead: 0, dirty: false, logBytes: 0, lastActivityMs: null, ...over });
 const opts = { nowMs: NOW, staleMinutes: 90 };
 
 test('a held lease is live, however long ago it started (a machine that slept)', () => {
@@ -83,4 +83,42 @@ test('survey gives every in_progress story a verdict and ignores the rest', () =
 test('staleMinutes defaults to twice the attempt cap and can be set in models.json', () => {
   assert.equal(staleMinutesOf({ attemptMinutes: 45 }), 90);
   assert.equal(staleMinutesOf({ attemptMinutes: 45, staleMinutes: 20 }), 20);
+});
+
+// Review return 1 (MARXY-208): rows no lease and no recorded worktree must never read as ghosts.
+test('no lease and no worktree found: quiet, never a ghost (state.mjs start records no worktree)', () => {
+  const r = classify(rec(), facts({ worktree: null }), opts);
+  assert.equal(r.verdict, VERDICT.QUIET);
+  assert.match(r.why, /no worktree found/);
+});
+
+test('no lease with a PR number (an adopted PR returned for a conflict) is left to the review queue', () => {
+  const r = classify(rec({ pr: 190 }), facts(), opts);
+  assert.equal(r.verdict, VERDICT.LIVE);
+});
+
+test('findWorktree finds the work by the row, by ../marxy-wt/KEY, or by a branch naming the key', async () => {
+  const { mkdtempSync, mkdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { findWorktree } = await import('./reap.mjs');
+  const base = mkdtempSync(join(tmpdir(), 'marxy-reap-'));
+  const root = join(base, 'marxy');
+  mkdirSync(join(base, 'marxy-wt', 'MARXY-5'), { recursive: true });
+  mkdirSync(join(base, 'elsewhere'), { recursive: true });
+  const none = () => [];
+  assert.equal(findWorktree('MARXY-5', {}, { root, list: none }), join(base, 'marxy-wt', 'MARXY-5'));
+  const list = () => [{ path: join(base, 'elsewhere'), branch: 'feat/MARXY-6-thing' }, { path: '/gone', branch: 'feat/MARXY-66-x' }];
+  assert.equal(findWorktree('MARXY-6', {}, { root, list }), join(base, 'elsewhere'));
+  assert.equal(findWorktree('MARXY-66', {}, { root, list }), null, 'a listed worktree that no longer exists is not found');
+  assert.equal(findWorktree('MARXY-7', {}, { root, list }), null);
+});
+
+test('cycle.mjs reaps before it reads ready.mjs, inside the cycle lock', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('./cycle.mjs', import.meta.url), 'utf8');
+  const reapAt = src.indexOf('runReap({ apply: !DRY');
+  const readyAt = src.indexOf("node([here('ready.mjs')])");
+  assert.ok(reapAt > 0 && readyAt > reapAt, 'runReap precedes the ready.mjs read');
+  assert.match(src, /const lock = acquireLock\(CYCLE_LOCK[\s\S]*?try \{\s*runLockedCycle\(argv\);\s*\} finally \{\s*releaseLock\(CYCLE_LOCK\);/);
 });

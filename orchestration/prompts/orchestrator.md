@@ -40,8 +40,9 @@ board looks wrong. It names every problem with the command that fixes it; `--fix
 repairs that cannot lose work. Run the loop with `./orchestration/loop.sh start`, check it with
 `loop.sh status`, stop it with `loop.sh stop`. Never `pkill` or `kill -9` the loop or a worker,
 and never start a loop in a shell whose lifetime you do not control: `start` detaches it for you.
-A one-off `node orchestration/cycle.mjs` is safe beside a running loop (it waits for the cycle
-lock) and returns in seconds, because dispatch no longer waits for implementors. Never hand-edit
+A one-off `node orchestration/cycle.mjs` is safe beside a running loop: if the loop's cycle holds
+the cycle lock it says so and exits without running, and otherwise it returns in seconds, because
+dispatch no longer waits for implementors. Never hand-edit
 `state.json` to free a stuck story: a ghost is `doctor.mjs --fix`; a quiet story with work in
 its worktree is yours to judge, then `state.mjs return KEY`.
 

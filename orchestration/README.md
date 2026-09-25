@@ -95,7 +95,7 @@ runs in its own session with its output in `results/loop.log`, so no terminal or
 `loop.sh status` says whether it runs and what the last cycle did; `loop.sh stop` ends it after
 the cycle in flight. One loop at a time (`results/loop.lease`), and one cycle at a time
 (`results/cycle.lock`, taken over when its holder died), so a one-off `node
-orchestration/cycle.mjs` beside a running loop waits its turn instead of interleaving with it.
+orchestration/cycle.mjs` beside a running loop exits at once, saying so, instead of interleaving with it.
 Never `pkill` the loop. When the machine sleeps everything pauses and resumes: a lease is judged
 by its process, not the clock, so nothing is reaped for having slept.
 

@@ -212,38 +212,44 @@ export async function work(key, { m = models(), waitForClaimMs = 30_000 } = {}) 
   }
   const resultExists = existsSync(resultPath);
   const s2 = state();
-  const r2 = s2.stories[key];
-  if (!owns(r2)) {
+  const out2 = recordOutcome(s2, key, { result, code, logBuf, resultExists, attemptsBefore });
+  if (!out2.recorded) {
     console.error(`${key}: the board no longer names this worker (reaped or re-claimed); result ${result?.status ?? 'failed'} not recorded, log ${log}`);
     return;
   }
+  saveState(s2);
+  jira(out2.jira);
+  if (out2.authFailure) {
+    noteAuthFailure(key);
+    console.log(`${key}: auth failure (not a real attempt), exit ${code}, now ${out2.status}, log ${log}`);
+    return;
+  }
+  const why = result?.status === 'done' && !(Number(result.pr) > 0) ? ' (result says done but names no PR)' : '';
+  console.log(`${key}: exit ${code}, result ${result?.status ?? 'failed'}${why}, now ${out2.status}, log ${log}`);
+}
+
+/**
+ * Apply an attempt's outcome to the board, only if this worker still owns the row (`pid`). Pure over
+ * `s`; the caller saves and mirrors `jira`. Returns { recorded: false } for a row that was reaped or
+ * re-claimed while the attempt ran, which is then left exactly as it is.
+ */
+export function recordOutcome(s, key, { result, code, logBuf = Buffer.alloc(0), resultExists = false, attemptsBefore }, pid = process.pid) {
+  const r2 = s.stories[key];
+  if (!owns(r2, pid)) return { recorded: false };
   delete r2.lease;
   delete r2.reaps;
   if (isAuthFailure({ code, log: logBuf, resultExists })) {
-    applyAuthFailureToStory(s2, key, attemptsBefore);
-    saveState(s2);
-    jira(['move', key, 'todo']);
-    noteAuthFailure(key);
-    console.log(`${key}: auth failure (not a real attempt), exit ${code}, now ${r2.status}, log ${log}`);
-    return;
+    applyAuthFailureToStory(s, key, attemptsBefore);
+    return { recorded: true, status: r2.status, jira: ['move', key, 'todo'], authFailure: true };
   }
   // in_review is the only status the cycle reads for merging, and it needs the PR number to read it.
   if (result?.status === 'done' && Number(result.pr) > 0) {
     r2.status = 'in_review';
     r2.pr = Number(result.pr);
-    saveState(s2);
-    jira(['pr', key, String(r2.pr)]);
-  } else if (result?.status === 'blocked') {
-    r2.status = 'blocked';
-    saveState(s2);
-    jira(['move', key, 'blocked']);
-  } else {
-    r2.status = 'todo';
-    saveState(s2);
-    jira(['move', key, 'todo']);
+    return { recorded: true, status: r2.status, jira: ['pr', key, String(r2.pr)] };
   }
-  const why = result?.status === 'done' && !(Number(result.pr) > 0) ? ' (result says done but names no PR)' : '';
-  console.log(`${key}: exit ${code}, result ${result?.status ?? 'failed'}${why}, now ${r2.status}, log ${log}`);
+  r2.status = result?.status === 'blocked' ? 'blocked' : 'todo';
+  return { recorded: true, status: r2.status, jira: ['move', key, r2.status] };
 }
 
 /** In this process, for a caller that wants to wait (and be killed with) the attempts. */
