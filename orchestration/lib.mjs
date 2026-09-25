@@ -1,12 +1,18 @@
 // Shared board helpers. pathsOf keeps glob segments so a path like packages/*/package.json
 // is not collapsed to packages (MARXY-9).
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 export const ROOT = new URL('../', import.meta.url).pathname;
 export const here = p => `${ROOT}orchestration/${p}`;
 export const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
-export const writeJson = (p, v) => writeFileSync(p, JSON.stringify(v, null, 2) + '\n');
+// Written aside and renamed into place: detached workers read state.json while a cycle writes it,
+// and a reader must see the old file or the new one, never half of one (MARXY-208).
+export const writeJson = (p, v) => {
+  const tmp = `${p}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(v, null, 2) + '\n');
+  renameSync(tmp, p);
+};
 
 const ROLE_KEYS = ['orchestrator', 'planner', 'implementor', 'implementorEscalation', 'reviewer'];
 const COMPUTE_ALIASES = { 'low-compute': 'low', cheap: 'low', min: 'minimal' };

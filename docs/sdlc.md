@@ -111,8 +111,12 @@ Everything in that list except the two judgements — is this story ready, does 
 it — is one command, `node orchestration/cycle.mjs`, and `./orchestration/loop.sh` runs it until
 interrupted. `--low` (Sonnet 5 medium + Grok 4.6 High Fast) and `--minimal` (Grok 4.6 High Fast
 only) spend less; the loop is the same. A cycle mirrors the board into Jira, merges the pull requests that are provably
-finished, names what should start next, asks whether the planner is due, and rewrites
-`orchestration/status.md`. It is safe to stop and restart at any point.
+finished, returns in-progress stories whose worker is gone, names (or starts) what should start
+next, asks whether the planner is due, and rewrites `orchestration/status.md`. It is safe to stop
+and restart at any point, and to sleep through: `./orchestration/loop.sh start` runs the loop
+detached from any terminal, implementors run as detached workers holding a lease on their row,
+and only one cycle runs at a time. `node orchestration/doctor.mjs` is the first thing to run when
+the fleet looks stuck; it names each problem with the command that fixes it (MARXY-208).
 
 The one thing it refuses to infer is approval. Green gates say the code works; they cannot say it
 does what the story asked. So the reviewer writes `orchestration/results/KEY.approved` with the
