@@ -7,7 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - Live-reload: the desktop shell polls the open document's directory and the app reloads from disk while keeping the reading position (MARXY-194)
-
+- A pull request returned because it conflicts with main stays In Progress until the conflict is gone, and the cycle starts one resolution attempt for it instead of adopting the same pull request back into review every cycle (MARXY-217)
 - Choosing another document in the palette opens it (the palette had been treating the document it was about to open as the one already on screen, so nothing happened); a heading chosen in the palette is held at the reading line while the page finishes typesetting and when the window is resized, until you scroll; a file that cannot be read is named as plain text rather than as markup; and every way a document reaches the page (launch, second launch, open event, palette, back and forward) is now the same one, so the palette no longer draws a page of its own without images blocked, typesetting, highlighting or Source mode (MARXY-193)
 - A headless orchestrator cycle starts one reviewer for the first pull request it can sign, and does not start a second while that reviewer's lease is held. A pull request with no board row or no diff is left alone. `CURSOR_AGENT=1` still runs `cursor-agent` (MARXY-215)
 - A loop started inside Cursor no longer tries to run a program named `1`: `CURSOR_AGENT` overrides the CLI binary only when it names a real command, so the agent-session marker falls back to `cursor-agent` (MARXY-214)
