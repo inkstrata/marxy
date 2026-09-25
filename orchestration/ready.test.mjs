@@ -1,7 +1,7 @@
 // in_review occupies listed paths; blocked, escalate and done do not (MARXY-102).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectReady } from './ready.mjs';
+import { selectReady, RULE } from './ready.mjs';
 
 function story(key, paths) {
   return {
@@ -143,6 +143,39 @@ test('a product story in progress does not also reserve: its busy paths already 
   const r = laned(all, { 1: ['MARXY-P'], ops: ['MARXY-OPS'] }, {}, { 'MARXY-P': { status: 'in_progress' } });
   assert.ok(r.blockedByPaths.includes('MARXY-OPS'));
   assert.deepEqual(yielded(r), []);
+});
+
+test('a todo story overlapping a worktree claim is blocked and named worktree holds', () => {
+  const all = [story('MARXY-193', 'apps/desktop/src/app.ts'), story('MARXY-OTHER', 'scripts/y')];
+  const claims = [{ key: 'MARXY-198', paths: ['apps/desktop/src/app.ts'], path: '/wt/198', ahead: 2, dirty: false }];
+  const blocked = selectReady({ all, s: fixtureState(all), d: { phases: {}, deps: {} }, claims });
+  assert.ok(blocked.blockedByPaths.includes('MARXY-193'));
+  assert.deepEqual(blocked.excluded, [{ key: 'MARXY-193', rule: RULE.WORKTREE_HOLDS, by: 'MARXY-198' }]);
+  assert.deepEqual(blocked.ready.map(r => r.key), ['MARXY-OTHER']);
+});
+
+test('the same board with no worktree claims offers the story', () => {
+  const all = [story('MARXY-193', 'apps/desktop/src/app.ts')];
+  const open = selectReady({ all, s: fixtureState(all), d: { phases: {}, deps: {} }, claims: [] });
+  assert.deepEqual(open.ready.map(r => r.key), ['MARXY-193']);
+});
+
+test('a claim whose key is already in_progress does not change ready', () => {
+  const all = [story('MARXY-198', 'apps/desktop/src/app.ts'), story('MARXY-193', 'apps/desktop/src/app.ts')];
+  const base = selectReady({
+    all,
+    s: fixtureState(all, { 'MARXY-198': { status: 'in_progress' } }),
+    d: { phases: {}, deps: {} },
+    claims: [],
+  });
+  const withClaim = selectReady({
+    all,
+    s: fixtureState(all, { 'MARXY-198': { status: 'in_progress' } }),
+    d: { phases: {}, deps: {} },
+    claims: [{ key: 'MARXY-198', paths: ['apps/desktop/src/app.ts'], path: '/wt', ahead: 1, dirty: false }],
+  });
+  const sansClaims = ({ claims, ...r }) => r;
+  assert.deepEqual(sansClaims(withClaim), sansClaims(base));
 });
 
 test('a no-dispatch row is never dispatched, and says why (MARXY-190)', () => {

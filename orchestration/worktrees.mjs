@@ -1,11 +1,83 @@
 // Plan and remove stale story worktrees when their PR merged, closed, or detached idle.
 import { execFileSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, readJson } from './lib.mjs';
+import { ROOT, here, readJson, stories, pathsOf } from './lib.mjs';
 
 export const DETACHED_AGE_HOURS = 24;
+
+/** First `MARXY-\\d+` in a branch name, if any. */
+export function keyOfBranch(branch) {
+  if (!branch) return null;
+  const m = String(branch).match(/MARXY-\d+/);
+  return m ? m[0] : null;
+}
+
+/** Commits on HEAD not on origin/main in this worktree; 0 when the ref is missing. */
+function commitsAhead(wtPath, gitAtRoot) {
+  const out = gitAtRoot(['-C', wtPath, 'rev-list', '--count', 'origin/main..HEAD']);
+  if (typeof out !== 'string' || !out.trim()) return 0;
+  const n = parseInt(out, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** `parseWorktreeList` rows plus `ahead` and the dirty bit `gatherWorktreeEntries` already computes. */
+export function readLiveEntries(opts = {}) {
+  return gatherWorktreeEntries(opts).map(row => {
+    const gitAtRoot = opts.git ?? (a => defaultSh('git', a, { cwd: opts.root ?? ROOT }));
+    return { ...row, ahead: commitsAhead(row.path, gitAtRoot) };
+  });
+}
+
+/** Main CSV row for `key`, else the same key from the worktree's own `docs/plan/jira-issues.csv`. */
+export function defaultRowsOf(mainStories = stories()) {
+  const onMain = Object.fromEntries(mainStories.map(st => [st.Key, st]));
+  return (key, worktreePath) => {
+    if (onMain[key]) return onMain[key];
+    const csvPath = resolve(worktreePath, 'docs/plan/jira-issues.csv');
+    if (!existsSync(csvPath)) return null;
+    return stories(readFileSync(csvPath, 'utf8')).find(st => st.Key === key) ?? null;
+  };
+}
+
+/**
+ * Paths held by live worktrees that have not opened a finished PR yet. `rowsOf(key, worktreePath)`
+ * supplies the board row; `isDone` is usually `state.json` done status only.
+ */
+export function liveClaims(entries, { orchestratorPath = ROOT, rowsOf: rowsOfKey = () => null, isDone = () => false } = {}) {
+  const orch = resolve(orchestratorPath);
+  const out = [];
+  for (const entry of entries) {
+    if (resolve(entry.path) === orch) continue;
+    const key = keyOfBranch(entry.branch);
+    if (!key || isDone(key)) continue;
+    const dirty = Boolean(entry.dirty);
+    const ahead = Number(entry.ahead) || 0;
+    if (!dirty && ahead <= 0) continue;
+    const row = rowsOfKey(key, entry.path);
+    if (!row) {
+      out.push({ key, path: entry.path, reason: 'no row' });
+      continue;
+    }
+    out.push({ key, paths: pathsOf(row), path: entry.path, ahead, dirty });
+  }
+  return out;
+}
+
+/** Cycle log line for one claim (`worktree holds paths: …`). */
+export function formatClaimLine(claim) {
+  if (claim.reason === 'no row') {
+    return `worktree holds paths: ${claim.key} (${claim.path}, no row, no PR)`;
+  }
+  const cleanliness = claim.dirty ? 'dirty' : 'clean';
+  const aheadLabel = claim.ahead === 1 ? '1 commit ahead' : `${claim.ahead} commits ahead`;
+  return `worktree holds paths: ${claim.key} (${claim.path}, ${aheadLabel}, ${cleanliness}, no PR)`;
+}
+
+export function sayWorktreeClaims(claims, { say = line => console.log(line) } = {}) {
+  for (const claim of claims) say(formatClaimLine(claim));
+}
 
 /** argv for `git worktree remove` — never `--force`. */
 export function removeArgs(path) {

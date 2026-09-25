@@ -25,7 +25,9 @@ import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
 import { allowedFor, fileAllowed } from './review.mjs';
-import { runWorktreePrune, parseWorktreeList } from './worktrees.mjs';
+import {
+  runWorktreePrune, parseWorktreeList, readLiveEntries, liveClaims, defaultRowsOf, sayWorktreeClaims,
+} from './worktrees.mjs';
 import { loadSnapshot, prime } from './github.mjs';
 import { adoptions, applyAdoption, settlements, keyOfPr } from './adopt.mjs';
 import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
@@ -429,6 +431,11 @@ function runLockedCycle(argv) {
 
   // 2b. Drop story worktrees whose PR already landed elsewhere, and name strays we keep.
   runWorktreePrune({ dryRun: DRY, root: ROOT, say, ...(snapshot ? { branchState: snapshot.branchState } : {}) });
+  const boardNow = state();
+  sayWorktreeClaims(liveClaims(readLiveEntries(snapshot ? { branchState: snapshot.branchState } : {}), {
+    rowsOf: defaultRowsOf(),
+    isDone: k => boardNow.stories[k]?.status === 'done',
+  }), { say });
 
   // 3. Review. In-review stories hold their paths, so an unreviewed PR blocks dispatch silently
   // unless it is named. A headless loop has no in-app agent to read that line, so the cycle starts
