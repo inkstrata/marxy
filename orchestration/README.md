@@ -28,10 +28,16 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    above it, ready dispatches nothing and prints `blockedByReviewWip` with the count and
    the cap. A returned story leaves In Review, so it does not count. The other honest
    counters are `blockedByDeps` and `blockedByPaths`.
-2. `node orchestration/dispatch.mjs KEY [KEY…]` — for each: create a worktree and branch, run
-   the implementor headlessly with `prompts/implementor.md` plus the story, wait. Results land
-   in `orchestration/results/KEY.json`. (Or spawn the `implementor` subagent per key in-app and
-   have it follow the same prompt; the result file is the contract either way.)
+2. `node orchestration/dispatch.mjs KEY [KEY…]` — for each: claim the story with a **lease** (the
+   worker's pid, host and start) and start a detached worker (`--worker KEY`) that creates the
+   worktree and branch, runs the implementor headlessly with `prompts/implementor.md` plus the
+   story under the `attemptMinutes` cap, and records the outcome. It returns at once; the worker
+   is its own session, so the shell, terminal or agent that ran dispatch (or the cycle) can be
+   killed, time out or sleep without taking the attempt with it. `--wait` runs the attempts in
+   the calling process instead. Results land in `orchestration/results/KEY.json`, the agent's
+   output streams into `results/KEY.log`, the worker's own in `results/KEY.dispatch.log`. (Or
+   spawn the `implementor` subagent per key in-app and have it follow the same prompt; the
+   result file is the contract either way. An in-app attempt has no lease; see reaping below.)
 3. `node orchestration/review.mjs KEY` — a review packet: story, acceptance criteria, diff
    stat, files outside the listed paths (must be none; `CHANGELOG.md`, `pnpm-lock.yaml` and
    `results/` are allowed extras), gate outputs, the implementor's notes, and explicit
@@ -56,7 +62,17 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    cycle stamps `lastPlan`/`mergesAtLastPlan` and excludes that merge from the ops-window count,
    so nobody has to run `state.mjs planned` by hand and a run of plan/board-sync landings cannot
    make the trigger fire on its own output.
-6. Anything only a person can do goes in `needs-human.md`; the orchestrator continues with
+6. **Reap** (`reap.mjs`, every cycle before `ready.mjs`): an `in_progress` row reserves its
+   story's paths, and only the worker that wrote it used to clear it — so a killed worker held
+   them forever (2026-09-23: five rows, thirty hours, every todo story waiting). Each in-progress
+   story gets a verdict: **live** (lease held — however long the machine slept — or no lease and
+   activity within `staleMinutes`, default twice `attemptMinutes`); **ghost** (nobody running it
+   and nothing written: the attempt is refunded and the story returns to todo, and a second
+   ghost in a row parks it `blocked`, because something is killing workers); **dead** (the
+   holder is gone but left commits, changes or output: the ordinary `return`); **quiet** (no
+   lease, quiet, with work in the worktree — an in-app subagent leaves no pid to check, so a
+   person decides). A worker only records its outcome while the row still names it.
+7. Anything only a person can do goes in `needs-human.md`; the orchestrator continues with
    other stories and re-checks the file each cycle. When nothing is ready and nothing is in
    progress, write a status report to `orchestration/status.md` and stop.
 
@@ -74,13 +90,32 @@ or fall back to B for implementors.
 --model <implementor model>` inside each worktree, in parallel. The orchestrator itself can be
 the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
 
+**Running it for hours, across sleeps.** Start the loop with `./orchestration/loop.sh start`: it
+runs in its own session with its output in `results/loop.log`, so no terminal or agent owns it;
+`loop.sh status` says whether it runs and what the last cycle did; `loop.sh stop` ends it after
+the cycle in flight. One loop at a time (`results/loop.lease`), and one cycle at a time
+(`results/cycle.lock`, taken over when its holder died), so a one-off `node
+orchestration/cycle.mjs` beside a running loop waits its turn instead of interleaving with it.
+Never `pkill` the loop. When the machine sleeps everything pauses and resumes: a lease is judged
+by its process, not the clock, so nothing is reaped for having slept.
+
+**When something looks wrong,** run `node orchestration/doctor.mjs` first. It reads the loop, the
+cycle lock, the planner, every in-flight story's verdict, the orchestrator checkout, why nothing
+is ready (and which stories hold the paths), and the human queue, and names one command per
+problem; `--fix` applies only what cannot lose work (reap ghost and dead stories, clear locks
+whose holder is gone, refresh the canvases) and exits 1 while a failure remains. `node
+orchestration/reap.mjs` shows the verdicts alone (`--apply` to act on them).
+
 Either way the mechanical half of every cycle is one command, and it is the same command in both
 modes: `node orchestration/cycle.mjs` mirrors the board into Jira, reads GitHub once (two `gh pr
 list` calls, `github.mjs`, where it used to make three calls per open PR plus one per worktree),
 adopts open PRs the board does not know are in review, merges the pull requests that are provably
 finished, names what should start next (dispatching headlessly if `cursor-agent` is
-on PATH), asks whether the planner is due (starting it headlessly when it is, same as implementor
-dispatch), and writes `status.md`. It is idempotent, so
+on PATH), asks whether the planner is due (starting it headlessly when it is: one planner at a time
+under `results/planner.lease`, its output in `results/planner.log`, and none for
+`plannerCooldownMinutes`, default 240, after the last — a cadence-only due stays true every cycle
+until a plan lands), writes `status.md` with an "In flight" verdict per story, and refreshes the
+Cursor canvases (`canvases.mjs`) when that project folder exists. It is idempotent, so
 `./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
 `--no-merge` to decide without landing anything, `--dry-run` to change nothing anywhere (Jira
 included), `--low` or `--minimal` to spend less.
@@ -168,7 +203,12 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
 | `adopt.mjs` | which open PRs the cycle moves to In Review, and how |
 | `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |
 | `readiness.mjs` | every open PR as a merge-readiness table in review order; `--json` for machines |
-| `loop.sh` | `cycle.mjs` until interrupted |
+| `loop.sh` | `cycle.mjs` until stopped: `start` (detached), `stop`, `status`, or in the foreground |
+| `lease.mjs` | leases (pid + host + command), detached spawns, and the lock files |
+| `reap.mjs` | the verdict on every in-progress story, and the board move for a worker that is gone |
+| `doctor.mjs` | the fleet's health in one read, a command per problem, `--fix` for the safe repairs |
+| `canvases.mjs` | the Cursor canvases (fleet, shipped, roadmap, models, human queue) from the board |
+| `results/*.lease`, `results/cycle.lock` | who runs the loop, the planner and the current cycle |
 | `results/KEY.json` | written by implementors; the only handshake |
 | `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story, signed by `approve.mjs` against the commit it read; no merge without it |
 | `needs-human.md` | queue of things a person must do |

@@ -54,3 +54,38 @@ test('noteAuthFailure twice same day produces one bullet naming both keys', () =
   assert.match(bullets[0], /MARXY-2/);
   assert.match(bullets[0], /in-app subagent/);
 });
+
+// Leased claims (MARXY-208).
+import { claim, owns } from './dispatch.mjs';
+
+const M = { maxAttempts: 2, implementor: { model: 'composer-2.5' }, implementorEscalation: { model: 'opus' } };
+const ST = { Key: 'MARXY-9', Summary: 'Do the thing', Labels: 'phase-2' };
+
+test('claim writes in_progress, the attempt, the role and a lease naming the worker', () => {
+  const s = { stories: { 'MARXY-9': { status: 'todo', attempts: 0, parkedReason: 'old' } } };
+  const lease = { pid: 4242, host: 'h', started: '2026-09-24T00:00:00.000Z', match: '--worker MARXY-9' };
+  const rec = claim(s, 'MARXY-9', ST, { m: M, lease });
+  assert.equal(rec.status, 'in_progress');
+  assert.equal(rec.attempts, 1);
+  assert.equal(rec.role, 'implementor');
+  assert.equal(rec.model, 'composer-2.5');
+  assert.equal(rec.worktree, '../marxy-wt/MARXY-9');
+  assert.equal(rec.started, lease.started);
+  assert.deepEqual(rec.lease, lease);
+  assert.equal(rec.parkedReason, undefined);
+});
+
+test('claim escalates the model once attempts reach maxAttempts', () => {
+  const s = { stories: { 'MARXY-9': { status: 'todo', attempts: 2 } } };
+  const rec = claim(s, 'MARXY-9', ST, { m: M, lease: { pid: 1, started: 'T' } });
+  assert.equal(rec.role, 'implementorEscalation');
+  assert.equal(rec.model, 'opus');
+});
+
+test('a worker owns its row only while the row is in progress under its own lease', () => {
+  assert.equal(owns({ status: 'in_progress', lease: { pid: 5 } }, 5), true);
+  // Reaped (lease cleared), re-claimed by another worker, or already settled: not ours to write.
+  assert.equal(owns({ status: 'todo' }, 5), false);
+  assert.equal(owns({ status: 'in_progress', lease: { pid: 6 } }, 5), false);
+  assert.equal(owns({ status: 'in_review', lease: { pid: 5 } }, 5), false);
+});

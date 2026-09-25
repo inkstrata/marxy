@@ -23,3 +23,28 @@ test('plannerSpawnArgs forwards cliEffortFlag when configured', () => {
   assert.ok(args.includes('--reasoning-effort'));
   assert.ok(args.includes('high'));
 });
+
+// One planner at a time, and a cooldown after it (MARXY-208).
+import { plannerGate } from './plan-dispatch.mjs';
+
+const T0 = Date.parse('2026-09-24T12:00:00.000Z');
+const ago = min => new Date(T0 - min * 60_000).toISOString();
+
+test('plannerGate starts a planner when none has run', () => {
+  assert.equal(plannerGate({ lease: null, held: null, nowMs: T0 }).run, true);
+});
+
+test('plannerGate never starts a second planner while one runs', () => {
+  const g = plannerGate({ lease: { pid: 9, started: ago(20) }, held: true, nowMs: T0 });
+  assert.equal(g.run, false);
+  assert.match(g.why, /running/);
+});
+
+test('plannerGate waits out the cooldown after a planner finished, then allows the next', () => {
+  assert.equal(plannerGate({ lease: { pid: 9, started: ago(30) }, held: false, nowMs: T0, cooldownMinutes: 240 }).run, false);
+  assert.equal(plannerGate({ lease: { pid: 9, started: ago(300) }, held: false, nowMs: T0, cooldownMinutes: 240 }).run, true);
+});
+
+test('plannerGate stops trusting a lease past maxMinutes, since its pid may be reused', () => {
+  assert.equal(plannerGate({ lease: { pid: 9, started: ago(500) }, held: true, nowMs: T0, cooldownMinutes: 240, maxMinutes: 180 }).run, true);
+});

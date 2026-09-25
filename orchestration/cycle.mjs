@@ -7,8 +7,11 @@
 //                 holds dispatch — a cadence reason (merge count, weekly age, ops-majority) names
 //                 the planner as due without stalling the fleet for however long it takes to run
 //                 (MARXY-200)
-//   6. dispatch — name (or start) what is ready
-//   7. report   — status.md
+//   6. reap     — return in_progress stories whose worker is gone (MARXY-208)
+//   7. dispatch — name (or start) what is ready; started work runs detached and outlives this cycle
+//   8. report   — status.md, and the Cursor canvases when that directory exists
+// Only one cycle runs at a time: results/cycle.lock holds a lease, and a lock whose holder died is
+// taken over rather than obeyed (MARXY-208).
 // Everything a machine can decide, it decides; everything else it names.
 // usage: node orchestration/cycle.mjs [--no-merge] [--dry-run] [--low|--minimal|--high|--compute=NAME]
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -26,6 +29,9 @@ import { loadSnapshot, prime } from './github.mjs';
 import { adoptions, applyAdoption, settlements, keyOfPr } from './adopt.mjs';
 import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
+import { acquireLock, releaseLock, CYCLE_LOCK } from './lease.mjs';
+import { runReap } from './reap.mjs';
+import { defaultCanvasDir, gatherCanvasData, writeCanvases } from './canvases.mjs';
 
 /** A landed PR's own files self-record as the planner's output when they touch a plan delta. */
 export const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
@@ -239,6 +245,20 @@ export function processReviewQueue({
 }
 
 function runCycle(argv = process.argv.slice(2)) {
+  const lock = acquireLock(CYCLE_LOCK, { match: 'cycle.mjs' });
+  if (!lock.ok) {
+    console.log(`cycle: another cycle holds ${CYCLE_LOCK} (pid ${lock.holder?.pid} since ${lock.holder?.started}); not running a second one`);
+    return;
+  }
+  if (lock.tookOver) console.log(`cycle: took over the lock of a cycle that died (pid ${lock.tookOver.pid} since ${lock.tookOver.started})`);
+  try {
+    runLockedCycle(argv);
+  } finally {
+    releaseLock(CYCLE_LOCK);
+  }
+}
+
+function runLockedCycle(argv) {
   const NO_MERGE = argv.includes('--no-merge'), DRY = argv.includes('--dry-run');
   const m = models();
   process.env.MARXY_COMPUTE = m.compute;
@@ -420,6 +440,10 @@ function runCycle(argv = process.argv.slice(2)) {
   // hours on exactly that (MARXY-200). Spawned for its own reporting (kept in sync with
   // plannerReasons by construction); planDue itself is decided from the pure function so a
   // landed plan delta earlier in *this* cycle (see finish/settle above) is reflected immediately.
+  // 5. Reap. A story whose worker is gone holds its paths until something returns it, and nothing
+  // but this does (MARXY-208). Before ready.mjs, so what it frees can start this cycle.
+  const inflight = runReap({ apply: !DRY, say, m, jira: (key, to) => node([here('jira.mjs'), 'move', key, to]) });
+
   const plan = node([here('planner-trigger.mjs')]);
   const reasons = plannerReasons();
   const planDueAny = plan.status === 0;
@@ -430,8 +454,8 @@ function runCycle(argv = process.argv.slice(2)) {
     + (advisoryOnly ? ' (advisory only — dispatch continues; run the planner when you can)' : ''));
 
   if (shouldSpawnHeadlessPlanner({ planDueAny, hasCli, dry: DRY })) {
-    say('starting planner headlessly');
-    node([here('plan-dispatch.mjs')]);
+    const started = node([here('plan-dispatch.mjs')]);
+    say((started.stdout || started.stderr || 'planner: no output').trim().split('\n').pop());
   }
 
   // 5. What should start next. Headless dispatch needs the Cursor CLI; without it the in-app
@@ -442,8 +466,10 @@ function runCycle(argv = process.argv.slice(2)) {
     if (boardHold) say(`ready but not dispatched — board drift holds it (see "board:" lines above): ${keys}`);
     else say(`ready but not dispatched until the planner has run: ${keys}`);
   } else if (ready.ready.length && hasCli && !DRY) {
+    // Returns once each worker is started and its claim written; the attempts run detached.
     say(`dispatching ${keys} headlessly`);
-    node([here('dispatch.mjs'), ...ready.ready.map(r => r.key)]);
+    const d = node([here('dispatch.mjs'), ...ready.ready.map(r => r.key)]);
+    for (const line of `${d.stdout ?? ''}${d.stderr ?? ''}`.trim().split('\n').filter(Boolean)) say(line);
   } else if (ready.ready.length) {
     const laneNote = ready.lanes === 'uncapped' || ready.lanesFree == null ? 'uncapped lanes' : `${ready.lanesFree} free lane(s)`;
     say(`dispatch ${ready.ready.length} story(ies) into ${laneNote}: ${keys}` + (hasCli ? '' : ' (cursor-agent absent: dispatch as in-app implementor subagents)'));
@@ -467,11 +493,26 @@ Written by \`orchestration/cycle.mjs\`. Compute mode **${m.compute}**. ${human} 
 
 ${Object.entries(byStatus).map(([k, v]) => `- **${k}** (${v.length}): ${v.join(', ')}`).join('\n')}${orphans.length ? `\n- **not on the board, in no total** (${orphans.length}): ${orphans.join(', ')}` : ''}
 
+## In flight
+
+${inflight.length ? inflight.map(r => `- **${r.key}** ${r.to ? `${r.verdict} → ${r.to}` : r.verdict} — ${r.why}`).join('\n') : '- nothing in progress'}
+
 ## This cycle
 
 ${log.map(l => `- ${l}`).join('\n')}
 `);
   say(`status written; ${human} open item(s) for a human`);
+
+  // The Cursor canvases are the orchestrator's dashboards; they follow the board every cycle rather
+  // than whenever someone remembers to refresh them. Best effort: a canvas is never worth a cycle.
+  const canvases = defaultCanvasDir();
+  if (!DRY && existsSync(canvases)) {
+    try {
+      writeCanvases(gatherCanvasData({ health: { inflight: inflight.map(({ rec, ...r }) => r), cycleLog: log } }), canvases);
+    } catch (e) {
+      console.log(`canvases: not refreshed — ${String(e.message ?? e).split('\n')[0]}`);
+    }
+  }
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;

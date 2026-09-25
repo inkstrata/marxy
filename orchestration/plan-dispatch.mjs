@@ -1,11 +1,12 @@
 // Start the planner headlessly through the Cursor CLI when the cycle says it is due (MARXY-200).
 // usage: node plan-dispatch.mjs [--wait]
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, models } from './lib.mjs';
 import { isAuthFailure, noteAuthFailure } from './dispatch.mjs';
+import { ageMinutes, leaseHeld, newLease, readLease, spawnDetached } from './lease.mjs';
 
 /** argv for `spawn(bin, tail)` — exported so tests need not run the CLI. */
 export function plannerSpawnArgs({ m = models(), bin = process.env.CURSOR_AGENT || 'cursor-agent', prompt = '' } = {}) {
@@ -16,38 +17,76 @@ export function plannerSpawnArgs({ m = models(), bin = process.env.CURSOR_AGENT 
   return { bin, args };
 }
 
+export const PLANNER_LEASE = here('results/planner.lease');
+export const PLANNER_LOG = here('results/planner.log');
+
 /**
- * Spawn cursor-agent with prompts/planner.md. Default is detached so a cadence-only due pass
- * does not block implementor dispatch in the same cycle (MARXY-200 AC3).
+ * Whether to start a planner now. One runs at a time (its lease is held), and a finished one is not
+ * followed by another for cooldownMinutes: a cadence-only "due" is true every cycle until a plan
+ * lands, and the cycle runs every two minutes (MARXY-208). A lease older than maxMinutes is not
+ * trusted to be the planner any more, since its pid may have been reused.
+ */
+export function plannerGate({ lease, held, nowMs = Date.now(), cooldownMinutes = 240, maxMinutes = 180 }) {
+  if (!lease) return { run: true, why: 'no planner has run from here' };
+  const age = ageMinutes(lease.started, nowMs);
+  if (held === true && age < maxMinutes) return { run: false, why: `planner running (pid ${lease.pid} since ${lease.started})` };
+  if (age < cooldownMinutes) return { run: false, why: `planner ran at ${lease.started}; next one after a ${cooldownMinutes}-minute cooldown` };
+  return { run: true, why: `last planner ${Math.round(age)} min ago` };
+}
+
+/**
+ * Spawn cursor-agent with prompts/planner.md. Default is detached, writing straight to planner.log,
+ * so the cycle does not wait on the planner and the planner does not die with the cycle
+ * (MARXY-200 AC3, MARXY-208). `--wait` keeps it in this process.
  */
 export async function runPlanner({ wait = false, m = models(), now = () => new Date() } = {}) {
+  const lease = readLease(PLANNER_LEASE);
+  const held = leaseHeld(lease);
+  // A detached run's exit code is never seen, so its auth failure is read from its log afterwards.
+  if (lease && held === false && !lease.authNoted && existsSync(PLANNER_LOG)
+    && isAuthFailure({ code: 1, log: readFileSync(PLANNER_LOG), resultExists: false })) {
+    noteAuthFailure('planner', here('needs-human.md'), now());
+    writeFileSync(PLANNER_LEASE, JSON.stringify({ ...lease, authNoted: true }) + '\n');
+    console.log(`planner: the last run failed to authenticate (${PLANNER_LOG}); noted in needs-human.md`);
+    return { skipped: true, authFailure: true };
+  }
+  const gate = plannerGate({ lease, held, nowMs: now().getTime(), cooldownMinutes: m.plannerCooldownMinutes ?? 240 });
+  if (!gate.run) {
+    console.log(`planner: not started — ${gate.why}`);
+    return { skipped: true };
+  }
   const { bin, args } = plannerSpawnArgs({
     m,
     prompt: readFileSync(here('prompts/planner.md'), 'utf8'),
   });
   mkdirSync(here('results'), { recursive: true });
-  const logPath = here('results/planner.log');
+  if (!wait) {
+    const pid = spawnDetached(bin, args, { cwd: ROOT, log: PLANNER_LOG, flags: 'w' });
+    if (!pid) {
+      console.log(`planner: could not start ${bin}`);
+      return { skipped: true };
+    }
+    writeFileSync(PLANNER_LEASE, JSON.stringify(newLease(pid, basename(bin), now())) + '\n');
+    console.log(`planner: started, pid ${pid}, log ${PLANNER_LOG}`);
+    return { pid };
+  }
+  writeFileSync(PLANNER_LEASE, JSON.stringify(newLease(process.pid, 'plan-dispatch.mjs', now())) + '\n');
   const out = [];
-  const child = spawn(bin, args, {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: !wait,
-  });
+  const child = spawn(bin, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', d => out.push(d));
   child.stderr.on('data', d => out.push(d));
-  if (!wait) child.unref();
   const code = await new Promise((resolvePromise, reject) => {
     child.on('error', reject);
     child.on('exit', resolvePromise);
   });
   const logBuf = Buffer.concat(out);
-  writeFileSync(logPath, logBuf);
+  writeFileSync(PLANNER_LOG, logBuf);
   if (isAuthFailure({ code, log: logBuf, resultExists: false })) {
     noteAuthFailure('planner', here('needs-human.md'), now());
-    console.log(`planner: auth failure (exit ${code}), log ${logPath}`);
+    console.log(`planner: auth failure (exit ${code}), log ${PLANNER_LOG}`);
     return { code, authFailure: true };
   }
-  console.log(`planner: exit ${code}, log ${logPath}`);
+  console.log(`planner: exit ${code}, log ${PLANNER_LOG}`);
   return { code, authFailure: false };
 }
 
