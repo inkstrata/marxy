@@ -137,12 +137,12 @@ function run(argv = process.argv.slice(2)) {
     const branch = `${type}/${key}-${slug(summary)}`;
     const wt = resolve(mainCheckout(), '..', 'marxy-wt', key);
     if (o.dryRun) {
-      console.log(`[dry-run] jira task → ${key}\n[dry-run] git worktree add -b ${branch} ${wt} origin/main\n[dry-run] row: ${JSON.stringify(outOfPlanRow({ ...opts, key, summary }))}`);
+      console.log(`[dry-run] jira task → ${key}\n[dry-run] git worktree add --no-track -b ${branch} ${wt} origin/main\n[dry-run] row: ${JSON.stringify(outOfPlanRow({ ...opts, key, summary }))}`);
       return;
     }
     if (existsSync(wt)) { console.error(`✗ ${wt} already exists`); process.exit(1); }
     execFileSync('git', ['fetch', '-q', 'origin'], { cwd: ROOT });
-    execFileSync('git', ['worktree', 'add', '-q', '-b', branch, wt, 'origin/main'], { cwd: ROOT });
+    execFileSync('git', ['worktree', 'add', '-q', '--no-track', '-b', branch, wt, 'origin/main'], { cwd: ROOT });
     const row = writeBoard(wt, { ...opts, key, summary });
     console.log(`${key}: ${branch} at ${wt}; row written (${row.Labels}; paths ${row.Paths})${NEXT(key, wt)}`);
     return;

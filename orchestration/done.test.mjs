@@ -2,7 +2,9 @@
 // again before letting `gh` run, and a body check-pr would reject never reaches `gh` (MARXY-121).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { acceptanceFromBody, checkAcceptance, mergeResult, openSteps, runOpen } from '../scripts/done.mjs';
@@ -226,16 +228,35 @@ test('step 7 of the implementor prompt is the single command pnpm done KEY --ope
   assert.doesNotMatch(step7, /node scripts\/open-pr\.mjs \{\{KEY\}\}/, 'step 7 must not also tell the implementor to run open-pr.mjs separately');
 });
 
-test('opening pushes first: -u origin HEAD with no upstream, nothing when up to date, and a failed push stops gh', async () => {
+test('opening pushes first: an explicit refspec unless origin/<branch> is current, and a failed push stops gh', async () => {
   const { pushBranch } = await import('../scripts/open-pr.mjs');
   const calls = [];
   const fake = answers => (cmd, args) => { calls.push(args.join(' ')); return answers(args) ?? { status: 0, stdout: '' }; };
+  const on = (branch, upstream, ahead) => args =>
+    args[0] === 'branch' ? { status: 0, stdout: `${branch}\n` }
+    : args[0] === 'rev-parse' ? (upstream ? { status: 0, stdout: `${upstream}\n` } : { status: 128, stdout: '' })
+    : args[0] === 'rev-list' ? { status: 0, stdout: `${ahead}\n` }
+    : null;
+  const refspec = 'push -q -u origin HEAD:refs/heads/fix/MARXY-1-x';
   calls.length = 0;
-  assert.equal(pushBranch(fake(a => (a[0] === 'rev-parse' ? { status: 128, stdout: '' } : null))).pushed, true);
-  assert.ok(calls.includes('push -q -u origin HEAD'), calls.join(' | '));
+  assert.equal(pushBranch(fake(on('fix/MARXY-1-x', null, 0))).pushed, true, 'no upstream');
+  assert.ok(calls.includes(refspec), calls.join(' | '));
   calls.length = 0;
-  assert.equal(pushBranch(fake(a => (a[0] === 'rev-list' ? { status: 0, stdout: '0\n' } : null))).pushed, false);
+  assert.equal(pushBranch(fake(on('fix/MARXY-1-x', 'origin/main', 0))).pushed, true, 'tracks origin/main (MARXY-209)');
+  assert.ok(calls.includes(refspec), calls.join(' | '));
+  assert.ok(!calls.some(c => c.startsWith('rev-list')), 'ahead of origin/main says nothing about the branch');
+  calls.length = 0;
+  assert.equal(pushBranch(fake(on('fix/MARXY-1-x', 'origin/fix/MARXY-1-x', 2))).pushed, true, 'ahead of its own upstream');
+  assert.ok(calls.includes(refspec), calls.join(' | '));
+  calls.length = 0;
+  assert.equal(pushBranch(fake(on('fix/MARXY-1-x', 'origin/fix/MARXY-1-x', 0))).pushed, false, 'up to date');
   assert.ok(!calls.some(c => c.startsWith('push')));
+  for (const branch of ['main', '']) {
+    calls.length = 0;
+    const r = pushBranch(fake(on(branch, null, 0)));
+    assert.equal(r.ok, false, `refuses ${branch || 'detached HEAD'}`);
+    assert.ok(!calls.some(c => c.startsWith('push')));
+  }
   const ghCalls = [];
   const outcome = openPr({
     body: fixtureBody(FILLED_ROWS), key: 'MARXY-121', bodyFile: 'x',
@@ -246,4 +267,46 @@ test('opening pushes first: -u origin HEAD with no upstream, nothing when up to 
   assert.equal(outcome.ok, false);
   assert.deepEqual(ghCalls, []);
   assert.match(outcome.problems[0], /push failed/);
+});
+
+test('a story branch cut from origin/main, tracking it, still pushes to its own name (MARXY-209)', async () => {
+  const { pushBranch } = await import('../scripts/open-pr.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'marxy-push-'));
+  try {
+    const git = (cwd, ...a) => {
+      const r = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { cwd, encoding: 'utf8' });
+      assert.equal(r.status, 0, `git ${a.join(' ')}: ${r.stderr}`);
+      return r.stdout.trim();
+    };
+    const remote = join(dir, 'remote.git');
+    const work = join(dir, 'work');
+    git(dir, 'init', '-q', '--bare', '-b', 'main', remote);
+    git(dir, 'clone', '-q', remote, work);
+    writeFileSync(join(work, 'a'), 'a\n');
+    git(work, 'add', 'a');
+    git(work, 'commit', '-q', '-m', 'init');
+    git(work, 'push', '-q', 'origin', 'HEAD:main');
+    // What out-of-plan.mjs did before --no-track: the branch tracks origin/main, and plain `git push` is refused.
+    git(work, 'checkout', '-q', '-b', 'fix/MARXY-1-x', '--track', 'origin/main');
+    writeFileSync(join(work, 'b'), 'b\n');
+    git(work, 'add', 'b');
+    git(work, 'commit', '-q', '-m', 'work');
+    const r = pushBranch((cmd, args) => spawnSync(cmd, args, { cwd: work, encoding: 'utf8' }));
+    assert.deepEqual(r, { ok: true, pushed: true, problems: [] });
+    assert.equal(git(remote, 'rev-parse', 'refs/heads/fix/MARXY-1-x'), git(work, 'rev-parse', 'HEAD'));
+    assert.notEqual(git(remote, 'rev-parse', 'refs/heads/main'), git(work, 'rev-parse', 'HEAD'), 'main is untouched');
+    assert.equal(git(work, 'rev-parse', '--abbrev-ref', '@{u}'), 'origin/fix/MARXY-1-x');
+    assert.equal(pushBranch((cmd, args) => spawnSync(cmd, args, { cwd: work, encoding: 'utf8' })).pushed, false, 'second run is a no-op');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('story worktrees are cut from origin/main without tracking it (MARXY-209)', () => {
+  for (const file of ['out-of-plan.mjs', 'dispatch.mjs']) {
+    const src = readFileSync(join(here, file), 'utf8');
+    const adds = src.match(/\['worktree', 'add'[^\]]*\]/g) ?? [];
+    assert.ok(adds.length > 0, `${file} creates a worktree`);
+    for (const a of adds) assert.match(a, /'--no-track'/, `${file}: ${a}`);
+  }
 });
