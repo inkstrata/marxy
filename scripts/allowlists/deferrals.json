@@ -1,23 +1,8 @@
 [
   {
-    "file": "apps/desktop/src-tauri/src/main.rs",
-    "marker": "Phase 0 placeholder until MARXY-34",
-    "removedBy": "MARXY-194"
-  },
-  {
-    "file": "apps/desktop/src-tauri/src/watch/mod.rs",
-    "marker": "A later story registers",
-    "removedBy": "MARXY-194"
-  },
-  {
     "file": "apps/desktop/src/startup/idle-work.ts",
     "marker": "Placeholder until MARXY-34/MARXY-38",
     "removedBy": "MARXY-196"
-  },
-  {
-    "file": "apps/desktop/src/shell/tauri.ts",
-    "marker": "no events arrive until MARXY-34",
-    "removedBy": "MARXY-194"
   },
   {
     "file": "packages/core/src/position/reload.ts",

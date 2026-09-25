@@ -1,12 +1,14 @@
 //! Watch the root directory, not a file's inode (ADR-0018). Std only so the same file can be
 //! compiled with a bare `rustc --test` — `notify` would need a crate the desktop manifest and
-//! the licence allowlist, both outside this story's paths, to take on. A later story registers
-//! `mod watch` and the `watch_root` / `unwatch_root` commands in `main.rs`.
+//! the licence allowlist, both outside this story's paths, to take on.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, Metadata};
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, UNIX_EPOCH};
 
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
@@ -29,6 +31,7 @@ pub enum WatchKind {
 
 /// What the open document should do with a batch.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg(test)]
 pub enum OpenEffect {
     Reload,
     Follow(PathBuf),
@@ -37,7 +40,7 @@ pub enum OpenEffect {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct FileId {
+pub(crate) struct FileId {
     mtime_ms: u128,
     size: u64,
     ino: u64,
@@ -169,7 +172,9 @@ pub fn diff(prev: &Snapshot, next: &Snapshot) -> Vec<WatchEvent> {
     }
 
     for (path, before) in prev {
-        let Some(after) = next.get(path) else { continue };
+        let Some(after) = next.get(path) else {
+            continue;
+        };
         if before.ino != 0 && after.ino != 0 && before.ino != after.ino {
             events.push(WatchEvent {
                 kind: WatchKind::Renamed,
@@ -188,6 +193,7 @@ pub fn diff(prev: &Snapshot, next: &Snapshot) -> Vec<WatchEvent> {
 }
 
 /// Collapse a batch against the open document. Follow beats gone so a move is not a loss.
+#[cfg(test)]
 pub fn effect_for_open_document(events: &[WatchEvent], open: &Path) -> OpenEffect {
     let mut effect = OpenEffect::Ignore;
     for event in events {
@@ -199,24 +205,32 @@ pub fn effect_for_open_document(events: &[WatchEvent], open: &Path) -> OpenEffec
     effect
 }
 
+#[cfg(test)]
 fn classify_one(event: &WatchEvent, open: &Path) -> OpenEffect {
     match event.kind {
         WatchKind::Renamed
-            if same_path(&event.path, open) && event.to.as_deref().is_some_and(|to| !same_path(to, open)) =>
+            if same_path(&event.path, open)
+                && event.to.as_deref().is_some_and(|to| !same_path(to, open)) =>
         {
             OpenEffect::Follow(event.to.clone().unwrap())
         }
         WatchKind::Removed if same_path(&event.path, open) => OpenEffect::Gone,
-        WatchKind::Renamed if same_path(&event.path, open) || event.to.as_deref().is_some_and(|to| same_path(to, open)) => {
+        WatchKind::Renamed
+            if same_path(&event.path, open)
+                || event.to.as_deref().is_some_and(|to| same_path(to, open)) =>
+        {
             OpenEffect::Reload
         }
-        WatchKind::Modified | WatchKind::Created if same_path(&event.path, open) => OpenEffect::Reload,
+        WatchKind::Modified | WatchKind::Created if same_path(&event.path, open) => {
+            OpenEffect::Reload
+        }
         _ => OpenEffect::Ignore,
     }
 }
 
 /// `/var` and `/private/var` are the same directory on macOS; a deleted file still compares by
 /// its parent, because `canonicalize` of the file itself then fails.
+#[cfg(test)]
 fn same_path(left: &Path, right: &Path) -> bool {
     if left == right {
         return true;
@@ -236,6 +250,60 @@ fn same_path(left: &Path, right: &Path) -> bool {
     }
 }
 
+const POLL_MS: u64 = 50;
+
+pub fn watch_kind_name(kind: WatchKind) -> &'static str {
+    match kind {
+        WatchKind::Modified => "modified",
+        WatchKind::Created => "created",
+        WatchKind::Removed => "removed",
+        WatchKind::Renamed => "renamed",
+    }
+}
+
+/// Stops the polling loop when dropped or when `stop` is called.
+pub struct RunningWatch {
+    stop: Arc<AtomicBool>,
+    join: Option<JoinHandle<()>>,
+}
+
+impl RunningWatch {
+    pub fn stop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        if let Some(join) = self.join.take() {
+            let _ = join.join();
+        }
+    }
+}
+
+/// Opens `root`, polls until `stop`, and forwards non-empty batches to `emit`.
+pub fn spawn_poll_thread<F>(root: PathBuf, mut emit: F) -> Result<RunningWatch, String>
+where
+    F: FnMut(Vec<WatchEvent>) + Send + 'static,
+{
+    let mut watch = RootWatch::open(&root)?;
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_clone = stop.clone();
+    let join = thread::spawn(move || {
+        while !stop_clone.load(Ordering::SeqCst) {
+            thread::sleep(Duration::from_millis(POLL_MS));
+            if stop_clone.load(Ordering::SeqCst) {
+                break;
+            }
+            match watch.poll() {
+                Ok(events) if !events.is_empty() => emit(events),
+                Ok(_) => {}
+                Err(_) => {}
+            }
+        }
+    });
+    Ok(RunningWatch {
+        stop,
+        join: Some(join),
+    })
+}
+
+#[cfg(test)]
 fn rank(effect: &OpenEffect) -> u8 {
     match effect {
         OpenEffect::Ignore => 0,
@@ -255,7 +323,8 @@ mod tests {
 
     fn scratch(name: &str) -> (PathBuf, PathBuf) {
         let n = SEQ.fetch_add(1, Ordering::SeqCst);
-        let dir = std::env::temp_dir().join(format!("marxy-34-watch-{name}-{n}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("marxy-34-watch-{name}-{n}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("scratch");
         let dir = fs::canonicalize(&dir).expect("canonicalize scratch");
@@ -276,7 +345,9 @@ mod tests {
         let events = watch.poll().expect("poll");
         assert_eq!(effect_for_open_document(&events, &open), OpenEffect::Reload);
         assert!(
-            events.iter().any(|e| e.kind == WatchKind::Modified && e.path == open),
+            events
+                .iter()
+                .any(|e| e.kind == WatchKind::Modified && e.path == open),
             "{events:?}"
         );
         cleanup(&dir);
@@ -308,7 +379,9 @@ mod tests {
         let events = watch.poll().expect("poll");
         assert_eq!(effect_for_open_document(&events, &open), OpenEffect::Gone);
         assert!(
-            events.iter().any(|e| e.kind == WatchKind::Removed && e.path == open),
+            events
+                .iter()
+                .any(|e| e.kind == WatchKind::Removed && e.path == open),
             "{events:?}"
         );
         cleanup(&dir);
@@ -321,12 +394,46 @@ mod tests {
         let dest = dir.join("moved.md");
         fs::rename(&open, &dest).expect("rename");
         let events = watch.poll().expect("poll");
-        assert_eq!(effect_for_open_document(&events, &open), OpenEffect::Follow(dest.clone()));
+        assert_eq!(
+            effect_for_open_document(&events, &open),
+            OpenEffect::Follow(dest.clone())
+        );
+        assert!(
+            events.iter().any(|e| e.kind == WatchKind::Renamed
+                && e.path == open
+                && e.to.as_deref() == Some(dest.as_path())),
+            "{events:?}"
+        );
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn poll_thread_emits_modified_then_stops() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let (dir, open) = scratch("thread");
+        let (tx, rx) = mpsc::channel();
+        let mut running = spawn_poll_thread(dir.clone(), move |events| {
+            let _ = tx.send(events);
+        })
+        .expect("spawn");
+        std::thread::sleep(Duration::from_millis(70));
+        fs::write(&open, b"# open\n\nrewritten on disk\n").expect("write");
+        let events = rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("modified within 2 s");
         assert!(
             events
                 .iter()
-                .any(|e| e.kind == WatchKind::Renamed && e.path == open && e.to.as_deref() == Some(dest.as_path())),
+                .any(|e| e.kind == WatchKind::Modified && e.path == open),
             "{events:?}"
+        );
+        running.stop();
+        fs::write(&open, b"# open\n\nagain\n").expect("write again");
+        assert!(
+            rx.recv_timeout(Duration::from_millis(200)).is_err(),
+            "no events after stop"
         );
         cleanup(&dir);
     }
