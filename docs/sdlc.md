@@ -219,6 +219,10 @@ keys, in this order:
 A conflicted pull request is returned rather than queued. `cycle.mjs` cannot resolve a conflict
 and a reviewer reading a conflicted tree is reading nothing. The story goes back to In Progress
 and `attempts` does not move: a conflict is a consequence of queue depth, not a failed attempt.
+The next cycle does not adopt that pull request again while it still conflicts. It starts one
+resolution attempt instead (`orchestration/conflict-dispatch.mjs`), and after three unresolved
+tries leaves the story In Progress and says so. A pull request that is BEHIND or clean is
+adopted back into review.
 
 A returned story does not count against the review WIP. Returning it moves it out of In Review,
 so the lane is freed by construction, and a return is the same unit of work rather than a new
