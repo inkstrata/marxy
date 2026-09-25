@@ -126,8 +126,8 @@ test('work() records through recordOutcome and releases only a row it owns', asy
   const { readFileSync: read } = await import('node:fs');
   const src = read(new URL('./dispatch.mjs', import.meta.url), 'utf8');
   const work = src.slice(src.indexOf('export async function work('), src.indexOf('export function recordOutcome('));
-  assert.match(work, /recordOutcome\(s2, key,/);
-  assert.match(work, /const release = why => \{[\s\S]*?if \(!owns\(r2\)\) return;/);
+  assert.match(work, /updateState\(s2 => recordOutcome\(s2, key,/);
+  assert.match(work, /const release = why => \{[\s\S]*?updateState\(s2 => \{[\s\S]*?if \(!owns\(r2\)\) return false;/);
   const outsideRelease = work.replace(/const release = why => \{[\s\S]*?\n  \};/, '');
   assert.doesNotMatch(outsideRelease, /\.status = /, 'every other board write goes through recordOutcome');
 });

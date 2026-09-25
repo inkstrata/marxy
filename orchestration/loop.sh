@@ -68,13 +68,20 @@ if running; then echo "loop: another loop is running (pid $(lease_pid)); ./orche
 INTERVAL=${INTERVAL:-120}
 printf '{"pid":%s,"host":"%s","started":"%s","match":"loop.sh"}\n' "$$" "$(hostname)" "$(date -u +%FT%TZ)" > "$LEASE"
 stopping=
+sleeper=
+# A signal ends the wait, not the sleep it waited on: stop that too, or it outlives the loop by up to
+# an interval (MARXY-210). From the signal trap, which runs while the wait is interrupted and the pid
+# is still set, and from the exit trap for any other way out.
+stop_sleep() { [ -n "$sleeper" ] && kill "$sleeper" 2>/dev/null; sleeper=; }
 # TERM or INT, during a cycle or between cycles: the loop ends at the next boundary.
-trap 'stopping=1' INT TERM
-trap 'rm -f "$LEASE"; echo "loop: stopped; orchestration/status.md holds the last cycle"' EXIT
+trap 'stopping=1; stop_sleep' INT TERM
+trap 'stop_sleep; rm -f "$LEASE"; echo "loop: stopped; orchestration/status.md holds the last cycle"' EXIT
 while [ -z "$stopping" ]; do
   echo "── cycle $(date -u +%FT%TZ)"
   node orchestration/cycle.mjs "$@"
   [ -n "${ONCE:-}" ] && exit 0
   [ -n "$stopping" ] && break
-  sleep "$INTERVAL" & wait $! 2>/dev/null
+  sleep "$INTERVAL" & sleeper=$!
+  wait "$sleeper" 2>/dev/null
+  sleeper=
 done

@@ -18,7 +18,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, readJson, stories, state, saveState, models } from './lib.mjs';
+import { ROOT, here, readJson, stories, state, updateState, models } from './lib.mjs';
 import { boardDrift, gatherBoardCheckInput, boardTotals, BLOCKS_DISPATCH } from './board-check.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
@@ -310,9 +310,7 @@ function runLockedCycle(argv) {
     });
     for (const x of skipped) if (x.why !== 'draft') say(`adopt: skipped PR #${x.pr} — ${x.why}`);
     if (adopt.length && !DRY) {
-      const board = state();
-      for (const a of adopt) applyAdoption(board, a);
-      saveState(board);
+      updateState(board => { for (const a of adopt) applyAdoption(board, a); });
     }
     for (const a of adopt) {
       say(`adopt${DRY ? ' (dry-run, not written)' : ''}: ${a.key} PR #${a.pr} → in_review${a.onMain ? '' : ` (out-of-plan, ${a.phase} lane, row on its branch)`}`);
@@ -388,11 +386,11 @@ function runLockedCycle(argv) {
       writeFileSync(path, JSON.stringify(result, null, 2) + '\n');
     },
     returnDirty: (key, rec) => {
-      const board = state();
-      const cur = board.stories[key] ?? rec;
-      cur.status = 'in_progress';
-      board.stories[key] = cur;
-      saveState(board);
+      updateState(board => {
+        const cur = board.stories[key] ?? rec;
+        cur.status = 'in_progress';
+        board.stories[key] = cur;
+      });
       node([here('jira.mjs'), 'move', key, 'in_progress']);
     },
     finish: (key, rec, note, files) => {

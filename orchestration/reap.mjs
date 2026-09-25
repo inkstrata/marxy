@@ -24,7 +24,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, state, saveState, models } from './lib.mjs';
+import { ROOT, here, state, updateState, models } from './lib.mjs';
 import { leaseHeld, ageMinutes, killOrphans } from './lease.mjs';
 import { parseWorktreeList } from './worktrees.mjs';
 
@@ -155,17 +155,17 @@ export function runReap({ apply = false, say = console.log, m = models(), jira =
   const rows = survey({ m });
   const moved = rows.filter(r => r.verdict === VERDICT.GHOST || r.verdict === VERDICT.DEAD);
   if (apply && moved.length) {
-    const board = state();
     const now = new Date().toISOString();
-    for (const r of moved) {
-      const rec = board.stories[r.key];
-      // Re-read under the write: a worker that finished since the survey owns its own row.
-      if (rec?.status !== 'in_progress' || rec.lease?.pid !== r.rec.lease?.pid) continue;
-      // An agent orphaned by its worker would keep writing into a worktree the next attempt reuses.
-      if (killOrphans(rec.lease)) r.why += '; stopped its orphaned agent';
-      r.to = reapTransition(rec, r.verdict, { now, maxAttempts: m.maxAttempts ?? 2, why: r.why });
-    }
-    saveState(board);
+    updateState(board => {
+      for (const r of moved) {
+        const rec = board.stories[r.key];
+        // Re-read under the lock: a worker that finished since the survey owns its own row.
+        if (rec?.status !== 'in_progress' || rec.lease?.pid !== r.rec.lease?.pid) continue;
+        // An agent orphaned by its worker would keep writing into a worktree the next attempt reuses.
+        if (killOrphans(rec.lease)) r.why += '; stopped its orphaned agent';
+        r.to = reapTransition(rec, r.verdict, { now, maxAttempts: m.maxAttempts ?? 2, why: r.why });
+      }
+    });
     for (const r of moved) if (r.to) jira(r.key, r.to);
   }
   for (const r of rows) {

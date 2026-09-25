@@ -6,7 +6,7 @@ import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, openSync, writeSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, stories, state, saveState, models, slug, typeOf, isPlaceholderKey } from './lib.mjs';
+import { ROOT, here, stories, state, updateState, models, slug, typeOf, isPlaceholderKey } from './lib.mjs';
 import { leaseHeld, newLease, spawnDetached } from './lease.mjs';
 
 export const AUTH_FAILURE_LOG =
@@ -101,32 +101,34 @@ const storyOf = key => {
 export function launch(keys, { m = models() } = {}) {
   const sts = keys.map(storyOf);
   mkdirSync(here('results'), { recursive: true });
-  const s = state();
   const started = [];
-  for (const st of sts) {
-    const key = st.Key;
-    const cur = s.stories[key];
-    // Only a lease whose holder is provably gone may be taken over; anything else is someone's
-    // attempt (an in-app subagent has no lease), and node orchestration/reap.mjs judges those.
-    if (cur?.status === 'in_progress' && leaseHeld(cur.lease) !== false) {
-      const by = cur.lease ? `worker pid ${cur.lease.pid} since ${cur.lease.started}` : `no lease, started ${cur.started}`;
-      console.log(`${key}: already in progress (${by}); not started again — node orchestration/reap.mjs judges it`);
-      continue;
+  // Under the board lock from the check to the claim, so a reap or another launch between them
+  // cannot claim the same row or overwrite this one.
+  updateState(s => {
+    for (const st of sts) {
+      const key = st.Key;
+      const cur = s.stories[key];
+      // Only a lease whose holder is provably gone may be taken over; anything else is someone's
+      // attempt (an in-app subagent has no lease), and node orchestration/reap.mjs judges those.
+      if (cur?.status === 'in_progress' && leaseHeld(cur.lease) !== false) {
+        const by = cur.lease ? `worker pid ${cur.lease.pid} since ${cur.lease.started}` : `no lease, started ${cur.started}`;
+        console.log(`${key}: already in progress (${by}); not started again — node orchestration/reap.mjs judges it`);
+        continue;
+      }
+      const log = here(`results/${key}.dispatch.log`);
+      const match = `--worker ${key}`;
+      const pid = spawnDetached(process.execPath, [here('dispatch.mjs'), '--worker', key], {
+        cwd: ROOT, log, env: { ...process.env, MARXY_COMPUTE: m.compute },
+      });
+      if (!pid) {
+        console.error(`${key}: could not start a worker; see ${log}`);
+        continue;
+      }
+      claim(s, key, st, { m, lease: newLease(pid, match) });
+      started.push(key);
+      console.log(`${key}: worker pid ${pid}, log ${log}`);
     }
-    const log = here(`results/${key}.dispatch.log`);
-    const match = `--worker ${key}`;
-    const pid = spawnDetached(process.execPath, [here('dispatch.mjs'), '--worker', key], {
-      cwd: ROOT, log, env: { ...process.env, MARXY_COMPUTE: m.compute },
-    });
-    if (!pid) {
-      console.error(`${key}: could not start a worker; see ${log}`);
-      continue;
-    }
-    claim(s, key, st, { m, lease: newLease(pid, match) });
-    started.push(key);
-    console.log(`${key}: worker pid ${pid}, log ${log}`);
-  }
-  saveState(s);
+  });
   for (const key of started) jira(['move', key, 'in_progress']);
   return started;
 }
@@ -148,13 +150,15 @@ export async function work(key, { m = models(), waitForClaimMs = 30_000 } = {}) 
   const attemptsBefore = rec.attempts - 1;
   const role = m[rec.role ?? 'implementor'];
   const release = why => {
-    const s2 = state();
-    const r2 = s2.stories[key];
-    if (!owns(r2)) return;
-    r2.attempts = attemptsBefore;
-    r2.status = 'todo';
-    delete r2.lease;
-    saveState(s2);
+    const released = updateState(s2 => {
+      const r2 = s2.stories[key];
+      if (!owns(r2)) return false;
+      r2.attempts = attemptsBefore;
+      r2.status = 'todo';
+      delete r2.lease;
+      return true;
+    });
+    if (!released) return;
     jira(['move', key, 'todo']);
     console.error(`${key}: ${why}; attempt not charged, back to todo`);
   };
@@ -211,13 +215,11 @@ export async function work(key, { m = models(), waitForClaimMs = 30_000 } = {}) 
     /* unreadable is failed */
   }
   const resultExists = existsSync(resultPath);
-  const s2 = state();
-  const out2 = recordOutcome(s2, key, { result, code, logBuf, resultExists, attemptsBefore });
+  const out2 = updateState(s2 => recordOutcome(s2, key, { result, code, logBuf, resultExists, attemptsBefore }));
   if (!out2.recorded) {
     console.error(`${key}: the board no longer names this worker (reaped or re-claimed); result ${result?.status ?? 'failed'} not recorded, log ${log}`);
     return;
   }
-  saveState(s2);
   jira(out2.jira);
   if (out2.authFailure) {
     noteAuthFailure(key);
@@ -255,9 +257,7 @@ export function recordOutcome(s, key, { result, code, logBuf = Buffer.alloc(0), 
 /** In this process, for a caller that wants to wait (and be killed with) the attempts. */
 async function runInForeground(keys, { m = models() } = {}) {
   const sts = keys.map(storyOf);
-  const s = state();
-  for (const st of sts) claim(s, st.Key, st, { m, lease: newLease(process.pid, 'dispatch.mjs') });
-  saveState(s);
+  updateState(s => { for (const st of sts) claim(s, st.Key, st, { m, lease: newLease(process.pid, 'dispatch.mjs') }); });
   for (const st of sts) jira(['move', st.Key, 'in_progress']);
   const settled = await Promise.allSettled(sts.map(st => work(st.Key, { m, waitForClaimMs: 0 })));
   settled.filter(r => r.status === 'rejected').forEach(r => console.error(String(r.reason)));
