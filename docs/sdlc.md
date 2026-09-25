@@ -99,6 +99,13 @@ node orchestration/cycle.mjs                 # adopts the open PR (→ In Review
 node orchestration/planner-trigger.mjs       # is it time to re-plan?
 ```
 
+A story claimed by hand with `state.mjs start` carries no worker lease, so every cycle's reap
+judges it by its worktree: once that worktree exists, it needs activity — a commit, an
+uncommitted change — within `staleMinutes` (default twice `attemptMinutes`, 90 minutes) of the
+start or of the last change. A worktree still clean and with no commits after that is a ghost,
+and the story returns to todo with its attempt refunded; a second ghost parks it `blocked`
+(`orchestration/README.md`, step 6).
+
 Nobody runs `gh pr merge` by hand, and nobody has to move a story to In Review: the cycle
 **adopts** every open, non-draft pull request whose title or branch names a key the board does
 not already have in review, links it in Jira, and from then on the merge bar decides

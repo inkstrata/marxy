@@ -10,7 +10,9 @@ import { spawn, execFileSync } from 'node:child_process';
 import { openSync, closeSync, writeFileSync, readFileSync, rmSync, mkdirSync, linkSync, statSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { dirname } from 'node:path';
-import { here } from './lib.mjs';
+
+// Resolved here rather than taken from lib.mjs, which imports this module for its state lock.
+const here = p => new URL(p, import.meta.url).pathname;
 
 /** The fleet's lock and lease files, all under the gitignored results/. */
 export const LOOP_LEASE = here('results/loop.lease');

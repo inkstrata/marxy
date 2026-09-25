@@ -4,7 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { state, saveState, stories, here } from './lib.mjs';
+import { state, updateState, stories, here } from './lib.mjs';
 import { boardTotals } from './board-check.mjs';
 
 /**
@@ -55,24 +55,38 @@ export function transition(cmd, s, st, { argv = process.argv, now = () => new Da
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [cmd, key] = process.argv.slice(2);
-  const s = state();
-  // A key the board already tracks is known even before its row is on this checkout's main: the
-  // cycle adopts an out-of-plan PR whose row is only on its branch, and records it done in the same
-  // cycle that merges it, before the next fast-forward brings the row (MARXY-190).
-  const known = new Set([...stories().map(x => x.Key), ...Object.keys(s.stories ?? {})]);
-  if (key && !known.has(key)) { console.error(`unknown story ${key}: no CSV row and not on the board; out-of-plan work gets a row with node orchestration/out-of-plan.mjs`); process.exit(2); }
-  const st = key ? (s.stories[key] ??= { status: 'todo', attempts: 0 }) : null;
   if (cmd === 'init' || cmd === 'show') {
+    // state() seeds a missing board; neither verb changes one.
+    const s = state();
     const { byStatus, orphans } = boardTotals(s.stories);
     console.log(JSON.stringify({ merges: s.merges, lastPlan: s.lastPlan, ...byStatus, ...(orphans.length ? { orphans } : {}) }, null, 2));
-  } else if (cmd === 'planned') {
-    s.lastPlan = new Date().toISOString();
-    s.mergesAtLastPlan = s.merges;
-  } else if (!transition(cmd, s, st)) {
+    process.exit(0);
+  }
+  // Checked, changed and saved under the board lock, so a worker or reap writing at the same moment
+  // is not overwritten (MARXY-210). Nothing inside exits: an exit would leave the lock behind.
+  const outcome = updateState(s => {
+    // A key the board already tracks is known even before its row is on this checkout's main: the
+    // cycle adopts an out-of-plan PR whose row is only on its branch, and records it done in the same
+    // cycle that merges it, before the next fast-forward brings the row (MARXY-190).
+    const known = new Set([...stories().map(x => x.Key), ...Object.keys(s.stories ?? {})]);
+    if (key && !known.has(key)) return { unknown: true };
+    const had = key && Object.hasOwn(s.stories, key);
+    const st = key ? (s.stories[key] ??= { status: 'todo', attempts: 0 }) : null;
+    if (cmd === 'planned') {
+      s.lastPlan = new Date().toISOString();
+      s.mergesAtLastPlan = s.merges;
+    } else if (!transition(cmd, s, st)) {
+      if (key && !had) delete s.stories[key];
+      return { usage: true };
+    }
+    return { st };
+  });
+  if (outcome.unknown) { console.error(`unknown story ${key}: no CSV row and not on the board; out-of-plan work gets a row with node orchestration/out-of-plan.mjs`); process.exit(2); }
+  if (outcome.usage) {
     console.error('usage: state.mjs <show|start|review KEY PR|done|plan-landed KEY|return|escalate|block KEY [reason]|planned> [KEY]');
     process.exit(2);
   }
-  saveState(s);
+  const { st } = outcome;
   if (key) {
     console.log(key, '→', st.status, `(attempts ${st.attempts})`);
     const jira = spawnSync(process.execPath, [here('jira.mjs'), 'move', key, st.status], { encoding: 'utf8' });

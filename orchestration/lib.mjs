@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { acquireLock, releaseLock } from './lease.mjs';
 export const ROOT = new URL('../', import.meta.url).pathname;
 export const here = p => `${ROOT}orchestration/${p}`;
 export const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
@@ -98,18 +99,66 @@ export function stories(text = readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 
   const research = Object.entries(deps().research || {}).filter(([k]) => !k.startsWith('_')).map(([k, v]) => ({ Key: k, Type: 'Research', Summary: v.summary, Paths: v.paths, Acceptance: 'A decision note committed at the path named in the summary, with measurements.', Labels: 'research', Parent: '' }));
   return [...csv, ...research];
 }
-export function state() {
-  const p = here('state.json');
-  if (!existsSync(p)) { const s = { updated: new Date().toISOString(), merges: 0, lastPlan: null, stories: {} }; for (const st of stories()) s.stories[st.Key] = { status: 'todo', attempts: 0 }; writeJson(p, s); }
-  const s = readJson(p);
-  const { stories: healed, moved } = applyJiraRenames(s.stories ?? {}, jiraMapKeys());
-  if (moved.length) {
-    s.stories = healed;
-    saveState(s);
-  }
+function seedState() {
+  const s = { updated: new Date().toISOString(), merges: 0, lastPlan: null, stories: {} };
+  for (const st of stories()) s.stories[st.Key] = { status: 'todo', attempts: 0 };
   return s;
 }
-export function saveState(s) { s.updated = new Date().toISOString(); writeJson(here('state.json'), s); }
+
+/** The board as stored, seeded when missing and healed of renamed keys; `dirty` when either changed it. */
+function loadState(p) {
+  if (!existsSync(p)) return { s: seedState(), dirty: true };
+  const s = readJson(p);
+  const { stories: healed, moved } = applyJiraRenames(s.stories ?? {}, jiraMapKeys());
+  if (moved.length) s.stories = healed;
+  return { s, dirty: moved.length > 0 };
+}
+
+/** The board, read without the lock: writes are atomic, so a reader sees one whole file. */
+export function state() {
+  const { s, dirty } = loadState(here('state.json'));
+  return dirty ? updateState(board => board) : s;
+}
+
+/** Only updateState writes the board; a caller that saved a state() it read earlier could lose another writer's update. */
+function saveState(s, p = here('state.json')) { s.updated = new Date().toISOString(); writeJson(p, s); }
+
+export const STATE_LOCK = here('results/state.lock');
+const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const heldLocks = new Set();
+
+/**
+ * Read the board, let `fn` change it in place, and write it back, holding an advisory lock
+ * (results/state.lock) from the read to the write (MARXY-210). Writes were already atomic, but a
+ * launcher, its detached workers, reap and the cycle each read, changed and saved the whole file, so
+ * two of them at once lost whichever update was saved first. `fn` must not wait on another process:
+ * the lock is held for milliseconds, and a holder that dies is taken over (lease.mjs). Nested calls
+ * in one process reuse the lock. A board `fn` leaves unchanged is not rewritten. Returns what `fn` returns.
+ */
+export function updateState(fn, { path = here('state.json'), lock = STATE_LOCK, timeoutMs = 15_000 } = {}) {
+  const run = () => {
+    const { s, dirty } = loadState(path);
+    const before = JSON.stringify(s);
+    const out = fn(s);
+    if (dirty || JSON.stringify(s) !== before) saveState(s, path);
+    return out;
+  };
+  if (heldLocks.has(lock)) return run();
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const got = acquireLock(lock, { match: process.argv[1] });
+    if (got.ok) break;
+    if (Date.now() > deadline) throw new Error(`the board is locked by pid ${got.holder?.pid ?? '?'} (${lock}); if that process is gone, delete the file`);
+    pause(10 + Math.random() * 40);
+  }
+  heldLocks.add(lock);
+  try {
+    return run();
+  } finally {
+    heldLocks.delete(lock);
+    releaseLock(lock);
+  }
+}
 /** Listed paths as written. A glob keeps every segment, including `*`. */
 export function pathsOf(st) {
   return String(st?.Paths ?? '').split(',').map(s => s.trim()).filter(Boolean).map(s => s.replace(/\/$/, ''));

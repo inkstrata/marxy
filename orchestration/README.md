@@ -72,6 +72,13 @@ The process, including the definitions of ready and done, is `docs/sdlc.md`.
    holder is gone but left commits, changes or output: the ordinary `return`); **quiet** (no
    lease, quiet, with work in the worktree — an in-app subagent leaves no pid to check, so a
    person decides). A worker only records its outcome while the row still names it.
+   **A story claimed by hand** (`state.mjs start KEY`, or an in-app subagent) has no lease, so
+   it is judged by its worktree alone: once its branch's worktree exists, something must happen
+   in it — a commit, an uncommitted change, a `git add` — within `staleMinutes` (90 minutes by
+   default) of the start or of the last such change. A worktree that is still clean and has no
+   commits after that is a ghost: the story returns to todo with its attempt refunded, and a
+   second time parks it `blocked`. Commit or leave a change early, or claim it after the work
+   has begun.
 7. Anything only a person can do goes in `needs-human.md`; the orchestrator continues with
    other stories and re-checks the file each cycle. When nothing is ready and nothing is in
    progress, write a status report to `orchestration/status.md` and stop.
@@ -209,6 +216,7 @@ role's `inApp` slug when you spawn a subagent — verify that slug in the model 
 | `doctor.mjs` | the fleet's health in one read, a command per problem, `--fix` for the safe repairs |
 | `canvases.mjs` | the Cursor canvases (fleet, shipped, roadmap, models, human queue) from the board |
 | `results/*.lease`, `results/cycle.lock` | who runs the loop, the planner and the current cycle |
+| `results/state.lock` | held for milliseconds around every read-modify-write of `state.json` (`lib.updateState`), so a cycle, reap, a launcher and its workers never overwrite each other's update |
 | `results/KEY.json` | written by implementors; the only handshake |
 | `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story, signed by `approve.mjs` against the commit it read; no merge without it |
 | `needs-human.md` | queue of things a person must do |
