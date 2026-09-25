@@ -47,6 +47,7 @@ Before merge when you changed shell, paint, or CLI paths, run
 | A commit message off convention or carrying a trailer | `.githooks/commit-msg` (commitlint + strip) | commit |
 | Skipping the gates that a change needs | `scripts/precheck.mjs` with `scripts/gates-by-path.json` | before the PR, CI runs all |
 | A task card and its CSV row disagree (missing row, Paths too narrow, deps.json orphan, or `depends:` drift) | `scripts/check-cards.mjs` | precheck |
+| A deferral comment in product source that names no story or names one already merged | `scripts/check-deferrals.mjs` with `scripts/allowlists/deferrals.json` | precheck (when `apps/` or `packages/` changes), CI |
 | A result file that omits which test checks which criterion | `orchestration/schema/result.schema.json`, validated in `review.mjs` | review |
 | Rust formatting and warnings | `pnpm lint:rust` (`cargo fmt --check`, `clippy -D warnings`) | precheck (when `src-tauri` changes), CI |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |

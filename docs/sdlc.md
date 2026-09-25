@@ -53,6 +53,9 @@ A story is not dispatched until all of this is true. `ready.mjs` enforces the me
 6. Docs and ADRs updated in the same PR if a decision changed.
 7. CI green, CODEOWNERS approved where required, squash-merged, branch deleted.
 8. The Jira issue is **Done** and carries the PR link.
+9. A story whose Paths exclude the file that makes its behaviour reachable by a reader names, in
+   its PR body, the board key of the story that wires it. If none exists it files one
+   (`node orchestration/jira.mjs task`) before merge.
 
 ## Which of the four definition-of-done commands may skip
 
