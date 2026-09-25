@@ -6,6 +6,9 @@ verify: [pnpm precheck, pnpm done MARXY-216]
 ---
 # MARXY-216 — A conflicted pull request is rebased or parked
 
+**Dropped** (late pass, 2026-09-25). MARXY-217 merged as #203 and starts one conflict resolver.
+Do not implement this card. The label on the CSV row is `dropped`.
+
 **Authority:** [`orchestration/README.md`](../../../orchestration/README.md) "The loop" (review order,
 DIRTY return) and `docs/sdlc.md` (a DIRTY pull request returns to In Progress). No `docs/design/`
 section covers the fleet; the README is the design, and this story edits it. · **Delta:**
