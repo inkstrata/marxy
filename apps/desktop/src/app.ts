@@ -18,7 +18,13 @@ import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-doc
 import { startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { runDeferredStartup, whenIdle } from './startup/idle-work.ts';
-import { currentPosition, restoreScrollToPosition } from './position/index.ts';
+import { currentPosition, restoreScrollToPosition, PositionPersistence } from './position/index.ts';
+import {
+  flushPaletteHistoryFromApp,
+  loadPaletteHistory,
+  resetPaletteHistoryMirror,
+  trackDocumentOpen,
+} from './palette/history.ts';
 import { defaultModeForPath } from './source/default-mode.ts';
 
 /** Minimal surface used by the shell; CM6 types stay on the lazy chunk (MARXY-33). */
@@ -95,6 +101,10 @@ let keysInstalled = false;
 let lastReadingByteOffset = 0;
 let lastReadingFraction = 0;
 let modeToggleBusy = false;
+let positionPersistence: PositionPersistence | null = null;
+let persistenceLoaded = false;
+let scrollPersistenceInstalled = false;
+let restoreAfterTypeset = false;
 
 function readingScroller(): HTMLElement {
   return document.documentElement;
@@ -578,8 +588,78 @@ function rerenderFromBuffer(doc: HTMLElement): void {
 }
 
 /** Read and render `file` through the `render` mark; cold-start paint runs after this (MARXY-183). */
+async function flushReadingPersistence(): Promise<void> {
+  if (!positionPersistence || !openPath || !state.document) return;
+  const pos = currentPosition(readingScroller(), state.document.blocks, openPath, viewMode);
+  positionPersistence.note(openPath, pos);
+  await positionPersistence.flush();
+}
+
+async function flushPaletteHistory(): Promise<void> {
+  const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
+    .__marxyPalette;
+  if (!shell.configPaths) return;
+  await flushPaletteHistoryFromApp({ ...shell, configPaths: shell.configPaths }, palette?.session);
+}
+
+async function flushAllPersistence(): Promise<void> {
+  await flushReadingPersistence();
+  await flushPaletteHistory();
+}
+
+function installScrollPersistence(): void {
+  if (scrollPersistenceInstalled || !positionPersistence) return;
+  scrollPersistenceInstalled = true;
+  readingScroller().addEventListener(
+    'scroll',
+    () => {
+      if (!positionPersistence || !openPath || !state.document || viewMode !== 'rendered') return;
+      const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+      positionPersistence.note(openPath, pos);
+    },
+    { passive: true },
+  );
+}
+
+async function ensurePersistenceLoaded(fallbackRoot: string): Promise<void> {
+  if (persistenceLoaded) return;
+  persistenceLoaded = true;
+  // A shell without configPaths (ADR-0026) has nowhere to keep state: read and write nothing.
+  if (!shell.configPaths) return;
+  const io = {
+    readFile: (path: string) => shell.readFile(path),
+    writeFileAtomic: (path: string, bytes: Uint8Array) => shell.writeFileAtomic(path, bytes),
+    dataDirectory: async () => (await shell.configPaths!()).data,
+  };
+  positionPersistence = await PositionPersistence.open(io);
+  await loadPaletteHistory({ ...shell, configPaths: shell.configPaths }, fallbackRoot);
+  installScrollPersistence();
+  restoreAfterTypeset = true;
+}
+
+/** After `first_text`, positions.json may ask to move the document already on screen (MARXY-195). */
+async function restorePersistedPositionIfNeeded(): Promise<void> {
+  if (!positionPersistence || !openPath || !state.document || !documentBuffer) return;
+  const stored = positionPersistence.positionForOpen(openPath, documentBuffer.bytes.length);
+  if (!stored) return;
+  lastReadingByteOffset = stored.byteOffset;
+  lastReadingFraction = stored.fraction;
+  if (stored.mode === 'source') {
+    await showSource(stored.byteOffset);
+    return;
+  }
+  restoreScrollToPosition(readingScroller(), state.document.blocks, stored);
+  landOn(stored.byteOffset);
+  holdAnchor();
+}
+
 async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?: number): Promise<RenderEvidence> {
   const bytes = await shell.readFile(file);
+  let landing = at;
+  if (landing === undefined && positionPersistence) {
+    const stored = positionPersistence.positionForOpen(file, bytes.length);
+    if (stored) landing = stored.byteOffset;
+  }
   teardownDocument();
   openPath = file;
   bytesOnDisk = bytes.slice();
@@ -604,7 +684,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   document.title = `${file.split('/').pop()} — Marxy`;
   // The grid pass also builds the block list the reading position is read from.
   keepOnGrid(doc);
-  landOn(at);
+  landOn(landing);
   const evidence = renderEvidence(doc);
   await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
   return evidence;
@@ -612,7 +692,9 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
 
 async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void> {
   await typesetDocument(doc);
-  await shell.mark('position_restored', Date.now());
+  const shouldRestore = restoreAfterTypeset;
+  restoreAfterTypeset = false;
+  if (shouldRestore) await restorePersistedPositionIfNeeded();
   await whenIdle(async () => {
     await runDeferredStartup({
       shell,
@@ -623,6 +705,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
     const themeDir = await themeDirFromConfig(shell);
     await restartUserTheme(themeDir);
   });
+  await shell.mark('position_restored', Date.now());
   if (defaultModeForPath(file) === 'source') {
     await showSource(0);
   } else {
@@ -640,6 +723,7 @@ function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void
 
 async function openReplacing(file: string, at?: number): Promise<void> {
   const doc = document.getElementById('doc')!;
+  if (openPath && file !== openPath) await flushReadingPersistence();
   if (file === openPath && state.document && at !== undefined) {
     // A heading in the document already on screen: move, do not read and set it again.
     if (viewMode === 'source') await leaveSourceForRendered();
@@ -648,6 +732,7 @@ async function openReplacing(file: string, at?: number): Promise<void> {
   }
   try {
     await openDocumentThroughRenderMark(file, doc, at);
+    trackDocumentOpen(file);
     await finishDocumentOpen(file, doc);
   } catch (e) {
     // Nothing of the last document may outlive the page that showed it.
@@ -720,6 +805,7 @@ async function boot(): Promise<void> {
   // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
+  await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
   return finish(0);
 }
@@ -729,7 +815,20 @@ async function boot(): Promise<void> {
  * browser harness can name a document without Tauri.
  */
 export async function startApp(injected: AppShell, opts?: { argv?: readonly string[] }): Promise<AppHandle> {
-  shell = injected;
+  persistenceLoaded = false;
+  positionPersistence = null;
+  restoreAfterTypeset = false;
+  scrollPersistenceInstalled = false;
+  resetPaletteHistoryMirror();
+  chain = Promise.resolve();
+  const base = injected;
+  shell = {
+    ...base,
+    quit: async (code) => {
+      await flushAllPersistence();
+      return base.quit(code);
+    },
+  };
   launchArgs = opts?.argv ? [...opts.argv] : [];
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
@@ -742,7 +841,7 @@ export async function startApp(injected: AppShell, opts?: { argv?: readonly stri
     get state() { return state; },
     dispatch() {},
     commands() { return []; },
-    shell: injected,
+    shell,
     ready,
     open: replaceOpenDocument,
     currentPath: () => openPath,

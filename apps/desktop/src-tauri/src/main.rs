@@ -15,6 +15,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::RunEvent;
 use tauri::{Emitter, Manager};
 
+use commands::app::config_paths;
+
 fn now_ms() -> f64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -373,6 +375,7 @@ fn main() {
             unwatch_root,
             commands::fs::image_size,
             commands::fs::allow_asset_scope,
+            config_paths,
             clipboard_write,
         ])
         .build(tauri::generate_context!())
