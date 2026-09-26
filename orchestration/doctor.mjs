@@ -5,8 +5,10 @@
 // looks wrong. It reads everything that can go stale — the loop, the cycle lock, the planner, every
 // in-flight story's worker, the orchestrator checkout, and why nothing is ready — and names a
 // command for each problem. `--fix` applies only the repairs that cannot lose work: it reaps ghost
-// and dead stories (reap.mjs), clears locks whose holder is gone, and refreshes the canvases.
-// Anything that needs judgement (a quiet story with work in its worktree) is named, never fixed.
+// and dead stories (reap.mjs), clears locks whose holder is gone, parks uncommitted tracked
+// edits under docs/plan or orchestration (the stash keeps the bytes; MARXY-223), and refreshes
+// the canvases. Anything that needs judgement (a quiet story with work in its worktree, a
+// checkout off main) is named, never fixed.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -17,6 +19,8 @@ import { survey, runReap, VERDICT } from './reap.mjs';
 import { selectReady } from './ready.mjs';
 import { plannerGate, PLANNER_LEASE, PLANNER_LOG } from './plan-dispatch.mjs';
 import { isAuthFailure } from './dispatch.mjs';
+import { trackedBoardEdits } from './board-check.mjs';
+import { parkDirtyBoard, readBoardStatus } from './board-park.mjs';
 
 /**
  * Findings from a snapshot of the fleet. Pure, so each rule has a test.
@@ -46,6 +50,9 @@ export function diagnose(x) {
   else if (x.main.behind > 0 && x.main.ahead > 0) add('fail', 'checkout', `main has diverged from origin/main (${x.main.ahead} ahead, ${x.main.behind} behind)`, `git -C ${ROOT} pull --rebase`);
   else if (x.main.behind > 0) add('warn', 'checkout', `main is ${x.main.behind} behind origin/main; the next cycle fast-forwards it`);
   else if (x.main.ahead > 0) add('warn', 'checkout', `main has ${x.main.ahead} local commit(s) not on origin/main`, `git -C ${ROOT} log --oneline origin/main..main`);
+  if (x.main.branch === 'main' && (x.main.dirtyBoard ?? []).length) {
+    add('fail', 'checkout', `uncommitted ${x.main.dirtyBoard.join(', ')} hold dispatch`, 'node orchestration/board-park.mjs');
+  }
 
   for (const r of x.inflight) {
     if (r.verdict === VERDICT.LIVE) add('ok', r.key, `in progress — ${r.why}`);
@@ -99,7 +106,10 @@ export function snapshot({ m = models(), board = state(), nowMs = Date.now() } =
     statusAgeMinutes: existsSync(statusPath) ? ageMinutes(new Date(statSync(statusPath).mtimeMs).toISOString(), nowMs) : null,
     // A cycle that blocks longer than this is hung: dispatch no longer waits on implementors.
     stuckCycleMinutes: m.stuckCycleMinutes ?? 30,
-    main: { branch: git(['branch', '--show-current']), ahead: counts[0] || 0, behind: counts[1] || 0 },
+    main: {
+      branch: git(['branch', '--show-current']), ahead: counts[0] || 0, behind: counts[1] || 0,
+      dirtyBoard: trackedBoardEdits(readBoardStatus(ROOT)),
+    },
     inflight: survey({ board, m, nowMs }),
     parked: Object.entries(board.stories ?? {}).filter(([, r]) => r.status === 'blocked' && r.reaps).map(([key, r]) => ({ key, reason: r.parkedReason ?? 'reaped' })),
     ready,
@@ -145,6 +155,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   let x = snapshot();
   if (argv.includes('--fix')) {
     fix(x);
+    if (x.main.branch === 'main' && (x.main.dirtyBoard ?? []).length) {
+      try {
+        const parked = parkDirtyBoard({ root: ROOT, files: x.main.dirtyBoard, needsHumanPath: here('needs-human.md') });
+        console.log(parked.parked
+          ? `fix: parked ${parked.files.join(', ')} (${parked.stashMessage})`
+          : `fix: board not parked — ${parked.why}`);
+      } catch (e) {
+        console.log(`fix: board not parked — ${String(e.message ?? e).split('\n')[0]}`);
+      }
+    }
     await refreshCanvases(console.log);
     x = snapshot();
   }
