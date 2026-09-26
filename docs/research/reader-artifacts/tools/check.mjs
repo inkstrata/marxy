@@ -136,6 +136,66 @@ if (existsSync(storiesPath)) {
   }
 }
 
+// coverage.json: every unit of the handbook has exactly one disposition, and it agrees with the board.
+const coveragePath = join(root, 'coverage.json');
+const DISPOSITIONS = ['story', 'existing', 'applied', 'partial', 'deferred', 'declined', 'default'];
+if (!existsSync(coveragePath)) fail('handbook', 'coverage.json is missing');
+else {
+  const coverage = JSON.parse(readFileSync(coveragePath, 'utf8'));
+  const units = coverage.units ?? [];
+  const read = (f) => readFileSync(join(root, f), 'utf8');
+  const section = (text, heading) => (text.split(`\n## ${heading}\n`)[1] ?? '').split('\n## ')[0];
+  const firstCells = (text) => text.split('\n').filter((l) => /^\| /.test(l) && !/^\|\s*-/.test(l))
+    .map((l) => l.split('|')[1].trim()).filter((c) => !['Setting', 'Operation'].includes(c));
+  const spec = read('10-spec.md');
+  const expected = {
+    default: firstCells(section(spec, 'Defaults and ranges')),
+    operation: firstCells(section(spec, 'Operations')),
+    rule: [...section(spec, 'Coupling rules').matchAll(/^(\d+)\. \*\*/gm)].map((m) => m[1]),
+    verification: [...section(spec, 'Verification').matchAll(/^\*\*([^*]+)\*\*/gm)].map((m) => m[1]),
+    proposal: readdirSync(join(root, 'proposals')).map((f) => /^(P\d\d)-/.exec(f)?.[1]).filter(Boolean),
+    declined: [...section(read('stories.md'), 'Stories the evidence does not support filing').matchAll(/^- \*\*([^*]+)\*\*/gm)].map((m) => m[1]),
+    taste: [...section(read('limits.md'), 'What remains taste').matchAll(/^- \*\*([^*]+)\*\*/gm)].map((m) => m[1]),
+    'handbook-story': parseCsv(read('stories.csv')).slice(1).filter((r) => r.length > 1).map((r) => r[0]),
+  };
+  const ids = new Set();
+  for (const x of units) {
+    if (ids.has(x.id)) fail('coverage.json', `${x.id} is listed twice`);
+    ids.add(x.id);
+    if (!DISPOSITIONS.includes(x.disposition)) fail('coverage.json', `${x.id}: unknown disposition ${x.disposition}`);
+    if (['story', 'existing', 'partial', 'default'].includes(x.disposition) && !x.keys?.length) fail('coverage.json', `${x.id}: ${x.disposition} names no key`);
+    if (['deferred', 'partial'].includes(x.disposition) && !coverage.bundles?.[x.bundle]) fail('coverage.json', `${x.id}: ${x.disposition} names no known bundle`);
+    if (x.disposition === 'declined' && !x.note) fail('coverage.json', `${x.id}: declined without a reason`);
+    if (!expected[x.kind]) fail('coverage.json', `${x.id}: unknown kind ${x.kind}`);
+  }
+  for (const [kind, specs] of Object.entries(expected)) {
+    if (!specs.length) fail('coverage.json', `found no ${kind} units in the handbook; has a heading moved?`);
+    const listed = units.filter((x) => x.kind === kind).map((x) => x.spec);
+    for (const s of specs) {
+      const n = listed.filter((l) => l === s).length;
+      if (n !== 1) fail('coverage.json', `${kind} "${s}" has ${n} dispositions, expected 1`);
+    }
+    for (const l of listed) if (!specs.includes(l)) fail('coverage.json', `${kind} "${l}" is not in the handbook`);
+  }
+  // Keys must be board rows, and a card that names its units must name exactly the ledger's.
+  const repo = join(root, '..', '..', '..');
+  const boardKeys = new Set(parseCsv(readFileSync(join(repo, 'docs/plan/jira-issues.csv'), 'utf8')).slice(1).map((r) => r[0]));
+  const byKey = {};
+  for (const x of units) for (const k of x.keys ?? []) {
+    if (!boardKeys.has(k)) fail('coverage.json', `${x.id}: ${k} is not a row in docs/plan/jira-issues.csv`);
+    (byKey[k] ??= []).push(x.id);
+  }
+  for (const [k, list] of Object.entries(byKey)) {
+    const card = join(repo, 'docs/plan/tasks', `${k}.md`);
+    const line = existsSync(card) ? /^\*\*Handbook units closed by this story\*\*.*$/m.exec(readFileSync(card, 'utf8'))?.[0] : null;
+    if (!line) continue;
+    const named = [...line.matchAll(/`([A-Za-z0-9.-]+)`/g)].map((m) => m[1]).filter((id) => id !== 'coverage.json');
+    const missing = list.filter((id) => !named.includes(id));
+    const extra = named.filter((id) => !list.includes(id));
+    if (missing.length || extra.length) fail(`docs/plan/tasks/${k}.md`, `units disagree with coverage.json (missing ${missing.join(', ') || 'none'}; extra ${extra.join(', ') || 'none'})`);
+  }
+}
+
 if (problems.length) {
   console.error(problems.map((p) => `✗ ${p}`).join('\n'));
   console.error(`\n${problems.length} problem(s).`);

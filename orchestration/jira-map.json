@@ -132,6 +132,19 @@
     "MARXY-NEW-worktree-reserves-paths": "MARXY-202",
     "MARXY-NEW-merged-settles": "MARXY-213",
     "MARXY-NEW-dirty-owner": "MARXY-216",
-    "MARXY-NEW-blocked-worktree": "MARXY-220"
+    "MARXY-NEW-blocked-worktree": "MARXY-220",
+    "MARXY-NEW-art-reserved-names": "MARXY-229",
+    "MARXY-NEW-art-copy-exact": "MARXY-230",
+    "MARXY-NEW-art-source-map-fidelity": "MARXY-231",
+    "MARXY-NEW-art-contract": "MARXY-232",
+    "MARXY-NEW-art-sanitiser-policy": "MARXY-233",
+    "MARXY-NEW-art-agent-heads": "MARXY-234",
+    "MARXY-NEW-art-fence-marks": "MARXY-235",
+    "MARXY-NEW-art-hidden-marks": "MARXY-236",
+    "MARXY-NEW-art-readme-presentation": "MARXY-237",
+    "MARXY-NEW-art-removal-notice": "MARXY-238",
+    "MARXY-NEW-art-code-as-read": "MARXY-239",
+    "MARXY-NEW-art-links": "MARXY-240",
+    "MARXY-NEW-art-a11y-gates": "MARXY-241"
   }
 }
