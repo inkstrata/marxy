@@ -35,6 +35,24 @@ export function htmlRouteProblems(r, text, innerHtmlAllowedIn) {
   );
 }
 
+/** Registry names must appear literally; assembling them evades the attribute scan (MARXY-229, P12). */
+export function constructedRegistryNameProblems(rel, text) {
+  const problems = [];
+  if (/data-marxy-\$\{['"]/.test(text)) {
+    problems.push(`${rel}: data-marxy-* attribute name built with a template literal${fix('spell the registered name literally, e.g. data-marxy-remote')}`);
+  }
+  if (/(?:['"]data-marxy-['"]\s*\+|\+\s*['"][a-z-]+['"]\s*.*data-marxy|data-marxy-['"]\s*\.concat\s*\()/.test(text)) {
+    problems.push(`${rel}: data-marxy-* attribute name built by concatenation${fix('spell the registered name literally')}`);
+  }
+  if (/marxy-\$\{['"]/.test(text)) {
+    problems.push(`${rel}: marxy-* name built with a template literal${fix('use a literal registered class or data attribute')}`);
+  }
+  if (/(?:['"]marxy-['"]\s*\+|marxy-['"]\s*\.concat\s*\()/.test(text)) {
+    problems.push(`${rel}: marxy-* name built by concatenation${fix('use a literal registered class or data attribute')}`);
+  }
+  return problems;
+}
+
 const reg = registry();
 const staged = process.argv.includes('--staged');
 const src = /\.(m?[jt]sx?|rs|css|html)$/;
@@ -51,6 +69,7 @@ for (const f of files) {
   if (!isTestFile) for (const m of text.matchAll(/class(?:Name)?\s*=\s*["'`]([^"'`]*)["'`]/g)) for (const c of m[1].split(/\s+/).filter(Boolean)) if (!/^(?:marxy-[a-z0-9-]+|language-[A-Za-z0-9#+._-]+|cm-[a-z-]+|katex[a-z-]*)$/.test(c) && /^[a-z]/.test(c) && !c.includes('${')) problems.push(`${r}: class "${c}" must start with "marxy-" (or be a CodeMirror/KaTeX class)${fix('rename to marxy-<thing>')}`);
   for (const m of text.matchAll(/--([a-z][a-z0-9-]*)\s*:/g)) if (r.endsWith('.css') && !m[1].startsWith('marxy-') && !m[1].startsWith('lb') && !/^(cm|katex)/.test(m[1])) problems.push(`${r}: custom property "--${m[1]}" must be "--marxy-*" (contract) or a private "--lb"${fix('rename')}`);
   problems.push(...htmlRouteProblems(r, text, reg.innerHtmlAllowedIn));
+  if (!isTestFile) problems.push(...constructedRegistryNameProblems(r, text));
 }
 if (fail(problems)) process.exit(1);
 console.log(`registry ok (${files.length} files)`);

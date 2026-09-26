@@ -42,7 +42,8 @@ export function renderSafeHtml(source: string | Uint8Array, options: RenderOptio
  *
  * Block HTML islands are sanitised first so their removals carry the island's `src`; inline raw HTML
  * is judged in the document pass so a tag split across nodes keeps its shape (ADR-0023 Amendment 1).
- * The renderer pass then adds byte provenance under secret names and clears the reserved-id rule.
+ * The renderer pass then adds byte provenance under secret names; reserved ids and classes stay refused
+ * on anything that does not carry those secret names (ADR-0023, ADR-0036).
  */
 export function renderDocumentSafeHtml(document: Document, policy: Policy = DEFAULT_POLICY): RenderResult {
   const secret = secretNames();
