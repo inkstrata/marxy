@@ -15,13 +15,14 @@
    hold every Phase 2 and Phase 3 dispatch (`earlierPhaseOpen`). Phase 3 is where operations, safety
    and themes already live. Two are `cross-phase` because they fix reproduced defects against the
    commitments: the reserved-id bypass (security) and copy rewriting bytes (commitment 4).
-2. **One ADR instead of seventeen.** [ADR-0036](../../adr/0036-artifact-units.md) (proposed) gives
+2. **One ADR instead of seventeen.** [ADR-0036](../../adr/0036-artifact-units.md) (accepted 2026-09-26) gives
    every draft one outcome: 8 adopted, 2 declined (P11 scroller, P16 Mermaid), 3 deferred to v1.1
    (P04, P09, P10), and 4 needing no decision (P12, P13, P15, P17). It removes the three front-matter
    tokens the draft wanted; the head reuses `--marxy-size-caption`. The contract change shrinks to four
    diff colours.
-3. **One human gate.** MARXY-232 is `human-gated`. The author accepts ADR-0035 and ADR-0036 by
-   removing the label, and the story is then a contract-only PR. Three stories wait on it directly
+3. **One human gate, already passed.** MARXY-232 was drafted `human-gated`. The author accepted
+   ADR-0036 on 2026-09-26, before this PR merged, and the label is removed. MARXY-232 is a contract-only PR
+   that adds the four tokens and records ADR-0035 as accepted. Three stories wait on it directly
    (MARXY-233, MARXY-234, MARXY-235) and two more through MARXY-233 (MARXY-237, MARXY-238). The
    other seven do not, so the fleet has work while the author reads.
 4. **Two edits to existing rows**, as the handbook asked ("extend the existing story"):
@@ -43,7 +44,7 @@
 | MARXY-229 reserved names (cross-phase) | reserved-id-bypass, registry-hygiene | — | CODEOWNERS review |
 | MARXY-230 exact copy (cross-phase) | copy-exactness, copy-section-html | — | — |
 | MARXY-231 source-map fidelity | task-marker-code-span, nested-source-map, fidelity-property | MARXY-230 | — |
-| MARXY-232 ADRs and diff tokens | ADR-0035, ADR-0036, four diff tokens | — | **accept the ADRs** |
+| MARXY-232 ADRs and diff tokens | ADR-0035, ADR-0036, four diff tokens | — | none (ADR-0036 accepted 2026-09-26) |
 | MARXY-233 sanitiser policy | keep-xml-tag-content, removal records, details and hero/picture policy | MARXY-232, MARXY-229, MARXY-44 | CODEOWNERS review |
 | MARXY-234 front matter, alerts | front-matter-head, alerts-label-first, diagram caption, TOML titles | MARXY-232 | queue row |
 | MARXY-235 diff, console, log marks | diff-tint, console-and-ansi, log weight, long lines | MARXY-232, MARXY-241 | queue row |
@@ -99,7 +100,7 @@ derived JSONL view) and **README extras** (emoji shortcodes).
   and no grammar.
 - **`MARXY-239`** reads `.editorconfig` through the shell. It must stay inside the indexed
   root, which MARXY-45's new `read_file` root check will also enforce. Whichever lands second adapts.
-- **MARXY-232** is human-gated, and nothing escalates until the label is removed.
+- **MARXY-232** is a contract PR: `pnpm test` byte-compares the contract, so the pin must move in the same diff.
 
 ## Tripwires checked
 

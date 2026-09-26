@@ -4,20 +4,20 @@ design: [05-theme]
 depends: []
 verify: [pnpm precheck, pnpm done MARXY-232]
 ---
-# MARXY-232 — Accept ADR-0036 and add the four diff colour tokens to the theme contract
+# MARXY-232 — Add the four diff colour tokens to the theme contract under the accepted ADR-0036
 
 **Design:** [05-theme](../../design/05-theme.md) · **Research:** [Reader Artifacts Handbook](../../research/reader-artifacts/10-spec.md) (ADR-0035) · **ADR:** [ADR-0036](../../adr/0036-artifact-units.md) · **Delta:** [2026-09-26-reader-artifacts](../deltas/2026-09-26-reader-artifacts.md) · **Depends on:** nothing.
 **Handbook units closed by this story** (`docs/research/reader-artifacts/coverage.json`): `diff.colour`, `diff.tints-dark`, `rule.7-token-reader-check`, `proposal.P01`, `proposal.P03`, `proposal.P05`, `proposal.P07`, `proposal.P08`, `proposal.P14`, `hs.diff-tint`.
 
-**Needs a person first.** The author reads `docs/adr/0036-artifact-units.md` (one page, 13 clauses, each with its recommendation) and removes `human-gated` from this row to accept it, or strikes clauses first.
+**No longer waits on a person.** The author accepted ADR-0036 on 2026-09-26 (MARXY-228) and removed `human-gated`. Removing it also records the author's consent to ADR-0035, which this story marks accepted.
 
 **Outcome.** The decisions the reader-artifacts stories depend on are on record, and themes can colour diffs.
 
 ## What is wrong today
-ADR-0035 and ADR-0036 are proposed. Four stories (`MARXY-233`, `MARXY-234`, `MARXY-235`, and through them the README and notice stories) wait on this.
+ADR-0036 is accepted; ADR-0035 is still marked proposed. The token half of clause 6 is not in the contract. Three stories wait on this directly (MARXY-233, MARXY-234, MARXY-235), and MARXY-237 and MARXY-238 wait through MARXY-233.
 
 ## Files and signatures
-- `docs/adr/0036-artifact-units.md` — status → accepted, date. If the author struck a clause, carry the strike into every dependent card in a follow-up plan delta, not here.
+- `docs/adr/0036-artifact-units.md` — already accepted 2026-09-26; do not change it. If a clause must change, that is a new ADR, not an edit.
 - `docs/adr/0035-artifact-presentation-follows-the-research.md` — status → accepted, date.
 - `packages/theme/src/tokens.css` — the four tokens with a one-line comment each.
 - `packages/theme/tokens.contract.json` — names and kind `colour`.
@@ -25,8 +25,8 @@ ADR-0035 and ADR-0036 are proposed. Four stories (`MARXY-233`, `MARXY-234`, `MAR
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
 
 ## Do this, in order
-1. Author reads ADR-0036 and removes the `human-gated` label (or edits the ADR).
-2. Implementor flips the statuses and adds the tokens.
+1. Mark ADR-0035 accepted with the date; leave ADR-0036 as it is.
+2. Add the tokens.
 3. Update the contract pin in the same PR.
 
 ## Tests → expected

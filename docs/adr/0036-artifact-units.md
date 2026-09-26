@@ -1,6 +1,6 @@
 # ADR-0036 — Artifact units: what the renderer keeps, reports, marks and copies
 
-**Status:** proposed (MARXY-228) · **Source:** the Reader Artifacts Handbook,
+**Status:** accepted 2026-09-26 (the author, on MARXY-228) · **Source:** the Reader Artifacts Handbook,
 `docs/research/reader-artifacts/` (drafts P01–P17 in `proposals/`) · **Depends on:** ADR-0035
 (proposed; this ADR applies it) · **Amends:** ADR-0009 §1 (comments and unknown tags), ADR-0023
 (reserved identifiers), design 13-trust (what the per-document grant widens) · **Supersedes:** nothing
