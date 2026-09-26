@@ -54,3 +54,25 @@ test('start --dry-run creates nothing and names the branch and worktree', () => 
   assert.match(r.stdout, /git worktree add --no-track -b chore\/MARXY-0-do-a-thing .*marxy-wt\/MARXY-0 origin\/main/);
   assert.equal(readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 'utf8').includes('MARXY-0,'), false);
 });
+
+test('upserting the first, a middle or the last row leaves every other line byte-identical, past newline, \\r and short-row cells', () => {
+  const csv = `${HEAD}MARXY-0,Story,short row parseCsv drops\nMARXY-1,Story,one,,MARXY-4,ops,a,"multi\nline",x\nMARXY-2,Story,two,,MARXY-4,ops,b,d,"has\r\nCRLF and\rbare CR"\nMARXY-3,Story,three,,MARXY-4,ops,c,d,z\nMARXY-4,Story,four,,MARXY-4,ops,e,"tail\nline",w\n`;
+  const rows = parseCsv(csv);
+  for (const target of rows) {
+    const changed = { ...target, Summary: `${target.Summary} X` };
+    const next = upsertRow(csv, changed);
+    const after = parseCsv(next);
+    assert.deepEqual(after.map(r => r.Key), rows.map(r => r.Key), `${target.Key}: keys and order kept`);
+    assert.deepEqual(after.find(r => r.Key === target.Key), changed);
+    for (const r of rows.filter(r => r.Key !== target.Key)) assert.deepEqual(after.find(x => x.Key === r.Key), r);
+    // the only bytes that differ are the replaced row's Summary cell
+    const at = csv.indexOf(`,${target.Summary},`);
+    assert.equal(next, csv.slice(0, at) + `,${target.Summary} X,` + csv.slice(at + target.Summary.length + 2));
+  }
+});
+
+test('the same holds when the last row has no trailing newline', () => {
+  const csv = `${HEAD}MARXY-1,Story,one,,MARXY-4,ops,a,d,x\nMARXY-2,Story,two,,MARXY-4,ops,b,d,y`;
+  const next = upsertRow(csv, { ...parseCsv(csv)[1], Summary: 'two X' });
+  assert.equal(next, csv.replace(',two,', ',two X,'));
+});
