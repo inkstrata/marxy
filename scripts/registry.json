@@ -48,7 +48,8 @@
     "data-marxy-typeset",
     "data-marxy-mode",
     "data-marxy-variant",
-    "data-marxy-doc"
+    "data-marxy-doc",
+    "data-marxy-remote"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",

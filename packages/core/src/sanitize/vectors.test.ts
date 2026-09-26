@@ -91,3 +91,71 @@ test('the whole enumeration fails against the unsanitised hostile render', () =>
   const failures = checkAllVectors(unsafeHostile, RENDERED_POLICY);
   assert.ok(failures.length >= 14, `expected the fixture to trip most vectors unsanitised; it tripped ${failures.length}`);
 });
+
+/** MARXY-229: reserved and clobbering identifiers, with and without forged public provenance. */
+const MARXY_229_RESERVED: readonly { readonly id: string; readonly html: string; readonly assert: (out: string) => void }[] = [
+  {
+    id: 'marxy-id',
+    html: '<h2 id="marxy-fn-1">x</h2>',
+    assert: (out) => {
+      assert.doesNotMatch(out, /\sid="marxy-fn-1"/);
+      assert.match(out, /<h2[^>]*>x<\/h2>/);
+    },
+  },
+  {
+    id: 'marxy-name',
+    html: '<a name="marxy-evil" href="https://example.invalid/">x</a>',
+    assert: (out) => {
+      assert.doesNotMatch(out, /\sname="marxy-evil"/i);
+      assert.match(out, /<a[^>]*href="https:\/\/example\.invalid\/"[^>]*>x<\/a>/);
+    },
+  },
+  {
+    id: 'marxy-class',
+    html: '<code class="marxy-katex other">x</code>',
+    assert: (out) => {
+      assert.doesNotMatch(out, /marxy-katex/);
+      assert.match(out, /<code[^>]*>x<\/code>/);
+    },
+  },
+  {
+    id: 'clobber-cookie',
+    html: '<h2 id="cookie">x</h2>',
+    assert: (out) => {
+      assert.doesNotMatch(out, /\sid="cookie"/i);
+      assert.match(out, /<h2[^>]*>x<\/h2>/);
+    },
+  },
+  {
+    id: 'clobber-location',
+    html: '<h2 id="location">x</h2>',
+    assert: (out) => {
+      assert.doesNotMatch(out, /\sid="location"/i);
+    },
+  },
+  {
+    id: 'clobber-forms-name',
+    html: '<a name="forms" href="https://example.invalid/">x</a>',
+    assert: (out) => {
+      assert.doesNotMatch(out, /\sname="forms"/i);
+    },
+  },
+];
+
+for (const vector of MARXY_229_RESERVED) {
+  for (const [label, forged] of [['plain', ''], ['forged-provenance', ' data-marxy-s="0" data-marxy-e="1"']] as const) {
+    test(`MARXY-229 ${vector.id} ${label}: sanitiser refuses it`, () => {
+      const input = vector.html.replace(/^(<\w+)/, `$1${forged}`);
+      vector.assert(sanitizeHtml(input, RENDERED_POLICY).html);
+    });
+    test(`MARXY-229 ${vector.id} ${label}: pipeline refuses it`, () => {
+      const doc = `${vector.html.replace(/^(<\w+)/, `$1${forged}`)}\n`;
+      vector.assert(renderSafeHtml(doc, { file: `probe/${vector.id}-${label}.md` }).html);
+    });
+  }
+}
+
+test('MARXY-229: ordinary authored heading ids such as install are kept', () => {
+  const out = renderSafeHtml('<h2 id="install">install</h2>\n', { file: 'install.md' }).html;
+  assert.match(out, /\sid="install"/);
+});
