@@ -22,7 +22,12 @@ const WORKFLOW_PATH = `${ROOT}.github/workflows/ci.yml`;
 // the board every gate reads: all used to count as docs, so a PR touching only them skipped `fast`
 // and no orchestration test or board check ran in CI — which is how a red needs-human test reached
 // main (MARXY-191). Their gates hash is main's, so `gates` still reuses main's record; only `fast` runs.
-const BOARD_OR_CODE = /^(orchestration\/.*\.(mjs|js|json)$|docs\/plan\/jira-issues\.csv$)/;
+//
+// Some prose is also read by a test or gate, and a change to it can turn that test red: the loop
+// script, agent prompts and git hooks are code; task cards are checked by check-cards; AGENTS.md,
+// orchestration/README.md and the process docs are asserted by docs.test.mjs and friends. A PR
+// touching only those used to skip every one of the checks that guard them.
+const BOARD_OR_CODE = /^(orchestration\/.*\.(mjs|js|json|sh)$|orchestration\/prompts\/|orchestration\/README\.md$|\.githooks\/|docs\/plan\/jira-issues\.csv$|docs\/plan\/tasks\/|docs\/(sdlc|hygiene|plan|ci-contract)\.md$|AGENTS\.md$)/;
 const isDoc = f => !BOARD_OR_CODE.test(f) && (/^(docs\/|orchestration\/|\.cursor\/|\.githooks\/|README\.md$|CONTRIBUTING\.md$|CHANGELOG\.md$|AGENTS\.md$|LICENSE$|\.editorconfig$|\.gitattributes$|fonts\/.*\/(LICENSE|README)|docs\/.*\.png$)/.test(f) || (/\.md$/.test(f) && !f.startsWith('fixtures/')));
 
 // Unchanged from before MARXY-105: which broad categories a diff touches, so `fast` and `browser`
@@ -180,7 +185,10 @@ function selftest() {
 
   // --- classify() / docs_only, unchanged behaviour ---------------------------------------------
   report(classify(['docs/foo.md']).docs_only === true, 'classify: a docs-only diff is docs_only');
-  report(classify(['orchestration/prompts/planner.md', 'docs/plan/tasks/MARXY-1.md']).docs_only === true, 'classify: orchestration prose and task cards are docs_only');
+  report(classify(['docs/research/x.md', 'orchestration/needs-human.md']).docs_only === true, 'classify: prose no test reads is docs_only');
+  for (const f of ['orchestration/prompts/planner.md', 'docs/plan/tasks/MARXY-1.md', 'orchestration/loop.sh', '.githooks/pre-push', 'AGENTS.md', 'orchestration/README.md', 'docs/ci-contract.md']) {
+    report(classify([f]).docs_only === false, `classify: ${f} is read by a test or gate, so it is not docs_only`);
+  }
   report(classify(['orchestration/cycle.mjs']).docs_only === false, 'classify: orchestration code is not docs_only, so fast runs its tests (MARXY-191)');
   report(classify(['orchestration/deps.json']).docs_only === false, 'classify: deps.json is the board, not docs (MARXY-191)');
   report(classify(['docs/plan/jira-issues.csv']).docs_only === false, 'classify: the board CSV is not docs, so check-cards runs in CI (MARXY-191)');
@@ -283,7 +291,10 @@ function selftest() {
   process.exit(0);
 }
 
-const args = process.argv.slice(2);
-if (args.includes('--selftest')) selftest();
-else if (args.includes('--resolve')) phaseResolve();
-else phaseDetect(args[0]);
+// Only as a command: importing classify() must not run a phase (and write results/ci-changes.json).
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const args = process.argv.slice(2);
+  if (args.includes('--selftest')) selftest();
+  else if (args.includes('--resolve')) phaseResolve();
+  else phaseDetect(args[0]);
+}

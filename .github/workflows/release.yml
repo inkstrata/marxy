@@ -46,3 +46,7 @@ jobs:
           releaseDraft: false
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      # The installer-size budget and katex-in-bundle check: PR CI builds no installer, so this is
+      # the only place they can measure one, and a missing bundle fails here instead of skipping.
+      - run: pnpm gate:bundle
+        env: { MARXY_BUNDLE_REQUIRED: '1' }

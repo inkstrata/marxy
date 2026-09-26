@@ -134,7 +134,7 @@ cannot pass `--strict`.**
 | --- | --- | --- |
 | `gate:no-network` | something reached off the machine, or unsanitised markup reached the DOM | ADR-0009; the gate measures in both engines against live controls |
 | `gate:aesthetics` | a mechanical aesthetics check moved | `docs/aesthetics-acceptance.md`; tune with `--workers N` locally, never by loosening a threshold |
-| `gate:bundle` | the bundle grew past budget, or the parser resolved katex | a byte count, not a duration — it is a real regression |
+| `gate:bundle` | the production JS reaches the memory shell or harness; on the release workflow only (the one place installers are built, `MARXY_BUNDLE_REQUIRED=1`), an installer past budget or with katex in it | a byte count, not a duration — it is a real regression |
 | `lint:rust` | `cargo fmt --check` or `clippy -D warnings` | runs on the Linux runner only, but fix it anywhere |
 | the window never paints | `cargo build` without `--features tauri/custom-protocol` | CI calls cargo directly and must pass the flag `tauri build` sets implicitly |
 | CLI smoke fails | shell, paint or CLI path regressed | `pnpm --filter @marxy/desktop verify:cli` reproduces it with `MARXY_SMOKE_REQUIRED=1` |

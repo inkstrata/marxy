@@ -1,7 +1,7 @@
 // What a finished run means for its story (ADR-0034). Every outcome lands somewhere with an exit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { finishRun, fingerprint, lastText,implementRole, claimEvents, promptFor, storyText } from './runs.mjs';
+import { finishRun, fingerprint, lastText, implementRole, claimEvents, promptFor, storyText, buildSpec } from './runs.mjs';
 import { fold, timing } from './machine.mjs';
 
 const t = timing({});
@@ -133,4 +133,36 @@ test('lastText prefers the result, falls back to the last assistant text, then t
   assert.equal(lastText(['error: model not found'].join('\n')), 'error: model not found');
   assert.equal(lastText('{"type":"assistant","message":{"conte\n' + say('cut tail')), 'cut tail');
   assert.equal(lastText(''), '');
+});
+
+test('a failed implement run does not carry the PR it was returned at back into review', () => {
+  const rec = inProgress({ returned: { at: NOW, head: 'abc', why: 'conflicts' } });
+  const same = after(rec, { obs: { exit: { outcome: 'setup', why: 'git worktree add: already used' } }, prOpen: { number: 212, headRefOid: 'abc' } });
+  assert.notEqual(same.rec.status, 'in_review');
+  const pushed = after(rec, { obs: { exit: { outcome: 'exited', code: 0 } }, prOpen: { number: 212, headRefOid: 'def' } });
+  assert.deepEqual([pushed.rec.status, pushed.rec.pr], ['in_review', 212]);
+});
+
+test('a review or resolution that never reached its agent refunds its try; one that ran does not', () => {
+  for (const [role, tries] of [['resolve', 'resolveTries'], ['review', 'reviewTries']]) {
+    for (const outcome of ['setup', 'auth', 'dead']) {
+      const out = finishRun({ id: 'r1', run: { ...run, role }, rec: { status: 'in_review', run: 'r1', [tries]: 2 }, obs: { exit: { outcome } }, t, now: NOW });
+      assert.deepEqual(out.events[1].inc, { [tries]: -1 }, `${role} ${outcome}`);
+    }
+    const ran = finishRun({ id: 'r1', run: { ...run, role }, rec: { status: 'in_review', run: 'r1', [tries]: 2 }, obs: { exit: { outcome: 'exited', code: 1 } }, t, now: NOW });
+    assert.equal(ran.events[1].inc, undefined);
+  }
+});
+
+test('a worktree recorded as a relative path is resolved beside the home checkout, not the runner', () => {
+  const was = process.env.MARXY_REPO_HOME;
+  process.env.MARXY_REPO_HOME = '/home/dev/marxy';
+  try {
+    const row = { Key: 'MARXY-1', Summary: 's', Labels: '', Paths: 'a' };
+    const m = { implementor: { model: 'x' } };
+    const rel = buildSpec({ role: 'implement', key: 'MARXY-1', row, rec: { worktree: '../marxy-wt/MARXY-1' }, m, t });
+    assert.equal(rel.worktree, '/home/dev/marxy-wt/MARXY-1');
+    const abs = buildSpec({ role: 'resolve', key: 'MARXY-1', row, rec: { worktree: '/elsewhere/MARXY-1' }, m, t });
+    assert.equal(abs.worktree, '/elsewhere/MARXY-1');
+  } finally { if (was === undefined) delete process.env.MARXY_REPO_HOME; else process.env.MARXY_REPO_HOME = was; }
 });
