@@ -8,11 +8,14 @@ const all = process.argv.includes('--all');
 const map = JSON.parse(readFileSync(join(ROOT, 'scripts/gates-by-path.json'), 'utf8'));
 const files = all ? ['packages/', 'apps/', 'fixtures/corpus/', 'package.json'] : changedFiles();
 const pkgs = new Set(); const gates = new Set(map.always);
+let deferrals = false;
 for (const f of files) {
   const p = /^(packages\/[^/]+|apps\/[^/]+)/.exec(f); if (p) pkgs.add(p[1]);
+  if (/^(apps|packages)\//.test(f)) deferrals = true;
   for (const [prefix, g] of Object.entries(map)) if (prefix !== '_note' && prefix !== 'always' && (f === prefix || f.startsWith(prefix.replace(/\/$/, '') + '/') || f.startsWith(prefix))) g.forEach(x => gates.add(x));
   if (/^(package\.json|pnpm-workspace\.yaml|tsconfig|scripts\/)/.test(f)) ['packages/core', 'packages/theme', 'packages/typeset', 'packages/shell-api', 'apps/desktop'].forEach(x => pkgs.add(x));
 }
+if (deferrals) gates.add('check:deferrals');
 const steps = [{ name: 'check-cards', cmd: [process.execPath, ['scripts/check-cards.mjs']] }];
 for (const p of pkgs) for (const s of ['typecheck', 'lint', 'test']) steps.push({ name: `${p} ${s}`, cmd: ['pnpm', ['--filter', `./${p}`, s]] });
 for (const g of gates) steps.push({ name: g, cmd: ['pnpm', ['-s', g]] });

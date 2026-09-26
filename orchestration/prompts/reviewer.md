@@ -17,7 +17,9 @@ Check, in order, and stop at the first failure:
    otherwise **return**. An implementor widening its own Paths is always a **return** — it was
    told to report `blocked` instead.
 2. **Acceptance.** Each criterion has a named check in the diff and the check would fail
-   without the change (look for tautological tests). → **return** naming the criterion.
+   without the change (look for tautological tests). A story that leaves behaviour unreachable
+   from its Paths names the wiring story in the PR body (definition of done, `docs/sdlc.md`).
+   → **return** naming the criterion.
 3. **Gates.** Every applicable gate green in the packet and in CI. Baselines changed? A queue
    entry must exist.
 4. **Spirit.** Anything that adds chrome, reformats a document, fetches, or phones home, even

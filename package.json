@@ -30,6 +30,7 @@
     "check:registry": "node scripts/check-registry.mjs",
     "check:deps": "node scripts/check-deps.mjs",
     "check:one-parse": "node scripts/check-one-parse.mjs",
+    "check:deferrals": "node scripts/check-deferrals.mjs",
     "check:story": "node scripts/check-story.mjs",
     "check:pr": "node scripts/check-pr.mjs",
     "lint:theme": "pnpm --filter @marxy/theme lint",
