@@ -1,7 +1,7 @@
 ---
 key: MARXY-213
 design: []
-depends: []
+depends: [MARXY-220]
 verify: [pnpm precheck, pnpm done MARXY-213]
 ---
 # MARXY-213 — A merged story is never offered again
@@ -9,11 +9,14 @@ verify: [pnpm precheck, pnpm done MARXY-213]
 **Authority:** [`orchestration/README.md`](../../../orchestration/README.md) "The loop" §1 (what
 `ready.mjs` refuses and why) and "Rules the scripts enforce". No `docs/design/` section covers the
 fleet; the README is the design for orchestration behaviour, and this story edits it. · **Delta:**
-[2026-09-25](../deltas/2026-09-25.md) · **Lane:** ops. **Deferred** under the ops-majority tripwire:
-dispatch it only in a cycle where a product story is also startable, or where none is.
-MARXY-216 is dropped: MARXY-217 already owns a conflicting pull request, so this story
-does not wait on it. Cut it from `origin/main`. MARXY-202 has merged; build `selectReady`'s
-`merged` input on top of its worktree reservations.
+[2026-09-25](../deltas/2026-09-25.md), revised
+[2026-09-25-after-194](../deltas/2026-09-25-after-194.md) · **Lane:** ops. **Depends on
+MARXY-220** (both edit `ready.mjs`, `cycle.mjs` and the README). **Deferred** until MARXY-220
+has merged, and then only in a cycle where a product story is also startable (ops-majority
+tripwire: or where none is). MARXY-216 is dropped: MARXY-217 already owns a conflicting pull
+request. Cut it from `origin/main` after MARXY-220. MARXY-202 has merged; build `selectReady`'s
+`merged` input on top of its worktree reservations. MARXY-183 and MARXY-186 are already `done` in
+the local cache; do not treat `state.mjs done` as this story. The mechanism is still absent.
 
 **Outcome.** The board cannot send an implementor to redo work that is already on `main`. The cycle
 reads `main`'s squash subjects once per cycle, settles as done any merged key that the board has no
@@ -31,6 +34,9 @@ work opened and merged by hand, and to rows written before MARXY-190 added `no-d
 | MARXY-183 | #180 (`063ee42`) | `phase-2,desktop,out-of-plan` | offered as **ready**; its paths (`app.ts`, `main.rs`, `shell/tauri.ts`) held MARXY-193, 44 and 48 |
 | MARXY-186 | #171 (`a9f3a3b`) | `ops,out-of-plan` | excluded only because it yields to MARXY-183; would be offered the cycle after |
 | MARXY-210 | #193 (`d373abc`) | `ops,out-of-plan,no-dispatch` | harmless (`no-dispatch`, and `adopt.mjs` settles a merged `no-dispatch` row), but `todo` until a cycle runs |
+
+The local cache later recorded MARXY-183, MARXY-186 and MARXY-210 as `done`. That does not
+close this story: the next hand-merged row with no record is offered again.
 
 `adopt.mjs` already settles merged `no-dispatch` rows (MARXY-190). This story covers every other row:
 the label cannot be the only thing that stops the fleet redoing merged work.
