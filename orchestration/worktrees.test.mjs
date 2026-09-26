@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import {
   prunePlan, removeArgs, runWorktreePrune, removeWorktreeAt,
   prListArgs, pickPrState, gatherWorktreeEntries, inProgressBranches,
-  keyOfBranch, liveClaims, formatClaimLine, sayWorktreeClaims,
+  keyOfBranch, liveClaims, formatClaimLine, sayWorktreeClaims, prClaimLabel,
+  parseWorktreeList,
 } from './worktrees.mjs';
 
 const orch = '/repo/marxy';
@@ -114,8 +115,9 @@ test('runWorktreePrune prints each removal and each kept stray with its reason',
   });
   assert.match(lines.join('\n'), /worktree remove .*MARXY-9.*PR merged/);
   assert.match(lines.join('\n'), /worktree keep .*MARXY-10.*PR open/);
-  assert.equal(gitCalls.length, 1);
-  assert.deepEqual(gitCalls[0], ['worktree', 'remove', '/repo/marxy-wt/MARXY-9']);
+  assert.equal(gitCalls.length, 2);
+  assert.deepEqual(gitCalls[0], ['worktree', 'prune']);
+  assert.deepEqual(gitCalls[1], ['worktree', 'remove', '/repo/marxy-wt/MARXY-9']);
 });
 
 test('runWorktreePrune dry-run prints the plan and removes nothing', () => {
@@ -175,7 +177,11 @@ test('gatherWorktreeEntries reads a merged branch as MERGED through the real que
     'worktree /repo/marxy-wt/MARXY-8', 'HEAD 1', 'branch refs/heads/feat/MARXY-8-x', '',
     'worktree /repo/marxy-wt/MARXY-9', 'HEAD 2', 'branch refs/heads/feat/MARXY-9-y', '',
   ].join('\n');
-  const git = argv => (argv[0] === 'worktree' ? porcelain : '');
+  const git = argv => {
+    if (argv[0] === 'worktree') return porcelain;
+    if (argv.includes('--is-inside-work-tree')) return 'true';
+    return '';
+  };
   const entries = gatherWorktreeEntries({ root: '/repo/marxy', git, gh });
   const byPath = Object.fromEntries(entries.map(e => [e.path, e.prState]));
   assert.equal(byPath['/repo/marxy-wt/MARXY-8'], 'MERGED');
@@ -225,7 +231,7 @@ test('liveClaims: ahead and todo key with a main row holds that row paths', () =
     isDone: () => false,
   });
   assert.equal(claims.length, 1);
-  assert.deepEqual(claims[0], { key: 'MARXY-198', paths, path: wt198, ahead: 2, dirty: false });
+  assert.deepEqual(claims[0], { key: 'MARXY-198', paths, path: wt198, ahead: 2, dirty: false, prState: null });
 });
 
 test('liveClaims: done key claims nothing', () => {
@@ -281,19 +287,66 @@ test('liveClaims: key with no row anywhere reports no row and holds no paths', (
     rowsOf: () => null,
     isDone: () => false,
   });
-  assert.deepEqual(claims, [{ key: 'MARXY-198', path: wt198, reason: 'no row' }]);
+  assert.deepEqual(claims, [{ key: 'MARXY-198', path: wt198, reason: 'no row', prState: null }]);
+});
+
+test('liveClaims: unusable worktree claims nothing', () => {
+  const claims = liveClaims([liveEntry({ usable: false, dirty: true, ahead: 3 })], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+    isDone: () => false,
+  });
+  assert.deepEqual(claims, []);
 });
 
 test('formatClaimLine matches the cycle wording', () => {
   assert.equal(
-    formatClaimLine({ key: 'MARXY-198', path: '../marxy-wt/MARXY-198', ahead: 2, dirty: false }),
+    formatClaimLine({ key: 'MARXY-198', path: '../marxy-wt/MARXY-198', ahead: 2, dirty: false, prState: null }),
     'worktree holds paths: MARXY-198 (../marxy-wt/MARXY-198, 2 commits ahead, clean, no PR)',
   );
+  assert.equal(
+    formatClaimLine({ key: 'MARXY-194', path: '../marxy-wt/MARXY-194', ahead: 5, dirty: false, prState: 'OPEN' }),
+    'worktree holds paths: MARXY-194 (../marxy-wt/MARXY-194, 5 commits ahead, clean, PR open)',
+  );
+  assert.equal(prClaimLabel('OPEN'), 'PR open');
   const lines = [];
   sayWorktreeClaims([
     { key: 'MARXY-198', path: '../marxy-wt/MARXY-198', ahead: 1, dirty: true },
   ], { say: l => lines.push(l) });
   assert.match(lines[0], /1 commit ahead, dirty/);
+});
+
+test('parseWorktreeList reads prunable from porcelain', () => {
+  const rows = parseWorktreeList(
+    'worktree /tmp/x\nHEAD abc\nbranch refs/heads/feat/MARXY-1-a\nprunable gitdir file points to non-existent location\n',
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].prunable, 'gitdir file points to non-existent location');
+});
+
+test('prunePlan removes prunable rows before dirty would keep them', () => {
+  const { remove } = prunePlan(
+    [entry({ prunable: 'gitdir file points to non-existent location', dirty: true })],
+    { orchestratorPath: orch },
+  );
+  assert.equal(remove.length, 1);
+  assert.match(remove[0].reason, /prunable/);
+});
+
+test('gatherWorktreeEntries: git failure is not dirty', () => {
+  const rows = gatherWorktreeEntries({
+    git: args => {
+      if (args.includes('worktree') && args.includes('list')) {
+        return 'worktree /broken\nbranch refs/heads/feat/MARXY-9-x\n';
+      }
+      if (args.includes('--is-inside-work-tree')) return { error: 'fatal: not a git repository' };
+      return '';
+    },
+    gh: () => '[]',
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].usable, false);
+  assert.equal(rows[0].dirty, false);
 });
 
 test('inProgressBranches lists only in_progress stories that have a branch', () => {
