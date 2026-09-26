@@ -11,9 +11,13 @@ state the board disagrees with. The same rule covers the plan files that mirror 
 under `docs/plan/` or `orchestration/`. Make those changes in a worktree cut from `origin/main`
 and open a PR, exactly like a story; never edit them in place in your own checkout. That
 checkout is re-read every cycle, so an uncommitted or unmerged edit sitting in it is board
-drift, not a plan — `orchestration/board-check.mjs` names it and holds dispatch until it is
-gone (MARXY-117: a checkout 14 commits behind with uncommitted CSV/deps.json/jira-map.json
-edits dispatched from a board that had not merged #71).
+drift, not a plan — `orchestration/board-check.mjs` names it (MARXY-117: a checkout 14 commits
+behind with uncommitted CSV/deps.json/jira-map.json edits dispatched from a board that had not
+merged #71). `behind` and `off-main` still hold dispatch. A `dirty-board` checkout on `main` is
+parked by the cycle: the tracked edits are stashed, a patch is copied under
+`~/.config/marxy/orchestration/quarantine/`, the checkout is restored to HEAD, and the stash is
+recorded once in `needs-human.md`. Apply that stash on a story worktree with `git stash apply --index`. Do not edit this
+checkout to clear it.
 
 ## Compute mode
 
@@ -51,9 +55,12 @@ its worktree is yours to judge, then `state.mjs return KEY`.
 1. Read `orchestration/needs-human.md`. If a human answered something, act on it. Then
    `node orchestration/jira.mjs push` so Jira matches the board before you change anything;
    if it reports drift, say so in the status report — drift means a cycle went unrecorded.
-2. `node orchestration/board-check.mjs` first: if it exits 1, name every finding it prints and
-   dispatch nothing this cycle — a `behind`, `off-main` or `dirty-board` finding means this
-   checkout may not describe origin/main's board. `node orchestration/ready.mjs` → once clean,
+2. `node orchestration/board-check.mjs` first. A `behind` or `off-main` finding means this
+   checkout may not describe origin/main's board: name it and dispatch nothing this cycle.
+   A `dirty-board` finding on `main` is parked, not edited here — `node orchestration/board-park.mjs`
+   stashes the tracked edits, copies the patch, restores HEAD, and records the stash. The cycle
+   does that before it fast-forwards, then dispatches. If the park fails, dispatch nothing.
+   `node orchestration/ready.mjs` → once those holds are clear,
    dispatch every ready story (lanes are uncapped) with
    `node orchestration/dispatch.mjs KEY…` (or spawn the `implementor` subagent per key with
    `orchestration/prompts/implementor.md` and the story; it must write

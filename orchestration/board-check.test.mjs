@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { boardDrift, gatherBoardCheckInput, boardTotals, KIND, BLOCKS_DISPATCH } from './board-check.mjs';
+import { boardDrift, gatherBoardCheckInput, boardTotals, KIND, BLOCKS_DISPATCH, trackedBoardEdits } from './board-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -46,6 +46,13 @@ test('a checkout not on main is an off-main finding naming the branch', () => {
   assert.equal(findings.length, 1);
   assert.equal(findings[0].kind, KIND.OFF_MAIN);
   assert.match(findings[0].detail, /chore\/MARXY-9-slug/);
+});
+
+test('trackedBoardEdits keeps a modified tracked path and drops an untracked file', () => {
+  assert.deepEqual(
+    trackedBoardEdits(' M orchestration/ready.mjs\n?? orchestration/notes.md\n'),
+    ['orchestration/ready.mjs'],
+  );
 });
 
 test('a tracked file modified under docs/plan or orchestration is a dirty-board finding naming the file', () => {
@@ -209,6 +216,14 @@ test('cycle.mjs prints every board finding every cycle and holds step 6 (dispatc
     dispatchGate < headlessBranch && headlessBranch < namedBranch && plannerHoldMsg > dispatchGate,
     'hold gate must precede headless and named dispatch; planner-hold message lives in the hold branch',
   );
+});
+
+test('cycle.mjs parks a dirty board checkout before it tries to fast-forward main', () => {
+  const src = readFileSync(join(here, 'cycle.mjs'), 'utf8');
+  const call = src.indexOf('parkDirtyBoard({');
+  const ff = src.indexOf("['merge', '--ff-only'");
+  assert.ok(call > -1 && ff > -1 && call < ff, 'park must run before fast-forward, or a dirty tree blocks origin/main');
+  assert.match(src, /needsHumanPath: here\('needs-human\.md'\)/);
 });
 
 test('the planner and orchestrator prompts say board changes go in a worktree off origin/main and a PR, never the orchestrator checkout', () => {

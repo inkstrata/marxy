@@ -74,6 +74,16 @@ test('an orchestrator checkout off main or diverged is a failure; behind alone i
   assert.deepEqual(fails(base({ main: { branch: 'main', ahead: 0, behind: 3 } })), []);
 });
 
+test('uncommitted board files on main hold dispatch, and the fix is board-park; off main it is not', () => {
+  const dirty = fails(base({ main: { branch: 'main', ahead: 0, behind: 0, dirtyBoard: ['orchestration/ready.mjs', 'orchestration/worktrees.mjs'] } }));
+  const hit = dirty.find(f => f.fix === 'node orchestration/board-park.mjs');
+  assert.ok(hit);
+  assert.match(hit.msg, /orchestration\/ready\.mjs, orchestration\/worktrees\.mjs hold dispatch/);
+  const off = fails(base({ main: { branch: 'fix/x', ahead: 0, behind: 0, dirtyBoard: ['orchestration/ready.mjs'] } }));
+  assert.ok(off.some(f => /switch main/.test(f.fix)));
+  assert.ok(!off.some(f => f.fix === 'node orchestration/board-park.mjs'));
+});
+
 test('a planner that failed to authenticate is a failure with the login command', () => {
   const f = fails(base({ planner: { lease: { pid: 2 }, held: false, authFailure: true } }));
   assert.equal(f[0].fix, 'cursor-agent login');

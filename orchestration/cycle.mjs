@@ -1,5 +1,5 @@
 // One orchestrator cycle, safe to run repeatedly. The order matters and is the point of the file:
-//   1. sync     — fetch, fast-forward the orchestrator's main, make Jira agree with the board
+//   1. sync     — fetch, park uncommitted board edits, fast-forward the orchestrator's main, make Jira agree with the board
 //   2. land     — merge what is provably finished, pinned to the head that was evaluated
 //   3. refresh  — bring at most one BEHIND PR up to date, unless models.mergeQueue is on
 //   4. review   — name every PR waiting on a reviewer, and start one headless reviewer for the
@@ -21,6 +21,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, readJson, stories, state, updateState, models } from './lib.mjs';
 import { boardDrift, gatherBoardCheckInput, boardTotals, BLOCKS_DISPATCH } from './board-check.mjs';
+import { parkDirtyBoard, planBoardPark, readBoardStatus } from './board-park.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive as worktreeIsLive } from './merge-bar.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
@@ -273,9 +274,25 @@ function runLockedCycle(argv) {
   const sh = (cmd, a, opts = {}) => { try { return execFileSync(cmd, a, { cwd: ROOT, encoding: 'utf8', ...opts }).trim(); } catch (e) { return { error: (e.stdout ?? '') + (e.stderr ?? e.message) }; } };
   const gh = a => { const r = sh('gh', a); return typeof r === 'string' ? r : null; };
   const node = a => spawnSync(process.execPath, a, { cwd: ROOT, encoding: 'utf8' });
-  // 1. Sync. Every diff below is against origin/main, and ready.mjs reads the board from this
-  // checkout, so both have to describe the main that exists now.
+  // 1. Sync. ready.mjs reads this checkout, so it has to describe origin/main before dispatch.
+  // A tracked edit under docs/plan or orchestration is dirty-board and used to hold every
+  // story until a person stashed, reverted, or moved it (MARXY-117). Park it first — the
+  // stash and a patch keep the bytes — so fast-forward can reach origin/main. Off main is
+  // left alone: those edits belong to that branch. --dry-run names the park and does not do it.
   sh('git', ['fetch', '-q', 'origin']);
+  if (sh('git', ['branch', '--show-current']) === 'main') {
+    const plan = planBoardPark({ branch: 'main', statusText: readBoardStatus(ROOT) });
+    if (plan.park && DRY) say(`board: would park ${plan.files.join(', ')} and restore the checkout (--dry-run)`);
+    else if (plan.park) {
+      try {
+        const parked = parkDirtyBoard({ root: ROOT, files: plan.files, needsHumanPath: here('needs-human.md') });
+        if (parked.parked) say(`board: parked ${parked.files.join(', ')} as ${parked.stashMessage}${parked.patchPath ? `; patch ${parked.patchPath}` : ''}`);
+        else say(`board: dirty checkout not parked — ${parked.why}`);
+      } catch (e) {
+        say(`board: dirty checkout not parked — ${String(e.message ?? e).split('\n')[0]}`);
+      }
+    }
+  }
   if (sh('git', ['branch', '--show-current']) === 'main' && !DRY) {
     const ff = sh('git', ['merge', '--ff-only', '-q', 'origin/main']);
     if (typeof ff !== 'string') say(`main: could not fast-forward to origin/main; the board below may be stale`);

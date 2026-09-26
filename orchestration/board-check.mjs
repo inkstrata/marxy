@@ -7,6 +7,15 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, parseCsv, state, isBoardKey, isPlaceholderKey } from './lib.mjs';
 
+/** Tracked edits in `git status --porcelain` output. Untracked (`??`) is not board drift (MARXY-117). */
+export function trackedBoardEdits(statusText) {
+  return String(statusText ?? '')
+    .split('\n')
+    .filter(Boolean)
+    .filter(line => !line.startsWith('??'))
+    .map(line => line.slice(3).trim());
+}
+
 /** The kinds `boardDrift` can report. */
 export const KIND = {
   BEHIND: 'behind',
@@ -143,12 +152,7 @@ export function gatherBoardCheckInput({ snapshot = null } = {}) {
   const behindRaw = sh('git', ['rev-list', '--count', 'HEAD..origin/main'])?.trim();
   const behind = behindRaw ? Number(behindRaw) : 0;
   const status = sh('git', ['status', '--porcelain', '--', 'docs/plan', 'orchestration']) ?? '';
-  const dirtyTracked = status
-    .split('\n')
-    .filter(Boolean)
-    // `??` is an untracked file; only a tracked edit is board drift (MARXY-117 acceptance 1).
-    .filter(line => !line.startsWith('??'))
-    .map(line => line.slice(3).trim());
+  const dirtyTracked = trackedBoardEdits(status);
 
   const prJson = snapshot ? null : sh('gh', ['pr', 'list', '--state', 'open', '--limit', '200', '--json', 'number,title,headRefName'])?.trim();
   let openPrs = snapshot ? snapshot.open : [];
