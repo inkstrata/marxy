@@ -84,7 +84,7 @@ const isKey = k => /^MARXY-\d+$/.test(k ?? '');
 function known(key, o = {}) {
   if (o.force || o.paths) return true;
   if (board().stories[key]) return true;
-  try { return planAt().byKey.has(key); } catch { return true; }
+  try { return sink.plan().byKey.has(key); } catch { return true; }
 }
 const needKnown = (key, o) => need(known(key, o), `✗ ${key} is not on the board and has no row on origin/main; check the key, or pass --force`);
 
@@ -300,11 +300,12 @@ const usage = () => readFileSync(new URL(import.meta.url), 'utf8').split('\n').f
 /**
  * Run one command: `{ code, lines, errors }`. `lines` is what it prints to stdout, `errors` what it
  * prints to stderr; a refusal or an unknown command is an entry in `errors` and a non-zero code.
+ * `plan` reads the plan on origin/main, which decides whether a key is real; tests pass their own.
  */
-export function run(cmd, argv = []) {
-  const out = { code: 0, lines: [], errors: [] };
+export function run(cmd, argv = [], { plan = planAt } = {}) {
+  const out = { code: 0, lines: [], errors: [], plan };
   const fn = Object.hasOwn(commands, cmd) ? commands[cmd] : null;
-  if (!fn) return { ...out, code: 2, errors: [usage()] };
+  if (!fn) return { code: 2, lines: [], errors: [usage()] };
   sink = out;
   try {
     fn(flags(argv));
@@ -315,6 +316,7 @@ export function run(cmd, argv = []) {
   } finally {
     sink = null;
   }
+  delete out.plan;
   return out;
 }
 

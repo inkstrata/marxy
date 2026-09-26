@@ -10,7 +10,9 @@ import { tmpdir } from 'node:os';
 const sandbox = mkdtempSync(join(tmpdir(), 'marxy-fleet-cli-'));
 process.env.HOME = join(sandbox, 'home');
 mkdirSync(process.env.HOME);
-const { run } = await import('./fleet.mjs');
+const { run: runFleet } = await import('./fleet.mjs');
+// The plan on origin/main is not there in CI's checkout, and a test must not depend on the repo's own plan.
+const run = (cmd, argv) => runFleet(cmd, argv, { plan: () => ({ byKey: new Map() }) });
 const { board } = await import('./machine.mjs');
 const { append, approvalPath, notesPath, resultPath, fleetPath } = await import('./store.mjs');
 const { verify } = await import('./approve.mjs');
