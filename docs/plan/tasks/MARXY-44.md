@@ -15,7 +15,7 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 - `apps/desktop/src/notices/blocked.ts` — replaces MARXY-26's placeholder action with the §12 table; the Details expansion; the truncation notice (`notices/truncation.ts` if it reads better separately).
 - `apps/desktop/src/commands/trust.ts` — `trust.revoke-html`, `trust.revoke-images`; one line in `commands/index.ts`.
 - The render path in `apps/desktop/src/app.ts` (or wherever MARXY-26 left the render call) — render with `policyFor(grantsFor(path))`; the first-document-of-launch re-render when `trust.json` arrives late (§12 §Persistence).
-- `fixtures/corpus/22-unclosed-script.md` — new fixture: three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose. Add its AST/HTML goldens. `16-api-reference.md` already uses 16. 20 and 21 are MARXY-78's uncommitted fixtures; do not take them.
+- `fixtures/corpus/22-unclosed-script.md` — new fixture: three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose. Add its AST/HTML goldens. `16-api-reference.md` already uses 16. Corpus 20 and 21 are MARXY-78's uncommitted fixtures; do not take them.
 - `apps/desktop/test/trust.test.mjs` (app harness).
 
 ## Do this, in order

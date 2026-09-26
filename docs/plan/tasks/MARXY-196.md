@@ -24,8 +24,8 @@ show recently opened files.
 - `apps/desktop/src/startup/idle-work.ts`: `loadIndexMruPins()` is `await Promise.resolve()`.
 - `Shell.readDir(dir): Promise<readonly FileStat[]>` lands with MARXY-94 (a type only). Nothing implements it.
 - `apps/desktop/src-tauri/src/index/mod.rs`: a second, Rust walker. **Leave it alone.** ADR-0033
-  is the accepted typography decision and does not govern this file. This story adds no ADR.
-  Do not wire the walker and do not delete it.
+  is typography and is not about this file. Do not wire the walker, do not delete it, and do not
+  add an ADR in this story.
 
 ## Files and signatures
 - `apps/desktop/src-tauri/src/commands/fs.rs` (or a new `commands/dir.rs`): `read_dir(dir) ->
