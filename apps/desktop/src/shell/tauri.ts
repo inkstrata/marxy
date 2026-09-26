@@ -72,7 +72,6 @@ export const shell: Pick<
   /**
    * Recurring watch of `root`. Events arrive on the one `fs-watch` channel every watcher listens to,
    * so each keeps only its own root's and debounces them, as the contract requires. No chrome.
-   * The Rust side is still a placeholder (`watch_root` in main.rs): no events arrive until MARXY-34.
    */
   watch: async (root, onEvents) => {
     await invoke('watch_root', { root });

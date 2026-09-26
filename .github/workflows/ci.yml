@@ -86,7 +86,7 @@ jobs:
           path: ~/.pnpm-store
           key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - run: pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows
+      - run: pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm check:deferrals
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
