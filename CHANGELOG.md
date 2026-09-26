@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - Planner delta after MARXY-194 merged: a blocked worktree no longer has to hold Phase 3 (MARXY-220, after the open MARXY-218 session releases those files), a story already on main is never dispatched again (MARXY-213, after that), and the conflict-owner story is dropped because a conflicting pull request already stays in progress (MARXY-221)
+- Planner delta for 2026-09-25: a merged story with no board record is settled from main (MARXY-213, deferred until a product story is also startable); MARXY-216 is dropped because MARXY-217 already starts one conflict resolver; MARXY-16 stays deferred under the ops-majority tripwire (MARXY-212)
 - Live-reload: the desktop shell polls the open document's directory and the app reloads from disk while keeping the reading position (MARXY-194)
 - Operations: toggle task list markers and align table pipes in Rendered mode, with undo and byte-faithful splices (MARXY-43).
 - A pull request returned because it conflicts with main stays In Progress until the conflict is gone, and the cycle starts one resolution attempt for it instead of adopting the same pull request back into review every cycle (MARXY-217)
