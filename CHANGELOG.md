@@ -6,6 +6,8 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The orchestrator doctor runs again: `node orchestration/doctor.mjs` exports `snapshot` and `diagnose` for the dashboard, and `--fix` clears dead leases and reconciles finished runs (MARXY-245)
+
 - Planner delta for 2026-09-26: the outline-and-find story is split from the keyboard audit and open-in-editor, and it can now touch the files it needs (the app's open path, the key matcher and the harness page) instead of mounting by polling; nothing in the app changes yet (MARXY-243)
 - The reader-artifacts research is now on the board as thirteen grouped stories: showing front matter, alerts and diffs, keeping what instruction files say, telling the reader what was removed, exact copy, working links, line numbers in Source and stricter accessibility checks. One decision record, ADR-0036 (accepted), collects every decision they need, and a coverage ledger in the handbook tracks how much of it is filed, landed, deferred or declined; nothing in the app changes yet (MARXY-228)
 - `out-of-plan.mjs row` no longer overwrites the wrong board row when its key is the last row of the plan CSV; the row is now located with one offset-tracking scan instead of a second, disagreeing line count (MARXY-242)
