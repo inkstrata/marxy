@@ -27,6 +27,7 @@ If you want the answers, start with [10 · Spec](10-spec.md): every default with
 | [Gap list](gaps.md) | What the frozen contracts cannot express, as [17 draft ADR proposals](proposals/) |
 | [Story list](stories.md) | Twenty-five stories ordered by reader impact, in the board's format ([CSV](stories.csv)) |
 | [Limits](limits.md) | What would change my mind, what remains taste, and where the method is weakest |
+| [Coverage](coverage.json) | Every unit above with one disposition (filed, applied, deferred, declined) and its board keys; `tools/coverage.mjs` reports it against the live board |
 
 ## Files
 
@@ -40,7 +41,9 @@ If you want the answers, start with [10 · Spec](10-spec.md): every default with
 | `lab/probe.mjs`, `lab/data/probe-results.json` | 31 artifact cases run through Marxy's real render pipeline and highlighter |
 | `proposals/P01-*.md` … `P17-*.md` | Draft ADR proposals, none accepted |
 | `stories.csv` | The story list in the board's nine columns, keyed `MARXY-NEW-ra-<slug>` until filed |
-| `tools/check.mjs` | The mechanical half of the handbook's own standard: every footnote defined and cited, every spec row graded and linked, every source with a URL and an access date, every story acceptance naming a test or gate |
+| `tools/check.mjs` | The mechanical half of the handbook's own standard: every footnote defined and cited, every spec row graded and linked, every source with a URL and an access date, every story acceptance naming a test or gate, and every unit in `coverage.json` exactly once with keys that are board rows |
+| `coverage.json` | **Hand-kept ledger** of what the board did with each spec row, operation, coupling rule, verification check, draft, declined item, taste item and draft story (MARXY-228). Add a unit here whenever the handbook grows |
+| `tools/coverage.mjs` | Reports the ledger against the live fleet board: how much is filed, landed, applied, deferred or declined, and what is still open |
 
 Reproduce the measurements from the repository root (Node 24 or later):
 
@@ -48,6 +51,7 @@ Reproduce the measurements from the repository root (Node 24 or later):
 node docs/research/reader-artifacts/lab/probe.mjs
 node docs/research/reader-artifacts/tools/build-ledger.mjs
 node docs/research/reader-artifacts/tools/check.mjs
+node docs/research/reader-artifacts/tools/coverage.mjs
 ```
 
 The probe and the checks describe one commit of Marxy and the engine builds of one week. The colour and copy measurements were made in headless WebKit and Chromium under Playwright on local pages, not in the shipped webview; each chapter says where that matters.
