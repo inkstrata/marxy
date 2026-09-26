@@ -1,0 +1,427 @@
+{
+  "chapter": "04-code-typography.md",
+  "sources": [
+    {
+      "id": "ec",
+      "citation": "EditorConfig, EditorConfig Specification",
+      "url": "https://spec.editorconfig.org/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "indent_style, indent_size and tab_width are separate properties; tab_width defaults to indent_size and indent_size=tab defers to tab_width.",
+      "doesNotShow": "Says nothing about what a reader (as opposed to an editor) should do with the values.",
+      "grade": ""
+    },
+    {
+      "id": "csstext",
+      "citation": "W3C, CSS Text Module Level 3",
+      "url": "https://www.w3.org/TR/css-text-3/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "spec (sections read: tab-size, overflow-wrap, word-break)",
+      "shows": "tab-size initial value is 8; overflow-wrap anywhere/break-word only break when no other acceptable point exists.",
+      "doesNotShow": "Does not say where breaks after a slash in a URL or path may go.",
+      "grade": ""
+    },
+    {
+      "id": "wcag",
+      "citation": "W3C, Understanding SC 1.4.10 Reflow (WCAG 2.2)",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/reflow.html",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "Content needing two-dimensional layout is exempt; code indentation and unbroken lines are named as meaningful.",
+      "doesNotShow": "Does not show that scrolling reads better than wrapping; concerns a 320 CSS px viewport.",
+      "grade": ""
+    },
+    {
+      "id": "ghtab",
+      "citation": "GitHub Docs, Managing your tab size rendering preference; GitHub Changelog 2021-09-21",
+      "url": "https://docs.github.com/en/account-and-profile/how-tos/account-settings/managing-your-tab-size-rendering-preference",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "docs page",
+      "shows": "GitHub lets each account choose the tab size used to render code.",
+      "doesNotShow": "Neither page states a default size or mentions .editorconfig.",
+      "grade": ""
+    },
+    {
+      "id": "ghtab2",
+      "citation": "GitHub Community discussion 167417, tab width GA announcement (2025-07-24)",
+      "url": "https://github.com/orgs/community/discussions/167417",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "read in full",
+      "shows": "The setting applies wherever code is displayed, including Markdown code blocks; tab characters only.",
+      "doesNotShow": "Does not mention .editorconfig; commenters ask for it.",
+      "grade": ""
+    },
+    {
+      "id": "gh4893",
+      "citation": "GitHub Community discussion 4893, tab size too wide",
+      "url": "https://github.com/orgs/community/discussions/4893",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "thread (staff reply and one 2025 comment read)",
+      "shows": "Staff pointed to the user preference; a commenter reported .editorconfig did not seem to work per repository.",
+      "doesNotShow": "One commenter's report; whether GitHub reads .editorconfig is not verified.",
+      "grade": ""
+    },
+    {
+      "id": "ghwrap",
+      "citation": "GitHub Community discussion 42298, wrapping in code view",
+      "url": "https://github.com/orgs/community/discussions/42298",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "thread (staff answer read)",
+      "shows": "Auto-wrapped code from Dec 2022 drew complaints; staff (Jan 2023) promised a fix and a wrap setting in the new code view.",
+      "doesNotShow": "Anecdote, not a test of readers.",
+      "grade": "D"
+    },
+    {
+      "id": "vscode",
+      "citation": "Microsoft, VS Code editorOptions.ts",
+      "url": "https://github.com/microsoft/vscode/blob/main/src/vs/editor/common/config/editorOptions.ts",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source code",
+      "shows": "wordWrap default off; wrappingIndent none/same/indent/deepIndent (same in VS Code); lineHeight computed from font size at 0; fontLigatures off = liga/calt off.",
+      "doesNotShow": "The golden-ratio constant value was not visible in the excerpt read.",
+      "grade": ""
+    },
+    {
+      "id": "bauer",
+      "citation": "Bauer, Siegmund, Peitek, Hofmeister, Apel, Indentation: Simply a Matter of Style or Support for Program Comprehension?, ICPC 2019",
+      "url": "https://www.infosun.fim.uni-passau.de/publications/docs/Bauer19.pdf",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract and introduction",
+      "shows": "22 participants, Java, no effect of indentation level on comprehension or visual effort; failed to replicate Miara et al. 1983 (2-4 spaces best, Pascal).",
+      "doesNotShow": "Miara 1983 itself was not reachable (ACM 403); its details are second-hand. Non-exact replication, students.",
+      "grade": "C"
+    },
+    {
+      "id": "gnu",
+      "citation": "Free Software Foundation, GNU Coding Standards, Formatting Error Messages",
+      "url": "https://www.gnu.org/prep/standards/html_node/Errors.html",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "Error messages locate source as sourcefile:lineno[:column]: message.",
+      "doesNotShow": "Says nothing about ranges (path:L-M is Marxy's extension).",
+      "grade": ""
+    },
+    {
+      "id": "ghlink",
+      "citation": "GitHub Docs, Getting permanent links to files",
+      "url": "https://docs.github.com/en/repositories/working-with-files/using-files/getting-permanent-links-to-files",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "docs page",
+      "shows": "A permanent link can point to a line or range of lines.",
+      "doesNotShow": "The page defers the method to another article; URL fragment format not read.",
+      "grade": ""
+    },
+    {
+      "id": "primer",
+      "citation": "GitHub primer/primitives typography tokens",
+      "url": "https://github.com/primer/primitives",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source (two token files)",
+      "shows": "codeBlock is 13 px with line-height token normal = 1.5; relaxed 1.625 recommended for 12-13 px; codeInline 0.9285 em.",
+      "doesNotShow": "Design-system tokens, not a reader test.",
+      "grade": "D"
+    },
+    {
+      "id": "urlsty",
+      "citation": "D. Arseneau, url.sty 3.4 (2013-09-16)",
+      "url": "https://tug.ctan.org/macros/latex/contrib/url/url.sty",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source (comments)",
+      "shows": "URLs break per character after a configurable set including slash, with penalties, and no marker at the break.",
+      "doesNotShow": "Not tested on readers; LaTeX only.",
+      "grade": "D"
+    },
+    {
+      "id": "typst",
+      "citation": "Typst issue 2216, long lines with no spaces not broken",
+      "url": "https://github.com/typst/typst/issues/2216",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "issue thread",
+      "shows": "Typst 0.8 broke raw text only at spaces; closed as not planned.",
+      "doesNotShow": "One version; not re-tested against a current release.",
+      "grade": ""
+    },
+    {
+      "id": "mdnwbr",
+      "citation": "MDN Web Docs, the wbr element",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/wbr",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "docs page",
+      "shows": "wbr marks an optional break, behaves like U+200B and does not affect copied text.",
+      "doesNotShow": "Marxy measured the clipboard itself; html flavour keeps the element.",
+      "grade": ""
+    }
+  ],
+  "spec": [
+    {
+      "setting": "Code size and x-height match",
+      "default": "JetBrains Mono 18 px vs Literata 20 px: x-height 9.90 vs 10.14 px (97.6 %); 1ch = 10.8 px",
+      "range": "follows the reader's size setting at the same 0.9 ratio",
+      "grade": "D",
+      "why": "x-height sets effective size (A); the 3 % tolerance is convention",
+      "anchor": "#monospace-metrics-against-the-grid",
+      "marxyToday": "applied: tokens.css lines 11-14"
+    },
+    {
+      "setting": "Code line box",
+      "default": "30 px = 2 grid units (1.667 em, 3.03 x-heights vs prose 2.96); not 27 px",
+      "range": "whole grid units only",
+      "grade": "D",
+      "why": "no study of code leading; 3.03 x-heights of the mono face is above the sibling's 1.5-1.6 em (2.73-2.91 mono x-heights) and 2.4% above Marxy's prose",
+      "anchor": "#leading-1667-is-the-grids-number-and-the-evidence-does-not-object",
+      "marxyToday": "applied: tokens.css line 14, base.css line 185"
+    },
+    {
+      "setting": "Inline code line-height",
+      "default": "line-height 1 on :not(pre) > code, kbd (else paragraph grows 2.2-3 px per line)",
+      "range": "fixed",
+      "grade": "D",
+      "why": "measured in WebKit 26.6 and Chromium 153",
+      "anchor": "#inline-code-and-the-line-box",
+      "marxyToday": "applied: base.css line 176"
+    },
+    {
+      "setting": "Ligatures in code",
+      "default": "off in Rendered and Source: font-variant-ligatures none plus calt and liga 0; assert on computed style",
+      "range": "fixed",
+      "grade": "D",
+      "why": "sibling; VS Code default; widths identical so only pixels differ",
+      "anchor": "#ligatures",
+      "marxyToday": "applied for Rendered (base.css lines 167-168); not applied to Source (CodeMirror): no rule reaches .cm-content, by code reading"
+    },
+    {
+      "setting": "Tab width",
+      "default": "4 when no hint; in Source mode with a known path use .editorconfig tab_width, else numeric indent_size, bounded 1-8; one source for tab-size and highlight.ts TAB",
+      "range": "reader setting 1-8",
+      "grade": "D",
+      "why": "CSS default 8, GitHub reader preference; Miara vs Bauer leaves the best width open (X)",
+      "anchor": "#tabs",
+      "marxyToday": "open: constant 4 in base.css line 192 and highlight.ts line 10; no EditorConfig reader"
+    },
+    {
+      "setting": "Wrap policy",
+      "default": "keep wrap with 2ch hang and 1 px rule (ADR-0033 point 5). PROPOSAL for an ADR amendment only: no-wrap scroller for diff/patch/text/log/console/ascii fences or a line more than 3x block width",
+      "range": "fixed by content class",
+      "grade": "D",
+      "why": "judgement, not evidence: no wrapped-vs-scrolled study; WCAG exempts code; GitHub reversed auto-wrap (largely a mobile complaint)",
+      "anchor": "#what-must-not-wrap-silently",
+      "marxyToday": "contradicted for the exception class: all pre wrap (base.css lines 189-191); ADR-0033 point 5 says never scrolls"
+    },
+    {
+      "setting": "Line-number gutter",
+      "default": "off in Rendered at rest; Source mode of non-markdown files on by default; toggle from the palette; numbers as generated content on .marxy-line::before, hung in the left margin, first row of a line only, never selectable text",
+      "range": "reader toggle",
+      "grade": "D",
+      "why": "no study; task-based (locating file:line); generated content measured copy-safe in WebKit and Chromium",
+      "anchor": "#line-numbers",
+      "marxyToday": "open: no gutter in Rendered; Source lineNumbers false (app.ts line 117)"
+    },
+    {
+      "setting": "Colour budget of a block",
+      "default": "four token hues plus text (L 0.76-0.78, C 0.07-0.10, hue 77/129/251/315); status meaning by in-text character, then a low-chroma line tint within 0.05 L of the block ground; never foreground hue",
+      "range": "fixed",
+      "grade": "D",
+      "why": "restraint evidence in the sibling; no study of competing status hues",
+      "anchor": "#colour-budget",
+      "marxyToday": "applied for tokens (tokens.css lines 49-60); open for status tints"
+    },
+    {
+      "setting": "Long inline code spans",
+      "default": "fits the measure: unbreakable; wider than the measure: allow breaks after / only, higher penalty than a space, third pass on overfull; last resort overflow-wrap anywhere; never break at hyphens",
+      "range": "fixed",
+      "grade": "D",
+      "why": "url.sty is the incumbent; engines never break after / and break after hyphens",
+      "anchor": "#inline-code-in-a-knuthplass-paragraph",
+      "marxyToday": "open: fallback('overfull') hands the paragraph to break-word (index.ts line 164)"
+    },
+    {
+      "setting": "Mono weight on dark",
+      "default": "inherit the article weight: 380 dark, 400 light; no separate mono weight",
+      "range": "fixed",
+      "grade": "D",
+      "why": "sibling irradiation argument; no mono-specific study",
+      "anchor": "#dark-and-light",
+      "marxyToday": "applied by inheritance: tokens.css line 23, base.css lines 33 and 51"
+    },
+    {
+      "setting": "Mono face swap",
+      "default": "code size = 20 x 0.507 / x-height of the face (JetBrains Mono 18.4, Plex Mono 19.7, Atkinson Mono 20.4, One Mono 21.8 px); JetBrains Mono is OFL-1.1 with no RFN (fonts/jetbrains-mono/LICENSE)",
+      "range": "theme via --marxy-font-mono; size token must follow",
+      "grade": "D",
+      "why": "x-height matching",
+      "anchor": "#alternative-faces-and-the-size-that-follows",
+      "marxyToday": "applied for JetBrains Mono; size token is a constant"
+    }
+  ],
+  "operations": [
+    {
+      "id": "copy-as-reference",
+      "title": "Copy the selected lines as path:L or path:L-M",
+      "appliesTo": [
+        "span",
+        "block"
+      ],
+      "signature": "string → clipboard",
+      "pure": true,
+      "why": "agents and compilers speak file:line (GNU); the reader needs to hand a location back; needs the source text before range.start, which OperationInput lacks today",
+      "grade": "D"
+    },
+    {
+      "id": "copy-code-clean-no-numbers",
+      "title": "Copy code without line numbers",
+      "appliesTo": [
+        "block"
+      ],
+      "signature": "string → clipboard",
+      "pure": true,
+      "why": "no operation needed if numbers are generated content (measured: never in text/plain or text/html); listed to fix the invariant in a test",
+      "grade": "D"
+    }
+  ],
+  "gaps": [
+    {
+      "what": "path:L-M needs file line numbers for a range inside a fence",
+      "blockedBy": "operations-contract",
+      "detail": "OperationInput carries the range's bytes, not the whole source (chapter 05 records the same gap for copy-with-reference)",
+      "proposal": "additive `source: string` on OperationInput, ADR-only PR"
+    },
+    {
+      "what": "Scroll (not wrap) for diff/patch/text/log/ascii and minified fences",
+      "blockedBy": "other",
+      "detail": "ADR-0033 point 5 says a code block never scrolls",
+      "proposal": "only if the author opens an amendment of ADR-0033 point 5; judgement, not evidence"
+    },
+    {
+      "what": "Status tints for diff add/delete and log severity",
+      "blockedBy": "theme-contract",
+      "detail": "twelve frozen token classes; no inserted/deleted; tokens are frozen",
+      "proposal": "ADR adding two classes and tint tokens (with registry entries first)"
+    },
+    {
+      "what": "Tab width from .editorconfig or a reader setting",
+      "blockedBy": "scope",
+      "detail": "no settings UI in v1; tab-size 4 is a constant in base.css and highlight.ts TAB",
+      "proposal": "one shared source for tab width, read from .editorconfig in Source mode only; the reader setting waits for v1.1"
+    },
+    {
+      "what": "Slash break points inside long code spans",
+      "blockedBy": "other",
+      "detail": "runs.ts treats code as one unbreakable piece; no break token exists for it",
+      "proposal": "a slash break token in runs.ts used only in a third pass after overfull; marxy-lb span already copy-safe"
+    }
+  ],
+  "stories": [
+    {
+      "summary": "Break a path that cannot fit at its slashes, not inside a directory name",
+      "readerImpact": "medium",
+      "why": "only 2 of 301 corpus spans are wider than the measure but both are agent-transcript file paths; the fallback breaks them mid-segment or after a hyphen with no cue",
+      "acceptance": [
+        "1. packages/typeset/src/ragged.test.ts: a paragraph holding a 75-character path at the default measure sets with breaks only after '/'; no break after '-', '.' or '_'",
+        "2. a new typeset browser test over fixtures/corpus/18-agent-transcript.md in WebKit: overflow() is 0 for every paragraph and the overfull-fallback count is printed",
+        "3. gate:fidelity: selection text and clipboard text/plain of the paragraph equal the source bytes"
+      ],
+      "paths": [
+        "packages/typeset/src/runs.ts",
+        "packages/typeset/src/ragged.ts",
+        "packages/typeset/src/index.ts"
+      ],
+      "tasteRow": "Before/after of an 18-agent-transcript paragraph with a 75-char path, dark, 960 px. Question: is a path broken at a slash easier to follow than one broken inside a directory name?"
+    },
+    {
+      "summary": "Add a toggleable line-number gutter that never enters copied text",
+      "readerImpact": "medium",
+      "why": "locating file:line is the reason numbers exist; Source mode has none; measured: counter-based generated content copies clean in WebKit and Chromium",
+      "acceptance": [
+        "1. new browser test (WebKit): with the gutter on, getSelection().toString() and the pasted text/plain and text/html of a whole block contain no digits from the gutter",
+        "2. new test: a wrapped line has one number, on its first row",
+        "3. gate:aesthetics: gutter number colour is at least 4.5:1 on the code background in both themes"
+      ],
+      "paths": [
+        "packages/theme/src/base.css",
+        "apps/desktop/src/render/highlight.ts",
+        "apps/desktop/src/source/editor.ts"
+      ],
+      "tasteRow": "Source-mode file, gutter on by default vs off, dark, 1280 px. Question: does the gutter cost the calm, or repay it?"
+    },
+    {
+      "summary": "Assert no ligatures in Source mode",
+      "readerImpact": "low",
+      "why": "nothing in theme-bridge.ts or base.css reaches .cm-content, so != likely draws as a different character in the code viewer (code reading, unmeasured in the app)",
+      "acceptance": [
+        "1. new test in apps/desktop/src/source/: computed font-variant-ligatures on .cm-content is none and font-feature-settings names calt and liga off"
+      ],
+      "paths": [
+        "apps/desktop/src/source/theme-bridge.ts"
+      ],
+      "tasteRow": ""
+    },
+    {
+      "summary": "Scroll instead of wrap for diffs, logs and ASCII layouts",
+      "readerImpact": "medium",
+      "why": "position is the meaning; a wrapped row loses the marker or column",
+      "acceptance": [
+        "1. ADR-0033 amendment merged first",
+        "2. new browser test: a diff fence's pre has white-space pre, tabindex 0 and an accessible name; a python fence still wraps",
+        "3. gate:fidelity unchanged"
+      ],
+      "paths": [
+        "packages/theme/src/base.css",
+        "apps/desktop/src/render/highlight.ts"
+      ],
+      "tasteRow": "Same diff fence wrapped vs scrolled, dark, 960 px. Question: does the scrolling block feel like a break in the page?"
+    },
+    {
+      "summary": "Read tab width from .editorconfig in Source mode from one shared value",
+      "readerImpact": "low",
+      "why": "tab-indented files are drawn at 4 columns regardless of what the repo says; base.css and highlight.ts TAB must agree",
+      "acceptance": [
+        "1. new unit test: tab_width and numeric indent_size resolve per the EditorConfig spec, bounded 1-8",
+        "2. highlight.test.ts: the hanging indent of a tab-indented line equals its drawn width for tab sizes 2, 4, 8"
+      ],
+      "paths": [
+        "apps/desktop/src/render/highlight.ts",
+        "apps/desktop/src/source/editor.ts"
+      ],
+      "tasteRow": ""
+    }
+  ],
+  "taste": [
+    "Whether the 1 px rule plus 2ch hang reads as a continuation in nested Python and YAML",
+    "Whether a Source-mode gutter on by default suits the app",
+    "Whether the scroll exception for diffs and logs breaks the page's calm",
+    "Slash-break versus mid-directory break for a path that cannot fit",
+    "Mono weight 340/380/400 on dark"
+  ],
+  "changeMyMind": [
+    "A reader study showing wrapped code is misread more than scrolled code would widen the scroll exception to all code and reverse ADR-0033 point 5",
+    "A confirmed replication of Miara (2-4 spaces best) would turn the tab-width default from no evidence into a choice",
+    "Any Chromium-based Rendered shell would force the gutter to be generated content, never a text column",
+    "A finding that readers mistake a slash at a line end for the end of the path would reverse the slash-break rule"
+  ],
+  "measured": [
+    "Copy with line numbers: five constructions x three selections x WebKit 26.6 / Chromium 153 via Playwright 1.63.0; paste-event read of text/plain and text/html; CodeMirror 6.43.12 gutter run",
+    "Inline code line box: 32.2 px WebKit / 33 px Chromium with inherited 30 px line height, 30 px with line-height 1",
+    "Ligatures: drawn by default with bundled JetBrains Mono, advance widths identical (183.6 px)",
+    "Block widths by window: 800/960/1280/1440/1512/1728 px gives 58/65/80/87/91/100 columns",
+    "Engines do not break after slash, dot or underscore in inline code; break after hyphen and question mark; break-word breaks mid-segment",
+    "wbr copy: plain text clean, html flavour keeps the element",
+    "Corpus goldens: 301 inline spans (median 5, p90 20, max 75, 2 over 56 chars); 126 code lines (40 over 53 columns, 22 over 79, 10 over 100)",
+    "typeset run (17 px, 68 ch): 348 candidates, 218 set, 111 one line, 19 to engine (8 inline object, 7 CJK, 4 overflow after setting)",
+    "Skeptic re-run: line-number copy (5 constructions x 3 selections x 2 engines), CodeMirror copy, wbr copy and corpus counts (301 inline, 2 over 56; 126 lines, 40/22/10) all reproduced; file:// harness, not the shipped app"
+  ]
+}

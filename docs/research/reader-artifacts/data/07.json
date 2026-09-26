@@ -1,0 +1,494 @@
+{
+  "chapter": "07-trust-safety.md",
+  "sources": [
+    {
+      "id": "greshake",
+      "citation": "Greshake et al., Indirect Prompt Injection, arXiv 2023",
+      "url": "https://arxiv.org/abs/2302.12173",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only",
+      "shows": "Instructions placed in retrieved data can compromise LLM-integrated apps.",
+      "doesNotShow": "AISec 2023 venue not confirmed on page; says nothing about viewers.",
+      "grade": "C"
+    },
+    {
+      "id": "owasp",
+      "citation": "OWASP GenAI, LLM01:2025 Prompt Injection",
+      "url": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "Injections need not be human-visible; no known fool-proof prevention.",
+      "doesNotShow": "Not evidence about detectors.",
+      "grade": "D"
+    },
+    {
+      "id": "pillar",
+      "citation": "Pillar Security, Rules File Backdoor, 2025",
+      "url": "https://www.pillar.security/blog/new-vulnerability-in-github-copilot-and-cursor-how-hackers-can-weaponize-code-agents",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "docs page",
+      "shows": "Invisible Unicode in rules files hid instructions; GitHub added hidden-Unicode warning 2025-05-01; Cursor called it user responsibility.",
+      "doesNotShow": "Vendor write-up of own finding; vendor positions unconfirmed independently.",
+      "grade": "D"
+    },
+    {
+      "id": "tags",
+      "citation": "Rehberger, Hiding and finding text with Unicode tags, 2024",
+      "url": "https://embracethered.com/blog/posts/2024/hiding-and-finding-text-with-unicode-tags/",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "docs page",
+      "shows": "Tag block chars mostly undrawn but LLM-readable; recommends filtering.",
+      "doesNotShow": "No reader-side test.",
+      "grade": "D"
+    },
+    {
+      "id": "liu",
+      "citation": "Liu et al., Formalizing and Benchmarking Prompt Injection Attacks and Defenses, USENIX Sec 2024",
+      "url": "https://arxiv.org/abs/2310.12815",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only",
+      "shows": "5 attacks x 10 defenses x 10 models x 7 tasks benchmark.",
+      "doesNotShow": "Abstract gave no detector verdict; 'detectors unreliable' not established from this source.",
+      "grade": "C"
+    },
+    {
+      "id": "nasr",
+      "citation": "Nasr et al., The Attacker Moves Second, arXiv 2025",
+      "url": "https://arxiv.org/abs/2510.09023",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only",
+      "shows": "Adaptive attacks bypassed 12 defenses, >90% success for most.",
+      "doesNotShow": "Which of the 12 are detectors; not a test of viewer flags.",
+      "grade": "C"
+    },
+    {
+      "id": "trojan",
+      "citation": "Boucher & Anderson, Trojan Source, USENIX Sec 2023",
+      "url": "https://arxiv.org/abs/2111.00169",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only",
+      "shows": "Bidi reordering makes displayed code differ from compiled code across 12 languages.",
+      "doesNotShow": "CVE numbers not on abstract page; not cited.",
+      "grade": "C"
+    },
+    {
+      "id": "uax9",
+      "citation": "Unicode UAX #9",
+      "url": "https://www.unicode.org/reports/tr9/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "Overrides to be avoided for security; isolates contain effects.",
+      "doesNotShow": "",
+      "grade": ""
+    },
+    {
+      "id": "uts39",
+      "citation": "Unicode UTS #39",
+      "url": "https://www.unicode.org/reports/tr39/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "Skeletons, restriction levels, limited-context ZWJ/ZWNJ.",
+      "doesNotShow": "Tag characters not mentioned in fetched summary.",
+      "grade": ""
+    },
+    {
+      "id": "uts55",
+      "citation": "Unicode UTS #55",
+      "url": "https://www.unicode.org/reports/tr55/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "Recommends optional visible non-spacing representations for default-ignorables and isolates in display.",
+      "doesNotShow": "No reader test.",
+      "grade": ""
+    },
+    {
+      "id": "ghbidi",
+      "citation": "GitHub Changelog, bidi warning 2021-10-31",
+      "url": "https://github.blog/changelog/2021-10-31-warning-about-bidirectional-unicode-text/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "GitHub warns on bidirectional text in viewed files.",
+      "doesNotShow": "Bidi only.",
+      "grade": ""
+    },
+    {
+      "id": "vscode",
+      "citation": "VS Code editorOptions.ts / strings.ts (MIT)",
+      "url": "https://github.com/microsoft/vscode",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "unicodeHighlight invisible+ambiguous default true; invisible list includes tag block.",
+      "doesNotShow": "Reader outcome untested.",
+      "grade": ""
+    },
+    {
+      "id": "rustc",
+      "citation": "rustc book deny-by-default lints",
+      "url": "https://doc.rust-lang.org/rustc/lints/listing/deny-by-default.html",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "Bidi controls in literals/comments denied by default.",
+      "doesNotShow": "LRM/RLM not listed.",
+      "grade": ""
+    },
+    {
+      "id": "gcc",
+      "citation": "GCC manual -Wbidi-chars",
+      "url": "https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "Default 'unpaired'; 'any' available.",
+      "doesNotShow": "",
+      "grade": ""
+    },
+    {
+      "id": "bing",
+      "citation": "Rehberger, Bing Chat data exfiltration, 2023",
+      "url": "https://embracethered.com/blog/posts/2023/bing-chat-data-exfiltration-poc-and-fix/",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "docs page",
+      "shows": "Markdown image auto-fetch exfiltrated chat data; fixed by CSP 2023-06-15.",
+      "doesNotShow": "Demonstration, not prevalence.",
+      "grade": "D"
+    },
+    {
+      "id": "dhamija",
+      "citation": "Dhamija, Tygar, Hearst, Why Phishing Works, CHI 2006",
+      "url": "https://dl.acm.org/doi/10.1145/1124772.1124861",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only (search result)",
+      "shows": "22 participants: 23% ignored browser cues, wrong 40% of the time.",
+      "doesNotShow": "Small sample; browser chrome not document links.",
+      "grade": "C"
+    },
+    {
+      "id": "lin",
+      "citation": "Lin et al., Does domain highlighting help..., CHI 2011",
+      "url": "https://dl.acm.org/doi/10.1145/1978942.1979244",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "not read (search summary; ACM 403)",
+      "shows": "Domain highlighting helped some user types much less.",
+      "doesNotShow": "Not read; only that highlighting helps somewhat but is not reliable alone.",
+      "grade": "C"
+    },
+    {
+      "id": "lain",
+      "citation": "Lain et al., URL Inspection Tasks, USENIX Sec 2025",
+      "url": "https://arxiv.org/abs/2502.20234",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only",
+      "shows": "2,673 participants: active inspection tasks cut phishing success.",
+      "doesNotShow": "Email context; adds friction.",
+      "grade": "C"
+    },
+    {
+      "id": "chrome",
+      "citation": "Chromium IDN display policy",
+      "url": "https://chromium.googlesource.com/chromium/src/+/main/docs/idn.md",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page",
+      "shows": "Punycode shown for mixed-script, whole-script confusable, invisible chars, top-domain skeleton match.",
+      "doesNotShow": "",
+      "grade": ""
+    },
+    {
+      "id": "paste",
+      "citation": "dxa4481/Pastejacking README (GPL-3.0, prior art only)",
+      "url": "https://github.com/dxa4481/Pastejacking",
+      "accessed": "2026-09-25",
+      "tier": 2,
+      "depth": "docs page",
+      "shows": "Script-rewritten clipboard; newline auto-executes; escapes act in editors.",
+      "doesNotShow": "GPL: nothing usable.",
+      "grade": "D"
+    },
+    {
+      "id": "xiong",
+      "citation": "Xiong et al., Is Domain Highlighting Actually Helpful in Identifying Phishing Web Pages?, Human Factors 59(4), 2017",
+      "url": "https://journals.sagepub.com/doi/10.1177/0018720816684064",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only (search summary)",
+      "shows": "Re-tests domain highlighting, noting the earlier formal study confounded it with instructions.",
+      "doesNotShow": "Result not read.",
+      "grade": "X"
+    },
+    {
+      "id": "hidden",
+      "citation": "When Skills Lie: Hidden-Comment Injection in LLM Agents, arXiv 2602.10498, 2026",
+      "url": "https://arxiv.org/abs/2602.10498",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "abstract only",
+      "shows": "Two models obeyed instructions in a hidden HTML comment in a Skill file.",
+      "doesNotShow": "Only two models; no survey of comment stripping.",
+      "grade": "C"
+    }
+  ],
+  "spec": [
+    {
+      "setting": "Invisible/bidi character mark",
+      "default": "Inline 1ch hairline box in code face, hex label, >=4.5:1; tag runs collapse to 'tag xN' and decode on summon; bidi controls isolated in own unicode-bidi:isolate span",
+      "range": "rule table fixed; label style theme-tunable",
+      "grade": "D",
+      "why": "UTS #55 + VS Code + GitHub/rustc/GCC converge on flagging bidi (4/4); tags only VS Code; unicode-bidi:isolate neutralising measured in WebKit 26.6 (Playwright), not in Tauri webview or pre/Shiki",
+      "anchor": "#the-marker",
+      "marxyToday": "open: no marker; controls reach DOM raw (probe-results.json)"
+    },
+    {
+      "setting": "Hidden-content notice",
+      "default": "One notice line at rest only for instruction-class files with removed comments/unknown-tag contents, or any tag char/bidi override; else lens only",
+      "range": "dismissible",
+      "grade": "D",
+      "why": "human must not see less than the agent",
+      "anchor": "#3-hidden-markup-the-human-sees-less-than-the-agent",
+      "marxyToday": "open: removals only console.info (app.ts ~428)"
+    },
+    {
+      "setting": "Injection-prose flagging",
+      "default": "none",
+      "range": "fixed",
+      "grade": "D",
+      "why": "detectors bypassed by adaptive attacks; false assurance",
+      "anchor": "#injection-looking-prose-do-not-flag-it",
+      "marxyToday": "applied: no such feature"
+    },
+    {
+      "setting": "Link mismatch label",
+      "default": "Append destination host after link text when text looks like a URL/host whose host differs; both punycode/Unicode forms; destination shown on focus/hover only",
+      "range": "fixed",
+      "grade": "D",
+      "why": "passive cues weak (C); mismatch-only keeps chrome at zero",
+      "anchor": "#5-links",
+      "marxyToday": "open: only punycode href + scheme removal"
+    },
+    {
+      "setting": "Blocked-image Details",
+      "default": "Per host: count, punycode+Unicode, query-string count and length; per-host checkboxes; new single-image query host unchecked",
+      "range": "fixed",
+      "grade": "D",
+      "why": "ADR-0027 leaves tracker hosts to reader; make exfil-shaped case deliberate",
+      "anchor": "#4-remote-content-is-a-read-receipt",
+      "marxyToday": "open: blockedImages has data; notice unbuilt"
+    },
+    {
+      "setting": "Copy fidelity",
+      "default": "Byte-exact source copy; warn when hidden chars copied; no trailing newline on single-line command; no smart typography",
+      "range": "fixed",
+      "grade": "D",
+      "why": "pasted newline/escapes execute (pastejacking demo); smartened dashes break flags",
+      "anchor": "#6-copy-safety",
+      "marxyToday": "contradicted: copy-code-clean.ts appends a trailing newline; Mod+C falls back to getSelection().toString() (selection/apply.ts, view.ts)"
+    }
+  ],
+  "operations": [
+    {
+      "id": "reveal-hidden",
+      "title": "Show hidden content lens",
+      "appliesTo": [
+        "document"
+      ],
+      "signature": "view toggle (no splice)",
+      "pure": true,
+      "why": "Expand markers for comments, unknown tags, invisibles",
+      "grade": "D"
+    },
+    {
+      "id": "strip-invisible",
+      "title": "Strip invisible characters",
+      "appliesTo": [
+        "span",
+        "block",
+        "section",
+        "document"
+      ],
+      "signature": "string → string",
+      "pure": true,
+      "why": "Remove flagged code points per rule table; one undo",
+      "grade": "D"
+    },
+    {
+      "id": "escape-invisible",
+      "title": "Escape invisible characters as \\u{…}",
+      "appliesTo": [
+        "span",
+        "block",
+        "section",
+        "document"
+      ],
+      "signature": "string → string",
+      "pure": true,
+      "why": "Keeps evidence visible in text",
+      "grade": "D"
+    },
+    {
+      "id": "copy-without-invisible",
+      "title": "Copy without hidden characters",
+      "appliesTo": [
+        "span",
+        "block",
+        "section"
+      ],
+      "signature": "string → clipboard",
+      "pure": true,
+      "why": "Safe paste into terminals/agents",
+      "grade": "D"
+    },
+    {
+      "id": "copy-hidden-as-text",
+      "title": "Copy removed comments and unknown-tag contents",
+      "appliesTo": [
+        "document"
+      ],
+      "signature": "string → clipboard",
+      "pure": true,
+      "why": "Inspect hidden content without executing",
+      "grade": "D"
+    },
+    {
+      "id": "extract-links",
+      "title": "Extract links with destinations",
+      "appliesTo": [
+        "document"
+      ],
+      "signature": "string → clipboard",
+      "pure": true,
+      "why": "Audit all text→destination pairs, IDNs in both forms",
+      "grade": "D"
+    }
+  ],
+  "gaps": [
+    {
+      "what": "Link reference definitions used as comments ([//]: # (…)) disappear with no removal record",
+      "blockedBy": "other",
+      "detail": "packages/core/src/render/pipeline.ts: definitions neither rendered nor reported",
+      "proposal": "report definitions whose label is never referenced"
+    },
+    {
+      "what": "Rendered-mode copy carries render-only substitutions (en dash, curly quotes, NBSP)",
+      "blockedBy": "other",
+      "detail": "apps/desktop/src/selection/view.ts uses domSel.toString()",
+      "proposal": "resolve text selections through provenance and copy source-derived text"
+    },
+    {
+      "what": "Smart typography applies inside raw-HTML <kbd>",
+      "blockedBy": "other",
+      "detail": "packages/core/src/render/render-html.ts smartens text between inline html kbd tags",
+      "proposal": "skip smartening inside kbd/code/samp opened by inline HTML"
+    },
+    {
+      "what": "Unknown elements and comments are removed with contents; a human sees less than an agent",
+      "blockedBy": "sanitiser-policy",
+      "detail": "ADR-0009 §2; packages/core/src/sanitize/ is CODEOWNERS-gated (@inkstrata); docs/design/13-trust.md excludes comments from the notice",
+      "proposal": "ADR-0009 amendment: instruction-class files render unknown tags as literal text and count comments in the notice"
+    },
+    {
+      "what": "Invisible-character marker, reveal lens and hidden-content notice need new marks/data attributes/classes",
+      "blockedBy": "registry",
+      "detail": "names must enter scripts/registry.json first; notice not yet built",
+      "proposal": "register data-marxy-mark, data-marxy-cp and the lens class in one registry PR"
+    },
+    {
+      "what": "New operations (strip/escape-invisible, copy-without-invisible, extract-links)",
+      "blockedBy": "operations-contract",
+      "detail": "contracts frozen; unclear whether new operations need an ADR or only registry entries; clipboard-only ops return no replacement",
+      "proposal": "confirm new operations are additive registrations, not contract changes"
+    },
+    {
+      "what": "Unicode-form host display in notices and link labels",
+      "blockedBy": "other",
+      "detail": "blockedImages/removed carry raw URL only; derive IDNA/Unicode form in app layer",
+      "proposal": "derive at display time; no contract change"
+    }
+  ],
+  "stories": [
+    {
+      "summary": "See a notice when a file has content Marxy does not show",
+      "readerImpact": "high",
+      "why": "Human sees less than agent in AGENTS.md/CLAUDE.md",
+      "acceptance": [
+        "1. New test apps/desktop/test/hidden-notice.test.mjs: fixture with comment + unknown tag + 31 tag chars yields the notice with counts",
+        "2. gate:no-network still zero requests",
+        "3. gate:fidelity unchanged"
+      ],
+      "paths": [
+        "apps/desktop/src/notices/",
+        "packages/core/src/render/pipeline.ts"
+      ],
+      "tasteRow": "Before/after screenshot of an instruction file with the notice and the lens open; question: is one line at rest too loud?"
+    },
+    {
+      "summary": "See invisible and bidi characters marked in text and code",
+      "readerImpact": "high",
+      "why": "Tag chars and bidi overrides reach the page unmarked today",
+      "acceptance": [
+        "1. New unit test packages/core/src/render/invisible.test.ts over the rule table incl. ZWJ-in-emoji unflagged, U+FEFF at offset 0 unflagged",
+        "2. gate:fidelity: buffer bytes identical after render",
+        "3. New Playwright WebKit test: Trojan Source fixture displays in logical order"
+      ],
+      "paths": [
+        "packages/core/src/render/",
+        "packages/theme/src/base.css",
+        "scripts/registry.json"
+      ],
+      "tasteRow": "Marker glyph on 10-hostile.md, dark and light; question: legible but quiet?"
+    },
+    {
+      "summary": "Copy exactly what the source says",
+      "readerImpact": "medium",
+      "why": "Smartened dashes and quotes reach the clipboard",
+      "acceptance": [
+        "1. New test: Mod+C over '--frozen-lockfile' yields ASCII hyphens",
+        "2. Test: copy of range with hidden chars raises the transient notice"
+      ],
+      "paths": [
+        "apps/desktop/src/selection/"
+      ],
+      "tasteRow": ""
+    },
+    {
+      "summary": "Know where a link really goes",
+      "readerImpact": "medium",
+      "why": "Text/destination mismatch and homographs are unmarked",
+      "acceptance": [
+        "1. New unit test for mismatch rule on homoglyph-link and github.com→evil.example cases",
+        "2. gate:golden updated only for those cases"
+      ],
+      "paths": [
+        "packages/core/src/render/",
+        "apps/desktop/src/render/"
+      ],
+      "tasteRow": "Mismatch host label beside a link; question: is it noticeable without nagging?"
+    }
+  ],
+  "taste": [
+    "Marker glyph, weight and colour for invisible characters",
+    "Whether a single notice line at rest is too loud for instruction files",
+    "Wording of the copy-with-hidden-characters notice"
+  ],
+  "changeMyMind": [
+    "A reader study showing injection-phrase flags change accept/reject decisions without desensitising",
+    "WebKit measurement showing unicode-bidi isolation does not neutralise overrides",
+    "Verification that emoji subdivision tag sequences (UTS #51) need a wider exception than stated",
+    "Evidence that target agents strip comments, making the comment notice noise"
+  ]
+}

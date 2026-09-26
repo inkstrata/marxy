@@ -1,0 +1,559 @@
+{
+  "chapter": "08-teardown.md",
+  "sources": [
+    {
+      "id": "gh-md",
+      "citation": "GitHub, \"Basic writing and formatting syntax\" (docs page; summary via fetch tool)",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Lists alert syntax, heading anchors, hidden HTML comments and <picture> support on GitHub.",
+      "doesNotShow": "Full HTML sanitisation policy, and whether any of it helps readers.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-mermaid",
+      "citation": "GitHub, \"Creating diagrams\" (docs page; summary via fetch tool)",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Mermaid renders from a fenced block on GitHub.",
+      "doesNotShow": "Rendering mechanism, network behaviour or limits.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-details",
+      "citation": "GitHub, \"Organizing information with collapsed sections\" (docs page; summary via fetch tool)",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-collapsed-sections",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "<details> content is collapsed unless the open attribute is set.",
+      "doesNotShow": "How readers use it; other renderers.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-yaml",
+      "citation": "GitHub, \"Viewing YAML Metadata in your Documents\", *The GitHub Blog*, 2013 (read earlier via a fetch summary, see [Structured output](03-structured-output.md))",
+      "url": "https://github.blog/2013-09-27-viewing-yaml-metadata-in-your-documents/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "read earlier (see cited chapter)",
+      "shows": "In 2013 GitHub began rendering YAML front matter as a metadata table.",
+      "doesNotShow": "Current UI behaviour; not re-checked.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-camo",
+      "citation": "GitHub, \"About anonymized URLs\" (docs page; summary via fetch tool)",
+      "url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-anonymized-urls",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "GitHub routes images and videos through Camo, which generates anonymous proxy URLs.",
+      "doesNotShow": "Where the fetch happens, private-repository behaviour, or any opt-out.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-hidden",
+      "citation": "GitHub Changelog, \"GitHub now provides a warning about hidden Unicode text\", 2025-05-01 (search-result text only; page not opened)",
+      "url": "https://github.blog/changelog/2025-05-01-github-now-provides-a-warning-about-hidden-unicode-text/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "GitHub warns in the file view on github.com when a file contains hidden Unicode text (2025-05-01).",
+      "doesNotShow": "Diff and PR views, how the warning looks, or whether it helps.",
+      "grade": "D"
+    },
+    {
+      "id": "ghbidi",
+      "citation": "GitHub, \"Warning about bidirectional Unicode text\", GitHub Changelog, 2021-10-31 (docs page, read earlier, see [Trust and safety](07-trust-safety.md))",
+      "url": "https://github.blog/changelog/2021-10-31-warning-about-bidirectional-unicode-text/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "read earlier (see cited chapter)",
+      "shows": "GitHub added a warning for bidirectional Unicode text in October 2021.",
+      "doesNotShow": "Effect on reader behaviour; the later hidden-text extension.",
+      "grade": "D"
+    },
+    {
+      "id": "ghtab",
+      "citation": "GitHub, \"Managing your tab size rendering preference\" (docs page, read earlier, see [Code typography](04-code-typography.md))",
+      "url": "https://docs.github.com/en/account-and-profile/how-tos/account-settings/managing-your-tab-size-rendering-preference",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "read earlier (see cited chapter)",
+      "shows": "GitHub has a per-user tab-size rendering preference.",
+      "doesNotShow": "Any default for wrap or line numbers.",
+      "grade": "D"
+    },
+    {
+      "id": "ghwrap",
+      "citation": "GitHub Community, \"GitHub Wrapping off?\", discussion 42298 (thread, read earlier, see [Code typography](04-code-typography.md))",
+      "url": "https://github.com/orgs/community/discussions/42298",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "read earlier (see cited chapter)",
+      "shows": "A staff answer in a community thread states GitHub's wrap behaviour.",
+      "doesNotShow": "An official docs statement of the wrap default.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-review",
+      "citation": "GitHub, \"Reviewing proposed changes in a pull request\" (docs page; summary via fetch tool)",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/reviewing-proposed-changes-in-a-pull-request",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "GitHub PR review offers unified or split diff (persisted), a Viewed tick and a file tree.",
+      "doesNotShow": "Word-level highlighting and large-diff loading.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-cb",
+      "citation": "GitHub Changelog, \"Protanopia & Deuteranopia Colorblind Themes Beta\" and \"Tritanopia Colorblind Theme Beta\", 2022-04-19 (search-result text only; the docs page 404-ed on a guessed URL)",
+      "url": "https://github.blog/changelog/2022-04-19-protanopia-deuteranopia-colorblind-themes-beta/",
+      "accessed": "2026-09-25",
+      "tier": 3,
+      "depth": "search-result text only",
+      "shows": "GitHub shipped protanopia/deuteranopia and tritanopia themes in April 2022 beta.",
+      "doesNotShow": "Current docs page or default themes; the page was not read.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-priv",
+      "citation": "GitHub, \"GitHub General Privacy Statement\", effective 2026-04-27 (docs page; summary via fetch tool)",
+      "url": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "GitHub's privacy statement (effective 2026-04-27) describes essential and non-essential cookies with jurisdictional consent.",
+      "doesNotShow": "Whether the product renders anything differently for tracking.",
+      "grade": "D"
+    },
+    {
+      "id": "vsc-md",
+      "citation": "Microsoft, \"Markdown and Visual Studio Code\" (docs page; summary via fetch tool)",
+      "url": "https://code.visualstudio.com/docs/languages/markdown",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "VS Code's Markdown page documents side-by-side preview, scroll sync settings, Mermaid/KaTeX and workspace-wide Strict/insecure/disabled security levels.",
+      "doesNotShow": "Alerts, details, front matter and anchors (page silent).",
+      "grade": "D"
+    },
+    {
+      "id": "vscode-md-src",
+      "citation": "Microsoft, VS Code `extensions/markdown-language-features/src/markdownEngine.ts` (source, read earlier, see [Diffs and provenance](05-diffs-provenance.md))",
+      "url": "https://github.com/microsoft/vscode/issues/133376",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "The markdown engine attaches a start line to non-inline tokens for scroll sync.",
+      "doesNotShow": "End positions, inline coverage, or behaviour in current main.",
+      "grade": "D"
+    },
+    {
+      "id": "vscode-nb",
+      "citation": "microsoft/vscode, `notebook.contribution.ts` and `notebookOptions.ts` (source, read earlier, see [Agent artifacts](02-agent-artifacts.md))",
+      "url": "https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/notebook/browser/notebook.contribution.ts",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "Notebook settings source sets notebook.output.textLineLimit to 30 lines by default.",
+      "doesNotShow": "How output wraps, or that 30 helps readers.",
+      "grade": "D"
+    },
+    {
+      "id": "vscode-issue",
+      "citation": "microsoft/vscode issue 177843 (issue page, read earlier)",
+      "url": "https://github.com/microsoft/vscode/issues/177843",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "read earlier (see cited chapter)",
+      "shows": "A VS Code issue in which a maintainer calls the output-scrolling setting description confusing.",
+      "doesNotShow": "The setting's current default across builds.",
+      "grade": "D"
+    },
+    {
+      "id": "vscode-uni",
+      "citation": "Microsoft, VS Code `editorOptions.ts` (`wordWrap`, ligatures, `unicodeHighlight`), main branch (source, read earlier, see [Code typography](04-code-typography.md) and [Trust and safety](07-trust-safet",
+      "url": "https://github.com/microsoft/vscode",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "Editor options set wordWrap off, ligatures off and Unicode highlighting on by default.",
+      "doesNotShow": "Notebook or markdown-preview behaviour.",
+      "grade": "D"
+    },
+    {
+      "id": "vsc-faq",
+      "citation": "Microsoft, \"Visual Studio Code FAQ\", telemetry (docs page; summary via fetch tool)",
+      "url": "https://code.visualstudio.com/docs/supporting/FAQ",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "The FAQ says VS Code telemetry is on by default and telemetry.telemetryLevel can turn it off.",
+      "doesNotShow": "What extensions collect.",
+      "grade": "D"
+    },
+    {
+      "id": "typora-ref",
+      "citation": "Typora Support, \"Markdown Reference\" (docs page; summary via fetch tool)",
+      "url": "https://support.typora.io/Markdown-Reference/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Typora's reference documents raw HTML, front matter, footnotes, task lists, alerts and internal heading links.",
+      "doesNotShow": "Mermaid, details and remote-image handling (page silent).",
+      "grade": "D"
+    },
+    {
+      "id": "typora-fences",
+      "citation": "Typora Support, \"Code Fences\" (docs page; summary via fetch tool)",
+      "url": "https://support.typora.io/Code-Fences/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Typora's fences page covers line-number preference, wrap or scroll and a Copy Code Content menu item.",
+      "doesNotShow": "Highlighting engine and language guessing.",
+      "grade": "D"
+    },
+    {
+      "id": "typora",
+      "citation": "Typora Support, \"Quick Start\" (docs page, read earlier, see [Diffs and provenance](05-diffs-provenance.md))",
+      "url": "https://support.typora.io/Quick-Start/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "read earlier (see cited chapter)",
+      "shows": "Typora's quick start describes copying as HTML by default and a copy-as-Markdown command.",
+      "doesNotShow": "Read-only use, telemetry, network.",
+      "grade": "D"
+    },
+    {
+      "id": "marked-help",
+      "citation": "Marked, \"Help\" (docs page; summary via fetch tool)",
+      "url": "https://marked2app.com/help/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Marked's help index describes file watching and re-render on save.",
+      "doesNotShow": "Remote images, raw HTML, scroll position, privacy (page silent).",
+      "grade": "D"
+    },
+    {
+      "id": "marked-blog",
+      "citation": "Brett Terpstra, \"Marked 2.6.46 -- Mermaid, Highlighting, and More\", 2025-03-10 (blog by the developer; summary via fetch tool)",
+      "url": "https://brettterpstra.com/2025/03/10/marked-2-dot-6-46/",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "The developer's post dates Mermaid support to 2.6.46 (2025-03-10) behind an Additional Scripts panel accepting local, CDN or raw text.",
+      "doesNotShow": "Default network behaviour; a summary, not the page text.",
+      "grade": "D"
+    },
+    {
+      "id": "marked-search",
+      "citation": "Mac App Store listing and marked2app.com/styles as returned in search-result text (secondary; not opened)",
+      "url": "https://apps.apple.com/us/app/marked-2-markdown-preview/id890031187",
+      "accessed": "2026-09-25",
+      "tier": 3,
+      "depth": "search-result text only",
+      "shows": "Store listing text mentions nine built-in styles and custom styles.",
+      "doesNotShow": "Anything not in a search snippet; the listing was not opened.",
+      "grade": "D"
+    },
+    {
+      "id": "obs-view",
+      "citation": "Obsidian, \"Views and editing mode\" (docs page; summary via fetch tool)",
+      "url": "https://obsidian.md/help/edit-and-read",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Obsidian documents Reading, Live Preview and Source views cycled by one shortcut, plus switcher and status-bar icons.",
+      "doesNotShow": "Remote images, telemetry, chrome-at-rest.",
+      "grade": "D"
+    },
+    {
+      "id": "obs-syntax",
+      "citation": "Obsidian, \"Basic formatting syntax\" (docs page; summary via fetch tool)",
+      "url": "https://obsidian.md/help/syntax",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Obsidian's basic syntax page documents %% comments, external images by URL, footnotes and callouts.",
+      "doesNotShow": "Collapsible callouts, HTML, Mermaid, tables (deferred to other pages) and any fetch policy for external images.",
+      "grade": "D"
+    },
+    {
+      "id": "obs-priv",
+      "citation": "Obsidian, \"Privacy Policy\" (search-result summary only; page not opened; the help-site privacy path returned 404)",
+      "url": "https://obsidian.md/privacy",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Obsidian's privacy policy states no telemetry is collected, apart from an optional-to-disable update check.",
+      "doesNotShow": "Behaviour of plugins or Sync, and what remote images do.",
+      "grade": "D"
+    },
+    {
+      "id": "zed-agent",
+      "citation": "Zed, \"Agent Panel\" (docs page; summary via fetch tool)",
+      "url": "https://zed.dev/docs/ai/agent-panel",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Zed's Agent Panel docs describe streaming tool indicators, a Review Changes multibuffer and Copy as Markdown actions.",
+      "doesNotShow": "Thinking display and collapse.",
+      "grade": "D"
+    },
+    {
+      "id": "zed-search",
+      "citation": "Zed issues #9208 and #56127 as listed in search results (titles only; not opened)",
+      "url": "https://github.com/zed-industries/zed/issues/9208",
+      "accessed": "2026-09-25",
+      "tier": 3,
+      "depth": "search-result text only",
+      "shows": "Zed issue titles show a markdown preview exists and that scroll sync was requested.",
+      "doesNotShow": "Anything about current behaviour; titles only.",
+      "grade": "D"
+    },
+    {
+      "id": "zed-tel",
+      "citation": "Zed, \"Telemetry\" (docs page; summary via fetch tool)",
+      "url": "https://zed.dev/docs/telemetry",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Zed's telemetry page says how to turn off diagnostics and metrics.",
+      "doesNotShow": "The default state (page re-read; still not stated).",
+      "grade": "D"
+    },
+    {
+      "id": "warp-blocks",
+      "citation": "Warp, \"Blocks\" (docs page; summary via fetch tool)",
+      "url": "https://docs.warp.dev/terminal/blocks",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Warp's Blocks page defines a Block as a command plus its output and describes selection and a sticky header.",
+      "doesNotShow": "Collapse, truncation or agent-output handling.",
+      "grade": "D"
+    },
+    {
+      "id": "warp-basics",
+      "citation": "Warp, \"Block basics\" (docs page; summary via fetch tool)",
+      "url": "https://docs.warp.dev/terminal/blocks/block-basics",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Warp's block-basics page describes selecting and navigating blocks.",
+      "doesNotShow": "Collapse and copy details.",
+      "grade": "D"
+    },
+    {
+      "id": "cc-interactive",
+      "citation": "Anthropic, Claude Code \"Interactive mode\" (docs page, read earlier, see [Agent artifacts](02-agent-artifacts.md))",
+      "url": "https://code.claude.com/docs/en/interactive-mode",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "read earlier (see cited chapter)",
+      "shows": "Claude Code's interactive-mode page documents keyboard shortcuts and transcript features.",
+      "doesNotShow": "Behaviour outside the terminal.",
+      "grade": "D"
+    },
+    {
+      "id": "cc-interactive-full",
+      "citation": "Anthropic, Claude Code \"Interactive mode\", rows for `Ctrl+O`, `Option+T`, transcript viewer keys and pasted-text Unicode cleaning (docs page, saved text grepped)",
+      "url": "https://code.claude.com/docs/en/interactive-mode",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "The same page documents Ctrl+O transcript, Option+T thinking toggle, the /btw overlay c key copying raw Markdown, and stripping of hidden characters from pasted prompts.",
+      "doesNotShow": "Line-count truncation of tool output; hidden-character display of artifacts.",
+      "grade": "D"
+    },
+    {
+      "id": "cc-data",
+      "citation": "Anthropic, Claude Code \"Data usage\", telemetry services and defaults table (docs page, read in full)",
+      "url": "https://code.claude.com/docs/en/data-usage",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Claude Code's data-usage page lists telemetry services and their defaults by provider.",
+      "doesNotShow": "Behaviour of the desktop or web clients.",
+      "grade": "D"
+    },
+    {
+      "id": "codex-src",
+      "citation": "OpenAI, `openai/codex` `codex-rs/tui/src/exec_cell/render.rs` (`TOOL_CALL_MAX_LINES`, `USER_SHELL_TOOL_CALL_MAX_LINES`, ellipsis text), `ui_consts.rs` (`TRANSCRIPT_HINT`) and `keymap.rs` (`open_transc",
+      "url": "https://github.com/openai/codex",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "source",
+      "shows": "Source constants: TOOL_CALL_MAX_LINES 5, USER_SHELL 50, the '… +N lines (ctrl+t to view transcript)' marker and ctrl-t default (re-verified on main 12de0e3, Apache-2.0).",
+      "doesNotShow": "Whether the limits help readers; telemetry defaults.",
+      "grade": "D"
+    },
+    {
+      "id": "claude-art",
+      "citation": "Anthropic, \"What are artifacts and how do I use them?\" (help centre; summary via fetch tool)",
+      "url": "https://support.claude.com/en/articles/9487310-what-are-artifacts-and-how-do-i-use-them",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Claude help centre describes artifacts beside the chat with view, copy and download controls and export formats.",
+      "doesNotShow": "Any display default for tool output.",
+      "grade": "D"
+    },
+    {
+      "id": "claude-think",
+      "citation": "Anthropic, \"Using extended thinking\" (help centre; summary via fetch tool)",
+      "url": "https://support.claude.com/en/articles/10574485-using-extended-thinking",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Claude help centre describes a timer and an expandable Thinking section the reader clicks.",
+      "doesNotShow": "The word 'collapsed'; behaviour in other clients.",
+      "grade": "D"
+    },
+    {
+      "id": "chatgpt-search",
+      "citation": "OpenAI Help Center canvas and release-notes pages as quoted in search-result text (secondary; help.openai.com returned 403 on fetch; the canvas-removal claim comes from a third-party page)",
+      "url": "https://help.openai.com/en/articles/9930697",
+      "accessed": "2026-09-25",
+      "tier": 3,
+      "depth": "search-result text only",
+      "shows": "Search snippets suggest a 'Thought for' bar and canvas being replaced; help.openai.com returned 403.",
+      "doesNotShow": "Anything from OpenAI's own page text.",
+      "grade": "D"
+    },
+    {
+      "id": "jl-nb",
+      "citation": "Project Jupyter, JupyterLab \"Working with notebooks\" (docs page; summary via fetch tool)",
+      "url": "https://jupyterlab.readthedocs.io/en/stable/user/notebook.html",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "JupyterLab docs describe the output collapser, per-cell scrolling option and notebook trust rules.",
+      "doesNotShow": "Any default bound on output length.",
+      "grade": "D"
+    },
+    {
+      "id": "jl-sec",
+      "citation": "Project Jupyter, Jupyter Server \"Security in the Jupyter Server\" (docs page; summary via fetch tool)",
+      "url": "https://jupyter-server.readthedocs.io/en/latest/operators/security.html",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Jupyter Server docs say untrusted HTML is sanitised and untrusted JavaScript never executes.",
+      "doesNotShow": "Client-side rendering details.",
+      "grade": "D"
+    },
+    {
+      "id": "nbformat",
+      "citation": "Project Jupyter, \"The Jupyter Notebook Format\" (docs page; summary via fetch tool)",
+      "url": "https://nbformat.readthedocs.io/en/latest/format_description.html",
+      "accessed": "2026-09-25",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "The notebook format page defines stream, display-data and error outputs.",
+      "doesNotShow": "ANSI handling on the pages read.",
+      "grade": "D"
+    },
+    {
+      "id": "gh-codeblocks",
+      "citation": "GitHub, \"Creating and highlighting code blocks\" (docs page; summary via fetch tool)",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-and-highlighting-code-blocks",
+      "accessed": "2026-09-26",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "GitHub's code-block page says Linguist selects grammars for highlighting.",
+      "doesNotShow": "Copy button, line numbers and wrapping (page silent).",
+      "grade": "D"
+    },
+    {
+      "id": "marked-html",
+      "citation": "Marked, \"HTML Specific Settings\" (docs page; summary via fetch tool)",
+      "url": "https://marked2app.com/help/HTML_Specific_Settings.html",
+      "accessed": "2026-09-26",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Marked's HTML settings page covers header IDs, footnote IDs and Markdown inside HTML.",
+      "doesNotShow": "Remote images, network access, scripts.",
+      "grade": "D"
+    },
+    {
+      "id": "warp-actions",
+      "citation": "Warp, \"Block actions\" (docs page; summary via fetch tool)",
+      "url": "https://docs.warp.dev/terminal/blocks/block-actions.md",
+      "accessed": "2026-09-26",
+      "tier": 1,
+      "depth": "docs page via fetch-tool summary",
+      "shows": "Warp's block-actions page lists copy, share, bookmark, find within a block and filter.",
+      "doesNotShow": "Any collapse or truncation default for long output.",
+      "grade": "D"
+    }
+  ],
+  "spec": [
+    {
+      "setting": "Truncation marker for long tool output",
+      "default": "Show a count of hidden lines and one expand action, e.g. '+N lines'; Codex uses 5 lines per tool call (50 for a user shell command), VS Code notebooks 30",
+      "range": "reader-set threshold",
+      "grade": "D",
+      "why": "converged: 2 of 5 output surfaces use a line-count bound in the docs or source read; Claude Code groups MCP calls instead",
+      "anchor": "#synthesis",
+      "marxyToday": "open - no truncation rule in fixtures/corpus/18-agent-transcript rendering"
+    },
+    {
+      "setting": "Thinking blocks",
+      "default": "Behind a click, expand on demand",
+      "range": "per-reader toggle",
+      "grade": "D",
+      "why": "Claude.ai documents a click-to-open section; ChatGPT only secondary text",
+      "anchor": "#claude-ai-and-chatgpt-web",
+      "marxyToday": "open"
+    },
+    {
+      "setting": "Hidden Unicode",
+      "default": "Warn in the file view itself",
+      "range": "fixed",
+      "grade": "D",
+      "why": "In the docs read: GitHub warns in the file view, VS Code highlights, Claude Code strips pasted input; none of Typora, Marked 2, Obsidian documents it",
+      "anchor": "#trust-and-chrome-at-rest",
+      "marxyToday": "open"
+    }
+  ],
+  "operations": [
+    {
+      "id": "copy-agent-turn-markdown",
+      "title": "Copy an agent turn as Markdown source",
+      "appliesTo": [
+        "block",
+        "section"
+      ],
+      "signature": "string → clipboard",
+      "pure": true,
+      "why": "Zed offers copy-as-Markdown of a response; Marxy can do it from byte ranges",
+      "grade": "D"
+    }
+  ],
+  "gaps": [
+    {
+      "what": "No survey tool documents a per-host remote-image opt-in to compare against",
+      "blockedBy": "other",
+      "detail": "comparison is absence on the pages opened (GitHub Camo, VS Code security, Typora reference, Marked 2 help and HTML settings, Obsidian syntax), not proven absence",
+      "proposal": "treat ADR-0027 as original design and taste-test it"
+    }
+  ],
+  "stories": [],
+  "taste": [
+    "Whether a '+N lines' marker or a semantic unit is better for collapsed tool output"
+  ],
+  "changeMyMind": [
+    "Official docs for GitHub code copy button, Zed preview scroll sync, Warp collapse showing behaviours marked not documented",
+    "A study showing line-count truncation hurts finding relevant lines"
+  ]
+}
