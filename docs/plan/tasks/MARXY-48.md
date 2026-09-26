@@ -10,7 +10,7 @@ verify: [pnpm precheck, pnpm done MARXY-48]
 
 **Outcome.** `Mod+Shift+O` shows the headings and follows the reader as they scroll; `Enter` lands a section at the reading line. `Mod+F` finds text even across smart quotes and the typesetter's line breaks and puts each match where the eye already is. Every action works from the keyboard, proven by a test over the command list. `Mod+Shift+E` opens the file in the reader's editor at the line they are reading.
 
-This story is the largest in Phase 3. If the diff passes ~600 lines, split at the natural seam — **48a** outline + find, **48b** keyboard audit + external editor — and say so in the PR; the paths below are already disjoint along that seam.
+This story is the largest in Phase 3. MARXY-191 removed the branch-size budget, so length does not split it. If a reviewer returns it, the next planner splits along the seam already in the files below: **48a** outline + find, **48b** keyboard audit + external editor. Do not split on the first attempt.
 
 ## Files and signatures
 - 48a: `apps/desktop/src/outline/outline.ts` (pure: `outlineEntries(doc): { level, text, start }[]`, `currentEntry(entries, byteOffset)`), `outline/view.ts`; `apps/desktop/src/find/text-index.ts` (pure), `find/query.ts` (`compileQuery(q): RegExp`), `find/view.ts`; `commands/view.ts` entries `outline.open`, `find.open`, `find.next`, `find.previous`; tests `outline.test.ts`, `text-index.test.ts`, `query.test.ts`, `apps/desktop/test/outline-find.test.mjs`.

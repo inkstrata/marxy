@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Planner delta for 2026-09-25 late: a blocked story's worktree no longer reserves paths (MARXY-220); MARXY-44's truncation fixture is `22-unclosed-script.md`; MARXY-196 no longer points the Rust index walker at ADR-0033; MARXY-216 is dropped because MARXY-217 already resolves a conflicting pull request (MARXY-219).
 - Planner delta for 2026-09-25: a merged story with no board record is settled from main (MARXY-213, deferred until a product story is also startable); MARXY-216 is dropped because MARXY-217 already starts one conflict resolver; MARXY-16 stays deferred under the ops-majority tripwire (MARXY-212)
 - Live-reload: the desktop shell polls the open document's directory and the app reloads from disk while keeping the reading position (MARXY-194)
 - Operations: toggle task list markers and align table pipes in Rendered mode, with undo and byte-faithful splices (MARXY-43).
