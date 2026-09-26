@@ -130,6 +130,8 @@
     "MARXY-NEW-palette-index": "MARXY-196",
     "MARXY-NEW-deferral-gate": "MARXY-197",
     "MARXY-NEW-worktree-reserves-paths": "MARXY-202",
+    "MARXY-NEW-merged-settles": "MARXY-213",
+    "MARXY-NEW-dirty-owner": "MARXY-216",
     "MARXY-NEW-blocked-worktree": "MARXY-220"
   }
 }
