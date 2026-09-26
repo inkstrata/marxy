@@ -112,7 +112,11 @@ by its process, not the clock, so nothing is reaped for having slept.
 cycle lock, the planner, every in-flight story's verdict, the orchestrator checkout, why nothing
 is ready (and which stories hold the paths), and the human queue, and names one command per
 problem; `--fix` applies only what cannot lose work (reap ghost and dead stories, clear locks
-whose holder is gone, refresh the canvases) and exits 1 while a failure remains. `node
+whose holder is gone, park a dirty orchestrator checkout, refresh the canvases) and exits 1
+while a failure remains. Parking stashes tracked edits under `docs/plan/` and `orchestration/`,
+copies a patch to `~/.config/marxy/orchestration/quarantine/`, restores the checkout to HEAD, and
+records the stash once in `needs-human.md`. The cycle does that before fast-forward, so a dirty
+board no longer holds every ready story; a checkout off `main` is left as it is. `node
 orchestration/reap.mjs` shows the verdicts alone (`--apply` to act on them).
 
 Either way the mechanical half of every cycle is one command, and it is the same command in both

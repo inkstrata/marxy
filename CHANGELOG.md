@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The orchestrator parks uncommitted tracked edits under `docs/plan/` and `orchestration/` (a stash plus a patch) and restores that checkout to HEAD before fast-forward, so a dirty board no longer holds every ready story; a checkout off `main` is left as it is (MARXY-223)
 - Orchestration: prunable or broken worktrees no longer count as dirty path claims; the cycle prunes stale worktree admin rows and names each hold's pull request state instead of always saying no PR (MARXY-222)
 - Planner delta after MARXY-194 merged: a blocked worktree no longer has to hold Phase 3 (MARXY-220, after the open MARXY-218 session releases those files), a story already on main is never dispatched again (MARXY-213, after that), and the conflict-owner story is dropped because a conflicting pull request already stays in progress (MARXY-221)
 - Planner delta for 2026-09-25 late: a blocked story's worktree no longer reserves paths (MARXY-220); MARXY-44's truncation fixture is `22-unclosed-script.md`; MARXY-196 no longer points the Rust index walker at ADR-0033; MARXY-216 is dropped because MARXY-217 already resolves a conflicting pull request (MARXY-219).
