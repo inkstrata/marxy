@@ -321,3 +321,10 @@ test('the three-dot forbidden-path check allows package.json, scripts and apps/d
     assert.equal(result, 'asserted');
   }
 });
+
+test('frontmatter title: an empty or block-scalar title gives no entry, never the next key', () => {
+  for (const source of ['---\ntitle:\nauthor: Jane\n---\n\n## S\n', '---\ntitle: |\n  Long\n---\n\n## S\n']) {
+    const outline = outlineFrom(parseMarkdown(source, { file: 'fm.md' }));
+    assert.deepEqual(outline.map((entry) => entry.text), ['S']);
+  }
+});
