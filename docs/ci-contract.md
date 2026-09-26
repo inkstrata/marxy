@@ -58,9 +58,12 @@ that does not match `package.json` fails every one of them before a single test 
 
 `scripts/ci-changes.mjs` classifies the diff. You cannot skip a job by hand.
 
-- **`docs_only`** — `docs/`, `orchestration/`, `.cursor/`, markdown outside `fixtures/`, and
-  nothing else. Runs `changes`, `conventions`, `ci` only; under two minutes. A markdown file
-  under `.github/` is *not* docs-only: it counts as a workflow change.
+- **`docs_only`** — prose under `docs/`, `orchestration/`, `.cursor/`, markdown outside `fixtures/`,
+  and nothing else. Runs `changes`, `conventions`, `ci` only; under two minutes. A markdown file
+  under `.github/` is *not* docs-only: it counts as a workflow change. Nor is prose a test or gate
+  reads — `orchestration/prompts/`, `orchestration/README.md`, `loop.sh`, `.githooks/`,
+  `docs/plan/tasks/`, `AGENTS.md`, `docs/{sdlc,hygiene,plan,ci-contract}.md` — or orchestration
+  code and the board: those run `fast`, so the tests that read them run.
 - **`web`** — anything under `packages/`, `apps/desktop/{src,index.html,vite.config,package.json,scripts}`,
   `fixtures/`, `scripts/`, the root manifests, or `mise.toml`. Starts the `browser` job.
 - **`rust`** — anything under `apps/desktop/src-tauri/`.
