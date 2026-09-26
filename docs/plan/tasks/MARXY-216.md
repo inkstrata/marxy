@@ -1,7 +1,7 @@
 ---
 key: MARXY-216
 design: []
-depends: [MARXY-202]
+depends: []
 verify: [pnpm precheck, pnpm done MARXY-216]
 ---
 # MARXY-216 — A conflicted pull request is rebased or parked
