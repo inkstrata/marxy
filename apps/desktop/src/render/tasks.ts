@@ -1,35 +1,22 @@
 // Task checkbox post-pass and article re-render after edits (MARXY-43).
-import { parseMarkdown, textOf, type Buffer } from '@marxy/core';
-import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import { textOf, type Buffer } from '@marxy/core';
 import { toggleTask } from '@marxy/core/src/operations/toggle-task.ts';
-import { buildBlocks, buildNodeMap, type NodeMap } from './post.ts';
-import { nodeFor } from './post.ts';
+import { nodeFor, type NodeMap } from './post.ts';
 import { apply } from '../selection/apply.ts';
 import { buildAppContext } from '../selection/bind.ts';
-import { currentPosition, restoreScrollToPosition } from '../position/index.ts';
-import { afterDocumentRendered, getSelectionBufferContext } from '../selection/view.ts';
+import { getSelectionBufferContext, selectionApp } from '../selection/view.ts';
 
 const WIRED = new WeakSet<HTMLElement>();
 
+/**
+ * Saves an operation's result and shows it. The app writes it and renders it through its one render
+ * path (images, highlight, maths, typesetter, the buffer Source mode and live reload compare against);
+ * a render of its own here left all of that behind and the page unstyled until the next reload.
+ */
 export async function rerenderOpenDocument(buffer: Buffer): Promise<void> {
-  const ctx = getSelectionBufferContext();
-  if (!ctx) throw new Error('no open document');
-  const path = buffer.path;
-  const scroller = document.documentElement;
-  const blocksBefore = buildBlocks(ctx.article, ctx.nodeMap);
-  const before = currentPosition(scroller, blocksBefore, path, 'rendered');
-  await (ctx.shell as { writeFileAtomic(p: string, b: Uint8Array): Promise<void> }).writeFileAtomic(
-    path,
-    buffer.bytes,
-  );
-  const ast = parseMarkdown(buffer.bytes, { file: path });
-  const { html } = renderDocumentSafeHtml(ast);
-  const nodeMap = buildNodeMap(ast);
-  ctx.article.innerHTML = html;
-  afterDocumentRendered({ buffer, document: ast, nodeMap });
-  installTaskMarkers(ctx.article, nodeMap);
-  const blocksAfter = buildBlocks(ctx.article, nodeMap);
-  restoreScrollToPosition(scroller, blocksAfter, before);
+  const app = selectionApp();
+  if (!app) throw new Error('no open document');
+  await app.commitEdit(buffer);
 }
 
 export function installTaskMarkers(article: HTMLElement, _nodeMap?: NodeMap): void {

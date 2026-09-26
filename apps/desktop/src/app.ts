@@ -55,6 +55,14 @@ export interface OpenDocument {
   blocks: BlockList;
 }
 
+/** The open document as the app holds it: what operations resolve and splice against. */
+export interface OpenDocumentState {
+  readonly path: string;
+  readonly buffer: Buffer;
+  readonly ast: Document;
+  readonly nodeMap: NodeMap;
+}
+
 export type AppHandle = {
   readonly state: { document: OpenDocument | null };
   dispatch(action: unknown): void;
@@ -78,6 +86,19 @@ export type AppHandle = {
   } | null;
   /** Playwright harness: live typesetters and resize observers, so N opens are seen to leave one of each. */
   debugCounts(): { typesetters: number; resizeObservers: number };
+  /** The open document's buffer and parse, or null. */
+  openDocument(): OpenDocumentState | null;
+  /**
+   * Called whenever the open document's bytes or identity change — an open, a reload from disk, an
+   * edit folded in from Source, an operation — and with null when nothing is open. Every holder of
+   * document state follows the app through this, instead of keeping a copy that goes stale.
+   */
+  onDocumentChange(cb: (open: OpenDocumentState | null) => void): () => void;
+  /**
+   * Saves an operation's result: writes `buffer` to disk, then makes it the open document and renders
+   * it through the same path an open takes. Refused if a different document is open by then.
+   */
+  commitEdit(buffer: Buffer): Promise<void>;
 };
 
 const t0 = Date.now();
@@ -86,6 +107,18 @@ const state: { document: OpenDocument | null } = { document: null };
 
 let openPath: string | null = null;
 let documentBuffer: Buffer | null = null;
+const documentListeners = new Set<(open: OpenDocumentState | null) => void>();
+
+function openDocumentState(): OpenDocumentState | null {
+  if (!openPath || !documentBuffer || !state.document) return null;
+  return { path: openPath, buffer: documentBuffer, ast: state.document.ast, nodeMap: state.document.nodeMap };
+}
+
+/** Tell every holder of document state what is open now (see AppHandle.onDocumentChange). */
+function announceDocument(): void {
+  const open = openDocumentState();
+  for (const cb of documentListeners) cb(open);
+}
 /** Bytes last read from disk for the open path; local edits are detected against this. */
 let bytesOnDisk: Uint8Array | null = null;
 let documentWatch: { close(): void } | null = null;
@@ -459,9 +492,9 @@ function teardownDocument(): void {
 
 function hasLocalEdits(diskBytes: Uint8Array): boolean {
   if (!documentBuffer) return false;
-  if (viewMode === 'source' && sourceEditor) {
-    return leaveSourceMode(documentBuffer, sourceEditor.docText()).changed;
-  }
+  // Unfolded edits in the editor, and then — whatever the mode — edits already folded into the buffer
+  // by an earlier trip back to Rendered, which the editor's text alone no longer shows.
+  if (viewMode === 'source' && sourceEditor && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed) return true;
   if (contentHash(documentBuffer.bytes) === contentHash(diskBytes)) return false;
   if (!bytesOnDisk) return true;
   return contentHash(documentBuffer.bytes) !== contentHash(bytesOnDisk);
@@ -482,6 +515,9 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   if (!openPath) return;
   const t0 = performance.now();
   const doc = document.getElementById('doc')!;
+  // A held palette jump names a byte offset in the old bytes; the reading position below is the
+  // one that was mapped through the edit.
+  releaseAnchor();
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(openPath, bytes);
   sourceEditor?.replaceBuffer(documentBuffer);
@@ -509,7 +545,9 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
     return;
   }
   if (update.action === 'follow') {
-    await replaceOpenDocument(update.path, { at: update.position.byteOffset });
+    // Already inside `serially`: going through replaceOpenDocument would queue this open behind the
+    // task waiting for it, and every open, mode switch and reload after it would wait forever.
+    await openReplacing(update.path, update.position.byteOffset);
     return;
   }
   if (diskBytes === null) {
@@ -526,8 +564,33 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
 
 async function registerDocumentWatch(file: string): Promise<void> {
   documentWatch?.close();
-  documentWatch = await shell.watch(dirname(file), (events) => {
-    void serially(() => handleDocumentWatch(events));
+  documentWatch = null;
+  try {
+    documentWatch = await shell.watch(dirname(file), (events) => {
+      void serially(() => handleDocumentWatch(events));
+    });
+  } catch (e) {
+    // The document is already on the page; a directory that cannot be watched costs live reload,
+    // not the page the reader is looking at.
+    console.warn(`marxy: not watching ${dirname(file)}: ${String(e)}`);
+    await shell.mark('watch_failed', Date.now(), String(e));
+  }
+}
+
+/** Write an operation's result and show it through the one render path (AppHandle.commitEdit). */
+function commitEdit(next: Buffer): Promise<void> {
+  return serially(async () => {
+    if (!openPath || next.path !== openPath || !state.document) throw new Error('the edited document is no longer open');
+    const doc = document.getElementById('doc')!;
+    const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+    await shell.writeFileAtomic(openPath, next.bytes);
+    bytesOnDisk = next.bytes.slice();
+    documentBuffer = next;
+    sourceEditor?.replaceBuffer(documentBuffer);
+    releaseAnchor();
+    rerenderFromBuffer(doc);
+    if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
+    await typesetDocument(doc);
   });
 }
 
@@ -546,8 +609,7 @@ function startTypeset(article: HTMLElement): TypesetController {
 
 /**
  * The typesetter (MARXY-23), after first text: the reader sees the engine's wrapping for at most a
- * frame, then the viewport set by Knuth–Plass, and the rest in idle time. Hyphenation and hanging
- * punctuation are MARXY-24.
+ * frame, then the viewport set with hyphenation and hanging punctuation, and the rest in idle time.
  */
 async function typesetDocument(article: HTMLElement): Promise<void> {
   const controller = startTypeset(article);
@@ -568,6 +630,7 @@ function rerenderFromBuffer(doc: HTMLElement): void {
   destroyTypeset();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
+  announceDocument();
   stripNonLocalImages(doc, file);
   blockedContentNotice(blockedImages);
   snap(doc);
@@ -595,6 +658,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   ensureNoticesRegion();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap, blocks: [] };
+  announceDocument();
   await shell.mark('rendered', Date.now());
   stripNonLocalImages(doc, file);
   blockedContentNotice(blockedImages);
@@ -655,6 +719,7 @@ async function openReplacing(file: string, at?: number): Promise<void> {
     state.document = null;
     documentBuffer = null;
     openPath = null;
+    announceDocument();
     setModeChrome('rendered');
     // A read error names the path, and a path is not markup.
     const message = document.createElement('p');
@@ -665,8 +730,8 @@ async function openReplacing(file: string, at?: number): Promise<void> {
 
 async function boot(): Promise<void> {
   await shell.mark('script_start', t0);
-  // Before anything is laid out, so no weight is set twice. The WebKitGTK version arrives with the
-  // shell-api amendment (MARXY-94); until then Linux takes the table's unknown-version row.
+  // Before anything is laid out, so no weight is set twice. The shell-api has webkitVersion() since
+  // MARXY-94, but AppShell and tauri.ts do not implement it, so Linux takes the table's unknown-version row.
   const offset = applyWeightOffset(document.documentElement, platformOf(navigator.userAgent), null);
   void shell.mark('weight_offset', Date.now(), `offset=${offset}`);
   launchArgs = launchArgs.length > 0 ? launchArgs : await shell.args();
@@ -748,6 +813,12 @@ export async function startApp(injected: AppShell, opts?: { argv?: readonly stri
     currentPath: () => openPath,
     sourceHarness,
     debugCounts: () => ({ typesetters: liveTypesetters.size, resizeObservers: liveResizeObservers }),
+    openDocument: openDocumentState,
+    onDocumentChange(cb) {
+      documentListeners.add(cb);
+      return () => documentListeners.delete(cb);
+    },
+    commitEdit,
   };
   try {
     await serially(boot);

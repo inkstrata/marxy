@@ -156,6 +156,49 @@ test('clicking the first open task checkbox toggles only the marker bytes', asyn
   }
 });
 
+test('a tick after a reload from disk keeps what the other writer added (MARXY-246)', async () => {
+  const file = '03-ai-plan.md';
+  const bytes = readFileSync(join(corpusDir, file));
+  const markers = [];
+  const walk = (n) => {
+    if (n.type === 'taskMarker') markers.push(n);
+    for (const c of n.children ?? []) walk(c);
+  };
+  walk(parseMarkdown(bytes, { file }));
+  const firstMarker = markers[0];
+  const appended = '\n\nA section another tool appended.\n';
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    const docPath = await boot(page, file, [`/corpus/${file}`]);
+    await page.evaluate(async ({ path, appended }) => {
+      const shell = window.__marxyOpsBoot.handle.shell;
+      const now = new Uint8Array(await shell.readFile(path));
+      const extra = new TextEncoder().encode(appended);
+      const next = new Uint8Array(now.length + extra.length);
+      next.set(now);
+      next.set(extra, now.length);
+      await shell.writeFileAtomic(path, next);
+      shell.emit([{ kind: 'modified', path }]);
+    }, { path: docPath, appended });
+    await page.waitForFunction(() => document.getElementById('doc')?.textContent?.includes('A section another tool appended.'));
+    await page.evaluate((start) => {
+      document.querySelector(`#doc input[data-marxy-s="${start}"]`)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    }, firstMarker.src.start);
+    await page.waitForFunction(
+      async ({ path, start }) => {
+        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        return new TextDecoder().decode(now.subarray(start, start + 3)) === '[x]';
+      },
+      { path: docPath, start: firstMarker.src.start },
+    );
+    const text = await page.evaluate(async (path) => new TextDecoder().decode(await window.__marxyOpsBoot.handle.shell.readFile(path)), docPath);
+    assert.ok(text.endsWith(appended), 'the tick wrote the pre-reload buffer over the appended section');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('Mod+Z undoes a task toggle and Mod+Shift+Z redoes it', async () => {
   const file = '03-ai-plan.md';
   const bytes = readFileSync(join(corpusDir, file));

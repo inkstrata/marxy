@@ -72,19 +72,30 @@ impl RootWatch {
     }
 }
 
-/// Walk `root` and record every regular file. `.git` is skipped so a repository root is usable.
+/// Directories no reader opens a document from, and whose size made every poll of a repository
+/// root walk tens of thousands of files.
+const SKIP_DIRS: [&str; 4] = [".git", "node_modules", "target", ".venv"];
+
+/// Walk `root` and record every regular file. Only the root must be readable: a subdirectory the
+/// user cannot read (a TCC-protected folder in ~, a root-owned `lost+found`) is left out, where it
+/// used to fail the whole watch and, with it, the open that asked for it.
 pub fn scan(root: &Path) -> Result<Snapshot, String> {
     let mut out = BTreeMap::new();
-    scan_dir(root, &mut out)?;
+    let entries = fs::read_dir(root).map_err(|e| format!("{}: {e}", root.display()))?;
+    scan_entries(entries, &mut out);
     Ok(out)
 }
 
-fn scan_dir(dir: &Path, out: &mut Snapshot) -> Result<(), String> {
-    let entries = fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("{}: {e}", dir.display()))?;
+fn scan_dir(dir: &Path, out: &mut Snapshot) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        scan_entries(entries, out);
+    }
+}
+
+fn scan_entries(entries: fs::ReadDir, out: &mut Snapshot) {
+    for entry in entries.flatten() {
         let path = entry.path();
-        if entry.file_name() == ".git" {
+        if SKIP_DIRS.iter().any(|d| entry.file_name() == *d) {
             continue;
         }
         let meta = match entry.metadata() {
@@ -92,12 +103,11 @@ fn scan_dir(dir: &Path, out: &mut Snapshot) -> Result<(), String> {
             Err(_) => continue,
         };
         if meta.is_dir() {
-            scan_dir(&path, out)?;
+            scan_dir(&path, out);
         } else if meta.is_file() {
             out.insert(path, file_id(&meta));
         }
     }
-    Ok(())
 }
 
 fn file_id(meta: &Metadata) -> FileId {
@@ -335,6 +345,25 @@ mod tests {
 
     fn cleanup(dir: &Path) {
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_unreadable_or_skipped_subdirectory_does_not_fail_the_scan() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, open) = scratch("unreadable");
+        let locked = dir.join("locked");
+        fs::create_dir(&locked).expect("locked dir");
+        fs::write(locked.join("x.md"), b"x").expect("seed locked");
+        fs::create_dir(dir.join("node_modules")).expect("node_modules");
+        fs::write(dir.join("node_modules/y.md"), b"y").expect("seed skipped");
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).expect("chmod");
+        let snap = scan(&dir);
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).expect("chmod back");
+        let snap = snap.expect("the root is readable, so the scan succeeds");
+        assert!(snap.contains_key(&open));
+        assert!(!snap.keys().any(|p| p.starts_with(dir.join("node_modules"))));
+        cleanup(&dir);
     }
 
     #[test]
