@@ -30,8 +30,8 @@ import {
   CODE_ROOT, resultPath, approvalPath, notesPath, runFile, writeJsonAtomic, writeTextAtomic, readJsonOr, cycleLockPath, fleetPath,
 } from './store.mjs';
 import { planAt, showAt, CSV_PATH, DEPS_PATH } from './plan.mjs';
-import { observeWorktrees, observeRuns, pathHolds, fetchOrigin } from './observe.mjs';
-import { selectReady } from './ready.mjs';
+import { observeWorktrees, observeRuns, fetchOrigin } from './observe.mjs';
+import { selectReady, resolveClaims } from './ready.mjs';
 import { buildSpec, claimEvents, finishRun } from './runs.mjs';
 import { gh, read, run as runProc, spawnDetached, killGroup, LIMIT } from './proc.mjs';
 import { acquireLock, releaseLock } from './lease.mjs';
@@ -41,7 +41,7 @@ import { computeOrder } from './review-order.mjs';
 import { allowedFor, fileAllowed, validateResult } from './review.mjs';
 import { loadSnapshot, prime, snapshotFrom } from './github.mjs';
 import { adoptions, adoptionEvent, keyOfPr, settlements } from './adopt.mjs';
-import { runWorktreePrune, inProgressBranches } from './worktrees.mjs';
+import { runWorktreePrune, inProgressBranches, readLiveEntries, liveClaims, defaultRowsOf, sayWorktreeClaims } from './worktrees.mjs';
 import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
 import { writeReport } from './report.mjs';
 import { pushDue } from './mirror.mjs';
@@ -333,6 +333,15 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
   });
   // Worktrees whose PR merged or closed are removed; one with uncommitted work is never removed.
   if (snap && !dry && io.prune) guard('worktree prune', null, () => io.prune(snap, b).forEach(say));
+  if (plan) {
+    const statusOf = k => b.stories[k]?.status;
+    const rowsOf = (key, wtPath) => plan.byKey.get(key) ?? defaultRowsOf()(key, wtPath);
+    sayWorktreeClaims(liveClaims(readLiveEntries(snap ? { branchState: snap.branchState } : {}), {
+      rowsOf,
+      isDone: k => statusOf(k) === 'done',
+      statusOf,
+    }), { say });
+  }
   for (const [key, rec] of Object.entries(b.stories)) {
     if (rec.status !== 'in_progress' || rec.run) continue;
     const lapsed = !rec.claim || Date.parse(rec.claim.until) <= nowMs;
@@ -471,7 +480,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
   b = io.board();
   let readyReport = null;
   if (plan && !planBlocks) guard('dispatch', null, () => {
-    const claims = pathHolds({ board: b, plan, worktrees, t, nowMs });
+    const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
     const r = selectReady({ all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed });
     for (const x of r.ready) spawns.push({ role: 'implement', key: x.key, rec: b.stories[x.key] ?? {}, row: plan.byKey.get(x.key) });
     if (!r.ready.length) say(`nothing ready; ${Object.values(b.stories).filter(s => s.status === 'todo').length} todo — see status.md for each one's wait`);
