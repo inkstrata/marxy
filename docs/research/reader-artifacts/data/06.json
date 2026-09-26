@@ -1,0 +1,666 @@
+{
+ "chapter": "06-readmes.md",
+ "sources": [
+  {
+   "id": "prana",
+   "citation": "Prana, Treude, Thung, Atapattu, Lo, Categorizing the Content of GitHub README Files, EMSE 24:1296-1327, 2019",
+   "url": "https://arxiv.org/abs/1802.06997",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "4,226 README sections from 393 repos annotated into eight categories; classifier F1 0.746; what/how content common, purpose/status often missing.",
+   "doesNotShow": "Nothing about how READMEs are read or rendered.",
+   "grade": "B"
+  },
+  {
+   "id": "readmepop",
+   "citation": "Venigalla, Chimalakonda et al., An Empirical Study On Correlation between Readme Content and Project Popularity, arXiv:2206.10772, 2022",
+   "url": "https://arxiv.org/abs/2206.10772",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "1,950 READMEs, ten languages: popular projects' READMEs use lists, images and outward links; contribution guidelines and references associate with popularity.",
+   "doesNotShow": "Correlation only; popularity is not comprehension; direction of cause unknown; author list incompletely recorded.",
+   "grade": "C"
+  },
+  {
+   "id": "trockman",
+   "citation": "Trockman, Zhou, Kästner, Vasilescu, Adding Sparkle to Social Coding, ICSE 2018",
+   "url": "https://conf.researchr.org/details/icse-2018/icse-2018-Technical-Papers/77/Adding-Sparkle-to-Social-Coding-An-Empirical-Study-of-Repository-Badges-in-the-npm-E",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "read in part (abstract, hypotheses)",
+   "shows": "294,941 repos: build/coverage/dependency badges are mostly reliable signals correlating with tests, PRs, fresher deps; survey respondents say too many badges look cluttered.",
+   "doesNotShow": "Effects do not always persist; correlational; effect of badge count not verified from results.",
+   "grade": "B"
+  },
+  {
+   "id": "gh-picture",
+   "citation": "GitHub Changelog, Specify theme context for images in Markdown (Beta), 2022-05-19",
+   "url": "https://github.blog/changelog/2022-05-19-specify-theme-context-for-images-in-markdown-beta/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "GitHub documents <picture> with prefers-color-scheme sources.",
+   "doesNotShow": "Did not show the #gh-dark-mode-only fragment in the text fetched.",
+   "grade": ""
+  },
+  {
+   "id": "gh-blog-picture",
+   "citation": "Williams, How to make your images in Markdown on GitHub adjust for dark mode and light mode, GitHub Blog, 2025-04-18",
+   "url": "https://github.blog/developer-skills/github/how-to-make-your-images-in-markdown-on-github-adjust-for-dark-mode-and-light-mode/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Recommends <picture>; does not mention the fragment syntax.",
+   "doesNotShow": "Silence is not a deprecation notice.",
+   "grade": ""
+  },
+  {
+   "id": "judis",
+   "citation": "Judis, How to define dark/light mode images in GitHub Markdown",
+   "url": "https://www.stefanjudis.com/notes/how-to-define-dark-light-mode-images-in-github-markdown/",
+   "accessed": "2026-09-25",
+   "tier": 3,
+   "depth": "search snippet only",
+   "shows": "Secondary claim that the #gh-dark-mode-only fragment predates picture and is GitHub-only.",
+   "doesNotShow": "Not fetched; GitHub's own status of the fragment is unverified.",
+   "grade": "D"
+  },
+  {
+   "id": "gh-basic",
+   "citation": "GitHub Docs, Basic writing and formatting syntax (github/docs source)",
+   "url": "https://raw.githubusercontent.com/github/docs/main/content/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax.md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "Alerts (five types, one or two per article, not nestable), section-link rules, emoji codes, picture supported, footnote syntax.",
+   "doesNotShow": "No fragment-image syntax; no statement on copy or render internals.",
+   "grade": ""
+  },
+  {
+   "id": "enders1",
+   "citation": "Enders, Zebra Striping: Does it Really Help?, A List Apart, 2008",
+   "url": "https://alistapart.com/article/zebrastripingdoesithelp/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page (summarising fetch)",
+   "shows": "244 online participants, 15x9 table: no significant accuracy difference, mixed speed, 46% preferred stripes, 33% no preference.",
+   "doesNotShow": "Web experiment with unfamiliar data, one table; the article points to a peer-reviewed paper that was not read.",
+   "grade": "C"
+  },
+  {
+   "id": "enders2",
+   "citation": "Enders, Zebra Striping: More Data for the Case, A List Apart, 2008",
+   "url": "https://alistapart.com/article/zebrastripingmoredataforthecase/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page (summarising fetch)",
+   "shows": "2,276 analysed participants, eight timed questions, plain/lined/striped: stripes improved accuracy on 3 of 8 questions, no harm. Questions were under a 15-second limit.",
+   "doesNotShow": "Author lists limits: few questions, contrast/stripe width not varied, no individual analysis.",
+   "grade": "C"
+  },
+  {
+   "id": "gh-alerts-log",
+   "citation": "GitHub Changelog, New Markdown extension: Alerts..., 2023-12-14",
+   "url": "https://github.blog/changelog/2023-12-14-new-markdown-extension-alerts-provide-distinctive-styling-for-significant-content/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "search snippet only",
+   "shows": "Date 2023-12-14 (fetched in the skeptic pass): presented as a new feature, no earlier beta mentioned; the 2022 beta was a different syntax.",
+   "doesNotShow": "Page not fetched.",
+   "grade": ""
+  },
+  {
+   "id": "obsidian",
+   "citation": "Obsidian Help, Callouts (obsidian-help source)",
+   "url": "https://github.com/obsidianmd/obsidian-help",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "[!type] marker, titles, +/- fold marker, nesting.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "mkdocs",
+   "citation": "Material for MkDocs, Admonitions (source)",
+   "url": "https://github.com/squidfunk/mkdocs-material",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "Admonition and pymdownx.details extensions required; !!! syntax.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "docusaurus",
+   "citation": "Docusaurus, Admonitions (source)",
+   "url": "https://github.com/facebook/docusaurus",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": ":::type syntax.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "wogalter",
+   "citation": "Wogalter, Jarrard, Simpson, Influence of Warning Label Signal Words on Perceived Hazard Level, Human Factors 36(3), 1994",
+   "url": "https://doi.org/10.1177/001872089403600310",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (search summary)",
+   "shows": "135 participants, household product labels: a signal word raises perceived hazard; extreme words differ; note/caution/warning not reliably different.",
+   "doesNotShow": "Consumer labels, not documentation; publisher page 403. Middle-word result not verified from the retrieved abstract (skeptic pass); on-screen notes not tested.",
+   "grade": "C"
+  },
+  {
+   "id": "anderson15",
+   "citation": "Anderson et al., How Polymorphic Warnings Reduce Habituation in the Brain, CHI 2015",
+   "url": "https://dl.acm.org/doi/10.1145/2702123.2702322",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (search summary)",
+   "shows": "fMRI: sharp drop in visual-processing response by the second exposure to a warning; polymorphic warning resists.",
+   "doesNotShow": "Security dialogs, not in-flow callouts; ACM page 403.",
+   "grade": "C"
+  },
+  {
+   "id": "anderson16",
+   "citation": "Anderson, Vance, Kirwan, Jenkins, Eargle, From Warning to Wallpaper, JMIS 33(3), 2016",
+   "url": "https://www.jmis-web.org/articles/1304",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "fMRI n=25 and cursor-tracking n=80: variable-appearance warnings resist habituation.",
+   "doesNotShow": "Security warnings only.",
+   "grade": "C"
+  },
+  {
+   "id": "google-notices",
+   "citation": "Google, Notices, developer documentation style guide",
+   "url": "https://developers.google.com/style/notices",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (summarising fetch)",
+   "shows": "Note/caution/warning definitions; readers skip notices; don't cluster; no required steps in notes.",
+   "doesNotShow": "No reader test cited.",
+   "grade": "D"
+  },
+  {
+   "id": "nng",
+   "citation": "Nielsen Norman Group, Accordions on Desktop: When and How to Use",
+   "url": "https://www.nngroup.com/articles/accordions-on-desktop/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page (summarising fetch)",
+   "shows": "Accordions help as a table of contents, hurt findability with weak headings, wrong for continuous reading.",
+   "doesNotShow": "Cites no experiment of its own.",
+   "grade": "D"
+  },
+  {
+   "id": "gh-collapsed",
+   "citation": "GitHub Docs, Organizing information with collapsed sections (source)",
+   "url": "https://raw.githubusercontent.com/github/docs/main/content/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-collapsed-sections.md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "details collapsed by default, open attribute, blank line after summary for markdown body.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "bcd",
+   "citation": "MDN browser-compat-data 8.1.3",
+   "url": "https://www.npmjs.com/package/@mdn/browser-compat-data",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source (data file)",
+   "shows": "details search_match_opens: Chrome 97, Firefox 139 partial and 148 full, Safari 26.2 partial (scroll bug).",
+   "doesNotShow": "Spec text not fetched.",
+   "grade": ""
+  },
+  {
+   "id": "gh-diagrams",
+   "citation": "GitHub Docs, Creating diagrams (source)",
+   "url": "https://raw.githubusercontent.com/github/docs/main/content/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams.md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "mermaid, GeoJSON, TopoJSON, ASCII STL fences render.",
+   "doesNotShow": "Does not say how; iframe sandboxing not verified for GitHub.",
+   "grade": ""
+  },
+  {
+   "id": "gitlab-mermaid",
+   "citation": "GitLab MR 74414, Render GFM Mermaid diagrams in a sandboxed iframe",
+   "url": "https://gitlab.com/gitlab-org/gitlab/-/merge_requests/74414",
+   "accessed": "2026-09-25",
+   "tier": 3,
+   "depth": "search snippet only",
+   "shows": "GitLab sandboxes Mermaid in an iframe.",
+   "doesNotShow": "GitLab, not GitHub; not fetched.",
+   "grade": "D"
+  },
+  {
+   "id": "mermaid-docs",
+   "citation": "Mermaid, Usage: securityLevel (source)",
+   "url": "https://github.com/mermaid-js/mermaid/blob/develop/docs/config/usage.md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "strict (default), antiscript, loose, sandbox; sandbox is iframe-based and marked beta.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "mermaid-adv",
+   "citation": "GitHub Advisory Database, Mermaid XSS entries (CVE-2025-54880, -54881, CVE-2026-41149, -41159)",
+   "url": "https://github.com/advisories/GHSA-7rqq-prvp-x9jh",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "search snippet only",
+   "shows": "Repeated XSS/HTML-injection advisories in Mermaid; sandbox mitigates classDef issue; 41159 is a default-configuration CSS injection (fontFamily/themeCSS), fixed in 10.9.6 and 11.15.0.",
+   "doesNotShow": "Advisories not read in full.",
+   "grade": ""
+  },
+  {
+   "id": "mermaid-lic",
+   "citation": "npm registry metadata: mermaid, dompurify, d3, elkjs, gemoji and others",
+   "url": "https://registry.npmjs.org/mermaid/latest",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source (package metadata)",
+   "shows": "mermaid 12.0.0 MIT with elkjs ^0.9.3 as a hard dependency (all 0.9.x are EPL-2.0 only; the EPL-2.0 OR GPL-3.0-or-later dual licence is elkjs 0.12.0); d3 ISC; dompurify MPL-2.0 OR Apache-2.0; khroma MIT (repo licence file). scripts/gate-licences.mjs classifies EPL-2.0 unknown and the dual copyleft.",
+   "doesNotShow": "Whether elkjs can be excluded from a bundle not verified.",
+   "grade": ""
+  },
+  {
+   "id": "slugger",
+   "citation": "github-slugger 2.0.0",
+   "url": "https://www.npmjs.com/package/github-slugger",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source (executed)",
+   "shows": "Slug = lowercase, strip generated character class, spaces to hyphens, -n suffix; ISC.",
+   "doesNotShow": "Community port; equivalence to GitHub's private implementation not checked.",
+   "grade": ""
+  },
+  {
+   "id": "specs",
+   "citation": "CommonMark 0.31.2 and GFM 0.29-gfm specs",
+   "url": "https://spec.commonmark.org/0.31.2/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (text search)",
+   "shows": "Zero occurrences of 'emoji' in either spec.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "gh-copy",
+   "citation": "GitHub Community discussion 35615, strip leading $ on copy",
+   "url": "https://github.com/orgs/community/discussions/35615",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page (summarising fetch)",
+   "shows": "GitHub's copy button copies the $ prompt; request open since 2022-10-09, no staff reply seen.",
+   "doesNotShow": "A feature request, not documentation of the button.",
+   "grade": ""
+  },
+  {
+   "id": "copybutton",
+   "citation": "sphinx-copybutton, Use (source; MIT)",
+   "url": "https://github.com/executablebooks/sphinx-copybutton",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "Copy only prompt lines with prompt stripped when any exist, else the whole block; can use highlighter prompt classes.",
+   "doesNotShow": "No reader error-rate data.",
+   "grade": "D"
+  },
+  {
+   "id": "gh-docs-copy",
+   "citation": "github/docs issue 21645, copy button copies the leading $, 2022-10-27",
+   "url": "https://github.com/github/docs/issues/21645",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page (summarising fetch)",
+   "shows": "A closed issue reports GitHub Docs' own copy button copying the $ prompt.",
+   "doesNotShow": "No GitHub documentation or changelog stating the behaviour or a fix for repository code blocks.",
+   "grade": ""
+  }
+ ],
+ "spec": [
+  {
+   "setting": "Badge row",
+   "default": "Consecutive image-only links (2+) collapse to one muted small-size line of alt texts joined by a middle dot; links kept; per-host consent loads them on the grid at line height",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Blocked badges lose their value; a hidden row looks like breakage; badge volume reads as clutter",
+   "anchor": "#1-badges",
+   "marxyToday": "open — each badge is a bare alt-text anchor (goldens/02-readme-real-world.html.txt)"
+  },
+  {
+   "setting": "Hero alignment",
+   "default": "Honour align (left, center, right) on div/p/h1-h6 and width/height on img in the default policy; images inline, never floated",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Inert enum attributes with no URL; without them heroes collapse to left-aligned text",
+   "anchor": "#2-hero-blocks-and-html-islands",
+   "marxyToday": "open — align only in WIDE_POLICY (sanitize/policy.ts)"
+  },
+  {
+   "setting": "Dark/light image variants",
+   "default": "Resolve <picture> by prefers-color-scheme source and #gh-dark/light-mode-only fragments against Marxy's active theme to a single img; fetch only the shown variant",
+   "range": "fixed",
+   "grade": "D",
+   "why": "A light-theme logo on #151412 is unreadable and both fragment variants currently show",
+   "anchor": "#2-hero-blocks-and-html-islands",
+   "marxyToday": "contradicted — source removed, fallback img only, fragment images show in both themes"
+  },
+  {
+   "setting": "Table striping",
+   "default": "None; whitespace grouping; header by weight",
+   "range": "fixed in v1",
+   "grade": "C",
+   "why": "Two mixed web experiments; gains only on long wide tables",
+   "anchor": "#3-tables",
+   "marxyToday": "applied — no stripe token exists"
+  },
+  {
+   "setting": "GitHub alerts",
+   "default": "Label-first run-in head (type word, semibold, body size), marker hidden, no box/fill/icon; title replaces type word; Warning/Caution may take the accent on the label only",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Signal word carries hazard perception; habituation and style guides argue for few, quiet callouts",
+   "anchor": "#4-alerts-and-admonitions",
+   "marxyToday": "contradicted — literal [!NOTE] in a plain blockquote"
+  },
+  {
+   "setting": "MkDocs !!! and Docusaurus :::",
+   "default": "Not recognised; render as paragraphs",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Not markdown; site-plugin syntax; degrade legibly",
+   "anchor": "#4-alerts-and-admonitions",
+   "marxyToday": "applied — rendered as paragraphs"
+  },
+  {
+   "setting": "Collapsed sections",
+   "default": "Honour authored open state; summary as bold run-in line with a text glyph; Find opens closed ancestors; open-all is a view state",
+   "range": "reader may open all (view state)",
+   "grade": "D",
+   "why": "Convergent tool behaviour; NN/g practitioner guidance; no controlled study",
+   "anchor": "#5-collapsibles",
+   "marxyToday": "contradicted — details transparent and rendered open; under WIDE_POLICY a markdown body escapes the element"
+  },
+  {
+   "setting": "Diagram fences (v1)",
+   "default": "Source plus one muted caption 'mermaid · diagram source' for diagram languages",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Prevents a reader concluding the README is broken; costs one line",
+   "anchor": "#6-mermaid-and-diagram-fences",
+   "marxyToday": "open — plain fence, no caption"
+  },
+  {
+   "setting": "Rendered diagrams (later)",
+   "default": "Bundled offline, sandboxed frame reading back SVG only, allow-listed SVG shown via img, height snapped to 15px multiples, themed from tokens, source one step away",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Mermaid's advisory history makes sandboxing by construction mandatory",
+   "anchor": "#6-mermaid-and-diagram-fences",
+   "marxyToday": "open — out of scope for v1; blocked by elkjs EPL-2.0 (not on the gate's permissive list)"
+  },
+  {
+   "setting": "Heading anchors",
+   "default": "id = github-slugger algorithm with -n duplicate suffix; no visible permalink",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Authors write intra-document links against GitHub slugs",
+   "anchor": "#7-links-anchors-and-the-small-inline-elements",
+   "marxyToday": "open — no heading ids in goldens; specified in docs/design/02-render.md"
+  },
+  {
+   "setting": "Emoji shortcodes",
+   "default": "Convert :name: in text nodes only from a bundled MIT table; buffer and copy keep the shortcode",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Author sees a glyph; not in CommonMark or GFM",
+   "anchor": "#7-links-anchors-and-the-small-inline-elements",
+   "marxyToday": "open — literal :tada:"
+  },
+  {
+   "setting": "Copy install command",
+   "default": "Verbatim block render; 'Copy command' offered only when a prompt line exists; strips $/% (and # only in console langs); keeps continuations and heredocs; no trailing newline",
+   "range": "fixed",
+   "grade": "D",
+   "why": "GitHub's copy button copies the $; sphinx-copybutton rule is the converged workable one",
+   "anchor": "#8-copying-install-commands",
+   "marxyToday": "open — copy-code-clean copies verbatim with trailing newline"
+  }
+ ],
+ "operations": [
+  {
+   "id": "copy-command",
+   "title": "Copy command (strip prompts)",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "A shell-session block copies with its prompts and output; the command alone is what a reader wants. Offered only when a prompt line exists; no trailing newline; refuses on terminal-affecting Unicode.",
+   "grade": "D"
+  },
+  {
+   "id": "copy-section-unchanged",
+   "title": "Copy section includes closed details and alert markers",
+   "appliesTo": [
+    "section"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Existing copy-section must return the full source range, closed <details> and [!NOTE] marker included; a test, not a new operation.",
+   "grade": "D"
+  }
+ ],
+ "gaps": [
+  {
+   "what": "Alignment, sized images, closed details and picture variants in the default view",
+   "blockedBy": "sanitiser-policy",
+   "detail": "ADR-0009 §2 names img, details and div align as opt-in widening; packages/core/src/sanitize/ is CODEOWNERS-gated (ADR-0028); 13-trust.md designs WIDE_POLICY with align/width/height and keeps source absent",
+   "proposal": "Amend ADR-0009: inert attributes (align, width, height) and details/summary move to the default list; add source with a parsed single-URL srcset and only the two prefers-color-scheme media values; run the vector suite under both policies"
+  },
+  {
+   "what": "Markdown body inside <details> escapes the element under WIDE_POLICY",
+   "blockedBy": "other",
+   "detail": "CommonMark HTML blocks end at a blank line; the pipeline has no pairing pass across sibling nodes; islands carry no provenance",
+   "proposal": "Pipeline pass that wraps siblings between an unbalanced details open and close in one element with provenance from open to close; no contract change"
+  },
+  {
+   "what": "Alert recognition without an AST node",
+   "blockedBy": "registry",
+   "detail": "ast.ts contract is frozen (pinned hash); class and data-attribute names need scripts/registry.json entries",
+   "proposal": "Render-time recogniser adding registry-named class/attribute; a real admonition node would need an ADR touching only contracts"
+  },
+  {
+   "what": "Badge grouping class",
+   "blockedBy": "registry",
+   "detail": "A new class name on the paragraph needs a registry entry first",
+   "proposal": "Register marxy-badges (or equivalent) and add the render pass"
+  },
+  {
+   "what": "Table stripe token",
+   "blockedBy": "theme-contract",
+   "detail": "--marxy-* token names and units are frozen; a new token needs an ADR",
+   "proposal": "Do nothing in v1; revisit if taste review finds long tables hard to track"
+  },
+  {
+   "what": "Rendered Mermaid",
+   "blockedBy": "scope",
+   "detail": "Mermaid is out of scope for v1; mermaid 12.0.0 hard-depends on elkjs ^0.9.3 (EPL-2.0; only 0.12.0 is EPL-2.0 OR GPL-3.0-or-later); EPL-2.0 is not in PERMISSIVE in scripts/gate-licences.mjs (unknown, fails), so ADR-0006's gate rejects it; advisory history demands sandboxing",
+   "proposal": "Verify whether elkjs is excludable from a bundle, or amend ADR-0006 to admit EPL-2.0; otherwise no Mermaid until a licence-clean renderer exists; design the sandbox to the six requirements in section 6"
+  },
+  {
+   "what": "Relative links and anchors do not work",
+   "blockedBy": "shell-api",
+   "detail": "followLink calls shell.openExternal, not implemented in the Tauri shell; headings have no ids",
+   "proposal": "Implement heading ids (github-slugger algorithm) and route relative markdown links through the index (ADR-0012)"
+  },
+  {
+   "what": "Provenance inside HTML islands",
+   "blockedBy": "ast-contract",
+   "detail": "Island elements carry no data-marxy-s/e, so no operation resolves inside a hero",
+   "proposal": "Give an island's wrapper element the byte range of its html node"
+  }
+ ],
+ "stories": [
+  {
+   "summary": "Show a README's centred hero block centred and sized",
+   "readerImpact": "high",
+   "why": "The hero is the first screen of most READMEs and currently collapses",
+   "acceptance": [
+    "1. sanitize/policy.test.ts asserts align/width/height survive under DEFAULT_POLICY and urlSchemes are unchanged",
+    "2. gate:golden updated for 02-readme-real-world with align preserved",
+    "3. gate:no-network passes over the corpus"
+   ],
+   "paths": [
+    "packages/core/src/sanitize/policy.ts",
+    "docs/adr/0009-security-posture.md",
+    "packages/theme/src/base.css"
+   ],
+   "tasteRow": "Before/after render of 02-readme-real-world first screen; is the hero balanced without floats?"
+  },
+  {
+   "summary": "Show the dark or light logo that matches the theme",
+   "readerImpact": "high",
+   "why": "Light-theme logos on the dark ground and doubled fragment images",
+   "acceptance": [
+    "1. New test in render tests: picture with dark and light sources resolves to one img per theme",
+    "2. #gh-dark-mode-only image hidden under the light theme (unit test)",
+    "3. gate:no-network: only the shown variant produces a data-marxy-remote entry"
+   ],
+   "paths": [
+    "packages/core/src/sanitize/",
+    "packages/core/src/render/images.ts"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Open closed sections only when the reader does",
+   "readerImpact": "high",
+   "why": "details currently render open with a bare summary; under the wide policy the body escapes",
+   "acceptance": [
+    "1. New test: details with markdown body after a blank line renders inside one details element with provenance",
+    "2. New test: Find opens closed ancestor details before scrolling",
+    "3. gate:fidelity: toggling never changes buffer bytes"
+   ],
+   "paths": [
+    "packages/core/src/render/",
+    "packages/core/src/sanitize/policy.ts",
+    "apps/desktop/src/find/"
+   ],
+   "tasteRow": "Closed and open details before/after; does the glyph plus bold run-in read as a fold or as a heading?"
+  },
+  {
+   "summary": "Set GitHub alerts as a quiet labelled note",
+   "readerImpact": "medium",
+   "why": "A literal [!NOTE] marker reads as a rendering failure",
+   "acceptance": [
+    "1. New test: five types and lower-case marker recognised, label present, marker text absent in DOM",
+    "2. gate:golden: byte ranges unchanged; copy section returns the marker",
+    "3. gate:aesthetics: warning label contrast >= 4.5:1 in both themes"
+   ],
+   "paths": [
+    "packages/core/src/render/",
+    "packages/theme/src/base.css",
+    "scripts/registry.json"
+   ],
+   "tasteRow": "Before/after for all five alerts in dark and light; is a label-only treatment enough to notice Warning?"
+  },
+  {
+   "summary": "Group blocked badges into one quiet line",
+   "readerImpact": "medium",
+   "why": "Five bare alt words break the first screen",
+   "acceptance": [
+    "1. New test: consecutive badge links become one paragraph class with alts joined",
+    "2. gate:no-network unchanged"
+   ],
+   "paths": [
+    "packages/core/src/render/images.ts",
+    "scripts/registry.json"
+   ],
+   "tasteRow": "Badge row blocked and after consent, dark and light."
+  },
+  {
+   "summary": "Make heading links and relative markdown links work",
+   "readerImpact": "high",
+   "why": "Repository navigation is the point of the index",
+   "acceptance": [
+    "1. Test: slugs equal github-slugger output for a fixture list, with duplicate suffixes",
+    "2. Test: relative .md link opens in-app via the index"
+   ],
+   "paths": [
+    "packages/core/src/render/",
+    "apps/desktop/src/selection/view.ts"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Copy just the command from a shell session block",
+   "readerImpact": "high",
+   "why": "Install commands are the most-copied README content and the prompt breaks the paste",
+   "acceptance": [
+    "1. New operation test file with fixtures: $ prompt, console block with output, bash block with # comments (unchanged), continuation and heredoc, no-prompt block (not offered)",
+    "2. Result text has no trailing newline",
+    "3. Refuses on bidi and zero-width characters"
+   ],
+   "paths": [
+    "packages/core/src/operations/copy-command.ts"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Label a diagram fence as source",
+   "readerImpact": "low",
+   "why": "An unrendered mermaid block can look like a broken README",
+   "acceptance": [
+    "1. New test: mermaid, plantuml, dot, d2 fences carry the caption class; other languages do not"
+   ],
+   "paths": [
+    "packages/core/src/render/",
+    "scripts/registry.json"
+   ],
+   "tasteRow": "Caption above a mermaid block, dark and light."
+  },
+  {
+   "summary": "Show emoji shortcodes as emoji",
+   "readerImpact": "low",
+   "why": "Literal :tada: reads as a GitHub-only README",
+   "acceptance": [
+    "1. New test: shortcodes converted in text nodes, not in code spans or fences",
+    "2. gate:fidelity: buffer bytes unchanged"
+   ],
+   "paths": [
+    "packages/core/src/render/"
+   ],
+   "tasteRow": ""
+  }
+ ],
+ "taste": [
+  "Whether the quiet badge line reads as typeset or stripped",
+  "Whether a label-only alert is noticed enough for Warning",
+  "Whether the details glyph plus run-in reads as a fold",
+  "kbd and sub/sup treatment against the 30px line",
+  "Whether a diagram caption is welcome or noise"
+ ],
+ "changeMyMind": [
+  "A controlled study showing striping improves README-sized table tasks would justify a stripe token",
+  "Evidence that readers miss label-only warnings (versus boxed) would justify a boxed or filled Warning",
+  "A licence-clean Mermaid build (elkjs excluded) would open rendered diagrams to a story",
+  "GitHub documenting #gh-dark-mode-only as supported (or removed) would change how much effort the fragment deserves",
+  "A test showing readers lose closed content they never open would favour rendering details open"
+ ]
+}

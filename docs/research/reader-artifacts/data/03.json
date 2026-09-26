@@ -1,0 +1,595 @@
+{
+ "chapter": "03-structured-output.md",
+ "sources": [
+  {
+   "id": "cm-fold",
+   "citation": "CodeMirror, codemirror/language src/fold.ts",
+   "url": "https://raw.githubusercontent.com/codemirror/language/main/src/fold.ts",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source (fetch summary)",
+   "shows": "Folding is decoration-based, state effects, not document changes.",
+   "doesNotShow": "Not read line by line; licence and API confirmed separately in installed source.",
+   "grade": null
+  },
+  {
+   "id": "cm-src",
+   "citation": "CodeMirror, @codemirror/language 6.12.4 dist/index.js",
+   "url": "https://www.npmjs.com/package/@codemirror/language",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "foldService, foldNodeProp, foldKeymap, codeFolding, foldGutter exist.",
+   "doesNotShow": "Whether lang-* packages register foldNodeProp not checked.",
+   "grade": null
+  },
+  {
+   "id": "cm-lic",
+   "citation": "CodeMirror LICENSE and package.json (language, view)",
+   "url": "https://raw.githubusercontent.com/codemirror/language/main/LICENSE",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "MIT.",
+   "doesNotShow": "Skeptic pass also confirmed MIT LICENSE and package.json for @codemirror/state, commands, search.",
+   "grade": null
+  },
+  {
+   "id": "cm-view",
+   "citation": "CodeMirror, @codemirror/view highlightSpecialChars",
+   "url": "https://www.npmjs.com/package/@codemirror/view",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "Default Specials pattern includes U+0000-001F except tab, 007F-009F, zero-width and bidi controls.",
+   "doesNotShow": "Placeholder glyph appearance not inspected.",
+   "grade": null
+  },
+  {
+   "id": "vsc-fold",
+   "citation": "Microsoft, VS Code basic editing (folding)",
+   "url": "https://code.visualstudio.com/docs/editing/codebasics",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Folding is display-only; indentation default, syntax-aware for JSON, Markdown.",
+   "doesNotShow": "No reader study.",
+   "grade": null
+  },
+  {
+   "id": "ff-json",
+   "citation": "Mozilla, Firefox JSON viewer",
+   "url": "https://firefox-source-docs.mozilla.org/devtools-user/json_viewer/index.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Collapse, filter, raw + pretty-print, per-line JSONL.",
+   "doesNotShow": "Whether raw view is byte-identical not tested.",
+   "grade": null
+  },
+  {
+   "id": "rfc8259",
+   "citation": "Bray (ed.), RFC 8259",
+   "url": "https://www.rfc-editor.org/rfc/rfc8259",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec sections 4 and 6 (fetch summary)",
+   "shows": "Duplicate names behaviour varies; numbers interoperate within IEEE 754 double.",
+   "doesNotShow": "Effects on any specific pretty-printer not tested.",
+   "grade": null
+  },
+  {
+   "id": "jsonl",
+   "citation": "JSON Lines",
+   "url": "https://jsonlines.org/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "UTF-8, no BOM, one JSON value per line, newline terminator.",
+   "doesNotShow": "Not a standard; MIME not standardised.",
+   "grade": null
+  },
+  {
+   "id": "yaml122",
+   "citation": "YAML 1.2.2 spec, 10.3 Core Schema",
+   "url": "https://yaml.org/spec/1.2.2/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec (table read from page text)",
+   "shows": "Core Schema bool is true/True/TRUE/false/False/FALSE only.",
+   "doesNotShow": "Nothing on how Shiki colours scalars.",
+   "grade": null
+  },
+  {
+   "id": "yaml11-bool",
+   "citation": "YAML 1.1 bool type",
+   "url": "https://yaml.org/type/bool.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec (fetch summary)",
+   "shows": "y/yes/no/on/off etc. are booleans in 1.1.",
+   "doesNotShow": "No reader study.",
+   "grade": null
+  },
+  {
+   "id": "yaml11-int",
+   "citation": "YAML 1.1 int type",
+   "url": "https://yaml.org/type/int.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec (fetch summary)",
+   "shows": "Base-60 form; 190:20:30 = 685230.",
+   "doesNotShow": "No reader study.",
+   "grade": null
+  },
+  {
+   "id": "toml",
+   "citation": "TOML v1.0.0",
+   "url": "https://toml.io/en/v1.0.0",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec (fetch summary)",
+   "shows": "Explicit types, lowercase booleans, RFC 3339 dates.",
+   "doesNotShow": "No reader study.",
+   "grade": null
+  },
+  {
+   "id": "yin",
+   "citation": "Yin et al., configuration errors study, SOSP 2011",
+   "url": "https://dl.acm.org/doi/10.1145/2043556.2043572",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "bibliographic only (ACM 403)",
+   "shows": "Exists; pp. 159-172.",
+   "doesNotShow": "Abstract and findings not read; not used for any claim.",
+   "grade": null
+  },
+  {
+   "id": "gh-yaml",
+   "citation": "GitHub Blog, Viewing YAML Metadata, 2013",
+   "url": "https://github.blog/2013-09-27-viewing-yaml-metadata-in-your-documents/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "blog page (fetch summary)",
+   "shows": "GitHub renders YAML front matter as a horizontal table for any prose format.",
+   "doesNotShow": "2013 post; current UI corroborated only by a user report (see gh-yaml-now).",
+   "grade": "D"
+  },
+  {
+   "id": "gh-fm",
+   "citation": "GitHub Docs, Using YAML frontmatter",
+   "url": "https://docs.github.com/en/contributing/writing-for-github-docs/using-yaml-frontmatter",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page (opening only)",
+   "shows": "Front matter is a Jekyll-popularised key-value convention.",
+   "doesNotShow": "About GitHub Docs' own authoring, not rendering.",
+   "grade": null
+  },
+  {
+   "id": "obsidian",
+   "citation": "Obsidian Help, Properties",
+   "url": "https://obsidian.md/help/properties",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Properties visible by default; hidden/source options; six types; nested only in source.",
+   "doesNotShow": "No reader study.",
+   "grade": "D"
+  },
+  {
+   "id": "skills",
+   "citation": "Agent Skills specification",
+   "url": "https://agentskills.io/specification",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page read in full",
+   "shows": "name<=64, description<=1024 required front matter; loaded at startup.",
+   "doesNotShow": "Applicability to other tools' files not shown.",
+   "grade": null
+  },
+  {
+   "id": "wcag141",
+   "citation": "W3C WCAG 2.2 Understanding SC 1.4.1",
+   "url": "https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Colour must not be the only means of conveying information; covers text colour.",
+   "doesNotShow": "Does not say colour helps or hurts log scanning.",
+   "grade": null
+  },
+  {
+   "id": "schroter",
+   "citation": "Schröter, Bettenburg, Premraj, Do stack traces help developers fix bugs?, MSR 2010",
+   "url": "https://research.vu.nl/en/publications/do-stack-traces-help-developers-fix-bugs",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Strong evidence from Eclipse that stack traces help developers.",
+   "doesNotShow": "Frame-depth figures removed as unverifiable; one project; abstract only.",
+   "grade": "C"
+  },
+  {
+   "id": "logfile-lic",
+   "citation": "emilast/vscode-logfile-highlighter LICENSE, package.json; Shiki tm-grammars index",
+   "url": "https://raw.githubusercontent.com/emilast/vscode-logfile-highlighter/master/LICENSE",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "MIT; language id log; grammar syntaxes/log.tmLanguage.",
+   "doesNotShow": "Grammar not run on a log sample.",
+   "grade": null
+  },
+  {
+   "id": "shiki-langs",
+   "citation": "@shikijs/langs 4.4.3 modules and tm-grammars index.js",
+   "url": "https://raw.githubusercontent.com/shikijs/textmate-grammars-themes/main/packages/tm-grammars/index.js",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "log, jsonl, csv, tsv, shellsession modules exist; log and csv upstream MIT (LICENSE fetched: emilast 2015, mechatroner 2017); @shikijs/langs package.json MIT; class mapping run in skeptic pass.",
+   "doesNotShow": "Licence of hronro/sublime-linguist-syntax seen on repo page only (MIT), LICENSE text not fetched.",
+   "grade": null
+  },
+  {
+   "id": "ecma48",
+   "citation": "ECMA-48 5th ed. 1991, 8.3.117 SGR",
+   "url": "https://ecma-international.org/publications-and-standards/standards/ecma-48/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec (PDF text, section read)",
+   "shows": "SGR = CSI Ps... m, default 0; 8 = concealed characters.",
+   "doesNotShow": "Colour parameters not quoted here.",
+   "grade": null
+  },
+  {
+   "id": "gha",
+   "citation": "GitHub community threads on ANSI in Actions logs; GitHub workflow-commands docs",
+   "url": "https://github.com/orgs/community/discussions/40864",
+   "accessed": "2026-09-25",
+   "tier": 3,
+   "depth": "forum summaries via search (secondary)",
+   "shows": "Actions renders ANSI colour but resets style per newline (forum claim).",
+   "doesNotShow": "Not primary documentation; unverified.",
+   "grade": null
+  },
+  {
+   "id": "linguist",
+   "citation": "GitHub Linguist languages.yml",
+   "url": "https://raw.githubusercontent.com/github-linguist/linguist/main/lib/linguist/languages.yml",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source (fetch summary)",
+   "shows": "Shell vs ShellSession (console) entries; JSON alias jsonl.",
+   "doesNotShow": "No rendering behaviour.",
+   "grade": null
+  },
+  {
+   "id": "gh-csv",
+   "citation": "GitHub Docs, Working with non-code files",
+   "url": "https://docs.github.com/en/repositories/working-with-files/using-files/working-with-non-code-files",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "CSV/TSV files render as interactive tables.",
+   "doesNotShow": "Silent on fences.",
+   "grade": null
+  },
+  {
+   "id": "gh-yaml-now",
+   "citation": "GitHub community discussion #178337, YAML frontmatter display request, 29 Oct 2025",
+   "url": "https://github.com/orgs/community/discussions/178337",
+   "accessed": "2026-09-26",
+   "tier": 3,
+   "depth": "forum post (fetch summary)",
+   "shows": "Front matter still rendered as a table on GitHub, per a user.",
+   "doesNotShow": "Not GitHub documentation; no current docs page found.",
+   "grade": null
+  }
+ ],
+ "spec": [
+  {
+   "setting": "Data fence folding (Rendered)",
+   "default": "No fold at rest; summoned lens 'fold to depth 2' offered for data fences over 60 lines (judgement); placeholder is text with omitted line count; no flat-result number proposed",
+   "range": "depth 1-4 from keyboard",
+   "grade": "D",
+   "why": "Author's fence stays the author's; fixture 544 lines -> 64 (one-line collapse) or 184 (three-line placeholder) at depth 2; 60 and depth 2 are judgement",
+   "anchor": "#1-json-json-lines-and-long-blocks",
+   "marxyToday": "open - long-json fence renders whole (lab probe)"
+  },
+  {
+   "setting": "Source-mode folding",
+   "default": "codeFolding with text placeholder, foldKeymap, foldGutter where line numbers show; never persisted",
+   "range": "fixed",
+   "grade": "D",
+   "why": "3 of 3 tools keep folding view-only",
+   "anchor": "#1-json-json-lines-and-long-blocks",
+   "marxyToday": "open - apps/desktop/src/source/editor.ts installs no folding"
+  },
+  {
+   "setting": "Long line elision (drawn only)",
+   "default": "Lines over 1,000 chars drawn as first 200 chars + text marker with count; copy takes all bytes",
+   "range": "threshold user-adjustable",
+   "grade": "D",
+   "why": "500 wrapped rows for a 50k line",
+   "anchor": "#long-single-lines-and-blobs",
+   "marxyToday": "open - lines wrap, nothing elided"
+  },
+  {
+   "setting": "Config scalars",
+   "default": "Verbatim, existing token classes, no type inference or resolved values",
+   "range": "fixed",
+   "grade": "D",
+   "why": "YAML 1.1/1.2 and TOML disagree on the same bytes",
+   "anchor": "#2-config-formats-show-exactly-what-is-there",
+   "marxyToday": "applied - nothing interprets values (languages.generated.ts)"
+  },
+  {
+   "setting": "Front matter head",
+   "default": "Quiet key/value head above first block: 15px grid lines, label-style key, 14ch key column cap, values at measure, nested lines verbatim mono, cap 12 lines then text count; YAML and TOML",
+   "range": "hidden via a summoned toggle",
+   "grade": "D",
+   "why": "2 of 2 viewers and 4 of 4 instruction formats show it; 14ch and 12-line cap are judgement",
+   "anchor": "#3-front-matter",
+   "marxyToday": "contradicted - render-html.ts:127 returns ''"
+  },
+  {
+   "setting": "Log level",
+   "default": "Carry level by the word plus bold weight, not hue; timestamps in comment colour; keep log grammar off until weight class exists",
+   "range": "fixed",
+   "grade": "D",
+   "why": "WCAG 1.4.1; run: ERROR/FATAL/strings/trace lines -> string class, dates/TRACE -> comment, numbers -> constant, INFO/DEBUG/WARN -> none",
+   "anchor": "#4-logs",
+   "marxyToday": "open - no log grammar"
+  },
+  {
+   "setting": "Stack trace",
+   "default": "Never fold a stack trace at rest; any lens numbers are judgement",
+   "range": "fixed",
+   "grade": "C",
+   "why": "Schroter: traces help developers (abstract only); frame-depth figures removed",
+   "anchor": "#4-logs",
+   "marxyToday": "open"
+  },
+  {
+   "setting": "Control characters, ESC",
+   "default": "Source: highlightSpecialChars; Rendered: visible ␛ glyph in comment colour; SGR not rendered as colour",
+   "range": "clean-view lens may hide sequences for display",
+   "grade": "D",
+   "why": "SGR 8 conceals text (argument against honouring SGR 8, not colour as such); 4.5:1 unmet unless colours remapped; no-colour is judgement",
+   "anchor": "#5-terminal-output-and-ansi",
+   "marxyToday": "contradicted - ESC arrives invisible (probe ansi-in-fence)"
+  },
+  {
+   "setting": "Console fences",
+   "default": "Allow-list shellsession (MIT) aliases console, sh-session, bash session; output plain; prompt takes the punctuation class (measured)",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Linguist and Shiki both distinguish session grammar",
+   "anchor": "#console-fences-prompts-and-sh",
+   "marxyToday": "contradicted - console plain; sh colours $ as function (probe sh-with-prompt)"
+  },
+  {
+   "setting": "CSV/TSV fences",
+   "default": "Verbatim plain; do not allow-list csv/tsv (rainbow scopes); table only via summoned lens",
+   "range": "fixed",
+   "grade": "D",
+   "why": "1 of 1 tool tables .csv files; guessing header is interpretation",
+   "anchor": "#6-csv-and-tsv",
+   "marxyToday": "applied - plain today"
+  }
+ ],
+ "operations": [
+  {
+   "id": "copy-json-pretty",
+   "title": "Copy JSON reflowed (token-level)",
+   "appliesTo": [
+    "span",
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Readable copy without touching the buffer",
+   "grade": "D"
+  },
+  {
+   "id": "format-json",
+   "title": "Reformat JSON (changes the file)",
+   "appliesTo": [
+    "span",
+    "block",
+    "document"
+   ],
+   "signature": "string → string",
+   "pure": true,
+   "why": "Whitespace-only token reflow; refuses on invalid or commented input",
+   "grade": "D"
+  },
+  {
+   "id": "minify-json",
+   "title": "Minify JSON (changes the file)",
+   "appliesTo": [
+    "span",
+    "block",
+    "document"
+   ],
+   "signature": "string → string",
+   "pure": true,
+   "why": "Whitespace-only removal",
+   "grade": "D"
+  },
+  {
+   "id": "copy-front-matter",
+   "title": "Copy front matter",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Exact bytes including delimiters",
+   "grade": "D"
+  },
+  {
+   "id": "copy-error-lines",
+   "title": "Copy error and warning lines with continuations",
+   "appliesTo": [
+    "block",
+    "document"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Bug-report paste",
+   "grade": "D"
+  },
+  {
+   "id": "strip-ansi",
+   "title": "Copy without escape codes",
+   "appliesTo": [
+    "span",
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Removes CSI sequences for display or paste; splice form only behind an explicit label",
+   "grade": "D"
+  },
+  {
+   "id": "copy-command",
+   "title": "Copy commands only (drop prompts and output)",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Console fences and all-prompted sh fences",
+   "grade": "D"
+  },
+  {
+   "id": "copy-as-markdown-table",
+   "title": "Copy CSV/TSV as Markdown table",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Refuses ragged rows",
+   "grade": "D"
+  }
+ ],
+ "gaps": [
+  {
+   "what": "Level carried by weight in log output",
+   "blockedBy": "theme-contract",
+   "detail": "scopes.ts has twelve fixed classes, none is a bold or level class; token names are frozen",
+   "proposal": "ADR adding a 'strong' weight modifier or a 'level' class, then map log.error/log.warning to it"
+  },
+  {
+   "what": "Front matter head",
+   "blockedBy": "registry",
+   "detail": "new classes/data attributes (head, key, value) must be registered; renderer currently returns ''",
+   "proposal": "Register marxy-frontmatter* names and add a story that renders the node"
+  },
+  {
+   "what": "Visible ESC glyph and long-line marker in Rendered mode",
+   "blockedBy": "registry",
+   "detail": "drawn (non-source) inline elements need registered names and must be excluded from copy",
+   "proposal": "Register marxy-ctrl and marxy-elided; strip them in the clipboard path"
+  },
+  {
+   "what": "Summoned fold lens over a fence",
+   "blockedBy": "operations-contract",
+   "detail": "fold is view state with no replacement, which the operation shape cannot express",
+   "proposal": "Treat folds as a palette-invoked view command outside the operations contract"
+  },
+  {
+   "what": "Allow-listing log, shellsession, jsonl",
+   "blockedBy": "other",
+   "detail": "generated allow-list and shiki-languages.json need entries with licences (all four MIT upstream)",
+   "proposal": "Add three entries with licences, rerun generate-highlight-languages.mjs and gate:licences"
+  }
+ ],
+ "stories": [
+  {
+   "summary": "Show front matter as a quiet key/value head",
+   "readerImpact": "high",
+   "why": "Skill descriptions and rule globs are currently invisible",
+   "acceptance": [
+    "1. New unit test in packages/core render tests: a SKILL.md head renders name and description text",
+    "2. gate:golden updated for corpus files with front matter",
+    "3. gate:fidelity passes: source bytes unchanged"
+   ],
+   "paths": [
+    "packages/core/src/render/render-html.ts",
+    "packages/theme/src/base.css",
+    "scripts/registry.json"
+   ],
+   "tasteRow": "Before/after of an agent skill file; is the head quiet enough to read as metadata and legible for a 1,024-character description?"
+  },
+  {
+   "summary": "Make ESC and other control characters visible",
+   "readerImpact": "medium",
+   "why": "Captured terminal output is unreadable with invisible bytes",
+   "acceptance": [
+    "1. Unit test: ESC in a fence renders the registered marker and copy still yields the byte",
+    "2. Source-mode test: highlightSpecialChars installed"
+   ],
+   "paths": [
+    "apps/desktop/src/source/editor-cm6.ts",
+    "packages/core/src/render/"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Highlight console sessions without colouring the prompt",
+   "readerImpact": "medium",
+   "why": "console fences are plain and sh prompts are coloured as functions",
+   "acceptance": [
+    "1. New allow-list entry with licence passes gate:licences",
+    "2. Highlight unit test: console fence prompt token carries at most the punctuation class"
+   ],
+   "paths": [
+    "scripts/allowlists/shiki-languages.json",
+    "packages/core/src/highlight/"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Add copy-command for console fences",
+   "readerImpact": "medium",
+   "why": "Copying a command should not copy its prompt or output",
+   "acceptance": [
+    "1. Operation unit test with prompt, continuation and output lines",
+    "2. Highlight unit test: console fence prompt token carries at most the punctuation class"
+   ],
+   "paths": [
+    "packages/core/src/operations/"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Fold data blocks in Source mode and in a summoned lens",
+   "readerImpact": "medium",
+   "why": "400-line JSON is 12,000px of scrolling",
+   "acceptance": [
+    "1. Test that a fold leaves the buffer identical (gate:fidelity)",
+    "2. Unit test for depth-2 placeholder line counts on a 544-line fixture (64 one-line, 184 three-line)"
+   ],
+   "paths": [
+    "apps/desktop/src/source/",
+    "packages/core/src/render/"
+   ],
+   "tasteRow": "Screenshot pair of a 400-line JSON fence at rest and at depth 2; does the placeholder read as text in the flow?"
+  }
+ ],
+ "taste": [
+  "Whether the front matter head is quiet enough (key hang, label size)",
+  "Whether a ␛ glyph in Rendered mode is noise or help",
+  "Whether 1,000/200 for long lines and 60 lines for the fold offer feel right"
+ ],
+ "changeMyMind": [
+  "A study showing readers find log errors faster with hue than with weight would reverse weight-over-hue",
+  "A general, byte-preserving YAML reflow would reverse the advice not to ship format-yaml",
+  "Reader testing showing collapsed front matter beats a visible head would reverse the default head"
+ ]
+}

@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- New research handbook, `docs/research/reader-artifacts/`, on how a reader should present agent transcripts, tool output, plans, instruction files, code, diffs, logs and READMEs: graded defaults, what Marxy renders today (probed, and several defects it found are listed), 17 draft ADR proposals, and 25 stories, with ADR-0035 proposed to say which of it and the typography handbook decides where they overlap; docs only, nothing in the app changes (MARXY-211)
 - The fleet no longer gets stuck: every story that is not done now has an owner and a way out that fires on its own, idle worktrees stop holding other stories' paths, conflicts and red CI go straight back to someone who can fix them, reviewers run in parallel, the loop runs the code on main, and everything waiting on a person is listed at the top of the fleet's status (MARXY-227)
 - The fleet recognises the same failure twice by what the agent said, not by the JSON event around it, so a repeating model is escalated instead of retried (MARXY-227)
 - The fleet's commands, the worktree observer and the loop runner now have tests against a temporary store, a real git repository and a fake `gh`, including every refusal path; `fleet.mjs` commands return their output and exit code instead of exiting (MARXY-227)

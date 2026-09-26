@@ -1,0 +1,477 @@
+{
+ "chapter": "02-agent-artifacts.md",
+ "sources": [
+  {
+   "id": "agentsmd",
+   "citation": "agents.md, AGENTS.md home page (Agentic AI Foundation)",
+   "url": "https://agents.md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "AGENTS.md is plain markdown with no required fields; nearest file wins.",
+   "doesNotShow": "Nothing about how readers should see it.",
+   "grade": "none (engineering fact)"
+  },
+  {
+   "id": "claudemem",
+   "citation": "Anthropic, How Claude remembers your project",
+   "url": "https://code.claude.com/docs/en/memory",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Block HTML comments in CLAUDE.md are stripped before injection; rule front matter is removed; @imports to depth 4.",
+   "doesNotShow": "Behaviour of other agents with comments; the model still sees comments if it opens the file with the Read tool.",
+   "grade": "none"
+  },
+  {
+   "id": "skills",
+   "citation": "Agent Skills specification",
+   "url": "https://agentskills.io/specification",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (read in full)",
+   "shows": "SKILL.md YAML front matter fields and limits; metadata ~100 tokens, body under 5000 tokens, resources on demand.",
+   "doesNotShow": "Licence of the spec not checked; Marxy does not depend on it.",
+   "grade": "none"
+  },
+  {
+   "id": "codex",
+   "citation": "OpenAI Codex AGENTS.md guide",
+   "url": "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Discovery order, AGENTS.override.md, 32 KiB default project_doc_max_bytes.",
+   "doesNotShow": "Transcript presentation.",
+   "grade": "none"
+  },
+  {
+   "id": "gemini",
+   "citation": "Gemini CLI GEMINI.md docs",
+   "url": "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Hierarchical loading, @import syntax, configurable file names.",
+   "doesNotShow": "-",
+   "grade": "none"
+  },
+  {
+   "id": "cursor",
+   "citation": "Cursor Rules docs",
+   "url": "https://cursor.com/docs/context/rules",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Rules are .mdc files in .cursor/rules with description, globs, alwaysApply front matter.",
+   "doesNotShow": "-",
+   "grade": "none"
+  },
+  {
+   "id": "copilot",
+   "citation": "GitHub Copilot repository custom instructions",
+   "url": "https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "copilot-instructions.md, path-specific *.instructions.md with front matter, AGENTS.md support.",
+   "doesNotShow": "Prompt files (.prompt.md) not verified.",
+   "grade": "none"
+  },
+  {
+   "id": "aider",
+   "citation": "Aider FAQ, chat history",
+   "url": "https://aider.chat/docs/faq.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Chat history is markdown in .aider.chat.history.md.",
+   "doesNotShow": "Exact layout not specified on the page.",
+   "grade": "none"
+  },
+  {
+   "id": "hooks",
+   "citation": "Claude Code hooks reference (transcript_path)",
+   "url": "https://code.claude.com/docs/en/hooks",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "transcript_path is a JSONL file written asynchronously.",
+   "doesNotShow": "Line schema is undocumented; measured locally instead.",
+   "grade": "none"
+  },
+  {
+   "id": "xml",
+   "citation": "Anthropic, Prompting best practices (XML tags)",
+   "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "XML tags with names of the author's choosing structure prompts.",
+   "doesNotShow": "No fixed tag vocabulary.",
+   "grade": "none"
+  },
+  {
+   "id": "typo7",
+   "citation": "Reader Typography Handbook 07-content-types",
+   "url": "../reader-typography/07-content-types.md",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "repository file",
+   "shows": "Speaker labels stay attached and distinct; hanging indent for chat logs.",
+   "doesNotShow": "Convention, not a test.",
+   "grade": "D"
+  },
+  {
+   "id": "cc-interactive",
+   "citation": "Claude Code interactive mode",
+   "url": "https://code.claude.com/docs/en/interactive-mode",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Transcript viewer with jump to previous/next user prompt.",
+   "doesNotShow": "Default collapse state of tool results not stated.",
+   "grade": "D"
+  },
+  {
+   "id": "langfuse",
+   "citation": "Langfuse observation types and data model",
+   "url": "https://langfuse.com/docs/observability/features/observation-types",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (observation-types re-fetched in skeptic pass; data-model page not re-read)",
+   "shows": "Observations are typed (event, span, generation, agent, tool, chain, retriever, evaluator, embedding, guardrail); tool is its own type.",
+   "doesNotShow": "Does not say tool calls nest as siblings of generations; it is an observability schema, not a reader transcript view.",
+   "grade": "D"
+  },
+  {
+   "id": "vscode-nb",
+   "citation": "microsoft/vscode notebook.contribution.ts and notebookOptions.ts",
+   "url": "https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/notebook/browser/notebook.contribution.ts",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source code",
+   "shows": "notebook.output.textLineLimit falls back to 30; notebook.output.scrolling defaults on only for non-stable builds.",
+   "doesNotShow": "Whether a stable release's package.json overrides is not checked.",
+   "grade": "none"
+  },
+  {
+   "id": "vscode-issue",
+   "citation": "microsoft/vscode issue 177843",
+   "url": "https://github.com/microsoft/vscode/issues/177843",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "issue page",
+   "shows": "Maintainer says the setting is the threshold at which a scrollbar appears.",
+   "doesNotShow": "Default value not on the page.",
+   "grade": "none"
+  },
+  {
+   "id": "gha",
+   "citation": "GitHub Actions workflow commands",
+   "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "::group:: creates expandable log groups; ::add-mask:: masks secrets.",
+   "doesNotShow": "Default expanded/collapsed state unconfirmed.",
+   "grade": "none"
+  },
+  {
+   "id": "nng-pd",
+   "citation": "Nielsen, Progressive Disclosure, NN/g 2006",
+   "url": "https://www.nngroup.com/articles/progressive-disclosure/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "read in full",
+   "shows": "Practitioner essay arguing few options first improves usability; names a usability test of a hotel reservation design among 46 web applications.",
+   "doesNotShow": "The two-level limit is a general principle, not a finding of the 46-application study; nothing about reading output.",
+   "grade": "D"
+  }
+ ],
+ "spec": [
+  {
+   "setting": "Front matter in Rendered mode",
+   "default": "Show as a key/value metadata head above the title in the label style; never hidden, never rewritten; unknown keys shown",
+   "range": "reader may collapse it to one line",
+   "grade": "D",
+   "why": "Header decides when an instruction file applies (4 of 4 formats read)",
+   "anchor": "#instruction-files-what-the-agent-sees-and-what-a-person-sees",
+   "marxyToday": "contradicted — render-html.ts:127 returns '' for frontmatter"
+  },
+  {
+   "setting": "Removed-content notice",
+   "default": "A notice in the existing notices region names each removed element/comment with count, with a summoned list and jump to Source range",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Silence about removal shows a document that is not the one the agent obeys",
+   "anchor": "#instruction-files-what-the-agent-sees-and-what-a-person-sees",
+   "marxyToday": "contradicted — app.ts:428 only console.info"
+  },
+  {
+   "setting": "XML prompt tags",
+   "default": "Keep children; show tag name as inline label (needs sanitiser decision); never remove with contents",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Tags are the agent's structure and the content of the prompt",
+   "anchor": "#instruction-files-what-the-agent-sees-and-what-a-person-sees",
+   "marxyToday": "contradicted — policy.ts removes unknown elements with contents; renders or vanishes depending on blank lines"
+  },
+  {
+   "setting": "Author folds",
+   "default": "Do not fold what the author did not fold; a fenced tool result stays a fence",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Rendered mode shows the author's markdown",
+   "anchor": "#tool-calls-results-and-long-output",
+   "marxyToday": "applied — details is transparent so it renders open (fold state not kept)"
+  },
+  {
+   "setting": "Derived transcript: tool call at rest",
+   "default": "One line (verb, target, outcome); result over 30 lines shown as first 10 + last 10 with omitted count as text; one disclosure level; copy always takes the whole source (30 and 10/10 are author judgement; VS Code 30 is a scroll-height limit, Codex CLI shows 5 lines)",
+   "range": "threshold 10-100 lines, split 5/5-20/20",
+   "grade": "D",
+   "why": "VS Code 30-line default; 1 of 3 tools read gives a number; Nielsen two-level limit",
+   "anchor": "#tool-calls-results-and-long-output",
+   "marxyToday": "open — no transcript view"
+  },
+  {
+   "setting": "Speaker labels",
+   "default": "Outdented label text per turn (you / agent / tool), message at 66-char measure, 30px between exchanges and 15px within; colour never carries speaker",
+   "range": "label wording",
+   "grade": "D",
+   "why": "Sibling handbook hanging-indent convention",
+   "anchor": "#turns-and-roles",
+   "marxyToday": "open — no turn or role node in ast.ts"
+  },
+  {
+   "setting": "Task item checkbox",
+   "default": "Every task item is a checkbox including those starting with a code span",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Agent plans open items with code spans constantly",
+   "anchor": "#plans-to-do-lists-and-what-changed-since-last-read",
+   "marxyToday": "contradicted — re-run: code span, strong, em and link openers lose the checkbox (from-mdast.ts attachTaskMarker)"
+  },
+  {
+   "setting": "Changed since last read",
+   "default": "Summoned marks from a byte-range diff against an in-memory last-seen buffer; not persisted",
+   "range": "on/off",
+   "grade": "D",
+   "why": "Agents regenerate plans; need inferred, unmeasured",
+   "anchor": "#plans-to-do-lists-and-what-changed-since-last-read",
+   "marxyToday": "open — offsetThroughEdit (restore.ts) handles one run or several above the reader; an edit below plus one above lands at the common prefix (62 on 03-ai-plan.md, reader at byte 1495)"
+  },
+  {
+   "setting": "JSONL open mode",
+   "default": "Source stays the default; derived transcript view is summoned, read-only, provenance to the JSONL line",
+   "range": "on/off",
+   "grade": "D",
+   "why": "Half of a session file is bookkeeping; view must not replace the file",
+   "anchor": "#a-derived-transcript-view-for-jsonl",
+   "marxyToday": "open — ast-contract gap"
+  }
+ ],
+ "operations": [
+  {
+   "id": "copy-turn",
+   "title": "Copy one transcript turn exactly",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Exact source of a turn, from provenance",
+   "grade": "D"
+  },
+  {
+   "id": "copy-user-prompts",
+   "title": "Copy every user prompt",
+   "appliesTo": [
+    "document"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Reuse prompts",
+   "grade": "D"
+  },
+  {
+   "id": "copy-tool-output",
+   "title": "Copy a tool result whole",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Folding must never cost a byte; copy reads source range not DOM",
+   "grade": "D"
+  },
+  {
+   "id": "extract-open-tasks",
+   "title": "Copy every unchecked task line",
+   "appliesTo": [
+    "document",
+    "section"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Carry a plan's remaining work into the next prompt",
+   "grade": "D"
+  },
+  {
+   "id": "copy-front-matter",
+   "title": "Copy front matter exactly",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Header is the applicability rule",
+   "grade": "D"
+  },
+  {
+   "id": "show-removed",
+   "title": "List sanitiser removals with byte ranges",
+   "appliesTo": [
+    "document"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Makes silent removal inspectable",
+   "grade": "D"
+  },
+  {
+   "id": "derive-transcript",
+   "title": "Derive a reading-ordered transcript from JSONL (view only)",
+   "appliesTo": [
+    "document"
+   ],
+   "signature": "string → string",
+   "pure": true,
+   "why": "Session files are half bookkeeping; must skip unknown line types",
+   "grade": "D"
+  },
+  {
+   "id": "toggle-task-item",
+   "title": "Toggle a task item (v1, blocked for code-span-led items)",
+   "appliesTo": [
+    "span"
+   ],
+   "signature": "string → string",
+   "pure": true,
+   "why": "Bug in attachTaskMarker",
+   "grade": "none"
+  }
+ ],
+ "gaps": [
+  {
+   "what": "Turn, role and tool nodes; a view derived from another file's lines",
+   "blockedBy": "ast-contract",
+   "detail": "ast.ts has no speaker/tool node and every range is in a markdown buffer; contracts are frozen (ADR required)",
+   "proposal": "ADR for a view-only turn structure reusing the {file,start,end} range type, keyed to JSONL line ranges"
+  },
+  {
+   "what": "Show front matter",
+   "blockedBy": "theme-contract",
+   "detail": "render-html.ts:127 drops it pending 'the story that designs the document head'; a metadata-head token/class needs registry entries",
+   "proposal": "Register a class and tokens for the document head; story to render key/value lines"
+  },
+  {
+   "what": "Keep XML tag children with an inline label instead of removing",
+   "blockedBy": "sanitiser-policy",
+   "detail": "ADR-0009 default-deny removes unknown elements with contents",
+   "proposal": "Amend ADR-0009: for unknown non-void elements at the document root, keep children and record the element name as a visible label; scripts/style stay removed"
+  },
+  {
+   "what": "Reader-facing notice of removals",
+   "blockedBy": "registry",
+   "detail": "A notice class and event need registering in scripts/registry.json; shell notices region exists for images only",
+   "proposal": "Register a removal-notice class and reuse ensureNoticesRegion"
+  },
+  {
+   "what": "Persisted fold state for authored details",
+   "blockedBy": "scope",
+   "detail": "details is transparent by policy; no state store",
+   "proposal": "Decide whether details should be preserved as a semantic block; out of v1 unless the queue asks"
+  }
+ ],
+ "stories": [
+  {
+   "summary": "Show YAML/TOML front matter as a metadata head",
+   "readerImpact": "high",
+   "why": "Skill name/description and rule globs are invisible today",
+   "acceptance": [
+    "1. New render.test.ts case: SKILL.md fixture renders name and description text in the output (replaces 'frontmatter is metadata, not prose, and is not set').",
+    "2. gate:golden updated for a front matter corpus file; gate:fidelity passes."
+   ],
+   "paths": [
+    "packages/core/src/render/render-html.ts",
+    "packages/theme/src/base.css",
+    "scripts/registry.json"
+   ],
+   "tasteRow": "Before/after screenshot of a SKILL.md; question: does the head read as metadata without becoming chrome?"
+  },
+  {
+   "summary": "Tell the reader what the sanitiser removed",
+   "readerImpact": "high",
+   "why": "Removals only reach console.info",
+   "acceptance": [
+    "1. New test in apps/desktop asserts a notice names removed element and comment for the prompt-xml-block probe input.",
+    "2. gate:no-network unaffected."
+   ],
+   "paths": [
+    "apps/desktop/src/app.ts"
+   ],
+   "tasteRow": "Screenshot of notice on an AGENTS.md with two tags and a comment."
+  },
+  {
+   "summary": "Make task items led by a code span checkboxes",
+   "readerImpact": "high",
+   "why": "Toggle task item is silently unavailable on the common agent plan shape",
+   "acceptance": [
+    "1. New parse test: '- [ ] `a`: b' yields listItem.task unchecked with a taskMarker range.",
+    "2. gate:golden 03-ai-plan golden shows checkboxes."
+   ],
+   "paths": [
+    "packages/core/src/parse/from-mdast.ts"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Keep the reader's place when a regenerated plan changes several runs",
+   "readerImpact": "medium",
+   "why": "offsetThroughEdit lands at the common prefix (byte 62 instead of 1495 in 03-ai-plan.md when an edit above the reader is paired with one below)",
+   "acceptance": [
+    "1. New restore.test.ts case with two changed runs asserts the offset maps to the nearest surviving block start."
+   ],
+   "paths": [
+    "packages/core/src/position/restore.ts"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Derived, read-only transcript view for Claude Code JSONL",
+   "readerImpact": "medium",
+   "why": "Session files are half bookkeeping",
+   "acceptance": [
+    "1. New test: derive-transcript skips unknown line types and maps each turn to its JSONL line range.",
+    "2. gate:fidelity: file bytes unchanged after opening."
+   ],
+   "paths": [
+    "packages/core/src/operations/",
+    "apps/desktop/src/"
+   ],
+   "tasteRow": "Side-by-side: Source vs derived view of one session; question: are speakers and tool lines findable at a glance?"
+  }
+ ],
+ "taste": [
+  "Whether outdented labels or a rule between exchanges reads better in a long transcript",
+  "Whether folded thinking should exist at rest at all",
+  "The 10/10-over-30 split for long tool results"
+ ],
+ "changeMyMind": [
+  "A study showing readers verifying agent work read collapsed output less accurately would reverse the fold default",
+  "Evidence that a majority of agents other than Claude Code do strip HTML comments would weaken the 'hidden comment is a loss' claim for those files",
+  "If Claude.ai, ChatGPT, Codex and Cursor turned out to fold reasoning by default the convergence count would rise; not verified"
+ ]
+}

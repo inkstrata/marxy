@@ -1,0 +1,518 @@
+{
+ "chapter": "01-reading-tasks.md",
+ "sources": [
+  {
+   "id": "crosby",
+   "citation": "Crosby & Stelovsky, How do we read algorithms? A case study, IEEE Computer 23(1), 1990",
+   "url": "https://ieeexplore.ieee.org/iel1/2/1814/00048797.pdf",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Programmers at two experience levels read a Pascal algorithm with many fixations and long dwell on relevant areas; viewing strategy differs from prose.",
+   "doesNotShow": "Any effect of presentation; small sample; 1990 display.",
+   "grade": "C"
+  },
+  {
+   "id": "busjahn",
+   "citation": "Busjahn et al., Eye movements in code reading: relaxing the linear order, ICPC 2015",
+   "url": "https://cs.uef.fi/pages/bednarik/ICPC2015_authors_version.pdf",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract and introduction read",
+   "shows": "Novices read code less linearly than prose; experts less linearly than novices.",
+   "doesNotShow": "Which layout helps; short Java snippets.",
+   "grade": "C"
+  },
+  {
+   "id": "peitek20",
+   "citation": "Peitek, Siegmund & Apel, What drives the reading order of programmers?, ICPC 2020",
+   "url": "https://www.se.cs.uni-saarland.de/publications/docs/PSA20.pdf",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (ICPC 2020 programme page)",
+   "shows": "12 novices and 19 intermediates; re-ran Busjahn et al. and Peacock et al.; linearity of code had an even stronger effect on reading order than experience.",
+   "doesNotShow": "Design implications; snippets only; effect of comprehension strategy not verified.",
+   "grade": "C"
+  },
+  {
+   "id": "uwano",
+   "citation": "Uwano et al., Analyzing individual performance of source code review using reviewers' eye movement, ETRA 2006",
+   "url": "https://www.cs.kent.edu/~jmaletic/cs69995-PC/papers/Uwano06.pdf",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "read in full",
+   "shows": "Five reviewers, six 12-23 line C programs: 72.8% of lines seen in first 30% of time; short first sweeps went with slower defect finding.",
+   "doesNotShow": "Causation; generalisation; presentation.",
+   "grade": "C"
+  },
+  {
+   "id": "sharif12",
+   "citation": "Sharif, Falcone & Maletic, An eye-tracking study on the role of scan time in finding source code defects, ETRA 2012",
+   "url": "https://dl.acm.org/doi/10.1145/2168556.2168642",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Partial replication of Uwano: scan time correlates with defect-detection time and effort on defect lines.",
+   "doesNotShow": "Presentation effects; small programs.",
+   "grade": "C"
+  },
+  {
+   "id": "rodeghero",
+   "citation": "Rodeghero et al., Improving automated source code summarization via an eye-tracking study of programmers, ICSE 2014",
+   "url": "https://www.semanticscholar.org/paper/Improving-automated-source-code-summarization-via-Rodeghero-McMillan/67649d6e32fcf7573da91e685cfda173775708d5",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Ten professional Java programmers summarising methods; usually cited for signature focus (as restated by Abid et al.; not read directly).",
+   "doesNotShow": "Signature claim only as restated by Abid; contested (not like-for-like replicated) by Abid 2019 under different conditions.",
+   "grade": "X"
+  },
+  {
+   "id": "abid",
+   "citation": "Abid et al., Developer reading behavior while summarizing Java methods: size and context matters, ICSE 2019",
+   "url": "https://arxiv.org/abs/1903.03358",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract read (PDF)",
+   "shows": "18 developers, 63 methods in Eclipse: more gaze on method body than signature; revisit control-flow terms; long gaze on call terms.",
+   "doesNotShow": "Any presentation effect; summarisation task only.",
+   "grade": "C"
+  },
+  {
+   "id": "xia",
+   "citation": "Xia et al., Measuring program comprehension: a large-scale field study with professionals, IEEE TSE 44(10), 2018",
+   "url": "https://research.monash.edu/en/publications/measuring-program-comprehension-a-large-scale-field-study-with-pr/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (publisher repository page)",
+   "shows": "Field instrumentation of 78 professionals on 7 projects, 3,148 hours: about 58% of time is program-comprehension activity.",
+   "doesNotShow": "Reading behaviour; anything about documents; comprehension is inferred from activity classes.",
+   "grade": "C"
+  },
+  {
+   "id": "ko06",
+   "citation": "Ko, Myers, Coblenz & Aung, An exploratory study of how developers seek, relate, and collect relevant information, IEEE TSE 32(12), 2006",
+   "url": "https://faculty.washington.edu/ajko/papers/Ko2006SeekRelateCollect.pdf",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Developers searched with limited, misleading cues, then followed dependencies.",
+   "doesNotShow": "Tested no display or aid.",
+   "grade": "C"
+  },
+  {
+   "id": "lawrance",
+   "citation": "Lawrance et al., How programmers debug, revisited: an information foraging theory perspective, IEEE TSE 39(2), 2013",
+   "url": "https://digitalcommons.memphis.edu/facpubs/2870/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Navigation while debugging modelled as scent-following; ten professionals.",
+   "doesNotShow": "Tested no display or aid.",
+   "grade": "C"
+  },
+  {
+   "id": "obaidellah",
+   "citation": "Obaidellah, Al Haek & Cheng, A survey on the usage of eye-tracking in computer programming, ACM CSUR 51(1), 2018",
+   "url": "https://dl.acm.org/doi/10.1145/3145904",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "existence and scope only (not read)",
+   "shows": "Survey of eye tracking in programming research.",
+   "doesNotShow": "No numbers taken; not read.",
+   "grade": "C"
+  },
+  {
+   "id": "icer23",
+   "citation": "Brown, Kölling & Weill-Tessier, An eye tracking study assessing the impact of background styling in code editors on novice programmers' code understanding, ICER 2023",
+   "url": "https://kclpure.kcl.ac.uk/portal/en/publications/an-eye-tracking-study-assessing-the-impact-of-background-styling-/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (KCL research portal; ACM page 403)",
+   "shows": "Plain Java vs BlueJ scope highlighting vs Stride, 62 novices (count from search summary): gaze differed, correctness and speed did not.",
+   "doesNotShow": "Experts; non-Java; scope highlighting only.",
+   "grade": "C"
+  },
+  {
+   "id": "dp11",
+   "citation": "Duggan & Payne, Skim reading by satisficing: evidence from eye tracking, CHI 2011",
+   "url": "https://dl.acm.org/doi/10.1145/1978942.1979114",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Skimmers direct attention to important content and move on when information gain drops.",
+   "doesNotShow": "Code, READMEs or transcripts; expository prose only; a re-analysis of the 2009 eye data, not an independent study.",
+   "grade": "C"
+  },
+  {
+   "id": "dp09",
+   "citation": "Duggan & Payne, Text skimming: the process and effectiveness of foraging through text under time pressure, JEP:Applied 15(3), 2009",
+   "url": "https://researchportal.bath.ac.uk/en/publications/text-skimming-the-process-and-effectiveness-of-foraging-through-t/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Vs reading half the text, skimming improved memory for important ideas, not details or inferences; no advantage over reading first/second half of each paragraph; benefit depended on navigability in web-like layouts.",
+   "doesNotShow": "Non-prose artifacts.",
+   "grade": "C"
+  },
+  {
+   "id": "lorch",
+   "citation": "Lorch, Text-signaling devices and their effects on reading and memory processes, Educ. Psychol. Rev. 1(3), 1989",
+   "url": "https://link.springer.com/article/10.1007/BF01320135",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Review: most signals improve memory for cued information; unsignalled information often unaffected.",
+   "doesNotShow": "Speed of locating; effects on attention; non-prose.",
+   "grade": "C"
+  },
+  {
+   "id": "nng",
+   "citation": "Nielsen, F-shaped pattern for reading web content, Nielsen Norman Group, 2006",
+   "url": "https://www.nngroup.com/articles/f-shaped-pattern-reading-web-content-discovered/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page",
+   "shows": "232 users, eye tracking of web pages: rough F-shaped scan; author notes E and L variants.",
+   "doesNotShow": "Peer review; documents, READMEs or code.",
+   "grade": "D"
+  },
+  {
+   "id": "barke",
+   "citation": "Barke, James & Polikarpova, Grounded Copilot, OOPSLA 2023 (arXiv 2206.15000)",
+   "url": "https://arxiv.org/abs/2206.15000",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "20 programmers; acceleration vs exploration modes with Copilot.",
+   "doesNotShow": "How finished output is read or verified.",
+   "grade": "C"
+  },
+  {
+   "id": "vaith",
+   "citation": "Vaithilingam, Zhang & Glassman, Expectation vs. experience, CHI EA 2022",
+   "url": "https://dl.acm.org/doi/10.1145/3491101.3519665",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "24 participants: Copilot did not necessarily improve time or success; most preferred it.",
+   "doesNotShow": "Verification quality.",
+   "grade": "C"
+  },
+  {
+   "id": "mozannar",
+   "citation": "Mozannar, Bansal, Fourney & Horvitz, Reading between the lines, CHI 2024 (arXiv 2210.14306)",
+   "url": "https://arxiv.org/abs/2210.14306",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "21 programmers; CUPS taxonomy of activities and their time costs.",
+   "doesNotShow": "Per-activity numbers not verified; none used.",
+   "grade": "C"
+  },
+  {
+   "id": "liang",
+   "citation": "Liang, Yang & Myers, A large-scale survey on the usability of AI programming assistants, ICSE 2024 (arXiv 2303.17125)",
+   "url": "https://arxiv.org/abs/2303.17125",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "410 developers: outputs failing requirements and difficulty steering are main barriers.",
+   "doesNotShow": "Observed behaviour; self-report only.",
+   "grade": "C"
+  },
+  {
+   "id": "agdebugger",
+   "citation": "Epperson et al., Interactive debugging and steering of multi-agent AI systems, CHI 2025 (arXiv 2503.02068)",
+   "url": "https://arxiv.org/abs/2503.02068",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Five developer interviews: reviewing long agent conversations to localise errors is hard; 14-participant test of an editing/reset tool.",
+   "doesNotShow": "Any typographic or reading design.",
+   "grade": "C"
+  },
+  {
+   "id": "duma",
+   "citation": "Duma et al., These aren't the reviews you're looking for, EASE 2026 (arXiv 2605.02273)",
+   "url": "https://arxiv.org/abs/2605.02273",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "AIDev dataset: abstract says most AI-generated PRs receive no review; review more often automation-mediated; review metrics may mislead. No percentage or definition in the abstract.",
+   "doesNotShow": "Individual reviewer behaviour.",
+   "grade": "C"
+  },
+  {
+   "id": "bb13",
+   "citation": "Bacchelli & Bird, Expectations, outcomes, and challenges of modern code review, ICSE 2013",
+   "url": "https://research.tudelft.nl/en/publications/expectations-outcomes-and-challenges-of-modern-code-review/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Review at Microsoft is less about defects than expected; knowledge transfer and awareness matter.",
+   "doesNotShow": "Diff presentation.",
+   "grade": "C"
+  },
+  {
+   "id": "schroter",
+   "citation": "Schroeter (Schröter), Bettenburg & Premraj, Do stack traces help developers fix bugs?, MSR 2010",
+   "url": "https://ieeexplore.ieee.org/document/5463280/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Evidence that developers use stack traces when debugging Eclipse bugs.",
+   "doesNotShow": "Whether line numbers or any display aid helps.",
+   "grade": "C"
+  },
+  {
+   "id": "yuan",
+   "citation": "Yuan, Park & Zhou, Characterizing logging practices in open-source software, ICSE 2012",
+   "url": "https://petertsehsun.github.io/soen691/current/papers/log_icse12.pdf",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "How developers write and revise log statements in four systems.",
+   "doesNotShow": "Anything about reading logs.",
+   "grade": "D"
+  },
+  {
+   "id": "he",
+   "citation": "He et al., A survey on automated log analysis for reliability engineering, ACM CSUR 54(6), 2021",
+   "url": "https://dl.acm.org/doi/fullHtml/10.1145/3460345",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Survey of automated log parsing, compression and analysis.",
+   "doesNotShow": "Anything about human reading of logs.",
+   "grade": "D"
+  },
+  {
+   "id": "barik",
+   "citation": "Barik et al., Do developers read compiler error messages?, ICSE 2017",
+   "url": "https://dl.acm.org/doi/10.1109/ICSE.2017.59",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (search result quoting the ACM page); secondary summary agrees",
+   "shows": "56 undergraduate/graduate students in Eclipse: 13-25% of task time reading error messages; difficulty predicts performance.",
+   "doesNotShow": "Logs generally; the MSR 2016 Barik lead could not be verified and is dropped.",
+   "grade": "C"
+  },
+  {
+   "id": "baltes",
+   "citation": "Baltes & Diehl, Usage and attribution of Stack Overflow code snippets in GitHub projects, EMSE 2019",
+   "url": "https://arxiv.org/abs/1802.02938",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Copying snippets from Stack Overflow into GitHub projects is common and rarely properly attributed.",
+   "doesNotShow": "Copy errors or fidelity.",
+   "grade": "B"
+  },
+  {
+   "id": "yang",
+   "citation": "Yang, Martins, Saini & Lopes, Stack Overflow in GitHub: any snippets there?, MSR 2017",
+   "url": "https://dl.acm.org/doi/abs/10.1109/MSR.2017.13",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only (via search-result summary)",
+   "shows": "Asks whether snippets are found in projects and whether copies are literal or adapted.",
+   "doesNotShow": "Copy errors from rendering.",
+   "grade": "C"
+  }
+ ],
+ "spec": [
+  {
+   "setting": "Copy source",
+   "default": "Mod+C in Rendered mode resolves the selection through provenance to source bytes; never DOM text",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Follows from commitment 4; en-dash/curly-quote substitution is an engineering fact, its frequency unmeasured.",
+   "anchor": "#6-copy-exactly",
+   "marxyToday": "partly contradicted - drag selections copy getSelection().toString() (apps/desktop/src/selection/view.ts, apply.ts); click-selected nodes run copy-code-clean / copy-section from the buffer first"
+  },
+  {
+   "setting": "Source-mode line numbers",
+   "default": "on in Source mode; none in Rendered gutter",
+   "range": "reader may turn off",
+   "grade": "D",
+   "why": "Shared coordinate with compilers, traces and reviews; no study of retrieval benefit.",
+   "anchor": "#5-locate",
+   "marxyToday": "contradicted - apps/desktop/src/app.ts:117 passes lineNumbers: false (wrapper default is on)"
+  },
+  {
+   "setting": "Transcript segments",
+   "default": "said / run / returned distinguishable at a glance; nothing collapsed by default",
+   "range": "fixed",
+   "grade": "D",
+   "why": "AGDebugger names the problem; no test of a design.",
+   "anchor": "#4-verify",
+   "marxyToday": "open - fences distinguished only by info string; details renders open (sanitiser policy)"
+  },
+  {
+   "setting": "Diff markers",
+   "default": "+/- marker is primary cue; colour secondary with shape/weight difference",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Colour alone excludes some readers; no reading-task test.",
+   "anchor": "#7-compare",
+   "marxyToday": "open - markup.inserted/deleted map to no class (packages/core/src/highlight/scopes.ts)"
+  },
+  {
+   "setting": "Skim structure",
+   "default": "clear heading hierarchy, informative first lines, summoned outline, no per-section chrome",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Lorch and Duggan & Payne are prose studies (both [C]); no test on READMEs or transcripts.",
+   "anchor": "#3-skim",
+   "marxyToday": "applied - outline and heading type scale exist"
+  }
+ ],
+ "operations": [
+  {
+   "id": "copy-as-source-text",
+   "title": "Copy selection as source text (provenance-resolved)",
+   "appliesTo": [
+    "span",
+    "block",
+    "section"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Replaces DOM-text copy so smart typography cannot reach the clipboard.",
+   "grade": "D"
+  },
+  {
+   "id": "copy-command",
+   "title": "Copy shell command without prompts",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Strips a leading prompt only when every non-blank line has one; reader's choice, never automatic.",
+   "grade": "D"
+  },
+  {
+   "id": "extract-code-blocks",
+   "title": "Extract every fenced block",
+   "appliesTo": [
+    "document"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Lifts the commands a transcript ran into one paste.",
+   "grade": "D"
+  },
+  {
+   "id": "extract-tasks",
+   "title": "Extract open tasks",
+   "appliesTo": [
+    "document"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Answers what is left in a plan without reading it.",
+   "grade": "D"
+  },
+  {
+   "id": "copy-line-reference",
+   "title": "Copy path:line for the selection",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "A working retrieval cue for agents, reviews and traces; uses the buffer line index.",
+   "grade": "D"
+  },
+  {
+   "id": "copy-diff-after",
+   "title": "Copy the new side of a diff",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Compare task; markers removed.",
+   "grade": "D"
+  }
+ ],
+ "gaps": [
+  {
+   "what": "Copy that bypasses smartened DOM text",
+   "blockedBy": "operations-contract",
+   "detail": "Copy-as-plain-text is a v1.1 candidate; the frozen operation contract has no selection-copy that resolves through provenance by default.",
+   "proposal": "An ADR admitting a default provenance-resolved copy, or amending copy behaviour in apps/desktop/src/selection without a contract change."
+  },
+  {
+   "what": "Diff colour and shape cues",
+   "blockedBy": "theme-contract",
+   "detail": "markup.inserted/deleted map to no token class; adding one needs the twelve-class contract to change.",
+   "proposal": "An ADR adding one or two diff classes."
+  },
+  {
+   "what": "Distinguishing command from result in transcripts",
+   "blockedBy": "sanitiser-policy",
+   "detail": "Info strings are the only cue; details/summary are transparent so authored collapsing is lost.",
+   "proposal": "Decide whether an info-string convention is enough or a registry entry is needed."
+  },
+  {
+   "what": "No evidence that any presentation aids verification of agent output",
+   "blockedBy": "scope",
+   "detail": "No study; Marxy cannot collect telemetry.",
+   "proposal": "Treat designs as [D] and fail safe; run a taste review."
+  }
+ ],
+ "stories": [
+  {
+   "summary": "Copy exactly what the source says from Rendered mode",
+   "readerImpact": "high",
+   "why": "Prose --frozen-lockfile copies as an en dash today.",
+   "acceptance": [
+    "1. A new test in apps/desktop/src/selection asserts Mod+C over a rendered selection yields the source bytes for the range.",
+    "2. gate:fidelity still passes."
+   ],
+   "paths": [
+    "apps/desktop/src/selection/",
+    "packages/core/src/operations/"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Show line numbers in Source mode by default",
+   "readerImpact": "medium",
+   "why": "Line numbers are the shared coordinate for traces and reviews.",
+   "acceptance": [
+    "1. A unit test on createSourceEditor asserts the line-number extension is present by default."
+   ],
+   "paths": [
+    "apps/desktop/src/app.ts",
+    "apps/desktop/src/source/editor.ts"
+   ],
+   "tasteRow": "Before/after Source mode screenshots; is the gutter too heavy at rest?"
+  },
+  {
+   "summary": "Copy path:line for a selection",
+   "readerImpact": "low",
+   "why": "Retrieval cue for agents and reviewers.",
+   "acceptance": [
+    "1. A new operations test covers copy-line-reference on a CRLF buffer."
+   ],
+   "paths": [
+    "packages/core/src/operations/"
+   ],
+   "tasteRow": ""
+  }
+ ],
+ "taste": [
+  "Whether command and result should look different in a transcript.",
+  "Whether line-number gutters in Source mode are too heavy at rest.",
+  "Whether an open <details> in a transcript helps or hurts skimming."
+ ],
+ "changeMyMind": [
+  "A controlled study showing collapsed tool output improves error-catching would reverse the no-collapse default.",
+  "A measured frequency of copy-substitution errors near zero would lower the priority of provenance-resolved copy.",
+  "A study showing line numbers do not aid retrieval would drop the Source-mode default."
+ ]
+}

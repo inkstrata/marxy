@@ -40,7 +40,7 @@ running beside them. `docs/plan.md` has the phases and `docs/roadmap.md` the lon
 
 For live board state, run `node orchestration/fleet.mjs status` (`why KEY` for one story). It is
 generated every cycle from the fleet's event log, which lives beside the git objects
-(`<git common dir>/marxy-fleet/`, ADR-0034) and is shared by every worktree, and it is the only
+(`<git common dir>/marxy-fleet/`, ADR-0035) and is shared by every worktree, and it is the only
 honest answer to "what is done". Its **Needs you** section is everything waiting on a person.
 Never trust a count written into a document.
 
@@ -190,6 +190,11 @@ The numbers below are the sphere of concern, not a merge-bar ceiling.
   the evidence says about size, measure, leading, line breaking, code, colour and access; start at
   `10-spec.md`. It supersedes earlier taste decisions (ADR-0033). A typographic change cites the
   chapter it follows, or says why it departs.
+- `docs/research/reader-artifacts/` — a sibling handbook on how to present what is not prose: agent
+  artifacts, code and diffs as read, logs and structured data, READMEs, and the trust questions
+  they raise. **Research, not yet an authority:** ADR-0035 is proposed, so its spec lines are
+  recommendations until a story or an accepted ADR applies them. Start at `10-spec.md`; its
+  `gaps.md` lists what the frozen contracts cannot express, as draft ADRs.
 - `docs/adr/` — every decision that constrains implementation. Read the index.
 - `docs/decisions.md` — the open questions resolved at handoff, and what has been overturned since.
 - `docs/scope.md` — what v1 is and is not. `docs/plan.md` — the phases.

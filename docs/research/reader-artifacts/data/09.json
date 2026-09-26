@@ -1,0 +1,437 @@
+{
+ "chapter": "09-colour-access.md",
+ "sources": [
+  {
+   "id": "u141",
+   "citation": "W3C, Understanding SC 1.4.1 Use of Color, WCAG 2.2",
+   "url": "https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Colour may not be the only visual means; a lightness difference of 3:1 counts as a visual means.",
+   "doesNotShow": "Does not address diffs specifically.",
+   "grade": ""
+  },
+  {
+   "id": "u1411",
+   "citation": "W3C, Understanding SC 1.4.11 Non-text Contrast",
+   "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "3:1 for graphics required to understand content and focus indicators; text glyphs used as symbols count as non-text; decorative or redundant graphics are exempt.",
+   "doesNotShow": "Does not rule on diff tints; the redundancy reading is mine.",
+   "grade": ""
+  },
+  {
+   "id": "u1410",
+   "citation": "W3C, Understanding SC 1.4.10 Reflow",
+   "url": "https://www.w3.org/WAI/WCAG22/Understanding/reflow.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Code indentation is named as layout that can carry meaning and qualify for the two-dimensional exception.",
+   "doesNotShow": "Not a mandate to scroll; says nothing about tints.",
+   "grade": ""
+  },
+  {
+   "id": "u2411",
+   "citation": "W3C, Understanding SC 2.4.11 Focus Not Obscured (Minimum)",
+   "url": "https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "A focused component must not be entirely hidden by author content; refers to 2.4.7.",
+   "doesNotShow": "Text of 2.4.7 itself not read.",
+   "grade": ""
+  },
+  {
+   "id": "u233",
+   "citation": "W3C, Understanding SC 2.3.3 Animation from Interactions",
+   "url": "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Level AAA; prefers-reduced-motion is a named technique.",
+   "doesNotShow": "AAA, not required by AA.",
+   "grade": ""
+  },
+  {
+   "id": "mdnforced",
+   "citation": "MDN, forced-colors media feature",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/@media/forced-colors",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Forced colours overrides color, background-color, border-color, outline-color, text-decoration-color; box-shadow, text-shadow and non-URL background-image go to none.",
+   "doesNotShow": "Does not say which engines trigger it on which OS setting.",
+   "grade": ""
+  },
+  {
+   "id": "cssadjust",
+   "citation": "W3C, CSS Color Adjustment Module Level 1, CR Snapshot 2026-05-07",
+   "url": "https://drafts.csswg.org/css-color-adjust-1/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec (fetch summary)",
+   "shows": "Defines forced colours mode and forced-color-adjust.",
+   "doesNotShow": "Details of background-color alpha handling not verified.",
+   "grade": ""
+  },
+  {
+   "id": "bcd",
+   "citation": "mdn/browser-compat-data issue 27143, 2025-06-25",
+   "url": "https://github.com/mdn/browser-compat-data/issues/27143",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "issue page (fetch summary)",
+   "shows": "Reporter found macOS Increase Contrast does not activate forced-colors in Safari.",
+   "doesNotShow": "One tester, one issue, Safari not WKWebView-in-Tauri; not a WebKit statement.",
+   "grade": "C"
+  },
+  {
+   "id": "mdncontrast",
+   "citation": "MDN, prefers-contrast",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-contrast",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Values no-preference/more/less/custom; Baseline since May 2022; reads OS setting.",
+   "doesNotShow": "Whether WKWebView inside Tauri reports it was not tested.",
+   "grade": ""
+  },
+  {
+   "id": "primer",
+   "citation": "GitHub Primer primitives 11.10.0 (MIT), diffBlob tokens and built theme CSS",
+   "url": "https://github.com/primer/primitives",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "The official diff line and word colours per theme including colour-blind variants.",
+   "doesNotShow": "Only the five prettylights syntax colours were sampled as text.",
+   "grade": ""
+  },
+  {
+   "id": "ghcb",
+   "citation": "GitHub Changelog, Protanopia & Deuteranopia Colorblind Themes Beta, 2022-04-19",
+   "url": "https://github.blog/changelog/2022-04-19-protanopia-deuteranopia-colorblind-themes-beta/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "The single colour-blind theme was split into Protanopia & Deuteranopia and Tritanopia.",
+   "doesNotShow": "No user-outcome data.",
+   "grade": ""
+  },
+  {
+   "id": "vscode",
+   "citation": "Microsoft VS Code (MIT), theme-defaults themes and editorColors.ts",
+   "url": "https://github.com/microsoft/vscode",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "Default diffEditor inserted/removed line and text colours.",
+   "doesNotShow": "Only comment and constant.language tokens sampled; 2026 Light line fallback assumed.",
+   "grade": ""
+  },
+  {
+   "id": "machado",
+   "citation": "Machado, Oliveira, Fernandes, A Physiologically-based Model for Simulation of Color Vision Deficiency, IEEE TVCG 15(6), 2009",
+   "url": "https://doi.org/10.1109/TVCG.2009.113",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "paper PDF (text read by skeptic pass)",
+   "shows": "Matrices confirmed against authors' page; FM100H validation reported; paper declines to model tritanopia (tritanomaly by shift only).",
+   "doesNotShow": "Not stated whether matrices apply to linear RGB.",
+   "grade": ""
+  },
+  {
+   "id": "colour",
+   "citation": "colour-science machado2010.py (BSD-3-Clause)",
+   "url": "https://github.com/colour-science/colour/blob/develop/colour/blindness/datasets/machado2010.py",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "Severity-1.0 matrices used in the simulation.",
+   "doesNotShow": "Docstring cites the 2010 thesis; values equal the authors' published ones.",
+   "grade": ""
+  },
+  {
+   "id": "oklab",
+   "citation": "Ottosson, A perceptual color space for image processing, 2020",
+   "url": "https://bottosson.github.io/posts/oklab/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "blog post (fetch summary)",
+   "shows": "OKLab definition and matrices, public domain or MIT.",
+   "doesNotShow": "Gives no just-noticeable-difference threshold I could verify.",
+   "grade": ""
+  },
+  {
+   "id": "cud",
+   "citation": "Okabe and Ito, Color Universal Design, 2002/2008",
+   "url": "https://jfly.uni-koeln.de/color/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Avoid red-green pairs, use lightness differences and redundant cues.",
+   "doesNotShow": "Design guidance, not a reader test.",
+   "grade": "D"
+  },
+  {
+   "id": "ghalert",
+   "citation": "GitHub Docs, Basic writing and formatting syntax (Alerts)",
+   "url": "https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Five alert types; rendered with distinctive colours and icons; use sparingly.",
+   "doesNotShow": "No evidence alerts help readers.",
+   "grade": "D"
+  },
+  {
+   "id": "roselli",
+   "citation": "Adrian Roselli, Tweaking Text Level Styles, 2017 (updated 2024)",
+   "url": "https://adrianroselli.com/2017/12/tweaking-text-level-styles.html",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "practitioner testing (fetch summary)",
+   "shows": "NVDA announces ins/del; JAWS rolled back; mark is announced differently across readers; generated-content workaround is verbose.",
+   "doesNotShow": "Versions and dates of the tested screen readers not verified.",
+   "grade": "C"
+  },
+  {
+   "id": "aria",
+   "citation": "W3C, WAI-ARIA 1.2, roles log/insertion/deletion",
+   "url": "https://www.w3.org/TR/wai-aria-1.2/#log",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "spec (fetch summary)",
+   "shows": "log is for sequentially updated content; insertion and deletion roles exist.",
+   "doesNotShow": "Implicit aria-live value not read (summary truncated).",
+   "grade": ""
+  },
+  {
+   "id": "apg",
+   "citation": "W3C, ARIA Authoring Practices: Disclosure pattern",
+   "url": "https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (fetch summary)",
+   "shows": "Button with aria-expanded, operated by Enter and Space.",
+   "doesNotShow": "A pattern, not a reader study.",
+   "grade": "D"
+  },
+  {
+   "id": "csscolor",
+   "citation": "W3C, CSS Color Module Level 4 (gamut mapping: JND as OkLCh distance 0.02)",
+   "url": "https://www.w3.org/TR/css-color-4/",
+   "accessed": "2026-09-26",
+   "tier": 1,
+   "depth": "spec text (grep)",
+   "shows": "One JND is an OkLCh difference of 0.02 (2 in x100 units).",
+   "doesNotShow": "Not a reading-task or dichromat threshold.",
+   "grade": ""
+  }
+ ],
+ "spec": [
+  {
+   "setting": "Diff line tint (dark)",
+   "default": "Added #1b2f28 (OKLCH 0.286/0.029/170), removed #2d140b (0.226/0.044/40) on ground #1d1c19; lowest Marxy token 6.43:1 on added, 7.85:1 on removed; line ΔE 6.3 to 10.5 across protan/deutan/tritan; marker stays in text",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Measured against Marxy's own tokens; no study tests diff colouring",
+   "anchor": "#a-marxy-diff-pair",
+   "marxyToday": "open: markup.inserted/deleted map to no class (packages/core/src/highlight/scopes.ts); no diff token"
+  },
+  {
+   "setting": "Diff word tint (dark)",
+   "default": "Added #1f4438, removed #4a1e0e; lowest token 4.91:1 (number/constant on added)",
+   "range": "fixed",
+   "grade": "D",
+   "why": "A step above the line tint while every token stays at 4.5:1 or better",
+   "anchor": "#a-marxy-diff-pair",
+   "marxyToday": "open: no token"
+  },
+  {
+   "setting": "Diff line and word tint (light)",
+   "default": "Line added #cce3c6, removed #ffe7e6; word added #c0e2b8, removed #ffdcdb on #f1eee8; lowest token 4.60:1 (comment on added word); word step is weak (ΔE 1.8 to 2.9 from line); skeptic: light removed line is DeltaE 1.2/0.3 (protan/deutan) from ground, below the chapter threshold; #f3d8d7 is a stronger alternative (comment 4.85:1)",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Light palette's lowest token (5.63:1 on ground) leaves about 20% luminance headroom",
+   "anchor": "#a-marxy-diff-pair",
+   "marxyToday": "open: no token"
+  },
+  {
+   "setting": "Diff marker",
+   "default": "+ or - in column one, in code text colour, real text, never aria-hidden, never generated content",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Primary cue under 1.4.1; survives forced colours and greyscale",
+   "anchor": "#a-marxy-diff-pair",
+   "marxyToday": "applied: markers are verbatim text in the fence"
+  },
+  {
+   "setting": "Diff under prefers-contrast: more",
+   "default": "Add a 3px inline-start border in code text colour, solid for additions and dashed for deletions",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Separates the pair by pattern and lightness when tints are not trusted",
+   "anchor": "#a-marxy-diff-pair",
+   "marxyToday": "open: no prefers-contrast rule anywhere"
+  },
+  {
+   "setting": "Log level",
+   "default": "Level word in weight 700, text colour unchanged, no line tint",
+   "range": "fixed",
+   "grade": "D",
+   "why": "A level is a word; colour would double the amber and red hues",
+   "anchor": "#log-levels-alerts-and-other-severity-words",
+   "marxyToday": "open: no level class (see chapter 03)"
+  },
+  {
+   "setting": "Alert types",
+   "default": "No hue: type word in strong weight over the existing quote rule",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Design language: hierarchy from size and weight; five hues would need five measured pairs",
+   "anchor": "#log-levels-alerts-and-other-severity-words",
+   "marxyToday": "open: [!NOTE] renders as literal blockquote text"
+  },
+  {
+   "setting": "Invisible-character marker colour",
+   "default": "Code text colour inside diffs (8.1:1 on dark added word tint); secondary text is 4.05:1 there",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Secondary fails 4.5:1 on the dark added word tint",
+   "anchor": "#markers-folds-focus-and-the-small-roles",
+   "marxyToday": "open: no marker exists"
+  },
+  {
+   "setting": "Changed-since-last-read mark",
+   "default": "2px accent border in the margin, never a fill; 8.5:1 dark, 6.4:1 light",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Borders survive forced colours; presence versus absence is a 3:1 lightness difference",
+   "anchor": "#markers-folds-focus-and-the-small-roles",
+   "marxyToday": "open: no mark exists"
+  },
+  {
+   "setting": "Fold control and focus",
+   "default": "Real button with aria-expanded, Enter/Space, 2px accent ring at 2px offset; glyph in secondary text; no animation",
+   "range": "fixed",
+   "grade": "D",
+   "why": "APG disclosure pattern; ring has 4.9:1 or more on every tint",
+   "anchor": "#screen-readers-transcripts-and-folds",
+   "marxyToday": "open: focus rule only for pre and table (base.css line 250)"
+  },
+  {
+   "setting": "Word-highlight element",
+   "default": "Plain class-bearing span, not mark/ins/del",
+   "range": "fixed",
+   "grade": "C",
+   "why": "mark and ins/del announcements vary and are verbose across screen readers",
+   "anchor": "#screen-readers-transcripts-and-folds",
+   "marxyToday": "open: no word highlight"
+  },
+  {
+   "setting": "Transcript semantics",
+   "default": "A heading or labelled group per turn; no role=log for a file opened from disk",
+   "range": "fixed",
+   "grade": "D",
+   "why": "role=log is for content that updates while focus is elsewhere",
+   "anchor": "#screen-readers-transcripts-and-folds",
+   "marxyToday": "open"
+  }
+ ],
+ "operations": [],
+ "gaps": [
+  {
+   "what": "Four diff tint colours as theme tokens",
+   "blockedBy": "theme-contract",
+   "detail": "Frozen token set (ADR-0008); nothing exists for diff backgrounds and a theme cannot set what is not a token",
+   "proposal": "ADR adding --marxy-color-diff-add, -diff-del, -diff-add-word, -diff-del-word with the dark and light defaults in the chapter; registry entries first"
+  },
+  {
+   "what": "Diff line and word classes",
+   "blockedBy": "registry",
+   "detail": "scopes.ts maps twelve classes and markup.inserted/deleted to none; class and data-attribute names must be in scripts/registry.json",
+   "proposal": "Add line-level classes to the registry and a line-prefix pass on .marxy-line, rather than token classes"
+  },
+  {
+   "what": "Level word in strong weight",
+   "blockedBy": "registry",
+   "detail": "No token class carries weight",
+   "proposal": "Registry entry and one class, as chapter 03 proposes"
+  },
+  {
+   "what": "Contrast gate over every text-on-tint pair",
+   "blockedBy": "other",
+   "detail": "gate:aesthetics does not know diff tints exist",
+   "proposal": "Extend the mechanical contrast check to compose each diff token over the code ground and test the twelve classes plus text and secondary"
+  },
+  {
+   "what": "prefers-contrast, forced-colors and reduced-motion rules",
+   "blockedBy": "other",
+   "detail": "base.css has none; not frozen, so a story rather than an ADR",
+   "proposal": "Add rules in base.css and a CSS lint test"
+  }
+ ],
+ "stories": [
+  {
+   "summary": "Tint added and removed diff lines and changed words",
+   "readerImpact": "high",
+   "why": "Diffs are a first-class artifact and today are uncoloured",
+   "acceptance": [
+    "1. New packages/theme test composes each diff token over the code ground and asserts every token class and the code text is at least 4.5:1 on all four tints in dark and light.",
+    "2. Same test asserts the added/removed line pair differs in OKLab L by at least 0.05 and in OKLab ΔE by at least 4 under protan, deutan and tritan simulation.",
+    "3. gate:golden updated for the new line classes; gate:fidelity unchanged."
+   ],
+   "paths": [
+    "packages/theme/src/tokens.css",
+    "packages/theme/default/theme.css",
+    "packages/core/src/highlight/",
+    "packages/theme/test/"
+   ],
+   "tasteRow": "Before/after of a real diff in dark and light at the corpus 16-api-reference and a PR diff. Question: does the raised-added, resting-removed asymmetry read correctly, and is the dark removed tint too brown?"
+  },
+  {
+   "summary": "Keep every cue readable under increased contrast and forced colours",
+   "readerImpact": "medium",
+   "why": "Tints vanish in forced colours; markers, borders and outlines must carry the meaning",
+   "acceptance": [
+    "1. New CSS lint test fails if any diff, fold or change-mark rule conveys state through background-color alone.",
+    "2. A test loads base.css with prefers-contrast: more emulated and asserts the diff border rule applies."
+   ],
+   "paths": [
+    "packages/theme/src/base.css",
+    "packages/theme/test/"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Make fold controls real buttons with a visible focus ring",
+   "readerImpact": "medium",
+   "why": "Keyboard and screen-reader access to summoned folds",
+   "acceptance": [
+    "1. New unit test asserts a fold control is a button with aria-expanded and toggles on Enter and Space.",
+    "2. New test asserts no transition or animation property applies to expand or collapse."
+   ],
+   "paths": [
+    "apps/desktop/src/"
+   ],
+   "tasteRow": ""
+  }
+ ],
+ "taste": [
+  "Whether a raised added line and a resting removed line reads as intended, or whether readers expect matched weight",
+  "Whether the dark removed tint (hue 40, chroma 0.044) looks brown rather than red",
+  "Whether the light word tint is visible enough at ΔE 1.8 to 2.9 from its line tint",
+  "Whether amber comment text on the brown-red removed tint reads as two meanings"
+ ],
+ "changeMyMind": [
+  "A reader study showing lightness-only pairs slow or confuse diff reading would reverse the lightness-first design",
+  "A reading-task threshold well above DeltaE 4 (the CSS Color 4 JND is 2) would fail the light theme's protan line pair (4.7)",
+  "Evidence that type-coloured alerts improve comprehension would reopen no-hue alerts",
+  "WKWebView reporting forced-colors would make the forced-colors rules first-class rather than defensive"
+ ]
+}

@@ -1,0 +1,574 @@
+{
+ "chapter": "05-diffs-provenance.md",
+ "sources": [
+  {
+   "id": "bacchelli-bird",
+   "citation": "Bacchelli & Bird, Expectations, outcomes, and challenges of modern code review, ICSE 2013",
+   "url": "https://doi.org/10.1109/ICSE.2013.6606617",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Review yields knowledge transfer and awareness as well as defects; understanding the change is the main challenge.",
+   "doesNotShow": "Anything about how a diff should be presented.",
+   "grade": "B"
+  },
+  {
+   "id": "baum-wm",
+   "citation": "Baum, Schneider & Bacchelli, Associating working memory capacity and code change ordering with code review performance, EMSE 24(4), 2019",
+   "url": "https://zenodo.org/records/2001923",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "50 mostly professional developers; small changes reviewed more effectively; ordering effect only a tendency.",
+   "doesNotShow": "That any layout or ordering helps.",
+   "grade": "C"
+  },
+  {
+   "id": "fregnan",
+   "citation": "Fregnan et al., First come first served: the impact of file position on code review, ESEC/FSE 2022",
+   "url": "https://arxiv.org/abs/2208.04259",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "219,476 PRs: earlier files get more comments; experiment: one defect type 64% lower odds when its file is last.",
+   "doesNotShow": "Intra-file presentation effects.",
+   "grade": "B"
+  },
+  {
+   "id": "uwano",
+   "citation": "Uwano, Nakamura, Monden & Matsumoto, Analyzing individual performance of source code review using reviewers' eye movement, ETRA 2006",
+   "url": "https://okayama.elsevierpure.com/en/publications/analyzing-individual-performance-of-source-code-review-using-revi/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "search-result summary of abstract only",
+   "shows": "30 review processes (6 programs, 5 subjects) reveal a 'scan' gaze pattern.",
+   "doesNotShow": "How a diff should be drawn; small sample.",
+   "grade": "C"
+  },
+  {
+   "id": "alcocer",
+   "citation": "Alcocer, Cossio Chavalier, Rojas-Stambuk & Merino, An Eye-Tracking Study on the Use of Split/Unified Code Change Views for Bug Detection, IEEE Access 11, 2023",
+   "url": "https://ieeexplore.ieee.org/document/10328768/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "search-result summary of abstract only",
+   "shows": "12 participants; unified view took less visual effort but differences were not statistically significant.",
+   "doesNotShow": "Any bug-finding advantage; publisher page not retrievable so details not verified.",
+   "grade": "C"
+  },
+  {
+   "id": "myers",
+   "citation": "Myers, An O(ND) difference algorithm and its variations, Algorithmica 1, 1986",
+   "url": "https://link.springer.com/article/10.1007/BF01840446",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Shortest edit script as shortest path in an edit graph; O(ND).",
+   "doesNotShow": "Which minimal script is easiest to read.",
+   "grade": ""
+  },
+  {
+   "id": "nugroho",
+   "citation": "Nugroho, Hata & Matsumoto, How different are different diff algorithms in Git?, EMSE 25, 2020",
+   "url": "https://arxiv.org/abs/1902.02467",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "abstract only",
+   "shows": "Myers vs Histogram differ in 1.7-8.2% of commits (14 Java projects, churn) and 6.0-13.3% (10 Java projects, bug-introducing identification); authors judge Histogram better for mining.",
+   "doesNotShow": "Reader comprehension; Java only; audience is repository miners.",
+   "grade": "C"
+  },
+  {
+   "id": "gitdiff",
+   "citation": "Git project, git-diff documentation",
+   "url": "https://git-scm.com/docs/git-diff",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page (plus local measurement, git 2.55.0)",
+   "shows": "diff-algorithm, color-moved, word-diff and whitespace options.",
+   "doesNotShow": "Effect on readers.",
+   "grade": ""
+  },
+  {
+   "id": "difftastic",
+   "citation": "difftastic LICENSE",
+   "url": "https://raw.githubusercontent.com/Wilfred/difftastic/master/LICENSE",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "MIT licence.",
+   "doesNotShow": "README description not verified; a CLI, not an embeddable library.",
+   "grade": ""
+  },
+  {
+   "id": "gumtree",
+   "citation": "GumTree LICENSE",
+   "url": "https://raw.githubusercontent.com/GumTreeDiff/gumtree/main/LICENSE",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "LGPL-3.0: disqualified by ADR-0006, prior art only.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "dmp",
+   "citation": "Google diff-match-patch LICENSE",
+   "url": "https://raw.githubusercontent.com/google/diff-match-patch/master/LICENSE",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "Apache-2.0.",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "ghsuggest",
+   "citation": "GitHub Docs, Incorporating feedback in your pull request",
+   "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/incorporating-feedback-in-your-pull-request",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Suggested changes exist and can be batched into a commit.",
+   "doesNotShow": "Fence syntax was not in the excerpt retrieved.",
+   "grade": ""
+  },
+  {
+   "id": "vscode",
+   "citation": "VS Code markdownEngine.ts and issue #133376",
+   "url": "https://github.com/microsoft/vscode/issues/133376",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source code + docs page",
+   "shows": "data-line (start line only) on every non-inline token with a map; MIT licence.",
+   "doesNotShow": "Byte or inline mapping.",
+   "grade": ""
+  },
+  {
+   "id": "cmark",
+   "citation": "cmark-gfm man page",
+   "url": "https://github.com/github/cmark-gfm/blob/master/man/man1/cmark-gfm.1",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "--sourcepos option exists.",
+   "doesNotShow": "Its output format.",
+   "grade": ""
+  },
+  {
+   "id": "obsidian",
+   "citation": "Obsidian API type definitions",
+   "url": "https://raw.githubusercontent.com/obsidianmd/obsidian-api/master/obsidian.d.ts",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "getSectionInfo returns {text,lineStart,lineEnd} or null.",
+   "doesNotShow": "Inline mapping.",
+   "grade": ""
+  },
+  {
+   "id": "typora",
+   "citation": "Typora Support, Quick Start",
+   "url": "https://support.typora.io/Quick-Start/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Copy as HTML by default; Copy as Markdown command and preference.",
+   "doesNotShow": "Any reader study.",
+   "grade": ""
+  },
+  {
+   "id": "ghperma",
+   "citation": "GitHub Docs, Getting permanent links to files",
+   "url": "https://docs.github.com/en/repositories/working-with-files/using-files/getting-permanent-links-to-files",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "Commit-SHA permalinks.",
+   "doesNotShow": "Behaviour on rendered markdown.",
+   "grade": ""
+  },
+  {
+   "id": "w3c",
+   "citation": "W3C Web Annotation Data Model, 2017",
+   "url": "https://www.w3.org/TR/annotation-model/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "TextQuoteSelector (exact/prefix/suffix), TextPositionSelector (code points), multiple selectors per target.",
+   "doesNotShow": "Robustness measurements.",
+   "grade": ""
+  },
+  {
+   "id": "textfrag",
+   "citation": "WICG URL Fragment Text Directives",
+   "url": "https://wicg.github.io/scroll-to-text-fragment/",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "docs page",
+   "shows": "#:~:text=[prefix-,]start[,end][,-suffix] syntax and anti-probing restrictions.",
+   "doesNotShow": "Draft status.",
+   "grade": ""
+  },
+  {
+   "id": "hypfuzzy",
+   "citation": "Hypothesis blog, Fuzzy Anchoring, 2013",
+   "url": "https://web.hypothes.is/blog/fuzzy-anchoring/",
+   "accessed": "2026-09-25",
+   "tier": 2,
+   "depth": "docs page",
+   "shows": "Range, position, quote selectors; four re-attachment strategies; modified diff-match-patch.",
+   "doesNotShow": "Accuracy figures.",
+   "grade": ""
+  },
+  {
+   "id": "hyplic",
+   "citation": "Hypothesis client LICENSE",
+   "url": "https://raw.githubusercontent.com/hypothesis/client/main/LICENSE",
+   "accessed": "2026-09-25",
+   "tier": 1,
+   "depth": "source",
+   "shows": "BSD-2-Clause (annotator subcomponent MIT).",
+   "doesNotShow": "",
+   "grade": ""
+  },
+  {
+   "id": "phelps",
+   "citation": "Phelps & Wilensky, Robust intra-document locations, Computer Networks 33, 2000",
+   "url": "https://www.semanticscholar.org/paper/Robust-intra-document-locations-Phelps-Wilensky/bf3a9da17f9dbeb2d2d09f4d562c903e4e9b2f2e",
+   "accessed": "2026-09-25",
+   "tier": 3,
+   "depth": "bibliographic record via search only",
+   "shows": "Exists; concerns robust locations.",
+   "doesNotShow": "Abstract not read; no claim made from it.",
+   "grade": ""
+  },
+  {
+   "id": "glodny",
+   "citation": "Glodny, Analyzing and Evaluating the Behavior of Git Diff and Merge, bachelor's thesis, 2025",
+   "url": "https://arxiv.org/abs/2507.22071",
+   "accessed": "2026-09-25",
+   "tier": 3,
+   "depth": "abstract only",
+   "shows": "Histogram has pathological cases where a single-line change marks the rest of the file changed.",
+   "doesNotShow": "Frequency of the pathology; no comparison in the abstract.",
+   "grade": "C"
+  }
+ ],
+ "spec": [
+  {
+   "setting": "Diff layout",
+   "default": "Unified, one column, as authored; never converted to split",
+   "range": "fixed",
+   "grade": "C",
+   "why": "Only direct test (12 participants) leans weakly to unified, non-significant",
+   "anchor": "#what-a-reader-of-a-change-needs",
+   "marxyToday": "applied — fence renders as authored (probe-results diff-fence)"
+  },
+  {
+   "setting": "Diff markers",
+   "default": "+, - and space in column one stay in the text and in the clipboard; colour is a second channel only",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Markers are the information; convention, git verified",
+   "anchor": "#presenting-a-diff-someone-else-computed",
+   "marxyToday": "applied — markers survive as punctuation (scopes.ts)"
+  },
+  {
+   "setting": "Diff colour",
+   "default": "Tint markup.inserted/deleted lines as second channel; headers and no-newline line in plain code colour",
+   "range": "theme may set the two colours",
+   "grade": "D",
+   "why": "Convention; no test of colour in diffs",
+   "anchor": "#presenting-a-diff-someone-else-computed",
+   "marxyToday": "open — scopes.ts maps no diff scope; diff renders monochrome"
+  },
+  {
+   "setting": "Diff continuation rows",
+   "default": "Hang at least 2ch beyond marker column with the 1px rule; never start a row in column one",
+   "range": "fixed",
+   "grade": "D",
+   "why": "A continuation must not read as +/-",
+   "anchor": "#presenting-a-diff-someone-else-computed",
+   "marxyToday": "open — wrap rule exists in 04 but not verified for diff fences"
+  },
+  {
+   "setting": "Diff computation",
+   "default": "Render only; when Marxy must compute, line-level histogram in core",
+   "range": "fixed",
+   "grade": "C",
+   "why": "One Java mining study favours histogram; a thesis reports pathological cases; git default is Myers",
+   "anchor": "#diff-algorithms-are-a-reading-issue",
+   "marxyToday": "open — no diff code in core"
+  },
+  {
+   "setting": "Suggestion fence",
+   "default": "Plain code, no label at rest; no fabricated diff",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Old side is absent from the file",
+   "anchor": "#presenting-a-diff-someone-else-computed",
+   "marxyToday": "applied — plain, unclassed (probe suggestion-fence)"
+  },
+  {
+   "setting": "Cmd+C on drag selection",
+   "default": "Rendered text; source copy is a named palette operation",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Browser and Typora convention; code is never transformed so code copies are exact",
+   "anchor": "#copy-source-bytes-or-rendered-text",
+   "marxyToday": "applied — design 03 says drag selection copies DOM text"
+  },
+  {
+   "setting": "Jump to source",
+   "default": "Summoned command opening Source mode at the element's data-marxy-s; nothing at rest",
+   "range": "palette/modified click",
+   "grade": "D",
+   "why": "VS Code and Obsidian offer rendered-to-source",
+   "anchor": "#jump-to-source",
+   "marxyToday": "open — showSource exists in app.ts but no element command"
+  },
+  {
+   "setting": "Anchor format",
+   "default": "{path,start,end,exact,prefix,suffix} over source bytes, 32-char context; resolve offsets, then unique context, then unique exact, else fail visibly; fuzzy off",
+   "range": "fixed",
+   "grade": "D",
+   "why": "Three shipping designs converge; no reader test",
+   "anchor": "#anchors-that-survive-regeneration",
+   "marxyToday": "open — ReadingPosition is byteOffset+fraction; offsetThroughEdit (restore.ts) handles single-run edits only, measured to fail on multi-site regeneration"
+  },
+  {
+   "setting": "Changed-since-last-read",
+   "default": "On external reload, histogram-diff last-read snapshot vs new, mark changed blocks with a summoned margin rule, local snapshot only",
+   "range": "dismissable; off possible",
+   "grade": "D",
+   "why": "No study; capability follows from provenance",
+   "anchor": "#changed-since-last-read",
+   "marxyToday": "open — no snapshot, diff or mark"
+  }
+ ],
+ "operations": [
+  {
+   "id": "copy-source",
+   "title": "Copy source",
+   "appliesTo": [
+    "block",
+    "section",
+    "document"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Exact bytes; the palette twin of rendered-text Cmd+C",
+   "grade": "D"
+  },
+  {
+   "id": "copy-plain-text",
+   "title": "Copy as plain text",
+   "appliesTo": [
+    "block",
+    "section"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Markup removed, straight quotes, from AST inline text",
+   "grade": "D"
+  },
+  {
+   "id": "copy-with-reference",
+   "title": "Copy with reference",
+   "appliesTo": [
+    "block",
+    "section"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Text plus path:L-M; blocked until OperationInput carries the source text",
+   "grade": "D"
+  },
+  {
+   "id": "copy-anchor",
+   "title": "Copy anchor",
+   "appliesTo": [
+    "block",
+    "section"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "{path,start,end,exact} expressible now; prefix/suffix need source text",
+   "grade": "D"
+  },
+  {
+   "id": "copy-diff-after",
+   "title": "Copy the new side of a diff",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Context and + lines, markers and headers dropped; single-file unified only; no trailing newline when no-newline marker follows",
+   "grade": "D"
+  },
+  {
+   "id": "copy-diff-before",
+   "title": "Copy the old side of a diff",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Context and - lines",
+   "grade": "D"
+  },
+  {
+   "id": "strip-diff-markers",
+   "title": "Strip diff markers",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Only for added/deleted-file hunks; otherwise not offered",
+   "grade": "D"
+  },
+  {
+   "id": "copy-command",
+   "title": "Copy command without prompts",
+   "appliesTo": [
+    "block"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Drop leading '$ ' and output lines in shell/console fences; offered only when a prompt exists; summary names what was removed",
+   "grade": "D"
+  },
+  {
+   "id": "extract-code-blocks",
+   "title": "Extract code blocks",
+   "appliesTo": [
+    "section",
+    "document"
+   ],
+   "signature": "string → clipboard",
+   "pure": true,
+   "why": "Fence bodies joined by a blank line; v1.1 candidate",
+   "grade": "D"
+  }
+ ],
+ "gaps": [
+  {
+   "what": "Line numbers and prefix/suffix context in an operation",
+   "blockedBy": "operations-contract",
+   "detail": "OperationInput gives the AST and the range text but not the whole source, so path:L-M and full anchors cannot be computed purely",
+   "proposal": "ADR-only PR adding a readonly source: string to OperationInput"
+  },
+  {
+   "what": "Compare two texts (old snapshot vs new, old/new document)",
+   "blockedBy": "operations-contract",
+   "detail": "An Operation receives one Document and returns a splice or clipboard",
+   "proposal": "ADR declaring view-state lenses (pure changedRanges(before, after)) outside the operations contract; they never splice"
+  },
+  {
+   "what": "Drag selection resolved to a byte span",
+   "blockedBy": "scope",
+   "detail": "design 03 (D-A2) treats DOM drag as text-only copy; no v1 operation uses span",
+   "proposal": "Amend design 03: resolve a drag inside one text node to a span when rendered equals source, else snap to the enclosing block"
+  },
+  {
+   "what": "Diff insert/delete colour",
+   "blockedBy": "theme-contract",
+   "detail": "Twelve frozen token classes in scopes.ts and tokens.css; no inserted/deleted",
+   "proposal": "ADR adding two classes and two tokens, after scripts/registry.json entries"
+  },
+  {
+   "what": "Anchor in the reading position",
+   "blockedBy": "other",
+   "detail": "ReadingPosition (ADR-0018) is frozen at path, byteOffset, fraction, mode",
+   "proposal": "ADR amending ADR-0018 with an optional anchor {exact,prefix,suffix}"
+  },
+  {
+   "what": "Changed-since-last-read marks",
+   "blockedBy": "registry",
+   "detail": "Needs a data attribute and possibly a token, plus a shell-held snapshot",
+   "proposal": "registry entries first; shell-api gets a local snapshot read/write; token reuse decided at review"
+  },
+  {
+   "what": "Cross-document references (open path:L-M elsewhere)",
+   "blockedBy": "operations-contract",
+   "detail": "One Document per operation; cross-document is v2 in docs/operations.md",
+   "proposal": "Keep as a command through shell-api open; no contract change until v2"
+  }
+ ],
+ "stories": [
+  {
+   "summary": "Tint added and deleted lines in diff fences",
+   "readerImpact": "medium",
+   "why": "Diffs render monochrome today",
+   "acceptance": [
+    "1. A new highlight test asserts markup.inserted/deleted lines carry the new classes and header lines carry none",
+    "2. gate:aesthetics contrast check passes for both tokens on code and selection backgrounds",
+    "3. gate:golden updated for a new diff fixture"
+   ],
+   "paths": [
+    "packages/core/src/highlight/scopes.ts",
+    "packages/theme/src/tokens.css",
+    "fixtures/corpus"
+   ],
+   "tasteRow": "Before/after diff fence in both themes; question: tint, coloured marker or coloured text?"
+  },
+  {
+   "summary": "Copy either side of a single-file diff",
+   "readerImpact": "medium",
+   "why": "Readers paste the result of a patch, not the patch",
+   "acceptance": [
+    "1. Table-driven operations.test.ts for copy-diff-after/before including multi-file and combined diffs (not offered) and the no-newline case",
+    "2. gate:fidelity passes with the operations registered"
+   ],
+   "paths": [
+    "packages/core/src/operations"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Copy a reference to what I am reading",
+   "readerImpact": "high",
+   "why": "Agent artifacts are cited from elsewhere",
+   "acceptance": [
+    "1. ADR merged adding source to OperationInput",
+    "2. Table-driven tests for copy-with-reference and copy-anchor, including CRLF and multibyte lines",
+    "3. A resolver test: an anchor resolves after text is inserted above it and fails visibly when the passage is gone"
+   ],
+   "paths": [
+    "packages/core/src/contracts/operation.ts",
+    "packages/core/src/operations"
+   ],
+   "tasteRow": ""
+  },
+  {
+   "summary": "Show me what changed since I last read this file",
+   "readerImpact": "high",
+   "why": "Regenerated artifacts are the defining case",
+   "acceptance": [
+    "1. Unit test for changedRanges over corpus pairs",
+    "2. A registry check for the new attribute name",
+    "3. gate:no-network passes; snapshot never leaves the shell"
+   ],
+   "paths": [
+    "packages/core/src",
+    "apps/desktop/src",
+    "scripts/registry.json"
+   ],
+   "tasteRow": "Rendered page before/after a regeneration with the margin rule visible; question: is it discreet enough to leave on?"
+  }
+ ],
+ "taste": [
+  "Line tint against coloured marker for add/delete",
+  "Loudness of the changed-since-last-read rule",
+  "Whether a wrapped diff continuation's rule is sufficient without a marker"
+ ],
+ "changeMyMind": [
+  "A study showing split or word-level highlighting improves review accuracy would reverse the unified-only default",
+  "A test showing histogram and Myers equal for prose would demote the histogram choice",
+  "Evidence that readers expect Cmd+C to copy source in a rendered view would reverse the copy default",
+  "A measured failure rate of quote-plus-context anchors on regenerated artifacts would justify turning fuzzy matching on"
+ ]
+}
