@@ -1,19 +1,22 @@
 ---
 key: MARXY-220
 design: []
-depends: []
+depends: [MARXY-225]
 verify: [pnpm precheck, pnpm done MARXY-220]
 ---
 # MARXY-220 — A blocked story's worktree does not reserve paths
 
 **Authority:** [`orchestration/README.md`](../../../orchestration/README.md) "The loop" §1 (what
 `ready.mjs` refuses and why). No `docs/design/` section covers the fleet; the README is the design,
-and this story edits it. · **Delta:** [2026-09-25-after-194](../deltas/2026-09-25-after-194.md) · **Lane:** ops.
-**Dispatch beside MARXY-195, not ahead of it.** It shares `orchestration/ready.mjs` and
-`orchestration/README.md` with the uncommitted MARXY-218 worktree (`../marxy-wt/MARXY-218`,
-review occupancy, proposed ADR-0034). Do not start this story while that worktree is dirty.
-Do not start it while the orchestrator checkout has uncommitted edits to these files.
-Cut it from `origin/main`. MARXY-202 has merged. MARXY-194 has merged.
+and this story edits it. · **Delta:** [2026-09-26](../deltas/2026-09-26.md) · **Lane:** ops.
+**Depends on MARXY-225** (both edit `ready.mjs`). **Dispatch beside a product
+story, not ahead of one,** and only after that story and MARXY-223 have merged.
+It shares `orchestration/ready.mjs` and `orchestration/README.md` with the uncommitted MARXY-218
+worktree (`../marxy-wt/MARXY-218`, review occupancy, proposed ADR-0034). Do not start this story
+while that worktree is dirty. MARXY-223 (#207) edits `orchestration/cycle.mjs` and
+`orchestration/README.md`; its row is not on main yet, so a worktree claim will not show that
+overlap until MARXY-225 has merged. Cut it from `origin/main` after both.
+MARXY-202 and MARXY-222 have merged. MARXY-194 has merged.
 
 **Outcome.** A story parked `blocked` or `escalate` keeps its worktree and does not hold the paths
 of the next story. A worktree whose key has no `state.json` record still holds its paths.
@@ -21,7 +24,7 @@ of the next story. A worktree whose key has no `state.json` record still holds i
 ## What is wrong today
 `liveClaims` in `orchestration/worktrees.mjs` skips a key only when `isDone` is true. MARXY-78 has
 been `blocked` since 2026-09-20. Its worktree `../marxy-wt/MARXY-78` is behind
-`origin/main` (94 commits on 2026-09-25), ahead 0, and dirty (`scripts/gate-fidelity.mjs`, `fixtures/corpus/20-nfd-decomposed.md`,
+`origin/main` (98 commits on 2026-09-26), ahead 0, and dirty (`scripts/gate-fidelity.mjs`, `fixtures/corpus/20-nfd-decomposed.md`,
 `fixtures/corpus/21-lone-cr.md`, and their goldens). `ready.mjs` therefore excludes MARXY-44,
 MARXY-48 and MARXY-16 with the rule `worktree holds` by MARXY-78. MARXY-194 has merged.
 MARXY-195 and MARXY-196 do not overlap MARXY-78 (`atomic_write.rs` is a sibling of their Rust
@@ -37,7 +40,8 @@ corpus and the shell, which is why it was parked.
     Skip the claim when `isDone(key)` is true or `statusOf(key)` is `done`, `blocked`, or `escalate`.
     `undefined` and every other status still claim when the worktree is dirty or ahead. A missing
     `state.json` record must still claim: that is the out-of-plan worktree MARXY-202 exists for
-    (MARXY-218 and MARXY-211 have no record).
+    (MARXY-218 and MARXY-211 have no record). MARXY-222 has merged: keep the prunable and unusable
+    skip, and keep `prState` on the claim and on `formatClaimLine`.
 - `orchestration/worktrees.test.mjs` — the cases below. Existing `isDone` cases stay green.
 - `orchestration/ready.mjs` — `resolveClaims` passes `statusOf: k => s.stories[k]?.status` into
   `liveClaims` (no `?? 'todo'`). A missing record stays `undefined`.
@@ -73,3 +77,5 @@ CSV criteria 1–4: 1 → the six `liveClaims` rows. 2 → the `rg` row. 3 → `
 - Un-park MARXY-78, or edit its row.
 - Touch `reap.mjs`, `dispatch.mjs`, `merge-bar.mjs`, or `packages/*/src/contracts/**`.
 - Treat `in_review` as parked. An in-review story's worktree still reserves.
+- Remove the own-worktree exception MARXY-225 adds in `selectReady`. `statusOf` here is a different filter: `blocked` and `escalate` produce no claim at all.
+- Drop `prState` or the prunable skip MARXY-222 added.

@@ -132,6 +132,7 @@
     "MARXY-NEW-worktree-reserves-paths": "MARXY-202",
     "MARXY-NEW-merged-settles": "MARXY-213",
     "MARXY-NEW-dirty-owner": "MARXY-216",
-    "MARXY-NEW-blocked-worktree": "MARXY-220"
+    "MARXY-NEW-blocked-worktree": "MARXY-220",
+    "MARXY-NEW-worktree-claim": "MARXY-225"
   }
 }
