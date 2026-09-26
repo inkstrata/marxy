@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   prunePlan, removeArgs, runWorktreePrune, removeWorktreeAt,
   prListArgs, pickPrState, gatherWorktreeEntries, inProgressBranches,
-  keyOfBranch, liveClaims, formatClaimLine, sayWorktreeClaims, prClaimLabel,
+  keyOfBranch, liveClaims, formatClaimLine, prClaimLabel,
   parseWorktreeList,
 } from './worktrees.mjs';
 
