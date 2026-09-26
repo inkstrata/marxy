@@ -85,9 +85,36 @@ export function claimEvents(spec) {
   }
 }
 
+/**
+ * The last thing a run said, in words. Workers run `cursor-agent --output-format stream-json`, so
+ * out.log is one JSON event per line; the final `result` (or, failing that, the last assistant text
+ * or error) is the message, and ids, timings and tool payloads are noise. Lines that are not JSON
+ * (a crash before the stream starts, a shell error) are the message as they stand. The tail may
+ * begin mid-line, so a line that does not parse is treated as text rather than dropped.
+ */
+export function lastText(log = '') {
+  let assistant = '';
+  let other = '';
+  for (const line of String(log).split('\n').map(l => l.trim()).filter(Boolean)) {
+    let ev;
+    try { ev = JSON.parse(line); } catch { other = line; continue; }
+    if (!ev || typeof ev !== 'object') { other = line; continue; }
+    if (ev.type === 'result' || ev.type === 'error') {
+      const said = ev.result ?? ev.error?.message ?? ev.error ?? ev.message;
+      if (typeof said === 'string' && said.trim()) return said.trim().split('\n').filter(Boolean).slice(-1)[0];
+      continue;
+    }
+    if (ev.type === 'assistant') {
+      const text = [].concat(ev.message?.content ?? []).map(c => c?.text).filter(Boolean).join(' ').trim();
+      if (text) assistant = text.split('\n').filter(Boolean).slice(-1)[0];
+    }
+  }
+  return assistant || other;
+}
+
 /** A short, stable signature of why an attempt failed, so the same failure twice is recognised. */
 export function fingerprint(outcome, text = '') {
-  const tail = String(text).trim().split('\n').filter(Boolean).slice(-1)[0] ?? '';
+  const tail = lastText(text);
   const norm = tail.toLowerCase().replace(/[0-9a-f]{7,40}/g, '#').replace(/\d+/g, '#').replace(/\s+/g, ' ').slice(0, 120);
   return `${outcome}:${norm}`;
 }
@@ -163,7 +190,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   const worked = (evidence.ahead ?? 0) > 0 || evidence.dirty || (obs.logBytes ?? 0) > GHOST_BYTES;
   if (!worked) {
     const ghosts = (rec.ghosts ?? 0) + 1;
-    const tail = String(logTail).trim().split('\n').slice(-1)[0]?.slice(0, 200) ?? '';
+    const tail = lastText(logTail).slice(0, 200);
     events.push(ghosts >= t.ghostLimit
       ? story(key, { ...base, from, to: 'blocked', inc: { attempts: -1, ghosts: 1 }, set: { parkedReason: `the agent produced nothing ${ghosts} times (${outcome})${tail ? `: ${tail}` : ''}`, blockedAt: now }, why: 'repeated empty runs' })
       : story(key, { ...base, from, to: 'todo', inc: { attempts: -1, ghosts: 1 }, why: `the agent produced nothing (${outcome}); attempt refunded` }));

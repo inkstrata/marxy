@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - The fleet no longer gets stuck: every story that is not done now has an owner and a way out that fires on its own, idle worktrees stop holding other stories' paths, conflicts and red CI go straight back to someone who can fix them, reviewers run in parallel, the loop runs the code on main, and everything waiting on a person is listed at the top of the fleet's status (MARXY-227)
+- The fleet recognises the same failure twice by what the agent said, not by the JSON event around it, so a repeating model is escalated instead of retried (MARXY-227)
 - The orchestrator parks uncommitted tracked edits under `docs/plan/` and `orchestration/` (a stash plus a patch) and restores that checkout to HEAD before fast-forward, so a dirty board no longer holds every ready story; a checkout off `main` is left as it is (MARXY-223)
 - Orchestration: prunable or broken worktrees no longer count as dirty path claims; the cycle prunes stale worktree admin rows and names each hold's pull request state instead of always saying no PR (MARXY-222)
 - Planner delta after MARXY-194 merged: a blocked worktree no longer has to hold Phase 3 (MARXY-220, after the open MARXY-218 session releases those files), a story already on main is never dispatched again (MARXY-213, after that), and the conflict-owner story is dropped because a conflicting pull request already stays in progress (MARXY-221)

@@ -1,7 +1,7 @@
 // What a finished run means for its story (ADR-0034). Every outcome lands somewhere with an exit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { finishRun, fingerprint, implementRole, claimEvents, promptFor, storyText } from './runs.mjs';
+import { finishRun, fingerprint, lastText,implementRole, claimEvents, promptFor, storyText } from './runs.mjs';
 import { fold, timing } from './machine.mjs';
 
 const t = timing({});
@@ -116,4 +116,21 @@ test('prompts carry the story, the reviewer verdict command, and the returned no
   assert.match(impl, /escalation attempt/);
   assert.match(promptFor('review', { key: 'MARXY-9', pr: 5, read }), /fleet\.mjs verdict MARXY-9 merge\|return\|escalate/);
   assert.doesNotMatch(storyText(row), /escalation/);
+});
+
+test('stream-json tails that differ only in ids, timings and counts fingerprint the same', async () => {
+  const { readFileSync } = await import('node:fs');
+  const tail = n => readFileSync(new URL(`./fixtures/stream-json-failed-${n}.ndjson`, import.meta.url), 'utf8');
+  assert.equal(lastText(tail('a')), 'pnpm precheck failed: 3 tests failing in packages/core');
+  assert.equal(fingerprint('exited', tail('a')), fingerprint('exited', tail('b')));
+  assert.equal(fingerprint('exited', tail('a')), 'exited:pnpm precheck failed: # tests failing in packages/core');
+});
+
+test('lastText prefers the result, falls back to the last assistant text, then to a plain line', () => {
+  const ev = o => JSON.stringify(o);
+  const say = text => ev({ type: 'assistant', message: { content: [{ text }] } });
+  assert.equal(lastText([say('first'), say('second'), ev({ type: 'tool_call', call_id: 'x' })].join('\n')), 'second');
+  assert.equal(lastText(['error: model not found'].join('\n')), 'error: model not found');
+  assert.equal(lastText('{"type":"assistant","message":{"conte\n' + say('cut tail')), 'cut tail');
+  assert.equal(lastText(''), '');
 });
