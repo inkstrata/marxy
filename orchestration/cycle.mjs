@@ -19,7 +19,7 @@
 // Every non-final status has an owner and a way out that fires on its own (machine.mjs STATES). This
 // file is the only one that merges, and merge-bar.mjs is the only thing it asks whether it may.
 // usage: node orchestration/cycle.mjs [--no-merge] [--dry-run] [--low|--minimal|--high|--compute=NAME]
-import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, openSync, readSync, closeSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { models, laneBudget, hasLabel } from './lib.mjs';
@@ -27,7 +27,7 @@ import {
   board as readBoard, commit, story, runEvent, boardEvent, timing, returnEvents,
 } from './machine.mjs';
 import {
-  CODE_ROOT, resultPath, approvalPath, notesPath, runFile, writeJsonAtomic, writeTextAtomic, readJsonOr, cycleLockPath,
+  CODE_ROOT, resultPath, approvalPath, notesPath, runFile, writeJsonAtomic, writeTextAtomic, readJsonOr, cycleLockPath, fleetPath,
 } from './store.mjs';
 import { planAt, showAt, CSV_PATH, DEPS_PATH } from './plan.mjs';
 import { observeWorktrees, observeRuns, pathHolds, fetchOrigin } from './observe.mjs';
@@ -44,6 +44,7 @@ import { adoptions, adoptionEvent, keyOfPr, settlements } from './adopt.mjs';
 import { runWorktreePrune, inProgressBranches } from './worktrees.mjs';
 import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
 import { writeReport } from './report.mjs';
+import { pushDue } from './mirror.mjs';
 import { defaultCanvasDir, gatherCanvasData, writeCanvases } from './canvases.mjs';
 import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 
@@ -206,6 +207,8 @@ export function liveIo({ m, dry = false }) {
       const prior = existsSync(p) ? readFileSync(p, 'utf8').trimEnd() + '\n\n' : '';
       writeTextAtomic(p, `${prior}${text.trim()}\n`);
     },
+    mirrorState: () => readJsonOr(fleetPath('jira-push.json')),
+    setMirrorState: state => (state ? writeJsonAtomic(fleetPath('jira-push.json'), state) : rmSync(fleetPath('jira-push.json'), { force: true })),
     jira: args => runProc(process.execPath, [`${CODE_ROOT}orchestration/jira.mjs`, ...args], { cwd: CODE_ROOT, timeoutMs: LIMIT.jira }),
     prune: (snap, b) => runWorktreePrune({
       root: CODE_ROOT, branchState: snap.branchState, activeBranches: inProgressBranches(b), say: () => {},
@@ -513,15 +516,23 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     }
   });
 
-  // 7. Mirror to Jira. Bounded, best effort, never blocking, and never read back as an input.
+  // 7. Mirror to Jira. Bounded, best effort, never blocking, and never read back as an input. The
+  // full push runs only when the board moved since the last one that succeeded, or once an hour; any
+  // failure clears that record, so the next cycle pushes again.
   if (!dry) guard('jira mirror', null, () => {
-    for (const args of [...jiraCalls, ['push']]) {
+    const seq = io.board().seq;
+    const push = pushDue({ seq, last: io.mirrorState(), nowMs: io.now().getTime() });
+    let failed = false;
+    for (const args of [...jiraCalls, ...(push ? [['push']] : [])]) {
       const r = io.jira(args);
       if (!r.ok) {
+        failed = true;
         say(`jira: ${args[0]} ${args[1] ?? ''} not mirrored${r.timedOut ? ' (timed out)' : ''}; the next cycle's push retries`);
         if (r.code === 3) break; // no credentials: every later call fails the same way
       }
     }
+    if (failed) io.setMirrorState(null);
+    else if (push) io.setMirrorState({ seq, at: io.now().toISOString() });
   });
 
   // 8. Report.

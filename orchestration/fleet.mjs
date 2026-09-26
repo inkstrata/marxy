@@ -18,13 +18,14 @@
 //   node orchestration/fleet.mjs report KEY blocked|failed "why"
 //                                                           an implementor's result when it cannot finish
 //   node orchestration/fleet.mjs path result|approved|notes KEY
+//   node orchestration/fleet.mjs compact [--dry-run]        fold the event log into one snapshot; the old log is kept beside it
 //   node orchestration/fleet.mjs doctor                     the fleet's health, one line per problem
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, copyFileSync, renameSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { userInfo } from 'node:os';
 import { models, readJson, here } from './lib.mjs';
-import { board, commit, story, timing, returnEvents, unknownModelKeys } from './machine.mjs';
+import { board, commit, story, timing, returnEvents, unknownModelKeys, fold, snapshotEvent, jiraRenames } from './machine.mjs';
 import { planAt } from './plan.mjs';
 import {
   approvalPath, notesPath, resultPath, fleetPath, readEvents, readJsonOr, writeJsonAtomic, writeTextAtomic,
@@ -32,7 +33,7 @@ import {
 } from './store.mjs';
 import { signApproval, approvalHoldReason } from './approve.mjs';
 import { gh, read, stillRunning, LIMIT } from './proc.mjs';
-import { readLease, leaseHeld } from './lease.mjs';
+import { readLease, leaseHeld, acquireLock, releaseLock } from './lease.mjs';
 
 const who = () => process.env.MARXY_ACTOR ?? `${userInfo().username} via fleet.mjs`;
 
@@ -40,7 +41,7 @@ function flags(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--fresh' || a === '--json' || a === '--force') out[a.slice(2)] = true;
+    if (a === '--fresh' || a === '--json' || a === '--force' || a === '--dry-run') out[a.slice(2)] = true;
     else if (a === '-n') out.n = Number(argv[++i]);
     else if (a.startsWith('--')) out[a.slice(2)] = argv[++i];
     else out._.push(a);
@@ -228,6 +229,37 @@ const commands = {
     say(paths[kind](key));
   },
 
+  compact(o) {
+    const path = eventsPath();
+    need(existsSync(path), 'the event log is empty; nothing to compact');
+    // Holding the cycle lock keeps a cycle from appending while the log is swapped.
+    const lock = acquireLock(cycleLockPath(), { match: 'fleet.mjs' });
+    need(lock.ok, `✗ a cycle is running (pid ${lock.holder?.pid}); compact between cycles, or stop the loop first`);
+    try {
+      const size = statSync(path).size;
+      const { events, skipped } = readEvents(path);
+      need(events.length > 1, `✗ the log holds ${events.length} event(s); nothing to gain`);
+      const now = new Date();
+      const renames = jiraRenames();
+      const before = fold(events, { renames });
+      const snapshot = snapshotEvent(before, { at: now.toISOString(), by: who() });
+      // The snapshot must fold to the board the whole log folds to, or it is not a compaction.
+      const same = JSON.stringify(fold([snapshot], { renames })) === JSON.stringify(before);
+      need(same, '✗ the snapshot does not fold back to the same board; refusing to touch the log');
+      const archive = fleetPath(`events-${now.toISOString().replace(/[-:]|\.\d+/g, '')}.jsonl`);
+      say(`${events.length} events${skipped ? ` (${skipped} unreadable line(s) stay in the archive only)` : ''} → 1 snapshot; the old log goes to ${archive}`);
+      if (o['dry-run']) return;
+      copyFileSync(path, archive);
+      writeTextAtomic(`${path}.next`, `${JSON.stringify(snapshot)}\n`);
+      // An append that landed after we read the log would be lost by the swap: stop instead.
+      need(statSync(path).size === size, `✗ the log changed while compacting; nothing was swapped (the copy ${archive} is harmless); try again`);
+      renameSync(`${path}.next`, path);
+      say(`compacted: ${eventsPath()}`);
+    } finally {
+      releaseLock(cycleLockPath());
+    }
+  },
+
   doctor() {
     const problems = [];
     const loop = readLease(loopLeasePath());
@@ -238,7 +270,7 @@ const commands = {
     if (!gh(['auth', 'status'], { timeoutMs: LIMIT.quick }).ok) problems.push('gh is not authenticated: gh auth login');
     const { events, skipped } = readEvents();
     if (skipped) problems.push(`${skipped} unreadable line(s) in ${eventsPath()} (skipped; the rest of the log is intact)`);
-    if (events.length > 200_000) problems.push(`the event log holds ${events.length} events; compact it (ADR-0034, "How we would know this was wrong" 4)`);
+    if (events.length > 200_000) problems.push(`the event log holds ${events.length} events; compact it with fleet.mjs compact (ADR-0034, "How we would know this was wrong" 4)`);
     const report = readJsonOr(fleetPath('report.json'));
     const ageMin = report?.at ? (Date.now() - Date.parse(report.at)) / 60_000 : null;
     if (loop && leaseHeld(loop) === true && (ageMin == null || ageMin > 10)) problems.push(`the loop is running but the last cycle report is ${ageMin == null ? 'missing' : `${Math.round(ageMin)} min old`}: every cycle is failing or hanging — tail ${fleetPath('loop.log')}`);

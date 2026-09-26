@@ -123,4 +123,5 @@ Model assignments are unchanged in every compute mode (`models.json`, pinned by 
 3. Parallel reviewers produce approvals that `onlyMainArrived` voids more than rarely. Then signing
    early costs more review than it saves, and ADR-0025 §5 comes back.
 4. The event log grows past what a fold reads in a few milliseconds. Then it is compacted into a
-   snapshot event; the fold already accepts one (`imported`).
+   snapshot event (`fleet.mjs compact`): an `imported` event with `snapshot: true` carrying the whole
+   board, `seq` and runs included, which the fold restores as it stands. The old log is kept beside it.

@@ -30,6 +30,7 @@ const approved = { ok: true, head: HEAD };
 function world({ stories = {}, rows = [], open = [], recent = [], worktrees = [], runObs = {}, facts = {}, results = {}, hasCli = true, m = M, lastPlan = minutesAgo(60), extraEvents = [] } = {}) {
   const events = [{ type: 'imported', at: minutesAgo(600), by: 'test', board: { stories, merges: 0, mergesAtLastPlan: 0, lastPlan } }, ...extraEvents];
   const calls = { gh: [], spawn: [], stop: [], notes: [], jira: [], exit: [], specs: [] };
+  let mirror = null;
   const plan = { rows, byKey: new Map(rows.map(r => [r.Key, r])), deps: { deps: {}, phases: { ops: rows.map(r => r.Key) } }, extraAllowed: ['CHANGELOG.md'], renames: {} };
   const io = {
     bin: 'cursor-agent',
@@ -57,6 +58,8 @@ function world({ stories = {}, rows = [], open = [], recent = [], worktrees = []
     spawnWorker: id => { calls.spawn.push(id); return 4242; },
     stopRun: id => calls.stop.push(id),
     writeNotes: (k, text) => calls.notes.push([k, text]),
+    mirrorState: () => mirror,
+    setMirrorState: s => { mirror = s; },
     jira: args => { calls.jira.push(args); return { ok: true }; },
     report: r => r,
   };
@@ -311,4 +314,43 @@ test('a result file that breaks its schema holds the merge with the fix named', 
   const r = w.run();
   assert.notEqual(w.b().stories['MARXY-1'].status, 'done');
   assert.ok(r.attention.some(a => /result file problems: missing "gates".*pnpm done MARXY-1/.test(a.why)));
+});
+
+test('Jira is pushed only when the board moved since the last successful push, or an hour has passed', () => {
+  const w = world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'blocked', blockedAt: minutesAgo(30), parkedReason: 'x' } } });
+  w.run();
+  assert.deepEqual(w.calls.jira, [['push']], 'the first cycle pushes');
+  w.calls.jira.length = 0;
+  w.run();
+  assert.deepEqual(w.calls.jira, [], 'an unchanged board makes no push call');
+  w.events.push({ type: 'board', at: NOW, by: 'test', set: { lastPlan: NOW } });
+  w.run();
+  assert.deepEqual(w.calls.jira, [['push']], 'a board that moved is pushed');
+  w.calls.jira.length = 0;
+  const later = new Date(nowMs + 61 * 60_000);
+  w.io.now = () => later;
+  w.run();
+  assert.deepEqual(w.calls.jira, [['push']], 'an hour later one is forced');
+});
+
+test('a Jira call that fails is retried by the next cycle even though the board did not move', () => {
+  const w = world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'blocked', blockedAt: minutesAgo(30), parkedReason: 'x' } } });
+  w.io.jira = args => { w.calls.jira.push(args); return { ok: false, timedOut: true }; };
+  w.run();
+  w.io.jira = args => { w.calls.jira.push(args); return { ok: true }; };
+  w.calls.jira.length = 0;
+  w.run();
+  assert.deepEqual(w.calls.jira, [['push']]);
+  w.calls.jira.length = 0;
+  w.run();
+  assert.deepEqual(w.calls.jira, [], 'and once it succeeds the cycle is quiet again');
+});
+
+test('a dry run never pushes and never records a push', () => {
+  const w = world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'blocked', blockedAt: minutesAgo(30), parkedReason: 'x' } } });
+  w.run({ dry: true });
+  assert.deepEqual(w.calls.jira, []);
+  w.calls.jira.length = 0;
+  w.run();
+  assert.deepEqual(w.calls.jira, [['push']]);
 });

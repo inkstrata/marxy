@@ -100,9 +100,22 @@ function legacyPlanner(home) {
   return lease?.started ? { run: null, started: lease.started, lastEnded: lease.started, lastOutcome: 'imported' } : {};
 }
 
+/**
+ * A snapshot event standing for every event before it (`fleet.mjs compact`): the whole folded board,
+ * `seq` and the runs included, so folding it gives back exactly the board it was taken from.
+ */
+export const snapshotEvent = (b, { at = new Date().toISOString(), by } = {}) => ({
+  type: 'imported', snapshot: true, at, ...(by ? { by } : {}), board: structuredClone(b),
+});
+
 /** Legacy state.json in_progress rows had leases or nothing; they become claims that lapse. */
 function importBoard(b, e) {
   const s = e.board ?? {};
+  if (e.snapshot) {
+    for (const k of Object.keys(b)) delete b[k];
+    Object.assign(b, emptyBoard(), structuredClone(s));
+    return;
+  }
   b.planner = { ...(s.planner ?? {}) };
   b.merges = s.merges ?? 0;
   b.lastPlan = s.lastPlan ?? null;
@@ -184,7 +197,7 @@ function legacyHomes() {
 }
 
 let renamesCache = null;
-function jiraRenames() {
+export function jiraRenames() {
   renamesCache ??= readJsonOr(join(CODE_ROOT, 'orchestration', 'jira-map.json'), {})?.keys ?? {};
   return renamesCache;
 }

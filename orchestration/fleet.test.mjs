@@ -217,3 +217,102 @@ test('why and events show a story and its log', () => {
   assert.equal(run('why').code, 2);
   assert.ok(run('events', [K, '-n', '5']).lines.every(l => JSON.parse(l).key === K));
 });
+
+// ── compact ──────────────────────────────────────────────────────────────────────────────────────
+const { readEvents, eventsPath } = await import('./store.mjs');
+const { fold } = await import('./machine.mjs');
+const { readdirSync } = await import('node:fs');
+const { releaseLock } = await import('./lease.mjs');
+const { cycleLockPath } = await import('./store.mjs');
+
+/** A store with some history: stories moved, a run started and ended, a refusal, a board event. */
+function history() {
+  seed({ [K]: { status: 'todo' }, 'MARXY-502': { status: 'todo' }, 'MARXY-503': { status: 'in_progress', claim: { by: 'me', until: '2099-01-01T00:00:00.000Z' } } });
+  run('claim', [K]);
+  run('release', [K]);
+  run('park', ['MARXY-502', 'waiting']);
+  run('unpark', ['MARXY-502']);
+  run('unpark', ['MARXY-502']); // refused: it is todo now, so the fold keeps a rejection
+  append({ type: 'run', run: 'r1', set: { key: 'MARXY-503', role: 'implement', started: '2026-09-26T10:00:00.000Z', ended: '2026-09-26T10:30:00.000Z', outcome: 'exited' } });
+  append({ type: 'board', inc: { merges: 2 }, set: { lastPlan: '2026-09-26T09:00:00.000Z' } });
+  append({ type: 'story', key: 'MARXY-503', set: { run: 'r2' }, ifRun: null, why: 'stale run' });
+}
+const logLines = () => readFileSync(eventsPath(), 'utf8').split('\n').filter(Boolean);
+const archives = () => readdirSync(fleetPath('.')).filter(f => /^events-\d{8}T\d{6}Z\.jsonl$/.test(f));
+
+test('compact folds the log into one snapshot that gives the same board, seq and runs included', () => {
+  history();
+  const before = board();
+  const all = readFileSync(eventsPath(), 'utf8');
+  assert.ok(before.rejected.length > 0 && before.seq > 5 && before.merges === 2, 'the fixture has history worth keeping');
+  const r = run('compact');
+  assert.equal(r.code, 0, r.errors.join('\n'));
+  assert.equal(logLines().length, 1);
+  assert.deepEqual(board(), before, 'the compacted log folds to the same board');
+  const [archive] = archives();
+  assert.equal(readFileSync(fleetPath(archive), 'utf8'), all, 'the old log is kept whole');
+  assert.deepEqual(fold(readEvents(fleetPath(archive)).events, { renames: {} }), before, 'and folds to the same board too');
+  assert.equal(existsSync(`${eventsPath()}.next`), false);
+});
+
+test('a claim on an in-progress story survives compaction unchanged', () => {
+  history();
+  const claim = board().stories['MARXY-503'].claim;
+  run('compact');
+  assert.deepEqual(board().stories['MARXY-503'].claim, claim);
+});
+
+test('events appended after a compaction fold on top of the snapshot exactly as before', async () => {
+  const { snapshotEvent } = await import('./machine.mjs');
+  history();
+  const events = readEvents().events;
+  const later = [
+    { type: 'story', key: K, at: '2026-09-27T09:00:00.000Z', by: 't', from: 'todo', to: 'blocked', set: { parkedReason: 'later' } },
+    { type: 'story', key: 'MARXY-503', at: '2026-09-27T09:01:00.000Z', by: 't', ifRun: 'r9', set: { x: 1 }, why: 'stale' },
+    { type: 'run', run: 'r3', at: '2026-09-27T09:02:00.000Z', by: 't', set: { key: K, role: 'review' } },
+  ];
+  const whole = fold([...events, ...later], { renames: {} });
+  const snap = snapshotEvent(fold(events, { renames: {} }), { at: '2026-09-27T08:00:00.000Z' });
+  assert.deepEqual(fold([snap, ...later], { renames: {} }), whole);
+});
+
+test('compact --dry-run reports and changes nothing', () => {
+  history();
+  const before = readFileSync(eventsPath(), 'utf8');
+  const r = run('compact', ['--dry-run']);
+  assert.equal(r.code, 0);
+  assert.match(r.lines[0], /events → 1 snapshot/);
+  assert.equal(readFileSync(eventsPath(), 'utf8'), before);
+  assert.deepEqual(archives(), []);
+});
+
+test('compact refuses while a cycle holds the lock, and on a log with nothing to fold', () => {
+  history();
+  const before = readFileSync(eventsPath(), 'utf8');
+  // A cycle lock held by another live process: this test's parent stands in.
+  writeFileSync(cycleLockPath(), JSON.stringify({ pid: process.ppid, started: new Date().toISOString(), match: '' }) + '\n');
+  const busy = run('compact');
+  assert.equal(busy.code, 2);
+  assert.match(busy.errors[0], /a cycle is running/);
+  assert.equal(readFileSync(eventsPath(), 'utf8'), before);
+  releaseLock(cycleLockPath(), process.ppid);
+  seed();
+  assert.match(run('compact').errors[0], /nothing to gain/);
+});
+
+test('compact releases the lock, so the next cycle can run', () => {
+  history();
+  run('compact');
+  assert.equal(existsSync(cycleLockPath()), false);
+});
+
+test('compacting twice leaves one snapshot and two archives', () => {
+  history();
+  run('compact');
+  const once = board();
+  append({ type: 'board', inc: { merges: 1 } });
+  const r = run('compact');
+  assert.equal(r.code, 0);
+  assert.equal(logLines().length, 1);
+  assert.equal(board().merges, once.merges + 1);
+});

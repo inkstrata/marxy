@@ -59,7 +59,9 @@ missed or killed cycle loses nothing.
    last started more than `plannerCooldownMinutes` ago.
 6. **Dispatch.** An implementor starts for every ready story (`ready.mjs`), unless the planner has
    never run or has an escalation it has not read.
-7. **Mirror.** Jira follows the board. Bounded and best effort.
+7. **Mirror.** Jira follows the board. Bounded and best effort. The full push runs only when the board
+   has moved since the last one that succeeded, or once an hour (`mirror.mjs`); a failed call makes the
+   next cycle push again.
 8. **Report.** `status.md` (fleet store, and the main checkout's gitignored copy); the loop log gets a
    heartbeat line and only what changed.
 
@@ -124,13 +126,14 @@ nothing the fleet writes can make a checkout dirty.
 
 | Path | What | Written by |
 | --- | --- | --- |
-| `events.jsonl` | every decision and fact, append-only; the board is `fold(events)` | the cycle, `fleet.mjs`, `out-of-plan.mjs` |
+| `events.jsonl` | every decision and fact, append-only; the board is `fold(events)`. `fleet.mjs compact` folds it into one snapshot and keeps the old log as `events-<time>.jsonl` beside it | the cycle, `fleet.mjs`, `out-of-plan.mjs` |
 | `runs/<run>/run.json` | what a run was asked: role, model, prompt, worktree, deadline | the cycle |
 | `runs/<run>/out.log`, `exit.json`, `agent.json` | the agent's streamed output (its heartbeat), how the run ended, the agent's process group | the worker |
 | `results/KEY.json` | the implementor's result (`fleet.mjs path result KEY`) | `pnpm done`, `fleet.mjs report` |
 | `results/KEY.approved` | the reviewer's notes, signed against the head it read | `fleet.mjs verdict KEY merge` |
 | `results/KEY.notes.md` | why a story was returned; the next attempt reads it first | the cycle, `fleet.mjs verdict/return` |
 | `wip/`, `refs/fleet/wip/*` | uncommitted work kept before a worktree is reused | the worker, `loop.sh` |
+| `jira-push.json` | the board's `seq` and time at the last Jira push that fully succeeded | the cycle |
 | `status.md`, `report.json`, `loop.log` | the report, what the log last printed, the log | the cycle, `loop.sh` |
 | `cycle.lock`, `loop.lease`, `runner/` | one cycle and one loop at a time; the loop's code | the cycle, `loop.sh` |
 
@@ -148,6 +151,7 @@ node orchestration/fleet.mjs verdict KEY merge|return|escalate --notes FILE   # 
 node orchestration/fleet.mjs return KEY --why "…"    # a person sends it back
 node orchestration/fleet.mjs park KEY "reason" | unpark KEY | retry KEY [--fresh]
 node orchestration/fleet.mjs report KEY blocked "…"  # an implementor that cannot finish
+node orchestration/fleet.mjs compact [--dry-run]     # fold a long event log into one snapshot
 node orchestration/out-of-plan.mjs start "summary" --paths "…" --acceptance "…"
 ```
 
