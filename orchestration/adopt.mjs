@@ -1,11 +1,14 @@
 // The cycle adopts open pull requests the board does not know are in review (MARXY-190).
 //
-// The review queue walks state.json, and only In Review entries with a PR number. Out-of-plan work
+// The review queue walks the board, and only In Review entries with a PR number. Out-of-plan work
 // never had an entry, so its PRs were invisible to the cycle and every one was merged by hand; a
 // planned story whose PR opened without `state.mjs review` sat In Progress with the same effect.
 // Adoption closes both: any open, non-draft PR whose title or branch names a Jira key becomes
 // In Review with its number, once. It never moves a story backwards, never touches a done, blocked
-// or escalated story (those are a person's call), and never takes a second PR for a key that has one.
+// or escalated story (those are a person's call), never takes a story an implementor run owns (the
+// run's end moves it), never takes a second PR for a key that has one, and never takes back a PR
+// that was returned until something new is pushed to it (ADR-0034; MARXY-217 by construction).
+import { story } from './machine.mjs';
 
 /** The Jira key a PR names: title first (the commit-msg hook keeps it honest), then the branch. */
 export function keyOfPr(pr) {
@@ -32,12 +35,8 @@ export function adoptions({ openPrs = [], stories = {}, mainKeys = new Set(), ph
     if (pr.isDraft) { skipped.push({ key, pr: pr.number, why: 'draft' }); continue; }
     const rec = stories[key];
     if (rec?.status === 'in_review' && Number(rec.pr) === pr.number) continue;
-    // A DIRTY return leaves the story in_progress with its PR number. Adopting that same PR
-    // again puts it straight back in review, and the next cycle returns it again (MARXY-217).
-    if (rec?.status === 'in_progress' && Number(rec.pr) === pr.number && prConflicts(pr)) {
-      skipped.push({ key, pr: pr.number, why: 'conflicts with main; left in progress until it is resolved' });
-      continue;
-    }
+    if (rec?.status === 'in_progress' && rec.run) { skipped.push({ key, pr: pr.number, why: 'an implementor run owns it; the run\'s end records the PR' }); continue; }
+    if (rec?.returned?.head && rec.returned.head === pr.headRefOid) { skipped.push({ key, pr: pr.number, why: 'returned' }); continue; }
     if (claimed.has(key) || (rec?.status === 'in_review' && rec.pr)) {
       skipped.push({ key, pr: pr.number, why: `${key} already has PR #${rec?.pr ?? adopt.find(a => a.key === key)?.pr} in review` });
       continue;
@@ -62,15 +61,11 @@ export function settlements({ rows = [], stories = {}, recentPrs = [] } = {}) {
     .map(r => r.Key);
 }
 
-/** Apply one adoption to a state.json object. Attempts are left alone: adoption is not a dispatch. */
-export function applyAdoption(s, a, now = new Date().toISOString()) {
-  const rec = s.stories[a.key] ?? { status: 'todo', attempts: 0 };
-  rec.status = 'in_review';
-  rec.pr = a.pr;
-  rec.branch = a.branch;
-  rec.adopted = now;
-  delete rec.conflictTries;
-  if (!a.onMain) { rec.outOfPlan = true; rec.phase = a.phase; }
-  s.stories[a.key] = rec;
-  return rec;
+/** The event that adopts one PR. Attempts are left alone: adoption is not a dispatch. */
+export function adoptionEvent(a, now = new Date().toISOString()) {
+  return story(a.key, {
+    from: ['todo', 'in_progress'], to: 'in_review', why: `adopted PR #${a.pr}`,
+    set: { pr: a.pr, branch: a.branch, adopted: now, ...(a.onMain ? {} : { outOfPlan: true, phase: a.phase }) },
+    unset: ['claim', 'hold', 'returned', 'resolveTries', 'reviewTries'],
+  });
 }

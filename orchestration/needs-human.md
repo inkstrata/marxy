@@ -1,6 +1,7 @@
 # Needs a human
 
-Appended by the orchestrator; cleared by the author when done. Newest at the bottom.
+The author's rulings, newest at the bottom. No machine writes this file (ADR-0034): what is waiting
+on a person is generated every cycle under **Needs you** in `node orchestration/fleet.mjs status`.
 
 Only unanswered work belongs here. Discharged 2026-09-21: twelve stale open
 bullets (merged PRs #1/#10/#14/#23/#25/#28, typeface and cold-start rulings

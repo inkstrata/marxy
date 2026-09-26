@@ -5,7 +5,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluate, mergeArgs, chooseUpdate, worktreeLive } from './merge-bar.mjs';
-import { processReviewQueue } from './cycle.mjs';
 import { fileAllowed, allowedFor } from './review.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -107,10 +106,10 @@ test('MARXY_MERGE_UNREVIEWED skips only the approval clause', () => {
   assert.deepEqual(d.reasons, []);
 });
 
-test('reviewer prompt requires a signed approval and forbids merging', () => {
+test('reviewer prompt records a signed verdict through fleet.mjs and forbids merging', () => {
   const text = readFileSync(join(here, 'prompts/reviewer.md'), 'utf8');
-  assert.match(text, /results\/KEY\.approved/);
-  assert.match(text, /approve\.mjs/);
+  assert.match(text, /fleet\.mjs verdict KEY merge/);
+  assert.match(text, /sign/);
   assert.match(text, /[Dd]o not run[\s\S]*gh pr merge/);
 });
 
@@ -121,17 +120,9 @@ test('implementor prompt forbids writing KEY.approved', () => {
 
 test('orchestrator prompt lands merges through the cycle, not gh pr merge', () => {
   const text = readFileSync(join(here, 'prompts/orchestrator.md'), 'utf8');
-  assert.match(text, /approve\.mjs/);
+  assert.match(text, /fleet\.mjs verdict/);
   assert.match(text, /cycle\.mjs/);
   assert.doesNotMatch(text, /gh pr merge/);
-});
-
-test('cycle.mjs enables GitHub auto-merge when the bar says so', () => {
-  const text = readFileSync(join(here, 'cycle.mjs'), 'utf8');
-  assert.match(text, /decision\.action === 'auto-merge'/);
-  assert.match(text, /mergeArgs\(pr, head, \{ auto: true, queue: m\.mergeQueue \}\)/);
-  assert.match(text, /mergeArgs\(pr, head, \{ queue: m\.mergeQueue \}\)/);
-  assert.doesNotMatch(text, /'pr', 'merge', String\(rec\.pr\), '--squash'/, 'every merge goes through mergeArgs, which pins the head');
 });
 
 test('every merge is pinned to the evaluated head, direct or auto', () => {
@@ -165,42 +156,6 @@ test('chooseUpdate refreshes one BEHIND PR, the oldest that would otherwise land
   assert.equal(chooseUpdate([{ key: 'A', number: 21, reasons: ['pending: ci'] }], { queue: true }), null);
 });
 
-test('with mergeQueue on, processReviewQueue never updates a branch', () => {
-  const called = [];
-  const { held, updates } = processReviewQueue({
-    board: {
-      'MARXY-A': { status: 'in_review', pr: 1 },
-      'MARXY-B': { status: 'in_review', pr: 2 },
-    },
-    viewPr: n => ({ state: 'OPEN', mergeStateStatus: 'BEHIND', files: [] }),
-    updateBranch: n => { called.push(n); return 'ok'; },
-    mergeQueue: true,
-    order: {
-      order: [
-        { key: 'MARXY-A', pr: 1, behind: true },
-        { key: 'MARXY-B', pr: 2, behind: true },
-      ],
-      excluded: [],
-    },
-  });
-  assert.deepEqual(called, []);
-  assert.deepEqual(updates, []);
-  assert.ok(held.every(l => /merge queue tests it on top of those ahead; the branch is not updated/.test(l)));
-});
-
-test('with mergeQueue off, processReviewQueue still refreshes one BEHIND PR', () => {
-  const called = [];
-  const { updates } = processReviewQueue({
-    board: { 'MARXY-A': { status: 'in_review', pr: 1 } },
-    viewPr: () => ({ state: 'OPEN', mergeStateStatus: 'BEHIND', files: [] }),
-    updateBranch: n => { called.push(n); return 'ok'; },
-    mergeQueue: false,
-    order: { order: [{ key: 'MARXY-A', pr: 1, behind: true }], excluded: [] },
-  });
-  assert.deepEqual(called, [1]);
-  assert.deepEqual(updates, [1]);
-});
-
 test('a worktree is live only with uncommitted changes or recent git activity', () => {
   const now = 10 * 3_600_000;
   assert.equal(worktreeLive({ exists: false, dirty: true, nowMs: now }), false);
@@ -221,27 +176,11 @@ test('no branch may carry an approval file, whatever directory allows it', () =>
   assert.ok(!allowed.some(a => /\.approved$/.test(a)), 'allowedFor does not list a .approved path');
 });
 
-test('cycle.mjs uses review.mjs fileAllowed and allowedFor, and names unreviewed PRs before the planner', () => {
+test('cycle.mjs judges boundaries with review.mjs fileAllowed and allowedFor, the packet the reviewer reads', () => {
   const text = readFileSync(join(here, 'cycle.mjs'), 'utf8');
-  assert.match(text, /import \{ allowedFor, fileAllowed \} from '\.\/review\.mjs'/);
-  assert.match(text, /allowedFor\(story, key\)/);
+  assert.match(text, /import \{ allowedFor, fileAllowed[^}]*\} from '\.\/review\.mjs'/);
+  assert.match(text, /allowedFor\(row, key\)/);
   assert.match(text, /fileAllowed\(f, allowed\)/);
-  const reviewAt = text.indexOf('if (needsReview.length)');
-  const planAt = text.indexOf("here('planner-trigger.mjs')");
-  const dispatchAt = text.indexOf("here('dispatch.mjs')");
-  assert.ok(reviewAt > 0 && planAt > reviewAt && dispatchAt > planAt, 'review, then planner, then dispatch');
-});
-
-test('dispatch.mjs cuts from fetched origin/main, clears a stale result, and records a PR only when named', () => {
-  const text = readFileSync(join(here, 'dispatch.mjs'), 'utf8');
-  assert.match(text, /\['fetch', '-q', 'origin'\]/);
-  assert.match(text, /worktree', 'add', '--no-track', '-B', branch, wt, 'origin\/main'/);
-  assert.match(text, /rmSync\(resultPath/);
-  assert.match(text, /result\?\.status === 'done' && Number\(result\.pr\) > 0/);
-  assert.match(text, /r2\.status = 'in_review'/);
-  const recordAt = text.indexOf("r2.status = 'in_review'");
-  const guardAt = text.indexOf('Number(result.pr) > 0');
-  assert.ok(guardAt > 0 && recordAt > guardAt, 'in_review is set only inside the named-PR guard');
 });
 
 test('minimal compute still allows the same model for reviewer and implementor', () => {

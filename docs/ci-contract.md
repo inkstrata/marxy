@@ -122,6 +122,10 @@ cannot pass `--strict`.**
 | `gate:golden` | AST or source-map output moved | regenerate the goldens deliberately and add a taste-review row if anything visible moved |
 | `gate:fidelity` | a byte that was not asked to change, changed | the property test found a normalisation; fix the operation, never the test |
 | `gate:licences` | a copyleft or undeterminable licence | ADR-0006 forbids copyleft anywhere, node_modules and linked crates alike |
+| `orchestration/docs.test.mjs`: `a document names a file that is not there` / a `fleet.mjs` command or `loop.sh` subcommand that does not exist | a live doc or prompt names something the fleet does not have (a renamed module, a removed command) | fix the doc in the same PR; the list of live docs is `LIVE_DOCS` in that test, and a worked example's name goes in its `GENERATED` list |
+| `orchestration/docs.test.mjs`: `README gives <timing> as …, the code as …` or a status missing from the README's table | `machine.mjs` `TIMING` or `STATES` changed and `orchestration/README.md` did not | change both together; the README is how a person learns the fleet's limits |
+| `orchestration/machine.test.mjs`: `… has an owner` / `… says how it is left` | a board status was added without an owner and a way out | give it both in `STATES` (ADR-0034); a state nothing is obliged to leave is how the fleet stalls |
+| `models.json holds no setting the fleet does not read` | a key in `orchestration/models.json` that nothing reads — usually a misspelt timing | use a name from `machine.mjs` `MODEL_KEYS`; notes start with `_` |
 | `gate:font-attrs` | `.gitattributes` lost `binary` or gained `eol` on a font | font binaries are `binary -eol`; text under `fonts/` stays readable text |
 
 ### Browser and gates

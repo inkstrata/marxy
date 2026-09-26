@@ -150,13 +150,12 @@ export function selftest() {
   report(realReadCount() === 0, 'selftest: the real GitHub reader is called zero times and makes no network request', `realReadCount=${realReadCount()}`);
 
   const sdlc = readFileSync(join(root, 'docs/sdlc.md'), 'utf8');
-  const section = '## Review order and the review WIP limit';
+  const section = '## Review order';
   const chunk = sdlc.includes(section) ? sdlc.split(section)[1].split('\n## ')[0] : '';
   report(sdlc.includes(section), 'docs: sdlc.md has the Review order section');
   report(/phase/i.test(chunk) && /disturb/i.test(chunk) && /age/i.test(chunk) && /descend/i.test(chunk), 'docs: the section states the three sort keys and why disturbance is descending');
-  report(/conflicted/i.test(chunk) && /returned rather than queued/i.test(chunk), 'docs: a conflicted PR is returned rather than queued');
-  report(/does not count against the review WIP/i.test(chunk) && /same unit of work/i.test(chunk), 'docs: a returned story does not count against the review WIP');
-  report(/original age/i.test(chunk) && /not at the\s+head/i.test(chunk), 'docs: a returned story re-enters at its own phase, disturbance and original age');
+  report(/conflicted pull request stays In Review/i.test(chunk) && /resolution run/i.test(chunk) && /attempts` does not move/i.test(chunk), 'docs: a conflicted PR stays in review with a resolution run, and no attempt is charged (ADR-0034)');
+  report(/Reviewers run in parallel/i.test(chunk) && /ADR-0034/.test(chunk) && /One BEHIND branch is\s+updated per cycle/i.test(chunk), 'docs: reviewers run in parallel and one BEHIND branch is updated per cycle (ADR-0034, ADR-0025 §4)');
 
   const adr = readFileSync(join(root, 'docs/adr/0025-review-order-and-review-wip.md'), 'utf8');
   const adrIndex = readFileSync(join(root, 'docs/adr/README.md'), 'utf8');

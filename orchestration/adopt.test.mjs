@@ -1,7 +1,16 @@
 // The cycle adopts open pull requests the board does not know are in review (MARXY-190).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptions, applyAdoption, keyOfPr, prConflicts, settlements } from './adopt.mjs';
+import { adoptions, adoptionEvent, keyOfPr, prConflicts, settlements } from './adopt.mjs';
+import { fold } from './machine.mjs';
+
+/** The board after adopting `a` onto `stories`, through the same fold the cycle uses. */
+const adopted = (stories, a) => {
+  const events = Object.entries(stories).length
+    ? [{ type: 'imported', at: '2026-09-26T00:00:00.000Z', board: { stories: structuredClone(stories) } }]
+    : [];
+  return fold([...events, { ...adoptionEvent(a, 'T'), at: '2026-09-26T01:00:00.000Z' }]).stories;
+};
 
 const pr = (number, key, extra = {}) => ({ number, title: `chore(x): thing (${key})`, headRefName: `chore/${key}-thing`, ...extra });
 
@@ -14,19 +23,20 @@ test('the key comes from the title first, then the branch', () => {
 test('an out-of-plan PR with no state entry is adopted, off main, in the phase its branch names', () => {
   const { adopt } = adoptions({ openPrs: [pr(184, 'MARXY-189')], phaseOf: () => null });
   assert.deepEqual(adopt, [{ key: 'MARXY-189', pr: 184, branch: 'chore/MARXY-189-thing', from: null, phase: 'ops', onMain: false }]);
-  const s = { stories: {} };
-  applyAdoption(s, adopt[0], 'T');
-  assert.deepEqual(s.stories['MARXY-189'], { status: 'in_review', attempts: 0, pr: 184, branch: 'chore/MARXY-189-thing', adopted: 'T', outOfPlan: true, phase: 'ops' });
+  const rec = adopted({}, adopt[0])['MARXY-189'];
+  assert.equal(rec.status, 'in_review');
+  assert.equal(rec.attempts, 0);
+  assert.deepEqual([rec.pr, rec.branch, rec.adopted, rec.outOfPlan, rec.phase], [184, 'chore/MARXY-189-thing', 'T', true, 'ops']);
 });
 
 test('a planned story still In Progress is moved to review with its PR, attempts unchanged', () => {
-  const stories = { 'MARXY-42': { status: 'in_progress', attempts: 1, worktree: '../marxy-wt/MARXY-42' } };
+  const stories = { 'MARXY-42': { status: 'in_progress', attempts: 1, worktree: '../marxy-wt/MARXY-42', claim: { by: 'a person', until: '2099-01-01T00:00:00Z' } } };
   const { adopt } = adoptions({ openPrs: [pr(183, 'MARXY-42')], stories, mainKeys: new Set(['MARXY-42']) });
-  const s = { stories };
-  applyAdoption(s, adopt[0], 'T');
-  assert.equal(s.stories['MARXY-42'].status, 'in_review');
-  assert.equal(s.stories['MARXY-42'].attempts, 1);
-  assert.equal(s.stories['MARXY-42'].outOfPlan, undefined);
+  const rec = adopted(stories, adopt[0])['MARXY-42'];
+  assert.equal(rec.status, 'in_review');
+  assert.equal(rec.attempts, 1);
+  assert.equal(rec.outOfPlan, undefined);
+  assert.equal(rec.claim, undefined, 'the claim ends when its PR is adopted');
 });
 
 test('drafts, done/blocked/escalated stories and second PRs are skipped with a reason', () => {
@@ -45,43 +55,33 @@ test('drafts, done/blocked/escalated stories and second PRs are skipped with a r
   ]);
 });
 
-test('an in_progress story is not adopted again while its recorded PR still conflicts', () => {
-  const stories = { 'MARXY-43': { status: 'in_progress', attempts: 1, pr: 199, conflictTries: 1 } };
-  const dirty = adoptions({
-    openPrs: [pr(199, 'MARXY-43', { mergeStateStatus: 'DIRTY', mergeable: 'CONFLICTING' })],
-    stories,
-    mainKeys: new Set(['MARXY-43']),
-  });
-  assert.deepEqual(dirty.adopt, []);
-  assert.equal(dirty.skipped[0].why, 'conflicts with main; left in progress until it is resolved');
-  assert.equal(stories['MARXY-43'].attempts, 1);
+test('a story an implementor run owns is left to that run, whatever its PR looks like', () => {
+  const stories = { 'MARXY-43': { status: 'in_progress', attempts: 1, run: 'MARXY-43.implement.T' } };
+  const { adopt, skipped } = adoptions({ openPrs: [pr(199, 'MARXY-43')], stories, mainKeys: new Set(['MARXY-43']) });
+  assert.deepEqual(adopt, []);
+  assert.match(skipped[0].why, /implementor run owns it/);
+  assert.equal(prConflicts({ mergeStateStatus: 'DIRTY' }), true);
+  assert.equal(prConflicts({ mergeStateStatus: 'CLEAN' }), false);
+});
 
-  const conflicting = adoptions({
-    openPrs: [pr(199, 'MARXY-43', { mergeable: 'CONFLICTING' })],
-    stories,
-  });
-  assert.deepEqual(conflicting.adopt, []);
+test('a returned PR is not adopted back until something new is pushed to it (MARXY-217)', () => {
+  const stories = { 'MARXY-43': { status: 'todo', attempts: 1, pr: 199, returned: { at: 'T', head: 'a'.repeat(40), why: 'red: ci' } } };
+  const same = adoptions({ openPrs: [pr(199, 'MARXY-43', { headRefOid: 'a'.repeat(40) })], stories, mainKeys: new Set(['MARXY-43']) });
+  assert.deepEqual(same.adopt, []);
+  const pushed = adoptions({ openPrs: [pr(199, 'MARXY-43', { headRefOid: 'b'.repeat(40) })], stories, mainKeys: new Set(['MARXY-43']) });
+  assert.equal(pushed.adopt.length, 1);
+  const rec = adopted(stories, pushed.adopt[0])['MARXY-43'];
+  assert.equal(rec.status, 'in_review');
+  assert.equal(rec.returned, undefined);
+});
 
-  const behind = adoptions({
-    openPrs: [pr(199, 'MARXY-43', { mergeStateStatus: 'BEHIND', mergeable: 'MERGEABLE' })],
-    stories,
-    mainKeys: new Set(['MARXY-43']),
-  });
-  assert.equal(behind.adopt.length, 1);
-  const s = { stories: structuredClone(stories) };
-  applyAdoption(s, behind.adopt[0], 'T');
-  assert.equal(s.stories['MARXY-43'].status, 'in_review');
-  assert.equal(s.stories['MARXY-43'].attempts, 1);
-  assert.equal(s.stories['MARXY-43'].conflictTries, undefined);
-
+test('a conflicting PR is adopted like any other: the review pipeline resolves it without leaving review', () => {
   const firstSight = adoptions({
     openPrs: [pr(199, 'MARXY-43', { mergeStateStatus: 'DIRTY' })],
     stories: { 'MARXY-43': { status: 'todo', attempts: 1 } },
     mainKeys: new Set(['MARXY-43']),
   });
-  assert.equal(firstSight.adopt.length, 1, 'a PR the board has not recorded yet is still adopted once');
-  assert.equal(prConflicts({ mergeStateStatus: 'DIRTY' }), true);
-  assert.equal(prConflicts({ mergeStateStatus: 'CLEAN' }), false);
+  assert.equal(firstSight.adopt.length, 1);
 });
 
 test('an entry already In Review on this PR is left alone', () => {

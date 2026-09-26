@@ -30,15 +30,18 @@ test('stopping the loop mid-sleep stops the sleep too', async () => {
   writeFileSync(join(root, 'orchestration/cycle.mjs'), '');
   // An interval no other process on the machine is sleeping for, so the sleep is findable by name.
   const interval = 86_400 + (process.pid % 10_000);
-  const env = { ...process.env, INTERVAL: String(interval), PATH: `${dirname(process.execPath)}:${process.env.PATH}` };
+  const fleet = join(root, 'fleet');
+  // MARXY_RUNNER=0: run this copy's cycle, not a runner worktree; the temp dir is no git checkout.
+  const env = { ...process.env, INTERVAL: String(interval), MARXY_FLEET_DIR: fleet, MARXY_RUNNER: '0', PATH: `${dirname(process.execPath)}:${process.env.PATH}` };
   const loop = spawn('bash', [join(root, 'orchestration/loop.sh'), 'run'], { cwd: root, env, stdio: 'ignore' });
   const exited = new Promise(r => loop.on('exit', r));
   try {
     assert.ok(await until(() => sleepers(interval).length > 0), 'the loop reached its sleep');
+    assert.equal(existsSync(join(fleet, 'loop.lease')), true, 'the lease is in the fleet store');
     loop.kill('SIGTERM');
     await exited;
     assert.ok(await until(() => sleepers(interval).length === 0, 2_000), `sleep ${interval} outlived the loop`);
-    assert.equal(existsSync(join(root, 'orchestration/results/loop.lease')), false, 'the lease is removed');
+    assert.equal(existsSync(join(fleet, 'loop.lease')), false, 'the lease is removed');
   } finally {
     loop.kill('SIGKILL');
     for (const pid of sleepers(interval)) try { process.kill(pid); } catch { /* gone */ }

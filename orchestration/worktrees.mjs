@@ -1,9 +1,11 @@
 // Plan and remove stale story worktrees when their PR merged, closed, or detached idle.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, readJson, stories, pathsOf } from './lib.mjs';
+import { ROOT } from './lib.mjs';
+import { board } from './machine.mjs';
+import { fleetDir } from './store.mjs';
 
 export const DETACHED_AGE_HOURS = 24;
 
@@ -14,81 +16,9 @@ export function keyOfBranch(branch) {
   return m ? m[0] : null;
 }
 
-/** Commits on HEAD not on origin/main in this worktree; 0 when the ref is missing. */
-function commitsAhead(wtPath, gitAtRoot) {
-  const out = gitAtRoot(['-C', wtPath, 'rev-list', '--count', 'origin/main..HEAD']);
-  if (typeof out !== 'string' || !out.trim()) return 0;
-  const n = parseInt(out, 10);
-  return Number.isFinite(n) ? n : 0;
-}
-
-/** `parseWorktreeList` rows plus `ahead` and the dirty bit `gatherWorktreeEntries` already computes. */
-export function readLiveEntries(opts = {}) {
-  return gatherWorktreeEntries(opts).map(row => {
-    const gitAtRoot = opts.git ?? (a => defaultSh('git', a, { cwd: opts.root ?? ROOT }));
-    const ahead = row.usable === false ? 0 : commitsAhead(row.path, gitAtRoot);
-    return { ...row, ahead };
-  });
-}
-
-/** Main CSV row for `key`, else the same key from the worktree's own `docs/plan/jira-issues.csv`. */
-export function defaultRowsOf(mainStories = stories()) {
-  const onMain = Object.fromEntries(mainStories.map(st => [st.Key, st]));
-  return (key, worktreePath) => {
-    if (onMain[key]) return onMain[key];
-    const csvPath = resolve(worktreePath, 'docs/plan/jira-issues.csv');
-    if (!existsSync(csvPath)) return null;
-    return stories(readFileSync(csvPath, 'utf8')).find(st => st.Key === key) ?? null;
-  };
-}
-
-/**
- * Paths held by live worktrees that have not opened a finished PR yet. `rowsOf(key, worktreePath)`
- * supplies the board row; `isDone` is usually `state.json` done status only.
- */
-export function liveClaims(entries, { orchestratorPath = ROOT, rowsOf: rowsOfKey = () => null, isDone = () => false } = {}) {
-  const orch = resolve(orchestratorPath);
-  const out = [];
-  for (const entry of entries) {
-    if (entry.usable === false) continue;
-    if (resolve(entry.path) === orch) continue;
-    const key = keyOfBranch(entry.branch);
-    if (!key || isDone(key)) continue;
-    const dirty = Boolean(entry.dirty);
-    const ahead = Number(entry.ahead) || 0;
-    if (!dirty && ahead <= 0) continue;
-    const prState = entry.prState ?? null;
-    const row = rowsOfKey(key, entry.path);
-    if (!row) {
-      out.push({ key, path: entry.path, reason: 'no row', prState });
-      continue;
-    }
-    out.push({ key, paths: pathsOf(row), path: entry.path, ahead, dirty, prState });
-  }
-  return out;
-}
-
-/** PR suffix on a worktree-holds line (from gh / the cycle snapshot, not guessed). */
-export function prClaimLabel(prState) {
-  if (prState === 'OPEN') return 'PR open';
-  if (prState === 'MERGED') return 'PR merged';
-  if (prState === 'CLOSED') return 'PR closed';
-  return 'no PR';
-}
-
-/** Cycle log line for one claim (`worktree holds paths: …`). */
-export function formatClaimLine(claim) {
-  const pr = prClaimLabel(claim.prState);
-  if (claim.reason === 'no row') {
-    return `worktree holds paths: ${claim.key} (${claim.path}, no row, ${pr})`;
-  }
-  const cleanliness = claim.dirty ? 'dirty' : 'clean';
-  const aheadLabel = claim.ahead === 1 ? '1 commit ahead' : `${claim.ahead} commits ahead`;
-  return `worktree holds paths: ${claim.key} (${claim.path}, ${aheadLabel}, ${cleanliness}, ${pr})`;
-}
-
-export function sayWorktreeClaims(claims, { say = line => console.log(line) } = {}) {
-  for (const claim of claims) say(formatClaimLine(claim));
+/** The fleet store, or null outside a git checkout (a fixture test). */
+function safeFleetDir() {
+  try { return fleetDir(); } catch { return null; }
 }
 
 /** argv for `git worktree remove` — never `--force`. */
@@ -96,17 +26,17 @@ export function removeArgs(path) {
   return ['worktree', 'remove', path];
 }
 
-/** Branches of stories an implementor is working on right now, from the board mirror. Reads
- * state.json without creating it: lib.state() seeds a missing file, and a prune must not write. */
-export function inProgressBranches(s = existsSync(here('state.json')) ? readJson(here('state.json')) : {}) {
-  return Object.values(s.stories ?? {}).filter(r => r.status === 'in_progress' && r.branch).map(r => r.branch);
+/** Branches of stories that are under way or in review: their worktrees are never removed. */
+export function inProgressBranches(b = board()) {
+  return Object.values(b.stories ?? {}).filter(r => ['in_progress', 'in_review'].includes(r.status) && r.branch).map(r => r.branch);
 }
 
 /**
  * @param {Array<{ path: string, branch: string | null, detached: boolean, dirty: boolean, prState: string | null, ageHours: number }>} entries
  * @param {{ orchestratorPath?: string, activeBranches?: string[] }} [opts]
  */
-export function prunePlan(entries, { orchestratorPath = ROOT, activeBranches = [] } = {}) {
+export function prunePlan(entries, { orchestratorPath = ROOT, activeBranches = [], fleetPath = safeFleetDir() } = {}) {
+  const fleet = fleetPath ? resolve(fleetPath) : null;
   const remove = [];
   const keep = [];
   const orch = resolve(orchestratorPath);
@@ -116,6 +46,10 @@ export function prunePlan(entries, { orchestratorPath = ROOT, activeBranches = [
     const at = resolve(entry.path);
     if (at === orch) {
       keep.push({ ...entry, reason: 'orchestrator checkout' });
+      continue;
+    }
+    if (fleet && (at === fleet || at.startsWith(fleet + '/'))) {
+      keep.push({ ...entry, reason: 'the fleet runner' });
       continue;
     }
     if (entry.prunable || entry.usable === false) {
@@ -279,6 +213,7 @@ export function runWorktreePrune({
   gather,
   branchState,
   activeBranches = inProgressBranches(),
+  verbose = false,
 } = {}) {
   const gitAtRoot = git ?? (a => defaultSh('git', a, { cwd: root }));
   if (!dryRun) pruneStaleWorktreeRows({ root, git: gitAtRoot });
@@ -288,14 +223,13 @@ export function runWorktreePrune({
     say(`worktree remove ${entry.path} — ${entry.reason}`);
     if (!dryRun) removeWorktreeAt(entry.path, { root, git: gitAtRoot, say });
   }
-  for (const entry of plan.keep) {
-    say(`worktree keep ${entry.path} — ${entry.reason}`);
-  }
+  // Kept worktrees are not news every cycle; one with work nobody owns is listed under "Needs you".
+  if (verbose) for (const entry of plan.keep) say(`worktree keep ${entry.path} — ${entry.reason}`);
   return plan;
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isMain) {
   const dryRun = process.argv.includes('--dry-run');
-  runWorktreePrune({ dryRun });
+  runWorktreePrune({ dryRun, verbose: true });
 }

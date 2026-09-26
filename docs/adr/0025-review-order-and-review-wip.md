@@ -1,6 +1,8 @@
 # ADR-0025 — Review order and a WIP limit on review
 
-- **Status:** accepted
+- **Status:** accepted; §1 and §5 amended by ADR-0034 (review load no longer holds dispatch;
+  a signature may be taken whenever the PR is not in conflict, since an approval now survives a
+  branch update)
 - **Date:** 2026-09-18
 - **Amends:** ADR-0017 (trunk-based agent workflow). Nothing in ADR-0017 is contradicted; this
   adds the ordering and the cap that ADR-0017 left to judgement.

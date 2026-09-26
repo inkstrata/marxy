@@ -8,29 +8,28 @@
 //
 // This is not security against a determined agent on this machine. It is a boundary that cannot be
 // crossed by accident or by helpfulness, which is the failure that actually happened.
+//
+// A signature may be taken whenever the PR is not in conflict (ADR-0034, amending ADR-0025 §5). "Sign
+// last" existed because every merge rewrote every other head and voided every approval; since
+// onlyMainArrived() lets an approval survive a head that is the reviewed commit merged with main,
+// reviewers can work in parallel and the branch update still cannot launder an unreviewed change.
 import { createHmac, randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { ROOT, here, state } from './lib.mjs';
-import { computeOrder, readPullRequest } from './review-order.mjs';
+import { ROOT } from './lib.mjs';
+import { approvalPath } from './store.mjs';
+import { readPullRequest } from './review-order.mjs';
 
-/** The three reasons a signature is refused; printed verbatim so a test can name which one. */
+/** The one reason a signature is refused; printed verbatim so a test can name it. */
 export const SIGN_HOLDS = {
-  BEHIND: 'BEHIND',
   DIRTY: 'DIRTY',
-  NOT_FIRST: 'not the first entry of the review order',
 };
 
-/**
- * Whether this story may be signed now. Order is BEHIND, then DIRTY, then not-first —
- * a signature taken anywhere else is the livelock ADR-0025 exists to make impossible.
- */
-export function approvalHoldReason({ key, mergeStateStatus, orderKeys = [] } = {}) {
-  if (mergeStateStatus === 'BEHIND') return SIGN_HOLDS.BEHIND;
+/** Whether this story may be signed now: not while its PR conflicts, since the tree is not final. */
+export function approvalHoldReason({ mergeStateStatus } = {}) {
   if (mergeStateStatus === 'DIRTY') return SIGN_HOLDS.DIRTY;
-  if (orderKeys[0] !== key) return SIGN_HOLDS.NOT_FIRST;
   return null;
 }
 
@@ -53,7 +52,7 @@ export function sign(body, head) {
 }
 
 /** `{ ok, why, head }` — why is the reason a merge must be held, so it can be printed verbatim. */
-export function verify(path, prHead) {
+export function verify(path, prHead, { fetch = true } = {}) {
   if (!existsSync(path)) return { ok: false, why: 'not reviewed (no results/KEY.approved)' };
   const text = readFileSync(path, 'utf8');
   const m = text.match(FOOTER);
@@ -63,7 +62,7 @@ export function verify(path, prHead) {
     return { ok: false, why: 'the approval signature does not match its text' };
   }
   if (prHead && head !== prHead) {
-    const drift = onlyMainArrived(head, prHead);
+    const drift = onlyMainArrived(head, prHead, { fetch });
     if (!drift.ok) return { ok: false, why: `the approval is for ${head.slice(0, 7)}, the PR head is ${prHead.slice(0, 7)}, and ${drift.why}` };
     return { ok: true, head, note: `approved at ${head.slice(0, 7)}; ${drift.why}` };
   }
@@ -129,53 +128,30 @@ export function resolutionFromSides({ base, ours, theirs, result }) {
   return [...T].every(l => R.has(l) || deletedBy(O, l));
 }
 
-/** Read the live PR and review order. `readPr` / `orderOf` are injectable so --selftest never hits GitHub. */
-export function liveApprovalHold(key, {
-  readPr = readPullRequest,
-  orderOf = (read) => computeOrder({ readPr: read }),
-  rec = state().stories[key] ?? {},
-} = {}) {
-  let mergeStateStatus = '';
-  if (rec.pr != null && rec.pr !== '') {
-    try {
-      mergeStateStatus = readPr(rec.pr).mergeStateStatus ?? '';
-    } catch (e) {
-      return `could not read pull request: ${e.message}`;
-    }
-  }
-  let orderKeys = [];
+/** Read the live PR. `readPr` is injectable so --selftest never hits GitHub. */
+export function liveApprovalHold(key, { readPr = readPullRequest, pr } = {}) {
+  if (pr == null || pr === '') return null;
   try {
-    orderKeys = orderOf(readPr).order.map(r => r.key);
+    return approvalHoldReason({ mergeStateStatus: readPr(pr).mergeStateStatus ?? '' });
   } catch (e) {
-    return e.message;
+    return `could not read pull request: ${e.message}`;
   }
-  return approvalHoldReason({ key, mergeStateStatus, orderKeys });
+}
+
+/** Sign the approval at approvalPath(key) for `head`. The body is the reviewer's notes. */
+export function signApproval(key, head, { path = approvalPath(key) } = {}) {
+  if (!/^[0-9a-f]{40}$/.test(head ?? '')) throw new Error(`refusing to sign ${key} without a 40-character head`);
+  const body = readFileSync(path, 'utf8').replace(FOOTER, '').trimEnd();
+  writeFileSync(path, `${body}\n\nPR-HEAD: ${head}\nSIGNATURE: ${sign(body, head)}\n`);
+  return head;
 }
 
 /** Named cases for `node orchestration/approve.mjs --selftest`. Returns the process exit code. */
 export function selftest() {
   const cases = [
-    {
-      name: 'BEHIND holds without writing a signature',
-      key: 'MARXY-A',
-      mergeStateStatus: 'BEHIND',
-      orderKeys: ['MARXY-A'],
-      hold: SIGN_HOLDS.BEHIND,
-    },
-    {
-      name: 'DIRTY holds without writing a signature',
-      key: 'MARXY-A',
-      mergeStateStatus: 'DIRTY',
-      orderKeys: ['MARXY-A'],
-      hold: SIGN_HOLDS.DIRTY,
-    },
-    {
-      name: 'not the first entry of the review order holds without writing a signature',
-      key: 'MARXY-B',
-      mergeStateStatus: 'CLEAN',
-      orderKeys: ['MARXY-A', 'MARXY-B'],
-      hold: SIGN_HOLDS.NOT_FIRST,
-    },
+    { name: 'BEHIND signs: the approval survives the update (onlyMainArrived)', mergeStateStatus: 'BEHIND', hold: null },
+    { name: 'CLEAN signs whatever its place in the review order', mergeStateStatus: 'CLEAN', hold: null },
+    { name: 'DIRTY holds without writing a signature', mergeStateStatus: 'DIRTY', hold: SIGN_HOLDS.DIRTY },
   ];
   let bad = 0;
   for (const c of cases) {
@@ -199,22 +175,22 @@ if (process.argv[1]?.endsWith('approve.mjs')) {
   if (process.argv.includes('--selftest')) process.exit(selftest());
   const key = process.argv[2];
   if (!key) { console.error('usage: approve.mjs KEY [--head SHA]'); process.exit(2); }
-  const path = here(`results/${key}.approved`);
-  if (!existsSync(path)) { console.error(`${path} does not exist — write the approval first, then sign it`); process.exit(2); }
-  const before = readFileSync(path, 'utf8');
-  const hold = liveApprovalHold(key);
+  const path = approvalPath(key);
+  if (!existsSync(path)) { console.error(`${path} does not exist — write the approval first (node orchestration/fleet.mjs verdict ${key} merge --notes FILE does both)`); process.exit(2); }
+  const flag = process.argv.indexOf('--head');
+  let head = flag > 0 ? process.argv[flag + 1] : '';
+  let number = null;
+  if (!head) {
+    const pr = JSON.parse(execFileSync('gh', ['pr', 'list', '--search', key, '--json', 'number,headRefOid'], { encoding: 'utf8', timeout: 90_000 }));
+    if (pr.length !== 1) { console.error(`found ${pr.length} PRs for ${key}; pass --head SHA`); process.exit(2); }
+    head = pr[0].headRefOid;
+    number = pr[0].number;
+  }
+  const hold = liveApprovalHold(key, { pr: number });
   if (hold) {
     console.error(`${key}: not signing — ${hold}`);
     process.exit(1);
   }
-  const flag = process.argv.indexOf('--head');
-  let head = flag > 0 ? process.argv[flag + 1] : '';
-  if (!head) {
-    const pr = JSON.parse(execFileSync('gh', ['pr', 'list', '--search', key, '--json', 'number,headRefOid'], { encoding: 'utf8' }));
-    if (pr.length !== 1) { console.error(`found ${pr.length} PRs for ${key}; pass --head SHA`); process.exit(2); }
-    head = pr[0].headRefOid;
-  }
-  const body = before.replace(FOOTER, '').trimEnd();
-  writeFileSync(path, `${body}\n\nPR-HEAD: ${head}\nSIGNATURE: ${sign(body, head)}\n`);
+  signApproval(key, head, { path });
   console.log(`${key}: approval signed for ${head.slice(0, 7)}`);
 }

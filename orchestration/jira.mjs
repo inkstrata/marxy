@@ -5,7 +5,8 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { ROOT, here, readJson, writeJson, stories, parseCsv, state } from './lib.mjs';
+import { ROOT, here, readJson, writeJson, parseCsv } from './lib.mjs';
+import { board as board_ } from './machine.mjs';
 
 const ENV_FILE = process.env.MARXY_JIRA_ENV ?? `${homedir()}/.config/marxy/jira.env`;
 const MAP = here('jira-map.json');
@@ -97,7 +98,7 @@ async function doctor() {
   const me = await api('/myself');
   const project = await api(`/project/${E.JIRA_PROJECT_KEY}`).catch(e => ({ error: String(e) }));
   const names = project.error ? [] : await statusNames();
-  const rows = csvRows(), board = readJson(here('state.json')).stories;
+  const rows = csvRows(), board = board_().stories;
   const live = project.error ? [] : (await searchAll(`project = ${E.JIRA_PROJECT_KEY}`, 'summary')).map(i => i.key);
   const csvStories = rows.filter(r => r.Type === 'Story').map(r => r.Key);
   console.log(JSON.stringify({
@@ -252,9 +253,8 @@ async function sync() {
     } catch (e) { failed++; console.error(`${it.Key}: ${e}`); }
   }
   if (!DRY) writeJson(MAP, m);
-  // state.json is gitignored, so rewriteTokens never sees it. Re-read through state() so any
-  // leftover MARXY-NEW- cache row moves onto the real key (MARXY-179).
-  if (!DRY) state();
+  // The fleet board is a fold over the event log, and the fold applies jira-map.json's renames, so a
+  // leftover MARXY-NEW- row moves onto its real key on the next read (MARXY-179); nothing to rewrite.
   const touched = rewriteTokens(renames);
   for (const [from, to] of renames) {
     const card = `${ROOT}docs/plan/tasks/${from}.md`;
@@ -302,14 +302,16 @@ async function release(phase, tag) {
   console.log(`${name} released with ${keys.length} issues from phase ${phase}`);
 }
 
-// Make Jira agree with the local board. Reports every drift it corrects, so a cycle that
-// forgot to move an issue shows up as output rather than as a stale board.
+// Make Jira agree with the fleet board. Jira is a projection: the cycle pushes to it and never reads
+// it back as an input, so a Jira outage costs a stale board there and nothing else (ADR-0034).
+const JIRA_STATUS = { in_progress: 'in_progress', in_review: 'in_review', todo: 'todo', done: 'done', blocked: 'blocked', escalate: 'escalate' };
 async function push() {
-  const board = readJson(here('state.json')).stories;
+  const stories = board_().stories;
+  const fleetBoard = Object.fromEntries(Object.entries(stories).filter(([, r]) => JIRA_STATUS[r.status]));
   const issues = await searchAll(`project = ${E.JIRA_PROJECT_KEY} AND issuetype != Epic`, 'status,labels');
   const live = Object.fromEntries(issues.map(i => [i.key, { status: i.fields.status.name, labels: i.fields.labels ?? [] }]));
   let moved = 0;
-  for (const [key, rec] of Object.entries(board)) {
+  for (const [key, rec] of Object.entries(fleetBoard)) {
     const want = STATUS[rec.status], cur = live[key];
     if (!want || !cur) continue;
     const marker = LABELLED[rec.status];
@@ -318,7 +320,7 @@ async function push() {
     await move(key, rec.status).catch(e => console.error(String(e)));
     moved++;
   }
-  console.log(`push: ${moved} issue(s) moved, ${Object.keys(board).length - moved} already agreed`);
+  console.log(`push: ${moved} issue(s) moved, ${Object.keys(fleetBoard).length - moved} already agreed`);
 }
 
 // Rewrite the pre-Jira plan ids to the real Jira keys everywhere except fixtures and fonts,
@@ -327,7 +329,6 @@ function migrateIds() {
   const pairs = Object.entries(map().keys).filter(([from, to]) => from !== to).sort((a, b) => b[0].length - a[0].length);
   if (!pairs.length) { console.log('nothing to migrate (no map, or ids already are Jira keys)'); return; }
   const touched = rewriteTokens(pairs);
-  if (!DRY) state();
   console.log(`${DRY ? 'would rewrite' : 'rewrote'} ${touched} files (fixtures/ and fonts/ untouched by rule)`);
 }
 

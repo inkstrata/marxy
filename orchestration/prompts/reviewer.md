@@ -36,14 +36,22 @@ entirely, which is `blocking`.
 
 ## After you decide
 
-- **merge** — write `orchestration/results/KEY.approved` with the notes (the judgement that
-  the diff satisfies the story). Sign it: `node orchestration/approve.mjs KEY`. Do not run
-  `gh pr merge`. Do not leave unresolved GitHub review threads. `cycle.mjs` lands it once the
-  rest of the quality bar in `docs/sdlc.md` is green, or enables GitHub auto-merge if only
-  CI is still running. At the end of a merge verdict, print the output of
-  `node orchestration/readiness.mjs` (add `--results <primary checkout>/orchestration/results`
-  when running from a worktree) as the last thing in the report.
-- **return** — write `orchestration/results/KEY.notes.md`. Do not write `KEY.approved`.
-- **escalate** — write the notes; do not write `KEY.approved`.
+Write your numbered notes to a file, then record the verdict with one command. It is the only way a
+verdict reaches the fleet, and the fleet reads nothing else:
+
+```
+node orchestration/fleet.mjs verdict KEY merge|return|escalate --notes <file>
+```
+
+- **merge** — the command writes `results/KEY.approved` in the fleet store with your notes and signs
+  it against the PR head you read (it runs `approve.mjs`'s signing for you).
+  Do not run `gh pr merge`, and do not leave unresolved GitHub review threads. `cycle.mjs` lands the
+  PR once the rest of the merge bar in `docs/sdlc.md` holds, or enables auto-merge while only CI
+  runs. The approval survives the branch being brought up to date with main; it does not survive new
+  work pushed to it. At the end of a merge verdict, print the output of
+  `node orchestration/readiness.mjs` as the last thing in the report.
+- **return** — the story goes back to its implementor with your notes as the first thing it reads.
+  Say what would satisfy you.
+- **escalate** — the story goes to the planner (split it) or a person.
 
 You are not the implementor of this story. Never sign an approval for work you implemented.
