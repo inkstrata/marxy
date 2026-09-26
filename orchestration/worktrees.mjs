@@ -26,7 +26,8 @@ function commitsAhead(wtPath, gitAtRoot) {
 export function readLiveEntries(opts = {}) {
   return gatherWorktreeEntries(opts).map(row => {
     const gitAtRoot = opts.git ?? (a => defaultSh('git', a, { cwd: opts.root ?? ROOT }));
-    return { ...row, ahead: commitsAhead(row.path, gitAtRoot) };
+    const ahead = row.usable === false ? 0 : commitsAhead(row.path, gitAtRoot);
+    return { ...row, ahead };
   });
 }
 
@@ -49,30 +50,41 @@ export function liveClaims(entries, { orchestratorPath = ROOT, rowsOf: rowsOfKey
   const orch = resolve(orchestratorPath);
   const out = [];
   for (const entry of entries) {
+    if (entry.usable === false) continue;
     if (resolve(entry.path) === orch) continue;
     const key = keyOfBranch(entry.branch);
     if (!key || isDone(key)) continue;
     const dirty = Boolean(entry.dirty);
     const ahead = Number(entry.ahead) || 0;
     if (!dirty && ahead <= 0) continue;
+    const prState = entry.prState ?? null;
     const row = rowsOfKey(key, entry.path);
     if (!row) {
-      out.push({ key, path: entry.path, reason: 'no row' });
+      out.push({ key, path: entry.path, reason: 'no row', prState });
       continue;
     }
-    out.push({ key, paths: pathsOf(row), path: entry.path, ahead, dirty });
+    out.push({ key, paths: pathsOf(row), path: entry.path, ahead, dirty, prState });
   }
   return out;
 }
 
+/** PR suffix on a worktree-holds line (from gh / the cycle snapshot, not guessed). */
+export function prClaimLabel(prState) {
+  if (prState === 'OPEN') return 'PR open';
+  if (prState === 'MERGED') return 'PR merged';
+  if (prState === 'CLOSED') return 'PR closed';
+  return 'no PR';
+}
+
 /** Cycle log line for one claim (`worktree holds paths: …`). */
 export function formatClaimLine(claim) {
+  const pr = prClaimLabel(claim.prState);
   if (claim.reason === 'no row') {
-    return `worktree holds paths: ${claim.key} (${claim.path}, no row, no PR)`;
+    return `worktree holds paths: ${claim.key} (${claim.path}, no row, ${pr})`;
   }
   const cleanliness = claim.dirty ? 'dirty' : 'clean';
   const aheadLabel = claim.ahead === 1 ? '1 commit ahead' : `${claim.ahead} commits ahead`;
-  return `worktree holds paths: ${claim.key} (${claim.path}, ${aheadLabel}, ${cleanliness}, no PR)`;
+  return `worktree holds paths: ${claim.key} (${claim.path}, ${aheadLabel}, ${cleanliness}, ${pr})`;
 }
 
 export function sayWorktreeClaims(claims, { say = line => console.log(line) } = {}) {
@@ -104,6 +116,10 @@ export function prunePlan(entries, { orchestratorPath = ROOT, activeBranches = [
     const at = resolve(entry.path);
     if (at === orch) {
       keep.push({ ...entry, reason: 'orchestrator checkout' });
+      continue;
+    }
+    if (entry.prunable || entry.usable === false) {
+      remove.push({ ...entry, reason: entry.prunable ? `prunable — ${entry.prunable}` : 'not a git worktree' });
       continue;
     }
     if (entry.dirty) {
@@ -148,10 +164,11 @@ export function parseWorktreeList(porcelain) {
   for (const line of String(porcelain ?? '').split('\n')) {
     if (line.startsWith('worktree ')) {
       if (cur) rows.push(cur);
-      cur = { path: line.slice('worktree '.length), branch: null, detached: false };
+      cur = { path: line.slice('worktree '.length), branch: null, detached: false, prunable: null };
     } else if (!cur) continue;
     else if (line.startsWith('branch ')) cur.branch = line.slice('branch '.length).replace(/^refs\/heads\//, '');
     else if (line === 'detached') cur.detached = true;
+    else if (line.startsWith('prunable ')) cur.prunable = line.slice('prunable '.length);
   }
   if (cur) rows.push(cur);
   return rows;
@@ -192,6 +209,13 @@ function prStateForBranch(branch, gh) {
   return typeof raw === 'string' && raw ? pickPrState(raw) : null;
 }
 
+/** False when porcelain marks the row prunable or `git -C` cannot see a work tree. */
+export function worktreeUsable(row, gitAtRoot) {
+  if (row.prunable) return false;
+  const ok = gitAtRoot(['-C', row.path, 'rev-parse', '--is-inside-work-tree']);
+  return typeof ok === 'string' && ok.trim() === 'true';
+}
+
 function worktreeAgeHours(wtPath, gitAtRoot) {
   const index = gitAtRoot(['-C', wtPath, 'rev-parse', '--path-format=absolute', '--git-path', 'index']);
   if (typeof index !== 'string' || !index || !existsSync(index)) return 0;
@@ -214,18 +238,26 @@ export function gatherWorktreeEntries({
   const list = git(['worktree', 'list', '--porcelain']);
   if (typeof list !== 'string') return [];
   return parseWorktreeList(list).map(row => {
-    const dirtyOut = git(['--no-optional-locks', '-C', row.path, 'status', '--porcelain']);
-    const dirty = typeof dirtyOut !== 'string' || dirtyOut.length > 0;
+    const usable = worktreeUsable(row, git);
+    const dirtyOut = usable ? git(['--no-optional-locks', '-C', row.path, 'status', '--porcelain']) : '';
+    const dirty = usable && typeof dirtyOut === 'string' && dirtyOut.length > 0;
     const branch = row.detached ? null : row.branch;
     return {
       path: row.path,
       branch,
       detached: row.detached,
       dirty,
+      usable,
+      prunable: row.prunable ?? null,
       prState: branch ? (branchState ? branchState(branch) : prStateForBranch(branch, gh)) : null,
-      ageHours: worktreeAgeHours(row.path, git),
+      ageHours: usable ? worktreeAgeHours(row.path, git) : 0,
     };
   });
+}
+
+/** Drop worktree admin rows git marks prunable (broken `.git` file, missing gitdir). Safe on every cycle. */
+export function pruneStaleWorktreeRows({ root = ROOT, git = a => defaultSh('git', a, { cwd: root }) } = {}) {
+  git(['worktree', 'prune']);
 }
 
 export function removeWorktreeAt(path, { root = ROOT, git = a => defaultSh('git', a, { cwd: root }), say = () => {} } = {}) {
@@ -248,9 +280,10 @@ export function runWorktreePrune({
   branchState,
   activeBranches = inProgressBranches(),
 } = {}) {
+  const gitAtRoot = git ?? (a => defaultSh('git', a, { cwd: root }));
+  if (!dryRun) pruneStaleWorktreeRows({ root, git: gitAtRoot });
   const entries = gather ? gather() : gatherWorktreeEntries({ root, git, gh, branchState });
   const plan = prunePlan(entries, { orchestratorPath: root, activeBranches });
-  const gitAtRoot = git ?? (a => defaultSh('git', a, { cwd: root }));
   for (const entry of plan.remove) {
     say(`worktree remove ${entry.path} — ${entry.reason}`);
     if (!dryRun) removeWorktreeAt(entry.path, { root, git: gitAtRoot, say });

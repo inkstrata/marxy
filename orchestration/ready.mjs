@@ -174,6 +174,7 @@ export function selectReady(opts = {}) {
       path: c.path,
       ahead: c.ahead ?? 0,
       dirty: Boolean(c.dirty),
+      ...(c.prState != null ? { prState: c.prState } : {}),
       ...(c.reason ? { reason: c.reason } : {}),
     })),
   };
