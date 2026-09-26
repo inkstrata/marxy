@@ -48,6 +48,16 @@ function flags(argv) {
   return out;
 }
 
+// A command's output is collected, not printed: `run` returns it and the CLI at the bottom prints it,
+// so every command, refusals included, can be tested against a temporary store (P1 of the hardening plan).
+/** A command that cannot proceed; `code` is its exit code (2: usage or unknown input). */
+class Refusal extends Error {
+  constructor(message, code = 2) { super(message); this.code = code; }
+}
+let sink = null;
+const say = (...a) => sink.lines.push(a.join(' '));
+const complain = (...a) => sink.errors.push(a.join(' '));
+
 /** Append and report whether the fold accepted it. */
 function apply(events, key) {
   const before = board().rejected.length;
@@ -55,14 +65,14 @@ function apply(events, key) {
   const b = board();
   const refused = b.rejected.slice(before).filter(r => r.key === key);
   if (refused.length) {
-    console.error(`✗ ${key}: refused — ${refused.map(r => r.why).join('; ')}`);
-    process.exitCode = 1;
+    complain(`✗ ${key}: refused — ${refused.map(r => r.why).join('; ')}`);
+    sink.code = 1;
     return null;
   }
   return b.stories[key];
 }
 
-const need = (cond, msg) => { if (!cond) { console.error(msg); process.exit(2); } };
+const need = (cond, msg) => { if (!cond) throw new Refusal(msg); };
 const isKey = k => /^MARXY-\d+$/.test(k ?? '');
 
 /**
@@ -87,7 +97,7 @@ function openPrFor(key) {
 const commands = {
   status() {
     const p = fleetPath('status.md');
-    console.log(existsSync(p) ? readFileSync(p, 'utf8') : 'no status yet: run node orchestration/cycle.mjs');
+    say(existsSync(p) ? readFileSync(p, 'utf8') : 'no status yet: run node orchestration/cycle.mjs');
   },
 
   why(o) {
@@ -95,22 +105,22 @@ const commands = {
     need(isKey(key), 'usage: fleet.mjs why KEY');
     const b = board();
     const rec = b.stories[key];
-    console.log(rec ? JSON.stringify(rec, null, 2) : `${key}: not on the board (todo by default if it has a row on main)`);
+    say(rec ? JSON.stringify(rec, null, 2) : `${key}: not on the board (todo by default if it has a row on main)`);
     const runs = Object.values(b.runs).filter(r => r.key === key).slice(-5);
-    for (const r of runs) console.log(`run ${r.id}: ${r.role} ${r.model ?? ''} started ${r.started}${r.ended ? `, ended ${r.ended} (${r.outcome})` : `, until ${r.deadline}`}`);
+    for (const r of runs) say(`run ${r.id}: ${r.role} ${r.model ?? ''} started ${r.started}${r.ended ? `, ended ${r.ended} (${r.outcome})` : `, until ${r.deadline}`}`);
     const { events } = readEvents();
     for (const e of events.filter(e => e.key === key).slice(-(o.n || 12))) {
-      console.log(`${e.at} ${e.by} ${e.type}${e.to ? ` → ${e.to}` : ''}${e.why ? ` — ${e.why}` : ''}`);
+      say(`${e.at} ${e.by} ${e.type}${e.to ? ` → ${e.to}` : ''}${e.why ? ` — ${e.why}` : ''}`);
     }
-    for (const r of b.rejected.filter(r => r.key === key).slice(-3)) console.log(`refused ${r.at}: ${r.why} (${r.event})`);
+    for (const r of b.rejected.filter(r => r.key === key).slice(-3)) say(`refused ${r.at}: ${r.why} (${r.event})`);
   },
 
   events(o) {
     const { events, skipped } = readEvents();
     const key = o._[0];
     const list = key ? events.filter(e => e.key === key || e.run?.startsWith(key)) : events;
-    for (const e of list.slice(-(o.n || 30))) console.log(JSON.stringify(e));
-    if (skipped) console.error(`(${skipped} unreadable line(s) skipped in ${eventsPath()})`);
+    for (const e of list.slice(-(o.n || 30))) say(JSON.stringify(e));
+    if (skipped) complain(`(${skipped} unreadable line(s) skipped in ${eventsPath()})`);
   },
 
   claim(o) {
@@ -129,13 +139,13 @@ const commands = {
     const got = apply([story(key, renew
       ? { from: 'in_progress', ifRun: null, set: { claim }, why: `claim renewed until ${claim.until}` }
       : { from: 'todo', to: 'in_progress', set: { claim }, why: `claimed by ${claim.by}` })], key);
-    if (got) console.log(`${key}: ${renew ? 'claim renewed' : 'claimed'} until ${claim.until}; its paths are reserved until then`);
+    if (got) say(`${key}: ${renew ? 'claim renewed' : 'claimed'} until ${claim.until}; its paths are reserved until then`);
   },
 
   release(o) {
     const key = o._[0];
     need(isKey(key), 'usage: fleet.mjs release KEY');
-    if (apply([story(key, { from: 'in_progress', ifRun: null, to: 'todo', unset: ['claim'], why: `released by ${who()}` })], key)) console.log(`${key}: released`);
+    if (apply([story(key, { from: 'in_progress', ifRun: null, to: 'todo', unset: ['claim'], why: `released by ${who()}` })], key)) say(`${key}: released`);
   },
 
   verdict(o) {
@@ -153,7 +163,7 @@ const commands = {
       need(!hold, `✗ ${key}: not signing — ${hold}`);
       writeTextAtomic(approvalPath(key), `${notes}\n`);
       signApproval(key, pr.headRefOid);
-      console.log(`${key}: approved and signed for ${pr.headRefOid.slice(0, 7)}; the cycle lands it once the rest of the merge bar holds`);
+      say(`${key}: approved and signed for ${pr.headRefOid.slice(0, 7)}; the cycle lands it once the rest of the merge bar holds`);
       return;
     }
     const prior = existsSync(notesPath(key)) ? readFileSync(notesPath(key), 'utf8').trimEnd() + '\n\n' : '';
@@ -163,7 +173,7 @@ const commands = {
       ? returnEvents(key, rec, { why: `reviewer: ${notes.split('\n')[0].slice(0, 160)}`, head: pr.headRefOid, t, by: who() })
       : [story(key, { from: 'in_review', to: 'escalate', set: { blockedAt: new Date().toISOString(), returned: { at: new Date().toISOString(), head: pr.headRefOid, why: 'escalated by review' } }, unset: ['hold', 'run'], why: 'reviewer escalated' })];
     const got = apply(events, key);
-    if (got) console.log(`${key}: ${verdict} recorded → ${got.status}; notes in ${notesPath(key)}`);
+    if (got) say(`${key}: ${verdict} recorded → ${got.status}; notes in ${notesPath(key)}`);
   },
 
   return(o) {
@@ -173,7 +183,7 @@ const commands = {
     const prior = existsSync(notesPath(key)) ? readFileSync(notesPath(key), 'utf8').trimEnd() + '\n\n' : '';
     writeTextAtomic(notesPath(key), `${prior}## Returned ${new Date().toISOString()} by ${who()}\n\n${o.why}\n`);
     const got = apply(returnEvents(key, rec, { why: o.why, t: timing(models()), by: who(), from: ['in_review', 'in_progress'] }), key);
-    if (got) console.log(`${key}: returned → ${got.status}`);
+    if (got) say(`${key}: returned → ${got.status}`);
   },
 
   park(o) {
@@ -182,14 +192,14 @@ const commands = {
     needKnown(key, o);
     const reason = why.join(' ');
     const got = apply([story(key, { from: ['todo', 'in_progress', 'in_review', 'escalate'], ifRun: board().stories[key]?.run ?? null, to: 'blocked', set: { parkedReason: reason, blockedAt: new Date().toISOString() }, unset: ['claim', 'run'], why: `parked by ${who()}` })], key);
-    if (got) console.log(`${key}: parked — ${reason}`);
+    if (got) say(`${key}: parked — ${reason}`);
   },
 
   unpark(o) {
     const key = o._[0];
     need(isKey(key), 'usage: fleet.mjs unpark KEY');
     const got = apply([story(key, { from: 'blocked', to: 'todo', unset: ['parkedReason', 'ghosts', 'setupFails', 'resolveTries', 'reviewTries'], why: `unparked by ${who()}` })], key);
-    if (got) console.log(`${key}: todo again`);
+    if (got) say(`${key}: todo again`);
   },
 
   retry(o) {
@@ -199,7 +209,7 @@ const commands = {
     const rec = board().stories[key];
     const attempts = o.fresh ? 0 : Math.min(rec?.attempts ?? 0, t.maxAttempts + t.escalationAttempts - 1);
     const got = apply([story(key, { from: ['escalate', 'blocked'], to: 'todo', set: { attempts }, unset: ['lastFailure', 'repeats', 'parkedReason'], why: `retry by ${who()}${o.fresh ? ' (fresh)' : ''}` })], key);
-    if (got) console.log(`${key}: todo again; the next attempt is attempt ${attempts + 1}`);
+    if (got) say(`${key}: todo again; the next attempt is attempt ${attempts + 1}`);
   },
 
   report(o) {
@@ -208,14 +218,14 @@ const commands = {
     needKnown(key, o);
     const prior = readJsonOr(resultPath(key), {});
     writeJsonAtomic(resultPath(key), { ...prior, key, status, notes: why.join(' ') });
-    console.log(`${key}: result recorded (${status}) at ${resultPath(key)}`);
+    say(`${key}: result recorded (${status}) at ${resultPath(key)}`);
   },
 
   path(o) {
     const [kind, key] = o._;
     const paths = { result: resultPath, approved: approvalPath, notes: notesPath };
     need(paths[kind] && isKey(key), 'usage: fleet.mjs path result|approved|notes KEY');
-    console.log(paths[kind](key));
+    say(paths[kind](key));
   },
 
   doctor() {
@@ -245,22 +255,43 @@ const commands = {
     }
     const status = existsSync(fleetPath('status.md')) ? readFileSync(fleetPath('status.md'), 'utf8') : '';
     const needs = status.split('## Needs you')[1]?.split('\n## ')[0]?.split('\n').filter(l => l.startsWith('- ') && l !== '- nothing') ?? [];
-    console.log(`fleet store: ${fleetDir()}`);
-    for (const p of problems) console.log(`✗ ${p}`);
-    for (const n of needs) console.log(`· needs you ${n.slice(2)}`);
-    if (!problems.length) console.log('✓ loop, lock, CLI, gh and runs look healthy');
-    process.exitCode = problems.length ? 1 : 0;
+    say(`fleet store: ${fleetDir()}`);
+    for (const p of problems) say(`✗ ${p}`);
+    for (const n of needs) say(`· needs you ${n.slice(2)}`);
+    if (!problems.length) say('✓ loop, lock, CLI, gh and runs look healthy');
+    sink.code = problems.length ? 1 : 0;
   },
 };
 
+const usage = () => readFileSync(new URL(import.meta.url), 'utf8').split('\n').filter(l => l.startsWith('//   node')).map(l => l.slice(3)).join('\n');
+
+/**
+ * Run one command: `{ code, lines, errors }`. `lines` is what it prints to stdout, `errors` what it
+ * prints to stderr; a refusal or an unknown command is an entry in `errors` and a non-zero code.
+ */
+export function run(cmd, argv = []) {
+  const out = { code: 0, lines: [], errors: [] };
+  const fn = Object.hasOwn(commands, cmd) ? commands[cmd] : null;
+  if (!fn) return { ...out, code: 2, errors: [usage()] };
+  sink = out;
+  try {
+    fn(flags(argv));
+  } catch (e) {
+    if (!(e instanceof Refusal)) throw e;
+    out.code = e.code;
+    out.errors.push(e.message);
+  } finally {
+    sink = null;
+  }
+  return out;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [cmd, ...rest] = process.argv.slice(2);
-  const fn = commands[cmd];
-  if (!fn) {
-    console.error(readFileSync(new URL(import.meta.url), 'utf8').split('\n').filter(l => l.startsWith('//   node')).map(l => l.slice(3)).join('\n'));
-    process.exit(2);
-  }
-  fn(flags(rest));
+  const { code, lines, errors } = run(cmd, rest);
+  for (const l of lines) console.log(l);
+  for (const l of errors) console.error(l);
+  process.exitCode = code;
 }
 
 export { commands };
