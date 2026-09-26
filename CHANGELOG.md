@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Planner delta for 2026-09-26: the outline-and-find story is split from the keyboard audit and open-in-editor, and it can now touch the files it needs (the app's open path, the key matcher and the harness page) instead of mounting by polling; nothing in the app changes yet (MARXY-243)
 - The reader-artifacts research is now on the board as thirteen grouped stories: showing front matter, alerts and diffs, keeping what instruction files say, telling the reader what was removed, exact copy, working links, line numbers in Source and stricter accessibility checks. One decision record, ADR-0036 (accepted), collects every decision they need, and a coverage ledger in the handbook tracks how much of it is filed, landed, deferred or declined; nothing in the app changes yet (MARXY-228)
 - `out-of-plan.mjs row` no longer overwrites the wrong board row when its key is the last row of the plan CSV; the row is now located with one offset-tracking scan instead of a second, disagreeing line count (MARXY-242)
 - New research handbook, `docs/research/reader-artifacts/`, on how a reader should present agent transcripts, tool output, plans, instruction files, code, diffs, logs and READMEs: graded defaults, what Marxy renders today (probed, and several defects it found are listed), 17 draft ADR proposals, and 25 stories, with ADR-0035 proposed to say which of it and the typography handbook decides where they overlap; docs only, nothing in the app changes (MARXY-211)
