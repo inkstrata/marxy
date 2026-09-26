@@ -14,10 +14,12 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, parseCsv, slug } from './lib.mjs';
+import { commit, story } from './machine.mjs';
 
 /** The epic each numbered phase's stories sit under; the ops lane sits under Phase 0's, as it always has. */
 export const PHASE_EPIC = { ops: 'MARXY-4', 0: 'MARXY-4', 1: 'MARXY-18', 2: 'MARXY-32', 3: 'MARXY-40', 4: 'MARXY-50' };
 const COLUMNS = ['Key', 'Type', 'Summary', 'Epic', 'Parent', 'Labels', 'Paths', 'Description', 'Acceptance'];
+const CLAIM_HOURS = 8;
 const TYPES = ['feat', 'fix', 'chore', 'docs', 'refactor', 'perf', 'test', 'ci', 'build'];
 
 const cell = v => (/[",\n\r]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
@@ -144,7 +146,12 @@ function run(argv = process.argv.slice(2)) {
     execFileSync('git', ['fetch', '-q', 'origin'], { cwd: ROOT });
     execFileSync('git', ['worktree', 'add', '-q', '--no-track', '-b', branch, wt, 'origin/main'], { cwd: ROOT });
     const row = writeBoard(wt, { ...opts, key, summary });
-    console.log(`${key}: ${branch} at ${wt}; row written (${row.Labels}; paths ${row.Paths})${NEXT(key, wt)}`);
+    // The row is only on this branch until it merges, so the claim carries the paths itself: the
+    // fleet reserves them for CLAIM_HOURS, and adoption ends the claim when the PR opens (ADR-0034).
+    commit([story(key, { from: 'todo', to: 'in_progress', why: 'out-of-plan work started', set: { branch, worktree: wt, claim: {
+      by: 'out-of-plan.mjs', until: new Date(Date.now() + CLAIM_HOURS * 3_600_000).toISOString(), paths: row.Paths.split(',').map(p => p.trim()).filter(Boolean),
+    } } })]);
+    console.log(`${key}: ${branch} at ${wt}; row written (${row.Labels}; paths ${row.Paths}); paths reserved for ${CLAIM_HOURS} h (renew: node orchestration/fleet.mjs claim ${key})${NEXT(key, wt)}`);
     return;
   }
   console.error(`usage:

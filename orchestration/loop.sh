@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Run the orchestrator cycle until stopped. Every cycle is idempotent, so this is safe to start,
-# stop and restart; Jira and state.json are written by the cycle, not by this wrapper.
+# Run the reconcile cycle until stopped (ADR-0034). Every cycle is idempotent, so this is safe to
+# start, stop and restart; nothing here writes the board.
 #
 #   ./orchestration/loop.sh start [flags]   # detached: survives the terminal or agent that ran it
 #   ./orchestration/loop.sh status          # running or not, since when, the last cycle's lines
@@ -12,21 +12,27 @@
 #   ./orchestration/loop.sh start --no-merge        # decide everything, merge nothing
 #   ./orchestration/loop.sh start --high|--low|--minimal   # compute profile (see models.json)
 #
-# One loop at a time: results/loop.lease names the running one, and start/run refuse a second
-# (MARXY-208). Never pkill it — `stop` lets the cycle in flight finish. Implementors the cycle
-# starts run detached with their own leases, so stopping the loop, closing the terminal or putting
-# the machine to sleep does not kill them; node orchestration/doctor.mjs shows all of it.
-# Dispatching implementors still needs either the Cursor CLI on PATH (then the cycle does it
-# headlessly) or the in-app orchestrator, which the cycle tells you by naming the keys.
+# Each cycle runs the code on origin/main, from a runner worktree the fleet owns
+# (<git common dir>/marxy-fleet/runner, detached, reset to origin/main before every cycle). So the
+# loop always runs what has merged — a merged fix to the orchestrator takes effect on the next cycle —
+# and no checkout anyone works in is read or written by it. MARXY_RUNNER=0 runs this checkout's code
+# instead, for developing the orchestrator itself.
+#
+# One loop at a time (loop.lease in the fleet store). Never pkill it — `stop` lets the cycle in flight
+# finish. Workers the cycle starts run detached, so stopping the loop does not stop them; the next
+# loop finishes whatever ended while it was away.
 set -uo pipefail
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-cd "$(dirname "$SELF")/.."
-RESULTS=orchestration/results
-LEASE=$RESULTS/loop.lease
-LOG=$RESULTS/loop.log
-mkdir -p "$RESULTS"
+HOME_CHECKOUT="$(cd "$(dirname "$SELF")/.." && pwd)"
+if [ -n "${MARXY_FLEET_DIR:-}" ]; then FLEET="$MARXY_FLEET_DIR"
+else FLEET="$(git -C "$HOME_CHECKOUT" rev-parse --path-format=absolute --git-common-dir)/marxy-fleet"; fi
+mkdir -p "$FLEET"
+RUNNER="$FLEET/runner"
+LEASE="$FLEET/loop.lease"
+LOG="$FLEET/loop.log"
 
-lease_pid() { [ -f "$LEASE" ] && sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$LEASE"; }
+json_field() { [ -f "$1" ] && node -e 'try { const v = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))[process.argv[2]]; if (v != null) console.log(v); } catch {}' "$1" "$2"; }
+lease_pid() { json_field "$LEASE" pid; }
 running() {
   local pid; pid=$(lease_pid)
   [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && ps -o command= -p "$pid" | grep -q 'loop.sh'
@@ -36,7 +42,6 @@ case "${1:-run}" in
   start)
     shift
     if running; then echo "loop: already running (pid $(lease_pid)); ./orchestration/loop.sh status"; exit 0; fi
-    # A new session with its output in a file: nothing ties the loop to this shell.
     pid=$(node -e '
       const { spawn } = require("node:child_process"); const fs = require("node:fs");
       const fd = fs.openSync(process.argv[1], "a");
@@ -53,32 +58,49 @@ case "${1:-run}" in
     for _ in $(seq 1 600); do running || { echo "loop: stopped"; exit 0; }; sleep 1; done
     echo "loop: still running after 10 minutes; see $LOG"; exit 1 ;;
   status)
-    if running; then echo "loop: running, pid $(lease_pid), $(sed -n 's/.*"started":"\([^"]*\)".*/since \1/p' "$LEASE")"
+    if running; then echo "loop: running, pid $(lease_pid), since $(json_field "$LEASE" started)"
     elif [ -f "$LEASE" ]; then echo "loop: not running (stale lease from a loop that died)"
     else echo "loop: not running"; fi
-    [ -f orchestration/status.md ] && sed -n '1p' orchestration/status.md
+    [ -f "$FLEET/status.md" ] && sed -n '1p' "$FLEET/status.md"
     [ -f "$LOG" ] && { echo "── last lines of $LOG"; tail -8 "$LOG"; }
     exit 0 ;;
   run) shift ;;
-  -*) ;; # flags only: run in this terminal, as before
+  -*) ;; # flags only: run in this terminal
   *) echo "usage: loop.sh [start|stop|status|run] [cycle flags]"; exit 2 ;;
 esac
 
 if running; then echo "loop: another loop is running (pid $(lease_pid)); ./orchestration/loop.sh stop first"; exit 1; fi
 INTERVAL=${INTERVAL:-120}
-printf '{"pid":%s,"host":"%s","started":"%s","match":"loop.sh"}\n' "$$" "$(hostname)" "$(date -u +%FT%TZ)" > "$LEASE"
+node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({ pid: Number(process.argv[2]), host: require("os").hostname(), started: new Date().toISOString(), match: "loop.sh" }) + "\n")' "$LEASE" "$$"
 stopping=
 sleeper=
-# A signal ends the wait, not the sleep it waited on: stop that too, or it outlives the loop by up to
-# an interval (MARXY-210). From the signal trap, which runs while the wait is interrupted and the pid
-# is still set, and from the exit trap for any other way out.
+# A signal ends the wait, not the sleep it waited on: stop that too (MARXY-210).
 stop_sleep() { [ -n "$sleeper" ] && kill "$sleeper" 2>/dev/null; sleeper=; }
-# TERM or INT, during a cycle or between cycles: the loop ends at the next boundary.
 trap 'stopping=1; stop_sleep' INT TERM
-trap 'stop_sleep; rm -f "$LEASE"; echo "loop: stopped; orchestration/status.md holds the last cycle"' EXIT
+trap 'stop_sleep; rm -f "$LEASE"; echo "loop: stopped; $FLEET/status.md holds the last cycle"' EXIT
+
+# The code a cycle runs: the runner at origin/main, or this checkout with MARXY_RUNNER=0.
+code_root() {
+  if [ "${MARXY_RUNNER:-1}" = "0" ]; then echo "$HOME_CHECKOUT"; return; fi
+  git -C "$HOME_CHECKOUT" fetch -q origin 2>/dev/null
+  if [ ! -e "$RUNNER/.git" ]; then
+    git -C "$HOME_CHECKOUT" worktree add -q --detach "$RUNNER" origin/main >/dev/null 2>&1 || { echo "$HOME_CHECKOUT"; return; }
+  else
+    # Anything an agent left in the runner is kept on a ref, never discarded, before the reset.
+    if [ -n "$(git -C "$RUNNER" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+      wip=$(git -C "$RUNNER" -c commit.gpgsign=false stash create "fleet runner before reset" 2>/dev/null)
+      [ -n "$wip" ] && git -C "$RUNNER" update-ref "refs/fleet/wip/runner/$(date -u +%Y%m%dT%H%M%SZ)" "$wip"
+    fi
+    git -C "$RUNNER" checkout -q --detach --force origin/main 2>/dev/null
+  fi
+  echo "$RUNNER"
+}
+
 while [ -z "$stopping" ]; do
-  echo "── cycle $(date -u +%FT%TZ)"
-  node orchestration/cycle.mjs "$@"
+  # Rotate at 5 MB so a loop that runs for weeks does not grow without bound.
+  if [ -f "$LOG" ] && [ "$(wc -c < "$LOG")" -gt 5000000 ]; then mv -f "$LOG" "$LOG.1"; fi
+  root=$(code_root)
+  node "$root/orchestration/cycle.mjs" "$@"
   [ -n "${ONCE:-}" ] && exit 0
   [ -n "$stopping" ] && break
   sleep "$INTERVAL" & sleeper=$!

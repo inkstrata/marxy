@@ -11,6 +11,8 @@ import { pathToFileURL } from 'node:url';
 import { ROOT, storyKey, story, changedFiles, fix } from './lib/repo.mjs';
 import { lintPrBody } from './check-pr.mjs';
 import { openPr, pushBranch } from './open-pr.mjs';
+// The hand-off lives in the fleet store, one location whichever worktree this runs in (ADR-0034).
+import { resultPath as fleetResultPath } from '../orchestration/store.mjs';
 
 function cells(line) {
   return line.split('|').slice(1, -1).map(c => c.trim());
@@ -41,7 +43,7 @@ export function openSteps(key, number = '<number>') {
   return [
     'git push -u origin HEAD:refs/heads/<branch> (skipped when origin/<branch> is up to date)',
     `node scripts/open-pr.mjs ${key}`,
-    `record the PR number in orchestration/results/${key}.json`,
+    `record the PR number in the fleet result (node orchestration/fleet.mjs path result ${key})`,
     `node orchestration/jira.mjs pr ${key} ${number}`,
   ];
 }
@@ -94,7 +96,7 @@ if (isMain) {
   const commits = execSync('git log --format=%s origin/main..HEAD', { cwd: ROOT, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
   const files = changedFiles().sort();
   const gates = steps[1][1].stdout.split('\n').filter(l => /^[✓✗]/.test(l)).map(l => l.trim()).join('\n');
-  mkdirSync(join(ROOT, 'results'), { recursive: true }); mkdirSync(join(ROOT, 'orchestration/results'), { recursive: true });
+  mkdirSync(join(ROOT, 'results'), { recursive: true });
   const bodyPath = join(ROOT, `results/${key}.pr.md`);
   const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: ROOT, encoding: 'utf8' }).trim();
 
@@ -156,7 +158,7 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
   const body = readFileSync(bodyPath, 'utf8');
   const { acceptance, todo } = checkAcceptance(body);
 
-  const resultPath = join(ROOT, `orchestration/results/${key}.json`);
+  const resultPath = fleetResultPath(key);
   const existingResult = existsSync(resultPath) ? JSON.parse(readFileSync(resultPath, 'utf8')) : {
     key, status: ok ? 'done' : 'failed', branch,
     gates: Object.fromEntries(gates.split('\n').filter(Boolean).map(l => [l.slice(2).trim(), l.startsWith('✓') ? 'ok' : 'failed'])),
@@ -174,7 +176,7 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
       for (const l of leftover) console.log(`  · ${l.split('\n')[0]}`);
     }
     console.log(`\nFill every TODO, then run:\n  pnpm done ${key} --open`);
-    console.log(`result file: orchestration/results/${key}.json`);
+    console.log(`result file: ${resultPath}`);
     if (!card) console.log(`note: no task card at docs/plan/tasks/${key}.md`);
     process.exit(ok && !todo ? 0 : 1);
   }

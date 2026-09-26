@@ -1,187 +1,191 @@
 # Orchestration — how the fleet runs
 
-Three roles, one loop, everything on disk so any session can pick it up cold.
+One reconciler, four kinds of worker run, and a store every worktree shares (ADR-0034). Any session
+can pick it up cold: `node orchestration/fleet.mjs status` says what is happening and what needs a
+person.
 
-| Role | Default model (edit `models.json`) | Runs | Owns |
+| Role | Default model (edit `models.json`) | Runs as | Owns |
 | --- | --- | --- | --- |
-| **Orchestrator** | Claude Sonnet 5, medium reasoning | continuously, as the main Cursor agent in this repo | dispatch, review, merge, the board (`state.json` mirrored into Jira), `needs-human.md` |
-| **Planner** | Claude Opus 5.5, medium | periodically, as a subagent the orchestrator invokes | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
-| **Implementor** | Composer 2.5 | one per story, in its own git worktree | exactly one story, on its own branch, inside its listed paths |
+| **Orchestrator** | Claude Sonnet 5, medium | the in-app agent, beside the loop | what the loop hands to judgement or a person (`prompts/orchestrator.md`) |
+| **Planner** | Claude Opus 5.5, medium | a worker run when due | re-sequencing, splitting, new stories, ADR proposals, plan deltas |
+| **Implementor** | Composer 2.5 (escalation: Opus 5.5) | a worker run per ready story, in its own worktree | exactly one story, on its own branch, inside its listed paths |
+| **Reviewer** | Claude Sonnet 5, high | a worker run per PR that needs a verdict | merge / return / escalate, signed |
 
-The orchestrator never implements. The planner never implements. Implementors never plan.
-Humans (the author) review taste, approve CODEOWNERS paths, and answer `needs-human.md`.
+The orchestrator never implements. The planner never implements. Implementors never plan or review.
+Humans (the author) review taste, approve CODEOWNERS paths, and work down **Needs you**.
 
-**Jira is the board of record** — project MARXY at <https://marxy.atlassian.net>, four states,
-no WIP cap. `state.json` is the local mirror the scripts read; `jira.mjs` keeps the two equal.
-The process, including the definitions of ready and done, is `docs/sdlc.md`.
+**Jira is where people read the board**; the fleet pushes to it every cycle and never reads it back,
+so a Jira outage costs a stale board there and nothing else. The plan — stories, paths, acceptance,
+deps, phases — is `docs/plan/jira-issues.csv` and `deps.json` **on `origin/main`**, read from git
+objects, never from a working tree. The process around it is `docs/sdlc.md`.
 
-## The loop (orchestrator)
+## Running it
 
-1. `node orchestration/ready.mjs` — stories whose earlier phase is settled, whose
-   dependencies are done, and whose paths do not overlap anything in progress. A worktree whose
-   branch names a key, with commits or uncommitted work and no finished PR, holds that key's paths
-   as if it were In Progress, and `ready.mjs` names it (`worktree holds`). It never
-   offers a story from phase N+1 while phase N still has `todo` or `in_progress` work,
-   unless the story is labelled `cross-phase`. `human-gated` stories, and stories with
-   empty Acceptance or empty Paths, are refused with the rule named. Dispatch lanes stay
-   uncapped (`models.json` `lanes` is `null`); a positive value is the implementor WIP
-   limit and a story that would exceed it is `blockedByLanes`, not a dependency wait.
-   `reviewLanes` (4) is a different cap: while the count of `in_review` stories is at or
-   above it, ready dispatches nothing and prints `blockedByReviewWip` with the count and
-   the cap. A returned story leaves In Review, so it does not count. The other honest
-   counters are `blockedByDeps` and `blockedByPaths`.
-2. `node orchestration/dispatch.mjs KEY [KEY…]` — for each: claim the story with a **lease** (the
-   worker's pid, host and start) and start a detached worker (`--worker KEY`) that creates the
-   worktree and branch, runs the implementor headlessly with `prompts/implementor.md` plus the
-   story under the `attemptMinutes` cap, and records the outcome. It returns at once; the worker
-   is its own session, so the shell, terminal or agent that ran dispatch (or the cycle) can be
-   killed, time out or sleep without taking the attempt with it. `--wait` runs the attempts in
-   the calling process instead. Results land in `orchestration/results/KEY.json`, the agent's
-   output streams into `results/KEY.log`, the worker's own in `results/KEY.dispatch.log`. (Or
-   spawn the `implementor` subagent per key in-app and have it follow the same prompt; the
-   result file is the contract either way. An in-app attempt has no lease; see reaping below.)
-3. `node orchestration/review.mjs KEY` — a review packet: story, acceptance criteria, diff
-   stat, files outside the listed paths (must be none; `CHANGELOG.md`, `pnpm-lock.yaml` and
-   `results/` are allowed extras), gate outputs, the implementor's notes, and explicit
-   pass/fail lines for a CHANGELOG entry, a claimed check per acceptance criterion, and a
-   taste-queue row when fixtures/baselines changed. If it cannot determine the branch or
-   compute the diff it exits non-zero and says so — it does not print `none` for the
-   boundary checks, and when `state.json` has no branch it names the four checks that
-   cannot run without one. Decide: **merge**, **return** (notes appended, attempts+1), or
-   **escalate** (attempts ≥ 2 → the planner splits it or the escalation model takes it).
-4. The cycle **adopts** the open PR (`adopt.mjs`): any non-draft PR whose title or branch names a
-   key the board does not have In Review becomes In Review with its number and is linked in Jira —
-   a story's PR, and an out-of-plan PR whose row is only on its branch alike. It lands once CI is
-   green, a reviewer has signed it, and, for CODEOWNERS paths, a human approved; squash, then
-   `state.mjs done KEY`, which moves the Jira issue too. Nobody runs `gh pr merge` by hand.
-5. `node orchestration/planner-trigger.mjs` — says whether to invoke the planner now
-   (every 5 merges, any story at 2 failures, a phase boundary, a tripwire in `docs/roadmap.md`,
-   or 7 days since the last plan). If yes, run the planner with `prompts/planner.md`. Only two of
-   those reasons — the plan was never run, or an escalation the planner has not yet read — hold
-   dispatch; the rest (merge count, weekly age, ops-majority) name the planner as due without
-   stopping ready stories from starting, since a planner pass can take hours (MARXY-200). A merge
-   whose diff adds a file under `docs/plan/deltas/` — the planner's own PR — self-records: the
-   cycle stamps `lastPlan`/`mergesAtLastPlan` and excludes that merge from the ops-window count,
-   so nobody has to run `state.mjs planned` by hand and a run of plan/board-sync landings cannot
-   make the trigger fire on its own output.
-6. **Reap** (`reap.mjs`, every cycle before `ready.mjs`): an `in_progress` row reserves its
-   story's paths, and only the worker that wrote it used to clear it — so a killed worker held
-   them forever (2026-09-23: five rows, thirty hours, every todo story waiting). Each in-progress
-   story gets a verdict: **live** (lease held — however long the machine slept — or no lease and
-   activity within `staleMinutes`, default twice `attemptMinutes`); **ghost** (nobody running it
-   and nothing written: the attempt is refunded and the story returns to todo, and a second
-   ghost in a row parks it `blocked`, because something is killing workers); **dead** (the
-   holder is gone but left commits, changes or output: the ordinary `return`); **quiet** (no
-   lease, quiet, with work in the worktree — an in-app subagent leaves no pid to check, so a
-   person decides). A worker only records its outcome while the row still names it.
-   **A story claimed by hand** (`state.mjs start KEY`, or an in-app subagent) has no lease, so
-   it is judged by its worktree alone: once its branch's worktree exists, something must happen
-   in it — a commit, an uncommitted change, a `git add` — within `staleMinutes` (90 minutes by
-   default) of the start or of the last such change. A worktree that is still clean and has no
-   commits after that is a ghost: the story returns to todo with its attempt refunded, and a
-   second time parks it `blocked`. Commit or leave a change early, or claim it after the work
-   has begun.
-7. Anything only a person can do goes in `needs-human.md`; the orchestrator continues with
-   other stories and re-checks the file each cycle. When nothing is ready and nothing is in
-   progress, write a status report to `orchestration/status.md` and stop.
+```sh
+./orchestration/loop.sh start      # the reconciler, every 120 s, detached from this terminal
+./orchestration/loop.sh status     # running or not, and the last lines of its log
+./orchestration/loop.sh stop       # after the cycle in flight
+node orchestration/fleet.mjs doctor  # one line per problem, with its fix
+node orchestration/fleet.mjs status  # status.md: Needs you, In flight, Ready, Waiting, This cycle
+```
 
-## Two ways to run it
+The loop runs each cycle from a runner worktree the fleet owns (`<git common dir>/marxy-fleet/runner`,
+reset to `origin/main` before every cycle), so it always runs merged code and never reads or writes
+a checkout anyone is working in. `MARXY_RUNNER=0` runs your checkout's code instead, for developing
+the orchestrator. A one-off `node orchestration/cycle.mjs` beside a running loop exits at once if
+the loop's cycle holds the lock. `--dry-run` changes nothing anywhere and prints the status it would
+write; `--no-merge` decides everything and merges nothing; `--low`, `--minimal`, `--high` pick the
+compute profile. Never `pkill` the loop or a worker; stopping the loop does not stop workers, and
+the next loop finishes whatever ended while it was away.
 
-**A. In Cursor, in-app.** Open the repo, choose the orchestrator model for the active compute
-mode (Sonnet 5 medium by default; Sonnet 5 medium in `--low`; Composer 2.5 in `--minimal`),
-paste `prompts/orchestrator.md` as the first message (or use it as a custom mode). Subagents
-are defined in `.cursor/agents/` (`planner`, `implementor`, `reviewer`); the orchestrator
-invokes them by name and, when compute is not `default`, passes the role's `inApp` model.
-If your Cursor build does not read `.cursor/agents/`, use the same files as custom modes,
-or fall back to B for implementors.
+## One cycle
 
-**B. Headless, through the Cursor CLI.** `dispatch.mjs` shells out to `cursor-agent -p --force
---model <implementor model>` inside each worktree, in parallel. The orchestrator itself can be
-the in-app agent (A) or a headless loop driven by `orchestration/loop.sh`.
+`cycle.mjs` is level-triggered: it reads the whole world, compares it with the board, and takes the
+next step for every story that has one. It never depends on having seen an earlier event, so a
+missed or killed cycle loses nothing.
 
-**Running it for hours, across sleeps.** Start the loop with `./orchestration/loop.sh start`: it
-runs in its own session with its output in `results/loop.log`, so no terminal or agent owns it;
-`loop.sh status` says whether it runs and what the last cycle did; `loop.sh stop` ends it after
-the cycle in flight. One loop at a time (`results/loop.lease`), and one cycle at a time
-(`results/cycle.lock`, taken over when its holder died), so a one-off `node
-orchestration/cycle.mjs` beside a running loop exits at once, saying so, instead of interleaving with it.
-Never `pkill` the loop. When the machine sleeps everything pauses and resumes: a lease is judged
-by its process, not the clock, so nothing is reaped for having slept.
+1. **Observe.** `git fetch`; the plan on `origin/main`; the board (a fold of the event log); one
+   GitHub snapshot (two `gh pr list` calls); every unfinished run; every story worktree.
+2. **Finish runs.** A run whose worker wrote `exit.json`, whose worker is gone, or that is past its
+   deadline plus `runGraceMinutes` is finished (its process groups stopped), and `runs.mjs` decides
+   what its ending means for its story.
+3. **PRs.** Merged PRs settle Done (a plan delta records the planner's pass). Open PRs naming a key
+   are adopted into review. Claims past their expiry lapse. Worktrees whose PR merged or closed are
+   removed — never one with uncommitted work.
+4. **Review.** Each In Review PR takes exactly one step: resolve a conflict, return it to its
+   implementor, start a reviewer, update the branch (one per cycle, head of the order), enable
+   auto-merge, merge, or wait. A wait past its limit is named under **Needs you**.
+5. **Plan.** The planner starts when `planner-trigger.mjs` says it is due, none is running, and the
+   last started more than `plannerCooldownMinutes` ago.
+6. **Dispatch.** An implementor starts for every ready story (`ready.mjs`), unless the planner has
+   never run or has an escalation it has not read.
+7. **Mirror.** Jira follows the board. Bounded and best effort. The full push runs only when the board
+   has moved since the last one that succeeded, or once an hour (`mirror.mjs`); a failed call makes the
+   next cycle push again.
+8. **Report.** `status.md` (fleet store, and the main checkout's gitignored copy); the loop log gets a
+   heartbeat line and only what changed.
 
-**When something looks wrong,** run `node orchestration/doctor.mjs` first. It reads the loop, the
-cycle lock, the planner, every in-flight story's verdict, the orchestrator checkout, why nothing
-is ready (and which stories hold the paths), and the human queue, and names one command per
-problem; `--fix` applies only what cannot lose work (reap ghost and dead stories, clear locks
-whose holder is gone, park a dirty orchestrator checkout, refresh the canvases) and exits 1
-while a failure remains. Parking stashes tracked edits under `docs/plan/` and `orchestration/`,
-copies a patch to `~/.config/marxy/orchestration/quarantine/`, restores the checkout to HEAD, and
-records the stash once in `needs-human.md`. The cycle does that before fast-forward, so a dirty
-board no longer holds every ready story; a checkout off `main` is left as it is. `node
-orchestration/reap.mjs` shows the verdicts alone (`--apply` to act on them).
+## What keeps it honest
 
-Either way the mechanical half of every cycle is one command, and it is the same command in both
-modes: `node orchestration/cycle.mjs` mirrors the board into Jira, reads GitHub once (two `gh pr
-list` calls, `github.mjs`, where it used to make three calls per open PR plus one per worktree),
-adopts open PRs the board does not know are in review, merges the pull requests that are provably
-finished, starts one reviewer for the first pull request `approve.mjs` can sign (detached,
-under `results/KEY.review.lease`, so a second cycle does not start another for that key; a
-missing diff or a missing board row is not reviewed, and a CODEOWNERS path still is until a
-signature exists), names what should start next (dispatching headlessly if `cursor-agent` is
-on PATH), asks whether the planner is due (starting it headlessly when it is: one planner at a time
-under `results/planner.lease`, its output in `results/planner.log`, and none for
-`plannerCooldownMinutes`, default 240, after the last — a cadence-only due stays true every cycle
-until a plan lands), writes `status.md` with an "In flight" verdict per story, and refreshes the
-Cursor canvases (`canvases.mjs`) when that project folder exists. It is idempotent, so
-`./orchestration/loop.sh` just runs it until interrupted — `INTERVAL=600`, `ONCE=1` for cron,
-`--no-merge` to decide without landing anything, `--dry-run` to change nothing anywhere (Jira
-included), `--low` or `--minimal` to spend less.
+- **No step can stop the cycle.** Every stage, and every story's step within it, runs guarded: a
+  failure (a `gh` timeout, a malformed PR, a bug) is logged, named under **Needs you** with the
+  story, and retried next cycle while everything else carries on. A cycle that cannot finish at all
+  still writes a `status.md` that says so.
+- **Hand-offs are checked where they are read.** A result that breaks `schema/result.schema.json`
+  holds its merge with the fix named; a malformed event is refused on append; `fleet.mjs` refuses a
+  key that is neither on the board nor on `origin/main`; `doctor` names `models.json` settings
+  nothing reads and a report that has stopped updating.
+- **The docs cannot drift.** `docs.test.mjs` fails when a live doc or prompt names a file, a
+  `fleet.mjs` command, a status or a timing the code does not have.
+- **Tests never touch the real store.** Under `node --test` the store is a temporary directory.
 
-Out-of-plan work is one PR, not a side channel: `out-of-plan.mjs start` gives it a key, a worktree
-and its own board row, the cycle adopts its PR, and the merge bar judges it by that row. The
-protocol is `docs/sdlc.md` "Work outside the plan".
+## Every status has an owner and a way out
 
-The cycle acts on the computed review order (`review-order.mjs`, ADR-0025). It calls
-`gh pr update-branch` on **at most one** pull request per cycle — the first order entry
-that is BEHIND — and every other BEHIND pull request prints
-`behind main; waiting its turn in the review order (position N)`. A DIRTY pull request is
-returned to In Progress with `attempts` unchanged and the conflicting files named in
-`results/KEY.json`; the cycle cannot resolve a conflict and a reviewer reading one is
-reading nothing. Adoption does not take that same pull request back while it still conflicts,
-or the return is undone in the next cycle and the story never leaves the loop. The cycle
-starts one resolution attempt for it (`conflict-dispatch.mjs`), in the story's worktree,
-without charging an attempt; a second cycle does not start another while that lease is held.
-After three unresolved tries it is left In Progress and named. Once the pull request is
-BEHIND or clean, adoption moves the story back to In Review.
+| Status | Owner | How it is left, even if the owner does nothing |
+| --- | --- | --- |
+| **todo** | the reconciler | recomputed every cycle; the one reason it waits is printed under **Waiting** |
+| **in_progress** | its run, or its claim | a run ends at `attemptMinutes`, or after `stallMinutes` without output; a claim lapses at its expiry |
+| **in_review** | the review pipeline | every step has a run deadline, a try limit (`reviewTries`, `resolveTries`), or a hold age that raises **Needs you** |
+| **blocked** | a person | listed under **Needs you** with its reason; `fleet.mjs unpark KEY` |
+| **escalate** | the planner, then a person | listed under **Needs you**; the planner splits it, or `fleet.mjs retry KEY` |
+| **done** | — | final |
 
-What the cycle will never do is decide that a diff satisfies its story. Green gates prove the
-code works, not that it does what was asked, so a PR merges only once a reviewer (never the
-implementor) writes `results/KEY.approved` and signs it with `node orchestration/approve.mjs KEY`,
-which stamps in the commit being approved. That is an agent action. `approve.mjs` refuses to
-sign — and writes no signature — when the pull request is BEHIND, DIRTY, or not the first entry
-of the review order, and prints which of the three held it. There is no environment
-variable that skips those checks. Unsigned, or signed against a different commit, holds the
-PR: a review is of a tree, and a push after it lands turns the approval into a note about
-something else. When the rest of the quality bar in `docs/sdlc.md` is green and only CI is
-still running, the cycle enables GitHub auto-merge rather than waiting for the next loop.
-Everything else about a merge — checks, conflicts, CODEOWNERS, the path boundary, the
-CHANGELOG line, the result file — is checked by `merge-bar.mjs`, and a held PR always
-prints the reason it was held. CODEOWNERS paths still need the author.
+`machine.test.mjs` fails if a status is added without an owner and a way out.
 
-`node orchestration/readiness.mjs` prints that queue as one table: every open pull request,
-with its URL, CI conclusion, mergeability, approval, who it waits on, and the next action,
-in the review/merge order 80/81 already compute. `--json` prints the same rows. Every
-approval run ends with this table.
+### What a run's ending means (`runs.mjs`)
 
-Check model ids once: `cursor-agent --list-models` and the in-app model picker; put the exact
-names in `models.json`. Reasoning effort is set where Cursor exposes it (picker or agent
-frontmatter); the CLI flag, if present in your version, is read from `models.json`.
+| Ending | Story goes to |
+| --- | --- |
+| a PR is open (the result names it, or GitHub has one for the branch) | in_review |
+| the implementor reported `blocked` (`fleet.mjs report KEY blocked "…"`) | blocked, with its reason |
+| `auth` — the CLI could not authenticate | todo, attempt refunded; **Needs you**: `cursor-agent login` |
+| `setup` — worktree or install failed | todo, refunded; the second time blocked |
+| nothing produced (no commits, clean worktree, under 2 KB of output) | todo, refunded; the second time blocked, with the output that explains it |
+| failed, timed out or stalled with work done | todo; after `maxAttempts` the next attempt uses the escalation model; the same failure twice skips straight to it; when `maxAttempts + escalationAttempts` are spent, escalate |
+
+### What each hold on a PR means (`cycle.mjs` `reviewStep`)
+
+| Hold | Owner | Step |
+| --- | --- | --- |
+| conflicts with main | a resolution run | resolve, without charging an attempt; after `resolveTries`, blocked |
+| files outside the paths, an attribution trailer, no CHANGELOG line | the implementor | returned at once, with notes |
+| red CI | the implementor | returned after `redGraceMinutes` |
+| no signed approval | a reviewer run | started, up to `reviewLanes` at once; after `reviewTries` without a verdict, **Needs you** |
+| CODEOWNERS, changes requested, no board row | a person | **Needs you** at once (gate files first) |
+| CI pending | CI | auto-merge enabled once approved; **Needs you** if it waits four times `holdAttentionMinutes` |
+| behind main, otherwise ready | the cycle | one branch updated per cycle, head of the review order |
+| anything else | a person | **Needs you** after `holdAttentionMinutes` |
+
+A PR that cannot go back to an implementor (a `no-dispatch` row, or no row) goes under **Needs you**
+instead of being returned.
+
+## The store
+
+`<git common dir>/marxy-fleet/` — one directory for every worktree of the clone, never tracked, so
+nothing the fleet writes can make a checkout dirty.
+
+| Path | What | Written by |
+| --- | --- | --- |
+| `events.jsonl` | every decision and fact, append-only; the board is `fold(events)`. `fleet.mjs compact` folds it into one snapshot and keeps the old log as `events-<time>.jsonl` beside it | the cycle, `fleet.mjs`, `out-of-plan.mjs` |
+| `runs/<run>/run.json` | what a run was asked: role, model, prompt, worktree, deadline | the cycle |
+| `runs/<run>/out.log`, `exit.json`, `agent.json` | the agent's streamed output (its heartbeat), how the run ended, the agent's process group | the worker |
+| `results/KEY.json` | the implementor's result (`fleet.mjs path result KEY`) | `pnpm done`, `fleet.mjs report` |
+| `results/KEY.approved` | the reviewer's notes, signed against the head it read | `fleet.mjs verdict KEY merge` |
+| `results/KEY.notes.md` | why a story was returned; the next attempt reads it first | the cycle, `fleet.mjs verdict/return` |
+| `wip/`, `refs/fleet/wip/*` | uncommitted work kept before a worktree is reused | the worker, `loop.sh` |
+| `jira-push.json` | the board's `seq` and time at the last Jira push that fully succeeded | the cycle |
+| `status.md`, `report.json`, `loop.log` | the report, what the log last printed, the log | the cycle, `loop.sh` |
+| `cycle.lock`, `loop.lease`, `runner/` | one cycle and one loop at a time; the loop's code | the cycle, `loop.sh` |
+
+The first read in a clone with no event log imports the old `orchestration/state.json` and the
+hand-off files from `orchestration/results/`, once. `MARXY_FLEET_DIR` points the store elsewhere
+(tests do).
+
+## Commands for people and agents
+
+```sh
+node orchestration/fleet.mjs why KEY                 # the record, its runs, its last events, refusals
+node orchestration/fleet.mjs claim KEY [--hours 4]   # reserve a story you work on outside the fleet
+node orchestration/fleet.mjs release KEY
+node orchestration/fleet.mjs verdict KEY merge|return|escalate --notes FILE   # the reviewer
+node orchestration/fleet.mjs return KEY --why "…"    # a person sends it back
+node orchestration/fleet.mjs park KEY "reason" | unpark KEY | retry KEY [--fresh]
+node orchestration/fleet.mjs report KEY blocked "…"  # an implementor that cannot finish
+node orchestration/fleet.mjs compact [--dry-run]     # fold a long event log into one snapshot
+node orchestration/out-of-plan.mjs start "summary" --paths "…" --acceptance "…"
+```
+
+Each command appends one event that names the status it expects; if the story has moved, the fold
+refuses it, the command says so, and the refusal shows under **Needs you** for an hour.
+`state.mjs` still accepts its old verbs and appends the same events.
+
+Out-of-plan work is one PR: `out-of-plan.mjs start` gives it a key, a worktree, its own row on its
+branch and a claim on its paths; the cycle adopts the PR when it opens and the merge bar judges it
+by that row (`docs/sdlc.md`, "Work outside the plan").
+
+## Merging
+
+What the cycle will never do is decide that a diff satisfies its story. A PR merges only once a
+reviewer (never the implementor) has recorded a signed `merge` verdict against the commit it read,
+and every clause of the merge bar holds (`merge-bar.mjs`; the clauses are in `docs/sdlc.md`). The
+merge is pinned to the evaluated head (`--match-head-commit`). An approval survives the branch being
+brought up to date with main (`approve.mjs` `onlyMainArrived`) and nothing else. CODEOWNERS paths
+(`.github/CODEOWNERS`) still need the author. `cycle.mjs`, `merge-bar.mjs` and `approve.mjs` are the
+code that decides a merge, and CODEOWNERS covers them; because the loop runs from `origin/main`, a
+fix to them waits for the author without stopping the fleet that runs the old version.
+
+`models.json` `mergeQueue` stays false on this User-owned repo: the cycle updates one BEHIND branch
+per cycle instead. After an org transfer, enable GitHub's merge queue and flip it; the cycle then
+enqueues with `--auto` and never updates a branch.
+
+`node orchestration/readiness.mjs` prints every open PR as one table in review order: CI,
+mergeability, approval, who it waits on, and the next action.
 
 ## Compute modes
 
-Four levels, weakest to strongest. `default` is where you'll spend most of your time;
-`low` is the Sonnet-led cheaper profile; `high` is the Opus 5.5 tier for when judgement
-quality matters more than cost; `minimal` is the Cursor-only floor for when only
-Cursor-included spend is available.
+Four levels, weakest to strongest. `default` is where most time is spent; `low` is the Sonnet-led
+cheaper profile; `high` is the Opus 5.5 tier for when judgement matters more than cost; `minimal` is
+the Cursor-only floor.
 
 | Mode | How | Orchestrator | Planner | Implementor | Escalation | Reviewer |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -190,76 +194,45 @@ Cursor-included spend is available.
 | **low** | `--low` or `MARXY_COMPUTE=low` | Sonnet 5, medium | Sonnet 5, medium | Composer 2.5 | Grok 4.6 | Sonnet 5, medium |
 | **minimal** | `--minimal` or `MARXY_COMPUTE=minimal` | Composer 2.5 | Grok 4.7, high | Composer 2.5 | Grok 4.6 | Composer 2.5 |
 
-**`minimal` is Cursor-only by construction**: no role in that mode names a Claude, GPT, or
-Gemini model, so the fleet runs entirely on Cursor-included spend. Its escalation ceiling is
-Grok because that's the strongest thing configured anywhere in the mode — a story that fails
-twice under `minimal` moves to `escalate` (the planner or a human decides), it never silently
-reaches for Opus 5.5. If you need a stronger model at any point, switch modes explicitly; `minimal`
-will not do it for you.
+**`minimal` is Cursor-only by construction**: no role names a Claude, GPT or Gemini model, so the
+fleet runs on Cursor-included spend alone, and its escalation ceiling is Grok. Precedence: flag,
+then `MARXY_COMPUTE`, then `models.json` `compute`. The cycle pins `MARXY_COMPUTE` for the workers it
+starts. In-app, pass each role's `inApp` slug when you spawn a subagent. `node orchestration/lib.mjs`
+prints the resolved roles; `lib.test.mjs` pins every one.
 
-The `implementor: Composer 2.5` choice in `default`/`low` is a live experiment, not a settled
-fact — see `models.json`'s `_modelNote` for the small reviewer-judgement pilot (not a vendor
-benchmark) it's grounded in, and compare `state.json`/`results/*.json` `model` fields against
-outcomes as more stories run on it before trusting it further.
-
-Precedence: `--low` / `--minimal` / `--high` / `--compute=NAME`, then `MARXY_COMPUTE`, then the
-`compute` field in `models.json`. `cycle.mjs` pins `MARXY_COMPUTE` for the child processes
-it starts (dispatch, planner trigger), so a flag on the cycle is enough. In-app, pass each
-role's `inApp` slug when you spawn a subagent — verify that slug in the model picker first;
-`models.json`'s `_modelNote` flags which ones are unverified as of this edit.
+Timings and limits (`machine.mjs` `TIMING`; any can be set in `models.json` by the same name):
+`attemptMinutes` 45, `stallMinutes` 25, `runGraceMinutes` 5, `claimHours` 4,
+`activeWorktreeMinutes` 30, `holdAttentionMinutes` 30, `redGraceMinutes` 20, `maxAttempts` 2,
+`escalationAttempts` 1, `reviewTries` 3, `resolveTries` 3, `ghostLimit` 2,
+`plannerCooldownMinutes` 240, `reviewLanes` 4.
 
 ## Files
 
 | File | What |
 | --- | --- |
-| `models.json` | model id and effort per role, plus `default` / `low` / `minimal` compute profiles; `lanes` (dispatch, stays null) and `reviewLanes` (In Review cap, 4) |
-| `lib.mjs` | shared helpers; run it to print the resolved compute roles |
-| `jira.mjs` | the Jira bridge: `doctor`, `sync` (`--new`: only placeholder rows, run before a planner PR opens), `push`, `move`, `pr`, `task`, `release`, `bootstrap` |
-| `out-of-plan.mjs` | `start` (Jira Task + worktree + the change's own row) and `row` (a row for an existing branch) |
-| `jira-map.json` | what each issue was called before Jira existed, so old commits stay readable |
-| `state.json` | the local mirror of the board: status, attempts, branch, PR per story |
-| `deps.json` | story dependencies (the CSV has none) and phase membership |
-| `cycle.mjs` | one idempotent cycle: push, snapshot GitHub, adopt, merge what is finished, review, dispatch, plan check, report |
-| `review-dispatch.mjs` | one detached reviewer for the first signable pull request, leased so a second cycle does not start another for that key |
-| `github.mjs` | the cycle's one read of GitHub: every open PR, and recent PR states by branch |
-| `adopt.mjs` | which open PRs the cycle moves to In Review, and how |
-| `merge-bar.mjs` | the quality bar: hold / auto-merge / merge; the only decision `cycle.mjs` consults |
-| `readiness.mjs` | every open PR as a merge-readiness table in review order; `--json` for machines |
-| `loop.sh` | `cycle.mjs` until stopped: `start` (detached), `stop`, `status`, or in the foreground |
-| `lease.mjs` | leases (pid + host + command), detached spawns, and the lock files |
-| `reap.mjs` | the verdict on every in-progress story, and the board move for a worker that is gone |
-| `doctor.mjs` | the fleet's health in one read, a command per problem, `--fix` for the safe repairs |
-| `canvases.mjs` | the Cursor canvases (fleet, shipped, roadmap, models, human queue) from the board |
-| `results/*.lease`, `results/cycle.lock` | who runs the loop, the planner and the current cycle |
-| `results/state.lock` | held for milliseconds around every read-modify-write of `state.json` (`lib.updateState`), so a cycle, reap, a launcher and its workers never overwrite each other's update |
-| `results/KEY.json` | written by implementors; the only handshake |
-| `results/KEY.approved` | a reviewer's judgement that the diff satisfies the story, signed by `approve.mjs` against the commit it read; no merge without it |
-| `needs-human.md` | queue of things a person must do |
-| `status.md` | the orchestrator's last report |
+| `cycle.mjs` | one reconcile cycle; every merge decision (with `merge-bar.mjs`, `approve.mjs`) |
+| `machine.mjs` | the statuses, their owners and exits, the timings, the fold, the event builders |
+| `store.mjs` | the fleet store: paths, append, read |
+| `plan.mjs` | the plan on `origin/main`, from git objects |
+| `observe.mjs` | worktrees, runs, path holds — read only |
+| `ready.mjs` | which todo stories may start, and why each other one waits |
+| `runs.mjs` | run specs, prompts, and what a finished run means |
+| `worker.mjs` | one detached run of any role, under a deadline and a stall watchdog |
+| `proc.mjs` | every subprocess bounded; process groups |
+| `report.mjs` | `status.md`, **Needs you**, the quiet log |
+| `fleet.mjs` | the command line for people and agents; `doctor` |
+| `state.mjs`, `doctor.mjs` | the old names, kept as thin shims |
+| `merge-bar.mjs`, `approve.mjs`, `codeowners.mjs` | the quality bar and the signed approval |
+| `adopt.mjs`, `github.mjs`, `review-order.mjs`, `review.mjs`, `readiness.mjs` | adoption, the one GitHub read, the order, the review packet, the merge-readiness table |
+| `planner-trigger.mjs` | whether the planner is due, and whether that holds dispatch |
+| `worktrees.mjs` | worktree listing and the prune (never `--force`) |
+| `jira.mjs`, `jira-map.json` | the Jira mirror; old ids to Jira keys |
+| `out-of-plan.mjs` | one PR for work outside the plan |
+| `canvases.mjs` | the Cursor canvases, refreshed when that folder exists |
+| `lease.mjs` | the cycle lock and the loop lease |
+| `loop.sh` | the loop: `start`, `stop`, `status`, or in the foreground |
+| `models.json` | model and effort per role per compute mode; lanes, `reviewLanes`, timings |
+| `deps.json` | story dependencies and phase membership |
+| `needs-human.md` | the author's rulings; no machine writes it |
 | `prompts/*.md` | role prompts, the source of truth for behaviour |
-| `../docs/plan/jira-issues.csv` | the stories: summary, acceptance, paths, labels |
-
-## Rules the scripts enforce, so nobody has to remember them
-
-- One story, one worktree, one branch `type/KEY-slug` where KEY is the Jira key; branches are
-  never shared. Every board transition is mirrored to Jira; a Jira failure prints the command
-  to re-run and never stops the loop.
-- A story's diff may touch only its `Paths` (plus `CHANGELOG.md`, `pnpm-lock.yaml`,
-  `results/` and its own result file), and its own board row and `deps.json` entry — never
-  another story's. `review.mjs` lists violations; a violation is an
-  automatic **return**. `node --test orchestration/test` is the fixture-board check for
-  the ready and review scripts.
-- Contracts (`packages/*/src/contracts/**`, `packages/theme/src/tokens.css`) change only in a
-  story whose paths name them and that carries an ADR; `.cursor/rules/frozen-contracts.mdc`
-  tells the agent so before it edits.
-- Attempts are capped at 2 per implementor model. Time cap per attempt: 45 minutes.
-- Nothing is merged with a red gate. Baseline updates need a taste-queue entry.
-- No AI attribution anywhere (a hook blocks it locally; the reviewer checks too).
-
-## Budget
-
-Implementors are cheap and fast; spend them freely on retries inside the caps. In `default`,
-Opus 5.5 time goes to review packets, merges, and the periodic plan. If that model is spending
-more than a third of its turns reading implementor diffs, the stories are too big: trigger
-the planner. `--low` and `--minimal` spend the same turns on cheaper models; they do not
-change the lane budget or the attempt cap.
+| `prompts/hardening.md` | the handoff for hardening the fleet: orientation, invariants, and the prioritised follow-up plan |

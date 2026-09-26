@@ -38,16 +38,20 @@ Pre-v1, mid-build, and the machinery is further along than the product. Phase 0 
 the current work is phases 1–3 (the page, the opener, operations and themes) with an ops lane
 running beside them. `docs/plan.md` has the phases and `docs/roadmap.md` the long horizon.
 
-For live board state, run `node orchestration/cycle.mjs` or read `orchestration/status.md` — it
-is **generated and gitignored**, so it exists only in a checkout a cycle has run in, and it is
-the only honest answer to "what is done". Never trust a count written into a document.
+For live board state, run `node orchestration/fleet.mjs status` (`why KEY` for one story). It is
+generated every cycle from the fleet's event log, which lives beside the git objects
+(`<git common dir>/marxy-fleet/`, ADR-0034) and is shared by every worktree, and it is the only
+honest answer to "what is done". Its **Needs you** section is everything waiting on a person.
+Never trust a count written into a document.
 
 Two things worth knowing before you touch anything:
 
 - **The repository is worked by a fleet.** Several worktrees are usually live at once
   (`git worktree list`). The main checkout at `~/Dev/marxy` may be mid-story under another
   session, and its branch can change under you. **Work in your own worktree** unless you know
-  you own the checkout.
+  you own the checkout, and reserve a story you work on outside the fleet with
+  `node orchestration/fleet.mjs claim KEY`, or the fleet may start it too once your worktree has
+  been idle for half an hour.
 - **GitHub's native merge queue is off.** This repo is **User-owned**; GitHub only offers merge
   queue on **organization-owned** repos (public org repo, or private on Enterprise Cloud). CI already
   listens for `merge_group` (MARXY-122); keep `orchestration/models.json` **`mergeQueue` false** so
@@ -196,6 +200,6 @@ The numbers below are the sphere of concern, not a merge-bar ceiling.
 - `docs/plan/jira-issues.csv` — the story list with acceptance criteria, mirrored into the Jira
   project MARXY, which is the board of record. `docs/sdlc.md` — the states, the definitions of
   ready and done, traceability and the release runbook.
-- `orchestration/` — the fleet: `needs-human.md` for what is waiting on a person,
-  `merge-bar.mjs` for the nine clauses a PR must satisfy to land, and `status.md` (generated,
-  gitignored) for live board state.
+- `orchestration/` — the fleet (`orchestration/README.md`): `fleet.mjs status` for live board
+  state and what is waiting on a person, `merge-bar.mjs` for the nine clauses a PR must satisfy to
+  land, and `needs-human.md` for the author's rulings.

@@ -4,10 +4,12 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, stories, state, pathsOf, pathMatches } from './lib.mjs';
+import { ROOT, here, stories, pathsOf, pathMatches } from './lib.mjs';
+import { board } from './machine.mjs';
+import { resultPath } from './store.mjs';
 import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 
-/** Boundary checks that need a branch; named when state.json has none (MARXY-81). */
+/** Boundary checks that need a branch; named when the board has none (MARXY-81). */
 export const BRANCHLESS_CHECKS = [
   'files outside paths',
   'contract files touched',
@@ -100,7 +102,7 @@ function run(cmd, args, cwd = ROOT) {
  */
 export function buildReview(key, ctx = {}) {
   const all = ctx.stories ?? stories();
-  const rec = (ctx.state ?? state()).stories[key] ?? {};
+  const rec = (ctx.state ?? board()).stories[key] ?? {};
   const injectedBoard = ctx.stories !== undefined || ctx.state !== undefined;
   // The row the merge bar will judge by (MARXY-190): the branch's own row when it edits no other
   // story's, so an out-of-plan PR's row and a story's widened Paths are what the reviewer sees too.
@@ -110,8 +112,8 @@ export function buildReview(key, ctx = {}) {
   if (!st) return { ok: false, exit: 2, text: `unknown key: ${key} has no row on main${rec.branch ? ' or on its branch' : ''}` };
   const result = ctx.result !== undefined
     ? ctx.result
-    : existsSync(here(`results/${key}.json`))
-      ? JSON.parse(readFileSync(here(`results/${key}.json`), 'utf8'))
+    : existsSync(resultPath(key))
+      ? JSON.parse(readFileSync(resultPath(key), 'utf8'))
       : null;
 
   const injected = ctx.stories !== undefined || ctx.state !== undefined || ctx.files !== undefined
@@ -246,7 +248,7 @@ export function buildReview(key, ctx = {}) {
     prJson,
     '',
     '## Decide',
-    `merge (write and sign results/${key}.approved; do not merge) | return (write results/${key}.notes.md) | escalate`,
+    `node orchestration/fleet.mjs verdict ${key} merge|return|escalate --notes <file> (merge signs; never gh pr merge)`,
   ].join('\n');
 
   return {
@@ -263,13 +265,14 @@ function noBranch(key) {
   return {
     ok: false,
     exit: 1,
-    text: `cannot determine the branch for ${key}: state.json has no branch; `
+    text: `cannot determine the branch for ${key}: the board has no branch; `
       + 'these boundary checks cannot run without it and will not be reported as none: '
       + BRANCHLESS_CHECKS.join(', '),
   };
 }
 
-function validateResult(result) {
+/** Problems with a result record against orchestration/schema/result.schema.json; empty when it holds. */
+export function validateResult(result) {
   const schemaProblems = [];
   if (!result) return schemaProblems;
   const schema = JSON.parse(readFileSync(here('schema/result.schema.json'), 'utf8'));

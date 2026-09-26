@@ -109,5 +109,6 @@ entry → phase-end taste review → ADRs and `AGENTS.md` updated. Context loss 
 repo being the memory; drift by screenshot diffs and constraints-as-gates.
 
 The board spec (`docs/plan/jira-issues.csv`, `orchestration/deps.json`, task cards, deltas) changes
-only through a pull request. `orchestration/state.json` is local to the orchestrator's checkout and
-gitignored: Jira is the record and state.json its cache (MARXY-107).
+only through a pull request, and the fleet reads it from `origin/main` only. The fleet's own record
+of what is under way is an event log beside the git objects, shared by every worktree and never
+tracked; Jira is pushed from it for people to read (ADR-0034).

@@ -48,7 +48,13 @@ Before merge when you changed shell, paint, or CLI paths, run
 | Skipping the gates that a change needs | `scripts/precheck.mjs` with `scripts/gates-by-path.json` | before the PR, CI runs all |
 | A task card and its CSV row disagree (missing row, Paths too narrow, deps.json orphan, or `depends:` drift) | `scripts/check-cards.mjs` | precheck |
 | A deferral comment in product source that names no story or names one already merged | `scripts/check-deferrals.mjs` with `scripts/allowlists/deferrals.json` | precheck (when `apps/` or `packages/` changes), CI |
-| A result file that omits which test checks which criterion | `orchestration/schema/result.schema.json`, validated in `review.mjs` | review |
+| A result file that omits which test checks which criterion | `orchestration/schema/result.schema.json`, validated in `review.mjs` and by the cycle, which holds the merge and names the fix | review, every cycle |
+| A fleet state nothing is obliged to leave (the stall behind about eighty orchestrator fixes) | `machine.mjs` `STATES` (owner and way out per status), checked by `machine.test.mjs`; `cycle.test.mjs` drives each old stall through a fake world | `pnpm test`, CI |
+| One bad story, run or API answer stopping the whole fleet | every cycle stage and every story's step runs guarded in `cycle.mjs`; a failure is named under **Needs you** and retried | every cycle |
+| A malformed fleet event that every reader would then have to skip | `store.mjs` `eventProblem`, checked on every append | every write |
+| Fleet docs and prompts drifting from the code (a removed module, a renamed command, a changed timing) | `orchestration/docs.test.mjs` | `pnpm test`, CI |
+| A misspelt timing in `models.json` that is silently ignored | `machine.mjs` `unknownModelKeys`, in `docs.test.mjs` and `fleet.mjs doctor` | `pnpm test`, doctor |
+| A command against a key that exists nowhere (a phantom claim) | `fleet.mjs` refuses keys not on the board or on `origin/main`, unless `--force` | every command |
 | Rust formatting and warnings | `pnpm lint:rust` (`cargo fmt --check`, `clippy -D warnings`) | precheck (when `src-tauri` changes), CI |
 | Starting a module, operation or command in a random shape | `pnpm new …` generators | at the start |
 

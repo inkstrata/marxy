@@ -1,11 +1,9 @@
 // Leases, detached spawns and the cycle lock (MARXY-208).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir, hostname } from 'node:os';
-import { pathToFileURL } from 'node:url';
 import { leaseHeld, acquireLock, releaseLock, readLease, pidAlive, ageMinutes } from './lease.mjs';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'marxy-lease-'));
@@ -87,37 +85,9 @@ test('a takeover guard left by a dead process is cleared for the next attempt', 
   assert.equal(acquireLock(path, { match: 'x', held: () => false }).ok, true);
 });
 
-test('spawnDetached: the child outlives the process that started it and writes to its log', () => {
-  const dir = tmp();
-  const log = join(dir, 'child.log');
-  const lease = pathToFileURL(join(import.meta.dirname, 'lease.mjs')).href;
-  // A parent that starts a detached child and exits at once, the way a killed shell would leave it.
-  const parent = spawnSync(process.execPath, ['--input-type=module', '-e', `
-    import { spawnDetached } from ${JSON.stringify(lease)};
-    const pid = spawnDetached(process.execPath, ['-e', 'setTimeout(() => console.log("survived"), 300)'], { log: ${JSON.stringify(log)} });
-    console.log(pid);`], { encoding: 'utf8' });
-  const pid = Number(parent.stdout.trim());
-  assert.ok(pid > 0, parent.stderr);
-  assert.equal(pidAlive(pid), true, 'child alive after its parent exited');
-  const until = Date.now() + 5000;
-  while (pidAlive(pid) && Date.now() < until) spawnSync('sleep', ['0.1']);
-  assert.match(readFileSync(log, 'utf8'), /survived/);
-});
-
 test('ageMinutes of an unreadable stamp is infinite, never zero', () => {
   assert.equal(ageMinutes('nonsense'), Infinity);
   assert.equal(Math.round(ageMinutes('2026-09-24T00:00:00.000Z', Date.parse('2026-09-24T01:00:00.000Z'))), 60);
-});
-
-test('killOrphans signals the dead leader\'s process group, and never a live leader\'s', async () => {
-  const { killOrphans } = await import('./lease.mjs');
-  const sent = [];
-  const kill = (pid, sig) => sent.push([pid, sig]);
-  assert.equal(killOrphans({ pid: 77 }, { alive: () => false, kill }), true);
-  assert.deepEqual(sent, [[-77, 'SIGTERM']]);
-  assert.equal(killOrphans({ pid: 78 }, { alive: () => true, kill }), false);
-  assert.equal(killOrphans(undefined, { kill }), false);
-  assert.equal(killOrphans({ pid: 79 }, { alive: () => false, kill: () => { throw new Error('ESRCH'); } }), false);
 });
 
 test('writeJson replaces the file whole, leaving no temporary behind', async () => {

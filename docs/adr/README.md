@@ -29,7 +29,7 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0022](0022-perf-budgets-two-tier-enforcement.md) | Product budgets on reference hardware; CI enforces an envelope and a baseline | accepted, amended (1: the metric split; 2: no product cold-start ceiling; 3: cross-run CI numbers; 4: timing numbers are recorded, not CI failures, ADR-0032) |
 | [0023](0023-provenance-in-the-dom.md) | Byte provenance rides into the DOM on attributes a document cannot forge | accepted (MARXY-75) |
 | [0024](0024-dark-is-primary.md) | Dark is the primary variant; light is designed second | accepted |
-| [0025](0025-review-order-and-review-wip.md) | Review order and a WIP limit on review | accepted |
+| [0025](0025-review-order-and-review-wip.md) | Review order and a WIP limit on review | accepted, amended by 0034 (§1: review load no longer holds dispatch; §5: sign whenever not in conflict) |
 | [0026](0026-shell-api-v1-surface.md) | The shell-api surface for v1, amended once | accepted 2026-09-22 (MARXY-94) |
 | [0027](0027-remote-content-through-the-shell.md) | Remote images reach the page through the shell, only on consent; the webview never touches the network | proposed (MARXY-97, MARXY-45) |
 | [0028](0028-codeowners-is-a-floor.md) | CODEOWNERS is a security floor, not a taste gate | proposed |
@@ -38,3 +38,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0031](0031-token-values-are-taste.md) | The token contract is names and units; the default theme's values are taste | accepted 2026-09-19 |
 | [0032](0032-speed-numbers-are-recorded.md) | Speed numbers are recorded; they are not CI failures | accepted 2026-09-20 |
 | [0033](0033-typography-follows-the-research.md) | Typography follows the reader-typography research | accepted 2026-09-23 |
+| [0034](0034-the-fleet-is-a-reconciler.md) | The fleet is a reconciler: every state has an owner and a way out | proposed |

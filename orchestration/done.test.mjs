@@ -303,7 +303,7 @@ test('a story branch cut from origin/main, tracking it, still pushes to its own 
 });
 
 test('story worktrees are cut from origin/main without tracking it (MARXY-209)', () => {
-  for (const file of ['out-of-plan.mjs', 'dispatch.mjs']) {
+  for (const file of ['out-of-plan.mjs', 'worker.mjs']) {
     const src = readFileSync(join(here, file), 'utf8');
     const adds = src.match(/\['worktree', 'add'[^\]]*\]/g) ?? [];
     assert.ok(adds.length > 0, `${file} creates a worktree`);

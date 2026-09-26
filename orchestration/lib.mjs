@@ -1,14 +1,13 @@
-// Shared board helpers. pathsOf keeps glob segments so a path like packages/*/package.json
-// is not collapsed to packages (MARXY-9).
-import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
+// Shared helpers: model resolution, CSV rows, and path overlap. pathsOf keeps glob segments so a
+// path like packages/*/package.json is not collapsed to packages (MARXY-9). The board itself is
+// machine.mjs's fold over the fleet store; nothing here reads or writes it.
+import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { acquireLock, releaseLock } from './lease.mjs';
 export const ROOT = new URL('../', import.meta.url).pathname;
 export const here = p => `${ROOT}orchestration/${p}`;
 export const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
-// Written aside and renamed into place: detached workers read state.json while a cycle writes it,
-// and a reader must see the old file or the new one, never half of one (MARXY-208).
+// Written aside and renamed into place: a reader sees the old file or the new one, never half.
 export const writeJson = (p, v) => {
   const tmp = `${p}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(v, null, 2) + '\n');
@@ -53,12 +52,12 @@ export function parseCsv(t) { const rows = []; let row = [], cell = '', q = fals
 /**
  * A row the planner wrote before `jira.mjs sync` gave it a real key (`MARXY-NEW-<slug>`). It has no
  * Jira issue yet. `sync` rewrites the key in every tracked file; `applyJiraRenames` does the same
- * for the untracked state.json cache (MARXY-179).
+ * for the fleet board, which machine.mjs folds through it (MARXY-179).
  */
 export const isPlaceholderKey = key => /^MARXY-NEW-/i.test(String(key ?? ''));
 
 /**
- * Move placeholder keys in a state.stories object onto the real keys `jira.mjs sync` recorded.
+ * Move placeholder keys in a board's stories object onto the real keys `jira.mjs sync` recorded.
  * If the real key already has a row, that row wins and the leftover is dropped — MARXY-145
  * finished under its real key while `MARXY-NEW-tokens-test-live-values` stayed behind.
  */
@@ -72,14 +71,6 @@ export function applyJiraRenames(stories = {}, renames = {}) {
     moved.push([from, to]);
   }
   return { stories: next, moved };
-}
-
-function jiraMapKeys() {
-  try {
-    return readJson(here('jira-map.json')).keys ?? {};
-  } catch {
-    return {};
-  }
 }
 
 /**
@@ -98,66 +89,6 @@ export function stories(text = readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 
     .filter(r => r.Type === 'Story' && !isPlaceholderKey(r.Key));
   const research = Object.entries(deps().research || {}).filter(([k]) => !k.startsWith('_')).map(([k, v]) => ({ Key: k, Type: 'Research', Summary: v.summary, Paths: v.paths, Acceptance: 'A decision note committed at the path named in the summary, with measurements.', Labels: 'research', Parent: '' }));
   return [...csv, ...research];
-}
-function seedState() {
-  const s = { updated: new Date().toISOString(), merges: 0, lastPlan: null, stories: {} };
-  for (const st of stories()) s.stories[st.Key] = { status: 'todo', attempts: 0 };
-  return s;
-}
-
-/** The board as stored, seeded when missing and healed of renamed keys; `dirty` when either changed it. */
-function loadState(p) {
-  if (!existsSync(p)) return { s: seedState(), dirty: true };
-  const s = readJson(p);
-  const { stories: healed, moved } = applyJiraRenames(s.stories ?? {}, jiraMapKeys());
-  if (moved.length) s.stories = healed;
-  return { s, dirty: moved.length > 0 };
-}
-
-/** The board, read without the lock: writes are atomic, so a reader sees one whole file. */
-export function state() {
-  const { s, dirty } = loadState(here('state.json'));
-  return dirty ? updateState(board => board) : s;
-}
-
-/** Only updateState writes the board; a caller that saved a state() it read earlier could lose another writer's update. */
-function saveState(s, p = here('state.json')) { s.updated = new Date().toISOString(); writeJson(p, s); }
-
-export const STATE_LOCK = here('results/state.lock');
-const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-const heldLocks = new Set();
-
-/**
- * Read the board, let `fn` change it in place, and write it back, holding an advisory lock
- * (results/state.lock) from the read to the write (MARXY-210). Writes were already atomic, but a
- * launcher, its detached workers, reap and the cycle each read, changed and saved the whole file, so
- * two of them at once lost whichever update was saved first. `fn` must not wait on another process:
- * the lock is held for milliseconds, and a holder that dies is taken over (lease.mjs). Nested calls
- * in one process reuse the lock. A board `fn` leaves unchanged is not rewritten. Returns what `fn` returns.
- */
-export function updateState(fn, { path = here('state.json'), lock = STATE_LOCK, timeoutMs = 15_000 } = {}) {
-  const run = () => {
-    const { s, dirty } = loadState(path);
-    const before = JSON.stringify(s);
-    const out = fn(s);
-    if (dirty || JSON.stringify(s) !== before) saveState(s, path);
-    return out;
-  };
-  if (heldLocks.has(lock)) return run();
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const got = acquireLock(lock, { match: process.argv[1] });
-    if (got.ok) break;
-    if (Date.now() > deadline) throw new Error(`the board is locked by pid ${got.holder?.pid ?? '?'} (${lock}); if that process is gone, delete the file`);
-    pause(10 + Math.random() * 40);
-  }
-  heldLocks.add(lock);
-  try {
-    return run();
-  } finally {
-    heldLocks.delete(lock);
-    releaseLock(lock);
-  }
 }
 /** Listed paths as written. A glob keeps every segment, including `*`. */
 export function pathsOf(st) {
@@ -199,8 +130,8 @@ export const extraAllowedPaths = () => readJson(`${ROOT}scripts/registry.json`).
 
 /** Whether any path in `a` could touch the same file as any path in `b`, ignoring paths every
  * story is allowed anyway (MARXY-119). */
-export function overlap(a, b) {
-  const extra = new Set(extraAllowedPaths());
+export function overlap(a, b, extraAllowed = extraAllowedPaths()) {
+  const extra = new Set(extraAllowed);
   const af = a.filter(x => !extra.has(x));
   const bf = b.filter(y => !extra.has(y));
   return af.some(x => bf.some(y => pathsOverlap(x, y)));

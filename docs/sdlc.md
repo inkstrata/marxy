@@ -16,14 +16,21 @@ board. Neither invents work.
 
 | State | Means | Who moves it |
 | --- | --- | --- |
-| **To Do** | ready, or waiting on a dependency; a `blocked` or `escalated` label says which | the orchestrator, via `state.mjs` |
-| **In Progress** | an implementor is in a worktree on it, or the author is | `state.mjs start KEY` |
-| **In Review** | a PR exists and the gates have run | `jira.mjs pr KEY <number>` |
-| **Done** | squash-merged into `main` | `state.mjs done KEY` |
+| **To Do** | ready, or waiting on a dependency; a `blocked` or `escalated` label says which | the cycle; a person with `fleet.mjs unpark` / `retry` / `release` |
+| **In Progress** | a worker run the cycle started is on it, or someone holds a claim | the cycle when it starts a run; a person with `fleet.mjs claim KEY` |
+| **In Review** | a PR exists | the cycle, when the run ends with a PR or it adopts one |
+| **Done** | squash-merged into `main` | the cycle, when the PR merges |
+
+The fleet's board is a fold over an append-only event log in the fleet store
+(`<git common dir>/marxy-fleet/`, ADR-0034); Jira is pushed from it every cycle and never read
+back. Every status that is not Done has an owner and a way out that fires without anyone noticing
+it — a run's deadline, a claim's expiry, a try limit, or a line under **Needs you** in
+`status.md`. `node orchestration/fleet.mjs why KEY` says where any story is and why.
 
 **No WIP cap** — `orchestration/models.json` `lanes` is `null`. Dispatch starts every ready
 story whose paths do not overlap work already in flight; path ownership is the only
-parallelism limit. A positive `lanes` value would restore a cap.
+parallelism limit. A positive `lanes` value would restore a cap. Review load never holds
+dispatch: `reviewLanes` caps how many reviewer runs go at once (ADR-0034, amending ADR-0025).
 
 Keys are Jira keys (`MARXY-23`), everywhere: branch, commit subject, PR title, result file.
 `orchestration/jira-map.json` records what each issue was called before the tracker existed,
@@ -93,53 +100,63 @@ v0.2?" in one.
 ## The loop, per story
 
 ```sh
-node orchestration/ready.mjs                 # what may start, respecting deps and paths
-node orchestration/state.mjs start MARXY-23  # → In Progress, mirrored to Jira
-node orchestration/dispatch.mjs MARXY-23     # implementor in its own worktree
-node orchestration/review.mjs MARXY-23       # the review packet: acceptance, boundaries, gates
-node orchestration/approve.mjs MARXY-23      # the reviewer signs results/MARXY-23.approved
-node orchestration/cycle.mjs                 # adopts the open PR (→ In Review), lands it once the bar holds, → Done
-node orchestration/planner-trigger.mjs       # is it time to re-plan?
+./orchestration/loop.sh start                  # the reconciler, every two minutes, detached
+node orchestration/fleet.mjs status            # what is in flight, what waits and why, what needs you
+node orchestration/fleet.mjs why MARXY-23      # one story: its record, runs and last events
+node orchestration/review.mjs MARXY-23         # the review packet: acceptance, boundaries, gates
+node orchestration/fleet.mjs verdict MARXY-23 merge --notes notes.md   # the reviewer's decision, signed
 ```
 
-A story claimed by hand with `state.mjs start` carries no worker lease, so every cycle's reap
-judges it by its worktree: once that worktree exists, it needs activity — a commit, an
-uncommitted change — within `staleMinutes` (default twice `attemptMinutes`, 90 minutes) of the
-start or of the last change. A worktree still clean and with no commits after that is a ghost,
-and the story returns to todo with its attempt refunded; a second ghost parks it `blocked`
-(`orchestration/README.md`, step 6).
+One command does everything a machine can decide: `node orchestration/cycle.mjs`, which
+`./orchestration/loop.sh` runs from a runner worktree pinned to `origin/main`, so the loop always
+runs merged code and never reads or writes a checkout anyone works in. Each cycle reads the plan
+from `origin/main` (never from a working tree), the board, one GitHub snapshot, the worker runs
+and the worktrees, then takes the next step for every story that has one: it finishes runs that
+ended or outlived their deadline, settles merged PRs, adopts open ones, lapses expired claims,
+walks every In Review PR one step through the review pipeline, starts the planner when due,
+starts an implementor for every ready story, pushes the board to Jira, and writes `status.md`.
+`--low`, `--minimal` and `--high` pick the compute profile (`orchestration/models.json`); the
+loop is the same. It is safe to stop, restart and sleep through at any point.
+
+Every run — implementor, reviewer, conflict resolver, planner — is a detached worker with a
+deadline (`attemptMinutes`) and an output watchdog (`stallMinutes` without a byte of output
+stops it); its whole process group is stopped on either, and the cycle decides what the ending
+meant. A run with a PR moves its story to In Review. A run that reports `blocked` parks the story
+with its reason. A run that produced nothing is refunded, and a second one parks the story with
+the output that explains it. A failed attempt counts: after `maxAttempts` the next attempt uses the
+escalation model, and the same failure twice skips straight to it; when those tries are spent too,
+the story escalates. Work a person or an in-app agent does is reserved with
+`node orchestration/fleet.mjs claim KEY`, which lapses on its own. A worktree's uncommitted edits
+reserve nothing unless someone worked in it within the last `activeWorktreeMinutes`; an idle one
+is named under **Needs you**, never deleted (ADR-0034).
 
 Nobody runs `gh pr merge` by hand, and nobody has to move a story to In Review: the cycle
 **adopts** every open, non-draft pull request whose title or branch names a key the board does
 not already have in review, links it in Jira, and from then on the merge bar decides
-(`orchestration/adopt.mjs`). A done, blocked or escalated story's PR is not adopted — that is a
-person's call — and neither is a second PR for a key that already has one in review. A row
-labelled `no-dispatch` (work that arrives with its own PR) is never dispatched to an implementor,
-and the cycle records it Done as soon as its PR has merged, however it merged.
-
-Everything in that list except the two judgements — is this story ready, does this diff satisfy
-it — is one command, `node orchestration/cycle.mjs`, and `./orchestration/loop.sh` runs it until
-interrupted. `--low` (Sonnet 5 medium + Grok 4.6 High Fast) and `--minimal` (Grok 4.6 High Fast
-only) spend less; the loop is the same. A cycle mirrors the board into Jira, merges the pull requests that are provably
-finished, returns in-progress stories whose worker is gone, names (or starts) what should start
-next, asks whether the planner is due, and rewrites `orchestration/status.md`. It is safe to stop
-and restart at any point, and to sleep through: `./orchestration/loop.sh start` runs the loop
-detached from any terminal, implementors run as detached workers holding a lease on their row,
-and only one cycle runs at a time. `node orchestration/doctor.mjs` is the first thing to run when
-the fleet looks stuck; it names each problem with the command that fixes it (MARXY-208).
+(`orchestration/adopt.mjs`). A done, blocked or escalated story's PR is not adopted — it is named
+for a person — and neither is a second PR for a key that already has one in review, nor a PR that
+was returned until something new is pushed to it. A row labelled `no-dispatch` (work that arrives
+with its own PR) is never dispatched to an implementor, and the cycle records it Done as soon as
+its PR has merged, however it merged.
 
 The one thing it refuses to infer is approval. Green gates say the code works; they cannot say it
-does what the story asked. So the reviewer writes `orchestration/results/KEY.approved` with the
-review note and signs it with `node orchestration/approve.mjs KEY`, which records the commit the
-review was of; the key lives in `~/.config/marxy/`, outside the tree. An approval for an earlier
-commit is held rather than honoured, because a push after a review is an unreviewed tree wearing a
-reviewed one's name. A reviewer writes and signs `KEY.approved`; the implementor never writes
-it. A headless cycle starts that reviewer itself — one at a time, the first entry of the review
-order that `approve.mjs` can sign, detached under a lease — because a loop has no in-app agent
-to spawn one. A pull request the cycle cannot boundary-check is not given a reviewer. A
-CODEOWNERS path still gets one until the signature exists; the author's approval stays a
-separate hold. `cycle.mjs` then lands the PR without a person, or enables GitHub auto-merge when the only
-remaining wait is CI.
+does what the story asked. So the reviewer records its decision with
+`node orchestration/fleet.mjs verdict KEY merge --notes FILE`, which writes `KEY.approved` in the
+fleet store and signs it (`approve.mjs`) against the commit the review was of; the key lives in
+`~/.config/marxy/`, outside the tree. An approval survives the branch being brought up to date with
+main, and nothing else: a push of new work after a review is an unreviewed tree wearing a reviewed
+one's name, and is held. A reviewer writes and signs `KEY.approved`; the implementor never writes
+it. The cycle starts reviewers itself, up to `reviewLanes` at once, for PRs whose checks are not red
+and whose boundaries it can check; a CODEOWNERS path still gets one, and the author's approval
+stays a separate hold. `cycle.mjs` then lands the PR without a person, or enables GitHub
+auto-merge when the only remaining wait is CI.
+
+Every hold has an owner. Red CI is returned to the implementor after `redGraceMinutes`; a file
+outside the story's paths, an attribution trailer or a missing CHANGELOG line is returned at once;
+a conflict with main gets a resolution run without leaving review and without charging an attempt,
+and after `resolveTries` the story is parked with the conflict named; a CODEOWNERS hold, a missing
+board row or requested changes go under **Needs you** at once; any other hold goes there once it is
+older than `holdAttentionMinutes`.
 
 Which merge path is live is `orchestration/models.json` `mergeQueue`. When it is true, the
 cycle enqueues with `gh pr merge --auto --match-head-commit` and never runs
@@ -164,10 +181,11 @@ list; a missing clause is the printed hold reason.
    edits another story's row is held and names whose, and a PR with no row on `main` or on its
    branch is held with the command that adds one (`scripts/lib/own-row.mjs`, which CI's
    `check-story` also uses).
-7. The implementor result file exists and says `done` — in this checkout's
-   `orchestration/results/`, or in the worktree that has the branch checked out.
+7. The implementor result exists and says `done` — in the fleet store, where `pnpm done` writes it
+   from any worktree (`node orchestration/fleet.mjs path result KEY`).
 8. `CHANGELOG.md` is in the diff.
-9. A signed `results/KEY.approved` verifies against this PR head.
+9. A signed `KEY.approved` in the fleet store verifies against this PR head, or against a head that
+   is exactly the approved commit merged with main.
 
 Every approval run ends with `node orchestration/readiness.mjs`: one row per open pull request, in the review/merge order, with CI, mergeability, approval, who it waits on, and what happens next.
 
@@ -202,10 +220,10 @@ pnpm done KEY --open             # pushes, opens the PR, links it in Jira
   `check-cards` fails any placeholder left on a branch. If the PR is abandoned, close the issues
   it created.
 
-## Review order and the review WIP limit
+## Review order
 
-Review, not implementation, is the constraint. The printable order is computed by
-`orchestration/review-order.mjs` (ADR-0025), so a stalled queue can always be explained. Three
+The printable order is computed by `orchestration/review-order.mjs` (ADR-0025), so a stalled queue
+can always be explained, and it decides which PR is merged and brought up to date first. Three
 keys, in this order:
 
 1. **Phase**, from `orchestration/deps.json`, lowest number first. The plan is sequenced to
@@ -214,32 +232,27 @@ keys, in this order:
    (MARXY-107). An adopted PR whose row is still only on its branch takes the lane its branch's
    `deps.json` names.
 2. **Disturbance**, descending — the number of other open pull requests whose changed files
-   intersect this one's (always-shared files excluded). The branch that will invalidate the
-   most approvals must land before those approvals are signed, not after. Merge effort is not
-   the cost; the signatures a merge destroys are.
+   intersect this one's (always-shared files excluded). The branch that disturbs the most others
+   lands first.
 3. **Age**, oldest first, so nothing starves.
 
-A conflicted pull request is returned rather than queued. `cycle.mjs` cannot resolve a conflict
-and a reviewer reading a conflicted tree is reading nothing. The story goes back to In Progress
-and `attempts` does not move: a conflict is a consequence of queue depth, not a failed attempt.
-The next cycle does not adopt that pull request again while it still conflicts. It starts one
-resolution attempt instead (`orchestration/conflict-dispatch.mjs`), and after three unresolved
-tries leaves the story In Progress and says so. A pull request that is BEHIND or clean is
-adopted back into review.
+Reviewers run in parallel, up to `reviewLanes`, and may sign a PR that is BEHIND or anywhere in the
+order: `approve.mjs` accepts a head that is the approved commit merged with main, so bringing the
+branch up to date no longer voids the review, which is what made "sign last" necessary
+(ADR-0034, amending ADR-0025 §5). Only a conflicted PR cannot be signed. One BEHIND branch is
+updated per cycle, the first in the order whose only hold is CI (ADR-0025 §4).
 
-A returned story does not count against the review WIP. Returning it moves it out of In Review,
-so the lane is freed by construction, and a return is the same unit of work rather than a new
-one. Charging it twice would make returning a story more expensive than abandoning it.
-
-A returned story re-enters the order at its own phase, disturbance and original age, not at the
-head, so it cannot starve by being returned.
+A conflicted pull request stays In Review and gets a resolution run
+(`orchestration/prompts/conflict.md`) in its own worktree; `attempts` does not move, because a
+conflict is a consequence of queue depth, not a failed attempt. After `resolveTries` unresolved
+runs the story is parked with the conflict named.
 
 ## Cadence
 
 | When | What |
 | --- | --- |
-| every cycle | `needs-human.md` read, board pushed, status report written |
-| every 5 merges, any second failure, weekly, or a phase boundary | the planner runs (`planner-trigger.mjs` decides). Only "never planned" or an unread escalation holds dispatch meanwhile; the others just name it due (MARXY-200). When `cursor-agent` is on PATH, the cycle starts the planner headlessly like implementors; otherwise it only names it due. A merge whose diff adds under `docs/plan/deltas/` self-records (`lastPlan` / `mergesAtLastPlan` via `state.mjs plan-landed`) — nobody runs `state.mjs planned` by hand after a plan PR lands |
+| every cycle | runs finished, PRs settled and adopted, each review one step on, ready stories started, board pushed to Jira, `status.md` written with **Needs you** at the top |
+| every 5 merges, any second failure, weekly, or a phase boundary | the planner runs (`planner-trigger.mjs` decides), as a worker run like any other, one at a time and not within `plannerCooldownMinutes` of the last. Only "never planned" or an escalation the planner has not yet read holds dispatch meanwhile; the others just name it due (MARXY-200). A planner run that ends counts as a pass even when it lands nothing, so a reason it has seen does not restart it. A merge whose diff adds under `docs/plan/deltas/` self-records `lastPlan` — nobody records it by hand |
 | end of each phase | taste review from `docs/taste-review/queue.md`, then the release |
 | never | a status meeting, an estimate, a burndown chart |
 

@@ -40,25 +40,28 @@ exists for you. Read `AGENTS.md` before anything.
    together they put a commit on the remote that reverted a merged story while the worktree was
    clean, and a green CI run was reported against a commit that had never been pushed. Verify a run
    by its `head_sha`, never by its run id.
-7. Run `pnpm done {{KEY}}`. It drafts `results/{{KEY}}.pr.md` from your commits and the story
-   and writes `orchestration/results/{{KEY}}.json`. Fill every TODO (the Summary in plain
-   language; the criterion → check table), then run the single command
-   `pnpm done {{KEY}} --open`. Filling the table first matters: `--open` reads that table back
-   out of `results/{{KEY}}.pr.md`, copies its rows into the result file's `acceptance` array, and
-   only then opens the PR through `open-pr.mjs` — the one path that may spawn `gh` — records the
-   PR number, and runs `node orchestration/jira.mjs pr {{KEY}}` with it, so nothing is written
-   twice by hand. A row still `TODO` stops everything and is named on the command line; a body
-   `check-pr` would reject stops `--open` before `gh` ever runs. `--dry-run` prints the three
-   steps and runs none of them. Never `gh pr create --body`, never a Summary / Why / Test plan
-   body, never a "Made with Cursor" line. The title is the commit subject; the body is Summary
-   (plain language first), Changes, Verification, For the reviewer, Agent detail inside
-   `<details>`, then the checklist. The result file's shape:
-   ```json
-   { "key": "{{KEY}}", "status": "done | blocked | failed", "branch": "...", "pr": 123,
-     "gates": { "typecheck": "ok", "test": "ok", "golden": "ok", "...": "..." },
-     "acceptance": [ { "criterion": "...", "checkedBy": "path/to/test or gate" } ],
-     "outsidePaths": [], "needsAdr": false, "queueEntry": false, "notes": "≤ 10 lines" }
-   ```
+7. Run `pnpm done {{KEY}}`. It drafts `results/{{KEY}}.pr.md` from your commits and the story and
+   writes the result record into the fleet store (one location for every worktree; `node
+   orchestration/fleet.mjs path result {{KEY}}` prints it). Fill every TODO (the Summary in plain
+   language; the criterion → check table), then run the single command `pnpm done {{KEY}} --open`.
+   Filling the table first matters: `--open` reads that table back out of `results/{{KEY}}.pr.md`,
+   copies its rows into the result's `acceptance` array, and only then opens the PR through
+   `open-pr.mjs` — the one path that may spawn `gh` — records the PR number, and links Jira. A row
+   still `TODO` stops everything and is named on the command line; a body `check-pr` would reject
+   stops `--open` before `gh` ever runs. `--dry-run` prints the steps and runs none of them.
+   Never `gh pr create --body`, never a Summary / Why / Test plan body, never a "Made with Cursor" line.
+   The title is the commit subject; the body is Summary (plain language first), Changes,
+   Verification, For the reviewer, Agent detail inside `<details>`, then the checklist.
+8. Stop once the PR is open. The fleet sees the PR and moves the story to review; a reviewer, not
+   you, decides whether it merges.
+
+## Your run is bounded
+
+You have {{ATTEMPT_MINUTES}} minutes, and a run that prints nothing for a long stretch is treated as
+hung and stopped. Keep commands that can hang (installs, watchers, servers) out of the foreground,
+and give long test runs a timeout. An attempt that ends without a PR is recorded against the story;
+the same failure twice hands the story to a stronger model, so change approach rather than
+repeating one that failed.
 
 ## Never
 
@@ -70,10 +73,16 @@ exists for you. Read `AGENTS.md` before anything.
   entry. Add AI attribution anywhere. Open a PR with `gh pr create --body` or any body that
   is not `results/{{KEY}}.pr.md` — `open-pr.mjs` is the only create path, because the
   commit-msg hook cannot see the PR body and agents otherwise paste Summary / Why / Test plan.
-  Merge anything. Never write `results/KEY.approved` or run
-  `approve.mjs` — that file is the reviewer's verdict, not yours.
+  Merge anything. Never write `KEY.approved`, run `approve.mjs` or `fleet.mjs verdict` — the
+  approval is the reviewer's verdict, not yours.
 
 ## When stuck
 
-Try one different approach, not the same one again. If still stuck, write `status: blocked`
-with what you tried and what you need, and stop. A precise blocked report is a good result.
+Try one different approach, not the same one again. If still stuck, record it and stop:
+
+```
+node orchestration/fleet.mjs report {{KEY}} blocked "what you tried, what failed, what you need"
+```
+
+A precise blocked report is a good result: the story is parked with your reason and shown to a
+person, instead of being retried blindly.

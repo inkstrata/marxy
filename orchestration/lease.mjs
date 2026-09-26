@@ -1,22 +1,16 @@
-// Leases: who is running a piece of fleet work, and whether they still are (MARXY-208).
+// Locks held by a lease: the cycle lock and the loop lease (MARXY-208). Runs no longer hold leases
+// here; a run's owner is recorded in the event log and its liveness checked by proc.mjs (ADR-0034).
 // A lease is { pid, host, started, match }. It is held while that pid is alive and its command line
 // still contains `match`, which is what tells a live worker from a recycled pid. `host` is recorded
-// for people, not compared: state.json is this checkout's own untracked file, and a Mac's hostname
+// for people, not compared: the store is this clone's own, and a Mac's hostname
 // can change across a sleep, which would make every live worker look foreign. It
 // never expires by the clock: a laptop that sleeps for eight hours wakes with its workers alive and
 // its leases still held, and a worker whose launching shell was killed is not alive, whatever the
 // time says.
-import { spawn, execFileSync } from 'node:child_process';
-import { openSync, closeSync, writeFileSync, readFileSync, rmSync, mkdirSync, linkSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { writeFileSync, readFileSync, rmSync, mkdirSync, linkSync, statSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { dirname } from 'node:path';
-
-// Resolved here rather than taken from lib.mjs, which imports this module for its state lock.
-const here = p => new URL(p, import.meta.url).pathname;
-
-/** The fleet's lock and lease files, all under the gitignored results/. */
-export const LOOP_LEASE = here('results/loop.lease');
-export const CYCLE_LOCK = here('results/cycle.lock');
 
 export function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -51,40 +45,6 @@ export function leaseHeld(lease, { alive = pidAlive, command = commandOf } = {})
 }
 
 export const newLease = (pid, match, now = new Date()) => ({ pid, host: hostname(), started: now.toISOString(), match });
-
-/**
- * Start a process in its own session with its output going straight to a file. Nothing ties it to
- * the caller: no pipe to break, no process group to be killed with, so the shell, terminal or agent
- * that launched it can go away and it carries on. Returns the pid, or null if it could not start.
- */
-export function spawnDetached(cmd, args, { cwd, log, env = process.env, flags = 'a' } = {}) {
-  mkdirSync(dirname(log), { recursive: true });
-  const fd = openSync(log, flags);
-  try {
-    const child = spawn(cmd, args, { cwd, env, detached: true, stdio: ['ignore', fd, fd] });
-    child.on('error', () => {});
-    child.unref();
-    return child.pid ?? null;
-  } finally {
-    closeSync(fd);
-  }
-}
-
-/**
- * Stop whatever a dead lease holder left running. A detached worker leads its own process group, so
- * its agent is still in group `pid` after the worker dies. Only once the leader is gone: a pid is
- * never reissued while a group of that id still exists, so the group can then only be the orphans.
- * Returns whether a group was signalled.
- */
-export function killOrphans(lease, { alive = pidAlive, kill = process.kill.bind(process) } = {}) {
-  if (!lease?.pid || alive(lease.pid)) return false;
-  try {
-    kill(-lease.pid, 'SIGTERM');
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export function readLease(path) {
   try {

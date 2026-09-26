@@ -1,7 +1,6 @@
-// Refresh Cursor fleet canvases from state.json, deps.json, needs-human.md, readiness, events.
+// Refresh Cursor fleet canvases from the fleet board, deps.json, needs-human.md, readiness, events.
 // cycle.mjs runs this at the end of every cycle when the canvas directory exists (MARXY-208), and the
-// fleet canvas carries a `health` block: the loop, the cycle lock, the planner and every in-flight
-// story's verdict from reap.mjs.
+// fleet canvas carries a `health` block: the loop, the cycle lock, the planner and every run in flight.
 // Timestamps embedded in canvas DATA use the machine's local timezone (short name suffix, e.g. PDT).
 // usage: node orchestration/canvases.mjs [--dir PATH] [--json]
 import { execFileSync } from 'node:child_process';
@@ -9,13 +8,13 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, stories, state, deps, models } from './lib.mjs';
+import { ROOT, here, stories, deps, models } from './lib.mjs';
+import { board as foldBoard } from './machine.mjs';
 import { selectReady } from './ready.mjs';
 import { collect } from './readiness.mjs';
 import { readPullRequest } from './review-order.mjs';
-import { leaseHeld, readLease, LOOP_LEASE, CYCLE_LOCK } from './lease.mjs';
-import { PLANNER_LEASE } from './plan-dispatch.mjs';
-import { survey } from './reap.mjs';
+import { leaseHeld, readLease } from './lease.mjs';
+import { loopLeasePath, cycleLockPath } from './store.mjs';
 
 const ROLE_KEYS = ['orchestrator', 'planner', 'implementor', 'implementorEscalation', 'reviewer'];
 
@@ -39,16 +38,19 @@ export function defaultCanvasDir(home = homedir(), root = ROOT) {
 }
 
 /** Liveness the fleet canvas shows; `health` from cycle.mjs is folded in when it has one. */
-export function healthBlock({ inflight = null, cycleLog = [] } = {}, { read = readLease, held = leaseHeld } = {}) {
+export function healthBlock({ inflight = null, cycleLog = [] } = {}, { read = readLease, held = leaseHeld, b = null } = {}) {
   const lease = path => {
     const l = read(path);
     return l ? { pid: l.pid, since: fmtLocalTime(l.started), alive: held(l) === true } : null;
   };
+  const fold = b ?? foldBoard();
+  const runs = Object.values(fold.runs ?? {}).filter(r => !r.ended);
   return {
-    loop: lease(LOOP_LEASE),
-    cycle: lease(CYCLE_LOCK),
-    planner: lease(PLANNER_LEASE),
-    inflight: (inflight ?? survey().map(({ rec, ...r }) => r)).map(r => ({ key: r.key, verdict: r.verdict, why: r.why, to: r.to ?? null })),
+    loop: lease(loopLeasePath()),
+    cycle: lease(cycleLockPath()),
+    planner: fold.planner?.run ? { run: fold.planner.run, since: fmtLocalTime(fold.planner.started), alive: true } : null,
+    inflight: (inflight ?? runs.map(r => ({ key: r.key ?? 'planner', verdict: r.role, why: `${r.model ?? ''} until ${r.deadline}` })))
+      .map(r => ({ key: r.key, verdict: r.verdict, why: r.why, to: r.to ?? null })),
     lastCycle: cycleLog.slice(-12),
   };
 }
@@ -101,13 +103,13 @@ export function phaseIdOf(key, d) {
   return '?';
 }
 
-/** @param {string} key @param {ReturnType<typeof state>} board @param {ReturnType<typeof deps>} d */
+/** @param {string} key @param {ReturnType<typeof foldBoard>} board @param {ReturnType<typeof deps>} d */
 export function unmetDeps(key, board, d) {
   const done = k => board.stories[k]?.status === 'done';
   return (d.deps[key] ?? []).filter(dep => !done(dep));
 }
 
-/** @param {{ Key: string, Summary: string, Labels?: string }} st @param {ReturnType<typeof state>} board @param {ReturnType<typeof deps>} d */
+/** @param {{ Key: string, Summary: string, Labels?: string }} st @param {ReturnType<typeof foldBoard>} board @param {ReturnType<typeof deps>} d */
 export function storyRow(st, board, d) {
   const rec = board.stories[st.Key] ?? { status: 'todo', attempts: 0 };
   return {
@@ -126,7 +128,7 @@ export function storyRow(st, board, d) {
   };
 }
 
-/** @param {ReturnType<typeof deps>} d @param {ReturnType<typeof state>} board */
+/** @param {ReturnType<typeof deps>} d @param {ReturnType<typeof foldBoard>} board */
 export function phaseStats(d, board) {
   const statusOf = k => board.stories[k]?.status ?? 'todo';
   return Object.entries(d.phases || {}).map(([id, keys]) => {
@@ -149,7 +151,7 @@ export function phaseStats(d, board) {
   });
 }
 
-/** @param {ReturnType<typeof deps>} d @param {ReturnType<typeof state>} board */
+/** @param {ReturnType<typeof deps>} d @param {ReturnType<typeof foldBoard>} board */
 export function longestUnfinishedChain(d, board) {
   const done = k => board.stories[k]?.status === 'done';
   const open = new Set(
@@ -244,7 +246,7 @@ export function parseNeedsHuman(md, ctx) {
   return items;
 }
 
-/** @param {ReturnType<typeof stories>} all @param {ReturnType<typeof state>} board @param {ReturnType<typeof deps>} d */
+/** @param {ReturnType<typeof stories>} all @param {ReturnType<typeof foldBoard>} board @param {ReturnType<typeof deps>} d */
 export function shippedMetrics(all, board, d) {
   const rows = all
     .map(st => storyRow(st, board, d))
@@ -309,7 +311,7 @@ function readJsonl(path) {
     .filter(Boolean);
 }
 
-/** @param {ReturnType<typeof state>} board */
+/** @param {ReturnType<typeof foldBoard>} board */
 export function modelTable(board, home = homedir()) {
   const store = storePaths(home);
   const events = readJsonl(store.events);
@@ -403,9 +405,9 @@ function liveOpenPrs() {
   );
 }
 
-/** @param {{ board?: ReturnType<typeof state>, d?: ReturnType<typeof deps>, all?: ReturnType<typeof stories>, prs?: unknown[], needsHumanMd?: string, home?: string, health?: { inflight?: unknown[], cycleLog?: string[] } }} [opts] */
+/** @param {{ board?: ReturnType<typeof foldBoard>, d?: ReturnType<typeof deps>, all?: ReturnType<typeof stories>, prs?: unknown[], needsHumanMd?: string, home?: string, health?: { inflight?: unknown[], cycleLog?: string[] } }} [opts] */
 export function gatherCanvasData(opts = {}) {
-  const board = opts.board ?? state();
+  const board = opts.board ?? foldBoard();
   const d = opts.d ?? deps();
   const all = opts.all ?? stories();
   const byKey = new Map(all.map(st => [st.Key, st]));

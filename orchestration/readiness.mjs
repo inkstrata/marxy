@@ -7,7 +7,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, here, readJson, stories, state, deps, pathsOf, pathMatches } from './lib.mjs';
+import { ROOT, readJson, stories, deps, pathsOf, pathMatches } from './lib.mjs';
+import { board } from './machine.mjs';
+import { fleetPath } from './store.mjs';
 import { classifyChecks, evaluate } from './merge-bar.mjs';
 import { verify } from './approve.mjs';
 import { codeOwnerPatterns, ownedBy } from './codeowners.mjs';
@@ -50,7 +52,7 @@ function isAuthor(pr) {
 }
 
 function resultPath(resultsDir, name) {
-  return resultsDir ? `${String(resultsDir).replace(/\/$/, '')}/${name}` : here(`results/${name}`);
+  return resultsDir ? `${String(resultsDir).replace(/\/$/, '')}/${name}` : fleetPath('results', name);
 }
 
 /**
@@ -216,7 +218,7 @@ if (isMain) {
     prs: livePrs(),
     resultsDir: flag > 0 ? process.argv[flag + 1] : undefined,
     readPr: readPullRequest,
-    state: state(),
+    state: board(),
     deps: deps(),
   });
   console.log(process.argv.includes('--json') ? formatJson(rows) : formatText(rows));

@@ -4,7 +4,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { deps, state } from './lib.mjs';
+import { deps } from './lib.mjs';
+import { board } from './machine.mjs';
 import { primed } from './github.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -79,7 +80,7 @@ function intersect(a, b) {
 }
 
 /** `readPr` is the injectable GitHub read; pass readPullRequest in live use. */
-export function computeOrder({ s = state(), d = deps(), readPr, now = Date.now() } = {}) {
+export function computeOrder({ s = board(), d = deps(), readPr, now = Date.now() } = {}) {
   if (typeof readPr !== 'function') {
     throw new Error('computeOrder requires readPr; pass readPullRequest in live use');
   }

@@ -79,7 +79,7 @@ test('the planner is not kept due by a dropped story', () => {
     stories: { X: { status: 'blocked' }, Z: { status: 'escalate' } },
   };
   const all = [story('X', 'x', 'ops,dropped'), story('Z', 'z')];
-  const reasons = plannerReasons({ s, m, all, now: 1000 });
+  const reasons = plannerReasons({ s, m, all, d: { deps: {}, phases: {} }, now: 1000 });
   assert.deepEqual(reasons, ['escalated/blocked: Z']);
 });
 

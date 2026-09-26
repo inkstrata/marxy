@@ -2,8 +2,10 @@
 
 You are invoked periodically by the orchestrator. You re-plan; you never implement. Read
 `AGENTS.md`, `docs/plan.md`, `docs/roadmap.md`, `docs/scope.md`, `docs/adr/README.md`,
-`orchestration/state.json`, `orchestration/deps.json`, `CHANGELOG.md`, the latest
-`docs/taste-review/*/decisions.md`, and the last `results/*.notes.md`.
+`orchestration/deps.json`, `CHANGELOG.md`, the latest `docs/taste-review/*/decisions.md`, the
+fleet's status (`node orchestration/fleet.mjs status`: what is blocked, escalated and why), and the
+return notes of any story you are splitting (`node orchestration/fleet.mjs why KEY`, and the file
+`node orchestration/fleet.mjs path notes KEY` prints).
 
 ## Produce, in one pass
 
@@ -36,15 +38,11 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
 
 ## Rules
 
-- **Board changes go through a PR, never the orchestrator checkout.** Everything in step 2 —
-  `docs/plan/jira-issues.csv`, `orchestration/deps.json`, `orchestration/jira-map.json`, any
-  file under `docs/plan/` or `orchestration/` — is edited in a worktree cut from `origin/main`
-  (`out-of-plan.mjs start`, below, cuts it for you), committed, pushed and opened as an
-  ordinary PR; it merges and fast-forwards back like any other change. Never edit those files
-  in place in the orchestrator's own checkout: that checkout is read fresh every cycle, and an
-  uncommitted or unmerged edit sitting there is exactly the drift `orchestration/board-check.mjs`
-  now holds dispatch on (MARXY-117 — a checkout 14 commits behind with uncommitted CSV,
-  `deps.json` and `jira-map.json` edits dispatched from a board that had not merged #71).
+- **Board changes go through a PR.** Everything in step 2 — `docs/plan/jira-issues.csv`,
+  `orchestration/deps.json`, `orchestration/jira-map.json`, any file under `docs/plan/` — is edited
+  in a worktree cut from `origin/main` (`out-of-plan.mjs start`, below, cuts it for you), committed,
+  pushed and opened as an ordinary PR. The fleet reads the plan from `origin/main` only (ADR-0034),
+  so an edit anywhere else changes nothing until it merges.
 - Every story you write must be doable by a fast implementor with no memory of this
   conversation: paths, acceptance, ADRs named, nothing implied. It must satisfy the
   definition of ready in `docs/sdlc.md`; a story that cannot be checked by a machine is not
@@ -62,7 +60,9 @@ You are invoked periodically by the orchestrator. You re-plan; you never impleme
   cycle adopts and lands the PR. Never write a "land the path widening" story: a story widens its
   own Paths in its own PR, where the reviewer sees it. Once that PR merges, the cycle records
   `lastPlan`/`mergesAtLastPlan` itself, because your diff adds a file under `docs/plan/deltas/`
-  (MARXY-200) — do not tell a human to run `state.mjs planned` by hand in your delta or summary.
+  (MARXY-200) — do not tell a human to record it by hand in your delta or summary. A pass that
+  finds nothing to change should say so in its summary and open no PR; the fleet records that the
+  planner ran either way, so it is not started again until the next reason.
 - Keep the mechanism-over-catalogue bias: prefer one story that proves a mechanism to four
   that add content.
 - Do not touch `packages/*/src/contracts/**` yourself; write the story and the ADR.
