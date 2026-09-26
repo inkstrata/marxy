@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Planner delta after MARXY-223 merged: a killed attempt is offered again instead of being blocked by its own files (MARXY-225, once the open MARXY-218 session releases `ready.mjs`), and that change lands before a blocked worktree stops reserving paths (MARXY-226).
 - The orchestrator parks uncommitted tracked edits under `docs/plan/` and `orchestration/` (a stash plus a patch) and restores that checkout to HEAD before fast-forward, so a dirty board no longer holds every ready story; a checkout off `main` is left as it is (MARXY-223)
 - Orchestration: prunable or broken worktrees no longer count as dirty path claims; the cycle prunes stale worktree admin rows and names each hold's pull request state instead of always saying no PR (MARXY-222)
 - Planner delta after MARXY-194 merged: a blocked worktree no longer has to hold Phase 3 (MARXY-220, after the open MARXY-218 session releases those files), a story already on main is never dispatched again (MARXY-213, after that), and the conflict-owner story is dropped because a conflicting pull request already stays in progress (MARXY-221)
