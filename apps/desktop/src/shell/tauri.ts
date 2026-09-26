@@ -35,7 +35,14 @@ const readBytes = async (path: string): Promise<Uint8Array> =>
 
 export const shell: Pick<
   Shell,
-  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'onOpenFiles' | 'clipboardWrite'
+  | 'readFile'
+  | 'writeFileAtomic'
+  | 'watch'
+  | 'platform'
+  | 'startupMarks'
+  | 'onOpenFiles'
+  | 'clipboardWrite'
+  | 'configPaths'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
@@ -120,4 +127,5 @@ export const shell: Pick<
   clipboardWrite: async (data) => {
     await invoke('clipboard_write', { text: data.text, html: data.html ?? null });
   },
+  configPaths: () => invoke<{ config: string; data: string }>('config_paths'),
 };

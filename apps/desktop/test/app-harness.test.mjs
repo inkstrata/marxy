@@ -89,7 +89,12 @@ test('window.marxyApp.start boots the real app and records one readFile', async 
       return { heading, reads: reads.map((c) => c.args[0]) };
     }, { files: { '/docs/README.md': fixture.toString('base64') }, argv: ['/docs/README.md'] });
     assert.equal(result.heading, 'widgetlib');
-    assert.deepEqual(result.reads, ['/docs/README.md', '/config']);
+    assert.deepEqual(result.reads, [
+      '/docs/README.md',
+      '/data/positions.json',
+      '/data/history.json',
+      '/config',
+    ]);
   } finally {
     await browser.close();
   }
