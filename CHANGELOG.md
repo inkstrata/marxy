@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- An opened document now starts near the top of the window instead of reading as vertically centred: the article's top padding drops from three line-boxes to one grid unit. The side gutter is now a minimum, not a fixed 3rem on every window — 16px under a 480px-wide window, 24px at or above it — with the text column still setting the margin above that floor, per the reader-typography research's margin guidance (MARXY-263)
 - The aesthetics gate now walks every text-bearing colour pair and every text-on-tint token pair (including user themes under `fixtures/themes`), renders the corpus at 320 px and 400 % zoom and under forced colours, higher contrast and reduced motion, and refuses horizontal page scroll; the base stylesheet carries the three media-query blocks those passes expect (MARXY-241)
 - The palette searches the repository index built at idle from `readDir` and `setIndexEntries` (MARXY-196).
 - The fleet no longer dispatches a story whose pull request already merged on main: the cycle reads squash subjects once, settles missing or todo rows as done, and ready refuses the key by name (MARXY-213)
