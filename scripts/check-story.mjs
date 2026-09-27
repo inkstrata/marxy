@@ -3,7 +3,7 @@
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, registry, changedFiles, storyKey, story, pathsOf, allowedByPaths, isFrozen, fail, fix, sh } from './lib/repo.mjs';
-import { BOARD_FILES, reviewBoundary } from './lib/own-row.mjs';
+import { BOARD_FILES, branchBoundary } from './lib/own-row.mjs';
 const argv = process.argv; const staged = argv.includes('--staged'); const strict = argv.includes('--strict');
 const reg = registry(); const key = storyKey(argv); const files = changedFiles({ staged });
 const problems = [], notes = [];
@@ -11,9 +11,11 @@ if (files.length === 0) { console.log('story-check: nothing to check'); process.
 // A branch may bring or widen its own row, never touch another's (MARXY-190); its row as the branch
 // leaves it is then the one it is judged by.
 const headText = f => (existsSync(join(ROOT, f)) ? readFileSync(join(ROOT, f), 'utf8') : '');
-const board = key ? reviewBoundary(key, {
-  baseCsv: sh(`git show origin/main:${BOARD_FILES[0]}`, { soft: true }), headCsv: headText(BOARD_FILES[0]),
-  baseDeps: sh(`git show origin/main:${BOARD_FILES[1]}`, { soft: true }) || '{}', headDeps: headText(BOARD_FILES[1]) || '{}',
+// Row edits are measured from where the branch left main, so one behind main is not blamed for rows
+// main changed since (MARXY-273).
+const board = key ? branchBoundary(key, {
+  show: (at, f) => sh(`git show ${at}:${f}`, { soft: true }) || null, head: headText,
+  forkPoint: sh('git merge-base origin/main HEAD', { soft: true }) || null,
 }) : null;
 const row = board?.story ?? story(key);
 const noRowFix = fix(`every change has a board row; add yours in this branch: node orchestration/out-of-plan.mjs row ${key} --paths "…" --acceptance "…" (docs/sdlc.md "Work outside the plan")`);
