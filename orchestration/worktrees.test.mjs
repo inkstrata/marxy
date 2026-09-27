@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   prunePlan, removeArgs, runWorktreePrune, removeWorktreeAt,
   prListArgs, pickPrState, gatherWorktreeEntries, inProgressBranches,
-  keyOfBranch,
+  keyOfBranch, liveClaims, formatClaimLine, prClaimLabel,
   parseWorktreeList,
 } from './worktrees.mjs';
 
@@ -259,4 +259,114 @@ test('the fleet runner worktree is never pruned, however old and detached', () =
   );
   assert.equal(remove.length, 0);
   assert.equal(keep[0].reason, 'the fleet runner');
+});
+
+const orchPath = '/repo/marxy';
+const wt198 = '/repo/marxy-wt/MARXY-198';
+function liveEntry(over = {}) {
+  return {
+    path: wt198,
+    branch: 'feat/MARXY-198-x',
+    detached: false,
+    dirty: true,
+    ahead: 2,
+    usable: true,
+    prState: null,
+    ageHours: 0,
+    ...over,
+  };
+}
+function rowsOf(mainRows = {}) {
+  return (key, wtPath) => mainRows[key] ?? null;
+}
+
+test('liveClaims: ahead and todo key with a main row holds that row paths', () => {
+  const paths = ['apps/desktop/src/app.ts', 'packages/core/src/parse'];
+  const claims = liveClaims([liveEntry()], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: paths.join(', ') } }),
+    isDone: () => false,
+    statusOf: () => 'todo',
+  });
+  assert.equal(claims.length, 1);
+  assert.deepEqual(claims[0].paths, paths);
+});
+
+test('liveClaims: done key claims nothing', () => {
+  const claims = liveClaims([liveEntry()], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+    isDone: k => k === 'MARXY-198',
+  });
+  assert.deepEqual(claims, []);
+});
+
+test('liveClaims: blocked or escalate returns no claim for a dirty ahead worktree', () => {
+  for (const status of ['blocked', 'escalate']) {
+    const claims = liveClaims([liveEntry()], {
+      orchestratorPath: orchPath,
+      rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+      isDone: () => false,
+      statusOf: () => status,
+    });
+    assert.deepEqual(claims, [], status);
+  }
+});
+
+test('liveClaims: in_progress and undefined status still claim when dirty and ahead', () => {
+  for (const status of ['in_progress', undefined]) {
+    const claims = liveClaims([liveEntry()], {
+      orchestratorPath: orchPath,
+      rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a, b' } }),
+      isDone: () => false,
+      statusOf: () => status,
+    });
+    assert.equal(claims.length, 1, String(status));
+    assert.deepEqual(claims[0].paths, ['a', 'b']);
+  }
+});
+
+test('liveClaims: clean and not ahead claims nothing', () => {
+  const claims = liveClaims([liveEntry({ ahead: 0, dirty: false })], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+    isDone: () => false,
+  });
+  assert.deepEqual(claims, []);
+});
+
+test('liveClaims: dirty with no ahead still claims', () => {
+  const claims = liveClaims([liveEntry({ ahead: 0, dirty: true })], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({ 'MARXY-198': { Key: 'MARXY-198', Paths: 'a' } }),
+    isDone: () => false,
+  });
+  assert.equal(claims.length, 1);
+  assert.equal(claims[0].dirty, true);
+});
+
+test('liveClaims: orchestrator checkout claims nothing even when dirty', () => {
+  const claims = liveClaims([liveEntry({ path: orchPath, branch: 'main', dirty: true })], {
+    orchestratorPath: orchPath,
+    rowsOf: rowsOf({}),
+    isDone: () => false,
+  });
+  assert.deepEqual(claims, []);
+});
+
+test('liveClaims: key with no row anywhere reports no row and holds no paths', () => {
+  const claims = liveClaims([liveEntry()], {
+    orchestratorPath: orchPath,
+    rowsOf: () => null,
+    isDone: () => false,
+  });
+  assert.deepEqual(claims, [{ key: 'MARXY-198', path: wt198, reason: 'no row', prState: null }]);
+});
+
+test('formatClaimLine matches the cycle wording', () => {
+  assert.equal(
+    formatClaimLine({ key: 'MARXY-198', path: '../marxy-wt/MARXY-198', ahead: 2, dirty: false, prState: null }),
+    'worktree holds paths: MARXY-198 (../marxy-wt/MARXY-198, 2 commits ahead, clean, no PR)',
+  );
+  assert.equal(prClaimLabel('OPEN'), 'PR open');
 });
