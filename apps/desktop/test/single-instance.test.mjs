@@ -41,6 +41,22 @@ nodeTest('tauri.conf.json declares markdown file associations', () => {
   assert.equal(assoc[0].mimeType, 'text/markdown');
 });
 
+nodeTest('main.rs queues Finder opens until take_pending_opens (MARXY-252)', () => {
+  const main = readFileSync(join(desktopRoot, 'src-tauri', 'src', 'main.rs'), 'utf8');
+  assert.match(main, /take_pending_opens/);
+  assert.match(main, /OPENS_LISTENER_READY/);
+  assert.match(main, /RunEvent::Opened[\s\S]*deliver_open_files/);
+});
+
+nodeTest('tauri.ts drains pending opens after listen resolves (MARXY-252)', () => {
+  const tauri = readFileSync(join(desktopRoot, 'src', 'shell', 'tauri.ts'), 'utf8');
+  assert.match(tauri, /await listen<string\[]>\('marxy:open-files'/);
+  assert.match(tauri, /take_pending_opens/);
+  const listenIdx = tauri.indexOf("await listen<string[]>('marxy:open-files'");
+  const drainIdx = tauri.indexOf('take_pending_opens');
+  assert.ok(listenIdx >= 0 && drainIdx > listenIdx, 'listen must resolve before draining pending opens');
+});
+
 nodeTest('tauri.ts listens for marxy:open-files', () => {
   const tauri = readFileSync(join(desktopRoot, 'src', 'shell', 'tauri.ts'), 'utf8');
   assert.match(tauri, /listen<string\[]>\('marxy:open-files'/);
@@ -69,6 +85,82 @@ after(async () => {
 function b64(text) {
   return Buffer.from(text, 'utf8').toString('base64');
 }
+
+const earlyPath = '/docs/early.md';
+const earlyBody = '# early open\n';
+
+test('a Finder open that arrives before the listener exists is not lost (MARXY-252)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await page.goto(`${baseUrl}app.html`);
+    const result = await page.evaluate(
+      async ({ firstPath, earlyPath, firstB64, earlyB64 }) => {
+        const decode = (b64) => {
+          const bin = atob(b64);
+          const out = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+          return out;
+        };
+        const store = new Map([
+          [firstPath, decode(firstB64)],
+          [earlyPath, decode(earlyB64)],
+        ]);
+        const pendingOpens = [[earlyPath]];
+        let routeOpen;
+        const shell = {
+          platform: 'macos',
+          async args() {
+            return [firstPath];
+          },
+          async mark() {},
+          async quit() {},
+          async readFile(path) {
+            const bytes = store.get(path);
+            if (!bytes) throw new Error(`missing: ${path}`);
+            return bytes;
+          },
+          async writeFileAtomic() {},
+          watch: async () => ({ close() {} }),
+          async startupMarks() {
+            return {};
+          },
+          async imageSize() {
+            return null;
+          },
+          async allowAssetScope() {},
+          assetUrl: (path) => path,
+          onOpenFiles(cb) {
+            void (async () => {
+              await Promise.resolve();
+              const drained = pendingOpens.splice(0);
+              for (const paths of drained) {
+                cb(paths);
+              }
+              routeOpen = cb;
+            })();
+          },
+        };
+        const { startApp } = await import('/src/app.ts');
+        const handle = await startApp(shell, { argv: [firstPath] });
+        await handle.ready;
+        const waitForHeading = async (text) => {
+          for (let i = 0; i < 300; i++) {
+            const h = document.querySelector('#doc h1')?.textContent?.trim() ?? '';
+            if (h === text) return h;
+            await new Promise((r) => setTimeout(r, 10));
+          }
+          throw new Error(`expected heading ${text}`);
+        };
+        return await waitForHeading('early open');
+      },
+      { firstPath, earlyPath, firstB64: b64(firstBody), earlyB64: b64(earlyBody) },
+    );
+    assert.equal(result, 'early open');
+  } finally {
+    await browser.close();
+  }
+});
 
 test('second launch, Finder open, and Dock drop replace the open document', async () => {
   const browser = await launchWebkit();
@@ -113,7 +205,10 @@ test('second launch, Finder open, and Dock drop replace the open document', asyn
           async allowAssetScope() {},
           assetUrl: (path) => path,
           onOpenFiles(cb) {
-            routeOpen = cb;
+            void (async () => {
+              await Promise.resolve();
+              routeOpen = cb;
+            })();
           },
         };
         const simulateSecondLaunch = (argv) => {

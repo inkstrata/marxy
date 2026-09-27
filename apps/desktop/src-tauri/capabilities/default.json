@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Phase 0: the main window may call the shell commands only.",
+  "description": "Phase 0: the main window may call the shell commands only, including take_pending_opens (MARXY-252).",
   "windows": ["main"],
   "permissions": [
     "core:default",
