@@ -9,6 +9,12 @@ function cssVar(name: string, fallback: string): string {
   return v || fallback;
 }
 
+/** Whether the reader is currently on the light variant (ADR-0024; dark is the default). */
+function isLightVariant(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.getAttribute('data-marxy-variant') === 'light';
+}
+
 /** Theme extension reading marxy tokens from the document root. */
 export function marxyCodeMirrorTheme(): Extension {
   const bg = cssVar('--marxy-color-code-bg', '#1d1c19');
@@ -17,6 +23,9 @@ export function marxyCodeMirrorTheme(): Extension {
   const selection = cssVar('--marxy-color-selection', '#1f3651');
   const mono = cssVar('--marxy-font-mono', 'JetBrains Mono, ui-monospace, monospace');
   const size = cssVar('--marxy-size-code', cssVar('--marxy-size-body', '20px'));
+  // The grid unit (ADR-0030): reused as-is rather than a raw px value, so Source mode's margin
+  // moves with the reader's body size the way Rendered's does.
+  const gridUnit = cssVar('--marxy-line-box', '30px');
 
   return EditorView.theme(
     {
@@ -26,7 +35,10 @@ export function marxyCodeMirrorTheme(): Extension {
         fontFamily: mono,
         fontSize: size,
       },
-      '.cm-content': { caretColor: accent },
+      '.cm-content': {
+        caretColor: accent,
+        padding: `${gridUnit} calc(${gridUnit} * 2)`,
+      },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: accent },
       '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
         backgroundColor: `${selection} !important`,
@@ -38,6 +50,6 @@ export function marxyCodeMirrorTheme(): Extension {
         border: 'none',
       },
     },
-    { dark: true },
+    { dark: !isLightVariant() },
   );
 }

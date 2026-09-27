@@ -1,0 +1,34 @@
+diff --git a/apps/desktop/src-tauri/src/watch/mod.rs b/apps/desktop/src-tauri/src/watch/mod.rs
+index 1d4f2ca..fbc4d9f 100644
+--- a/apps/desktop/src-tauri/src/watch/mod.rs
++++ b/apps/desktop/src-tauri/src/watch/mod.rs
+@@ -366,6 +366,29 @@ mod tests {
+         cleanup(&dir);
+     }
+ 
++    /// H3 (seams pass, MARXY-248): a document opened through a symlink lives in the link's
++    /// directory; an edit to the target must reload it.
++    #[cfg(unix)]
++    #[test]
++    fn an_edit_through_a_symlinked_document_reloads() {
++        let (dir, _open) = scratch("symlink");
++        let elsewhere = dir.join("elsewhere");
++        fs::create_dir(&elsewhere).expect("target dir");
++        let real = elsewhere.join("real.md");
++        fs::write(&real, b"# real\n").expect("seed target");
++        let docs = dir.join("docs");
++        fs::create_dir(&docs).expect("link dir");
++        let link = docs.join("link.md");
++        std::os::unix::fs::symlink(&real, &link).expect("symlink");
++        let mut watch = RootWatch::open(&docs).expect("watch the link's directory");
++        std::thread::sleep(std::time::Duration::from_millis(20));
++        fs::write(&real, b"# real, edited by another tool\n").expect("edit target");
++        let events = watch.poll().expect("poll");
++        let effect = effect_for_open_document(&events, &link);
++        cleanup(&dir);
++        assert_eq!(effect, OpenEffect::Reload, "events: {events:?}");
++    }
++
+     #[test]
+     fn in_place_write_while_open_reloads() {
+         let (dir, open) = scratch("in-place");

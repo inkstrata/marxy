@@ -22,6 +22,59 @@
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }
 
+/* Notices: one region in flow above the article, empty at rest (docs/design/09-app-shell.md
+   §Notices, MARXY-138). A line reads as the app speaking, not page content, so it gets its own
+   background and border rather than sitting as bare text; spacing is in grid-unit multiples like
+   everything else (MARXY-264). The column matches the article's own so a notice lines up with
+   the text it sits above. */
+#marxy-notices {
+  --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--marxy-line-box) / 4);
+  max-width: var(--marxy-column);
+  margin-inline: auto;
+  padding: calc(var(--marxy-line-box) / 2) 3rem 0;
+}
+.marxy-notice {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 1.5em;
+  row-gap: calc(var(--marxy-line-box) / 4);
+  padding: calc(var(--marxy-line-box) / 4) calc(var(--marxy-line-box) / 2);
+  font-family: var(--marxy-font-text);
+  font-size: var(--marxy-size-caption);
+  line-height: 1.4;
+  color: var(--marxy-color-text);
+  background: var(--marxy-color-notice);
+  border: 1px solid var(--marxy-color-rule);
+  border-radius: var(--marxy-code-radius);
+}
+.marxy-notice-text { flex: 1 1 auto; }
+.marxy-notice-dismiss,
+.marxy-notice-action {
+  flex: 0 0 auto;
+  appearance: none;
+  font: inherit;
+  color: var(--marxy-color-text);
+  background: none;
+  border: 1px solid var(--marxy-color-text-secondary);
+  border-radius: var(--marxy-code-radius);
+  padding: 0.15em 0.75em;
+  cursor: pointer;
+}
+.marxy-notice-dismiss:hover,
+.marxy-notice-action:hover {
+  border-color: var(--marxy-color-accent);
+  color: var(--marxy-color-accent);
+}
+.marxy-notice-dismiss:focus-visible,
+.marxy-notice-action:focus-visible {
+  outline: 2px solid var(--marxy-color-accent);
+  outline-offset: 2px;
+}
+
 .marxy-article {
   --lb: var(--marxy-line-box);
   --marxy-half: calc(var(--lb) / 2);
@@ -39,12 +92,18 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
      in Literata is a quarter wider than an average character (constraint 1, ADR-0033). Clamped to
      45–80 characters however a theme sets it. */
   --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
-  /* How far wide content (code, tables) may run into the right margin: to 3rem from the window's edge. */
-  --marxy-room: max(0px, (100vw - var(--marxy-column)) / 2 - 3rem);
+  /* The side gutter is a minimum, not a fixed width (Reader Typography ch.4 "Margins"): the
+     column's own width is what sets the margin, so the gutter only has to guarantee a floor —
+     16px narrow, 24px on larger screens, widened below (MARXY-263). */
+  --marxy-gutter: 16px;
+  /* How far wide content (code, tables) may run into the right margin: from the gutter to the window's edge. */
+  --marxy-room: max(0px, (100vw - var(--marxy-column)) / 2 - var(--marxy-gutter));
   box-sizing: content-box;
   max-width: var(--marxy-column);
   margin-inline: auto;
-  padding: calc(var(--lb) * 3) 3rem calc(var(--lb) * 5);
+  /* Top padding is one grid unit, not the three line-boxes that made an opened document read as
+     vertically centered instead of starting near the top of the window (MARXY-263). */
+  padding: var(--marxy-half) var(--marxy-gutter) calc(var(--lb) * 5);
   font-family: var(--marxy-font-text);
   font-size: var(--marxy-size-body);
   line-height: var(--lb);
@@ -61,6 +120,11 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 .marxy-article, .marxy-article * { font-variation-settings: 'wght' var(--marxy-wght); }
 .marxy-article > :first-child { margin-top: 0; }
 .marxy-article > :last-child { margin-bottom: 0; }
+/* Larger screens: the gutter's floor rises from 16px to 24px (Reader Typography ch.4); the
+   column still sets the margin above this floor (MARXY-263). */
+@media (min-width: 30em) {
+  .marxy-article { --marxy-gutter: 24px; }
+}
 
 /* Headings: hierarchy from size and weight only (constraint 4); space belongs above (constraint 3).
    The named gaps are 2lb above and half a line below (both grid units); padding-bottom closes the
