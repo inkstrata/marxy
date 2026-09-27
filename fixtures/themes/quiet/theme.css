@@ -1,7 +1,8 @@
 :root {
   --marxy-color-bg: #121210;
   --marxy-color-text: #ece8e0;
-  --marxy-color-text-secondary: #9a958c;
+  /* Secondary must clear selection/find tints inherited from the default dark block (MARXY-241). */
+  --marxy-color-text-secondary: #c2bdb4;
   --marxy-color-accent: #7aa8d4;
   --marxy-measure: 62ch;
 }

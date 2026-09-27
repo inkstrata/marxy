@@ -306,3 +306,22 @@ p > img:only-child { display: block; margin-inline: auto; }
 .marxy-set { white-space: nowrap; }
 .marxy-lb::before { content: '\A'; white-space: pre; }   /* a line break that is not text: copy and find never see it */
 .marxy-hang { display: inline-block; }
+
+/* Accessibility media queries (Reader Artifacts ch.9, MARXY-241). */
+@media (forced-colors: active) {
+  a { text-decoration: underline; forced-color-adjust: none; }
+  del, s { text-decoration: line-through; }
+  :is(pre, table):focus-visible { outline: 2px solid ButtonText; outline-offset: 2px; }
+}
+@media (prefers-contrast: more) {
+  .marxy-diff-add { border-inline-start: 3px solid currentColor; }
+  .marxy-diff-del { border-inline-start: 3px dashed currentColor; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
