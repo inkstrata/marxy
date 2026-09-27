@@ -31,7 +31,8 @@ import {
 } from './store.mjs';
 import { planAt, showAt, CSV_PATH, DEPS_PATH } from './plan.mjs';
 import { observeWorktrees, observeRuns, fetchOrigin } from './observe.mjs';
-import { selectReady, resolveClaims } from './ready.mjs';
+import { selectReady, resolveClaims, mergedOnMain } from './ready.mjs';
+import { verbEvents } from './state.mjs';
 import { buildSpec, claimEvents, finishRun } from './runs.mjs';
 import { gh, read, run as runProc, spawnDetached, killGroup, LIMIT } from './proc.mjs';
 import { acquireLock, releaseLock } from './lease.mjs';
@@ -50,6 +51,22 @@ import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
 
 /** A landed PR whose files add a plan delta is the planner's own output (MARXY-200). */
 export const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
+
+const FLAG_ON_MAIN = new Set(['in_progress', 'in_review', 'blocked', 'escalate']);
+
+/** Which merged-on-main keys the cycle should settle vs only name (MARXY-213). */
+export function settleFromMain(merged, s) {
+  const settle = [];
+  const flag = [];
+  const statusOf = k => s.stories?.[k]?.status ?? 'todo';
+  for (const [key, pr] of merged) {
+    const status = statusOf(key);
+    if (status === 'done') continue;
+    if (status === 'todo') settle.push({ key, pr });
+    else if (FLAG_ON_MAIN.has(status)) flag.push({ key, pr, status });
+  }
+  return { settle, flag };
+}
 
 /**
  * What a merge-bar hold reason is about, which decides who owns the wait:
@@ -213,6 +230,10 @@ export function liveIo({ m, dry = false }) {
     prune: (snap, b) => runWorktreePrune({
       root: CODE_ROOT, branchState: snap.branchState, activeBranches: inProgressBranches(b), say: () => {},
     }).remove.map(e => `worktree removed ${e.path} — ${e.reason}`),
+    mainSubjects: () => {
+      const out = gitOut(['log', 'origin/main', '--format=%s']);
+      return out ? out.split('\n').filter(Boolean) : [];
+    },
     report: r => {
       const out = writeReport(r);
       // The Cursor canvases follow the board when that project folder exists. Best effort: a canvas
@@ -480,10 +501,24 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
 
   // 6. Dispatch.
   b = io.board();
+  const merged = mergedOnMain(io.mainSubjects?.() ?? []);
+  const { settle: settleMain, flag: flagMain } = settleFromMain(merged, b);
+  for (const { key, pr } of settleMain) guard('settle from main', key, () => {
+    if (!dry) {
+      const events = verbEvents('done', key, [], io.board(), { now: nowIso, by: 'cycle.mjs' });
+      if (events) commitAll(events);
+    }
+    say(`settled from main: ${key} (#${pr})`);
+  });
+  for (const { key, pr, status } of flagMain) say(`merged on main but ${status}: ${key} (#${pr})`);
+  b = io.board();
+
   let readyReport = null;
   if (plan && !planBlocks) guard('dispatch', null, () => {
     const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
-    const r = selectReady({ all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed });
+    const r = selectReady({
+      all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
+    });
     for (const x of r.ready) spawns.push({ role: 'implement', key: x.key, rec: b.stories[x.key] ?? {}, row: plan.byKey.get(x.key) });
     if (!r.ready.length) say(`nothing ready; ${Object.values(b.stories).filter(s => s.status === 'todo').length} todo — see status.md for each one's wait`);
     readyReport = r;
@@ -494,7 +529,12 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     // beside a column of todo while the fleet is only waiting on the planner.
     guard('readiness', null, () => {
       const claims = pathHolds({ board: b, plan, worktrees, t, nowMs });
-      readyReport = { ...selectReady({ all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed }), held: true };
+      readyReport = {
+        ...selectReady({
+          all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
+        }),
+        held: true,
+      };
     });
   }
   // Worktrees with work in them that nothing owns are named, so they are neither lost nor silently holding.
