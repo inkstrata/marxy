@@ -1,0 +1,15 @@
+import { createServer } from 'node:http';
+import { webkit } from 'playwright';
+const base = "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'";
+const html = `<!doctype html><html><head><style nonce="123">#a{color:rgb(1,2,3)}</style></head><body><p id="a">a</p><p id="b">b</p></body></html>`;
+for (const [label, csp] of [['as configured (no nonce)', base], ['as Tauri serves it (nonce added)', base + " 'nonce-123'"]]) {
+  const srv = createServer((q, r) => { r.setHeader('Content-Type', 'text/html'); r.setHeader('Content-Security-Policy', csp); r.end(html); });
+  await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+  const b = await webkit.launch(); const p = await b.newPage(); const errs = [];
+  p.on('console', (m) => errs.push(m.text()));
+  await p.goto(`http://127.0.0.1:${srv.address().port}/`);
+  const out = await p.evaluate(() => { const s = document.createElement('style'); s.textContent = '#b{color:rgb(9,8,7)}'; document.head.append(s);
+    return { nonced: getComputedStyle(document.getElementById('a')).color, runtime: getComputedStyle(document.getElementById('b')).color }; });
+  console.log(label, JSON.stringify(out), errs.filter((e) => /Refused|Content Security/i.test(e)).length ? 'CSP violation logged' : '');
+  await b.close(); srv.close();
+}
