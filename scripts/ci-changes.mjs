@@ -35,7 +35,7 @@ const isDoc = f => !BOARD_OR_CODE.test(f) && (/^(docs\/|orchestration\/|\.cursor
 export function classify(files) {
   const workflow = files.some(f => f.startsWith('.github/'));
   const rust = files.some(f => f.startsWith('apps/desktop/src-tauri/'));
-  const web = files.some(f => /^(packages\/|apps\/desktop\/(src|index\.html|vite\.config|package\.json|scripts)|fixtures\/|scripts\/|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/.test(f));
+  const web = files.some(f => /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|vite\.config|package\.json|scripts)|fixtures\/|scripts\/|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/.test(f));
   const docs_only = !workflow && !rust && !web && files.length > 0 && files.every(isDoc);
   return { docs_only, web: web || workflow, rust: rust || workflow, workflow };
 }
@@ -193,6 +193,7 @@ function selftest() {
   report(classify(['orchestration/deps.json']).docs_only === false, 'classify: deps.json is the board, not docs (MARXY-191)');
   report(classify(['docs/plan/jira-issues.csv']).docs_only === false, 'classify: the board CSV is not docs, so check-cards runs in CI (MARXY-191)');
   report(classify(['apps/desktop/src-tauri/src/main.rs']).docs_only === false, 'classify: a rust diff is not docs_only');
+  report(classify(['apps/desktop/test/live-reload.test.mjs']).web === true, 'classify: a desktop test starts the browser job that runs it (MARXY-247)');
   report(classify(['.github/workflows/ci.yml']).docs_only === false, 'classify: a workflow diff is not docs_only');
   report(classify(['.github/notes.md']).docs_only === false, 'classify: an .md file under .github/ is still workflow, not docs_only');
 
