@@ -400,101 +400,135 @@ fn paint_deadline_selftest() -> i32 {
 const DOCUMENT_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx", "txt"];
 
 /// The native menu: the smallest set a Mac reader already expects (App/File/Edit/Window), with no
-/// document-specific command (ADR-0011 — the palette is the tab manager, not this menu). Item ids
-/// are named constants so `on_menu_event` and the id-set test below cannot drift from each other.
+/// document-specific command (ADR-0011 — the palette is the tab manager, not this menu). `MENU` is
+/// the whole menu as data: `build_app_menu` builds exactly what it lists and `action_for` is the
+/// only way a click turns into work, so the test below checks the menu a reader gets, not a copy.
 #[cfg(target_os = "macos")]
 mod app_menu {
+    /// An item the OS implements itself (AppKit responder selectors), so it carries no marxy id.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Native {
+        About,
+        Services,
+        Hide,
+        HideOthers,
+        ShowAll,
+        Undo,
+        Redo,
+        Cut,
+        Copy,
+        Paste,
+        SelectAll,
+        Minimize,
+        Zoom,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Entry {
+        /// One of marxy's own items: id, label, accelerator.
+        Own(&'static str, &'static str, &'static str),
+        Native(Native),
+        Separator,
+    }
+
+    /// What a click on one of marxy's own items does.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Action {
+        Quit,
+        OpenFile,
+    }
+
     pub const QUIT: &str = "marxy-quit";
     pub const OPEN_FILE: &str = "marxy-open-file";
     pub const CLOSE_WINDOW: &str = "marxy-close-window";
 
-    /// Every custom (non-predefined) item id the menu carries. Exercised by
-    /// `tests::the_native_menu_carries_only_the_expected_ids`; not read outside `#[cfg(test)]`.
-    #[allow(dead_code)]
-    pub const ITEM_IDS: &[&str] = &[QUIT, OPEN_FILE, CLOSE_WINDOW];
+    use Entry::{Native as N, Own, Separator};
+    use Native::*;
+
+    pub const MENU: &[(&str, &[Entry])] = &[
+        (
+            "Marxy",
+            &[
+                N(About),
+                Separator,
+                N(Services),
+                Separator,
+                N(Hide),
+                N(HideOthers),
+                N(ShowAll),
+                Separator,
+                Own(QUIT, "Quit Marxy", "CmdOrCtrl+Q"),
+            ],
+        ),
+        (
+            "File",
+            &[
+                Own(OPEN_FILE, "Open File…", "CmdOrCtrl+O"),
+                Separator,
+                // Not the predefined close_window: Marxy is single-window, so closing the one
+                // window leaves nothing to open into and is the same as quitting (see `quit_now`).
+                Own(CLOSE_WINDOW, "Close Window", "CmdOrCtrl+W"),
+            ],
+        ),
+        (
+            "Edit",
+            &[
+                N(Undo),
+                N(Redo),
+                Separator,
+                N(Cut),
+                N(Copy),
+                N(Paste),
+                N(SelectAll),
+            ],
+        ),
+        ("Window", &[N(Minimize), N(Zoom)]),
+    ];
+
+    pub fn action_for(id: &str) -> Option<Action> {
+        match id {
+            QUIT | CLOSE_WINDOW => Some(Action::Quit),
+            OPEN_FILE => Some(Action::OpenFile),
+            _ => None,
+        }
+    }
 }
 
-/// Builds the macOS app menu: an app submenu named "Marxy" (About, Services, Hide/Hide
-/// Others/Show All, Quit), File (Open File…, Close Window), Edit (undo/redo/cut/copy/paste/select
-/// all — `tauri::menu`'s predefined items, not hand-built ones), and Window (minimize, zoom).
-/// Nothing here is document-specific: no Save, no view-mode toggle, no operation from the
-/// catalogue (MARXY-42/43) — those stay in the palette (ADR-0011).
+/// Builds the macOS app menu from `app_menu::MENU`, item for item.
 #[cfg(target_os = "macos")]
 fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use app_menu::{Entry, Native};
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
-    let quit_item =
-        MenuItem::with_id(app, app_menu::QUIT, "Quit Marxy", true, Some("CmdOrCtrl+Q"))?;
-    let marxy_menu = Submenu::with_items(
-        app,
-        "Marxy",
-        true,
-        &[
-            &PredefinedMenuItem::about(app, None, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::services(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::hide(app, None)?,
-            &PredefinedMenuItem::hide_others(app, None)?,
-            &PredefinedMenuItem::show_all(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &quit_item,
-        ],
-    )?;
-
-    let open_file_item = MenuItem::with_id(
-        app,
-        app_menu::OPEN_FILE,
-        "Open File…",
-        true,
-        Some("CmdOrCtrl+O"),
-    )?;
-    // Custom, not `PredefinedMenuItem::close_window`: Marxy is single-window, so closing the one
-    // window leaves nothing to open into and behaves the same as quitting (see `quit_now`).
-    let close_window_item = MenuItem::with_id(
-        app,
-        app_menu::CLOSE_WINDOW,
-        "Close Window",
-        true,
-        Some("CmdOrCtrl+W"),
-    )?;
-    let file_menu = Submenu::with_items(
-        app,
-        "File",
-        true,
-        &[
-            &open_file_item,
-            &PredefinedMenuItem::separator(app)?,
-            &close_window_item,
-        ],
-    )?;
-
-    let edit_menu = Submenu::with_items(
-        app,
-        "Edit",
-        true,
-        &[
-            &PredefinedMenuItem::undo(app, None)?,
-            &PredefinedMenuItem::redo(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::cut(app, None)?,
-            &PredefinedMenuItem::copy(app, None)?,
-            &PredefinedMenuItem::paste(app, None)?,
-            &PredefinedMenuItem::select_all(app, None)?,
-        ],
-    )?;
-
-    let window_menu = Submenu::with_items(
-        app,
-        "Window",
-        true,
-        &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
-        ],
-    )?;
-
-    Menu::with_items(app, &[&marxy_menu, &file_menu, &edit_menu, &window_menu])
+    let menu = Menu::new(app)?;
+    for (title, entries) in app_menu::MENU {
+        let submenu = Submenu::new(app, *title, true)?;
+        for entry in *entries {
+            match *entry {
+                Entry::Own(id, label, accelerator) => {
+                    submenu.append(&MenuItem::with_id(app, id, label, true, Some(accelerator))?)?
+                }
+                Entry::Separator => submenu.append(&PredefinedMenuItem::separator(app)?)?,
+                Entry::Native(native) => submenu.append(&match native {
+                    Native::About => PredefinedMenuItem::about(app, None, None)?,
+                    Native::Services => PredefinedMenuItem::services(app, None)?,
+                    Native::Hide => PredefinedMenuItem::hide(app, None)?,
+                    Native::HideOthers => PredefinedMenuItem::hide_others(app, None)?,
+                    Native::ShowAll => PredefinedMenuItem::show_all(app, None)?,
+                    Native::Undo => PredefinedMenuItem::undo(app, None)?,
+                    Native::Redo => PredefinedMenuItem::redo(app, None)?,
+                    Native::Cut => PredefinedMenuItem::cut(app, None)?,
+                    Native::Copy => PredefinedMenuItem::copy(app, None)?,
+                    Native::Paste => PredefinedMenuItem::paste(app, None)?,
+                    Native::SelectAll => PredefinedMenuItem::select_all(app, None)?,
+                    Native::Minimize => PredefinedMenuItem::minimize(app, None)?,
+                    Native::Zoom => PredefinedMenuItem::maximize(app, None)?,
+                })?,
+            }
+        }
+        menu.append(&submenu)?;
+    }
+    Ok(menu)
 }
 
 /// "Open File…": the native picker, filtered to the documents `marxy` opens. Non-blocking
@@ -522,11 +556,10 @@ fn open_file_via_dialog(app: tauri::AppHandle) {
 
 #[cfg(target_os = "macos")]
 fn on_app_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
-    match event.id().as_ref() {
-        app_menu::QUIT => quit_now(app, 0),
-        app_menu::CLOSE_WINDOW => quit_now(app, 0),
-        app_menu::OPEN_FILE => open_file_via_dialog(app.clone()),
-        _ => {}
+    match app_menu::action_for(event.id().as_ref()) {
+        Some(app_menu::Action::Quit) => quit_now(app, 0),
+        Some(app_menu::Action::OpenFile) => open_file_via_dialog(app.clone()),
+        None => {}
     }
 }
 
@@ -641,27 +674,44 @@ mod tests {
         );
     }
 
-    /// Building a real `Menu` needs a running app, so this checks the id list the menu is built
-    /// from instead (MARXY-184): exactly the expected custom ids, and nothing document-specific
-    /// (no operation id, no `op.*`, no view-mode or save command) among them.
+    /// A real `Menu` needs a running app on the main thread, so this walks `app_menu::MENU`, the
+    /// table `build_app_menu` builds from item for item (MARXY-184 criterion 4). It fails if an item
+    /// of marxy's own is added — Save, a view mode, an operation — or if one has no action, and if
+    /// Edit stops being the OS's own items.
     #[cfg(target_os = "macos")]
     #[test]
-    fn the_native_menu_carries_only_the_expected_ids() {
-        use super::app_menu::{CLOSE_WINDOW, ITEM_IDS, OPEN_FILE, QUIT};
+    fn the_native_menu_carries_only_the_expected_items() {
+        use super::app_menu::{action_for, Action, Entry, CLOSE_WINDOW, MENU, OPEN_FILE, QUIT};
 
-        let expected: std::collections::BTreeSet<&str> =
-            [QUIT, OPEN_FILE, CLOSE_WINDOW].into_iter().collect();
-        let actual: std::collections::BTreeSet<&str> = ITEM_IDS.iter().copied().collect();
-        assert_eq!(actual, expected);
+        let titles: Vec<&str> = MENU.iter().map(|(title, _)| *title).collect();
+        assert_eq!(titles, ["Marxy", "File", "Edit", "Window"]);
 
-        let document_specific = ["save", "save-as", "mode", "rendered", "source", "op."];
-        for id in ITEM_IDS {
-            for needle in document_specific {
-                assert!(
-                    !id.contains(needle),
-                    "menu item id {id:?} looks document-specific (matches {needle:?})"
-                );
-            }
-        }
+        let own: Vec<(&str, &str)> = MENU
+            .iter()
+            .flat_map(|(_, entries)| entries.iter())
+            .filter_map(|entry| match entry {
+                Entry::Own(id, _, accelerator) => Some((*id, *accelerator)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            own,
+            [
+                (QUIT, "CmdOrCtrl+Q"),
+                (OPEN_FILE, "CmdOrCtrl+O"),
+                (CLOSE_WINDOW, "CmdOrCtrl+W")
+            ],
+            "the menu's own items are Quit, Open File… and Close Window, and nothing else"
+        );
+        assert_eq!(action_for(QUIT), Some(Action::Quit));
+        assert_eq!(action_for(CLOSE_WINDOW), Some(Action::Quit));
+        assert_eq!(action_for(OPEN_FILE), Some(Action::OpenFile));
+        assert_eq!(action_for("marxy-save"), None);
+
+        let (_, edit) = MENU.iter().find(|(title, _)| *title == "Edit").unwrap();
+        assert!(
+            edit.iter().all(|entry| !matches!(entry, Entry::Own(..))),
+            "Edit is the OS's own items, never hand-built ones"
+        );
     }
 }
