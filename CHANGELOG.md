@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The aesthetics gate now walks every text-bearing colour pair and every text-on-tint token pair (including user themes under `fixtures/themes`), renders the corpus at 320 px and 400 % zoom and under forced colours, higher contrast and reduced motion, and refuses horizontal page scroll; the base stylesheet carries the three media-query blocks those passes expect (MARXY-241)
 - ADR-0035 is accepted and the theme contract adds four diff colour tokens (`--marxy-color-diff-add`, `--marxy-color-diff-del`, `--marxy-color-diff-add-word`, `--marxy-color-diff-del-word`) with dark defaults from ADR-0036; the marker stays the primary cue (MARXY-232)
 - The palette searches the repository index built at idle from `readDir` and `setIndexEntries` (MARXY-196).
 - The fleet no longer dispatches a story whose pull request already merged on main: the cycle reads squash subjects once, settles missing or todo rows as done, and ready refuses the key by name (MARXY-213)
