@@ -29,11 +29,11 @@ import { board, commit, story, timing, returnEvents, unknownModelKeys, fold, sna
 import { planAt } from './plan.mjs';
 import {
   approvalPath, notesPath, resultPath, fleetPath, readEvents, readJsonOr, writeJsonAtomic, writeTextAtomic,
-  loopLeasePath, cycleLockPath, eventsPath, fleetDir,
+  loopLeasePath, cycleLockPath, eventsPath, fleetDir, runFile,
 } from './store.mjs';
 import { signApproval, approvalHoldReason } from './approve.mjs';
 import { gh, read, stillRunning, LIMIT } from './proc.mjs';
-import { readLease, leaseHeld, acquireLock, releaseLock } from './lease.mjs';
+import { readLease, leaseHeld, acquireLock, releaseLock, cycleHealth } from './lease.mjs';
 
 const who = () => process.env.MARXY_ACTOR ?? `${userInfo().username} via fleet.mjs`;
 
@@ -275,16 +275,30 @@ const commands = {
     if (events.length > 200_000) problems.push(`the event log holds ${events.length} events; compact it with fleet.mjs compact (ADR-0034, "How we would know this was wrong" 4)`);
     const report = readJsonOr(fleetPath('report.json'));
     const ageMin = report?.at ? (Date.now() - Date.parse(report.at)) / 60_000 : null;
-    if (loop && leaseHeld(loop) === true && (ageMin == null || ageMin > 10)) problems.push(`the loop is running but the last cycle report is ${ageMin == null ? 'missing' : `${Math.round(ageMin)} min old`}: every cycle is failing or hanging — tail ${fleetPath('loop.log')}`);
+    let m = {};
     let unknown = [];
-    try { unknown = unknownModelKeys(readJson(here('models.json'))); } catch (e) { problems.push(`models.json does not parse: ${e.message}`); }
+    try { m = readJson(here('models.json')); unknown = unknownModelKeys(m); } catch (e) { problems.push(`models.json does not parse: ${e.message}`); }
+    // The same judgement as doctor.mjs: a stale report is hung, failing, or only a machine that slept.
+    const stuckMin = m.stuckCycleMinutes ?? 30;
+    const health = cycleHealth({
+      loopHeld: loop ? leaseHeld(loop) : false, cycle: { lease: lock, held: lock ? leaseHeld(lock) : false },
+      reportAgeMin: ageMin ?? Infinity, last: readJsonOr(fleetPath('loop.last.json'), null), stuckMin,
+    });
+    if (health?.level === 'fail') problems.push(`${health.msg} — tail ${fleetPath('loop.log')}`);
+    else if (health) say(`· ${health.msg}`);
     if (unknown.length) problems.push(`models.json has settings nothing reads (misspelt?): ${unknown.join(', ')}`);
     const b = board();
     const now = Date.now();
     for (const [id, r] of Object.entries(b.runs)) {
       if (r.ended) continue;
       const alive = stillRunning({ pid: r.pid, match: r.match });
-      if (!alive) problems.push(`run ${id} has no live worker; the next cycle finishes it`);
+      // A worker that wrote its exit record ended normally and waits for the next cycle to read it;
+      // only one gone without a record, or unread past a stuck cycle, is a problem (MARXY-273).
+      const exit = alive ? null : readJsonOr(runFile(id, 'exit.json'), null);
+      const unread = exit?.endedAt ? (now - Date.parse(exit.endedAt)) / 60_000 : null;
+      if (!alive && (unread == null || unread > stuckMin)) {
+        problems.push(exit ? `run ${id} ended ${Math.round(unread)} min ago and no cycle has read it` : `run ${id} has no live worker and left no exit record; the next cycle finishes it`);
+      }
       else if (now > Date.parse(r.deadline) + 10 * 60_000) problems.push(`run ${id} is past its deadline and still running; the next cycle stops it`);
     }
     const status = existsSync(fleetPath('status.md')) ? readFileSync(fleetPath('status.md'), 'utf8') : '';
