@@ -20,6 +20,7 @@ import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { runDeferredStartup, whenIdle } from './startup/idle-work.ts';
 import { currentPosition, restoreScrollToPosition } from './position/index.ts';
 import { defaultModeForPath } from './source/default-mode.ts';
+import type { PieceSource } from './frontispiece/pieces.ts';
 
 /** Minimal surface used by the shell; CM6 types stay on the lazy chunk (MARXY-33). */
 interface MountedSourceEditor {
@@ -728,6 +729,46 @@ async function openReplacing(file: string, at?: number): Promise<void> {
   }
 }
 
+/** The pieces a launch with no document chooses from; null is the bundled Commonplace (MARXY-256). */
+let frontispiecePieces: readonly PieceSource[] | null = null;
+
+/**
+ * One Commonplace piece, through the one parse and the sanitiser, into `#doc` (MARXY-257). Returns its
+ * name, or null when there is none to show — no pieces bundled, or one that could not be read — and
+ * the caller shows the hint instead.
+ */
+async function showFrontispiece(doc: HTMLElement): Promise<string | null> {
+  try {
+    const frontispiece = await import('./frontispiece/index.ts');
+    const piece = await frontispiece.renderPiece(frontispiecePieces ?? frontispiece.bundledPieces);
+    if (!piece) return null;
+    assignHtml(doc, piece.html);
+    stripNonLocalImages(doc, piece.file);
+    frontispiece.shape(doc, piece.matter);
+    return piece.name;
+  } catch (e) {
+    console.warn(`marxy: no frontispiece: ${String(e)}`);
+    doc.replaceChildren();
+    return null;
+  }
+}
+
+/**
+ * The frontispiece set like a page, after `no_document`: the grid pass and the typesetter for its
+ * prose (the typesetter never sets verse), and highlighting for a code piece. The next open's
+ * teardown stops all of it, as it does a document's.
+ */
+function setFrontispiece(doc: HTMLElement): void {
+  keepOnGrid(doc);
+  startTypeset(doc);
+  const root = doc.querySelector('.marxy-frontispiece');
+  if (!root?.querySelector('pre')) return;
+  void whenIdle(async () => {
+    const { startCodeHighlight } = await import('./render/highlight.ts');
+    if (root.isConnected) startCodeHighlight(doc);
+  });
+}
+
 async function boot(): Promise<void> {
   await shell.mark('script_start', t0);
   // Before anything is laid out, so no weight is set twice. The shell-api has webkitVersion() since
@@ -745,9 +786,13 @@ async function boot(): Promise<void> {
 
   // No document means no `first_text`: nothing was read, so a launch like this must not be able to
   // hand the startup measurement a cold-start number.
+  // A passage from the Commonplace is shown, not opened: no path, no buffer, no watch, no Source mode
+  // and no reading position, so the palette and every open replace it as they would the hint.
   if (!file) {
-    assignHtml(doc, '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>');
-    await shell.mark('no_document', Date.now());
+    const piece = await showFrontispiece(doc);
+    if (!piece) assignHtml(doc, '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>');
+    await shell.mark('no_document', Date.now(), piece ? `piece=${piece}` : undefined);
+    if (piece) setFrontispiece(doc);
     return finish(0);
   }
 
@@ -791,11 +836,16 @@ async function boot(): Promise<void> {
 
 /**
  * Everything main.ts used to do after it had a shell. `opts.argv` overrides `shell.args` so the
- * browser harness can name a document without Tauri.
+ * browser harness can name a document without Tauri; `opts.pieces` replaces the bundled Commonplace,
+ * so it can launch with no document against pieces of its own, or none.
  */
-export async function startApp(injected: AppShell, opts?: { argv?: readonly string[] }): Promise<AppHandle> {
+export async function startApp(
+  injected: AppShell,
+  opts?: { argv?: readonly string[]; pieces?: readonly PieceSource[] },
+): Promise<AppHandle> {
   shell = injected;
   launchArgs = opts?.argv ? [...opts.argv] : [];
+  frontispiecePieces = opts?.pieces ?? null;
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
     if (file) void replaceOpenDocument(file);
