@@ -4,6 +4,8 @@ mod atomic_write;
 mod commands;
 mod error;
 mod watch;
+#[path = "watch/spawn_notify.rs"]
+mod watch_notify;
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -208,8 +210,8 @@ fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
     let _ = app.emit("fs-watch", payload);
 }
 
-/// Starts (or shares) one polling thread per canonical root; events go to `fs-watch`. Async, so the
-/// first scan of a large tree and the join of a stopping thread run off the main thread.
+/// Starts (or shares) one `notify` thread per canonical root; events go to `fs-watch`. Async, so
+/// registering watches and joining a stopping thread run off the main thread.
 #[tauri::command]
 async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
     let key = canonical_watch_root(&root)?;
@@ -219,7 +221,7 @@ async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
         return Ok(());
     }
     let app_handle = app.clone();
-    let running = watch::spawn_poll_thread(PathBuf::from(&key), move |events| {
+    let running = watch_notify::spawn_poll_thread(PathBuf::from(&key), move |events| {
         emit_fs_watch(&app_handle, events);
     })?;
     table.insert(key, WatchEntry { running, refs: 1 });
