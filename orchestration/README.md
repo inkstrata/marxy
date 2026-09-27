@@ -41,7 +41,9 @@ the next loop finishes whatever ended while it was away.
 ## The loop
 
 1. **Ready.** Before dispatch, `ready.mjs` lists every todo story whose phase and dependencies are
-   settled and whose paths do not overlap work in flight. A worktree whose branch names a key, with
+   settled and whose paths do not overlap work in flight. A key whose squash commit `(KEY) (#n)` is on
+   `main` is settled from `main` and never dispatched; if the board thinks it is still live, the
+   cycle names it and writes nothing. A worktree whose branch names a key, with
    recent activity and commits or uncommitted work, holds that key's paths until its pull request
    opens, and `ready.mjs` names the blocker (`worktree holds`). A blocked or escalated story's
    worktree does not reserve paths; the files stay for the next attempt. A worktree whose key has no
