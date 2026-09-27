@@ -270,9 +270,13 @@ test('a claim past its expiry lapses to todo, and work left behind is named', ()
 
 test('the planner starts when due and off cooldown; a run that ended reads the escalations before it', () => {
   const w = world({ rows: [row('MARXY-1', 'a')], lastPlan: null });
-  w.run();
+  const held = w.run();
   assert.deepEqual(started(w.calls, 'plan'), ['planner']);
   assert.equal(started(w.calls, 'implement').length, 0, 'never planned holds dispatch');
+  // While dispatch waits, readiness still reports what would start (MARXY-273: it threw every cycle).
+  assert.ok(!held.attention.some(a => /readiness/.test(a.why)), JSON.stringify(held.attention));
+  assert.equal(held.ready?.held, true);
+  assert.deepEqual(held.ready.ready.map(x => x.key), ['MARXY-1']);
   const read = world({
     rows: [row('MARXY-1', 'a'), row('MARXY-2', 'b')],
     stories: { 'MARXY-2': { status: 'escalate', attempts: 3, blockedAt: minutesAgo(300) } },

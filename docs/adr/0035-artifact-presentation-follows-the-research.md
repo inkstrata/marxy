@@ -1,6 +1,6 @@
 # ADR-0035 — Artifact presentation follows the reader-artifacts research; where two handbooks meet, the owner of the property decides
 
-**Status:** proposed (MARXY-211) · **Source:** `docs/research/reader-artifacts/` (the Reader Artifacts
+**Status:** accepted 2026-09-26 (MARXY-232) · **Source:** `docs/research/reader-artifacts/` (the Reader Artifacts
 Handbook), `docs/research/reader-typography/` (ADR-0033) · **Extends:** ADR-0033 (which made the
 typography handbook the authority for typography) · **Supersedes:** nothing; no value changes here
 

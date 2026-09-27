@@ -29,7 +29,7 @@ import {
 import {
   CODE_ROOT, resultPath, approvalPath, notesPath, runFile, writeJsonAtomic, writeTextAtomic, readJsonOr, cycleLockPath, fleetPath,
 } from './store.mjs';
-import { planAt, showAt, CSV_PATH, DEPS_PATH } from './plan.mjs';
+import { planAt, showAt } from './plan.mjs';
 import { observeWorktrees, observeRuns, fetchOrigin } from './observe.mjs';
 import { selectReady, resolveClaims, mergedOnMain } from './ready.mjs';
 import { verbEvents } from './state.mjs';
@@ -49,7 +49,7 @@ import { plannerReasons, blocksDispatch } from './planner-trigger.mjs';
 import { writeReport } from './report.mjs';
 import { pushDue } from './mirror.mjs';
 import { defaultCanvasDir, gatherCanvasData, writeCanvases } from './canvases.mjs';
-import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
+import { BOARD_FILES, branchBoundary } from '../scripts/lib/own-row.mjs';
 
 /** A landed PR whose files add a plan delta is the planner's own output (MARXY-200). */
 export const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
@@ -185,9 +185,8 @@ export function liveIo({ m, dry = false }) {
     logTail: id => tailOf(runFile(id, 'out.log')),
     prFacts: (key, pr, plan) => {
       const branch = pr.headRefName;
-      const boundary = reviewBoundary(key, {
-        baseCsv: showAt('origin/main', CSV_PATH) ?? '', headCsv: showAt(`origin/${branch}`, CSV_PATH) ?? '',
-        baseDeps: showAt('origin/main', DEPS_PATH) ?? '{}', headDeps: showAt(`origin/${branch}`, DEPS_PATH) ?? '{}',
+      const boundary = branchBoundary(key, {
+        show: showAt, head: `origin/${branch}`, forkPoint: gitOut(['merge-base', 'origin/main', `origin/${branch}`]),
       });
       const row = boundary?.story ?? plan.byKey.get(key) ?? null;
       const diff = gitOut(['diff', '--name-only', `origin/main...origin/${branch}`]);
@@ -539,7 +538,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     // Still say what would be ready and why the rest wait, so status.md does not read "Ready (0)"
     // beside a column of todo while the fleet is only waiting on the planner.
     guard('readiness', null, () => {
-      const claims = pathHolds({ board: b, plan, worktrees, t, nowMs });
+      const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
       readyReport = {
         ...selectReady({
           all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
