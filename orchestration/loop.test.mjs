@@ -119,3 +119,34 @@ test('MARXY_RUNNER=0 runs this checkout and creates no runner', () => {
   assert.equal(r.ranFrom(), join(r.home, 'orchestration'));
   assert.equal(existsSync(r.runner), false);
 });
+
+// 2026-09-27: one cycle hung for 513 minutes and the loop waited on it the whole time (MARXY-273).
+test('a cycle that runs past CYCLE_TIMEOUT is stopped, and the loop records how it ended', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'marxy-loop-timeout-'));
+  mkdirSync(join(root, 'orchestration'));
+  copyFileSync(join(import.meta.dirname, 'loop.sh'), join(root, 'orchestration/loop.sh'));
+  writeFileSync(join(root, 'orchestration/cycle.mjs'), 'setInterval(() => {}, 1000);\n');
+  const fleet = join(root, 'fleet');
+  const env = { ...process.env, ONCE: '1', CYCLE_TIMEOUT: '1', MARXY_FLEET_DIR: fleet, MARXY_RUNNER: '0', PATH: `${dirname(process.execPath)}:${process.env.PATH}` };
+  const loop = spawn('bash', [join(root, 'orchestration/loop.sh'), 'run'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  loop.stdout.on('data', d => { out += d; });
+  const code = await Promise.race([new Promise(r => loop.on('exit', r)), new Promise(r => setTimeout(() => r('hung'), 20_000))]);
+  loop.kill('SIGKILL');
+  assert.equal(code, 0, `the loop came back from the hung cycle: ${out}`);
+  assert.match(out, /ran past 1s; stopping it/);
+  const last = JSON.parse(readFileSync(join(fleet, 'loop.last.json'), 'utf8'));
+  assert.equal(last.rc, 124);
+  assert.ok(Date.parse(last.ended) >= Date.parse(last.started));
+});
+
+test('a cycle that finishes records its exit code', () => {
+  const root = mkdtempSync(join(tmpdir(), 'marxy-loop-rc-'));
+  mkdirSync(join(root, 'orchestration'));
+  copyFileSync(join(import.meta.dirname, 'loop.sh'), join(root, 'orchestration/loop.sh'));
+  writeFileSync(join(root, 'orchestration/cycle.mjs'), 'process.exitCode = 3;\n');
+  const fleet = join(root, 'fleet');
+  const env = { ...process.env, ONCE: '1', MARXY_FLEET_DIR: fleet, MARXY_RUNNER: '0', PATH: `${dirname(process.execPath)}:${process.env.PATH}` };
+  execFileSync('bash', [join(root, 'orchestration/loop.sh'), 'run'], { cwd: root, env, stdio: 'ignore' });
+  assert.equal(JSON.parse(readFileSync(join(fleet, 'loop.last.json'), 'utf8')).rc, 3);
+});

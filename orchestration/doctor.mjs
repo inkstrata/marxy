@@ -10,9 +10,9 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, stories, models, pathsOf, overlap, laneBudget } from './lib.mjs';
 import { board, commit, timing } from './machine.mjs';
-import { leaseHeld, readLease, ageMinutes, acquireLock, releaseLock } from './lease.mjs';
-import { observeWorktrees, observeRuns, pathHolds } from './observe.mjs';
-import { selectReady } from './ready.mjs';
+import { leaseHeld, readLease, ageMinutes, acquireLock, releaseLock, cycleHealth } from './lease.mjs';
+import { observeWorktrees, observeRuns } from './observe.mjs';
+import { selectReady, resolveClaims } from './ready.mjs';
 import { plannerReasons } from './planner-trigger.mjs';
 import { planAt } from './plan.mjs';
 import { finishRun } from './runs.mjs';
@@ -43,6 +43,13 @@ export function surveyInflight({ b, runObs, worktrees, t, nowMs = Date.now() }) 
       items.push({ key, verdict: VERDICT.LIVE, why: `${run.role} running until ${run.deadline}`, rec: b.stories[run.key] });
       continue;
     }
+    // A worker that wrote its exit record ended normally; the next cycle reads it. That is the
+    // ordinary gap between a run ending and a cycle, not a death (MARXY-273).
+    const endedMin = obs.exit ? ageMinutes(obs.exit.endedAt, nowMs) : null;
+    if (endedMin != null && endedMin <= staleMin) {
+      items.push({ key, verdict: VERDICT.LIVE, why: `${run.role} finished ${Math.round(endedMin)} min ago; the next cycle reads it`, rec: b.stories[run.key] });
+      continue;
+    }
     const wt = run.key ? wtOf(run.key) : null;
     const worked = producedWork({ ahead: wt?.ahead ?? 0, dirty: wt?.dirty ?? false }, obs.logBytes);
     items.push({
@@ -58,7 +65,9 @@ export function surveyInflight({ b, runObs, worktrees, t, nowMs = Date.now() }) 
     const left = [wt?.ahead > 0 && `${wt.ahead} commit(s)`, wt?.dirty && 'uncommitted changes'].filter(Boolean);
     const since = Math.max(Date.parse(rec.started ?? '') || 0, wt?.lastActivityMs ?? 0);
     const quietMin = Math.round(ageMinutes(new Date(since).toISOString(), nowMs));
-    if (Number(rec.pr) > 0) items.push({ key, verdict: VERDICT.LIVE, why: `PR #${rec.pr} is open`, rec });
+    // A claim is a person or session saying they own it until then (out-of-plan work, `fleet claim`).
+    if (rec.claim?.until && Date.parse(rec.claim.until) > nowMs) items.push({ key, verdict: VERDICT.LIVE, why: `claimed by ${rec.claim.by} until ${rec.claim.until}`, rec });
+    else if (Number(rec.pr) > 0) items.push({ key, verdict: VERDICT.LIVE, why: `PR #${rec.pr} is open`, rec });
     else if (quietMin < staleMin) items.push({ key, verdict: VERDICT.LIVE, why: `last activity ${quietMin} min ago`, rec });
     else {
       items.push({
@@ -83,8 +92,13 @@ export function diagnose(x) {
   if (x.loop.held === true) add('ok', 'loop', `running, pid ${x.loop.lease.pid} since ${x.loop.lease.started}`);
   else if (x.loop.lease) add('warn', 'loop', `not running; its lease (pid ${x.loop.lease.pid}) outlived it`, './orchestration/loop.sh start --minimal');
   else add('warn', 'loop', 'not running — nothing merges or dispatches until a cycle runs', './orchestration/loop.sh start --minimal');
-  if (x.statusAgeMinutes != null && x.loop.held === true && x.statusAgeMinutes > x.stuckCycleMinutes) {
-    add('fail', 'loop', `running, but status.md is ${Math.round(x.statusAgeMinutes)} min old — a cycle is hung`, `tail ${fleetDir()}/loop.log; ./orchestration/loop.sh stop && ./orchestration/loop.sh start --minimal`);
+  const health = cycleHealth({
+    loopHeld: x.loop.held, cycle: x.cycle, reportAgeMin: x.statusAgeMinutes, last: x.lastCycle, stuckMin: x.stuckCycleMinutes, nowMs: x.nowMs,
+  });
+  if (health) {
+    add(health.level, 'loop', health.msg, health.level === 'fail'
+      ? `tail ${fleetDir()}/loop.log; ./orchestration/loop.sh stop && ./orchestration/loop.sh start --minimal`
+      : undefined);
   }
 
   if (x.cycle.lease && x.cycle.held === false) add('warn', 'cycle', `lock left by a cycle that died (pid ${x.cycle.lease.pid})`, 'node orchestration/doctor.mjs --fix');
@@ -112,7 +126,10 @@ export function diagnose(x) {
   if (r.ready.length) add('ok', 'ready', `${r.ready.length} ready: ${r.ready.map(s => s.key).join(', ')}`);
   else if (x.todo > 0) {
     const holders = Object.entries(x.holders).map(([k, by]) => `${k} ← ${by.join(', ')}`);
-    const dead = x.inflight.filter(i => i.verdict !== VERDICT.LIVE).map(i => i.key);
+    // Only a stalled story that holds a waiting story's paths is why nothing is ready; the rest are
+    // already named on their own line.
+    const holding = new Set(Object.values(x.holders).flat().map(h => h.split(' ')[0]));
+    const dead = x.inflight.filter(i => i.verdict !== VERDICT.LIVE && holding.has(i.key)).map(i => i.key);
     const level = dead.length ? 'fail' : 'warn';
     add(level, 'ready', `nothing ready of ${x.todo} todo: ${r.blockedByPaths.length} wait on paths, ${r.blockedByDeps.length} on deps, ${r.blockedByLanes.length} on lanes`
       + (holders.length ? `; paths held: ${holders.join('; ')}` : '')
@@ -138,7 +155,7 @@ export function snapshot({ m = models(), b = board(), nowMs = Date.now() } = {})
   const all = plan.rows ?? stories();
   const statusOf = k => b.stories[k]?.status ?? 'todo';
   const worktrees = observeWorktrees();
-  const claims = pathHolds({ board: b, plan, worktrees, t, nowMs });
+  const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
   const ready = selectReady({
     all, s: b, d: plan.deps, cap: laneBudget(m), claims, extraAllowed: plan.extraAllowed ?? [],
   });
@@ -171,6 +188,8 @@ export function snapshot({ m = models(), b = board(), nowMs = Date.now() } = {})
     planner,
     statusAgeMinutes: existsSync(statusPath) ? ageMinutes(new Date(statSync(statusPath).mtimeMs).toISOString(), nowMs) : null,
     stuckCycleMinutes: m.stuckCycleMinutes ?? 30,
+    lastCycle: readJsonOr(fleetPath('loop.last.json'), null),
+    nowMs,
     main: { branch: git(['branch', '--show-current']), ahead: counts[0] || 0, behind: counts[1] || 0 },
     inflight: surveyInflight({ b, runObs, worktrees, t, nowMs }),
     parked: Object.entries(b.stories ?? {}).filter(([, rec]) => rec.status === 'blocked' && rec.parkedReason).map(([key, rec]) => ({ key, reason: rec.parkedReason })),
