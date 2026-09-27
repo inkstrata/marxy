@@ -12,6 +12,9 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { pathsOf, overlap, laneBudget, hasLabel, models } from './lib.mjs';
 import { occupies } from './machine.mjs';
+import { liveClaims } from './worktrees.mjs';
+import { rowOnBranch } from './plan.mjs';
+import { repoHome, CODE_ROOT } from './store.mjs';
 
 /** Named definition-of-ready refusals, so a test can assert the exact rule. */
 export const RULE = {
@@ -23,7 +26,21 @@ export const RULE = {
   LANE_LIMIT: 'lane limit',
   YIELDS_TO_PRODUCT: 'yields to product',
   WORKTREE_HOLDS: 'worktree holds',
+  MERGED_ON_MAIN: 'merged on main',
 };
+
+const MERGED_SUBJECT_RE = /\((MARXY-\d+)\) \(#(\d+)\)$/;
+
+/** Keys whose squash commit is on main, from `git log origin/main --format=%s` (newest first). */
+export function mergedOnMain(subjects) {
+  const out = new Map();
+  for (const subject of subjects) {
+    const m = MERGED_SUBJECT_RE.exec(subject);
+    if (!m || out.has(m[1])) continue;
+    out.set(m[1], Number(m[2]));
+  }
+  return out;
+}
 
 const phaseOfIn = (d, key) => {
   for (const [phase, keys] of Object.entries(d.phases ?? {})) if ((keys ?? []).includes(key)) return Number(phase);
@@ -42,11 +59,61 @@ function earlierPhaseOpen(phase, d, statusOf) {
 }
 
 /**
+ * Path holds for dispatch: unexpired claims on the board, plus active worktrees (recent activity)
+ * whose keys are not done, blocked, or escalated (`liveClaims`, MARXY-220).
+ */
+export function resolveClaims({ board, plan, worktrees = [], t, nowMs = Date.now(), orchestratorPath = repoHome() }) {
+  const holds = [];
+  for (const [key, rec] of Object.entries(board.stories ?? {})) {
+    if (rec.claim?.paths?.length && Date.parse(rec.claim.until) > nowMs) {
+      holds.push({ key, paths: rec.claim.paths, why: `claimed by ${rec.claim.by}` });
+    }
+  }
+  const statusOf = k => board.stories[k]?.status;
+  const isDone = k => statusOf(k) === 'done';
+  const orch = resolve(orchestratorPath);
+  const entries = [];
+  for (const w of worktrees) {
+    if (resolve(w.path) === resolve(orch) || resolve(w.path) === resolve(CODE_ROOT)) continue;
+    if (!w.dirty && !(w.ahead > 0)) continue;
+    const idleMin = w.lastActivityMs == null ? Infinity : (nowMs - w.lastActivityMs) / 60_000;
+    if (idleMin > t.activeWorktreeMinutes) continue;
+    entries.push({
+      path: w.path,
+      branch: w.branch,
+      dirty: w.dirty,
+      ahead: w.ahead,
+      usable: true,
+      prState: w.prState ?? null,
+    });
+  }
+  const rowsOf = (key, wtPath) => {
+    const w = worktrees.find(x => resolve(x.path) === resolve(wtPath));
+    return plan.byKey.get(key) ?? rowOnBranch(w?.branch, key);
+  };
+  for (const c of liveClaims(entries, { orchestratorPath, rowsOf, isDone, statusOf })) {
+    if (c.paths?.length) {
+      const idleMin = (() => {
+        const w = worktrees.find(x => x.key === c.key);
+        return w?.lastActivityMs == null ? null : Math.round((nowMs - w.lastActivityMs) / 60_000);
+      })();
+      holds.push({
+        key: c.key,
+        paths: c.paths,
+        path: c.path,
+        why: idleMin == null ? 'worktree active' : `worktree active ${idleMin} min ago`,
+      });
+    } else if (c.reason) holds.push(c);
+  }
+  return holds;
+}
+
+/**
  * Classify every todo story and pick those that may start.
  * `all` rows, `s` the board, `d` deps/phases, `cap` the dispatch WIP limit (Infinity = uncapped),
  * `claims` path holds that are not board statuses: `{ key, paths, path?, why? }`.
  */
-export function selectReady({ all, s, d, cap = Infinity, claims = [], nowMs = Date.now(), extraAllowed } = {}) {
+export function selectReady({ all, s, d, cap = Infinity, claims = [], nowMs = Date.now(), extraAllowed, merged = new Map() } = {}) {
   const rec = k => s.stories?.[k];
   const statusOf = k => rec(k)?.status ?? 'todo';
   const done = k => statusOf(k) === 'done';
@@ -84,11 +151,20 @@ export function selectReady({ all, s, d, cap = Infinity, claims = [], nowMs = Da
   // already under way, reserves its paths against ops work; one waiting on a story that has not
   // started reserves nothing, so an ops story it depends on is never held by it.
   const underway = k => done(k) || busyRec(k);
-  const reserved = all.filter(st => inPhase(st) && statusOf(st.Key) === 'todo' && !refusal(st) && phaseOpen(st)
-    && depsOf(st.Key).every(underway));
+  const reserved = all.filter(st => {
+    if (merged.has(st.Key) && !done(st.Key)) return false;
+    return inPhase(st) && statusOf(st.Key) === 'todo' && !refusal(st) && phaseOpen(st)
+      && depsOf(st.Key).every(underway);
+  });
 
   for (const st of all) {
     if (statusOf(st.Key) !== 'todo') continue;
+    const prOnMain = merged.get(st.Key);
+    if (prOnMain != null && !done(st.Key)) {
+      excluded.push({ key: st.Key, rule: RULE.MERGED_ON_MAIN, pr: prOnMain });
+      waits[st.Key] = RULE.MERGED_ON_MAIN;
+      continue;
+    }
     const rule = refusal(st);
     if (rule) {
       excluded.push({ key: st.Key, rule });
@@ -163,12 +239,15 @@ export function selectReady({ all, s, d, cap = Infinity, claims = [], nowMs = Da
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const { planAt } = await import('./plan.mjs');
   const { board, timing } = await import('./machine.mjs');
-  const { pathHolds, observeWorktrees } = await import('./observe.mjs');
+  const { observeWorktrees } = await import('./observe.mjs');
+  const { read, LIMIT } = await import('./proc.mjs');
   const plan = planAt();
   const b = board();
   const m = models();
-  const claims = pathHolds({ board: b, plan, worktrees: observeWorktrees(), t: timing(m) });
+  const claims = resolveClaims({ board: b, plan, worktrees: observeWorktrees(), t: timing(m) });
+  const subjects = read('git', ['log', 'origin/main', '--format=%s'], { cwd: CODE_ROOT, timeoutMs: LIMIT.git })?.split('\n').filter(Boolean) ?? [];
   console.log(JSON.stringify(selectReady({
     all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, extraAllowed: plan.extraAllowed,
+    merged: mergedOnMain(subjects),
   }), null, 2));
 }
