@@ -43,9 +43,9 @@ export interface Policy {
   /** Named so a removal report and a test failure can say which allow-list made the decision. */
   readonly name: string;
   /**
-   * When set, `id` and `name` values with this prefix (case-insensitive) are refused on elements
-   * that carry no byte provenance — islands only; renderer output is judged in a pass that clears
-   * this field (§12).
+   * When set, `id` and `name` values with this prefix (case-insensitive) are refused unless the
+   * element carries this pass's secret provenance names (ADR-0023, ADR-0036 P02). Public
+   * `data-marxy-s`/`e` do not exempt a tag; `withProvenance` no longer clears this field.
    */
   readonly reservedIdPrefix?: string;
   /** Elements that reach the DOM. Anything absent is removed with its subtree. */

@@ -112,10 +112,10 @@ const MARXY_229_RESERVED: readonly { readonly id: string; readonly html: string;
   },
   {
     id: 'marxy-class',
-    html: '<code class="marxy-katex other">x</code>',
+    html: '<code class="marxy-katex language-js">x</code>',
     assert: (out) => {
       assert.doesNotMatch(out, /marxy-katex/);
-      assert.match(out, /<code[^>]*>x<\/code>/);
+      assert.match(out, /<code[^>]*class="language-js"[^>]*>x<\/code>/);
     },
   },
   {

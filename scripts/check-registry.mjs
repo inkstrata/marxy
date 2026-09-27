@@ -41,13 +41,14 @@ export function constructedRegistryNameProblems(rel, text) {
   if (/data-marxy-\$\{['"]/.test(text)) {
     problems.push(`${rel}: data-marxy-* attribute name built with a template literal${fix('spell the registered name literally, e.g. data-marxy-remote')}`);
   }
-  if (/(?:['"]data-marxy-['"]\s*\+|\+\s*['"][a-z-]+['"]\s*.*data-marxy|data-marxy-['"]\s*\.concat\s*\()/.test(text)) {
+  if (/(?:['"]data-marxy-['"]\s*\+|['"]data-marxy-['"]\s*\.concat\s*\()/.test(text)) {
     problems.push(`${rel}: data-marxy-* attribute name built by concatenation${fix('spell the registered name literally')}`);
   }
-  if (/marxy-\$\{['"]/.test(text)) {
+  // `(?<!data-)` so `data-marxy-${'remote'}` is one finding, not also a generic marxy- hit.
+  if (/(?<!data-)marxy-\$\{['"]/.test(text)) {
     problems.push(`${rel}: marxy-* name built with a template literal${fix('use a literal registered class or data attribute')}`);
   }
-  if (/(?:['"]marxy-['"]\s*\+|marxy-['"]\s*\.concat\s*\()/.test(text)) {
+  if (/(?:['"]marxy-['"]\s*\+|['"]marxy-['"]\s*\.concat\s*\()/.test(text)) {
     problems.push(`${rel}: marxy-* name built by concatenation${fix('use a literal registered class or data attribute')}`);
   }
   return problems;

@@ -57,8 +57,20 @@ test('Reflect.set with inner+HTML string concat is flagged', () => {
 
 test('MARXY-229: a template-literal data-marxy- attribute name is flagged', () => {
   const problems = constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const X = `data-marxy-${'remote'}`;");
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /template literal/);
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /data-marxy-\* attribute name built with a template literal/);
+});
+
+test('MARXY-229: a concatenated data-marxy- attribute name is flagged', () => {
+  const problems = constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const X = 'data-marxy-' + 'remote';");
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /data-marxy-\* attribute name built by concatenation/);
+});
+
+test('MARXY-229: a template-literal marxy- class name is flagged', () => {
+  const problems = constructedRegistryNameProblems('packages/core/src/render/render-html.ts', "el.className = `marxy-${'katex'}`;");
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /marxy-\* name built with a template literal/);
 });
 
 test('MARXY-229: a literal registered data-marxy- name is not a construction violation', () => {
