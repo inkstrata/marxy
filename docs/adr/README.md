@@ -42,3 +42,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0035](0035-artifact-presentation-follows-the-research.md) | Artifact presentation follows the reader-artifacts research; where two handbooks meet, the owner of the property decides | proposed (MARXY-211) |
 | [0036](0036-artifact-units.md) | Artifact units: what the renderer keeps, reports, marks and copies (the handbook's 17 drafts: 8 adopted, 2 declined, 3 deferred, 4 need no decision) | accepted 2026-09-26 |
 | [0037](0037-one-document-store.md) | One document store: the open document has one owner, and changes are transitions | proposed (MARXY-248) |
+| [0038](0038-window-controls.md) | The shell can hide the window controls at rest | proposed (MARXY-268) |

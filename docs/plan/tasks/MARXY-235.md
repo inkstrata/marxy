@@ -12,7 +12,7 @@ verify: [pnpm precheck, pnpm done MARXY-235]
 **Outcome.** A diff in a plan or transcript shows added and removed lines at a glance, and still reads in greyscale because the `+` and `-` do the work; a console session reads as prompt and output; a log's ERROR stands out by weight; terminal escapes are visible instead of silent.
 
 ## What is wrong today
-Handbook [03](../../research/reader-artifacts/03-structured-output.md), [05](../../research/reader-artifacts/05-diffs-provenance.md), [09](../../research/reader-artifacts/09-colour-access.md); probe `ansi-in-fence`. Tint values are measured (chapter 9), not taste.
+Handbook [03](../../research/reader-artifacts/03-structured-output.md), [05](../../research/reader-artifacts/05-diffs-provenance.md), [09](../../research/reader-artifacts/09-colour-access.md); probe `ansi-in-fence`. Tint values are measured (chapter 9), not taste. Declare the four diff tokens inside `:root[data-marxy-variant="light"]` in `packages/theme/default/theme.css`. That declaration is what makes the aesthetics gate walk them on the light page (MARXY-276). `gate:aesthetics` and `palettes.test.mjs` must be green in both variants; if a handbook light hex is under 4.5:1, adjust it in `theme.css`. Do not edit `tokens.css` (MARXY-232 owns the dark values).
 
 ## Files and signatures
 - `packages/core/src/highlight/scopes.ts` — map `markup.inserted`/`markup.deleted` to line classes; a line-prefix pass on `.marxy-line`.
@@ -46,6 +46,7 @@ Handbook [03](../../research/reader-artifacts/03-structured-output.md), [05](../
 5. A render test asserts ESC renders as a visible ␛ glyph and copy yields the 0x1B byte, and a line over 1,000 characters draws its first 200 plus a count marker while copy takes every byte.
 6. pnpm gate:licences green with shellsession, jsonl and log recorded in scripts/allowlists; pnpm gate:golden regenerated.
 7. CHANGELOG.md has an Unreleased line for this key.
+8. `packages/theme/default/theme.css` declares the four diff tokens inside the light-variant block, and `pnpm gate:aesthetics` exits 0 in both variants once they are declared.
 
 ## Taste
 **Taste, without a stop.** Ship the handbook's default exactly as written above; do not ask the reviewer to choose between options, and do not pause for a look mid-story. Add **one** row to `docs/taste-review/queue.md` with the before/after artifact below and a confirm-or-tune question. The value is already decided by the research; the row lets the author tune it at the end-of-phase review (AGENTS.md "Verification").

@@ -116,6 +116,21 @@ needed either; the `dialog:allow-open` line above stays reserved for MARXY-49's 
 visible menu bar on Linux/Windows is in-window chrome, which "chrome at rest is zero" forbids: see
 the follow-up task drafted for Linux/Windows `openDialog` menu coverage.
 
+## Window chrome at rest (ADR-0038, proposed)
+
+Constraint 6 says chrome at rest is zero. macOS still paints an opaque title bar, because
+`tauri.conf.json` sets no `titleBarStyle`. ADR-0038 adds `setWindowControls` so the shell can park
+the traffic lights above the window at rest and centre them in a reveal strip when the pointer
+enters the top edge or the palette is open. The strip is no taller than the gap above the first
+line, so it never covers a selection. `setTitle` re-applies that layout in the same main-thread
+pass: a title change never reveals the controls. Linux and Windows keep the native frame
+(`docs/scope.md`). Readest is the behaviour to study, and it is AGPL-3.0, so none of its code is
+copied (ADR-0006). MARXY-268 accepts the record and adds the member. MARXY-269 builds it.
+
+| Command (TS name → Rust) | Args | Returns | Errors | Module | Story |
+| --- | --- | --- | --- | --- | --- |
+| `setWindowControls` → `set_window_controls` | `{ visible, stripHeight }` | `()` | — | window | MARXY-268, MARXY-269 |
+
 ## Single instance and second launches
 
 `tauri-plugin-single-instance`: a second `marxy file.md` forwards `argv` and `cwd` to the

@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Planner delta for 2026-09-27: the title bar can hide at rest once its contract and its macOS story land, palette history is split off the reading-position story a review returned, and the save, diff-token and Source stories can touch the files they were blocked on. Nothing in the app changes yet (MARXY-275)
 - On macOS, Marxy now shows a native menu bar: Quit binds to Cmd+Q through the same exit path as the existing quit command, File gets "Open File…" (Cmd+O, a native picker) and "Close Window" (Cmd+W, which quits, since Marxy is single-window), and Edit exposes the platform's own Undo/Redo/Cut/Copy/Paste/Select All so those shortcuts reliably reach the palette's search field and CodeMirror. No document-specific command lives in the menu (ADR-0011) (MARXY-184)
 - The palette's jump-to-heading test now lands on a heading that has to scroll to the reading line, so it checks landing again rather than passing or failing on the theme's top padding (MARXY-272)
 - The notice banner above the article — blocked images, a file changed on disk, "use this theme" — now has its own background, border and spacing instead of rendering as bare text with a default browser button; the dismiss and action buttons get a legible hover and focus state, in both dark and light (MARXY-264)

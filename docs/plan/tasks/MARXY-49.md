@@ -13,6 +13,10 @@ verify: [pnpm precheck, pnpm done MARXY-49]
 ## Files and signatures
 - `apps/desktop/src/shell/save.ts` — `save(ctx, opts?)` per §01 §Save.
 - `apps/desktop/src/commands/document.ts` — `save` (`Mod+S`), `save-as` (`Mod+Shift+S`); one line in `commands/index.ts` if the file is new.
+- `apps/desktop/src/commands/edits.ts` — `commitEdit` does not call `writeFileAtomic`. The watch echo and the dirty title read the same buffer.
+- `apps/desktop/src/app.ts` — wire save and close into the open document, including the `savedHash` watch echo.
+- `apps/desktop/src/main.ts` — mount that wiring. Production boot, not only the harness.
+- `apps/desktop/test/operations-edit.test.mjs` — a toggle records no write until `Mod+S`.
 - `apps/desktop/src/title.ts` — `updateTitle(state)` → `shell.setTitle('<name> — marxy' + (dirty ? ' •' : ''))`.
 - Close interception: Rust `CloseRequested` handler that asks the webview (`marxy:close-requested` event) and closes only on `quit`/`close_confirmed`; app side in `apps/desktop/src/shell/close.ts`.
 - Rust: `set_title`, `save_dialog` (`tauri-plugin-dialog`, MIT/Apache-2.0); map `atomic_write.rs` refusal strings to `ShellError { code: 'permission' | 'io' }` (add a `kind` to the error the module returns rather than parsing messages).

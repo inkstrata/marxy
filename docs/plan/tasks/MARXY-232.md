@@ -1,12 +1,12 @@
 ---
 key: MARXY-232
 design: [05-theme]
-depends: []
+depends: [MARXY-276]
 verify: [pnpm precheck, pnpm done MARXY-232]
 ---
 # MARXY-232 — Add the four diff colour tokens to the theme contract under the accepted ADR-0036
 
-**Design:** [05-theme](../../design/05-theme.md) · **Research:** [Reader Artifacts Handbook](../../research/reader-artifacts/10-spec.md) (ADR-0035) · **ADR:** [ADR-0036](../../adr/0036-artifact-units.md) · **Delta:** [2026-09-26-reader-artifacts](../deltas/2026-09-26-reader-artifacts.md) · **Depends on:** nothing.
+**Design:** [05-theme](../../design/05-theme.md) · **Research:** [Reader Artifacts Handbook](../../research/reader-artifacts/10-spec.md) (ADR-0035) · **ADR:** [ADR-0036](../../adr/0036-artifact-units.md) · **Delta:** [2026-09-26-reader-artifacts](../deltas/2026-09-26-reader-artifacts.md) · **Depends on:** MARXY-276 (the aesthetics gate walks a diff token on the light page only after `theme.css` declares it).
 **Handbook units closed by this story** (`docs/research/reader-artifacts/coverage.json`): `diff.colour`, `diff.tints-dark`, `rule.7-token-reader-check`, `proposal.P01`, `proposal.P03`, `proposal.P05`, `proposal.P07`, `proposal.P08`, `proposal.P14`, `hs.diff-tint`.
 
 **No longer waits on a person.** The author accepted ADR-0036 on 2026-09-26 (MARXY-228) and removed `human-gated`. Removing it also records the author's consent to ADR-0035, which this story marks accepted.
@@ -41,6 +41,7 @@ ADR-0036 is accepted; ADR-0035 is still marked proposed. The token half of claus
 3. docs/theme-contract.md documents the four tokens and states the marker, not the tint, is the primary cue.
 4. The diff of this PR touches only the files in this story's Paths (check:story --strict).
 5. CHANGELOG.md has an Unreleased line for this key.
+6. `pnpm gate:aesthetics` exits 0. The light page does not pair-walk these four tokens, because `packages/theme/default/theme.css` does not declare them yet. If a dark default is under 4.5:1 against `--marxy-color-text` or `--marxy-color-text-secondary`, darken that one token in `tokens.css` until the gate is green, and name both hexes in the changelog. The handbook's `#1f4438` for `--marxy-color-diff-add-word` measured 4.05:1 against secondary on 2026-09-27.
 
 ## Do not
 - Add the light values to `tokens.css` (they go in `packages/theme/default/theme.css`, owned by `MARXY-235`).

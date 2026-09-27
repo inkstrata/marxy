@@ -16,6 +16,8 @@ verify: [pnpm precheck, pnpm done MARXY-239]
 
 ## Files and signatures
 - `apps/desktop/src/source/editor.ts` — gutter on for non-markdown, folding, `highlightSpecialChars`, ligatures off, tab size.
+- `apps/desktop/package.json` — add `@codemirror/language` (MIT) for `codeFolding`. Do not bump the other `@codemirror/*` versions.
+- `pnpm-lock.yaml` — the lockfile change from that one dependency.
 - `apps/desktop/src/source/editorconfig.ts` — new: pure parser for the few keys used.
 - `apps/desktop/src/commands/` — `toggle-line-numbers` and `jump-to-source` palette commands.
 - `packages/typeset/src/` — the third-pass slash break.
