@@ -9,6 +9,26 @@ const history = new History();
 let savedVersion = 0;
 let savedFingerprint = '';
 let openSynced = false;
+/** The buffer the undo history was built against: the path and content hash after the last edit here. */
+let historyBase: { path: string; hash: string } | null = null;
+
+/**
+ * The history's edits are byte ranges in one buffer. A reload, a Source edit or another open changes
+ * that buffer outside this module; undoing into it would splice old ranges over new text. So the
+ * history is dropped, and the saved state re-read, whenever the buffer is not the one it was built on.
+ */
+function historyFor(buffer: import('@marxy/core').Buffer): void {
+  const hash = contentHash(buffer.bytes);
+  if (historyBase && historyBase.path === buffer.path && historyBase.hash === hash) return;
+  history.clear();
+  savedVersion = buffer.version;
+  savedFingerprint = hash;
+  historyBase = { path: buffer.path, hash };
+}
+
+function builtOn(buffer: import('@marxy/core').Buffer): void {
+  historyBase = { path: buffer.path, hash: contentHash(buffer.bytes) };
+}
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -32,6 +52,7 @@ export function syncSavedVersionFromOpenBuffer(): void {
   savedVersion = ctx?.buffer.version ?? 0;
   savedFingerprint = ctx ? contentHash(ctx.buffer.bytes) : '';
   history.clear();
+  historyBase = ctx ? { path: ctx.buffer.path, hash: savedFingerprint } : null;
 }
 
 /** Once per open document, after the selection context and buffer exist (MARXY-43). */
@@ -80,12 +101,14 @@ export async function applyDocumentMutation(input: {
 }): Promise<void> {
   const ctx = getSelectionBufferContext();
   if (!ctx) throw new Error('no open document');
+  historyFor(ctx.buffer);
   const before = ctx.buffer.bytes.slice(input.range.start, input.range.end);
   const after = new TextEncoder().encode(input.replacement);
   const edit: Edit = { range: input.range, before, after, label: input.label };
   history.push(edit);
   const next = splice(ctx.buffer, input.range, input.replacement);
   await rerenderOpenDocument(next);
+  builtOn(next);
 }
 
 export function attachDocumentEdits(ctx: AppContext): AppContext {
@@ -94,25 +117,33 @@ export function attachDocumentEdits(ctx: AppContext): AppContext {
 }
 
 export function historyCanUndo(): boolean {
+  const ctx = getSelectionBufferContext();
+  if (ctx) historyFor(ctx.buffer);
   return history.canUndo;
 }
 
 export function historyCanRedo(): boolean {
+  const ctx = getSelectionBufferContext();
+  if (ctx) historyFor(ctx.buffer);
   return history.canRedo;
 }
 
 export async function undoDocumentEdit(): Promise<void> {
   const ctx = getSelectionBufferContext();
   if (!ctx) return;
+  historyFor(ctx.buffer);
   const next = history.undo(ctx.buffer);
   if (!next) return;
   await rerenderOpenDocument(next);
+  builtOn(next);
 }
 
 export async function redoDocumentEdit(): Promise<void> {
   const ctx = getSelectionBufferContext();
   if (!ctx) return;
+  historyFor(ctx.buffer);
   const next = history.redo(ctx.buffer);
   if (!next) return;
   await rerenderOpenDocument(next);
+  builtOn(next);
 }

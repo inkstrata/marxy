@@ -321,6 +321,8 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     const { adopt, skipped } = adoptions({ openPrs: snap.open, stories: b.stories, mainKeys: new Set(plan?.rows.map(r => r.Key) ?? []), phaseOf: key => (plan ? Object.entries(plan.deps.phases).find(([, ks]) => ks.includes(key))?.[0] : null) ?? null });
     for (const x of skipped) {
       if (x.why === 'draft' || x.why === 'returned' || /implementor run owns it/.test(x.why)) continue;
+      // The story's own PR, parked with it: its park reason is already under Needs you with the fix.
+      if (Number(b.stories[x.key]?.pr) === x.pr) continue;
       // A PR naming a key the board has settled cannot land under that key: a person gives it its own.
       if (/is (done|blocked|escalate); a person decides/.test(x.why)) need(x.key, `PR #${x.pr} names ${x.key}, which is ${b.stories[x.key]?.status}; give the PR its own key (node orchestration/out-of-plan.mjs row) or ${b.stories[x.key]?.status === 'done' ? 'close it' : `unpark ${x.key}`}`);
       else say(`adopt: PR #${x.pr} skipped — ${x.why}`);
@@ -438,7 +440,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
         break;
       }
       case 'park':
-        commitAll([story(key, { from: 'in_review', to: 'blocked', set: { parkedReason: step.why, blockedAt: nowIso }, why: step.why })]);
+        commitAll([story(key, { from: 'in_review', to: 'blocked', set: { parkedReason: step.why, parkedBy: 'fleet', blockedAt: nowIso }, why: step.why })]);
         say(`${tag}: parked — ${step.why}`);
         break;
       case 'attention':
@@ -479,6 +481,12 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
   });
   else if (plan) {
     say('dispatch waits for the planner (never planned, or an escalation it has not read)');
+    // Still say what would be ready and why the rest wait, so status.md does not read "Ready (0)"
+    // beside a column of todo while the fleet is only waiting on the planner.
+    guard('readiness', null, () => {
+      const claims = pathHolds({ board: b, plan, worktrees, t, nowMs });
+      readyReport = { ...selectReady({ all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed }), held: true };
+    });
   }
   // Worktrees with work in them that nothing owns are named, so they are neither lost nor silently holding.
   for (const w of worktrees) {

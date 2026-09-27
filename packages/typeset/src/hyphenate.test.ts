@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { hyphenateEnGB } from 'justif/hyphenate/en-gb';
 import { hyphenateEnUS } from 'justif/hyphenate/en-us';
-import { hyphenOffsets, resolvePattern, skipHyphenation } from './hyphenate.ts';
+import { hyphenOffsets, insertHyphens, resolvePattern, skipHyphenation } from './hyphenate.ts';
 
 const allowlist = JSON.parse(
   readFileSync(new URL('../../../scripts/allowlists/hyphenation-patterns.json', import.meta.url), 'utf8'),
@@ -48,4 +48,13 @@ test('en-us splits a long word; en-gb is a different pattern', () => {
 test('a skipped word produces no offsets even if the hyphenator would split it', () => {
   assert.deepEqual(hyphenOffsets('hello', hyphenateEnUS), []);
   assert.deepEqual(hyphenOffsets('https://example.com/internationalization', hyphenateEnUS), []);
+});
+
+test('a piece whose letter run passes but whose whole text is a URL or carries digits stays whole', () => {
+  // A text node outside code: closest() finds no code ancestor.
+  const node = { parentElement: { closest: () => null } } as unknown as Text;
+  for (const text of ['configuration2024', 'Documentation(https://example.org)']) {
+    const piece = { kind: 'piece', text, segments: [{ node, start: 0, end: text.length }] } as never;
+    assert.deepEqual(insertHyphens([piece], hyphenateEnUS), [piece], text);
+  }
 });

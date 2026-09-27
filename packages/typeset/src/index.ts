@@ -1,7 +1,7 @@
 /**
- * The typesetter (ADR-0007, docs/design/04-typeset.md): ragged-right Knuth–Plass through justif/core
- * on paragraphs, tight list items and quotes, viewport first and the rest in idle time, and the grid
- * pass. Hanging punctuation and hyphenation are MARXY-24.
+ * The typesetter (ADR-0007, docs/design/04-typeset.md): ragged-right line breaking (the per-line
+ * right-skip breaker by default, justif/core on request) on paragraphs, tight list items and quotes,
+ * with hanging punctuation and hyphenation; viewport first, the rest in idle time, then the grid pass.
  */
 
 import { SET, applyBreaks, contentBox, overflow, revert } from './apply.ts';
@@ -75,6 +75,11 @@ const BLOCK_CHILD = ':scope > :is(p, ul, ol, pre, blockquote, table, div, h1, h2
  * here: it hangs in the margin with no net advance (base.css), so the text measures as it paints.
  */
 const UNSETTABLE = 'img, input:not([type="checkbox"]), br, .marxy-math-inline, .marxy-math, svg, video';
+/**
+ * Verse is never set: its line breaks and indents are the poet's, and a turnover hangs by CSS
+ * (reader-typography chapter 7, Poetry). No justification, no hyphens, no breaks chosen here.
+ */
+const VERSE = '.marxy-verse';
 const CJK = /[\u3000-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/g;
 
 /** A paragraph that can be set, read before anything was written. */
@@ -128,6 +133,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const cs = getComputedStyle(p);
     if (cs.display !== 'block' && cs.display !== 'list-item') return null;
     stats.paragraphs++;
+    if (p.closest(VERSE) !== null) return (fallback('verse'), null);
     if (p.querySelector(UNSETTABLE) !== null) return (fallback('inline object'), null);
     if (cs.whiteSpace.startsWith('pre') || cs.whiteSpace === 'break-spaces') return (fallback('white-space'), null);
     if (cs.direction === 'rtl') return (fallback('right-to-left'), null);
@@ -135,7 +141,8 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     if ((text.match(CJK)?.length ?? 0) > text.length * 0.2) return (fallback('CJK'), null);
     let tokens = collectTokens(p);
     const lang = p.closest('[lang]')?.getAttribute('lang') ?? p.ownerDocument.documentElement.getAttribute('lang') ?? '';
-    const pattern = hyphenateOn ? resolvePattern(lang) : null;
+    // `hyphens: none` is the page saying never, not the default `manual`: no break is put in its words.
+    const pattern = hyphenateOn && cs.hyphens !== 'none' ? resolvePattern(lang) : null;
     const hyphenator = pattern !== null && hyphenators !== null ? hyphenators[pattern] : null;
     if (hyphenator !== null) tokens = insertHyphens(tokens, hyphenator);
     if (tokens.length < 3) return (stats.short++, null);

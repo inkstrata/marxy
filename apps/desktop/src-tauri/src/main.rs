@@ -24,9 +24,39 @@ fn now_ms() -> f64 {
         .unwrap_or(0.0)
 }
 
+/// The launch arguments, with each document path made absolute and canonical the same way a second
+/// launch's are (`document_paths_from_argv`): the watcher reports canonical paths, so a relative
+/// `marxy README.md` or a path through `/tmp` → `/private/tmp` otherwise never matched its events,
+/// and `dirname("README.md")` named the file itself as the directory to watch. `args_os`, so an
+/// argument that is not UTF-8 is skipped rather than panicking the process.
 #[tauri::command]
 fn args() -> Vec<String> {
-    std::env::args().skip(1).collect()
+    let cwd = std::env::current_dir().unwrap_or_default();
+    std::env::args_os()
+        .skip(1)
+        .filter_map(|a| a.into_string().ok())
+        .map(|a| {
+            if a.starts_with('-') {
+                a
+            } else {
+                absolute_document_path(&cwd, &a).unwrap_or(a)
+            }
+        })
+        .collect()
+}
+
+fn absolute_document_path(base: &Path, arg: &str) -> Option<String> {
+    let path = PathBuf::from(arg);
+    let resolved = if path.is_absolute() {
+        path
+    } else {
+        base.join(path)
+    };
+    resolved
+        .canonicalize()
+        .unwrap_or(resolved)
+        .to_str()
+        .map(String::from)
 }
 
 #[tauri::command]
@@ -139,7 +169,7 @@ fn quit_after_paint() -> bool {
     matches!(
         std::env::var("MARXY_QUIT_AFTER_PAINT").as_deref(),
         Ok("1") | Ok("true")
-    ) || std::env::args().any(|a| a == "--quit-after-paint")
+    ) || std::env::args_os().any(|a| a == "--quit-after-paint")
 }
 
 #[tauri::command]
@@ -180,9 +210,10 @@ fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
     let _ = app.emit("fs-watch", payload);
 }
 
-/// Starts (or shares) one polling thread per canonical root; events go to `fs-watch`.
+/// Starts (or shares) one polling thread per canonical root; events go to `fs-watch`. Async, so the
+/// first scan of a large tree and the join of a stopping thread run off the main thread.
 #[tauri::command]
-fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
+async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
     let key = canonical_watch_root(&root)?;
     let mut table = watch_table().lock().map_err(|e| e.to_string())?;
     if let Some(entry) = table.get_mut(&key) {
@@ -198,8 +229,10 @@ fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn unwatch_root(root: String) -> Result<(), String> {
-    let key = canonical_watch_root(&root)?;
+async fn unwatch_root(root: String) -> Result<(), String> {
+    // A root that was renamed or deleted no longer canonicalises; the app watched it by the canonical
+    // path it opened, so that string is still the table's key and the thread is still stopped.
+    let key = canonical_watch_root(&root).unwrap_or(root.clone());
     let mut table = watch_table().lock().map_err(|e| e.to_string())?;
     let entry = table
         .get_mut(&key)
@@ -272,31 +305,33 @@ fn arm_paint_deadline(app: tauri::AppHandle, render: u64) {
     });
 }
 
-/// The deadline's state machine, checkable from outside: `marxy --paint-deadline-selftest` runs these
-/// cases and exits 0 or 1. It lives in the binary rather than in a `#[cfg(test)]` module because there
-/// is no second-document path to drive it through yet — the app renders once per launch — and because
-/// compiling a test harness for the Tauri dependency tree costs CI about two minutes for four
-/// assertions, while this costs the launch of an already-built binary.
 /// Absolute paths for `onOpenFiles`: skip flags and the macOS `-psn_…` launcher token.
 fn document_paths_from_argv(argv: &[String], cwd: &str) -> Vec<String> {
     let base = Path::new(cwd);
     argv.iter()
         .skip(1)
         .filter(|a| !a.starts_with('-'))
-        .filter_map(|a| {
-            let path = PathBuf::from(a);
-            let resolved = if path.is_absolute() {
-                path
-            } else {
-                base.join(path)
-            };
-            resolved
-                .canonicalize()
-                .unwrap_or(resolved)
-                .to_str()
-                .map(String::from)
-        })
+        .filter_map(|a| absolute_document_path(base, a))
         .collect()
+}
+
+/// The reader window never navigates away from the app: a link in a document is not a way to load a
+/// remote page (or a relative path) into the window that shows it. Links are the app's to follow.
+fn navigation_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("marxy-navigation")
+        .on_navigation(|_, url| navigation_allowed(url))
+        .build()
+}
+
+fn navigation_allowed(url: &tauri::Url) -> bool {
+    match url.scheme() {
+        "tauri" => true,
+        "http" | "https" => matches!(
+            url.host_str(),
+            Some("localhost") | Some("tauri.localhost") | Some("127.0.0.1")
+        ),
+        _ => false,
+    }
 }
 
 fn focus_main_window(app: &tauri::AppHandle) {
@@ -315,6 +350,10 @@ fn emit_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
     let _ = app.emit("marxy:open-files", paths);
 }
 
+/// The deadline's state machine, checkable from outside: `marxy --paint-deadline-selftest` runs these
+/// cases and exits 0 or 1. It lives in the binary rather than in a `#[cfg(test)]` module because
+/// compiling a test harness for the Tauri dependency tree cost CI minutes for four assertions, while
+/// this costs the launch of an already-built binary.
 fn paint_deadline_selftest() -> i32 {
     let mut failed: Vec<&str> = Vec::new();
     let first = begin_render();
@@ -349,11 +388,12 @@ fn paint_deadline_selftest() -> i32 {
 }
 
 fn main() {
-    if std::env::args().any(|a| a == "--paint-deadline-selftest") {
+    if std::env::args_os().any(|a| a == "--paint-deadline-selftest") {
         std::process::exit(paint_deadline_selftest());
     }
     mark("main_start", now_ms(), None);
     tauri::Builder::default()
+        .plugin(navigation_guard())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             emit_open_files(app, document_paths_from_argv(&argv, &cwd));
@@ -386,10 +426,10 @@ fn main() {
                 let paths: Vec<String> = urls
                     .iter()
                     .filter(|url| url.scheme() == "file")
-                    .filter_map(|url| {
-                        url.to_file_path()
-                            .ok()
-                            .and_then(|p| p.to_str().map(String::from))
+                    .filter_map(|url| url.to_file_path().ok())
+                    .filter_map(|p| {
+                        p.to_str()
+                            .and_then(|s| absolute_document_path(Path::new("/"), s))
                     })
                     .collect();
                 emit_open_files(app, paths);
@@ -401,7 +441,35 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::percent_decode;
+    use super::{absolute_document_path, navigation_allowed, percent_decode};
+
+    #[test]
+    fn the_window_navigates_only_within_the_app() {
+        for ok in [
+            "tauri://localhost/index.html",
+            "http://localhost:1420/",
+            "https://tauri.localhost/",
+        ] {
+            assert!(navigation_allowed(&ok.parse().unwrap()), "{ok}");
+        }
+        for no in [
+            "https://example.org/",
+            "http://evil.localhost.example/",
+            "file:///etc/passwd",
+        ] {
+            assert!(!navigation_allowed(&no.parse().unwrap()), "{no}");
+        }
+    }
+
+    #[test]
+    fn a_relative_document_path_is_made_absolute_against_the_launch_directory() {
+        let dir = std::env::temp_dir().canonicalize().unwrap();
+        let file = dir.join(format!("marxy-args-{}.md", std::process::id()));
+        std::fs::write(&file, b"# x\n").unwrap();
+        let name = file.file_name().unwrap().to_str().unwrap();
+        assert_eq!(absolute_document_path(&dir, name).as_deref(), file.to_str());
+        let _ = std::fs::remove_file(&file);
+    }
 
     #[test]
     fn percent_decode_undoes_encode_uri_component() {

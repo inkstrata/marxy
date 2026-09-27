@@ -64,9 +64,20 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
   const out: string[] = [];
   const themeRoot = normalizePath(opts.base);
 
+  // CSS matches `url(`, `@import` and `image-set(` in any case, and an identifier may be written
+  // with escapes (`u\72l(`). A backslash outside a string or comment is therefore refused outright
+  // rather than decoded: no hand scanner decodes every escape the way the engine does, and one that
+  // guesses wrong lets a remote URL through (commitment #3). Themes have no need for escaped names.
+  const at = (i: number, word: string) => css.slice(i, i + word.length).toLowerCase() === word;
+
   let i = 0;
   while (i < css.length) {
     const ch = css[i];
+
+    if (ch === '\\') {
+      warnings.push('theme uses a CSS escape outside a string; the theme was not loaded');
+      return { css: '', warnings };
+    }
 
     if (ch === '/' && css[i + 1] === '*') {
       const end = css.indexOf('*/', i + 2);
@@ -98,7 +109,7 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
       continue;
     }
 
-    if (css.startsWith('@import', i)) {
+    if (at(i, '@import')) {
       const semi = css.indexOf(';', i);
       const end = semi === -1 ? css.length : semi + 1;
       const stmt = css.slice(i, end);
@@ -107,7 +118,7 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
       continue;
     }
 
-    if (css.startsWith('url(', i)) {
+    if (at(i, 'url(')) {
       const close = findParenClose(css, i + 4);
       if (close === -1) {
         out.push(css.slice(i));
@@ -125,7 +136,7 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
       continue;
     }
 
-    if (css.startsWith('image-set(', i)) {
+    if (at(i, 'image-set(')) {
       const close = findParenClose(css, i + 10);
       if (close === -1) {
         out.push(css.slice(i));
@@ -190,18 +201,16 @@ function rewriteImageSetInner(
     while (i < inner.length && /[\s,]/.test(inner[i])) i += 1;
     if (i >= inner.length) break;
 
-    if (inner.startsWith('url(', i)) {
+    if (inner.slice(i, i + 4).toLowerCase() === 'url(') {
       const close = findParenClose(inner, i + 4);
       if (close === -1) break;
       const spec = unquoteUrl(inner.slice(i + 4, close));
       const replacement = rewriteOneUrl(spec, opts, themeRoot, warnings);
-      if (replacement !== null) parts.push(`url(${replacement})`);
       i = close + 1;
+      // The descriptor belongs to this candidate: dropped with it, never glued onto the one before.
       const rest = inner.slice(i).match(/^\s*(\d+(?:\.\d+)?x|type\([^)]+\)|\d+dpi)/);
-      if (rest) {
-        parts[parts.length - 1] += rest[0];
-        i += rest[0].length;
-      }
+      if (rest) i += rest[0].length;
+      if (replacement !== null) parts.push(`url(${replacement})${rest ? rest[0] : ''}`);
       continue;
     }
 

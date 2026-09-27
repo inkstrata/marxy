@@ -47,3 +47,24 @@ test('preserves bytes outside the edited line when replacing', () => {
   assert.equal(textBefore.slice(0, lineStart), textAfter.slice(0, lineStart));
   assert.equal(textBefore.slice(lineEnd), textAfter.slice(lineEnd));
 });
+
+// 2026-09-26 review (MARXY-246).
+const set = (text: string, value = '"y"') => new TextDecoder().decode(setTopLevelKey(new TextEncoder().encode(text), 'theme', value));
+
+test('only the theme line changes: mixed endings, the final newline and leading blank lines stay', () => {
+  assert.equal(set('a = 1\r\nb = 2\ntheme = "x"\n'), 'a = 1\r\nb = 2\ntheme = "y"\n');
+  assert.equal(set('\ntheme = "x"\n'), '\ntheme = "y"\n');
+  assert.equal(set('theme = "x"'), 'theme = "y"');
+});
+
+test('a trailing comment, a quoted key and indentation are kept', () => {
+  assert.equal(set('theme = "x" # mine\n'), 'theme = "y" # mine\n');
+  assert.equal(set('theme = "a#b" # mine\n'), 'theme = "y" # mine\n');
+  assert.equal(set('"theme" = "x"\n'), '"theme" = "y"\n');
+});
+
+test('a table header with a comment, an array of tables and a multi-line string end the top level', () => {
+  assert.equal(set('size = 1\n[linux] # fonts\nweight = 1\n'), 'size = 1\ntheme = "y"\n[linux] # fonts\nweight = 1\n');
+  assert.equal(set('[[x]]\ntheme = 1\n'), 'theme = "y"\n[[x]]\ntheme = 1\n');
+  assert.equal(set('note = """\ntheme = 1\n"""\n'), 'note = """\ntheme = 1\n"""\ntheme = "y"\n');
+});

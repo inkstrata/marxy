@@ -30,8 +30,10 @@ function frontmatterTitle(doc: Document, headings: readonly Heading[]): OutlineE
   if (headings.some((heading) => heading.level === 1)) return undefined;
   const matter = doc.children.find((child): child is Frontmatter => child.type === 'frontmatter');
   if (!matter) return undefined;
-  const match = /^title:\s*(.+)$/m.exec(matter.value);
-  if (!match) return undefined;
+  // [ \t]*, not \s*: an empty `title:` must not read the next key's line as the title. A YAML block
+  // scalar (`title: |`) has no one-line value to show, so it gives no entry either.
+  const match = /^title:[ \t]*(\S.*)$/m.exec(matter.value);
+  if (!match || /^[|>][+-]?\d*\s*$/.test(match[1]!)) return undefined;
   return { level: 1, text: unquote(match[1]!), src: matter.src };
 }
 

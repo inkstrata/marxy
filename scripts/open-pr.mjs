@@ -18,6 +18,11 @@ export function planOpenPr({ body, key, title, bodyFile }) {
   const problems = lintPrBody(body, { key });
   if (problems.length) return { ok: false, problems, argv: null };
   const subject = title || titleFrom(body, key);
+  // The draft's stand-in title is written before the branch has a commit; opening a PR under it
+  // fails the conventions job's title check (PR #212 did).
+  if (/^type\(scope\): subject\b/.test(subject)) {
+    return { ok: false, problems: [`the PR title is still the placeholder "${subject}"${fix('rerun pnpm done KEY after committing (it redrafts the title), or edit the <!-- Title: --> line')}`], argv: null };
+  }
   return {
     ok: true,
     problems: [],

@@ -118,15 +118,25 @@ function assertProductionExcludesMemoryShell() {
 assertProductionExcludesMemoryShell();
 
 const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json', import.meta.url), 'utf8')).bundle_installed_mb;
-const dir = new URL('../apps/desktop/src-tauri/target/release/bundle/', import.meta.url).pathname;
-if (!existsSync(dir)) {
-  console.log('bundle gate: no bundle built; skipping size and katex-in-bundle checks');
+// `tauri build` writes installers to target/release/bundle, or target/<triple>/release/bundle when
+// the release workflow passes --target. PR CI builds with `cargo build --profile ci` and has neither,
+// so the size half runs only where installers exist; MARXY_BUNDLE_REQUIRED (the release workflow)
+// makes their absence a failure rather than a skip, so the budget cannot pass by measuring nothing.
+const target = new URL('../apps/desktop/src-tauri/target/', import.meta.url).pathname;
+const bundleDirs = [join(target, 'release/bundle'), ...(existsSync(target) ? readdirSync(target).map((t) => join(target, t, 'release/bundle')) : [])].filter((d, i, all) => existsSync(d) && all.indexOf(d) === i);
+const required = process.env.MARXY_BUNDLE_REQUIRED === '1';
+if (bundleDirs.length === 0) {
+  if (required) {
+    console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but no installer bundle was built under src-tauri/target');
+    process.exit(1);
+  }
+  console.log('bundle gate: no bundle built; skipping size and katex-in-bundle checks (they run in the release workflow)');
   process.exit(0);
 }
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (
   e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]
 ));
-const files = walk(dir).filter((f) => /\.(dmg|AppImage|deb)$/.test(f));
+const files = bundleDirs.flatMap(walk).filter((f) => /\.(dmg|AppImage|deb)$/.test(f));
 let fail = false;
 for (const f of files) {
   const mb = statSync(f).size / 1048576;
@@ -135,6 +145,10 @@ for (const f of files) {
   if (mb > limit) fail = true;
 }
 if (files.length === 0) {
+  if (required) {
+    console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but the bundle holds no .dmg, .AppImage or .deb');
+    process.exit(1);
+  }
   console.log('bundle gate: no installer artefacts; skipping katex-in-bundle check');
 } else {
   const needle = Buffer.from('katex');

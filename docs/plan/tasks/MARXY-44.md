@@ -1,7 +1,7 @@
 ---
 key: MARXY-44
 design: [13-trust, 09-app-shell, 11-config-and-storage, 08-position-and-watching]
-depends: [MARXY-96, MARXY-138, MARXY-42, MARXY-38, MARXY-198]
+depends: [MARXY-96, MARXY-138, MARXY-42, MARXY-38, MARXY-198, MARXY-229]
 verify: [pnpm precheck, pnpm done MARXY-44]
 ---
 # MARXY-44 — Per-document opt-in that widens the allow-list, with a discoverable notice
@@ -37,7 +37,7 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 | revoke | default render; entry removed from `trust.json` |
 
 ## Acceptance → check
-CSV row: notice naming what was removed → default case; opting in renders img/details/div align through the sanitiser → grant case; `javascript:` still stripped → grant case + core vector; choice persists per file → restart case; `marxy-` id refused → core story's `reserved-id` vector (cite it); never-closed removal renders a notice → `22-unclosed-script.md` case.
+CSV row: notice naming what was removed → default case; opting in renders img/details/div align through the sanitiser → grant case; `javascript:` still stripped → grant case + core vector; choice persists per file → restart case; `marxy-` id refused → MARXY-229's vector in `packages/core/src/sanitize/vectors.test.ts` (cite it; do not re-implement); never-closed removal renders a notice → `22-unclosed-script.md` case.
 
 ## Do not
 Add a global "always trust" switch. Show the HTML action when it would change nothing. Fetch anything. Put trust state in `config.toml`.

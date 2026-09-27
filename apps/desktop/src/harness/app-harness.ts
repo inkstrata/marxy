@@ -9,11 +9,22 @@ function decodeBase64(b64: string): Uint8Array {
   return out;
 }
 
-async function start(files: Record<string, string>, argv: string[]): Promise<AppHandle> {
+/**
+ * `pieces` (slug → markdown) stands in for the bundled Commonplace on a launch with no document
+ * (MARXY-257); `{}` is a build with none.
+ */
+async function start(
+  files: Record<string, string>,
+  argv: string[],
+  pieces?: Record<string, string>,
+): Promise<AppHandle> {
   const bytes: Record<string, Uint8Array> = {};
   for (const [path, b64] of Object.entries(files)) bytes[path] = decodeBase64(b64);
   const shell = createMemoryShell(bytes);
-  return startApp(shell, { argv });
+  const sources = pieces
+    ? Object.entries(pieces).map(([name, text]) => ({ name, load: async () => text }))
+    : undefined;
+  return startApp(shell, { argv, pieces: sources });
 }
 
 declare global {

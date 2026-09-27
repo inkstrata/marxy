@@ -45,20 +45,38 @@ export function outOfPlanRow({ key, summary, phase = 'ops', paths, acceptance, w
  */
 export function upsertRow(csvText, row) {
   const line = COLUMNS.map(c => cell(row[c])).join(',');
-  const lines = csvText.split('\n');
-  // A row can span lines when a quoted cell holds a newline; find the key's line by parsing.
-  const index = parseCsv(csvText).findIndex(r => r.Key === row.Key);
-  if (index < 0) return csvText.replace(/\n?$/, '\n') + line + '\n';
-  let seen = -1, start = -1, end = -1, quoted = false;
-  for (let i = 1, begin = 1; i < lines.length; i++) {
-    for (const ch of lines[i]) if (ch === '"') quoted = !quoted;
-    if (quoted) continue;
-    seen++;
-    if (seen === index) { start = begin; end = i; break; }
-    begin = i + 1;
+  const at = locateRow(csvText, row.Key);
+  if (!at) return csvText.replace(/\n?$/, '\n') + line + '\n';
+  // A CRLF-terminated row keeps its \r, so the bytes around it do not move.
+  const cr = csvText[at.end - 1] === '\r' && !line.endsWith('\r') ? '\r' : '';
+  return csvText.slice(0, at.start) + line + cr + csvText.slice(at.end);
+}
+
+/**
+ * Where the row for `key` sits in `csvText`: `start` is its first byte, `end` the index of the
+ * newline that closes it (or the text's end). One scan with the quoting rules of `parseCsv`, tracking
+ * offsets, so a quoted newline or a stray `\r` cannot skew a row count against a second parser.
+ */
+function locateRow(csvText, key) {
+  let keyCol = -1, header = true, fields = [], cur = '', quoted = false, start = 0;
+  const endRow = end => {
+    fields.push(cur);
+    const isBlank = fields.length === 1 && fields[0] === '';
+    if (header) { keyCol = fields.indexOf('Key'); header = false; }
+    else if (!isBlank && fields[keyCol] === key) return { start, end };
+    fields = []; cur = ''; start = end + 1;
+    return null;
+  };
+  for (let i = 0; i < csvText.length; i++) {
+    const c = csvText[i];
+    if (quoted) {
+      if (c === '"' && csvText[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') { fields.push(cur); cur = ''; }
+    else if (c === '\n') { const hit = endRow(i); if (hit) return hit; }
+    else if (c !== '\r') cur += c;
   }
-  if (start < 0) throw new Error(`could not locate ${row.Key}'s line`);
-  return [...lines.slice(0, start), line, ...lines.slice(end + 1)].join('\n');
+  return start < csvText.length ? endRow(csvText.length) : null;
 }
 
 /** deps.json with `key` in exactly one phase and its dependency list set. */

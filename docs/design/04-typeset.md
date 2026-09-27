@@ -80,9 +80,12 @@ layouts however many paragraphs it holds.
    `innerHTML` byte-identical (tested).
 7. **Hang** (D-A6) is MARXY-24.
 
-Left to the engine and counted: paragraphs containing `img`, a hard `br`, math or a non-checkbox
-`input`; `white-space: pre*`; right-to-left direction; more than 20 % CJK. A task item's checkbox is
-settable: it hangs in the margin with no net advance.
+Left to the engine and counted: verse (anything inside `.marxy-verse`, whose line breaks and
+indents are the poet's, reader-typography chapter 7); paragraphs containing `img`, a hard `br`, math
+or a non-checkbox `input`; `white-space: pre*`; right-to-left direction; more than 20 % CJK. A task
+item's checkbox is settable: it hangs in the margin with no net advance.
+A paragraph whose computed `hyphens` is `none` is set without hyphenation points; `manual`, the
+default every document has, is not an opt-out (the Commonplace colophon uses `none`, MARXY-257).
 
 ## Hyphenation
 

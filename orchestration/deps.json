@@ -92,11 +92,27 @@
       "MARXY-47",
       "MARXY-177",
       "MARXY-48",
+      "MARXY-244",
       "MARXY-49",
       "MARXY-96",
       "MARXY-97",
       "MARXY-98",
-      "MARXY-184"
+      "MARXY-184",
+      "MARXY-229",
+      "MARXY-230",
+      "MARXY-231",
+      "MARXY-232",
+      "MARXY-233",
+      "MARXY-234",
+      "MARXY-235",
+      "MARXY-236",
+      "MARXY-237",
+      "MARXY-238",
+      "MARXY-239",
+      "MARXY-240",
+      "MARXY-241",
+      "MARXY-256",
+      "MARXY-257"
     ],
     "4": [
       "MARXY-51",
@@ -185,7 +201,12 @@
       "MARXY-222",
       "MARXY-223",
       "MARXY-227",
-      "MARXY-211"
+      "MARXY-211",
+      "MARXY-228",
+      "MARXY-242",
+      "MARXY-243",
+      "MARXY-245",
+      "MARXY-246"
     ]
   },
   "deps": {
@@ -341,7 +362,8 @@
       "MARXY-138",
       "MARXY-42",
       "MARXY-38",
-      "MARXY-198"
+      "MARXY-198",
+      "MARXY-229"
     ],
     "MARXY-45": [
       "MARXY-97",
@@ -644,7 +666,56 @@
     "MARXY-222": [],
     "MARXY-223": [],
     "MARXY-227": [],
-    "MARXY-211": []
+    "MARXY-211": [],
+    "MARXY-228": [],
+    "MARXY-229": [],
+    "MARXY-230": [],
+    "MARXY-231": [
+      "MARXY-230"
+    ],
+    "MARXY-232": [],
+    "MARXY-233": [
+      "MARXY-232",
+      "MARXY-229",
+      "MARXY-44"
+    ],
+    "MARXY-234": [
+      "MARXY-232"
+    ],
+    "MARXY-235": [
+      "MARXY-232",
+      "MARXY-241"
+    ],
+    "MARXY-236": [
+      "MARXY-229"
+    ],
+    "MARXY-237": [
+      "MARXY-233",
+      "MARXY-48",
+      "MARXY-97"
+    ],
+    "MARXY-238": [
+      "MARXY-233",
+      "MARXY-239",
+      "MARXY-44",
+      "MARXY-97"
+    ],
+    "MARXY-239": [],
+    "MARXY-240": [
+      "MARXY-229"
+    ],
+    "MARXY-241": [],
+    "MARXY-242": [],
+    "MARXY-243": [],
+    "MARXY-244": [
+      "MARXY-48"
+    ],
+    "MARXY-245": [],
+    "MARXY-246": [],
+    "MARXY-256": [],
+    "MARXY-257": [
+      "MARXY-256"
+    ]
   },
   "research": {
     "_note": "Empty by design: research tasks are ordinary rows in the CSV and ordinary issues in Jira (MARXY-19 is the first), labelled `research`. Their output is a decision note rather than product code, which the story's acceptance says."

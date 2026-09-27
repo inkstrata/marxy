@@ -1,0 +1,1238 @@
+{
+  "_note": "Every unit of the Reader Artifacts Handbook with one disposition, so the board can say how much of it is filed, landed, deferred or declined. Written by hand; tools/check.mjs fails when a spec row, operation, rule, proposal, verification check, declined item, taste item or handbook story is missing here or listed twice, when a key is not a board row, or when a story's card does not name the units it closes. Status is never written here: tools/coverage.mjs reads it from the fleet board. Dispositions: story (filed; keys), existing (an earlier board story; keys), applied (Marxy already does it), partial (keys for the part filed, bundle for the rest), deferred (v1.1; bundle), declined (reason in note), default (a taste item shipped at the research default; keys carry the queue row).",
+  "bundles": {
+    "v1.1-operations": "The artifact operations catalogue (docs/scope.md: operations beyond the four are v1.1): copy-source, copy-command, copy-diff-after/before, extract-*, JSON copy/format/minify, strip-ansi, copy-front-matter, invisible-character strip/escape/copy. One story per family when v1.1 opens; ADR-0036 clause 8 makes each an additive registration.",
+    "v1.1-provenance": "Anchors and lenses over byte provenance: P04 (OperationInput.source), P09 (anchor on the reading position), copy-with-reference, copy-anchor, changed-since-last-read with a core histogram diff, the data-fence depth lens, the reveal-hidden lens, the front-matter hide toggle. Needs P04 and P09 re-proposed as ADRs.",
+    "v1.1-transcript": "The derived JSONL transcript view (P10): turns, speaker labels, bounded tool output, thinking behind a click, and the transcript copy operations. The most invasive proposal; after the cheaper stories and a taste review of the Source view.",
+    "v1.1-readme-extras": "Emoji shortcodes from a bundled MIT table."
+  },
+  "units": [
+    {
+      "id": "vanish.front-matter",
+      "kind": "default",
+      "spec": "Front matter, YAML and TOML",
+      "disposition": "story",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "vanish.xml-tags",
+      "kind": "default",
+      "spec": "XML-style prompt tags, e.g. `<instructions>`",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233"
+      ]
+    },
+    {
+      "id": "vanish.removals",
+      "kind": "default",
+      "spec": "HTML comments and other removals",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233",
+        "MARXY-238"
+      ]
+    },
+    {
+      "id": "vanish.instruction-class",
+      "kind": "default",
+      "spec": "Instruction-class files (`AGENTS.md`, `CLAUDE.md`, `SKILL.md`, rules)",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233",
+        "MARXY-238"
+      ]
+    },
+    {
+      "id": "vanish.details",
+      "kind": "default",
+      "spec": "Fold state of authored `<details>`",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233",
+        "MARXY-237"
+      ]
+    },
+    {
+      "id": "vanish.no-fold",
+      "kind": "default",
+      "spec": "Anything the author did not fold",
+      "disposition": "applied"
+    },
+    {
+      "id": "code.face",
+      "kind": "default",
+      "spec": "Code face, size and line box",
+      "disposition": "applied"
+    },
+    {
+      "id": "code.ligatures",
+      "kind": "default",
+      "spec": "Ligatures",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ],
+      "note": "Applied in Rendered; the story turns them off in Source."
+    },
+    {
+      "id": "code.wrap",
+      "kind": "default",
+      "spec": "Wrap",
+      "disposition": "applied",
+      "note": "ADR-0033 §5 stands; the scroller (P11) is declined by ADR-0036 clause 10."
+    },
+    {
+      "id": "code.tab-width",
+      "kind": "default",
+      "spec": "Tab width",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "code.gutter",
+      "kind": "default",
+      "spec": "Line-number gutter",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "code.line-numbers-copy",
+      "kind": "default",
+      "spec": "Line numbers in copied text",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ],
+      "note": "Applied by construction in a harness; the story asserts it in the app."
+    },
+    {
+      "id": "code.colour-budget",
+      "kind": "default",
+      "spec": "Colour budget of a block",
+      "disposition": "applied"
+    },
+    {
+      "id": "code.slash-break",
+      "kind": "default",
+      "spec": "Long inline code (paths, URLs)",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ],
+      "note": "Settles MARXY-23's open question by the handbook rule."
+    },
+    {
+      "id": "code.data-verbatim",
+      "kind": "default",
+      "spec": "JSON, YAML and TOML",
+      "disposition": "applied"
+    },
+    {
+      "id": "code.data-fold-lens",
+      "kind": "default",
+      "spec": "Data fence folding (Rendered)",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance"
+    },
+    {
+      "id": "code.source-folding",
+      "kind": "default",
+      "spec": "Source-mode folding",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "code.long-lines",
+      "kind": "default",
+      "spec": "Very long lines",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "code.log-level",
+      "kind": "default",
+      "spec": "Log level",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "code.stack-traces",
+      "kind": "default",
+      "spec": "Stack traces",
+      "disposition": "applied",
+      "note": "Nothing folds authored content at rest (vanish.no-fold), so a trace is never folded."
+    },
+    {
+      "id": "code.ansi",
+      "kind": "default",
+      "spec": "ANSI escapes",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235",
+        "MARXY-239"
+      ],
+      "note": "Rendered glyph in fence-marks; Source highlightSpecialChars in code-as-read."
+    },
+    {
+      "id": "code.console",
+      "kind": "default",
+      "spec": "Console fences",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "code.csv",
+      "kind": "default",
+      "spec": "CSV and TSV fences",
+      "disposition": "applied"
+    },
+    {
+      "id": "diff.layout",
+      "kind": "default",
+      "spec": "Diff layout",
+      "disposition": "applied"
+    },
+    {
+      "id": "diff.markers",
+      "kind": "default",
+      "spec": "Diff markers",
+      "disposition": "applied"
+    },
+    {
+      "id": "diff.colour",
+      "kind": "default",
+      "spec": "Diff colour",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "diff.tints-dark",
+      "kind": "default",
+      "spec": "Diff tints, dark on `#1d1c19`",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "diff.tints-light",
+      "kind": "default",
+      "spec": "Diff tints, light on `#f1eee8`",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "diff.continuation",
+      "kind": "default",
+      "spec": "Diff continuation rows",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "diff.computation",
+      "kind": "default",
+      "spec": "Diff computation",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance",
+      "note": "Needed only when Marxy computes a diff (changed-since-last-read)."
+    },
+    {
+      "id": "copy.drag-prose",
+      "kind": "default",
+      "spec": "Copy of a drag selection in prose",
+      "disposition": "applied"
+    },
+    {
+      "id": "copy.exact-code",
+      "kind": "default",
+      "spec": "Copy of code, `kbd` and inline code",
+      "disposition": "story",
+      "keys": [
+        "MARXY-230"
+      ]
+    },
+    {
+      "id": "copy.trailing-newline",
+      "kind": "default",
+      "spec": "Trailing newline on copy",
+      "disposition": "story",
+      "keys": [
+        "MARXY-230"
+      ]
+    },
+    {
+      "id": "op.jump-to-source",
+      "kind": "default",
+      "spec": "Jump to source",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "prov.anchor",
+      "kind": "default",
+      "spec": "Anchor",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance"
+    },
+    {
+      "id": "prov.changed",
+      "kind": "default",
+      "spec": "Changed since last read",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance"
+    },
+    {
+      "id": "agent.speaker-labels",
+      "kind": "default",
+      "spec": "Speaker labels in a transcript",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript"
+    },
+    {
+      "id": "agent.transcript-view",
+      "kind": "default",
+      "spec": "Derived transcript view (JSONL)",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript"
+    },
+    {
+      "id": "agent.tool-output-bound",
+      "kind": "default",
+      "spec": "Long tool output in the derived view",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript"
+    },
+    {
+      "id": "agent.thinking",
+      "kind": "default",
+      "spec": "Thinking blocks",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript"
+    },
+    {
+      "id": "agent.task-items",
+      "kind": "default",
+      "spec": "Task items",
+      "disposition": "story",
+      "keys": [
+        "MARXY-231"
+      ]
+    },
+    {
+      "id": "readme.badges",
+      "kind": "default",
+      "spec": "Badge row",
+      "disposition": "story",
+      "keys": [
+        "MARXY-237"
+      ]
+    },
+    {
+      "id": "readme.hero-align",
+      "kind": "default",
+      "spec": "Hero alignment and image size",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233",
+        "MARXY-237"
+      ]
+    },
+    {
+      "id": "readme.picture-variants",
+      "kind": "default",
+      "spec": "Dark and light image variants",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233",
+        "MARXY-97"
+      ]
+    },
+    {
+      "id": "readme.alerts",
+      "kind": "default",
+      "spec": "GitHub alerts",
+      "disposition": "story",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "readme.table-striping",
+      "kind": "default",
+      "spec": "Table striping",
+      "disposition": "applied"
+    },
+    {
+      "id": "readme.diagram-caption",
+      "kind": "default",
+      "spec": "Diagram fences (v1)",
+      "disposition": "story",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "readme.heading-anchors",
+      "kind": "default",
+      "spec": "Heading anchors",
+      "disposition": "story",
+      "keys": [
+        "MARXY-240"
+      ]
+    },
+    {
+      "id": "readme.emoji",
+      "kind": "default",
+      "spec": "Emoji shortcodes",
+      "disposition": "deferred",
+      "bundle": "v1.1-readme-extras"
+    },
+    {
+      "id": "trust.invisibles",
+      "kind": "default",
+      "spec": "Invisible and bidirectional characters",
+      "disposition": "story",
+      "keys": [
+        "MARXY-236"
+      ]
+    },
+    {
+      "id": "trust.injection-prose",
+      "kind": "default",
+      "spec": "Injection-looking prose",
+      "disposition": "applied"
+    },
+    {
+      "id": "trust.link-mismatch",
+      "kind": "default",
+      "spec": "Link text that names another host",
+      "disposition": "story",
+      "keys": [
+        "MARXY-236"
+      ]
+    },
+    {
+      "id": "trust.blocked-image-details",
+      "kind": "default",
+      "spec": "Blocked-image details",
+      "disposition": "story",
+      "keys": [
+        "MARXY-238",
+        "MARXY-97"
+      ]
+    },
+    {
+      "id": "trust.reserved-ids",
+      "kind": "default",
+      "spec": "Reserved ids and classes from documents",
+      "disposition": "story",
+      "keys": [
+        "MARXY-229",
+        "MARXY-44"
+      ]
+    },
+    {
+      "id": "op.copy-source",
+      "kind": "operation",
+      "spec": "`copy-source`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations",
+      "note": "copy-section already covers the section case."
+    },
+    {
+      "id": "op.copy-command",
+      "kind": "operation",
+      "spec": "`copy-command`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations",
+      "note": "The trailing-newline half lands in copy-exact."
+    },
+    {
+      "id": "op.copy-diff-sides",
+      "kind": "operation",
+      "spec": "`copy-diff-after` and `copy-diff-before`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations"
+    },
+    {
+      "id": "op.copy-with-reference",
+      "kind": "operation",
+      "spec": "`copy-with-reference`",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance",
+      "note": "Needs P04."
+    },
+    {
+      "id": "op.copy-anchor",
+      "kind": "operation",
+      "spec": "`copy-anchor`",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance",
+      "note": "Needs P09."
+    },
+    {
+      "id": "op.extract",
+      "kind": "operation",
+      "spec": "`extract-code-blocks`, `extract-tasks`, `extract-links`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations"
+    },
+    {
+      "id": "op.json",
+      "kind": "operation",
+      "spec": "`copy-json-pretty`, then `format-json` and `minify-json`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations"
+    },
+    {
+      "id": "op.strip-ansi",
+      "kind": "operation",
+      "spec": "`strip-ansi`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations"
+    },
+    {
+      "id": "op.copy-front-matter",
+      "kind": "operation",
+      "spec": "`copy-front-matter`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations"
+    },
+    {
+      "id": "op.invisible-splice",
+      "kind": "operation",
+      "spec": "`strip-invisible` and `escape-invisible`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations",
+      "note": "After the fidelity property (source-map-fidelity)."
+    },
+    {
+      "id": "op.invisible-copy",
+      "kind": "operation",
+      "spec": "`copy-without-invisible` and `copy-hidden-as-text`",
+      "disposition": "deferred",
+      "bundle": "v1.1-operations"
+    },
+    {
+      "id": "op.transcript-copy",
+      "kind": "operation",
+      "spec": "`copy-turn`, `copy-tool-output`, `copy-user-prompts`",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript"
+    },
+    {
+      "id": "op.toggle-task",
+      "kind": "operation",
+      "spec": "`toggle-task`",
+      "disposition": "story",
+      "keys": [
+        "MARXY-231"
+      ],
+      "note": "Landed with MARXY-43; the story gives every task item a marker."
+    },
+    {
+      "id": "op.lenses",
+      "kind": "operation",
+      "spec": "`reveal-hidden`, jump to source, changed-since-last-read",
+      "disposition": "partial",
+      "keys": [
+        "MARXY-239"
+      ],
+      "bundle": "v1.1-provenance",
+      "note": "Jump to source is filed; reveal and changed are lenses (ADR-0036 clause 8)."
+    },
+    {
+      "id": "rule.1-tint-not-alone",
+      "kind": "rule",
+      "spec": "1",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235",
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "rule.2-grid-multiple",
+      "kind": "rule",
+      "spec": "2",
+      "disposition": "story",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "rule.3-folding-is-view",
+      "kind": "rule",
+      "spec": "3",
+      "disposition": "story",
+      "keys": [
+        "MARXY-237"
+      ]
+    },
+    {
+      "id": "rule.4-marker-display-only",
+      "kind": "rule",
+      "spec": "4",
+      "disposition": "story",
+      "keys": [
+        "MARXY-236",
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "rule.5-never-silent",
+      "kind": "rule",
+      "spec": "5",
+      "disposition": "story",
+      "keys": [
+        "MARXY-238"
+      ]
+    },
+    {
+      "id": "rule.6-code-weight-no-smart",
+      "kind": "rule",
+      "spec": "6",
+      "disposition": "story",
+      "keys": [
+        "MARXY-230"
+      ]
+    },
+    {
+      "id": "rule.7-token-reader-check",
+      "kind": "rule",
+      "spec": "7",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-241"
+      ]
+    },
+    {
+      "id": "verify.probe",
+      "kind": "verification",
+      "spec": "Rendering probe.",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233"
+      ]
+    },
+    {
+      "id": "verify.contrast",
+      "kind": "verification",
+      "spec": "Contrast.",
+      "disposition": "story",
+      "keys": [
+        "MARXY-241"
+      ]
+    },
+    {
+      "id": "verify.copy-fidelity",
+      "kind": "verification",
+      "spec": "Copy and edit fidelity.",
+      "disposition": "story",
+      "keys": [
+        "MARXY-230",
+        "MARXY-231"
+      ]
+    },
+    {
+      "id": "verify.trust-vectors",
+      "kind": "verification",
+      "spec": "Trust.",
+      "disposition": "story",
+      "keys": [
+        "MARXY-229",
+        "MARXY-45"
+      ]
+    },
+    {
+      "id": "verify.grid",
+      "kind": "verification",
+      "spec": "Grid.",
+      "disposition": "story",
+      "keys": [
+        "MARXY-241"
+      ]
+    },
+    {
+      "id": "verify.forced-colours",
+      "kind": "verification",
+      "spec": "Forced colours, contrast preference, reduced motion, reflow.",
+      "disposition": "story",
+      "keys": [
+        "MARXY-241",
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "verify.keyboard",
+      "kind": "verification",
+      "spec": "Keyboard.",
+      "disposition": "story",
+      "keys": [
+        "MARXY-237",
+        "MARXY-48"
+      ]
+    },
+    {
+      "id": "verify.taste",
+      "kind": "verification",
+      "spec": "Taste (a queue row, not a gate).",
+      "disposition": "story",
+      "keys": [
+        "MARXY-234",
+        "MARXY-235",
+        "MARXY-236",
+        "MARXY-237",
+        "MARXY-238",
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "proposal.P01",
+      "kind": "proposal",
+      "spec": "P01",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-233",
+        "MARXY-238"
+      ],
+      "note": "ADR-0036 clauses 1-2."
+    },
+    {
+      "id": "proposal.P02",
+      "kind": "proposal",
+      "spec": "P02",
+      "disposition": "story",
+      "keys": [
+        "MARXY-229"
+      ],
+      "note": "ADR-0036 clause 3; a bug fix under ADR-0023, not gated on acceptance."
+    },
+    {
+      "id": "proposal.P03",
+      "kind": "proposal",
+      "spec": "P03",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-233"
+      ],
+      "note": "ADR-0036 clause 4."
+    },
+    {
+      "id": "proposal.P04",
+      "kind": "proposal",
+      "spec": "P04",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance",
+      "note": "ADR-0036 clause 12."
+    },
+    {
+      "id": "proposal.P05",
+      "kind": "proposal",
+      "spec": "P05",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232"
+      ],
+      "note": "ADR-0036 clause 8."
+    },
+    {
+      "id": "proposal.P06",
+      "kind": "proposal",
+      "spec": "P06",
+      "disposition": "story",
+      "keys": [
+        "MARXY-230"
+      ],
+      "note": "ADR-0036 clause 5; §3 (drag resolves to a span) is not filed."
+    },
+    {
+      "id": "proposal.P07",
+      "kind": "proposal",
+      "spec": "P07",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-235"
+      ],
+      "note": "ADR-0036 clause 6."
+    },
+    {
+      "id": "proposal.P08",
+      "kind": "proposal",
+      "spec": "P08",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-234"
+      ],
+      "note": "ADR-0036 clause 7, with no new token."
+    },
+    {
+      "id": "proposal.P09",
+      "kind": "proposal",
+      "spec": "P09",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance",
+      "note": "ADR-0036 clause 12."
+    },
+    {
+      "id": "proposal.P10",
+      "kind": "proposal",
+      "spec": "P10",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript",
+      "note": "ADR-0036 clause 12."
+    },
+    {
+      "id": "proposal.P11",
+      "kind": "proposal",
+      "spec": "P11",
+      "disposition": "declined",
+      "note": "ADR-0036 clause 10: keep wrapping, hang diff continuations."
+    },
+    {
+      "id": "proposal.P12",
+      "kind": "proposal",
+      "spec": "P12",
+      "disposition": "story",
+      "keys": [
+        "MARXY-229"
+      ],
+      "note": "No decision needed; each story registers its own names first."
+    },
+    {
+      "id": "proposal.P13",
+      "kind": "proposal",
+      "spec": "P13",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235"
+      ],
+      "note": "No decision needed."
+    },
+    {
+      "id": "proposal.P14",
+      "kind": "proposal",
+      "spec": "P14",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-241"
+      ],
+      "note": "ADR-0036 clause 9."
+    },
+    {
+      "id": "proposal.P15",
+      "kind": "proposal",
+      "spec": "P15",
+      "disposition": "story",
+      "keys": [
+        "MARXY-240"
+      ],
+      "note": "No decision needed."
+    },
+    {
+      "id": "proposal.P16",
+      "kind": "proposal",
+      "spec": "P16",
+      "disposition": "declined",
+      "note": "ADR-0036 clause 11: caption only in v1; ADR-0006 not reopened."
+    },
+    {
+      "id": "proposal.P17",
+      "kind": "proposal",
+      "spec": "P17",
+      "disposition": "existing",
+      "keys": [
+        "MARXY-45"
+      ],
+      "note": "Folded into MARXY-45's acceptance."
+    },
+    {
+      "id": "declined.stripe-token",
+      "kind": "declined",
+      "spec": "A stripe token for tables.",
+      "disposition": "declined",
+      "note": "Handbook."
+    },
+    {
+      "id": "declined.injection-flags",
+      "kind": "declined",
+      "spec": "Flagging injection-looking prose.",
+      "disposition": "declined",
+      "note": "Handbook."
+    },
+    {
+      "id": "declined.ansi-colour",
+      "kind": "declined",
+      "spec": "Rendering ANSI colour.",
+      "disposition": "declined",
+      "note": "Handbook."
+    },
+    {
+      "id": "declined.yaml-reformatter",
+      "kind": "declined",
+      "spec": "A YAML reformatter.",
+      "disposition": "declined",
+      "note": "Handbook."
+    },
+    {
+      "id": "declined.mermaid",
+      "kind": "declined",
+      "spec": "Rendered Mermaid in v1.",
+      "disposition": "declined",
+      "note": "Handbook; ADR-0036 clause 11."
+    },
+    {
+      "id": "taste.same-book",
+      "kind": "taste",
+      "spec": "Whether the artifacts feel like part of the same book as the prose.",
+      "disposition": "default",
+      "keys": [
+        "MARXY-234",
+        "MARXY-235",
+        "MARXY-237"
+      ],
+      "note": "Answered by the end-of-phase review of the queue rows, not by a story."
+    },
+    {
+      "id": "taste.marker-quietness",
+      "kind": "taste",
+      "spec": "The quietness of every marker.",
+      "disposition": "default",
+      "keys": [
+        "MARXY-236",
+        "MARXY-238",
+        "MARXY-235",
+        "MARXY-237"
+      ]
+    },
+    {
+      "id": "taste.front-matter",
+      "kind": "taste",
+      "spec": "Whether the front matter head reads as metadata or as a box in disguise",
+      "disposition": "default",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "taste.alert-warning",
+      "kind": "taste",
+      "spec": "Whether a label-only alert is noticed enough for Warning.",
+      "disposition": "default",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "taste.diff-palette",
+      "kind": "taste",
+      "spec": "The diff palette.",
+      "disposition": "default",
+      "keys": [
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "taste.truncation",
+      "kind": "taste",
+      "spec": "The truncation numbers.",
+      "disposition": "partial",
+      "keys": [
+        "MARXY-235",
+        "MARXY-234"
+      ],
+      "bundle": "v1.1-transcript",
+      "note": "Long-line and front-matter numbers ship; tool-output and data-fold numbers wait for their v1.1 views."
+    },
+    {
+      "id": "taste.transcript-labels",
+      "kind": "taste",
+      "spec": "Whether outdented speaker labels or a rule between exchanges reads better",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript"
+    },
+    {
+      "id": "taste.continuation-rule",
+      "kind": "taste",
+      "spec": "Whether a 1 px rule and a 2ch hang read as a continuation",
+      "disposition": "default",
+      "keys": [
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "taste.mono-weight",
+      "kind": "taste",
+      "spec": "Whether the mono weight on dark should be 340, 380 or 400.",
+      "disposition": "declined",
+      "note": "Owned by the typography handbook (ADR-0035 overlap table); 380 stays until that handbook says otherwise."
+    },
+    {
+      "id": "taste.slash-break",
+      "kind": "taste",
+      "spec": "Whether breaking a path after a slash reads right.",
+      "disposition": "default",
+      "keys": [
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "hs.front-matter-head",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-front-matter-head",
+      "disposition": "story",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "hs.removal-notice",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-removal-notice",
+      "disposition": "story",
+      "keys": [
+        "MARXY-238"
+      ]
+    },
+    {
+      "id": "hs.keep-xml-tag-content",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-keep-xml-tag-content",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233"
+      ]
+    },
+    {
+      "id": "hs.diff-tint",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-diff-tint",
+      "disposition": "story",
+      "keys": [
+        "MARXY-232",
+        "MARXY-235"
+      ]
+    },
+    {
+      "id": "hs.copy-exactness",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-copy-exactness",
+      "disposition": "story",
+      "keys": [
+        "MARXY-230"
+      ]
+    },
+    {
+      "id": "hs.reserved-id-bypass",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-reserved-id-bypass",
+      "disposition": "story",
+      "keys": [
+        "MARXY-229",
+        "MARXY-44"
+      ]
+    },
+    {
+      "id": "hs.copy-section-html",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-copy-section-html",
+      "disposition": "story",
+      "keys": [
+        "MARXY-230"
+      ]
+    },
+    {
+      "id": "hs.invisible-char-marker",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-invisible-char-marker",
+      "disposition": "story",
+      "keys": [
+        "MARXY-236"
+      ]
+    },
+    {
+      "id": "hs.alerts-label-first",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-alerts-label-first",
+      "disposition": "story",
+      "keys": [
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "hs.task-marker-code-span",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-task-marker-code-span",
+      "disposition": "story",
+      "keys": [
+        "MARXY-231"
+      ]
+    },
+    {
+      "id": "hs.contrast-gate-all-pairs",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-contrast-gate-all-pairs",
+      "disposition": "story",
+      "keys": [
+        "MARXY-241"
+      ]
+    },
+    {
+      "id": "hs.media-query-rules",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-media-query-rules",
+      "disposition": "story",
+      "keys": [
+        "MARXY-241"
+      ]
+    },
+    {
+      "id": "hs.details-honoured",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-details-honoured",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233",
+        "MARXY-237"
+      ]
+    },
+    {
+      "id": "hs.console-and-ansi",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-console-and-ansi",
+      "disposition": "story",
+      "keys": [
+        "MARXY-235",
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "hs.source-gutter",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-source-gutter",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ]
+    },
+    {
+      "id": "hs.fidelity-property",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-fidelity-property",
+      "disposition": "story",
+      "keys": [
+        "MARXY-231"
+      ]
+    },
+    {
+      "id": "hs.nested-source-map",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-nested-source-map",
+      "disposition": "story",
+      "keys": [
+        "MARXY-231"
+      ]
+    },
+    {
+      "id": "hs.badge-hero-picture",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-badge-hero-picture",
+      "disposition": "story",
+      "keys": [
+        "MARXY-233",
+        "MARXY-237"
+      ]
+    },
+    {
+      "id": "hs.heading-ids-links",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-heading-ids-links",
+      "disposition": "story",
+      "keys": [
+        "MARXY-240"
+      ]
+    },
+    {
+      "id": "hs.csp-and-command-gate",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-csp-and-command-gate",
+      "disposition": "existing",
+      "keys": [
+        "MARXY-45"
+      ]
+    },
+    {
+      "id": "hs.derived-transcript",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-derived-transcript",
+      "disposition": "deferred",
+      "bundle": "v1.1-transcript"
+    },
+    {
+      "id": "hs.anchors-and-changed",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-anchors-and-changed",
+      "disposition": "deferred",
+      "bundle": "v1.1-provenance"
+    },
+    {
+      "id": "hs.link-mismatch-label",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-link-mismatch-label",
+      "disposition": "story",
+      "keys": [
+        "MARXY-236"
+      ]
+    },
+    {
+      "id": "hs.registry-hygiene",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-registry-hygiene",
+      "disposition": "story",
+      "keys": [
+        "MARXY-229",
+        "MARXY-234"
+      ]
+    },
+    {
+      "id": "hs.slash-break-and-tabs",
+      "kind": "handbook-story",
+      "spec": "MARXY-NEW-ra-slash-break-and-tabs",
+      "disposition": "story",
+      "keys": [
+        "MARXY-239"
+      ]
+    }
+  ]
+}
