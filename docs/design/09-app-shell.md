@@ -129,6 +129,14 @@ new EditorView({ state: EditorState.create({ doc: buffer.text /* without BOM */,
 ] }) })
 ```
 
+`themeBridge` reads `--marxy-font-mono`, `--marxy-size-code`, the `code-bg`/`code-text` colour
+pair and `--marxy-line-box` (the grid unit, ADR-0030) from the document root, so `.cm-content`
+gets the theme's mono face and a grid-unit inset instead of the browser's default monospace
+stack flush against the viewport edge; the `EditorView.theme` `dark` flag follows
+`data-marxy-variant` so Source matches whichever variant the reader is on (MARXY-265). No
+gutter restyling and no syntax-highlight theme beyond what CodeMirror ships — that is later
+work, not this pass.
+
 Languages, MIT only: `@codemirror/lang-markdown`, `-javascript`, `-rust`, `-python`, `-css`,
 `-json`, `-yaml`, `-html`; others plain. Files over 2 MB: no language, no wrapping.
 
