@@ -8,6 +8,7 @@
 #   ./orchestration/loop.sh [run] [flags]   # in this terminal, until Ctrl-C
 #
 #   INTERVAL=600 ./orchestration/loop.sh start      # slower (default 120 s between cycles)
+#   CYCLE_TIMEOUT=900 ./orchestration/loop.sh start # stop a cycle that runs longer (default 1800 s)
 #   ONCE=1 ./orchestration/loop.sh                  # a single cycle, for cron
 #   ./orchestration/loop.sh start --no-merge        # decide everything, merge nothing
 #   ./orchestration/loop.sh start --high|--low|--minimal   # compute profile (see models.json)
@@ -30,6 +31,7 @@ mkdir -p "$FLEET"
 RUNNER="$FLEET/runner"
 LEASE="$FLEET/loop.lease"
 LOG="$FLEET/loop.log"
+LAST="$FLEET/loop.last.json"
 
 json_field() { [ -f "$1" ] && node -e 'try { const v = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))[process.argv[2]]; if (v != null) console.log(v); } catch {}' "$1" "$2"; }
 lease_pid() { json_field "$LEASE" pid; }
@@ -71,6 +73,7 @@ esac
 
 if running; then echo "loop: another loop is running (pid $(lease_pid)); ./orchestration/loop.sh stop first"; exit 1; fi
 INTERVAL=${INTERVAL:-120}
+CYCLE_TIMEOUT=${CYCLE_TIMEOUT:-1800}
 node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({ pid: Number(process.argv[2]), host: require("os").hostname(), started: new Date().toISOString(), match: "loop.sh" }) + "\n")' "$LEASE" "$$"
 stopping=
 sleeper=
@@ -100,7 +103,23 @@ while [ -z "$stopping" ]; do
   # Rotate at 5 MB so a loop that runs for weeks does not grow without bound.
   if [ -f "$LOG" ] && [ "$(wc -c < "$LOG")" -gt 5000000 ]; then mv -f "$LOG" "$LOG.1"; fi
   root=$(code_root)
-  node "$root/orchestration/cycle.mjs" "$@"
+  # A cycle that hangs would hold the loop forever (2026-09-27: 513 minutes). It runs in the
+  # background and is stopped past CYCLE_TIMEOUT; a stop signal still waits for it to finish, and the
+  # next cycle takes over the lock it leaves (MARXY-273).
+  started=$(date -u +%Y-%m-%dT%H:%M:%SZ); t0=$SECONDS; timed_out=
+  node "$root/orchestration/cycle.mjs" "$@" & cycle=$!
+  while kill -0 "$cycle" 2>/dev/null; do
+    if [ -z "$timed_out" ] && [ $((SECONDS - t0)) -ge "$CYCLE_TIMEOUT" ]; then
+      timed_out=1
+      echo "loop: the cycle (pid $cycle) ran past ${CYCLE_TIMEOUT}s; stopping it so the next one can run"
+      kill -TERM "$cycle" 2>/dev/null
+      ( sleep 10; kill -KILL "$cycle" 2>/dev/null ) &
+    fi
+    sleep 1
+  done
+  wait "$cycle" 2>/dev/null; rc=$?
+  [ -n "$timed_out" ] && rc=124
+  node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({ started: process.argv[2], ended: new Date().toISOString(), rc: Number(process.argv[3]) }) + "\n")' "$LAST" "$started" "$rc"
   [ -n "${ONCE:-}" ] && exit 0
   [ -n "$stopping" ] && break
   sleep "$INTERVAL" & sleeper=$!

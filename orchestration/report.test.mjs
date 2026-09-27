@@ -6,7 +6,6 @@ import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { needsYou, inFlight, renderStatus, changedLines } from './report.mjs';
-import { pathHolds } from './observe.mjs';
 import { verbEvents } from './state.mjs';
 import { fold, timing } from './machine.mjs';
 
@@ -57,15 +56,12 @@ test('the log gets a heartbeat and only what changed since the last cycle', () =
   assert.match(again.heartbeat, /cycle .*: 0 in flight, 0 need you, 0 ready/);
 });
 
-test('path holds: an explicit claim with paths holds; an active worktree holds; an idle one does not', () => {
-  const t = timing({});
-  const plan = { byKey: new Map([['MARXY-8', { Key: 'MARXY-8', Paths: 'a, b' }]]) };
-  const b = board({ stories: { 'MARXY-300': { status: 'in_progress', claim: { by: 'x', until: '2026-09-26T13:00:00.000Z', paths: ['orchestration/x.mjs'] } } } });
-  const wt = mins => ({ key: 'MARXY-8', path: '/wt/8', branch: 'feat/MARXY-8-x', dirty: true, ahead: 0, lastActivityMs: nowMs - mins * 60_000 });
-  const active = pathHolds({ board: b, plan, worktrees: [wt(5)], t, nowMs, rowOf: () => null });
-  assert.deepEqual(active.map(h => h.key), ['MARXY-300', 'MARXY-8']);
-  const idle = pathHolds({ board: b, plan, worktrees: [wt(t.activeWorktreeMinutes + 5)], t, nowMs, rowOf: () => null });
-  assert.deepEqual(idle.map(h => h.key), ['MARXY-300']);
+test('a needs-you line whose only change is its age is not printed again', () => {
+  const r = { at: AT, lines: [], board: board(), ready: { ready: [] } };
+  const need = why => [{ key: 'MARXY-49', why }];
+  const prev = { lines: [], needs: ['needs you: MARXY-49 — blocked 87 min: paths omit app.ts'] };
+  assert.deepEqual(changedLines(prev, r, need('blocked 2 h: paths omit app.ts')).fresh, []);
+  assert.deepEqual(changedLines(prev, r, need('blocked 2 h: paths omit main.ts')).fresh, ['needs you: MARXY-49 — blocked 2 h: paths omit main.ts']);
 });
 
 test('state.mjs verbs are the same guarded events fleet.mjs appends', () => {
