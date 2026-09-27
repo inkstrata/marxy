@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The shell contract adds `setWindowControls` so the desktop can hide macOS traffic lights at rest and size the strip they sit in, and documents that `setTitle` never moves or reveals those controls; the title-bar behaviour itself lands in a follow-up story (MARXY-268)
 - CI, the release build and `pnpm lint:rust` now build the Rust shell with `--locked`, so a `Cargo.toml` change without its `Cargo.lock` fails instead of being resolved on the runner, and `check:workflows` refuses any cargo or `tauri build` call that leaves the flag out (MARXY-270)
 - On macOS, Marxy now shows a native menu bar: Quit binds to Cmd+Q through the same exit path as the existing quit command, File gets "Open File…" (Cmd+O, a native picker) and "Close Window" (Cmd+W, which quits, since Marxy is single-window), and Edit exposes the platform's own Undo/Redo/Cut/Copy/Paste/Select All so those shortcuts reliably reach the palette's search field and CodeMirror. No document-specific command lives in the menu (ADR-0011) (MARXY-184)
 - The palette's jump-to-heading test now lands on a heading that has to scroll to the reading line, so it checks landing again rather than passing or failing on the theme's top padding (MARXY-272)
