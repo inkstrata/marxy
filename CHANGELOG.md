@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- ADR-0035 is accepted and the theme contract adds four diff colour tokens (`--marxy-color-diff-add`, `--marxy-color-diff-del`, `--marxy-color-diff-add-word`, `--marxy-color-diff-del-word`) with dark defaults from ADR-0036; the marker stays the primary cue (MARXY-232)
 - The fleet no longer dispatches a story whose pull request already merged on main: the cycle reads squash subjects once, settles missing or todo rows as done, and ready refuses the key by name (MARXY-213)
 - A straight quote that follows an em space, no-break space or thin space now curls open, not closed, so an indented line of verse begins with “ rather than ” (MARXY-258)
 - Opening Marxy with no document now shows one passage from the Commonplace, chosen at random each launch and set like a page of a book: verse keeps every line and indent with turned-over lines hung, two languages face each other as a centred pair on a wide window, and the colophon sits small and quiet beneath, never hyphenated. Opening any file replaces it; until the Commonplace ships, the window keeps its one-line hint (MARXY-257)
