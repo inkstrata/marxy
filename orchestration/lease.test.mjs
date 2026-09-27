@@ -100,3 +100,22 @@ test('writeJson replaces the file whole, leaving no temporary behind', async () 
   assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), { a: 2 });
   assert.deepEqual(readdirSync(dir), ['state.json']);
 });
+
+test('cycle health: hung is a lock held too long; failing is bad exits; a slept machine is only idle', async () => {
+  const { cycleHealth } = await import('./lease.mjs');
+  const nowMs = Date.parse('2026-09-27T12:00:00.000Z');
+  const ago = m => new Date(nowMs - m * 60_000).toISOString();
+  const base = { loopHeld: true, stuckMin: 30, nowMs };
+  assert.equal(cycleHealth({ ...base, loopHeld: false, reportAgeMin: 500 }), null, 'not running is reported elsewhere');
+  assert.equal(cycleHealth({ ...base, reportAgeMin: 12 }), null, 'a long cycle is not a stale one');
+  assert.equal(cycleHealth({ ...base, reportAgeMin: 40, cycle: { held: true, lease: { pid: 7, started: ago(5) } } }), null);
+  assert.match(cycleHealth({ ...base, reportAgeMin: 40, cycle: { held: true, lease: { pid: 7, started: ago(45) } } }).msg, /pid 7\) has run 45 min — it is hung/);
+  // 2026-09-27 00:02: 513 minutes since the last report, the loop alive and asleep.
+  const slept = cycleHealth({ ...base, reportAgeMin: 513, last: { ended: ago(513), rc: 0 } });
+  assert.equal(slept.level, 'warn');
+  assert.match(slept.msg, /the machine slept/);
+  const failing = cycleHealth({ ...base, reportAgeMin: 40, last: { ended: ago(1), rc: 1 } });
+  assert.equal(failing.level, 'fail');
+  assert.match(failing.msg, /exited 1/);
+  assert.match(cycleHealth({ ...base, reportAgeMin: 40, last: { ended: ago(1), rc: 124 } }).msg, /timed out/);
+});

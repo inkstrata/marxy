@@ -39,6 +39,6 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0032](0032-speed-numbers-are-recorded.md) | Speed numbers are recorded; they are not CI failures | accepted 2026-09-20 |
 | [0033](0033-typography-follows-the-research.md) | Typography follows the reader-typography research | accepted 2026-09-23 |
 | [0034](0034-the-fleet-is-a-reconciler.md) | The fleet is a reconciler: every state has an owner and a way out | proposed |
-| [0035](0035-artifact-presentation-follows-the-research.md) | Artifact presentation follows the reader-artifacts research; where two handbooks meet, the owner of the property decides | proposed (MARXY-211) |
+| [0035](0035-artifact-presentation-follows-the-research.md) | Artifact presentation follows the reader-artifacts research; where two handbooks meet, the owner of the property decides | accepted 2026-09-26 |
 | [0036](0036-artifact-units.md) | Artifact units: what the renderer keeps, reports, marks and copies (the handbook's 17 drafts: 8 adopted, 2 declined, 3 deferred, 4 need no decision) | accepted 2026-09-26 |
 | [0037](0037-one-document-store.md) | One document store: the open document has one owner, and changes are transitions | proposed (MARXY-248) |
