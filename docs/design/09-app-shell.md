@@ -67,6 +67,16 @@ chrome.
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 
+**Guaranteed by the native menu, not only by this table (macOS, MARXY-184).** `Mod+Q`,
+`Mod+C`/`Mod+V`/`Mod+A`, and `Mod+Z`/`Mod+Shift+Z` also have a native macOS menu item behind
+them (Quit; Edit's predefined copy/paste/select-all; Edit's predefined undo/redo). AppKit wires a
+menu item's key equivalent from menu-item validation, not from `keys.ts` alone, so a reader
+outside a text field who presses one of these keys is relying on the menu, not this table, to
+reach the responder chain — the two are expected to agree, and a change to either should keep
+them in sync. `Mod+O` (Open File…) is native-menu-only in v1: the palette does not yet list it.
+`Mod+W` (Close Window) is native-menu-only too, and — since Marxy is single-window — exits
+through the same path as Quit (`docs/design/06-shell.md` §Capabilities).
+
 ## Outline
 
 Built from the AST's headings (`level`, text, `src.start`). Rendered as a `<dialog>` at the

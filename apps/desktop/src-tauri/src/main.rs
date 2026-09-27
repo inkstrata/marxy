@@ -243,14 +243,21 @@ async fn unwatch_root(root: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Ends the process the one sanctioned way: Tauri's own teardown, then `exit(code)`.
+/// `AppHandle::exit` is not enough — it ends the process with status 0 and never returns to
+/// `main` — so the code is applied here. The `quit` command and the native menu's Quit and Close
+/// Window items (MARXY-184; a closed window leaves nothing to open into, since Marxy is
+/// single-window) all call this, so there is exactly one exit path.
+fn quit_now(app: &tauri::AppHandle, code: i32) {
+    app.cleanup_before_exit();
+    std::process::exit(code);
+}
+
 /// Exits with `code`: 0 for a launch that rendered, non-zero for one that failed, so a harness
-/// waiting on the process learns the difference instead of only timing out. `AppHandle::exit` is not
-/// enough — it ends the process with status 0 and never returns to `main` — so the code is applied
-/// here, after Tauri's own teardown.
+/// waiting on the process learns the difference instead of only timing out.
 #[tauri::command]
 fn quit(app: tauri::AppHandle, code: Option<i32>) {
-    app.cleanup_before_exit();
-    std::process::exit(code.unwrap_or(0));
+    quit_now(&app, code.unwrap_or(0));
 }
 
 /// How long a harness launch may wait for a paint. Generous next to the 20-50 ms a real paint takes on
@@ -385,21 +392,171 @@ fn paint_deadline_selftest() -> i32 {
     }
 }
 
+/// The extensions "Open File…" offers, matching the documents `marxy` already knows how to open:
+/// the markdown kinds `packages/core/src/index-model/kinds.ts` and
+/// `apps/desktop/src-tauri/src/index/mod.rs` recognise, plus `txt` (the other extension
+/// `apps/desktop/src/source/default-mode.ts` defaults to Rendered mode).
+#[cfg(target_os = "macos")]
+const DOCUMENT_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx", "txt"];
+
+/// The native menu: the smallest set a Mac reader already expects (App/File/Edit/Window), with no
+/// document-specific command (ADR-0011 — the palette is the tab manager, not this menu). Item ids
+/// are named constants so `on_menu_event` and the id-set test below cannot drift from each other.
+#[cfg(target_os = "macos")]
+mod app_menu {
+    pub const QUIT: &str = "marxy-quit";
+    pub const OPEN_FILE: &str = "marxy-open-file";
+    pub const CLOSE_WINDOW: &str = "marxy-close-window";
+
+    /// Every custom (non-predefined) item id the menu carries. Exercised by
+    /// `tests::the_native_menu_carries_only_the_expected_ids`; not read outside `#[cfg(test)]`.
+    #[allow(dead_code)]
+    pub const ITEM_IDS: &[&str] = &[QUIT, OPEN_FILE, CLOSE_WINDOW];
+}
+
+/// Builds the macOS app menu: an app submenu named "Marxy" (About, Services, Hide/Hide
+/// Others/Show All, Quit), File (Open File…, Close Window), Edit (undo/redo/cut/copy/paste/select
+/// all — `tauri::menu`'s predefined items, not hand-built ones), and Window (minimize, zoom).
+/// Nothing here is document-specific: no Save, no view-mode toggle, no operation from the
+/// catalogue (MARXY-42/43) — those stay in the palette (ADR-0011).
+#[cfg(target_os = "macos")]
+fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+    let quit_item =
+        MenuItem::with_id(app, app_menu::QUIT, "Quit Marxy", true, Some("CmdOrCtrl+Q"))?;
+    let marxy_menu = Submenu::with_items(
+        app,
+        "Marxy",
+        true,
+        &[
+            &PredefinedMenuItem::about(app, None, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, None)?,
+            &PredefinedMenuItem::hide_others(app, None)?,
+            &PredefinedMenuItem::show_all(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &quit_item,
+        ],
+    )?;
+
+    let open_file_item = MenuItem::with_id(
+        app,
+        app_menu::OPEN_FILE,
+        "Open File…",
+        true,
+        Some("CmdOrCtrl+O"),
+    )?;
+    // Custom, not `PredefinedMenuItem::close_window`: Marxy is single-window, so closing the one
+    // window leaves nothing to open into and behaves the same as quitting (see `quit_now`).
+    let close_window_item = MenuItem::with_id(
+        app,
+        app_menu::CLOSE_WINDOW,
+        "Close Window",
+        true,
+        Some("CmdOrCtrl+W"),
+    )?;
+    let file_menu = Submenu::with_items(
+        app,
+        "File",
+        true,
+        &[
+            &open_file_item,
+            &PredefinedMenuItem::separator(app)?,
+            &close_window_item,
+        ],
+    )?;
+
+    let edit_menu = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::select_all(app, None)?,
+        ],
+    )?;
+
+    let window_menu = Submenu::with_items(
+        app,
+        "Window",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, None)?,
+            &PredefinedMenuItem::maximize(app, None)?,
+        ],
+    )?;
+
+    Menu::with_items(app, &[&marxy_menu, &file_menu, &edit_menu, &window_menu])
+}
+
+/// "Open File…": the native picker, filtered to the documents `marxy` opens. Non-blocking
+/// (`pick_file`'s callback runs off the main thread's event loop turn), so the menu action returns
+/// immediately and the chosen path arrives through the same `marxy:open-files` event a second
+/// launch or a Finder "Open With" would emit (`emit_open_files`, MARXY-183).
+#[cfg(target_os = "macos")]
+fn open_file_via_dialog(app: tauri::AppHandle) {
+    use tauri_plugin_dialog::DialogExt;
+    app.dialog()
+        .file()
+        .add_filter("Markdown", DOCUMENT_EXTENSIONS)
+        .pick_file(move |file| {
+            let Some(file) = file else { return };
+            let Some(path) = file
+                .into_path()
+                .ok()
+                .and_then(|p| p.to_str().map(String::from))
+            else {
+                return;
+            };
+            emit_open_files(&app, vec![path]);
+        });
+}
+
+#[cfg(target_os = "macos")]
+fn on_app_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
+    match event.id().as_ref() {
+        app_menu::QUIT => quit_now(app, 0),
+        app_menu::CLOSE_WINDOW => quit_now(app, 0),
+        app_menu::OPEN_FILE => open_file_via_dialog(app.clone()),
+        _ => {}
+    }
+}
+
 fn main() {
     if std::env::args_os().any(|a| a == "--paint-deadline-selftest") {
         std::process::exit(paint_deadline_selftest());
     }
     mark("main_start", now_ms(), None);
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         .plugin(navigation_guard())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             emit_open_files(app, document_paths_from_argv(&argv, &cwd));
-        }))
-        .setup(|app| {
-            if app.webview_windows().values().next().is_some() {
+        }));
+    // Only "Open File…" (the macOS menu) calls the dialog plugin; the webview never does, so no
+    // capability is added for it (docs/design/06-shell.md §Capabilities).
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .plugin(tauri_plugin_dialog::init())
+            .on_menu_event(on_app_menu_event);
+    }
+    builder
+        .setup(|_app| {
+            if _app.webview_windows().values().next().is_some() {
                 mark("window_shown", now_ms(), None);
             }
+            #[cfg(target_os = "macos")]
+            _app.set_menu(build_app_menu(_app.handle())?)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -482,5 +639,29 @@ mod tests {
             percent_decode("%FF").is_err(),
             "a path that is not UTF-8 is refused, not guessed at"
         );
+    }
+
+    /// Building a real `Menu` needs a running app, so this checks the id list the menu is built
+    /// from instead (MARXY-184): exactly the expected custom ids, and nothing document-specific
+    /// (no operation id, no `op.*`, no view-mode or save command) among them.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_native_menu_carries_only_the_expected_ids() {
+        use super::app_menu::{CLOSE_WINDOW, ITEM_IDS, OPEN_FILE, QUIT};
+
+        let expected: std::collections::BTreeSet<&str> =
+            [QUIT, OPEN_FILE, CLOSE_WINDOW].into_iter().collect();
+        let actual: std::collections::BTreeSet<&str> = ITEM_IDS.iter().copied().collect();
+        assert_eq!(actual, expected);
+
+        let document_specific = ["save", "save-as", "mode", "rendered", "source", "op."];
+        for id in ITEM_IDS {
+            for needle in document_specific {
+                assert!(
+                    !id.contains(needle),
+                    "menu item id {id:?} looks document-specific (matches {needle:?})"
+                );
+            }
+        }
     }
 }
