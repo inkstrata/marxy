@@ -1,7 +1,8 @@
 // In-memory Shell for the app harness: a recorded filesystem keyed by POSIX path (MARXY-95).
 import { imageSizeFromBytes, isInsideImageRoot } from '@marxy/core/src/render/images.ts';
+import { DENY_DIRECTORY_NAMES } from '@marxy/core/src/index-model/deny.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
-import type { Shell, WatchEvent } from '@marxy/shell-api';
+import type { FileStat, Shell, WatchEvent } from '@marxy/shell-api';
 
 export type Call = {
   readonly method: string;
@@ -11,7 +12,10 @@ export type Call = {
 /** 1×1 PNG so fetchRemoteImage has bytes without touching the network. */
 const DATA_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
 
-export type MemoryShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks'> & {
+export type MemoryShell = Pick<
+  Shell,
+  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir'
+> & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
@@ -27,6 +31,7 @@ export type MemoryShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' |
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
+  hasGitMarker(dir: string): boolean;
 };
 
 function notFound(path: string): Error & { code: 'not-found'; path: string } {
@@ -35,6 +40,8 @@ function notFound(path: string): Error & { code: 'not-found'; path: string } {
   err.path = path;
   return err;
 }
+
+const deniedDir = new Set<string>(DENY_DIRECTORY_NAMES);
 
 const platformOf = (): MemoryShell['platform'] => {
   if (typeof navigator === 'undefined') return 'linux';
@@ -88,6 +95,35 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
       const bytes = store.get(path);
       if (!bytes) throw notFound(path);
       return bytes.slice();
+    },
+    async readDir(dir) {
+      record('readDir', [dir]);
+      const root = normalizePath(dir).replace(/\/$/, '');
+      const prefix = `${root}/`;
+      const children = new Map<string, FileStat>();
+      for (const path of store.keys()) {
+        if (path === root) continue;
+        if (!path.startsWith(prefix)) continue;
+        const rest = path.slice(prefix.length);
+        const slash = rest.indexOf('/');
+        const name = slash === -1 ? rest : rest.slice(0, slash);
+        if (!name || deniedDir.has(name)) continue;
+        const childPath = slash === -1 ? path : `${root}/${name}`;
+        const existing = children.get(name);
+        const isDir = slash !== -1;
+        if (existing) {
+          if (isDir) children.set(name, { ...existing, isDir: true, size: 0 });
+          continue;
+        }
+        const bytes = store.get(path);
+        children.set(name, {
+          path: childPath,
+          isDir,
+          size: isDir ? 0 : bytes?.byteLength ?? 0,
+          mtimeMs: 1,
+        });
+      }
+      return [...children.values()].sort((a, b) => a.path.localeCompare(b.path));
     },
     async writeFileAtomic(path, bytes) {
       record('writeFileAtomic', [path, bytes]);
@@ -149,6 +185,14 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
       if (!bytes) throw notFound(path);
       const blob = new Blob([bytes.slice()], { type: 'image/png' });
       return URL.createObjectURL(blob);
+    },
+    hasGitMarker(dir) {
+      const root = normalizePath(dir).replace(/\/$/, '');
+      const prefix = `${root}/.git/`;
+      for (const path of store.keys()) {
+        if (path.startsWith(prefix) || path === `${root}/.git`) return true;
+      }
+      return false;
     },
   };
   return shell;

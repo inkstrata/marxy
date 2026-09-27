@@ -27,8 +27,8 @@
 
 import { escapeAttribute, escapeAttributeKeepingReferences, decodeReferences } from './escape.ts';
 import {
-  BLOCK_ELEMENTS, DEFAULT_POLICY, FOREIGN_ROOTS, PROVENANCE_ATTRIBUTES, RAW_TEXT_ELEMENTS, REMOTE_IMAGE_ATTR,
-  VOID_ELEMENTS, type AttributeRule, type ElementRule, type Policy, type ProvenanceNames,
+  BLOCK_ELEMENTS, CLOBBERING_IDENTIFIER_NAMES, DEFAULT_POLICY, FOREIGN_ROOTS, RAW_TEXT_ELEMENTS, REMOTE_IMAGE_ATTR,
+  RENDERER_CLASSES_WITHOUT_PROVENANCE, VOID_ELEMENTS, type AttributeRule, type ElementRule, type Policy, type ProvenanceNames,
 } from './policy.ts';
 import { sanitizeUrl } from './urls.ts';
 
@@ -46,7 +46,7 @@ export interface Removal {
 }
 
 export interface SanitizeOptions {
-  /** Names provenance is written under; tags carrying them skip the reserved-id rule. */
+  /** Secret provenance names for this pass; only these exempt renderer-owned reserved ids and classes. */
   readonly provenanceNames?: ProvenanceNames;
 }
 
@@ -228,11 +228,12 @@ interface StartTag {
   readonly end: number;
 }
 
-function tagCarriesProvenance(tag: StartTag, names?: ProvenanceNames): boolean {
+/** True when the renderer wrote provenance under this pass's secret names (ADR-0023), not forged public ones. */
+function tagCarriesSecretProvenance(tag: StartTag, names?: ProvenanceNames): boolean {
+  if (names === undefined) return false;
   for (const attribute of tag.attributes) {
     const key = attribute.name.toLowerCase();
-    if (key === PROVENANCE_ATTRIBUTES.start || key === PROVENANCE_ATTRIBUTES.end) return true;
-    if (names !== undefined && (key === names.start || key === names.end)) return true;
+    if (key === names.start || key === names.end) return true;
   }
   return false;
 }
@@ -245,7 +246,7 @@ function attributes(
   removed: Removal[],
   options: SanitizeOptions,
 ): { text: string; kept: Set<string> } {
-  const rendererOwned = tagCarriesProvenance(tag, options.provenanceNames);
+  const rendererOwned = tagCarriesSecretProvenance(tag, options.provenanceNames);
   let text = '';
   const seen = new Set<string>();
   const kept = new Set<string>();
@@ -318,19 +319,30 @@ function attributeValue(
     case 'pattern': {
       const value = decodeReferences(raw ?? '').trim();
       if (!rule.pattern.test(value)) return refuse(`${key} does not match ${String(rule.pattern)}`);
-      const prefix = policy.reservedIdPrefix;
-      if (
-        !rendererOwned &&
-        prefix !== undefined &&
-        (key === 'id' || key === 'name') &&
-        value.toLowerCase().startsWith(prefix.toLowerCase())
-      ) {
-        return refuse('the marxy- prefix is reserved for marxy');
+      if ((key === 'id' || key === 'name') && !rendererOwned) {
+        const lower = value.toLowerCase();
+        const prefix = policy.reservedIdPrefix;
+        if (prefix !== undefined && lower.startsWith(prefix.toLowerCase())) {
+          return refuse('the marxy- prefix is reserved for marxy');
+        }
+        if (CLOBBERING_IDENTIFIER_NAMES.has(lower)) {
+          return refuse('id and name must not shadow a global object property');
+        }
       }
       return ` ${key}="${escapeAttribute(value)}"`;
     }
     case 'tokens': {
-      const tokens = decodeReferences(raw ?? '').trim().split(/\s+/).filter((token) => rule.token.test(token));
+      const decoded = decodeReferences(raw ?? '').trim().split(/\s+/).filter(Boolean);
+      const tokens = decoded.filter((token) => {
+        if (/^marxy-/i.test(token)) {
+          if (rendererOwned) return rule.token.test(token);
+          if (RENDERER_CLASSES_WITHOUT_PROVENANCE.has(token.toLowerCase()) && policy.name.endsWith('+provenance')) {
+            return rule.token.test(token);
+          }
+          return false;
+        }
+        return rule.token.test(token);
+      });
       return tokens.length > 0
         ? ` ${key}="${escapeAttribute(tokens.join(' '))}"`
         : refuse(`no ${key} token matches ${String(rule.token)}`);

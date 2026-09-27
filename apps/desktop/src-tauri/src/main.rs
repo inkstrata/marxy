@@ -413,6 +413,7 @@ fn main() {
             unwatch_root,
             commands::fs::image_size,
             commands::fs::allow_asset_scope,
+            commands::fs::read_dir,
             clipboard_write,
         ])
         .build(tauri::generate_context!())
