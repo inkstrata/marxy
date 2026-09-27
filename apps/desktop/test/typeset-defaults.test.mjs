@@ -124,7 +124,9 @@ test('01-long-technical.md through the app ends a line on the generated hyphen, 
     assert.equal(writes.length, 0, 'the document must paint without error');
     const viewport = marks.find((m) => m.name === 'typeset_viewport');
     const viewportMs = Number(/ms=([\d.]+)/.exec(String(viewport?.data ?? ''))?.[1]);
-    assert.ok(Number.isFinite(viewportMs) && viewportMs < 100, `typeset_viewport ${viewportMs} ms must stay under 100`);
+    // Recorded, not a CI failure (ADR-0032); a missing mark is.
+    assert.ok(Number.isFinite(viewportMs), `typeset_viewport was not measured (${viewport?.data})`);
+    console.log(`typeset_viewport ${viewportMs} ms (100 ms product budget; recorded, ADR-0032)`);
     assert.ok(result.hyphenCount > 0, `expected a generated hyphen on 01-long-technical.md, got ${result.hyphenCount}`);
     assert.equal(result.empty, true, 'the hyphen span is empty: the glyph is generated content, not a document byte');
     assert.equal(result.selected, '', `selecting the hyphen span must yield no text, got ${JSON.stringify(result.selected)}`);
