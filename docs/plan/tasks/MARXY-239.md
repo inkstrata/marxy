@@ -18,6 +18,7 @@ verify: [pnpm precheck, pnpm done MARXY-239]
 - `apps/desktop/src/source/editor.ts` — gutter on for non-markdown, folding, `highlightSpecialChars`, ligatures off, tab size.
 - `apps/desktop/src/source/editorconfig.ts` — new: pure parser for the few keys used.
 - `apps/desktop/src/commands/` — `toggle-line-numbers` and `jump-to-source` palette commands.
+- `apps/desktop/package.json` — depend on `@codemirror/language` (already listed in `scripts/allowlists/dependencies.json`). `pnpm-lock.yaml` records the same dependency; attempt 1 stopped because both files were outside Paths (delta 2026-09-27-parked).
 - `packages/typeset/src/` — the third-pass slash break.
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
 

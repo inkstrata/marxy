@@ -14,6 +14,10 @@ verify: [pnpm precheck, pnpm done MARXY-49]
 - `apps/desktop/src/shell/save.ts` — `save(ctx, opts?)` per §01 §Save.
 - `apps/desktop/src/commands/document.ts` — `save` (`Mod+S`), `save-as` (`Mod+Shift+S`); one line in `commands/index.ts` if the file is new.
 - `apps/desktop/src/title.ts` — `updateTitle(state)` → `shell.setTitle('<name> — marxy' + (dirty ? ' •' : ''))`.
+- `apps/desktop/src/app.ts` — wire save and the title onto the open document. `commitEdit` does not write. After a successful save, a watch echo with the same `savedHash` is ignored.
+- `apps/desktop/src/commands/edits.ts` — `commitEdit` does not call `writeFileAtomic`. The write waits for `Mod+S`.
+- `apps/desktop/src/main.ts` — close goes through the close handler, not a write on the way out.
+- `apps/desktop/test/operations-edit.test.mjs` — a harness toggle records no `writeFileAtomic` until `Mod+S`.
 - Close interception: Rust `CloseRequested` handler that asks the webview (`marxy:close-requested` event) and closes only on `quit`/`close_confirmed`; app side in `apps/desktop/src/shell/close.ts`.
 - Rust: `set_title`, `save_dialog` (`tauri-plugin-dialog`, MIT/Apache-2.0); map `atomic_write.rs` refusal strings to `ShellError { code: 'permission' | 'io' }` (add a `kind` to the error the module returns rather than parsing messages).
 - Tests: `apps/desktop/test/save.test.mjs` (app harness), Rust tests for the error mapping, `pnpm gate:fidelity` extended with save-after-operation.
@@ -24,6 +28,7 @@ verify: [pnpm precheck, pnpm done MARXY-49]
 3. Title.
 4. Close interception and the notice.
 5. Own-write: after save, the watch echo (same `savedHash`) is ignored — assert it.
+6. Wire `app.ts`, `commands/edits.ts` and `main.ts` so an operation does not write, `Mod+S` does, and close asks. Attempt 1 stopped because these files were outside Paths (delta 2026-09-27-parked). The in-path save module from that attempt is the starting point.
 
 ## Tests → expected
 | Check | Expect |
