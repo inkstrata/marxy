@@ -12,10 +12,16 @@ if (files.length === 0) { console.log('story-check: nothing to check'); process.
 // leaves it is then the one it is judged by.
 const headText = f => (existsSync(join(ROOT, f)) ? readFileSync(join(ROOT, f), 'utf8') : '');
 // Row edits are measured from where the branch left main, so one behind main is not blamed for rows
-// main changed since (MARXY-273).
+// main changed since (MARXY-273). Mid-merge the working tree already holds MERGE_HEAD too, so the
+// newer of the two fork points is the one it left main at.
+const isAncestor = (a, b) => { try { sh(`git merge-base --is-ancestor ${a} ${b}`); return true; } catch { return false; } };
+const forkPoint = ['HEAD', 'MERGE_HEAD']
+  .filter(r => sh(`git rev-parse -q --verify ${r}`, { soft: true }))
+  .map(r => sh(`git merge-base origin/main ${r}`, { soft: true }))
+  .filter(Boolean)
+  .reduce((a, b) => (a && isAncestor(b, a) ? a : b), null);
 const board = key ? branchBoundary(key, {
-  show: (at, f) => sh(`git show ${at}:${f}`, { soft: true }) || null, head: headText,
-  forkPoint: sh('git merge-base origin/main HEAD', { soft: true }) || null,
+  show: (at, f) => sh(`git show ${at}:${f}`, { soft: true }) || null, head: headText, forkPoint,
 }) : null;
 const row = board?.story ?? story(key);
 const noRowFix = fix(`every change has a board row; add yours in this branch: node orchestration/out-of-plan.mjs row ${key} --paths "…" --acceptance "…" (docs/sdlc.md "Work outside the plan")`);
