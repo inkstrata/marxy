@@ -1,12 +1,12 @@
 ---
 key: MARXY-230
 design: [03-selection-and-operations, 02-render]
-depends: []
+depends: [MARXY-260]
 verify: [pnpm precheck, pnpm done MARXY-230]
 ---
 # MARXY-230 — Copy code, kbd and sections byte for byte, and never add a newline the source did not have
 
-**Design:** [03-selection-and-operations](../../design/03-selection-and-operations.md) · [02-render](../../design/02-render.md) · **Research:** [Reader Artifacts Handbook](../../research/reader-artifacts/10-spec.md) (ADR-0035) · **ADR:** [ADR-0036](../../adr/0036-artifact-units.md) · **Delta:** [2026-09-26-reader-artifacts](../deltas/2026-09-26-reader-artifacts.md) · **Depends on:** nothing.
+**Design:** [03-selection-and-operations](../../design/03-selection-and-operations.md) · [02-render](../../design/02-render.md) · **Research:** [Reader Artifacts Handbook](../../research/reader-artifacts/10-spec.md) (ADR-0035) · **ADR:** [ADR-0036](../../adr/0036-artifact-units.md) · **Delta:** [2026-09-26-reader-artifacts](../deltas/2026-09-26-reader-artifacts.md) · **Depends on:** MARXY-260 (a straight quote after a Unicode space opens; both stories edit `typography.ts`, and that fix lands first).
 **Handbook units closed by this story** (`docs/research/reader-artifacts/coverage.json`): `copy.exact-code`, `copy.trailing-newline`, `rule.6-code-weight-no-smart`, `verify.copy-fidelity`, `proposal.P06`, `hs.copy-exactness`, `hs.copy-section-html`.
 
 **Outcome.** What a reader copies from code is exactly what the file says: no curly quotes or en dashes inside code or keys, no newline that runs a command on paste, and a copied section keeps every character of its text.
@@ -45,6 +45,7 @@ Handbook [07](../../research/reader-artifacts/07-trust-safety.md) and [05](../..
 5. CHANGELOG.md has an Unreleased line for this key.
 
 ## Do not
+- Change `isOpeningContext` (MARXY-260 owns which characters open a quote).
 - Change drag-selection copy in prose (design 03 keeps rendered text; ADR-0036 clause 5).
 - Resolve drag selections to byte spans (P06 §3; not in this story).
 - Add new operations: `copy-command` and the rest are v1.1 (docs/scope.md).

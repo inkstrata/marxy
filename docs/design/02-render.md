@@ -64,8 +64,8 @@ applied only outside `code`, `mathInline`, `link` URLs and `htmlBlock`:
 
 | Input | Output | Rule |
 | --- | --- | --- |
-| `"` at word start / after space, `(`, `[`, `\n` | `“` | else `”` |
-| `'` at word start | `‘` | else `’` (also apostrophes) |
+| `"` at the start of the run, or after a Unicode space separator (category Zs, including U+0020, U+00A0 and U+2003 EM SPACE), tab, newline, `(`, or `[` | `“` | else `”` |
+| `'` in that same position | `‘` | else `’` (also apostrophes: `don't`) |
 | `--` | `–` (en dash) with surrounding spaces kept | `---` → `—` |
 | `...` | `…` | |
 | last space of a paragraph's text when the paragraph has ≥ 8 words | U+00A0 | "widont": the last two words stay together |
