@@ -118,6 +118,8 @@ cannot pass `--strict`.**
 | `MARXY-NEW-… is a placeholder key` | a planner branch still carries a draft key | `node orchestration/jira.mjs sync --new` in the branch: creates the issues, rewrites the keys, renames the cards |
 | `check:deps` failure | a dependency missing from the allowlist, unpinned, or forbidden | add it to `scripts/allowlists/dependencies.json` with a pin, or do not add it |
 | `check:workflows` failure | a GitHub Action not on the accepted list | a third-party action runs with our token on the machine that builds what we ship; justify and add it deliberately |
+| `… runs without --locked` (`check:workflows`) | a `cargo build`, `check`, `clippy` or `test`, a `tauri build`, or tauri-action `args` in a workflow or a `package.json` script that does not pass `--locked` | `pnpm check:workflows`; add `--locked` before any `--` for cargo, after `--` for `tauri build` and tauri-action, so CI builds the committed `Cargo.lock` |
+| `cannot update the lock file … because --locked was passed` | `Cargo.toml` changed and `Cargo.lock` was not committed with it | `cd apps/desktop/src-tauri && cargo check`, then commit `Cargo.lock` |
 | `check:deferrals` failure | a deferral marker in `apps/` or `packages/` source names no `MARXY-nnn` key, names a key already on `main`, or a stale row in `scripts/allowlists/deferrals.json` | `pnpm check:deferrals`; name the story that removes the marker or delete it; shrink the allow-list when the marker is gone |
 | `noUnusedImports` | an unused import | remove it; do not add a biome override |
 | biome wrote a file | `format --write` was used somewhere | `pnpm lint` is check-only and must stay so |
@@ -160,7 +162,9 @@ Four checks guard the workflow. Change `ci.yml` and you will meet them.
   `fixtures/corpus` and `fonts` stay ignored by biome.
 - **`ci-changes.mjs --selftest`** asserts the classifier still sends rust, `measure-startup` and
   `ci.yml` changes to a real build.
-- **`check:workflows`** pins every third-party action to an accepted major version.
+- **`check:workflows`** pins every third-party action to an accepted major version, requires
+  `--locked` on every cargo and `tauri build` call, and runs its own selftest cases first
+  (`node scripts/check-workflows.mjs --selftest` runs only those).
 
 Two standing rules: **every job carries `timeout-minutes`**, and the Playwright container tag
 must equal the `playwright` version pinned in `package.json` exactly, no caret.

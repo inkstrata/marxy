@@ -227,7 +227,7 @@ jobs:
       # `tauri build` enables tauri/custom-protocol so the app serves the embedded frontend instead of the dev
       # server; a plain cargo build must pass it explicitly or the window never loads a page.
       - name: Build the desktop binary with the ci profile (thin LTO, cached dependencies)
-        run: cd apps/desktop/src-tauri && cargo build --profile ci --features tauri/custom-protocol
+        run: cd apps/desktop/src-tauri && cargo build --locked --profile ci --features tauri/custom-protocol
       - name: Licence gate (post-build, populated cargo cache)
         run: node scripts/gate-licences.mjs --require-registry
       - name: CLI smoke check on the built binary
@@ -263,7 +263,7 @@ jobs:
       # new target tree, and on macOS the launches measured right after it came out with a cold launch
       # faster than the warm ones (cold_warm_ratio 0.77), which the perf gate rightly refuses.
       - name: Rust unit tests
-        run: cd apps/desktop/src-tauri && cargo test --profile ci --features tauri/custom-protocol --quiet
+        run: cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet
       - run: pnpm gate:bundle
       - uses: actions/upload-artifact@v4
         if: always()
