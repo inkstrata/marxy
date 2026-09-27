@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - Remembering a reading position across launches stays one story, and remembering which documents were pinned moves to the next, after a test claimed to quit without ever quitting; nothing in the app changes yet (MARXY-261)
+- The aesthetics gate now walks every text-bearing colour pair and every text-on-tint token pair (including user themes under `fixtures/themes`), renders the corpus at 320 px and 400 % zoom and under forced colours, higher contrast and reduced motion, and refuses horizontal page scroll; the base stylesheet carries the three media-query blocks those passes expect (MARXY-241)
 - The palette searches the repository index built at idle from `readDir` and `setIndexEntries` (MARXY-196).
 - The fleet no longer dispatches a story whose pull request already merged on main: the cycle reads squash subjects once, settles missing or todo rows as done, and ready refuses the key by name (MARXY-213)
 - A straight quote that follows an em space, no-break space or thin space now curls open, not closed, so an indented line of verse begins with “ rather than ” (MARXY-258)
