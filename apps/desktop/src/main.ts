@@ -6,23 +6,15 @@ import { shell } from './shell/tauri.ts';
 
 export type BootHandle = AppHandle & { readonly palette: PaletteController };
 
-export async function bootApplication(
-  appShell: AppShell,
-  opts?: { argv?: readonly string[] },
-): Promise<BootHandle> {
-  const handle = await startApp(appShell, opts);
-  const initialPath = opts?.argv?.find((arg) => !arg.startsWith('-')) ?? null;
-  const palette = mountPaletteFromHandle(handle, { initialPath });
-  if (typeof window !== 'undefined') {
-    (window as Window & { __marxyPalette?: PaletteController }).__marxyPalette = palette;
-  }
+export async function bootApplication(appShell: AppShell, opts?: { argv?: readonly string[] }): Promise<BootHandle> {
+  let indexEntries: import('@marxy/core').IndexEntry[] = [];
+  const handle = await startApp(appShell, { ...opts, onIndexLoaded: (e) => { indexEntries = [...e]; } });
+  const palette = mountPaletteFromHandle(handle, { initialPath: opts?.argv?.find((a) => !a.startsWith('-')) ?? null });
+  if (indexEntries.length) palette.setIndexEntries(indexEntries);
+  if (typeof window !== 'undefined') (window as Window & { __marxyPalette?: PaletteController }).__marxyPalette = palette;
   return Object.assign(handle, { palette });
 }
 
-if (
-  typeof window === 'undefined' ||
-  (!window.location.pathname.endsWith('app.html') &&
-    !window.location.pathname.endsWith('palette-boot.html'))
-) {
+if (typeof window === 'undefined' || (!window.location.pathname.endsWith('app.html') && !window.location.pathname.endsWith('palette-boot.html'))) {
   void bootApplication(shell);
 }
