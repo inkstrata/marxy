@@ -76,8 +76,10 @@ plain text and is the primary cue; the tint is a second channel only.
 | `--marxy-color-diff-del-word` | background for a deleted span within a line |
 
 `:root` in `tokens.css` holds the dark defaults; the default theme's light block overrides them
-under `[data-marxy-variant="light"]` (MARXY-235). Every pair must meet the typography handbook's
-contrast floor on its tint (ADR-0035).
+under `[data-marxy-variant="light"]`. Every pair must meet the typography handbook's
+contrast floor on its tint (ADR-0035); `gate:aesthetics` walks every declared tint background
+against every foreground token in both variants (MARXY-241), which is why the light overrides
+land alongside the tokens rather than waiting on MARXY-235, which applies them to rendered diffs.
 
 ## Re-layout triggers
 

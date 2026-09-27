@@ -43,7 +43,7 @@
   --marxy-color-notice: #1f1e1b;      /* notices region background */
   --marxy-color-diff-add: #1b2f28;    /* diff: added line tint (dark); marker is the primary cue (ADR-0036) */
   --marxy-color-diff-del: #2d140b;    /* diff: deleted line tint (dark) */
-  --marxy-color-diff-add-word: #1f4438; /* diff: intra-line addition tint (dark) */
+  --marxy-color-diff-add-word: #17352b; /* diff: intra-line addition tint (dark) */
   --marxy-color-diff-del-word: #4a1e0e; /* diff: intra-line deletion tint (dark) */
 
   /* code token colours (added by ADR-0024, with defaults; mapping to scopes in docs/design/02-render.md).
