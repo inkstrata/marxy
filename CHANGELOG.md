@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - On macOS, Marxy now shows a native menu bar: Quit binds to Cmd+Q through the same exit path as the existing quit command, File gets "Open File…" (Cmd+O, a native picker) and "Close Window" (Cmd+W, which quits, since Marxy is single-window), and Edit exposes the platform's own Undo/Redo/Cut/Copy/Paste/Select All so those shortcuts reliably reach the palette's search field and CodeMirror. No document-specific command lives in the menu (ADR-0011) (MARXY-184)
+- The aesthetics gate now walks every text-bearing colour pair and every text-on-tint token pair (including user themes under `fixtures/themes`), renders the corpus at 320 px and 400 % zoom and under forced colours, higher contrast and reduced motion, and refuses horizontal page scroll; the base stylesheet carries the three media-query blocks those passes expect (MARXY-241)
 - The palette searches the repository index built at idle from `readDir` and `setIndexEntries` (MARXY-196).
 - The fleet no longer dispatches a story whose pull request already merged on main: the cycle reads squash subjects once, settles missing or todo rows as done, and ready refuses the key by name (MARXY-213)
 - A straight quote that follows an em space, no-break space or thin space now curls open, not closed, so an indented line of verse begins with “ rather than ” (MARXY-258)
