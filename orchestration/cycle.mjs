@@ -34,6 +34,7 @@ import { observeWorktrees, observeRuns, fetchOrigin } from './observe.mjs';
 import { selectReady, resolveClaims, mergedOnMain } from './ready.mjs';
 import { verbEvents } from './state.mjs';
 import { buildSpec, claimEvents, finishRun } from './runs.mjs';
+import { OUTCOME } from './outcomes.mjs';
 import { gh, read, run as runProc, spawnDetached, killGroup, LIMIT } from './proc.mjs';
 import { acquireLock, releaseLock } from './lease.mjs';
 import { verify } from './approve.mjs';
@@ -558,7 +559,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     b = io.board();
     const owned = s.role === 'plan' ? b.planner?.run === spec.id : b.stories[s.key]?.run === spec.id;
     if (!owned) {
-      commitAll([runEvent(spec.id, { ended: nowIso, outcome: 'not-started', why: 'the story moved before the worker started' })]);
+      commitAll([runEvent(spec.id, { ended: nowIso, outcome: OUTCOME.NOT_STARTED, why: 'the story moved before the worker started' })]);
       say(`${s.key}: ${s.role} not started — the story moved`);
       return;
     }
@@ -568,7 +569,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
       if (s.role === 'implement') jiraCalls.push(['move', s.key, 'in_progress']);
       say(`${s.key ?? 'planner'}: ${s.role} started (${spec.model}, until ${spec.deadline.slice(11, 16)}Z)`);
     } else {
-      io.writeExit(spec.id, { outcome: 'setup', why: 'the worker process could not be started' });
+      io.writeExit(spec.id, { outcome: OUTCOME.SETUP, why: 'the worker process could not be started' });
       say(`${s.key ?? 'planner'}: ${s.role} could not start its worker`);
     }
   });

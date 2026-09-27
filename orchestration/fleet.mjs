@@ -34,6 +34,7 @@ import {
 import { signApproval, approvalHoldReason } from './approve.mjs';
 import { gh, read, stillRunning, LIMIT } from './proc.mjs';
 import { readLease, leaseHeld, acquireLock, releaseLock } from './lease.mjs';
+import { isAuthOutcome } from './outcomes.mjs';
 
 const who = () => process.env.MARXY_ACTOR ?? `${userInfo().username} via fleet.mjs`;
 
@@ -110,7 +111,10 @@ const commands = {
     const rec = b.stories[key];
     say(rec ? JSON.stringify(rec, null, 2) : `${key}: not on the board (todo by default if it has a row on main)`);
     const runs = Object.values(b.runs).filter(r => r.key === key).slice(-5);
-    for (const r of runs) say(`run ${r.id}: ${r.role} ${r.model ?? ''} started ${r.started}${r.ended ? `, ended ${r.ended} (${r.outcome})` : `, until ${r.deadline}`}`);
+    for (const r of runs) {
+      say(`run ${r.id}: ${r.role} ${r.model ?? ''} started ${r.started}${r.ended ? `, ended ${r.ended} (${r.outcome})` : `, until ${r.deadline}`}`);
+      if (r.ended && isAuthOutcome(r.outcome)) say('  → cursor-agent could not authenticate; run `cursor-agent login`');
+    }
     const { events } = readEvents();
     for (const e of events.filter(e => e.key === key).slice(-(o.n || 12))) {
       say(`${e.at} ${e.by} ${e.type}${e.to ? ` → ${e.to}` : ''}${e.why ? ` — ${e.why}` : ''}`);

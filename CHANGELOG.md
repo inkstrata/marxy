@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Run outcomes for the fleet live in one table (`orchestration/outcomes.mjs`); a seeded simulation checks that random finish sequences never strand a story (MARXY-255)
 - The notice banner above the article — blocked images, a file changed on disk, "use this theme" — now has its own background, border and spacing instead of rendering as bare text with a default browser button; the dismiss and action buttons get a legible hover and focus state, in both dark and light (MARXY-264)
 - An opened document now starts near the top of the window instead of reading as vertically centred: the article's top padding drops from three line-boxes to one grid unit. The side gutter is now a minimum, not a fixed 3rem on every window — 16px under a 480px-wide window, 24px at or above it — with the text column still setting the margin above that floor, per the reader-typography research's margin guidance (MARXY-263)
 - Source mode has basic legibility again: the theme's monospace face and grid-unit padding replace the browser's default mono and flush-to-edge text, and Source's colours now follow the reader's light/dark variant instead of always rendering dark chrome (MARXY-265)
