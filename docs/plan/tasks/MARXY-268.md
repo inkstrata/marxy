@@ -1,12 +1,12 @@
 ---
-key: MARXY-NEW-window-controls
+key: MARXY-268
 design: [06-shell]
 depends: []
-verify: [pnpm precheck, pnpm done MARXY-NEW-window-controls]
+verify: [pnpm precheck, pnpm done MARXY-268]
 ---
-# MARXY-NEW-window-controls — Add window controls to the shell-api so the title bar can hide at rest (ADR)
+# MARXY-268 — Add window controls to the shell-api so the title bar can hide at rest (ADR)
 
-**Design:** [06-shell](../../design/06-shell.md) · **ADRs:** ADR-0010 (shell-api is frozen), ADR-0026 (every addition after the v1 amendment needs its own ADR), ADR-0006 (no GPL code) · **Delta:** [2026-09-27-tauri-research](../deltas/2026-09-27-tauri-research.md) · **Depends on:** nothing. **Unblocks:** MARXY-NEW-title-bar-at-rest.
+**Design:** [06-shell](../../design/06-shell.md) · **ADRs:** ADR-0010 (shell-api is frozen), ADR-0026 (every addition after the v1 amendment needs its own ADR), ADR-0006 (no GPL code) · **Delta:** [2026-09-27-tauri-research](../deltas/2026-09-27-tauri-research.md) · **Depends on:** nothing. **Unblocks:** MARXY-269.
 
 **Outcome.** The shell can hide and reveal the window's native controls on request, and promises that changing the title never disturbs them. Nothing the reader sees changes in this story; it is the contract the title-bar story builds on.
 
@@ -27,7 +27,7 @@ verify: [pnpm precheck, pnpm done MARXY-NEW-window-controls]
   Add the member as `async () => {}` to both in-file shells (the null shell and the test shell, near the existing `setTitle: async () => {}`).
 - `docs/adr/0038-window-controls.md`: take the next free number. MARXY-248's PR #221 claims 0037.
 - `docs/adr/README.md`: one index row.
-- `CHANGELOG.md`: one Unreleased line ending `(MARXY-NEW-window-controls)`.
+- `CHANGELOG.md`: one Unreleased line ending `(MARXY-268)`.
 
 ## The ADR says
 - **Decision:** the member above, and the `setTitle` guarantee.

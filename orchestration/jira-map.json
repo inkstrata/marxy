@@ -146,6 +146,9 @@
     "MARXY-NEW-art-code-as-read": "MARXY-239",
     "MARXY-NEW-art-links": "MARXY-240",
     "MARXY-NEW-art-a11y-gates": "MARXY-241",
-    "MARXY-NEW-keys-editor": "MARXY-244"
+    "MARXY-NEW-keys-editor": "MARXY-244",
+    "MARXY-NEW-window-controls": "MARXY-268",
+    "MARXY-NEW-title-bar-at-rest": "MARXY-269",
+    "MARXY-NEW-locked-cargo": "MARXY-270"
   }
 }

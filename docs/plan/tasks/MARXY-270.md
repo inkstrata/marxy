@@ -1,10 +1,10 @@
 ---
-key: MARXY-NEW-locked-cargo
+key: MARXY-270
 design: [10-gates-and-testing]
 depends: [MARXY-247]
-verify: [pnpm precheck, pnpm done MARXY-NEW-locked-cargo]
+verify: [pnpm precheck, pnpm done MARXY-270]
 ---
-# MARXY-NEW-locked-cargo — Build and lint the Rust shell with --locked everywhere, and check it stays so
+# MARXY-270 — Build and lint the Rust shell with --locked everywhere, and check it stays so
 
 **Design:** [10-gates-and-testing](../../design/10-gates-and-testing.md) · **Delta:** [2026-09-27-tauri-research](../deltas/2026-09-27-tauri-research.md) · **Depends on:** MARXY-247 (PR #220 holds `.github/workflows/ci.yml`).
 

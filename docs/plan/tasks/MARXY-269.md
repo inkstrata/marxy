@@ -1,12 +1,12 @@
 ---
-key: MARXY-NEW-title-bar-at-rest
+key: MARXY-269
 design: [06-shell, 09-app-shell]
-depends: [MARXY-NEW-window-controls, MARXY-184]
-verify: [pnpm precheck, pnpm done MARXY-NEW-title-bar-at-rest]
+depends: [MARXY-268, MARXY-184]
+verify: [pnpm precheck, pnpm done MARXY-269]
 ---
-# MARXY-NEW-title-bar-at-rest — The title bar is zero at rest and appears on intent
+# MARXY-269 — The title bar is zero at rest and appears on intent
 
-**Design:** [06-shell](../../design/06-shell.md) · [09-app-shell](../../design/09-app-shell.md) · [design-language](../../design-language.md) constraint 6 · **ADR:** the window-controls ADR from MARXY-NEW-window-controls; ADR-0006 · **Delta:** [2026-09-27-tauri-research](../deltas/2026-09-27-tauri-research.md) · **Depends on:** MARXY-NEW-window-controls (the `Shell` member), MARXY-184 (holds `main.rs`, `capabilities/default.json` and `shell/tauri.ts`).
+**Design:** [06-shell](../../design/06-shell.md) · [09-app-shell](../../design/09-app-shell.md) · [design-language](../../design-language.md) constraint 6 · **ADR:** the window-controls ADR from MARXY-268; ADR-0006 · **Delta:** [2026-09-27-tauri-research](../deltas/2026-09-27-tauri-research.md) · **Depends on:** MARXY-268 (the `Shell` member), MARXY-184 (holds `main.rs`, `capabilities/default.json` and `shell/tauri.ts`).
 
 **Outcome.** When Marxy is at rest, the page runs to the top edge of the window. There is no title bar and no traffic lights. Pointing at the top edge, or opening the palette, brings the window controls and a drag strip back. They go again shortly after the pointer leaves. The window still has a real title for the Window menu and VoiceOver.
 

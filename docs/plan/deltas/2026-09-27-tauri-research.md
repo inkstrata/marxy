@@ -37,9 +37,9 @@ Two gaps remain, and this delta files stories for them.
 
 | Key | Phase | Depends on | Why this shape |
 | --- | --- | --- | --- |
-| MARXY-NEW-window-controls | 3 | — | `Shell` is frozen (`scripts/registry.json`, ADR-0026). The new `setWindowControls` member and the `setTitle` guarantee arrive with an ADR in a contract-only PR, as MARXY-94 did |
-| MARXY-NEW-title-bar-at-rest | 3 | window-controls, MARXY-184 | The implementation. MARXY-184 is in review and holds `main.rs`, `capabilities/default.json` and `shell/tauri.ts` |
-| MARXY-NEW-locked-cargo | ops | MARXY-247 | MARXY-247 (PR #220) holds `ci.yml` |
+| MARXY-268 | 3 | — | `Shell` is frozen (`scripts/registry.json`, ADR-0026). The new `setWindowControls` member and the `setTitle` guarantee arrive with an ADR in a contract-only PR, as MARXY-94 did |
+| MARXY-269 | 3 | MARXY-268, MARXY-184 | The implementation. MARXY-184 is in review and holds `main.rs`, `capabilities/default.json` and `shell/tauri.ts` |
+| MARXY-270 | ops | MARXY-247 | MARXY-247 (PR #220) holds `ci.yml` |
 
 The author asked for two stories. The title bar becomes two because the contract rule forces it.
 

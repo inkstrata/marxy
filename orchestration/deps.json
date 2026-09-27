@@ -114,8 +114,8 @@
       "MARXY-256",
       "MARXY-257",
       "MARXY-258",
-      "MARXY-NEW-window-controls",
-      "MARXY-NEW-title-bar-at-rest"
+      "MARXY-268",
+      "MARXY-269"
     ],
     "4": [
       "MARXY-51",
@@ -210,8 +210,8 @@
       "MARXY-243",
       "MARXY-245",
       "MARXY-246",
-      "MARXY-267",
-      "MARXY-NEW-locked-cargo"
+      "MARXY-270",
+      "MARXY-267"
     ]
   },
   "deps": {
@@ -723,12 +723,12 @@
     ],
     "MARXY-258": [],
     "MARXY-267": [],
-    "MARXY-NEW-window-controls": [],
-    "MARXY-NEW-title-bar-at-rest": [
-      "MARXY-NEW-window-controls",
+    "MARXY-268": [],
+    "MARXY-269": [
+      "MARXY-268",
       "MARXY-184"
     ],
-    "MARXY-NEW-locked-cargo": [
+    "MARXY-270": [
       "MARXY-247"
     ]
   },
