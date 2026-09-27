@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Live reload now listens for filesystem events on the open document's folder (and on a symlink target's folder when the document is a link) instead of scanning the whole tree every 50 ms, so edits through a symlink show up and an idle Marxy does less work (MARXY-251)
 - Research: a survey of the Tauri app ecosystem for UI patterns, chrome/titlebar precedent and CI/release engineering, separating verified prior art from debunked claims (Warp, RustDesk, Obsidian and AFFiNE are not Tauri) and flagging which findings need an ADR or a taste-review row rather than a quiet drive-by change; a taste-review queue row records the hover-reveal titlebar idea as unbuilt design territory with no adopted precedent (MARXY-277)
 - CI, the release build and `pnpm lint:rust` now build the Rust shell with `--locked`, so a `Cargo.toml` change without its `Cargo.lock` fails instead of being resolved on the runner, and `check:workflows` refuses any cargo or `tauri build` call that leaves the flag out (MARXY-270)
 - On macOS, Marxy now shows a native menu bar: Quit binds to Cmd+Q through the same exit path as the existing quit command, File gets "Open File…" (Cmd+O, a native picker) and "Close Window" (Cmd+W, which quits, since Marxy is single-window), and Edit exposes the platform's own Undo/Redo/Cut/Copy/Paste/Select All so those shortcuts reliably reach the palette's search field and CodeMirror. No document-specific command lives in the menu (ADR-0011) (MARXY-184)
