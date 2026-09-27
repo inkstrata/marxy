@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Marxy remembers where you were reading and which documents you opened: reading position, palette recents and pins survive quitting, and a `theme` key in `config.toml` now loads in the desktop app (MARXY-195)
 - Copying a code block keeps the source's own newline and no longer has to fight a test that always added one; heading links and explicit save can touch the files their branches already edit (MARXY-318)
 - `image_size` now returns an I/O error when the file cannot be read, instead of treating permission failures and similar problems like a non-image file (MARXY-287)
 - A theme manifest that declares `variants = []` is no longer accepted silently: the loader warns with the theme name and `theme.toml`, then falls back to the default light and dark variants (MARXY-284)

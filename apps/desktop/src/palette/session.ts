@@ -16,8 +16,20 @@ export interface PaletteSession {
   readonly recentRoots: readonly string[];
 }
 
-/** An empty session for a root. History is vacant until the first open. */
+let paletteHydration: PaletteSession | null = null;
+
+/** Seeds the next `emptySession` call (used when history.json loads before the palette mounts). */
+export function setPaletteHydration(session: PaletteSession): void {
+  paletteHydration = session;
+}
+
+/** An empty session for a root. History is vacant until the first open (or hydration from disk). */
 export function emptySession(currentRoot: string): PaletteSession {
+  if (paletteHydration) {
+    const session = paletteHydration;
+    paletteHydration = null;
+    return session;
+  }
   return {
     pinned: [],
     mru: [],
