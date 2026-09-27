@@ -22,6 +22,59 @@
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }
 
+/* Notices: one region in flow above the article, empty at rest (docs/design/09-app-shell.md
+   §Notices, MARXY-138). A line reads as the app speaking, not page content, so it gets its own
+   background and border rather than sitting as bare text; spacing is in grid-unit multiples like
+   everything else (MARXY-264). The column matches the article's own so a notice lines up with
+   the text it sits above. */
+#marxy-notices {
+  --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--marxy-line-box) / 4);
+  max-width: var(--marxy-column);
+  margin-inline: auto;
+  padding: calc(var(--marxy-line-box) / 2) 3rem 0;
+}
+.marxy-notice {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 1.5em;
+  row-gap: calc(var(--marxy-line-box) / 4);
+  padding: calc(var(--marxy-line-box) / 4) calc(var(--marxy-line-box) / 2);
+  font-family: var(--marxy-font-text);
+  font-size: var(--marxy-size-caption);
+  line-height: 1.4;
+  color: var(--marxy-color-text);
+  background: var(--marxy-color-notice);
+  border: 1px solid var(--marxy-color-rule);
+  border-radius: var(--marxy-code-radius);
+}
+.marxy-notice-text { flex: 1 1 auto; }
+.marxy-notice-dismiss,
+.marxy-notice-action {
+  flex: 0 0 auto;
+  appearance: none;
+  font: inherit;
+  color: var(--marxy-color-text);
+  background: none;
+  border: 1px solid var(--marxy-color-text-secondary);
+  border-radius: var(--marxy-code-radius);
+  padding: 0.15em 0.75em;
+  cursor: pointer;
+}
+.marxy-notice-dismiss:hover,
+.marxy-notice-action:hover {
+  border-color: var(--marxy-color-accent);
+  color: var(--marxy-color-accent);
+}
+.marxy-notice-dismiss:focus-visible,
+.marxy-notice-action:focus-visible {
+  outline: 2px solid var(--marxy-color-accent);
+  outline-offset: 2px;
+}
+
 .marxy-article {
   --lb: var(--marxy-line-box);
   --marxy-half: calc(var(--lb) / 2);
