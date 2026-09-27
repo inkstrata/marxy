@@ -3,6 +3,7 @@ import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { documentCommands, startDocumentEditingWire } from './document.ts';
 import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
+import { trustRevokeCommands } from './trust.ts';
 
 export type { AppContext, Command } from './registry.ts';
 export { fromOperation } from './registry.ts';
@@ -10,5 +11,10 @@ export { fromOperation } from './registry.ts';
 startDocumentEditingWire();
 
 export function commands(): readonly Command[] {
-  return [...selectionNavigationCommands(), ...documentCommands(), ...OPERATIONS.map(fromOperation)];
+  return [
+    ...selectionNavigationCommands(),
+    ...documentCommands(),
+    ...trustRevokeCommands(),
+    ...OPERATIONS.map(fromOperation),
+  ];
 }

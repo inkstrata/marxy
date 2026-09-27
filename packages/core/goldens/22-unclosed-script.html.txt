@@ -1,0 +1,2 @@
+<p data-marxy-s="0" data-marxy-e="41">First paragraph before the script island.</p>
+<p data-marxy-s="43" data-marxy-e="71">Second paragraph still safe.</p>

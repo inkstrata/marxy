@@ -1,0 +1,6 @@
+document [0,731)
+  paragraph [0,41)
+    text [0,41) value="First paragraph before the script island."
+  paragraph [43,71)
+    text [43,71) value="Second paragraph still safe."
+  htmlBlock [73,731) value="<script>alert('never closed')\n\nLine six of dropped prose.\nLine seven of dropped prose.\nLine eight of dropped prose.\nLine…"
