@@ -1,9 +1,9 @@
 // Plan and remove stale story worktrees when their PR merged, closed, or detached idle.
 import { execFileSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT } from './lib.mjs';
+import { ROOT, pathsOf, stories } from './lib.mjs';
 import { board } from './machine.mjs';
 import { fleetDir } from './store.mjs';
 
@@ -14,6 +14,91 @@ export function keyOfBranch(branch) {
   if (!branch) return null;
   const m = String(branch).match(/MARXY-\d+/);
   return m ? m[0] : null;
+}
+
+/** Commits on HEAD not on origin/main in this worktree; 0 when the ref is missing. */
+function commitsAhead(wtPath, gitAtRoot) {
+  const out = gitAtRoot(['-C', wtPath, 'rev-list', '--count', 'origin/main..HEAD']);
+  if (typeof out !== 'string' || !out.trim()) return 0;
+  const n = parseInt(out, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** `parseWorktreeList` rows plus `ahead` and the dirty bit `gatherWorktreeEntries` already computes. */
+export function readLiveEntries(opts = {}) {
+  return gatherWorktreeEntries(opts).map(row => {
+    const gitAtRoot = opts.git ?? (a => defaultSh('git', a, { cwd: opts.root ?? ROOT }));
+    const ahead = row.usable === false ? 0 : commitsAhead(row.path, gitAtRoot);
+    return { ...row, ahead };
+  });
+}
+
+/** Main CSV row for `key`, else the same key from the worktree's own `docs/plan/jira-issues.csv`. */
+export function defaultRowsOf(mainStories = stories()) {
+  const onMain = Object.fromEntries(mainStories.map(st => [st.Key, st]));
+  return (key, worktreePath) => {
+    if (onMain[key]) return onMain[key];
+    const csvPath = resolve(worktreePath, 'docs/plan/jira-issues.csv');
+    if (!existsSync(csvPath)) return null;
+    return stories(readFileSync(csvPath, 'utf8')).find(st => st.Key === key) ?? null;
+  };
+}
+
+/**
+ * Paths held by live worktrees that have not opened a finished PR yet. Skip when `isDone(key)` or
+ * `statusOf(key)` is done, blocked, or escalate (MARXY-220); missing `state.json` records stay
+ * undefined and still claim.
+ */
+export function liveClaims(entries, {
+  orchestratorPath = ROOT,
+  rowsOf: rowsOfKey = () => null,
+  isDone = () => false,
+  statusOf = () => undefined,
+} = {}) {
+  const orch = resolve(orchestratorPath);
+  const out = [];
+  for (const entry of entries) {
+    if (entry.usable === false) continue;
+    if (resolve(entry.path) === orch) continue;
+    const key = keyOfBranch(entry.branch);
+    if (!key) continue;
+    const st = statusOf(key);
+    if (isDone(key) || st === 'done' || st === 'blocked' || st === 'escalate') continue;
+    const dirty = Boolean(entry.dirty);
+    const ahead = Number(entry.ahead) || 0;
+    if (!dirty && ahead <= 0) continue;
+    const prState = entry.prState ?? null;
+    const row = rowsOfKey(key, entry.path);
+    if (!row) {
+      out.push({ key, path: entry.path, reason: 'no row', prState });
+      continue;
+    }
+    out.push({ key, paths: pathsOf(row), path: entry.path, ahead, dirty, prState });
+  }
+  return out;
+}
+
+/** PR suffix on a worktree-holds line (from gh / the cycle snapshot, not guessed). */
+export function prClaimLabel(prState) {
+  if (prState === 'OPEN') return 'PR open';
+  if (prState === 'MERGED') return 'PR merged';
+  if (prState === 'CLOSED') return 'PR closed';
+  return 'no PR';
+}
+
+/** Cycle log line for one claim (`worktree holds paths: …`). */
+export function formatClaimLine(claim) {
+  const pr = prClaimLabel(claim.prState);
+  if (claim.reason === 'no row') {
+    return `worktree holds paths: ${claim.key} (${claim.path}, no row, ${pr})`;
+  }
+  const cleanliness = claim.dirty ? 'dirty' : 'clean';
+  const aheadLabel = claim.ahead === 1 ? '1 commit ahead' : `${claim.ahead} commits ahead`;
+  return `worktree holds paths: ${claim.key} (${claim.path}, ${aheadLabel}, ${cleanliness}, ${pr})`;
+}
+
+export function sayWorktreeClaims(claims, { say = line => console.log(line) } = {}) {
+  for (const claim of claims) say(formatClaimLine(claim));
 }
 
 /** The fleet store, or null outside a git checkout (a fixture test). */

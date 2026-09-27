@@ -25,7 +25,7 @@ lengths derive from tokens; no margin or padding is a bare `px` value (the lint 
 
 | Rule | Formula | At 20 / 30 |
 | --- | --- | --- |
-| Article | `--marxy-column = clamp(45, chars, 80) × avg-char em` (a registered `<length>`, so it is px everywhere below); `max-width: column`, padding `3lb 3rem 5lb` (ADR-0033) | 66 characters ≈ 611 px |
+| Article | `--marxy-column = clamp(45, chars, 80) × avg-char em` (a registered `<length>`, so it is px everywhere below); `max-width: column`, padding `half gutter 5lb`, where `gutter` is a floor — 16px under a 480px window, 24px at or above it — not a fixed width, so the column still sets the margin above that floor (Reader Typography ch.4 "Margins", MARXY-263) | 66 characters ≈ 611 px |
 | Role sizes | `--marxy-size-hN = round(body × ratio^k, 1px)`, k = 3, 2, 1 | 39, 31, 25 |
 | Heading line box | `min(max(token, round(up, 1.2 × size, 2px)), 2lb)` | 48, 38 |
 | h1, h2 margin | `2lb` above, `half` below; `padding-bottom: mod(−(lh + 2lb + half), half)` closes a one-line heading's box; a heading that wraps is padded by `snapToGrid` (ADR-0033) | h2 60 / 38 / 15 (+ 7 pad) |
@@ -33,7 +33,7 @@ lengths derive from tokens; no margin or padding is a bare `px` value (the lint 
 | p, lists, quotes, tables | `margin: 0 0 half` | 15 between |
 | Lists | top-level markers hang in the margin, the gap inside the hanging box so the first line aligns with the rest; nested lists indent `1.25em`; markers secondary colour | |
 | Task items | the checkbox hangs where the bullet would be, `vertical-align: top` so the box sits on the line | |
-| Code block | `lb` above and below, `half` padding on all four sides, code line box token, padded to the unit by `snapToGrid`; `width: max-content`, at least the column, at most `min(100% + room, 100ch + padding)` where room runs to 3rem from the window's edge | 30 / 15 / 30 |
+| Code block | `lb` above and below, `half` padding on all four sides, code line box token, padded to the unit by `snapToGrid`; `width: max-content`, at least the column, at most `min(100% + room, 100ch + padding)` where room runs from the gutter to the window's edge | 30 / 15 / 30 |
 | Code wrap | `white-space: pre-wrap`; each source line is a `.marxy-line` inline-block whose rows hang `min(indent + 2ch, 50%)`, with a 1 px rule beside continuation rows only; no ligatures (`calt`, `liga` off) | |
 | Inline code, kbd | mono at `size-code / size-body` (0.9 em), **no box**, `line-height: 1` so its line never grows | |
 | Table | A table is an island the grid pass pads — `snapToGrid` measures it rather than the stylesheet constructing it. Rows use the code line box and one grid unit of vertical padding; rules as inset shadows (no height), text `0.88 × body`, tabular figures | 15 / 22 / 14 |

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { stripComments } from './lib/repo.mjs';
-import { htmlRoutes, htmlRouteProblems } from './check-registry.mjs';
+import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems } from './check-registry.mjs';
 
 const ALLOWED_PREFIX = 'apps/desktop/src/render/';
 const OUTSIDE = 'packages/core/src/buffer.ts';
@@ -53,6 +53,31 @@ test('Reflect.set with inner+HTML string concat is flagged', () => {
   const source = "Reflect.set(el, 'inner' + 'HTML', s);";
   assert.ok(htmlRoutes(stripComments(source)).includes("Reflect.set(..., 'innerHTML', ...)"));
   assert.equal(problemsFor(OUTSIDE, source).length, 1);
+});
+
+test('MARXY-229: a template-literal data-marxy- attribute name is flagged', () => {
+  const problems = constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const X = `data-marxy-${'remote'}`;");
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /data-marxy-\* attribute name built with a template literal/);
+});
+
+test('MARXY-229: a concatenated data-marxy- attribute name is flagged', () => {
+  const problems = constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const X = 'data-marxy-' + 'remote';");
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /data-marxy-\* attribute name built by concatenation/);
+});
+
+test('MARXY-229: a template-literal marxy- class name is flagged', () => {
+  const problems = constructedRegistryNameProblems('packages/core/src/render/render-html.ts', "el.className = `marxy-${'katex'}`;");
+  assert.equal(problems.length, 1, problems.join('\n'));
+  assert.match(problems[0], /marxy-\* name built with a template literal/);
+});
+
+test('MARXY-229: a literal registered data-marxy- name is not a construction violation', () => {
+  assert.deepEqual(
+    constructedRegistryNameProblems('packages/core/src/sanitize/policy.ts', "export const REMOTE_IMAGE_ATTR = 'data-marxy-remote';"),
+    [],
+  );
 });
 
 test('check-registry.mjs is green over the committed tree', () => {
