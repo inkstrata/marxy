@@ -1,7 +1,7 @@
 // in_review occupies listed paths; blocked, escalate and done do not (MARXY-102).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectReady, RULE, mergedOnMain } from './ready.mjs';
+import { selectReady, RULE, mergedOnMain, resolveClaims } from './ready.mjs';
 
 function story(key, paths) {
   return {
@@ -242,4 +242,23 @@ test('selectReady does not exclude a merged key that is already done (MARXY-213)
   });
   assert.ok(!r.excluded.some(e => e.key === 'MARXY-183'));
   assert.deepEqual(keys(r), ['MARXY-OTHER']);
+});
+
+// One path-hold function serves dispatch, readiness and doctor (MARXY-273). A second copy drifted
+// from it, lost its import in a merge, and the readiness step threw on every cycle.
+test('path holds: an explicit claim with paths holds; an active worktree holds; an idle or blocked one does not', () => {
+  const nowMs = Date.parse('2026-09-26T12:00:00.000Z');
+  const t = { activeWorktreeMinutes: 30 };
+  const plan = { byKey: new Map([['MARXY-8', story('MARXY-8', 'a, b')]]) };
+  const board = { stories: {
+    'MARXY-300': { status: 'in_progress', claim: { by: 'x', until: '2026-09-26T13:00:00.000Z', paths: ['orchestration/x.mjs'] } },
+    'MARXY-8': { status: 'todo' },
+  } };
+  const wt = mins => ({ key: 'MARXY-8', path: '/wt/8', branch: 'feat/MARXY-8-x', dirty: true, ahead: 0, lastActivityMs: nowMs - mins * 60_000 });
+  const holds = worktrees => resolveClaims({ board, plan, worktrees, t, nowMs, orchestratorPath: '/orch', rowOf: () => null });
+  assert.deepEqual(holds([wt(5)]).map(h => h.key), ['MARXY-300', 'MARXY-8']);
+  assert.deepEqual(holds([wt(5)])[1].paths, ['a', 'b']);
+  assert.deepEqual(holds([wt(t.activeWorktreeMinutes + 5)]).map(h => h.key), ['MARXY-300']);
+  board.stories['MARXY-8'].status = 'blocked';
+  assert.deepEqual(holds([wt(5)]).map(h => h.key), ['MARXY-300']);
 });
