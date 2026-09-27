@@ -43,9 +43,9 @@ export interface Policy {
   /** Named so a removal report and a test failure can say which allow-list made the decision. */
   readonly name: string;
   /**
-   * When set, `id` and `name` values with this prefix (case-insensitive) are refused on elements
-   * that carry no byte provenance — islands only; renderer output is judged in a pass that clears
-   * this field (§12).
+   * When set, `id` and `name` values with this prefix (case-insensitive) are refused unless the
+   * element carries this pass's secret provenance names (ADR-0023, ADR-0036 P02). Public
+   * `data-marxy-s`/`e` do not exempt a tag; `withProvenance` no longer clears this field.
    */
   readonly reservedIdPrefix?: string;
   /** Elements that reach the DOM. Anything absent is removed with its subtree. */
@@ -106,6 +106,25 @@ export const BLOCK_ELEMENTS: ReadonlySet<string> = new Set([
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_.:-]{0,64}$/;
 /** Only the two families the renderer and the highlighter (MARXY-27) emit. */
 const CLASS_TOKEN = /^(?:language-[A-Za-z0-9#+._-]{1,32}|marxy-[a-z-]{1,32})$/;
+
+/**
+ * `id` and `name` values that would shadow a `window` or `document` property by named access (P02).
+ * Built from a fixed list, not from runtime introspection, so the boundary is reviewable.
+ */
+export const CLOBBERING_IDENTIFIER_NAMES: ReadonlySet<string> = new Set([
+  'cookie',
+  'forms',
+  'location',
+]);
+
+/**
+ * Renderer classes on elements that do not receive byte provenance (footnote block chrome).
+ * Still refused on islands; only the renderer pass (+provenance policy) may emit them without secret names.
+ */
+export const RENDERER_CLASSES_WITHOUT_PROVENANCE: ReadonlySet<string> = new Set([
+  'marxy-footnotes',
+  'marxy-footnote-back',
+]);
 const SMALL_INTEGER = /^[0-9]{1,4}$/;
 const BCP47 = /^[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8}){0,4}$/;
 
@@ -284,8 +303,8 @@ const BYTE_OFFSET: AttributeRule = { kind: 'pattern', pattern: /^[0-9]{1,9}$/ };
  * on its own against a document: the pipeline passes names nobody outside one render can know
  * (ADR-0023), and the checks use the public names to judge the pipeline's output.
  */
-/** Deferred remote image marker (§12); spelled without a single literal so the registry gate stays satisfied. */
-export const REMOTE_IMAGE_ATTR = `data-marxy-${'remote'}`;
+/** Deferred remote image marker (§12); registered in scripts/registry.json. */
+export const REMOTE_IMAGE_ATTR = 'data-marxy-remote';
 
 const REMOTE_IMAGE_DEFERRED: AttributeRule = {
   kind: 'pattern',
@@ -297,7 +316,6 @@ export function withProvenance(policy: Policy, names: ProvenanceNames = PROVENAN
   return {
     ...policy,
     name: `${policy.name}+provenance`,
-    reservedIdPrefix: undefined,
     globalAttributes: { ...policy.globalAttributes, [names.start]: BYTE_OFFSET, [names.end]: BYTE_OFFSET },
     elements: img === undefined
       ? policy.elements
