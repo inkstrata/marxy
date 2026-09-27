@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- CI, the release build and `pnpm lint:rust` now build the Rust shell with `--locked`, so a `Cargo.toml` change without its `Cargo.lock` fails instead of being resolved on the runner, and `check:workflows` refuses any cargo or `tauri build` call that leaves the flag out (MARXY-270)
 - On macOS, Marxy now shows a native menu bar: Quit binds to Cmd+Q through the same exit path as the existing quit command, File gets "Open File…" (Cmd+O, a native picker) and "Close Window" (Cmd+W, which quits, since Marxy is single-window), and Edit exposes the platform's own Undo/Redo/Cut/Copy/Paste/Select All so those shortcuts reliably reach the palette's search field and CodeMirror. No document-specific command lives in the menu (ADR-0011) (MARXY-184)
 - The palette's jump-to-heading test now lands on a heading that has to scroll to the reading line, so it checks landing again rather than passing or failing on the theme's top padding (MARXY-272)
 - The notice banner above the article — blocked images, a file changed on disk, "use this theme" — now has its own background, border and spacing instead of rendering as bare text with a default browser button; the dismiss and action buttons get a legible hover and focus state, in both dark and light (MARXY-264)
