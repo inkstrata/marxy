@@ -1,7 +1,7 @@
 ---
 key: MARXY-49
 design: [01-buffer, 09-app-shell, 06-shell, 08-position-and-watching]
-depends: [MARXY-43, MARXY-37, MARXY-34, MARXY-94]
+depends: [MARXY-43, MARXY-37, MARXY-34, MARXY-94, MARXY-249]
 verify: [pnpm precheck, pnpm done MARXY-49]
 ---
 # MARXY-49 — Explicit save, byte-faithful and atomic, from either mode
