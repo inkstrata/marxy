@@ -154,6 +154,11 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
 - [x] No attribution trailers
 `;
     writeFileSync(bodyPath, draft);
+  } else if (commits[0]) {
+    // Drafted before the first commit: only the stand-in title is replaced, never the filled body.
+    const drafted = readFileSync(bodyPath, 'utf8');
+    const redrafted = drafted.replace(/<!--\s*Title:\s*type\(scope\): subject \(MARXY-\w+\)\s*-->/, `<!-- Title: ${commits[0]} -->`);
+    if (redrafted !== drafted) writeFileSync(bodyPath, redrafted);
   }
   const body = readFileSync(bodyPath, 'utf8');
   const { acceptance, todo } = checkAcceptance(body);

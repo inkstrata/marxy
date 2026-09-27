@@ -105,6 +105,11 @@ const codeTable: CodeCase[] = [
     source: '```\n```\n',
     pick: (d) => d.children[0] as CodeBlock,
     expectText: '',
+  },  {
+    name: 'a CRLF block ends its copy with CRLF, not a lone LF',
+    source: '```\r\na\r\nb\r\n```\r\n',
+    pick: (d) => d.children[0] as CodeBlock,
+    expectText: 'a\r\nb\r\n',
   },
 ];
 
@@ -429,4 +434,65 @@ test('copy-section keeps a reference link whose definition is outside the sectio
   const result = copySection.run({ document, node: heading, range, text: sliceText(source, range.start, range.end) });
   assert.match(result.clipboard?.html ?? '', /<a href="https:\/\/example\.com\/docs">the docs<\/a>/);
   assert.ok(!(result.clipboard?.html ?? '').includes('More.'));
+});
+
+// 2026-09-26 review (MARXY-246): cases the corpus has none of.
+function alignWhole(source: string): { out: string; table: Extract<Block, { type: 'table' }> | undefined } {
+  const doc = parse(source);
+  const tables: Extract<Block, { type: 'table' }>[] = [];
+  tablesOf(doc, tables);
+  const table = tables[0]!;
+  const bytes = new TextEncoder().encode(source);
+  const dec = new TextDecoder();
+  const text = dec.decode(bytes.slice(table.src.start, table.src.end));
+  const replacement = alignTablePipes.run({ document: doc, node: table, range: table.src, text }).replacement;
+  const out = dec.decode(bytes.slice(0, table.src.start)) + replacement + dec.decode(bytes.slice(table.src.end));
+  const again: Extract<Block, { type: 'table' }>[] = [];
+  tablesOf(parse(out), again);
+  return { out, table: again[0] };
+}
+
+const cellsOf = (t: Extract<Block, { type: 'table' }> | undefined, source: string) =>
+  t?.children.map((r) => r.children.map((c) => sliceText(source, c.src.start, c.src.end).replace(/^\s*\|/, '').replace(/\|\s*$/, '').trim()));
+
+for (const [name, source, expected] of [
+  ['indented', '  | a | b |\n  | - | - |\n  | x | y |\n', '  | a   | b   |\n  | --- | --- |\n  | x   | y   |\n'],
+  ['blockquote', '> | a | b |\n> | - | - |\n> | xx | y |\n', '> | a   | b   |\n> | --- | --- |\n> | xx  | y   |\n'],
+  ['list item', '- item\n\n  | a | b |\n  | - | - |\n  | xx | y |\n', '- item\n\n  | a   | b   |\n  | --- | --- |\n  | xx  | y   |\n'],
+] as const) {
+  test(`align-table-pipes: a table in a container (${name}) keeps its prefix and stays the same table`, () => {
+    const before = alignWhole(source);
+    assert.equal(before.out, expected);
+    const orig: Extract<Block, { type: 'table' }>[] = [];
+    tablesOf(parse(source), orig);
+    assert.deepEqual(cellsOf(before.table, before.out), cellsOf(orig[0], source));
+  });
+}
+
+test('align-table-pipes: a body row of dashes is content, not a second delimiter row', () => {
+  const { out } = alignWhole('| Option | Default |\n|---|---|\n| verbose | false |\n| - | - |\n');
+  assert.match(out, /\n\| -       \| -       \|\n$/);
+});
+
+test('align-table-pipes: a row with no closing pipe gains no trailing whitespace', () => {
+  const { out } = alignWhole('a | b\n--|--\nx | y\n');
+  assert.equal(out, 'a   | b\n--- | ---\nx   | y\n');
+});
+
+test('align-table-pipes: an escaped backslash before a pipe does not escape the pipe', () => {
+  const source = '| x \\\\| y |\n|---|---|\n| 1 | 2 |\n';
+  const { out, table } = alignWhole(source);
+  assert.equal(table?.children[0]?.children.length, 2);
+  assert.equal(out, '| x \\\\ | y   |\n| ---- | --- |\n| 1    | 2   |\n');
+});
+
+test('displayWidth: marks, VS16, presentation emoji and zero-width characters', () => {
+  assert.equal(displayWidth('é'), 1);
+  assert.equal(displayWidth('❤️'), 2);
+  assert.equal(displayWidth('1️⃣'), 2);
+  assert.equal(displayWidth('✅'), 2);
+  assert.equal(displayWidth('⌚'), 2);
+  assert.equal(displayWidth('a​b'), 2);
+  assert.equal(displayWidth('कि'), 1);
+  assert.equal(displayWidth('漢字'), 4);
 });

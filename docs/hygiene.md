@@ -121,7 +121,7 @@ By run 35499870306 the table above was stale in one place that mattered: `browse
 the growth was one step — `gate:aesthetics` at 356 s — and it broke down as two separate problems.
 
 - **Three quarters of it was a flake detector.** The gate's CLS repeat pass re-rendered the whole
-  corpus three more times (19 files × 12 combos × 3 = 684 extra renders, ~266 s) to check that the
+  corpus three more times (18 files × 12 combos × 3 = 648 extra renders, ~266 s) to check that the
   font/image window it *already measures once per combo in the main pass* came out the same each
   time. Re-running work to see whether the answer changes cannot fail for anything the diff under
   review introduced, so it is not a gate on a pull request; it is monitoring. It now runs in
@@ -139,7 +139,7 @@ Measured on CI, run 35501272193 against run 35499870306: **`gate:aesthetics` 356
 install) rather than work. Locally, same corpus and verdict, 60.5 s → 17.3 s. The CI figure is
 below 4× rather than at it because a standard runner shares four vCPUs with the container.
 
-The matrix itself is untouched: same 19 files, same 12 combos, same ten page checks, same
+The matrix itself is untouched: same 18 files, same 12 combos, same ten page checks, same
 thresholds. The gate asserts exactly what it asserted before, and MARXY-143's repeat signal is
 kept rather than dropped — `apps/desktop/test/layout-shift-window.test.mjs` pins both halves, so
 deleting the nightly run fails the suite.

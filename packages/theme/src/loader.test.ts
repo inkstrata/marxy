@@ -66,3 +66,25 @@ test('an out-of-range measure in characters is clamped to 45–80 with a warning
   assert.match(css, /--marxy-measure-chars:\s*80;/);
   assert.ok(warnings.some((w) => w.includes('--marxy-measure-chars')));
 });
+
+// 2026-09-26 review (MARXY-246).
+async function cssOf(sheet: string): Promise<{ css: string; warnings: string[] }> {
+  const files = new Map<string, Uint8Array>([
+    ['theme.toml', new TextEncoder().encode('name = "t"\ncontract = 1\n')],
+    ['theme.css', new TextEncoder().encode(sheet)],
+  ]);
+  return loadTheme(dir, (rel) => Promise.resolve(files.get(rel)!), (p) => p);
+}
+
+test('clamping a value written without a semicolon keeps the closing brace', async () => {
+  const { css } = await cssOf(':root{--marxy-measure: 40ch} p{color:red}');
+  assert.equal(css, ':root{--marxy-measure: 45ch} p{color:red}');
+});
+
+test('rem is clamped as 16px, !important is kept, and calc() is dropped rather than misread', async () => {
+  assert.match((await cssOf(':root{--marxy-size-body: 6rem;}')).css, /--marxy-size-body: 28px;/);
+  assert.match((await cssOf(':root{--marxy-measure-chars: 200 !important;}')).css, /--marxy-measure-chars: 80 !important;/);
+  const calc = await cssOf(':root{--marxy-line-box: calc(2px * 400);}');
+  assert.doesNotMatch(calc.css, /--marxy-line-box/);
+  assert.ok(calc.warnings.some((w) => /not a plain length/.test(w)));
+});

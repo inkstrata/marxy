@@ -89,6 +89,15 @@ test('claim on a claimed story renews it; on any other status it is refused', ()
   assert.equal(rec(K).status, 'in_review');
 });
 
+test('a refusal is reported even once the fold list of refusals is full', () => {
+  seed({ [K]: { status: 'in_review' }, 'MARXY-502': { status: 'done' } });
+  for (let i = 0; i < 55; i++) append({ type: 'story', key: 'MARXY-502', from: 'todo', to: 'in_progress', why: `filler ${i}` });
+  assert.equal(board().rejected.length, 50);
+  const refused = run('claim', [K]);
+  assert.equal(refused.code, 1);
+  assert.match(refused.errors[0], new RegExp(`✗ ${K}: refused`));
+});
+
 test('claim refuses a missing or malformed key, and a key that is on neither the board nor main', () => {
   assert.equal(run('claim').code, 2);
   assert.equal(run('claim', ['501']).code, 2);

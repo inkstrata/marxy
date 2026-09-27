@@ -8,7 +8,8 @@ import { join, relative, sep } from 'node:path';
 
 const repoRoot = new URL('../../../', import.meta.url).pathname;
 const shellDir = join('apps', 'desktop', 'src', 'shell');
-const skipDirs = new Set(['node_modules', 'dist', 'target', '.git', 'results', 'screenshots']);
+// `.claude` holds nested agent worktrees: another checkout's files, not this one's.
+const skipDirs = new Set(['node_modules', 'dist', 'target', '.git', '.claude', 'results', 'screenshots']);
 const sourceExt = /\.(m?[jt]sx?|svelte|vue|html)$/;
 
 function sourceFiles(dir) {

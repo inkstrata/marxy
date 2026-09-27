@@ -1,7 +1,7 @@
 /**
- * The typesetter (ADR-0007, docs/design/04-typeset.md): ragged-right Knuth–Plass through justif/core
- * on paragraphs, tight list items and quotes, viewport first and the rest in idle time, and the grid
- * pass. Hanging punctuation and hyphenation are MARXY-24.
+ * The typesetter (ADR-0007, docs/design/04-typeset.md): ragged-right line breaking (the per-line
+ * right-skip breaker by default, justif/core on request) on paragraphs, tight list items and quotes,
+ * with hanging punctuation and hyphenation; viewport first, the rest in idle time, then the grid pass.
  */
 
 import { SET, applyBreaks, contentBox, overflow, revert } from './apply.ts';
