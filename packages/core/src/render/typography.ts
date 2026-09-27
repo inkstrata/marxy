@@ -42,8 +42,11 @@ function applyQuotes(text: string): string {
   return out;
 }
 
+/** Any Unicode space (EM SPACE verse indents, NBSP, thin space) opens a quote just as an ASCII space does. */
+const UNICODE_SPACE = /^\s$/u;
+
 function isOpeningContext(previous: string | undefined): boolean {
-  return previous === undefined || previous === ' ' || previous === '\t' || previous === '\n' || previous === '\r' || previous === '(' || previous === '[';
+  return previous === undefined || previous === '(' || previous === '[' || UNICODE_SPACE.test(previous);
 }
 
 function applyWidont(text: string): string {
