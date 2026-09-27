@@ -1,12 +1,12 @@
 ---
 key: MARXY-270
 design: [10-gates-and-testing]
-depends: [MARXY-247]
+depends: []
 verify: [pnpm precheck, pnpm done MARXY-270]
 ---
 # MARXY-270 — Build and lint the Rust shell with --locked everywhere, and check it stays so
 
-**Design:** [10-gates-and-testing](../../design/10-gates-and-testing.md) · **Delta:** [2026-09-27-tauri-research](../deltas/2026-09-27-tauri-research.md) · **Depends on:** MARXY-247 (PR #220 holds `.github/workflows/ci.yml`).
+**Design:** [10-gates-and-testing](../../design/10-gates-and-testing.md) · **Delta:** [2026-09-27-tauri-research](../deltas/2026-09-27-tauri-research.md) · **Depends on:** nothing. MARXY-247 (PR #220, held open by the author) also edits `.github/workflows/ci.yml`, adding a `cargo test` step beside `cargo build`. Whichever lands second resolves a one-line conflict, and if this lands first, `check-workflows` requires #220's new step to carry `--locked`.
 
 **Outcome.** CI builds exactly the Rust dependency graph that is committed. A `Cargo.toml` change that forgets `Cargo.lock` fails loudly instead of being resolved on the runner.
 

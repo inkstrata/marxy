@@ -39,7 +39,7 @@ Two gaps remain, and this delta files stories for them.
 | --- | --- | --- | --- |
 | MARXY-268 | 3 | — | `Shell` is frozen (`scripts/registry.json`, ADR-0026). The new `setWindowControls` member and the `setTitle` guarantee arrive with an ADR in a contract-only PR, as MARXY-94 did |
 | MARXY-269 | 3 | MARXY-268, MARXY-184 | The implementation. MARXY-184 (now merged) held `main.rs`, `capabilities/default.json` and `shell/tauri.ts` |
-| MARXY-270 | ops | MARXY-247 | MARXY-247 (PR #220) holds `ci.yml` |
+| MARXY-270 | ops | — | Not held behind MARXY-247 (PR #220, which the author is keeping open) although both edit `ci.yml`: the overlap is one line, and `check-workflows` makes whichever lands second carry `--locked` |
 
 The author asked for two stories. The title bar becomes two because the contract rule forces it.
 
