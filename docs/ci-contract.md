@@ -45,8 +45,8 @@ runs a subset. `pnpm precheck --all` runs everything. CI always runs everything.
 | `changes` | always | classifies the diff into `docs_only` / `web` / `rust` / `gates`; self-tests the classifier | `node scripts/ci-changes.mjs --selftest` |
 | `conventions` | pull requests only | commitlint over every commit **and** the PR title; `check-pr` on the body; `check-story --strict` over the branch | `pnpm lint:commits`, `node scripts/check-pr.mjs --body results/KEY.pr.md --range`, `node scripts/check-story.mjs --strict` |
 | `fast` | not docs-only (orchestration `.mjs`/`.json` and the board CSV are code, not docs) | hygiene checks, typecheck, lint, unit tests, CommonMark spec, goldens, fidelity, licences | `pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm check:deferrals && pnpm typecheck && pnpm lint && pnpm test && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
-| `browser` | `web` changed | no-network and aesthetics gates in the pinned Playwright container | `pnpm gate:no-network && pnpm gate:aesthetics` |
-| `gates` (macOS + Ubuntu) | gates-relevant change | specimen, licences twice, Rust fmt/clippy, frontend + `cargo build --profile ci`, CLI smoke, startup and parse measurement, perf gate, bundle gate | `pnpm gate:specimen`, `pnpm lint:rust`, `pnpm --filter @marxy/desktop verify:cli`, `pnpm gate:bundle` |
+| `browser` | `web` changed | no-network and aesthetics gates, then the desktop suite with WebKit **required** (live reload, open path, operations, Source mode), in the pinned Playwright container | `pnpm gate:no-network && pnpm gate:aesthetics && MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test` |
+| `gates` (macOS + Ubuntu) | gates-relevant change | specimen, licences twice, Rust fmt/clippy, frontend + `cargo build --profile ci`, Rust unit tests, CLI smoke, startup and parse measurement, perf gate, bundle gate | `pnpm gate:specimen`, `pnpm lint:rust`, `cd apps/desktop/src-tauri && cargo test`, `pnpm --filter @marxy/desktop verify:cli`, `pnpm gate:bundle` |
 | `gates-skip` | no gates-relevant change | posts the same two check names so anything watching by name still resolves | — |
 | `gates-record` | after a real dual-OS `gates` success | caches proof that this content built clean on both runners | — |
 | `ci` | always | the required check | — |
@@ -64,7 +64,7 @@ that does not match `package.json` fails every one of them before a single test 
   reads — `orchestration/prompts/`, `orchestration/README.md`, `loop.sh`, `.githooks/`,
   `docs/plan/tasks/`, `AGENTS.md`, `docs/{sdlc,hygiene,plan,ci-contract}.md` — or orchestration
   code and the board: those run `fast`, so the tests that read them run.
-- **`web`** — anything under `packages/`, `apps/desktop/{src,index.html,vite.config,package.json,scripts}`,
+- **`web`** — anything under `packages/`, `apps/desktop/{src/,test/,index.html,app.html,vite.config,package.json,scripts}`,
   `fixtures/`, `scripts/`, the root manifests, or `mise.toml`. Starts the `browser` job.
 - **`rust`** — anything under `apps/desktop/src-tauri/`.
 - **`gates`** — hashed over `apps/desktop`, `packages`, `fixtures`, `scripts`,
@@ -139,6 +139,8 @@ cannot pass `--strict`.**
 | `gate:aesthetics` | a mechanical aesthetics check moved | `docs/aesthetics-acceptance.md`; tune with `--workers N` locally, never by loosening a threshold |
 | `gate:bundle` | the production JS reaches the memory shell or harness; on the release workflow only (the one place installers are built, `MARXY_BUNDLE_REQUIRED=1`), an installer past budget or with katex in it | a byte count, not a duration — it is a real regression |
 | `lint:rust` | `cargo fmt --check` or `clippy -D warnings` | runs on the Linux runner only, but fix it anywhere |
+| `gates` → Rust unit tests | a `#[test]` in `apps/desktop/src-tauri` failed on macOS or Linux | `cd apps/desktop/src-tauri && cargo test`; the watcher tests touch the real filesystem, so a platform difference is a real finding |
+| `browser` → desktop suite | a WebKit test failed, or WebKit was missing (`MARXY_BROWSER_TESTS_REQUIRED=1` turns a skip into a failure) | `pnpm --filter @marxy/desktop test` locally runs the same tests when Playwright's WebKit is installed (`pnpm exec playwright install webkit`) |
 | the window never paints | `cargo build` without `--features tauri/custom-protocol` | CI calls cargo directly and must pass the flag `tauri build` sets implicitly |
 | CLI smoke fails | shell, paint or CLI path regressed | `pnpm --filter @marxy/desktop verify:cli` reproduces it with `MARXY_SMOKE_REQUIRED=1` |
 | `gate:perf` fails | the record is **missing or dishonest**, not slow | timings never fail the build (ADR-0032); a perf failure means the measurement did not happen or does not add up |
