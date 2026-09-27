@@ -1,0 +1,123 @@
+/* The empty window's passage from the Commonplace (MARXY-257). Loaded only by a launch with no
+   document, and scoped to .marxy-frontispiece so no document is ever styled by it. Sizes and colours
+   are the theme's tokens; nothing here is a new one. Verse follows reader-typography chapter 7
+   (Poetry): every line and indent kept, turnovers hung, never justified, hyphenated or balanced. */
+
+/* The passage sits in the window's middle, a little above centre because the article's foot margin
+   is deeper than its head. Auto margins rather than centring the flex line, so a passage taller than
+   the window starts at the top instead of above it. */
+.marxy-frontispiece {
+  container: marxy-frontispiece / inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--lb) * 8);
+}
+.marxy-frontispiece-page { margin-block: auto; }
+
+/* The title is the piece's name, not a document's: the third step of the scale, a full line above
+   the text it names. */
+.marxy-frontispiece-page > h1 {
+  font-size: var(--marxy-size-h3);
+  line-height: var(--lb);
+  letter-spacing: calc(var(--marxy-tracking-heading) * 0.55);
+  margin: 0 0 var(--lb);
+  padding: 0;
+}
+
+/* Verse. A stanza is a paragraph a full line from the next; a line is a block. A line's first row
+   starts at its indent level, 1em per level (one EM SPACE each in the source); a row it turns over
+   onto hangs 1em deeper than the poem's deepest indent, so a turnover never reads as an indented
+   line. With no indents that is the familiar 1em hang (padding 1em, text-indent -1em). */
+.marxy-verse {
+  margin-bottom: var(--lb);
+  text-align: start;
+  text-wrap: wrap;
+  hyphens: manual;
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+.marxy-frontispiece-verse { --marxy-verse-depth: 0; }
+.marxy-verse-depth-1 { --marxy-verse-depth: 1; }
+.marxy-verse-depth-2 { --marxy-verse-depth: 2; }
+.marxy-verse-depth-3 { --marxy-verse-depth: 3; }
+.marxy-verse-depth-4 { --marxy-verse-depth: 4; }
+.marxy-verse-depth-5 { --marxy-verse-depth: 5; }
+.marxy-verse-depth-6 { --marxy-verse-depth: 6; }
+.marxy-verse-depth-7 { --marxy-verse-depth: 7; }
+.marxy-verse-depth-8 { --marxy-verse-depth: 8; }
+.marxy-verse-line {
+  --marxy-verse-level: 0;
+  display: block;
+  padding-inline-start: calc((var(--marxy-verse-depth) + 1) * 1em);
+  text-indent: calc((var(--marxy-verse-level) - var(--marxy-verse-depth) - 1) * 1em);
+}
+.marxy-verse-indent-1 { --marxy-verse-level: 1; }
+.marxy-verse-indent-2 { --marxy-verse-level: 2; }
+.marxy-verse-indent-3 { --marxy-verse-level: 3; }
+.marxy-verse-indent-4 { --marxy-verse-level: 4; }
+.marxy-verse-indent-5 { --marxy-verse-level: 5; }
+.marxy-verse-indent-6 { --marxy-verse-level: 6; }
+.marxy-verse-indent-7 { --marxy-verse-level: 7; }
+.marxy-verse-indent-8 { --marxy-verse-level: 8; }
+
+/* Omitted lines or paragraphs: the editor's mark, not the author's text. */
+.marxy-frontispiece-elision { color: var(--marxy-color-text-secondary); }
+.marxy-frontispiece-verse .marxy-frontispiece-elision { padding-inline-start: 2em; margin-bottom: var(--lb); }
+.marxy-frontispiece-prose .marxy-frontispiece-elision { text-align: center; }
+
+/* Two languages side by side while each column keeps at least 40 average characters, stacked below
+   that. The article widens to hold both columns at the measure; each section keeps the measure.
+   Columns are as wide as their text up to the measure, and the whole page (title, pair, colophon)
+   is as wide as that and centred, so short verse sits as a facing pair in the middle of the window
+   with its title and colophon on the same left edge, instead of hugging the article's left side. */
+.marxy-frontispiece-page:has(> .marxy-frontispiece-parallel) {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+.marxy-article:has(> .marxy-frontispiece .marxy-frontispiece-parallel) {
+  max-width: calc(var(--marxy-column) * 2 + var(--lb) * 2);
+}
+.marxy-frontispiece-parallel {
+  display: grid;
+  grid-template-columns: minmax(0, max-content);
+  gap: var(--lb) calc(var(--lb) * 2);
+  align-items: start;
+}
+/* The page is sized by its content, so the switch to two columns is asked of the passage's root,
+   whose width is the article's: 40em is two columns of 40 average characters (40 x 0.463em each,
+   the theme's --marxy-avg-char) and the gap between them. A container query cannot read the token. */
+@container marxy-frontispiece (min-width: 40em) {
+  .marxy-frontispiece-parallel { grid-template-columns: repeat(2, minmax(0, max-content)); }
+}
+.marxy-frontispiece-lang { max-width: var(--marxy-column); min-width: 0; }
+.marxy-frontispiece-lang > :last-child { margin-bottom: 0; }
+/* The section's heading is the language's own name: a label, set as quietly as the colophon. */
+.marxy-frontispiece-lang > h2 {
+  --marxy-wght: calc(var(--marxy-weight-body) + var(--marxy-weight-offset));
+  font-size: var(--marxy-size-caption);
+  font-weight: var(--marxy-wght);
+  line-height: var(--lb);
+  letter-spacing: 0.01em;
+  color: var(--marxy-color-text-secondary);
+  margin: 0 0 var(--marxy-half);
+  padding: 0;
+}
+.marxy-frontispiece-lang:lang(ar, fa, ur, ps, sd, ug, he, yi) > h2 { letter-spacing: 0; }
+
+/* The colophon: a book's, not a page footer. Caption size in the secondary colour, two lines below
+   the text, at a measure of its own size. The thematic break before it is the space, not a mark.
+   It is mostly names and titles, so it is never hyphenated: `none`, which the typesetter honours. */
+hr:has(+ .marxy-frontispiece-colophon) { display: none; }
+.marxy-frontispiece-colophon {
+  max-width: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);
+  margin-top: calc(var(--lb) * 2);
+  font-size: var(--marxy-size-caption);
+  line-height: calc(var(--lb) * 0.75);
+  letter-spacing: 0.01em;
+  color: var(--marxy-color-text-secondary);
+  hyphens: none;
+}
+.marxy-frontispiece-colophon > p { margin: 0 0 calc(var(--lb) / 4); }
+.marxy-frontispiece-colophon > :last-child { margin-bottom: 0; }
+.marxy-frontispiece-colophon a { color: inherit; }
