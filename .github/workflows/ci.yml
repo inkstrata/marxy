@@ -138,6 +138,10 @@ jobs:
       # `fast`, which has no browser; here WebKit is in the image, so a skip would be a lie and is
       # refused. Nothing ran them on a pull request before MARXY-247, and the edit-after-reload data
       # loss MARXY-246 fixed reached main through that gap.
+      # One desktop test compiles a small Rust crate (images.test.mjs), and the Playwright image ships
+      # no C linker for cargo's build scripts.
+      - name: A C linker for the desktop suite's Rust test
+        run: apt-get update -qq && apt-get install -y -qq build-essential
       - name: Desktop suite with WebKit required
         run: pnpm --filter @marxy/desktop test
         env:
