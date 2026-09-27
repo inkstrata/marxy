@@ -4,7 +4,8 @@ import type { Operation, OperationInput, OperationResult } from '../contracts/op
 
 function clipText(value: string): string {
   if (value.length === 0) return '';
-  return value.endsWith('\n') ? value : `${value}\n`;
+  // The closing line ending matches the block's own, so a CRLF block is not copied with a lone LF.
+  return value.endsWith('\n') ? value : `${value}${value.includes('\r\n') ? '\r\n' : '\n'}`;
 }
 
 /** Copy code. Pure: text in, text out; never touches bytes outside input.range. */

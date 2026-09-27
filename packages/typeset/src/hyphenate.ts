@@ -113,7 +113,9 @@ export function insertHyphens(tokens: readonly Token[], hyphenate: Hyphenator): 
       continue;
     }
     const run = letterRun(token.text);
-    if (run === null) {
+    // The URL and digit guards judge the whole piece: its letter run alone ("configuration" out of
+    // "configuration2024", "Documentation" out of "Documentation(https://x.io)") always passes them.
+    if (run === null || (run.word !== token.text && skipHyphenation(token.text))) {
       out.push(token);
       continue;
     }

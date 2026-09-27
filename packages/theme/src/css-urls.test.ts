@@ -54,3 +54,35 @@ test('image-set drops remote candidates', () => {
   assert.doesNotMatch(css, /https:\/\/x/);
   assert.equal(warnings.length, 1);
 });
+
+// 2026-09-26 review (MARXY-246): every one of these used to pass through unchanged.
+test('url(), @import and image-set() are matched in any case', () => {
+  for (const sheet of [
+    'a{background:URL(https://evil.example/a.png)}',
+    '@IMPORT "https://evil.example/x.css";',
+    'a{background:Image-Set("https://evil.example/d.png" 1x)}',
+    'a{background:-webkit-image-set(url(https://evil.example/e.png) 1x)}',
+  ]) {
+    const { css, warnings } = rewriteUrls(sheet, { base, assetUrl });
+    assert.doesNotMatch(css, /evil\.example/, sheet);
+    assert.ok(warnings.length > 0, sheet);
+  }
+});
+
+test('a CSS escape outside a string refuses the whole sheet', () => {
+  for (const sheet of [
+    'a{background:u\\72l(https://evil.example/b.png)}',
+    'a{--x:\\"; background:url(https://evil.example/c.png)} b{content:"q"}',
+  ]) {
+    const { css, warnings } = rewriteUrls(sheet, { base, assetUrl });
+    assert.equal(css, '', sheet);
+    assert.match(warnings[0]!, /escape/);
+  }
+  // Escapes inside strings are ordinary and stay.
+  assert.equal(rewriteUrls('q::before{content:"\\201C"}', { base, assetUrl }).css, 'q::before{content:"\\201C"}');
+});
+
+test('dropping a remote image-set candidate drops its descriptor with it', () => {
+  const { css } = rewriteUrls('a{background:image-set(url(ok.png) 1x, url(https://evil.example/f.png) 2x)}', { base, assetUrl });
+  assert.equal(css, 'a{background:image-set(url("asset:///themes/quiet/ok.png") 1x)}');
+});

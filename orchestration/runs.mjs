@@ -1,7 +1,7 @@
 // Worker runs: what each role is asked to do, and what a finished run means for its story
 // (ADR-0034). Pure except for reading prompt templates; the reconciler (cycle.mjs) does the writing.
 import { readFileSync, existsSync } from 'node:fs';
-import { CODE_ROOT, notesPath, worktreeFor, newRunId } from './store.mjs';
+import { CODE_ROOT, notesPath, storyWorktree, newRunId } from './store.mjs';
 import { story, runEvent, boardEvent } from './machine.mjs';
 import { typeOf, slug } from './lib.mjs';
 
@@ -48,7 +48,7 @@ export function buildSpec({ role, key = null, row, rec = {}, pr, m, t, now = new
   return {
     id, key, role, modelRole, model: model.model, effort: model.effort, cliEffortFlag: m.cliEffortFlag || '',
     bin, branch, pr: pr ?? rec.pr ?? null,
-    worktree: key && (role === 'implement' || role === 'resolve') ? (rec.worktree ?? worktreeFor(key)) : null,
+    worktree: key && (role === 'implement' || role === 'resolve') ? storyWorktree(key, rec.worktree) : null,
     cwd: CODE_ROOT,
     install: role === 'implement',
     started: now.toISOString(),
@@ -72,7 +72,7 @@ export function claimEvents(spec) {
       return [run, story(spec.key, {
         from: 'todo', to: 'in_progress', why: `${spec.modelRole} attempt started (${spec.model})`,
         set: { run: spec.id, branch: spec.branch, worktree: spec.worktree, role: spec.modelRole, model: spec.model, started: spec.started },
-        unset: ['claim', 'hold', 'parkedReason'], inc: { attempts: 1 },
+        unset: ['claim', 'hold', 'parkedReason', 'parkedBy'], inc: { attempts: 1 },
       })];
     case 'review':
       return [run, story(spec.key, { from: 'in_review', ifRun: null, why: 'reviewer started', set: { run: spec.id }, inc: { reviewTries: 1 } })];
@@ -147,14 +147,19 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   }
   const base = { ifRun: id, unset: ['run'] };
 
-  if (run.role === 'review') {
-    events.push(story(key, { ...base, from: 'in_review', why: `reviewer ended (${outcome})` }));
-    lines.push(`${key}: reviewer ended (${outcome})`);
-    return { events, lines, attention };
-  }
-  if (run.role === 'resolve') {
-    events.push(story(key, { ...base, from: 'in_review', why: `conflict resolution ended (${outcome})` }));
-    lines.push(`${key}: conflict resolution ended (${outcome})`);
+  // A review or resolution that never reached its agent (the worktree could not be prepared, the CLI
+  // could not log in, the worker died) has not tried anything, so it does not spend a try: three setup
+  // failures used to park a story as "still conflicts after 3 resolution runs".
+  const neverRan = outcome === 'setup' || outcome === 'auth' || outcome === 'dead';
+  if (run.role === 'review' || run.role === 'resolve') {
+    const what = run.role === 'review' ? 'reviewer' : 'conflict resolution';
+    const tries = run.role === 'review' ? 'reviewTries' : 'resolveTries';
+    events.push(story(key, {
+      ...base, from: 'in_review', why: `${what} ended (${outcome})${neverRan ? ', try refunded' : ''}`,
+      ...(neverRan ? { inc: { [tries]: -1 } } : {}),
+    }));
+    lines.push(`${key}: ${what} ended (${outcome})${neverRan ? ', try refunded' : ''}`);
+    if (outcome === 'auth') attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login`' });
     return { events, lines, attention };
   }
 
@@ -165,8 +170,13 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
     attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login` (implementor runs are refunded until then)' });
     return { events, lines: [`${key}: auth failure, attempt refunded`], attention };
   }
-  const pr = Number(result?.pr) > 0 ? Number(result.pr) : prOpen?.number;
-  if ((result?.status === 'done' && pr) || prOpen) {
+  // An open PR still at the head it was returned at is the PR that was sent back, not new work: a run
+  // that failed before pushing must not carry it straight back into review (MARXY-217's invariant,
+  // which adopt.mjs keeps and this path used to skip).
+  const stale = prOpen && rec.returned?.head && rec.returned.head === prOpen.headRefOid;
+  const fresh = stale ? null : prOpen;
+  const pr = Number(result?.pr) > 0 ? Number(result.pr) : fresh?.number;
+  if ((result?.status === 'done' && pr) || fresh) {
     events.push(story(key, {
       ...base, from, to: 'in_review', set: { pr, prOpened: now },
       unset: ['run', 'hold', 'returned', 'lastFailure', 'repeats'], why: `PR #${pr} opened`,
@@ -183,7 +193,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
     const fails = (rec.setupFails ?? 0) + 1;
     const why = obs.exit?.why ?? 'the worker could not prepare the worktree';
     events.push(fails >= 2
-      ? story(key, { ...base, from, to: 'blocked', inc: { attempts: -1, setupFails: 1 }, set: { parkedReason: `setup failed twice: ${why}`, blockedAt: now }, why: 'setup failed twice' })
+      ? story(key, { ...base, from, to: 'blocked', inc: { attempts: -1, setupFails: 1 }, set: { parkedReason: `setup failed twice: ${why}`, parkedBy: 'fleet', blockedAt: now }, why: 'setup failed twice' })
       : story(key, { ...base, from, to: 'todo', inc: { attempts: -1, setupFails: 1 }, why: `setup failed, attempt refunded: ${why}` }));
     return { events, lines: [`${key}: setup failed (${why})`], attention };
   }
@@ -192,7 +202,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
     const ghosts = (rec.ghosts ?? 0) + 1;
     const tail = lastText(logTail).slice(0, 200);
     events.push(ghosts >= t.ghostLimit
-      ? story(key, { ...base, from, to: 'blocked', inc: { attempts: -1, ghosts: 1 }, set: { parkedReason: `the agent produced nothing ${ghosts} times (${outcome})${tail ? `: ${tail}` : ''}`, blockedAt: now }, why: 'repeated empty runs' })
+      ? story(key, { ...base, from, to: 'blocked', inc: { attempts: -1, ghosts: 1 }, set: { parkedReason: `the agent produced nothing ${ghosts} times (${outcome})${tail ? `: ${tail}` : ''}`, parkedBy: 'fleet', blockedAt: now }, why: 'repeated empty runs' })
       : story(key, { ...base, from, to: 'todo', inc: { attempts: -1, ghosts: 1 }, why: `the agent produced nothing (${outcome}); attempt refunded` }));
     return { events, lines: [`${key}: empty run (${outcome}), refunded`], attention };
   }

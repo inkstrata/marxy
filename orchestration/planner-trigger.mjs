@@ -52,8 +52,14 @@ export function plannerReasons({ s = board(), m = models(), all, d, now = Date.n
       const readAt = Math.max(Date.parse(s.lastPlan ?? '') || 0, s.planner?.lastEnded && Date.parse(s.planner.started ?? '') > Date.parse(v.blockedAt) ? Date.parse(s.planner.lastEnded) : 0);
       return Date.parse(v.blockedAt) > readAt;
     })
-    .map(([k]) => k);
-  if (esc.length) reasons.push(`escalated/blocked: ${esc.join(', ')}`);
+    .map(([k, v]) => [k, v]);
+  // A story the fleet parked on its own (conflict resolution exhausted, setup failing, empty runs)
+  // is a machine fault to name, not a ruling the plan waits on: counting it froze every ready story
+  // until the planner's cooldown ran out, for a story the planner has nothing to say about.
+  const asked = esc.filter(([, v]) => v.parkedBy !== 'fleet').map(([k]) => k);
+  const machine = esc.filter(([, v]) => v.parkedBy === 'fleet').map(([k]) => k);
+  if (asked.length) reasons.push(`escalated/blocked: ${asked.join(', ')}`);
+  if (machine.length) reasons.push(`parked by the fleet: ${machine.join(', ')}`);
   return reasons;
 }
 

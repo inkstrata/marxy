@@ -146,3 +146,16 @@ test('blocksDispatch: cadence reasons alone are advisory, not blocking', () => {
 test('blocksDispatch: no reasons means nothing to block', () => {
   assert.equal(blocksDispatch([]), false);
 });
+
+test('a story the fleet parked on its own is named but does not hold dispatch', () => {
+  const s = {
+    lastPlan: new Date(2026, 0, 5).toISOString(), merges: 0, mergesAtLastPlan: 0,
+    stories: {
+      X: { status: 'blocked', parkedBy: 'fleet', blockedAt: new Date(2026, 0, 10).toISOString() },
+      Y: { status: 'blocked', blockedAt: new Date(2026, 0, 10).toISOString() },
+    },
+  };
+  const reasons = plannerReasons({ s, m: M, all: [], d: NO_DEPS, now: NOW });
+  assert.deepEqual(reasons.filter(r => !/week/.test(r)), ['escalated/blocked: Y', 'parked by the fleet: X']);
+  assert.equal(blocksDispatch(['parked by the fleet: X']), false);
+});

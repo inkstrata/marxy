@@ -113,6 +113,13 @@ test('open-pr does not produce a gh argv for a failing body', () => {
   assert.ok(!good.argv.includes('--body'));
 });
 
+test('open-pr refuses the stand-in title a body is drafted with before the first commit', () => {
+  const body = HOUSE.replace(/<!-- Title: .* -->/, '<!-- Title: type(scope): subject (MARXY-104) -->');
+  const r = planOpenPr({ body, key: 'MARXY-104', bodyFile: 'results/MARXY-104.pr.md' });
+  assert.equal(r.ok, false);
+  assert.match(r.problems[0], /placeholder/);
+});
+
 test('the check-pr CLI exits 1 on a Cursor-style body and 0 on a house body', () => {
   const failRun = spawnSync(process.execPath, ['scripts/check-pr.mjs', '--key', 'MARXY-104'], {
     encoding: 'utf8',

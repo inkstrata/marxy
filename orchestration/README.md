@@ -108,7 +108,7 @@ missed or killed cycle loses nothing.
 | a PR is open (the result names it, or GitHub has one for the branch) | in_review |
 | the implementor reported `blocked` (`fleet.mjs report KEY blocked "…"`) | blocked, with its reason |
 | `auth` — the CLI could not authenticate | todo, attempt refunded; **Needs you**: `cursor-agent login` |
-| `setup` — worktree or install failed | todo, refunded; the second time blocked |
+| `setup` — worktree or install failed | todo, refunded; the second time blocked (a review or conflict-resolution run that ends in `setup`, `auth` or `dead` refunds its try too) |
 | nothing produced (no commits, clean worktree, under 2 KB of output) | todo, refunded; the second time blocked, with the output that explains it |
 | failed, timed out or stalled with work done | todo; after `maxAttempts` the next attempt uses the escalation model; the same failure twice skips straight to it; when `maxAttempts + escalationAttempts` are spent, escalate |
 
@@ -230,7 +230,8 @@ Timings and limits (`machine.mjs` `TIMING`; any can be set in `models.json` by t
 | `proc.mjs` | every subprocess bounded; process groups |
 | `report.mjs` | `status.md`, **Needs you**, the quiet log |
 | `fleet.mjs` | the command line for people and agents; `doctor` |
-| `state.mjs`, `doctor.mjs` | the old names, kept as thin shims |
+| `state.mjs` | the old name, kept as a thin shim |
+| `doctor.mjs` | a health snapshot and diagnosis; `--fix` applies the safe repairs under the cycle's lock |
 | `merge-bar.mjs`, `approve.mjs`, `codeowners.mjs` | the quality bar and the signed approval |
 | `adopt.mjs`, `github.mjs`, `review-order.mjs`, `review.mjs`, `readiness.mjs` | adoption, the one GitHub read, the order, the review packet, the merge-readiness table |
 | `planner-trigger.mjs` | whether the planner is due, and whether that holds dispatch |

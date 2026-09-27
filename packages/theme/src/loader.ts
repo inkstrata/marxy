@@ -1,4 +1,4 @@
-// Applying a theme and a variant (docs/design/05-theme.md §Loader). User theme loading is MARXY-47.
+// Applying a theme and a variant, and loading a user theme (docs/design/05-theme.md §Loader).
 
 import { parse } from 'smol-toml';
 import { rewriteUrls } from './css-urls.ts';
@@ -39,6 +39,13 @@ export function applyVariant(variant: Variant, doc: Document = document): void {
   doc.documentElement.setAttribute('data-marxy-variant', variant);
 }
 
+// A declaration's value ends at `;`, `}` or a line end: `[^;\n]+` ran on through a closing `}` and
+// the clamp then wrote the rule back without it, leaving it open to swallow the rest of the sheet.
+const declaration = (prop: string) => new RegExp(`(${escapeRegExp(prop)}\\s*:\\s*)([^;}\\n]+)`, 'g');
+const IMPORTANT = /\s*!\s*important\s*$/i;
+// rem and em are resolved against the 16px root a theme cannot change.
+const PX_PER = { px: 1, rem: 16, em: 16 } as const;
+
 function clampCssLength(
   css: string,
   prop: string,
@@ -46,50 +53,51 @@ function clampCssLength(
   max: string,
   warnings: string[],
 ): string {
-  const re = new RegExp(`(${escapeRegExp(prop)}\\s*:\\s*)([^;\\n]+)`, 'g');
-  return css.replace(re, (_full, prefix: string, value: string) => {
-    const ch = parseCh(value);
-    const px = parsePx(value);
-    if (ch !== null) {
-      const minCh = parseCh(min)!;
-      const maxCh = parseCh(max)!;
-      if (ch < minCh || ch > maxCh) {
-        const clamped = Math.min(maxCh, Math.max(minCh, ch));
-        warnings.push(`${prop} was ${value.trim()}; clamped to ${clamped}ch`);
-        return `${prefix}${clamped}ch`;
-      }
-    } else if (px !== null) {
-      const minPx = parsePx(min)!;
-      const maxPx = parsePx(max)!;
-      if (px < minPx || px > maxPx) {
-        const clamped = Math.min(maxPx, Math.max(minPx, px));
-        warnings.push(`${prop} was ${value.trim()}; clamped to ${clamped}px`);
-        return `${prefix}${clamped}px`;
-      }
+  return css.replace(declaration(prop), (full, prefix: string, raw: string) => {
+    const important = IMPORTANT.exec(raw)?.[0] ?? '';
+    const value = raw.slice(0, raw.length - important.length).trim();
+    const plain = /^(-?\d+(?:\.\d+)?)(ch|px|rem|em)$/i.exec(value);
+    if (!plain) {
+      // calc(), var() and the rest cannot be range-checked here, and guessing from their first
+      // number (calc(2px * 400) read as 2px) is worse than leaving the default theme's value.
+      warnings.push(`${prop} was ${value}; not a plain length, so the default is kept`);
+      return '';
     }
-    return `${prefix}${value}`;
+    const n = Number(plain[1]);
+    const unit = plain[2]!.toLowerCase();
+    if (unit === 'ch') {
+      const minCh = parseFloat(min);
+      const maxCh = parseFloat(max);
+      if (!min.endsWith('ch') || (n >= minCh && n <= maxCh)) return full;
+      const clamped = Math.min(maxCh, Math.max(minCh, n));
+      warnings.push(`${prop} was ${value}; clamped to ${clamped}ch`);
+      return `${prefix}${clamped}ch${important}`;
+    }
+    if (!min.endsWith('px')) return full;
+    const px = n * PX_PER[unit as keyof typeof PX_PER];
+    const minPx = parseFloat(min);
+    const maxPx = parseFloat(max);
+    if (px >= minPx && px <= maxPx) return full;
+    const clamped = Math.min(maxPx, Math.max(minPx, px));
+    warnings.push(`${prop} was ${value}; clamped to ${clamped}px`);
+    return `${prefix}${clamped}px${important}`;
   });
 }
 
 function clampCssNumber(css: string, prop: string, min: number, max: number, warnings: string[]): string {
-  const re = new RegExp(`(${escapeRegExp(prop)}\\s*:\\s*)([^;\\n]+)`, 'g');
-  return css.replace(re, (_full, prefix: string, value: string) => {
-    const n = Number(value.trim());
-    if (!Number.isFinite(n) || (n >= min && n <= max)) return `${prefix}${value}`;
+  return css.replace(declaration(prop), (full, prefix: string, raw: string) => {
+    const important = IMPORTANT.exec(raw)?.[0] ?? '';
+    const value = raw.slice(0, raw.length - important.length).trim();
+    const n = Number(value);
+    if (!Number.isFinite(n) || value === '') {
+      warnings.push(`${prop} was ${value}; not a number, so the default is kept`);
+      return '';
+    }
+    if (n >= min && n <= max) return full;
     const clamped = Math.min(max, Math.max(min, n));
-    warnings.push(`${prop} was ${value.trim()}; clamped to ${clamped}`);
-    return `${prefix}${clamped}`;
+    warnings.push(`${prop} was ${value}; clamped to ${clamped}`);
+    return `${prefix}${clamped}${important}`;
   });
-}
-
-function parseCh(value: string): number | null {
-  const m = /(-?\d+(?:\.\d+)?)\s*ch\b/i.exec(value.trim());
-  return m ? Number(m[1]) : null;
-}
-
-function parsePx(value: string): number | null {
-  const m = /(-?\d+(?:\.\d+)?)\s*px\b/i.exec(value.trim());
-  return m ? Number(m[1]) : null;
 }
 
 function escapeRegExp(s: string): string {

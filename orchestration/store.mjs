@@ -53,6 +53,12 @@ export function repoHome() {
 /** Where story worktrees live: `<repo home>/../marxy-wt/KEY`, the convention every script uses. */
 export const worktreeBase = () => process.env.MARXY_WORKTREES ?? resolve(repoHome(), '..', 'marxy-wt');
 export const worktreeFor = key => join(worktreeBase(), key);
+/**
+ * A story's worktree as an absolute path. Records imported from the old state.json hold relative
+ * paths (`../marxy-wt/KEY`), which mean "beside the home checkout"; read from the runner's detached
+ * checkout they name nothing, so the worker tried to add a worktree that already existed.
+ */
+export const storyWorktree = (key, recorded) => (recorded ? resolve(repoHome(), recorded) : worktreeFor(key));
 
 export const fleetPath = (...parts) => {
   const p = join(fleetDir(), ...parts);

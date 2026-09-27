@@ -1,12 +1,12 @@
 ---
 key: MARXY-137
-design: [04-typesetting]
+design: [04-typeset]
 depends: [MARXY-24, MARXY-25, MARXY-143]
 verify: [pnpm precheck, pnpm done MARXY-137]
 ---
 # MARXY-137 — turn on hyphenation and hanging punctuation in the app readers open
 
-**Design:** [04-typesetting](../../design/04-typesetting.md), `docs/design-language.md` (the six constraints) · **Depends on:** MARXY-24 (the options), MARXY-25 (the baselines this story recaptures), MARXY-143 (the aesthetics gate must be deterministic on `webkit-linux` before criterion 4 can be met) · **ADRs:** ADR-0007, ADR-0014.
+**Design:** [04-typeset](../../design/04-typeset.md), `docs/design-language.md` (the six constraints) · **Depends on:** MARXY-24 (the options), MARXY-25 (the baselines this story recaptures), MARXY-143 (the aesthetics gate must be deterministic on `webkit-linux` before criterion 4 can be met) · **ADRs:** ADR-0007, ADR-0014.
 
 > **Revised 2026-09-19 (attempt 3), after PR #104 was returned again at `2877622`** —
 > `orchestration/results/MARXY-137.json`, `docs/plan/deltas/2026-09-19-marxy-137-hang-check.md`.

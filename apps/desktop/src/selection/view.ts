@@ -1,4 +1,4 @@
-// Rendered-mode clicks, keys, `.marxy-selected`, and re-render restore (MARXY-41; keys migrate in MARXY-42).
+// Rendered-mode clicks, `.marxy-selected`, and re-render restore (MARXY-41); keys are in the command registry.
 
 import {
   createBuffer,
@@ -11,7 +11,7 @@ import {
   type Inline,
   type Node,
 } from '@marxy/core';
-import type { AppHandle, AppShell } from '../app.ts';
+import type { AppHandle, AppShell, OpenDocumentState } from '../app.ts';
 import type { NodeMap } from '../render/post.ts';
 import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
 import { resolve } from './resolve.ts';
@@ -68,6 +68,12 @@ let state: SelectionState = { selection: { kind: 'none' } };
 let lastClickTarget: Element | null = null;
 let pointerDrag = false;
 let installedOn: HTMLElement | null = null;
+let appHandle: AppHandle | null = null;
+
+/** The app this selection follows: operations commit through it (render/tasks.ts). */
+export function selectionApp(): AppHandle | null {
+  return appHandle;
+}
 
 export function getSelectionState(): SelectionState {
   return state;
@@ -152,9 +158,12 @@ export function rerenderWithSameHtml(): void {
   afterDocumentRendered();
 }
 
-async function followLink(anchor: HTMLAnchorElement): Promise<void> {
+async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<void> {
   const href = anchor.getAttribute('href');
-  if (!href) return;
+  // A fragment scrolls within the page; anything else would navigate the reader's own window away
+  // (a remote page loaded where the document was), so it goes to the shell or nowhere.
+  if (!href || href.startsWith('#')) return;
+  ev.preventDefault();
   const ext = ctx!.shell as AppShell & { openExternal?(url: string): Promise<void> };
   if (typeof ext.openExternal === 'function') await ext.openExternal(href);
 }
@@ -181,7 +190,7 @@ async function onClick(ev: MouseEvent): Promise<void> {
 
   const link = raw.closest('a[href]');
   if (link instanceof HTMLAnchorElement && !ev.altKey) {
-    await followLink(link);
+    await followLink(link, ev);
     return;
   }
 
@@ -222,28 +231,49 @@ async function onClick(ev: MouseEvent): Promise<void> {
   paintSelected(article, state.selection);
 }
 
-/** Attach listeners once; keyboard chords live in the command registry (MARXY-42). */
+/**
+ * Attach listeners once, and follow the app's open document from then on: an operation resolves and
+ * splices against the buffer the page was rendered from. A copy read here once at install went stale
+ * on the first reload, Source edit or second open, and the next checkbox tick wrote it over the file.
+ * Keyboard chords live in the command registry (MARXY-42).
+ */
 export async function installRenderedSelection(handle: AppHandle): Promise<void> {
-  const open = handle.state.document;
   const article = document.getElementById('doc');
-  if (!open || !article || article.querySelector('[data-marxy-s]') === null) return;
-  if (installedOn === article) return;
+  if (!article || installedOn === article) return;
   installedOn = article;
-  const path = open.ast.path;
-  const bytes = await handle.shell.readFile(path);
-  const buffer = createBuffer(path, bytes);
-  ctx = {
-    article,
-    nodeMap: open.nodeMap,
-    document: open.ast,
-    buffer,
-    shell: handle.shell as SelectionRuntime['shell'],
+  appHandle = handle;
+  const adopt = (open: OpenDocumentState | null): void => {
+    if (!open) {
+      ctx = null;
+      state = select(state, { kind: 'none' });
+      lastClickTarget = null;
+      return;
+    }
+    const next = { nodeMap: open.nodeMap, document: open.ast, buffer: open.buffer };
+    if (!ctx) {
+      ctx = { article, ...next, shell: handle.shell as SelectionRuntime['shell'] };
+      return;
+    }
+    // Another document: nothing selected in the last one names anything in this one.
+    if (ctx.buffer.path !== open.path) {
+      state = select(state, { kind: 'none' });
+      lastClickTarget = null;
+    }
+    afterDocumentRendered(next);
   };
+  adopt(handle.openDocument());
+  handle.onDocumentChange(adopt);
 
   article.addEventListener('mousedown', () => { pointerDrag = false; });
   article.addEventListener('mousemove', () => { pointerDrag = true; });
   article.addEventListener('mouseup', () => onPointerUp());
-  article.addEventListener('click', (ev) => { void onClick(ev); });
+  article.addEventListener('click', (ev) => {
+    // Before anything that can return early (a drag, a text selection, no document yet): a link
+    // click that is not prevented navigates the window whether or not a handler follows it.
+    const link = ev.target instanceof Element ? ev.target.closest('a[href]') : null;
+    if (link && !link.getAttribute('href')!.startsWith('#')) ev.preventDefault();
+    void onClick(ev);
+  });
 
   const w = window as Window & {
     marxySelection?: {

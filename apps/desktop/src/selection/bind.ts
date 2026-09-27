@@ -34,7 +34,8 @@ export function keyMatches(event: KeyboardEvent, spec: string): boolean {
   if (!needMod && mod) return false;
   if (needShift !== event.shiftKey) return false;
   if (needAlt !== event.altKey) return false;
-  return event.key === key;
+  // A letter arrives as `z` without Shift and `Z` with it: `Mod+Z` spells the key, not its case.
+  return key.length === 1 ? event.key.toLowerCase() === key.toLowerCase() : event.key === key;
 }
 
 export function buildAppContext(): AppContext | null {

@@ -29,6 +29,13 @@ const rules: { name: string; input: string; ctx: SmartenContext; expect: string 
   { name: 'opening double after paren', input: '("Hi"', ctx: none, expect: '(\u201cHi\u201d' },
   { name: 'opening double after bracket', input: '["Hi"', ctx: none, expect: '[\u201cHi\u201d' },
   { name: 'opening double after newline', input: 'a\n"Hi"', ctx: none, expect: 'a\n\u201cHi\u201d' },
+  { name: 'opening double after an em space', input: '\u2003"Hi"', ctx: none, expect: '\u2003\u201cHi\u201d' },
+  { name: 'opening double after a no-break space', input: 'said\u00a0"Hi"', ctx: none, expect: 'said\u00a0\u201cHi\u201d' },
+  { name: 'opening double after an en space', input: '\u2002"Hi"', ctx: none, expect: '\u2002\u201cHi\u201d' },
+  { name: 'opening double after a thin space', input: 'said\u2009"Hi"', ctx: none, expect: 'said\u2009\u201cHi\u201d' },
+  { name: 'opening single after an em space', input: "\u2003'Hi'", ctx: none, expect: '\u2003\u2018Hi\u2019' },
+  { name: 'opening single after a no-break space', input: "said\u00a0'Hi'", ctx: none, expect: 'said\u00a0\u2018Hi\u2019' },
+  { name: 'opening single after a thin space', input: "said\u2009'Hi'", ctx: none, expect: 'said\u2009\u2018Hi\u2019' },
   { name: 'opening single at start', input: "'Hello'", ctx: none, expect: '\u2018Hello\u2019' },
   { name: 'apostrophe is a closing single', input: "don't", ctx: none, expect: 'don\u2019t' },
   { name: 'en dash keeps surrounding spaces', input: 'a -- b', ctx: none, expect: 'a \u2013 b' },
@@ -76,6 +83,12 @@ test('a seven-word paragraph keeps a breaking last space', () => {
 
 test('an eight-word paragraph joins the last two words', () => {
   assert.match(html('one two three four five six seven eight\n'), /seven\u00a0eight/);
+});
+
+test('a quote after a hard break and an em space opens (verse indents)', () => {
+  const rendered = html('A\\\n\u2003"Quoted" after an em space.');
+  assert.ok(rendered.includes('\u201cQuoted\u201d'), rendered);
+  assert.ok(!rendered.includes('\u201dQuoted'), rendered);
 });
 
 test('code spans keep straight quotes, dashes and ellipses', () => {

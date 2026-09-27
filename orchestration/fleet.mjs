@@ -61,10 +61,11 @@ const complain = (...a) => sink.errors.push(a.join(' '));
 
 /** Append and report whether the fold accepted it. */
 function apply(events, key) {
-  const before = board().rejected.length;
-  commit(events);
+  // Matched by the written events' own timestamps, not by the list growing: the fold keeps only the
+  // last 50 refusals, so once it is full a new refusal leaves its length unchanged.
+  const ats = new Set(commit(events).map(e => e.at));
   const b = board();
-  const refused = b.rejected.slice(before).filter(r => r.key === key);
+  const refused = b.rejected.filter(r => r.key === key && ats.has(r.at));
   if (refused.length) {
     complain(`✗ ${key}: refused — ${refused.map(r => r.why).join('; ')}`);
     sink.code = 1;
@@ -91,7 +92,8 @@ const needKnown = (key, o) => need(known(key, o), `✗ ${key} is not on the boar
 /** The open PR for a key, or null. */
 function openPrFor(key) {
   const out = read('gh', ['pr', 'list', '--state', 'open', '--search', key, '--json', 'number,headRefOid,headRefName,mergeStateStatus,title'], { timeoutMs: LIMIT.gh });
-  const prs = JSON.parse(out ?? '[]').filter(p => p.title.includes(key) || p.headRefName.includes(key));
+  const whole = new RegExp(`\\b${key}\\b`);
+  const prs = JSON.parse(out ?? '[]').filter(p => whole.test(p.title) || whole.test(p.headRefName));
   return prs.length === 1 ? prs[0] : null;
 }
 
@@ -192,14 +194,14 @@ const commands = {
     need(isKey(key) && why.length, 'usage: fleet.mjs park KEY "reason"');
     needKnown(key, o);
     const reason = why.join(' ');
-    const got = apply([story(key, { from: ['todo', 'in_progress', 'in_review', 'escalate'], ifRun: board().stories[key]?.run ?? null, to: 'blocked', set: { parkedReason: reason, blockedAt: new Date().toISOString() }, unset: ['claim', 'run'], why: `parked by ${who()}` })], key);
+    const got = apply([story(key, { from: ['todo', 'in_progress', 'in_review', 'escalate'], ifRun: board().stories[key]?.run ?? null, to: 'blocked', set: { parkedReason: reason, blockedAt: new Date().toISOString() }, unset: ['claim', 'run', 'parkedBy'], why: `parked by ${who()}` })], key);
     if (got) say(`${key}: parked — ${reason}`);
   },
 
   unpark(o) {
     const key = o._[0];
     need(isKey(key), 'usage: fleet.mjs unpark KEY');
-    const got = apply([story(key, { from: 'blocked', to: 'todo', unset: ['parkedReason', 'ghosts', 'setupFails', 'resolveTries', 'reviewTries'], why: `unparked by ${who()}` })], key);
+    const got = apply([story(key, { from: 'blocked', to: 'todo', unset: ['parkedReason', 'parkedBy', 'ghosts', 'setupFails', 'resolveTries', 'reviewTries'], why: `unparked by ${who()}` })], key);
     if (got) say(`${key}: todo again`);
   },
 
@@ -209,7 +211,7 @@ const commands = {
     const t = timing(models());
     const rec = board().stories[key];
     const attempts = o.fresh ? 0 : Math.min(rec?.attempts ?? 0, t.maxAttempts + t.escalationAttempts - 1);
-    const got = apply([story(key, { from: ['escalate', 'blocked'], to: 'todo', set: { attempts }, unset: ['lastFailure', 'repeats', 'parkedReason'], why: `retry by ${who()}${o.fresh ? ' (fresh)' : ''}` })], key);
+    const got = apply([story(key, { from: ['escalate', 'blocked'], to: 'todo', set: { attempts }, unset: ['lastFailure', 'repeats', 'parkedReason', 'parkedBy'], why: `retry by ${who()}${o.fresh ? ' (fresh)' : ''}` })], key);
     if (got) say(`${key}: todo again; the next attempt is attempt ${attempts + 1}`);
   },
 

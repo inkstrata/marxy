@@ -57,7 +57,13 @@ export function snapshotWip(wt, key, { now = new Date(), g = (args, opts) => git
  */
 export function prepareWorktree(spec, { g = (args, opts) => git(args, { cwd: repoHome(), ...opts }) } = {}) {
   const wt = spec.worktree;
-  const fetch = g(['fetch', '-q', 'origin']);
+  // The cycle and other workers fetch in the same repository; a concurrent fetch holds the ref lock
+  // for a moment, and failing setup on it cost a story a try. Once more after a pause is enough.
+  let fetch = g(['fetch', '-q', 'origin']);
+  if (!fetch.ok && /cannot lock ref|unable to update local ref|\.lock/.test(fetch.err)) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
+    fetch = g(['fetch', '-q', 'origin']);
+  }
   if (!fetch.ok) return { ok: false, why: `git fetch: ${fetch.err.split('\n')[0]}` };
   if (existsSync(wt)) return { ok: true, wt, snapshot: snapshotWip(wt, spec.key) };
   const remote = g(['rev-parse', '--verify', '-q', `refs/remotes/origin/${spec.branch}`]);
