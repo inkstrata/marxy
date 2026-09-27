@@ -187,7 +187,21 @@ test('a PR from the author touching a CODEOWNERS path waits for the author even 
   assert.equal(rows[0].action, 'hold');
   assert.equal(rows[0].ci, 'green');
   assert.equal(rows[0].waitingOn, 'author');
+  assert.equal(rows[0].mark, '[human] (signed)');
   assert.match(rows[0].next, /author/);
+});
+
+test('an unsigned pull request the cycle can merge carries no mark', () => {
+  const rows = collect({
+    prs: [pr({ number: 1, key: 'MARXY-1', title: 'feat: x (MARXY-1)' })],
+    verify: () => ({ ok: false, why: 'not reviewed (no results/KEY.approved)' }),
+    computeOrder: () => ({ order: [], excluded: [] }),
+    readResult: () => ({ status: 'done' }),
+    stories: [story('MARXY-1', 'packages/core/src/parse.ts')],
+    codeownersText: '',
+  });
+  assert.equal(rows[0].waitingOn, 'reviewer');
+  assert.equal(rows[0].mark, '');
 });
 
 test('CODEOWNERS patterns match directories by prefix and files exactly', () => {

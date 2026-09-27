@@ -48,7 +48,7 @@ ADR: 0007
 
 ## Pull requests
 
-**Title** = the squash-commit subject, same format as above.
+**Title** = the squash-commit subject, same format as above. While the pull request is open the cycle may prefix `[human]`, `(signed)`, or both. `[human]` means only a person can merge it. `(signed)` means an agent has signed this head. No prefix means the cycle will merge it. The conventions job lints the title with that prefix removed, and the merge passes the bare title as `--subject`.
 
 **Body**, in this order (the template enforces it):
 

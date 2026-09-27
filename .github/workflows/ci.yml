@@ -62,7 +62,9 @@ jobs:
       - name: Commit messages follow docs/conventions.md
         run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
       - name: PR title is a valid squash subject
-        run: echo "${{ github.event.pull_request.title }}" | pnpm exec commitlint --verbose
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node orchestration/pr-mark.mjs --bare | pnpm exec commitlint --verbose
       - name: PR body follows the template, changelog has the key, baselines have a queue entry
         run: node scripts/check-pr.mjs --pr ${{ github.event.pull_request.number }} --range
         env:

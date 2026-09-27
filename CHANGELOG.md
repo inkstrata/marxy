@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- An open pull request is titled `[human]` when only a person can merge it, and `(signed)` when an agent has signed that head. No prefix means the cycle will merge it. Neither mark is part of the squash commit (MARXY-274)
 - The palette's jump-to-heading test now lands on a heading that has to scroll to the reading line, so it checks landing again rather than passing or failing on the theme's top padding (MARXY-272)
 - The notice banner above the article — blocked images, a file changed on disk, "use this theme" — now has its own background, border and spacing instead of rendering as bare text with a default browser button; the dismiss and action buttons get a legible hover and focus state, in both dark and light (MARXY-264)
 - An opened document now starts near the top of the window instead of reading as vertically centred: the article's top padding drops from three line-boxes to one grid unit. The side gutter is now a minimum, not a fixed 3rem on every window — 16px under a 480px-wide window, 24px at or above it — with the text column still setting the margin above that floor, per the reader-typography research's margin guidance (MARXY-263)

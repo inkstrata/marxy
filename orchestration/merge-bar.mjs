@@ -67,12 +67,15 @@ export function evaluate(input) {
  * the bar was evaluated against: without it, a push between evaluation and merge lands a tree
  * nobody reviewed, which is the one thing a signed approval exists to prevent.
  */
-export function mergeArgs(number, headRefOid, { auto = false, queue = false } = {}) {
+export function mergeArgs(number, headRefOid, { auto = false, queue = false, subject } = {}) {
   if (!/^[0-9a-f]{40}$/.test(headRefOid ?? '')) throw new Error(`refusing to merge PR #${number} without a head to pin`);
   // `--auto` is how `gh` both enables classic auto-merge and enqueues onto a merge queue.
   // When `queue` is on, every land goes through that path so GitHub tests the PR on top of
   // those ahead of it instead of merging a head that was never rebased onto main.
-  return ['pr', 'merge', String(number), '--squash', ...(auto || queue ? ['--auto'] : []), '--delete-branch', '--match-head-commit', headRefOid];
+  // `--subject` is the squash headline. The open title may carry `[human]` or `(signed)`;
+  // those are display and must not become the commit subject.
+  const headline = subject ? ['--subject', subject] : [];
+  return ['pr', 'merge', String(number), '--squash', ...headline, ...(auto || queue ? ['--auto'] : []), '--delete-branch', '--match-head-commit', headRefOid];
 }
 
 /**

@@ -149,7 +149,8 @@ one's name, and is held. A reviewer writes and signs `KEY.approved`; the impleme
 it. The cycle starts reviewers itself, up to `reviewLanes` at once, for PRs whose checks are not red
 and whose boundaries it can check; a CODEOWNERS path still gets one, and the author's approval
 stays a separate hold. `cycle.mjs` then lands the PR without a person, or enables GitHub
-auto-merge when the only remaining wait is CI.
+auto-merge when the only remaining wait is CI. An open title carries `[human]` when only a person
+can merge it and `(signed)` when an agent has signed; anything else is the cycle's, and is left unmarked.
 
 Every hold has an owner. Red CI is returned to the implementor after `redGraceMinutes`; a file
 outside the story's paths, an attribution trailer or a missing CHANGELOG line is returned at once;

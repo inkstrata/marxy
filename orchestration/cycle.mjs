@@ -38,6 +38,8 @@ import { gh, read, run as runProc, spawnDetached, killGroup, LIMIT } from './pro
 import { acquireLock, releaseLock } from './lease.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs } from './merge-bar.mjs';
+import { bareTitle, landsOf, titleUpdate } from './pr-mark.mjs';
+import { codeOwnerPatterns, waitingOn } from './readiness.mjs';
 import { computeOrder } from './review-order.mjs';
 import { allowedFor, fileAllowed, validateResult } from './review.mjs';
 import { loadSnapshot, prime, snapshotFrom } from './github.mjs';
@@ -420,10 +422,19 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     // A standing auto-merge that no longer matches the judgement is cancelled, not left to fire (MARXY-63).
     if (pr.autoMergeRequest && !['auto-merge', 'wait', 'merge'].includes(step.step) && !dry) io.gh(['pr', 'merge', String(pr.number), '--disable-auto']);
     const tag = `${key} PR #${pr.number}`;
+    const subject = bareTitle(pr.title);
+    if (!dry && facts) {
+      const waiting = waitingOn({ pr, files: facts.files ?? [], decision, patterns: codeOwnerPatterns(facts.codeowners ?? '') });
+      const update = titleUpdate(pr.title, landsOf({ waitingOn: waiting, reviewed: Boolean(decision.approval?.ok) }).mark);
+      if (update) {
+        const renamed = io.gh(['pr', 'edit', String(pr.number), '--title', update.title]);
+        if (!renamed.ok) say(`${tag}: title not updated — ${renamed.err.split('\n')[0]}`);
+      }
+    }
     switch (step.step) {
       case 'merge': {
         if (noMerge || dry) { say(`${tag}: mergeable (not merging: ${dry ? '--dry-run' : '--no-merge'})`); break; }
-        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { queue: Boolean(m.mergeQueue) }));
+        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { queue: Boolean(m.mergeQueue), subject }));
         const landed = r.ok || io.prState(pr.number) === 'MERGED';
         if (!landed) { say(`${tag}: merge failed — ${r.err.split('\n')[0]}`); break; }
         const planned = landsPlanDelta(facts.files);
@@ -439,7 +450,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
       }
       case 'auto-merge': {
         if (noMerge || dry) { say(`${tag}: waiting on CI; would enable auto-merge`); break; }
-        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { auto: true, queue: Boolean(m.mergeQueue) }));
+        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { auto: true, queue: Boolean(m.mergeQueue), subject }));
         say(r.ok ? `${tag}: auto-merge enabled, waiting on CI` : `${tag}: auto-merge failed — ${r.err.split('\n')[0]}`);
         break;
       }

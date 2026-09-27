@@ -187,6 +187,9 @@ test('an approved, green PR merges pinned to its head and is recorded done', () 
   w.run();
   const merge = w.calls.gh.find(a => a[0] === 'pr' && a[1] === 'merge');
   assert.ok(merge.includes('--match-head-commit') && merge.includes(HEAD));
+  assert.ok(merge.includes('--subject') && merge[merge.indexOf('--subject') + 1] === 'feat(x): thing (MARXY-1)');
+  const edit = w.calls.gh.find(a => a[1] === 'edit');
+  assert.equal(edit[edit.indexOf('--title') + 1], '(signed) feat(x): thing (MARXY-1)');
   assert.equal(w.b().stories['MARXY-1'].status, 'done');
   assert.equal(w.b().merges, 1);
 });
@@ -196,13 +199,35 @@ test('approved but CI pending enables auto-merge once; --no-merge and --dry-run 
   const mk = () => world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } }, open: [pending], facts: { 'MARXY-1': { approval: approved } } });
   const w = mk();
   w.run();
-  assert.ok(w.calls.gh.some(a => a[1] === 'merge' && a.includes('--auto')));
+  assert.ok(w.calls.gh.some(a => a[1] === 'merge' && a.includes('--auto') && a.includes('--subject')));
   const quiet = mk();
   quiet.run({ noMerge: true });
-  assert.equal(quiet.calls.gh.length, 0);
+  assert.equal(quiet.calls.gh.filter(a => a[1] === 'merge').length, 0);
+  assert.equal(quiet.calls.gh.find(a => a[1] === 'edit')[quiet.calls.gh.find(a => a[1] === 'edit').indexOf('--title') + 1], '(signed) feat(x): thing (MARXY-1)');
   const dry = mk();
   dry.run({ dry: true });
   assert.equal(dry.calls.gh.length + dry.calls.spawn.length + dry.calls.jira.length, 0);
+});
+
+test('a code-owner pull request is titled [human], and an unsigned one the cycle can merge is left unmarked', () => {
+  const human = world({
+    rows: [row('MARXY-1', '.github/workflows')],
+    stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } },
+    open: [pr(7, 'MARXY-1')],
+    facts: { 'MARXY-1': { files: ['.github/workflows/ci.yml', 'CHANGELOG.md'], codeowners: '/.github/ @inkstrata\n', approval: { ok: false, why: 'not reviewed' } } },
+  });
+  human.run();
+  const titled = human.calls.gh.find(a => a[1] === 'edit');
+  assert.equal(titled[titled.indexOf('--title') + 1], '[human] feat(x): thing (MARXY-1)');
+  assert.equal(human.calls.gh.filter(a => a[1] === 'merge').length, 0);
+
+  const plain = world({
+    rows: [row('MARXY-1', 'a')],
+    stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } },
+    open: [pr(7, 'MARXY-1')],
+  });
+  plain.run();
+  assert.equal(plain.calls.gh.filter(a => a[1] === 'edit').length, 0);
 });
 
 test('one BEHIND branch is updated per cycle, in review order; with mergeQueue on, none are', () => {
