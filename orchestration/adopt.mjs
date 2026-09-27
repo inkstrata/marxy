@@ -10,9 +10,17 @@
 // that was returned until something new is pushed to it (ADR-0034; MARXY-217 by construction).
 import { story } from './machine.mjs';
 
-/** The Jira key a PR names: title first (the commit-msg hook keeps it honest), then the branch. */
+/**
+ * The Jira key a PR names: the title's trailing `(KEY)` (the commit-msg hook keeps it honest), then
+ * the branch's, then the title's last key. Never the first key in the title: "revert MARXY-43 …
+ * (MARXY-250)" is MARXY-250's pull request, and adopting it as MARXY-43 would settle the wrong row.
+ */
 export function keyOfPr(pr) {
-  return String(pr?.title ?? '').match(/MARXY-\d+/)?.[0] ?? String(pr?.headRefName ?? '').match(/MARXY-\d+/)?.[0] ?? null;
+  const title = String(pr?.title ?? '');
+  return title.match(/\((MARXY-\d+)\)\s*$/)?.[1]
+    ?? String(pr?.headRefName ?? '').match(/^[a-z]+\/(MARXY-\d+)-/)?.[1]
+    ?? title.match(/MARXY-\d+/g)?.at(-1)
+    ?? String(pr?.headRefName ?? '').match(/MARXY-\d+/)?.[0] ?? null;
 }
 
 const ADOPTABLE = new Set([undefined, 'todo', 'in_progress']);

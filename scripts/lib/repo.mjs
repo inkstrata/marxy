@@ -7,7 +7,9 @@ export const ROOT = new URL('../../', import.meta.url).pathname;
 export const registry = () => JSON.parse(readFileSync(join(ROOT, 'scripts/registry.json'), 'utf8'));
 export const sh = (cmd, opts = {}) => { try { return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], ...opts }).trim(); } catch (e) { if (opts.soft) return ''; throw e; } };
 
-export const SKIP_DIRS = new Set(['node_modules', 'dist', 'target', '.git', 'results', 'out', '.venv', 'goldens', 'baselines']);
+// `.claude` holds agent worktrees nested inside a checkout: whole second copies of the tree, git-excluded,
+// whose files would otherwise be judged as this checkout's (every registry rule failed twice over).
+export const SKIP_DIRS = new Set(['node_modules', 'dist', 'target', '.git', '.claude', 'results', 'out', '.venv', 'goldens', 'baselines']);
 export function walk(dir, pred = () => true, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, e.name);

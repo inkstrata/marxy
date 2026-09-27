@@ -210,3 +210,56 @@ test('deleted event keeps the page and shows file-removed notice', async () => {
     await browser.close();
   }
 });
+
+// 2026-09-26 review (MARXY-246).
+test('a rename of the open file follows it and leaves opens working', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A), '/s/C.md': b64(C) }, ['/r/A.md']);
+    await page.evaluate(async (text) => {
+      const shell = window.__marxyHandle.shell;
+      await shell.writeFileAtomic('/r/A-renamed.md', new TextEncoder().encode(text));
+      shell.emit([{ kind: 'renamed', path: '/r/A.md', to: '/r/A-renamed.md' }]);
+    }, A);
+    await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/r/A-renamed.md', null, { timeout: 5000 });
+    // The follow used to queue itself behind its own task: every open after it waited forever.
+    const opened = await page.evaluate(() =>
+      Promise.race([
+        window.__marxyHandle.open('/s/C.md').then(() => window.__marxyHandle.currentPath()),
+        new Promise((r) => setTimeout(() => r('timed out'), 5000)),
+      ]),
+    );
+    assert.equal(opened, '/s/C.md');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('edits folded in from an earlier Source visit are kept when the file changes on disk', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A) }, ['/r/A.md']);
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    await page.click('#marxy-source');
+    await page.keyboard.type('x');
+    // Back to Rendered folds the edit into the buffer, unsaved; into Source again, the editor matches it.
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'rendered');
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const hashBefore = await page.evaluate(() => window.__marxyHandle.sourceHarness().bufferHash);
+    await page.evaluate(async () => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode('# changed elsewhere\n'));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    });
+    await page.waitForFunction((text) => document.getElementById('marxy-notices')?.textContent?.includes(text), DISK_CHANGED_EDITS_KEPT);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.sourceHarness().bufferHash), hashBefore);
+  } finally {
+    await browser.close();
+  }
+});

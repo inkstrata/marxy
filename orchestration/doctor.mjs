@@ -10,13 +10,13 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, here, stories, models, pathsOf, overlap, laneBudget } from './lib.mjs';
 import { board, commit, timing } from './machine.mjs';
-import { leaseHeld, readLease, ageMinutes } from './lease.mjs';
+import { leaseHeld, readLease, ageMinutes, acquireLock, releaseLock } from './lease.mjs';
 import { observeWorktrees, observeRuns, pathHolds } from './observe.mjs';
 import { selectReady } from './ready.mjs';
 import { plannerReasons } from './planner-trigger.mjs';
 import { planAt } from './plan.mjs';
 import { finishRun } from './runs.mjs';
-import { fleetDir, fleetPath, loopLeasePath, cycleLockPath, resultPath, runFile, readJsonOr, repoHome } from './store.mjs';
+import { fleetDir, fleetPath, loopLeasePath, cycleLockPath, resultPath, runFile, readJsonOr, repoHome, storyWorktree } from './store.mjs';
 import { run as runFleet } from './fleet.mjs';
 
 export const VERDICT = { LIVE: 'live', GHOST: 'ghost', DEAD: 'dead', QUIET: 'quiet' };
@@ -83,7 +83,7 @@ export function diagnose(x) {
   else if (x.loop.lease) add('warn', 'loop', `not running; its lease (pid ${x.loop.lease.pid}) outlived it`, './orchestration/loop.sh start --minimal');
   else add('warn', 'loop', 'not running — nothing merges or dispatches until a cycle runs', './orchestration/loop.sh start --minimal');
   if (x.statusAgeMinutes != null && x.loop.held === true && x.statusAgeMinutes > x.stuckCycleMinutes) {
-    add('fail', 'loop', `running, but status.md is ${Math.round(x.statusAgeMinutes)} min old — a cycle is hung`, 'tail orchestration/results/loop.log; ./orchestration/loop.sh stop && ./orchestration/loop.sh start --minimal');
+    add('fail', 'loop', `running, but status.md is ${Math.round(x.statusAgeMinutes)} min old — a cycle is hung`, `tail ${fleetDir()}/loop.log; ./orchestration/loop.sh stop && ./orchestration/loop.sh start --minimal`);
   }
 
   if (x.cycle.lease && x.cycle.held === false) add('warn', 'cycle', `lock left by a cycle that died (pid ${x.cycle.lease.pid})`, 'node orchestration/doctor.mjs --fix');
@@ -102,7 +102,7 @@ export function diagnose(x) {
   for (const r of x.inflight) {
     if (r.verdict === VERDICT.LIVE) add('ok', r.key, `in progress — ${r.why}`);
     else if (r.verdict === VERDICT.QUIET) {
-      add('fail', r.key, r.why, `git -C ${ROOT}${r.rec?.worktree ?? '../marxy-wt/' + r.key} log --oneline origin/main..; then node orchestration/fleet.mjs return ${r.key} or finish it`);
+      add('fail', r.key, r.why, `git -C ${storyWorktree(r.key, r.rec?.worktree)} log --oneline origin/main..; then node orchestration/fleet.mjs return ${r.key} or finish it`);
     } else add('fail', r.key, `${r.verdict}: ${r.why}`, 'node orchestration/doctor.mjs --fix');
   }
   for (const k of x.parked) add('warn', k.key, `blocked — ${k.reason}`);
@@ -198,6 +198,28 @@ export function fix(x, { say = console.log, dry = false } = {}) {
       done.push(name);
     }
   }
+  // Finishing runs writes the board, so it happens under the cycle's lock, as the cycle's own
+  // finishing does; a cycle that is running now will finish them itself.
+  const lock = dry ? { ok: true } : acquireLock(cycleLockPath(), { match: 'doctor.mjs' });
+  if (!lock.ok) {
+    say(`fix: a cycle holds the lock (pid ${lock.holder?.pid}); it finishes dead runs itself`);
+    return done;
+  }
+  try {
+    return finishDeadRuns({ say, dry, done });
+  } finally {
+    if (!dry) releaseLock(cycleLockPath());
+  }
+}
+
+/** A result file written before this run started belongs to an earlier attempt (as cycle.mjs reads it). */
+const freshResult = (key, sinceIso) => {
+  const p = resultPath(key);
+  if (!existsSync(p) || (sinceIso && statSync(p).mtimeMs < Date.parse(sinceIso) - 5_000)) return null;
+  return readJsonOr(p);
+};
+
+function finishDeadRuns({ say, dry, done }) {
   let b = board();
   const t = timing(models());
   const nowIso = new Date().toISOString();
@@ -207,7 +229,7 @@ export function fix(x, { say = console.log, dry = false } = {}) {
     const run = b.runs[id];
     if (!run || run.ended) continue;
     const rec = run.key ? b.stories[run.key] : null;
-    const result = run.role === 'implement' && run.key ? readJsonOr(resultPath(run.key)) : null;
+    const result = run.role === 'implement' && run.key ? freshResult(run.key, run.started) : null;
     const wt = run.key ? worktrees.find(w => w.key === run.key) : null;
     const out = finishRun({
       id, run, obs, rec, result, t, now: nowIso,

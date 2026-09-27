@@ -1,7 +1,7 @@
 // CodeMirror EditorView construction (dynamic import target).
 
 import type { Buffer } from '@marxy/core';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { baseExtensions, editorDocConfig, type SourceEditor, type SourceEditorOptions } from './editor.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
@@ -28,8 +28,11 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
       // The buffer this editor's own edits were folded into already reads as its text: keep the
       // editor's history and selection, and take only the new byte mapping.
       if (nextDoc === view.state.doc.toString()) return;
+      // New bytes from outside (a reload from disk): not the reader's edit, so Mod+Z must not bring
+      // the text on disk back to what it was before.
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
+        annotations: Transaction.addToHistory.of(false),
       });
     },
     scrollToByte(byteOffset: number) {

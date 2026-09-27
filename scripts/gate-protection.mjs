@@ -167,14 +167,6 @@ function loadFixtures() {
   });
 }
 
-function fileUnchanged(path) {
-  const committed = execFileSync('git', ['show', `origin/main:${path}`], {
-    cwd: ROOT,
-    encoding: 'utf8',
-  });
-  return committed === readFileSync(join(ROOT, path), 'utf8');
-}
-
 function workflowFiles() {
   const dir = join(ROOT, '.github/workflows');
   return readdirSync(dir)
@@ -269,7 +261,8 @@ function selftest() {
     'workflows: a reference to this script is detected',
   );
 
-  report(fileUnchanged('package.json'), 'package.json is byte-identical to origin/main');
+  // MARXY-82's own branch also asserted package.json unchanged against origin/main: true only on that
+  // branch, and false on every later one that touches package.json, so it cannot live in pnpm test.
   const cycleSrc = readFileSync(join(ROOT, 'orchestration/cycle.mjs'), 'utf8');
   report(/\bmergeQueue\b/.test(cycleSrc), 'cycle.mjs reads mergeQueue');
   const ciYml = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');

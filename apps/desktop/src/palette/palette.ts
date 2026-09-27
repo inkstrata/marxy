@@ -7,7 +7,7 @@ import type { PaletteSession } from './session.ts';
 /** Which slice of results the list shows while the reader types. */
 export type PaletteListSection = 'documents' | 'headings' | 'operations';
 
-/** Empty query, fuzzy hits, or the operations stub (MARXY-42 wires real ops later). */
+/** Empty query, fuzzy hits, or the operations list. */
 export type PalettePhase = 'empty' | 'typing' | 'operations';
 
 export const PALETTE_ROW_LIMIT = 12;

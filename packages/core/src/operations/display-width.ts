@@ -18,24 +18,24 @@ function wideGrapheme(g: string): boolean {
   return false;
 }
 
-/** Grapheme display width for table column sizing; escaped `\|` counts as 2. */
+// Zero-width on screen: ZWSP, ZWNJ, ZWJ, word joiner, BOM/ZWNBSP.
+const ZERO_WIDTH = /^[\u200B-\u200D\u2060\uFEFF]+$/u;
+// Emoji shown as pictures are two cells wide whatever block they sit in (U+2705, U+231A, flags);
+// a text-default symbol becomes one with VS16 (U+2764 U+FE0F, keycaps).
+const EMOJI_WIDE = /^\p{Emoji_Presentation}|\uFE0F/u;
+
+function graphemeWidth(g: string): number {
+  if (ZERO_WIDTH.test(g)) return 0;
+  // A mark with no base (a stray combining character) occupies no cell of its own.
+  if (/^\p{M}/u.test(g)) return 0;
+  if (EMOJI_WIDE.test(g)) return 2;
+  // Otherwise the base character decides: combining marks and conjunct parts after it add nothing.
+  return wideGrapheme(g) ? 2 : 1;
+}
+
+/** Display width in monospace cells, grapheme by grapheme, for table column sizing. */
 export function displayWidth(text: string): number {
   let width = 0;
-  let i = 0;
-  while (i < text.length) {
-    if (text[i] === '\\' && text[i + 1] === '|') {
-      width += 2;
-      i += 2;
-      continue;
-    }
-    const rest = text.slice(i);
-    let seg = rest[0]!;
-    for (const part of segmenter.segment(rest)) {
-      seg = part.segment;
-      break;
-    }
-    if (!/\p{M}/u.test(seg)) width += wideGrapheme(seg) ? 2 : 1;
-    i += seg.length;
-  }
+  for (const part of segmenter.segment(text)) width += graphemeWidth(part.segment);
   return width;
 }

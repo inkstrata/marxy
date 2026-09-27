@@ -3,11 +3,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { stagedNames } from './repo.mjs';
+import { stagedNames, walk } from './repo.mjs';
 
 /** Build a repository whose story branch is one commit behind a main that touched other files. */
 function fixture() {
@@ -64,5 +64,16 @@ test('outside a merge every staged file is the author\'s', () => {
     writeFileSync(join(dir, 'mine.txt'), 'one\ntwo\nthree\n');
     git('add', 'mine.txt');
     assert.deepEqual(stagedIn(dir), ['mine.txt']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('walk skips agent worktrees nested under .claude', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'marxy-walk-test-'));
+  try {
+    mkdirSync(join(dir, '.claude/worktrees/x/apps'), { recursive: true });
+    mkdirSync(join(dir, 'apps'), { recursive: true });
+    writeFileSync(join(dir, '.claude/worktrees/x/apps/a.ts'), '');
+    writeFileSync(join(dir, 'apps/b.ts'), '');
+    assert.deepEqual(walk(dir).map(f => f.slice(dir.length + 1)), ['apps/b.ts']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

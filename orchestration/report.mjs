@@ -79,7 +79,7 @@ ${needs.length ? needs.map(i => `- ${i.gate ? '**gate** ' : ''}**${i.key}** — 
 
 ${flight.length ? flight.map(l => `- ${l}`).join('\n') : '- nothing'}
 
-## Ready to start (${ready?.ready?.length ?? 0})
+## Ready to start (${ready?.ready?.length ?? 0})${ready?.held ? ' — held until the planner runs' : ''}
 
 ${ready?.ready?.length ? ready.ready.map(x => `- **${x.key}** ${x.summary ?? ''}`).join('\n') : '- nothing this cycle'}
 

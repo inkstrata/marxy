@@ -124,58 +124,91 @@ function detectEol(bytes: Uint8Array): '\n' | '\r\n' {
   return '\n';
 }
 
-function isTableHeader(line: string): boolean {
-  const t = line.trim();
-  return t.startsWith('[') && t.endsWith(']') && !t.startsWith('[[');
+type Line = { content: string; ending: string };
+
+/** Lines with their own endings, so a file with mixed endings is written back with the same ones. */
+function splitLines(text: string): Line[] {
+  const lines: Line[] = [];
+  const re = /\r\n|\n|\r/g;
+  let from = 0;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    lines.push({ content: text.slice(from, m.index), ending: m[0] });
+    from = m.index + m[0].length;
+  }
+  if (from < text.length || lines.length === 0) lines.push({ content: text.slice(from), ending: '' });
+  return lines;
 }
 
-/** Replaces or appends one top-level `key = value` line without touching any other byte. */
+/** `[table]` or `[[array.of.tables]]`, with an optional trailing comment. */
+function isTableHeader(line: string): boolean {
+  return /^\s*\[\[?[^\]]*\]\]?\s*(#.*)?$/.test(line);
+}
+
+/** Where a trailing comment starts on a `key = value` line, outside any string; -1 for none. */
+function commentStart(line: string, from: number): number {
+  let quote: string | null = null;
+  for (let i = from; i < line.length; i += 1) {
+    const c = line[i];
+    if (quote) {
+      if (c === '\\' && quote === '"') i += 1;
+      else if (c === quote) quote = null;
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === '#') return i;
+  }
+  return -1;
+}
+
+const MULTILINE = ['"""', "'''"];
+
+/**
+ * Replaces or appends one top-level `key = value` line without touching any other byte: every other
+ * line keeps its bytes and its own ending, the edited line keeps its indentation, key spelling and
+ * trailing comment, and a key inside a table or a multi-line string is never taken for it.
+ */
 export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string): Uint8Array {
   const eol = detectEol(bytes);
   const text = new TextDecoder().decode(bytes);
-  const lineEnding = eol === '\r\n' ? '\r\n' : '\n';
-  const lines = text.split(/\r\n|\n|\r(?!\n)/);
+  const lines = splitLines(text);
+  const k = escapeRegExp(key);
+  const keyLine = new RegExp(`^(\\s*(?:${k}|"${k}"|'${k}')\\s*=\\s*)`);
 
-  let inTable = false;
-  let keyLine = -1;
+  let firstTable = -1;
+  let found = -1;
+  let open: string | null = null;
   for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (isTableHeader(line)) {
-      inTable = true;
+    const line = lines[i]!.content;
+    if (open) {
+      // An odd count of the delimiter on a line closes the string it opened.
+      if (line.split(open).length % 2 === 0) open = null;
       continue;
     }
-    if (inTable) continue;
-    const m = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`).exec(line);
-    if (m) keyLine = i;
-  }
-
-  const newLine = `${key} = ${tomlValue}`;
-
-  if (keyLine >= 0) {
-    const before = lines.slice(0, keyLine).join(lineEnding);
-    const after = lines.slice(keyLine + 1).join(lineEnding);
-    const mid = newLine;
-    const parts = [before, mid, after].filter((p, idx) => p !== '' || idx === 1);
-    let joined = parts.join(lineEnding);
-    if (text.endsWith(lineEnding) && !joined.endsWith(lineEnding)) joined += lineEnding;
-    return new TextEncoder().encode(joined);
-  }
-
-  let insertAt = lines.length;
-  for (let i = 0; i < lines.length; i += 1) {
-    if (isTableHeader(lines[i])) {
-      insertAt = i;
+    if (isTableHeader(line)) {
+      firstTable = i;
       break;
     }
+    if (found < 0 && keyLine.test(line)) found = i;
+    for (const delim of MULTILINE) if (line.split(delim).length % 2 === 0) open = delim;
   }
 
-  const before = lines.slice(0, insertAt).join(lineEnding);
-  const after = lines.slice(insertAt).join(lineEnding);
-  const prefix = before === '' ? '' : before.endsWith(lineEnding) ? before : `${before}${lineEnding}`;
-  const suffix = after === '' ? '' : `${lineEnding}${after}`;
-  const out = `${prefix}${newLine}${suffix}`;
-  const finalText = text.endsWith(lineEnding) && !out.endsWith(lineEnding) ? `${out}${lineEnding}` : out;
-  return new TextEncoder().encode(finalText);
+  if (found >= 0) {
+    const line = lines[found]!.content;
+    const head = keyLine.exec(line)![1]!;
+    const hash = commentStart(line, head.length);
+    const comment = hash < 0 ? '' : ` ${line.slice(hash)}`;
+    lines[found]!.content = `${head}${tomlValue}${comment}`;
+  } else {
+    const entry: Line = { content: `${key} = ${tomlValue}`, ending: eol };
+    if (firstTable >= 0) lines.splice(firstTable, 0, entry);
+    else {
+      const last = lines[lines.length - 1]!;
+      if (last.content === '' && last.ending === '') lines[lines.length - 1] = entry;
+      else {
+        if (last.ending === '') last.ending = eol;
+        lines.push(entry);
+      }
+    }
+  }
+  return new TextEncoder().encode(lines.map((l) => l.content + l.ending).join(''));
 }
 
 function escapeRegExp(s: string): string {

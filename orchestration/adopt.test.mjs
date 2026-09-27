@@ -18,6 +18,8 @@ test('the key comes from the title first, then the branch', () => {
   assert.equal(keyOfPr({ title: 'fix: a (MARXY-7)', headRefName: 'fix/MARXY-8-a' }), 'MARXY-7');
   assert.equal(keyOfPr({ title: 'no key', headRefName: 'fix/MARXY-8-a' }), 'MARXY-8');
   assert.equal(keyOfPr({ title: 'no key', headRefName: 'wip/train' }), null);
+  assert.equal(keyOfPr({ title: 'revert: undo MARXY-43 table align (MARXY-250)', headRefName: 'revert/MARXY-250-x' }), 'MARXY-250');
+  assert.equal(keyOfPr({ title: 'fix: MARXY-43 and MARXY-44 overlap', headRefName: 'fix/MARXY-251-overlap' }), 'MARXY-251');
 });
 
 test('an out-of-plan PR with no state entry is adopted, off main, in the phase its branch names', () => {
