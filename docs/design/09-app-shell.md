@@ -126,6 +126,13 @@ actions, dismissible, and it never overlaps the text. Kinds in v1: blocked conte
 external change while dirty (§08), file removed, save failed, theme warnings (§05), index
 truncated (§07), operation summary (transient, 4 s). Never a modal dialog.
 
+Styled in `packages/theme/src/base.css` (MARXY-264): the region shares the article's own column
+width and margins, and each `.marxy-notice` is its own line with a background
+(`--marxy-color-notice`) and border distinct from the page, spaced in grid-unit multiples so it
+reads as the app speaking rather than as page content. `.marxy-notice-dismiss` and
+`.marxy-notice-action` (theme-document.ts's "Use this theme") share one button style with a
+hover and focus-visible state.
+
 ## Source mode (D-A15)
 
 CodeMirror 6 in `#marxy-source`, created on first switch and kept:
