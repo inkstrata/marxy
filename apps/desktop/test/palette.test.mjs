@@ -307,8 +307,12 @@ test('keystroke to rows painted p95 stays under 16 ms on a 20k index', async () 
       const p95 = lat[Math.min(lat.length - 1, Math.ceil(0.95 * lat.length) - 1)];
       return { p95, lat };
     });
+    // Recorded, not a CI failure (ADR-0032): the 16 ms product budget is printed beside the number.
+    // What does fail is a measurement that did not happen — too few samples, or no number at all.
     const budget = 16 * Math.max(machineFactor(), 2.5);
-    assert.ok(samples.p95 < budget, `palette keystroke p95 ${samples.p95} ms must stay under ${budget.toFixed(1)} ms (16 ms product × envelope)`);
+    assert.equal(samples.lat.length, 50, 'every keystroke was measured');
+    assert.ok(Number.isFinite(samples.p95) && samples.p95 > 0, `palette keystroke p95 was not measured (${samples.p95})`);
+    console.log(`palette keystroke p95 ${samples.p95.toFixed(1)} ms (16 ms product budget, ${budget.toFixed(1)} ms envelope here; recorded, ADR-0032)`);
     mkdirSync(join(repoRoot, 'results'), { recursive: true });
     const perfPath = join(repoRoot, 'results/perf.json');
     let record = {};
