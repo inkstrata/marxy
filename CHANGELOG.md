@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The aesthetics gate now walks every text-bearing colour pair and every text-on-tint token pair (including user themes under `fixtures/themes`), renders the corpus at 320 px and 400 % zoom and under forced colours, higher contrast and reduced motion, and refuses horizontal page scroll; the base stylesheet carries the three media-query blocks those passes expect (MARXY-241)
 - The fleet no longer dispatches a story whose pull request already merged on main: the cycle reads squash subjects once, settles missing or todo rows as done, and ready refuses the key by name (MARXY-213)
 - A straight quote that follows an em space, no-break space or thin space now curls open, not closed, so an indented line of verse begins with “ rather than ” (MARXY-258)
 - Opening Marxy with no document now shows one passage from the Commonplace, chosen at random each launch and set like a page of a book: verse keeps every line and indent with turned-over lines hung, two languages face each other as a centred pair on a wide window, and the colophon sits small and quiet beneath, never hyphenated. Opening any file replaces it; until the Commonplace ships, the window keeps its one-line hint (MARXY-257)
