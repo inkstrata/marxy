@@ -119,8 +119,24 @@ test('Mod+E twice without edits keeps buffer hash and reading byte offset', asyn
     const bytes = readFileSync(join(corpusDir, '01-long-technical.md'));
     const expectedHash = contentHash(bytes);
     await boot(page, { [mdPath]: bytes.toString('base64') }, [mdPath]);
+    // Idle-time typesetting and its grid passes keep moving blocks after `ready`. A reading position
+    // sampled mid-reflow names a block the settled page no longer has at the reading line, and the
+    // round trip then "moves" by the reflow, not by the mode switch (seen once on Linux CI: 3375 →
+    // 20326). Sample only once the page height has held still for a second.
+    const settle = () => page.evaluate(async () => {
+      let last = -1;
+      let still = 0;
+      while (still < 10) {
+        await new Promise((r) => setTimeout(r, 100));
+        const h = document.documentElement.scrollHeight;
+        if (h === last) still++;
+        else { still = 0; last = h; }
+      }
+    });
+    await settle();
     await page.evaluate(() => window.scrollTo(0, 2400));
     await page.waitForFunction(() => window.scrollY > 1000);
+    await settle();
     const before = await page.evaluate(() => window.__marxyHandle.sourceHarness());
     assert.equal(before.bufferHash, expectedHash);
     await page.keyboard.press(`${modKey}+e`);

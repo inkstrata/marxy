@@ -21,7 +21,8 @@ Readest is AGPL-3.0. Read it to understand what it does, and write none of its c
 
 ## Files and signatures
 - `apps/desktop/src-tauri/tauri.conf.json`: macOS window gets `"titleBarStyle": "Overlay"` and `"hiddenTitle": true`. Keep `"title": "Marxy"`.
-- `apps/desktop/src-tauri/src/window/mod.rs` (new): `set_window_controls(window, visible: bool, strip_height: f64)` and `set_title(window, title)`. The second sets the title and re-applies the layout in the same main-thread closure. Centring: `y = max(0, (strip − button_height) / 2 + natural_y)`, with `natural_y` read once and cached. Do not also call Tauri's `set_traffic_light_position`.
+- `apps/desktop/src-tauri/src/window/mod.rs` (new): `set_window_controls(window, visible: bool, strip_height: f64)` and `set_title(window, title)`. The second sets the title and re-applies the layout in the same main-thread closure. Re-apply on resize, theme change and full-screen exit.
+  - Centring: `y = max(0, (strip − button_height) / 2 + natural_y)`, with `natural_y` read once and cached. Do not also call Tauri's `set_traffic_light_position`.
 - `apps/desktop/src-tauri/src/main.rs`: register the module and commands.
 - `apps/desktop/src-tauri/Cargo.toml`: `objc2` and `objc2-app-kit`, MIT or Apache-2.0 only.
 - `apps/desktop/src-tauri/capabilities/default.json`: `core:window:allow-start-dragging` plus the new commands.

@@ -165,6 +165,26 @@
     "comment": true
   },
   {
+    "name": "--marxy-color-diff-add",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-diff-del",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-diff-add-word",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-diff-del-word",
+    "kind": "colour",
+    "comment": true
+  },
+  {
     "name": "--marxy-tok-keyword",
     "kind": "colour",
     "comment": false

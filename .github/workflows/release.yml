@@ -45,7 +45,7 @@ jobs:
           releaseBody: 'See CHANGELOG.md. Pre-release; macOS build is unsigned until notarization secrets are configured.'
           releaseDraft: false
           prerelease: true
-          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
       # The installer-size budget and katex-in-bundle check: PR CI builds no installer, so this is
       # the only place they can measure one, and a missing bundle fails here instead of skipping.
       - run: pnpm gate:bundle
