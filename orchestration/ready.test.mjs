@@ -1,7 +1,7 @@
 // in_review occupies listed paths; blocked, escalate and done do not (MARXY-102).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectReady, RULE } from './ready.mjs';
+import { selectReady, RULE, mergedOnMain } from './ready.mjs';
 
 function story(key, paths) {
   return {
@@ -183,4 +183,63 @@ test('a no-dispatch row is never dispatched, and says why (MARXY-190)', () => {
   const r = readyFrom(all);
   assert.deepEqual(r.ready.map(x => x.key), ['MARXY-S']);
   assert.deepEqual(r.excluded, [{ key: 'MARXY-OOP', rule: 'no-dispatch' }]);
+});
+
+test('mergedOnMain maps squash subjects and ignores keys not in the final parentheses (MARXY-213)', () => {
+  assert.deepEqual(
+    mergedOnMain(['feat(desktop): route second launches to the running window (MARXY-183) (#180)']),
+    new Map([['MARXY-183', 180]]),
+  );
+  assert.deepEqual(
+    mergedOnMain(['chore(orchestration): record MARXY-198 needs-human gate (MARXY-201)']),
+    new Map(),
+  );
+  assert.deepEqual(
+    mergedOnMain(['chore(plan): align MARXY-46/47 board rows (MARXY-176) (#166)']),
+    new Map([['MARXY-176', 166]]),
+  );
+  assert.deepEqual(
+    mergedOnMain([
+      'feat: newer (MARXY-99) (#200)',
+      'feat: older (MARXY-99) (#150)',
+    ]),
+    new Map([['MARXY-99', 200]]),
+  );
+});
+
+test('selectReady excludes a merged todo key and does not reserve its paths (MARXY-213)', () => {
+  const all = [
+    story('MARXY-183', 'apps/desktop/src/app.ts'),
+    story('MARXY-OTHER', 'apps/desktop/src/app.ts'),
+  ];
+  const merged = new Map([['MARXY-183', 180]]);
+  const blocked = selectReady({
+    all,
+    s: fixtureState(all),
+    d: { phases: {}, deps: {} },
+    merged,
+  });
+  assert.ok(!keys(blocked).includes('MARXY-183'));
+  assert.ok(!blocked.blockedByDeps.includes('MARXY-183'));
+  assert.ok(!blocked.blockedByPaths.includes('MARXY-183'));
+  assert.ok(!blocked.blockedByLanes.includes('MARXY-183'));
+  assert.deepEqual(blocked.excluded, [{ key: 'MARXY-183', rule: RULE.MERGED_ON_MAIN, pr: 180 }]);
+  assert.deepEqual(keys(blocked), ['MARXY-OTHER']);
+
+  const solo = [story('MARXY-183', 'apps/desktop/src/app.ts')];
+  const open = selectReady({ all: solo, s: fixtureState(solo), d: { phases: {}, deps: {} }, merged: new Map() });
+  assert.deepEqual(keys(open), ['MARXY-183']);
+});
+
+test('selectReady does not exclude a merged key that is already done (MARXY-213)', () => {
+  const all = [story('MARXY-183', 'apps/desktop/src/app.ts'), story('MARXY-OTHER', 'scripts/y')];
+  const merged = new Map([['MARXY-183', 180]]);
+  const r = selectReady({
+    all,
+    s: fixtureState(all, { 'MARXY-183': { status: 'done' } }),
+    d: { phases: {}, deps: {} },
+    merged,
+  });
+  assert.ok(!r.excluded.some(e => e.key === 'MARXY-183'));
+  assert.deepEqual(keys(r), ['MARXY-OTHER']);
 });
