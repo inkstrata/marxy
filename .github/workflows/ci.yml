@@ -121,7 +121,7 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
@@ -134,6 +134,18 @@ jobs:
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - run: pnpm gate:no-network
       - run: pnpm gate:aesthetics
+      # The desktop suite's WebKit tests (live reload, the open path, operations, Source mode) skip in
+      # `fast`, which has no browser; here WebKit is in the image, so a skip would be a lie and is
+      # refused. Nothing ran them on a pull request before MARXY-247, and the edit-after-reload data
+      # loss MARXY-246 fixed reached main through that gap.
+      # One desktop test compiles a small Rust crate (images.test.mjs), and the Playwright image ships
+      # no C linker for cargo's build scripts.
+      - name: A C linker for the desktop suite's Rust test
+        run: apt-get update -qq && apt-get install -y -qq build-essential
+      - name: Desktop suite with WebKit required
+        run: pnpm --filter @marxy/desktop test
+        env:
+          MARXY_BROWSER_TESTS_REQUIRED: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -215,7 +227,7 @@ jobs:
       # `tauri build` enables tauri/custom-protocol so the app serves the embedded frontend instead of the dev
       # server; a plain cargo build must pass it explicitly or the window never loads a page.
       - name: Build the desktop binary with the ci profile (thin LTO, cached dependencies)
-        run: cd apps/desktop/src-tauri && cargo build --profile ci --features tauri/custom-protocol
+        run: cd apps/desktop/src-tauri && cargo build --locked --profile ci --features tauri/custom-protocol
       - name: Licence gate (post-build, populated cargo cache)
         run: node scripts/gate-licences.mjs --require-registry
       - name: CLI smoke check on the built binary
@@ -245,6 +257,13 @@ jobs:
       - name: Startup numbers in the job summary
         if: always()
         run: node scripts/ci-summary.mjs
+      # The shell's own unit tests (watcher, navigation guard, argument paths, IPC decoding) ran nowhere
+      # before MARXY-247. Same profile and features as the build above, so the dependencies are reused.
+      # After the startup and parse measurements, never before: compiling the test harness writes a large
+      # new target tree, and on macOS the launches measured right after it came out with a cold launch
+      # faster than the warm ones (cold_warm_ratio 0.77), which the perf gate rightly refuses.
+      - name: Rust unit tests
+        run: cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet
       - run: pnpm gate:bundle
       - uses: actions/upload-artifact@v4
         if: always()

@@ -105,13 +105,17 @@ function outputOf(id) {
   return { bytes: size, lastMs: mtimeMs };
 }
 
+// An age ("blocked 87 min", "idle 3 h") changes every cycle; a line whose only change is its age is
+// not news, so it is compared without one (MARXY-273: the same blockers were reprinted every cycle).
+const ageless = l => l.replace(/\b\d+ (?:min|h|d)\b/g, '…');
+
 /** The lines worth printing this cycle: a heartbeat, then only what differs from the last cycle. */
 export function changedLines(prev, r, needs) {
-  const before = new Set([...(prev?.lines ?? []), ...(prev?.needs ?? [])]);
+  const before = new Set([...(prev?.lines ?? []), ...(prev?.needs ?? [])].map(ageless));
   const now = [...r.lines, ...needs.map(n => `needs you: ${n.key} — ${n.why}`)];
   const flight = Object.values(r.board.stories).filter(s => s.status === 'in_progress' || s.status === 'in_review').length;
   const heartbeat = `── cycle ${r.at.slice(0, 16)}Z: ${flight} in flight, ${needs.length} need you, ${r.ready?.ready?.length ?? 0} ready`;
-  return { heartbeat, fresh: now.filter(l => !before.has(l)), all: now };
+  return { heartbeat, fresh: now.filter(l => !before.has(ageless(l))), all: now };
 }
 
 /** Write status.md (store and main checkout) and print what changed. Returns the report. */

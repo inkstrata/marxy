@@ -1,4 +1,5 @@
-// Which third-party code runs in our CI. usage: node scripts/check-workflows.mjs
+// Which third-party code runs in our CI, and whether our Rust builds are held to Cargo.lock.
+// usage: node scripts/check-workflows.mjs [--selftest]
 //
 // A GitHub Action runs with the workflow's token on the machine that builds what we ship, so each one
 // is a dependency in the most sensitive position we have. MARXY-74 added a caching action for apt
@@ -24,8 +25,70 @@ const ALLOWED = new Set([
   'tauri-apps/tauri-action',
 ]);
 
+// Every cargo build, check, clippy or test, and every tauri build, runs with --locked (MARXY-270), as pnpm
+// installs with --frozen-lockfile: without it cargo re-resolves a stale Cargo.lock on the runner and CI
+// tests a dependency graph nobody committed. cargo's own flags come before any `--`; tauri build hands
+// what follows its `--` to cargo, so --locked has to be there.
+function unlocked(command) {
+  const found = [];
+  for (const part of command.split(/&&|\|\||;|\|/)) {
+    const cargo = /\bcargo\s+(build|check|clippy|test)\b(.*)/.exec(part);
+    if (cargo && !cargo[2].split(/\s--(?:\s|$)/)[0].split(/\s+/).includes('--locked')) found.push(`cargo ${cargo[1]}`);
+    const tauri = /\btauri\s+build\b(.*)/.exec(part);
+    if (tauri && !lockedAfterSeparator(tauri[1])) found.push('tauri build');
+  }
+  return found;
+}
+const lockedAfterSeparator = args => { const at = args.search(/(?:^|\s)--(?:\s|$)/); return at >= 0 && args.slice(at).split(/\s+/).includes('--locked'); };
+
+/** Unlocked invocations in a workflow's text, as `line: what`; comment lines are skipped. */
+function unlockedInWorkflow(text) {
+  const found = [];
+  const lines = text.split('\n');
+  lines.forEach((line, i) => {
+    if (/^\s*#/.test(line)) return;
+    for (const what of unlocked(line.replace(/\s#.*$/, ''))) found.push(`${i + 1}: ${what}`);
+    // tauri-action runs `tauri build <args>`, so its args carry the `-- --locked`.
+    if (/^\s*(?:-\s*)?uses:\s*tauri-apps\/tauri-action@/.test(line)) {
+      const indent = line.search(/\S/);
+      let args = null;
+      for (let j = i + 1; j < lines.length && (lines[j].trim() === '' || lines[j].search(/\S/) > indent); j++) {
+        const m = /^\s*args:\s*(.*)$/.exec(lines[j]);
+        if (m) args = m[1];
+      }
+      if (args === null || !lockedAfterSeparator(args)) found.push(`${i + 1}: tauri-apps/tauri-action args`);
+    }
+  });
+  return found;
+}
+
+const SELFTEST = [
+  ['run: cargo build --profile ci', ['1: cargo build']],
+  ['run: cargo build --locked --profile ci', []],
+  ['run: cd x && cargo fmt --check && cargo clippy --quiet -- -D warnings', ['1: cargo clippy']],
+  ['run: cargo clippy --locked --quiet -- -D warnings', []],
+  ['run: cargo clippy --quiet -- --locked', ['1: cargo clippy']],
+  ['run: cargo test --quiet', ['1: cargo test']],
+  ['run: vite build && tauri build --no-bundle', ['1: tauri build']],
+  ['run: vite build && tauri build --no-bundle -- --locked', []],
+  ['run: tauri build --locked', ['1: tauri build']],
+  ['# cargo build without the flag, in a comment', []],
+  ['      - uses: tauri-apps/tauri-action@v0\n        with:\n          args: --target x', ['1: tauri-apps/tauri-action args']],
+  ['      - uses: tauri-apps/tauri-action@v0\n        with:\n          args: --target x -- --locked', []],
+  ['      - uses: tauri-apps/tauri-action@v0\n        env: { A: b }', ['1: tauri-apps/tauri-action args']],
+];
+const selftestFailures = SELFTEST.flatMap(([text, want]) => {
+  const got = unlockedInWorkflow(text);
+  return JSON.stringify(got) === JSON.stringify(want) ? [] : [`selftest: ${JSON.stringify(text)} gave ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`];
+});
+if (process.argv.includes('--selftest')) {
+  if (fail(selftestFailures)) process.exit(1);
+  console.log(`check-workflows selftest ok (${SELFTEST.length} cases)`);
+  process.exit(0);
+}
+
 const dir = join(ROOT, '.github/workflows');
-const problems = [];
+const problems = [...selftestFailures];
 let used = 0;
 for (const name of readdirSync(dir).filter(f => /\.ya?ml$/.test(f))) {
   const text = readFileSync(join(dir, name), 'utf8');
@@ -36,6 +99,7 @@ for (const name of readdirSync(dir).filter(f => /\.ya?ml$/.test(f))) {
     if (!ALLOWED.has(action)) problems.push(`.github/workflows/${name}: uses "${spec}"${fix('run the command directly, or add the action to ALLOWED in scripts/check-workflows.mjs and say in the pull request why we accept it')}`);
     else if (!version) problems.push(`.github/workflows/${name}: "${action}" is not pinned to a version${fix('pin it, e.g. @v4')}`);
   }
+  for (const where of unlockedInWorkflow(text)) problems.push(`.github/workflows/${name}:${where} runs without --locked${fix('add --locked (after `--` for tauri build and tauri-action args) so CI builds the committed Cargo.lock')}`);
 }
 
 const ciYml = readFileSync(join(dir, 'ci.yml'), 'utf8');
@@ -80,5 +144,12 @@ if (!nightlyYml.includes('built-app-smoke:')) {
   }
 }
 
+for (const manifest of ['package.json', 'apps/desktop/package.json']) {
+  const { scripts = {} } = JSON.parse(readFileSync(join(ROOT, manifest), 'utf8'));
+  for (const [script, command] of Object.entries(scripts)) {
+    for (const what of unlocked(command)) problems.push(`${manifest}: script "${script}" runs ${what} without --locked${fix('add --locked (after `--` for tauri build) so the build uses the committed Cargo.lock')}`);
+  }
+}
+
 if (fail(problems)) process.exit(1);
-console.log(`workflows ok (${used} action use(s), all allow-listed and pinned; glib-2.0 probed; dbus on the Linux dep step; nightly built-app smoke wired)`);
+console.log(`workflows ok (${used} action use(s), all allow-listed and pinned; glib-2.0 probed; dbus on the Linux dep step; nightly built-app smoke wired; every cargo and tauri build locked)`);
