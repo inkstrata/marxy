@@ -39,12 +39,18 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
      in Literata is a quarter wider than an average character (constraint 1, ADR-0033). Clamped to
      45–80 characters however a theme sets it. */
   --marxy-column: clamp(calc(45 * var(--marxy-avg-char) * 1em), var(--marxy-measure), calc(80 * var(--marxy-avg-char) * 1em));
-  /* How far wide content (code, tables) may run into the right margin: to 3rem from the window's edge. */
-  --marxy-room: max(0px, (100vw - var(--marxy-column)) / 2 - 3rem);
+  /* The side gutter is a minimum, not a fixed width (Reader Typography ch.4 "Margins"): the
+     column's own width is what sets the margin, so the gutter only has to guarantee a floor —
+     16px narrow, 24px on larger screens, widened below (MARXY-263). */
+  --marxy-gutter: 16px;
+  /* How far wide content (code, tables) may run into the right margin: from the gutter to the window's edge. */
+  --marxy-room: max(0px, (100vw - var(--marxy-column)) / 2 - var(--marxy-gutter));
   box-sizing: content-box;
   max-width: var(--marxy-column);
   margin-inline: auto;
-  padding: calc(var(--lb) * 3) 3rem calc(var(--lb) * 5);
+  /* Top padding is one grid unit, not the three line-boxes that made an opened document read as
+     vertically centered instead of starting near the top of the window (MARXY-263). */
+  padding: var(--marxy-half) var(--marxy-gutter) calc(var(--lb) * 5);
   font-family: var(--marxy-font-text);
   font-size: var(--marxy-size-body);
   line-height: var(--lb);
@@ -61,6 +67,11 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 .marxy-article, .marxy-article * { font-variation-settings: 'wght' var(--marxy-wght); }
 .marxy-article > :first-child { margin-top: 0; }
 .marxy-article > :last-child { margin-bottom: 0; }
+/* Larger screens: the gutter's floor rises from 16px to 24px (Reader Typography ch.4); the
+   column still sets the margin above this floor (MARXY-263). */
+@media (min-width: 30em) {
+  .marxy-article { --marxy-gutter: 24px; }
+}
 
 /* Headings: hierarchy from size and weight only (constraint 4); space belongs above (constraint 3).
    The named gaps are 2lb above and half a line below (both grid units); padding-bottom closes the
