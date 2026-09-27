@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Planner delta for 2026-09-27, the seams pass: seven stories filed from reproduced defects where modules meet: an undo after a failed save that deleted text, undo lost after visiting Source mode, styles and formulas missing from release builds, a Finder open dropped on first launch, edits through a symlink never shown, plus container coverage, a built-app smoke and a fleet outcome table. ADR-0037 proposes one owner for the open document; nothing in the app changes yet (MARXY-248)
 - Fixes from the 2026-09-26 health review. Ticking a task or pressing undo after a live reload no longer writes the old text back over what another tool just wrote, and edits made in Source survive a change on disk. Renaming the open file no longer freezes the app, a relative path or an unreadable folder no longer replaces the page with an error, and a link click can no longer load a web page into the reader's window. Align table keeps tables inside quotes and lists intact and no longer rewrites a row of dashes. A theme can no longer reach the network through upper-case or escaped `url()`, and setting a theme in `config.toml` changes only that line. In the fleet: setup failures no longer park stories or halt dispatch, and CI now runs the checks that guard prompts, hooks and task cards (MARXY-246)
 - The orchestrator doctor runs again: `node orchestration/doctor.mjs` exports `snapshot` and `diagnose` for the dashboard, and `--fix` clears dead leases and reconciles finished runs (MARXY-245)
 
