@@ -153,6 +153,9 @@
     "MARXY-NEW-seams-open-events": "MARXY-252",
     "MARXY-NEW-seams-corpus": "MARXY-253",
     "MARXY-NEW-seams-smoke": "MARXY-254",
-    "MARXY-NEW-seams-outcomes": "MARXY-255"
+    "MARXY-NEW-seams-outcomes": "MARXY-255",
+    "MARXY-NEW-window-controls": "MARXY-268",
+    "MARXY-NEW-title-bar-at-rest": "MARXY-269",
+    "MARXY-NEW-locked-cargo": "MARXY-270"
   }
 }
