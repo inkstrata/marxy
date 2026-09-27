@@ -23,8 +23,13 @@ let server;
 let base;
 
 const filler = `${'word '.repeat(40)}\n\n`;
-const guideBody = `# Guide\n\n${filler}## Installing\n\n${filler}Done\n`;
-const installingOffset = Buffer.byteLength(`# Guide\n\n${filler}`, 'utf8');
+// Landing puts the heading on the reading line, 40% down the viewport, which needs the page to
+// scroll: text above the heading so it starts below that line, and text after it so there is room
+// to scroll it up. With one paragraph above, the heading sat above the line at scroll 0 and the
+// offset read back was the next paragraph's, a fact about the theme's top padding (MARXY-272).
+const aboveHeading = filler.repeat(8);
+const guideBody = `# Guide\n\n${aboveHeading}## Installing\n\n${filler.repeat(8)}Done\n`;
+const installingOffset = Buffer.byteLength(`# Guide\n\n${aboveHeading}`, 'utf8');
 
 const repoFiles = () => ({
   '/repo/.git/HEAD': Buffer.from('ref: refs/heads/main\n'),
