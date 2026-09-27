@@ -38,6 +38,15 @@ write; `--no-merge` decides everything and merges nothing; `--low`, `--minimal`,
 compute profile. Never `pkill` the loop or a worker; stopping the loop does not stop workers, and
 the next loop finishes whatever ended while it was away.
 
+## The loop
+
+1. **Ready.** Before dispatch, `ready.mjs` lists every todo story whose phase and dependencies are
+   settled and whose paths do not overlap work in flight. A worktree whose branch names a key, with
+   recent activity and commits or uncommitted work, holds that key's paths until its pull request
+   opens, and `ready.mjs` names the blocker (`worktree holds`). A blocked or escalated story's
+   worktree does not reserve paths; the files stay for the next attempt. A worktree whose key has no
+   record still reserves.
+
 ## One cycle
 
 `cycle.mjs` is level-triggered: it reads the whole world, compares it with the board, and takes the
