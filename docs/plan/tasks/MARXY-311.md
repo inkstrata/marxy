@@ -14,7 +14,11 @@ verify: [pnpm precheck, pnpm done MARXY-311]
 `filePathsFromCard`'s regex `/^## Files and signatures\r?\n([\s\S]*?)(?=^## |\Z)/m` uses `\Z`, which in a non-`u` JS regex is a literal `IdentityEscape` for the character `Z`, not an end-of-string anchor. The lookahead only succeeds at a following `## ` heading or a literal `Z`, so when the section is last (no trailing heading), the whole match fails and the function returns `[]`. Since `cardsAndRows` loops `card.files` to flag a file outside the story's CSV `Paths`, every such card's path-boundary check is currently a silent no-op.
 
 ## Files and signatures
-- `scripts/check-cards.mjs`: fix `filePathsFromCard`'s regex (or switch to a plain string scan) to correctly capture the section whether or not another `## ` heading follows it.
+- `scripts/check-cards.mjs`: fix `filePathsFromCard`'s regex (or switch to a plain string scan) to correctly capture the section whether or not another `## ` heading follows it. `\Z` is a literal `Z` in a non-`u` JavaScript regex; end of string is `(?![\s\S])`.
+- `docs/plan/tasks/MARXY-252.md`: its bullet must name `apps/desktop/src/shell/tauri.ts`, not `shell/tauri.ts`. That shorthand is the only real-tree drift a correct regex reports.
+
+## This attempt
+The branch already has the regex, the fixture test, and the MARXY-252 bullet. Do not rewrite them. Open the pull request. Paths include `docs/plan/tasks/MARXY-252.md`.
 
 ## Tests → expected
 | Check | Expect |
