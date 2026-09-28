@@ -2,6 +2,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import type { Measured } from './items.ts';
+import { DEFAULT_BREAK, breakTokens } from './items.ts';
 import { DEFAULT_RAGGED, badness, breakRagged } from './ragged.ts';
 
 /** Words of the given widths separated by 5 px spaces, at 17 px type. */
@@ -86,6 +87,17 @@ test('badness is TeX’s: 100 at the full stretch, capped at 10000', () => {
   assert.equal(badness(1000, 34), 10000);
 });
 
+test('non-finite stretch is worst badness, not NaN (MARXY-281)', () => {
+  assert.equal(badness(10, Number.NaN), 10000);
+  assert.equal(badness(10, Number.POSITIVE_INFINITY), 10000);
+  // A NaN font size makes stretch NaN; the breaker must still choose breaks, not leave every cost NaN.
+  const tokens = para(40, 40, 40);
+  const ok = breakRagged(tokens, 50, 17);
+  const broken = breakRagged(tokens, 50, Number.NaN);
+  assert.deepEqual(broken.after, ok.after);
+  assert.equal(Number.isNaN(badness(10, Number.NaN)), false);
+});
+
 /** A word split at a hyphenation point: [left piece, hyphen, right piece]. */
 const split = (left: number, right: number, hyphen = 6): Measured[] => [{ kind: 'piece', width: left }, { kind: 'hyphen', width: hyphen }, { kind: 'piece', width: right }];
 const space: Measured = { kind: 'space', width: 5, fontSize: 17 };
@@ -113,4 +125,16 @@ test('two hyphenated lines in a row cost \\doublehyphendemerits, as two dashes d
   const hyphenRuns = (after: readonly number[]): number => after.filter((i, k) => k > 0 && tokens[i]!.kind === 'hyphen' && tokens[after[k - 1]!]!.kind === 'hyphen').length;
   assert.ok(hyphenRuns(dear.after) <= hyphenRuns(cheap.after));
   assert.equal(hyphenRuns(dear.after), 0);
+});
+
+test('the justif engine applies \\doublehyphendemerits like ragged (MARXY-283)', () => {
+  const space: Measured = { kind: 'space', width: 5, fontSize: 17 };
+  const tokens: Measured[] = [...split(10, 10), space, ...split(10, 10), space, ...split(10, 10)];
+  const measure = 37;
+  const hyphenRuns = (after: readonly number[]): number =>
+    after.filter((i, k) => k > 0 && tokens[i]!.kind === 'hyphen' && tokens[after[k - 1]!]!.kind === 'hyphen').length;
+  const cheap = breakTokens(tokens, measure, { ...DEFAULT_BREAK, doubleHyphenDemerits: 0 });
+  const justif = breakTokens(tokens, measure, DEFAULT_BREAK);
+  assert.ok(hyphenRuns(cheap.after) > 0, 'without demerits, consecutive hyphenated lines are taken');
+  assert.equal(hyphenRuns(justif.after), 0, `with ADR-0033 demerits, prefer non-hyphen breaks: ${justif.after}`);
 });

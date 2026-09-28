@@ -135,6 +135,31 @@ test('the kill switch leaves everything to the engine', async () => {
   await page.close();
 });
 
+test('the kill switch stops in-flight background typesetting', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'), { height: 320 });
+  const result = await page.evaluate(async () => {
+    const pending = [];
+    const gatedScheduler = { schedule(work) { pending.push(work); } };
+    window.controller = window.typeset.attach(document.getElementById('doc'), {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler: gatedScheduler,
+    });
+    await window.controller.ready;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const article = document.getElementById('doc');
+    const setBeforeKill = document.querySelectorAll('.marxy-set').length;
+    article.style.setProperty('--marxy-typeset', 'none');
+    while (pending.length > 0) pending.shift()(() => Number.POSITIVE_INFINITY);
+    const scrolled = article.scrollHeight > article.clientHeight;
+    if (scrolled) article.scrollTop = article.scrollHeight;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const setAfter = document.querySelectorAll('.marxy-set').length;
+    return { setBeforeKill, setAfter, pendingLeft: pending.length };
+  });
+  assert.ok(result.setBeforeKill > 0, 'viewport pass should have set some paragraphs');
+  assert.equal(result.setAfter, result.setBeforeKill, 'no further DOM mutation after the kill switch');
+  await page.close();
+});
+
 /** Attaches with hanging and hyphenation, the story's defaults. */
 const attachOn = (page) =>
   page.evaluate(async () => {
