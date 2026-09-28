@@ -672,12 +672,15 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building marxy")
         .run(|app, event| {
-            if let RunEvent::WindowEvent { label, event, .. } = &event {
-                if let WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    if let Some(window) = app.get_webview_window(label) {
-                        let _ = window.emit("marxy:close-requested", ());
-                    }
+            if let RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::CloseRequested { api, .. },
+                ..
+            } = &event
+            {
+                api.prevent_close();
+                if let Some(window) = app.get_webview_window(label) {
+                    let _ = window.emit("marxy:close-requested", ());
                 }
             }
             #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]

@@ -13,7 +13,7 @@ let closeNoticeUp = false;
 let bypassCloseGuard = false;
 
 export function installCloseGuard(host: CloseGuardHost): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !host.shell.onCloseRequested) return;
   host.shell.onCloseRequested(() => {
     if (bypassCloseGuard) {
       void host.shell.confirmClose();
