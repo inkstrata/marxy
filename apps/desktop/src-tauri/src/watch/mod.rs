@@ -1,14 +1,12 @@
-//! Watch the root directory, not a file's inode (ADR-0018). Std only so the same file can be
-//! compiled with a bare `rustc --test` — `notify` would need a crate the desktop manifest and
-//! the licence allowlist, both outside this story's paths, to take on.
+//! Directory watch for the open document's folder (ADR-0018): non-recursive scan/diff plus, in the
+//! shipped binary, a `notify` thread (`spawn_notify.rs`) on the folder and symlink target parents.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, Metadata};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread::{self, JoinHandle};
-use std::time::{Duration, UNIX_EPOCH};
+use std::thread::JoinHandle;
 
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
@@ -49,9 +47,9 @@ pub(crate) struct FileId {
 /// Path → identity at the last poll. Paths are absolute.
 type Snapshot = BTreeMap<PathBuf, FileId>;
 
-/// A root being polled. Each `poll` diffs against the last scan.
+/// Roots watched together: the document directory and parents of symlinked documents in it.
 pub struct RootWatch {
-    root: PathBuf,
+    pub(crate) roots: Vec<PathBuf>,
     snapshot: Snapshot,
 }
 
@@ -59,26 +57,74 @@ impl RootWatch {
     /// Start watching `root`. The first scan is the baseline, so opening is silent.
     pub fn open(root: &Path) -> Result<Self, String> {
         let root = fs::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
-        let snapshot = scan(&root)?;
-        Ok(Self { root, snapshot })
+        let roots = watch_roots(&root)?;
+        let snapshot = scan_roots(&roots)?;
+        Ok(Self { roots, snapshot })
     }
 
-    /// Events since the last poll. Empty when nothing under the root changed.
+    /// Events since the last poll. Empty when nothing in the watched roots changed.
     pub fn poll(&mut self) -> Result<Vec<WatchEvent>, String> {
-        let next = scan(&self.root)?;
+        let next = scan_roots(&self.roots)?;
         let events = diff(&self.snapshot, &next);
         self.snapshot = next;
         Ok(events)
     }
 }
 
-/// Directories no reader opens a document from, and whose size made every poll of a repository
-/// root walk tens of thousands of files.
+/// Canonical directories to watch: `root` plus parents of file symlinks directly in `root`.
+fn watch_roots(root: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut roots = vec![root.to_path_buf()];
+    for extra in symlink_target_dirs(root)? {
+        if !roots.contains(&extra) {
+            roots.push(extra);
+        }
+    }
+    Ok(roots)
+}
+
+#[cfg(unix)]
+fn symlink_target_dirs(root: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut extras = Vec::new();
+    let entries = fs::read_dir(root).map_err(|e| format!("{}: {e}", root.display()))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let meta = match entry.metadata() {
+            Ok(meta) => meta,
+            Err(_) => continue,
+        };
+        if !meta.is_symlink() {
+            continue;
+        }
+        let Ok(target_meta) = fs::metadata(&path) else {
+            continue;
+        };
+        if !target_meta.is_file() {
+            continue;
+        }
+        let canon = fs::canonicalize(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let Some(parent) = canon.parent() else {
+            continue;
+        };
+        if parent == root {
+            continue;
+        }
+        let parent = parent.to_path_buf();
+        if !extras.contains(&parent) {
+            extras.push(parent);
+        }
+    }
+    Ok(extras)
+}
+
+#[cfg(not(unix))]
+fn symlink_target_dirs(_root: &Path) -> Result<Vec<PathBuf>, String> {
+    Ok(Vec::new())
+}
+
+/// Directories no reader opens a document from; skipped when they appear as a direct child name.
 const SKIP_DIRS: [&str; 4] = [".git", "node_modules", "target", ".venv"];
 
-/// Walk `root` and record every regular file. Only the root must be readable: a subdirectory the
-/// user cannot read (a TCC-protected folder in ~, a root-owned `lost+found`) is left out, where it
-/// used to fail the whole watch and, with it, the open that asked for it.
+/// Record every regular file directly in `root` (non-recursive). Unreadable children are skipped.
 pub fn scan(root: &Path) -> Result<Snapshot, String> {
     let mut out = BTreeMap::new();
     let entries = fs::read_dir(root).map_err(|e| format!("{}: {e}", root.display()))?;
@@ -86,10 +132,12 @@ pub fn scan(root: &Path) -> Result<Snapshot, String> {
     Ok(out)
 }
 
-fn scan_dir(dir: &Path, out: &mut Snapshot) {
-    if let Ok(entries) = fs::read_dir(dir) {
-        scan_entries(entries, out);
+fn scan_roots(roots: &[PathBuf]) -> Result<Snapshot, String> {
+    let mut out = BTreeMap::new();
+    for root in roots {
+        out.extend(scan(root)?);
     }
+    Ok(out)
 }
 
 fn scan_entries(entries: fs::ReadDir, out: &mut Snapshot) {
@@ -103,8 +151,9 @@ fn scan_entries(entries: fs::ReadDir, out: &mut Snapshot) {
             Err(_) => continue,
         };
         if meta.is_dir() {
-            scan_dir(&path, out);
-        } else if meta.is_file() {
+            continue;
+        }
+        if meta.is_file() {
             out.insert(path, file_id(&meta));
         }
     }
@@ -115,7 +164,7 @@ fn file_id(meta: &Metadata) -> FileId {
         mtime_ms: meta
             .modified()
             .ok()
-            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_millis())
             .unwrap_or(0),
         size: meta.len(),
@@ -260,8 +309,6 @@ fn same_path(left: &Path, right: &Path) -> bool {
     }
 }
 
-const POLL_MS: u64 = 50;
-
 pub fn watch_kind_name(kind: WatchKind) -> &'static str {
     match kind {
         WatchKind::Modified => "modified",
@@ -271,46 +318,26 @@ pub fn watch_kind_name(kind: WatchKind) -> &'static str {
     }
 }
 
-/// Stops the polling loop when dropped or when `stop` is called.
+/// Stops the notify loop when dropped or when `stop` is called.
 pub struct RunningWatch {
     stop: Arc<AtomicBool>,
     join: Option<JoinHandle<()>>,
 }
 
 impl RunningWatch {
+    pub(crate) fn new(stop: Arc<AtomicBool>, join: JoinHandle<()>) -> Self {
+        Self {
+            stop,
+            join: Some(join),
+        }
+    }
+
     pub fn stop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
         if let Some(join) = self.join.take() {
             let _ = join.join();
         }
     }
-}
-
-/// Opens `root`, polls until `stop`, and forwards non-empty batches to `emit`.
-pub fn spawn_poll_thread<F>(root: PathBuf, mut emit: F) -> Result<RunningWatch, String>
-where
-    F: FnMut(Vec<WatchEvent>) + Send + 'static,
-{
-    let mut watch = RootWatch::open(&root)?;
-    let stop = Arc::new(AtomicBool::new(false));
-    let stop_clone = stop.clone();
-    let join = thread::spawn(move || {
-        while !stop_clone.load(Ordering::SeqCst) {
-            thread::sleep(Duration::from_millis(POLL_MS));
-            if stop_clone.load(Ordering::SeqCst) {
-                break;
-            }
-            match watch.poll() {
-                Ok(events) if !events.is_empty() => emit(events),
-                Ok(_) => {}
-                Err(_) => {}
-            }
-        }
-    });
-    Ok(RunningWatch {
-        stop,
-        join: Some(join),
-    })
 }
 
 #[cfg(test)]
@@ -363,6 +390,51 @@ mod tests {
         let snap = snap.expect("the root is readable, so the scan succeeds");
         assert!(snap.contains_key(&open));
         assert!(!snap.keys().any(|p| p.starts_with(dir.join("node_modules"))));
+        cleanup(&dir);
+    }
+
+    /// H3 (seams pass, MARXY-248): a document opened through a symlink lives in the link's
+    /// directory; an edit to the target must reload it.
+    #[cfg(unix)]
+    #[test]
+    fn an_edit_through_a_symlinked_document_reloads() {
+        let (dir, _open) = scratch("symlink");
+        let elsewhere = dir.join("elsewhere");
+        fs::create_dir(&elsewhere).expect("target dir");
+        let real = elsewhere.join("real.md");
+        fs::write(&real, b"# real\n").expect("seed target");
+        let docs = dir.join("docs");
+        fs::create_dir(&docs).expect("link dir");
+        let link = docs.join("link.md");
+        std::os::unix::fs::symlink(&real, &link).expect("symlink");
+        let mut watch = RootWatch::open(&docs).expect("watch the link's directory");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        fs::write(&real, b"# real, edited by another tool\n").expect("edit target");
+        let events = watch.poll().expect("poll");
+        let effect = effect_for_open_document(&events, &link);
+        cleanup(&dir);
+        assert_eq!(effect, OpenEffect::Reload, "events: {events:?}");
+    }
+
+    #[test]
+    fn a_write_two_directories_down_is_not_watched() {
+        let (dir, open) = scratch("nested");
+        let nested = dir.join("nested").join("deep");
+        fs::create_dir_all(&nested).expect("nested dirs");
+        let deep = nested.join("deep.md");
+        fs::write(&deep, b"deep\n").expect("seed deep");
+        let mut watch = RootWatch::open(&dir).expect("watch");
+        fs::write(&deep, b"deep, edited\n").expect("edit deep");
+        let events = watch.poll().expect("poll");
+        assert!(events.is_empty(), "non-recursive watch: {events:?}");
+        fs::write(&open, b"# open\n\nedited\n").expect("edit open");
+        let events = watch.poll().expect("poll");
+        assert!(
+            events
+                .iter()
+                .any(|e| e.kind == WatchKind::Modified && e.path == open),
+            "{events:?}"
+        );
         cleanup(&dir);
     }
 
@@ -432,37 +504,6 @@ mod tests {
                 && e.path == open
                 && e.to.as_deref() == Some(dest.as_path())),
             "{events:?}"
-        );
-        cleanup(&dir);
-    }
-
-    #[test]
-    fn poll_thread_emits_modified_then_stops() {
-        use std::sync::mpsc;
-        use std::time::Duration;
-
-        let (dir, open) = scratch("thread");
-        let (tx, rx) = mpsc::channel();
-        let mut running = spawn_poll_thread(dir.clone(), move |events| {
-            let _ = tx.send(events);
-        })
-        .expect("spawn");
-        std::thread::sleep(Duration::from_millis(70));
-        fs::write(&open, b"# open\n\nrewritten on disk\n").expect("write");
-        let events = rx
-            .recv_timeout(Duration::from_secs(2))
-            .expect("modified within 2 s");
-        assert!(
-            events
-                .iter()
-                .any(|e| e.kind == WatchKind::Modified && e.path == open),
-            "{events:?}"
-        );
-        running.stop();
-        fs::write(&open, b"# open\n\nagain\n").expect("write again");
-        assert!(
-            rx.recv_timeout(Duration::from_millis(200)).is_err(),
-            "no events after stop"
         );
         cleanup(&dir);
     }
