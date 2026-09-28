@@ -15,4 +15,4 @@ verify: [pnpm precheck, pnpm done MARXY-252]
 
 ## Files and signatures
 - Rust: a `PENDING_OPENS` queue filled by `Opened` and the single-instance callback; a `take_pending_opens` command that drains it.
-- `shell/tauri.ts`: `await listen(...)`, then `invoke('take_pending_opens')`, then route both through the same handler.
+- `apps/desktop/src/shell/tauri.ts`: `await listen(...)`, then `invoke('take_pending_opens')`, then route both through the same handler.
