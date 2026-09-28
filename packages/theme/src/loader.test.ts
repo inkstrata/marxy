@@ -102,3 +102,15 @@ test('rem is clamped as 16px, !important is kept, and calc() is dropped rather t
   assert.doesNotMatch(calc.css, /--marxy-line-box/);
   assert.ok(calc.warnings.some((w) => /not a plain length/.test(w)));
 });
+
+test('a ch value on a px-bound property is dropped, not passed through unclamped', async () => {
+  const { css, warnings } = await cssOf(':root{--marxy-line-box: 9999ch;}');
+  assert.doesNotMatch(css, /--marxy-line-box/);
+  assert.ok(warnings.some((w) => w.includes('--marxy-line-box') && w.includes('px units required')));
+});
+
+test('a px value on a ch-bound property is dropped, not passed through unclamped', async () => {
+  const { css, warnings } = await cssOf(':root{--marxy-measure: 500px;}');
+  assert.doesNotMatch(css, /--marxy-measure/);
+  assert.ok(warnings.some((w) => w.includes('--marxy-measure') && w.includes('ch units required')));
+});

@@ -41,6 +41,14 @@ test('data: urls are kept', () => {
   assert.equal(warnings.length, 0);
 });
 
+test('an svg data: url is removed with a warning, since it can embed its own remote reference', () => {
+  const data = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxpbWFnZSBocmVmPSJodHRwczovL2V2aWwuZXhhbXBsZS9waXhlbC5wbmciLz48L3N2Zz4=';
+  const { css, warnings } = rewriteUrls(`x { background: url(${data}); }`, { base, assetUrl });
+  assert.equal(css, 'x { background: ; }');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /remote reference/);
+});
+
 test('url() inside comments and strings is untouched', () => {
   const input = '/* url(https://x) */ .x { content: "url(https://y)"; }';
   const { css, warnings } = rewriteUrls(input, { base, assetUrl });

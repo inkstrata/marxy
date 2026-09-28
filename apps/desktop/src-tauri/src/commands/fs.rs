@@ -142,14 +142,12 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
         {
             continue;
         }
+        // A file can vanish (or its permissions change) between `fs::read_dir` listing it and this
+        // `metadata()` call; that one entry is omitted rather than failing the whole listing, the
+        // same TOCTOU tolerance `index/mod.rs`'s `walk_root` already gives a racy directory tree.
         let meta = match entry.metadata() {
             Ok(meta) => meta,
-            Err(e) => {
-                return Err(ShellError::io(
-                    child.to_string_lossy().as_ref(),
-                    e.to_string(),
-                ))
-            }
+            Err(_) => continue,
         };
         if meta.file_type().is_symlink() {
             continue;
