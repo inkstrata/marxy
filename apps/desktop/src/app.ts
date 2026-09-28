@@ -801,7 +801,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   return evidence;
 }
 
-async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void> {
+async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): Promise<void> {
   await typesetDocument(doc);
   const shouldRestore = restoreAfterTypeset;
   restoreAfterTypeset = false;
@@ -813,7 +813,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
   });
   await shell.mark('position_restored', Date.now());
   if (defaultModeForPath(file) === 'source') {
-    await showSource(0);
+    await showSource(at ?? 0);
   } else {
     setModeChrome('rendered');
   }
@@ -839,7 +839,7 @@ async function openReplacing(file: string, at?: number): Promise<void> {
   try {
     await openDocumentThroughRenderMark(file, doc, at);
     trackDocumentOpen(file);
-    await finishDocumentOpen(file, doc);
+    await finishDocumentOpen(file, doc, at);
   } catch (e) {
     // Nothing of the last document may outlive the page that showed it.
     teardownDocument();
