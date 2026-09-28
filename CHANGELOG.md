@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The frozen shell-api compile-time stub shells now share one no-op implementation, so a new `Shell` member is defined in one place instead of three hand-copied literals (MARXY-285)
 - A third bugcatch pass files eight more stories: a stale Source-mode reading position, a deferred-startup race that can leave the palette index stale, a failed quit overwriting a rendered page, an over-broad Tauri capability grant on the main window, and four CI gate scripts (innerHTML route detection, the module-boundary dynamic-import check, the Cargo dependency scanner, and the memory-shell exclusion check) each missing a real violation shape (MARXY-301)
 - Planner delta for 2026-09-27: the open plan pull requests stay the plan (merge the seams filing, the reading-position split and the title-bar filing by hand; close the quote-story duplicate), Source's code-folding dependency is named so the next attempt can add it, and two merged looks get a taste-review row. No other story's board row changes, because a new planner row that edits one is judged against no paths and the cycle returns it (MARXY-271)
 - Stories that already had a fix and were stuck on a file the board did not list can move again: save wires through the open document, copy keeps raw HTML from being smartened, Source can depend on the folding package, trust's new corpus page can carry baselines, and a theme reload keeps its scroll after the baseline grid remeasures (MARXY-313)
