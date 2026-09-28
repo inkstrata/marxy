@@ -86,6 +86,22 @@ test('a query matches title, path and headings', () => {
   assert.equal(byHeading[0]?.heading, 0);
 });
 
+test('a heading match beats a lower-quality title match even when the title score is high', () => {
+  // A late, unbounded substring match in a long title scores 4*(10000 - 250*8 - 250) = 31000.
+  // A heading that IS the needle, matched at its very start, scores 3*(10000 + 500) = 31500 —
+  // genuinely higher, so headingCouldBeat's cutoff must not skip heading scoring at 31000.
+  const session = emptySession('/repo');
+  const entries = [
+    doc({
+      path: '/repo/long-title.md',
+      title: `${'a'.repeat(250)}cat`,
+      headings: [{ level: 2, text: 'cat', byteOffset: 40 }],
+    }),
+  ];
+  const hits = paletteResults('cat', entries, session);
+  assert.equal(hits[0]?.heading, 0, 'the heading match should win, not be skipped');
+});
+
 test('heading hits jump to the heading byte offset', () => {
   const session = emptySession('/repo');
   const entries = [
