@@ -53,3 +53,16 @@ test('frontmatter and fenced code do not contribute headings', () => {
     ['Real'],
   );
 });
+
+test('a fence closes only on a matching marker, not the other fence character', () => {
+  const backtickFence = '````\n~~~\n# still inside\n````\n\n# Outside\n';
+  assert.deepEqual(
+    headingsFromMarkdown(new TextEncoder().encode(backtickFence)).map((h) => h.text),
+    ['Outside'],
+  );
+  const tildeFence = '~~~\n```\n# still inside\n~~~\n\n# Outside\n';
+  assert.deepEqual(
+    headingsFromMarkdown(new TextEncoder().encode(tildeFence)).map((h) => h.text),
+    ['Outside'],
+  );
+});
