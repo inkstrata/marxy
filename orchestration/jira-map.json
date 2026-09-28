@@ -156,6 +156,16 @@
     "MARXY-NEW-seams-outcomes": "MARXY-255",
     "MARXY-NEW-window-controls": "MARXY-268",
     "MARXY-NEW-title-bar-at-rest": "MARXY-269",
-    "MARXY-NEW-locked-cargo": "MARXY-270"
+    "MARXY-NEW-locked-cargo": "MARXY-270",
+    "MARXY-NEW-typeset-metrics-reset-on-resize": "MARXY-280",
+    "MARXY-NEW-typeset-nan-metrics-guard": "MARXY-281",
+    "MARXY-NEW-typeset-grid-margin-collapse-drift": "MARXY-282",
+    "MARXY-NEW-typeset-justif-hyphen-demerits": "MARXY-283",
+    "MARXY-NEW-theme-reject-empty-variants": "MARXY-284",
+    "MARXY-NEW-shell-api-dedupe-stub-shells": "MARXY-285",
+    "MARXY-NEW-desktop-watcher-lifecycle-bugs": "MARXY-286",
+    "MARXY-NEW-desktop-image-size-error-visibility": "MARXY-287",
+    "MARXY-NEW-desktop-live-reload-silent-failure": "MARXY-288",
+    "MARXY-NEW-core-relative-path-file-vs-dir": "MARXY-289"
   }
 }
