@@ -1,12 +1,12 @@
 ---
 key: MARXY-48
 design: [09-app-shell, 03-selection-and-operations, 08-position-and-watching]
-depends: [MARXY-42, MARXY-38, MARXY-23, MARXY-95, MARXY-198]
+depends: [MARXY-42, MARXY-38, MARXY-23, MARXY-95, MARXY-198, MARXY-195]
 verify: [pnpm precheck, pnpm done MARXY-48]
 ---
 # MARXY-48 — Outline and find at the reading position, mounted from the app's open path
 
-**Design:** [09-app-shell](../../design/09-app-shell.md) §DOM skeleton, §Keyboard map, §Outline, §Find · [03-selection-and-operations](../../design/03-selection-and-operations.md) §The command registry (sections) · [08-position-and-watching](../../design/08-position-and-watching.md) §Computing the position · **Depends on:** MARXY-42 (registry), MARXY-38 (position), MARXY-23 (typesetter split records), MARXY-95 (harness), MARXY-198 · **ADRs:** ADR-0011, ADR-0018, ADR-0032 (perf recorded, not gated) · **Delta:** [2026-09-26](../deltas/2026-09-26.md) · **Sequencing:** `cross-phase`. `ready.mjs` holds it by path against MARXY-195, MARXY-196 and MARXY-44 (`app.ts`) while any of them is in progress. MARXY-244 waits for this story.
+**Design:** [09-app-shell](../../design/09-app-shell.md) §DOM skeleton, §Keyboard map, §Outline, §Find · [03-selection-and-operations](../../design/03-selection-and-operations.md) §The command registry (sections) · [08-position-and-watching](../../design/08-position-and-watching.md) §Computing the position · **Depends on:** MARXY-42 (registry), MARXY-38 (position), MARXY-23 (typesetter split records), MARXY-95 (harness), MARXY-198, MARXY-195 (`app.ts`; Phase 2 closes before this story edits it) · **ADRs:** ADR-0011, ADR-0018, ADR-0032 (perf recorded, not gated) · **Delta:** [2026-09-26](../deltas/2026-09-26.md) · **Sequencing:** `cross-phase`. MARXY-244 waits for this story.
 
 **Outcome.** `Mod+Shift+O` shows the headings and follows the reader as they scroll; `Enter` lands a section at the reading line. `Mod+F` finds text even across smart quotes and the typesetter's line breaks, and puts each match where the eye already is, even while the page is still being typeset.
 
@@ -47,4 +47,4 @@ verify: [pnpm precheck, pnpm done MARXY-48]
 CSV 1 → outline scroll case. 2 → hyphenated-word case. 3 → find-before-typeset case. 4 → fallback case. 5 → `query.test.ts`, `text-index.test.ts`. 6 → keydown case. 7 → the `rg` line. 8 → perf record. 9 → `docs/taste-review/queue.md` row (outline dialog and find highlight, dark and light, one before/after pair) and `CHANGELOG.md`.
 
 ## Do not
-Add a visible find bar or outline at rest. Search source bytes in Rendered mode. Poll, or observe the article for mutations, to decide when to mount. Add a second chord matcher. Add single-letter bindings. Touch `src-tauri`, `shell/tauri.ts` or `palette/keys.ts` (those belong to MARXY-244). Touch `packages/*/src/contracts/**`.
+Add a visible find bar or outline at rest. Search source bytes in Rendered mode. Poll, or observe the article for mutations, to decide when to mount. Add a second chord matcher. Add single-letter bindings. Touch `src-tauri`, `shell/tauri.ts` or `palette/keys.ts` (those belong to MARXY-244). Touch `packages/*/src/contracts/**`. Keep the pre-split draft's `mount.ts`, `keys-wire.ts`, `commands/app.ts` or `os.rs`: the paths on main already include `app.ts`, `main.ts`, `selection/bind.ts` and the harness, which is what that draft was missing.
