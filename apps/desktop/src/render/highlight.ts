@@ -3,6 +3,8 @@
 // wraps can mark its continuation rows (base.css, ADR-0033). The text nodes, and so `textContent`,
 // copy and find, are unchanged: the newlines stay between the spans.
 import { highlight, type HighlightToken } from '@marxy/core/src/highlight/index.ts';
+import { applyInvisibleMarkers, sourceTextFromCode } from './invisibles-dom.ts';
+import { applyLinkDestinations } from './link-dest.ts';
 
 const LANGUAGE_PREFIX = 'language-';
 const LINE = 'marxy-line';
@@ -56,8 +58,9 @@ export function spansFromTokens(lines: readonly (readonly HighlightToken[])[]): 
 /** Plain code: the same one span per source line, no colour. */
 export function applyLinesToCode(code: HTMLElement): boolean {
   if (code.dataset.marxyDone !== undefined) return false;
-  const lines = (code.textContent ?? '').split('\n');
+  const lines = sourceTextFromCode(code).split('\n');
   code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }]))));
+  applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'lines';
   return true;
 }
@@ -109,12 +112,14 @@ function tokenize(code: string, lang: string): Promise<Lines> {
 export async function applyHighlightToCode(code: HTMLElement): Promise<boolean> {
   if (code.dataset.marxyDone === 'highlight') return false;
   const lang = languageFromCode(code);
+  const source = sourceTextFromCode(code);
   if (!lang) return (applyLinesToCode(code), false);
   // Plain lines first, so a long wrapped line is marked even while its colour is on the way.
   applyLinesToCode(code);
-  const lines = await tokenize(code.textContent ?? '', lang);
+  const lines = await tokenize(source, lang);
   if (!lines) return false;
   code.replaceChildren(spansFromTokens(lines));
+  applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'highlight';
   return true;
 }
@@ -134,6 +139,8 @@ export async function applyAllHighlights(article: HTMLElement): Promise<void> {
  * Does not block startup — schedule from idle after first text (MARXY-164).
  */
 export function startCodeHighlight(article: HTMLElement): void {
+  applyInvisibleMarkers(article);
+  applyLinkDestinations(article);
   const blocks = fencedCodeBlocks(article);
   if (blocks.length === 0) return;
 

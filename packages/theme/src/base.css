@@ -416,6 +416,62 @@ p > img:only-child { display: block; margin-inline: auto; }
 .marxy-lb::before { content: '\A'; white-space: pre; }   /* a line break that is not text: copy and find never see it */
 .marxy-hang { display: inline-block; }
 
+/* Invisible-character markers (handbook ch.7, MARXY-236): 1ch hairline box, hex label, code ground. */
+.marxy-invisible {
+  display: inline-block;
+  vertical-align: baseline;
+  position: relative;
+  width: 1ch;
+  font-family: var(--marxy-font-mono);
+  font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
+  line-height: 1;
+}
+.marxy-invisible-glyph {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 1ch;
+  text-align: center;
+  color: var(--marxy-color-text-secondary);
+  border: 1px solid color-mix(in srgb, var(--marxy-color-text-secondary) 70%, transparent);
+  border-radius: 2px;
+  background: var(--marxy-color-code-bg);
+  user-select: none;
+  pointer-events: none;
+}
+.marxy-invisible-glyph { font-size: 0.7em; }
+.marxy-invisible-byte {
+  font-size: 0;
+  line-height: 0;
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+.marxy-invisible-bidi { unicode-bidi: isolate; }
+.marxy-invisible-tag { width: auto; max-width: 6ch; }
+.marxy-invisible-tag .marxy-invisible-glyph { width: auto; min-width: 1ch; padding: 0 0.1ch; }
+
+/* Mismatch host at rest (title); destination on summon only (MARXY-236). */
+a.marxy-link-mismatch::before {
+  content: ' \2197\00a0' attr(title);
+  font-family: var(--marxy-font-mono);
+  font-size: var(--marxy-size-caption);
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-link-host-label {
+  font-family: var(--marxy-font-mono);
+  font-size: var(--marxy-size-caption);
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-link-dest {
+  display: none;
+  font-family: var(--marxy-font-mono);
+  font-size: var(--marxy-size-caption);
+  color: var(--marxy-color-text-secondary);
+}
+a:hover .marxy-link-dest,
+a:focus .marxy-link-dest { display: inline; }
+
 /* Accessibility media queries (Reader Artifacts ch.9, MARXY-241). */
 @media (forced-colors: active) {
   a { text-decoration: underline; forced-color-adjust: none; }

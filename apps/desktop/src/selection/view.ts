@@ -14,6 +14,9 @@ import {
 import type { AppHandle, AppShell, OpenDocumentState } from '../app.ts';
 import type { NodeMap } from '../render/post.ts';
 import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
+import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
+import { applyLinkDestinations } from '../render/link-dest.ts';
+import { textFromDomSelection } from './copy-text.ts';
 import { resolve } from './resolve.ts';
 
 const INLINE_TYPES: ReadonlySet<Inline['type']> = new Set([
@@ -252,14 +255,16 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
     const next = { nodeMap: open.nodeMap, document: open.ast, buffer: open.buffer };
     if (!ctx) {
       ctx = { article, ...next, shell: handle.shell as SelectionRuntime['shell'] };
-      return;
+    } else {
+      // Another document: nothing selected in the last one names anything in this one.
+      if (ctx.buffer.path !== open.path) {
+        state = select(state, { kind: 'none' });
+        lastClickTarget = null;
+      }
+      afterDocumentRendered(next);
     }
-    // Another document: nothing selected in the last one names anything in this one.
-    if (ctx.buffer.path !== open.path) {
-      state = select(state, { kind: 'none' });
-      lastClickTarget = null;
-    }
-    afterDocumentRendered(next);
+    applyInvisibleMarkers(article);
+    applyLinkDestinations(article);
   };
   adopt(handle.openDocument());
   handle.onDocumentChange(adopt);
@@ -303,7 +308,7 @@ function onPointerUp(): void {
   if (!ctx) return;
   const domSel = window.getSelection();
   if (domSel && !domSel.isCollapsed && domSel.toString().trim().length > 0) {
-    state = select(state, { kind: 'text', text: domSel.toString() });
+    state = select(state, { kind: 'text', text: textFromDomSelection(domSel) });
     clearSelectedClass(ctx.article);
   }
 }
