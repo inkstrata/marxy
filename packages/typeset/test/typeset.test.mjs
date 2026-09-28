@@ -209,6 +209,62 @@ test('a hyphenated break shows a hyphen, keeps find and selection clean, and nev
   await page.close();
 });
 
+test('FontSizes tracks computed font size so glue stretch and hyphen width stay current', async () => {
+  const html = '<p data-marxy-s="0">A paragraph with enough words to measure spaces and a hyphen-internationalization point.</p>';
+  const page = await harness.open(html, { width: 400 });
+  const sizes = await page.evaluate(async () => {
+    const [{ FontSizes, measureTokens }, { collectTokens }, { insertHyphens, loadHyphenators }] = await Promise.all([
+      import('/src/measure.ts'),
+      import('/src/runs.ts'),
+      import('/src/hyphenate.ts'),
+    ]);
+    const p = document.querySelector('p');
+    p.style.fontSize = '18px';
+    void p.offsetHeight;
+    const fonts = new FontSizes();
+    const hyphenators = await loadHyphenators();
+    let tokens = collectTokens(p);
+    tokens = insertHyphens(tokens, hyphenators['en-us']);
+    const at18 = measureTokens(tokens, fonts);
+    const font18 = fonts.of(p);
+    const glue18 = at18.find((m) => m.kind === 'space')?.fontSize;
+    const hyphen18 = fonts.hyphen(font18, p);
+    p.style.fontSize = '36px';
+    void p.offsetHeight;
+    const font36 = fonts.of(p);
+    const at36 = measureTokens(tokens, fonts);
+    const glue36 = at36.find((m) => m.kind === 'space')?.fontSize;
+    const hyphen36 = fonts.hyphen(font36, p);
+    return { glue18, glue36, hyphen18, hyphen36, size18: font18.size, size36: font36.size };
+  });
+  assert.equal(sizes.size18, 18);
+  assert.equal(sizes.size36, 36);
+  assert.equal(sizes.glue18, 18);
+  assert.equal(sizes.glue36, 36);
+  assert.ok(sizes.hyphen36 > sizes.hyphen18 * 1.5, `hyphen width should scale: ${sizes.hyphen18} → ${sizes.hyphen36}`);
+  await page.close();
+});
+
+test('relayout after a font-size change matches typesetting at the new size', async () => {
+  const html = '<p data-marxy-s="0" lang="en-us">Hyphenation internationalization responsibility demonstration of words that fill a narrow measure.</p>';
+  const narrow = { width: 300 };
+  const breaks = (page) => page.evaluate(() => [...document.querySelectorAll('p .marxy-lb')].map((n) => n.previousSibling?.textContent?.slice(-8) ?? ''));
+  const setSize = (page, px) => page.evaluate((size) => { document.querySelector('p').style.fontSize = `${size}px`; }, px);
+  const pageDirect = await harness.open(html, narrow);
+  await setSize(pageDirect, 28);
+  await attach(pageDirect);
+  const direct = await breaks(pageDirect);
+  await pageDirect.close();
+  const pageResize = await harness.open(html, narrow);
+  await setSize(pageResize, 14);
+  await attach(pageResize);
+  await setSize(pageResize, 28);
+  await pageResize.evaluate(async () => { window.controller.relayout('resize'); await window.controller.done; });
+  const resized = await breaks(pageResize);
+  assert.deepEqual(resized, direct, 'resize relayout must re-measure at the new font size');
+  await pageResize.close();
+});
+
 test('relayout reverts hang spans so no state accumulates', async () => {
   const html = '<p data-marxy-s="0">“A quoted paragraph long enough that the typesetter will break it and hang the opening quote on the first line and again after a relayout, without leaving a nested hang span behind.”</p>';
   const page = await harness.open(html);
