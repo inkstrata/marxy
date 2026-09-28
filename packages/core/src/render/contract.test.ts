@@ -14,13 +14,13 @@ const files = readdirSync(corpus).filter((file) => file.endsWith('.md')).sort();
 
 /**
  * Node types the §02 table renders to an element of their own. `text`, `softBreak`, `html`,
- * `htmlBlock` and `frontmatter` make none; a tight list item's paragraph makes none (its item's
+ * `htmlBlock` makes none; `frontmatter` makes a `<dl>`; a tight list item's paragraph makes none (its item's
  * `<li>` is the element); a reference to an undefined footnote is set as text.
  */
 const ELEMENT_TYPES: ReadonlySet<string> = new Set([
   'heading', 'paragraph', 'blockquote', 'list', 'listItem', 'codeBlock', 'thematicBreak', 'table',
   'tableRow', 'tableCell', 'mathBlock', 'footnoteDefinition', 'emphasis', 'strong', 'strikethrough',
-  'code', 'link', 'image', 'hardBreak', 'footnoteReference', 'mathInline', 'taskMarker',
+  'code', 'link', 'image', 'hardBreak', 'footnoteReference', 'mathInline', 'taskMarker', 'frontmatter',
 ]);
 
 const key = (src: Source): string => `${src.start}-${src.end}`;
