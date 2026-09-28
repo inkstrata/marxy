@@ -2,10 +2,21 @@
 // source line of every code block, highlighted or not, becomes one `.marxy-line` span so a line that
 // wraps can mark its continuation rows (base.css, ADR-0033). The text nodes, and so `textContent`,
 // copy and find, are unchanged: the newlines stay between the spans.
-import { highlight, type HighlightToken } from '@marxy/core/src/highlight/index.ts';
+import {
+  diffMarkerIndentCh,
+  highlight,
+  lineMetaForHighlight,
+  type HighlightToken,
+} from '@marxy/core/src/highlight/index.ts';
 
 const LANGUAGE_PREFIX = 'language-';
 const LINE = 'marxy-line';
+const ESC = '\u001b';
+const LONG_LINE_THRESHOLD = 1000;
+const LONG_LINE_HEAD = 200;
+const CTRL_CLASS = 'marxy-ctrl';
+const ELIDED_CLASS = 'marxy-elided';
+const OMITTED_CLASS = 'marxy-line-omitted';
 /** Matches base.css `tab-size`: a tab in the leading whitespace advances to the next multiple of 4. */
 const TAB = 4;
 
@@ -27,26 +38,71 @@ function languageFromCode(code: HTMLElement): string | null {
   return null;
 }
 
+function appendTokenText(parent: HTMLElement, text: string): void {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch !== ESC) {
+      parent.append(document.createTextNode(ch));
+      continue;
+    }
+    const span = document.createElement('span');
+    span.className = CTRL_CLASS;
+    span.textContent = ESC;
+    parent.append(span);
+  }
+}
+
+function appendToken(parent: HTMLElement, tok: HighlightToken): void {
+  if (tok.className) {
+    const span = document.createElement('span');
+    span.className = tok.className;
+    appendTokenText(span, tok.text);
+    parent.append(span);
+    return;
+  }
+  if (!tok.scope) {
+    appendTokenText(parent, tok.text);
+    return;
+  }
+  const span = document.createElement('span');
+  span.className = `marxy-tok-${tok.scope}`;
+  appendTokenText(span, tok.text);
+  parent.append(span);
+}
+
 /** Build trusted DOM from token lines; callers attach with `replaceChildren`, never `innerHTML`. */
-export function spansFromTokens(lines: readonly (readonly HighlightToken[])[]): DocumentFragment {
+export function spansFromTokens(
+  lines: readonly (readonly HighlightToken[])[],
+  opts?: { lang?: string | null },
+): DocumentFragment {
+  const lang = opts?.lang ?? null;
+  const meta = lang ? lineMetaForHighlight(lang, lines) : [];
   const frag = document.createDocumentFragment();
   for (let li = 0; li < lines.length; li++) {
     if (li > 0) frag.append(document.createTextNode('\n'));
     // An empty last line is the fence's closing newline, not a row: a span there would add one.
     if (li === lines.length - 1 && lines[li]!.length === 0) break;
     const line = document.createElement('span');
-    line.className = LINE;
-    const indent = indentColumns(lines[li]!.map((t) => t.text).join(''));
+    const lineClass = meta[li]?.lineClass;
+    line.className = lineClass ? `${LINE} ${lineClass}` : LINE;
+    const source = lines[li]!.map((t) => t.text).join('');
+    const markerCh = diffMarkerIndentCh(lineClass);
+    const indent = markerCh ?? indentColumns(source);
     if (indent > 0) line.style.setProperty('--marxy-indent', `${indent}ch`);
-    for (const tok of lines[li]!) {
-      if (!tok.scope) {
-        line.append(document.createTextNode(tok.text));
-        continue;
-      }
-      const span = document.createElement('span');
-      span.className = `marxy-tok-${tok.scope}`;
-      span.textContent = tok.text;
-      line.append(span);
+    if (source.length > LONG_LINE_THRESHOLD) {
+      const head = source.slice(0, LONG_LINE_HEAD);
+      const tail = source.slice(LONG_LINE_HEAD);
+      appendTokenText(line, head);
+      const omitted = document.createElement('span');
+      omitted.className = OMITTED_CLASS;
+      omitted.textContent = tail;
+      line.append(omitted);
+      const elided = document.createElement('span');
+      elided.className = ELIDED_CLASS;
+      elided.textContent = `… ${tail.length.toLocaleString('en-US')} more characters`;
+      line.append(elided);
+    } else {
+      for (const tok of lines[li]!) appendToken(line, tok);
     }
     frag.append(line);
   }
@@ -57,7 +113,8 @@ export function spansFromTokens(lines: readonly (readonly HighlightToken[])[]): 
 export function applyLinesToCode(code: HTMLElement): boolean {
   if (code.dataset.marxyDone !== undefined) return false;
   const lines = (code.textContent ?? '').split('\n');
-  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }]))));
+  const lang = languageFromCode(code);
+  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }])), { lang }));
   code.dataset.marxyDone = 'lines';
   return true;
 }
@@ -111,12 +168,14 @@ export async function applyHighlightToCode(code: HTMLElement): Promise<boolean> 
   const lang = languageFromCode(code);
   if (!lang) return (applyLinesToCode(code), false);
   // Plain lines first, so a long wrapped line is marked even while its colour is on the way.
-  applyLinesToCode(code);
-  const lines = await tokenize(code.textContent ?? '', lang);
-  if (!lines) return false;
-  code.replaceChildren(spansFromTokens(lines));
+  const raw = code.textContent ?? '';
+  const lines = await tokenize(raw, lang);
+  const tokenLines =
+    lines ??
+    raw.split('\n').map((t) => (t === '' ? [] : [{ text: t }]));
+  code.replaceChildren(spansFromTokens(tokenLines, { lang }));
   code.dataset.marxyDone = 'highlight';
-  return true;
+  return Boolean(lines);
 }
 
 /** Every code block but math, fenced or indented, with or without a language. */

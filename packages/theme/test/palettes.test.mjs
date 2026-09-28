@@ -78,6 +78,71 @@ test('MARXY-46: resolveVariantPreference maps config.variant light and auto', ()
   assert.equal(resolveVariantPreference('auto', false), 'light');
 });
 
+function parseHex(hex) {
+  assert.match(hex, /^#[0-9a-f]{6}$/i);
+  return hex.slice(1).match(/../g).map((x) => Number.parseInt(x, 16));
+}
+
+function contrastRgb(fg, bg) {
+  const lum = (c) => {
+    const v = c.map((x) => {
+      const s = x / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  };
+  const [a, b] = [lum(fg), lum(bg)].sort((p, q) => q - p);
+  return (a + 0.05) / (b + 0.05);
+}
+
+function resolveColor(value, table) {
+  const v = value.trim();
+  if (v.startsWith('#')) return v;
+  const m = v.match(/var\((--[\w-]+)\)/);
+  if (m) return resolveColor(table[m[1]] ?? '', table);
+  return v;
+}
+
+test('MARXY-235: every Marxy foreground token is at least 4.5:1 on all four diff tints (both variants, unrounded)', () => {
+  const dark = { ...readDarkTokens(), ...palettes.dark };
+  const light = { ...readLightBlock(), ...palettes.light };
+  const diffTokens = [
+    '--marxy-color-diff-add',
+    '--marxy-color-diff-del',
+    '--marxy-color-diff-add-word',
+    '--marxy-color-diff-del-word',
+  ];
+  const fgTokens = [
+    '--marxy-color-text',
+    '--marxy-color-text-secondary',
+    '--marxy-color-code-text',
+    '--marxy-tok-keyword',
+    '--marxy-tok-string',
+    '--marxy-tok-comment',
+    '--marxy-tok-number',
+    '--marxy-tok-function',
+    '--marxy-tok-type',
+    '--marxy-tok-variable',
+    '--marxy-tok-operator',
+    '--marxy-tok-punctuation',
+    '--marxy-tok-constant',
+    '--marxy-tok-tag',
+    '--marxy-tok-attribute',
+  ];
+  for (const [label, table] of [['dark', dark], ['light', light]]) {
+    for (const bgName of diffTokens) {
+      const bg = parseHex(resolveColor(table[bgName], table));
+      for (const fgName of fgTokens) {
+        const fgRaw = table[fgName];
+        if (!fgRaw || !/^#|var\(/.test(fgRaw)) continue;
+        const fg = parseHex(resolveColor(fgRaw, table));
+        const ratio = contrastRgb(fg, bg);
+        assert.ok(ratio >= 4.5, `${label} ${fgName} on ${bgName}: ${ratio} < 4.5:1`);
+      }
+    }
+  }
+});
+
 test('MARXY-46: committed screenshot baselines exist for light at 960 px (both engines)', () => {
   const stems = corpusStems();
   for (const engine of ['webkit-macos', 'webkit-linux']) {
