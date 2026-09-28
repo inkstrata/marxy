@@ -30,6 +30,8 @@ Creation sites to move to `adoptedStyleSheets`: `packages/theme/src/loader.ts` (
 ## This attempt
 Commit `8e837326` on the story branch is the implementation. Do not rewrite it. The stall was after that commit. Open the pull request and fix only a red gate. `shell-boundary.test.mjs` is in Paths.
 
+- `apps/desktop/test/shell-boundary.test.mjs` — stop pinning the old CSP string. Compare `tauri.conf.json` to `loadConfiguredCsp()` from `scripts/check-csp.mjs`. Commit `8e837326` on this story's branch already does that. Open the pull request from that commit and drop its `docs/plan/jira-issues.csv` hunk. Do not start a fourth attempt.
+
 ## Tests → expected
 | Check | Expect |
 | --- | --- |
