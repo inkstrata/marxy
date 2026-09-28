@@ -1,3 +1,9 @@
+<dl data-marxy-s="0" data-marxy-e="53">
+<dt>title</dt>
+<dd>Every GFM feature</dd>
+<dt>tags</dt>
+<dd>[fixture, gfm]</dd>
+</dl>
 <h1 data-marxy-s="55" data-marxy-e="66">Heading 1</h1>
 <h2 data-marxy-s="67" data-marxy-e="79">Heading 2</h2>
 <h3 data-marxy-s="80" data-marxy-e="93">Heading 3</h3>
