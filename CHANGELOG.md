@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- A theme manifest that declares `variants = []` is no longer accepted silently: the loader warns with the theme name and `theme.toml`, then falls back to the default light and dark variants (MARXY-284)
 - A full-codebase bugcatch pass files eleven stories for defects too large or too risky for a same-day fix: stale typeset font-metric caching across a resize, an unguarded NaN in the ragged line-breaker, baseline-grid drift from an unaccounted margin-collapse, missing hyphenation demerits in the `justif` engine, an empty theme `variants` array passing validation, the shell-api stub shells' hand-duplicated implementations, two file-watcher lifecycle bugs in the Rust shell, `image_size` conflating a real I/O error with "not an image", a silently-disabled live-reload watch, an untested directory assumption in `relativePath`, and a missing containment check on `allow_asset_scope` (MARXY-279)
 - A plan pull request that files new stories is judged by the row it adds, so the cycle can read the paths that row lists instead of treating every file as outside the story (MARXY-291)
 - Live reload now listens for filesystem events on the open document's folder (and on a symlink target's folder when the document is a link) instead of scanning the whole tree every 50 ms, so edits through a symlink show up and an idle Marxy does less work (MARXY-251)
