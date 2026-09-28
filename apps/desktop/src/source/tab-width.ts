@@ -25,7 +25,7 @@ export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell
   };
   const { reconfigureTabSize } = await import('./editor.ts');
   const { EditorView } = await import('@codemirror/view');
-  const dom = document.querySelector('#marxy-source .cm-editor');
+  const dom = document.querySelector<HTMLElement>('#marxy-source .cm-editor');
   const view = dom ? EditorView.findFromDOM(dom) : null;
   if (view) await reconfigureTabSize(view, filePath);
 }

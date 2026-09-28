@@ -54,17 +54,22 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
   const cm = await loadCodeMirror();
   sharedParent = opts.parent;
   const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment });
-  const destroy = built.destroy.bind(built);
-  sharedEditor = {
+  const rawDestroy = built.destroy.bind(built);
+  // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built
+  // and assigned to `sharedEditor`; comparing against `built` (the pre-wrap object) here would
+  // never match `sharedEditor` (always the wrapper), so destroy would never clear the shared
+  // reference and a torn-down editor would look reusable to the next mount (MARXY-239 fix).
+  const wrapper: SourceEditor = {
     ...built,
     destroy() {
-      destroy();
-      if (sharedEditor === built) {
+      rawDestroy();
+      if (sharedEditor === wrapper) {
         sharedEditor = null;
         sharedParent = null;
       }
     },
   };
+  sharedEditor = wrapper;
   return sharedEditor;
 }
 

@@ -25,6 +25,7 @@ export function startDocumentEditingWire(): void {
     marxyHarnessRedo?: () => Promise<void>;
     marxyRunCommand?: (id: string) => Promise<void>;
     marxyRefreshSourceTab?: () => void;
+    marxySourceTabSize?: () => Promise<number | null>;
   };
   if (w.__marxyDocumentWire) return;
   w.__marxyDocumentWire = true;
@@ -52,7 +53,7 @@ export function startDocumentEditingWire(): void {
   };
   w.marxySourceTabSize = async () => {
     const { EditorView } = await import('@codemirror/view');
-    const dom = document.querySelector('#marxy-source .cm-editor');
+    const dom = document.querySelector<HTMLElement>('#marxy-source .cm-editor');
     const view = dom ? EditorView.findFromDOM(dom) : null;
     return view?.state.tabSize ?? null;
   };
