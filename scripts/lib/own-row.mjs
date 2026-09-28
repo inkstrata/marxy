@@ -77,13 +77,42 @@ export function boardEdits(key, { baseCsv = '', headCsv = '', baseDeps = '{}', h
  * If the branch touches only its own story, its own row (as the branch leaves it) governs: that is
  * how an out-of-plan PR brings its row and how a story widens its own Paths. Otherwise the base row
  * governs and the board files are outside the story unless its Paths list them.
+ * A key this branch adds has no base row. The row it brings governs even when the same branch adds
+ * or edits other stories, which is how a planner PR lists the board files in its Paths and is judged
+ * by that list (MARXY-291). A key that already exists cannot widen itself in the same breath as
+ * editing someone else: the base row still governs.
+ *
+ * `baseCsv`/`baseDeps` should be the board where the branch left main (the merge-base), so a branch
+ * behind main is not blamed for every row main changed since (MARXY-273). `tipCsv`, main's board now,
+ * then supplies the governing row when the branch did not edit its own: a planner may have widened
+ * it on main after the branch forked.
  */
 export function reviewBoundary(key, texts) {
   const edits = boardEdits(key, texts);
   const ownOnly = edits.others.length === 0;
+  const tip = texts?.tipCsv == null ? null : parseCsv(texts.tipCsv).find(r => r.Key === key) ?? null;
+  const base = tip ?? edits.before;
   return {
     ...edits,
     ownOnly,
-    story: ownOnly ? (edits.after ?? edits.before) : edits.before,
+    story: ownOnly
+      ? (edits.own ? edits.after : base ?? edits.after)
+      : (edits.added ? edits.after : base),
   };
+}
+
+/**
+ * reviewBoundary for a branch, from its fork point. `show(ref, file)` returns a file's text at a ref
+ * or null; `head` is the branch ref, or a function returning the text of a file as the branch leaves
+ * it (a working tree); `forkPoint` is `git merge-base origin/main <head>`, or null when it could not
+ * be computed, in which case main's tip stands in for it.
+ */
+export function branchBoundary(key, { show, head, forkPoint, main = 'origin/main' }) {
+  const base = forkPoint || main;
+  const at = typeof head === 'function' ? head : f => show(head, f);
+  return reviewBoundary(key, {
+    baseCsv: show(base, BOARD_FILES[0]) ?? '', headCsv: at(BOARD_FILES[0]) ?? '',
+    baseDeps: show(base, BOARD_FILES[1]) || '{}', headDeps: at(BOARD_FILES[1]) || '{}',
+    tipCsv: show(main, BOARD_FILES[0]),
+  });
 }

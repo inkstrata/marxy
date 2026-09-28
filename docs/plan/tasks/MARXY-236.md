@@ -11,6 +11,9 @@ verify: [pnpm precheck, pnpm done MARXY-236]
 
 **Outcome.** Characters a reader cannot see but an agent or compiler obeys are marked where they sit; a link that says one site and goes to another says so.
 
+## This attempt
+Commit `b809d158` on the story branch is the implementation (invisibles and the link-host label together, one edit of `render-html.ts`). Do not split it and do not rewrite it. Open the pull request and fix only a red gate.
+
 ## What is wrong today
 Probe case `bidi-and-tags` (handbook [07](../../research/reader-artifacts/07-trust-safety.md)).
 

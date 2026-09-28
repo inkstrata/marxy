@@ -222,21 +222,97 @@ function contrastRgb(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
-/** §10 check 3. */
+/** Background tokens whose foreground pairs are checked against declared theme values (MARXY-241). */
+const TINT_BACKGROUNDS = [
+  '--marxy-color-bg',
+  '--marxy-color-code-bg',
+  '--marxy-color-selection',
+  '--marxy-color-find',
+  '--marxy-color-find-current',
+  '--marxy-color-notice',
+];
+const TINT_FOREGROUNDS = [
+  '--marxy-color-text',
+  '--marxy-color-text-secondary',
+  '--marxy-color-code-text',
+  '--marxy-tok-keyword',
+  '--marxy-tok-string',
+  '--marxy-tok-comment',
+  '--marxy-tok-number',
+  '--marxy-tok-function',
+  '--marxy-tok-type',
+  '--marxy-tok-variable',
+  '--marxy-tok-operator',
+  '--marxy-tok-punctuation',
+  '--marxy-tok-constant',
+  '--marxy-tok-tag',
+  '--marxy-tok-attribute',
+];
+
+function declaredTintBackgrounds() {
+  const css = [
+    join(root, 'packages/theme/src/tokens.css'),
+    join(root, 'packages/theme/default/theme.css'),
+    join(root, 'packages/theme/src/base.css'),
+  ]
+    .map((p) => readFileSync(p, 'utf8'))
+    .join('\n');
+  const names = new Set(TINT_BACKGROUNDS);
+  for (const m of css.matchAll(/(--marxy-color-diff-[\w-]+)/g)) names.add(m[1]);
+  return [...names];
+}
+
+function minContrastForTintPair(fgToken, bgToken) {
+  if (fgToken === '--marxy-color-text' && bgToken === '--marxy-color-bg') return 7;
+  if (fgToken === '--marxy-color-code-text' && bgToken === '--marxy-color-code-bg') return 7;
+  return 4.5;
+}
+
+function tintPairRules() {
+  const rules = [];
+  for (const bg of declaredTintBackgrounds()) {
+    for (const fg of TINT_FOREGROUNDS) {
+      rules.push({ fg, bg, min: minContrastForTintPair(fg, bg) });
+    }
+  }
+  return rules;
+}
+
+const TINT_PAIR_RULES = tintPairRules();
+
+/** §10 check 3 — every text-bearing computed pair and every declared text-on-tint (MARXY-241). */
 async function checkContrast(page) {
-  const colours = await page.evaluate(() => {
+  return page.evaluate(({ tintRules }) => {
+    const article = document.getElementById('doc');
+    if (!article) return ['contrast: missing #doc'];
     const rgb = (value) => {
       const probe = document.createElement('i');
       probe.style.color = value;
       document.body.append(probe);
-      const out = getComputedStyle(probe).color.match(/[\d.]+/g).slice(0, 3).map(Number);
+      const raw = getComputedStyle(probe).color;
       probe.remove();
-      return out;
+      const parts = raw.match(/[\d.]+/g);
+      if (!parts || parts.length < 3) return null;
+      return parts.slice(0, 3).map(Number);
     };
-    const article = document.getElementById('doc');
-    const p = article.querySelector('p');
-    const caption = article.querySelector('.marxy-caption');
-    const code = article.querySelector('code');
+    const lum = (c) => {
+      const v = c.map((x) => {
+        const s = x / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+    };
+    const contrast = (a, b) => {
+      if (!a || !b) return 0;
+      const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+      return (x + 0.05) / (y + 0.05);
+    };
+    const close = (a, b) =>
+      a &&
+      b &&
+      Math.abs(a[0] - b[0]) < 2 &&
+      Math.abs(a[1] - b[1]) < 2 &&
+      Math.abs(a[2] - b[2]) < 2;
     const bgOf = (el) => {
       let node = el;
       while (node && node !== document.documentElement) {
@@ -246,23 +322,61 @@ async function checkContrast(page) {
       }
       return rgb(getComputedStyle(article).backgroundColor);
     };
-    return {
-      body: p ? { fg: rgb(getComputedStyle(p).color), bg: bgOf(p) } : null,
-      caption: caption ? { fg: rgb(getComputedStyle(caption).color), bg: bgOf(caption) } : null,
-      code: code ? { fg: rgb(getComputedStyle(code).color), bg: bgOf(code) } : null,
-    };
+    const root = getComputedStyle(document.documentElement);
+    const bodyRgb = rgb(getComputedStyle(article).color);
+    const codeRgb = rgb(root.getPropertyValue('--marxy-color-code-text'));
+    const out = [];
+    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+    const seen = new Set();
+    let node;
+    while ((node = walker.nextNode())) {
+      const compact = node.textContent?.replace(/\s+/g, '') ?? '';
+      if (!compact.length) continue;
+      const el = node.parentElement;
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) continue;
+      const fg = rgb(cs.color);
+      const bg = bgOf(el);
+      if (!fg || !bg) continue;
+      const key = `${fg.join(',')}|${bg.join(',')}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const ratio = contrast(fg, bg);
+      const inCode = el.closest('pre, code') !== null;
+      const min = inCode && close(fg, codeRgb) ? 7 : close(fg, bodyRgb) ? 7 : 4.5;
+      if (ratio < min) {
+        out.push(`<${el.tagName.toLowerCase()}> contrast ${ratio} < ${min}:1`);
+      }
+      if (out.length >= 40) break;
+    }
+    for (const { fg, bg, min } of tintRules) {
+      const fgRgb = rgb(root.getPropertyValue(fg));
+      const bgRgb = rgb(root.getPropertyValue(bg));
+      if (!fgRgb || !bgRgb) continue;
+      const ratio = contrast(fgRgb, bgRgb);
+      if (ratio < min) out.push(`${fg} on ${bg} contrast ${ratio} < ${min}:1`);
+    }
+    return out;
+  }, { tintRules: TINT_PAIR_RULES });
+}
+
+/** WCAG 1.4.10 reflow: no page-level horizontal scroll (MARXY-241). */
+async function checkNoHorizontalPageScroll(page) {
+  return page.evaluate(() => {
+    const doc = document.documentElement;
+    const sw = Math.max(doc.scrollWidth, document.body.scrollWidth);
+    const cw = doc.clientWidth;
+    return sw > cw + 1 ? [`horizontal scroll ${sw}px > ${cw}px viewport`] : [];
   });
-  const out = [];
-  if (colours.body && contrastRgb(colours.body.fg, colours.body.bg) < 7) {
-    out.push(`body contrast ${contrastRgb(colours.body.fg, colours.body.bg).toFixed(2)} < 7:1`);
-  }
-  if (colours.caption && contrastRgb(colours.caption.fg, colours.caption.bg) < 4.5) {
-    out.push(`caption contrast ${contrastRgb(colours.caption.fg, colours.caption.bg).toFixed(2)} < 4.5:1`);
-  }
-  if (colours.code && contrastRgb(colours.code.fg, colours.code.bg) < 4.5) {
-    out.push(`code contrast ${contrastRgb(colours.code.fg, colours.code.bg).toFixed(2)} < 4.5:1`);
-  }
-  return out;
+}
+
+function themeFixtureNames() {
+  const dir = join(root, 'fixtures/themes');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((name) => existsSync(join(dir, name, 'theme.css')))
+    .sort();
 }
 
 /**
@@ -634,8 +748,18 @@ async function selftest(browser, origin) {
       run: checkMeasure,
     },
     {
-      name: 'contrast',
-      html: crafted('<p style="color:#a0a0a0">Grey</p>', '.marxy-article{color:#a0a0a0;background:#fff}'),
+      name: 'contrast-link',
+      html: crafted('<p><a href="#">Low</a></p>', '.marxy-article{background:#fff;color:#111}a{color:#9a9a9a}'),
+      run: checkContrast,
+    },
+    {
+      name: 'contrast-kbd',
+      html: crafted('<p><kbd>K</kbd></p>', '.marxy-article{background:#fff;color:#111}kbd{color:#aaa;border-color:#aaa;background:#fff}'),
+      run: checkContrast,
+    },
+    {
+      name: 'contrast-th',
+      html: crafted('<table><tr><th>Head</th><td>x</td></tr></table>', '.marxy-article{background:#fff;color:#111}th{color:#aaa}'),
       run: checkContrast,
     },
     {
@@ -839,7 +963,7 @@ async function main() {
       `selftest: optical ~5% protrusion (margin/width=${opticalSelftest.marginOverWidth.toFixed(3)}, rect.width=${opticalSelftest.rectWidth.toFixed(2)}px) fails pre-fix (${opticalSelftest.preFixProblems.join('; ')}) and passes head (${opticalSelftest.headProblems.length ? opticalSelftest.headProblems.join('; ') : '[]'})`,
     );
     notes.push(
-      'selftest: grid, measure, contrast, cls, rag, chrome, hierarchy, code-voice, hanging-quote each fail on a crafted page; optical protrusion passes',
+      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome, hierarchy, code-voice, hanging-quote each fail on a crafted page; optical protrusion passes',
     );
     if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
       throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
@@ -898,6 +1022,63 @@ async function main() {
       });
       for (const problems of batched) fails.push(...problems);
       notes.push(`corpus: ${tasks.length} render(s) = ${files.length} file(s) × ${combos.length} combo(s), ${WORKERS} page(s) at a time`);
+
+      const themeTasks = themeFixtureNames().flatMap((themeName) => {
+        const themeCss = readFileSync(join(root, 'fixtures/themes', themeName, 'theme.css'), 'utf8');
+        const variants = VARIANT_FILTER ? VARIANTS.filter((v) => v === VARIANT_FILTER) : VARIANTS;
+        return variants.flatMap((variant) =>
+          files.map((file) => ({
+            file,
+            variant,
+            themeName,
+            themeCss,
+            source: readFileSync(join(corpusDir, file), 'utf8'),
+          })),
+        );
+      });
+      const themeFails = await pool(themeTasks, async ({ file, variant, themeName, themeCss, source }) => {
+        const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+        try {
+          await renderCorpus(page, harness.origin, source, { variant, width: 960, size: 20, theme: themeCss });
+          const problems = await checkContrast(page);
+          return problems.map((p) => `${file} theme/${themeName} ${variant}: ${p}`);
+        } catch (e) {
+          return [`${file} theme/${themeName} ${variant}: marxyRender threw: ${e.message}`];
+        } finally {
+          await page.close();
+        }
+      });
+      fails.push(...themeFails.flat());
+      if (themeTasks.length) notes.push(`contrast: ${themeTasks.length} theme fixture render(s)`);
+
+      const reflowModes = [
+        { tag: '320px', width: 320, height: 900, emulate: {} },
+        // WCAG 1.4.10: 400 % zoom on a 1280 px window is 320 CSS px of reflow width.
+        { tag: '400% zoom', width: 320, height: 900, emulate: {} },
+        { tag: 'forced-colors', width: 960, height: 900, emulate: { forcedColors: 'active' }, zoom: null },
+        { tag: 'prefers-contrast: more', width: 960, height: 900, emulate: { contrast: 'more' }, zoom: null },
+        { tag: 'prefers-reduced-motion: reduce', width: 960, height: 900, emulate: { reducedMotion: 'reduce' }, zoom: null },
+      ];
+      const reflowVariants = VARIANT_FILTER ? VARIANTS.filter((v) => v === VARIANT_FILTER) : ['dark'];
+      const reflowTasks = files.flatMap((file) => {
+        const source = readFileSync(join(corpusDir, file), 'utf8');
+        return reflowModes.flatMap((mode) => reflowVariants.map((variant) => ({ file, source, mode, variant })));
+      });
+      const reflowFails = await pool(reflowTasks, async ({ file, source, mode, variant }) => {
+        const page = await browser.newPage({ viewport: { width: mode.width, height: mode.height } });
+        try {
+          if (Object.keys(mode.emulate).length) await page.emulateMedia(mode.emulate);
+          await renderCorpus(page, harness.origin, source, { variant, width: mode.width, size: 20 });
+          const problems = await checkNoHorizontalPageScroll(page);
+          return problems.map((p) => `${file} ${mode.tag} ${variant}: ${p}`);
+        } catch (e) {
+          return [`${file} ${mode.tag} ${variant}: marxyRender threw: ${e.message}`];
+        } finally {
+          await page.close();
+        }
+      });
+      fails.push(...reflowFails.flat());
+      notes.push(`reflow: ${reflowTasks.length} render(s) at 320 px, 400 % zoom and three media preferences`);
 
     if (UPDATE || created) {
       fails.push('baseline created; add a queue entry');

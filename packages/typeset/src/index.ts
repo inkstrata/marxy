@@ -9,7 +9,7 @@ import { applyHang } from './hang.ts';
 import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
 import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
 import { FontSizes, measureTokens } from './measure.ts';
-import { DEFAULT_RAGGED, breakRagged } from './ragged.ts';
+import { DEFAULT_RAGGED, breakRagged, type RaggedSettings } from './ragged.ts';
 import { insertSlashBreaks } from './slash-break.ts';
 import { collectTokens, type Token } from './runs.ts';
 import { idleScheduler, type Scheduler } from './scheduler.ts';
@@ -100,7 +100,13 @@ interface Plan extends Candidate {
 export function attach(article: HTMLElement, opts: TypesetOptions): TypesetController {
   const scheduler = opts.scheduler ?? idleScheduler();
   const fonts = new FontSizes();
-  const settings = { ...DEFAULT_BREAK, glueStretchEm: opts.glueStretchEm };
+  // justif/core hyphen demerits follow the same TeX costs as the ragged breaker (ADR-0033).
+  const hyphenCosts = (r: RaggedSettings): Pick<typeof DEFAULT_BREAK, 'hyphenPenalty' | 'doubleHyphenDemerits' | 'finalHyphenDemerits'> => ({
+    hyphenPenalty: r.hyphenPenalty,
+    doubleHyphenDemerits: r.doubleDashDemerits,
+    finalHyphenDemerits: r.finalHyphenDemerits,
+  });
+  const settings = { ...DEFAULT_BREAK, glueStretchEm: opts.glueStretchEm, ...hyphenCosts(DEFAULT_RAGGED) };
   const ragged = { ...DEFAULT_RAGGED, stretchEm: opts.raggedStretchEm ?? DEFAULT_RAGGED.stretchEm };
   const engine = opts.engine ?? 'ragged';
   const hyphenateOn = opts.hyphenate !== false;
@@ -121,6 +127,15 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   };
 
   const killed = (): boolean => getComputedStyle(article).getPropertyValue('--marxy-typeset').trim() === 'none';
+
+  /** Stops background work when the theme flips the kill switch without relayout/destroy. */
+  const abortIfKilled = (): boolean => {
+    if (!killed()) return false;
+    observer?.disconnect();
+    queue = [];
+    resolveDone();
+    return true;
+  };
 
   /** Breakpoints for a measured paragraph, or null when a line cannot fit. */
   const choose = (c: Candidate, measured: readonly Measured[], width: number): readonly number[] | null => {
@@ -253,8 +268,9 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       observer?.disconnect();
       observer = new IntersectionObserver(
         (entries) => {
+          if (mine !== generation || abortIfKilled()) return;
           const now = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement).filter((p) => queue.includes(p));
-          if (now.length === 0 || mine !== generation) return;
+          if (now.length === 0) return;
           queue = queue.filter((p) => !now.includes(p));
           setBatch(now);
           opts.onPass?.('visible');
@@ -264,7 +280,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       for (const p of queue) observer.observe(p);
     }
     const step = (deadline: () => number): void => {
-      if (mine !== generation) return;
+      if (mine !== generation || abortIfKilled()) return;
       const batch: HTMLElement[] = [];
       // Paragraphs cost roughly the same; take a few at a time while the chunk has budget left.
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
@@ -298,6 +314,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     stats,
     relayout(reason) {
       restoreAll();
+      // Full flush on face/theme reload; resize re-reads computed size lazily in FontSizes.of (MARXY-280).
       if (reason === 'fonts' || reason === 'theme') fonts.reset();
       run();
     },

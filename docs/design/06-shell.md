@@ -79,7 +79,8 @@ for its fonts. Scopes are not persisted (a fresh launch re-allows when it re-ope
 ```
 default-src 'none';
 script-src 'self';
-style-src 'self' 'unsafe-inline';
+style-src 'self';
+style-src-attr 'unsafe-inline';
 img-src 'self' asset: http://asset.localhost marxy-remote: http://marxy-remote.localhost data:;
 font-src 'self' asset: http://asset.localhost data:;
 connect-src ipc: http://ipc.localhost;
@@ -91,8 +92,13 @@ No `http:`/`https:` source appears, ever (ADR-0027); remote images arrive throug
 string: parse the policy, fail on `*`, on any `http(s):` source other than the two
 `*.localhost` forms, and on any directive not in this list.
 
-`'unsafe-inline'` for styles is required by the theme injection and by the typesetter's inline
-margins; scripts are never inline. `data:` for images covers a markdown `![](data:…)` that the
+A release build injects a per-load style nonce, and a nonce makes WebKit ignore
+`'unsafe-inline'` on `style-src`. Runtime `<style>` elements (theme, palette, hyphenation,
+KaTeX's sheet) move to `adoptedStyleSheets`, which apply under `style-src 'self'`. Markup
+`style` attributes, which KaTeX uses for layout, need `style-src-attr 'unsafe-inline'`.
+`style-src` itself does not carry `'unsafe-inline'` once the nonce is present (MARXY-250).
+`scripts/check-csp.mjs` fails a planted `document.createElement('style')`. Scripts are never
+inline. `data:` for images covers a markdown `![](data:…)` that the
 sanitiser's subresource rule admits only when the allow-list is widened (MARXY-44); by default
 `img-src` is moot because the sanitiser removed the element.
 
@@ -105,6 +111,16 @@ plus each custom command (Tauri 2 requires `allow-<command>` entries for command
 the app when using the permission system; generate them with the `tauri` CLI's permission
 autogen). Nothing else. `fs` plugin is **not** used; file access goes only through our commands
 so the audit surface is the table above.
+
+**Native menu (macOS, MARXY-184).** `main.rs` builds and sets a `tauri::menu::Menu` from
+`.setup(...)`, entirely in Rust: no capability entry is added for it because a capability gates
+the webview's IPC calls into Rust, and the webview never calls into the menu. "Open File…" opens
+`tauri-plugin-dialog`'s native picker the same way, from the menu's own event handler
+(`app.dialog().file().pick_file(...)`) — again no webview call, so no `dialog:*` capability is
+needed either; the `dialog:allow-open` line above stays reserved for MARXY-49's webview-facing
+`openDialog` command, a separate thing. The menu is macOS-only (`#[cfg(target_os = "macos")]`): a
+visible menu bar on Linux/Windows is in-window chrome, which "chrome at rest is zero" forbids: see
+the follow-up task drafted for Linux/Windows `openDialog` menu coverage.
 
 ## Single instance and second launches
 

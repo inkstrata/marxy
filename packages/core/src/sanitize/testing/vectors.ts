@@ -519,7 +519,7 @@ export const VECTORS: readonly Vector[] = [
     check: (html) => {
       const forged = attributesOf(html).filter(
         (attribute) => attribute.name.startsWith('data-marxy-') &&
-          attribute.name !== `data-marxy-${'remote'}` &&
+          attribute.name !== 'data-marxy-remote' &&
           (attribute.decoded === FORGED_END || !PROVENANCE_NAMES.includes(attribute.name)),
       );
       if (forged.length > 0) {
@@ -550,6 +550,10 @@ export const VECTORS: readonly Vector[] = [
         if (/^marxy-/i.test(attribute.decoded)) {
           fail('reserved-id', `${attribute.element}[${attribute.name}] kept a reserved prefix`);
         }
+        const lower = attribute.decoded.toLowerCase();
+        if (['cookie', 'forms', 'location'].includes(lower)) {
+          fail('reserved-id', `${attribute.element}[${attribute.name}] shadows a global`);
+        }
       }
     },
   },
@@ -560,7 +564,7 @@ export const VECTORS: readonly Vector[] = [
     probeHtml: '<img data-marxy-remote="https://evil.example/x.png" alt="forged">',
     check: (html) => {
       for (const attribute of attributesOf(html)) {
-        if (attribute.name !== `data-marxy-${'remote'}`) continue;
+        if (attribute.name !== 'data-marxy-remote') continue;
         if (attribute.decoded === 'https://evil.example/x.png') {
           fail('forged-remote', 'author-written data-marxy-remote survived');
         }

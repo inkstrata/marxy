@@ -6,6 +6,7 @@ import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
+import type { IndexEntry } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
@@ -17,7 +18,8 @@ import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
 import { startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
-import { runDeferredStartup, whenIdle } from './startup/idle-work.ts';
+import { type ApplyImagesContext } from './render/images.ts';
+import { type DeferredStartupContext, runDeferredStartup, whenIdle } from './startup/idle-work.ts';
 import { currentPosition, restoreScrollToPosition } from './position/index.ts';
 import { defaultModeForPath } from './source/default-mode.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
@@ -36,7 +38,10 @@ interface MountedSourceEditor {
 }
 
 /** The Phase 0 shell surface: frozen Shell members tauri.ts already implements, plus startup extras. */
-export type AppShell = Pick<Shell, 'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks'> & {
+export type AppShell = Pick<
+  Shell,
+  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir'
+> & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
@@ -292,6 +297,24 @@ function renderEvidence(doc: HTMLElement): RenderEvidence {
 
 /** The arguments this launch was given, kept so the error path can honour the flag too. */
 let launchArgs: readonly string[] = [];
+
+/** Delivers idle-built index entries to whoever mounted the palette (main.ts). */
+let deliverIndex: ((entries: readonly IndexEntry[]) => void) | undefined;
+
+function deferredStartupContext(
+  file: string,
+  doc: HTMLElement,
+  imageCtx: Omit<ApplyImagesContext, 'documentPath' | 'documentDir' | 'imageRoot'>,
+): DeferredStartupContext {
+  return {
+    shell,
+    file,
+    doc,
+    imageCtx,
+    onIndexLoaded: deliverIndex,
+    openedBytes: documentBuffer?.bytes,
+  };
+}
 
 /** The shell this launch is using; set by startApp, never imported from tauri.ts. */
 let shell: AppShell;
@@ -637,7 +660,7 @@ function rerenderFromBuffer(doc: HTMLElement): void {
   snap(doc);
   startTypeset(doc);
   void whenIdle(() =>
-    runDeferredStartup({ shell, file, doc, imageCtx: { shell, scopedRoots: scopedAssetRoots } }),
+    runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots })),
   );
 }
 
@@ -679,12 +702,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
   await typesetDocument(doc);
   await shell.mark('position_restored', Date.now());
   await whenIdle(async () => {
-    await runDeferredStartup({
-      shell,
-      file,
-      doc,
-      imageCtx: { shell, scopedRoots: scopedAssetRoots },
-    });
+    await runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }));
     const themeDir = await themeDirFromConfig(shell);
     await restartUserTheme(themeDir);
   });
@@ -841,9 +859,14 @@ async function boot(): Promise<void> {
  */
 export async function startApp(
   injected: AppShell,
-  opts?: { argv?: readonly string[]; pieces?: readonly PieceSource[] },
+  opts?: {
+    argv?: readonly string[];
+    pieces?: readonly PieceSource[];
+    onIndexLoaded?: (entries: readonly IndexEntry[]) => void;
+  },
 ): Promise<AppHandle> {
   shell = injected;
+  deliverIndex = opts?.onIndexLoaded;
   launchArgs = opts?.argv ? [...opts.argv] : [];
   frontispiecePieces = opts?.pieces ?? null;
   injected.onOpenFiles?.((paths) => {

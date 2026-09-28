@@ -7,8 +7,8 @@
   "description": "The desktop shell (Tauri) and app UI.",
   "scripts": {
     "dev": "tauri dev",
-    "build": "vite build && tauri build --no-bundle && node scripts/smoke-cli-open.mjs",
-    "bundle": "vite build && tauri build",
+    "build": "vite build && tauri build --no-bundle -- --locked && node scripts/smoke-cli-open.mjs",
+    "bundle": "vite build && tauri build -- --locked",
     "build:web": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",

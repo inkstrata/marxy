@@ -115,5 +115,5 @@ test('the committed tree is green and the snapshot carries no values', () => {
   }
   const run = spawnSync(process.execPath, ['scripts/check-tokens.mjs'], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr + run.stdout);
-  assert.match(run.stdout, /tokens-contract ok \(51 tokens\)/);
+  assert.match(run.stdout, /tokens-contract ok \(55 tokens\)/);
 });

@@ -81,9 +81,9 @@ test('MARXY-96: reserved marxy- ids go on islands; renderer footnote ids stay', 
   assert.equal(clean('<a id="marxy-fnref-1">x</a>'), '<a>x</a>');
   assert.equal(clean('<a name="MARXY-x">x</a>'), '<a>x</a>');
   const footnote = sanitizeHtml(
-    '<sup><a href="#marxy-fn-1" id="marxy-fnref-1" data-marxy-s="1" data-marxy-e="2">1</a></sup>',
-    DEFAULT_POLICY,
-    { provenanceNames: { start: 'data-marxy-s', end: 'data-marxy-e' } },
+    '<sup><a href="#marxy-fn-1" id="marxy-fnref-1" data-marxy-deadbeef-s="1" data-marxy-deadbeef-e="2">1</a></sup>',
+    withProvenance(DEFAULT_POLICY, { start: 'data-marxy-deadbeef-s', end: 'data-marxy-deadbeef-e' }),
+    { provenanceNames: { start: 'data-marxy-deadbeef-s', end: 'data-marxy-deadbeef-e' } },
   );
   assert.match(footnote.html, /id="marxy-fnref-1"/);
 });

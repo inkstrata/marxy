@@ -1,7 +1,7 @@
 // A branch may edit the board for its own story and no other (MARXY-190).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boardEdits, reviewBoundary } from './own-row.mjs';
+import { boardEdits, reviewBoundary, branchBoundary } from './own-row.mjs';
 
 const HEAD = 'Key,Type,Summary,Epic,Parent,Labels,Paths,Description,Acceptance\n';
 const row = (key, paths, summary = 's') => `${key},Story,${summary},,MARXY-4,ops,"${paths}",d,a\n`;
@@ -30,6 +30,20 @@ test('widening its own Paths is its own edit, and the widened row governs', () =
   assert.equal(e.ownOnly, true);
   assert.deepEqual(e.widened, ['b']);
   assert.equal(e.story.Paths, 'a, b');
+});
+
+test('a new key that also adds another story is judged by the row it brings', () => {
+  const e = reviewBoundary('MARXY-9', {
+    baseCsv: HEAD + row('MARXY-1', 'a'),
+    headCsv: HEAD + row('MARXY-1', 'a') + row('MARXY-9', 'docs/plan/jira-issues.csv, docs/plan/tasks') + row('MARXY-10', 'x'),
+    baseDeps: deps({ ops: ['MARXY-1'] }, { 'MARXY-1': [] }),
+    headDeps: deps({ ops: ['MARXY-1', 'MARXY-9', 'MARXY-10'] }, { 'MARXY-1': [], 'MARXY-9': [], 'MARXY-10': [] }),
+  });
+  assert.equal(e.ownOnly, false);
+  assert.equal(e.added, true);
+  assert.deepEqual(e.others, ['MARXY-10']);
+  assert.equal(e.story.Key, 'MARXY-9');
+  assert.equal(e.story.Paths, 'docs/plan/jira-issues.csv, docs/plan/tasks');
 });
 
 test("editing another story's row is not allowed, and the base row governs", () => {
@@ -62,4 +76,32 @@ test('re-quoting a cell or reordering a phase list is not an edit', () => {
     headDeps: deps({ ops: ['MARXY-3', 'MARXY-2'] }),
   });
   assert.deepEqual(e.touched, []);
+});
+
+// 2026-09-27: PRs behind main read "jira-issues.csv (edits MARXY-263, MARXY-264, MARXY-265)" for
+// rows only main had changed, and the list grew with every merge (MARXY-273).
+test('a branch behind main is judged from its fork point, by the row main has now', () => {
+  const at = {
+    fork: { csv: HEAD + row('MARXY-1', 'a') + row('MARXY-2', 'x'), deps: deps({ ops: ['MARXY-1', 'MARXY-2'] }) },
+    // Since the fork, main edited MARXY-2, added MARXY-3, and the planner widened MARXY-1.
+    'origin/main': {
+      csv: HEAD + row('MARXY-1', 'a, b') + row('MARXY-2', 'x, y') + row('MARXY-3', 'z'),
+      deps: deps({ ops: ['MARXY-1', 'MARXY-2', 'MARXY-3'] }),
+    },
+    branch: { csv: HEAD + row('MARXY-1', 'a') + row('MARXY-2', 'x'), deps: deps({ ops: ['MARXY-1', 'MARXY-2'] }) },
+  };
+  const show = (ref, f) => (f.endsWith('.csv') ? at[ref]?.csv : at[ref]?.deps) ?? null;
+  const e = branchBoundary('MARXY-1', { show, head: 'branch', forkPoint: 'fork' });
+  assert.equal(e.ownOnly, true);
+  assert.deepEqual(e.others, []);
+  assert.equal(e.story.Paths, 'a, b', "main's widened row governs");
+  // Measured from main's tip instead, the same branch "edits" two stories it never touched.
+  const tip = branchBoundary('MARXY-1', { show, head: 'branch', forkPoint: null });
+  assert.deepEqual(tip.others.sort(), ['MARXY-2', 'MARXY-3']);
+  // A working tree is read through a function; its own widening still governs.
+  const wt = branchBoundary('MARXY-1', {
+    show, forkPoint: 'fork', head: f => (f.endsWith('.csv') ? HEAD + row('MARXY-1', 'a, c') + row('MARXY-2', 'x') : at.fork.deps),
+  });
+  assert.equal(wt.ownOnly, true);
+  assert.equal(wt.story.Paths, 'a, c');
 });
