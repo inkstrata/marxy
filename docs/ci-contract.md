@@ -99,7 +99,11 @@ that does not match `package.json` fails every one of them before a single test 
 Allowed outside a story's paths without widening anything: `CHANGELOG.md`,
 `docs/taste-review/queue.md`, lockfiles, the story's own task card and result file, plan deltas,
 and the story's **own** row in `docs/plan/jira-issues.csv` and entry in `orchestration/deps.json`
-(`scripts/lib/own-row.mjs`; the branch is then judged by its row as it leaves it).
+(`scripts/lib/own-row.mjs`; the branch is then judged by its row as it leaves it). A planner
+pull request also adds or edits other rows. There is no row for it on main yet, so the cycle
+judges it by the row that pull request adds — the one whose Paths list the board files
+(MARXY-291). A story that already has a row on main, and edits someone else's, is still judged
+by the row on main.
 
 `check-story --strict` reads the key from the branch name. On a detached CI checkout it falls
 back to `GITHUB_HEAD_REF` then `GITHUB_REF_NAME`. **A branch with no `MARXY-nnn` in its name
