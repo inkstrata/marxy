@@ -167,6 +167,8 @@
     "MARXY-NEW-desktop-image-size-error-visibility": "MARXY-287",
     "MARXY-NEW-desktop-live-reload-silent-failure": "MARXY-288",
     "MARXY-NEW-core-relative-path-file-vs-dir": "MARXY-289",
-    "MARXY-NEW-desktop-asset-scope-containment": "MARXY-293"
+    "MARXY-NEW-desktop-asset-scope-containment": "MARXY-293",
+    "MARXY-NEW-gate-cards-files-section-end-of-card-regex": "MARXY-311",
+    "MARXY-NEW-orchestration-done-stale-status-on-rerun": "MARXY-312"
   }
 }
