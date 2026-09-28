@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Source mode shows line numbers for code files (with a palette toggle), folding, visible control characters, tab width from `.editorconfig`, and no ligatures in the editor; long paths in Rendered mode break after a slash when they would otherwise overflow (MARXY-239)
 - The fleet no longer dispatches a story whose pull request already merged on main: the cycle reads squash subjects once, settles missing or todo rows as done, and ready refuses the key by name (MARXY-213)
 - A straight quote that follows an em space, no-break space or thin space now curls open, not closed, so an indented line of verse begins with “ rather than ” (MARXY-258)
 - Opening Marxy with no document now shows one passage from the Commonplace, chosen at random each launch and set like a page of a book: verse keeps every line and indent with turned-over lines hung, two languages face each other as a centred pair on a wide window, and the colophon sits small and quiet beneath, never hyphenated. Opening any file replaces it; until the Commonplace ships, the window keeps its one-line hint (MARXY-257)

@@ -26,7 +26,7 @@ export function marxyCodeMirrorTheme(): Extension {
         fontFamily: mono,
         fontSize: size,
       },
-      '.cm-content': { caretColor: accent },
+      '.cm-content': { caretColor: accent, fontVariantLigatures: 'none' },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: accent },
       '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
         backgroundColor: `${selection} !important`,

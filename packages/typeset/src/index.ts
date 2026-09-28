@@ -10,6 +10,7 @@ import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from 
 import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
 import { FontSizes, measureTokens } from './measure.ts';
 import { DEFAULT_RAGGED, breakRagged } from './ragged.ts';
+import { insertSlashBreaks } from './slash-break.ts';
 import { collectTokens, type Token } from './runs.ts';
 import { idleScheduler, type Scheduler } from './scheduler.ts';
 
@@ -159,19 +160,25 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const candidates = paragraphs.map(candidate).filter((x): x is Candidate => x !== null);
     const plans: Plan[] = [];
     for (const c of candidates) {
-      const measured = measureTokens(c.tokens, fonts);
+      let tokens = c.tokens;
+      let measured = measureTokens(tokens, fonts);
       let natural = 0;
       for (const m of measured) if (m.kind === 'piece' || m.kind === 'space') natural += m.width;
       if (natural <= c.width) {
         stats.short++;
         continue;
       }
-      const broken = choose(c, measured, c.width);
+      let broken = choose({ ...c, tokens }, measured, c.width);
+      if (broken === null) {
+        tokens = insertSlashBreaks(c.tokens);
+        measured = measureTokens(tokens, fonts);
+        broken = choose({ ...c, tokens }, measured, c.width);
+      }
       if (broken === null) {
         fallback('overfull');
         continue;
       }
-      plans.push({ ...c, measured, after: broken });
+      plans.push({ ...c, tokens, measured, after: broken });
     }
     for (const { p, tokens, after } of plans) applyBreaks(p, tokens, after);
     // Positions are good to about a pixel, so a line the breaker filled to the edge can paint a
