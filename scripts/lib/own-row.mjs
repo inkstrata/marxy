@@ -77,6 +77,10 @@ export function boardEdits(key, { baseCsv = '', headCsv = '', baseDeps = '{}', h
  * If the branch touches only its own story, its own row (as the branch leaves it) governs: that is
  * how an out-of-plan PR brings its row and how a story widens its own Paths. Otherwise the base row
  * governs and the board files are outside the story unless its Paths list them.
+ * A key this branch adds has no base row. The row it brings governs even when the same branch adds
+ * or edits other stories, which is how a planner PR lists the board files in its Paths and is judged
+ * by that list (MARXY-291). A key that already exists cannot widen itself in the same breath as
+ * editing someone else: the base row still governs.
  *
  * `baseCsv`/`baseDeps` should be the board where the branch left main (the merge-base), so a branch
  * behind main is not blamed for every row main changed since (MARXY-273). `tipCsv`, main's board now,
@@ -91,7 +95,9 @@ export function reviewBoundary(key, texts) {
   return {
     ...edits,
     ownOnly,
-    story: ownOnly ? (edits.own ? edits.after : base ?? edits.after) : base,
+    story: ownOnly
+      ? (edits.own ? edits.after : base ?? edits.after)
+      : (edits.added ? edits.after : base),
   };
 }
 
