@@ -68,3 +68,20 @@ test('a table header with a comment, an array of tables and a multi-line string 
   assert.equal(set('[[x]]\ntheme = 1\n'), 'theme = "y"\n[[x]]\ntheme = 1\n');
   assert.equal(set('note = """\ntheme = 1\n"""\n'), 'note = """\ntheme = 1\n"""\ntheme = "y"\n');
 });
+
+test('a multi-line array value is replaced whole, not just its opening line', () => {
+  assert.equal(
+    set('name = "x"\ntheme = [\n  "old"\n]\nsize = 20\n'),
+    'name = "x"\ntheme = "y"\nsize = 20\n',
+  );
+  // A bracket inside a quoted array element does not close the array early.
+  assert.equal(
+    set('theme = [\n  "a]b",\n  "c",\n]\nsize = 20\n'),
+    'theme = "y"\nsize = 20\n',
+  );
+  // A trailing comment on the array's closing line is kept, not one on its opening line.
+  assert.equal(
+    set('theme = [ # start\n  "old",\n] # end\n'),
+    'theme = "y" # end\n',
+  );
+});

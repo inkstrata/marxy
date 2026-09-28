@@ -158,6 +158,24 @@ function commentStart(line: string, from: number): number {
   return -1;
 }
 
+/** `[`/`]` depth change from `from` to the line's end (or its comment), outside any string. A TOML
+ *  array value can span lines; this is how far past `found` the value actually runs. */
+function bracketDepthDelta(line: string, from: number): number {
+  let quote: string | null = null;
+  let depth = 0;
+  for (let i = from; i < line.length; i += 1) {
+    const c = line[i];
+    if (quote) {
+      if (c === '\\' && quote === '"') i += 1;
+      else if (c === quote) quote = null;
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === '#') break;
+    else if (c === '[') depth += 1;
+    else if (c === ']') depth -= 1;
+  }
+  return depth;
+}
+
 const MULTILINE = ['"""', "'''"];
 
 /**
@@ -193,9 +211,18 @@ export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string
   if (found >= 0) {
     const line = lines[found]!.content;
     const head = keyLine.exec(line)![1]!;
-    const hash = commentStart(line, head.length);
-    const comment = hash < 0 ? '' : ` ${line.slice(hash)}`;
-    lines[found]!.content = `${head}${tomlValue}${comment}`;
+    // The old value may be a TOML array spanning several lines; every line it occupies is replaced
+    // together, or the array's own lines would be left behind as orphaned, syntactically broken text.
+    let depth = bracketDepthDelta(line, head.length);
+    let last = found;
+    while (depth > 0 && last + 1 < lines.length) {
+      last += 1;
+      depth += bracketDepthDelta(lines[last]!.content, 0);
+    }
+    const lastLine = lines[last]!.content;
+    const hash = commentStart(lastLine, last === found ? head.length : 0);
+    const comment = hash < 0 ? '' : ` ${lastLine.slice(hash)}`;
+    lines.splice(found, last - found + 1, { content: `${head}${tomlValue}${comment}`, ending: lines[last]!.ending });
   } else {
     const entry: Line = { content: `${key} = ${tomlValue}`, ending: eol };
     if (firstTable >= 0) lines.splice(firstTable, 0, entry);
