@@ -291,6 +291,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     stats,
     relayout(reason) {
       restoreAll();
+      // Full flush on face/theme reload; resize re-reads computed size lazily in FontSizes.of (MARXY-280).
       if (reason === 'fonts' || reason === 'theme') fonts.reset();
       run();
     },
