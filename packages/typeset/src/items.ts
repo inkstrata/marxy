@@ -15,10 +15,23 @@ export type Measured =
 export interface BreakSettings {
   readonly glueStretchEm: number;
   readonly dashPenalty: number;
+  /** TeX \\hyphenpenalty on automatic hyphenation points (ADR-0033; matches ragged.ts). */
+  readonly hyphenPenalty: number;
   readonly tolerance: number;
+  /** TeX \\doublehyphendemerits (ADR-0033: 3,000 in ragged.ts). */
+  readonly doubleHyphenDemerits: number;
+  /** TeX \\finalhyphendemerits (ADR-0033: 5,000 in ragged.ts). */
+  readonly finalHyphenDemerits: number;
 }
 
-export const DEFAULT_BREAK: BreakSettings = { glueStretchEm: 0.6, dashPenalty: 50, tolerance: 200 };
+export const DEFAULT_BREAK: BreakSettings = {
+  glueStretchEm: 0.6,
+  dashPenalty: 50,
+  hyphenPenalty: 50,
+  tolerance: 200,
+  doubleHyphenDemerits: 3000,
+  finalHyphenDemerits: 5000,
+};
 
 export interface Broken {
   /** Indices into the measured tokens after which a line ends; excludes the paragraph's end. */
@@ -46,7 +59,7 @@ export function breakTokens(tokens: readonly Measured[], measure: number, settin
       counts.penalty++;
       items.push({
         type: ItemType.Penalty,
-        penalty: settings.dashPenalty,
+        penalty: settings.hyphenPenalty,
         width: token.width,
         flagged: true,
         hyphen: true,
@@ -61,7 +74,12 @@ export function breakTokens(tokens: readonly Measured[], measure: number, settin
   });
   items.push({ type: ItemType.Glue, width: 0, stretch: 0, stretchFil: 1, shrink: 0, run: 0 } as Item);
   items.push({ type: ItemType.Penalty, penalty: -INF_PENALTY, width: 0, flagged: false, hyphen: false, rp: 0, run: 0 } as Item);
-  const result = breakParagraph(withSums(items, [RUN]), measure, { ...defaultBreakOptions, tolerance: settings.tolerance });
+  const result = breakParagraph(withSums(items, [RUN]), measure, {
+    ...defaultBreakOptions,
+    tolerance: settings.tolerance,
+    doubleHyphenDemerits: settings.doubleHyphenDemerits,
+    finalHyphenDemerits: settings.finalHyphenDemerits,
+  });
   const after = result.breakpoints.slice(0, -1).map((bp) => owner[bp]!);
   return { after, overfull: result.overfull.some(Boolean), counts };
 }
