@@ -7,6 +7,9 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - Live reload no longer fails to start when an unrelated broken symlink sits in the same folder as the open document (MARXY-299)
+- Ragged line breaking treats a non-finite stretch (for example an unparseable paragraph font size) as worst badness instead of letting NaN poison every cost comparison in the breaker (MARXY-281)
+- A fourth bugcatch pass files two more stories: `check-cards.mjs`'s path-boundary check being a silent no-op for any task card whose "Files and signatures" section comes last, and `pnpm done` leaving a stale "done, all gates ok" result on disk after a later run actually fails; the pass also re-verified the HTML sanitizer against a battery of crafted bypass payloads and found it holds (MARXY-310)
+- Skills and rules show YAML or TOML front matter as a quiet key/value head, GitHub alerts read by their type word instead of a literal marker, and diagram fences name themselves before the source (MARXY-234)
 - A second bugcatch pass files five more stories for defects too design-sensitive for a same-day fix: `sectionRange` computing the wrong boundary for a heading nested in a blockquote or list, widow prevention missing a paragraph ending in code/image/math, the index's fence-tracking heuristic not requiring a matching closing fence, the typeset kill switch only being checked at attach/relayout time and not during background work, and an unrelated broken symlink failing the whole file watch (MARXY-294)
 - Index `relativePath` now treats a mistaken document path as its parent directory when the target file lives under that directory, so a basename that matches part of the target path no longer produces a spurious `..` segment (MARXY-289)
 - Resize relayout re-reads each paragraph's computed font size so a fluid type scale does not reuse stale glue stretch or hyphen-glyph metrics (MARXY-280)
