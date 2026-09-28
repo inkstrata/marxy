@@ -220,6 +220,51 @@ blockquote {
   margin-inline: 0;
 }
 
+/* Front matter head (ADR-0036 clause 7): caption size, 14ch keys, values verbatim. */
+.marxy-article > dl:first-child {
+  display: grid;
+  grid-template-columns: 14ch minmax(0, 1fr);
+  column-gap: var(--marxy-half);
+  row-gap: calc(var(--lb) / 4);
+  margin: 0 0 var(--marxy-half);
+  font-size: var(--marxy-size-caption);
+  line-height: var(--lb);
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-article > dl:first-child > dt {
+  grid-column: 1;
+  margin: 0;
+  font-weight: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset));
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-article > dl:first-child > dd { margin: 0; grid-column: 2; color: var(--marxy-color-text); }
+.marxy-article > dl:first-child > dd > code {
+  display: block;
+  white-space: pre-wrap;
+  font-family: var(--marxy-font-mono);
+  font-size: calc(var(--marxy-size-code) / var(--marxy-size-caption) * 1em);
+  line-height: var(--marxy-line-box-code);
+}
+
+/* GitHub alerts: label only, no box or hue (handbook ch.6). */
+.marxy-article blockquote > p > strong:first-child {
+  --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset));
+  font-weight: var(--marxy-wght);
+  color: inherit;
+  background: none;
+  border: 0;
+}
+
+.marxy-article > p:has(+ pre > code.language-mermaid),
+.marxy-article > p:has(+ pre > code.language-plantuml),
+.marxy-article > p:has(+ pre > code.language-dot),
+.marxy-article > p:has(+ pre > code.language-d2) {
+  margin: 0 0 calc(var(--lb) / 4);
+  font-size: var(--marxy-size-caption);
+  line-height: var(--lb);
+  color: var(--marxy-color-text-secondary);
+}
+
 /* Code. A different voice at a matched x-height (constraint 5), on its own line box; blocks are
    padded back onto the grid by snapToGrid. Code is verbatim (ADR-0033): no ligatures, no reader
    spacing, no hyphens. A block keeps its authored width: it starts at the column's left edge, is at

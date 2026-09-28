@@ -3,10 +3,15 @@
 // boundary (ADR-0009) and a second, weaker check here would only make it harder to see where the
 // boundary is. Its output is never for the DOM — `renderSafeHtml` is (ADR-0007, ADR-0020).
 
-import type { Block, Document, FootnoteDefinition, Inline, List, ListItem, Source, Table, TableRow, Text } from '../contracts/ast.ts';
+import type { Block, Blockquote, Document, FootnoteDefinition, Inline, List, ListItem, Source, Table, TableRow, Text } from '../contracts/ast.ts';
+import type { ParsedAlert } from './alerts.ts';
 import { PROVENANCE_ATTRIBUTES, type ProvenanceNames } from '../sanitize/policy.ts';
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
+import { parseAlert } from './alerts.ts';
+import { renderFrontmatterHead } from './frontmatter.ts';
 import { smarten } from './typography.ts';
+
+const DIAGRAM_LANGUAGES = new Set(['mermaid', 'plantuml', 'dot', 'd2']);
 
 type Typo = { readonly lastText: Text | undefined; readonly wordsInParagraph: number };
 
@@ -99,13 +104,23 @@ function block(node: Block, tight: boolean, ctx: Context): string {
       return `<h${node.level}${prov(node.src, ctx)}>${inlines(node.children, ctx)}</h${node.level}>`;
     case 'thematicBreak':
       return `<hr${prov(node.src, ctx)} />`;
-    case 'blockquote':
+    case 'blockquote': {
+      const alert = parseAlert(node);
+      if (alert) {
+        return `<blockquote${prov(node.src, ctx)}>\n${alertBlocks(node, alert, ctx)}\n</blockquote>`;
+      }
       return `<blockquote${prov(node.src, ctx)}>\n${blocks(node.children, false, ctx)}\n</blockquote>`;
+    }
     case 'codeBlock': {
       const language = node.lang === undefined || node.lang === '' ? '' : ` class="language-${escapeAttribute(node.lang)}"`;
       const value = node.value.length > 0 ? `${escapeText(node.value)}\n` : '';
+      const lang = node.lang?.toLowerCase() ?? '';
+      const caption =
+        DIAGRAM_LANGUAGES.has(lang)
+          ? `<p>${escapeText(lang)} · diagram source</p>\n`
+          : '';
       // The `<pre>` is the whole fence; the `<code>` is the content between the fence lines.
-      return `<pre${prov(node.src, ctx)}><code${language}${prov(node.content, ctx)}>${value}</code></pre>`;
+      return `${caption}<pre${prov(node.src, ctx)}><code${language}${prov(node.content, ctx)}>${value}</code></pre>`;
     }
     case 'htmlBlock':
       return node.value;
@@ -125,11 +140,22 @@ function block(node: Block, tight: boolean, ctx: Context): string {
     case 'footnoteDefinition':
       return blocks(node.children, false, ctx);
     case 'frontmatter':
-      // Metadata, not prose. Showing it is a decision for the story that designs the document head.
-      return '';
+      return renderFrontmatterHead(node, ctx);
     default:
       return '';
   }
+}
+
+function alertBlocks(node: Blockquote, alert: ParsedAlert, ctx: Context): string {
+  const parts: string[] = [];
+  const first = node.children[0];
+  if (first?.type === 'paragraph') {
+    const label = `<strong>${escapeText(alert.label)}</strong>`;
+    const body = alert.body.length > 0 ? ` ${inlines(alert.body, ctx, paragraphTypo(alert.body))}` : '';
+    parts.push(`<p${prov(first.src, ctx)}>${label}${body}</p>`);
+  }
+  for (const child of node.children.slice(1)) parts.push(block(child, false, ctx));
+  return parts.join('\n');
 }
 
 function list(node: List, ctx: Context): string {
