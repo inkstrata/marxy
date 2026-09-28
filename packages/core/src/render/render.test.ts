@@ -5,8 +5,8 @@ import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { checkAllVectors, elementsOf } from '../sanitize/testing/vectors.ts';
-import { RENDERED_POLICY } from '../sanitize/policy.ts';
 import { blockedHosts } from './images.ts';
+import { RENDERED_POLICY } from '../sanitize/policy.ts';
 import { renderSafeHtml } from './pipeline.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
@@ -55,8 +55,17 @@ test('math is set as its source until KaTeX loads on first use (MARXY-28)', () =
   assert.match(html('Inline $x^2$ math\n'), /<code class="marxy-math">x\^2<\/code>/);
 });
 
-test('frontmatter is metadata, not prose, and is not set', () => {
-  assert.equal(html('---\ntitle: x\n---\n\nBody\n'), '<p>Body</p>');
+test('frontmatter is a quiet head above the body', () => {
+  const out = html('---\ntitle: x\n---\n\nBody\n');
+  assert.match(out, /<dl>\s*<dt>title<\/dt>/);
+  assert.match(out, /<p>Body<\/p>/);
+});
+
+test('a mermaid fence shows its source and one diagram caption only', () => {
+  const out = html('```mermaid\nflowchart LR\n  A --> B\n```\n');
+  assert.match(out, /<p>mermaid · diagram source<\/p>\n<pre><code class="language-mermaid">/);
+  assert.match(out, /flowchart LR\n  A --&gt; B\n<\/code><\/pre>/);
+  assert.ok(!out.includes('```'));
 });
 
 test('a local image keeps its source; a remote one keeps only its alt text', () => {

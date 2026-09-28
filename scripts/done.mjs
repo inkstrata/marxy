@@ -38,6 +38,34 @@ export function mergeResult(existing, patch) {
   return { ...existing, ...patch };
 }
 
+/** Precheck stdout lines like `✓ story boundary` → `{ 'story boundary': 'ok' }`. */
+export function gatesFromOutput(gatesText) {
+  return Object.fromEntries(
+    String(gatesText ?? '').split('\n').filter(Boolean).map(l => [l.slice(2).trim(), l.startsWith('✓') ? 'ok' : 'failed']),
+  );
+}
+
+/**
+ * The fleet result written after a `pnpm done` run. A failed re-run must not leave a prior
+ * `status: "done"` / all-ok `gates` from an earlier green run (MARXY-312).
+ */
+export function buildResultRecord({ key, ok, branch, gatesText, acceptance, existing }) {
+  const gates = gatesFromOutput(gatesText);
+  if (!existing) {
+    return {
+      key, status: ok ? 'done' : 'failed', branch, gates,
+      acceptance, outsidePaths: [], needsAdr: false, queueEntry: false, notes: '',
+    };
+  }
+  const patch = { acceptance };
+  if (!ok) {
+    patch.status = 'failed';
+    patch.branch = branch;
+    patch.gates = gates;
+  }
+  return mergeResult(existing, patch);
+}
+
 /** The three steps `--open` runs, for `--dry-run` to print and a reader to recognise. */
 export function openSteps(key, number = '<number>') {
   return [
@@ -164,12 +192,8 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
   const { acceptance, todo } = checkAcceptance(body);
 
   const resultPath = fleetResultPath(key);
-  const existingResult = existsSync(resultPath) ? JSON.parse(readFileSync(resultPath, 'utf8')) : {
-    key, status: ok ? 'done' : 'failed', branch,
-    gates: Object.fromEntries(gates.split('\n').filter(Boolean).map(l => [l.slice(2).trim(), l.startsWith('✓') ? 'ok' : 'failed'])),
-    acceptance: [], outsidePaths: [], needsAdr: false, queueEntry: false, notes: '',
-  };
-  let result = mergeResult(existingResult, { acceptance });
+  const existingResult = existsSync(resultPath) ? JSON.parse(readFileSync(resultPath, 'utf8')) : null;
+  let result = buildResultRecord({ key, ok, branch, gatesText: gates, acceptance, existing: existingResult });
   writeFileSync(resultPath, JSON.stringify(result, null, 2) + '\n');
 
   if (todo) console.log(`✗ acceptance row still TODO: "${todo.criterion}"${fix(`fill "Checked by" in results/${key}.pr.md, then run again`)}`);
