@@ -167,6 +167,14 @@
     "MARXY-NEW-desktop-image-size-error-visibility": "MARXY-287",
     "MARXY-NEW-desktop-live-reload-silent-failure": "MARXY-288",
     "MARXY-NEW-core-relative-path-file-vs-dir": "MARXY-289",
-    "MARXY-NEW-desktop-asset-scope-containment": "MARXY-293"
+    "MARXY-NEW-desktop-asset-scope-containment": "MARXY-293",
+    "MARXY-NEW-desktop-source-scroll-position-stale": "MARXY-302",
+    "MARXY-NEW-desktop-deferred-startup-race": "MARXY-303",
+    "MARXY-NEW-desktop-quit-rejection-stomps-page": "MARXY-304",
+    "MARXY-NEW-desktop-capabilities-core-default-too-broad": "MARXY-305",
+    "MARXY-NEW-gate-registry-html-route-plus-equals": "MARXY-306",
+    "MARXY-NEW-gate-boundaries-template-literal-imports": "MARXY-307",
+    "MARXY-NEW-gate-deps-cargo-table-form": "MARXY-308",
+    "MARXY-NEW-gate-bundle-dynamic-import-and-prebuild-skip": "MARXY-309"
   }
 }
