@@ -1,5 +1,6 @@
-// Undo/redo commands and harness wiring for document edits (MARXY-43).
+// Document commands: undo/redo and explicit save (MARXY-43, MARXY-49).
 import type { Command } from './registry.ts';
+import { save } from '../shell/save.ts';
 import {
   documentEditState,
   harnessAlignFirstTable,
@@ -20,6 +21,7 @@ export function startDocumentEditingWire(): void {
     marxyDocumentEdit?: typeof documentEditState;
     marxyHarnessAlignTable?: () => Promise<string | undefined>;
     marxyHarnessRedo?: () => Promise<void>;
+    marxyHarnessSave?: () => Promise<import('../shell/save.ts').SaveResult>;
   };
   if (w.__marxyDocumentWire) return;
   w.__marxyDocumentWire = true;
@@ -40,10 +42,31 @@ export function startDocumentEditingWire(): void {
   w.marxyDocumentEdit = documentEditState;
   w.marxyHarnessRedo = redoDocumentEdit;
   w.marxyHarnessAlignTable = harnessAlignFirstTable;
+  w.marxyHarnessSave = () => save();
 }
 
 export function documentCommands(): readonly Command[] {
   return [
+    {
+      id: 'document.save',
+      title: 'Save',
+      key: 'Mod+S',
+      group: 'document',
+      when: (ctx) => ctx.operationInput() !== null,
+      run: async () => {
+        await save();
+      },
+    },
+    {
+      id: 'document.save-as',
+      title: 'Save as',
+      key: 'Mod+Shift+S',
+      group: 'document',
+      when: (ctx) => ctx.operationInput() !== null,
+      run: async () => {
+        await save({ as: true });
+      },
+    },
     {
       id: 'document.undo',
       title: 'Undo',

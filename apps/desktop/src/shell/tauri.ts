@@ -11,7 +11,7 @@ import { listen } from '@tauri-apps/api/event';
 import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
-import type { Shell, WatchEvent } from '@marxy/shell-api';
+import type { Shell, ShellError, WatchEvent } from '@marxy/shell-api';
 
 /** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
 const assetScopes = new Set<string>();
@@ -33,6 +33,16 @@ const lastRead = new Map<string, Uint8Array>();
 const readBytes = async (path: string): Promise<Uint8Array> =>
   new Uint8Array(await invoke<ArrayBuffer>('read_file', { path }));
 
+function shellErrorFromInvoke(err: unknown): Error & { code?: ShellError['code']; message: string } {
+  const payload =
+    err && typeof err === 'object' && 'code' in err && 'message' in err
+      ? (err as ShellError)
+      : { code: 'io' as const, message: String(err) };
+  const error = new Error(payload.message) as Error & { code?: ShellError['code']; message: string };
+  error.code = payload.code;
+  return error;
+}
+
 export const shell: Pick<
   Shell,
   | 'readFile'
@@ -44,6 +54,8 @@ export const shell: Pick<
   | 'clipboardWrite'
   | 'configPaths'
   | 'readDir'
+  | 'setTitle'
+  | 'saveDialog'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
@@ -74,9 +86,15 @@ export const shell: Pick<
     }
     // A raw body, not `Array.from(bytes)`: a JSON array costs ~3.7 bytes per byte each way. The path
     // goes in a header, percent-encoded so any file name survives it.
-    await invoke('write_file_atomic', bytes, { headers: { 'x-marxy-path': encodeURIComponent(path) } });
+    try {
+      await invoke('write_file_atomic', bytes, { headers: { 'x-marxy-path': encodeURIComponent(path) } });
+    } catch (err) {
+      throw shellErrorFromInvoke(err);
+    }
     lastRead.set(path, bytes.slice());
   },
+  setTitle: (title) => invoke('set_title', { title }),
+  saveDialog: (opts) => invoke<string | null>('save_dialog', { defaultPath: opts.defaultPath ?? null }),
   /**
    * Recurring watch of `root`. Events arrive on the one `fs-watch` channel every watcher listens to,
    * so each keeps only its own root's and debounces them, as the contract requires. No chrome.
