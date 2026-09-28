@@ -26,10 +26,11 @@ export class FontSizes {
   private readonly hyphens = new Map<string, number>();
 
   of(el: Element): Font {
+    const cs = getComputedStyle(el);
+    const size = parseFloat(cs.fontSize);
     let font = this.fonts.get(el);
-    if (font === undefined) {
-      const cs = getComputedStyle(el);
-      font = { key: `${cs.font}|${cs.fontVariationSettings}|${cs.letterSpacing}`, size: parseFloat(cs.fontSize) };
+    if (font === undefined || font.size !== size) {
+      font = { key: `${cs.font}|${cs.fontVariationSettings}|${cs.letterSpacing}|${size}`, size };
       this.fonts.set(el, font);
     }
     return font;
