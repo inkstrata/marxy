@@ -1,0 +1,20 @@
+document [0,5872)
+  heading [0,29) level=1
+    text [2,29) value="Artifact fences (MARXY-235)"
+  paragraph [31,113)
+    text [31,113) value="Diff, console, log, ANSI and long-line fixtures for the reader-artifacts handbook."
+  heading [115,153) level=2
+    text [118,153) value="Unified diff with a long added line"
+  codeBlock [155,539) lang=diff info="diff" content=[163,536) value="@@ -1,2 +1,3 @@\n context\n+this is a very long added line that must wrap in the reader without looking like a new plus li…"
+  heading [541,559) level=2
+    text [544,559) value="Console session"
+  codeBlock [561,637) lang=console info="console" content=[572,634) value="$ ls -la\ntotal 8\ndrwxr-xr-x  2 user  staff  64 Sep 25 10:00 ."
+  heading [639,645) level=2
+    text [642,645) value="Log"
+  codeBlock [647,751) lang=log info="log" content=[654,748) value="2026-09-25T10:00:02Z INFO service started\n2026-09-25T10:00:03Z ERROR db timeout after 5000 ms"
+  heading [753,770) level=2
+    text [756,770) value="ANSI in output"
+  codeBlock [772,813) lang=text info="text" content=[780,810) value="\u001b[31mFAIL\u001b[0m src/app.test.ts"
+  heading [815,836) level=2
+    text [818,836) value="Minified JSON line"
+  codeBlock [838,5871) lang=json info="json" content=[846,5868) value="{\"id\":1,\"payload\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…"

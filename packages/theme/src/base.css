@@ -331,6 +331,28 @@ a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
 .marxy-tok-constant { color: var(--marxy-tok-constant); }
 .marxy-tok-tag { color: var(--marxy-tok-tag); }
 .marxy-tok-attribute { color: var(--marxy-tok-attribute); }
+.marxy-diff-add { background: var(--marxy-color-diff-add); }
+.marxy-diff-del { background: var(--marxy-color-diff-del); }
+.marxy-diff-add-word { background: var(--marxy-color-diff-add-word); }
+.marxy-diff-del-word { background: var(--marxy-color-diff-del-word); }
+.marxy-log-level {
+  --marxy-wght: calc(var(--marxy-weight-strong) + var(--marxy-weight-offset));
+  font-weight: var(--marxy-wght);
+  color: inherit;
+}
+/* ESC itself is drawn by the invisible-character marker (MARXY-236); the buffer keeps the byte. */
+.marxy-line-omitted {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: pre;
+}
+.marxy-elided {
+  color: var(--marxy-color-text-secondary);
+  user-select: none;
+}
 kbd {
   font-size: 0.8em;
   padding: 0 0.35em;
