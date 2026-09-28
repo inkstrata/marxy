@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The optional justif line breaker now applies TeX hyphen demerits (consecutive hyphenated lines and a final-line hyphen) aligned with the ragged engine (MARXY-283)
 - Flipping `--marxy-typeset: none` mid-document now stops in-flight background typesetting, not only on the next attach or relayout (MARXY-298)
 - `sectionRange` for a heading nested in a blockquote or list now stops at that enclosing block's end (or the next heading of equal or higher rank inside it), instead of running to the next top-level heading (MARXY-295)
 - Ragged line breaking treats a non-finite stretch (for example an unparseable paragraph font size) as worst badness instead of letting NaN poison every cost comparison in the breaker (MARXY-281)

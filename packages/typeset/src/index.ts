@@ -9,7 +9,7 @@ import { applyHang } from './hang.ts';
 import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
 import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
 import { FontSizes, measureTokens } from './measure.ts';
-import { DEFAULT_RAGGED, breakRagged } from './ragged.ts';
+import { DEFAULT_RAGGED, breakRagged, type RaggedSettings } from './ragged.ts';
 import { collectTokens, type Token } from './runs.ts';
 import { idleScheduler, type Scheduler } from './scheduler.ts';
 
@@ -99,7 +99,13 @@ interface Plan extends Candidate {
 export function attach(article: HTMLElement, opts: TypesetOptions): TypesetController {
   const scheduler = opts.scheduler ?? idleScheduler();
   const fonts = new FontSizes();
-  const settings = { ...DEFAULT_BREAK, glueStretchEm: opts.glueStretchEm };
+  // justif/core hyphen demerits follow the same TeX costs as the ragged breaker (ADR-0033).
+  const hyphenCosts = (r: RaggedSettings): Pick<typeof DEFAULT_BREAK, 'hyphenPenalty' | 'doubleHyphenDemerits' | 'finalHyphenDemerits'> => ({
+    hyphenPenalty: r.hyphenPenalty,
+    doubleHyphenDemerits: r.doubleDashDemerits,
+    finalHyphenDemerits: r.finalHyphenDemerits,
+  });
+  const settings = { ...DEFAULT_BREAK, glueStretchEm: opts.glueStretchEm, ...hyphenCosts(DEFAULT_RAGGED) };
   const ragged = { ...DEFAULT_RAGGED, stretchEm: opts.raggedStretchEm ?? DEFAULT_RAGGED.stretchEm };
   const engine = opts.engine ?? 'ragged';
   const hyphenateOn = opts.hyphenate !== false;
