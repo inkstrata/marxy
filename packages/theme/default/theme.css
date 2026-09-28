@@ -23,4 +23,8 @@
   --marxy-tok-function: #2c5f8a;
   --marxy-tok-constant: #6f42a8;
   --marxy-tok-tag: #2c5f8a;
+  --marxy-color-diff-add: #e3f0da;      /* diff: added line tint (light) */
+  --marxy-color-diff-del: #f6e2dd;      /* diff: deleted line tint (light) */
+  --marxy-color-diff-add-word: #cde6c0; /* diff: intra-line addition tint (light) */
+  --marxy-color-diff-del-word: #f2d5cd; /* diff: intra-line deletion tint (light) */
 }

@@ -1,12 +1,12 @@
 ---
 key: MARXY-49
 design: [01-buffer, 09-app-shell, 06-shell, 08-position-and-watching]
-depends: [MARXY-43, MARXY-37, MARXY-34, MARXY-94]
+depends: [MARXY-43, MARXY-37, MARXY-34, MARXY-94, MARXY-249, MARXY-195]
 verify: [pnpm precheck, pnpm done MARXY-49]
 ---
 # MARXY-49 — Explicit save, byte-faithful and atomic, from either mode
 
-**Design:** [01-buffer](../../design/01-buffer.md) §Dirty state and the disk, §Save · [09-app-shell](../../design/09-app-shell.md) §Window title, §Notices · [06-shell](../../design/06-shell.md) `writeFileAtomic`, `setTitle`, `saveDialog` · [08-position-and-watching](../../design/08-position-and-watching.md) (own-write detection) · **Depends on:** MARXY-43 (edits exist), MARXY-37 (Source mode edits), MARXY-34 (watch, `savedHash`), MARXY-94 · **ADRs:** ADR-0004, ADR-0001.
+**Design:** [01-buffer](../../design/01-buffer.md) §Dirty state and the disk, §Save · [09-app-shell](../../design/09-app-shell.md) §Window title, §Notices · [06-shell](../../design/06-shell.md) `writeFileAtomic`, `setTitle`, `saveDialog` · [08-position-and-watching](../../design/08-position-and-watching.md) (own-write detection) · **Depends on:** MARXY-43 (edits exist), MARXY-37 (Source mode edits), MARXY-34 (watch, `savedHash`), MARXY-94, MARXY-195 (`app.ts`) · **ADRs:** ADR-0004, ADR-0001.
 
 **Outcome.** After toggling a task or editing in Source mode, the title shows ` •`; `Mod+S` writes exactly the new bytes, atomically, and the dot goes. Nothing else about the file changes. Closing with unsaved changes asks once, in a notice, never a modal.
 
@@ -17,8 +17,14 @@ verify: [pnpm precheck, pnpm done MARXY-49]
 - Close interception: Rust `CloseRequested` handler that asks the webview (`marxy:close-requested` event) and closes only on `quit`/`close_confirmed`; app side in `apps/desktop/src/shell/close.ts`.
 - Rust: `set_title`, `save_dialog` (`tauri-plugin-dialog`, MIT/Apache-2.0); map `atomic_write.rs` refusal strings to `ShellError { code: 'permission' | 'io' }` (add a `kind` to the error the module returns rather than parsing messages).
 - Tests: `apps/desktop/test/save.test.mjs` (app harness), Rust tests for the error mapping, `pnpm gate:fidelity` extended with save-after-operation.
+- `apps/desktop/src/app.ts` — wire save and close into the open document. `commitEdit` does not write. The watch echo after save uses `savedHash`. Title refresh goes through `title.ts`.
+- `apps/desktop/src/commands/edits.ts` — stop the operation path from calling `writeFileAtomic`.
+- `apps/desktop/test/operations-edit.test.mjs` — the harness toggle records no write until `Mod+S`.
+- `apps/desktop/src-tauri/capabilities/default.json` — the dialog and write permissions save needs.
 
 ## Do this, in order
+The worktree already has save, close, title, the Rust commands and `save.test.mjs`. Do not rewrite them. The attempt stopped because `app.ts`, `commands/edits.ts`, `operations-edit.test.mjs` and `capabilities/default.json` were outside Paths. They are in Paths now.
+
 1. Error kinds from `atomic_write.rs` → `ShellError`.
 2. `save()` and the two commands; the Source-mode fold (§09 leaving Source) before writing.
 3. Title.

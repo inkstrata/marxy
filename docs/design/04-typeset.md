@@ -122,11 +122,14 @@ because below that no breaker makes the spacing even (research: 11 very loose li
 ## Grid (D-A7)
 
 Text blocks satisfy the grid by CSS construction (§05). The unit is half the line box (ADR-0030).
-`snapToGrid(article, lineBox)` (`src/grid.ts`) handles the rest in two measured steps, three
-layouts in all: (1) each `pre`, block `img`, `table` and `.marxy-math` anywhere has its height
-padded (`padding-bottom`) to a whole number of units, because its margins already are; (2) the
-article's block children are read in order, and any whose top is off the grid pushes the block
-before it down by the difference (the article's own `padding-top` when there is none). Summing
+`snapToGrid(article, lineBox)` (`src/grid.ts`) handles the rest in two steps. (1) each `pre`,
+block `img`, `table` and `.marxy-math` anywhere has its height padded (`padding-bottom`) to a
+whole number of units, because its margins already are. (2) the article's block children are
+read in order, and any whose top is off the grid pushes the block before it down by the
+difference (the article's own `padding-top` when there is none). After each push the next
+child's top is read again: `padding-bottom` stops that child's margin collapsing with the next
+sibling, so a running predicted delta drifts (MARXY-282). The layout count is however many
+pushes the pass measures, not a fixed three. Summing
 `marginTop + height + marginBottom` per child, as first designed, is wrong wherever margins
 collapse and pads headings whose margins already close their remainder. The elements a run padded
 are remembered per article (a `WeakMap`) and undone before the next run. Runs after render, after `document.fonts.ready`,

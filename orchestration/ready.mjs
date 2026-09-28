@@ -62,7 +62,9 @@ function earlierPhaseOpen(phase, d, statusOf) {
  * Path holds for dispatch: unexpired claims on the board, plus active worktrees (recent activity)
  * whose keys are not done, blocked, or escalated (`liveClaims`, MARXY-220).
  */
-export function resolveClaims({ board, plan, worktrees = [], t, nowMs = Date.now(), orchestratorPath = repoHome() }) {
+export function resolveClaims({
+  board, plan, worktrees = [], t, nowMs = Date.now(), orchestratorPath = repoHome(), rowOf = (key, branch) => rowOnBranch(branch, key),
+}) {
   const holds = [];
   for (const [key, rec] of Object.entries(board.stories ?? {})) {
     if (rec.claim?.paths?.length && Date.parse(rec.claim.until) > nowMs) {
@@ -89,7 +91,7 @@ export function resolveClaims({ board, plan, worktrees = [], t, nowMs = Date.now
   }
   const rowsOf = (key, wtPath) => {
     const w = worktrees.find(x => resolve(x.path) === resolve(wtPath));
-    return plan.byKey.get(key) ?? rowOnBranch(w?.branch, key);
+    return plan.byKey.get(key) ?? rowOf(key, w?.branch);
   };
   for (const c of liveClaims(entries, { orchestratorPath, rowsOf, isDone, statusOf })) {
     if (c.paths?.length) {

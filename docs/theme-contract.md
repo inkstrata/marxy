@@ -63,6 +63,24 @@ average character (the mean advance of English prose, in em) and sets `--marxy-a
 column will not hold the character count. Never set a measure in `ch`: a `ch` is the digit zero,
 which in most faces is 13–58 % wider than an average character.
 
+## Diff colours (ADR-0036)
+
+Four tokens tint added and deleted lines in diff fences. The `+`, `-` and space marker stays
+plain text and is the primary cue; the tint is a second channel only.
+
+| Token | Role |
+| --- | --- |
+| `--marxy-color-diff-add` | background for a fully added line |
+| `--marxy-color-diff-del` | background for a fully deleted line |
+| `--marxy-color-diff-add-word` | background for an added span within a line |
+| `--marxy-color-diff-del-word` | background for a deleted span within a line |
+
+`:root` in `tokens.css` holds the dark defaults; the default theme's light block overrides them
+under `[data-marxy-variant="light"]`. Every pair must meet the typography handbook's
+contrast floor on its tint (ADR-0035); `gate:aesthetics` walks every declared tint background
+against every foreground token in both variants (MARXY-241), which is why the light overrides
+land alongside the tokens rather than waiting on MARXY-235, which applies them to rendered diffs.
+
 ## Re-layout triggers
 
 Font load, resize, theme switch or theme file change, reader adjustment of size or measure.

@@ -122,3 +122,28 @@ export const ageMinutes = (iso, nowMs = Date.now()) => {
   const t = Date.parse(iso ?? '');
   return Number.isFinite(t) ? Math.max(0, (nowMs - t) / 60_000) : Infinity;
 };
+
+/**
+ * Whether the loop's cycles are healthy, from the loop and cycle leases, the age of the last report,
+ * and the loop's record of its last cycle (`loop.last.json`: `{ started, ended, rc }`). Returns null
+ * when there is nothing to say, or `{ level: 'warn' | 'fail', msg }`.
+ *
+ * A stale report alone does not mean a hung cycle: a Mac that slept stops the loop with it, and it
+ * carries on at wake (2026-09-27: restarted as "hung" after 513 minutes asleep). Hung is a cycle that
+ * holds its lock too long; failing is cycles that end badly; anything else stale is the loop idle.
+ */
+export function cycleHealth({ loopHeld, cycle = {}, reportAgeMin = null, last = null, stuckMin = 30, nowMs = Date.now() }) {
+  if (loopHeld !== true) return null;
+  const n = v => Math.round(v);
+  const running = cycle.held === true ? ageMinutes(cycle.lease?.started, nowMs) : null;
+  if (running != null && running > stuckMin) {
+    return { level: 'fail', msg: `a cycle (pid ${cycle.lease?.pid}) has run ${n(running)} min — it is hung; the loop stops it at CYCLE_TIMEOUT, or restart the loop` };
+  }
+  if (reportAgeMin == null || reportAgeMin <= stuckMin || running != null) return null;
+  const endedAgo = last?.ended ? ageMinutes(last.ended, nowMs) : null;
+  const age = `no cycle report for ${n(reportAgeMin)} min`;
+  if (endedAgo == null) return { level: 'warn', msg: `${age}, and the loop has not recorded a cycle` };
+  if (endedAgo > stuckMin) return { level: 'warn', msg: `${age}: the loop is alive but no cycle has run for ${n(endedAgo)} min (the machine slept?); it runs one at wake` };
+  if (last.rc !== 0) return { level: 'fail', msg: `${age}: cycles are failing — the last one ${last.rc === 124 ? 'timed out' : `exited ${last.rc}`} ${n(endedAgo)} min ago` };
+  return { level: 'fail', msg: `${age}: cycles finish but write no report` };
+}

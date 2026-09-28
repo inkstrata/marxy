@@ -1,0 +1,40 @@
+document [0,275)
+  heading [0,16) level=1
+    text [2,16) value="Alerts fixture"
+  blockquote [18,49)
+    paragraph [20,49)
+      text [20,27) value="[!NOTE]"
+      softBreak [27,30)
+      text [30,49) value="A note for readers."
+  blockquote [51,68)
+    paragraph [53,68)
+      text [53,59) value="[!TIP]"
+      softBreak [59,62)
+      text [62,68) value="A tip."
+  blockquote [70,102)
+    paragraph [72,102)
+      text [72,84) value="[!IMPORTANT]"
+      softBreak [84,87)
+      text [87,102) value="Important text."
+  blockquote [104,132)
+    paragraph [106,132)
+      text [106,116) value="[!WARNING]"
+      softBreak [116,119)
+      text [119,132) value="Warning text."
+  blockquote [134,162)
+    paragraph [136,162)
+      text [136,146) value="[!CAUTION]"
+      softBreak [146,149)
+      text [149,162) value="Caution text."
+  blockquote [164,205)
+    paragraph [166,205)
+      text [166,189) value="[!NOTE] Custom headline"
+      softBreak [189,192)
+      text [192,205) value="Titled alert."
+  blockquote [207,235)
+    paragraph [209,235)
+      strong [209,217)
+        text [211,215) value="Note"
+      softBreak [217,220)
+      text [220,235) value="Legacy callout."
+  codeBlock [237,274) lang=mermaid info="mermaid" content=[248,271) value="flowchart LR\n  A --> B"

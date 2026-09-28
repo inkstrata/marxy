@@ -67,6 +67,16 @@ chrome.
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 
+**Guaranteed by the native menu, not only by this table (macOS, MARXY-184).** `Mod+Q`,
+`Mod+C`/`Mod+V`/`Mod+A`, and `Mod+Z`/`Mod+Shift+Z` also have a native macOS menu item behind
+them (Quit; Edit's predefined copy/paste/select-all; Edit's predefined undo/redo). AppKit wires a
+menu item's key equivalent from menu-item validation, not from `keys.ts` alone, so a reader
+outside a text field who presses one of these keys is relying on the menu, not this table, to
+reach the responder chain — the two are expected to agree, and a change to either should keep
+them in sync. `Mod+O` (Open File…) is native-menu-only in v1: the palette does not yet list it.
+`Mod+W` (Close Window) is native-menu-only too, and — since Marxy is single-window — exits
+through the same path as Quit (`docs/design/06-shell.md` §Capabilities).
+
 ## Outline
 
 Built from the AST's headings (`level`, text, `src.start`). Rendered as a `<dialog>` at the
@@ -115,6 +125,13 @@ One region, in flow above the article, empty at rest. A notice is a single line 
 actions, dismissible, and it never overlaps the text. Kinds in v1: blocked content (§02),
 external change while dirty (§08), file removed, save failed, theme warnings (§05), index
 truncated (§07), operation summary (transient, 4 s). Never a modal dialog.
+
+Styled in `packages/theme/src/base.css` (MARXY-264): the region shares the article's own column
+width and margins, and each `.marxy-notice` is its own line with a background
+(`--marxy-color-notice`) and border distinct from the page, spaced in grid-unit multiples so it
+reads as the app speaking rather than as page content. `.marxy-notice-dismiss` and
+`.marxy-notice-action` (theme-document.ts's "Use this theme") share one button style with a
+hover and focus-visible state.
 
 ## Source mode (D-A15)
 
