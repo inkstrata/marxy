@@ -2,7 +2,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cardsAndRows, csvRowProblems, loadBoardInput, parseCardMarkdown, placeholderProblems } from './check-cards.mjs';
+import {
+  cardsAndRows,
+  csvRowProblems,
+  filePathsFromCard,
+  loadBoardInput,
+  parseCardMarkdown,
+  placeholderProblems,
+} from './check-cards.mjs';
 import { fail } from './lib/repo.mjs';
 
 const ROOT = process.cwd();
@@ -27,6 +34,42 @@ test('fixture: card with no CSV row fails and names the key', () => {
   assert.equal(problems.length, 1);
   assert.match(problems[0], /MARXY-999/);
   assert.match(problems[0], /no row in docs\/plan\/jira-issues\.csv/);
+  assert.equal(fail(problems), true);
+});
+
+test('filePathsFromCard reads Files and signatures when it is the last section (MARXY-311)', () => {
+  const body = `# Story
+
+## Do not
+- no paths here
+
+## Files and signatures
+- \`scripts/check-cards.mjs\`
+- \`scripts/check-cards.test.mjs\`
+`;
+  const broken = /^## Files and signatures\r?\n([\s\S]*?)(?=^## |\Z)/m;
+  assert.equal(broken.exec(body), null, 'pre-fix regex matched nothing when the section was last');
+  assert.deepEqual(filePathsFromCard(body), [
+    'scripts/check-cards.mjs',
+    'scripts/check-cards.test.mjs',
+  ]);
+});
+
+test('fixture: last Files and signatures with a path outside row Paths is flagged (MARXY-311)', () => {
+  const cardBody = `# x
+
+## Files and signatures
+- \`apps/desktop/src/out-of-path.ts\`
+`;
+  const card = parseCardMarkdown(`---\nkey: MARXY-1\n---\n${cardBody}`);
+  assert.deepEqual(card.files, ['apps/desktop/src/out-of-path.ts']);
+  const problems = cardsAndRows({
+    cards: { 'MARXY-1': { depends: [], files: card.files } },
+    rows: { 'MARXY-1': { Paths: 'packages/core' } },
+    deps: { phases: { '0': ['MARXY-1'] }, deps: { 'MARXY-1': [] } },
+  });
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /apps\/desktop\/src\/out-of-path\.ts/);
   assert.equal(fail(problems), true);
 });
 

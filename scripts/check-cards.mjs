@@ -60,7 +60,8 @@ export function csvRowProblems(csvRows) {
 
 /** First backticked path token on each bullet under ## Files and signatures. */
 export function filePathsFromCard(body) {
-  const m = body.match(/^## Files and signatures\r?\n([\s\S]*?)(?=^## |\Z)/m);
+  // \Z in a non-u regex is a literal Z, not end-of-input; (?![\s\S]) is EOS (MARXY-311).
+  const m = body.match(/^## Files and signatures\r?\n([\s\S]*?)(?=^## |(?![\s\S]))/m);
   if (!m) return [];
   const out = [];
   for (const line of m[1].split('\n')) {
