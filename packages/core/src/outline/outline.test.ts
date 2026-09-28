@@ -322,6 +322,17 @@ test('the three-dot forbidden-path check allows package.json, scripts and apps/d
   }
 });
 
+test('TOML front matter title prepends like YAML when there is no h1', () => {
+  const source = '+++\ntitle = "From TOML"\n+++\n\n## Section\n';
+  const document = parseMarkdown(source, { file: 'toml.md' });
+  const matter = document.children.find((child) => child.type === 'frontmatter');
+  assert.ok(matter);
+  const outline = outlineFrom(document);
+  assert.equal(outline[0]?.text, 'From TOML');
+  assert.equal(outline[0]?.src.start, matter.src.start);
+  assert.equal(outline[1]?.text, 'Section');
+});
+
 test('frontmatter title: an empty or block-scalar title gives no entry, never the next key', () => {
   for (const source of ['---\ntitle:\nauthor: Jane\n---\n\n## S\n', '---\ntitle: |\n  Long\n---\n\n## S\n']) {
     const outline = outlineFrom(parseMarkdown(source, { file: 'fm.md' }));
