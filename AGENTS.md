@@ -54,9 +54,15 @@ Two things worth knowing before you touch anything:
   been idle for half an hour.
 - **GitHub's native merge queue is off.** This repo is **User-owned**; GitHub only offers merge
   queue on **organization-owned** repos (public org repo, or private on Enterprise Cloud). CI already
-  listens for `merge_group` (MARXY-122); keep `orchestration/models.json` **`mergeQueue` false** so
-  the cycle still refreshes one BEHIND PR per cycle (MARXY-106). After an org transfer, enable the
-  queue in GitHub and flip `mergeQueue` to true.
+  listens for `merge_group` (MARXY-122); keep `orchestration/models.json` **`mergeQueue` false**.
+  After an org transfer, enable the queue in GitHub and flip `mergeQueue` to true.
+- **Branch protection no longer requires a PR to be up to date with `main`** (ADR-0040, dropping
+  the strict setting this bullet used to describe). `requireUpToDate` (default `false`) means the
+  cycle never runs `gh pr update-branch`; a green, mergeable, non-conflicting, signed PR lands
+  straight away even if it is BEHIND. The safety net is `cycle.mjs`'s main guard: a red latest
+  completed `ci` run on `main` stops every merge and surfaces 'main is red' plus the run URL under
+  **Needs you**. Set `requireUpToDate` true to go back to refreshing one BEHIND PR per cycle
+  (MARXY-106), which is what strict branch protection needs.
 
 ## Architecture in one paragraph
 
