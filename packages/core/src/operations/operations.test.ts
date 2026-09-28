@@ -463,7 +463,7 @@ test('copy-section keeps a reference link whose definition is outside the sectio
   const heading = document.children.find((block): block is Heading => block.type === 'heading' && block.level === 2)!;
   const range = sectionRange(document, heading);
   const result = copySection.run({ document, node: heading, range, text: sliceText(source, range.start, range.end) });
-  assert.match(result.clipboard?.html ?? '', /<a href="https:\/\/example\.com\/docs">the docs<\/a>/);
+  assert.match(result.clipboard?.html ?? '', /<a href="https:\/\/example\.com\/docs"(?: class="marxy-external")?>the docs<\/a>/);
   assert.ok(!(result.clipboard?.html ?? '').includes('More.'));
 });
 

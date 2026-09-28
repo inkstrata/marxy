@@ -44,6 +44,7 @@ export const shell: Pick<
   | 'clipboardWrite'
   | 'configPaths'
   | 'readDir'
+  | 'openExternal'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
@@ -136,4 +137,7 @@ export const shell: Pick<
   },
   configPaths: () => invoke<{ config: string; data: string }>('config_paths'),
   readDir: (dir) => invoke('read_dir', { dir }),
+  openExternal: async (url) => {
+    await invoke('open_external', { url });
+  },
 };
