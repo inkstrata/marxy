@@ -121,6 +121,15 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
 
   const killed = (): boolean => getComputedStyle(article).getPropertyValue('--marxy-typeset').trim() === 'none';
 
+  /** Stops background work when the theme flips the kill switch without relayout/destroy. */
+  const abortIfKilled = (): boolean => {
+    if (!killed()) return false;
+    observer?.disconnect();
+    queue = [];
+    resolveDone();
+    return true;
+  };
+
   /** Breakpoints for a measured paragraph, or null when a line cannot fit. */
   const choose = (c: Candidate, measured: readonly Measured[], width: number): readonly number[] | null => {
     const broken = engine === 'justif' ? breakTokens(measured, width, settings) : breakRagged(measured, width, fonts.of(c.p).size, ragged);
@@ -246,8 +255,9 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       observer?.disconnect();
       observer = new IntersectionObserver(
         (entries) => {
+          if (mine !== generation || abortIfKilled()) return;
           const now = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement).filter((p) => queue.includes(p));
-          if (now.length === 0 || mine !== generation) return;
+          if (now.length === 0) return;
           queue = queue.filter((p) => !now.includes(p));
           setBatch(now);
           opts.onPass?.('visible');
@@ -257,7 +267,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       for (const p of queue) observer.observe(p);
     }
     const step = (deadline: () => number): void => {
-      if (mine !== generation) return;
+      if (mine !== generation || abortIfKilled()) return;
       const batch: HTMLElement[] = [];
       // Paragraphs cost roughly the same; take a few at a time while the chunk has budget left.
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
