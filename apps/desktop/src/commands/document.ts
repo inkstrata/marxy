@@ -1,6 +1,6 @@
 // Document commands: undo/redo and explicit save (MARXY-43, MARXY-49).
 import type { Command } from './registry.ts';
-import { save } from '../shell/save.ts';
+import { save } from '../save.ts';
 import {
   documentEditState,
   harnessAlignFirstTable,
@@ -21,7 +21,7 @@ export function startDocumentEditingWire(): void {
     marxyDocumentEdit?: typeof documentEditState;
     marxyHarnessAlignTable?: () => Promise<string | undefined>;
     marxyHarnessRedo?: () => Promise<void>;
-    marxyHarnessSave?: () => Promise<import('../shell/save.ts').SaveResult>;
+    marxyHarnessSave?: () => Promise<import('../save.ts').SaveResult>;
   };
   if (w.__marxyDocumentWire) return;
   w.__marxyDocumentWire = true;

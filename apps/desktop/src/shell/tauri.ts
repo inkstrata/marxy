@@ -56,6 +56,8 @@ export const shell: Pick<
   | 'readDir'
   | 'setTitle'
   | 'saveDialog'
+  | 'onCloseRequested'
+  | 'confirmClose'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
@@ -95,6 +97,10 @@ export const shell: Pick<
   },
   setTitle: (title) => invoke('set_title', { title }),
   saveDialog: (opts) => invoke<string | null>('save_dialog', { defaultPath: opts.defaultPath ?? null }),
+  onCloseRequested: (cb) => {
+    void listen('marxy:close-requested', () => cb());
+  },
+  confirmClose: () => invoke('close_confirmed'),
   /**
    * Recurring watch of `root`. Events arrive on the one `fs-watch` channel every watcher listens to,
    * so each keeps only its own root's and debounces them, as the contract requires. No chrome.

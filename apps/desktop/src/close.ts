@@ -1,10 +1,10 @@
 // Close while dirty: one notice, not a modal (docs/design/01-buffer.md, MARXY-49).
-import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
-import { ensureNoticesRegion } from '../notices/index.ts';
+import type { Shell } from '@marxy/shell-api';
+import { ensureNoticesRegion } from './notices/index.ts';
 import { save } from './save.ts';
 
 export interface CloseGuardHost {
+  readonly shell: Pick<Shell, 'onCloseRequested' | 'confirmClose'>;
   isDirty(): boolean;
   documentName(): string | null;
 }
@@ -14,18 +14,18 @@ let bypassCloseGuard = false;
 
 export function installCloseGuard(host: CloseGuardHost): void {
   if (typeof window === 'undefined') return;
-  void listen('marxy:close-requested', () => {
+  host.shell.onCloseRequested(() => {
     if (bypassCloseGuard) {
-      void invoke('close_confirmed');
+      void host.shell.confirmClose();
       return;
     }
     if (!host.isDirty()) {
-      void invoke('close_confirmed');
+      void host.shell.confirmClose();
       return;
     }
     if (closeNoticeUp) {
       bypassCloseGuard = true;
-      void invoke('close_confirmed');
+      void host.shell.confirmClose();
       return;
     }
     const name = host.documentName() ?? 'This document';
@@ -48,7 +48,7 @@ export function installCloseGuard(host: CloseGuardHost): void {
         const result = await save();
         if (result === 'saved' || result === 'unchanged') {
           bypassCloseGuard = true;
-          await invoke('close_confirmed');
+          await host.shell.confirmClose();
         }
       })();
     });
@@ -61,7 +61,7 @@ export function installCloseGuard(host: CloseGuardHost): void {
       line.remove();
       closeNoticeUp = false;
       bypassCloseGuard = true;
-      void invoke('close_confirmed');
+      void host.shell.confirmClose();
     });
     region.append(line);
   });

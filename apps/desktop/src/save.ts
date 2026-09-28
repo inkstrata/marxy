@@ -2,9 +2,9 @@
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { Buffer } from '@marxy/core';
 import type { Shell, ShellError } from '@marxy/shell-api';
-import { documentIsDirty, markDocumentSaved } from '../commands/edits.ts';
-import { ensureNoticesRegion } from '../notices/index.ts';
-import { updateTitle } from '../title.ts';
+import { documentIsDirty, markDocumentSaved } from './commands/edits.ts';
+import { ensureNoticesRegion } from './notices/index.ts';
+import { updateTitle } from './title.ts';
 
 export type SaveResult = 'saved' | 'unchanged' | 'cancelled' | 'failed';
 
@@ -77,7 +77,7 @@ export async function save(opts?: { as?: boolean }): Promise<SaveResult> {
   }
 
   if (host.isReadOnlyPath(path)) {
-    const { notify } = await import('../notices/index.ts');
+    const { notify } = await import('./notices/index.ts');
     notify({
       kind: 'info',
       text: `${readOnlyNoticeName(path)} is part of Marxy and cannot be saved`,

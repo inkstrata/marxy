@@ -3,8 +3,8 @@ import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } 
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { documentIsDirty, syncSavedVersionFromOpenBuffer } from './commands/edits.ts';
-import { installCloseGuard } from './shell/close.ts';
-import { installSave } from './shell/save.ts';
+import { installCloseGuard } from './close.ts';
+import { installSave } from './save.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
@@ -51,7 +51,17 @@ interface MountedSourceEditor {
 /** The Phase 0 shell surface: frozen Shell members tauri.ts already implements, plus startup extras. */
 export type AppShell = Pick<
   Shell,
-  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir' | 'setTitle' | 'saveDialog' | 'allowAssetScope'
+  | 'readFile'
+  | 'writeFileAtomic'
+  | 'watch'
+  | 'platform'
+  | 'startupMarks'
+  | 'readDir'
+  | 'setTitle'
+  | 'saveDialog'
+  | 'allowAssetScope'
+  | 'onCloseRequested'
+  | 'confirmClose'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -140,8 +150,6 @@ function announceDocument(): void {
 }
 /** Bytes last read from disk for the open path; local edits are detected against this. */
 let bytesOnDisk: Uint8Array | null = null;
-/** Content hash of the last successful save; the watch echo from our own write is ignored (§01). */
-let savedDiskHash: string | null = null;
 let documentWatch: { close(): void } | null = null;
 let viewMode: 'rendered' | 'source' = 'rendered';
 let sourceEditor: MountedSourceEditor | null = null;
@@ -524,7 +532,6 @@ function teardownDocument(): void {
   documentWatch?.close();
   documentWatch = null;
   bytesOnDisk = null;
-  savedDiskHash = null;
   releaseAnchor();
   destroyTypeset();
   disconnectResizeObserver();
@@ -566,7 +573,6 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   documentBuffer = createBuffer(openPath, bytes);
   sourceEditor?.replaceBuffer(documentBuffer);
   syncSavedVersionFromOpenBuffer();
-  savedDiskHash = contentHash(bytes);
   rerenderFromBuffer(doc);
   if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
   await typesetDocument(doc);
@@ -579,7 +585,6 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
   const path = openPath;
   const position = currentPosition(readingScroller(), state.document.blocks, path, viewMode);
   const diskBytes = await readOpenFileWithRetry(path);
-  if (diskBytes && savedDiskHash && contentHash(diskBytes) === savedDiskHash) return;
   const update = applyWatchToOpenDocument(
     events,
     position,
@@ -806,7 +811,6 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   teardownDocument();
   openPath = file;
   bytesOnDisk = bytes.slice();
-  savedDiskHash = contentHash(bytes);
   documentBuffer = createBuffer(file, bytes);
   sourceMount();
   installKeyDispatcher();
@@ -1061,7 +1065,6 @@ export async function startApp(
     foldSourceIntoBuffer,
     isReadOnlyPath: (path) => path.startsWith('marxy:'),
     onSaved: async (path, buffer) => {
-      savedDiskHash = contentHash(buffer.bytes);
       bytesOnDisk = buffer.bytes.slice();
       if (openPath === path) documentBuffer = buffer;
       await refreshTitle();
@@ -1076,6 +1079,7 @@ export async function startApp(
     },
   });
   installCloseGuard({
+    shell,
     isDirty: () => Boolean(documentBuffer && documentIsDirty(documentBuffer)),
     documentName: () => (openPath ? basename(openPath) : null),
   });
