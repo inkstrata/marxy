@@ -16,6 +16,7 @@ serde_json = "1"
 imagesize = "0.13"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
+notify = "8"
 
 [profile.release]
 codegen-units = 1

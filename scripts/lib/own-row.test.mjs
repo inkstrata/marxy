@@ -32,6 +32,20 @@ test('widening its own Paths is its own edit, and the widened row governs', () =
   assert.equal(e.story.Paths, 'a, b');
 });
 
+test('a new key that also adds another story is judged by the row it brings', () => {
+  const e = reviewBoundary('MARXY-9', {
+    baseCsv: HEAD + row('MARXY-1', 'a'),
+    headCsv: HEAD + row('MARXY-1', 'a') + row('MARXY-9', 'docs/plan/jira-issues.csv, docs/plan/tasks') + row('MARXY-10', 'x'),
+    baseDeps: deps({ ops: ['MARXY-1'] }, { 'MARXY-1': [] }),
+    headDeps: deps({ ops: ['MARXY-1', 'MARXY-9', 'MARXY-10'] }, { 'MARXY-1': [], 'MARXY-9': [], 'MARXY-10': [] }),
+  });
+  assert.equal(e.ownOnly, false);
+  assert.equal(e.added, true);
+  assert.deepEqual(e.others, ['MARXY-10']);
+  assert.equal(e.story.Key, 'MARXY-9');
+  assert.equal(e.story.Paths, 'docs/plan/jira-issues.csv, docs/plan/tasks');
+});
+
 test("editing another story's row is not allowed, and the base row governs", () => {
   const e = reviewBoundary('MARXY-1', {
     baseCsv: HEAD + row('MARXY-1', 'a') + row('MARXY-2', 'x'),
