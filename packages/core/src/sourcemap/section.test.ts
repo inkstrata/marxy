@@ -24,17 +24,74 @@ type TableCase = {
   source: string;
   pick: (doc: Document) => Heading;
   expectIncludes?: string[];
+  expectExcludes?: string[];
 };
 
-function expectedSectionEnd(doc: Document, heading: Heading): number {
-  let end = doc.src.end;
+function isTopLevelHeading(doc: Document, heading: Heading): boolean {
+  return doc.children.some(
+    (block) =>
+      block.type === 'heading' &&
+      block.src.start === heading.src.start &&
+      block.src.end === heading.src.end,
+  );
+}
+
+function topLevelEnclosingBlock(doc: Document, heading: Heading) {
   for (const block of doc.children) {
-    if (block.src.start <= heading.src.start) continue;
-    if (block.type === 'heading' && block.level <= heading.level) {
-      end = block.src.start;
-      break;
-    }
+    if (heading.src.start >= block.src.start && heading.src.end <= block.src.end) return block;
   }
+  return heading;
+}
+
+const BLOCK_TYPES = new Set([
+  'heading',
+  'paragraph',
+  'blockquote',
+  'list',
+  'listItem',
+  'codeBlock',
+  'htmlBlock',
+  'thematicBreak',
+  'table',
+  'tableRow',
+  'tableCell',
+  'mathBlock',
+  'footnoteDefinition',
+  'frontmatter',
+]);
+
+function expectedSectionEnd(doc: Document, heading: Heading): number {
+  if (isTopLevelHeading(doc, heading)) {
+    let end = doc.src.end;
+    for (const block of doc.children) {
+      if (block.src.start <= heading.src.start) continue;
+      if (block.type === 'heading' && block.level <= heading.level) {
+        end = block.src.start;
+        break;
+      }
+    }
+    return end;
+  }
+  const scope = topLevelEnclosingBlock(doc, heading);
+  let end = scope.src.end;
+  const walk = (node: Node): boolean => {
+    if (BLOCK_TYPES.has(node.type)) {
+      const block = node as import('../contracts/ast.ts').Block;
+      if (block.src.start > heading.src.start && block.type === 'heading' && block.level <= heading.level) {
+        end = block.src.start;
+        return true;
+      }
+      for (const child of block.children ?? []) {
+        if (walk(child)) return true;
+      }
+      return false;
+    }
+    for (const child of node.children ?? []) {
+      if (walk(child)) return true;
+    }
+    return false;
+  };
+  walk(scope);
   return end;
 }
 
@@ -63,7 +120,7 @@ const table: TableCase[] = [
     expectIncludes: ['Body'],
   },
   {
-    name: 'heading inside blockquote ends at next top-level heading',
+    name: 'heading inside blockquote stays inside the blockquote',
     source: '> ## In quote\n>\n> text\n\n## Top\n',
     pick: (d) => {
       const bq = d.children[0];
@@ -71,6 +128,30 @@ const table: TableCase[] = [
       return (bq.children ?? []).find((c) => c.type === 'heading') as Heading;
     },
     expectIncludes: ['text'],
+    expectExcludes: ['## Top'],
+  },
+  {
+    name: 'heading inside blockquote does not swallow content after the blockquote',
+    source: '> ## Inner\n> body\n\nParagraph after blockquote.\n\n## Outer\nmore\n',
+    pick: (d) => {
+      const bq = d.children[0];
+      assert.equal(bq.type, 'blockquote');
+      return (bq.children ?? []).find((c) => c.type === 'heading') as Heading;
+    },
+    expectIncludes: ['body'],
+    expectExcludes: ['Paragraph after blockquote', '## Outer'],
+  },
+  {
+    name: 'heading inside a list stays inside the list',
+    source: '- ## In list\n  item body\n\nAfter list.\n\n## Outer\n',
+    pick: (d) => {
+      const list = d.children[0];
+      assert.equal(list.type, 'list');
+      const item = list.children[0];
+      return (item.children ?? []).find((c) => c.type === 'heading') as Heading;
+    },
+    expectIncludes: ['item body'],
+    expectExcludes: ['After list', '## Outer'],
   },
 ];
 
@@ -85,6 +166,7 @@ for (const c of table) {
       new TextEncoder().encode(c.source).slice(range.start, range.end),
     );
     for (const fragment of c.expectIncludes ?? []) assert.match(text, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    for (const fragment of c.expectExcludes ?? []) assert.doesNotMatch(text, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     for (const h of headingsOf(doc)) {
       if (h.src.start <= range.start || h.src.start >= range.end) continue;
       assert.ok(h.level > heading.level, `${c.name}: inner heading h${h.level} should outrank h${heading.level}`);

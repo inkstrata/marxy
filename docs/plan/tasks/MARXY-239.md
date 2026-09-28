@@ -18,7 +18,10 @@ verify: [pnpm precheck, pnpm done MARXY-239]
 - `apps/desktop/src/source/editor.ts` — gutter on for non-markdown, folding, `highlightSpecialChars`, ligatures off, tab size.
 - `apps/desktop/src/source/editorconfig.ts` — new: pure parser for the few keys used.
 - `apps/desktop/src/commands/` — `toggle-line-numbers` and `jump-to-source` palette commands.
-- `packages/typeset/src/` — the third-pass slash break.
+- `packages/typeset/src/slash-break.ts` — the third-pass slash break.
+- `packages/typeset/src/index.ts` — export the slash break. Do not edit `grid.ts` or `apply.ts` (MARXY-282 and MARXY-250).
+- `apps/desktop/package.json` — `@codemirror/language` for `codeFolding`.
+- `pnpm-lock.yaml` — the lockfile entry for that dependency.
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
 
 ## Attempt 1 (blocked 2026-09-27)
@@ -28,6 +31,8 @@ The draft is uncommitted in this story's worktree. Keep it. `codeFolding` is exp
 On the next attempt, in this pull request, add `@codemirror/language` at the same major as the other `@codemirror/*` dependencies (MIT, the same licence those packages already have) and widen this row's own Paths to include `apps/desktop/package.json`. The reviewer is told about a path widening; that is how this file is meant to land (`docs/ci-contract.md`). Do not report blocked for that file again, and do not split the story.
 
 ## Do this, in order
+The worktree has the implementation uncommitted, and the five story tests were green when it stopped. Do not rewrite it. `check-story` rejected `apps/desktop/package.json` and `pnpm-lock.yaml`; both are in Paths now.
+
 1. Gutter and toggle.
 2. Add the folding dependency as above, then folding, special chars, ligatures.
 3. Tab width.

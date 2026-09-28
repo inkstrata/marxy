@@ -46,7 +46,7 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
   let i = 0;
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) i = 3;
   let lineStart = i;
-  let inFence = false;
+  let openFence: { readonly char: '`' | '~'; readonly len: number } | null = null;
   let frontmatter: 'none' | 'open' | 'done' = 'none';
   while (i <= bytes.length) {
     const atEnd = i === bytes.length;
@@ -64,8 +64,13 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
     } else if (frontmatter === 'open' && (trimmed === '---' || trimmed === '...')) {
       frontmatter = 'done';
     } else if (frontmatter !== 'open') {
-      if (/^(```|~~~)/.test(trimmed)) inFence = !inFence;
-      else if (!inFence) {
+      if (openFence === null) {
+        const marker = fenceMarker(line);
+        if (marker) openFence = marker;
+      } else if (isClosingFence(line, openFence.char, openFence.len)) {
+        openFence = null;
+      }
+      if (openFence === null) {
         const match = /^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/.exec(line);
         if (match) {
           headings.push({
@@ -84,3 +89,22 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
 }
 
 const decoder = new TextDecoder('utf-8');
+
+const FENCE_RUN = /^\s{0,3}(`{3,}|~{3,})/;
+
+/** Opening fence on this line (up to three spaces of indent), if any. */
+function fenceMarker(line: string): { char: '`' | '~'; len: number } | null {
+  const match = FENCE_RUN.exec(line);
+  if (!match) return null;
+  const run = match[1]!;
+  return { char: run[0] === '~' ? '~' : '`', len: run.length };
+}
+
+/** CommonMark closing fence: same marker, length at least the opener, only spaces after. */
+function isClosingFence(line: string, char: '`' | '~', openLen: number): boolean {
+  const match = /^\s{0,3}(`+|~+)\s*$/.exec(line);
+  if (!match) return false;
+  const run = match[1]!;
+  const runChar = run[0] === '~' ? '~' : '`';
+  return runChar === char && run.length >= openLen;
+}
