@@ -57,7 +57,9 @@ const INF_BAD = 10000;
 /** TeX's badness, 100·(t/s)³ capped at 10000. */
 export function badness(shortfall: number, stretch: number): number {
   if (shortfall <= 0) return 0;
-  if (stretch <= 0) return INF_BAD;
+  // Non-finite stretch (e.g. fontSize failed to parse) would make Math.min propagate NaN and poison
+  // every cost comparison in pass(); worst line badness matches an unusable stretch.
+  if (!Number.isFinite(stretch) || stretch <= 0) return INF_BAD;
   return Math.min(INF_BAD, 100 * (shortfall / stretch) ** 3);
 }
 
