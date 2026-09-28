@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The frozen shell-api compile-time stub shells now share one no-op implementation, so a new `Shell` member is defined in one place instead of three hand-copied literals (MARXY-285)
 - Planner delta for 2026-09-27: the open plan pull requests stay the plan (merge the seams filing, the reading-position split and the title-bar filing by hand; close the quote-story duplicate), Source's code-folding dependency is named so the next attempt can add it, and two merged looks get a taste-review row. No other story's board row changes, because a new planner row that edits one is judged against no paths and the cycle returns it (MARXY-271)
 - Stories that already had a fix and were stuck on a file the board did not list can move again: save wires through the open document, copy keeps raw HTML from being smartened, Source can depend on the folding package, trust's new corpus page can carry baselines, and a theme reload keeps its scroll after the baseline grid remeasures (MARXY-313)
 - The optional justif line breaker now applies TeX hyphen demerits (consecutive hyphenated lines and a final-line hyphen) aligned with the ragged engine (MARXY-283)
