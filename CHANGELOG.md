@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- A plan pull request that files new stories is judged by the row it adds, so the cycle can read the paths that row lists instead of treating every file as outside the story (MARXY-291)
 - Live reload now listens for filesystem events on the open document's folder (and on a symlink target's folder when the document is a link) instead of scanning the whole tree every 50 ms, so edits through a symlink show up and an idle Marxy does less work (MARXY-251)
 - Research: a survey of the Tauri app ecosystem for UI patterns, chrome/titlebar precedent and CI/release engineering, separating verified prior art from debunked claims (Warp, RustDesk, Obsidian and AFFiNE are not Tauri) and flagging which findings need an ADR or a taste-review row rather than a quiet drive-by change; a taste-review queue row records the hover-reveal titlebar idea as unbuilt design territory with no adopted precedent (MARXY-277)
 - CI, the release build and `pnpm lint:rust` now build the Rust shell with `--locked`, so a `Cargo.toml` change without its `Cargo.lock` fails instead of being resolved on the runner, and `check:workflows` refuses any cargo or `tauri build` call that leaves the flag out (MARXY-270)
