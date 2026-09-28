@@ -86,6 +86,17 @@ test('badness is TeX’s: 100 at the full stretch, capped at 10000', () => {
   assert.equal(badness(1000, 34), 10000);
 });
 
+test('non-finite stretch is worst badness, not NaN (MARXY-281)', () => {
+  assert.equal(badness(10, Number.NaN), 10000);
+  assert.equal(badness(10, Number.POSITIVE_INFINITY), 10000);
+  // A NaN font size makes stretch NaN; the breaker must still choose breaks, not leave every cost NaN.
+  const tokens = para(40, 40, 40);
+  const ok = breakRagged(tokens, 50, 17);
+  const broken = breakRagged(tokens, 50, Number.NaN);
+  assert.deepEqual(broken.after, ok.after);
+  assert.equal(Number.isNaN(badness(10, Number.NaN)), false);
+});
+
 /** A word split at a hyphenation point: [left piece, hyphen, right piece]. */
 const split = (left: number, right: number, hyphen = 6): Measured[] => [{ kind: 'piece', width: left }, { kind: 'hyphen', width: hyphen }, { kind: 'piece', width: right }];
 const space: Measured = { kind: 'space', width: 5, fontSize: 17 };
