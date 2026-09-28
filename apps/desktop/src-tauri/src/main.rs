@@ -113,10 +113,15 @@ fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), ShellError>
         .headers()
         .get(WRITE_PATH_HEADER)
         .ok_or_else(|| {
-            ShellError::invalid("", format!("write_file_atomic: missing {WRITE_PATH_HEADER}"))
+            ShellError::invalid(
+                "",
+                format!("write_file_atomic: missing {WRITE_PATH_HEADER}"),
+            )
         })?
         .to_str()
-        .map_err(|e| ShellError::invalid("", format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}")))?;
+        .map_err(|e| {
+            ShellError::invalid("", format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}"))
+        })?;
     let path = percent_decode(encoded).map_err(|e| ShellError::invalid("", e))?;
     atomic_write::write_atomic(std::path::Path::new(&path), bytes).map_err(|e| match e.kind {
         WriteErrorKind::Permission => ShellError::permission(&path, e.message),
@@ -135,7 +140,10 @@ fn set_title(app: tauri::AppHandle, title: String) -> Result<(), ShellError> {
 }
 
 #[tauri::command]
-async fn save_dialog(app: tauri::AppHandle, default_path: Option<String>) -> Result<Option<String>, ShellError> {
+async fn save_dialog(
+    app: tauri::AppHandle,
+    default_path: Option<String>,
+) -> Result<Option<String>, ShellError> {
     use tauri_plugin_dialog::DialogExt;
     let path = tauri::async_runtime::spawn_blocking(move || {
         let mut picker = app.dialog().file();

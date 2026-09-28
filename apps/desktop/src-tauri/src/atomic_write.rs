@@ -128,7 +128,12 @@ fn refuse_surprising_destination(target: &Path) -> Result<Option<Metadata>, Writ
     let meta = match fs::metadata(target) {
         Ok(meta) => meta,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(WriteError::io(format!("{}: cannot be inspected: {e}", target.display()))),
+        Err(e) => {
+            return Err(WriteError::io(format!(
+                "{}: cannot be inspected: {e}",
+                target.display()
+            )))
+        }
     };
     if !meta.is_file() {
         return Err(WriteError::permission(format!(
@@ -236,8 +241,10 @@ fn ownership_refuses(destination_uid: u32, staged_uid: u32) -> bool {
 /// to); only if that restore fails, or the owning user would change, does the save refuse.
 #[cfg(unix)]
 fn refuse_ownership_change(target: &Path, tmp: &Path) -> Result<(), WriteError> {
-    let destination = fs::metadata(target).map_err(|e| WriteError::io(format!("{}: {e}", target.display())))?;
-    let staged = fs::metadata(tmp).map_err(|e| WriteError::io(format!("{}: {e}", tmp.display())))?;
+    let destination =
+        fs::metadata(target).map_err(|e| WriteError::io(format!("{}: {e}", target.display())))?;
+    let staged =
+        fs::metadata(tmp).map_err(|e| WriteError::io(format!("{}: {e}", tmp.display())))?;
     if ownership_refuses(destination.uid(), staged.uid()) {
         return Err(WriteError::permission(format!(
             "{}: is owned by {} and marxy would save it as {}; refusing rather than changing \
