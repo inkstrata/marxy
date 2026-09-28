@@ -173,6 +173,14 @@
     "MARXY-NEW-core-index-fence-toggle-matches-marker": "MARXY-297",
     "MARXY-NEW-typeset-killed-checked-only-once": "MARXY-298",
     "MARXY-NEW-desktop-symlink-target-dirs-toctou": "MARXY-299",
+    "MARXY-NEW-desktop-source-scroll-position-stale": "MARXY-302",
+    "MARXY-NEW-desktop-deferred-startup-race": "MARXY-303",
+    "MARXY-NEW-desktop-quit-rejection-stomps-page": "MARXY-304",
+    "MARXY-NEW-desktop-capabilities-core-default-too-broad": "MARXY-305",
+    "MARXY-NEW-gate-registry-html-route-plus-equals": "MARXY-306",
+    "MARXY-NEW-gate-boundaries-template-literal-imports": "MARXY-307",
+    "MARXY-NEW-gate-deps-cargo-table-form": "MARXY-308",
+    "MARXY-NEW-gate-bundle-dynamic-import-and-prebuild-skip": "MARXY-309",
     "MARXY-NEW-gate-cards-files-section-end-of-card-regex": "MARXY-311",
     "MARXY-NEW-orchestration-done-stale-status-on-rerun": "MARXY-312"
   }
