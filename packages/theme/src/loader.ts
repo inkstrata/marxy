@@ -134,10 +134,14 @@ export async function loadTheme(
       warnings.push(`Theme '${name}' targets contract ${contract}; marxy speaks ${SPOKEN_CONTRACT}. It may not look as intended.`);
     }
     const variantsRaw = parsed.variants;
-    const variants: Variant[] =
-      Array.isArray(variantsRaw) && variantsRaw.every((v) => v === 'light' || v === 'dark')
-        ? (variantsRaw as Variant[])
-        : ['dark', 'light'];
+    let variants: Variant[] = ['dark', 'light'];
+    if (Array.isArray(variantsRaw)) {
+      if (variantsRaw.length === 0) {
+        warnings.push(`Theme '${name}' declares no variants in theme.toml; using defaults`);
+      } else if (variantsRaw.every((v) => v === 'light' || v === 'dark')) {
+        variants = variantsRaw as Variant[];
+      }
+    }
     manifest = { name, author, contract, variants };
   } catch {
     warnings.push('theme.toml could not be read; using defaults');
