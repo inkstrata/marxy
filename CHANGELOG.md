@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Baseline-grid pushes re-measure each block after padding is applied so margin-collapse changes from that padding do not drift later siblings off the grid (MARXY-282)
 - A failed `pnpm done` re-run no longer leaves the fleet result claiming done with all gates ok from an earlier green run (MARXY-312)
 - The optional justif line breaker now applies TeX hyphen demerits (consecutive hyphenated lines and a final-line hyphen) aligned with the ragged engine (MARXY-283)
 - Flipping `--marxy-typeset: none` mid-document now stops in-flight background typesetting, not only on the next attach or relayout (MARXY-298)

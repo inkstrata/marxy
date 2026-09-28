@@ -92,6 +92,32 @@ test('text with one-line headings: the stylesheet alone puts every block on the 
   }
 });
 
+// MARXY-282: padding-bottom on the first of two collapsing siblings uncollapses the gap; a predicted delta drifts the second block off-grid.
+test('two adjacent blocks: after a grid push on the first, the second still lands on-grid', async () => {
+  const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
+  await page.setContent(
+    `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${css}</style></head>` +
+      '<body><article class="marxy-article" id="doc"><p id="a">First.</p><p id="b">Second.</p></article></body></html>',
+  );
+  await page.addScriptTag({ content: `${grid}\nwindow.snapToGrid = snapToGrid;` });
+  await page.evaluate(() => {
+    const article = document.getElementById('doc');
+    const half = parseFloat(getComputedStyle(article).lineHeight) / 2;
+    document.getElementById('a').style.marginBottom = `${half + 1}px`;
+  });
+  await page.evaluate(() => window.snapToGrid(document.getElementById('doc'), parseFloat(getComputedStyle(document.getElementById('doc')).lineHeight)));
+  const secondTop = await page.evaluate(() => {
+    const article = document.getElementById('doc');
+    const unit = parseFloat(getComputedStyle(article).lineHeight) / 2;
+    const origin = article.getBoundingClientRect().top;
+    const top = document.getElementById('b').getBoundingClientRect().top - origin;
+    const r = ((top % unit) + unit) % unit;
+    return r <= 0.5 || r >= unit - 0.5 ? null : top;
+  });
+  assert.equal(secondTop, null, `second block off-grid (top ${secondTop})`);
+  await page.close();
+});
+
 for (const file of CORPUS) {
   test(`${file}: every block on the grid after the grid pass, at three widths and four sizes`, async () => {
     const cases = [...WIDTHS.map((width) => ({ width })), ...[16, 24, 28].map((size) => ({ size }))];
