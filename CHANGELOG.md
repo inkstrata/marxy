@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Flipping `--marxy-typeset: none` mid-document now stops in-flight background typesetting, not only on the next attach or relayout (MARXY-298)
 - `sectionRange` for a heading nested in a blockquote or list now stops at that enclosing block's end (or the next heading of equal or higher rank inside it), instead of running to the next top-level heading (MARXY-295)
 - Ragged line breaking treats a non-finite stretch (for example an unparseable paragraph font size) as worst badness instead of letting NaN poison every cost comparison in the breaker (MARXY-281)
 - A fourth bugcatch pass files two more stories: `check-cards.mjs`'s path-boundary check being a silent no-op for any task card whose "Files and signatures" section comes last, and `pnpm done` leaving a stale "done, all gates ok" result on disk after a later run actually fails; the pass also re-verified the HTML sanitizer against a battery of crafted bypass payloads and found it holds (MARXY-310)
