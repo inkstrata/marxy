@@ -34,10 +34,28 @@ export function joinPath(base: string, child: string): string {
   return normalizePath(`${left}/${child}`);
 }
 
-/** `to` relative to `from`, using `/`. Both must be absolute or the same kind of relative. */
+/** True when `child` is `parent` or a strict descendant path (segment-safe, after normalisation). */
+function isPathUnder(child: string, parent: string): boolean {
+  const c = normalizePath(child);
+  const p = normalizePath(parent);
+  return c === p || c.startsWith(`${p}/`);
+}
+
+/**
+ * `to` relative to `from`, using `/`. Both must be absolute or the same kind of relative.
+ * `from` must be a directory path; if a document path is passed by mistake, it is resolved via
+ * `dirname(from)` when `to` lies under that directory but not under the mistaken path.
+ */
 export function relativePath(from: string, to: string): string {
-  const a = normalizePath(from).split('/');
-  const b = normalizePath(to).split('/');
+  const normFrom = normalizePath(from);
+  const normTo = normalizePath(to);
+  let fromDir = normFrom;
+  if (!isPathUnder(normTo, normFrom) && normTo !== normFrom) {
+    const parent = dirname(normFrom);
+    if (isPathUnder(normTo, parent) || normTo === parent) fromDir = parent;
+  }
+  const a = fromDir.split('/');
+  const b = normTo.split('/');
   let i = 0;
   while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
   const up = a.length - i;
