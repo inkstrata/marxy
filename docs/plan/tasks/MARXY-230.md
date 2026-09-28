@@ -15,7 +15,8 @@ verify: [pnpm precheck, pnpm done MARXY-230]
 Handbook [07](../../research/reader-artifacts/07-trust-safety.md) and [05](../../research/reader-artifacts/05-diffs-provenance.md), measured: smart typography reaches `kbd`; `copy-code-clean` appends `\n` to any non-empty block; `copy-section` runs two regular expressions over rendered HTML to strip provenance attributes, and they also match document text.
 
 ## Files and signatures
-- `packages/core/src/render/typography.ts` — skip `code`, `kbd`, `samp`, `pre` subtrees whatever produced them (markdown or raw HTML).
+- `packages/core/src/render/render-html.ts` — pass the paragraph's siblings into `smartenParagraphTextNode`. Raw `<kbd>--frozen-lockfile</kbd>` parses as html + text + html; `typography.ts` cannot see the tags around the text node, and a heuristic skip inside `smarten` will miss or over-skip.
+- `packages/core/src/render/typography.ts` — skip `code`, `kbd`, `samp`, `pre` subtrees whatever produced them (markdown or raw HTML), using the sibling list from the call site.
 - `packages/core/src/operations/copy-code-clean.ts` — keep the source's final newline state; never add one.
 - `packages/core/src/operations/copy-section.ts` — strip provenance by walking the HAST/DOM attributes, not by regex over serialised HTML.
 - `packages/core/src/operations/operations.test.ts` — acceptance 2 and 3.
@@ -23,6 +24,8 @@ Handbook [07](../../research/reader-artifacts/07-trust-safety.md) and [05](../..
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
 
 ## Do this, in order
+The branch already edits `render-html.ts` to pass siblings. Keep that change. Do not widen the CSV in this story's pull request; the path is on main once MARXY-313 merges.
+
 1. Failing tests for all three defects.
 2. Typography skip list.
 3. Newline rule.
