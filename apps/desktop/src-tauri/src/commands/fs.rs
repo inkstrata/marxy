@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-use imagesize::size;
+use imagesize::{size, ImageError};
 use serde::Serialize;
 use tauri::Manager;
 
@@ -61,6 +61,26 @@ pub struct ImageDimensions {
     pub height: u32,
 }
 
+/// `imagesize` uses `IoError` for short reads as well as real filesystem failures; only the latter
+/// propagate to the webview.
+fn image_size_io_is_format_miss(err: &std::io::Error) -> bool {
+    matches!(
+        err.kind(),
+        std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::InvalidData
+    )
+}
+
+fn map_image_size_error(
+    path: &str,
+    err: ImageError,
+) -> Result<Option<ImageDimensions>, ShellError> {
+    match err {
+        ImageError::NotSupported | ImageError::CorruptedImage => Ok(None),
+        ImageError::IoError(e) if image_size_io_is_format_miss(&e) => Ok(None),
+        ImageError::IoError(e) => Err(ShellError::io(path, e.to_string())),
+    }
+}
+
 /// Natural pixel size from the file header only (`imagesize`, MIT). `null` when the bytes are not an image.
 #[tauri::command]
 pub fn image_size(path: String) -> Result<Option<ImageDimensions>, ShellError> {
@@ -76,7 +96,7 @@ pub fn image_size(path: String) -> Result<Option<ImageDimensions>, ShellError> {
             width: dim.width as u32,
             height: dim.height as u32,
         })),
-        Err(_) => Ok(None),
+        Err(err) => map_image_size_error(&path, err),
     }
 }
 
@@ -189,6 +209,27 @@ mod tests {
     fn image_size_on_missing_path_is_not_found() {
         let err = image_size("/no/such/marxy-image.png".into()).unwrap_err();
         assert_eq!(err.code, "not-found");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn image_size_on_unreadable_file_is_io_not_none() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = std::env::temp_dir().join(format!("marxy-image-size-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("tmpdir");
+        let file = root.join("locked.png");
+        fs::write(&file, b"\x89PNG\r\n\x1a\n").expect("seed png header");
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).expect("chmod");
+
+        let path = file.to_string_lossy().into_owned();
+        let err = image_size(path).expect_err("permission denied must not look like a non-image");
+
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).expect("chmod back");
+        let _ = fs::remove_dir_all(&root);
+
+        assert_eq!(err.code, "io");
     }
 
     #[test]
