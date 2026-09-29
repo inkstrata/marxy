@@ -232,8 +232,11 @@ export async function runBuiltAppSmoke(opts = {}) {
        return new Promise((resolve, reject) => {
          const tick = () => {
            const doc = document.getElementById('doc');
-           if (doc && doc.textContent && doc.textContent.includes('CRLF')) return resolve(true);
-           if (Date.now() > deadline) return reject(new Error('document did not open'));
+           const opened = Boolean(doc && doc.textContent && doc.textContent.includes('CRLF'));
+           // The palette mounts after startApp resolves, which is after the document first paints.
+           const palette = Boolean(window.__marxyPalette);
+           if (opened && palette) return resolve(true);
+           if (Date.now() > deadline) return reject(new Error(opened ? 'palette never mounted' : 'document did not open'));
            requestAnimationFrame(tick);
          };
          tick();
