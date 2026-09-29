@@ -1,10 +1,11 @@
 // Bundle size budget (ADR-0013). Also fails if importing the parser resolves katex (MARXY-60).
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 
 /**
  * A fresh process so the resolve hook sees the real import graph, not this gate's own modules.
@@ -47,21 +48,30 @@ console.log('bundle gate: parser import graph does not resolve katex (' + resolv
   if (child.status !== 0) process.exit(child.status === null ? 1 : child.status);
 }
 
-assertParserDoesNotResolveKatex();
-
 /**
- * The memory shell and the app harness must not ship in the production entry. A walk of main.ts's
- * relative imports fails when memory.ts is imported from it; the built index JS is grepped when
- * dist exists so a bundler rewrite cannot hide the marker.
+ * Relative import specifiers reachable from a production source file. Shapes mirror
+ * `scripts/check-boundaries.mjs` (static from, dynamic import(), require()); keep them aligned
+ * until a shared helper exists (MARXY-307).
  */
-function assertProductionExcludesMemoryShell() {
-  const desktop = join(root, 'apps', 'desktop');
+export function relativeImportSpecs(text) {
+  const specs = [];
+  for (const m of text.matchAll(/(?:^|\n)\s*(?:import|export)\s[^'"\n]*?\bfrom\s+['"](\.[^'"]+)['"]/g)) specs.push(m[1]);
+  for (const m of text.matchAll(/\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/g)) specs.push(m[1]);
+  for (const m of text.matchAll(/\brequire\(\s*['"](\.[^'"]+)['"]\s*\)/g)) specs.push(m[1]);
+  return specs;
+}
+
+const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+function resolveRelativeModule(fromFile, spec) {
+  const path = spec.endsWith('.ts') || spec.endsWith('.mjs') || spec.endsWith('.js') ? spec : `${spec}.ts`;
+  return join(fromFile, '..', path);
+}
+
+/** Walk main.ts's relative import graph; returns absolute paths of memory shell / harness hits. */
+export function memoryShellReachableFromMain(desktop) {
   const main = join(desktop, 'src', 'main.ts');
-  if (!existsSync(main)) {
-    console.error('bundle gate: apps/desktop/src/main.ts is missing');
-    process.exit(1);
-  }
-  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  if (!existsSync(main)) return { error: 'missing-main', memory: [] };
   const seen = new Set();
   const queue = [main];
   while (queue.length) {
@@ -69,13 +79,25 @@ function assertProductionExcludesMemoryShell() {
     if (seen.has(file) || !existsSync(file)) continue;
     seen.add(file);
     const text = strip(readFileSync(file, 'utf8'));
-    for (const m of text.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
-      const spec = m[1].endsWith('.ts') || m[1].endsWith('.mjs') || m[1].endsWith('.js') ? m[1] : `${m[1]}.ts`;
-      queue.push(join(file, '..', spec));
-    }
+    for (const spec of relativeImportSpecs(text)) queue.push(resolveRelativeModule(file, spec));
+  }
+  const memory = [...seen].filter((f) => /src\/shell\/memory\.ts$/.test(f) || /src\/harness\//.test(f));
+  return { error: null, memory, moduleCount: seen.size };
+}
+
+/**
+ * The memory shell and the app harness must not ship in the production entry. The import-graph
+ * walk from main.ts always runs (including pre-build precheck); CI's gates job runs `build:web`
+ * before this gate so the dist/index.html bundle grep runs there as a second backstop.
+ */
+function assertProductionExcludesMemoryShell() {
+  const desktop = join(root, 'apps', 'desktop');
+  const { error, memory, moduleCount } = memoryShellReachableFromMain(desktop);
+  if (error === 'missing-main') {
+    console.error('bundle gate: apps/desktop/src/main.ts is missing');
+    process.exit(1);
   }
   const rel = (f) => f.slice(desktop.length + 1);
-  const memory = [...seen].filter((f) => /src\/shell\/memory\.ts$/.test(f) || /src\/harness\//.test(f));
   if (memory.length > 0) {
     console.error('bundle gate: production entry reaches the memory shell or harness:');
     for (const f of memory) console.error('  ' + rel(f));
@@ -110,11 +132,13 @@ function assertProductionExcludesMemoryShell() {
     }
     console.log('bundle gate: production index JS excludes createMemoryShell and the harness');
   } else {
-    console.log('bundle gate: no vite dist; production JS string check skipped (import graph is clean)');
+    console.log('bundle gate: no vite dist; dist bundle string check skipped (import graph ran)');
   }
-  console.log(`bundle gate: main.ts import graph excludes memory.ts (${seen.size} modules)`);
+  console.log(`bundle gate: main.ts import graph excludes memory.ts (${moduleCount} modules)`);
 }
 
+if (isMain) {
+assertParserDoesNotResolveKatex();
 assertProductionExcludesMemoryShell();
 
 const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json', import.meta.url), 'utf8')).bundle_installed_mb;
@@ -166,3 +190,4 @@ if (fail) {
   process.exit(1);
 }
 console.log('bundle gate ok');
+}
