@@ -77,7 +77,8 @@ test('Mod+C on the Install section copies markdown source and sanitised html', a
   const installHeading = ast.children.find((n) => n.type === 'heading' && n.children?.[0]?.type === 'text' && n.children[0].value === 'Install');
   assert.ok(installHeading);
   const range = sectionRange(ast, installHeading);
-  const expectedText = `${textOf(buffer, range).replace(/\s+$/, '')}\n`;
+  // The clipboard is the exact source slice (MARXY-230, MARXY-337): no trimmed or added bytes.
+  const expectedText = textOf(buffer, range);
 
   const browser = await launchWebkit();
   try {
