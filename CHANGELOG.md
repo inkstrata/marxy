@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- Hidden-character marks and the Cargo table-form dependency check are to be rebased onto main, where a locked file that root can still read is already treated as readable, and a key cap that keeps its hyphen is queued for a look (MARXY-321)
 - Nightly monitoring now drives a release build through `tauri-driver` and WebKitWebDriver: open a CRLF fixture by argv, toggle a task, compare bytes on disk, and assert the palette's runtime styles still apply (MARXY-254)
 - A reviewer run now writes its verdict to its notes file first, before running `fleet.mjs verdict`; when the run ends without ever calling that command, `runs.mjs` recovers the verdict from that file through the same code and records it, as long as the file names the PR's current head (MARXY-316)
 - Copying a code block keeps the source's own newline and no longer has to fight a test that always added one; heading links and explicit save can touch the files their branches already edit (MARXY-318)

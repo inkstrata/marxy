@@ -10,6 +10,9 @@ verify: [pnpm precheck, pnpm done MARXY-308]
 
 **Outcome.** A forbidden crate declared via Cargo's `[dependencies.crate-name]` table syntax is caught by the license/dependency gate, not invisible to it.
 
+## This attempt
+PR #281 is the fix (`scripts/check-deps.mjs` and its test, including the comrak comment). It conflicts with main. The red `browser` job is the same `image_size_on_unreadable_file_is_io_not_none` failure as MARXY-236: this branch does not touch `fs.rs`, and main's test already returns early when root can still read a mode-`000` file (MARXY-287, `2ec8c346`). Rebase onto `origin/main`. Do not edit `apps/desktop/src-tauri/src/commands/fs.rs`.
+
 ## Why
 The parser only extracts crate names from the inline `crate = "1.0"` form; with the table form the crate name lives in the section header, and the parser instead treats field names like `version`/`features` as fake crate names, never checking the real one.
 
