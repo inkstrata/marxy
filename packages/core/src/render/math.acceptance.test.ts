@@ -36,7 +36,7 @@ function buildDesktop(outDir) {
   execFileSync(
     'pnpm',
     ['exec', 'vite', 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'silent'],
-    { cwd: join(repoRoot, 'apps/desktop'), stdio: 'pipe' },
+    { cwd: join(repoRoot, 'apps/desktop'), stdio: 'pipe', shell: process.platform === 'win32' },
   );
 }
 

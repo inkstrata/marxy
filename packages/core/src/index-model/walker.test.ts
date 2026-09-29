@@ -12,7 +12,7 @@ const source = fileURLToPath(new URL('../../../../apps/desktop/src-tauri/src/ind
 
 test('the Tauri walker compiles and its rust tests pass', { timeout: 120_000 }, () => {
   const work = mkdtempSync(join(tmpdir(), 'marxy-index-rustc-'));
-  const binary = join(work, 'marxy-index-tests');
+  const binary = join(work, process.platform === 'win32' ? 'marxy-index-tests.exe' : 'marxy-index-tests');
   try {
     const built = spawnSync(
       'rustc',

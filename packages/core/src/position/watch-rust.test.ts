@@ -27,7 +27,7 @@ test('the shipped Rust watcher covers in-place, atomic rename, delete and move',
   try {
     const crate = join(dir, 'watch.rs');
     writeFileSync(crate, source);
-    const binary = join(dir, 'watch-tests');
+    const binary = join(dir, process.platform === 'win32' ? 'watch-tests.exe' : 'watch-tests');
     const built = spawnSync('rustc', ['--edition', '2021', '--test', '-o', binary, crate], {
       encoding: 'utf8',
     });
