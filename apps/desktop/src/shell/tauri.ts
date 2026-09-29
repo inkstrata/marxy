@@ -33,11 +33,21 @@ const lastRead = new Map<string, Uint8Array>();
 const readBytes = async (path: string): Promise<Uint8Array> =>
   new Uint8Array(await invoke<ArrayBuffer>('read_file', { path }));
 
+/** `read_file` rejects with a bare "path: No such file or directory (os error 2)" string. */
+function isNotFound(err: unknown): boolean {
+  if (err && typeof err === 'object' && 'code' in err && (err as ShellError).code === 'not-found') return true;
+  const text = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  return /no such file|not found|os error 2\b|cannot find the (file|path)|ENOENT/i.test(text);
+}
+
 function shellErrorFromInvoke(err: unknown): Error & { code?: ShellError['code']; message: string } {
   const payload =
     err && typeof err === 'object' && 'code' in err && 'message' in err
       ? (err as ShellError)
-      : { code: 'io' as const, message: String(err) };
+      : {
+          code: 'io' as const,
+          message: err instanceof Error ? err.message : String(err),
+        };
   const error = new Error(payload.message) as Error & { code?: ShellError['code']; message: string };
   error.code = payload.code;
   return error;
@@ -95,7 +105,17 @@ export const shell: Pick<
   writeFileAtomic: async (path, bytes) => {
     const expected = lastRead.get(path);
     if (expected) {
-      const error = staleWriteError(path, expected, await readBytes(path));
+      // A file that is gone (deleted or moved externally) has nothing to overwrite, so there is no
+      // precondition to fail: the save recreates it. Any other read failure is real and is reported
+      // as an Error with its message, not the bare string Tauri rejects with.
+      let onDisk: Uint8Array | null;
+      try {
+        onDisk = await readBytes(path);
+      } catch (err) {
+        if (isNotFound(err)) onDisk = null;
+        else throw shellErrorFromInvoke(err);
+      }
+      const error = onDisk ? staleWriteError(path, expected, onDisk) : null;
       if (error) throw new Error(error);
     }
     // A raw body, not `Array.from(bytes)`: a JSON array costs ~3.7 bytes per byte each way. The path

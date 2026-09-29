@@ -123,8 +123,12 @@ export interface TrustWriter {
 
 export interface TrustStore {
   grantsFor(path: string): Grants;
-  grant(path: string, change: Partial<Pick<DocumentGrants, 'html' | 'imageHosts'>>): Promise<void>;
-  revoke(path: string, what: 'html' | 'images' | 'all'): Promise<void>;
+  /**
+   * Resolves true once the change is in memory and on disk; false when trust.json comes from a newer
+   * Marxy and is left untouched. Rejects, with the in-memory state put back, when the write fails.
+   */
+  grant(path: string, change: Partial<Pick<DocumentGrants, 'html' | 'imageHosts'>>): Promise<boolean>;
+  revoke(path: string, what: 'html' | 'images' | 'all'): Promise<boolean>;
   readonly newerVersion: boolean;
 }
 
@@ -135,6 +139,30 @@ export function createTrustStore(
 ): TrustStore {
   let state = envelope;
   const newerVersion = opts?.newerVersion === true || envelope.version > TRUST_FILE_VERSION;
+  // Writes run one after another in the order the changes were made, so two grants started together
+  // cannot land on disk out of order and leave the older state as the file.
+  let queue: Promise<void> = Promise.resolve();
+  const persist = async (next: TrustEnvelope): Promise<boolean> => {
+    const previous = state;
+    state = next;
+    const bytes = serializeTrustFile(next);
+    const done = queue.then(() => write(bytes));
+    queue = done.catch(() => undefined);
+    try {
+      await done;
+    } catch (err) {
+      if (state === next) state = previous;
+      throw err;
+    }
+    return true;
+  };
+  const without = (env: TrustEnvelope, path: string): TrustEnvelope => {
+    const documents = { ...env.documents };
+    delete documents[path];
+    return { ...env, documents };
+  };
+  const emptied = (env: TrustEnvelope, path: string): boolean =>
+    !env.documents[path]?.html && env.documents[path]?.imageHosts.length === 0;
   return {
     newerVersion,
     grantsFor(path: string): Grants {
@@ -142,34 +170,23 @@ export function createTrustStore(
       return { html: entry?.html === true, imageHosts: entry?.imageHosts ?? [] };
     },
     async grant(path, change) {
-      if (newerVersion) return;
-      state = upsertDocument(state, path, change);
-      await write(serializeTrustFile(state));
+      if (newerVersion) return false;
+      return persist(upsertDocument(state, path, change));
     },
     async revoke(path, what) {
-      if (newerVersion) return;
+      if (newerVersion) return false;
       const entry = state.documents[path];
-      if (!entry) return;
+      if (!entry) return true;
+      let next: TrustEnvelope;
       if (what === 'all') {
-        const documents = { ...state.documents };
-        delete documents[path];
-        state = { ...state, documents };
-      } else if (what === 'html') {
-        state = upsertDocument(state, path, { html: false, imageHosts: entry.imageHosts });
-        if (!state.documents[path]?.html && state.documents[path]?.imageHosts.length === 0) {
-          const documents = { ...state.documents };
-          delete documents[path];
-          state = { ...state, documents };
-        }
+        next = without(state, path);
       } else {
-        state = upsertDocument(state, path, { html: entry.html, imageHosts: [] });
-        if (!state.documents[path]?.html && state.documents[path]?.imageHosts.length === 0) {
-          const documents = { ...state.documents };
-          delete documents[path];
-          state = { ...state, documents };
-        }
+        next = upsertDocument(state, path, what === 'html'
+          ? { html: false, imageHosts: entry.imageHosts }
+          : { html: entry.html, imageHosts: [] });
+        if (emptied(next, path)) next = without(next, path);
       }
-      await write(serializeTrustFile(state));
+      return persist(next);
     },
   };
 }

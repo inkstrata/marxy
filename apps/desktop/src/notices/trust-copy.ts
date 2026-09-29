@@ -2,6 +2,7 @@
 
 import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import { blockedHosts } from '@marxy/core/src/render/images.ts';
+import { hostnameToUnicode } from '@marxy/core/src/render/punycode.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 
 const WIDE_STILL_REMOVES = new Set([
@@ -75,6 +76,29 @@ export function htmlGrantWouldChange(removed: readonly RenderRemoval[]): boolean
   return false;
 }
 
+function isSchemeRelative(removal: RenderRemoval): boolean {
+  return (removal.reason?.includes('scheme-relative') ?? false) || /^[\\/]{2}/.test((removal.value ?? '').trim());
+}
+
+/**
+ * The blocked images a per-host grant could ever load. A protocol-relative `//host/y.png` is refused
+ * whatever the reader grants (it takes the document's scheme, which is no network scheme), so it is not
+ * counted and its host is not offered. `blockedImages` carry the resolved https URL, so the removal
+ * report is what says how each was written; one written both ways stays, because the absolute one loads.
+ */
+export function grantableBlockedImages(
+  images: readonly BlockedImage[],
+  removed: readonly RenderRemoval[],
+): readonly BlockedImage[] {
+  const loadable = new Map<string, boolean>();
+  for (const r of removed) {
+    if (r.what !== 'attribute' || r.name !== 'src' || r.on !== 'img') continue;
+    const key = r.url ?? r.value ?? '';
+    loadable.set(key, (loadable.get(key) ?? false) || !isSchemeRelative(r));
+  }
+  return images.filter((image) => loadable.get(image.url) !== false);
+}
+
 function imageNoticePart(images: readonly BlockedImage[]): string {
   const hosts = blockedHosts(images);
   if (hosts.length === 0) return '';
@@ -96,14 +120,16 @@ export function blockedTrustNoticeText(
   removed: readonly RenderRemoval[],
   blockedImages: readonly BlockedImage[],
 ): string {
-  const images = imageNoticePart(blockedImages);
+  const grantable = grantableBlockedImages(blockedImages, removed);
+  const images = imageNoticePart(grantable);
+  const verb = grantable.length === 1 ? 'was' : 'were';
   const elements = elementNoticePart(removed);
   const httpCount = removed.filter(isHttpImage).length;
   let text = '';
   if (images && elements) {
-    text = `${images} were not loaded, and ${elements}.`;
+    text = `${images} ${verb} not loaded, and ${elements}.`;
   } else if (images) {
-    text = `${images} were not loaded.`;
+    text = `${images} ${verb} not loaded.`;
   } else if (elements) {
     text = `Some HTML in this document was simplified (${simplifiedElementNames(removed).join(', ')}).`;
   }
@@ -121,17 +147,17 @@ export function truncationNoticeText(line: number, remainingLines: number, tagNa
   return `Everything after line ${line} (${remainingLines} ${noun}) is inside an unclosed <${tagName}> and was not shown.`;
 }
 
+/** A host as the reader should see it: `bücher.de (xn--bcher-kva.de)` when it is an IDN, else as is. */
 export function displayHost(host: string): string {
-  try {
-    const puny = normalizeHost(host);
-    const unicode = new URL(`https://${puny}`).hostname;
-    if (unicode !== puny) return `${unicode} (${puny})`;
-    return puny;
-  } catch {
-    return host;
-  }
+  const unicode = hostnameToUnicode(host);
+  return unicode === host ? host : `${unicode} (${host})`;
 }
 
-function normalizeHost(host: string): string {
-  return new URL(`https://${host}`).hostname;
+/** What the reader is told when a trust change could not be saved. */
+export function trustWriteFailedText(err: unknown): string {
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  return message === '' ? 'Could not save trust settings.' : `Could not save trust settings: ${message}`;
 }
+
+export const TRUST_NEWER_VERSION_TEXT =
+  'Trust settings are from a newer Marxy and were left unchanged, so this change was not saved.';

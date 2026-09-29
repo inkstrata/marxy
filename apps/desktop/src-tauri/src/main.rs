@@ -172,8 +172,11 @@ fn close_confirmed(app: tauri::AppHandle) -> Result<(), ShellError> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    // `destroy`, not `close`: `close` raises CloseRequested again, the run handler prevents it and asks
+    // the webview again, and confirm -> close -> ask never ends (MARXY-337). `destroy` is Tauri's forced
+    // close; it skips CloseRequested, and the last window going ends the app.
     window
-        .close()
+        .destroy()
         .map_err(|e| ShellError::io("", e.to_string()))
 }
 
@@ -562,7 +565,16 @@ mod app_menu {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Action {
         Quit,
+        CloseWindow,
         OpenFile,
+    }
+
+    impl Action {
+        /// Quit and Close Window both ask the webview first, so a dirty document gets its notice
+        /// (ADR-0041, MARXY-337); only the webview's confirmation ends the window.
+        pub fn asks_the_webview_first(self) -> bool {
+            matches!(self, Action::Quit | Action::CloseWindow)
+        }
     }
 
     pub const QUIT: &str = "marxy-quit";
@@ -614,7 +626,8 @@ mod app_menu {
 
     pub fn action_for(id: &str) -> Option<Action> {
         match id {
-            QUIT | CLOSE_WINDOW => Some(Action::Quit),
+            QUIT => Some(Action::Quit),
+            CLOSE_WINDOW => Some(Action::CloseWindow),
             OPEN_FILE => Some(Action::OpenFile),
             _ => None,
         }
@@ -681,12 +694,25 @@ fn open_file_via_dialog(app: tauri::AppHandle) {
         });
 }
 
+/// The menu's Quit and Close Window go through the same request a click on the window's close button
+/// makes: the webview decides whether a dirty document must be answered first. With no window to ask
+/// there is nothing to protect, so it quits.
+#[cfg(target_os = "macos")]
+fn request_close(app: &tauri::AppHandle) {
+    match app.get_webview_window("main") {
+        Some(window) => {
+            let _ = window.emit("marxy:close-requested", ());
+        }
+        None => quit_now(app, 0),
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn on_app_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     match app_menu::action_for(event.id().as_ref()) {
-        Some(app_menu::Action::Quit) => quit_now(app, 0),
+        Some(action) if action.asks_the_webview_first() => request_close(app),
         Some(app_menu::Action::OpenFile) => open_file_via_dialog(app.clone()),
-        None => {}
+        _ => {}
     }
 }
 
@@ -909,7 +935,13 @@ mod tests {
             "the menu's own items are Quit, Open File… and Close Window, and nothing else"
         );
         assert_eq!(action_for(QUIT), Some(Action::Quit));
-        assert_eq!(action_for(CLOSE_WINDOW), Some(Action::Quit));
+        assert_eq!(action_for(CLOSE_WINDOW), Some(Action::CloseWindow));
+        assert!(
+            action_for(QUIT).unwrap().asks_the_webview_first()
+                && action_for(CLOSE_WINDOW).unwrap().asks_the_webview_first(),
+            "Cmd+Q and Cmd+W go through the close guard, never straight to exit"
+        );
+        assert!(!Action::OpenFile.asks_the_webview_first());
         assert_eq!(action_for(OPEN_FILE), Some(Action::OpenFile));
         assert_eq!(action_for("marxy-save"), None);
 

@@ -3,7 +3,7 @@ import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } 
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { documentIsDirty, syncSavedVersionFromOpenBuffer } from './commands/edits.ts';
-import { installCloseGuard } from './close.ts';
+import { confirmLeaveDocument, installCloseGuard } from './close.ts';
 import { installSave } from './save.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
@@ -19,8 +19,10 @@ import { stripNonLocalImages } from './render/images.ts';
 import {
   blockedContentNotice,
   clearBlockedNotices,
+  clearGrantSummaryNotices,
   clearDismissForPath,
   grantSummaryNotice,
+  imageGrantSummaryNotice,
   resetDismissedNotices,
   trustBlockedNotices,
 } from './notices/blocked.ts';
@@ -29,8 +31,13 @@ import { commands as appCommands } from './commands/index.ts';
 import { wireTrustRevokeCommands } from './commands/trust.ts';
 import { loadTrust, type TrustStore } from './trust/trust.ts';
 import { diskChangedEditsKeptNotice, fileRemovedNotice } from './notices/disk.ts';
-import { clearNotices } from './notices/index.ts';
-import { htmlGrantWouldChangeForNotice } from './notices/trust-copy.ts';
+import { clearNotices, notify } from './notices/index.ts';
+import {
+  TRUST_NEWER_VERSION_TEXT,
+  grantableBlockedImages,
+  htmlGrantWouldChangeForNotice,
+  trustWriteFailedText,
+} from './notices/trust-copy.ts';
 import { leaveSourceMode } from './source/buffer-commit.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
@@ -400,11 +407,12 @@ function startTrustLoad(): Promise<void> {
 
 async function byteOffsetForLine(line: number): Promise<number> {
   if (!documentBuffer) return 0;
-  const text = new TextDecoder().decode(documentBuffer.bytes);
+  // Bytes, not UTF-16 units: a multi-byte character or a byte-order mark shifts every later offset.
+  const bytes = documentBuffer.bytes;
   let byte = 0;
   let current = 1;
-  for (let i = 0; i < text.length && current < line; i++) {
-    if (text.charCodeAt(i) === 10) {
+  for (let i = 0; i < bytes.length && current < line; i++) {
+    if (bytes[i] === 10) {
       current++;
       byte = i + 1;
     }
@@ -414,9 +422,11 @@ async function byteOffsetForLine(line: number): Promise<number> {
 
 function showTrustNotices(
   removed: readonly RenderRemoval[],
-  blockedImages: readonly BlockedImage[],
+  allBlockedImages: readonly BlockedImage[],
 ): void {
   if (!openPath || !documentBuffer) return;
+  // Images no per-host grant can load (protocol-relative) are neither counted nor offered a host.
+  const blockedImages = grantableBlockedImages(allBlockedImages, removed);
   const path = openPath;
   const grants = trustGrantsFor(path);
   clearBlockedNotices();
@@ -441,47 +451,91 @@ function showTrustNotices(
   });
 }
 
+/**
+ * Applies one trust change and says so when it cannot be kept: trust.json from a newer Marxy is left
+ * alone, and a failed write leaves the store as it was. True only when the change really landed.
+ */
+async function applyTrustChange(change: (store: TrustStore) => Promise<boolean>): Promise<boolean> {
+  const store = trustStore;
+  if (!store) return false;
+  try {
+    if (await change(store)) return true;
+    notify({ kind: 'info', text: TRUST_NEWER_VERSION_TEXT });
+  } catch (err) {
+    notify({ kind: 'info', text: trustWriteFailedText(err) });
+  }
+  return false;
+}
+
+/**
+ * "Show HTML and images" starts both grants together; one summary is announced once the last of them
+ * has landed, naming everything that was granted ("Showing HTML and images from 2 hosts for …").
+ */
+const grantSummary = { inFlight: 0, html: false, hosts: 0 };
+
+function grantSummaryFinished(path: string): void {
+  if (grantSummary.inFlight > 0) return;
+  const { html, hosts } = grantSummary;
+  grantSummary.html = false;
+  grantSummary.hosts = 0;
+  if (openPath !== path) return;
+  if (html) grantSummaryNotice(path, true, hosts);
+  // Images load only when the shell can fetch them, which the summary above does not promise.
+  if (hosts > 0) imageGrantSummaryNotice();
+}
+
 async function grantHtmlForOpenDocument(): Promise<void> {
   const doc = document.getElementById('doc')!;
   if (!openPath || !trustStore || !documentBuffer) return;
-  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
-  await trustStore.grant(openPath, { html: true });
-  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
-  grantSummaryNotice(openPath, true, 0);
+  const path = openPath;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode);
+  grantSummary.inFlight++;
+  try {
+    const granted = await applyTrustChange((store) => store.grant(path, { html: true }));
+    // The reader may have opened another document while the write ran; the grant is theirs to keep
+    // for `path`, but nothing here may re-render or announce over the document now open.
+    if (!granted || openPath !== path) return;
+    grantSummary.html = true;
+    rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+  } finally {
+    grantSummary.inFlight--;
+    grantSummaryFinished(path);
+  }
 }
 
 async function grantImageHostsForOpenDocument(hosts: readonly string[]): Promise<void> {
   if (!openPath || !trustStore) return;
-  const prev = trustStore.grantsFor(openPath).imageHosts;
+  const path = openPath;
+  const prev = trustStore.grantsFor(path).imageHosts;
   const merged = [...new Set([...prev, ...hosts])];
-  await trustStore.grant(openPath, { imageHosts: merged });
-  const { notify } = await import('./notices/index.ts');
-  notify({
-    kind: 'info',
-    text: 'Images will load when Marxy can fetch them.',
-    transient: true,
-  });
-  if (state.document && documentBuffer) {
-    const { removed, blockedImages } = renderDocumentSafeHtml(state.document.ast, renderPolicyFor(openPath));
-    showTrustNotices(removed, blockedImages);
+  grantSummary.inFlight++;
+  try {
+    const granted = await applyTrustChange((store) => store.grant(path, { imageHosts: merged }));
+    if (!granted || openPath !== path) return;
+    grantSummary.hosts = Math.max(grantSummary.hosts, hosts.length);
+    if (state.document && documentBuffer) {
+      const { removed, blockedImages } = renderDocumentSafeHtml(state.document.ast, renderPolicyFor(path));
+      showTrustNotices(removed, blockedImages);
+    }
+  } finally {
+    grantSummary.inFlight--;
+    grantSummaryFinished(path);
   }
 }
 
-async function revokeTrustHtml(): Promise<void> {
+async function revokeTrust(what: 'html' | 'images'): Promise<void> {
   const doc = document.getElementById('doc')!;
   if (!openPath || !trustStore) return;
-  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
-  await trustStore.revoke(openPath, 'html');
+  const path = openPath;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode);
+  if (!(await applyTrustChange((store) => store.revoke(path, what)))) return;
+  if (openPath !== path) return;
+  clearGrantSummaryNotices();
   rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
 }
 
-async function revokeTrustImages(): Promise<void> {
-  const doc = document.getElementById('doc')!;
-  if (!openPath || !trustStore) return;
-  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
-  await trustStore.revoke(openPath, 'images');
-  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
-}
+const revokeTrustHtml = (): Promise<void> => revokeTrust('html');
+const revokeTrustImages = (): Promise<void> => revokeTrust('images');
 
 function rerenderOpenDocument(doc: HTMLElement, byteOffset: number, fraction: number): void {
   if (!documentBuffer || !openPath) return;
@@ -1042,7 +1096,18 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
 }
 
 function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void> {
-  return serially(() => openReplacing(file, opts?.at));
+  const open = () => serially(() => openReplacing(file, opts?.at));
+  // Another document over unsaved edits asks first (save / discard / dismiss), as a close does. Moving
+  // within the open document, or opening with nothing unsaved, goes straight through.
+  if (file !== openPath && confirmLeaveDocument(open)) return Promise.resolve();
+  return open();
+}
+
+/** Unsaved changes: in the buffer, or typed into the Source editor and not yet folded into it. */
+function hasUnsavedChanges(): boolean {
+  if (!documentBuffer) return false;
+  if (documentIsDirty(documentBuffer)) return true;
+  return viewMode === 'source' && sourceEditor !== null && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed;
 }
 
 async function openReplacing(file: string, at?: number): Promise<void> {
@@ -1252,9 +1317,10 @@ export async function startApp(
     getOpenBuffer: () => documentBuffer,
     foldSourceIntoBuffer,
     isReadOnlyPath: (path) => path.startsWith('marxy:'),
-    onSaved: async (path, buffer) => {
+    onSaved: async (path, buffer, documentUnchanged) => {
       bytesOnDisk = buffer.bytes.slice();
-      if (openPath === path) documentBuffer = buffer;
+      // An edit made while the save was in flight is newer than what reached disk: keep it, dirty.
+      if (openPath === path && documentUnchanged) documentBuffer = buffer;
       await refreshTitle();
     },
     onSaveAsPath: async (path) => {
@@ -1268,7 +1334,7 @@ export async function startApp(
   });
   installCloseGuard({
     shell,
-    isDirty: () => Boolean(documentBuffer && documentIsDirty(documentBuffer)),
+    isDirty: hasUnsavedChanges,
     documentName: () => (openPath ? basename(openPath) : null),
   });
   try {
