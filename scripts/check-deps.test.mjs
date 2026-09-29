@@ -17,6 +17,7 @@ test('MARXY-308: inline [dependencies] crate = "1.0" form is checked', () => {
 test('MARXY-308: [dependencies.crate-name] table form flags a forbidden crate', () => {
   const toml = `[dependencies.comrak]\nversion = "0.22"\nfeatures = ["simd"]\n`;
   const problems = cargoDependencyProblems('fixture/Cargo.toml', toml, allow);
+  // The pre-fix parser never extracted `comrak` from the header, so this assert would have failed (0 matches).
   assert.equal(problems.filter((p) => p.includes('comrak')).length, 1);
   assert.match(problems[0], /forbidden/);
 });
