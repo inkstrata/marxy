@@ -10,3 +10,4 @@ fonts/** -text
 *.woff2 binary -eol
 *.png binary
 docs/plan/jira-issues.csv -text
+*.ico binary -eol
