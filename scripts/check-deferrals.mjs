@@ -1,7 +1,7 @@
 // Deferral markers in product source must name a board key that has not landed yet (MARXY-197).
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ROOT, walk, rel, fail, fix, sh } from './lib/repo.mjs';
 
 export const ALLOWLIST = join(ROOT, 'scripts/allowlists/deferrals.json');
@@ -133,7 +133,7 @@ export function runCheck(root = ROOT, git = defaultGit()) {
 
 const invoked =
   process.argv[1] &&
-  fileURLToPath(import.meta.url) === fileURLToPath(new URL(process.argv[1], `file://${process.cwd()}/`));
+  fileURLToPath(import.meta.url) === fileURLToPath(pathToFileURL(resolve(process.argv[1])));
 if (invoked) {
   const { problems, deferrals, allowlist } = runCheck();
   if (fail(problems)) process.exit(1);

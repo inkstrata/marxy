@@ -1,7 +1,7 @@
 // The theme contract is names, unit kinds and an explaining comment — not default values (ADR-0031).
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ROOT, fail, fix } from './lib/repo.mjs';
 
 export const TOKENS = join(ROOT, 'packages/theme/src/tokens.css');
@@ -117,7 +117,7 @@ function assertContractShape(contract) {
   }
 }
 
-const invoked = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(new URL(process.argv[1], `file://${process.cwd()}/`));
+const invoked = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(pathToFileURL(resolve(process.argv[1])));
 if (invoked) {
   const css = readFileSync(TOKENS, 'utf8');
   const decls = declarations(css);

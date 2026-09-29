@@ -5,6 +5,7 @@
 // sample is never sorted. Skips when the binary is missing unless MARXY_PERF_REQUIRED=1.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 export const RUNS_N = 9; // one cold launch and eight warm ones: the warm median needs at least 8
 export const MIN_WARM_RUNS = 8;
@@ -30,7 +31,7 @@ export const COLD_PROCEDURE = 'process-cold only: launch 1 is the first launch o
 // purge is named; everything else is "process-cold only", never implied drop-caches.
 export const PROCESS_COLD_ONLY = 'process-cold only';
 
-const root = new URL('../', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../', import.meta.url));
 const isMain = process.argv[1]?.endsWith('measure-startup.mjs') ?? false;
 const RECORD_KEYS = ['cold_start_first_text_ms', 'warm_start_first_text_ms', 'warm_runs', 'warm_runs_n', 'runs_n', 'usable_runs', 'cold_warm_ratio', 'cold_procedure', 'env_class', 'runner_class'];
 
@@ -383,7 +384,7 @@ async function selftest() {
     `headless launch was ${headlessArgs.cmd} ${headlessArgs.args.join(' ')}`,
   );
 
-  const child = spawn(process.execPath, [new URL(import.meta.url).pathname], { env: { ...process.env, MARXY_PERF_REQUIRED: '1', MARXY_PERF_ENV: 'ci', MARXY_RUNNER_CLASS: '' }, stdio: ['ignore', 'ignore', 'pipe'] });
+  const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], { env: { ...process.env, MARXY_PERF_REQUIRED: '1', MARXY_PERF_ENV: 'ci', MARXY_RUNNER_CLASS: '' }, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '';
   child.stderr.on('data', d => { stderr += d; });
   const code = await new Promise(r => child.on('exit', r));

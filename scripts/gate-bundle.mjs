@@ -122,7 +122,7 @@ const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json',
 // the release workflow passes --target. PR CI builds with `cargo build --profile ci` and has neither,
 // so the size half runs only where installers exist; MARXY_BUNDLE_REQUIRED (the release workflow)
 // makes their absence a failure rather than a skip, so the budget cannot pass by measuring nothing.
-const target = new URL('../apps/desktop/src-tauri/target/', import.meta.url).pathname;
+const target = fileURLToPath(new URL('../apps/desktop/src-tauri/target/', import.meta.url));
 const bundleDirs = [join(target, 'release/bundle'), ...(existsSync(target) ? readdirSync(target).map((t) => join(target, t, 'release/bundle')) : [])].filter((d, i, all) => existsSync(d) && all.indexOf(d) === i);
 const required = process.env.MARXY_BUNDLE_REQUIRED === '1';
 if (bundleDirs.length === 0) {

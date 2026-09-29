@@ -10,13 +10,14 @@ import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
 import { contentHash } from '../../../packages/core/src/buffer/buffer.ts';
 import { forbiddenStaticImportsFromEntry } from '../src/startup/static-import-graph.test.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const desktopSrc = join(repoRoot, 'apps', 'desktop', 'src');
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';

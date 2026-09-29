@@ -46,9 +46,9 @@ function inlineDefaultTheme(): Plugin {
     name: 'marxy-inline-default-theme',
     transformIndexHtml: (html) => html.replace('<!-- marxy:default-theme -->', `<style id="marxy-default-theme">\n${defaultThemeCss()}</style>`),
     configureServer(server) {
-      for (const file of THEME_FILES) server.watcher.add(file.pathname);
+      for (const file of THEME_FILES) server.watcher.add(fileURLToPath(file));
       server.watcher.on('change', (path) => {
-        if (THEME_FILES.some((file) => file.pathname === path)) server.ws.send({ type: 'full-reload' });
+        if (THEME_FILES.some((file) => fileURLToPath(file) === path)) server.ws.send({ type: 'full-reload' });
       });
     },
   };

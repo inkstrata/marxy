@@ -6,8 +6,9 @@
 // usage: node docs/research/reader-typography/source/to-gfm.mjs
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const here = new URL('.', import.meta.url).pathname;
+const here = fileURLToPath(new URL('.', import.meta.url));
 const out = join(here, '..');
 const read = (p) => readFileSync(join(here, p), 'utf8').replace(/\r\n/g, '\n');
 const json = (p) => JSON.parse(read(p));

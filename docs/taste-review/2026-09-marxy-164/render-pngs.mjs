@@ -19,7 +19,7 @@ if (prefix !== 'before' && prefix !== 'after') {
   process.exit(1);
 }
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const outDir = new URL('.', import.meta.url);
 mkdirSync(outDir, { recursive: true });

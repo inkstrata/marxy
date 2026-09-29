@@ -1,8 +1,8 @@
 // One parse, one sanitiser (ADR-0001, ADR-0021): leftover markdown-it / DOMPurify must not return,
 // desktop and scripts render through @marxy/core, and docs/plan.md keeps naming mdast/micromark.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, relative, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ROOT, walk, fail, fix } from './lib/repo.mjs';
 
 /** Names this story removed. A return in any manifest or the lockfile is a second parser. */
@@ -104,7 +104,7 @@ export function check(root = ROOT) {
   return problems;
 }
 
-const invoked = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(new URL(process.argv[1], `file://${process.cwd()}/`));
+const invoked = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(pathToFileURL(resolve(process.argv[1])));
 if (invoked) {
   const problems = check();
   if (fail(problems)) process.exit(1);

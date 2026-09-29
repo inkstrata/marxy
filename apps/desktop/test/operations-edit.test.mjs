@@ -10,14 +10,15 @@ import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { alignTablePipes } from '../../../packages/core/src/operations/align-table-pipes.ts';
 import { createBuffer, parseMarkdown, textOf } from '../../../packages/core/src/index.ts';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-ops-edit-'));
 let server;

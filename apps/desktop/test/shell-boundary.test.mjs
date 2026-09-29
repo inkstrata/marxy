@@ -5,8 +5,9 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const shellDir = join('apps', 'desktop', 'src', 'shell');
 // `.claude` holds nested agent worktrees: another checkout's files, not this one's.
 const skipDirs = new Set(['node_modules', 'dist', 'target', '.git', '.claude', 'results', 'screenshots']);

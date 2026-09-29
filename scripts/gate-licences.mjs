@@ -9,8 +9,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const ALLOWLISTS = join(ROOT, 'scripts/allowlists');
 
 /** Licences that may ship in an MIT tree. Anything absent is unknown, and unknown fails. */
@@ -828,4 +829,4 @@ function main() {
   }
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) main();

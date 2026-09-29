@@ -9,6 +9,7 @@ import { extname, join } from 'node:path';
 import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const webkitMissing =
   !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -16,10 +17,10 @@ const webkitMissing =
     : false;
 const browserTest = (name, fn) => nodeTest(name, { skip: webkitMissing }, fn);
 
-const repoRoot = join(new URL('../../../../', import.meta.url).pathname);
+const repoRoot = join(fileURLToPath(new URL('../../../../', import.meta.url)));
 const readmeFixture = readFileSync(join(repoRoot, 'fixtures/corpus/02-readme-real-world.md'));
 const mathFixture = readFileSync(join(repoRoot, 'fixtures/corpus/06-math.md'));
-const inlineBaselinePath = join(new URL('.', import.meta.url).pathname, 'math-inline-baseline.png');
+const inlineBaselinePath = join(fileURLToPath(new URL('.', import.meta.url)), 'math-inline-baseline.png');
 
 function listFiles(dir) {
   const out = [];

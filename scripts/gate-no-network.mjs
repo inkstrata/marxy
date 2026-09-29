@@ -37,6 +37,7 @@ import { GATE_DOCUMENT_DIRECTORY, GATE_DOCUMENT_ORIGIN } from '../packages/core/
 import { VECTORS } from '../packages/core/src/sanitize/testing/vectors.ts';
 import { formatObservabilityReport } from '../packages/core/scripts/gate-observability.ts';
 import { GATE_ASSERTION_IDS } from '../packages/core/scripts/gate-assertions.ts';
+import { fileURLToPath } from 'node:url';
 import {
   classifyRequestUrl, findAllowListViolations, findContainmentViolations, hasEntries,
   isReferenceInSource, isRenderedBlank, sawHost,
@@ -54,7 +55,7 @@ console.log(formatObservabilityReport());
 const unitTests = spawnSync(
   process.execPath,
   ['--test', '--experimental-strip-types', 'packages/core/scripts/gate-assertions.test.ts', 'packages/core/scripts/unobservable-classes.test.ts'],
-  { cwd: new URL('../', import.meta.url).pathname, encoding: 'utf8' },
+  { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8' },
 );
 process.stdout.write(unitTests.stdout ?? '');
 if (unitTests.status !== 0) {
