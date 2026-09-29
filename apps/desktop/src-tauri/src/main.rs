@@ -10,7 +10,7 @@ mod watch_notify;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
@@ -349,21 +349,30 @@ fn focus_main_window(app: &tauri::AppHandle) {
     }
 }
 
-fn pending_opens_table() -> &'static Mutex<Vec<Vec<String>>> {
-    static TABLE: OnceLock<Mutex<Vec<Vec<String>>>> = OnceLock::new();
-    TABLE.get_or_init(|| Mutex::new(Vec::new()))
+/// Open batches that arrived before the page listened. `listener_ready` flips when the webview
+/// drains with `take_pending_opens`; later opens emit live. The flag and the queue share one lock
+/// so an open racing the drain is either drained or emitted, never stranded (MARXY-252).
+#[derive(Default)]
+struct PendingOpens {
+    listener_ready: bool,
+    batches: Vec<Vec<String>>,
 }
 
-/// After the webview drains with `take_pending_opens`, later opens emit live; until then they queue.
-static OPENS_LISTENER_READY: AtomicBool = AtomicBool::new(false);
+fn pending_opens() -> &'static Mutex<PendingOpens> {
+    static PENDING_OPENS: OnceLock<Mutex<PendingOpens>> = OnceLock::new();
+    PENDING_OPENS.get_or_init(|| Mutex::new(PendingOpens::default()))
+}
 
-fn enqueue_open_files(paths: Vec<String>) {
-    if paths.is_empty() {
-        return;
+/// Queues `paths` and returns `None` while the page is not listening; hands them back once it is.
+fn queue_unless_listening(paths: Vec<String>) -> Option<Vec<String>> {
+    let Ok(mut pending) = pending_opens().lock() else {
+        return Some(paths);
+    };
+    if pending.listener_ready {
+        return Some(paths);
     }
-    if let Ok(mut pending) = pending_opens_table().lock() {
-        pending.push(paths);
-    }
+    pending.batches.push(paths);
+    None
 }
 
 fn deliver_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
@@ -371,20 +380,20 @@ fn deliver_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
         return;
     }
     focus_main_window(app);
-    if OPENS_LISTENER_READY.load(Ordering::SeqCst) {
+    if let Some(paths) = queue_unless_listening(paths) {
         let _ = app.emit("marxy:open-files", paths);
-    } else {
-        enqueue_open_files(paths);
     }
 }
 
 /// Returns every open batch queued before the page listened, then clears the queue (MARXY-252).
 #[tauri::command]
 fn take_pending_opens() -> Vec<Vec<String>> {
-    OPENS_LISTENER_READY.store(true, Ordering::SeqCst);
-    pending_opens_table()
+    pending_opens()
         .lock()
-        .map(|mut pending| std::mem::take(&mut *pending))
+        .map(|mut pending| {
+            pending.listener_ready = true;
+            std::mem::take(&mut pending.batches)
+        })
         .unwrap_or_default()
 }
 
@@ -664,23 +673,21 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        absolute_document_path, enqueue_open_files, navigation_allowed, percent_decode,
-        take_pending_opens, OPENS_LISTENER_READY,
+        absolute_document_path, navigation_allowed, pending_opens, percent_decode,
+        queue_unless_listening, take_pending_opens,
     };
-    use std::sync::atomic::Ordering;
-
-    fn reset_pending_opens_for_test() {
-        OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
-        let _ = take_pending_opens();
-        OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
-    }
 
     #[test]
-    fn an_open_before_the_webview_listens_is_queued_once() {
-        reset_pending_opens_for_test();
-        enqueue_open_files(vec!["/tmp/a.md".into()]);
+    fn an_open_before_the_webview_listens_is_queued_once_then_later_opens_go_live() {
+        *pending_opens().lock().unwrap() = Default::default();
+        assert_eq!(queue_unless_listening(vec!["/tmp/a.md".into()]), None);
         let first = take_pending_opens();
         assert_eq!(first, vec![vec!["/tmp/a.md".to_string()]]);
+        assert_eq!(
+            queue_unless_listening(vec!["/tmp/b.md".into()]),
+            Some(vec!["/tmp/b.md".to_string()]),
+            "once drained, an open is emitted live instead of queued"
+        );
         assert!(take_pending_opens().is_empty());
     }
 

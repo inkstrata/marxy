@@ -44,7 +44,7 @@ nodeTest('tauri.conf.json declares markdown file associations', () => {
 nodeTest('main.rs queues Finder opens until take_pending_opens (MARXY-252)', () => {
   const main = readFileSync(join(desktopRoot, 'src-tauri', 'src', 'main.rs'), 'utf8');
   assert.match(main, /take_pending_opens/);
-  assert.match(main, /OPENS_LISTENER_READY/);
+  assert.match(main, /listener_ready/);
   assert.match(main, /RunEvent::Opened[\s\S]*deliver_open_files/);
 });
 
