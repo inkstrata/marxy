@@ -31,10 +31,10 @@ export function startDocumentEditingWire(): void {
   };
   if (w.__marxyDocumentWire) return;
   w.__marxyDocumentWire = true;
-  document.addEventListener('click', (ev) => {
+  document.addEventListener('pointerdown', (ev) => {
     const raw = ev.target;
     if (!(raw instanceof Element)) return;
-    const carrier = raw.closest('#doc [data-marxy-s]');
+    const carrier = raw.closest('[data-marxy-s]');
     if (carrier) (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = carrier;
   }, true);
   w.marxyRunCommand = async (id: string) => {

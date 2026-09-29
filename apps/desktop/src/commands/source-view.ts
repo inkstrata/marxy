@@ -8,23 +8,29 @@ function byteAttr(el: Element | null | undefined): number | null {
   return s === null || s === undefined ? null : Number(s);
 }
 
+function clickedBlockByte(): number | null {
+  const carrier = (window as Window & { __marxyJumpCarrier?: Element | null }).__marxyJumpCarrier;
+  return byteAttr(carrier);
+}
+
 function selectionStartByte(): number | null {
   const ctx = getSelectionBufferContext();
-  if (!ctx) return null;
-  const sel = ctx.state.selection;
-  if (sel.kind === 'node' && sel.el instanceof HTMLElement) {
-    const s = byteAttr(sel.el);
-    if (s !== null) return s;
+  if (ctx) {
+    const sel = ctx.state.selection;
+    if (sel.kind === 'node' && sel.el instanceof Element) {
+      const s = byteAttr(sel.el.closest('[data-marxy-s]'));
+      if (s !== null) return s;
+    }
+    if (sel.kind === 'section') return sel.range.start;
+    if (sel.kind === 'text') {
+      const anchor = window.getSelection()?.anchorNode ?? null;
+      const el = anchor instanceof Element ? anchor : anchor?.parentElement ?? null;
+      const s = byteAttr(el?.closest('[data-marxy-s]') ?? null);
+      if (s !== null) return s;
+    }
   }
-  if (sel.kind === 'section') return sel.range.start;
-  // A drag that the browser reports as a text selection still sits in a block (MARXY-239).
-  if (sel.kind === 'text') {
-    const anchor = window.getSelection()?.anchorNode ?? null;
-    const el = anchor instanceof Element ? anchor : anchor?.parentElement ?? null;
-    const remembered = (window as Window & { __marxyJumpCarrier?: Element | null }).__marxyJumpCarrier;
-    return byteAttr(el?.closest('[data-marxy-s]') ?? null) ?? byteAttr(remembered);
-  }
-  return null;
+  // A click still names a block when the selection model does not (MARXY-239).
+  return clickedBlockByte();
 }
 
 export function sourceViewCommands(): readonly Command[] {
