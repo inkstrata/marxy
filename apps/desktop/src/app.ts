@@ -744,19 +744,21 @@ async function ensurePersistenceLoaded(fallbackRoot: string): Promise<void> {
 }
 
 /** After `first_text`, positions.json may ask to move the document already on screen (MARXY-195). */
-async function restorePersistedPositionIfNeeded(): Promise<void> {
-  if (!positionPersistence || !openPath || !state.document || !documentBuffer) return;
+/** Restores the saved position for the open document and returns it, or null when there is none. */
+async function restorePersistedPositionIfNeeded(): Promise<ReadingPosition | null> {
+  if (!positionPersistence || !openPath || !state.document || !documentBuffer) return null;
   const stored = positionPersistence.positionForOpen(openPath, documentBuffer.bytes.length);
-  if (!stored) return;
+  if (!stored) return null;
   lastReadingByteOffset = stored.byteOffset;
   lastReadingFraction = stored.fraction;
   if (stored.mode === 'source') {
     await showSource(stored.byteOffset);
-    return;
+    return stored;
   }
   restoreScrollToPosition(readingScroller(), state.document.blocks, stored);
   landOn(stored.byteOffset);
   holdAnchor();
+  return stored;
 }
 
 async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?: number): Promise<RenderEvidence> {
@@ -801,15 +803,17 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
   await typesetDocument(doc);
   const shouldRestore = restoreAfterTypeset;
   restoreAfterTypeset = false;
-  if (shouldRestore) await restorePersistedPositionIfNeeded();
+  const restored = shouldRestore ? await restorePersistedPositionIfNeeded() : null;
   await whenIdle(async () => {
     await runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }));
     const themeDir = await themeDirFromConfig(shell);
     await restartUserTheme(themeDir);
   });
   await shell.mark('position_restored', Date.now());
-  if (defaultModeForPath(file) === 'source') {
-    await showSource(0);
+  if (restored?.mode === 'source') {
+    // Already showing Source at the saved offset; showing it again at 0 would lose the place.
+  } else if (defaultModeForPath(file) === 'source') {
+    await showSource(restored?.byteOffset ?? 0);
   } else {
     setModeChrome('rendered');
   }

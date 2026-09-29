@@ -191,6 +191,42 @@ test('scroll position survives quit and relaunch on the long corpus doc', async 
   }
 });
 
+test('a source file reopens in Source at the saved position, not the top', async () => {
+  const rs = readFileSync(join(repoRoot, 'fixtures', 'corpus', '04-source.rs'));
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 900, height: 360 } });
+    const path = '/r/src.rs';
+    const files = { [path]: b64(rs) };
+    await bootApp(page, files, [path]);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const saved = await page.evaluate(async (path) => {
+      document.documentElement.scrollTop = 900;
+      await new Promise((r) => setTimeout(r, 600));
+      await window.__marxyHandle.shell.quit(0);
+      const text = new TextDecoder().decode(await window.__marxyHandle.shell.readFile('/data/positions.json'));
+      return JSON.parse(text).positions[path];
+    }, path);
+    assert.equal(saved.mode, 'source');
+    assert.ok(saved.byteOffset > 0, 'launch 1 saved a position below the top');
+    const positionsBytes = await page.evaluate(async () => [...await window.__marxyHandle.shell.readFile('/data/positions.json')]);
+    await page.close();
+
+    const page2 = await browser.newPage({ viewport: { width: 900, height: 360 } });
+    await bootApp(page2, { ...files, '/data/positions.json': b64(Buffer.from(positionsBytes)) }, [path]);
+    await page2.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    await page2.waitForTimeout(300);
+    const reopened = await page2.evaluate(() => ({
+      byteOffset: window.__marxyHandle.sourceHarness().byteOffset,
+      scrollTop: document.documentElement.scrollTop,
+    }));
+    assert.equal(reopened.byteOffset, saved.byteOffset);
+    assert.ok(reopened.scrollTop > 0, 'Source is scrolled to the saved place, not the top');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('palette empty query lists pinned document before MRU after relaunch', async () => {
   const browser = await launchWebkit();
   try {
