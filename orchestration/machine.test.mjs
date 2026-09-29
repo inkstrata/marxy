@@ -2,12 +2,11 @@
 // and a guarded event that no longer applies is refused, not half-applied.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { readFileSync } from 'node:fs';
 import { implementRole } from './runs.mjs';
-import { STATES, TIMING, timing, fold, story, runEvent, boardEvent, returnEvents, occupies, importLegacy, board, commit } from './machine.mjs';
+import { STATES, TIMING, timing, fold, story, runEvent, boardEvent, returnEvents, reopenEvents, occupies, importLegacy, board, commit } from './machine.mjs';
 
 const at = (n = 0) => new Date(Date.UTC(2026, 8, 26, 10, n)).toISOString();
 const ev = (e, n) => ({ at: at(n), by: 'test', ...e });
@@ -169,4 +168,32 @@ test('under node --test the fleet store is a temporary directory, never the clon
   } finally {
     if (prior !== undefined) process.env.MARXY_FLEET_DIR = prior;
   }
+});
+
+test('reopenEvents: a done story goes back to todo with the red run and jobs in returned.why, its PR cleared and its shas kept', () => {
+  const t = timing({});
+  const reopened = { at: at(5), sha: 'a'.repeat(40), revertSha: 'b'.repeat(40), revertPr: 20, originalPr: 12 };
+  const why = 'main went red at aaaaaaa (feat: x (MARXY-1)); ci run https://github.com/inkstrata/marxy/actions/runs/9; failing jobs: fast, browser';
+  const done = { type: 'story', key: 'MARXY-1', to: 'done', at: at(0), set: { pr: 12, finished: at(0) }, inc: { attempts: 1 } };
+  const b = fold([done, ev(reopenEvents('MARXY-1', fold([done]).stories['MARXY-1'], { why, reopened, t, now: at(5) })[0], 5)]);
+  const rec = b.stories['MARXY-1'];
+  assert.deepEqual([rec.status, rec.attempts, rec.pr, rec.finished], ['todo', 1, undefined, undefined]);
+  assert.equal(rec.returned.why, why);
+  assert.match(rec.returned.why, /runs\/9; failing jobs: fast, browser/);
+  assert.equal(rec.returned.head, null, 'no PR head, so nothing is adopted as already returned');
+  assert.deepEqual(rec.reopened, reopened);
+  assert.match(rec.why, /^reverted: /);
+  assert.equal(b.rejected.length, 0);
+});
+
+test('reopenEvents: attempts are not reset; a spent story escalates, and one nothing dispatches is blocked for a person', () => {
+  const t = timing({});
+  const args = { why: 'w', reopened: { sha: 'a'.repeat(40) }, t };
+  assert.equal(reopenEvents('MARXY-1', { attempts: t.maxAttempts + t.escalationAttempts }, args)[0].to, 'escalate');
+  assert.equal(reopenEvents('MARXY-1', { attempts: t.maxAttempts }, args)[0].to, 'todo');
+  const blocked = reopenEvents('MARXY-1', { attempts: 1 }, { ...args, dispatchable: false })[0];
+  assert.equal(blocked.to, 'blocked');
+  assert.match(blocked.set.parkedReason, /a person opens its fix/);
+  const moved = fold([{ type: 'story', key: 'MARXY-1', to: 'in_review', at: at(0) }, ev(reopenEvents('MARXY-1', {}, args)[0], 1)]);
+  assert.equal(moved.rejected.length, 1, 'only a Done story can be reopened');
 });

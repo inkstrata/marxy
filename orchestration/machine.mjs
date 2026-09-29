@@ -254,6 +254,28 @@ export function returnEvents(key, rec, { why, head = null, t, now = new Date().t
   })];
 }
 
+/**
+ * Send a Done story back after main went red at its commit and the commit was reverted (ADR-0043):
+ * todo (or escalate once its attempts are spent, as `returnEvents` decides), and blocked when nothing
+ * can dispatch it, so a person carries it. `why` names the red run's URL and its failing jobs, and is
+ * kept as `returned.why`. `reopened` records the shas the worker re-applies, so the work is kept;
+ * `pr` is cleared because that PR merged, and would otherwise settle the story Done again.
+ */
+export function reopenEvents(key, rec, { why, reopened, t, now = new Date().toISOString(), dispatchable = true, by = 'cycle' } = {}) {
+  const attempts = rec?.attempts ?? 0;
+  const to = !dispatchable ? 'blocked' : attempts >= t.maxAttempts + t.escalationAttempts ? 'escalate' : 'todo';
+  return [story(key, {
+    from: 'done', to, why: `reverted: ${why}`,
+    set: {
+      returned: { at: now, head: null, why, by },
+      reopened,
+      ...(to === 'todo' ? {} : { blockedAt: now }),
+      ...(to === 'blocked' ? { parkedReason: `reverted: ${why}; nothing dispatches this story, so a person opens its fix (the change is on main's history at ${String(reopened?.sha ?? '').slice(0, 7)})`, parkedBy: 'fleet' } : {}),
+    },
+    unset: ['pr', 'hold', 'run', 'claim', 'finished', 'revert'],
+  })];
+}
+
 /** Whether a status is final. */
 export const isTerminal = status => Boolean(STATES[status]?.terminal);
 

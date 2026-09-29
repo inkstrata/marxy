@@ -48,6 +48,7 @@ import { gh, read, run as runProc, spawnDetached, killGroup, LIMIT } from './pro
 import { acquireLock, releaseLock } from './lease.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs } from './merge-bar.mjs';
+import { revertFirst, withoutReverted } from './revert.mjs';
 import { bareTitle, landsOf, titleUpdate } from './pr-mark.mjs';
 import { codeOwnerPatterns, waitingOn } from './readiness.mjs';
 import { computeOrder } from './review-order.mjs';
@@ -242,6 +243,18 @@ export function liveIo({ m, dry = false }) {
     prFiles: n => (read('gh', ['pr', 'view', String(n), '--json', 'files', '-q', '.files[].path'], { cwd: CODE_ROOT, timeoutMs: LIMIT.gh }) ?? '').split('\n').filter(Boolean),
     prState: n => read('gh', ['pr', 'view', String(n), '--json', 'state', '-q', '.state'], { cwd: CODE_ROOT, timeoutMs: LIMIT.gh }) ?? '',
     gh: args => gh(args, { cwd: CODE_ROOT }),
+    // Revert first (ADR-0043): what revert.mjs reads and does beyond the guard's one run.
+    git: (args, { cwd = CODE_ROOT } = {}) => runProc('git', args, { cwd, timeoutMs: LIMIT.git }),
+    mainLog: () => (gitOut(['log', 'origin/main', '--first-parent', '-n', '200', '--format=%H%x09%P%x09%s']) ?? '').split('\n').filter(Boolean)
+      .map(l => { const [sha, parents, ...subject] = l.split('\t'); return { sha, parent: parents.split(' ')[0], subject: subject.join('\t') }; }),
+    mainCiRuns: () => {
+      const out = read('gh', ['run', 'list', '--branch', 'main', '--workflow', 'ci', '--status', 'completed', '--limit', '40', '--json', 'conclusion,url,headSha'], { cwd: CODE_ROOT, timeoutMs: LIMIT.gh });
+      try { return out ? JSON.parse(out) : null; } catch { return null; }
+    },
+    runJobs: run => {
+      const out = read('gh', ['run', 'view', String(run.url).split('/').pop(), '--json', 'jobs', '-q', '.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .name'], { cwd: CODE_ROOT, timeoutMs: LIMIT.gh });
+      return (out ?? '').split('\n').filter(Boolean);
+    },
     commit: events => commit(events),
     writeSpec: spec => writeJsonAtomic(runFile(spec.id, 'run.json'), spec),
     writeExit: (id, record) => writeJsonAtomic(runFile(id, 'exit.json'), { ...record, endedAt: new Date().toISOString() }),
@@ -337,6 +350,8 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false, drai
     if (run?.conclusion && RED_CONCLUSIONS.has(String(run.conclusion).toUpperCase())) mainRed = run;
   });
   if (mainRed) need('main', `main is red (latest completed ci run: ${mainRed.url})`);
+  // Revert first (ADR-0043): revert the first red commit, land that revert while main is red, reopen its story.
+  if (snap) guard('revert first', null, () => revertFirst({ io, snap, b, mainRed, dry, noMerge, nowIso, t, dispatchable: k => dispatchable(plan?.byKey.get(k)), say, need, commitAll }));
 
   // 2. Finish runs.
   const runObs = io.runs(b);
@@ -561,7 +576,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false, drai
 
   // 6. Dispatch.
   b = io.board();
-  const merged = mergedOnMain(io.mainSubjects?.() ?? []);
+  const merged = mergedOnMain(withoutReverted(io.mainSubjects?.() ?? []));
   const { settle: settleMain, flag: flagMain } = settleFromMain(merged, b);
   for (const { key, pr } of settleMain) guard('settle from main', key, () => {
     if (!dry) {
