@@ -47,3 +47,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0040](0040-land-without-up-to-date.md) | Land green pull requests without bringing them up to date first; a main-red guard replaces strict branch protection | accepted by the repo owner's instruction on 2026-09-28 (MARXY-314) |
 | [0041](0041-shell-close-confirmation.md) | The frozen `Shell` gains `onCloseRequested` and `confirmClose` | accepted 2026-09-28 (MARXY-49) |
 | [0042](0042-plan-rows-per-story.md) | One plan file per story (`docs/plan/stories/KEY.json`) and one `epics.json` instead of the shared CSV and `deps.json` | accepted by the repo owner on 2026-09-29 (MARXY-327) |
+| [0043](0043-revert-first.md) | When main turns red, revert the first red commit and reopen its story with the work kept; amends ADR-0040 | proposed (MARXY-335) |
