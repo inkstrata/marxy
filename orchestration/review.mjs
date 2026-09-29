@@ -8,6 +8,7 @@ import { ROOT, here, stories, pathsOf, pathMatches } from './lib.mjs';
 import { board } from './machine.mjs';
 import { resultPath } from './store.mjs';
 import { BOARD_FILES, branchBoundary } from '../scripts/lib/own-row.mjs';
+import { FRAGMENT_DIR, hasEntry } from '../scripts/lib/changelog.mjs';
 
 /** Boundary checks that need a branch; named when the board has none (MARXY-81). */
 export const BRANCHLESS_CHECKS = [
@@ -17,9 +18,10 @@ export const BRANCHLESS_CHECKS = [
   'files this branch deletes',
 ];
 
-/** Extra paths every story may touch, alongside CHANGELOG.md. */
+/** Extra paths every story may touch, alongside CHANGELOG.md and its changelog.d/ fragment. */
 export const EXTRA_BOUNDARIES = [
   'CHANGELOG.md',
+  FRAGMENT_DIR,
   'docs/taste-review/queue.md',
   'pnpm-lock.yaml',
   'results',
@@ -200,7 +202,11 @@ export function buildReview(key, ctx = {}) {
   const fixtures = files.filter(f => f.startsWith('fixtures/corpus/') || f.startsWith('fonts/'));
   const schemaProblems = validateResult(result);
   const claimed = acceptanceClaimed(st, result);
-  const changelog = files.includes('CHANGELOG.md') ? 'pass' : 'fail';
+  // `readAtRev` returns null for a fake rev (fixture-board tests) or a missing file, and
+  // hasEntry falls back to presence-in-`files` for either — the same fidelity the old
+  // `files.includes('CHANGELOG.md')` check had.
+  const readAtRev = f => { const r = run('git', ['show', `${rev}:${f}`]); return r.ok ? r.out : null; };
+  const changelog = hasEntry(files, key, readAtRev) ? 'pass' : 'fail';
   const acceptance = claimed.ok ? 'pass' : 'fail';
   const tasteQueue = tasteQueueVerdict(files);
   const attrib = attribution ? 'FOUND' : 'none';

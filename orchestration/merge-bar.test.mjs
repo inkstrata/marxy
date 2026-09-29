@@ -100,6 +100,26 @@ test('pending CI plus any hard hold is held, not auto-merged', () => {
   assert.ok(d.reasons.includes('not reviewed (no results/KEY.approved)'));
 });
 
+// MARXY-315: a fragment file counts too, keyed off the implementor result, and a fragment for
+// a different story does not satisfy this one's clause.
+test('a changelog.d fragment named for this result\'s key satisfies clause 8', () => {
+  const d = evaluate(clean({
+    files: ['packages/core/src/parse.ts', 'changelog.d/MARXY-79.md', 'orchestration/results/MARXY-79.json'],
+    result: { status: 'done', key: 'MARXY-79' },
+  }));
+  assert.equal(d.action, 'merge');
+  assert.deepEqual(d.reasons, []);
+});
+
+test('a changelog.d fragment for a different story does not satisfy this one\'s clause', () => {
+  const d = evaluate(clean({
+    files: ['packages/core/src/parse.ts', 'changelog.d/MARXY-1.md', 'orchestration/results/MARXY-79.json'],
+    result: { status: 'done', key: 'MARXY-79' },
+  }));
+  assert.equal(d.action, 'hold');
+  assert.ok(d.reasons.includes('no CHANGELOG entry'));
+});
+
 test('MARXY_MERGE_UNREVIEWED skips only the approval clause', () => {
   const d = evaluate(clean({ approval: { ok: false, why: 'not reviewed (no results/KEY.approved)' }, mergeUnreviewed: true }));
   assert.equal(d.action, 'merge');

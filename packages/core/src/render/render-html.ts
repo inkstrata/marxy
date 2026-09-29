@@ -9,11 +9,11 @@ import { PROVENANCE_ATTRIBUTES, type ProvenanceNames } from '../sanitize/policy.
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 import { parseAlert } from './alerts.ts';
 import { renderFrontmatterHead } from './frontmatter.ts';
-import { smarten } from './typography.ts';
+import { smartenParagraphTextNode, type ParagraphTypo } from './typography.ts';
 
 const DIAGRAM_LANGUAGES = new Set(['mermaid', 'plantuml', 'dot', 'd2']);
 
-type Typo = { readonly lastText: Text | undefined; readonly wordsInParagraph: number };
+type Typo = ParagraphTypo;
 
 const NO_WIDONT: Typo = { lastText: undefined, wordsInParagraph: 0 };
 
@@ -248,19 +248,14 @@ function wordsIn(nodes: readonly Inline[]): number {
 
 function inlines(nodes: readonly Inline[], ctx: Context, typo: Typo = NO_WIDONT): string {
   let text = '';
-  for (const node of nodes) text += inline(node, ctx, typo);
+  for (const node of nodes) text += inline(node, nodes, ctx, typo);
   return text;
 }
 
-function inline(node: Inline, ctx: Context, typo: Typo): string {
+function inline(node: Inline, siblings: readonly Inline[], ctx: Context, typo: Typo): string {
   switch (node.type) {
     case 'text':
-      return escapeText(
-        smarten(node.value, {
-          atParagraphEnd: typo.lastText === node,
-          wordsInParagraph: typo.wordsInParagraph,
-        }),
-      );
+      return escapeText(smartenParagraphTextNode(siblings, node, typo));
     case 'emphasis':
       return `<em${prov(node.src, ctx)}>${inlines(node.children, ctx, typo)}</em>`;
     case 'strong':
