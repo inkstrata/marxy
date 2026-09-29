@@ -1,6 +1,7 @@
 // The quality bar a PR must clear before an agent may land it. cycle.mjs is the only
 // caller that merges; this module only decides. The clauses live in docs/sdlc.md.
 import { codeOwnerStatus } from './codeowners.mjs';
+import { hasEntry } from '../scripts/lib/changelog.mjs';
 
 const RED = new Set(['FAILURE', 'CANCELLED', 'TIMED_OUT', 'ERROR']);
 const PENDING = new Set(['PENDING', 'IN_PROGRESS', 'QUEUED', 'EXPECTED']);
@@ -52,7 +53,10 @@ export function holdReasons({
     outside.length && `files outside the story's paths: ${outside.join(', ')}`,
     !result && 'no implementor result file',
     result && result.status !== 'done' && `result says ${result.status}`,
-    files?.length && !files.includes('CHANGELOG.md') && 'no CHANGELOG entry',
+    // The hold text stays exactly this string: cycle.mjs matches on it (docs/ci-contract.md).
+    // `result?.key` names the fragment to look for; without one (no result file yet) any
+    // fragment or CHANGELOG.md counts, the same loose read as before fragments existed.
+    files?.length && !hasEntry(files, result?.key) && 'no CHANGELOG entry',
     !mergeUnreviewed && !approval?.ok && (approval?.why ?? 'not reviewed (no results/KEY.approved)'),
   ].filter(Boolean);
 }
