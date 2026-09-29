@@ -5,7 +5,9 @@
 //! `pnpm gate:fidelity` can compile it with a bare `rustc` and drive this exact code over the
 //! corpus, instead of checking a second implementation of it.
 
-use std::fs::{self, File, Metadata, OpenOptions};
+#[cfg(any(unix, test))]
+use std::fs::File;
+use std::fs::{self, Metadata, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -191,6 +193,7 @@ fn sync_directory(dir: &Path) {
 /// True when the staged file would belong to a different user than the destination. A group
 /// mismatch is not a refusal: `refuse_ownership_change` restores the group so a save into a
 /// directory whose group is not the user's own still succeeds.
+#[cfg(unix)]
 fn ownership_refuses(destination_uid: u32, staged_uid: u32) -> bool {
     destination_uid != staged_uid
 }
@@ -655,6 +658,7 @@ mod tests {
 
     /// The case `refuse_ownership_change` still refuses: a different owning user. A different
     /// group is restored, so a save into a directory whose group is not the user's own succeeds.
+    #[cfg(unix)]
     #[test]
     fn refuse_ownership_change_refuses_a_uid_mismatch() {
         assert!(
