@@ -213,22 +213,21 @@ test('palette empty query lists pinned document before MRU after relaunch', asyn
           kind: 'markdown',
         });
         const handle = window.__marxyHandle;
+        // main.ts registers the mounted palette here; quit() flushes its pins from it.
+        window.__marxyPalette = handle.palette;
         handle.palette.setIndexEntries([entry(a, 'A'), entry(b, 'B')]);
         await handle.open(a);
         await handle.open(b);
-        const { emptySession, recordOpen, togglePin } = await import('/src/palette/session.ts');
-        const { historyFromSession, serializeHistoryFile } = await import('/src/palette/history.ts');
-        let session = emptySession('/r');
-        session = recordOpen(session, a);
-        session = recordOpen(session, b);
-        session = togglePin(session, a);
-        await handle.shell.writeFileAtomic(
-          '/data/history.json',
-          serializeHistoryFile(historyFromSession(session)),
-        );
+        handle.palette.open();
       },
       { a, b },
     );
+    // Pin A the way a reader does: find it in the palette and press Mod+. on its row.
+    const mod = (await page.evaluate(() => navigator.platform)).toUpperCase().includes('MAC') ? 'Meta' : 'Control';
+    await page.keyboard.type('a.md');
+    await page.keyboard.press(`${mod}+Period`);
+    assert.deepEqual(await page.evaluate(() => window.__marxyHandle.palette.session.pinned), [a], 'A is pinned on the handle');
+    await page.evaluate(() => window.__marxyHandle.shell.quit(0));
 
     const historyBytes = await page.evaluate(async () => [
       ...await window.__marxyHandle.shell.readFile('/data/history.json'),
