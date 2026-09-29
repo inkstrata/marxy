@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- The app icon is the new Marxy M: a glass-lit letter on a pastel squircle, cut out with a transparent background, in place of the placeholder icon (MARXY-320)
 - A reviewer run now writes its verdict to its notes file first, before running `fleet.mjs verdict`; when the run ends without ever calling that command, `runs.mjs` recovers the verdict from that file through the same code and records it, as long as the file names the PR's current head (MARXY-316)
 - Copying a code block keeps the source's own newline and no longer has to fight a test that always added one; heading links and explicit save can touch the files their branches already edit (MARXY-318)
 - `image_size` now returns an I/O error when the file cannot be read, instead of treating permission failures and similar problems like a non-image file (MARXY-287)
