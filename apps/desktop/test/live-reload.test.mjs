@@ -110,7 +110,15 @@ test('modified on disk reloads appended text and keeps byteOffset', async () => 
       const afterLen = (await window.__marxyHandle.shell.readFile(path)).length;
       const readsBefore = window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile').length;
       window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
-      await new Promise((r) => setTimeout(r, 500));
+      // Wait on the observable effect (the watch handler reading the file) with a bounded deadline,
+      // not a fixed sleep: a slow runner just takes longer, and a handler that never reads fails at 5 s.
+      const deadline = performance.now() + 5000;
+      while (
+        window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile').length <= readsBefore &&
+        performance.now() < deadline
+      ) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
       const readsAfter = window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile').length;
       const marks = window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]);
       const notices = document.getElementById('marxy-notices')?.textContent ?? '';
