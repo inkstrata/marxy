@@ -1,10 +1,11 @@
 // A pull request's body and its side effects, checked mechanically (docs/conventions.md §Pull requests).
 // usage: node scripts/check-pr.mjs (--body file | --pr N) [--key MARXY-n] [--range]
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, storyKey, changedFiles, fail, fix } from './lib/repo.mjs';
+import { fragmentPath, validFragment } from './lib/changelog.mjs';
 
 export const HOUSE_SECTIONS = [
   '## Summary',
@@ -76,11 +77,19 @@ export function lintPrBody(body, { key } = {}) {
   return problems;
 }
 
-/** Changelog line and taste-queue row for golden/baseline edits. */
-export function lintPrRange({ key, changed = [], changelogDiff = '' } = {}) {
+/** Changelog entry (a changelog.d/ fragment, or a transitional CHANGELOG.md line) and taste-queue row for golden/baseline edits. */
+export function lintPrRange({ key, changed = [], changelogDiff = '', readFragment } = {}) {
   const problems = [];
-  if (key && !changelogDiff.includes(key)) {
-    problems.push(`CHANGELOG.md has no line with ${key} under Unreleased${fix('one line, written for a reader of marxy, key in parentheses')}`);
+  if (key) {
+    const frag = fragmentPath(key);
+    if (changed.includes(frag)) {
+      const content = typeof readFragment === 'function' ? readFragment(frag) : undefined;
+      if (content != null && !validFragment(content, key)) {
+        problems.push(`${frag} is not one reader-facing line ending in (${key})${fix('changelog.d/README.md has the rule')}`);
+      }
+    } else if (!changelogDiff.includes(key)) {
+      problems.push(`no changelog entry for ${key}${fix(`add ${frag} — one line, written for a reader of marxy, ending in (${key}) — or, during the transition, a CHANGELOG.md line under Unreleased`)}`);
+    }
   }
   const goldens = changed.filter(f => /goldens\/|fixtures\/baselines\//.test(f));
   if (goldens.length && !changed.includes('docs/taste-review/queue.md')) {
@@ -105,7 +114,7 @@ function readBody(argv) {
   return readFileSync(0, 'utf8');
 }
 
-export function checkPr(argv = process.argv, { body, changed, changelogDiff } = {}) {
+export function checkPr(argv = process.argv, { body, changed, changelogDiff, readFragment } = {}) {
   const arg = k => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
   const key = arg('--key') || storyKey(argv);
   let text = body;
@@ -114,7 +123,8 @@ export function checkPr(argv = process.argv, { body, changed, changelogDiff } = 
   if (argv.includes('--range')) {
     const files = changed ?? changedFiles();
     const diff = changelogDiff ?? execSync('git diff origin/main...HEAD -- CHANGELOG.md', { cwd: ROOT, encoding: 'utf8' });
-    problems.push(...lintPrRange({ key, changed: files, changelogDiff: diff }));
+    const readFrag = readFragment ?? (f => (existsSync(join(ROOT, f)) ? readFileSync(join(ROOT, f), 'utf8') : null));
+    problems.push(...lintPrRange({ key, changed: files, changelogDiff: diff, readFragment: readFrag }));
   }
   return { key, problems };
 }

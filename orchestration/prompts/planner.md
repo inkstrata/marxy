@@ -2,7 +2,8 @@
 
 You are invoked periodically by the orchestrator. You re-plan; you never implement. Read
 `AGENTS.md`, `docs/plan.md`, `docs/roadmap.md`, `docs/scope.md`, `docs/adr/README.md`,
-`orchestration/deps.json`, `CHANGELOG.md`, the latest `docs/taste-review/*/decisions.md`, the
+`orchestration/deps.json`, `CHANGELOG.md` and `changelog.d/` (recent work not yet folded in),
+the latest `docs/taste-review/*/decisions.md`, the
 fleet's status (`node orchestration/fleet.mjs status`: what is blocked, escalated and why), and the
 return notes of any story you are splitting (`node orchestration/fleet.mjs why KEY`, and the file
 `node orchestration/fleet.mjs path notes KEY` prints).

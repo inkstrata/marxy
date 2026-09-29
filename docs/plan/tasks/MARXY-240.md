@@ -32,6 +32,7 @@ The branch already has the link behaviour. PR #277's local result failed check-s
 1. Keep the heading ids, the click routing and `open_external`.
 2. Keep the one-line ripples in the five files above. Do not edit them further.
 3. Rebase onto main. `main.rs` is also on MARXY-49; keep both the `open_external` registration and the `RunEvent` import.
+4. HTML goldens also conflict with MARXY-230. Keep the heading ids and keep raw `kbd`, `code`, `samp` and `pre` text unsmartered.
 
 ## Tests → expected
 | Check | Expect |

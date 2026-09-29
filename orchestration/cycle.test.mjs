@@ -230,16 +230,54 @@ test('a code-owner pull request is titled [human], and an unsigned one the cycle
   assert.equal(plain.calls.gh.filter(a => a[1] === 'edit').length, 0);
 });
 
-test('one BEHIND branch is updated per cycle, in review order; with mergeQueue on, none are', () => {
+test('with requireUpToDate true, one BEHIND branch is updated per cycle, in review order; with mergeQueue on, none are', () => {
   const behind = n => pr(n, `MARXY-${n}`, { mergeStateStatus: 'BEHIND' });
   const stories = { 'MARXY-1': { status: 'in_review', pr: 1, attempts: 1 }, 'MARXY-2': { status: 'in_review', pr: 2, attempts: 1 } };
   const facts = { 'MARXY-1': { approval: approved }, 'MARXY-2': { approval: approved } };
-  const w = world({ rows: [row('MARXY-1', 'a'), row('MARXY-2', 'b')], stories, open: [behind(1), behind(2)], facts });
+  const w = world({ rows: [row('MARXY-1', 'a'), row('MARXY-2', 'b')], stories, open: [behind(1), behind(2)], facts, m: { ...M, requireUpToDate: true } });
   w.run();
   assert.equal(w.calls.gh.filter(a => a[1] === 'update-branch').length, 1);
-  const q = world({ rows: [row('MARXY-1', 'a'), row('MARXY-2', 'b')], stories, open: [behind(1), behind(2)], facts, m: { ...M, mergeQueue: true } });
+  const q = world({ rows: [row('MARXY-1', 'a'), row('MARXY-2', 'b')], stories, open: [behind(1), behind(2)], facts, m: { ...M, requireUpToDate: true, mergeQueue: true } });
   q.run();
   assert.equal(q.calls.gh.filter(a => a[1] === 'update-branch').length, 0);
+});
+
+test('requireUpToDate false lands a BEHIND PR in the same cycle; true keeps the old one-refresh-per-cycle behaviour (ADR-0040)', () => {
+  const behind = pr(1, 'MARXY-1', { mergeStateStatus: 'BEHIND' });
+  const stories = { 'MARXY-1': { status: 'in_review', pr: 1, attempts: 1 } };
+  const facts = { 'MARXY-1': { approval: approved } };
+  const loose = world({ rows: [row('MARXY-1', 'a')], stories, open: [behind], facts, m: { ...M, requireUpToDate: false } });
+  loose.run();
+  assert.equal(loose.calls.gh.filter(a => a[1] === 'update-branch').length, 0);
+  assert.equal(loose.b().stories['MARXY-1'].status, 'done');
+
+  const strict = world({ rows: [row('MARXY-1', 'a')], stories, open: [behind], facts, m: { ...M, requireUpToDate: true } });
+  strict.run();
+  assert.equal(strict.calls.gh.filter(a => a[1] === 'update-branch').length, 1);
+  assert.notEqual(strict.b().stories['MARXY-1'].status, 'done');
+});
+
+test('main guard: a red completed ci run on main merges nothing and is named under Needs you; green and "no run yet" both merge normally (ADR-0040)', () => {
+  const mk = () => world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } }, open: [pr(7, 'MARXY-1')], facts: { 'MARXY-1': { approval: approved } } });
+
+  const red = mk();
+  red.io.mainCiRun = () => ({ conclusion: 'FAILURE', url: 'https://github.com/inkstrata/marxy/actions/runs/1', headSha: HEAD });
+  const rRed = red.run();
+  assert.equal(red.calls.gh.filter(a => a[0] === 'pr' && a[1] === 'merge').length, 0);
+  assert.notEqual(red.b().stories['MARXY-1'].status, 'done');
+  assert.ok(rRed.attention.some(a => a.key === 'main' && /main is red/.test(a.why) && a.why.includes('runs/1')));
+
+  const green = mk();
+  green.io.mainCiRun = () => ({ conclusion: 'SUCCESS', url: 'https://github.com/inkstrata/marxy/actions/runs/2', headSha: HEAD });
+  const rGreen = green.run();
+  assert.equal(green.b().stories['MARXY-1'].status, 'done');
+  assert.ok(!rGreen.attention.some(a => a.key === 'main'));
+
+  const none = mk();
+  none.io.mainCiRun = () => null;
+  const rNone = none.run();
+  assert.equal(none.b().stories['MARXY-1'].status, 'done');
+  assert.ok(!rNone.attention.some(a => a.key === 'main'));
 });
 
 test('a worker alive past its deadline is stopped and its attempt finished as a timeout', () => {
