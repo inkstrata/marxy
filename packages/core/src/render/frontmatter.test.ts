@@ -20,7 +20,7 @@ test('YAML front matter lists every key, truncates at twelve rows, and carries p
   assert.equal(frontmatterRows(matter.value).length, 15);
   const { html } = renderSafeHtml(bytes, { file: 'skill.md' });
   assert.match(html, /<dl data-marxy-s="/);
-  assert.equal([...html.matchAll(/<dt>/g)].length, FRONTMATTER_HEAD_MAX_ROWS);
+  assert.equal([...html.matchAll(/<dt>[^…]/g)].length, FRONTMATTER_HEAD_MAX_ROWS);
   assert.match(html, /<dd>3 more<\/dd>/);
   const range = html.match(/<dl data-marxy-s="([0-9]+)" data-marxy-e="([0-9]+)"/);
   assert.ok(range);
@@ -48,4 +48,42 @@ test('corpus skill fixture: description is visible and overflow counts three key
   assert.match(html, /<dd>/);
   assert.ok(html.includes('a'.repeat(64)));
   assert.match(html, /3 more/);
+});
+
+const head = (md: string): string => renderSafeHtml(md, { file: 't.md' }).html;
+
+test('CRLF front matter lists every row', () => {
+  const html = head('---\r\ntitle: a\r\nb: c\r\n---\r\nhi');
+  assert.match(html, /<dt>title<\/dt>/);
+  assert.match(html, /<dt>b<\/dt>/);
+});
+
+test('non-ASCII, quoted and spaced keys are listed', () => {
+  const rows = frontmatterRows('título: a\n"quoted": y\nmy key: z\nurl: http://x.y/z\n');
+  assert.deepEqual(
+    rows.map((r) => r.key),
+    ['título', 'quoted', 'my key', 'url'],
+  );
+  assert.deepEqual(rows[3]!.lines, ['http://x.y/z']);
+});
+
+test('unindented YAML list items belong to the previous key', () => {
+  const rows = frontmatterRows('tags:\n- a\n- b\nnext: 1\n');
+  assert.deepEqual(rows[0], { key: 'tags', lines: ['- a', '- b'] });
+  assert.equal(rows.length, 2);
+});
+
+test('TOML listing stops at the first table header', () => {
+  const rows = frontmatterRows('title = "x"\n[section]\nhidden = 1\n');
+  assert.deepEqual(
+    rows.map((r) => r.key),
+    ['title'],
+  );
+});
+
+test('the overflow line sits in a valid dt/dd group and stays escaped', () => {
+  const keys = Array.from({ length: 13 }, (_, i) => `k${i}: <b>${i}`).join('\n');
+  const html = head(`---\n${keys}\n---\n`);
+  assert.match(html, /<dt>…<\/dt>\n<dd>1 more<\/dd>/);
+  assert.doesNotMatch(html, /<b>/);
 });

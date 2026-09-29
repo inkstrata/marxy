@@ -35,7 +35,10 @@ const ARABIC = /\p{Script=Arabic}/u;
 
 function isEmojiZwJSequence(cps: readonly number[], i: number): boolean {
   if (cps[i] !== 0x200d) return false;
-  const prev = i > 0 ? cps[i - 1] : undefined;
+  let p = i - 1;
+  // A variation selector or skin-tone modifier sits between the pictograph and the joiner.
+  while (p >= 0 && (cps[p] === 0xfe0f || (cps[p]! >= 0x1f3fb && cps[p]! <= 0x1f3ff))) p--;
+  const prev = p >= 0 ? cps[p] : undefined;
   const next = i + 1 < cps.length ? cps[i + 1] : undefined;
   if (prev === undefined || next === undefined) return false;
   return EMOJI_BASE.test(String.fromCodePoint(prev)) && EMOJI_BASE.test(String.fromCodePoint(next));
@@ -74,7 +77,6 @@ export function shouldFlagInvisible(cp: number, ctx: InvisibleContext, cps: read
   if (isVariationSelector(cp)) return false;
   if (cp === 0x200d && isEmojiZwJSequence(cps, index)) return false;
   if (cp === 0x200c && isPersianZwnj(cps, index)) return false;
-  if (cp === 0xfeff && ctx.sourceStart + index === 0) return false;
 
   if (isTag(cp)) return true;
   if (BIDI_CONTROLS.has(cp)) return true;
@@ -93,18 +95,27 @@ export function invisibleHexLabel(cp: number): string {
 
 /** Rule-table segmentation so HTML tests and the app DOM post-pass share one walk. */
 export function invisibleSegments(text: string, ctx: InvisibleContext): InvisibleSegment[] {
-  const cps = [...text].map((ch) => ch.codePointAt(0)!);
+  const cps: number[] = [];
+  // offsets[k] is the UTF-16 index where code point k starts, so runs are sliced, never spread.
+  const offsets: number[] = [];
+  for (let u = 0; u < text.length; ) {
+    const cp = text.codePointAt(u)!;
+    offsets.push(u);
+    cps.push(cp);
+    u += cp > 0xffff ? 2 : 1;
+  }
+  offsets.push(text.length);
   const parts: InvisibleSegment[] = [];
   let i = 0;
   while (i < cps.length) {
     if (isTag(cps[i]!)) {
       let j = i;
       while (j < cps.length && isTag(cps[j]!)) j++;
+      const run = text.slice(offsets[i]!, offsets[j]!);
       if (isSubdivisionFlagSequence(cps, i, j)) {
-        parts.push({ kind: 'text', value: String.fromCodePoint(...cps.slice(i, j)) });
+        parts.push({ kind: 'text', value: run });
       } else {
-        const payload = String.fromCodePoint(...cps.slice(i, j));
-        parts.push({ kind: 'tag-run', count: j - i, payload, decoded: decodeTagPayload(payload) });
+        parts.push({ kind: 'tag-run', count: j - i, payload: run, decoded: decodeTagPayload(run) });
       }
       i = j;
       continue;
@@ -112,7 +123,7 @@ export function invisibleSegments(text: string, ctx: InvisibleContext): Invisibl
     if (!shouldFlagInvisible(cps[i]!, ctx, cps, i)) {
       let j = i;
       while (j < cps.length && !shouldFlagInvisible(cps[j]!, ctx, cps, j) && !isTag(cps[j]!)) j++;
-      parts.push({ kind: 'text', value: String.fromCodePoint(...cps.slice(i, j)) });
+      parts.push({ kind: 'text', value: text.slice(offsets[i]!, offsets[j]!) });
       i = j;
       continue;
     }

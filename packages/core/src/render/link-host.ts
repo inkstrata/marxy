@@ -12,12 +12,28 @@ export interface LinkHostLabel {
   readonly text: string;
 }
 
-function hostFromUrlLike(raw: string): string | null {
+function urlFromLike(raw: string): URL | null {
   const trimmed = raw.trim();
   if (trimmed === '') return null;
   try {
     const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    return new URL(withScheme).hostname.toLowerCase();
+    return new URL(withScheme);
+  } catch {
+    return null;
+  }
+}
+
+function hostFromUrlLike(raw: string): string | null {
+  const url = urlFromLike(raw);
+  return url === null ? null : url.hostname.toLowerCase();
+}
+
+/** The destination as a web URL with a hostname; mailto:, relative paths and fragments are not. */
+function webDestination(href: string): URL | null {
+  try {
+    const url = new URL(href.trim());
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.hostname === '' ? null : url;
   } catch {
     return null;
   }
@@ -60,16 +76,20 @@ function destIsConfusable(destHost: string): boolean {
 /** Label when visible link text names a different or confusable host than `href`. */
 export function linkHostMismatchLabel(linkText: string, href: string): LinkHostLabel | null {
   if (!linkTextLooksLikeHost(linkText)) return null;
-  const textHost = hostFromUrlLike(linkText);
-  const destHost = hostFromUrlLike(href);
-  if (textHost === null || destHost === null) return null;
-  if (textHost === destHost && !destIsConfusable(destHost)) return null;
+  const textUrl = urlFromLike(linkText);
+  const dest = webDestination(href);
+  if (textUrl === null || dest === null) return null;
+  const textHost = textUrl.hostname.toLowerCase();
+  const destHost = dest.hostname.toLowerCase();
+  // `https://paypal.com@evil.com` reads as paypal.com but goes to evil.com: the visible userinfo is the tell.
+  const deceptive = textUrl.username !== '' || textUrl.password !== '';
+  if (textHost === destHost && textUrl.port === dest.port && !deceptive && !destIsConfusable(destHost)) return null;
   return { text: displayHost(hostForms(destHost)) };
 }
 
-/** Destination line for summon (focus/hover); always the destination host forms. */
+/** Destination line for summon (focus/hover); always the destination host forms. Null for non-web destinations. */
 export function linkDestinationLabel(href: string): string | null {
-  const destHost = hostFromUrlLike(href);
-  if (destHost === null) return null;
-  return displayHost(hostForms(destHost));
+  const dest = webDestination(href);
+  if (dest === null) return null;
+  return displayHost(hostForms(dest.hostname.toLowerCase()));
 }

@@ -20,9 +20,13 @@ function prov(src: Source, ctx: Prov): string {
   return ` ${ctx.names.start}="${src.start}" ${ctx.names.end}="${src.end}"`;
 }
 
+// A key is double-quoted, single-quoted, or bare text up to a colon that ends the key (space or end after it).
+const YAML_KEY = /^(?:"((?:[^"\\]|\\.)+)"|'([^']+)'|([^\s"'#[\]{},&*!|>%@`:-][^:]*?|-[^\s:-][^:]*?))[ \t]*:(?:[ \t]+(.*)|$)/u;
+const TOML_KEY = /^(?:"((?:[^"\\]|\\.)+)"|'([^']+)'|([\p{L}\p{N}_.-]+))[ \t]*=[ \t]*(.*)$/u;
+
 /** Top-level keys only; nested body lines are kept verbatim for the mono face. */
 export function frontmatterRows(value: string): FrontmatterRow[] {
-  const lines = value.split('\n');
+  const lines = value.split(/\r\n|\r|\n/);
   const rows: FrontmatterRow[] = [];
   let i = 0;
   while (i < lines.length) {
@@ -35,19 +39,21 @@ export function frontmatterRows(value: string): FrontmatterRow[] {
       i++;
       continue;
     }
-    const yaml = /^([A-Za-z0-9_.-]+):\s*(.*)$/.exec(line);
-    const toml = /^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/.exec(line);
-    const key = yaml?.[1] ?? toml?.[1];
+    // TOML: only the top-level keys before the first `[table]` header are listed.
+    if (/^\[\[?[^\]]*\]\]?\s*(?:#.*)?$/.test(line)) break;
+    const yaml = YAML_KEY.exec(line);
+    const toml = TOML_KEY.exec(line);
+    const key = yaml ? (yaml[1] ?? yaml[2] ?? yaml[3]) : toml ? (toml[1] ?? toml[2] ?? toml[3]) : undefined;
     if (!key) {
       i++;
       continue;
     }
     const body: string[] = [];
     if (yaml) {
-      const rest = yaml[2]!;
+      const rest = yaml[4] ?? '';
       if (rest === '' || /^[|>][+-]?\d*\s*$/.test(rest)) {
         i++;
-        while (i < lines.length && (/^\s/.test(lines[i]!) || lines[i]!.trim() === '')) {
+        while (i < lines.length && (/^\s/.test(lines[i]!) || /^-(?:\s|$)/.test(lines[i]!) || lines[i]!.trim() === '')) {
           if (lines[i]!.trim() !== '') body.push(lines[i]!);
           i++;
         }
@@ -56,7 +62,7 @@ export function frontmatterRows(value: string): FrontmatterRow[] {
         i++;
       }
     } else {
-      body.push(toml![2]!);
+      body.push(toml![4] ?? '');
       i++;
     }
     rows.push({ key, lines: body });
@@ -82,6 +88,6 @@ export function renderFrontmatterHead(node: Frontmatter, ctx: Prov): string {
   const visible = rows.slice(0, FRONTMATTER_HEAD_MAX_ROWS);
   const hidden = rows.length - visible.length;
   const parts = visible.map((row) => rowHtml(row));
-  if (hidden > 0) parts.push(`<dd>${hidden} more</dd>`);
+  if (hidden > 0) parts.push(`<dt>\u2026</dt>\n<dd>${hidden} more</dd>`);
   return `<dl${prov(node.src, ctx)}>\n${parts.join('\n')}\n</dl>`;
 }

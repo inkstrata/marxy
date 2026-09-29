@@ -6,6 +6,8 @@ import type { Inline, Text } from '../contracts/ast.ts';
 export interface SmartenContext {
   readonly atParagraphEnd: boolean;
   readonly wordsInParagraph: number;
+  /** The character just before this run in the paragraph (from a sibling inline), so a quote there closes. */
+  readonly previousChar?: string;
 }
 
 /** Paragraph metadata the renderer threads through inline runs for widont. */
@@ -41,14 +43,14 @@ const NBSP = '\u00a0';
  */
 export function smarten(text: string, ctx: SmartenContext): string {
   let out = text.replace(/---/g, EM_DASH).replace(/--/g, EN_DASH).replace(/\.\.\./g, ELLIPSIS);
-  out = applyQuotes(out);
+  out = applyQuotes(out, ctx.previousChar);
   if (ctx.atParagraphEnd && ctx.wordsInParagraph >= WIDONT_MIN_WORDS) out = applyWidont(out);
   return out;
 }
 
-function applyQuotes(text: string): string {
+function applyQuotes(text: string, start?: string): string {
   let out = '';
-  let previous: string | undefined;
+  let previous: string | undefined = start;
   for (const char of text) {
     let next = char;
     if (char === '"') next = isOpeningContext(previous) ? OPENING_DOUBLE : CLOSING_DOUBLE;
@@ -75,6 +77,40 @@ function applyWidont(text: string): string {
   return `${text.slice(0, lastSpace)}${NBSP}${text.slice(lastSpace + 1)}`;
 }
 
+/** A run that is itself a URL (an autolink's text) is data, not prose: never smartened. */
+const URL_LIKE = /^(?:[a-z][a-z0-9+.-]*:\/\/|www\.)\S+$/i;
+
+/** Last character an inline puts on the page, or undefined when it says nothing (an opening tag, an empty run). */
+function lastChar(node: Inline): string | undefined {
+  switch (node.type) {
+    case 'text':
+    case 'code':
+    case 'mathInline':
+      return node.value === '' ? undefined : (Array.from(node.value).at(-1) ?? undefined);
+    case 'emphasis':
+    case 'strong':
+    case 'strikethrough':
+    case 'link': {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const c = lastChar(node.children[i]!);
+        if (c !== undefined) return c;
+      }
+      return undefined;
+    }
+    case 'softBreak':
+    case 'hardBreak':
+      return '\n';
+    case 'image':
+      return ')';
+    case 'footnoteReference':
+      return ']';
+    case 'html':
+      return node.value.startsWith('</') ? '>' : undefined;
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Smartens one markdown text run inside a paragraph, skipping text inside raw-HTML code-like tags
  * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list (MARXY-230, handbook P06).
@@ -85,15 +121,20 @@ export function smartenParagraphTextNode(
   typo: ParagraphTypo,
 ): string {
   let depth = 0;
+  let previousChar: string | undefined;
   for (const sibling of siblings) {
     if (sibling.type === 'html') depth = codeLikeDepthAfterHtml(sibling.value, depth);
     if (sibling === node) {
       if (depth > 0) return node.value;
+      if (URL_LIKE.test(node.value.trim())) return node.value;
       return smarten(node.value, {
+        previousChar,
         atParagraphEnd: typo.lastText === node,
         wordsInParagraph: typo.wordsInParagraph,
       });
     }
+    // A sibling that renders nothing (empty text) keeps the character before it; an opening tag resets it.
+    if (sibling.type !== 'text' || sibling.value !== '') previousChar = lastChar(sibling);
   }
   return node.value;
 }

@@ -2,6 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { parseMarkdown } from '../parse/parse.ts';
 import { classify, entryFromCandidate, headingsFromMarkdown } from './index.ts';
 
 test('the first ATX h1 becomes the title; other headings are recorded with byte offsets', () => {
@@ -65,4 +66,66 @@ test('a fence closes only on a matching marker, not the other fence character', 
     headingsFromMarkdown(new TextEncoder().encode(tildeFence)).map((h) => h.text),
     ['Outside'],
   );
+});
+
+// The index scan must agree with the parser about where each heading starts.
+const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
+function astHeadingStarts(bytes: Uint8Array): number[] {
+  const out: number[] = [];
+  const doc = parseMarkdown(bytes, { file: 't.md' });
+  const walk = (nodes: readonly { type: string; src?: { start: number }; children?: unknown }[]): void => {
+    for (const n of nodes) {
+      if (n.type === 'heading' && n.src && bytes[n.src.start] === 0x23) out.push(n.src.start); // ATX only
+      if (Array.isArray(n.children)) walk(n.children);
+    }
+  };
+  walk(doc.children as never);
+  return out;
+}
+function assertAgrees(source: string, texts: string[]): void {
+  const bytes = enc(source);
+  const found = headingsFromMarkdown(bytes);
+  assert.deepEqual(
+    found.map((h) => h.text),
+    texts,
+    source,
+  );
+  assert.deepEqual(
+    found.map((h) => h.byteOffset),
+    astHeadingStarts(bytes),
+    `offsets: ${source}`,
+  );
+}
+
+test('a --- setext underline or unclosed rule in the first bytes is not front matter', () => {
+  assertAgrees('ab\n---\n# x\n\n# y\n---\n', ['x', 'y']);
+  assertAgrees('---\n# a\n\nno closer\n# b\n', ['a', 'b']);
+  assertAgrees('---\ntitle: t\n---\n# real\n', ['real']);
+  assertAgrees('\ufeff---\na: b\n---\n# real\n', ['real']);
+});
+
+test('a closing # run needs a space before it; up to three leading spaces are allowed', () => {
+  assertAgrees('# C#\n', ['C#']);
+  assertAgrees('# foo \\#\n', ['foo \\#']);
+  assertAgrees('# foo ##  \n', ['foo']);
+  assertAgrees('   # Indented\n', ['Indented']);
+  assertAgrees('    # code\n', []);
+});
+
+test('a backtick fence info string cannot hold a backtick', () => {
+  assertAgrees('```x``` y\n# h\n', ['h']);
+  assertAgrees('``` a`b\n# h\n', ['h']);
+  assertAgrees('```js\n# not\n```\n# h\n', ['h']);
+  assertAgrees('~~~ a`b\n# not\n~~~\n# h\n', ['h']);
+});
+
+test('headings inside an HTML comment block are skipped', () => {
+  assertAgrees('<!--\n# hidden\n-->\n# shown\n', ['shown']);
+  assertAgrees('<!-- one line -->\n# shown\n', ['shown']);
+});
+
+test('CRLF and bare CR files keep byte offsets correct', () => {
+  assertAgrees('# a\r\n\r\n## b\r\n', ['a', 'b']);
+  assertAgrees('# a\r\r## b\r', ['a', 'b']);
+  assertAgrees('---\r\nt: 1\r\n---\r\n# a\r\n', ['a']);
 });

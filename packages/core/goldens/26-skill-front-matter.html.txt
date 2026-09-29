@@ -23,6 +23,7 @@
 <dd>research</dd>
 <dt>icon</dt>
 <dd>book</dd>
+<dt>…</dt>
 <dd>3 more</dd>
 </dl>
 <h1 data-marxy-s="1301" data-marxy-e="1314">Skill title</h1>

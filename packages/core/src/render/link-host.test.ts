@@ -46,3 +46,26 @@ test('click here to evil does not get a mismatch label', () => {
 test('destination label parses hosts', () => {
   assert.equal(linkDestinationLabel('https://b.com/x'), 'b.com');
 });
+
+test('userinfo in the visible link text is a mismatch even when the host matches', () => {
+  assert.ok(linkHostMismatchLabel('https://paypal.com@evil.com', 'https://evil.com'));
+  const html = stripProv(renderSafeHtml('[https://paypal.com@evil.com](https://evil.com)\n', { file: 't.md' }).html);
+  assert.match(html, /marxy-link-mismatch/);
+  assert.match(html, /title="evil\.com"/);
+});
+
+test('differing explicit ports are a mismatch; default ports are not', () => {
+  assert.ok(linkHostMismatchLabel('https://a.com:8443', 'https://a.com'));
+  assert.equal(linkHostMismatchLabel('https://a.com:443', 'https://a.com'), null);
+  assert.equal(linkHostMismatchLabel('https://a.com:8080', 'https://a.com:8080'), null);
+});
+
+test('non-web destinations get no label, class or empty title', () => {
+  assert.equal(linkDestinationLabel('mailto:a@b'), null);
+  assert.equal(linkDestinationLabel('#frag'), null);
+  assert.equal(linkDestinationLabel('./x.md'), null);
+  assert.equal(linkHostMismatchLabel('a.com', 'mailto:a@b'), null);
+  const html = stripProv(renderSafeHtml('[a.com](mailto:a@b)\n', { file: 't.md' }).html);
+  assert.ok(!html.includes('marxy-link-mismatch'));
+  assert.ok(!html.includes('title='));
+});
