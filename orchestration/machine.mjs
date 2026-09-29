@@ -56,7 +56,7 @@ export const TIMING = {
 };
 
 /** Top-level models.json settings the fleet reads; anything else is a typo that would be silently ignored. */
-export const MODEL_KEYS = ['compute', 'modes', 'cliEffortFlag', 'lanes', 'mergeQueue', 'plannerEveryMerges', 'plannerEveryDays', ...Object.keys(TIMING)];
+export const MODEL_KEYS = ['compute', 'modes', 'cliEffortFlag', 'lanes', 'mergeQueue', 'requireUpToDate', 'plannerEveryMerges', 'plannerEveryDays', ...Object.keys(TIMING)];
 
 /** Settings in a models.json object that nothing reads (a misspelt timing, say). `_`-prefixed notes are fine. */
 export const unknownModelKeys = raw => Object.keys(raw ?? {}).filter(k => !k.startsWith('_') && !MODEL_KEYS.includes(k));

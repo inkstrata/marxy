@@ -15,11 +15,17 @@ job that actually ran failed or was cancelled. Skipped jobs are fine. Job names 
 change without touching repository settings.
 
 ```bash
-gh api -X PATCH repos/inkstrata/marxy/branches/main/protection/required_status_checks -F strict=true -f 'contexts[]=ci'
+gh api -X PATCH repos/inkstrata/marxy/branches/main/protection/required_status_checks -F strict=false -f 'contexts[]=ci'
 ```
 
 That endpoint answers `PUT` with a 404 — `PATCH` is the working verb, and `-F` sends `strict`
-as a boolean rather than a string.
+as a boolean rather than a string. `strict=false` (ADR-0040) means a PR does not have to be
+up to date with `main` to merge — a green, mergeable, non-conflicting, signed PR lands even if
+it is BEHIND. The safety net is `cycle.mjs`'s main guard: if the latest completed `ci` run on
+`main` is red, the cycle merges nothing and lists it under **Needs you** with the run's URL,
+until a green run on `main` clears it. `orchestration/models.json` `requireUpToDate` (default
+`false`) is the escape hatch back to the old strict, one-BEHIND-refresh-per-cycle behaviour if
+`strict` is ever turned back on.
 
 ## Before you push
 
