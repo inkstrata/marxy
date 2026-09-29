@@ -667,10 +667,14 @@ async function checkScreenshot(page, { file, width, variant, update }) {
     const png = await page.screenshot({ fullPage: false, type: 'png' });
     const name = shotName(file, width, variant, where);
     const dest = join(dir, name);
-    if (update || !existsSync(dest)) {
+    if (update) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(dest, png);
       out.push(`baseline created; add a queue entry (${engineName()}/${name})`);
+      continue;
+    }
+    if (!existsSync(dest)) {
+      out.push(`baseline missing for ${engineName()}/${name}; the gate never seeds its own reference (run with --update to create it deliberately)`);
       continue;
     }
     const expected = readFileSync(dest);
@@ -926,6 +930,12 @@ function writeRagBaseline(file, metrics) {
 }
 
 async function main() {
+  if (!UPDATE && !SELFTEST_ONLY && !existsSync(shotDir())) {
+    console.error(
+      `aesthetics gate failed: no committed baselines for engine "${engineName()}" (fixtures/baselines/${engineName()}/); refusing to compare this machine against itself. Run with --update to seed a new engine deliberately.`,
+    );
+    process.exit(1);
+  }
   if (fails.length) {
     console.error('aesthetics gate failed:\n - ' + fails.join('\n - '));
     process.exit(1);
