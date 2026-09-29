@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { CODE_ROOT, notesPath, storyWorktree, newRunId } from './store.mjs';
 import { story, runEvent, boardEvent } from './machine.mjs';
 import { typeOf, slug } from './lib.mjs';
+import { OUTCOME, inferOutcome, isAuthOutcome, neverRan, producedWork } from './outcomes.mjs';
 import { recordVerdict as fleetRecordVerdict, openPrFor } from './fleet.mjs';
 
 const template = name => readFileSync(`${CODE_ROOT}orchestration/prompts/${name}.md`, 'utf8');
@@ -120,8 +121,6 @@ export function fingerprint(outcome, text = '') {
   return `${outcome}:${norm}`;
 }
 
-const GHOST_BYTES = 2048;
-
 const VERDICT_LINE = /^verdict:\s*(merge|return|escalate)\s*$/i;
 const HEAD_LINE = /^head:\s*([0-9a-f]{40})\s*$/i;
 
@@ -180,7 +179,7 @@ export function recoverVerdict(key, { readNotes = defaultReadNotes, findPr = ope
  * to print.
  */
 export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evidence = {}, logTail = '', t, now, recover = {} }) {
-  const outcome = obs.exit?.outcome ?? (obs.alive ? 'timeout' : 'dead');
+  const outcome = inferOutcome(obs);
   const ended = runEvent(id, { ended: now, outcome, code: obs.exit?.code ?? null, ...(obs.exit?.why ? { why: obs.exit.why } : {}) });
   const events = [ended];
   const lines = [];
@@ -190,7 +189,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   if (run.role === 'plan') {
     events.push(boardEvent({ planner: { run: null, lastEnded: now, lastOutcome: outcome } }));
     lines.push(`planner run ended: ${outcome}`);
-    if (outcome === 'auth') attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate for the planner; run `cursor-agent login`' });
+    if (isAuthOutcome(outcome)) attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate for the planner; run `cursor-agent login`' });
     return { events, lines, attention };
   }
   if (!rec || rec.run !== id) {
@@ -202,11 +201,11 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   // A review or resolution that never reached its agent (the worktree could not be prepared, the CLI
   // could not log in, the worker died) has not tried anything, so it does not spend a try: three setup
   // failures used to park a story as "still conflicts after 3 resolution runs".
-  const neverRan = outcome === 'setup' || outcome === 'auth' || outcome === 'dead';
+  const refundedTry = neverRan(outcome);
   if (run.role === 'review' || run.role === 'resolve') {
     const what = run.role === 'review' ? 'reviewer' : 'conflict resolution';
     const tries = run.role === 'review' ? 'reviewTries' : 'resolveTries';
-    if (run.role === 'review' && !neverRan) {
+    if (run.role === 'review' && !neverRan(outcome)) {
       const recovered = recoverVerdict(key, recover);
       if (recovered) {
         lines.push(`${key}: recovered its ${recovered.verdict} verdict from its notes file (the run ended without calling fleet.mjs verdict) — ${recovered.message}`);
@@ -216,17 +215,17 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
       }
     }
     events.push(story(key, {
-      ...base, from: 'in_review', why: `${what} ended (${outcome})${neverRan ? ', try refunded' : ''}`,
-      ...(neverRan ? { inc: { [tries]: -1 } } : {}),
+      ...base, from: 'in_review', why: `${what} ended (${outcome})${refundedTry ? ', try refunded' : ''}`,
+      ...(refundedTry ? { inc: { [tries]: -1 } } : {}),
     }));
-    lines.push(`${key}: ${what} ended (${outcome})${neverRan ? ', try refunded' : ''}`);
-    if (outcome === 'auth') attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login`' });
+    lines.push(`${key}: ${what} ended (${outcome})${refundedTry ? ', try refunded' : ''}`);
+    if (isAuthOutcome(outcome)) attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login`' });
     return { events, lines, attention };
   }
 
   // implement
   const from = 'in_progress';
-  if (outcome === 'auth') {
+  if (isAuthOutcome(outcome)) {
     events.push(story(key, { ...base, from, to: 'todo', inc: { attempts: -1 }, why: 'cursor-agent could not authenticate; attempt refunded' }));
     attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login` (implementor runs are refunded until then)' });
     return { events, lines: [`${key}: auth failure, attempt refunded`], attention };
@@ -250,7 +249,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
     events.push(story(key, { ...base, from, to: 'blocked', set: { parkedReason: reason, blockedAt: now }, why: 'implementor reported blocked' }));
     return { events, lines: [`${key}: blocked — ${reason}`], attention };
   }
-  if (outcome === 'setup') {
+  if (outcome === OUTCOME.SETUP) {
     const fails = (rec.setupFails ?? 0) + 1;
     const why = obs.exit?.why ?? 'the worker could not prepare the worktree';
     events.push(fails >= 2
@@ -258,7 +257,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
       : story(key, { ...base, from, to: 'todo', inc: { attempts: -1, setupFails: 1 }, why: `setup failed, attempt refunded: ${why}` }));
     return { events, lines: [`${key}: setup failed (${why})`], attention };
   }
-  const worked = (evidence.ahead ?? 0) > 0 || evidence.dirty || (obs.logBytes ?? 0) > GHOST_BYTES;
+  const worked = producedWork(evidence, obs.logBytes);
   if (!worked) {
     const ghosts = (rec.ghosts ?? 0) + 1;
     const tail = lastText(logTail).slice(0, 200);

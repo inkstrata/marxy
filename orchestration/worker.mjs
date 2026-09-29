@@ -20,6 +20,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { git, run as runSync, LIMIT, stopGroup } from './proc.mjs';
 import { runFile, resultPath, writeJsonAtomic, readJsonOr, fleetPath, repoHome } from './store.mjs';
+import { OUTCOME } from './outcomes.mjs';
 
 export const AUTH_FAILURE = /Authentication required|agent login|CURSOR_API_KEY/i;
 const POLL_MS = 15_000;
@@ -110,10 +111,10 @@ export async function superviseAgent(spec, { bin = spec.bin ?? 'cursor-agent', c
     if (done) {
       const text = size ? readFileSync(log, 'utf8').slice(-4000) : '';
       const auth = done.code !== 0 && AUTH_FAILURE.test(text);
-      return { outcome: auth ? 'auth' : 'exited', code: done.code, signal: done.signal ?? null, error: done.error, logBytes: size };
+      return { outcome: auth ? OUTCOME.AUTH : OUTCOME.EXITED, code: done.code, signal: done.signal ?? null, error: done.error, logBytes: size };
     }
     if (size !== lastSize) { lastSize = size; lastGrowth = now(); }
-    const why = now() > deadline ? 'timeout' : now() - lastGrowth > stallMs ? 'stalled' : null;
+    const why = now() > deadline ? OUTCOME.TIMEOUT : now() - lastGrowth > stallMs ? OUTCOME.STALLED : null;
     if (why) {
       await stopGroup(child.pid);
       await exited;
@@ -133,12 +134,12 @@ export async function work(id) {
   let cwd = spec.cwd;
   if (spec.role === 'implement' || spec.role === 'resolve') {
     const wt = prepareWorktree(spec);
-    if (!wt.ok) return finish(id, { outcome: 'setup', why: wt.why });
+    if (!wt.ok) return finish(id, { outcome: OUTCOME.SETUP, why: wt.why });
     cwd = wt.wt;
     if (wt.snapshot) console.log(`${spec.key}: uncommitted work snapshotted to ${wt.snapshot}`);
     if (spec.install) {
       const inst = runSync('pnpm', ['install', '--frozen-lockfile', '--silent'], { cwd, timeoutMs: LIMIT.install });
-      if (!inst.ok) return finish(id, { outcome: 'setup', why: `pnpm install ${inst.timedOut ? 'timed out' : 'failed'}: ${inst.err.split('\n').slice(-1)[0]}` });
+      if (!inst.ok) return finish(id, { outcome: OUTCOME.SETUP, why: `pnpm install ${inst.timedOut ? 'timed out' : 'failed'}: ${inst.err.split('\n').slice(-1)[0]}` });
     }
   }
   // A result left by an earlier attempt would report this one as whatever that was.
