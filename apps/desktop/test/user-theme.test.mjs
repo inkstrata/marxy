@@ -9,6 +9,7 @@ import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
 import { setTopLevelKey } from '../../../packages/theme/src/config.ts';
+import { settle } from './settle.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -91,9 +92,12 @@ test('config theme applies after first_text with #marxy-theme and keeps scroll p
     assert.equal(result.quietBg, '#121210');
     assert.equal(result.firstBeforeTheme, true, result.marks.join(','));
 
+    // Typesetting keeps reflowing after `ready`; settle before setting and measuring the scroll.
+    await settle(page);
     await page.evaluate(() => {
       document.documentElement.scrollTop = 400;
     });
+    await settle(page);
     const before = await page.evaluate(() => document.documentElement.scrollTop);
     await page.evaluate(() => {
       window.__marxyHandle.shell.emit([{ kind: 'modified', path: '/t/quiet/theme.css' }]);
@@ -102,6 +106,7 @@ test('config theme applies after first_text with #marxy-theme and keeps scroll p
       const marks = window.__marxyHandle?.shell?.calls?.filter((c) => c.method === 'mark' && c.args[0] === 'user_theme') ?? [];
       return marks.length >= 2;
     }, { timeout: 2000 });
+    await settle(page);
     const after = await page.evaluate(() => document.documentElement.scrollTop);
     assert.ok(Math.abs(after - before) < 8, `scroll jumped ${before} → ${after}`);
   } finally {
