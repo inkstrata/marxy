@@ -507,3 +507,71 @@ test('a returned PR the fleet will not redo is named as needing a fix pushed, no
   assert.match(why('MARXY-2'), /its row is not dispatched/);
   assert.doesNotMatch(why('MARXY-1'), /open its PR/);
 });
+
+// ── revert first (ADR-0043, MARXY-335) ──
+
+test('main red: the first red commit is reverted once, the revert lands while main is red, and the story is reopened with its work kept', () => {
+  const SHA = 'c2', REVERT = 'https://github.com/inkstrata/marxy/actions/runs/2';
+  const STORY = 'feat(x): thing (MARXY-1) (#12)';
+  const log = [{ sha: SHA, parent: 'c1', subject: STORY }, { sha: 'c1', parent: 'c0', subject: 'chore(repo): seed (MARXY-9) (#1)' }];
+  const w = world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'done', pr: 12, attempts: 1 } } });
+  const opened = [];
+  Object.assign(w.io, {
+    mainCiRun: () => ({ conclusion: 'FAILURE', url: REVERT, headSha: SHA }),
+    mainCiRuns: () => [{ conclusion: 'FAILURE', url: REVERT, headSha: SHA }, { conclusion: 'SUCCESS', url: 'u1', headSha: 'c1' }],
+    mainLog: () => log, runJobs: () => ['fast', 'browser'],
+    openRevert: ({ sha, subject }) => { opened.push([sha, subject]); return { ok: true, url: 'https://github.com/inkstrata/marxy/pull/40', number: 40 }; },
+    verifyRevert: () => ({ ok: true }), git: () => ({ ok: true, out: '', err: '' }),
+  });
+
+  // Cycle 1: main is red, no revert PR yet. One is opened and remembered on the story; nothing else merges.
+  const r1 = w.run();
+  assert.deepEqual(opened, [[SHA, STORY]]);
+  assert.equal(w.b().stories['MARXY-1'].revert.pr, 40);
+  assert.ok(r1.attention.some(a => a.key === 'main'));
+
+  // Cycle 2: the revert PR is open. It is not opened again, nor adopted under MARXY-1; it merges despite the red main.
+  const revertPr = pr(40, 'MARXY-1', { title: 'revert: feat(x): thing (MARXY-1)', headRefName: 'revert/MARXY-1-thing', files: [{ path: 'x' }, { path: 'changelog.d/MARXY-1.md' }] });
+  const stale = pr(7, 'MARXY-2');
+  w.io.snapshot = () => snapshotFrom([revertPr, stale], []);
+  const r2 = w.run();
+  assert.equal(opened.length, 1, 'once, not every cycle');
+  assert.ok(w.calls.gh.some(a => a[0] === 'pr' && a[1] === 'merge' && a[2] === '40' && a.includes('--squash')), 'the revert PR merged');
+  assert.equal(w.b().stories['MARXY-1'].status, 'done', 'not reopened until the revert has merged');
+  assert.ok(!r2.attention.some(a => /MARXY-1.*done; a person decides|give the PR its own key/.test(a.why)), 'the revert PR is not adopted as MARXY-1');
+
+  // Cycle 3: it has merged. The story is reopened with the failure named, and its old PRs do not settle it Done again.
+  w.io.snapshot = () => snapshotFrom([], [{ number: 40, headRefName: 'revert/MARXY-1-thing', state: 'MERGED' }, { number: 12, headRefName: 'feat/MARXY-1-thing', state: 'MERGED' }]);
+  w.io.mainLog = () => [{ sha: 'c3', parent: SHA, subject: 'revert: feat(x): thing (MARXY-1) (#40)' }, ...log];
+  w.io.mainSubjects = () => w.io.mainLog().map(c => c.subject);
+  w.run();
+  const rec = w.b().stories['MARXY-1'];
+  assert.notEqual(rec.status, 'done');
+  assert.match(rec.returned.why, /runs\/2; failing jobs: fast, browser/);
+  assert.equal(rec.reopened.revertSha, 'c3');
+  assert.equal(rec.attempts, 2, 'the reopened story is dispatched under the normal attempt limits');
+  assert.deepEqual(started(w.calls, 'implement'), ['MARXY-1']);
+  assert.ok(w.calls.notes.some(([k, text]) => k === 'MARXY-1' && /failing jobs: fast, browser/.test(text)));
+  w.run();
+  assert.notEqual(w.b().stories['MARXY-1'].status, 'done', 'and it stays reopened on the next cycle');
+});
+
+test('a red main whose revert does not apply is named under Needs you, and nothing is opened', () => {
+  const w = world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'done', pr: 12, attempts: 1 } } });
+  Object.assign(w.io, {
+    mainCiRun: () => ({ conclusion: 'FAILURE', url: 'u2', headSha: 'c2' }),
+    mainCiRuns: () => [{ conclusion: 'FAILURE', url: 'u2', headSha: 'c2' }, { conclusion: 'SUCCESS', url: 'u1', headSha: 'c1' }],
+    mainLog: () => [{ sha: 'c2', parent: 'c1', subject: 'feat(x): thing (MARXY-1) (#12)' }, { sha: 'c1', parent: 'c0', subject: 'seed (MARXY-9) (#1)' }],
+    runJobs: () => [], openRevert: () => ({ ok: false, conflict: true, why: 'git revert c2 does not apply cleanly to main: src/a.txt' }),
+  });
+  const r = w.run();
+  assert.ok(r.attention.some(a => a.key === 'MARXY-1' && /does not apply cleanly/.test(a.why)));
+  assert.equal(w.b().stories['MARXY-1'].revert, undefined);
+});
+
+test('a reopened story is not settled Done again by the old squash subject still on main', () => {
+  const w = world({ rows: [row('MARXY-1', 'a', { Labels: 'ops,no-dispatch' })], stories: { 'MARXY-1': { status: 'todo', attempts: 1 } } });
+  w.io.mainSubjects = () => ['revert: feat(x): thing (MARXY-1) (#40)', 'feat(x): thing (MARXY-1) (#12)'];
+  w.run();
+  assert.equal(w.b().stories['MARXY-1'].status, 'todo');
+});
