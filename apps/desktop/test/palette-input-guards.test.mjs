@@ -16,6 +16,8 @@ const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_T
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
+// The app's Mod is Cmd on macOS and Ctrl elsewhere; CI runs these on Linux too.
+const modOf = async (page) => ((await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control');
 
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-palette-guards-'));
 let server;
@@ -63,7 +65,7 @@ async function boot(browser) {
 const current = (page) => page.evaluate(() => window.__handle.currentPath());
 const dialogOpen = (page) => page.evaluate(() => document.getElementById('marxy-palette').open);
 const openViaPalette = async (page, query) => {
-  await page.keyboard.press('Meta+KeyP');
+  await page.keyboard.press(`${await modOf(page)}+KeyP`);
   await page.keyboard.type(query);
   await page.keyboard.press('Enter');
   await page.waitForFunction((q) => window.__handle.currentPath().toLowerCase().includes(q), query);
@@ -76,12 +78,12 @@ test('Option+Arrow and Cmd+[ inside the Source editor are the editor\'s, not pal
     // Two opens, so there is a history entry for a stray Back to travel to.
     await openViaPalette(page, 'guide');
     await openViaPalette(page, 'readme');
-    await page.keyboard.press('Meta+KeyE');
+    await page.keyboard.press(`${await modOf(page)}+KeyE`);
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
     await page.click('.cm-content');
-    await page.keyboard.press('Meta+ArrowDown');
+    await page.keyboard.press((await modOf(page)) === 'Meta' ? 'Meta+ArrowDown' : 'Control+End');
     await page.keyboard.type('typed text');
-    for (const chord of ['Alt+ArrowLeft', 'Alt+ArrowRight', 'Meta+BracketLeft', 'Meta+BracketRight']) {
+    for (const chord of ['Alt+ArrowLeft', 'Alt+ArrowRight', `${await modOf(page)}+BracketLeft`, `${await modOf(page)}+BracketRight`]) {
       await page.keyboard.press(chord);
       await page.waitForTimeout(150);
       assert.equal(await current(page), '/repo/README.md', `${chord} must not navigate`);
@@ -115,13 +117,13 @@ test('Escape with focus off the input (native dialog cancel) leaves the palette 
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
-    await page.keyboard.press('Meta+KeyP');
+    await page.keyboard.press(`${await modOf(page)}+KeyP`);
     assert.equal(await dialogOpen(page), true);
     await page.evaluate(() => document.activeElement.blur());
     await page.keyboard.press('Escape');
     await page.waitForTimeout(100);
     assert.equal(await dialogOpen(page), false);
-    await page.keyboard.press('Meta+KeyP');
+    await page.keyboard.press(`${await modOf(page)}+KeyP`);
     assert.equal(await dialogOpen(page), true, 'the next Cmd+P summons rather than "dismissing" a closed dialog');
   } finally {
     await browser.close();
@@ -132,7 +134,7 @@ test('clicking a result row opens that hit', async () => {
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
-    await page.keyboard.press('Meta+KeyP');
+    await page.keyboard.press(`${await modOf(page)}+KeyP`);
     await page.keyboard.type('guide');
     await page.click('.marxy-palette-row');
     await page.waitForFunction(() => window.__handle.currentPath() === '/repo/docs/guide.md');
@@ -146,7 +148,7 @@ test('keys that drive an IME composition do not act on the palette', async () =>
   const browser = await launchWebkit();
   try {
     const page = await boot(browser);
-    await page.keyboard.press('Meta+KeyP');
+    await page.keyboard.press(`${await modOf(page)}+KeyP`);
     await page.keyboard.type('guide');
     const fire = (key, init) => page.evaluate(([k, i]) => {
       const input = document.querySelector('.marxy-palette-query');
