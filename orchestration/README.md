@@ -116,7 +116,7 @@ missed or killed cycle loses nothing.
 | `auth` — the CLI could not authenticate | todo, attempt refunded; **Needs you**: `cursor-agent login` |
 | `setup` — worktree or install failed | todo, refunded; the second time blocked (a review or conflict-resolution run that ends in `setup`, `auth` or `dead` refunds its try too) |
 | nothing produced (no commits, clean worktree, under 2 KB of output) | todo, refunded; the second time blocked, with the output that explains it |
-| failed, timed out or stalled with work done | todo; after `maxAttempts` the next attempt uses the escalation model; the same failure twice skips straight to it; when `maxAttempts + escalationAttempts` are spent, escalate |
+| failed, timed out or stalled with work done | todo; after `maxAttempts` (the code default is 2; `models.json` sets 1, so one implementor attempt) the next attempt uses the escalation model; the same failure twice skips straight to it; when `maxAttempts + escalationAttempts` are spent, escalate |
 
 ### What each hold on a PR means (`cycle.mjs` `reviewStep`)
 
