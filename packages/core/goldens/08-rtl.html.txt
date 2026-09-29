@@ -11,5 +11,5 @@
 <blockquote data-marxy-s="911" data-marxy-e="966">
 <p data-marxy-s="913" data-marxy-e="966">ציטוט בעברית בתוך בלוק ציטוט.</p>
 </blockquote>
-<h2 data-marxy-s="968" data-marxy-e="986">Mixed direction</h2>
+<h2 id="mixed-direction" data-marxy-s="968" data-marxy-e="986">Mixed direction</h2>
 <p data-marxy-s="988" data-marxy-e="1162">A paragraph in English that quotes Arabic — «القراءة أولاً» — and Hebrew — «קריאה קודם» — inline, which is the case most renderers get wrong.</p>

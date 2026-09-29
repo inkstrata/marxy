@@ -1,11 +1,11 @@
-<h1 data-marxy-s="0" data-marxy-e="21">Implementation plan</h1>
+<h1 id="implementation-plan" data-marxy-s="0" data-marxy-e="21">Implementation plan</h1>
 <p data-marxy-s="23" data-marxy-e="396">Five phases. Each ends in something runnable and reviewable, and each ends with a scheduled
 taste review. Risky and load-bearing work comes first: the typography path and the Linux
 question before the index, and the index before operations, which are easy and endlessly
 extensible. Stories with acceptance criteria are in <code data-marxy-s="345" data-marxy-e="367">plan/jira-issues.csv</code>; this document is
 the shape.</p>
 <p data-marxy-s="398" data-marxy-e="492">Estimates assume an agent fleet with one human reviewing; they are for ordering, not promises.</p>
-<h2 data-marxy-s="494" data-marxy-e="548">Phase 0 — Foundations and a release (≈ 2 weeks)</h2>
+<h2 id="phase-0--foundations-and-a-release--2-weeks" data-marxy-s="494" data-marxy-e="548">Phase 0 — Foundations and a release (≈ 2 weeks)</h2>
 <p data-marxy-s="550" data-marxy-e="780"><strong data-marxy-s="550" data-marxy-e="564">Ends with:</strong> v0.0.1 installs on macOS and Linux, opens a markdown file passed on the command
 line, renders it unstyled, and every CI gate exists (some as skeletons that pass trivially).
 Taste review #0 chooses the typeface pair.</p>
@@ -26,7 +26,7 @@ Linux AppImage; publish as pre-release. Branch protection and CODEOWNERS on.</l
 <li data-marxy-s="1885" data-marxy-e="2062">Taste review #0 artifact: the long corpus document set in Literata + JetBrains Mono and in
 Source Serif 4 + IBM Plex Mono, at the type scale, exported as PNG at 1× and 2×.</li>
 </ul>
-<h2 data-marxy-s="2064" data-marxy-e="2101">Phase 1 — The page (≈ 4 weeks)</h2>
+<h2 id="phase-1--the-page--4-weeks" data-marxy-s="2064" data-marxy-e="2101">Phase 1 — The page (≈ 4 weeks)</h2>
 <p data-marxy-s="2103" data-marxy-e="2230"><strong data-marxy-s="2103" data-marxy-e="2117">Ends with:</strong> v0.1 “reads a README beautifully”. Rendered mode passes tier 1; taste review #1
 is the first blind side-by-side.</p>
 <ul data-marxy-s="2232" data-marxy-e="3398">
@@ -45,7 +45,7 @@ hanging-indent wrap, copy clean; KaTeX lazy, on the grid.</li>
 <li data-marxy-s="3241" data-marxy-e="3326">Smart typography render pass. Tier 1 aesthetics gate turned on with real baselines.</li>
 <li data-marxy-s="3327" data-marxy-e="3398">Screenshot baselines committed for WebKit (Playwright) and WebKitGTK.</li>
 </ul>
-<h2 data-marxy-s="3400" data-marxy-e="3439">Phase 2 — The opener (≈ 3 weeks)</h2>
+<h2 id="phase-2--the-opener--3-weeks" data-marxy-s="3400" data-marxy-e="3439">Phase 2 — The opener (≈ 3 weeks)</h2>
 <p data-marxy-s="3441" data-marxy-e="3586"><strong data-marxy-s="3441" data-marxy-e="3455">Ends with:</strong> v0.2 opens under budget, watches, switches instantly, and has Source mode.
 Taste review #2 includes the palette-vs-tabs criterion.</p>
 <ul data-marxy-s="3588" data-marxy-e="4249">
@@ -60,7 +60,7 @@ forward, keystroke budget.</li>
 viewer defaults (line numbers optional, large files).</li>
 <li data-marxy-s="4209" data-marxy-e="4249">Reading position persistence per file.</li>
 </ul>
-<h2 data-marxy-s="4251" data-marxy-e="4306">Phase 3 — Operations, safety, themes (≈ 3 weeks)</h2>
+<h2 id="phase-3--operations-safety-themes--3-weeks" data-marxy-s="4251" data-marxy-e="4306">Phase 3 — Operations, safety, themes (≈ 3 weeks)</h2>
 <p data-marxy-s="4308" data-marxy-e="4404"><strong data-marxy-s="4308" data-marxy-e="4322">Ends with:</strong> v0.3 feature-complete for v1. Taste review #3 covers dark and the opt-in notices.</p>
 <ul data-marxy-s="4406" data-marxy-e="5011">
 <li data-marxy-s="4406" data-marxy-e="4498">Selection model in Rendered mode: span, block, section, document; resolves to byte ranges.</li>
@@ -71,7 +71,7 @@ contract version check and re-layout on change; a theme opens in Source mode.</
 <li data-marxy-s="4852" data-marxy-e="5011">Outline; find landing at reading position in Rendered mode; keyboard completeness audit;
 “open in external editor”; save (explicit, byte-faithful, atomic).</li>
 </ul>
-<h2 data-marxy-s="5013" data-marxy-e="5046">Phase 4 — Ship (≈ 2 weeks)</h2>
+<h2 id="phase-4--ship--2-weeks" data-marxy-s="5013" data-marxy-e="5046">Phase 4 — Ship (≈ 2 weeks)</h2>
 <p data-marxy-s="5048" data-marxy-e="5129"><strong data-marxy-s="5048" data-marxy-e="5062">Ends with:</strong> v1.0 on both platforms. Tier 2 passed on a Linux laptop and a Mac.</p>
 <ul data-marxy-s="5131" data-marxy-e="5411">
 <li data-marxy-s="5131" data-marxy-e="5195">The taste-review backlog from phases 1–3, in priority order.</li>
@@ -79,10 +79,10 @@ contract version check and re-layout on change; a theme opens in Source mode.</
 attributions; README with the promises stated.</li>
 <li data-marxy-s="5337" data-marxy-e="5411">Perf and bundle budgets tightened to the measured values minus headroom.</li>
 </ul>
-<h2 data-marxy-s="5413" data-marxy-e="5447">After v1 (backlog, not planned)</h2>
+<h2 id="after-v1-backlog-not-planned" data-marxy-s="5413" data-marxy-e="5447">After v1 (backlog, not planned)</h2>
 <p data-marxy-s="5449" data-marxy-e="5560">Content search; the operations catalogue; theme linter; Mermaid; settings UI; read-only
 spine; Windows; export.</p>
-<h2 data-marxy-s="5562" data-marxy-e="5582">How the loop runs</h2>
+<h2 id="how-the-loop-runs" data-marxy-s="5562" data-marxy-e="5582">How the loop runs</h2>
 <p data-marxy-s="5584" data-marxy-e="5950">plan → stories with executable acceptance criteria and listed paths → implement in parallel
 where paths do not overlap → machine gates → PR with why, ADRs, artifacts → merge → queue
 entry → phase-end taste review → ADRs and <code data-marxy-s="5824" data-marxy-e="5835">AGENTS.md</code> updated. Context loss is handled by the

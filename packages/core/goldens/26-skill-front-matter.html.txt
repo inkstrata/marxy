@@ -26,5 +26,5 @@
 <dt>…</dt>
 <dd>3 more</dd>
 </dl>
-<h1 data-marxy-s="1301" data-marxy-e="1314">Skill title</h1>
+<h1 id="skill-title" data-marxy-s="1301" data-marxy-e="1314">Skill title</h1>
 <p data-marxy-s="1316" data-marxy-e="1321">Body.</p>

@@ -106,5 +106,5 @@ test('the secret names never reach the output, so two renders of one document ag
   const a = renderSafeHtml('# a\n', { file: 't.md' }).html;
   const b = renderSafeHtml('# a\n', { file: 't.md' }).html;
   assert.equal(a, b);
-  assert.equal(a, '<h1 data-marxy-s="0" data-marxy-e="3">a</h1>');
+  assert.equal(a, '<h1 id="a" data-marxy-s="0" data-marxy-e="3">a</h1>');
 });

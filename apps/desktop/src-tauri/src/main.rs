@@ -682,6 +682,7 @@ fn main() {
             commands::fs::read_dir,
             clipboard_write,
             take_pending_opens,
+            commands::os::open_external,
         ])
         .build(tauri::generate_context!())
         .expect("error while building marxy")

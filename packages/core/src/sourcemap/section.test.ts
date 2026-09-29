@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
-import type { Document, Heading, Node } from '../contracts/ast.ts';
+import type { Document, Heading, List, Node, Paragraph } from '../contracts/ast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
+import { copySection } from '../operations/copy-section.ts';
 import { nodeAt, sectionRange } from './section.ts';
 
 function parse(source: string, file = 'test.md'): Document {
@@ -178,11 +179,28 @@ test('nodeAt returns the innermost block at a byte', () => {
   const doc = parse('- item one\n- item two\n');
   const list = doc.children[0];
   assert.equal(list.type, 'list');
-  const item = list.children[0];
-  const para = item.children?.[0];
-  assert.equal(para?.type, 'paragraph');
-  const inner = nodeAt(doc, para!.src.start + 1);
-  assert.equal(inner?.type, 'paragraph');
+  const byteInsideList = list.children[0]!.src.start;
+  assert.equal(nodeAt(doc, byteInsideList)?.type, 'listItem');
+});
+
+test('nodeAt reaches a taskMarker by byte offset', () => {
+  const doc = parse('- [ ] `pnpm test` passes\n');
+  const item = (doc.children[0] as List).children[0]!;
+  const para = item.children[0] as Paragraph;
+  const marker = para.children.find((child) => child.type === 'taskMarker');
+  assert.ok(marker);
+  assert.equal(nodeAt(doc, marker.src.start + 1)?.type, 'taskMarker');
+});
+
+test('copySection refuses a range that is not the heading section', () => {
+  const doc = parse('## Section\n\nBody\n\n## Next\n');
+  const heading = doc.children[0] as Heading;
+  const range = sectionRange(doc, heading);
+  const bad = { ...range, end: range.end - 2 };
+  const text = new TextDecoder().decode(new TextEncoder().encode('## Section\n\nBody\n\n'));
+  const out = copySection.run({ document: doc, node: heading, range: bad, text });
+  assert.equal(out.replacement, text);
+  assert.equal(out.clipboard, undefined);
 });
 
 test('sectionRange corpus property over every heading', () => {

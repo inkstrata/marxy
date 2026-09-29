@@ -11,7 +11,13 @@ import {
   type Inline,
   type Node,
 } from '@marxy/core';
+import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
+import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { AppHandle, AppShell, OpenDocumentState } from '../app.ts';
+import { notify } from '../notices/index.ts';
+import { pathsForDocument } from '../render/images.ts';
+import { historyDirection } from '../palette/keys.ts';
 import type { NodeMap } from '../render/post.ts';
 import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
 import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
@@ -72,6 +78,111 @@ let lastClickTarget: Element | null = null;
 let pointerDrag = false;
 let installedOn: HTMLElement | null = null;
 let appHandle: AppHandle | null = null;
+let navHistory: string[] = [];
+let navIndex = -1;
+let linkHistoryKeysInstalled = false;
+let pendingFragment: string | undefined;
+
+const MARKDOWN_LINK = /\.(md|markdown|mdx|txt)$/i;
+
+function scrollToFragment(fragment: string): void {
+  const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
+  if (!id || !ctx) return;
+  const target = ctx.article.querySelector(`#${CSS.escape(id)}`);
+  if (!(target instanceof HTMLElement)) return;
+  const scroller = document.documentElement;
+  const top = target.getBoundingClientRect().top + scroller.scrollTop - readingLine(scroller.clientHeight);
+  scroller.scrollTop = Math.max(0, top);
+}
+
+function recordNavOpen(nextPath: string): void {
+  const current = appHandle?.currentPath();
+  const kept = navIndex >= 0 ? navHistory.slice(0, navIndex + 1) : [];
+  if (current && kept[kept.length - 1] !== current) kept.push(current);
+  if (kept[kept.length - 1] !== nextPath) kept.push(nextPath);
+  navHistory = kept;
+  navIndex = navHistory.length - 1;
+}
+
+function installLinkHistoryKeys(): void {
+  if (linkHistoryKeysInstalled) return;
+  linkHistoryKeysInstalled = true;
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (historyDirection(event) !== 'back' || navIndex <= 0 || !appHandle) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      navIndex -= 1;
+      void appHandle.open(navHistory[navIndex]!);
+    },
+    true,
+  );
+}
+
+function isExternalHref(href: string): boolean {
+  return /^(https?:|mailto:)/i.test(href);
+}
+
+async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<void> {
+  const href = anchor.getAttribute('href');
+  if (!href || !ctx || !appHandle) return;
+  const path = appHandle.currentPath() ?? ctx.buffer.path;
+
+  if (href.startsWith('#')) {
+    ev.preventDefault();
+    scrollToFragment(href);
+    return;
+  }
+
+  if (isExternalHref(href) || anchor.classList.contains('marxy-external')) {
+    ev.preventDefault();
+    const ext = ctx.shell as AppShell & { openExternal?(url: string): Promise<void> };
+    if (typeof ext.openExternal === 'function') await ext.openExternal(href);
+    return;
+  }
+
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
+    ev.preventDefault();
+    notify({ kind: 'info', text: 'That link uses a scheme Marxy does not open.' });
+    return;
+  }
+
+  const hash = href.indexOf('#');
+  const pathPart = hash === -1 ? href : href.slice(0, hash);
+  const fragment = hash === -1 ? undefined : href.slice(hash + 1);
+  const { documentDir } = pathsForDocument(path);
+  const base = documentDir.endsWith('/') ? documentDir : `${documentDir}/`;
+  const target = normalizePath(new URL(pathPart, `file://${base}`).pathname);
+  const { imageRoot } = pathsForDocument(path);
+
+  ev.preventDefault();
+
+  if (!isInsideImageRoot(target, imageRoot)) {
+    notify({ kind: 'info', text: 'That link points outside this folder and was not opened.' });
+    return;
+  }
+
+  if (!MARKDOWN_LINK.test(basename(target))) {
+    notify({ kind: 'info', text: 'Only markdown documents open inside Marxy.' });
+    return;
+  }
+
+  try {
+    await ctx.shell.readFile(target);
+  } catch {
+    notify({ kind: 'info', text: 'That document could not be found.' });
+    return;
+  }
+
+  recordNavOpen(target);
+  pendingFragment = fragment;
+  await appHandle.open(target);
+  if (pendingFragment) {
+    scrollToFragment(pendingFragment);
+    pendingFragment = undefined;
+  }
+}
 
 /** The app this selection follows: operations commit through it (render/tasks.ts). */
 export function selectionApp(): AppHandle | null {
@@ -159,16 +270,6 @@ export function rerenderWithSameHtml(): void {
   const cloned = [...ctx.article.childNodes].map((n) => n.cloneNode(true));
   ctx.article.replaceChildren(...cloned);
   afterDocumentRendered();
-}
-
-async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<void> {
-  const href = anchor.getAttribute('href');
-  // A fragment scrolls within the page; anything else would navigate the reader's own window away
-  // (a remote page loaded where the document was), so it goes to the shell or nowhere.
-  if (!href || href.startsWith('#')) return;
-  ev.preventDefault();
-  const ext = ctx!.shell as AppShell & { openExternal?(url: string): Promise<void> };
-  if (typeof ext.openExternal === 'function') await ext.openExternal(href);
 }
 
 async function onClick(ev: MouseEvent): Promise<void> {
@@ -267,7 +368,17 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
     applyLinkDestinations(article);
   };
   adopt(handle.openDocument());
-  handle.onDocumentChange(adopt);
+  handle.onDocumentChange((open) => {
+    adopt(open);
+    if (open && pendingFragment) {
+      requestAnimationFrame(() => {
+        scrollToFragment(pendingFragment!);
+        pendingFragment = undefined;
+      });
+    }
+  });
+
+  installLinkHistoryKeys();
 
   article.addEventListener('mousedown', () => { pointerDrag = false; });
   article.addEventListener('mousemove', () => { pointerDrag = true; });
@@ -276,7 +387,7 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
     // Before anything that can return early (a drag, a text selection, no document yet): a link
     // click that is not prevented navigates the window whether or not a handler follows it.
     const link = ev.target instanceof Element ? ev.target.closest('a[href]') : null;
-    if (link && !link.getAttribute('href')!.startsWith('#')) ev.preventDefault();
+    if (link) ev.preventDefault();
     void onClick(ev);
   });
 

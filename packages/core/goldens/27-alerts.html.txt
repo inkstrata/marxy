@@ -1,4 +1,4 @@
-<h1 data-marxy-s="0" data-marxy-e="16">Alerts fixture</h1>
+<h1 id="alerts-fixture" data-marxy-s="0" data-marxy-e="16">Alerts fixture</h1>
 <blockquote data-marxy-s="18" data-marxy-e="49">
 <p data-marxy-s="20" data-marxy-e="49"><strong>Note</strong> A note for readers.</p>
 </blockquote>
