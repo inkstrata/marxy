@@ -19,13 +19,20 @@ Handbook [06](../../research/reader-artifacts/06-readmes.md), [07](../../researc
 - `apps/desktop/src/selection/view.ts` — link click routing.
 - `apps/desktop/src/shell/tauri.ts` — `openExternal`.
 - `apps/desktop/src-tauri/src/commands/` — `open_external` with the scheme allow-list.
+- `apps/desktop/src-tauri/src/main.rs` — register `commands::os::open_external` in the invoke handler list. One line. Do not rewrite the rest of the file.
+- `apps/desktop/test/shell-boundary.test.mjs` — the handler-name scan must accept `commands::os::` as well as `commands::fs::`, so `open_external` is seen.
+- `packages/core/src/render/render.test.ts` — the heading assertion gains `id="title"`.
+- `packages/core/src/render/contract.test.ts` — the heading assertion gains `id="a"`.
+- `packages/core/src/operations/operations.test.ts` — the copy-section html match allows `class="marxy-external"` on the anchor.
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
 
 ## Do this, in order
-1. Heading ids and goldens.
-2. `#` links.
-3. Relative links.
-4. External open.
+The branch already has the link behaviour. PR #277's local result failed check-story because the five ripple files above were outside Paths. They are on the board now. Drop this branch's edit of `docs/plan/jira-issues.csv`. Do not widen Paths again in the product pull request.
+
+1. Keep the heading ids, the click routing and `open_external`.
+2. Keep the one-line ripples in the five files above. Do not edit them further.
+3. Rebase onto main. `main.rs` is also on MARXY-49; keep both the `open_external` registration and the `RunEvent` import.
+4. HTML goldens also conflict with MARXY-230. Keep the heading ids and keep raw `kbd`, `code`, `samp` and `pre` text unsmartered.
 
 ## Tests → expected
 | Check | Expect |
@@ -45,3 +52,4 @@ Handbook [06](../../research/reader-artifacts/06-readmes.md), [07](../../researc
 - Open a relative link outside the indexed root.
 - Edit `app.ts`.
 - Touch `packages/*/src/contracts/**`.
+- Edit `docs/plan/jira-issues.csv` in this story's pull request.

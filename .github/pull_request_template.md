@@ -47,7 +47,7 @@ pnpm gate:…
 
 - [ ] Only the story's listed paths are touched
 - [ ] Every acceptance criterion has a test or gate in this PR
-- [ ] `CHANGELOG.md` has an entry under `Unreleased` in the right heading
+- [ ] `changelog.d/KEY.md` has one line ending in `(KEY)` (or, during the transition, a `CHANGELOG.md` line under `Unreleased`)
 - [ ] Queue entry in `docs/taste-review/queue.md` if anything visible changed
 - [ ] No contract files changed, or an ADR is included
 - [ ] No attribution trailers

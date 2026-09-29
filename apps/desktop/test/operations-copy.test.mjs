@@ -120,7 +120,7 @@ test('Mod+C on a code block copies plain source without fences or highlight mark
     );
     assert.equal(copies.length, 1);
     const payload = copies[0].args[0];
-    assert.equal(payload.text, block.value.endsWith('\n') ? block.value : `${block.value}\n`);
+    assert.equal(payload.text, block.value);
     assert.ok(!payload.text.includes('```'));
     assert.ok(!payload.text.includes('marxy-tok-'));
     assert.equal(payload.html, undefined);
