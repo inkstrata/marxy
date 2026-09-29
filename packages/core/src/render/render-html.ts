@@ -8,6 +8,7 @@ import type { ParsedAlert } from './alerts.ts';
 import { PROVENANCE_ATTRIBUTES, type ProvenanceNames } from '../sanitize/policy.ts';
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 import { parseAlert } from './alerts.ts';
+import { headingIdsForDocument } from './heading-ids.ts';
 import { renderFrontmatterHead } from './frontmatter.ts';
 import { linkHostMismatchLabel } from './link-host.ts';
 import { smartenParagraphTextNode, type ParagraphTypo } from './typography.ts';
@@ -23,6 +24,8 @@ interface Context {
   /** Footnote labels in definition order, so every id and back-reference is a number we chose. */
   readonly footnotes: Map<string, number>;
   readonly names: ProvenanceNames;
+  /** Heading element ids in document order (GitHub slugger; docs/design/02-render.md). */
+  readonly headingIds: Map<string, string>;
 }
 
 export interface UnsanitisedRenderOptions {
@@ -47,7 +50,11 @@ function prov(src: Source, ctx: Context): string {
  * checking anything. `render/boundary.test.ts` keeps that list to those two.
  */
 export function renderToUnsanitisedHtml(document: Document, options: UnsanitisedRenderOptions = {}): string {
-  const ctx: Context = { footnotes: collectFootnotes(document), names: options.provenance ?? PROVENANCE_ATTRIBUTES };
+  const ctx: Context = {
+    footnotes: collectFootnotes(document),
+    names: options.provenance ?? PROVENANCE_ATTRIBUTES,
+    headingIds: headingIdsForDocument(document),
+  };
   const parts: string[] = [];
   for (const child of document.children) {
     if (child.type === 'footnoteDefinition') continue;
@@ -101,8 +108,11 @@ function block(node: Block, tight: boolean, ctx: Context): string {
       return tight
         ? inlines(node.children, ctx, paragraphTypo(node.children))
         : `<p${prov(node.src, ctx)}>${inlines(node.children, ctx, paragraphTypo(node.children))}</p>`;
-    case 'heading':
-      return `<h${node.level}${prov(node.src, ctx)}>${inlines(node.children, ctx)}</h${node.level}>`;
+    case 'heading': {
+      const id = ctx.headingIds.get(`${node.src.start}-${node.src.end}`);
+      const idAttr = id === undefined ? '' : ` id="${escapeAttribute(id)}"`;
+      return `<h${node.level}${idAttr}${prov(node.src, ctx)}>${inlines(node.children, ctx)}</h${node.level}>`;
+    }
     case 'thematicBreak':
       return `<hr${prov(node.src, ctx)} />`;
     case 'blockquote': {
@@ -300,8 +310,12 @@ function inline(node: Inline, siblings: readonly Inline[], ctx: Context, typo: T
           : mismatch !== null
             ? ` title="${escapeAttribute(mismatch.text)}"`
             : '';
-      const mismatchClass = mismatch !== null ? ' class="marxy-link-mismatch"' : '';
-      return `<a href="${escapeAttribute(node.url)}"${mismatchClass}${title}${prov(node.src, ctx)}>${inlines(node.children, ctx, typo)}</a>`;
+      const classes = [
+        /^https?:|^mailto:/i.test(node.url) ? 'marxy-external' : null,
+        mismatch !== null ? 'marxy-link-mismatch' : null,
+      ].filter((c): c is string => c !== null);
+      const linkClass = classes.length > 0 ? ` class="${classes.join(' ')}"` : '';
+      return `<a href="${escapeAttribute(node.url)}"${linkClass}${title}${prov(node.src, ctx)}>${inlines(node.children, ctx, typo)}</a>`;
     }
     case 'image': {
       // The URL is written out as it stands; whether it may load is the sanitiser's decision, and by

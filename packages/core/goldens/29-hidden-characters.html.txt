@@ -1,4 +1,4 @@
-<h1 data-marxy-s="0" data-marxy-e="34">Hidden characters and link trust</h1>
+<h1 id="hidden-characters-and-link-trust" data-marxy-s="0" data-marxy-e="34">Hidden characters and link trust</h1>
 <p data-marxy-s="36" data-marxy-e="107">Trojan Source in prose: invoice‮fdp.exe‬ is not the file you think.</p>
 <p data-marxy-s="109" data-marxy-e="174">Tag-smuggled instruction (invisible tags spelling IGN to models):</p>
 <blockquote data-marxy-s="176" data-marxy-e="190">
@@ -8,6 +8,6 @@
 <pre data-marxy-s="303" data-marxy-e="369"><code class="language-javascript" data-marxy-s="317" data-marxy-e="366">// bidi override in a fence: ab‮gnp.exe‬ end
 </code></pre>
 <p data-marxy-s="371" data-marxy-e="397">Mid-line BOM﻿ is marked.</p>
-<p data-marxy-s="399" data-marxy-e="446">Mismatched link: <a href="https://b.com/" class="marxy-link-mismatch" title="b.com" data-marxy-s="416" data-marxy-e="446">https://a.com</a></p>
-<p data-marxy-s="448" data-marxy-e="498">Homograph: <a href="https://xn--pple-43d.com/" class="marxy-link-mismatch" title="xn--pple-43d.com (аpple.com)" data-marxy-s="459" data-marxy-e="498">https://apple.com</a></p>
-<p data-marxy-s="500" data-marxy-e="551">Plain text link: <a href="https://evil.example/" data-marxy-s="517" data-marxy-e="551">click here</a></p>
+<p data-marxy-s="399" data-marxy-e="446">Mismatched link: <a href="https://b.com/" class="marxy-external marxy-link-mismatch" title="b.com" data-marxy-s="416" data-marxy-e="446">https://a.com</a></p>
+<p data-marxy-s="448" data-marxy-e="498">Homograph: <a href="https://xn--pple-43d.com/" class="marxy-external marxy-link-mismatch" title="xn--pple-43d.com (аpple.com)" data-marxy-s="459" data-marxy-e="498">https://apple.com</a></p>
+<p data-marxy-s="500" data-marxy-e="551">Plain text link: <a href="https://evil.example/" class="marxy-external" data-marxy-s="517" data-marxy-e="551">click here</a></p>
