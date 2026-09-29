@@ -188,7 +188,7 @@ function buildSavePath(label, patch) {
   writeFileSync(join(dir, 'atomic_write.rs'), patch ? patch(source) : source);
   const driver = join(dir, 'driver.rs');
   writeFileSync(driver, `mod atomic_write;\n\n${DRIVER_MAIN}`);
-  const binary = join(dir, 'driver');
+  const binary = join(dir, process.platform === 'win32' ? 'driver.exe' : 'driver');
   const built = spawnSync('rustc', ['--edition', '2021', '-A', 'dead_code', '-o', binary, driver], {
     encoding: 'utf8',
   });
