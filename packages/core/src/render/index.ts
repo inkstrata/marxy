@@ -20,3 +20,17 @@ export type { BlockedImage, ImagePresentation, ImageResolution, ImageSize } from
 export { renderToUnsanitisedHtml } from './render-html.ts';
 export { smarten } from './typography.ts';
 export type { SmartenContext } from './typography.ts';
+export {
+  invisibleHexLabel,
+  invisibleSegments,
+  markInvisibles,
+  shouldFlagInvisible,
+} from './invisibles.ts';
+export type { InvisibleContext, InvisibleSegment } from './invisibles.ts';
+export {
+  hostForms,
+  linkDestinationLabel,
+  linkHostMismatchLabel,
+  linkTextLooksLikeHost,
+} from './link-host.ts';
+export type { HostForms, LinkHostLabel } from './link-host.ts';

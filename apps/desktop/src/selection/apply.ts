@@ -1,6 +1,7 @@
 // Applies a core operation: clipboard, optional splice, notice (§03, MARXY-42).
 import type { Operation, OperationInput } from '@marxy/core';
 import type { AppContext } from '../commands/registry.ts';
+import { textFromDomSelection } from './copy-text.ts';
 
 export async function apply(
   op: Operation,
@@ -42,7 +43,8 @@ export async function runCopyShortcut(ctx: AppContext, copyOps: readonly Operati
     }
   }
   if (ctx.selection.kind === 'text') {
-    const text = ctx.selection.text;
+    const domSel = window.getSelection();
+    const text = domSel && !domSel.isCollapsed ? textFromDomSelection(domSel) : ctx.selection.text;
     await ctx.shell.clipboardWrite({ text });
     return;
   }
