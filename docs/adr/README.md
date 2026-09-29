@@ -43,3 +43,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0036](0036-artifact-units.md) | Artifact units: what the renderer keeps, reports, marks and copies (the handbook's 17 drafts: 8 adopted, 2 declined, 3 deferred, 4 need no decision) | accepted 2026-09-26 |
 | [0037](0037-one-document-store.md) | One document store: the open document has one owner, and changes are transitions | proposed (MARXY-248) |
 | [0038](0038-window-controls.md) | Window controls hide at rest through the shell | accepted (MARXY-268) |
+| [0039](0039-shell-stub-dedup.md) | One shared implementation for shell-api compile-time stub shells | accepted (MARXY-285) |

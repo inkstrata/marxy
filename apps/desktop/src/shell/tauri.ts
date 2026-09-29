@@ -42,6 +42,7 @@ export const shell: Pick<
   | 'startupMarks'
   | 'onOpenFiles'
   | 'clipboardWrite'
+  | 'configPaths'
   | 'readDir'
 > & {
   args(): Promise<string[]>;
@@ -127,5 +128,6 @@ export const shell: Pick<
   clipboardWrite: async (data) => {
     await invoke('clipboard_write', { text: data.text, html: data.html ?? null });
   },
+  configPaths: () => invoke<{ config: string; data: string }>('config_paths'),
   readDir: (dir) => invoke('read_dir', { dir }),
 };
