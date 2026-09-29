@@ -167,7 +167,12 @@ mod tests {
         // path); the thread must keep its poll loop running rather than panic or hang, so it can
         // still be stopped and so a later re-watch of a re-created root is possible.
         fs::remove_dir_all(&dir).expect("remove root");
-        std::thread::sleep(Duration::from_millis(250));
+        // remove_dir_all deletes the children before the directory, so a poll may legitimately
+        // land in between and report the children as removed (inotify on Linux does this
+        // reliably). Let that settle and drain it; only events after the root is gone are spurious.
+        std::thread::sleep(Duration::from_millis(500));
+        while rx.try_recv().is_ok() {}
+        std::thread::sleep(Duration::from_millis(500));
         assert!(
             rx.try_recv().is_err(),
             "no spurious events from a missing root"
