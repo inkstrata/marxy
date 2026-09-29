@@ -29,6 +29,83 @@ function sectionOf(input: OperationInput): Document {
   return parseMarkdown(new TextEncoder().encode(clipText), { file: document.path });
 }
 
+const PROVENANCE_ATTR = /^data-marxy-/i;
+
+/** Drops renderer provenance attributes from tag openers only, never from text nodes (MARXY-230). */
+function stripRendererProvenance(html: string): string {
+  const parts: string[] = [];
+  let index = 0;
+  while (index < html.length) {
+    const lt = html.indexOf('<', index);
+    if (lt === -1) {
+      parts.push(html.slice(index));
+      break;
+    }
+    parts.push(html.slice(index, lt));
+    if (html.startsWith('<!--', lt)) {
+      const end = html.indexOf('-->', lt + 4);
+      if (end === -1) {
+        parts.push(html.slice(lt));
+        break;
+      }
+      parts.push(html.slice(lt, end + 3));
+      index = end + 3;
+      continue;
+    }
+    const gt = html.indexOf('>', lt);
+    if (gt === -1) {
+      parts.push(html.slice(lt));
+      break;
+    }
+    parts.push(stripProvenanceFromTag(html.slice(lt, gt + 1)));
+    index = gt + 1;
+  }
+  return parts.join('');
+}
+
+function stripProvenanceFromTag(tag: string): string {
+  if (!tag.startsWith('<') || !tag.endsWith('>')) return tag;
+  const selfClosing = tag.endsWith('/>');
+  const contentEnd = selfClosing ? tag.length - 2 : tag.length - 1;
+  let cursor = 1;
+  if (tag.startsWith('</')) cursor = 2;
+  while (cursor < contentEnd && tag[cursor] !== ' ' && tag[cursor] !== '\t' && tag[cursor] !== '\n' && tag[cursor] !== '\r' && tag[cursor] !== '/') {
+    cursor++;
+  }
+  let out = tag.slice(0, cursor);
+  while (cursor < contentEnd) {
+    while (cursor < contentEnd && (tag[cursor] === ' ' || tag[cursor] === '\t' || tag[cursor] === '\n' || tag[cursor] === '\r')) {
+      out += tag[cursor++];
+    }
+    if (cursor >= contentEnd) break;
+    const nameStart = cursor;
+    while (cursor < contentEnd && tag[cursor] !== '=' && tag[cursor] !== ' ' && tag[cursor] !== '\t' && tag[cursor] !== '\n' && tag[cursor] !== '\r' && tag[cursor] !== '/') {
+      cursor++;
+    }
+    const attrName = tag.slice(nameStart, cursor);
+    while (cursor < contentEnd && (tag[cursor] === ' ' || tag[cursor] === '\t' || tag[cursor] === '\n' || tag[cursor] === '\r')) cursor++;
+    let valueEnd = cursor;
+    if (cursor < contentEnd && tag[cursor] === '=') {
+      cursor++;
+      while (cursor < contentEnd && (tag[cursor] === ' ' || tag[cursor] === '\t' || tag[cursor] === '\n' || tag[cursor] === '\r')) cursor++;
+      const quote = tag[cursor];
+      if (quote === '"' || quote === "'") {
+        cursor++;
+        while (cursor < contentEnd && tag[cursor] !== quote) cursor++;
+        if (cursor < contentEnd) cursor++;
+      } else {
+        while (cursor < contentEnd && tag[cursor] !== ' ' && tag[cursor] !== '\t' && tag[cursor] !== '\n' && tag[cursor] !== '\r' && tag[cursor] !== '/') {
+          cursor++;
+        }
+      }
+      valueEnd = cursor;
+    }
+    if (!PROVENANCE_ATTR.test(attrName)) out += tag.slice(nameStart, valueEnd);
+  }
+  out += selfClosing ? '/>' : '>';
+  return out.replace(/\s+>/g, '>');
+}
+
 /** Copy section. Pure: text in, text out; never touches bytes outside input.range. */
 export const copySection: Operation = {
   id: 'copy-section',
@@ -40,9 +117,7 @@ export const copySection: Operation = {
   },
   run(input: OperationInput): OperationResult {
     const clipText = input.text.replace(/\s+$/, '') + '\n';
-    let html = renderDocumentSafeHtml(sectionOf(input)).html;
-    html = html.replace(/\sdata-marxy-[a-z0-9-]+="[^"]*"/gi, '');
-    html = html.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+    const html = stripRendererProvenance(renderDocumentSafeHtml(sectionOf(input)).html);
     return {
       replacement: input.text,
       clipboard: { text: clipText, html },
