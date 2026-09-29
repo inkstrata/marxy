@@ -115,8 +115,8 @@ export async function save(opts?: { as?: boolean }): Promise<SaveResult> {
   const openNow = await host.foldSourceIntoBuffer();
   if (!openNow || openNow.path !== folded.path) return 'saved';
 
-  markDocumentSaved(bufferOnDisk);
   const documentUnchanged = sameBytes(openNow.bytes, folded.bytes);
+  markDocumentSaved(bufferOnDisk, documentUnchanged);
   if (path !== folded.path) {
     await host.onSaveAsPath(path);
   }

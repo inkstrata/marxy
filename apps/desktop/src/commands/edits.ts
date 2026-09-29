@@ -64,12 +64,27 @@ export function documentIsDirty(buffer: Buffer): boolean {
   return contentHash(buffer.bytes) !== saved.hash;
 }
 
-/** A save reached disk: `buffer` is now the saved state, and the history stays valid on it. */
-export function markDocumentSaved(buffer: Buffer): void {
+/**
+ * A save reached disk: `buffer` is now the saved state. When the open document is still `buffer`
+ * (`documentUnchanged`), the history stays valid on it. When it was edited while the save was in flight
+ * the open buffer is newer than `buffer`: the history was built on that newer one and must not be
+ * re-pointed at the older bytes, or the next undo would find a mismatch and drop everything.
+ */
+export function markDocumentSaved(buffer: Buffer, documentUnchanged = true): void {
   savedVersion = buffer.version;
   const hash = contentHash(buffer.bytes);
   saved = { path: buffer.path, hash };
-  builtOn(buffer);
+  if (documentUnchanged) builtOn(buffer);
+  else if (historyBase && historyBase.path !== buffer.path) historyBase = { path: buffer.path, hash: historyBase.hash };
+}
+
+/**
+ * The open document's file was renamed and the buffer, with its unsaved edits, follows it: what is on
+ * disk and what the history was built on keep their content and change only the name they answer to.
+ */
+export function renameDocumentPath(from: string, to: string): void {
+  if (saved && saved.path === from) saved = { path: to, hash: saved.hash };
+  if (historyBase && historyBase.path === from) historyBase = { path: to, hash: historyBase.hash };
 }
 
 export function documentEditState(): { readonly dirty: boolean; readonly savedVersion: number } {

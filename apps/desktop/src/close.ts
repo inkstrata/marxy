@@ -83,7 +83,11 @@ function showPrompt(prompt: Prompt): void {
     line.remove();
     void (async () => {
       const result = await save();
-      if (result === 'saved' || result === 'unchanged') await prompt.proceed();
+      if (result !== 'saved' && result !== 'unchanged') return;
+      // The reader kept editing while the save ran: what they see is not what reached disk, and going on
+      // would drop it. Ask again.
+      if (host.isDirty()) showPrompt(prompt);
+      else await prompt.proceed();
     })();
   });
   button('marxy-notice-action', prompt.discardLabel, () => {

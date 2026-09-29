@@ -694,17 +694,55 @@ fn open_file_via_dialog(app: tauri::AppHandle) {
         });
 }
 
-/// The menu's Quit and Close Window go through the same request a click on the window's close button
-/// makes: the webview decides whether a dirty document must be answered first. With no window to ask
-/// there is nothing to protect, so it quits.
-#[cfg(target_os = "macos")]
-fn request_close(app: &tauri::AppHandle) {
-    match app.get_webview_window("main") {
-        Some(window) => {
+/// Two close requests this close together are the reader asking twice (a double Cmd+Q, a second
+/// click on the close button). The webview treats the second as "discard" when it is listening; when
+/// it is not (crashed, hung, not yet loaded) nothing else could end the app, so the shell does.
+const REPEATED_CLOSE_MS: u64 = 1500;
+
+/// What a close request does: ask the webview, or, when it repeats one still fresh, quit.
+#[derive(Debug, PartialEq, Eq)]
+enum CloseRequest {
+    AskWebview,
+    QuitNow,
+}
+
+/// Pure decision: `previous_ms` is when the last request arrived, `now_ms` when this one did.
+fn close_request_decision(previous_ms: Option<u64>, now_ms: u64) -> CloseRequest {
+    match previous_ms {
+        Some(previous) if now_ms.saturating_sub(previous) <= REPEATED_CLOSE_MS => {
+            CloseRequest::QuitNow
+        }
+        _ => CloseRequest::AskWebview,
+    }
+}
+
+static LAST_CLOSE_REQUEST_MS: Mutex<Option<u64>> = Mutex::new(None);
+
+/// The one path every close request takes (window close box, Cmd+W, Cmd+Q): the webview decides
+/// whether a dirty document must be answered first, unless the request repeats one still fresh.
+fn request_close_of_main(app: &tauri::AppHandle) {
+    let now = now_ms() as u64;
+    let previous = LAST_CLOSE_REQUEST_MS
+        .lock()
+        .map(|mut last| last.replace(now))
+        .unwrap_or(None);
+    match (
+        close_request_decision(previous, now),
+        app.get_webview_window("main"),
+    ) {
+        (CloseRequest::AskWebview, Some(window)) => {
             let _ = window.emit("marxy:close-requested", ());
         }
-        None => quit_now(app, 0),
+        // A repeat, or no window to ask: the reader has asked twice, or there is nothing to protect.
+        _ => quit_now(app, 0),
     }
+}
+
+/// The menu's Quit and Close Window go through the same request a click on the window's close button
+/// makes.
+#[cfg(target_os = "macos")]
+fn request_close(app: &tauri::AppHandle) {
+    request_close_of_main(app);
 }
 
 #[cfg(target_os = "macos")]
@@ -776,7 +814,9 @@ fn main() {
             } = &event
             {
                 api.prevent_close();
-                if let Some(window) = app.get_webview_window(label) {
+                if label == "main" {
+                    request_close_of_main(app);
+                } else if let Some(window) = app.get_webview_window(label) {
                     let _ = window.emit("marxy:close-requested", ());
                 }
             }
@@ -807,6 +847,25 @@ mod tests {
     };
     use std::collections::HashMap;
     use std::sync::atomic::Ordering;
+
+    #[test]
+    fn a_repeated_close_request_quits_and_a_first_or_stale_one_asks_the_webview() {
+        use super::{close_request_decision, CloseRequest, REPEATED_CLOSE_MS};
+        assert_eq!(
+            close_request_decision(None, 10_000),
+            CloseRequest::AskWebview
+        );
+        assert_eq!(
+            close_request_decision(Some(10_000), 10_000 + REPEATED_CLOSE_MS),
+            CloseRequest::QuitNow,
+            "a second Cmd+Q right behind the first ends the app"
+        );
+        assert_eq!(
+            close_request_decision(Some(10_000), 10_000 + REPEATED_CLOSE_MS + 1),
+            CloseRequest::AskWebview,
+            "a request long after the last one is a new question, not a repeat"
+        );
+    }
 
     fn reset_pending_opens_for_test() {
         OPENS_LISTENER_READY.store(false, Ordering::SeqCst);

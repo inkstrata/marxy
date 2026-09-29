@@ -2,7 +2,13 @@
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
-import { documentIsDirty, syncSavedVersionFromOpenBuffer } from './commands/edits.ts';
+import {
+  documentIsDirty,
+  foldSourceEditIfNeeded,
+  markDocumentSaved,
+  renameDocumentPath,
+  syncSavedVersionFromOpenBuffer,
+} from './commands/edits.ts';
 import { confirmLeaveDocument, installCloseGuard } from './close.ts';
 import { installSave } from './save.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
@@ -258,18 +264,22 @@ async function enterSourceFromRendered(): Promise<void> {
 async function leaveSourceForRendered(): Promise<void> {
   if (!sourceEditor || !documentBuffer) return;
   const docText = sourceEditor.docText();
-  const left = leaveSourceMode(documentBuffer, docText);
-  documentBuffer = left.buffer;
+  const before = documentBuffer;
+  // Leaving Source is one history entry: Mod+Z in Rendered undoes what was typed there.
+  const next = await foldSourceEditIfNeeded(before, docText, async (folded) => {
+    documentBuffer = folded;
+    // The AST, the node map and the blocks were built from the old bytes; an operation resolved
+    // through them now would splice at offsets that no longer name what the reader sees.
+    rerenderFromBuffer(document.getElementById('doc')!);
+  });
   let byteOffset = lastReadingByteOffset;
   let fraction = lastReadingFraction;
-  if (left.changed) {
+  if (next !== before && sourceEditor) {
     const { sourceVisibleByteOffset } = await import('./source/mode-switch.ts');
     sourceEditor.replaceBuffer(documentBuffer);
     byteOffset = sourceVisibleByteOffset(documentBuffer, sourceEditor.view as never);
     fraction = 0;
-    // The AST, the node map and the blocks were built from the old bytes; an operation resolved
-    // through them now would splice at offsets that no longer name what the reader sees.
-    rerenderFromBuffer(document.getElementById('doc')!);
+    await refreshTitle();
   }
   lastReadingByteOffset = byteOffset;
   lastReadingFraction = fraction;
@@ -829,19 +839,54 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
   if (update.action === 'follow') {
     // Already inside `serially`: going through replaceOpenDocument would queue this open behind the
     // task waiting for it, and every open, mode switch and reload after it would wait forever.
-    await openReplacing(update.path, update.position.byteOffset);
+    if (hasUnsavedChanges()) await retargetOpenDocument(update.path);
+    else await openReplacing(update.path, update.position.byteOffset);
     return;
   }
   if (diskBytes === null) {
     fileRemovedNotice();
     return;
   }
-  if (contentHash(diskBytes) === contentHash(documentBuffer.bytes)) return;
+  if (contentHash(diskBytes) === contentHash(documentBuffer.bytes)) {
+    // The file now holds exactly what the buffer does (an external write of the same edit): nothing is
+    // unsaved any more, unless the Source editor holds text not yet folded in.
+    if (!(viewMode === 'source' && sourceEditor && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed)) {
+      shell.recordRead?.(openPath, diskBytes);
+      bytesOnDisk = diskBytes.slice();
+      markDocumentSaved(documentBuffer);
+      await refreshTitle();
+    }
+    return;
+  }
   if (hasLocalEdits(diskBytes)) {
     diskChangedEditsKeptNotice();
     return;
   }
   await reloadOpenFromDisk(diskBytes, update.position);
+}
+
+/**
+ * The open file was renamed while the buffer has unsaved edits: the buffer keeps them and follows the
+ * new name, still unsaved against the file it came from, rather than being reloaded over them.
+ */
+async function retargetOpenDocument(newPath: string): Promise<void> {
+  const folded = await foldSourceIntoBuffer();
+  if (!folded || !openPath || !state.document) return;
+  const doc = document.getElementById('doc')!;
+  const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+  renameDocumentPath(openPath, newPath);
+  openPath = newPath;
+  documentBuffer = createBuffer(newPath, folded.bytes);
+  sourceEditor?.replaceBuffer(documentBuffer);
+  releaseAnchor();
+  rerenderFromBuffer(doc);
+  if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, { ...position, path: newPath });
+  await typesetDocument(doc);
+  await shell.allowAssetScope(dirname(newPath));
+  await registerDocumentWatch(newPath);
+  document.title = `${basename(newPath)} — Marxy`;
+  announceDocument();
+  await refreshTitle();
 }
 
 async function registerDocumentWatch(file: string): Promise<void> {
@@ -1096,7 +1141,13 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
 }
 
 function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void> {
-  const open = () => serially(() => openReplacing(file, opts?.at));
+  const open = () =>
+    serially(async () => {
+      // The document already on screen, asked for again with nowhere to go (a second launch, Finder, a
+      // drag, the palette on the current document): reading it back from disk would drop unsaved edits.
+      if (file === openPath && opts?.at === undefined && hasUnsavedChanges()) return;
+      await openReplacing(file, opts?.at);
+    });
   // Another document over unsaved edits asks first (save / discard / dismiss), as a close does. Moving
   // within the open document, or opening with nothing unsaved, goes straight through.
   if (file !== openPath && confirmLeaveDocument(open)) return Promise.resolve();
