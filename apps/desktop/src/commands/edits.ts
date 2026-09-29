@@ -8,7 +8,6 @@ import { getSelectionBufferContext } from '../selection/view.ts';
 const history = new History();
 let savedVersion = 0;
 let savedFingerprint = '';
-let openSynced = false;
 /** The buffer the undo history was built against: the path and content hash after the last edit here. */
 let historyBase: { path: string; hash: string } | null = null;
 
@@ -55,13 +54,18 @@ export function syncSavedVersionFromOpenBuffer(): void {
   historyBase = ctx ? { path: ctx.buffer.path, hash: savedFingerprint } : null;
 }
 
-/** Once per open document, after the selection context and buffer exist (MARXY-43). */
+/**
+ * Once per open document, after the selection context and buffer exist (MARXY-43). Re-syncs
+ * whenever the open buffer's path or content differs from the one the baseline was last taken
+ * against, so switching to a different document re-baselines instead of comparing it against the
+ * previous document's saved fingerprint.
+ */
 export function syncSavedVersionOnce(): void {
-  if (openSynced) return;
   const ctx = getSelectionBufferContext();
   if (!ctx) return;
+  const hash = contentHash(ctx.buffer.bytes);
+  if (historyBase && historyBase.path === ctx.buffer.path && historyBase.hash === hash) return;
   syncSavedVersionFromOpenBuffer();
-  openSynced = true;
   if (typeof window !== 'undefined') {
     (window as Window & { __marxyOpenSynced?: boolean }).__marxyOpenSynced = true;
   }

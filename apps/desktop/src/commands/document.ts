@@ -23,16 +23,14 @@ export function startDocumentEditingWire(): void {
   };
   if (w.__marxyDocumentWire) return;
   w.__marxyDocumentWire = true;
-  let syncedSavedVersion = false;
   const obs = new MutationObserver(() => {
     const ctx = getSelectionBufferContext();
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
       installTaskMarkers(ctx.article, ctx.nodeMap);
-      if (!syncedSavedVersion) {
-        syncSavedVersionOnce();
-        syncedSavedVersion = true;
-      }
+      // Idempotent per open buffer (edits.ts compares path+hash), so calling it on every render
+      // re-baselines a newly opened document instead of only ever syncing the first one.
+      syncSavedVersionOnce();
     });
   });
   const article = document.getElementById('doc');

@@ -65,15 +65,21 @@ function clampCssLength(
     }
     const n = Number(plain[1]);
     const unit = plain[2]!.toLowerCase();
+    const boundsAreCh = min.endsWith('ch');
+    if ((unit === 'ch') !== boundsAreCh) {
+      // `ch` is font-metric-dependent, so a value in `ch` can't be range-checked against a px
+      // bound (or a px-family value against a `ch` bound) without measuring — same as calc()/var().
+      warnings.push(`${prop} was ${value}; ${boundsAreCh ? 'ch' : 'px'} units required, so the default is kept`);
+      return '';
+    }
     if (unit === 'ch') {
       const minCh = parseFloat(min);
       const maxCh = parseFloat(max);
-      if (!min.endsWith('ch') || (n >= minCh && n <= maxCh)) return full;
+      if (n >= minCh && n <= maxCh) return full;
       const clamped = Math.min(maxCh, Math.max(minCh, n));
       warnings.push(`${prop} was ${value}; clamped to ${clamped}ch`);
       return `${prefix}${clamped}ch${important}`;
     }
-    if (!min.endsWith('px')) return full;
     const px = n * PX_PER[unit as keyof typeof PX_PER];
     const minPx = parseFloat(min);
     const maxPx = parseFloat(max);

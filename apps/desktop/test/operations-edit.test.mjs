@@ -318,3 +318,34 @@ test('dirty is true after an edit and false after undo to the saved version', as
     await browser.close();
   }
 });
+
+test('switching to a second document does not carry over the first one\'s dirty baseline', async () => {
+  const fileA = '03-ai-plan.md';
+  const fileB = '09-gfm-everything.md';
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    const docPathA = `/corpus/${fileA}`;
+    const docPathB = `/corpus/${fileB}`;
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ files, argv }) => {
+      window.__marxyOpsBoot = await window.marxyPaletteBoot.start(files, argv, []);
+    }, {
+      files: { [docPathA]: b64(join(corpusDir, fileA)), [docPathB]: b64(join(corpusDir, fileB)) },
+      argv: [docPathA],
+    });
+    await page.waitForFunction(() => typeof window.marxyDocumentEdit === 'function');
+    await page.waitForFunction(() => window.__marxyOpenSynced === true);
+
+    await page.evaluate((path) => window.__marxyOpsBoot.handle.open(path), docPathB);
+    await page.waitForFunction((path) => window.__marxyOpsBoot.handle.currentPath() === path, docPathB);
+    await page.waitForFunction(() => document.querySelector('#doc [data-marxy-s]') !== null);
+    // documentEditState() only compares against savedFingerprint when the Playwright harness's own
+    // bytes override is absent, so remove it to exercise the real (non-harness) dirty computation.
+    await page.evaluate(() => { delete window.__marxyOrigBytes; });
+    assert.equal(await page.evaluate(() => window.marxyDocumentEdit?.().dirty), false);
+  } finally {
+    await browser.close();
+  }
+});

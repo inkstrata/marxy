@@ -10,6 +10,8 @@ const TITLE_WEIGHT = 4;
 const HEADING_WEIGHT = 3;
 const PATH_WEIGHT = 2;
 const DEFAULT_LIMIT = 50;
+/** fuzzyScore's true ceiling: 10_000 plus the +500 at-start bonus the exact-substring path can add. */
+const MAX_FUZZY_SCORE = 10_500;
 
 /** Lowercased fields, built once per index load so a keystroke does not rescan bytes. */
 export interface PreparedIndex {
@@ -185,7 +187,7 @@ function frecencyBonus(entry: IndexEntry, mru: ReadonlyMap<string, number>, now:
 }
 
 function headingCouldBeat(titleOrPathScore: number, needle: string): boolean {
-  return titleOrPathScore < 10_000 * HEADING_WEIGHT || needle.length <= 2;
+  return titleOrPathScore < MAX_FUZZY_SCORE * HEADING_WEIGHT || needle.length <= 2;
 }
 
 function compareHits(a: IndexHit, b: IndexHit): number {

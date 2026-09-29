@@ -450,9 +450,11 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
     if (isMod(event) && event.key === '.' && open) {
       const hit = model.hits[selected];
-      if (hit?.heading === undefined) {
+      // `hit?.heading === undefined` alone is also true when there is no hit at all (an empty
+      // result list, or the operations phase, where `hits` is always []) — pin only a real hit.
+      if (hit !== undefined && hit.heading === undefined) {
         event.preventDefault();
-        session = togglePin(session, hit?.entry.path ?? '');
+        session = togglePin(session, hit.entry.path);
         syncSession();
         repaint();
       }

@@ -189,10 +189,30 @@ fn watch_table() -> &'static Mutex<HashMap<String, WatchEntry>> {
     TABLE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Every raw root string a `watch_root` call has used, mapped to the canonical key it resolved to
+/// at that time. `unwatch_root` consults this when the root no longer canonicalises (deleted or
+/// renamed since), so it can still find the table entry that was actually stored under the old
+/// canonical path instead of a fresh, non-matching fallback string.
+fn raw_watch_roots() -> &'static Mutex<HashMap<String, String>> {
+    static TABLE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    TABLE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 fn canonical_watch_root(root: &str) -> Result<String, String> {
     let path = PathBuf::from(root);
     let canon = path.canonicalize().map_err(|e| format!("{root}: {e}"))?;
     Ok(canon.to_string_lossy().into_owned())
+}
+
+/// The watch-table key for `root`: its current canonical form, or, when it no longer canonicalises,
+/// whatever canonical key a previous `watch_root(root)` call recorded for that exact raw string.
+fn resolve_watch_key(raw_roots: &HashMap<String, String>, root: &str) -> String {
+    canonical_watch_root(root).unwrap_or_else(|_| {
+        raw_roots
+            .get(root)
+            .cloned()
+            .unwrap_or_else(|| root.to_string())
+    })
 }
 
 fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
@@ -217,6 +237,10 @@ fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
 #[tauri::command]
 async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
     let key = canonical_watch_root(&root)?;
+    raw_watch_roots()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(root.clone(), key.clone());
     let mut table = watch_table().lock().map_err(|e| e.to_string())?;
     if let Some(entry) = table.get_mut(&key) {
         entry.refs += 1;
@@ -232,9 +256,10 @@ async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn unwatch_root(root: String) -> Result<(), String> {
-    // A root that was renamed or deleted no longer canonicalises; the app watched it by the canonical
-    // path it opened, so that string is still the table's key and the thread is still stopped.
-    let key = canonical_watch_root(&root).unwrap_or(root.clone());
+    let key = {
+        let raw_roots = raw_watch_roots().lock().map_err(|e| e.to_string())?;
+        resolve_watch_key(&raw_roots, &root)
+    };
     let mut table = watch_table().lock().map_err(|e| e.to_string())?;
     let entry = table
         .get_mut(&key)
@@ -243,6 +268,9 @@ async fn unwatch_root(root: String) -> Result<(), String> {
     if entry.refs == 0 {
         let mut entry = table.remove(&key).expect("entry");
         entry.running.stop();
+        if let Ok(mut raw_roots) = raw_watch_roots().lock() {
+            raw_roots.retain(|_, v| v != &key);
+        }
     }
     Ok(())
 }
@@ -668,8 +696,9 @@ fn main() {
 mod tests {
     use super::{
         absolute_document_path, enqueue_open_files, navigation_allowed, percent_decode,
-        take_pending_opens, OPENS_LISTENER_READY,
+        resolve_watch_key, take_pending_opens, OPENS_LISTENER_READY,
     };
+    use std::collections::HashMap;
     use std::sync::atomic::Ordering;
 
     fn reset_pending_opens_for_test() {
@@ -685,6 +714,30 @@ mod tests {
         let first = take_pending_opens();
         assert_eq!(first, vec![vec!["/tmp/a.md".to_string()]]);
         assert!(take_pending_opens().is_empty());
+    }
+
+    #[test]
+    fn resolve_watch_key_falls_back_to_the_recorded_canonical_key_when_the_root_is_gone() {
+        let mut raw_roots = HashMap::new();
+        raw_roots.insert(
+            "/no/such/deleted-marxy-root".to_string(),
+            "/real/canonical/path".to_string(),
+        );
+        // Without a recording, an unresolvable root used to fall back to the raw string itself,
+        // which is not the key `watch_root` actually stored the entry under.
+        assert_eq!(
+            resolve_watch_key(&raw_roots, "/no/such/deleted-marxy-root"),
+            "/real/canonical/path",
+        );
+    }
+
+    #[test]
+    fn resolve_watch_key_with_no_recording_falls_back_to_the_raw_root() {
+        let raw_roots = HashMap::new();
+        assert_eq!(
+            resolve_watch_key(&raw_roots, "/no/such/never-watched-marxy-root"),
+            "/no/such/never-watched-marxy-root",
+        );
     }
 
     #[test]

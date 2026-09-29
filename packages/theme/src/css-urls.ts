@@ -27,6 +27,10 @@ export interface RewriteUrlsResult {
 }
 
 const REMOTE_URL = /^(?:https?:)?\/\//i;
+// Raster formats only: they cannot embed a further url()/@import/href of their own. `image/svg+xml`
+// (and anything else) is refused, because an SVG payload can reference a remote resource from
+// inside itself and no check here ever sees it (MARXY-47's "nothing phones home" rule).
+const INERT_DATA_URL = /^data:image\/(?:png|jpe?g|gif|webp|bmp|x-icon|avif)[;,]/i;
 
 function isRemote(spec: string): boolean {
   const t = spec.trim();
@@ -175,7 +179,13 @@ function rewriteOneUrl(
   warnings: string[],
 ): string | null {
   if (spec === '') return null;
-  if (spec.startsWith('data:')) return `"${spec.replace(/"/g, '\\"')}"`;
+  if (spec.startsWith('data:')) {
+    if (!INERT_DATA_URL.test(spec)) {
+      warnings.push('theme referenced a data: URL that could embed a remote reference; not loaded');
+      return null;
+    }
+    return `"${spec.replace(/"/g, '\\"')}"`;
+  }
   if (isRemote(spec)) {
     warnings.push(`theme referenced \`${spec}\`; not loaded`);
     return null;
