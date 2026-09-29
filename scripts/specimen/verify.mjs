@@ -154,7 +154,7 @@ const fontsReadme = readFileSync(repo('fonts/README.md'), 'utf8');
 for (const family of new Set(pairs.flatMap(p => [p.text, p.mono]))) check(fontsReadme.includes(family), `fonts/README.md does not list ${family}`);
 check(manifest.measure === '68ch', `the kit was rendered at a measure of ${manifest.measure}, not the 68ch review #0 judged`);
 
-// 7. The queue entry is the deliverable: it links every PNG and carries the reviewer's checklist.
+// 7. Review #0's own section in queue.md (the reviewer's kit, not a per-PR requirement — a queue entry is optional, MARXY-324): it links every PNG and carries the reviewer's checklist.
 const linked = new Set([...queue.matchAll(/\(([^)]*review-0[^)]*\.png)\)/g)].map(m => m[1].replace(/^\.\//, '')));
 for (const image of manifest.pairs.flatMap(p => p.images)) {
   const rel = image.path.replace('docs/taste-review/', '');

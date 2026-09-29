@@ -218,3 +218,20 @@ test('readiness tests do not run a three-dot board-file check', () => {
     assert.ok(!src.includes(name), name);
   }
 });
+
+test('a queue.d fragment is an always-allowed extra path, so it is never "outside" the story (MARXY-324)', () => {
+  const rows = collect({
+    prs: [pr({
+      number: 3, key: 'MARXY-3', title: 'feat: x (MARXY-3)', url: 'https://example.test/3',
+      files: [{ path: 'packages/core/src/parse.ts' }, { path: 'changelog.d/MARXY-3.md' }, { path: 'docs/taste-review/queue.d/MARXY-3.md' }],
+    })],
+    evaluate,
+    verify: () => ({ ok: true, head: HEAD }),
+    computeOrder: () => ({ order: [{ key: 'MARXY-3' }], excluded: [] }),
+    readResult: () => ({ status: 'done' }),
+    stories: [story('MARXY-3', 'packages/core/src/parse.ts')],
+    codeownersText: '',
+  });
+  assert.doesNotMatch(rows[0].reasons?.join?.('\n') ?? rows[0].next ?? '', /outside/);
+  assert.notEqual(rows[0].action, 'hold', JSON.stringify(rows[0]));
+});
