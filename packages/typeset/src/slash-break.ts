@@ -1,6 +1,6 @@
 // Third-pass break opportunities after `/` inside inline code (reader-artifacts handbook §04).
 
-import type { DashBreak, Piece, Segment, Token } from './runs.ts';
+import type { DashBreak, Piece, Token } from './runs.ts';
 
 function isCodePiece(piece: Piece): boolean {
   const node = piece.segments[0]?.node;
@@ -18,25 +18,25 @@ export function insertSlashBreaks(tokens: readonly Token[]): Token[] {
     for (const segment of token.segments) {
       const data = segment.node.data;
       let start = segment.start;
-      let chunk = '';
-      let segs: Segment[] = [];
-      const flushPiece = (): void => {
-        if (chunk.length === 0) return;
-        out.push({ kind: 'piece', segments: segs, text: chunk });
-        chunk = '';
-        segs = [];
-      };
       for (let i = segment.start; i < segment.end; i++) {
-        const ch = data[i]!;
-        chunk += ch;
-        segs.push({ node: segment.node, start, end: i + 1 });
-        if (ch === '/') {
-          flushPiece();
-          out.push({ kind: 'dash', node: segment.node, offset: i + 1 } satisfies DashBreak);
-          start = i + 1;
+        if (data[i] !== '/') continue;
+        if (i + 1 > start) {
+          out.push({
+            kind: 'piece',
+            segments: [{ node: segment.node, start, end: i + 1 }],
+            text: data.slice(start, i + 1),
+          });
         }
+        out.push({ kind: 'dash', node: segment.node, offset: i + 1 } satisfies DashBreak);
+        start = i + 1;
       }
-      flushPiece();
+      if (start < segment.end) {
+        out.push({
+          kind: 'piece',
+          segments: [{ node: segment.node, start, end: segment.end }],
+          text: data.slice(start, segment.end),
+        });
+      }
     }
   }
   return out;

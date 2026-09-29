@@ -11,6 +11,7 @@ import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
 import { FontSizes, measureTokens } from './measure.ts';
 import { DEFAULT_RAGGED, breakRagged, type RaggedSettings } from './ragged.ts';
 import { insertSlashBreaks } from './slash-break.ts';
+export { insertSlashBreaks };
 import { collectTokens, type Token } from './runs.ts';
 import { idleScheduler, type Scheduler } from './scheduler.ts';
 
