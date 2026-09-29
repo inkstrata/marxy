@@ -63,7 +63,7 @@ ${table}
 - [x] Only the story's listed paths are touched
 - [x] Every acceptance criterion has a test or gate in this PR
 - [x] \`CHANGELOG.md\` has an entry under \`Unreleased\` (${key})
-- [ ] Queue entry in \`docs/taste-review/queue.md\` if anything visible changed
+- [ ] Optional: a taste-review entry in \`docs/taste-review/queue.d/KEY.md\` if a reader would notice a change
 - [ ] No contract files changed, or an ADR is included
 - [x] No attribution trailers
 `;

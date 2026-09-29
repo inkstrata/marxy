@@ -143,11 +143,11 @@ test('the implementor prompt names open-pr and forbids gh pr create --body', () 
   assert.match(text, /Never `gh pr create --body`|never `gh pr create --body`/i);
 });
 
-test('a golden change without a queue row fails the range half', () => {
+test('a golden change without a queue entry passes the range half: the entry is optional (MARXY-324)', () => {
   const problems = lintPrRange({
     key: 'MARXY-104',
     changed: ['packages/core/goldens/01.ast.txt'],
     changelogDiff: '- a line (MARXY-104)\n',
   });
-  assert.ok(problems.some(p => p.includes('golden/baseline')));
+  assert.deepEqual(problems, []);
 });

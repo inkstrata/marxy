@@ -33,7 +33,7 @@ return notes of any story you are splitting (`node orchestration/fleet.mjs why K
    section does not exist for the decision the story needs, write the section first.
 4. **ADR proposals**, when a decision changed or a tripwire fired: a new numbered file in
    `docs/adr/` marked *proposed*, plus a story to land it. Do not edit accepted ADRs.
-5. **Taste-review requests**: if visual work merged without a queue entry, add one.
+5. **Taste-review requests**: a queue entry (`docs/taste-review/queue.d/KEY.md`) is optional and never required; do not add a story only to file one.
 6. **Scope pressure**: if the phase is behind, propose cuts in the order of
    `docs/scope.md` ("if the schedule still slips"), never new work.
 

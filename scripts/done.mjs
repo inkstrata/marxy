@@ -178,7 +178,7 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
 - [${ok ? 'x' : ' '}] Only the story's listed paths are touched
 - [ ] Every acceptance criterion has a test or gate in this PR
 - [${hasEntry(files, key) ? 'x' : ' '}] \`changelog.d/${key}.md\` has one line ending in \`(${key})\` (or, during the transition, a \`CHANGELOG.md\` line under \`Unreleased\`)
-- [ ] Queue entry in \`docs/taste-review/queue.md\` if anything visible changed
+- [ ] Optional: a taste-review entry in \`docs/taste-review/queue.d/KEY.md\` if a reader would notice a change
 - [ ] No contract files changed, or an ADR is included
 - [x] No attribution trailers
 `;
