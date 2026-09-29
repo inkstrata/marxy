@@ -30,13 +30,33 @@ function xHeightProbe(page) {
     const article = document.getElementById('doc');
     const p = article.querySelector('p');
     const code = article.querySelector('code');
+    // measureText bounds are whole pixels on some engines (Windows WebKit), which turns a 5% budget
+    // into a coin flip at 20px. Rasterise at 16x with the font size unchanged (so optical size does
+    // not move) and measure the ink instead.
+    const SCALE = 16;
     const xHeightAt = (el, px) => {
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      canvas.width = 4 * px * SCALE;
+      canvas.height = 3 * px * SCALE;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       const s = getComputedStyle(el);
       ctx.font = `${s.fontStyle} ${s.fontWeight} ${px}px ${s.fontFamily}`;
-      const m = ctx.measureText('x');
-      return m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+      ctx.scale(SCALE, SCALE);
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('x', px, 2 * px);
+      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let top = height;
+      let bottom = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (data[(y * width + x) * 4 + 3] > 127) {
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+            break;
+          }
+        }
+      }
+      return bottom < top ? 0 : (bottom - top + 1) / SCALE;
     };
     const bodySize = parseFloat(getComputedStyle(p).fontSize);
     const codeSize = parseFloat(getComputedStyle(code).fontSize);
