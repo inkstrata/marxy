@@ -7,6 +7,8 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - Nightly monitoring now drives a release build through `tauri-driver` and WebKitWebDriver: open a CRLF fixture by argv, toggle a task, compare bytes on disk, and assert the palette's runtime styles still apply (MARXY-254)
+- Copying a code block keeps the source's own newline and no longer has to fight a test that always added one; heading links and explicit save can touch the files their branches already edit (MARXY-318)
+- `image_size` now returns an I/O error when the file cannot be read, instead of treating permission failures and similar problems like a non-image file (MARXY-287)
 - A theme manifest that declares `variants = []` is no longer accepted silently: the loader warns with the theme name and `theme.toml`, then falls back to the default light and dark variants (MARXY-284)
 - The frozen shell-api compile-time stub shells now share one no-op implementation, so a new `Shell` member is defined in one place instead of three hand-copied literals (MARXY-285)
 - A third bugcatch pass files eight more stories: a stale Source-mode reading position, a deferred-startup race that can leave the palette index stale, a failed quit overwriting a rendered page, an over-broad Tauri capability grant on the main window, and four CI gate scripts (innerHTML route detection, the module-boundary dynamic-import check, the Cargo dependency scanner, and the memory-shell exclusion check) each missing a real violation shape (MARXY-301)
