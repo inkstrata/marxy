@@ -13,6 +13,7 @@ import {
   contentHash,
   createBuffer,
   eolString,
+  foldText,
   fromText,
   lineOf,
   splice,
@@ -272,4 +273,37 @@ test('the three-dot diff contains no fidelity gate and no contract file', (t) =>
     names.filter((name) => name === 'packages/core/src/contracts' || name.startsWith('packages/core/src/contracts/')),
     [],
   );
+});
+
+const crlfBufferOf = (text: string) => createBuffer('t.md', new TextEncoder().encode(text));
+const folded = (like: ReturnType<typeof createBuffer>, text: string): string => {
+  const fold = foldText(like, text);
+  return fold ? splice(like, fold.range, fold.replacement).text : like.text;
+};
+
+test('foldText with LF input on a CRLF buffer never leaves a bare LF', () => {
+  assert.equal(folded(crlfBufferOf('a\r\n'), 'a\n\n'), 'a\r\n\r\n');
+});
+
+test('foldText fuzz: LF input on CRLF buffers yields no bare LF; CRLF input is unchanged', () => {
+  let seed = 12345;
+  const rand = (n: number): number => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return (seed >> 8) % n;
+  };
+  const alphabet = ['a', 'b', '\n'];
+  const make = (): string => Array.from({ length: rand(7) }, () => alphabet[rand(3)]!).join('');
+  let checked = 0;
+  for (let n = 0; n < 4000; n++) {
+    const like = crlfBufferOf(make().replace(/\n/g, '\r\n'));
+    if (like.eol !== 'crlf') continue;
+    checked++;
+    const next = make();
+    const result = folded(like, next);
+    assert.equal(/(^|[^\r])\n/.test(result), false, JSON.stringify({ old: like.text, next, result }));
+    assert.equal(result, next.replace(/\n/g, '\r\n'));
+    const crlfInput = next.replace(/\n/g, '\r\n');
+    assert.equal(folded(like, crlfInput), crlfInput);
+  }
+  assert.ok(checked > 500);
 });

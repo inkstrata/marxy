@@ -138,24 +138,30 @@ async function waitForDriverReady(ms = 30_000) {
   throw new Error('tauri-driver did not become ready');
 }
 
-async function waitForFileBytes(path, expectedLen, ms = 15_000) {
-  const deadline = Date.now() + ms;
-  while (Date.now() < deadline) {
-    try {
-      const b = readFileSync(path);
-      if (b.length === expectedLen) return b;
-    } catch {
-      // not written yet
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new Error(`timed out waiting for ${path} to reach ${expectedLen} bytes`);
-}
-
-function bytesEqual(a, b) {
+export function bytesEqual(a, b) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/**
+ * Polls `path` until it holds `expected`, or until it holds something other than `opening` (the bytes
+ * it was opened with), so the caller can report a wrong write. The task toggle `[ ]` -> `[x]` keeps the
+ * length unchanged, so a length check returns on the first poll, before the save has landed.
+ */
+export async function waitForFileBytes(path, expected, { opening = null, ms = 15_000, intervalMs = 100, read = readFileSync } = {}) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    try {
+      const b = read(path);
+      if (bytesEqual(b, expected)) return b;
+      if (opening && !bytesEqual(b, opening)) return b;
+    } catch {
+      // not written yet
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error(`timed out waiting for ${path} to change from its opening bytes to the expected ${expected.length} bytes`);
 }
 
 /**
@@ -194,12 +200,16 @@ export async function runBuiltAppSmoke(opts = {}) {
     NO_AT_BRIDGE: '1',
   };
 
-  const native = spawnLogged('WebKitWebDriver', ['--port', String(NATIVE_PORT)], headlessEnv);
+  // tauri-driver starts WebKitWebDriver itself (`--port=<native-port> --host=<native-host>`) and proxies
+  // to it. Starting our own on NATIVE_PORT as well made the two collide: the session request reached our
+  // copy, which knows nothing of `tauri:options`.
   const driver = spawnLogged(
     'tauri-driver',
     ['--port', String(DRIVER_PORT), '--native-port', String(NATIVE_PORT)],
     headlessEnv,
   );
+
+  const tauriOptions = { application: bin, args: [docPath] };
 
   let sessionId;
   try {
@@ -207,15 +217,11 @@ export async function runBuiltAppSmoke(opts = {}) {
     const session = await wd('/session', {
       method: 'POST',
       body: {
-        capabilities: {
-          alwaysMatch: {
-            browserName: 'wry',
-            'tauri:options': {
-              application: bin,
-              args: [docPath],
-            },
-          },
-        },
+        // tauri-driver 2.x rewrites `tauri:options` into `webkitgtk:browserOptions` inside alwaysMatch (3.0.0-alpha.1
+        // only rewrites legacy desiredCapabilities, so W3C-only requests reach WebKitWebDriver with no binary and
+        // fail "Failed to match capabilities"; nightly pins 2.x). No browserName: WebKitWebDriver would have to match it.
+        capabilities: { alwaysMatch: { 'tauri:options': tauriOptions } },
+        desiredCapabilities: { 'tauri:options': tauriOptions },
       },
     });
     sessionId = session.sessionId;
@@ -226,8 +232,11 @@ export async function runBuiltAppSmoke(opts = {}) {
        return new Promise((resolve, reject) => {
          const tick = () => {
            const doc = document.getElementById('doc');
-           if (doc && doc.textContent && doc.textContent.includes('CRLF')) return resolve(true);
-           if (Date.now() > deadline) return reject(new Error('document did not open'));
+           const opened = Boolean(doc && doc.textContent && doc.textContent.includes('CRLF'));
+           // The palette mounts after startApp resolves, which is after the document first paints.
+           const palette = Boolean(window.__marxyPalette);
+           if (opened && palette) return resolve(true);
+           if (Date.now() > deadline) return reject(new Error(opened ? 'palette never mounted' : 'document did not open'));
            requestAnimationFrame(tick);
          };
          tick();
@@ -244,33 +253,42 @@ export async function runBuiltAppSmoke(opts = {}) {
        if (!dialog) throw new Error('missing #marxy-palette');
        return getComputedStyle(dialog).borderRadius;`,
     );
+    // Every check runs even after one fails, so a known defect in one (the release CSP blocking
+    // runtime styles, MARXY-250) does not hide whether argv open, the toggle and the save still work.
+    const failures = [];
     if (!paletteRuntimeStyleOk(radius)) {
-      return {
-        status: 'fail',
-        message: `palette runtime style missing (border-radius ${radius}, expected ~8px)`,
-      };
+      failures.push(`palette runtime style missing (border-radius ${radius}, expected ~8px)`);
     }
 
     await exec(
       sessionId,
-      `const box = document.querySelector('#doc input[type=checkbox]');
+      `window.__marxyPalette?.close();
+       const box = document.querySelector('#doc input[type=checkbox]');
        if (!box) throw new Error('no task checkbox in #doc');
        box.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));`,
     );
+    // Save is explicit (MARXY-49): the toggle changes the buffer, Mod+S writes it through IPC.
+    await exec(
+      sessionId,
+      `const mac = navigator.platform.toUpperCase().includes('MAC');
+       document.body.dispatchEvent(new KeyboardEvent('keydown', {
+         key: 's', code: 'KeyS', metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true,
+       }));`,
+    );
 
-    const onDisk = await waitForFileBytes(docPath, expected.length);
+    const onDisk = await waitForFileBytes(docPath, expected, { opening: openBytes });
     if (!bytesEqual(onDisk, expected)) {
       let at = 0;
       while (at < onDisk.length && at < expected.length && onDisk[at] === expected[at]) at++;
-      return {
-        status: 'fail',
-        message: `disk bytes differ from expected after toggle (first mismatch at ${at})`,
-      };
+      failures.push(`disk bytes differ from expected after toggle (first mismatch at ${at})`);
+    } else {
+      console.log('smoke-built-app: argv open, task toggle and IPC save are byte-exact');
     }
+    if (failures.length) return { status: 'fail', message: failures.join('; ') };
 
     return { status: 'ok', message: `toggle saved through IPC; palette border-radius ${radius}` };
   } catch (e) {
-    const detail = [e.message, driver.tail(), native.tail()].filter(Boolean).join('\n');
+    const detail = [e.message, driver.tail()].filter(Boolean).join('\n');
     return { status: 'fail', message: detail };
   } finally {
     if (sessionId) {
@@ -281,7 +299,6 @@ export async function runBuiltAppSmoke(opts = {}) {
       }
     }
     driver.child.kill('SIGTERM');
-    native.child.kill('SIGTERM');
     rmSync(work, { recursive: true, force: true });
   }
 }

@@ -13,7 +13,11 @@ export interface SaveHost {
   getOpenBuffer(): Buffer | null;
   foldSourceIntoBuffer(): Promise<Buffer | null>;
   isReadOnlyPath(path: string): boolean;
-  onSaved(path: string, buffer: Buffer): Promise<void>;
+  /**
+   * `documentUnchanged` is false when the open document was edited while the save was in flight: the
+   * host then keeps its newer buffer (which stays dirty) and only records what reached disk.
+   */
+  onSaved(path: string, buffer: Buffer, documentUnchanged: boolean): Promise<void>;
   onSaveAsPath(path: string): Promise<void>;
 }
 
@@ -24,10 +28,18 @@ export function installSave(next: SaveHost): void {
 }
 
 function shellErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'message' in err && typeof (err as ShellError).message === 'string') {
-    return (err as ShellError).message;
+  if (typeof err === 'string' && err.trim() !== '') return err;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as ShellError).message;
+    if (typeof message === 'string' && message.trim() !== '') return message;
   }
   return fallback;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 function readOnlyNoticeName(path: string): string {
@@ -91,19 +103,28 @@ export async function save(opts?: { as?: boolean }): Promise<SaveResult> {
     await host.shell.writeFileAtomic(path, bufferOnDisk.bytes);
   } catch (err) {
     const code = err && typeof err === 'object' && 'code' in err ? (err as ShellError).code : undefined;
-    const reason =
-      code === 'permission'
-        ? 'it is read-only.'
-        : shellErrorMessage(err, 'the write failed.');
+    // The shell's own message says why (read-only, hard link, not a regular file, changed on disk);
+    // the code only picks a fallback when there is none.
+    const reason = shellErrorMessage(err, code === 'permission' ? 'permission was denied.' : 'the write failed.');
     showSaveFailedNotice(path, reason, () => void save({ as: true }));
     return 'failed';
   }
 
-  markDocumentSaved(bufferOnDisk);
+  // The write took time. If the reader opened another document meanwhile, the saved state belongs to
+  // this file only and must not replace the new document's baseline.
+  const openNow = await host.foldSourceIntoBuffer();
+  if (!openNow || openNow.path !== folded.path) return 'saved';
+
+  const documentUnchanged = sameBytes(openNow.bytes, folded.bytes);
+  markDocumentSaved(bufferOnDisk, documentUnchanged);
   if (path !== folded.path) {
     await host.onSaveAsPath(path);
   }
-  await host.onSaved(path, bufferOnDisk);
-  await updateTitle(host.shell, path, false);
+  await host.onSaved(path, bufferOnDisk, documentUnchanged);
+  // An edit made while the save was in flight leaves the document newer than the file: stay dirty.
+  const current = host.getOpenBuffer();
+  if (current && current.path === path) {
+    await updateTitle(host.shell, path, documentUnchanged ? false : documentIsDirty(current));
+  }
   return 'saved';
 }

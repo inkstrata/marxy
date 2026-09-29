@@ -69,3 +69,49 @@ test('serialize round-trips grants', () => {
     assert.deepEqual(parsed.envelope.documents['/x.md'].imageHosts, ['a.example']);
   }
 });
+
+test('two grants started together: a failed first write leaves only the second on disk and in memory (MARXY-337)', async () => {
+  let n = 0;
+  const disk: string[] = [];
+  const store = createTrustStore(emptyTrustEnvelope(), async (bytes) => {
+    const i = ++n;
+    await new Promise((r) => setTimeout(r, 5));
+    if (i === 1) throw new Error('disk full');
+    disk.push(new TextDecoder().decode(bytes));
+  });
+  const r = await Promise.allSettled([
+    store.grant('/x.md', { html: true }),
+    store.grant('/x.md', { imageHosts: ['a.com'] }),
+  ]);
+  assert.deepEqual(r.map((x) => x.status), ['rejected', 'fulfilled']);
+  assert.equal(store.grantsFor('/x.md').html, false);
+  assert.deepEqual(store.grantsFor('/x.md').imageHosts, ['a.com']);
+  assert.ok(!/"html": true/.test(disk.at(-1) ?? ''));
+  assert.match(disk.at(-1) ?? '', /a\.com/);
+});
+
+test('two grants started together that both fail leave memory as it was (MARXY-337)', async () => {
+  const store = createTrustStore(emptyTrustEnvelope(), async () => {
+    await new Promise((r) => setTimeout(r, 5));
+    throw new Error('nope');
+  });
+  const r = await Promise.allSettled([
+    store.grant('/x.md', { html: true }),
+    store.grant('/x.md', { imageHosts: ['a.com'] }),
+  ]);
+  assert.deepEqual(r.map((x) => x.status), ['rejected', 'rejected']);
+  assert.deepEqual(store.grantsFor('/x.md'), { html: false, imageHosts: [] });
+});
+
+test('a failed revoke keeps the committed grant, and a grant before it stays granted', async () => {
+  let n = 0;
+  const store = createTrustStore(emptyTrustEnvelope(), async () => {
+    await new Promise((r) => setTimeout(r, 5));
+    if (++n === 2) throw new Error('x');
+  });
+  const g = store.grant('/x.md', { html: true });
+  const v = store.revoke('/x.md', 'html');
+  const r = await Promise.allSettled([g, v]);
+  assert.deepEqual(r.map((x) => x.status), ['fulfilled', 'rejected']);
+  assert.equal(store.grantsFor('/x.md').html, true);
+});

@@ -123,8 +123,12 @@ export interface TrustWriter {
 
 export interface TrustStore {
   grantsFor(path: string): Grants;
-  grant(path: string, change: Partial<Pick<DocumentGrants, 'html' | 'imageHosts'>>): Promise<void>;
-  revoke(path: string, what: 'html' | 'images' | 'all'): Promise<void>;
+  /**
+   * Resolves true once the change is in memory and on disk; false when trust.json comes from a newer
+   * Marxy and is left untouched. Rejects, with the in-memory state put back, when the write fails.
+   */
+  grant(path: string, change: Partial<Pick<DocumentGrants, 'html' | 'imageHosts'>>): Promise<boolean>;
+  revoke(path: string, what: 'html' | 'images' | 'all'): Promise<boolean>;
   readonly newerVersion: boolean;
 }
 
@@ -133,8 +137,43 @@ export function createTrustStore(
   write: TrustWriter['write'],
   opts?: { readonly newerVersion?: boolean },
 ): TrustStore {
+  // `committed` is what trust.json holds; `state` is what readers see, which runs ahead of it while writes
+  // are queued.
+  let committed = envelope;
   let state = envelope;
   const newerVersion = opts?.newerVersion === true || envelope.version > TRUST_FILE_VERSION;
+  // Writes run one after another in the order the changes were made, so two grants started together
+  // cannot land on disk out of order and leave the older state as the file. Each change is computed
+  // inside the queue from the last committed state, so a failed write leaves no trace in a later one.
+  let queue: Promise<void> = Promise.resolve();
+  let pending = 0;
+  type Change = (base: TrustEnvelope) => TrustEnvelope | null;
+  const persist = async (change: Change): Promise<boolean> => {
+    const optimistic = change(state);
+    if (optimistic !== null) state = optimistic;
+    pending += 1;
+    const done = queue.then(async () => {
+      const next = change(committed);
+      if (next === null) return;
+      await write(serializeTrustFile(next));
+      committed = next;
+    });
+    queue = done.catch(() => undefined);
+    try {
+      await done;
+    } finally {
+      pending -= 1;
+      if (pending === 0) state = committed;
+    }
+    return true;
+  };
+  const without = (env: TrustEnvelope, path: string): TrustEnvelope => {
+    const documents = { ...env.documents };
+    delete documents[path];
+    return { ...env, documents };
+  };
+  const emptied = (env: TrustEnvelope, path: string): boolean =>
+    !env.documents[path]?.html && env.documents[path]?.imageHosts.length === 0;
   return {
     newerVersion,
     grantsFor(path: string): Grants {
@@ -142,34 +181,20 @@ export function createTrustStore(
       return { html: entry?.html === true, imageHosts: entry?.imageHosts ?? [] };
     },
     async grant(path, change) {
-      if (newerVersion) return;
-      state = upsertDocument(state, path, change);
-      await write(serializeTrustFile(state));
+      if (newerVersion) return false;
+      return persist((base) => upsertDocument(base, path, change));
     },
     async revoke(path, what) {
-      if (newerVersion) return;
-      const entry = state.documents[path];
-      if (!entry) return;
-      if (what === 'all') {
-        const documents = { ...state.documents };
-        delete documents[path];
-        state = { ...state, documents };
-      } else if (what === 'html') {
-        state = upsertDocument(state, path, { html: false, imageHosts: entry.imageHosts });
-        if (!state.documents[path]?.html && state.documents[path]?.imageHosts.length === 0) {
-          const documents = { ...state.documents };
-          delete documents[path];
-          state = { ...state, documents };
-        }
-      } else {
-        state = upsertDocument(state, path, { html: entry.html, imageHosts: [] });
-        if (!state.documents[path]?.html && state.documents[path]?.imageHosts.length === 0) {
-          const documents = { ...state.documents };
-          delete documents[path];
-          state = { ...state, documents };
-        }
-      }
-      await write(serializeTrustFile(state));
+      if (newerVersion) return false;
+      return persist((base) => {
+        const entry = base.documents[path];
+        if (!entry) return null;
+        if (what === 'all') return without(base, path);
+        const next = upsertDocument(base, path, what === 'html'
+          ? { html: false, imageHosts: entry.imageHosts }
+          : { html: entry.html, imageHosts: [] });
+        return emptied(next, path) ? without(next, path) : next;
+      });
     },
   };
 }

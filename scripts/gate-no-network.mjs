@@ -28,6 +28,7 @@
 // covers the first, `GATE_ASSERTION_IDS` plus `gate-assertions.test.ts` cover the second.
 import { chromium, webkit } from 'playwright';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { renderSafeHtml, renderToUnsanitisedHtml } from '../packages/core/src/render/index.ts';
 import { parseMarkdown } from '../packages/core/src/parse/parse.ts';
@@ -54,7 +55,7 @@ console.log(formatObservabilityReport());
 const unitTests = spawnSync(
   process.execPath,
   ['--test', '--experimental-strip-types', 'packages/core/scripts/gate-assertions.test.ts', 'packages/core/scripts/unobservable-classes.test.ts'],
-  { cwd: new URL('../', import.meta.url).pathname, encoding: 'utf8' },
+  { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8' },
 );
 process.stdout.write(unitTests.stdout ?? '');
 if (unitTests.status !== 0) {

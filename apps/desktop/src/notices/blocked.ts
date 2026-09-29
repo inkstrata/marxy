@@ -5,7 +5,7 @@ import { blockedHosts } from '@marxy/core/src/render/images.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 import type { Grants } from '../trust/trust.ts';
 import { blockedImageNoticeText } from '@marxy/core/src/render/images.ts';
-import { clearNotices, ensureNoticesRegion, notify } from './index.ts';
+import { dismiss, ensureNoticesRegion, notify } from './index.ts';
 import {
   blockedTrustNoticeText,
   displayHost,
@@ -24,6 +24,25 @@ export interface BlockedNoticeOpts {
 }
 
 const dismissedPaths = new Set<string>();
+let current: number | null = null;
+/** Grant-summary info notices; they describe a grant that a revoke or re-render may end. */
+const summaryIds = new Set<number>();
+
+/**
+ * Removes only this module's blocked-content lines before a render shows them again: the file-removed,
+ * theme and index notices are not this document's blocked content and must survive a re-render.
+ */
+export function clearBlockedNotices(): void {
+  if (current !== null) dismiss(current);
+  current = null;
+  for (const el of ensureNoticesRegion().querySelectorAll('[data-notice-kind="blocked"]')) el.remove();
+}
+
+/** A revoked grant no longer holds, so its "Showing …" / "Images will load …" confirmation goes too. */
+export function clearGrantSummaryNotices(): void {
+  for (const id of summaryIds) dismiss(id);
+  summaryIds.clear();
+}
 
 export function resetDismissedNotices(): void {
   dismissedPaths.clear();
@@ -40,10 +59,12 @@ export function clearDismissForPath(path: string): void {
 
 /** Image-only path kept for documents with no HTML widening story yet (MARXY-138 harness). */
 export function blockedContentNotice(images: readonly BlockedImage[]): void {
-  clearNotices();
+  // Only this notice's previous line: file, theme and index notices are not this document's blocked images.
+  if (current !== null) dismiss(current);
+  current = null;
   const text = blockedImageNoticeText(images);
   if (text === '') return;
-  notify({ kind: 'blocked', text });
+  current = notify({ kind: 'blocked', text });
 }
 
 export function trustBlockedNotices(opts: BlockedNoticeOpts): void {
@@ -148,13 +169,16 @@ function expandDetails(
   const confirm = document.createElement('button');
   confirm.type = 'button';
   confirm.className = 'marxy-notice-action';
-  confirm.textContent = 'Load selected hosts';
+  const withHtml = Boolean(opts.onGrantHtml) && !opts.grants.html;
+  // The label says what the click grants: nothing is widened until the reader has picked a host.
+  confirm.textContent = withHtml ? 'Show HTML and load selected hosts' : 'Load selected hosts';
   confirm.addEventListener('click', () => {
     const picked = [...panel.querySelectorAll<HTMLInputElement>('input[type=checkbox]:checked')]
       .map((el) => el.dataset.host!)
       .filter(Boolean);
-    if (picked.length) opts.onGrantImages?.(picked);
-    if (opts.onGrantHtml && !opts.grants.html) opts.onGrantHtml();
+    if (picked.length === 0) return;
+    opts.onGrantImages?.(picked);
+    if (withHtml) opts.onGrantHtml!();
   });
   panel.append(confirm);
   line.append(panel);
@@ -166,9 +190,18 @@ export function grantSummaryNotice(path: string, html: boolean, hostCount: numbe
   if (html) parts.push('HTML');
   if (hostCount > 0) parts.push(`images from ${hostCount} host${hostCount === 1 ? '' : 's'}`);
   const what = parts.join(' and ');
-  notify({
-    kind: 'info',
-    text: `Showing ${what} for ${base}. Undo in the palette.`,
-    transient: true,
-  });
+  summaryIds.add(
+    notify({
+      kind: 'info',
+      text: `Showing ${what} for ${base}. Undo in the palette.`,
+      transient: true,
+    }),
+  );
+}
+
+/** Confirms an image-host grant; dismissed by `clearGrantSummaryNotices` when a grant is revoked. */
+export function imageGrantSummaryNotice(): void {
+  summaryIds.add(
+    notify({ kind: 'info', text: 'Images will load when Marxy can fetch them.', transient: true }),
+  );
 }

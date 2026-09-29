@@ -1,11 +1,19 @@
 // Names are the registry's, not the agent's (scripts/registry.json): marks, events, data attributes,
 // class and token prefixes, and every route from a string to parsed markup. usage: node scripts/check-registry.mjs [--staged]
 import { readFileSync, existsSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { stripCommentsAst } from './lib/imports.mjs';
 import { ROOT, registry, walk, rel, stripComments, changedFiles, fail, fix } from './lib/repo.mjs';
 
+/** Comments removed without mistaking `/*` or `//` inside a string, template or regex for one (AST for JS/TS). */
+export const stripForRegistry = (text, fileName = 'file.ts') => (/\.[mc]?[jt]sx?$/.test(fileName) ? stripCommentsAst(text, fileName) : stripComments(text));
+
+const KEY = '[\'"\\x60]';
+const HTML_PROP = 'innerHTML|outerHTML|srcdoc';
+
 /** Plain `=` or JS compound assignment (`+=`, `||=`, …) after optional whitespace. */
-const HTML_ASSIGN_OP = String.raw`\s*(?:\*\*|<<|>>>|>>|[+\-*/%&|^]|&&|\|\||\?\?)?=`;
+const HTML_ASSIGN_OP = String.raw`\s*(?:\*\*|<<|>>>|>>|[+\-*/%&|^]|&&|\|\||\?\?)?=(?![=>])`;
 
 /** Routes from a string to parsed DOM; each { form, re } is one way around a single-regex gate. */
 export const HTML_ROUTE_TABLE = [
@@ -13,17 +21,30 @@ export const HTML_ROUTE_TABLE = [
   {
     form: '["innerHTML"] =',
     re: new RegExp(
-      String.raw`\[\s*(?:['"]innerHTML['"]|['"]inner['"]\s*\+\s*['"]HTML['"])\s*\]${HTML_ASSIGN_OP}`,
+      String.raw`\[\s*(?:${KEY}innerHTML${KEY}|${KEY}inner${KEY}\s*\+\s*${KEY}HTML${KEY})\s*\]${HTML_ASSIGN_OP}`,
     ),
   },
   {
+    form: '["outerHTML"] =',
+    re: new RegExp(
+      String.raw`\[\s*(?:${KEY}(?:outerHTML|srcdoc)${KEY}|${KEY}outer${KEY}\s*\+\s*${KEY}HTML${KEY})\s*\]${HTML_ASSIGN_OP}`,
+    ),
+  },
+  { form: '.srcdoc =', re: new RegExp(String.raw`\.srcdoc${HTML_ASSIGN_OP}`) },
+  { form: "setAttribute('srcdoc', ...)", re: new RegExp(String.raw`setAttribute\s*\(\s*${KEY}srcdoc${KEY}`) },
+  { form: '["insertAdjacentHTML"](', re: new RegExp(String.raw`\[\s*${KEY}(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|parseHTMLUnsafe)${KEY}\s*\]`) },
+  { form: 'Object.assign(..., { innerHTML })', re: new RegExp(String.raw`Object\.assign\s*\([^;]{0,300}?[{,]\s*${KEY}?(?:${HTML_PROP})${KEY}?\s*[:,}]`) },
+  { form: "Object.defineProperty(..., 'innerHTML')", re: new RegExp(String.raw`Object\.defineProperty\s*\(\s*[^,]+,\s*${KEY}(?:${HTML_PROP})${KEY}`) },
+  { form: 'DOMParser', re: /\bnew\s+(?:[\w$]+\s*\.\s*)*DOMParser\b|\.parseFromString\s*\(|\[\s*['"`]parseFromString['"`]\s*\]/ },
+  { form: '.parseHTMLUnsafe(', re: /\.parseHTMLUnsafe\s*\(/ },
+  {
     form: "Reflect.set(..., 'innerHTML', ...)",
-    re: /Reflect\.set\s*\(\s*[^,]+,\s*(?:['"]innerHTML['"]|['"]inner['"]\s*\+\s*['"]HTML['"])\s*,/,
+    re: new RegExp(String.raw`Reflect\.set\s*\(\s*[^,]+,\s*(?:${KEY}(?:${HTML_PROP})${KEY}|${KEY}inner${KEY}\s*\+\s*${KEY}HTML${KEY})\s*,`),
   },
   { form: '.outerHTML =', re: new RegExp(String.raw`\.outerHTML${HTML_ASSIGN_OP}`) },
   { form: '.insertAdjacentHTML(', re: /\.insertAdjacentHTML\s*\(/ },
   { form: '.setHTMLUnsafe(', re: /\.setHTMLUnsafe\s*\(/ },
-  { form: 'document.write(', re: /document\.write\s*\(/ },
+  { form: 'document.write(', re: new RegExp(String.raw`\bdocument(?:\.write(?:ln)?\s*\(|\[\s*${KEY}write(?:ln)?${KEY}\s*\])`) },
   { form: '.createContextualFragment(', re: /\.createContextualFragment\s*\(/ },
 ];
 
@@ -62,6 +83,8 @@ export function constructedRegistryNameProblems(rel, text) {
   return problems;
 }
 
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMain) {
 const reg = registry();
 const staged = process.argv.includes('--staged');
 const src = /\.(m?[jt]sx?|rs|css|html)$/;
@@ -70,7 +93,7 @@ const files = (staged ? changedFiles({ staged: true }).map(f => join(ROOT, f)).f
 const problems = [];
 const marks = new Set(reg.marks), events = new Set(reg.events), attrs = new Set(reg.dataAttributes);
 for (const f of files) {
-  const r = rel(f); const text = stripComments(readFileSync(f, 'utf8'));
+  const r = rel(f); const text = stripForRegistry(readFileSync(f, 'utf8'), f);
   const isTestFile = /\.(test|spec)\.[mc]?[jt]sx?$|\/testing\/|\/test\/|fixtures\//.test(r);
   for (const m of text.matchAll(/\bmark(?:_from_webview)?\(\s*['"`]([a-z_]+)['"`]/g)) if (!marks.has(m[1])) problems.push(`${r}: mark "${m[1]}" is not in scripts/registry.json${fix('add it to registry.marks in this PR, or use an existing mark')}`);
   for (const m of text.matchAll(/\b(?:emit|listen|once)\(\s*['"`](marxy:[a-z-]+)['"`]/g)) if (!events.has(m[1])) problems.push(`${r}: event "${m[1]}" is not in the registry${fix('add it to registry.events')}`);
@@ -82,3 +105,4 @@ for (const f of files) {
 }
 if (fail(problems)) process.exit(1);
 console.log(`registry ok (${files.length} files)`);
+}

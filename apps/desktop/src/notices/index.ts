@@ -30,6 +30,12 @@ export function ensureNoticesRegion(): HTMLElement {
 
 export function notify(input: NoticeInput): number {
   const region = ensureNoticesRegion();
+  // One line per kind and text: the same news again replaces the old line instead of stacking.
+  for (const [openId, el] of [...open]) {
+    if (el.dataset.noticeKind === input.kind && el.querySelector('.marxy-notice-text')?.textContent === input.text) {
+      dismissNotice(openId);
+    }
+  }
   const id = ++nextId;
   const line = document.createElement('div');
   line.className = 'marxy-notice';

@@ -2,7 +2,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { markInvisibles, shouldFlagInvisible } from './invisibles.ts';
+import { invisibleSegments, markInvisibles, shouldFlagInvisible } from './invisibles.ts';
 
 const prose = { inCode: false, sourceStart: 10 };
 const code = { inCode: true, sourceStart: 10 };
@@ -35,8 +35,24 @@ test('emoji ZWJ, Persian ZWNJ, LRM, RLM and NBSP in prose are not flagged', () =
   assert.equal(shouldFlagInvisible(0x200d, prose, emoji, 1), false);
 });
 
-test('BOM at document offset 0 is not flagged', () => {
-  assert.deepEqual(flagged('\ufeff', fileStart), [false]);
+test('a U+FEFF in a text node is flagged even at document offset 0 (the parser keeps the real BOM out)', () => {
+  assert.deepEqual(flagged('\ufeff', fileStart), [true]);
+});
+
+test('a ~125k-character run does not overflow the stack', () => {
+  const big = 'a'.repeat(125_000);
+  const segs = invisibleSegments(big, prose);
+  assert.equal(segs.length, 1);
+  assert.equal((segs[0] as { value: string }).value.length, 125_000);
+  const tags = '\u{e0041}'.repeat(60_000);
+  assert.equal(invisibleSegments(tags, prose).length, 1);
+});
+
+test('ZWJ inside emoji with variation selectors or skin-tone modifiers is not flagged', () => {
+  for (const seq of ['❤️\u200d🔥', '🏳️\u200d🌈', '👁️\u200d🗨️', '🧑🏽\u200d🤝\u200d🧑🏻']) {
+    assert.ok(flagged(seq).every((f) => !f), seq);
+  }
+  assert.ok(flagged('a\u200db')[1]);
 });
 
 test('NBSP in code is flagged', () => {

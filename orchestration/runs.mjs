@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { CODE_ROOT, notesPath, storyWorktree, newRunId } from './store.mjs';
 import { story, runEvent, boardEvent } from './machine.mjs';
 import { typeOf, slug } from './lib.mjs';
-import { OUTCOME, inferOutcome, isAuthOutcome, neverRan, producedWork } from './outcomes.mjs';
+import { OUTCOME, inferOutcome, isAuthOutcome, isMachineFault, neverRan, producedWork } from './outcomes.mjs';
 import { recordVerdict as fleetRecordVerdict, openPrFor } from './fleet.mjs';
 
 const template = name => readFileSync(`${CODE_ROOT}orchestration/prompts/${name}.md`, 'utf8');
@@ -201,17 +201,21 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   // A review or resolution that never reached its agent (the worktree could not be prepared, the CLI
   // could not log in, the worker died) has not tried anything, so it does not spend a try: three setup
   // failures used to park a story as "still conflicts after 3 resolution runs".
-  const refundedTry = neverRan(outcome);
+  let refundedTry = neverRan(outcome);
   if (run.role === 'review' || run.role === 'resolve') {
     const what = run.role === 'review' ? 'reviewer' : 'conflict resolution';
     const tries = run.role === 'review' ? 'reviewTries' : 'resolveTries';
-    if (run.role === 'review' && !neverRan(outcome)) {
+    // A worker that died after writing valid notes still has a verdict to recover; only a run that
+    // never reached its agent (setup/auth/not-started) has no notes worth reading.
+    if (run.role === 'review' && !isMachineFault(outcome)) {
       const recovered = recoverVerdict(key, recover);
       if (recovered) {
         lines.push(`${key}: recovered its ${recovered.verdict} verdict from its notes file (the run ended without calling fleet.mjs verdict) — ${recovered.message}`);
         // return/escalate already moved the story out of in_review and unset run through the same
         // fleet.mjs code a live verdict command uses; the default ending below would only be refused.
         if (recovered.verdict !== 'merge') return { events, lines, attention };
+        // A reviewer that reached a verdict spent its try, even if its worker then died.
+        refundedTry = false;
       }
     }
     events.push(story(key, {

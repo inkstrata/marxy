@@ -92,10 +92,23 @@ pub fn temp_path_for(target: &Path) -> PathBuf {
         .parent()
         .filter(|d| !d.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    dir.join(format!(
-        ".{name}.marxy-tmp-{}-{attempt}-{nanos}",
-        std::process::id()
-    ))
+    let suffix = format!(".marxy-tmp-{}-{attempt}-{nanos}", std::process::id());
+    // A file name is at most 255 bytes on the filesystems we save to. A long document name would
+    // push the staging name over that and fail the save, so the name portion is cut to fit.
+    let room = 255usize.saturating_sub(1 + suffix.len());
+    let name = truncate_on_char_boundary(name, room);
+    dir.join(format!(".{name}{suffix}"))
+}
+
+fn truncate_on_char_boundary(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
 }
 
 /// A symlinked document is saved *through* the link: the bytes of the file it points at are replaced,
@@ -488,6 +501,23 @@ mod tests {
                 "{name} changed on save"
             );
         }
+    }
+
+    #[test]
+    fn a_long_document_name_still_gets_a_staging_name_that_fits() {
+        // 250 ASCII bytes, and 3-byte characters so the cut has a boundary to respect.
+        for stem in ["a".repeat(247), "é".repeat(122), "日".repeat(82)] {
+            let name = format!("{stem}.md");
+            assert!(name.len() <= 255, "the document name itself is legal");
+            let staged = temp_path_for(Path::new("/some/dir").join(&name).as_path());
+            let staged_name = staged.file_name().unwrap().to_string_lossy().into_owned();
+            assert!(staged_name.len() <= 255, "{} bytes", staged_name.len());
+            assert!(staged_name.starts_with('.') && staged_name.contains(".marxy-tmp-"));
+        }
+        let dir = scratch("long-name");
+        let target = dir.join(format!("{}.md", "a".repeat(247)));
+        write_atomic(&target, b"long").expect("save under a near-limit name");
+        assert_eq!(fs::read(&target).expect("read back"), b"long");
     }
 
     #[test]
