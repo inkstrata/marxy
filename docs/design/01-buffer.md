@@ -91,7 +91,7 @@ Latin-1 byte would point past the bytes it names and a splice there would land i
   while clean it reloads silently with position kept.
 - `untitled` buffers cannot be saved without a path from `shell.saveDialog` (ADR-0026).
 
-## Save (MARXY-49, `apps/desktop/src/shell/save.ts`)
+## Save (MARXY-49, `apps/desktop/src/save.ts`)
 
 ```ts
 export async function save(ctx: AppContext, opts?: { as?: boolean }): Promise<'saved' | 'unchanged' | 'cancelled' | 'failed'>
@@ -113,8 +113,11 @@ export async function save(ctx: AppContext, opts?: { as?: boolean }): Promise<'s
    new directory and moves the reading position entry to the new path.
 
 `Mod+S` in either mode calls `save(ctx)`; `Mod+Shift+S` calls `save(ctx, { as: true })`.
-There is no autosave. Closing or quitting with a dirty buffer is intercepted (Tauri
-`CloseRequested`, `api.prevent_close()` while the webview reports dirty) and shows a notice,
+`save` and the close guard live in `apps/desktop/src/save.ts` and `apps/desktop/src/close.ts`.
+They decide whether to write or to close; they do not implement the shell, so they are not under
+`apps/desktop/src/shell`. The close guard calls `shell.onCloseRequested` and `shell.confirmClose`
+(ADR-0038, landed with this story). There is no autosave. Closing or quitting with a dirty buffer
+is intercepted (Tauri `CloseRequested`, `api.prevent_close()` while the webview reports dirty) and shows a notice,
 not a modal: "README.md has changes that are not saved." [Save and close] [Close without
 saving]. A second close request while that notice is up closes without saving — the reader
 asked twice. Opening another document from the palette while dirty takes the same path. This
