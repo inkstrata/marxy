@@ -58,7 +58,7 @@ function b64(bytes) {
   return Buffer.from(bytes).toString('base64');
 }
 
-test('9 MB Source scroll: no frame longer than 100 ms (envelope tier)', async () => {
+test('9 MB Source scroll: max frame time is recorded', async () => {
   const line = `${'x'.repeat(180)}\n`;
   const target = 9 * 1024 * 1024;
   let body = '';
@@ -74,8 +74,9 @@ test('9 MB Source scroll: no frame longer than 100 ms (envelope tier)', async ()
       { bytesB64 },
     );
     assert.ok(stats.lines > 1000, 'expected a large document');
-    assert.equal(stats.over100, 0, `max frame ${stats.max} ms; frames over 100ms: ${stats.over100}`);
-    assert.ok(stats.max <= 100, `max frame ${stats.max} ms`);
+    // Recorded, not a CI failure (ADR-0032). What does fail is a measurement that did not happen.
+    assert.ok(Number.isFinite(stats.max) && stats.max > 0, `9 MB Source scroll max frame was not measured (${stats.max})`);
+    console.log(`9 MB Source scroll max frame ${stats.max.toFixed(1)} ms; frames over 100 ms: ${stats.over100} (recorded, ADR-0032)`);
   } finally {
     await browser.close();
   }
