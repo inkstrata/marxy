@@ -145,3 +145,21 @@ test('a file read yesterday outranks one read months ago on a near-equal match',
   const hits = paletteResults('notes', [old, recent], emptySession('/r'));
   assert.deepEqual(hits.map((hit) => hit.entry.path), ['/r/b.md', '/r/a.md']);
 });
+
+test('a decomposed (NFD) file name matches a composed (NFC) query and the reverse', () => {
+  const entry = (title: string): IndexEntry => ({
+    path: `/repo/${title}.md`,
+    root: '/repo',
+    title,
+    headings: [],
+    mtimeMs: 1,
+    size: 1,
+    kind: 'markdown',
+  });
+  const nfd = 'café notes'.normalize('NFD');
+  const nfc = 'café notes'.normalize('NFC');
+  assert.notEqual(nfd, nfc);
+  const session = emptySession('/repo');
+  assert.equal(paletteResults(nfc, [entry(nfd)], session).length, 1);
+  assert.equal(paletteResults(nfd, [entry(nfc)], session).length, 1);
+});

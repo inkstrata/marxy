@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { historyDirection, type PaletteKey } from './keys.ts';
+import { historyDirection, historyKeyBelongsToEditor, type PaletteKey } from './keys.ts';
 import { emptySession, goBack, goForward, recordOpen } from './session.ts';
 
 function key(partial: Partial<PaletteKey> & Pick<PaletteKey, 'key'>): PaletteKey {
@@ -48,4 +48,17 @@ test('those keys actually walk back and forward', () => {
   const fwd = goForward(back!.session);
   assert.ok(fwd !== undefined);
   assert.equal(fwd!.path, '/three.md');
+});
+
+test('history keys yield to an editor, a claimed event, or a visible Source view', () => {
+  const on = (target: unknown, defaultPrevented = false, sourceVisible = false) =>
+    historyKeyBelongsToEditor({ target, defaultPrevented }, sourceVisible);
+  assert.equal(on({ tagName: 'DIV' }), false);
+  assert.equal(on({ tagName: 'INPUT' }), true);
+  assert.equal(on({ tagName: 'TEXTAREA' }), true);
+  assert.equal(on({ tagName: 'DIV', isContentEditable: true }), true);
+  assert.equal(on({ tagName: 'DIV', closest: (s: string) => (s.includes('.cm-content') ? {} : null) }), true);
+  assert.equal(on({ tagName: 'BODY' }, true), true, 'already handled by someone else');
+  assert.equal(on({ tagName: 'BODY' }, false, true), true, 'Source is showing');
+  assert.equal(on(null), false);
 });

@@ -31,3 +31,24 @@ export function historyDirection(event: PaletteKey): HistoryDirection | undefine
   }
   return undefined;
 }
+
+/**
+ * True when a history key belongs to something else: a handler that already claimed the event,
+ * or a text field / editor, where Option+Arrow moves by word and Cmd+[ / ] indent. History travel
+ * would otherwise swap the document away from under unsaved Source edits.
+ */
+export function historyKeyBelongsToEditor(
+  event: { readonly defaultPrevented?: boolean; readonly target?: unknown },
+  sourceVisible: boolean,
+): boolean {
+  if (event.defaultPrevented === true || sourceVisible) return true;
+  const target = event.target as
+    | { tagName?: string; isContentEditable?: boolean; closest?: (s: string) => unknown }
+    | null
+    | undefined;
+  if (target === null || target === undefined || typeof target !== 'object') return false;
+  const tag = typeof target.tagName === 'string' ? target.tagName.toUpperCase() : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (target.isContentEditable === true) return true;
+  return typeof target.closest === 'function' && target.closest('.cm-content, .cm-editor') != null;
+}

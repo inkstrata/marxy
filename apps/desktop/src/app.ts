@@ -53,6 +53,9 @@ export type AppShell = Pick<
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
+  /** Tauri shell only: read without arming the stale-write guard (MARXY-337). */
+  peekFile?(path: string): Promise<Uint8Array>;
+  recordRead?(path: string, bytes: Uint8Array): void;
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
@@ -541,7 +544,7 @@ function hasLocalEdits(diskBytes: Uint8Array): boolean {
 async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await shell.readFile(path);
+      return await (shell.peekFile ? shell.peekFile(path) : shell.readFile(path));
     } catch {
       if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -556,6 +559,7 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   // A held palette jump names a byte offset in the old bytes; the reading position below is the
   // one that was mapped through the edit.
   releaseAnchor();
+  shell.recordRead?.(openPath, bytes);
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(openPath, bytes);
   sourceEditor?.replaceBuffer(documentBuffer);

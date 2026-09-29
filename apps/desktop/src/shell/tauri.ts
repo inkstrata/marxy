@@ -49,6 +49,13 @@ export const shell: Pick<
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
+  /**
+   * Reads without arming the stale-write guard. The live-reload watcher looks at disk to decide
+   * whether to follow it; that look must not count as the app having seen (adopted) the change.
+   */
+  peekFile(path: string): Promise<Uint8Array>;
+  /** Record `bytes` as what the app now holds for `path`, once it has actually adopted them. */
+  recordRead(path: string, bytes: Uint8Array): void;
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
@@ -60,6 +67,10 @@ export const shell: Pick<
     const bytes = await readBytes(path);
     lastRead.set(path, bytes.slice());
     return bytes;
+  },
+  peekFile: (path) => readBytes(path),
+  recordRead: (path, bytes) => {
+    lastRead.set(path, bytes.slice());
   },
   /**
    * Writes exactly these bytes, staged beside the destination and renamed over it; never in place.

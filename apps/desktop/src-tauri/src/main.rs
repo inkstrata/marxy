@@ -68,15 +68,27 @@ fn clipboard_write(
     html: Option<String>,
 ) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard()
-        .write_text(text)
-        .map_err(|e| e.to_string())?;
-    if let Some(html) = html {
-        app.clipboard()
-            .write_html(html, None)
-            .map_err(|e| e.to_string())?;
+    match clipboard_payload(text, html) {
+        ClipboardPayload::Text(text) => app.clipboard().write_text(text),
+        // One write carrying both flavours: arboard's macOS `html()` clears the pasteboard first, so
+        // a `write_text` followed by `write_html(_, None)` left only HTML and no plain text.
+        ClipboardPayload::Html { html, alt } => app.clipboard().write_html(html, Some(alt)),
     }
-    Ok(())
+    .map_err(|e| e.to_string())
+}
+
+/// What one `clipboard_write` puts on the pasteboard, decided apart from the real clipboard.
+#[derive(Debug, PartialEq, Eq)]
+enum ClipboardPayload {
+    Text(String),
+    Html { html: String, alt: String },
+}
+
+fn clipboard_payload(text: String, html: Option<String>) -> ClipboardPayload {
+    match html {
+        Some(html) => ClipboardPayload::Html { html, alt: text },
+        None => ClipboardPayload::Text(text),
+    }
 }
 
 /// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
@@ -694,9 +706,10 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::ClipboardPayload;
     use super::{
-        absolute_document_path, enqueue_open_files, navigation_allowed, percent_decode,
-        resolve_watch_key, take_pending_opens, OPENS_LISTENER_READY,
+        absolute_document_path, clipboard_payload, enqueue_open_files, navigation_allowed,
+        percent_decode, resolve_watch_key, take_pending_opens, OPENS_LISTENER_READY,
     };
     use std::collections::HashMap;
     use std::sync::atomic::Ordering;
@@ -705,6 +718,21 @@ mod tests {
         OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
         let _ = take_pending_opens();
         OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn copy_with_html_is_one_write_that_keeps_the_plain_text() {
+        assert_eq!(
+            clipboard_payload("plain".into(), Some("<b>plain</b>".into())),
+            ClipboardPayload::Html {
+                html: "<b>plain</b>".into(),
+                alt: "plain".into()
+            }
+        );
+        assert_eq!(
+            clipboard_payload("plain".into(), None),
+            ClipboardPayload::Text("plain".into())
+        );
     }
 
     #[test]
