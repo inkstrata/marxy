@@ -84,7 +84,7 @@ export function collectTokens(p: HTMLElement): Token[] {
       if (last !== undefined && last.node === node && last.end === i) segments[segments.length - 1] = { node, start: last.start, end: i + 1 };
       else segments.push({ node, start: i, end: i + 1 });
       text += ch;
-      if (!verbatim && DASHES.has(ch)) dash = { kind: 'dash', node, offset: i + 1 };
+      if (!verbatim && DASHES.has(ch) && /[\p{L}\p{N}]$/u.test(text.slice(0, -1))) dash = { kind: 'dash', node, offset: i + 1 };
     }
   }
   close();

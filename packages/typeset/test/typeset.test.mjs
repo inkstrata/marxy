@@ -156,7 +156,7 @@ test('the kill switch stops in-flight background typesetting', async () => {
     return { setBeforeKill, setAfter, pendingLeft: pending.length };
   });
   assert.ok(result.setBeforeKill > 0, 'viewport pass should have set some paragraphs');
-  assert.equal(result.setAfter, result.setBeforeKill, 'no further DOM mutation after the kill switch');
+  assert.equal(result.setAfter, 0, 'the kill switch reverts what was set and sets nothing further');
   await page.close();
 });
 
@@ -301,5 +301,39 @@ test('relayout reverts hang spans so no state accumulates', async () => {
   assert.equal(second, first);
   await page.evaluate(() => window.controller.destroy());
   assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-hang, .marxy-hyphen, .marxy-lb').length), 0);
+  await page.close();
+});
+
+test('a dash that opens a word offers no break; one inside a word still does', async () => {
+  const page = await harness.open('<p data-marxy-s="1" id="p1">run with --flag or -5 degrees, "—quoted" and x -y ok well-known a–b</p>');
+  const kinds = await page.evaluate(async () => {
+    const { collectTokens } = await import('/src/runs.ts');
+    return collectTokens(document.getElementById('p1')).map((t) => (t.kind === 'piece' ? `P:${t.text}` : t.kind));
+  });
+  const joined = kinds.join('|');
+  assert.ok(!/P:-\|dash|P:--\|dash|P:"—\|dash|P:—\|dash/.test(joined), joined);
+  assert.equal(kinds.filter((k) => k === 'dash').length, 2, joined); // well-known, a–b
+  await page.close();
+});
+
+test('flipping the kill switch mid-run reverts the paragraphs already set', async () => {
+  const para = (i) => `<p data-marxy-s="${i}">${'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. '.repeat(3)}</p>`;
+  const page = await harness.open(Array.from({ length: 60 }, (_, i) => para(i + 1)).join(''), { height: 400 });
+  const r = await page.evaluate(async () => {
+    const jobs = [];
+    const doc = document.getElementById('doc');
+    const c = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler: { schedule: (w) => jobs.push(w) },
+    });
+    await c.ready;
+    jobs.shift()(() => 1e9);
+    const before = doc.querySelectorAll('.marxy-set').length;
+    doc.style.setProperty('--marxy-typeset', 'none');
+    let guard = 0;
+    while (jobs.length && guard++ < 100) jobs.shift()(() => 1e9);
+    return { before, after: doc.querySelectorAll('.marxy-set').length, lb: doc.querySelectorAll('.marxy-lb').length };
+  });
+  assert.ok(r.before > 0, JSON.stringify(r));
+  assert.deepEqual([r.after, r.lb], [0, 0], JSON.stringify(r));
   await page.close();
 });

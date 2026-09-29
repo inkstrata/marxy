@@ -130,8 +130,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   /** Stops background work when the theme flips the kill switch without relayout/destroy. */
   const abortIfKilled = (): boolean => {
     if (!killed()) return false;
-    observer?.disconnect();
-    queue = [];
+    restoreAll();
     resolveDone();
     return true;
   };
