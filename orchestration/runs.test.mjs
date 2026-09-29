@@ -1,7 +1,7 @@
 // What a finished run means for its story (ADR-0034). Every outcome lands somewhere with an exit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { finishRun, fingerprint, lastText, implementRole, claimEvents, promptFor, storyText, buildSpec } from './runs.mjs';
+import { finishRun, fingerprint, lastText, implementRole, claimEvents, promptFor, storyText, buildSpec, parseReviewNotes, recoverVerdict } from './runs.mjs';
 import { fold, timing } from './machine.mjs';
 
 const t = timing({});
@@ -92,6 +92,89 @@ test('review and resolve runs release the story without moving it; the planner r
   assert.equal(review.events[1].to, undefined);
   const plan = finishRun({ id: 'p', run: { ...run, key: null, role: 'plan' }, obs: { exit: { outcome: 'exited' } }, t, now: NOW });
   assert.deepEqual(plan.events[1].set.planner, { run: null, lastEnded: NOW, lastOutcome: 'exited' });
+});
+
+// MARXY-316: a review run that never called `fleet.mjs verdict` recovers the verdict from the notes
+// file the reviewer prompt now writes first — but only when it names the PR's current head.
+const HEAD_A = 'a'.repeat(40);
+const HEAD_B = 'b'.repeat(40);
+
+test('parseReviewNotes reads the verdict, head and body, and rejects anything short of the full shape', () => {
+  assert.deepEqual(parseReviewNotes(`verdict: return\nhead: ${HEAD_A}\n\n1. fix it\n2. and this\n`), {
+    verdict: 'return', head: HEAD_A, body: '1. fix it\n2. and this',
+  });
+  assert.deepEqual(parseReviewNotes(`VERDICT: MERGE\nHEAD: ${HEAD_A.toUpperCase()}\n\nlgtm\n`), { verdict: 'merge', head: HEAD_A, body: 'lgtm' });
+  assert.equal(parseReviewNotes(null), null, 'no file');
+  assert.equal(parseReviewNotes(''), null, 'empty file');
+  assert.equal(parseReviewNotes('just some prose\n'), null, 'no verdict line');
+  assert.equal(parseReviewNotes(`verdict: maybe\nhead: ${HEAD_A}\n\nnotes\n`), null, 'not one of the three verdicts');
+  assert.equal(parseReviewNotes(`verdict: return\nhead: not-a-sha\n\nnotes\n`), null, 'head is not 40 hex characters');
+  assert.equal(parseReviewNotes(`verdict: return\nhead: ${HEAD_A}\n\n   \n`), null, 'no notes body');
+});
+
+test('recoverVerdict records a verdict through the same function fleet.mjs verdict uses, only when the notes name the PR\'s current head', () => {
+  const calls = [];
+  const apply = (key, verdict, notes, pr) => { calls.push({ key, verdict, notes, pr }); return { ok: true, message: `${key}: ${verdict} recorded` }; };
+  const fresh = recoverVerdict('MARXY-1', {
+    readNotes: () => `verdict: return\nhead: ${HEAD_A}\n\n1. fix the off-by-one\n`,
+    findPr: () => ({ headRefOid: HEAD_A, mergeStateStatus: 'CLEAN' }),
+    apply,
+  });
+  assert.deepEqual(fresh, { verdict: 'return', message: 'MARXY-1: return recorded' });
+  assert.deepEqual(calls, [{ key: 'MARXY-1', verdict: 'return', notes: '1. fix the off-by-one', pr: { headRefOid: HEAD_A, mergeStateStatus: 'CLEAN' } }]);
+
+  const noApply = () => { throw new Error('must not record anything'); };
+  assert.equal(recoverVerdict('MARXY-1', { readNotes: () => null, apply: noApply }), null, 'no notes file: today\'s behaviour');
+  assert.equal(recoverVerdict('MARXY-1', { readNotes: () => 'not well-formed\n', apply: noApply }), null, 'malformed: today\'s behaviour');
+  assert.equal(recoverVerdict('MARXY-1', {
+    readNotes: () => `verdict: merge\nhead: ${HEAD_A}\n\nlgtm\n`,
+    findPr: () => ({ headRefOid: HEAD_B, mergeStateStatus: 'CLEAN' }),
+    apply: noApply,
+  }), null, 'the PR moved past the head the reviewer read: today\'s behaviour, never sign a newer head');
+  assert.equal(recoverVerdict('MARXY-1', {
+    readNotes: () => `verdict: merge\nhead: ${HEAD_A}\n\nlgtm\n`,
+    findPr: () => null,
+    apply: noApply,
+  }), null, 'no PR found: today\'s behaviour');
+});
+
+test('a review run ending without a verdict command recovers a return/escalate verdict and stops there', () => {
+  const calls = [];
+  const recover = {
+    readNotes: () => `verdict: return\nhead: ${HEAD_A}\n\n1. fix it\n`,
+    findPr: () => ({ headRefOid: HEAD_A, mergeStateStatus: 'CLEAN' }),
+    apply: (...a) => { calls.push(a); return { ok: true, message: 'MARXY-1: return recorded → todo' }; },
+  };
+  const out = finishRun({ id: 'r1', run: { ...run, role: 'review' }, rec: { status: 'in_review', run: 'r1' }, obs: { exit: { outcome: 'exited' } }, t, now: NOW, recover });
+  assert.equal(calls.length, 1, 'recorded through recover.apply exactly once');
+  // Only the run's own "ended" event: recording the verdict already moved the story and unset run
+  // through fleet.mjs's own code, so the default review-ended event (from: 'in_review') would be a
+  // no-op the fold refuses — recoverVerdict's caller must not push it.
+  assert.equal(out.events.length, 1);
+  assert.match(out.lines[0], /recovered its return verdict from its notes file/);
+});
+
+test('a recovered merge verdict still runs the normal review-ended bookkeeping, since signing does not move the story', () => {
+  const recover = {
+    readNotes: () => `verdict: merge\nhead: ${HEAD_A}\n\nlooks good\n`,
+    findPr: () => ({ headRefOid: HEAD_A, mergeStateStatus: 'CLEAN' }),
+    apply: () => ({ ok: true, message: `MARXY-1: approved and signed for ${HEAD_A.slice(0, 7)}` }),
+  };
+  const out = finishRun({ id: 'r1', run: { ...run, role: 'review' }, rec: { status: 'in_review', run: 'r1' }, obs: { exit: { outcome: 'exited' } }, t, now: NOW, recover });
+  assert.equal(out.events.length, 2);
+  assert.deepEqual(out.events[1].unset, ['run']);
+  assert.match(out.lines[0], /recovered its merge verdict/);
+  assert.match(out.lines[1], /reviewer ended \(exited\)/);
+});
+
+test('a review run that never reached its agent does not attempt verdict recovery (nothing to recover)', () => {
+  const noApply = () => { throw new Error('must not be called: the reviewer never ran'); };
+  const out = finishRun({
+    id: 'r1', run: { ...run, role: 'review' }, rec: { status: 'in_review', run: 'r1', reviewTries: 2 },
+    obs: { exit: { outcome: 'setup', why: 'worktree busy' } }, t, now: NOW,
+    recover: { readNotes: noApply, findPr: noApply, apply: noApply },
+  });
+  assert.match(out.lines[0], /try refunded/);
 });
 
 test('fingerprints ignore numbers and hashes, so a retry of the same failure matches', () => {
