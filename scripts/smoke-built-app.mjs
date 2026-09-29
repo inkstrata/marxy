@@ -262,9 +262,18 @@ export async function runBuiltAppSmoke(opts = {}) {
 
     await exec(
       sessionId,
-      `const box = document.querySelector('#doc input[type=checkbox]');
+      `window.__marxyPalette?.close();
+       const box = document.querySelector('#doc input[type=checkbox]');
        if (!box) throw new Error('no task checkbox in #doc');
        box.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));`,
+    );
+    // Save is explicit (MARXY-49): the toggle changes the buffer, Mod+S writes it through IPC.
+    await exec(
+      sessionId,
+      `const mac = navigator.platform.toUpperCase().includes('MAC');
+       document.body.dispatchEvent(new KeyboardEvent('keydown', {
+         key: 's', code: 'KeyS', metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true,
+       }));`,
     );
 
     const onDisk = await waitForFileBytes(docPath, expected, { opening: openBytes });
