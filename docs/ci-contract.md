@@ -183,7 +183,15 @@ must equal the `playwright` version pinned in `package.json` exactly, no caret.
 
 Timing numbers are recorded and printed, never failed on (ADR-0032). A check that fails for the
 machine it ran on is a coin flip with a changelog. Monitoring lives in
-`.github/workflows/nightly.yml` — today that is the aesthetics CLS repeat pass against `main`.
+`.github/workflows/nightly.yml` — today that is the aesthetics CLS repeat pass against `main`,
+and the release built-app smoke (`scripts/smoke-built-app.mjs` with `tauri-driver` and
+WebKitWebDriver on Ubuntu). Local repro when the Linux stack is installed:
+
+```bash
+pnpm --filter @marxy/desktop build:web
+cd apps/desktop/src-tauri && cargo build --release --features tauri/custom-protocol
+xvfb-run -a dbus-run-session -- env MARXY_SMOKE_BUILT_REQUIRED=1 node scripts/smoke-built-app.mjs
+```
 
 **Nothing retries silently.** No Playwright `retries`, no `|| true`, no `continue-on-error`. A
 flaky test is fixed or deleted, never re-run until green. A check wrapped in `|| echo` is a check

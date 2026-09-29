@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { reconcile, reviewStep, holdClass, primaryHold } from './cycle.mjs';
+import { reconcile, reviewStep, holdClass, primaryHold, isFreshStory } from './cycle.mjs';
+import { renderStatus } from './report.mjs';
 import { fold, timing } from './machine.mjs';
 import { snapshotFrom } from './github.mjs';
 import { models } from './lib.mjs';
@@ -395,4 +396,42 @@ test('a dry run never pushes and never records a push', () => {
   w.calls.jira.length = 0;
   w.run();
   assert.deepEqual(w.calls.jira, [['push']]);
+});
+
+test('drain starts no new story but finishes the rest: returned work, reviews and merges (MARXY-329)', () => {
+  const rows = [row('MARXY-1', 'a'), row('MARXY-2', 'b'), row('MARXY-3', 'c'), row('MARXY-4', 'd'), row('MARXY-5', 'e')];
+  const stories = {
+    'MARXY-1': { status: 'todo' },
+    'MARXY-2': { status: 'todo', attempts: 1, returned: { at: minutesAgo(5), head: HEAD, why: 'changes requested' } },
+    'MARXY-3': { status: 'todo', attempts: 1 },
+    'MARXY-4': { status: 'in_review', pr: 4, attempts: 1 },
+    'MARXY-5': { status: 'in_review', pr: 5, attempts: 1 },
+  };
+  const facts = { 'MARXY-5': { approval: approved } };
+  const w = world({ rows, stories, open: [pr(4, 'MARXY-4'), pr(5, 'MARXY-5')], facts });
+  const r = w.run({ drain: true });
+  assert.deepEqual(started(w.calls, 'implement').sort(), ['MARXY-2', 'MARXY-3'], 'returned and previously attempted stories are resumed');
+  assert.deepEqual(started(w.calls, 'review'), ['MARXY-4'], 'reviewers still start');
+  assert.equal(w.b().stories['MARXY-5'].status, 'done', 'approved PRs still merge');
+  assert.equal(w.b().stories['MARXY-1'].status, 'todo', 'the fresh story is not started');
+  assert.deepEqual(r.ready.drained, ['MARXY-1']);
+  assert.equal(r.ready.waits['MARXY-1'], 'drain: not starting new stories');
+  assert.ok(r.lines.includes('drain: not starting 1 new story (MARXY-1)'));
+  const status = renderStatus(r);
+  assert.match(status, /\*\*Draining:\*\*/);
+  assert.match(status, /MARXY-1 — drain: not starting new stories/);
+
+  const normal = world({ rows, stories, open: [pr(4, 'MARXY-4'), pr(5, 'MARXY-5')], facts });
+  assert.deepEqual(started(normal.calls, 'implement'), []);
+  normal.run();
+  assert.deepEqual(started(normal.calls, 'implement').sort(), ['MARXY-1', 'MARXY-2', 'MARXY-3'], 'without drain every ready story starts');
+  assert.doesNotMatch(renderStatus(normal.run()), /Draining/);
+});
+
+test('isFreshStory: only a story nothing was ever attempted on is new (MARXY-329)', () => {
+  assert.equal(isFreshStory(undefined), true);
+  assert.equal(isFreshStory({ status: 'todo' }), true);
+  assert.equal(isFreshStory({ status: 'todo', attempts: 0 }), true, 'a refunded attempt never really started');
+  assert.equal(isFreshStory({ status: 'todo', attempts: 1 }), false);
+  assert.equal(isFreshStory({ status: 'todo', attempts: 0, returned: { why: 'x' } }), false);
 });

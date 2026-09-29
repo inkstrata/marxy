@@ -12,7 +12,8 @@
 //                 auto-merge, merge, or wait — and a wait older than its limit is named under
 //                 "Needs you" instead of holding silently
 //   5. plan     — start the planner when it is due, off cooldown and not already running
-//   6. dispatch — start an implementor for every ready story
+//   6. dispatch — start an implementor for every ready story (under --drain, only those already
+//                 attempted: returned for changes, or back from a failed run — never a fresh one)
 //   7. mirror   — Jira follows the board (best effort, bounded; never blocks)
 //   8. report   — status.md, and only what changed to the loop log
 //
@@ -24,7 +25,9 @@
 // — and it is named under "Needs you" with the run's URL until a green run clears it. This is the
 // safety net for models.json `requireUpToDate: false` (the default): with strict up-to-date branch
 // protection off, a BEHIND-but-otherwise-green PR merges without a `gh pr update-branch` refresh.
-// usage: node orchestration/cycle.mjs [--no-merge] [--dry-run] [--low|--minimal|--high|--compute=NAME]
+// usage: node orchestration/cycle.mjs [--no-merge] [--drain] [--dry-run] [--low|--minimal|--high|--compute=NAME]
+//   --drain (or MARXY_DRAIN=1) winds the fleet down: no story that has never been attempted is started;
+//   everything else — runs, review, resolve, returns, merges, the planner — carries on as usual.
 import { existsSync, readFileSync, statSync, openSync, readSync, closeSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -54,6 +57,12 @@ import { writeReport } from './report.mjs';
 import { pushDue } from './mirror.mjs';
 import { defaultCanvasDir, gatherCanvasData, writeCanvases } from './canvases.mjs';
 import { BOARD_FILES, branchBoundary } from '../scripts/lib/own-row.mjs';
+
+/**
+ * Under drain, a story is new if nothing has ever been attempted on it: no attempt counted and never
+ * returned. A returned story, or one whose run failed, is work in flight and is still dispatched.
+ */
+export const isFreshStory = rec => !(rec?.attempts > 0) && !rec?.returned;
 
 /** A landed PR whose files add a plan delta is the planner's own output (MARXY-200). */
 export const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
@@ -270,7 +279,7 @@ export function liveIo({ m, dry = false }) {
  * One cycle against `io`. Returns the report it wrote. Every decision below is level-triggered: it
  * depends on the board and the world as they are now, never on having seen an earlier event.
  */
-export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
+export function reconcile({ io, m = models(), dry = false, noMerge = false, drain = false }) {
   const t = timing(m);
   const now = io.now();
   const nowIso = now.toISOString();
@@ -548,8 +557,15 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     const r = selectReady({
       all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
     });
+    if (drain) {
+      const fresh = r.ready.filter(x => isFreshStory(b.stories[x.key]));
+      for (const x of fresh) r.waits[x.key] = 'drain: not starting new stories';
+      r.ready = r.ready.filter(x => !fresh.includes(x));
+      r.drained = fresh.map(x => x.key);
+      if (fresh.length) say(`drain: not starting ${fresh.length} new stor${fresh.length === 1 ? 'y' : 'ies'} (${r.drained.join(', ')})`);
+    }
     for (const x of r.ready) spawns.push({ role: 'implement', key: x.key, rec: b.stories[x.key] ?? {}, row: plan.byKey.get(x.key) });
-    if (!r.ready.length) say(`nothing ready; ${Object.values(b.stories).filter(s => s.status === 'todo').length} todo — see status.md for each one's wait`);
+    if (!r.ready.length && !r.drained?.length) say(`nothing ready; ${Object.values(b.stories).filter(s => s.status === 'todo').length} todo — see status.md for each one's wait`);
     readyReport = r;
   });
   else if (plan) {
@@ -623,7 +639,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
 
   // 8. Report.
   b = io.board();
-  return io.report({ at: nowIso, compute: m.compute, models: m, t, board: b, plan, lines, attention, ready: readyReport, worktrees, dry });
+  return io.report({ at: nowIso, compute: m.compute, models: m, t, board: b, plan, lines, attention, ready: readyReport, worktrees, dry, drain });
 }
 
 function runCycle(argv = process.argv.slice(2)) {
@@ -639,7 +655,8 @@ function runCycle(argv = process.argv.slice(2)) {
     process.env.MARXY_COMPUTE = m.compute;
     const dry = argv.includes('--dry-run');
     try {
-      reconcile({ io: liveIo({ m, dry }), m, dry, noMerge: argv.includes('--no-merge') });
+      const drain = argv.includes('--drain') || process.env.MARXY_DRAIN === '1';
+      reconcile({ io: liveIo({ m, dry }), m, dry, noMerge: argv.includes('--no-merge'), drain });
     } catch (e) {
       // Even a cycle that cannot finish leaves a status that says so, never a stale one that looks fine.
       const why = String(e?.stack ?? e).split('\n').slice(0, 3).join(' | ');
