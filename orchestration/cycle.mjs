@@ -563,19 +563,37 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false, drai
   for (const { key, pr, status } of flagMain) say(`merged on main but ${status}: ${key} (#${pr})`);
   b = io.board();
 
+  // Under drain, new stories are taken out before readiness is decided, not after (MARXY-331): left in,
+  // a held story is picked first and its paths (or a product reservation) keep returned work waiting on
+  // a story that never starts. Each new story keeps its real wait; one that would have started, or waited
+  // only on other new stories, waits on drain.
+  const readiness = () => {
+    const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
+    const select = rows => selectReady({
+      all: rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
+    });
+    if (!drain) return select(plan.rows);
+    const isNew = st => (b.stories[st.Key]?.status ?? 'todo') === 'todo' && isFreshStory(b.stories[st.Key]);
+    const full = select(plan.rows);
+    const r = select(plan.rows.filter(st => !isNew(st)));
+    const held = new Set(full.ready.map(x => x.key).filter(k => isFreshStory(b.stories[k])));
+    const newKeys = new Set(plan.rows.filter(isNew).map(st => st.Key));
+    for (const key of newKeys) {
+      const why = full.waits[key];
+      // Waiting only on other new stories (their paths this cycle, or a product reservation) is waiting on drain.
+      const on = /^yields to product |, starting this cycle$/.test(why ?? '') ? why.match(/MARXY-\d+/g) ?? [] : [];
+      if (on.length && on.every(k => newKeys.has(k))) held.add(key);
+      else if (why) r.waits[key] = why;
+    }
+    for (const k of held) r.waits[k] = 'drain: not starting new stories';
+    r.drained = [...held];
+    return r;
+  };
+
   let readyReport = null;
   if (plan && !planBlocks) guard('dispatch', null, () => {
-    const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
-    const r = selectReady({
-      all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
-    });
-    if (drain) {
-      const fresh = r.ready.filter(x => isFreshStory(b.stories[x.key]));
-      for (const x of fresh) r.waits[x.key] = 'drain: not starting new stories';
-      r.ready = r.ready.filter(x => !fresh.includes(x));
-      r.drained = fresh.map(x => x.key);
-      if (fresh.length) say(`drain: not starting ${fresh.length} new stor${fresh.length === 1 ? 'y' : 'ies'} (${r.drained.join(', ')})`);
-    }
+    const r = readiness();
+    if (r.drained?.length) say(`drain: not starting ${r.drained.length} new stor${r.drained.length === 1 ? 'y' : 'ies'} (${r.drained.join(', ')})`);
     for (const x of r.ready) spawns.push({ role: 'implement', key: x.key, rec: b.stories[x.key] ?? {}, row: plan.byKey.get(x.key) });
     if (!r.ready.length && !r.drained?.length) say(`nothing ready; ${Object.values(b.stories).filter(s => s.status === 'todo').length} todo — see status.md for each one's wait`);
     readyReport = r;
@@ -584,15 +602,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false, drai
     say('dispatch waits for the planner (never planned, or an escalation it has not read)');
     // Still say what would be ready and why the rest wait, so status.md does not read "Ready (0)"
     // beside a column of todo while the fleet is only waiting on the planner.
-    guard('readiness', null, () => {
-      const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
-      readyReport = {
-        ...selectReady({
-          all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
-        }),
-        held: true,
-      };
-    });
+    guard('readiness', null, () => { readyReport = { ...readiness(), held: true }; });
   }
   // Worktrees with work in them that nothing owns are named, so they are neither lost nor silently holding.
   for (const w of worktrees) {
@@ -601,6 +611,12 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false, drai
     if (!(w.dirty || w.ahead) || ['in_progress', 'in_review', 'done', 'blocked', 'escalate'].includes(rec?.status)) continue;
     const idle = w.lastActivityMs ? Math.round((nowMs - w.lastActivityMs) / 3_600_000) : null;
     if (idle != null && idle * 60 <= t.activeWorktreeMinutes) continue;
+    // A returned PR the fleet will not redo (no row, or no-dispatch) needs a fix pushed to it; the PR is
+    // already open, so "open its PR" is the wrong advice (MARXY-331).
+    if (rec?.status === 'todo' && rec.returned && rec.pr && !dispatchable(plan?.byKey.get(w.key))) {
+      need(w.key, `PR #${rec.pr} was returned (${String(rec.returned.why ?? '').split('\n')[0].slice(0, 120)}) and the fleet will not redo it (${plan?.byKey.has(w.key) ? 'its row is not dispatched' : 'it has no board row'}): push a fix to its branch from ${w.path} (the cycle adopts the new head), or close the PR`, { quiet: true });
+      continue;
+    }
     need(w.key, `${w.path} has ${w.ahead ? `${w.ahead} commit(s) and ` : ''}${w.dirty ? 'uncommitted work' : 'no uncommitted work'}${idle != null ? `, idle ${idle} h` : ''}, and nothing owns it: open its PR, \`node orchestration/fleet.mjs claim ${w.key}\`, or remove the worktree`, { quiet: true });
   }
 
