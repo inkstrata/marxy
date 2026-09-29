@@ -1,8 +1,9 @@
 // copy-section: markdown source for a heading section or the whole document (ADR-0004, MARXY-42).
-import type { Document } from '../contracts/ast.ts';
+import type { Document, Heading } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { renderDocumentSafeHtml } from '../render/pipeline.ts';
+import { sectionRange } from '../sourcemap/section.ts';
 
 function isWholeDocument(input: Omit<OperationInput, 'text'>, doc: Document): boolean {
   return (
@@ -116,6 +117,12 @@ export const copySection: Operation = {
     return isWholeDocument(input, input.document);
   },
   run(input: OperationInput): OperationResult {
+    if (input.node?.type === 'heading') {
+      const section = sectionRange(input.document, input.node as Heading);
+      if (section.start !== input.range.start || section.end !== input.range.end) {
+        return { replacement: input.text };
+      }
+    }
     const clipText = input.text.replace(/\s+$/, '') + '\n';
     const html = stripRendererProvenance(renderDocumentSafeHtml(sectionOf(input)).html);
     return {
