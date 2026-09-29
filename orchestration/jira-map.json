@@ -182,6 +182,7 @@
     "MARXY-NEW-gate-deps-cargo-table-form": "MARXY-308",
     "MARXY-NEW-gate-bundle-dynamic-import-and-prebuild-skip": "MARXY-309",
     "MARXY-NEW-gate-cards-files-section-end-of-card-regex": "MARXY-311",
-    "MARXY-NEW-orchestration-done-stale-status-on-rerun": "MARXY-312"
+    "MARXY-NEW-orchestration-done-stale-status-on-rerun": "MARXY-312",
+    "MARXY-NEW-palette-history": "MARXY-262"
   }
 }

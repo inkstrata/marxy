@@ -20,6 +20,7 @@ verify: [pnpm precheck, pnpm done MARXY-49]
 - Tests: `apps/desktop/test/save.test.mjs` (app harness), Rust tests for the error mapping, `pnpm gate:fidelity` extended with save-after-operation.
 - `apps/desktop/src/app.ts` — wire save and close into the open document. `commitEdit` does not write. The watch echo after save uses `savedHash`. Title refresh goes through `title.ts`.
 - `apps/desktop/src/commands/edits.ts` — stop the operation path from calling `writeFileAtomic`.
+- `apps/desktop/src/main.ts` — close goes through the close handler, not a write on the way out.
 - `apps/desktop/test/operations-edit.test.mjs` — the harness toggle records no write until `Mod+S`.
 - `apps/desktop/src-tauri/capabilities/default.json` — the dialog and write permissions save needs.
 - `packages/shell-api/src/index.ts` — `onCloseRequested(cb: () => void): void` and `confirmClose(): Promise<void>`, including the compile-time stub. ADR-0041, on this branch, is the record. Do not mark a second ADR.

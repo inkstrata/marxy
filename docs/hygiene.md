@@ -127,6 +127,10 @@ the growth was one step — `gate:aesthetics` at 356 s — and it broke down as 
   review introduced, so it is not a gate on a pull request; it is monitoring. It now runs in
   `.github/workflows/nightly.yml` as `gate-aesthetics.mjs --repeat 3`, against `main`, once a day.
   Nothing implies `--repeat` any longer — an omitted flag means zero passes on CI as locally.
+- **Release IPC and styles.** `scripts/smoke-built-app.mjs` (MARXY-254) runs in the same workflow's
+  `built-app-smoke` job: a release `marxy` binary, `tauri-driver`, and WebKitWebDriver on Ubuntu.
+  It opens a copy of `12-crlf-and-bom.md`, toggles a task, compares bytes on disk, and checks that
+  the palette's runtime stylesheet applied. Monitoring only — not on the pull-request path.
 - **The rest was serial.** The 228 remaining renders each opened a page, rendered and closed, one
   at a time, at 16% CPU. Nothing in the checks is wall-clock — CLS snapshots are taken after
   `document.fonts.ready` and rAF pairs, rag and grid read geometry, screenshots rasterise

@@ -11,6 +11,7 @@
 #   CYCLE_TIMEOUT=900 ./orchestration/loop.sh start # stop a cycle that runs longer (default 1800 s)
 #   ONCE=1 ./orchestration/loop.sh                  # a single cycle, for cron
 #   ./orchestration/loop.sh start --no-merge        # decide everything, merge nothing
+#   ./orchestration/loop.sh start --drain           # start no new story; finish everything in flight
 #   ./orchestration/loop.sh start --high|--low|--minimal   # compute profile (see models.json)
 #
 # Each cycle runs the code on origin/main, from a runner worktree the fleet owns

@@ -44,4 +44,5 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0037](0037-one-document-store.md) | One document store: the open document has one owner, and changes are transitions | proposed (MARXY-248) |
 | [0038](0038-window-controls.md) | Window controls hide at rest through the shell | accepted (MARXY-268) |
 | [0039](0039-shell-stub-dedup.md) | One shared implementation for shell-api compile-time stub shells | accepted (MARXY-285) |
+| [0040](0040-land-without-up-to-date.md) | Land green pull requests without bringing them up to date first; a main-red guard replaces strict branch protection | accepted by the repo owner's instruction on 2026-09-28 (MARXY-314) |
 | [0041](0041-shell-close-confirmation.md) | The frozen `Shell` gains `onCloseRequested` and `confirmClose` | accepted 2026-09-28 (MARXY-49) |
