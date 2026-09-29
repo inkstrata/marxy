@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { evaluate, mergeArgs, chooseUpdate, worktreeLive } from './merge-bar.mjs';
+import { evaluate, mergeArgs, chooseUpdate, worktreeLive, verifyRevert } from './merge-bar.mjs';
 import { fileAllowed, allowedFor } from './review.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -429,4 +430,85 @@ test('the repo\'s real CODEOWNERS holds the files that decide a merge', () => {
     assert.equal(d.action, 'hold', file);
   }
   assert.equal(evaluate(clean({ codeowners: real, files: ['packages/core/src/parse.ts', 'CHANGELOG.md'] })).action, 'merge');
+});
+
+// ── revert pull requests (ADR-0043) ──
+
+test('an exact-inverse revert needs no signature, result file or story paths, and may land while main is red', () => {
+  const d = evaluate(clean({
+    approval: undefined, result: null, outside: ['src/a.txt'], files: ['src/a.txt', 'changelog.d/MARXY-7.md'],
+    revert: { ok: true, sha: 'c'.repeat(40), key: 'MARXY-7' },
+  }));
+  assert.equal(d.action, 'merge');
+  assert.equal(d.landsOnRedMain, true);
+});
+
+test('a revert that is not the exact inverse is held to the whole bar, and says why', () => {
+  const d = evaluate(clean({ approval: undefined, result: null, outside: ['src/a.txt'], revert: { ok: false, sha: 'c'.repeat(40), key: 'MARXY-7', why: 'the tree differs from a plain revert in src/b.txt' } }));
+  assert.equal(d.action, 'hold');
+  assert.equal(d.landsOnRedMain, false);
+  assert.deepEqual(d.reasons.filter(r => /inverse|outside|implementor result|reviewed/.test(r)).length, 4);
+  assert.match(d.reasons.join('|'), /not the exact inverse of ccccccc: the tree differs/);
+});
+
+test('an exact-inverse revert still waits on red or pending checks, CODEOWNERS and its changelog line', () => {
+  const inv = { ok: true, sha: 'c'.repeat(40), key: 'MARXY-7' };
+  assert.match(evaluate(clean({ revert: inv, approval: undefined, pr: { statusCheckRollup: [{ name: 'ci', conclusion: 'FAILURE' }] } })).reasons.join(), /red: ci/);
+  assert.equal(evaluate(clean({ revert: inv, approval: undefined, files: ['src/a.txt', 'changelog.d/MARXY-7.md'], pr: { state: 'OPEN', mergeable: 'MERGEABLE', reviewDecision: '', headRefOid: HEAD, statusCheckRollup: [{ name: 'ci', status: 'IN_PROGRESS' }] } })).action, 'auto-merge');
+  assert.match(evaluate(clean({ revert: inv, approval: undefined, files: ['src/a.txt'] })).reasons.join(), /no CHANGELOG entry/);
+  assert.match(evaluate(clean({ revert: inv, approval: undefined, files: ['src/a.txt', 'changelog.d/MARXY-7.md'], codeowners: '/src/ @owner\n' })).reasons.join(), /CODEOWNERS/);
+});
+
+const ENV = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t', GIT_CONFIG_GLOBAL: '/dev/null' };
+function revertRepo() {
+  const cwd = mkdtempSync(join(tmpdir(), 'marxy-verify-'));
+  const git = (...args) => {
+    const r = spawnSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', env: ENV });
+    return { ok: r.status === 0, out: (r.stdout ?? '').trim() };
+  };
+  const write = files => { for (const [f, t] of Object.entries(files)) { mkdirSync(join(cwd, f, '..'), { recursive: true }); writeFileSync(join(cwd, f), t); } };
+  const commit = (msg, files) => { write(files); git('add', '-A'); git('commit', '-q', '-m', msg); return git('rev-parse', 'HEAD').out; };
+  git('init', '-q', '-b', 'main');
+  commit('seed', { 'src/a.txt': 'one\ntwo\n', 'src/b.txt': 'b\n', 'docs/plan/jira-issues.csv': 'Key\n', 'orchestration/deps.json': '{}\n' });
+  const sha = commit('story', { 'src/a.txt': 'one\nTWO\n', 'changelog.d/MARXY-7.md': 'Two is loud (MARXY-7)\n', 'docs/plan/jira-issues.csv': 'Key\nMARXY-7\n' });
+  git('update-ref', 'refs/remotes/origin/main', sha);
+  /** A branch off main that reverts `sha` by hand, plus whatever `extra` writes on top. */
+  const revertBranch = (name, extra = {}) => {
+    git('checkout', '-q', '-b', name, sha);
+    git('revert', '--no-commit', sha);
+    git('checkout', 'HEAD', '--', 'docs/plan/jira-issues.csv');
+    write({ 'changelog.d/MARXY-7.md': 'Reverted: Two is loud (MARXY-7)\n', ...extra });
+    git('add', '-A');
+    git('commit', '-q', '-m', 'revert');
+    const head = git('rev-parse', 'HEAD').out;
+    git('checkout', '-q', 'main');
+    return head;
+  };
+  return { git: (args) => git(...args), sha, revertBranch };
+}
+
+test('verifyRevert: the inverse of the commit, with the fragment rewritten and the board rows kept, is exact', () => {
+  const r = revertRepo();
+  const head = r.revertBranch('ok');
+  assert.deepEqual(verifyRevert({ sha: r.sha, key: 'MARXY-7', head, git: r.git }), { ok: true });
+});
+
+test('verifyRevert: anything else in the tree is refused, whatever it is called', () => {
+  const r = revertRepo();
+  const extra = r.revertBranch('extra', { 'src/b.txt': 'sneaky\n' });
+  assert.match(verifyRevert({ sha: r.sha, key: 'MARXY-7', head: extra, git: r.git }).why, /differs from a plain revert in src\/b.txt/);
+  const partial = r.revertBranch('partial', { 'src/a.txt': 'one\nTWO\n' });
+  assert.match(verifyRevert({ sha: r.sha, key: 'MARXY-7', head: partial, git: r.git }).why, /src\/a.txt/);
+  const board = r.revertBranch('board', { 'orchestration/deps.json': '{"7":[]}\n' });
+  assert.match(verifyRevert({ sha: r.sha, key: 'MARXY-7', head: board, git: r.git }).why, /board files|differs/);
+  const frag = r.revertBranch('frag', { 'changelog.d/MARXY-7.md': 'line one\nline two (MARXY-7)\n' });
+  assert.match(verifyRevert({ sha: r.sha, key: 'MARXY-7', head: frag, git: r.git }).why, /not one line/);
+});
+
+test('verifyRevert: a different commit, or a head that is not a commit, is not the inverse of the named one', () => {
+  const r = revertRepo();
+  const head = r.revertBranch('ok2');
+  const seed = r.git(['rev-parse', 'HEAD~1']).out;
+  assert.equal(verifyRevert({ sha: seed, key: 'MARXY-7', head, git: r.git }).ok, false);
+  assert.equal(verifyRevert({ sha: r.sha, key: 'MARXY-7', head: 'nope', git: r.git }).ok, false);
 });
