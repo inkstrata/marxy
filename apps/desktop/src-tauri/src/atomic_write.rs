@@ -5,11 +5,47 @@
 //! `pnpm gate:fidelity` can compile it with a bare `rustc` and drive this exact code over the
 //! corpus, instead of checking a second implementation of it.
 
+use std::fmt;
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Refusal vs I/O failure for the shell boundary (MARXY-49); message is shown to the reader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WriteErrorKind {
+    Permission,
+    Io,
+}
+
+#[derive(Debug, Clone)]
+pub struct WriteError {
+    pub kind: WriteErrorKind,
+    pub message: String,
+}
+
+impl WriteError {
+    fn permission(message: impl Into<String>) -> Self {
+        Self {
+            kind: WriteErrorKind::Permission,
+            message: message.into(),
+        }
+    }
+
+    fn io(message: impl Into<String>) -> Self {
+        Self {
+            kind: WriteErrorKind::Io,
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for WriteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
 
 #[cfg(unix)]
 use std::os::unix::fs::{chown, MetadataExt};
@@ -25,7 +61,7 @@ static ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 /// that would quietly change something the reader did not ask to change — a read-only file, a file
 /// owned by someone else, a name with more than one hard link — is refused with a message rather
 /// than done silently.
-pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {
     let target = resolve_symlink(path)?;
     let dir = parent_directory(&target)?;
     let destination = refuse_surprising_destination(&target)?;
@@ -56,64 +92,82 @@ pub fn temp_path_for(target: &Path) -> PathBuf {
         .parent()
         .filter(|d| !d.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    dir.join(format!(
-        ".{name}.marxy-tmp-{}-{attempt}-{nanos}",
-        std::process::id()
-    ))
+    let suffix = format!(".marxy-tmp-{}-{attempt}-{nanos}", std::process::id());
+    // A file name is at most 255 bytes on the filesystems we save to. A long document name would
+    // push the staging name over that and fail the save, so the name portion is cut to fit.
+    let room = 255usize.saturating_sub(1 + suffix.len());
+    let name = truncate_on_char_boundary(name, room);
+    dir.join(format!(".{name}{suffix}"))
+}
+
+fn truncate_on_char_boundary(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
 }
 
 /// A symlinked document is saved *through* the link: the bytes of the file it points at are replaced,
 /// so the link survives instead of being quietly turned into a regular file.
-fn resolve_symlink(path: &Path) -> Result<PathBuf, String> {
+fn resolve_symlink(path: &Path) -> Result<PathBuf, WriteError> {
     match fs::symlink_metadata(path) {
         Ok(meta) if meta.file_type().is_symlink() => fs::canonicalize(path).map_err(|e| {
-            format!(
+            WriteError::io(format!(
                 "{}: is a symlink that does not resolve: {e}",
                 path.display()
-            )
+            ))
         }),
         _ => Ok(path.to_path_buf()),
     }
 }
 
-fn parent_directory(target: &Path) -> Result<PathBuf, String> {
+fn parent_directory(target: &Path) -> Result<PathBuf, WriteError> {
     match target.parent().filter(|d| !d.as_os_str().is_empty()) {
         Some(dir) => Ok(dir.to_path_buf()),
-        None => Err(format!(
+        None => Err(WriteError::io(format!(
             "{}: has no directory to stage a save in",
             target.display()
-        )),
+        ))),
     }
 }
 
 /// `Ok(None)` when the destination does not exist yet; `Err` when saving would change more than the
 /// bytes. Refusals are deliberate: a documented "no" is better than a surprise in someone's history.
-fn refuse_surprising_destination(target: &Path) -> Result<Option<Metadata>, String> {
+fn refuse_surprising_destination(target: &Path) -> Result<Option<Metadata>, WriteError> {
     let meta = match fs::metadata(target) {
         Ok(meta) => meta,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(format!("{}: cannot be inspected: {e}", target.display())),
+        Err(e) => {
+            return Err(WriteError::io(format!(
+                "{}: cannot be inspected: {e}",
+                target.display()
+            )))
+        }
     };
     if !meta.is_file() {
-        return Err(format!(
+        return Err(WriteError::permission(format!(
             "{}: is not a regular file; marxy saves documents only",
             target.display()
-        ));
+        )));
     }
     if meta.permissions().readonly() {
-        return Err(format!(
+        return Err(WriteError::permission(format!(
             "{}: is read-only; marxy will not overwrite it, because clearing that would change more \
              than the bytes",
             target.display()
-        ));
+        )));
     }
     #[cfg(unix)]
     if meta.nlink() > 1 {
-        return Err(format!(
+        return Err(WriteError::permission(format!(
             "{}: has {} hard links, and a rename would leave the other names on the old bytes",
             target.display(),
             meta.nlink()
-        ));
+        )));
     }
     Ok(Some(meta))
 }
@@ -124,7 +178,7 @@ fn stage(
     target: &Path,
     destination: Option<&Metadata>,
     bytes: &[u8],
-) -> Result<(), String> {
+) -> Result<(), WriteError> {
     // `create_new` so a temporary path planted by someone else is an error rather than a file we
     // follow, and so two concurrent saves cannot share a staging file.
     OpenOptions::new()
@@ -132,10 +186,10 @@ fn stage(
         .create_new(true)
         .open(tmp)
         .map_err(|e| {
-            format!(
+            WriteError::io(format!(
                 "{}: cannot stage a save beside the destination: {e}",
                 tmp.display()
-            )
+            ))
         })?;
     if destination.is_some() {
         // Cloning the destination onto the staging file carries its mode everywhere and, on macOS,
@@ -145,35 +199,35 @@ fn stage(
         // is wasted I/O for a document-sized file and the only way to get that metadata from `std`
         // on macOS without a crate.
         fs::copy(target, tmp).map_err(|e| {
-            format!(
+            WriteError::io(format!(
                 "{}: cannot carry the file's metadata onto the save: {e}",
                 target.display()
-            )
+            ))
         })?;
         #[cfg(target_os = "linux")]
-        linux_xattr::copy_from(target, tmp)?;
+        linux_xattr::copy_from(target, tmp).map_err(WriteError::io)?;
         refuse_ownership_change(target, tmp)?;
     }
     let mut file = OpenOptions::new()
         .write(true)
         .truncate(true)
         .open(tmp)
-        .map_err(|e| format!("{}: cannot be written: {e}", tmp.display()))?;
+        .map_err(|e| WriteError::io(format!("{}: cannot be written: {e}", tmp.display())))?;
     file.write_all(bytes)
-        .map_err(|e| format!("{}: cannot be written: {e}", tmp.display()))?;
+        .map_err(|e| WriteError::io(format!("{}: cannot be written: {e}", tmp.display())))?;
     // Durability before visibility: the bytes reach the disk before any name points at them, so the
     // rename can only publish a complete file.
     file.sync_all()
-        .map_err(|e| format!("{}: cannot be flushed to disk: {e}", tmp.display()))
+        .map_err(|e| WriteError::io(format!("{}: cannot be flushed to disk: {e}", tmp.display())))
 }
 
 /// Publishes the staged file. After this the destination is the new bytes; before it, the old ones.
-fn commit(tmp: &Path, target: &Path, dir: &Path) -> Result<(), String> {
+fn commit(tmp: &Path, target: &Path, dir: &Path) -> Result<(), WriteError> {
     fs::rename(tmp, target).map_err(|e| {
-        format!(
+        WriteError::io(format!(
             "{}: cannot be replaced with the saved file: {e}",
             target.display()
-        )
+        ))
     })?;
     sync_directory(dir);
     Ok(())
@@ -199,21 +253,23 @@ fn ownership_refuses(destination_uid: u32, staged_uid: u32) -> bool {
 /// when the process can set that group (a user may chown a file they own to a group they belong
 /// to); only if that restore fails, or the owning user would change, does the save refuse.
 #[cfg(unix)]
-fn refuse_ownership_change(target: &Path, tmp: &Path) -> Result<(), String> {
-    let destination = fs::metadata(target).map_err(|e| format!("{}: {e}", target.display()))?;
-    let staged = fs::metadata(tmp).map_err(|e| format!("{}: {e}", tmp.display()))?;
+fn refuse_ownership_change(target: &Path, tmp: &Path) -> Result<(), WriteError> {
+    let destination =
+        fs::metadata(target).map_err(|e| WriteError::io(format!("{}: {e}", target.display())))?;
+    let staged =
+        fs::metadata(tmp).map_err(|e| WriteError::io(format!("{}: {e}", tmp.display())))?;
     if ownership_refuses(destination.uid(), staged.uid()) {
-        return Err(format!(
+        return Err(WriteError::permission(format!(
             "{}: is owned by {} and marxy would save it as {}; refusing rather than changing \
              the owner",
             target.display(),
             destination.uid(),
             staged.uid()
-        ));
+        )));
     }
     if destination.gid() != staged.gid() {
         chown(tmp, None, Some(destination.gid())).map_err(|_| {
-            format!(
+            WriteError::permission(format!(
                 "{}: is owned by {}:{} and marxy would save it as {}:{}; refusing rather than \
                  changing the owner",
                 target.display(),
@@ -221,14 +277,14 @@ fn refuse_ownership_change(target: &Path, tmp: &Path) -> Result<(), String> {
                 destination.gid(),
                 staged.uid(),
                 staged.gid()
-            )
+            ))
         })?;
     }
     Ok(())
 }
 
 #[cfg(not(unix))]
-fn refuse_ownership_change(_target: &Path, _tmp: &Path) -> Result<(), String> {
+fn refuse_ownership_change(_target: &Path, _tmp: &Path) -> Result<(), WriteError> {
     Ok(())
 }
 
@@ -448,6 +504,23 @@ mod tests {
     }
 
     #[test]
+    fn a_long_document_name_still_gets_a_staging_name_that_fits() {
+        // 250 ASCII bytes, and 3-byte characters so the cut has a boundary to respect.
+        for stem in ["a".repeat(247), "é".repeat(122), "日".repeat(82)] {
+            let name = format!("{stem}.md");
+            assert!(name.len() <= 255, "the document name itself is legal");
+            let staged = temp_path_for(Path::new("/some/dir").join(&name).as_path());
+            let staged_name = staged.file_name().unwrap().to_string_lossy().into_owned();
+            assert!(staged_name.len() <= 255, "{} bytes", staged_name.len());
+            assert!(staged_name.starts_with('.') && staged_name.contains(".marxy-tmp-"));
+        }
+        let dir = scratch("long-name");
+        let target = dir.join(format!("{}.md", "a".repeat(247)));
+        write_atomic(&target, b"long").expect("save under a near-limit name");
+        assert_eq!(fs::read(&target).expect("read back"), b"long");
+    }
+
+    #[test]
     fn a_new_file_is_created() {
         let dir = scratch("new");
         let target = dir.join("fresh.md");
@@ -550,9 +623,9 @@ mod tests {
         fs::set_permissions(&target, fs::Permissions::from_mode(0o444)).expect("chmod");
         let refused = write_atomic(&target, b"new");
         fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).expect("chmod back");
-        assert!(refused
-            .expect_err("expected a refusal")
-            .contains("read-only"));
+        let err = refused.expect_err("expected a refusal");
+        assert_eq!(err.kind, WriteErrorKind::Permission);
+        assert!(err.message.contains("read-only"));
         assert_eq!(fs::read(&target).expect("read back"), b"old");
     }
 
@@ -599,9 +672,8 @@ mod tests {
         let dir = scratch("dangling");
         let link = dir.join("link.md");
         std::os::unix::fs::symlink(dir.join("missing.md"), &link).expect("symlink");
-        assert!(write_atomic(&link, b"new")
-            .expect_err("expected a refusal")
-            .contains("symlink"));
+        let err = write_atomic(&link, b"new").expect_err("expected a refusal");
+        assert!(err.message.contains("symlink"));
     }
 
     #[test]
@@ -612,9 +684,9 @@ mod tests {
         let other = dir.join("other.md");
         fs::write(&target, b"old").expect("seed");
         fs::hard_link(&target, &other).expect("hard link");
-        assert!(write_atomic(&target, b"new")
-            .expect_err("expected a refusal")
-            .contains("hard links"));
+        let err = write_atomic(&target, b"new").expect_err("expected a refusal");
+        assert_eq!(err.kind, WriteErrorKind::Permission);
+        assert!(err.message.contains("hard links"));
         assert_eq!(fs::read(&target).expect("read back"), b"old");
     }
 
@@ -623,9 +695,9 @@ mod tests {
         let dir = scratch("directory");
         let target = dir.join("sub");
         fs::create_dir(&target).expect("mkdir");
-        assert!(write_atomic(&target, b"new")
-            .expect_err("expected a refusal")
-            .contains("regular file"));
+        let err = write_atomic(&target, b"new").expect_err("expected a refusal");
+        assert_eq!(err.kind, WriteErrorKind::Permission);
+        assert!(err.message.contains("regular file"));
         assert_eq!(staged_files(&dir), Vec::<String>::new());
     }
 

@@ -42,10 +42,22 @@ export function resolveThemeDir(raw: string | null, configPath: string): string 
   return normalizePath(path);
 }
 
+/**
+ * The home directory a config file lives under, for expanding `~`. The config dir is one of
+ * `<home>/Library/Application Support/<id>` (macOS), `<home>/.config/<name>` or `<home>/.config`
+ * (XDG), or `<home>/AppData/Roaming/<id>` (Windows); anything else has no recoverable home.
+ */
 function inferHomeFromConfig(configPath: string): string {
   const configDir = dirname(configPath);
-  const name = configDir.split('/').pop() ?? '';
-  if (name === 'marxy' || name === '.config') return dirname(configDir);
+  const layouts = [
+    /^(.*)\/Library\/Application Support(?:\/[^/]+)?$/,
+    /^(.*)\/\.config(?:\/[^/]+)?$/,
+    /^(.*)\/AppData\/Roaming(?:\/[^/]+)?$/,
+  ];
+  for (const layout of layouts) {
+    const match = layout.exec(configDir);
+    if (match?.[1] !== undefined && match[1] !== '') return match[1];
+  }
   return '/';
 }
 

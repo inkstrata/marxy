@@ -23,9 +23,9 @@ verify: [pnpm precheck, pnpm done MARXY-49]
 - `apps/desktop/src/main.ts` — close goes through the close handler, not a write on the way out.
 - `apps/desktop/test/operations-edit.test.mjs` — the harness toggle records no write until `Mod+S`.
 - `apps/desktop/src-tauri/capabilities/default.json` — the dialog and write permissions save needs.
-- `packages/shell-api/src/index.ts` — `onCloseRequested(cb: () => void): void` and `confirmClose(): Promise<void>`, including the compile-time stub. ADR-0038, on this branch, is the record. Do not mark a second ADR.
-- `docs/adr/0038-shell-close-confirmation.md` — the ADR already on the branch. Land it with this story. Do not edit an accepted ADR on main; this file is not on main yet.
-- `docs/adr/README.md` — one index line for ADR-0038.
+- `packages/shell-api/src/index.ts` — `onCloseRequested(cb: () => void): void` and `confirmClose(): Promise<void>`, including the compile-time stub. ADR-0041, on this branch, is the record. Do not mark a second ADR.
+- `docs/adr/0041-shell-close-confirmation.md` — the ADR already on the branch. Land it with this story. Do not edit an accepted ADR on main; this file is not on main yet.
+- `docs/adr/README.md` — one index line for ADR-0041.
 - `scripts/registry.json` — event `marxy:close-requested`.
 - `packages/core/src/buffer/buffer.test.ts` — the fidelity-gate exemption also matches a diff that contains `apps/desktop/test/save.test.mjs`.
 
@@ -33,7 +33,7 @@ verify: [pnpm precheck, pnpm done MARXY-49]
 The worktree already has save, close, title, the Rust commands and `save.test.mjs`. Do not rewrite them. PR #278 is red on ubuntu gates because `main.rs` no longer imports `RunEvent` after the rebase. Restore that import and keep `commands::os::open_external` if the other branch added it. Drop this branch's edit of `docs/plan/jira-issues.csv`.
 
 1. Restore the `RunEvent` import. Leave the save and close implementation in place.
-2. Keep `onCloseRequested` and `confirmClose` on `Shell`, ADR-0038, and the `marxy:close-requested` registry event.
+2. Keep `onCloseRequested` and `confirmClose` on `Shell`, ADR-0041, and the `marxy:close-requested` registry event.
 
 ## Tests → expected
 | Check | Expect |

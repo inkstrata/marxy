@@ -59,6 +59,22 @@ export async function maybeThemeDocumentNotice(
   region.append(line);
 }
 
+/** A TOML basic string: `"`, control characters and (defensively) backslashes escaped. */
+export function tomlBasicString(value: string): string {
+  let out = '"';
+  for (const ch of value) {
+    const code = ch.codePointAt(0)!;
+    if (ch === '"') out += '\\"';
+    else if (ch === '\\') out += '\\\\';
+    else if (ch === '\n') out += '\\n';
+    else if (ch === '\r') out += '\\r';
+    else if (ch === '\t') out += '\\t';
+    else if (code < 0x20 || code === 0x7f) out += `\\u${code.toString(16).padStart(4, '0')}`;
+    else out += ch;
+  }
+  return `${out}"`;
+}
+
 export async function writeThemeToConfig(shell: UserThemeShell, dir: string): Promise<void> {
   if (shell.configPaths === undefined) return;
   const { config } = await shell.configPaths();
@@ -68,7 +84,7 @@ export async function writeThemeToConfig(shell: UserThemeShell, dir: string): Pr
   } catch {
     bytes = new Uint8Array();
   }
-  const quoted = `"${dir.replace(/\\/g, '/')}"`;
+  const quoted = tomlBasicString(dir);
   const next = setTopLevelKey(bytes, 'theme', quoted);
   await shell.writeFileAtomic(config, next);
 }

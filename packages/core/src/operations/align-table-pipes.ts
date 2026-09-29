@@ -17,7 +17,8 @@ function splitLinesPreserve(text: string): { content: string; ending: string }[]
         ending = '\r\n';
         i += 2;
       } else {
-        ending = '\n';
+        // A lone CR is a row ending of its own; keep the byte the file has.
+        ending = text[i]!;
         i += 1;
       }
     }
@@ -54,8 +55,12 @@ function prefixOf(line: string, quotes: number): string {
   return line.slice(0, i);
 }
 
+// GFM trims spaces and tabs only; String.trim would also take NBSP, U+2003, U+FEFF and the like.
+const TRIM_END = /[ \t]+$/;
+const trimCell = (cell: string): string => cell.replace(/^[ \t]+|[ \t]+$/g, '');
+
 function splitCells(line: string): RowParts {
-  const trimmedEnd = line.trimEnd();
+  const trimmedEnd = line.replace(TRIM_END, '');
   const leading = trimmedEnd.startsWith('|');
   const trailing = trimmedEnd.endsWith('|') && !escapedAt(trimmedEnd, trimmedEnd.length - 1);
   const cells: string[] = [];
@@ -68,13 +73,13 @@ function splitCells(line: string): RowParts {
       continue;
     }
     if (line[i] === '|') {
-      cells.push(current.trim());
+      cells.push(trimCell(current));
       current = '';
       continue;
     }
     current += line[i];
   }
-  cells.push(current.trim());
+  cells.push(trimCell(current));
   let body = cells;
   if (leading && body.length > 0 && body[0] === '') body = body.slice(1);
   if (trailing && body.length > 0 && body[body.length - 1] === '') body = body.slice(0, -1);
@@ -140,6 +145,8 @@ export const alignTablePipes: Operation = {
     });
     const outLines = lines.map((line, li) => {
       const row = rows[li]!;
+      // A lone `|` has no cells; there is nothing to align, so its bytes stay as they are.
+      if (row.cells.length === 0) return line.content + line.ending;
       const builtCells = row.cells.map((cell, ci) => {
         const w = widths[ci] ?? 3;
         if (li === delimiter) return stretchAlignment(cell, w);

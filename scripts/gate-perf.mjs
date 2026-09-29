@@ -237,10 +237,12 @@ export function evaluate({ envClass, budgets, results, runnerClass }) {
   // give or take noise. Failing on which side of 1.0 that noise lands is a coin flip — it went red
   // on run 35501628443 at 0.99× (cold 1012 ms, warm 1025.5 ms) having passed twice on the same
   // binary — and it contradicts ADR-0032, under which no speed number fails the build. It is
-  // recorded like every other speed number now. The floor below still fails, because a cold start
-  // that is *much* faster than warm is not noise, it is a record that is not what it claims to be.
+  // recorded like every other speed number now. Below the floor the record is labelled INVALID, since
+  // a cold start *much* faster than warm is not holding a cold start; that too is printed, not failed.
   if (results.cold_warm_ratio != null && results.cold_warm_ratio < COLD_WARM_IMPLAUSIBLE) {
-    fails.push(`cold_warm_ratio is ${results.cold_warm_ratio}×; launch 1 was far faster than the warm median, so the record is not holding a cold start at all and the measurement is invalid`);
+    // An invalid measurement is a fact about the runner, not the diff: recorded and printed, never a CI
+    // failure (ADR-0032). PR #271, a typeset change, went red on a 0.51× ratio from a warm launch 1.
+    out.push(`cold/warm ratio: ${results.cold_warm_ratio}× — INVALID: launch 1 was far faster than the warm median, so the record is not holding a cold start at all; recorded, not a CI failure (ADR-0032)`);
   } else if (results.cold_warm_ratio != null && results.cold_warm_ratio < 1) {
     out.push(`cold/warm ratio: ${results.cold_warm_ratio}× — launch 1 was not process-cold (see cold_procedure); recorded, not a CI failure (ADR-0032)`);
   } else if (results.cold_warm_ratio != null) {
@@ -502,7 +504,8 @@ const SELFTEST_CASES = [
   { name: 'ci: a missing cold_envelope_ms is recorded, not failed', envClass: 'ci', results: result(), budgets: { ...SELFTEST_BUDGETS, ci: { ...SELFTEST_BUDGETS.ci, 'ubuntu-latest': { ...SELFTEST_BUDGETS.ci['ubuntu-latest'], cold_envelope_ms: null } } }, expect: 0, assertOut: o => o.some(l => /cold_envelope_ms is absent/.test(l)) },
   { name: 'ci: cold_warm_ratio below 1 is recorded, not failed', envClass: 'ci', results: result({ cold_warm_ratio: 0.94, cold_start_first_text_ms: 900, warm_start_first_text_ms: 1000 }), expect: 0, assertOut: o => o.some(l => /cold\/warm ratio: 0.94×/.test(l) && /not a CI failure/.test(l)) },
   { name: 'ci: cold_warm_ratio at 0.99 is recorded, not failed (run 35501628443)', envClass: 'ci', results: result({ cold_warm_ratio: 0.99, cold_start_first_text_ms: 1012, warm_start_first_text_ms: 1025.5 }), expect: 0, assertOut: o => o.some(l => /cold\/warm ratio: 0.99×/.test(l)) },
-  { name: 'ci: an implausible cold_warm_ratio still fails', envClass: 'ci', results: result({ cold_warm_ratio: 0.5, cold_start_first_text_ms: 500, warm_start_first_text_ms: 1000 }), expect: 1, assert: f => has(f, /far faster than the warm median/) },
+  { name: 'ci: an implausible cold_warm_ratio is recorded as invalid, not failed', envClass: 'ci', results: result({ cold_warm_ratio: 0.5, cold_start_first_text_ms: 500, warm_start_first_text_ms: 1000 }), expect: 0, assertOut: o => o.some(l => /0\.5× — INVALID/.test(l) && /not a CI failure/.test(l)) },
+  { name: 'ci: PR #271\'s 0.51× ratio is recorded, not failed', envClass: 'ci', results: result({ cold_warm_ratio: 0.51, cold_start_first_text_ms: 617, warm_start_first_text_ms: 1210 }), expect: 0, assertOut: o => o.some(l => /0\.51× — INVALID/.test(l)) },
   { name: 'ci: runs_n differs from the recorded sample size fails', envClass: 'ci', results: result({ runs_n: 8 }), expect: 1, assert: f => has(f, /runs_n is 8/) },
   { name: 'ci: baseline_ms equals max observed warm', envClass: 'ci', results: result(), expect: 0, assertOut: () => SELFTEST_BUDGETS.ci['ubuntu-latest'].baseline_ms === Math.max(...UBUNTU_OBS_WARM.map(o => o.ms)) },
   { name: 'reference: five certified cold launches with a recorded procedure exits 0', envClass: 'reference', results: referenceCold(), expect: 0 },
@@ -591,7 +594,7 @@ async function selftest() {
     'ci: under the cold envelope passes',
     'ci: above the cold envelope is recorded, not failed',
     'ci: cold_warm_ratio below 1 is recorded, not failed',
-    'ci: an implausible cold_warm_ratio still fails',
+    'ci: an implausible cold_warm_ratio is recorded as invalid, not failed',
   ];
   for (const name of MARXY_63_CASE_NAMES) {
     if (!SELFTEST_CASES.some(c => c.name === name)) { bad++; console.error(`selftest FAIL: the MARXY-63 case "${name}" is no longer in the suite`); }

@@ -2,9 +2,9 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const FIXTURES = join(ROOT, 'scripts/fixtures/protection');
 const PROTECTION_PATH = 'repos/{owner}/{repo}/branches/main/protection';
 const REPOSITORY_PATH = 'repos/{owner}/{repo}';

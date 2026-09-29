@@ -1,13 +1,13 @@
 // Module import rules (docs/design/00-architecture.md §Modules), enforced in one place for every
 // package and the app. usage: node scripts/check-boundaries.mjs
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, posix } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, walk, rel, stripComments, fail, fix } from './lib/repo.mjs';
+import { ROOT, walk, rel, fail, fix } from './lib/repo.mjs';
+import { importSpecs, dynamicImportSpecs as dynamicSpecs, rawInvokeCalls, isNodeBuiltin, stripCommentsAst } from './lib/imports.mjs';
 import { readFileSync as rf } from 'node:fs';
 const pending = JSON.parse(rf(join(ROOT, 'scripts/allowlists/dependencies.json'), 'utf8')).pendingRemoval || {};
 const isTest = f => /\.(test|spec)\.[mc]?[jt]sx?$/.test(f) || /\/testing\//.test(f) || /\/scripts\//.test(f) || /\/test\//.test(f);
-const NODE = /^node:|^(fs|path|os|child_process|crypto|url|util|stream|http|https|net|zlib|readline|worker_threads)$/;
 const rules = [
   { under: 'packages/core/src/', forbid: [[/@tauri-apps/, 'core never sees the shell (ADR-0020)'], [/^@marxy\/(typeset|theme)/, 'core does not depend on typeset or theme'], [/^apps\//, 'core does not import the app'], [/^(markdown-it|dompurify|remark|rehype|shiki$)/, 'forbidden dependency (docs/design/README.md)']], forbidNode: true, forbidDom: true },
   { under: 'packages/typeset/src/', forbid: [[/@tauri-apps/, 'typeset never sees the shell'], [/^@marxy\/theme/, 'typeset reads tokens through computed styles, not the theme package']], forbidNode: true },
@@ -16,32 +16,21 @@ const rules = [
   { under: 'apps/desktop/src/', except: 'apps/desktop/src/shell/', forbid: [[/@tauri-apps/, '@tauri-apps only under apps/desktop/src/shell (ADR-0010)'], [/^(markdown-it|dompurify)/, 'forbidden dependency']], forbidNode: true, forbidRawInvoke: true },
 ];
 
-/** import()/require() specs from quoted strings and plain template literals (no `${}`). */
+/** import()/require() specs, read from the AST (see scripts/lib/imports.mjs). */
 export function dynamicImportSpecs(text) {
-  const quoted = [
-    ...text.matchAll(/\bimport\(\s*['"]([^'"]+)['"]\s*\)/g),
-    ...text.matchAll(/\brequire\(\s*['"]([^'"]+)['"]\s*\)/g),
-  ];
-  // Interpolated `` import(`pkg/${x}`) `` cannot be resolved statically; not matched when `${` appears.
-  const templated = [
-    ...text.matchAll(/\bimport\(\s*`([^`]+)`\s*\)/g),
-    ...text.matchAll(/\brequire\(\s*`([^`]+)`\s*\)/g),
-  ].filter(m => !m[1].includes('${'));
-  return [...quoted, ...templated].map(m => m[1]);
-}
-
-function moduleImportSpecs(stripped) {
-  return [
-    ...stripped.matchAll(/(?:^|\n)\s*(?:import|export)\s[^'"\n]*?\bfrom\s+['"]([^'"]+)['"]/g),
-  ].map(m => m[1]).concat(dynamicImportSpecs(stripped));
+  return dynamicSpecs(text);
 }
 
 export function boundaryProblemsFor(relPath, text, pendingRemoval = pending, warnPending = () => {}) {
   const rule = rules.find(x => relPath.startsWith(x.under) && !(x.except && relPath.startsWith(x.except)));
   if (!rule) return [];
-  const stripped = stripComments(text);
+  const stripped = stripCommentsAst(text, relPath);
   const problems = [];
-  for (const s of moduleImportSpecs(stripped)) {
+  const pkgRoot = /^packages\/[^/]+\//.exec(relPath)?.[0];
+  for (const s of importSpecs(text, relPath)) {
+    if (pkgRoot && s.startsWith('.') && !posix.normalize(posix.join(posix.dirname(relPath), s)).startsWith(pkgRoot)) {
+      problems.push(`${relPath}: relative import "${s}" escapes ${pkgRoot} into another package${fix('depend on a package through its @marxy/* name, or move the code to the module that owns it')}`);
+    }
     for (const [re, why] of rule.forbid) {
       if (re.test(s)) {
         if (pendingRemoval[s]) {
@@ -51,14 +40,14 @@ export function boundaryProblemsFor(relPath, text, pendingRemoval = pending, war
         problems.push(`${relPath}: imports "${s}" — ${why}${fix('move the code to the module that owns it, or report blocked')}`);
       }
     }
-    if (rule.forbidNode && NODE.test(s)) {
+    if (rule.forbidNode && isNodeBuiltin(s)) {
       problems.push(`${relPath}: imports Node built-in "${s}" in browser code${fix('packages and the app run in the webview; use web APIs or the shell')}`);
     }
   }
   if (rule.forbidDom && /\b(?:window|globalThis|navigator|localStorage|sessionStorage)\s*\.|\bdocument\s*\.\s*(?:querySelector|querySelectorAll|getElementById|createElement|createRange|body|fonts|documentElement)\b|\bnew\s+(?:DOMParser|Range|Highlight)\b/.test(stripped)) {
     problems.push(`${relPath}: touches the DOM inside packages/core${fix('core is shell-free and DOM-free (ADR-0020); DOM work belongs in apps/desktop or packages/typeset')}`);
   }
-  if (rule.forbidRawInvoke && /\binvoke\s*(<[^>]*>)?\s*\(/.test(stripped)) {
+  if (rule.forbidRawInvoke && rawInvokeCalls(text, relPath) > 0) {
     problems.push(`${relPath}: calls the Tauri IPC function directly outside src/shell${fix('add a method to src/shell/tauri.ts and call that')}`);
   }
   return problems;

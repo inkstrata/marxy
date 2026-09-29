@@ -71,6 +71,11 @@ export interface Shell {
   saveDialog(opts: { defaultPath?: string }): Promise<string | null>;
   /** Fetch a remote image through the shell and return a marxy-remote URL (ADR-0027). */
   fetchRemoteImage(url: string): Promise<string>;
+  /** The window's own close was requested (the OS close box, Cmd+W, Cmd+Q); the app decides whether
+   *  to let it proceed, via `confirmClose` (MARXY-49). */
+  onCloseRequested(cb: () => void): void;
+  /** Let a previously-requested window close proceed. */
+  confirmClose(): Promise<void>;
 }
 
 /** No-op Shell used only for compile-time completeness checks (MARXY-94, ADR-0039). */
@@ -103,6 +108,8 @@ function stubShellImpl(): Shell {
     allowAssetScope: async () => {},
     saveDialog: async () => null,
     fetchRemoteImage: async () => '',
+    onCloseRequested: () => {},
+    confirmClose: async () => {},
   };
 }
 
