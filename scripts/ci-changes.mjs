@@ -154,11 +154,13 @@ export function checkCiWorkflow(text) {
 
   const concurrency = text.match(/^concurrency:\n([\s\S]*?)(?=^\S)/m);
   const concurrencyBody = concurrency ? concurrency[1] : '';
-  if (!/group:\s*"ci-\$\{\{\s*github\.ref\s*\}\}"/.test(concurrencyBody)) {
-    errors.push('.github/workflows/ci.yml: workflow-level concurrency.group is not exactly "ci-${{ github.ref }}"');
+  // Main is one group per commit, so a later merge does not cancel the run that would name a red
+  // main. Every other ref stays one group and cancels the superseded run (MARXY-334).
+  if (!/group:\s*"ci-\$\{\{\s*github\.ref == 'refs\/heads\/main' && github\.sha \|\| github\.ref\s*\}\}"/.test(concurrencyBody)) {
+    errors.push('.github/workflows/ci.yml: workflow-level concurrency.group must be per sha on main and per ref elsewhere');
   }
-  if (!/cancel-in-progress:\s*true/.test(concurrencyBody)) {
-    errors.push('.github/workflows/ci.yml: workflow-level concurrency.cancel-in-progress is not true');
+  if (!/cancel-in-progress:\s*\$\{\{\s*github\.ref != 'refs\/heads\/main'\s*\}\}/.test(concurrencyBody)) {
+    errors.push('.github/workflows/ci.yml: workflow-level concurrency.cancel-in-progress must stay on except for refs/heads/main');
   }
   const otherConcurrency = [...text.matchAll(/^\s*concurrency:/gm)];
   if (otherConcurrency.length !== 1) {
@@ -271,8 +273,8 @@ function selftest() {
     ['gates-skip job removed entirely', workflow.replace(/\n  gates-skip:\n[\s\S]*?(?=\n  \S)/, '\n')],
     ['gates-skip name does not match the real job', workflow.replace('name: gates\n', 'name: gates-skip\n')],
     ['gates-skip matrix drops macos-latest', workflow.replace(/(gates-skip:[\s\S]*?os:\n)(\s+- macos-latest\n)/, '$1')],
-    ['workflow concurrency cancel-in-progress turned off', workflow.replace('cancel-in-progress: true', 'cancel-in-progress: false')],
-    ['workflow concurrency group narrowed to a per-job scope', workflow.replace('group: "ci-${{ github.ref }}"', 'group: "ci-${{ github.job }}-${{ github.ref }}"')],
+    ['workflow concurrency cancel-in-progress turned off', workflow.replace("cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}", 'cancel-in-progress: false')],
+    ['workflow concurrency group narrowed to a per-job scope', workflow.replace('group: "ci-${{ github.ref == \'refs/heads/main\' && github.sha || github.ref }}"', 'group: "ci-${{ github.job }}-${{ github.ref }}"')],
     ['a second concurrency block added', workflow.replace('\njobs:\n', '\nconcurrency:\n  group: "extra"\n  cancel-in-progress: true\njobs:\n')],
     ['the gates job matrix drops a runner class (criterion 6)', workflow.replace(/(\n  gates:\n[\s\S]*?os:\s*\[)macos-latest, ubuntu-latest(\])/, '$1ubuntu-latest$2')],
     ['the ci job stops needing gates', workflow.replace('needs: [changes, conventions, fast, browser, gates, gates-skip, gates-record]', 'needs: [changes, conventions, fast, browser, gates-skip, gates-record]')],
