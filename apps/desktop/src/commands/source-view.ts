@@ -21,7 +21,8 @@ function selectionStartByte(): number | null {
   if (sel.kind === 'text') {
     const anchor = window.getSelection()?.anchorNode ?? null;
     const el = anchor instanceof Element ? anchor : anchor?.parentElement ?? null;
-    return byteAttr(el?.closest('[data-marxy-s]') ?? null);
+    const remembered = (window as Window & { __marxyJumpCarrier?: Element | null }).__marxyJumpCarrier;
+    return byteAttr(el?.closest('[data-marxy-s]') ?? null) ?? byteAttr(remembered);
   }
   return null;
 }
