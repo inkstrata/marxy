@@ -5,12 +5,12 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { ROOT, here, readJson, writeJson, parseCsv } from './lib.mjs';
+import { ROOT, here, readJson, writeJson, deps as planDeps } from './lib.mjs';
+import { readPlan } from '../scripts/lib/plan.mjs';
 import { board as board_ } from './machine.mjs';
 
 const ENV_FILE = process.env.MARXY_JIRA_ENV ?? `${homedir()}/.config/marxy/jira.env`;
 const MAP = here('jira-map.json');
-const CSV = `${ROOT}docs/plan/jira-issues.csv`;
 const NEEDED = ['JIRA_BASE_URL', 'JIRA_EMAIL', 'JIRA_API_TOKEN', 'JIRA_PROJECT_KEY'];
 // Board status → the Jira status names we will accept for it, best first.
 const STATUS = {
@@ -85,7 +85,11 @@ const doc = text => ({ type: 'doc', version: 1, content: text.split('\n\n').filt
 const body = (it, key) => [it.Description, it.Acceptance && `Acceptance criteria (machine-checkable): ${it.Acceptance}`,
   it.Paths && `Paths this story may touch: ${it.Paths}`, it.Key !== key && `Plan id: ${it.Key}`]
   .filter(s => s && s.trim()).join('\n\n');
-const csvRows = () => parseCsv(readFileSync(CSV, 'utf8'));
+const csvRows = () => {
+  const plan = readPlan({ root: ROOT });
+  if (!plan) throw new Error('no plan: docs/plan/stories/ and docs/plan/jira-issues.csv are both missing');
+  return plan.all;
+};
 
 async function statusNames() {
   const meta = await api(`/project/${E.JIRA_PROJECT_KEY}/statuses`).catch(() => []);
@@ -297,7 +301,7 @@ async function release(phase, tag) {
   const found = values.find(v => v.name === name);
   const id = found?.id ?? (await api('/version', { method: 'POST', body: JSON.stringify({ name, projectId: (await api(`/project/${E.JIRA_PROJECT_KEY}`)).id, description: `Phase ${phase}` }) })).id;
   await api(`/version/${id}`, { method: 'PUT', body: JSON.stringify({ released: true, releaseDate: new Date().toISOString().slice(0, 10) }) });
-  const keys = readJson(here('deps.json')).phases[String(phase)] ?? [];
+  const keys = planDeps().phases[String(phase)] ?? [];
   for (const k of keys) await api(`/issue/${jiraKey(k)}`, { method: 'PUT', body: JSON.stringify({ update: { fixVersions: [{ add: { id } }] } }) }).catch(e => console.error(String(e)));
   console.log(`${name} released with ${keys.length} issues from phase ${phase}`);
 }

@@ -5,9 +5,10 @@
 import { git } from './proc.mjs';
 import { CODE_ROOT } from './store.mjs';
 import { parseCsv, isPlaceholderKey, pathsOf } from './lib.mjs';
+import { planFrom, gitSnapshot, storyRows, CSV_REL, DEPS_REL, EPICS_REL } from '../scripts/lib/plan.mjs';
 
-export const CSV_PATH = 'docs/plan/jira-issues.csv';
-export const DEPS_PATH = 'orchestration/deps.json';
+export const CSV_PATH = CSV_REL;
+export const DEPS_PATH = DEPS_REL;
 export const REGISTRY_PATH = 'scripts/registry.json';
 export const MAP_PATH = 'orchestration/jira-map.json';
 
@@ -19,26 +20,33 @@ export function showAt(ref, path, { cwd = CODE_ROOT, show = (r, p) => git(['show
 
 /** Story rows from CSV text, plus deps.json research entries, minus placeholder rows. */
 export function rowsFrom(csvText, depsJson = {}) {
-  const csv = parseCsv(csvText ?? '').filter(r => r.Type === 'Story' && !isPlaceholderKey(r.Key));
-  const research = Object.entries(depsJson.research ?? {})
-    .filter(([k]) => !k.startsWith('_'))
-    .map(([k, v]) => ({ Key: k, Type: 'Research', Summary: v.summary, Paths: v.paths, Acceptance: 'A decision note committed at the path named in the summary, with measurements.', Labels: 'research', Parent: '' }));
-  return [...csv, ...research];
+  return storyRows(parseCsv(csvText ?? ''), depsJson.research, isPlaceholderKey);
 }
 
 const parseJson = (text, fallback) => { try { return JSON.parse(text ?? ''); } catch { return fallback; } };
 
 /**
- * The plan at `ref` (origin/main by default): rows, deps, phases, the paths every story may touch,
- * and the Jira renames. `read(ref, path)` is injectable so a test never needs a repository.
+ * The reader for a ref: the story files and epics when the ref has them, else the CSV and deps.json,
+ * from git objects (one `ls-tree`, one `cat-file --batch`). `read(ref, path)` and `list(ref, dir)` are
+ * injectable so a test never needs a repository; with neither, only the CSV form can be read.
  */
-export function planAt(ref = 'origin/main', { read = (r, p) => showAt(r, p) } = {}) {
-  const csv = read(ref, CSV_PATH);
-  const deps = parseJson(read(ref, DEPS_PATH), { deps: {}, phases: {} });
-  const registry = parseJson(read(ref, REGISTRY_PATH), {});
-  const map = parseJson(read(ref, MAP_PATH), {});
-  if (csv == null) throw new Error(`cannot read ${CSV_PATH} at ${ref}; is origin fetched?`);
-  const rows = rowsFrom(csv, deps);
+function readerAt(ref, { read, list }, extra = [CSV_PATH, DEPS_PATH, EPICS_REL, REGISTRY_PATH, MAP_PATH]) {
+  if (read) return { read: p => read(ref, p), list: list ? d => list(ref, d) : () => [] };
+  return gitSnapshot(ref, { cwd: CODE_ROOT, extra });
+}
+
+/**
+ * The plan at `ref` (origin/main by default): rows, deps, phases, the paths every story may touch,
+ * and the Jira renames.
+ */
+export function planAt(ref = 'origin/main', opts = {}) {
+  const r = readerAt(ref, opts);
+  const registry = parseJson(r.read(REGISTRY_PATH), {});
+  const map = parseJson(r.read(MAP_PATH), {});
+  const plan = planFrom(r);
+  if (!plan?.all.length) throw new Error(`cannot read ${CSV_PATH} at ${ref}; is origin fetched?`);
+  const deps = plan.deps;
+  const rows = storyRows(plan.all, deps.research, isPlaceholderKey);
   return {
     ref,
     rows,
@@ -50,10 +58,11 @@ export function planAt(ref = 'origin/main', { read = (r, p) => showAt(r, p) } = 
 }
 
 /** The row a branch carries for its own key: how an out-of-plan PR's row is found before it lands. */
-export function rowOnBranch(branch, key, { read = (r, p) => showAt(r, p) } = {}) {
-  const csv = read(`origin/${branch}`, CSV_PATH);
-  if (csv == null) return null;
-  return rowsFrom(csv).find(r => r.Key === key) ?? null;
+export function rowOnBranch(branch, key, opts = {}) {
+  const r = readerAt(`origin/${branch}`, opts, [CSV_PATH, DEPS_PATH, EPICS_REL]);
+  const plan = planFrom({ read: p => r.read(p), list: r.list });
+  if (!plan) return null;
+  return storyRows(plan.all).find(x => x.Key === key) ?? null;
 }
 
 /** Phase number of a key, or null for the ops lane / unlisted. */

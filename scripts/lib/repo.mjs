@@ -2,6 +2,7 @@
 import { execSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { readPlan } from './plan.mjs';
 
 export const ROOT = new URL('../../', import.meta.url).pathname;
 export const registry = () => JSON.parse(readFileSync(join(ROOT, 'scripts/registry.json'), 'utf8'));
@@ -84,12 +85,12 @@ export function keyFromBranch(branch) {
   return m ? m[1] : null;
 }
 
-export function parseCsv(t) { const rows = []; let row = [], cell = '', q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; } else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; } else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (c !== '\r') cell += c; } if (cell || row.length) { row.push(cell); rows.push(row); } const [h, ...rest] = rows; return rest.filter(r => r.length === h.length).map(r => Object.fromEntries(h.map((k, i) => [k, r[i]]))); }
+export { parseCsv } from './plan.mjs';
 
-/** The CSV row for a key; resolves Jira keys through orchestration/jira-map.json when the CSV still uses plan ids, and vice versa. */
+/** The plan row for a key (story file or CSV row); resolves Jira keys through orchestration/jira-map.json when the CSV still uses plan ids, and vice versa. */
 export function story(key) {
   if (!key) return null;
-  const rows = parseCsv(readFileSync(join(ROOT, 'docs/plan/jira-issues.csv'), 'utf8'));
+  const rows = readPlan({ root: ROOT })?.all ?? [];
   let row = rows.find(r => r.Key === key);
   const mapPath = join(ROOT, 'orchestration/jira-map.json');
   if (!row && existsSync(mapPath)) {

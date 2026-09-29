@@ -1,9 +1,10 @@
 // Plan and remove stale story worktrees when their PR merged, closed, or detached idle.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, pathsOf, stories } from './lib.mjs';
+import { ROOT, pathsOf, stories, isPlaceholderKey } from './lib.mjs';
+import { readPlan, storyRows } from '../scripts/lib/plan.mjs';
 import { board } from './machine.mjs';
 import { fleetDir } from './store.mjs';
 
@@ -33,14 +34,14 @@ export function readLiveEntries(opts = {}) {
   });
 }
 
-/** Main CSV row for `key`, else the same key from the worktree's own `docs/plan/jira-issues.csv`. */
+/** Main plan row for `key`, else the same key from the worktree's own plan (story files or CSV). */
 export function defaultRowsOf(mainStories = stories()) {
   const onMain = Object.fromEntries(mainStories.map(st => [st.Key, st]));
   return (key, worktreePath) => {
     if (onMain[key]) return onMain[key];
-    const csvPath = resolve(worktreePath, 'docs/plan/jira-issues.csv');
-    if (!existsSync(csvPath)) return null;
-    return stories(readFileSync(csvPath, 'utf8')).find(st => st.Key === key) ?? null;
+    const plan = readPlan({ root: worktreePath });
+    if (!plan) return null;
+    return storyRows(plan.all, plan.deps.research, isPlaceholderKey).find(st => st.Key === key) ?? null;
   };
 }
 
