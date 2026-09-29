@@ -7,7 +7,7 @@ elsewhere in the tree, this file and the ADRs win, and you fix the other documen
 **Before you push anything, read [`docs/ci-contract.md`](docs/ci-contract.md).** It is the
 complete list of what can turn a pull request red and the exact local command that reproduces
 each one. Most red CI on this project is not a code failure — it is a commit subject, a PR body,
-a missing changelog line, or a file outside the story's paths. All of it is checkable locally.
+a missing changelog fragment, or a file outside the story's paths. All of it is checkable locally.
 
 ## The spirit (not negotiable)
 
@@ -114,15 +114,17 @@ file concurrently corrupt both changes and cost more than the work they saved.
 - **Definition of done** for a story is one command: `pnpm done MARXY-nn` green (story
   boundary, precheck, drafted PR body) plus `node scripts/check-pr.mjs --body results/MARXY-nn.pr.md --range`
   green after you fill the TODOs. Every acceptance criterion names the test or gate that
-  checks it; `CHANGELOG.md` has a line; docs/ADRs updated if a decision changed; a queue row
-  in `docs/taste-review/queue.md` if anything the reader sees changed; the Jira issue Done
-  and carrying the PR link. The full list, with the definition of ready that precedes it,
+  checks it; `changelog.d/MARXY-nn.md` holds one line (nobody edits `CHANGELOG.md`); docs/ADRs updated if a
+  decision changed; a taste-review entry in `docs/taste-review/queue.d/MARXY-nn.md` if you want one
+  (optional); the Jira issue Done and carrying the PR link. The full list, with the definition of ready that precedes it,
   is in `docs/sdlc.md`. `docs/hygiene.md` lists what the tools enforce; `pnpm new` starts
   modules, operations and commands in the house shape.
+- **After a human approves a PR,** the only push allowed to it is a merge of `main` — never a
+  rebase or force-push. Anything else needs a new review.
 - **Contracts are frozen.** Changing anything in `packages/*/src/contracts/` needs an ADR
   and a PR touching only that — `pnpm test` byte-compares them against a pinned hash and fails
   on any diff. The token names, units and meanings are frozen and need an ADR; the default
-  theme's values are taste and need a story with a taste-review queue row.
+  theme's values are taste and need a story (a taste-review entry is optional).
 - **Names come from the registry.** A new mark, event, data attribute, class or token goes into
   `scripts/registry.json` first. Parsed markup may reach the DOM only on paths listed in
   `innerHtmlAllowedIn`; every route is matched, not just `.innerHTML =`.
@@ -168,8 +170,9 @@ research cannot, not what it already answers.
 
 **Human (scheduled, batched):** whether it is *beautiful*. Never ask "does this look
 right?" mid-task. Produce a reviewable artifact (screenshot corpus, side-by-side vs
-Typora/Marked 2, before/after pairs), append it to `docs/taste-review/queue.md`, and
-carry on against the mechanical gates. The queue is reviewed at the end of each phase.
+Typora/Marked 2, before/after pairs), optionally leave it as `docs/taste-review/queue.d/KEY.md`
+(`node scripts/taste-queue.mjs --fold` folds entries into `queue.md`), and carry on against the
+mechanical gates. Entries are voluntary; the human review of each phase still judges the result.
 
 **A check that cannot fail for something in your diff does not belong on the pull-request
 path.** No `|| true`, no `continue-on-error`, no Playwright retries. Monitoring goes to
