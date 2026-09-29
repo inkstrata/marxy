@@ -2,9 +2,10 @@
 // and a guarded event that no longer applies is refused, not half-applied.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { implementRole } from './runs.mjs';
 import { STATES, TIMING, timing, fold, story, runEvent, boardEvent, returnEvents, reopenEvents, occupies, importLegacy, board, commit } from './machine.mjs';
 
 const at = (n = 0) => new Date(Date.UTC(2026, 8, 26, 10, n)).toISOString();
@@ -110,6 +111,18 @@ test('returnEvents: todo while attempts remain, escalate once implementor and es
   const [spent] = returnEvents('MARXY-7', { attempts: t.maxAttempts + t.escalationAttempts }, { why: 'x', t, now: at(5) });
   assert.equal(spent.to, 'escalate');
   assert.equal(spent.set.blockedAt, at(5));
+});
+
+test('models.json: one implementor attempt, then the escalation model once, then escalate (MARXY-326)', () => {
+  const t = timing(JSON.parse(readFileSync(new URL('./models.json', import.meta.url), 'utf8')));
+  assert.equal(t.maxAttempts, 1);
+  assert.equal(t.escalationAttempts, 1);
+  assert.equal(implementRole(0, t), 'implementor');
+  const [first] = returnEvents('MARXY-7', { attempts: 1 }, { why: 'timeout', t, now: at(5) });
+  assert.equal(first.to, 'todo', 'one timed-out attempt is not the end');
+  assert.equal(implementRole(1, t), 'implementorEscalation', 'the next dispatch is on the escalation model');
+  const [second] = returnEvents('MARXY-7', { attempts: 2 }, { why: 'timeout', t, now: at(9) });
+  assert.equal(second.to, 'escalate', 'the escalation attempt failing goes to escalate');
 });
 
 test('the first read in a clone with no log imports the old state.json and its hand-off files, once', () => {
