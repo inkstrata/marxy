@@ -26,8 +26,7 @@ function sectionOf(input: OperationInput): Document {
     (block) => inside.includes(block) || block.src.end <= range.start || block.src.start >= range.end,
   );
   if (covered) return { ...document, src: range, children: inside };
-  const clipText = input.text.replace(/\s+$/, '') + '\n';
-  return parseMarkdown(new TextEncoder().encode(clipText), { file: document.path });
+  return parseMarkdown(new TextEncoder().encode(input.text), { file: document.path });
 }
 
 const PROVENANCE_ATTR = /^data-marxy-/i;
@@ -123,7 +122,9 @@ export const copySection: Operation = {
         return { replacement: input.text };
       }
     }
-    const clipText = input.text.replace(/\s+$/, '') + '\n';
+    // The exact source slice: never a newline the source did not have (MARXY-230), and its own
+    // trailing whitespace and line ending (CRLF included) kept.
+    const clipText = input.text;
     const html = stripRendererProvenance(renderDocumentSafeHtml(sectionOf(input)).html);
     return {
       replacement: input.text,
