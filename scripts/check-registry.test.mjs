@@ -89,14 +89,28 @@ test('check-registry.mjs is green over the committed tree', () => {
   assert.match(run.stdout, /registry ok \(\d+ files\)/);
 });
 
+test('MARXY-306: innerHTML and outerHTML compound assignment outside allow-list are flagged', () => {
+  const preFixInner = /\.innerHTML\s*=/;
+  const preFixOuter = /\.outerHTML\s*=/;
+  for (const code of ['el.innerHTML += userHtml;', 'el.outerHTML += chunk;']) {
+    const stripped = stripComments(code);
+    assert.equal(preFixInner.test(stripped) || preFixOuter.test(stripped), false, `pre-fix regex missed: ${code}`);
+    const problems = problemsFor(OUTSIDE, code);
+    assert.equal(problems.length, 1, code);
+    assert.match(problems[0], /\.innerHTML =|\.outerHTML =/);
+    assert.match(problems[0], /docs\/design\/README\.md/);
+  }
+});
+
 test('temp fixture outside allow-list is flagged via htmlRouteProblems', () => {
   const dir = mkdtempSync(join(tmpdir(), 'marxy-132-'));
   try {
     const relPath = 'tmp/evil.ts';
     const abs = join(dir, 'tmp');
     mkdirSync(abs, { recursive: true });
-    const source = 'el.innerHTML = s;\n';
+    const source = 'el.innerHTML += x;\n';
     writeFileSync(join(abs, 'evil.ts'), source, 'utf8');
+    assert.equal(/\.innerHTML\s*=/.test(stripComments(source)), false, 'pre-fix regex missed compound assignment');
     const problems = htmlRouteProblems(relPath, stripComments(source), []);
     assert.equal(problems.length, 1);
     assert.match(problems[0], /\.innerHTML =/);
