@@ -14,13 +14,14 @@ import { classifyChecks, evaluate } from './merge-bar.mjs';
 import { verify } from './approve.mjs';
 import { codeOwnerPatterns, ownedBy } from './codeowners.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
+import { FRAGMENT_DIR } from '../scripts/lib/changelog.mjs';
 
 export { evaluate, verify, computeOrder, codeOwnerPatterns, ownedBy };
 
 /** GitHub login on CODEOWNERS and the repo; the account the overlay names. */
 export const AUTHOR = 'inkstrata';
 
-const EXTRAS = ['CHANGELOG.md', 'docs/taste-review/queue.md', 'pnpm-lock.yaml'];
+const EXTRAS = ['CHANGELOG.md', FRAGMENT_DIR, 'docs/taste-review/queue.md', 'pnpm-lock.yaml'];
 
 export function ciConclusion(pr) {
   const { checks, red, pending } = classifyChecks(pr.statusCheckRollup);
