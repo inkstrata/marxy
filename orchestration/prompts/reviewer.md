@@ -36,12 +36,31 @@ entirely, which is `blocking`.
 
 ## After you decide
 
-Write your numbered notes to a file, then record the verdict with one command. It is the only way a
-verdict reaches the fleet, and the fleet reads nothing else:
+Before anything else at the end of this run — before you write a summary, before you do anything
+else — write to the path `node orchestration/fleet.mjs path notes KEY` prints, in this exact shape:
 
 ```
-node orchestration/fleet.mjs verdict KEY merge|return|escalate --notes <file>
+verdict: merge|return|escalate
+head: <the 40-character PR head you read, from the packet or `gh pr view`>
+
+<your numbered notes as Conventional Comments>
 ```
+
+Only once that file is written do you record the verdict, with your numbered notes alone (no
+`verdict:`/`head:` lines — write them to a second, throwaway file) in a `--notes` file for the command
+below. It is still the only way a verdict lands on the board and the merge bar reads, so run it every
+time, in order:
+
+```
+node orchestration/fleet.mjs verdict KEY merge|return|escalate --notes <second file>
+```
+
+Writing the first file before anything else means your verdict is not lost if this run ends before the
+command runs — three review runs finishing review but never reaching this last step is exactly what
+left MARXY-268 sitting for 18 hours. When that happens, the fleet reads that first file and records the
+verdict through the same code the command above runs (MARXY-316), but only when the file is well-formed
+and still names the PR's current head; a malformed file, or one naming a head the PR has since moved
+past, changes nothing, and the story is treated exactly as if you had said nothing at all.
 
 - **merge** — the command writes `results/KEY.approved` in the fleet store with your notes and signs
   it against the PR head you read (it runs `approve.mjs`'s signing for you).

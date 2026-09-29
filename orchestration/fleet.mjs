@@ -60,19 +60,29 @@ let sink = null;
 const say = (...a) => sink.lines.push(a.join(' '));
 const complain = (...a) => sink.errors.push(a.join(' '));
 
-/** Append and report whether the fold accepted it. */
-function apply(events, key) {
+/**
+ * Commit `events` and say whether the fold accepted them, without touching the CLI sink — so this is
+ * safe to call from outside a `run()` invocation (`recordVerdict`, below, and its callers).
+ */
+function applyRaw(events, key) {
   // Matched by the written events' own timestamps, not by the list growing: the fold keeps only the
   // last 50 refusals, so once it is full a new refusal leaves its length unchanged.
   const ats = new Set(commit(events).map(e => e.at));
   const b = board();
   const refused = b.rejected.filter(r => r.key === key && ats.has(r.at));
-  if (refused.length) {
-    complain(`✗ ${key}: refused — ${refused.map(r => r.why).join('; ')}`);
+  if (refused.length) return { ok: false, why: refused.map(r => r.why).join('; ') };
+  return { ok: true, rec: b.stories[key] };
+}
+
+/** Append and report whether the fold accepted it, for the CLI sink. */
+function apply(events, key) {
+  const res = applyRaw(events, key);
+  if (!res.ok) {
+    complain(`✗ ${key}: refused — ${res.why}`);
     sink.code = 1;
     return null;
   }
-  return b.stories[key];
+  return res.rec;
 }
 
 const need = (cond, msg) => { if (!cond) throw new Refusal(msg); };
@@ -90,12 +100,45 @@ function known(key, o = {}) {
 }
 const needKnown = (key, o) => need(known(key, o), `✗ ${key} is not on the board and has no row on origin/main; check the key, or pass --force`);
 
-/** The open PR for a key, or null. */
-function openPrFor(key) {
+/** The open PR for a key, or null. Exported so a recovered verdict (runs.mjs) looks it up the same way. */
+export function openPrFor(key) {
   const out = read('gh', ['pr', 'list', '--state', 'open', '--search', key, '--json', 'number,headRefOid,headRefName,mergeStateStatus,title'], { timeoutMs: LIMIT.gh });
   const whole = new RegExp(`\\b${key}\\b`);
   const prs = JSON.parse(out ?? '[]').filter(p => whole.test(p.title) || whole.test(p.headRefName));
   return prs.length === 1 ? prs[0] : null;
+}
+
+/**
+ * Record a reviewer's verdict for `key` against `pr` (`{headRefOid, mergeStateStatus}`), from the
+ * reviewer's own notes text (just the numbered notes — no leading `verdict:`/`head:` lines). This is
+ * the exact code `fleet.mjs verdict` runs from the CLI below; `runs.mjs` calls it too, when a review
+ * run ends having written its notes file but never run the command itself (MARXY-316's fix for
+ * MARXY-268: three reviewer runs finished reviewing but never got this far). It never throws — a
+ * refusal is `{ ok: false, why }`, so a caller outside the CLI (which turns one into a printed error)
+ * can decide for itself what it means.
+ */
+export function recordVerdict(key, verdict, notes, pr) {
+  if (!isKey(key) || !['merge', 'return', 'escalate'].includes(verdict)) return { ok: false, why: 'bad key or verdict' };
+  const b = board();
+  const rec = b.stories[key];
+  if (rec?.status !== 'in_review') return { ok: false, why: `${key} is ${rec?.status ?? 'not on the board'}, not in review` };
+  if (!pr?.headRefOid) return { ok: false, why: `could not find ${key}'s open PR` };
+  if (verdict === 'merge') {
+    const hold = approvalHoldReason({ mergeStateStatus: pr.mergeStateStatus });
+    if (hold) return { ok: false, why: `not signing — ${hold}` };
+    writeTextAtomic(approvalPath(key), `${notes}\n`);
+    signApproval(key, pr.headRefOid);
+    return { ok: true, message: `${key}: approved and signed for ${pr.headRefOid.slice(0, 7)}; the cycle lands it once the rest of the merge bar holds` };
+  }
+  const prior = existsSync(notesPath(key)) ? readFileSync(notesPath(key), 'utf8').trimEnd() + '\n\n' : '';
+  writeTextAtomic(notesPath(key), `${prior}## Review ${new Date().toISOString()} (${verdict})\n\n${notes}\n`);
+  const t = timing(models());
+  const events = verdict === 'return'
+    ? returnEvents(key, rec, { why: `reviewer: ${notes.split('\n')[0].slice(0, 160)}`, head: pr.headRefOid, t, by: who() })
+    : [story(key, { from: 'in_review', to: 'escalate', set: { blockedAt: new Date().toISOString(), returned: { at: new Date().toISOString(), head: pr.headRefOid, why: 'escalated by review' } }, unset: ['hold', 'run'], why: 'reviewer escalated' })];
+  const res = applyRaw(events, key);
+  if (!res.ok) return { ok: false, why: res.why };
+  return { ok: true, message: `${key}: ${verdict} recorded → ${res.rec.status}; notes in ${notesPath(key)}` };
 }
 
 const commands = {
@@ -160,27 +203,11 @@ const commands = {
     need(isKey(key) && ['merge', 'return', 'escalate'].includes(verdict), 'usage: fleet.mjs verdict KEY merge|return|escalate --notes FILE [--head SHA]');
     need(o.notes && existsSync(o.notes), `--notes FILE is required and must exist (the numbered review notes)`);
     const notes = readFileSync(o.notes, 'utf8').trim();
-    const b = board();
-    const rec = b.stories[key];
-    need(rec?.status === 'in_review', `✗ ${key} is ${rec?.status ?? 'not on the board'}, not in review`);
     const pr = o.head ? { headRefOid: o.head, mergeStateStatus: '' } : openPrFor(key);
     need(pr?.headRefOid, `✗ could not find ${key}'s open PR; pass --head SHA`);
-    if (verdict === 'merge') {
-      const hold = approvalHoldReason({ mergeStateStatus: pr.mergeStateStatus });
-      need(!hold, `✗ ${key}: not signing — ${hold}`);
-      writeTextAtomic(approvalPath(key), `${notes}\n`);
-      signApproval(key, pr.headRefOid);
-      say(`${key}: approved and signed for ${pr.headRefOid.slice(0, 7)}; the cycle lands it once the rest of the merge bar holds`);
-      return;
-    }
-    const prior = existsSync(notesPath(key)) ? readFileSync(notesPath(key), 'utf8').trimEnd() + '\n\n' : '';
-    writeTextAtomic(notesPath(key), `${prior}## Review ${new Date().toISOString()} (${verdict})\n\n${notes}\n`);
-    const t = timing(models());
-    const events = verdict === 'return'
-      ? returnEvents(key, rec, { why: `reviewer: ${notes.split('\n')[0].slice(0, 160)}`, head: pr.headRefOid, t, by: who() })
-      : [story(key, { from: 'in_review', to: 'escalate', set: { blockedAt: new Date().toISOString(), returned: { at: new Date().toISOString(), head: pr.headRefOid, why: 'escalated by review' } }, unset: ['hold', 'run'], why: 'reviewer escalated' })];
-    const got = apply(events, key);
-    if (got) say(`${key}: ${verdict} recorded → ${got.status}; notes in ${notesPath(key)}`);
+    const res = recordVerdict(key, verdict, notes, pr);
+    if (!res.ok) throw new Refusal(`✗ ${res.why}`);
+    say(res.message);
   },
 
   return(o) {

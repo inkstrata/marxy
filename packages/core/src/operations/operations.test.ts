@@ -1,6 +1,7 @@
 // §03 table tests and corpus fidelity for copy-section and copy-code-clean (MARXY-42).
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import type { Block, CodeBlock, Document, Heading, Inline, Node } from '../contracts/ast.ts';
 import { textOf, createBuffer } from '../buffer/buffer.ts';
@@ -86,19 +87,19 @@ const codeTable: CodeCase[] = [
     name: 'fenced ```ts with info string',
     source: '```ts title\nline one\n```\n',
     pick: (d) => d.children[0] as CodeBlock,
-    expectText: 'line one\n',
+    expectText: 'line one',
   },
   {
     name: 'indented code block',
     source: '    indented\n    second\n',
     pick: (d) => d.children[0] as CodeBlock,
-    expectText: 'indented\nsecond\n',
+    expectText: 'indented\nsecond',
   },
   {
     name: 'unclosed fence at EOF',
     source: '```\nstill open\n',
     pick: (d) => d.children[0] as CodeBlock,
-    expectText: 'still open\n',
+    expectText: 'still open',
   },
   {
     name: 'empty block',
@@ -109,7 +110,19 @@ const codeTable: CodeCase[] = [
     name: 'a CRLF block ends its copy with CRLF, not a lone LF',
     source: '```\r\na\r\nb\r\n```\r\n',
     pick: (d) => d.children[0] as CodeBlock,
-    expectText: 'a\r\nb\r\n',
+    expectText: 'a\r\nb',
+  },
+  {
+    name: 'one-line command copies without an added newline',
+    source: '```sh\npnpm install --frozen-lockfile\n```\n',
+    pick: (d) => d.children[0] as CodeBlock,
+    expectText: 'pnpm install --frozen-lockfile',
+  },
+  {
+    name: 'a trailing blank line inside the fence is kept',
+    source: '```\nline one\n\n\n```\n',
+    pick: (d) => d.children[0] as CodeBlock,
+    expectText: 'line one\n\n',
   },
 ];
 
@@ -424,6 +437,24 @@ test('neutralised copy-section canApply fails the paragraph guard', () => {
   const para = doc.children[0]!;
   const input = { document: doc, node: para, range: para.src };
   assert.equal(copySection.canApply(input), false);
+});
+
+test('copy-section clipboard html keeps inline code text that resembles provenance attributes', () => {
+  const source = '## Snippet\n\n`a data-marxy-k="9" b`\n\n```html\n<p data-marxy-s="0" data-marxy-e="1">ok</p>\n```\n';
+  const document = parse(source);
+  const heading = document.children[0] as Heading;
+  const range = sectionRange(document, heading);
+  const text = sliceText(source, range.start, range.end);
+  const result = copySection.run({ document, node: heading, range, text });
+  assert.ok(result.clipboard?.html?.includes('a data-marxy-k="9" b'));
+  assert.ok(result.clipboard?.html?.includes('data-marxy-s="0" data-marxy-e="1"'));
+  assert.equal(result.clipboard?.text, text.replace(/\s+$/, '') + '\n');
+});
+
+test('copy-section.ts does not strip provenance with a regex over the whole html string', () => {
+  const src = readFileSync(fileURLToPath(new URL('./copy-section.ts', import.meta.url)), 'utf8');
+  assert.ok(!src.includes('html.replace(/\\sdata-marxy-'));
+  assert.ok(!src.includes('<script\\b'));
 });
 
 test('copy-section keeps a reference link whose definition is outside the section', () => {

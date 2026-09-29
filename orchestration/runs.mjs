@@ -5,6 +5,7 @@ import { CODE_ROOT, notesPath, storyWorktree, newRunId } from './store.mjs';
 import { story, runEvent, boardEvent } from './machine.mjs';
 import { typeOf, slug } from './lib.mjs';
 import { OUTCOME, inferOutcome, isAuthOutcome, neverRan, producedWork } from './outcomes.mjs';
+import { recordVerdict as fleetRecordVerdict, openPrFor } from './fleet.mjs';
 
 const template = name => readFileSync(`${CODE_ROOT}orchestration/prompts/${name}.md`, 'utf8');
 
@@ -120,13 +121,64 @@ export function fingerprint(outcome, text = '') {
   return `${outcome}:${norm}`;
 }
 
+const VERDICT_LINE = /^verdict:\s*(merge|return|escalate)\s*$/i;
+const HEAD_LINE = /^head:\s*([0-9a-f]{40})\s*$/i;
+
 /**
- * What a finished run means. Pure. `obs` is observeRuns' view of the run, `rec` the story now,
- * `result` the implementor's result file if it was written during this run, `prOpen` an open PR for
- * the story, `evidence` the worktree's commits ahead and dirtiness, `logTail` the end of its output.
- * Returns the events to append and the lines to print.
+ * Parse a reviewer's notes file: `verdict: merge|return|escalate`, then `head: <sha>`, then the
+ * numbered notes (the shape `orchestration/prompts/reviewer.md` asks for). `null` for anything that
+ * does not match — a file from before this format, one with no notes body, or plain garbage.
  */
-export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evidence = {}, logTail = '', t, now }) {
+export function parseReviewNotes(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
+  const v = VERDICT_LINE.exec((lines[0] ?? '').trim());
+  const h = HEAD_LINE.exec((lines[1] ?? '').trim());
+  if (!v || !h) return null;
+  const body = lines.slice(2).join('\n').trim();
+  if (!body) return null;
+  return { verdict: v[1].toLowerCase(), head: h[1].toLowerCase(), body };
+}
+
+const defaultReadNotes = key => {
+  const p = notesPath(key);
+  return existsSync(p) ? readFileSync(p, 'utf8') : null;
+};
+
+/**
+ * When a review run ends without ever calling `fleet.mjs verdict`, the reviewer's own notes file is
+ * its verdict: the prompt now has it write that file first — `verdict: …` then `head: …` then its
+ * numbered notes — before it runs the command (MARXY-316, fixing the 18-hour stall MARXY-268 left
+ * when three reviewer runs finished reviewing but never reached that last step).
+ *
+ * A file counts only when it names the PR's *current* head — the guard against a stale file, chosen
+ * over comparing the file's mtime to the run's start because it also answers the separate question of
+ * which head a recovered `merge` may be signed against: never a newer one than the reviewer actually
+ * read. A file from an earlier run, or one naming a head the PR has since moved past, is left alone —
+ * the story falls through to today's behaviour (its reviewTries accounting, nothing recorded). So is a
+ * missing or malformed file.
+ *
+ * `findPr` and `apply` default to the exact functions `fleet.mjs verdict` itself uses (`openPrFor`,
+ * `recordVerdict`), so a recovered verdict is recorded through that one code path — never a second
+ * implementation of what a merge or a return means for the board.
+ */
+export function recoverVerdict(key, { readNotes = defaultReadNotes, findPr = openPrFor, apply = fleetRecordVerdict } = {}) {
+  const parsed = parseReviewNotes(readNotes(key));
+  if (!parsed) return null;
+  const pr = findPr(key);
+  if (!pr?.headRefOid || pr.headRefOid.toLowerCase() !== parsed.head) return null;
+  const res = apply(key, parsed.verdict, parsed.body, pr);
+  return res?.ok ? { verdict: parsed.verdict, message: res.message } : null;
+}
+
+/**
+ * What a finished run means. `obs` is observeRuns' view of the run, `rec` the story now, `result` the
+ * implementor's result file if it was written during this run, `prOpen` an open PR for the story,
+ * `evidence` the worktree's commits ahead and dirtiness, `logTail` the end of its output. Pure except
+ * for a review run's notes-file recovery above, which is itself fully injectable (`recover`) so a test
+ * never has to touch the real store or shell out to `gh`. Returns the events to append and the lines
+ * to print.
+ */
+export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evidence = {}, logTail = '', t, now, recover = {} }) {
   const outcome = inferOutcome(obs);
   const ended = runEvent(id, { ended: now, outcome, code: obs.exit?.code ?? null, ...(obs.exit?.why ? { why: obs.exit.why } : {}) });
   const events = [ended];
@@ -153,6 +205,15 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   if (run.role === 'review' || run.role === 'resolve') {
     const what = run.role === 'review' ? 'reviewer' : 'conflict resolution';
     const tries = run.role === 'review' ? 'reviewTries' : 'resolveTries';
+    if (run.role === 'review' && !neverRan(outcome)) {
+      const recovered = recoverVerdict(key, recover);
+      if (recovered) {
+        lines.push(`${key}: recovered its ${recovered.verdict} verdict from its notes file (the run ended without calling fleet.mjs verdict) — ${recovered.message}`);
+        // return/escalate already moved the story out of in_review and unset run through the same
+        // fleet.mjs code a live verdict command uses; the default ending below would only be refused.
+        if (recovered.verdict !== 'merge') return { events, lines, attention };
+      }
+    }
     events.push(story(key, {
       ...base, from: 'in_review', why: `${what} ended (${outcome})${refundedTry ? ', try refunded' : ''}`,
       ...(refundedTry ? { inc: { [tries]: -1 } } : {}),
