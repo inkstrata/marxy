@@ -154,3 +154,19 @@ test('a lone HTML tag starts a block unless it would interrupt a paragraph (MARX
   assertAgrees('# h\n<span>\n# a\n\n# b\n', ['h', 'b']);
   assertAgrees('<span> text\n# a\n', ['a']);
 });
+
+test('a lone === line is paragraph text, so a following HTML tag line does not swallow a heading (MARXY-337)', () => {
+  const md = '===\n<a href="x">\n# H\n';
+  const h = headingsFromMarkdown(new TextEncoder().encode(md));
+  assert.deepEqual(h.map((x) => x.text), ['H']);
+});
+
+test('container lines are judged by their content when deciding what can start an HTML block (MARXY-337)', () => {
+  const quote = headingsFromMarkdown(new TextEncoder().encode('> # quote\n<img src=x>\n<!--\n\n\n## Two\n'));
+  assert.deepEqual(quote.map((x) => x.text), ['Two']);
+  const item = headingsFromMarkdown(new TextEncoder().encode('- # in list\n<a href="x">\n\n# H\n'));
+  assert.deepEqual(item.map((x) => x.text), ['H']);
+  // Still a paragraph: the tag line cannot start a block, so a heading after it is found either way.
+  const para = headingsFromMarkdown(new TextEncoder().encode('> text\n<a href="x">\n\n# H\n'));
+  assert.deepEqual(para.map((x) => x.text), ['H']);
+});

@@ -63,6 +63,8 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
   let mathLen = 0;
   // Whether the previous line was paragraph text: a type 7 HTML block cannot interrupt one.
   let paragraph = false;
+  // Whether that paragraph sits in a quote or list item, where a `===` line is a lazy continuation.
+  let paragraphInContainer = false;
   for (; index < lines.length; index++) {
     const { text: line, start } = lines[index]!;
     if (html !== null) {
@@ -101,13 +103,51 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
         const text = (match[3] ?? '').replace(/[ \t]+$/, '').replace(/(?:^|[ \t]+)#+$/, '').trim();
         if (text !== '') headings.push({ level: match[2]!.length, text, byteOffset: start + match[1]!.length });
       }
-      paragraph = match === null && !/^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}|=+[ \t]*)?$/.test(line);
+      paragraph = match === null && endsInParagraph(line, paragraph, paragraphInContainer);
+      paragraphInContainer = paragraph && (/^ {0,3}(?:>|[-+*]|\d{1,9}[.)]|\[[^\]]+\]:)/.test(line) || paragraphInContainer);
     } else {
       paragraph = false;
       if (isClosingFence(line, openFence.char, openFence.len)) openFence = null;
     }
   }
   return headings;
+}
+
+const THEMATIC = /^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/;
+
+/**
+ * Whether a line that is not an ATX heading leaves a paragraph open, given whether one was open before it.
+ * Container lines (`> ...`, `- ...`, `1. ...`) are judged by their content, since a heading, rule or blank
+ * item inside one leaves no paragraph for a following type 7 HTML start to be blocked by.
+ */
+function endsInParagraph(line: string, prev: boolean, prevInContainer: boolean): boolean {
+  if (THEMATIC.test(line)) return false;
+  // A setext underline closes the paragraph above it; with none above, `===` is text and `-` an empty item.
+  if (prev && !prevInContainer && /^ {0,3}(?:=+|-+)[ \t]*$/.test(line)) return false;
+  let rest = line;
+  let container = false;
+  for (;;) {
+    const quote = /^ {0,3}>[ \t]?(.*)$/.exec(rest);
+    if (quote) {
+      rest = quote[1]!;
+      container = true;
+      continue;
+    }
+    const item = /^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]+(.*))?$/.exec(rest);
+    if (item && !THEMATIC.test(rest)) {
+      rest = item[1] ?? '';
+      container = true;
+      continue;
+    }
+    break;
+  }
+  if (/^[ \t]*$/.test(rest)) return false;
+  if (THEMATIC.test(rest)) return false;
+  if (/^ {0,3}#{1,6}(?:[ \t]|$)/.test(rest)) return false;
+  if (fenceMarker(rest) !== null || /^ {0,3}\$\$/.test(rest)) return false;
+  // Indented code cannot interrupt a paragraph but is not one either.
+  if (!container && !prev && /^(?: {4}|\t)/.test(rest)) return false;
+  return true;
 }
 
 const BLOCK_TAGS = new Set(

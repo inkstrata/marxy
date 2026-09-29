@@ -200,7 +200,23 @@ test('06-math.md: no invisible marker inside KaTeX output (MARXY-337)', async ()
       struts: [...document.querySelectorAll('#doc .katex')].filter((k) => (k.textContent ?? '').includes('​')).length,
     }));
     assert.ok(counts.katex > 0);
-    assert.equal(counts.markers, 0);
+    const where = await page.evaluate(() => [...document.querySelectorAll('#doc .katex .marxy-invisible')].map((e) => e.parentElement.className + '|' + e.parentElement.parentElement.className + '|' + e.textContent));
+    assert.equal(counts.markers, 0, JSON.stringify(where));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('hidden and bidi characters the document puts inside math are still marked (MARXY-337)', async () => {
+  const docPath = '/inline/math-hostile.md';
+  const md = 'Inline $a\u202eb$ and $x\u200by$.\n\n$$\nq\u2066r\n$$\n';
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await boot(page, { [docPath]: Buffer.from(md).toString('base64') }, [docPath]);
+    await page.waitForFunction(() => document.querySelector('#doc .katex'));
+    const n = await page.evaluate(() => document.querySelectorAll('#doc .katex-html .marxy-invisible').length);
+    assert.ok(n >= 3, `expected the author's three characters marked in math, got ${n}`);
   } finally {
     await browser.close();
   }

@@ -137,22 +137,33 @@ export function createTrustStore(
   write: TrustWriter['write'],
   opts?: { readonly newerVersion?: boolean },
 ): TrustStore {
+  // `committed` is what trust.json holds; `state` is what readers see, which runs ahead of it while writes
+  // are queued.
+  let committed = envelope;
   let state = envelope;
   const newerVersion = opts?.newerVersion === true || envelope.version > TRUST_FILE_VERSION;
   // Writes run one after another in the order the changes were made, so two grants started together
-  // cannot land on disk out of order and leave the older state as the file.
+  // cannot land on disk out of order and leave the older state as the file. Each change is computed
+  // inside the queue from the last committed state, so a failed write leaves no trace in a later one.
   let queue: Promise<void> = Promise.resolve();
-  const persist = async (next: TrustEnvelope): Promise<boolean> => {
-    const previous = state;
-    state = next;
-    const bytes = serializeTrustFile(next);
-    const done = queue.then(() => write(bytes));
+  let pending = 0;
+  type Change = (base: TrustEnvelope) => TrustEnvelope | null;
+  const persist = async (change: Change): Promise<boolean> => {
+    const optimistic = change(state);
+    if (optimistic !== null) state = optimistic;
+    pending += 1;
+    const done = queue.then(async () => {
+      const next = change(committed);
+      if (next === null) return;
+      await write(serializeTrustFile(next));
+      committed = next;
+    });
     queue = done.catch(() => undefined);
     try {
       await done;
-    } catch (err) {
-      if (state === next) state = previous;
-      throw err;
+    } finally {
+      pending -= 1;
+      if (pending === 0) state = committed;
     }
     return true;
   };
@@ -171,22 +182,19 @@ export function createTrustStore(
     },
     async grant(path, change) {
       if (newerVersion) return false;
-      return persist(upsertDocument(state, path, change));
+      return persist((base) => upsertDocument(base, path, change));
     },
     async revoke(path, what) {
       if (newerVersion) return false;
-      const entry = state.documents[path];
-      if (!entry) return true;
-      let next: TrustEnvelope;
-      if (what === 'all') {
-        next = without(state, path);
-      } else {
-        next = upsertDocument(state, path, what === 'html'
+      return persist((base) => {
+        const entry = base.documents[path];
+        if (!entry) return null;
+        if (what === 'all') return without(base, path);
+        const next = upsertDocument(base, path, what === 'html'
           ? { html: false, imageHosts: entry.imageHosts }
           : { html: entry.html, imageHosts: [] });
-        if (emptied(next, path)) next = without(next, path);
-      }
-      return persist(next);
+        return emptied(next, path) ? without(next, path) : next;
+      });
     },
   };
 }

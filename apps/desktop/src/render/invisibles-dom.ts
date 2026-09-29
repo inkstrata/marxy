@@ -4,6 +4,7 @@ import {
   invisibleHexLabel,
   invisibleSegments,
   type InvisibleContext,
+  type InvisibleSegment,
 } from '@marxy/core/src/render/index.ts';
 
 const GLYPH = 'marxy-invisible-glyph';
@@ -50,7 +51,10 @@ function tagRunNode(doc: Document, count: number, payload: string, decoded: stri
 function replaceTextWithMarkers(text: Text): void {
   const ctx = contextForText(text);
   const value = text.data;
-  const segs = invisibleSegments(value, ctx);
+  // KaTeX turns the spaces of `\text{...}` into U+00A0; those are its layout, not author bytes.
+  const inMath = text.parentElement?.closest('.katex') != null;
+  const segs = invisibleSegments(value, ctx).map((seg): InvisibleSegment =>
+    inMath && seg.kind === 'marker' && seg.cp === 0xa0 ? { kind: 'text', value: '\u00a0' } : seg);
   if (segs.length === 1 && segs[0]!.kind === 'text') return;
   const doc = text.ownerDocument;
   const frag = doc.createDocumentFragment();
@@ -85,8 +89,9 @@ export function sourceTextFromCode(code: HTMLElement): string {
 }
 
 /**
- * Wrap flagged characters in `root` with isolate markers. Safe to run more than once. KaTeX output is
- * skipped: its own U+200B struts are layout, not source bytes the reader must be warned about.
+ * Wrap flagged characters in `root` with isolate markers. Safe to run more than once. Only KaTeX's own
+ * generated nodes are skipped (its U+200B struts in `.vlist-s`, and the hidden MathML copy of the visible
+ * math); characters the document put inside math are still marked in the visible `.katex-html`.
  */
 export function applyInvisibleMarkers(root: ParentNode): void {
   const doc = root instanceof Document ? root : root.ownerDocument;
@@ -96,7 +101,7 @@ export function applyInvisibleMarkers(root: ParentNode): void {
   let current: Node | null = walker.nextNode();
   while (current !== null) {
     const parent = current.parentElement;
-    if (parent !== null && parent.closest(`.${MARKER}, .marxy-link-dest, .marxy-link-host-label, .katex`) === null) {
+    if (parent !== null && parent.closest(`.${MARKER}, .marxy-link-dest, .marxy-link-host-label, .katex .vlist-s, .katex-mathml`) === null) {
       nodes.push(current as Text);
     }
     current = walker.nextNode();
