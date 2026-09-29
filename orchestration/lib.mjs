@@ -4,6 +4,8 @@
 import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { parseCsv, readPlan, storyRows } from '../scripts/lib/plan.mjs';
+export { parseCsv };
 export const ROOT = new URL('../', import.meta.url).pathname;
 export const here = p => `${ROOT}orchestration/${p}`;
 export const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
@@ -47,8 +49,8 @@ export function models(raw = readJson(here('models.json')), argv = process.argv,
   return { ...raw, ...roles, compute };
 }
 
-export const deps = () => readJson(here('deps.json'));
-export function parseCsv(t) { const rows = []; let row = [], cell = '', q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; } else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; } else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (c !== '\r') cell += c; } if (cell || row.length) { row.push(cell); rows.push(row); } const [h, ...rest] = rows; return rest.filter(r => r.length === h.length).map(r => Object.fromEntries(h.map((k, i) => [k, r[i]]))); }
+// The plan's dependencies and phases, from the story files when there are any, else deps.json.
+export const deps = () => readPlan({ root: ROOT })?.deps ?? readJson(here('deps.json'));
 /**
  * A row the planner wrote before `jira.mjs sync` gave it a real key (`MARXY-NEW-<slug>`). It has no
  * Jira issue yet. `sync` rewrites the key in every tracked file; `applyJiraRenames` does the same
@@ -84,11 +86,11 @@ export const isBoardKey = key => /^MARXY-\d+$/.test(String(key ?? ''));
  * placeholder, it gets a state entry, a branch and a worktree that `sync` then renames the row out
  * from under, and the story is dispatched again under its real key (MARXY-145 ran twice this way).
  */
-export function stories(text = readFileSync(`${ROOT}docs/plan/jira-issues.csv`, 'utf8')) {
-  const csv = parseCsv(text)
-    .filter(r => r.Type === 'Story' && !isPlaceholderKey(r.Key));
-  const research = Object.entries(deps().research || {}).filter(([k]) => !k.startsWith('_')).map(([k, v]) => ({ Key: k, Type: 'Research', Summary: v.summary, Paths: v.paths, Acceptance: 'A decision note committed at the path named in the summary, with measurements.', Labels: 'research', Parent: '' }));
-  return [...csv, ...research];
+export function stories(text) {
+  if (text !== undefined) return storyRows(parseCsv(text), deps().research, isPlaceholderKey);
+  const plan = readPlan({ root: ROOT });
+  if (!plan?.all.length) throw new Error('no plan rows: docs/plan/stories/ and docs/plan/jira-issues.csv are both missing or empty');
+  return storyRows(plan.all, plan.deps.research, isPlaceholderKey);
 }
 /** Listed paths as written. A glob keeps every segment, including `*`. */
 export function pathsOf(st) {
