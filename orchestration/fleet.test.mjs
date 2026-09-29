@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 const sandbox = mkdtempSync(join(tmpdir(), 'marxy-fleet-cli-'));
 process.env.HOME = join(sandbox, 'home');
 mkdirSync(process.env.HOME);
-const { run: runFleet } = await import('./fleet.mjs');
+const { run: runFleet, recordVerdict } = await import('./fleet.mjs');
 // The plan on origin/main is not there in CI's checkout, and a test must not depend on the repo's own plan.
 const run = (cmd, argv) => runFleet(cmd, argv, { plan: () => ({ byKey: new Map() }) });
 const { board } = await import('./machine.mjs');
@@ -216,6 +216,34 @@ test('verdict return and escalate move the story and append the numbered notes',
   assert.equal(up.code, 0);
   assert.equal(rec('MARXY-502').status, 'escalate');
   assert.equal(rec('MARXY-502').returned.why, 'escalated by review');
+});
+
+// MARXY-316: runs.mjs recovers a verdict from a reviewer's notes file through this exact function
+// when a review run ends without ever calling the CLI command — same signing, same board events.
+test('recordVerdict is the CLI command\'s own code, callable directly: it signs a merge and moves a return/escalate', () => {
+  seed({ [K]: { status: 'in_review' } });
+  const pr = openPr(K);
+  const merged = recordVerdict(K, 'merge', '1. reviewed directly', pr);
+  assert.match(merged.message, /approved and signed for aaaaaaa/);
+  assert.deepEqual(verify(approvalPath(K), HEAD, { fetch: false }), { ok: true, head: HEAD });
+  assert.equal(rec(K).status, 'in_review', 'only the cycle merges');
+
+  seed({ [K]: { status: 'in_review', attempts: 1 } });
+  const returned = recordVerdict(K, 'return', '1. fix the off-by-one', openPr(K));
+  assert.equal(returned.ok, true);
+  assert.equal(rec(K).status, 'todo');
+  assert.match(readFileSync(notesPath(K), 'utf8'), /\(return\)\n\n1\. fix the off-by-one/);
+
+  const notInReview = recordVerdict('MARXY-502', 'merge', 'x', openPr('MARXY-502'));
+  assert.deepEqual(notInReview, { ok: false, why: 'MARXY-502 is not on the board, not in review' });
+
+  seed({ [K]: { status: 'in_review' } });
+  const dirty = recordVerdict(K, 'merge', 'x', openPr(K, { mergeStateStatus: 'DIRTY' }));
+  assert.deepEqual(dirty, { ok: false, why: 'not signing — DIRTY' });
+  assert.equal(existsSync(approvalPath(K)), false);
+
+  const noHead = recordVerdict(K, 'merge', 'x', {});
+  assert.match(noHead.why, /could not find .*'s open PR/);
 });
 
 test('why and events show a story and its log', () => {

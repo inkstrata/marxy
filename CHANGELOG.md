@@ -6,6 +6,7 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+- A reviewer run now writes its verdict to its notes file first, before running `fleet.mjs verdict`; when the run ends without ever calling that command, `runs.mjs` recovers the verdict from that file through the same code and records it, as long as the file names the PR's current head (MARXY-316)
 - Copying a code block keeps the source's own newline and no longer has to fight a test that always added one; heading links and explicit save can touch the files their branches already edit (MARXY-318)
 - `image_size` now returns an I/O error when the file cannot be read, instead of treating permission failures and similar problems like a non-image file (MARXY-287)
 - A theme manifest that declares `variants = []` is no longer accepted silently: the loader warns with the theme name and `theme.toml`, then falls back to the default light and dark variants (MARXY-284)
