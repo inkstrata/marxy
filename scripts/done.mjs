@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url';
 import { ROOT, storyKey, story, changedFiles, fix } from './lib/repo.mjs';
 import { lintPrBody } from './check-pr.mjs';
 import { openPr, pushBranch } from './open-pr.mjs';
-import { fragmentPath, hasEntry } from './lib/changelog.mjs';
+import { hasEntry } from './lib/changelog.mjs';
 // The hand-off lives in the fleet store, one location whichever worktree this runs in (ADR-0034).
 import { resultPath as fleetResultPath } from '../orchestration/store.mjs';
 
