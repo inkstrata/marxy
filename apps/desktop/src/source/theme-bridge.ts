@@ -37,6 +37,7 @@ export function marxyCodeMirrorTheme(): Extension {
       },
       '.cm-content': {
         caretColor: accent,
+        fontVariantLigatures: 'none',
         padding: `${gridUnit} calc(${gridUnit} * 2)`,
       },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: accent },

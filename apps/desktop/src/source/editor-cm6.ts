@@ -1,15 +1,20 @@
 // CodeMirror EditorView construction (dynamic import target).
 
 import type { Buffer } from '@marxy/core';
-import { EditorState, Transaction } from '@codemirror/state';
+import { Compartment, EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { baseExtensions, editorDocConfig, type SourceEditor, type SourceEditorOptions } from './editor.ts';
+import { baseExtensions, editorDocConfig, toggleLineNumbersInView, type SourceEditor, type SourceEditorOptions } from './editor.ts';
+import { resolveLineNumbers } from './line-numbers.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 
-export async function createSourceEditor(opts: SourceEditorOptions): Promise<SourceEditor> {
+export async function createSourceEditor(
+  opts: SourceEditorOptions,
+  compartments: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment },
+): Promise<SourceEditor> {
   let buffer = opts.buffer;
   const { doc } = editorDocConfig(buffer);
-  const exts = await baseExtensions(buffer, opts.lineNumbers ?? true);
+  const lineNumbers = resolveLineNumbers(opts.buffer.path, opts.lineNumbers);
+  const exts = await baseExtensions(buffer, lineNumbers, compartments);
   const state = EditorState.create({ doc, extensions: exts });
   const view = new EditorView({ state, parent: opts.parent });
   // `doc.toString()` joins lines with \n whatever EditorState.lineSeparator says; the buffer's text
@@ -43,6 +48,9 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
     },
     docText() {
       return textNow();
+    },
+    setLineNumbers(on: boolean) {
+      toggleLineNumbersInView(view, on, compartments.lineNumbersCompartment);
     },
   };
 }

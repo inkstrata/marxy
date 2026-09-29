@@ -10,6 +10,8 @@ import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from 
 import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
 import { FontSizes, measureTokens } from './measure.ts';
 import { DEFAULT_RAGGED, breakRagged, type RaggedSettings } from './ragged.ts';
+import { insertSlashBreaks } from './slash-break.ts';
+export { insertSlashBreaks };
 import { collectTokens, type Token } from './runs.ts';
 import { idleScheduler, type Scheduler } from './scheduler.ts';
 
@@ -175,19 +177,25 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const candidates = paragraphs.map(candidate).filter((x): x is Candidate => x !== null);
     const plans: Plan[] = [];
     for (const c of candidates) {
-      const measured = measureTokens(c.tokens, fonts);
+      let tokens = c.tokens;
+      let measured = measureTokens(tokens, fonts);
       let natural = 0;
       for (const m of measured) if (m.kind === 'piece' || m.kind === 'space') natural += m.width;
       if (natural <= c.width) {
         stats.short++;
         continue;
       }
-      const broken = choose(c, measured, c.width);
+      let broken = choose({ ...c, tokens }, measured, c.width);
+      if (broken === null) {
+        tokens = insertSlashBreaks(c.tokens);
+        measured = measureTokens(tokens, fonts);
+        broken = choose({ ...c, tokens }, measured, c.width);
+      }
       if (broken === null) {
         fallback('overfull');
         continue;
       }
-      plans.push({ ...c, measured, after: broken });
+      plans.push({ ...c, tokens, measured, after: broken });
     }
     // Breaks and hang go in together: a hung quote splits a text run, which can cost a kern, so the
     // overflow check below must see the paragraph as it will paint.
