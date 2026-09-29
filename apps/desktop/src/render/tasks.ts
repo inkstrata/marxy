@@ -9,7 +9,8 @@ import { getSelectionBufferContext, selectionApp } from '../selection/view.ts';
 const WIRED = new WeakSet<HTMLElement>();
 
 /**
- * Saves an operation's result and shows it. The app writes it and renders it through its one render
+ * Applies an operation's result to the open buffer and shows it; the file changes only on explicit
+ * save (MARXY-49). The app renders it through its one render
  * path (images, highlight, maths, typesetter, the buffer Source mode and live reload compare against);
  * a render of its own here left all of that behind and the page unstyled until the next reload.
  */

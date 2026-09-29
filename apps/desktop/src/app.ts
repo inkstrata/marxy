@@ -140,8 +140,9 @@ export type AppHandle = {
    */
   onDocumentChange(cb: (open: OpenDocumentState | null) => void): () => void;
   /**
-   * Saves an operation's result: writes `buffer` to disk, then makes it the open document and renders
-   * it through the same path an open takes. Refused if a different document is open by then.
+   * Applies an operation's result: makes `buffer` the open document and renders it through the same
+   * path an open takes. The file is not written; that is an explicit save. Refused if a different
+   * document is open by then.
    */
   commitEdit(buffer: Buffer): Promise<void>;
   /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
@@ -746,7 +747,8 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(openPath, bytes);
   sourceEditor?.replaceBuffer(documentBuffer);
-  syncSavedVersionFromOpenBuffer();
+  // The selection context still holds the previous buffer until the render below, so hand over the new one.
+  syncSavedVersionFromOpenBuffer(documentBuffer);
   rerenderFromBuffer(doc);
   if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
   await typesetDocument(doc);
@@ -987,6 +989,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   clearDismissForPath(file);
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(file, bytes);
+  syncSavedVersionFromOpenBuffer(documentBuffer);
   sourceMount();
   installKeyDispatcher();
   await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);

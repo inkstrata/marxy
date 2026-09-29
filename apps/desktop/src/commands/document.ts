@@ -31,8 +31,8 @@ export function startDocumentEditingWire(): void {
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
       installTaskMarkers(ctx.article, ctx.nodeMap);
-      // Idempotent per open buffer (edits.ts compares path+hash), so calling it on every render
-      // re-baselines a newly opened document instead of only ever syncing the first one.
+      // Baselines a newly opened document the first time it renders. It never moves the saved state
+      // for a document it has already seen, so calling it on every render is safe.
       syncSavedVersionOnce();
     });
   };
@@ -58,7 +58,8 @@ export function documentCommands(): readonly Command[] {
       title: 'Save',
       key: 'Mod+S',
       group: 'document',
-      when: (ctx) => ctx.operationInput() !== null,
+      // A document command, not a selection operation: it needs an open document, not a selection.
+      when: () => true,
       run: async () => {
         await save();
       },
@@ -68,7 +69,7 @@ export function documentCommands(): readonly Command[] {
       title: 'Save as',
       key: 'Mod+Shift+S',
       group: 'document',
-      when: (ctx) => ctx.operationInput() !== null,
+      when: () => true,
       run: async () => {
         await save({ as: true });
       },
