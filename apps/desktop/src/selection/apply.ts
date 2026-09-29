@@ -17,11 +17,15 @@ export async function apply(
     if (!ctx.applyBufferMutation) {
       throw new Error('applyBufferMutation is not wired');
     }
-    await ctx.applyBufferMutation({
+    const written = await ctx.applyBufferMutation({
       range: input.range,
       replacement: result.replacement,
       label: op.title,
     });
+    if (written === false) {
+      ctx.closePalette();
+      return;
+    }
   }
   ctx.closePalette();
   if (result.clipboard) {

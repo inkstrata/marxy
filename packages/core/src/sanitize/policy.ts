@@ -125,7 +125,7 @@ export const RENDERER_CLASSES_WITHOUT_PROVENANCE: ReadonlySet<string> = new Set(
   'marxy-footnotes',
   'marxy-footnote-back',
 ]);
-const SMALL_INTEGER = /^[0-9]{1,4}$/;
+const SMALL_INTEGER = /^[0-9]{1,9}$/;
 const BCP47 = /^[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8}){0,4}$/;
 
 const TEXT: AttributeRule = { kind: 'text' };
@@ -311,7 +311,11 @@ const REMOTE_IMAGE_DEFERRED: AttributeRule = {
   pattern: /^https:\/\/[^\s"'<>]{1,2048}$/,
 };
 
-export function withProvenance(policy: Policy, names: ProvenanceNames = PROVENANCE_ATTRIBUTES): Policy {
+export function withProvenance(
+  policy: Policy,
+  names: ProvenanceNames = PROVENANCE_ATTRIBUTES,
+  remoteAttr: string = REMOTE_IMAGE_ATTR,
+): Policy {
   const img = policy.elements.img;
   return {
     ...policy,
@@ -323,7 +327,7 @@ export function withProvenance(policy: Policy, names: ProvenanceNames = PROVENAN
         ...policy.elements,
         img: {
           ...img,
-          attributes: { ...img.attributes, [REMOTE_IMAGE_ATTR]: REMOTE_IMAGE_DEFERRED },
+          attributes: { ...img.attributes, [remoteAttr]: REMOTE_IMAGE_DEFERRED },
         },
       },
   };

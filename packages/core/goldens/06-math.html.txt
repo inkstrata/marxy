@@ -1,4 +1,4 @@
-<h1 data-marxy-s="0" data-marxy-e="21">Math-heavy document</h1>
+<h1 id="math-heavy-document" data-marxy-s="0" data-marxy-e="21">Math-heavy document</h1>
 <p data-marxy-s="23" data-marxy-e="162">Inline math like <code class="marxy-math" data-marxy-s="40" data-marxy-e="50">E = mc^2</code> and <code class="marxy-math" data-marxy-s="55" data-marxy-e="107">\int_0^\infty e^{-x^2}\,dx = \tfrac{\sqrt{\pi}}{2}</code> sits in the run of text and must land on the baseline.</p>
 <pre class="marxy-math-block" data-marxy-s="164" data-marxy-e="471"><code>\begin{aligned}
 \nabla \cdot \mathbf{E} &amp;= \frac{\rho}{\varepsilon_0} \\

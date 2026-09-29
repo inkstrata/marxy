@@ -34,3 +34,12 @@ test('relativePath keeps directory from when to is under it', () => {
   const nested = joinPath(dir, 'bar.md');
   assert.equal(relativePath(dir, nested), 'bar.md');
 });
+
+test('relativePath from the filesystem root gives a downward path', () => {
+  assert.equal(relativePath('/', '/a/b.md'), 'a/b.md');
+  assert.equal(relativePath('/', '/b.md'), 'b.md');
+});
+
+test('relativePath does not take a sibling with a shared name prefix as inside', () => {
+  assert.equal(relativePath('/a/docs', '/a/docs2/x.md'), '../docs2/x.md');
+});

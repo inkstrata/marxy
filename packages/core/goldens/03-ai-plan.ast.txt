@@ -59,9 +59,11 @@ document [0,1911)
       list [627,677) ordered=false tight=true
         listItem [627,650) task=checked
           paragraph [629,650)
+            taskMarker [629,632) checked=true
             code [633,650) value="passkeys.enroll"
         listItem [653,677) task=unchecked
           paragraph [655,677)
+            taskMarker [655,658) checked=false
             code [659,677) value="passkeys.require"
   heading [679,688) level=2
     text [682,688) value="Phases"

@@ -1,4 +1,4 @@
-<h1 data-marxy-s="74" data-marxy-e="102">A winter of borrowed rooms</h1>
+<h1 id="a-winter-of-borrowed-rooms" data-marxy-s="74" data-marxy-e="102">A winter of borrowed rooms</h1>
 <p data-marxy-s="104" data-marxy-e="675">I have spent most of my reading life in rooms that were not built for
 it. Kitchens with a radio left low. Clinic chairs that face a television
 no one watches. The spare room of a house whose owners have gone to the
@@ -29,7 +29,7 @@ are willing to reread what you already have.</p>
 hold their shape inside them. I have changed a few names and left the
 weather alone. The quotations are as I remember them, which is to say
 they are as true as memory ever is, and no more.</p>
-<h2 data-marxy-s="2093" data-marxy-e="2106">The clinic</h2>
+<h2 id="the-clinic" data-marxy-s="2093" data-marxy-e="2106">The clinic</h2>
 <p data-marxy-s="2108" data-marxy-e="2614">The clinic on Harbour Street keeps its magazines in a rack that has been
 repaired with parcel tape. Nobody reads them. People pick them up, open
 them at a random page, and hold them the way you hold a ticket you do
@@ -90,7 +90,7 @@ understood, not for the first time, that I had come to the clinic with a
 book so that I would have something to return to that was not my own
 blood in a vial with a printed label. That is a small and ordinary
 cowardice. I record it because the winter was made of such things.</p>
-<h2 data-marxy-s="6061" data-marxy-e="6090">The kitchen after midnight</h2>
+<h2 id="the-kitchen-after-midnight" data-marxy-s="6061" data-marxy-e="6090">The kitchen after midnight</h2>
 <p data-marxy-s="6092" data-marxy-e="6568">Mara’s kitchen faced the alley, not the water, which she said was the
 only reason the rent was survivable. The window looked onto a brick wall
 and a drainpipe that rang when it rained. She had gone north for three
@@ -161,7 +161,7 @@ passed in silence. I thought about leaving Mara a letter of my own and
 then did not, because anything I could have said would have been a
 performance of gratitude, and she had asked me not to be a guest.</p>
 <p data-marxy-s="10625" data-marxy-e="10690">She came back on the Sunday. The house remembered her in an hour.</p>
-<h2 data-marxy-s="10692" data-marxy-e="10717">The twenty-three forty</h2>
+<h2 id="the-twenty-three-forty" data-marxy-s="10692" data-marxy-e="10717">The twenty-three forty</h2>
 <p data-marxy-s="10719" data-marxy-e="11228">The last train from the city was supposed to be a convenience and was,
 most nights, a rehearsal for patience. It left from a platform that
 smelled of wet wool and orange peel. The indicator board had a habit of
@@ -233,7 +233,7 @@ look like and wanted to watch it arrive rather than be surprised by it.
 I closed the book on that, and went in, and the heating clicked as if it
 had been waiting for a cue.</p>
 <p data-marxy-s="15404" data-marxy-e="15469">The bothy stayed in my head for days. Some rooms you only sit in.</p>
-<h2 data-marxy-s="15471" data-marxy-e="15488">The spare room</h2>
+<h2 id="the-spare-room" data-marxy-s="15471" data-marxy-e="15488">The spare room</h2>
 <p data-marxy-s="15490" data-marxy-e="16072">The second house belonged to people I will call the Ellisons, though
 that is not their name and they will never read this. They had gone to
 the coast — a different coast from ours, a coast with a brochure — and
@@ -308,7 +308,7 @@ dimensions of their own house. I walked out with my bag of books and my
 bag of shirts and I did not look up at the back window, because I knew
 the blue rectangle would be gone in the daytime, and I did not want to
 see the room returned to being only a room.</p>
-<h2 data-marxy-s="20531" data-marxy-e="20568">A letter I was not meant to finish</h2>
+<h2 id="a-letter-i-was-not-meant-to-finish" data-marxy-s="20531" data-marxy-e="20568">A letter I was not meant to finish</h2>
 <p data-marxy-s="20570" data-marxy-e="21099">In the third week of January a letter arrived for me at Mara’s address,
 forwarded by a landlord who still had a stamp and a conscience. It was
 from my cousin, who lives in a city I left on purpose and who writes on
@@ -370,7 +370,7 @@ and I did not say come and see the estuary, because I was not sure the
 rooms I was in could bear another person. The reply went into a red
 postbox that had a seagull perched on it, which felt like a detail I
 should not invent and therefore report.</p>
-<h2 data-marxy-s="24558" data-marxy-e="24597">The library that closed on Thursdays</h2>
+<h2 id="the-library-that-closed-on-thursdays" data-marxy-s="24558" data-marxy-e="24597">The library that closed on Thursdays</h2>
 <p data-marxy-s="24599" data-marxy-e="25222">Our town library is a converted chapel with a damp problem and a
 librarian who has decided not to be defeated by either. She is called
 Helen when she is wearing her own coat and Mrs. Reed when she is behind
@@ -448,7 +448,7 @@ come inside, and that this is almost too neat a thought, and that I
 would keep it anyway, the way I kept the receipt with the fox on it,
 because a winter is a collection of almost-too-neat thoughts that you
 were cold enough to need.</p>
-<h2 data-marxy-s="29682" data-marxy-e="29725">What a sentence does when it has to turn</h2>
+<h2 id="what-a-sentence-does-when-it-has-to-turn" data-marxy-s="29682" data-marxy-e="29725">What a sentence does when it has to turn</h2>
 <p data-marxy-s="29727" data-marxy-e="30343">I said I was not writing a theory, and I am still not, but I cannot talk
 about a winter of pages without talking about the moment a line runs out
 of room. You reach the right-hand edge — in a book, in a window of a
@@ -519,7 +519,7 @@ and then stood by. I want, in the rooms I have not yet borrowed, to read
 pages that were stood by. That is the whole of the theory I swore I
 would not write. It fits in a sentence. The rest of this is only the
 weather the sentence needed.</p>
-<h2 data-marxy-s="34436" data-marxy-e="34475">Weather, and the days I did not read</h2>
+<h2 id="weather-and-the-days-i-did-not-read" data-marxy-s="34436" data-marxy-e="34475">Weather, and the days I did not read</h2>
 <p data-marxy-s="34477" data-marxy-e="35094">Not every day of the winter had a page in it. I want that on record,
 because an account of reading can start to sound like a life made of
 reading, which mine is not. There were days of paid work at a table that
@@ -578,7 +578,7 @@ poem is a kind of porch light, and I have already admitted what I am
 like about thresholds. The poet had trusted the unfinished thing. I put
 the book back with its new white line and I went to feed the fish, who
 did not care about dashes, and that, too, was a relief.</p>
-<h2 data-marxy-s="38407" data-marxy-e="38433">Two more rooms, briefly</h2>
+<h2 id="two-more-rooms-briefly" data-marxy-s="38407" data-marxy-e="38433">Two more rooms, briefly</h2>
 <p data-marxy-s="38435" data-marxy-e="39253">There was a week in a hostel in the city, between Mara’s and the
 Ellisons’, that I have almost left out because it does not flatter the
 shape of this account. The room had four beds and I used one of them for
@@ -627,7 +627,7 @@ question about whether the winter was enough. I put the novel in my bag
 and I went out through the shop, and the owner nodded without looking up
 from a pile of returns, and the bell on the door did the small work
 bells do.</p>
-<h2 data-marxy-s="41697" data-marxy-e="41713">The last room</h2>
+<h2 id="the-last-room" data-marxy-s="41697" data-marxy-e="41713">The last room</h2>
 <p data-marxy-s="41715" data-marxy-e="42365">In the last week of February the thaw came, and with it a message from a
 landlord who had found a set of keys and a date. I walked through the
 empty flat on a morning when the pavements were shining in that flat way
@@ -691,7 +691,7 @@ a house is empty and a timer is ticking and a train is revising the
 future in increments of four minutes.</p>
 <p data-marxy-s="45802" data-marxy-e="45881">I have left the good plates where I found them. I have tried not to be a
 guest.</p>
-<h2 data-marxy-s="45883" data-marxy-e="45911">Asides the rooms required</h2>
+<h2 id="asides-the-rooms-required" data-marxy-s="45883" data-marxy-e="45911">Asides the rooms required</h2>
 <p data-marxy-s="45913" data-marxy-e="46154">What remains are the notes I would otherwise have put in the margin —
 the asides that a borrowed room teaches you to keep quiet until the
 owner is out. I have gathered them here so the winter can end without

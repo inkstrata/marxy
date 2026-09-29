@@ -14,6 +14,8 @@
   #marxy-outline:not([open]), #marxy-find[hidden], #marxy-source[hidden] { display: none; }
   /* Source mode mount (§09); visible only while `data-marxy-mode="source"`. */
   #marxy-source:not([hidden]) { position: fixed; inset: 0; overflow: auto; }
+  /* The Source overlay covers the whole window, notices included; a notice is still the app speaking. */
+  body[data-marxy-mode="source"] #marxy-notices { position: fixed; top: 0; left: 0; right: 0; z-index: 10; }
 </style>
 </head>
 <body data-marxy-mode="rendered" data-marxy-variant="dark">

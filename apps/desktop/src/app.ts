@@ -1,18 +1,49 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
-import { dirname } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import {
+  documentIsDirty,
+  foldSourceEditIfNeeded,
+  markDocumentSaved,
+  renameDocumentPath,
+  syncSavedVersionFromOpenBuffer,
+} from './commands/edits.ts';
+import { confirmLeaveDocument, installCloseGuard } from './close.ts';
+import { installSave } from './save.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
+import { policyFor } from '@marxy/core/src/sanitize/policy.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
+import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { IndexEntry } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
-import { blockedContentNotice } from './notices/blocked.ts';
+import {
+  blockedContentNotice,
+  clearBlockedNotices,
+  clearGrantSummaryNotices,
+  clearDismissForPath,
+  grantSummaryNotice,
+  imageGrantSummaryNotice,
+  resetDismissedNotices,
+  trustBlockedNotices,
+} from './notices/blocked.ts';
+import { truncationNotices } from './notices/truncation.ts';
+import { commands as appCommands } from './commands/index.ts';
+import { wireTrustRevokeCommands } from './commands/trust.ts';
+import { loadTrust, type TrustStore } from './trust/trust.ts';
 import { diskChangedEditsKeptNotice, fileRemovedNotice } from './notices/disk.ts';
-import { ensureNoticesRegion } from './notices/index.ts';
+import { clearNotices, notify } from './notices/index.ts';
+import {
+  TRUST_NEWER_VERSION_TEXT,
+  grantableBlockedImages,
+  htmlGrantWouldChangeForNotice,
+  trustWriteFailedText,
+} from './notices/trust-copy.ts';
 import { leaveSourceMode } from './source/buffer-commit.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
@@ -48,11 +79,24 @@ interface MountedSourceEditor {
 /** The Phase 0 shell surface: frozen Shell members tauri.ts already implements, plus startup extras. */
 export type AppShell = Pick<
   Shell,
-  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir'
+  | 'readFile'
+  | 'writeFileAtomic'
+  | 'watch'
+  | 'platform'
+  | 'startupMarks'
+  | 'readDir'
+  | 'setTitle'
+  | 'saveDialog'
+  | 'allowAssetScope'
+  | 'onCloseRequested'
+  | 'confirmClose'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
+  /** Tauri shell only: read without arming the stale-write guard (MARXY-337). */
+  peekFile?(path: string): Promise<Uint8Array>;
+  recordRead?(path: string, bytes: Uint8Array): void;
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
@@ -109,8 +153,9 @@ export type AppHandle = {
    */
   onDocumentChange(cb: (open: OpenDocumentState | null) => void): () => void;
   /**
-   * Saves an operation's result: writes `buffer` to disk, then makes it the open document and renders
-   * it through the same path an open takes. Refused if a different document is open by then.
+   * Applies an operation's result: makes `buffer` the open document and renders it through the same
+   * path an open takes. The file is not written; that is an explicit save. Refused if a different
+   * document is open by then.
    */
   commitEdit(buffer: Buffer): Promise<void>;
   /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
@@ -197,6 +242,8 @@ async function showSource(byteOffset: number): Promise<void> {
 async function showRendered(byteOffset: number, fraction: number): Promise<void> {
   setModeChrome('rendered');
   if (state.document && openPath) {
+    // Block positions must be measured with the article laid out, not from whatever a hidden pass saw.
+    snap(document.getElementById('doc')!);
     restoreScrollToPosition(readingScroller(), state.document.blocks, {
       path: openPath,
       byteOffset,
@@ -217,18 +264,22 @@ async function enterSourceFromRendered(): Promise<void> {
 async function leaveSourceForRendered(): Promise<void> {
   if (!sourceEditor || !documentBuffer) return;
   const docText = sourceEditor.docText();
-  const left = leaveSourceMode(documentBuffer, docText);
-  documentBuffer = left.buffer;
+  const before = documentBuffer;
+  // Leaving Source is one history entry: Mod+Z in Rendered undoes what was typed there.
+  const next = await foldSourceEditIfNeeded(before, docText, async (folded) => {
+    documentBuffer = folded;
+    // The AST, the node map and the blocks were built from the old bytes; an operation resolved
+    // through them now would splice at offsets that no longer name what the reader sees.
+    rerenderFromBuffer(document.getElementById('doc')!);
+  });
   let byteOffset = lastReadingByteOffset;
   let fraction = lastReadingFraction;
-  if (left.changed) {
+  if (next !== before && sourceEditor) {
     const { sourceVisibleByteOffset } = await import('./source/mode-switch.ts');
     sourceEditor.replaceBuffer(documentBuffer);
     byteOffset = sourceVisibleByteOffset(documentBuffer, sourceEditor.view as never);
     fraction = 0;
-    // The AST, the node map and the blocks were built from the old bytes; an operation resolved
-    // through them now would splice at offsets that no longer name what the reader sees.
-    rerenderFromBuffer(document.getElementById('doc')!);
+    await refreshTitle();
   }
   lastReadingByteOffset = byteOffset;
   lastReadingFraction = fraction;
@@ -327,11 +378,205 @@ function deferredStartupContext(
     imageCtx,
     onIndexLoaded: deliverIndex,
     openedBytes: documentBuffer?.bytes,
+    onLayoutChanged: () => snap(doc),
   };
 }
 
 /** The shell this launch is using; set by startApp, never imported from tauri.ts. */
 let shell: AppShell;
+
+let trustStore: TrustStore | null = null;
+let trustLoadPromise: Promise<void> | null = null;
+
+function trustGrantsFor(path: string): { html: boolean; imageHosts: readonly string[] } {
+  return trustStore?.grantsFor(path) ?? { html: false, imageHosts: [] };
+}
+
+function renderPolicyFor(path: string) {
+  return policyFor({ html: trustGrantsFor(path).html });
+}
+
+function startTrustLoad(): Promise<void> {
+  if (trustLoadPromise) return trustLoadPromise;
+  trustLoadPromise = (async () => {
+    if (shell.configPaths === undefined) return;
+    try {
+      if (shell.configPaths === undefined) return;
+      const io = {
+        readFile: (p: string) => shell.readFile(p),
+        writeFileAtomic: (p: string, b: Uint8Array) => shell.writeFileAtomic(p, b),
+        dataDirectory: async () => (await shell.configPaths!()).data,
+      };
+      trustStore = await loadTrust(io);
+    } catch {
+      trustStore = null;
+    }
+  })();
+  return trustLoadPromise;
+}
+
+async function byteOffsetForLine(line: number): Promise<number> {
+  if (!documentBuffer) return 0;
+  // Bytes, not UTF-16 units: a multi-byte character or a byte-order mark shifts every later offset.
+  const bytes = documentBuffer.bytes;
+  let byte = 0;
+  let current = 1;
+  for (let i = 0; i < bytes.length && current < line; i++) {
+    if (bytes[i] === 10) {
+      current++;
+      byte = i + 1;
+    }
+  }
+  return byte;
+}
+
+function showTrustNotices(
+  removed: readonly RenderRemoval[],
+  allBlockedImages: readonly BlockedImage[],
+): void {
+  if (!openPath || !documentBuffer) return;
+  // Images no per-host grant can load (protocol-relative) are neither counted nor offered a host.
+  const blockedImages = grantableBlockedImages(allBlockedImages, removed);
+  const path = openPath;
+  const grants = trustGrantsFor(path);
+  clearBlockedNotices();
+  if (blockedImages.length > 0 && !htmlGrantWouldChangeForNotice(removed)) {
+    blockedContentNotice(blockedImages);
+  } else {
+    trustBlockedNotices({
+      path,
+      removed,
+      blockedImages,
+      grants,
+      onGrantHtml: () => { void grantHtmlForOpenDocument(); },
+      onGrantImages: (hosts) => { void grantImageHostsForOpenDocument(hosts); },
+    });
+  }
+  truncationNotices({
+    buffer: documentBuffer,
+    removed,
+    showSource: (line) => {
+      void byteOffsetForLine(line).then((b) => showSource(b));
+    },
+  });
+}
+
+/**
+ * Applies one trust change and says so when it cannot be kept: trust.json from a newer Marxy is left
+ * alone, and a failed write leaves the store as it was. True only when the change really landed.
+ */
+async function applyTrustChange(change: (store: TrustStore) => Promise<boolean>): Promise<boolean> {
+  const store = trustStore;
+  if (!store) return false;
+  try {
+    if (await change(store)) return true;
+    notify({ kind: 'info', text: TRUST_NEWER_VERSION_TEXT });
+  } catch (err) {
+    notify({ kind: 'info', text: trustWriteFailedText(err) });
+  }
+  return false;
+}
+
+/**
+ * "Show HTML and images" starts both grants together; one summary is announced once the last of them
+ * has landed, naming everything that was granted ("Showing HTML and images from 2 hosts for …").
+ */
+const grantSummary = { inFlight: 0, html: false, hosts: 0 };
+
+function grantSummaryFinished(path: string): void {
+  if (grantSummary.inFlight > 0) return;
+  const { html, hosts } = grantSummary;
+  grantSummary.html = false;
+  grantSummary.hosts = 0;
+  if (openPath !== path) return;
+  if (html) grantSummaryNotice(path, true, hosts);
+  // Images load only when the shell can fetch them, which the summary above does not promise.
+  if (hosts > 0) imageGrantSummaryNotice();
+}
+
+async function grantHtmlForOpenDocument(): Promise<void> {
+  const doc = document.getElementById('doc')!;
+  if (!openPath || !trustStore || !documentBuffer) return;
+  const path = openPath;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode);
+  grantSummary.inFlight++;
+  try {
+    const granted = await applyTrustChange((store) => store.grant(path, { html: true }));
+    // The reader may have opened another document while the write ran; the grant is theirs to keep
+    // for `path`, but nothing here may re-render or announce over the document now open.
+    if (!granted || openPath !== path) return;
+    grantSummary.html = true;
+    rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+  } finally {
+    grantSummary.inFlight--;
+    grantSummaryFinished(path);
+  }
+}
+
+async function grantImageHostsForOpenDocument(hosts: readonly string[]): Promise<void> {
+  if (!openPath || !trustStore) return;
+  const path = openPath;
+  const prev = trustStore.grantsFor(path).imageHosts;
+  const merged = [...new Set([...prev, ...hosts])];
+  grantSummary.inFlight++;
+  try {
+    const granted = await applyTrustChange((store) => store.grant(path, { imageHosts: merged }));
+    if (!granted || openPath !== path) return;
+    grantSummary.hosts = Math.max(grantSummary.hosts, hosts.length);
+    if (state.document && documentBuffer) {
+      const { removed, blockedImages } = renderDocumentSafeHtml(state.document.ast, renderPolicyFor(path));
+      showTrustNotices(removed, blockedImages);
+    }
+  } finally {
+    grantSummary.inFlight--;
+    grantSummaryFinished(path);
+  }
+}
+
+async function revokeTrust(what: 'html' | 'images'): Promise<void> {
+  const doc = document.getElementById('doc')!;
+  if (!openPath || !trustStore) return;
+  const path = openPath;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode);
+  if (!(await applyTrustChange((store) => store.revoke(path, what)))) return;
+  if (openPath !== path) return;
+  clearGrantSummaryNotices();
+  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+}
+
+const revokeTrustHtml = (): Promise<void> => revokeTrust('html');
+const revokeTrustImages = (): Promise<void> => revokeTrust('images');
+
+function rerenderOpenDocument(doc: HTMLElement, byteOffset: number, fraction: number): void {
+  if (!documentBuffer || !openPath) return;
+  const file = openPath;
+  const ast = parseMarkdown(documentBuffer.bytes, { file });
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
+  destroyTypeset();
+  assignHtml(doc, html);
+  state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
+  announceDocument();
+  stripNonLocalImages(doc, file);
+  showTrustNotices(removed, blockedImages);
+  snap(doc);
+  startTypeset(doc);
+  restoreScrollToPosition(readingScroller(), state.document.blocks, {
+    path: file,
+    byteOffset,
+    fraction,
+    mode: 'rendered',
+  });
+  void whenIdle(() =>
+    runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots })),
+  );
+}
+
+async function maybeRerenderForLateTrust(doc: HTMLElement): Promise<void> {
+  await startTrustLoad();
+  if (!openPath || !trustStore || !trustGrantsFor(openPath).html) return;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
+  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+}
 
 /** Asset-protocol roots allowed this session (post-pass 3). */
 const scopedAssetRoots = new Set<string>();
@@ -500,12 +745,18 @@ function keepOnGrid(article: HTMLElement): void {
   let width = article.clientWidth;
   disconnectResizeObserver();
   liveResizeObservers += 1;
+  const laidOut = () => !article.hidden && article.clientWidth > 0;
   resizeObserver = new ResizeObserver(() => {
-    if (article.clientWidth === width) return;
+    // Hidden (Source mode) the article is zero-width: measuring now would zero every block position.
+    if (!laidOut() || article.clientWidth === width) return;
     width = article.clientWidth;
     clearTimeout(pending);
     // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
-    pending = window.setTimeout(() => (typeset ? typeset.relayout('resize') : snap(article)), 100);
+    pending = window.setTimeout(() => {
+      if (!laidOut()) return;
+      if (typeset) typeset.relayout('resize');
+      else snap(article);
+    }, 100);
   });
   resizeObserver.observe(article);
 }
@@ -541,7 +792,7 @@ function hasLocalEdits(diskBytes: Uint8Array): boolean {
 async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await shell.readFile(path);
+      return await (shell.peekFile ? shell.peekFile(path) : shell.readFile(path));
     } catch {
       if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -556,9 +807,12 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   // A held palette jump names a byte offset in the old bytes; the reading position below is the
   // one that was mapped through the edit.
   releaseAnchor();
+  shell.recordRead?.(openPath, bytes);
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(openPath, bytes);
   sourceEditor?.replaceBuffer(documentBuffer);
+  // The selection context still holds the previous buffer until the render below, so hand over the new one.
+  syncSavedVersionFromOpenBuffer(documentBuffer);
   rerenderFromBuffer(doc);
   if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
   await typesetDocument(doc);
@@ -585,19 +839,54 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
   if (update.action === 'follow') {
     // Already inside `serially`: going through replaceOpenDocument would queue this open behind the
     // task waiting for it, and every open, mode switch and reload after it would wait forever.
-    await openReplacing(update.path, update.position.byteOffset);
+    if (hasUnsavedChanges()) await retargetOpenDocument(update.path);
+    else await openReplacing(update.path, update.position.byteOffset);
     return;
   }
   if (diskBytes === null) {
     fileRemovedNotice();
     return;
   }
-  if (contentHash(diskBytes) === contentHash(documentBuffer.bytes)) return;
+  if (contentHash(diskBytes) === contentHash(documentBuffer.bytes)) {
+    // The file now holds exactly what the buffer does (an external write of the same edit): nothing is
+    // unsaved any more, unless the Source editor holds text not yet folded in.
+    if (!(viewMode === 'source' && sourceEditor && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed)) {
+      shell.recordRead?.(openPath, diskBytes);
+      bytesOnDisk = diskBytes.slice();
+      markDocumentSaved(documentBuffer);
+      await refreshTitle();
+    }
+    return;
+  }
   if (hasLocalEdits(diskBytes)) {
     diskChangedEditsKeptNotice();
     return;
   }
   await reloadOpenFromDisk(diskBytes, update.position);
+}
+
+/**
+ * The open file was renamed while the buffer has unsaved edits: the buffer keeps them and follows the
+ * new name, still unsaved against the file it came from, rather than being reloaded over them.
+ */
+async function retargetOpenDocument(newPath: string): Promise<void> {
+  const folded = await foldSourceIntoBuffer();
+  if (!folded || !openPath || !state.document) return;
+  const doc = document.getElementById('doc')!;
+  const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+  renameDocumentPath(openPath, newPath);
+  openPath = newPath;
+  documentBuffer = createBuffer(newPath, folded.bytes);
+  sourceEditor?.replaceBuffer(documentBuffer);
+  releaseAnchor();
+  rerenderFromBuffer(doc);
+  if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, { ...position, path: newPath });
+  await typesetDocument(doc);
+  await shell.allowAssetScope(dirname(newPath));
+  await registerDocumentWatch(newPath);
+  document.title = `${basename(newPath)} — Marxy`;
+  announceDocument();
+  await refreshTitle();
 }
 
 async function registerDocumentWatch(file: string): Promise<void> {
@@ -615,20 +904,44 @@ async function registerDocumentWatch(file: string): Promise<void> {
   }
 }
 
-/** Write an operation's result and show it through the one render path (AppHandle.commitEdit). */
+/** Apply an operation's in-memory result and re-render; disk is updated only on explicit save (MARXY-49). */
 function commitEdit(next: Buffer): Promise<void> {
   return serially(async () => {
     if (!openPath || next.path !== openPath || !state.document) throw new Error('the edited document is no longer open');
     const doc = document.getElementById('doc')!;
     const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
-    await shell.writeFileAtomic(openPath, next.bytes);
-    bytesOnDisk = next.bytes.slice();
     documentBuffer = next;
     sourceEditor?.replaceBuffer(documentBuffer);
     releaseAnchor();
     rerenderFromBuffer(doc);
     if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
     await typesetDocument(doc);
+    await refreshTitle();
+  });
+}
+
+async function refreshTitle(): Promise<void> {
+  if (!shell.setTitle) return;
+  const { updateTitle } = await import('./title.ts');
+  const { documentIsDirty } = await import('./commands/edits.ts');
+  if (!openPath || !documentBuffer) {
+    await updateTitle(shell, null, false);
+    return;
+  }
+  await updateTitle(shell, openPath, documentIsDirty(documentBuffer));
+}
+
+async function foldSourceIntoBuffer(): Promise<Buffer | null> {
+  if (!documentBuffer) return null;
+  if (viewMode === 'rendered' || !sourceEditor) return documentBuffer;
+  const doc = document.getElementById('doc')!;
+  const { foldSourceEditIfNeeded } = await import('./commands/edits.ts');
+  return foldSourceEditIfNeeded(documentBuffer, sourceEditor.docText(), async (next) => {
+    documentBuffer = next;
+    sourceEditor?.replaceBuffer(next);
+    rerenderFromBuffer(doc);
+    announceDocument();
+    await refreshTitle();
   });
 }
 
@@ -664,13 +977,13 @@ function rerenderFromBuffer(doc: HTMLElement): void {
   if (!documentBuffer || !openPath) return;
   const file = openPath;
   const ast = parseMarkdown(documentBuffer.bytes, { file });
-  const { html, blockedImages } = renderDocumentSafeHtml(ast);
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
   destroyTypeset();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
   announceDocument();
   stripNonLocalImages(doc, file);
-  blockedContentNotice(blockedImages);
+  showTrustNotices(removed, blockedImages);
   snap(doc);
   startTypeset(doc);
   void whenIdle(() =>
@@ -772,23 +1085,26 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   }
   teardownDocument();
   openPath = file;
+  clearDismissForPath(file);
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(file, bytes);
+  syncSavedVersionFromOpenBuffer(documentBuffer);
   sourceMount();
   installKeyDispatcher();
   await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
   const ast = parseMarkdown(bytes, { file });
   await shell.mark('parsed', Date.now());
-  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast);
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
   const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
-  ensureNoticesRegion();
+  // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
+  clearNotices();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap, blocks: [] };
   announceDocument();
   await shell.mark('rendered', Date.now());
+  showTrustNotices(removed, blockedImages);
   stripNonLocalImages(doc, file);
-  blockedContentNotice(blockedImages);
   void doc.offsetHeight;
   await document.fonts.ready;
   await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
@@ -801,7 +1117,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   return evidence;
 }
 
-async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void> {
+async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): Promise<void> {
   await typesetDocument(doc);
   const shouldRestore = restoreAfterTypeset;
   restoreAfterTypeset = false;
@@ -813,7 +1129,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
   });
   await shell.mark('position_restored', Date.now());
   if (defaultModeForPath(file) === 'source') {
-    await showSource(0);
+    await showSource(at ?? 0);
   } else {
     setModeChrome('rendered');
   }
@@ -821,10 +1137,28 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
     userThemeHandle = await adoptThemeDirectory(userThemeContext(doc), dir, userThemeHandle);
   });
   await registerDocumentWatch(file);
+  await refreshTitle();
 }
 
 function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void> {
-  return serially(() => openReplacing(file, opts?.at));
+  const open = () =>
+    serially(async () => {
+      // The document already on screen, asked for again with nowhere to go (a second launch, Finder, a
+      // drag, the palette on the current document): reading it back from disk would drop unsaved edits.
+      if (file === openPath && opts?.at === undefined && hasUnsavedChanges()) return;
+      await openReplacing(file, opts?.at);
+    });
+  // Another document over unsaved edits asks first (save / discard / dismiss), as a close does. Moving
+  // within the open document, or opening with nothing unsaved, goes straight through.
+  if (file !== openPath && confirmLeaveDocument(open)) return Promise.resolve();
+  return open();
+}
+
+/** Unsaved changes: in the buffer, or typed into the Source editor and not yet folded into it. */
+function hasUnsavedChanges(): boolean {
+  if (!documentBuffer) return false;
+  if (documentIsDirty(documentBuffer)) return true;
+  return viewMode === 'source' && sourceEditor !== null && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed;
 }
 
 async function openReplacing(file: string, at?: number): Promise<void> {
@@ -839,7 +1173,7 @@ async function openReplacing(file: string, at?: number): Promise<void> {
   try {
     await openDocumentThroughRenderMark(file, doc, at);
     trackDocumentOpen(file);
-    await finishDocumentOpen(file, doc);
+    await finishDocumentOpen(file, doc, at);
   } catch (e) {
     // Nothing of the last document may outlive the page that showed it.
     teardownDocument();
@@ -958,6 +1292,7 @@ async function boot(): Promise<void> {
   await shell.mark('first_text', paintedAt);
   await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
+  setTimeout(() => void startTrustLoad().then(() => maybeRerenderForLateTrust(doc)), 0);
   return finish(0);
 }
 
@@ -980,6 +1315,8 @@ export async function startApp(
   scrollPersistenceInstalled = false;
   resetPaletteHistoryMirror();
   chain = Promise.resolve();
+  trustStore = null;
+  trustLoadPromise = null;
   const base = injected;
   shell = {
     ...base,
@@ -990,6 +1327,12 @@ export async function startApp(
   };
   deliverIndex = opts?.onIndexLoaded;
   launchArgs = opts?.argv ? [...opts.argv] : [];
+  resetDismissedNotices();
+  wireTrustRevokeCommands({
+    grantsForPath: () => (openPath ? trustGrantsFor(openPath) : null),
+    revokeHtml: revokeTrustHtml,
+    revokeImages: revokeTrustImages,
+  });
   frontispiecePieces = opts?.pieces ?? null;
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
@@ -1001,7 +1344,7 @@ export async function startApp(
   const handle: AppHandle = {
     get state() { return state; },
     dispatch() {},
-    commands() { return []; },
+    commands() { return appCommands(); },
     shell,
     ready,
     open: replaceOpenDocument,
@@ -1020,6 +1363,31 @@ export async function startApp(
       pinDocumentOnPaletteSession(palette?.session ?? emptySession('/'), path);
     },
   };
+  installSave({
+    shell,
+    getOpenBuffer: () => documentBuffer,
+    foldSourceIntoBuffer,
+    isReadOnlyPath: (path) => path.startsWith('marxy:'),
+    onSaved: async (path, buffer, documentUnchanged) => {
+      bytesOnDisk = buffer.bytes.slice();
+      // An edit made while the save was in flight is newer than what reached disk: keep it, dirty.
+      if (openPath === path && documentUnchanged) documentBuffer = buffer;
+      await refreshTitle();
+    },
+    onSaveAsPath: async (path) => {
+      if (!documentBuffer) return;
+      documentBuffer = createBuffer(path, documentBuffer.bytes);
+      openPath = path;
+      await shell.allowAssetScope(dirname(path));
+      await registerDocumentWatch(path);
+      announceDocument();
+    },
+  });
+  installCloseGuard({
+    shell,
+    isDirty: hasUnsavedChanges,
+    documentName: () => (openPath ? basename(openPath) : null),
+  });
   try {
     await serially(boot);
   } catch (e) {

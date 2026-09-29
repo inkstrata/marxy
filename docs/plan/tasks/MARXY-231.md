@@ -18,6 +18,7 @@ Measured on 7e0a280 (handbook [02](../../research/reader-artifacts/02-agent-arti
 - `packages/core/src/parse/from-mdast.ts` — find the marker from the list item's source bytes, not from the first text child.
 - `packages/core/src/sourcemap/` — `sectionRange` walks to the heading's parent container; `nodeAt` descends into inline children including `taskMarker`.
 - `packages/core/src/buffer/buffer.ts` — `splice` validates `0 ≤ start ≤ end ≤ length` and code-point boundaries; `eol` detects bare CR.
+- `apps/desktop/src/selection/selection.ts` — `nodeAt` now also returns inlines, so `moveSibling` and `parentOf` climb from an inline hit to its enclosing block to keep their block-only behaviour.
 - `packages/core/src/operations/copy-section.ts` — refuse (return no clipboard) when the range is not a section.
 - `fixtures/corpus/23-task-openers.md` — new: one task item per opener kind, checked and unchecked, plus a heading inside a blockquote.
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
@@ -46,7 +47,7 @@ Measured on 7e0a280 (handbook [02](../../research/reader-artifacts/02-agent-arti
 6. CHANGELOG.md has an Unreleased line for this key.
 
 ## Taste
-**Taste, without a stop.** Ship the handbook's default exactly as written above; do not ask the reviewer to choose between options, and do not pause for a look mid-story. Add **one** row to `docs/taste-review/queue.md` with the before/after artifact below and a confirm-or-tune question. The value is already decided by the research; the row lets the author tune it at the end-of-phase review (AGENTS.md "Verification").
+**Taste, without a stop.** Ship the handbook's default exactly as written above; do not ask the reviewer to choose between options, and do not pause for a look mid-story. Add **one** row as the fragment `docs/taste-review/queue.d/MARXY-231.md` with the before/after artifact below and a confirm-or-tune question. The value is already decided by the research; the row lets the author tune it at the end-of-phase review (AGENTS.md "Verification").
 
 - Artifact: `23-task-openers.md` rendered, dark, 960 px, before/after (checkboxes appear).
 - Question: Do the recovered checkboxes sit like the others? (Default: identical to every other task item.)

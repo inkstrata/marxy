@@ -24,6 +24,10 @@ const snapped = new WeakMap<HTMLElement, Set<HTMLElement>>();
 export function snapToGrid(article: HTMLElement, lineBox: number): number {
   const unit = lineBox / 2;
   if (!(unit > 0)) return 0;
+  // The pass writes padding and reads layout many times over; the engine's own scroll anchoring would
+  // answer each intermediate layout by moving the page, and the reader would land off where they were.
+  // Scroll position is the app's to keep (reading position, ADR-0018), so the article opts out.
+  article.style.setProperty('overflow-anchor', 'none');
   const mine = snapped.get(article) ?? new Set<HTMLElement>();
   snapped.set(article, mine);
   for (const el of mine) el.style.removeProperty(el === article ? 'padding-top' : 'padding-bottom');
@@ -36,22 +40,20 @@ export function snapToGrid(article: HTMLElement, lineBox: number): number {
     if (short > 0) plans.push({ el, add: short });
   }
   apply(plans, mine);
-  // Step 2: read every block child's top, then push each one that starts off the grid — one more
-  // layout. The push goes on the block before it, which also moves any inline content in between
-  // (a README's raw-HTML badges sit directly in the article); with no block before it, on the article.
+  // Step 2: each block child whose top is off the grid pushes the one before it; after each push the
+  // next top is read again, because padding-bottom stops margin collapse with the next sibling and a
+  // running delta would drift (MARXY-282).
   const children = [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
-  const origin = article.getBoundingClientRect().top;
-  const tops = children.map((el) => el.getBoundingClientRect().top - origin);
-  const pushes: Plan[] = [];
-  let moved = 0;
+  let pushes = 0;
   for (let i = 0; i < children.length; i++) {
-    const short = shortfall(tops[i]! + moved, unit);
+    const origin = article.getBoundingClientRect().top;
+    const top = children[i]!.getBoundingClientRect().top - origin;
+    const short = shortfall(top, unit);
     if (short === 0) continue;
-    pushes.push({ el: i === 0 ? article : children[i - 1]!, add: short });
-    moved += short;
+    apply([{ el: i === 0 ? article : children[i - 1]!, add: short }], mine, article);
+    pushes++;
   }
-  apply(pushes, mine, article);
-  return plans.length + pushes.length;
+  return plans.length + pushes;
 }
 
 interface Plan {

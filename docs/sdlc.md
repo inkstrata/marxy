@@ -53,10 +53,10 @@ A story is not dispatched until all of this is true. `ready.mjs` enforces the me
 
 1. Every acceptance criterion is checked by a test or gate **in the same PR**.
 2. `pnpm build typecheck lint test` green, plus every `pnpm gate:*` that touches the story's paths.
-3. No file outside the story's `Paths` (plus `CHANGELOG.md`, the taste queue and its own result
+3. No file outside the story's `Paths` (plus `changelog.d/`, `docs/taste-review/queue.d/`, and its own result
    file). `review.mjs` lists violations and a violation is an automatic return.
-4. `CHANGELOG.md` has a line under `Unreleased`.
-5. Anything a reader sees has a before/after entry in `docs/taste-review/queue.md`.
+4. The story has a changelog entry: `changelog.d/KEY.md`, one line ending in `(KEY)` (a `CHANGELOG.md` line under `Unreleased` still counts during the transition).
+5. Optional: anything a reader sees may have a before/after entry, `docs/taste-review/queue.d/KEY.md`; nothing requires one.
 6. Docs and ADRs updated in the same PR if a decision changed.
 7. CI green, CODEOWNERS approved where required, squash-merged, branch deleted.
 8. The Jira issue is **Done** and carries the PR link.
@@ -189,7 +189,7 @@ list; a missing clause is the printed hold reason.
 4. Every CI check has a conclusion; none are red. Pending checks alone enable auto-merge
    rather than a hold, once the rest of the bar is green.
 5. GitHub has not requested changes, and CODEOWNERS has not set `REVIEW_REQUIRED`.
-6. No file outside the story's `Paths` (plus `CHANGELOG.md`, the taste queue, the lockfile
+6. No file outside the story's `Paths` (plus `changelog.d/`, `docs/taste-review/queue.d/`, the lockfile
    and the result file). The row is the one the branch leaves when it edits only its own story's
    board entries, so an out-of-plan PR's row and a story's widened `Paths` count; a branch that
    edits another story's row is held and names whose, and a PR with no row on `main` or on its
@@ -197,7 +197,7 @@ list; a missing clause is the printed hold reason.
    `check-story` also uses).
 7. The implementor result exists and says `done` — in the fleet store, where `pnpm done` writes it
    from any worktree (`node orchestration/fleet.mjs path result KEY`).
-8. `CHANGELOG.md` is in the diff.
+8. The story's changelog entry is in the diff: its `changelog.d/KEY.md` fragment, or a `CHANGELOG.md` line.
 9. A signed `KEY.approved` in the fleet store verifies against this PR head, or against a head that
    is exactly the approved commit merged with main.
 
@@ -290,7 +290,7 @@ A phase ends in a release. There is no release branch; `main` is always releasab
    vm.drop_caches=3` on Linux, `sudo -n purge` on macOS); leave enough idle for the step to
    take effect; then launch. If the cache cannot be purged without a password, the procedure
    is `process-cold only` and must be recorded as such rather than as a cache-cold start.
-3. `CHANGELOG.md`: move `Unreleased` into a version heading with the date (Keep a Changelog).
+3. `CHANGELOG.md`: `node scripts/changelog.mjs --release X.Y.Z [--date YYYY-MM-DD]` folds every `changelog.d/` fragment, and any legacy bullet still under `Unreleased`, into a new `X.Y.Z - date` heading and deletes the fragments. It refuses, changing nothing, when there is nothing to fold, the version is not semver-shaped or already has a heading, or a fragment is malformed.
 4. `git tag v0.2.0 && git push --tags` — the release workflow builds the DMG, AppImage and .deb.
 5. Install each artifact and open `fixtures/corpus/02-readme-real-world.md`. This is manual on
    purpose: it is the one thing CI cannot tell you.

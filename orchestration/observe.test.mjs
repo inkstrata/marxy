@@ -2,10 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, realpathSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { observeWorktrees } from './observe.mjs';
+import { observeWorktrees, parsePorcelainZ } from './observe.mjs';
 
 const git = (cwd, ...args) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=t', '-c', 'user.email=t@example.test', ...args], { cwd, encoding: 'utf8' });
 
@@ -80,7 +80,28 @@ test('an unreadable worktree counts as dirty', () => {
   const r = repo(['feat/MARXY-907-broken']);
   const w = observeWorktrees({
     home: r.home, list: r.list,
-    gitIn: (wt, args) => (args[0] === 'status' ? null : execFileSync('git', ['-C', wt, ...args], { encoding: 'utf8' }).trim()),
+    statusIn: () => null,
   }).find(x => x.key === 'MARXY-907');
   assert.equal(w.dirty, true);
+});
+
+test('the first modified file is found despite the leading space in its status line', () => {
+  const r = repo(['feat/MARXY-908-first']);
+  const wt = r.paths['feat/MARXY-908-first'];
+  writeFileSync(join(wt, 'a.txt'), 'edited\n');
+  const future = new Date(Date.now() + 3_600_000);
+  utimesSync(join(wt, 'a.txt'), future, future);
+  assert.ok(Math.abs(observed(r, 'MARXY-908').lastActivityMs - future.getTime()) < 1500);
+});
+
+test('names with spaces and non-ASCII characters are found, and a rename yields its new path', () => {
+  const r = repo(['feat/MARXY-909-names']);
+  const wt = r.paths['feat/MARXY-909-names'];
+  const odd = 'my caf\u00e9 notes.txt';
+  writeFileSync(join(wt, odd), 'x\n');
+  const future = new Date(Date.now() + 7_200_000);
+  utimesSync(join(wt, odd), future, future);
+  assert.ok(Math.abs(observed(r, 'MARXY-909').lastActivityMs - future.getTime()) < 1500);
+  assert.deepEqual(parsePorcelainZ(' M a.txt\0R  new name.txt\0old.txt\0?? caf\u00e9.md\0'), ['a.txt', 'new name.txt', 'caf\u00e9.md']);
+  assert.deepEqual(parsePorcelainZ('M a.txt\0'), ['a.txt']);
 });
