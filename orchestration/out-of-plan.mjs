@@ -123,7 +123,7 @@ function parseArgs(argv) {
 
 const NEXT = (key, wt) => `
 Next, in ${wt}:
-  1. do the work; add a CHANGELOG.md line ending (${key})
+  1. do the work; add changelog.d/${key}.md — one line ending (${key})
   2. commit with the key in the subject: type(scope): subject (${key})
   3. pnpm done ${key}            # boundary + precheck, drafts results/${key}.pr.md
   4. fill the TODOs, then: pnpm done ${key} --open   # pushes, opens the PR, links Jira
