@@ -11,16 +11,22 @@ import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems } from '
 const ALLOWED_PREFIX = 'apps/desktop/src/render/';
 const OUTSIDE = 'packages/core/src/buffer.ts';
 
+// `+=` belongs in this table so these tests fail on the pre-fix `/\.innerHTML\s*=/`
+// regex; leaving only `=` would overstate what they catch (MARXY-306).
 const ROUTE_SNIPPETS = [
   { form: '.innerHTML =', code: 'el.innerHTML = s;' },
+  { form: '.innerHTML =', code: 'el.innerHTML += s;' },
   { form: '["innerHTML"] =', code: 'el["innerHTML"] = s;' },
+  { form: '["innerHTML"] =', code: 'el["innerHTML"] += s;' },
   { form: "Reflect.set(..., 'innerHTML', ...)", code: "Reflect.set(el, 'innerHTML', s);" },
   { form: '.outerHTML =', code: 'el.outerHTML = s;' },
+  { form: '.outerHTML =', code: 'el.outerHTML += s;' },
   { form: '.insertAdjacentHTML(', code: 'el.insertAdjacentHTML("beforeend", s);' },
   { form: '.setHTMLUnsafe(', code: 'el.setHTMLUnsafe(s);' },
   { form: 'document.write(', code: 'document.write(s);' },
   { form: '.createContextualFragment(', code: 'range.createContextualFragment(s);' },
 ];
+const ROUTE_FORMS = [...new Set(ROUTE_SNIPPETS.map(({ form }) => form))];
 
 function problemsFor(relPath, source) {
   return htmlRouteProblems(relPath, stripComments(source), ['apps/desktop/src/app.ts', `${ALLOWED_PREFIX}`]);
@@ -39,7 +45,7 @@ for (const { form, code } of ROUTE_SNIPPETS) {
 
 test('all eight routes inside apps/desktop/src/render/ are accepted', () => {
   const body = ROUTE_SNIPPETS.map(({ code }) => code).join('\n');
-  assert.deepEqual(htmlRoutes(stripComments(body)), ROUTE_SNIPPETS.map(({ form }) => form));
+  assert.deepEqual(htmlRoutes(stripComments(body)), ROUTE_FORMS);
   assert.deepEqual(problemsFor(`${ALLOWED_PREFIX}fixture.ts`, body), []);
 });
 
@@ -92,12 +98,23 @@ test('check-registry.mjs is green over the committed tree', () => {
 test('MARXY-306: innerHTML and outerHTML compound assignment outside allow-list are flagged', () => {
   const preFixInner = /\.innerHTML\s*=/;
   const preFixOuter = /\.outerHTML\s*=/;
-  for (const code of ['el.innerHTML += userHtml;', 'el.outerHTML += chunk;']) {
+  // String properties only have += in practice; ||= / &&= / ??= are the other
+  // ECMAScript compounds that can still write a string, so the gate must not
+  // special-case a single `+` literal (MARXY-306).
+  const compounds = [
+    'el.innerHTML += userHtml;',
+    'el.outerHTML += chunk;',
+    'el.innerHTML ||= fallbackHtml;',
+    'el.innerHTML &&= nextHtml;',
+    'el.innerHTML ??= otherHtml;',
+    'el["innerHTML"] += x;',
+  ];
+  for (const code of compounds) {
     const stripped = stripComments(code);
     assert.equal(preFixInner.test(stripped) || preFixOuter.test(stripped), false, `pre-fix regex missed: ${code}`);
     const problems = problemsFor(OUTSIDE, code);
     assert.equal(problems.length, 1, code);
-    assert.match(problems[0], /\.innerHTML =|\.outerHTML =/);
+    assert.match(problems[0], /\.innerHTML =|\.outerHTML =|\["innerHTML"\] =/);
     assert.match(problems[0], /docs\/design\/README\.md/);
   }
 });
