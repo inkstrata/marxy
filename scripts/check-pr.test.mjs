@@ -38,7 +38,7 @@ test('during the transition, a CHANGELOG.md Unreleased line still satisfies the 
   const problems = lintPrRange({
     key: 'MARXY-104',
     changed: ['CHANGELOG.md'],
-    changelogDiff: '- a line for this story (MARXY-104)\n',
+    changelogDiff: '+- a line for this story (MARXY-104)\n',
   });
   assert.deepEqual(problems.filter(p => /changelog/i.test(p)), []);
 });
@@ -76,4 +76,19 @@ test('a present queue fragment must be one row for this key', () => {
   assert.deepEqual(lintPrRange({ key: 'MARXY-104', changed, readFragment: read(row) }), []);
   const bad = lintPrRange({ key: 'MARXY-104', changed, readFragment: read(row.replace('MARXY-104', 'MARXY-9')) });
   assert.ok(bad.some(p => /queue\.d\/MARXY-104\.md is not one queue table row/.test(p)));
+});
+
+test('MARXY-337: a longer key that contains the story key is not an entry for it', () => {
+  const p = lintPrRange({ key: 'MARXY-30', changed: [], changelogDiff: '+- another story (MARXY-306)\n' });
+  assert.equal(p.length, 1);
+  assert.match(p[0], /no changelog entry for MARXY-30/);
+});
+
+test('MARXY-337: deleted and context lines are not an entry', () => {
+  const diff = '--- a/CHANGELOG.md\n+++ b/CHANGELOG.md\n@@ -1 +1 @@\n-- mine (MARXY-30)\n - context (MARXY-30)\n+- other (MARXY-31)\n';
+  assert.equal(lintPrRange({ key: 'MARXY-30', changed: [], changelogDiff: diff }).length, 1);
+});
+
+test('MARXY-337: an added line ending in exactly (KEY) counts', () => {
+  assert.deepEqual(lintPrRange({ key: 'MARXY-30', changed: [], changelogDiff: '+- mine (MARXY-30)\n' }), []);
 });

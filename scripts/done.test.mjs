@@ -58,3 +58,29 @@ test('a successful re-run still only refreshes acceptance when a result already 
   assert.deepEqual(result.gates, existing.gates);
   assert.deepEqual(result.acceptance, acceptance);
 });
+
+test('MARXY-337: a green re-run after a failed one becomes done with fresh gates and branch', () => {
+  const failed = { ...STALE_DONE, status: 'failed', branch: 'feat/old', gates: { precheck: 'failed' } };
+  const result = buildResultRecord({
+    key: 'MARXY-312',
+    ok: true,
+    branch: 'feat/MARXY-312-slug',
+    gatesText: '✓ story boundary (whole branch)\n✓ precheck',
+    acceptance: [],
+    existing: failed,
+  });
+  assert.equal(result.status, 'done');
+  assert.equal(result.branch, 'feat/MARXY-312-slug');
+  assert.deepEqual(result.gates, { 'story boundary (whole branch)': 'ok', precheck: 'ok' });
+});
+
+test('MARXY-337: a first run that leaves an acceptance row TODO is not written as done', () => {
+  const result = buildResultRecord({
+    key: 'MARXY-312', ok: true, branch: 'b', gatesText: '✓ precheck', acceptance: [{ criterion: 'c', checkedBy: 'TODO' }], existing: null, todo: true,
+  });
+  assert.equal(result.status, 'failed');
+  const rerun = buildResultRecord({
+    key: 'MARXY-312', ok: true, branch: 'b', gatesText: '✓ precheck', acceptance: [], existing: { ...STALE_DONE, status: 'failed' }, todo: false,
+  });
+  assert.equal(rerun.status, 'done');
+});
