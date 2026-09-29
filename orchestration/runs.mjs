@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { CODE_ROOT, notesPath, storyWorktree, newRunId } from './store.mjs';
 import { story, runEvent, boardEvent } from './machine.mjs';
 import { typeOf, slug } from './lib.mjs';
-import { OUTCOME, inferOutcome, isAuthOutcome, neverRan, producedWork } from './outcomes.mjs';
+import { OUTCOME, inferOutcome, isAuthOutcome, isMachineFault, neverRan, producedWork } from './outcomes.mjs';
 import { recordVerdict as fleetRecordVerdict, openPrFor } from './fleet.mjs';
 
 const template = name => readFileSync(`${CODE_ROOT}orchestration/prompts/${name}.md`, 'utf8');
@@ -205,7 +205,9 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   if (run.role === 'review' || run.role === 'resolve') {
     const what = run.role === 'review' ? 'reviewer' : 'conflict resolution';
     const tries = run.role === 'review' ? 'reviewTries' : 'resolveTries';
-    if (run.role === 'review' && !neverRan(outcome)) {
+    // A worker that died after writing valid notes still has a verdict to recover; only a run that
+    // never reached its agent (setup/auth/not-started) has no notes worth reading.
+    if (run.role === 'review' && !isMachineFault(outcome)) {
       const recovered = recoverVerdict(key, recover);
       if (recovered) {
         lines.push(`${key}: recovered its ${recovered.verdict} verdict from its notes file (the run ended without calling fleet.mjs verdict) — ${recovered.message}`);

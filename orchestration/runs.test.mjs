@@ -154,6 +154,19 @@ test('a review run ending without a verdict command recovers a return/escalate v
   assert.match(out.lines[0], /recovered its return verdict from its notes file/);
 });
 
+test('a reviewer that died after writing valid notes still has its verdict recovered; setup/auth never-ran runs do not', () => {
+  for (const [outcome, obs, expected] of [['dead', { alive: false }, 1], ['setup', { exit: { outcome: 'setup' } }, 0], ['auth', { exit: { outcome: 'auth' } }, 0]]) {
+    let applied = 0;
+    const recover = {
+      readNotes: () => `verdict: return\nhead: ${HEAD_A}\n\n1. fix it\n`,
+      findPr: () => ({ headRefOid: HEAD_A, mergeStateStatus: 'CLEAN' }),
+      apply: () => { applied++; return { ok: true, message: 'recorded' }; },
+    };
+    finishRun({ id: 'r1', run: { ...run, role: 'review' }, rec: { status: 'in_review', run: 'r1' }, obs, t, now: NOW, recover });
+    assert.equal(applied, expected, outcome);
+  }
+});
+
 test('a recovered merge verdict still runs the normal review-ended bookkeeping, since signing does not move the story', () => {
   const recover = {
     readNotes: () => `verdict: merge\nhead: ${HEAD_A}\n\nlooks good\n`,
