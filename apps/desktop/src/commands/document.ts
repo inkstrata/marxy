@@ -48,9 +48,17 @@ export function startDocumentEditingWire(): void {
   };
   w.marxyRefreshSourceTab = async () => {
     const ctx = getSelectionBufferContext();
-    if (!ctx) return;
+    const handle = (window as Window & {
+      __marxyHandle?: {
+        shell: { readFile(path: string): Promise<Uint8Array> };
+        openDocument?: () => { path: string } | null;
+      };
+    }).__marxyHandle;
+    const shell = ctx?.shell ?? handle?.shell;
+    const path = ctx?.buffer.path ?? handle?.openDocument?.()?.path;
+    if (!shell || !path) return;
     const { updateTabWidthResolver } = await import('../source/tab-width.ts');
-    updateTabWidthResolver(ctx.buffer.path, ctx.shell);
+    await updateTabWidthResolver(path, shell);
     await new Promise((r) => setTimeout(r, 0));
   };
   w.marxySourceTabSize = async () => {

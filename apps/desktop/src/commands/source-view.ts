@@ -3,15 +3,26 @@ import type { Command } from './registry.ts';
 import { writeLineNumbersPreference } from '../source/line-numbers.ts';
 import { getSelectionBufferContext } from '../selection/view.ts';
 
+function byteAttr(el: Element | null | undefined): number | null {
+  const s = el?.getAttribute('data-marxy-s');
+  return s === null || s === undefined ? null : Number(s);
+}
+
 function selectionStartByte(): number | null {
   const ctx = getSelectionBufferContext();
   if (!ctx) return null;
   const sel = ctx.state.selection;
   if (sel.kind === 'node' && sel.el instanceof HTMLElement) {
-    const s = sel.el.getAttribute('data-marxy-s');
-    if (s !== null) return Number(s);
+    const s = byteAttr(sel.el);
+    if (s !== null) return s;
   }
   if (sel.kind === 'section') return sel.range.start;
+  // A drag that the browser reports as a text selection still sits in a block (MARXY-239).
+  if (sel.kind === 'text') {
+    const anchor = window.getSelection()?.anchorNode ?? null;
+    const el = anchor instanceof Element ? anchor : anchor?.parentElement ?? null;
+    return byteAttr(el?.closest('[data-marxy-s]') ?? null);
+  }
   return null;
 }
 
