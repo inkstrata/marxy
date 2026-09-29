@@ -21,6 +21,7 @@ import { pathToFileURL } from 'node:url';
 import { git, run as runSync, LIMIT, stopGroup } from './proc.mjs';
 import { runFile, resultPath, writeJsonAtomic, readJsonOr, fleetPath, repoHome } from './store.mjs';
 import { OUTCOME } from './outcomes.mjs';
+import { board } from './machine.mjs';
 
 export const AUTH_FAILURE = /Authentication required|agent login|CURSOR_API_KEY/i;
 const POLL_MS = 15_000;
@@ -52,11 +53,43 @@ export function snapshotWip(wt, key, { now = new Date(), g = (args, opts) => git
 }
 
 /**
+ * Put a reverted story's work back on its fresh branch (ADR-0043): revert the revert that landed on
+ * main, or cherry-pick the original commit when that is not known. Unsigned, hookless commits, since a
+ * headless worker must never stop on a passphrase. A change that no longer applies is abandoned whole
+ * and reported, so the agent starts from main and is told where the earlier work is.
+ */
+export function reapplyWork(wt, reopened, { g = (args, opts) => git(args, { cwd: wt, ...opts }) } = {}) {
+  const quiet = ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null'];
+  const attempts = [
+    reopened?.revertSha && { how: 'revert', undo: 'revert', args: [...quiet, 'revert', '--no-edit', reopened.revertSha] },
+    reopened?.sha && { how: 'cherry-pick', undo: 'cherry-pick', args: [...quiet, 'cherry-pick', reopened.sha] },
+  ].filter(Boolean);
+  let why = 'the reverted commit is not known';
+  for (const a of attempts) {
+    const r = g(a.args);
+    if (r.ok) return { how: a.how };
+    g([a.undo, '--abort']);
+    why = `${a.how} failed: ${(r.err || r.out).split('\n')[0]}`;
+  }
+  return { how: null, why };
+}
+
+/** The sentence a reopened story's prompt gains, saying whether its earlier work is already on the branch. */
+export function reapplyNote(reopened, applied) {
+  const sha = String(reopened?.sha ?? '').slice(0, 7);
+  return applied.how
+    ? `\n\n## The earlier work is already on your branch\n\nThis story was merged, then reverted because it turned main red. The reverted change (${sha}) has been applied again on top of current main by \`git ${applied.how}\`; \`git log\` shows it. Fix what the failure above names on top of it. Do not rewrite it from scratch.\n`
+    : `\n\n## The earlier work could not be re-applied\n\nThis story was merged, then reverted because it turned main red, and the change (${sha || 'unknown'}) could not be applied again automatically (${applied.why}). Your branch starts from current main. Read the reverted commit with \`git show ${reopened?.sha ?? '<sha>'}\`, bring its work back by hand, and fix what the failure above names.\n`;
+}
+
+/**
  * The worktree for an implement or resolve run. An existing one is reused (a second attempt continues
  * the first) after a snapshot; a missing one is cut from the story's branch on origin when it exists,
- * so a returned story keeps its PR's commits, and from origin/main otherwise.
+ * so a returned story keeps its PR's commits, and from origin/main otherwise. A reopened story
+ * (`reopened`, ADR-0043) never continues its merged branch: it is cut from main with the reverted work
+ * applied again.
  */
-export function prepareWorktree(spec, { g = (args, opts) => git(args, { cwd: repoHome(), ...opts }) } = {}) {
+export function prepareWorktree(spec, { g = (args, opts) => git(args, { cwd: repoHome(), ...opts }), reopened = null } = {}) {
   const wt = spec.worktree;
   // The cycle and other workers fetch in the same repository; a concurrent fetch holds the ref lock
   // for a moment, and failing setup on it cost a story a try. Once more after a pause is enough.
@@ -69,12 +102,16 @@ export function prepareWorktree(spec, { g = (args, opts) => git(args, { cwd: rep
   if (existsSync(wt)) return { ok: true, wt, snapshot: snapshotWip(wt, spec.key) };
   const remote = g(['rev-parse', '--verify', '-q', `refs/remotes/origin/${spec.branch}`]);
   const local = g(['rev-parse', '--verify', '-q', `refs/heads/${spec.branch}`]);
-  const add = remote.ok
+  const fresh = reopened && !remote.ok;
+  const add = fresh
+    ? g(['worktree', 'add', '--no-track', '-B', spec.branch, wt, 'origin/main'])
+    : remote.ok
     ? g(['worktree', 'add', '--no-track', '-B', spec.branch, wt, `origin/${spec.branch}`])
     : local.ok
       ? g(['worktree', 'add', '--no-track', '-B', spec.branch, wt, spec.branch])
       : g(['worktree', 'add', '--no-track', '-b', spec.branch, wt, 'origin/main']);
-  return add.ok ? { ok: true, wt } : { ok: false, why: `git worktree add: ${add.err.split('\n')[0]}` };
+  if (!add.ok) return { ok: false, why: `git worktree add: ${add.err.split('\n')[0]}` };
+  return fresh ? { ok: true, wt, applied: reapplyWork(wt, reopened) } : { ok: true, wt };
 }
 
 /** Ends a run: the record the reconciler reads. Written once, atomically. */
@@ -133,9 +170,14 @@ export async function work(id) {
   }
   let cwd = spec.cwd;
   if (spec.role === 'implement' || spec.role === 'resolve') {
-    const wt = prepareWorktree(spec);
+    const reopened = spec.role === 'implement' ? board({ write: false }).stories[spec.key]?.reopened ?? null : null;
+    const wt = prepareWorktree(spec, { reopened });
     if (!wt.ok) return finish(id, { outcome: OUTCOME.SETUP, why: wt.why });
     cwd = wt.wt;
+    if (wt.applied) {
+      spec.prompt += reapplyNote(reopened, wt.applied);
+      console.log(`${spec.key}: reverted work ${wt.applied.how ? `re-applied by ${wt.applied.how}` : `not re-applied (${wt.applied.why})`}`);
+    }
     if (wt.snapshot) console.log(`${spec.key}: uncommitted work snapshotted to ${wt.snapshot}`);
     if (spec.install) {
       const inst = runSync('pnpm', ['install', '--frozen-lockfile', '--silent'], { cwd, timeoutMs: LIMIT.install });

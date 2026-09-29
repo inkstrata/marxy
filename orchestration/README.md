@@ -145,6 +145,25 @@ like every other GitHub read). If it is red, the cycle merges nothing this cycle
 so it never blocks. The guard clears itself the cycle after a green run lands on `main` — nobody
 resets it by hand.
 
+### Revert first (ADR-0043)
+
+A red `main` is acted on, not only named. `revert.mjs` reads `main`'s completed `ci` runs (one per
+commit, cancelled ones skipped) and finds the **first red commit**: the oldest red run whose parent's
+run is green. If it is a story's squash commit (`… (MARXY-n) (#PR)`), the cycle opens one pull
+request from `revert/MARXY-n-…` that runs `git revert` on it, once (not again while one is open or
+`main` already carries the `revert:` squash). `merge-bar.mjs` `verifyRevert` lets that pull request merge
+**while `main` is red and without a reviewer** only if its tree is exactly what `git revert` makes; the
+two files allowed to differ are the story's board rows (kept, so it stays dispatchable) and its
+changelog fragment (rewritten to a `Reverted:` line, because CI wants an entry). Anything else waits
+like any pull request. A revert that does not apply, an uncertain first red commit, or a commit with no
+story key is named under **Needs you** and nothing is opened.
+
+When the revert merges, the story goes Done → todo with `returned.why` naming the red run and its
+failing jobs (`machine.mjs` `reopenEvents`); attempts are not reset, so the usual limits and
+escalation apply. Its next implement run gets a worktree cut from `origin/main` with the reverted
+work applied again (`worker.mjs` `reapplyWork`: revert the revert, else cherry-pick the original),
+and the prompt says whether that worked. A story nothing dispatches is blocked for a person instead.
+
 ## The store
 
 `<git common dir>/marxy-fleet/` — one directory for every worktree of the clone, never tracked, so
