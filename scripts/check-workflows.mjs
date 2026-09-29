@@ -122,6 +122,28 @@ if (!depStep) {
   problems.push(`.github/workflows/ci.yml: the Linux dep step's package list does not include dbus${fix('add dbus to the apt-get install line; the Linux cold-start stall it fixes is measured')}`);
 }
 
+const nightlyYml = readFileSync(join(dir, 'nightly.yml'), 'utf8');
+if (!nightlyYml.includes('built-app-smoke:')) {
+  problems.push(`.github/workflows/nightly.yml: no built-app-smoke job${fix('add the MARXY-254 release smoke job after aesthetics-determinism')}`);
+} else if (!/timeout-minutes:\s*\d+/.test(nightlyYml.slice(nightlyYml.indexOf('built-app-smoke:')))) {
+  problems.push(`.github/workflows/nightly.yml: built-app-smoke has no timeout-minutes${fix('every job carries timeout-minutes (docs/ci-contract.md)')}`);
+} else {
+  const smokeBlock = nightlyYml.slice(nightlyYml.indexOf('built-app-smoke:'));
+  if (!smokeBlock.includes('smoke-built-app.mjs')) {
+    problems.push(`.github/workflows/nightly.yml: built-app-smoke does not run scripts/smoke-built-app.mjs${fix('drive the release binary with tauri-driver after building it')}`);
+  }
+  if (!smokeBlock.includes('cargo build --release --features tauri/custom-protocol')) {
+    problems.push(`.github/workflows/nightly.yml: built-app-smoke does not build a release binary${fix('use cargo build --release --features tauri/custom-protocol')}`);
+  }
+  const smokeDeps = smokeBlock.match(/apt-get install[^\n]*/)?.[0] ?? '';
+  if (!smokeDeps.includes('webkit2gtk-driver')) {
+    problems.push(`.github/workflows/nightly.yml: built-app-smoke does not install webkit2gtk-driver${fix('apt-get install webkit2gtk-driver for WebKitWebDriver')}`);
+  }
+  if (!smokeBlock.includes('MARXY_SMOKE_BUILT_REQUIRED=1')) {
+    problems.push(`.github/workflows/nightly.yml: built-app-smoke must set MARXY_SMOKE_BUILT_REQUIRED=1${fix('the smoke skips without a stack; nightly must fail instead')}`);
+  }
+}
+
 for (const manifest of ['package.json', 'apps/desktop/package.json']) {
   const { scripts = {} } = JSON.parse(readFileSync(join(ROOT, manifest), 'utf8'));
   for (const [script, command] of Object.entries(scripts)) {
@@ -130,4 +152,4 @@ for (const manifest of ['package.json', 'apps/desktop/package.json']) {
 }
 
 if (fail(problems)) process.exit(1);
-console.log(`workflows ok (${used} action use(s), all allow-listed and pinned; glib-2.0 probed; dbus on the Linux dep step; every cargo and tauri build locked)`);
+console.log(`workflows ok (${used} action use(s), all allow-listed and pinned; glib-2.0 probed; dbus on the Linux dep step; nightly built-app smoke wired; every cargo and tauri build locked)`);

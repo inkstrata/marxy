@@ -15,12 +15,15 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 - `apps/desktop/src/notices/blocked.ts` — replaces MARXY-26's placeholder action with the §12 table; the Details expansion; the truncation notice (`notices/truncation.ts` if it reads better separately).
 - `apps/desktop/src/commands/trust.ts` — `trust.revoke-html`, `trust.revoke-images`; one line in `commands/index.ts`.
 - The render path in `apps/desktop/src/app.ts` (or wherever MARXY-26 left the render call) — render with `policyFor(grantsFor(path))`; the first-document-of-launch re-render when `trust.json` arrives late (§12 §Persistence).
-- `fixtures/corpus/22-unclosed-script.md` — new fixture: three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose. Add its AST/HTML goldens. `16-api-reference.md` already uses 16. Corpus 20 and 21 are MARXY-78's uncommitted fixtures; do not take them.
-- `apps/desktop/test/trust.test.mjs` (app harness).
-- `fixtures/baselines` — screenshot and rag baselines for `22-unclosed-script.md`. A new corpus file with neither fails `pnpm test` (light 960 baselines) and `pnpm gate:aesthetics` (rag baseline).
+- `apps/desktop/test/fixtures/22-unclosed-script.md` — three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose, and the truncation fixture is not under fixtures/corpus. `16-api-reference.md` already uses 16. Corpus 20 and 21 are MARXY-78's uncommitted fixtures; do not take them.
+- `apps/desktop/test/trust.test.mjs` (app harness). It loads the truncation fixture from `apps/desktop/test/fixtures/`, not from `fixtures/corpus/`.
+
+## Resume (2026-09-28)
+PR #249 (head `5a3ad85`) already has the feature. CI is red because `fixtures/corpus/22-unclosed-script.md` is a corpus document: `packages/theme/test/palettes.test.mjs` requires a 960px light PNG for both `webkit-macos` and `webkit-linux`, and `gate:aesthetics` requires a rag baseline plus a queue entry. The Linux PNGs cannot be produced on the Mac this fleet runs on. Do not try to seed them.
+
+Move the fixture to `apps/desktop/test/fixtures/22-unclosed-script.md`, point `trust.test.mjs` at that path, and delete `fixtures/corpus/22-unclosed-script.md` plus `packages/core/goldens/22-unclosed-script.ast.txt` and `packages/core/goldens/22-unclosed-script.html.txt`. Leave the rest of the branch. Do not rewrite `trust.ts`.
 
 ## Do this, in order
-PR #249 (head `5a3ad852`) is the implementation, including the truncation notice. Do not rewrite it. It went red because `22-unclosed-script.md` has no committed screenshot or rag baseline (`missing webkit-macos/22-unclosed-script-960-light.png`; aesthetics: rag baseline missing, and the gate asked for a queue entry on the linux captures). Commit those baselines. Paths now include `fixtures/baselines`.
 
 1. `TrustStore` + tests (LRU 2,000, punycode host normalisation with `new URL('https://' + host).hostname`, version handling and corruption per §11).
 2. The notice: counts, host list (Unicode and punycode when they differ), element names from allow-list removals only; suppress the HTML action when `WIDE_POLICY` would remove every removed element (test with a document whose only removal is `<script>`).
@@ -35,7 +38,7 @@ PR #249 (head `5a3ad852`) is the implementation, including the truncation notice
 | `02-readme-real-world.md` default | exactly one blocked-content notice; it names the image hosts and the simplified elements; zero page requests (no-network harness attached) |
 | click "Show this document's HTML" | `details`, `div[align=center]`, `img[width]` present; `script` absent; `javascript:` link has no `href`; `trust.json` written with `html: true`; same first visible block before and after |
 | restart the harness with that `trust.json` | no HTML action in the notice; wide render |
-| `22-unclosed-script.md` | truncation notice names line 5 and the remaining line count; it is not transient |
+| `apps/desktop/test/fixtures/22-unclosed-script.md` | truncation notice names line 5 and the remaining line count; it is not transient; the file is not under `fixtures/corpus` |
 | only-`<script>` document | no HTML action offered |
 | revoke | default render; entry removed from `trust.json` |
 
@@ -43,4 +46,4 @@ PR #249 (head `5a3ad852`) is the implementation, including the truncation notice
 CSV row: notice naming what was removed → default case; opting in renders img/details/div align through the sanitiser → grant case; `javascript:` still stripped → grant case + core vector; choice persists per file → restart case; `marxy-` id refused → MARXY-229's vector in `packages/core/src/sanitize/vectors.test.ts` (cite it; do not re-implement); never-closed removal renders a notice → `22-unclosed-script.md` case.
 
 ## Do not
-Add a global "always trust" switch. Show the HTML action when it would change nothing. Fetch anything. Put trust state in `config.toml`.
+Add a global "always trust" switch. Show the HTML action when it would change nothing. Fetch anything. Put trust state in `config.toml`. Put the truncation document under `fixtures/corpus`. Commit screenshot baselines. Run `gate:aesthetics --update`.
