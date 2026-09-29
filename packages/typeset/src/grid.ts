@@ -24,6 +24,10 @@ const snapped = new WeakMap<HTMLElement, Set<HTMLElement>>();
 export function snapToGrid(article: HTMLElement, lineBox: number): number {
   const unit = lineBox / 2;
   if (!(unit > 0)) return 0;
+  // The pass writes padding and reads layout many times over; the engine's own scroll anchoring would
+  // answer each intermediate layout by moving the page, and the reader would land off where they were.
+  // Scroll position is the app's to keep (reading position, ADR-0018), so the article opts out.
+  article.style.setProperty('overflow-anchor', 'none');
   const mine = snapped.get(article) ?? new Set<HTMLElement>();
   snapped.set(article, mine);
   for (const el of mine) el.style.removeProperty(el === article ? 'padding-top' : 'padding-bottom');

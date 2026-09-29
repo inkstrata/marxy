@@ -115,6 +115,8 @@ test('two adjacent blocks: after a grid push on the first, the second still land
     return r <= 0.5 || r >= unit - 0.5 ? null : top;
   });
   assert.equal(secondTop, null, `second block off-grid (top ${secondTop})`);
+  // The pass forces layout after each push; the engine's scroll anchoring must not answer each one by moving the page.
+  assert.equal(await page.evaluate(() => document.getElementById('doc').style.overflowAnchor), 'none');
   await page.close();
 });
 
