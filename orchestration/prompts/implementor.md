@@ -57,6 +57,17 @@ exists for you. Read `AGENTS.md` before anything.
 8. Stop once the PR is open. The fleet sees the PR and moves the story to review; a reviewer, not
    you, decides whether it merges.
 
+## If this story was merged, reverted and reopened
+
+When the story above says it was returned because `main` went red, its change already shipped, turned
+`main` red, and was reverted to make `main` green again. The return note names the red `ci` run and
+its failing jobs; open that run and read the failure first. Your branch starts from current `main` with
+the reverted change applied again (a section at the end of this prompt says whether that worked, and
+`git log` shows it). Fix the failure on top of it and open a new PR: do not delete or rewrite the
+earlier work, do not revert the revert on `main`, and do not restore what the revert took out by any
+route but your own PR. Reproduce the failing job's command locally before you push; a second red `main`
+sends the story back again and counts as another attempt.
+
 ## Your run is bounded
 
 You have {{ATTEMPT_MINUTES}} minutes, and a run that prints nothing for a long stretch is treated as
