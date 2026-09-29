@@ -34,4 +34,12 @@ impl ShellError {
             path: Some(path.into()),
         }
     }
+
+    pub fn permission(path: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: "permission".into(),
+            message: message.into(),
+            path: Some(path.into()),
+        }
+    }
 }

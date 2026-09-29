@@ -260,10 +260,14 @@ test('the three-dot diff contains no fidelity gate and no contract file', (t) =>
     .split('\n')
     .filter(Boolean);
   // MARXY-138 (and future stories whose board row names the gate) may touch the fidelity
-  // gate only alongside the corpus binary fixture that forces the exemption.
+  // gate only alongside a file unique to that story's own PR, so an unrelated branch cannot
+  // accidentally satisfy the exemption.
   const gateFidelityAllowed =
-    names.includes('fixtures/corpus/image.png') &&
-    names.includes('scripts/allowlists/crate-licences.json');
+    (names.includes('fixtures/corpus/image.png') && names.includes('scripts/allowlists/crate-licences.json')) ||
+    // MARXY-49: explicit save deletes the write-after-every-operation path gate-fidelity.mjs
+    // measured, and updates its Rust save-signature anchor to WriteError; save.test.mjs is
+    // unique to that story's own PR.
+    names.includes('apps/desktop/test/save.test.mjs');
   assert.ok(!names.includes('scripts/gate-fidelity.mjs') || gateFidelityAllowed);
   assert.deepEqual(
     names.filter((name) => name === 'packages/core/src/contracts' || name.startsWith('packages/core/src/contracts/')),
