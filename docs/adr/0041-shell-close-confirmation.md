@@ -1,4 +1,4 @@
-# ADR-0040 — The frozen `Shell` gains `onCloseRequested` and `confirmClose`
+# ADR-0041 — The frozen `Shell` gains `onCloseRequested` and `confirmClose`
 
 **Status:** accepted 2026-09-28 (MARXY-49) · **Source:** ADR-0010, ADR-0026
 
