@@ -42,3 +42,11 @@ test('stripCommentsAst keeps comment-shaped text inside strings, templates and r
   assert.ok(!out.includes('doc') && !out.includes('tail'));
   assert.equal(out.length, src.length);
 });
+
+test('stripCommentsAst blanks only the comment when an emoji comes before it (MARXY-337)', () => {
+  const src = 'const a = "😀😀😀😀"; // c\nwindow.foo(); // window.bar\n';
+  const out = stripCommentsAst(src);
+  assert.ok(out.includes('window.foo();'), out);
+  assert.ok(!out.includes('// c') && !out.includes('window.bar'), out);
+  assert.equal(out.length, src.length);
+});

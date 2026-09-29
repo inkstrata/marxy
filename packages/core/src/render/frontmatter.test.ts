@@ -87,3 +87,17 @@ test('the overflow line sits in a valid dt/dd group and stays escaped', () => {
   assert.match(html, /<dt>…<\/dt>\n<dd>1 more<\/dd>/);
   assert.doesNotMatch(html, /<b>/);
 });
+
+test('a TOML value holding ": " stays one row with its whole value (MARXY-337)', () => {
+  assert.deepEqual(frontmatterRows('title = "Foo: Bar"\nauthor = "x"').map(r => [r.key, r.lines]), [
+    ['title', ['"Foo: Bar"']],
+    ['author', ['"x"']],
+  ]);
+  const html = renderSafeHtml('+++\ntitle = "Foo: Bar"\n+++\n# H', { file: 't.md' }).html;
+  assert.match(html, /<dt>title<\/dt>/);
+});
+
+test('a TOML multi-line array is not cut at a column-0 bracket line (MARXY-337)', () => {
+  assert.deepEqual(frontmatterRows('m = [\n[1,2]\n]\nz = 1').map(r => r.key), ['m', 'z']);
+  assert.deepEqual(frontmatterRows('m = ["]"]\n[t]\nz = 1').map(r => r.key), ['m']);
+});

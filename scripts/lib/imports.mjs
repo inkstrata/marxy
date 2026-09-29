@@ -83,7 +83,9 @@ export function stripCommentsAst(text, fileName = 'file.ts') {
     kids.forEach(visit);
   };
   visit(sf);
-  const chars = [...src];
+  // UTF-16 units, like the offsets TypeScript reports: spreading by code point would shift every
+  // blanked range after an astral character (an emoji) onto real code.
+  const chars = src.split('');
   for (const [from, to] of ranges) {
     const trivia = src.slice(from, to);
     for (const m of trivia.matchAll(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g)) {

@@ -201,7 +201,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   // A review or resolution that never reached its agent (the worktree could not be prepared, the CLI
   // could not log in, the worker died) has not tried anything, so it does not spend a try: three setup
   // failures used to park a story as "still conflicts after 3 resolution runs".
-  const refundedTry = neverRan(outcome);
+  let refundedTry = neverRan(outcome);
   if (run.role === 'review' || run.role === 'resolve') {
     const what = run.role === 'review' ? 'reviewer' : 'conflict resolution';
     const tries = run.role === 'review' ? 'reviewTries' : 'resolveTries';
@@ -214,6 +214,8 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
         // return/escalate already moved the story out of in_review and unset run through the same
         // fleet.mjs code a live verdict command uses; the default ending below would only be refused.
         if (recovered.verdict !== 'merge') return { events, lines, attention };
+        // A reviewer that reached a verdict spent its try, even if its worker then died.
+        refundedTry = false;
       }
     }
     events.push(story(key, {

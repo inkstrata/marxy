@@ -24,6 +24,23 @@ function prov(src: Source, ctx: Prov): string {
 const YAML_KEY = /^(?:"((?:[^"\\]|\\.)+)"|'([^']+)'|([^\s"'#[\]{},&*!|>%@`:-][^:]*?|-[^\s:-][^:]*?))[ \t]*:(?:[ \t]+(.*)|$)/u;
 const TOML_KEY = /^(?:"((?:[^"\\]|\\.)+)"|'([^']+)'|([\p{L}\p{N}_.-]+))[ \t]*=[ \t]*(.*)$/u;
 
+/** Net `[` minus `]` outside TOML strings and comments. */
+function bracketDepth(line: string): number {
+  let depth = 0;
+  let quote = '';
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (quote) {
+      if (ch === '\\' && quote === '"') i++;
+      else if (ch === quote) quote = '';
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '#') break;
+    else if (ch === '[') depth++;
+    else if (ch === ']') depth--;
+  }
+  return depth;
+}
+
 /** Top-level keys only; nested body lines are kept verbatim for the mono face. */
 export function frontmatterRows(value: string): FrontmatterRow[] {
   const lines = value.split(/\r\n|\r|\n/);
@@ -41,8 +58,9 @@ export function frontmatterRows(value: string): FrontmatterRow[] {
     }
     // TOML: only the top-level keys before the first `[table]` header are listed.
     if (/^\[\[?[^\]]*\]\]?\s*(?:#.*)?$/.test(line)) break;
-    const yaml = YAML_KEY.exec(line);
+    // TOML first: a bare YAML key may hold `=` and quotes, so `title = "Foo: Bar"` would split at the colon.
     const toml = TOML_KEY.exec(line);
+    const yaml = toml ? null : YAML_KEY.exec(line);
     const key = yaml ? (yaml[1] ?? yaml[2] ?? yaml[3]) : toml ? (toml[1] ?? toml[2] ?? toml[3]) : undefined;
     if (!key) {
       i++;
@@ -62,8 +80,15 @@ export function frontmatterRows(value: string): FrontmatterRow[] {
         i++;
       }
     } else {
+      // A multi-line array runs to its closing bracket, so a `[1, 2]` line inside it is not a table header.
+      let depth = bracketDepth(toml![4] ?? '');
       body.push(toml![4] ?? '');
       i++;
+      while (depth > 0 && i < lines.length) {
+        depth += bracketDepth(lines[i]!);
+        body.push(lines[i]!);
+        i++;
+      }
     }
     rows.push({ key, lines: body });
   }

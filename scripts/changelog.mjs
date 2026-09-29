@@ -61,7 +61,10 @@ export function takeLegacyBullets(changelog) {
     else if (current && /^\s+\S/.test(line)) current.push(line);
     else { current = null; kept.push(line); }
   }
-  const rest = kept.join('\n').replace(/\n{3,}/g, '\n\n');
+  // A `### Added`-style subsection whose bullets all moved out is dropped with them, not left empty.
+  const nonBlankAfter = i => kept.slice(i + 1).find(l => l.trim() !== '');
+  const withoutEmpty = kept.filter((line, i) => !/^###\s/.test(line) || !(nonBlankAfter(i) === undefined || /^###\s/.test(nonBlankAfter(i))));
+  const rest = withoutEmpty.join('\n').replace(/\n{3,}/g, '\n\n');
   return { changelog: text.slice(0, bodyStart) + rest + text.slice(end), bullets: bullets.map(b => b.join('\n').trim()) };
 }
 

@@ -82,7 +82,11 @@ export function linkHostMismatchLabel(linkText: string, href: string): LinkHostL
   const textHost = textUrl.hostname.toLowerCase();
   const destHost = dest.hostname.toLowerCase();
   // `https://paypal.com@evil.com` reads as paypal.com but goes to evil.com: the visible userinfo is the tell.
-  const deceptive = textUrl.username !== '' || textUrl.password !== '';
+  // A plain address (`user@example.com`) is not: userinfo only deceives with a scheme, a password, or a
+  // user part that itself looks like a host.
+  const deceptive =
+    textUrl.password !== '' ||
+    (textUrl.username !== '' && (/^[a-z][a-z0-9+.-]*:\/\//i.test(linkText.trim()) || textUrl.username.includes('.')));
   if (textHost === destHost && textUrl.port === dest.port && !deceptive && !destIsConfusable(destHost)) return null;
   return { text: displayHost(hostForms(destHost)) };
 }

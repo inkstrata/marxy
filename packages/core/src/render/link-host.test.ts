@@ -69,3 +69,9 @@ test('non-web destinations get no label, class or empty title', () => {
   assert.ok(!html.includes('marxy-link-mismatch'));
   assert.ok(!html.includes('title='));
 });
+
+test('an address-shaped link text to its own host is not a mismatch (MARXY-337)', () => {
+  assert.equal(linkHostMismatchLabel('user@example.com', 'https://example.com'), null);
+  assert.notEqual(linkHostMismatchLabel('paypal.com@evil.com', 'https://evil.com'), null);
+  assert.notEqual(linkHostMismatchLabel('https://paypal.com@evil.com', 'https://evil.com'), null);
+});

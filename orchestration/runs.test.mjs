@@ -167,6 +167,19 @@ test('a reviewer that died after writing valid notes still has its verdict recov
   }
 });
 
+test('a dead reviewer whose merge verdict is recovered spends its try (MARXY-337)', () => {
+  const recover = {
+    readNotes: () => `verdict: merge\nhead: ${HEAD_A}\n\nlooks good\n`,
+    findPr: () => ({ headRefOid: HEAD_A, mergeStateStatus: 'CLEAN' }),
+    apply: () => ({ ok: true, message: 'signed' }),
+  };
+  const out = finishRun({ id: 'r1', run: { ...run, role: 'review' }, rec: { status: 'in_review', run: 'r1' }, obs: { alive: false }, t, now: NOW, recover });
+  const ended = out.events.find(e => e.why?.startsWith('reviewer ended'));
+  assert.ok(ended, JSON.stringify(out.events));
+  assert.equal(ended.inc, undefined);
+  assert.doesNotMatch(out.lines.join('\n'), /try refunded/);
+});
+
 test('a recovered merge verdict still runs the normal review-ended bookkeeping, since signing does not move the story', () => {
   const recover = {
     readNotes: () => `verdict: merge\nhead: ${HEAD_A}\n\nlooks good\n`,

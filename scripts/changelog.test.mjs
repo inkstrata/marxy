@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { takeLegacyBullets } from './changelog.mjs';
 import { foldRelease, fragmentFiles, release } from './changelog.mjs';
 import { FRAGMENT_DIR } from './lib/changelog.mjs';
 
@@ -152,4 +153,11 @@ test('MARXY-337: the CLI honours --root and does not take --date as the version'
     assert.equal(ok.status, 0, ok.stderr);
     assert.match(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'), /## 0\.3\.0 - 2026-09-28/);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('takeLegacyBullets drops subsection headings left empty (MARXY-337)', () => {
+  const { changelog, bullets } = takeLegacyBullets('# Changelog\n\n## Unreleased\n\n### Added\n\n- a (MARXY-1)\n\n### Fixed\n\n- b (MARXY-2)\n\n## 0.1.0 - 2026-01-01\n\n### Added\n\n- old (MARXY-0)\n');
+  assert.deepEqual(bullets, ['a (MARXY-1)', 'b (MARXY-2)']);
+  assert.doesNotMatch(changelog.split('## 0.1.0')[0], /###/);
+  assert.match(changelog, /## 0\.1\.0 - 2026-01-01\n\n### Added\n\n- old \(MARXY-0\)/);
 });
