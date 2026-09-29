@@ -28,6 +28,11 @@ export type MemoryShell = Pick<
   openExternal(url: string): Promise<void>;
   fetchRemoteImage(url: string): Promise<string>;
   configPaths(): Promise<{ config: string; data: string }>;
+  /**
+   * Whether `path` is already in the store. Unrecorded: a missing positions.json or history.json
+   * must not appear as a `readFile` on first launch (the app-harness call record is fixed).
+   */
+  hasFile(path: string): boolean;
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
@@ -167,6 +172,9 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     async configPaths() {
       record('configPaths');
       return { config: '/config', data: '/data' };
+    },
+    hasFile(path) {
+      return store.has(path);
     },
     async imageSize(path) {
       record('imageSize', [path]);
