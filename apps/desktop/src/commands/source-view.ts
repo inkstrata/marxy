@@ -63,9 +63,13 @@ export function sourceViewCommands(): readonly Command[] {
       run: async () => {
         const byte = selectionStartByte();
         const ctx = getSelectionBufferContext();
-        if (byte === null || !ctx) return;
+        const open = (window as Window & {
+          __marxyHandle?: { openDocument?: () => { buffer: import('@marxy/core').Buffer } | null };
+        }).__marxyHandle?.openDocument?.();
+        const buffer = ctx?.buffer ?? open?.buffer;
+        if (byte === null || !buffer) return;
         const { openSourceAtByte } = await import('../source/mode-open.ts');
-        await openSourceAtByte(ctx.buffer, byte);
+        await openSourceAtByte(buffer, byte);
       },
     },
   ];
