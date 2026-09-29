@@ -1,0 +1,1 @@
+An open pull request is titled `[human]` when only a person can merge it, and `(signed)` when an agent has signed that head. No prefix means the cycle will merge it. Neither mark is part of the squash commit (MARXY-274)

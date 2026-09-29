@@ -68,6 +68,8 @@ missed or killed cycle loses nothing.
 4. **Review.** Each In Review PR takes exactly one step: resolve a conflict, return it to its
    implementor, start a reviewer, update the branch (one per cycle, head of the order), enable
    auto-merge, merge, or wait. A wait past its limit is named under **Needs you**.
+   The open title says `[human]` when only a person can merge it and `(signed)` when an agent has
+   signed. No prefix means the cycle will merge it. The squash subject omits both.
 5. **Plan.** The planner starts when `planner-trigger.mjs` says it is due, none is running, and the
    last started more than `plannerCooldownMinutes` ago.
 6. **Dispatch.** An implementor starts for every ready story (`ready.mjs`), unless the planner has

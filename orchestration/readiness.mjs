@@ -11,6 +11,7 @@ import { ROOT, readJson, stories, deps, pathsOf, pathMatches } from './lib.mjs';
 import { board } from './machine.mjs';
 import { fleetPath } from './store.mjs';
 import { classifyChecks, evaluate } from './merge-bar.mjs';
+import { landsOf } from './pr-mark.mjs';
 import { verify } from './approve.mjs';
 import { codeOwnerPatterns, ownedBy } from './codeowners.mjs';
 import { computeOrder, readPullRequest } from './review-order.mjs';
@@ -79,7 +80,7 @@ export function nextAction({ waiting, decision }) {
   return decision.reasons.find(r => !r.startsWith('pending:')) ?? decision.reasons[0] ?? 'hold';
 }
 
-/** Same six fields the text table and --json both print. */
+/** The fields the text table and --json both print. `mark` is empty when the cycle will merge it. */
 export function tableRows(rows) {
   return rows.map(r => ({
     url: r.url,
@@ -87,6 +88,7 @@ export function tableRows(rows) {
     mergeable: r.mergeable,
     approval: r.approval,
     waitingOn: r.waitingOn,
+    mark: r.mark,
     next: r.next,
   }));
 }
@@ -95,9 +97,9 @@ export function formatText(rows) {
   const cells = tableRows(rows);
   const esc = s => String(s ?? '').replace(/\|/g, '\\|');
   const lines = [
-    '| URL | CI | Mergeable | Approval | Waiting on | Next |',
-    '| --- | --- | --- | --- | --- | --- |',
-    ...cells.map(c => `| ${esc(c.url)} | ${esc(c.ci)} | ${esc(c.mergeable)} | ${esc(c.approval)} | ${esc(c.waitingOn)} | ${esc(c.next)} |`),
+    '| URL | CI | Mergeable | Approval | Waiting on | Mark | Next |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    ...cells.map(c => `| ${esc(c.url)} | ${esc(c.ci)} | ${esc(c.mergeable)} | ${esc(c.approval)} | ${esc(c.waitingOn)} | ${esc(c.mark)} | ${esc(c.next)} |`),
   ];
   return lines.join('\n');
 }
@@ -172,14 +174,16 @@ export function collect({
       codeowners,
     });
     const waiting = waitingOn({ pr, files, decision, patterns });
+    const approvalText = approvalState(approval);
     return {
       key,
       number: pr.number,
       url: pr.url,
       ci: ciConclusion(pr),
       mergeable: pr.mergeable,
-      approval: approvalState(approval),
+      approval: approvalText,
       waitingOn: waiting,
+      mark: landsOf({ waitingOn: waiting, reviewed: approvalText.startsWith('signed') }).mark,
       next: nextAction({ waiting, decision }),
       action: decision.action,
       reasons: decision.reasons,
