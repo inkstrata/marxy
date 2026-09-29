@@ -4,7 +4,7 @@ import { INDEX_LIMITS } from '@marxy/core';
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
 import { quarantinePathFor } from '@marxy/core/src/position/storage.ts';
 import type { AppShell } from '../app.ts';
-import { recordOpen, setPaletteHydration, type PaletteSession } from './session.ts';
+import { recordOpen, setPaletteHydration, togglePin, type PaletteSession } from './session.ts';
 
 export const HISTORY_FILE_VERSION = 1;
 export const HISTORY_OPENS_CAP = 500;
@@ -141,10 +141,19 @@ function emptySessionUncached(currentRoot: string): PaletteSession {
 
 let historyNewerVersion = false;
 let sessionMirror: PaletteSession | null = null;
+const pendingPinPaths: string[] = [];
 
 export function resetPaletteHistoryMirror(): void {
   sessionMirror = null;
   historyNewerVersion = false;
+  pendingPinPaths.length = 0;
+}
+
+/** Pin a path for the next quit flush; `session` is the live palette session (togglePin is applied at flush). */
+export function pinDocumentOnPaletteSession(session: PaletteSession, path: string): void {
+  if (path.length === 0) return;
+  void session;
+  pendingPinPaths.push(path);
 }
 
 /** App opens (argv, reload, palette) merge into the mirror saved beside the palette session on quit. */
@@ -201,9 +210,12 @@ export async function flushPaletteHistoryFromApp(
   shell: HistoryIo,
   paletteSession: PaletteSession | undefined,
 ): Promise<void> {
-  let session = sessionMirror ?? paletteSession ?? emptySessionUncached('/');
-  if (paletteSession && sessionMirror) session = mergeSessions(sessionMirror, paletteSession);
-  else if (paletteSession) session = paletteSession;
+  let palette = paletteSession ?? emptySessionUncached('/');
+  for (const path of pendingPinPaths) palette = togglePin(palette, path);
+  pendingPinPaths.length = 0;
+  let session = sessionMirror ?? palette;
+  if (sessionMirror && paletteSession !== undefined) session = mergeSessions(sessionMirror, palette);
+  else if (!sessionMirror) session = palette;
   await savePaletteHistory(shell, session);
 }
 

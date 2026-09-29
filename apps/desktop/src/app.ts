@@ -24,9 +24,11 @@ import { currentPosition, restoreScrollToPosition, PositionPersistence } from '.
 import {
   flushPaletteHistoryFromApp,
   loadPaletteHistory,
+  pinDocumentOnPaletteSession,
   resetPaletteHistoryMirror,
   trackDocumentOpen,
 } from './palette/history.ts';
+import { emptySession } from './palette/session.ts';
 import { defaultModeForPath } from './source/default-mode.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
 
@@ -111,6 +113,8 @@ export type AppHandle = {
    * it through the same path an open takes. Refused if a different document is open by then.
    */
   commitEdit(buffer: Buffer): Promise<void>;
+  /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
+  pinPaletteDocument(path: string): void;
 };
 
 const t0 = Date.now();
@@ -1010,6 +1014,11 @@ export async function startApp(
       return () => documentListeners.delete(cb);
     },
     commitEdit,
+    pinPaletteDocument(path: string) {
+      const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
+        .__marxyPalette;
+      pinDocumentOnPaletteSession(palette?.session ?? emptySession('/'), path);
+    },
   };
   try {
     await serially(boot);

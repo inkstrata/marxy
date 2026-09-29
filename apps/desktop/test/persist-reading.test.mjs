@@ -216,16 +216,8 @@ test('palette empty query lists pinned document before MRU after relaunch', asyn
         handle.palette.setIndexEntries([entry(a, 'A'), entry(b, 'B')]);
         await handle.open(a);
         await handle.open(b);
-        const { emptySession, recordOpen, togglePin } = await import('/src/palette/session.ts');
-        const { historyFromSession, serializeHistoryFile } = await import('/src/palette/history.ts');
-        let session = emptySession('/r');
-        session = recordOpen(session, a);
-        session = recordOpen(session, b);
-        session = togglePin(session, a);
-        await handle.shell.writeFileAtomic(
-          '/data/history.json',
-          serializeHistoryFile(historyFromSession(session)),
-        );
+        handle.pinPaletteDocument(a);
+        await handle.shell.quit(0);
       },
       { a, b },
     );
