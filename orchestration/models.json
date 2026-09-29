@@ -38,7 +38,7 @@
   "reviewLanes": 4,
   "mergeQueue": false,
   "requireUpToDate": false,
-  "maxAttempts": 2,
+  "maxAttempts": 1,
   "attemptMinutes": 45,
   "plannerEveryMerges": 5,
   "plannerEveryDays": 7
