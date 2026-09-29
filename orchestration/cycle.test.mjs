@@ -435,3 +435,35 @@ test('isFreshStory: only a story nothing was ever attempted on is new (MARXY-329
   assert.equal(isFreshStory({ status: 'todo', attempts: 1 }), false);
   assert.equal(isFreshStory({ status: 'todo', attempts: 0, returned: { why: 'x' } }), false);
 });
+
+test('drain takes new stories out before readiness, so a held one never keeps returned work waiting (MARXY-331)', () => {
+  const returned = { status: 'todo', attempts: 1, returned: { at: minutesAgo(5), head: HEAD, why: 'changes requested' } };
+  // MARXY-1 is a new product story; product stories pick first, so left in it would take path `a` from
+  // the returned ops story MARXY-2. MARXY-3 is new and overlaps MARXY-1; MARXY-4 is new and phase-held.
+  const rows = [row('MARXY-1', 'a', { Labels: 'phase-1' }), row('MARXY-2', 'a'), row('MARXY-3', 'a'), row('MARXY-4', 'b', { Labels: 'phase-2' })];
+  const deps = { deps: {}, phases: { 1: ['MARXY-1'], 2: ['MARXY-4'], ops: ['MARXY-2', 'MARXY-3'] } };
+  const stories = { 'MARXY-1': { status: 'todo' }, 'MARXY-2': returned, 'MARXY-3': { status: 'todo' }, 'MARXY-4': { status: 'todo' } };
+  const w = world({ rows, stories });
+  w.io.plan = () => ({ rows, byKey: new Map(rows.map(r => [r.Key, r])), deps, extraAllowed: [], renames: {} });
+  const r = w.run({ drain: true });
+  assert.deepEqual(started(w.calls, 'implement'), ['MARXY-2'], 'the returned story starts');
+  assert.deepEqual(r.ready.drained.sort(), ['MARXY-1', 'MARXY-3']);
+  assert.equal(r.ready.waits['MARXY-3'], 'drain: not starting new stories', 'waiting only on a held story is waiting on drain');
+  assert.match(r.ready.waits['MARXY-4'], /phase 2 waits on an earlier phase/, 'a new story keeps its real wait');
+  assert.equal(r.ready.waits['MARXY-2'], undefined);
+});
+
+test('a returned PR the fleet will not redo is named as needing a fix pushed, not "open its PR" (MARXY-331)', () => {
+  const returned = { status: 'todo', attempts: 1, pr: 9, returned: { at: minutesAgo(90), head: HEAD, why: 'reviewer: add a test\nmore' } };
+  const wt = key => ({ key, path: `/wt/${key}`, branch: `fix/${key}-x`, dirty: false, ahead: 2, lastActivityMs: nowMs - 3 * 3_600_000 });
+  const w = world({
+    rows: [row('MARXY-2', 'b', { Labels: 'ops,no-dispatch' })],
+    stories: { 'MARXY-1': returned, 'MARXY-2': returned },
+    worktrees: [wt('MARXY-1'), wt('MARXY-2')],
+  });
+  const r = w.run();
+  const why = k => r.attention.find(a => a.key === k)?.why ?? '';
+  assert.match(why('MARXY-1'), /PR #9 was returned \(reviewer: add a test\) and the fleet will not redo it \(it has no board row\): push a fix/);
+  assert.match(why('MARXY-2'), /its row is not dispatched/);
+  assert.doesNotMatch(why('MARXY-1'), /open its PR/);
+});
