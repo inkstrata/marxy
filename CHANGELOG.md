@@ -6,7 +6,6 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
-- An open pull request is titled `[human]` when only a person can merge it, and `(signed)` when an agent has signed that head. No prefix means the cycle will merge it. Neither mark is part of the squash commit (MARXY-274)
 - The module-boundary gate now catches a forbidden dependency hidden behind a template-literal dynamic `import()` or `require()` with no interpolation (MARXY-307)
 - The bundle gate's production import walk now catches dynamic `import()` and `require()` of the memory shell — quoted or as a plain template literal — not only static `from` imports, so a pre-build run still blocks dev-only entry points when `dist/` is absent (MARXY-309)
 - Hidden-character marks and the Cargo table-form dependency check are to be rebased onto main, where a locked file that root can still read is already treated as readable, and a key cap that keeps its hyphen is queued for a look (MARXY-321)
