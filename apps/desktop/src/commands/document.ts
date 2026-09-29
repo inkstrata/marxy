@@ -23,7 +23,8 @@ export function startDocumentEditingWire(): void {
   };
   if (w.__marxyDocumentWire) return;
   w.__marxyDocumentWire = true;
-  const obs = new MutationObserver(() => {
+  const article = document.getElementById('doc');
+  const wire = (): void => {
     const ctx = getSelectionBufferContext();
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
@@ -32,9 +33,16 @@ export function startDocumentEditingWire(): void {
       // re-baselines a newly opened document instead of only ever syncing the first one.
       syncSavedVersionOnce();
     });
-  });
-  const article = document.getElementById('doc');
-  if (article) obs.observe(article, { childList: true, subtree: true });
+  };
+  const obs = new MutationObserver(wire);
+  if (article) {
+    obs.observe(article, { childList: true, subtree: true });
+    // The click handler is delegated and resolves its task at click time, so it does not need a
+    // rendered document to exist. Installing it here, not on the first mutation, means a first
+    // document that nothing mutates afterwards still has working checkboxes.
+    void import('../render/tasks.ts').then(({ installTaskMarkers }) => installTaskMarkers(article));
+    wire();
+  }
   w.marxyDocumentEdit = documentEditState;
   w.marxyHarnessRedo = redoDocumentEdit;
   w.marxyHarnessAlignTable = harnessAlignFirstTable;

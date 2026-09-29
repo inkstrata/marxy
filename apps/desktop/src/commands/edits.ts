@@ -98,21 +98,47 @@ export async function harnessAlignFirstTable(): Promise<string | undefined> {
   return result.summary;
 }
 
-export async function applyDocumentMutation(input: {
+/**
+ * Operations run one at a time: the splice is computed from the buffer as it is when this one's turn
+ * comes, not from the one read when it was asked for, so a second quick operation lands on top of the
+ * first instead of over its stale bytes. History changes only once the write has succeeded.
+ */
+let mutationChain: Promise<unknown> = Promise.resolve();
+function inTurn<T>(work: () => Promise<T>): Promise<T> {
+  const run = mutationChain.then(work, work);
+  mutationChain = run.catch(() => undefined);
+  return run;
+}
+
+async function reportFailedWrite(what: string, e: unknown): Promise<void> {
+  const { notify } = await import('../notices/index.ts');
+  notify({ kind: 'info', text: `Could not ${what}: ${e instanceof Error ? e.message : String(e)}. The file is unchanged.` });
+}
+
+export function applyDocumentMutation(input: {
   readonly range: Edit['range'];
   readonly replacement: string;
   readonly label: string;
-}): Promise<void> {
-  const ctx = getSelectionBufferContext();
-  if (!ctx) throw new Error('no open document');
-  historyFor(ctx.buffer);
-  const before = ctx.buffer.bytes.slice(input.range.start, input.range.end);
-  const after = new TextEncoder().encode(input.replacement);
-  const edit: Edit = { range: input.range, before, after, label: input.label };
-  history.push(edit);
-  const next = splice(ctx.buffer, input.range, input.replacement);
-  await rerenderOpenDocument(next);
-  builtOn(next);
+}): Promise<boolean> {
+  // Resolves false when the write was refused: the failure is already reported, so a caller shows no success.
+  return inTurn(async () => {
+    const ctx = getSelectionBufferContext();
+    if (!ctx) throw new Error('no open document');
+    historyFor(ctx.buffer);
+    const before = ctx.buffer.bytes.slice(input.range.start, input.range.end);
+    const after = new TextEncoder().encode(input.replacement);
+    const edit: Edit = { range: input.range, before, after, label: input.label };
+    const next = splice(ctx.buffer, input.range, input.replacement);
+    try {
+      await rerenderOpenDocument(next);
+    } catch (e) {
+      await reportFailedWrite('save that change', e);
+      return false;
+    }
+    history.push(edit);
+    builtOn(next);
+    return true;
+  });
 }
 
 export function attachDocumentEdits(ctx: AppContext): AppContext {
@@ -132,22 +158,30 @@ export function historyCanRedo(): boolean {
   return history.canRedo;
 }
 
-export async function undoDocumentEdit(): Promise<void> {
-  const ctx = getSelectionBufferContext();
-  if (!ctx) return;
-  historyFor(ctx.buffer);
-  const next = history.undo(ctx.buffer);
-  if (!next) return;
-  await rerenderOpenDocument(next);
-  builtOn(next);
+async function stepHistory(direction: 'undo' | 'redo'): Promise<void> {
+  await inTurn(async () => {
+    const ctx = getSelectionBufferContext();
+    if (!ctx) return;
+    historyFor(ctx.buffer);
+    // History moves its stacks as it steps; if the write fails, step the other way to put them back
+    // (the buffer that step returns is not used).
+    const next = history[direction](ctx.buffer);
+    if (!next) return;
+    try {
+      await rerenderOpenDocument(next);
+    } catch (e) {
+      history[direction === 'undo' ? 'redo' : 'undo'](next);
+      await reportFailedWrite(direction === 'undo' ? 'undo' : 'redo', e);
+      return;
+    }
+    builtOn(next);
+  });
 }
 
-export async function redoDocumentEdit(): Promise<void> {
-  const ctx = getSelectionBufferContext();
-  if (!ctx) return;
-  historyFor(ctx.buffer);
-  const next = history.redo(ctx.buffer);
-  if (!next) return;
-  await rerenderOpenDocument(next);
-  builtOn(next);
+export function undoDocumentEdit(): Promise<void> {
+  return stepHistory('undo');
+}
+
+export function redoDocumentEdit(): Promise<void> {
+  return stepHistory('redo');
 }

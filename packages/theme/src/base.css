@@ -204,6 +204,9 @@ input[type="checkbox"] {
   border: 1px solid var(--marxy-color-text-secondary);
   border-radius: 2px;
   background: none;
+  /* Behaviour, not looks: the box is always disabled (sanitiser), and WebKit sends a disabled control
+     no click at all. With no hit-testing of its own, the click reaches the list item, which toggles it. */
+  pointer-events: none;
 }
 input[type="checkbox"]:checked {
   border-color: var(--marxy-color-accent);

@@ -28,9 +28,9 @@ export function installTaskMarkers(article: HTMLElement, _nodeMap?: NodeMap): vo
   article.addEventListener(
     'click',
     (ev) => {
-      const raw = ev.target;
-      if (!(raw instanceof HTMLInputElement) || raw.type !== 'checkbox') return;
-      const carrier = raw.closest('[data-marxy-s]');
+      const box = taskBoxFor(ev, article);
+      if (!box) return;
+      const carrier = box.closest('[data-marxy-s]');
       if (!carrier) return;
       const ctx = getSelectionBufferContext();
       if (!ctx) return;
@@ -55,4 +55,22 @@ export function installTaskMarkers(article: HTMLElement, _nodeMap?: NodeMap): vo
     },
     true,
   );
+}
+
+/**
+ * The checkbox a click means. The sanitiser forces `disabled` on task checkboxes and browsers
+ * (WebKit) send no click to a disabled control, so the box has `pointer-events: none` and the click
+ * lands on whatever is behind it: the list item, or, as the theme hangs the box in the margin, the
+ * list or the article. The box is found by where the click fell, inside the box's own rectangle, so
+ * a link or text elsewhere in the item never toggles it.
+ */
+function taskBoxFor(ev: MouseEvent, article: HTMLElement): HTMLInputElement | null {
+  const raw = ev.target;
+  if (raw instanceof HTMLInputElement) return raw.type === 'checkbox' ? raw : null;
+  if (!(raw instanceof Element) || raw.closest('a, button, input, textarea, select, summary')) return null;
+  for (const box of article.querySelectorAll<HTMLInputElement>('input[type="checkbox"][data-marxy-s]')) {
+    const r = box.getBoundingClientRect();
+    if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) return box;
+  }
+  return null;
 }
