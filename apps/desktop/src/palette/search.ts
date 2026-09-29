@@ -10,8 +10,10 @@ const TITLE_WEIGHT = 4;
 const HEADING_WEIGHT = 3;
 const PATH_WEIGHT = 2;
 const DEFAULT_LIMIT = 50;
+/** fuzzyScore's true ceiling: 10_000 plus the +500 at-start bonus the exact-substring path can add. */
+const MAX_FUZZY_SCORE = 10_500;
 
-/** Lowercased fields, built once per index load so a keystroke does not rescan bytes. */
+/** NFC-normalised, lowercased fields (macOS file names are NFD; typed queries are NFC), built once per index load so a keystroke does not rescan bytes. */
 export interface PreparedIndex {
   readonly rows: readonly PreparedRow[];
 }
@@ -28,11 +30,11 @@ export function prepareIndex(entries: readonly IndexEntry[]): PreparedIndex {
   const rows: PreparedRow[] = [];
   for (const entry of entries) {
     const headings: string[] = [];
-    for (const heading of entry.headings) headings.push(heading.text.toLowerCase());
+    for (const heading of entry.headings) headings.push(heading.text.normalize('NFC').toLowerCase());
     rows.push({
       entry,
-      title: entry.title.toLowerCase(),
-      path: entry.path.toLowerCase(),
+      title: entry.title.normalize('NFC').toLowerCase(),
+      path: entry.path.normalize('NFC').toLowerCase(),
       headings,
     });
   }
@@ -71,7 +73,7 @@ export function searchPrepared(
   limit = DEFAULT_LIMIT,
 ): readonly IndexHit[] {
   if (process.env.MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION) return [];
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim().normalize('NFC').toLowerCase();
   if (needle.length === 0) return emptyHits(prepared, session, limit);
 
   const byPath = new Map<string, number>();
@@ -185,7 +187,7 @@ function frecencyBonus(entry: IndexEntry, mru: ReadonlyMap<string, number>, now:
 }
 
 function headingCouldBeat(titleOrPathScore: number, needle: string): boolean {
-  return titleOrPathScore < 10_000 * HEADING_WEIGHT || needle.length <= 2;
+  return titleOrPathScore < MAX_FUZZY_SCORE * HEADING_WEIGHT || needle.length <= 2;
 }
 
 function compareHits(a: IndexHit, b: IndexHit): number {

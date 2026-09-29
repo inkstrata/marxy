@@ -11,7 +11,7 @@ export function verbEvents(cmd, key, rest, b, { now = new Date().toISOString(), 
   const rec = b.stories[key] ?? { status: 'todo', attempts: 0 };
   switch (cmd) {
     case 'start': return [story(key, { from: 'todo', to: 'in_progress', set: { claim: { by, until: new Date(Date.parse(now) + t.claimHours * 3_600_000).toISOString() } }, why: 'claimed with state.mjs start' })];
-    case 'review': return [story(key, { from: ['todo', 'in_progress'], to: 'in_review', set: { pr: Number(rest[0]) }, unset: ['claim', 'run'], why: `PR #${rest[0]} recorded by hand` })];
+    case 'review': if (!/^[1-9]\d*$/.test(rest[0] ?? '')) return null; return [story(key, { from: ['todo', 'in_progress'], to: 'in_review', set: { pr: Number(rest[0]) }, unset: ['claim', 'run'], why: `PR #${rest[0]} recorded by hand` })];
     case 'done': return [story(key, { to: 'done', set: { finished: now }, unset: ['run', 'claim', 'hold'], why: 'recorded done by hand' }), boardEvent(null, { merges: 1 })];
     case 'plan-landed': return [story(key, { to: 'done', set: { finished: now, planLanded: true }, why: 'plan delta landed' }), boardEvent({ lastPlan: now, mergesAtLastPlan: (b.merges ?? 0) + 1 }, { merges: 1 })];
     case 'return': return returnEvents(key, rec, { why: rest.join(' ') || 'returned with state.mjs', t, now, from: ['in_review', 'in_progress'], by });
@@ -29,6 +29,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const counts = Object.fromEntries(Object.keys(STATES).map(s => [s, Object.values(b.stories).filter(r => r.status === s).length]));
     console.log(JSON.stringify({ merges: b.merges, lastPlan: b.lastPlan, ...counts }, null, 2));
     process.exit(0);
+  }
+  if (cmd === 'review' && !/^[1-9]\d*$/.test(rest[0] ?? '')) {
+    console.error(`✗ review needs a positive integer PR number: state.mjs review ${key ?? 'KEY'} <PR> (got ${rest[0] === undefined ? 'nothing' : JSON.stringify(rest[0])})`);
+    process.exit(2);
   }
   const events = verbEvents(cmd, key, rest, b, { t: timing(models()) });
   if (!events || (cmd !== 'planned' && !/^MARXY-\d+$/.test(key ?? ''))) {

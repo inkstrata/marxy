@@ -132,7 +132,17 @@ export function resolveImageSrc(
     if (host !== undefined) return { kind: 'remote', host, url: decision.resolved ?? src };
     return { kind: 'invalid' };
   }
-  const posix = src.replace(/\\/g, '/');
+  // The file is named by the path alone: `?query` and `#fragment` are not part of it, and what is
+  // left is percent-encoded. Decoding happens before the traversal check so `..%2f` cannot hide.
+  const pathOnly = src.replace(/[?#].*$/s, '');
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathOnly);
+  } catch {
+    decoded = pathOnly;
+  }
+  if (decoded === '' || /[\u0000-\u001f]/.test(decoded)) return { kind: 'invalid' };
+  const posix = decoded.replace(/\\/g, '/');
   const absoluteFs = /^[A-Za-z]:\//.test(posix);
   const joined = absoluteFs
     ? posix

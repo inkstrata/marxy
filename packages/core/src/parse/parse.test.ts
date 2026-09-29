@@ -484,3 +484,54 @@ test('decodeWithOffsets decodes exactly as TextDecoder and charges each replacem
     for (let i = 1; i <= text.length; i++) assert.ok(offsets.at(i) >= offsets.at(i - 1), `monotone at ${i} of [${[...bytes]}]`);
   }
 });
+
+test('a literal > that starts a continuation line is text, not a container marker (MARXY-337)', () => {
+  const source = 'a\n    >b';
+  const bytes = new TextEncoder().encode(source);
+  const document = parseMarkdown(bytes, { file: 't.md' });
+  assert.deepEqual(checkInvariants(document, bytes), []);
+  const inlines = (document.children[0] as Paragraph).children;
+  const breakNode = inlines.find((node) => node.type === 'softBreak')!;
+  assert.equal(source.slice(breakNode.src.start, breakNode.src.end), '\n    ');
+  const last = inlines[inlines.length - 1]!;
+  assert.equal(last.type, 'text');
+  assert.equal(source.slice(last.src.start, last.src.end), '>b');
+});
+
+test('a quote marker on a continuation line still belongs to the soft break (MARXY-337)', () => {
+  const source = '> a\n> b\n> > c';
+  const bytes = new TextEncoder().encode(source);
+  const document = parseMarkdown(bytes, { file: 't.md' });
+  assert.deepEqual(checkInvariants(document, bytes), []);
+  const paragraph = (document.children[0]!.children as readonly Block[])[0] as Paragraph;
+  const breaks = paragraph.children.filter((node) => node.type === 'softBreak');
+  assert.equal(source.slice(breaks[0]!.src.start, breaks[0]!.src.end), '\n> ');
+});
+
+test('list items never overlap when an item ends in an unclosed fence (MARXY-337)', () => {
+  const source = '* ```js\n* x';
+  const bytes = new TextEncoder().encode(source);
+  const document = parseMarkdown(bytes, { file: 't.md' });
+  assert.deepEqual(checkInvariants(document, bytes), []);
+  const items = (document.children[0] as List).children;
+  assert.equal(items.length, 2);
+  assert.ok(items[0]!.src.end <= items[1]!.src.start);
+  assert.equal(source.slice(items[0]!.src.start, items[0]!.src.end), '* ```js\n');
+});
+
+test('random documents of lists, quotes, fences, CRLF and BOMs satisfy every invariant (MARXY-337)', () => {
+  const pieces = ['* ', '- ', '1. ', '> ', '>', '  ', '    ', '\t', '```', '```js', '~~~', '# ', '## ', 'a', 'b c', '>b', '[ ] ', '[x] ', '\\>', '&gt;', 'é', '日', '---', '|a|b|', '\n', '\n', '\n', '\r\n', '\r'];
+  let seed = 1;
+  const random = (): number => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  const encoder = new TextEncoder();
+  for (let n = 0; n < 5000; n++) {
+    let source = random() < 0.1 ? '﻿' : '';
+    for (let i = 1 + Math.floor(random() * 14); i > 0; i--) source += pieces[Math.floor(random() * pieces.length)]!;
+    const bytes = encoder.encode(source);
+    const violations = checkInvariants(parseMarkdown(bytes, { file: 't.md' }), bytes);
+    assert.deepEqual(violations, [], JSON.stringify(source));
+  }
+});

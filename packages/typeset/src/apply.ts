@@ -14,13 +14,21 @@ export const HYPHEN = 'marxy-hyphen';
 
 const HYPHEN_STYLE = `.${LINE_BREAK}.${HYPHEN}::before{content:"-\\A";white-space:pre}`;
 
+const hyphenSheets = new WeakMap<Document, CSSStyleSheet>();
+
 /** Injects the generated hyphen once per document so a hyphenated break is visible without becoming text. */
 export function ensureHyphenStyle(doc: Document): void {
   if (doc.getElementById('marxy-hyphen-style') !== null) return;
-  const style = doc.createElement('style');
-  style.id = 'marxy-hyphen-style';
-  style.textContent = HYPHEN_STYLE;
-  doc.head.appendChild(style);
+  if ('adoptedStyleSheets' in doc) {
+    const sheet = new CSSStyleSheet();
+    hyphenSheets.set(doc, sheet);
+    sheet.replaceSync(HYPHEN_STYLE);
+    doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, sheet];
+  }
+  const marker = doc.createElement('template');
+  marker.id = 'marxy-hyphen-style';
+  marker.textContent = HYPHEN_STYLE;
+  doc.head.append(marker);
 }
 
 /**

@@ -42,3 +42,9 @@ test('alerts do not set colour, background, border or icon styles', () => {
   assert.ok(!/<svg/.test(out));
   assert.ok(!/background|border|color:/i.test(out));
 });
+
+test('a soft break after inline nodes is kept; only the one after the marker is dropped', () => {
+  const out = html('> [!NOTE] see [docs](u) now\n> hi\n');
+  assert.match(out, /now\nhi/);
+  assert.doesNotMatch(out, /nowhi/);
+});

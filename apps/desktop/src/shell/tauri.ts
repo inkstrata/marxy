@@ -11,7 +11,7 @@ import { listen } from '@tauri-apps/api/event';
 import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
-import type { Shell, WatchEvent } from '@marxy/shell-api';
+import type { Shell, ShellError, WatchEvent } from '@marxy/shell-api';
 
 /** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
 const assetScopes = new Set<string>();
@@ -33,6 +33,26 @@ const lastRead = new Map<string, Uint8Array>();
 const readBytes = async (path: string): Promise<Uint8Array> =>
   new Uint8Array(await invoke<ArrayBuffer>('read_file', { path }));
 
+/** `read_file` rejects with a bare "path: No such file or directory (os error 2)" string. */
+function isNotFound(err: unknown): boolean {
+  if (err && typeof err === 'object' && 'code' in err && (err as ShellError).code === 'not-found') return true;
+  const text = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  return /no such file|not found|os error 2\b|cannot find the (file|path)|ENOENT/i.test(text);
+}
+
+function shellErrorFromInvoke(err: unknown): Error & { code?: ShellError['code']; message: string } {
+  const payload =
+    err && typeof err === 'object' && 'code' in err && 'message' in err
+      ? (err as ShellError)
+      : {
+          code: 'io' as const,
+          message: err instanceof Error ? err.message : String(err),
+        };
+  const error = new Error(payload.message) as Error & { code?: ShellError['code']; message: string };
+  error.code = payload.code;
+  return error;
+}
+
 export const shell: Pick<
   Shell,
   | 'readFile'
@@ -44,12 +64,23 @@ export const shell: Pick<
   | 'clipboardWrite'
   | 'configPaths'
   | 'readDir'
+  | 'setTitle'
+  | 'saveDialog'
+  | 'onCloseRequested'
+  | 'confirmClose'
   | 'openExternal'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
+  /**
+   * Reads without arming the stale-write guard. The live-reload watcher looks at disk to decide
+   * whether to follow it; that look must not count as the app having seen (adopted) the change.
+   */
+  peekFile(path: string): Promise<Uint8Array>;
+  /** Record `bytes` as what the app now holds for `path`, once it has actually adopted them. */
+  recordRead(path: string, bytes: Uint8Array): void;
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   allowAssetScope(dir: string): Promise<void>;
   assetUrl(path: string): string;
@@ -62,6 +93,10 @@ export const shell: Pick<
     lastRead.set(path, bytes.slice());
     return bytes;
   },
+  peekFile: (path) => readBytes(path),
+  recordRead: (path, bytes) => {
+    lastRead.set(path, bytes.slice());
+  },
   /**
    * Writes exactly these bytes, staged beside the destination and renamed over it; never in place.
    * Refuses when disk no longer matches the last read — writeFileAtomic has no precondition, so
@@ -70,14 +105,34 @@ export const shell: Pick<
   writeFileAtomic: async (path, bytes) => {
     const expected = lastRead.get(path);
     if (expected) {
-      const error = staleWriteError(path, expected, await readBytes(path));
+      // A file that is gone (deleted or moved externally) has nothing to overwrite, so there is no
+      // precondition to fail: the save recreates it. Any other read failure is real and is reported
+      // as an Error with its message, not the bare string Tauri rejects with.
+      let onDisk: Uint8Array | null;
+      try {
+        onDisk = await readBytes(path);
+      } catch (err) {
+        if (isNotFound(err)) onDisk = null;
+        else throw shellErrorFromInvoke(err);
+      }
+      const error = onDisk ? staleWriteError(path, expected, onDisk) : null;
       if (error) throw new Error(error);
     }
     // A raw body, not `Array.from(bytes)`: a JSON array costs ~3.7 bytes per byte each way. The path
     // goes in a header, percent-encoded so any file name survives it.
-    await invoke('write_file_atomic', bytes, { headers: { 'x-marxy-path': encodeURIComponent(path) } });
+    try {
+      await invoke('write_file_atomic', bytes, { headers: { 'x-marxy-path': encodeURIComponent(path) } });
+    } catch (err) {
+      throw shellErrorFromInvoke(err);
+    }
     lastRead.set(path, bytes.slice());
   },
+  setTitle: (title) => invoke('set_title', { title }),
+  saveDialog: (opts) => invoke<string | null>('save_dialog', { defaultPath: opts.defaultPath ?? null }),
+  onCloseRequested: (cb) => {
+    void listen('marxy:close-requested', () => cb());
+  },
+  confirmClose: () => invoke('close_confirmed'),
   /**
    * Recurring watch of `root`. Events arrive on the one `fs-watch` channel every watcher listens to,
    * so each keeps only its own root's and debounces them, as the contract requires. No chrome.

@@ -55,6 +55,11 @@ export interface DeferredStartupContext {
   readonly onIndexLoaded?: (entries: readonly IndexEntry[]) => void;
   /** Bytes already on screen for `file`, so the index walk does not read them again. */
   readonly openedBytes?: Uint8Array;
+  /**
+   * Called when a post-pass changed the page's geometry (image boxes, invisible-character markers),
+   * so the grid pass can run again: blocks below the change sit off the baseline grid until it does.
+   */
+  readonly onLayoutChanged?: () => void;
 }
 
 /**
@@ -65,21 +70,58 @@ export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<v
   const { shell, file, doc } = ctx;
   const { documentDir, imageRoot } = pathsForDocument(file);
   const highlightStart = Date.now();
-  await applyImages(doc, { ...ctx.imageCtx, documentPath: file, documentDir, imageRoot });
-  await applyMath(doc);
-  const { startCodeHighlight } = await import('../render/highlight.ts');
-  startCodeHighlight(doc);
-  focusableScrollers(doc);
-  await shell.mark('highlight_ms', Date.now(), `ms=${Date.now() - highlightStart}`);
-  const { entries, notice } = await loadIndex(shell, file, ctx.openedBytes);
-  ctx.onIndexLoaded?.(entries);
-  if (notice) {
-    notify({
-      kind: 'info',
-      text: `Index limited to the ${notice.limit.toLocaleString()} most recently changed files (${notice.omitted.toLocaleString()} omitted).`,
-    });
+  // Every step is a post-pass over a page that is already readable: one that fails (a refused asset
+  // scope, a lazy chunk that did not load) must not take the rendered page or the open document with it.
+  const regrid = () => {
+    if (!doc.hidden) ctx.onLayoutChanged?.();
+  };
+  await guarded('images', async () => {
+    try {
+      await applyImages(doc, { ...ctx.imageCtx, documentPath: file, documentDir, imageRoot });
+    } finally {
+      regrid();
+    }
+    // A box reserved from the header can still settle to a different height once the bytes decode.
+    let queued = false;
+    const onLoad = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        regrid();
+      });
+    };
+    for (const img of doc.querySelectorAll('img[src]')) {
+      if (!(img as HTMLImageElement).complete) img.addEventListener('load', onLoad, { once: true });
+    }
+  });
+  await guarded('math', () => applyMath(doc));
+  await guarded('highlight', async () => {
+    const { startCodeHighlight } = await import('../render/highlight.ts');
+    startCodeHighlight(doc);
+    regrid();
+  });
+  await guarded('scrollers', () => focusableScrollers(doc));
+  await guarded('highlight mark', () => shell.mark('highlight_ms', Date.now(), `ms=${Date.now() - highlightStart}`));
+  await guarded('index', async () => {
+    const { entries, notice } = await loadIndex(shell, file, ctx.openedBytes);
+    ctx.onIndexLoaded?.(entries);
+    if (notice) {
+      notify({
+        kind: 'info',
+        text: `Index limited to the ${notice.limit.toLocaleString()} most recently changed files (${notice.omitted.toLocaleString()} omitted).`,
+      });
+    }
+    await shell.mark('index_loaded', Date.now(), `entries=${entries.length}`);
+  });
+}
+
+async function guarded(step: string, fn: () => void | Promise<void>): Promise<void> {
+  try {
+    await fn();
+  } catch (e) {
+    console.warn(`marxy: deferred ${step} failed: ${String(e)}`);
   }
-  await shell.mark('index_loaded', Date.now(), `entries=${entries.length}`);
 }
 
 // Placeholder until MARXY-34/MARXY-38 wire the real index and session state (docs/design/07-index.md).

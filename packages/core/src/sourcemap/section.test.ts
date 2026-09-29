@@ -220,3 +220,43 @@ test('sectionRange corpus property over every heading', () => {
     }
   }
 });
+
+test('a section nested in a list item ends at the line of the next heading, before its marker (MARXY-337)', () => {
+  const source = '# A\n\n- ## B\n  b text\n- ## C\n  c\n';
+  const doc = parse(source);
+  const b = headingsOf(doc)[1]!;
+  const range = sectionRange(doc, b);
+  assert.equal(source.slice(range.start, range.end), '## B\n  b text\n');
+  const c = headingsOf(doc)[2]!;
+  assert.equal(source.slice(sectionRange(doc, c).start, sectionRange(doc, c).end), '## C\n  c');
+});
+
+test('a section nested in a blockquote ends at the line of the next heading, before its marker (MARXY-337)', () => {
+  const source = '# A\n\n> ## B\n> b text\n>\n> ## C\n> c\n';
+  const doc = parse(source);
+  const range = sectionRange(doc, headingsOf(doc)[1]!);
+  assert.equal(source.slice(range.start, range.end), '## B\n> b text\n>\n');
+});
+
+test('nested section ends at a line start with CRLF, a BOM and multibyte text before it (MARXY-337)', () => {
+  const source = '﻿# é\r\n\r\n> ## B\r\n> 日本\r\n> ## C\r\n> c\r\n';
+  const bytes = new TextEncoder().encode(source);
+  const doc = parseMarkdown(bytes, { file: 't.md' });
+  const range = sectionRange(doc, headingsOf(doc)[1]!);
+  assert.equal(new TextDecoder().decode(bytes.subarray(range.start, range.end)), '## B\r\n> 日本\r\n');
+});
+
+test('copy-section of a nested section carries no container marker (MARXY-337)', () => {
+  for (const [source, text] of [
+    ['# A\n\n- ## B\n  b text\n- ## C\n  c\n', '## B\n  b text\n'],
+    ['# A\n\n> ## B\n> b text\n>\n> ## C\n> c\n', '## B\n> b text\n>\n'],
+  ] as const) {
+    const doc = parse(source);
+    const heading = headingsOf(doc)[1]!;
+    const range = sectionRange(doc, heading);
+    const out = copySection.run({ document: doc, node: heading, range, text: source.slice(range.start, range.end) });
+    assert.equal(out.clipboard?.text, text);
+    assert.match(out.clipboard!.html!, /<h2[^>]*>B<\/h2>/);
+    assert.ok(!out.clipboard!.html!.includes('<h2>b text</h2>'));
+  }
+});

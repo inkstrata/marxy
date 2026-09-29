@@ -48,6 +48,11 @@ export interface Removal {
 export interface SanitizeOptions {
   /** Secret provenance names for this pass; only these exempt renderer-owned reserved ids and classes. */
   readonly provenanceNames?: ProvenanceNames;
+  /**
+   * The attribute a blocked remote image is deferred under. The pipeline passes a secret name so the
+   * marker one pass wrote can be told from one a document wrote; the default is the public name.
+   */
+  readonly remoteAttr?: string;
 }
 
 export interface SanitizeResult {
@@ -78,7 +83,8 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
 
     // A comment is a place to hide markup from a reader, never a place to keep it.
     if (input.startsWith('<!--', lt)) {
-      const end = input.indexOf('-->', lt + 4);
+      // `<!-->` and `<!--->` are empty comments, so the search starts inside the opener.
+      const end = input.indexOf('-->', lt + 2);
       removed.push({ what: 'comment', name: '#comment', reason: 'comments are not content' });
       index = end === -1 ? length : end + 3;
       continue;
@@ -180,10 +186,14 @@ interface Writer {
  */
 function writer(removed: Removal[]): Writer {
   const open: string[] = [];
+  // How many of each name are open, so a close tag with no open element is O(1), not a scan.
+  const counts = new Map<string, number>();
   const parts: string[] = [];
   const closeOne = (): void => {
     const name = open.pop();
-    if (name !== undefined) parts.push(`</${name}>`);
+    if (name === undefined) return;
+    counts.set(name, (counts.get(name) ?? 1) - 1);
+    parts.push(`</${name}>`);
   };
   return {
     text(value) {
@@ -206,12 +216,13 @@ function writer(removed: Removal[]): Writer {
       }
       parts.push(`<${name}${attributesText}>`);
       open.push(name);
+      counts.set(name, (counts.get(name) ?? 0) + 1);
     },
     close(name) {
-      const at = open.lastIndexOf(name);
       // A close tag with nothing open would unbalance the output; a parser ignores it too.
-      if (at === -1) return;
-      while (open.length > at) closeOne();
+      if ((counts.get(name) ?? 0) === 0) return;
+      while (open[open.length - 1] !== name) closeOne();
+      closeOne();
     },
     done() {
       while (open.length > 0) closeOne();
@@ -260,7 +271,7 @@ function attributes(
       removed.push({ what: 'attribute', name: key, on: name, value: truncate(attribute.value), reason: `${key} is not in the ${policy.name} allow-list` });
       continue;
     }
-    const emitted = attributeValue(key, attribute.value, attributeRule, name, policy, removed, rendererOwned);
+    const emitted = attributeValue(key, attribute.value, attributeRule, name, policy, removed, rendererOwned, options.remoteAttr ?? REMOTE_IMAGE_ATTR);
     if (emitted !== null) {
       text += emitted;
       kept.add(key);
@@ -283,6 +294,7 @@ function attributeValue(
   policy: Policy,
   removed: Removal[],
   rendererOwned: boolean,
+  remoteAttr: string,
 ): string | null {
   const refuse = (reason: string, url?: string): null => {
     removed.push({ what: 'attribute', name: key, on: element, value: truncate(raw), url, reason });
@@ -303,7 +315,7 @@ function attributeValue(
           what: 'attribute', name: key, on: element, value: truncate(raw), url,
           reason: 'remote image, not loaded',
         });
-        return ` ${REMOTE_IMAGE_ATTR}="${escapeAttribute(url)}"`;
+        return ` ${remoteAttr}="${escapeAttribute(url)}"`;
       }
       if (element === 'img' && key === 'src' && decision.absolute && decision.scheme === 'http') {
         return refuse('remote image over plain http; marxy never loads these', url);
@@ -369,7 +381,7 @@ function parseEndTag(input: string, start: number): { name: string; end: number 
   let index = start + 2;
   if (!isAsciiAlpha(input.charCodeAt(index))) return null;
   const from = index;
-  while (index < input.length && !isSpace(input.charCodeAt(index)) && input[index] !== '>') index += 1;
+  while (index < input.length && !isSpace(input.charCodeAt(index)) && input[index] !== '/' && input[index] !== '>') index += 1;
   const name = input.slice(from, index);
   const close = input.indexOf('>', index);
   return { name, end: close === -1 ? input.length : close + 1 };
@@ -538,7 +550,7 @@ function skipElement(input: string, from: number, name: string): Skip {
     const lt = input.indexOf('<', index);
     if (lt === -1) return { end: length, closed: false };
     if (input.startsWith('<!--', lt)) {
-      const end = input.indexOf('-->', lt + 4);
+      const end = input.indexOf('-->', lt + 2);
       index = end === -1 ? length : end + 3;
       continue;
     }

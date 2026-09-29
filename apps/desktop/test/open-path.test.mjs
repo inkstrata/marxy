@@ -49,12 +49,23 @@ const B = [
   '',
 ].join('\n');
 
+const D = [
+  'fn one() {}',
+  '',
+  ...Array.from({ length: 60 }, (_, i) => `// filler line ${i}, padding the file so a byte offset well past 0 is a real scroll target`),
+  '',
+  'fn marker_target() {}',
+  '',
+].join('\n');
+
 const bytes = (text) => Buffer.from(text, 'utf8');
 const files = {
   '/r/A.md': bytes(A).toString('base64'),
   '/r/B.md': bytes(B).toString('base64'),
   '/r/C.md': bytes(C).toString('base64'),
+  '/r/D.rs': bytes(D).toString('base64'),
 };
+const markerOffset = bytes(D).indexOf('fn marker_target');
 const hashB = contentHash(bytes(B));
 const thirdHeading = bytes(B).indexOf('## Third section');
 const thirdHeadingEnd = thirdHeading + Buffer.byteLength('## Third section');
@@ -183,4 +194,12 @@ test('open with `at` inside B\'s third heading lands on that heading after types
     }, firstHeading);
     assert.equal(reads, 0);
     assert.equal(await page.evaluate(() => window.__h.sourceHarness().byteOffset), firstHeading);
+  }));
+
+test('open with `at` on a source-default file lands on that offset, not byte 0', () =>
+  withApp(async (page) => {
+    await page.evaluate((at) => window.__h.open('/r/D.rs', { at }), markerOffset);
+    await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
+    const at = await page.evaluate(() => window.__h.sourceHarness()?.byteOffset);
+    assert.equal(at, markerOffset);
   }));

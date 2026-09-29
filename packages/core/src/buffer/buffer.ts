@@ -102,8 +102,10 @@ export function foldText(like: Buffer, text: string): { range: Source; replaceme
     at > 0 &&
     at < text.length &&
     ((isHigh(text.charCodeAt(at - 1)) && isLow(text.charCodeAt(at))) || (text[at - 1] === '\r' && text[at] === '\n'));
-  while (prefix > 0 && cuts(prefix)) prefix--;
-  while (suffix > 0 && cuts(text.length - suffix)) suffix--;
+  // The old text's pairs count too: an LF input against a CRLF buffer must not stop between the two.
+  const cutsOld = (at: number): boolean => at > 0 && at < old.length && old[at - 1] === '\r' && old[at] === '\n';
+  while (prefix > 0 && (cuts(prefix) || cutsOld(skip + prefix))) prefix--;
+  while (suffix > 0 && (cuts(text.length - suffix) || cutsOld(old.length - suffix))) suffix--;
   const middle = text.slice(prefix, text.length - suffix);
   const converted = like.eol === 'crlf' ? middle.replace(/\r\n|\n/g, '\r\n') : middle;
   return {

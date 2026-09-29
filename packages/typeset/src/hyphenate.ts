@@ -49,13 +49,26 @@ export function hyphenOffsets(word: string, hyphenate: Hyphenator): number[] {
 
 let loaded: Promise<Record<PatternId, Hyphenator>> | null = null;
 
-/** Loads both allow-listed patterns once; compile cost is justif's, on first use of each. */
-export function loadHyphenators(): Promise<Record<PatternId, Hyphenator>> {
-  loaded ??= Promise.all([
-    import('justif/hyphenate/en-us'),
-    import('justif/hyphenate/en-gb'),
-  ]).then(([us, gb]) => ({ 'en-us': us.hyphenateEnUS, 'en-gb': gb.hyphenateEnGB }));
-  return loaded;
+const importPatterns = (): Promise<Record<PatternId, Hyphenator>> =>
+  Promise.all([import('justif/hyphenate/en-us'), import('justif/hyphenate/en-gb')]).then(([us, gb]) => ({
+    'en-us': us.hyphenateEnUS,
+    'en-gb': gb.hyphenateEnGB,
+  }));
+
+/**
+ * Loads both allow-listed patterns once; compile cost is justif's, on first use of each. A failed
+ * load is not remembered, so a later call tries again. `importer` is for tests.
+ */
+export function loadHyphenators(
+  importer: () => Promise<Record<PatternId, Hyphenator>> = importPatterns,
+): Promise<Record<PatternId, Hyphenator>> {
+  if (loaded !== null) return loaded;
+  const attempt: Promise<Record<PatternId, Hyphenator>> = importer().catch((error: unknown) => {
+    if (loaded === attempt) loaded = null;
+    throw error;
+  });
+  loaded = attempt;
+  return attempt;
 }
 
 function letterRun(text: string): { start: number; word: string } | null {
