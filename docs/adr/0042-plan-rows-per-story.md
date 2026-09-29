@@ -1,6 +1,6 @@
 # ADR-0042 — One plan file per story instead of a shared CSV and deps map
 
-- **Status:** proposed (MARXY-327)
+- **Status:** accepted by the repo owner on 2026-09-29 (MARXY-327), with epics in one `epics.json`
 - **Date:** 2026-09-28
 - **Amends:** nothing accepted. Carries out `orchestration/prompts/hardening.md` item 11 and
   follows the changelog fragments of MARXY-315.
@@ -48,7 +48,8 @@ Everyone who reads or writes these files today:
 
 **1. A story's row and dependencies live in one file, `docs/plan/stories/KEY.json`.** It holds
 every CSV column (`type`, `summary`, `epic`, `parent`, `labels`, `paths`, `description`,
-`acceptance`) plus what `deps.json` held per story: `phase` and `depends`. Epics get a file too.
+`acceptance`) plus what `deps.json` held per story: `phase` and `depends`. Epics live together in one
+`docs/plan/epics.json`: there are few of them, they change rarely, and no story PR edits one.
 JSON, not front matter in the card: acceptance criteria are long multi-line text where YAML
 quoting is a trap, only 149 of the 270 keys have a card, and a card is prose an author rewrites
 while a row is data a tool rewrites. A card's `depends` stays and `check-cards` keeps requiring
@@ -60,8 +61,8 @@ rows, deps and phase lists the old files did, from disk or, for `plan.mjs`, from
 via one `git ls-tree` and `git cat-file --batch`. `node scripts/plan-export.mjs --csv` prints
 the CSV for people and for `jira.mjs bootstrap`. The former `_note` text moves to
 `docs/plan/stories/README.md`; the empty `research` map is dropped, since research is an
-ordinary labelled row. Order within a phase is by numeric key, replacing append order (see the
-open question below).
+ordinary labelled row. Order within a phase is by numeric key, replacing append order; nothing
+depends on the order inside `phases` (see Resolved questions).
 
 **3. Jira sync is unchanged in behaviour.** `jira.mjs` reads rows through the shared reader.
 `bootstrap`, `release` and the key-rename migration change only where they read and write.
@@ -78,8 +79,8 @@ edits many stories lists the directory in its Paths, exactly as today.
    `orchestration/lib.mjs`, `orchestration/plan.mjs`, `orchestration/jira.mjs`,
    `orchestration/worktrees.mjs`, `scripts/lib/repo.mjs` and `scripts/check-story.mjs` to it.
    Add `scripts/plan-export.mjs`. No file moves; nothing is written in the new form.
-2. **Convert once.** A script writes `docs/plan/stories/*.json` from the CSV and `deps.json` in
-   one PR that touches only those and the two old files, which stay. `check-cards.mjs` gains
+2. **Convert once.** A script writes `docs/plan/stories/*.json` and `docs/plan/epics.json` from
+   the CSV and `deps.json` in one PR that touches only those and the two old files, which stay. `check-cards.mjs` gains
    the CSV-equals-stories check.
 3. **Writers switch.** `orchestration/out-of-plan.mjs`, `scripts/lib/own-row.mjs`,
    `orchestration/cycle.mjs`, `orchestration/review.mjs`, `scripts/done.mjs`,
@@ -129,10 +130,14 @@ edits many stories lists the directory in its Paths, exactly as today.
 3. People ask for the CSV back, or a tool starts committing `plan-export.mjs` output. Then the
    whole-board view was the real product and the generated copy should be a release artefact.
 
-## Open questions
+## Resolved questions
 
-- Does anything depend on the append order inside `phases` (dispatch order)? This ADR orders by
-  key; the author may want an explicit `order` field.
-- Should epics live in the same directory, or keep a single small `epics.json` (they change
-  rarely)?
-- Is a numeric-key sort acceptable for the `MARXY-NEW-<slug>` placeholder rows a planner drafts?
+- **Order inside `phases`.** Nothing depends on it: `ready.mjs` and `plan.mjs` only ask which
+  phase a key is in, and dispatch order comes from row order, which is already close to key
+  order. Numeric key order needs no `order` field.
+- **Epics.** One `docs/plan/epics.json` (the repo owner, 2026-09-29).
+- **`MARXY-NEW-<slug>` placeholders.** They never reach `main` (`docs/sdlc.md`, "Placeholders
+  never reach main"): `jira.mjs sync --new` renames them before the planner's PR opens, and
+  `check-cards` fails one left on a branch. On a branch they sort after every numeric key.
+- **Step 3 touches CODEOWNERS paths.** Accepting this ADR approves the direction; each step's PR
+  still gets the owner's review where CODEOWNERS says so.
