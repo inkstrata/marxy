@@ -13,9 +13,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
-use tauri::RunEvent;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
+
+use crate::atomic_write::WriteErrorKind;
+use crate::error::ShellError;
 
 use commands::app::config_paths;
 
@@ -99,18 +100,69 @@ const WRITE_PATH_HEADER: &str = "x-marxy-path";
 /// guarantees and the cases it refuses. The bytes arrive as a raw body, not a JSON array of numbers,
 /// and the path in `x-marxy-path`. Checked end to end over the corpus by `pnpm gate:fidelity`.
 #[tauri::command]
-fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err("write_file_atomic: expected the document's bytes as a raw body".into());
+        return Err(ShellError::invalid(
+            "",
+            "write_file_atomic: expected the document's bytes as a raw body",
+        ));
     };
     let encoded = request
         .headers()
         .get(WRITE_PATH_HEADER)
-        .ok_or_else(|| format!("write_file_atomic: missing {WRITE_PATH_HEADER}"))?
+        .ok_or_else(|| {
+            ShellError::invalid(
+                "",
+                format!("write_file_atomic: missing {WRITE_PATH_HEADER}"),
+            )
+        })?
         .to_str()
-        .map_err(|e| format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}"))?;
-    let path = percent_decode(encoded)?;
-    atomic_write::write_atomic(std::path::Path::new(&path), bytes)
+        .map_err(|e| {
+            ShellError::invalid("", format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}"))
+        })?;
+    let path = percent_decode(encoded).map_err(|e| ShellError::invalid("", e))?;
+    atomic_write::write_atomic(std::path::Path::new(&path), bytes).map_err(|e| match e.kind {
+        WriteErrorKind::Permission => ShellError::permission(&path, e.message),
+        WriteErrorKind::Io => ShellError::io(&path, e.message),
+    })
+}
+
+#[tauri::command]
+fn set_title(app: tauri::AppHandle, title: String) -> Result<(), ShellError> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    window
+        .set_title(&title)
+        .map_err(|e| ShellError::io("", e.to_string()))
+}
+
+#[tauri::command]
+async fn save_dialog(
+    app: tauri::AppHandle,
+    default_path: Option<String>,
+) -> Result<Option<String>, ShellError> {
+    use tauri_plugin_dialog::DialogExt;
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        let mut picker = app.dialog().file();
+        if let Some(path) = default_path {
+            picker = picker.set_file_name(&path);
+        }
+        picker.blocking_save_file()
+    })
+    .await
+    .map_err(|e| ShellError::io("", e.to_string()))?;
+    Ok(path.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+fn close_confirmed(app: tauri::AppHandle) -> Result<(), ShellError> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    window
+        .close()
+        .map_err(|e| ShellError::io("", e.to_string()))
 }
 
 /// Decodes `encodeURIComponent` output: `%XX` escapes back to bytes, then UTF-8.
@@ -607,6 +659,7 @@ fn main() {
     let mut builder = tauri::Builder::default()
         .plugin(navigation_guard())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             deliver_open_files(app, document_paths_from_argv(&argv, &cwd));
         }));
@@ -631,6 +684,9 @@ fn main() {
             args,
             read_file,
             write_file_atomic,
+            set_title,
+            save_dialog,
+            close_confirmed,
             mark_from_webview,
             startup_marks,
             quit,
@@ -647,6 +703,17 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building marxy")
         .run(|app, event| {
+            if let RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::CloseRequested { api, .. },
+                ..
+            } = &event
+            {
+                api.prevent_close();
+                if let Some(window) = app.get_webview_window(label) {
+                    let _ = window.emit("marxy:close-requested", ());
+                }
+            }
             #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
             if let RunEvent::Opened { urls } = event {
                 let paths: Vec<String> = urls

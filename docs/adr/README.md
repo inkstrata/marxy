@@ -45,4 +45,5 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0038](0038-window-controls.md) | Window controls hide at rest through the shell | accepted (MARXY-268) |
 | [0039](0039-shell-stub-dedup.md) | One shared implementation for shell-api compile-time stub shells | accepted (MARXY-285) |
 | [0040](0040-land-without-up-to-date.md) | Land green pull requests without bringing them up to date first; a main-red guard replaces strict branch protection | accepted by the repo owner's instruction on 2026-09-28 (MARXY-314) |
+| [0041](0041-shell-close-confirmation.md) | The frozen `Shell` gains `onCloseRequested` and `confirmClose` | accepted 2026-09-28 (MARXY-49) |
 | [0042](0042-plan-rows-per-story.md) | One plan file per story (`docs/plan/stories/KEY.json`) and one `epics.json` instead of the shared CSV and `deps.json` | accepted by the repo owner on 2026-09-29 (MARXY-327) |

@@ -40,7 +40,8 @@
   "events": [
     "marxy:watch",
     "marxy:index-updated",
-    "marxy:open-files"
+    "marxy:open-files",
+    "marxy:close-requested"
   ],
   "dataAttributes": [
     "data-marxy-s",

@@ -1,7 +1,10 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
-import { dirname } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import { documentIsDirty, syncSavedVersionFromOpenBuffer } from './commands/edits.ts';
+import { installCloseGuard } from './close.ts';
+import { installSave } from './save.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
@@ -48,7 +51,17 @@ interface MountedSourceEditor {
 /** The Phase 0 shell surface: frozen Shell members tauri.ts already implements, plus startup extras. */
 export type AppShell = Pick<
   Shell,
-  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir'
+  | 'readFile'
+  | 'writeFileAtomic'
+  | 'watch'
+  | 'platform'
+  | 'startupMarks'
+  | 'readDir'
+  | 'setTitle'
+  | 'saveDialog'
+  | 'allowAssetScope'
+  | 'onCloseRequested'
+  | 'confirmClose'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -559,6 +572,7 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(openPath, bytes);
   sourceEditor?.replaceBuffer(documentBuffer);
+  syncSavedVersionFromOpenBuffer();
   rerenderFromBuffer(doc);
   if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
   await typesetDocument(doc);
@@ -615,20 +629,44 @@ async function registerDocumentWatch(file: string): Promise<void> {
   }
 }
 
-/** Write an operation's result and show it through the one render path (AppHandle.commitEdit). */
+/** Apply an operation's in-memory result and re-render; disk is updated only on explicit save (MARXY-49). */
 function commitEdit(next: Buffer): Promise<void> {
   return serially(async () => {
     if (!openPath || next.path !== openPath || !state.document) throw new Error('the edited document is no longer open');
     const doc = document.getElementById('doc')!;
     const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
-    await shell.writeFileAtomic(openPath, next.bytes);
-    bytesOnDisk = next.bytes.slice();
     documentBuffer = next;
     sourceEditor?.replaceBuffer(documentBuffer);
     releaseAnchor();
     rerenderFromBuffer(doc);
     if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
     await typesetDocument(doc);
+    await refreshTitle();
+  });
+}
+
+async function refreshTitle(): Promise<void> {
+  if (!shell.setTitle) return;
+  const { updateTitle } = await import('./title.ts');
+  const { documentIsDirty } = await import('./commands/edits.ts');
+  if (!openPath || !documentBuffer) {
+    await updateTitle(shell, null, false);
+    return;
+  }
+  await updateTitle(shell, openPath, documentIsDirty(documentBuffer));
+}
+
+async function foldSourceIntoBuffer(): Promise<Buffer | null> {
+  if (!documentBuffer) return null;
+  if (viewMode === 'rendered' || !sourceEditor) return documentBuffer;
+  const doc = document.getElementById('doc')!;
+  const { foldSourceEditIfNeeded } = await import('./commands/edits.ts');
+  return foldSourceEditIfNeeded(documentBuffer, sourceEditor.docText(), async (next) => {
+    documentBuffer = next;
+    sourceEditor?.replaceBuffer(next);
+    rerenderFromBuffer(doc);
+    announceDocument();
+    await refreshTitle();
   });
 }
 
@@ -821,6 +859,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement): Promise<void>
     userThemeHandle = await adoptThemeDirectory(userThemeContext(doc), dir, userThemeHandle);
   });
   await registerDocumentWatch(file);
+  await refreshTitle();
 }
 
 function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void> {
@@ -1020,6 +1059,30 @@ export async function startApp(
       pinDocumentOnPaletteSession(palette?.session ?? emptySession('/'), path);
     },
   };
+  installSave({
+    shell,
+    getOpenBuffer: () => documentBuffer,
+    foldSourceIntoBuffer,
+    isReadOnlyPath: (path) => path.startsWith('marxy:'),
+    onSaved: async (path, buffer) => {
+      bytesOnDisk = buffer.bytes.slice();
+      if (openPath === path) documentBuffer = buffer;
+      await refreshTitle();
+    },
+    onSaveAsPath: async (path) => {
+      if (!documentBuffer) return;
+      documentBuffer = createBuffer(path, documentBuffer.bytes);
+      openPath = path;
+      await shell.allowAssetScope(dirname(path));
+      await registerDocumentWatch(path);
+      announceDocument();
+    },
+  });
+  installCloseGuard({
+    shell,
+    isDirty: () => Boolean(documentBuffer && documentIsDirty(documentBuffer)),
+    documentName: () => (openPath ? basename(openPath) : null),
+  });
   try {
     await serially(boot);
   } catch (e) {
