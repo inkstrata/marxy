@@ -167,6 +167,39 @@ check that proves it. Sizes: S under an hour, M a few hours, L several PRs.
 16. **Canvases (S).** `canvases.mjs` shows runs from the board; add a test for its `healthBlock` with
     a folded board fixture.
 
+### P1 — gaps left by relaxing the merge guards (2026-09-29)
+
+On 2026-09-29 the author turned off two branch-protection settings on `main`: `strict` (a PR no
+longer has to be up to date to merge) and `dismiss_stale_reviews` (a human approval survives later
+pushes). ADR-0040 (MARXY-314) adds the main guard: a red completed `ci` run on `main` stops every
+merge. These are the gaps that guard does not close. They rank with P1 despite coming last.
+
+17. **Merge-order-sensitive files need an up-to-date run (M, CODEOWNERS).** ADR-0040 relies on
+    stories never touching the same files, but some files break without a textual conflict when two
+    PRs change them from different bases: golden AST files and screenshot baselines (each PR
+    regenerates them against its own `main`), `scripts/registry.json` (duplicate names),
+    `pnpm-lock.yaml` and `Cargo.lock` (a clean text merge that is no longer a valid lockfile),
+    `packages/*/src/contracts/`, `package.json`, `Cargo.toml` and `scripts/gates-by-path.json`. Add a
+    merge-bar clause: a PR that touches one of these while `main` has changed one of them since the
+    PR's merge base is held as `behind` until it is brought up to date and green. Keep the list in
+    one exported constant. *Paths:* `orchestration/merge-bar.mjs`, `orchestration/merge-bar.test.mjs`.
+    *Check:* a test where two PRs regenerate the same golden from different bases and the second is
+    held; a PR touching only its own files is not.
+18. **A human approval survives a `main`-only merge, and only that (S, CODEOWNERS).**
+    `codeowners.mjs` `approvers()` counts a review only on the exact head, so each time the fleet
+    brings `main` into a PR that touches CODEOWNERS paths, the author's approval stops counting and
+    the PR goes back to **Needs you**. It also counts an approval that carries no commit at all.
+    Accept a review whose commit passes `approve.mjs` `onlyMainArrived(reviewCommit, head)`, the rule
+    signed approvals already use, and reject one with no commit. *Paths:* `orchestration/codeowners.mjs`,
+    `orchestration/codeowners.test.mjs`. *Check:* tests for approval on the head, approval followed by
+    a `main`-only merge (holds), approval followed by any other commit (fails), and no commit (fails).
+19. **After a human approval, push nothing but a `main` merge (S).** GitHub no longer discards an
+    approval when a PR changes, so item 18 is the only thing that notices a new commit on an approved
+    PR. Say so in the implementor and reviewer prompts: once a PR is approved, a conflict is resolved
+    with a merge of `main` (never a rebase), and any other change needs a new review.
+    *Paths:* `orchestration/prompts/implementor.md`, `orchestration/prompts/reviewer.md`.
+    *Check:* `orchestration/prompt-handshake.test.mjs` still passes.
+
 ## Definition of done for any item
 
 `node --test orchestration/*.test.mjs orchestration/test/` green, `pnpm precheck` green,
