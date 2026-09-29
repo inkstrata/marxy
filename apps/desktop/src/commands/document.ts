@@ -1,5 +1,6 @@
-// Undo/redo commands and harness wiring for document edits (MARXY-43).
+// Document commands: undo/redo and explicit save (MARXY-43, MARXY-49).
 import type { Command } from './registry.ts';
+import { save } from '../save.ts';
 import {
   documentEditState,
   harnessAlignFirstTable,
@@ -20,30 +21,59 @@ export function startDocumentEditingWire(): void {
     marxyDocumentEdit?: typeof documentEditState;
     marxyHarnessAlignTable?: () => Promise<string | undefined>;
     marxyHarnessRedo?: () => Promise<void>;
+    marxyHarnessSave?: () => Promise<import('../save.ts').SaveResult>;
   };
   if (w.__marxyDocumentWire) return;
   w.__marxyDocumentWire = true;
-  let syncedSavedVersion = false;
-  const obs = new MutationObserver(() => {
+  const article = document.getElementById('doc');
+  const wire = (): void => {
     const ctx = getSelectionBufferContext();
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
       installTaskMarkers(ctx.article, ctx.nodeMap);
-      if (!syncedSavedVersion) {
-        syncSavedVersionOnce();
-        syncedSavedVersion = true;
-      }
+      // Baselines a newly opened document the first time it renders. It never moves the saved state
+      // for a document it has already seen, so calling it on every render is safe.
+      syncSavedVersionOnce();
     });
-  });
-  const article = document.getElementById('doc');
-  if (article) obs.observe(article, { childList: true, subtree: true });
+  };
+  const obs = new MutationObserver(wire);
+  if (article) {
+    obs.observe(article, { childList: true, subtree: true });
+    // The click handler is delegated and resolves its task at click time, so it does not need a
+    // rendered document to exist. Installing it here, not on the first mutation, means a first
+    // document that nothing mutates afterwards still has working checkboxes.
+    void import('../render/tasks.ts').then(({ installTaskMarkers }) => installTaskMarkers(article));
+    wire();
+  }
   w.marxyDocumentEdit = documentEditState;
   w.marxyHarnessRedo = redoDocumentEdit;
   w.marxyHarnessAlignTable = harnessAlignFirstTable;
+  w.marxyHarnessSave = () => save();
 }
 
 export function documentCommands(): readonly Command[] {
   return [
+    {
+      id: 'document.save',
+      title: 'Save',
+      key: 'Mod+S',
+      group: 'document',
+      // A document command, not a selection operation: it needs an open document, not a selection.
+      when: () => true,
+      run: async () => {
+        await save();
+      },
+    },
+    {
+      id: 'document.save-as',
+      title: 'Save as',
+      key: 'Mod+Shift+S',
+      group: 'document',
+      when: () => true,
+      run: async () => {
+        await save({ as: true });
+      },
+    },
     {
       id: 'document.undo',
       title: 'Undo',

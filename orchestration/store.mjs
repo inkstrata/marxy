@@ -15,7 +15,7 @@
 // so `pnpm done` in a story worktree, a reviewer in the orchestrator checkout and the loop in its own
 // runner worktree all read and write one place. `MARXY_FLEET_DIR` points it elsewhere for tests.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readSync, mkdtempSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
@@ -89,7 +89,8 @@ export function append(event, { now = new Date(), path = eventsPath() } = {}) {
   const problem = eventProblem(event);
   if (problem) throw new Error(`refusing to append a malformed event (${problem}): ${JSON.stringify(event).slice(0, 200)}`);
   const e = { at: now.toISOString(), by: actor(), ...event };
-  appendFileSync(path, JSON.stringify(e) + '\n');
+  // A crash mid-append leaves a last line with no newline; gluing onto it would lose this event too.
+  appendFileSync(path, (endsTorn(path) ? '\n' : '') + JSON.stringify(e) + '\n');
   return e;
 }
 
@@ -116,6 +117,19 @@ export function eventProblem(e) {
     case 'imported': return e.board?.stories && typeof e.board.stories === 'object' ? null : 'imported event needs board.stories';
     default: return `unknown event type ${JSON.stringify(e.type)}`;
   }
+}
+
+/** Whether the file exists, is non-empty and does not end in a newline (a torn last line). */
+function endsTorn(path) {
+  let fd;
+  try {
+    fd = openSync(path, 'r');
+    const size = fstatSync(fd).size;
+    if (!size) return false;
+    const b = Buffer.alloc(1);
+    readSync(fd, b, 0, 1, size - 1);
+    return b[0] !== 0x0a;
+  } catch { return false; } finally { if (fd !== undefined) closeSync(fd); }
 }
 
 /** Every event in order. A torn or hand-mangled line is skipped and counted, never fatal. */

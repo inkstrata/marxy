@@ -15,7 +15,7 @@ export interface AppContext {
     readonly range: OperationInput['range'];
     readonly replacement: string;
     readonly label: string;
-  }): Promise<void>;
+  }): Promise<boolean | void>;
 }
 
 export interface Command {

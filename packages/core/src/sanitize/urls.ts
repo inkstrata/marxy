@@ -26,6 +26,8 @@ const TAB_OR_NEWLINE = /[\t\n\r]/g;
 /** Stripped from both ends by every parser, NUL included. */
 const SURROUNDING_C0 = /^[\u0000-\u0020]+|[\u0000-\u0020]+$/g;
 /** What is left may not contain a control character: it would be encoded, and we would be guessing. */
+/** A leading scheme, which makes the value absolute whatever it resolves to under any one base. */
+const SCHEME_PREFIX = /^[a-z][a-z0-9+.-]*:/i;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 
 export function sanitizeUrl(raw: string, context: UrlContext, policy: Policy): UrlDecision {
@@ -48,10 +50,22 @@ export function sanitizeUrl(raw: string, context: UrlContext, policy: Policy): U
   }
 
   // A relative reference inherits its base, so it differs between two hosts; an absolute one does not.
-  const absolute = here.href === elsewhere.href;
+  // A value that opens with a scheme is absolute even when the parser would resolve it against a
+  // base of the same scheme (`https:evil.example/x` is relative under an https base, but under
+  // `asset:` or `tauri:` it names a host), so it is judged by its scheme rather than by resolution.
+  const schemed = SCHEME_PREFIX.test(value);
+  if (schemed) {
+    // Parsed on its own: against a base it would read as a path under that base.
+    try {
+      here = new URL(value);
+    } catch {
+      return { allowed: false, value, reason: 'the URL parser refused it, so nothing here can be sure what it means' };
+    }
+  }
+  const absolute = schemed || here.href === elsewhere.href;
   if (!absolute) return { allowed: true, value, resolved: here.href, absolute: false };
 
-  if (here.protocol !== otherScheme.protocol) {
+  if (!schemed && here.protocol !== otherScheme.protocol) {
     return {
       allowed: false, value, resolved: here.href, absolute: true,
       reason: 'a scheme-relative reference addresses a host under whatever scheme the document was loaded with, which is not ours to guess',

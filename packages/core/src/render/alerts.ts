@@ -37,12 +37,10 @@ export function parseAlert(block: Blockquote): ParsedAlert | undefined {
   const title = match[2]?.trim();
   const label = title && title.length > 0 ? title : word;
   const rest: Inline[] = [];
-  let skipBreak = true;
-  for (const child of paragraph.children.slice(1)) {
-    if (skipBreak && child.type === 'softBreak') {
-      skipBreak = false;
-      continue;
-    }
+  const after = paragraph.children.slice(1);
+  // Only a break directly after the marker text is the marker's own line end.
+  for (const [n, child] of after.entries()) {
+    if (n === 0 && child.type === 'softBreak') continue;
     rest.push(child);
   }
   return { type: kind, label, body: rest };

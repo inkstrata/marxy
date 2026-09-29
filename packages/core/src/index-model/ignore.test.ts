@@ -41,3 +41,29 @@ test('a nested gitignore only applies under its own directory', () => {
   assert.equal(isIgnored('pkg/readme.md', false, rules), true);
   assert.equal(isIgnored('readme.md', false, rules), false);
 });
+
+test('a backslash escapes a glob character, a leading !, and a trailing space', () => {
+  assert.equal(isIgnored('x.md', false, parseIgnore('\\*.md\n')), false);
+  assert.equal(isIgnored('*.md', false, parseIgnore('\\*.md\n')), true);
+  assert.equal(isIgnored('!a.md', false, parseIgnore('\\!a.md\n')), true);
+  assert.equal(isIgnored('a ', false, parseIgnore('a\\ \n')), true);
+  assert.equal(isIgnored('a', false, parseIgnore('a\\ \n')), false);
+  assert.equal(isIgnored('#n.md', false, parseIgnore('\\#n.md\n')), true);
+});
+
+test('[!a] is a negated class and never matches a slash', () => {
+  const rules = parseIgnore('[!a].md\n');
+  assert.equal(isIgnored('b.md', false, rules), true);
+  assert.equal(isIgnored('a.md', false, rules), false);
+  assert.equal(isIgnored('!.md', false, rules), true);
+});
+
+test('an invalid range drops that rule and leaves the others in force', () => {
+  let rules: ReturnType<typeof parseIgnore> = [];
+  assert.doesNotThrow(() => {
+    rules = parseIgnore('[z-a].md\n*.log\nfoo\\\n');
+  });
+  assert.equal(isIgnored('a.md', false, rules), false);
+  assert.equal(isIgnored('x.log', false, rules), true);
+  assert.equal(isIgnored('foo', false, rules), false);
+});

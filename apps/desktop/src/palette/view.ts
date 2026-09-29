@@ -1,11 +1,12 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
+import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
 import { installRenderedSelection } from '../selection/view.ts';
-import { historyDirection, type PaletteKey } from './keys.ts';
+import { historyDirection, historyKeyBelongsToEditor, type PaletteKey } from './keys.ts';
 import { jumpForHit, paletteResults, prepareIndex, type PreparedIndex } from './search.ts';
 import {
   emptySession,
@@ -152,9 +153,7 @@ async function renderPath(deps: PaletteDeps, path: string, byteOffset?: number):
 
 function injectPaletteStyles(doc: Document): void {
   if (doc.getElementById('marxy-palette-style')) return;
-  const style = doc.createElement('style');
-  style.id = 'marxy-palette-style';
-  style.textContent = `
+  adoptRuntimeSheet(doc, 'marxy-palette-style', `
     #marxy-palette {
       margin: 2rem auto 0;
       padding: 0;
@@ -201,8 +200,7 @@ function injectPaletteStyles(doc: Document): void {
       opacity: 0.8;
       border-top: 1px solid var(--marxy-color-border, #444);
     }
-  `;
-  doc.head.appendChild(style);
+  `);
 }
 
 type PaletteOwnerDocument = Pick<Document, 'createElement' | 'getElementById' | 'head'>;
@@ -369,6 +367,27 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (deps.dialog.open) deps.dialog.close();
   };
 
+  deps.dialog.addEventListener('close', () => {
+    // Native cancel (Esc with focus off the input) closes the dialog without going through dismiss.
+    // (Reads the live state: a stale close event must not shut a palette summoned since.)
+    if (open && !deps.dialog.open) dismiss();
+  });
+
+  list.addEventListener('click', (event) => {
+    const target = event.target as { closest?: (s: string) => Element | null } | null;
+    const row = target?.closest?.('.marxy-palette-row') as HTMLElement | null | undefined;
+    if (!row) return;
+    const index = Array.prototype.indexOf.call(list.children, row);
+    if (index < 0) return;
+    if (model.phase === 'operations') {
+      const cmd = model.operationCommands[index];
+      const ctx = buildAppContext();
+      if (cmd && ctx) void cmd.run(ctx);
+    } else {
+      void activateHit(model.hits[index]);
+    }
+  });
+
   const activateHit = async (hit: IndexHit | undefined) => {
     if (hit === undefined) return;
     const jump = jumpForHit(hit);
@@ -392,6 +411,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   });
 
   input.addEventListener('keydown', (event) => {
+    // A key that drives an IME composition (candidate confirm, cancel, navigation) is the
+    // IME's, not the palette's. Safari reports keyCode 229 for the keydown after compositionend.
+    if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       dismiss();
@@ -435,6 +457,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   window.addEventListener('keydown', (event) => {
     const dir = historyDirection(event);
     if (dir !== undefined && !open) {
+      const source = document.getElementById('marxy-source');
+      if (historyKeyBelongsToEditor(event, source !== null && !source.hidden)) return;
       event.preventDefault();
       const step = dir === 'back' ? goBack(session) : goForward(session);
       if (step === undefined) return;
@@ -450,9 +474,11 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
     if (isMod(event) && event.key === '.' && open) {
       const hit = model.hits[selected];
-      if (hit?.heading === undefined) {
+      // `hit?.heading === undefined` alone is also true when there is no hit at all (an empty
+      // result list, or the operations phase, where `hits` is always []) — pin only a real hit.
+      if (hit !== undefined && hit.heading === undefined) {
         event.preventDefault();
-        session = togglePin(session, hit?.entry.path ?? '');
+        session = togglePin(session, hit.entry.path);
         syncSession();
         repaint();
       }

@@ -65,7 +65,7 @@ for (const c of sectionTable) {
     assert.ok(copySection.canApply({ document: doc, node: heading, range }));
     const out = copySection.run({ document: doc, node: heading, range, text });
     assert.equal(out.replacement, text);
-    assert.equal(out.clipboard?.text, text.replace(/\s+$/, '') + '\n');
+    assert.equal(out.clipboard?.text, text.replace(/(?:\r?\n[ \t]*)+$/, (m) => (/\n[ \t]*\n/.test(m) ? m.slice(0, m.indexOf('\n') + 1) : m)));
     assert.ok(out.clipboard?.html && out.clipboard.html.length > 0);
     for (const part of c.expectIncludes ?? []) assert.ok(out.clipboard!.text.includes(part));
     if (c.name === 'last section of the file') {
@@ -148,7 +148,7 @@ test('copy-section: whole document', () => {
   assert.ok(copySection.canApply({ document: doc, range }));
   const out = copySection.run({ document: doc, range, text });
   assert.equal(out.replacement, text);
-  assert.equal(out.clipboard?.text, source.replace(/\s+$/, '') + '\n');
+  assert.equal(out.clipboard?.text, text);
 });
 
 test('copy-section canApply false for a paragraph node', () => {
@@ -474,7 +474,7 @@ test('copy-section clipboard html keeps inline code text that resembles provenan
   const result = copySection.run({ document, node: heading, range, text });
   assert.ok(result.clipboard?.html?.includes('a data-marxy-k="9" b'));
   assert.ok(result.clipboard?.html?.includes('data-marxy-s="0" data-marxy-e="1"'));
-  assert.equal(result.clipboard?.text, text.replace(/\s+$/, '') + '\n');
+  assert.equal(result.clipboard?.text, text);
 });
 
 test('copy-section.ts does not strip provenance with a regex over the whole html string', () => {
@@ -552,4 +552,27 @@ test('displayWidth: marks, VS16, presentation emoji and zero-width characters', 
   assert.equal(displayWidth('a​b'), 2);
   assert.equal(displayWidth('कि'), 1);
   assert.equal(displayWidth('漢字'), 4);
+});
+
+test('copy-section clipboard text drops trailing blank lines and adds no byte (MARXY-337)', () => {
+  const cases: readonly (readonly [string, string])[] = [
+    ['# A\r\n\r\ntext\r\nmore\r\n', '# A\r\n\r\ntext\r\nmore\r\n'],
+    ['# A\r\n\r\ntext\r\n\r\n\r\n', '# A\r\n\r\ntext\r\n'],
+    ['# A\n\nline  \n', '# A\n\nline  \n'],
+    ['# A\n\nline\t\n', '# A\n\nline\t\n'],
+    ['# A\n\ntext', '# A\n\ntext'],
+    ['# A\n\ntext\n\n\n', '# A\n\ntext\n'],
+    ['# A\ntext\n\n\n# B', '# A\ntext\n'],
+    ['# A\ntext\n \t\n  \n# B', '# A\ntext\n'],
+    ['# A\ntext  \n\n# B\n', '# A\ntext  \n'],
+  ];
+  for (const [source, expected] of cases) {
+    const document = parse(source);
+    const heading = document.children[0] as Heading;
+    const range = sectionRange(document, heading);
+    const text = sliceText(source, range.start, range.end);
+    const out = copySection.run({ document, node: heading, range, text });
+    assert.equal(out.clipboard?.text, expected, JSON.stringify(source));
+    assert.equal(out.replacement, text, 'the replacement stays the exact slice');
+  }
 });

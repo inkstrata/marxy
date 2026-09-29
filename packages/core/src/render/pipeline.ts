@@ -5,7 +5,7 @@
 
 import type { Block, Document, Inline, ListItem, Source, TableCell, TableRow } from '../contracts/ast.ts';
 import { parseMarkdown, type ParseOptions } from '../parse/parse.ts';
-import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
+import { DEFAULT_POLICY, PROVENANCE_ATTRIBUTES, REMOTE_IMAGE_ATTR, withProvenance, type Policy, type ProvenanceNames } from '../sanitize/policy.ts';
 import { sanitizeHtml, type Removal } from '../sanitize/sanitize-html.ts';
 import { blockedImagesFrom, type BlockedImage } from './images.ts';
 import { renderToUnsanitisedHtml } from './render-html.ts';
@@ -34,7 +34,34 @@ export interface RenderResult {
 
 /** Parses a document's bytes and returns sanitised HTML. */
 export function renderSafeHtml(source: string | Uint8Array, options: RenderOptions = {}): RenderResult {
-  return renderDocumentSafeHtml(parseMarkdown(source, options), options.policy);
+  try {
+    return renderDocumentSafeHtml(parseMarkdown(source, options), options.policy);
+  } catch (error) {
+    // Only a nesting too deep for the recursive walk degrades to source; any other RangeError is a bug.
+    if (!(error instanceof RangeError) || !/call stack/i.test(error.message)) throw error;
+    return unrenderable(source, error);
+  }
+}
+
+/**
+ * What a document nested deeper than the stack can walk becomes: its source, escaped, in a `<pre>`
+ * that carries one provenance range over the whole file. A reader still gets the text, and nothing
+ * the document wrote reaches the DOM as markup.
+ */
+function unrenderable(source: string | Uint8Array, error: RangeError): RenderResult {
+  const bytes = typeof source === 'string' ? new TextEncoder().encode(source) : source;
+  const text = typeof source === 'string' ? source : new TextDecoder().decode(source);
+  const escaped = text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  const { start, end } = PROVENANCE_ATTRIBUTES;
+  return {
+    html: `<pre ${start}="0" ${end}="${bytes.length}">${escaped}</pre>`,
+    removed: [{
+      what: 'structure',
+      name: 'document',
+      reason: `nested too deeply to typeset (${error.message}); shown as plain source`,
+    }],
+    blockedImages: [],
+  };
 }
 
 /**
@@ -47,46 +74,49 @@ export function renderSafeHtml(source: string | Uint8Array, options: RenderOptio
  */
 export function renderDocumentSafeHtml(document: Document, policy: Policy = DEFAULT_POLICY): RenderResult {
   const secret = secretNames();
-  const { document: prepared, removed: islandRemoved } = sanitizeBlockIslands(document, policy);
+  // The deferred-remote marker is written under a secret name too, so the island pass's marker
+  // survives the document pass while one an author wrote under the public name does not.
+  const remoteAttr = `${secret.start.slice(0, -2)}-r`;
+  const { document: prepared, removed: islandRemoved } = sanitizeBlockIslands(document, policy, remoteAttr);
   const pass = sanitizeHtml(
     renderToUnsanitisedHtml(prepared, { provenance: secret }),
-    withProvenance(policy, secret),
-    { provenanceNames: secret },
+    withProvenance(policy, secret, remoteAttr),
+    { provenanceNames: secret, remoteAttr },
   );
   const removed: RenderRemoval[] = [...islandRemoved, ...pass.removed];
   return {
-    html: publish(pass.html, secret),
+    html: publish(pass.html, secret, remoteAttr),
     removed,
     blockedImages: blockedImagesFrom(removed),
   };
 }
 
-function sanitizeBlockIslands(document: Document, policy: Policy): { document: Document; removed: RenderRemoval[] } {
+function sanitizeBlockIslands(document: Document, policy: Policy, remoteAttr: string): { document: Document; removed: RenderRemoval[] } {
   const removed: RenderRemoval[] = [];
   return {
-    document: { ...document, children: document.children.map((block) => mapBlock(block, policy, removed)) },
+    document: { ...document, children: document.children.map((block) => mapBlock(block, policy, removed, remoteAttr)) },
     removed,
   };
 }
 
-function mapBlock(block: Block, policy: Policy, removed: RenderRemoval[]): Block {
+function mapBlock(block: Block, policy: Policy, removed: RenderRemoval[], remoteAttr: string): Block {
   if (block.type === 'htmlBlock') {
-    const pass = sanitizeHtml(block.value, policy);
+    const pass = sanitizeHtml(block.value, policy, { remoteAttr });
     for (const entry of pass.removed) removed.push({ ...entry, src: block.src });
     return { ...block, value: pass.html };
   }
   switch (block.type) {
     case 'blockquote':
     case 'footnoteDefinition':
-      return { ...block, children: block.children.map((child) => mapBlock(child, policy, removed)) };
+      return { ...block, children: block.children.map((child) => mapBlock(child, policy, removed, remoteAttr)) };
     case 'list':
-      return { ...block, children: block.children.map((item) => mapBlock(item, policy, removed) as ListItem) };
+      return { ...block, children: block.children.map((item) => mapBlock(item, policy, removed, remoteAttr) as ListItem) };
     case 'listItem':
-      return { ...block, children: block.children.map((child) => mapBlock(child, policy, removed)) };
+      return { ...block, children: block.children.map((child) => mapBlock(child, policy, removed, remoteAttr)) };
     case 'table':
-      return { ...block, children: block.children.map((row) => mapBlock(row, policy, removed) as TableRow) };
+      return { ...block, children: block.children.map((row) => mapBlock(row, policy, removed, remoteAttr) as TableRow) };
     case 'tableRow':
-      return { ...block, children: block.children.map((cell) => mapBlock(cell, policy, removed) as TableCell) };
+      return { ...block, children: block.children.map((cell) => mapBlock(cell, policy, removed, remoteAttr) as TableCell) };
     case 'heading':
     case 'paragraph':
     case 'tableCell':
@@ -121,8 +151,9 @@ function secretNames(): ProvenanceNames {
  * ` name="value"` and escapes every `<` in text, so the only place ` data-marxy-<nonce>-s="` can
  * occur in its output is an attribute the allow-list admitted under that exact name.
  */
-function publish(html: string, secret: ProvenanceNames): string {
+function publish(html: string, secret: ProvenanceNames, remoteAttr: string): string {
   return html
+    .replaceAll(` ${remoteAttr}="`, ` ${REMOTE_IMAGE_ATTR}="`)
     .replaceAll(` ${secret.start}="`, ` ${PROVENANCE_ATTRIBUTES.start}="`)
     .replaceAll(` ${secret.end}="`, ` ${PROVENANCE_ATTRIBUTES.end}="`);
 }

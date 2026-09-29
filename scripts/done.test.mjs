@@ -71,7 +71,19 @@ test('MARXY-338: a green re-run clears an earlier failed status and its gates', 
     existing,
   });
   assert.equal(result.status, 'done');
+  assert.equal(result.branch, 'feat/MARXY-312-slug');
   assert.deepEqual(result.gates, { 'story boundary (whole branch)': 'ok', precheck: 'ok' });
   assert.deepEqual(result.acceptance, acceptance);
   assert.equal(result.pr, 99);
+});
+
+test('MARXY-337: a first run that leaves an acceptance row TODO is not written as done', () => {
+  const result = buildResultRecord({
+    key: 'MARXY-312', ok: true, branch: 'b', gatesText: '✓ precheck', acceptance: [{ criterion: 'c', checkedBy: 'TODO' }], existing: null, todo: true,
+  });
+  assert.equal(result.status, 'failed');
+  const rerun = buildResultRecord({
+    key: 'MARXY-312', ok: true, branch: 'b', gatesText: '✓ precheck', acceptance: [], existing: { ...STALE_DONE, status: 'failed' }, todo: false,
+  });
+  assert.equal(rerun.status, 'done');
 });

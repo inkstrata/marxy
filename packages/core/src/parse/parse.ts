@@ -36,15 +36,19 @@ export function parseMarkdown(source: string | Uint8Array, options: ParseOptions
 // A byte-order mark is bytes of the file but not markdown: leaving it in would make the first line
 // start with U+FEFF and stop being a heading. It is skipped for parsing and paid for in `base`.
 function fromString(text: string): { body: string; offsets: ByteOffsets } {
-  const hasBom = text.charCodeAt(0) === 0xfeff;
-  const body = hasBom ? text.slice(1) : text;
-  return { body, offsets: byteOffsets(body, hasBom ? 3 : 0) };
+  // Every leading U+FEFF is stripped here, not just the first: micromark drops one more on its own,
+  // which would shift every offset by its three bytes.
+  let boms = 0;
+  while (text.charCodeAt(boms) === 0xfeff) boms += 1;
+  const body = boms > 0 ? text.slice(boms) : text;
+  return { body, offsets: byteOffsets(body, boms * 3) };
 }
 
 /** Offsets come from the bytes, so a file that is not valid UTF-8 still gets offsets into itself. */
 function fromBytes(bytes: Uint8Array): { body: string; offsets: ByteOffsets } {
-  const hasBom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
-  const { text, offsets } = decodeWithOffsets(bytes, hasBom ? 3 : 0);
+  let skipped = 0;
+  while (bytes[skipped] === 0xef && bytes[skipped + 1] === 0xbb && bytes[skipped + 2] === 0xbf) skipped += 3;
+  const { text, offsets } = decodeWithOffsets(bytes, skipped);
   return { body: text, offsets };
 }
 

@@ -124,11 +124,9 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
         .map_err(|e| ShellError::io(&dir, e.to_string()))?;
     let mut out = Vec::new();
     let entries = fs::read_dir(&canonical).map_err(|e| ShellError::io(&dir, e.to_string()))?;
-    for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(e) => return Err(ShellError::io(&dir, e.to_string())),
-        };
+    // A single directory entry can itself fail to read mid-iteration (the same races metadata()
+    // below tolerates); `.flatten()` skips it rather than failing the whole listing.
+    for entry in entries.flatten() {
         let name = entry.file_name();
         let name = name.to_string_lossy();
         if denied_name(&name) {
@@ -142,14 +140,12 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
         {
             continue;
         }
+        // A file can vanish (or its permissions change) between `fs::read_dir` listing it and this
+        // `metadata()` call; that one entry is omitted rather than failing the whole listing, the
+        // same TOCTOU tolerance `index/mod.rs`'s `walk_root` already gives a racy directory tree.
         let meta = match entry.metadata() {
             Ok(meta) => meta,
-            Err(e) => {
-                return Err(ShellError::io(
-                    child.to_string_lossy().as_ref(),
-                    e.to_string(),
-                ))
-            }
+            Err(_) => continue,
         };
         if meta.file_type().is_symlink() {
             continue;

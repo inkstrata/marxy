@@ -50,25 +50,22 @@ export function gatesFromOutput(gatesText) {
  * The fleet result written after a `pnpm done` run. A failed re-run must not leave a prior
  * `status: "done"` / all-ok `gates` from an earlier green run (MARXY-312).
  */
-export function buildResultRecord({ key, ok, branch, gatesText, acceptance, existing }) {
+export function buildResultRecord({ key, ok, branch, gatesText, acceptance, existing, todo = false }) {
   const gates = gatesFromOutput(gatesText);
+  // A run that leaves an acceptance row unfilled exits 1, so it is not "done" either (MARXY-337).
+  const complete = ok && !todo;
   if (!existing) {
     return {
-      key, status: ok ? 'done' : 'failed', branch, gates,
+      key, status: complete ? 'done' : 'failed', branch, gates,
       acceptance, outsidePaths: [], needsAdr: false, queueEntry: false, notes: '',
     };
   }
-  const patch = { acceptance };
-  if (!ok) {
-    patch.status = 'failed';
-    patch.branch = branch;
-    patch.gates = gates;
-  } else if (existing.status === 'failed') {
-    // A green run clears an earlier failure; otherwise merge-bar keeps saying "result says failed".
-    patch.status = 'done';
-    patch.branch = branch;
-    patch.gates = gates;
-  }
+  // Every run refreshes the branch and gates: a green re-run after a failed one must not keep the
+  // stale failed status and gates (MARXY-337), nor a failed one a stale all-ok record (MARXY-312).
+  // A green run also clears an earlier failure (MARXY-338).
+  const patch = { acceptance, branch, gates };
+  if (!complete) patch.status = 'failed';
+  else if (existing.status === 'failed') patch.status = 'done';
   return mergeResult(existing, patch);
 }
 
@@ -199,7 +196,7 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
 
   const resultPath = fleetResultPath(key);
   const existingResult = existsSync(resultPath) ? JSON.parse(readFileSync(resultPath, 'utf8')) : null;
-  let result = buildResultRecord({ key, ok, branch, gatesText: gates, acceptance, existing: existingResult });
+  let result = buildResultRecord({ key, ok, branch, gatesText: gates, acceptance, existing: existingResult, todo: Boolean(todo) });
   writeFileSync(resultPath, JSON.stringify(result, null, 2) + '\n');
 
   if (todo) console.log(`✗ acceptance row still TODO: "${todo.criterion}"${fix(`fill "Checked by" in results/${key}.pr.md, then run again`)}`);
