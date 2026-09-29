@@ -1,0 +1,1 @@
+A round of stability fixes: CRLF front matter, alert line breaks, emoji and link-host warnings, quotes after bold or italic, the heading index, dash line breaks, live reload after a folder vanishes, and stricter CI gates (MARXY-337)

@@ -157,20 +157,28 @@ mod tests {
         use std::sync::mpsc;
         use std::time::Duration;
 
-        let (dir, _open) = scratch("removed-root");
+        let (dir, open) = scratch("removed-root");
         let (tx, rx) = mpsc::channel::<Vec<crate::watch::WatchEvent>>();
         let mut running = spawn_poll_thread(dir.clone(), move |events| {
             let _ = tx.send(events);
         })
         .expect("spawn");
-        // The root vanishing makes every poll() fail from here on (fs::read_dir on a missing
-        // path); the thread must keep its poll loop running rather than panic or hang, so it can
-        // still be stopped and so a later re-watch of a re-created root is possible.
+        // Losing the root reports the open file Removed (once: `remove_dir_all` deletes the file
+        // before its directory, so a poll may land in between, and a poll after the root is gone
+        // reports it too), then goes quiet. The loop must keep running so it can still be stopped.
         fs::remove_dir_all(&dir).expect("remove root");
+        std::thread::sleep(Duration::from_millis(450));
+        let seen: Vec<_> = rx.try_iter().flatten().collect();
+        assert!(
+            seen.iter()
+                .all(|e| e.kind == WatchKind::Removed && e.path == open),
+            "only the open file's removal is reported: {seen:?}"
+        );
+        assert_eq!(seen.len(), 1, "reported exactly once: {seen:?}");
         std::thread::sleep(Duration::from_millis(250));
         assert!(
             rx.try_recv().is_err(),
-            "no spurious events from a missing root"
+            "nothing further from a missing root"
         );
         running.stop();
     }
