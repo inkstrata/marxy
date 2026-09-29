@@ -7,6 +7,8 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - The module-boundary gate now catches a forbidden dependency hidden behind a template-literal dynamic `import()` or `require()` with no interpolation (MARXY-307)
+- The bundle gate's production import walk now catches dynamic `import()` and `require()` of the memory shell — quoted or as a plain template literal — not only static `from` imports, so a pre-build run still blocks dev-only entry points when `dist/` is absent (MARXY-309)
+- Hidden-character marks and the Cargo table-form dependency check are to be rebased onto main, where a locked file that root can still read is already treated as readable, and a key cap that keeps its hyphen is queued for a look (MARXY-321)
 - A reviewer run now writes its verdict to its notes file first, before running `fleet.mjs verdict`; when the run ends without ever calling that command, `runs.mjs` recovers the verdict from that file through the same code and records it, as long as the file names the PR's current head (MARXY-316)
 - Copying a code block keeps the source's own newline and no longer has to fight a test that always added one; heading links and explicit save can touch the files their branches already edit (MARXY-318)
 - `image_size` now returns an I/O error when the file cannot be read, instead of treating permission failures and similar problems like a non-image file (MARXY-287)
