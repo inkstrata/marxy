@@ -1,7 +1,8 @@
 // Buffer splices, undo stack, and re-render after an operation (ADR-0004, MARXY-43).
-import { History, contentHash, splice, textOf, type Edit } from '@marxy/core';
+import { History, contentHash, splice, textOf, type Buffer, type Edit } from '@marxy/core';
 import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts';
 import type { AppContext } from './registry.ts';
+import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { rerenderOpenDocument } from '../render/tasks.ts';
 import { getSelectionBufferContext } from '../selection/view.ts';
 
@@ -35,14 +36,24 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+export function documentIsDirty(buffer: Buffer): boolean {
+  const harnessOrig = (window as Window & { __marxyOrigBytes?: Uint8Array }).__marxyOrigBytes;
+  if (harnessOrig) return !bytesEqual(buffer.bytes, harnessOrig);
+  return contentHash(buffer.bytes) !== savedFingerprint;
+}
+
+export function markDocumentSaved(buffer: Buffer): void {
+  savedVersion = buffer.version;
+  savedFingerprint = contentHash(buffer.bytes);
+  historyBase = { path: buffer.path, hash: savedFingerprint };
+}
+
 export function documentEditState(): { readonly dirty: boolean; readonly savedVersion: number } {
   const ctx = getSelectionBufferContext();
   const version = ctx?.buffer.version ?? 0;
   if (!ctx) return { dirty: false, savedVersion };
   const harnessOrig = (window as Window & { __marxyOrigBytes?: Uint8Array }).__marxyOrigBytes;
-  const dirty = harnessOrig
-    ? !bytesEqual(ctx.buffer.bytes, harnessOrig)
-    : contentHash(ctx.buffer.bytes) !== savedFingerprint;
+  const dirty = documentIsDirty(ctx.buffer);
   return { dirty, savedVersion: version };
 }
 
@@ -96,6 +107,23 @@ export async function harnessAlignFirstTable(): Promise<string | undefined> {
   const { notify } = await import('../notices/index.ts');
   if (result.summary) notify({ kind: 'info', text: result.summary, transient: true });
   return result.summary;
+}
+
+/** Fold Source text into the buffer the same way leaving Source does, including undo history (§01). */
+export async function foldSourceEditIfNeeded(
+  buffer: Buffer,
+  docText: string,
+  rerender: (next: Buffer) => Promise<void>,
+): Promise<Buffer> {
+  const left = leaveSourceMode(buffer, docText);
+  if (!left.changed) return buffer;
+  historyFor(buffer);
+  // History only after the write lands, as for every other mutation (MARXY-337): a refused save must
+  // not leave an undo entry for an edit that never reached the file.
+  await rerender(left.buffer);
+  if (left.edit) history.push(left.edit);
+  builtOn(left.buffer);
+  return left.buffer;
 }
 
 /**

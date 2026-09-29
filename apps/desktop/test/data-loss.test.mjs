@@ -61,6 +61,8 @@ async function boot(text, { slowWrite = 0 } = {}) {
   await page.evaluate(async ({ b64, slow, path }) => {
     const r = await window.marxyPaletteBoot.start({ [path]: b64 }, [path], []);
     window.__handle = r.handle;
+    // Dirty baseline the harness provides (as save.test.mjs does): the bytes as first read.
+    window.__marxyOrigBytes = new Uint8Array(await r.handle.shell.readFile(path));
     if (slow) {
       const sh = r.handle.shell;
       const orig = sh.writeFileAtomic;
@@ -74,9 +76,25 @@ async function boot(text, { slowWrite = 0 } = {}) {
 
 const disk = (page) =>
   page.evaluate((p) => window.__handle.shell.readFile(p).then((a) => new TextDecoder().decode(a)), PATH);
+const modOf = async (page) => ((await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control');
+const buf = (page) =>
+  page.evaluate(() => new TextDecoder().decode(window.__handle.openDocument().buffer.bytes));
+// Operations change only the in-memory buffer; Mod+S writes it (MARXY-49).
+// The Save command's `when` needs a live selection today, so click the heading to select it first.
+const saveKey = async (page) => {
+  await page.click('#doc h1');
+  await page.keyboard.press(`${await modOf(page)}+s`);
+  await settle(page);
+  await rebaseAfterSave(page);
+};
+// The harness baseline does not move on save; follow the disk so a second save is judged against it.
+const rebaseAfterSave = (page) =>
+  page.evaluate(async (p) => {
+    window.__marxyOrigBytes = new Uint8Array(await window.__handle.shell.readFile(p));
+  }, PATH);
 const mode = (page, m) => page.waitForFunction((m) => document.body.dataset.marxyMode === m, m);
 const toggleMode = async (page, m) => {
-  await page.keyboard.press('Meta+e');
+  await page.keyboard.press(`${await modOf(page)}+e`);
   await mode(page, m);
 };
 const clickBox = async (page, i) => {
@@ -106,7 +124,7 @@ test('CRLF file: one character typed in Source changes only that character', asy
   const page = await boot(CRLF);
   await toggleMode(page, 'source');
   await page.click('.cm-content');
-  await page.keyboard.press('Meta+ArrowUp');
+  await page.keyboard.press((await modOf(page)) === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
   await page.keyboard.type('X');
   await toggleMode(page, 'rendered');
   assert.equal(await page.evaluate(() => new TextDecoder().decode(window.__handle.openDocument().buffer.bytes)), `X${CRLF}`);
@@ -119,7 +137,11 @@ test('CRLF file: a task toggled after a Source round trip keeps its CRLF line en
   await toggleMode(page, 'rendered');
   await clickBox(page, 0);
   await settle(page);
-  assert.equal(await disk(page), CRLF.replace('- [ ] one', '- [x] one'));
+  const toggledCrlf = CRLF.replace('- [ ] one', '- [x] one');
+  assert.equal(await buf(page), toggledCrlf);
+  assert.equal(await disk(page), CRLF, 'an operation alone does not write the file');
+  await saveKey(page);
+  assert.equal(await disk(page), toggledCrlf);
   await page.close();
 });
 
@@ -138,7 +160,7 @@ test('CRLF file: an unedited Source session reloads an external change, no "edit
   await page.close();
 });
 
-test('a failed write leaves no phantom history: two Undos after a later toggle stay inside that history', async () => {
+test('a failed save leaves no phantom history: two Undos after a later toggle stay inside that history', async () => {
   const orig = '# T\n\n| a | b |\n|-|-|\n| longer cell | x |\n\nTail stays intact.\n\n- [ ] one\n';
   const page = await boot(orig);
   await page.evaluate(() => {
@@ -147,29 +169,45 @@ test('a failed write leaves no phantom history: two Undos after a later toggle s
     sh.writeFileAtomic = async () => { throw new Error('read-only'); };
   });
   await page.evaluate(() => window.marxyHarnessAlignTable().catch(() => {}));
+  await saveKey(page);
   assert.equal(await disk(page), orig);
-  assert.match(await page.evaluate(() => document.getElementById('marxy-notices').innerText), /Could not/);
+  assert.match(await page.evaluate(() => document.getElementById('marxy-notices').innerText), /Could not save/);
   await page.evaluate(() => { window.__handle.shell.writeFileAtomic = window.__origWrite; });
   await clickBox(page, 0);
   await settle(page);
-  const toggled = orig.replace('- [ ] one', '- [x] one');
+  const toggled = (await buf(page));
+  assert.ok(toggled.includes('- [x] one'));
+  assert.ok(toggled.includes('Tail stays intact.'));
+  await saveKey(page);
   assert.equal(await disk(page), toggled);
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(`${await modOf(page)}+z`);
   await settle(page);
-  assert.equal(await disk(page), orig);
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(`${await modOf(page)}+z`);
   await settle(page);
-  assert.equal(await disk(page), orig, 'a second Undo has nothing to undo and must not touch the text');
+  const afterUndos = await buf(page);
+  assert.ok(afterUndos.includes('Tail stays intact.'), 'Undo must not remove unrelated text');
+  assert.ok(afterUndos.includes('- [ ] one'), 'the toggle was undone');
+  assert.ok(afterUndos.includes('longer cell'), 'the table survives the extra Undo');
+  await saveKey(page);
+  const finalDisk = await disk(page);
+  assert.equal(finalDisk, afterUndos);
+  assert.ok(finalDisk.includes('Tail stays intact.') && finalDisk.includes('- [ ] one'));
   await page.close();
 });
 
-test('two quick toggles during a slow write both land', async () => {
+test('two quick toggles land in the buffer, then a slow save writes both', async () => {
   const page = await boot('# T\n\n- [ ] one\n- [ ] two\n- [ ] three\n', { slowWrite: 150 });
   await clickBox(page, 0);
   await page.waitForTimeout(40);
   await clickBox(page, 1);
+  await settle(page, 600);
+  const both = '# T\n\n- [x] one\n- [x] two\n- [ ] three\n';
+  assert.equal(await buf(page), both);
+  await page.click('#doc h1');
+  await page.keyboard.press(`${await modOf(page)}+s`);
   await settle(page, 1200);
-  assert.equal(await disk(page), '# T\n\n- [x] one\n- [x] two\n- [ ] three\n');
+  await rebaseAfterSave(page);
+  assert.equal(await disk(page), both);
   await page.close();
 });
 
@@ -177,6 +215,8 @@ test('the first document has working task checkboxes with a real mouse click', a
   const page = await boot('# T\n\n- [ ] one\n- [ ] two\n');
   await clickBox(page, 1);
   await settle(page);
+  assert.equal(await buf(page), '# T\n\n- [ ] one\n- [x] two\n');
+  await saveKey(page);
   assert.equal(await disk(page), '# T\n\n- [ ] one\n- [x] two\n');
   await page.close();
 });
@@ -193,6 +233,7 @@ test('a real click on the checkbox toggles it; a click on a link in the item doe
   assert.equal(await disk(page), '# T\n\n- [ ] see [the site](https://example.com/x) now\n- [ ] plain\n');
   await clickBox(page, 0);
   await settle(page);
+  await saveKey(page);
   assert.equal(await disk(page), '# T\n\n- [x] see [the site](https://example.com/x) now\n- [ ] plain\n');
   await page.close();
 });

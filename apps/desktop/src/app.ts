@@ -1,18 +1,36 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
-import { dirname } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import { documentIsDirty, syncSavedVersionFromOpenBuffer } from './commands/edits.ts';
+import { installCloseGuard } from './close.ts';
+import { installSave } from './save.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
+import { policyFor } from '@marxy/core/src/sanitize/policy.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
+import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { IndexEntry } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
-import { blockedContentNotice } from './notices/blocked.ts';
+import {
+  blockedContentNotice,
+  clearBlockedNotices,
+  clearDismissForPath,
+  grantSummaryNotice,
+  resetDismissedNotices,
+  trustBlockedNotices,
+} from './notices/blocked.ts';
+import { truncationNotices } from './notices/truncation.ts';
+import { commands as appCommands } from './commands/index.ts';
+import { wireTrustRevokeCommands } from './commands/trust.ts';
+import { loadTrust, type TrustStore } from './trust/trust.ts';
 import { diskChangedEditsKeptNotice, fileRemovedNotice } from './notices/disk.ts';
 import { clearNotices } from './notices/index.ts';
+import { htmlGrantWouldChangeForNotice } from './notices/trust-copy.ts';
 import { leaveSourceMode } from './source/buffer-commit.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
@@ -48,7 +66,17 @@ interface MountedSourceEditor {
 /** The Phase 0 shell surface: frozen Shell members tauri.ts already implements, plus startup extras. */
 export type AppShell = Pick<
   Shell,
-  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir'
+  | 'readFile'
+  | 'writeFileAtomic'
+  | 'watch'
+  | 'platform'
+  | 'startupMarks'
+  | 'readDir'
+  | 'setTitle'
+  | 'saveDialog'
+  | 'allowAssetScope'
+  | 'onCloseRequested'
+  | 'confirmClose'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -339,6 +367,152 @@ function deferredStartupContext(
 /** The shell this launch is using; set by startApp, never imported from tauri.ts. */
 let shell: AppShell;
 
+let trustStore: TrustStore | null = null;
+let trustLoadPromise: Promise<void> | null = null;
+
+function trustGrantsFor(path: string): { html: boolean; imageHosts: readonly string[] } {
+  return trustStore?.grantsFor(path) ?? { html: false, imageHosts: [] };
+}
+
+function renderPolicyFor(path: string) {
+  return policyFor({ html: trustGrantsFor(path).html });
+}
+
+function startTrustLoad(): Promise<void> {
+  if (trustLoadPromise) return trustLoadPromise;
+  trustLoadPromise = (async () => {
+    if (shell.configPaths === undefined) return;
+    try {
+      if (shell.configPaths === undefined) return;
+      const io = {
+        readFile: (p: string) => shell.readFile(p),
+        writeFileAtomic: (p: string, b: Uint8Array) => shell.writeFileAtomic(p, b),
+        dataDirectory: async () => (await shell.configPaths!()).data,
+      };
+      trustStore = await loadTrust(io);
+    } catch {
+      trustStore = null;
+    }
+  })();
+  return trustLoadPromise;
+}
+
+async function byteOffsetForLine(line: number): Promise<number> {
+  if (!documentBuffer) return 0;
+  const text = new TextDecoder().decode(documentBuffer.bytes);
+  let byte = 0;
+  let current = 1;
+  for (let i = 0; i < text.length && current < line; i++) {
+    if (text.charCodeAt(i) === 10) {
+      current++;
+      byte = i + 1;
+    }
+  }
+  return byte;
+}
+
+function showTrustNotices(
+  removed: readonly RenderRemoval[],
+  blockedImages: readonly BlockedImage[],
+): void {
+  if (!openPath || !documentBuffer) return;
+  const path = openPath;
+  const grants = trustGrantsFor(path);
+  clearBlockedNotices();
+  if (blockedImages.length > 0 && !htmlGrantWouldChangeForNotice(removed)) {
+    blockedContentNotice(blockedImages);
+  } else {
+    trustBlockedNotices({
+      path,
+      removed,
+      blockedImages,
+      grants,
+      onGrantHtml: () => { void grantHtmlForOpenDocument(); },
+      onGrantImages: (hosts) => { void grantImageHostsForOpenDocument(hosts); },
+    });
+  }
+  truncationNotices({
+    buffer: documentBuffer,
+    removed,
+    showSource: (line) => {
+      void byteOffsetForLine(line).then((b) => showSource(b));
+    },
+  });
+}
+
+async function grantHtmlForOpenDocument(): Promise<void> {
+  const doc = document.getElementById('doc')!;
+  if (!openPath || !trustStore || !documentBuffer) return;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
+  await trustStore.grant(openPath, { html: true });
+  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+  grantSummaryNotice(openPath, true, 0);
+}
+
+async function grantImageHostsForOpenDocument(hosts: readonly string[]): Promise<void> {
+  if (!openPath || !trustStore) return;
+  const prev = trustStore.grantsFor(openPath).imageHosts;
+  const merged = [...new Set([...prev, ...hosts])];
+  await trustStore.grant(openPath, { imageHosts: merged });
+  const { notify } = await import('./notices/index.ts');
+  notify({
+    kind: 'info',
+    text: 'Images will load when Marxy can fetch them.',
+    transient: true,
+  });
+  if (state.document && documentBuffer) {
+    const { removed, blockedImages } = renderDocumentSafeHtml(state.document.ast, renderPolicyFor(openPath));
+    showTrustNotices(removed, blockedImages);
+  }
+}
+
+async function revokeTrustHtml(): Promise<void> {
+  const doc = document.getElementById('doc')!;
+  if (!openPath || !trustStore) return;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
+  await trustStore.revoke(openPath, 'html');
+  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+}
+
+async function revokeTrustImages(): Promise<void> {
+  const doc = document.getElementById('doc')!;
+  if (!openPath || !trustStore) return;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
+  await trustStore.revoke(openPath, 'images');
+  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+}
+
+function rerenderOpenDocument(doc: HTMLElement, byteOffset: number, fraction: number): void {
+  if (!documentBuffer || !openPath) return;
+  const file = openPath;
+  const ast = parseMarkdown(documentBuffer.bytes, { file });
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
+  destroyTypeset();
+  assignHtml(doc, html);
+  state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
+  announceDocument();
+  stripNonLocalImages(doc, file);
+  showTrustNotices(removed, blockedImages);
+  snap(doc);
+  startTypeset(doc);
+  restoreScrollToPosition(readingScroller(), state.document.blocks, {
+    path: file,
+    byteOffset,
+    fraction,
+    mode: 'rendered',
+  });
+  void whenIdle(() =>
+    runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots })),
+  );
+}
+
+async function maybeRerenderForLateTrust(doc: HTMLElement): Promise<void> {
+  await startTrustLoad();
+  if (!openPath || !trustStore || !trustGrantsFor(openPath).html) return;
+  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
+  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+}
+
 /** Asset-protocol roots allowed this session (post-pass 3). */
 const scopedAssetRoots = new Set<string>();
 
@@ -572,6 +746,7 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(openPath, bytes);
   sourceEditor?.replaceBuffer(documentBuffer);
+  syncSavedVersionFromOpenBuffer();
   rerenderFromBuffer(doc);
   if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
   await typesetDocument(doc);
@@ -628,20 +803,44 @@ async function registerDocumentWatch(file: string): Promise<void> {
   }
 }
 
-/** Write an operation's result and show it through the one render path (AppHandle.commitEdit). */
+/** Apply an operation's in-memory result and re-render; disk is updated only on explicit save (MARXY-49). */
 function commitEdit(next: Buffer): Promise<void> {
   return serially(async () => {
     if (!openPath || next.path !== openPath || !state.document) throw new Error('the edited document is no longer open');
     const doc = document.getElementById('doc')!;
     const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
-    await shell.writeFileAtomic(openPath, next.bytes);
-    bytesOnDisk = next.bytes.slice();
     documentBuffer = next;
     sourceEditor?.replaceBuffer(documentBuffer);
     releaseAnchor();
     rerenderFromBuffer(doc);
     if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
     await typesetDocument(doc);
+    await refreshTitle();
+  });
+}
+
+async function refreshTitle(): Promise<void> {
+  if (!shell.setTitle) return;
+  const { updateTitle } = await import('./title.ts');
+  const { documentIsDirty } = await import('./commands/edits.ts');
+  if (!openPath || !documentBuffer) {
+    await updateTitle(shell, null, false);
+    return;
+  }
+  await updateTitle(shell, openPath, documentIsDirty(documentBuffer));
+}
+
+async function foldSourceIntoBuffer(): Promise<Buffer | null> {
+  if (!documentBuffer) return null;
+  if (viewMode === 'rendered' || !sourceEditor) return documentBuffer;
+  const doc = document.getElementById('doc')!;
+  const { foldSourceEditIfNeeded } = await import('./commands/edits.ts');
+  return foldSourceEditIfNeeded(documentBuffer, sourceEditor.docText(), async (next) => {
+    documentBuffer = next;
+    sourceEditor?.replaceBuffer(next);
+    rerenderFromBuffer(doc);
+    announceDocument();
+    await refreshTitle();
   });
 }
 
@@ -677,13 +876,13 @@ function rerenderFromBuffer(doc: HTMLElement): void {
   if (!documentBuffer || !openPath) return;
   const file = openPath;
   const ast = parseMarkdown(documentBuffer.bytes, { file });
-  const { html, blockedImages } = renderDocumentSafeHtml(ast);
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
   destroyTypeset();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
   announceDocument();
   stripNonLocalImages(doc, file);
-  blockedContentNotice(blockedImages);
+  showTrustNotices(removed, blockedImages);
   snap(doc);
   startTypeset(doc);
   void whenIdle(() =>
@@ -785,6 +984,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   }
   teardownDocument();
   openPath = file;
+  clearDismissForPath(file);
   bytesOnDisk = bytes.slice();
   documentBuffer = createBuffer(file, bytes);
   sourceMount();
@@ -792,7 +992,7 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
   const ast = parseMarkdown(bytes, { file });
   await shell.mark('parsed', Date.now());
-  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast);
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
   const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
   // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
@@ -801,8 +1001,8 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   state.document = { ast, html, nodeMap, blocks: [] };
   announceDocument();
   await shell.mark('rendered', Date.now());
+  showTrustNotices(removed, blockedImages);
   stripNonLocalImages(doc, file);
-  blockedContentNotice(blockedImages);
   void doc.offsetHeight;
   await document.fonts.ready;
   await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
@@ -835,6 +1035,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
     userThemeHandle = await adoptThemeDirectory(userThemeContext(doc), dir, userThemeHandle);
   });
   await registerDocumentWatch(file);
+  await refreshTitle();
 }
 
 function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void> {
@@ -972,6 +1173,7 @@ async function boot(): Promise<void> {
   await shell.mark('first_text', paintedAt);
   await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
+  setTimeout(() => void startTrustLoad().then(() => maybeRerenderForLateTrust(doc)), 0);
   return finish(0);
 }
 
@@ -994,6 +1196,8 @@ export async function startApp(
   scrollPersistenceInstalled = false;
   resetPaletteHistoryMirror();
   chain = Promise.resolve();
+  trustStore = null;
+  trustLoadPromise = null;
   const base = injected;
   shell = {
     ...base,
@@ -1004,6 +1208,12 @@ export async function startApp(
   };
   deliverIndex = opts?.onIndexLoaded;
   launchArgs = opts?.argv ? [...opts.argv] : [];
+  resetDismissedNotices();
+  wireTrustRevokeCommands({
+    grantsForPath: () => (openPath ? trustGrantsFor(openPath) : null),
+    revokeHtml: revokeTrustHtml,
+    revokeImages: revokeTrustImages,
+  });
   frontispiecePieces = opts?.pieces ?? null;
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
@@ -1015,7 +1225,7 @@ export async function startApp(
   const handle: AppHandle = {
     get state() { return state; },
     dispatch() {},
-    commands() { return []; },
+    commands() { return appCommands(); },
     shell,
     ready,
     open: replaceOpenDocument,
@@ -1034,6 +1244,30 @@ export async function startApp(
       pinDocumentOnPaletteSession(palette?.session ?? emptySession('/'), path);
     },
   };
+  installSave({
+    shell,
+    getOpenBuffer: () => documentBuffer,
+    foldSourceIntoBuffer,
+    isReadOnlyPath: (path) => path.startsWith('marxy:'),
+    onSaved: async (path, buffer) => {
+      bytesOnDisk = buffer.bytes.slice();
+      if (openPath === path) documentBuffer = buffer;
+      await refreshTitle();
+    },
+    onSaveAsPath: async (path) => {
+      if (!documentBuffer) return;
+      documentBuffer = createBuffer(path, documentBuffer.bytes);
+      openPath = path;
+      await shell.allowAssetScope(dirname(path));
+      await registerDocumentWatch(path);
+      announceDocument();
+    },
+  });
+  installCloseGuard({
+    shell,
+    isDirty: () => Boolean(documentBuffer && documentIsDirty(documentBuffer)),
+    documentName: () => (openPath ? basename(openPath) : null),
+  });
   try {
     await serially(boot);
   } catch (e) {
