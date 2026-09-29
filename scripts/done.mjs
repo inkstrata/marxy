@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url';
 import { ROOT, storyKey, story, changedFiles, fix } from './lib/repo.mjs';
 import { lintPrBody } from './check-pr.mjs';
 import { openPr, pushBranch } from './open-pr.mjs';
+import { fragmentPath, hasEntry } from './lib/changelog.mjs';
 // The hand-off lives in the fleet store, one location whichever worktree this runs in (ADR-0034).
 import { resultPath as fleetResultPath } from '../orchestration/store.mjs';
 
@@ -176,7 +177,7 @@ ${JSON.stringify({ key, status: 'done', branch }, null, 2)}
 
 - [${ok ? 'x' : ' '}] Only the story's listed paths are touched
 - [ ] Every acceptance criterion has a test or gate in this PR
-- [${execSync('git diff origin/main...HEAD -- CHANGELOG.md', { cwd: ROOT, encoding: 'utf8' }).includes(key) ? 'x' : ' '}] \`CHANGELOG.md\` has an entry under \`Unreleased\`
+- [${hasEntry(files, key) ? 'x' : ' '}] \`changelog.d/${key}.md\` has one line ending in \`(${key})\` (or, during the transition, a \`CHANGELOG.md\` line under \`Unreleased\`)
 - [ ] Queue entry in \`docs/taste-review/queue.md\` if anything visible changed
 - [ ] No contract files changed, or an ADR is included
 - [x] No attribution trailers
