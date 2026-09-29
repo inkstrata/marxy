@@ -46,6 +46,7 @@
 | 2026-09-26 | MARXY-258 | A straight quote after an em space, no-break space or thin space now opens, so an indented line of verse begins with an opening quote | `packages/core/src/render/typography.test.ts` — no screenshot pair; the mark changes and the source bytes do not | Does an indented verse line's opening quote read as the start of speech? | |
 | 2026-09-28 | MARXY-280 | Resizing the window re-measures paragraph font size, so a fluid type scale does not keep the previous width's line breaks | No screenshot pair. The change is which breaks a resize keeps | After a resize, do the breaks still sit where the paragraph would be set again? | |
 | 2026-09-28 | MARXY-283 | The optional justif breaker now charges a cost for two hyphenated lines in a row and for a hyphen on the last line | No screenshot pair. Consecutive hyphens on a long prose page are the thing to look for | Does a paragraph still hyphenate where it should, without a stack of hyphens along the rag? | |
+| 2026-09-29 | MARXY-230 | Raw HTML `kbd`, `code`, `samp` and `pre` inside a paragraph keep the characters that were written: a hyphen in a key cap stays a hyphen, and copying a one-line command keeps the source's own newline | `packages/core/src/render/typography.test.ts` and the regenerated HTML goldens — no screenshot pair; the marks change and the source bytes do not | Does a key cap now read as the keys that were written, including a double hyphen that should stay two hyphens? | |
 
 ## Review #0 — the default typeface pair
 

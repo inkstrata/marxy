@@ -15,8 +15,10 @@ exists for you. Read `AGENTS.md` before anything.
    in the PR. Then read the ADRs the story names (`docs/adr/`). Read the contracts you depend on
    (`packages/*/src/contracts/`). Do not modify them; if the story is impossible without
    changing one, stop and report `blocked` with the reason.
-2. Implement inside `Paths` only. You may also edit `CHANGELOG.md` (one line) and, if
-   anything a reader sees changed, append a row to `docs/taste-review/queue.md` with
+2. Implement inside `Paths` only. You may also add `changelog.d/{{KEY}}.md` — one reader-facing
+   line ending in `({{KEY}})` (`changelog.d/README.md` has the rule; a `CHANGELOG.md` line under
+   `Unreleased` still works during the transition, but a fragment is what new work uses) — and,
+   if anything a reader sees changed, append a row to `docs/taste-review/queue.md` with
    before/after screenshots you generated.
 3. For every acceptance criterion, add or extend a test or gate that checks it. A criterion
    with no check is not done. Comments explain why, not what; tags carry a key
