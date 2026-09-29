@@ -50,7 +50,7 @@ test('MARXY-254: nightly.yml builds release and runs the built-app smoke on Linu
   const nightly = readFileSync(join(ROOT, '.github/workflows/nightly.yml'), 'utf8');
   assert.match(nightly, /built-app-smoke:/);
   assert.match(nightly, /timeout-minutes:/);
-  assert.match(nightly, /cargo build --release --features tauri\/custom-protocol/);
+  assert.match(nightly, /cargo build --release --features tauri\/custom-protocol --locked/);
   assert.match(nightly, /webkit2gtk-driver/);
   assert.match(nightly, /smoke-built-app\.mjs/);
   assert.match(nightly, /MARXY_SMOKE_BUILT_REQUIRED=1/);

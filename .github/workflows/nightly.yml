@@ -67,7 +67,7 @@ jobs:
       - name: Build the frontend
         run: pnpm --filter @marxy/desktop build:web
       - name: Build the desktop binary (release, custom protocol)
-        run: cd apps/desktop/src-tauri && cargo build --release --features tauri/custom-protocol
+        run: cd apps/desktop/src-tauri && cargo build --release --features tauri/custom-protocol --locked
       - name: Built-app smoke through real IPC (MARXY-254)
         run: xvfb-run -a dbus-run-session -- env MARXY_SMOKE_BUILT_REQUIRED=1 node scripts/smoke-built-app.mjs
         env:
