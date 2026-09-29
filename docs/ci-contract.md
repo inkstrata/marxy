@@ -95,15 +95,14 @@ that does not match `package.json` fails every one of them before a single test 
 | `Summary has 1 sentence(s)` | Summary too short | two to four sentences, plain language, what a reader notices or a developer can now do |
 | `Verification has no fenced block` | no commands in Verification | paste the gate commands and their result lines |
 | `the acceptance → checks table is empty` / `Checked by is unfilled` | the `<details>` table still has TODOs | one row per criterion naming the test or gate; `TODO` is not a check |
-| `CHANGELOG.md has no line with MARXY-nnn` | no changelog entry | one line under `Unreleased` in the right Keep a Changelog heading, key in parentheses |
-| `golden/baseline files changed but docs/taste-review/queue.md did not` | baselines moved with no human queue row | add the before/after row; a baseline change is a human-visible event |
+| `no changelog entry for MARXY-nnn` / `changelog.d/MARXY-nnn.md is not one reader-facing line ending in (MARXY-nnn)` | no fragment, or a malformed one | add `changelog.d/MARXY-nnn.md`: one line for a reader of Marxy, ending `(MARXY-nnn)` (`changelog.d/README.md`); during the transition a `CHANGELOG.md` line under `Unreleased` also counts, but nobody else edits that file |
 | `the body carries an AI attribution line` | attribution in the PR body | remove it — the commit-msg hook cannot see the PR body |
 | story boundary failure | a file outside the story's `Paths` | split it out, or widen your own row's `Paths` in `docs/plan/jira-issues.csv` **and** the task card together, in this branch — the reviewer is told and decides (implementors report `blocked` instead) |
 | `MARXY-n has no row in docs/plan/jira-issues.csv on main or in this branch` | work that is not a planned story, without its board row | `node orchestration/out-of-plan.mjs row MARXY-n --paths "…" --acceptance "…"` in the branch; next time start with `out-of-plan.mjs start` (`docs/sdlc.md` "Work outside the plan") |
 | `… changes other stories' board entries (MARXY-…)` | a branch edited a row or `deps.json` entry that is not its own | move those edits to a planner PR whose `Paths` list the board files |
 
 Allowed outside a story's paths without widening anything: `CHANGELOG.md`,
-`docs/taste-review/queue.md`, lockfiles, the story's own task card and result file, plan deltas,
+`changelog.d/`, `docs/taste-review/queue.d/`, lockfiles, the story's own task card and result file, plan deltas,
 and the story's **own** row in `docs/plan/jira-issues.csv` and entry in `orchestration/deps.json`
 (`scripts/lib/own-row.mjs`; the branch is then judged by its row as it leaves it). A planner
 pull request also adds or edits other rows. There is no row for it on main yet, so the cycle
@@ -134,7 +133,7 @@ cannot pass `--strict`.**
 | `noUnusedImports` | an unused import | remove it; do not add a biome override |
 | biome wrote a file | `format --write` was used somewhere | `pnpm lint` is check-only and must stay so |
 | CommonMark step fails on `git status --porcelain` | the spec suite left the tree dirty | the suite must not write into the repo |
-| `gate:golden` | AST or source-map output moved | regenerate the goldens deliberately and add a taste-review row if anything visible moved |
+| `gate:golden` | AST or source-map output moved | regenerate the goldens deliberately; a taste-review entry (`docs/taste-review/queue.d/KEY.md`) is optional |
 | `gate:fidelity` | a byte that was not asked to change, changed | the property test found a normalisation; fix the operation, never the test |
 | `gate:licences` | a copyleft or undeterminable licence | ADR-0006 forbids copyleft anywhere, node_modules and linked crates alike |
 | `orchestration/docs.test.mjs`: `a document names a file that is not there` / a `fleet.mjs` command or `loop.sh` subcommand that does not exist | a live doc or prompt names something the fleet does not have (a renamed module, a removed command) | fix the doc in the same PR; the list of live docs is `LIVE_DOCS` in that test, and a worked example's name goes in its `GENERATED` list |
