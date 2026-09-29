@@ -63,6 +63,11 @@ export function buildResultRecord({ key, ok, branch, gatesText, acceptance, exis
     patch.status = 'failed';
     patch.branch = branch;
     patch.gates = gates;
+  } else if (existing.status === 'failed') {
+    // A green run clears an earlier failure; otherwise merge-bar keeps saying "result says failed".
+    patch.status = 'done';
+    patch.branch = branch;
+    patch.gates = gates;
   }
   return mergeResult(existing, patch);
 }

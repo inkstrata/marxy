@@ -58,3 +58,20 @@ test('a successful re-run still only refreshes acceptance when a result already 
   assert.deepEqual(result.gates, existing.gates);
   assert.deepEqual(result.acceptance, acceptance);
 });
+
+test('MARXY-338: a green re-run clears an earlier failed status and its gates', () => {
+  const existing = { ...STALE_DONE, status: 'failed', gates: { precheck: 'failed' } };
+  const acceptance = [{ criterion: 'fixed', checkedBy: 'scripts/done.test.mjs' }];
+  const result = buildResultRecord({
+    key: 'MARXY-312',
+    ok: true,
+    branch: 'feat/MARXY-312-slug',
+    gatesText: '✓ story boundary (whole branch)\n✓ precheck',
+    acceptance,
+    existing,
+  });
+  assert.equal(result.status, 'done');
+  assert.deepEqual(result.gates, { 'story boundary (whole branch)': 'ok', precheck: 'ok' });
+  assert.deepEqual(result.acceptance, acceptance);
+  assert.equal(result.pr, 99);
+});
