@@ -1,0 +1,1 @@
+The fleet can wind down without stopping: `--drain` (or `MARXY_DRAIN=1`) on `orchestration/cycle.mjs` or `loop.sh start` starts no new story, while work in flight, pull requests in review, stories returned for changes and merges all carry on, and status.md says it is draining (MARXY-329)

@@ -35,8 +35,10 @@ a checkout anyone is working in. `MARXY_RUNNER=0` runs your checkout's code inst
 the orchestrator. A one-off `node orchestration/cycle.mjs` beside a running loop exits at once if
 the loop's cycle holds the lock. `--dry-run` changes nothing anywhere and prints the status it would
 write; `--no-merge` decides everything and merges nothing; `--low`, `--minimal`, `--high` pick the
-compute profile. Never `pkill` the loop or a worker; stopping the loop does not stop workers, and
-the next loop finishes whatever ended while it was away.
+compute profile. `--drain` (or `MARXY_DRAIN=1`) winds the fleet down: no story that has never been
+attempted is started, while runs, reviews, conflict resolves, stories returned for changes, merges
+and the planner all carry on, and status.md says it is draining. Never `pkill` the loop or a worker;
+stopping the loop does not stop workers, and the next loop finishes whatever ended while it was away.
 
 ## The loop
 
