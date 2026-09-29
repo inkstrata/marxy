@@ -29,6 +29,15 @@ test('MARXY-307: template-literal dynamic import of @tauri-apps in core is flagg
   assert.match(problems[0], /ADR-0020/);
 });
 
+test('importing check-boundaries.mjs does not walk the tree', () => {
+  const run = spawnSync(process.execPath, ['-e', 'import("./scripts/check-boundaries.mjs")'], {
+    encoding: 'utf8',
+    cwd: new URL('../', import.meta.url).pathname,
+  });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout.trim(), '');
+});
+
 test('check-boundaries.mjs is green over the committed tree', () => {
   const run = spawnSync(process.execPath, ['scripts/check-boundaries.mjs'], {
     encoding: 'utf8',

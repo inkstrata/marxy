@@ -1,7 +1,8 @@
 // Module import rules (docs/design/00-architecture.md §Modules), enforced in one place for every
 // package and the app. usage: node scripts/check-boundaries.mjs
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { ROOT, walk, rel, stripComments, fail, fix } from './lib/repo.mjs';
 import { readFileSync as rf } from 'node:fs';
 const pending = JSON.parse(rf(join(ROOT, 'scripts/allowlists/dependencies.json'), 'utf8')).pendingRemoval || {};
@@ -63,12 +64,15 @@ export function boundaryProblemsFor(relPath, text, pendingRemoval = pending, war
   return problems;
 }
 
-const files = walk(ROOT, f => /\.(m?[jt]sx?)$/.test(f) && /\/(packages|apps)\//.test(f));
-const problems = [];
-for (const f of files) {
-  const r = rel(f);
-  if (isTest(r)) continue;
-  problems.push(...boundaryProblemsFor(r, readFileSync(f, 'utf8'), pending, msg => console.warn(msg)));
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMain) {
+  const files = walk(ROOT, f => /\.(m?[jt]sx?)$/.test(f) && /\/(packages|apps)\//.test(f));
+  const problems = [];
+  for (const f of files) {
+    const r = rel(f);
+    if (isTest(r)) continue;
+    problems.push(...boundaryProblemsFor(r, readFileSync(f, 'utf8'), pending, msg => console.warn(msg)));
+  }
+  if (fail(problems)) process.exit(1);
+  console.log(`boundaries ok (${files.length} source files)`);
 }
-if (fail(problems)) process.exit(1);
-console.log(`boundaries ok (${files.length} source files)`);
