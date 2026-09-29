@@ -1,6 +1,6 @@
 // Pure source-map helpers: section byte ranges and block lookup (docs/design/03-selection-and-operations.md).
 
-import type { Block, Document, Heading, Node, Source } from '../contracts/ast.ts';
+import type { Block, Document, Heading, Inline, Node, Source } from '../contracts/ast.ts';
 
 const BLOCK_TYPES: ReadonlySet<Block['type']> = new Set([
   'heading',
@@ -89,20 +89,40 @@ export function sectionRange(doc: Document, heading: Heading): Source {
   return { file: heading.src.file, start, end };
 }
 
-/** The innermost block whose `[src.start, src.end)` contains `byte`. */
-export function nodeAt(doc: Document, byte: number): Block | null {
+/** The innermost block or inline whose `[src.start, src.end)` contains `byte`. */
+export function nodeAt(doc: Document, byte: number): Block | Inline | null {
   if (byte < doc.src.start || byte >= doc.src.end) return null;
-  let found: Block | null = null;
+  let found: Block | Inline | null = null;
   const walk = (node: Node): void => {
-    if (!isBlock(node)) {
+    if (node.type === 'document') {
       for (const child of node.children ?? []) walk(child);
       return;
     }
     if (byte >= node.src.start && byte < node.src.end) {
-      found = node;
+      if (isBlock(node) || isInline(node)) found = node;
       for (const child of node.children ?? []) walk(child);
     }
   };
   walk(doc);
   return found;
+}
+
+const INLINE_TYPES: ReadonlySet<Inline['type']> = new Set([
+  'text',
+  'emphasis',
+  'strong',
+  'strikethrough',
+  'code',
+  'link',
+  'image',
+  'html',
+  'softBreak',
+  'hardBreak',
+  'footnoteReference',
+  'mathInline',
+  'taskMarker',
+]);
+
+function isInline(node: Node): node is Inline {
+  return INLINE_TYPES.has(node.type as Inline['type']);
 }

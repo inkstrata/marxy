@@ -166,15 +166,17 @@ function listItem(node: md.ListItem, src: Source, ctx: Ctx): ListItem {
 function attachTaskMarker(children: Block[], node: md.ListItem, ctx: Ctx): Block[] {
   const first = children[0];
   if (!first || first.type !== 'paragraph') return children;
-  const [itemStart] = utf16Range(node, ctx);
-  const paragraphStartUtf16 = node.children[0]?.position?.start.offset ?? itemStart;
-  const prefix = ctx.text.slice(itemStart, paragraphStartUtf16);
-  const markerIndex = prefix.search(/\[[ \txX]\]/);
-  if (markerIndex < 0) return children;
-  const markerStart = itemStart + markerIndex;
+  const [itemStart, itemEnd] = utf16Range(node, ctx);
+  const itemText = ctx.text.slice(itemStart, itemEnd);
+  const lineBreak = itemText.search(/\r\n|\n|\r/);
+  const head = lineBreak === -1 ? itemText : itemText.slice(0, lineBreak);
+  const match = head.match(/\[[ \txX]\]/);
+  if (!match || match.index === undefined) return children;
+  const markerStart = itemStart + match.index;
+  const markerEnd = markerStart + match[0].length;
   const marker: Inline = {
     type: 'taskMarker',
-    src: span(markerStart, markerStart + 3, ctx),
+    src: span(markerStart, markerEnd, ctx),
     checked: node.checked === true,
   };
   const widened: Block = {

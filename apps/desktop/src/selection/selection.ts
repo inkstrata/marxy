@@ -61,10 +61,20 @@ function blockSiblings(doc: Document, node: Block): Block[] {
   return (parent.children ?? []).filter(isBlock);
 }
 
+/** The innermost block at `byte`; an inline hit climbs to the block that holds it. */
+function blockAt(doc: Document, byte: number): Block | null {
+  let node: Node | null = nodeAt(doc, byte);
+  while (node && !isBlock(node)) {
+    const parent: Parent | null = findParent(doc, node);
+    node = parent && parent !== doc ? parent : null;
+  }
+  return node;
+}
+
 /** Previous or next block sibling in document order, or `null` at an edge. */
 export function moveSibling(doc: Document, sel: Selection, dir: -1 | 1): Selection {
   if (sel.kind !== 'node') return sel;
-  let block: Block | null = isBlock(sel.node) ? sel.node : nodeAt(doc, sel.node.src.start);
+  let block: Block | null = isBlock(sel.node) ? sel.node : blockAt(doc, sel.node.src.start);
   if (!block) return sel;
   const siblings = blockSiblings(doc, block);
   const idx = siblings.indexOf(block);
@@ -79,7 +89,7 @@ export function parentOf(doc: Document, sel: Selection): Selection {
   if (sel.kind !== 'node') return sel;
   let target: Node = sel.node;
   if (!isBlock(sel.node)) {
-    const block = nodeAt(doc, sel.node.src.start);
+    const block = blockAt(doc, sel.node.src.start);
     if (!block) return sel;
     target = block;
   }

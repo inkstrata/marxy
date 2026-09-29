@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import type { Block, CodeBlock, Document, Heading, Inline, Node } from '../contracts/ast.ts';
-import { textOf, createBuffer } from '../buffer/buffer.ts';
+import type { Block, CodeBlock, Document, Heading, Inline, Node, Source } from '../contracts/ast.ts';
+import { splice, textOf, createBuffer } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { sectionRange } from '../sourcemap/section.ts';
 import { alignTablePipes } from './align-table-pipes.ts';
@@ -199,15 +199,27 @@ function assertBytesOutsideRangeUnchanged(
   bytes: Uint8Array,
   range: { start: number; end: number },
   replacement: string,
+  spliceFn: typeof splice = splice,
 ): void {
+  const buffer = createBuffer('mutation-check', bytes);
+  const src: Source = { file: buffer.path, start: range.start, end: range.end };
+  const next = spliceFn(buffer, src, replacement);
   const enc = new TextEncoder().encode(replacement);
-  const after = bytes.subarray(range.end);
-  const merged = new Uint8Array(range.start + enc.length + after.length);
-  merged.set(bytes.subarray(0, range.start), 0);
-  merged.set(enc, range.start);
-  merged.set(after, range.start + enc.length);
-  assert.equal(Buffer.from(merged.subarray(0, range.start)).compare(Buffer.from(bytes.subarray(0, range.start))), 0);
-  assert.equal(Buffer.from(merged.subarray(range.start + enc.length)).compare(Buffer.from(after)), 0);
+  assert.deepEqual(
+    [...next.bytes.subarray(range.start, range.start + enc.length)],
+    [...enc],
+    'the replacement must land exactly in the range',
+  );
+  assert.deepEqual(
+    [...next.bytes.subarray(0, range.start)],
+    [...bytes.subarray(0, range.start)],
+    'bytes before the range must be unchanged',
+  );
+  assert.deepEqual(
+    [...next.bytes.subarray(range.start + enc.length)],
+    [...bytes.subarray(range.end)],
+    'bytes after the range must be unchanged',
+  );
 }
 
 type ToggleCase = { name: string; source: string; pick: (doc: Document) => Extract<Inline, { type: 'taskMarker' }>; expect: string };
@@ -344,8 +356,18 @@ test('align-table-pipes: 40-row table completes in under 5 ms (median of 10)', (
   assert.ok(median < 5, `median ${median} ms`);
 });
 
+const corpusFiles = readdirSync(corpus)
+  .filter((name) => name !== 'check-prose-volume.mjs' && name !== 'image.png' && !name.startsWith('.'))
+  .sort();
+
+function allNodes(root: Node, out: Node[] = []): Node[] {
+  out.push(root);
+  for (const child of root.children ?? []) allNodes(child, out);
+  return out;
+}
+
 test('fidelity: replacement === text for every applicable copy operation node in the corpus', () => {
-  const files = readdirSync(corpus).filter((f) => f.endsWith('.md'));
+  const files = corpusFiles.filter((f) => f.endsWith('.md'));
   for (const file of files) {
     const bytes = readFileSync(new URL(file, corpus));
     const doc = parseMarkdown(bytes, { file });
@@ -384,29 +406,15 @@ test('fidelity: replacement === text for every applicable copy operation node in
 
 test('fidelity: mutations change only their range over the corpus', () => {
   const mutateOps = OPERATIONS.filter((op) => !op.id.startsWith('copy-'));
-  const files = readdirSync(corpus).filter((f) => f.endsWith('.md'));
-  for (const file of files) {
+  for (const file of corpusFiles) {
     const bytes = readFileSync(new URL(file, corpus));
     const doc = parseMarkdown(bytes, { file });
     const buffer = createBuffer(file, bytes);
-    const markers: Extract<Inline, { type: 'taskMarker' }>[] = [];
-    taskMarkersOf(doc, markers);
-    for (const marker of markers) {
-      const range = marker.src;
+    for (const node of allNodes(doc)) {
+      if (node.type === 'document') continue;
+      const range = node.src;
       const text = textOf(buffer, range);
-      const input = { document: doc, node: marker, range, text };
-      for (const op of mutateOps) {
-        if (!op.canApply(input)) continue;
-        const result = op.run(input);
-        assertBytesOutsideRangeUnchanged(bytes, range, result.replacement);
-      }
-    }
-    const tables: Extract<Block, { type: 'table' }>[] = [];
-    tablesOf(doc, tables);
-    for (const table of tables) {
-      const range = table.src;
-      const text = textOf(buffer, range);
-      const input = { document: doc, node: table, range, text };
+      const input = { document: doc, node, range, text };
       for (const op of mutateOps) {
         if (!op.canApply(input)) continue;
         const result = op.run(input);
@@ -414,6 +422,24 @@ test('fidelity: mutations change only their range over the corpus', () => {
       }
     }
   }
+});
+
+test('fidelity: corrupting one byte outside the range is caught by the mutation guard', () => {
+  const bytes = readFileSync(new URL('03-ai-plan.md', corpus));
+  const doc = parseMarkdown(bytes, { file: '03-ai-plan.md' });
+  const buffer = createBuffer('03-ai-plan.md', bytes);
+  const markers: Extract<Inline, { type: 'taskMarker' }>[] = [];
+  taskMarkersOf(doc, markers);
+  assert.ok(markers.length > 0);
+  const marker = markers[0]!;
+  const range = marker.src;
+  const text = textOf(buffer, range);
+  const result = toggleTask.run({ document: doc, node: marker, range, text });
+  const noopSplice: typeof splice = (current) => current;
+  assert.throws(
+    () => assertBytesOutsideRangeUnchanged(bytes, range, result.replacement, noopSplice),
+    (error: unknown) => error instanceof assert.AssertionError,
+  );
 });
 
 test('align-table-pipes CRLF case fails when line endings are normalised to LF', () => {
@@ -463,7 +489,7 @@ test('copy-section keeps a reference link whose definition is outside the sectio
   const heading = document.children.find((block): block is Heading => block.type === 'heading' && block.level === 2)!;
   const range = sectionRange(document, heading);
   const result = copySection.run({ document, node: heading, range, text: sliceText(source, range.start, range.end) });
-  assert.match(result.clipboard?.html ?? '', /<a href="https:\/\/example\.com\/docs">the docs<\/a>/);
+  assert.match(result.clipboard?.html ?? '', /<a href="https:\/\/example\.com\/docs"(?: class="marxy-external")?>the docs<\/a>/);
   assert.ok(!(result.clipboard?.html ?? '').includes('More.'));
 });
 
