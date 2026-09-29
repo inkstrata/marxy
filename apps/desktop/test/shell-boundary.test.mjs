@@ -41,7 +41,7 @@ test('the repository has source files to scan', () => {
 
 test('invoke( appears only under apps/desktop/src/shell', () => {
   const offenders = files
-    .filter(f => !f.rel.startsWith(shellDir + sep) && !f.rel.startsWith('apps/desktop/test/'))
+    .filter(f => !f.rel.startsWith(shellDir + sep) && !f.rel.split(sep).join('/').startsWith('apps/desktop/test/'))
     .filter(f => /\binvoke\s*\(/.test(f.text))
     .map(f => f.rel);
   assert.deepEqual(offenders, [], `invoke( outside ${shellDir}: ${offenders.join(', ')}`);
