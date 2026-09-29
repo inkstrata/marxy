@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, storyKey, changedFiles, fail, fix } from './lib/repo.mjs';
 import { fragmentPath, validFragment } from './lib/changelog.mjs';
+import { queueFragmentPath, validQueueFragment } from './lib/taste-queue.mjs';
 
 export const HOUSE_SECTIONS = [
   '## Summary',
@@ -77,7 +78,7 @@ export function lintPrBody(body, { key } = {}) {
   return problems;
 }
 
-/** Changelog entry (a changelog.d/ fragment, or a transitional CHANGELOG.md line) and taste-queue row for golden/baseline edits. */
+/** Changelog entry (a changelog.d/ fragment, or a transitional CHANGELOG.md line) and, only when present, a well-formed optional taste-queue fragment. */
 export function lintPrRange({ key, changed = [], changelogDiff = '', readFragment } = {}) {
   const problems = [];
   if (key) {
@@ -91,9 +92,16 @@ export function lintPrRange({ key, changed = [], changelogDiff = '', readFragmen
       problems.push(`no changelog entry for ${key}${fix(`add ${frag} — one line, written for a reader of marxy, ending in (${key}) — or, during the transition, a CHANGELOG.md line under Unreleased`)}`);
     }
   }
-  const goldens = changed.filter(f => /goldens\/|fixtures\/baselines\//.test(f));
-  if (goldens.length && !changed.includes('docs/taste-review/queue.md')) {
-    problems.push(`${goldens.length} golden/baseline files changed but docs/taste-review/queue.md did not${fix('a baseline change is a human-visible event; add a queue row')}`);
+  // A taste-review entry is voluntary (MARXY-324): a golden or baseline change needs none. One that
+  // is present must still be well formed, so a fold cannot fail later.
+  if (key) {
+    const qfrag = queueFragmentPath(key);
+    if (changed.includes(qfrag)) {
+      const content = typeof readFragment === 'function' ? readFragment(qfrag) : undefined;
+      if (content != null && !validQueueFragment(content, key)) {
+        problems.push(`${qfrag} is not one queue table row for ${key}${fix('docs/taste-review/queue.d/README.md has the rule')}`);
+      }
+    }
   }
   return problems;
 }

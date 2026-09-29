@@ -179,6 +179,24 @@ test('contentHash is the FNV-1a 64 value for empty bytes and for 12-crlf-and-bom
   assert.equal(contentHash(read('12-crlf-and-bom.md')), '74638bba5e821f1e');
 });
 
+test('splice throws on inverted, out-of-range and mid-UTF-8-character ranges', () => {
+  const buffer = createBuffer('doc.md', encode('hello'));
+  const file = buffer.path;
+  assert.throws(() => splice(buffer, range(file, 4, 2), 'x'), RangeError);
+  assert.throws(() => splice(buffer, range(file, -1, 0), ''), RangeError);
+  assert.throws(() => splice(buffer, range(file, 0, buffer.bytes.length + 1), ''), RangeError);
+  const cjk = createBuffer('cjk.md', encode('東'));
+  assert.throws(() => splice(cjk, range('cjk.md', 1, 2), 'x'), RangeError);
+});
+
+test('a bare-CR file reports eol cr and a splice preserves the carriage return', () => {
+  const loneCr = Uint8Array.from([0x61, 0x0d, 0x62]);
+  const buffer = createBuffer('lone-cr.md', loneCr);
+  assert.equal(buffer.eol, 'cr');
+  const next = splice(buffer, range('lone-cr.md', 2, 3), 'c');
+  assert.deepEqual([...next.bytes], [0x61, 0x0d, 0x63]);
+});
+
 test('createBuffer normalises nothing: decode then encode matches the file bytes', () => {
   const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
   const encoder = new TextEncoder();

@@ -437,6 +437,30 @@ test('a character reference that decodes to a line ending keeps every line of te
   assert.deepEqual(texts, ['a\nb', 'c']);
 });
 
+for (const [source, checked] of [
+  ['- [ ] `code` first\n', false],
+  ['- [x] `code` first\n', true],
+  ['- [ ] **bold** first\n', false],
+  ['- [x] **bold** first\n', true],
+  ['- [ ] *em* first\n', false],
+  ['- [x] *em* first\n', true],
+  ['- [ ] [link](u) first\n', false],
+  ['- [x] [link](u) first\n', true],
+] as const) {
+  test(`task marker bytes when the first inline is not plain text: ${source.trim()}`, () => {
+    const bytes = new TextEncoder().encode(source);
+    const document = parseMarkdown(bytes, { file: 'task-opener.md' });
+    const markers = nodes(document).filter(
+      (node): node is Extract<Inline, { type: 'taskMarker' }> => node.type === 'taskMarker',
+    );
+    assert.equal(markers.length, 1);
+    const marker = markers[0]!;
+    const slice = source.slice(marker.src.start, marker.src.end);
+    assert.ok(slice === '[ ]' || slice === '[x]', `marker text must be [ ] or [x], got ${JSON.stringify(slice)}`);
+    assert.equal(marker.checked, checked);
+  });
+}
+
 test('a task marker with a tab inside is its own node', () => {
   const document = parseMarkdown('- [\t] todo\n', { file: 'task.md' });
   const item = (document.children[0] as List).children[0]!;

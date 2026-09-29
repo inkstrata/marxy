@@ -8,17 +8,18 @@ import { deps } from './lib.mjs';
 import { board } from './machine.mjs';
 import { primed } from './github.mjs';
 import { FRAGMENT_DIR, isFragmentPath } from '../scripts/lib/changelog.mjs';
+import { QUEUE_DIR, isQueueFragmentPath } from '../scripts/lib/taste-queue.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 /** Files every PR touches; counting them would make disturbance uniform and useless. */
-export const SHARED_PATHS = ['CHANGELOG.md', FRAGMENT_DIR, 'docs/taste-review/queue.md', 'pnpm-lock.yaml'];
+export const SHARED_PATHS = ['CHANGELOG.md', FRAGMENT_DIR, QUEUE_DIR, 'docs/taste-review/queue.md', 'pnpm-lock.yaml'];
 const RESULT_JSON = /^orchestration\/results\/[^/]+\.json$/;
 
 export function countsForDisturbance(file) {
   // A changelog.d/ fragment is per-story (changelog.d/MARXY-1.md) but never disturbs another PR:
   // two stories' fragments cannot collide the way one shared CHANGELOG.md line does.
-  return !SHARED_PATHS.includes(file) && !isFragmentPath(file) && !RESULT_JSON.test(file);
+  return !SHARED_PATHS.includes(file) && !isFragmentPath(file) && !isQueueFragmentPath(file) && !RESULT_JSON.test(file);
 }
 
 let realGithubReads = 0;

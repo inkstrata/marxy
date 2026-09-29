@@ -9,6 +9,7 @@ import { board } from './machine.mjs';
 import { resultPath } from './store.mjs';
 import { BOARD_FILES, branchBoundary } from '../scripts/lib/own-row.mjs';
 import { FRAGMENT_DIR, hasEntry } from '../scripts/lib/changelog.mjs';
+import { QUEUE_DIR } from '../scripts/lib/taste-queue.mjs';
 
 /** Boundary checks that need a branch; named when the board has none (MARXY-81). */
 export const BRANCHLESS_CHECKS = [
@@ -23,6 +24,7 @@ export const EXTRA_BOUNDARIES = [
   'CHANGELOG.md',
   FRAGMENT_DIR,
   'docs/taste-review/queue.md',
+  QUEUE_DIR,
   'pnpm-lock.yaml',
   'results',
   'orchestration/results',
@@ -70,17 +72,6 @@ export function acceptanceClaimed(st, result) {
     }
   }
   return { ok: missing.length === 0, missing };
-}
-
-/** Golden or screenshot-baseline files, the same set check-pr.mjs watches. */
-export function baselinesChanged(files) {
-  return (files || []).some(f => /goldens\/|fixtures\/baselines\//.test(f));
-}
-
-/** pass / fail / n/a — n/a when fixtures/baselines did not change. */
-export function tasteQueueVerdict(files) {
-  if (!baselinesChanged(files)) return 'n/a';
-  return (files || []).includes('docs/taste-review/queue.md') ? 'pass' : 'fail';
 }
 
 function line(label, verdict, detail = '') {
@@ -208,7 +199,6 @@ export function buildReview(key, ctx = {}) {
   const readAtRev = f => { const r = run('git', ['show', `${rev}:${f}`]); return r.ok ? r.out : null; };
   const changelog = hasEntry(files, key, readAtRev) ? 'pass' : 'fail';
   const acceptance = claimed.ok ? 'pass' : 'fail';
-  const tasteQueue = tasteQueueVerdict(files);
   const attrib = attribution ? 'FOUND' : 'none';
   const stat = ctx.stat ?? (rev && !injected ? run('git', ['diff', '--stat', `origin/main...${rev}`]).out : '');
 
@@ -216,7 +206,6 @@ export function buildReview(key, ctx = {}) {
     line('CHANGELOG.md entry', changelog),
     line('every acceptance criterion claimed by a check', acceptance,
       claimed.ok ? '' : `unclaimed: ${claimed.missing.map(m => JSON.stringify(m)).join(', ')}`),
-    line('taste-queue entry (fixtures/baselines changed)', tasteQueue),
   ];
 
   const text = [
@@ -261,7 +250,7 @@ export function buildReview(key, ctx = {}) {
     text,
     files,
     outside,
-    done: { changelog, acceptance, tasteQueue },
+    done: { changelog, acceptance },
   };
 }
 

@@ -71,6 +71,7 @@
   "extraAllowedPaths": [
     "CHANGELOG.md",
     "changelog.d",
+    "docs/taste-review/queue.d",
     "docs/taste-review/queue.md",
     "pnpm-lock.yaml",
     "apps/desktop/src-tauri/Cargo.lock"

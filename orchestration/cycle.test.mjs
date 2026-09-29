@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { reconcile, reviewStep, holdClass, primaryHold, isFreshStory } from './cycle.mjs';
+import { reconcile, reviewStep, holdClass, primaryHold, isFreshStory, mainVerdictRun } from './cycle.mjs';
 import { renderStatus } from './report.mjs';
 import { fold, timing } from './machine.mjs';
 import { snapshotFrom } from './github.mjs';
@@ -188,6 +188,9 @@ test('an approved, green PR merges pinned to its head and is recorded done', () 
   w.run();
   const merge = w.calls.gh.find(a => a[0] === 'pr' && a[1] === 'merge');
   assert.ok(merge.includes('--match-head-commit') && merge.includes(HEAD));
+  assert.ok(merge.includes('--subject') && merge[merge.indexOf('--subject') + 1] === 'feat(x): thing (MARXY-1)');
+  const edit = w.calls.gh.find(a => a[1] === 'edit');
+  assert.equal(edit[edit.indexOf('--title') + 1], '(signed) feat(x): thing (MARXY-1)');
   assert.equal(w.b().stories['MARXY-1'].status, 'done');
   assert.equal(w.b().merges, 1);
 });
@@ -197,13 +200,35 @@ test('approved but CI pending enables auto-merge once; --no-merge and --dry-run 
   const mk = () => world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } }, open: [pending], facts: { 'MARXY-1': { approval: approved } } });
   const w = mk();
   w.run();
-  assert.ok(w.calls.gh.some(a => a[1] === 'merge' && a.includes('--auto')));
+  assert.ok(w.calls.gh.some(a => a[1] === 'merge' && a.includes('--auto') && a.includes('--subject')));
   const quiet = mk();
   quiet.run({ noMerge: true });
-  assert.equal(quiet.calls.gh.length, 0);
+  assert.equal(quiet.calls.gh.filter(a => a[1] === 'merge').length, 0);
+  assert.equal(quiet.calls.gh.find(a => a[1] === 'edit')[quiet.calls.gh.find(a => a[1] === 'edit').indexOf('--title') + 1], '(signed) feat(x): thing (MARXY-1)');
   const dry = mk();
   dry.run({ dry: true });
   assert.equal(dry.calls.gh.length + dry.calls.spawn.length + dry.calls.jira.length, 0);
+});
+
+test('a code-owner pull request is titled [human], and an unsigned one the cycle can merge is left unmarked', () => {
+  const human = world({
+    rows: [row('MARXY-1', '.github/workflows')],
+    stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } },
+    open: [pr(7, 'MARXY-1')],
+    facts: { 'MARXY-1': { files: ['.github/workflows/ci.yml', 'CHANGELOG.md'], codeowners: '/.github/ @inkstrata\n', approval: { ok: false, why: 'not reviewed' } } },
+  });
+  human.run();
+  const titled = human.calls.gh.find(a => a[1] === 'edit');
+  assert.equal(titled[titled.indexOf('--title') + 1], '[human] feat(x): thing (MARXY-1)');
+  assert.equal(human.calls.gh.filter(a => a[1] === 'merge').length, 0);
+
+  const plain = world({
+    rows: [row('MARXY-1', 'a')],
+    stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } },
+    open: [pr(7, 'MARXY-1')],
+  });
+  plain.run();
+  assert.equal(plain.calls.gh.filter(a => a[1] === 'edit').length, 0);
 });
 
 test('with requireUpToDate true, one BEHIND branch is updated per cycle, in review order; with mergeQueue on, none are', () => {
@@ -254,6 +279,21 @@ test('main guard: a red completed ci run on main merges nothing and is named und
   const rNone = none.run();
   assert.equal(none.b().stories['MARXY-1'].status, 'done');
   assert.ok(!rNone.attention.some(a => a.key === 'main'));
+});
+
+test('main guard: a run cancelled by a newer push is skipped, so main is judged by the newest run that finished (MARXY-333)', () => {
+  const run = (conclusion, n) => ({ conclusion, url: `https://github.com/inkstrata/marxy/actions/runs/${n}`, headSha: HEAD });
+  assert.equal(mainVerdictRun([run('CANCELLED', 3), run('cancelled', 2), run('SUCCESS', 1)]).url.endsWith('runs/1'), true);
+  assert.equal(mainVerdictRun([run('CANCELLED', 2), run('FAILURE', 1)]).conclusion, 'FAILURE');
+  assert.equal(mainVerdictRun([run('CANCELLED', 2), run('CANCELLED', 1)]), null);
+  assert.equal(mainVerdictRun([]), null);
+
+  // A cancelled run that reaches the guard directly is not red either.
+  const w = world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } }, open: [pr(7, 'MARXY-1')], facts: { 'MARXY-1': { approval: approved } } });
+  w.io.mainCiRun = () => run('CANCELLED', 4);
+  const r = w.run();
+  assert.equal(w.b().stories['MARXY-1'].status, 'done');
+  assert.ok(!r.attention.some(a => a.key === 'main'));
 });
 
 test('a worker alive past its deadline is stopped and its attempt finished as a timeout', () => {
@@ -434,4 +474,36 @@ test('isFreshStory: only a story nothing was ever attempted on is new (MARXY-329
   assert.equal(isFreshStory({ status: 'todo', attempts: 0 }), true, 'a refunded attempt never really started');
   assert.equal(isFreshStory({ status: 'todo', attempts: 1 }), false);
   assert.equal(isFreshStory({ status: 'todo', attempts: 0, returned: { why: 'x' } }), false);
+});
+
+test('drain takes new stories out before readiness, so a held one never keeps returned work waiting (MARXY-331)', () => {
+  const returned = { status: 'todo', attempts: 1, returned: { at: minutesAgo(5), head: HEAD, why: 'changes requested' } };
+  // MARXY-1 is a new product story; product stories pick first, so left in it would take path `a` from
+  // the returned ops story MARXY-2. MARXY-3 is new and overlaps MARXY-1; MARXY-4 is new and phase-held.
+  const rows = [row('MARXY-1', 'a', { Labels: 'phase-1' }), row('MARXY-2', 'a'), row('MARXY-3', 'a'), row('MARXY-4', 'b', { Labels: 'phase-2' })];
+  const deps = { deps: {}, phases: { 1: ['MARXY-1'], 2: ['MARXY-4'], ops: ['MARXY-2', 'MARXY-3'] } };
+  const stories = { 'MARXY-1': { status: 'todo' }, 'MARXY-2': returned, 'MARXY-3': { status: 'todo' }, 'MARXY-4': { status: 'todo' } };
+  const w = world({ rows, stories });
+  w.io.plan = () => ({ rows, byKey: new Map(rows.map(r => [r.Key, r])), deps, extraAllowed: [], renames: {} });
+  const r = w.run({ drain: true });
+  assert.deepEqual(started(w.calls, 'implement'), ['MARXY-2'], 'the returned story starts');
+  assert.deepEqual(r.ready.drained.sort(), ['MARXY-1', 'MARXY-3']);
+  assert.equal(r.ready.waits['MARXY-3'], 'drain: not starting new stories', 'waiting only on a held story is waiting on drain');
+  assert.match(r.ready.waits['MARXY-4'], /phase 2 waits on an earlier phase/, 'a new story keeps its real wait');
+  assert.equal(r.ready.waits['MARXY-2'], undefined);
+});
+
+test('a returned PR the fleet will not redo is named as needing a fix pushed, not "open its PR" (MARXY-331)', () => {
+  const returned = { status: 'todo', attempts: 1, pr: 9, returned: { at: minutesAgo(90), head: HEAD, why: 'reviewer: add a test\nmore' } };
+  const wt = key => ({ key, path: `/wt/${key}`, branch: `fix/${key}-x`, dirty: false, ahead: 2, lastActivityMs: nowMs - 3 * 3_600_000 });
+  const w = world({
+    rows: [row('MARXY-2', 'b', { Labels: 'ops,no-dispatch' })],
+    stories: { 'MARXY-1': returned, 'MARXY-2': returned },
+    worktrees: [wt('MARXY-1'), wt('MARXY-2')],
+  });
+  const r = w.run();
+  const why = k => r.attention.find(a => a.key === k)?.why ?? '';
+  assert.match(why('MARXY-1'), /PR #9 was returned \(reviewer: add a test\) and the fleet will not redo it \(it has no board row\): push a fix/);
+  assert.match(why('MARXY-2'), /its row is not dispatched/);
+  assert.doesNotMatch(why('MARXY-1'), /open its PR/);
 });

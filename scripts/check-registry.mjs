@@ -4,15 +4,23 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, registry, walk, rel, stripComments, changedFiles, fail, fix } from './lib/repo.mjs';
 
+/** Plain `=` or JS compound assignment (`+=`, `||=`, …) after optional whitespace. */
+const HTML_ASSIGN_OP = String.raw`\s*(?:\*\*|<<|>>>|>>|[+\-*/%&|^]|&&|\|\||\?\?)?=`;
+
 /** Routes from a string to parsed DOM; each { form, re } is one way around a single-regex gate. */
 export const HTML_ROUTE_TABLE = [
-  { form: '.innerHTML =', re: /\.innerHTML\s*=/ },
-  { form: '["innerHTML"] =', re: /\[\s*(?:['"]innerHTML['"]|['"]inner['"]\s*\+\s*['"]HTML['"])\s*\]\s*=/ },
+  { form: '.innerHTML =', re: new RegExp(String.raw`\.innerHTML${HTML_ASSIGN_OP}`) },
+  {
+    form: '["innerHTML"] =',
+    re: new RegExp(
+      String.raw`\[\s*(?:['"]innerHTML['"]|['"]inner['"]\s*\+\s*['"]HTML['"])\s*\]${HTML_ASSIGN_OP}`,
+    ),
+  },
   {
     form: "Reflect.set(..., 'innerHTML', ...)",
     re: /Reflect\.set\s*\(\s*[^,]+,\s*(?:['"]innerHTML['"]|['"]inner['"]\s*\+\s*['"]HTML['"])\s*,/,
   },
-  { form: '.outerHTML =', re: /\.outerHTML\s*=/ },
+  { form: '.outerHTML =', re: new RegExp(String.raw`\.outerHTML${HTML_ASSIGN_OP}`) },
   { form: '.insertAdjacentHTML(', re: /\.insertAdjacentHTML\s*\(/ },
   { form: '.setHTMLUnsafe(', re: /\.setHTMLUnsafe\s*\(/ },
   { form: 'document.write(', re: /document\.write\s*\(/ },
