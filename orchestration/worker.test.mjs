@@ -2,10 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, chmodSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { agentArgs, superviseAgent, snapshotWip, AUTH_FAILURE } from './worker.mjs';
+import { agentArgs, superviseAgent, snapshotWip, prepareWorktree, reapplyNote, AUTH_FAILURE } from './worker.mjs';
 
 process.env.MARXY_FLEET_DIR ??= mkdtempSync(join(tmpdir(), 'marxy-fleet-worker-'));
 const tmp = () => mkdtempSync(join(tmpdir(), 'marxy-worker-'));
@@ -75,4 +75,78 @@ test('a dirty worktree is snapshotted to a fleet ref before reuse, and left exac
   assert.equal(git('stash', 'list'), '', 'refs/stash, shared by every worktree, is not used');
   assert.equal(snapshotWip(repo, 'MARXY-1', { g: args => (args[0] === 'status' ? { ok: true, out: '' } : g(args)) }), null, 'a clean worktree needs no snapshot');
   assert.ok(existsSync(process.env.MARXY_FLEET_DIR));
+});
+
+// ── a reopened story is cut from main with its reverted work applied again (ADR-0043) ──
+
+function reopenedWorld() {
+  const dir = tmp();
+  const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t', GIT_CONFIG_GLOBAL: '/dev/null' };
+  Object.assign(process.env, { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' });
+  const at = cwd => (args, opts = {}) => {
+    try { return { ok: true, out: execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'], ...opts }).trim(), err: '' }; }
+    catch (e) { return { ok: false, out: '', err: String(e.stderr || e.message) }; }
+  };
+  const origin = join(dir, 'origin.git');
+  const work = join(dir, 'work');
+  at(dir)(['init', '-q', '--bare', '-b', 'main', origin]);
+  at(dir)(['clone', '-q', origin, work]);
+  const g = at(work);
+  const land = (msg, files) => {
+    for (const [f, t] of Object.entries(files)) { mkdirSync(join(work, f, '..'), { recursive: true }); writeFileSync(join(work, f), t); }
+    g(['add', '-A']); g(['commit', '-q', '-m', msg]); g(['push', '-q', 'origin', 'HEAD:main']);
+    return g(['rev-parse', 'HEAD']).out;
+  };
+  land('seed', { 'src/a.txt': 'one\n' });
+  const sha = land('feat: story (MARXY-7) (#12)', { 'src/a.txt': 'one\ntwo\n', 'src/new.txt': 'new\n' });
+  const revertSha = (() => { g(['revert', '--no-edit', sha]); g(['push', '-q', 'origin', 'HEAD:main']); return g(['rev-parse', 'HEAD']).out; })();
+  // The merged story's old local branch is still there, at the seed: it must not be continued.
+  g(['branch', 'feat/MARXY-7-story', 'HEAD~2']);
+  return { g, land, sha, revertSha, spec: () => ({ key: 'MARXY-7', branch: 'feat/MARXY-7-story', worktree: join(dir, 'wt') }) };
+}
+
+test('a reopened story\'s worktree is cut from main with the reverted work applied again, not from its stale branch', () => {
+  const w = reopenedWorld();
+  const r = prepareWorktree(w.spec(), { g: w.g, reopened: { sha: w.sha, revertSha: w.revertSha } });
+  assert.equal(r.ok, true);
+  assert.equal(r.applied.how, 'revert');
+  assert.equal(readFileSync(join(r.wt, 'src/a.txt'), 'utf8'), 'one\ntwo\n');
+  assert.ok(existsSync(join(r.wt, 'src/new.txt')));
+  assert.equal(execFileSync('git', ['-C', r.wt, 'rev-parse', 'HEAD~1'], { encoding: 'utf8' }).trim(), w.revertSha, 'on top of current main');
+  assert.equal(execFileSync('git', ['-C', r.wt, 'status', '--porcelain'], { encoding: 'utf8' }), '');
+});
+
+test('without the revert commit the original squash is cherry-picked; with neither, the branch is main and says so', () => {
+  const byPick = reopenedWorld();
+  const a = prepareWorktree(byPick.spec(), { g: byPick.g, reopened: { sha: byPick.sha } });
+  assert.equal(a.applied.how, 'cherry-pick');
+  assert.ok(existsSync(join(a.wt, 'src/new.txt')));
+  const none = reopenedWorld();
+  const b = prepareWorktree(none.spec(), { g: none.g, reopened: {} });
+  assert.deepEqual([b.ok, b.applied.how], [true, null]);
+  assert.match(reapplyNote({}, b.applied), /could not be re-applied/);
+});
+
+test('work that no longer applies is abandoned whole: a clean branch off main, and the prompt says where the work is', () => {
+  const w = reopenedWorld();
+  w.land('feat: touches the same line (MARXY-8) (#13)', { 'src/a.txt': 'one\nTWO\n' });
+  const r = prepareWorktree(w.spec(), { g: w.g, reopened: { sha: w.sha, revertSha: w.revertSha } });
+  assert.equal(r.ok, true);
+  assert.equal(r.applied.how, null);
+  assert.match(r.applied.why, /cherry-pick failed/);
+  assert.equal(execFileSync('git', ['-C', r.wt, 'status', '--porcelain'], { encoding: 'utf8' }), '', 'no half-applied change is left');
+  assert.equal(readFileSync(join(r.wt, 'src/a.txt'), 'utf8'), 'one\nTWO\n');
+  assert.match(reapplyNote({ sha: w.sha }, r.applied), new RegExp(`git show ${w.sha}`));
+  assert.match(reapplyNote({ sha: w.sha }, { how: 'revert' }), /already on your branch/);
+});
+
+test('a story that was not reopened is cut as before, and a reopened one whose branch is already on origin continues it', () => {
+  const w = reopenedWorld();
+  const plain = prepareWorktree(w.spec(), { g: w.g });
+  assert.equal(plain.applied, undefined);
+  const w2 = reopenedWorld();
+  w2.g(['push', '-q', 'origin', 'feat/MARXY-7-story']);
+  w2.g(['fetch', '-q', 'origin']);
+  const cont = prepareWorktree(w2.spec(), { g: w2.g, reopened: { sha: w2.sha } });
+  assert.equal(cont.applied, undefined, 'an attempt already pushed is continued, not re-applied');
 });
