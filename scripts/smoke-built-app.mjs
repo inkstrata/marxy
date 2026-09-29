@@ -253,11 +253,11 @@ export async function runBuiltAppSmoke(opts = {}) {
        if (!dialog) throw new Error('missing #marxy-palette');
        return getComputedStyle(dialog).borderRadius;`,
     );
+    // Every check runs even after one fails, so a known defect in one (the release CSP blocking
+    // runtime styles, MARXY-250) does not hide whether argv open, the toggle and the save still work.
+    const failures = [];
     if (!paletteRuntimeStyleOk(radius)) {
-      return {
-        status: 'fail',
-        message: `palette runtime style missing (border-radius ${radius}, expected ~8px)`,
-      };
+      failures.push(`palette runtime style missing (border-radius ${radius}, expected ~8px)`);
     }
 
     await exec(
@@ -271,11 +271,11 @@ export async function runBuiltAppSmoke(opts = {}) {
     if (!bytesEqual(onDisk, expected)) {
       let at = 0;
       while (at < onDisk.length && at < expected.length && onDisk[at] === expected[at]) at++;
-      return {
-        status: 'fail',
-        message: `disk bytes differ from expected after toggle (first mismatch at ${at})`,
-      };
+      failures.push(`disk bytes differ from expected after toggle (first mismatch at ${at})`);
+    } else {
+      console.log('smoke-built-app: argv open, task toggle and IPC save are byte-exact');
     }
+    if (failures.length) return { status: 'fail', message: failures.join('; ') };
 
     return { status: 'ok', message: `toggle saved through IPC; palette border-radius ${radius}` };
   } catch (e) {
