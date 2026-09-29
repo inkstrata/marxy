@@ -1,1 +1,1 @@
-A round of stability fixes: CRLF front matter, alert line breaks, emoji and link-host warnings, quotes after bold or italic, the heading index, dash line breaks, live reload after a folder vanishes, and stricter CI gates (MARXY-337)
+A stability wave: CRLF files survive Source mode, undo never deletes text after a failed save, task checkboxes answer real clicks, runtime styles survive the release CSP, remote images written as https:host stay blocked, and dozens of smaller rendering, palette, theme, gate and fleet fixes (MARXY-337)
