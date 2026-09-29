@@ -16,6 +16,7 @@ import { selectReady, resolveClaims } from './ready.mjs';
 import { plannerReasons } from './planner-trigger.mjs';
 import { planAt } from './plan.mjs';
 import { finishRun } from './runs.mjs';
+import { isAuthOutcome, producedWork } from './outcomes.mjs';
 import { fleetDir, fleetPath, loopLeasePath, cycleLockPath, resultPath, runFile, readJsonOr, repoHome, storyWorktree } from './store.mjs';
 import { run as runFleet } from './fleet.mjs';
 
@@ -50,7 +51,7 @@ export function surveyInflight({ b, runObs, worktrees, t, nowMs = Date.now() }) 
       continue;
     }
     const wt = run.key ? wtOf(run.key) : null;
-    const worked = (wt?.ahead ?? 0) > 0 || wt?.dirty || (obs.logBytes ?? 0) > 2048;
+    const worked = producedWork({ ahead: wt?.ahead ?? 0, dirty: wt?.dirty ?? false }, obs.logBytes);
     items.push({
       key,
       verdict: worked ? VERDICT.DEAD : VERDICT.GHOST,
@@ -173,7 +174,7 @@ export function snapshot({ m = models(), b = board(), nowMs = Date.now() } = {})
   const planner = {
     held: Boolean(plannerRun && !plannerRun.ended && plannerObs?.alive),
     lease: b.planner?.started ? { pid: plannerRun?.pid, started: b.planner.started } : null,
-    authFailure: b.planner?.lastOutcome === 'auth',
+    authFailure: isAuthOutcome(b.planner?.lastOutcome),
     gate: { run: reasons.length > 0, why: reasons.length ? reasons.join('; ') : 'not due' },
   };
   const statusPath = fleetPath('status.md');

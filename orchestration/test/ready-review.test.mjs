@@ -288,22 +288,21 @@ test('boundary check allows pnpm-lock.yaml and results/ alongside CHANGELOG.md',
   assert.match(got.text, /files outside paths: none/);
 });
 
-test('reports pass/fail for CHANGELOG, claimed checks, and a taste-queue row', () => {
+test('reports pass/fail for CHANGELOG and claimed checks, and never reports a taste-queue line', () => {
   const pass = packet('MARXY-11', {
     rev: 'feat/MARXY-11-parse',
     files: [
       'packages/core/goldens/01.json',
       'CHANGELOG.md',
-      'docs/taste-review/queue.md',
     ],
-    result: { ...claimed, queueEntry: true },
+    result: claimed,
   });
   assert.equal(pass.done.changelog, 'pass');
   assert.equal(pass.done.acceptance, 'pass');
-  assert.equal(pass.done.tasteQueue, 'pass');
+  assert.ok(!('tasteQueue' in pass.done));
+  assert.doesNotMatch(pass.text, /taste-queue/);
   assert.match(pass.text, /CHANGELOG\.md entry: pass/);
   assert.match(pass.text, /every acceptance criterion claimed by a check: pass/);
-  assert.match(pass.text, /taste-queue entry \(fixtures\/baselines changed\): pass/);
 
   const fail = packet('MARXY-11', {
     rev: 'feat/MARXY-11-parse',
@@ -312,10 +311,9 @@ test('reports pass/fail for CHANGELOG, claimed checks, and a taste-queue row', (
   });
   assert.equal(fail.done.changelog, 'fail');
   assert.equal(fail.done.acceptance, 'fail');
-  assert.equal(fail.done.tasteQueue, 'fail');
+  assert.doesNotMatch(fail.text, /taste-queue/, 'a golden change with no queue entry is not a failing line');
   assert.match(fail.text, /CHANGELOG\.md entry: fail/);
   assert.match(fail.text, /every acceptance criterion claimed by a check: fail/);
-  assert.match(fail.text, /taste-queue entry \(fixtures\/baselines changed\): fail/);
 
   const quiet = packet(story('MARXY-5').Key, {
     rev: 'chore/MARXY-5',
@@ -326,5 +324,5 @@ test('reports pass/fail for CHANGELOG, claimed checks, and a taste-queue row', (
       acceptance: [{ criterion: 'build is green on CI', checkedBy: 'orchestration/test' }],
     },
   });
-  assert.equal(quiet.done.tasteQueue, 'n/a');
+  assert.doesNotMatch(quiet.text, /taste-queue/);
 });

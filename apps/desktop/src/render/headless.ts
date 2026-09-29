@@ -4,6 +4,8 @@ import { renderDocumentSafeHtml, type RenderResult } from '@marxy/core/src/rende
 import { attach, snapToGrid, type TypesetStats } from '@marxy/typeset';
 import { resolveVariantPreference, type VariantPreference } from '@marxy/theme';
 import { applyWeightOffset, platformOf } from '../theme/offset.ts';
+import { applyInvisibleMarkers } from './invisibles-dom.ts';
+import { applyLinkDestinations } from './link-dest.ts';
 import { buildBlocks, buildNodeMap } from './post.ts';
 import { createStubShell } from './stub.ts';
 
@@ -338,6 +340,8 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
 
   const lineBox = await settleSize(article, size);
   article.innerHTML = html;
+  applyInvisibleMarkers(article);
+  applyLinkDestinations(article);
 
   // Reserve image boxes from the stub decoder before the first snapshot, so a data: image
   // cannot shift the page — the measurement then sees the page a reader would see.

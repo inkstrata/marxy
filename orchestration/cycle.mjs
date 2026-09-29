@@ -12,13 +12,22 @@
 //                 auto-merge, merge, or wait — and a wait older than its limit is named under
 //                 "Needs you" instead of holding silently
 //   5. plan     — start the planner when it is due, off cooldown and not already running
-//   6. dispatch — start an implementor for every ready story
+//   6. dispatch — start an implementor for every ready story (under --drain, only those already
+//                 attempted: returned for changes, or back from a failed run — never a fresh one)
 //   7. mirror   — Jira follows the board (best effort, bounded; never blocks)
 //   8. report   — status.md, and only what changed to the loop log
 //
 // Every non-final status has an owner and a way out that fires on its own (machine.mjs STATES). This
 // file is the only one that merges, and merge-bar.mjs is the only thing it asks whether it may.
-// usage: node orchestration/cycle.mjs [--no-merge] [--dry-run] [--low|--minimal|--high|--compute=NAME]
+//
+// The main guard (ADR-0040): before any merge decision, one GitHub read (io.mainCiRun()) checks the
+// latest completed `ci` run on main. Red, and nothing merges this cycle — everything else still runs
+// — and it is named under "Needs you" with the run's URL until a green run clears it. This is the
+// safety net for models.json `requireUpToDate: false` (the default): with strict up-to-date branch
+// protection off, a BEHIND-but-otherwise-green PR merges without a `gh pr update-branch` refresh.
+// usage: node orchestration/cycle.mjs [--no-merge] [--drain] [--dry-run] [--low|--minimal|--high|--compute=NAME]
+//   --drain (or MARXY_DRAIN=1) winds the fleet down: no story that has never been attempted is started;
+//   everything else — runs, review, resolve, returns, merges, the planner — carries on as usual.
 import { existsSync, readFileSync, statSync, openSync, readSync, closeSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -34,10 +43,13 @@ import { observeWorktrees, observeRuns, fetchOrigin } from './observe.mjs';
 import { selectReady, resolveClaims, mergedOnMain } from './ready.mjs';
 import { verbEvents } from './state.mjs';
 import { buildSpec, claimEvents, finishRun } from './runs.mjs';
+import { OUTCOME } from './outcomes.mjs';
 import { gh, read, run as runProc, spawnDetached, killGroup, LIMIT } from './proc.mjs';
 import { acquireLock, releaseLock } from './lease.mjs';
 import { verify } from './approve.mjs';
 import { evaluate, mergeArgs } from './merge-bar.mjs';
+import { bareTitle, landsOf, titleUpdate } from './pr-mark.mjs';
+import { codeOwnerPatterns, waitingOn } from './readiness.mjs';
 import { computeOrder } from './review-order.mjs';
 import { allowedFor, fileAllowed, validateResult } from './review.mjs';
 import { loadSnapshot, prime, snapshotFrom } from './github.mjs';
@@ -48,6 +60,12 @@ import { writeReport } from './report.mjs';
 import { pushDue } from './mirror.mjs';
 import { defaultCanvasDir, gatherCanvasData, writeCanvases } from './canvases.mjs';
 import { BOARD_FILES, branchBoundary } from '../scripts/lib/own-row.mjs';
+
+/**
+ * Under drain, a story is new if nothing has ever been attempted on it: no attempt counted and never
+ * returned. A returned story, or one whose run failed, is work in flight and is still dispatched.
+ */
+export const isFreshStory = rec => !(rec?.attempts > 0) && !rec?.returned;
 
 /** A landed PR whose files add a plan delta is the planner's own output (MARXY-200). */
 export const landsPlanDelta = files => (files ?? []).some(f => f.startsWith('docs/plan/deltas/'));
@@ -103,7 +121,7 @@ export function primaryHold(reasons) {
  * The single next step for one In Review story whose PR is open. Pure.
  * `decision` is merge-bar's evaluate(); `rec.hold` is the hold this story has been in since when.
  */
-export function reviewStep({ rec, pr, decision, t, nowMs, dispatchable, activeRun = null, noRow = false }) {
+export function reviewStep({ rec, pr, decision, t, nowMs, dispatchable, activeRun = null, noRow = false, requireUpToDate = false }) {
   if (activeRun) return { step: 'wait', why: `${activeRun.role} run in progress (until ${activeRun.deadline})`, hold: rec.hold ?? null };
   const conflicted = pr.mergeStateStatus === 'DIRTY' || pr.mergeable === 'CONFLICTING';
   if (conflicted) {
@@ -118,7 +136,11 @@ export function reviewStep({ rec, pr, decision, t, nowMs, dispatchable, activeRu
   const hold = primary ? { class: primary.class, reason: primary.reason } : null;
   const since = rec.hold?.class === hold?.class && rec.hold?.since ? Date.parse(rec.hold.since) : nowMs;
   const ageMin = (nowMs - since) / 60_000;
-  const behind = pr.mergeStateStatus === 'BEHIND';
+  // With requireUpToDate false (ADR-0040), a BEHIND mergeStateStatus no longer holds a merge: strict
+  // up-to-date branch protection is off, so GitHub itself may report a behind-but-clean PR as CLEAN
+  // or BEHIND depending on what protection is left — either way it is no longer this cycle's business
+  // to refresh it. The main-red guard (reconcile()) is the safety net that replaces it.
+  const behind = requireUpToDate && pr.mergeStateStatus === 'BEHIND';
   const giveBack = why => (dispatchable ? { step: 'return', why, hold } : { step: 'attention', why: `${why} (not dispatchable, so a person fixes it)`, hold });
 
   if (!primary) return behind ? { step: 'update', why: 'behind main, otherwise ready', hold: null } : { step: 'merge', why: 'every clause of the merge bar holds', hold: null };
@@ -156,6 +178,9 @@ function tailOf(path, bytes = 4096) {
 }
 
 const ATTRIBUTION_RE = /co-authored-by:.*(cursor|claude|gpt|grok|copilot|anthropic|openai)|generated with/i;
+
+/** `gh run list --json conclusion` conclusions that count as red for the main guard (ADR-0040). */
+const RED_CONCLUSIONS = new Set(['FAILURE', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
 
 /** The world, as the live cycle sees it. A test passes its own. */
 export function liveIo({ m, dry = false }) {
@@ -233,6 +258,13 @@ export function liveIo({ m, dry = false }) {
       const out = gitOut(['log', 'origin/main', '--format=%s']);
       return out ? out.split('\n').filter(Boolean) : [];
     },
+    // The main guard's one read (ADR-0040): the latest *completed* ci run on main, so a run still in
+    // progress never counts as red. No completed run at all (a brand new repo) is not evidence of red.
+    mainCiRun: () => {
+      const out = read('gh', ['run', 'list', '--branch', 'main', '--workflow', 'ci', '--status', 'completed', '--limit', '1', '--json', 'conclusion,url,headSha'], { cwd: CODE_ROOT, timeoutMs: LIMIT.gh });
+      if (!out) return null;
+      try { return JSON.parse(out)[0] ?? null; } catch { return null; }
+    },
     report: r => {
       const out = writeReport(r);
       // The Cursor canvases follow the board when that project folder exists. Best effort: a canvas
@@ -250,7 +282,7 @@ export function liveIo({ m, dry = false }) {
  * One cycle against `io`. Returns the report it wrote. Every decision below is level-triggered: it
  * depends on the board and the world as they are now, never on having seen an earlier event.
  */
-export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
+export function reconcile({ io, m = models(), dry = false, noMerge = false, drain = false }) {
   const t = timing(m);
   const now = io.now();
   const nowIso = now.toISOString();
@@ -285,6 +317,16 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
   const wtOf = key => worktrees.find(w => w.key === key) ?? null;
   const openByNumber = snap?.byNumber ?? new Map();
   const openForKey = key => (snap?.open ?? []).find(pr => !pr.isDraft && keyOfPr(pr) === key) ?? null;
+
+  // The main guard (ADR-0040): the safety net for dropping strict up-to-date branch protection. If
+  // the latest completed ci run on main is red, nothing merges this cycle — everything else (review,
+  // dispatch, resolving conflicts) carries on, so the fleet keeps working while a person fixes main.
+  let mainRed = null;
+  guard('main ci', null, () => {
+    const run = io.mainCiRun ? io.mainCiRun() : null;
+    if (run?.conclusion && RED_CONCLUSIONS.has(String(run.conclusion).toUpperCase())) mainRed = run;
+  });
+  if (mainRed) need('main', `main is red (latest completed ci run: ${mainRed.url})`);
 
   // 2. Finish runs.
   const runObs = io.runs(b);
@@ -401,7 +443,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
         decision.reasons.push(`result file problems: ${facts.resultProblems.join('; ')} (re-run pnpm done ${key} in its worktree)`);
         decision.action = 'hold';
       }
-      const step = reviewStep({ rec, pr, decision, t, nowMs, dispatchable: dispatchable(plan.byKey.get(key)), activeRun, noRow: facts && !facts.row });
+      const step = reviewStep({ rec, pr, decision, t, nowMs, dispatchable: dispatchable(plan.byKey.get(key)), activeRun, noRow: facts && !facts.row, requireUpToDate: Boolean(m.requireUpToDate) });
       steps.push({ key, rec, pr, step, facts, decision });
     });
   }
@@ -419,10 +461,19 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     // A standing auto-merge that no longer matches the judgement is cancelled, not left to fire (MARXY-63).
     if (pr.autoMergeRequest && !['auto-merge', 'wait', 'merge'].includes(step.step) && !dry) io.gh(['pr', 'merge', String(pr.number), '--disable-auto']);
     const tag = `${key} PR #${pr.number}`;
+    const subject = bareTitle(pr.title);
+    if (!dry && facts) {
+      const waiting = waitingOn({ pr, files: facts.files ?? [], decision, patterns: codeOwnerPatterns(facts.codeowners ?? '') });
+      const update = titleUpdate(pr.title, landsOf({ waitingOn: waiting, reviewed: Boolean(decision.approval?.ok) }).mark);
+      if (update) {
+        const renamed = io.gh(['pr', 'edit', String(pr.number), '--title', update.title]);
+        if (!renamed.ok) say(`${tag}: title not updated — ${renamed.err.split('\n')[0]}`);
+      }
+    }
     switch (step.step) {
       case 'merge': {
-        if (noMerge || dry) { say(`${tag}: mergeable (not merging: ${dry ? '--dry-run' : '--no-merge'})`); break; }
-        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { queue: Boolean(m.mergeQueue) }));
+        if (noMerge || dry || mainRed) { say(`${tag}: mergeable (not merging: ${mainRed ? 'main is red' : dry ? '--dry-run' : '--no-merge'})`); break; }
+        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { queue: Boolean(m.mergeQueue), subject }));
         const landed = r.ok || io.prState(pr.number) === 'MERGED';
         if (!landed) { say(`${tag}: merge failed — ${r.err.split('\n')[0]}`); break; }
         const planned = landsPlanDelta(facts.files);
@@ -437,8 +488,8 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
         break;
       }
       case 'auto-merge': {
-        if (noMerge || dry) { say(`${tag}: waiting on CI; would enable auto-merge`); break; }
-        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { auto: true, queue: Boolean(m.mergeQueue) }));
+        if (noMerge || dry || mainRed) { say(`${tag}: waiting on CI; would enable auto-merge${mainRed ? ' (main is red)' : ''}`); break; }
+        const r = io.gh(mergeArgs(pr.number, pr.headRefOid, { auto: true, queue: Boolean(m.mergeQueue), subject }));
         say(r.ok ? `${tag}: auto-merge enabled, waiting on CI` : `${tag}: auto-merge failed — ${r.err.split('\n')[0]}`);
         break;
       }
@@ -512,29 +563,46 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
   for (const { key, pr, status } of flagMain) say(`merged on main but ${status}: ${key} (#${pr})`);
   b = io.board();
 
+  // Under drain, new stories are taken out before readiness is decided, not after (MARXY-331): left in,
+  // a held story is picked first and its paths (or a product reservation) keep returned work waiting on
+  // a story that never starts. Each new story keeps its real wait; one that would have started, or waited
+  // only on other new stories, waits on drain.
+  const readiness = () => {
+    const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
+    const select = rows => selectReady({
+      all: rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
+    });
+    if (!drain) return select(plan.rows);
+    const isNew = st => (b.stories[st.Key]?.status ?? 'todo') === 'todo' && isFreshStory(b.stories[st.Key]);
+    const full = select(plan.rows);
+    const r = select(plan.rows.filter(st => !isNew(st)));
+    const held = new Set(full.ready.map(x => x.key).filter(k => isFreshStory(b.stories[k])));
+    const newKeys = new Set(plan.rows.filter(isNew).map(st => st.Key));
+    for (const key of newKeys) {
+      const why = full.waits[key];
+      // Waiting only on other new stories (their paths this cycle, or a product reservation) is waiting on drain.
+      const on = /^yields to product |, starting this cycle$/.test(why ?? '') ? why.match(/MARXY-\d+/g) ?? [] : [];
+      if (on.length && on.every(k => newKeys.has(k))) held.add(key);
+      else if (why) r.waits[key] = why;
+    }
+    for (const k of held) r.waits[k] = 'drain: not starting new stories';
+    r.drained = [...held];
+    return r;
+  };
+
   let readyReport = null;
   if (plan && !planBlocks) guard('dispatch', null, () => {
-    const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
-    const r = selectReady({
-      all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
-    });
+    const r = readiness();
+    if (r.drained?.length) say(`drain: not starting ${r.drained.length} new stor${r.drained.length === 1 ? 'y' : 'ies'} (${r.drained.join(', ')})`);
     for (const x of r.ready) spawns.push({ role: 'implement', key: x.key, rec: b.stories[x.key] ?? {}, row: plan.byKey.get(x.key) });
-    if (!r.ready.length) say(`nothing ready; ${Object.values(b.stories).filter(s => s.status === 'todo').length} todo — see status.md for each one's wait`);
+    if (!r.ready.length && !r.drained?.length) say(`nothing ready; ${Object.values(b.stories).filter(s => s.status === 'todo').length} todo — see status.md for each one's wait`);
     readyReport = r;
   });
   else if (plan) {
     say('dispatch waits for the planner (never planned, or an escalation it has not read)');
     // Still say what would be ready and why the rest wait, so status.md does not read "Ready (0)"
     // beside a column of todo while the fleet is only waiting on the planner.
-    guard('readiness', null, () => {
-      const claims = resolveClaims({ board: b, plan, worktrees, t, nowMs });
-      readyReport = {
-        ...selectReady({
-          all: plan.rows, s: b, d: plan.deps, cap: laneBudget(m), claims, nowMs, extraAllowed: plan.extraAllowed, merged,
-        }),
-        held: true,
-      };
-    });
+    guard('readiness', null, () => { readyReport = { ...readiness(), held: true }; });
   }
   // Worktrees with work in them that nothing owns are named, so they are neither lost nor silently holding.
   for (const w of worktrees) {
@@ -543,6 +611,12 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     if (!(w.dirty || w.ahead) || ['in_progress', 'in_review', 'done', 'blocked', 'escalate'].includes(rec?.status)) continue;
     const idle = w.lastActivityMs ? Math.round((nowMs - w.lastActivityMs) / 3_600_000) : null;
     if (idle != null && idle * 60 <= t.activeWorktreeMinutes) continue;
+    // A returned PR the fleet will not redo (no row, or no-dispatch) needs a fix pushed to it; the PR is
+    // already open, so "open its PR" is the wrong advice (MARXY-331).
+    if (rec?.status === 'todo' && rec.returned && rec.pr && !dispatchable(plan?.byKey.get(w.key))) {
+      need(w.key, `PR #${rec.pr} was returned (${String(rec.returned.why ?? '').split('\n')[0].slice(0, 120)}) and the fleet will not redo it (${plan?.byKey.has(w.key) ? 'its row is not dispatched' : 'it has no board row'}): push a fix to its branch from ${w.path} (the cycle adopts the new head), or close the PR`, { quiet: true });
+      continue;
+    }
     need(w.key, `${w.path} has ${w.ahead ? `${w.ahead} commit(s) and ` : ''}${w.dirty ? 'uncommitted work' : 'no uncommitted work'}${idle != null ? `, idle ${idle} h` : ''}, and nothing owns it: open its PR, \`node orchestration/fleet.mjs claim ${w.key}\`, or remove the worktree`, { quiet: true });
   }
 
@@ -557,7 +631,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
     b = io.board();
     const owned = s.role === 'plan' ? b.planner?.run === spec.id : b.stories[s.key]?.run === spec.id;
     if (!owned) {
-      commitAll([runEvent(spec.id, { ended: nowIso, outcome: 'not-started', why: 'the story moved before the worker started' })]);
+      commitAll([runEvent(spec.id, { ended: nowIso, outcome: OUTCOME.NOT_STARTED, why: 'the story moved before the worker started' })]);
       say(`${s.key}: ${s.role} not started — the story moved`);
       return;
     }
@@ -567,7 +641,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
       if (s.role === 'implement') jiraCalls.push(['move', s.key, 'in_progress']);
       say(`${s.key ?? 'planner'}: ${s.role} started (${spec.model}, until ${spec.deadline.slice(11, 16)}Z)`);
     } else {
-      io.writeExit(spec.id, { outcome: 'setup', why: 'the worker process could not be started' });
+      io.writeExit(spec.id, { outcome: OUTCOME.SETUP, why: 'the worker process could not be started' });
       say(`${s.key ?? 'planner'}: ${s.role} could not start its worker`);
     }
   });
@@ -593,7 +667,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false }) {
 
   // 8. Report.
   b = io.board();
-  return io.report({ at: nowIso, compute: m.compute, models: m, t, board: b, plan, lines, attention, ready: readyReport, worktrees, dry });
+  return io.report({ at: nowIso, compute: m.compute, models: m, t, board: b, plan, lines, attention, ready: readyReport, worktrees, dry, drain });
 }
 
 function runCycle(argv = process.argv.slice(2)) {
@@ -609,7 +683,8 @@ function runCycle(argv = process.argv.slice(2)) {
     process.env.MARXY_COMPUTE = m.compute;
     const dry = argv.includes('--dry-run');
     try {
-      reconcile({ io: liveIo({ m, dry }), m, dry, noMerge: argv.includes('--no-merge') });
+      const drain = argv.includes('--drain') || process.env.MARXY_DRAIN === '1';
+      reconcile({ io: liveIo({ m, dry }), m, dry, noMerge: argv.includes('--no-merge'), drain });
     } catch (e) {
       // Even a cycle that cannot finish leaves a status that says so, never a stale one that looks fine.
       const why = String(e?.stack ?? e).split('\n').slice(0, 3).join(' | ');

@@ -57,3 +57,23 @@ test('checkPr --range reads a fragment straight off disk when no readFragment is
   });
   assert.ok(problems.some(p => /no changelog entry for MARXY-104/.test(p)));
 });
+
+// MARXY-324: a taste-review entry is voluntary. Nothing requires one; a present one must be well formed.
+test('golden or baseline changes need no taste-queue entry', () => {
+  const problems = lintPrRange({
+    key: 'MARXY-104',
+    changed: ['packages/core/goldens/01.ast.txt', 'fixtures/baselines/webkit-macos/a.png', 'changelog.d/MARXY-104.md'],
+    changelogDiff: '',
+    readFragment: () => 'A reader-facing line (MARXY-104)',
+  });
+  assert.deepEqual(problems, []);
+});
+
+test('a present queue fragment must be one row for this key', () => {
+  const changed = ['changelog.d/MARXY-104.md', 'docs/taste-review/queue.d/MARXY-104.md'];
+  const row = '| 2026-09-29 | MARXY-104 | a | b | c | |';
+  const read = queue => f => (f.startsWith('changelog') ? 'A line (MARXY-104)' : queue);
+  assert.deepEqual(lintPrRange({ key: 'MARXY-104', changed, readFragment: read(row) }), []);
+  const bad = lintPrRange({ key: 'MARXY-104', changed, readFragment: read(row.replace('MARXY-104', 'MARXY-9')) });
+  assert.ok(bad.some(p => /queue\.d\/MARXY-104\.md is not one queue table row/.test(p)));
+});
