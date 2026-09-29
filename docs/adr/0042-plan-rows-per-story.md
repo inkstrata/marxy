@@ -3,7 +3,7 @@
 - **Status:** proposed (MARXY-327)
 - **Date:** 2026-09-28
 - **Amends:** nothing accepted. Carries out `orchestration/prompts/hardening.md` item 11 and
-  follows the precedent of ADR-less MARXY-315 (changelog fragments).
+  follows the changelog fragments of MARXY-315.
 
 ## Context
 
@@ -33,6 +33,8 @@ Everyone who reads or writes these files today:
 - **`orchestration/out-of-plan.mjs`** writes the story's CSV row and `deps.json` entry into its
   branch (`start`, `row`) with its own quote-aware line scan.
 - **`orchestration/worktrees.mjs`** reads a row from main, else from the worktree's CSV.
+- **`orchestration/ready.mjs`, `doctor.mjs`, `readiness.mjs`** consume the plan `planAt()`
+  returns (rows, `deps.d`, phases), so they change only if that shape does; it will not.
 - **`orchestration/cycle.mjs`, `review.mjs`** and **`scripts/lib/own-row.mjs`** (`BOARD_FILES`,
   `branchBoundary`) judge whether a branch touched only its own row and `deps.json` entry.
 - **`scripts/check-story.mjs`, `scripts/done.mjs`, `scripts/lib/repo.mjs`** (`story()`) read the
