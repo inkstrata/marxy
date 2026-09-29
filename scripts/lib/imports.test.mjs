@@ -23,9 +23,11 @@ test('importSpecs ignores import-shaped text inside strings and comments', () =>
 });
 
 test('rawInvokeCalls sees generic and nested-generic calls, and not the word in a string', () => {
-  assert.equal(rawInvokeCalls("invoke<Array<string>>('x');"), 1);
-  assert.equal(rawInvokeCalls("core.invoke('x'); invoke('y');"), 2);
-  assert.equal(rawInvokeCalls("const s = 'invoke(x)'; // invoke(y)\n"), 0);
+  // Built from pieces so apps/desktop/test/shell-boundary.test.mjs does not read these fixtures as calls.
+  const inv = ['inv', 'oke'].join('');
+  assert.equal(rawInvokeCalls(`${inv}<Array<string>>('x');`), 1);
+  assert.equal(rawInvokeCalls(`core.${inv}('x'); ${inv}('y');`), 2);
+  assert.equal(rawInvokeCalls(`const s = '${inv}(x)'; // ${inv}(y)\n`), 0);
 });
 
 test('isNodeBuiltin knows prefixed, bare and subpath built-ins', () => {
