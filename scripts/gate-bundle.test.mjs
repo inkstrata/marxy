@@ -15,6 +15,15 @@ test('relativeImportSpecs includes dynamic import() and require() of a relative 
   assert.deepEqual(relativeImportSpecs(source), ['./app.ts', './shell/memory.ts', './harness/foo.ts']);
 });
 
+test('relativeImportSpecs includes a plain template-literal import() and require()', () => {
+  const source = `
+    void import(\`./shell/memory.ts\`);
+    require(\`./harness/foo.ts\`);
+    void import(\`./\${name}.ts\`);
+  `;
+  assert.deepEqual(relativeImportSpecs(source), ['./shell/memory.ts', './harness/foo.ts']);
+});
+
 test('dynamic import of memory shell from main.ts is flagged', () => {
   const desktop = mkdtempSync(join(tmpdir(), 'marxy-309-'));
   try {
@@ -26,6 +35,21 @@ test('dynamic import of memory shell from main.ts is flagged', () => {
     assert.equal(memory.length, 1);
     assert.match(memory[0], /src\/shell\/memory\.ts$/);
     assert.equal(existsSync(join(desktop, 'dist', 'index.html')), false);
+  } finally {
+    rmSync(desktop, { recursive: true, force: true });
+  }
+});
+
+test('template-literal dynamic import of memory shell from main.ts is flagged', () => {
+  const desktop = mkdtempSync(join(tmpdir(), 'marxy-309-tpl-'));
+  try {
+    mkdirSync(join(desktop, 'src', 'shell'), { recursive: true });
+    writeFileSync(join(desktop, 'src', 'main.ts'), 'void import(`./shell/memory.ts`);\n');
+    writeFileSync(join(desktop, 'src', 'shell', 'memory.ts'), 'export function createMemoryShell() {}\n');
+    const { memory, error } = memoryShellReachableFromMain(desktop);
+    assert.equal(error, null);
+    assert.equal(memory.length, 1);
+    assert.match(memory[0], /src\/shell\/memory\.ts$/);
   } finally {
     rmSync(desktop, { recursive: true, force: true });
   }

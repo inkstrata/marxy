@@ -50,14 +50,22 @@ console.log('bundle gate: parser import graph does not resolve katex (' + resolv
 
 /**
  * Relative import specifiers reachable from a production source file. Shapes mirror
- * `scripts/check-boundaries.mjs` (static from, dynamic import(), require()); keep them aligned
- * until a shared helper exists (MARXY-307).
+ * `scripts/check-boundaries.mjs` (static from, quoted and plain-template import()/require());
+ * keep them aligned until a shared helper exists (MARXY-307). Interpolated templates
+ * (`import(\`./${x}\`)`) cannot be resolved statically and are not matched.
  */
 export function relativeImportSpecs(text) {
   const specs = [];
   for (const m of text.matchAll(/(?:^|\n)\s*(?:import|export)\s[^'"\n]*?\bfrom\s+['"](\.[^'"]+)['"]/g)) specs.push(m[1]);
   for (const m of text.matchAll(/\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/g)) specs.push(m[1]);
   for (const m of text.matchAll(/\brequire\(\s*['"](\.[^'"]+)['"]\s*\)/g)) specs.push(m[1]);
+  // Plain backtick specs only — same filter as check-boundaries.mjs (MARXY-307).
+  for (const m of text.matchAll(/\bimport\(\s*`(\.[^`]+)`\s*\)/g)) {
+    if (!m[1].includes('${')) specs.push(m[1]);
+  }
+  for (const m of text.matchAll(/\brequire\(\s*`(\.[^`]+)`\s*\)/g)) {
+    if (!m[1].includes('${')) specs.push(m[1]);
+  }
   return specs;
 }
 
