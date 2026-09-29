@@ -9,6 +9,32 @@ export type VariantPreference = Variant | 'auto';
 const THEME_ID = 'marxy-theme';
 const SPOKEN_CONTRACT = 1;
 
+const sheetById = new WeakMap<Document, Map<string, CSSStyleSheet>>();
+
+/** Applies runtime CSS through constructable stylesheets so a release style nonce cannot block it. */
+export function adoptRuntimeSheet(doc: Document, id: string, css: string): void {
+  let perDoc = sheetById.get(doc);
+  if (perDoc === undefined) {
+    perDoc = new Map();
+    sheetById.set(doc, perDoc);
+  }
+  let sheet = perDoc.get(id);
+  if (sheet === undefined && 'adoptedStyleSheets' in doc) {
+    sheet = new CSSStyleSheet();
+    perDoc.set(id, sheet);
+    doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, sheet];
+  }
+  if (sheet !== undefined) sheet.replaceSync(css);
+  let marker = doc.getElementById(id);
+  if (marker === null) {
+    marker = doc.createElement('template');
+    marker.id = id;
+    if (typeof doc.head.append === 'function') doc.head.append(marker);
+    else doc.head.appendChild(marker);
+  }
+  marker.textContent = css;
+}
+
 export interface ThemeManifest {
   readonly name: string;
   readonly author?: string;
@@ -24,14 +50,7 @@ export function resolveVariantPreference(preference: VariantPreference, prefersD
 
 /** Replaces the user theme's stylesheet, injected after the built-in ones so it wins ties. */
 export function applyTheme(css: string, doc: Document = document): void {
-  let style = doc.getElementById(THEME_ID);
-  if (!(style instanceof HTMLStyleElement)) {
-    style?.remove();
-    style = doc.createElement('style');
-    style.id = THEME_ID;
-    doc.head.append(style);
-  }
-  style.textContent = css;
+  adoptRuntimeSheet(doc, THEME_ID, css);
 }
 
 /** Sets `html[data-marxy-variant]`; the default theme's light block keys on it, dark is the default (ADR-0024). */

@@ -3,6 +3,7 @@ import { parseMarkdown } from '@marxy/core';
 import { renderDocumentSafeHtml, type RenderResult } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetStats } from '@marxy/typeset';
 import { resolveVariantPreference, type VariantPreference } from '@marxy/theme';
+import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import { applyWeightOffset, platformOf } from '../theme/offset.ts';
 import { applyInvisibleMarkers } from './invisibles-dom.ts';
 import { applyLinkDestinations } from './link-dest.ts';
@@ -318,13 +319,7 @@ export async function marxyRender(source: string, opts: MarxyRenderOpts): Promis
     root.style.removeProperty('--marxy-line-box');
   }
   if (opts.theme) {
-    let extra = document.getElementById('marxy-theme-override');
-    if (extra === null) {
-      extra = document.createElement('style');
-      extra.id = 'marxy-theme-override';
-      document.head.append(extra);
-    }
-    extra.textContent = opts.theme;
+    adoptRuntimeSheet(document, 'marxy-theme-override', opts.theme);
   }
 
   const main = document.getElementById('marxy-main');

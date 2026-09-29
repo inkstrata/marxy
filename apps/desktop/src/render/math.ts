@@ -1,5 +1,6 @@
 // KaTeX on first use (docs/design/02-render.md post-pass 6, MARXY-28): dynamic import, bundled OFL fonts, grid snap after render.
 /// <reference types="vite/client" />
+import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import { snapToGrid } from '@marxy/typeset';
 
 let cssInjected = false;
@@ -21,10 +22,11 @@ async function injectKatexCss(): Promise<void> {
     const url = await load();
     out = out.replaceAll(`url(fonts/${name})`, `url(${url as string})`);
   }
-  const style = document.createElement('style');
-  style.id = 'marxy-katex';
-  style.textContent = `${out}\ncode.marxy-math .katex{font-size:1em;line-height:inherit;vertical-align:-0.085em;}`;
-  document.head.append(style);
+  adoptRuntimeSheet(
+    document,
+    'marxy-katex',
+    `${out}\ncode.marxy-math .katex{font-size:1em;line-height:inherit;vertical-align:-0.085em;}`,
+  );
 }
 
 function sourceLineCount(text: string): number {

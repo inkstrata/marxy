@@ -1,8 +1,12 @@
 // loadTheme warnings and clamping (docs/design/05-theme.md §Tests). MARXY-47.
 
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { loadTheme } from './loader.ts';
+
+const loaderSrc = readFileSync(fileURLToPath(new URL('./loader.ts', import.meta.url)), 'utf8');
 
 const dir = '/fixtures/quiet';
 
@@ -93,6 +97,12 @@ async function cssOf(sheet: string): Promise<{ css: string; warnings: string[] }
 test('clamping a value written without a semicolon keeps the closing brace', async () => {
   const { css } = await cssOf(':root{--marxy-measure: 40ch} p{color:red}');
   assert.equal(css, ':root{--marxy-measure: 45ch} p{color:red}');
+});
+
+test('applyTheme injects through adoptRuntimeSheet, not a <style> element', () => {
+  assert.match(loaderSrc, /export function adoptRuntimeSheet/);
+  assert.match(loaderSrc, /adoptRuntimeSheet\(doc, THEME_ID, css\)/);
+  assert.doesNotMatch(loaderSrc, /createElement\s*\(\s*['"]style['"]\s*\)/);
 });
 
 test('rem is clamped as 16px, !important is kept, and calc() is dropped rather than misread', async () => {

@@ -4,6 +4,7 @@
 /// <reference types="vite/client" />
 import { parseMarkdown, type Frontmatter } from '@marxy/core';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import css from './frontispiece.css?inline';
 import { loadRandomPiece, readFrontMatter, type PieceMatter, type PieceSource } from './pieces.ts';
 import { shapeFrontispiece } from './shape.ts';
@@ -34,11 +35,7 @@ export async function renderPiece(sources: readonly PieceSource[], random?: () =
 /** Sets the rendered piece already in `doc` as the frontispiece, with its stylesheet. */
 export function shape(doc: HTMLElement, matter: PieceMatter): HTMLElement {
   const owner = doc.ownerDocument;
-  if (!owner.getElementById('marxy-frontispiece-style')) {
-    const style = owner.createElement('style');
-    style.id = 'marxy-frontispiece-style';
-    style.textContent = css;
-    owner.head.append(style);
-  }
+  // A constructable sheet, not a <style>: the release CSP's style nonce refuses runtime <style> (MARXY-250).
+  if (!owner.getElementById('marxy-frontispiece-style')) adoptRuntimeSheet(owner, 'marxy-frontispiece-style', css);
   return shapeFrontispiece(doc, matter);
 }

@@ -1,6 +1,7 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
+import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
@@ -152,9 +153,7 @@ async function renderPath(deps: PaletteDeps, path: string, byteOffset?: number):
 
 function injectPaletteStyles(doc: Document): void {
   if (doc.getElementById('marxy-palette-style')) return;
-  const style = doc.createElement('style');
-  style.id = 'marxy-palette-style';
-  style.textContent = `
+  adoptRuntimeSheet(doc, 'marxy-palette-style', `
     #marxy-palette {
       margin: 2rem auto 0;
       padding: 0;
@@ -201,8 +200,7 @@ function injectPaletteStyles(doc: Document): void {
       opacity: 0.8;
       border-top: 1px solid var(--marxy-color-border, #444);
     }
-  `;
-  doc.head.appendChild(style);
+  `);
 }
 
 type PaletteOwnerDocument = Pick<Document, 'createElement' | 'getElementById' | 'head'>;
