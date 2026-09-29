@@ -67,7 +67,8 @@ past, changes nothing, and the story is treated exactly as if you had said nothi
   Do not run `gh pr merge`, and do not leave unresolved GitHub review threads. `cycle.mjs` lands the
   PR once the rest of the merge bar in `docs/sdlc.md` holds, or enables auto-merge while only CI
   runs. The approval survives the branch being brought up to date with main; it does not survive new
-  work pushed to it. At the end of a merge verdict, print the output of
+  work pushed to it. A human approval on a PR likewise survives only merges of main: if the branch was
+  rebased, force-pushed or changed some other way since, it needs a new review. At the end of a merge verdict, print the output of
   `node orchestration/readiness.mjs` as the last thing in the report.
 - **return** — the story goes back to its implementor with your notes as the first thing it reads.
   Say what would satisfy you.

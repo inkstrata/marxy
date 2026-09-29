@@ -76,7 +76,9 @@ repeating one that failed.
   is not `results/{{KEY}}.pr.md` — `open-pr.mjs` is the only create path, because the
   commit-msg hook cannot see the PR body and agents otherwise paste Summary / Why / Test plan.
   Merge anything. Never write `KEY.approved`, run `approve.mjs` or `fleet.mjs verdict` — the
-  approval is the reviewer's verdict, not yours.
+  approval is the reviewer's verdict, not yours. Once the PR has a human approval, resolve
+  conflicts only by merging main into the branch — never rebase or force-push it; any other change
+  needs a new review.
 
 ## When stuck
 
