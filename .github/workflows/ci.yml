@@ -4,9 +4,12 @@ on:
   merge_group:
   push:
     branches: [main]
+# Every commit on main gets its own completed run, so the first red one names the merge that broke it
+# (MARXY-334). A group per ref would still drop runs there: GitHub keeps one pending run per group and
+# cancels the rest. Pull requests keep one group per ref and cancel a superseded run.
 concurrency:
-  group: "ci-${{ github.ref }}"
-  cancel-in-progress: true
+  group: "ci-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}"
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 permissions: { contents: read }
 env:
   CARGO_TERM_COLOR: always
