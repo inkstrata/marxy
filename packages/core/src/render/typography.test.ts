@@ -98,6 +98,33 @@ test('code spans keep straight quotes, dashes and ellipses', () => {
   assert.match(out, /<code>wait\.\.\.<\/code>/);
 });
 
+test('kbd from raw HTML keeps straight quotes, dashes and ellipses', () => {
+  const out = html('Run <kbd>--frozen-lockfile</kbd> and <kbd>"ok"...</kbd>.\n');
+  assert.match(out, /<kbd>--frozen-lockfile<\/kbd>/);
+  assert.match(out, /<kbd>"ok"\.\.\.<\/kbd>/);
+  assert.ok(!out.includes('\u2013'));
+  assert.ok(!out.includes('\u201c'));
+  assert.ok(!out.includes('\u2026'));
+});
+
+test('samp from raw HTML is not a typography target', () => {
+  const document = parseMarkdown('<samp>a -- b...</samp>\n', { file: 't.md' });
+  const raw = renderToUnsanitisedHtml(document);
+  assert.match(raw, /<samp>a -- b\.\.\.<\/samp>/);
+  assert.ok(!raw.includes('\u2013'));
+});
+
+test('pre from raw HTML is not a typography target', () => {
+  const out = html('Text <pre>"x" -- y</pre> after.\n');
+  assert.match(out, /<pre>"x" -- y<\/pre>/);
+  assert.ok(!out.includes('\u2013'));
+});
+
+test('a raw HTML code element keeps literal punctuation', () => {
+  const out = html('Use <code>wait... and --flag</code> here.\n');
+  assert.match(out, /<code>wait\.\.\. and --flag<\/code>/);
+});
+
 test('a fenced code block is not a typography target', () => {
   const out = html('```\nreturn "ok" -- done...\n```\n');
   assert.match(out, /return "ok" -- done\.\.\./);

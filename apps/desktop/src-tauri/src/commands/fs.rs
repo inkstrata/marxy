@@ -211,6 +211,36 @@ mod tests {
         assert_eq!(err.code, "not-found");
     }
 
+    #[test]
+    fn map_image_size_error_permission_denied_is_io() {
+        use std::io::{Error, ErrorKind};
+
+        let err = map_image_size_error(
+            "/locked.png",
+            ImageError::IoError(Error::new(ErrorKind::PermissionDenied, "permission denied")),
+        )
+        .expect_err("real I/O failure must not become null");
+        assert_eq!(err.code, "io");
+    }
+
+    #[test]
+    fn map_image_size_error_format_miss_is_none() {
+        use std::io::{Error, ErrorKind};
+
+        assert!(map_image_size_error(
+            "/short.png",
+            ImageError::IoError(Error::new(ErrorKind::UnexpectedEof, "eof")),
+        )
+        .unwrap()
+        .is_none());
+        assert!(map_image_size_error(
+            "/short.png",
+            ImageError::IoError(Error::new(ErrorKind::InvalidData, "bad")),
+        )
+        .unwrap()
+        .is_none());
+    }
+
     #[cfg(unix)]
     #[test]
     fn image_size_on_unreadable_file_is_io_not_none() {
@@ -224,11 +254,25 @@ mod tests {
         fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).expect("chmod");
 
         let path = file.to_string_lossy().into_owned();
-        let err = image_size(path).expect_err("permission denied must not look like a non-image");
+        let restore = || {
+            let _ = fs::set_permissions(&file, fs::Permissions::from_mode(0o644));
+            let _ = fs::remove_dir_all(&root);
+        };
 
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).expect("chmod back");
-        let _ = fs::remove_dir_all(&root);
+        // Root on Linux can still read mode 000; map_image_size_error tests cover the contract there.
+        if fs::read(&file).is_ok() {
+            restore();
+            return;
+        }
 
+        let err = match image_size(path) {
+            Err(e) => e,
+            Ok(none) => {
+                restore();
+                panic!("permission denied must not look like a non-image: {none:?}");
+            }
+        };
+        restore();
         assert_eq!(err.code, "io");
     }
 
