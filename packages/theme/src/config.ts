@@ -70,11 +70,11 @@ export function parseConfig(bytes: Uint8Array): ParseConfigResult {
   else if (raw.variant !== undefined) warnings.push('variant was invalid; using dark');
 
   let size = DEFAULTS.size;
-  if (typeof raw.size === 'number') size = clamp(Math.round(raw.size), 15, 50);
+  if (typeof raw.size === 'number' && Number.isFinite(raw.size)) size = clamp(Math.round(raw.size), 15, 50);
   else if (raw.size !== undefined) warnings.push('size was invalid; using 20');
 
   let measure = DEFAULTS.measure;
-  if (typeof raw.measure === 'number') measure = clamp(Math.round(raw.measure), 45, 80);
+  if (typeof raw.measure === 'number' && Number.isFinite(raw.measure)) measure = clamp(Math.round(raw.measure), 45, 80);
   else if (raw.measure !== undefined) warnings.push('measure was invalid; using 66');
 
   let typeset = DEFAULTS.typeset;
@@ -97,7 +97,8 @@ export function parseConfig(bytes: Uint8Array): ParseConfigResult {
   const linux = raw.linux;
   if (linux !== null && typeof linux === 'object' && !Array.isArray(linux)) {
     const wo = (linux as Record<string, unknown>).weight_offset;
-    if (typeof wo === 'number') linuxWeightOffset = wo;
+    if (typeof wo === 'number' && Number.isFinite(wo)) linuxWeightOffset = wo;
+    else if (wo !== undefined) warnings.push('linux.weight_offset was invalid; ignored');
   }
 
   return {
@@ -115,6 +116,18 @@ export function parseConfig(bytes: Uint8Array): ParseConfigResult {
     unknownKeys,
     warnings,
   };
+}
+
+function bytesToLatin1(b: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode(...b.subarray(i, i + 8192));
+  return s;
+}
+
+function latin1ToBytes(s: string): Uint8Array {
+  const b = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i += 1) b[i] = s.charCodeAt(i);
+  return b;
 }
 
 function detectEol(bytes: Uint8Array): '\n' | '\r\n' {
@@ -141,7 +154,7 @@ function splitLines(text: string): Line[] {
 
 /** `[table]` or `[[array.of.tables]]`, with an optional trailing comment. */
 function isTableHeader(line: string): boolean {
-  return /^\s*\[\[?[^\]]*\]\]?\s*(#.*)?$/.test(line);
+  return /^[ \t]*\[\[?[^\]]*\]\]?[ \t]*(#.*)?$/.test(line);
 }
 
 /** Where a trailing comment starts on a `key = value` line, outside any string; -1 for none. */
@@ -185,10 +198,16 @@ const MULTILINE = ['"""', "'''"];
  */
 export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string): Uint8Array {
   const eol = detectEol(bytes);
-  const text = new TextDecoder().decode(bytes);
+  // Each byte becomes one char (latin1), so lines the edit never touches are written back with
+  // exactly their bytes: no BOM stripped, no invalid UTF-8 turned into U+FFFD.
+  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const body = hasBom ? bytes.subarray(3) : bytes;
+  const text = bytesToLatin1(body);
   const lines = splitLines(text);
+  const value = bytesToLatin1(new TextEncoder().encode(tomlValue));
   const k = escapeRegExp(key);
-  const keyLine = new RegExp(`^(\\s*(?:${k}|"${k}"|'${k}')\\s*=\\s*)`);
+  const keyLine = new RegExp(`^([ \\t]*(?:${k}|"${k}"|'${k}')[ \\t]*=[ \\t]*)`);
+  const dottedLine = new RegExp(`^[ \\t]*(?:${k}|"${k}"|'${k}')[ \\t]*\\.`);
 
   let firstTable = -1;
   let found = -1;
@@ -203,6 +222,9 @@ export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string
     if (isTableHeader(line)) {
       firstTable = i;
       break;
+    }
+    if (dottedLine.test(line)) {
+      throw new Error(`config.toml already defines a dotted key under '${key}'; edit it by hand`);
     }
     if (found < 0 && keyLine.test(line)) found = i;
     for (const delim of MULTILINE) if (line.split(delim).length % 2 === 0) open = delim;
@@ -222,9 +244,9 @@ export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string
     const lastLine = lines[last]!.content;
     const hash = commentStart(lastLine, last === found ? head.length : 0);
     const comment = hash < 0 ? '' : ` ${lastLine.slice(hash)}`;
-    lines.splice(found, last - found + 1, { content: `${head}${tomlValue}${comment}`, ending: lines[last]!.ending });
+    lines.splice(found, last - found + 1, { content: `${head}${value}${comment}`, ending: lines[last]!.ending });
   } else {
-    const entry: Line = { content: `${key} = ${tomlValue}`, ending: eol };
+    const entry: Line = { content: `${key} = ${value}`, ending: eol };
     if (firstTable >= 0) lines.splice(firstTable, 0, entry);
     else {
       const last = lines[lines.length - 1]!;
@@ -235,7 +257,12 @@ export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string
       }
     }
   }
-  return new TextEncoder().encode(lines.map((l) => l.content + l.ending).join(''));
+  const out = latin1ToBytes(lines.map((l) => l.content + l.ending).join(''));
+  if (!hasBom) return out;
+  const withBom = new Uint8Array(out.length + 3);
+  withBom.set([0xef, 0xbb, 0xbf]);
+  withBom.set(out, 3);
+  return withBom;
 }
 
 function escapeRegExp(s: string): string {

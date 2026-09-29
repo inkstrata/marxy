@@ -95,27 +95,14 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
     }
 
     if (ch === '"' || ch === "'") {
-      const quote = ch;
-      let j = i + 1;
-      while (j < css.length) {
-        if (css[j] === '\\') {
-          j += 2;
-          continue;
-        }
-        if (css[j] === quote) {
-          j += 1;
-          break;
-        }
-        j += 1;
-      }
+      const j = skipString(css, i);
       out.push(css.slice(i, j));
       i = j;
       continue;
     }
 
     if (at(i, '@import')) {
-      const semi = css.indexOf(';', i);
-      const end = semi === -1 ? css.length : semi + 1;
+      const end = importEnd(css, i);
       const stmt = css.slice(i, end);
       warnings.push(`theme referenced an @import (${stmt.trim().slice(0, 60)}…); not loaded`);
       i = end;
@@ -158,6 +145,46 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
   }
 
   return { css: out.join(''), warnings };
+}
+
+/**
+ * End (exclusive) of the string starting at `start`. CSS ends a string at an unescaped newline
+ * (a bad-string) without consuming it, so a quote left open on one line cannot swallow the rules
+ * that follow; a backslash-newline continues the string.
+ */
+function skipString(css: string, start: number): number {
+  const quote = css[start];
+  let j = start + 1;
+  while (j < css.length) {
+    const c = css[j];
+    if (c === '\\') {
+      j += css[j + 1] === '\r' && css[j + 2] === '\n' ? 3 : 2;
+      continue;
+    }
+    if (c === quote) return j + 1;
+    if (c === '\n' || c === '\r' || c === '\f') return j;
+    j += 1;
+  }
+  return css.length;
+}
+
+/** End (exclusive) of an @import statement: the next `;` outside a string, comment or url(). */
+function importEnd(css: string, start: number): number {
+  let j = start;
+  while (j < css.length) {
+    const c = css[j];
+    if (c === '"' || c === "'") j = skipString(css, j);
+    else if (c === '/' && css[j + 1] === '*') {
+      const e = css.indexOf('*/', j + 2);
+      j = e === -1 ? css.length : e + 2;
+    } else if (c === '(') {
+      const close = findParenClose(css, j + 1);
+      j = close === -1 ? css.length : close + 1;
+    } else if (c === '\\') j += 2;
+    else if (c === ';') return j + 1;
+    else j += 1;
+  }
+  return css.length;
 }
 
 function findParenClose(text: string, start: number): number {

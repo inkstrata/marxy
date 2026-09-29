@@ -41,7 +41,7 @@ export function applyVariant(variant: Variant, doc: Document = document): void {
 
 // A declaration's value ends at `;`, `}` or a line end: `[^;\n]+` ran on through a closing `}` and
 // the clamp then wrote the rule back without it, leaving it open to swallow the rest of the sheet.
-const declaration = (prop: string) => new RegExp(`(${escapeRegExp(prop)}\\s*:\\s*)([^;}\\n]+)`, 'g');
+const declaration = (prop: string) => new RegExp(`(${escapeRegExp(prop)}(?:\\s|/\\*[\\s\\S]*?\\*/)*:\\s*)([^;}\\n]+)`, 'g');
 const IMPORTANT = /\s*!\s*important\s*$/i;
 // rem and em are resolved against the 16px root a theme cannot change.
 const PX_PER = { px: 1, rem: 16, em: 16 } as const;

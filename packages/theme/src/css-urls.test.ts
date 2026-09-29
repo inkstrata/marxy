@@ -94,3 +94,27 @@ test('dropping a remote image-set candidate drops its descriptor with it', () =>
   const { css } = rewriteUrls('a{background:image-set(url(ok.png) 1x, url(https://evil.example/f.png) 2x)}', { base, assetUrl });
   assert.equal(css, 'a{background:image-set(url("asset:///themes/quiet/ok.png") 1x)}');
 });
+
+test('a string ends at an unescaped newline, so a url() after it is still rewritten (MARXY-337)', () => {
+  const css = 'p { content: "x\n}\nbody { background: url(https://evil.example/nl.png) }\n/* " */';
+  const { css: out, warnings } = rewriteUrls(css, { base, assetUrl });
+  assert.ok(!out.includes('evil.example'));
+  assert.ok(warnings.some((w) => w.includes('evil.example')));
+  for (const nl of ['\r', '\f', '\r\n']) {
+    const r = rewriteUrls(`a{content:'x${nl}}b{background:url(http://evil.example/a.png)}`, { base, assetUrl });
+    assert.ok(!r.css.includes('evil.example'), JSON.stringify(nl));
+  }
+});
+
+test('an escaped newline continues a string and an escaped quote does not end it', () => {
+  const css = 'a{content:"x\\\ny\\"z"}b{content:"q\\\r\nr"}';
+  assert.equal(rewriteUrls(css, { base, assetUrl }).css, css);
+});
+
+test('@import ends at a semicolon outside its string, so a following rule survives (MARXY-337)', () => {
+  const { css, warnings } = rewriteUrls('@import "a;b.css" ;\nh1{color:red}', { base, assetUrl });
+  assert.equal(css, '\nh1{color:red}');
+  assert.equal(warnings.length, 1);
+  assert.equal(rewriteUrls('@import url(a;b.css);p{}', { base, assetUrl }).css, 'p{}');
+  assert.ok(!rewriteUrls('@import "x\n;a{background:url(http://evil.example/x.png)}', { base, assetUrl }).css.includes('evil.example'));
+});
