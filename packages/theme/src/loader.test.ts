@@ -6,6 +6,20 @@ import { loadTheme } from './loader.ts';
 
 const dir = '/fixtures/quiet';
 
+test('empty variants array is rejected with a warning naming the theme and file (MARXY-284)', async () => {
+  const files = new Map<string, Uint8Array>([
+    ['theme.toml', new TextEncoder().encode('name = "bare"\ncontract = 1\nvariants = []\n')],
+    ['theme.css', new TextEncoder().encode(':root { --marxy-measure: 68ch; }\n')],
+  ]);
+  const { manifest, warnings } = await loadTheme(
+    dir,
+    (rel) => Promise.resolve(files.get(rel)!),
+    (p) => p,
+  );
+  assert.deepEqual(manifest.variants, ['dark', 'light']);
+  assert.ok(warnings.some((w) => w.includes("Theme 'bare'") && w.includes('theme.toml')));
+});
+
 test('contract mismatch yields a warning and still loads css', async () => {
   const files = new Map<string, Uint8Array>([
     ['theme.toml', new TextEncoder().encode('name = "c2"\ncontract = 2\nvariants = ["light"]\n')],

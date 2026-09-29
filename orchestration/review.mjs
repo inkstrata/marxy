@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { ROOT, here, stories, pathsOf, pathMatches } from './lib.mjs';
 import { board } from './machine.mjs';
 import { resultPath } from './store.mjs';
-import { BOARD_FILES, reviewBoundary } from '../scripts/lib/own-row.mjs';
+import { BOARD_FILES, branchBoundary } from '../scripts/lib/own-row.mjs';
 
 /** Boundary checks that need a branch; named when the board has none (MARXY-81). */
 export const BRANCHLESS_CHECKS = [
@@ -29,13 +29,11 @@ export const EXTRA_BOUNDARIES = [
 const ATTRIBUTION_RE = /co-authored-by:.*(claude|cursor|gpt|grok|copilot)|generated with/i;
 
 /** Paths the boundary check treats as inside the story. */
-/** reviewBoundary for a live branch ref against origin/main. */
+/** The board boundary for a live branch ref, measured from where it left origin/main. */
 function liveBoundary(key, ref) {
-  const show = spec => { const r = run('git', ['show', spec]); return r.ok ? r.out : null; };
-  return reviewBoundary(key, {
-    baseCsv: show(`origin/main:${BOARD_FILES[0]}`) ?? '', headCsv: show(`${ref}:${BOARD_FILES[0]}`) ?? '',
-    baseDeps: show(`origin/main:${BOARD_FILES[1]}`) ?? '{}', headDeps: show(`${ref}:${BOARD_FILES[1]}`) ?? '{}',
-  });
+  const show = (at, f) => { const r = run('git', ['show', `${at}:${f}`]); return r.ok ? r.out : null; };
+  const fork = run('git', ['merge-base', 'origin/main', ref]);
+  return branchBoundary(key, { show, head: ref, forkPoint: fork.ok ? fork.out : null });
 }
 
 export function allowedFor(st, key) {

@@ -5,8 +5,6 @@ import { resolve } from 'node:path';
 import { git, read, stillRunning } from './proc.mjs';
 import { repoHome, runFile, readJsonOr, CODE_ROOT } from './store.mjs';
 import { parseWorktreeList, keyOfBranch } from './worktrees.mjs';
-import { pathsOf } from './lib.mjs';
-import { rowOnBranch } from './plan.mjs';
 
 const mtime = p => { try { return statSync(p).mtimeMs; } catch { return null; } };
 
@@ -42,31 +40,6 @@ export function observeWorktrees({
     });
   }
   return out;
-}
-
-/**
- * Paths reserved by something other than a board status: a claim that names its own paths (an
- * out-of-plan key whose row is only on its branch), and a worktree someone is working in right now.
- * A worktree idle past activeWorktreeMinutes holds nothing — it is listed under "Needs you" instead.
- */
-export function pathHolds({ board, plan, worktrees = [], t, nowMs = Date.now(), rowOf = (key, branch) => rowOnBranch(branch, key) }) {
-  const holds = [];
-  for (const [key, rec] of Object.entries(board.stories)) {
-    if (rec.claim?.paths?.length && Date.parse(rec.claim.until) > nowMs) holds.push({ key, paths: rec.claim.paths, why: `claimed by ${rec.claim.by}` });
-  }
-  const orchestrator = resolve(repoHome());
-  for (const w of worktrees) {
-    if (resolve(w.path) === orchestrator || resolve(w.path) === resolve(CODE_ROOT)) continue;
-    const status = board.stories[w.key]?.status;
-    if (status === 'in_progress' || status === 'in_review' || status === 'done') continue;
-    if (!w.dirty && !(w.ahead > 0)) continue;
-    const idleMin = w.lastActivityMs == null ? Infinity : (nowMs - w.lastActivityMs) / 60_000;
-    if (idleMin > t.activeWorktreeMinutes) continue;
-    const row = plan.byKey.get(w.key) ?? rowOf(w.key, w.branch);
-    if (!row) continue;
-    holds.push({ key: w.key, paths: pathsOf(row), path: w.path, why: `worktree active ${Math.round(idleMin)} min ago` });
-  }
-  return holds;
 }
 
 /**

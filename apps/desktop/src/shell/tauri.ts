@@ -43,6 +43,7 @@ export const shell: Pick<
   | 'onOpenFiles'
   | 'clipboardWrite'
   | 'configPaths'
+  | 'readDir'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
@@ -128,4 +129,5 @@ export const shell: Pick<
     await invoke('clipboard_write', { text: data.text, html: data.html ?? null });
   },
   configPaths: () => invoke<{ config: string; data: string }>('config_paths'),
+  readDir: (dir) => invoke('read_dir', { dir }),
 };

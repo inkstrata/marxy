@@ -1,12 +1,51 @@
-//! File commands: natural image size and asset-protocol scoping (docs/design/06-shell.md). MARXY-138.
+//! File commands: natural image size, asset-protocol scoping, and read_dir (docs/design/06-shell.md).
 
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
-use imagesize::size;
+use imagesize::{size, ImageError};
 use serde::Serialize;
 use tauri::Manager;
 
 use crate::error::ShellError;
+
+/// Same names as `index-model/deny.ts` and `index/mod.rs`; a gitignore `!` cannot undo these.
+const DENY_DIRECTORY_NAMES: &[&str] = &[
+    "node_modules",
+    "target",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    "out",
+    ".git",
+    "__pycache__",
+    ".next",
+    ".turbo",
+    "coverage",
+];
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileStat {
+    pub path: String,
+    pub size: u64,
+    pub mtime_ms: u64,
+    pub is_dir: bool,
+}
+
+fn mtime_ms(meta: &fs::Metadata) -> u64 {
+    meta.modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn denied_name(name: &str) -> bool {
+    DENY_DIRECTORY_NAMES.contains(&name)
+}
 
 fn scope_directory(dir: &str) -> Result<PathBuf, ShellError> {
     let p = Path::new(dir);
@@ -20,6 +59,26 @@ fn scope_directory(dir: &str) -> Result<PathBuf, ShellError> {
 pub struct ImageDimensions {
     pub width: u32,
     pub height: u32,
+}
+
+/// `imagesize` uses `IoError` for short reads as well as real filesystem failures; only the latter
+/// propagate to the webview.
+fn image_size_io_is_format_miss(err: &std::io::Error) -> bool {
+    matches!(
+        err.kind(),
+        std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::InvalidData
+    )
+}
+
+fn map_image_size_error(
+    path: &str,
+    err: ImageError,
+) -> Result<Option<ImageDimensions>, ShellError> {
+    match err {
+        ImageError::NotSupported | ImageError::CorruptedImage => Ok(None),
+        ImageError::IoError(e) if image_size_io_is_format_miss(&e) => Ok(None),
+        ImageError::IoError(e) => Err(ShellError::io(path, e.to_string())),
+    }
 }
 
 /// Natural pixel size from the file header only (`imagesize`, MIT). `null` when the bytes are not an image.
@@ -37,7 +96,7 @@ pub fn image_size(path: String) -> Result<Option<ImageDimensions>, ShellError> {
             width: dim.width as u32,
             height: dim.height as u32,
         })),
-        Err(_) => Ok(None),
+        Err(err) => map_image_size_error(&path, err),
     }
 }
 
@@ -48,6 +107,69 @@ pub fn allow_asset_scope(app: tauri::AppHandle, dir: String) -> Result<(), Shell
     app.asset_protocol_scope()
         .allow_directory(&dir, true)
         .map_err(|e| ShellError::io(&dir, e.to_string()))
+}
+
+/// Lists immediate children of `dir`; deny-listed directory names are omitted (ADR-0026).
+#[tauri::command]
+pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
+    let path = Path::new(&dir);
+    if !path.is_dir() {
+        return Err(ShellError::not_found(
+            &dir,
+            format!("{dir}: not a directory"),
+        ));
+    }
+    let canonical = path
+        .canonicalize()
+        .map_err(|e| ShellError::io(&dir, e.to_string()))?;
+    let mut out = Vec::new();
+    let entries = fs::read_dir(&canonical).map_err(|e| ShellError::io(&dir, e.to_string()))?;
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(e) => return Err(ShellError::io(&dir, e.to_string())),
+        };
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if denied_name(&name) {
+            continue;
+        }
+        let child = entry.path();
+        if child
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(denied_name)
+        {
+            continue;
+        }
+        let meta = match entry.metadata() {
+            Ok(meta) => meta,
+            Err(e) => {
+                return Err(ShellError::io(
+                    child.to_string_lossy().as_ref(),
+                    e.to_string(),
+                ))
+            }
+        };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        let is_dir = meta.is_dir();
+        let size = if is_dir { 0 } else { meta.len() };
+        let abs = if child.is_absolute() {
+            child
+        } else {
+            canonical.join(child)
+        };
+        out.push(FileStat {
+            path: abs.to_string_lossy().into_owned(),
+            size,
+            mtime_ms: mtime_ms(&meta),
+            is_dir,
+        });
+    }
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -89,10 +211,73 @@ mod tests {
         assert_eq!(err.code, "not-found");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn image_size_on_unreadable_file_is_io_not_none() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = std::env::temp_dir().join(format!("marxy-image-size-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("tmpdir");
+        let file = root.join("locked.png");
+        fs::write(&file, b"\x89PNG\r\n\x1a\n").expect("seed png header");
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).expect("chmod");
+
+        let path = file.to_string_lossy().into_owned();
+        let err = image_size(path).expect_err("permission denied must not look like a non-image");
+
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).expect("chmod back");
+        let _ = fs::remove_dir_all(&root);
+
+        assert_eq!(err.code, "io");
+    }
+
     #[test]
     fn allow_asset_scope_on_a_file_is_invalid() {
         let path = corpus_png();
         let err = scope_directory(&path.to_string_lossy()).unwrap_err();
         assert_eq!(err.code, "invalid");
+    }
+
+    #[test]
+    fn read_dir_lists_one_level_with_mtime_and_skips_node_modules() {
+        let root = std::env::temp_dir().join(format!("marxy-read-dir-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("tmpdir");
+        fs::write(root.join("a.md"), b"# a\n").expect("a.md");
+        fs::create_dir(root.join("sub")).expect("sub");
+        fs::create_dir_all(root.join("node_modules").join("pkg")).expect("node_modules");
+        fs::write(root.join("node_modules/pkg/x.md"), b"x").expect("nm file");
+
+        let dir = root.to_string_lossy().into_owned();
+        let listed = read_dir(dir).expect("read_dir");
+        let names: Vec<String> = listed
+            .iter()
+            .map(|stat| {
+                Path::new(&stat.path)
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+
+        assert!(names.iter().any(|n| n == "a.md"));
+        assert!(names.iter().any(|n| n == "sub"));
+        assert!(!names.iter().any(|n| n == "node_modules"));
+        let file = listed
+            .iter()
+            .find(|s| s.path.ends_with("a.md"))
+            .expect("a.md stat");
+        assert!(!file.is_dir);
+        assert!(file.size > 0);
+        assert!(file.mtime_ms > 0);
+        let sub = listed
+            .iter()
+            .find(|s| s.path.ends_with("sub"))
+            .expect("sub stat");
+        assert!(sub.is_dir);
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

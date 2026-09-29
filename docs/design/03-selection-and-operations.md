@@ -101,8 +101,9 @@ structure (the same sanitised pipeline; nothing new to trust).
 
 ### `copy-code-clean` — applies to `block` where `node.type === 'codeBlock'`
 
-`clipboard.text = node.value` (the content between the fences, as the parser stores it, ending
-with exactly one `\n` if non-empty); no `clipboard.html`. `replacement = text`.
+`clipboard.text = node.value` (the content between the fences, as the parser stores it). Do not
+append a newline the source did not have, and do not strip one the source did have. A one-line
+fence copies with no trailing newline. No `clipboard.html`. `replacement = text`.
 
 | Case | Expect |
 | --- | --- |
@@ -110,6 +111,7 @@ with exactly one `\n` if non-empty); no `clipboard.html`. `replacement = text`.
 | indented code block | value with the 4-space indent removed (already so in the AST) |
 | unclosed fence at EOF | value = everything after the opening fence |
 | empty block | `''` |
+| one-line fence whose value has no trailing newline | that value, not the value plus `\n` |
 
 ### `toggle-task` — applies to `block` where the node is a `taskMarker` (or a `listItem` with one)
 

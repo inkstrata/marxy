@@ -1,0 +1,6 @@
+document [0,1322)
+  frontmatter [0,1299) value="name: corpus-skill\ndescription: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…"
+  heading [1301,1314) level=1
+    text [1303,1314) value="Skill title"
+  paragraph [1316,1321)
+    text [1316,1321) value="Body."

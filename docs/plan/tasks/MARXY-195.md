@@ -36,7 +36,7 @@ launch, and the documents you opened last time are listed, pinned ones first. A 
 | Check | Expect |
 | --- | --- |
 | persist: launch 1 on `/r/long.md` (corpus `01-long-technical.md`), scroll block k to the reading line, quit; launch 2 on the same file | first visible block's byte offset equals launch 1's, within one line (MARXY-38's own criterion, now through `startApp`) |
-| persist: launch 1 opens A then B, pins A, quits; launch 2 summons the palette with an empty query | rows are A (pinned), then B |
+| persist: launch 1 opens A then B via `handle.open`, pins A on that same handle, calls `quit(0)`; launch 2 reads the flushed `history.json` | empty-query rows are A (pinned), then B. Writing `serializeHistoryFile` by hand does not count |
 | persist: `positions.json` and `history.json` in the store | both match the design shapes and parse with `version: 1` |
 | persist: `config.toml` in the store with `theme = "t"` and a theme dir | the user theme's stylesheet is applied (MARXY-177's check, through the real shell members) |
 | memory-shell call record | no persistence read or write before `first_text` |
@@ -44,6 +44,9 @@ launch, and the documents you opened last time are listed, pinned ones first. A 
 
 ## Acceptance → check
 The CSV row's criteria are the table rows.
+
+## This attempt
+PR #227 (head `b82dc8ea`) is the implementation and its latest CI is green. The reviewer returned it because the pin test builds `history.json` with `serializeHistoryFile` and `writeFileAtomic` instead of `quit(0)`. Fix that one test. Do not rewrite persistence.
 
 ## Do not
 Store `scrollTop` (ADR-0018: a byte offset and fraction). Read or write before `first_text`. Add a
