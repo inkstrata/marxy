@@ -113,7 +113,8 @@ test('toggle then Mod+S writes only the marker range in 03-ai-plan.md', async ()
       document.querySelector(`#doc input[data-marxy-s="${start}"]`)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     }, marker.src.start);
     await page.waitForFunction(() => window.marxyDocumentEdit?.().dirty === true);
-    assert.match(await page.evaluate(() => window.__marxySaveBoot.handle.shell.lastTitle ?? ''), / •/);
+    await page.waitForFunction(() => / •/.test(window.__marxySaveBoot.handle.shell.calls.filter((c) => c.method === 'setTitle').at(-1)?.args[0] ?? ''));
+    assert.match(await page.evaluate(() => window.__marxySaveBoot.handle.shell.calls.filter((c) => c.method === 'setTitle').at(-1)?.args[0] ?? ''), / •/);
     const saved = await page.evaluate(async () => window.marxyHarnessSave());
     assert.equal(saved, 'saved');
     await page.waitForFunction(
@@ -131,7 +132,7 @@ test('toggle then Mod+S writes only the marker range in 03-ai-plan.md', async ()
     for (const [s, e] of diffs) {
       assert.ok(s >= marker.src.start && e <= marker.src.end, `diff [${s},${e}) outside marker`);
     }
-    assert.doesNotMatch(await page.evaluate(() => window.__marxySaveBoot.handle.shell.lastTitle ?? ''), / •/);
+    assert.doesNotMatch(await page.evaluate(() => window.__marxySaveBoot.handle.shell.calls.filter((c) => c.method === 'setTitle').at(-1)?.args[0] ?? ''), / •/);
   } finally {
     await browser.close();
   }
