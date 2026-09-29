@@ -170,3 +170,8 @@ test('container lines are judged by their content when deciding what can start a
   const para = headingsFromMarkdown(new TextEncoder().encode('> text\n<a href="x">\n\n# H\n'));
   assert.deepEqual(para.map((x) => x.text), ['H']);
 });
+
+test('a paragraph that only starts like a list marker is not in a container (MARXY-337)', () => {
+  assertAgrees('*Note* text\n===\n<img src="a.png">\n# Not a heading\n', []);
+  assertAgrees('-1 degrees\n===\n<my-tag>\n# Not a heading\n', []);
+});

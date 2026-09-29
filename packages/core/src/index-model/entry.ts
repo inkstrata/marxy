@@ -104,7 +104,7 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
         if (text !== '') headings.push({ level: match[2]!.length, text, byteOffset: start + match[1]!.length });
       }
       paragraph = match === null && endsInParagraph(line, paragraph, paragraphInContainer);
-      paragraphInContainer = paragraph && (/^ {0,3}(?:>|[-+*]|\d{1,9}[.)]|\[[^\]]+\]:)/.test(line) || paragraphInContainer);
+      paragraphInContainer = paragraph && (/^ {0,3}(?:>|[-+*](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$)|\[[^\]]+\]:)/.test(line) || paragraphInContainer);
     } else {
       paragraph = false;
       if (isClosingFence(line, openFence.char, openFence.len)) openFence = null;
