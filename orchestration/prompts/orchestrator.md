@@ -73,7 +73,7 @@ through `merge-bar.mjs`, pinned to the head that was reviewed.
 ## Judgement calls that are yours
 
 - A story that is "done" but ugly in a way the gates could not see: taste is reviewed at the phase
-  gate from `docs/taste-review/queue.md`, not by you.
+  gate from `docs/taste-review/queue.md` (entries are optional; a story never needs one), not by you.
 - A story that would add chrome, telemetry, a plugin surface, a GPL dependency, a reformatting save,
   or a network fetch: **return** it, citing the ADR, whatever the story says.
 - Two stories fighting over a path: serialise them; never widen a story's paths yourself.

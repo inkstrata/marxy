@@ -3,8 +3,8 @@
   "deps": { "0": ["MARXY-A", "MARXY-B"] },
   "stories": { "MARXY-A": 1, "MARXY-B": 2 },
   "pulls": {
-    "1": ["docs/taste-review/queue.md", "pnpm-lock.yaml", "orchestration/results/MARXY-A.json"],
-    "2": ["docs/taste-review/queue.md", "pnpm-lock.yaml", "orchestration/results/MARXY-B.json"]
+    "1": ["docs/taste-review/queue.md", "docs/taste-review/queue.d/shared.md", "pnpm-lock.yaml", "orchestration/results/MARXY-A.json"],
+    "2": ["docs/taste-review/queue.md", "docs/taste-review/queue.d/shared.md", "pnpm-lock.yaml", "orchestration/results/MARXY-B.json"]
   },
   "expect": { "order": [{ "key": "MARXY-A", "disturbs": 0 }, { "key": "MARXY-B", "disturbs": 0 }] }
 }

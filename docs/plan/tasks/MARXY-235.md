@@ -11,6 +11,9 @@ verify: [pnpm precheck, pnpm done MARXY-235]
 
 **Outcome.** A diff in a plan or transcript shows added and removed lines at a glance, and still reads in greyscale because the `+` and `-` do the work; a console session reads as prompt and output; a log's ERROR stands out by weight; terminal escapes are visible instead of silent.
 
+## This attempt
+Commit `cbdd9de3` on the story branch is the implementation (diffs, console, log and escapes together, one edit of `packages/core/src/highlight`). Do not split it and do not rewrite it. Open the pull request and fix only a red gate. A split would mean a second pass over the same highlighter.
+
 ## What is wrong today
 Handbook [03](../../research/reader-artifacts/03-structured-output.md), [05](../../research/reader-artifacts/05-diffs-provenance.md), [09](../../research/reader-artifacts/09-colour-access.md); probe `ansi-in-fence`. Tint values are measured (chapter 9), not taste.
 

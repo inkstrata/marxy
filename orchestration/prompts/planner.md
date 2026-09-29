@@ -2,7 +2,8 @@
 
 You are invoked periodically by the orchestrator. You re-plan; you never implement. Read
 `AGENTS.md`, `docs/plan.md`, `docs/roadmap.md`, `docs/scope.md`, `docs/adr/README.md`,
-`orchestration/deps.json`, `CHANGELOG.md`, the latest `docs/taste-review/*/decisions.md`, the
+`orchestration/deps.json`, `CHANGELOG.md` and `changelog.d/` (recent work not yet folded in),
+the latest `docs/taste-review/*/decisions.md`, the
 fleet's status (`node orchestration/fleet.mjs status`: what is blocked, escalated and why), and the
 return notes of any story you are splitting (`node orchestration/fleet.mjs why KEY`, and the file
 `node orchestration/fleet.mjs path notes KEY` prints).
@@ -32,7 +33,7 @@ return notes of any story you are splitting (`node orchestration/fleet.mjs why K
    section does not exist for the decision the story needs, write the section first.
 4. **ADR proposals**, when a decision changed or a tripwire fired: a new numbered file in
    `docs/adr/` marked *proposed*, plus a story to land it. Do not edit accepted ADRs.
-5. **Taste-review requests**: if visual work merged without a queue entry, add one.
+5. **Taste-review requests**: a queue entry (`docs/taste-review/queue.d/KEY.md`) is optional and never required; do not add a story only to file one.
 6. **Scope pressure**: if the phase is behind, propose cuts in the order of
    `docs/scope.md` ("if the schedule still slips"), never new work.
 

@@ -9,11 +9,12 @@ import { PROVENANCE_ATTRIBUTES, type ProvenanceNames } from '../sanitize/policy.
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 import { parseAlert } from './alerts.ts';
 import { renderFrontmatterHead } from './frontmatter.ts';
-import { smarten } from './typography.ts';
+import { linkHostMismatchLabel } from './link-host.ts';
+import { smartenParagraphTextNode, type ParagraphTypo } from './typography.ts';
 
 const DIAGRAM_LANGUAGES = new Set(['mermaid', 'plantuml', 'dot', 'd2']);
 
-type Typo = { readonly lastText: Text | undefined; readonly wordsInParagraph: number };
+type Typo = ParagraphTypo;
 
 const NO_WIDONT: Typo = { lastText: undefined, wordsInParagraph: 0 };
 
@@ -246,21 +247,41 @@ function wordsIn(nodes: readonly Inline[]): number {
   return text.length === 0 ? 0 : text.split(/\s+/).length;
 }
 
+function plainInlineText(nodes: readonly Inline[]): string {
+  let out = '';
+  for (const node of nodes) {
+    switch (node.type) {
+      case 'text':
+      case 'code':
+        out += node.value;
+        break;
+      case 'softBreak':
+      case 'hardBreak':
+        out += ' ';
+        break;
+      case 'emphasis':
+      case 'strong':
+      case 'strikethrough':
+      case 'link':
+        out += plainInlineText(node.children);
+        break;
+      default:
+        break;
+    }
+  }
+  return out;
+}
+
 function inlines(nodes: readonly Inline[], ctx: Context, typo: Typo = NO_WIDONT): string {
   let text = '';
-  for (const node of nodes) text += inline(node, ctx, typo);
+  for (const node of nodes) text += inline(node, nodes, ctx, typo);
   return text;
 }
 
-function inline(node: Inline, ctx: Context, typo: Typo): string {
+function inline(node: Inline, siblings: readonly Inline[], ctx: Context, typo: Typo): string {
   switch (node.type) {
     case 'text':
-      return escapeText(
-        smarten(node.value, {
-          atParagraphEnd: typo.lastText === node,
-          wordsInParagraph: typo.wordsInParagraph,
-        }),
-      );
+      return escapeText(smartenParagraphTextNode(siblings, node, typo));
     case 'emphasis':
       return `<em${prov(node.src, ctx)}>${inlines(node.children, ctx, typo)}</em>`;
     case 'strong':
@@ -270,8 +291,17 @@ function inline(node: Inline, ctx: Context, typo: Typo): string {
     case 'code':
       return `<code${prov(node.src, ctx)}>${escapeText(node.value.replace(/\r?\n/g, ' '))}</code>`;
     case 'link': {
-      const title = node.title === undefined ? '' : ` title="${escapeAttribute(node.title)}"`;
-      return `<a href="${escapeAttribute(node.url)}"${title}${prov(node.src, ctx)}>${inlines(node.children, ctx, typo)}</a>`;
+      // Class sits on the `<a>` (it already has provenance) so the sanitiser keeps it; dest-on-summon
+      // is a CSS ::after / app child, never extra unmarked classes (ADR-0023).
+      const mismatch = linkHostMismatchLabel(plainInlineText(node.children), node.url);
+      const title =
+        node.title !== undefined
+          ? ` title="${escapeAttribute(node.title)}"`
+          : mismatch !== null
+            ? ` title="${escapeAttribute(mismatch.text)}"`
+            : '';
+      const mismatchClass = mismatch !== null ? ' class="marxy-link-mismatch"' : '';
+      return `<a href="${escapeAttribute(node.url)}"${mismatchClass}${title}${prov(node.src, ctx)}>${inlines(node.children, ctx, typo)}</a>`;
     }
     case 'image': {
       // The URL is written out as it stands; whether it may load is the sanitiser's decision, and by

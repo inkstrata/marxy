@@ -11,6 +11,13 @@ verify: [pnpm precheck, pnpm done MARXY-236]
 
 **Outcome.** Characters a reader cannot see but an agent or compiler obeys are marked where they sit; a link that says one site and goes to another says so.
 
+## This attempt
+PR #276 is open and conflicts with main. The implementation is still commit `b809d158` (invisibles and the link-host label together, one edit of `render-html.ts`). Do not split it and do not rewrite it.
+
+The red `browser` job is `fs::tests::image_size_on_unreadable_file_is_io_not_none`. The GitHub browser container runs as root, so mode `000` is still readable and the pre-MARXY-287 test panics with `None`. Main already returns early when `fs::read` succeeds (`2ec8c346`, MARXY-287). Rebase onto `origin/main` and take main's `apps/desktop/src-tauri/src/commands/fs.rs`. Do not edit that file. `render-html.ts` also conflicts with MARXY-230: keep the invisible markers and keep raw `kbd`, `code`, `samp` and `pre` text unsmartered.
+
+The linux baselines for `29-hidden-characters` were recaptured in `d3c2047f`. Keep those PNGs.
+
 ## What is wrong today
 Probe case `bidi-and-tags` (handbook [07](../../research/reader-artifacts/07-trust-safety.md)).
 

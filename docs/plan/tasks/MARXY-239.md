@@ -18,12 +18,21 @@ verify: [pnpm precheck, pnpm done MARXY-239]
 - `apps/desktop/src/source/editor.ts` — gutter on for non-markdown, folding, `highlightSpecialChars`, ligatures off, tab size.
 - `apps/desktop/src/source/editorconfig.ts` — new: pure parser for the few keys used.
 - `apps/desktop/src/commands/` — `toggle-line-numbers` and `jump-to-source` palette commands.
-- `packages/typeset/src/` — the third-pass slash break.
+- `apps/desktop/package.json` — depend on `@codemirror/language` (already listed in `scripts/allowlists/dependencies.json`). `pnpm-lock.yaml` records the same dependency; attempt 1 stopped because both files were outside Paths (delta 2026-09-28-stuck).
+- `packages/typeset/src/slash-break.ts`, `packages/typeset/src/index.ts` — the third-pass slash break.
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
 
+## Attempt 1 (blocked 2026-09-27)
+
+The draft is uncommitted in this story's worktree. Keep it. `codeFolding` is exported by `@codemirror/language`, which the desktop package does not depend on yet, and `apps/desktop/package.json` is not in this row's Paths, so `check-story` rejected the lockfile update. `pnpm-lock.yaml` is already allowed for every story.
+
+On the next attempt, in this pull request, add `@codemirror/language` at the same major as the other `@codemirror/*` dependencies (MIT, the same licence those packages already have) and widen this row's own Paths to include `apps/desktop/package.json`. The reviewer is told about a path widening; that is how this file is meant to land (`docs/ci-contract.md`). Do not report blocked for that file again, and do not split the story.
+
 ## Do this, in order
+The worktree has the implementation uncommitted, and the five story tests were green when it stopped. Do not rewrite it. `check-story` rejected `apps/desktop/package.json` and `pnpm-lock.yaml`; both are in Paths now.
+
 1. Gutter and toggle.
-2. Folding, special chars, ligatures.
+2. Add the folding dependency as above, then folding, special chars, ligatures.
 3. Tab width.
 4. Jump to source.
 5. Slash break.
@@ -53,6 +62,6 @@ verify: [pnpm precheck, pnpm done MARXY-239]
 ## Do not
 - Show line numbers in Rendered at rest.
 - Persist folds.
-- Edit `app.ts` (MARXY-195/196 hold it); register commands through `commands/`.
+- Edit `app.ts` (MARXY-195 still holds it; MARXY-196 has merged); register commands through `commands/`.
 - Read files outside the indexed root.
 - Touch `packages/*/src/contracts/**`.

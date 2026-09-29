@@ -42,6 +42,7 @@ export const shell: Pick<
   | 'startupMarks'
   | 'onOpenFiles'
   | 'clipboardWrite'
+  | 'configPaths'
   | 'readDir'
 > & {
   args(): Promise<string[]>;
@@ -120,12 +121,19 @@ export const shell: Pick<
     return convertFileSrc(path);
   },
   onOpenFiles: (cb) => {
-    void listen<string[]>('marxy:open-files', (event) => {
-      cb(event.payload);
-    });
+    void (async () => {
+      await listen<string[]>('marxy:open-files', (event) => {
+        cb(event.payload);
+      });
+      const pending = await invoke<string[][]>('take_pending_opens');
+      for (const paths of pending) {
+        cb(paths);
+      }
+    })();
   },
   clipboardWrite: async (data) => {
     await invoke('clipboard_write', { text: data.text, html: data.html ?? null });
   },
+  configPaths: () => invoke<{ config: string; data: string }>('config_paths'),
   readDir: (dir) => invoke('read_dir', { dir }),
 };

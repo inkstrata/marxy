@@ -4,6 +4,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { CODE_ROOT, notesPath, storyWorktree, newRunId } from './store.mjs';
 import { story, runEvent, boardEvent } from './machine.mjs';
 import { typeOf, slug } from './lib.mjs';
+import { OUTCOME, inferOutcome, isAuthOutcome, neverRan, producedWork } from './outcomes.mjs';
+import { recordVerdict as fleetRecordVerdict, openPrFor } from './fleet.mjs';
 
 const template = name => readFileSync(`${CODE_ROOT}orchestration/prompts/${name}.md`, 'utf8');
 
@@ -119,16 +121,65 @@ export function fingerprint(outcome, text = '') {
   return `${outcome}:${norm}`;
 }
 
-const GHOST_BYTES = 2048;
+const VERDICT_LINE = /^verdict:\s*(merge|return|escalate)\s*$/i;
+const HEAD_LINE = /^head:\s*([0-9a-f]{40})\s*$/i;
 
 /**
- * What a finished run means. Pure. `obs` is observeRuns' view of the run, `rec` the story now,
- * `result` the implementor's result file if it was written during this run, `prOpen` an open PR for
- * the story, `evidence` the worktree's commits ahead and dirtiness, `logTail` the end of its output.
- * Returns the events to append and the lines to print.
+ * Parse a reviewer's notes file: `verdict: merge|return|escalate`, then `head: <sha>`, then the
+ * numbered notes (the shape `orchestration/prompts/reviewer.md` asks for). `null` for anything that
+ * does not match — a file from before this format, one with no notes body, or plain garbage.
  */
-export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evidence = {}, logTail = '', t, now }) {
-  const outcome = obs.exit?.outcome ?? (obs.alive ? 'timeout' : 'dead');
+export function parseReviewNotes(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
+  const v = VERDICT_LINE.exec((lines[0] ?? '').trim());
+  const h = HEAD_LINE.exec((lines[1] ?? '').trim());
+  if (!v || !h) return null;
+  const body = lines.slice(2).join('\n').trim();
+  if (!body) return null;
+  return { verdict: v[1].toLowerCase(), head: h[1].toLowerCase(), body };
+}
+
+const defaultReadNotes = key => {
+  const p = notesPath(key);
+  return existsSync(p) ? readFileSync(p, 'utf8') : null;
+};
+
+/**
+ * When a review run ends without ever calling `fleet.mjs verdict`, the reviewer's own notes file is
+ * its verdict: the prompt now has it write that file first — `verdict: …` then `head: …` then its
+ * numbered notes — before it runs the command (MARXY-316, fixing the 18-hour stall MARXY-268 left
+ * when three reviewer runs finished reviewing but never reached that last step).
+ *
+ * A file counts only when it names the PR's *current* head — the guard against a stale file, chosen
+ * over comparing the file's mtime to the run's start because it also answers the separate question of
+ * which head a recovered `merge` may be signed against: never a newer one than the reviewer actually
+ * read. A file from an earlier run, or one naming a head the PR has since moved past, is left alone —
+ * the story falls through to today's behaviour (its reviewTries accounting, nothing recorded). So is a
+ * missing or malformed file.
+ *
+ * `findPr` and `apply` default to the exact functions `fleet.mjs verdict` itself uses (`openPrFor`,
+ * `recordVerdict`), so a recovered verdict is recorded through that one code path — never a second
+ * implementation of what a merge or a return means for the board.
+ */
+export function recoverVerdict(key, { readNotes = defaultReadNotes, findPr = openPrFor, apply = fleetRecordVerdict } = {}) {
+  const parsed = parseReviewNotes(readNotes(key));
+  if (!parsed) return null;
+  const pr = findPr(key);
+  if (!pr?.headRefOid || pr.headRefOid.toLowerCase() !== parsed.head) return null;
+  const res = apply(key, parsed.verdict, parsed.body, pr);
+  return res?.ok ? { verdict: parsed.verdict, message: res.message } : null;
+}
+
+/**
+ * What a finished run means. `obs` is observeRuns' view of the run, `rec` the story now, `result` the
+ * implementor's result file if it was written during this run, `prOpen` an open PR for the story,
+ * `evidence` the worktree's commits ahead and dirtiness, `logTail` the end of its output. Pure except
+ * for a review run's notes-file recovery above, which is itself fully injectable (`recover`) so a test
+ * never has to touch the real store or shell out to `gh`. Returns the events to append and the lines
+ * to print.
+ */
+export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evidence = {}, logTail = '', t, now, recover = {} }) {
+  const outcome = inferOutcome(obs);
   const ended = runEvent(id, { ended: now, outcome, code: obs.exit?.code ?? null, ...(obs.exit?.why ? { why: obs.exit.why } : {}) });
   const events = [ended];
   const lines = [];
@@ -138,7 +189,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   if (run.role === 'plan') {
     events.push(boardEvent({ planner: { run: null, lastEnded: now, lastOutcome: outcome } }));
     lines.push(`planner run ended: ${outcome}`);
-    if (outcome === 'auth') attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate for the planner; run `cursor-agent login`' });
+    if (isAuthOutcome(outcome)) attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate for the planner; run `cursor-agent login`' });
     return { events, lines, attention };
   }
   if (!rec || rec.run !== id) {
@@ -150,22 +201,31 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
   // A review or resolution that never reached its agent (the worktree could not be prepared, the CLI
   // could not log in, the worker died) has not tried anything, so it does not spend a try: three setup
   // failures used to park a story as "still conflicts after 3 resolution runs".
-  const neverRan = outcome === 'setup' || outcome === 'auth' || outcome === 'dead';
+  const refundedTry = neverRan(outcome);
   if (run.role === 'review' || run.role === 'resolve') {
     const what = run.role === 'review' ? 'reviewer' : 'conflict resolution';
     const tries = run.role === 'review' ? 'reviewTries' : 'resolveTries';
+    if (run.role === 'review' && !neverRan(outcome)) {
+      const recovered = recoverVerdict(key, recover);
+      if (recovered) {
+        lines.push(`${key}: recovered its ${recovered.verdict} verdict from its notes file (the run ended without calling fleet.mjs verdict) — ${recovered.message}`);
+        // return/escalate already moved the story out of in_review and unset run through the same
+        // fleet.mjs code a live verdict command uses; the default ending below would only be refused.
+        if (recovered.verdict !== 'merge') return { events, lines, attention };
+      }
+    }
     events.push(story(key, {
-      ...base, from: 'in_review', why: `${what} ended (${outcome})${neverRan ? ', try refunded' : ''}`,
-      ...(neverRan ? { inc: { [tries]: -1 } } : {}),
+      ...base, from: 'in_review', why: `${what} ended (${outcome})${refundedTry ? ', try refunded' : ''}`,
+      ...(refundedTry ? { inc: { [tries]: -1 } } : {}),
     }));
-    lines.push(`${key}: ${what} ended (${outcome})${neverRan ? ', try refunded' : ''}`);
-    if (outcome === 'auth') attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login`' });
+    lines.push(`${key}: ${what} ended (${outcome})${refundedTry ? ', try refunded' : ''}`);
+    if (isAuthOutcome(outcome)) attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login`' });
     return { events, lines, attention };
   }
 
   // implement
   const from = 'in_progress';
-  if (outcome === 'auth') {
+  if (isAuthOutcome(outcome)) {
     events.push(story(key, { ...base, from, to: 'todo', inc: { attempts: -1 }, why: 'cursor-agent could not authenticate; attempt refunded' }));
     attention.push({ key: 'fleet', why: 'cursor-agent could not authenticate; run `cursor-agent login` (implementor runs are refunded until then)' });
     return { events, lines: [`${key}: auth failure, attempt refunded`], attention };
@@ -189,7 +249,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
     events.push(story(key, { ...base, from, to: 'blocked', set: { parkedReason: reason, blockedAt: now }, why: 'implementor reported blocked' }));
     return { events, lines: [`${key}: blocked — ${reason}`], attention };
   }
-  if (outcome === 'setup') {
+  if (outcome === OUTCOME.SETUP) {
     const fails = (rec.setupFails ?? 0) + 1;
     const why = obs.exit?.why ?? 'the worker could not prepare the worktree';
     events.push(fails >= 2
@@ -197,7 +257,7 @@ export function finishRun({ id, run, obs, rec, result = null, prOpen = null, evi
       : story(key, { ...base, from, to: 'todo', inc: { attempts: -1, setupFails: 1 }, why: `setup failed, attempt refunded: ${why}` }));
     return { events, lines: [`${key}: setup failed (${why})`], attention };
   }
-  const worked = (evidence.ahead ?? 0) > 0 || evidence.dirty || (obs.logBytes ?? 0) > GHOST_BYTES;
+  const worked = producedWork(evidence, obs.logBytes);
   if (!worked) {
     const ghosts = (rec.ghosts ?? 0) + 1;
     const tail = lastText(logTail).slice(0, 200);

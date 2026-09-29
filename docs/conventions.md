@@ -48,7 +48,7 @@ ADR: 0007
 
 ## Pull requests
 
-**Title** = the squash-commit subject, same format as above.
+**Title** = the squash-commit subject, same format as above. While the pull request is open the cycle may prefix `[human]`, `(signed)`, or both. `[human]` means only a person can merge it. `(signed)` means an agent has signed this head. No prefix means the cycle will merge it. The conventions job lints the title with that prefix removed, and the merge passes the bare title as `--subject`.
 
 **Body**, in this order (the template enforces it):
 
@@ -106,15 +106,22 @@ several, most severe first. No unlabeled remarks.
 
 ## Changelog
 
-`CHANGELOG.md` follows Keep a Changelog: an `Unreleased` section with `Added`, `Changed`,
-`Fixed`, `Removed`, `Security` headings; one line per PR, written for a reader of Marxy, key
-in parentheses. Release notes are generated from the section at tag time.
+Nearly every pull request used to add a line to the same spot in `CHANGELOG.md`, so almost
+every merge put every other open PR in conflict there. A story's entry is now its own file,
+`changelog.d/KEY.md` — one line, written for a reader of Marxy, ending in the key in
+parentheses; `changelog.d/README.md` has the rule. Two fragments in different files cannot
+conflict on merge (MARXY-315).
 
 ```
-## Unreleased
-### Added
-- Task-list checkboxes can be toggled in Rendered mode; only the marker bytes change (MARXY-43)
+Task-list checkboxes can be toggled in Rendered mode; only the marker bytes change (MARXY-43)
 ```
+
+`scripts/lib/changelog.mjs`'s `hasEntry` is the one place that checks for an entry, so a gate,
+a script and a prompt cannot disagree; it also accepts, during the transition, a `CHANGELOG.md`
+line under `Unreleased` — the format `CHANGELOG.md` follows: [Keep a Changelog](https://keepachangelog.com),
+key in parentheses. `node scripts/changelog.mjs --release X.Y.Z` folds every fragment into
+`CHANGELOG.md` under a new version heading, in key order, and deletes the fragments. Release
+notes are generated from that heading at tag time.
 
 ## Font binaries
 

@@ -49,8 +49,14 @@ export interface Shell {
   quit(code?: number): Promise<void>;
   /** List one directory level with the deny list applied in the shell. */
   readDir(dir: string): Promise<readonly FileStat[]>;
-  /** Set the window title. */
+  /** Set the window title. A title change never moves or reveals the window controls. */
   setTitle(title: string): Promise<void>;
+  /**
+   * Show or hide the window's native controls (the macOS traffic lights) and size the strip they sit in.
+   * `stripHeight` is in CSS px; the controls are centred in it. Resolves as a no-op where the
+   * platform draws no native controls in the page's area.
+   */
+  setWindowControls(opts: { readonly visible: boolean; readonly stripHeight: number }): Promise<void>;
   /** Intrinsic dimensions of a local image file, or null when unknown. */
   imageSize(path: string): Promise<{ width: number; height: number } | null>;
   /** Open an http, https, or mailto URL externally; other schemes reject with code unsupported. */
@@ -67,63 +73,53 @@ export interface Shell {
   fetchRemoteImage(url: string): Promise<string>;
 }
 
+/** No-op Shell used only for compile-time completeness checks (MARXY-94, ADR-0039). */
+function stubShellImpl(): Shell {
+  return {
+    readFile: async () => new Uint8Array(),
+    writeFileAtomic: async () => {},
+    stat: async () => null,
+    watch: async () => ({ close() {} }),
+    listRoot: async () => [],
+    fuzzy: async () => [],
+    repositoryRoot: async () => null,
+    openDialog: async () => [],
+    revealInExternalEditor: async () => {},
+    clipboardWrite: async () => {},
+    assetUrl: () => '',
+    onOpenFiles: () => {},
+    platform: 'macos',
+    startupMarks: async () => ({}),
+    args: async () => [],
+    mark: async () => {},
+    quit: async () => {},
+    readDir: async () => [],
+    setTitle: async () => {},
+    setWindowControls: async () => {},
+    imageSize: async () => null,
+    openExternal: async () => {},
+    webkitVersion: async () => null,
+    configPaths: async () => ({ config: '', data: '' }),
+    allowAssetScope: async () => {},
+    saveDialog: async () => null,
+    fetchRemoteImage: async () => '',
+  };
+}
+
+function stubShellWithout<K extends keyof Shell>(omit: K): Omit<Shell, K> {
+  const shell = stubShellImpl();
+  const { [omit]: _removed, ...rest } = shell;
+  return rest;
+}
+
 /** Compile-time check that Shell lists every ADR-0026 §2 member (MARXY-94). */
-const memoryShellLike: Shell = {
-  readFile: async () => new Uint8Array(),
-  writeFileAtomic: async () => {},
-  stat: async () => null,
-  watch: async () => ({ close() {} }),
-  listRoot: async () => [],
-  fuzzy: async () => [],
-  repositoryRoot: async () => null,
-  openDialog: async () => [],
-  revealInExternalEditor: async () => {},
-  clipboardWrite: async () => {},
-  assetUrl: () => '',
-  onOpenFiles: () => {},
-  platform: 'macos',
-  startupMarks: async () => ({}),
-  args: async () => [],
-  mark: async () => {},
-  quit: async () => {},
-  readDir: async () => [],
-  setTitle: async () => {},
-  imageSize: async () => null,
-  openExternal: async () => {},
-  webkitVersion: async () => null,
-  configPaths: async () => ({ config: '', data: '' }),
-  allowAssetScope: async () => {},
-  saveDialog: async () => null,
-  fetchRemoteImage: async () => '',
-};
+const memoryShellLike: Shell = stubShellImpl();
 void memoryShellLike;
 
 // @ts-expect-error fetchRemoteImage is required on Shell (ADR-0026 §2)
-const _shellMissingFetchRemote: Shell = {
-  readFile: async () => new Uint8Array(),
-  writeFileAtomic: async () => {},
-  stat: async () => null,
-  watch: async () => ({ close() {} }),
-  listRoot: async () => [],
-  fuzzy: async () => [],
-  repositoryRoot: async () => null,
-  openDialog: async () => [],
-  revealInExternalEditor: async () => {},
-  clipboardWrite: async () => {},
-  assetUrl: () => '',
-  onOpenFiles: () => {},
-  platform: 'macos',
-  startupMarks: async () => ({}),
-  args: async () => [],
-  mark: async () => {},
-  quit: async () => {},
-  readDir: async () => [],
-  setTitle: async () => {},
-  imageSize: async () => null,
-  openExternal: async () => {},
-  webkitVersion: async () => null,
-  configPaths: async () => ({ config: '', data: '' }),
-  allowAssetScope: async () => {},
-  saveDialog: async () => null,
-};
+const _shellMissingFetchRemote: Shell = stubShellWithout('fetchRemoteImage');
 void _shellMissingFetchRemote;
+
+// @ts-expect-error setWindowControls is required on Shell (ADR-0038)
+const _shellMissingSetWindowControls: Shell = stubShellWithout('setWindowControls');
+void _shellMissingSetWindowControls;

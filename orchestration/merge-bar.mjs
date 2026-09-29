@@ -1,6 +1,7 @@
 // The quality bar a PR must clear before an agent may land it. cycle.mjs is the only
 // caller that merges; this module only decides. The clauses live in docs/sdlc.md.
 import { codeOwnerStatus } from './codeowners.mjs';
+import { hasEntry } from '../scripts/lib/changelog.mjs';
 
 const RED = new Set(['FAILURE', 'CANCELLED', 'TIMED_OUT', 'ERROR']);
 const PENDING = new Set(['PENDING', 'IN_PROGRESS', 'QUEUED', 'EXPECTED']);
@@ -52,7 +53,10 @@ export function holdReasons({
     outside.length && `files outside the story's paths: ${outside.join(', ')}`,
     !result && 'no implementor result file',
     result && result.status !== 'done' && `result says ${result.status}`,
-    files?.length && !files.includes('CHANGELOG.md') && 'no CHANGELOG entry',
+    // The hold text stays exactly this string: cycle.mjs matches on it (docs/ci-contract.md).
+    // `result?.key` names the fragment to look for; without one (no result file yet) any
+    // fragment or CHANGELOG.md counts, the same loose read as before fragments existed.
+    files?.length && !hasEntry(files, result?.key) && 'no CHANGELOG entry',
     !mergeUnreviewed && !approval?.ok && (approval?.why ?? 'not reviewed (no results/KEY.approved)'),
   ].filter(Boolean);
 }
@@ -67,12 +71,15 @@ export function evaluate(input) {
  * the bar was evaluated against: without it, a push between evaluation and merge lands a tree
  * nobody reviewed, which is the one thing a signed approval exists to prevent.
  */
-export function mergeArgs(number, headRefOid, { auto = false, queue = false } = {}) {
+export function mergeArgs(number, headRefOid, { auto = false, queue = false, subject } = {}) {
   if (!/^[0-9a-f]{40}$/.test(headRefOid ?? '')) throw new Error(`refusing to merge PR #${number} without a head to pin`);
   // `--auto` is how `gh` both enables classic auto-merge and enqueues onto a merge queue.
   // When `queue` is on, every land goes through that path so GitHub tests the PR on top of
   // those ahead of it instead of merging a head that was never rebased onto main.
-  return ['pr', 'merge', String(number), '--squash', ...(auto || queue ? ['--auto'] : []), '--delete-branch', '--match-head-commit', headRefOid];
+  // `--subject` is the squash headline. The open title may carry `[human]` or `(signed)`;
+  // those are display and must not become the commit subject.
+  const headline = subject ? ['--subject', subject] : [];
+  return ['pr', 'merge', String(number), '--squash', ...headline, ...(auto || queue ? ['--auto'] : []), '--delete-branch', '--match-head-commit', headRefOid];
 }
 
 /**

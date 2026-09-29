@@ -35,8 +35,10 @@ a checkout anyone is working in. `MARXY_RUNNER=0` runs your checkout's code inst
 the orchestrator. A one-off `node orchestration/cycle.mjs` beside a running loop exits at once if
 the loop's cycle holds the lock. `--dry-run` changes nothing anywhere and prints the status it would
 write; `--no-merge` decides everything and merges nothing; `--low`, `--minimal`, `--high` pick the
-compute profile. Never `pkill` the loop or a worker; stopping the loop does not stop workers, and
-the next loop finishes whatever ended while it was away.
+compute profile. `--drain` (or `MARXY_DRAIN=1`) winds the fleet down: no story that has never been
+attempted is started, while runs, reviews, conflict resolves, stories returned for changes, merges
+and the planner all carry on, and status.md says it is draining. Never `pkill` the loop or a worker;
+stopping the loop does not stop workers, and the next loop finishes whatever ended while it was away.
 
 ## The loop
 
@@ -66,6 +68,8 @@ missed or killed cycle loses nothing.
 4. **Review.** Each In Review PR takes exactly one step: resolve a conflict, return it to its
    implementor, start a reviewer, update the branch (one per cycle, head of the order), enable
    auto-merge, merge, or wait. A wait past its limit is named under **Needs you**.
+   The open title says `[human]` when only a person can merge it and `(signed)` when an agent has
+   signed. No prefix means the cycle will merge it. The squash subject omits both.
 5. **Plan.** The planner starts when `planner-trigger.mjs` says it is due, none is running, and the
    last started more than `plannerCooldownMinutes` ago.
 6. **Dispatch.** An implementor starts for every ready story (`ready.mjs`), unless the planner has
@@ -124,11 +128,22 @@ missed or killed cycle loses nothing.
 | no signed approval | a reviewer run | started, up to `reviewLanes` at once; after `reviewTries` without a verdict, **Needs you** |
 | CODEOWNERS, changes requested, no board row | a person | **Needs you** at once (gate files first) |
 | CI pending | CI | auto-merge enabled once approved; **Needs you** if it waits four times `holdAttentionMinutes` |
-| behind main, otherwise ready | the cycle | one branch updated per cycle, head of the review order |
+| behind main, otherwise ready | the cycle | with `requireUpToDate` true, one branch updated per cycle, head of the review order; with it false (default, ADR-0040), being behind holds nothing — the PR merges |
 | anything else | a person | **Needs you** after `holdAttentionMinutes` |
 
 A PR that cannot go back to an implementor (a `no-dispatch` row, or no row) goes under **Needs you**
 instead of being returned.
+
+### The main guard (ADR-0040)
+
+Dropping strict up-to-date branch protection needs its own safety net: before any merge decision,
+the cycle reads the latest **completed** `ci` run on `main` (`gh run list --branch main --workflow
+ci --status completed --limit 1 --json conclusion,url,headSha`, one call, injectable through `io`
+like every other GitHub read). If it is red, the cycle merges nothing this cycle — no `merge`, no
+`auto-merge` — and lists `main is red` under **Needs you** with the run's URL; everything else
+(review, dispatch, conflict resolution) carries on. No completed run yet is not evidence of red,
+so it never blocks. The guard clears itself the cycle after a green run lands on `main` — nobody
+resets it by hand.
 
 ## The store
 
@@ -185,9 +200,11 @@ brought up to date with main (`approve.mjs` `onlyMainArrived`) and nothing else.
 code that decides a merge, and CODEOWNERS covers them; because the loop runs from `origin/main`, a
 fix to them waits for the author without stopping the fleet that runs the old version.
 
-`models.json` `mergeQueue` stays false on this User-owned repo: the cycle updates one BEHIND branch
-per cycle instead. After an org transfer, enable GitHub's merge queue and flip it; the cycle then
-enqueues with `--auto` and never updates a branch.
+`models.json` `mergeQueue` stays false on this User-owned repo. With `requireUpToDate` also false
+(the default, ADR-0040), the cycle never updates a BEHIND branch at all — main's branch protection
+no longer requires one, and the main guard above is the safety net instead. Set `requireUpToDate`
+true to go back to updating one BEHIND branch per cycle. After an org transfer, enable GitHub's
+merge queue and flip `mergeQueue`; the cycle then enqueues with `--auto` and never updates a branch.
 
 `node orchestration/readiness.mjs` prints every open PR as one table in review order: CI,
 mergeability, approval, who it waits on, and the next action.

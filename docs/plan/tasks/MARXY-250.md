@@ -23,6 +23,14 @@ The release app shows it: a line breaks inside "without" with no hyphen.
 
 ## Files and signatures
 Creation sites to move to `adoptedStyleSheets`: `packages/theme/src/loader.ts` (`applyTheme`), `packages/typeset/src/apply.ts` (`#marxy-hyphen-style`), `apps/desktop/src/render/math.ts` (`#marxy-katex`), `apps/desktop/src/palette/view.ts`, `apps/desktop/src/render/headless.ts`. Keep the registry ids as the sheets' keys.
+- `apps/desktop/src-tauri/tauri.conf.json` — `style-src-attr 'unsafe-inline'`; `style-src` drops `'unsafe-inline'` (design [06-shell](../../design/06-shell.md) §CSP).
+- `apps/desktop/test/shell-boundary.test.mjs` — update whatever still expects a runtime `<style>` element.
+- `apps/desktop/test/release-csp.test.mjs`, `scripts/check-csp.mjs`.
+
+## This attempt
+Commit `8e837326` on the story branch is the implementation. Do not rewrite it. The stall was after that commit. Open the pull request and fix only a red gate. `shell-boundary.test.mjs` is in Paths.
+
+- `apps/desktop/test/shell-boundary.test.mjs` — stop pinning the old CSP string. Compare `tauri.conf.json` to `loadConfiguredCsp()` from `scripts/check-csp.mjs`. Commit `8e837326` on this story's branch already does that. Open the pull request from that commit and drop its `docs/plan/jira-issues.csv` hunk. Do not start a fourth attempt.
 
 ## Tests → expected
 | Check | Expect |

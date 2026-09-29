@@ -36,19 +36,39 @@ entirely, which is `blocking`.
 
 ## After you decide
 
-Write your numbered notes to a file, then record the verdict with one command. It is the only way a
-verdict reaches the fleet, and the fleet reads nothing else:
+Before anything else at the end of this run — before you write a summary, before you do anything
+else — write to the path `node orchestration/fleet.mjs path notes KEY` prints, in this exact shape:
 
 ```
-node orchestration/fleet.mjs verdict KEY merge|return|escalate --notes <file>
+verdict: merge|return|escalate
+head: <the 40-character PR head you read, from the packet or `gh pr view`>
+
+<your numbered notes as Conventional Comments>
 ```
+
+Only once that file is written do you record the verdict, with your numbered notes alone (no
+`verdict:`/`head:` lines — write them to a second, throwaway file) in a `--notes` file for the command
+below. It is still the only way a verdict lands on the board and the merge bar reads, so run it every
+time, in order:
+
+```
+node orchestration/fleet.mjs verdict KEY merge|return|escalate --notes <second file>
+```
+
+Writing the first file before anything else means your verdict is not lost if this run ends before the
+command runs — three review runs finishing review but never reaching this last step is exactly what
+left MARXY-268 sitting for 18 hours. When that happens, the fleet reads that first file and records the
+verdict through the same code the command above runs (MARXY-316), but only when the file is well-formed
+and still names the PR's current head; a malformed file, or one naming a head the PR has since moved
+past, changes nothing, and the story is treated exactly as if you had said nothing at all.
 
 - **merge** — the command writes `results/KEY.approved` in the fleet store with your notes and signs
   it against the PR head you read (it runs `approve.mjs`'s signing for you).
   Do not run `gh pr merge`, and do not leave unresolved GitHub review threads. `cycle.mjs` lands the
   PR once the rest of the merge bar in `docs/sdlc.md` holds, or enables auto-merge while only CI
   runs. The approval survives the branch being brought up to date with main; it does not survive new
-  work pushed to it. At the end of a merge verdict, print the output of
+  work pushed to it. A human approval on a PR likewise survives only merges of main: if the branch was
+  rebased, force-pushed or changed some other way since, it needs a new review. At the end of a merge verdict, print the output of
   `node orchestration/readiness.mjs` as the last thing in the report.
 - **return** — the story goes back to its implementor with your notes as the first thing it reads.
   Say what would satisfy you.

@@ -15,19 +15,21 @@ verify: [pnpm precheck, pnpm done MARXY-230]
 Handbook [07](../../research/reader-artifacts/07-trust-safety.md) and [05](../../research/reader-artifacts/05-diffs-provenance.md), measured: smart typography reaches `kbd`; `copy-code-clean` appends `\n` to any non-empty block; `copy-section` runs two regular expressions over rendered HTML to strip provenance attributes, and they also match document text.
 
 ## Files and signatures
-- `packages/core/src/render/typography.ts` — skip `code`, `kbd`, `samp`, `pre` subtrees whatever produced them (markdown or raw HTML).
-- `packages/core/src/operations/copy-code-clean.ts` — keep the source's final newline state; never add one.
+- `packages/core/src/render/render-html.ts` — pass the paragraph's siblings into `smartenParagraphTextNode`. Raw `<kbd>--frozen-lockfile</kbd>` parses as html + text + html; `typography.ts` cannot see the tags around the text node, and a heuristic skip inside `smarten` will miss or over-skip.
+- `packages/core/src/render/typography.ts` — skip `code`, `kbd`, `samp`, `pre` subtrees whatever produced them (markdown or raw HTML), using the sibling list from the call site.
+- `packages/core/src/operations/copy-code-clean.ts` — keep the source's final newline state; never add one. `clipboard.text` is `node.value`.
+- `apps/desktop/test/operations-copy.test.mjs` — the Mod+C code-block test still expects `block.value` plus a newline when the value has none. Change that assertion to `payload.text === block.value`. That is the browser failure on PR #231 (head `30e8bed`).
 - `packages/core/src/operations/copy-section.ts` — strip provenance by walking the HAST/DOM attributes, not by regex over serialised HTML.
 - `packages/core/src/operations/operations.test.ts` — acceptance 2 and 3.
 - `packages/core/src/render/typography.test.ts` — acceptance 1.
 - `CHANGELOG.md` — one Unreleased line ending with this story's key.
 
 ## Do this, in order
-1. Failing tests for all three defects.
-2. Typography skip list.
-3. Newline rule.
-4. copy-section without regex.
-5. Goldens, CHANGELOG.
+The branch already copies `node.value` and already edits `render-html.ts`. Keep both. Do not widen the CSV in this story's pull request. The only edit the red browser job still needs is the desktop assertion below.
+
+1. In `operations-copy.test.mjs`, assert `payload.text` equals `block.value`. Do not restore an appended newline.
+2. Leave the three core fixes in place if their tests already pass.
+3. Goldens and CHANGELOG only if a golden moved.
 
 ## Tests → expected
 | Check | Expect |
@@ -43,9 +45,11 @@ Handbook [07](../../research/reader-artifacts/07-trust-safety.md) and [05](../..
 3. operations.test.ts asserts the clipboard html of a section holding the inline code `a data-marxy-k="9" b` and an html fence keeps their text byte for byte, and a test reading copy-section.ts asserts the two attribute-stripping regular expressions are gone.
 4. pnpm gate:golden and pnpm gate:fidelity green; any golden diff is inside kbd/samp/code only.
 5. CHANGELOG.md has an Unreleased line for this key.
+6. apps/desktop/test/operations-copy.test.mjs asserts Mod+C on a code block copies `block.value` and does not append a newline when that value has none.
 
 ## Do not
 - Change drag-selection copy in prose (design 03 keeps rendered text; ADR-0036 clause 5).
 - Resolve drag selections to byte spans (P06 §3; not in this story).
 - Add new operations: `copy-command` and the rest are v1.1 (docs/scope.md).
+- Put the trailing newline back to satisfy the old desktop assertion. Design 03 now matches the handbook: copy `node.value`.
 - Touch `packages/*/src/contracts/**`.

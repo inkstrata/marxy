@@ -10,12 +10,14 @@ mod watch_notify;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
 use tauri::RunEvent;
 use tauri::{Emitter, Manager};
+
+use commands::app::config_paths;
 
 fn now_ms() -> f64 {
     SystemTime::now()
@@ -349,12 +351,43 @@ fn focus_main_window(app: &tauri::AppHandle) {
     }
 }
 
-fn emit_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
+fn pending_opens_table() -> &'static Mutex<Vec<Vec<String>>> {
+    static TABLE: OnceLock<Mutex<Vec<Vec<String>>>> = OnceLock::new();
+    TABLE.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+/// After the webview drains with `take_pending_opens`, later opens emit live; until then they queue.
+static OPENS_LISTENER_READY: AtomicBool = AtomicBool::new(false);
+
+fn enqueue_open_files(paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+    if let Ok(mut pending) = pending_opens_table().lock() {
+        pending.push(paths);
+    }
+}
+
+fn deliver_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
     if paths.is_empty() {
         return;
     }
     focus_main_window(app);
-    let _ = app.emit("marxy:open-files", paths);
+    if OPENS_LISTENER_READY.load(Ordering::SeqCst) {
+        let _ = app.emit("marxy:open-files", paths);
+    } else {
+        enqueue_open_files(paths);
+    }
+}
+
+/// Returns every open batch queued before the page listened, then clears the queue (MARXY-252).
+#[tauri::command]
+fn take_pending_opens() -> Vec<Vec<String>> {
+    OPENS_LISTENER_READY.store(true, Ordering::SeqCst);
+    pending_opens_table()
+        .lock()
+        .map(|mut pending| std::mem::take(&mut *pending))
+        .unwrap_or_default()
 }
 
 /// The deadline's state machine, checkable from outside: `marxy --paint-deadline-selftest` runs these
@@ -552,7 +585,7 @@ fn open_file_via_dialog(app: tauri::AppHandle) {
             else {
                 return;
             };
-            emit_open_files(&app, vec![path]);
+            deliver_open_files(&app, vec![path]);
         });
 }
 
@@ -575,7 +608,7 @@ fn main() {
         .plugin(navigation_guard())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            emit_open_files(app, document_paths_from_argv(&argv, &cwd));
+            deliver_open_files(app, document_paths_from_argv(&argv, &cwd));
         }));
     // Only "Open File…" (the macOS menu) calls the dialog plugin; the webview never does, so no
     // capability is added for it (docs/design/06-shell.md §Capabilities).
@@ -605,8 +638,10 @@ fn main() {
             unwatch_root,
             commands::fs::image_size,
             commands::fs::allow_asset_scope,
+            config_paths,
             commands::fs::read_dir,
             clipboard_write,
+            take_pending_opens,
         ])
         .build(tauri::generate_context!())
         .expect("error while building marxy")
@@ -622,7 +657,7 @@ fn main() {
                             .and_then(|s| absolute_document_path(Path::new("/"), s))
                     })
                     .collect();
-                emit_open_files(app, paths);
+                deliver_open_files(app, paths);
             }
             #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
             let _ = (app, event);
@@ -631,7 +666,26 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{absolute_document_path, navigation_allowed, percent_decode};
+    use super::{
+        absolute_document_path, enqueue_open_files, navigation_allowed, percent_decode,
+        take_pending_opens, OPENS_LISTENER_READY,
+    };
+    use std::sync::atomic::Ordering;
+
+    fn reset_pending_opens_for_test() {
+        OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
+        let _ = take_pending_opens();
+        OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn an_open_before_the_webview_listens_is_queued_once() {
+        reset_pending_opens_for_test();
+        enqueue_open_files(vec!["/tmp/a.md".into()]);
+        let first = take_pending_opens();
+        assert_eq!(first, vec![vec!["/tmp/a.md".to_string()]]);
+        assert!(take_pending_opens().is_empty());
+    }
 
     #[test]
     fn the_window_navigates_only_within_the_app() {

@@ -1,12 +1,12 @@
 ---
 key: MARXY-44
 design: [13-trust, 09-app-shell, 11-config-and-storage, 08-position-and-watching]
-depends: [MARXY-96, MARXY-138, MARXY-42, MARXY-38, MARXY-198, MARXY-229]
+depends: [MARXY-96, MARXY-138, MARXY-42, MARXY-38, MARXY-198, MARXY-229, MARXY-195]
 verify: [pnpm precheck, pnpm done MARXY-44]
 ---
 # MARXY-44 — Per-document opt-in that widens the allow-list, with a discoverable notice
 
-**Design:** [13-trust](../../design/13-trust.md) §The unclosed-element case, §Persistence, §The notice, §Revoking · [09-app-shell](../../design/09-app-shell.md) §Notices · [11-config-and-storage](../../design/11-config-and-storage.md) §Data files · [08-position-and-watching](../../design/08-position-and-watching.md) (re-render keeps position) · **Depends on:** MARXY-96 (core), MARXY-26 (notices region and the blocked-content notice it starts), MARXY-42 (command registry), MARXY-38 (data-file storage helpers), MARXY-198 (rewrites `app.ts`'s open path — the render call this story hooks is `rerenderFromBuffer` / `openReplacing` after it lands; rebase on it, never re-implement it) · **ADRs:** ADR-0009, ADR-0027. · **Sequencing:** labelled `cross-phase` (delta 2026-09-23) so it dispatches while the Phase 2 wiring tail (MARXY-193 to 196) is still open; `ready.mjs` still holds it by path against any of them In Progress.
+**Design:** [13-trust](../../design/13-trust.md) §The unclosed-element case, §Persistence, §The notice, §Revoking · [09-app-shell](../../design/09-app-shell.md) §Notices · [11-config-and-storage](../../design/11-config-and-storage.md) §Data files · [08-position-and-watching](../../design/08-position-and-watching.md) (re-render keeps position) · **Depends on:** MARXY-96 (core), MARXY-26 (notices region and the blocked-content notice it starts), MARXY-42 (command registry), MARXY-38 (data-file storage helpers), MARXY-198 (rewrites `app.ts`'s open path — the render call this story hooks is `rerenderFromBuffer` / `openReplacing` after it lands; rebase on it, never re-implement it), MARXY-195 (`app.ts`; this story waits so Phase 2 can close) · **ADRs:** ADR-0009, ADR-0027. · **Sequencing:** labelled `cross-phase` (delta 2026-09-23) so it dispatches while the Phase 2 wiring tail (MARXY-193 to 196) is still open; `ready.mjs` still holds it by path against any of them In Progress.
 
 **Outcome.** `02-readme-real-world.md` opens with one quiet line saying what was simplified and which image hosts were not contacted. "Show this document's HTML" re-renders it with `<details>`, centred title blocks and sized images, still sanitised, and Marxy remembers the choice for that file. A document cut short by an unclosed `<script>` says so instead of looking short. Images from hosts still need their own grant (MARXY-97); this story records host grants in the store and offers the action, but fetching is that story's.
 
@@ -15,10 +15,16 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 - `apps/desktop/src/notices/blocked.ts` — replaces MARXY-26's placeholder action with the §12 table; the Details expansion; the truncation notice (`notices/truncation.ts` if it reads better separately).
 - `apps/desktop/src/commands/trust.ts` — `trust.revoke-html`, `trust.revoke-images`; one line in `commands/index.ts`.
 - The render path in `apps/desktop/src/app.ts` (or wherever MARXY-26 left the render call) — render with `policyFor(grantsFor(path))`; the first-document-of-launch re-render when `trust.json` arrives late (§12 §Persistence).
-- `fixtures/corpus/22-unclosed-script.md` — new fixture: three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose. Add its AST/HTML goldens. `16-api-reference.md` already uses 16. Corpus 20 and 21 are MARXY-78's uncommitted fixtures; do not take them.
-- `apps/desktop/test/trust.test.mjs` (app harness).
+- `apps/desktop/test/fixtures/22-unclosed-script.md` — three paragraphs, a `<script>` with no end tag at line 5, then 20 lines of prose, and the truncation fixture is not under fixtures/corpus. `16-api-reference.md` already uses 16. Corpus 20 and 21 are MARXY-78's uncommitted fixtures; do not take them.
+- `apps/desktop/test/trust.test.mjs` (app harness). It loads the truncation fixture from `apps/desktop/test/fixtures/`, not from `fixtures/corpus/`.
+
+## Resume (2026-09-28)
+PR #249 (head `5a3ad85`) already has the feature. CI is red because `fixtures/corpus/22-unclosed-script.md` is a corpus document: `packages/theme/test/palettes.test.mjs` requires a 960px light PNG for both `webkit-macos` and `webkit-linux`, and `gate:aesthetics` requires a rag baseline plus a queue entry. The Linux PNGs cannot be produced on the Mac this fleet runs on. Do not try to seed them.
+
+Move the fixture to `apps/desktop/test/fixtures/22-unclosed-script.md`, point `trust.test.mjs` at that path, and delete `fixtures/corpus/22-unclosed-script.md` plus `packages/core/goldens/22-unclosed-script.ast.txt` and `packages/core/goldens/22-unclosed-script.html.txt`. Leave the rest of the branch. Do not rewrite `trust.ts`.
 
 ## Do this, in order
+
 1. `TrustStore` + tests (LRU 2,000, punycode host normalisation with `new URL('https://' + host).hostname`, version handling and corruption per §11).
 2. The notice: counts, host list (Unicode and punycode when they differ), element names from allow-list removals only; suppress the HTML action when `WIDE_POLICY` would remove every removed element (test with a document whose only removal is `<script>`).
 3. Grant HTML → `grant(path, { html: true })` → re-render with position kept → transient summary. Grant images → `grant(path, { imageHosts })` (fetching is the next story; until it lands, the images stay alt text and the summary says "Images will load when Marxy can fetch them" — delete that string in MARXY-97).
@@ -32,7 +38,7 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 | `02-readme-real-world.md` default | exactly one blocked-content notice; it names the image hosts and the simplified elements; zero page requests (no-network harness attached) |
 | click "Show this document's HTML" | `details`, `div[align=center]`, `img[width]` present; `script` absent; `javascript:` link has no `href`; `trust.json` written with `html: true`; same first visible block before and after |
 | restart the harness with that `trust.json` | no HTML action in the notice; wide render |
-| `22-unclosed-script.md` | truncation notice names line 5 and the remaining line count; it is not transient |
+| `apps/desktop/test/fixtures/22-unclosed-script.md` | truncation notice names line 5 and the remaining line count; it is not transient; the file is not under `fixtures/corpus` |
 | only-`<script>` document | no HTML action offered |
 | revoke | default render; entry removed from `trust.json` |
 
@@ -40,4 +46,4 @@ verify: [pnpm precheck, pnpm done MARXY-44]
 CSV row: notice naming what was removed → default case; opting in renders img/details/div align through the sanitiser → grant case; `javascript:` still stripped → grant case + core vector; choice persists per file → restart case; `marxy-` id refused → MARXY-229's vector in `packages/core/src/sanitize/vectors.test.ts` (cite it; do not re-implement); never-closed removal renders a notice → `22-unclosed-script.md` case.
 
 ## Do not
-Add a global "always trust" switch. Show the HTML action when it would change nothing. Fetch anything. Put trust state in `config.toml`.
+Add a global "always trust" switch. Show the HTML action when it would change nothing. Fetch anything. Put trust state in `config.toml`. Put the truncation document under `fixtures/corpus`. Commit screenshot baselines. Run `gate:aesthetics --update`.

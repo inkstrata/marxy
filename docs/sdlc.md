@@ -149,7 +149,8 @@ one's name, and is held. A reviewer writes and signs `KEY.approved`; the impleme
 it. The cycle starts reviewers itself, up to `reviewLanes` at once, for PRs whose checks are not red
 and whose boundaries it can check; a CODEOWNERS path still gets one, and the author's approval
 stays a separate hold. `cycle.mjs` then lands the PR without a person, or enables GitHub
-auto-merge when the only remaining wait is CI.
+auto-merge when the only remaining wait is CI. An open title carries `[human]` when only a person
+can merge it and `(signed)` when an agent has signed; anything else is the cycle's, and is left unmarked.
 
 Every hold has an owner. Red CI is returned to the implementor after `redGraceMinutes`; a file
 outside the story's paths, an attribution trailer or a missing CHANGELOG line is returned at once;
@@ -161,10 +162,23 @@ older than `holdAttentionMinutes`.
 Which merge path is live is `orchestration/models.json` `mergeQueue`. When it is true, the
 cycle enqueues with `gh pr merge --auto --match-head-commit` and never runs
 `gh pr update-branch`: GitHub's merge queue tests each PR on top of those ahead of it. When
-it is false, one BEHIND pull request is refreshed per cycle (MARXY-106). Flip the flag to
-switch. GitHub's merge queue is only available on **organization-owned** repositories; a
-User-owned repo keeps `mergeQueue` false even though `ci.yml` listens for `merge_group`.
-The ruleset that enables the queue is a repository setting on the org repo, not this flag.
+it is false and `requireUpToDate` is true, one BEHIND pull request is refreshed per cycle
+(MARXY-106). Flip `mergeQueue` to switch to the queue. GitHub's merge queue is only available
+on **organization-owned** repositories; a User-owned repo keeps `mergeQueue` false even though
+`ci.yml` listens for `merge_group`. The ruleset that enables the queue is a repository setting
+on the org repo, not this flag.
+
+Branch protection no longer requires a PR to be up to date with `main` before it merges
+(ADR-0040, amending this and ADR-0025 §4). `orchestration/models.json` `requireUpToDate`
+defaults to `false`: the cycle never runs `gh pr update-branch`, and a PR that is BEHIND but
+otherwise meets every clause below merges in the same cycle it goes green — GitHub may report
+a behind-but-clean PR as `CLEAN` or `BEHIND` depending on what protection is left, and the
+cycle treats both the same way once `requireUpToDate` is off. The safety net is the main
+guard: if the latest completed `ci` run on `main` is red, the cycle merges nothing at all —
+every other step (review, dispatch, conflict resolution) carries on — and lists `main is red`
+under **Needs you** with the run's URL, until a green run on `main` clears it. Set
+`requireUpToDate` back to `true` to restore the one-BEHIND-refresh-per-cycle behaviour, which
+is what strict up-to-date branch protection needs.
 
 A PR is mergeable when every clause of this bar holds. `orchestration/merge-bar.mjs` is the
 list; a missing clause is the printed hold reason.
@@ -239,8 +253,10 @@ keys, in this order:
 Reviewers run in parallel, up to `reviewLanes`, and may sign a PR that is BEHIND or anywhere in the
 order: `approve.mjs` accepts a head that is the approved commit merged with main, so bringing the
 branch up to date no longer voids the review, which is what made "sign last" necessary
-(ADR-0034, amending ADR-0025 §5). Only a conflicted PR cannot be signed. One BEHIND branch is
-updated per cycle, the first in the order whose only hold is CI (ADR-0025 §4).
+(ADR-0034, amending ADR-0025 §5). Only a conflicted PR cannot be signed. With `requireUpToDate`
+true, one BEHIND branch is updated per cycle, the first in the order whose only hold is CI
+(ADR-0025 §4); with it false (the default, ADR-0040), being BEHIND holds nothing and a green PR
+merges wherever it sits in the order.
 
 A conflicted pull request stays In Review and gets a resolution run
 (`orchestration/prompts/conflict.md`) in its own worktree; `attempts` does not move, because a
