@@ -84,7 +84,10 @@ export function sourceTextFromCode(code: HTMLElement): string {
   return parts.join('');
 }
 
-/** Wrap flagged characters in `root` with isolate markers. Safe to run more than once. */
+/**
+ * Wrap flagged characters in `root` with isolate markers. Safe to run more than once. KaTeX output is
+ * skipped: its own U+200B struts are layout, not source bytes the reader must be warned about.
+ */
 export function applyInvisibleMarkers(root: ParentNode): void {
   const doc = root instanceof Document ? root : root.ownerDocument;
   if (doc === null) return;
@@ -93,7 +96,7 @@ export function applyInvisibleMarkers(root: ParentNode): void {
   let current: Node | null = walker.nextNode();
   while (current !== null) {
     const parent = current.parentElement;
-    if (parent !== null && parent.closest(`.${MARKER}, .marxy-link-dest, .marxy-link-host-label`) === null) {
+    if (parent !== null && parent.closest(`.${MARKER}, .marxy-link-dest, .marxy-link-host-label, .katex`) === null) {
       nodes.push(current as Text);
     }
     current = walker.nextNode();

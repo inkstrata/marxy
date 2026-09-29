@@ -248,3 +248,59 @@ test('revoke HTML grant restores default render and clears trust.json entry', as
     await browser.close();
   }
 });
+
+test('revoking a grant clears its grant-summary notices (MARXY-337)', async () => {
+  const docPath = '/corpus/02-readme-real-world.md';
+  const files = { [docPath]: b64(join(corpusDir, '02-readme-real-world.md')) };
+  const summaries = (page) =>
+    noticeTexts(page).then((ts) => ts.filter((t) => /Undo in the palette|Images will load/.test(t)));
+  const browser = await webkit.launch();
+  try {
+    for (const id of ['trust.revoke-html', 'trust.revoke-images']) {
+      const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+      await boot(page, files, [docPath]);
+      await page.locator('button.marxy-notice-action', { hasText: /Show HTML and images/ }).first().click();
+      await page.waitForFunction(() => document.querySelector('#doc details'));
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll('#marxy-notices .marxy-notice-text')].some((e) => /Images will load/.test(e.textContent ?? '')));
+      assert.ok((await summaries(page)).length > 0, `${id}: a summary shows after the grant`);
+      await page.evaluate((id) =>
+        window.__marxyHandle.commands().find((c) => c.id === id)?.run({
+          shell: window.__marxyHandle.shell,
+          selection: { kind: 'none' },
+          operationInput: () => null,
+          closePalette: () => {},
+          showNotice: () => {},
+        }), id);
+      assert.deepEqual(await summaries(page), [], `${id}: no summary outlives the revoke`);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Details with no host checked grants nothing, and its button says what it grants (MARXY-337)', async () => {
+  const docPath = '/corpus/02-readme-real-world.md';
+  const files = { [docPath]: b64(join(corpusDir, '02-readme-real-world.md')) };
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, files, [docPath]);
+    await page.locator('button.marxy-notice-action', { hasText: /^Details$/ }).first().click();
+    const confirm = page.locator('button.marxy-notice-action', { hasText: /selected hosts/ }).first();
+    assert.equal(await confirm.textContent(), 'Show HTML and load selected hosts');
+    await page.evaluate(() => {
+      for (const box of document.querySelectorAll('#marxy-notices input[type=checkbox]')) box.checked = false;
+    });
+    await confirm.click();
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => Boolean(document.querySelector('#doc details'))), false, 'HTML stays simplified');
+    const trustWrites = await page.evaluate(() =>
+      window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && String(c.args[0]).endsWith('trust.json')).length);
+    assert.equal(trustWrites, 0, 'nothing is granted');
+    await page.close();
+  } finally {
+    await browser.close();
+  }
+});

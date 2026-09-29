@@ -129,3 +129,28 @@ test('CRLF and bare CR files keep byte offsets correct', () => {
   assertAgrees('# a\r\r## b\r', ['a', 'b']);
   assertAgrees('---\r\nt: 1\r\n---\r\n# a\r\n', ['a']);
 });
+
+test('indented # lines inside $$ math blocks and HTML blocks are not headings (MARXY-337)', () => {
+  assertAgrees('# a\n\n$$\n  # x\n$$\n\n# b\n', ['a', 'b']);
+  assertAgrees('$$ meta\n  # x\n  $$\n# b\n', ['b']);
+  assertAgrees('$$$\n$$\n  # x\n$$$\n# b\n', ['b']);
+  assertAgrees('$$x$$\n# h\n', ['h']);
+  assertAgrees('<pre>\n  # in pre\n</pre>\n\n# after\n', ['after']);
+  assertAgrees('<pre>\n\n  # in pre\n</pre>\n# after\n', ['after']);
+  assertAgrees('<div>\n# a\n\n# b\n', ['b']);
+  assertAgrees('<div>\n  # a\n\n  # b\n', ['b']);
+  assertAgrees('<details>\n# a\n</details>\n\n# b\n', ['b']);
+  assertAgrees('<script>\n  # a\n</script>\n# b\n', ['b']);
+  assertAgrees('<!--\n  # a\n-->\n# b\n', ['b']);
+  assertAgrees('<div># a</div>\n# b\n', []);
+  assertAgrees('<span>\n# a\n', []);
+  assertAgrees('# a\r\n<div>\r\n# x\r\n\r\n# b\r\n', ['a', 'b']);
+});
+
+test('a lone HTML tag starts a block unless it would interrupt a paragraph (MARXY-337)', () => {
+  assertAgrees('<span>\n# a\n\n# b\n', ['b']);
+  assertAgrees('</custom-el>\n# a\n', []);
+  assertAgrees('para\n<span>\n# a\n', ['a']);
+  assertAgrees('# h\n<span>\n# a\n\n# b\n', ['h', 'b']);
+  assertAgrees('<span> text\n# a\n', ['a']);
+});

@@ -57,21 +57,42 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
     }
   }
   let openFence: { readonly char: '`' | '~'; readonly len: number } | null = null;
-  let inComment = false;
+  // An open HTML block: it ends at a line matching `end`, or at a blank line when `end` is null.
+  let html: { readonly end: RegExp | null } | null = null;
+  // An open `$$` display-math block, closed by a run of at least as many `$`.
+  let mathLen = 0;
+  // Whether the previous line was paragraph text: a type 7 HTML block cannot interrupt one.
+  let paragraph = false;
   for (; index < lines.length; index++) {
     const { text: line, start } = lines[index]!;
-    if (inComment) {
-      if (line.includes('-->')) inComment = false;
+    if (html !== null) {
+      paragraph = false;
+      if (html.end === null ? /^[ \t]*$/.test(line) : html.end.test(line)) html = null;
+      continue;
+    }
+    if (mathLen > 0) {
+      paragraph = false;
+      const close = /^ {0,3}(\$+)[ \t]*$/.exec(line);
+      if (close && close[1]!.length >= mathLen) mathLen = 0;
       continue;
     }
     if (openFence === null) {
       const marker = fenceMarker(line);
       if (marker) {
+        paragraph = false;
         openFence = marker;
         continue;
       }
-      if (/^ {0,3}<!--/.test(line)) {
-        inComment = !line.slice(line.indexOf('<!--') + 4).includes('-->');
+      const math = /^ {0,3}(\$\$+)[^$]*$/.exec(line);
+      if (math) {
+        paragraph = false;
+        mathLen = math[1]!.length;
+        continue;
+      }
+      const block = htmlBlockStart(line, paragraph);
+      if (block) {
+        paragraph = false;
+        html = block.end !== null && block.end.test(line) ? null : block;
         continue;
       }
       const match = /^( {0,3})(#{1,6})(?:[ \t]+(.*))?$/.exec(line);
@@ -80,11 +101,42 @@ export function headingsFromMarkdown(bytes: Uint8Array): IndexHeading[] {
         const text = (match[3] ?? '').replace(/[ \t]+$/, '').replace(/(?:^|[ \t]+)#+$/, '').trim();
         if (text !== '') headings.push({ level: match[2]!.length, text, byteOffset: start + match[1]!.length });
       }
-    } else if (isClosingFence(line, openFence.char, openFence.len)) {
-      openFence = null;
+      paragraph = match === null && !/^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}|=+[ \t]*)?$/.test(line);
+    } else {
+      paragraph = false;
+      if (isClosingFence(line, openFence.char, openFence.len)) openFence = null;
     }
   }
   return headings;
+}
+
+const BLOCK_TAGS = new Set(
+  ('address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt ' +
+    'fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link ' +
+    'main menu menuitem nav noframes ol optgroup option p param section source summary table tbody td tfoot th thead ' +
+    'title tr track ul').split(' '),
+);
+
+const ATTRIBUTE = String.raw`\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
+const LONE_TAG = new RegExp(
+  String.raw`^ {0,3}(?:<[a-zA-Z][a-zA-Z0-9-]*(?:${ATTRIBUTE})*\s*/?>|</[a-zA-Z][a-zA-Z0-9-]*\s*>)[ \t]*$`,
+);
+
+/** How a CommonMark HTML block (types 1 to 6) starting on this line ends; `end: null` means a blank line. */
+function htmlBlockStart(line: string, inParagraph: boolean): { readonly end: RegExp | null } | null {
+  const open = /^ {0,3}<(?=[!?/a-zA-Z])(.*)$/s.exec(line);
+  if (!open) return null;
+  const rest = open[1]!;
+  if (/^(?:pre|script|style|textarea)(?:[ \t>]|$)/i.test(rest)) return { end: /<\/(?:pre|script|style|textarea)>/i };
+  if (rest.startsWith('!--')) return { end: /-->/ };
+  if (rest.startsWith('?')) return { end: /\?>/ };
+  if (rest.startsWith('![CDATA[')) return { end: /\]\]>/ };
+  if (/^![a-zA-Z]/.test(rest)) return { end: />/ };
+  const name = /^\/?([a-zA-Z][a-zA-Z0-9-]*)(?:[ \t>]|\/>|$)/.exec(rest);
+  if (name && BLOCK_TAGS.has(name[1]!.toLowerCase())) return { end: null };
+  // Type 7: a lone complete open or closing tag (any name), which never interrupts a paragraph.
+  if (!inParagraph && LONE_TAG.test(line)) return { end: null };
+  return null;
 }
 
 interface SourceLine {
