@@ -62,6 +62,7 @@ export function buildResultRecord({ key, ok, branch, gatesText, acceptance, exis
   }
   // Every run refreshes the branch and gates: a green re-run after a failed one must not keep the
   // stale failed status and gates (MARXY-337), nor a failed one a stale all-ok record (MARXY-312).
+  // A green run also clears an earlier failure (MARXY-338).
   const patch = { acceptance, branch, gates };
   if (!complete) patch.status = 'failed';
   else if (existing.status === 'failed') patch.status = 'done';
