@@ -31,6 +31,8 @@ export interface TypesetOptions {
   readonly lastLineMinWidth: number;
   /** Left-edge hanging and optical alignment; default 'left'. The right edge stays ragged. */
   readonly hanging?: 'none' | 'left';
+  /** Injectable for tests: how the hyphenation patterns load; default `loadHyphenators`. */
+  readonly loadHyphenators?: () => Promise<Record<'en-us' | 'en-gb', Hyphenator>>;
   /** Injectable for tests; default: idle-chunked. */
   readonly scheduler?: Scheduler;
   /**
@@ -187,7 +189,13 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       }
       plans.push({ ...c, measured, after: broken });
     }
-    for (const { p, tokens, after } of plans) applyBreaks(p, tokens, after);
+    // Breaks and hang go in together: a hung quote splits a text run, which can cost a kern, so the
+    // overflow check below must see the paragraph as it will paint.
+    const place = (list: readonly Plan[]): void => {
+      for (const { p, tokens, after } of list) applyBreaks(p, tokens, after);
+      if (hanging === 'left') for (const { p } of list) applyHang(p);
+    };
+    place(plans);
     // Positions are good to about a pixel, so a line the breaker filled to the edge can paint a
     // fraction past it. Such a paragraph is set once more on a measure short by what it overran.
     const over = plans.map((plan) => ({ plan, by: overflow(plan.p, plan.right) })).filter(({ by }) => by > 0.5);
@@ -198,19 +206,13 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       if (again !== null) retried.push({ ...plan, after: again });
       else fallback('overflow after setting');
     }
-    for (const { p, tokens, after } of retried) applyBreaks(p, tokens, after);
+    place(retried);
     const failed = retried.filter(({ p, right }) => overflow(p, right) > 0.5);
     for (const { p } of failed) {
       revert(p);
       fallback('overflow after setting');
     }
     stats.typeset += plans.length - over.length + retried.length - failed.length;
-    if (hanging === 'left') {
-      const overSet = new Set(over.map(({ plan }) => plan.p));
-      const failedSet = new Set(failed.map((f) => f.p));
-      for (const { p } of plans) if (!overSet.has(p)) applyHang(p);
-      for (const { p } of retried) if (!failedSet.has(p)) applyHang(p);
-    }
     for (const p of paragraphs) observer?.unobserve(p);
   };
 
@@ -227,11 +229,18 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     };
     if (hyphenateOn && hyphenators === null) {
       const loadStart = performance.now();
-      void loadHyphenators().then((loaded) => {
-        stats.hyphenationLoadMs = performance.now() - loadStart;
-        hyphenators = loaded;
-        go();
-      });
+      // A chunk that fails to load must not stall boot: set without hyphens, and the next run retries.
+      void (opts.loadHyphenators ?? loadHyphenators)().then(
+        (loaded) => {
+          stats.hyphenationLoadMs = performance.now() - loadStart;
+          hyphenators = loaded;
+          go();
+        },
+        () => {
+          stats.hyphenationLoadMs = performance.now() - loadStart;
+          go();
+        },
+      );
       return;
     }
     go();

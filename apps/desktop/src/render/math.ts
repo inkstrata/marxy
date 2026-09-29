@@ -29,6 +29,21 @@ async function injectKatexCss(): Promise<void> {
   );
 }
 
+/**
+ * KaTeX options for both modes. The limits keep a hostile formula from making a page millions of
+ * pixels wide (`\rule{100000em}{1em}`); `strict: 'ignore'` keeps non-ASCII text quiet in the console.
+ */
+export function katexOptions(displayMode: boolean): {
+  throwOnError: false;
+  output: 'html';
+  displayMode: boolean;
+  maxSize: number;
+  maxExpand: number;
+  strict: 'ignore';
+} {
+  return { throwOnError: false, output: 'html', displayMode, maxSize: 20, maxExpand: 1000, strict: 'ignore' };
+}
+
 function sourceLineCount(text: string): number {
   if (text.length === 0) return 1;
   const lines = text.split('\n');
@@ -57,12 +72,12 @@ export async function applyMath(article: HTMLElement): Promise<void> {
   for (const pre of blocks) {
     const target = pre.querySelector('code') ?? pre;
     const src = (target.textContent ?? '').replace(/\n$/, '');
-    katex.render(src, target, { throwOnError: false, output: 'html', displayMode: true });
+    katex.render(src, target, katexOptions(true));
     pre.dataset.marxyDone = 'math';
   }
   for (const el of inlines) {
     const src = el.textContent ?? '';
-    katex.render(src, el, { throwOnError: false, output: 'html', displayMode: false });
+    katex.render(src, el, katexOptions(false));
     el.dataset.marxyDone = 'math';
   }
 

@@ -419,12 +419,18 @@ p > img:only-child { display: block; margin-inline: auto; }
 .marxy-lb::before { content: '\A'; white-space: pre; }   /* a line break that is not text: copy and find never see it */
 .marxy-hang { display: inline-block; }
 
+/* Display math wider than the measure scrolls inside its own block instead of widening the page. */
+.marxy-article .katex-display { overflow-x: auto; }
+
 /* Invisible-character markers (handbook ch.7, MARXY-236): 1ch hairline box, hex label, code ground. */
 .marxy-invisible {
   display: inline-block;
   vertical-align: baseline;
   position: relative;
-  width: 1ch;
+  /* The label sits on one line: a 1ch column would stack its digits into a box taller than the line
+     and push the paragraph off the baseline grid. */
+  white-space: nowrap;
+  overflow-wrap: normal;
   font-family: var(--marxy-font-mono);
   font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
   line-height: 1;
@@ -432,8 +438,10 @@ p > img:only-child { display: block; margin-inline: auto; }
 .marxy-invisible-glyph {
   display: inline-block;
   box-sizing: border-box;
-  width: 1ch;
+  min-width: 1ch;
+  padding: 0 0.2ch;
   text-align: center;
+  line-height: 1;
   color: var(--marxy-color-text-secondary);
   border: 1px solid color-mix(in srgb, var(--marxy-color-text-secondary) 70%, transparent);
   border-radius: 2px;
@@ -451,8 +459,7 @@ p > img:only-child { display: block; margin-inline: auto; }
   vertical-align: baseline;
 }
 .marxy-invisible-bidi { unicode-bidi: isolate; }
-.marxy-invisible-tag { width: auto; max-width: 6ch; }
-.marxy-invisible-tag .marxy-invisible-glyph { width: auto; min-width: 1ch; padding: 0 0.1ch; }
+.marxy-invisible-tag .marxy-invisible-glyph { padding: 0 0.1ch; }
 
 /* Mismatch host at rest (title); destination on summon only (MARXY-236). */
 a.marxy-link-mismatch::before {
