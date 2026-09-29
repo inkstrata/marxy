@@ -170,13 +170,17 @@ export function longestUnfinishedChain(d, board) {
   }
   const memo = new Map();
   /** @param {string} n */
+  const onPath = new Set();
   function dfs(n) {
     if (memo.has(n)) return memo.get(n);
+    onPath.add(n);
     let best = [n];
     for (const to of adj.get(n) ?? []) {
+      if (onPath.has(to)) continue; // a dependency cycle: never follow it round again
       const tail = dfs(to);
       if (tail.length + 1 > best.length) best = [n, ...tail];
     }
+    onPath.delete(n);
     memo.set(n, best);
     return best;
   }
@@ -511,7 +515,7 @@ export function patchCanvasData(filePath, data) {
   const re = /const DATA = \{[\s\S]*?\} as unknown as Data;/;
   if (!re.test(text)) throw new Error(`no DATA block in ${filePath}`);
   const block = `const DATA = ${formatDataJson(data)} as unknown as Data;`;
-  writeFileSync(filePath, text.replace(re, block));
+  writeFileSync(filePath, text.replace(re, () => block));
 }
 
 /** @param {ReturnType<typeof gatherCanvasData>} data @param {string} dir */

@@ -115,18 +115,10 @@ test('clicking the first open task checkbox toggles only the marker bytes', asyn
       const box = document.querySelector(`#doc input[data-marxy-s="${start}"]`);
       box?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     }, firstMarker.src.start);
-    await page.waitForFunction(
-      async (path) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
-        const orig = window.__marxyOrigBytes;
-        for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return true;
-        return false;
-      },
-      docPath,
-    );
+    await page.waitForFunction(() => window.marxyDocumentEdit?.().dirty === true);
     const result = await page.evaluate(
       async ({ path, beforeBlock, markerStart }) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
         const orig = window.__marxyOrigBytes;
         const checked = document.querySelector(`#doc input[data-marxy-s="${markerStart}"]`)?.checked;
         const afterBlock = document.querySelector('#doc [data-marxy-s]');
@@ -187,12 +179,14 @@ test('a tick after a reload from disk keeps what the other writer added (MARXY-2
     }, firstMarker.src.start);
     await page.waitForFunction(
       async ({ path, start }) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
         return new TextDecoder().decode(now.subarray(start, start + 3)) === '[x]';
       },
       { path: docPath, start: firstMarker.src.start },
     );
-    const text = await page.evaluate(async (path) => new TextDecoder().decode(await window.__marxyOpsBoot.handle.shell.readFile(path)), docPath);
+    const text = await page.evaluate(
+      () => new TextDecoder().decode(window.__marxyOpsBoot.handle.openDocument().buffer.bytes),
+    );
     assert.ok(text.endsWith(appended), 'the tick wrote the pre-reload buffer over the appended section');
   } finally {
     await browser.close();
@@ -221,7 +215,7 @@ test('Mod+Z undoes a task toggle and Mod+Shift+Z redoes it', async () => {
     }, firstMarker.src.start);
     await page.waitForFunction(
       async (path) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
         const orig = window.__marxyOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return true;
         return false;
@@ -232,7 +226,7 @@ test('Mod+Z undoes a task toggle and Mod+Shift+Z redoes it', async () => {
     await page.keyboard.press(`${mod}+KeyZ`);
     await page.waitForFunction(
       async (path) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
         const orig = window.__marxyOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return false;
         return true;
@@ -244,7 +238,7 @@ test('Mod+Z undoes a task toggle and Mod+Shift+Z redoes it', async () => {
     });
     await page.waitForFunction(
       async (path) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
         const orig = window.__marxyOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return true;
         return false;
@@ -295,7 +289,7 @@ test('dirty is true after an edit and false after undo to the saved version', as
     }, firstMarker.src.start);
     await page.waitForFunction(
       async (path) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
         const orig = window.__marxyOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return true;
         return false;
@@ -307,13 +301,44 @@ test('dirty is true after an edit and false after undo to the saved version', as
     await page.keyboard.press(`${mod}+KeyZ`);
     await page.waitForFunction(
       async (path) => {
-        const now = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(path));
+        const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
         const orig = window.__marxyOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return false;
         return true;
       },
       `/corpus/${file}`,
     );
+  } finally {
+    await browser.close();
+  }
+});
+
+test('switching to a second document does not carry over the first one\'s dirty baseline', async () => {
+  const fileA = '03-ai-plan.md';
+  const fileB = '09-gfm-everything.md';
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    const docPathA = `/corpus/${fileA}`;
+    const docPathB = `/corpus/${fileB}`;
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ files, argv }) => {
+      window.__marxyOpsBoot = await window.marxyPaletteBoot.start(files, argv, []);
+    }, {
+      files: { [docPathA]: b64(join(corpusDir, fileA)), [docPathB]: b64(join(corpusDir, fileB)) },
+      argv: [docPathA],
+    });
+    await page.waitForFunction(() => typeof window.marxyDocumentEdit === 'function');
+    await page.waitForFunction(() => window.__marxyOpenSynced === true);
+
+    await page.evaluate((path) => window.__marxyOpsBoot.handle.open(path), docPathB);
+    await page.waitForFunction((path) => window.__marxyOpsBoot.handle.currentPath() === path, docPathB);
+    await page.waitForFunction(() => document.querySelector('#doc [data-marxy-s]') !== null);
+    // documentEditState() only compares against savedFingerprint when the Playwright harness's own
+    // bytes override is absent, so remove it to exercise the real (non-harness) dirty computation.
+    await page.evaluate(() => { delete window.__marxyOrigBytes; });
+    assert.equal(await page.evaluate(() => window.marxyDocumentEdit?.().dirty), false);
   } finally {
     await browser.close();
   }

@@ -35,7 +35,7 @@ const HARD_FIXTURES = ['12-crlf-and-bom.md', '13-no-trailing-newline.md'];
 const CORPUS_ASSETS = new Set(['image.png']);
 
 /** The signature the gate compiles against; also the anchor the deliberately broken copies patch. */
-const SAVE_SIGNATURE = 'pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {';
+const SAVE_SIGNATURE = 'pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {';
 
 /** Rust tests MARXY-14 shipped. The live list must stay equal or grow (criterion 2). */
 const MARXY_14_RUST_CASES = [
@@ -202,8 +202,8 @@ function buildSavePath(label, patch) {
 const DRIVER_MAIN = `fn main() {
     let args: Vec<String> = std::env::args().collect();
     let bytes = std::fs::read(&args[1]).expect("the document to open");
-    if let Err(message) = atomic_write::write_atomic(std::path::Path::new(&args[2]), &bytes) {
-        eprintln!("{message}");
+    if let Err(err) = atomic_write::write_atomic(std::path::Path::new(&args[2]), &bytes) {
+        eprintln!("{err}");
         std::process::exit(2);
     }
 }
@@ -303,7 +303,9 @@ function checkEditedDocumentIsSpliced(binary) {
     edited++;
   }
   if (edited > 0) {
-    console.log(`fidelity: an edited document saves its spliced range and nothing else (${edited} documents, byte offsets over UTF-16 ones)`);
+    console.log(
+      `fidelity: save-after-operation — an edited document saves its spliced range and nothing else (${edited} documents, byte offsets over UTF-16 ones; MARXY-49)`,
+    );
   }
 
   // The CRLF-and-BOM fixture must genuinely punish an offset taken from the decoded string, or the

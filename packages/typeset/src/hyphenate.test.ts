@@ -58,3 +58,12 @@ test('a piece whose letter run passes but whose whole text is a URL or carries d
     assert.deepEqual(insertHyphens([piece], hyphenateEnUS), [piece], text);
   }
 });
+
+test('a failed pattern load is not remembered: the next call loads again', async () => {
+  const { loadHyphenators } = await import('./hyphenate.ts');
+  const patterns = { 'en-us': (w: string) => [w], 'en-gb': (w: string) => [w] };
+  await assert.rejects(loadHyphenators(() => Promise.reject(new Error('chunk failed'))), /chunk failed/);
+  assert.equal(await loadHyphenators(() => Promise.resolve(patterns)), patterns);
+  // and a success is memoised
+  assert.equal(await loadHyphenators(() => Promise.reject(new Error('unused'))), patterns);
+});

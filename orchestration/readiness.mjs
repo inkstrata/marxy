@@ -9,6 +9,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, readJson, stories, deps, pathsOf, pathMatches } from './lib.mjs';
 import { board } from './machine.mjs';
+import { keyOfPr } from './adopt.mjs';
 import { fleetPath } from './store.mjs';
 import { classifyChecks, evaluate } from './merge-bar.mjs';
 import { landsOf } from './pr-mark.mjs';
@@ -46,7 +47,7 @@ function filesOf(pr) {
 }
 
 function storyKeyOf(pr) {
-  return (String(pr.title ?? '').match(/MARXY-\d+/) ?? String(pr.headRefName ?? '').match(/MARXY-\d+/))?.[0] ?? null;
+  return keyOfPr(pr);
 }
 
 function isAuthor(pr) {

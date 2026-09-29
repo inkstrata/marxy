@@ -9,6 +9,32 @@ export type VariantPreference = Variant | 'auto';
 const THEME_ID = 'marxy-theme';
 const SPOKEN_CONTRACT = 1;
 
+const sheetById = new WeakMap<Document, Map<string, CSSStyleSheet>>();
+
+/** Applies runtime CSS through constructable stylesheets so a release style nonce cannot block it. */
+export function adoptRuntimeSheet(doc: Document, id: string, css: string): void {
+  let perDoc = sheetById.get(doc);
+  if (perDoc === undefined) {
+    perDoc = new Map();
+    sheetById.set(doc, perDoc);
+  }
+  let sheet = perDoc.get(id);
+  if (sheet === undefined && 'adoptedStyleSheets' in doc) {
+    sheet = new CSSStyleSheet();
+    perDoc.set(id, sheet);
+    doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, sheet];
+  }
+  if (sheet !== undefined) sheet.replaceSync(css);
+  let marker = doc.getElementById(id);
+  if (marker === null) {
+    marker = doc.createElement('template');
+    marker.id = id;
+    if (typeof doc.head.append === 'function') doc.head.append(marker);
+    else doc.head.appendChild(marker);
+  }
+  marker.textContent = css;
+}
+
 export interface ThemeManifest {
   readonly name: string;
   readonly author?: string;
@@ -24,14 +50,7 @@ export function resolveVariantPreference(preference: VariantPreference, prefersD
 
 /** Replaces the user theme's stylesheet, injected after the built-in ones so it wins ties. */
 export function applyTheme(css: string, doc: Document = document): void {
-  let style = doc.getElementById(THEME_ID);
-  if (!(style instanceof HTMLStyleElement)) {
-    style?.remove();
-    style = doc.createElement('style');
-    style.id = THEME_ID;
-    doc.head.append(style);
-  }
-  style.textContent = css;
+  adoptRuntimeSheet(doc, THEME_ID, css);
 }
 
 /** Sets `html[data-marxy-variant]`; the default theme's light block keys on it, dark is the default (ADR-0024). */
@@ -41,7 +60,7 @@ export function applyVariant(variant: Variant, doc: Document = document): void {
 
 // A declaration's value ends at `;`, `}` or a line end: `[^;\n]+` ran on through a closing `}` and
 // the clamp then wrote the rule back without it, leaving it open to swallow the rest of the sheet.
-const declaration = (prop: string) => new RegExp(`(${escapeRegExp(prop)}\\s*:\\s*)([^;}\\n]+)`, 'g');
+const declaration = (prop: string) => new RegExp(`(${escapeRegExp(prop)}(?:\\s|/\\*[\\s\\S]*?\\*/)*:\\s*)([^;}\\n]+)`, 'g');
 const IMPORTANT = /\s*!\s*important\s*$/i;
 // rem and em are resolved against the 16px root a theme cannot change.
 const PX_PER = { px: 1, rem: 16, em: 16 } as const;
@@ -65,15 +84,21 @@ function clampCssLength(
     }
     const n = Number(plain[1]);
     const unit = plain[2]!.toLowerCase();
+    const boundsAreCh = min.endsWith('ch');
+    if ((unit === 'ch') !== boundsAreCh) {
+      // `ch` is font-metric-dependent, so a value in `ch` can't be range-checked against a px
+      // bound (or a px-family value against a `ch` bound) without measuring — same as calc()/var().
+      warnings.push(`${prop} was ${value}; ${boundsAreCh ? 'ch' : 'px'} units required, so the default is kept`);
+      return '';
+    }
     if (unit === 'ch') {
       const minCh = parseFloat(min);
       const maxCh = parseFloat(max);
-      if (!min.endsWith('ch') || (n >= minCh && n <= maxCh)) return full;
+      if (n >= minCh && n <= maxCh) return full;
       const clamped = Math.min(maxCh, Math.max(minCh, n));
       warnings.push(`${prop} was ${value}; clamped to ${clamped}ch`);
       return `${prefix}${clamped}ch${important}`;
     }
-    if (!min.endsWith('px')) return full;
     const px = n * PX_PER[unit as keyof typeof PX_PER];
     const minPx = parseFloat(min);
     const maxPx = parseFloat(max);

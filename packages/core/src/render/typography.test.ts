@@ -234,3 +234,17 @@ test(`${gfmName}: the long GFM paragraph is the one that receives the widont`, (
   const words = last.trim().split(/\s+/).length;
   assert.ok(words >= 8, `last run should be long enough to widont; it has ${words} words`);
 });
+
+test('a quote directly after an inline element closes; one after a space still opens', () => {
+  assert.match(html("**bold**'s\n"), /<strong>bold<\/strong>’s/);
+  assert.match(html('"*q*"\n'), /“<em>q<\/em>”/);
+  assert.match(html('*a* "b"\n'), /<em>a<\/em> “b”/);
+  assert.match(html('[a](u)\'s\n'), /<\/a>’s/);
+});
+
+test('URL text is not smartened, prose beside it still is', () => {
+  const out = html('<https://a.com/x--y...z> and "q"\n');
+  assert.match(out, />https:\/\/a\.com\/x--y\.\.\.z</);
+  assert.match(out, /“q”/);
+  assert.match(html('[www.a.com/x--y](https://www.a.com/x--y)\n'), />www\.a\.com\/x--y</);
+});

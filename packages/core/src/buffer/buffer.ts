@@ -15,7 +15,7 @@ export interface Buffer {
   readonly bytes: Uint8Array;
   readonly text: string;
   readonly bom: boolean;
-  readonly eol: 'lf' | 'crlf' | 'mixed' | 'none';
+  readonly eol: 'lf' | 'crlf' | 'cr' | 'mixed' | 'none';
   readonly version: number;
   readonly offsets: ByteOffsets;
 }
@@ -49,6 +49,7 @@ export function splice(
   range: Source,
   replacement: string | Uint8Array,
 ): Buffer {
+  validateSpliceRange(buffer.bytes, range);
   const encoded = typeof replacement === 'string' ? encoder.encode(replacement) : replacement;
   const { bytes } = buffer;
   const next = new Uint8Array(range.start + encoded.length + (bytes.length - range.end));
@@ -101,8 +102,10 @@ export function foldText(like: Buffer, text: string): { range: Source; replaceme
     at > 0 &&
     at < text.length &&
     ((isHigh(text.charCodeAt(at - 1)) && isLow(text.charCodeAt(at))) || (text[at - 1] === '\r' && text[at] === '\n'));
-  while (prefix > 0 && cuts(prefix)) prefix--;
-  while (suffix > 0 && cuts(text.length - suffix)) suffix--;
+  // The old text's pairs count too: an LF input against a CRLF buffer must not stop between the two.
+  const cutsOld = (at: number): boolean => at > 0 && at < old.length && old[at - 1] === '\r' && old[at] === '\n';
+  while (prefix > 0 && (cuts(prefix) || cutsOld(skip + prefix))) prefix--;
+  while (suffix > 0 && (cuts(text.length - suffix) || cutsOld(old.length - suffix))) suffix--;
   const middle = text.slice(prefix, text.length - suffix);
   const converted = like.eol === 'crlf' ? middle.replace(/\r\n|\n/g, '\r\n') : middle;
   return {
@@ -160,8 +163,9 @@ export function contentHash(bytes: Uint8Array): string {
  * Line ending to write. `crlf` → CRLF; `lf` and `none` → LF; `mixed` → the ending of
  * the line that contains `atByte`, or LF when `atByte` is omitted (fromText).
  */
-export function eolString(buffer: Buffer, atByte?: number): '\n' | '\r\n' {
+export function eolString(buffer: Buffer, atByte?: number): '\n' | '\r\n' | '\r' {
   if (buffer.eol === 'crlf') return '\r\n';
+  if (buffer.eol === 'cr') return '\r';
   if (buffer.eol === 'mixed' && atByte !== undefined) return endingAt(buffer.bytes, atByte);
   return '\n';
 }
@@ -199,18 +203,33 @@ function makeBuffer(path: string, bytes: Uint8Array, version: number): Buffer {
 function detectEol(bytes: Uint8Array): Buffer['eol'] {
   let crlf = 0;
   let lf = 0;
+  let cr = 0;
   for (let i = 0; i < bytes.length; i++) {
     if (bytes[i] === 0x0d && bytes[i + 1] === 0x0a) {
       crlf += 1;
       i += 1;
     } else if (bytes[i] === 0x0a) {
       lf += 1;
+    } else if (bytes[i] === 0x0d) {
+      cr += 1;
     }
   }
-  if (crlf === 0 && lf === 0) return 'none';
-  if (crlf > 0 && lf === 0) return 'crlf';
-  if (lf > 0 && crlf === 0) return 'lf';
+  if (crlf === 0 && lf === 0 && cr === 0) return 'none';
+  if (crlf > 0 && lf === 0 && cr === 0) return 'crlf';
+  if (lf > 0 && crlf === 0 && cr === 0) return 'lf';
+  if (cr > 0 && crlf === 0 && lf === 0) return 'cr';
   return 'mixed';
+}
+
+function validateSpliceRange(bytes: Uint8Array, range: Source): void {
+  if (range.start > range.end) {
+    throw new RangeError(`splice range start ${range.start} is after end ${range.end}`);
+  }
+  if (range.start < 0 || range.end > bytes.length) {
+    throw new RangeError(`splice range [${range.start}, ${range.end}) is outside 0..${bytes.length}`);
+  }
+  assertUtf8Boundary(bytes, range.start);
+  assertUtf8Boundary(bytes, range.end);
 }
 
 function endingAt(bytes: Uint8Array, atByte: number): '\n' | '\r\n' {

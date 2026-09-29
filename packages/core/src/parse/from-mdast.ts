@@ -7,6 +7,7 @@ import type {
   Block, Document, Inline, Source, Heading, List, ListItem, TableCell, TableRow,
 } from '../contracts/ast.ts';
 import type { ByteOffsets } from './byte-offsets.ts';
+import { registerLineStarts } from '../sourcemap/line-starts.ts';
 import { LINE_ENDING, LINE_ENDINGS, nextLineEnding, splitLines } from './line-endings.ts';
 import type * as md from 'mdast';
 import { decodeString } from 'micromark-util-decode-string';
@@ -26,12 +27,25 @@ interface Ctx extends ConvertContext {
 
 export function documentFromMdast(root: md.Root, context: ConvertContext): Document {
   const ctx: Ctx = { ...context, definitions: collectDefinitions(root) };
-  return {
+  const document: Document = {
     type: 'document',
     src: { file: ctx.file, start: 0, end: ctx.offsets.byteLength },
     path: ctx.file,
     children: blocks(root.children, ctx),
   };
+  registerLineStarts(document, () => lineStarts(ctx));
+  return document;
+}
+
+/** Byte offset of the start of every line, for `sectionRange`; computed on first use. */
+function lineStarts(ctx: Ctx): number[] {
+  const starts = [ctx.offsets.at(0)];
+  let cursor = 0;
+  for (let ending = nextLineEnding(ctx.text, cursor); ending !== undefined; ending = nextLineEnding(ctx.text, cursor)) {
+    cursor = ending.end;
+    starts.push(ctx.offsets.at(cursor));
+  }
+  return starts;
 }
 
 function collectDefinitions(root: md.Root): Map<string, md.Definition> {
@@ -145,7 +159,15 @@ function block(node: md.RootContent, ctx: Ctx): Block | undefined {
 
 function list(node: md.List, src: Source, ctx: Ctx): List {
   const loose = node.spread === true || node.children.some((item) => item.spread === true);
-  const children = node.children.map((item) => listItem(item, range(item, ctx), ctx));
+  const children = node.children.map((item, index) => {
+    const own = range(item, ctx);
+    // An item whose last line opens a fence that never closes reports an end past the next item's
+    // start (`* ```js` then `* x`); siblings may not overlap (AST_INVARIANTS), so it stops there.
+    const nextItem = node.children[index + 1];
+    const nextStart = nextItem === undefined ? undefined : range(nextItem, ctx).start;
+    const end = nextStart !== undefined && own.end > nextStart ? Math.max(own.start, nextStart) : own.end;
+    return listItem(item, end === own.end ? own : { ...own, end }, ctx);
+  });
   const base = { type: 'list' as const, src, ordered: node.ordered === true, tight: !loose, children };
   return node.start === null || node.start === undefined ? base : { ...base, start: node.start };
 }
@@ -166,15 +188,17 @@ function listItem(node: md.ListItem, src: Source, ctx: Ctx): ListItem {
 function attachTaskMarker(children: Block[], node: md.ListItem, ctx: Ctx): Block[] {
   const first = children[0];
   if (!first || first.type !== 'paragraph') return children;
-  const [itemStart] = utf16Range(node, ctx);
-  const paragraphStartUtf16 = node.children[0]?.position?.start.offset ?? itemStart;
-  const prefix = ctx.text.slice(itemStart, paragraphStartUtf16);
-  const markerIndex = prefix.search(/\[[ \txX]\]/);
-  if (markerIndex < 0) return children;
-  const markerStart = itemStart + markerIndex;
+  const [itemStart, itemEnd] = utf16Range(node, ctx);
+  const itemText = ctx.text.slice(itemStart, itemEnd);
+  const lineBreak = itemText.search(/\r\n|\n|\r/);
+  const head = lineBreak === -1 ? itemText : itemText.slice(0, lineBreak);
+  const match = head.match(/\[[ \txX]\]/);
+  if (!match || match.index === undefined) return children;
+  const markerStart = itemStart + match.index;
+  const markerEnd = markerStart + match[0].length;
   const marker: Inline = {
     type: 'taskMarker',
-    src: span(markerStart, markerStart + 3, ctx),
+    src: span(markerStart, markerEnd, ctx),
     checked: node.checked === true,
   };
   const widened: Block = {
@@ -310,6 +334,25 @@ function rawText(node: md.PhrasingContent, ctx: Ctx): Inline {
 }
 
 /**
+ * Where the next line's own text begins: past the container's continuation markers (`> `, list
+ * indentation) but not past a `>` that is text. The text of the line is known — it is the next
+ * value of the node — so the prefix is the shortest run of spaces, tabs and `>` after which the rest
+ * of the line decodes to that value. Without a usable value, every leading space, tab and `>` counts.
+ */
+function containerPrefixEnd(raw: string, from: number, value: string | undefined): number {
+  let limit = from;
+  while (limit < raw.length && (raw[limit] === ' ' || raw[limit] === '\t' || raw[limit] === '>')) limit++;
+  if (value === undefined || value.length === 0) return limit;
+  const lineEnd = nextLineEnding(raw, from)?.start ?? raw.length;
+  let textEnd = lineEnd;
+  while (textEnd > from && (raw[textEnd - 1] === ' ' || raw[textEnd - 1] === '\t')) textEnd--;
+  for (let candidate = from; candidate <= limit && candidate < textEnd; candidate++) {
+    if (decodeString(raw.slice(candidate, textEnd)) === value) return candidate;
+  }
+  return limit;
+}
+
+/**
  * mdast keeps a soft line break inside a text node's value; the AST gives it a node, because a line
  * break is a typesetting decision and because the bytes between two lines can carry block markers
  * (`> `, list indentation) that belong to neither line's text.
@@ -347,8 +390,7 @@ function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
       out.push({ type: 'text', src: span(start + cursor, start + textEnd, ctx), value });
     }
     // The break owns the line ending and whatever block markers continue the container.
-    let next = ending.end;
-    while (next < raw.length && (raw[next] === ' ' || raw[next] === '\t' || raw[next] === '>')) next++;
+    const next = containerPrefixEnd(raw, ending.end, aligned ? values[line + 1] : undefined);
     out.push({ type: 'softBreak', src: span(start + textEnd, start + next, ctx) });
     cursor = next;
   }
