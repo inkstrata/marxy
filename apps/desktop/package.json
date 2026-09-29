@@ -12,7 +12,7 @@
     "build:web": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",
-    "test": "bash -c 'run(){ node --test --test-concurrency=1 --experimental-strip-types '\"'\"'src/palette/*.test.ts'\"'\"' '\"'\"'src/source/*.test.mjs'\"'\"' '\"'\"'src/startup/*.test.mjs'\"'\"' '\"'\"'test/**/*.test.mjs'\"'\"' '\"'\"'scripts/**/*.test.mjs'\"'\"' && ( MARXY_86_MUTATION=search-prepared-body node --test --test-concurrency=1 --experimental-strip-types src/palette/session.test.ts src/palette/search.test.ts src/palette/search-perf.test.ts src/palette/keys.test.ts ; test $? -eq 1 ); }; if [ \"$(id -u)\" = 0 ] && id -u pwuser >/dev/null 2>&1; then exec runuser -u pwuser -g pwuser -- env HOME=/home/pwuser bash -lc \"cd \\\"$PWD\\\" && run\"; else run; fi'",
+    "test": "bash -c 'cmd=\"node --test --test-concurrency=1 --experimental-strip-types '\"'\"'src/palette/*.test.ts'\"'\"' '\"'\"'src/source/*.test.mjs'\"'\"' '\"'\"'src/startup/*.test.mjs'\"'\"' '\"'\"'test/**/*.test.mjs'\"'\"' '\"'\"'scripts/**/*.test.mjs'\"'\"' && ( MARXY_86_MUTATION=search-prepared-body node --test --test-concurrency=1 --experimental-strip-types src/palette/session.test.ts src/palette/search.test.ts src/palette/search-perf.test.ts src/palette/keys.test.ts ; test $? -eq 1 )\"; if [ \"$(id -u)\" = 0 ] && id -u pwuser >/dev/null 2>&1; then exec runuser -u pwuser -g pwuser -- env HOME=/home/pwuser bash -lc \"cd \\\"$PWD\\\" && eval \\\"$cmd\\\"\"; else eval \"$cmd\"; fi'",
     "verify:cli": "MARXY_SMOKE_REQUIRED=1 node scripts/smoke-cli-open.mjs",
     "tauri": "tauri"
   },
