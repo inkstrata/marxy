@@ -62,3 +62,10 @@ test('history keys yield to an editor, a claimed event, or a visible Source view
   assert.equal(on({ tagName: 'BODY' }, false, true), true, 'Source is showing');
   assert.equal(on(null), false);
 });
+
+test('a dismissed palette input still focused does not swallow history keys (MARXY-337)', () => {
+  const inClosedDialog = { tagName: 'INPUT', closest: (s: string) => (s === 'dialog:not([open])' ? {} : null) };
+  assert.equal(historyKeyBelongsToEditor({ target: inClosedDialog }, false), false);
+  const inOpenDialog = { tagName: 'INPUT', closest: () => null };
+  assert.equal(historyKeyBelongsToEditor({ target: inOpenDialog }, false), true);
+});

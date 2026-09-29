@@ -47,6 +47,8 @@ export function historyKeyBelongsToEditor(
     | null
     | undefined;
   if (target === null || target === undefined || typeof target !== 'object') return false;
+  // A dismissed palette keeps focus on its input; a field inside a closed <dialog> is typing nothing.
+  if (typeof target.closest === 'function' && target.closest('dialog:not([open])') != null) return false;
   const tag = typeof target.tagName === 'string' ? target.tagName.toUpperCase() : '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (target.isContentEditable === true) return true;

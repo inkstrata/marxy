@@ -37,7 +37,8 @@ export function renderSafeHtml(source: string | Uint8Array, options: RenderOptio
   try {
     return renderDocumentSafeHtml(parseMarkdown(source, options), options.policy);
   } catch (error) {
-    if (!(error instanceof RangeError)) throw error;
+    // Only a nesting too deep for the recursive walk degrades to source; any other RangeError is a bug.
+    if (!(error instanceof RangeError) || !/call stack/i.test(error.message)) throw error;
     return unrenderable(source, error);
   }
 }
