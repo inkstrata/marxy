@@ -20,9 +20,9 @@ model.
 
 | Mode | Orchestrator | Planner | Implementor | Escalation | Reviewer |
 | --- | --- | --- | --- | --- | --- |
-| **high** | Sonnet 5, medium | Opus 5.5, medium | Grok 4.6 | Opus 5.5, medium | Opus 5.5, medium |
-| **default** | Sonnet 5, medium | Opus 5.5, medium | Composer 2.5 | Opus 5.5, medium | Sonnet 5, high |
-| **low** | Sonnet 5, medium | Sonnet 5, medium | Composer 2.5 | Grok 4.6 | Sonnet 5, medium |
+| **high** | Sonnet 5.5, medium | Opus 5.5, medium | Grok 4.6 | Opus 5.5, medium | Opus 5.5, medium |
+| **default** | Sonnet 5.5, medium | Opus 5.5, medium | Composer 2.5 | Opus 5.5, medium | Sonnet 5.5, high |
+| **low** | Sonnet 5.5, medium | Sonnet 5.5, medium | Composer 2.5 | Grok 4.6 | Sonnet 5.5, medium |
 | **minimal** | Composer 2.5 | Grok 4.7, high | Composer 2.5 | Grok 4.6 | Composer 2.5 |
 
 `minimal` never names a Claude/GPT/Gemini model in any role — it is the floor for running on

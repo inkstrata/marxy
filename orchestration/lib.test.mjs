@@ -54,25 +54,25 @@ test('laneBudget treats null, 0, and omitted as uncapped', () => {
 /** Every role in every mode. A model change that does not update this object is not a change. */
 const BINDING = {
   high: {
-    orchestrator: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    orchestrator: { model: 'claude-sonnet-5-5-medium', effort: 'medium', inApp: 'claude-sonnet-5-5-medium' },
     planner: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
     implementor: { model: 'grok-4.6', effort: 'high', inApp: 'cursor-grok-4.6-high' },
     implementorEscalation: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
     reviewer: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
   },
   default: {
-    orchestrator: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    orchestrator: { model: 'claude-sonnet-5-5-medium', effort: 'medium', inApp: 'claude-sonnet-5-5-medium' },
     planner: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
     implementor: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },
     implementorEscalation: { model: 'claude-opus-5-5-medium', effort: 'medium', inApp: 'claude-opus-5-5-medium' },
-    reviewer: { model: 'claude-sonnet-5', effort: 'high', inApp: 'claude-sonnet-5-thinking-high' },
+    reviewer: { model: 'claude-sonnet-5-5-high', effort: 'high', inApp: 'claude-sonnet-5-5-high' },
   },
   low: {
-    orchestrator: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
-    planner: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    orchestrator: { model: 'claude-sonnet-5-5-medium', effort: 'medium', inApp: 'claude-sonnet-5-5-medium' },
+    planner: { model: 'claude-sonnet-5-5-medium', effort: 'medium', inApp: 'claude-sonnet-5-5-medium' },
     implementor: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },
     implementorEscalation: { model: 'grok-4.6', effort: 'high', inApp: 'cursor-grok-4.6-high' },
-    reviewer: { model: 'claude-sonnet-5', effort: 'medium', inApp: 'claude-sonnet-5-thinking-medium' },
+    reviewer: { model: 'claude-sonnet-5-5-medium', effort: 'medium', inApp: 'claude-sonnet-5-5-medium' },
   },
   minimal: {
     orchestrator: { model: 'composer-2.5', effort: 'high', inApp: 'composer-2.5-fast' },

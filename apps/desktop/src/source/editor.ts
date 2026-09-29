@@ -7,6 +7,7 @@ import { cmDocText } from './buffer-commit.ts';
 import { languageExtension, LARGE_FILE_BYTES } from './language.ts';
 import { marxyCodeMirrorTheme } from './theme-bridge.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
+import { save } from '../save.ts';
 
 export interface SourceEditorOptions {
   readonly parent: HTMLElement;
@@ -65,7 +66,29 @@ export async function baseExtensions(
     history(),
     drawSelection(),
     highlightActiveLine(),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+    // Save and Save as work from either mode (§01). The document-level chord handler leaves editable
+    // targets alone, so the editor answers these two itself and nothing else of Rendered mode leaks in.
+    keymap.of([
+      {
+        key: 'Mod-s',
+        preventDefault: true,
+        run: () => {
+          void save();
+          return true;
+        },
+      },
+      {
+        key: 'Mod-Shift-s',
+        preventDefault: true,
+        run: () => {
+          void save({ as: true });
+          return true;
+        },
+      },
+      ...defaultKeymap,
+      ...historyKeymap,
+      ...searchKeymap,
+    ]),
     EditorState.lineSeparator.of(lineSeparator),
     marxyCodeMirrorTheme(),
   ];

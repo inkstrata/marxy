@@ -42,7 +42,7 @@ Before merge when you changed shell, paint, or CLI paths, run
 | Inventing a mark, event, data attribute, class or token name | `scripts/check-registry.mjs` against `scripts/registry.json` | pre-commit, precheck, CI |
 | Adding a dependency that is not pinned or is forbidden | `scripts/check-deps.mjs` against `scripts/allowlists/dependencies.json` | precheck, CI |
 | A dependency with the wrong licence | `scripts/gate-licences.mjs` | precheck (when manifests change), CI |
-| A PR whose body is out of order, uses Why / Test plan instead of the house sections, has an empty or TODO acceptance table, carries an attribution line, lacks a changelog line, or changes baselines without a queue row | `scripts/check-pr.mjs` | `done`, `open-pr`, CI |
+| A PR whose body is out of order, uses Why / Test plan instead of the house sections, has an empty or TODO acceptance table, carries an attribution line, lacks a changelog entry (`changelog.d/KEY.md`), or carries a malformed optional taste-queue fragment | `scripts/check-pr.mjs` | `done`, `open-pr`, CI |
 | Opening a PR with a body that would fail `check-pr` (or with `gh pr create --body`) | `scripts/open-pr.mjs` | after `done`, before the PR exists |
 | A commit message off convention or carrying a trailer | `.githooks/commit-msg` (commitlint + strip) | commit |
 | Skipping the gates that a change needs | `scripts/precheck.mjs` with `scripts/gates-by-path.json` | before the PR, CI runs all |
@@ -62,7 +62,7 @@ Before merge when you changed shell, paint, or CLI paths, run
 
 - The story key comes from the branch: `type/MARXY-nn-slug`. No key, or a key with no row on
   `main` or in the branch, is a note locally and a failure under `--strict` (CI, every PR).
-- Allowed outside a story's paths: `CHANGELOG.md`, `docs/taste-review/queue.md`, lockfiles,
+- Allowed outside a story's paths: `changelog.d/`, `docs/taste-review/queue.d/`, `CHANGELOG.md`, `docs/taste-review/queue.md`, lockfiles,
   the story's own task card and result file, plan deltas, and the story's own board row and
   `deps.json` entry — never another story's. The branch is judged by its own row as it leaves it,
   so out-of-plan work brings its row and a story may widen its own Paths where the reviewer sees

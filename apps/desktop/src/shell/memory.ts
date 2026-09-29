@@ -14,7 +14,7 @@ const DATA_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAf
 
 export type MemoryShell = Pick<
   Shell,
-  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir'
+  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir' | 'setTitle' | 'saveDialog' | 'onCloseRequested' | 'confirmClose'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -22,6 +22,11 @@ export type MemoryShell = Pick<
   readonly calls: Call[];
   emit(events: WatchEvent[]): void;
   queueSaveDialog(path: string | null): void;
+  /** Next writeFileAtomic rejects with this shell error code (harness). */
+  rejectNextWrite(code: 'permission' | 'io'): void;
+  lastTitle: string | null;
+  /** Fires every listener installed through onCloseRequested (harness). */
+  emitCloseRequested(): void;
   saveDialog(opts?: { defaultPath?: string }): Promise<string | null>;
   clipboardWrite(data: { readonly text: string; readonly html?: string }): Promise<void>;
   revealInExternalEditor(path: string, line?: number): Promise<void>;
@@ -65,7 +70,9 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
   const calls: Call[] = [];
   const record = (method: string, args: readonly unknown[] = []) => { calls.push({ method, args }); };
   const listeners: Array<(events: readonly WatchEvent[]) => void> = [];
+  const closeListeners: Array<() => void> = [];
   let queuedSave: string | null | undefined;
+  let writeReject: 'permission' | 'io' | null = null;
   const assetScopes = new Set<string>();
 
   const assertAssetScope = (path: string): void => {
@@ -80,6 +87,7 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
 
   const shell: MemoryShell = {
     calls,
+    lastTitle: null,
     platform: platformOf(),
     async args() {
       record('args');
@@ -132,7 +140,31 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     },
     async writeFileAtomic(path, bytes) {
       record('writeFileAtomic', [path, bytes]);
+      if (writeReject) {
+        const code = writeReject;
+        writeReject = null;
+        const err = new Error(`${path}: refused`) as Error & { code: typeof code; path: string };
+        err.code = code;
+        err.path = path;
+        throw err;
+      }
       store.set(path, bytes.slice());
+    },
+    rejectNextWrite(code) {
+      writeReject = code;
+    },
+    async setTitle(title) {
+      record('setTitle', [title]);
+      shell.lastTitle = title;
+    },
+    onCloseRequested(cb) {
+      closeListeners.push(cb);
+    },
+    async confirmClose() {
+      record('confirmClose');
+    },
+    emitCloseRequested() {
+      for (const cb of closeListeners) cb();
     },
     async watch(root, onEvents) {
       record('watch', [root]);

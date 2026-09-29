@@ -64,10 +64,32 @@ impl RootWatch {
 
     /// Events since the last poll. Empty when nothing in the watched roots changed.
     pub fn poll(&mut self) -> Result<Vec<WatchEvent>, String> {
-        let next = scan_roots(&self.roots)?;
+        let next = self.scan_lenient();
         let events = diff(&self.snapshot, &next);
         self.snapshot = next;
         Ok(events)
+    }
+}
+
+impl RootWatch {
+    /// Scan for a poll without failing it. When the primary root (first) cannot be read it is gone:
+    /// the result is an empty snapshot, so every file known becomes `Removed` once and later polls
+    /// diff empty against empty. An unreadable symlink-target root is dropped with its files.
+    fn scan_lenient(&mut self) -> Snapshot {
+        let mut out = BTreeMap::new();
+        let mut kept = Vec::with_capacity(self.roots.len());
+        for (i, root) in self.roots.iter().enumerate() {
+            match scan(root) {
+                Ok(snap) => {
+                    out.extend(snap);
+                    kept.push(root.clone());
+                }
+                Err(_) if i == 0 => return BTreeMap::new(),
+                Err(_) => {}
+            }
+        }
+        self.roots = kept;
+        out
     }
 }
 
@@ -101,7 +123,9 @@ fn symlink_target_dirs(root: &Path) -> Result<Vec<PathBuf>, String> {
         if !target_meta.is_file() {
             continue;
         }
-        let canon = fs::canonicalize(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let Ok(canon) = fs::canonicalize(&path) else {
+            continue;
+        };
         let Some(parent) = canon.parent() else {
             continue;
         };
@@ -376,6 +400,24 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn a_broken_symlink_in_the_watched_root_does_not_fail_open() {
+        let (dir, open) = scratch("broken-symlink");
+        std::os::unix::fs::symlink("/no/such/target/for-marxy-299", dir.join(".env"))
+            .expect("broken symlink");
+        let mut watch = RootWatch::open(&dir).expect("watch despite broken symlink");
+        assert!(
+            watch.roots.contains(&dir),
+            "roots should include the document directory: {:?}",
+            watch.roots
+        );
+        fs::write(&open, b"# open\n\nedited\n").expect("edit open");
+        let events = watch.poll().expect("poll");
+        assert_eq!(effect_for_open_document(&events, &open), OpenEffect::Reload);
+        cleanup(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn an_unreadable_or_skipped_subdirectory_does_not_fail_the_scan() {
         use std::os::unix::fs::PermissionsExt;
         let (dir, open) = scratch("unreadable");
@@ -506,5 +548,69 @@ mod tests {
             "{events:?}"
         );
         cleanup(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_vanished_symlink_target_directory_does_not_kill_the_poll() {
+        let (dir, _open) = scratch("target-vanishes");
+        let elsewhere = dir.join("elsewhere");
+        fs::create_dir(&elsewhere).expect("target dir");
+        let real = elsewhere.join("real.md");
+        fs::write(&real, b"# real\n").expect("seed target");
+        let docs = dir.join("docs");
+        fs::create_dir(&docs).expect("docs");
+        let docs_open = docs.join("open.md");
+        fs::write(&docs_open, b"# open\n").expect("seed open");
+        std::os::unix::fs::symlink(&real, docs.join("link.md")).expect("symlink");
+        let mut watch = RootWatch::open(&docs).expect("watch");
+        assert_eq!(watch.roots.len(), 2, "{:?}", watch.roots);
+        fs::remove_dir_all(&elsewhere).expect("remove target dir");
+        let events = watch.poll().expect("poll survives a vanished target root");
+        assert!(
+            events
+                .iter()
+                .any(|e| e.kind == WatchKind::Removed && e.path == real),
+            "{events:?}"
+        );
+        fs::write(&docs_open, b"# open, edited\n").expect("edit open");
+        let events = watch.poll().expect("later poll still works");
+        assert_eq!(
+            effect_for_open_document(&events, &docs_open),
+            OpenEffect::Reload
+        );
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn removing_the_watched_directory_reports_removed_once() {
+        let (dir, open) = scratch("dir-removed");
+        let mut watch = RootWatch::open(&dir).expect("watch");
+        fs::remove_dir_all(&dir).expect("remove dir");
+        let events = watch.poll().expect("poll survives a vanished root");
+        assert_eq!(effect_for_open_document(&events, &open), OpenEffect::Gone);
+        assert!(
+            events
+                .iter()
+                .any(|e| e.kind == WatchKind::Removed && e.path == open),
+            "{events:?}"
+        );
+        let again = watch.poll().expect("poll again");
+        assert!(again.is_empty(), "no repeated events: {again:?}");
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn renaming_the_watched_directory_reports_removed() {
+        let (dir, open) = scratch("dir-renamed");
+        let mut watch = RootWatch::open(&dir).expect("watch");
+        let moved = dir.with_file_name(format!(
+            "{}-moved",
+            dir.file_name().unwrap().to_string_lossy()
+        ));
+        fs::rename(&dir, &moved).expect("rename dir");
+        let events = watch.poll().expect("poll");
+        assert_eq!(effect_for_open_document(&events, &open), OpenEffect::Gone);
+        cleanup(&moved);
     }
 }

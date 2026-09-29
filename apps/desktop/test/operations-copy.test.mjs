@@ -77,7 +77,9 @@ test('Mod+C on the Install section copies markdown source and sanitised html', a
   const installHeading = ast.children.find((n) => n.type === 'heading' && n.children?.[0]?.type === 'text' && n.children[0].value === 'Install');
   assert.ok(installHeading);
   const range = sectionRange(ast, installHeading);
-  const expectedText = `${textOf(buffer, range).replace(/\s+$/, '')}\n`;
+  // The clipboard is the source slice less its trailing blank lines (MARXY-230, MARXY-337): the last
+  // content line keeps its own ending and no byte is added.
+  const expectedText = textOf(buffer, range).replace(/(?:\r?\n[ \t]*)+$/, (m) => (/\n[ \t]*\n/.test(m) ? m.slice(0, m.indexOf('\n') + 1) : m));
 
   const browser = await launchWebkit();
   try {

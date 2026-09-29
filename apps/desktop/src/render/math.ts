@@ -1,5 +1,6 @@
 // KaTeX on first use (docs/design/02-render.md post-pass 6, MARXY-28): dynamic import, bundled OFL fonts, grid snap after render.
 /// <reference types="vite/client" />
+import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import { snapToGrid } from '@marxy/typeset';
 
 let cssInjected = false;
@@ -21,10 +22,26 @@ async function injectKatexCss(): Promise<void> {
     const url = await load();
     out = out.replaceAll(`url(fonts/${name})`, `url(${url as string})`);
   }
-  const style = document.createElement('style');
-  style.id = 'marxy-katex';
-  style.textContent = `${out}\ncode.marxy-math .katex{font-size:1em;line-height:inherit;vertical-align:-0.085em;}`;
-  document.head.append(style);
+  adoptRuntimeSheet(
+    document,
+    'marxy-katex',
+    `${out}\ncode.marxy-math .katex{font-size:1em;line-height:inherit;vertical-align:-0.085em;}`,
+  );
+}
+
+/**
+ * KaTeX options for both modes. The limits keep a hostile formula from making a page millions of
+ * pixels wide (`\rule{100000em}{1em}`); `strict: 'ignore'` keeps non-ASCII text quiet in the console.
+ */
+export function katexOptions(displayMode: boolean): {
+  throwOnError: false;
+  output: 'html';
+  displayMode: boolean;
+  maxSize: number;
+  maxExpand: number;
+  strict: 'ignore';
+} {
+  return { throwOnError: false, output: 'html', displayMode, maxSize: 20, maxExpand: 1000, strict: 'ignore' };
 }
 
 function sourceLineCount(text: string): number {
@@ -55,12 +72,12 @@ export async function applyMath(article: HTMLElement): Promise<void> {
   for (const pre of blocks) {
     const target = pre.querySelector('code') ?? pre;
     const src = (target.textContent ?? '').replace(/\n$/, '');
-    katex.render(src, target, { throwOnError: false, output: 'html', displayMode: true });
+    katex.render(src, target, katexOptions(true));
     pre.dataset.marxyDone = 'math';
   }
   for (const el of inlines) {
     const src = el.textContent ?? '';
-    katex.render(src, el, { throwOnError: false, output: 'html', displayMode: false });
+    katex.render(src, el, katexOptions(false));
     el.dataset.marxyDone = 'math';
   }
 

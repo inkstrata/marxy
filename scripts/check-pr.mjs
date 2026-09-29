@@ -88,7 +88,7 @@ export function lintPrRange({ key, changed = [], changelogDiff = '', readFragmen
       if (content != null && !validFragment(content, key)) {
         problems.push(`${frag} is not one reader-facing line ending in (${key})${fix('changelog.d/README.md has the rule')}`);
       }
-    } else if (!changelogDiff.includes(key)) {
+    } else if (!new RegExp(`^\\+(?!\\+\\+).*\\(${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)\\s*$`, 'm').test(changelogDiff)) {
       problems.push(`no changelog entry for ${key}${fix(`add ${frag} — one line, written for a reader of marxy, ending in (${key}) — or, during the transition, a CHANGELOG.md line under Unreleased`)}`);
     }
   }
