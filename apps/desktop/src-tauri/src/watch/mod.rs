@@ -101,7 +101,9 @@ fn symlink_target_dirs(root: &Path) -> Result<Vec<PathBuf>, String> {
         if !target_meta.is_file() {
             continue;
         }
-        let canon = fs::canonicalize(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let Ok(canon) = fs::canonicalize(&path) else {
+            continue;
+        };
         let Some(parent) = canon.parent() else {
             continue;
         };
@@ -372,6 +374,24 @@ mod tests {
 
     fn cleanup(dir: &Path) {
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_broken_symlink_in_the_watched_root_does_not_fail_open() {
+        let (dir, open) = scratch("broken-symlink");
+        std::os::unix::fs::symlink("/no/such/target/for-marxy-299", dir.join(".env"))
+            .expect("broken symlink");
+        let mut watch = RootWatch::open(&dir).expect("watch despite broken symlink");
+        assert!(
+            watch.roots.contains(&dir),
+            "roots should include the document directory: {:?}",
+            watch.roots
+        );
+        fs::write(&open, b"# open\n\nedited\n").expect("edit open");
+        let events = watch.poll().expect("poll");
+        assert_eq!(effect_for_open_document(&events, &open), OpenEffect::Reload);
+        cleanup(&dir);
     }
 
     #[cfg(unix)]
