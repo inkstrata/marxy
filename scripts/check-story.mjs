@@ -23,10 +23,11 @@ const forkPoint = ['HEAD', 'MERGE_HEAD']
 const board = key ? branchBoundary(key, {
   show: (at, f) => sh(`git show ${at}:${f}`, { soft: true }) || null, head: headText, forkPoint,
 }) : null;
+// `story()` reads the plan through scripts/lib/plan.mjs: story files when present, else the CSV.
 const row = board?.story ?? story(key);
 const noRowFix = fix(`every change has a board row; add yours in this branch: node orchestration/out-of-plan.mjs row ${key} --paths "…" --acceptance "…" (docs/sdlc.md "Work outside the plan")`);
 if (!key) { if (strict) problems.push(`no story key in the branch name${fix('branches are type/MARXY-nn-slug (docs/conventions.md)')}`); else notes.push('no story key in the branch name; path check skipped (pass --strict to fail)'); }
-else if (!row) { if (strict) problems.push(`${key} has no row in docs/plan/jira-issues.csv on main or in this branch${noRowFix}`); else notes.push(`story ${key} not found in docs/plan/jira-issues.csv; path check skipped (pass --strict to fail)`); }
+else if (!row) { if (strict) problems.push(`${key} has no row in the plan (docs/plan/stories/ or docs/plan/jira-issues.csv) on main or in this branch${noRowFix}`); else notes.push(`story ${key} not found in the plan (docs/plan/stories/ or docs/plan/jira-issues.csv); path check skipped (pass --strict to fail)`); }
 if (board?.widened.length && !board.added) notes.push(`${key} widens its own Paths in this branch: ${board.widened.join(', ')} — the reviewer sees this`);
 const ownBoardEdit = f => BOARD_FILES.includes(f) && board != null; // allowed when own-only; named above when not
 const paths = row ? pathsOf(row) : [];
