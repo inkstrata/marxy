@@ -217,10 +217,7 @@ mod tests {
 
         let err = map_image_size_error(
             "/locked.png",
-            ImageError::IoError(Error::new(
-                ErrorKind::PermissionDenied,
-                "permission denied",
-            )),
+            ImageError::IoError(Error::new(ErrorKind::PermissionDenied, "permission denied")),
         )
         .expect_err("real I/O failure must not become null");
         assert_eq!(err.code, "io");
@@ -230,22 +227,18 @@ mod tests {
     fn map_image_size_error_format_miss_is_none() {
         use std::io::{Error, ErrorKind};
 
-        assert!(
-            map_image_size_error(
-                "/short.png",
-                ImageError::IoError(Error::new(ErrorKind::UnexpectedEof, "eof")),
-            )
-            .unwrap()
-            .is_none()
-        );
-        assert!(
-            map_image_size_error(
-                "/short.png",
-                ImageError::IoError(Error::new(ErrorKind::InvalidData, "bad")),
-            )
-            .unwrap()
-            .is_none()
-        );
+        assert!(map_image_size_error(
+            "/short.png",
+            ImageError::IoError(Error::new(ErrorKind::UnexpectedEof, "eof")),
+        )
+        .unwrap()
+        .is_none());
+        assert!(map_image_size_error(
+            "/short.png",
+            ImageError::IoError(Error::new(ErrorKind::InvalidData, "bad")),
+        )
+        .unwrap()
+        .is_none());
     }
 
     #[cfg(unix)]
