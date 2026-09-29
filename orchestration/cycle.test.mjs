@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { reconcile, reviewStep, holdClass, primaryHold, isFreshStory } from './cycle.mjs';
+import { reconcile, reviewStep, holdClass, primaryHold, isFreshStory, mainVerdictRun } from './cycle.mjs';
 import { renderStatus } from './report.mjs';
 import { fold, timing } from './machine.mjs';
 import { snapshotFrom } from './github.mjs';
@@ -279,6 +279,21 @@ test('main guard: a red completed ci run on main merges nothing and is named und
   const rNone = none.run();
   assert.equal(none.b().stories['MARXY-1'].status, 'done');
   assert.ok(!rNone.attention.some(a => a.key === 'main'));
+});
+
+test('main guard: a run cancelled by a newer push is skipped, so main is judged by the newest run that finished (MARXY-333)', () => {
+  const run = (conclusion, n) => ({ conclusion, url: `https://github.com/inkstrata/marxy/actions/runs/${n}`, headSha: HEAD });
+  assert.equal(mainVerdictRun([run('CANCELLED', 3), run('cancelled', 2), run('SUCCESS', 1)]).url.endsWith('runs/1'), true);
+  assert.equal(mainVerdictRun([run('CANCELLED', 2), run('FAILURE', 1)]).conclusion, 'FAILURE');
+  assert.equal(mainVerdictRun([run('CANCELLED', 2), run('CANCELLED', 1)]), null);
+  assert.equal(mainVerdictRun([]), null);
+
+  // A cancelled run that reaches the guard directly is not red either.
+  const w = world({ rows: [row('MARXY-1', 'a')], stories: { 'MARXY-1': { status: 'in_review', pr: 7, attempts: 1 } }, open: [pr(7, 'MARXY-1')], facts: { 'MARXY-1': { approval: approved } } });
+  w.io.mainCiRun = () => run('CANCELLED', 4);
+  const r = w.run();
+  assert.equal(w.b().stories['MARXY-1'].status, 'done');
+  assert.ok(!r.attention.some(a => a.key === 'main'));
 });
 
 test('a worker alive past its deadline is stopped and its attempt finished as a timeout', () => {

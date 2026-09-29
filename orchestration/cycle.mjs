@@ -21,7 +21,7 @@
 // file is the only one that merges, and merge-bar.mjs is the only thing it asks whether it may.
 //
 // The main guard (ADR-0040): before any merge decision, one GitHub read (io.mainCiRun()) checks the
-// latest completed `ci` run on main. Red, and nothing merges this cycle — everything else still runs
+// latest completed `ci` run on main that was not cancelled by a newer push (`mainVerdictRun`). Red, and nothing merges this cycle — everything else still runs
 // — and it is named under "Needs you" with the run's URL until a green run clears it. This is the
 // safety net for models.json `requireUpToDate: false` (the default): with strict up-to-date branch
 // protection off, a BEHIND-but-otherwise-green PR merges without a `gh pr update-branch` refresh.
@@ -180,7 +180,17 @@ function tailOf(path, bytes = 4096) {
 const ATTRIBUTION_RE = /co-authored-by:.*(cursor|claude|gpt|grok|copilot|anthropic|openai)|generated with/i;
 
 /** `gh run list --json conclusion` conclusions that count as red for the main guard (ADR-0040). */
-const RED_CONCLUSIONS = new Set(['FAILURE', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
+const RED_CONCLUSIONS = new Set(['FAILURE', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
+
+/**
+ * The run that says whether main is green: the newest completed run that was not cancelled. ci.yml
+ * cancels a run in progress when a newer push lands on the same branch, so a cancelled run on main
+ * was superseded, not failed; reading it as red stopped every merge after three quick landings
+ * (MARXY-333). `runs` is newest first; an all-cancelled or empty history is not evidence of red.
+ */
+export function mainVerdictRun(runs) {
+  return (runs ?? []).find(r => r?.conclusion && String(r.conclusion).toUpperCase() !== 'CANCELLED') ?? null;
+}
 
 /** The world, as the live cycle sees it. A test passes its own. */
 export function liveIo({ m, dry = false }) {
@@ -258,12 +268,12 @@ export function liveIo({ m, dry = false }) {
       const out = gitOut(['log', 'origin/main', '--format=%s']);
       return out ? out.split('\n').filter(Boolean) : [];
     },
-    // The main guard's one read (ADR-0040): the latest *completed* ci run on main, so a run still in
+    // The main guard's one read (ADR-0040): the latest *completed*, not cancelled, ci run on main, so a run still in
     // progress never counts as red. No completed run at all (a brand new repo) is not evidence of red.
     mainCiRun: () => {
-      const out = read('gh', ['run', 'list', '--branch', 'main', '--workflow', 'ci', '--status', 'completed', '--limit', '1', '--json', 'conclusion,url,headSha'], { cwd: CODE_ROOT, timeoutMs: LIMIT.gh });
+      const out = read('gh', ['run', 'list', '--branch', 'main', '--workflow', 'ci', '--status', 'completed', '--limit', '20', '--json', 'conclusion,url,headSha'], { cwd: CODE_ROOT, timeoutMs: LIMIT.gh });
       if (!out) return null;
-      try { return JSON.parse(out)[0] ?? null; } catch { return null; }
+      try { return mainVerdictRun(JSON.parse(out)); } catch { return null; }
     },
     report: r => {
       const out = writeReport(r);
