@@ -1,0 +1,63 @@
+document [0,373)
+  heading [0,14) level=1
+    text [2,14) value="Task openers"
+  list [16,283) ordered=false tight=true
+    listItem [16,34) task=unchecked
+      paragraph [18,34)
+        taskMarker [18,21) checked=false
+        code [22,28) value="code"
+        text [28,34) value=" first"
+    listItem [35,61) task=checked
+      paragraph [37,61)
+        taskMarker [37,40) checked=true
+        code [41,55) value="checked code"
+        text [55,61) value=" first"
+    listItem [62,82) task=unchecked
+      paragraph [64,82)
+        taskMarker [64,67) checked=false
+        strong [68,76)
+          text [70,74) value="bold"
+        text [76,82) value=" first"
+    listItem [83,111) task=checked
+      paragraph [85,111)
+        taskMarker [85,88) checked=true
+        strong [89,105)
+          text [91,103) value="checked bold"
+        text [105,111) value=" first"
+    listItem [112,134) task=unchecked
+      paragraph [114,134)
+        taskMarker [114,117) checked=false
+        emphasis [118,128)
+          text [119,127) value="emphasis"
+        text [128,134) value=" first"
+    listItem [135,165) task=checked
+      paragraph [137,165)
+        taskMarker [137,140) checked=true
+        emphasis [141,159)
+          text [142,158) value="checked emphasis"
+        text [159,165) value=" first"
+    listItem [166,205) task=unchecked
+      paragraph [168,205)
+        taskMarker [168,171) checked=false
+        link [172,199) url="https://example.com"
+          text [173,177) value="link"
+        text [199,205) value=" first"
+    listItem [206,253) task=checked
+      paragraph [208,253)
+        taskMarker [208,211) checked=true
+        link [212,247) url="https://example.com"
+          text [213,225) value="checked link"
+        text [247,253) value=" first"
+    listItem [254,283) task=unchecked
+      paragraph [256,283)
+        taskMarker [256,259) checked=false
+        text [260,283) value="plain text after marker"
+  blockquote [285,333)
+    heading [287,306) level=2
+      text [290,306) value="Heading in quote"
+    paragraph [311,333)
+      text [311,333) value="Body inside the quote."
+  heading [335,353) level=2
+    text [338,353) value="After the quote"
+  paragraph [355,372)
+    text [355,372) value="Trailing section."
