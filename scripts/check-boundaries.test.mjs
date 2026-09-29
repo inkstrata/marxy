@@ -46,3 +46,43 @@ test('check-boundaries.mjs is green over the committed tree', () => {
   assert.equal(run.status, 0, run.stderr || run.stdout);
   assert.match(run.stdout, /boundaries ok \(\d+ source files\)/);
 });
+
+const APP_FILE = 'apps/desktop/src/render/x.ts';
+const TAURI = '@' + 'tauri-apps/api/core';
+
+test('MARXY-337: a multi-line Node import in core is flagged', () => {
+  assert.equal(boundaryProblemsFor(CORE_FILE, "import {\n  readFile,\n} from 'node:fs';\n").length, 1);
+});
+
+test('MARXY-337: a side-effect Node import, a multi-line re-export and a second import on one line are flagged', () => {
+  assert.equal(boundaryProblemsFor(CORE_FILE, "import 'node:fs';").length, 1);
+  assert.equal(boundaryProblemsFor(CORE_FILE, "export {\n a\n} from 'node:os';").length, 1);
+  assert.equal(boundaryProblemsFor(CORE_FILE, "import a from './a'; import b from 'node:path';").length, 1);
+});
+
+test('MARXY-337: fs/promises and bare built-ins (events, buffer, module, assert, process) are flagged', () => {
+  for (const s of ['fs/promises', 'events', 'buffer', 'module', 'assert', 'process', 'node:test']) {
+    assert.equal(boundaryProblemsFor(CORE_FILE, `import x from '${s}';`).length, 1, s);
+  }
+});
+
+test('MARXY-337: invoke<Array<string>>( outside src/shell is flagged, inside it is not', () => {
+  assert.equal(boundaryProblemsFor(APP_FILE, "invoke<Array<string>>('x');").length, 1);
+  assert.equal(boundaryProblemsFor('apps/desktop/src/shell/tauri.ts', "invoke<Array<string>>('x');").length, 0);
+});
+
+test('MARXY-337: a multi-line @tauri-apps import outside src/shell is flagged', () => {
+  assert.equal(boundaryProblemsFor(APP_FILE, `import {\n  invoke\n} from '${TAURI}';`).length, 1);
+});
+
+test('MARXY-337: a relative import from core that escapes into another package is flagged', () => {
+  const p = boundaryProblemsFor(CORE_FILE, "import { x } from '../../../typeset/src/index.ts';");
+  assert.equal(p.length, 1, p.join('\n'));
+  assert.match(p[0], /another package|escapes/);
+  assert.equal(boundaryProblemsFor(CORE_FILE, "import { x } from '../contracts/ast.ts';").length, 0);
+});
+
+test('MARXY-337: comment-looking text in a string does not hide a later violation', () => {
+  const src = "const glob = 'src/*.ts';\nimport x from 'node:fs';\nconst y = '*/';\n";
+  assert.equal(boundaryProblemsFor(CORE_FILE, src).length, 1);
+});

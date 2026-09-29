@@ -258,6 +258,27 @@ test('Tab toggles documents and headings; Enter on a heading scrolls to the read
   }
 });
 
+test('Mod+. with no hit selected does not pin an empty path', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ doc }) => {
+      // No index entries at all: the palette's document-phase hits are always [].
+      await window.marxyPaletteBoot.start({ '/docs/readme.md': doc }, ['/docs/readme.md'], []);
+    }, { doc: Buffer.from(HEADING_DOC).toString('base64') });
+
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.keyboard.press(`${mod}+Period`);
+    const pinned = await page.evaluate(() => window.__marxyPalette.session.pinned);
+    assert.deepEqual(pinned, []);
+  } finally {
+    await browser.close();
+  }
+});
+
 nodeTest('Mod+[ / Mod+] map to history and the session stack walks back and forward', () => {
   assert.equal(
     historyDirection({ key: '[', metaKey: false, ctrlKey: true, altKey: false, shiftKey: false }),

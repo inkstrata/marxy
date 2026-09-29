@@ -3,6 +3,7 @@ import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { importSpecs, stripCommentsAst } from './lib/imports.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
@@ -48,32 +49,23 @@ console.log('bundle gate: parser import graph does not resolve katex (' + resolv
   if (child.status !== 0) process.exit(child.status === null ? 1 : child.status);
 }
 
-/**
- * Relative import specifiers reachable from a production source file. Shapes mirror
- * `scripts/check-boundaries.mjs` (static from, quoted and plain-template import()/require());
- * keep them aligned until a shared helper exists (MARXY-307). Interpolated templates
- * (`import(\`./${x}\`)`) cannot be resolved statically and are not matched.
- */
+/** Relative import specifiers reachable from a production source file, read from the AST. */
 export function relativeImportSpecs(text) {
-  const specs = [];
-  for (const m of text.matchAll(/(?:^|\n)\s*(?:import|export)\s[^'"\n]*?\bfrom\s+['"](\.[^'"]+)['"]/g)) specs.push(m[1]);
-  for (const m of text.matchAll(/\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/g)) specs.push(m[1]);
-  for (const m of text.matchAll(/\brequire\(\s*['"](\.[^'"]+)['"]\s*\)/g)) specs.push(m[1]);
-  // Plain backtick specs only — same filter as check-boundaries.mjs (MARXY-307).
-  for (const m of text.matchAll(/\bimport\(\s*`(\.[^`]+)`\s*\)/g)) {
-    if (!m[1].includes('${')) specs.push(m[1]);
-  }
-  for (const m of text.matchAll(/\brequire\(\s*`(\.[^`]+)`\s*\)/g)) {
-    if (!m[1].includes('${')) specs.push(m[1]);
-  }
-  return specs;
+  return importSpecs(text).filter((s) => s.startsWith('.'));
 }
 
-const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+/** Where a relative specifier lands on disk: .js names a .ts source, and a bare path may be a .ts, .tsx or /index.ts. */
+export function resolveRelativeModule(fromFile, spec) {
+  const base = join(fromFile, '..', spec);
+  const candidates = /\.[mc]?js$/.test(base)
+    ? [base.replace(/\.([mc]?)js$/, '.$1ts'), base.replace(/\.js$/, '.tsx'), base]
+    : [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')];
+  return candidates.find((c) => existsSync(c) && statSync(c).isFile()) ?? (/\.[mc]?[jt]sx?$/.test(base) ? base : `${base}.ts`);
+}
 
-function resolveRelativeModule(fromFile, spec) {
-  const path = spec.endsWith('.ts') || spec.endsWith('.mjs') || spec.endsWith('.js') ? spec : `${spec}.ts`;
-  return join(fromFile, '..', path);
+/** Relative chunk specifiers in built JS: `from"./x"`, `import("./x")` and side-effect `import"./x"`. */
+export function distChunkSpecs(text) {
+  return [...text.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["'](\.{0,2}\/[^"']+)["']/g)].map((m) => m[1]);
 }
 
 /** Walk main.ts's relative import graph; returns absolute paths of memory shell / harness hits. */
@@ -86,10 +78,10 @@ export function memoryShellReachableFromMain(desktop) {
     const file = queue.pop();
     if (seen.has(file) || !existsSync(file)) continue;
     seen.add(file);
-    const text = strip(readFileSync(file, 'utf8'));
+    const text = stripCommentsAst(readFileSync(file, 'utf8'), file);
     for (const spec of relativeImportSpecs(text)) queue.push(resolveRelativeModule(file, spec));
   }
-  const memory = [...seen].filter((f) => /src\/shell\/memory\.ts$/.test(f) || /src\/harness\//.test(f));
+  const memory = [...seen].filter((f) => /src\/shell\/memory\.tsx?$/.test(f) || /src\/harness\//.test(f));
   return { error: null, memory, moduleCount: seen.size };
 }
 
@@ -129,8 +121,8 @@ function assertProductionExcludesMemoryShell() {
       if (!existsSync(file)) continue;
       const text = readFileSync(file, 'utf8');
       chunks.push(text);
-      for (const m of text.matchAll(/from\s*["'](\.?\.?\/[^"']+)["']/g)) {
-        queue.push(new URL(m[1], `file:///${src}`).pathname.replace(/^\//, ''));
+      for (const spec of distChunkSpecs(text)) {
+        queue.push(decodeURIComponent(new URL(spec, `file:///${src}`).pathname).replace(/^\//, ''));
       }
     }
     const bundle = chunks.join('\n');
@@ -154,7 +146,7 @@ const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json',
 // the release workflow passes --target. PR CI builds with `cargo build --profile ci` and has neither,
 // so the size half runs only where installers exist; MARXY_BUNDLE_REQUIRED (the release workflow)
 // makes their absence a failure rather than a skip, so the budget cannot pass by measuring nothing.
-const target = new URL('../apps/desktop/src-tauri/target/', import.meta.url).pathname;
+const target = fileURLToPath(new URL('../apps/desktop/src-tauri/target/', import.meta.url));
 const bundleDirs = [join(target, 'release/bundle'), ...(existsSync(target) ? readdirSync(target).map((t) => join(target, t, 'release/bundle')) : [])].filter((d, i, all) => existsSync(d) && all.indexOf(d) === i);
 const required = process.env.MARXY_BUNDLE_REQUIRED === '1';
 if (bundleDirs.length === 0) {

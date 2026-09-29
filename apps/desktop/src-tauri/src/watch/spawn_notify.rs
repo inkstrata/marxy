@@ -77,7 +77,9 @@ where
                     match watch.poll() {
                         Ok(events) if !events.is_empty() => emit(events),
                         Ok(_) => {}
-                        Err(_) => {}
+                        // A dead watch (e.g. the root was removed) otherwise retries silently
+                        // forever with no diagnostic ever reaching the app or its logs.
+                        Err(e) => eprintln!("marxy: file watch poll failed: {e}"),
                     }
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -148,5 +150,36 @@ mod tests {
             "no events after stop"
         );
         cleanup(&dir);
+    }
+
+    #[test]
+    fn poll_thread_survives_and_still_stops_after_its_root_is_removed() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let (dir, open) = scratch("removed-root");
+        let (tx, rx) = mpsc::channel::<Vec<crate::watch::WatchEvent>>();
+        let mut running = spawn_poll_thread(dir.clone(), move |events| {
+            let _ = tx.send(events);
+        })
+        .expect("spawn");
+        // Losing the root reports the open file Removed (once: `remove_dir_all` deletes the file
+        // before its directory, so a poll may land in between, and a poll after the root is gone
+        // reports it too), then goes quiet. The loop must keep running so it can still be stopped.
+        fs::remove_dir_all(&dir).expect("remove root");
+        std::thread::sleep(Duration::from_millis(450));
+        let seen: Vec<_> = rx.try_iter().flatten().collect();
+        assert!(
+            seen.iter()
+                .all(|e| e.kind == WatchKind::Removed && e.path == open),
+            "only the open file's removal is reported: {seen:?}"
+        );
+        assert_eq!(seen.len(), 1, "reported exactly once: {seen:?}");
+        std::thread::sleep(Duration::from_millis(250));
+        assert!(
+            rx.try_recv().is_err(),
+            "nothing further from a missing root"
+        );
+        running.stop();
     }
 }

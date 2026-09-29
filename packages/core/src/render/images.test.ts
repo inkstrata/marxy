@@ -252,3 +252,21 @@ test('criterion 7: imageSizeFromBytes returns null for a truncated header and a 
   assert.equal(imageSizeFromBytes(truncatedPng), null);
   assert.equal(imageSizeFromBytes(Uint8Array.from([0, 1, 2, 3, 4])), null);
 });
+
+// MARXY-337: the path is percent-decoded and loses its ?query and #fragment, without losing the root.
+test('resolveImageSrc decodes percent-escapes and drops ?query and #fragment', () => {
+  const opts = { documentDir: '/repo/docs', imageRoot: '/repo' };
+  assert.deepEqual(resolveImageSrc('my%20pic.png', opts), { kind: 'local', path: '/repo/docs/my pic.png' });
+  assert.deepEqual(resolveImageSrc('a.png?raw=true', opts), { kind: 'local', path: '/repo/docs/a.png' });
+  assert.deepEqual(resolveImageSrc('a.png#frag', opts), { kind: 'local', path: '/repo/docs/a.png' });
+  assert.deepEqual(resolveImageSrc('/img/%C3%A9.png?x#y', opts), { kind: 'local', path: '/repo/img/é.png' });
+  assert.deepEqual(resolveImageSrc('bad%zz.png', opts), { kind: 'local', path: '/repo/docs/bad%zz.png' });
+});
+
+test('resolveImageSrc still refuses a traversal hidden by percent-encoding', () => {
+  const opts = { documentDir: '/repo/docs', imageRoot: '/repo' };
+  for (const src of ['..%2f..%2fetc/x.png', '%2e%2e/%2e%2e/x.png', '..%5c..%5cx.png', '/..%2fx.png', '%2e%2e%2f%2e%2e%2fx.png']) {
+    assertRefusal(resolveImageSrc(src, opts));
+  }
+  assert.equal(resolveImageSrc('a%00.png', opts).kind, 'invalid');
+});

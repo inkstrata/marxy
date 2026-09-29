@@ -437,6 +437,30 @@ test('a character reference that decodes to a line ending keeps every line of te
   assert.deepEqual(texts, ['a\nb', 'c']);
 });
 
+for (const [source, checked] of [
+  ['- [ ] `code` first\n', false],
+  ['- [x] `code` first\n', true],
+  ['- [ ] **bold** first\n', false],
+  ['- [x] **bold** first\n', true],
+  ['- [ ] *em* first\n', false],
+  ['- [x] *em* first\n', true],
+  ['- [ ] [link](u) first\n', false],
+  ['- [x] [link](u) first\n', true],
+] as const) {
+  test(`task marker bytes when the first inline is not plain text: ${source.trim()}`, () => {
+    const bytes = new TextEncoder().encode(source);
+    const document = parseMarkdown(bytes, { file: 'task-opener.md' });
+    const markers = nodes(document).filter(
+      (node): node is Extract<Inline, { type: 'taskMarker' }> => node.type === 'taskMarker',
+    );
+    assert.equal(markers.length, 1);
+    const marker = markers[0]!;
+    const slice = source.slice(marker.src.start, marker.src.end);
+    assert.ok(slice === '[ ]' || slice === '[x]', `marker text must be [ ] or [x], got ${JSON.stringify(slice)}`);
+    assert.equal(marker.checked, checked);
+  });
+}
+
 test('a task marker with a tab inside is its own node', () => {
   const document = parseMarkdown('- [\t] todo\n', { file: 'task.md' });
   const item = (document.children[0] as List).children[0]!;
@@ -458,5 +482,56 @@ test('decodeWithOffsets decodes exactly as TextDecoder and charges each replacem
     assert.equal(offsets.byteLength, bytes.length);
     assert.equal(offsets.at(text.length), bytes.length);
     for (let i = 1; i <= text.length; i++) assert.ok(offsets.at(i) >= offsets.at(i - 1), `monotone at ${i} of [${[...bytes]}]`);
+  }
+});
+
+test('a literal > that starts a continuation line is text, not a container marker (MARXY-337)', () => {
+  const source = 'a\n    >b';
+  const bytes = new TextEncoder().encode(source);
+  const document = parseMarkdown(bytes, { file: 't.md' });
+  assert.deepEqual(checkInvariants(document, bytes), []);
+  const inlines = (document.children[0] as Paragraph).children;
+  const breakNode = inlines.find((node) => node.type === 'softBreak')!;
+  assert.equal(source.slice(breakNode.src.start, breakNode.src.end), '\n    ');
+  const last = inlines[inlines.length - 1]!;
+  assert.equal(last.type, 'text');
+  assert.equal(source.slice(last.src.start, last.src.end), '>b');
+});
+
+test('a quote marker on a continuation line still belongs to the soft break (MARXY-337)', () => {
+  const source = '> a\n> b\n> > c';
+  const bytes = new TextEncoder().encode(source);
+  const document = parseMarkdown(bytes, { file: 't.md' });
+  assert.deepEqual(checkInvariants(document, bytes), []);
+  const paragraph = (document.children[0]!.children as readonly Block[])[0] as Paragraph;
+  const breaks = paragraph.children.filter((node) => node.type === 'softBreak');
+  assert.equal(source.slice(breaks[0]!.src.start, breaks[0]!.src.end), '\n> ');
+});
+
+test('list items never overlap when an item ends in an unclosed fence (MARXY-337)', () => {
+  const source = '* ```js\n* x';
+  const bytes = new TextEncoder().encode(source);
+  const document = parseMarkdown(bytes, { file: 't.md' });
+  assert.deepEqual(checkInvariants(document, bytes), []);
+  const items = (document.children[0] as List).children;
+  assert.equal(items.length, 2);
+  assert.ok(items[0]!.src.end <= items[1]!.src.start);
+  assert.equal(source.slice(items[0]!.src.start, items[0]!.src.end), '* ```js\n');
+});
+
+test('random documents of lists, quotes, fences, CRLF and BOMs satisfy every invariant (MARXY-337)', () => {
+  const pieces = ['* ', '- ', '1. ', '> ', '>', '  ', '    ', '\t', '```', '```js', '~~~', '# ', '## ', 'a', 'b c', '>b', '[ ] ', '[x] ', '\\>', '&gt;', 'é', '日', '---', '|a|b|', '\n', '\n', '\n', '\r\n', '\r'];
+  let seed = 1;
+  const random = (): number => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  const encoder = new TextEncoder();
+  for (let n = 0; n < 5000; n++) {
+    let source = random() < 0.1 ? '﻿' : '';
+    for (let i = 1 + Math.floor(random() * 14); i > 0; i--) source += pieces[Math.floor(random() * pieces.length)]!;
+    const bytes = encoder.encode(source);
+    const violations = checkInvariants(parseMarkdown(bytes, { file: 't.md' }), bytes);
+    assert.deepEqual(violations, [], JSON.stringify(source));
   }
 });

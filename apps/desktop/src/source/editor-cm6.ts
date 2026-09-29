@@ -17,6 +17,9 @@ export async function createSourceEditor(
   const exts = await baseExtensions(buffer, lineNumbers, compartments);
   const state = EditorState.create({ doc, extensions: exts });
   const view = new EditorView({ state, parent: opts.parent });
+  // `doc.toString()` joins lines with \n whatever EditorState.lineSeparator says; the buffer's text
+  // (and foldText's offsets into it) use the file's own separator, so read the doc through sliceDoc.
+  const textNow = (): string => view.state.sliceDoc(0, view.state.doc.length);
   const readingLine = opts.readingLinePx ?? (typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.4) : 320);
 
   return {
@@ -30,7 +33,11 @@ export async function createSourceEditor(
     replaceBuffer(next: Buffer) {
       buffer = next;
       const { doc: nextDoc } = editorDocConfig(next);
-      if (nextDoc === view.state.doc.toString()) return;
+      // The buffer this editor's own edits were folded into already reads as its text: keep the
+      // editor's history and selection, and take only the new byte mapping.
+      if (nextDoc === textNow()) return;
+      // New bytes from outside (a reload from disk): not the reader's edit, so Mod+Z must not bring
+      // the text on disk back to what it was before.
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: nextDoc },
         annotations: Transaction.addToHistory.of(false),
@@ -40,7 +47,7 @@ export async function createSourceEditor(
       scrollSourceToByte(buffer, view, byteOffset, readingLine);
     },
     docText() {
-      return view.state.doc.toString();
+      return textNow();
     },
     setLineNumbers(on: boolean) {
       toggleLineNumbersInView(view, on, compartments.lineNumbersCompartment);

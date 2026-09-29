@@ -13,9 +13,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
-use tauri::RunEvent;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, RunEvent, WindowEvent};
+
+use crate::atomic_write::WriteErrorKind;
+use crate::error::ShellError;
 
 use commands::app::config_paths;
 
@@ -68,15 +69,27 @@ fn clipboard_write(
     html: Option<String>,
 ) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard()
-        .write_text(text)
-        .map_err(|e| e.to_string())?;
-    if let Some(html) = html {
-        app.clipboard()
-            .write_html(html, None)
-            .map_err(|e| e.to_string())?;
+    match clipboard_payload(text, html) {
+        ClipboardPayload::Text(text) => app.clipboard().write_text(text),
+        // One write carrying both flavours: arboard's macOS `html()` clears the pasteboard first, so
+        // a `write_text` followed by `write_html(_, None)` left only HTML and no plain text.
+        ClipboardPayload::Html { html, alt } => app.clipboard().write_html(html, Some(alt)),
     }
-    Ok(())
+    .map_err(|e| e.to_string())
+}
+
+/// What one `clipboard_write` puts on the pasteboard, decided apart from the real clipboard.
+#[derive(Debug, PartialEq, Eq)]
+enum ClipboardPayload {
+    Text(String),
+    Html { html: String, alt: String },
+}
+
+fn clipboard_payload(text: String, html: Option<String>) -> ClipboardPayload {
+    match html {
+        Some(html) => ClipboardPayload::Html { html, alt: text },
+        None => ClipboardPayload::Text(text),
+    }
 }
 
 /// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
@@ -99,18 +112,72 @@ const WRITE_PATH_HEADER: &str = "x-marxy-path";
 /// guarantees and the cases it refuses. The bytes arrive as a raw body, not a JSON array of numbers,
 /// and the path in `x-marxy-path`. Checked end to end over the corpus by `pnpm gate:fidelity`.
 #[tauri::command]
-fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err("write_file_atomic: expected the document's bytes as a raw body".into());
+        return Err(ShellError::invalid(
+            "",
+            "write_file_atomic: expected the document's bytes as a raw body",
+        ));
     };
     let encoded = request
         .headers()
         .get(WRITE_PATH_HEADER)
-        .ok_or_else(|| format!("write_file_atomic: missing {WRITE_PATH_HEADER}"))?
+        .ok_or_else(|| {
+            ShellError::invalid(
+                "",
+                format!("write_file_atomic: missing {WRITE_PATH_HEADER}"),
+            )
+        })?
         .to_str()
-        .map_err(|e| format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}"))?;
-    let path = percent_decode(encoded)?;
-    atomic_write::write_atomic(std::path::Path::new(&path), bytes)
+        .map_err(|e| {
+            ShellError::invalid("", format!("write_file_atomic: {WRITE_PATH_HEADER}: {e}"))
+        })?;
+    let path = percent_decode(encoded).map_err(|e| ShellError::invalid("", e))?;
+    atomic_write::write_atomic(std::path::Path::new(&path), bytes).map_err(|e| match e.kind {
+        WriteErrorKind::Permission => ShellError::permission(&path, e.message),
+        WriteErrorKind::Io => ShellError::io(&path, e.message),
+    })
+}
+
+#[tauri::command]
+fn set_title(app: tauri::AppHandle, title: String) -> Result<(), ShellError> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    window
+        .set_title(&title)
+        .map_err(|e| ShellError::io("", e.to_string()))
+}
+
+#[tauri::command]
+async fn save_dialog(
+    app: tauri::AppHandle,
+    default_path: Option<String>,
+) -> Result<Option<String>, ShellError> {
+    use tauri_plugin_dialog::DialogExt;
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        let mut picker = app.dialog().file();
+        if let Some(path) = default_path {
+            picker = picker.set_file_name(&path);
+        }
+        picker.blocking_save_file()
+    })
+    .await
+    .map_err(|e| ShellError::io("", e.to_string()))?;
+    Ok(path.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+fn close_confirmed(app: tauri::AppHandle) -> Result<(), ShellError> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    // `destroy`, not `close`: `close` raises CloseRequested again, the run handler prevents it and asks
+    // the webview again, and confirm -> close -> ask never ends (MARXY-337). `destroy` is Tauri's forced
+    // close; it skips CloseRequested, and the last window going ends the app.
+    window
+        .destroy()
+        .map_err(|e| ShellError::io("", e.to_string()))
 }
 
 /// Decodes `encodeURIComponent` output: `%XX` escapes back to bytes, then UTF-8.
@@ -189,10 +256,30 @@ fn watch_table() -> &'static Mutex<HashMap<String, WatchEntry>> {
     TABLE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Every raw root string a `watch_root` call has used, mapped to the canonical key it resolved to
+/// at that time. `unwatch_root` consults this when the root no longer canonicalises (deleted or
+/// renamed since), so it can still find the table entry that was actually stored under the old
+/// canonical path instead of a fresh, non-matching fallback string.
+fn raw_watch_roots() -> &'static Mutex<HashMap<String, String>> {
+    static TABLE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    TABLE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 fn canonical_watch_root(root: &str) -> Result<String, String> {
     let path = PathBuf::from(root);
     let canon = path.canonicalize().map_err(|e| format!("{root}: {e}"))?;
     Ok(canon.to_string_lossy().into_owned())
+}
+
+/// The watch-table key for `root`: its current canonical form, or, when it no longer canonicalises,
+/// whatever canonical key a previous `watch_root(root)` call recorded for that exact raw string.
+fn resolve_watch_key(raw_roots: &HashMap<String, String>, root: &str) -> String {
+    canonical_watch_root(root).unwrap_or_else(|_| {
+        raw_roots
+            .get(root)
+            .cloned()
+            .unwrap_or_else(|| root.to_string())
+    })
 }
 
 fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
@@ -217,6 +304,10 @@ fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
 #[tauri::command]
 async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
     let key = canonical_watch_root(&root)?;
+    raw_watch_roots()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(root.clone(), key.clone());
     let mut table = watch_table().lock().map_err(|e| e.to_string())?;
     if let Some(entry) = table.get_mut(&key) {
         entry.refs += 1;
@@ -232,9 +323,10 @@ async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn unwatch_root(root: String) -> Result<(), String> {
-    // A root that was renamed or deleted no longer canonicalises; the app watched it by the canonical
-    // path it opened, so that string is still the table's key and the thread is still stopped.
-    let key = canonical_watch_root(&root).unwrap_or(root.clone());
+    let key = {
+        let raw_roots = raw_watch_roots().lock().map_err(|e| e.to_string())?;
+        resolve_watch_key(&raw_roots, &root)
+    };
     let mut table = watch_table().lock().map_err(|e| e.to_string())?;
     let entry = table
         .get_mut(&key)
@@ -243,6 +335,9 @@ async fn unwatch_root(root: String) -> Result<(), String> {
     if entry.refs == 0 {
         let mut entry = table.remove(&key).expect("entry");
         entry.running.stop();
+        if let Ok(mut raw_roots) = raw_watch_roots().lock() {
+            raw_roots.retain(|_, v| v != &key);
+        }
     }
     Ok(())
 }
@@ -470,7 +565,16 @@ mod app_menu {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Action {
         Quit,
+        CloseWindow,
         OpenFile,
+    }
+
+    impl Action {
+        /// Quit and Close Window both ask the webview first, so a dirty document gets its notice
+        /// (ADR-0041, MARXY-337); only the webview's confirmation ends the window.
+        pub fn asks_the_webview_first(self) -> bool {
+            matches!(self, Action::Quit | Action::CloseWindow)
+        }
     }
 
     pub const QUIT: &str = "marxy-quit";
@@ -522,7 +626,8 @@ mod app_menu {
 
     pub fn action_for(id: &str) -> Option<Action> {
         match id {
-            QUIT | CLOSE_WINDOW => Some(Action::Quit),
+            QUIT => Some(Action::Quit),
+            CLOSE_WINDOW => Some(Action::CloseWindow),
             OPEN_FILE => Some(Action::OpenFile),
             _ => None,
         }
@@ -589,12 +694,63 @@ fn open_file_via_dialog(app: tauri::AppHandle) {
         });
 }
 
+/// Two close requests this close together are the reader asking twice (a double Cmd+Q, a second
+/// click on the close button). The webview treats the second as "discard" when it is listening; when
+/// it is not (crashed, hung, not yet loaded) nothing else could end the app, so the shell does.
+const REPEATED_CLOSE_MS: u64 = 1500;
+
+/// What a close request does: ask the webview, or, when it repeats one still fresh, quit.
+#[derive(Debug, PartialEq, Eq)]
+enum CloseRequest {
+    AskWebview,
+    QuitNow,
+}
+
+/// Pure decision: `previous_ms` is when the last request arrived, `now_ms` when this one did.
+fn close_request_decision(previous_ms: Option<u64>, now_ms: u64) -> CloseRequest {
+    match previous_ms {
+        Some(previous) if now_ms.saturating_sub(previous) <= REPEATED_CLOSE_MS => {
+            CloseRequest::QuitNow
+        }
+        _ => CloseRequest::AskWebview,
+    }
+}
+
+static LAST_CLOSE_REQUEST_MS: Mutex<Option<u64>> = Mutex::new(None);
+
+/// The one path every close request takes (window close box, Cmd+W, Cmd+Q): the webview decides
+/// whether a dirty document must be answered first, unless the request repeats one still fresh.
+fn request_close_of_main(app: &tauri::AppHandle) {
+    let now = now_ms() as u64;
+    let previous = LAST_CLOSE_REQUEST_MS
+        .lock()
+        .map(|mut last| last.replace(now))
+        .unwrap_or(None);
+    match (
+        close_request_decision(previous, now),
+        app.get_webview_window("main"),
+    ) {
+        (CloseRequest::AskWebview, Some(window)) => {
+            let _ = window.emit("marxy:close-requested", ());
+        }
+        // A repeat, or no window to ask: the reader has asked twice, or there is nothing to protect.
+        _ => quit_now(app, 0),
+    }
+}
+
+/// The menu's Quit and Close Window go through the same request a click on the window's close button
+/// makes.
+#[cfg(target_os = "macos")]
+fn request_close(app: &tauri::AppHandle) {
+    request_close_of_main(app);
+}
+
 #[cfg(target_os = "macos")]
 fn on_app_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     match app_menu::action_for(event.id().as_ref()) {
-        Some(app_menu::Action::Quit) => quit_now(app, 0),
+        Some(action) if action.asks_the_webview_first() => request_close(app),
         Some(app_menu::Action::OpenFile) => open_file_via_dialog(app.clone()),
-        None => {}
+        _ => {}
     }
 }
 
@@ -607,6 +763,7 @@ fn main() {
     let mut builder = tauri::Builder::default()
         .plugin(navigation_guard())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             deliver_open_files(app, document_paths_from_argv(&argv, &cwd));
         }));
@@ -631,6 +788,9 @@ fn main() {
             args,
             read_file,
             write_file_atomic,
+            set_title,
+            save_dialog,
+            close_confirmed,
             mark_from_webview,
             startup_marks,
             quit,
@@ -642,10 +802,24 @@ fn main() {
             commands::fs::read_dir,
             clipboard_write,
             take_pending_opens,
+            commands::os::open_external,
         ])
         .build(tauri::generate_context!())
         .expect("error while building marxy")
         .run(|app, event| {
+            if let RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::CloseRequested { api, .. },
+                ..
+            } = &event
+            {
+                api.prevent_close();
+                if label == "main" {
+                    request_close_of_main(app);
+                } else if let Some(window) = app.get_webview_window(label) {
+                    let _ = window.emit("marxy:close-requested", ());
+                }
+            }
             #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
             if let RunEvent::Opened { urls } = event {
                 let paths: Vec<String> = urls
@@ -666,16 +840,52 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::ClipboardPayload;
     use super::{
-        absolute_document_path, enqueue_open_files, navigation_allowed, percent_decode,
-        take_pending_opens, OPENS_LISTENER_READY,
+        absolute_document_path, clipboard_payload, enqueue_open_files, navigation_allowed,
+        percent_decode, resolve_watch_key, take_pending_opens, OPENS_LISTENER_READY,
     };
+    use std::collections::HashMap;
     use std::sync::atomic::Ordering;
+
+    #[test]
+    fn a_repeated_close_request_quits_and_a_first_or_stale_one_asks_the_webview() {
+        use super::{close_request_decision, CloseRequest, REPEATED_CLOSE_MS};
+        assert_eq!(
+            close_request_decision(None, 10_000),
+            CloseRequest::AskWebview
+        );
+        assert_eq!(
+            close_request_decision(Some(10_000), 10_000 + REPEATED_CLOSE_MS),
+            CloseRequest::QuitNow,
+            "a second Cmd+Q right behind the first ends the app"
+        );
+        assert_eq!(
+            close_request_decision(Some(10_000), 10_000 + REPEATED_CLOSE_MS + 1),
+            CloseRequest::AskWebview,
+            "a request long after the last one is a new question, not a repeat"
+        );
+    }
 
     fn reset_pending_opens_for_test() {
         OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
         let _ = take_pending_opens();
         OPENS_LISTENER_READY.store(false, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn copy_with_html_is_one_write_that_keeps_the_plain_text() {
+        assert_eq!(
+            clipboard_payload("plain".into(), Some("<b>plain</b>".into())),
+            ClipboardPayload::Html {
+                html: "<b>plain</b>".into(),
+                alt: "plain".into()
+            }
+        );
+        assert_eq!(
+            clipboard_payload("plain".into(), None),
+            ClipboardPayload::Text("plain".into())
+        );
     }
 
     #[test]
@@ -685,6 +895,30 @@ mod tests {
         let first = take_pending_opens();
         assert_eq!(first, vec![vec!["/tmp/a.md".to_string()]]);
         assert!(take_pending_opens().is_empty());
+    }
+
+    #[test]
+    fn resolve_watch_key_falls_back_to_the_recorded_canonical_key_when_the_root_is_gone() {
+        let mut raw_roots = HashMap::new();
+        raw_roots.insert(
+            "/no/such/deleted-marxy-root".to_string(),
+            "/real/canonical/path".to_string(),
+        );
+        // Without a recording, an unresolvable root used to fall back to the raw string itself,
+        // which is not the key `watch_root` actually stored the entry under.
+        assert_eq!(
+            resolve_watch_key(&raw_roots, "/no/such/deleted-marxy-root"),
+            "/real/canonical/path",
+        );
+    }
+
+    #[test]
+    fn resolve_watch_key_with_no_recording_falls_back_to_the_raw_root() {
+        let raw_roots = HashMap::new();
+        assert_eq!(
+            resolve_watch_key(&raw_roots, "/no/such/never-watched-marxy-root"),
+            "/no/such/never-watched-marxy-root",
+        );
     }
 
     #[test]
@@ -760,7 +994,13 @@ mod tests {
             "the menu's own items are Quit, Open File… and Close Window, and nothing else"
         );
         assert_eq!(action_for(QUIT), Some(Action::Quit));
-        assert_eq!(action_for(CLOSE_WINDOW), Some(Action::Quit));
+        assert_eq!(action_for(CLOSE_WINDOW), Some(Action::CloseWindow));
+        assert!(
+            action_for(QUIT).unwrap().asks_the_webview_first()
+                && action_for(CLOSE_WINDOW).unwrap().asks_the_webview_first(),
+            "Cmd+Q and Cmd+W go through the close guard, never straight to exit"
+        );
+        assert!(!Action::OpenFile.asks_the_webview_first());
         assert_eq!(action_for(OPEN_FILE), Some(Action::OpenFile));
         assert_eq!(action_for("marxy-save"), None);
 

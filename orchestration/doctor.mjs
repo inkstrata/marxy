@@ -143,6 +143,11 @@ export function diagnose(x) {
   return f;
 }
 
+/** The plan read from the working tree, for when `origin/main` cannot be read. Same shape as planAt(). */
+export function fallbackPlan(rows = stories()) {
+  return { rows, deps: {}, extraAllowed: [], byKey: new Map(rows.map(r => [r.Key, r])) };
+}
+
 /** The live snapshot diagnose() reads. */
 export function snapshot({ m = models(), b = board(), nowMs = Date.now() } = {}) {
   const lease = path => {
@@ -151,7 +156,7 @@ export function snapshot({ m = models(), b = board(), nowMs = Date.now() } = {})
   };
   const t = timing(m);
   let plan;
-  try { plan = planAt('origin/main'); } catch { plan = { rows: stories(), deps: {}, extraAllowed: [] }; }
+  try { plan = planAt('origin/main'); } catch { plan = fallbackPlan(); }
   const all = plan.rows ?? stories();
   const statusOf = k => b.stories[k]?.status ?? 'todo';
   const worktrees = observeWorktrees();

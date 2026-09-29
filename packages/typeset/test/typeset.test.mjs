@@ -156,7 +156,7 @@ test('the kill switch stops in-flight background typesetting', async () => {
     return { setBeforeKill, setAfter, pendingLeft: pending.length };
   });
   assert.ok(result.setBeforeKill > 0, 'viewport pass should have set some paragraphs');
-  assert.equal(result.setAfter, result.setBeforeKill, 'no further DOM mutation after the kill switch');
+  assert.equal(result.setAfter, 0, 'the kill switch reverts what was set and sets nothing further');
   await page.close();
 });
 
@@ -301,5 +301,109 @@ test('relayout reverts hang spans so no state accumulates', async () => {
   assert.equal(second, first);
   await page.evaluate(() => window.controller.destroy());
   assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-hang, .marxy-hyphen, .marxy-lb').length), 0);
+  await page.close();
+});
+
+test('a dash that opens a word offers no break; one inside a word still does', async () => {
+  const page = await harness.open('<p data-marxy-s="1" id="p1">run with --flag or -5 degrees, "—quoted" and x -y ok well-known a–b</p>');
+  const kinds = await page.evaluate(async () => {
+    const { collectTokens } = await import('/src/runs.ts');
+    return collectTokens(document.getElementById('p1')).map((t) => (t.kind === 'piece' ? `P:${t.text}` : t.kind));
+  });
+  const joined = kinds.join('|');
+  assert.ok(!/P:-\|dash|P:--\|dash|P:"—\|dash|P:—\|dash/.test(joined), joined);
+  assert.equal(kinds.filter((k) => k === 'dash').length, 2, joined); // well-known, a–b
+  await page.close();
+});
+
+test('flipping the kill switch mid-run reverts the paragraphs already set', async () => {
+  const para = (i) => `<p data-marxy-s="${i}">${'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. '.repeat(3)}</p>`;
+  const page = await harness.open(Array.from({ length: 60 }, (_, i) => para(i + 1)).join(''), { height: 400 });
+  const r = await page.evaluate(async () => {
+    const jobs = [];
+    const doc = document.getElementById('doc');
+    const c = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler: { schedule: (w) => jobs.push(w) },
+    });
+    await c.ready;
+    jobs.shift()(() => 1e9);
+    const before = doc.querySelectorAll('.marxy-set').length;
+    doc.style.setProperty('--marxy-typeset', 'none');
+    let guard = 0;
+    while (jobs.length && guard++ < 100) jobs.shift()(() => 1e9);
+    return { before, after: doc.querySelectorAll('.marxy-set').length, lb: doc.querySelectorAll('.marxy-lb').length };
+  });
+  assert.ok(r.before > 0, JSON.stringify(r));
+  assert.deepEqual([r.after, r.lb], [0, 0], JSON.stringify(r));
+  await page.close();
+});
+
+test('a hyphenation chunk that fails to load does not stall boot, and the next run retries', async () => {
+  const page = await harness.open('<p data-marxy-s="0">' + 'The translator in the novel starts small: a softening of the tone. '.repeat(8) + '</p>');
+  const res = await page.evaluate(async () => {
+    let calls = 0;
+    const real = await (await import('/src/hyphenate.ts')).loadHyphenators();
+    const c = window.typeset.attach(document.getElementById('doc'), {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: true, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler(),
+      loadHyphenators: () => (++calls === 1 ? Promise.reject(new Error('chunk failed')) : Promise.resolve(real)),
+    });
+    const settled = await Promise.race([Promise.all([c.ready, c.done]).then(() => 'settled'), new Promise((r) => setTimeout(() => r('HUNG'), 3000))]);
+    const first = { settled, calls, typeset: c.stats.typeset };
+    c.relayout('reload');
+    await c.done;
+    return { first, calls, hyph: document.querySelectorAll('.marxy-hyphen').length >= 0 };
+  });
+  assert.equal(res.first.settled, 'settled');
+  assert.ok(res.first.typeset > 0, 'set without hyphens');
+  assert.equal(res.calls, 2, 'a later run calls the loader again');
+  await page.close();
+});
+
+test('no set paragraph paints past the measure once the hang is applied, at any width', async () => {
+  const files = ['01-long-technical.md', '02-readme-real-world.md', '03-ai-plan.md', '15-prose-volume.md', '17-changelog.md', '16-api-reference.md', '14-marxy-plan.md', '09-gfm-everything.md'];
+  const bad = [];
+  for (const f of files) {
+    for (const width of [340, 420, 520, 640, 760]) {
+      const page = await harness.open(renderCorpus(f), { width });
+      await attachOn(page);
+      const over = await page.evaluate(() => {
+        const out = [];
+        for (const p of document.querySelectorAll('.marxy-set')) {
+          const cs = getComputedStyle(p);
+          const right = p.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+          const range = new Range();
+          const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+          let most = 0;
+          for (let t = w.nextNode(); t; t = w.nextNode()) {
+            if (t.parentElement.closest('.marxy-lb, .marxy-hyphen')) continue;
+            for (let i = 0; i < t.data.length; i++) {
+              if (/\s/.test(t.data[i])) continue;
+              range.setStart(t, i); range.setEnd(t, i + 1);
+              for (const r of range.getClientRects()) most = Math.max(most, r.right - right);
+            }
+          }
+          if (most > 0.5) out.push(most.toFixed(1) + ' ' + p.textContent.slice(0, 30));
+        }
+        return out;
+      });
+      for (const o of over) bad.push(`${f}@${width}: ${o}`);
+      await page.close();
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('an invisible-character marker adds nothing to its line: the paragraph stays on the baseline grid', async () => {
+  const mark = (label, cls = '') => `<code class="marxy-invisible ${cls}"><code class="marxy-invisible-glyph" aria-hidden="true">${label}</code><code class="marxy-invisible-byte" aria-hidden="true">​</code></code>`;
+  const html = `<p data-marxy-s="0">Plain words to fill the line here.</p><p data-marxy-s="1">Zero${mark('200B')}width and ${mark('202E', 'marxy-invisible-bidi')} a bidi mark ${mark('tag ×3', 'marxy-invisible-tag')} here.</p>`;
+  const page = await harness.open(html);
+  const r = await page.evaluate(() => {
+    const [plain, marked] = document.querySelectorAll('#doc p');
+    const glyphs = [...marked.querySelectorAll('.marxy-invisible-glyph')].map((g) => g.getBoundingClientRect().height);
+    return { plain: plain.getBoundingClientRect().height, marked: marked.getBoundingClientRect().height, lineBox: window.lineBox, glyphs };
+  });
+  assert.equal(r.marked, r.plain, 'markers do not grow the line');
+  assert.equal(r.marked % r.lineBox, 0, 'on the grid');
+  for (const h of r.glyphs) assert.ok(h < r.lineBox, `a marker (${h}px) is shorter than the line`);
   await page.close();
 });
