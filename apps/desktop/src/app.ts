@@ -12,7 +12,7 @@ import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from
 import { stripNonLocalImages } from './render/images.ts';
 import { blockedContentNotice } from './notices/blocked.ts';
 import { diskChangedEditsKeptNotice, fileRemovedNotice } from './notices/disk.ts';
-import { ensureNoticesRegion } from './notices/index.ts';
+import { clearNotices } from './notices/index.ts';
 import { leaveSourceMode } from './source/buffer-commit.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
@@ -200,6 +200,8 @@ async function showSource(byteOffset: number): Promise<void> {
 async function showRendered(byteOffset: number, fraction: number): Promise<void> {
   setModeChrome('rendered');
   if (state.document && openPath) {
+    // Block positions must be measured with the article laid out, not from whatever a hidden pass saw.
+    snap(document.getElementById('doc')!);
     restoreScrollToPosition(readingScroller(), state.document.blocks, {
       path: openPath,
       byteOffset,
@@ -330,6 +332,7 @@ function deferredStartupContext(
     imageCtx,
     onIndexLoaded: deliverIndex,
     openedBytes: documentBuffer?.bytes,
+    onLayoutChanged: () => snap(doc),
   };
 }
 
@@ -503,12 +506,18 @@ function keepOnGrid(article: HTMLElement): void {
   let width = article.clientWidth;
   disconnectResizeObserver();
   liveResizeObservers += 1;
+  const laidOut = () => !article.hidden && article.clientWidth > 0;
   resizeObserver = new ResizeObserver(() => {
-    if (article.clientWidth === width) return;
+    // Hidden (Source mode) the article is zero-width: measuring now would zero every block position.
+    if (!laidOut() || article.clientWidth === width) return;
     width = article.clientWidth;
     clearTimeout(pending);
     // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
-    pending = window.setTimeout(() => (typeset ? typeset.relayout('resize') : snap(article)), 100);
+    pending = window.setTimeout(() => {
+      if (!laidOut()) return;
+      if (typeset) typeset.relayout('resize');
+      else snap(article);
+    }, 100);
   });
   resizeObserver.observe(article);
 }
@@ -786,7 +795,8 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   const { html, removed, blockedImages } = renderDocumentSafeHtml(ast);
   const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
-  ensureNoticesRegion();
+  // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
+  clearNotices();
   assignHtml(doc, html);
   state.document = { ast, html, nodeMap, blocks: [] };
   announceDocument();

@@ -76,6 +76,7 @@ let ctx: Ctx | null = null;
 let state: SelectionState = { selection: { kind: 'none' } };
 let lastClickTarget: Element | null = null;
 let pointerDrag = false;
+const DRAG_THRESHOLD_PX = 4;
 let installedOn: HTMLElement | null = null;
 let appHandle: AppHandle | null = null;
 let navHistory: string[] = [];
@@ -380,8 +381,15 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
 
   installLinkHistoryKeys();
 
-  article.addEventListener('mousedown', () => { pointerDrag = false; });
-  article.addEventListener('mousemove', () => { pointerDrag = true; });
+  // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
+  let downAt: { x: number; y: number } | null = null;
+  article.addEventListener('mousedown', (ev) => {
+    pointerDrag = false;
+    downAt = { x: ev.clientX, y: ev.clientY };
+  });
+  article.addEventListener('mousemove', (ev) => {
+    if (downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) >= DRAG_THRESHOLD_PX) pointerDrag = true;
+  });
   article.addEventListener('mouseup', () => onPointerUp());
   article.addEventListener('click', (ev) => {
     // Before anything that can return early (a drag, a text selection, no document yet): a link
