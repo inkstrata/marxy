@@ -15,7 +15,7 @@ const withoutProvenance = (html: string): string => html.replace(/ data-marxy-[s
 const html = (markdown: string): string => withoutProvenance(renderSafeHtml(markdown, { file: 'test.md' }).html);
 
 test('headings, paragraphs and emphasis are set as themselves', () => {
-  assert.equal(html('# Title\n\nSome *emphasis* and **strength**.\n'), '<h1>Title</h1>\n<p>Some <em>emphasis</em> and <strong>strength</strong>.</p>');
+  assert.equal(html('# Title\n\nSome *emphasis* and **strength**.\n'), '<h1 id="title">Title</h1>\n<p>Some <em>emphasis</em> and <strong>strength</strong>.</p>');
 });
 
 test('text is escaped, so prose cannot become markup', () => {

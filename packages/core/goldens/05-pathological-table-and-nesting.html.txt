@@ -1,5 +1,5 @@
-<h1 data-marxy-s="0" data-marxy-e="25">Pathological structures</h1>
-<h2 data-marxy-s="27" data-marxy-e="55">A wide table with 40 rows</h2>
+<h1 id="pathological-structures" data-marxy-s="0" data-marxy-e="25">Pathological structures</h1>
+<h2 id="a-wide-table-with-40-rows" data-marxy-s="27" data-marxy-e="55">A wide table with 40 rows</h2>
 <table data-marxy-s="57" data-marxy-e="5814">
 <thead>
 <tr data-marxy-s="57" data-marxy-e="160">
@@ -662,7 +662,7 @@
 </tr>
 </tbody>
 </table>
-<h2 data-marxy-s="5816" data-marxy-e="5844">A list nested twelve deep</h2>
+<h2 id="a-list-nested-twelve-deep" data-marxy-s="5816" data-marxy-e="5844">A list nested twelve deep</h2>
 <ul data-marxy-s="5846" data-marxy-e="6563">
 <li data-marxy-s="5846" data-marxy-e="6541">level 0 item
 <ol data-marxy-s="5863" data-marxy-e="5878">
@@ -713,7 +713,7 @@
 </ul></li>
 <li data-marxy-s="6542" data-marxy-e="6563">back out to level 0</li>
 </ul>
-<h2 data-marxy-s="6565" data-marxy-e="6582">An empty table</h2>
+<h2 id="an-empty-table" data-marxy-s="6565" data-marxy-e="6582">An empty table</h2>
 <table data-marxy-s="6584" data-marxy-e="6607">
 <thead>
 <tr data-marxy-s="6584" data-marxy-e="6593">
@@ -722,7 +722,7 @@
 </tr>
 </thead>
 </table>
-<h2 data-marxy-s="6609" data-marxy-e="6656">A table with escaped pipes and inline markup</h2>
+<h2 id="a-table-with-escaped-pipes-and-inline-markup" data-marxy-s="6609" data-marxy-e="6656">A table with escaped pipes and inline markup</h2>
 <table data-marxy-s="6658" data-marxy-e="6798">
 <thead>
 <tr data-marxy-s="6658" data-marxy-e="6681">
@@ -733,7 +733,7 @@
 <tbody>
 <tr data-marxy-s="6696" data-marxy-e="6764">
 <td data-marxy-s="6696" data-marxy-e="6707"><code data-marxy-s="6698" data-marxy-e="6706">a | b</code></td>
-<td data-marxy-s="6707" data-marxy-e="6764"><strong data-marxy-s="6709" data-marxy-e="6717">bold</strong> and <em data-marxy-s="6722" data-marxy-e="6726">em</em> and <a href="https://example.invalid/" data-marxy-s="6731" data-marxy-e="6762">link</a></td>
+<td data-marxy-s="6707" data-marxy-e="6764"><strong data-marxy-s="6709" data-marxy-e="6717">bold</strong> and <em data-marxy-s="6722" data-marxy-e="6726">em</em> and <a href="https://example.invalid/" class="marxy-external" data-marxy-s="6731" data-marxy-e="6762">link</a></td>
 </tr>
 <tr data-marxy-s="6765" data-marxy-e="6798">
 <td data-marxy-s="6765" data-marxy-e="6778"><del data-marxy-s="6767" data-marxy-e="6777">struck</del></td>
