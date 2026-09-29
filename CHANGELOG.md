@@ -7,6 +7,7 @@ tag time. Conventions in `docs/conventions.md`.
 ## Unreleased
 
 - Source mode shows line numbers for code files (with a palette toggle), folding, visible control characters, tab width from `.editorconfig`, and no ligatures in the editor; long paths in Rendered mode break after a slash when they would otherwise overflow (MARXY-239)
+- Copying a code block keeps the source's own newline and no longer has to fight a test that always added one; heading links and explicit save can touch the files their branches already edit (MARXY-318)
 - `image_size` now returns an I/O error when the file cannot be read, instead of treating permission failures and similar problems like a non-image file (MARXY-287)
 - A theme manifest that declares `variants = []` is no longer accepted silently: the loader warns with the theme name and `theme.toml`, then falls back to the default light and dark variants (MARXY-284)
 - The frozen shell-api compile-time stub shells now share one no-op implementation, so a new `Shell` member is defined in one place instead of three hand-copied literals (MARXY-285)
