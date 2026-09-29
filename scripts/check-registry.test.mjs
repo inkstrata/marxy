@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { stripComments } from './lib/repo.mjs';
-import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems } from './check-registry.mjs';
+import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems, stripForRegistry } from './check-registry.mjs';
 
 const ALLOWED_PREFIX = 'apps/desktop/src/render/';
 const OUTSIDE = 'packages/core/src/buffer.ts';
@@ -134,4 +134,37 @@ test('temp fixture outside allow-list is flagged via htmlRouteProblems', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+const viaGate = code => htmlRouteProblems(OUTSIDE, stripForRegistry(code, OUTSIDE), []);
+
+test('MARXY-337: comparing innerHTML is not an assignment', () => {
+  for (const code of ["if (el.innerHTML === '') {}", "if (el.innerHTML == '') {}", 'if (a.outerHTML !== b) {}', 'const f = () => el.innerHTML;']) {
+    assert.deepEqual(viaGate(code), [], code);
+  }
+});
+
+test('MARXY-337: bracket-string and other routes the old table missed are flagged', () => {
+  const missed = [
+    "el['outerHTML'] = s;",
+    'el[`innerHTML`] = s;',
+    "el['insertAdjacentHTML']('beforeend', s);",
+    "el['setHTMLUnsafe'](s);",
+    'document.writeln(s);',
+    "document['write'](s);",
+    'Document.parseHTMLUnsafe(s);',
+    'new DOMParser().parseFromString(s, "text/html");',
+    'frame.srcdoc = s;',
+    "frame.setAttribute('srcdoc', s);",
+    'Object.assign(el, { innerHTML: s });',
+    'Object.assign(el, { x: 1, outerHTML: s });',
+    "Object.defineProperty(el, 'innerHTML', { value: s });",
+  ];
+  for (const code of missed) assert.equal(viaGate(code).length >= 1, true, code);
+});
+
+test('MARXY-337: a "/*" inside a string does not hide a later route behind a fake comment', () => {
+  const code = "const glob = 'src/*.ts'; el.innerHTML = x; /** doc */";
+  assert.equal(viaGate(code).length, 1);
+  assert.deepEqual(viaGate("/* el.innerHTML = x */ const a = 'ok';"), []);
 });

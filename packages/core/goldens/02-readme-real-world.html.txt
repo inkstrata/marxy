@@ -6,20 +6,20 @@
   <a href="https://example.invalid/npm"><img data-marxy-remote="https://img.shields.io/npm/v/widgetlib" alt="npm" /></a>
   <img data-marxy-remote="https://img.shields.io/badge/license-MIT-blue" alt="MIT" />
 
-<h2 data-marxy-s="496" data-marxy-e="506">Install</h2>
+<h2 id="install" data-marxy-s="496" data-marxy-e="506">Install</h2>
 <pre data-marxy-s="508" data-marxy-e="536"><code class="language-sh" data-marxy-s="514" data-marxy-e="533">pnpm add widgetlib
 </code></pre>
 <blockquote data-marxy-s="538" data-marxy-e="615">
 <p data-marxy-s="540" data-marxy-e="615"><strong data-marxy-s="540" data-marxy-e="548">Note</strong>
 Node 20 or later is required. Bun works but is not tested in CI.</p>
 </blockquote>
-<h2 data-marxy-s="617" data-marxy-e="625">Usage</h2>
+<h2 id="usage" data-marxy-s="617" data-marxy-e="625">Usage</h2>
 <pre data-marxy-s="627" data-marxy-e="748"><code class="language-ts" data-marxy-s="633" data-marxy-e="745">import { widget } from 'widgetlib';
 
 const w = widget({ title: 'Hello', width: 40 });
 w.render(process.stdout);
 </code></pre>
-<h3 data-marxy-s="750" data-marxy-e="761">Options</h3>
+<h3 id="options" data-marxy-s="750" data-marxy-e="761">Options</h3>
 <table data-marxy-s="763" data-marxy-e="1043">
 <thead>
 <tr data-marxy-s="763" data-marxy-e="804">
@@ -50,7 +50,7 @@ w.render(process.stdout);
 </tr>
 </tbody>
 </table>
-<h2 data-marxy-s="1045" data-marxy-e="1056">Features</h2>
+<h2 id="features" data-marxy-s="1045" data-marxy-e="1056">Features</h2>
 <ul data-marxy-s="1058" data-marxy-e="1243">
 <li data-marxy-s="1058" data-marxy-e="1077">Zero dependencies</li>
 <li data-marxy-s="1078" data-marxy-e="1220">Works in
@@ -71,7 +71,7 @@ w.render(process.stdout);
 
 Why another widget library?
 <p data-marxy-s="1303" data-marxy-e="1388">Because the existing ones are either enormous or abandoned. This one is neither, yet.</p>
-<h2 data-marxy-s="1402" data-marxy-e="1417">Contributing</h2>
+<h2 id="contributing" data-marxy-s="1402" data-marxy-e="1417">Contributing</h2>
 <ol data-marxy-s="1419" data-marxy-e="1528">
 <li data-marxy-s="1419" data-marxy-e="1426">Fork</li>
 <li data-marxy-s="1427" data-marxy-e="1444"><code data-marxy-s="1430" data-marxy-e="1444">pnpm install</code></li>
@@ -82,5 +82,5 @@ Why another widget library?
 </ul></li>
 <li data-marxy-s="1516" data-marxy-e="1528">Open a PR</li>
 </ol>
-<h2 data-marxy-s="1530" data-marxy-e="1540">License</h2>
+<h2 id="license" data-marxy-s="1530" data-marxy-e="1540">License</h2>
 <p data-marxy-s="1542" data-marxy-e="1570">MIT © the widgetlib authors</p>

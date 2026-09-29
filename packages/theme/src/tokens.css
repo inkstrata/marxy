@@ -13,7 +13,7 @@
   --marxy-size-code: 18px;            /* the mono x-height matched to the text's (constraint 5) */
   --marxy-line-box-code: 30px;        /* code lines; two grid units; blocks are padded by snapToGrid */
   --marxy-size-caption: 15px;
-  --marxy-lh-h1: 48px;                /* heading line boxes; ≥ size and ≤ 2 line boxes (loader clamps) */
+  --marxy-lh-h1: 48px;                /* heading line boxes; ≥ size and ≤ 2 line boxes (base.css clamps at runtime, not the loader) */
   --marxy-lh-h2: 38px;
 
   /* families and weights */

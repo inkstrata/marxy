@@ -1,4 +1,4 @@
-<h1 data-marxy-s="0" data-marxy-e="18">Stack evaluation</h1>
+<h1 id="stack-evaluation" data-marxy-s="0" data-marxy-e="18">Stack evaluation</h1>
 <p data-marxy-s="20" data-marxy-e="88"><strong data-marxy-s="20" data-marxy-e="31">Status:</strong> <strong data-marxy-s="32" data-marxy-e="56">OPEN — not decided</strong> · <strong data-marxy-s="60" data-marxy-e="77">Last updated:</strong> 2026-09-17</p>
 <p data-marxy-s="90" data-marxy-e="308">Three weighted passes, one reversal, one user override, and a scope change
 that moved the numbers a third time. All of it is recorded because a
@@ -9,7 +9,7 @@ that margin comes from weights that are judgements, and the three passes
 disagree with each other. The framework near the end of this document is
 more useful than any of the totals.</p>
 <hr data-marxy-s="643" data-marxy-e="646" />
-<h2 data-marxy-s="648" data-marxy-e="657">Method</h2>
+<h2 id="method" data-marxy-s="648" data-marxy-e="657">Method</h2>
 <p data-marxy-s="659" data-marxy-e="807">Metrics weighted to sum to 100, candidates scored 1–5 per metric,
 weighted total normalised out of 100 (a perfect score being 5 across the
 board).</p>
@@ -19,7 +19,7 @@ judgements about priorities, so the exercise is really a way of making
 those judgements explicit and arguable. If the brief changes, the scores
 must be recomputed rather than assumed.</p>
 <hr data-marxy-s="1141" data-marxy-e="1144" />
-<h2 data-marxy-s="1148" data-marxy-e="1176">Pass 1 — original brief</h2>
+<h2 id="pass-1--original-brief" data-marxy-s="1148" data-marxy-e="1176">Pass 1 — original brief</h2>
 <p data-marxy-s="1178" data-marxy-e="1268">Brief: reading-only, no editing, platforms undecided, theming not
 mentioned, license open.</p>
 <table data-marxy-s="1271" data-marxy-e="1798">
@@ -85,7 +85,7 @@ the deciding factor and the choice should be made on team fit. The
 platform question, however, <em data-marxy-s="2128" data-marxy-e="2133">was</em> the stack question wearing a different
 hat — macOS-first dropped Electron decisively.</p>
 <hr data-marxy-s="2223" data-marxy-e="2226" />
-<h2 data-marxy-s="2230" data-marxy-e="2257">Pass 2 — revised brief</h2>
+<h2 id="pass-2--revised-brief" data-marxy-s="2230" data-marxy-e="2257">Pass 2 — revised brief</h2>
 <p data-marxy-s="2259" data-marxy-e="2392">Brief gained: Typora-style live-render editing, macOS-first with <strong data-marxy-s="2324" data-marxy-e="2343">Linux
 mandatory</strong>, <strong data-marxy-s="2345" data-marxy-e="2369">user CSS first-class</strong>, free and open source.</p>
 <p data-marxy-s="2394" data-marxy-e="2502">Two metrics are new. Cross-platform parity rose from 10 to 15 because
@@ -153,7 +153,7 @@ Linux moved from optional to promised.</p>
 </tbody>
 </table>
 <p data-marxy-s="3308" data-marxy-e="3352"><strong data-marxy-s="3308" data-marxy-e="3352">Result: Electron 82, Tauri 66, Swift 56.</strong></p>
-<h3 data-marxy-s="3354" data-marxy-e="3373">Why it reversed</h3>
+<h3 id="why-it-reversed" data-marxy-s="3354" data-marxy-e="3373">Why it reversed</h3>
 <p data-marxy-s="3375" data-marxy-e="3432">Three specific additions, each independently significant:</p>
 <ol data-marxy-s="3434" data-marxy-e="4423">
 <li data-marxy-s="3434" data-marxy-e="3962"><strong data-marxy-s="3437" data-marxy-e="3464">Linux became mandatory.</strong> Under Tauri that means WebKitGTK, which has
@@ -178,7 +178,7 @@ and Tauri wins again.</p>
 engine, and Linux support is impossible for a macOS-native toolkit. Ruled
 out rather than merely outscored.</p>
 <hr data-marxy-s="4702" data-marxy-e="4705" />
-<h2 data-marxy-s="4709" data-marxy-e="4734">Pass 3 — pared brief</h2>
+<h2 id="pass-3--pared-brief" data-marxy-s="4709" data-marxy-e="4734">Pass 3 — pared brief</h2>
 <p data-marxy-s="4736" data-marxy-e="4861">Brief v3 changed the inputs materially in both directions, which is why
 this pass exists rather than an annotation on Pass 2.</p>
 <p data-marxy-s="4863" data-marxy-e="5248"><strong data-marxy-s="4863" data-marxy-e="4875">Removed:</strong> Typora-style live-render editing. This deletes an entire
@@ -256,7 +256,7 @@ most consequential number in the whole exercise.</p>
 </tbody>
 </table>
 <p data-marxy-s="6284" data-marxy-e="6318"><strong data-marxy-s="6284" data-marxy-e="6318">Result: Tauri 81, Electron 66.</strong></p>
-<h3 data-marxy-s="6320" data-marxy-e="6344">Why it reversed back</h3>
+<h3 id="why-it-reversed-back" data-marxy-s="6320" data-marxy-e="6344">Why it reversed back</h3>
 <p data-marxy-s="6346" data-marxy-e="6422">Not because anything was learned about the frameworks. Three inputs
 changed:</p>
 <ol data-marxy-s="6424" data-marxy-e="7021">
@@ -279,7 +279,7 @@ the brief did, and each time the brief changed the answer changed with it.
 That is a property of the method working, but it is also a warning that a
 fourth brief revision would move the answer again.</p>
 <hr data-marxy-s="7501" data-marxy-e="7504" />
-<h2 data-marxy-s="7506" data-marxy-e="7534">Where the question stands</h2>
+<h2 id="where-the-question-stands" data-marxy-s="7506" data-marxy-e="7534">Where the question stands</h2>
 <p data-marxy-s="7536" data-marxy-e="7830">The stated lean is <em data-marxy-s="7555" data-marxy-e="7594">“swift is out, leaning toward tauri,”</em> and the user has
 since confirmed the question remains open. Pass 3 now supports the lean
 rather than contradicting it, which is a meaningfully different situation
@@ -304,7 +304,7 @@ measure, not a reason to choose.</p>
 <p data-marxy-s="8706" data-marxy-e="8921">The weights are judgements, not facts. Weighting footprint at 10 rather
 than 25 was a choice, and someone building a lean open-source tool for
 people who care about such things could reasonably weight it far higher.</p>
-<h3 data-marxy-s="8923" data-marxy-e="8965">What must be true for this to be right</h3>
+<h3 id="what-must-be-true-for-this-to-be-right" data-marxy-s="8923" data-marxy-e="8965">What must be true for this to be right</h3>
 <p data-marxy-s="8967" data-marxy-e="9068">Recorded so it stays checkable. These are hypotheses to test in the first
 two weeks, not assumptions.</p>
 <table data-marxy-s="9071" data-marxy-e="11149">
@@ -370,7 +370,7 @@ startup speed from qualities to claims.</p>
 shape of that rule: 1 and 2 are about typography, 6 and 7 about speed. If
 Tauri fails on typography it fails at the thesis; if it fails on speed it
 fails at the headline feature. Either pair failing is sufficient.</p>
-<h3 data-marxy-s="11770" data-marxy-e="11801">What makes revisiting cheap</h3>
+<h3 id="what-makes-revisiting-cheap" data-marxy-s="11770" data-marxy-e="11801">What makes revisiting cheap</h3>
 <p data-marxy-s="11803" data-marxy-e="12194">The frontend is portable between Tauri and Electron — same framework, same
 CSS, same libraries. Only the privileged-operation boundary differs.
 Keeping file access, watching, and dialogs behind a <strong data-marxy-s="12001" data-marxy-e="12033">thin, well-defined
@@ -378,14 +378,14 @@ interface</strong> — a handful of functions, not scattered <code data-marxy-s=
 a later switch a matter of reimplementing that interface. Worth doing
 regardless of intent.</p>
 <hr data-marxy-s="12196" data-marxy-e="12199" />
-<h2 data-marxy-s="12201" data-marxy-e="12231">How to actually settle this</h2>
+<h2 id="how-to-actually-settle-this" data-marxy-s="12201" data-marxy-e="12231">How to actually settle this</h2>
 <p data-marxy-s="12233" data-marxy-e="12498">The question has now survived three weighted analyses without closing,
 which is evidence that <strong data-marxy-s="12327" data-marxy-e="12363">more analysis will not close it.</strong> The weights
 decide the outcome, the weights are judgements, and the brief keeps
 changing. A fourth pass would produce a fourth number.</p>
 <p data-marxy-s="12500" data-marxy-e="12639">What would close it is a small amount of code. Two or three days, and it
 answers the load-bearing hypotheses directly rather than by proxy.</p>
-<h3 data-marxy-s="12641" data-marxy-e="12654">The spike</h3>
+<h3 id="the-spike" data-marxy-s="12641" data-marxy-e="12654">The spike</h3>
 <p data-marxy-s="12656" data-marxy-e="12719">Build the same throwaway shell twice, in Tauri and in Electron:</p>
 <ol data-marxy-s="12721" data-marxy-e="13131">
 <li data-marxy-s="12721" data-marxy-e="12790">Open a markdown file passed as an argument, render it, no styling.</li>
@@ -401,7 +401,7 @@ whether the WebKitGTK weight defect is compensable, which is the only real
 argument against Tauri now that editing has left scope. Step 5 answers
 hypothesis 7, and it matters because the one same-application benchmark in
 existence found Electron <em data-marxy-s="13455" data-marxy-e="13463">faster</em>.</p>
-<h3 data-marxy-s="13466" data-marxy-e="13506">The decision rule, stated in advance</h3>
+<h3 id="the-decision-rule-stated-in-advance" data-marxy-s="13466" data-marxy-e="13506">The decision rule, stated in advance</h3>
 <p data-marxy-s="13508" data-marxy-e="13624">Committing to a rule before seeing results is the point; it is what stops
 the outcome being rationalised either way.</p>
 <table data-marxy-s="13626" data-marxy-e="14371">
@@ -433,7 +433,7 @@ the outcome being rationalised either way.</p>
 <p data-marxy-s="14373" data-marxy-e="14585">Note that only one row is genuinely bad for Tauri, and it is the row that
 depends on a defect in someone else’s software. That is worth knowing
 before starting: <strong data-marxy-s="14534" data-marxy-e="14585">the risk is concentrated in one testable place.</strong></p>
-<h3 data-marxy-s="14587" data-marxy-e="14626">What to do regardless of the answer</h3>
+<h3 id="what-to-do-regardless-of-the-answer" data-marxy-s="14587" data-marxy-e="14626">What to do regardless of the answer</h3>
 <p data-marxy-s="14628" data-marxy-e="14727">Because the frontend is portable between the two, most of the work is not
 blocked on this decision:</p>
 <ul data-marxy-s="14729" data-marxy-e="15036">
@@ -448,11 +448,11 @@ and it blocks the speed claims, but the reading experience — the part that
 is actually hard and actually differentiating — can be built before the
 answer arrives. That is the most useful thing in this document.</p>
 <hr data-marxy-s="15328" data-marxy-e="15331" />
-<h2 data-marxy-s="15335" data-marxy-e="15369">Measured data behind the scores</h2>
+<h2 id="measured-data-behind-the-scores" data-marxy-s="15335" data-marxy-e="15369">Measured data behind the scores</h2>
 <p data-marxy-s="15371" data-marxy-e="15526"><strong data-marxy-s="15371" data-marxy-e="15526">All figures from published 2026 benchmarks that disagree substantially.
 Ratios are the stable signal; absolutes are not. Re-measure on target
 hardware.</strong></p>
-<h3 data-marxy-s="15528" data-marxy-e="15543">Bundle size</h3>
+<h3 id="bundle-size" data-marxy-s="15528" data-marxy-e="15543">Bundle size</h3>
 <table data-marxy-s="15546" data-marxy-e="16392">
 <thead>
 <tr data-marxy-s="15546" data-marxy-e="15638">
@@ -509,7 +509,7 @@ hardware.</strong></p>
 </table>
 <p data-marxy-s="16395" data-marxy-e="16542">The markdown-editor row is the directly relevant one. Note the spread
 between sources on identical app classes — an order of magnitude for Tauri.</p>
-<h3 data-marxy-s="16544" data-marxy-e="16554">Memory</h3>
+<h3 id="memory" data-marxy-s="16544" data-marxy-e="16554">Memory</h3>
 <table data-marxy-s="16557" data-marxy-e="16943">
 <thead>
 <tr data-marxy-s="16557" data-marxy-e="16633">
@@ -543,7 +543,7 @@ between sources on identical app classes — an order of magnitude for Tauri.</
 <p data-marxy-s="16946" data-marxy-e="17108">The Better Stack figures — a much narrower gap — come from the only source
 that built the same non-trivial application in every framework. Weight
 accordingly.</p>
-<h3 data-marxy-s="17110" data-marxy-e="17121">Startup</h3>
+<h3 id="startup" data-marxy-s="17110" data-marxy-e="17121">Startup</h3>
 <table data-marxy-s="17124" data-marxy-e="17511">
 <thead>
 <tr data-marxy-s="17124" data-marxy-e="17199">
@@ -578,7 +578,7 @@ accordingly.</p>
 same-application comparison, Electron started <em data-marxy-s="17628" data-marxy-e="17636">faster</em>, because Tauri still
 waits for the system webview to initialise. The author called it a
 surprise. Do not treat Tauri’s startup advantage as guaranteed.</p>
-<h3 data-marxy-s="17790" data-marxy-e="17805">Build times</h3>
+<h3 id="build-times" data-marxy-s="17790" data-marxy-e="17805">Build times</h3>
 <table data-marxy-s="17808" data-marxy-e="18075">
 <thead>
 <tr data-marxy-s="17808" data-marxy-e="17872">
@@ -607,7 +607,7 @@ surprise. Do not treat Tauri’s startup advantage as guaranteed.</p>
 taxes design iteration specifically, which matters more than usual for an
 aesthetics-led project — mitigated if the typography layer is pure
 frontend, which it should be.</p>
-<h3 data-marxy-s="18326" data-marxy-e="18335">Other</h3>
+<h3 id="other" data-marxy-s="18326" data-marxy-e="18335">Other</h3>
 <table data-marxy-s="18338" data-marxy-e="18789">
 <thead>
 <tr data-marxy-s="18338" data-marxy-e="18412">
@@ -642,7 +642,7 @@ frontend, which it should be.</p>
 <p data-marxy-s="18792" data-marxy-e="18895">Mobile is out of scope, but worth noting Tauri would make it possible
 later where Electron never could.</p>
 <hr data-marxy-s="18897" data-marxy-e="18900" />
-<h2 data-marxy-s="18904" data-marxy-e="18931">Candidates not evaluated</h2>
+<h2 id="candidates-not-evaluated" data-marxy-s="18904" data-marxy-e="18931">Candidates not evaluated</h2>
 <table data-marxy-s="18934" data-marxy-e="20323">
 <thead>
 <tr data-marxy-s="18934" data-marxy-e="19131">

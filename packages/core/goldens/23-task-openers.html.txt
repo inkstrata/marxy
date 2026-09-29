@@ -1,0 +1,18 @@
+<h1 id="task-openers" data-marxy-s="0" data-marxy-e="14">Task openers</h1>
+<ul data-marxy-s="16" data-marxy-e="283">
+<li data-marxy-s="16" data-marxy-e="34"><input type="checkbox" data-marxy-s="18" data-marxy-e="21" disabled /> <code data-marxy-s="22" data-marxy-e="28">code</code> first</li>
+<li data-marxy-s="35" data-marxy-e="61"><input type="checkbox" checked data-marxy-s="37" data-marxy-e="40" disabled /> <code data-marxy-s="41" data-marxy-e="55">checked code</code> first</li>
+<li data-marxy-s="62" data-marxy-e="82"><input type="checkbox" data-marxy-s="64" data-marxy-e="67" disabled /> <strong data-marxy-s="68" data-marxy-e="76">bold</strong> first</li>
+<li data-marxy-s="83" data-marxy-e="111"><input type="checkbox" checked data-marxy-s="85" data-marxy-e="88" disabled /> <strong data-marxy-s="89" data-marxy-e="105">checked bold</strong> first</li>
+<li data-marxy-s="112" data-marxy-e="134"><input type="checkbox" data-marxy-s="114" data-marxy-e="117" disabled /> <em data-marxy-s="118" data-marxy-e="128">emphasis</em> first</li>
+<li data-marxy-s="135" data-marxy-e="165"><input type="checkbox" checked data-marxy-s="137" data-marxy-e="140" disabled /> <em data-marxy-s="141" data-marxy-e="159">checked emphasis</em> first</li>
+<li data-marxy-s="166" data-marxy-e="205"><input type="checkbox" data-marxy-s="168" data-marxy-e="171" disabled /> <a href="https://example.com/" class="marxy-external" data-marxy-s="172" data-marxy-e="199">link</a> first</li>
+<li data-marxy-s="206" data-marxy-e="253"><input type="checkbox" checked data-marxy-s="208" data-marxy-e="211" disabled /> <a href="https://example.com/" class="marxy-external" data-marxy-s="212" data-marxy-e="247">checked link</a> first</li>
+<li data-marxy-s="254" data-marxy-e="283"><input type="checkbox" data-marxy-s="256" data-marxy-e="259" disabled /> plain text after marker</li>
+</ul>
+<blockquote data-marxy-s="285" data-marxy-e="333">
+<h2 id="heading-in-quote" data-marxy-s="287" data-marxy-e="306">Heading in quote</h2>
+<p data-marxy-s="311" data-marxy-e="333">Body inside the quote.</p>
+</blockquote>
+<h2 id="after-the-quote" data-marxy-s="335" data-marxy-e="353">After the quote</h2>
+<p data-marxy-s="355" data-marxy-e="372">Trailing section.</p>

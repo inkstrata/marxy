@@ -147,7 +147,7 @@ test('a golden change without a queue entry passes the range half: the entry is 
   const problems = lintPrRange({
     key: 'MARXY-104',
     changed: ['packages/core/goldens/01.ast.txt'],
-    changelogDiff: '- a line (MARXY-104)\n',
+    changelogDiff: '+- a line (MARXY-104)\n',
   });
   assert.deepEqual(problems, []);
 });

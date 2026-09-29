@@ -13,6 +13,7 @@ import {
   contentHash,
   createBuffer,
   eolString,
+  foldText,
   fromText,
   lineOf,
   splice,
@@ -179,6 +180,24 @@ test('contentHash is the FNV-1a 64 value for empty bytes and for 12-crlf-and-bom
   assert.equal(contentHash(read('12-crlf-and-bom.md')), '74638bba5e821f1e');
 });
 
+test('splice throws on inverted, out-of-range and mid-UTF-8-character ranges', () => {
+  const buffer = createBuffer('doc.md', encode('hello'));
+  const file = buffer.path;
+  assert.throws(() => splice(buffer, range(file, 4, 2), 'x'), RangeError);
+  assert.throws(() => splice(buffer, range(file, -1, 0), ''), RangeError);
+  assert.throws(() => splice(buffer, range(file, 0, buffer.bytes.length + 1), ''), RangeError);
+  const cjk = createBuffer('cjk.md', encode('東'));
+  assert.throws(() => splice(cjk, range('cjk.md', 1, 2), 'x'), RangeError);
+});
+
+test('a bare-CR file reports eol cr and a splice preserves the carriage return', () => {
+  const loneCr = Uint8Array.from([0x61, 0x0d, 0x62]);
+  const buffer = createBuffer('lone-cr.md', loneCr);
+  assert.equal(buffer.eol, 'cr');
+  const next = splice(buffer, range('lone-cr.md', 2, 3), 'c');
+  assert.deepEqual([...next.bytes], [0x61, 0x0d, 0x63]);
+});
+
 test('createBuffer normalises nothing: decode then encode matches the file bytes', () => {
   const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
   const encoder = new TextEncoder();
@@ -241,13 +260,50 @@ test('the three-dot diff contains no fidelity gate and no contract file', (t) =>
     .split('\n')
     .filter(Boolean);
   // MARXY-138 (and future stories whose board row names the gate) may touch the fidelity
-  // gate only alongside the corpus binary fixture that forces the exemption.
+  // gate only alongside a file unique to that story's own PR, so an unrelated branch cannot
+  // accidentally satisfy the exemption.
   const gateFidelityAllowed =
-    names.includes('fixtures/corpus/image.png') &&
-    names.includes('scripts/allowlists/crate-licences.json');
+    (names.includes('fixtures/corpus/image.png') && names.includes('scripts/allowlists/crate-licences.json')) ||
+    // MARXY-49: explicit save deletes the write-after-every-operation path gate-fidelity.mjs
+    // measured, and updates its Rust save-signature anchor to WriteError; save.test.mjs is
+    // unique to that story's own PR.
+    names.includes('apps/desktop/test/save.test.mjs');
   assert.ok(!names.includes('scripts/gate-fidelity.mjs') || gateFidelityAllowed);
   assert.deepEqual(
     names.filter((name) => name === 'packages/core/src/contracts' || name.startsWith('packages/core/src/contracts/')),
     [],
   );
+});
+
+const crlfBufferOf = (text: string) => createBuffer('t.md', new TextEncoder().encode(text));
+const folded = (like: ReturnType<typeof createBuffer>, text: string): string => {
+  const fold = foldText(like, text);
+  return fold ? splice(like, fold.range, fold.replacement).text : like.text;
+};
+
+test('foldText with LF input on a CRLF buffer never leaves a bare LF', () => {
+  assert.equal(folded(crlfBufferOf('a\r\n'), 'a\n\n'), 'a\r\n\r\n');
+});
+
+test('foldText fuzz: LF input on CRLF buffers yields no bare LF; CRLF input is unchanged', () => {
+  let seed = 12345;
+  const rand = (n: number): number => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return (seed >> 8) % n;
+  };
+  const alphabet = ['a', 'b', '\n'];
+  const make = (): string => Array.from({ length: rand(7) }, () => alphabet[rand(3)]!).join('');
+  let checked = 0;
+  for (let n = 0; n < 4000; n++) {
+    const like = crlfBufferOf(make().replace(/\n/g, '\r\n'));
+    if (like.eol !== 'crlf') continue;
+    checked++;
+    const next = make();
+    const result = folded(like, next);
+    assert.equal(/(^|[^\r])\n/.test(result), false, JSON.stringify({ old: like.text, next, result }));
+    assert.equal(result, next.replace(/\n/g, '\r\n'));
+    const crlfInput = next.replace(/\n/g, '\r\n');
+    assert.equal(folded(like, crlfInput), crlfInput);
+  }
+  assert.ok(checked > 500);
 });

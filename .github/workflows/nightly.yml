@@ -63,7 +63,7 @@ jobs:
           cache-on-failure: true
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Install tauri-driver (Linux WebDriver intermediary)
-        run: cargo install tauri-driver --version 3.0.0-alpha.1 --locked
+        run: cargo install tauri-driver --version 2.1.0 --locked
       - name: Build the frontend
         run: pnpm --filter @marxy/desktop build:web
       - name: Build the desktop binary (release, custom protocol)

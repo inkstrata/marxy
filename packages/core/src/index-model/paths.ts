@@ -38,6 +38,7 @@ export function joinPath(base: string, child: string): string {
 function isPathUnder(child: string, parent: string): boolean {
   const c = normalizePath(child);
   const p = normalizePath(parent);
+  if (p === '/') return c.startsWith('/');
   return c === p || c.startsWith(`${p}/`);
 }
 
@@ -52,9 +53,12 @@ export function relativePath(from: string, to: string): string {
   let fromDir = normFrom;
   if (!isPathUnder(normTo, normFrom) && normTo !== normFrom) {
     const parent = dirname(normFrom);
-    if (isPathUnder(normTo, parent) || normTo === parent) fromDir = parent;
+    // Only a path that reads as a file (its last segment has an extension) is taken as a mistaken
+    // file path; `/a/docs` and `/a/docs2/x.md` are siblings, and the second is outside the first.
+    const looksLikeFile = /.\.[^./]+$/.test(basename(normFrom));
+    if (looksLikeFile && (isPathUnder(normTo, parent) || normTo === parent)) fromDir = parent;
   }
-  const a = fromDir.split('/');
+  const a = fromDir === '/' ? [''] : fromDir.split('/');
   const b = normTo.split('/');
   let i = 0;
   while (i < a.length && i < b.length && a[i] === b[i]) i += 1;

@@ -4,15 +4,15 @@
 <dt>tags</dt>
 <dd>[fixture, gfm]</dd>
 </dl>
-<h1 data-marxy-s="55" data-marxy-e="66">Heading 1</h1>
-<h2 data-marxy-s="67" data-marxy-e="79">Heading 2</h2>
-<h3 data-marxy-s="80" data-marxy-e="93">Heading 3</h3>
-<h4 data-marxy-s="94" data-marxy-e="108">Heading 4</h4>
-<h5 data-marxy-s="109" data-marxy-e="124">Heading 5</h5>
-<h6 data-marxy-s="125" data-marxy-e="141">Heading 6</h6>
-<h1 data-marxy-s="143" data-marxy-e="172">Setext heading</h1>
-<h2 data-marxy-s="174" data-marxy-e="203">Another setext</h2>
-<p data-marxy-s="205" data-marxy-e="649">Paragraph with <em data-marxy-s="220" data-marxy-e="230">emphasis</em>, <em data-marxy-s="232" data-marxy-e="242">emphasis</em>, <strong data-marxy-s="244" data-marxy-e="254">strong</strong>, <strong data-marxy-s="256" data-marxy-e="266">strong</strong>, <em data-marxy-s="268" data-marxy-e="278"><strong data-marxy-s="269" data-marxy-e="277">both</strong></em>, <del data-marxy-s="280" data-marxy-e="290">strike</del>, <code data-marxy-s="292" data-marxy-e="298">code</code>, <code data-marxy-s="300" data-marxy-e="324">code with ` backtick</code>, a <a href="https://example.invalid/" title="title" data-marxy-s="328" data-marxy-e="367">link</a>, a <a href="https://example.invalid/ref" title="Reference title" data-marxy-s="371" data-marxy-e="392">reference link</a>, an <a href="https://example.invalid/autolink" data-marxy-s="397" data-marxy-e="431">https://example.invalid/autolink</a>, a bare <a href="https://example.invalid/bare" data-marxy-s="440" data-marxy-e="468">https://example.invalid/bare</a>, and a footnote<sup class="marxy-footnote-ref" id="marxy-fnref-1" data-marxy-s="484" data-marxy-e="488"><a href="#marxy-fn-1">1</a></sup>. Hard break follows<br data-marxy-s="508" data-marxy-e="511" />
+<h1 id="heading-1" data-marxy-s="55" data-marxy-e="66">Heading 1</h1>
+<h2 id="heading-2" data-marxy-s="67" data-marxy-e="79">Heading 2</h2>
+<h3 id="heading-3" data-marxy-s="80" data-marxy-e="93">Heading 3</h3>
+<h4 id="heading-4" data-marxy-s="94" data-marxy-e="108">Heading 4</h4>
+<h5 id="heading-5" data-marxy-s="109" data-marxy-e="124">Heading 5</h5>
+<h6 id="heading-6" data-marxy-s="125" data-marxy-e="141">Heading 6</h6>
+<h1 id="setext-heading" data-marxy-s="143" data-marxy-e="172">Setext heading</h1>
+<h2 id="another-setext" data-marxy-s="174" data-marxy-e="203">Another setext</h2>
+<p data-marxy-s="205" data-marxy-e="649">Paragraph with <em data-marxy-s="220" data-marxy-e="230">emphasis</em>, <em data-marxy-s="232" data-marxy-e="242">emphasis</em>, <strong data-marxy-s="244" data-marxy-e="254">strong</strong>, <strong data-marxy-s="256" data-marxy-e="266">strong</strong>, <em data-marxy-s="268" data-marxy-e="278"><strong data-marxy-s="269" data-marxy-e="277">both</strong></em>, <del data-marxy-s="280" data-marxy-e="290">strike</del>, <code data-marxy-s="292" data-marxy-e="298">code</code>, <code data-marxy-s="300" data-marxy-e="324">code with ` backtick</code>, a <a href="https://example.invalid/" class="marxy-external" title="title" data-marxy-s="328" data-marxy-e="367">link</a>, a <a href="https://example.invalid/ref" class="marxy-external" title="Reference title" data-marxy-s="371" data-marxy-e="392">reference link</a>, an <a href="https://example.invalid/autolink" class="marxy-external" data-marxy-s="397" data-marxy-e="431">https://example.invalid/autolink</a>, a bare <a href="https://example.invalid/bare" class="marxy-external" data-marxy-s="440" data-marxy-e="468">https://example.invalid/bare</a>, and a footnote<sup class="marxy-footnote-ref" id="marxy-fnref-1" data-marxy-s="484" data-marxy-e="488"><a href="#marxy-fn-1">1</a></sup>. Hard break follows<br data-marxy-s="508" data-marxy-e="511" />
 here. Backslash break follows<br data-marxy-s="540" data-marxy-e="542" />
 here. Entities: &amp; © 😀 — and “smart quotes” with ‘singles’ – and — dashes… ellipsis.</p>
 <blockquote data-marxy-s="812" data-marxy-e="878">

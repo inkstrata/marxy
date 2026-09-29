@@ -60,18 +60,25 @@ function underBase(relativePath: string, baseDir: string): boolean {
   return relativePath === base || relativePath.startsWith(`${base}/`);
 }
 
+/** Whether the character at `at` is escaped: preceded by an odd run of backslashes. */
+function escapedAt(text: string, at: number): boolean {
+  let n = 0;
+  for (let i = at - 1; i >= 0 && text[i] === '\\'; i--) n++;
+  return n % 2 === 1;
+}
+
 function parseLine(raw: string, baseDir: string): IgnoreRule | undefined {
   let line = raw;
-  if (!line.endsWith('\\ ')) line = line.replace(/ +$/, '');
+  // Trailing spaces are dropped unless a backslash escapes them.
+  while (line.endsWith(' ') && !escapedAt(line, line.length - 1)) line = line.slice(0, -1);
   if (line === '' || line.startsWith('#')) return undefined;
   let negated = false;
   if (line.startsWith('!')) {
     negated = true;
     line = line.slice(1);
   }
-  if (line.startsWith('\\#')) line = line.slice(1);
   let directoryOnly = false;
-  if (line.endsWith('/') && !line.endsWith('\\/')) {
+  if (line.endsWith('/') && !escapedAt(line, line.length - 1)) {
     directoryOnly = true;
     line = line.slice(0, -1);
   }
@@ -79,7 +86,13 @@ function parseLine(raw: string, baseDir: string): IgnoreRule | undefined {
   if (anchored) line = line.slice(1);
   if (line.includes('/')) anchored = true;
   if (!line) return undefined;
-  const regex = compile(line, anchored, baseDir);
+  // One bad line (`[z-a]`, a lone trailing backslash) drops that rule, never the whole index.
+  let regex: RegExp;
+  try {
+    regex = compile(line, anchored, baseDir);
+  } catch {
+    return undefined;
+  }
   return { negated, directoryOnly, anchored, pattern: line, baseDir, regex };
 }
 
@@ -115,11 +128,18 @@ function globToRegex(pattern: string): string {
       i += 1;
       continue;
     }
+    if (c === '\\') {
+      // A backslash makes the next character literal; one with nothing after it matches nothing.
+      if (i + 1 >= pattern.length) return '(?!)';
+      out += escapeRegex(pattern[i + 1]!);
+      i += 2;
+      continue;
+    }
     if (c === '[') {
-      const close = pattern.indexOf(']', i + 1);
-      if (close > i) {
-        out += pattern.slice(i, close + 1);
-        i = close + 1;
+      const cls = bracketClass(pattern, i);
+      if (cls) {
+        out += cls.regex;
+        i = cls.end;
         continue;
       }
     }
@@ -128,6 +148,30 @@ function globToRegex(pattern: string): string {
   }
   return out;
 }
+
+/** A bracket expression at `at` as a regex class (`!` or `^` negates; no class matches `/`), or undefined if unclosed. */
+function bracketClass(pattern: string, at: number): { regex: string; end: number } | undefined {
+  let i = at + 1;
+  const negated = pattern[i] === '!' || pattern[i] === '^';
+  if (negated) i += 1;
+  let body = '';
+  let first = true;
+  while (i < pattern.length) {
+    const c = pattern[i]!;
+    if (c === ']' && !first) return { regex: `[${negated ? '^/' : ''}${body}]`, end: i + 1 };
+    first = false;
+    if (c === '\\' && i + 1 < pattern.length) {
+      body += escapeInClass(pattern[i + 1]!);
+      i += 2;
+      continue;
+    }
+    body += c === '-' ? c : escapeInClass(c);
+    i += 1;
+  }
+  return undefined;
+}
+
+const escapeInClass = (c: string): string => (/[A-Za-z0-9]/.test(c) ? c : `\\${c}`);
 
 function escapeRegex(value: string): string {
   return value.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');

@@ -20,7 +20,7 @@ widths and three sizes, dark then light, and asserts:
 | Heading hierarchy | headings differ from body in size and weight only; no colour; no `border`/`hr` decoration in the default theme | 4 |
 | Code voice | mono family ≠ text family; mono x-height within 5 % of text x-height at the same size | 5 |
 | Chrome at rest | with no interaction, the only visible non-text element is the scrollbar | 6 |
-| Screenshot diff | per engine, per fixture, pixel diff ≤ 0.1 % against the committed baseline unless the PR updates the baseline with a queue entry | drift |
+| Screenshot diff | per engine, per fixture, pixel diff ≤ 0.1 % against the committed baseline unless the PR updates the baseline (a taste-review entry in `docs/taste-review/queue.d/` is welcome, not required) | drift |
 
 Baselines live under `fixtures/baselines/<engine>/`. A PR that changes them must say why in
 the taste-review queue.

@@ -117,3 +117,37 @@ test('code blocks use pre-wrap and a hanging indent in base.css', () => {
   });
   assert.equal(run.status, 0, run.stderr + run.stdout);
 });
+
+// MARXY-337: the cost of Shiki's JS regex engine is not linear in line length, so lines and blocks are capped.
+test('an over-long line is left plain and does not stall its neighbours, in every language', async () => {
+  for (const lang of ['bash', 'shellscript', 'ts', 'json']) {
+    const long = 'echo ' + '"a b" '.repeat(9000);
+    const code = `echo one\n${long}\necho three`;
+    const start = performance.now();
+    const lines = await highlight(code, lang);
+    const ms = performance.now() - start;
+    assert.ok(lines, lang);
+    assert.equal(lines.length, 3, lang);
+    assert.deepEqual(lines[1], [{ text: long }], lang);
+    assert.equal(plainTextFromTokens(lines), code, lang);
+    assert.ok(ms < 5000, `${lang} took ${ms.toFixed(0)} ms`);
+  }
+  const around = await highlight('echo "one"\n' + 'x'.repeat(3000) + '\necho "three"', 'bash');
+  assert.ok(around![0]!.some((t) => t.scope), 'the line before is still highlighted');
+  assert.ok(around![2]!.some((t) => t.scope), 'the line after is still highlighted');
+});
+
+test('a block over 200 KB is returned as plain lines', async () => {
+  const code = 'const x = 1;\n'.repeat(20000);
+  assert.ok(code.length > 200_000);
+  const lines = await highlight(code, 'ts');
+  assert.equal(lines!.length, 20001);
+  assert.ok(lines!.every((line) => line.every((t) => t.scope === undefined)));
+  assert.equal(plainTextFromTokens(lines!), code);
+});
+
+test('the one-line bash case from the repro finishes quickly', async () => {
+  const start = performance.now();
+  await highlight('a'.repeat(50000), 'bash');
+  assert.ok(performance.now() - start < 3000);
+});
