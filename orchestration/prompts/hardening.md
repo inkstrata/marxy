@@ -148,9 +148,10 @@ check that proves it. Sizes: S under an hour, M a few hours, L several PRs.
     `scripts/lib/own-row.mjs`, `orchestration/jira.mjs`, `orchestration/plan.mjs`,
     `orchestration/out-of-plan.mjs` and the planner prompt. Do it in steps, each green: a reader
     that accepts both forms, then writers, then removal.
-12. **CHANGELOG fragments (M).** Every PR also edits `CHANGELOG.md`. One fragment file per PR,
-    assembled at release, removes that conflict. It changes `scripts/check-pr.mjs` and the release
-    runbook in `docs/sdlc.md`.
+12. **Done: CHANGELOG fragments (MARXY-315).** A story's entry is now `changelog.d/KEY.md`, one
+    line ending in `(KEY)`, folded into `CHANGELOG.md` at release by `scripts/changelog.mjs
+    --release`; `scripts/lib/changelog.mjs`'s `hasEntry` is the one place every gate checks for
+    an entry. A `CHANGELOG.md` line under `Unreleased` still counts during the transition.
 13. **Planner PRs carry the board in their Paths (S).** A planner pass edits other stories' rows,
     which is only allowed when its own row lists the board files; MARXY-224's PR was held for
     exactly that. Make `out-of-plan.mjs start` for a planner pass add the board files to Paths by
@@ -170,5 +171,5 @@ check that proves it. Sizes: S under an hour, M a few hours, L several PRs.
 
 `node --test orchestration/*.test.mjs orchestration/test/` green, `pnpm precheck` green,
 `orchestration/docs.test.mjs` green (update any doc your change affects in the same PR), a
-CHANGELOG line with the key, and a `--dry-run` cycle against the live repo that shows no new
+`changelog.d/KEY.md` entry, and a `--dry-run` cycle against the live repo that shows no new
 **Needs you** line you cannot explain.
