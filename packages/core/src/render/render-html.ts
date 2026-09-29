@@ -15,9 +15,20 @@ import { smartenParagraphTextNode, type ParagraphTypo } from './typography.ts';
 
 const DIAGRAM_LANGUAGES = new Set(['mermaid', 'plantuml', 'dot', 'd2']);
 
-type Typo = ParagraphTypo;
+/** Paragraph widont metadata plus the paragraph's inline list for trailing-suffix checks. */
+type RenderTypo = ParagraphTypo & { readonly paragraphChildren: readonly Inline[] };
 
-const NO_WIDONT: Typo = { lastText: undefined, wordsInParagraph: 0 };
+const NO_WIDONT: RenderTypo = { lastText: undefined, wordsInParagraph: 0, paragraphChildren: [] };
+
+/** Matches `typography.ts` — only paragraphs at least this long receive widont. */
+const WIDONT_MIN_WORDS = 8;
+
+const NBSP = '\u00a0';
+
+const WIDONT_TRAILING = new Set<Inline['type']>(['code', 'mathInline', 'image', 'footnoteReference']);
+
+/** Inline kinds that end a paragraph prose run without a following text node (MARXY-296). */
+const WIDONT_TRAILING_BIND = new Set<Inline['type']>(['code', 'mathInline', 'image']);
 
 /** What every function below needs to know about the document as a whole. */
 interface Context {
@@ -204,11 +215,36 @@ function cells(row: TableRow, owner: Table | undefined, ctx: Context): string {
     .join('');
 }
 
-function paragraphTypo(nodes: readonly Inline[]): Typo {
-  return { lastText: lastTextNode(nodes), wordsInParagraph: wordsIn(nodes) };
+function paragraphTypo(nodes: readonly Inline[]): RenderTypo {
+  return {
+    lastText: widontTargetTextNode(nodes),
+    wordsInParagraph: wordsIn(nodes),
+    paragraphChildren: nodes,
+  };
 }
 
-function lastTextNode(nodes: readonly Inline[]): Text | undefined {
+function isWidontTrailing(node: Inline): boolean {
+  return WIDONT_TRAILING.has(node.type);
+}
+
+function stripTopLevelWidontTrailing(nodes: readonly Inline[]): readonly Inline[] {
+  let end = nodes.length;
+  while (end > 0 && isWidontTrailing(nodes[end - 1])) end -= 1;
+  return nodes.slice(0, end);
+}
+
+function paragraphEndsWithWidontTrailingBind(nodes: readonly Inline[]): boolean {
+  let end = nodes.length;
+  while (end > 0 && WIDONT_TRAILING_BIND.has(nodes[end - 1].type)) end -= 1;
+  return end < nodes.length;
+}
+
+/** Last prose text run that may receive paragraph-end smartening (D-A13 widont). */
+function widontTargetTextNode(nodes: readonly Inline[]): Text | undefined {
+  return lastTextNodeIn(stripTopLevelWidontTrailing(nodes));
+}
+
+function lastTextNodeIn(nodes: readonly Inline[]): Text | undefined {
   let last: Text | undefined;
   const walk = (list: readonly Inline[]): void => {
     for (const child of list) {
@@ -225,6 +261,14 @@ function lastTextNode(nodes: readonly Inline[]): Text | undefined {
   };
   walk(nodes);
   return last;
+}
+
+/** Keeps the last word of a text run on the same line as a trailing code/math/image/footnote inline. */
+function bindLastWordToTrailingInline(text: string): string {
+  const trimmed = text.replace(/\s+$/, '');
+  if (trimmed.length === 0) return text;
+  if (trimmed.endsWith(NBSP)) return `${trimmed}${NBSP}`;
+  return `${trimmed}${NBSP}`;
 }
 
 function wordsIn(nodes: readonly Inline[]): number {
@@ -282,16 +326,25 @@ function plainInlineText(nodes: readonly Inline[]): string {
   return out;
 }
 
-function inlines(nodes: readonly Inline[], ctx: Context, typo: Typo = NO_WIDONT): string {
+function inlines(nodes: readonly Inline[], ctx: Context, typo: RenderTypo = NO_WIDONT): string {
   let text = '';
   for (const node of nodes) text += inline(node, nodes, ctx, typo);
   return text;
 }
 
-function inline(node: Inline, siblings: readonly Inline[], ctx: Context, typo: Typo): string {
+function inline(node: Inline, siblings: readonly Inline[], ctx: Context, typo: RenderTypo): string {
   switch (node.type) {
-    case 'text':
-      return escapeText(smartenParagraphTextNode(siblings, node, typo));
+    case 'text': {
+      let value = smartenParagraphTextNode(siblings, node, typo);
+      if (
+        typo.lastText === node &&
+        typo.wordsInParagraph >= WIDONT_MIN_WORDS &&
+        paragraphEndsWithWidontTrailingBind(typo.paragraphChildren)
+      ) {
+        value = bindLastWordToTrailingInline(value);
+      }
+      return escapeText(value);
+    }
     case 'emphasis':
       return `<em${prov(node.src, ctx)}>${inlines(node.children, ctx, typo)}</em>`;
     case 'strong':
