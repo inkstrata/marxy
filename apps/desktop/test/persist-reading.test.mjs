@@ -133,7 +133,7 @@ test('first launch without store files records only the document and config read
     const reads = await page.evaluate(() =>
       window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile').map((c) => c.args[0]),
     );
-    assert.deepEqual(reads, [path, '/config']);
+    assert.deepEqual(reads, [path, '/config', '/data/trust.json']);
   } finally {
     await browser.close();
   }
