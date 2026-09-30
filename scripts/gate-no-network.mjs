@@ -38,7 +38,6 @@ import { GATE_DOCUMENT_DIRECTORY, GATE_DOCUMENT_ORIGIN } from '../packages/core/
 import { VECTORS } from '../packages/core/src/sanitize/testing/vectors.ts';
 import { formatObservabilityReport } from '../packages/core/scripts/gate-observability.ts';
 import { GATE_ASSERTION_IDS } from '../packages/core/scripts/gate-assertions.ts';
-import { fileURLToPath } from 'node:url';
 import {
   classifyRequestUrl, findAllowListViolations, findContainmentViolations, hasEntries,
   isReferenceInSource, isRenderedBlank, sawHost,
