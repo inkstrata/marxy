@@ -193,7 +193,7 @@ function buildSavePath(label, patch) {
     encoding: 'utf8',
   });
   if (built.error || built.status !== 0) {
-    fail(`gate: cannot compile the save path (${label}): ${built.error?.message ?? built.stderr.trim()}`);
+    fail(`gate: cannot compile the save path (${label}): ${built.error?.message ?? (built.stderr ?? '').trim()}`);
     return '';
   }
   return binary;
@@ -402,7 +402,7 @@ function checkSavePathTestsShowMarkers() {
 }
 
 function runSavePathUnitTests() {
-  const binary = join(work, 'save-path-tests');
+  const binary = join(work, process.platform === 'win32' ? 'save-path-tests.exe' : 'save-path-tests');
   const built = spawnSync(
     'rustc',
     ['--test', '--edition', '2021', '-A', 'dead_code', '-o', binary, savePathSource],
@@ -415,7 +415,7 @@ function runSavePathUnitTests() {
   const run = spawnSync(binary, SAVE_PATH_TEST_ARGS, { encoding: 'utf8' });
   const summary = (run.stdout ?? '').split('\n').find((line) => line.startsWith('test result:')) ?? '';
   if (run.status !== 0) {
-    fail(`gate: the save path's own tests fail — ${summary || run.stderr.trim()}\n${run.stdout}`);
+    fail(`gate: the save path's own tests fail — ${summary || (run.stderr ?? '').trim()}\n${run.stdout}`);
     return run.stdout ?? '';
   }
   console.log(`fidelity: the save path's durability and refusal tests pass — ${summary.trim()}`);

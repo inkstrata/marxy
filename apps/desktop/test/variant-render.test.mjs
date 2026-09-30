@@ -4,13 +4,14 @@ import { strict as assert } from 'node:assert';
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { defaultThemeCss } from '../../../packages/theme/scripts/inline.mjs';
 
 const root = new URL('../../../', import.meta.url);
-const desktop = join(root.pathname, 'apps/desktop');
+const desktop = join(fileURLToPath(root), 'apps/desktop');
 const dist = join(desktop, 'dist');
 const palettes = JSON.parse(readFileSync(new URL('../../../packages/theme/test/palettes.json', import.meta.url), 'utf8'));
 
@@ -20,9 +21,9 @@ const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_T
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
 const FONT_URLS = {
-  '/fonts/Literata.ttf': join(root.pathname, 'fonts/literata/Literata[opsz,wght].ttf'),
-  '/fonts/Literata-Italic.ttf': join(root.pathname, 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
-  '/fonts/JetBrainsMono.ttf': join(root.pathname, 'fonts/jetbrains-mono/JetBrainsMono[wght].ttf'),
+  '/fonts/Literata.ttf': join(fileURLToPath(root), 'fonts/literata/Literata[opsz,wght].ttf'),
+  '/fonts/Literata-Italic.ttf': join(fileURLToPath(root), 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
+  '/fonts/JetBrainsMono.ttf': join(fileURLToPath(root), 'fonts/jetbrains-mono/JetBrainsMono[wght].ttf'),
 };
 
 async function buildHarness() {

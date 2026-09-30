@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DirectoryReader, RootProbe, WalkEntry } from './index.ts';
+import { fileURLToPath } from 'node:url';
 
 /** Real-filesystem reader used by the walk and root tests. */
 export function nodeReader(): DirectoryReader & RootProbe {
@@ -47,6 +48,6 @@ export function nodeReader(): DirectoryReader & RootProbe {
 
 test('the node reader lists a directory without following a symlink', () => {
   const reader = nodeReader();
-  const here = reader.readDir(new URL('.', import.meta.url).pathname);
+  const here = reader.readDir(fileURLToPath(new URL('.', import.meta.url)));
   assert.ok(here.some((entry) => entry.name === 'index.ts'));
 });

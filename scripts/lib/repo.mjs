@@ -1,10 +1,11 @@
 // Shared helpers for the hygiene scripts. No dependencies beyond Node.
 import { execSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readPlan } from './plan.mjs';
 
-export const ROOT = new URL('../../', import.meta.url).pathname;
+export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const registry = () => JSON.parse(readFileSync(join(ROOT, 'scripts/registry.json'), 'utf8'));
 export const sh = (cmd, opts = {}) => { try { return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], ...opts }).trim(); } catch (e) { if (opts.soft) return ''; throw e; } };
 
@@ -13,13 +14,13 @@ export const sh = (cmd, opts = {}) => { try { return execSync(cmd, { cwd: ROOT, 
 export const SKIP_DIRS = new Set(['node_modules', 'dist', 'target', '.git', '.claude', 'results', 'out', '.venv', 'goldens', 'baselines']);
 export function walk(dir, pred = () => true, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, e.name);
+    const full = join(dir, e.name).split(sep).join('/');
     if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(full, pred, out); }
     else if (pred(full)) out.push(full);
   }
   return out;
 }
-export const rel = p => relative(ROOT, p);
+export const rel = p => relative(ROOT, p).split(sep).join('/');
 export const stripComments = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\])\/\/.*$/gm, '$1');
 
 /** Files changed on this branch relative to origin/main, plus working-tree changes; or only the staged ones. */

@@ -3,10 +3,10 @@
 // machine.mjs's fold over the fleet store; nothing here reads or writes it.
 import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { parseCsv, readPlan, storyRows } from '../scripts/lib/plan.mjs';
 export { parseCsv };
-export const ROOT = new URL('../', import.meta.url).pathname;
+export const ROOT = fileURLToPath(new URL('../', import.meta.url));
 export const here = p => `${ROOT}orchestration/${p}`;
 export const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
 // Written aside and renamed into place: a reader sees the old file or the new one, never half.

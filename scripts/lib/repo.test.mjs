@@ -77,3 +77,11 @@ test('walk skips agent worktrees nested under .claude', () => {
     assert.deepEqual(walk(dir).map(f => f.slice(dir.length + 1)), ['apps/b.ts']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('ROOT is a real absolute path on every platform', async () => {
+  const { existsSync } = await import('node:fs');
+  const { isAbsolute } = await import('node:path');
+  const { ROOT } = await import('./repo.mjs');
+  assert.ok(isAbsolute(ROOT), ROOT);
+  assert.ok(existsSync(join(ROOT, 'package.json')), `${ROOT} has no package.json`);
+});

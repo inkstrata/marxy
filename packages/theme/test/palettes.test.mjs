@@ -3,6 +3,7 @@
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { resolveVariantPreference } from './resolve-variant.mjs';
 
@@ -81,7 +82,7 @@ test('MARXY-46: resolveVariantPreference maps config.variant light and auto', ()
 test('MARXY-46: committed screenshot baselines exist for light at 960 px (both engines)', () => {
   const stems = corpusStems();
   for (const engine of ['webkit-macos', 'webkit-linux']) {
-    const base = join(new URL('fixtures/baselines/', root).pathname, engine);
+    const base = join(fileURLToPath(new URL('fixtures/baselines/', root)), engine);
     for (const stem of stems) {
       const shot = join(base, `${stem}-960-light.png`);
       assert.ok(existsSync(shot), `missing ${engine}/${stem}-960-light.png`);

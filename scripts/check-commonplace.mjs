@@ -2,8 +2,8 @@
 // The rights rule lives in apps/desktop/src/commonplace/README.md; this is its machine half. It derives
 // public-domain status from the years in each piece's front matter rather than trusting a label.
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ROOT, fail, fix } from './lib/repo.mjs';
 
 export const DIR = join(ROOT, 'apps/desktop/src/commonplace');
@@ -140,7 +140,7 @@ export function loadCorpus() {
   return { files, readme: readFileSync(join(DIR, 'README.md'), 'utf8') };
 }
 
-const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(new URL(process.argv[1], `file://${process.cwd()}/`));
+const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(pathToFileURL(resolve(process.argv[1])));
 if (invokedDirectly) {
   const corpus = loadCorpus();
   const problems = checkCorpus({ ...corpus, year: new Date().getUTCFullYear() });
