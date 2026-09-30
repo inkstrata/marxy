@@ -630,7 +630,11 @@ mod app_menu {
         ),
         (
             "View",
-            &[Own(TOGGLE_SOURCE, "Toggle Rendered / Source", "CmdOrCtrl+E")],
+            &[Own(
+                TOGGLE_SOURCE,
+                "Toggle Rendered / Source",
+                "CmdOrCtrl+E",
+            )],
         ),
         (
             "Go",
