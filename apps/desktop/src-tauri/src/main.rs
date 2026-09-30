@@ -567,6 +567,9 @@ mod app_menu {
         Quit,
         CloseWindow,
         OpenFile,
+        /// A reader-facing command the webview already implements for its key chord; the click
+        /// only carries the menu id to it (`marxy:menu`), so the key and the menu cannot disagree.
+        ToWebview,
     }
 
     impl Action {
@@ -580,6 +583,10 @@ mod app_menu {
     pub const QUIT: &str = "marxy-quit";
     pub const OPEN_FILE: &str = "marxy-open-file";
     pub const CLOSE_WINDOW: &str = "marxy-close-window";
+    pub const OPEN_QUICKLY: &str = "marxy-open-quickly";
+    pub const TOGGLE_SOURCE: &str = "marxy-toggle-source";
+    pub const GO_BACK: &str = "marxy-go-back";
+    pub const GO_FORWARD: &str = "marxy-go-forward";
 
     use Entry::{Native as N, Own, Separator};
     use Native::*;
@@ -621,6 +628,19 @@ mod app_menu {
                 N(SelectAll),
             ],
         ),
+        (
+            "View",
+            &[Own(TOGGLE_SOURCE, "Toggle Rendered / Source", "CmdOrCtrl+E")],
+        ),
+        (
+            "Go",
+            &[
+                Own(GO_BACK, "Back", "CmdOrCtrl+["),
+                Own(GO_FORWARD, "Forward", "CmdOrCtrl+]"),
+                Separator,
+                Own(OPEN_QUICKLY, "Open Quickly…", "CmdOrCtrl+P"),
+            ],
+        ),
         ("Window", &[N(Minimize), N(Zoom)]),
     ];
 
@@ -629,6 +649,7 @@ mod app_menu {
             QUIT => Some(Action::Quit),
             CLOSE_WINDOW => Some(Action::CloseWindow),
             OPEN_FILE => Some(Action::OpenFile),
+            OPEN_QUICKLY | TOGGLE_SOURCE | GO_BACK | GO_FORWARD => Some(Action::ToWebview),
             _ => None,
         }
     }
@@ -750,6 +771,9 @@ fn on_app_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     match app_menu::action_for(event.id().as_ref()) {
         Some(action) if action.asks_the_webview_first() => request_close(app),
         Some(app_menu::Action::OpenFile) => open_file_via_dialog(app.clone()),
+        Some(app_menu::Action::ToWebview) => {
+            let _ = app.emit("marxy:menu", event.id().as_ref());
+        }
         _ => {}
     }
 }
@@ -971,10 +995,13 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn the_native_menu_carries_only_the_expected_items() {
-        use super::app_menu::{action_for, Action, Entry, CLOSE_WINDOW, MENU, OPEN_FILE, QUIT};
+        use super::app_menu::{
+            action_for, Action, Entry, CLOSE_WINDOW, GO_BACK, GO_FORWARD, MENU, OPEN_FILE,
+            OPEN_QUICKLY, QUIT, TOGGLE_SOURCE,
+        };
 
         let titles: Vec<&str> = MENU.iter().map(|(title, _)| *title).collect();
-        assert_eq!(titles, ["Marxy", "File", "Edit", "Window"]);
+        assert_eq!(titles, ["Marxy", "File", "Edit", "View", "Go", "Window"]);
 
         let own: Vec<(&str, &str)> = MENU
             .iter()
@@ -989,10 +1016,19 @@ mod tests {
             [
                 (QUIT, "CmdOrCtrl+Q"),
                 (OPEN_FILE, "CmdOrCtrl+O"),
-                (CLOSE_WINDOW, "CmdOrCtrl+W")
+                (CLOSE_WINDOW, "CmdOrCtrl+W"),
+                (TOGGLE_SOURCE, "CmdOrCtrl+E"),
+                (GO_BACK, "CmdOrCtrl+["),
+                (GO_FORWARD, "CmdOrCtrl+]"),
+                (OPEN_QUICKLY, "CmdOrCtrl+P"),
             ],
-            "the menu's own items are Quit, Open File… and Close Window, and nothing else"
+            "the menu's own items are the app and window items, the view toggle, history and the \
+             palette, and no document operation (ADR-0011)"
         );
+        for id in [TOGGLE_SOURCE, GO_BACK, GO_FORWARD, OPEN_QUICKLY] {
+            assert_eq!(action_for(id), Some(Action::ToWebview));
+            assert!(!Action::ToWebview.asks_the_webview_first());
+        }
         assert_eq!(action_for(QUIT), Some(Action::Quit));
         assert_eq!(action_for(CLOSE_WINDOW), Some(Action::CloseWindow));
         assert!(

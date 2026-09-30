@@ -2,6 +2,7 @@
 // let framesObserved and await waitForEnginePaint live in app.ts, not inside waitForEnginePaint(), so that a wait which never actually waited still reports frames=0.
 import { startApp, type AppHandle, type AppShell } from './app.ts';
 import { mountPaletteFromHandle, type PaletteController } from './palette/view.ts';
+import { runMenuCommand } from './menu/menu-commands.ts';
 import { shell } from './shell/tauri.ts';
 
 export type BootHandle = AppHandle & { readonly palette: PaletteController };
@@ -11,6 +12,8 @@ export async function bootApplication(appShell: AppShell, opts?: { argv?: readon
   const handle = await startApp(appShell, { ...opts, onIndexLoaded: (e) => { indexEntries = [...e]; } });
   const palette = mountPaletteFromHandle(handle, { initialPath: opts?.argv?.find((a) => !a.startsWith('-')) ?? null });
   if (indexEntries.length) palette.setIndexEntries(indexEntries);
+  // Only the real Tauri shell has a native menu to hear from; a test's stub shell does not.
+  if (appShell === shell) shell.onMenuCommand((id) => { runMenuCommand(id); });
   if (typeof window !== 'undefined') (window as Window & { __marxyPalette?: PaletteController }).__marxyPalette = palette;
   return Object.assign(handle, { palette });
 }

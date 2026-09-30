@@ -41,7 +41,8 @@
     "marxy:watch",
     "marxy:index-updated",
     "marxy:open-files",
-    "marxy:close-requested"
+    "marxy:close-requested",
+    "marxy:menu"
   ],
   "dataAttributes": [
     "data-marxy-s",

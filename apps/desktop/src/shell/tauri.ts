@@ -74,6 +74,8 @@ export const shell: Pick<
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
   mark(name: string, t: number, data?: string): Promise<void>;
   quit(code?: number): Promise<void>;
+  /** A native menu click that stands for a key chord (`marxy:menu`); the payload is the menu item's id. */
+  onMenuCommand(cb: (id: string) => void): void;
   /**
    * Reads without arming the stale-write guard. The live-reload watcher looks at disk to decide
    * whether to follow it; that look must not count as the app having seen (adopted) the change.
@@ -175,6 +177,9 @@ export const shell: Pick<
   assetUrl: (path) => {
     assertAssetScope(path);
     return convertFileSrc(path);
+  },
+  onMenuCommand: (cb) => {
+    void listen<string>('marxy:menu', (event) => cb(event.payload));
   },
   onOpenFiles: (cb) => {
     void (async () => {
