@@ -14,6 +14,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { waitForEnginePaint } from '../src/paint-signal.mjs';
+import { fileURLToPath } from 'node:url';
 import {
   FRAME_ASSERTION_NOT_WRONG,
   NEUTRALISE_AFTER_PAINT,
@@ -24,7 +25,7 @@ import {
   smokeIsRequired,
 } from './smoke-verdict.mjs';
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const neutralizeAfterPaint = process.env[NEUTRALISE_AFTER_PAINT] === '1'
   || process.argv.includes('--selftest-neutralise-after-paint');
 

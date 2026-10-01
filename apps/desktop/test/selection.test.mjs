@@ -11,14 +11,15 @@ import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { sectionRange } from '../../../packages/core/src/sourcemap/section.ts';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
-const appRoot = new URL('..', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+const appRoot = fileURLToPath(new URL('..', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const corpusFiles = readdirSync(corpusDir).filter((f) => f.endsWith('.md'));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-selection-'));

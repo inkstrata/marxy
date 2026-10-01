@@ -9,6 +9,7 @@ import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
 import { setTopLevelKey } from '../../../packages/theme/src/config.ts';
+import { fileURLToPath } from 'node:url';
 import { settle } from './settle.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -16,7 +17,7 @@ const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_T
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const fixtureMd = readFileSync(join(repoRoot, 'fixtures', 'corpus', '02-readme-real-world.md'));
 const quietToml = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.toml'));
 const quietCss = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.css'));
