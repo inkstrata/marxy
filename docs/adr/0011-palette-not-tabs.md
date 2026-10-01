@@ -17,3 +17,8 @@ At taste review #2 the reviewer, given five documents opened in sequence, must r
 document from three switches ago" within five seconds using only the palette. Failure
 triggers the designed-but-unbuilt fallback: tabs revealed only while switching (modifier
 held) or on hover at the top edge, never at rest.
+
+## Note: the native menu (MARXY-342)
+The macOS menu lists Back, Forward and Open Quickly… (the palette) under Go. They only make the
+same keys discoverable and clickable; the palette stays the tab manager, and no tab list or
+document-specific command is added to the menu.

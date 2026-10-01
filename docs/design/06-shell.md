@@ -118,7 +118,8 @@ the webview's IPC calls into Rust, and the webview never calls into the menu. "O
 `tauri-plugin-dialog`'s native picker the same way, from the menu's own event handler
 (`app.dialog().file().pick_file(...)`) — again no webview call, so no `dialog:*` capability is
 needed either; the `dialog:allow-open` line above stays reserved for MARXY-49's webview-facing
-`openDialog` command, a separate thing. The menu is macOS-only (`#[cfg(target_os = "macos")]`): a
+`openDialog` command, a separate thing. Its View and Go items (MARXY-342) reach the webview by the `marxy:menu` event, which
+the existing `core:event:allow-listen` already covers, so they add no capability either. The menu is macOS-only (`#[cfg(target_os = "macos")]`): a
 visible menu bar on Linux/Windows is in-window chrome, which "chrome at rest is zero" forbids: see
 the follow-up task drafted for Linux/Windows `openDialog` menu coverage.
 

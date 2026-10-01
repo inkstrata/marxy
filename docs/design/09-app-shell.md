@@ -74,6 +74,13 @@ menu item's key equivalent from menu-item validation, not from `keys.ts` alone, 
 outside a text field who presses one of these keys is relying on the menu, not this table, to
 reach the responder chain — the two are expected to agree, and a change to either should keep
 them in sync. `Mod+O` (Open File…) is native-menu-only in v1: the palette does not yet list it.
+A menu item may also stand for a chord this table binds (MARXY-342): View's Toggle Rendered / Source
+(`Mod+E`) and Go's Back, Forward (`Mod+[`, `Mod+]`) and Open Quickly… (`Mod+P`). AppKit takes the key
+equivalent for the menu, so the webview never sees the keystroke; the click emits `marxy:menu` with
+the item's id and `apps/desktop/src/menu/menu-commands.ts` replays the same chord, so there is one
+behaviour per command. Nothing that acts on the document (an operation, save, copy-section) belongs in
+the menu (ADR-0011); a command joins it only when the table above already binds it and the webview
+implements it.
 `Mod+W` (Close Window) is native-menu-only too, and — since Marxy is single-window — exits
 through the same path as Quit (`docs/design/06-shell.md` §Capabilities).
 
