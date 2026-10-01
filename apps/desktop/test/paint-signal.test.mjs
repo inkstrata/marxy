@@ -11,8 +11,9 @@ import {
   waitForEnginePaint,
 } from '../src/paint-signal.mjs';
 import { stripComments } from '../../../scripts/lib/repo.mjs';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const desktop = join(repoRoot, 'apps', 'desktop');
 
 const visible = () => ({ visibility: 'visible', display: 'block' });

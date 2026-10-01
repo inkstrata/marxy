@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   FRAME_ASSERTION_NOT_WRONG,
   MIN_FRAMES_AFTER_RENDER,
@@ -18,7 +19,7 @@ import {
   workflowCliSmokeIsRequired,
 } from './smoke-verdict.mjs';
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
 const framelessHow = 'The app rendered the document (21 blocks, 919 chars), then the app reported MARK no_paint and exited 1.';
 

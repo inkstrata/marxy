@@ -15,6 +15,7 @@ import {
   TREE_DEPTH_CASE_COUNT,
 } from './tree-depth-cases.ts';
 import { sanitizeHtml } from '../src/sanitize/sanitize-html.ts';
+import { fileURLToPath } from 'node:url';
 
 const gateAssertions = readFileSync(new URL('./gate-assertions.test.ts', import.meta.url), 'utf8');
 const gateTreeDepthMjs = readFileSync(new URL('./gate-tree-depth.mjs', import.meta.url), 'utf8');
@@ -91,7 +92,7 @@ test('the no-network gate spawns the tree-depth harness with no skip env var', (
 });
 
 test(`mutation ${WRITER_CLOSE_LATE_MUTATION} fails the browser harness with the mutation named in the output`, () => {
-  const repoRoot = new URL('../../../', import.meta.url).pathname;
+  const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
   const depth = spawnSync(process.execPath, ['packages/core/scripts/gate-tree-depth.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',

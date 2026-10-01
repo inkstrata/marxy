@@ -8,6 +8,7 @@ import { extname, join } from 'node:path';
 import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { openPage, renderCorpus } from '../../../packages/theme/test/page.mjs';
+import { fileURLToPath } from 'node:url';
 
 const prefix = process.argv.includes('--prefix') ? process.argv[process.argv.indexOf('--prefix') + 1] : null;
 if (prefix !== 'before' && prefix !== 'after') {
@@ -15,7 +16,7 @@ if (prefix !== 'before' && prefix !== 'after') {
   process.exit(1);
 }
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const out = new URL('../../../docs/taste-review/2026-09-marxy-138/', import.meta.url);
 mkdirSync(out, { recursive: true });

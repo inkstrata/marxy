@@ -10,6 +10,7 @@ import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { build } from 'vite';
+import { fileURLToPath } from 'node:url';
 
 /**
  * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
@@ -106,7 +107,7 @@ let browser;
 
 before(async () => {
   if (skip) return;
-  await build({ root: new URL('..', import.meta.url).pathname, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
+  await build({ root: fileURLToPath(new URL('..', import.meta.url)), logLevel: 'silent', build: { outDir, emptyOutDir: true } });
   const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.txt': 'text/plain', '.css': 'text/css' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);

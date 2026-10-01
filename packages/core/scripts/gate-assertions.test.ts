@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { GATE_ASSERTION_IDS } from './gate-assertions.ts';
+import { fileURLToPath } from 'node:url';
 import {
   PARITY_URL_ATTRIBUTES, classifyRequestUrl, diffParityNames, diffParityUrls,
   findAllowListViolations, findContainmentViolations, hasEntries, isReferenceInSource,
@@ -140,7 +141,7 @@ test('every declared gate assertion was proved above, and nothing else was', () 
 // Criterion 4 (MARXY-84): the tree-depth harness runs in the no-network gate on both engines, with
 // no skip path — the same spawn the gate uses for this file, so deleting either half fails CI.
 test('tree-depth harness runs as part of the no-network gate', () => {
-  const repoRoot = new URL('../../../', import.meta.url).pathname;
+  const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
   const depth = spawnSync(process.execPath, ['packages/core/scripts/gate-tree-depth.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',

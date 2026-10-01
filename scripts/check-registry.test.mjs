@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { stripComments } from './lib/repo.mjs';
 import { htmlRoutes, htmlRouteProblems, constructedRegistryNameProblems, stripForRegistry } from './check-registry.mjs';
+import { fileURLToPath } from 'node:url';
 
 const ALLOWED_PREFIX = 'apps/desktop/src/render/';
 const OUTSIDE = 'packages/core/src/buffer.ts';
@@ -89,7 +90,7 @@ test('MARXY-229: a literal registered data-marxy- name is not a construction vio
 test('check-registry.mjs is green over the committed tree', () => {
   const run = spawnSync(process.execPath, ['scripts/check-registry.mjs'], {
     encoding: 'utf8',
-    cwd: new URL('../', import.meta.url).pathname,
+    cwd: fileURLToPath(new URL('../', import.meta.url)),
   });
   assert.equal(run.status, 0, run.stderr || run.stdout);
   assert.match(run.stdout, /registry ok \(\d+ files\)/);

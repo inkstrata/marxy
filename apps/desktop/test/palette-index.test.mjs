@@ -11,13 +11,14 @@ import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { LOAD_INDEX_EMPTY_MUTATION } from '../src/startup/idle-work.ts';
 import { createMemoryShell } from '../src/shell/memory.ts';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-palette-index-'));
 let server;
 let base;

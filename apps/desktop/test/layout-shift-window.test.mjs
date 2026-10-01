@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../../../', import.meta.url);
 const headlessPath = new URL('apps/desktop/src/render/headless.ts', root);
@@ -76,7 +77,7 @@ test('MARXY-143: fonts.ready alone before the first snapshot would fail the wait
 test('MARXY-143: an unreserved image after the first snapshot still yields fontWindow > 0', async () => {
   const { build } = await import('vite');
   const { writeFileSync } = await import('node:fs');
-  const desktop = join(new URL('..', import.meta.url).pathname);
+  const desktop = join(fileURLToPath(new URL('..', import.meta.url)));
   await build({
     configFile: join(desktop, 'src/render/vite.config.ts'),
     root: desktop,

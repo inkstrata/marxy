@@ -18,9 +18,10 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readSync, mkdtempSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** The checkout this code runs from. Only for locating git; never the source of plan or state. */
-export const CODE_ROOT = new URL('../', import.meta.url).pathname;
+export const CODE_ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 let common = null;
 /** `.git` of the main checkout, absolute, whichever worktree asks. */
