@@ -956,6 +956,8 @@ without this.
   URL from the script
 - `apps/desktop/scripts/smoke-verdict.test.mjs`
 - `scripts/precheck.mjs`, `scripts/gates-by-path.json`
+- `scripts/check-deferrals.test.mjs` (lines 123-127) and `scripts/gate-bundle.test.mjs` (line 126): they
+  name scripts this story removes (*added 2026-10-02 by the lead*)
 - `changelog.d/A-08.md` (new)
 
 **Build order.**
