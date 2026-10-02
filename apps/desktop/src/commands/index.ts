@@ -1,6 +1,10 @@
 // Concatenates feature command lists; operations come from core (MARXY-42, MARXY-43).
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
+import { appearanceCommands } from './appearance.ts';
 import { documentCommands, startDocumentEditingWire } from './document.ts';
+import { editorCommands } from './editor.ts';
+import { navigationCommands } from './navigation.ts';
+import { outlineCommands } from './outline.ts';
 import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
 import { sourceViewCommands } from './source-view.ts';
@@ -17,6 +21,10 @@ export function commands(): readonly Command[] {
     ...documentCommands(),
     ...sourceViewCommands(),
     ...trustRevokeCommands(),
+    ...navigationCommands(),
+    ...appearanceCommands(),
+    ...outlineCommands(),
+    ...editorCommands(),
     ...OPERATIONS.map(fromOperation),
   ];
 }

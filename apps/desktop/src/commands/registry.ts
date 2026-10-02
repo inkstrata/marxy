@@ -22,6 +22,10 @@ export interface Command {
   readonly id: string;
   readonly title: string;
   readonly key?: string;
+  /** Further chords that run the same command. */
+  readonly keys?: readonly string[];
+  /** Runs even when focus is in an editable, such as Source mode's editor. */
+  readonly global?: boolean;
   readonly group: 'document' | 'selection' | 'view' | 'app';
   when(ctx: AppContext): boolean;
   run(ctx: AppContext): Promise<void>;
