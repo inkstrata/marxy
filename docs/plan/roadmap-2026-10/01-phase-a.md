@@ -690,6 +690,9 @@ validate the snapshot that `packages/core/src/index-model/persist.ts` already de
 - `apps/desktop/src/index/walk.ts`
 - `apps/desktop/src/index/service.ts`
 - `apps/desktop/test/index-service.test.mjs`
+- `apps/desktop/test/app-harness.test.mjs`, `close-guard.test.mjs`, `live-reload.test.mjs`,
+  `persist-reading.test.mjs`: only to leave the snapshot's `/data/index-*` read and write out of
+  their exact shell-call assertions (*added 2026-10-02 by the lead*)
 - `changelog.d/A-05.md` (new)
 
 **Build order.**
