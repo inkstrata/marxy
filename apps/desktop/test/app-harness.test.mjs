@@ -86,13 +86,13 @@ test('window.marxyApp.start boots the real app and records one readFile', async 
       const handle = await window.marxyApp.start(files, argv);
       await handle.ready;
       const heading = document.querySelector('#doc h1, #doc h2, #doc h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '';
-      // Launch reads only the document and config. `/data/` is excluded whole: the index snapshot lives there
-      // (A-05), and trust.json's startup read now lands before `ready`, a timing this test never meant to pin.
-      const reads = handle.shell.calls.filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/'));
+      // Launch reads the document, the config and trust.json. The index snapshot (A-05) is read from
+      // `/data/index-<sha1>.json` and is the only read left out.
+      const reads = handle.shell.calls.filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-'));
       return { heading, reads: reads.map((c) => c.args[0]) };
     }, { files: { '/docs/README.md': fixture.toString('base64') }, argv: ['/docs/README.md'] });
     assert.equal(result.heading, 'widgetlib');
-    assert.deepEqual(result.reads, ['/docs/README.md', '/config']);
+    assert.deepEqual(result.reads, ['/docs/README.md', '/config', '/data/trust.json']);
   } finally {
     await browser.close();
   }

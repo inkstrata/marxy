@@ -54,10 +54,37 @@ async function snapshotPath(shell: IndexServiceShell, root: string): Promise<str
   }
 }
 
+const KINDS = new Set(['markdown', 'text', 'source', 'theme']);
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const isStr = (v: unknown): v is string => typeof v === 'string';
+
+/** A snapshot is a file anyone could have edited: serve an entry only if it has the shape the palette reads. */
+function isEntry(e: unknown): e is IndexEntry {
+  if (typeof e !== 'object' || e === null) return false;
+  const v = e as Record<string, unknown>;
+  return (
+    isStr(v.path) &&
+    isStr(v.root) &&
+    isStr(v.title) &&
+    isNum(v.mtimeMs) &&
+    isNum(v.size) &&
+    isStr(v.kind) &&
+    KINDS.has(v.kind) &&
+    (v.lastReadMs === undefined || isNum(v.lastReadMs)) &&
+    Array.isArray(v.headings) &&
+    v.headings.every((h) => {
+      const x = h as Record<string, unknown> | null;
+      return typeof x === 'object' && x !== null && isNum(x.level) && isStr(x.text) && isNum(x.byteOffset);
+    })
+  );
+}
+
 async function readSnapshot(shell: IndexServiceShell, path: string, root: string): Promise<IndexSnapshot | undefined> {
   try {
     const snapshot = parseSnapshot(new TextDecoder().decode(await shell.readFile(path)));
-    return snapshot && snapshot.root === root ? snapshot : undefined;
+    return snapshot && snapshot.root === root && Array.isArray(snapshot.entries) && snapshot.entries.every(isEntry)
+      ? snapshot
+      : undefined;
   } catch {
     return undefined;
   }
