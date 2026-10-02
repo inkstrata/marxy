@@ -41,10 +41,18 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0034](0034-the-fleet-is-a-reconciler.md) | The fleet is a reconciler: every state has an owner and a way out | proposed |
 | [0035](0035-artifact-presentation-follows-the-research.md) | Artifact presentation follows the reader-artifacts research; where two handbooks meet, the owner of the property decides | accepted 2026-09-26 |
 | [0036](0036-artifact-units.md) | Artifact units: what the renderer keeps, reports, marks and copies (the handbook's 17 drafts: 8 adopted, 2 declined, 3 deferred, 4 need no decision) | accepted 2026-09-26 |
-| [0037](0037-one-document-store.md) | One document store: the open document has one owner, and changes are transitions | proposed (MARXY-248) |
+| [0037](0037-one-document-store.md) | One document store: the open document has one owner, and changes are transitions | proposed (MARXY-248); amendment 1 (audit 2026-10) accepted for implementation in Phase B |
 | [0038](0038-window-controls.md) | Window controls hide at rest through the shell | accepted (MARXY-268) |
 | [0039](0039-shell-stub-dedup.md) | One shared implementation for shell-api compile-time stub shells | accepted (MARXY-285) |
 | [0040](0040-land-without-up-to-date.md) | Land green pull requests without bringing them up to date first; a main-red guard replaces strict branch protection | accepted by the repo owner's instruction on 2026-09-28 (MARXY-314) |
 | [0041](0041-shell-close-confirmation.md) | The frozen `Shell` gains `onCloseRequested` and `confirmClose` | accepted 2026-09-28 (MARXY-49) |
 | [0042](0042-plan-rows-per-story.md) | One plan file per story (`docs/plan/stories/KEY.json`) and one `epics.json` instead of the shared CSV and `deps.json` | accepted by the repo owner on 2026-09-29 (MARXY-327) |
 | [0043](0043-revert-first.md) | When main turns red, revert the first red commit and reopen its story with the work kept; amends ADR-0040 | proposed (MARXY-335) |
+| [0044](0044-remote-content-is-a-reader-setting.md) | Remote content is a reader setting: `remote-images` and `html` are three-value config, one notice per document, the Rust fetcher only under `hardened`; supersedes 0027's default path | proposed (audit 2026-10) |
+| [0045](0045-contracts-change-by-pull-request.md) | Contracts change by pull request; `test:contracts-frozen` is deleted and the invariants stay as tests | proposed (audit 2026-10) |
+| [0046](0046-linux-is-a-release-criterion.md) | Linux is a release criterion, not a pull-request gate; it builds in CI and ships as a pre-release | proposed (audit 2026-10) |
+| [0047](0047-visual-comparison-is-nightly.md) | Visual comparison is nightly; the mechanical typography checks stay on pull requests; amends 0014 tier 1 and 0016 | proposed (audit 2026-10) |
+| [0048](0048-source-for-one-block.md) | Source may be summoned for one block and splices back through the transformation path; amends 0005 | proposed (audit 2026-10) |
+| [0049](0049-user-defined-operations-are-configuration.md) | User-defined operations are configuration, not plugins; recorded, not scheduled; amends 0004 | proposed (audit 2026-10) |
+| [0050](0050-at-rest-defined.md) | "At rest" is defined: the column of text; summoned surfaces may be any shape; amends 0011 and design constraint 6 | proposed (audit 2026-10) |
+| [0051](0051-the-fleet-is-paused.md) | The fleet is paused and the process it needs is paused with it; suspends 0017, 0025, 0034, 0040 and 0043's mechanisms | proposed (audit 2026-10) |

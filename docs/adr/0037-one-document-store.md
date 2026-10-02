@@ -1,6 +1,6 @@
 # ADR-0037 — One document store: the open document has one owner, and changes are transitions
 
-- **Status:** proposed
+- **Status:** proposed (MARXY-248); Amendment 1 (audit 2026-10) accepted for implementation in Phase B
 - **Date:** 2026-09-27
 - **Follows:** ADR-0004 (editing is transformation), ADR-0005 (two modes). Restates
   `docs/operations.md` rule 4 and design 01-buffer §Save ("saving stays explicit"), which the running
@@ -99,3 +99,36 @@ was never built, and each fix since then has added one more holder of the docume
   `packages/*/src/contracts/` changes, and neither does `shell-api`.
 - **Not decided here:** more than one open document, and conflict UI (MARXY-49 and design
   08-position-and-watching own it).
+
+## Amendment 1 (audit 2026-10): a document store and a view, one store per document
+
+- **Status:** accepted for implementation in Phase B.
+- **Date:** 2026-10-02
+- **Evidence:** `docs/research/audit-2026-10/07-feature-split-view.md` §2.3 and §6.
+
+As written, the Decision puts `mode` and `anchor` in the one store, which bakes in one view of one
+document. A split view (and a second view of one file) shows the same bytes twice, Rendered in one
+pane and Source in the other, each at its own reading position. The amendment separates what is true
+of the bytes from what is true of a view of them. Everything else in the Decision stands, and the
+Context is unchanged.
+
+1. **One `DocumentStore` per open document**, keyed by canonical path, in
+   `apps/desktop/src/document/store.ts`. It owns `path`, `disk`, `buffer`, `ast`, `nodeMap`,
+   `history` and `version`, and `dirty` stays derived. Its seven transitions are as in Decision 2, minus
+   `switchMode`, which is a view's own action.
+2. **`mode` and `anchor` belong to a `RenderedView`, one per article.** A view also owns its scroller,
+   the typesetter and its `ResizeObserver`, the Source editor, the selection, the link history
+   (`navHistory`) and the pane's notices. A view is created with `createView(host, store)` and
+   owns its teardown, as `teardownDocument()` in `apps/desktop/src/app.ts` does today.
+3. **Many views may subscribe to one store.** `apply` bumps `version`. Every subscribed view
+   re-renders and maps **its own** anchor through the edit by the rule in Decision 6. Two views of one
+   file can no longer hold two buffers for it.
+4. **A snapshot carries bytes and history only.** View state is not in the store, so the gate for
+   "no module-level document state outside `document/store.ts`" does not forbid per-view state.
+5. **Persistence.** `positions.json` stays keyed by path and is written by the first pane showing
+   that path (the focused one if both show it). Layout is separate and belongs to the split-view story.
+6. **Still not decided here:** the split itself, and conflict UI (design 08).
+
+The first Phase B story implements the store as amended and acceptance includes the three reproduced
+failures above as tests; the next puts one view per pane with one pane. A single document behaves
+byte-for-byte as before.

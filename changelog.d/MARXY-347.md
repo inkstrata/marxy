@@ -1,0 +1,1 @@
+An implementation plan for the October 2026 roadmap lands under docs/plan/roadmap-2026-10 (an orchestration model for Opus and Sonnet agents, one agent-ready story plan per phase A to E, a story index and a progress ledger) with the eight proposed decision records ADR-0044 to ADR-0051 and an amendment to ADR-0037 (MARXY-347)
