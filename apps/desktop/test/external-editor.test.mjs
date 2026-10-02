@@ -101,7 +101,8 @@ test('Mod+Shift+E in Rendered opens the reading block line, and writes nothing',
     assert.equal(lineAtByte(reading.byteOffset), TARGET_LINE, 'precondition: the reading block is the line-40 heading');
     await pressOpenInEditor(page, () => window.__boot.handle.shell.calls.some((c) => c.method === 'revealInExternalEditor'));
     assert.deepEqual(await revealCalls(page), [[DOC, TARGET_LINE]]);
-    const writes = await page.evaluate(() => window.__boot.handle.shell.calls.filter((c) => c.method === 'writeFileAtomic').length);
+    // Only writes to the document count: the index snapshot under /data is the app's own file.
+    const writes = await page.evaluate((doc) => window.__boot.handle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === doc).length, DOC);
     assert.equal(writes, 0, 'opening an editor never writes the document');
     assert.deepEqual(await notices(page), []);
   }));
