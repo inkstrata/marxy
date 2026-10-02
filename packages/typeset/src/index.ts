@@ -316,6 +316,8 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
         setBatch(batch);
         opts.onPass?.('background');
       }
+      // The observer is no longer disconnected when the queue empties: paragraphs adopted later (A-02)
+      // are observed by it, and once every paragraph is set it observes nothing.
       if (queue.length > 0) {
         bg.running = true;
         scheduler.schedule(step);

@@ -27,7 +27,12 @@ export interface ProgressiveMount {
 }
 
 export interface ProgressiveOptions {
-  /** Under this many characters of HTML the whole of it is assigned in one step, as before. */
+  /**
+   * Under this `html.length` the whole of it is assigned in one step, as before. Despite the name it
+   * counts UTF-16 code units of the rendered HTML, not source bytes: 64 KiB of HTML is about 53 KB of
+   * prose source (15-prose-volume.md renders to 62,496 and stays under), and every corpus file but
+   * 32-long-reference.md (478,964) is under it.
+   */
   readonly thresholdBytes?: number;
   /** How many screens of blocks go in before first text, below the landing block when there is one. */
   readonly screens?: number;
