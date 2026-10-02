@@ -359,10 +359,13 @@ transcripts and logs, the second content type in `docs/brief.md`, routinely exce
      harness can wait for the whole document.
    - **The `fonts_ready` mark** (*added 2026-10-02 after A-01*). Its detail iterates
      `document.fonts` (`app.ts:1110`), which forces WebKit to restyle the whole article once the
-     bundled fonts have loaded: 2.3–2.8 s at 1 MB, booked to the grid stage. Drop the face list from
-     the detail (or compute it after `content_complete`), and make sure the first style read after
-     the fonts load happens while the article holds only the first screens. Report, in the pull
-     request, the stage breakdown at 1 MB with and without the change.
+     bundled fonts have loaded: 1.7–2.8 s at 1 MB, booked to the grid stage. Removing the spread
+     alone saves nothing: the same restyle moves to the next style read (`snap()`'s
+     `getComputedStyle`). The target is the restyle itself, which scales with what is in the
+     article: make sure the first style read after the fonts load happens while the article holds
+     only the first screens, and drop the face list from the mark's detail (or compute it after
+     `content_complete`) so it cannot force the restyle early. Report, in the pull request, the
+     stage breakdown at 1 MB before and after.
 6. `apps/desktop/test/progressive.test.mjs`. It runs in WebKit on the app harness (`app.html`) with
    a 1 MB document built by `generateLarge` from `scripts/perf-harness.mjs`, and checks:
    - At `first_text` the article holds fewer top-level children than the document has, and
