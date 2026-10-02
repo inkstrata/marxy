@@ -1,6 +1,7 @@
 // The Commonplace (MARXY-256): every piece is sourced, carries a visible colophon, and is ours to ship.
 // The rights rule lives in apps/desktop/src/commonplace/README.md; this is its machine half. It derives
 // public-domain status from the years in each piece's front matter rather than trusting a label.
+// The translation licence and the note that front matter is not shown live in INFO.md.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -115,6 +116,18 @@ export function checkPiece(name, text, year) {
   else if (!lines.slice(breaks[0] + 1).some(l => l.trim())) say('has nothing after its thematic break', 'the colophon names author, work, date and edition');
   if (lines.some(l => / $/.test(l))) say('has trailing spaces; verse hard breaks are a trailing backslash');
   if (lines.some(l => l.includes('![') || /<[a-z!/]/i.test(l))) say('contains an image or raw HTML', 'pieces are plain CommonMark and never load anything');
+  if (body.includes('Translated for Marxy')) say('puts the translation notice in the text', 'say it once in INFO.md; the page shows the text');
+  return problems;
+}
+
+/**
+ * The info note is where the page's metadata lives: front matter is not shown, and a Marxy
+ * translation is released under the MIT licence. `text` is `INFO.md`.
+ */
+export function checkInfo(text) {
+  const problems = [];
+  if (!text.includes('MIT licence')) problems.push(`INFO.md must say Marxy translations are released under the MIT licence${fix('see the Translations section')}`);
+  if (!/does not show it/.test(text)) problems.push(`INFO.md must say the front matter is not shown${fix('the page shows the text only')}`);
   return problems;
 }
 
@@ -137,13 +150,17 @@ export function checkCorpus({ files, readme, year }) {
 export function loadCorpus() {
   const files = readdirSync(PIECES).filter(n => n.endsWith('.md')).sort()
     .map(name => ({ name, text: readFileSync(join(PIECES, name), 'utf8') }));
-  return { files, readme: readFileSync(join(DIR, 'README.md'), 'utf8') };
+  return {
+    files,
+    readme: readFileSync(join(DIR, 'README.md'), 'utf8'),
+    info: readFileSync(join(DIR, 'INFO.md'), 'utf8'),
+  };
 }
 
 const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === fileURLToPath(pathToFileURL(resolve(process.argv[1])));
 if (invokedDirectly) {
   const corpus = loadCorpus();
-  const problems = checkCorpus({ ...corpus, year: new Date().getUTCFullYear() });
+  const problems = [...checkCorpus({ ...corpus, year: new Date().getUTCFullYear() }), ...checkInfo(corpus.info)];
   if (fail(problems)) process.exit(1);
   console.log(`commonplace: ${corpus.files.length} pieces, every one sourced and cleared`);
 }

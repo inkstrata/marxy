@@ -25,5 +25,3 @@ If the way I have shown to lead here now seems very hard, it can still be found.
 ---
 
 Baruch Spinoza (1632–1677), the last words of the *Ethics*, published in the *Opera Posthuma* in the year of his death (Amsterdam: Jan Rieuwertsz, 1677). Latin as transcribed by The Latin Library.
-
-Translated for Marxy and released with it under the MIT licence.

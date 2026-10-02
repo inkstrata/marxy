@@ -1,7 +1,7 @@
 // The Commonplace gate (MARXY-256) must refuse an unsourced, uncleared or colophon-less piece.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkCorpus, checkPiece, loadCorpus, parseFrontMatter, rightsProblems } from './check-commonplace.mjs';
+import { checkCorpus, checkInfo, checkPiece, loadCorpus, parseFrontMatter, rightsProblems } from './check-commonplace.mjs';
 
 const YEAR = 2026;
 
@@ -96,8 +96,20 @@ test('the README list and the directory must agree', () => {
   assert.deepEqual(checkCorpus({ files, readme: '[A](pieces/a.md)', year: YEAR }), []);
 });
 
+test('a translation notice in the text is refused; it belongs in INFO.md', () => {
+  const body = '# A poem\n\nLine one.\n\n---\n\nA Poet, *Poems* (London, 1890).\n\nTranslated for Marxy and released with it under the MIT licence.\n';
+  assert.match(checkPiece('p.md', piece({}, body), YEAR).join('\n'), /translation notice in the text/);
+});
+
+test('INFO.md states the licence and that front matter is not shown', () => {
+  assert.match(checkInfo('nothing here').join('\n'), /MIT licence/);
+  assert.match(checkInfo('released under the MIT licence').join('\n'), /front matter is not shown/);
+  assert.deepEqual(checkInfo('released under the MIT licence. The page does not show it.'), []);
+});
+
 test('the shipped corpus passes as of this year', () => {
   const corpus = loadCorpus();
   assert.ok(corpus.files.length >= 30, `only ${corpus.files.length} pieces`);
+  assert.deepEqual(checkInfo(corpus.info), []);
   assert.deepEqual(checkCorpus({ ...corpus, year: new Date().getUTCFullYear() }), []);
 });

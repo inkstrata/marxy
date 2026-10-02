@@ -65,11 +65,13 @@
 .marxy-frontispiece-verse .marxy-frontispiece-elision { padding-inline-start: 2em; margin-bottom: var(--lb); }
 .marxy-frontispiece-prose .marxy-frontispiece-elision { text-align: center; }
 
-/* Two languages side by side while each column keeps at least 40 average characters, stacked below
-   that. The article widens to hold both columns at the measure; each section keeps the measure.
-   Columns are as wide as their text up to the measure, and the whole page (title, pair, colophon)
-   is as wide as that and centred, so short verse sits as a facing pair in the middle of the window
-   with its title and colophon on the same left edge, instead of hugging the article's left side. */
+/* Two languages, raw, with a gap between them and no language name. Side by side while each
+   column keeps at least 40 average characters, stacked below that. The article widens to hold both
+   columns at the measure; each section keeps the measure. Columns are as wide as their text up to
+   the measure, and the whole page (title, pair, colophon) is as wide as that and centred, so short
+   verse sits as a facing pair in the middle of the window with its title and colophon on the same
+   left edge, instead of hugging the article's left side. The gap is the separation: two lines on
+   either axis, so a stacked pair does not read as one text. */
 .marxy-frontispiece-page:has(> .marxy-frontispiece-parallel) {
   width: fit-content;
   max-width: 100%;
@@ -81,7 +83,7 @@
 .marxy-frontispiece-parallel {
   display: grid;
   grid-template-columns: minmax(0, max-content);
-  gap: var(--lb) calc(var(--lb) * 2);
+  gap: calc(var(--lb) * 2);
   align-items: start;
 }
 /* The page is sized by its content, so the switch to two columns is asked of the passage's root,
@@ -92,18 +94,6 @@
 }
 .marxy-frontispiece-lang { max-width: var(--marxy-column); min-width: 0; }
 .marxy-frontispiece-lang > :last-child { margin-bottom: 0; }
-/* The section's heading is the language's own name: a label, set as quietly as the colophon. */
-.marxy-frontispiece-lang > h2 {
-  --marxy-wght: calc(var(--marxy-weight-body) + var(--marxy-weight-offset));
-  font-size: var(--marxy-size-caption);
-  font-weight: var(--marxy-wght);
-  line-height: var(--lb);
-  letter-spacing: 0.01em;
-  color: var(--marxy-color-text-secondary);
-  margin: 0 0 var(--marxy-half);
-  padding: 0;
-}
-.marxy-frontispiece-lang:lang(ar, fa, ur, ps, sd, ug, he, yi) > h2 { letter-spacing: 0; }
 
 /* The colophon: a book's, not a page footer. Caption size in the secondary colour, two lines below
    the text, at a measure of its own size. The thematic break before it is the space, not a mark.

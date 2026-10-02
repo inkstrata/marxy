@@ -25,5 +25,3 @@ In other words: man is only to play with beauty, and he is to play only with bea
 ---
 
 Friedrich Schiller (1759–1805), from the fifteenth of his letters *On the Aesthetic Education of Man*, first printed in his journal *Die Horen* (Tübingen: Cotta, 1795). Spelling of that printing, as transcribed by the Deutsches Textarchiv.
-
-Translated for Marxy and released with it under the MIT licence.
