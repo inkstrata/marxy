@@ -60,7 +60,8 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
     for (const cb of subscribers) cb(published);
   };
 
-  const walk = async (root: string, state: RootState, openedPath?: string, openedBytes?: Uint8Array) => {
+  /** Resolves true when the walk published, false when it failed (the root keeps what it had). */
+  const walk = async (root: string, state: RootState, openedPath?: string, openedBytes?: Uint8Array): Promise<boolean> => {
     try {
       const { entries, notice } = await walkRoot(shell, root, openedPath, openedBytes);
       state.entries = entries;
@@ -72,8 +73,10 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
         });
       }
       await markIndexLoaded(shell, entries.length, root);
+      return true;
     } catch (e) {
       console.warn(`marxy: index walk of ${root} failed: ${String(e)}`);
+      return false;
     }
   };
 
@@ -104,7 +107,13 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
       }
       const state: RootState = { entries: [], pending: Promise.resolve(), queued: false };
       roots.set(root, state);
-      state.pending = walk(root, state, path, openedBytes);
+      // A first walk that fails forgets the root, so the next ensureFor walks it again rather than
+      // keeping it empty for the session. A failed refresh keeps the entries the root already had.
+      state.pending = walk(root, state, path, openedBytes).then((ok) => {
+        if (ok || roots.get(root) !== state) return;
+        roots.delete(root);
+        order = order.filter((r) => r !== root);
+      });
       await state.pending;
     },
     refresh(root) {
@@ -112,9 +121,9 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
       if (!state || state.queued) return;
       state.queued = true;
       state.pending = state.pending.then(() =>
-        whenIdle(() => {
+        whenIdle(async () => {
           state.queued = false;
-          return walk(root, state);
+          await walk(root, state);
         }),
       );
     },
