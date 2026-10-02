@@ -24,6 +24,7 @@ interface Live {
   rows: HTMLLIElement[];
   current: number;
   selected: number;
+  painted: { current: number; selected: number };
   frame: number | null;
   readonly onScroll: () => void;
 }
@@ -98,11 +99,15 @@ function dialogElement(): HTMLDialogElement {
 }
 
 function paint(l: Live): void {
-  l.rows.forEach((row, i) => {
+  // Only the rows that were or are marked change; every other row keeps its attributes.
+  for (const i of new Set([l.painted.current, l.painted.selected, l.current, l.selected])) {
+    const row = l.rows[i];
+    if (!row) continue;
     if (i === l.current) row.setAttribute('aria-current', 'true');
     else row.removeAttribute('aria-current');
     row.setAttribute('aria-selected', i === l.selected ? 'true' : 'false');
-  });
+  }
+  l.painted = { current: l.current, selected: l.selected };
   const row = l.rows[l.selected];
   if (row) {
     l.list.setAttribute('aria-activedescendant', row.id);
@@ -119,6 +124,7 @@ function buildRows(l: Live): void {
     row.setAttribute('role', 'option');
     row.style.setProperty('--marxy-outline-level', String(entry.level));
     row.textContent = entry.text;
+    row.setAttribute('aria-selected', 'false');
     row.addEventListener('click', () => void land(l, i));
     return row;
   });
@@ -135,6 +141,7 @@ function refresh(l: Live): void {
     l.ast = open.ast;
     l.path = open.path;
     buildRows(l);
+    l.painted = { current: -1, selected: -1 };
     l.selected = Math.max(0, l.current);
   }
   l.current = currentEntry(l.entries, l.source.position());
@@ -144,9 +151,13 @@ function refresh(l: Live): void {
 async function land(l: Live, index: number): Promise<void> {
   const entry = l.entries[index];
   if (!entry) return;
-  const path = l.path;
-  closeOutline();
-  await l.source.land(path, entry.src.start);
+  // Land first, close after: from Source mode the landing switches to Rendered, and focus must go
+  // to whichever surface is showing once it has.
+  try {
+    await l.source.land(l.path, entry.src.start);
+  } finally {
+    if (live === l) closeOutline();
+  }
 }
 
 function onKey(l: Live, event: KeyboardEvent): void {
@@ -175,8 +186,13 @@ export function closeOutline(): void {
   if (l.frame !== null) cancelAnimationFrame(l.frame);
   if (l.dialog.open) l.dialog.close();
   l.list.replaceChildren();
+  const cm = document.body.dataset.marxyMode === 'source'
+    ? document.querySelector<HTMLElement>('#marxy-source .cm-content')
+    : null;
   const article = document.getElementById('doc');
-  if (article) {
+  if (cm) {
+    cm.focus({ preventScroll: true });
+  } else if (article) {
     if (!article.hasAttribute('tabindex')) article.setAttribute('tabindex', '-1');
     article.focus({ preventScroll: true });
   }
@@ -202,7 +218,7 @@ export function openOutline(source: OutlineSource): void {
   const l: Live = {
     source, dialog, list, scroller,
     ast: open.ast, path: open.path,
-    entries: [], rows: [], current: -1, selected: 0, frame: null,
+    entries: [], rows: [], current: -1, selected: 0, painted: { current: -1, selected: -1 }, frame: null,
     onScroll: () => {
       if (l.frame !== null) return;
       l.frame = requestAnimationFrame(() => {
