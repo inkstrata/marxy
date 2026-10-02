@@ -117,7 +117,10 @@ test('Save and close writes, then closes', () =>
     await requestClose(page);
     await clickButton(page, 'Save and close');
     await page.waitForFunction(() => window.__boot.handle.shell.calls.some((c) => c.method === 'confirmClose'));
-    assert.equal(await calls(page, 'writeFileAtomic'), 1);
+    const documentWrites = await page.evaluate(() =>
+      window.__boot.handle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/index-')).length,
+    );
+    assert.equal(documentWrites, 1);
   }));
 
 test('Dismiss, then closing again prompts again', () =>
