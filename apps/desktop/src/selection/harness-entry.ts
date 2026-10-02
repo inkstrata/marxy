@@ -1,5 +1,6 @@
 // Patches `marxyApp.start` in the Playwright harness so selection installs without touching app.ts (MARXY-41).
 
+import { setAppHandle } from '../commands/app-handle.ts';
 import { installCommandKeys } from './bind.ts';
 import { installRenderedSelection } from './view.ts';
 
@@ -15,6 +16,8 @@ if (typeof window !== 'undefined' && !window.__marxySelectionHarnessPatched && w
   window.marxyApp.start = async (files: Record<string, string>, argv: string[]) => {
     const handle = await original(files, argv);
     await handle.ready;
+    // This bundle has its own copy of the registry's module state: the history commands read the handle from it.
+    setAppHandle(handle);
     await installRenderedSelection(handle);
     installCommandKeys();
     return handle;
