@@ -1,0 +1,432 @@
+document [0,8560)
+  heading [0,76) level=1
+    text [2,76) value="Export drops the last row when the batch size divides the row count (#412)"
+  paragraph [78,223)
+    strong [78,87)
+      text [80,85) value="Issue"
+    text [87,98) value=" opened by "
+    strong [98,113)
+      text [100,111) value="@mira-quill"
+    text [113,139) value=" on 2026-09-28 · labels: "
+    code [139,144) value="bug"
+    text [144,146) value=", "
+    code [146,154) value="export"
+    text [154,156) value=", "
+    code [156,170) value="needs-triage"
+    text [170,185) value=" · milestone: "
+    code [185,193) value="v2.7.0"
+    text [193,207) value=" · assignee: "
+    strong [207,223)
+      text [209,221) value="@tobias-reen"
+  heading [225,240) level=3
+    text [229,240) value="Description"
+  paragraph [242,584)
+    text [242,253) value="When I run "
+    code [253,288) value="ledgerctl export --batch-size 500"
+    text [288,384) value=" on a table with exactly 1,500 rows, the output file has 1,499 data rows. The same command with "
+    code [384,402) value="--batch-size 499"
+    text [402,406) value=" or "
+    code [406,424) value="--batch-size 501"
+    text [424,530) value=" returns all 1,500. It looks like an off-by-one at the batch boundary, but I could not find it by reading "
+    code [530,542) value="batcher.go"
+    text [542,584) value=", so I am filing this instead of guessing."
+  paragraph [586,752)
+    text [586,608) value="This is a regression: "
+    code [608,616) value="v2.5.3"
+    text [616,657) value=" does not do it. I bisected to the range "
+    code [657,675) value="a41c9e2..3f8d07b"
+    text [675,752) value=" and stopped there because the range includes the batching rewrite from #377."
+  heading [754,776) level=3
+    text [758,776) value="Steps to reproduce"
+  list [778,1176) ordered=true tight=false start=1
+    listItem [778,889)
+      paragraph [781,820)
+        text [781,820) value="Create a table with exactly 1,500 rows:"
+      codeBlock [825,889) lang=sh info="sh" content=[831,883) value="ledgerctl seed --rows 1500 --table demo_invoices"
+    listItem [891,1037)
+      paragraph [894,946)
+        text [894,946) value="Export with a batch size that divides the row count:"
+      codeBlock [951,1037) lang=sh info="sh" content=[957,1031) value="ledgerctl export --table demo_invoices --batch-size 500 --out demo.csv"
+    listItem [1039,1139)
+      paragraph [1042,1091)
+        text [1042,1091) value="Count the data rows (the file has a header line):"
+      codeBlock [1096,1139) lang=sh info="sh" content=[1102,1133) value="tail -n +2 demo.csv | wc -l"
+    listItem [1141,1176)
+      paragraph [1144,1176)
+        text [1144,1152) value="Observe "
+        code [1152,1158) value="1499"
+        text [1158,1169) value=". Expected "
+        code [1169,1175) value="1500"
+        text [1175,1176) value="."
+  heading [1178,1200) level=3
+    text [1182,1200) value="Expected behaviour"
+  paragraph [1202,1261)
+    text [1202,1261) value="Every row is written exactly once, whatever the batch size."
+  heading [1263,1278) level=3
+    text [1267,1278) value="Environment"
+  table [1280,1498) align=-,-
+    tableRow [1280,1296) header=true
+      tableCell [1280,1287)
+        text [1282,1286) value="Item"
+      tableCell [1287,1296)
+        text [1289,1294) value="Value"
+    tableRow [1311,1351) header=false
+      tableCell [1311,1323)
+        text [1313,1322) value="ledgerctl"
+      tableCell [1323,1351)
+        text [1325,1339) value="2.6.1 (commit "
+        code [1339,1348) value="3f8d07b"
+        text [1348,1349) value=")"
+    tableRow [1352,1382) header=false
+      tableCell [1352,1357)
+        text [1354,1356) value="OS"
+      tableCell [1357,1382)
+        text [1359,1380) value="Debian 12, kernel 6.1"
+    tableRow [1383,1398) header=false
+      tableCell [1383,1388)
+        text [1385,1387) value="Go"
+      tableCell [1388,1398)
+        text [1390,1396) value="1.23.4"
+    tableRow [1399,1427) header=false
+      tableCell [1399,1410)
+        text [1401,1409) value="Database"
+      tableCell [1410,1427)
+        text [1412,1425) value="Postgres 16.2"
+    tableRow [1428,1454) header=false
+      tableCell [1428,1437)
+        text [1430,1436) value="Locale"
+      tableCell [1437,1454)
+        code [1439,1452) value="en_GB.UTF-8"
+    tableRow [1455,1498) header=false
+      tableCell [1455,1466)
+        text [1457,1465) value="Terminal"
+      tableCell [1466,1498)
+        text [1468,1475) value="80x24, "
+        code [1475,1496) value="TERM=xterm-256color"
+  heading [1500,1508) level=3
+    text [1504,1508) value="Logs"
+  htmlBlock [1510,1542) value="<details><summary>Logs</summary>"
+  codeBlock [1544,2785) lang=text info="text" content=[1552,2782) value="\u001b[2m2026-09-28T09:14:02Z\u001b[0m \u001b[32mINFO \u001b[0m export started table=demo_invoices batch_size=500\n\u001b[2m2026-09-28T09:14:02Z\u001b[…"
+  htmlBlock [2787,2797) value="</details>"
+  heading [2799,2812) level=3
+    text [2803,2812) value="Checklist"
+  list [2814,2960) ordered=false tight=true
+    listItem [2814,2846) task=checked
+      paragraph [2816,2846)
+        taskMarker [2816,2819) checked=true
+        text [2820,2846) value="I searched existing issues"
+    listItem [2847,2890) task=checked
+      paragraph [2849,2890)
+        taskMarker [2849,2852) checked=true
+        text [2853,2890) value="I can reproduce on the latest release"
+    listItem [2891,2922) task=unchecked
+      paragraph [2893,2922)
+        taskMarker [2893,2896) checked=false
+        text [2897,2916) value="I can reproduce on "
+        code [2916,2922) value="main"
+    listItem [2923,2960) task=unchecked
+      paragraph [2925,2960)
+        taskMarker [2925,2928) checked=false
+        text [2929,2960) value="I have a failing test to attach"
+  paragraph [2962,2999)
+    text [2962,2999) value="Reactions: 👍 3 · 🎉 1 · 👀 2"
+  thematicBreak [3001,3004)
+  paragraph [3006,3047)
+    strong [3006,3022)
+      text [3008,3020) value="@tobias-reen"
+    text [3022,3047) value=" commented on 2026-09-29:"
+  paragraph [3049,3476)
+    text [3049,3138) value="Thanks @mira-quill, that is a clean report. I can reproduce it with your seed command on "
+    code [3138,3144) value="main"
+    text [3144,3225) value=" too, so I have ticked that box for you. The log gives it away: batch 3 asks for "
+    code [3225,3236) value="id > 1000"
+    text [3236,3368) value=" but the table's ids start at 1, so the cursor is one row ahead of where it should be. Looks like the rewrite in #377 sw…"
+    code [3368,3376) value="OFFSET"
+    text [3376,3476) value=" to a keyset cursor and the cursor is advanced before the last row of the previous batch is flushed."
+  paragraph [3478,3495)
+    text [3478,3495) value="Reactions: 👍 1"
+  thematicBreak [3497,3500)
+  paragraph [3502,3542)
+    strong [3502,3517)
+      text [3504,3515) value="@mira-quill"
+    text [3517,3542) value=" commented on 2026-09-29:"
+  blockquote [3544,3699)
+    paragraph [3546,3699)
+      text [3546,3591) value="Looks like the rewrite in #377 switched from "
+      code [3591,3599) value="OFFSET"
+      text [3599,3699) value=" to a keyset cursor and the cursor is advanced before the last row of the previous batch is flushed."
+  paragraph [3701,3845)
+    text [3701,3767) value="That matches what I saw when I printed the cursor. It is also why "
+    code [3767,3785) value="--batch-size 499"
+    text [3785,3845) value=" works: the rows per batch never land on the flush boundary."
+  blockquote [3847,3954)
+    paragraph [3849,3892)
+      text [3849,3892) value="Thanks @mira-quill, that is a clean report."
+    blockquote [3897,3954)
+      paragraph [3899,3954)
+        text [3899,3944) value="I can reproduce it with your seed command on "
+        code [3944,3950) value="main"
+        text [3950,3954) value=" too"
+  paragraph [3956,4047)
+    text [3956,4047) value="Glad it is not only me. See also #398, which might be the same cause for the JSON exporter."
+  paragraph [4049,4068)
+    text [4049,4068) value="Reactions: ❤️ 2"
+  thematicBreak [4070,4073)
+  paragraph [4075,4117)
+    strong [4075,4092)
+      text [4077,4090) value="@jun-halloran"
+    text [4092,4117) value=" commented on 2026-09-29:"
+  paragraph [4119,4318)
+    text [4119,4181) value="Drive-by: I think #398 is a different bug. That one drops the "
+    emphasis [4181,4188)
+      text [4182,4187) value="first"
+    text [4188,4318) value=" row of a batch when a row contains a literal newline, which is a quoting problem, not a cursor problem. Happy to be pro…"
+  paragraph [4320,4335)
+    text [4320,4335) value="cc @tobias-reen"
+  thematicBreak [4337,4340)
+  paragraph [4342,4382)
+    strong [4342,4357)
+      text [4344,4355) value="@mira-quill"
+    text [4357,4382) value=" commented on 2026-09-30:"
+  paragraph [4384,4677)
+    text [4384,4677) value="For anyone who hits this before the fix ships, here is a workaround that costs nothing: pick a batch size that does not …"
+  paragraph [4679,4720)
+    text [4679,4720) value="Two caveats, since people will copy this:"
+  list [4722,4948) ordered=false tight=true
+    listItem [4722,4830)
+      paragraph [4724,4830)
+        text [4724,4830) value="It is a workaround, not a fix. A table that later grows to a multiple of the batch size will hit it again."
+    listItem [4831,4948)
+      paragraph [4833,4948)
+        code [4833,4849) value="--batch-size 1"
+        text [4849,4948) value=" avoids the cursor path entirely but is very slow (about 40 minutes for 100,000 rows on my laptop)."
+  blockquote [4950,5083)
+    paragraph [4952,4991)
+      text [4952,4991) value="If you cannot know the count in advance"
+    blockquote [4996,5083)
+      paragraph [4998,5083)
+        text [4998,5002) value="use "
+        code [5002,5019) value="SELECT count(*)"
+        text [5019,5083) value=" first and subtract one from the batch size if it divides evenly"
+  paragraph [5085,5162)
+    text [5085,5162) value="That second quote is from a colleague's chat message, pasted with permission."
+  paragraph [5164,5201)
+    text [5164,5201) value="Reactions: 👍 5 · 😄 1 · 🚀 1"
+  thematicBreak [5203,5206)
+  paragraph [5208,5249)
+    strong [5208,5224)
+      text [5210,5222) value="@tobias-reen"
+    text [5224,5249) value=" commented on 2026-09-30:"
+  paragraph [5251,5340)
+    text [5251,5340) value="Agreed with @jun-halloran, #398 is separate. I have a fix for this one. Opening a PR now."
+  thematicBreak [5342,5345)
+  heading [5347,5421) level=2
+    text [5350,5421) value="Pull request #415: Advance the export cursor after the batch is flushed"
+  paragraph [5423,5542)
+    strong [5423,5439)
+      text [5425,5437) value="@tobias-reen"
+    text [5439,5488) value=" opened this pull request on 2026-09-30 · base: "
+    code [5488,5494) value="main"
+    text [5494,5505) value=" ← head: "
+    code [5505,5528) value="fix/412-export-cursor"
+    text [5528,5542) value=" · fixes #412"
+  heading [5544,5565) level=3
+    text [5548,5565) value="What this changes"
+  paragraph [5567,5803)
+    text [5567,5588) value="The keyset cursor in "
+    code [5588,5600) value="batcher.go"
+    text [5600,5785) value=" was updated when a row was read, not when it was written. When a batch ended exactly at the flush boundary, the next qu…"
+    code [5785,5794) value="flush()"
+    text [5794,5803) value=" returns."
+  heading [5805,5818) level=3
+    text [5809,5818) value="Checklist"
+  list [5820,5996) ordered=false tight=true
+    listItem [5820,5890) task=checked
+      paragraph [5822,5890)
+        taskMarker [5822,5825) checked=true
+        text [5826,5890) value="Adds a regression test for batch sizes that divide the row count"
+    listItem [5891,5919) task=checked
+      paragraph [5893,5919)
+        taskMarker [5893,5896) checked=true
+        text [5897,5905) value="Updates "
+        code [5905,5919) value="CHANGELOG.md"
+    listItem [5920,5962) task=unchecked
+      paragraph [5922,5962)
+        taskMarker [5922,5925) checked=false
+        text [5926,5962) value="Docs updated (no user-facing change)"
+    listItem [5963,5996) task=checked
+      paragraph [5965,5996)
+        taskMarker [5965,5968) checked=true
+        code [5969,5981) value="make check"
+        text [5981,5996) value=" passes locally"
+  paragraph [5998,6055)
+    image [5998,6055) url="https://example.invalid/badge/build-passing.svg" alt="build"
+  htmlBlock [6057,6130) value="<img width=\"600\" alt=\"screenshot\" src=\"https://example.invalid/shot.png\">"
+  heading [6132,6149) level=3
+    text [6136,6149) value="Review thread"
+  paragraph [6151,6214)
+    strong [6151,6168)
+      text [6153,6166) value="@priya-aldous"
+    text [6168,6214) value=" reviewed on 2026-09-30 and requested changes:"
+  blockquote [6216,6291)
+    paragraph [6218,6291)
+      text [6218,6248) value="Nice find. One small thing in "
+      code [6248,6260) value="batcher.go"
+      text [6260,6291) value=", and one nit in the test name."
+  paragraph [6293,6318)
+    text [6293,6296) value="In "
+    code [6296,6308) value="batcher.go"
+    text [6308,6318) value=", line 88:"
+  codeBlock [6320,6461) lang=diff info="diff" content=[6328,6458) value="-\tb.cursor = row.ID\n-\tif err := b.flush(); err != nil {\n+\tif err := b.flush(); err != nil {\n \t\treturn err\n \t}\n+\tb.cursor…"
+  paragraph [6463,6515)
+    strong [6463,6480)
+      text [6465,6478) value="@priya-aldous"
+    text [6480,6494) value=" commented on "
+    code [6494,6506) value="batcher.go"
+    text [6506,6515) value=" line 91:"
+  paragraph [6517,6599)
+    text [6517,6599) value="This reads better as a single helper, and it keeps the ordering rule in one place:"
+  codeBlock [6601,6677) lang=suggestion info="suggestion" content=[6615,6674) value="\tif err := b.advance(row.ID); err != nil {\n\t\treturn err\n\t}"
+  paragraph [6679,6704)
+    strong [6679,6695)
+      text [6681,6693) value="@tobias-reen"
+    text [6695,6704) value=" replied:"
+  blockquote [6706,6744)
+    paragraph [6708,6744)
+      text [6708,6744) value="This reads better as a single helper"
+  paragraph [6746,6863)
+    text [6746,6765) value="Good idea, done in "
+    code [6765,6774) value="c7d29aa"
+    text [6774,6783) value=". I kept "
+    code [6783,6792) value="advance"
+    text [6792,6863) value=" unexported so nothing outside the package can call it with a stale id."
+  paragraph [6865,6922)
+    strong [6865,6882)
+      text [6867,6880) value="@priya-aldous"
+    text [6882,6896) value=" commented on "
+    code [6896,6913) value="batcher_test.go"
+    text [6913,6922) value=" line 14:"
+  paragraph [6924,7043)
+    text [6924,6929) value="Nit: "
+    code [6929,6940) value="TestBatch"
+    text [6940,6986) value=" is too general to find later. Something like "
+    code [6986,7016) value="TestBatchSizeDividesRowCount"
+    text [7016,7043) value=" says what the test is for."
+  paragraph [7045,7070)
+    strong [7045,7061)
+      text [7047,7059) value="@tobias-reen"
+    text [7061,7070) value=" replied:"
+  paragraph [7072,7080)
+    text [7072,7080) value="Renamed."
+  paragraph [7082,7124)
+    strong [7082,7099)
+      text [7084,7097) value="@jun-halloran"
+    text [7099,7124) value=" commented on 2026-09-30:"
+  paragraph [7126,7300)
+    text [7126,7158) value="Question, not a blocker: should "
+    code [7158,7167) value="advance"
+    text [7167,7300) value=" also guard against an id that goes backwards? A keyset cursor that moves backwards would loop forever, and the loop wou…"
+  list [7302,7405) ordered=false tight=true
+    listItem [7302,7334) task=checked
+      paragraph [7304,7334)
+        taskMarker [7304,7307) checked=true
+        text [7308,7334) value="Agreed it is worth a guard"
+    listItem [7335,7369) task=unchecked
+      paragraph [7337,7369)
+        taskMarker [7337,7340) checked=false
+        text [7341,7369) value="Agreed it belongs in this PR"
+    listItem [7370,7405) task=unchecked
+      paragraph [7372,7405)
+        taskMarker [7372,7375) checked=false
+        text [7376,7405) value="Agreed it needs its own issue"
+  paragraph [7407,7432)
+    strong [7407,7423)
+      text [7409,7421) value="@tobias-reen"
+    text [7423,7432) value=" replied:"
+  paragraph [7434,7613)
+    text [7434,7613) value="My view is that it belongs in a separate change. This PR is a one-line ordering fix and I would like it to stay reviewab…"
+  paragraph [7615,7641)
+    strong [7615,7632)
+      text [7617,7630) value="@jun-halloran"
+    text [7632,7641) value=" replied:"
+  paragraph [7643,7671)
+    text [7643,7671) value="Fair. Resolving this thread."
+  heading [7673,7683) level=3
+    text [7677,7683) value="Checks"
+  table [7685,7915) align=-,-,-
+    tableRow [7685,7714) header=true
+      tableCell [7685,7693)
+        text [7687,7692) value="Check"
+      tableCell [7693,7702)
+        text [7695,7701) value="Status"
+      tableCell [7702,7714)
+        text [7704,7712) value="Duration"
+    tableRow [7735,7778) header=false
+      tableCell [7735,7759)
+        code [7737,7758) value="build (linux-amd64)"
+      tableCell [7759,7768)
+        text [7761,7767) value="passed"
+      tableCell [7768,7778)
+        text [7770,7776) value="1m 42s"
+    tableRow [7779,7823) header=false
+      tableCell [7779,7804)
+        code [7781,7803) value="build (darwin-arm64)"
+      tableCell [7804,7813)
+        text [7806,7812) value="passed"
+      tableCell [7813,7823)
+        text [7815,7821) value="2m 05s"
+    tableRow [7824,7852) header=false
+      tableCell [7824,7833)
+        code [7826,7832) value="test"
+      tableCell [7833,7842)
+        text [7835,7841) value="passed"
+      tableCell [7842,7852)
+        text [7844,7850) value="3m 18s"
+    tableRow [7853,7881) header=false
+      tableCell [7853,7862)
+        code [7855,7861) value="lint"
+      tableCell [7862,7871)
+        text [7864,7870) value="passed"
+      tableCell [7871,7881)
+        text [7873,7879) value="0m 44s"
+    tableRow [7882,7915) header=false
+      tableCell [7882,7896)
+        code [7884,7895) value="changelog"
+      tableCell [7896,7905)
+        text [7898,7904) value="passed"
+      tableCell [7905,7915)
+        text [7907,7913) value="0m 03s"
+  paragraph [7917,7972)
+    strong [7917,7934)
+      text [7919,7932) value="@priya-aldous"
+    text [7934,7972) value=" approved these changes on 2026-10-01."
+  thematicBreak [7974,7977)
+  heading [7979,7997) level=3
+    text [7983,7997) value="Commit message"
+  paragraph [7999,8055)
+    text [7999,8055) value="The squash commit message, quoted from the merge dialog:"
+  blockquote [8057,8500)
+    paragraph [8059,8117)
+      text [8059,8117) value="fix(export): advance the cursor after the batch is flushed"
+    paragraph [8122,8335)
+      text [8122,8191) value="The keyset cursor moved when a row was read, so a batch that ended on"
+      softBreak [8191,8194)
+      text [8194,8264) value="the flush boundary skipped the next row. Move the update after flush()"
+      softBreak [8264,8267)
+      text [8267,8335) value="and add a regression test for batch sizes that divide the row count."
+    paragraph [8340,8350)
+      text [8340,8350) value="Fixes #412"
+    paragraph [8355,8500)
+      text [8355,8382) value="Co-authored-by: Mira Quill "
+      link [8382,8424) url="mailto:mira-quill@users.noreply.example.invalid"
+        text [8383,8423) value="mira-quill@users.noreply.example.invalid"
+      softBreak [8424,8427)
+      text [8427,8456) value="Co-authored-by: Priya Aldous "
+      link [8456,8500) url="mailto:priya-aldous@users.noreply.example.invalid"
+        text [8457,8499) value="priya-aldous@users.noreply.example.invalid"
+  paragraph [8502,8559)
+    text [8502,8525) value="Merged via squash into "
+    code [8525,8531) value="main"
+    text [8531,8535) value=" as "
+    code [8535,8544) value="5be01f3"
+    text [8544,8559) value=" on 2026-10-01."

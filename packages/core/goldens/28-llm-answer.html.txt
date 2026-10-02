@@ -1,0 +1,262 @@
+<p data-marxy-s="0" data-marxy-e="188">Sure! Here’s a complete migration plan for moving <code data-marxy-s="50" data-marxy-e="66">invoice-export</code> off the cron host and onto a queue-backed worker. I’ve kept it practical, so you can paste it straight into your runbook.</p>
+<h1 data-marxy-s="190" data-marxy-e="251">🚀 Migrating <code data-marxy-s="207" data-marxy-e="223">invoice-export</code> from Cron to a Queue Worker</h1>
+<p data-marxy-s="253" data-marxy-e="508">Today the service runs as a nightly cron job on a single VM (<code data-marxy-s="314" data-marxy-e="340">batch-01.example.invalid</code>). The goal is a containerized worker that pulls jobs from a queue, so a failed export can be retried without anyone logging in to a box. Here’s the plan, step by step.</p>
+<h2 id="overview" data-marxy-s="510" data-marxy-e="521">Overview</h2>
+<p data-marxy-s="523" data-marxy-e="814">The migration has three moving parts: the <em data-marxy-s="565" data-marxy-e="575">producer</em> (what used to be the crontab line), the <em data-marxy-s="616" data-marxy-e="623">queue</em>, and the <em data-marxy-s="633" data-marxy-e="641">worker</em> (the old script, wrapped). You’ll run both systems side by side for two weeks. The old path stays authoritative until the new one has matched it for ten consecutive nights.</p>
+<ul data-marxy-s="816" data-marxy-e="1157">
+<li data-marxy-s="816" data-marxy-e="923"><strong data-marxy-s="818" data-marxy-e="829">Step 1:</strong> Inventory what the cron job really does (it usually does more than the script name suggests).</li>
+<li data-marxy-s="924" data-marxy-e="979"><strong data-marxy-s="926" data-marxy-e="937">Step 2:</strong> Wrap the export in an idempotent handler.</li>
+<li data-marxy-s="980" data-marxy-e="1037"><strong data-marxy-s="982" data-marxy-e="993">Step 3:</strong> Stand up the queue and a dead-letter queue.</li>
+<li data-marxy-s="1038" data-marxy-e="1102"><strong data-marxy-s="1040" data-marxy-e="1051">Step 4:</strong> Run both paths in shadow mode and compare outputs.</li>
+<li data-marxy-s="1103" data-marxy-e="1157"><strong data-marxy-s="1105" data-marxy-e="1116">Step 5:</strong> Cut over, then retire the crontab entry.</li>
+</ul>
+<p data-marxy-s="1159" data-marxy-e="1193">Things to decide before you start:</p>
+<p data-marxy-s="1195" data-marxy-e="1496">• Who owns the dead-letter queue once the migration is done
+• Whether exports must stay ordered per customer
+– What the retention period is for finished jobs
+– Whether the old host’s <code data-marxy-s="1386" data-marxy-e="1400">/var/exports</code> directory is part of any audit trail
+• Which team gets paged when the queue depth alarm fires</p>
+<h2 id="step-1-inventory-the-cron-job" data-marxy-s="1498" data-marxy-e="1531">Step 1: Inventory the cron job</h2>
+<p data-marxy-s="1533" data-marxy-e="1610">Run this on the old host and keep the output; you will diff against it later.</p>
+<pre data-marxy-s="1612" data-marxy-e="1734"><code class="language-bash" data-marxy-s="1620" data-marxy-e="1731">crontab -l | grep invoice-export
+ls -la /opt/invoice-export/
+grep -R "sendmail\|curl" /opt/invoice-export/*.sh
+</code></pre>
+<p data-marxy-s="1736" data-marxy-e="1823">Then write down every side effect. In my experience the list looks something like this:</p>
+<ol data-marxy-s="1825" data-marxy-e="2077">
+<li data-marxy-s="1825" data-marxy-e="1879">Reads unexported invoices from the <code data-marxy-s="1863" data-marxy-e="1873">invoices</code> table</li>
+<li data-marxy-s="1880" data-marxy-e="1928">Writes one CSV per customer to <code data-marxy-s="1914" data-marxy-e="1928">/var/exports</code></li>
+<li data-marxy-s="1929" data-marxy-e="1975">Emails the finance mailbox when it finishes</li>
+<li data-marxy-s="1976" data-marxy-e="2015">Deletes CSV files older than 30 days</li>
+<li data-marxy-s="2016" data-marxy-e="2077">Touches a heartbeat file that the monitoring agent watches</li>
+</ol>
+<p data-marxy-s="2079" data-marxy-e="2251">The last three items are the ones people forget. Treat each of them as its own requirement. Here is the order I would work in; I have let the numbering take care of itself:</p>
+<ol data-marxy-s="2253" data-marxy-e="2321">
+<li data-marxy-s="2253" data-marxy-e="2273">Write the handler</li>
+<li data-marxy-s="2274" data-marxy-e="2292">Write the tests</li>
+<li data-marxy-s="2293" data-marxy-e="2321">Write the deploy manifest</li>
+</ol>
+<h2 id="step-2-make-the-handler-idempotent" data-marxy-s="2323" data-marxy-e="2361">Step 2: Make the handler idempotent</h2>
+<p data-marxy-s="2363" data-marxy-e="2580">A queue will deliver a job more than once eventually, so the handler must be safe to run twice for the same <code data-marxy-s="2471" data-marxy-e="2494">(customer_id, period)</code>. The simplest way is to derive the output filename from the job and write atomically.</p>
+<pre data-marxy-s="2582" data-marxy-e="3001"><code class="language-python" data-marxy-s="2592" data-marxy-e="2998">def export_invoices(job: dict) -&gt; str:
+    customer = job["customer_id"]
+    period = job["period"]          # e.g. "2026-09"
+    final = f"/var/exports/{customer}-{period}.csv"
+    tmp = final + ".part"
+    rows = fetch_unexported(customer, period)
+    with open(tmp, "w", newline="") as fh:
+        write_csv(fh, rows)
+    os.replace(tmp, final)          # atomic on the same filesystem
+    return final
+</code></pre>
+<p data-marxy-s="3003" data-marxy-e="3045">Once that works locally, do the following:</p>
+<ol start="4" data-marxy-s="3047" data-marxy-e="3354">
+<li data-marxy-s="3047" data-marxy-e="3134"><p data-marxy-s="3050" data-marxy-e="3134">Add a unit test that calls the handler twice and asserts the file is byte-identical.</p></li>
+<li data-marxy-s="3135" data-marxy-e="3226"><p data-marxy-s="3138" data-marxy-e="3226">Add a test where the database raises halfway through and no <code data-marxy-s="3198" data-marxy-e="3205">.part</code> file is left behind.</p></li>
+<li data-marxy-s="3228" data-marxy-e="3276"><p data-marxy-s="3231" data-marxy-e="3276">Wire the handler into the worker entry point.</p></li>
+<li data-marxy-s="3277" data-marxy-e="3319"><p data-marxy-s="3280" data-marxy-e="3319">Add structured logging with the job id.</p></li>
+<li data-marxy-s="3320" data-marxy-e="3354"><p data-marxy-s="3323" data-marxy-e="3354">Expose <code data-marxy-s="3330" data-marxy-e="3340">/healthz</code> on port 8080.</p></li>
+</ol>
+<h2 id="step-3-stand-up-the-queue" data-marxy-s="3356" data-marxy-e="3385">Step 3: Stand up the queue</h2>
+<p data-marxy-s="3387" data-marxy-e="3436">Here is the topology I would use. Keep it boring.</p>
+<p>mermaid · diagram source</p>
+<pre data-marxy-s="3438" data-marxy-e="3679"><code class="language-mermaid" data-marxy-s="3449" data-marxy-e="3676">flowchart LR
+    P[Producer: scheduler] --&gt;|enqueue| Q[(exports queue)]
+    Q --&gt; W1[Worker 1]
+    Q --&gt; W2[Worker 2]
+    W1 --&gt;|fail x3| D[(dead-letter queue)]
+    W2 --&gt;|fail x3| D
+    W1 --&gt; S[(object storage)]
+    W2 --&gt; S
+</code></pre>
+<p data-marxy-s="3681" data-marxy-e="3704">And the queue settings:</p>
+<pre data-marxy-s="3706" data-marxy-e="3875"><code class="language-json" data-marxy-s="3714" data-marxy-e="3872">{
+  "queue": "invoice-export",
+  "visibilityTimeoutSeconds": 900,
+  "maxReceiveCount": 3,
+  "deadLetterQueue": "invoice-export-dlq",
+  "retentionDays": 14,
+}
+</code></pre>
+<p data-marxy-s="3877" data-marxy-e="3898">Notes on the options:</p>
+<ul data-marxy-s="3900" data-marxy-e="4392">
+<li data-marxy-s="3900" data-marxy-e="4182"><strong data-marxy-s="3902" data-marxy-e="3925">Visibility timeout:</strong> must be longer than your slowest export. Ours peaks near 11 minutes, so 900 seconds is comfortable.
+<ul data-marxy-s="4029" data-marxy-e="4083">
+<li data-marxy-s="4029" data-marxy-e="4083">Too short and two workers will pick up the same job.</li>
+</ul>
+<ul data-marxy-s="4087" data-marxy-e="4139">
+<li data-marxy-s="4087" data-marxy-e="4139">Too long and a crashed worker holds a job hostage.</li>
+</ul>
+<ul data-marxy-s="4143" data-marxy-e="4182">
+<li data-marxy-s="4143" data-marxy-e="4182">Measure first, then add a 30% margin.</li>
+</ul></li>
+<li data-marxy-s="4183" data-marxy-e="4311"><strong data-marxy-s="4185" data-marxy-e="4207">Max receive count:</strong> three attempts is a reasonable default.
+<ul data-marxy-s="4251" data-marxy-e="4311">
+<li data-marxy-s="4251" data-marxy-e="4311">Anything that fails three times is almost never transient.</li>
+</ul></li>
+<li data-marxy-s="4312" data-marxy-e="4392"><strong data-marxy-s="4314" data-marxy-e="4328">Retention:</strong> match whatever finance needs for audit, not what is convenient.</li>
+</ul>
+<h3 id="sizing" data-marxy-s="4394" data-marxy-e="4404">Sizing</h3>
+<p data-marxy-s="4406" data-marxy-e="4493">Roughly, here’s what to expect. Please treat these as starting points and not promises:</p>
+<table data-marxy-s="4495" data-marxy-e="4704">
+<thead>
+<tr data-marxy-s="4495" data-marxy-e="4550">
+<th data-marxy-s="4495" data-marxy-e="4507">Customers</th>
+<th data-marxy-s="4507" data-marxy-e="4518">Avg rows</th>
+<th data-marxy-s="4518" data-marxy-e="4528">Workers</th>
+<th data-marxy-s="4528" data-marxy-e="4550">Expected wall time</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="4569" data-marxy-e="4597">
+<td data-marxy-s="4569" data-marxy-e="4575">200</td>
+<td data-marxy-s="4575" data-marxy-e="4583">1,200</td>
+<td data-marxy-s="4583" data-marxy-e="4587">1</td>
+<td data-marxy-s="4587" data-marxy-e="4597">~9 min</td>
+</tr>
+<tr data-marxy-s="4598" data-marxy-e="4619">
+<td data-marxy-s="4598" data-marxy-e="4606">1,000</td>
+<td data-marxy-s="4606" data-marxy-e="4614">1,300</td>
+<td data-marxy-s="4614" data-marxy-e="4619">2</td>
+</tr>
+<tr data-marxy-s="4620" data-marxy-e="4667">
+<td data-marxy-s="4620" data-marxy-e="4631">5,000</td>
+<td data-marxy-s="4631" data-marxy-e="4640">1,250</td>
+<td data-marxy-s="4640" data-marxy-e="4646">4</td>
+<td data-marxy-s="4646" data-marxy-e="4658">~55 min</td>
+<td data-marxy-s="4658" data-marxy-e="4667">extra</td>
+</tr>
+<tr data-marxy-s="4668" data-marxy-e="4704">
+<td data-marxy-s="4668" data-marxy-e="4677">20,000</td>
+<td data-marxy-s="4677" data-marxy-e="4685">1,400</td>
+<td data-marxy-s="4685" data-marxy-e="4689">8</td>
+<td data-marxy-s="4689" data-marxy-e="4704">~2 h 10 min</td>
+</tr>
+</tbody>
+</table>
+<h2 id="step-4-shadow-mode" data-marxy-s="4706" data-marxy-e="4728">Step 4: Shadow mode</h2>
+<p data-marxy-s="4730" data-marxy-e="4855">For two weeks, let the cron job keep writing to <code data-marxy-s="4778" data-marxy-e="4792">/var/exports</code> and have the worker write to a different prefix. Then compare:</p>
+<pre data-marxy-s="4857" data-marxy-e="4956"><code class="language-bash" data-marxy-s="4865" data-marxy-e="4953">diff -rq /var/exports/ /mnt/shadow/exports/ | tee shadow-diff.txt
+wc -l shadow-diff.txt
+</code></pre>
+<p data-marxy-s="4958" data-marxy-e="5316">A clean night means the diff is empty. Anything else is a bug in one of the two paths — usually the worker, but not always. One thing I’ve seen: the old script rounded to two decimals with “banker’s rounding”, while the new code uses “round half up”. Another: the old CSVs had CRLF line endings – the finance team’s importer silently depended on them.</p>
+<p data-marxy-s="5318" data-marxy-e="5375">Here’s a template you can drop into the migration ticket:</p>
+<pre data-marxy-s="5377" data-marxy-e="5828"><code class="language-markdown" data-marxy-s="5391" data-marxy-e="5823"># Migration ticket: invoice-export
+
+## Summary
+
+Move the nightly export from cron to the queue worker.
+
+## Acceptance
+
+- Ten consecutive clean shadow nights
+- Dead-letter queue empty at cutover
+- Runbook updated
+
+## Rollback
+
+Re-enable the crontab entry. The exact line is below.
+
+````text
+17 2 * * * /opt/invoice-export/run.sh &gt;&gt; /var/log/invoice-export.log 2&gt;&amp;1
+
+To restore it:
+
+```sh
+crontab -e
+```
+````
+
+## Owner
+
+Platform team
+</code></pre>
+<h2 id="step-5-cut-over" data-marxy-s="5830" data-marxy-e="5849">Step 5: Cut over</h2>
+<ol data-marxy-s="5851" data-marxy-e="5931">
+<li data-marxy-s="5851" data-marxy-e="5889">Disable the producer’s shadow flag.</li>
+<li data-marxy-s="5890" data-marxy-e="5931">Watch the first real night end to end.</li>
+</ol>
+<pre data-marxy-s="5933" data-marxy-e="6001"><code class="language-sh" data-marxy-s="5939" data-marxy-e="5998">kubectl logs -l app=invoice-export --since=1h | tail -n 50
+</code></pre>
+<ol data-marxy-s="6003" data-marxy-e="6106">
+<li data-marxy-s="6003" data-marxy-e="6077">Confirm the heartbeat, the email, and the cleanup job all still happen.</li>
+<li data-marxy-s="6078" data-marxy-e="6106">Remove the crontab entry.</li>
+</ol>
+<p data-marxy-s="6108" data-marxy-e="6152">Don’t remove the old host for another month.</p>
+<h2 id="step-6-monitoring-and-alerts" data-marxy-s="6154" data-marxy-e="6186">Step 6: Monitoring and alerts</h2>
+<p data-marxy-s="6188" data-marxy-e="6374">A queue-backed worker fails differently from a cron job. The cron job failed loudly, at 02:17, by email. The worker fails quietly, by getting slower. Add these before cutover, not after:</p>
+<ul data-marxy-s="6376" data-marxy-e="6896">
+<li data-marxy-s="6376" data-marxy-e="6520"><strong data-marxy-s="6378" data-marxy-e="6394">Queue depth:</strong> alert when the oldest message is more than 30 minutes old, not when the count is high. A long queue that is draining is fine.</li>
+<li data-marxy-s="6521" data-marxy-e="6632"><strong data-marxy-s="6523" data-marxy-e="6545">Dead-letter depth:</strong> alert on any message at all. The dead-letter queue should be empty on a healthy night.</li>
+<li data-marxy-s="6633" data-marxy-e="6766"><strong data-marxy-s="6635" data-marxy-e="6649">Heartbeat:</strong> keep writing the old heartbeat file for as long as the monitoring agent reads it, even though nothing else needs it.</li>
+<li data-marxy-s="6767" data-marxy-e="6896"><strong data-marxy-s="6769" data-marxy-e="6782">Duration:</strong> record the wall time per job and chart the 95th percentile, so a slow trend shows up weeks before a timeout does.</li>
+</ul>
+<p data-marxy-s="6898" data-marxy-e="6941">A minimal alert definition looks like this:</p>
+<pre data-marxy-s="6943" data-marxy-e="7234"><code class="language-yaml" data-marxy-s="6951" data-marxy-e="7231">alerts:
+  - name: invoice-export-oldest-message
+    expr: queue_oldest_message_age_seconds{queue="invoice-export"} &gt; 1800
+    for: 10m
+    severity: page
+  - name: invoice-export-dlq-not-empty
+    expr: queue_depth{queue="invoice-export-dlq"} &gt; 0
+    for: 1m
+    severity: ticket
+</code></pre>
+<h3 id="what-to-do-when-the-dead-letter-queue-fills" data-marxy-s="7236" data-marxy-e="7283">What to do when the dead-letter queue fills</h3>
+<ol data-marxy-s="7285" data-marxy-e="7547">
+<li data-marxy-s="7285" data-marxy-e="7350">Look at the oldest message and read its error, not the newest.</li>
+<li data-marxy-s="7351" data-marxy-e="7408">Decide whether it is a data problem or a code problem.</li>
+<li data-marxy-s="7409" data-marxy-e="7469">For a data problem, fix the row and re-drive the message.</li>
+<li data-marxy-s="7470" data-marxy-e="7547">For a code problem, fix the handler, deploy, and then re-drive everything.</li>
+</ol>
+<p data-marxy-s="7549" data-marxy-e="7668">Please don’t purge the dead-letter queue to make the alarm go quiet. Those messages are the only record of what failed.</p>
+<h2 id="risks-i-would-flag-to-your-manager" data-marxy-s="7670" data-marxy-e="7707">Risks I would flag to your manager</h2>
+<table data-marxy-s="7709" data-marxy-e="8145">
+<thead>
+<tr data-marxy-s="7709" data-marxy-e="7743">
+<th align="left" data-marxy-s="7709" data-marxy-e="7716">Risk</th>
+<th align="center" data-marxy-s="7716" data-marxy-e="7729">Likelihood</th>
+<th align="right" data-marxy-s="7729" data-marxy-e="7743">Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr data-marxy-s="7758" data-marxy-e="7852">
+<td align="left" data-marxy-s="7758" data-marxy-e="7810">A hidden side effect of the cron script is missed</td>
+<td align="center" data-marxy-s="7810" data-marxy-e="7819">Medium</td>
+<td align="right" data-marxy-s="7819" data-marxy-e="7852">Step 1 inventory, shadow mode</td>
+</tr>
+<tr data-marxy-s="7853" data-marxy-e="7945">
+<td align="left" data-marxy-s="7853" data-marxy-e="7900">Two workers export the same customer at once</td>
+<td align="center" data-marxy-s="7900" data-marxy-e="7906">Low</td>
+<td align="right" data-marxy-s="7906" data-marxy-e="7945">Idempotent filenames, atomic rename</td>
+</tr>
+<tr data-marxy-s="7946" data-marxy-e="8051">
+<td align="left" data-marxy-s="7946" data-marxy-e="7997">The queue service has an outage on cutover night</td>
+<td align="center" data-marxy-s="7997" data-marxy-e="8003">Low</td>
+<td align="right" data-marxy-s="8003" data-marxy-e="8051">Keep the crontab line commented, not deleted</td>
+</tr>
+<tr data-marxy-s="8052" data-marxy-e="8145">
+<td align="left" data-marxy-s="8052" data-marxy-e="8097">Finance’s importer depends on CRLF endings</td>
+<td align="center" data-marxy-s="8097" data-marxy-e="8104">High</td>
+<td align="right" data-marxy-s="8104" data-marxy-e="8145">Diff byte for byte, not line for line</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pitfalls" data-marxy-s="8147" data-marxy-e="8158">Pitfalls</h2>
+<p data-marxy-s="8160" data-marxy-e="8194">Some things that tend to go wrong:</p>
+<p data-marxy-s="8196" data-marxy-e="8379">Line one of a note ends with two spaces.<br data-marxy-s="8236" data-marxy-e="8239" />
+Line two follows without a blank line, so it should be a hard break.<br />This one follows an HTML break tag, which should survive as a break.</p>
+<p data-marxy-s="8381" data-marxy-e="8601">Fish &amp; chips is not a joke here: an unescaped ampersand in the customer name column broke a CSV importer once. Also watch for non breaking spaces pasted in from a spreadsheet, which look like spaces and are not.</p>
+<p data-marxy-s="8603" data-marxy-e="8823">Quotes are another trap. Chat tools tend to emit “straight quotes” and ‘curly ones’ in the same answer, along with an em-dash — like this one — next to a double hyphen – like this one. Normalise before you diff.</p>
+<h2 data-marxy-s="8825" data-marxy-e="8980">The next paragraph is followed directly by a rule with no blank line between them, which is a classic way to turn a sentence into a heading by accident</h2>
+<p data-marxy-s="8982" data-marxy-e="9037">Here is a deliberate thematic break after a blank line:</p>
+<hr data-marxy-s="9039" data-marxy-e="9042" />
+<p data-marxy-s="9044" data-marxy-e="9071">#migration #runbook #queues</p>
+<p data-marxy-s="9073" data-marxy-e="9186">That last line is a hashtag the assistant added for a tracker. It has no space after the <code data-marxy-s="9162" data-marxy-e="9165">#</code>, so it is just text.</p>
+<h2 id="sources" data-marxy-s="9188" data-marxy-e="9198">Sources</h2>
+<ul data-marxy-s="9200" data-marxy-e="9376">
+<li data-marxy-s="9200" data-marxy-e="9256"><a href="https://docs.example.invalid/queues/visibility-timeout" class="marxy-external" data-marxy-s="9202" data-marxy-e="9256">https://docs.example.invalid/queues/visibility-timeout</a></li>
+<li data-marxy-s="9257" data-marxy-e="9311"><a href="https://blog.example.invalid/2026/idempotent-exports" class="marxy-external" data-marxy-s="9259" data-marxy-e="9311">https://blog.example.invalid/2026/idempotent-exports</a></li>
+<li data-marxy-s="9312" data-marxy-e="9376"><a href="https://wiki.example.invalid/platform/runbooks/cron-retirement" class="marxy-external" data-marxy-s="9314" data-marxy-e="9376">https://wiki.example.invalid/platform/runbooks/cron-retirement</a></li>
+</ul>
+<p data-marxy-s="9378" data-marxy-e="9516">Let me know if you’d like me to turn this into a checklist, draft the dead-letter queue alarm, or write the shadow-mode comparison script.</p>

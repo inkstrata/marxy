@@ -1,0 +1,151 @@
+document [0,12598)
+  heading [0,39) level=1
+    text [2,39) value="Rooftop sensor readings: a first look"
+  paragraph [41,225)
+    emphasis [41,225)
+      text [42,78) value="Exploration notebook, exported with "
+      code [78,111) value="jupyter nbconvert --to markdown"
+      text [111,224) value=". Kernel: Python 3.12. The data are synthetic and were generated for this example; no real stations are involved."
+  paragraph [227,614)
+    text [227,396) value="We want to know whether the sensor on the north roof drifts relative to the one on the south roof. The model is simple: …"
+    mathInline [396,418) value="\\Delta T = T_N - T_S"
+    text [418,512) value=" should have a mean close to zero, and any slow trend in it is drift. Write the drift rate as "
+    mathInline [512,520) value="\\alpha"
+    text [520,552) value=" degrees per week, so that over "
+    mathInline [552,555) value="n"
+    text [555,572) value=" weeks we expect "
+    mathInline [572,613) value="\\Delta T \\approx \\alpha n + \\varepsilon"
+    text [613,614) value="."
+  htmlBlock [616,816) value="<div class=\"alert alert-block alert-info\">\n<b>Note:</b> every cell below was run top to bottom on a fresh kernel. Cell n…"
+  heading [818,829) level=2
+    text [821,829) value="1. Setup"
+  paragraph [831,917)
+    text [831,917) value="Install the one package that is not in the base image, then import everything we need."
+  codeBlock [920,970) lang=python info="python" content=[930,967) value="!pip install --quiet tabulate==0.9.0"
+  codeBlock [972,1177) content=[972,1177) value="WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system packa…"
+  codeBlock [1181,1360) lang=python info="python" content=[1191,1357) value="import math\nimport random\nimport statistics\nimport warnings\n\nimport numpy as np\nimport pandas as pd\nimport matplotlib.py…"
+  codeBlock [1362,1620) content=[1362,1620) value="/opt/conda/lib/python3.12/site-packages/pandas/core/computation/expressions.py:21: UserWarning: Pandas requires version …"
+  codeBlock [1624,1997) lang=python info="python" content=[1634,1994) value="rng = np.random.default_rng(20260928)\ndays = pd.date_range(\"2026-06-01\", periods=120, freq=\"D\")\nsouth = 18 + 6 * np.sin(…"
+  codeBlock [2002,2014) content=[2002,2014) value="(120, 4)"
+  heading [2018,2037) level=2
+    text [2021,2037) value="2. The raw table"
+  paragraph [2039,2094)
+    text [2039,2094) value="The first few rows, as pandas draws them in a notebook:"
+  codeBlock [2097,2121) lang=python info="python" content=[2107,2118) value="df.head(6)"
+  htmlBlock [2126,2226) value="<div>\n<style scoped>\n    .dataframe tbody tr th:only-of-type {\n        vertical-align: middle;\n    }"
+  codeBlock [2228,2351) content=[2228,2351) value=".dataframe tbody tr th {\n    vertical-align: top;\n}\n\n.dataframe thead th {\n    text-align: right;\n}"
+  htmlBlock [2352,3425) value="</style>\n<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th></th>\n      <th>da…"
+  paragraph [3429,3517)
+    text [3429,3485) value="A plain-text version of one column's summary, using the "
+    code [3485,3497) value="text/plain"
+    text [3497,3508) value=" repr of a "
+    code [3508,3516) value="Series"
+    text [3516,3517) value=":"
+  codeBlock [3520,3558) lang=python info="python" content=[3530,3555) value="df[\"delta_c\"].describe()"
+  codeBlock [3563,3788) content=[3563,3788) value="count    120.000000\nmean       0.080525\nstd        0.331904\nmin       -0.730461\n25%       -0.139027\n50%        0.083719\n…"
+  heading [3792,3816) level=2
+    text [3795,3816) value="3. Timing a slow cell"
+  paragraph [3818,3877)
+    text [3818,3877) value="The magic below measures the whole cell, not a single line."
+  codeBlock [3880,4082) lang=python info="python" content=[3890,4079) value="%%time\nweekly = df.set_index(\"date\").resample(\"W\").mean(numeric_only=True)\nslope = np.polyfit(np.arange(len(weekly)), we…"
+  codeBlock [4084,4199) content=[4084,4199) value="drift: 0.0213 degrees per week\nCPU times: user 6.12 ms, sys: 1.01 ms, total: 7.13 ms\nWall time: 6.74 ms"
+  paragraph [4202,4287)
+    text [4202,4231) value="The estimate is close to the "
+    mathInline [4231,4237) value="0.02"
+    text [4237,4287) value=" we built in, which is the sanity check we wanted."
+  heading [4289,4300) level=2
+    text [4292,4300) value="4. Plots"
+  paragraph [4302,4449)
+    text [4302,4449) value="A line plot of the weekly difference. The first figure was saved next to the notebook and is referenced by file name; th…"
+  codeBlock [4452,4575) lang=python info="python" content=[4462,4572) value="weekly[\"delta_c\"].plot(title=\"Weekly mean difference (north minus south)\")\nplt.ylabel(\"degrees C\")\nplt.show()"
+  paragraph [4583,4605)
+    image [4583,4605) url="output_7_0.png" alt="png"
+  paragraph [4613,4725)
+    text [4613,4725) value="The second figure is a one-pixel placeholder that the export embedded as a data URI, so it needs no file at all:"
+  codeBlock [4728,4818) lang=python info="python" content=[4738,4815) value="from IPython.display import Image\nImage(data=open(\"pixel.png\", \"rb\").read())"
+  paragraph [4828,4950)
+    image [4828,4950) url="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPYEaMFAAMOAT8PMdmpAAAAAElFTkSuQmCC" alt="png"
+  heading [4959,4984) level=2
+    text [4962,4984) value="5. Where it goes wrong"
+  paragraph [4986,5025)
+    text [4986,5025) value="A lookup with a misspelled column name."
+  codeBlock [5028,5068) lang=python info="python" content=[5038,5065) value="df[\"north_celsius\"].mean()"
+  codeBlock [5071,6174) content=[5071,6174) value="---------------------------------------------------------------------------\n\nKeyError                                  T…"
+  paragraph [6177,6216)
+    text [6177,6216) value="A slow loop that I interrupted by hand."
+  codeBlock [6219,6292) lang=python info="python" content=[6229,6289) value="total = 0\nfor i in range(10**12):\n    total += math.sqrt(i)"
+  codeBlock [6295,6606) content=[6295,6606) value="---------------------------------------------------------------------------\n\nKeyboardInterrupt                         T…"
+  heading [6609,6633) level=2
+    text [6612,6633) value="6. A very long output"
+  paragraph [6635,6762)
+    text [6635,6688) value="Printing a list is a common mistake. This one is the "
+    code [6688,6694) value="repr"
+    text [6694,6762) value=" of 2,000 characters on a single line, the way a notebook prints it:"
+  codeBlock [6765,6842) lang=python info="python" content=[6775,6839) value="sample = [round(random.random(), 4) for _ in range(250)]\nsample"
+  codeBlock [6847,8851) content=[6847,8851) value="[0.4671, 0.7604, 0.8436, 0.6331, 0.3224, 0.6981, 0.6579, 0.8521, 0.2785, 0.4359, 0.5405, 0.8221, 0.8365, 0.2859, 0.4773,…"
+  heading [8855,8871) level=2
+    text [8858,8871) value="7. Conclusion"
+  paragraph [8873,8977)
+    text [8873,8977) value="The south sensor and the north sensor agree to within a few hundredths of a degree per week. We can say:"
+  list [8979,9206) ordered=false tight=true
+    listItem [8979,9046)
+      paragraph [8981,9046)
+        text [8981,9010) value="the estimated drift is about "
+        mathInline [9010,9036) value="0.02\\,^{\\circ}\\mathrm{C}"
+        text [9036,9046) value=" per week;"
+    listItem [9047,9149)
+      paragraph [9049,9149)
+        text [9049,9062) value="the noise in "
+        mathInline [9062,9072) value="\\Delta T"
+        text [9072,9103) value=" has a standard deviation near "
+        mathInline [9103,9109) value="0.33"
+        text [9109,9149) value=", so a single reading cannot show drift;"
+    listItem [9150,9206)
+      paragraph [9152,9206)
+        text [9152,9206) value="a table of the weekly values is in the appendix below."
+  table [9208,9351) align=-,center,right
+    tableRow [9208,9237) header=true
+      tableCell [9208,9219)
+        text [9210,9218) value="Quantity"
+      tableCell [9219,9228)
+        text [9221,9227) value="Symbol"
+      tableCell [9228,9237)
+        text [9230,9235) value="Value"
+    tableRow [9261,9295) header=false
+      tableCell [9261,9274)
+        text [9263,9273) value="Drift rate"
+      tableCell [9274,9285)
+        mathInline [9276,9284) value="\\alpha"
+      tableCell [9285,9295)
+        text [9287,9293) value="0.0213"
+    tableRow [9296,9330) header=false
+      tableCell [9296,9309)
+        text [9298,9308) value="Noise (sd)"
+      tableCell [9309,9320)
+        mathInline [9311,9319) value="\\sigma"
+      tableCell [9320,9330)
+        text [9322,9328) value="0.3319"
+    tableRow [9331,9351) header=false
+      tableCell [9331,9339)
+        text [9333,9338) value="Weeks"
+      tableCell [9339,9345)
+        mathInline [9341,9344) value="n"
+      tableCell [9345,9351)
+        text [9347,9349) value="18"
+  htmlBlock [9353,9562) value="<div class=\"alert alert-block alert-warning\">\n<b>Caveat:</b> synthetic data build in a drift of exactly 0.02 degrees per…"
+  heading [9564,9593) level=2
+    text [9567,9593) value="Appendix: the weekly table"
+  paragraph [9595,9824)
+    text [9595,9627) value="The same resample, printed with "
+    code [9627,9652) value="to_html(justify=\"left\")"
+    text [9652,9800) value=" so the header cells carry explicit alignment. This is the output of the last cell of the notebook; the export wrote it …"
+    code [9800,9809) value="<style>"
+    text [9809,9824) value=" block and all."
+  codeBlock [9827,9916) lang=python info="python" content=[9837,9913) value="weekly.head(10).round(3).reset_index().to_html(justify=\"left\", index=False)"
+  htmlBlock [9921,10021) value="<div>\n<style scoped>\n    .dataframe tbody tr th:only-of-type {\n        vertical-align: middle;\n    }"
+  codeBlock [10023,10080) content=[10023,10080) value=".dataframe thead th {\n    text-align: left;\n}"
+  htmlBlock [10081,12040) value="</style>\n<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: left;\">\n      <th align=\"left\">week e…"
+  paragraph [12044,12180)
+    text [12044,12180) value="A last stream, written to standard error by a library the notebook imports. It is a warning, not a failure, and the note…"
+  codeBlock [12183,12278) lang=python info="python" content=[12193,12275) value="import legacy_plotting  # hypothetical helper module\nlegacy_plotting.draw(weekly)"
+  codeBlock [12280,12597) content=[12280,12597) value="/home/analyst/notebooks/legacy_plotting.py:48: DeprecationWarning: `draw` is deprecated since 3.1 and will be removed in…"
