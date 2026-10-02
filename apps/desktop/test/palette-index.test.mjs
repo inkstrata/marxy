@@ -1,4 +1,4 @@
-// Palette index from idle loadIndex + memory readDir (MARXY-196): heading search and open at byte offset.
+// Palette index from loadIndex (src/index/walk.ts) + memory readDir (MARXY-196): heading search and open at byte offset.
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { LOAD_INDEX_EMPTY_MUTATION } from '../src/startup/idle-work.ts';
+import { LOAD_INDEX_EMPTY_MUTATION } from '../src/index/walk.ts';
 import { createMemoryShell } from '../src/shell/memory.ts';
 import { fileURLToPath } from 'node:url';
 
@@ -69,7 +69,7 @@ after(() => server?.close());
 nodeTest('loadIndex walks the memory repo and finds two markdown entries', async () => {
   const files = repoFiles();
   const shell = createMemoryShell(files);
-  const { loadIndex } = await import('../src/startup/idle-work.ts');
+  const { loadIndex } = await import('../src/index/walk.ts');
   const { entries } = await loadIndex(shell, '/repo/README.md');
   assert.equal(entries.length, 2);
   const guide = entries.find((e) => e.path === '/repo/docs/guide.md');
@@ -81,7 +81,7 @@ nodeTest(`mutation ${LOAD_INDEX_EMPTY_MUTATION}: loadIndex returns no entries`, 
   process.env.MARXY_196_MUTATION = LOAD_INDEX_EMPTY_MUTATION;
   try {
     const shell = createMemoryShell(repoFiles());
-    const { loadIndex } = await import('../src/startup/idle-work.ts');
+    const { loadIndex } = await import('../src/index/walk.ts');
     const { entries } = await loadIndex(shell, '/repo/README.md');
     assert.equal(entries.length, 0);
   } finally {
@@ -93,7 +93,7 @@ nodeTest(`mutation ${LOAD_INDEX_EMPTY_MUTATION}: loadIndex returns no entries`, 
 nodeTest(`mutation ${LOAD_INDEX_EMPTY_MUTATION} makes the two-entry loadIndex assertion fail`, () => {
   const probe = `
     import assert from 'node:assert/strict';
-    import { loadIndex, LOAD_INDEX_EMPTY_MUTATION } from './src/startup/idle-work.ts';
+    import { loadIndex, LOAD_INDEX_EMPTY_MUTATION } from './src/index/walk.ts';
     import { createMemoryShell } from './src/shell/memory.ts';
     process.env.MARXY_196_MUTATION = LOAD_INDEX_EMPTY_MUTATION;
     const shell = createMemoryShell({

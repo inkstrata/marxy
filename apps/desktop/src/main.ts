@@ -8,10 +8,10 @@ import { shell } from './shell/tauri.ts';
 export type BootHandle = AppHandle & { readonly palette: PaletteController };
 
 export async function bootApplication(appShell: AppShell, opts?: { argv?: readonly string[] }): Promise<BootHandle> {
-  let indexEntries: import('@marxy/core').IndexEntry[] = [];
-  const handle = await startApp(appShell, { ...opts, onIndexLoaded: (e) => { indexEntries = [...e]; } });
+  const handle = await startApp(appShell, opts);
   const palette = mountPaletteFromHandle(handle, { initialPath: opts?.argv?.find((a) => !a.startsWith('-')) ?? null });
-  if (indexEntries.length) palette.setIndexEntries(indexEntries);
+  // Every root the index walks, for the whole session, not only the launch document's (A-04).
+  handle.index.subscribe((entries) => palette.setIndexEntries(entries));
   // Only the real Tauri shell has a native menu to hear from; a test's stub shell does not.
   if (appShell === shell) shell.onMenuCommand((id) => { runMenuCommand(id); });
   if (typeof window !== 'undefined') (window as Window & { __marxyPalette?: PaletteController }).__marxyPalette = palette;

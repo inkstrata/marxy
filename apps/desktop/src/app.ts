@@ -2,6 +2,7 @@
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import {
   documentIsDirty,
   foldSourceEditIfNeeded,
@@ -18,7 +19,6 @@ import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
-import type { IndexEntry } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
@@ -51,6 +51,7 @@ import { startUserTheme, themeDirFromConfig, type UserThemeContext } from './the
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { type ApplyImagesContext } from './render/images.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from './startup/idle-work.ts';
+import { createIndexService, indexShellFor, type IndexService } from './index/service.ts';
 import { currentPosition, restoreScrollToPosition, PositionPersistence } from './position/index.ts';
 import {
   flushPaletteHistoryFromApp,
@@ -160,6 +161,8 @@ export type AppHandle = {
   commitEdit(buffer: Buffer): Promise<void>;
   /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
   pinPaletteDocument(path: string): void;
+  /** The palette index: one walk per repository root, every root opened so far published (A-04). */
+  readonly index: IndexService;
 };
 
 const t0 = Date.now();
@@ -363,8 +366,12 @@ function renderEvidence(doc: HTMLElement): RenderEvidence {
 /** The arguments this launch was given, kept so the error path can honour the flag too. */
 let launchArgs: readonly string[] = [];
 
-/** Delivers idle-built index entries to whoever mounted the palette (main.ts). */
-let deliverIndex: ((entries: readonly IndexEntry[]) => void) | undefined;
+/** The palette index for this launch; created by startApp (A-04). */
+let index: IndexService;
+/** The launch document's walk, so `ready` (and a harness quit) follows its `index_loaded` mark. */
+let indexing: Promise<void> = Promise.resolve();
+/** History records opens in order even though each waits on its root (palette/history.ts). */
+let historyTracked: Promise<void> = Promise.resolve();
 
 function deferredStartupContext(
   file: string,
@@ -376,8 +383,6 @@ function deferredStartupContext(
     file,
     doc,
     imageCtx,
-    onIndexLoaded: deliverIndex,
-    openedBytes: documentBuffer?.bytes,
     onLayoutChanged: () => snap(doc),
   };
 }
@@ -820,9 +825,16 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   await shell.mark('live_reload', Date.now(), `ms=${ms.toFixed(1)}`);
 }
 
+const isMarkdownPath = (path: string): boolean => classify(path) === 'markdown';
+
 async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
   if (!openPath || !documentBuffer || !state.document) return;
   const path = openPath;
+  // The watch is the document's directory: a markdown file there changed, so its root is re-walked
+  // (coalesced, at idle). Recursive watching is a later phase.
+  if (events.some((e) => isMarkdownPath(e.path) || (e.to !== undefined && isMarkdownPath(e.to)))) {
+    void index.rootFor(path).then((root) => index.refresh(root));
+  }
   const position = currentPosition(readingScroller(), state.document.blocks, path, viewMode);
   const diskBytes = await readOpenFileWithRetry(path);
   const update = applyWatchToOpenDocument(
@@ -1003,6 +1015,7 @@ async function flushPaletteHistory(): Promise<void> {
   const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
     .__marxyPalette;
   if (!shell.configPaths) return;
+  await historyTracked;
   await flushPaletteHistoryFromApp({ ...shell, configPaths: shell.configPaths }, palette?.session);
 }
 
@@ -1124,6 +1137,8 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
   if (shouldRestore) await restorePersistedPositionIfNeeded();
   await whenIdle(async () => {
     await runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }));
+    indexing = index.ensureFor(file, documentBuffer?.bytes);
+    void indexing;
     const themeDir = await themeDirFromConfig(shell);
     await restartUserTheme(themeDir);
   });
@@ -1172,7 +1187,9 @@ async function openReplacing(file: string, at?: number): Promise<void> {
   }
   try {
     await openDocumentThroughRenderMark(file, doc, at);
-    trackDocumentOpen(file);
+    historyTracked = historyTracked
+      .then(() => index.rootFor(file))
+      .then((root) => trackDocumentOpen(file, root));
     await finishDocumentOpen(file, doc, at);
   } catch (e) {
     // Nothing of the last document may outlive the page that showed it.
@@ -1293,6 +1310,7 @@ async function boot(): Promise<void> {
   await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
   setTimeout(() => void startTrustLoad().then(() => maybeRerenderForLateTrust(doc)), 0);
+  await indexing;
   return finish(0);
 }
 
@@ -1306,7 +1324,6 @@ export async function startApp(
   opts?: {
     argv?: readonly string[];
     pieces?: readonly PieceSource[];
-    onIndexLoaded?: (entries: readonly IndexEntry[]) => void;
   },
 ): Promise<AppHandle> {
   persistenceLoaded = false;
@@ -1325,7 +1342,9 @@ export async function startApp(
       return base.quit(code);
     },
   };
-  deliverIndex = opts?.onIndexLoaded;
+  index = createIndexService(indexShellFor(shell));
+  indexing = Promise.resolve();
+  historyTracked = Promise.resolve();
   launchArgs = opts?.argv ? [...opts.argv] : [];
   resetDismissedNotices();
   wireTrustRevokeCommands({
@@ -1362,6 +1381,7 @@ export async function startApp(
         .__marxyPalette;
       pinDocumentOnPaletteSession(palette?.session ?? emptySession('/'), path);
     },
+    index,
   };
   installSave({
     shell,
