@@ -9,6 +9,7 @@ import {
   type IndexNotice,
   type WalkEntry,
 } from '@marxy/core/src/index-model/index.ts';
+import { invalidateByMtime, type IndexSnapshot } from '@marxy/core/src/index-model/persist.ts';
 import { isDeniedName } from '@marxy/core/src/index-model/deny.ts';
 import { basename, dirname, joinPath, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 
@@ -28,6 +29,8 @@ const HEADING_SCAN_BYTES = 256 * 1024;
 export interface IndexWalk {
   readonly entries: readonly IndexEntry[];
   readonly notice?: IndexNotice;
+  /** Shell calls this walk made (`readDir` and `readFile`; root detection is not counted). */
+  readonly calls: number;
 }
 
 function indexDisabled(shell: IndexLoadShell): boolean {
@@ -43,33 +46,54 @@ export async function loadIndex(
   shell: IndexLoadShell,
   openedPath: string,
   openedBytes?: Uint8Array,
+  previous?: IndexSnapshot,
 ): Promise<IndexWalk> {
   if (indexDisabled(shell)) {
-    return { entries: [] };
+    return { entries: [], calls: 0 };
   }
   const root = await detectIndexRootAsync(shell, openedPath);
-  return walkRoot(shell, root, openedPath, openedBytes);
+  return walkRoot(shell, root, openedPath, openedBytes, previous);
 }
 
 /**
  * Walk `root` (already detected). `openedPath`/`openedBytes` name a document whose bytes are on
- * screen, so the walk does not read it again.
+ * screen, so the walk does not read it again. `previous` is an earlier snapshot of this root: a
+ * markdown file whose size and modification time still match it keeps its title and headings and
+ * is not read.
  */
 export async function walkRoot(
   shell: IndexLoadShell,
   root: string,
   openedPath?: string,
   openedBytes?: Uint8Array,
+  previous?: IndexSnapshot,
 ): Promise<IndexWalk> {
   if (indexDisabled(shell)) {
-    return { entries: [] };
+    return { entries: [], calls: 0 };
   }
-  const reader = await prefetchDirectoryReader(shell, root);
+  let calls = 0;
+  const counted: IndexLoadShell = {
+    readDir: (dir) => {
+      calls++;
+      return shell.readDir(dir);
+    },
+    readFile: (path) => {
+      calls++;
+      return shell.readFile(path);
+    },
+  };
+  const reader = await prefetchDirectoryReader(counted, root);
   const candidates = collectFiles(root, reader);
+  const reusable = new Map<string, IndexEntry>();
+  if (previous && previous.root === root) {
+    const { fresh } = invalidateByMtime(previous, candidates);
+    for (const entry of fresh) if (entry.kind === 'markdown') reusable.set(entry.path, entry);
+  }
   const opened = openedPath === undefined ? undefined : normalizePath(openedPath);
   const withHeadings = await Promise.all(
     candidates.map(async (candidate) => {
       if (classify(candidate.relativePath) !== 'markdown') return candidate;
+      if (reusable.has(candidate.path)) return candidate;
       if (openedBytes && candidate.path === opened) {
         return {
           ...candidate,
@@ -80,7 +104,7 @@ export async function walkRoot(
         };
       }
       try {
-        const bytes = await shell.readFile(candidate.path);
+        const bytes = await counted.readFile(candidate.path);
         return {
           ...candidate,
           bytes: bytes.byteLength > HEADING_SCAN_BYTES ? bytes.slice(0, HEADING_SCAN_BYTES) : bytes,
@@ -91,7 +115,11 @@ export async function walkRoot(
     }),
   );
   const built = buildIndex(root, withHeadings);
-  return { entries: built.entries, notice: built.notice };
+  const entries = built.entries.map((entry) => {
+    const kept = reusable.get(entry.path);
+    return kept ? { ...entry, title: kept.title, headings: kept.headings } : entry;
+  });
+  return { entries, notice: built.notice, calls };
 }
 
 /** The repository root that indexes `path`: the nearest ancestor holding `.git`, else its directory. */
@@ -154,17 +182,17 @@ async function prefetchDirectoryReader(shell: IndexLoadShell, root: string): Pro
       });
     }
     dirCache.set(key, entries);
+    // Read an ignore file only where this listing shows one.
+    for (const entry of entries) {
+      if (entry.isDir || (entry.name !== '.gitignore' && entry.name !== '.ignore')) continue;
+      try {
+        textCache.set(entry.path, new TextDecoder().decode(await shell.readFile(entry.path)));
+      } catch {
+        // unreadable ignore file: treated as absent
+      }
+    }
     for (const entry of entries) {
       if (!entry.isDir || isDeniedName(entry.name)) continue;
-      for (const ignoreName of ['.gitignore', '.ignore'] as const) {
-        const ignorePath = joinPath(entry.path, ignoreName);
-        try {
-          const bytes = await shell.readFile(ignorePath);
-          textCache.set(ignorePath, new TextDecoder().decode(bytes));
-        } catch {
-          // no ignore file here
-        }
-      }
       await fillDir(entry.path);
     }
   }
