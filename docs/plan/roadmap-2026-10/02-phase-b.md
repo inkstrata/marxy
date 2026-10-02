@@ -16,7 +16,7 @@ view, live reload and persistence, and the open path. At the end, `app.ts` is a 
 under 300 lines with no module-level `let`. Third, deletions and the theme fix run beside that
 chain wherever their paths are disjoint (B-03, B-05, B-06, B-07). Fourth, there is clean-up that
 needs the chain finished first: test hooks, the typesetter switch, the `Shell` interface and the
-package boundaries (B-16 to B-19). B-20, remote-image loading by setting, waits on a ruling by the
+package boundaries (B-16 to B-19). B-20, remote-image loading by setting, was ruled by the
 author. The large-document levers have moved to Phase A. Phase B carries a duty not to undo them,
 and that duty is stated once, in the section "Carried over from Phase A".
 
@@ -881,7 +881,7 @@ free, otherwise run it by hand and say so), `trust.test.mjs`, `save-trust-r4.tes
 `pnpm gate:no-network`, `pnpm gate:aesthetics`, `pnpm precheck`.
 
 **Do not.** Touch the sanitiser (`packages/core/src/sanitize/*`), the deferral of remote images in
-`core/render/images.ts`, or the CSP in `tauri.conf.json`. Add a `remote-images` setting (B-20).
+`core/render/images.ts`, or the CSP in `tauri.conf.json`. Add a `remote_images` setting (B-20).
 Change the HTML opt-in.
 
 **Risks and open questions.** `docs/scope.md` lists "remote images blocked with a visible opt-in".
@@ -1698,22 +1698,22 @@ tests run.
 
 ---
 
-### B-20 — Load remote images by the `remote-images` setting (conditional)
+### B-20 — Load remote images by the `remote_images` setting
 
-**Model:** opus · **Size:** M · **Depends on:** B-09, B-18, B-19, **and the author's ruling below** · **Parallel with:** —
+**Model:** opus · **Size:** M · **Depends on:** B-09, B-18, B-19 · **Parallel with:** —
 
-**Outcome.** `config.toml` takes `remote-images = "never" | "ask" | "always"`, default `ask`
+**Outcome.** `config.toml` takes `remote_images = "never" | "ask" | "always"`, default `ask`
 (ADR-0044 §2). With `never`, the B-09 notice and nothing else. With `ask`, the notice gains one
 action, **Load images for this document**, which loads them for this document for this session.
 With `always`, remote images load as the page renders. No request leaves the machine without the
 setting or that click.
 
 **Why now.** `10-overfit-decisions.md` §3.1 amendment items 2–4, `12` step 8, `14` Phase B
-("remote images as a setting"). It is conditional because the loading mechanism is a decision
-only the author can make (question 1 below), and because it is the one change in this phase a
+("remote images as a setting"). It was conditional on the author choosing the loading mechanism, which they did
+(`rulings.md`, question 9), and it is the one change in this phase a
 reader would notice on every README.
 
-**Paths** (final list depends on the ruling):
+**Paths:**
 - `packages/theme/src/config.ts`, `config.test.ts` (the key)
 - `apps/desktop/src/trust/controller.ts`, `notices/blocked.ts`, `notices/trust-copy.ts`
 - `apps/desktop/src/render/images.ts` (a remote post-pass `applyRemoteImages`)
@@ -1724,9 +1724,9 @@ reader would notice on every README.
 - `docs/taste-review/queue.d/B-20.md`
 
 **Build order.**
-1. `config.ts`: parse the key (spelling per the ruling) into `remoteImages: 'never' | 'ask' | 'always'`,
+1. `config.ts`: parse the key (`remote_images`) into `remoteImages: 'never' | 'ask' | 'always'`,
    default `'ask'`, invalid value → `'ask'` with a warning.
-2. The load path, per the ruling:
+2. The load path, ruled by the author on 2026-10-02: mechanism (b), ADR-0044 §4. Mechanisms (a) and (c) are rejected and kept here as the record:
    - **(a) static CSP:** add `https:` to `img-src` in `tauri.conf.json`. The sanitiser's deferral
      (`data-marxy-remote`, no `src`) stays the boundary, and `applyRemoteImages` sets `src` only
      when the setting or the click allows.
@@ -1749,12 +1749,13 @@ reader would notice on every README.
 
 **Tests.** As above, plus `pnpm gate:aesthetics`, `pnpm precheck`.
 
-**Do not.** Start before the ruling. Build the Rust fetcher (ADR-0044: hardened mode only). Allow
+**Do not.** Build the Rust fetcher (ADR-0044: hardened mode only). Allow
 `http:` images. Change the HTML opt-in (`html = narrow | ask | wide` is not in this phase).
 
-**Risks and open questions.** Mechanism (a) makes the sanitiser the only boundary between a
-document and a read receipt, which ADR-0027 argued against. The author weighs that against
-mechanism (b)'s Rust cost.
+**Risks and open questions.** The author chose (b) over (a), which would make the sanitiser the only boundary between a
+document and a read receipt, which ADR-0027 argued against. (b) needs Rust and a spike; if the
+spike shows the reload cannot reopen at the reading position inside the open-document budget,
+report it and stop rather than falling back to (a).
 
 ---
 

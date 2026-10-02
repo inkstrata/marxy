@@ -1,6 +1,6 @@
 # ADR-0051 — The fleet is paused, and the process it needs is paused with it
 
-- **Status:** proposed (audit 2026-10)
+- **Status:** accepted (author, 2026-10-02)
 - **Date:** 2026-10-02
 - **Suspends, does not repeal:** the mechanisms of ADR-0017 (one issue, one branch, one PR, one owner,
   as an enforced rule), ADR-0025 (review order and review WIP), ADR-0034 (the reconciler), ADR-0040

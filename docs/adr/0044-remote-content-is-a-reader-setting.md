@@ -1,6 +1,6 @@
 # ADR-0044 — Remote content is a reader setting: three values, one notice, a hardened mode for the few
 
-- **Status:** proposed (audit 2026-10)
+- **Status:** accepted (author, 2026-10-02)
 - **Date:** 2026-10-02
 - **Supersedes:** ADR-0027's default path (§1 the CSP never lists `https:`, §2 the Rust fetcher and
   the `marxy-remote:` scheme, §4 per-document, per-host consent). ADR-0027 §3 (the narrow fetch) and
@@ -26,7 +26,7 @@ consent, and a config line is consent.
 1. **Commitment 3 stands.** No request leaves the machine without a reader action: a config
    line, or a yes in a notice.
 2. **Two tri-state settings in `config.toml`** (`docs/design/11-config-and-storage.md`, parsed by
-   `packages/theme/src/config.ts`): `remote-images = "never" | "ask" | "always"` and
+   `packages/theme/src/config.ts`): `remote_images = "never" | "ask" | "always"` and
    `html = "narrow" | "ask" | "wide"`. Both default to `ask`. `html = "wide"` is ADR-0009's opt-in,
    as a setting. There is no per-host list.
 3. **In `ask`, one dismissible notice per document**, naming how many images were held and offering
@@ -39,7 +39,7 @@ consent, and a config line is consent.
 5. **The Rust fetcher exists only behind `hardened = true`**, for readers at risk. In that mode the
    CSP stays closed and images come through ADR-0027 §2–§3. It is not built until someone asks.
 6. **The no-network gate is slimmed.** `scripts/gate-no-network.mjs` asserts zero requests over the
-   corpus with `remote-images = "never"`, and that is all. The observability report and the
+   corpus with `remote_images = "never"`, and that is all. The observability report and the
    assertion-set self-check go (`packages/core/scripts/gate-observability.ts`,
    `gate-assertions.ts`, `unobservable-classes.test.ts`).
 7. **Themes may `url()` local assets inside their own directory**, as `packages/theme/src/css-urls.ts`

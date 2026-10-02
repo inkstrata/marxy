@@ -1,6 +1,6 @@
 # ADR-0047 — Visual comparison is nightly; the mechanical typography checks stay on pull requests
 
-- **Status:** proposed (audit 2026-10)
+- **Status:** accepted (author, 2026-10-02)
 - **Date:** 2026-10-02
 - **Amends:** ADR-0014 tier 1 (the "rag not worse than baseline" clause and the per-PR screenshot
   diff) and ADR-0016 ("screenshot diffs per shipped engine" fail a build; every visible PR attaches

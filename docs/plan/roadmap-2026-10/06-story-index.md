@@ -56,7 +56,7 @@ Waves:
 | B-17 | Honour `typeset = false` and take justif's engine off the critical path | sonnet | S | B-15 |
 | B-18 | Make `Shell` the interface the app programs to | opus | M | B-06, B-07, B-16 |
 | B-19 | Replace deep imports with package exports; move `paths.ts` to `core/paths.ts` | sonnet | M | B-18 |
-| B-20 | Load remote images by the `remote-images` setting (conditional) | opus | M | B-09, B-18, B-19, **and the author's ruling below** |
+| B-20 | Load remote images by the `remote_images` setting | opus | M | B-09, B-18, B-19 |
 
 Waves:
 
@@ -72,7 +72,7 @@ Waves:
 - W10 — B-16 test hooks into test-only entries · B-17 `typeset = false`, justif engine path dropped
 - W11 — B-18 `Shell` becomes the real interface
 - W12 — B-19 package exports, `core/paths.ts`, boundary rule
-- W13 — B-20 remote-images setting and loading, only after the author's ruling
+- W13 — B-20 remote_images setting and loading (ruled: ADR-0044 reload)
 
 ## Phase C — collections and copy (17 stories; `03-phase-c.md`)
 
@@ -170,7 +170,7 @@ Taking S as half a day, M as a day and a half and L as four days of one agent's 
 
 ## Open questions for the author
 
-Each phase document lists the questions its stories cannot settle. They are gathered here so the author can rule on them in one sitting; the plan assumes the answer in parentheses until told otherwise.
+**Ruled 2026-10-02: every stated default accepted, and B-20 is unconditional. See [rulings.md](rulings.md).** Each phase document lists the questions its stories cannot settle. They are gathered here so the author can rule on them in one sitting; the plan assumes the answer in parentheses until told otherwise.
 
 **Across phases**
 

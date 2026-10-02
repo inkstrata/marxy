@@ -230,7 +230,7 @@ here keeps the implementing stories off shared docs.
    observed), §4.2 (file format), §4.4 (50,000 per root, 100,000 total, placeholders in app code),
    §6.3 (no contract change for the collection itself). Its "Open question" section quotes the
    brief's line and states the reading the plan assumes: "a list of folders, searched; never
-   browsed" is not library browsing. Do not edit `docs/brief.md`; that is the author's answer.
+   browsed" is not library browsing. The author ruled on 2026-10-02 that this reading is correct (`rulings.md`, question 2); record it as the author's, not as open. Do not edit `docs/brief.md`.
 2. The verb ADR, status `proposed`: content from `08` §5 (one menu; rejected surfaces: hover glyph,
    gutter handle, selection popover), §5 "Keyboard parity" and "Required plumbing change", §1
    finding 7 (the cap), and the rule that `Mod+C` resolves through an explicit table, never a
@@ -256,8 +256,8 @@ here keeps the implementing stories off shared docs.
 **Do not.** Edit `docs/brief.md`, `docs/scope.md` or ADR-0012 / ADR-0019 in place (ADRs are
 append-only; the new ones amend). Touch any code. Mark either ADR accepted.
 
-**Risks and open questions.** Report back, do not decide: whether the author accepts the reading
-of "library browsing" (the phase plans as if yes). If ADR numbers collide with Phase A or B, take
+**Risks and open questions.** None on "library browsing", which the author ruled (`rulings.md`).
+If ADR numbers collide with Phase A or B, take
 the next free ones and say so.
 
 ---
@@ -1454,12 +1454,12 @@ is not built; if it lands first, hand it the query so the match itself is highli
 | Verifying the recursive watch on Linux inotify limits | No Linux desktop to test on; C-05 and C-11 degrade with a notice (ADR-0046) |
 | `Mod+Alt+C` for rich copy | Rich is already the default for a drag and a block; one extra chord only if asked (`08` §5 says re-check chords) |
 
-## The question only the author can answer
+## The question only the author could answer (ruled yes, 2026-10-02)
 
 **Is a searchable list of folders, never browsed, consistent with the brief's "library browsing"
 exclusion (`docs/brief.md:72`)?** `06` §3.2 argues it is: there is no tree, no sidebar and no
 library window, only folders named in a text file and searched through the summoned palette.
-This plan assumes **yes**: C-01 records that reading in a proposed ADR without editing the brief,
+The author ruled **yes** (`rulings.md`): C-01 records that reading in a proposed ADR without editing the brief,
 and C-03, C-10 to C-12, C-14, C-15 and C-17 build on it. If the answer is no, the collection lane
 shrinks to the current repository plus the twelve recent roots: C-04, C-05, C-11, C-12 (watched
 means the current repository) and C-16 and C-17 (over those roots) still stand, and C-03, C-10's

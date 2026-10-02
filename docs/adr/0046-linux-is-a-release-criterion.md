@@ -1,6 +1,6 @@
 # ADR-0046 — Linux is a release criterion, not a pull-request gate
 
-- **Status:** proposed (audit 2026-10)
+- **Status:** accepted (author, 2026-10-02)
 - **Date:** 2026-10-02
 - **Amends:** `docs/brief.md` and `docs/scope.md` "Platforms" ("macOS and Linux at parity" in v1),
   ADR-0016's "WebKitGTK on a Linux runner" for screenshot diffs, and ADR-0019 (the v1 cut: AppImage

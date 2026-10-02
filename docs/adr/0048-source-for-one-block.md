@@ -1,6 +1,6 @@
 # ADR-0048 — Source may be summoned for one block
 
-- **Status:** proposed (audit 2026-10)
+- **Status:** accepted (author, 2026-10-02)
 - **Date:** 2026-10-02
 - **Amends:** ADR-0005 (two view modes) by adding one bounded way into Source. ADR-0001 and ADR-0004
   are re-read, not changed. Answers the tripwire in `docs/roadmap.md` ("Authoring re-enters scope:

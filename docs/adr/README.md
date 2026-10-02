@@ -48,11 +48,11 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0041](0041-shell-close-confirmation.md) | The frozen `Shell` gains `onCloseRequested` and `confirmClose` | accepted 2026-09-28 (MARXY-49) |
 | [0042](0042-plan-rows-per-story.md) | One plan file per story (`docs/plan/stories/KEY.json`) and one `epics.json` instead of the shared CSV and `deps.json` | accepted by the repo owner on 2026-09-29 (MARXY-327) |
 | [0043](0043-revert-first.md) | When main turns red, revert the first red commit and reopen its story with the work kept; amends ADR-0040 | proposed (MARXY-335) |
-| [0044](0044-remote-content-is-a-reader-setting.md) | Remote content is a reader setting: `remote-images` and `html` are three-value config, one notice per document, the Rust fetcher only under `hardened`; supersedes 0027's default path | proposed (audit 2026-10) |
-| [0045](0045-contracts-change-by-pull-request.md) | Contracts change by pull request; `test:contracts-frozen` is deleted and the invariants stay as tests | proposed (audit 2026-10) |
-| [0046](0046-linux-is-a-release-criterion.md) | Linux is a release criterion, not a pull-request gate; it builds in CI and ships as a pre-release | proposed (audit 2026-10) |
-| [0047](0047-visual-comparison-is-nightly.md) | Visual comparison is nightly; the mechanical typography checks stay on pull requests; amends 0014 tier 1 and 0016 | proposed (audit 2026-10) |
-| [0048](0048-source-for-one-block.md) | Source may be summoned for one block and splices back through the transformation path; amends 0005 | proposed (audit 2026-10) |
-| [0049](0049-user-defined-operations-are-configuration.md) | User-defined operations are configuration, not plugins; recorded, not scheduled; amends 0004 | proposed (audit 2026-10) |
-| [0050](0050-at-rest-defined.md) | "At rest" is defined: the column of text; summoned surfaces may be any shape; amends 0011 and design constraint 6 | proposed (audit 2026-10) |
-| [0051](0051-the-fleet-is-paused.md) | The fleet is paused and the process it needs is paused with it; suspends 0017, 0025, 0034, 0040 and 0043's mechanisms | proposed (audit 2026-10) |
+| [0044](0044-remote-content-is-a-reader-setting.md) | Remote content is a reader setting: `remote_images` and `html` are three-value config, one notice per document, the Rust fetcher only under `hardened`; supersedes 0027's default path | accepted (author, 2026-10-02) |
+| [0045](0045-contracts-change-by-pull-request.md) | Contracts change by pull request; `test:contracts-frozen` is deleted and the invariants stay as tests | accepted (author, 2026-10-02) |
+| [0046](0046-linux-is-a-release-criterion.md) | Linux is a release criterion, not a pull-request gate; it builds in CI and ships as a pre-release | accepted (author, 2026-10-02) |
+| [0047](0047-visual-comparison-is-nightly.md) | Visual comparison is nightly; the mechanical typography checks stay on pull requests; amends 0014 tier 1 and 0016 | accepted (author, 2026-10-02) |
+| [0048](0048-source-for-one-block.md) | Source may be summoned for one block and splices back through the transformation path; amends 0005 | accepted (author, 2026-10-02) |
+| [0049](0049-user-defined-operations-are-configuration.md) | User-defined operations are configuration, not plugins; recorded, not scheduled; amends 0004 | accepted (author, 2026-10-02) |
+| [0050](0050-at-rest-defined.md) | "At rest" is defined: the column of text; summoned surfaces may be any shape; amends 0011 and design constraint 6 | accepted (author, 2026-10-02) |
+| [0051](0051-the-fleet-is-paused.md) | The fleet is paused and the process it needs is paused with it; suspends 0017, 0025, 0034, 0040 and 0043's mechanisms | accepted (author, 2026-10-02) |

@@ -1,6 +1,6 @@
 # ADR-0045 — Contracts change by pull request; the invariants are tests
 
-- **Status:** proposed (audit 2026-10)
+- **Status:** accepted (author, 2026-10-02)
 - **Date:** 2026-10-02
 - **Amends:** the `AGENTS.md` rule "Contracts are frozen", ADR-0004 (the operation signature is
   frozen), ADR-0026 (`shell-api` "amended once for all of v1") and ADR-0041. The `--marxy-*`
