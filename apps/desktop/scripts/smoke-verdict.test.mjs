@@ -179,15 +179,16 @@ test('docs/sdlc.md states which definition-of-done commands may skip', () => {
 });
 
 test('a killed launch takes the processes it started with it, so a hung launch cannot poison the next', { skip: process.platform === 'win32' }, async () => {
-  // Stands in for xvfb-run → dbus-run-session → the app: a parent whose grandchild outlives it.
-  const child = spawn('sh', ['-c', 'sleep 30 & echo $!; wait'], { ...launchSpawnOptions(), stdio: ['ignore', 'pipe', 'ignore'] });
-  const grandchild = Number(await new Promise(resolve => child.stdout.once('data', d => resolve(String(d).trim()))));
-  const exited = new Promise(resolve => child.on('exit', resolve));
+  // Stands in for xvfb-run → dbus-run-session → the app: a parent whose child outlives it. The child
+  // holds the stdout pipe, so the pipe closes only when every process of the launch is gone. Asked by
+  // pid instead, a killed child that nobody reaps (a container whose init does not) still answers.
+  const child = spawn('sh', ['-c', 'sleep 30 & echo started; wait'], { ...launchSpawnOptions(), stdio: ['ignore', 'pipe', 'ignore'] });
+  await new Promise(resolve => child.stdout.once('data', resolve));
+  const closed = new Promise(resolve => child.stdout.on('close', () => resolve('closed')));
+  child.stdout.resume();
   killLaunch(child);
-  await exited;
-  const alive = () => { try { process.kill(grandchild, 0); return true; } catch { return false; } };
-  for (let i = 0; i < 50 && alive(); i++) await new Promise(resolve => setTimeout(resolve, 20));
-  assert.equal(alive(), false, `pid ${grandchild}, started by the killed launch, is still running`);
+  const outcome = await Promise.race([closed, new Promise(resolve => setTimeout(() => resolve('open'), 2000))]);
+  assert.equal(outcome, 'closed', 'a process started by the killed launch still holds its stdout');
 });
 
 test('a launch killed on its way out says whether it stalled before asking to quit or after', () => {
