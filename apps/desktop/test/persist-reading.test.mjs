@@ -131,7 +131,7 @@ test('first launch without store files records only the document and config read
     const path = '/docs/README.md';
     await bootApp(page, { [path]: b64(Buffer.from('# widgetlib\n\nHello.\n')) }, [path]);
     const reads = await page.evaluate(() =>
-      window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile').map((c) => c.args[0]),
+      window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-')).map((c) => c.args[0]),
     );
     assert.deepEqual(reads, [path, '/config', '/data/trust.json']);
   } finally {

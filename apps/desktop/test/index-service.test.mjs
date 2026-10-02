@@ -154,6 +154,188 @@ nodeTest('a first walk that fails is not cached: the next ensureFor walks the ro
   assert.deepEqual(service.entries().map((e) => e.path).sort(), ['/b/README.md', '/b/notes.md'], 'the retry walked /b');
 });
 
+// A-05: the snapshot, and a walk that reads only what it must.
+
+const sha1 = async (text) =>
+  [...new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+/** Three directories, one .gitignore, four markdown files. */
+const snapshotRepo = () => ({
+  '/r/.git/HEAD': enc('ref: refs/heads/main\n'),
+  '/r/.gitignore': enc('scratch/\n'),
+  '/r/README.md': enc('# Rho\n\nTop.\n'),
+  '/r/docs/guide.md': enc('# Guide\n\n## Install\n'),
+  '/r/docs/deep/notes.md': enc('# Notes\n'),
+  '/r/docs/deep/more.md': enc('# More\n\n## Detail\n'),
+});
+
+/** A memory shell whose listings report a settable modification time per path. */
+const stampedShell = (files, mtimes = new Map()) => {
+  const shell = createMemoryShell(files);
+  const readDir = shell.readDir;
+  return {
+    shell,
+    mtimes,
+    host: {
+      ...shell,
+      readDir: async (dir) => (await readDir(dir)).map((s) => ({ ...s, mtimeMs: mtimes.get(s.path) ?? s.mtimeMs })),
+    },
+  };
+};
+
+const walkCalls = (shell, method) =>
+  shell.calls.filter((c) => c.method === method && !String(c.args[0]).startsWith('/data/'));
+
+nodeTest('a cold walk makes exactly one readDir per directory, one read per ignore file and one per markdown file', async () => {
+  const { shell, host } = stampedShell(snapshotRepo());
+  const service = createIndexService(host);
+  await service.rootFor('/r/README.md');
+  const probes = walkCalls(shell, 'readDir').length; // root detection lists the opened file's directory
+  await service.ensureFor('/r/README.md');
+  assert.equal(walkCalls(shell, 'readDir').length - probes, 3, 'readDir x directories (/r, /r/docs, /r/docs/deep)');
+  assert.equal(walkCalls(shell, 'readFile').length, 1 + 4, 'readFile x ignore files present + x markdown files');
+  const mark = shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded').map((c) => c.args[2]);
+  assert.equal(mark.length, 1);
+  assert.match(mark[0], /source=walk calls=8$/, 'calls= counts the walk: 3 listings + 1 ignore file + 4 markdown files');
+  assert.deepEqual(service.entries().map((e) => e.path).sort(), ['/r/README.md', '/r/docs/deep/more.md', '/r/docs/deep/notes.md', '/r/docs/guide.md']);
+});
+
+nodeTest('a directory with no ignore file costs no ignore probe', async () => {
+  const { shell, host } = stampedShell({ '/r/.git/HEAD': enc('x'), '/r/a/b/c.md': enc('# C\n'), '/r/a/d/e.md': enc('# E\n') });
+  await createIndexService(host).ensureFor('/r/a/b/c.md');
+  const read = walkCalls(shell, 'readFile').map((c) => c.args[0]);
+  assert.deepEqual(read.sort(), ['/r/a/b/c.md', '/r/a/d/e.md'], `only markdown was read: ${read}`);
+});
+
+nodeTest('the snapshot is written under the data directory, named by the root hash', async () => {
+  const { shell, host } = stampedShell(snapshotRepo());
+  await createIndexService(host).ensureFor('/r/README.md');
+  const path = `/data/index-${await sha1('/r')}.json`;
+  assert.ok(shell.hasFile(path), `${path} written`);
+  const snapshot = JSON.parse(new TextDecoder().decode(await shell.readFile(path)));
+  assert.equal(snapshot.root, '/r');
+  assert.equal(snapshot.entries.length, 4);
+});
+
+nodeTest('a fresh session publishes the snapshot before its first listing resolves and reads no markdown when nothing changed', async () => {
+  const { shell: first, host: firstHost } = stampedShell(snapshotRepo());
+  await createIndexService(firstHost).ensureFor('/r/README.md');
+  const snapshotPath = `/data/index-${await sha1('/r')}.json`;
+
+  // The same tree and the snapshot, in a new session.
+  const files = { ...snapshotRepo(), [snapshotPath]: await first.readFile(snapshotPath) };
+  const { shell, host } = stampedShell(files);
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const gated = { ...host, readDir: async (dir) => { await gate; return host.readDir(dir); } };
+  // Root detection needs listings too, so let the probe through before closing the gate.
+  const service = createIndexService({ ...gated, readDir: (dir) => (dir === '/r' && released ? host.readDir(dir) : gated.readDir(dir)) });
+  let released = true;
+  await service.rootFor('/r/README.md');
+  released = false;
+  const ensuring = service.ensureFor('/r/README.md');
+  const deadline = Date.now() + 2000;
+  while (service.entries().length === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 5));
+  assert.equal(service.entries().length, 4, 'entries are published while the listing is still pending');
+  assert.ok(shell.calls.some((c) => c.method === 'mark' && /source=snapshot/.test(String(c.args[2]))), 'marked source=snapshot');
+  release();
+  await ensuring;
+  assert.equal(walkCalls(shell, 'readFile').filter((c) => String(c.args[0]).endsWith('.md')).length, 0, 'no markdown was read');
+  assert.ok(shell.calls.some((c) => c.method === 'mark' && /source=walk calls=4$/.test(String(c.args[2]))), 'the check made 3 listings + 1 ignore file');
+  assert.equal(shell.calls.filter((c) => c.method === 'writeFileAtomic').length, 0, 'an unchanged tree rewrites nothing');
+});
+
+nodeTest('one changed file is the only markdown read, and its headings are updated', async () => {
+  const mtimes = new Map();
+  const { shell: first, host: firstHost } = stampedShell(snapshotRepo(), mtimes);
+  await createIndexService(firstHost).ensureFor('/r/README.md');
+  const snapshotPath = `/data/index-${await sha1('/r')}.json`;
+
+  const files = { ...snapshotRepo(), '/r/docs/guide.md': enc('# Guide, revised\n\n## Install\n\n## Upgrade\n'), [snapshotPath]: await first.readFile(snapshotPath) };
+  const { shell, host } = stampedShell(files, new Map([['/r/docs/guide.md', 99]]));
+  const service = createIndexService(host);
+  await service.ensureFor('/r/README.md');
+  const read = walkCalls(shell, 'readFile').map((c) => c.args[0]).filter((p) => p.endsWith('.md'));
+  assert.deepEqual(read, ['/r/docs/guide.md']);
+  const guide = service.entries().find((e) => e.path === '/r/docs/guide.md');
+  assert.equal(guide.title, 'Guide, revised');
+  assert.deepEqual(guide.headings.map((h) => h.text), ['Guide, revised', 'Install', 'Upgrade']);
+  assert.equal(guide.mtimeMs, 99);
+  assert.ok(shell.calls.some((c) => c.method === 'writeFileAtomic'), 'the new snapshot is written');
+});
+
+nodeTest('a snapshot entry whose file is gone is replaced by the walk, and a corrupt snapshot is ignored', async () => {
+  const { shell: first, host: firstHost } = stampedShell(snapshotRepo());
+  await createIndexService(firstHost).ensureFor('/r/README.md');
+  const snapshotPath = `/data/index-${await sha1('/r')}.json`;
+  const files = snapshotRepo();
+  delete files['/r/docs/deep/more.md'];
+  const gone = stampedShell({ ...files, [snapshotPath]: await first.readFile(snapshotPath) });
+  const goneService = createIndexService(gone.host);
+  await goneService.ensureFor('/r/README.md');
+  assert.ok(!goneService.entries().some((e) => e.path === '/r/docs/deep/more.md'));
+
+  const bad = stampedShell({ ...snapshotRepo(), [snapshotPath]: enc('{not json') });
+  const badService = createIndexService(bad.host);
+  await badService.ensureFor('/r/README.md');
+  assert.equal(badService.entries().length, 4);
+  assert.equal(JSON.parse(new TextDecoder().decode(await bad.shell.readFile(snapshotPath))).entries.length, 4, 'the bad file is overwritten');
+});
+
+nodeTest('a snapshot with a malformed entry is no snapshot: the walk still runs and publishes', async () => {
+  const snapshotPath = `/data/index-${await sha1('/r')}.json`;
+  const good = { path: '/r/README.md', root: '/r', title: 'Rho', headings: [], mtimeMs: 1, size: 12, kind: 'markdown' };
+  const { headings: _h, ...noHeadings } = good;
+  for (const entries of [[null], [noHeadings], [{ ...good, size: '12' }], [{ ...good, kind: 'nope' }]]) {
+    const snapshot = JSON.stringify({ version: 1, root: '/r', generatedAtMs: 1, entries });
+    const { shell, host } = stampedShell({ ...snapshotRepo(), [snapshotPath]: enc(snapshot) });
+    const service = createIndexService(host);
+    const seen = [];
+    service.subscribe((e) => seen.push(e.map((x) => x.path)));
+    await service.ensureFor('/r/README.md');
+    assert.ok(!shell.calls.some((c) => c.method === 'mark' && /source=snapshot/.test(String(c.args[2]))), 'nothing was served from it');
+    assert.equal(service.entries().length, 4, JSON.stringify(entries));
+    assert.ok(seen.every((e) => e.length === 0 || e.length === 4), 'no malformed entry was ever published');
+    assert.equal(JSON.parse(new TextDecoder().decode(await shell.readFile(snapshotPath))).entries.length, 4, 'the walk overwrote it');
+  }
+});
+
+nodeTest('a walk that throws after the snapshot was served unpublishes its rows, and the next ensureFor retries', async () => {
+  const snapshotPath = `/data/index-${await sha1('/r')}.json`;
+  const { shell: written } = stampedShell(snapshotRepo());
+  await createIndexService(written).ensureFor('/r/README.md');
+  const { shell, host } = stampedShell({ ...snapshotRepo(), [snapshotPath]: await written.readFile(snapshotPath) });
+  let failing = false;
+  const flaky = { ...host, readDir: async (dir) => { if (failing) throw new Error('io: transient'); return host.readDir(dir); } };
+  const service = createIndexService(flaky);
+  await service.rootFor('/r/README.md');
+  failing = true;
+  const warn = console.warn;
+  console.warn = () => {};
+  const seen = [];
+  service.subscribe((e) => seen.push(e.length));
+  try {
+    await service.ensureFor('/r/README.md');
+  } finally {
+    console.warn = warn;
+  }
+  assert.ok(seen.includes(4), 'the snapshot was published first');
+  assert.deepEqual(service.entries(), [], 'the failed walk unpublished the served rows');
+  failing = false;
+  await service.ensureFor('/r/README.md');
+  assert.equal(service.entries().length, 4, 'the retry walked and published');
+  assert.ok(shell.calls.some((c) => c.method === 'mark' && /source=walk/.test(String(c.args[2]))));
+});
+
+nodeTest('a root .gitignore hides a file that exists, and the walk reads it', async () => {
+  const { host } = stampedShell({ ...snapshotRepo(), '/r/.gitignore': enc('hidden.md\nscratch/\n'), '/r/hidden.md': enc('# Hidden\n'), '/r/scratch/s.md': enc('# S\n') });
+  const service = createIndexService(host);
+  await service.ensureFor('/r/README.md');
+  const paths = service.entries().map((e) => e.path);
+  assert.ok(!paths.includes('/r/hidden.md') && !paths.includes('/r/scratch/s.md'), `ignored files are not indexed: ${paths}`);
+  assert.equal(paths.length, 4);
+});
+
 nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRead', async () => {
   register('./support/tauri-stub-hooks.mjs', import.meta.url);
   globalThis.navigator ??= { platform: 'MacIntel' };

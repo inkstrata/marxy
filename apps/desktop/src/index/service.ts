@@ -1,10 +1,17 @@
 // The palette index has one owner: a service keyed by repository root (A-04).
+// A root's last walk is kept on disk (A-05): the next session publishes it at once, then walks to check it.
 // Each root is walked once per session; every root opened so far is published to subscribers, most
 // recently ensured first; a change in the open document's directory re-walks its root on the idle queue.
 import type { IndexEntry } from '@marxy/core';
 import { dirname, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { notify } from '../notices/index.ts';
-import { markIndexLoaded, whenIdle, type MarkShell } from '../startup/idle-work.ts';
+import {
+  INDEX_SNAPSHOT_VERSION,
+  parseSnapshot,
+  serializeSnapshot,
+  type IndexSnapshot,
+} from '@marxy/core/src/index-model/persist.ts';
+import { whenIdle, type MarkShell } from '../startup/idle-work.ts';
 import { rootFor as detectRoot, walkRoot, type IndexLoadShell } from './walk.ts';
 
 export interface IndexService {
@@ -23,7 +30,65 @@ export interface IndexService {
   subscribe(cb: (entries: readonly IndexEntry[]) => void): () => void;
 }
 
-export type IndexServiceShell = IndexLoadShell & MarkShell;
+/** `configPaths` and `writeFileAtomic` are optional: a shell without them keeps no snapshot. */
+export type IndexServiceShell = IndexLoadShell &
+  MarkShell & {
+    configPaths?(): Promise<{ config: string; data: string }>;
+    writeFileAtomic?(path: string, bytes: Uint8Array): Promise<void>;
+  };
+
+/**
+ * Where a root's snapshot lives. The design (11-config-and-storage.md) names `index/<sha1>.json`,
+ * but `write_file_atomic` stages beside its destination and creates no directories, so the file
+ * sits flat in the data directory instead.
+ */
+async function snapshotPath(shell: IndexServiceShell, root: string): Promise<string | undefined> {
+  if (!shell.configPaths || !shell.writeFileAtomic) return undefined;
+  try {
+    const { data } = await shell.configPaths();
+    const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(root));
+    const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `${data.replace(/\/$/, '')}/index-${hex}.json`;
+  } catch {
+    return undefined;
+  }
+}
+
+const KINDS = new Set(['markdown', 'text', 'source', 'theme']);
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const isStr = (v: unknown): v is string => typeof v === 'string';
+
+/** A snapshot is a file anyone could have edited: serve an entry only if it has the shape the palette reads. */
+function isEntry(e: unknown): e is IndexEntry {
+  if (typeof e !== 'object' || e === null) return false;
+  const v = e as Record<string, unknown>;
+  return (
+    isStr(v.path) &&
+    isStr(v.root) &&
+    isStr(v.title) &&
+    isNum(v.mtimeMs) &&
+    isNum(v.size) &&
+    isStr(v.kind) &&
+    KINDS.has(v.kind) &&
+    (v.lastReadMs === undefined || isNum(v.lastReadMs)) &&
+    Array.isArray(v.headings) &&
+    v.headings.every((h) => {
+      const x = h as Record<string, unknown> | null;
+      return typeof x === 'object' && x !== null && isNum(x.level) && isStr(x.text) && isNum(x.byteOffset);
+    })
+  );
+}
+
+async function readSnapshot(shell: IndexServiceShell, path: string, root: string): Promise<IndexSnapshot | undefined> {
+  try {
+    const snapshot = parseSnapshot(new TextDecoder().decode(await shell.readFile(path)));
+    return snapshot && snapshot.root === root && Array.isArray(snapshot.entries) && snapshot.entries.every(isEntry)
+      ? snapshot
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 interface RootState {
   entries: readonly IndexEntry[];
@@ -31,6 +96,8 @@ interface RootState {
   pending: Promise<void>;
   /** A refresh is queued and has not started yet. */
   queued: boolean;
+  /** The snapshot served at the start of this session, until a walk replaces it. */
+  snapshot?: IndexSnapshot;
 }
 
 /**
@@ -63,7 +130,13 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
   /** Resolves true when the walk published, false when it failed (the root keeps what it had). */
   const walk = async (root: string, state: RootState, openedPath?: string, openedBytes?: Uint8Array): Promise<boolean> => {
     try {
-      const { entries, notice } = await walkRoot(shell, root, openedPath, openedBytes);
+      const previous: IndexSnapshot | undefined =
+        state.snapshot ??
+        (state.entries.length > 0
+          ? { version: INDEX_SNAPSHOT_VERSION, root, generatedAtMs: Date.now(), entries: state.entries }
+          : undefined);
+      const { entries, notice, calls } = await walkRoot(shell, root, openedPath, openedBytes, previous);
+      const unchanged = state.snapshot !== undefined && JSON.stringify(state.snapshot.entries) === JSON.stringify(entries);
       state.entries = entries;
       publish();
       if (notice) {
@@ -72,11 +145,24 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
           text: `Index limited to the ${notice.limit.toLocaleString()} most recently changed files (${notice.omitted.toLocaleString()} omitted).`,
         });
       }
-      await markIndexLoaded(shell, entries.length, root);
+      await shell.mark('index_loaded', Date.now(), `entries=${entries.length} root=${root} source=walk calls=${calls}`);
+      if (!unchanged) await writeSnapshot(root, entries, notice);
+      state.snapshot = undefined;
       return true;
     } catch (e) {
       console.warn(`marxy: index walk of ${root} failed: ${String(e)}`);
       return false;
+    }
+  };
+
+  const writeSnapshot = async (root: string, entries: readonly IndexEntry[], notice: IndexSnapshot['notice']) => {
+    const path = await snapshotPath(shell, root);
+    if (!path) return;
+    try {
+      const snapshot: IndexSnapshot = { version: INDEX_SNAPSHOT_VERSION, root, generatedAtMs: Date.now(), entries, notice };
+      await shell.writeFileAtomic!(path, new TextEncoder().encode(serializeSnapshot(snapshot)));
+    } catch (e) {
+      console.warn(`marxy: could not keep the index of ${root}: ${String(e)}`);
     }
   };
 
@@ -109,11 +195,22 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
       roots.set(root, state);
       // A first walk that fails forgets the root, so the next ensureFor walks it again rather than
       // keeping it empty for the session. A failed refresh keeps the entries the root already had.
-      state.pending = walk(root, state, path, openedBytes).then((ok) => {
+      state.pending = (async () => {
+        // The last session's index, published before the walk lists anything.
+        const file = await snapshotPath(shell, root);
+        const snapshot = file ? await readSnapshot(shell, file, root) : undefined;
+        if (snapshot && roots.get(root) === state) {
+          state.snapshot = snapshot;
+          state.entries = snapshot.entries;
+          publish();
+          await shell.mark('index_loaded', Date.now(), `entries=${snapshot.entries.length} root=${root} source=snapshot`);
+        }
+        const ok = await walk(root, state, path, openedBytes);
         if (ok || roots.get(root) !== state) return;
         roots.delete(root);
         order = order.filter((r) => r !== root);
-      });
+        if (snapshot) publish();
+      })();
       await state.pending;
     },
     refresh(root) {
