@@ -18,3 +18,76 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | A-15 | The outline, summoned | sonnet | in review (merge) | [#325](https://github.com/inkstrata/marxy/pull/325) | ../marxy-wt/A-15 (feat/a-15-summon-the-outline) | Wave 3 (depends on A-12 only), stacked on `integration/wave-1`. Six mutations caught. Found: WebKit fires viewport scroll at `document`, not `documentElement`; `app.ts`'s scroll-persistence listener may never fire (confirmed by the reviewer; added to A-13 as step 6). Return 1: Source-mode landing and palette-row bullets had no test; focus left on a hidden element after Esc in Source. Fixed in 6f07c15d (mutation-checked); re-review: merge |
 | A-16 | Open in external editor; drag a file to open it | opus | in review (merge) | [#324](https://github.com/inkstrata/marxy/pull/324) | ../marxy-wt/A-16 (feat/a-16-external-editor-and-drag-open) | Wave 3 (depends on A-12 only), stacked on `integration/wave-1`; Rust. 12 mutations caught. Manual checks on a built app (Finder drop, TextEdit) left for the author; macOS `DragDrop` event unconfirmed (reviewer read tauri-runtime-wry 2.11.4: should fire). Review: merge, security checklist clean. Lead fix 2026-10-02: the "writes nothing" test now counts only writes to the document (the A-05 snapshot write broke it in integration; mutation-checked). Later hardening: pin the editor call to the document Rust last opened (today any existing absolute file) |
 | A-13 | `Mod+E`, back and forward through the registry | sonnet | running | — | ../marxy-wt/A-13 (refactor/a-13-keys-through-the-registry) | Wave 3, stacked on `integration/wave-2` (5422561f: Wave 1 + A-02, A-05, A-06, A-15, A-16; precheck 28/28, desktop 364/364 after a one-line A-16 test fix for the A-05 snapshot write). Includes the scroll-persistence fix (step 6) |
+
+## Handoff — 2026-10-02, lead session paused
+
+**Read first, next session:** `00-orchestration.md`, this file, `01-phase-a.md` (this branch's copy
+carries the lead's amendments). Nothing is on `main` yet; everything below waits on the author.
+
+### The one blocker: nothing is merged
+
+The auto-mode classifier refuses `gh pr merge` from the lead ("Merge Without Review") and also
+refused posting the review verdict as a PR comment. The author merges, in this order:
+
+1. **#317 (A-07)** — squash. Every other branch is stacked on its commit `6b87684e`.
+2. Then, for each PR below, the lead rebases it onto `main` dropping the stacked commits
+   (`git rebase --onto origin/main <old base> <branch>`, force-with-lease), retargets the PR base to
+   `main` (`gh pr edit N --base main`), waits for CI, and the author merges. Order (dependencies):
+   **#319 A-01, #318 A-04, #320 A-12** (stacked on A-07 only) → **#322 A-02, #323 A-05, #321 A-06,
+   #325 A-15, #324 A-16** (base `integration/wave-1`) → **A-13** (base `integration/wave-2`).
+   Squash-merged content equals the cherry-picks, so `--onto` rebases should be clean; if one is
+   not, rebase onto `main` plainly and resolve.
+3. Then push `docs/roadmap-lead-ledger` (this branch, also stacked on A-07; rebase it the same way)
+   and open it as a plan PR: the ledger plus the plan amendments below.
+4. Delete `integration/wave-1` and `integration/wave-2` (remote and local) once their contents are
+   on `main`. They are scaffolding, never merged.
+
+### Second blocker: A-08 is parked
+
+The classifier refused A-08's deletions of workflow-shape assertions ("Security Test Removal").
+A-03, A-09, A-10, A-11 and A-17 all wait on A-08. Needs the author: a Bash allow rule for those
+edits, an explicit approval, or the author doing the deletions. The implementor's full plan (files,
+functions, the two out-of-Paths tests the deletions break: `check-deferrals.test.mjs:123-127`,
+`gate-bundle.test.mjs:126`) is summarised in A-08's row; add those two files to A-08's Paths before
+re-dispatching. Worktree `../marxy-wt/A-08` is clean at `6b87684e`.
+
+### Plan amendments made by the lead (in `01-phase-a.md` on this branch)
+
+- A-01: the 1 MB grid-stage bound moved to A-02 (the cost was one forced whole-article restyle after
+  fonts load, not the grid pass).
+- A-02: build order targets that restyle; Paths gain `docs/design/04-typeset.md` §Grid.
+- A-05: Paths gain four harness tests (snapshot I/O in exact call lists).
+- A-12: Paths gain `commands/source-view.ts`, `test/operations-copy.test.mjs`.
+- A-13: step 6, the scroll-persistence fix (WebKit fires viewport `scroll` at `Document`, so
+  `app.ts`'s listener on `documentElement` never runs; positions are lost on a crash).
+- Not written into the plan yet, accepted by the lead: A-06 Paths + `test/palette.test.mjs`; A-02 Paths
+  + `packages/typeset/test/typeset.test.mjs`; A-16 test fix (only document writes count).
+
+### Remaining Phase A
+
+- **A-13** — in flight at pause (see its row). Then **A-14** (Wave 4; depends on A-13) on top of it.
+- **A-08 → A-03 → A-09 → A-10 → A-11, A-17** — blocked on the A-08 decision.
+- The author's manual checks for A-16 (Finder drop, folder drop, TextEdit via `external_editor`).
+- Phase A's "Questions only the author can answer" (`01-phase-a.md`, end) are still open.
+
+### Follow-ups recorded, not scheduled
+
+- Two separate tasks the author started: the racy `persist-reading` first-launch test, and the flaky
+  Linux CLI smoke check (`no_paint reason=not-visible`).
+- A-04/A-05: the open document's index entry stays stale after an edit that adds a heading.
+- A-06: `trackDocumentOpen` never updates `view.session`, so Cmd-O opens don't move palette ranking
+  until restart (A-13/A-14 or Phase B); `notePaletteOpen` has no caller.
+- A-16: pin the external-editor call to the document Rust last opened.
+- A-02: `debugCounts()` doesn't count the island observer or the `loadingdone` listener; the 150–180 ms
+  post-first-text stall is probably the completion-time whole-article snap.
+- `docs/conventions.md:35` still names `marxy-key-in-subject` (A-11).
+
+### Lessons for the next lead
+
+- Never wait with `until ! pgrep -f "<cmd>"`: the loop's own command line matches and it never exits.
+  Several agents did this; the lead killed the loops by PID.
+- The reviewer lane on Sonnet caught real defects every time (failed walk cached forever; two tests
+  that could not fail; missing acceptance tests; a Linux grid bug; an integration-only test clash).
+  Keep the mutation-check instruction in every brief.
+- Stacking on unmerged work through `integration/wave-N` branches kept the agents busy while merges
+  were blocked; verify each integration branch (precheck + full desktop suite) before stacking.
