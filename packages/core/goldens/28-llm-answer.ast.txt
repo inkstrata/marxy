@@ -1,0 +1,381 @@
+document [0,9517)
+  paragraph [0,188)
+    text [0,50) value="Sure! Here's a complete migration plan for moving "
+    code [50,66) value="invoice-export"
+    text [66,188) value=" off the cron host and onto a queue-backed worker. I've kept it practical, so you can paste it straight into your runboo…"
+  heading [190,251) level=1
+    text [192,207) value="🚀 Migrating "
+    code [207,223) value="invoice-export"
+    text [223,251) value=" from Cron to a Queue Worker"
+  paragraph [253,508)
+    text [253,314) value="Today the service runs as a nightly cron job on a single VM ("
+    code [314,340) value="batch-01.example.invalid"
+    text [340,508) value="). The goal is a containerized worker that pulls jobs from a queue, so a failed export can be retried without anyone log…"
+  heading [510,521) level=2
+    text [513,521) value="Overview"
+  paragraph [523,814)
+    text [523,565) value="The migration has three moving parts: the "
+    emphasis [565,575)
+      text [566,574) value="producer"
+    text [575,616) value=" (what used to be the crontab line), the "
+    emphasis [616,623)
+      text [617,622) value="queue"
+    text [623,633) value=", and the "
+    emphasis [633,641)
+      text [634,640) value="worker"
+    text [641,814) value=" (the old script, wrapped). You'll run both systems side by side for two weeks. The old path stays authoritative until t…"
+  list [816,1157) ordered=false tight=true
+    listItem [816,923)
+      paragraph [818,923)
+        strong [818,829)
+          text [820,827) value="Step 1:"
+        text [829,923) value=" Inventory what the cron job really does (it usually does more than the script name suggests)."
+    listItem [924,979)
+      paragraph [926,979)
+        strong [926,937)
+          text [928,935) value="Step 2:"
+        text [937,979) value=" Wrap the export in an idempotent handler."
+    listItem [980,1037)
+      paragraph [982,1037)
+        strong [982,993)
+          text [984,991) value="Step 3:"
+        text [993,1037) value=" Stand up the queue and a dead-letter queue."
+    listItem [1038,1102)
+      paragraph [1040,1102)
+        strong [1040,1051)
+          text [1042,1049) value="Step 4:"
+        text [1051,1102) value=" Run both paths in shadow mode and compare outputs."
+    listItem [1103,1157)
+      paragraph [1105,1157)
+        strong [1105,1116)
+          text [1107,1114) value="Step 5:"
+        text [1116,1157) value=" Cut over, then retire the crontab entry."
+  paragraph [1159,1193)
+    text [1159,1193) value="Things to decide before you start:"
+  paragraph [1195,1496)
+    text [1195,1256) value="• Who owns the dead-letter queue once the migration is done"
+    softBreak [1256,1257)
+    text [1257,1307) value="• Whether exports must stay ordered per customer"
+    softBreak [1307,1308)
+    text [1308,1358) value="– What the retention period is for finished jobs"
+    softBreak [1358,1359)
+    text [1359,1386) value="– Whether the old host's "
+    code [1386,1400) value="/var/exports"
+    text [1400,1437) value=" directory is part of any audit trail"
+    softBreak [1437,1438)
+    text [1438,1496) value="• Which team gets paged when the queue depth alarm fires"
+  heading [1498,1531) level=2
+    text [1501,1531) value="Step 1: Inventory the cron job"
+  paragraph [1533,1610)
+    text [1533,1610) value="Run this on the old host and keep the output; you will diff against it later."
+  codeBlock [1612,1734) lang=bash info="bash" content=[1620,1731) value="crontab -l | grep invoice-export\nls -la /opt/invoice-export/\ngrep -R \"sendmail\\|curl\" /opt/invoice-export/*.sh"
+  paragraph [1736,1823)
+    text [1736,1823) value="Then write down every side effect. In my experience the list looks something like this:"
+  list [1825,2077) ordered=true tight=true start=1
+    listItem [1825,1879)
+      paragraph [1828,1879)
+        text [1828,1863) value="Reads unexported invoices from the "
+        code [1863,1873) value="invoices"
+        text [1873,1879) value=" table"
+    listItem [1880,1928)
+      paragraph [1883,1928)
+        text [1883,1914) value="Writes one CSV per customer to "
+        code [1914,1928) value="/var/exports"
+    listItem [1929,1975)
+      paragraph [1932,1975)
+        text [1932,1975) value="Emails the finance mailbox when it finishes"
+    listItem [1976,2015)
+      paragraph [1979,2015)
+        text [1979,2015) value="Deletes CSV files older than 30 days"
+    listItem [2016,2077)
+      paragraph [2019,2077)
+        text [2019,2077) value="Touches a heartbeat file that the monitoring agent watches"
+  paragraph [2079,2251)
+    text [2079,2251) value="The last three items are the ones people forget. Treat each of them as its own requirement. Here is the order I would wo…"
+  list [2253,2321) ordered=true tight=true start=1
+    listItem [2253,2273)
+      paragraph [2256,2273)
+        text [2256,2273) value="Write the handler"
+    listItem [2274,2292)
+      paragraph [2277,2292)
+        text [2277,2292) value="Write the tests"
+    listItem [2293,2321)
+      paragraph [2296,2321)
+        text [2296,2321) value="Write the deploy manifest"
+  heading [2323,2361) level=2
+    text [2326,2361) value="Step 2: Make the handler idempotent"
+  paragraph [2363,2580)
+    text [2363,2471) value="A queue will deliver a job more than once eventually, so the handler must be safe to run twice for the same "
+    code [2471,2494) value="(customer_id, period)"
+    text [2494,2580) value=". The simplest way is to derive the output filename from the job and write atomically."
+  codeBlock [2582,3001) lang=python info="python" content=[2592,2998) value="def export_invoices(job: dict) -> str:\n    customer = job[\"customer_id\"]\n    period = job[\"period\"]          # e.g. \"202…"
+  paragraph [3003,3045)
+    text [3003,3045) value="Once that works locally, do the following:"
+  list [3047,3354) ordered=true tight=false start=4
+    listItem [3047,3134)
+      paragraph [3050,3134)
+        text [3050,3134) value="Add a unit test that calls the handler twice and asserts the file is byte-identical."
+    listItem [3135,3226)
+      paragraph [3138,3226)
+        text [3138,3198) value="Add a test where the database raises halfway through and no "
+        code [3198,3205) value=".part"
+        text [3205,3226) value=" file is left behind."
+    listItem [3228,3276)
+      paragraph [3231,3276)
+        text [3231,3276) value="Wire the handler into the worker entry point."
+    listItem [3277,3319)
+      paragraph [3280,3319)
+        text [3280,3319) value="Add structured logging with the job id."
+    listItem [3320,3354)
+      paragraph [3323,3354)
+        text [3323,3330) value="Expose "
+        code [3330,3340) value="/healthz"
+        text [3340,3354) value=" on port 8080."
+  heading [3356,3385) level=2
+    text [3359,3385) value="Step 3: Stand up the queue"
+  paragraph [3387,3436)
+    text [3387,3436) value="Here is the topology I would use. Keep it boring."
+  codeBlock [3438,3679) lang=mermaid info="mermaid" content=[3449,3676) value="flowchart LR\n    P[Producer: scheduler] -->|enqueue| Q[(exports queue)]\n    Q --> W1[Worker 1]\n    Q --> W2[Worker 2]\n  …"
+  paragraph [3681,3704)
+    text [3681,3704) value="And the queue settings:"
+  codeBlock [3706,3875) lang=json info="json" content=[3714,3872) value="{\n  \"queue\": \"invoice-export\",\n  \"visibilityTimeoutSeconds\": 900,\n  \"maxReceiveCount\": 3,\n  \"deadLetterQueue\": \"invoice-…"
+  paragraph [3877,3898)
+    text [3877,3898) value="Notes on the options:"
+  list [3900,4392) ordered=false tight=true
+    listItem [3900,4182)
+      paragraph [3902,4025)
+        strong [3902,3925)
+          text [3904,3923) value="Visibility timeout:"
+        text [3925,4025) value=" must be longer than your slowest export. Ours peaks near 11 minutes, so 900 seconds is comfortable."
+      list [4029,4083) ordered=false tight=true
+        listItem [4029,4083)
+          paragraph [4031,4083)
+            text [4031,4083) value="Too short and two workers will pick up the same job."
+      list [4087,4139) ordered=false tight=true
+        listItem [4087,4139)
+          paragraph [4089,4139)
+            text [4089,4139) value="Too long and a crashed worker holds a job hostage."
+      list [4143,4182) ordered=false tight=true
+        listItem [4143,4182)
+          paragraph [4145,4182)
+            text [4145,4182) value="Measure first, then add a 30% margin."
+    listItem [4183,4311)
+      paragraph [4185,4247)
+        strong [4185,4207)
+          text [4187,4205) value="Max receive count:"
+        text [4207,4247) value=" three attempts is a reasonable default."
+      list [4251,4311) ordered=false tight=true
+        listItem [4251,4311)
+          paragraph [4253,4311)
+            text [4253,4311) value="Anything that fails three times is almost never transient."
+    listItem [4312,4392)
+      paragraph [4314,4392)
+        strong [4314,4328)
+          text [4316,4326) value="Retention:"
+        text [4328,4392) value=" match whatever finance needs for audit, not what is convenient."
+  heading [4394,4404) level=3
+    text [4398,4404) value="Sizing"
+  paragraph [4406,4493)
+    text [4406,4493) value="Roughly, here's what to expect. Please treat these as starting points and not promises:"
+  table [4495,4704) align=-,-,-,-
+    tableRow [4495,4550) header=true
+      tableCell [4495,4507)
+        text [4497,4506) value="Customers"
+      tableCell [4507,4518)
+        text [4509,4517) value="Avg rows"
+      tableCell [4518,4528)
+        text [4520,4527) value="Workers"
+      tableCell [4528,4550)
+        text [4530,4548) value="Expected wall time"
+    tableRow [4569,4597) header=false
+      tableCell [4569,4575)
+        text [4571,4574) value="200"
+      tableCell [4575,4583)
+        text [4577,4582) value="1,200"
+      tableCell [4583,4587)
+        text [4585,4586) value="1"
+      tableCell [4587,4597)
+        text [4589,4595) value="~9 min"
+    tableRow [4598,4619) header=false
+      tableCell [4598,4606)
+        text [4600,4605) value="1,000"
+      tableCell [4606,4614)
+        text [4608,4613) value="1,300"
+      tableCell [4614,4619)
+        text [4616,4617) value="2"
+    tableRow [4620,4667) header=false
+      tableCell [4620,4631)
+        text [4623,4628) value="5,000"
+      tableCell [4631,4640)
+        text [4633,4638) value="1,250"
+      tableCell [4640,4646)
+        text [4643,4644) value="4"
+      tableCell [4646,4658)
+        text [4649,4656) value="~55 min"
+      tableCell [4658,4667)
+        text [4660,4665) value="extra"
+    tableRow [4668,4704) header=false
+      tableCell [4668,4677)
+        text [4670,4676) value="20,000"
+      tableCell [4677,4685)
+        text [4679,4684) value="1,400"
+      tableCell [4685,4689)
+        text [4687,4688) value="8"
+      tableCell [4689,4704)
+        text [4691,4702) value="~2 h 10 min"
+  heading [4706,4728) level=2
+    text [4709,4728) value="Step 4: Shadow mode"
+  paragraph [4730,4855)
+    text [4730,4778) value="For two weeks, let the cron job keep writing to "
+    code [4778,4792) value="/var/exports"
+    text [4792,4855) value=" and have the worker write to a different prefix. Then compare:"
+  codeBlock [4857,4956) lang=bash info="bash" content=[4865,4953) value="diff -rq /var/exports/ /mnt/shadow/exports/ | tee shadow-diff.txt\nwc -l shadow-diff.txt"
+  paragraph [4958,5316)
+    text [4958,5316) value="A clean night means the diff is empty. Anything else is a bug in one of the two paths — usually the worker, but not alwa…"
+  paragraph [5318,5375)
+    text [5318,5375) value="Here's a template you can drop into the migration ticket:"
+  codeBlock [5377,5828) lang=markdown info="markdown" content=[5391,5823) value="# Migration ticket: invoice-export\n\n## Summary\n\nMove the nightly export from cron to the queue worker.\n\n## Acceptance\n\n-…"
+  heading [5830,5849) level=2
+    text [5833,5849) value="Step 5: Cut over"
+  list [5851,5931) ordered=true tight=true start=1
+    listItem [5851,5889)
+      paragraph [5854,5889)
+        text [5854,5889) value="Disable the producer's shadow flag."
+    listItem [5890,5931)
+      paragraph [5893,5931)
+        text [5893,5931) value="Watch the first real night end to end."
+  codeBlock [5933,6001) lang=sh info="sh" content=[5939,5998) value="kubectl logs -l app=invoice-export --since=1h | tail -n 50"
+  list [6003,6106) ordered=true tight=true start=1
+    listItem [6003,6077)
+      paragraph [6006,6077)
+        text [6006,6077) value="Confirm the heartbeat, the email, and the cleanup job all still happen."
+    listItem [6078,6106)
+      paragraph [6081,6106)
+        text [6081,6106) value="Remove the crontab entry."
+  paragraph [6108,6152)
+    text [6108,6152) value="Don't remove the old host for another month."
+  heading [6154,6186) level=2
+    text [6157,6186) value="Step 6: Monitoring and alerts"
+  paragraph [6188,6374)
+    text [6188,6374) value="A queue-backed worker fails differently from a cron job. The cron job failed loudly, at 02:17, by email. The worker fail…"
+  list [6376,6896) ordered=false tight=true
+    listItem [6376,6520)
+      paragraph [6378,6520)
+        strong [6378,6394)
+          text [6380,6392) value="Queue depth:"
+        text [6394,6520) value=" alert when the oldest message is more than 30 minutes old, not when the count is high. A long queue that is draining is…"
+    listItem [6521,6632)
+      paragraph [6523,6632)
+        strong [6523,6545)
+          text [6525,6543) value="Dead-letter depth:"
+        text [6545,6632) value=" alert on any message at all. The dead-letter queue should be empty on a healthy night."
+    listItem [6633,6766)
+      paragraph [6635,6766)
+        strong [6635,6649)
+          text [6637,6647) value="Heartbeat:"
+        text [6649,6766) value=" keep writing the old heartbeat file for as long as the monitoring agent reads it, even though nothing else needs it."
+    listItem [6767,6896)
+      paragraph [6769,6896)
+        strong [6769,6782)
+          text [6771,6780) value="Duration:"
+        text [6782,6896) value=" record the wall time per job and chart the 95th percentile, so a slow trend shows up weeks before a timeout does."
+  paragraph [6898,6941)
+    text [6898,6941) value="A minimal alert definition looks like this:"
+  codeBlock [6943,7234) lang=yaml info="yaml" content=[6951,7231) value="alerts:\n  - name: invoice-export-oldest-message\n    expr: queue_oldest_message_age_seconds{queue=\"invoice-export\"} > 180…"
+  heading [7236,7283) level=3
+    text [7240,7283) value="What to do when the dead-letter queue fills"
+  list [7285,7547) ordered=true tight=true start=1
+    listItem [7285,7350)
+      paragraph [7288,7350)
+        text [7288,7350) value="Look at the oldest message and read its error, not the newest."
+    listItem [7351,7408)
+      paragraph [7354,7408)
+        text [7354,7408) value="Decide whether it is a data problem or a code problem."
+    listItem [7409,7469)
+      paragraph [7412,7469)
+        text [7412,7469) value="For a data problem, fix the row and re-drive the message."
+    listItem [7470,7547)
+      paragraph [7473,7547)
+        text [7473,7547) value="For a code problem, fix the handler, deploy, and then re-drive everything."
+  paragraph [7549,7668)
+    text [7549,7668) value="Please don't purge the dead-letter queue to make the alarm go quiet. Those messages are the only record of what failed."
+  heading [7670,7707) level=2
+    text [7673,7707) value="Risks I would flag to your manager"
+  table [7709,8145) align=left,center,right
+    tableRow [7709,7743) header=true
+      tableCell [7709,7716)
+        text [7711,7715) value="Risk"
+      tableCell [7716,7729)
+        text [7718,7728) value="Likelihood"
+      tableCell [7729,7743)
+        text [7731,7741) value="Mitigation"
+    tableRow [7758,7852) header=false
+      tableCell [7758,7810)
+        text [7760,7809) value="A hidden side effect of the cron script is missed"
+      tableCell [7810,7819)
+        text [7812,7818) value="Medium"
+      tableCell [7819,7852)
+        text [7821,7850) value="Step 1 inventory, shadow mode"
+    tableRow [7853,7945) header=false
+      tableCell [7853,7900)
+        text [7855,7899) value="Two workers export the same customer at once"
+      tableCell [7900,7906)
+        text [7902,7905) value="Low"
+      tableCell [7906,7945)
+        text [7908,7943) value="Idempotent filenames, atomic rename"
+    tableRow [7946,8051) header=false
+      tableCell [7946,7997)
+        text [7948,7996) value="The queue service has an outage on cutover night"
+      tableCell [7997,8003)
+        text [7999,8002) value="Low"
+      tableCell [8003,8051)
+        text [8005,8049) value="Keep the crontab line commented, not deleted"
+    tableRow [8052,8145) header=false
+      tableCell [8052,8097)
+        text [8054,8096) value="Finance's importer depends on CRLF endings"
+      tableCell [8097,8104)
+        text [8099,8103) value="High"
+      tableCell [8104,8145)
+        text [8106,8143) value="Diff byte for byte, not line for line"
+  heading [8147,8158) level=2
+    text [8150,8158) value="Pitfalls"
+  paragraph [8160,8194)
+    text [8160,8194) value="Some things that tend to go wrong:"
+  paragraph [8196,8379)
+    text [8196,8236) value="Line one of a note ends with two spaces."
+    hardBreak [8236,8239)
+    text [8239,8307) value="Line two follows without a blank line, so it should be a hard break."
+    html [8307,8311) value="<br>"
+    text [8311,8379) value="This one follows an HTML break tag, which should survive as a break."
+  paragraph [8381,8601)
+    text [8381,8601) value="Fish & chips is not a joke here: an unescaped ampersand in the customer name column broke a CSV importer once. Also watc…"
+  paragraph [8603,8823)
+    text [8603,8823) value="Quotes are another trap. Chat tools tend to emit \"straight quotes\" and ‘curly ones’ in the same answer, along with an em…"
+  heading [8825,8980) level=2
+    text [8825,8976) value="The next paragraph is followed directly by a rule with no blank line between them, which is a classic way to turn a sent…"
+  paragraph [8982,9037)
+    text [8982,9037) value="Here is a deliberate thematic break after a blank line:"
+  thematicBreak [9039,9042)
+  paragraph [9044,9071)
+    text [9044,9071) value="#migration #runbook #queues"
+  paragraph [9073,9186)
+    text [9073,9162) value="That last line is a hashtag the assistant added for a tracker. It has no space after the "
+    code [9162,9165) value="#"
+    text [9165,9186) value=", so it is just text."
+  heading [9188,9198) level=2
+    text [9191,9198) value="Sources"
+  list [9200,9376) ordered=false tight=true
+    listItem [9200,9256)
+      paragraph [9202,9256)
+        link [9202,9256) url="https://docs.example.invalid/queues/visibility-timeout"
+          text [9202,9256) value="https://docs.example.invalid/queues/visibility-timeout"
+    listItem [9257,9311)
+      paragraph [9259,9311)
+        link [9259,9311) url="https://blog.example.invalid/2026/idempotent-exports"
+          text [9259,9311) value="https://blog.example.invalid/2026/idempotent-exports"
+    listItem [9312,9376)
+      paragraph [9314,9376)
+        link [9314,9376) url="https://wiki.example.invalid/platform/runbooks/cron-retirement"
+          text [9314,9376) value="https://wiki.example.invalid/platform/runbooks/cron-retirement"
+  paragraph [9378,9516)
+    text [9378,9516) value="Let me know if you'd like me to turn this into a checklist, draft the dead-letter queue alarm, or write the shadow-mode …"

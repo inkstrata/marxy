@@ -1,0 +1,340 @@
+document [0,30171)
+  heading [0,29) level=1
+    text [2,29) value="The Arithmetic of the Shore"
+  blockquote [31,215)
+    paragraph [33,155)
+      text [33,155) value="The sea keeps a better calendar than we do. It has never once been late, and it has never once been on time by our clock…"
+    paragraph [160,215)
+      text [160,215) value="— from a harbourmaster's notebook, Saltreach, undated"
+  heading [217,221) level=2
+    text [220,221) value="I"
+  paragraph [223,619)
+    text [223,619) value="The tide gauge at Saltreach stands at the end of the old coal quay, in a brick hut no bigger than a confessional, and fo…"
+  paragraph [621,1011)
+    text [621,1011) value="The keeper that year was a woman in her sixties with a flask of tea and a waxed jacket the colour of wet slate. She did …"
+  paragraph [1013,1103)
+    text [1013,1103) value="“You can sit,” she said, after some minutes. “It does not go faster if you stand.”"
+  paragraph [1105,1133)
+    text [1105,1133) value="“How long does it take?”"
+  paragraph [1135,1632)
+    text [1135,1174) value="“Well, that depends what you mean by "
+    emphasis [1174,1178)
+      text [1175,1177) value="it"
+    text [1178,1632) value=".” She wrote a figure in a ledger that was ruled in columns older than either of us. “If you mean the reading, a few sec…"
+  paragraph [1634,2184)
+    text [1634,2184) value="I wrote that down. I have it still, in a notebook whose pages are slightly swollen from the damp, and I have come to thi…"
+  heading [2186,2191) level=2
+    text [2189,2191) value="II"
+  paragraph [2193,2921)
+    text [2193,2840) value="Begin with what is not in dispute. Twice in a little over a day, the surface of the sea at any given shore rises and fal…"
+    footnoteReference [2840,2844) label="5"
+    text [2844,2921) value=" which is why no one who has lived by the water believes in \"the usual time.\""
+  paragraph [2923,3514)
+    text [2923,3510) value="The second thing not in dispute is the fortnight. Twice a month, at new Moon and at full Moon, the Sun and the Moon pull…"
+    footnoteReference [3510,3514) label="1"
+  paragraph [3516,4287)
+    text [3516,4009) value="What follows from those two facts is a sort of rhythm that people on the shore absorb the way sailors absorb the roll of…"
+    emphasis [4009,4017)
+      text [4010,4016) value="height"
+    text [4017,4287) value=", because height is where the arithmetic starts to matter: a ship that draws nine metres cannot cross a bar that holds e…"
+  paragraph [4289,5025)
+    text [4289,4600) value="Not every shore has this rhythm. In the Mediterranean the tide is so small that for most purposes it is absent, and the …"
+    footnoteReference [4600,4604) label="6"
+    text [4604,5025) value=" a five-storey building's worth of sea, and the water comes in over the flats faster than a person can comfortably walk.…"
+  heading [5027,5033) level=2
+    text [5030,5033) value="III"
+  paragraph [5035,5742)
+    text [5035,5377) value="The gauge itself is not complicated, and its plainness is part of its dignity. A pipe, open at the bottom, is sunk into …"
+    footnoteReference [5377,5381) label="3"
+    text [5381,5742) value=" Inside it, a float rises and falls on a wire, and the wire turns a drum, and the drum, in the old days, wrote a continu…"
+  paragraph [5744,5806)
+    text [5744,5806) value="I asked her why, and she gave me an answer I had not expected."
+  paragraph [5808,6127)
+    text [5808,6107) value="“Because the sensor can be wrong without telling anyone,” she said. “It drifts. It says four point two three and it is f…"
+    emphasis [6107,6114)
+      text [6108,6113) value="asked"
+    text [6114,6127) value=" about it.”"
+  paragraph [6129,6146)
+    text [6129,6146) value="“Asked what?”"
+  paragraph [6148,6417)
+    text [6148,6417) value="“‘Why did you write that?’ And she can say, ‘Because there was a swell and I took the middle of it.’ Or, ‘Because I was …"
+  paragraph [6419,7014)
+    text [6419,7014) value="I have thought about that remark more than I would like. Nothing in it is an argument against instruments; the keeper's …"
+  paragraph [7016,7575)
+    text [7016,7575) value="The ledger at Saltreach goes back, with two gaps, to the year 1884. One gap is the winter of 1940, when the hut was stru…"
+  heading [7577,7582) level=2
+    text [7580,7582) value="IV"
+  paragraph [7584,8239)
+    text [7584,8239) value="Here is the difficulty the keeper's ledger exists to solve. The tide is not one wave but a crowd of them. The Moon's pul…"
+  paragraph [8241,9113)
+    text [8241,8373) value="The way out, which took the better part of a century to make rigorous, is to refuse to predict the tide directly and to …"
+    emphasis [8373,8385)
+      text [8374,8384) value="components"
+    text [8385,8572) value=" instead. Each of the principal pulls is assigned a name and a speed. The main lunar tide that recurs about twice a day …"
+    footnoteReference [8572,8576) label="7"
+    text [8576,9113) value=" and so on down a list that, for a serious harbour, runs to thirty or forty entries and, for a research station, to well…"
+  paragraph [9115,9753)
+    text [9115,9567) value="The elegance of this is hard to overstate and easy to forget. Fifty years of readings, laboriously taken twice a day by …"
+    footnoteReference [9567,9571) label="4"
+    text [9571,9753) value=" which is longer than most English sentences deserve to be. It is not magic. It is just that the sea, like most large an…"
+  paragraph [9755,10728)
+    text [9755,10105) value="The datum is the second half of the discipline. A height is nothing without a zero, and the zero a harbour chooses is a …"
+    footnoteReference [10105,10109) label="8"
+    text [10109,10728) value=" That is called lowest astronomical tide, LAT. Land surveyors use another zero, a mean level of the sea over many years,…"
+  heading [10730,10734) level=2
+    text [10733,10734) value="V"
+  paragraph [10736,11484)
+    text [10736,11484) value="For a long time the sum was done by hand, and it is worth saying how. To predict the water at one harbour for one hour, …"
+  paragraph [11486,12384)
+    text [11486,12384) value="The first answer to this was patience, and the second answer was brass. In the later nineteenth century, in several coun…"
+  paragraph [12386,12895)
+    text [12386,12895) value="I have seen one of these machines. It lives in a glass case in a maritime museum, and, on certain afternoons, a voluntee…"
+  paragraph [12897,13021)
+    text [12897,13021) value="“What did he say about it, the man who ran it?” I asked her. She had inherited the machine's stories along with its key."
+  paragraph [13023,13379)
+    text [13023,13379) value="“He said—and I'm quoting my grandfather here, who worked next to him—‘The machine does not think; it adds.’ And then he …"
+  paragraph [13381,13954)
+    text [13381,13954) value="I put the question of wisdom aside, because what interested me was the claim itself. A machine that merely adds is a mac…"
+  heading [13956,13961) level=2
+    text [13959,13961) value="VI"
+  paragraph [13963,14587)
+    text [13963,14587) value="Even a machine that can be audited can be set wrongly, and so the table at Saltreach has never been printed from a singl…"
+  paragraph [14589,15202)
+    text [14589,14750) value="I asked to see that book, and the clerk who keeps it brought it out with a faint air of apology. It is a plain thing, ru…"
+    emphasis [14750,14757)
+      text [14751,14756) value="First"
+    text [14757,14759) value=", "
+    emphasis [14759,14767)
+      text [14760,14766) value="Second"
+    text [14767,14772) value=" and "
+    emphasis [14772,14779)
+      text [14773,14778) value="Third"
+    text [14779,14809) value=", and a fourth, headed simply "
+    emphasis [14809,14816)
+      text [14810,14815) value="Cause"
+    text [14816,14822) value=". The "
+    emphasis [14822,14829)
+      text [14823,14828) value="Cause"
+    text [14829,15202) value=" column is almost entirely empty. When it is not, the entries are short and human: “carried a one,” “mis-set cylinder 6,…"
+  paragraph [15204,15892)
+    text [15204,15892) value="It is tempting to dismiss this as the quaintness of a time before spreadsheets. I think the opposite is true. The two-ro…"
+  paragraph [15894,16492)
+    text [15894,16046) value="The pages that most interested me were not the ones with errors but the ones without them: forty or fifty consecutive pa…"
+    emphasis [16046,16053)
+      text [16047,16052) value="Cause"
+    text [16053,16492) value=" column is blank and all three entries are the same figure, to the centimetre, in three different hands. A great deal of…"
+  heading [16494,16500) level=2
+    text [16497,16500) value="VII"
+  paragraph [16502,16725)
+    text [16502,16725) value="There is one coast where the arithmetic seems to turn into a story, and since I have not the right to tell it in English…"
+  paragraph [16727,17480)
+    text [16727,17480) value="« La baie du Mont n'est pas une baie comme les autres. À marée basse, on croit que la mer est partie pour toujours — on …"
+  paragraph [17482,17815)
+    text [17482,17601) value="He drank, grimaced at the temperature of the coffee, and added in English, for my benefit, “The table is not for the "
+    emphasis [17601,17610)
+      text [17602,17609) value="knowing"
+    text [17610,17810) value=". The table is so that you do not have to be brave.” I was never able to determine whether this was a proverb or somethi…"
+    footnoteReference [17810,17815) label="10"
+  paragraph [17817,18305)
+    text [17817,17943) value="The man had said something exact without intending to. A tide table is not primarily a device for knowing. It is a devic…"
+    emphasis [17943,17960)
+      text [17944,17959) value="sparing bravery"
+    text [17960,18305) value=". Everyone who has crossed a tidal flat with the wrong confidence has later understood that there is a middle region bet…"
+  heading [18307,18314) level=2
+    text [18310,18314) value="VIII"
+  paragraph [18316,18550)
+    text [18316,18449) value="At Saltreach, the keepers have a rhyme that is taught to every new deputy, and I give it as it was given to me, with its…"
+    footnoteReference [18449,18454) label="11"
+    text [18454,18550) value=" because it loses what it is for when it is run together. The first is the rule for the springs:"
+  paragraph [18552,18772)
+    text [18552,18588) value="New moon, full moon, spring is near,"
+    hardBreak [18588,18590)
+    text [18590,18620) value="water runs both far and clear,"
+    hardBreak [18620,18622)
+    text [18622,18657) value="leaves the mud and leaves the weed,"
+    hardBreak [18657,18659)
+    text [18659,18701) value="comes back running, comes back with speed."
+    hardBreak [18701,18703)
+    text [18703,18739) value="Check the quay, and check the chain,"
+    hardBreak [18739,18741)
+    text [18741,18772) value="check the mooring, check again."
+  paragraph [18774,18926)
+    text [18774,18926) value="The second, which I like better, is the rule for the neaps, and it is sung rather than said, slowly, in a minor key that…"
+  paragraph [18928,19125)
+    text [18928,18955) value="Quarter moon and quiet sea,"
+    hardBreak [18955,18958)
+    text [18958,18984) value="nothing much to say to me,"
+    hardBreak [18984,18987)
+    text [18987,19017) value="shallow, shy and slow to turn,"
+    hardBreak [19017,19020)
+    text [19020,19052) value="neither one thing nor the other;"
+    hardBreak [19052,19055)
+    text [19055,19087) value="sit and drink your tea and learn"
+    hardBreak [19087,19090)
+    text [19090,19125) value="how a small tide holds its brother."
+  paragraph [19127,19504)
+    text [19127,19504) value="Both stanzas are, as far as I know, anonymous. The keeper told me they were older than the ledger. I asked her what the …"
+  heading [19506,19511) level=2
+    text [19509,19511) value="IX"
+  paragraph [19513,20326)
+    text [19513,20322) value="It is tempting to think of the history of tide prediction as a ladder of improvements, each rung rising neatly on the la…"
+    footnoteReference [20322,20326) label="9"
+  table [20328,21349) align=-,-
+    tableRow [20328,20344) header=true
+      tableCell [20328,20335)
+        text [20330,20334) value="Date"
+      tableCell [20335,20344)
+        text [20337,20342) value="Event"
+    tableRow [20359,20484) header=false
+      tableCell [20359,20366)
+        text [20361,20365) value="1884"
+      tableCell [20366,20484)
+        text [20368,20482) value="The first entry in the surviving ledger, in a hand the board's clerk later described as \"careful but not sociable\""
+    tableRow [20485,20584) header=false
+      tableCell [20485,20492)
+        text [20487,20491) value="1893"
+      tableCell [20492,20584)
+        text [20494,20582) value="A brass benchmark is cut into the coal quay wall; every height since is reckoned from it"
+    tableRow [20585,20705) header=false
+      tableCell [20585,20599)
+        text [20587,20598) value="1899–1901"
+      tableCell [20599,20705)
+        text [20601,20703) value="Two seasons of hourly readings taken day and night to fix the first harmonic constants for the harbour"
+    tableRow [20706,20808) header=false
+      tableCell [20706,20713)
+        text [20708,20712) value="1911"
+      tableCell [20713,20808)
+        text [20715,20806) value="The first printed table for Saltreach, forty pages, sold at the harbour office for sixpence"
+    tableRow [20809,20896) header=false
+      tableCell [20809,20816)
+        text [20811,20815) value="1940"
+      tableCell [20816,20896)
+        text [20818,20894) value="The hut is damaged; the ledger has no entry for the week of 14–21 February"
+    tableRow [20897,21009) header=false
+      tableCell [20897,20904)
+        text [20899,20903) value="1953"
+      tableCell [20904,21009)
+        text [20906,21007) value="An exceptional surge, forty centimetres above the table's predicted high water, floods the lower town"
+    tableRow [21010,21071) header=false
+      tableCell [21010,21017)
+        text [21012,21016) value="1962"
+      tableCell [21017,21071)
+        text [21019,21069) value="A fortnight of missing readings, still unexplained"
+    tableRow [21072,21150) header=false
+      tableCell [21072,21079)
+        text [21074,21078) value="1974"
+      tableCell [21079,21150)
+        text [21081,21148) value="The hourly drum is replaced by a pen recorder with a battery backup"
+    tableRow [21151,21263) header=false
+      tableCell [21151,21158)
+        text [21153,21157) value="1998"
+      tableCell [21158,21263)
+        text [21160,21261) value="The first electronic sensor is installed beside the stilling well, and the keeper keeps coming anyway"
+    tableRow [21264,21349) header=false
+      tableCell [21264,21271)
+        text [21266,21270) value="2026"
+      tableCell [21271,21349)
+        text [21273,21347) value="The ledger, now in its fifth volume, reaches a hundred and forty-two years"
+  paragraph [21351,22175)
+    text [21351,21506) value="Two of those rows deserve a pause. The first is 1953, which is the reason the harbour board commissioned its first serio…"
+    emphasis [21506,21517)
+      text [21507,21516) value="predicted"
+    text [21517,21522) value=" and "
+    emphasis [21522,21532)
+      text [21523,21531) value="observed"
+    text [21532,22171) value=" water. A tide table gives the astronomical tide: the part of the sea's height that follows from the heavens. It does no…"
+    footnoteReference [22171,22175) label="2"
+  paragraph [22177,22540)
+    text [22177,22540) value="The second is 1998, and I put it in because the keeper insisted on it. A younger engineer, she told me, had suggested th…"
+  heading [22542,22546) level=2
+    text [22545,22546) value="X"
+  paragraph [22548,22659)
+    text [22548,22659) value="I want to end by describing the one habit of Saltreach that I promised earlier. I called it holding its breath."
+  paragraph [22661,23308)
+    text [22661,23219) value="Twice a day, at the very top of the tide, the water at the end of the old quay does something that is neither rising nor…"
+    footnoteReference [23219,23224) label="12"
+    text [23224,23308) value=" The gulls, who have no tables, appear to know it anyway, and settle along the rail."
+  paragraph [23310,23794)
+    text [23310,23794) value="She calls it \"the interval.\" The younger staff call it \"the stall,\" and the harbour pilots, who are less sentimental, ca…"
+  paragraph [23796,24270)
+    text [23796,24270) value="On the morning I visited, I stayed for the stand. I do not remember what I expected. The keeper stood at the door, her f…"
+  paragraph [24272,24297)
+    text [24272,24297) value="She picked up the pencil."
+  paragraph [24299,24341)
+    text [24299,24341) value="“There,” she said. “Now it turns.”"
+  paragraph [24343,24621)
+    text [24343,24621) value="I looked at the scale. I could see nothing. I looked again, and then, so slowly that I could not have said which instant…"
+  heading [24623,24631) level=2
+    text [24626,24631) value="Notes"
+  paragraph [24633,25082)
+    text [24633,25082) value="The harbour, the keeper and the verses are invented; the facts about the tide are not. The rhymes are the author's own. …"
+  footnoteDefinition [25084,25569) label="1"
+    paragraph [25090,25368)
+      text [25090,25218) value="The two words are older than the explanation of the thing they name, and their derivation is uncertain. A common guess c…"
+      emphasis [25218,25224)
+        text [25219,25223) value="neap"
+      text [25224,25320) value=" with an Old English word for \"scanty\" or \"powerless,\" which fits the sense and proves nothing. "
+      emphasis [25320,25328)
+        text [25321,25327) value="Spring"
+      text [25328,25368) value=" is simpler: it is the water that leaps."
+    paragraph [25374,25569)
+      text [25374,25569) value="Mariners have used both terms for so long that they appear in sailing directions with no gloss at all, in the confident …"
+  footnoteDefinition [25571,26307) label="2"
+    paragraph [25577,25899)
+      text [25577,25899) value="The figure of about a centimetre of sea for each millibar of missing pressure is a rule of thumb, sometimes called the i…"
+    paragraph [25905,26137)
+      text [25905,25958) value="A forecaster would say that the figure describes the "
+      emphasis [25958,25966)
+        text [25959,25965) value="static"
+      text [25966,26137) value=" response of the sea, and that the dynamic response, the wave of water that a moving storm drives ahead of itself, has t…"
+    paragraph [26143,26307)
+      text [26143,26307) value="The harbour's own post-mortem, which I read in the board's minute book, makes a plainer point in a single sentence: \"The…"
+  footnoteDefinition [26309,26532) label="3"
+    paragraph [26315,26532)
+      text [26315,26317) value="A "
+      emphasis [26317,26332)
+        text [26318,26331) value="stilling well"
+      text [26332,26532) value=" is a vertical pipe or shaft with a small opening beneath the water. The opening acts as a mechanical low-pass filter: s…"
+  footnoteDefinition [26534,27061) label="4"
+    paragraph [26540,26776)
+      emphasis [26540,26572)
+        text [26541,26571) value="Wasserstandsvorhersagezentrale"
+      text [26572,26776) value=" has thirty letters, and it is the kind of word that appears on a brass plate beside a door. The office is imagined here…"
+    paragraph [26782,27061)
+      text [26782,27061) value="A typesetter who has met a word like this will never again believe that a measure of sixty-six characters is wide enough…"
+  footnoteDefinition [27063,27305) label="5"
+    paragraph [27069,27305)
+      text [27069,27305) value="The slow slide of the tidal day against the solar day is about fifty minutes. The exact mean figure is closer to fifty m…"
+  footnoteDefinition [27307,27641) label="6"
+    paragraph [27313,27641)
+      text [27313,27482) value="Fundy's range is sometimes quoted as \"the highest in the world,\" and sometimes as one of several candidates for that tit…"
+      emphasis [27482,27489)
+        text [27483,27488) value="range"
+      text [27489,27641) value=" and where along the coast one measures it. The sixteen metres I give is an upper figure for the largest springs at the …"
+  footnoteDefinition [27643,28062) label="7"
+    paragraph [27649,27921)
+      text [27649,27921) value="The component names are conventional. The letter gives the family (M for the Moon, S for the Sun, N for the elliptical c…"
+    paragraph [27927,28062)
+      text [27927,28062) value="That convention is the same at every harbour in the world. It is among the very few things about the sea on which there …"
+  footnoteDefinition [28064,28334) label="8"
+    paragraph [28070,28334)
+      text [28070,28334) value="The practice of choosing a chart datum low enough that the water is seldom below it is a convention for safety rather th…"
+  footnoteDefinition [28336,28879) label="9"
+    paragraph [28342,28879)
+      text [28342,28470) value="A reader curious about the live record can look up the station in the harbour's open data service. A typical address loo…"
+      link [28470,28638) url="https://tides.example.invalid/stations/saltreach/predictions/2026/harmonic-constants-m2-s2-n2-k1-o1-p1-q1-k2.csv?datum=c…"
+        text [28470,28638) value="https://tides.example.invalid/stations/saltreach/predictions/2026/harmonic-constants-m2-s2-n2-k1-o1-p1-q1-k2.csv?datum=c…"
+      text [28638,28879) value=", and no program that fetches such a thing should be trusted if it needs a line break to read it. The same site's intern…"
+  footnoteDefinition [28881,29388) label="10"
+    paragraph [28888,29087)
+      text [28888,29087) value="The French passage is a paraphrase of a conversation, not a transcript. I have kept the speaker's long sentences, which …"
+    paragraph [29093,29388)
+      text [29093,29388) value="The remark about the galloping horse is a popular saying about this bay, and is repeated so often that it has the force …"
+  footnoteDefinition [29390,29706) label="11"
+    paragraph [29397,29706)
+      text [29397,29706) value="The verses are given with their breaks marked in two different ways. The first stanza ends each line with a backslash, a…"
+  footnoteDefinition [29708,30170) label="12"
+    paragraph [29715,30084)
+      text [29715,30084) value="The measure of a keeper's patience at Saltreach is said to be the length of the stand. In the last year of the old drum …"
+    paragraph [30090,30170)
+      text [30090,30170) value="The entry is the shortest in the minute book, and the only one that is in verse."
