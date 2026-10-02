@@ -156,9 +156,11 @@ export function pinDocumentOnPaletteSession(session: PaletteSession, path: strin
   pendingPinPaths.push(path);
 }
 
-/** App opens (argv, reload, palette) merge into the mirror saved beside the palette session on quit. */
-export function trackDocumentOpen(path: string): void {
-  const root = dirname(path);
+/**
+ * App opens (argv, reload, palette) merge into the mirror saved beside the palette session on quit.
+ * `root` is the document's repository root (the index service's `rootFor`), not its directory.
+ */
+export function trackDocumentOpen(path: string, root: string = dirname(path)): void {
   const base = sessionMirror ?? emptySessionUncached(root);
   sessionMirror = recordOpen(base, path, root);
 }
@@ -219,8 +221,13 @@ export async function flushPaletteHistoryFromApp(
   await savePaletteHistory(shell, session);
 }
 
-export async function notePaletteOpen(shell: HistoryIo, path: string, session: PaletteSession): Promise<PaletteSession> {
-  const root = dirname(path);
+/** `root` is the document's repository root (the index service's `rootFor`), not its directory. */
+export async function notePaletteOpen(
+  shell: HistoryIo,
+  path: string,
+  session: PaletteSession,
+  root: string = dirname(path),
+): Promise<PaletteSession> {
   const next = recordOpen(session, path, root);
   await savePaletteHistory(shell, next);
   return next;

@@ -1,0 +1,182 @@
+// The repository walk behind the palette index: find a document's root, list it, read headings (A-04).
+// Moved out of startup/idle-work.ts unchanged; the index service (./service.ts) decides when it runs.
+import type { IndexEntry } from '@marxy/core';
+import {
+  buildIndex,
+  classify,
+  collectFiles,
+  type DirectoryReader,
+  type IndexNotice,
+  type WalkEntry,
+} from '@marxy/core/src/index-model/index.ts';
+import { isDeniedName } from '@marxy/core/src/index-model/deny.ts';
+import { basename, dirname, joinPath, normalizePath } from '@marxy/core/src/index-model/paths.ts';
+
+/** Shell surface the index walk needs (ADR-0026 `readDir`, byte reads for headings). */
+export interface IndexLoadShell {
+  readDir(dir: string): Promise<readonly { path: string; size: number; mtimeMs: number; isDir: boolean }[]>;
+  readFile(path: string): Promise<Uint8Array>;
+  /** When set, root detection avoids probing `.git` through `readFile` (memory harness). */
+  hasGitMarker?(dir: string): boolean;
+}
+
+/** Named in palette-index.test.mjs: with `MARXY_196_MUTATION` set, loadIndex returns [] so CI goes red. */
+export const LOAD_INDEX_EMPTY_MUTATION = 'load-index-empty';
+
+const HEADING_SCAN_BYTES = 256 * 1024;
+
+export interface IndexWalk {
+  readonly entries: readonly IndexEntry[];
+  readonly notice?: IndexNotice;
+}
+
+function indexDisabled(shell: IndexLoadShell): boolean {
+  const mutation =
+    (typeof process !== 'undefined' && process.env.MARXY_196_MUTATION === LOAD_INDEX_EMPTY_MUTATION) ||
+    (typeof globalThis !== 'undefined' &&
+      (globalThis as { __MARXY_196_MUTATION?: string }).__MARXY_196_MUTATION === LOAD_INDEX_EMPTY_MUTATION);
+  return mutation || typeof shell.readDir !== 'function';
+}
+
+/** Walk the repository root of `openedPath` and turn allow-listed files into palette index entries. */
+export async function loadIndex(
+  shell: IndexLoadShell,
+  openedPath: string,
+  openedBytes?: Uint8Array,
+): Promise<IndexWalk> {
+  if (indexDisabled(shell)) {
+    return { entries: [] };
+  }
+  const root = await detectIndexRootAsync(shell, openedPath);
+  return walkRoot(shell, root, openedPath, openedBytes);
+}
+
+/**
+ * Walk `root` (already detected). `openedPath`/`openedBytes` name a document whose bytes are on
+ * screen, so the walk does not read it again.
+ */
+export async function walkRoot(
+  shell: IndexLoadShell,
+  root: string,
+  openedPath?: string,
+  openedBytes?: Uint8Array,
+): Promise<IndexWalk> {
+  if (indexDisabled(shell)) {
+    return { entries: [] };
+  }
+  const reader = await prefetchDirectoryReader(shell, root);
+  const candidates = collectFiles(root, reader);
+  const opened = openedPath === undefined ? undefined : normalizePath(openedPath);
+  const withHeadings = await Promise.all(
+    candidates.map(async (candidate) => {
+      if (classify(candidate.relativePath) !== 'markdown') return candidate;
+      if (openedBytes && candidate.path === opened) {
+        return {
+          ...candidate,
+          bytes:
+            openedBytes.byteLength > HEADING_SCAN_BYTES
+              ? openedBytes.slice(0, HEADING_SCAN_BYTES)
+              : openedBytes,
+        };
+      }
+      try {
+        const bytes = await shell.readFile(candidate.path);
+        return {
+          ...candidate,
+          bytes: bytes.byteLength > HEADING_SCAN_BYTES ? bytes.slice(0, HEADING_SCAN_BYTES) : bytes,
+        };
+      } catch {
+        return candidate;
+      }
+    }),
+  );
+  const built = buildIndex(root, withHeadings);
+  return { entries: built.entries, notice: built.notice };
+}
+
+/** The repository root that indexes `path`: the nearest ancestor holding `.git`, else its directory. */
+export function rootFor(shell: IndexLoadShell, path: string): Promise<string> {
+  return detectIndexRootAsync(shell, path);
+}
+
+async function detectIndexRootAsync(shell: IndexLoadShell, openedPath: string): Promise<string> {
+  const normalized = normalizePath(openedPath);
+  const startDir = (await pathIsDirectory(shell, normalized)) ? normalized : dirname(normalized);
+  let dir = startDir;
+  for (;;) {
+    if (await pathHasGit(shell, dir)) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return startDir;
+    dir = parent;
+  }
+}
+
+async function pathHasGit(shell: IndexLoadShell, dir: string): Promise<boolean> {
+  if (shell.hasGitMarker) return shell.hasGitMarker(dir);
+  try {
+    await shell.readFile(joinPath(dir, '.git/HEAD'));
+    return true;
+  } catch {
+    try {
+      await shell.readFile(joinPath(dir, '.git'));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+async function pathIsDirectory(shell: IndexLoadShell, path: string): Promise<boolean> {
+  const parent = dirname(path);
+  const name = basename(path);
+  if (name === '/') return true;
+  const listing = await shell.readDir(parent);
+  return listing.some((entry) => entry.path === path && entry.isDir);
+}
+
+async function prefetchDirectoryReader(shell: IndexLoadShell, root: string): Promise<DirectoryReader> {
+  const dirCache = new Map<string, WalkEntry[]>();
+  const textCache = new Map<string, string>();
+
+  async function fillDir(absPath: string): Promise<void> {
+    const key = normalizePath(absPath);
+    if (dirCache.has(key)) return;
+    const stats = await shell.readDir(key);
+    const entries: WalkEntry[] = [];
+    for (const stat of stats) {
+      const name = basename(stat.path);
+      entries.push({
+        name,
+        path: normalizePath(stat.path),
+        isDir: stat.isDir,
+        mtimeMs: stat.mtimeMs,
+        size: stat.size,
+      });
+    }
+    dirCache.set(key, entries);
+    for (const entry of entries) {
+      if (!entry.isDir || isDeniedName(entry.name)) continue;
+      for (const ignoreName of ['.gitignore', '.ignore'] as const) {
+        const ignorePath = joinPath(entry.path, ignoreName);
+        try {
+          const bytes = await shell.readFile(ignorePath);
+          textCache.set(ignorePath, new TextDecoder().decode(bytes));
+        } catch {
+          // no ignore file here
+        }
+      }
+      await fillDir(entry.path);
+    }
+  }
+
+  await fillDir(root);
+
+  return {
+    readDir(absPath: string): readonly WalkEntry[] {
+      return dirCache.get(normalizePath(absPath)) ?? [];
+    },
+    readText(absPath: string): string | undefined {
+      return textCache.get(normalizePath(absPath));
+    },
+  };
+}
