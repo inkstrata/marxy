@@ -419,9 +419,13 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   const activateHit = async (hit: IndexHit | undefined) => {
     if (hit === undefined) return;
     const jump = jumpForHit(hit);
-    session = recordOpen(session, jump.path);
+    session = recordOpen(session, jump.path, hit.entry.root);
     syncSession();
     dismiss();
+    // After the palette is gone, and off this tick: the open never waits on a re-prepare.
+    setTimeout(() => {
+      prepared = prepareIndex(entries, session.readAt);
+    }, 0);
     // The document on screen with no heading to land on: nothing to open.
     if (deps.getCurrentPath() === jump.path && jump.byteOffset === undefined) return;
     await renderPath(deps, jump.path, jump.byteOffset);
@@ -519,7 +523,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     close: dismiss,
     setIndexEntries(next) {
       entries = [...next];
-      prepared = prepareIndex(entries);
+      prepared = prepareIndex(entries, session.readAt);
       repaint();
     },
   };
