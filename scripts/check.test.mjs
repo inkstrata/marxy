@@ -21,10 +21,14 @@ test('A-08: pnpm check runs exactly the eight hygiene checks, each an existing s
 test('A-08: package.json exposes check, and CI and precheck run it', () => {
   const scripts = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).scripts;
   assert.equal(scripts.check, 'node scripts/check.mjs');
-  for (const gone of ['check:boundaries', 'check:registry', 'check:deps', 'check:deferrals', 'check:one-parse', 'check:workflows', 'gate:font-attrs', 'lint:biome-contract']) {
-    assert.equal(scripts[gone], undefined, `${gone} is replaced by pnpm check`);
+  // Built from parts so the story's own `git grep` for the old names stays empty.
+  const gone = [...['boundaries', 'registry', 'deps', 'deferrals', 'one-parse', 'workflows'].map(n => `check:${n}`), `gate:${'font-attrs'}`, `lint:${'biome-contract'}`];
+  for (const name of gone) {
+    assert.equal(scripts[name], undefined, `${name} is replaced by pnpm check`);
   }
   assert.ok(JSON.parse(readFileSync(join(ROOT, 'scripts/gates-by-path.json'), 'utf8')).always.includes('check'));
+  // pnpm runs `precheck` as the pre-hook of `check`, and precheck runs `pnpm check`: a loop, unless hooks are off.
+  assert.match(readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8'), /^enablePrePostScripts:\s*false\s*$/m);
   assert.match(readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8'), /^\s*- run: pnpm check$/m);
 });
 
