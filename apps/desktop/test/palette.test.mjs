@@ -463,3 +463,38 @@ test('running Toggle line numbers in Source from the palette shows the gutter', 
     await browser.close();
   }
 });
+
+test('opening a hit in root /b makes /b current, and /b hits then sort first (A-06)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    const doc = Buffer.from(HEADING_DOC).toString('base64');
+    await page.evaluate(async ({ doc }) => {
+      await window.marxyPaletteBoot.start(
+        { '/a/guide.md': doc, '/b/guide.md': doc, '/a/start.md': doc },
+        ['/a/start.md'],
+        [],
+      );
+      const entry = (path, root) => ({ path, root, title: 'guide', headings: [], mtimeMs: 1, size: 1, kind: 'markdown' });
+      window.__marxyPalette.setIndexEntries([entry('/a/guide.md', '/a'), entry('/b/guide.md', '/b')]);
+    }, { doc });
+
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    const keys = () => page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.dataset.rowKey));
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', 'guide');
+    assert.deepEqual(await keys(), ['/a/guide.md:doc', '/b/guide.md:doc']);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => window.__marxyPalette.session.currentRoot), '/b');
+
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', 'guide');
+    assert.deepEqual(await keys(), ['/b/guide.md:doc', '/a/guide.md:doc']);
+  } finally {
+    await browser.close();
+  }
+});

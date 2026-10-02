@@ -120,7 +120,8 @@ export function historyFromSession(session: PaletteSession): HistoryEnvelope {
   for (let i = session.history.length - 1; i >= 0; i--) {
     const path = session.history[i];
     if (path === undefined) continue;
-    // The real time of the last open; a path with no recorded time keeps the synthetic value.
+    // The real time of the last open (so a path opened twice repeats its latest time, which is
+    // not monotonic down the list; the order is the file order); a path with no recorded time keeps the synthetic value.
     opens.unshift({ path, at: session.readAt[path] ?? now - (session.history.length - 1 - i) });
   }
   for (const path of session.mru) {
@@ -152,6 +153,8 @@ export const HISTORY_WRITE_DEBOUNCE_MS = 1000;
 
 let historyIo: HistoryIo | null = null;
 let writeTimer: ReturnType<typeof setTimeout> | null = null;
+/** The debounced save currently on its way to disk, so the quit flush can wait for it. */
+let inFlight: Promise<void> | null = null;
 
 function cancelScheduledWrite(): void {
   if (writeTimer !== null) clearTimeout(writeTimer);
@@ -161,13 +164,21 @@ function cancelScheduledWrite(): void {
 function scheduleWrite(): void {
   if (historyIo === null) return;
   cancelScheduledWrite();
-  writeTimer = setTimeout(() => {
+  const timer = setTimeout(() => {
     writeTimer = null;
     const io = historyIo;
     const session = sessionMirror;
     if (io === null || session === null) return;
-    void savePaletteHistory(io, session).catch(() => undefined);
+    const save = savePaletteHistory(io, session)
+      .catch(() => undefined)
+      .finally(() => {
+        if (inFlight === save) inFlight = null;
+      });
+    inFlight = save;
   }, HISTORY_WRITE_DEBOUNCE_MS);
+  // A pending write must not keep a Node process (tests) alive.
+  (timer as { unref?: () => void }).unref?.();
+  writeTimer = timer;
 }
 
 let historyNewerVersion = false;
@@ -178,6 +189,7 @@ export function resetPaletteHistoryMirror(): void {
   sessionMirror = null;
   historyNewerVersion = false;
   historyIo = null;
+  inFlight = null;
   cancelScheduledWrite();
   pendingPinPaths.length = 0;
 }
@@ -204,7 +216,12 @@ function mergeSessions(disk: PaletteSession, palette: PaletteSession): PaletteSe
   for (const path of palette.mru) {
     if (!session.mru.includes(path)) session = recordOpen(session, path, undefined, palette.readAt[path]);
   }
-  return { ...session, pinned: [...palette.pinned] };
+  // A back/forward stamp on a path the mirror already knows still counts: keep the later time.
+  const readAt: Record<string, number> = { ...session.readAt };
+  for (const [path, at] of Object.entries(palette.readAt)) {
+    if (at > (readAt[path] ?? 0)) readAt[path] = at;
+  }
+  return { ...session, readAt, pinned: [...palette.pinned] };
 }
 
 async function historyPath(shell: HistoryIo): Promise<string> {
@@ -249,6 +266,8 @@ export async function flushPaletteHistoryFromApp(
 ): Promise<void> {
   // The quit flush is the last word: a debounced write must not land after it.
   cancelScheduledWrite();
+  // A write already on its way finishes first, so an older snapshot cannot land after this one.
+  if (inFlight !== null) await inFlight;
   let palette = paletteSession ?? emptySessionUncached('/');
   for (const path of pendingPinPaths) palette = togglePin(palette, path);
   pendingPinPaths.length = 0;

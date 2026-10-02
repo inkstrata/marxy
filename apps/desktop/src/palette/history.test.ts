@@ -22,6 +22,11 @@ afterEach(() => {
 
 const HOUR = 3_600_000;
 
+/** Let every pending promise step (the save awaits configPaths before it writes). */
+async function drain(): Promise<void> {
+  for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve));
+}
+
 test('a restart keeps relative recency: order and `at` values survive a round trip', () => {
   const t0 = 1_700_000_000_000;
   let session = emptySession('/repo');
@@ -57,8 +62,7 @@ test('trackDocumentOpen writes history.json once, 1 s after the last open', asyn
   mock.timers.tick(999);
   assert.equal(writes().length, 0, 'the second open restarts the debounce');
   mock.timers.tick(1);
-  await Promise.resolve();
-  await Promise.resolve();
+  await drain();
   assert.equal(writes().length, 1);
   const [path, bytes] = writes()[0]!.args as [string, Uint8Array];
   assert.equal(path, '/data/history.json');
@@ -75,6 +79,50 @@ test('the quit flush cancels a pending debounced write and has the last word', a
   const writes = () => shell.calls.filter((c) => c.method === 'writeFileAtomic');
   assert.equal(writes().length, 1);
   mock.timers.tick(5_000);
-  await Promise.resolve();
+  await drain();
   assert.equal(writes().length, 1, 'no second write after the quit flush');
+});
+
+test('a debounced write already in flight finishes before the quit flush writes', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  const shell = createMemoryShell({});
+  const order: string[] = [];
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const realWrite = shell.writeFileAtomic.bind(shell);
+  let first = true;
+  shell.writeFileAtomic = async (path: string, bytes: Uint8Array) => {
+    if (first) {
+      first = false;
+      order.push('debounced:start');
+      await gate;
+      order.push('debounced:end');
+    } else {
+      order.push('flush');
+    }
+    return realWrite(path, bytes);
+  };
+  await loadPaletteHistory(shell as never, '/repo');
+  trackDocumentOpen('/repo/a.md', '/repo');
+  mock.timers.tick(1_000);
+  await drain();
+  assert.deepEqual(order, ['debounced:start']);
+  const flushing = flushPaletteHistoryFromApp(shell as never, undefined);
+  await drain();
+  assert.deepEqual(order, ['debounced:start'], 'the flush waits for the write in flight');
+  release();
+  await flushing;
+  assert.deepEqual(order, ['debounced:start', 'debounced:end', 'flush']);
+});
+
+test('a back/forward stamp on a path the history already knows reaches history.json', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  const shell = createMemoryShell({});
+  await loadPaletteHistory(shell as never, '/repo');
+  trackDocumentOpen('/repo/a.md', '/repo');
+  const known = recordOpen(emptySession('/repo'), '/repo/a.md', '/repo', Date.now() + 10 * HOUR);
+  await flushPaletteHistoryFromApp(shell as never, known);
+  const write = shell.calls.filter((c) => c.method === 'writeFileAtomic').at(-1)!;
+  const { envelope } = parseHistoryFile(write.args[1] as Uint8Array);
+  assert.ok(envelope.opens.some((o) => o.path === '/repo/a.md' && o.at > Date.now() + 9 * HOUR));
 });

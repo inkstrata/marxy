@@ -420,9 +420,12 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (hit === undefined) return;
     const jump = jumpForHit(hit);
     session = recordOpen(session, jump.path, hit.entry.root);
-    prepared = prepareIndex(entries, session.readAt);
     syncSession();
     dismiss();
+    // After the palette is gone, and off this tick: the open never waits on a re-prepare.
+    setTimeout(() => {
+      prepared = prepareIndex(entries, session.readAt);
+    }, 0);
     // The document on screen with no heading to land on: nothing to open.
     if (deps.getCurrentPath() === jump.path && jump.byteOffset === undefined) return;
     await renderPath(deps, jump.path, jump.byteOffset);
