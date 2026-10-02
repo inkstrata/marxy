@@ -199,6 +199,14 @@ function injectPaletteStyles(doc: Document): void {
       padding: 0.45rem 1rem;
       cursor: default;
     }
+    #marxy-palette .marxy-palette-row:has(.marxy-palette-key) {
+      display: flex;
+      gap: 1em;
+    }
+    #marxy-palette .marxy-palette-key {
+      margin-inline-start: auto;
+      opacity: 0.75;
+    }
     #marxy-palette .marxy-palette-row[aria-selected="true"] {
       background: var(--marxy-color-accent-muted, rgb(255 255 255 / 8%));
     }
@@ -288,10 +296,7 @@ function paintOperationRows(
     if (spec !== undefined) {
       const key = doc.createElement('span') as HTMLSpanElement;
       key.className = 'marxy-palette-key';
-      key.style.marginInlineStart = 'auto';
       key.textContent = keyLabel(spec, isMacPlatform());
-      row.style.display = 'flex';
-      row.style.gap = '1em';
       row.appendChild(key);
     }
     row.toggleAttribute('aria-selected', i === selected);

@@ -186,6 +186,7 @@ test('palette Copy code runs on Enter, closes, and shows Copied', async () => {
     await page.locator('#doc pre[data-marxy-s]').first().click();
     const mod = modKey(await page.evaluate(() => navigator.platform));
     await page.keyboard.press(`${mod}+KeyP`);
+    // Narrowed: a bare `>` now lists every applicable command (Save first), not only operations.
     await page.locator('#marxy-palette .marxy-palette-query').fill('> copy code');
     await page.waitForSelector('#marxy-palette .marxy-palette-row');
     const labels = await page.locator('#marxy-palette .marxy-palette-row').allTextContents();
