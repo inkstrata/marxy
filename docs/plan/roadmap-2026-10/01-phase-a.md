@@ -221,9 +221,14 @@ so this and the next two stories have a measurement anyone can repeat.
   0.5 px, on every corpus file, width and size (`grid.test.mjs`).
 - The new structural test passes: at most 5 reads-after-write per call, on both the 53 KB and the
   256 KB document (`grid.test.mjs`).
-- `node scripts/perf-harness.mjs --large 1m --runs 5` reports a median grid stage of at most 250 ms
-  at 1 MB, down from 2,251 ms in `05` §9.1. The before and after tables are in the pull request,
-  and the reviewer re-runs the measurement and quotes their number beside it.
+- `node scripts/perf-harness.mjs --large 1m --runs 5` reports the median grid stage at 1 MB, before
+  and after, in the pull request, with the time of `snapToGrid` alone; the reviewer re-runs it and
+  quotes their numbers beside them. *Amended 2026-10-02 by the lead:* the original bound (grid stage
+  at most 250 ms) moved to A-02. A-01 found that the stage is not the grid pass: 2.3–2.8 s of it is
+  one forced restyle of the whole article, triggered by the first style read after the bundled fonts
+  load (today `[...document.fonts]` in the `fonts_ready` mark's detail, `app.ts:1110`; stubbed out,
+  the same cost moves to `snap()`'s `getComputedStyle`). The generated 1 MB document puts no block
+  off the grid, so the old quadratic loop never ran on it. Outside A-01's paths.
 - `pnpm gate:aesthetics` is green. It runs the same pass through `render/headless.ts:227`, so a
   changed padding would show up there.
 - `scripts/perf-harness.test.mjs` is green in `pnpm test`.
@@ -279,6 +284,8 @@ transcripts and logs, the second content type in `docs/brief.md`, routinely exce
 - `packages/typeset/src/index.ts`
 - `scripts/registry.json`
 - `apps/desktop/test/progressive.test.mjs` (new)
+- `docs/design/04-typeset.md`, §Grid only: one sentence that step 2 now runs in rounds (A-01) and
+  takes `from` (this story)
 - `changelog.d/A-02.md` (new)
 
 **Build order.**
@@ -350,6 +357,12 @@ transcripts and logs, the second content type in `docs/brief.md`, routinely exce
      reader was.
    - **The handle** gains `contentComplete(): Promise<void>` on `AppHandle`, so tests and the
      harness can wait for the whole document.
+   - **The `fonts_ready` mark** (*added 2026-10-02 after A-01*). Its detail iterates
+     `document.fonts` (`app.ts:1110`), which forces WebKit to restyle the whole article once the
+     bundled fonts have loaded: 2.3–2.8 s at 1 MB, booked to the grid stage. Drop the face list from
+     the detail (or compute it after `content_complete`), and make sure the first style read after
+     the fonts load happens while the article holds only the first screens. Report, in the pull
+     request, the stage breakdown at 1 MB with and without the change.
 6. `apps/desktop/test/progressive.test.mjs`. It runs in WebKit on the app harness (`app.html`) with
    a 1 MB document built by `generateLarge` from `scripts/perf-harness.mjs`, and checks:
    - At `first_text` the article holds fewer top-level children than the document has, and
@@ -1319,6 +1332,9 @@ can run while focus is in Source mode's editor, and can have more than one chord
 - `apps/desktop/src/commands/navigation.ts`, `appearance.ts`, `outline.ts`, `editor.ts` (new, empty;
   for A-13, A-14, A-15 and A-16)
 - `apps/desktop/test/palette.test.mjs`
+- `apps/desktop/src/commands/source-view.ts` and `apps/desktop/test/operations-copy.test.mjs`
+  (*added 2026-10-02 by the lead*: jump-to-source reads the app handle, as the Risks below ask; the
+  copy test typed Enter on a bare `>`, and the group order moved the first row)
 - `changelog.d/A-12.md` (new)
 
 **Build order.**
