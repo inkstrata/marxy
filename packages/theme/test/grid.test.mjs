@@ -9,6 +9,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { generateLarge } from '../../../scripts/perf-harness.mjs';
 
 /**
  * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
@@ -128,6 +129,140 @@ for (const file of CORPUS) {
       assert.deepEqual((await offGrid(page)).slice(0, 10), [], `off the grid at ${JSON.stringify(options)}`);
       await page.close();
     }
+  });
+}
+
+rendered.set('big-256k', renderSafeHtml(generateLarge(256 * 1024), { file: 'big-256k.md' }).html);
+// The corpus seldom puts a top-level block off the grid (15-prose-volume.md and the 256 KB document
+// not once at 20 px), so the one-push-at-a-time pass read layout after a write only once on them
+// too. These two documents are made to: every block is pushed, and a pass that re-reads layout per
+// push reads it hundreds of times.
+/** Three hundred blocks that each land off the grid: a margin of a quarter line plus a pixel on every paragraph. */
+rendered.set('every-block-off', Array.from({ length: 300 }, (_, i) => `<p data-marxy-s="${i}" style="margin-bottom:calc(var(--marxy-line-box) / 4 + 1px)">Block ${i}.</p>`).join(''));
+/**
+ * MARXY-282's case three hundred times: a paragraph's bottom margin collapses through the block around
+ * it with the next block's top margin until the grid pass pads that block, so a push moves the next
+ * block further than predicted and only a second round sees where it went.
+ */
+rendered.set('collapse-through', Array.from({ length: 300 }, (_, i) => `<div data-marxy-s="${2 * i}"><p style="margin-bottom:calc(var(--marxy-line-box) * 0.75 + 3px)">Inner ${i}.</p></div><p data-marxy-s="${2 * i + 1}" style="margin-top:5px">Next ${i}.</p>`).join(''));
+
+/**
+ * The oracle (A-01): the grid pass as it was before it ran in rounds, which pushed one block, read
+ * the next top from layout, and pushed again. Slow (a layout per push) but measured at every step,
+ * so the round pass must pad exactly what it padded. It shares the module's helpers (`shortfall`,
+ * `isBlock`, `apply`, `ISLANDS`, `snapped`), which are globals of the page script.
+ */
+const SNAP_SEQUENTIAL = `function snapSequential(article, lineBox) {
+  const unit = lineBox / 2;
+  if (!(unit > 0)) return 0;
+  article.style.setProperty('overflow-anchor', 'none');
+  const mine = snapped.get(article) ?? new Set();
+  snapped.set(article, mine);
+  for (const el of mine) el.style.removeProperty(el === article ? 'padding-top' : 'padding-bottom');
+  mine.clear();
+  const plans = [];
+  for (const el of article.querySelectorAll(ISLANDS)) {
+    if (!isBlock(el)) continue;
+    const short = shortfall(el.getBoundingClientRect().height, unit);
+    if (short > 0) plans.push({ el, add: short });
+  }
+  apply(plans, mine);
+  const children = [...article.children].filter((el) => el instanceof HTMLElement && isBlock(el));
+  let pushes = 0;
+  for (let i = 0; i < children.length; i++) {
+    const origin = article.getBoundingClientRect().top;
+    const top = children[i].getBoundingClientRect().top - origin;
+    const short = shortfall(top, unit);
+    if (short === 0) continue;
+    apply([{ el: i === 0 ? article : children[i - 1], add: short }], mine, article);
+    pushes++;
+  }
+  return plans.length + pushes;
+}
+window.snapSequential = snapSequential;`;
+
+/** Every padding the pass wrote in `article`, by the element's index in document order (-1 is the article). */
+const PADDINGS = `window.paddings = (article) => {
+  const out = [];
+  [article, ...article.querySelectorAll('*')].forEach((el, i) => {
+    for (const side of ['padding-top', 'padding-bottom']) {
+      const v = el.style.getPropertyValue(side);
+      if (v) out.push({ at: i - 1, tag: el.tagName.toLowerCase(), side, px: parseFloat(v) });
+    }
+  });
+  return out;
+};`;
+
+for (const file of [...CORPUS, 'every-block-off', 'collapse-through']) {
+  test(`${file}: the round pass pads the same elements by the same amounts as the sequential pass (A-01)`, async () => {
+    const cases = [...WIDTHS.map((width) => ({ width })), ...[16, 24, 28].map((size) => ({ size }))];
+    for (const options of cases) {
+      const page = await open(file, { ...options, snap: false });
+      await page.addScriptTag({ content: `${SNAP_SEQUENTIAL}\n${PADDINGS}` });
+      const { ours, theirs, counts } = await page.evaluate(() => {
+        const article = document.getElementById('doc');
+        // The clone is a second article below the first, at the same width and with the same styles.
+        const clone = article.cloneNode(true);
+        clone.id = 'oracle';
+        article.after(clone);
+        const lineBox = parseFloat(getComputedStyle(article).lineHeight);
+        const counts = [window.snapToGrid(article, lineBox), window.snapSequential(clone, lineBox)];
+        return { ours: window.paddings(article), theirs: window.paddings(clone), counts };
+      });
+      const where = `${file} at ${JSON.stringify(options)}`;
+      assert.deepEqual(ours.map(({ at, tag, side }) => `${at} ${tag} ${side}`), theirs.map(({ at, tag, side }) => `${at} ${tag} ${side}`), `padded elements differ: ${where}`);
+      ours.forEach((p, i) => assert.ok(Math.abs(p.px - theirs[i].px) <= 0.5, `${p.tag} #${p.at} ${p.side}: ${p.px} px against ${theirs[i].px} px, ${where}`));
+      assert.equal(counts[0], counts[1], `elements padded: ${where}`);
+      await page.close();
+    }
+  });
+}
+
+/**
+ * Reads of layout that follow a write, during one grid pass: each is a layout the engine must redo.
+ * The count must not grow with the document (A-01; 05-performance-audit.md §9.2).
+ */
+async function readsAfterWrite(page) {
+  return page.evaluate(() => {
+    const article = document.getElementById('doc');
+    const read = Element.prototype.getBoundingClientRect;
+    const write = CSSStyleDeclaration.prototype.setProperty;
+    const remove = CSSStyleDeclaration.prototype.removeProperty;
+    let last = '';
+    let count = 0;
+    Element.prototype.getBoundingClientRect = function () {
+      if (last === 'w') count++;
+      last = 'r';
+      return read.call(this);
+    };
+    CSSStyleDeclaration.prototype.setProperty = function (...args) {
+      last = 'w';
+      return write.apply(this, args);
+    };
+    CSSStyleDeclaration.prototype.removeProperty = function (...args) {
+      last = 'w';
+      return remove.apply(this, args);
+    };
+    try {
+      window.snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
+    } finally {
+      Element.prototype.getBoundingClientRect = read;
+      CSSStyleDeclaration.prototype.setProperty = write;
+      CSSStyleDeclaration.prototype.removeProperty = remove;
+    }
+    return count;
+  });
+}
+
+for (const file of ['15-prose-volume.md', 'big-256k', 'every-block-off', 'collapse-through']) {
+  test(`${file}: one grid pass reads layout after a write at most five times, whatever the length (A-01)`, async () => {
+    const page = await open(file, { snap: false });
+    const count = await readsAfterWrite(page);
+    assert.ok(count <= 5, `${count} reads after a write`);
+    // Not collapse-through: there the pass, like the one-push-at-a-time pass it must match (the
+    // oracle above), pushes the block after each drift rather than the drifted block itself.
+    if (file !== 'collapse-through') assert.deepEqual((await offGrid(page)).slice(0, 10), [], 'off the grid after the pass');
+    await page.close();
   });
 }
 
