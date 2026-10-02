@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
-import { emptySession } from './session.ts';
-import { jumpForHit, paletteResults, SEARCH_PREPARED_BODY_MUTATION } from './search.ts';
+import { emptySession, recordOpen } from './session.ts';
+import { jumpForHit, paletteResults, prepareIndex, SEARCH_PREPARED_BODY_MUTATION } from './search.ts';
 
 const MODEL_FILES = ['session.ts', 'search.ts', 'keys.ts'] as const;
 const MODEL_FORBIDDEN = [/MiniNode/i, /\bview\.ts\b/, /querySelector\s*\(/, /createElement\s*\(/];
@@ -162,4 +162,34 @@ test('a decomposed (NFD) file name matches a composed (NFC) query and the revers
   const session = emptySession('/repo');
   assert.equal(paletteResults(nfc, [entry(nfd)], session).length, 1);
   assert.equal(paletteResults(nfd, [entry(nfc)], session).length, 1);
+});
+
+test('of two equal matches the one the session read more recently ranks first', () => {
+  const entries = [
+    doc({ path: '/repo/a.md', title: 'notes' }),
+    doc({ path: '/repo/b.md', title: 'notes' }),
+  ];
+  const plain = emptySession('/repo');
+  assert.deepEqual(
+    paletteResults('notes', entries, plain).map((hit) => hit.entry.path),
+    ['/repo/a.md', '/repo/b.md'],
+    'with no history the path breaks the tie',
+  );
+  const now = Date.now();
+  let session = recordOpen(plain, '/repo/a.md', undefined, now - 3_600_000);
+  session = recordOpen(session, '/repo/b.md', undefined, now - 60_000);
+  const prepared = prepareIndex(entries, session.readAt);
+  const hits = paletteResults('notes', entries, { ...session, mru: [] }, { prepared });
+  assert.deepEqual(hits.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
+});
+
+test('a hit opened in root /b moves the current root, and /b hits come before /a hits', () => {
+  const entries = [
+    doc({ path: '/a/guide.md', title: 'guide', root: '/a' }),
+    doc({ path: '/b/guide.md', title: 'guide', root: '/b' }),
+  ];
+  const session = recordOpen(emptySession('/a'), '/b/other.md', '/b');
+  assert.equal(session.currentRoot, '/b');
+  const hits = paletteResults('guide', entries, session);
+  assert.deepEqual(hits.map((hit) => hit.entry.root), ['/b', '/a']);
 });

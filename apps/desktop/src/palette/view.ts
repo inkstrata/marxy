@@ -419,7 +419,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   const activateHit = async (hit: IndexHit | undefined) => {
     if (hit === undefined) return;
     const jump = jumpForHit(hit);
-    session = recordOpen(session, jump.path);
+    session = recordOpen(session, jump.path, hit.entry.root);
+    prepared = prepareIndex(entries, session.readAt);
     syncSession();
     dismiss();
     // The document on screen with no heading to land on: nothing to open.
@@ -519,7 +520,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     close: dismiss,
     setIndexEntries(next) {
       entries = [...next];
-      prepared = prepareIndex(entries);
+      prepared = prepareIndex(entries, session.readAt);
       repaint();
     },
   };

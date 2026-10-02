@@ -94,15 +94,21 @@ export function sessionFromHistory(envelope: HistoryEnvelope, fallbackRoot: stri
     session = { ...session, currentRoot: envelope.recentRoots[0]!, recentRoots: [...envelope.recentRoots] };
   }
   session = { ...session, pinned: [...envelope.pins] };
-  const sortedOpens = [...envelope.opens].sort((a, b) => b.at - a.at);
+  // Newest first; the file order breaks a tie, so two opens in one millisecond keep their order.
+  const sortedOpens = envelope.opens
+    .map((open, index) => ({ open, index }))
+    .sort((a, b) => b.open.at - a.open.at || b.index - a.index)
+    .map(({ open }) => open);
   const seen = new Set<string>();
   const mru: string[] = [];
+  const readAt: Record<string, number> = {};
   for (const open of sortedOpens) {
     if (seen.has(open.path)) continue;
     seen.add(open.path);
     mru.push(open.path);
+    readAt[open.path] = open.at;
   }
-  session = { ...session, mru };
+  session = { ...session, mru, readAt };
   const history = envelope.opens.map((o) => o.path);
   session = { ...session, history, historyIndex: history.length > 0 ? history.length - 1 : -1 };
   return session;
@@ -114,10 +120,11 @@ export function historyFromSession(session: PaletteSession): HistoryEnvelope {
   for (let i = session.history.length - 1; i >= 0; i--) {
     const path = session.history[i];
     if (path === undefined) continue;
-    opens.unshift({ path, at: now - (session.history.length - 1 - i) });
+    // The real time of the last open; a path with no recorded time keeps the synthetic value.
+    opens.unshift({ path, at: session.readAt[path] ?? now - (session.history.length - 1 - i) });
   }
   for (const path of session.mru) {
-    if (!opens.some((o) => o.path === path)) opens.unshift({ path, at: now });
+    if (!opens.some((o) => o.path === path)) opens.unshift({ path, at: session.readAt[path] ?? now });
   }
   const capped = opens.slice(-HISTORY_OPENS_CAP);
   return {
@@ -136,7 +143,31 @@ function emptySessionUncached(currentRoot: string): PaletteSession {
     historyIndex: -1,
     currentRoot,
     recentRoots: [currentRoot],
+    readAt: {},
   };
+}
+
+/** A debounced write 1 s after the last open, so a crash keeps the history (the quit flush stays). */
+export const HISTORY_WRITE_DEBOUNCE_MS = 1000;
+
+let historyIo: HistoryIo | null = null;
+let writeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelScheduledWrite(): void {
+  if (writeTimer !== null) clearTimeout(writeTimer);
+  writeTimer = null;
+}
+
+function scheduleWrite(): void {
+  if (historyIo === null) return;
+  cancelScheduledWrite();
+  writeTimer = setTimeout(() => {
+    writeTimer = null;
+    const io = historyIo;
+    const session = sessionMirror;
+    if (io === null || session === null) return;
+    void savePaletteHistory(io, session).catch(() => undefined);
+  }, HISTORY_WRITE_DEBOUNCE_MS);
 }
 
 let historyNewerVersion = false;
@@ -146,6 +177,8 @@ const pendingPinPaths: string[] = [];
 export function resetPaletteHistoryMirror(): void {
   sessionMirror = null;
   historyNewerVersion = false;
+  historyIo = null;
+  cancelScheduledWrite();
   pendingPinPaths.length = 0;
 }
 
@@ -163,12 +196,13 @@ export function pinDocumentOnPaletteSession(session: PaletteSession, path: strin
 export function trackDocumentOpen(path: string, root: string = dirname(path)): void {
   const base = sessionMirror ?? emptySessionUncached(root);
   sessionMirror = recordOpen(base, path, root);
+  scheduleWrite();
 }
 
 function mergeSessions(disk: PaletteSession, palette: PaletteSession): PaletteSession {
   let session = disk;
   for (const path of palette.mru) {
-    if (!session.mru.includes(path)) session = recordOpen(session, path);
+    if (!session.mru.includes(path)) session = recordOpen(session, path, undefined, palette.readAt[path]);
   }
   return { ...session, pinned: [...palette.pinned] };
 }
@@ -179,6 +213,7 @@ async function historyPath(shell: HistoryIo): Promise<string> {
 }
 
 export async function loadPaletteHistory(shell: HistoryIo, fallbackRoot: string): Promise<void> {
+  historyIo = shell;
   const filePath = await historyPath(shell);
   let bytes: Uint8Array;
   try {
@@ -212,6 +247,8 @@ export async function flushPaletteHistoryFromApp(
   shell: HistoryIo,
   paletteSession: PaletteSession | undefined,
 ): Promise<void> {
+  // The quit flush is the last word: a debounced write must not land after it.
+  cancelScheduledWrite();
   let palette = paletteSession ?? emptySessionUncached('/');
   for (const path of pendingPinPaths) palette = togglePin(palette, path);
   pendingPinPaths.length = 0;
@@ -229,7 +266,9 @@ export async function notePaletteOpen(
   root: string = dirname(path),
 ): Promise<PaletteSession> {
   const next = recordOpen(session, path, root);
-  await savePaletteHistory(shell, next);
+  historyIo = shell;
+  sessionMirror = sessionMirror === null ? next : recordOpen(sessionMirror, path, root);
+  scheduleWrite();
   return next;
 }
 

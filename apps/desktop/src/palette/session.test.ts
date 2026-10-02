@@ -80,3 +80,22 @@ test('back and forward walk history and drop the undone branch on a new open', (
   assert.ok(again !== undefined);
   assert.equal(again!.path, '/b');
 });
+
+test('recordOpen stamps readAt, and going back is a read too', () => {
+  let session = emptySession('/repo');
+  assert.deepEqual(session.readAt, {});
+  session = recordOpen(session, '/a', undefined, 1_000);
+  session = recordOpen(session, '/b', undefined, 2_000);
+  assert.deepEqual(session.readAt, { '/a': 1_000, '/b': 2_000 });
+  const before = Date.now();
+  const back = goBack(session);
+  assert.equal(back!.path, '/a');
+  assert.ok(back!.session.readAt['/a']! >= before);
+  assert.equal(back!.session.readAt['/b'], 2_000);
+});
+
+test('recordOpen with a root in /b moves currentRoot to /b', () => {
+  const session = recordOpen(emptySession('/a'), '/b/x.md', '/b');
+  assert.equal(session.currentRoot, '/b');
+  assert.deepEqual(session.recentRoots, ['/b', '/a']);
+});
