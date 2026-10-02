@@ -128,8 +128,10 @@ whole number of units, because its margins already are. (2) the article's block 
 read in order, and any whose top is off the grid pushes the block before it down by the
 difference (the article's own `padding-top` when there is none). After each push the next
 child's top is read again: `padding-bottom` stops that child's margin collapsing with the next
-sibling, so a running predicted delta drifts (MARXY-282). The layout count is however many
-pushes the pass measures, not a fixed three. Summing
+sibling, so a running predicted delta drifts (MARXY-282). Step 2 now runs in rounds, each reading
+every top at once and writing every push at once, at most four (A-01), and takes an optional `from`,
+the first block appended below the rest, so that a document mounted in chunks re-reads only the
+block before `from` and the blocks after it (A-02). Summing
 `marginTop + height + marginBottom` per child, as first designed, is wrong wherever margins
 collapse and pads headings whose margins already close their remainder. The elements a run padded
 are remembered per article (a `WeakMap`) and undone before the next run. Runs after render, after `document.fonts.ready`,
