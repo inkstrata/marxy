@@ -53,11 +53,7 @@ function specSuiteStep(workflow: string): string | undefined {
   return workflow.split(/\n      - /).slice(1).find((step) => /curl/.test(step) && /test:spec/.test(step));
 }
 
-function specRelatedSteps(workflow: string): string[] {
-  return workflow.split(/\n      - /).slice(1).filter((step) => /commonmark-spec|test:spec/.test(step));
-}
-
-/** The spec CI step must stay required: no continue-on-error, no || true, no per-step if. */
+/** The spec CI step exists and takes its URL from this script. Whether it may be skipped or softened is check-workflows' rule. */
 function checkWorkflow(workflow: string): string[] {
   const errors: string[] = [];
   const suite = specSuiteStep(workflow);
@@ -77,18 +73,6 @@ function checkWorkflow(workflow: string): string[] {
     errors.push(
       `.github/workflows/ci.yml: pins CommonMark ${SPEC_VERSION}; the version lives only in packages/core/scripts/commonmark-spec.ts`,
     );
-  }
-  for (const step of specRelatedSteps(workflow)) {
-    const head = step.split('\n')[0].trim();
-    if (/continue-on-error/.test(step)) {
-      errors.push(`.github/workflows/ci.yml: "${head}" carries continue-on-error`);
-    }
-    if (/\|\|\s*true/.test(step)) {
-      errors.push(`.github/workflows/ci.yml: "${head}" swallows its exit code with || true`);
-    }
-    if (/^\s*if:/m.test(step)) {
-      errors.push(`.github/workflows/ci.yml: "${head}" is conditional, so it is not required`);
-    }
   }
   return errors;
 }
@@ -140,10 +124,8 @@ function selftest(): void {
   report(absent.status === 1, 'a missing example file exits 1 rather than skipping', `exit ${absent.status}`);
 
   const workflow = readFileSync(join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
-  report(checkWorkflow(workflow).length === 0, 'workflow: the spec suite step is required, with no continue-on-error and no || true', checkWorkflow(workflow).join('; '));
+  report(checkWorkflow(workflow).length === 0, 'workflow: the spec suite step exists, takes its URL from the script and asserts a clean tree', checkWorkflow(workflow).join('; '));
   for (const [what, mutated] of [
-    ['continue-on-error on the spec suite step', workflow.replace('      - name: CommonMark spec suite', '      - name: CommonMark spec suite\n        continue-on-error: true')],
-    ['|| true on test:spec', workflow.replace('pnpm --filter @marxy/core test:spec', 'pnpm --filter @marxy/core test:spec || true')],
     ['porcelain assertion removed', workflow.replace('\n          test -z "$(git status --porcelain)"', '')],
     ['spec suite step removed', workflow.replace(/      - name: CommonMark spec suite\n(?:(?:        |          ).*\n)+/, '')],
   ] as const) {

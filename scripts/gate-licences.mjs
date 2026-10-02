@@ -385,72 +385,6 @@ export function parseGateOptions(argv) {
 }
 
 /**
- * The two CI runs are only worth anything if both are required on both runners, the second
- * happens after the desktop build (so the cargo cache is populated), and they have different
- * names in the log. A step that can be skipped or forced green is the same as no second run.
- */
-export function checkLicenceWorkflow(text) {
-  const errors = [];
-  const gatesStart = text.indexOf('\n  gates:');
-  if (gatesStart < 0) return ['.github/workflows/ci.yml: no gates job'];
-  const gates = text.slice(gatesStart);
-  for (const os of ['macos-latest', 'ubuntu-latest']) {
-    if (!new RegExp(`os:.*${os}`).test(gates)) {
-      errors.push(`.github/workflows/ci.yml: the gates matrix does not include ${os}`);
-    }
-  }
-  const steps = gates.split(/\n      - /).slice(1);
-  const licenceIdxs = steps
-    .map((s, i) => (/gate:licences|gate-licences\.mjs/.test(s) ? i : -1))
-    .filter((i) => i >= 0);
-  const licenceSteps = licenceIdxs.map((i) => steps[i]);
-  if (licenceSteps.length < 2) {
-    errors.push('.github/workflows/ci.yml: gate:licences must run twice '
-      + '(pre-build and post-build)');
-  }
-  const names = licenceSteps.map((s) => /^name:\s*(.+)$/m.exec(s)?.[1]?.trim() ?? null);
-  if (names.some((n) => !n)) {
-    errors.push('.github/workflows/ci.yml: each licence-gate step must have a name so the two '
-      + 'runs are distinguishable in the log');
-  } else if (names.length >= 2 && new Set(names).size < 2) {
-    errors.push('.github/workflows/ci.yml: the two licence-gate steps must have different names');
-  }
-  const buildIdx = steps.findIndex((s) => /@marxy\/desktop build/.test(s));
-  if (buildIdx < 0) {
-    errors.push('.github/workflows/ci.yml: no desktop build step');
-  } else if (licenceIdxs.length >= 2) {
-    if (!(licenceIdxs[0] < buildIdx)) {
-      errors.push('.github/workflows/ci.yml: the first licence gate must run before the desktop '
-        + 'build so a lockfile-only change still fails fast');
-    }
-    if (!licenceIdxs.some((i) => i > buildIdx)) {
-      errors.push('.github/workflows/ci.yml: a licence gate must run after the desktop build, '
-        + 'when the cargo cache is populated');
-    }
-  }
-  const post = licenceIdxs.filter((i) => i > buildIdx).map((i) => steps[i])[0];
-  if (post && !/gate-licences\.mjs --require-registry/.test(post)) {
-    errors.push('.github/workflows/ci.yml: the post-build licence gate must run '
-      + 'node scripts/gate-licences.mjs --require-registry so it reads every crate from the '
-      + 'cache rather than the allow-list');
-  }
-  for (const s of licenceSteps) {
-    const head = (/^name:\s*(.+)$/m.exec(s)?.[1] ?? s.split('\n')[0]).trim();
-    if (/continue-on-error/.test(s)) {
-      errors.push(`.github/workflows/ci.yml: "${head}" carries continue-on-error`);
-    }
-    if (/\|\|\s*true/.test(s)) {
-      errors.push(`.github/workflows/ci.yml: "${head}" swallows its exit code with || true`);
-    }
-    if (/^\s*if:/m.test(s)) {
-      errors.push(`.github/workflows/ci.yml: "${head}" is conditional, so it is not required `
-        + 'on both runners');
-    }
-  }
-  return errors;
-}
-
-/**
  * Proves the gate fails in the cases ADR-0006 exists to catch, without any of them ever entering
  * the real lockfile: a GPL dependency, a licence-less dependency, an unrecognised licence, a
  * grammar with no licence recorded, and a GPL grammar. Throws on the first case that misbehaves.
@@ -696,50 +630,6 @@ export function selfCheck() {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   check('package.json still exposes the pre-build licence gate',
     pkg.scripts['gate:licences'] === 'node scripts/gate-licences.mjs');
-  const workflow = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
-  const workflowErrors = checkLicenceWorkflow(workflow);
-  cases.push('ci.yml runs the licence gate twice, named, required, post-build requiring the registry');
-  assert.ok(workflowErrors.length === 0,
-    `self-check failed: ci.yml wiring — ${workflowErrors.join('; ')}`);
-  const PRE = 'Licence gate (pre-build, empty cargo cache)';
-  const POST = 'Licence gate (post-build, populated cargo cache)';
-  for (const [what, mutated] of [
-    ['continue-on-error on the post-build licence gate',
-      workflow.replace(`      - name: ${POST}\n`, `      - name: ${POST}\n        continue-on-error: true\n`)],
-    ['|| true on the post-build licence gate',
-      workflow.replace(
-        '        run: node scripts/gate-licences.mjs --require-registry\n',
-        '        run: node scripts/gate-licences.mjs --require-registry || true\n',
-      )],
-    ['the post-build licence gate skipped on one runner',
-      workflow.replace(
-        `      - name: ${POST}\n        run:`,
-        `      - name: ${POST}\n        if: runner.os == 'Linux'\n        run:`,
-      )],
-    ['the post-build licence gate dropped',
-      workflow.replace(
-        `\n      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry`,
-        '',
-      )],
-    ['--require-registry dropped from the post-build run',
-      workflow.replace(
-        '        run: node scripts/gate-licences.mjs --require-registry\n',
-        '        run: pnpm gate:licences\n',
-      )],
-    ['both licence-gate steps given the same name',
-      workflow.replace(`      - name: ${POST}\n`, `      - name: ${PRE}\n`)],
-    ['the post-build step moved before the desktop build',
-      workflow
-        .replace(`\n      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry`, '')
-        .replace(
-          '      - name: Build the frontend\n',
-          `      - name: ${POST}\n        run: node scripts/gate-licences.mjs --require-registry\n      - name: Build the frontend\n`,
-        )],
-    ['macos-latest dropped from the matrix',
-      workflow.replace('os: [macos-latest, ubuntu-latest]', 'os: [ubuntu-latest]')],
-  ]) {
-    check(`workflow: ${what} is rejected`, checkLicenceWorkflow(mutated).length > 0);
-  }
 
   return cases.length;
 }

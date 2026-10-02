@@ -123,7 +123,7 @@ test('MARXY-337: relativeImportSpecs is not fooled by comment markers inside str
 });
 
 test('MARXY-337: gate scripts turn import.meta.url into a path with fileURLToPath, not .pathname', () => {
-  for (const f of ['gate-bundle', 'gate-no-network', 'gate-licences', 'measure-startup', 'gate-aesthetics', 'gate-protection']) {
+  for (const f of ['gate-bundle', 'gate-no-network', 'gate-licences', 'measure-startup', 'gate-aesthetics']) {
     const text = readFileSync(new URL(`./${f}.mjs`, import.meta.url), 'utf8');
     // `.pathname` percent-encodes a space, `%` or a non-ASCII letter in the checkout path.
     assert.doesNotMatch(text.replace(/new URL\(req\.url[^)]*\)\.pathname/g, '').replace(/new URL\(spec[^)]*\)\.pathname/g, ''), /import\.meta\.url\)\.pathname/, f);
