@@ -130,3 +130,86 @@ test('Esc closes the outline and the article has focus', async () => {
     await browser.close();
   }
 });
+
+async function toSource(page, mod) {
+  await page.keyboard.press(`${mod}+KeyE`);
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-content'), null, { timeout: 8000 });
+  await page.waitForTimeout(500);
+}
+
+test('from Source mode, Mod+Shift+O, a row and Enter return to Rendered at that heading', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, chord } = await boot(browser);
+    const mod = chord.split('+')[0];
+    await toSource(page, mod);
+    await page.keyboard.press(chord);
+    assert.equal(await dialogOpen(page), true);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered', null, { timeout: 8000 });
+    await page.waitForTimeout(800);
+    assert.equal(await dialogOpen(page), false);
+    const harness = await page.evaluate(() => window.__h.sourceHarness());
+    assert.equal(harness.mode, 'rendered');
+    assert.equal(harness.byteOffset, entries[2].src.start);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Esc in Source mode leaves focus in the editor, not on a hidden element', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, chord } = await boot(browser);
+    await toSource(page, chord.split('+')[0]);
+    await page.keyboard.press(chord);
+    await page.keyboard.press('Escape');
+    assert.equal(await dialogOpen(page), false);
+    const focus = await page.evaluate(() => {
+      const a = document.activeElement;
+      return { inEditor: a?.classList.contains('cm-content') ?? false, visible: !!a && a.getClientRects().length > 0 };
+    });
+    assert.deepEqual(focus, { inEditor: true, visible: true });
+  } finally {
+    await browser.close();
+  }
+});
+
+test('> in the palette lists Outline with its key; Enter opens the outline and closes the palette', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, chord } = await boot(browser);
+    const mod = chord.split('+')[0];
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', '>outline');
+    const rows = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+      els.map((el) => ({
+        title: el.querySelector('.marxy-palette-title')?.textContent ?? el.textContent,
+        key: el.querySelector('.marxy-palette-key')?.textContent ?? null,
+      })));
+    const row = rows.find((r) => r.title === 'Outline');
+    assert.ok(row, JSON.stringify(rows));
+    assert.match(row.key, /^(⇧⌘O|Ctrl\+Shift\+O)$/);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.getElementById('marxy-outline')?.hasAttribute('open'));
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Mod+Shift+O with the palette open closes the palette: overlays are exclusive', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, chord } = await boot(browser);
+    await page.keyboard.press(`${chord.split('+')[0]}+KeyP`);
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), true);
+    await page.keyboard.press(chord);
+    assert.equal(await dialogOpen(page), true);
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
+  } finally {
+    await browser.close();
+  }
+});
