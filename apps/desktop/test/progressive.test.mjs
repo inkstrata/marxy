@@ -19,6 +19,13 @@ const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const BIG = Buffer.from(generateLarge(1024 * 1024));
 const CORPUS = readFileSync(join(repoRoot, 'fixtures', 'corpus', '01-long-technical.md'));
+/**
+ * Islands the grid pass must pad (05's tables and nested blocks) between copies of 01, about 815 KB:
+ * the generated document alone is on the grid by CSS, so it cannot show a grid pass that was skipped.
+ */
+const ISLANDS = Buffer.concat(
+  Array.from({ length: 30 }, () => [CORPUS, Buffer.from('\n\n'), readFileSync(join(repoRoot, 'fixtures', 'corpus', '05-pathological-table-and-nesting.md')), Buffer.from('\n\n')]).flat(),
+);
 const SMALL = Buffer.from('# Small\n\nA short document, wholly in the article at once.\n');
 const b64 = (bytes) => Buffer.from(bytes).toString('base64');
 
@@ -46,12 +53,14 @@ after(() => closeHarness());
  * the article holds; `window.__h` is the handle, and `window.__complete` turns true when the open
  * document is wholly in.
  */
-async function boot(page, files, argv) {
+async function boot(page, files, argv, { typeset = true } = {}) {
   const base = await harnessBase();
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(
-    async ({ files, argv }) => {
+    async ({ files, argv, typeset }) => {
+      // The theme's kill switch: no typesetter, so no background pass asks for a whole-article snap.
+      if (!typeset) document.documentElement.style.setProperty('--marxy-typeset', 'none');
       const bytes = {};
       for (const [path, b64] of Object.entries(files)) {
         const raw = atob(b64);
@@ -74,7 +83,7 @@ async function boot(page, files, argv) {
       window.__complete = false;
       void handle.contentComplete().then(() => { window.__complete = true; });
     },
-    { files, argv },
+    { files, argv, typeset },
   );
 }
 
@@ -167,6 +176,56 @@ test('at 1 MB, first text holds the first screens and the rest arrives later, on
     const grid = await offGrid(page);
     assert.ok(grid.blocks > 1000, `${grid.blocks} blocks measured`);
     assert.deepEqual(grid.off.slice(0, 10), [], `${grid.off.length} of ${grid.blocks} blocks off the grid`);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('while chunks arrive, each grid pass from the appended blocks leaves every mounted block on the grid', async () => {
+  // The completion runs a whole-article pass, so the final check above cannot see a `from` pass that
+  // got a chunk boundary wrong. This samples the page after chunk passes and before completion, with
+  // the typesetter off so that every pass in between is a `from` pass.
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await boot(page, { '/docs/small.md': b64(SMALL), '/docs/islands.md': b64(ISLANDS) }, ['/docs/small.md'], { typeset: false });
+    const r = await page.evaluate(async () => {
+      const h = window.__h;
+      const doc = document.getElementById('doc');
+      const opened = h.open('/docs/islands.md');
+      while (!(h.state.document?.html.length > 65_536)) await new Promise((r) => setTimeout(r, 0));
+      let complete = false;
+      void h.contentComplete().then(() => { complete = true; });
+      const samples = [];
+      let seen = h.state.document.blocks;
+      while (!complete) {
+        await new Promise((r) => setTimeout(r, 0));
+        const blocks = h.state.document.blocks;
+        if (complete || blocks === seen || blocks.length === 0) continue;
+        seen = blocks;
+        // A pass ran since the last look. Chunks appended after it are not on the grid yet, and cannot
+        // move what is above them: check the blocks that pass covered, up to its last block.
+        const last = blocks[blocks.length - 1].el;
+        const unit = parseFloat(getComputedStyle(doc).lineHeight) / 2;
+        const origin = doc.getBoundingClientRect().top;
+        const off = [];
+        let n = 0;
+        for (const el of doc.querySelectorAll('[data-marxy-s]')) {
+          if (el !== last && last.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING && !last.contains(el)) break;
+          if (!['block', 'table', 'list-item', 'flow-root'].includes(getComputedStyle(el).display)) continue;
+          n++;
+          const top = el.getBoundingClientRect().top - origin;
+          const m = ((top % unit) + unit) % unit;
+          if (Math.min(m, unit - m) > 0.5) off.push(`${el.tagName}@${el.getAttribute('data-marxy-s')}`);
+        }
+        samples.push({ blocks: n, off: off.slice(0, 5), offCount: off.length });
+      }
+      await opened;
+      return samples;
+    });
+    assert.ok(r.length >= 3 && r.at(-1).blocks > r[0].blocks, `sampled passes before completion: ${JSON.stringify(r.map((x) => x.blocks))}`);
+    const bad = r.filter((x) => x.offCount > 0);
+    assert.deepEqual(bad, [], `${bad.length} of ${r.length} samples had blocks off the grid`);
   } finally {
     await browser.close();
   }
