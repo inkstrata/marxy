@@ -65,5 +65,3 @@ but eye and ear have not that light.”
 ---
 
 Jalāl al-Dīn Rūmī (1207–1273), the opening lines of the *Masnavī*, the song of the reed flute that begins all six books. Persian text of Reynold A. Nicholson's edition, *The Mathnawí of Jalálu’ddín Rúmí*, volume 1 (Leiden: E. J. Brill, 1925), lines 1–7, without its vowel marks. Each couplet is set as a stanza of two half-lines.
-
-Translated for Marxy, line for line, and released with it under the MIT licence.

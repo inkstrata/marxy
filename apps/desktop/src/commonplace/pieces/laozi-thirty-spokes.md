@@ -41,5 +41,3 @@ what is not there gives the use.
 Attributed to Laozi. Chapter 11 of the *Daodejing*, in the received text of Wang Bi (226–249). The chapter is written as rhymed prose; the lines are broken here at its clauses.
 
 It is on this page because this page is what Marxy shows when nothing is open.
-
-Translated for Marxy, line for line, and released with it under the MIT licence.

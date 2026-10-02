@@ -25,5 +25,3 @@ Man is only a reed, the weakest thing in nature; but he is a thinking reed. The 
 ---
 
 Blaise Pascal (1623–1662). The *Pensées* are the notes he left for a book he did not live to write; this is the text of the edition his friends at Port-Royal made of them (Paris: Guillaume Desprez, 1670), chapter XXIII of its second printing, as transcribed by Wikisource. The spaces before semicolons are French typography.
-
-Translated for Marxy and released with it under the MIT licence.

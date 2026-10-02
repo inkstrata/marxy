@@ -25,11 +25,13 @@ rights: public-domain               # public-domain | public-domain-original+mar
 1. `# Title`, the one h1.
 2. The text. A bilingual piece has one `## ` section per entry in `languages`, in that order,
    headed by the language's own name (`## Deutsch`, `## English`, `## 中文`, `## فارسی`).
-   A single-language piece has no h2.
+   A single-language piece has no h2. Those headings are how the file is split. The page does
+   not print them: the texts are set raw, with a gap between them ([`INFO.md`](INFO.md)).
 3. A thematic break `---` on its own line. **Everything after the last thematic break is the
    colophon**: one or more paragraphs naming the author, work, date and the edition followed,
-   and anything the reader should know about the text (what was omitted, what was normalised,
-   who translated). No piece uses `---` anywhere else.
+   and anything the reader should know about the text (what was omitted, what was normalised).
+   The translation licence is not written here; it is in [`INFO.md`](INFO.md). No piece uses
+   `---` anywhere else.
 
 ## Verse
 

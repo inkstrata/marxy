@@ -25,5 +25,3 @@ With this, the concept of Spirit is already present for us. What will come to be
 ---
 
 G. W. F. Hegel (1770–1831), from the opening of chapter IV of the *Phenomenology of Spirit* (Bamberg and Würzburg, 1807), "The Truth of Self-Certainty." German in the modernised spelling of the zeno.org transcription; the bracketed letter is an editor's. *Geist* is Spirit, and also mind.
-
-Translated for Marxy and released with it under the MIT licence.

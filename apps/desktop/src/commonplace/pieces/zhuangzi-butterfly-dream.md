@@ -25,5 +25,3 @@ Once Zhuang Zhou dreamed he was a butterfly, a butterfly fluttering here and the
 ---
 
 Zhuangzi (Zhuang Zhou, 4th century BCE), the last passage of the second chapter of the book that bears his name, "On the Equality of Things," in the received text of Guo Xiang (d. 312).
-
-Translated for Marxy and released with it under the MIT licence.
