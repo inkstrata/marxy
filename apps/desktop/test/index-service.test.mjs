@@ -125,6 +125,35 @@ nodeTest('refresh re-walks an indexed root once for a burst of calls, and ignore
   assert.ok(service.entries().some((e) => e.path === '/b/later.md'), 'the re-walk publishes the new file');
 });
 
+nodeTest('a first walk that fails is not cached: the next ensureFor walks the root again', async () => {
+  const shell = createMemoryShell(twoRepos());
+  const readDir = shell.readDir;
+  let failures = 0;
+  const flaky = {
+    ...shell,
+    // Root detection lists /b first; the walk's own listing of /b is the second call and fails once.
+    readDir: async (dir) => {
+      if (dir === '/b' && failures === 0 && shell.calls.some((c) => c.method === 'readDir' && c.args[0] === '/b')) {
+        failures++;
+        throw new Error('io: transient');
+      }
+      return readDir(dir);
+    },
+  };
+  const service = createIndexService(flaky);
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    await service.ensureFor('/b/README.md');
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(failures, 1, 'the walk failed once');
+  assert.deepEqual(service.entries(), []);
+  await service.ensureFor('/b/README.md');
+  assert.deepEqual(service.entries().map((e) => e.path).sort(), ['/b/README.md', '/b/notes.md'], 'the retry walked /b');
+});
+
 nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRead', async () => {
   register('./support/tauri-stub-hooks.mjs', import.meta.url);
   globalThis.navigator ??= { platform: 'MacIntel' };
@@ -253,4 +282,42 @@ test('history.json records repository roots, /a and /b, not /a/docs', () =>
     });
     const { recentRoots } = JSON.parse(history);
     assert.deepEqual(recentRoots, ['/b', '/a'], history);
+  }));
+
+test("the echo of Marxy's own save re-walks nothing; another markdown file's change re-walks the root", () =>
+  launch(['/a/README.md'], async (page) => {
+    await indexed(page, '/a');
+    const counts = await page.evaluate(async () => {
+      const h = window.__h;
+      const count = () => ({
+        index_loaded: h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded').length,
+        readDir: h.shell.calls.filter((c) => c.method === 'readDir').length,
+      });
+      const idle = () => new Promise((resolve) => setTimeout(resolve, 300));
+      const until = async (ok) => {
+        const deadline = performance.now() + 5000;
+        while (!ok() && performance.now() < deadline) await new Promise((r) => setTimeout(r, 20));
+      };
+      const watchReads = () => h.shell.calls.filter((c) => c.method === 'readFile' && c.args[0] === '/a/README.md').length;
+      await idle();
+      // An edit, then the save's bytes reach disk and the watcher reports the open document.
+      await h.commitEdit(h.openDocument().buffer);
+      await h.shell.writeFileAtomic('/a/README.md', h.openDocument().buffer.bytes);
+      const before = count();
+      let reads = watchReads();
+      h.shell.emit([{ kind: 'modified', path: '/a/README.md' }]);
+      await until(() => watchReads() > reads);
+      await idle();
+      const echo = count();
+      // The control: a different markdown file in the directory changes.
+      await h.shell.writeFileAtomic('/a/later.md', new TextEncoder().encode('# Later\n'));
+      reads = watchReads();
+      h.shell.emit([{ kind: 'created', path: '/a/later.md' }]);
+      await until(() => count().index_loaded > echo.index_loaded);
+      const other = count();
+      return { before, echo, other };
+    });
+    assert.deepEqual(counts.echo, counts.before, `the save echo walked: ${JSON.stringify(counts)}`);
+    assert.equal(counts.other.index_loaded, counts.echo.index_loaded + 1, `another file did not re-walk: ${JSON.stringify(counts)}`);
+    assert.ok(counts.other.readDir > counts.echo.readDir);
   }));

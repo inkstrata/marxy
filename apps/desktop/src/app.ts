@@ -827,16 +827,25 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
 
 const isMarkdownPath = (path: string): boolean => classify(path) === 'markdown';
 
+/**
+ * The watch is the document's directory: a markdown file there changed, so its root is re-walked
+ * (coalesced, at idle). The echo of Marxy's own save is not a change: an event naming the open
+ * document while disk holds exactly the buffer's bytes re-walks nothing. Recursive watching is a later phase.
+ */
+function refreshIndexForWatch(events: readonly WatchEvent[], path: string, diskBytes: Uint8Array | null): void {
+  const echo = diskBytes !== null && documentBuffer !== null && contentHash(diskBytes) === contentHash(documentBuffer.bytes);
+  const changed = (p: string | undefined) => p !== undefined && isMarkdownPath(p) && !(echo && p === path);
+  if (events.some((e) => changed(e.path) || changed(e.to))) {
+    void index.rootFor(path).then((root) => index.refresh(root));
+  }
+}
+
 async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
   if (!openPath || !documentBuffer || !state.document) return;
   const path = openPath;
-  // The watch is the document's directory: a markdown file there changed, so its root is re-walked
-  // (coalesced, at idle). Recursive watching is a later phase.
-  if (events.some((e) => isMarkdownPath(e.path) || (e.to !== undefined && isMarkdownPath(e.to)))) {
-    void index.rootFor(path).then((root) => index.refresh(root));
-  }
   const position = currentPosition(readingScroller(), state.document.blocks, path, viewMode);
   const diskBytes = await readOpenFileWithRetry(path);
+  refreshIndexForWatch(events, path, diskBytes);
   const update = applyWatchToOpenDocument(
     events,
     position,
@@ -1189,7 +1198,9 @@ async function openReplacing(file: string, at?: number): Promise<void> {
     await openDocumentThroughRenderMark(file, doc, at);
     historyTracked = historyTracked
       .then(() => index.rootFor(file))
-      .then((root) => trackDocumentOpen(file, root));
+      .then((root) => trackDocumentOpen(file, root))
+      // A failed record must not poison the chain: every later open and the quit flush wait on it.
+      .catch((e: unknown) => console.warn(`marxy: history could not record ${file}: ${String(e)}`));
     await finishDocumentOpen(file, doc, at);
   } catch (e) {
     // Nothing of the last document may outlive the page that showed it.
