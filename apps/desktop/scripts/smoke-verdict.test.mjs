@@ -2,7 +2,7 @@
 // hand-reachable required mode, and the definition-of-done skip table in docs/sdlc.md.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,9 +13,12 @@ import {
   cliSmokeStepFromWorkflow,
   framelessEnvironment,
   framesFromPaintedLine,
+  killLaunch,
+  launchSpawnOptions,
   paintVerdict,
   paintedFramesOk,
   smokeIsRequired,
+  stalledExitMessage,
   workflowCliSmokeIsRequired,
 } from './smoke-verdict.mjs';
 
@@ -173,4 +176,29 @@ test('docs/sdlc.md states which definition-of-done commands may skip', () => {
   );
   assert.match(sdlc, /merge-bar\.mjs/);
   assert.match(sdlc, /## Credentials/);
+});
+
+test('a killed launch takes the processes it started with it, so a hung launch cannot poison the next', { skip: process.platform === 'win32' }, async () => {
+  // Stands in for xvfb-run → dbus-run-session → the app: a parent whose grandchild outlives it.
+  const child = spawn('sh', ['-c', 'sleep 30 & echo $!; wait'], { ...launchSpawnOptions(), stdio: ['ignore', 'pipe', 'ignore'] });
+  const grandchild = Number(await new Promise(resolve => child.stdout.once('data', d => resolve(String(d).trim()))));
+  const exited = new Promise(resolve => child.on('exit', resolve));
+  killLaunch(child);
+  await exited;
+  const alive = () => { try { process.kill(grandchild, 0); return true; } catch { return false; } };
+  for (let i = 0; i < 50 && alive(); i++) await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(alive(), false, `pid ${grandchild}, started by the killed launch, is still running`);
+});
+
+test('a launch killed on its way out says whether it stalled before asking to quit or after', () => {
+  const painted = ['MARK render 1 blocks=21', 'MARK painted 2 frames=2', 'MARK first_text 2', 'MARK position_restored 3'];
+  assert.equal(
+    stalledExitMessage(painted, 15000),
+    'the launch never asked to quit; its last mark was "MARK position_restored", and it was still running 15000 ms later',
+  );
+  assert.equal(
+    stalledExitMessage([...painted, 'MARK quit 4 code=0'], 15000),
+    'the launch printed "MARK quit code=0" and was still running 15000 ms later: the process teardown stalled',
+  );
+  assert.match(stalledExitMessage([], 60000), /\(no mark\)/);
 });

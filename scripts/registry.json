@@ -35,7 +35,8 @@
     "painted",
     "no_paint",
     "no_document",
-    "no_text"
+    "no_text",
+    "quit"
   ],
   "events": [
     "marxy:watch",

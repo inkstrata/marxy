@@ -20,9 +20,12 @@ import {
   NEUTRALISE_AFTER_PAINT,
   framelessEnvironment,
   framesFromPaintedLine,
+  killLaunch,
+  launchSpawnOptions,
   paintedFramesOk,
   paintVerdict,
   smokeIsRequired,
+  stalledExitMessage,
 } from './smoke-verdict.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -91,6 +94,11 @@ const PAINT_WATCHDOG_MS = 8_000;
 /** Marks after which no paint is owed: the launch has reported its outcome and is on its way out. */
 const SETTLED = /MARK (?:painted|first_text|no_paint|no_text|no_document|error) /;
 
+// From the outcome to the process ending takes under a second on every runner we have measured (the
+// deferred startup work, the watch, the title, then quit). A launch still running this long after it
+// settled is stalled, and waiting out the rest of LAUNCH_TIMEOUT_MS only delays saying where.
+const EXIT_WATCHDOG_MS = 15_000;
+
 async function launch(appArgs) {
   const [cmd, args] = headless
     ? ['xvfb-run', ['-a', '--server-args=-screen 0 1280x1024x24', ...(hasDbusRunSession ? ['dbus-run-session', '--'] : []), bin, ...appArgs]]
@@ -99,28 +107,33 @@ async function launch(appArgs) {
     cwd: repoRoot,
     env: { ...process.env, ...headlessEnv, MARXY_QUIT_AFTER_PAINT: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
+    ...launchSpawnOptions(),
   });
   let stdout = '';
   let stderr = '';
   let watchdog = null;
   let watchdogFired = false;
+  let exitWatchdog = null;
+  let killedAfterMs = null;
   child.stdout.on('data', d => {
     stdout += d;
     if (SETTLED.test(stdout)) {
       clearTimeout(watchdog);
       watchdog = null;
+      exitWatchdog ??= setTimeout(() => { killedAfterMs = EXIT_WATCHDOG_MS; killLaunch(child); }, EXIT_WATCHDOG_MS);
       return;
     }
     if (!watchdog && /MARK render /.test(stdout)) {
-      watchdog = setTimeout(() => { watchdogFired = true; child.kill('SIGKILL'); }, PAINT_WATCHDOG_MS);
+      watchdog = setTimeout(() => { watchdogFired = true; killLaunch(child); }, PAINT_WATCHDOG_MS);
     }
   });
   child.stderr.on('data', d => { stderr += d; });
   const startedAt = Date.now();
-  const timeout = setTimeout(() => child.kill('SIGKILL'), LAUNCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => { killedAfterMs ??= LAUNCH_TIMEOUT_MS; killLaunch(child); }, LAUNCH_TIMEOUT_MS);
   const code = await new Promise(resolve => child.on('exit', c => {
     clearTimeout(timeout);
     clearTimeout(watchdog);
+    clearTimeout(exitWatchdog);
     resolve(c);
   }));
   const lines = stdout.split('\n').map(l => l.trim()).filter(Boolean);
@@ -129,6 +142,8 @@ async function launch(appArgs) {
     lines,
     stderr,
     watchdogFired,
+    // Set when the harness had to end a launch that reported its outcome but never exited.
+    stalled: killedAfterMs !== null && !watchdogFired ? stalledExitMessage(lines, killedAfterMs) : null,
     ms: Date.now() - startedAt,
     mark: (name) => lines.findIndex(l => l === `MARK ${name}` || l.startsWith(`MARK ${name} `)),
   };
@@ -158,6 +173,7 @@ const report = (label, run) => {
   console.log(`--- ${label} (exit ${run.code}, ${run.ms} ms)`);
   console.log(run.lines.join('\n') || '(no stdout)');
   if (run.stderr.trim()) console.log(`stderr: ${run.stderr.trim()}`);
+  check(!run.stalled, `${label}: ${run.stalled}`);
 };
 
 // 0. The paint deadline's own state machine, run inside the binary because no launch renders twice yet.

@@ -154,6 +154,8 @@ cannot pass `--strict`.**
 | `browser` → desktop suite | a WebKit test failed, or WebKit was missing (`MARXY_BROWSER_TESTS_REQUIRED=1` turns a skip into a failure) | `pnpm --filter @marxy/desktop test` locally runs the same tests when Playwright's WebKit is installed (`pnpm exec playwright install webkit`) |
 | the window never paints | `cargo build` without `--features tauri/custom-protocol` | CI calls cargo directly and must pass the flag `tauri build` sets implicitly |
 | CLI smoke fails | shell, paint or CLI path regressed | `pnpm --filter @marxy/desktop verify:cli` reproduces it with `MARXY_SMOKE_REQUIRED=1` |
+| CLI smoke: `the launch never asked to quit; its last mark was …` | the webview reported its outcome, then stopped before it called `quit` (an IPC that never answered) | the named mark is where it stopped; the next awaited call after it in `app.ts` is the suspect. Each launch is its own process group and is killed whole, so one stall cannot poison the launches after it |
+| CLI smoke: `… the process teardown stalled` | the app printed `MARK quit code=n` and did not exit | harness launches leave through `_exit(2)` after Tauri's teardown (`harness_exit` in `main.rs`); a stall here is in that teardown |
 | `gate:perf` fails | the record is **missing or dishonest**, not slow | timings never fail the build (ADR-0032); a perf failure means the measurement did not happen or does not add up |
 | `--assert-budgets-unchanged` | `fixtures/perf-budgets.json` moved | changing a budget is its own decision; it needs an ADR, not a drive-by edit |
 

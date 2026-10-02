@@ -1109,6 +1109,14 @@ product pull request's job-seconds and can fail only on Rust changes, and every 
 - `verify:cli` needs a display on Linux. The `gates` job ran it with `xvfb` and `dbus` installed.
   Keep exactly those packages, and if the smoke skips with "frameless", report it rather than
   weaken `MARXY_SMOKE_REQUIRED`.
+- `verify:cli` failed once on a pull request that touched no Rust (run 37040073668): the reader's
+  launch painted, then never exited, and the harness's kill orphaned the session bus and the
+  document portal's FUSE mount for every launch after it. MARXY-349 kills each launch's whole process
+  group, ends a launch 15 s after its outcome instead of 60 s with a message naming the last mark,
+  and has harness launches print `MARK quit` and leave through `_exit(2)`. The stall did not recur
+  in about 1,750 Linux launches (1,029 in a container, 733 in CI's startup measurement), so carry
+  `verify:cli` into `rust` and `rust-linux` as written; if it recurs, the message says which side of
+  `quit` it was on.
 - `merge_group` is not enabled (AGENTS.md). Treat it like `pull_request` so nothing breaks if it is
   turned on.
 
