@@ -1429,7 +1429,8 @@ chords go through the same dispatcher. Three private keyboard listeners in three
   controller's methods only
 - `apps/desktop/src/selection/view.ts`, `installLinkHistoryKeys` only
 - `apps/desktop/src/commands/navigation.ts`
-- `apps/desktop/test/navigation-keys.test.mjs` (new)
+- `apps/desktop/test/navigation-keys.test.mjs` (new), `apps/desktop/test/scroll-persistence.test.mjs`
+  (new, optional)
 - `changelog.d/A-13.md` (new)
 
 **Build order.**
@@ -1454,10 +1455,21 @@ chords go through the same dispatcher. Three private keyboard listeners in three
      belongs to the editor. Pass the event through, or check the visible Source host the way
      `view.ts:460-461` does.
 5. `test/navigation-keys.test.mjs` (WebKit, `palette-boot.html`).
+6. *Added 2026-10-02 by the lead, from the A-15 review.* `app.ts` `installScrollPersistence`
+   (around `app.ts:1036-1047`) listens for scroll on `readingScroller()`, which is
+   `document.documentElement`. WebKit fires the viewport `scroll` at the `Document`, not at
+   `documentElement` (probed: document 1, documentElement 0, window 1, body 0), so scrolling never
+   calls `positionPersistence.note()`. Positions survive only through the flushes on a document
+   switch, on quit and on entering Source; a crash, force-quit or a window close that skips
+   `shell.quit` loses every scroll since the last open. Listen on `document` (keep
+   `readingScroller()` for sampling), confirm the note is throttled or debounced, and flush on
+   `pagehide` as well. Test it in `navigation-keys.test.mjs` or a new
+   `test/scroll-persistence.test.mjs`: scroll, then read the pending note without a flush.
 
 **Acceptance.**
 - `Mod+E` from Rendered opens Source at the reading position, and `Mod+E` with focus inside
   CodeMirror returns to Rendered (`navigation-keys.test.mjs`).
+- Scrolling in Rendered records the reading position without a flush (step 6).
 - After following a relative link, `Mod+[` returns to the first document, and `Alt+←` does the same
   (`navigation-keys.test.mjs`).
 - `Alt+←` with the caret in Source mode's text does not navigate (`navigation-keys.test.mjs`).
