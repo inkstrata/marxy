@@ -4,7 +4,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { highlight, LANGUAGE_TO_GRAMMAR, plainTextFromTokens, type HighlightToken } from './index.ts';
+import {
+  DIFF_LINE_ADD,
+  DIFF_LINE_DEL,
+  LOG_LEVEL_CLASS,
+  highlight,
+  lineMetaForHighlight,
+  LANGUAGE_TO_GRAMMAR,
+  plainTextFromTokens,
+  type HighlightToken,
+} from './index.ts';
 
 const root = join(import.meta.dirname, '../../../..');
 const allowlist = JSON.parse(readFileSync(join(root, 'scripts/allowlists/shiki-languages.json'), 'utf8')) as {
@@ -51,6 +60,9 @@ const SAMPLES: Record<string, string> = {
   tsx: 'export const App = () => <p />;',
   yaml: 'key: value',
   xml: '<root/>',
+  jsonl: '{"a":1}',
+  log: '2026-09-25T10:00:02Z ERROR db',
+  shellsession: '$ ls',
 };
 
 test('every allow-listed language id produces highlight tokens for a one-line sample', async () => {
@@ -108,6 +120,48 @@ test('forbidden grammars are absent from highlight sources and bundle gate passe
     encoding: 'utf8',
   });
   assert.equal(run.status, 0, run.stderr + run.stdout);
+});
+
+test('MARXY-235: diff lines carry marxy-diff-add and marxy-diff-del; headers and no-newline stay plain', async () => {
+  const sample = [
+    '@@ -1,2 +1,2 @@',
+    ' context',
+    '+added',
+    '-removed',
+    '+++ b/file',
+    '--- a/file',
+    '\\ No newline at end of file',
+  ].join('\n');
+  const lines = await highlight(sample, 'diff');
+  assert.ok(lines);
+  const meta = lineMetaForHighlight('diff', lines);
+  const text = (i: number) => lines[i]!.map((t) => t.text).join('');
+  assert.equal(meta[2]?.lineClass, DIFF_LINE_ADD);
+  assert.equal(meta[3]?.lineClass, DIFF_LINE_DEL);
+  assert.equal(meta[0]?.lineClass, undefined);
+  assert.equal(meta[4]?.lineClass, undefined);
+  assert.equal(meta[5]?.lineClass, undefined);
+  assert.equal(meta[6]?.lineClass, undefined);
+  assert.equal(text(2), '+added');
+  assert.equal(text(3), '-removed');
+});
+
+test('MARXY-235: console fence classes $ as punctuation and leaves output unclassed', async () => {
+  const lines = await highlight('$ ls\nhello\n', 'console');
+  assert.ok(lines);
+  const prompt = lines[0]!;
+  assert.equal(prompt.find((t) => t.text === '$')?.scope, 'punctuation');
+  assert.ok(prompt.every((t) => t.text === '$' || !t.scope));
+  assert.ok(lines[1]!.every((t) => !t.scope && !t.className));
+});
+
+test('MARXY-235: log fence puts the level word in marxy-log-level without a token hue', async () => {
+  const lines = await highlight('2026-09-25T10:00:02Z ERROR db timeout\n', 'log');
+  assert.ok(lines);
+  const level = lines[0]!.find((t) => t.text === 'ERROR');
+  assert.ok(level);
+  assert.equal(level.className, LOG_LEVEL_CLASS);
+  assert.equal(level.scope, undefined);
 });
 
 test('code blocks use pre-wrap and a hanging indent in base.css', () => {

@@ -4,6 +4,7 @@
 export const LANGUAGE_TO_GRAMMAR: Readonly<Record<string, string>> = {
   "bash": "shellscript",
   "shellscript": "shellscript",
+  "shellsession": "shellsession",
   "c": "c",
   "cpp": "cpp",
   "css": "css",
@@ -16,7 +17,9 @@ export const LANGUAGE_TO_GRAMMAR: Readonly<Record<string, string>> = {
   "javascript": "javascript",
   "json": "json",
   "jsonc": "jsonc",
+  "jsonl": "jsonl",
   "kotlin": "kotlin",
+  "log": "log",
   "markdown": "markdown",
   "python": "python",
   "rust": "rust",
@@ -49,6 +52,9 @@ export const LANGUAGE_TO_GRAMMAR: Readonly<Record<string, string>> = {
   "svg": "xml",
   "golang": "go",
   "patch": "diff",
+  "console": "shellsession",
+  "bash session": "shellsession",
+  "sh-session": "shellsession",
 };
 
 /** Lazy grammar loaders keyed by grammar id; each import is a separate chunk. */
@@ -65,11 +71,14 @@ export const GRAMMAR_LOADERS: Readonly<Record<string, () => Promise<{ default: u
   "javascript": () => import('@shikijs/langs/javascript'),
   "json": () => import('@shikijs/langs/json'),
   "jsonc": () => import('@shikijs/langs/jsonc'),
+  "jsonl": () => import('@shikijs/langs/jsonl'),
   "kotlin": () => import('@shikijs/langs/kotlin'),
+  "log": () => import('@shikijs/langs/log'),
   "markdown": () => import('@shikijs/langs/markdown'),
   "python": () => import('@shikijs/langs/python'),
   "rust": () => import('@shikijs/langs/rust'),
   "shellscript": () => import('@shikijs/langs/shellscript'),
+  "shellsession": () => import('@shikijs/langs/shellsession'),
   "sql": () => import('@shikijs/langs/sql'),
   "swift": () => import('@shikijs/langs/swift'),
   "toml": () => import('@shikijs/langs/toml'),

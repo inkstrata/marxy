@@ -76,8 +76,12 @@ export function internalScopeTheme(): ThemeRegistration {
   return normalizeTheme({ name: INTERNAL_THEME_NAME, type: 'dark', settings });
 }
 
-/** First matching prefix in design order; keyword does not match keyword.operator. */
+/**
+ * `markup.inserted` and `markup.deleted` intentionally map to no token hue; diff lines use
+ * `marxy-diff-add` / `marxy-diff-del` on `.marxy-line` instead (MARXY-235, ADR-0036).
+ */
 export function marxyScopeForTextMateScope(scope: string): MarxyTokenScope | undefined {
+  if (scope.startsWith('markup.inserted') || scope.startsWith('markup.deleted')) return undefined;
   for (const rule of RULES) {
     for (const prefix of rule.prefixes) {
       if (scope === prefix || scope.startsWith(prefix + '.')) {
