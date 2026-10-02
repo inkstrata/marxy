@@ -780,10 +780,10 @@ function snapPending(article: HTMLElement): void {
   snap(article, snapFrom ?? undefined);
 }
 
-/** `from` asks only for the blocks appended from it on; without it, the whole article. */
+/** `from` asks only for the blocks from it on (the earliest asked wins); without it, the whole article. */
 function scheduleSnap(article: HTMLElement, from?: HTMLElement): void {
   if (from === undefined || snapFrom === null) snapFrom = null;
-  else if (snapFrom === undefined) snapFrom = from;
+  else if (snapFrom === undefined || from.compareDocumentPosition(snapFrom) & Node.DOCUMENT_POSITION_FOLLOWING) snapFrom = from;
   if (snapTimer !== 0 || snapFrame !== 0) return;
   const wait = Math.max(0, lastSnapAt + SNAP_INTERVAL_MS - performance.now());
   snapTimer = window.setTimeout(() => {
@@ -807,10 +807,44 @@ function destroyTypeset(): void {
   typeset = null;
 }
 
+/** The open article's listener for faces that load after the first screens (A-02). */
+let fontsLoaded: (() => void) | null = null;
+/**
+ * Islands that arrived in chunks (A-02). An island can change height after the pass that measured it
+ * with nothing in its style changing (WebKitGTK relays out some tables a layout later), and a later
+ * pass from further down would not see it: when one does, the pass is asked again from its block.
+ */
+let islandObserver: ResizeObserver | null = null;
+const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
+
+function watchIslands(article: HTMLElement, added: readonly HTMLElement[]): void {
+  if (!islandObserver) {
+    const sized = new WeakMap<Element, number>();
+    islandObserver = new ResizeObserver((entries) => {
+      for (const { target, contentRect } of entries) {
+        const was = sized.get(target);
+        sized.set(target, contentRect.height);
+        if (was === undefined || Math.abs(was - contentRect.height) < 0.1) continue;
+        let block = target as HTMLElement;
+        while (block.parentElement && block.parentElement !== article) block = block.parentElement;
+        if (block.parentElement === article) scheduleSnap(article, block);
+      }
+    });
+  }
+  for (const el of added) {
+    if (el.matches(ISLANDS)) islandObserver.observe(el);
+    for (const island of el.querySelectorAll(ISLANDS)) islandObserver.observe(island);
+  }
+}
+
 function disconnectResizeObserver(): void {
   if (resizeObserver) liveResizeObservers -= 1;
   resizeObserver?.disconnect();
   resizeObserver = null;
+  if (fontsLoaded) document.fonts.removeEventListener('loadingdone', fontsLoaded);
+  fontsLoaded = null;
+  islandObserver?.disconnect();
+  islandObserver = null;
 }
 
 function keepOnGrid(article: HTMLElement): void {
@@ -819,6 +853,10 @@ function keepOnGrid(article: HTMLElement): void {
   let pending = 0;
   let width = article.clientWidth;
   disconnectResizeObserver();
+  // A face first used further down (in a chunk appended after the first screens) loads late and
+  // changes the height of every block set in it, above the chunk passes' reach: the whole article again.
+  fontsLoaded = () => scheduleSnap(article);
+  document.fonts.addEventListener('loadingdone', fontsLoaded);
   liveResizeObservers += 1;
   const laidOut = () => !article.hidden && article.clientWidth > 0;
   resizeObserver = new ResizeObserver(() => {
@@ -1102,6 +1140,7 @@ function mountDocument(doc: HTMLElement, html: string, file: string, landing?: n
       if (mount !== current) return;
       chunks += 1;
       scheduleSnap(doc, added[0]);
+      watchIslands(doc, added);
       typeset?.adopt(added);
     },
   });

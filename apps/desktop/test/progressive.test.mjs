@@ -183,8 +183,10 @@ test('at 1 MB, first text holds the first screens and the rest arrives later, on
 
 test('while chunks arrive, each grid pass from the appended blocks leaves every mounted block on the grid', async () => {
   // The completion runs a whole-article pass, so the final check above cannot see a `from` pass that
-  // got a chunk boundary wrong. This samples the page after chunk passes and before completion, with
-  // the typesetter off so that every pass in between is a `from` pass.
+  // got a chunk boundary wrong. This checks the page at the end of every pass before completion, in
+  // the same task as the pass (the block list it builds is the hook), so nothing laid out later can
+  // stand in for it. The typesetter is off, so every pass in between is a `from` pass, and the
+  // document carries islands the pass has to pad: copies of 01 alone are on the grid by CSS.
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -197,14 +199,8 @@ test('while chunks arrive, each grid pass from the appended blocks leaves every 
       let complete = false;
       void h.contentComplete().then(() => { complete = true; });
       const samples = [];
-      let seen = h.state.document.blocks;
-      while (!complete) {
-        await new Promise((r) => setTimeout(r, 0));
-        const blocks = h.state.document.blocks;
-        if (complete || blocks === seen || blocks.length === 0) continue;
-        seen = blocks;
-        // A pass ran since the last look. Chunks appended after it are not on the grid yet, and cannot
-        // move what is above them: check the blocks that pass covered, up to its last block.
+      /** Every block up to the last one the pass listed: what that pass covered. */
+      const check = (blocks) => {
         const last = blocks[blocks.length - 1].el;
         const unit = parseFloat(getComputedStyle(doc).lineHeight) / 2;
         const origin = doc.getBoundingClientRect().top;
@@ -219,13 +215,24 @@ test('while chunks arrive, each grid pass from the appended blocks leaves every 
           if (Math.min(m, unit - m) > 0.5) off.push(`${el.tagName}@${el.getAttribute('data-marxy-s')}`);
         }
         samples.push({ blocks: n, off: off.slice(0, 5), offCount: off.length });
-      }
+      };
+      const open = h.state.document;
+      let blocks = open.blocks;
+      Object.defineProperty(open, 'blocks', {
+        configurable: true,
+        get: () => blocks,
+        set: (next) => {
+          blocks = next;
+          if (!complete && next.length > 0) check(next);
+        },
+      });
+      await h.contentComplete();
       await opened;
       return samples;
     });
-    assert.ok(r.length >= 3 && r.at(-1).blocks > r[0].blocks, `sampled passes before completion: ${JSON.stringify(r.map((x) => x.blocks))}`);
+    assert.ok(r.length >= 3 && r.at(-1).blocks > r[0].blocks, `checked passes before completion: ${JSON.stringify(r.map((x) => x.blocks))}`);
     const bad = r.filter((x) => x.offCount > 0);
-    assert.deepEqual(bad, [], `${bad.length} of ${r.length} samples had blocks off the grid`);
+    assert.deepEqual(bad, [], `${bad.length} of ${r.length} passes left blocks off the grid`);
   } finally {
     await browser.close();
   }
