@@ -130,6 +130,11 @@ test('first launch without store files records only the document and config read
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     const path = '/docs/README.md';
     await bootApp(page, { [path]: b64(Buffer.from('# widgetlib\n\nHello.\n')) }, [path]);
+    // trust.json is read on a timer after first paint (app.ts), so `ready` can resolve before it:
+    // wait for that read rather than racing it, then hold the whole log to the expected three.
+    await page.waitForFunction(() =>
+      window.__marxyHandle.shell.calls.some((c) => c.method === 'readFile' && c.args[0] === '/data/trust.json'),
+    );
     const reads = await page.evaluate(() =>
       window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile').map((c) => c.args[0]),
     );
