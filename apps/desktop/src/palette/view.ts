@@ -3,10 +3,12 @@
 import type { IndexEntry, IndexHit } from '@marxy/core';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
+import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
 import { installRenderedSelection } from '../selection/view.ts';
 import { historyDirection, historyKeyBelongsToEditor, type PaletteKey } from './keys.ts';
+import { keyLabel, paletteCommands } from './commands.ts';
 import { jumpForHit, paletteResults, prepareIndex, type PreparedIndex } from './search.ts';
 import {
   emptySession,
@@ -60,6 +62,10 @@ export interface PaletteController {
   setIndexEntries(entries: readonly IndexEntry[]): void;
 }
 
+function isMacPlatform(): boolean {
+  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+}
+
 function isMod(event: KeyboardEvent | PaletteKey): boolean {
   const mac =
     typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
@@ -88,10 +94,17 @@ function filterHits(hits: readonly IndexHit[], section: PaletteListSection): rea
   return hits;
 }
 
-function operationCommandsForPalette(): readonly Command[] {
+function commandsForPalette(query: string): readonly Command[] {
+  const after = query.trim().slice(1);
+  return paletteCommands(commands(), buildAppContext(), after);
+}
+
+/** Operations close the palette themselves once they apply; every other command is closed over here. */
+function runPaletteCommand(cmd: Command | undefined): void {
+  if (cmd === undefined) return;
   const ctx = buildAppContext();
-  if (!ctx) return [];
-  return commands().filter((c) => c.id.startsWith('op.') && c.when(ctx));
+  if (!cmd.id.startsWith('op.')) ctx.closePalette();
+  void cmd.run(ctx);
 }
 
 function queryPalette(
@@ -103,7 +116,7 @@ function queryPalette(
 ): PaletteModel {
   const phase = palettePhase(query, section);
   if (phase === 'operations') {
-    const operationCommands = operationCommandsForPalette();
+    const operationCommands = commandsForPalette(query);
     return {
       phase: 'operations',
       section: 'operations',
@@ -111,7 +124,7 @@ function queryPalette(
       hits: [],
       operationCommands,
       selected: 0,
-      notice: operationCommands.length === 0 ? 'No operations for this selection' : undefined,
+      notice: operationCommands.length === 0 ? 'No commands here' : undefined,
     };
   }
   const trimmed = query.trim();
@@ -267,8 +280,20 @@ function paintOperationRows(
     row.className = 'marxy-palette-row';
     row.dataset.rowKey = cmd.id;
     row.setAttribute('role', 'option');
-    const hint = cmd.id.startsWith('op.copy-') ? ' ⌘C' : '';
-    row.textContent = `${cmd.title}${hint}`;
+    const title = doc.createElement('span') as HTMLSpanElement;
+    title.className = 'marxy-palette-title';
+    title.textContent = cmd.title;
+    row.appendChild(title);
+    const spec = cmd.key ?? (cmd.id.startsWith('op.copy-') ? 'Mod+C' : undefined);
+    if (spec !== undefined) {
+      const key = doc.createElement('span') as HTMLSpanElement;
+      key.className = 'marxy-palette-key';
+      key.style.marginInlineStart = 'auto';
+      key.textContent = keyLabel(spec, isMacPlatform());
+      row.style.display = 'flex';
+      row.style.gap = '1em';
+      row.appendChild(key);
+    }
     row.toggleAttribute('aria-selected', i === selected);
     next.appendChild(row);
   }
@@ -380,9 +405,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     const index = Array.prototype.indexOf.call(list.children, row);
     if (index < 0) return;
     if (model.phase === 'operations') {
-      const cmd = model.operationCommands[index];
-      const ctx = buildAppContext();
-      if (cmd && ctx) void cmd.run(ctx);
+      runPaletteCommand(model.operationCommands[index]);
     } else {
       void activateHit(model.hits[index]);
     }
@@ -445,9 +468,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (event.key === 'Enter') {
       event.preventDefault();
       if (model.phase === 'operations') {
-        const cmd = model.operationCommands[selected];
-        const ctx = buildAppContext();
-        if (cmd && ctx) void cmd.run(ctx);
+        runPaletteCommand(model.operationCommands[selected]);
       } else {
         void activateHit(model.hits[selected]);
       }
@@ -525,6 +546,8 @@ export function mountPaletteFromHandle(
     openDocument: (path, at) => handle.open(path, { at }),
   });
   setPaletteCloser(() => controller.close());
+  setAppHandle(handle);
+  setPalette(controller);
   return controller;
 }
 

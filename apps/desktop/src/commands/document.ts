@@ -14,6 +14,7 @@ import { buildAppContext } from '../selection/bind.ts';
 import { getSelectionBufferContext } from '../selection/view.ts';
 import { updateTabWidthResolver } from '../source/tab-width.ts';
 import { sourceViewCommands } from './source-view.ts';
+import { appHandle } from './app-handle.ts';
 
 export { attachDocumentEdits, documentEditState } from './edits.ts';
 
@@ -40,15 +41,7 @@ export function startDocumentEditingWire(): void {
   w.marxyRunCommand = async (id: string) => {
     const cmd = sourceViewCommands().find((c) => c.id === id);
     if (!cmd) return;
-    const ctx =
-      buildAppContext() ??
-      ({
-        selection: { kind: 'none' },
-        shell: { clipboardWrite: async () => {} },
-        operationInput: () => null,
-        closePalette: () => {},
-        showNotice: () => {},
-      } as import('./registry.ts').AppContext);
+    const ctx = buildAppContext();
     if (!cmd.when(ctx)) return;
     await cmd.run(ctx);
   };
@@ -100,6 +93,14 @@ export function startDocumentEditingWire(): void {
   w.marxyHarnessSave = () => save();
 }
 
+/** Save needs a real file: an open document whose path is not one of Marxy's own pages. */
+function canSaveOpenDocument(): boolean {
+  const open = appHandle()?.openDocument();
+  if (open) return !open.path.startsWith('marxy:');
+  const ctx = getSelectionBufferContext();
+  return ctx !== null && !ctx.buffer.path.startsWith('marxy:');
+}
+
 export function documentCommands(): readonly Command[] {
   return [
     {
@@ -108,7 +109,7 @@ export function documentCommands(): readonly Command[] {
       key: 'Mod+S',
       group: 'document',
       // A document command, not a selection operation: it needs an open document, not a selection.
-      when: () => true,
+      when: () => canSaveOpenDocument(),
       run: async () => {
         await save();
       },
@@ -118,7 +119,7 @@ export function documentCommands(): readonly Command[] {
       title: 'Save as',
       key: 'Mod+Shift+S',
       group: 'document',
-      when: () => true,
+      when: () => canSaveOpenDocument(),
       run: async () => {
         await save({ as: true });
       },
