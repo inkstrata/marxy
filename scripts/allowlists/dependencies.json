@@ -73,6 +73,7 @@
     "tauri-plugin-dialog",
     "tauri-plugin-opener",
     "tauri-plugin-single-instance",
+    "toml",
     "webkit2gtk"
   ],
   "forbidden": {
