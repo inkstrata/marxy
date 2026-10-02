@@ -21,21 +21,33 @@ const snapped = new WeakMap<HTMLElement, Set<HTMLElement>>();
  * Idempotent: every earlier snap of this article is undone before anything is measured, so it runs again after
  * fonts load, after images decode and after a resize. At most five layouts in all (one for the islands,
  * at most four rounds of step 2), however long the document.
+ *
+ * `from` (A-02) is the first of the blocks just appended below the rest: only the block before it and
+ * the blocks from it on are undone, padded and read, so a document mounted in chunks pays for each
+ * chunk and not for the whole article again. Without it the pass covers the whole article.
  */
-export function snapToGrid(article: HTMLElement, lineBox: number): number {
+export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { readonly from?: HTMLElement }): number {
   const unit = lineBox / 2;
   if (!(unit > 0)) return 0;
+  const tail = tailFrom(article, opts?.from);
   // The pass writes padding and reads layout several times over; the engine's own scroll anchoring would
   // answer each intermediate layout by moving the page, and the reader would land off where they were.
   // Scroll position is the app's to keep (reading position, ADR-0018), so the article opts out.
   article.style.setProperty('overflow-anchor', 'none');
   const mine = snapped.get(article) ?? new Set<HTMLElement>();
   snapped.set(article, mine);
-  for (const el of mine) el.style.removeProperty(el === article ? 'padding-top' : 'padding-bottom');
-  mine.clear();
+  for (const el of mine) {
+    if (tail !== null && !atOrAfter(tail[0]!, el)) continue;
+    el.style.removeProperty(el === article ? 'padding-top' : 'padding-bottom');
+    mine.delete(el);
+  }
   const plans: Plan[] = [];
   // Step 1: read every island's height, then write every padding — one layout.
-  for (const el of article.querySelectorAll<HTMLElement>(ISLANDS)) {
+  const islands = tail === null ? [...article.querySelectorAll<HTMLElement>(ISLANDS)] : tail.flatMap((el) => [
+    ...(el.matches(ISLANDS) ? [el] : []),
+    ...el.querySelectorAll<HTMLElement>(ISLANDS),
+  ]);
+  for (const el of islands) {
     if (!isBlock(el)) continue;
     const short = shortfall(el.getBoundingClientRect().height, unit);
     if (short > 0) plans.push({ el, add: short });
@@ -57,7 +69,7 @@ export function snapToGrid(article: HTMLElement, lineBox: number): number {
   // first round's prediction missed, and a third finds nothing to change. The fourth is headroom; a
   // round that plans nothing ends the pass. Every push ends up what pushing and re-reading one block
   // at a time would have made it.
-  const children = [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
+  const children = tail ?? [...article.children].filter((el): el is HTMLElement => el instanceof HTMLElement && isBlock(el));
   const pushed = new Map<HTMLElement, number>();
   let unpushed: readonly number[] | undefined;
   for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -66,7 +78,8 @@ export function snapToGrid(article: HTMLElement, lineBox: number): number {
     const first = (unpushed ??= tops);
     const changes: Plan[] = [];
     let planned = 0;
-    for (let i = 0; i < children.length; i++) {
+    // From `from`, the first child read is its predecessor, which only `from` may push: it starts at 1.
+    for (let i = tail === null ? 0 : 1; i < children.length; i++) {
       const el = i === 0 ? article : children[i - 1]!;
       const moved = i === 0 ? 0 : tops[i - 1]! - first[i - 1]! + planned;
       const add = shortfall(first[i]! + moved, unit) - (pushed.get(el) ?? 0);
@@ -79,6 +92,30 @@ export function snapToGrid(article: HTMLElement, lineBox: number): number {
     apply(changes, mine, article);
   }
   return plans.length + [...pushed.values()].filter((px) => px > 0).length;
+}
+
+/**
+ * With `from`, the block children the pass looks at: the block before `from` and every block from it
+ * on, or null for the whole article. The predecessor is included because appending below a block can
+ * leave the first new child off the grid, and the only fix is to push the block before it; the blocks
+ * above it are where an earlier pass left them, because appending below cannot move them. A `from`
+ * that is not a child of the article, or has no block before it, means the whole article.
+ */
+function tailFrom(article: HTMLElement, from: HTMLElement | undefined): HTMLElement[] | null {
+  if (from === undefined || from.parentElement !== article) return null;
+  let start: Element | null = from.previousElementSibling;
+  while (start !== null && !(start instanceof HTMLElement && isBlock(start))) start = start.previousElementSibling;
+  if (start === null) return null;
+  const tail: HTMLElement[] = [start as HTMLElement];
+  for (let el = start.nextElementSibling; el !== null; el = el.nextElementSibling) {
+    if (el instanceof HTMLElement && isBlock(el)) tail.push(el);
+  }
+  return tail;
+}
+
+/** `el` is `first`, inside it, or after it in document order. */
+function atOrAfter(first: HTMLElement, el: HTMLElement): boolean {
+  return el === first || (first.compareDocumentPosition(el) & (Node.DOCUMENT_POSITION_FOLLOWING | Node.DOCUMENT_POSITION_CONTAINED_BY)) !== 0;
 }
 
 /** A push this close to the one already made is the same push: layout positions are 1/64 px apart. */

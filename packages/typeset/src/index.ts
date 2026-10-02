@@ -63,8 +63,13 @@ export interface TypesetStats {
 export interface TypesetController {
   /** The first pass over the viewport is done. */
   readonly ready: Promise<void>;
-  /** Every paragraph has been considered. */
+  /** Every paragraph has been considered, adopted ones included. */
   readonly done: Promise<void>;
+  /**
+   * Paragraphs inside `roots`, appended to the article after the first pass (A-02), join the
+   * background queue and the visibility observer; `done` resolves only once they are set too.
+   */
+  adopt(roots: readonly HTMLElement[]): void;
   relayout(reason: 'fonts' | 'resize' | 'theme' | 'reload'): void;
   /** Restores native wrapping everywhere. */
   destroy(): void;
@@ -119,10 +124,23 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   let queue: HTMLElement[] = [];
   let generation = 0;
   let observer: IntersectionObserver | null = null;
+  /** The background step of the current layout, while it has one; adopted paragraphs are queued to it. */
+  let background: { readonly mine: number; readonly step: (deadline: () => number) => void; running: boolean } | null = null;
   let resolveReady!: () => void;
   let resolveDone!: () => void;
+  let doneSettled = false;
   const ready = new Promise<void>((resolve) => { resolveReady = resolve; });
-  const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+  const settle = (resolve: () => void) => () => {
+    doneSettled = true;
+    resolve();
+  };
+  let done = new Promise<void>((resolve) => { resolveDone = settle(resolve); });
+  /** Work arrived after `done` resolved: a new `done` for it. */
+  const reopenDone = (): void => {
+    if (!doneSettled) return;
+    doneSettled = false;
+    done = new Promise<void>((resolve) => { resolveDone = settle(resolve); });
+  };
 
   const fallback = (reason: string): void => {
     stats.fallbacks++;
@@ -290,6 +308,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     const step = (deadline: () => number): void => {
       if (mine !== generation || abortIfKilled()) return;
+      bg.running = false;
       const batch: HTMLElement[] = [];
       // Paragraphs cost roughly the same; take a few at a time while the chunk has budget left.
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
@@ -297,18 +316,39 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
         setBatch(batch);
         opts.onPass?.('background');
       }
-      if (queue.length > 0) scheduler.schedule(step);
-      else {
-        observer?.disconnect();
-        resolveDone();
-      }
+      // The observer is no longer disconnected when the queue empties: paragraphs adopted later (A-02)
+      // are observed by it, and once every paragraph is set it observes nothing.
+      if (queue.length > 0) {
+        bg.running = true;
+        scheduler.schedule(step);
+      } else resolveDone();
     };
-    if (queue.length > 0) scheduler.schedule(step);
-    else resolveDone();
+    const bg = { mine, step, running: false };
+    background = bg;
+    if (queue.length > 0) {
+      bg.running = true;
+      scheduler.schedule(step);
+    } else resolveDone();
+  };
+
+  const adopt = (roots: readonly HTMLElement[]): void => {
+    // Before the first layout there is nothing to join: that layout reads the whole article as it is then.
+    const bg = background;
+    if (bg === null || bg.mine !== generation || killed()) return;
+    const found = roots.flatMap((root) => [...(root.matches(CANDIDATES) ? [root] : []), ...root.querySelectorAll<HTMLElement>(CANDIDATES)]);
+    if (found.length === 0) return;
+    reopenDone();
+    queue.push(...found);
+    for (const p of found) observer?.observe(p);
+    if (!bg.running) {
+      bg.running = true;
+      scheduler.schedule(bg.step);
+    }
   };
 
   const restoreAll = (): void => {
     generation++;
+    background = null;
     observer?.disconnect();
     queue = [];
     for (const p of article.querySelectorAll<HTMLElement>(`.${SET}`)) revert(p);
@@ -319,8 +359,11 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   run();
   return {
     ready,
-    done,
+    get done() {
+      return done;
+    },
     stats,
+    adopt,
     relayout(reason) {
       restoreAll();
       // Full flush on face/theme reload; resize re-reads computed size lazily in FontSizes.of (MARXY-280).

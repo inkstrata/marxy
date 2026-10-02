@@ -407,3 +407,114 @@ test('an invisible-character marker adds nothing to its line: the paragraph stay
   for (const h of r.glyphs) assert.ok(h < r.lineBox, `a marker (${h}px) is shorter than the line`);
   await page.close();
 });
+
+/**
+ * Moves every top-level node of the article from index `k` on into an inert holder, then puts the
+ * head on the grid; `window.__appendTail()` appends the tail back and returns its first element.
+ */
+const splitAt = (page, k) =>
+  page.evaluate((k) => {
+    const doc = document.getElementById('doc');
+    const holder = document.implementation.createHTMLDocument('').body;
+    const tail = [...doc.childNodes].slice([...doc.childNodes].indexOf(doc.children[k]));
+    for (const n of tail) holder.appendChild(n);
+    window.typeset.snapToGrid(doc, window.lineBox);
+    window.__appendTail = () => {
+      const first = holder.firstElementChild;
+      while (holder.firstChild) doc.appendChild(holder.firstChild);
+      return first;
+    };
+  }, k);
+
+/** Every element's inline padding, top and bottom, in document order. */
+const paddings = (page) =>
+  page.evaluate(() =>
+    [document.getElementById('doc'), ...document.querySelectorAll('#doc *')].map((el) => [
+      parseFloat(el.style.paddingTop) || 0,
+      parseFloat(el.style.paddingBottom) || 0,
+    ]),
+  );
+
+test('a grid pass `from` the first appended block pads exactly what a whole pass pads (A-02)', async () => {
+  const html = renderCorpus('01-long-technical.md');
+  const page = await harness.open(html);
+  // Split points: after a code block (an island predecessor), after a table, and after a paragraph.
+  // Split points: before and after a code block and a table (islands as `from` and as its
+  // predecessor), and after a paragraph.
+  const points = await page.evaluate(() => {
+    const kids = [...document.getElementById('doc').children];
+    const at = (tag) => kids.findIndex((el, i) => i > 3 && el.tagName === tag && kids[i + 1]);
+    return [at('PRE'), at('PRE') + 1, at('TABLE'), at('TABLE') + 1, at('P') + 1].filter((k) => k > 3);
+  });
+  assert.ok(points.length >= 3, `split points ${points}`);
+  await page.close();
+  // And a block no rule pads, 13 px tall, as the last before the append: only a push of the
+  // predecessor by `from` puts what follows back on the grid.
+  const para = '<p data-marxy-s="0" data-marxy-e="1">A paragraph of a few words.</p>';
+  const odd = `${para}${para}<div style="height: 13px"></div>${para}${para}`;
+  const cases = [...points.map((k) => ({ html, k })), { html: odd, k: 3 }];
+  for (const { html, k } of cases) {
+    const p = await harness.open(html);
+    await splitAt(p, k);
+    await p.evaluate(() => window.typeset.snapToGrid(document.getElementById('doc'), window.lineBox, { from: window.__appendTail() }));
+    const partial = await paddings(p);
+    await p.evaluate(() => window.typeset.snapToGrid(document.getElementById('doc'), window.lineBox));
+    const whole = await paddings(p);
+    assert.equal(partial.length, whole.length);
+    const differ = partial.flatMap(([t, b], i) => (Math.abs(t - whole[i][0]) > 0.5 || Math.abs(b - whole[i][1]) > 0.5 ? [`#${i}: ${t}/${b} vs ${whole[i]}`] : []));
+    assert.deepEqual(differ, [], `split at child ${k}`);
+    await p.close();
+  }
+});
+
+test('adopt queues appended paragraphs, and `done` is a new promise that resolves once they are set (A-02)', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'));
+  await splitAt(page, 20);
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const queued = [];
+    const scheduler = { schedule: (work) => queued.push(work) };
+    const flush = () => { while (queued.length) queued.shift()(() => Number.POSITIVE_INFINITY); };
+    const controller = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler,
+    });
+    flush();
+    const first = controller.done;
+    await first;
+    const before = controller.stats.paragraphs;
+    const head = doc.childElementCount;
+    window.__appendTail();
+    const tail = [...doc.children].slice(head);
+    controller.adopt(tail);
+    const second = controller.done;
+    let settled = false;
+    void second.then(() => { settled = true; });
+    await new Promise((r) => setTimeout(r, 0));
+    const pendingBeforeFlush = !settled;
+    const setBeforeFlush = tail.filter((el) => el.classList.contains('marxy-set')).length;
+    flush();
+    await second;
+    return {
+      fresh: second !== first,
+      pendingBeforeFlush,
+      setBeforeFlush,
+      setAfter: tail.filter((el) => el.classList.contains('marxy-set')).length,
+      considered: controller.stats.paragraphs,
+      // A fresh pass over the whole article considers the same paragraphs, no more.
+      whole: await (async () => {
+        controller.relayout('reload');
+        flush();
+        await controller.done;
+        return controller.stats.paragraphs;
+      })(),
+      before,
+    };
+  });
+  assert.ok(r.fresh, 'done is a new promise once work arrives after it resolved');
+  assert.ok(r.pendingBeforeFlush, 'the new done waits for the adopted paragraphs');
+  assert.equal(r.setBeforeFlush, 0);
+  assert.ok(r.setAfter > 10, `adopted paragraphs set: ${r.setAfter}`);
+  assert.ok(r.considered > r.before, `adopted paragraphs considered: ${r.before} → ${r.considered}`);
+  assert.equal(r.considered, r.whole, 'every adopted paragraph was considered before done resolved');
+  await page.close();
+});
