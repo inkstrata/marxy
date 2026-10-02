@@ -1,5 +1,8 @@
 # The CI contract — everything that can turn a pull request red
 
+> **Out of date.** The fleet is paused (`orchestration/PAUSED.md`): the conventions job no longer
+> checks keys, board rows, commit ranges or the PR body. This page is rewritten in A-11.
+
 Read this before you push, not after. Every rule below is enforced by a script you can run
 locally; none of it is discovered by waiting for GitHub. If CI fails on something that is not
 in this page, the page is wrong and fixing it is part of your PR.

@@ -19,18 +19,22 @@ const config = {
     'footer-max-line-length': [1, 'always', 100],
     'body-leading-blank': [2, 'always'],
     'footer-leading-blank': [2, 'always'],
-    // The Jira key belongs at the end of the subject, checked directly rather than through the
-    // parser's issue references: with issuePrefixes set, a key mentioned anywhere in the body was
-    // read as a footer, so a commit could not name a sibling story without failing.
-    'marxy-key-in-subject': [2, 'always'],
+    // A subject may end in a Jira key, a story id such as (A-07), or nothing (ADR-0051). A trailing
+    // parenthesis that looks like a key but is malformed, such as (MARXY-) or (a-01), is an error.
+    // Checked directly rather than through the parser's issue references.
+    'marxy-ref-in-subject': [2, 'always'],
     'trailer-exists': [0],
   },
   plugins: [{
     rules: {
-      'marxy-key-in-subject': ({ header }) => [
-        /\(MARXY-\d+\)( \(#\d+\))?$/.test(header ?? '') || /^(Merge|Revert|\w+(\(\w+\))?!?: .*\((bootstrap|spike)\))/.test(header ?? ''),
-        'subject must end with the Jira key in parentheses, e.g. "(MARXY-23)" — docs/conventions.md',
-      ],
+      'marxy-ref-in-subject': ({ header }) => {
+        const h = (header ?? '').replace(/ \(#\d+\)$/, '');
+        const tail = /\(([^()\s]*)\)$/.exec(h)?.[1];
+        const looksLikeRef = tail !== undefined && /^(marxy|[a-e])-/i.test(tail);
+        const valid = tail !== undefined && /^(MARXY-\d+|[A-E]-\d{2}(\.\d)?)$/.test(tail);
+        return [!looksLikeRef || valid,
+          'a trailing (...) that looks like a ref must be (MARXY-n) or a story id like (A-07); the ref is optional — docs/conventions.md'];
+      },
     },
   }],
   ignores: [msg => /^(Merge|Revert)\b/.test(msg)],
@@ -127,8 +131,22 @@ function selftest() {
   const squash = lint('fix(gates): lint commit messages where they are written (MARXY-100) (#48)');
   report(squash.status === 0, 'lint: a squash-merge subject with a trailing (#n) passes', outOf(squash).trim());
   const bareKey = lint('fix(gates): lint commit messages where they are written');
-  report(bareKey.status !== 0 && /marxy-key-in-subject/.test(outOf(bareKey)),
-    'lint: a subject without the key still fails', outOf(bareKey).trim());
+  report(bareKey.status === 0, 'lint: a subject with no ref passes', outOf(bareKey).trim());
+  for (const [name, msg] of [
+    ['a story id', 'perf(typeset): one read pass (A-07)'],
+    ['a key then (#n)', 'fix(core): x (MARXY-12) (#3)'],
+    ['a sub-story id', 'fix(core): x (A-07.1)'],
+  ]) {
+    const r = lint(msg);
+    report(r.status === 0, `lint: ${name} passes`, outOf(r).trim());
+  }
+  for (const [name, msg] of [
+    ['a key with no number', 'fix(core): x (MARXY-)'],
+    ['a lowercase story id', 'fix(core): x (a-01)'],
+  ]) {
+    const r = lint(msg);
+    report(r.status !== 0 && /marxy-ref-in-subject/.test(outOf(r)), `lint: ${name} fails`, outOf(r).trim());
+  }
 
   const repo = lint('chore(repo): freeze the workspace contracts (MARXY-100)');
   const workspace = lint('chore(workspace): freeze the workspace contracts (MARXY-100)');
