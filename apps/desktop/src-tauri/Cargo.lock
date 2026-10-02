@@ -2186,6 +2186,7 @@ dependencies = [
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-dialog",
  "tauri-plugin-single-instance",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]

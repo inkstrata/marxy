@@ -69,6 +69,7 @@ export const shell: Pick<
   | 'onCloseRequested'
   | 'confirmClose'
   | 'openExternal'
+  | 'revealInExternalEditor'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
@@ -199,5 +200,13 @@ export const shell: Pick<
   readDir: (dir) => invoke('read_dir', { dir }),
   openExternal: async (url) => {
     await invoke('open_external', { url });
+  },
+  /** Rust reads `external_editor` and runs it without a shell; only the path and line cross (D-A31). */
+  revealInExternalEditor: async (path, line) => {
+    try {
+      await invoke('reveal_in_editor', { path, line: line ?? null });
+    } catch (err) {
+      throw shellErrorFromInvoke(err);
+    }
   },
 };
