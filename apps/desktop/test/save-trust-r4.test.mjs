@@ -222,13 +222,13 @@ test('B13: switching documents while a grant is being written announces nothing 
         return write(p, b);
       };
     });
-    await clickAction(page, /Show HTML and images/);
+    await clickAction(page, /Show this document's HTML/);
     await page.waitForTimeout(100);
     await page.evaluate(() => __h.open('/d/C.md'));
     await page.waitForTimeout(1800);
     assert.equal(await page.evaluate(() => __h.currentPath()), '/d/C.md');
     const text = (await notices(page)).join('\n');
-    assert.doesNotMatch(text, /Showing|Images will load|C\.md/);
+    assert.doesNotMatch(text, /Showing|C\.md/);
     assert.equal(await page.evaluate(() => !!document.querySelector('#doc details')), false);
   } finally {
     await browser.close();
@@ -278,16 +278,14 @@ test('B14: a failed trust write says so, shows no success and leaves the documen
   }
 });
 
-test('B15: one summary names HTML and images from the hosts granted; Details shows the Unicode host', async () => {
+test('B15: the HTML grant announces one summary; the notice offers no host list', async () => {
   const browser = await launchWebkit();
   try {
     const page = await open(browser, { '/d/B.md': b64(BOTH) }, ['/d/B.md']);
-    await clickAction(page, /Details/);
-    const rows = await page.evaluate(() => [...document.querySelectorAll('.marxy-notice-details label')].map((l) => l.textContent));
-    assert.ok(rows.some((r) => r.includes('аpple.com') && r.includes('xn--pple-43d.com')), rows.join('|'));
-    await page.evaluate(() => document.querySelector('.marxy-notice-details').remove());
-    await clickAction(page, /Show HTML and images/);
-    await page.waitForFunction(() => /Showing HTML and images from 2 hosts for B\.md\. Undo in the palette\./.test(document.getElementById('marxy-notices')?.textContent ?? ''));
+    assert.equal(await page.locator('.marxy-notice-details').count(), 0);
+    assert.equal(await page.locator('#marxy-notices input').count(), 0);
+    await clickAction(page, /Show this document's HTML/);
+    await page.waitForFunction(() => /Showing HTML for B\.md\. Undo in the palette\./.test(document.getElementById('marxy-notices')?.textContent ?? ''));
   } finally {
     await browser.close();
   }
@@ -331,10 +329,11 @@ nodeTest('B14: writes reach disk in the order the changes were made', async () =
     if (first) { first = false; await new Promise((r) => setTimeout(r, 40)); }
     disk.push(JSON.parse(dec(bytes)));
   });
-  await Promise.all([store.grant('/d/a.md', { html: true }), store.grant('/d/a.md', { imageHosts: ['img.shields.io'] })]);
-  const last = disk.at(-1).documents['/d/a.md'];
-  assert.equal(last.html, true);
-  assert.deepEqual(last.imageHosts, ['img.shields.io']);
+  await Promise.all([store.grant('/d/a.md', { html: true }), store.grant('/d/b.md', { html: true })]);
+  const last = disk.at(-1).documents;
+  assert.equal(last['/d/a.md'].html, true);
+  assert.equal(last['/d/b.md'].html, true);
+  assert.ok(!('imageHosts' in last['/d/a.md']));
 });
 
 nodeTest('B15: the image line agrees with its verb, and the copy skips images no grant can load', () => {

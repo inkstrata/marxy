@@ -1,11 +1,10 @@
-// Per-document HTML and image-host grants in trust.json (docs/design/13-trust.md §Persistence).
+// Per-document HTML grants in trust.json (docs/design/13-trust.md §Persistence).
 
 export const TRUST_FILE_VERSION = 1;
 export const TRUST_LRU_CAP = 2000;
 
 export interface DocumentGrants {
   readonly html: boolean;
-  readonly imageHosts: readonly string[];
   readonly at: number;
 }
 
@@ -14,7 +13,7 @@ export interface TrustEnvelope {
   readonly documents: Record<string, DocumentGrants>;
 }
 
-export type Grants = Pick<DocumentGrants, 'html' | 'imageHosts'>;
+export type Grants = Pick<DocumentGrants, 'html'>;
 
 export type LoadTrustResult =
   | { readonly kind: 'ok'; readonly envelope: TrustEnvelope; readonly quarantineBytes?: Uint8Array }
@@ -26,18 +25,6 @@ export function emptyTrustEnvelope(): TrustEnvelope {
 
 export function quarantinePathFor(trustPath: string, nowMs = Date.now()): string {
   return `${trustPath}.bad-${nowMs}`;
-}
-
-/** Punycode hostname for storage; rejects values URL cannot parse as a host. */
-export function normalizeImageHost(host: string): string | null {
-  const trimmed = host.trim().toLowerCase();
-  if (trimmed === '') return null;
-  try {
-    const { hostname } = new URL(`https://${trimmed}`);
-    return hostname === '' ? null : hostname;
-  } catch {
-    return null;
-  }
 }
 
 export function parseTrustFile(bytes: Uint8Array): LoadTrustResult {
@@ -76,21 +63,16 @@ export function parseTrustFile(bytes: Uint8Array): LoadTrustResult {
   return { kind: 'ok', envelope: { version: envelopeVersion, documents } };
 }
 
+/**
+ * Reads one stored entry. An `imageHosts` field written by an older Marxy is ignored: nothing ever loaded
+ * images from it, and it is dropped from the file the next time a grant or revoke writes it.
+ */
 function normalizeEntry(entry: unknown): DocumentGrants | null {
   if (typeof entry !== 'object' || entry === null) return null;
   const e = entry as Record<string, unknown>;
-  const html = e.html === true;
-  const hosts: string[] = [];
-  if (Array.isArray(e.imageHosts)) {
-    for (const h of e.imageHosts) {
-      if (typeof h !== 'string') continue;
-      const norm = normalizeImageHost(h);
-      if (norm && !hosts.includes(norm)) hosts.push(norm);
-    }
-  }
+  if (e.html !== true) return null;
   const at = typeof e.at === 'number' ? e.at : Date.now();
-  if (!html && hosts.length === 0) return null;
-  return { html, imageHosts: hosts, at };
+  return { html: true, at };
 }
 
 export function serializeTrustFile(envelope: TrustEnvelope): Uint8Array {
@@ -101,13 +83,10 @@ export function serializeTrustFile(envelope: TrustEnvelope): Uint8Array {
 function upsertDocument(
   envelope: TrustEnvelope,
   path: string,
-  change: Partial<Pick<DocumentGrants, 'html' | 'imageHosts'>>,
+  change: Pick<DocumentGrants, 'html'>,
 ): TrustEnvelope {
-  const prev = envelope.documents[path];
-  const html = change.html ?? prev?.html ?? false;
-  const imageHosts = change.imageHosts ?? prev?.imageHosts ?? [];
   const at = Date.now();
-  const documents = { ...envelope.documents, [path]: { html, imageHosts: [...imageHosts], at } };
+  const documents = { ...envelope.documents, [path]: { html: change.html, at } };
   const keys = Object.keys(documents);
   if (keys.length <= TRUST_LRU_CAP) return { ...envelope, documents };
   const drop = keys
@@ -127,8 +106,8 @@ export interface TrustStore {
    * Resolves true once the change is in memory and on disk; false when trust.json comes from a newer
    * Marxy and is left untouched. Rejects, with the in-memory state put back, when the write fails.
    */
-  grant(path: string, change: Partial<Pick<DocumentGrants, 'html' | 'imageHosts'>>): Promise<boolean>;
-  revoke(path: string, what: 'html' | 'images' | 'all'): Promise<boolean>;
+  grant(path: string, change: Pick<DocumentGrants, 'html'>): Promise<boolean>;
+  revoke(path: string, what: 'html'): Promise<boolean>;
   readonly newerVersion: boolean;
 }
 
@@ -172,29 +151,19 @@ export function createTrustStore(
     delete documents[path];
     return { ...env, documents };
   };
-  const emptied = (env: TrustEnvelope, path: string): boolean =>
-    !env.documents[path]?.html && env.documents[path]?.imageHosts.length === 0;
   return {
     newerVersion,
     grantsFor(path: string): Grants {
       const entry = state.documents[path];
-      return { html: entry?.html === true, imageHosts: entry?.imageHosts ?? [] };
+      return { html: entry?.html === true };
     },
     async grant(path, change) {
       if (newerVersion) return false;
       return persist((base) => upsertDocument(base, path, change));
     },
-    async revoke(path, what) {
+    async revoke(path) {
       if (newerVersion) return false;
-      return persist((base) => {
-        const entry = base.documents[path];
-        if (!entry) return null;
-        if (what === 'all') return without(base, path);
-        const next = upsertDocument(base, path, what === 'html'
-          ? { html: false, imageHosts: entry.imageHosts }
-          : { html: entry.html, imageHosts: [] });
-        return emptied(next, path) ? without(next, path) : next;
-      });
+      return persist((base) => (base.documents[path] ? without(base, path) : null));
     },
   };
 }
