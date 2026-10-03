@@ -1,4 +1,6 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
+import { setAppHandle } from './commands/app-handle.ts';
+import { installCommandKeys } from './selection/bind.ts';
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
@@ -169,6 +171,8 @@ export type AppHandle = {
    * progressive threshold, after the last idle chunk for a larger one.
    */
   contentComplete(): Promise<void>;
+  /** Rendered to Source or back, as `Mod+E` does; resolves when the switch is done. */
+  toggleMode(): Promise<void>;
 };
 
 const t0 = Date.now();
@@ -194,7 +198,6 @@ let bytesOnDisk: Uint8Array | null = null;
 let documentWatch: { close(): void } | null = null;
 let viewMode: 'rendered' | 'source' = 'rendered';
 let sourceEditor: MountedSourceEditor | null = null;
-let keysInstalled = false;
 let lastReadingByteOffset = 0;
 let lastReadingFraction = 0;
 let modeToggleBusy = false;
@@ -320,17 +323,6 @@ function serially<T>(fn: () => Promise<T>): Promise<T> {
   const run = chain.then(fn, fn);
   chain = run.catch(() => undefined);
   return run;
-}
-
-function installKeyDispatcher(): void {
-  if (keysInstalled) return;
-  keysInstalled = true;
-  document.addEventListener('keydown', (e) => {
-    if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
-    if (e.key !== 'e' && e.key !== 'E') return;
-    e.preventDefault();
-    void toggleViewMode();
-  });
 }
 
 function sourceHarness(): ReturnType<AppHandle['sourceHarness']> {
@@ -1203,15 +1195,28 @@ async function flushAllPersistence(): Promise<void> {
 function installScrollPersistence(): void {
   if (scrollPersistenceInstalled || !positionPersistence) return;
   scrollPersistenceInstalled = true;
-  readingScroller().addEventListener(
+  // WebKit fires the viewport's scroll at the Document, not at documentElement, so listen there.
+  // PositionPersistence debounces the write itself (POSITIONS_DEBOUNCE_MS), so noting on every
+  // scroll event only updates an in-memory entry.
+  // One sample per frame: currentPosition walks the blocks, so it must not run per scroll event.
+  let frame = 0;
+  document.addEventListener(
     'scroll',
     () => {
-      if (!positionPersistence || !openPath || !state.document || viewMode !== 'rendered') return;
-      const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
-      positionPersistence.note(openPath, pos);
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!positionPersistence || !openPath || !state.document || viewMode !== 'rendered') return;
+        const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+        positionPersistence.note(openPath, pos);
+      });
     },
     { passive: true },
   );
+  // A window close that skips shell.quit still gets the last position out.
+  window.addEventListener('pagehide', () => {
+    void flushReadingPersistence();
+  });
 }
 
 /** The memory shell can say a state file is absent without a recorded `readFile`. */
@@ -1289,7 +1294,6 @@ async function openDocumentThroughRenderMark(
   documentBuffer = createBuffer(file, bytes);
   syncSavedVersionFromOpenBuffer(documentBuffer);
   sourceMount();
-  installKeyDispatcher();
   await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
   const ast = parseMarkdown(bytes, { file });
   await shell.mark('parsed', Date.now());
@@ -1596,6 +1600,7 @@ export async function startApp(
     },
     commitEdit,
     contentComplete: () => mount?.complete ?? Promise.resolve(),
+    toggleMode: toggleViewMode,
     pinPaletteDocument(path: string) {
       const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
         .__marxyPalette;
@@ -1603,6 +1608,10 @@ export async function startApp(
     },
     index,
   };
+  // The registry's one key dispatcher runs wherever the app does (it used to be Mod+E's own listener
+  // here); the palette mount and the selection harness call the same idempotent install.
+  setAppHandle(handle);
+  installCommandKeys();
   installSave({
     shell,
     getOpenBuffer: () => documentBuffer,

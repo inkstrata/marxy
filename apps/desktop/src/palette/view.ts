@@ -5,9 +5,10 @@ import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
 import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
+import { withPaletteListing } from '../commands/navigation.ts';
 import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
 import { installRenderedSelection } from '../selection/view.ts';
-import { historyDirection, historyKeyBelongsToEditor, type PaletteKey } from './keys.ts';
+import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
 import { jumpForHit, paletteResults, prepareIndex, type PreparedIndex } from './search.ts';
 import {
@@ -60,6 +61,10 @@ export interface PaletteController {
   open(): void;
   close(): void;
   setIndexEntries(entries: readonly IndexEntry[]): void;
+  /** One step back through the session history; false when there is none (the key is then left alone). */
+  back(): boolean;
+  /** One step forward through the session history; false when there is none. */
+  forward(): boolean;
 }
 
 function isMacPlatform(): boolean {
@@ -96,7 +101,7 @@ function filterHits(hits: readonly IndexHit[], section: PaletteListSection): rea
 
 function commandsForPalette(query: string): readonly Command[] {
   const after = query.trim().slice(1);
-  return paletteCommands(commands(), buildAppContext(), after);
+  return withPaletteListing(() => paletteCommands(commands(), buildAppContext(), after));
 }
 
 /** Operations close the palette themselves once they apply; every other command is closed over here. */
@@ -485,18 +490,6 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   });
 
   window.addEventListener('keydown', (event) => {
-    const dir = historyDirection(event);
-    if (dir !== undefined && !open) {
-      const source = document.getElementById('marxy-source');
-      if (historyKeyBelongsToEditor(event, source !== null && !source.hidden)) return;
-      event.preventDefault();
-      const step = dir === 'back' ? goBack(session) : goForward(session);
-      if (step === undefined) return;
-      session = step.session;
-      syncSession();
-      void renderPath(deps, step.path);
-      return;
-    }
     if (isMod(event) && event.key.toLowerCase() === 'p' && !event.shiftKey) {
       event.preventDefault();
       if (open) dismiss();
@@ -515,10 +508,24 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
   });
 
+  const travel = (step: ReturnType<typeof goBack>): boolean => {
+    if (step === undefined) return false;
+    session = step.session;
+    syncSession();
+    // Off the critical path, as in activateHit: the navigation never waits on a re-prepare.
+    setTimeout(() => {
+      prepared = prepareIndex(entries, session.readAt);
+    }, 0);
+    void renderPath(deps, step.path);
+    return true;
+  };
+
   return {
     get session() {
       return session;
     },
+    back: () => travel(goBack(session)),
+    forward: () => travel(goForward(session)),
     open: summon,
     close: dismiss,
     setIndexEntries(next) {
