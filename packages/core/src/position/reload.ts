@@ -20,7 +20,7 @@ export type OpenDocumentUpdate =
 /**
  * The live-reload path: new bytes → one AST → the same first-visible-block coordinate, carried
  * through the edit when the bytes the position was read against are given.
- * Typesetting is a later story; this is the work that must stay under 100 ms.
+ * This is the work that must stay under 100 ms.
  */
 export function reloadOpenDocument(
   bytes: Uint8Array,
