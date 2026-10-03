@@ -267,7 +267,9 @@ test('the three-dot diff contains no fidelity gate and no contract file', (t) =>
     // MARXY-49: explicit save deletes the write-after-every-operation path gate-fidelity.mjs
     // measured, and updates its Rust save-signature anchor to WriteError; save.test.mjs is
     // unique to that story's own PR.
-    names.includes('apps/desktop/test/save.test.mjs');
+    names.includes('apps/desktop/test/save.test.mjs') ||
+    // A-08: drops the ci.yml-shape check from gate-fidelity.mjs; check.test.mjs is unique to that story's PR.
+    names.includes('scripts/check.test.mjs');
   assert.ok(!names.includes('scripts/gate-fidelity.mjs') || gateFidelityAllowed);
   assert.deepEqual(
     names.filter((name) => name === 'packages/core/src/contracts' || name.startsWith('packages/core/src/contracts/')),

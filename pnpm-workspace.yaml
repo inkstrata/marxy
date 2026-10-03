@@ -5,3 +5,5 @@ allowBuilds:
   esbuild: true
 onlyBuiltDependencies:
   - esbuild
+# pnpm runs `precheck` as the pre-hook of `check`, and precheck runs `pnpm check`: a loop. Nothing else uses pre/post hooks.
+enablePrePostScripts: false

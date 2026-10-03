@@ -2,6 +2,7 @@
 import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import {
   documentIsDirty,
   foldSourceEditIfNeeded,
@@ -18,7 +19,6 @@ import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
-import type { IndexEntry } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
@@ -51,6 +51,8 @@ import { startUserTheme, themeDirFromConfig, type UserThemeContext } from './the
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { type ApplyImagesContext } from './render/images.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from './startup/idle-work.ts';
+import { mountProgressively, type ProgressiveMount } from './render/progressive.ts';
+import { createIndexService, indexShellFor, type IndexService } from './index/service.ts';
 import { currentPosition, restoreScrollToPosition, PositionPersistence } from './position/index.ts';
 import {
   flushPaletteHistoryFromApp,
@@ -160,6 +162,13 @@ export type AppHandle = {
   commitEdit(buffer: Buffer): Promise<void>;
   /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
   pinPaletteDocument(path: string): void;
+  /** The palette index: one walk per repository root, every root opened so far published (A-04). */
+  readonly index: IndexService;
+  /**
+   * Resolves when the open document is wholly in the article (A-02): at once for a document under the
+   * progressive threshold, after the last idle chunk for a larger one.
+   */
+  contentComplete(): Promise<void>;
 };
 
 const t0 = Date.now();
@@ -242,8 +251,10 @@ async function showSource(byteOffset: number): Promise<void> {
 async function showRendered(byteOffset: number, fraction: number): Promise<void> {
   setModeChrome('rendered');
   if (state.document && openPath) {
+    const doc = document.getElementById('doc')!;
+    mountThrough(doc, byteOffset);
     // Block positions must be measured with the article laid out, not from whatever a hidden pass saw.
-    snap(document.getElementById('doc')!);
+    snap(doc);
     restoreScrollToPosition(readingScroller(), state.document.blocks, {
       path: openPath,
       byteOffset,
@@ -351,6 +362,15 @@ function assignHtml(doc: HTMLElement, html: string): void {
 
 interface RenderEvidence { readonly blocks: number; readonly chars: number; readonly heading: string }
 
+/** The source bytes the article holds so far: the end of its last block with provenance. */
+function mountedBytes(doc: HTMLElement): number {
+  for (let el = doc.lastElementChild; el !== null; el = el.previousElementSibling) {
+    const end = el.getAttribute('data-marxy-e');
+    if (end !== null) return Number(end);
+  }
+  return 0;
+}
+
 /** Evidence that the document actually reached the DOM, for the CLI smoke check. */
 function renderEvidence(doc: HTMLElement): RenderEvidence {
   return {
@@ -363,8 +383,12 @@ function renderEvidence(doc: HTMLElement): RenderEvidence {
 /** The arguments this launch was given, kept so the error path can honour the flag too. */
 let launchArgs: readonly string[] = [];
 
-/** Delivers idle-built index entries to whoever mounted the palette (main.ts). */
-let deliverIndex: ((entries: readonly IndexEntry[]) => void) | undefined;
+/** The palette index for this launch; created by startApp (A-04). */
+let index: IndexService;
+/** The launch document's walk, so `ready` (and a harness quit) follows its `index_loaded` mark. */
+let indexing: Promise<void> = Promise.resolve();
+/** History records opens in order even though each waits on its root (palette/history.ts). */
+let historyTracked: Promise<void> = Promise.resolve();
 
 function deferredStartupContext(
   file: string,
@@ -376,8 +400,6 @@ function deferredStartupContext(
     file,
     doc,
     imageCtx,
-    onIndexLoaded: deliverIndex,
-    openedBytes: documentBuffer?.bytes,
     onLayoutChanged: () => snap(doc),
   };
 }
@@ -553,22 +575,20 @@ function rerenderOpenDocument(doc: HTMLElement, byteOffset: number, fraction: nu
   const ast = parseMarkdown(documentBuffer.bytes, { file });
   const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
   destroyTypeset();
-  assignHtml(doc, html);
   state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
+  const mounted = mountDocument(doc, html, file, byteOffset);
   announceDocument();
-  stripNonLocalImages(doc, file);
   showTrustNotices(removed, blockedImages);
   snap(doc);
   startTypeset(doc);
+  mountThrough(doc, byteOffset);
   restoreScrollToPosition(readingScroller(), state.document.blocks, {
     path: file,
     byteOffset,
     fraction,
     mode: 'rendered',
   });
-  void whenIdle(() =>
-    runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots })),
-  );
+  deferAfterComplete(mounted, file, doc);
 }
 
 async function maybeRerenderForLateTrust(doc: HTMLElement): Promise<void> {
@@ -609,6 +629,8 @@ async function finish(code: number): Promise<void> {
  * when the column is resized. Reading position is re-read after each, because tops move.
  */
 let typeset: TypesetController | null = null;
+/** The open document's mount (A-02), beside its typesetter: what of the article is in so far. */
+let mount: ProgressiveMount | null = null;
 let userThemeHandle: { stop(): void } | null = null;
 
 function userThemeContext(doc: HTMLElement): UserThemeContext {
@@ -627,10 +649,10 @@ async function restartUserTheme(dir: string | null): Promise<void> {
   userThemeHandle = await startUserTheme(userThemeContext(document.getElementById('doc')!), dir);
 }
 
-function snap(article: HTMLElement): void {
+function snap(article: HTMLElement, from?: HTMLElement): void {
   cancelScheduledSnap();
   lastSnapAt = performance.now();
-  snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight));
+  snapToGrid(article, parseFloat(getComputedStyle(article).lineHeight), from ? { from } : undefined);
   if (state.document) state.document.blocks = buildBlocks(article, state.document.nodeMap);
   holdAnchor();
 }
@@ -643,9 +665,16 @@ function snap(article: HTMLElement): void {
  */
 let anchor: number | null = null;
 let anchorListening = false;
+/**
+ * A reading position a re-render restored (a reload, an edit), held the same way until the
+ * typesetter has set the new page (A-02): its passes reflow paragraphs above the reading line, and
+ * at 1 MB they run for seconds after the render returns.
+ */
+let heldPosition: ReadingPosition | null = null;
 
 function releaseAnchor(): void {
   anchor = null;
+  heldPosition = null;
 }
 
 function listenForReaderScroll(): void {
@@ -671,7 +700,12 @@ function blockContaining(doc: OpenDocument, at: number): BlockList[number] | und
 }
 
 function holdAnchor(): void {
-  if (anchor === null || !state.document || !openPath || viewMode !== 'rendered') return;
+  if (!state.document || !openPath || viewMode !== 'rendered') return;
+  if (heldPosition !== null && heldPosition.path === openPath) {
+    restoreScrollToPosition(readingScroller(), state.document.blocks, heldPosition);
+    return;
+  }
+  if (anchor === null) return;
   const block = blockContaining(state.document, anchor);
   if (block === undefined) return;
   restoreScrollToPosition(readingScroller(), state.document.blocks, {
@@ -682,8 +716,35 @@ function holdAnchor(): void {
   });
 }
 
+/**
+ * Restores `position` on the page a re-render just made, and holds it there through the passes that
+ * follow: until the reader scrolls, or until the document is wholly in and wholly set.
+ */
+function holdPosition(doc: HTMLElement, position: ReadingPosition): void {
+  mountThrough(doc, position.byteOffset);
+  if (!state.document) return;
+  restoreScrollToPosition(readingScroller(), state.document.blocks, position);
+  listenForReaderScroll();
+  anchor = null;
+  heldPosition = position;
+  const current = mount;
+  void (async () => {
+    await current?.complete;
+    // `done` is replaced when adopted paragraphs arrive after it resolved: wait for the last one.
+    for (let set = typeset; set !== null && set === typeset; ) {
+      const done = set.done;
+      await done;
+      if (set.done === done) break;
+    }
+    if (heldPosition !== position || mount !== current) return;
+    snap(doc);
+    heldPosition = null;
+  })();
+}
+
 function landOn(at: number | undefined): void {
   if (at === undefined) return;
+  mountThrough(document.getElementById('doc')!, at);
   listenForReaderScroll();
   anchor = at;
   holdAnchor();
@@ -700,22 +761,36 @@ const SNAP_INTERVAL_MS = 250;
 let lastSnapAt = 0;
 let snapTimer = 0;
 let snapFrame = 0;
+/**
+ * What the pending snap covers: undefined for none asked, null for the whole article, or the first
+ * block appended since the last snap (A-02), when only appends asked for it.
+ */
+let snapFrom: HTMLElement | null | undefined;
 
 function cancelScheduledSnap(): void {
   if (snapTimer !== 0) clearTimeout(snapTimer);
   if (snapFrame !== 0) cancelAnimationFrame(snapFrame);
   snapTimer = 0;
   snapFrame = 0;
+  snapFrom = undefined;
 }
 
-function scheduleSnap(article: HTMLElement): void {
+/** Runs the pending snap now, over what it would have covered. */
+function snapPending(article: HTMLElement): void {
+  snap(article, snapFrom ?? undefined);
+}
+
+/** `from` asks only for the blocks from it on (the earliest asked wins); without it, the whole article. */
+function scheduleSnap(article: HTMLElement, from?: HTMLElement): void {
+  if (from === undefined || snapFrom === null) snapFrom = null;
+  else if (snapFrom === undefined || from.compareDocumentPosition(snapFrom) & Node.DOCUMENT_POSITION_FOLLOWING) snapFrom = from;
   if (snapTimer !== 0 || snapFrame !== 0) return;
   const wait = Math.max(0, lastSnapAt + SNAP_INTERVAL_MS - performance.now());
   snapTimer = window.setTimeout(() => {
     snapTimer = 0;
     snapFrame = requestAnimationFrame(() => {
       snapFrame = 0;
-      snap(article);
+      snapPending(article);
     });
   }, wait);
 }
@@ -732,10 +807,44 @@ function destroyTypeset(): void {
   typeset = null;
 }
 
+/** The open article's listener for faces that load after the first screens (A-02). */
+let fontsLoaded: (() => void) | null = null;
+/**
+ * Islands that arrived in chunks (A-02). An island can change height after the pass that measured it
+ * with nothing in its style changing (WebKitGTK relays out some tables a layout later), and a later
+ * pass from further down would not see it: when one does, the pass is asked again from its block.
+ */
+let islandObserver: ResizeObserver | null = null;
+const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
+
+function watchIslands(article: HTMLElement, added: readonly HTMLElement[]): void {
+  if (!islandObserver) {
+    const sized = new WeakMap<Element, number>();
+    islandObserver = new ResizeObserver((entries) => {
+      for (const { target, contentRect } of entries) {
+        const was = sized.get(target);
+        sized.set(target, contentRect.height);
+        if (was === undefined || Math.abs(was - contentRect.height) < 0.1) continue;
+        let block = target as HTMLElement;
+        while (block.parentElement && block.parentElement !== article) block = block.parentElement;
+        if (block.parentElement === article) scheduleSnap(article, block);
+      }
+    });
+  }
+  for (const el of added) {
+    if (el.matches(ISLANDS)) islandObserver.observe(el);
+    for (const island of el.querySelectorAll(ISLANDS)) islandObserver.observe(island);
+  }
+}
+
 function disconnectResizeObserver(): void {
   if (resizeObserver) liveResizeObservers -= 1;
   resizeObserver?.disconnect();
   resizeObserver = null;
+  if (fontsLoaded) document.fonts.removeEventListener('loadingdone', fontsLoaded);
+  fontsLoaded = null;
+  islandObserver?.disconnect();
+  islandObserver = null;
 }
 
 function keepOnGrid(article: HTMLElement): void {
@@ -744,6 +853,10 @@ function keepOnGrid(article: HTMLElement): void {
   let pending = 0;
   let width = article.clientWidth;
   disconnectResizeObserver();
+  // A face first used further down (in a chunk appended after the first screens) loads late and
+  // changes the height of every block set in it, above the chunk passes' reach: the whole article again.
+  fontsLoaded = () => scheduleSnap(article);
+  document.fonts.addEventListener('loadingdone', fontsLoaded);
   liveResizeObservers += 1;
   const laidOut = () => !article.hidden && article.clientWidth > 0;
   resizeObserver = new ResizeObserver(() => {
@@ -767,6 +880,8 @@ function keepOnGrid(article: HTMLElement): void {
  * not N — each old observer would otherwise relayout on every resize.
  */
 function teardownDocument(): void {
+  mount?.cancel();
+  mount = null;
   documentWatch?.close();
   documentWatch = null;
   bytesOnDisk = null;
@@ -813,11 +928,27 @@ async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition):
   sourceEditor?.replaceBuffer(documentBuffer);
   // The selection context still holds the previous buffer until the render below, so hand over the new one.
   syncSavedVersionFromOpenBuffer(documentBuffer);
-  rerenderFromBuffer(doc);
-  if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
-  await typesetDocument(doc);
+  rerenderFromBuffer(doc, position.byteOffset);
+  const typesetting = typesetDocument(doc);
+  holdPosition(doc, position);
+  await typesetting;
   const ms = performance.now() - t0;
   await shell.mark('live_reload', Date.now(), `ms=${ms.toFixed(1)}`);
+}
+
+const isMarkdownPath = (path: string): boolean => classify(path) === 'markdown';
+
+/**
+ * The watch is the document's directory: a markdown file there changed, so its root is re-walked
+ * (coalesced, at idle). The echo of Marxy's own save is not a change: an event naming the open
+ * document while disk holds exactly the buffer's bytes re-walks nothing. Recursive watching is a later phase.
+ */
+function refreshIndexForWatch(events: readonly WatchEvent[], path: string, diskBytes: Uint8Array | null): void {
+  const echo = diskBytes !== null && documentBuffer !== null && contentHash(diskBytes) === contentHash(documentBuffer.bytes);
+  const changed = (p: string | undefined) => p !== undefined && isMarkdownPath(p) && !(echo && p === path);
+  if (events.some((e) => changed(e.path) || changed(e.to))) {
+    void index.rootFor(path).then((root) => index.refresh(root));
+  }
 }
 
 async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
@@ -825,6 +956,7 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
   const path = openPath;
   const position = currentPosition(readingScroller(), state.document.blocks, path, viewMode);
   const diskBytes = await readOpenFileWithRetry(path);
+  refreshIndexForWatch(events, path, diskBytes);
   const update = applyWatchToOpenDocument(
     events,
     position,
@@ -879,9 +1011,10 @@ async function retargetOpenDocument(newPath: string): Promise<void> {
   documentBuffer = createBuffer(newPath, folded.bytes);
   sourceEditor?.replaceBuffer(documentBuffer);
   releaseAnchor();
-  rerenderFromBuffer(doc);
-  if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, { ...position, path: newPath });
-  await typesetDocument(doc);
+  rerenderFromBuffer(doc, position.byteOffset);
+  const typesetting = typesetDocument(doc);
+  holdPosition(doc, { ...position, path: newPath });
+  await typesetting;
   await shell.allowAssetScope(dirname(newPath));
   await registerDocumentWatch(newPath);
   document.title = `${basename(newPath)} — Marxy`;
@@ -913,9 +1046,10 @@ function commitEdit(next: Buffer): Promise<void> {
     documentBuffer = next;
     sourceEditor?.replaceBuffer(documentBuffer);
     releaseAnchor();
-    rerenderFromBuffer(doc);
-    if (state.document) restoreScrollToPosition(readingScroller(), state.document.blocks, position);
-    await typesetDocument(doc);
+    rerenderFromBuffer(doc, position.byteOffset);
+    const typesetting = typesetDocument(doc);
+    holdPosition(doc, position);
+    await typesetting;
     await refreshTitle();
   });
 }
@@ -973,25 +1107,79 @@ async function typesetDocument(article: HTMLElement): Promise<void> {
  * The page again from `documentBuffer`, after its bytes changed under the open document (an edit in
  * Source). Same parse, render and passes as an open; the reading position is the caller's.
  */
-function rerenderFromBuffer(doc: HTMLElement): void {
+function rerenderFromBuffer(doc: HTMLElement, byteOffset?: number): void {
   if (!documentBuffer || !openPath) return;
   const file = openPath;
   const ast = parseMarkdown(documentBuffer.bytes, { file });
   const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
   destroyTypeset();
-  assignHtml(doc, html);
   state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
+  const mounted = mountDocument(doc, html, file, byteOffset);
   announceDocument();
-  stripNonLocalImages(doc, file);
   showTrustNotices(removed, blockedImages);
   snap(doc);
   startTypeset(doc);
-  void whenIdle(() =>
-    runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots })),
+  deferAfterComplete(mounted, file, doc);
+}
+
+/**
+ * The open document's HTML into `#doc` through its one mount (A-02): all of it at once under the
+ * threshold, else the first screens (from `landing` down, when given) now and the rest in idle chunks
+ * once `start` settles. Replaces, and cancels, the mount of whatever was open before.
+ */
+function mountDocument(doc: HTMLElement, html: string, file: string, landing?: number, start?: Promise<unknown>): ProgressiveMount {
+  mount?.cancel();
+  cancelScheduledSnap();
+  const t0 = performance.now();
+  let chunks = 0;
+  const current: ProgressiveMount = mountProgressively(doc, html, {
+    landing,
+    start,
+    prepare: (parsed) => stripNonLocalImages(parsed, file),
+    onChunk: (added) => {
+      if (mount !== current) return;
+      chunks += 1;
+      scheduleSnap(doc, added[0]);
+      watchIslands(doc, added);
+      typeset?.adopt(added);
+    },
+  });
+  mount = current;
+  void current.complete.then(() => {
+    if (mount !== current || !current.isComplete() || chunks === 0) return;
+    // The last chunk's blocks are on the grid before anything reads the whole document.
+    snap(doc);
+    void shell.mark('content_complete', Date.now(), `ms=${(performance.now() - t0).toFixed(1)} chunks=${chunks}`);
+  });
+  return current;
+}
+
+/**
+ * Appends, now, every block up to the one holding `byte` and the screens below it, then puts what
+ * was appended on the grid and in the block list, so a position can be restored there at once.
+ */
+function mountThrough(doc: HTMLElement, byte: number): void {
+  if (!mount || mount.isComplete()) return;
+  const before = doc.childElementCount;
+  mount.ensureThrough(byte);
+  if (doc.childElementCount !== before) snapPending(doc);
+}
+
+/**
+ * Images, KaTeX and highlighting see the whole document (A-02): they run once the mount is
+ * complete, and not at all for a mount a later render or open replaced.
+ */
+function afterComplete(current: ProgressiveMount, fn: () => Promise<void>): Promise<void> {
+  if (current.isComplete()) return fn();
+  return current.complete.then(() => (mount === current && current.isComplete() ? fn() : undefined));
+}
+
+function deferAfterComplete(current: ProgressiveMount, file: string, doc: HTMLElement): void {
+  void afterComplete(current, () =>
+    whenIdle(() => runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }))),
   );
 }
 
-/** Read and render `file` through the `render` mark; cold-start paint runs after this (MARXY-183). */
 async function flushReadingPersistence(): Promise<void> {
   if (!positionPersistence || !openPath || !state.document) return;
   const pos = currentPosition(readingScroller(), state.document.blocks, openPath, viewMode);
@@ -1003,6 +1191,7 @@ async function flushPaletteHistory(): Promise<void> {
   const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
     .__marxyPalette;
   if (!shell.configPaths) return;
+  await historyTracked;
   await flushPaletteHistoryFromApp({ ...shell, configPaths: shell.configPaths }, palette?.session);
 }
 
@@ -1071,12 +1260,22 @@ async function restorePersistedPositionIfNeeded(): Promise<void> {
     await showSource(stored.byteOffset);
     return;
   }
+  mountThrough(document.getElementById('doc')!, stored.byteOffset);
   restoreScrollToPosition(readingScroller(), state.document.blocks, stored);
   landOn(stored.byteOffset);
   holdAnchor();
 }
 
-async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?: number): Promise<RenderEvidence> {
+/**
+ * Read and render `file` through the `render` mark; cold-start paint runs after this (MARXY-183).
+ * A large document's idle chunks wait for `start` (A-02), so nothing is appended before first text.
+ */
+async function openDocumentThroughRenderMark(
+  file: string,
+  doc: HTMLElement,
+  at: number | undefined,
+  start: Promise<unknown>,
+): Promise<RenderEvidence> {
   const bytes = await shell.readFile(file);
   let landing = at;
   if (landing === undefined && positionPersistence) {
@@ -1099,15 +1298,19 @@ async function openDocumentThroughRenderMark(file: string, doc: HTMLElement, at?
   console.info(`marxy: sanitiser removed ${removed.length}`);
   // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
   clearNotices();
-  assignHtml(doc, html);
   state.document = { ast, html, nodeMap, blocks: [] };
+  // Only the first screens go in now (A-02); images are checked before any block reaches the page.
+  mountDocument(doc, html, file, landing, start);
   announceDocument();
   await shell.mark('rendered', Date.now());
+  await shell.mark('first_screen', Date.now(), `blocks=${doc.childElementCount} bytes=${mountedBytes(doc)}`);
   showTrustNotices(removed, blockedImages);
-  stripNonLocalImages(doc, file);
   void doc.offsetHeight;
   await document.fonts.ready;
-  await shell.mark('fonts_ready', Date.now(), `faces=${[...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family}/${f.style}`).join(',')}`);
+  // No face list here (A-02): reading `document.fonts` made WebKit restyle the whole article as soon
+  // as the bundled fonts had loaded, seconds at 1 MB booked to the grid stage. The restyle still
+  // happens at the next style read, but now while the article holds only the first screens.
+  await shell.mark('fonts_ready', Date.now());
   document.title = `${file.split('/').pop()} — Marxy`;
   // The grid pass also builds the block list the reading position is read from.
   keepOnGrid(doc);
@@ -1122,8 +1325,15 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
   const shouldRestore = restoreAfterTypeset;
   restoreAfterTypeset = false;
   if (shouldRestore) await restorePersistedPositionIfNeeded();
+  const current = mount;
   await whenIdle(async () => {
-    await runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }));
+    // Once the whole document is in (at once under the threshold); later chunks do not hold the open
+    // up, so the reader can switch mode or open another document while they are appended (A-02).
+    const deferred = () => runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }));
+    if (!current || current.isComplete()) await deferred();
+    else void afterComplete(current, () => whenIdle(deferred));
+    indexing = index.ensureFor(file, documentBuffer?.bytes);
+    void indexing;
     const themeDir = await themeDirFromConfig(shell);
     await restartUserTheme(themeDir);
   });
@@ -1170,11 +1380,18 @@ async function openReplacing(file: string, at?: number): Promise<void> {
     landOn(at);
     return;
   }
+  const chunks = gate();
   try {
-    await openDocumentThroughRenderMark(file, doc, at);
-    trackDocumentOpen(file);
+    await openDocumentThroughRenderMark(file, doc, at, chunks.promise);
+    chunks.release();
+    historyTracked = historyTracked
+      .then(() => index.rootFor(file))
+      .then((root) => trackDocumentOpen(file, root))
+      // A failed record must not poison the chain: every later open and the quit flush wait on it.
+      .catch((e: unknown) => console.warn(`marxy: history could not record ${file}: ${String(e)}`));
     await finishDocumentOpen(file, doc, at);
   } catch (e) {
+    chunks.release();
     // Nothing of the last document may outlive the page that showed it.
     teardownDocument();
     state.document = null;
@@ -1257,7 +1474,25 @@ async function boot(): Promise<void> {
   }
 
   const after = performance.now();
-  const evidence = await openDocumentThroughRenderMark(file, doc);
+  // A large document's idle chunks wait for first text: anything appended before the paint would be
+  // styled and laid out in the frame first text is waiting for.
+  const chunks = gate();
+  try {
+    return await bootDocument(file, doc, after, chunks);
+  } finally {
+    chunks.release();
+  }
+}
+
+/** Released once: a promise for a mount's `start`, and the call that settles it. */
+function gate(): { readonly promise: Promise<void>; release(): void } {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => { release = resolve; });
+  return { promise, release };
+}
+
+async function bootDocument(file: string, doc: HTMLElement, after: number, chunks: ReturnType<typeof gate>): Promise<void> {
+  const evidence = await openDocumentThroughRenderMark(file, doc, undefined, chunks.promise);
   const renderedAt = Date.now();
 
   // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
@@ -1290,9 +1525,11 @@ async function boot(): Promise<void> {
   // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
   // Anything the check needs beyond the timestamp goes on the `painted` line above.
   await shell.mark('first_text', paintedAt);
+  chunks.release();
   await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
   setTimeout(() => void startTrustLoad().then(() => maybeRerenderForLateTrust(doc)), 0);
+  await indexing;
   return finish(0);
 }
 
@@ -1306,7 +1543,6 @@ export async function startApp(
   opts?: {
     argv?: readonly string[];
     pieces?: readonly PieceSource[];
-    onIndexLoaded?: (entries: readonly IndexEntry[]) => void;
   },
 ): Promise<AppHandle> {
   persistenceLoaded = false;
@@ -1325,7 +1561,9 @@ export async function startApp(
       return base.quit(code);
     },
   };
-  deliverIndex = opts?.onIndexLoaded;
+  index = createIndexService(indexShellFor(shell));
+  indexing = Promise.resolve();
+  historyTracked = Promise.resolve();
   launchArgs = opts?.argv ? [...opts.argv] : [];
   resetDismissedNotices();
   wireTrustRevokeCommands({
@@ -1357,11 +1595,13 @@ export async function startApp(
       return () => documentListeners.delete(cb);
     },
     commitEdit,
+    contentComplete: () => mount?.complete ?? Promise.resolve(),
     pinPaletteDocument(path: string) {
       const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
         .__marxyPalette;
       pinDocumentOnPaletteSession(palette?.session ?? emptySession('/'), path);
     },
+    index,
   };
   installSave({
     shell,

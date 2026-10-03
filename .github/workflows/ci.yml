@@ -62,18 +62,10 @@ jobs:
           path: ~/.pnpm-store
           key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - name: Commit messages follow docs/conventions.md
-        run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
       - name: PR title is a valid squash subject
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: node orchestration/pr-mark.mjs --bare | pnpm exec commitlint --verbose
-      - name: PR body follows the template, changelog has the key, baselines have a queue entry
-        run: node scripts/check-pr.mjs --pr ${{ github.event.pull_request.number }} --range
-        env:
-          GH_TOKEN: "${{ github.token }}"
-      - name: Story boundary over the whole branch
-        run: node scripts/check-story.mjs --strict
 
   # Everything that needs neither a browser nor Rust: hygiene checks, types, lint, unit tests, goldens, fidelity, licences.
   fast:
@@ -91,10 +83,11 @@ jobs:
           path: ~/.pnpm-store
           key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - run: pnpm check:boundaries && pnpm check:registry && pnpm check:deps && pnpm check:workflows && pnpm check:deferrals
+      - run: pnpm check
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm test:fleet
       - name: CommonMark spec selftest
         run: node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --selftest
       # The spec is an immutable pinned version, and it was re-downloaded on every pull request: a

@@ -114,9 +114,3 @@ test('MARXY-153: on a detached pull-request checkout the branch comes from GITHU
   assert.equal(resolveBranch('ci/MARXY-153-minimal-fast-ci', pr), 'ci/MARXY-153-minimal-fast-ci');
   assert.equal(resolveBranch('main', pr), 'main');
 });
-
-test('MARXY-153: the CI story-boundary step runs unguarded', () => {
-  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
-  assert.match(ci, /run: node scripts\/check-story\.mjs --strict\n/, 'the step must run the check plainly');
-  assert.doesNotMatch(ci, /check-story\.mjs --strict \|\|/, 'no `||` may swallow its exit code');
-});

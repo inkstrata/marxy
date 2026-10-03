@@ -17,6 +17,8 @@ imagesize = "0.13"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 notify = "8"
+# Reads `external_editor` from config.toml (docs/design/09-app-shell.md); 0.9 is already in Cargo.lock.
+toml = "0.9"
 
 [profile.release]
 codegen-units = 1

@@ -407,3 +407,207 @@ test('an invisible-character marker adds nothing to its line: the paragraph stay
   for (const h of r.glyphs) assert.ok(h < r.lineBox, `a marker (${h}px) is shorter than the line`);
   await page.close();
 });
+
+/**
+ * Moves every top-level node of the article from index `k` on into an inert holder, then puts the
+ * head on the grid; `window.__appendTail()` appends the tail back and returns its first element.
+ */
+const splitAt = (page, k) =>
+  page.evaluate((k) => {
+    const doc = document.getElementById('doc');
+    const holder = document.implementation.createHTMLDocument('').body;
+    const tail = [...doc.childNodes].slice([...doc.childNodes].indexOf(doc.children[k]));
+    for (const n of tail) holder.appendChild(n);
+    window.typeset.snapToGrid(doc, window.lineBox);
+    window.__appendTail = () => {
+      const first = holder.firstElementChild;
+      while (holder.firstChild) doc.appendChild(holder.firstChild);
+      return first;
+    };
+  }, k);
+
+/** Every element's inline padding, top and bottom, in document order. */
+const paddings = (page) =>
+  page.evaluate(() =>
+    [document.getElementById('doc'), ...document.querySelectorAll('#doc *')].map((el) => [
+      parseFloat(el.style.paddingTop) || 0,
+      parseFloat(el.style.paddingBottom) || 0,
+    ]),
+  );
+
+test('a grid pass `from` the first appended block pads exactly what a whole pass pads (A-02)', async () => {
+  const html = renderCorpus('01-long-technical.md');
+  const page = await harness.open(html);
+  // Split points: after a code block (an island predecessor), after a table, and after a paragraph.
+  // Split points: before and after a code block and a table (islands as `from` and as its
+  // predecessor), and after a paragraph.
+  const points = await page.evaluate(() => {
+    const kids = [...document.getElementById('doc').children];
+    const at = (tag) => kids.findIndex((el, i) => i > 3 && el.tagName === tag && kids[i + 1]);
+    return [at('PRE'), at('PRE') + 1, at('TABLE'), at('TABLE') + 1, at('P') + 1].filter((k) => k > 3);
+  });
+  assert.ok(points.length >= 3, `split points ${points}`);
+  await page.close();
+  // And a block no rule pads, 13 px tall, as the last before the append: only a push of the
+  // predecessor by `from` puts what follows back on the grid.
+  const para = '<p data-marxy-s="0" data-marxy-e="1">A paragraph of a few words.</p>';
+  const odd = `${para}${para}<div style="height: 13px"></div>${para}${para}`;
+  const cases = [...points.map((k) => ({ html, k })), { html: odd, k: 3 }];
+  for (const { html, k } of cases) {
+    const p = await harness.open(html);
+    await splitAt(p, k);
+    await p.evaluate(() => window.typeset.snapToGrid(document.getElementById('doc'), window.lineBox, { from: window.__appendTail() }));
+    const partial = await paddings(p);
+    await p.evaluate(() => window.typeset.snapToGrid(document.getElementById('doc'), window.lineBox));
+    const whole = await paddings(p);
+    assert.equal(partial.length, whole.length);
+    const differ = partial.flatMap(([t, b], i) => (Math.abs(t - whole[i][0]) > 0.5 || Math.abs(b - whole[i][1]) > 0.5 ? [`#${i}: ${t}/${b} vs ${whole[i]}`] : []));
+    assert.deepEqual(differ, [], `split at child ${k}`);
+    await p.close();
+  }
+});
+
+test('adopt queues appended paragraphs, and `done` is a new promise that resolves once they are set (A-02)', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'));
+  await splitAt(page, 20);
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const queued = [];
+    const scheduler = { schedule: (work) => queued.push(work) };
+    const flush = () => { while (queued.length) queued.shift()(() => Number.POSITIVE_INFINITY); };
+    const controller = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler,
+    });
+    flush();
+    const first = controller.done;
+    await first;
+    const before = controller.stats.paragraphs;
+    const head = doc.childElementCount;
+    window.__appendTail();
+    const tail = [...doc.children].slice(head);
+    controller.adopt(tail);
+    const second = controller.done;
+    let settled = false;
+    void second.then(() => { settled = true; });
+    await new Promise((r) => setTimeout(r, 0));
+    const pendingBeforeFlush = !settled;
+    const setBeforeFlush = tail.filter((el) => el.classList.contains('marxy-set')).length;
+    flush();
+    await second;
+    return {
+      fresh: second !== first,
+      pendingBeforeFlush,
+      setBeforeFlush,
+      setAfter: tail.filter((el) => el.classList.contains('marxy-set')).length,
+      considered: controller.stats.paragraphs,
+      // A fresh pass over the whole article considers the same paragraphs, no more.
+      whole: await (async () => {
+        controller.relayout('reload');
+        flush();
+        await controller.done;
+        return controller.stats.paragraphs;
+      })(),
+      before,
+    };
+  });
+  assert.ok(r.fresh, 'done is a new promise once work arrives after it resolved');
+  assert.ok(r.pendingBeforeFlush, 'the new done waits for the adopted paragraphs');
+  assert.equal(r.setBeforeFlush, 0);
+  assert.ok(r.setAfter > 10, `adopted paragraphs set: ${r.setAfter}`);
+  assert.ok(r.considered > r.before, `adopted paragraphs considered: ${r.before} → ${r.considered}`);
+  assert.equal(r.considered, r.whole, 'every adopted paragraph was considered before done resolved');
+  await page.close();
+});
+
+/** Splits after child `k`, puts the head on the grid, and appends the tail in chunks of `size` children. */
+const chunked = (page, k, size) =>
+  page.evaluate(({ k, size }) => {
+    const doc = document.getElementById('doc');
+    const holder = document.implementation.createHTMLDocument('').body;
+    const nodes = [...doc.childNodes];
+    for (const n of nodes.slice(nodes.indexOf(doc.children[k]))) holder.appendChild(n);
+    window.typeset.snapToGrid(doc, window.lineBox);
+    window.__nextChunk = () => {
+      let first = null;
+      for (let i = 0; i < size && holder.firstElementChild; i++) {
+        const el = holder.firstElementChild;
+        while (holder.firstChild !== el) doc.appendChild(holder.firstChild);
+        doc.appendChild(el);
+        first ??= el;
+      }
+      return first;
+    };
+  }, { k, size });
+
+test('a chunk pass does not restart from a padded `pre` above it: the theme padding is not taken for drift (A-02)', async () => {
+  const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
+  const html = [para(0), para(1), '<pre data-marxy-s="2" data-marxy-e="3"><code>one\ntwo</code></pre>', ...Array.from({ length: 12 }, (_, i) => para(i + 3))].join('');
+  // A theme padding and a code line that is not a whole unit, so the pass must add padding of its own.
+  const page = await harness.open(html, { extraCss: '#doc pre { padding: 12px; line-height: 17px; }' });
+  await chunked(page, 5, 4);
+  const r = await page.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const pre = doc.querySelector('pre');
+    const read = Element.prototype.getBoundingClientRect;
+    const passes = [];
+    for (let i = 0; i < 2; i++) {
+      const from = window.__nextChunk();
+      let reads = 0;
+      Element.prototype.getBoundingClientRect = function () {
+        if (this === pre) reads++;
+        return read.call(this);
+      };
+      try {
+        window.typeset.snapToGrid(doc, window.lineBox, { from });
+      } finally {
+        Element.prototype.getBoundingClientRect = read;
+      }
+      passes.push(reads);
+    }
+    return { passes, inline: pre.style.paddingBottom, theme: getComputedStyle(doc.querySelector('p')).paddingBottom, preTheme: parseFloat(getComputedStyle(pre).paddingTop) };
+  });
+  assert.ok(r.inline !== '' && r.preTheme > 0, `the pre is padded by the pass and by the theme: ${JSON.stringify(r)}`);
+  // One read each: the drift check. A pass that restarted from the pre would read it again in step 1 and every round.
+  assert.deepEqual(r.passes, [1, 1]);
+  await page.close();
+});
+
+test('a chunk pass lays out at most six times: the drift check, the islands and four rounds (A-02)', async () => {
+  // Every kind of work a chunk pass does: islands above it to check, islands in it to pad, and blocks
+  // no rule pads (13 px) that only a push puts back on the grid.
+  const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
+  const pre = (i) => `<pre data-marxy-s="${i}" data-marxy-e="${i + 1}"><code>one\ntwo</code></pre>`;
+  const odd = '<div style="height: 13px"></div>';
+  const html = Array.from({ length: 12 }, (_, i) => [para(i * 3), pre(i * 3 + 1), odd].join('')).join('');
+  const page = await harness.open(html, { extraCss: '#doc pre { padding: 12px; line-height: 17px; }' });
+  await chunked(page, 18, 1000);
+  const r = await page.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const from = window.__nextChunk();
+    const read = Element.prototype.getBoundingClientRect;
+    const write = CSSStyleDeclaration.prototype.setProperty;
+    const remove = CSSStyleDeclaration.prototype.removeProperty;
+    // A read is a layout when it is the pass's first or follows a write.
+    let dirty = true;
+    let layouts = 0;
+    let writes = 0;
+    Element.prototype.getBoundingClientRect = function () {
+      if (dirty) layouts++;
+      dirty = false;
+      return read.call(this);
+    };
+    CSSStyleDeclaration.prototype.setProperty = function (...a) { dirty = true; writes++; return write.apply(this, a); };
+    CSSStyleDeclaration.prototype.removeProperty = function (...a) { dirty = true; writes++; return remove.apply(this, a); };
+    try {
+      window.typeset.snapToGrid(doc, window.lineBox, { from });
+    } finally {
+      Element.prototype.getBoundingClientRect = read;
+      CSSStyleDeclaration.prototype.setProperty = write;
+      CSSStyleDeclaration.prototype.removeProperty = remove;
+    }
+    return { layouts, writes };
+  });
+  assert.ok(r.writes > 10, `the pass had work to do: ${JSON.stringify(r)}`);
+  assert.ok(r.layouts >= 4 && r.layouts <= 6, `${r.layouts} layouts in one chunk pass`);
+  await page.close();
+});

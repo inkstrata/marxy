@@ -449,6 +449,17 @@ fn document_paths_from_argv(argv: &[String], cwd: &str) -> Vec<String> {
         .collect()
 }
 
+/// The files of a drop onto the window, for `onOpenFiles`: existing regular files only, made absolute
+/// and canonical the way a second launch's paths are. A folder or a path that is gone opens nothing.
+fn document_paths_from_drop(paths: &[PathBuf]) -> Vec<String> {
+    paths
+        .iter()
+        .filter(|p| p.is_file())
+        .filter_map(|p| p.to_str())
+        .filter_map(|p| absolute_document_path(Path::new("/"), p))
+        .collect()
+}
+
 /// The reader window never navigates away from the app: a link in a document is not a way to load a
 /// remote page (or a relative path) into the window that shows it. Links are the app's to follow.
 fn navigation_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
@@ -861,6 +872,7 @@ fn main() {
             clipboard_write,
             take_pending_opens,
             commands::os::open_external,
+            commands::os::reveal_in_editor,
         ])
         .build(tauri::generate_context!())
         .expect("error while building marxy")
@@ -877,6 +889,14 @@ fn main() {
                 } else if let Some(window) = app.get_webview_window(label) {
                     let _ = window.emit("marxy:close-requested", ());
                 }
+            }
+            // A file dropped on the window opens the way Finder or a second launch opens it (A-16).
+            if let RunEvent::WindowEvent {
+                event: WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }),
+                ..
+            } = &event
+            {
+                deliver_open_files(app, document_paths_from_drop(paths));
             }
             #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
             if let RunEvent::Opened { urls } = event {
@@ -900,8 +920,9 @@ fn main() {
 mod tests {
     use super::ClipboardPayload;
     use super::{
-        absolute_document_path, clipboard_payload, enqueue_open_files, navigation_allowed,
-        percent_decode, resolve_watch_key, take_pending_opens, OPENS_LISTENER_READY,
+        absolute_document_path, clipboard_payload, document_paths_from_drop, enqueue_open_files,
+        navigation_allowed, percent_decode, resolve_watch_key, take_pending_opens,
+        OPENS_LISTENER_READY,
     };
     use std::collections::HashMap;
     use std::sync::atomic::Ordering;
@@ -1005,6 +1026,23 @@ mod tests {
         let name = file.file_name().unwrap().to_str().unwrap();
         assert_eq!(absolute_document_path(&dir, name).as_deref(), file.to_str());
         let _ = std::fs::remove_file(&file);
+    }
+
+    #[test]
+    fn a_drop_keeps_files_and_drops_folders_and_missing_paths() {
+        let dir = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("marxy-drop-{}", std::process::id()));
+        let folder = dir.join("a folder");
+        std::fs::create_dir_all(&folder).unwrap();
+        let file = dir.join("read me.md");
+        std::fs::write(&file, b"# x\n").unwrap();
+        let missing = dir.join("gone.md");
+        let kept = document_paths_from_drop(&[folder.clone(), file.clone(), missing]);
+        assert_eq!(kept, vec![file.to_str().unwrap().to_string()]);
+        assert!(document_paths_from_drop(&[folder]).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

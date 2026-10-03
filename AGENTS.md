@@ -1,5 +1,10 @@
 # AGENTS.md — read this first, every session
 
+> **The fleet is paused** ([`orchestration/PAUSED.md`](orchestration/PAUSED.md), ADR-0051). `MARXY`
+> keys, board rows and the enforced pull-request body are no longer required; a commit subject may
+> end in `(A-nn)`, in `(MARXY-n)`, or in nothing. The plan is in `docs/plan/roadmap-2026-10/`. The
+> rest of this file is being rewritten in A-11 and is stale where it disagrees.
+
 You are working on **Marxy**, a markdown *reader*. Sessions start cold; this file, `docs/adr/`
 and `docs/ci-contract.md` are the project's memory. If something here contradicts a document
 elsewhere in the tree, this file and the ADRs win, and you fix the other document in your PR.
