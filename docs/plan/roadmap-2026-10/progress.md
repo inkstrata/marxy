@@ -23,3 +23,7 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 ## Handoff
 
 The lead paused on 2026-10-02. What to do next, in order, is in [`handoff.md`](handoff.md).
+| A-14 | Light variant and text size from config and by command | sonnet | running | — | ../marxy-wt/A-14 (feat/a-14-variant-and-size-from-config) | Work-ahead at the author's request (2026-10-02): stacked on A-13 (#328). Author ruled: variant remembered in config.toml; pre-paint config read OK |
+| A-03 | Measure nightly, not on pull requests; delete the product tier | opus | running | — | ../marxy-wt/A-03 (perf/a-03-measure-nightly) | Work-ahead: stacked on A-08 (#329) |
+| B-03 | (Phase B) theme room | sonnet | running | — | ../marxy-wt/B-03 (feat/b-03-room) | Work-ahead into Phase B at the author's request; theme only, off main |
+| B-04 | (Phase B) the document store | opus | running | — | ../marxy-wt/B-04 (feat/b-04-document-store) | Work-ahead into Phase B; new files only, off main |
