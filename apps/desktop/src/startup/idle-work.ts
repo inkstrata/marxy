@@ -7,14 +7,6 @@ export interface MarkShell {
   mark(name: string, t: number, data?: string): Promise<void>;
 }
 
-/**
- * The mark every index walk emits, called by the index service. It is defined here because the
- * MARXY-33 build gate (shell/marxy33-gate.mjs) looks for `mark('index_loaded'` in this file.
- */
-export function markIndexLoaded(shell: MarkShell, entries: number, root: string): Promise<void> {
-  return shell.mark('index_loaded', Date.now(), `entries=${entries} root=${root}`);
-}
-
 /** WebKitGTK (and Playwright's WebKit harness) often never fires rIC; §04 uses setTimeout there. */
 function scheduleIdle(fn: () => void): void {
   if (typeof requestIdleCallback === 'function' && !/WebKit/i.test(navigator.userAgent)) {

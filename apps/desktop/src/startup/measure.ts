@@ -7,6 +7,19 @@ import { isDocVisible, waitForEnginePaint } from '../paint-signal.mjs';
 /** Module evaluation time: the `script_start` mark reports it. */
 export const t0 = Date.now();
 
+// The counter starts when this module is evaluated, not when startApp runs: starting it later made
+// render to painted about 15 ms slower on a 1 MB document (B-08 measurement), so the loop has to be
+// running before the first render. `createLaunchMeasure` restarts it for a later launch in one page.
+let observed = 0;
+let observing = false;
+const observeFrame = () => { observed += 1; if (observing) requestAnimationFrame(observeFrame); };
+function startObserving(): void {
+  if (observing) return;
+  observing = true;
+  requestAnimationFrame(observeFrame);
+}
+startObserving();
+
 export interface RenderEvidence { readonly blocks: number; readonly chars: number; readonly heading: string }
 
 export type FirstTextOutcome = 'painted' | 'no_text' | 'no_paint';
@@ -23,10 +36,11 @@ export interface LaunchMeasure {
   /** True when a harness launched us: the startup harness sets the env var, the flag is for a person. */
   inHarness(): Promise<boolean>;
   /**
-   * Marks `no_text` / `no_paint` / `painted` + `first_text` as the document warrants. `after` is the
-   * `performance.now()` taken before the render; `renderedAt` the `Date.now()` after its render mark.
+   * Marks `no_text` / `no_paint` / `painted` + `first_text` as the document warrants. `evidence` is what the render
+   * mark reported (not recomputed: that would delay first text), `after` the `performance.now()`
+   * taken before the render, `renderedAt` the `Date.now()` after its render mark.
    */
-  waitForFirstText(doc: HTMLElement, after: number, renderedAt: number): Promise<FirstTextOutcome>;
+  waitForFirstText(doc: HTMLElement, evidence: RenderEvidence, after: number, renderedAt: number): Promise<FirstTextOutcome>;
   /** Every path ends here: settles `ready`, and a harness launch exits with a code that says if it painted. */
   finish(code: number): Promise<void>;
   /** Resolves with the exit code the first time `finish` runs. */
@@ -34,7 +48,7 @@ export interface LaunchMeasure {
 }
 
 /**
- * Counts animation frames from the moment it is called, independently of anything else. The paint
+ * Counts animation frames since the module loaded (restarted per launch), independently of anything else. The paint
  * mark reports how many frames passed between the DOM mutation and `first_text`, and the CLI smoke
  * check asserts that count is at least two — because a mark that only *claims* to be after the paint
  * would silently make every cold-start number optimistic. The counter lives here, not inside
@@ -45,14 +59,19 @@ export function createLaunchMeasure(
   shell: Pick<Shell, 'mark' | 'quit' | 'startupMarks'>,
   args: readonly string[],
 ): LaunchMeasure {
+  startObserving();
   let launchArgs = args;
-  let observed = 0;
-  let observing = true;
-  const observeFrame = () => { observed += 1; if (observing) requestAnimationFrame(observeFrame); };
-  requestAnimationFrame(observeFrame);
 
   let settleReady: (code: number) => void = () => {};
   const ready = new Promise<number>((resolve) => { settleReady = resolve; });
+
+  function renderEvidence(doc: HTMLElement): RenderEvidence {
+    return {
+      blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length,
+      chars: doc.textContent?.length ?? 0,
+      heading: doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '',
+    };
+  }
 
   async function inHarness(): Promise<boolean> {
     if (launchArgs.includes('--quit-after-paint')) return true;
@@ -66,17 +85,10 @@ export function createLaunchMeasure(
   return {
     framesObserved: () => observed,
     stopObserving() { observing = false; },
-    renderEvidence(doc) {
-      return {
-        blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length,
-        chars: doc.textContent?.length ?? 0,
-        heading: doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '',
-      };
-    },
+    renderEvidence,
     adoptArgs(next) { launchArgs = next; },
     inHarness,
-    async waitForFirstText(doc, after, renderedAt) {
-      const evidence = this.renderEvidence(doc);
+    async waitForFirstText(doc, evidence, after, renderedAt) {
       // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
       // must not be able to hand the startup measurement a number either — and it has no paint to wait for,
       // so this runs before the wait. The `no_text` mark also disarms the shell's paint deadline.

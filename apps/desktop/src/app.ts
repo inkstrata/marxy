@@ -1518,7 +1518,7 @@ async function bootDocument(file: string, doc: HTMLElement, after: number, chunk
   const evidence = await openDocumentThroughRenderMark(file, doc, undefined, chunks.promise);
   const renderedAt = Date.now();
 
-  const outcome = await measure.waitForFirstText(doc, after, renderedAt);
+  const outcome = await measure.waitForFirstText(doc, evidence, after, renderedAt);
   if (outcome !== 'painted') return measure.finish(1);
   chunks.release();
   await ensurePersistenceLoaded(dirname(file));
