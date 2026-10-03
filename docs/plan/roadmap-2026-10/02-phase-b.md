@@ -372,6 +372,105 @@ two runs. Discard drift and keep only real changes, with a sentence in the queue
 
 ---
 
+### B-02.1 — Keep a wrapped, line-split code fence on the grid
+
+**Model:** opus · **Size:** S–M · **Depends on:** B-01 · *Added 2026-10-02 by the lead, from B-02's findings.*
+
+**Outcome.** `28-artifact-fences.md` at 960 px, size 16, dark and light, passes the grid check. Today the
+app splits a diff fence into per-line spans (`span.marxy-line`, `data-marxy-done="lines"`); a wrapped `+`
+line makes the first `<pre>` 354 px (29.5 grid units at a 12 px unit), the grid pass leaves its
+`padding-bottom` at 12 px, and every block after it is 6 px off (first failure `<h2> top 642.00`).
+Size 20 passes. Code line-height is 30 px at every body size (16, 20, 24, 28) in the app — check whether
+that is the theme's intent (docs/research/reader-typography/ on code) or part of the defect.
+
+**Evidence.** B-02 switched the aesthetics gate from `render/headless.ts` to the real app (via B-01's
+`marxyGate.render`) and the mechanical gate failed where the headless page never looked. B-02's
+uncommitted work in `../marxy-wt/B-02` reproduces it: `node scripts/gate-aesthetics.mjs --mechanical`.
+Fix the app, not the gate; do not loosen any bound; do not touch `fixtures/baselines/` (B-02 regenerates
+them once these land). If the fix needs `apps/desktop/src/app.ts` (B-08 owns it this wave), stop and report.
+
+**Paths.** `packages/typeset/src/grid.ts`, the code-line pass that adds `span.marxy-line`
+(find it), `packages/theme/src/base.css` (code line-height only, if it is the cause), and a test that
+fails today (WebKit, the real app via `marxyGate.render` or the app harness). `changelog.d/B-02.1.md`.
+
+### B-02.2 — Keep inline math from growing a list item off the grid
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-01 · *Added 2026-10-02 by the lead, from B-02's findings.*
+
+**Outcome.** `30-notebook-export.md` at 960 px, size 16, dark and light, passes the grid check. Today a list
+item holding inline KaTeX (`\Delta T`, `0.33`) is 48.98 px tall instead of 48 (the KaTeX span sits at
+`vertical-align: -1.53px`), and the next `<li>` lands at 8256.98. Inline math must not change the line box.
+
+**Evidence.** B-02 switched the aesthetics gate from `render/headless.ts` to the real app (via B-01's
+`marxyGate.render`) and the mechanical gate failed where the headless page never looked. B-02's
+uncommitted work in `../marxy-wt/B-02` reproduces it: `node scripts/gate-aesthetics.mjs --mechanical`.
+Fix the app, not the gate; do not loosen any bound; do not touch `fixtures/baselines/` (B-02 regenerates
+them once these land). If the fix needs `apps/desktop/src/app.ts` (B-08 owns it this wave), stop and report.
+
+**Paths.** `packages/theme/src/base.css` (the inline `.katex` rules only) or the KaTeX render
+wrapper in `packages/core/src/render/` if the box is set there; a test that fails today; `changelog.d/B-02.2.md`.
+
+### B-02.3 — Keep a hidden-character line inside a 320 px window
+
+**Model:** opus · **Size:** S–M · **Depends on:** B-01 · *Added 2026-10-02 by the lead, from B-02's findings.*
+
+**Outcome.** `29-hidden-characters.md` at 320 px and at 400 % zoom (dark) has no horizontal scroll. Today a
+line-break span from the line breaker (`span.marxy-lb`) ends at 329.4 px (`horizontal scroll 329px >
+320px viewport`); the headless page gave exactly 320. Likely the invisible-character markers and the line
+breaker run in a different order in the app, so the breaker measures text without the markers' width.
+
+**Evidence.** B-02 switched the aesthetics gate from `render/headless.ts` to the real app (via B-01's
+`marxyGate.render`) and the mechanical gate failed where the headless page never looked. B-02's
+uncommitted work in `../marxy-wt/B-02` reproduces it: `node scripts/gate-aesthetics.mjs --mechanical`.
+Fix the app, not the gate; do not loosen any bound; do not touch `fixtures/baselines/` (B-02 regenerates
+them once these land). If the fix needs `apps/desktop/src/app.ts` (B-08 owns it this wave), stop and report.
+
+**Paths.** The invisible-character marking (find it: `invisibles`), `packages/typeset/src/` (the
+breaker's measurement, if that is the fix), a test that fails today; `changelog.d/B-02.3.md`.
+
+### B-02.4 — Re-grid only from the code fence that changed
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-02.1, B-08 · *Added 2026-10-03 by the lead, from the B-02.1 review.*
+
+**Outcome.** When the code highlighter splits a fence into line spans (B-02.1), the grid pass runs
+`from` the first changed block's top-level ancestor instead of over the whole article, and so does
+the frontispiece's highlighter (its `startCodeHighlight` call in `app.ts` passes no callback today).
+On a fence-heavy 528 KB document B-02.1 adds about 55 whole-article passes while scrolling (each about
+100 ms at 1 MB with `buildBlocks`); after this story each is a tail pass.
+
+**Paths.** `apps/desktop/src/render/highlight.ts` (`onLayoutChanged(from?: HTMLElement)`),
+`apps/desktop/src/startup/idle-work.ts`, `apps/desktop/src/app.ts` (`snap(doc, from)` and the frontispiece
+call only), `apps/desktop/test/code-fence-grid.test.mjs`, a one-line comment in `applyHighlightToCode`
+noting that the split flag is set before its first await; `changelog.d/B-02.4.md`.
+
+*Parked 2026-10-03 by the lead on its own measurement:* a whole pass on the fence-heavy document costs
+2–3 ms, a pass `from` a block 8–11 ms (`driftedAbove` scans every island above it), and the forced layout
+per split (8–12 ms) dominates either way. The premise (~100 ms per whole pass) did not hold.
+
+**Acceptance.** The B-02.1 tests stay green; a test counts whole-article passes while fences split
+(none after first text) and fails on B-02.1's whole-article callback; a fence in the frontispiece stays on
+the grid; the reviewer measures the scroll on the fence-heavy document before and after.
+
+### B-02.5 — Keep the reader's place when a paragraph above reflows
+
+**Model:** sonnet · **Size:** S–M · **Depends on:** B-02.3 · *Added 2026-10-03 by the lead, from the B-02.3 review.*
+
+**Outcome.** When a paragraph wholly above the viewport changes height after first text (the
+typesetter's idle and observer passes, B-02.3's deferred re-set, A-02's chunked adoption), the reading
+block does not move on screen. Today nothing compensates: `holdAnchor` holds only a position an open
+or re-render set, and a wheel or key event releases it; the app sets `overflow-anchor: none`. The
+B-02.3 review measured a 30 px shift when an idle re-set grew a far-above paragraph by one line, and a
+120 px jump with many wide markers.
+
+**Paths.** The typesetter's idle/observer paths in `packages/typeset/src/index.ts` (report height deltas
+of paragraphs wholly above the viewport), the app's scroll-compensation hook (find where `onPass` is
+handled; `app.ts` only if needed and no other story holds it), a WebKit test; `changelog.d/B-02.5.md`.
+
+**Acceptance.** A test scrolls deep into the 1 MB document, grows a paragraph far above (by markers
+and by an idle re-set), and asserts the reading block's top stays within 1 px; the same with A-02's
+chunk adoption. No compensation while the reader is actively scrolling against it (no fighting the
+wheel). Mutation-checked.
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05
@@ -629,6 +728,33 @@ by running it. If `cargo` reports the Rust index's crates (`ignore`, `nucleo-mat
 unused after deletion, they were never in `Cargo.toml` (`01` §4). Nothing to remove.
 
 ---
+
+### B-05.1 — Retire the Rust walker
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-05 · **Parallel with:** anything outside these paths
+*Added 2026-10-02 by the lead, from the B-05 review.* B-05 kept `apps/desktop/src-tauri/src/index/mod.rs`
+because three core tests still read or compile it; the TypeScript walker (A-04, A-05) is the indexer.
+
+**Paths.**
+- `apps/desktop/src-tauri/src/index/mod.rs` (delete)
+- `packages/core/src/index-model/walker.test.ts` (delete: it compiles the Rust walker with rustc)
+- `packages/core/src/index-model/ceiling.test.ts` and `schedule.test.ts`: point them at the TypeScript
+  constants (`ENTRIES_PER_ROOT`, `INDEX_SCHEDULE`) instead of source text in the Rust file
+- `apps/desktop/src-tauri/src/commands/fs.rs` (the comments at `:13` and `:145`, and a `#[cfg(unix)]` test that
+  `read_dir` omits symlinks pointing out of the directory: the only live guard against the walk
+  leaving the root; *added by the lead from the B-05.1 review*),
+  `apps/desktop/src-tauri/src/main.rs` (the comment naming `index/mod.rs` only)
+- `docs/design/07-index-and-palette.md` (§Rust walker, §Headings scanner (Rust), and the
+  `indexBuild`/`indexQuery` description)
+- `changelog.d/B-05.1.md` (new)
+
+**Acceptance.**
+- `git grep -n "index/mod.rs\|walk_root"` prints nothing outside `docs/research`, `docs/plan`,
+  `CHANGELOG.md` and `changelog.d`.
+- `ceiling.test.ts` and `schedule.test.ts` fail if the TypeScript constant they guard changes.
+- `cargo test --locked`, `cargo clippy --locked -- -D warnings` and `pnpm precheck` green.
+
+**Do not.** Change the TypeScript walker or the index service.
 
 ### B-06 — Unfreeze the contracts
 
@@ -1268,6 +1394,12 @@ view could be created beside it with no other change.
 typesetter's own two reads stay; `07` §1 item 3).
 
 **Risks and open questions.** `typeset-defaults.test.mjs:86` pins that `attach()` is called with
+- *Added 2026-10-02 by the lead, from the B-04 review.* The store's `version` bumps on every committed
+  transition, including `save`, `rename` and a disk-only `reload` that leave the buffer untouched. A
+  view that captured `version` before a slow save finished and then edits with `baseVersion` gets
+  `false`, and `false` also means "no-op", so a keystroke during a save is silently dropped. Either
+  re-read `snapshot().version` and retry once on a refused edit, or give the store a buffer-only
+  version that only buffer-changing transitions bump, and compare `baseVersion` against that.
 no `hyphenate` or `hanging`. Keep the literal. B-17 changes the options.
 
 ---
@@ -1408,6 +1540,8 @@ gate against module-level document state).
 `pinPaletteDocument`). Change marks. Move notices' module state (`notices/index.ts`,
 `notices/blocked.ts`) or `close.ts`'s prompt state: they are UI singletons per window and
 Phase D's.
+
+*Added 2026-10-03 by the lead, from the B-08 review:* `startup/measure.ts` holds a module-scope frame counter; a new launch right after `finish()` in the same page can start a second rAF loop (a generation token in `observeFrame` fixes it), and `createLaunchMeasure`'s doc comment still says `startApp` starts the count. Absorb `app.ts`'s `let measure` too.
 
 **Risks and open questions.** If 300 lines cannot be reached without splitting `AppHandle`'s
 type out, put the types in `app-types.ts` and say so. The number is the audit's target; the
