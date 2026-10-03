@@ -40,7 +40,7 @@ The lead paused on 2026-10-02. What to do next, in order, is in [`handoff.md`](h
 | B-08 | (Phase B) measurement leaves `app.ts` | sonnet | in review | [#346](https://github.com/inkstrata/marxy/pull/346) | ../marxy-wt/B-08 (refactor/b-08-measurement-leaves-app) | Phase B wave 2; owns `app.ts`. Mark names and order identical before/after; detail strings to be diffed by the reviewer. Dead `markIndexLoaded` in idle-work.ts left (outside paths) |
 | A-11.1 | Let deferral markers name a story id | sonnet | merged | [#344](https://github.com/inkstrata/marxy/pull/344) | ../marxy-wt/A-11.1 (fix/a-11-1-deferral-story-ids) | From the A-11 review |
 | A-11.2 | Bring the gates design document up to date | sonnet | ready | — | — | From the A-11 review; after B-02 |
-| B-06 | (Phase B) unfreeze the contracts | sonnet | running | — | ../marxy-wt/B-06 (chore/b-06-unfreeze-contracts) | ADR-0045 accepted by the author; after A-11 merged (both touch AGENTS.md) |
+| B-06 | (Phase B) unfreeze the contracts | sonnet | in review | [#345](https://github.com/inkstrata/marxy/pull/345) | ../marxy-wt/B-06 (chore/b-06-unfreeze-contracts) | ADR-0045 accepted by the author; after A-11 merged (both touch AGENTS.md). Flaky: browser-lite's chromium no-network control-page check failed once and passed on re-run — needs fixing (AGENTS.md: fix or delete, never re-run) |
 | B-02.1 | (Phase B) keep a wrapped, line-split code fence on the grid | opus | running | — | ../marxy-wt/B-02.1 | From B-02's findings |
 | B-02.2 | (Phase B) keep inline math from growing a list item off the grid | sonnet | running | — | ../marxy-wt/B-02.2 | From B-02's findings |
 | B-02.3 | (Phase B) keep a hidden-character line inside 320 px | opus | running | — | ../marxy-wt/B-02.3 | From B-02's findings |
