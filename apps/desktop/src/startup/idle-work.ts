@@ -81,7 +81,8 @@ export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<v
   await guarded('math', () => applyMath(doc));
   await guarded('highlight', async () => {
     const { startCodeHighlight } = await import('../render/highlight.ts');
-    startCodeHighlight(doc);
+    // The blocks are split and coloured as they come into view, after this pass: each batch asks again.
+    startCodeHighlight(doc, regrid);
     regrid();
   });
   await guarded('scrollers', () => focusableScrollers(doc));
