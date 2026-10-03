@@ -1056,6 +1056,10 @@ product pull request's job-seconds and can fail only on Rust changes, and every 
 - `scripts/ci-changes.mjs`
 - `scripts/ci-changes.test.mjs` (new; the classifier's cases moved out of `--selftest`)
 - `scripts/check-workflows.mjs` and its test, if the job names it reads change
+- `apps/desktop/scripts/smoke-verdict.mjs`: delete `workflowCliSmokeIsRequired` and
+  `cliSmokeStepFromWorkflow`, unused since A-08 (*added 2026-10-02 by the lead*). In `ci-changes.mjs`,
+  remove its own copy of the `continue-on-error` / `|| true` rule (`ci-changes.mjs:179`); A-08 put
+  that rule in `check-workflows` alone
 - `changelog.d/A-09.md` (new)
 
 **Build order.**
