@@ -451,6 +451,26 @@ per split (8–12 ms) dominates either way. The premise (~100 ms per whole pass)
 (none after first text) and fails on B-02.1's whole-article callback; a fence in the frontispiece stays on
 the grid; the reviewer measures the scroll on the fence-heavy document before and after.
 
+### B-02.5 — Keep the reader's place when a paragraph above reflows
+
+**Model:** sonnet · **Size:** S–M · **Depends on:** B-02.3 · *Added 2026-10-03 by the lead, from the B-02.3 review.*
+
+**Outcome.** When a paragraph wholly above the viewport changes height after first text (the
+typesetter's idle and observer passes, B-02.3's deferred re-set, A-02's chunked adoption), the reading
+block does not move on screen. Today nothing compensates: `holdAnchor` holds only a position an open
+or re-render set, and a wheel or key event releases it; the app sets `overflow-anchor: none`. The
+B-02.3 review measured a 30 px shift when an idle re-set grew a far-above paragraph by one line, and a
+120 px jump with many wide markers.
+
+**Paths.** The typesetter's idle/observer paths in `packages/typeset/src/index.ts` (report height deltas
+of paragraphs wholly above the viewport), the app's scroll-compensation hook (find where `onPass` is
+handled; `app.ts` only if needed and no other story holds it), a WebKit test; `changelog.d/B-02.5.md`.
+
+**Acceptance.** A test scrolls deep into the 1 MB document, grows a paragraph far above (by markers
+and by an idle re-set), and asserts the reading block's top stays within 1 px; the same with A-02's
+chunk adoption. No compensation while the reader is actively scrolling against it (no fighting the
+wheel). Mutation-checked.
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05
