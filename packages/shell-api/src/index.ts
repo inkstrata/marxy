@@ -1,7 +1,8 @@
 /**
  * shell-api — reviewed contract (ADR-0010, ADR-0045): changes by pull request; a new privileged
- * capability gets an ADR; boundaries are tested by `pnpm check:boundaries`. Everything privileged the UI can do, as a handful of named
- * functions. No invoke() calls anywhere else. Switching shells means reimplementing this file.
+ * capability gets an ADR; boundaries are tested by `pnpm check`. Everything privileged the UI can do,
+ * as a handful of named functions. No invoke() calls anywhere else. Switching shells means
+ * reimplementing this file.
  */
 export interface FileStat { readonly path: string; readonly size: number; readonly mtimeMs: number; readonly isDir: boolean; }
 

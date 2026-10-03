@@ -49,5 +49,5 @@ pnpm gate:…
 - [ ] Every acceptance criterion has a test or gate in this PR
 - [ ] `changelog.d/KEY.md` has one line ending in `(KEY)` (or, during the transition, a `CHANGELOG.md` line under `Unreleased`)
 - [ ] Optional: a taste-review entry in `docs/taste-review/queue.d/KEY.md` if a reader would notice a change
-- [ ] No contract files changed, or an ADR is included
+- [ ] A contract change says what changed and why; an ADR only if a contract's meaning changed (ADR-0045)
 - [ ] No attribution trailers

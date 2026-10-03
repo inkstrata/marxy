@@ -118,7 +118,7 @@ file concurrently corrupt both changes and cost more than the work they saved.
 - **Contracts change by pull request.** ADR-0045: the files in `packages/*/src/contracts/`,
   `packages/shell-api/src/index.ts` and `tokens.css` change by an ordinary reviewed pull request, with
   the goldens it moves regenerated in the same PR. Their invariants are tests (the goldens,
-  `pnpm gate:fidelity`, `pnpm check:boundaries`). A change of meaning (a new node kind, a new selection
+  `pnpm gate:fidelity`, `pnpm check`). A change of meaning (a new node kind, a new selection
   granularity, a new privileged capability) still gets an ADR; adding a field does not. The token names,
   units and meanings in `--marxy-*` still need an ADR; the default theme's values are taste and need a story.
 - **Names come from the registry.** A new mark, event, data attribute, class or token goes into
