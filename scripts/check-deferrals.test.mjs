@@ -130,3 +130,40 @@ test('MARKER_RE matches the documented phrases case-insensitively', () => {
   assert.ok(MARKER_RE.test('later story wires'));
   assert.ok(MARKER_RE.test('not yet wired'));
 });
+
+const run = (content, { landed = new Set(), allowlist = [] } = {}) =>
+  checkDeferrals({
+    deferrals: findDeferrals([{ file: 'apps/desktop/src/app.ts', content }]),
+    allowlist,
+    landed,
+    readContent: () => content,
+  });
+
+test('a marker naming a story id passes, with or without a sub-story', () => {
+  assert.deepEqual(run('// placeholder until B-13\n'), []);
+  assert.deepEqual(run('// placeholder until A-14.1 wires it.\n'), []);
+  assert.deepEqual(run('// a later story (A-07) registers this\n'), []);
+});
+
+test('a marker naming a malformed story id is a violation', () => {
+  for (const bad of ['b-13', 'B-1', 'F-01', 'B-123']) {
+    const lines = run(`// placeholder until ${bad}\n`);
+    assert.equal(lines.length, 1, bad);
+    assert.match(lines[0], /names no board key/, bad);
+  }
+});
+
+test('a marker naming a landed story id is a violation', () => {
+  const landed = landedKeys({ logSubjects: () => ['feat(core): x (B-13) (#9)', 'fix: y (A-14.1)'] });
+  assert.deepEqual([...landed].sort(), ['A-14.1', 'B-13']);
+  assert.match(run('// placeholder until B-13\n', { landed })[0], /landed B-13/);
+  assert.match(run('// placeholder until A-14.1\n', { landed })[0], /landed A-14\.1/);
+});
+
+test('a story-id marker is allow-listed the same way a MARXY- key is', () => {
+  const content = '// a later story wires B-13 in\n';
+  const landed = new Set(['B-13']);
+  assert.equal(run(content, { landed }).length, 1);
+  const allowlist = [{ file: 'apps/desktop/src/app.ts', marker: 'a later story wires B-13', removedBy: 'B-14' }];
+  assert.deepEqual(run(content, { landed, allowlist }), []);
+});
