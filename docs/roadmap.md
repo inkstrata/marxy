@@ -1,5 +1,9 @@
 # Roadmap — the long horizon
 
+> **Current plan.** The first horizon below is carried out by
+> [`plan/roadmap-2026-10/`](plan/roadmap-2026-10/README.md) while the fleet is paused (ADR-0051); that
+> directory, not this page, says what is next and what has landed.
+
 `plan.md` is the five phases to v1. This is what comes after, what would cause the
 foundations to be revisited, and the few numbers worth watching over years. It is a
 direction, not a commitment; every line beyond v1 is subordinate to "surface quality over

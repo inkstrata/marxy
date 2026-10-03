@@ -8,12 +8,12 @@ and why without reading the machine-facing part.
 Standards adopted, unmodified where possible: [Conventional Commits 1.0](https://www.conventionalcommits.org),
 [Keep a Changelog 1.1](https://keepachangelog.com), [Semantic Versioning 2.0](https://semver.org),
 [Conventional Comments](https://conventionalcomments.org) for review remarks, TSDoc and
-rustdoc for code documentation. Enforced by commitlint in CI and the PR template.
+rustdoc for code documentation. Commitlint enforces the commit rules (the hook locally, the title in CI); the rest is the reviewer's.
 
 ## Commit messages
 
 ```
-type(scope): imperative subject, no period (MARXY-123)
+type(scope): imperative subject, no period (A-07)
 
 One to three sentences a person can read: what changed for a reader or a
 developer, and why. Written for someone who will never open the diff.
@@ -22,19 +22,26 @@ developer, and why. Written for someone who will never open the diff.
 - Specific change two
 - Anything surprising, and the alternative that was rejected
 
-Refs: MARXY-123
+Refs: A-07
 ADR: 0007
 ```
 
+The ref in parentheses is optional (ADR-0051). Work from the October 2026 roadmap ends in its
+story id, `(A-07)` or `(A-14.1)`; older work and anything tracked in Jira ends in a key,
+`(MARXY-123)`; a change that is neither ends in nothing.
+
 - **Types:** `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`, `style`, `revert`.
 - **Scopes:** `core`, `typeset`, `theme`, `shell`, `desktop`, `corpus`, `gates`, `ci`, `docs`,
-  `orchestration`, `release`, `fonts`, `repo`, `workspace`. Omit only for repo-wide changes.
+  `orchestration`, `release`, `fonts`, `repo`, `workspace`, `bootstrap`, `spike`. Omit only for
+  repo-wide changes.
 - **Length:** the whole header, key included, is at most 100 characters; aim for about 72.
   Body and footer lines over 100 characters are a warning, not a failure.
-- **Key in the subject**, in parentheses at the end, so Jira and git reconcile; commitlint
-  enforces it as `marxy-key-in-subject`, allowing the ` (#nn)` a squash merge appends. Bootstrap and spike commits from before the tracker
-  existed are the one exception, and that period is over. A body may name other stories
-  freely — the key is what ties the commit to its issue, not where it appears.
+- **Ref in the subject**, optional, in parentheses at the end: a story id (`(A-07)`, or `(A-14.1)`
+  for a sub-story), a Jira key (`(MARXY-123)`), or nothing. commitlint enforces it as
+  `marxy-ref-in-subject`: a trailing parenthesis that *looks* like a ref but is malformed, such as
+  `(MARXY-)` or `(a-01)`, is an error, and the ` (#nn)` a squash merge appends is allowed after
+  it. The ref is how git history reconciles with the roadmap; when you have one, use it. A body may
+  name other stories freely.
 - **Breaking changes** exist only for contracts: `feat(core)!: …` plus a `BREAKING CHANGE:`
   footer naming the ADR. Nothing else in this project is "breaking".
 - Body is mandatory for `feat`, `fix`, `perf`, `refactor`; optional for the rest.
@@ -48,9 +55,9 @@ ADR: 0007
 
 ## Pull requests
 
-**Title** = the squash-commit subject, same format as above. While the pull request is open the cycle may prefix `[human]`, `(signed)`, or both. `[human]` means only a person can merge it. `(signed)` means an agent has signed this head. No prefix means the cycle will merge it. The conventions job lints the title with that prefix removed, and the merge passes the bare title as `--subject`.
+**Title** = the squash-commit subject, same format as above; the `conventions` job lints it. (While the fleet ran, its cycle prefixed `[human]` or `(signed)` to an open title; the job strips such a prefix first, and nothing adds one now.) The author merges by squash through GitHub; nobody else merges and auto-merge stays off.
 
-**Body**, in this order (the template enforces it):
+**Body**, in this order. The template (`.github/pull_request_template.md`) is a suggestion that nothing in CI enforces, but a reviewer reads it in this order:
 
 1. **Summary** — two to four sentences, plain language: what a reader of Marxy notices, or
    what a developer can now do, and why it was worth doing.
@@ -64,8 +71,8 @@ ADR: 0007
    and the top of the page stay legible.
 6. **Checklist** — the mechanical boxes.
 
-**Labels** mirror the story's Jira labels (`phase-n`, `typography`, `speed`, `security`,
-`agent-loop`, `release`) plus, when applicable: `needs-human`, `taste-review`,
+**Labels** are optional. The ones in use mirror the Jira labels the board used (`phase-n`,
+`typography`, `speed`, `security`, `agent-loop`, `release`), plus, when applicable: `needs-human`, `taste-review`,
 `contract-change`, `baseline-update`.
 
 **Size:** one story, one concern. Two concerns → split before review. There is no line limit: a
@@ -96,7 +103,9 @@ several, most severe first. No unlabeled remarks.
   - `SECURITY:` where a boundary is enforced, citing ADR-0009;
   - `PERF:` where a non-obvious choice serves a budget, citing the budget;
   - `CONTRACT:` in frozen contract files, citing the ADR.
-  A tag without a key does not pass review.
+  A tag without a key does not pass review. `check-deferrals` (in `pnpm check`) recognises only
+  `MARXY-nnn` keys in a deferral marker, not story ids like `A-07`: until it learns the second form,
+  name a Jira key there or remove the marker.
 - No commented-out code. No narration ("here we loop over…"). No changelog-style comments
   ("changed on 2026-09-18 to…"); git has that. No comments addressed to an AI or written as
   one ("as an AI…", "note to self").
@@ -108,8 +117,8 @@ several, most severe first. No unlabeled remarks.
 
 Nearly every pull request used to add a line to the same spot in `CHANGELOG.md`, so almost
 every merge put every other open PR in conflict there. A story's entry is now its own file,
-`changelog.d/KEY.md` — one line, written for a reader of Marxy, ending in the key in
-parentheses; `changelog.d/README.md` has the rule. Two fragments in different files cannot
+`changelog.d/<id>.md` (the story id, `A-07`, or a key, `MARXY-123`) — one line, written for a
+reader of Marxy, ending in that id in parentheses; `changelog.d/README.md` has the rule. Two fragments in different files cannot
 conflict on merge (MARXY-315).
 
 ```
@@ -148,7 +157,9 @@ the phase's taste review passes. The tag message is the release's Summary paragr
 
 ## Branches
 
-`type/MARXY-123-short-slug`, from `main`, deleted on merge. Never shared between agents.
+`type/<id>-short-slug` from `main`, where `<id>` is the story id in lower case (`docs/a-11-ci-contract-rewrite`)
+or a Jira key (`type/MARXY-123-short-slug`); a branch with neither is allowed. Deleted on merge, and
+never shared between agents: one story, one branch, one worktree, one pull request.
 
 ## Stories
 

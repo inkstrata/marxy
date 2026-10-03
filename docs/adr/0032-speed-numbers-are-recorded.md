@@ -46,3 +46,12 @@ quantity we print.
   amendment.
 - `fixtures/perf-budgets.json` keeps its product and CI observations; moving a product
   number is still an explicit edit. Nothing in that file is a merge-bar ceiling.
+
+## Amended 2026-10
+
+The numbers are now recorded **nightly**, not on the pull-request path (A-03, A-09). `gate-perf.mjs`,
+the parse measurement and the `product` and `ci` tiers of `fixtures/perf-budgets.json` are deleted,
+and `pnpm perf` (the large-document harness) and `scripts/measure-startup.mjs` write their records
+from `.github/workflows/nightly.yml`. The rule is unchanged and now has nothing left to contradict
+it: a measurement that produced no sample fails; a slow one does not. Bundle size is still checked,
+by `gate:bundle`. This note amends; nothing above it is edited.
