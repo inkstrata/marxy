@@ -513,7 +513,9 @@ the pull-request path.
   writes a record that holds `first_text`, `typeset_viewport`, `live_reload`, `open_render` and
   palette p95 at three sizes. `scripts/perf-harness.test.mjs` asserts the record's shape on a
   canned mark list.
-- `git grep -n -E 'gate-perf|measure-parse|ci-summary|gate:perf' -- ':!docs' ':!CHANGELOG.md' ':!changelog.d'`
+- `git grep -n -E 'gate-perf|measure-parse|ci-summary|gate:perf' -- ':!docs' ':!CHANGELOG.md' ':!changelog.d' ':!orchestration'`
+  (*amended 2026-10-02 by the lead*: `orchestration/` is frozen and holds only fixture text; the stale
+  comment at `scripts/ci-changes.mjs:145` belongs to A-09)
   prints nothing. The output is pasted in the pull request.
 - `fixtures/perf-budgets.json` has no `product` and no `ci` key, and `pnpm gate:bundle` still
   passes.
