@@ -49,7 +49,9 @@ import {
 import { leaveSourceMode } from './source/buffer-commit.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
-import { startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
+import { parseConfig } from '@marxy/theme';
+import { applyReaderConfig, readReaderConfig, takeConfigRead } from './theme/reader-config.ts';
+import { resolveThemeDir, startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
 import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
 import { type ApplyImagesContext } from './render/images.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from './startup/idle-work.ts';
@@ -173,6 +175,11 @@ export type AppHandle = {
   contentComplete(): Promise<void>;
   /** Rendered to Source or back, as `Mod+E` does; resolves when the switch is done. */
   toggleMode(): Promise<void>;
+  /**
+   * Sets the rendered page again after a change of variant or size, on the grid, with the reader on
+   * the same line (A-14). Nothing to do in Source mode or with no document open.
+   */
+  relayout(): Promise<void>;
 };
 
 const t0 = Date.now();
@@ -639,6 +646,43 @@ function userThemeContext(doc: HTMLElement): UserThemeContext {
 async function restartUserTheme(dir: string | null): Promise<void> {
   userThemeHandle?.stop();
   userThemeHandle = await startUserTheme(userThemeContext(document.getElementById('doc')!), dir);
+}
+
+/** A change of variant or size: same position, new layout (A-14). */
+async function relayoutKeepingReader(): Promise<void> {
+  const doc = document.getElementById('doc');
+  if (!doc || !openPath || !state.document || viewMode !== 'rendered') return;
+  const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+  if (typeset) {
+    typeset.relayout('theme');
+    await typeset.ready;
+  } else {
+    snap(doc);
+  }
+  if (!state.document) return;
+  restoreScrollToPosition(readingScroller(), state.document.blocks, { ...pos, path: openPath, mode: 'rendered' });
+}
+
+/**
+ * The variant and text size from config.toml, applied once per launch before anything is read onto the
+ * page, so a light reader never sees dark first (A-14). A failure keeps the defaults.
+ */
+let readerConfigApplied = false;
+async function applyReaderConfigOnce(): Promise<void> {
+  if (readerConfigApplied) return;
+  readerConfigApplied = true;
+  try {
+    applyReaderConfig(document.documentElement, await readReaderConfig(shell));
+  } catch {
+    /* defaults stand */
+  }
+}
+
+/** The theme directory: from the bytes the pre-paint read already has, else from the file (A-14). */
+async function themeDirFromBootConfig(): Promise<string | null> {
+  const read = takeConfigRead();
+  if (read === null) return themeDirFromConfig(shell);
+  return resolveThemeDir(parseConfig(read.bytes).config.theme, read.path);
 }
 
 function snap(article: HTMLElement, from?: HTMLElement): void {
@@ -1282,6 +1326,7 @@ async function openDocumentThroughRenderMark(
   start: Promise<unknown>,
 ): Promise<RenderEvidence> {
   const bytes = await shell.readFile(file);
+  await applyReaderConfigOnce();
   let landing = at;
   if (landing === undefined && positionPersistence) {
     const stored = positionPersistence.positionForOpen(file, bytes.length);
@@ -1338,7 +1383,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
     else void afterComplete(current, () => whenIdle(deferred));
     indexing = index.ensureFor(file, documentBuffer?.bytes);
     void indexing;
-    const themeDir = await themeDirFromConfig(shell);
+    const themeDir = await themeDirFromBootConfig();
     await restartUserTheme(themeDir);
   });
   await shell.mark('position_restored', Date.now());
@@ -1470,6 +1515,7 @@ async function boot(): Promise<void> {
   // A passage from the Commonplace is shown, not opened: no path, no buffer, no watch, no Source mode
   // and no reading position, so the palette and every open replace it as they would the hint.
   if (!file) {
+    await applyReaderConfigOnce();
     const piece = await showFrontispiece(doc);
     if (!piece) assignHtml(doc, '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>');
     await shell.mark('no_document', Date.now(), piece ? `piece=${piece}` : undefined);
@@ -1569,6 +1615,7 @@ export async function startApp(
   indexing = Promise.resolve();
   historyTracked = Promise.resolve();
   launchArgs = opts?.argv ? [...opts.argv] : [];
+  readerConfigApplied = false;
   resetDismissedNotices();
   wireTrustRevokeCommands({
     grantsForPath: () => (openPath ? trustGrantsFor(openPath) : null),
@@ -1601,6 +1648,7 @@ export async function startApp(
     commitEdit,
     contentComplete: () => mount?.complete ?? Promise.resolve(),
     toggleMode: toggleViewMode,
+    relayout: relayoutKeepingReader,
     pinPaletteDocument(path: string) {
       const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
         .__marxyPalette;
