@@ -1517,6 +1517,8 @@ gate against module-level document state).
 `notices/blocked.ts`) or `close.ts`'s prompt state: they are UI singletons per window and
 Phase D's.
 
+*Added 2026-10-03 by the lead, from the B-08 review:* `startup/measure.ts` holds a module-scope frame counter; a new launch right after `finish()` in the same page can start a second rAF loop (a generation token in `observeFrame` fixes it), and `createLaunchMeasure`'s doc comment still says `startApp` starts the count. Absorb `app.ts`'s `let measure` too.
+
 **Risks and open questions.** If 300 lines cannot be reached without splitting `AppHandle`'s
 type out, put the types in `app-types.ts` and say so. The number is the audit's target; the
 module-state test is the real gate.
