@@ -1,1 +1,0 @@
-A Finder “Open With” or Dock drop that reaches the app before the page is listening no longer shows the empty state: those paths queue in the shell until the webview drains them after registering its listener (MARXY-252)

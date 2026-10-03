@@ -1,1 +1,0 @@
-Source mode shows line numbers for code files (with a palette toggle), folding, visible control characters, tab width from `.editorconfig`, and no ligatures in the editor; long paths in Rendered mode break after a slash when they would otherwise overflow (MARXY-239)
