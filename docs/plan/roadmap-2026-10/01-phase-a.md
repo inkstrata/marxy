@@ -1608,6 +1608,33 @@ the screen criterion ("toggle light").
   (`docs/design/05-theme.md` §loading). The clamp applies to themes, not to the reader's own
   setting. The aesthetics gate covers only 16–28 px.
 
+### A-14.1 — Keep every byte of the edited config line except the value
+
+**Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** anything outside `packages/theme`
+*Added 2026-10-02 by the lead, from the A-14 review.*
+
+**Outcome.** When Marxy writes a key to `config.toml` (`size`, `variant`, `theme`), the only bytes that change
+are the value's. Today `setTopLevelKey` rebuilds the edited line and collapses the whitespace before a
+trailing comment to one space: `variant = "light"   # c` becomes `variant = "dark" # c`, and tabs
+become a space. That breaks the commitment "never touch a byte the user did not ask to change".
+
+**Paths.**
+- `packages/theme/src/config.ts` (`setTopLevelKey` only)
+- `packages/theme/src/config.test.ts`
+- `changelog.d/A-14.1.md` (new)
+
+**Build order.** Splice the new value into the existing line between the key's `=` (and the
+whitespace after it) and the end of the old value, keeping everything after the old value (spaces,
+tabs, the comment, the line ending) byte for byte.
+
+**Acceptance.**
+- `config.test.ts`: multiple spaces, tabs and a mix before a trailing comment survive an edit byte for
+  byte; spacing around `=` survives; CRLF, a BOM, a missing trailing newline, a key in a `[table]`, a
+  commented-out key and duplicate keys behave as today (the A-14 reviewer's probes, now pinned).
+- Each new case fails on the old `setTopLevelKey`.
+
+**Do not.** Change the parser, the config schema or any caller.
+
 ### A-15 — Summon the outline
 
 **Model:** sonnet · **Size:** M · **Depends on:** A-12 · **Parallel with:** A-09, A-13, A-16
