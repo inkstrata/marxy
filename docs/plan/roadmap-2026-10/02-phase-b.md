@@ -1268,6 +1268,12 @@ view could be created beside it with no other change.
 typesetter's own two reads stay; `07` §1 item 3).
 
 **Risks and open questions.** `typeset-defaults.test.mjs:86` pins that `attach()` is called with
+- *Added 2026-10-02 by the lead, from the B-04 review.* The store's `version` bumps on every committed
+  transition, including `save`, `rename` and a disk-only `reload` that leave the buffer untouched. A
+  view that captured `version` before a slow save finished and then edits with `baseVersion` gets
+  `false`, and `false` also means "no-op", so a keystroke during a save is silently dropped. Either
+  re-read `snapshot().version` and retry once on a refused edit, or give the store a buffer-only
+  version that only buffer-changing transitions bump, and compare `baseVersion` against that.
 no `hyphenate` or `hanging`. Keep the literal. B-17 changes the options.
 
 ---
