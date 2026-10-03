@@ -102,7 +102,10 @@ const latePage = (delayMs) => `<script>setTimeout(() => { fetch('https://${CONTR
  * counter cannot see (a late layout pass), and two consecutive quiet polls are required so a
  * request issued by the last timer is registered. The cap is 5 s: longer than the 2 s control with
  * margin, short enough that a page that never goes quiet (a setInterval, a timer for an hour) fails
- * the gate loudly instead of hanging it.
+ * the gate loudly instead of hanging it. Only the main frame is polled: iframes never survive the
+ * sanitiser, so a frame is already a finding. A poll that cannot be read (the page context was
+ * lost) is not "quiet": it is recorded as `#settle-unreadable` and ends the settle loudly, so the
+ * gate cannot fail open by losing sight of the page.
  */
 const SETTLE_FLOOR_MS = 150;
 const SETTLE_CAP_MS = 5_000;
@@ -113,8 +116,9 @@ const trackPendingWork = () => {
     const original = window[name].bind(window);
     const originalCancel = window[cancel].bind(window);
     window[name] = (callback, ...rest) => {
-      if (typeof callback !== 'function') return original(callback, ...rest);
-      const id = original((...args) => { if (once) pending.delete(id); return callback(...args); }, ...rest);
+      // A string callback is run as the page's own code would run it, so it is counted too.
+      const run = typeof callback === 'function' ? callback : () => (0, eval)(String(callback));
+      const id = original((...args) => { if (once) pending.delete(id); return run(...args); }, ...rest);
       pending.add(id);
       return id;
     };
@@ -123,6 +127,7 @@ const trackPendingWork = () => {
   wrap('setTimeout', 'clearTimeout', true);
   wrap('setInterval', 'clearInterval', false);
   wrap('requestAnimationFrame', 'cancelAnimationFrame', true);
+  if (typeof window.requestIdleCallback === 'function') wrap('requestIdleCallback', 'cancelIdleCallback', true);
   window.__gatePendingWork = () => pending.size;
 };
 
@@ -262,7 +267,11 @@ for (const engine of [webkit, chromium]) {
       let quietPolls = 0;
       while (true) {
         await tab.waitForTimeout(SETTLE_POLL_MS);
-        const pendingWork = await tab.evaluate(() => window.__gatePendingWork?.() ?? 0).catch(() => 0);
+        const pendingWork = await tab.evaluate(() => window.__gatePendingWork?.() ?? 0).catch(() => null);
+        if (pendingWork === null) {
+          observed.push('#settle-unreadable (the page could not be polled for pending work)');
+          break;
+        }
         quietPolls = pendingWork === 0 ? quietPolls + 1 : 0;
         const elapsed = Date.now() - started;
         if (quietPolls >= 2 && elapsed >= SETTLE_FLOOR_MS) break;

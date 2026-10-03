@@ -176,4 +176,8 @@ test('the gate watches until the page goes quiet and proves it with late-request
   assert.match(gateSource, /SETTLE_CAP_MS/);
   assert.match(gateSource, /#never-quiet/);
   assert.doesNotMatch(gateSource, /await tab\.waitForTimeout\(150\)/);
+  // The settle must not fail open: an unreadable poll is recorded, never read as quiet.
+  assert.match(gateSource, /#settle-unreadable/);
+  assert.doesNotMatch(gateSource, /__gatePendingWork\?\.\(\) \?\? 0\)\.catch\(\(\) => 0\)/);
+  assert.match(gateSource, /wrap\('requestIdleCallback'/);
 });
