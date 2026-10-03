@@ -1,8 +1,15 @@
-// Startup measurement of the packaged desktop app, writing results/perf.json for gate-perf.
+// Startup measurement of the packaged desktop app, writing results/perf-startup.json. A record, never a
+// gate (ADR-0032): the nightly `startup-macos` job runs it and keeps the file (A-03).
 // CI (ADR-0022 Amendment 1): `cold_start_first_text_ms` is launch 1 only, `warm_start_first_text_ms`
 // is the median of launches 2..N. Reference (Amendment 2): a round is k ≥ 5 certified cold launches,
 // `cold_start_first_text_ms` is their median, and no warm launch enters that statistic. The raw
-// sample is never sorted. Skips when the binary is missing unless MARXY_PERF_REQUIRED=1.
+// sample is never sorted.
+//
+// Every launch keeps every `MARK` line it printed, not only `first_text` (05-performance-audit.md
+// §4.1, §12 point 7): a launch that never paints, as on a locked screen, still yields the shell's
+// stages and says `no_paint`. A round fails only when no launch produced a single mark, which is a
+// round with no sample; a launch without first text is recorded, not failed. Skips when the binary
+// is missing unless MARXY_PERF_REQUIRED=1.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +40,7 @@ export const PROCESS_COLD_ONLY = 'process-cold only';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const isMain = process.argv[1]?.endsWith('measure-startup.mjs') ?? false;
+export const RESULT_PATH = 'results/perf-startup.json';
 const RECORD_KEYS = ['cold_start_first_text_ms', 'warm_start_first_text_ms', 'warm_runs', 'warm_runs_n', 'runs_n', 'usable_runs', 'cold_warm_ratio', 'cold_procedure', 'env_class', 'runner_class'];
 
 export function median(values) {
@@ -73,14 +81,48 @@ export function perfRecord(summary, { envClass, runnerClass, coldProcedure = COL
     runs_n: summary.runs_n,
     usable_runs: summary.usable_runs,
     launches,
+    marks_median: marksMedian(launches),
+    no_paint_launches: launches.filter(l => l.no_paint).length,
     platform: process.platform,
     env_class: envClass,
     runner_class: runnerClass,
   };
 }
 
-// What has to be true of a record for its two names to mean what they say. The gate has its own,
-// separate question — whether the record is sufficient to gate on — and asks it in gate-perf.
+/**
+ * Every `MARK <name> <epoch ms> [detail]` line of one launch's stdout, as ms since the spawn at `t0`;
+ * the first of each name wins. Details are kept beside them.
+ */
+export function parseMarks(out, t0) {
+  const marks = {};
+  const details = {};
+  for (const line of out.split('\n')) {
+    const m = /^MARK (\S+) (\S+)/.exec(line);
+    if (!m || m[1] in marks) continue;
+    marks[m[1]] = Number(m[2]) - t0;
+    const detail = /^MARK \S+ \S+ (.+)$/.exec(line)?.[1];
+    if (detail) details[m[1]] = detail;
+  }
+  return { marks, details };
+}
+
+/** The median of each mark over the launches that made it, ms since spawn. */
+export function marksMedian(launches) {
+  const names = [...new Set(launches.flatMap(l => Object.keys(l.marks ?? {})))];
+  return Object.fromEntries(names.map(n => [n, median(launches.map(l => l.marks?.[n]).filter(v => typeof v === 'number'))]));
+}
+
+/**
+ * The one condition a round fails on: no launch printed a single mark, so there is no sample at all.
+ * A launch that reached the shell's stages and then said no_paint is a sample.
+ */
+export function noSampleProblems(launches) {
+  if (launches.some(l => Object.keys(l.marks ?? {}).length > 0)) return [];
+  return [`none of ${launches.length} launches printed a MARK line; the launches array has each one's exit code and stderr`];
+}
+
+// What has to be true of a record for its two names to mean what they say. Launches with no first
+// text are not a problem here: they are recorded with every mark they did make (noSampleProblems).
 export function recordProblems(record) {
   if (record.env_class === 'reference' && Array.isArray(record.cold_launches)) return referenceRecordProblems(record);
   const problems = [];
@@ -103,7 +145,6 @@ export function recordProblems(record) {
   }
   if (record.warm_runs_n !== record.warm_runs?.length) problems.push(`warm_runs_n ${record.warm_runs_n} does not count warm_runs (${record.warm_runs?.length})`);
   if (record.usable_runs !== marked.length) problems.push(`usable_runs ${record.usable_runs} does not count the launches that produced a mark (${marked.length})`);
-  if (record.usable_runs < record.runs_n) problems.push(`${record.usable_runs} of ${record.runs_n} launches produced a first_text mark; the launches that did not are in the launches array with their exit code and stderr`);
   if (!record.cold_procedure) problems.push('cold_procedure is empty; a record must say what made launch 1 cold, and "process-cold only" is a legitimate answer');
   return problems;
 }
@@ -140,9 +181,6 @@ function referenceRecordProblems(record) {
   }
   if (record.usable_runs !== marked.length) {
     problems.push(`usable_runs ${record.usable_runs} does not count the launches that produced a mark (${marked.length})`);
-  }
-  if (record.usable_runs < record.runs_n) {
-    problems.push(`${record.usable_runs} of ${record.runs_n} launches produced a first_text mark; the launches that did not are in the launches array with their exit code and stderr`);
   }
   return problems;
 }
@@ -225,6 +263,8 @@ export function referencePerfRecord(launches, { envClass, runnerClass, coldProce
     runs_n: launches.length,
     usable_runs: marked.length,
     launches,
+    marks_median: marksMedian(launches),
+    no_paint_launches: launches.filter(l => l.no_paint).length,
     platform: process.platform,
     env_class: envClass,
     runner_class: runnerClass,
@@ -249,7 +289,7 @@ export async function measureColdLaunches({
     cold_procedure = makeCold();
     await idle();
     const next = { ...await launch(binary, document, i + 1), cold: true };
-    log(`launch ${next.index} (cold): ${next.ok ? `${next.ms} ms` : 'no first_text mark'}, exit ${next.timed_out ? `killed after ${LAUNCH_TIMEOUT_MS} ms` : next.exit_code}, webview start ${next.webview_start_ms ?? '?'} ms${next.stderr_tail ? `, stderr: ${next.stderr_tail}` : ''}`);
+    log(`launch ${next.index} (cold): ${next.ok ? `${next.ms} ms` : `no first_text mark${next.no_paint ? ' (no_paint)' : ''}`}, exit ${next.timed_out ? `killed after ${LAUNCH_TIMEOUT_MS} ms` : next.exit_code}, webview start ${next.webview_start_ms ?? '?'} ms${next.stderr_tail ? `, stderr: ${next.stderr_tail}` : ''}`);
     launches.push(next);
   }
   return { launches, cold_procedure };
@@ -289,12 +329,18 @@ async function launchOnce(bin, doc, index) {
     const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, LAUNCH_TIMEOUT_MS);
     child.on('exit', code => { clearTimeout(timer); resolve(code); });
   });
+  // The two-field parse below is the one apps/desktop/test/paint-signal.test.mjs pins; parseMarks
+  // reads the same lines into ms since spawn, with their details.
   for (const line of out.split('\n')) { const m = /^MARK (\S+) (\S+)/.exec(line); if (m) marks[m[1]] = Number(m[2]); }
   const ms = marks.first_text ? marks.first_text - t0 : null;
+  const parsed = parseMarks(out, t0);
   return {
     index,
     ms,
     ok: ms != null,
+    marks: parsed.marks,
+    mark_details: parsed.details,
+    no_paint: 'no_paint' in parsed.marks,
     exit_code: timedOut ? null : exit_code,
     stderr_tail: err.trim().split('\n').slice(-3).join(' | ').slice(-400),
     elapsed_ms: Date.now() - t0,
@@ -311,7 +357,7 @@ export async function measureLaunches({ bin, doc, runsN = RUNS_N, log = console.
   const launches = [];
   for (let i = 0; i < runsN; i++) {
     const launch = await launchOnce(binary, document, i + 1);
-    log(`launch ${launch.index}${launch.index === 1 ? ' (cold)' : ''}: ${launch.ok ? `${launch.ms} ms` : 'no first_text mark'}, exit ${launch.timed_out ? `killed after ${LAUNCH_TIMEOUT_MS} ms` : launch.exit_code}, webview start ${launch.webview_start_ms ?? '?'} ms${launch.stderr_tail ? `, stderr: ${launch.stderr_tail}` : ''}`);
+    log(`launch ${launch.index}${launch.index === 1 ? ' (cold)' : ''}: ${launch.ok ? `${launch.ms} ms` : `no first_text mark${launch.no_paint ? ' (no_paint)' : ''}`}, exit ${launch.timed_out ? `killed after ${LAUNCH_TIMEOUT_MS} ms` : launch.exit_code}, webview start ${launch.webview_start_ms ?? '?'} ms${launch.stderr_tail ? `, stderr: ${launch.stderr_tail}` : ''}`);
     launches.push(launch);
     if (i + 1 < runsN) await new Promise(r => setTimeout(r, SETTLE_MS));
   }
@@ -327,16 +373,18 @@ export const SELFTEST_CASE_NAMES = [
   'warm: launch 1 inside the warm statistic is rejected',
   'cold: cold_start_first_text_ms is launch 1 and only launch 1',
   'order: a runs array written in sorted order is rejected',
-  'usable_runs: fewer marks than launches is rejected',
+  'usable_runs: a launch with no first text is counted out of usable_runs and recorded, not rejected',
   'launches: every attempted launch is recorded with its exit code and stderr',
   'linux: a headless launch gets a 24-bit screen, the WebKit switches and a session bus',
-  'required: a required run with no MARXY_RUNNER_CLASS exits 1',
+  'marks: every MARK line of a launch is kept, with its detail, as ms since spawn',
   'reference: default k is 5 and every launch is preceded by the cold-making step',
   'reference: cold_launches exclude warm launches and keep launch order',
   'cold: procedure is process-cold only when the file cache cannot be purged without a password',
   'cold: a password-less purge is named in cold_procedure',
   'cold: running marxy processes are killed as part of the step',
   'cold: sudo is never invoked without -n',
+  'no_paint: launches that never paint keep the shell stages, say no_paint, and are a sample',
+  'sample: a round in which no launch printed a mark is rejected',
 ];
 
 async function selftest() {
@@ -364,7 +412,7 @@ async function selftest() {
 
   const dropped = SYNTHETIC.map((l, i) => (i > 5 ? { ...l, ms: null, ok: false, exit_code: null, stderr_tail: 'killed' } : l));
   const thin = perfRecord(summarise(dropped), { envClass: 'ci', runnerClass: 'ubuntu-latest', launches: dropped });
-  report(recordProblems(thin).some(p => /launches produced a first_text mark/.test(p)), SELFTEST_CASE_NAMES[5], `usable ${thin.usable_runs} of ${thin.runs_n}`);
+  report(thin.usable_runs === 6 && recordProblems(thin).length === 0, SELFTEST_CASE_NAMES[5], `usable ${thin.usable_runs} of ${thin.runs_n}, problems ${recordProblems(thin).join('; ') || 'none'}`);
 
   const recorded = thin.launches.every(l => 'index' in l && 'ms' in l && 'ok' in l && 'exit_code' in l && 'stderr_tail' in l) && thin.launches.length === SYNTHETIC.length;
   report(recorded, SELFTEST_CASE_NAMES[6], 'a launch that produced no mark is missing from the launches array');
@@ -384,11 +432,15 @@ async function selftest() {
     `headless launch was ${headlessArgs.cmd} ${headlessArgs.args.join(' ')}`,
   );
 
-  const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], { env: { ...process.env, MARXY_PERF_REQUIRED: '1', MARXY_PERF_ENV: 'ci', MARXY_RUNNER_CLASS: '' }, stdio: ['ignore', 'ignore', 'pipe'] });
-  let stderr = '';
-  child.stderr.on('data', d => { stderr += d; });
-  const code = await new Promise(r => child.on('exit', r));
-  report(code === 1 && /MARXY_RUNNER_CLASS/.test(stderr), SELFTEST_CASE_NAMES[8], `exited ${code} saying ${JSON.stringify(stderr.trim())}`);
+  const out = ['MARK main_start 1000', 'MARK window_shown 1290', 'noise', 'MARK script_start 1384', 'MARK render 1623 blocks=83 chars=16226 heading=Stack evaluation', 'MARK first_text 1700', 'MARK render 1999'].join('\n');
+  const parsed = parseMarks(out, 1000);
+  report(
+    JSON.stringify(parsed.marks) === JSON.stringify({ main_start: 0, window_shown: 290, script_start: 384, render: 623, first_text: 700 })
+      && parsed.details.render === 'blocks=83 chars=16226 heading=Stack evaluation'
+      && !('first_text' in parsed.details),
+    SELFTEST_CASE_NAMES[8],
+    `marks ${JSON.stringify(parsed.marks)}, details ${JSON.stringify(parsed.details)}`,
+  );
 
   const calls = [];
   const fakeLaunch = async (_bin, _doc, index) => {
@@ -471,6 +523,23 @@ async function selftest() {
     `sudo invocations: ${JSON.stringify(sudoArgs)}`,
   );
 
+  // 05-performance-audit.md §4.1: on a locked screen every mark up to render arrives, then no_paint.
+  const locked = parseMarks(['MARK main_start 5000', 'MARK script_start 5384', 'MARK render 5623 blocks=83', 'MARK no_paint 8126 deadline_ms=2500'].join('\n'), 5000);
+  const unpainted = [1, 2, 3, 4, 5].map(index => ({ index, ms: null, ok: false, exit_code: 1, stderr_tail: '', marks: locked.marks, mark_details: locked.details, no_paint: 'no_paint' in locked.marks }));
+  const lockedRecord = referencePerfRecord(unpainted, { envClass: 'reference', runnerClass: 'darwin-arm64', coldProcedure: PROCESS_COLD_ONLY });
+  report(
+    noSampleProblems(unpainted).length === 0
+      && recordProblems(lockedRecord).length === 0
+      && lockedRecord.no_paint_launches === 5
+      && lockedRecord.marks_median.render === 623
+      && lockedRecord.marks_median.script_start === 384,
+    SELFTEST_CASE_NAMES[15],
+    `problems ${[...noSampleProblems(unpainted), ...recordProblems(lockedRecord)].join('; ') || 'none'}, marks_median ${JSON.stringify(lockedRecord.marks_median)}`,
+  );
+
+  const silent = [1, 2, 3].map(index => ({ index, ms: null, ok: false, exit_code: 1, stderr_tail: 'dyld: missing', marks: {}, no_paint: false }));
+  report(noSampleProblems(silent).some(p => /none of 3 launches printed a MARK line/.test(p)), SELFTEST_CASE_NAMES[16], `problems ${noSampleProblems(silent).join('; ') || 'none'}`);
+
   if (bad) { console.error(`measure-startup selftest failed: ${bad} case(s)`); process.exit(1); }
   console.log(`measure-startup selftest ok: ${SELFTEST_CASE_NAMES.length} named cases`);
   process.exit(0);
@@ -480,9 +549,8 @@ if (isMain && process.argv.includes('--selftest')) await selftest();
 
 if (isMain) {
   const envClass = process.env.MARXY_PERF_ENV ?? (process.env.CI ? 'ci' : 'reference');
-  const runnerClass = process.env.MARXY_RUNNER_CLASS || null;
+  const runnerClass = process.env.MARXY_RUNNER_CLASS || `${process.platform}-${process.arch}`;
   const required = process.env.MARXY_PERF_REQUIRED === '1';
-  if (!runnerClass && required && envClass === 'ci') { console.error('measure-startup: MARXY_RUNNER_CLASS is unset; set it to a runner class from fixtures/perf-budgets.json'); process.exit(1); }
   const bin = findBinary();
   if (!bin) {
     if (required) { console.error('measure-startup: no binary'); process.exit(1); }
@@ -494,18 +562,20 @@ if (isMain) {
     const { launches, cold_procedure } = await measureColdLaunches({ bin, k: coldLaunchCount() });
     record = referencePerfRecord(launches, { envClass, runnerClass, coldProcedure: cold_procedure });
     mkdirSync(`${root}results`, { recursive: true });
-    writeFileSync(`${root}results/perf.json`, JSON.stringify(record, null, 2));
+    writeFileSync(`${root}${RESULT_PATH}`, JSON.stringify(record, null, 2));
     console.log(`cold start (median of ${record.cold_launches_n} cold launches) ${record.cold_start_first_text_ms} ms (${envClass} mode${runnerClass ? `, ${runnerClass}` : ''})`);
   } else {
     const launches = await measureLaunches({ bin });
     record = perfRecord(summarise(launches), { envClass, runnerClass, launches });
     mkdirSync(`${root}results`, { recursive: true });
-    writeFileSync(`${root}results/perf.json`, JSON.stringify(record, null, 2));
+    writeFileSync(`${root}${RESULT_PATH}`, JSON.stringify(record, null, 2));
     console.log(`cold start (launch 1) ${record.cold_start_first_text_ms} ms; warm start (median of launches 2..${record.runs_n}) ${record.warm_start_first_text_ms} ms over ${record.warm_runs_n} launches; cold/warm ${record.cold_warm_ratio}× (${envClass} mode${runnerClass ? `, ${runnerClass}` : ''})`);
   }
   console.log(`cold procedure: ${record.cold_procedure}`);
-  const problems = recordProblems(record);
-  // A round that measured less than it claims is a failure here as well as at the gate: a script
-  // that exits 0 having written an empty sample is how a measurement disappears unnoticed.
+  console.log(`marks (median ms since spawn): ${Object.entries(record.marks_median).map(([k, v]) => `${k}=${v}`).join(' ')}; ${record.no_paint_launches} launch(es) said no_paint; written to ${RESULT_PATH}`);
+  // No sample at all, or a record whose names do not mean what they say, is a failure: a script that
+  // exits 0 having written an empty sample is how a measurement disappears unnoticed. A slow number,
+  // or a launch that never painted, is not (ADR-0032).
+  const problems = [...noSampleProblems(record.launches), ...recordProblems(record)];
   if (problems.length) { console.error('measure-startup failed:\n - ' + problems.join('\n - ')); process.exit(1); }
 }

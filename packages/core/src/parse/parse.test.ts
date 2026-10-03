@@ -366,10 +366,9 @@ const resultsDir = new URL('../../../../results/', import.meta.url);
 const perfPath = new URL('perf.json', resultsDir);
 const parseSnapshotPath = new URL('perf-parse.json', resultsDir);
 
-// The gate owns pass/fail (ADR-0022; MARXY-59 moved the budget into fixtures/perf-budgets.json and
-// deleted the self-calibrating machine-factor probe this test used to carry). CI's gates job now
-// measures parse on both runner classes itself, before the gate, through scripts/measure-parse.mjs
-// (MARXY-91); this write is the reference-tier and developer-machine path onto the same two files.
+// A record, not a check (ADR-0032; MARXY-59 deleted the self-calibrating machine-factor probe this
+// test used to carry). Since A-03 the nightly perf harness records parse in the app as
+// `parsed − file_read`; this write keeps a developer machine's Node number in the same results/ files.
 function writeParseMeasurement(median: number): void {
   mkdirSync(fileURLToPath(resultsDir), { recursive: true });
   let existing: Record<string, unknown> = {};
@@ -404,10 +403,8 @@ test('parsing 01-long-technical.md records its median in results/perf.json', () 
   const median = runs[Math.floor(runs.length / 2)]!;
   writeParseMeasurement(median);
   console.log(`parse 01-long-technical.md: ${median.toFixed(2)} ms median`);
-  // Not a check on the number — the gate owns that (fixtures/perf-budgets.json, scripts/gate-perf.mjs).
-  // These read both files back because a write that silently does not happen is how the measurement
-  // stops reaching the gate, and the gate now fails when the metric is absent rather than passing
-  // without mentioning it.
+  // Not a check on the number, which nothing gates (ADR-0032). These read both files back because a
+  // write that silently does not happen is how a measurement disappears without anyone noticing.
   const written = JSON.parse(readFileSync(perfPath, 'utf8')) as { parse_long_technical_ms: number };
   assert.equal(written.parse_long_technical_ms, median);
   const snapshot = JSON.parse(readFileSync(parseSnapshotPath, 'utf8')) as { parse_long_technical_ms: number };
