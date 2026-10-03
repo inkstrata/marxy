@@ -44,3 +44,4 @@ The lead paused on 2026-10-02. What to do next, in order, is in [`handoff.md`](h
 | B-02.1 | (Phase B) keep a wrapped, line-split code fence on the grid | opus | running | — | ../marxy-wt/B-02.1 | From B-02's findings |
 | B-02.2 | (Phase B) keep inline math from growing a list item off the grid | sonnet | running | — | ../marxy-wt/B-02.2 | From B-02's findings |
 | B-02.3 | (Phase B) keep a hidden-character line inside 320 px | opus | running | — | ../marxy-wt/B-02.3 | From B-02's findings |
+| A-10.1 | Make the no-network gate's control page deterministic in Chromium | sonnet | running | — | ../marxy-wt/A-10.1 (fix/a-10-1-no-network-control-page) | Flake seen on B-06's PR run 37103394026 |

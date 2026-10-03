@@ -1240,6 +1240,24 @@ requests.
 - If the 18-file set misses a regression class the full suite catches, the nightly will show it.
   Name the file to add, rather than adding it in this story.
 
+### A-10.1 — Make the no-network gate's control page deterministic in Chromium
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-10 · *Added 2026-10-02 by the lead.*
+
+**Outcome.** `pnpm gate:no-network` never fails on its own control page. On a B-06 pull-request run
+(37103394026, attempt 1) the `browser-lite` job failed with "chromium: the control page's
+un-allow-listed element was not seen in the live DOM, so the element half of the allow-list check
+cannot fail and proves nothing", and the same for "the block inside an anchor"; the re-run passed. The
+gate read the control page's live DOM before the page had rendered it. AGENTS.md: a flaky check is
+fixed or deleted, never re-run until green. This one guards commitment 3, so it is fixed.
+
+**Paths.** `scripts/gate-no-network.mjs` (the control-page wait only) and its test; `changelog.d/A-10.1.md`.
+
+**Acceptance.** The control page is read only after a deterministic signal that it has rendered (a
+load event, a marker the page sets, or `waitForSelector` on the very elements the check needs), never a
+timer. Running the gate's Chromium leg 30 times in a row, locally and under load, gives 0 failures;
+the gate still fails when the control element is genuinely absent (mutation-checked).
+
 ### A-11 — Rewrite the CI contract and the process documents
 
 **Model:** sonnet · **Size:** M · **Depends on:** A-03, A-07, A-08, A-09, A-10 · **Parallel with:** A-17
