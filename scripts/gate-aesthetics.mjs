@@ -735,6 +735,30 @@ async function craftedClsShift(page, origin) {
   });
 }
 
+/**
+ * B-03: wide code runs into the margin of the box the article sits in, not the window. A 735 px
+ * `#marxy-main` in a 1,470 px viewport (a half-width pane) holds a 140-character code line; the
+ * `pre` must not end past the container. `css` is injectable so the selftest can prove the check
+ * fails against the pre-fix `100vw` rule.
+ */
+async function checkRoomInNarrowContainer(browser, css = defaultThemeCss()) {
+  const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
+  try {
+    await page.setContent(
+      `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${css}</style></head><body style="margin:0"><main id="marxy-main" style="width:735px"><article id="doc" class="marxy-article"><pre><code>${'x'.repeat(140)}</code></pre></article></main></body></html>`,
+      { waitUntil: 'domcontentloaded' },
+    );
+    const m = await page.evaluate(() => ({
+      pre: document.querySelector('#doc pre').getBoundingClientRect().right,
+      main: document.getElementById('marxy-main').getBoundingClientRect().right,
+    }));
+    const spill = m.pre - m.main;
+    return { spill, problems: spill > 0.5 ? [`code block spills ${spill.toFixed(1)}px past its 735px container (pre right ${m.pre.toFixed(1)}, container right ${m.main.toFixed(1)})`] : [] };
+  } finally {
+    await page.close();
+  }
+}
+
 async function selftest(browser, origin) {
   const cases = [
     {
@@ -964,6 +988,15 @@ async function main() {
     );
     notes.push(
       'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome, hierarchy, code-voice, hanging-quote each fail on a crafted page; optical protrusion passes',
+    );
+    const roomHead = await checkRoomInNarrowContainer(browser);
+    if (roomHead.problems.length) throw new Error(`aesthetics gate: ${roomHead.problems.join('; ')}`);
+    const roomPreFix = await checkRoomInNarrowContainer(browser, defaultThemeCss().replaceAll('100cqi', '100vw'));
+    if (roomPreFix.problems.length === 0) {
+      throw new Error('selftest: checkRoomInNarrowContainer did not fail against the pre-fix 100vw room');
+    }
+    notes.push(
+      `room: a 140-character code line stays inside a 735px container in a 1470px window (spill ${roomHead.spill.toFixed(1)}px); the pre-fix 100vw rule spills ${roomPreFix.spill.toFixed(1)}px`,
     );
     if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
       throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
