@@ -372,6 +372,62 @@ two runs. Discard drift and keep only real changes, with a sentence in the queue
 
 ---
 
+### B-02.1 — Keep a wrapped, line-split code fence on the grid
+
+**Model:** opus · **Size:** S–M · **Depends on:** B-01 · *Added 2026-10-02 by the lead, from B-02's findings.*
+
+**Outcome.** `28-artifact-fences.md` at 960 px, size 16, dark and light, passes the grid check. Today the
+app splits a diff fence into per-line spans (`span.marxy-line`, `data-marxy-done="lines"`); a wrapped `+`
+line makes the first `<pre>` 354 px (29.5 grid units at a 12 px unit), the grid pass leaves its
+`padding-bottom` at 12 px, and every block after it is 6 px off (first failure `<h2> top 642.00`).
+Size 20 passes. Code line-height is 30 px at every body size (16, 20, 24, 28) in the app — check whether
+that is the theme's intent (docs/research/reader-typography/ on code) or part of the defect.
+
+**Evidence.** B-02 switched the aesthetics gate from `render/headless.ts` to the real app (via B-01's
+`marxyGate.render`) and the mechanical gate failed where the headless page never looked. B-02's
+uncommitted work in `../marxy-wt/B-02` reproduces it: `node scripts/gate-aesthetics.mjs --mechanical`.
+Fix the app, not the gate; do not loosen any bound; do not touch `fixtures/baselines/` (B-02 regenerates
+them once these land). If the fix needs `apps/desktop/src/app.ts` (B-08 owns it this wave), stop and report.
+
+**Paths.** `packages/typeset/src/grid.ts`, the code-line pass that adds `span.marxy-line`
+(find it), `packages/theme/src/base.css` (code line-height only, if it is the cause), and a test that
+fails today (WebKit, the real app via `marxyGate.render` or the app harness). `changelog.d/B-02.1.md`.
+
+### B-02.2 — Keep inline math from growing a list item off the grid
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-01 · *Added 2026-10-02 by the lead, from B-02's findings.*
+
+**Outcome.** `30-notebook-export.md` at 960 px, size 16, dark and light, passes the grid check. Today a list
+item holding inline KaTeX (`\Delta T`, `0.33`) is 48.98 px tall instead of 48 (the KaTeX span sits at
+`vertical-align: -1.53px`), and the next `<li>` lands at 8256.98. Inline math must not change the line box.
+
+**Evidence.** B-02 switched the aesthetics gate from `render/headless.ts` to the real app (via B-01's
+`marxyGate.render`) and the mechanical gate failed where the headless page never looked. B-02's
+uncommitted work in `../marxy-wt/B-02` reproduces it: `node scripts/gate-aesthetics.mjs --mechanical`.
+Fix the app, not the gate; do not loosen any bound; do not touch `fixtures/baselines/` (B-02 regenerates
+them once these land). If the fix needs `apps/desktop/src/app.ts` (B-08 owns it this wave), stop and report.
+
+**Paths.** `packages/theme/src/base.css` (the inline `.katex` rules only) or the KaTeX render
+wrapper in `packages/core/src/render/` if the box is set there; a test that fails today; `changelog.d/B-02.2.md`.
+
+### B-02.3 — Keep a hidden-character line inside a 320 px window
+
+**Model:** opus · **Size:** S–M · **Depends on:** B-01 · *Added 2026-10-02 by the lead, from B-02's findings.*
+
+**Outcome.** `29-hidden-characters.md` at 320 px and at 400 % zoom (dark) has no horizontal scroll. Today a
+line-break span from the line breaker (`span.marxy-lb`) ends at 329.4 px (`horizontal scroll 329px >
+320px viewport`); the headless page gave exactly 320. Likely the invisible-character markers and the line
+breaker run in a different order in the app, so the breaker measures text without the markers' width.
+
+**Evidence.** B-02 switched the aesthetics gate from `render/headless.ts` to the real app (via B-01's
+`marxyGate.render`) and the mechanical gate failed where the headless page never looked. B-02's
+uncommitted work in `../marxy-wt/B-02` reproduces it: `node scripts/gate-aesthetics.mjs --mechanical`.
+Fix the app, not the gate; do not loosen any bound; do not touch `fixtures/baselines/` (B-02 regenerates
+them once these land). If the fix needs `apps/desktop/src/app.ts` (B-08 owns it this wave), stop and report.
+
+**Paths.** The invisible-character marking (find it: `invisibles`), `packages/typeset/src/` (the
+breaker's measurement, if that is the fix), a test that fails today; `changelog.d/B-02.3.md`.
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05
