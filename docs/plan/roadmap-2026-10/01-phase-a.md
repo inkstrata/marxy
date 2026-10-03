@@ -1258,6 +1258,24 @@ load event, a marker the page sets, or `waitForSelector` on the very elements th
 timer. Running the gate's Chromium leg 30 times in a row, locally and under load, gives 0 failures;
 the gate still fails when the control element is genuinely absent (mutation-checked).
 
+### A-10.2 — Let the no-network gate see a late request
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-10.1 · *Added 2026-10-03 by the lead, from the A-10.1 review.*
+
+**Outcome.** The no-network gate stops watching for requests only when the page has gone quiet, not
+after a fixed 150 ms. Today `run()` in `scripts/gate-no-network.mjs` waits `waitForTimeout(150)` after
+navigation, so a request a page fires later (a late `fetch`, a `<link>` or image inserted by script,
+a slow route callback) is never observed and the gate passes on silence. The gate guards commitment 3,
+"nothing phones home".
+
+**Paths.** `scripts/gate-no-network.mjs` (the settle only), its test in
+`packages/core/scripts/gate-assertions.test.ts`, and a crafted control page if needed;
+`changelog.d/A-10.2.md`.
+
+**Acceptance.** A crafted control page that fires a request after 500 ms (and one after 2 s) is caught
+by the gate in both engines; the gate does not slow by more than a few seconds overall; no allow-list
+or check changes. Each new case fails on today's gate (mutation-checked).
+
 ### A-11 — Rewrite the CI contract and the process documents
 
 **Model:** sonnet · **Size:** M · **Depends on:** A-03, A-07, A-08, A-09, A-10 · **Parallel with:** A-17
