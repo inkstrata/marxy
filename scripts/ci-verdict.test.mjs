@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verdict } from './ci-verdict.mjs';
 
@@ -11,13 +12,20 @@ const run = (changes, rest) => ({
   changes,
   conventions: { result: 'skipped', outputs: {} },
   fast: { result: 'skipped', outputs: {} },
-  browser: { result: 'skipped', outputs: {} },
+  'browser-lite': { result: 'skipped', outputs: {} },
   typography: { result: 'skipped', outputs: {} },
   rust: { result: 'skipped', outputs: {} },
   ...rest,
 });
 const ok = (outputs) => ({ result: 'success', outputs });
 const done = { result: 'success', outputs: {} };
+
+test('the jobs these cases feed the verdict are exactly the ci job\'s needs in ci.yml', () => {
+  const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const job = ci.slice(ci.search(/^  ci:\s*$/m));
+  const needs = /^    needs:\s*\[([^\]]*)\]/m.exec(job)?.[1].split(',').map(s => s.trim());
+  assert.deepEqual(needs, Object.keys(run(ok(answered()), {})), 'rename a job in ci.yml and in these cases together');
+});
 
 test('a docs-only pull request, every product job skipped, is green', () => {
   const r = verdict(run(ok(answered({ docs_only: 'true' })), { conventions: done }));
@@ -30,7 +38,7 @@ test('a push to main that ran only changes and fast is green', () => {
 });
 
 test('a product pull request with every job green is green', () => {
-  const r = verdict(run(ok(answered({ web: 'true', typography: 'true', rust: 'true' })), { conventions: done, fast: done, browser: done, typography: done, rust: done }));
+  const r = verdict(run(ok(answered({ web: 'true', typography: 'true', rust: 'true' })), { conventions: done, fast: done, 'browser-lite': done, typography: done, rust: done }));
   assert.equal(r.ok, true, r.errors.join('; '));
 });
 
@@ -58,7 +66,7 @@ test('needs without changes at all is red', () => {
   assert.equal(verdict(rest).ok, false);
 });
 
-for (const job of ['conventions', 'fast', 'browser', 'typography', 'rust']) {
+for (const job of ['conventions', 'fast', 'browser-lite', 'typography', 'rust']) {
   for (const result of ['failure', 'cancelled']) {
     test(`${job} ${result} is red`, () => {
       const r = verdict(run(ok(answered({ web: 'true', rust: 'true', typography: 'true' })), { fast: done, [job]: { result, outputs: {} } }));

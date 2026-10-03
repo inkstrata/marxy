@@ -226,3 +226,48 @@ jobs:
           key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - run: pnpm test:fleet
+
+  # Every WebKit test, with WebKit required (A-10). A pull request runs only the desktop `test:lite`
+  # set in ci.yml's browser-lite job; here run the whole desktop suite, its mutation check, and the
+  # typeset, theme and core suites, whose WebKit tests no pull-request job runs (audit 04 §3). Each
+  # suite runs even when one before it failed, so one night names every red suite.
+  browser-full:
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 45
+    env:
+      MARXY_BROWSER_TESTS_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      # One desktop test compiles a small Rust crate (images.test.mjs), and the Playwright image ships
+      # no C linker for cargo's build scripts.
+      - name: A C linker for the desktop suite's Rust test
+        run: apt-get update -qq && apt-get install -y -qq build-essential
+      - name: Desktop suite
+        run: pnpm --filter @marxy/desktop test
+      - name: Desktop mutation check
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/desktop test:mutations
+      - name: Theme suite
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/theme test
+      - name: Typeset suite
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/typeset test
+      - name: Core suite
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/core test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-full
+          path: results/
+          if-no-files-found: ignore
