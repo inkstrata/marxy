@@ -277,20 +277,6 @@ export async function flushPaletteHistoryFromApp(
   await savePaletteHistory(shell, session);
 }
 
-/** `root` is the document's repository root (the index service's `rootFor`), not its directory. */
-export async function notePaletteOpen(
-  shell: HistoryIo,
-  path: string,
-  session: PaletteSession,
-  root: string = dirname(path),
-): Promise<PaletteSession> {
-  const next = recordOpen(session, path, root);
-  historyIo = shell;
-  sessionMirror = sessionMirror === null ? next : recordOpen(sessionMirror, path, root);
-  scheduleWrite();
-  return next;
-}
-
 export {
   emptySession,
   rememberRoot,

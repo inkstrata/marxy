@@ -6,16 +6,11 @@ import { chordMatches, commandForKey } from '../palette/commands.ts';
 import { notify } from '../notices/index.ts';
 import { runCopyShortcut } from './apply.ts';
 import { operationInputFor } from './input.ts';
-import { getSelectionBufferContext, type SelectionRuntime } from './view.ts';
+import { getSelectionBufferContext } from './view.ts';
 
 export type PaletteCloser = () => void;
 
 let paletteCloser: PaletteCloser = () => {};
-let runtime: SelectionRuntime | null = null;
-
-export function setSelectionRuntime(next: SelectionRuntime | null): void {
-  runtime = next;
-}
 
 export function setPaletteCloser(close: PaletteCloser): void {
   paletteCloser = close;

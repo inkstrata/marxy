@@ -810,9 +810,7 @@ fn main() {
     // capability is added for it (docs/design/06-shell.md §Capabilities).
     #[cfg(target_os = "macos")]
     {
-        builder = builder
-            .plugin(tauri_plugin_dialog::init())
-            .on_menu_event(on_app_menu_event);
+        builder = builder.on_menu_event(on_app_menu_event);
     }
     builder
         .setup(|_app| {

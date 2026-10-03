@@ -96,8 +96,6 @@ async function guarded(step: string, fn: () => void | Promise<void>): Promise<vo
   }
 }
 
-// Placeholder until MARXY-34/MARXY-38 wire the real index and session state (docs/design/07-index.md).
-
 /**
  * A table wider than its room scrolls; a scroll region with nothing focusable in it cannot be scrolled
  * from the keyboard in WebKit, so it takes a tab stop and a name (ADR-0033, WCAG 2.1.1). Tables that

@@ -1,10 +1,33 @@
 // Browser test entry for Source mode (Playwright only; not shipped in index.html).
 
-import { createBuffer } from '@marxy/core';
+import { createBuffer, type Buffer } from '@marxy/core';
+import type { EditorView } from '@codemirror/view';
 import { createSourceEditor } from './editor.ts';
 import { leaveSourceMode } from './buffer-commit.ts';
-import { modeRoundTripWithoutEdits } from './mode-toggle.ts';
-import { scrollSourceToByte } from './mode-switch.ts';
+import { scrollSourceToByte, sourceVisibleByteOffset } from './mode-switch.ts';
+
+interface ModeRoundTripInput {
+  readonly buffer: Buffer;
+  readonly byteOffset: number;
+  readonly docText: string;
+  readonly view?: EditorView;
+}
+
+/** Rendered → Source → Rendered with no edits keeps bytes and the byte offset. */
+function modeRoundTripWithoutEdits(input: ModeRoundTripInput): {
+  readonly buffer: Buffer;
+  readonly byteOffset: number;
+} {
+  const left = leaveSourceMode(input.buffer, input.docText);
+  if (left.changed) {
+    throw new Error('mode round-trip expected unchanged buffer');
+  }
+  let byteOffset = input.byteOffset;
+  if (input.view) {
+    byteOffset = sourceVisibleByteOffset(input.buffer, input.view);
+  }
+  return { buffer: left.buffer, byteOffset };
+}
 
 function decodeBase64(b64: string): Uint8Array {
   const bin = atob(b64);
