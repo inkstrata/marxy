@@ -39,6 +39,7 @@ Marxy 0.1.0 is the first release: an unsigned pre-release for macOS on Apple sil
 - The Linux text-weight offset is now a single documented constant instead of a version table that was never consulted; nothing changes on screen (B-07)
 - The contributor documents describe the pull-request path as it is now: seven jobs, a conventional subject, a changelog fragment and one review, with the fleet, the board and the Jira keys marked as paused (A-11)
 - Marxy 0.1.0: the release workflow builds an unsigned macOS DMG on a tag, the app reports version 0.1.0, and the README says how to install it (A-17)
+- A deferral comment in the source can now name a roadmap story such as B-13 as well as a board key, so the gate no longer asks for a retired Jira key (A-11.1)
 
 ### Earlier work
 
