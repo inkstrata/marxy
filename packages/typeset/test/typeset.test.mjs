@@ -408,6 +408,47 @@ test('an invisible-character marker adds nothing to its line: the paragraph stay
   await page.close();
 });
 
+test('a marker written into a set paragraph after setting is set again, before paint, and never overruns (B-02.3)', async () => {
+  // As the app runs it: the paragraph is set first, and the invisible-character pass comes later at idle.
+  const words = 'Every line of this paragraph is filled close to the measure by the breaker, so a marker added later has nowhere to go but past the edge. ';
+  const page = await harness.open(`<p data-marxy-s="0">${words.repeat(4).trim()}</p>`, { width: 320 });
+  await attach(page);
+  const r = await page.evaluate(async () => {
+    const p = document.querySelector('#doc p');
+    const set = window.controller.stats.typeset;
+    // Every break ends a line; put a marker before the one whose line ends nearest the measure.
+    const right = p.getBoundingClientRect().right;
+    const lbs = [...p.querySelectorAll('.marxy-lb')];
+    const fullest = lbs.reduce((a, b) => (b.getBoundingClientRect().left > a.getBoundingClientRect().left ? b : a));
+    const mark = document.createElement('code');
+    mark.className = 'marxy-invisible marxy-invisible-bidi';
+    const glyph = document.createElement('code');
+    glyph.className = 'marxy-invisible-glyph';
+    glyph.textContent = '202E';
+    const byte = document.createElement('code');
+    byte.className = 'marxy-invisible-byte marxy-invisible-bidi';
+    byte.textContent = '\u202e';
+    mark.append(glyph, byte);
+    fullest.before(mark);
+    // The change watcher runs as a microtask: by the next frame (before paint) the paragraph is reset.
+    await Promise.resolve();
+    const range = document.createRange();
+    range.selectNodeContents(p);
+    const most = Math.max(...[...range.getClientRects()].filter((x) => x.width > 0).map((x) => x.right));
+    return { most, right, set, after: window.controller.stats.typeset, stillSet: p.classList.contains('marxy-set'), hasMark: p.contains(mark) };
+  });
+  assert.ok(r.set > 0, 'the paragraph was set');
+  assert.equal(r.hasMark, true, 'the marker is kept');
+  assert.equal(r.stillSet, true, 'the paragraph is set again, not left to the engine');
+  assert.equal(r.after, r.set, 'set again, not counted twice');
+  assert.ok(r.most <= r.right + 0.5, `a line paints to ${r.most}px past the measure's ${r.right}px`);
+  // The typesetter's own writes are not taken for a change: a relayout settles to the same page.
+  const first = await page.evaluate(() => document.getElementById('doc').innerHTML);
+  await page.evaluate(async () => { window.controller.relayout('reload'); await window.controller.done; await Promise.resolve(); });
+  assert.equal(await page.evaluate(() => document.getElementById('doc').innerHTML), first);
+  await page.close();
+});
+
 /**
  * Moves every top-level node of the article from index `k` on into an inert holder, then puts the
  * head on the grid; `window.__appendTail()` appends the tail back and returns its first element.

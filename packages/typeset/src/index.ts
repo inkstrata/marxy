@@ -192,6 +192,9 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
    * reads or all writes.
    */
   const setBatch = (paragraphs: readonly HTMLElement[]): void => {
+    // Changes made by someone else before this batch are handled first; this batch's own writes
+    // (breaks, hang, reverts) are dropped from the change watcher below once it is done.
+    resetChanged(changes?.takeRecords() ?? []);
     const candidates = paragraphs.map(candidate).filter((x): x is Candidate => x !== null);
     const plans: Plan[] = [];
     for (const c of candidates) {
@@ -240,7 +243,37 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     stats.typeset += plans.length - over.length + retried.length - failed.length;
     for (const p of paragraphs) observer?.unobserve(p);
+    changes?.takeRecords();
   };
+
+  /**
+   * A post-pass that writes into a paragraph after it was set (invisible-character markers, link
+   * destinations, both display-only) changes what its lines hold, and the breaks chosen for the old
+   * text no longer fit: a marker on a full line pushed it past the measure (B-02.3). Such a paragraph
+   * is taken back to native wrapping and set again from what it now holds, in the same task as the
+   * change, so the overfull line never paints.
+   */
+  const resetChanged = (records: readonly MutationRecord[]): void => {
+    if (records.length === 0 || background === null || background.mine !== generation) return;
+    const touched = new Set<HTMLElement>();
+    for (const r of records) {
+      const at = r.target.nodeType === Node.ELEMENT_NODE ? (r.target as Element) : r.target.parentElement;
+      const p = at?.closest<HTMLElement>(`.${SET}`);
+      if (p !== null && p !== undefined && article.contains(p)) touched.add(p);
+    }
+    if (touched.size === 0) return;
+    for (const p of touched) {
+      revert(p);
+      stats.paragraphs--;
+      stats.typeset--;
+    }
+    changes?.takeRecords();
+    if (killed()) return;
+    setBatch([...touched]);
+    opts.onPass?.('visible');
+  };
+  const changes = typeof MutationObserver === 'undefined' ? null : new MutationObserver((records) => resetChanged(records));
+  changes?.observe(article, { subtree: true, childList: true, characterData: true });
 
   const run = (): void => {
     const mine = ++generation;
@@ -352,6 +385,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     observer?.disconnect();
     queue = [];
     for (const p of article.querySelectorAll<HTMLElement>(`.${SET}`)) revert(p);
+    changes?.takeRecords();
     Object.assign(stats, { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0 });
     for (const key of Object.keys(stats.reasons)) delete stats.reasons[key];
   };
@@ -372,6 +406,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     },
     destroy() {
       restoreAll();
+      changes?.disconnect();
     },
   };
 }
