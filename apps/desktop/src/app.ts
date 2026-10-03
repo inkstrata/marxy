@@ -30,7 +30,6 @@ import {
   clearGrantSummaryNotices,
   clearDismissForPath,
   grantSummaryNotice,
-  imageGrantSummaryNotice,
   resetDismissedNotices,
   trustBlockedNotices,
 } from './notices/blocked.ts';
@@ -386,8 +385,8 @@ let shell: AppShell;
 let trustStore: TrustStore | null = null;
 let trustLoadPromise: Promise<void> | null = null;
 
-function trustGrantsFor(path: string): { html: boolean; imageHosts: readonly string[] } {
-  return trustStore?.grantsFor(path) ?? { html: false, imageHosts: [] };
+function trustGrantsFor(path: string): { html: boolean } {
+  return trustStore?.grantsFor(path) ?? { html: false };
 }
 
 function renderPolicyFor(path: string) {
@@ -433,10 +432,9 @@ function showTrustNotices(
   allBlockedImages: readonly BlockedImage[],
 ): void {
   if (!openPath || !documentBuffer) return;
-  // Images no per-host grant can load (protocol-relative) are neither counted nor offered a host.
+  // Protocol-relative images are never loadable, so they are neither counted nor named.
   const blockedImages = grantableBlockedImages(allBlockedImages, removed);
   const path = openPath;
-  const grants = trustGrantsFor(path);
   clearBlockedNotices();
   if (blockedImages.length > 0 && !htmlGrantWouldChangeForNotice(removed)) {
     blockedContentNotice(blockedImages);
@@ -445,9 +443,8 @@ function showTrustNotices(
       path,
       removed,
       blockedImages,
-      grants,
+      grants: trustGrantsFor(path),
       onGrantHtml: () => { void grantHtmlForOpenDocument(); },
-      onGrantImages: (hosts) => { void grantImageHostsForOpenDocument(hosts); },
     });
   }
   truncationNotices({
@@ -475,63 +472,20 @@ async function applyTrustChange(change: (store: TrustStore) => Promise<boolean>)
   return false;
 }
 
-/**
- * "Show HTML and images" starts both grants together; one summary is announced once the last of them
- * has landed, naming everything that was granted ("Showing HTML and images from 2 hosts for …").
- */
-const grantSummary = { inFlight: 0, html: false, hosts: 0 };
-
-function grantSummaryFinished(path: string): void {
-  if (grantSummary.inFlight > 0) return;
-  const { html, hosts } = grantSummary;
-  grantSummary.html = false;
-  grantSummary.hosts = 0;
-  if (openPath !== path) return;
-  if (html) grantSummaryNotice(path, true, hosts);
-  // Images load only when the shell can fetch them, which the summary above does not promise.
-  if (hosts > 0) imageGrantSummaryNotice();
-}
-
 async function grantHtmlForOpenDocument(): Promise<void> {
   const doc = document.getElementById('doc')!;
   if (!openPath || !trustStore || !documentBuffer) return;
   const path = openPath;
   const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode);
-  grantSummary.inFlight++;
-  try {
-    const granted = await applyTrustChange((store) => store.grant(path, { html: true }));
-    // The reader may have opened another document while the write ran; the grant is theirs to keep
-    // for `path`, but nothing here may re-render or announce over the document now open.
-    if (!granted || openPath !== path) return;
-    grantSummary.html = true;
-    rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
-  } finally {
-    grantSummary.inFlight--;
-    grantSummaryFinished(path);
-  }
+  const granted = await applyTrustChange((store) => store.grant(path, { html: true }));
+  // The reader may have opened another document while the write ran; the grant is theirs to keep
+  // for `path`, but nothing here may re-render or announce over the document now open.
+  if (!granted || openPath !== path) return;
+  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
+  grantSummaryNotice(path, true);
 }
 
-async function grantImageHostsForOpenDocument(hosts: readonly string[]): Promise<void> {
-  if (!openPath || !trustStore) return;
-  const path = openPath;
-  const prev = trustStore.grantsFor(path).imageHosts;
-  const merged = [...new Set([...prev, ...hosts])];
-  grantSummary.inFlight++;
-  try {
-    const granted = await applyTrustChange((store) => store.grant(path, { imageHosts: merged }));
-    if (!granted || openPath !== path) return;
-    grantSummary.hosts = Math.max(grantSummary.hosts, hosts.length);
-    if (state.document && documentBuffer) {
-      const { removed, blockedImages } = renderDocumentSafeHtml(state.document.ast, renderPolicyFor(path));
-      showTrustNotices(removed, blockedImages);
-    }
-  } finally {
-    grantSummary.inFlight--;
-    grantSummaryFinished(path);
-  }
-}
-
-async function revokeTrust(what: 'html' | 'images'): Promise<void> {
+async function revokeTrust(what: 'html'): Promise<void> {
   const doc = document.getElementById('doc')!;
   if (!openPath || !trustStore) return;
   const path = openPath;
@@ -543,7 +497,6 @@ async function revokeTrust(what: 'html' | 'images'): Promise<void> {
 }
 
 const revokeTrustHtml = (): Promise<void> => revokeTrust('html');
-const revokeTrustImages = (): Promise<void> => revokeTrust('images');
 
 function rerenderOpenDocument(doc: HTMLElement, byteOffset: number, fraction: number): void {
   if (!documentBuffer || !openPath) return;
@@ -1566,7 +1519,6 @@ export async function startApp(
   wireTrustRevokeCommands({
     grantsForPath: () => (openPath ? trustGrantsFor(openPath) : null),
     revokeHtml: revokeTrustHtml,
-    revokeImages: revokeTrustImages,
   });
   frontispiecePieces = opts?.pieces ?? null;
   injected.onOpenFiles?.((paths) => {

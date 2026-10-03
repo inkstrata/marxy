@@ -81,10 +81,10 @@ function isSchemeRelative(removal: RenderRemoval): boolean {
 }
 
 /**
- * The blocked images a per-host grant could ever load. A protocol-relative `//host/y.png` is refused
- * whatever the reader grants (it takes the document's scheme, which is no network scheme), so it is not
- * counted and its host is not offered. `blockedImages` carry the resolved https URL, so the removal
- * report is what says how each was written; one written both ways stays, because the absolute one loads.
+ * The blocked images worth naming. A protocol-relative `//host/y.png` is refused whatever the reader
+ * does (it takes the document's scheme, which is no network scheme), so it is not counted or named.
+ * `blockedImages` carry the resolved https URL, so the removal report is what says how each was written;
+ * one written both ways stays, because the absolute one loads.
  */
 export function grantableBlockedImages(
   images: readonly BlockedImage[],
