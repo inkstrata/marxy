@@ -28,16 +28,30 @@ jobs:
       # tauri.conf.json's beforeBuildCommand is empty, so the bundle would ship without a frontend
       # unless the web assets are built first.
       - run: pnpm --filter @marxy/desktop build:web
-      - uses: tauri-apps/tauri-action@v0
+      # macOS signing + notarization is wired but off: tauri treats an APPLE_* variable that is set
+      # to the empty string as configured and fails importing a certificate that is not there (the
+      # first dry run did exactly that). So export each one only when its secret has a value; with
+      # none set the build is unsigned, which is what v0.1.0 is.
+      - name: Export Apple signing secrets (only the ones that exist)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing + notarization: unset secrets give an unsigned build. Kept for later.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            value="${!name}"
+            if [ -n "$value" ]; then
+              echo "$name<<MARXY_EOF" >> "$GITHUB_ENV"
+              echo "$value" >> "$GITHUB_ENV"
+              echo "MARXY_EOF" >> "$GITHUB_ENV"
+            fi
+          done
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop
           # Empty on a dispatch, which makes the action build without creating a release.
