@@ -518,3 +518,96 @@ test('adopt queues appended paragraphs, and `done` is a new promise that resolve
   assert.equal(r.considered, r.whole, 'every adopted paragraph was considered before done resolved');
   await page.close();
 });
+
+/** Splits after child `k`, puts the head on the grid, and appends the tail in chunks of `size` children. */
+const chunked = (page, k, size) =>
+  page.evaluate(({ k, size }) => {
+    const doc = document.getElementById('doc');
+    const holder = document.implementation.createHTMLDocument('').body;
+    const nodes = [...doc.childNodes];
+    for (const n of nodes.slice(nodes.indexOf(doc.children[k]))) holder.appendChild(n);
+    window.typeset.snapToGrid(doc, window.lineBox);
+    window.__nextChunk = () => {
+      let first = null;
+      for (let i = 0; i < size && holder.firstElementChild; i++) {
+        const el = holder.firstElementChild;
+        while (holder.firstChild !== el) doc.appendChild(holder.firstChild);
+        doc.appendChild(el);
+        first ??= el;
+      }
+      return first;
+    };
+  }, { k, size });
+
+test('a chunk pass does not restart from a padded `pre` above it: the theme padding is not taken for drift (A-02)', async () => {
+  const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
+  const html = [para(0), para(1), '<pre data-marxy-s="2" data-marxy-e="3"><code>one\ntwo</code></pre>', ...Array.from({ length: 12 }, (_, i) => para(i + 3))].join('');
+  // A theme padding and a code line that is not a whole unit, so the pass must add padding of its own.
+  const page = await harness.open(html, { extraCss: '#doc pre { padding: 12px; line-height: 17px; }' });
+  await chunked(page, 5, 4);
+  const r = await page.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const pre = doc.querySelector('pre');
+    const read = Element.prototype.getBoundingClientRect;
+    const passes = [];
+    for (let i = 0; i < 2; i++) {
+      const from = window.__nextChunk();
+      let reads = 0;
+      Element.prototype.getBoundingClientRect = function () {
+        if (this === pre) reads++;
+        return read.call(this);
+      };
+      try {
+        window.typeset.snapToGrid(doc, window.lineBox, { from });
+      } finally {
+        Element.prototype.getBoundingClientRect = read;
+      }
+      passes.push(reads);
+    }
+    return { passes, inline: pre.style.paddingBottom, theme: getComputedStyle(doc.querySelector('p')).paddingBottom, preTheme: parseFloat(getComputedStyle(pre).paddingTop) };
+  });
+  assert.ok(r.inline !== '' && r.preTheme > 0, `the pre is padded by the pass and by the theme: ${JSON.stringify(r)}`);
+  // One read each: the drift check. A pass that restarted from the pre would read it again in step 1 and every round.
+  assert.deepEqual(r.passes, [1, 1]);
+  await page.close();
+});
+
+test('a chunk pass lays out at most six times: the drift check, the islands and four rounds (A-02)', async () => {
+  // Every kind of work a chunk pass does: islands above it to check, islands in it to pad, and blocks
+  // no rule pads (13 px) that only a push puts back on the grid.
+  const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
+  const pre = (i) => `<pre data-marxy-s="${i}" data-marxy-e="${i + 1}"><code>one\ntwo</code></pre>`;
+  const odd = '<div style="height: 13px"></div>';
+  const html = Array.from({ length: 12 }, (_, i) => [para(i * 3), pre(i * 3 + 1), odd].join('')).join('');
+  const page = await harness.open(html, { extraCss: '#doc pre { padding: 12px; line-height: 17px; }' });
+  await chunked(page, 18, 1000);
+  const r = await page.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const from = window.__nextChunk();
+    const read = Element.prototype.getBoundingClientRect;
+    const write = CSSStyleDeclaration.prototype.setProperty;
+    const remove = CSSStyleDeclaration.prototype.removeProperty;
+    // A read is a layout when it is the pass's first or follows a write.
+    let dirty = true;
+    let layouts = 0;
+    let writes = 0;
+    Element.prototype.getBoundingClientRect = function () {
+      if (dirty) layouts++;
+      dirty = false;
+      return read.call(this);
+    };
+    CSSStyleDeclaration.prototype.setProperty = function (...a) { dirty = true; writes++; return write.apply(this, a); };
+    CSSStyleDeclaration.prototype.removeProperty = function (...a) { dirty = true; writes++; return remove.apply(this, a); };
+    try {
+      window.typeset.snapToGrid(doc, window.lineBox, { from });
+    } finally {
+      Element.prototype.getBoundingClientRect = read;
+      CSSStyleDeclaration.prototype.setProperty = write;
+      CSSStyleDeclaration.prototype.removeProperty = remove;
+    }
+    return { layouts, writes };
+  });
+  assert.ok(r.writes > 10, `the pass had work to do: ${JSON.stringify(r)}`);
+  assert.ok(r.layouts >= 4 && r.layouts <= 6, `${r.layouts} layouts in one chunk pass`);
+  await page.close();
+});
