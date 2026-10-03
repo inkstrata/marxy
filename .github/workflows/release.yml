@@ -61,10 +61,6 @@ jobs:
           releaseDraft: false
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
-      # The installer-size budget and katex-in-bundle check: PR CI builds no installer, so this is
-      # the only place they can measure one, and a missing bundle fails here instead of skipping.
-      - run: pnpm gate:bundle
-        env: { MARXY_BUNDLE_REQUIRED: '1' }
       - name: Offer the DMG as an artifact (dry run)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
@@ -72,3 +68,8 @@ jobs:
           name: marxy-dmg
           path: apps/desktop/src-tauri/target/**/bundle/dmg/*.dmg
           if-no-files-found: error
+      # The installer-size budget and katex-in-bundle check: PR CI builds no installer, so this is
+      # the only place they can measure one, and a missing bundle fails here instead of skipping.
+      # (After the upload, so a failing gate still leaves the DMG to inspect.)
+      - run: pnpm gate:bundle
+        env: { MARXY_BUNDLE_REQUIRED: '1' }
