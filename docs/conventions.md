@@ -102,7 +102,7 @@ several, most severe first. No unlabeled remarks.
   - `SAFETY:` above every `unsafe` block in Rust, stating the invariant relied on;
   - `SECURITY:` where a boundary is enforced, citing ADR-0009;
   - `PERF:` where a non-obvious choice serves a budget, citing the budget;
-  - `CONTRACT:` in frozen contract files, citing the ADR.
+  - `CONTRACT:` in reviewed contract files (ADR-0045), citing the ADR.
   A tag without a key does not pass review. `check-deferrals` (in `pnpm check`) accepts a deferral
   marker that names a `MARXY-nnn` key or a roadmap story id (`A-07`, `B-13`, `A-14.1`) that has not
   landed; name one, or remove the marker.

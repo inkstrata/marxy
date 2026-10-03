@@ -109,6 +109,5 @@ export function allowedByPaths(file, paths) {
     return file === q || file.startsWith(q + '/');
   });
 }
-export const isFrozen = (file, reg = registry()) => reg.frozen.some(f => file === f || file.startsWith(f));
 export function fail(lines) { if (!lines.length) return false; for (const l of lines) console.error(`✗ ${l}`); return true; }
 export const fix = s => `\n    fix: ${s}`;
