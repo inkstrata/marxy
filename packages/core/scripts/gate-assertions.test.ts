@@ -157,3 +157,11 @@ test('tree-depth harness runs as part of the no-network gate', () => {
     'packages/core/scripts/gate-tree-depth.mjs must pass when spawned from the gate\'s mutation-coverage suite',
   );
 });
+
+// A-10.1: the dirty control page is read only after the elements its two checks look for are in the
+// live DOM, in both engines (the one `run` serves both). A pull-request run read it before Chromium
+// had built them and failed both checks; this fails if the wait is removed or loses an element.
+test('the dirty control page waits for its own elements before the live DOM is read', () => {
+  assert.match(gateSource, /'control-dirty\.html', allowedDefault, \['#doc marquee', '#doc a p'\]\)/);
+  assert.match(gateSource, /tab\.waitForSelector\(selector, \{ state: 'attached'/);
+});

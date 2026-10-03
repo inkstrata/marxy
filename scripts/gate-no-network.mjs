@@ -197,7 +197,7 @@ for (const engine of [webkit, chromium]) {
   }, [unsanitised, sanitised]).catch((error) => [`#parity-unreadable (${String(error).slice(0, 60)})`]);
 
   /** Loads a document at its own path in the corpus directory and reports what it attempted. */
-  const run = async (html, where = 'document.html', allowList = allowedDefault) => {
+  const run = async (html, where = 'document.html', allowList = allowedDefault, ready = []) => {
     body = page(html);
     documentUrl = new URL(where, GATE_DOCUMENT_DIRECTORY).href;
     observed = [];
@@ -212,6 +212,15 @@ for (const engine of [webkit, chromium]) {
       observed.push(`#navigation-during-load (${String(error).slice(0, 60)})`);
     }
     await tab.waitForTimeout(150);
+    // A control page is read only once the very elements its checks need are in the live DOM
+    // (A-10.1): `load` and a quiet 150 ms are not a signal that Chromium has built them, and a
+    // read that beat the render made a control look silent. A selector that never appears within
+    // the timeout is not swallowed into a pass: the read goes ahead, finds the element missing,
+    // and the named control check fails with its own message, so an element genuinely absent from
+    // the control page still fails the gate.
+    if (loaded) {
+      for (const selector of ready) await tab.waitForSelector(selector, { state: 'attached', timeout: 5_000 }).catch(() => {});
+    }
     const unique = [...new Set(observed)];
     const directory = new URL('./', documentUrl).href;
     // A document that takes the reader somewhere has already done the harm; it is also why the DOM
@@ -282,7 +291,7 @@ for (const engine of [webkit, chromium]) {
   // The anchor calls itself `doc` because a document legally may: `id` is allow-listed, so a walk
   // that stopped at the *name* of the wrapper rather than at the wrapper itself would stop here,
   // inside the document, and report nothing. This control fails if that ever comes back.
-  const dirty = await run('<marquee behavior="scroll">a marquee is not on the list</marquee>\n<a id="doc" href="https://control.invalid/"><p>a block inside a formatting element</p></a>', 'control-dirty.html');
+  const dirty = await run('<marquee behavior="scroll">a marquee is not on the list</marquee>\n<a id="doc" href="https://control.invalid/"><p>a block inside a formatting element</p></a>', 'control-dirty.html', allowedDefault, ['#doc marquee', '#doc a p']);
   // Kept as literal `.includes(...)` calls, not `mentionsTag(...)`, because `boundary.test.ts` pins
   // these two exact substrings against a revert that quietly drops either half.
   check('control-dirty-element', dirty.violations.some((violation) => violation.includes('<marquee>')),
