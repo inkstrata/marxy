@@ -82,6 +82,55 @@ const controlPage = [
   `<script>fetch('https://${CONTROL_HOST}/beacon').catch(() => {});</script>`,
 ].join('\n');
 
+/**
+ * Pages that fire their request late (A-10.2): after 500 ms and after 2 s, from a timer the page
+ * sets itself. The gate must see both in both engines; if it stops watching too early they pass
+ * silently, and the `control-interception` check below turns red.
+ */
+const latePage = (delayMs) => `<script>setTimeout(() => { fetch('https://${CONTROL_HOST}/late-${delayMs}').catch(() => {}); }, ${delayMs});</script>`;
+
+/**
+ * Quiescence rule (A-10.2). A fixed wait after load cannot see a request a page makes later, and
+ * "no request for N ms" cannot be made long enough to see a 2 s timer without adding that wait to
+ * every one of the script-free documents. So the gate watches the page's own pending work instead:
+ * an init script counts the timers, intervals and animation frames the page has scheduled and not
+ * yet run, and the gate stays until that count is zero. A page with no script (every sanitised
+ * document) is quiet at once; a page that schedules a request is kept open until its timer has
+ * fired and the request has been seen. Requests in flight are not part of the rule: the router and
+ * the `request` listener record a request the moment it is made, and a counter of them leaks when
+ * an engine never reports an aborted one finished. The floor keeps the old 150 ms for anything the
+ * counter cannot see (a late layout pass), and two consecutive quiet polls are required so a
+ * request issued by the last timer is registered. The cap is 5 s: longer than the 2 s control with
+ * margin, short enough that a page that never goes quiet (a setInterval, a timer for an hour) fails
+ * the gate loudly instead of hanging it. Only the main frame is polled: iframes never survive the
+ * sanitiser, so a frame is already a finding. A poll that cannot be read (the page context was
+ * lost) is not "quiet": it is recorded as `#settle-unreadable` and ends the settle loudly, so the
+ * gate cannot fail open by losing sight of the page.
+ */
+const SETTLE_FLOOR_MS = 150;
+const SETTLE_CAP_MS = 5_000;
+const SETTLE_POLL_MS = 25;
+const trackPendingWork = () => {
+  const pending = new Set();
+  const wrap = (name, cancel, once) => {
+    const original = window[name].bind(window);
+    const originalCancel = window[cancel].bind(window);
+    window[name] = (callback, ...rest) => {
+      // A string callback is run as the page's own code would run it, so it is counted too.
+      const run = typeof callback === 'function' ? callback : () => (0, eval)(String(callback));
+      const id = original((...args) => { if (once) pending.delete(id); return run(...args); }, ...rest);
+      pending.add(id);
+      return id;
+    };
+    window[cancel] = (id) => { pending.delete(id); return originalCancel(id); };
+  };
+  wrap('setTimeout', 'clearTimeout', true);
+  wrap('setInterval', 'clearInterval', false);
+  wrap('requestAnimationFrame', 'cancelAnimationFrame', true);
+  if (typeof window.requestIdleCallback === 'function') wrap('requestIdleCallback', 'cancelIdleCallback', true);
+  window.__gatePendingWork = () => pending.size;
+};
+
 const page = (body) => `<!doctype html><html><head><meta charset="utf-8"></head><body><article id="doc">\n${body}\n</article></body></html>`;
 
 /** Flat allow-lists for the live-DOM check, one per policy the gate renders under (MARXY-96). */
@@ -130,6 +179,7 @@ for (const engine of [webkit, chromium]) {
   const tab = await context.newPage();
   // A second observer, because a request the router never sees is still a request.
   tab.on('request', (request) => { const url = request.url(); if (url !== documentUrl) observed.push(url); });
+  await tab.addInitScript(trackPendingWork);
   // The witness for navigation. `tab.url()` is not one: an aborted navigation leaves it unchanged
   // in WebKit, and a page that reloads itself ends up back at the URL it started from. Every
   // navigation fires this, including the one `goto` performs, which is why the count is compared
@@ -211,7 +261,28 @@ for (const engine of [webkit, chromium]) {
       loaded = false;
       observed.push(`#navigation-during-load (${String(error).slice(0, 60)})`);
     }
-    await tab.waitForTimeout(150);
+    if (loaded) {
+      // Watch until the page goes quiet, not for a fixed time (A-10.2); see SETTLE_CAP_MS.
+      const started = Date.now();
+      let quietPolls = 0;
+      while (true) {
+        await tab.waitForTimeout(SETTLE_POLL_MS);
+        const pendingWork = await tab.evaluate(() => window.__gatePendingWork?.() ?? 0).catch(() => null);
+        if (pendingWork === null) {
+          observed.push('#settle-unreadable (the page could not be polled for pending work)');
+          break;
+        }
+        quietPolls = pendingWork === 0 ? quietPolls + 1 : 0;
+        const elapsed = Date.now() - started;
+        if (quietPolls >= 2 && elapsed >= SETTLE_FLOOR_MS) break;
+        if (elapsed >= SETTLE_CAP_MS) {
+          observed.push(`#never-quiet (${pendingWork} timer(s) or frame(s) still pending after ${SETTLE_CAP_MS} ms)`);
+          break;
+        }
+      }
+    } else {
+      await tab.waitForTimeout(SETTLE_FLOOR_MS);
+    }
     // A control page is read only once the very elements its checks need are in the live DOM
     // (A-10.1): `load` and a quiet 150 ms are not a signal that Chromium has built them, and a
     // read that beat the render made a control look silent. A selector that never appears within
@@ -276,6 +347,16 @@ for (const engine of [webkit, chromium]) {
   check('control-interception', sawHost(control.remote, CONTROL_HOST),
     `${name}: the control page attempted no observable request, so this gate cannot see one and every result below is vacuous`);
   report.controls[`${name}/interception`] = control.remote.length;
+
+  // Controls 1b, 1c (A-10.2): the gate keeps watching until the page goes quiet, so a request fired
+  // 500 ms and 2 s after load is observed. Recorded under `control-interception` (the same
+  // question: can this gate see a request) so `GATE_ASSERTION_IDS` is unchanged.
+  for (const delayMs of [500, 2000]) {
+    const late = await run(latePage(delayMs), `control-late-${delayMs}.html`);
+    check('control-interception', late.remote.some((url) => url.endsWith(`/late-${delayMs}`)),
+      `${name}: a request the control page fires ${delayMs} ms after load was not observed, so this gate stops watching before a page goes quiet and a late request would pass silently`);
+    report.controls[`${name}/late-${delayMs}`] = late.remote.length;
+  }
 
   // Control 2: the hostile fixture, rendered without the sanitiser, is observed reaching out — which
   // is what makes the sanitised pass below a statement about the sanitiser rather than about markdown.
