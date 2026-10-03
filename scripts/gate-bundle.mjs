@@ -68,6 +68,53 @@ export function distChunkSpecs(text) {
   return [...text.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["'](\.{0,2}\/[^"']+)["']/g)].map((m) => m[1]);
 }
 
+/** Static chunk specifiers only (`from"./x"`, side-effect `import"./x"`): what loads before first paint. `import("./x")` is lazy and excluded. */
+export function staticChunkSpecs(text) {
+  return [...text.matchAll(/(?:\bfrom|\bimport)\s*["'](\.{0,2}\/[^"']+)["']/g)].map((m) => m[1]);
+}
+
+/**
+ * The JS an index.html loads at startup: its module scripts, its modulepreload links and their
+ * static imports, transitively. A lazily imported chunk (KaTeX) is not in this set. Returns
+ * `{ files, chunks }` as dist-relative paths and their text, or null when dist/index.html is absent.
+ */
+export function entryChunks(distDir) {
+  const html = join(distDir, 'index.html');
+  if (!existsSync(html)) return null;
+  const text = readFileSync(html, 'utf8');
+  const queue = [
+    ...[...text.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]),
+    ...[...text.matchAll(/<link[^>]+rel="modulepreload"[^>]*href="([^"]+)"/g)].map((m) => m[1]),
+    ...[...text.matchAll(/<link[^>]+href="([^"]+)"[^>]*rel="modulepreload"/g)].map((m) => m[1]),
+  ].map((x) => x.replace(/^\.?\//, ''));
+  const files = new Set();
+  const chunks = {};
+  while (queue.length) {
+    const src = queue.pop();
+    if (files.has(src)) continue;
+    files.add(src);
+    const file = join(distDir, src);
+    if (!existsSync(file)) continue;
+    const js = readFileSync(file, 'utf8');
+    chunks[src] = js;
+    for (const spec of staticChunkSpecs(js)) queue.push(decodeURIComponent(new URL(spec, `file:///${src}`).pathname).replace(/^\//, ''));
+  }
+  return { files: [...files], chunks };
+}
+
+/**
+ * Entry chunks that are KaTeX or contain it: a chunk named katex, or one holding the library's own
+ * "KaTeX parse error" message. The app's entry chunk legitimately mentions katex (the `.katex` class
+ * it styles and the lazy loaders for KaTeX's chunk and fonts), so the word alone is not the signal.
+ * KaTeX loads lazily (design 02-render section 6), so this should be empty.
+ */
+export function katexInEntry(distDir) {
+  const entry = entryChunks(distDir);
+  if (!entry) return null;
+  if (Object.keys(entry.chunks).length === 0) return { error: 'no-entry-chunks', hits: [] };
+  return { error: null, hits: Object.entries(entry.chunks).filter(([f, t]) => /katex/i.test(f) || t.includes('KaTeX parse error')).map(([f]) => f) };
+}
+
 /** Walk main.ts's relative import graph; returns absolute paths of memory shell / harness hits. */
 export function memoryShellReachableFromMain(desktop) {
   const main = join(desktop, 'src', 'main.ts');
@@ -168,22 +215,27 @@ for (const f of files) {
   console.log(`${f.split('/').pop()}: ${mb.toFixed(1)} MB (limit ${limit})`);
   if (mb > limit) fail = true;
 }
-if (files.length === 0) {
-  if (required) {
-    console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but the bundle holds no .dmg, .AppImage or .deb');
-    process.exit(1);
-  }
-  console.log('bundle gate: no installer artefacts; skipping katex-in-bundle check');
-} else {
-  const needle = Buffer.from('katex');
-  for (const f of files) {
-    if (readFileSync(f).includes(needle)) {
-      console.error(`bundle gate: ${f.split('/').pop()} contains katex`);
+{
+  // Installers are compressed and legitimately hold KaTeX's lazy chunk and fonts, so the question
+  // is whether KaTeX is in the startup path: the entry chunks index.html loads statically.
+  const distDir = fileURLToPath(new URL('../apps/desktop/dist/', import.meta.url));
+  const found = katexInEntry(distDir);
+  if (found === null) {
+    if (required) {
+      console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but apps/desktop/dist/index.html is missing; run build:web first');
       fail = true;
-    } else {
-      console.log(`${f.split('/').pop()}: katex absent`);
-    }
-  }
+    } else console.log('bundle gate: no vite dist; skipping katex-in-entry check');
+  } else if (found.error) {
+    console.error('bundle gate: dist/index.html loads no entry chunks; the katex check is broken');
+    fail = true;
+  } else if (found.hits.length > 0) {
+    console.error(`bundle gate: KaTeX is in the startup path: ${found.hits.join(', ')} (it must be a lazy chunk)`);
+    fail = true;
+  } else console.log('bundle gate: entry chunks contain no katex (it loads lazily)');
+}
+if (required && files.length === 0) {
+  console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but the bundle holds no .dmg, .AppImage or .deb');
+  process.exit(1);
 }
 if (fail) {
   console.error('bundle gate failed');
