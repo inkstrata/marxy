@@ -443,6 +443,10 @@ On a fence-heavy 528 KB document B-02.1 adds about 55 whole-article passes while
 call only), `apps/desktop/test/code-fence-grid.test.mjs`, a one-line comment in `applyHighlightToCode`
 noting that the split flag is set before its first await; `changelog.d/B-02.4.md`.
 
+*Parked 2026-10-03 by the lead on its own measurement:* a whole pass on the fence-heavy document costs
+2–3 ms, a pass `from` a block 8–11 ms (`driftedAbove` scans every island above it), and the forced layout
+per split (8–12 ms) dominates either way. The premise (~100 ms per whole pass) did not hold.
+
 **Acceptance.** The B-02.1 tests stay green; a test counts whole-article passes while fences split
 (none after first text) and fails on B-02.1's whole-article callback; a fence in the frontispiece stays on
 the grid; the reviewer measures the scroll on the fence-heavy document before and after.
