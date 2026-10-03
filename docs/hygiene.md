@@ -48,7 +48,6 @@ its `CHECKS` list and nowhere else. The commit hooks run the staged-file subset.
 | A theme token whose name or unit kind moved | `check-tokens` | `pnpm check`, CI `fast` |
 | A font binary losing `binary` or gaining `eol` | `gate-font-attrs` | `pnpm check`, CI `fast` |
 | A workflow that is advisory, unpinned, unlocked, untimed or missing its Linux prerequisites | `check-workflows` (the one place workflow rules live) | `pnpm check`, CI `fast` |
-| A frozen contract changed without a pull request of its own (ADR-0045) | `pnpm test:contracts-frozen`, inside `pnpm test` | `pnpm test`, CI `fast` |
 | A dependency with the wrong licence | `scripts/gate-licences.mjs` | precheck (when manifests change), CI `fast` and `rust` |
 | A byte the user did not ask to change, changed | `pnpm gate:fidelity`; `pnpm gate:golden` for AST and source map | precheck (core), CI `fast` |
 | Production JS reaching the memory shell or the harness | `pnpm gate:bundle` (the import graph; sizes only in the release workflow) | precheck (desktop), CI `fast` and `rust` |
@@ -72,7 +71,7 @@ run as `pnpm test:fleet`.
 
 - Branches are `type/<id>-slug` (`docs/conventions.md`); the story id or Jira key in the branch and
   the subject is optional. A branch with a key but no board row is a note, not a failure.
-- Frozen: byte-pinned contracts under `packages/*/src/contracts/` and `packages/shell-api/src/`, name-and-unit contract for `packages/theme/src/tokens.css`.
+- Contracts: `packages/*/src/contracts/` and `packages/shell-api/src/` change by pull request (ADR-0045); name-and-unit contract for `packages/theme/src/tokens.css`.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.
 - Parsed markup may enter the DOM only on paths in `innerHtmlAllowedIn`

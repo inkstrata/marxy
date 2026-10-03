@@ -1,5 +1,6 @@
 /**
- * The AST contract. FROZEN (ADR-0003). Changing anything here needs an ADR.
+ * The AST contract. Reviewed contract (ADR-0003, ADR-0045): changes by pull request; the invariants
+ * are tested (parse/invariants.ts, `pnpm gate:golden`, `pnpm gate:fidelity`).
  *
  * Every node carries byte provenance: which file, and the half-open byte range [start, end)
  * in that file's UTF-8 bytes. Offsets are bytes, not code units, because operations splice

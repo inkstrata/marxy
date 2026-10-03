@@ -1,4 +1,5 @@
-/* marxy theme token contract — version 1. FROZEN (ADR-0008). Values are the DARK variant's
+/* marxy theme token contract — version 1. Reviewed contract (ADR-0008, ADR-0045): token names and units still need an ADR to
+   change (checked by scripts/check-tokens.mjs); values are taste. Values are the DARK variant's
    defaults (ADR-0024). Themes set these. marxy derives every vertical space from
    --marxy-line-box and never lets a theme set margins directly. Everything not listed here is
    system-owned. Contrast ratios in docs/design/05-theme.md §Palettes. */

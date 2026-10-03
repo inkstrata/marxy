@@ -1,4 +1,5 @@
-/** The index contract. FROZEN (ADR-0012). What the palette searches; never contents. */
+/** The index contract. Reviewed contract (ADR-0012, ADR-0045): changes by pull request; limits are
+ * tested in contracts.test.ts. What the palette searches; never contents. */
 export interface IndexEntry {
   readonly path: string;
   readonly root: string;
