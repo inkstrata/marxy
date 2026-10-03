@@ -1057,6 +1057,8 @@ product pull request's job-seconds and can fail only on Rust changes, and every 
 - `.github/workflows/nightly.yml`
 - `scripts/ci-changes.mjs`
 - `scripts/ci-changes.test.mjs` (new; the classifier's cases moved out of `--selftest`)
+- `scripts/ci-verdict.mjs` and `scripts/ci-verdict.test.mjs` (new): the `ci` job's verdict, out of `ci.yml`
+  and under test, since `ci` is the only required check (*added 2026-10-02 by the lead*)
 - `scripts/check-workflows.mjs` and its test, if the job names it reads change
 - `apps/desktop/scripts/smoke-verdict.mjs`: delete `workflowCliSmokeIsRequired` and
   `cliSmokeStepFromWorkflow`, unused since A-08 (*added 2026-10-02 by the lead*). In `ci-changes.mjs`,
