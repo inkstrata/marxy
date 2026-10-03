@@ -43,7 +43,7 @@ its `CHECKS` list and nowhere else. The commit hooks run the staged-file subset.
 | Importing across a module boundary (Node in the browser, DOM in core, Tauri outside `src/shell`, forbidden packages) | `check-boundaries` | `pnpm check`, CI `fast` |
 | Inventing a mark, event, data attribute, class or token name; parsed markup reaching the DOM off-path | `check-registry` against `scripts/registry.json` | pre-commit (staged), `pnpm check`, CI `fast` |
 | Adding a dependency that is not pinned or is forbidden | `check-deps` against `scripts/allowlists/dependencies.json` | `pnpm check`, CI `fast` |
-| A deferral comment in product source that names no story or names one already merged | `check-deferrals` with `scripts/allowlists/deferrals.json` | `pnpm check`, CI `fast` |
+| A deferral comment in product source that names no `MARXY-nnn` key or roadmap story id (`A-07`, `B-13`, `A-14.1`), or names one already merged | `check-deferrals` with `scripts/allowlists/deferrals.json` | `pnpm check`, CI `fast` |
 | A second markdown parser or sanitiser returning (ADR-0001, ADR-0021) | `check-one-parse` | `pnpm check`, CI `fast` |
 | A theme token whose name or unit kind moved | `check-tokens` | `pnpm check`, CI `fast` |
 | A font binary losing `binary` or gaining `eol` | `gate-font-attrs` | `pnpm check`, CI `fast` |

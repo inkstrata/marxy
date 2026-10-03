@@ -1,1 +1,0 @@
-Opening a README can name remote images and simplified HTML in one notice; choosing to show that document's HTML widens the sanitiser for that file only, remembers the choice in `trust.json`, and still refuses script and `javascript:` links; an unclosed `<script>` gets its own truncation notice instead of a mysteriously short page (MARXY-44)

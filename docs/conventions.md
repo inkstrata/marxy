@@ -103,9 +103,9 @@ several, most severe first. No unlabeled remarks.
   - `SECURITY:` where a boundary is enforced, citing ADR-0009;
   - `PERF:` where a non-obvious choice serves a budget, citing the budget;
   - `CONTRACT:` in reviewed contract files (ADR-0045), citing the ADR.
-  A tag without a key does not pass review. `check-deferrals` (in `pnpm check`) recognises only
-  `MARXY-nnn` keys in a deferral marker, not story ids like `A-07`: until it learns the second form,
-  name a Jira key there or remove the marker.
+  A tag without a key does not pass review. `check-deferrals` (in `pnpm check`) accepts a deferral
+  marker that names a `MARXY-nnn` key or a roadmap story id (`A-07`, `B-13`, `A-14.1`) that has not
+  landed; name one, or remove the marker.
 - No commented-out code. No narration ("here we loop over…"). No changelog-style comments
   ("changed on 2026-09-18 to…"); git has that. No comments addressed to an AI or written as
   one ("as an AI…", "note to self").

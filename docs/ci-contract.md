@@ -149,7 +149,7 @@ them.
 | `check-boundaries` | a module crossed its boundary: core takes no DOM and no Node built-ins; `@tauri-apps` only under `apps/desktop/src/shell`; `shell-api` imports nothing; raw `invoke(` outside `src/shell` | `node scripts/check-boundaries.mjs` |
 | `check-registry` | a new mark, event, data attribute, class or token name, or parsed markup reaching the DOM off the `innerHtmlAllowedIn` paths | add the name to `scripts/registry.json` first; `node scripts/check-registry.mjs` |
 | `check-deps` | a dependency missing from the allowlist, unpinned, or forbidden | `scripts/allowlists/dependencies.json` with a pin, or do not add it; `node scripts/check-deps.mjs` |
-| `check-deferrals` | a deferral marker in `apps/` or `packages/` names no story, names one already merged, or is a stale allow-list row | name the story that removes it, or delete it; `node scripts/check-deferrals.mjs` |
+| `check-deferrals` | a deferral marker in `apps/` or `packages/` names no `MARXY-nnn` key or roadmap story id (`A-07`, `B-13`, `A-14.1`), names one already merged, or is a stale allow-list row | name the story that removes it, or delete it; `node scripts/check-deferrals.mjs` |
 | `check-one-parse` | a second markdown parser or sanitiser has returned, or a render path bypasses `@marxy/core` (ADR-0001, ADR-0021) | `node scripts/check-one-parse.mjs` |
 | `check-tokens` | a `--marxy-*` token whose name or unit kind moved (values are taste, ADR-0031) | `node scripts/check-tokens.mjs` |
 | `gate-font-attrs` | `.gitattributes` lost `binary` or gained `eol` on a font | font binaries are `binary -eol`; `node scripts/gate-font-attrs.mjs` |
