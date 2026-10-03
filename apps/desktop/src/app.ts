@@ -1134,9 +1134,27 @@ function startTypeset(article: HTMLElement): TypesetController {
  */
 async function typesetDocument(article: HTMLElement): Promise<void> {
   const controller = startTypeset(article);
+  const current = mount;
   await controller.ready;
   const { viewportMs, hyphenationLoadMs, typeset: set } = controller.stats;
   await shell.mark('typeset_viewport', Date.now(), `ms=${viewportMs.toFixed(1)} hyphenation_load_ms=${hyphenationLoadMs.toFixed(1)} set=${set}`);
+  // `typeset_done` (B-01): every paragraph of the whole document considered. Never awaited, so first
+  // text and `ready` do not wait for it. A large document's later chunks reopen `done` as they are
+  // adopted, so this follows the mount to its last chunk, then `done` to its last promise. A cancelled
+  // mount or a destroyed controller (another document) emits nothing.
+  void (async () => {
+    if (current && !current.isComplete()) {
+      await current.complete;
+      if (!current.isComplete()) return;
+    }
+    let done: Promise<void>;
+    do {
+      done = controller.done;
+      await done;
+    } while (done !== controller.done);
+    if (typeset !== controller) return;
+    await shell.mark('typeset_done', Date.now(), `set=${controller.stats.typeset}`);
+  })().catch(() => {});
 }
 
 /**

@@ -15,6 +15,7 @@
     "first_paint_frame",
     "render",
     "typeset_viewport",
+    "typeset_done",
     "position_restored",
     "content_complete",
     "highlight_ms",
