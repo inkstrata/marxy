@@ -630,6 +630,31 @@ unused after deletion, they were never in `Cargo.toml` (`01` §4). Nothing to re
 
 ---
 
+### B-05.1 — Retire the Rust walker
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-05 · **Parallel with:** anything outside these paths
+*Added 2026-10-02 by the lead, from the B-05 review.* B-05 kept `apps/desktop/src-tauri/src/index/mod.rs`
+because three core tests still read or compile it; the TypeScript walker (A-04, A-05) is the indexer.
+
+**Paths.**
+- `apps/desktop/src-tauri/src/index/mod.rs` (delete)
+- `packages/core/src/index-model/walker.test.ts` (delete: it compiles the Rust walker with rustc)
+- `packages/core/src/index-model/ceiling.test.ts` and `schedule.test.ts`: point them at the TypeScript
+  constants (`ENTRIES_PER_ROOT`, `INDEX_SCHEDULE`) instead of source text in the Rust file
+- `apps/desktop/src-tauri/src/commands/fs.rs` (the comments at `:13` and `:145` only),
+  `apps/desktop/src-tauri/src/main.rs` (the comment naming `index/mod.rs` only)
+- `docs/design/07-index-and-palette.md` (§Rust walker, §Headings scanner (Rust), and the
+  `indexBuild`/`indexQuery` description)
+- `changelog.d/B-05.1.md` (new)
+
+**Acceptance.**
+- `git grep -n "index/mod.rs\|walk_root"` prints nothing outside `docs/research`, `docs/plan`,
+  `CHANGELOG.md` and `changelog.d`.
+- `ceiling.test.ts` and `schedule.test.ts` fail if the TypeScript constant they guard changes.
+- `cargo test --locked`, `cargo clippy --locked -- -D warnings` and `pnpm precheck` green.
+
+**Do not.** Change the TypeScript walker or the index service.
+
 ### B-06 — Unfreeze the contracts
 
 **Model:** sonnet · **Size:** S · **Depends on:** ADR-0045 recorded (Phase A) · **Parallel with:** B-09
