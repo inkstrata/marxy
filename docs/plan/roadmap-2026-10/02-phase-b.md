@@ -428,6 +428,25 @@ them once these land). If the fix needs `apps/desktop/src/app.ts` (B-08 owns it 
 **Paths.** The invisible-character marking (find it: `invisibles`), `packages/typeset/src/` (the
 breaker's measurement, if that is the fix), a test that fails today; `changelog.d/B-02.3.md`.
 
+### B-02.4 — Re-grid only from the code fence that changed
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-02.1, B-08 · *Added 2026-10-03 by the lead, from the B-02.1 review.*
+
+**Outcome.** When the code highlighter splits a fence into line spans (B-02.1), the grid pass runs
+`from` the first changed block's top-level ancestor instead of over the whole article, and so does
+the frontispiece's highlighter (its `startCodeHighlight` call in `app.ts` passes no callback today).
+On a fence-heavy 528 KB document B-02.1 adds about 55 whole-article passes while scrolling (each about
+100 ms at 1 MB with `buildBlocks`); after this story each is a tail pass.
+
+**Paths.** `apps/desktop/src/render/highlight.ts` (`onLayoutChanged(from?: HTMLElement)`),
+`apps/desktop/src/startup/idle-work.ts`, `apps/desktop/src/app.ts` (`snap(doc, from)` and the frontispiece
+call only), `apps/desktop/test/code-fence-grid.test.mjs`, a one-line comment in `applyHighlightToCode`
+noting that the split flag is set before its first await; `changelog.d/B-02.4.md`.
+
+**Acceptance.** The B-02.1 tests stay green; a test counts whole-article passes while fences split
+(none after first text) and fails on B-02.1's whole-article callback; a fence in the frontispiece stays on
+the grid; the reviewer measures the scroll on the fence-heavy document before and after.
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05
