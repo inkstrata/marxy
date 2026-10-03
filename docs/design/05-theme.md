@@ -135,17 +135,14 @@ Marxy speaks 1. It may not look as intended." The theme still applies.
 
 `--marxy-weight-offset` is set on `:root` by the app at startup, never by a theme:
 
-| platform | WebKitGTK | offset |
-| --- | --- | --- |
-| macOS, Windows | — | 0 |
-| Linux | ≥ 2.52 | 75 |
-| Linux | 2.50–2.51 | 125 |
-| Linux | other | 100 |
-
-from `shell.webkitVersion()` (§06), overridden by config `[linux] weight_offset` (§11). Until
-`webkitVersion` exists (it is part of the shell-api amendment, MARXY-94, which waits on the author), the
-app passes no version and Linux takes the **other** row, 100 (MARXY-21, `apps/desktop/src/theme/offset.ts`).
-MARXY-22 measures these on real desktops and replaces the table's values. Every `font-weight`
+Off Linux the offset is `0`. On Linux it is one constant, `LINUX_WEIGHT_OFFSET = 100`
+(`apps/desktop/src/theme/offset.ts`), overridden by config `[linux] weight_offset` (§11) when the
+caller passes it. The constant is unmeasured: it was chosen here and is to be measured when a
+Linux desktop exists (ADR-0046). The per-WebKitGTK-version table this section once carried, and
+the `shell.webkitVersion()` query it needed, were removed with ADR-0046; the table was never
+consulted, because the app never had a version to look up. No value changed on any platform.
+This follows `docs/research/reader-typography/03-fonts.md` on weight and the variable axis and
+departs from nothing in it. Every `font-weight`
 in `base.css` is `calc(<token> + var(--marxy-weight-offset))`, and the variable axis is driven
 through `font-variation-settings 'wght'` as well, because WebKitGTK maps `font-weight` to the
 axis but rounds; the explicit axis value is exact.

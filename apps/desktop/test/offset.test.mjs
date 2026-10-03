@@ -1,16 +1,24 @@
-// The weight-offset table (MARXY-21): applied on Linux only, by WebKitGTK version.
+// The Linux weight offset (B-07): one documented constant, `0` elsewhere, config override.
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { platformOf, weightOffset } from '../src/theme/offset.ts';
+import { LINUX_WEIGHT_OFFSET, platformOf, weightOffset } from '../src/theme/offset.ts';
 
-test('the §05 table', () => {
-  assert.equal(weightOffset('linux', { major: 2, minor: 52, micro: 6 }), 75);
-  assert.equal(weightOffset('linux', { major: 2, minor: 50, micro: 6 }), 125);
-  assert.equal(weightOffset('linux', { major: 2, minor: 48, micro: 0 }), 100);
+test('the weight offset: one constant on Linux, none elsewhere, config overrides', () => {
+  assert.equal(LINUX_WEIGHT_OFFSET, 100);
   assert.equal(weightOffset('linux', null), 100);
+  assert.equal(weightOffset('linux', 60), 60);
+  assert.equal(weightOffset('linux', 0), 0);
   assert.equal(weightOffset('macos', null), 0);
-  assert.equal(weightOffset('macos', { major: 2, minor: 52, micro: 0 }), 0);
+  assert.equal(weightOffset('macos', 60), 0);
   assert.equal(weightOffset('windows', null), 0);
+  assert.equal(weightOffset('windows', 60), 0);
+  assert.equal(weightOffset('other', 60), 0);
+});
+
+test('offset.ts names no WebKit version', () => {
+  const source = readFileSync(new URL('../src/theme/offset.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /webkitversion|WebKitGTK version|\bminor\b|\bmajor\b/i);
 });
 
 test('the platform from the webview user agent', () => {
