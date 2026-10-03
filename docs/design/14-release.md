@@ -5,6 +5,26 @@ Phase 4 (`docs/plan.md`). MARXY-16 ships v0.0.1 as an unsigned pre-release from 
 (MARXY-52), what "notices and attributions" means in a reader with no chrome, how budgets are
 tightened (MARXY-53), and the v1 gate (MARXY-54).
 
+## v0.1.0
+
+v0.1.0 is an **unsigned pre-release for macOS on Apple silicon**: one artifact, `Marxy_0.1.0_aarch64.dmg`,
+built by `.github/workflows/release.yml`. Linux and Intel macOS are not built (ADR-0046: Linux is a
+release criterion once Linux hardware exists), and nothing is signed or notarised, so the README's
+Install section tells the reader to clear the quarantine flag. The workflow runs on a `v*` tag, which
+publishes a pre-release with the DMG attached, and on `workflow_dispatch`, which builds the same DMG
+and offers it as a workflow artifact without creating a release or a tag.
+
+The author's steps:
+
+1. Dry run: `gh workflow run release --ref main`, then download the `marxy-dmg` artifact.
+2. Open the DMG, run `xattr -dr com.apple.quarantine /Applications/Marxy.app`, and open a README.
+3. If `changelog.d/` holds fragments merged after the fold, re-run
+   `node scripts/changelog.mjs --release 0.1.0` or leave them for 0.2.0.
+4. Tag: `git tag v0.1.0 && git push origin v0.1.0`.
+5. Check the release run is green and the pre-release has the DMG.
+
+What follows is the plan for v1.0, not what v0.1.0 does.
+
 ## Artifacts
 
 | Platform | Artifact | Built by | Notes |

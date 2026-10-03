@@ -1,7 +1,13 @@
 name: release
+# A tag push builds the DMG and publishes a pre-release with it attached. A manual dispatch builds
+# the same DMG and offers it as a workflow artifact only: with no tagName, tauri-action creates no
+# release and no tag, so a dry run is safe on any branch.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write # a release needs it; nothing else in this workflow writes
 jobs:
   build:
     strategy:
@@ -11,27 +17,21 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
+          # No Linux row: ADR-0046 makes Linux a release criterion only once Linux hardware exists,
+          # so v0.1.0 is macOS only.
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
-      - name: Linux webview deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
       - run: pnpm install --frozen-lockfile
-      - name: Import signing certificate (macOS, only when secrets exist)
-        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
-        env: { APPLE_CERTIFICATE: "${{ secrets.APPLE_CERTIFICATE }}" }
-        run: echo "signing configured via tauri-action env below"
+      # tauri.conf.json's beforeBuildCommand is empty, so the bundle would ship without a frontend
+      # unless the web assets are built first.
+      - run: pnpm --filter @marxy/desktop build:web
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing + notarization: unset secrets → unsigned build, still published as pre-release
+          # macOS signing + notarization: unset secrets give an unsigned build. Kept for later.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -40,9 +40,10 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: apps/desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: marxy ${{ github.ref_name }}
-          releaseBody: 'See CHANGELOG.md. Pre-release; macOS build is unsigned until notarization secrets are configured.'
+          # Empty on a dispatch, which makes the action build without creating a release.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('marxy {0}', github.ref_name) || '' }}
+          releaseBody: 'See CHANGELOG.md. Pre-release; the macOS build is unsigned (see the README Install section).'
           releaseDraft: false
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
@@ -50,3 +51,10 @@ jobs:
       # the only place they can measure one, and a missing bundle fails here instead of skipping.
       - run: pnpm gate:bundle
         env: { MARXY_BUNDLE_REQUIRED: '1' }
+      - name: Offer the DMG as an artifact (dry run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: marxy-dmg
+          path: apps/desktop/src-tauri/target/**/bundle/dmg/*.dmg
+          if-no-files-found: error
