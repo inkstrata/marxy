@@ -196,27 +196,9 @@ const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json',
 const target = fileURLToPath(new URL('../apps/desktop/src-tauri/target/', import.meta.url));
 const bundleDirs = [join(target, 'release/bundle'), ...(existsSync(target) ? readdirSync(target).map((t) => join(target, t, 'release/bundle')) : [])].filter((d, i, all) => existsSync(d) && all.indexOf(d) === i);
 const required = process.env.MARXY_BUNDLE_REQUIRED === '1';
-if (bundleDirs.length === 0) {
-  if (required) {
-    console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but no installer bundle was built under src-tauri/target');
-    process.exit(1);
-  }
-  console.log('bundle gate: no bundle built; skipping size and katex-in-bundle checks (they run in the release workflow)');
-  process.exit(0);
-}
-const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (
-  e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]
-));
-const files = bundleDirs.flatMap(walk).filter((f) => /\.(dmg|AppImage|deb)$/.test(f));
 let fail = false;
-for (const f of files) {
-  const mb = statSync(f).size / 1048576;
-  const limit = f.endsWith('.dmg') ? budgets.macos : budgets.linux;
-  console.log(`${f.split('/').pop()}: ${mb.toFixed(1)} MB (limit ${limit})`);
-  if (mb > limit) fail = true;
-}
 {
-  // Installers are compressed and legitimately hold KaTeX's lazy chunk and fonts, so the question
+  // (Runs before the no-installer exit: it needs only dist/.) Installers are compressed and legitimately hold KaTeX's lazy chunk and fonts, so the question
   // is whether KaTeX is in the startup path: the entry chunks index.html loads statically.
   const distDir = fileURLToPath(new URL('../apps/desktop/dist/', import.meta.url));
   const found = katexInEntry(distDir);
@@ -232,6 +214,28 @@ for (const f of files) {
     console.error(`bundle gate: KaTeX is in the startup path: ${found.hits.join(', ')} (it must be a lazy chunk)`);
     fail = true;
   } else console.log('bundle gate: entry chunks contain no katex (it loads lazily)');
+}
+if (bundleDirs.length === 0) {
+  if (fail) {
+    console.error('bundle gate failed');
+    process.exit(1);
+  }
+  if (required) {
+    console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but no installer bundle was built under src-tauri/target');
+    process.exit(1);
+  }
+  console.log('bundle gate: no bundle built; skipping size and katex-in-bundle checks (they run in the release workflow)');
+  process.exit(0);
+}
+const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (
+  e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]
+));
+const files = bundleDirs.flatMap(walk).filter((f) => /\.(dmg|AppImage|deb)$/.test(f));
+for (const f of files) {
+  const mb = statSync(f).size / 1048576;
+  const limit = f.endsWith('.dmg') ? budgets.macos : budgets.linux;
+  console.log(`${f.split('/').pop()}: ${mb.toFixed(1)} MB (limit ${limit})`);
+  if (mb > limit) fail = true;
 }
 if (required && files.length === 0) {
   console.error('bundle gate: MARXY_BUNDLE_REQUIRED is set but the bundle holds no .dmg, .AppImage or .deb');

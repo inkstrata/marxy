@@ -8,6 +8,40 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## 0.1.0 - 2026-10-02
 
+Marxy 0.1.0 is the first release: an unsigned pre-release for macOS on Apple silicon (see Install in the README). A 1 MB agent transcript now shows its first screen in under a second. The palette lists every command and remembers what you open, the outline is one chord away, a document can open in your external editor at the line you are reading, a file can be dragged onto the window to open it, and the light variant and text size apply from `config.toml` and by command. Below, what a reader notices comes first, then the changes to how Marxy is built and tested, then the earlier work.
+
+### What changed for readers
+
+- The baseline-grid pass measures the page a few times whatever the document's length, instead of once for every block it moves, so documents with many such blocks open and resize faster (A-01)
+- A very long document, such as a 1 MB agent transcript, shows its first screen in under a second instead of four or five, and the rest of it arrives below while you read (A-02)
+- Wide code blocks and tables now run into the margin of the box the article sits in rather than the window's, so they stay inside their own pane (B-03)
+- Open a document after launching Marxy with none, or open one in a second repository, and the palette now searches every repository you have opened; edits no longer re-read the whole repository (A-04)
+- The palette has results the moment a known repository opens, because its last index is kept and checked in the background. (A-05)
+- The palette now remembers when you actually opened each document, across restarts, and ranks recent reads first, with the current repository's hits on top. (A-06)
+- The palette now lists Toggle Rendered / Source, Back and Forward with their keys, and your place in a document is saved as you scroll, so a crash or force-quit no longer loses it (A-13)
+- The light variant and text size in `config.toml` now apply before the first text appears, "Use light variant" and "Use dark variant" in the palette switch at once and are remembered, and `Mod+=`, `Mod+-` and `Mod+0` change the text size (A-14)
+- Press Mod+Shift+O, or choose Outline in the palette, to see the document's headings in a narrow list at the right edge, with the one you are reading marked; the arrow keys move through it, Enter takes you to that heading and Esc puts it away (A-15)
+- `Mod+Shift+E` (or "Open in external editor" in the palette) opens the document in your editor at the line you are reading, using `external_editor` from `config.toml` or the system opener, and dropping a file onto the window opens it as File › Open does (A-16)
+- Typing > in the palette now lists every command that applies, each with its key, including save, undo and redo, line numbers in Source, jump to source and revoking trust (A-12)
+- Changing the theme, variant or size in Marxy now leaves the spacing before a comment on that config.toml line exactly as you wrote it (A-14.1)
+
+### Behind the scenes
+
+- Internal: the aesthetics gate can now render a page through the real app, and the app marks when the typesetter has set the whole document; nothing a reader sees changes (B-01)
+- Pull requests no longer build the app twice to time two numbers that cannot fail; a nightly run records what a reader feels instead (first text, live reload, a second open, palette search and start-up), and pnpm perf runs the same measurement locally (A-03)
+- Behind the scenes, the open document now has one owner, so undo after a failed save or after a Source edit can be made to restore exactly the bytes you had; nothing uses it yet (B-04)
+- Internal clean-up: about 700 lines of unreachable palette, Source and watch-snapshot code are gone; nothing a reader sees changes (B-05)
+- Contributing no longer needs a Jira key, a board row or a templated pull-request body, and the fleet's own tests run as pnpm test:fleet (A-07)
+- The repository's hygiene checks run as one pnpm check, and the checks that only restated what ci.yml looks like are gone (A-08)
+- A pull request that touches no Rust no longer builds Marxy on two operating systems: Rust, typography and fleet checks run only when their files change, a merge to main runs only the fast checks, and the macOS build and the full Rust job run nightly (A-09)
+- A pull request runs the desktop browser tests that guard saving, trust, data loss, closing, reloading, opening, selection, the index, progressive rendering and the promise that nothing phones home, plus the mechanical typography checks and the palette mutation check; the full desktop suite, the typesetter, theme and core browser tests and the screenshot and rag comparison run nightly (A-10)
+- Removed an unused second copy of the file indexer from the desktop app; the palette index is unchanged (B-05.1)
+- The Linux text-weight offset is now a single documented constant instead of a version table that was never consulted; nothing changes on screen (B-07)
+- The contributor documents describe the pull-request path as it is now: seven jobs, a conventional subject, a changelog fragment and one review, with the fleet, the board and the Jira keys marked as paused (A-11)
+- Marxy 0.1.0: the release workflow builds an unsigned macOS DMG on a tag, the app reports version 0.1.0, and the README says how to install it (A-17)
+
+### Earlier work
+
 - The module-boundary gate now catches a forbidden dependency hidden behind a template-literal dynamic `import()` or `require()` with no interpolation (MARXY-307)
 - The bundle gate's production import walk now catches dynamic `import()` and `require()` of the memory shell — quoted or as a plain template literal — not only static `from` imports, so a pre-build run still blocks dev-only entry points when `dist/` is absent (MARXY-309)
 - Hidden-character marks and the Cargo table-form dependency check are to be rebased onto main, where a locked file that root can still read is already treated as readable, and a key cap that keeps its hyphen is queued for a look (MARXY-321)
@@ -251,30 +285,6 @@ tag time. Conventions in `docs/conventions.md`.
 - The startup measurement now reports two honestly named numbers — a cold start, which is the first launch and only the first launch, and a warm start, which is the median of the rest — after it turned out that the single number called "cold start" had always been a warm one, and that seven of eight Linux launches were being thrown away unmeasured (MARXY-63)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
 - READMEs and licence files under fonts/ show a normal diff again; only font binaries stay binary, so a reviewer can read a text change; nothing under fonts/, licences included, can have its line endings rewritten, and `pnpm lint` fails if that ever changes (MARXY-66)
-- The baseline-grid pass measures the page a few times whatever the document's length, instead of once for every block it moves, so documents with many such blocks open and resize faster (A-01)
-- Internal: the aesthetics gate can now render a page through the real app, and the app marks when the typesetter has set the whole document; nothing a reader sees changes (B-01)
-- A very long document, such as a 1 MB agent transcript, shows its first screen in under a second instead of four or five, and the rest of it arrives below while you read (A-02)
-- Pull requests no longer build the app twice to time two numbers that cannot fail; a nightly run records what a reader feels instead (first text, live reload, a second open, palette search and start-up), and pnpm perf runs the same measurement locally (A-03)
-- Wide code blocks and tables now run into the margin of the box the article sits in rather than the window's, so they stay inside their own pane (B-03)
-- Open a document after launching Marxy with none, or open one in a second repository, and the palette now searches every repository you have opened; edits no longer re-read the whole repository (A-04)
-- Behind the scenes, the open document now has one owner, so undo after a failed save or after a Source edit can be made to restore exactly the bytes you had; nothing uses it yet (B-04)
-- The palette has results the moment a known repository opens, because its last index is kept and checked in the background. (A-05)
-- Removed an unused second copy of the file indexer from the desktop app; the palette index is unchanged (B-05.1)
-- Internal clean-up: about 700 lines of unreachable palette, Source and watch-snapshot code are gone; nothing a reader sees changes (B-05)
-- The palette now remembers when you actually opened each document, across restarts, and ranks recent reads first, with the current repository's hits on top. (A-06)
-- Contributing no longer needs a Jira key, a board row or a templated pull-request body, and the fleet's own tests run as pnpm test:fleet (A-07)
-- The Linux text-weight offset is now a single documented constant instead of a version table that was never consulted; nothing changes on screen (B-07)
-- The repository's hygiene checks run as one pnpm check, and the checks that only restated what ci.yml looks like are gone (A-08)
-- A pull request that touches no Rust no longer builds Marxy on two operating systems: Rust, typography and fleet checks run only when their files change, a merge to main runs only the fast checks, and the macOS build and the full Rust job run nightly (A-09)
-- A pull request runs the desktop browser tests that guard saving, trust, data loss, closing, reloading, opening, selection, the index, progressive rendering and the promise that nothing phones home, plus the mechanical typography checks and the palette mutation check; the full desktop suite, the typesetter, theme and core browser tests and the screenshot and rag comparison run nightly (A-10)
-- The contributor documents describe the pull-request path as it is now: seven jobs, a conventional subject, a changelog fragment and one review, with the fleet, the board and the Jira keys marked as paused (A-11)
-- Typing > in the palette now lists every command that applies, each with its key, including save, undo and redo, line numbers in Source, jump to source and revoking trust (A-12)
-- The palette now lists Toggle Rendered / Source, Back and Forward with their keys, and your place in a document is saved as you scroll, so a crash or force-quit no longer loses it (A-13)
-- Changing the theme, variant or size in Marxy now leaves the spacing before a comment on that config.toml line exactly as you wrote it (A-14.1)
-- The light variant and text size in `config.toml` now apply before the first text appears, "Use light variant" and "Use dark variant" in the palette switch at once and are remembered, and `Mod+=`, `Mod+-` and `Mod+0` change the text size (A-14)
-- Press Mod+Shift+O, or choose Outline in the palette, to see the document's headings in a narrow list at the right edge, with the one you are reading marked; the arrow keys move through it, Enter takes you to that heading and Esc puts it away (A-15)
-- `Mod+Shift+E` (or "Open in external editor" in the palette) opens the document in your editor at the line you are reading, using `external_editor` from `config.toml` or the system opener, and dropping a file onto the window opens it as File › Open does (A-16)
-- Marxy 0.1.0: the release workflow builds an unsigned macOS DMG on a tag, the app reports version 0.1.0, and the README says how to install it (A-17)
 - Opening a README can name remote images and simplified HTML in one notice; choosing to show that document's HTML widens the sanitiser for that file only, remembers the choice in `trust.json`, and still refuses script and `javascript:` links; an unclosed `<script>` gets its own truncation notice instead of a mysteriously short page (MARXY-44)
 - Explicit save (`Mod+S` / `Mod+Shift+S`) writes the open buffer atomically without touching bytes outside an edit; unsaved edits show only as ` •` in the window title (MARXY-49)
 - Task checkboxes survive when the item opens with code, emphasis or a link; section copy and splice ranges fail loudly instead of corrupting bytes (MARXY-231)

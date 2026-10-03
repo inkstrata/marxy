@@ -34,7 +34,7 @@ phases are in [`docs/plan.md`](docs/plan.md).
 
 macOS on Apple silicon only for now. There is no Linux or Intel build yet.
 
-1. Download the `.dmg` from the [Releases](../../releases) page and drag Marxy to Applications.
+1. Download the `.dmg` from the [Releases](https://github.com/inkstrata/marxy/releases) page and drag Marxy to Applications.
 2. The build is not signed or notarised, so macOS will refuse to open it at first. Clear the
    quarantine flag once, in a terminal:
 
@@ -44,7 +44,6 @@ macOS on Apple silicon only for now. There is no Linux or Intel build yet.
 
 3. Open Marxy, then open a README with it.
 
-That is the whole procedure; there is no installer to trust beyond the file you downloaded.
 Signing and notarisation will remove step 2 when an Apple Developer account exists. Marxy has no
 updater, so a new version is a new download.
 
