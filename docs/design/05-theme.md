@@ -141,8 +141,8 @@ caller passes it. The constant is unmeasured: it was chosen here and is to be me
 Linux desktop exists (ADR-0046). The per-WebKitGTK-version table this section once carried, and
 the `shell.webkitVersion()` query it needed, were removed with ADR-0046; the table was never
 consulted, because the app never had a version to look up. No value changed on any platform.
-This follows `docs/research/reader-typography/03-fonts.md` on weight and the variable axis and
-departs from nothing in it. Every `font-weight`
+The research handbook does not cover a platform weight offset; `docs/research/reader-typography/03-fonts.md`
+is the source only for the variable `wght` axes the fonts ship. Every `font-weight`
 in `base.css` is `calc(<token> + var(--marxy-weight-offset))`, and the variable axis is driven
 through `font-variation-settings 'wght'` as well, because WebKitGTK maps `font-weight` to the
 axis but rounds; the explicit axis value is exact.
