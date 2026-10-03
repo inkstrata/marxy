@@ -1015,6 +1015,27 @@ After this story the opt-in waits on B-20. Say so in the changelog fragment.
 
 ---
 
+### B-09.1 — One wording for the blocked-images notice
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-09 · *Added 2026-10-03 by the lead, from the B-09 review.*
+
+**Outcome.** A document with remote images says the same thing whether or not it also has HTML: today
+the images-only notice (`blockedImageNoticeText` in `packages/core/src/render/images.ts`) reads "4 remote
+images from X and Y were not loaded" (no full stop), while the mixed-document sentence from
+`notices/trust-copy.ts` reads "4 images from X and Y were not loaded, and some HTML was simplified (…)."
+Route both through one wording. `displayHost` in `trust-copy.ts` is dead since B-09 (only a test calls
+it): delete it with its test, unless the new wording uses it for confusable hosts — then use it.
+`docs/scope.md` (lines ~11 and ~26) still promises a per-document image opt-in; say images are blocked
+and the opt-in waits on B-20 (ADR-0044).
+
+**Paths.** `packages/core/src/render/images.ts` (`blockedImageNoticeText` only), `apps/desktop/src/notices/
+trust-copy.ts`, the tests that pin either wording (`test/save-trust-r4.test.mjs`, the 10-hostile and
+protocol-relative tests — find them), `docs/scope.md` (those two lines), `changelog.d/B-09.1.md`.
+
+**Acceptance.** One sentence shape for both cases, with a full stop, naming hosts as today (the
+hostile-host display rules still hold: a confusable or punycode host is shown in a form the reader can
+recognise); goldens unaffected or regenerated with the reason; `pnpm gate:no-network` unchanged.
+
 ### B-10 — Lift trust into a controller and merge the two re-render paths
 
 **Model:** opus · **Size:** M · **Depends on:** B-09 · **Parallel with:** —
