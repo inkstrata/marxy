@@ -16,35 +16,25 @@ env:
   PNPM_STORE: ~/.pnpm-store
 
 jobs:
-  # What changed decides what runs: a docs-only change never builds the app or starts a browser.
+  # What changed decides what runs: a docs-only change never builds the app or starts a browser, a
+  # change that touches no Rust never builds the app, and a push to main runs only `fast` (A-09). The
+  # paths behind each output are in scripts/ci-changes.mjs and its test.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.detect.outputs.docs_only }}
       web: ${{ steps.detect.outputs.web }}
+      typography: ${{ steps.detect.outputs.typography }}
       rust: ${{ steps.detect.outputs.rust }}
-      gates: ${{ steps.resolve.outputs.gates }}
-      gates_hash: ${{ steps.detect.outputs.gates_hash }}
+      fleet: ${{ steps.detect.outputs.fleet }}
+      lockfile: ${{ steps.detect.outputs.lockfile }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # base...HEAD needs the merge base
       - id: detect
         run: node scripts/ci-changes.mjs ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
-      # A hit means this exact gates-relevant content already built and measured clean on both
-      # runner classes on some other push; a miss (or a stand-in/in-progress record) leaves
-      # results/gates-record.json absent or unusable and node scripts/ci-changes.mjs --resolve runs
-      # the real jobs (MARXY-105).
-      - name: Restore a prior real dual-OS gates success for this content, if any
-        uses: actions/cache@v4
-        with:
-          path: results/gates-record.json
-          key: "gates-ok-${{ steps.detect.outputs.gates_hash }}"
-      - id: resolve
-        run: node scripts/ci-changes.mjs --resolve
-      - name: Change-detection and gates-skip selftest (MARXY-105)
-        run: node scripts/ci-changes.mjs --selftest
 
   conventions:
     if: github.event_name == 'pull_request'
@@ -87,7 +77,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm test:fleet
+      # The import-graph half: production main.ts must not reach the memory shell or the harness. Cheap
+      # without a build; the rust job runs it again over the built dist.
+      - run: pnpm gate:bundle
+      - if: needs.changes.outputs.fleet == 'true'
+        run: pnpm test:fleet
       - name: CommonMark spec selftest
         run: node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --selftest
       # The spec is an immutable pinned version, and it was re-downloaded on every pull request: a
@@ -113,10 +107,11 @@ jobs:
       - run: pnpm gate:fidelity
       - run: pnpm gate:licences
 
-  # Browser gates in the official Playwright image: browsers and their system libraries are already there.
+  # Browser gates in the official Playwright image: browsers and their system libraries are already
+  # there. Pull requests and merge groups only: the push to main proves a tree its pull request proved.
   browser:
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 25
@@ -131,7 +126,6 @@ jobs:
           key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - run: pnpm gate:no-network
-      - run: pnpm gate:aesthetics
       # The desktop suite's WebKit tests (live reload, the open path, operations, Source mode) skip in
       # `fast`, which has no browser; here WebKit is in the image, so a skip would be a lie and is
       # refused. Nothing ran them on a pull request before MARXY-247, and the edit-after-reload data
@@ -151,54 +145,54 @@ jobs:
           path: results/
           if-no-files-found: ignore
 
-  # Posts the same check names as `gates` when a real build cannot change the result (MARXY-105): a
-  # matrix job skipped by its own if: does not reliably report one entry per matrix value, so anything
-  # watching by name still needs to see "gates (macos-latest)" and "gates (ubuntu-latest)" resolve.
-  # The matrix below is written one value per line; scripts/ci-changes.mjs accepts either shape.
-  gates-skip:
-    name: gates
+  # The typography gates, when what they render changed: the theme, the typesetter, the parse, render
+  # and sanitise path, the corpus, the fonts, or a dependency (scripts/ci-changes.mjs).
+  typography:
     needs: changes
-    if: needs.changes.outputs.gates != 'true'
-    strategy:
-      matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
+    if: (needs.changes.outputs.typography == 'true' || needs.changes.outputs.lockfile == 'true') && github.event_name != 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 20
     steps:
-      - run: echo "gates (${{ matrix.os }}) skipped — no gates-relevant change since the last real dual-OS success"
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - run: pnpm gate:aesthetics
+      - run: pnpm gate:specimen
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: typography-results
+          path: results/
+          if-no-files-found: ignore
 
-  # Build the app on both runner classes. Measuring it is the nightly workflow's job (A-03). Skipped
-  # when the diff cannot change the result — no gates-relevant file changed, or the change is only
-  # non-relevant files after a real dual-OS success already proved this content (MARXY-105).
-  gates:
+  # The desktop binary, on Ubuntu only (ADR-0046: Linux is a release criterion; macOS builds nightly),
+  # when Rust, tauri.conf.json, the Vite config, the CLI smoke, the toolchain or a dependency changed.
+  rust:
     needs: changes
-    if: needs.changes.outputs.gates == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    if: (needs.changes.outputs.rust == 'true' || needs.changes.outputs.lockfile == 'true') && github.event_name != 'push'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       MARXY_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci/marxy
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # the budgets-unchanged step diffs against origin/main
       - uses: jdx/mise-action@v2
         with:
           cache: true
       # Plain apt, not cache-apt-pkgs-action: its cached restore dropped glib-2.0.pc, so clippy and
       # the build could not find glib on a cache hit and main went red (runs 35376241346, 35377516836).
       - name: Linux webview and X deps
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus
       - name: The webview library is visible to pkg-config
-        if: runner.os == 'Linux'
         run: pkg-config --exists glib-2.0 && pkg-config --modversion glib-2.0
       - uses: actions/cache@v4
         with:
@@ -208,13 +202,9 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
           key: ci-profile
-          cache-on-failure: true   # a red perf gate must not throw away the compiled dependencies
+          cache-on-failure: true   # a red clippy or test must not throw away the compiled dependencies
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - run: pnpm gate:specimen
-      - name: Licence gate (pre-build, empty cargo cache)
-        run: pnpm gate:licences
       - name: Rust format and clippy
-        if: runner.os == 'Linux'
         run: pnpm lint:rust
       - name: Build the frontend
         run: pnpm --filter @marxy/desktop build:web
@@ -226,50 +216,28 @@ jobs:
         run: node scripts/gate-licences.mjs --require-registry
       - name: CLI smoke check on the built binary
         run: pnpm --filter @marxy/desktop verify:cli
-      # Start-up, parse and the perf gate were measured here until A-03; they could not fail a pull
-      # request (ADR-0032), so the nightly perf-harness and startup-macos jobs record them instead.
       # The shell's own unit tests (watcher, navigation guard, argument paths, IPC decoding) ran nowhere
       # before MARXY-247. Same profile and features as the build above, so the dependencies are reused.
-      # After the startup and parse measurements, never before: compiling the test harness writes a large
-      # new target tree, and on macOS the launches measured right after it came out with a cold launch
-      # faster than the warm ones (cold_warm_ratio 0.77), which the perf gate rightly refuses.
       - name: Rust unit tests
         run: cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet
       - run: pnpm gate:bundle
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: "gate-results-${{ matrix.os }}"
+          name: rust-results
           path: results/
           if-no-files-found: ignore
 
-  # Writes and caches proof that this exact gates-relevant content already built and measured clean
-  # on both runner classes, so a later push that only adds non-relevant files can reuse it (MARXY-105).
-  # Only runs after a real (not skipped) dual-OS success: `needs.gates.result` is "success" solely in
-  # that case, never for a job whose if: was false.
-  gates-record:
-    needs: [changes, gates]
-    if: needs.gates.result == 'success'
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - run: mkdir -p results && printf '{"status":"success","dualOS":true,"hash":"%s"}' "${{ needs.changes.outputs.gates_hash }}" > results/gates-record.json
-      - uses: actions/cache@v4
-        with:
-          path: results/gates-record.json
-          key: "gates-ok-${{ needs.changes.outputs.gates_hash }}"
-
-  # The one status check branch protection requires. Skipped jobs are fine; failed or cancelled ones are not.
+  # The one status check branch protection requires. It runs whatever happened above, so it reports on
+  # every pull request, path-filtered or docs-only; scripts/ci-verdict.mjs says what turns it red.
   ci:
-    needs: [changes, conventions, fast, browser, gates, gates-skip, gates-record]
+    needs: [changes, conventions, fast, browser, typography, rust]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
+      - uses: actions/checkout@v4
       - name: Every job that ran succeeded
-        run: |
-          echo '${{ toJSON(needs) }}' | node -e '
-            const needs = JSON.parse(require("fs").readFileSync(0, "utf8"));
-            const bad = Object.entries(needs).filter(([, v]) => v.result === "failure" || v.result === "cancelled");
-            for (const [k, v] of Object.entries(needs)) console.log(`${v.result === "success" ? "✓" : v.result === "skipped" ? "·" : "✗"} ${k}: ${v.result}`);
-            if (bad.length) { console.error(`failed: ${bad.map(([k]) => k).join(", ")}`); process.exit(1); }'
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-verdict.mjs

@@ -111,6 +111,17 @@ function jobsOf(text) {
 }
 
 /**
+ * Every job carries its own timeout-minutes (docs/ci-contract.md): without one a hung WebKit or a
+ * stuck cargo lock holds a runner for GitHub's six-hour default, and the pull request waits on it.
+ * A-09 added jobs to both workflows; this is the rule that says each of them has a ceiling. It holds
+ * for the workflows in TIMED; release.yml, which has never completed, joins when A-17 makes it work.
+ */
+const TIMED = new Set(['ci.yml', 'nightly.yml']);
+function untimed(text) {
+  return jobsOf(text).filter(([, body]) => !codeLines(body).some(([, line]) => /^    timeout-minutes:\s*\S/.test(line))).map(([name]) => `${name}: no timeout-minutes`);
+}
+
+/**
  * Every job that runs cargo (or `tauri build`) on Linux, whatever it is called, probes pkg-config for
  * glib-2.0 and installs dbus. MARXY-74's caching action restored apt packages without their pkg-config
  * metadata, and the failure was invisible until a cargo build script traced it, so ask the question
@@ -192,6 +203,12 @@ const LICENCE_ORDER = [
   ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs --require-registry', ['g: the --require-registry licence gate runs before any build has filled the cargo cache']],
   ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs\n      - run: cargo build --locked', []],
 ];
+const UNTIMED = [
+  ['jobs:\n  a:\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - run: pnpm test', []],
+  ['jobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n  b:\n    timeout-minutes: 2\n    steps: []', ['a: no timeout-minutes']],
+  ['jobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n        timeout-minutes: 5', ['a: no timeout-minutes']],
+  ['jobs:\n  a:\n    runs-on: ubuntu-latest\n    # timeout-minutes: 5\n    steps: []', ['a: no timeout-minutes']],
+];
 const selftestFailures = [
   ...SELFTEST.flatMap(([text, want]) => {
     const got = unlockedInWorkflow(text);
@@ -199,11 +216,12 @@ const selftestFailures = [
   }),
   ...SOFTENED.flatMap(([text, want]) => JSON.stringify(softened(text)) === JSON.stringify(want) ? [] : [`selftest: ${JSON.stringify(text)} gave ${JSON.stringify(softened(text))}, expected ${JSON.stringify(want)}`]),
   ...LICENCE_ORDER.flatMap(([text, want]) => JSON.stringify(licenceOrderProblems(text)) === JSON.stringify(want) ? [] : [`selftest: ${JSON.stringify(text)} gave ${JSON.stringify(licenceOrderProblems(text))}, expected ${JSON.stringify(want)}`]),
+  ...UNTIMED.flatMap(([text, want]) => JSON.stringify(untimed(text)) === JSON.stringify(want) ? [] : [`selftest: ${JSON.stringify(text)} gave ${JSON.stringify(untimed(text))}, expected ${JSON.stringify(want)}`]),
   ...LINUX_CARGO.flatMap(([text, want]) => JSON.stringify(linuxCargoProblems(text)) === JSON.stringify(want) ? [] : [`selftest: ${JSON.stringify(text)} gave ${JSON.stringify(linuxCargoProblems(text))}, expected ${JSON.stringify(want)}`]),
 ];
 if (process.argv.includes('--selftest')) {
   if (fail(selftestFailures)) process.exit(1);
-  console.log(`check-workflows selftest ok (${SELFTEST.length + SOFTENED.length + LINUX_CARGO.length + LICENCE_ORDER.length} cases)`);
+  console.log(`check-workflows selftest ok (${SELFTEST.length + SOFTENED.length + LINUX_CARGO.length + LICENCE_ORDER.length + UNTIMED.length} cases)`);
   process.exit(0);
 }
 
@@ -220,6 +238,7 @@ for (const name of readdirSync(dir).filter(f => /\.ya?ml$/.test(f))) {
     else if (!version) problems.push(`.github/workflows/${name}: "${action}" is not pinned to a version${fix('pin it, e.g. @v4')}`);
   }
   for (const where of softened(text)) problems.push(`.github/workflows/${name}:${where} makes a step advisory${fix('a step either gates the pull request or is not in the workflow; delete the step, or fix what it finds')}`);
+  if (TIMED.has(name)) for (const what of untimed(text)) problems.push(`.github/workflows/${name}: job ${what}${fix('give the job its own timeout-minutes, a little over its slowest green run')}`);
   for (const what of licenceOrderProblems(text)) problems.push(`.github/workflows/${name}: job ${what}${fix('run gate-licences.mjs --require-registry after the build step in the same job')}`);
   for (const what of linuxCargoProblems(text)) problems.push(`.github/workflows/${name}: job ${what}${fix('a Linux job that runs cargo needs the webview libraries: apt-get install dbus and libwebkit2gtk-4.1-dev, then pkg-config --exists glib-2.0, before the Rust steps')}`);
   for (const where of unlockedInWorkflow(text)) problems.push(`.github/workflows/${name}:${where} runs without --locked${fix('add --locked (after `--` for tauri build and tauri-action args) so CI builds the committed Cargo.lock')}`);
@@ -255,4 +274,4 @@ for (const manifest of ['package.json', 'apps/desktop/package.json']) {
 }
 
 if (fail(problems)) process.exit(1);
-console.log(`workflows ok (${used} action use(s), all allow-listed and pinned; every Linux cargo job probes glib-2.0 and installs dbus; no advisory step; nightly built-app smoke wired; every cargo and tauri build locked)`);
+console.log(`workflows ok (${used} action use(s), all allow-listed and pinned; every ci and nightly job has a timeout; every Linux cargo job probes glib-2.0 and installs dbus; no advisory step; nightly built-app smoke wired; every cargo and tauri build locked)`);
