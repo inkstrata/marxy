@@ -13,6 +13,12 @@ const snapped = new WeakMap<HTMLElement, Set<HTMLElement>>();
 const measured = new WeakMap<HTMLElement, Map<HTMLElement, number>>();
 
 /**
+ * The padding an element had from the page before a pass first wrote its inline padding: the inline
+ * value is that plus what passes added, so only the difference is the passes' own.
+ */
+const themePadding = new WeakMap<HTMLElement, number>();
+
+/**
  * Puts every top-level block back on the grid and returns how many elements it padded.
  *
  * Two steps. Islands (code, tables, images, math) are padded to whole units, because their margins
@@ -144,7 +150,9 @@ function driftedAbove(article: HTMLElement, first: HTMLElement, heights: Map<HTM
       continue;
     }
     if (atOrAfter(first, el)) continue;
-    const now = el.getBoundingClientRect().height - (parseFloat(el.style.paddingBottom) || 0);
+    // Less only the padding passes added: the inline value also carries the theme's own (a `pre`'s).
+    const inline = el.style.paddingBottom === '' ? 0 : parseFloat(el.style.paddingBottom) - (themePadding.get(el) ?? 0);
+    const now = el.getBoundingClientRect().height - inline;
     if (Math.abs(now - height) < SETTLED) continue;
     if (earliest === null || el.compareDocumentPosition(earliest) & Node.DOCUMENT_POSITION_FOLLOWING) earliest = el;
   }
@@ -189,6 +197,7 @@ function apply(plans: readonly Plan[], mine: Set<HTMLElement>, article?: HTMLEle
   const side = (el: HTMLElement): 'padding-top' | 'padding-bottom' => (el === article ? 'padding-top' : 'padding-bottom');
   const current = plans.map(({ el }) => parseFloat(getComputedStyle(el).getPropertyValue(side(el))) || 0);
   plans.forEach(({ el, add }, i) => {
+    if (!mine.has(el)) themePadding.set(el, current[i]!);
     const px = current[i]! + add;
     if (px > 0) el.style.setProperty(side(el), `${px}px`);
     else el.style.removeProperty(side(el));
