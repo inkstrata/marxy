@@ -82,7 +82,7 @@ const near = (a, b) => Math.abs(a - b) < 0.01;
 const list = 'Intro line.\n\n- the noise in $\\Delta T$ has a standard deviation near $0.33$, so a reading cannot show drift;\n- second item.\n\nAfter.\n';
 const para = 'We expect $\\Delta T \\approx \\alpha n + \\varepsilon$ over $n$ weeks, and a sd near $0.33$.\n\nAfter.\n';
 
-for (const size of [16, 20, 24]) {
+for (const size of [15, 16, 17, 19]) {
   for (const [name, src] of [['list item', list], ['paragraph', para]]) {
     test(`inline math in a ${name} keeps whole line boxes at size ${size}`, async () => {
       const r = await measure(src, { variant: 'dark', width: 960, size });

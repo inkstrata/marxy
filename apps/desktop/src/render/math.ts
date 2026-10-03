@@ -8,7 +8,7 @@ let cssInjected = false;
 /**
  * Inline math sits 0.085em below the text baseline by a relative offset, not `vertical-align`: a
  * shifted inline box grew the line box by the shift (48.98 px for a 48 px list item, MARXY-28's
- * 1.53 px at 18 px) and pushed every later block off the baseline grid (B-02.2). Painting only,
+ * 1.53 px) and pushed every later block off the baseline grid (B-02.2). Painting only,
  * so the line box stays a whole number of grid units; the grid is handbook ch.4 (04-spacing-layout).
  */
 export const INLINE_MATH_RULE = 'code.marxy-math .katex{font-size:1em;line-height:inherit;vertical-align:baseline;position:relative;top:0.085em;}';
