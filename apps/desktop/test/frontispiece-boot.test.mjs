@@ -176,6 +176,8 @@ test('a launch with no document shows a piece, emits no_document and never first
     }
     const reads = await page.evaluate(() => window.__handle.shell.calls.filter((c) => (c.method === 'readFile' && c.args[0] !== '/config') || c.method === 'watch').length);
     assert.equal(reads, 0, 'the piece is not a file: nothing may be read or watched for it (config.toml aside, A-14)');
+    const configReads = await page.evaluate(() => window.__handle.shell.calls.filter((c) => c.method === 'readFile' && c.args[0] === '/config').length);
+    assert.equal(configReads, 1, 'config.toml is read exactly once on a launch with no document (A-14)');
     // Cmd+E has no buffer to show in Source mode.
     await page.keyboard.press('Meta+e');
     assert.equal(await page.evaluate(() => document.body.dataset.marxyMode ?? 'rendered'), 'rendered');
