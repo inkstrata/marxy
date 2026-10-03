@@ -9,6 +9,9 @@ const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
 /** Per article, the elements whose padding the last pass set, so the next can undo it before measuring. */
 const snapped = new WeakMap<HTMLElement, Set<HTMLElement>>();
 
+/** Per article, every island's height as a pass measured it, before any padding (A-02). */
+const measured = new WeakMap<HTMLElement, Map<HTMLElement, number>>();
+
 /**
  * Puts every top-level block back on the grid and returns how many elements it padded.
  *
@@ -24,12 +27,25 @@ const snapped = new WeakMap<HTMLElement, Set<HTMLElement>>();
  *
  * `from` (A-02) is the first of the blocks just appended below the rest: only the block before it and
  * the blocks from it on are undone, padded and read, so a document mounted in chunks pays for each
- * chunk and not for the whole article again. Without it the pass covers the whole article.
+ * chunk and not for the whole article again. Without it the pass covers the whole article. A pass
+ * `from` a block first reads the islands above it that earlier passes measured (one more layout), and
+ * starts from the first that has since changed height.
  */
 export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { readonly from?: HTMLElement }): number {
   const unit = lineBox / 2;
   if (!(unit > 0)) return 0;
-  const tail = tailFrom(article, opts?.from);
+  const heights = measured.get(article) ?? new Map<HTMLElement, number>();
+  measured.set(article, heights);
+  let tail = tailFrom(article, opts?.from);
+  // An island above `from` can change height after the pass that measured it, with nothing in its
+  // style changing: WebKitGTK lays a wide table out again a layout later, and a layout forced by the
+  // next chunk can be that one. Nothing would ask for it again before this pass reads the blocks
+  // below it, so this pass starts from the first island that is no longer the height it was measured at.
+  if (tail !== null) {
+    const drifted = driftedAbove(article, tail[0]!, heights);
+    if (drifted !== null) tail = drifted === article.firstElementChild ? null : tailFrom(article, drifted);
+  }
+  if (tail === null) heights.clear();
   // The pass writes padding and reads layout several times over; the engine's own scroll anchoring would
   // answer each intermediate layout by moving the page, and the reader would land off where they were.
   // Scroll position is the app's to keep (reading position, ADR-0018), so the article opts out.
@@ -49,7 +65,9 @@ export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { reado
   ]);
   for (const el of islands) {
     if (!isBlock(el)) continue;
-    const short = shortfall(el.getBoundingClientRect().height, unit);
+    const height = el.getBoundingClientRect().height;
+    heights.set(el, height);
+    const short = shortfall(height, unit);
     if (short > 0) plans.push({ el, add: short });
   }
   apply(plans, mine);
@@ -111,6 +129,29 @@ function tailFrom(article: HTMLElement, from: HTMLElement | undefined): HTMLElem
     if (el instanceof HTMLElement && isBlock(el)) tail.push(el);
   }
   return tail;
+}
+
+/**
+ * The top-level block holding the first island above `first` whose height, less the padding a pass
+ * gave it, is not what a pass measured; null when every one is. Islands no longer in the article are
+ * forgotten.
+ */
+function driftedAbove(article: HTMLElement, first: HTMLElement, heights: Map<HTMLElement, number>): HTMLElement | null {
+  let earliest: HTMLElement | null = null;
+  for (const [el, height] of heights) {
+    if (!article.contains(el)) {
+      heights.delete(el);
+      continue;
+    }
+    if (atOrAfter(first, el)) continue;
+    const now = el.getBoundingClientRect().height - (parseFloat(el.style.paddingBottom) || 0);
+    if (Math.abs(now - height) < SETTLED) continue;
+    if (earliest === null || el.compareDocumentPosition(earliest) & Node.DOCUMENT_POSITION_FOLLOWING) earliest = el;
+  }
+  if (earliest === null) return null;
+  let block = earliest;
+  while (block.parentElement !== article) block = block.parentElement!;
+  return block;
 }
 
 /** `el` is `first`, inside it, or after it in document order. */
