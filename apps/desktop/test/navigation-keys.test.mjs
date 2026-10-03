@@ -188,6 +188,51 @@ test('> in the palette lists Toggle Rendered / Source, Back and Forward with the
   }
 });
 
+test('reopening the palette with > prefilled still lists Back and Forward with their keys', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, '/repo/a.md');
+    const titles = () => page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+      els.map((el) => [el.querySelector('.marxy-palette-title')?.textContent, el.querySelector('.marxy-palette-key')?.textContent]));
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', '>');
+    const first = await titles();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(`${mod}+KeyP`);
+    const again = await titles();
+    for (const t of ['Back', 'Forward']) {
+      const row = again.find((r) => r[0] === t);
+      assert.ok(row && row[1], `${t} listed with a key on reopen: ${JSON.stringify(again)}`);
+    }
+    assert.equal(again.length, first.length);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Alt+ArrowLeft typed in the palette input neither navigates nor is preventDefaulted', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, '/repo/a.md');
+    await openViaPalette(page, mod, 'bravo');
+    await settle(page, '/repo/b.md');
+    await page.waitForTimeout(300);
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.evaluate(() => {
+      window.__prevented = [];
+      window.addEventListener('keydown', (e) => window.__prevented.push([e.key, e.defaultPrevented]));
+    });
+    await page.keyboard.type('xy');
+    await page.keyboard.press('Alt+ArrowLeft');
+    await page.waitForTimeout(500);
+    assert.equal(await current(page), '/repo/b.md');
+    const seen = await page.evaluate(() => window.__prevented.find((k) => k[0] === 'ArrowLeft'));
+    assert.deepEqual(seen, ['ArrowLeft', false]);
+  } finally {
+    await browser.close();
+  }
+});
+
 nodeTest('Ctrl+[ and Ctrl+] are history keys on a Mac as before; plain and Meta spellings are unchanged', () => {
   const ev = (key, o = {}) => ({ key, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...o });
   const matches = (cmdId, e, mac) => {

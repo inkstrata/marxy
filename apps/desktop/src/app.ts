@@ -1198,12 +1198,18 @@ function installScrollPersistence(): void {
   // WebKit fires the viewport's scroll at the Document, not at documentElement, so listen there.
   // PositionPersistence debounces the write itself (POSITIONS_DEBOUNCE_MS), so noting on every
   // scroll event only updates an in-memory entry.
+  // One sample per frame: currentPosition walks the blocks, so it must not run per scroll event.
+  let frame = 0;
   document.addEventListener(
     'scroll',
     () => {
-      if (!positionPersistence || !openPath || !state.document || viewMode !== 'rendered') return;
-      const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
-      positionPersistence.note(openPath, pos);
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!positionPersistence || !openPath || !state.document || viewMode !== 'rendered') return;
+        const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+        positionPersistence.note(openPath, pos);
+      });
     },
     { passive: true },
   );

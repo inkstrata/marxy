@@ -5,6 +5,7 @@ import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
 import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
+import { withPaletteListing } from '../commands/navigation.ts';
 import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
 import { installRenderedSelection } from '../selection/view.ts';
 import type { PaletteKey } from './keys.ts';
@@ -100,7 +101,7 @@ function filterHits(hits: readonly IndexHit[], section: PaletteListSection): rea
 
 function commandsForPalette(query: string): readonly Command[] {
   const after = query.trim().slice(1);
-  return paletteCommands(commands(), buildAppContext(), after);
+  return withPaletteListing(() => paletteCommands(commands(), buildAppContext(), after));
 }
 
 /** Operations close the palette themselves once they apply; every other command is closed over here. */

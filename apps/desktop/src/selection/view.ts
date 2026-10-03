@@ -369,7 +369,6 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
     }
   });
 
-
   // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
   let downAt: { x: number; y: number } | null = null;
   article.addEventListener('mousedown', (ev) => {

@@ -70,6 +70,26 @@ test('scrolling records the position and writes it after the debounce, with no q
   }
 });
 
+test('a burst of scroll events in one frame is sampled once', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page);
+    const frames = await page.evaluate(async () => {
+      let n = 0;
+      const raf = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = (cb) => { n += 1; return raf(cb); };
+      for (let i = 0; i < 50; i++) document.dispatchEvent(new Event('scroll'));
+      await new Promise((r) => setTimeout(r, 100));
+      window.requestAnimationFrame = raf;
+      return n;
+    });
+    assert.equal(frames, 1);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('pagehide flushes the pending position at once', async () => {
   const browser = await launchWebkit();
   try {
