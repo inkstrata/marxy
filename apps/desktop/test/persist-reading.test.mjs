@@ -289,7 +289,7 @@ test('positions.json and history.json match design envelopes', async () => {
   }
 });
 
-test('config.toml theme applies through configPaths after first_text', async () => {
+test('config.toml is read once before first_text, and its theme applies after it', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -307,8 +307,7 @@ test('config.toml theme applies through configPaths after first_text', async () 
     );
 
     const result = await page.evaluate(() => {
-      const marks = window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]);
-      const firstText = marks.indexOf('first_text');
+      const firstText = window.__marxyHandle.shell.calls.findIndex((c) => c.method === 'mark' && c.args[0] === 'first_text');
       const configIdx = window.__marxyHandle.shell.calls.findIndex((c) => c.method === 'configPaths');
       const readConfig = window.__marxyHandle.shell.calls.findIndex(
         (c) => c.method === 'readFile' && c.args[0] === '/config',
@@ -326,8 +325,10 @@ test('config.toml theme applies through configPaths after first_text', async () 
     assert.equal(result.hasTheme, true);
     assert.equal(result.quietBg, '#121210');
     assert.ok(result.firstText >= 0);
-    assert.ok(result.configIdx > result.firstText, 'configPaths after first_text');
-    assert.ok(result.readConfig > result.firstText, 'config read after first_text');
+    // A-14: the variant and size come from config.toml before the first text, so the file is read
+    // once, before first_text, and the theme directory is taken from those bytes.
+    assert.ok(result.configIdx >= 0 && result.configIdx < result.firstText, 'configPaths before first_text');
+    assert.ok(result.readConfig >= 0 && result.readConfig < result.firstText, 'config read before first_text');
   } finally {
     await browser.close();
   }
@@ -347,10 +348,12 @@ test('no persistence read or write precedes first_text in the shell call record'
         .map((c, i) => (c.method === 'mark' && c.args[0] === 'first_text' ? i : -1))
         .filter((i) => i >= 0);
       const firstTextCall = markPositions[0] ?? -1;
+      // The first configPaths is the pre-paint read of config.toml's variant and size (A-14).
+      const firstConfigPaths = calls.findIndex((c) => c.method === 'configPaths');
       const persistence = calls
         .map((c, i) => ({ i, c }))
-        .filter(({ c }) => {
-          if (c.method === 'configPaths') return true;
+        .filter(({ c, i }) => {
+          if (c.method === 'configPaths') return i !== firstConfigPaths;
           if (c.method === 'readFile' && String(c.args[0]).includes('positions.json')) return true;
           if (c.method === 'readFile' && String(c.args[0]).includes('history.json')) return true;
           if (c.method === 'writeFileAtomic' && String(c.args[0]).includes('positions.json')) return true;
