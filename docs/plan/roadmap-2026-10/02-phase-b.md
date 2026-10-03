@@ -641,7 +641,9 @@ because three core tests still read or compile it; the TypeScript walker (A-04, 
 - `packages/core/src/index-model/walker.test.ts` (delete: it compiles the Rust walker with rustc)
 - `packages/core/src/index-model/ceiling.test.ts` and `schedule.test.ts`: point them at the TypeScript
   constants (`ENTRIES_PER_ROOT`, `INDEX_SCHEDULE`) instead of source text in the Rust file
-- `apps/desktop/src-tauri/src/commands/fs.rs` (the comments at `:13` and `:145` only),
+- `apps/desktop/src-tauri/src/commands/fs.rs` (the comments at `:13` and `:145`, and a `#[cfg(unix)]` test that
+  `read_dir` omits symlinks pointing out of the directory: the only live guard against the walk
+  leaving the root; *added by the lead from the B-05.1 review*),
   `apps/desktop/src-tauri/src/main.rs` (the comment naming `index/mod.rs` only)
 - `docs/design/07-index-and-palette.md` (§Rust walker, §Headings scanner (Rust), and the
   `indexBuild`/`indexQuery` description)
