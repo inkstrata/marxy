@@ -243,8 +243,12 @@ export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string
     }
     const lastLine = lines[last]!.content;
     const hash = commentStart(lastLine, last === found ? head.length : 0);
-    const comment = hash < 0 ? '' : ` ${lastLine.slice(hash)}`;
-    lines.splice(found, last - found + 1, { content: `${head}${value}${comment}`, ending: lines[last]!.ending });
+    // Everything after the old value (the spaces or tabs, the comment) is kept byte for byte.
+    const floor = last === found ? head.length : 0;
+    let valueEnd = hash < 0 ? lastLine.length : hash;
+    while (valueEnd > floor && /[ \t]/.test(lastLine[valueEnd - 1]!)) valueEnd -= 1;
+    const tail = lastLine.slice(valueEnd);
+    lines.splice(found, last - found + 1, { content: `${head}${value}${tail}`, ending: lines[last]!.ending });
   } else {
     const entry: Line = { content: `${key} = ${value}`, ending: eol };
     if (firstTable >= 0) lines.splice(firstTable, 0, entry);
