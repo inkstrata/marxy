@@ -467,19 +467,31 @@ const markerSource = `(label) => {
   return mark;
 }`;
 
-// Bounds with headroom over a loaded machine: unbounded, the first case cost ~1 ms a paragraph
-// (≈ 390 ms here, ~5 ms after) and the second set every touched paragraph in one task (≈ 250 ms,
-// ~80 ms after); the second case is told apart by how many paragraphs it sets in the task.
-const HIDDEN_LABELS_MS = 50;
-const OFFSCREEN_MARKERS_MS = 200;
+// The contract is how many paragraphs the change watcher sets again in the task, not how long it
+// takes: times are printed only (a timing bound is a flake on a shared runner). Unbounded, the first
+// case set all 400 again (≈ 390 ms) and the second all 300 (≈ 250 ms); bounded, 0 (~5 ms) and the
+// ten or so near the viewport (~75 ms).
+
+/** In-page: tags every line break now in the article, so a re-set paragraph shows new, untagged ones. */
+const tagBreaksSource = `(doc) => { for (const lb of doc.querySelectorAll('.marxy-lb')) lb.__before = true; }`;
+/** In-page: paragraphs set again (new breaks) or reverted (no longer set) since the tags went on. */
+const resetSinceSource = `(doc) => {
+  const ps = [...doc.querySelectorAll('[data-marxy-s]')];
+  return {
+    reset: ps.filter((p) => [...p.querySelectorAll('.marxy-lb')].some((lb) => !lb.__before)).length,
+    reverted: ps.filter((p) => !p.classList.contains('marxy-set') && p.querySelector('.marxy-lb') === null && p.__wasSet).length,
+  };
+}`;
 
 test('hidden labels written into many set paragraphs cost reads only and leave every line as it was (B-02.3)', async () => {
   const page = await harness.open(linkParagraphs(400), { width: 640 });
   await attach(page);
-  const r = await page.evaluate(async () => {
+  const r = await page.evaluate(async ({ tagBreaksSource, resetSinceSource }) => {
     const doc = document.getElementById('doc');
     const before = doc.innerHTML;
     const set = window.controller.stats.typeset;
+    for (const p of doc.querySelectorAll('.marxy-set')) p.__wasSet = true;
+    (0, eval)(tagBreaksSource)(doc);
     // As the app's link-destination pass writes them: `display: none` until hover (base.css).
     for (const a of doc.querySelectorAll('a[href]')) {
       const el = document.createElement('code');
@@ -490,12 +502,13 @@ test('hidden labels written into many set paragraphs cost reads only and leave e
     const t0 = performance.now();
     await Promise.resolve();
     const ms = performance.now() - t0;
+    const inTask = (0, eval)(resetSinceSource)(doc);
     for (const el of doc.querySelectorAll('.marxy-link-dest')) el.remove();
-    return { ms, same: doc.innerHTML === before, set, after: window.controller.stats.typeset };
-  });
-  console.log(`# hidden labels: ${r.ms.toFixed(1)} ms`);
+    return { ms, inTask, same: doc.innerHTML === before, set, after: window.controller.stats.typeset };
+  }, { tagBreaksSource, resetSinceSource });
+  console.log(`# hidden labels: ${r.ms.toFixed(1)} ms, ${JSON.stringify(r.inTask)}`);
   assert.ok(r.set > 300, `the paragraphs were set: ${r.set}`);
-  assert.ok(r.ms < HIDDEN_LABELS_MS, `the change watcher took ${r.ms.toFixed(1)} ms for 1200 hidden labels (bound ${HIDDEN_LABELS_MS} ms)`);
+  assert.deepEqual(r.inTask, { reset: 0, reverted: 0 }, 'no paragraph is set again or reverted for 1200 hidden labels');
   assert.equal(r.same, true, 'every break is where it was');
   assert.equal(r.after, r.set);
   await page.close();
@@ -503,7 +516,7 @@ test('hidden labels written into many set paragraphs cost reads only and leave e
 
 test('markers written into many set paragraphs re-set only those near the viewport in the task; the rest wait for idle (B-02.3)', async () => {
   const page = await harness.open(linkParagraphs(300), { width: 320 });
-  const r = await page.evaluate(async (markerSource) => {
+  const r = await page.evaluate(async ({ markerSource, tagBreaksSource, resetSinceSource }) => {
     const marker = (0, eval)(markerSource);
     const doc = document.getElementById('doc');
     // A scheduler the test drains by hand, so the idle chunks are seen to be separate from the change.
@@ -521,6 +534,8 @@ test('markers written into many set paragraphs re-set only those near the viewpo
       const fullest = lbs.reduce((a, b) => (b.getBoundingClientRect().left > a.getBoundingClientRect().left ? b : a));
       fullest.before(marker('U+00A0 NBSP'));
     }
+    for (const p of doc.querySelectorAll('.marxy-set')) p.__wasSet = true;
+    (0, eval)(tagBreaksSource)(doc);
     const t0 = performance.now();
     await Promise.resolve();
     const ms = performance.now() - t0;
@@ -530,15 +545,17 @@ test('markers written into many set paragraphs re-set only those near the viewpo
       const right = p.getBoundingClientRect().right;
       return [...range.getClientRects()].some((x) => x.width > 0 && x.right > right + 0.5);
     }).length;
-    const inTask = { set: doc.querySelectorAll('.marxy-set').length, overfull: overfull(), queued: pending.length };
+    const inTask = { ...(0, eval)(resetSinceSource)(doc), set: doc.querySelectorAll('.marxy-set').length, overfull: overfull(), queued: pending.length };
     drain();
     await window.controller.done;
     return { ms, set, inTask, after: { set: doc.querySelectorAll('.marxy-set').length, overfull: overfull() } };
-  }, markerSource);
+  }, { markerSource, tagBreaksSource, resetSinceSource });
   console.log(`# markers: ${JSON.stringify(r)}`);
   assert.ok(r.set > 250, `the paragraphs were set: ${r.set}`);
-  assert.ok(r.ms < OFFSCREEN_MARKERS_MS, `the change watcher took ${r.ms.toFixed(1)} ms for ${r.set} paragraphs (bound ${OFFSCREEN_MARKERS_MS} ms)`);
-  assert.ok(r.inTask.set < r.set / 4, `only paragraphs near the viewport are set again in the task: ${JSON.stringify(r.inTask)}`);
+  // Three screens of 320 px paragraphs is about ten; a quarter of the document is far more than any viewport.
+  assert.ok(r.inTask.reset > 0 && r.inTask.reset < r.set / 4, `only paragraphs near the viewport are set again in the task: ${JSON.stringify(r.inTask)}`);
+  assert.equal(r.inTask.reset + r.inTask.reverted, r.set, `every other changed paragraph is reverted to native wrapping: ${JSON.stringify(r.inTask)}`);
+  assert.equal(r.inTask.set, r.inTask.reset, 'nothing else is still set in the task');
   assert.equal(r.inTask.overfull, 0, 'nothing is overfull meanwhile: the rest wrap natively');
   assert.ok(r.inTask.queued > 0, 'the rest are queued to the idle chunks');
   assert.equal(r.after.overfull, 0);
