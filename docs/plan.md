@@ -1,5 +1,10 @@
 # Implementation plan
 
+> **Current plan.** While the fleet is paused (ADR-0051) the work is planned in
+> [`plan/roadmap-2026-10/`](plan/roadmap-2026-10/README.md), which replaces phases 2 to 4 below and
+> carries the progress ledger. This page keeps the shape the project started with; read it for why,
+> and the roadmap for what is next.
+
 Five phases. Each ends in something runnable and reviewable, and each ends with a scheduled
 taste review. Risky and load-bearing work comes first: the typography path and the Linux
 question before the index, and the index before operations, which are easy and endlessly

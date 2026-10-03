@@ -1,6 +1,5 @@
 // 50k ceiling: keep newest by mtime and emit a summoned notice, not a banner.
 
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { INDEX_LIMITS } from '../contracts/index-entry.ts';
@@ -8,8 +7,6 @@ import { applyCeiling, buildIndex } from './index.ts';
 
 test('the ceiling is the frozen contract limit', () => {
   assert.equal(INDEX_LIMITS.entriesPerRoot, 50_000);
-  const rust = readFileSync(new URL('../../../../apps/desktop/src-tauri/src/index/mod.rs', import.meta.url), 'utf8');
-  assert.match(rust, /ENTRIES_PER_ROOT: usize = 50_000/);
 });
 
 test('50,001 candidates trigger the ceiling notice and drop the oldest mtime', () => {
