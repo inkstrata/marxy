@@ -1,5 +1,17 @@
 # SDLC — how one developer and a fleet of agents ship Marxy
 
+> **The fleet is paused (ADR-0051, `orchestration/PAUSED.md`), and most of this page is suspended
+> with it.** What is in force today is short: work is planned in
+> `docs/plan/roadmap-2026-10/` (operating model in
+> [`00-orchestration.md`](plan/roadmap-2026-10/00-orchestration.md), the ledger in `progress.md`);
+> one story is one branch, one worktree and one pull request; the pull-request path is a
+> Conventional Commits subject, a `changelog.d/<id>.md` fragment, green product gates and one
+> review, and the author merges by squash (`docs/ci-contract.md`). None of it needs a Jira key, board row,
+> result file or enforced PR body. The sections **The board**, **Definition of ready**, **The loop,
+> per story**, **Work outside the plan**, **Review order**, **Cadence** and **Credentials** describe the
+> suspended fleet and are kept as the record of how to resume it. **Definition of done** and
+> **Release runbook** are still read, with the notes marked *now* below.
+
 One person owns this project and cannot be the bottleneck for everything, so the process is
 built around two ideas: **Jira holds the truth about state, git holds the truth about code**,
 and **anything a machine can check is never checked by a person**. Everything below is the
@@ -50,6 +62,11 @@ A story is not dispatched until all of this is true. `ready.mjs` enforces the me
 6. Stories labelled `human-gated` are never dispatched to an agent at all.
 
 ## Definition of done
+
+*Now* (ADR-0051): items 1, 2, 4, 5, 6 and 7 apply, with a story id in place of a Jira key; item 3
+is the reviewer's check that a diff stays inside the story's Paths in the roadmap; items 8 and 9 are
+suspended with the board. Items 2 and 4's commands are `pnpm precheck`, `pnpm check` and the gates
+the story names.
 
 1. Every acceptance criterion is checked by a test or gate **in the same PR**.
 2. `pnpm build typecheck lint test` green, plus every `pnpm gate:*` that touches the story's paths.
@@ -277,12 +294,11 @@ runs the story is parked with the conflict named.
 A phase ends in a release. There is no release branch; `main` is always releasable.
 
 1. Phase's stories all Done, taste review closed, budgets green.
-2. On reference hardware, before the tag: `MARXY_PERF_ENV=reference` so
-   `scripts/measure-startup.mjs` writes `results/perf.json`, then `pnpm gate:perf`. Attach that
-   artifact to the tag. The record must carry `cold_launches_n` of at least 5 and a non-empty
-   `cold_procedure`. **A tag states no cold-start duration.** CI only ever proves a runner did
-   not get slower; this is the measurement a release carries, not a ceiling it claims
-   (ADR-0022 Amendment 2).
+2. On reference hardware, before the tag: `MARXY_PERF_ENV=reference node scripts/measure-startup.mjs`
+   writes `results/perf-startup.json`; attach that artifact to the tag. The record must carry
+   `cold_launches_n` of at least 5 and a non-empty `cold_procedure`; the script refuses one that
+   does not. **A tag states no cold-start duration.** Nothing gates a number (ADR-0032); this is the
+   measurement a release carries, not a ceiling it claims (ADR-0022 Amendment 2).
 
    The cold-making step — which the script runs before each of the k launches, and which a
    person can follow by hand — is: kill any running Marxy process; purge the OS file cache
@@ -294,8 +310,8 @@ A phase ends in a release. There is no release branch; `main` is always releasab
 4. `git tag v0.2.0 && git push --tags` — the release workflow builds the DMG, AppImage and .deb.
 5. Install each artifact and open `fixtures/corpus/02-readme-real-world.md`. This is manual on
    purpose: it is the one thing CI cannot tell you.
-6. `node orchestration/jira.mjs release 2 v0.2.0` — creates the Jira version, releases it, and
-   stamps the phase's issues with it.
+6. While the fleet runs: `node orchestration/jira.mjs release 2 v0.2.0` creates the Jira version,
+   releases it, and stamps the phase's issues with it. Paused with the board (ADR-0051): skip it.
 
 ## Local setup, once
 
