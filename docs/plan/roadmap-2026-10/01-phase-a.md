@@ -1324,6 +1324,43 @@ the process the documents describe.
 - `docs/sdlc.md` carries a release runbook. Point it at `docs/design/14-release.md`, which A-17
   updates, rather than duplicating the steps.
 
+### A-11.1 — Let deferral markers name a story id
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-07 · **Parallel with:** anything outside these paths
+*Added 2026-10-02 by the lead, from the A-11 review.*
+
+**Outcome.** `check-deferrals` accepts a deferral marker that names a roadmap story id (`A-07`, `B-13`,
+`A-14.1`) as well as a `MARXY-nnn` key, so new work no longer has to mint a retired Jira key to leave
+an honest "later" marker. `docs/conventions.md` stops describing the limitation.
+
+**Paths.**
+- `scripts/check-deferrals.mjs` and its test (`scripts/check-deferrals.test.mjs`)
+- `docs/conventions.md` (the sentence about deferral markers only)
+- `changelog.d/A-11.1.md` (new)
+
+**Acceptance.**
+- A marker naming `B-13` (or `A-14.1`) is accepted when allow-listed the same way a `MARXY-` key is;
+  a malformed id (`b-13`, `B-1`) is rejected; existing `MARXY-` behaviour is unchanged. Each case
+  is a test that fails on today's script.
+- `pnpm check` green.
+
+### A-11.2 — Bring the gates design document up to date
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-09, A-10, A-11, B-02 · **Parallel with:** anything else
+*Added 2026-10-02 by the lead, from the A-11 review.*
+
+**Outcome.** `docs/design/10-gates-and-testing.md` describes the CI that exists: the `changes`,
+`conventions`, `fast`, `browser-lite`, `typography` and `rust` jobs and the `ci` verdict on pull
+requests, the nightly jobs, and the aesthetics gate driving the real app (B-02). It points at
+`docs/ci-contract.md` for the commands rather than repeating them. Nothing in it contradicts the contract.
+
+**Paths.**
+- `docs/design/10-gates-and-testing.md`
+- `changelog.d/A-11.2.md` (new)
+
+**Acceptance.** Every job, script and command the document names exists on `main`; a reviewer
+checks each one. No counts that will rot.
+
 ### A-12 — Make the palette list every command whose `when` holds
 
 **Model:** sonnet · **Size:** M · **Depends on:** A-07 · **Parallel with:** A-01, A-04, A-08
