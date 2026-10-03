@@ -15,15 +15,18 @@ hits appended, each tagged with its root so the palette can show a dim root name
 The walk is TypeScript, run in the webview over `shell.readDir` (one level at a time) and
 `shell.readFile`; there is no Rust walker (B-05.1). `walkRoot` lists directories with the shell,
 `collectFiles` in `packages/core/src/index-model/` applies the ignore rules (`.gitignore` and
-`.ignore`, nested files scoped to their directory, hidden entries skipped, symlinks not followed)
-and the deny list in `index-model/deny.ts`, and the service (`apps/desktop/src/index/service.ts`)
+`.ignore`, nested files scoped to their directory) and the deny list in `index-model/deny.ts`.
+`shell.readDir` (the Rust `read_dir` command) omits every symlink, so the walk never leaves the
+root. Hidden entries are not skipped; only the deny list and the extension allow-list narrow the
+walk. The service (`apps/desktop/src/index/service.ts`)
 schedules it on the idle queue so it never precedes first paint.
 
 `DENY_DIRECTORY_NAMES` (`index-model/deny.ts`) is the deny list; a gitignore `!` cannot undo it.
 Extension allow-list, by kind: `markdown: md, markdown, mdx, txt`; `source: ts, tsx, js, mjs, cjs,
 rs, py, go, java, kt, swift, c, h, cpp, hpp, cs, rb, php, sh, bash, zsh, css, scss, html, json,
 jsonc, toml, yaml, yml, xml, sql, dockerfile, makefile, ini, cfg`; `theme: css` under a
-directory containing `theme.toml`. Anything else is skipped. Headings are read from the first 256 KB of a file (`HEADING_SCAN_BYTES`).
+directory containing `theme.toml`. Anything else is skipped. Headings are read from the first 256 KB of a
+file (`HEADING_SCAN_BYTES`).
 
 Ceiling `INDEX_LIMITS.entriesPerRoot = 50 000`: the walk always completes (it is cheap; only
 paths and stats are collected), the entries are sorted by `mtimeMs` descending, the first 50 000
@@ -72,8 +75,8 @@ Frecency, computed in the app from `history.json` opens: `f = Σ 0.5^(ageDays / 
 last 20 opens of that path (half-life one week). Final rank: `score × (1 + 0.25 × min(f, 4))`.
 Ties by mtime descending. The palette shows 12.
 
-Budget: keystroke → results painted < 16 ms. Scoring runs in the webview with no IPC; rendering 12 rows ~1 ms. The palette debounces nothing; every keystroke
-queries. Results are keyed by path so re-rendering reuses rows.
+Budget: keystroke → results painted < 16 ms. Scoring runs in the webview with no IPC;
+rendering 12 rows ~1 ms. The palette debounces nothing; every keystroke queries. Results are keyed by path so re-rendering reuses rows.
 
 ## Palette (`apps/desktop/src/palette/`)
 
