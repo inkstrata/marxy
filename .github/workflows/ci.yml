@@ -77,6 +77,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # The import-graph half: production main.ts must not reach the memory shell or the harness. Cheap
+      # without a build; the rust job runs it again over the built dist.
+      - run: pnpm gate:bundle
       - if: needs.changes.outputs.fleet == 'true'
         run: pnpm test:fleet
       - name: CommonMark spec selftest
@@ -226,22 +229,15 @@ jobs:
           if-no-files-found: ignore
 
   # The one status check branch protection requires. It runs whatever happened above, so it reports on
-  # every pull request, path-filtered or docs-only. Skipped jobs are fine; failed or cancelled ones are
-  # not, and neither is a `changes` that did not answer every output, since a missing answer would
-  # skip the job it gates and pass.
+  # every pull request, path-filtered or docs-only; scripts/ci-verdict.mjs says what turns it red.
   ci:
     needs: [changes, conventions, fast, browser, typography, rust]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
+      - uses: actions/checkout@v4
       - name: Every job that ran succeeded
-        run: |
-          echo '${{ toJSON(needs) }}' | node -e '
-            const needs = JSON.parse(require("fs").readFileSync(0, "utf8"));
-            const bad = Object.entries(needs).filter(([, v]) => v.result === "failure" || v.result === "cancelled");
-            for (const [k, v] of Object.entries(needs)) console.log(`${v.result === "success" ? "✓" : v.result === "skipped" ? "·" : "✗"} ${k}: ${v.result}`);
-            const outputs = needs.changes?.outputs ?? {};
-            const unanswered = ["docs_only", "web", "typography", "rust", "fleet", "lockfile"].filter(k => outputs[k] !== "true" && outputs[k] !== "false");
-            if (needs.changes?.result === "success" && unanswered.length) { console.error(`changes did not answer: ${unanswered.join(", ")}`); bad.push(["changes"]); }
-            if (bad.length) { console.error(`failed: ${bad.map(([k]) => k).join(", ")}`); process.exit(1); }'
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-verdict.mjs

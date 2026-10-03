@@ -26,11 +26,20 @@ const isDoc = f => !BOARD_OR_CODE.test(f) && (/^(docs\/|orchestration\/|\.cursor
 // Anything the browser job's gates and the desktop suite can see (unchanged by A-09).
 const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|vite\.config|package\.json|scripts)|fixtures\/|scripts\/|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/;
 
-// What gate:aesthetics and gate:specimen render: the theme, the typesetter, the parse → render →
-// sanitise path, the corpus and fonts, and the gates themselves. The last three entries are what
-// gate-aesthetics.mjs itself loads (the headless render entry and its Vite config, the @font-face
-// sheet, and the WebKit launcher), so a change to them cannot skip the gate that runs them.
-const TYPOGRAPHY = /^(packages\/theme\/|packages\/typeset\/|packages\/core\/src\/(render|sanitize|parse)\/|fixtures\/|fonts\/|apps\/desktop\/index\.html$|scripts\/gate-aesthetics\.mjs$|scripts\/specimen\/|apps\/desktop\/src\/render\/|apps\/desktop\/src\/fonts\/|scripts\/playwright-webkit\.mjs$)/;
+// What gate:aesthetics and gate:specimen render: the theme, the typesetter, the corpus, the fonts and
+// the gates themselves, and everything gate-aesthetics.mjs loads into the page: the headless render
+// entry (apps/desktop/src/render/headless.ts, built by src/render/vite.config.ts) and every module
+// its import graph reaches in core (through @marxy/core's index: parse, render, sanitise, buffer,
+// contracts, index model, outline, source map) and in the desktop app (theme/offset.ts), the
+// @font-face sheet and the WebKit launcher. ci-changes.test.mjs walks that graph and fails when it
+// reaches a file this set misses. Highlighting, the idle-work scheduler and selection are listed
+// too: the rendered page uses them, though the static graph from headless.ts does not reach them today.
+const TYPOGRAPHY = new RegExp('^(' + [
+  'packages/theme/', 'packages/typeset/', 'fixtures/', 'fonts/', 'scripts/specimen/',
+  'scripts/gate-aesthetics\\.mjs$', 'scripts/playwright-webkit\\.mjs$', 'apps/desktop/index\\.html$',
+  'packages/core/src/(index\\.ts$|render/|sanitize/|parse/|buffer/|contracts/|index-model/|outline/|sourcemap/|highlight/)',
+  'apps/desktop/src/(render/|fonts/|theme/|selection/|startup/idle-work\\.ts$)',
+].join('|') + ')');
 
 // What the Rust job builds and runs: the Tauri crate (tauri.conf.json and Cargo.lock live in it), the
 // Vite config whose output the binary embeds, the command-line smoke, and the toolchain pins.
@@ -59,7 +68,7 @@ export function classify(files) {
   return {
     docs_only: files.length > 0 && files.every(isDoc),
     web: any(WEB),
-    typography: any(TYPOGRAPHY),
+    typography: files.some(f => !isDoc(f) && TYPOGRAPHY.test(f)),
     rust: any(RUST),
     fleet: files.some(f => !isDoc(f) && (FLEET.test(f) || BOARD_OR_CODE.test(f))),
     lockfile: any(LOCKFILE),
