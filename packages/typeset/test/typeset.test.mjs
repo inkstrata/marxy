@@ -449,6 +449,103 @@ test('a marker written into a set paragraph after setting is set again, before p
   await page.close();
 });
 
+/** Paragraphs with three links each, like a link-heavy README (the reviewer's 1.1 MB probe, smaller). */
+const linkParagraphs = (n) => Array.from({ length: n }, (_, i) =>
+  `<p data-marxy-s="${i}">Paragraph ${i} has a <a href="https://example.com/a/${i}">first link</a> and another <a href="https://docs.example.org/guide/${i}">second link</a> plus a third <a href="https://github.com/org/repo/issues/${i}">third</a> in running prose that wraps over several lines so the typesetter has real work to do here.</p>`).join('');
+
+/** In-page: a marker element as the app's invisible-character pass writes it. */
+const markerSource = `(label) => {
+  const mark = document.createElement('code');
+  mark.className = 'marxy-invisible';
+  const glyph = document.createElement('code');
+  glyph.className = 'marxy-invisible-glyph';
+  glyph.textContent = label;
+  const byte = document.createElement('code');
+  byte.className = 'marxy-invisible-byte';
+  byte.textContent = '\\u00a0';
+  mark.append(glyph, byte);
+  return mark;
+}`;
+
+// Bounds with headroom over a loaded machine: unbounded, the first case cost ~1 ms a paragraph
+// (≈ 390 ms here, ~5 ms after) and the second set every touched paragraph in one task (≈ 250 ms,
+// ~80 ms after); the second case is told apart by how many paragraphs it sets in the task.
+const HIDDEN_LABELS_MS = 50;
+const OFFSCREEN_MARKERS_MS = 200;
+
+test('hidden labels written into many set paragraphs cost reads only and leave every line as it was (B-02.3)', async () => {
+  const page = await harness.open(linkParagraphs(400), { width: 640 });
+  await attach(page);
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const before = doc.innerHTML;
+    const set = window.controller.stats.typeset;
+    // As the app's link-destination pass writes them: `display: none` until hover (base.css).
+    for (const a of doc.querySelectorAll('a[href]')) {
+      const el = document.createElement('code');
+      el.className = 'marxy-link-dest';
+      el.textContent = new URL(a.href).host;
+      a.append(el);
+    }
+    const t0 = performance.now();
+    await Promise.resolve();
+    const ms = performance.now() - t0;
+    for (const el of doc.querySelectorAll('.marxy-link-dest')) el.remove();
+    return { ms, same: doc.innerHTML === before, set, after: window.controller.stats.typeset };
+  });
+  console.log(`# hidden labels: ${r.ms.toFixed(1)} ms`);
+  assert.ok(r.set > 300, `the paragraphs were set: ${r.set}`);
+  assert.ok(r.ms < HIDDEN_LABELS_MS, `the change watcher took ${r.ms.toFixed(1)} ms for 1200 hidden labels (bound ${HIDDEN_LABELS_MS} ms)`);
+  assert.equal(r.same, true, 'every break is where it was');
+  assert.equal(r.after, r.set);
+  await page.close();
+});
+
+test('markers written into many set paragraphs re-set only those near the viewport in the task; the rest wait for idle (B-02.3)', async () => {
+  const page = await harness.open(linkParagraphs(300), { width: 320 });
+  const r = await page.evaluate(async (markerSource) => {
+    const marker = (0, eval)(markerSource);
+    const doc = document.getElementById('doc');
+    // A scheduler the test drains by hand, so the idle chunks are seen to be separate from the change.
+    const pending = [];
+    const scheduler = { schedule: (work) => pending.push(work) };
+    const drain = () => { while (pending.length) pending.shift()(() => Number.POSITIVE_INFINITY); };
+    window.controller = window.typeset.attach(doc, { lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler });
+    await window.controller.ready;
+    drain();
+    await window.controller.done;
+    const set = doc.querySelectorAll('.marxy-set').length;
+    // A wide marker in the middle of every paragraph's fullest line.
+    for (const p of doc.querySelectorAll('p.marxy-set')) {
+      const lbs = [...p.querySelectorAll('.marxy-lb')];
+      const fullest = lbs.reduce((a, b) => (b.getBoundingClientRect().left > a.getBoundingClientRect().left ? b : a));
+      fullest.before(marker('U+00A0 NBSP'));
+    }
+    const t0 = performance.now();
+    await Promise.resolve();
+    const ms = performance.now() - t0;
+    const overfull = () => [...doc.querySelectorAll('p')].filter((p) => {
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      const right = p.getBoundingClientRect().right;
+      return [...range.getClientRects()].some((x) => x.width > 0 && x.right > right + 0.5);
+    }).length;
+    const inTask = { set: doc.querySelectorAll('.marxy-set').length, overfull: overfull(), queued: pending.length };
+    drain();
+    await window.controller.done;
+    return { ms, set, inTask, after: { set: doc.querySelectorAll('.marxy-set').length, overfull: overfull() } };
+  }, markerSource);
+  console.log(`# markers: ${JSON.stringify(r)}`);
+  assert.ok(r.set > 250, `the paragraphs were set: ${r.set}`);
+  assert.ok(r.ms < OFFSCREEN_MARKERS_MS, `the change watcher took ${r.ms.toFixed(1)} ms for ${r.set} paragraphs (bound ${OFFSCREEN_MARKERS_MS} ms)`);
+  assert.ok(r.inTask.set < r.set / 4, `only paragraphs near the viewport are set again in the task: ${JSON.stringify(r.inTask)}`);
+  assert.equal(r.inTask.overfull, 0, 'nothing is overfull meanwhile: the rest wrap natively');
+  assert.ok(r.inTask.queued > 0, 'the rest are queued to the idle chunks');
+  assert.equal(r.after.overfull, 0);
+  assert.ok(r.after.set > 250, `idle sets them again: ${JSON.stringify(r.after)}`);
+  await page.close();
+});
+
 /**
  * Moves every top-level node of the article from index `k` on into an inert holder, then puts the
  * head on the grid; `window.__appendTail()` appends the tail back and returns its first element.

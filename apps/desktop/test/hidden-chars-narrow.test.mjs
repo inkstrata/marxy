@@ -70,6 +70,9 @@ async function renderNarrow(width) {
       const root = document.documentElement;
       const article = document.getElementById('doc');
       const box = article.getBoundingClientRect();
+      const cs = getComputedStyle(article);
+      // The content box: text set to the measure ends there, not at the border box's padding edge.
+      const contentRight = box.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight);
       const lb = [...article.querySelectorAll('span.marxy-lb')].map((s) => s.getBoundingClientRect().right);
       const markers = article.querySelectorAll('p .marxy-invisible').length;
       const set = article.querySelectorAll('p.marxy-set').length;
@@ -82,7 +85,7 @@ async function renderNarrow(width) {
       return {
         scrollWidth: Math.max(root.scrollWidth, document.body.scrollWidth),
         clientWidth: root.clientWidth,
-        articleRight: box.right,
+        articleRight: contentRight,
         lbRight: lb.length ? Math.max(...lb) : 0,
         textRight: lines.length ? Math.max(...lines) : 0,
         markers,
@@ -94,14 +97,14 @@ async function renderNarrow(width) {
   }
 }
 
-for (const mode of ['320px', '400% zoom']) {
-  test(`29-hidden-characters at ${mode} dark has no horizontal scroll and no set line past the article`, async () => {
-    const r = await renderNarrow(320);
-    console.log(`# 29-hidden-characters ${mode}: ${JSON.stringify(r)}`);
-    assert.ok(r.markers > 0, 'the paragraphs carry invisible-character markers');
-    assert.ok(r.set > 0, 'the typesetter set some paragraphs');
-    assert.ok(r.scrollWidth <= 320, `horizontal scroll ${r.scrollWidth}px > 320px viewport`);
-    assert.ok(r.lbRight <= r.articleRight + 0.5, `a line break ends at ${r.lbRight}px, past the article's ${r.articleRight}px`);
-    assert.ok(r.textRight <= r.articleRight + 0.5, `a set line ends at ${r.textRight}px, past the article's ${r.articleRight}px`);
-  });
-}
+// The gate's `320px` and `400% zoom` reflow modes render the same page (320 CSS px wide, dark,
+// size 20), so one render covers both.
+test('29-hidden-characters at 320 px dark (the gate\'s 320px and 400% zoom modes) has no horizontal scroll and no set line past the measure', async () => {
+  const r = await renderNarrow(320);
+  console.log(`# 29-hidden-characters 320 px: ${JSON.stringify(r)}`);
+  assert.ok(r.markers > 0, 'the paragraphs carry invisible-character markers');
+  assert.ok(r.set > 0, 'the typesetter set some paragraphs');
+  assert.ok(r.scrollWidth <= 320, `horizontal scroll ${r.scrollWidth}px > 320px viewport`);
+  assert.ok(r.lbRight <= r.articleRight + 0.5, `a line break ends at ${r.lbRight}px, past the article's content edge at ${r.articleRight}px`);
+  assert.ok(r.textRight <= r.articleRight + 0.5, `a set line ends at ${r.textRight}px, past the article's content edge at ${r.articleRight}px`);
+});
