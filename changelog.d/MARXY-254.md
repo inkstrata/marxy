@@ -1,1 +1,0 @@
-Nightly monitoring now drives a release build through `tauri-driver` and WebKitWebDriver: open a CRLF fixture by argv, toggle a task, compare bytes on disk, and assert the palette's runtime styles still apply (MARXY-254)

@@ -1,1 +1,0 @@
-An audit corpus under docs/research/audit-2026-10 evaluates the codebase, the orchestrator, the binding decisions, performance and three feature directions, and five new fixture texts join the corpus: a pasted assistant answer, an issue thread, a notebook export, a long essay and a 230 KB reference (MARXY-346)
