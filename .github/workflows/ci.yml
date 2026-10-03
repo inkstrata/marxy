@@ -77,6 +77,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # Seconds, node only: the named palette tests must fail with searchPrepared switched off (A-10).
+      - run: pnpm --filter @marxy/desktop test:mutations
       # The import-graph half: production main.ts must not reach the memory shell or the harness. Cheap
       # without a build; the rust job runs it again over the built dist.
       - run: pnpm gate:bundle
@@ -109,8 +111,9 @@ jobs:
 
   # Browser gates in the official Playwright image: browsers and their system libraries are already
   # there. Pull requests and merge groups only: the push to main proves a tree its pull request proved.
-  # The desktop suite here is `test:lite` (A-10): the eighteen files that guard save, trust, data loss,
-  # close, reload, open, selection, persistence, the index and progressive rendering. The full suite,
+  # The desktop suite here is `test:lite` (A-10): the files that guard save, trust, data loss, close,
+  # reload, open, selection, persistence, the index and progressive rendering, and the three that hold
+  # "nothing phones home" (release CSP, remote images blocked, themes make no request). The full suite,
   # the mutation check and the typeset, theme and core WebKit tests run in nightly.yml's browser-full.
   browser-lite:
     needs: changes
@@ -132,8 +135,11 @@ jobs:
       # The desktop suite's WebKit tests (live reload, the open path, operations, Source mode) skip in
       # `fast`, which has no browser; here WebKit is in the image, so a skip would be a lie and is
       # refused. Nothing ran them on a pull request before MARXY-247, and the edit-after-reload data
-      # loss MARXY-246 fixed reached main through that gap. No lite file compiles Rust, so the C linker
-      # images.test.mjs needs is installed only in the nightly browser-full job.
+      # loss MARXY-246 fixed reached main through that gap.
+      # images.test.mjs (remote images stay blocked) compiles a small Rust crate, and the Playwright
+      # image ships no C linker for cargo's build scripts.
+      - name: A C linker for the desktop suite's Rust test
+        run: apt-get update -qq && apt-get install -y -qq build-essential
       - name: Desktop lite suite with WebKit required
         run: pnpm --filter @marxy/desktop test:lite
         env:
