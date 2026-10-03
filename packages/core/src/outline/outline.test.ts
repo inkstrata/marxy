@@ -40,9 +40,9 @@ function sourceFiles(directory: URL, prefix = ''): { path: string; text: string 
   return files;
 }
 
-// Frozen surfaces only. package.json, scripts and apps/desktop were MARXY-109's own
-// PR boundary, not a standing lock — later core stories (MARXY-77) need those paths.
-const FORBIDDEN_PREFIXES = ['packages/core/src/contracts', 'packages/core/src/sanitize'];
+// The sanitiser only (CODEOWNERS protects it; contracts are reviewed, not locked, ADR-0045).
+// package.json, scripts and apps/desktop were MARXY-109's own PR boundary, not a standing lock — later core stories (MARXY-77) need those paths.
+const FORBIDDEN_PREFIXES = ['packages/core/src/sanitize'];
 
 type GitExec = (
   file: string,
@@ -198,7 +198,7 @@ test('no file under packages/core/src/outline imports apps/desktop or packages/s
   assert.deepEqual(offenders, []);
 });
 
-test('the three-dot diff does not contain contracts or sanitize', (t) => {
+test('the three-dot diff does not contain sanitize', (t) => {
   const base = resolveThreeDotBase({ cwd: repoRoot });
   if (!base) {
     t.skip('neither origin/main nor main is a resolvable git ref');
@@ -292,7 +292,7 @@ test('the three-dot forbidden-path check asserts prefixes are absent when a base
 });
 
 test('the three-dot forbidden-path check fails when a forbidden prefix is in the name list', () => {
-  for (const file of ['packages/core/src/contracts/ast.ts', 'packages/core/src/sanitize/sanitize.ts']) {
+  for (const file of ['packages/core/src/sanitize/sanitize.ts']) {
     assert.throws(() =>
       runThreeDotForbiddenCheck({
         resolveBase: () => 'main',
@@ -303,6 +303,16 @@ test('the three-dot forbidden-path check fails when a forbidden prefix is in the
       }),
     );
   }
+});
+
+test('the three-dot forbidden-path check allows a contract file (ADR-0045)', () => {
+  runThreeDotForbiddenCheck({
+    resolveBase: () => 'main',
+    listNames: () => ['packages/core/src/contracts/ast.ts'],
+    skip: () => {
+      throw new Error('must not skip when a base resolves');
+    },
+  });
 });
 
 test('the three-dot forbidden-path check allows package.json, scripts and apps/desktop', () => {

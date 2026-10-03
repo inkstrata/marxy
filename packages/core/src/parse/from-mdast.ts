@@ -1,4 +1,4 @@
-// Converts one mdast tree into the frozen marxy AST, giving every node byte provenance (ADR-0003).
+// Converts one mdast tree into the marxy AST, giving every node byte provenance (ADR-0003).
 // mdast is the shape micromark hands us; the AST in ../contracts/ast.ts is what the rest of marxy
 // reads. Nothing here re-scans or re-parses source text: positions come from mdast, offsets from
 // the one byte-offset table built for the document.
