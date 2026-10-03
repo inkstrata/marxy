@@ -109,7 +109,7 @@ now settled:
 
 | # | The old document said | The code and the measurement said | Now |
 | --- | --- | --- | --- |
-| 1 | `browser` takes 165 s, a pull request 277 s | `browser` median 708 s, a pull-request run median 743 s (n=14); the desktop suite alone was 407 to 478 s | no figure is promised; `browser-lite` runs the eighteen files that guard data loss, trust and the open path, and everything else is nightly (A-10) |
+| 1 | `browser` takes 165 s, a pull request 277 s | `browser` median 708 s, a pull-request run median 743 s (n=14); the desktop suite alone was 407 to 478 s | no figure is promised; `browser-lite` runs the files listed in `test:lite` (`apps/desktop/package.json`), the ones that guard data loss, trust and the open path, and everything else is nightly (A-10) |
 | 2 | apt packages are cached with `cache-apt-pkgs-action` | `ci.yml` uses plain `apt-get` on purpose: the action dropped `glib-2.0.pc`, so clippy and the build could not find glib on a cache hit and `main` went red | plain apt, and `check-workflows` fails a Linux cargo job that does not probe `glib-2.0` and install `dbus` |
 | 3 | `conventions` is "the job that fails most" | of 36 red runs `conventions` failed in 2, `fast` in 19 and `browser` in 15 | `conventions` now lints the title only; `fast` is where a red is most likely, and its causes are the first rows of `docs/ci-contract.md` |
 | 4 | one document said `-F strict=true`, the other `strict=false` | protection is `strict=false` (ADR-0040) | `strict=false` everywhere; the command is in `docs/ci-contract.md` |

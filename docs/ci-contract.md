@@ -69,7 +69,7 @@ the fleet era**. CI runs none of them.
 | `changes` | always | classifies the diff into `docs_only`, `web`, `typography`, `rust`, `fleet` and `lockfile`, and writes the six answers the other jobs read | `node scripts/ci-changes.mjs origin/main` |
 | `conventions` | pull requests only | lints the pull-request **title** as a squash subject (a `[human]` or `(signed)` prefix from the paused fleet is stripped first) | `PR_TITLE='docs(ci): your title (A-11)' node orchestration/pr-mark.mjs --bare \| pnpm exec commitlint --verbose` |
 | `fast` | not docs-only | `pnpm check`, typecheck, lint, unit tests, the desktop palette mutation check, the import-graph half of the bundle gate, `pnpm test:fleet` when `fleet`, the CommonMark spec, goldens, fidelity, licences | `pnpm check && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @marxy/desktop test:mutations && pnpm gate:bundle && pnpm test:fleet && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
-| `browser-lite` | `web` changed, not a push to `main` | the no-network gate, then the desktop **lite** suite (twenty-one files: save, trust, data loss, close, reload, open, selection, persistence, the index, progressive rendering, and the three that hold "nothing phones home": release CSP, remote images blocked, themes make no request) in WebKit, which is required, in the pinned Playwright container, after installing a C linker for the images test's small Rust crate; about nine minutes, most of it the tests | `pnpm gate:no-network && MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite` |
+| `browser-lite` | `web` changed, not a push to `main` | the no-network gate, then the desktop **lite** suite (the files named in `test:lite` in `apps/desktop/package.json`: save, trust, data loss, close, reload, open, selection, persistence, the index, progressive rendering, and the three that hold "nothing phones home": release CSP, remote images blocked, themes make no request) in WebKit, which is required, in the pinned Playwright container, after installing a C linker for the images test's small Rust crate; about nine minutes, most of it the tests | `pnpm gate:no-network && MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite` |
 | `typography` | `typography` or `lockfile` changed, not a push to `main` | the **mechanical** half of the aesthetics gate, and the specimen gate, in the Playwright container | `node scripts/gate-aesthetics.mjs --mechanical && pnpm gate:specimen` |
 | `rust` | `rust` or `lockfile` changed, not a push to `main` | Ubuntu only: Rust format and clippy, the frontend, `cargo build --profile ci`, the licence gate over the populated cargo cache, the CLI smoke on the built binary, Rust unit tests, the bundle gate | the block below |
 | `ci` | always | the required check, above | `scripts/ci-verdict.mjs`, above |
@@ -129,9 +129,13 @@ eight hygiene checks together; each also runs alone as `node scripts/<name>.mjs`
 | Symptom | Cause | Fix and local command |
 | --- | --- | --- |
 | `marxy-ref-in-subject` | a trailing `(...)` that looks like a ref but is not `(MARXY-n)` or a story id like `(A-07)`; the ref itself is optional | rewrite the subject; a squash-appended ` (#nn)` after the ref is allowed |
-| `type-enum`, `scope-enum` | type or scope outside the list | types: `feat fix perf refactor docs test build ci chore style revert`; scopes: `core typeset theme shell desktop corpus gates ci docs orchestration release fonts repo workspace bootstrap spike` |
+| `type-enum` | a type outside the list | `feat fix perf refactor docs test build ci chore style revert` |
 | `header-max-length` | title over 100 characters, ref included | shorten; aim for about 72 |
+| `subject-full-stop` | the subject ends in a full stop | remove it |
+| `footer-leading-blank` | no blank line before the footer (`Refs:`, `ADR:`) | add one |
 | `body-leading-blank` | no blank line after the subject (a commit, not the title) | add one; a body is expected for `feat`, `fix`, `perf`, `refactor` |
+
+A scope outside the list only **warns** (`scope-enum` is level 1): `core typeset theme shell desktop corpus gates ci docs orchestration release fonts repo workspace bootstrap spike`. So do body and footer lines over 100 characters.
 
 Reproduce the title with the `conventions` row above; `pnpm lint:commits` lints every commit on
 your branch against `origin/main` (CI does not run it, the commit hook does, and the rules are
@@ -197,7 +201,7 @@ it cannot turn a pull request red, and a red nightly is a note for the next pers
 | Job | What it watches | Local command |
 | --- | --- | --- |
 | `aesthetics-determinism` | the aesthetics gate with three CLS repeat passes against `main` | `node scripts/gate-aesthetics.mjs --repeat 3` |
-| `browser-full` | the full desktop suite, and the theme, typeset and core suites, all with WebKit required. **Currently red** on two never-run WebKit tests (theme: pair-a-tune code x-height; core: MARXY-28 inline-math screenshot) pending the author's ruling | `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test`, then each package's `test` |
+| `browser-full` | the full desktop suite, and the theme, typeset and core suites, all with WebKit required | `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test`, then each package's `test` |
 | `perf-harness` | the performance harness over the corpus and a 256 KB and a 1 MB document, recorded to `results/perf-nightly.json`; **numbers are recorded, not gated** (ADR-0032) | `pnpm --filter @marxy/desktop build:web && pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --record results/perf-nightly.json` |
 | `startup-macos` | the macOS build, CLI smoke, Rust unit tests and the nine-launch start-up measurement | `node scripts/measure-startup.mjs --selftest`, then `node scripts/measure-startup.mjs` with `MARXY_BIN` set |
 | `rust-linux` | the Linux Rust job again, with nightly caches | the `rust` block above |

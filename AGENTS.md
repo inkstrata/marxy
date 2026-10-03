@@ -83,7 +83,7 @@ Privileged work (files, watching, dialogs, clipboard) goes through the thin
 | `packages/theme` | the default theme, the `--marxy-*` custom-property contract, theme loading and validation | none |
 | `packages/shell-api` | the privileged-operation interface (types only) | none |
 | `apps/desktop` | the Tauri shell implementing `shell-api`; the app UI (palette, outline, find, modes) | all of the above |
-| `fixtures/corpus` | the fixture corpus that golden files, screenshots and perf gates run on | — |
+| `fixtures/corpus` | the fixture corpus that goldens, the aesthetics gates and the nightly perf harness run on | — |
 | `scripts/` | CI gates | — |
 
 `scripts/check-boundaries.mjs` enforces this on every build: core takes no DOM and no Node
@@ -204,8 +204,8 @@ sphere of concern, not a merge-bar ceiling.
   chapter it follows, or says why it departs.
 - `docs/research/reader-artifacts/` — a sibling handbook on how to present what is not prose: agent
   artifacts, code and diffs as read, logs and structured data, READMEs, and the trust questions
-  they raise. **Research, not yet an authority:** ADR-0035 is proposed, so its spec lines are
-  recommendations until a story or an accepted ADR applies them. Start at `10-spec.md`; its
+  they raise. **Research, applied by story:** ADR-0035 is accepted (2026-09-26), but its spec lines are
+  recommendations until a story applies them. Start at `10-spec.md`; its
   `gaps.md` lists what the frozen contracts cannot express, as draft ADRs.
 - `docs/adr/` — every decision that constrains implementation. Read the index.
 - `docs/decisions.md` — the open questions resolved at handoff, and what has been overturned since.

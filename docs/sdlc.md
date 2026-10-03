@@ -8,7 +8,8 @@
 > Conventional Commits subject, a `changelog.d/<id>.md` fragment, green product gates and one
 > review, and the author merges by squash (`docs/ci-contract.md`). None of it needs a Jira key, board row,
 > result file or enforced PR body. The sections **The board**, **Definition of ready**, **The loop,
-> per story**, **Work outside the plan**, **Review order**, **Cadence** and **Credentials** describe the
+> per story**, **Work outside the plan**, **Review order**, **Cadence**, **Credentials** and **Which of the four definition-of-done commands may skip** (it
+> names `pnpm done` and `open-pr`) describe the
 > suspended fleet and are kept as the record of how to resume it. **Definition of done** and
 > **Release runbook** are still read, with the notes marked *now* below.
 
