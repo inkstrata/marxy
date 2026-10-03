@@ -52,7 +52,7 @@ import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-doc
 import { parseConfig } from '@marxy/theme';
 import { applyReaderConfig, readReaderConfig, takeConfigRead } from './theme/reader-config.ts';
 import { resolveThemeDir, startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
-import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
+import { createLaunchMeasure, t0, type LaunchMeasure, type RenderEvidence } from './startup/measure.ts';
 import { type ApplyImagesContext } from './render/images.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from './startup/idle-work.ts';
 import { mountProgressively, type ProgressiveMount } from './render/progressive.ts';
@@ -181,8 +181,6 @@ export type AppHandle = {
    */
   relayout(): Promise<void>;
 };
-
-const t0 = Date.now();
 
 const state: { document: OpenDocument | null } = { document: null };
 
@@ -341,25 +339,10 @@ function sourceHarness(): ReturnType<AppHandle['sourceHarness']> {
   return { mode: viewMode, bufferHash: contentHash(documentBuffer.bytes), byteOffset };
 }
 
-/**
- * Counts animation frames from the moment the script runs, independently of anything below. The
- * paint mark reports how many frames passed between the DOM mutation and `first_text`, and the CLI
- * smoke check asserts that count is at least two — because a mark that only *claims* to be after
- * the paint would silently make every cold-start number optimistic (ADR-0013). The counter lives
- * out here, not inside waitForEnginePaint(), so that a wait which never actually waited still
- * reports frames=0 and fails the check instead of passing quietly.
- */
-let framesObserved = 0;
-let observing = true;
-const observeFrame = () => { framesObserved += 1; if (observing) requestAnimationFrame(observeFrame); };
-requestAnimationFrame(observeFrame);
-
 /** Sanitised (or empty-state) HTML into `#doc`. `app.ts` is in registry.innerHtmlAllowedIn. */
 function assignHtml(doc: HTMLElement, html: string): void {
   doc.innerHTML = html;
 }
-
-interface RenderEvidence { readonly blocks: number; readonly chars: number; readonly heading: string }
 
 /** The source bytes the article holds so far: the end of its last block with provenance. */
 function mountedBytes(doc: HTMLElement): number {
@@ -370,17 +353,11 @@ function mountedBytes(doc: HTMLElement): number {
   return 0;
 }
 
-/** Evidence that the document actually reached the DOM, for the CLI smoke check. */
-function renderEvidence(doc: HTMLElement): RenderEvidence {
-  return {
-    blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length,
-    chars: doc.textContent?.length ?? 0,
-    heading: doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '',
-  };
-}
-
-/** The arguments this launch was given, kept so the error path can honour the flag too. */
+/** The arguments this launch was given (or the shell reported), for the document and the flags. */
 let launchArgs: readonly string[] = [];
+
+/** This launch's measurement (B-08): frame counter, harness detection, first text and the exit code. */
+let measure: LaunchMeasure;
 
 /** The palette index for this launch; created by startApp (A-04). */
 let index: IndexService;
@@ -599,29 +576,6 @@ async function maybeRerenderForLateTrust(doc: HTMLElement): Promise<void> {
 
 /** Asset-protocol roots allowed this session (post-pass 3). */
 const scopedAssetRoots = new Set<string>();
-
-/** True when a harness launched us: the startup harness sets the env var, the flag is for a person. */
-async function inHarness(): Promise<boolean> {
-  if (launchArgs.includes('--quit-after-paint')) return true;
-  try {
-    return Boolean((await shell.startupMarks()).quit_after_paint);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Every path ends here: the frame observer stops so an idle window is not woken once a frame, and a
- * harness launch exits with a code that says whether it painted. Harness mode is resolved here rather
- * than before the render so that its IPC round trip stays out of the measured path.
- */
-let settleReady: (code: number) => void = () => {};
-
-async function finish(code: number): Promise<void> {
-  observing = false;
-  settleReady(code);
-  if (await inHarness()) await shell.quit(code);
-}
 
 /**
  * The grid pass (ADR-0030), now and whenever heights can change under it: when fonts arrive and
@@ -1382,7 +1336,7 @@ async function openDocumentThroughRenderMark(
   // The grid pass also builds the block list the reading position is read from.
   keepOnGrid(doc);
   landOn(landing);
-  const evidence = renderEvidence(doc);
+  const evidence = measure.renderEvidence(doc);
   await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
   return evidence;
 }
@@ -1515,11 +1469,12 @@ function setFrontispiece(doc: HTMLElement): void {
 
 async function boot(): Promise<void> {
   await shell.mark('script_start', t0);
-  // Before anything is laid out, so no weight is set twice. The shell-api has webkitVersion() since
-  // MARXY-94, but AppShell and tauri.ts do not implement it, so Linux takes the table's unknown-version row.
+  // Before anything is laid out, so no weight is set twice. shell-api declares webkitVersion(), but no
+  // desktop shell calls it yet, so the version is null and the table's unknown-version row applies.
   const offset = applyWeightOffset(document.documentElement, platformOf(navigator.userAgent), null);
   void shell.mark('weight_offset', Date.now(), `offset=${offset}`);
   launchArgs = launchArgs.length > 0 ? launchArgs : await shell.args();
+  measure.adoptArgs(launchArgs);
   await shell.mark('args', Date.now(), `n=${launchArgs.length}`);
   // Skip flags and the macOS launcher's -psn_… argument; the first plain argument is the document.
   const file = launchArgs.find(a => !a.startsWith('-'));
@@ -1538,7 +1493,7 @@ async function boot(): Promise<void> {
     if (!piece) assignHtml(doc, '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>');
     await shell.mark('no_document', Date.now(), piece ? `piece=${piece}` : undefined);
     if (piece) setFrontispiece(doc);
-    return finish(0);
+    return measure.finish(0);
   }
 
   const after = performance.now();
@@ -1563,42 +1518,14 @@ async function bootDocument(file: string, doc: HTMLElement, after: number, chunk
   const evidence = await openDocumentThroughRenderMark(file, doc, undefined, chunks.promise);
   const renderedAt = Date.now();
 
-  // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
-  // must not be able to hand the startup measurement a number either — and it has no paint to wait for,
-  // so this runs before the wait. The `no_text` mark also disarms the shell's paint deadline.
-  if (evidence.blocks === 0 || evidence.chars === 0) {
-    await shell.mark('no_text', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars}`);
-    return finish(1);
-  }
-
-  // Hidden text is still in `textContent` and frames still tick; that is not a paint (MARXY-71).
-  if (!isDocVisible(doc)) {
-    await shell.mark('no_paint', Date.now(), 'reason=not-visible');
-    return finish(1);
-  }
-
-  // Counted from here, so the number covers the wait and not the render mark's IPC round trip.
-  // The wait has no deadline of its own: some environments deliver no frames and no paint entries
-  // (a Mac in dark wake, a locked screen) and there it never resolves. A harness launch is ended
-  // by the shell's deadline instead, because WebKit aligns in-page timers in a window that cannot
-  // paint to about 15 s. A reader is left waiting and gets the document when the display wakes.
-  const framesAtRender = framesObserved;
-  const { signal } = await waitForEnginePaint({ after });
-  // One timestamp for both marks: the paint detail costs an IPC round trip and `first_text` must not
-  // be pushed later by the cost of reporting it.
-  const paintedAt = Date.now();
-  const frames = framesObserved - framesAtRender;
-
-  await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt} signal=${signal}`);
-  // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
-  // Anything the check needs beyond the timestamp goes on the `painted` line above.
-  await shell.mark('first_text', paintedAt);
+  const outcome = await measure.waitForFirstText(doc, after, renderedAt);
+  if (outcome !== 'painted') return measure.finish(1);
   chunks.release();
   await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
   setTimeout(() => void startTrustLoad().then(() => maybeRerenderForLateTrust(doc)), 0);
   await indexing;
-  return finish(0);
+  return measure.finish(0);
 }
 
 /**
@@ -1633,6 +1560,7 @@ export async function startApp(
   indexing = Promise.resolve();
   historyTracked = Promise.resolve();
   launchArgs = opts?.argv ? [...opts.argv] : [];
+  measure = createLaunchMeasure(shell, launchArgs);
   readerConfigApplied = false;
   resetDismissedNotices();
   wireTrustRevokeCommands({
@@ -1645,9 +1573,7 @@ export async function startApp(
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
     if (file) void replaceOpenDocument(file);
   });
-  let resolveReady!: () => void;
-  const ready = new Promise<void>((resolve) => { resolveReady = resolve; });
-  settleReady = () => resolveReady();
+  const ready = measure.ready.then(() => {});
   const handle: AppHandle = {
     get state() { return state; },
     dispatch() {},
@@ -1708,7 +1634,7 @@ export async function startApp(
   } catch (e) {
     document.getElementById('doc')!.textContent = String(e);
     await shell.mark('error', Date.now(), String(e));
-    await finish(1);
+    await measure.finish(1);
   }
   return handle;
 }
