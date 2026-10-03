@@ -1889,6 +1889,10 @@ criterion only when hardware exists, so v0.1.0 is macOS only.
 - `README.md`, an "Install" section
 - `docs/design/14-release.md`
 - `changelog.d/A-17.md` (new, folded with the rest)
+- *Added 2026-10-02 by the lead:* `scripts/gate-bundle.mjs` (the installer `katex` grep becomes an
+  entry-chunk check: KaTeX is lazy-loaded on purpose, so the installer always holds its chunk) and,
+  minimally, `orchestration/prompt-handshake.test.mjs` and `orchestration/review-order.mjs` (they look
+  for two lines under `## Unreleased`, which the release fold moves under `## 0.1.0`)
 
 **Build order.**
 1. `release.yml`:
