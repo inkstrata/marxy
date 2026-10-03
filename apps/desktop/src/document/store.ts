@@ -44,7 +44,8 @@ export type Transition =
   | { readonly kind: 'commitSource'; readonly edit: Edit }
   | { readonly kind: 'undo'; readonly edit: Edit }
   | { readonly kind: 'redo'; readonly edit: Edit }
-  | { readonly kind: 'save'; readonly path: string }
+  /** `renamedFrom` is set when the save went to another path: `path` and `disk` moved together. */
+  | { readonly kind: 'save'; readonly path: string; readonly renamedFrom?: string }
   | { readonly kind: 'rename'; readonly from: string; readonly to: string }
   | { readonly kind: 'close' };
 
@@ -52,16 +53,45 @@ export interface DocumentStore {
   snapshot(): DocumentSnapshot;
   /** Called after every committed transition. A subscriber that throws is logged and skipped. */
   subscribe(cb: (snap: DocumentSnapshot, change: Transition) => void): () => void;
-  /** An operation's splice. False when the replacement equals the bytes it replaces. Never writes. */
-  apply(input: { range: Edit['range']; replacement: string; label: string }): Promise<boolean>;
-  /** Leaving Source: one history entry, labelled `edit in Source`, or false when nothing changed. Never writes. */
-  commitSource(docText: string): Promise<boolean>;
+  /**
+   * An operation's splice; one history entry. Never writes. Resolves false, with the store untouched,
+   * when the replacement equals the bytes it replaces (a no-op) or when `baseVersion` is given and is
+   * not the store's version when this edit's turn comes: the range was resolved against a snapshot
+   * another view's edit has since replaced (ADR-0037 Amendment 1, point 3). Omit `baseVersion` to
+   * apply against whatever the buffer is at that turn. A range outside the buffer or cutting a UTF-8
+   * code point rejects with `splice`'s RangeError, also with the store untouched.
+   */
+  apply(input: { range: Edit['range']; replacement: string; label: string; baseVersion?: number }): Promise<boolean>;
+  /**
+   * Leaving Source: one history entry, labelled `edit in Source`. Never writes. Resolves false when
+   * nothing changed, or on a stale `baseVersion` (as for `apply`).
+   *
+   * `docText` must use the file's own line separator, as the editor does when it sets `lineSeparator`
+   * from `buffer.eol` (no BOM: see `cmDocText`). Core's `foldText` converts LF to CRLF only for an
+   * all-CRLF file; on a mixed-ending file, LF-normalised text is a real difference at every CRLF line
+   * between the first and last change, and those endings are rewritten (pinned in store.test.ts).
+   */
+  commitSource(docText: string, opts?: { baseVersion?: number }): Promise<boolean>;
   undo(): Promise<boolean>;
   redo(): Promise<boolean>;
-  /** New bytes from disk. 'kept' when the buffer has unsaved edits (nothing changes). */
+  /**
+   * New bytes from disk. 'unchanged' when they equal the buffer (`disk` follows) or equal `disk` (the
+   * watcher's echo of our own save, even if the buffer has been edited since: no conflict). 'kept'
+   * only for a real external change while the buffer is dirty: nothing changes. Otherwise
+   * 'reloaded', and history is cleared.
+   */
   reload(bytes: Uint8Array): Promise<'reloaded' | 'unchanged' | 'kept'>;
   save(opts?: { to?: string }): Promise<{ result: 'saved' | 'unchanged' | 'failed'; error?: unknown }>;
+  /**
+   * The file now answers to `to`. History is kept; its entries keep the `range.file` they were made
+   * under, and undo/redo splice the current path regardless.
+   */
   rename(to: string): Promise<void>;
+  /**
+   * Synchronous and outside the queue: it marks the store closed and tells subscribers at once. A
+   * transition already running (an in-flight save) still finishes and commits; one still waiting in
+   * the queue rejects when its turn comes.
+   */
   close(): void;
   /**
    * One queue per store: transitions never interleave (ADR-0037 §2). Every mutator above already runs
@@ -70,11 +100,15 @@ export interface DocumentStore {
   serially<T>(fn: () => Promise<T>): Promise<T>;
 }
 
-/** Undo depth, as `History` in @marxy/core: a long session cannot grow without limit (ADR-0004). */
+/**
+ * Undo depth. Mirrors `DEPTH` in packages/core/src/buffer/history.ts (not exported), so the store and
+ * core's `History` bound a session the same way (ADR-0004).
+ */
 export const HISTORY_DEPTH = 100;
 
 interface State {
   readonly path: string;
+  /** Never null yet: the `null` branches below are for a future `openUntitled`. */
   readonly disk: Uint8Array | null;
   readonly buffer: Buffer;
   readonly ast: Document;
@@ -158,6 +192,9 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     return run;
   };
 
+  /** True when the caller's snapshot version is not the store's: its ranges are stale. */
+  const stale = (baseVersion: number | undefined): boolean => baseVersion !== undefined && baseVersion !== state.version;
+
   /** A mutator's body, on the queue, refused once the store is closed. */
   const transition = <T>(fn: () => T | Promise<T>): Promise<T> =>
     serially(async () => {
@@ -184,6 +221,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
 
     apply(input) {
       return transition(() => {
+        if (stale(input.baseVersion)) return false;
         const range = { file: state.path, start: input.range.start, end: input.range.end };
         const after = encoder.encode(input.replacement);
         const next = splice(state.buffer, range, after);
@@ -195,8 +233,9 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
       });
     },
 
-    commitSource(docText) {
+    commitSource(docText, opts) {
       return transition(() => {
+        if (stale(opts?.baseVersion)) return false;
         const left = leaveSourceMode(state.buffer, docText);
         if (!left.changed || !left.edit) return false;
         const edit = left.edit;
@@ -236,6 +275,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
           }
           return 'unchanged';
         }
+        // Our own save coming back through the watcher, after the reader edited again: not a conflict.
+        if (state.disk !== null && sameBytes(bytes, state.disk)) return 'unchanged';
         if (snap.dirty) return 'kept';
         // A clean reload is a new document: undoing across it would splice bytes the reader never saw.
         // Phase B clears it rather than mapping it through the change (ADR-0037 §3; roadmap 02-phase-b.md).
@@ -249,16 +290,20 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
       return transition(async () => {
         const target = opts?.to ?? state.path;
         if (target === state.path && !snap.dirty) return { result: 'unchanged' as const };
+        const from = state.path;
         const bytes = state.buffer.bytes;
+        // Parse under the new name before writing, so nothing after a successful write can throw.
+        const moved = target === from ? null : { path: target, ...parsed(target, renamed(state.buffer, target)) };
         try {
           await io.writeFileAtomic(target, bytes);
         } catch (error) {
           return { result: 'failed' as const, error };
         }
-        // The write succeeded; from here on nothing can fail, so the store moves. History is untouched.
+        // The write succeeded; the store moves in one transition, so no subscriber ever sees the old
+        // path with the new disk bytes. History is untouched.
         io.recordRead?.(target, bytes);
-        commit({ ...state, disk: bytes }, { kind: 'save', path: target });
-        if (target !== state.path) renameNow(target);
+        if (moved) commit({ ...state, ...moved, disk: bytes }, { kind: 'save', path: target, renamedFrom: from });
+        else commit({ ...state, disk: bytes }, { kind: 'save', path: target });
         return { result: 'saved' as const };
       });
     },

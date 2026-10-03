@@ -198,17 +198,74 @@ test('save success: dirty false, disk equals the written bytes, history kept', a
   assert.equal(io.writes.length, 1);
 });
 
-test('save to another path writes there, then renames the store', async () => {
+test('save to another path is one save transition that moves path and disk together', async () => {
   const io = recordingIo();
   const store = openDocumentStore(io, PATH, enc.encode('# A\n'));
-  const seen: string[] = [];
-  store.subscribe((_s, change) => seen.push(change.kind));
+  await store.apply({ range: range(2, 3), replacement: 'B', label: 'edit' });
+  const seen: { change: Transition; path: string; dirty: boolean; disk: string | null; version: number }[] = [];
+  store.subscribe((snap, change) =>
+    seen.push({ change, path: snap.path, dirty: snap.dirty, disk: snap.disk && dec.decode(snap.disk), version: snap.version }),
+  );
   const saved = await store.save({ to: '/repo/copy.md' });
   assert.equal(saved.result, 'saved');
   assert.equal(io.writes[0]?.path, '/repo/copy.md');
-  assert.equal(store.snapshot().path, '/repo/copy.md');
+  // One notification: no subscriber ever sees the old path with the new disk bytes.
+  assert.deepEqual(seen, [
+    {
+      change: { kind: 'save', path: '/repo/copy.md', renamedFrom: PATH },
+      path: '/repo/copy.md',
+      dirty: false,
+      disk: '# B\n',
+      version: 2,
+    },
+  ]);
   assert.equal(store.snapshot().ast.src.file, '/repo/copy.md');
-  assert.deepEqual(seen, ['save', 'rename']);
+  assert.equal(store.snapshot().buffer.path, '/repo/copy.md');
+  assert.equal(store.snapshot().canUndo, true, 'history kept across save-as');
+  await store.save();
+  assert.equal(io.writes.length, 1, 'clean at the new path: nothing to write');
+});
+
+test('a failed save to another path changes neither path nor disk', async () => {
+  const store = openDocumentStore(recordingIo(async () => Promise.reject(new Error('nope'))), PATH, enc.encode('# A\n'));
+  const before = store.snapshot();
+  assert.equal((await store.save({ to: '/repo/copy.md' })).result, 'failed');
+  assert.equal(store.snapshot(), before);
+});
+
+test('apply with a stale baseVersion resolves false and leaves the store untouched', async () => {
+  const io = recordingIo();
+  const store = openDocumentStore(io, PATH, enc.encode('one two\n'));
+  // View A resolves a range against version 0; view B's edit lands first.
+  const seenByA = store.snapshot();
+  assert.equal(await store.apply({ range: range(0, 3), replacement: 'ONE', label: 'view B', baseVersion: seenByA.version }), true);
+  const before = store.snapshot();
+  assert.equal(await store.apply({ range: range(4, 7), replacement: 'TWO', label: 'view A', baseVersion: seenByA.version }), false);
+  assert.equal(store.snapshot(), before);
+  // With the current version it applies; omitted, it applies to whatever the buffer is (today's behaviour).
+  assert.equal(await store.apply({ range: range(4, 7), replacement: 'TWO', label: 'view A', baseVersion: before.version }), true);
+  assert.equal(await store.apply({ range: range(0, 3), replacement: 'uno', label: 'no base' }), true);
+  assert.equal(text(store.snapshot()), 'uno TWO\n');
+});
+
+test('two un-awaited applies with the same baseVersion: the first lands, the second is refused', async () => {
+  const store = openDocumentStore(recordingIo(), PATH, enc.encode('abcdef\n'));
+  const base = store.snapshot().version;
+  const first = store.apply({ range: range(0, 3), replacement: 'XY', label: 'one', baseVersion: base });
+  const second = store.apply({ range: range(0, 3), replacement: '123', label: 'two', baseVersion: base });
+  assert.deepEqual(await Promise.all([first, second]), [true, false]);
+  assert.equal(text(store.snapshot()), 'XYdef\n');
+});
+
+test('commitSource with a stale baseVersion resolves false and leaves the store untouched', async () => {
+  const store = openDocumentStore(recordingIo(), PATH, enc.encode('# Title\n\nbody\n'));
+  const base = store.snapshot().version;
+  await store.apply({ range: range(2, 7), replacement: 'Heading', label: 'other view' });
+  const before = store.snapshot();
+  assert.equal(await store.commitSource('# Title\n\nbody typed\n', { baseVersion: base }), false);
+  assert.equal(store.snapshot(), before);
+  assert.equal(await store.commitSource('# Heading\n\nbody typed\n', { baseVersion: before.version }), true);
+  assert.equal(text(store.snapshot()), '# Heading\n\nbody typed\n');
 });
 
 test('a transition queued during a slow save: after both, dirty is true and disk is the first bytes', async () => {
@@ -256,6 +313,20 @@ test('reload into a dirty buffer: kept, nothing changed', async () => {
   await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
   const before = store.snapshot();
   assert.equal(await store.reload(enc.encode('three\n')), 'kept');
+  assert.equal(store.snapshot(), before);
+});
+
+test('reload of the bytes on disk while dirty (the echo of our own save, then an edit): unchanged, not kept', async () => {
+  const store = openDocumentStore(recordingIo(), PATH, enc.encode('one\n'));
+  await store.apply({ range: range(0, 3), replacement: 'two', label: 'edit' });
+  await store.save();
+  await store.apply({ range: range(0, 3), replacement: 'six', label: 'edit after save' });
+  const before = store.snapshot();
+  assert.equal(before.dirty, true);
+  assert.equal(await store.reload(enc.encode('two\n')), 'unchanged');
+  assert.equal(store.snapshot(), before, 'nothing changes: the buffer keeps the new edit');
+  // A real external change while dirty is still kept.
+  assert.equal(await store.reload(enc.encode('ten\n')), 'kept');
   assert.equal(store.snapshot(), before);
 });
 
@@ -386,6 +457,20 @@ test('history is bounded and a push after undo drops the redo branch', async () 
   assert.equal(store.snapshot().canRedo, false);
 });
 
+test('commitSource text must use the file line separators: LF text on a mixed-ending file rewrites endings', async () => {
+  // Pinned for B-11: the editor sets lineSeparator from buffer.eol, so cmDocText's separators come back.
+  const original = enc.encode('a\r\nb\nc\r\nd\n');
+  const own = openDocumentStore(recordingIo(), PATH, original);
+  assert.equal(await own.commitSource(cmDocText(own.snapshot().buffer).replace('c', 'c!')), true);
+  assert.equal(text(own.snapshot()), 'a\r\nb\nc!\r\nd\n', 'with the file separators only the typed byte changes');
+
+  const normalised = openDocumentStore(recordingIo(), PATH, original);
+  assert.equal(await normalised.commitSource('a!\nb\nc\nd\n'), true);
+  assert.equal(text(normalised.snapshot()), 'a!\nb\nc\nd\n', 'LF-normalised text rewrites the CRLF endings it spans');
+  await normalised.undo();
+  assert.deepEqual(normalised.snapshot().buffer.bytes, original, 'and undo still restores them');
+});
+
 // --- Byte fidelity: random splices then undo restore the exact original bytes -----------------------
 
 /** mulberry32: a seeded PRNG, so a failure names the seed that reproduces it. */
@@ -443,7 +528,7 @@ test('property: random splices and Source edits, then undo to the start, restore
       states.push(store.snapshot().buffer.bytes);
     }
     const final = store.snapshot().buffer.bytes;
-    // Undo walks back through every intermediate state, exactly.
+    // Undo walks back through every intermediate state, exactly; redo walks forward through them again.
     for (let i = states.length - 2; i >= 0; i--) {
       assert.equal(await store.undo(), true, `seed ${seed}: undo ${i}`);
       assert.deepEqual(store.snapshot().buffer.bytes, states[i], `seed ${seed}: state ${i} after undo`);
@@ -451,7 +536,11 @@ test('property: random splices and Source edits, then undo to the start, restore
     assert.equal(await store.undo(), false);
     assert.deepEqual(store.snapshot().buffer.bytes, original, `seed ${seed}: original bytes restored`);
     assert.equal(store.snapshot().dirty, false, `seed ${seed}`);
-    while (await store.redo());
+    for (let i = 1; i < states.length; i++) {
+      assert.equal(await store.redo(), true, `seed ${seed}: redo ${i}`);
+      assert.deepEqual(store.snapshot().buffer.bytes, states[i], `seed ${seed}: state ${i} after redo`);
+    }
+    assert.equal(await store.redo(), false);
     assert.deepEqual(store.snapshot().buffer.bytes, final, `seed ${seed}: redo restores the last state`);
   }
 });
