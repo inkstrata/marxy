@@ -10,7 +10,7 @@ use tauri::Manager;
 
 use crate::error::ShellError;
 
-/// Same names as `index-model/deny.ts` and `index/mod.rs`; a gitignore `!` cannot undo these.
+/// Same names as `index-model/deny.ts`; a gitignore `!` cannot undo these.
 const DENY_DIRECTORY_NAMES: &[&str] = &[
     "node_modules",
     "target",
@@ -142,7 +142,7 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
         }
         // A file can vanish (or its permissions change) between `fs::read_dir` listing it and this
         // `metadata()` call; that one entry is omitted rather than failing the whole listing, the
-        // same TOCTOU tolerance `index/mod.rs`'s `walk_root` already gives a racy directory tree.
+        // same TOCTOU tolerance the TypeScript walk (`src/index/walk.ts`) gives a racy directory tree.
         let meta = match entry.metadata() {
             Ok(meta) => meta,
             Err(_) => continue,
