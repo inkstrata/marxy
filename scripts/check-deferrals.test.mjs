@@ -120,10 +120,9 @@ test('node scripts/check-deferrals.mjs is green on the committed tree', () => {
   assert.match(run.stdout, /deferrals ok/);
 });
 
-test('precheck runs check:deferrals when apps/ or packages/ paths change', () => {
-  const src = readFileSync('scripts/precheck.mjs', 'utf8');
-  assert.match(src, /check:deferrals/);
-  assert.match(src, /\^\(apps\|packages\)\\\/\//);
+test('pnpm check runs the deferrals check, and precheck runs pnpm check for every change', () => {
+  assert.match(readFileSync('scripts/check.mjs', 'utf8'), /check-deferrals\.mjs/);
+  assert.ok(JSON.parse(readFileSync('scripts/gates-by-path.json', 'utf8')).always.includes('check'));
 });
 
 test('MARKER_RE matches the documented phrases case-insensitively', () => {
