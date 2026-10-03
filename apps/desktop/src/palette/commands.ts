@@ -77,6 +77,9 @@ export function chordMatches(event: ChordEvent, spec: string, mac: boolean): boo
   const needShift = parts.includes('Shift');
   const needAlt = parts.includes('Alt');
   const mod = mac ? event.metaKey : event.ctrlKey;
+  // A literal Ctrl (a Mac's Control key, as in Ctrl+[ for back) is checked on its own; off a Mac
+  // it is what Mod already means, so that spelling never matches there.
+  if (parts.includes('Ctrl') && !(mac && event.ctrlKey && !event.metaKey)) return false;
   if (needMod !== mod) return false;
   if (!needMod && mod) return false;
   if (needShift !== event.shiftKey) return false;

@@ -4,7 +4,7 @@
 // The regression this exists to prevent was real and was not caught by anything: finding the end of
 // a removed raw-text element with `input.toLowerCase()` made removal quadratic in the number of
 // removed elements, and a 1.3 MiB document went from 2.5 ms to 305 ms — 122× — while every test and
-// every gate stayed green. `gate:perf` measures the packaged app's cold start, not this function.
+// every gate stayed green. The nightly start-up record times the packaged app, not this function.
 //
 // The ratio is the assertion, and it is the only one (MARXY-153). An absolute ceiling here — the
 // old `ms < 150` — could not tell a regression from a slow runner: both look like one wall-clock
