@@ -154,10 +154,7 @@ jobs:
   # Posts the same check names as `gates` when a real build cannot change the result (MARXY-105): a
   # matrix job skipped by its own if: does not reliably report one entry per matrix value, so anything
   # watching by name still needs to see "gates (macos-latest)" and "gates (ubuntu-latest)" resolve.
-  # The matrix below is written one value per line on purpose, not as a single-line bracketed list:
-  # scripts/gate-perf.mjs's own workflow check greps the gates job for that exact single-line shape,
-  # and this story is not allowed to touch that file (criterion 5), so this job's otherwise identical
-  # values must not collide with the text it looks for.
+  # The matrix below is written one value per line; scripts/ci-changes.mjs accepts either shape.
   gates-skip:
     name: gates
     needs: changes
@@ -172,8 +169,7 @@ jobs:
     steps:
       - run: echo "gates (${{ matrix.os }}) skipped — no gates-relevant change since the last real dual-OS success"
 
-  # Build the app and measure it, on both runner classes. The measurement, its selftests and the perf
-  # gate are unconditional here by design (scripts/gate-perf.mjs checkWorkflow asserts it). Skipped
+  # Build the app on both runner classes. Measuring it is the nightly workflow's job (A-03). Skipped
   # when the diff cannot change the result — no gates-relevant file changed, or the change is only
   # non-relevant files after a real dual-OS success already proved this content (MARXY-105).
   gates:
@@ -230,31 +226,8 @@ jobs:
         run: node scripts/gate-licences.mjs --require-registry
       - name: CLI smoke check on the built binary
         run: pnpm --filter @marxy/desktop verify:cli
-      - name: Startup measurement (nine launches, cold then warm)
-        run: node scripts/measure-startup.mjs
-        env:
-          MARXY_PERF_REQUIRED: "1"
-          MARXY_PERF_ENV: ci
-          MARXY_RUNNER_CLASS: "${{ matrix.os }}"
-      - name: Perf gate rules selftest
-        run: |
-          node scripts/gate-perf.mjs --selftest
-          node scripts/measure-startup.mjs --selftest
-          node scripts/measure-parse.mjs --selftest
-      - name: Perf budgets are unchanged (ADR-0013 product budgets, ADR-0022 CI numbers)
-        run: node scripts/gate-perf.mjs --assert-budgets-unchanged ${{ github.base_ref && format('origin/{0}', github.base_ref) || 'HEAD^' }}
-      - name: Parse measurement (01-long-technical.md)
-        run: node scripts/measure-parse.mjs
-      # In ci mode the gate re-measures once before failing on an envelope or baseline breach (scripts/gate-perf.mjs).
-      - name: Perf gate (CI envelope and baseline, ADR-0022)
-        run: pnpm gate:perf
-        env:
-          MARXY_PERF_ENV: ci
-          MARXY_RUNNER_CLASS: "${{ matrix.os }}"
-          MARXY_PERF_REQUIRED: "1"
-      - name: Startup numbers in the job summary
-        if: always()
-        run: node scripts/ci-summary.mjs
+      # Start-up, parse and the perf gate were measured here until A-03; they could not fail a pull
+      # request (ADR-0032), so the nightly perf-harness and startup-macos jobs record them instead.
       # The shell's own unit tests (watcher, navigation guard, argument paths, IPC decoding) ran nowhere
       # before MARXY-247. Same profile and features as the build above, so the dependencies are reused.
       # After the startup and parse measurements, never before: compiling the test harness writes a large

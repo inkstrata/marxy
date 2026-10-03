@@ -5,18 +5,35 @@
 // It boots the built web app (apps/desktop/dist/app.html, the harness entry
 // apps/desktop/src/harness/app-harness.ts) in Playwright WebKit against an in-memory shell, opens
 // one document, and reads back every mark the app made. A measurement, not a gate: nothing here
-// fails on a number (ADR-0032).
+// fails on a number (ADR-0032). It exits non-zero only when a measurement it was asked for produced
+// no sample at all.
 //
-// usage: node scripts/perf-harness.mjs [--build] [--runs N] [--files a.md,b.md] [--large 256k,1m,5m]
-//                                      [--grid-only] [--json <path>]
+// The nightly workflow runs it as `pnpm perf` (A-03) and keeps the one JSON record `--record` writes:
+// first text and its stages for the corpus and the large files, the typeset viewport, live reload,
+// opening a second document, and palette search at 5k, 20k and 50k entries.
+//
+// usage: node scripts/perf-harness.mjs [--build] [--runs N] [--files a.md,b.md|corpus] [--large 256k,1m,5m]
+//                                      [--reload] [--open-second] [--palette] [--grid-only]
+//                                      [--json <path>] [--record <path>] [--summary <path>]
 //        node scripts/perf-harness.mjs --write <dir> --large 1m      writes big-1m.md and exits
+//
+//   --files corpus   every numbered .md of fixtures/corpus except 11-empty.md, which has no text to show
+//   --reload         after first text, append bytes through the memory shell, emit a watch event, and
+//                    record the `ms=` of the `live_reload` mark (05 §8.1)
+//   --open-second    boot on the corpus README, then open the document as a second one and record the
+//                    time from the call to its `render` mark (05 §8.2)
+//   --palette        in Node, no browser: prepareIndex, then searchPrepared 200 times at 5k, 20k and
+//                    50k synthetic entries; p50 and p95 (05 §7.1)
+//   --record <path>  one JSON record: date, commit, runner, Node and WebKit versions, and the numbers
+//   --summary <path> append a Markdown table of the record to <path> (the nightly job's step summary)
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { extname, join, normalize } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { arch, platform } from 'node:os';
+import { dirname, extname, join, normalize } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = new URL('../', import.meta.url);
 const CORPUS = new URL('fixtures/corpus/', ROOT);
@@ -52,26 +69,139 @@ export function median(xs) {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
+/** The `ms=` field of a mark's detail string, or undefined. */
+export function detailMs(detail) {
+  const m = /(?:^|\s)ms=([\d.]+)/.exec(detail ?? '');
+  return m ? Number(m[1]) : undefined;
+}
+
 /**
  * The columns of 05 §9.1 from one launch's marks (ms since the harness called start) and the marks'
  * detail strings: parse, render, layout and fonts, grid, paint wait, first text, and the `ms=` of
- * `typeset_viewport`. A stage whose marks are missing is left out.
+ * `typeset_viewport`. A-02's two marks join them: `first_screen` (the first screens are in the
+ * article) and `content_complete` (the last idle chunk is in; only a document large enough to be
+ * mounted in chunks makes it), both as ms since start like `first_text`. A stage whose marks are
+ * missing is left out.
  */
 export function stageDeltas(marks, details = {}) {
   const span = (from, to) => (from in marks && to in marks ? marks[to] - marks[from] : undefined);
-  const stages = {
+  return numbersOnly({
     parse: span('file_read', 'parsed'),
     render: span('parsed', 'rendered'),
     layout_fonts: span('rendered', 'fonts_ready'),
     grid: span('fonts_ready', 'render'),
     paint_wait: span('render', 'first_text'),
+    first_screen: marks.first_screen,
     first_text: marks.first_text,
-    typeset_viewport: (() => {
-      const m = /(?:^|\s)ms=([\d.]+)/.exec(details.typeset_viewport ?? '');
-      return m ? Number(m[1]) : undefined;
-    })(),
+    typeset_viewport: detailMs(details.typeset_viewport),
+    content_complete: marks.content_complete,
+  });
+}
+
+const numbersOnly = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => typeof v === 'number' && Number.isFinite(v)));
+
+/**
+ * The first mark of each name in a list of shell `mark` calls (`[name, epochMs, detail]`), as ms
+ * since `t0`, with each first mark's detail string.
+ */
+export function firstMarks(calls, t0) {
+  const marks = {};
+  const details = {};
+  for (const [name, t, detail] of calls) {
+    if (name in marks) continue;
+    marks[name] = t - t0;
+    if (typeof detail === 'string') details[name] = detail;
+  }
+  return { marks, details };
+}
+
+/** The `ms=` of the first `live_reload` mark made at or after `since` (epoch ms), or undefined. */
+export function liveReloadMs(calls, since) {
+  const hit = calls.find(([name, t]) => name === 'live_reload' && t >= since);
+  return hit ? detailMs(hit[2]) : undefined;
+}
+
+/**
+ * From a call to `handle.open` at `since` (epoch ms) to the next `render` mark: open → render of
+ * 05 §8.2. Undefined when the open never reached a render.
+ */
+export function openRenderMs(calls, since) {
+  const hit = calls.find(([name, t]) => name === 'render' && t >= since);
+  return hit ? hit[1] - since : undefined;
+}
+
+/** The value at percentile `p` (nearest rank) of a sample; NaN for none. */
+export function percentile(xs, p) {
+  if (xs.length === 0) return NaN;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.max(0, Math.ceil((p / 100) * s.length) - 1))];
+}
+
+/**
+ * Every numbered markdown document in fixtures/corpus except `11-empty.md`, which has no text and so
+ * no first text to time, in file-name order. What `--files corpus` means.
+ */
+export function corpusFiles(dir = fileURLToPath(CORPUS)) {
+  return readdirSync(dir).filter((n) => /^\d+-.*\.md$/.test(n) && n !== '11-empty.md').sort();
+}
+
+/** The palette sizes `--palette` measures (05 §7.1; 50k is the index's per-root cap). */
+export const PALETTE_SIZES = [5_000, 20_000, 50_000];
+export const PALETTE_SAMPLES = 200;
+
+/** The measurements one document must yield, given what was asked for. */
+export function requiredStages({ reload = false, openSecond = false } = {}) {
+  return ['first_text', 'typeset_viewport', ...(reload ? ['live_reload'] : []), ...(openSecond ? ['open_render'] : [])];
+}
+
+/**
+ * The one record a run writes (`--record`). `documents` carry median stages per file; `palette` one
+ * row per size. `missing` names every requested measurement that produced no sample, and is the only
+ * thing that makes a run exit non-zero (ADR-0032: a number never does).
+ */
+export function buildRecord({ meta = {}, documents = [], palette = [], requested = {} }) {
+  const need = requiredStages(requested);
+  const missing = [];
+  for (const doc of documents) {
+    for (const stage of need) if (typeof doc.stages?.[stage] !== 'number' || !Number.isFinite(doc.stages[stage])) missing.push(`${doc.file}: ${stage}`);
+  }
+  if (requested.palette) {
+    for (const size of PALETTE_SIZES) {
+      const row = palette.find((r) => r.entries === size);
+      if (typeof row?.p95_ms !== 'number' || !Number.isFinite(row.p95_ms)) missing.push(`palette ${size}: p95_ms`);
+    }
+  }
+  return {
+    schema: 1,
+    ...meta,
+    note:
+      "Recorded, never gated (ADR-0032). The nightly run is Playwright WebKit on a GitHub-hosted Linux runner: a different engine build and a slower machine than the audit's Mac, so read these numbers as a trend from night to night, not as a comparison with docs/research/audit-2026-10/05-performance-audit.md.",
+    requested: { reload: !!requested.reload, open_second: !!requested.openSecond, palette: !!requested.palette },
+    documents,
+    palette,
+    missing,
   };
-  return Object.fromEntries(Object.entries(stages).filter(([, v]) => typeof v === 'number' && Number.isFinite(v)));
+}
+
+const SUMMARY_STAGES = ['first_screen', 'first_text', 'typeset_viewport', 'content_complete', 'live_reload', 'open_render'];
+
+/** A short Markdown table of a record, for a CI job summary. */
+export function summaryTable(record) {
+  const cell = (v) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : '—');
+  const lines = [
+    `### Perf harness: ${record.date ?? '?'}, ${String(record.commit ?? '?').slice(0, 9)}, ${record.runner ?? '?'}`,
+    '',
+    `| Document | Bytes | ${SUMMARY_STAGES.join(' | ')} |`,
+    `| --- | ---: | ${SUMMARY_STAGES.map(() => '---:').join(' | ')} |`,
+    ...record.documents.map((d) => `| ${d.file} | ${d.bytes} | ${SUMMARY_STAGES.map((k) => cell(d.stages?.[k])).join(' | ')} |`),
+  ];
+  if (record.palette.length) {
+    lines.push('', '| Palette entries | prepare | p50 | p95 |', '| ---: | ---: | ---: | ---: |');
+    for (const r of record.palette) lines.push(`| ${r.entries} | ${cell(r.prepare_ms)} | ${cell(r.p50_ms)} | ${cell(r.p95_ms)} |`);
+  }
+  const tail = record.missing.length ? `**No sample:** ${record.missing.join('; ')}.` : 'Every requested measurement produced a sample.';
+  lines.push('', `Milliseconds; medians of ${record.runs ?? '?'} runs per document. open_render is the open call to the first \`render\` mark, not to content_complete, which for a large document comes later (05 §8.2). ${tail}`, '');
+  return lines.join('\n');
 }
 
 /** Medians per key over a list of records with numeric values. */
@@ -81,8 +211,8 @@ function medians(records) {
 }
 const round = (x) => Math.round(x * 10) / 10;
 
-function parseArgs(argv) {
-  const opts = { build: false, runs: 5, files: [], large: [], gridOnly: false, json: undefined, write: undefined };
+export function parseArgs(argv) {
+  const opts = { build: false, runs: 5, files: [], large: [], gridOnly: false, reload: false, openSecond: false, palette: false, json: undefined, record: undefined, summary: undefined, write: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -92,22 +222,31 @@ function parseArgs(argv) {
     };
     if (a === '--build') opts.build = true;
     else if (a === '--runs') opts.runs = Number(value());
-    else if (a === '--files') opts.files = value().split(',').filter(Boolean);
+    else if (a === '--files') opts.files = value().split(',').filter(Boolean).flatMap((f) => (f === 'corpus' ? corpusFiles() : [f]));
     else if (a === '--large') opts.large = value().split(',').filter(Boolean);
     else if (a === '--grid-only') opts.gridOnly = true;
+    else if (a === '--reload') opts.reload = true;
+    else if (a === '--open-second') opts.openSecond = true;
+    else if (a === '--palette') opts.palette = true;
     else if (a === '--json') opts.json = value();
+    else if (a === '--record') opts.record = value();
+    else if (a === '--summary') opts.summary = value();
     else if (a === '--write') opts.write = value();
     else throw new Error(`unknown argument ${a}`);
   }
   if (!(opts.runs >= 1)) throw new Error('--runs must be at least 1');
+  if (opts.gridOnly && (opts.reload || opts.openSecond || opts.palette || opts.record)) throw new Error('--grid-only times the grid pass alone; it takes no --reload, --open-second, --palette or --record');
   return opts;
 }
 
-/** Every document the run measures, as { name, bytes }. */
+/**
+ * Every document the run measures, as { name, bytes }. With no --files and no --large, the 1 MB
+ * document, unless the run is palette-only.
+ */
 function documents(opts) {
   const docs = opts.files.map((name) => ({ name, bytes: readFileSync(new URL(name, CORPUS)) }));
   for (const size of opts.large) docs.push({ name: `big-${size}`, bytes: generateLarge(parseSize(size)) });
-  if (docs.length === 0) docs.push({ name: `big-1m`, bytes: generateLarge(SIZES['1m']) });
+  if (docs.length === 0 && !opts.palette) docs.push({ name: `big-1m`, bytes: generateLarge(SIZES['1m']) });
   return docs;
 }
 
@@ -115,7 +254,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 /** Serves apps/desktop/dist on 127.0.0.1, on a free port. */
 async function serveDist() {
-  const dist = new URL('apps/desktop/dist/', ROOT).pathname;
+  const dist = fileURLToPath(new URL('apps/desktop/dist/', ROOT));
   if (!existsSync(join(dist, 'app.html'))) throw new Error('apps/desktop/dist/app.html is missing: run with --build');
   const server = createServer((req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');
@@ -128,30 +267,135 @@ async function serveDist() {
   return { server, base: `http://127.0.0.1:${server.address().port}/` };
 }
 
-/** One launch of the app on `bytes`: every mark (ms since start), every mark's detail, and ready. */
-async function launchOnce(browser, base, bytes) {
+const b64 = (bytes) => Buffer.from(bytes).toString('base64');
+
+async function bootedPage(browser, base) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(`${base}app.html`);
+  await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+  return page;
+}
+
+/**
+ * One launch of the app on `bytes`, held until the whole document is in the article. With `reload`,
+ * the file then grows by one paragraph on disk and the app is told it changed (05 §8.1). Returns the
+ * epoch at start, ready, the epoch of the watch event, and every `mark` call as [name, epochMs, detail].
+ */
+async function launchOnce(browser, base, bytes, { reload = false } = {}) {
+  const page = await bootedPage(browser, base);
   try {
-    await page.goto(`${base}app.html`);
-    await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-    return await page.evaluate(async (b64) => {
+    return await page.evaluate(async ({ doc, reload }) => {
       const t0 = Date.now();
       const p0 = performance.now();
-      const handle = await window.marxyApp.start({ '/docs/doc.md': b64 }, ['/docs/doc.md']);
+      const handle = await window.marxyApp.start({ '/docs/doc.md': doc }, ['/docs/doc.md']);
       await handle.ready;
       const ready = performance.now() - p0;
-      const marks = {};
-      const details = {};
-      for (const c of handle.shell.calls) {
-        if (c.method !== 'mark' || c.args[0] in marks) continue;
-        marks[c.args[0]] = c.args[1] - t0;
-        if (typeof c.args[2] === 'string') details[c.args[0]] = c.args[2];
+      await handle.contentComplete();
+      await new Promise((r) => setTimeout(r, 0));
+      const marked = (name, since) => handle.shell.calls.some((c) => c.method === 'mark' && c.args[0] === name && c.args[1] >= since);
+      let reloadSince;
+      if (reload) {
+        const path = handle.currentPath();
+        const before = await handle.shell.readFile(path);
+        const tail = new TextEncoder().encode('\n\nA paragraph the perf harness appended, as an editor saving the file would.\n');
+        const next = new Uint8Array(before.length + tail.length);
+        next.set(before);
+        next.set(tail, before.length);
+        await handle.shell.writeFileAtomic(path, next);
+        reloadSince = Date.now();
+        handle.shell.emit([{ kind: 'modified', path }]);
+        const deadline = performance.now() + 60_000;
+        while (!marked('live_reload', reloadSince) && performance.now() < deadline) await new Promise((r) => setTimeout(r, 10));
       }
-      return { marks, details, ready };
-    }, Buffer.from(bytes).toString('base64'));
+      const calls = handle.shell.calls.filter((c) => c.method === 'mark').map((c) => [c.args[0], c.args[1], c.args[2]]);
+      return { t0, ready, reloadSince, calls };
+    }, { doc: b64(bytes), reload });
   } finally {
     await page.close();
   }
+}
+
+/** The document a second open starts from (05 §8.2 opened a README first). */
+const FIRST_FOR_OPEN = '02-readme-real-world.md';
+
+/**
+ * Boot on the corpus README, then `handle.open('/docs/other.md')` holding `bytes`: the epoch of the
+ * call, how long the open took to resolve, and every `mark` call.
+ */
+async function openSecondOnce(browser, base, bytes) {
+  const page = await bootedPage(browser, base);
+  try {
+    return await page.evaluate(async ({ first, other }) => {
+      const handle = await window.marxyApp.start({ '/docs/README.md': first, '/docs/other.md': other }, ['/docs/README.md']);
+      await handle.ready;
+      await handle.contentComplete();
+      const since = Date.now();
+      const p0 = performance.now();
+      await handle.open('/docs/other.md');
+      const resolved = performance.now() - p0;
+      const calls = handle.shell.calls.filter((c) => c.method === 'mark').map((c) => [c.args[0], c.args[1], c.args[2]]);
+      return { since, resolved, calls };
+    }, { first: b64(readFileSync(new URL(FIRST_FOR_OPEN, CORPUS))), other: b64(bytes) });
+  } finally {
+    await page.close();
+  }
+}
+
+/** One synthetic index entry, the shape apps/desktop/src/palette/search-perf.test.ts uses. */
+export function paletteEntry(i) {
+  const dir = i % 200;
+  return {
+    path: `/repo/d${dir}/file-${i}.md`,
+    root: i % 19 === 0 ? '/other' : '/repo',
+    title: `Title ${i % 97} document ${i}`,
+    headings: [
+      { level: 2, text: `Heading ${i % 53} section`, byteOffset: 16 },
+      { level: 3, text: `Detail ${i % 31}`, byteOffset: 48 },
+    ],
+    mtimeMs: 1_700_000_000_000 + i,
+    size: 200 + (i % 500),
+    lastReadMs: i % 20 === 0 ? 1_800_000_000_000 + i : undefined,
+    kind: 'markdown',
+  };
+}
+
+export const PALETTE_QUERIES = ['title 1', 'file-300', 'heading 12', 'detail', 'document 99', 'section', 'xyz-no-such', 't', 'md', 'd3/file'];
+
+/**
+ * Palette search in Node, no browser (05 §7.1): for each size, `prepareIndex` once, three warm-up
+ * rounds of the queries, then `searchPrepared` `samples` times over them in turn; p50, p95 and max.
+ */
+export async function palettePerf(sizes = PALETTE_SIZES, samples = PALETTE_SAMPLES) {
+  const { prepareIndex, searchPrepared } = await import(new URL('apps/desktop/src/palette/search.ts', ROOT).href);
+  const { emptySession, recordOpen } = await import(new URL('apps/desktop/src/palette/session.ts', ROOT).href);
+  const rows = [];
+  for (const entries of sizes) {
+    const list = Array.from({ length: entries }, (_, i) => paletteEntry(i));
+    let session = emptySession('/repo');
+    for (let i = 0; i < 40; i++) session = recordOpen(session, list[(i * 17) % entries].path);
+    const p0 = performance.now();
+    const prepared = prepareIndex(list);
+    const prepare = performance.now() - p0;
+    for (let round = 0; round < 3; round++) for (const q of PALETTE_QUERIES) searchPrepared(q, prepared, session);
+    const times = [];
+    let hits = 0;
+    for (let i = 0; i < samples; i++) {
+      const t = performance.now();
+      hits += searchPrepared(PALETTE_QUERIES[i % PALETTE_QUERIES.length], prepared, session).length;
+      times.push(performance.now() - t);
+    }
+    const row = { entries, samples, prepare_ms: round2(prepare), p50_ms: round2(percentile(times, 50)), p95_ms: round2(percentile(times, 95)), max_ms: round2(Math.max(...times)), hits };
+    console.log(JSON.stringify({ palette: row }));
+    rows.push(row);
+  }
+  return rows;
+}
+const round2 = (x) => Math.round(x * 100) / 100;
+
+/** The commit, from git, else from GitHub's environment; null when neither knows. */
+export function commitOf() {
+  const r = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: fileURLToPath(ROOT), encoding: 'utf8' });
+  return r.status === 0 ? r.stdout.trim() : (process.env.GITHUB_SHA ?? null);
 }
 
 /**
@@ -201,43 +445,93 @@ async function main(argv) {
       writeFileSync(path, generateLarge(parseSize(size)));
       console.log(path);
     }
-    return;
+    return 0;
   }
   if (opts.build) {
     const r = spawnSync('pnpm', ['--filter', '@marxy/desktop', 'build:web'], { cwd: ROOT, stdio: 'inherit' });
     if (r.status !== 0) throw new Error('build:web failed');
   }
-  const { launchWebkit } = await import('./playwright-webkit.mjs');
-  const browser = await launchWebkit();
-  const served = opts.gridOnly ? undefined : await serveDist();
+  const docs = documents(opts);
   const results = [];
-  try {
-    for (const doc of documents(opts)) {
-      const runs = [];
-      for (let i = 0; i < opts.runs; i++) {
-        runs.push(opts.gridOnly ? await gridOnce(browser, doc.bytes, doc.name) : await launchOnce(browser, served.base, doc.bytes));
+  let webkit = null;
+  if (docs.length) {
+    const { launchWebkit } = await import('./playwright-webkit.mjs');
+    const browser = await launchWebkit();
+    webkit = browser.version();
+    const served = opts.gridOnly ? undefined : await serveDist();
+    try {
+      for (const doc of docs) {
+        const runs = [];
+        for (let i = 0; i < opts.runs; i++) {
+          try {
+            if (opts.gridOnly) { runs.push(await gridOnce(browser, doc.bytes, doc.name)); continue; }
+            const launch = await launchOnce(browser, served.base, doc.bytes, { reload: opts.reload });
+            const { marks, details } = firstMarks(launch.calls, launch.t0);
+            const stages = stageDeltas(marks, details);
+            if (opts.reload) stages.live_reload = liveReloadMs(launch.calls, launch.reloadSince);
+            if (opts.openSecond) {
+              const open = await openSecondOnce(browser, served.base, doc.bytes);
+              stages.open_render = openRenderMs(open.calls, open.since);
+              stages.open_resolved = open.resolved;
+            }
+            runs.push({ marks, stages: numbersOnly(stages), ready: launch.ready });
+          } catch (e) {
+            // A launch that throws leaves its run out; a stage no run produced is reported as missing.
+            console.error(`perf-harness: ${doc.name}, run ${i + 1}: ${e.message}`);
+          }
+        }
+        const result = { file: doc.name, bytes: doc.bytes.length, sha256: createHash('sha256').update(doc.bytes).digest('hex').slice(0, 12), runs: runs.length };
+        if (opts.gridOnly) {
+          Object.assign(result, { mode: 'grid-only', median: medians(runs) });
+        } else {
+          result.stages = medians(runs.map((r) => r.stages));
+          result.marks = medians(runs.map((r) => r.marks));
+          result.ready = round(median(runs.map((r) => r.ready)));
+        }
+        console.log(JSON.stringify(result));
+        results.push(result);
       }
-      const result = { file: doc.name, bytes: doc.bytes.length, sha256: createHash('sha256').update(doc.bytes).digest('hex').slice(0, 12), runs: opts.runs };
-      if (opts.gridOnly) {
-        Object.assign(result, { mode: 'grid-only', median: medians(runs) });
-      } else {
-        result.stages = medians(runs.map((r) => stageDeltas(r.marks, r.details)));
-        result.marks = medians(runs.map((r) => r.marks));
-        result.ready = round(median(runs.map((r) => r.ready)));
-      }
-      console.log(JSON.stringify(result));
-      results.push(result);
+    } finally {
+      served?.server.close();
+      await browser.close();
     }
-  } finally {
-    served?.server.close();
-    await browser.close();
   }
   if (opts.json) writeFileSync(opts.json, `${JSON.stringify(results, null, 2)}\n`);
+  if (opts.gridOnly) return 0;
+
+  const palette = opts.palette ? await palettePerf() : [];
+  const record = buildRecord({
+    meta: {
+      date: new Date().toISOString(),
+      commit: commitOf(),
+      runner: process.env.MARXY_RUNNER_CLASS || `${platform()}-${arch()}`,
+      node: process.version,
+      webkit,
+      runs: opts.runs,
+    },
+    documents: results,
+    palette,
+    requested: { reload: opts.reload, openSecond: opts.openSecond, palette: opts.palette },
+  });
+  if (opts.record) {
+    mkdirSync(dirname(opts.record), { recursive: true });
+    writeFileSync(opts.record, `${JSON.stringify(record, null, 2)}\n`);
+    console.log(`perf-harness: record written to ${opts.record}`);
+  }
+  if (opts.summary) appendFileSync(opts.summary, summaryTable(record));
+  if (record.missing.length) {
+    console.error(`perf-harness: no sample for ${record.missing.length} requested measurement(s):\n - ${record.missing.join('\n - ')}`);
+    return 1;
+  }
+  return 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2)).catch((e) => {
-    console.error(`perf-harness: ${e.message}`);
-    process.exit(1);
-  });
+  main(process.argv.slice(2)).then(
+    (code) => process.exit(code),
+    (e) => {
+      console.error(`perf-harness: ${e.message}`);
+      process.exit(1);
+    },
+  );
 }

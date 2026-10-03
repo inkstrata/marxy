@@ -75,3 +75,78 @@ jobs:
           WEBKIT_DISABLE_COMPOSITING_MODE: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
           NO_AT_BRIDGE: "1"
+
+  # What a reader feels, measured on the app harness and recorded, never gated (ADR-0032, A-03): first
+  # text and its stages for the corpus and the large files, the typeset viewport, live reload, opening
+  # a second document, and palette search at 5k, 20k and 50k entries. Fails only when a measurement it
+  # asked for produced no sample. Playwright WebKit on a hosted Linux runner: a trend, not the audit's Mac.
+  perf-harness:
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - name: Build the frontend
+        run: pnpm --filter @marxy/desktop build:web
+      - name: Perf harness over the corpus, 256 KB and 1 MB, reload, second open and palette
+        run: pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --record results/perf-nightly.json --summary "$GITHUB_STEP_SUMMARY"
+        env:
+          MARXY_RUNNER_CLASS: ubuntu-latest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-nightly
+          path: results/
+          if-no-files-found: ignore
+
+  # Start-up of the built app on macOS with every mark of every launch, recorded, never gated (A-03).
+  # A launch that never paints still yields the shell's stages and says no_paint; the job fails only
+  # when no launch printed a mark at all.
+  startup-macos:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      MARXY_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci/marxy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ci-profile
+          cache-on-failure: true
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - name: Build the frontend
+        run: pnpm --filter @marxy/desktop build:web
+      # `tauri build` enables tauri/custom-protocol so the app serves the embedded frontend; a plain
+      # cargo build must pass it explicitly or the window never loads a page.
+      - name: Build the desktop binary with the ci profile
+        run: cd apps/desktop/src-tauri && cargo build --locked --profile ci --features tauri/custom-protocol
+      - name: Start-up measurement rules selftest
+        run: node scripts/measure-startup.mjs --selftest
+      - name: Start-up measurement (nine launches, every mark)
+        run: node scripts/measure-startup.mjs
+        env:
+          MARXY_PERF_REQUIRED: "1"
+          MARXY_PERF_ENV: ci
+          MARXY_RUNNER_CLASS: macos-latest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: startup-macos
+          path: results/
+          if-no-files-found: ignore

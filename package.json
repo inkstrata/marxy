@@ -20,7 +20,7 @@
     "gate:no-network": "node scripts/gate-no-network.mjs",
     "gate:golden": "pnpm --filter @marxy/core test:golden",
     "gate:aesthetics": "node scripts/gate-aesthetics.mjs",
-    "gate:perf": "node scripts/gate-perf.mjs",
+    "perf": "node scripts/perf-harness.mjs",
     "gate:bundle": "node scripts/gate-bundle.mjs",
     "gate:specimen": "node scripts/specimen/verify.mjs",
     "lint:commits": "commitlint --from origin/main --to HEAD --verbose",
