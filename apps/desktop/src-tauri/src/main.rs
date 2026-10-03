@@ -347,9 +347,39 @@ async fn unwatch_root(root: String) -> Result<(), String> {
 /// `main` — so the code is applied here. The `quit` command and the native menu's Quit and Close
 /// Window items (MARXY-184; a closed window leaves nothing to open into, since Marxy is
 /// single-window) all call this, so there is exactly one exit path.
+///
+/// A harness launch (`quit_after_paint`) prints `MARK quit code=<n>` first, so a launch that stalls
+/// on the way out says whether it stalled before asking to quit or after, and then leaves through
+/// `harness_exit`.
 fn quit_now(app: &tauri::AppHandle, code: i32) {
+    let harness = quit_after_paint();
+    if harness {
+        mark("quit", now_ms(), Some(format!("code={code}")));
+    }
     app.cleanup_before_exit();
+    if harness {
+        harness_exit(code);
+    }
     std::process::exit(code);
+}
+
+/// How a harness launch ends once its code is decided and printed: `_exit(2)`, which skips the C
+/// `atexit` handlers that `exit(3)` runs. Those belong to GTK, WebKitGTK, GLib and Mesa, not to Marxy,
+/// and they are the one part of the way out that this program does not control; a smoke launch on
+/// Linux once painted, reported, and then never exited (CI run 37040073668). Nothing is lost: every
+/// mark is flushed as it is written, persistence was flushed by the webview before it asked to quit,
+/// and Tauri's own teardown has already run. A reader's quit keeps the ordinary `exit(3)`.
+fn harness_exit(code: i32) -> ! {
+    #[cfg(unix)]
+    {
+        extern "C" {
+            fn _exit(status: i32) -> !;
+        }
+        // SAFETY: `_exit` takes any status and never returns; nothing is left to run in this process.
+        unsafe { _exit(code) }
+    }
+    #[cfg(not(unix))]
+    std::process::exit(code)
 }
 
 /// Exits with `code`: 0 for a launch that rendered, non-zero for one that failed, so a harness
@@ -404,7 +434,7 @@ fn arm_paint_deadline(app: tauri::AppHandle, render: u64) {
                 Some(format!("deadline_ms={PAINT_DEADLINE_MS}")),
             );
             app.cleanup_before_exit();
-            std::process::exit(1);
+            harness_exit(1);
         }
     });
 }

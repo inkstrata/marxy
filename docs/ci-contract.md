@@ -175,6 +175,8 @@ them.
 | `lint:rust` | `cargo fmt --check` or `clippy -D warnings` | `pnpm lint:rust` |
 | Rust build or `cargo test` | a compile error, or a failing `#[test]` in `apps/desktop/src-tauri`; `Cargo.toml` changed without `Cargo.lock` (`cannot update the lock file`) | the `rust` block above; `cargo check` in `src-tauri`, then commit `Cargo.lock` |
 | CLI smoke | shell, paint or CLI path regressed | `pnpm --filter @marxy/desktop verify:cli` (sets `MARXY_SMOKE_REQUIRED=1`; needs the built binary, so set `MARXY_BIN`) |
+| CLI smoke: `the launch never asked to quit; its last mark was …` | the webview reported its outcome, then stopped before it called `quit` (an IPC that never answered) | the named mark is where it stopped; the next awaited call after it in `app.ts` is the suspect. Each launch is its own process group and is killed whole, so one stall cannot poison the launches after it |
+| CLI smoke: `… the process teardown stalled` | the app printed `MARK quit code=n` and did not exit | harness launches leave through `_exit(2)` after Tauri's teardown (`harness_exit` in `main.rs`); a stall here is in that teardown |
 
 ## Editing CI itself
 

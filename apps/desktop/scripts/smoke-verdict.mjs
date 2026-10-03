@@ -84,3 +84,40 @@ export function paintVerdict({ noPaint, frames, required, how, environment }) {
   }
   return { status: 'ok', message: '' };
 }
+
+/**
+ * Spawn options that put a launch in a process group of its own, so `killLaunch` can end all of it.
+ * On Linux a launch is `xvfb-run` → `dbus-run-session` → the app, and the session bus starts
+ * xdg-desktop-portal and xdg-document-portal; the document portal FUSE-mounts `$XDG_RUNTIME_DIR/doc`.
+ */
+export function launchSpawnOptions(platform = process.platform) {
+  return platform === 'win32' ? {} : { detached: true };
+}
+
+/**
+ * Ends a launch and everything it started. Killing only the direct child (`xvfb-run`) orphans the
+ * app, its session bus and the document portal, which keeps the FUSE mount: every later launch on
+ * that runner then logs `fuse init failed` and starts from a dirtier machine (CI run 37040073668).
+ */
+export function killLaunch(child, signal = 'SIGKILL') {
+  if (child.pid === undefined) return;
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
+}
+
+/**
+ * Why a launch that had to be killed did not exit, from its own marks. The app prints `MARK quit
+ * code=<n>` just before it leaves, so the two stalls that look alike from outside come apart: one
+ * after `quit` is the process teardown, one before it is the webview never asking to quit.
+ */
+export function stalledExitMessage(lines, waitedMs) {
+  const marks = lines.filter(l => l.startsWith('MARK '));
+  const last = marks.at(-1)?.split(' ').slice(0, 2).join(' ') ?? '(no mark)';
+  const quit = marks.find(l => l.startsWith('MARK quit '));
+  return quit
+    ? `the launch printed "${quit.split(' ').filter((_, i) => i !== 2).join(' ')}" and was still running ${waitedMs} ms later: the process teardown stalled`
+    : `the launch never asked to quit; its last mark was "${last}", and it was still running ${waitedMs} ms later`;
+}

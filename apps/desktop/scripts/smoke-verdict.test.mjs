@@ -2,7 +2,7 @@
 // hand-reachable required mode, and the definition-of-done skip table in docs/sdlc.md.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,9 +12,12 @@ import {
   NEUTRALISE_AFTER_PAINT,
   framelessEnvironment,
   framesFromPaintedLine,
+  killLaunch,
+  launchSpawnOptions,
   paintVerdict,
   paintedFramesOk,
   smokeIsRequired,
+  stalledExitMessage,
 } from './smoke-verdict.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -167,4 +170,30 @@ test('docs/sdlc.md states which definition-of-done commands may skip', () => {
   );
   assert.match(sdlc, /merge-bar\.mjs/);
   assert.match(sdlc, /## Credentials/);
+});
+
+test('a killed launch takes the processes it started with it, so a hung launch cannot poison the next', { skip: process.platform === 'win32' }, async () => {
+  // Stands in for xvfb-run → dbus-run-session → the app: a parent whose child outlives it. The child
+  // holds the stdout pipe, so the pipe closes only when every process of the launch is gone. Asked by
+  // pid instead, a killed child that nobody reaps (a container whose init does not) still answers.
+  const child = spawn('sh', ['-c', 'sleep 30 & echo started; wait'], { ...launchSpawnOptions(), stdio: ['ignore', 'pipe', 'ignore'] });
+  await new Promise(resolve => child.stdout.once('data', resolve));
+  const closed = new Promise(resolve => child.stdout.on('close', () => resolve('closed')));
+  child.stdout.resume();
+  killLaunch(child);
+  const outcome = await Promise.race([closed, new Promise(resolve => setTimeout(() => resolve('open'), 2000))]);
+  assert.equal(outcome, 'closed', 'a process started by the killed launch still holds its stdout');
+});
+
+test('a launch killed on its way out says whether it stalled before asking to quit or after', () => {
+  const painted = ['MARK render 1 blocks=21', 'MARK painted 2 frames=2', 'MARK first_text 2', 'MARK position_restored 3'];
+  assert.equal(
+    stalledExitMessage(painted, 15000),
+    'the launch never asked to quit; its last mark was "MARK position_restored", and it was still running 15000 ms later',
+  );
+  assert.equal(
+    stalledExitMessage([...painted, 'MARK quit 4 code=0'], 15000),
+    'the launch printed "MARK quit code=0" and was still running 15000 ms later: the process teardown stalled',
+  );
+  assert.match(stalledExitMessage([], 60000), /\(no mark\)/);
 });
