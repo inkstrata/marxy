@@ -534,8 +534,7 @@ fn paint_deadline_selftest() -> i32 {
 }
 
 /// The extensions "Open File…" offers, matching the documents `marxy` already knows how to open:
-/// the markdown kinds `packages/core/src/index-model/kinds.ts` and
-/// `apps/desktop/src-tauri/src/index/mod.rs` recognise, plus `txt` (the other extension
+/// the markdown kinds `packages/core/src/index-model/kinds.ts` recognises, plus `txt` (the other extension
 /// `apps/desktop/src/source/default-mode.ts` defaults to Rendered mode).
 #[cfg(target_os = "macos")]
 const DOCUMENT_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx", "txt"];
