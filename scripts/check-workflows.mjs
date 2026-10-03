@@ -75,6 +75,24 @@ function softened(text) {
     if (/^\s*(?:-\s*)?continue-on-error\s*:/.test(line)) found.push(`${n}: continue-on-error`);
     if (/\|\|\s*true\b/.test(line)) found.push(`${n}: || true`);
   }
+  found.push(...conditionalLicenceSteps(text));
+  return found;
+}
+
+/** A step is the run of lines from its `- ` to the next line indented less than that dash. */
+function conditionalLicenceSteps(text) {
+  const lines = codeLines(text);
+  const found = [];
+  for (let i = 0; i < lines.length; i++) {
+    const dash = /^(\s*)-\s/.exec(lines[i][1]);
+    if (!dash) continue;
+    const indent = dash[1].length;
+    let end = i + 1;
+    while (end < lines.length && (lines[end][1].search(/\S/) > indent || (lines[end][1].search(/\S/) === indent && !/^\s*-\s/.test(lines[end][1])))) end++;
+    const step = lines.slice(i, end);
+    if (!step.some(([, l]) => /gate-licences|gate:licences/.test(l))) continue;
+    for (const [n, l] of step) if (/^\s*(?:-\s*)?if\s*:/.test(l)) found.push(`${n}: if: on a licence gate step`);
+  }
   return found;
 }
 
@@ -154,6 +172,10 @@ const SOFTENED = [
   ['      - run: |\n          pnpm build\n          pnpm test || true', ['3: || true']],
   ['      - run: pnpm test\n      # continue-on-error: true would make this advisory\n      - run: pnpm lint # || true', []],
   ['      - run: pnpm test || echo true', []],
+  ['jobs:\n  g:\n    steps:\n      - name: Licence gate\n        if: runner.os == \'Linux\'\n        run: node scripts/gate-licences.mjs', ['5: if: on a licence gate step']],
+  ['jobs:\n  g:\n    steps:\n      - if: runner.os == \'Linux\'\n        run: pnpm gate:licences', ['4: if: on a licence gate step']],
+  ['jobs:\n  g:\n    steps:\n      - name: Licence gate\n        run: node scripts/gate-licences.mjs\n      - name: Other\n        if: runner.os == \'Linux\'\n        run: pnpm test', []],
+  ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs\n  h:\n    if: always()\n    steps: []', []],
 ];
 const LINUX_CARGO = [
   ['jobs:\n  rust:\n    runs-on: ubuntu-latest\n    steps:\n      - run: cargo build --locked', ['rust: no pkg-config --exists glib-2.0 probe', 'rust: no apt-get install line with dbus']],
