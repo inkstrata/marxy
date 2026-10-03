@@ -113,8 +113,8 @@ export function marksMedian(launches) {
 }
 
 /**
- * A launch that printed `main_start` and nothing else handed its arguments to a Marxy already running
- * (the single-instance plugin) and exited: it measured nothing of this binary.
+ * A launch that printed `main_start` and nothing else was handed to a Marxy already running (the
+ * single-instance plugin), or crashed right after main_start: either way it measured nothing.
  */
 export const forwarded = launch => Object.keys(launch.marks ?? {}).join() === 'main_start';
 
@@ -125,7 +125,7 @@ export const forwarded = launch => Object.keys(launch.marks ?? {}).join() === 'm
 export function noSampleProblems(launches) {
   if (launches.some(l => Object.keys(l.marks ?? {}).some(name => name !== 'main_start'))) return [];
   if (launches.length && launches.every(forwarded)) {
-    return [`all ${launches.length} launches printed only main_start and exited: each was handed to a Marxy already running (single instance); quit it and measure again`];
+    return [`all ${launches.length} launches printed only main_start and exited: each was handed to a Marxy already running (single instance), or crashed right after main_start; quit any running Marxy, check stderr in the launches array, and measure again`];
   }
   return [`none of ${launches.length} launches printed a MARK line past main_start; the launches array has each one's exit code and stderr`];
 }
@@ -551,7 +551,7 @@ async function selftest() {
   const handedOff = [1, 2].map(index => ({ index, ms: null, ok: false, exit_code: 0, stderr_tail: '', marks: { main_start: 12 }, no_paint: false }));
   report(
     noSampleProblems(silent).some(p => /none of 3 launches printed a MARK line/.test(p))
-      && noSampleProblems(handedOff).some(p => /already running/.test(p))
+      && noSampleProblems(handedOff).some(p => /already running .*or crashed right after main_start/.test(p))
       && noSampleProblems([...handedOff, unpainted[0]]).length === 0,
     SELFTEST_CASE_NAMES[16],
     `silent: ${noSampleProblems(silent).join('; ') || 'none'}; handed off: ${noSampleProblems(handedOff).join('; ') || 'none'}`,

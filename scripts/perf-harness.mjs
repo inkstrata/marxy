@@ -200,7 +200,7 @@ export function summaryTable(record) {
     for (const r of record.palette) lines.push(`| ${r.entries} | ${cell(r.prepare_ms)} | ${cell(r.p50_ms)} | ${cell(r.p95_ms)} |`);
   }
   const tail = record.missing.length ? `**No sample:** ${record.missing.join('; ')}.` : 'Every requested measurement produced a sample.';
-  lines.push('', `Milliseconds; medians of ${record.runs ?? '?'} runs per document. ${tail}`, '');
+  lines.push('', `Milliseconds; medians of ${record.runs ?? '?'} runs per document. open_render is the open call to the first \`render\` mark, not to content_complete, which for a large document comes later (05 §8.2). ${tail}`, '');
   return lines.join('\n');
 }
 
@@ -393,7 +393,7 @@ export async function palettePerf(sizes = PALETTE_SIZES, samples = PALETTE_SAMPL
 const round2 = (x) => Math.round(x * 100) / 100;
 
 /** The commit, from git, else from GitHub's environment; null when neither knows. */
-function commitOf() {
+export function commitOf() {
   const r = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: fileURLToPath(ROOT), encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : (process.env.GITHUB_SHA ?? null);
 }

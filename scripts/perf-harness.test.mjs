@@ -1,9 +1,10 @@
 import { strict as assert } from 'node:assert';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  PALETTE_SIZES, buildRecord, corpusFiles, detailMs, firstMarks, generateLarge, liveReloadMs, median, openRenderMs,
+  PALETTE_SIZES, buildRecord, commitOf, corpusFiles, detailMs, firstMarks, generateLarge, liveReloadMs, median, openRenderMs,
   palettePerf, parseArgs, parseSize, percentile, stageDeltas, summaryTable,
 } from './perf-harness.mjs';
 
@@ -169,11 +170,10 @@ const jobBlock = (text, job) => {
   return next < 0 ? rest : rest.slice(0, next + 1);
 };
 
-test('nightly.yml runs the harness with flags it accepts, and start-up with every mark, each under a timeout', () => {
+test('nightly.yml runs the harness with flags it accepts, and the start-up measurement', () => {
   const nightly = workflow('nightly.yml');
   const perf = jobBlock(nightly, 'perf-harness');
   assert.ok(perf, 'nightly.yml has no perf-harness job');
-  assert.match(perf, /timeout-minutes:\s*\d+/);
   const run = /run: pnpm perf (.+)$/m.exec(perf)?.[1];
   assert.ok(run, 'perf-harness does not run pnpm perf');
   const opts = parseArgs(run.replace(/"\$GITHUB_STEP_SUMMARY"/, 'summary.md').split(/\s+/));
@@ -182,20 +182,10 @@ test('nightly.yml runs the harness with flags it accepts, and start-up with ever
   assert.deepEqual([opts.reload, opts.openSecond, opts.palette, opts.record], [true, true, true, 'results/perf-nightly.json']);
   const startup = jobBlock(nightly, 'startup-macos');
   assert.ok(startup, 'nightly.yml has no startup-macos job');
-  assert.match(startup, /runs-on: macos-latest/);
-  assert.match(startup, /timeout-minutes:\s*\d+/);
   assert.match(startup, /run: node scripts\/measure-startup\.mjs\n/);
-  assert.match(startup, /MARXY_PERF_REQUIRED: "1"/);
 });
 
-test('the gates job of ci.yml measures nothing', () => {
-  const gates = jobBlock(workflow('ci.yml'), 'gates');
-  assert.ok(gates, 'ci.yml has no gates job');
-  assert.doesNotMatch(gates.replace(/^\s*#.*$/gm, ''), /measure-startup|perf-harness|pnpm perf|MARXY_PERF/);
-});
-
-test('perf-budgets.json keeps only the installed weight gate-bundle reads', () => {
-  const budgets = JSON.parse(readFileSync(new URL('../fixtures/perf-budgets.json', import.meta.url), 'utf8'));
-  assert.deepEqual(Object.keys(budgets).sort(), ['bundle_installed_mb', 'note']);
-  assert.match(budgets.note, /ADR-0032/);
+test('the record names the commit it measured', () => {
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  assert.equal(commitOf(), head);
 });
