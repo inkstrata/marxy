@@ -77,6 +77,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # Seconds, node only: the named palette tests must fail with searchPrepared switched off (A-10).
+      - run: pnpm --filter @marxy/desktop test:mutations
       # The import-graph half: production main.ts must not reach the memory shell or the harness. Cheap
       # without a build; the rust job runs it again over the built dist.
       - run: pnpm gate:bundle
@@ -109,12 +111,16 @@ jobs:
 
   # Browser gates in the official Playwright image: browsers and their system libraries are already
   # there. Pull requests and merge groups only: the push to main proves a tree its pull request proved.
-  browser:
+  # The desktop suite here is `test:lite` (A-10): the files that guard save, trust, data loss, close,
+  # reload, open, selection, persistence, the index and progressive rendering, and the three that hold
+  # "nothing phones home" (release CSP, remote images blocked, themes make no request). The full suite,
+  # the mutation check and the typeset, theme and core WebKit tests run in nightly.yml's browser-full.
+  browser-lite:
     needs: changes
     if: needs.changes.outputs.web == 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
@@ -130,12 +136,12 @@ jobs:
       # `fast`, which has no browser; here WebKit is in the image, so a skip would be a lie and is
       # refused. Nothing ran them on a pull request before MARXY-247, and the edit-after-reload data
       # loss MARXY-246 fixed reached main through that gap.
-      # One desktop test compiles a small Rust crate (images.test.mjs), and the Playwright image ships
-      # no C linker for cargo's build scripts.
+      # images.test.mjs (remote images stay blocked) compiles a small Rust crate, and the Playwright
+      # image ships no C linker for cargo's build scripts.
       - name: A C linker for the desktop suite's Rust test
         run: apt-get update -qq && apt-get install -y -qq build-essential
-      - name: Desktop suite with WebKit required
-        run: pnpm --filter @marxy/desktop test
+      - name: Desktop lite suite with WebKit required
+        run: pnpm --filter @marxy/desktop test:lite
         env:
           MARXY_BROWSER_TESTS_REQUIRED: "1"
       - uses: actions/upload-artifact@v4
@@ -146,7 +152,9 @@ jobs:
           if-no-files-found: ignore
 
   # The typography gates, when what they render changed: the theme, the typesetter, the parse, render
-  # and sanitise path, the corpus, the fonts, or a dependency (scripts/ci-changes.mjs).
+  # and sanitise path, the corpus, the fonts, or a dependency (scripts/ci-changes.mjs). The aesthetics
+  # gate runs its mechanical checks only; screenshot and rag comparison with the baselines is nightly
+  # (ADR-0047, A-10).
   typography:
     needs: changes
     if: (needs.changes.outputs.typography == 'true' || needs.changes.outputs.lockfile == 'true') && github.event_name != 'push'
@@ -163,7 +171,7 @@ jobs:
           path: ~/.pnpm-store
           key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - run: pnpm gate:aesthetics
+      - run: node scripts/gate-aesthetics.mjs --mechanical
       - run: pnpm gate:specimen
       - uses: actions/upload-artifact@v4
         if: always()
@@ -231,7 +239,7 @@ jobs:
   # The one status check branch protection requires. It runs whatever happened above, so it reports on
   # every pull request, path-filtered or docs-only; scripts/ci-verdict.mjs says what turns it red.
   ci:
-    needs: [changes, conventions, fast, browser, typography, rust]
+    needs: [changes, conventions, fast, browser-lite, typography, rust]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 3

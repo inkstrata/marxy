@@ -6,14 +6,18 @@ import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession } from './session.ts';
 import { jumpForHit, paletteResults, SEARCH_PREPARED_BODY_MUTATION } from './search.ts';
+import { judge, MUTATIONS } from '../../scripts/mutations.mjs';
 
 const MODEL_FILES = ['session.ts', 'search.ts', 'keys.ts'] as const;
 const MODEL_FORBIDDEN = [/MiniNode/i, /\bview\.ts\b/, /querySelector\s*\(/, /createElement\s*\(/];
 
-test('desktop test script runs palette model tests in CI', () => {
+// The mutation run left `test` for `test:mutations` (A-10): `test` only runs the suite, and
+// scripts/mutations.mjs passes only when the named tests fail and nothing else does. Status 1 alone, the
+// old `test $? -eq 1`, was also what a crash or an unrelated failure gave.
+test('desktop test scripts run the palette model tests and the named mutation', () => {
   const pkg = JSON.parse(
     readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
-  ) as { scripts: { test: string } };
+  ) as { scripts: Record<string, string> };
   const script = pkg.scripts.test;
   assert.match(script, /node --test/, 'test script must invoke node --test');
   assert.match(script, /--experimental-strip-types/, 'palette tests are TypeScript');
@@ -22,15 +26,32 @@ test('desktop test script runs palette model tests in CI', () => {
     /src\/palette\/\*\.test\.ts|src\/\*\*\/\*\.test\.ts/,
     'test script must include palette model tests',
   );
-  assert.match(
-    script,
-    new RegExp(`MARXY_86_MUTATION=${SEARCH_PREPARED_BODY_MUTATION}`),
-    'test script must prove the searchPrepared body mutation fails the model suite',
-  );
-  assert.ok(
-    script.includes('test $? -eq 1'),
-    'mutation coverage expects a failing child exit status',
-  );
+  assert.doesNotMatch(script, /MARXY_86_MUTATION/, 'the mutation run belongs to test:mutations, not test');
+  assert.equal(pkg.scripts['test:mutations'], 'node scripts/mutations.mjs');
+  const runner = readFileSync(new URL('../../scripts/mutations.mjs', import.meta.url), 'utf8');
+  assert.match(runner, /\bSEARCH_PREPARED_BODY_MUTATION\b/, 'mutations.mjs must name the mutation constant');
+  const spec = MUTATIONS.find((m) => m.name === SEARCH_PREPARED_BODY_MUTATION);
+  assert.ok(spec, 'mutations.mjs must run the searchPrepared body mutation');
+  assert.equal(spec.env.MARXY_86_MUTATION, SEARCH_PREPARED_BODY_MUTATION);
+  assert.ok(spec.mustFail.length > 0, 'the mutation must name the tests it turns red');
+});
+
+test('the mutation verdict fails on a weakened named test, an unnamed failure and a crash', () => {
+  const spec = { mustFail: ['caught'], mustSkip: ['live'] };
+  const tap = (lines: string[]) => `TAP version 13\n${lines.join('\n')}\n# tests ${lines.length}\n# fail 1\n`;
+  const green = tap(['not ok 1 - caught', 'ok 2 - live # SKIP', 'ok 3 - other']);
+  assert.deepEqual(judge({ tap: green, status: 1 }, spec), { ok: true, errors: [] });
+  const weakened = judge({ tap: tap(['ok 1 - caught', 'ok 2 - live # SKIP', 'ok 3 - other']), status: 0 }, spec);
+  assert.equal(weakened.ok, false);
+  assert.match(weakened.errors.join('; '), /named test did not fail under the mutation \(pass\): caught/);
+  const unrelated = judge({ tap: tap(['not ok 1 - caught', 'ok 2 - live # SKIP', 'not ok 3 - other']), status: 1 }, spec);
+  assert.match(unrelated.errors.join('; '), /unnamed test failed under the mutation: other/);
+  const syntax = judge({ tap: tap(['not ok 1 - /repo/src/palette/search.test.ts', 'ok 2 - live # SKIP']), status: 1 }, spec);
+  assert.match(syntax.errors.join('; '), /named test did not run: caught/);
+  assert.match(syntax.errors.join('; '), /unnamed test failed under the mutation: \/repo\/src\/palette\/search\.test\.ts/);
+  const crashed = judge({ tap: 'TAP version 13\nnot ok 1 - caught\n', status: null }, spec);
+  assert.match(crashed.errors.join('; '), /killed by a signal/);
+  assert.match(crashed.errors.join('; '), /printed no summary/);
 });
 
 test('palette model files stay DOM-free', () => {
