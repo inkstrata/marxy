@@ -113,12 +113,21 @@ export function marksMedian(launches) {
 }
 
 /**
- * The one condition a round fails on: no launch printed a single mark, so there is no sample at all.
+ * A launch that printed `main_start` and nothing else handed its arguments to a Marxy already running
+ * (the single-instance plugin) and exited: it measured nothing of this binary.
+ */
+export const forwarded = launch => Object.keys(launch.marks ?? {}).join() === 'main_start';
+
+/**
+ * The one condition a round fails on: no launch got past `main_start`, so there is no sample at all.
  * A launch that reached the shell's stages and then said no_paint is a sample.
  */
 export function noSampleProblems(launches) {
-  if (launches.some(l => Object.keys(l.marks ?? {}).length > 0)) return [];
-  return [`none of ${launches.length} launches printed a MARK line; the launches array has each one's exit code and stderr`];
+  if (launches.some(l => Object.keys(l.marks ?? {}).some(name => name !== 'main_start'))) return [];
+  if (launches.length && launches.every(forwarded)) {
+    return [`all ${launches.length} launches printed only main_start and exited: each was handed to a Marxy already running (single instance); quit it and measure again`];
+  }
+  return [`none of ${launches.length} launches printed a MARK line past main_start; the launches array has each one's exit code and stderr`];
 }
 
 // What has to be true of a record for its two names to mean what they say. Launches with no first
@@ -341,6 +350,7 @@ async function launchOnce(bin, doc, index) {
     marks: parsed.marks,
     mark_details: parsed.details,
     no_paint: 'no_paint' in parsed.marks,
+    forwarded_to_running_instance: forwarded(parsed),
     exit_code: timedOut ? null : exit_code,
     stderr_tail: err.trim().split('\n').slice(-3).join(' | ').slice(-400),
     elapsed_ms: Date.now() - t0,
@@ -384,7 +394,7 @@ export const SELFTEST_CASE_NAMES = [
   'cold: running marxy processes are killed as part of the step',
   'cold: sudo is never invoked without -n',
   'no_paint: launches that never paint keep the shell stages, say no_paint, and are a sample',
-  'sample: a round in which no launch printed a mark is rejected',
+  'sample: a round in which no launch printed a mark, or every launch went to a running instance, is rejected',
 ];
 
 async function selftest() {
@@ -538,7 +548,14 @@ async function selftest() {
   );
 
   const silent = [1, 2, 3].map(index => ({ index, ms: null, ok: false, exit_code: 1, stderr_tail: 'dyld: missing', marks: {}, no_paint: false }));
-  report(noSampleProblems(silent).some(p => /none of 3 launches printed a MARK line/.test(p)), SELFTEST_CASE_NAMES[16], `problems ${noSampleProblems(silent).join('; ') || 'none'}`);
+  const handedOff = [1, 2].map(index => ({ index, ms: null, ok: false, exit_code: 0, stderr_tail: '', marks: { main_start: 12 }, no_paint: false }));
+  report(
+    noSampleProblems(silent).some(p => /none of 3 launches printed a MARK line/.test(p))
+      && noSampleProblems(handedOff).some(p => /already running/.test(p))
+      && noSampleProblems([...handedOff, unpainted[0]]).length === 0,
+    SELFTEST_CASE_NAMES[16],
+    `silent: ${noSampleProblems(silent).join('; ') || 'none'}; handed off: ${noSampleProblems(handedOff).join('; ') || 'none'}`,
+  );
 
   if (bad) { console.error(`measure-startup selftest failed: ${bad} case(s)`); process.exit(1); }
   console.log(`measure-startup selftest ok: ${SELFTEST_CASE_NAMES.length} named cases`);
