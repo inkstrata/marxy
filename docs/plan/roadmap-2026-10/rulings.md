@@ -43,3 +43,9 @@ changes a story's text, that story says so. A story the author rules out is `par
 | 19 | A scratch document the reader only reads closes without a prompt. |
 | 20 | JSON alone, unless the YAML structure check is tight. |
 | 21 | "Show what changed" compares against the version before the last reload. |
+
+## Phase A question 4 (2026-10-06)
+
+Delete both WebKit tests that first ran in the nightly full-WebKit suite and failed on Linux: the
+theme's "code voice: mono and text x-heights match" (`pair-a-tune.test.mjs`) and core's "MARXY-28
+inline math matches screenshot baseline" (`math.acceptance.test.ts`). Neither is fixed. Story A-10.3.
