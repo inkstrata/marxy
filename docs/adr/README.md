@@ -5,15 +5,15 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0001](0001-reader-not-editor.md) | Marxy is a reader, not an editor with a preview | accepted |
+| [0001](0001-reader-not-editor.md) | Marxy is a reader, not an editor with a preview | accepted, amended by 0052 |
 | [0002](0002-webview-shell.md) | A webview shell; native toolkits are out | accepted |
 | [0003](0003-one-buffer-one-ast.md) | One buffer, one AST with byte provenance, two layout paths | accepted |
-| [0004](0004-editing-is-transformation.md) | Editing is transformation over byte ranges; no plugin or scripting API | accepted |
+| [0004](0004-editing-is-transformation.md) | Editing is transformation over byte ranges; no plugin or scripting API | accepted, amended by 0049 and 0052 |
 | [0005](0005-two-modes.md) | Two view modes: Rendered (default) and Source | accepted |
 | [0006](0006-mit-and-licence-hygiene.md) | MIT for the whole tree; OFL fonts isolated; grammar and pattern allow-lists | accepted |
-| [0007](0007-own-line-breaking.md) | Own paragraph line breaking (Knuth–Plass) as the demonstrable differentiator | accepted |
+| [0007](0007-own-line-breaking.md) | Own paragraph line breaking (Knuth–Plass) as the demonstrable differentiator | accepted, amended by 0052 |
 | [0008](0008-themes-are-declarative-documents.md) | Themes are declarative CSS documents under a system-owned typography contract | accepted |
-| [0009](0009-security-posture.md) | Always sanitise; block remote content; no telemetry; strict CSP | accepted |
+| [0009](0009-security-posture.md) | Always sanitise; block remote content; no telemetry; strict CSP | accepted, amended by 0044 and 0052 |
 | [0010](0010-stack-tauri.md) | Tauri, decided by a pre-committed rule; privileged work behind `shell-api` | accepted |
 | [0011](0011-palette-not-tabs.md) | The palette is the tab manager; no tab bar | accepted, with a reversal criterion |
 | [0012](0012-index-root-and-search-scope.md) | The indexed root is the enclosing repository; search covers titles, headings and paths | accepted |
@@ -53,6 +53,7 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0046](0046-linux-is-a-release-criterion.md) | Linux is a release criterion, not a pull-request gate; it builds in CI and ships as a pre-release | accepted (author, 2026-10-02) |
 | [0047](0047-visual-comparison-is-nightly.md) | Visual comparison is nightly; the mechanical typography checks stay on pull requests; amends 0014 tier 1 and 0016 | accepted (author, 2026-10-02) |
 | [0048](0048-source-for-one-block.md) | Source may be summoned for one block and splices back through the transformation path; amends 0005 | accepted (author, 2026-10-02) |
-| [0049](0049-user-defined-operations-are-configuration.md) | User-defined operations are configuration, not plugins; recorded, not scheduled; amends 0004 | accepted (author, 2026-10-02) |
+| [0049](0049-user-defined-operations-are-configuration.md) | User-defined operations are configuration, not plugins; recorded, not scheduled; amends 0004 | accepted (author, 2026-10-02); scheduled by 0052 |
 | [0050](0050-at-rest-defined.md) | "At rest" is defined: the column of text; summoned surfaces may be any shape; amends 0011 and design constraint 6 | accepted (author, 2026-10-02) |
 | [0051](0051-the-fleet-is-paused.md) | The fleet is paused and the process it needs is paused with it; suspends 0017, 0025, 0034, 0040 and 0043's mechanisms | accepted (author, 2026-10-02) |
+| [0052](0052-the-restated-spirit.md) | The spirit: a reader for source of any kind; seven values that harden into five commitments | accepted (author, 2026-10-07) |

@@ -33,7 +33,8 @@ loadable under the published contract.
 **In-document.** Outline summoned and dismissed, tracking scroll. Find landing at the reading
 position, working in Rendered mode. Full keyboard navigation. "Open in external editor."
 
-**Platforms.** macOS (signed, notarized DMG) and Linux (AppImage and Flatpak) at parity.
+**Platforms.** macOS (signed, notarized DMG). Linux (AppImage and Flatpak) joins as a release
+criterion once it can be verified (ADR-0046).
 
 ## v1 does not ship
 
@@ -47,7 +48,7 @@ position, working in Rendered mode. Full keyboard navigation. "Open in external 
 | Export, PDF | v2 | Not reading; a project under Tauri |
 | Spines, transclusion | v1.1 read-only spine at the earliest | Carry the source map, build nothing |
 | Cross-document operations | v2 | Signature kept open |
-| Plugins, scripting | never | ADR-0004, ADR-0008 |
+| A plugin API | not before a deciding ADR | ADR-0052; a configured command as an operation is in scope (ADR-0049) |
 | Windows | after v1 | Nothing assumes two platforms |
 | Settings UI | v1.1 | A config file suffices |
 | Wikilinks, backlinks, graph | never | A different product |
@@ -59,5 +60,5 @@ position, working in Rendered mode. Full keyboard navigation. "Open in external 
 2. Align table pipes (keep three operations).
 3. User theme loading (keep the contract and the default theme built as a theme).
 4. Flatpak (keep AppImage).
-5. Linux at v1 parity → v1.1 — contradicts a stated constraint; only if nothing else suffices.
+5. Linux at v1 → v1.1 (ADR-0046 already makes it conditional on verification).
 6. The line breaker — last, and only through a superseding ADR.
