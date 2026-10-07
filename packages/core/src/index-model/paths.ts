@@ -1,8 +1,17 @@
 // Path helpers that do not import `node:`. The model must run in a browser (ADR-0020).
 
+/**
+ * True for a Windows path: a drive (`C:\` or `C:/`) or a UNC share (`\\host`). Core takes no platform
+ * from Node, so the path says which separator rule applies: a backslash separates only in a Windows
+ * path, and is an ordinary file-name character in every other (macOS and Linux) path.
+ */
+export function isWindowsPath(path: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\');
+}
+
 /** Slash-normalised path without a trailing slash, except the filesystem root. */
 export function normalizePath(path: string): string {
-  const slash = path.replace(/\\/g, '/');
+  const slash = isWindowsPath(path) ? path.replace(/\\/g, '/') : path;
   if (slash === '/' || slash === '') return '/';
   return slash.replace(/\/+$/, '') || '/';
 }
@@ -28,10 +37,13 @@ export function basename(path: string): string {
 /** Join `base` and `child`, keeping an absolute base absolute. */
 export function joinPath(base: string, child: string): string {
   if (!child) return normalizePath(base);
-  if (child.startsWith('/') || /^[A-Za-z]:\//.test(child.replace(/\\/g, '/'))) return normalizePath(child);
+  // Mixed platforms: a base that is a Windows path makes the child's backslashes separators; otherwise they are name characters.
+  const windows = isWindowsPath(base);
+  const kid = windows ? child.replace(/\\/g, '/') : child;
+  if (kid.startsWith('/') || /^[A-Za-z]:\//.test(kid) || isWindowsPath(child)) return normalizePath(child);
   const left = normalizePath(base);
-  if (left === '/') return normalizePath(`/${child}`);
-  return normalizePath(`${left}/${child}`);
+  if (left === '/') return normalizePath(`/${kid}`);
+  return normalizePath(`${left}/${kid}`);
 }
 
 /** True when `child` is `parent` or a strict descendant path (segment-safe, after normalisation). */

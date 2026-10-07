@@ -17,3 +17,8 @@ test('a move that also looks like a delete follows rather than treating the file
   );
   assert.deepEqual(effect, { action: 'follow', path: dest });
 });
+
+test('a backslash name is not the same path as its slash spelling', () => {
+  assert.deepEqual(effectForOpenDocument([{ kind: 'modified', path: '/r/a/b.md' }], '/r/a\\b.md'), { action: 'ignore' });
+  assert.deepEqual(effectForOpenDocument([{ kind: 'modified', path: '/r/a\\b.md' }], '/r/a\\b.md'), { action: 'reload' });
+});

@@ -36,3 +36,8 @@ test('a walk never indexes files under node_modules', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('a backslash is not a separator: a folder named a\\node_modules is not node_modules', () => {
+  assert.equal(isDeniedPath('a\\node_modules/x.md'), false);
+  assert.equal(isDeniedPath('a/node_modules/x.md'), true);
+});

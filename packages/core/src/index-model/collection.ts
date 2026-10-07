@@ -3,7 +3,7 @@
 
 import { parse } from 'smol-toml';
 import { type IgnoreRule, parseIgnore } from './ignore.ts';
-import { normalizePath } from './paths.ts';
+import { isWindowsPath, normalizePath } from './paths.ts';
 
 export interface CollectionRoot {
   readonly path: string;
@@ -51,20 +51,15 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-const WINDOWS_DRIVE = /^[A-Za-z]:[\\/]/;
-
-/** True when the path holds a backslash that is not part of a Windows drive path. */
-function hasUnsupportedBackslash(raw: string): boolean {
-  return raw.includes('\\') && !WINDOWS_DRIVE.test(raw);
-}
-
 /** Expands `~` and `~/…`; returns null for anything that is not an absolute local path. */
 function resolveRootPath(raw: string, home: string): string | null {
-  if (raw.includes('://') || hasUnsupportedBackslash(raw)) return null;
+  if (raw.includes('://')) return null;
   const h = normalizePath(home);
-  let expanded = raw;
+  // A backslash separates only in a Windows path (a drive, or a home that is one).
+  const windows = isWindowsPath(raw) || (isWindowsPath(h) && raw.startsWith('~\\'));
+  let expanded = windows ? raw.replace(/\\/g, '/') : raw;
   if (raw === '~') expanded = h;
-  else if (raw.startsWith('~/')) expanded = `${h === '/' ? '' : h}/${raw.slice(2)}`;
+  else if (expanded.startsWith('~/')) expanded = `${h === '/' ? '' : h}/${expanded.slice(2)}`;
   const normalized = normalizePath(expanded);
   const absolute = normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized);
   return absolute ? normalized : null;
@@ -102,10 +97,6 @@ export function parseCollection(bytes: Uint8Array, ctx: { readonly home: string 
     for (const k of Object.keys(entry)) if (!ROOT_KEYS.has(k)) unknown.add(`root.${k}`);
     if (typeof entry.path !== 'string' || entry.path === '') {
       warnings.push(`${label} has no path; skipped`);
-      continue;
-    }
-    if (hasUnsupportedBackslash(entry.path)) {
-      warnings.push(`${label} path "${entry.path}": a backslash in a folder path is not supported yet; skipped`);
       continue;
     }
     const path = resolveRootPath(entry.path, ctx.home);
@@ -166,7 +157,7 @@ function tomlString(s: string): string {
  */
 export function appendRoot(bytes: Uint8Array, path: string, ctx: { readonly home: string }): Uint8Array {
   const normalized = resolveRootPath(path, ctx.home);
-  if (normalized === null) throw new RangeError(`not an absolute local folder, or has a backslash: ${path}`);
+  if (normalized === null) throw new RangeError(`not an absolute local folder: ${path}`);
   const before = parseCollection(bytes, ctx);
   if (before.warnings.includes(UNPARSEABLE)) {
     throw new Error('collection.toml cannot be read as TOML; edit it by hand');

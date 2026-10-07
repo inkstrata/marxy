@@ -1,6 +1,8 @@
 // Classifies a debounced watch batch against the open document (ADR-0018).
 // Structural copy of shell-api's WatchEvent: core cannot import the shell (ADR-0020).
 
+import { normalizePath } from '../index-model/paths.ts';
+
 export type WatchKind = 'modified' | 'created' | 'removed' | 'renamed';
 
 export interface RootWatchEvent {
@@ -19,7 +21,7 @@ const rank = { ignore: 0, reload: 1, gone: 2, follow: 3 } as const;
 
 function samePath(left: string, right: string): boolean {
   if (left === right) return true;
-  const norm = (path: string) => path.replace(/\\/g, '/').replace(/\/+$/, '') || '/';
+  const norm = (path: string) => normalizePath(path);
   return norm(left) === norm(right);
 }
 

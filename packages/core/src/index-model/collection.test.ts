@@ -124,20 +124,22 @@ test('appendRoot writes ~/ for a path under home, and quotes safely', () => {
   assert.equal(parseCollection(out, ctx).collection.roots[0]?.path, tricky);
 });
 
-test('a backslash path warns and is skipped; a Windows drive path is kept', () => {
-  const r = parseCollection(enc("[[root]]\npath = '/Users/ian/a\\b'\n[[root]]\npath = 'C:\\Notes'\n"), ctx);
+test('a backslash is a file-name character on POSIX paths; a Windows drive path is normalised', () => {
+  const r = parseCollection(enc("[[root]]\npath = '/Users/ian/a\\b'\n[[root]]\npath = 'C:\\Notes\\x'\n[[root]]\npath = '~/n\\m'\n"), ctx);
   assert.deepEqual(
     r.collection.roots.map((x) => x.path),
-    ['C:/Notes'],
+    ['/Users/ian/a\\b', 'C:/Notes/x', `${ctx.home}/n\\m`],
   );
-  assert.equal(r.warnings.length, 1);
-  assert.match(r.warnings[0]!, /backslash in a folder path is not supported yet; skipped/);
-  const tilde = parseCollection(enc("[[root]]\npath = '~\\x'\n"), ctx);
-  assert.equal(tilde.collection.roots.length, 0);
+  assert.deepEqual(r.warnings, []);
+  // `~\x` on a POSIX home is a relative name, not a home path.
+  assert.equal(parseCollection(enc("[[root]]\npath = '~\\x'\n"), ctx).collection.roots.length, 0);
+  const win = parseCollection(enc("[[root]]\npath = '~\\x'\n"), { home: 'C:\\Users\\ian' });
+  assert.deepEqual(win.collection.roots.map((x) => x.path), ['C:/Users/ian/x']);
 });
 
-test('appendRoot refuses a backslash path', () => {
-  assert.throws(() => appendRoot(enc(''), '/Users/ian/a\\b', ctx), RangeError);
+test('appendRoot keeps a backslash name on POSIX and round-trips it', () => {
+  const out = appendRoot(enc(''), '/Users/ian/a\\b', ctx);
+  assert.equal(parseCollection(out, ctx).collection.roots[0]?.path, '/Users/ian/a\\b');
   assert.throws(() => appendRoot(enc(''), '~\\x', ctx), RangeError);
 });
 
