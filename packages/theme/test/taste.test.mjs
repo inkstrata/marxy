@@ -215,3 +215,17 @@ test('tables: a wrapped cell uses the code line box and one grid unit of vertica
   assert.ok(onGrid(measured.padBottom, measured.unit) && measured.padBottom >= measured.unit - 0.5, `padding-bottom ${measured.padBottom} is not one grid unit`);
   await page.close();
 });
+
+// Only the default size is checked: at other body sizes the code line box stays 30px and is off the
+// grid, a known product bug filed as plan story L-10.
+test('code voice: the code line box is a whole number of grid units at the default size', async () => {
+  const page = await openPage(browser, renderMarkdown('Body with `inline code` in the sentence.\n'));
+  const tokens = await page.evaluate(() => {
+    const article = document.getElementById('doc');
+    const unit = parseFloat(getComputedStyle(article).lineHeight) / 2;
+    const codeBox = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-line-box-code'));
+    return { codeBox, unit };
+  });
+  assert.ok(onGrid(tokens.codeBox, tokens.unit), `code line box ${tokens.codeBox}px is not a whole grid unit (${tokens.unit}px)`);
+  await page.close();
+});
