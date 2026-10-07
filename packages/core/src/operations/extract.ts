@@ -5,6 +5,7 @@ import type { Operation, OperationInput, OperationResult } from '../contracts/op
 import { DEFAULT_POLICY } from '../sanitize/policy.ts';
 import { sanitizeUrl } from '../sanitize/urls.ts';
 import { sectionRange } from '../sourcemap/section.ts';
+import { hasDeceptiveCharacters } from './copy-command.ts';
 import { inlinePlainText } from './inline-text.ts';
 
 type Scope = Omit<OperationInput, 'text'>;
@@ -54,7 +55,21 @@ function result(input: OperationInput, text: string, summary: string): Operation
   return { replacement: input.text, clipboard: { text }, summary };
 }
 
-const codeBlocksIn = (input: Scope, limit?: number) => collect(input, (n) => (n.type === 'codeBlock' ? n.value : undefined), limit);
+/** Each block copied as a fenced block with its info string; false copies the bare code (a future plain variant). */
+const FENCE_BLOCKS = true;
+
+interface Block { readonly info: string; readonly value: string; }
+
+const codeBlocksIn = (input: Scope, limit?: number) =>
+  collect(input, (n): Block | undefined => (n.type === 'codeBlock' ? { info: n.info ?? n.lang ?? '', value: n.value } : undefined), limit);
+
+function fenced({ info, value }: Block): string {
+  const code = value.replace(/\n$/, '');
+  if (!FENCE_BLOCKS) return code;
+  const longest = Math.max(0, ...(code.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return `${fence}${info}\n${code}\n${fence}`;
+}
 
 export const extractCodeBlocks: Operation = {
   id: 'extract-code-blocks',
@@ -63,7 +78,8 @@ export const extractCodeBlocks: Operation = {
   canApply: (input) => codeBlocksIn(input, 1).length > 0,
   run(input) {
     const blocks = codeBlocksIn(input);
-    return result(input, blocks.map((v) => v.replace(/\n$/, '')).join('\n\n'), plural(blocks.length, 'code block', 'code blocks'));
+    const hidden = blocks.some((b) => hasDeceptiveCharacters(b.value)) ? '; contains invisible characters' : '';
+    return result(input, blocks.map(fenced).join('\n\n'), plural(blocks.length, 'code block', 'code blocks') + hidden);
   },
 };
 
@@ -92,20 +108,25 @@ export const extractTasks: Operation = {
   },
 };
 
-interface Found { readonly text: string; readonly url: string; }
+interface Found { readonly text: string; readonly url: string; readonly key: string; }
 
-/** A link's target as the renderer would emit it; null when the renderer would refuse it (javascript:, data:, …). */
-function safeTarget(link: Link): string | null {
+/**
+ * A link's target as the author wrote it, once the renderer's sanitiser accepts it (so no
+ * javascript: or data:); null when the renderer would refuse it. The sanitiser's normalised form
+ * (a trailing slash added) is only the dedup key.
+ */
+function safeTarget(link: Link): { url: string; key: string } | null {
   const decision = sanitizeUrl(link.url, 'link', DEFAULT_POLICY);
-  return decision.allowed ? decision.value : null;
+  if (!decision.allowed) return null;
+  return { url: /[\t\n\r]/.test(link.url) ? decision.value : link.url, key: decision.value };
 }
 
 const linksIn = (input: Scope, limit?: number): Found[] =>
   collect(input, (n): Found | undefined => {
     if (n.type !== 'link') return undefined;
-    const url = safeTarget(n);
-    if (url === null) return undefined;
-    return { url, text: inlinePlainText(n.children as readonly Inline[], { hardBreak: ' ' }).replace(/\s+/g, ' ').trim() };
+    const target = safeTarget(n);
+    if (target === null) return undefined;
+    return { ...target, text: inlinePlainText(n.children as readonly Inline[], { hardBreak: ' ' }).replace(/\s+/g, ' ').trim() };
   }, limit);
 
 function markdownLink({ text, url }: Found): string {
@@ -121,7 +142,7 @@ export const extractLinks: Operation = {
   canApply: (input) => linksIn(input, 1).length > 0,
   run(input) {
     const seen = new Set<string>();
-    const unique = linksIn(input).filter((l) => !seen.has(l.url) && seen.add(l.url));
+    const unique = linksIn(input).filter((l) => !seen.has(l.key) && seen.add(l.key));
     return result(input, unique.map(markdownLink).join('\n'), plural(unique.length, 'link', 'links'));
   },
 };

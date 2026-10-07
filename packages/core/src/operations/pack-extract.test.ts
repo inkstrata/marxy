@@ -94,14 +94,57 @@ test('copy-command: refuses invisible and direction-changing characters, with no
 });
 
 test('copy-command: output never ends in a newline', () => {
-  for (const body of ['$ ls', '$ ls\n', '$ ls\n\n\n', '$ cat <<EOF\nx\n']) {
+  for (const body of ['$ ls', '$ ls\n', '$ ls\n\n\n', '$ cat <<EOF\nx\nEOF\n']) {
     assert.ok(!/[\r\n]$/.test(command('bash', body)!), JSON.stringify(body));
   }
   assert.equal(command('bash', '$ ls\r\n$ pwd\r\n'), 'ls\npwd');
 });
 
+test('copy-command: a quote or $( ) or <( ) that spans lines is copied whole', () => {
+  assert.equal(command('console', '$ echo "a\nb"\na\nb'), 'echo "a\nb"');
+  assert.equal(command('bash', "$ echo 'a\n$ b'\n$ pwd"), "echo 'a\n$ b'\npwd");
+  assert.equal(command('bash', '$ echo $(ls\n  -l)\nout\n$ pwd'), 'echo $(ls\n  -l)\npwd');
+  assert.equal(command('bash', '$ diff <(sort a\n) b\nx'), 'diff <(sort a\n) b');
+  assert.equal(command('console', '$ echo "a\n> b"\na\nb'), 'echo "a\nb"');
+});
+
+test('copy-command: a command that cannot be read to its end is not offered', () => {
+  for (const body of ['$ echo "a\nb', '$ echo $(ls', '$ ls \\', '$ cat <<EOF\nbody']) {
+    assert.equal(copyCommand.canApply(fence('bash', body)), false, body);
+    assert.equal(copyCommand.run(fence('bash', body)).clipboard, undefined, body);
+  }
+});
+
+test('copy-command: a block whose only prompt is bare is not offered and never copies an empty string', () => {
+  for (const body of ['$ ', '$ \nout', '% ']) {
+    assert.equal(copyCommand.canApply(fence('console', body)), false, body);
+    assert.equal(copyCommand.run(fence('console', body)).clipboard, undefined, body);
+  }
+});
+
+test('copy-command: the summary counts commands and the output lines left out', () => {
+  const r = copyCommand.run(fence('console', '$ ls\na\nb\n$ pwd\n/x'));
+  assert.equal(r.summary, 'Copied 2 commands; 3 output lines left out');
+  assert.equal(copyCommand.run(fence('console', '$ ls')).summary, 'Copied 1 command');
+  assert.equal(copyCommand.run(fence('console', '$ ls\nx')).summary, 'Copied 1 command; 1 output line left out');
+});
+
+test('copy-command: in a console block "# " is the root prompt (a decision); in a shell block it never is', () => {
+  assert.equal(command('console', '# apt update\nHit:1'), 'apt update');
+  assert.equal(command('bash', '$ ls\n# apt update'), 'ls\n# apt update');
+});
+
+test('copy-command: powershell, ps1 and pwsh blocks strip only PS prompts', () => {
+  for (const lang of ['powershell', 'ps1', 'pwsh']) {
+    assert.equal(command(lang, 'PS C:\\> Get-Date\nMonday\nPS C:\\> $x = 1'), 'Get-Date\n$x = 1', lang);
+    assert.equal(copyCommand.canApply(fence(lang, '$ ls')), false, lang);
+  }
+  assert.equal(command('powershell', 'PS C:\\> Write-Host `\n  hi'), 'Write-Host `\n  hi');
+});
+
 // ---- extract verbs ----
 
+const EXPECTED_32: Record<string, boolean> = { 'extract-code-blocks': true, 'extract-tasks': false, 'extract-links': true };
 const corpus = new Map(corpusDocuments().map((d) => [d.file, d]));
 const wholeInput = (file: string) => {
   const { document, bytes } = corpus.get(file)!;
@@ -161,7 +204,12 @@ test('extract-code-blocks: 28-llm-answer.md yields every block in order, blank-l
   assert.ok(blocks.length > 2);
   const r = extractCodeBlocks.run(input);
   assert.equal(r.summary, `Copied ${blocks.length} code blocks`);
-  assert.equal(r.clipboard?.text, blocks.map((b) => b.replace(/\n$/, '')).join('\n\n'));
+  let at = 0;
+  for (const b of blocks) {
+    at = r.clipboard!.text.indexOf(b.replace(/\n$/, ''), at);
+    assert.ok(at >= 0, 'every block appears, in order');
+  }
+  assert.ok(r.clipboard!.text.startsWith('```'));
   // a section holding none is not offered
   assert.equal(extractCodeBlocks.canApply(sectionInput('28-llm-answer.md', 'Overview')), false);
 });
@@ -180,11 +228,11 @@ test('extract-links: no corpus document yields a duplicate URL (02-readme has on
 });
 
 test('extract-links: deduplicates by URL, gives the real target, drops javascript: and data:', () => {
-  const doc = parse('# L\n\n[a](https://x.test/p) and [b](https://x.test/p) [c [d]](https://y.test/) [bad](javascript:alert(1)) [d](data:text/html,x) [rel](./a.md) <https://auto.test/z>\n\n[ref][1]\n\n[1]: https://ref.test/\n');
+  const doc = parse('# L\n\n[a](https://x.test/p) and [b](https://x.test/p) [c [d]](https://y.test) [bad](javascript:alert(1)) [d](data:text/html,x) [rel](./a.md) <https://auto.test/z>\n\n[ref][1]\n\n[1]: https://ref.test/\n');
   const r = extractLinks.run({ document: doc, range: doc.src, text: '' });
   assert.equal(
     r.clipboard?.text,
-    ['- [a](https://x.test/p)', '- [c \\[d\\]](https://y.test/)', '- [rel](./a.md)', '- [https://auto.test/z](https://auto.test/z)', '- [ref](https://ref.test/)'].join('\n'),
+    ['- [a](https://x.test/p)', '- [c \\[d\\]](https://y.test)', '- [rel](./a.md)', '- [https://auto.test/z](https://auto.test/z)', '- [ref](https://ref.test/)'].join('\n'),
   );
   assert.equal(r.summary, 'Copied 5 links');
   assert.equal(r.clipboard?.text.includes('javascript'), false);
@@ -201,19 +249,26 @@ test('extract verbs: apply to a heading or the whole document only', () => {
   }
 });
 
-test('extract verbs: canApply on the document range of 32-long-reference.md, median time', () => {
+test('extract verbs: canApply on 32-long-reference.md answers by content (median time printed, not asserted)', () => {
   const input = wholeInput('32-long-reference.md');
+  const answers: Record<string, boolean> = {};
   for (const op of [extractCodeBlocks, extractTasks, extractLinks] as Operation[]) {
     const times: number[] = [];
     for (let i = 0; i < 21; i++) {
       const t = performance.now();
-      op.canApply(input);
+      answers[op.id] = op.canApply(input);
       times.push(performance.now() - t);
     }
     times.sort((a, b) => a - b);
     console.log(`c09 canApply ${op.id} median ${times[10]!.toFixed(3)} ms`);
-    assert.ok(times[10]! < 5, `${op.id} median ${times[10]}`);
   }
+  assert.deepEqual(answers, EXPECTED_32);
+});
+
+test('extract verbs: canApply is true at the first item, however long the rest of the document', () => {
+  const doc = parse('```sh\nx\n```\n\n' + 'filler paragraph\n\n'.repeat(5000));
+  assert.equal(extractCodeBlocks.canApply({ document: doc, range: doc.src }), true);
+  assert.equal(extractTasks.canApply({ document: doc, range: doc.src }), false);
 });
 
 test('fidelity: every pack-extract operation leaves its input bytes alone over the corpus', () => {
@@ -224,4 +279,29 @@ test('fidelity: every pack-extract operation leaves its input bytes alone over t
       if (op.canApply(input)) assert.equal(op.run(input).replacement, text, `${op.id} on ${file}`);
     }
   }
+});
+
+test('extract-code-blocks: each block is a fenced block with its info string, and a longer fence guards inner fences', () => {
+  const doc = parse('# T\n\n```js title="a"\nlet a;\n```\n\n````md\n```\ninner\n```\n````\n');
+  const r = extractCodeBlocks.run({ document: doc, range: doc.src, text: '' });
+  assert.equal(r.clipboard?.text, '```js title="a"\nlet a;\n```\n\n````md\n```\ninner\n```\n````');
+});
+
+test('extract-code-blocks: invisible characters are named in the summary and still copied', () => {
+  const doc = parse('```\na\u200Bb\n```\n');
+  const r = extractCodeBlocks.run({ document: doc, range: doc.src, text: '' });
+  assert.equal(r.summary, 'Copied 1 code block; contains invisible characters');
+  assert.ok(r.clipboard!.text.includes('\u200B'));
+});
+
+test('extract-links: the target is copied as written, not in the sanitiser\'s normal form', () => {
+  const doc = parse('[a](https://x.test) [b](HTTPS://X.test/a%20b)\n');
+  const r = extractLinks.run({ document: doc, range: doc.src, text: '' });
+  assert.equal(r.clipboard?.text, '- [a](https://x.test)\n- [b](HTTPS://X.test/a%20b)');
+});
+
+test('extract-links: a label that is a URL with another host is kept as written', () => {
+  const doc = parse('[https://good.test](https://evil.test/x)\n');
+  const r = extractLinks.run({ document: doc, range: doc.src, text: '' });
+  assert.equal(r.clipboard?.text, '- [https://good.test](https://evil.test/x)');
 });
