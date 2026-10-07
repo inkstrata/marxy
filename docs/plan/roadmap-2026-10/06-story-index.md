@@ -74,6 +74,24 @@ Waves:
 - W12 — B-19 package exports, `core/paths.ts`, boundary rule
 - W13 — B-20 remote_images setting and loading (ruled: ADR-0044 reload)
 
+## Lane L — layout and reading (beside Phase B; `07-layout-and-reading.md`)
+
+| Id | Title | Model | Size | Depends on |
+| --- | --- | --- | --- | --- |
+| L-00 | Measure the page: a geometry probe and a contact sheet over the corpus | sonnet | M | — |
+| L-01 | Write the findings: each hypothesis judged, a typography conformance pass, the fix cards finalised | opus | M | L-00; the author's list of observed errors |
+| L-02 | Gate the geometry (candidate) | sonnet | M | L-01, B-02 |
+| L-03 | Centre the page truly (candidate) [baselines] | opus | S–M | L-02 |
+| L-04 | Wide blocks and tables as one policy (candidate) [baselines] | opus | M | L-03 |
+| L-05 | Notices as one component (candidate) | opus | M | L-01, B-09.1, B-11; before D-10 |
+| L-06 | Source mode basics I: looks (candidate) | sonnet | M | L-01; before D-11 |
+| L-07 | Source mode basics II: place (candidate) | opus | M | L-06; before D-11 |
+| L-08 | Typography conformance fixes (candidate, split per finding) [baselines] | — | — | L-04 |
+| L-09 | Margin notes above 76 em (candidate, only if the author says now) | opus | L | Phase C or later |
+
+Order: L-00, then L-01 (both beside B, no shared paths); after B-02 merges, L-02, L-03, L-04, each alone in
+its wave for baselines; L-05 and L-07 between B-15 and D-10/D-11, or folded into D-10 and D-11.
+
 ## Phase C — collections and copy (17 stories; `03-phase-c.md`)
 
 | Id | Title | Model | Size | Depends on |
