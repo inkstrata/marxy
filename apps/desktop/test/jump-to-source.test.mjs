@@ -85,3 +85,45 @@ test('jump-to-source opens Source at data-marxy-s of the selected block', async 
     await browser.close();
   }
 });
+
+test('jump-to-source on a block far down a long document holds it at the reading line', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const mdPath = '/doc/long.md';
+    const paras = Array.from({ length: 120 }, (_, i) => `Paragraph number ${i + 1} of the long document.`);
+    const md = `# Long\n\n${paras.join('\n\n')}\n`;
+    await page.goto(`${base}app.html`);
+    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
+    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
+    await page.evaluate(async ({ mdPath, md }) => {
+      const handle = await window.marxyApp.start({ [mdPath]: btoa(md) }, [mdPath]);
+      await handle.ready;
+      await handle.contentComplete();
+      window.__marxyHandle = handle;
+    }, { mdPath, md });
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+    const target = page.locator('#doc p', { hasText: 'Paragraph number 90 of' });
+    await target.scrollIntoViewIfNeeded();
+    await target.click();
+    await page.waitForFunction(() => window.marxySelection?.getSelectionState().selection.kind !== 'none');
+    await page.evaluate(() => window.marxyRunCommand?.('view.jump-to-source'));
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('.cm-content'));
+    await page.waitForTimeout(300);
+    // In Source the window scrolls (the .cm-scroller's own scrollTop stays 0): read what sits at the
+    // reading line, 40% down the window, as the reader sees it.
+    const at = await page.evaluate(() => {
+      const y = Math.round(window.innerHeight * 0.4) + 4;
+      const line = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => {
+        const r = l.getBoundingClientRect();
+        return r.top <= y && r.bottom > y;
+      });
+      return { scrollY: window.scrollY, line: line?.textContent ?? null, mode: window.__marxyHandle.sourceHarness().mode };
+    });
+    assert.equal(at.mode, 'source');
+    assert.ok(at.scrollY > 0, 'the window scrolled to the block');
+    assert.equal(at.line, 'Paragraph number 90 of the long document.');
+  } finally {
+    await browser.close();
+  }
+});

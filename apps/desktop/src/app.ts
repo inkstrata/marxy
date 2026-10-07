@@ -161,6 +161,11 @@ export type AppHandle = {
   /** Rendered to Source or back, as `Mod+E` does; resolves when the switch is done. */
   toggleMode(): Promise<void>;
   /**
+   * Source with the line holding `byteOffset` at the reading line (Jump to source). The same Source as
+   * `Mod+E`: what is typed there is saved, guarded and undoable (F-03).
+   */
+  jumpToSource(byteOffset: number): Promise<void>;
+  /**
    * Sets the rendered page again after a change of variant or size, on the grid, with the reader on
    * the same line (A-14). Nothing to do in Source mode or with no document open.
    */
@@ -310,6 +315,19 @@ async function toggleViewMode(): Promise<void> {
     await serially(async () => {
       if (viewMode === 'rendered') await enterSourceFromRendered();
       else await leaveSourceForRendered();
+    });
+  } finally {
+    modeToggleBusy = false;
+  }
+}
+
+async function jumpToSource(byteOffset: number): Promise<void> {
+  if (modeToggleBusy || !store) return;
+  modeToggleBusy = true;
+  try {
+    await serially(async () => {
+      lastReadingFraction = 0;
+      await showSource(byteOffset);
     });
   } finally {
     modeToggleBusy = false;
@@ -1581,6 +1599,7 @@ export async function startApp(
     commitEdit,
     contentComplete: () => mount?.complete ?? Promise.resolve(),
     toggleMode: toggleViewMode,
+    jumpToSource,
     relayout: relayoutKeepingReader,
     pinPaletteDocument(path: string) {
       const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
