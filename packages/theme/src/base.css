@@ -450,6 +450,11 @@ p > img:only-child { display: block; margin-inline: auto; }
 
 /* Display math wider than the measure scrolls inside its own block instead of widening the page. */
 .marxy-article .katex-display { overflow-x: auto; }
+/* The code element inside a display block holds KaTeX's block-level .katex-display. Left inline it is a
+   block inside an inline box, and WebKit then keeps a stale height for the <pre> after the grid pass
+   removes and restores its padding (it reads 135px while the real layout is 132.86px), so the block is
+   left 2.14px off the grid and the pass decides nothing is needed. A block box has no such split. */
+.marxy-article pre.marxy-math-block > code { display: block; }
 
 /* Invisible-character markers (handbook ch.7, MARXY-236): 1ch hairline box, hex label, code ground. */
 .marxy-invisible {
