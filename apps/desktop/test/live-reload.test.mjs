@@ -203,6 +203,29 @@ test('dirty Source buffer keeps edits and shows the disk-changed notice', async 
   }
 });
 
+// F-15: the memory shell cannot model a symlink, so this pins the webview half only: once the
+// watcher names the link path (the Rust tests pin that it does), an open link reloads and, when
+// the link goes, shows the removal notice.
+test('events on the open link path reload it and show the removal notice (F-15)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/docs/link.md': b64(C) }, ['/r/docs/link.md']);
+    await page.evaluate(async () => {
+      const path = '/r/docs/link.md';
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode('# Charlie\n\nThe target was edited.\n'));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    });
+    await page.waitForFunction(() => document.getElementById('doc')?.textContent?.includes('The target was edited.'));
+    await page.evaluate(() => {
+      window.__marxyHandle.shell.emit([{ kind: 'removed', path: '/r/docs/link.md' }]);
+    });
+    await page.waitForFunction((text) => document.getElementById('marxy-notices')?.textContent?.includes(text), FILE_REMOVED_ON_DISK);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('deleted event keeps the page and shows file-removed notice', async () => {
   const browser = await launchWebkit();
   try {

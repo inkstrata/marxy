@@ -179,6 +179,17 @@ fn scan_entries(entries: fs::ReadDir, out: &mut Snapshot) {
         }
         if meta.is_file() {
             out.insert(path, file_id(&meta));
+        } else if meta.is_symlink() {
+            // `DirEntry::metadata` does not follow links. A link to a regular file is recorded under
+            // its own path with the target's identity (`fs::metadata` follows it), so an edit of the
+            // target is `Modified` on the link and deleting the link is `Removed`. A link to a
+            // directory or a dangling link is not recorded, and nothing here descends a link, so a
+            // loop cannot arise.
+            if let Ok(target) = fs::metadata(&path) {
+                if target.is_file() {
+                    out.insert(path, file_id(&target));
+                }
+            }
         }
     }
 }
@@ -311,26 +322,11 @@ fn classify_one(event: &WatchEvent, open: &Path) -> OpenEffect {
     }
 }
 
-/// `/var` and `/private/var` are the same directory on macOS; a deleted file still compares by
-/// its parent, because `canonicalize` of the file itself then fails.
+/// The production comparison (`samePath` in `packages/core/src/position/watch-events.ts`): backslashes
+/// read as slashes, nothing else. It does not resolve a link, so an event must name the open path itself.
 #[cfg(test)]
 fn same_path(left: &Path, right: &Path) -> bool {
-    if left == right {
-        return true;
-    }
-    if let (Ok(a), Ok(b)) = (fs::canonicalize(left), fs::canonicalize(right)) {
-        return a == b;
-    }
-    if left.file_name() != right.file_name() {
-        return false;
-    }
-    match (left.parent(), right.parent()) {
-        (Some(a), Some(b)) => match (fs::canonicalize(a), fs::canonicalize(b)) {
-            (Ok(ca), Ok(cb)) => ca == cb,
-            _ => false,
-        },
-        _ => false,
-    }
+    left.to_string_lossy().replace('\\', "/") == right.to_string_lossy().replace('\\', "/")
 }
 
 pub fn watch_kind_name(kind: WatchKind) -> &'static str {
@@ -456,6 +452,108 @@ mod tests {
         let effect = effect_for_open_document(&events, &link);
         cleanup(&dir);
         assert_eq!(effect, OpenEffect::Reload, "events: {events:?}");
+    }
+
+    #[cfg(unix)]
+    fn linked(name: &str, target_in_docs: bool) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+        let (dir, _open) = scratch(name);
+        let docs = dir.join("docs");
+        fs::create_dir(&docs).expect("docs");
+        let real = if target_in_docs {
+            docs.join("real.md")
+        } else {
+            let elsewhere = dir.join("elsewhere");
+            fs::create_dir(&elsewhere).expect("target dir");
+            elsewhere.join("real.md")
+        };
+        fs::write(&real, b"# real\n").expect("seed target");
+        let link = docs.join("link.md");
+        std::os::unix::fs::symlink(&real, &link).expect("symlink");
+        (dir, docs, real, link)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_edit_of_a_target_in_the_same_directory_is_modified_on_the_link() {
+        let (dir, docs, real, link) = linked("link-same-dir", true);
+        let mut watch = RootWatch::open(&docs).expect("watch");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        fs::write(&real, b"# real, edited by another tool\n").expect("edit target");
+        let events = watch.poll().expect("poll");
+        let named = events
+            .iter()
+            .any(|e| e.kind == WatchKind::Modified && e.path == link);
+        let effect = effect_for_open_document(&events, &link);
+        cleanup(&dir);
+        assert!(named, "{events:?}");
+        assert_eq!(effect, OpenEffect::Reload);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_edit_of_a_target_in_another_directory_is_modified_on_the_link() {
+        let (dir, docs, real, link) = linked("link-other-dir", false);
+        let mut watch = RootWatch::open(&docs).expect("watch");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        fs::write(&real, b"# real, edited by another tool\n").expect("edit target");
+        let events = watch.poll().expect("poll");
+        let named = events
+            .iter()
+            .any(|e| e.kind == WatchKind::Modified && e.path == link);
+        let effect = effect_for_open_document(&events, &link);
+        cleanup(&dir);
+        assert!(named, "{events:?}");
+        assert_eq!(effect, OpenEffect::Reload);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removing_the_link_is_removed_on_the_link() {
+        let (dir, docs, real, link) = linked("link-removed", true);
+        let mut watch = RootWatch::open(&docs).expect("watch");
+        fs::remove_file(&link).expect("unlink");
+        let events = watch.poll().expect("poll");
+        let named = events
+            .iter()
+            .any(|e| e.kind == WatchKind::Removed && e.path == link);
+        let effect = effect_for_open_document(&events, &link);
+        let real_untouched = real.exists();
+        cleanup(&dir);
+        assert!(real_untouched);
+        assert!(named, "{events:?}");
+        assert_eq!(effect, OpenEffect::Gone);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_directory_or_a_dangling_link_is_not_recorded() {
+        let (dir, docs, _real, link) = linked("link-kinds", true);
+        let sub = dir.join("sub");
+        fs::create_dir(&sub).expect("sub");
+        fs::write(sub.join("inner.md"), b"x").expect("inner");
+        std::os::unix::fs::symlink(&sub, docs.join("dirlink")).expect("dir link");
+        std::os::unix::fs::symlink(docs.join("nope.md"), docs.join("dangling.md"))
+            .expect("dangling");
+        std::os::unix::fs::symlink(&docs, docs.join("loop")).expect("loop");
+        let snap = scan(&docs).expect("scan");
+        let keys: Vec<_> = snap.keys().cloned().collect();
+        cleanup(&dir);
+        assert!(keys.contains(&link), "{keys:?}");
+        for name in ["dirlink", "dangling.md", "loop"] {
+            assert!(!keys.iter().any(|p| p.ends_with(name)), "{name}: {keys:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_comparison_does_not_resolve_a_link() {
+        let (dir, _docs, real, link) = linked("link-compare", true);
+        let same = same_path(&real, &link);
+        cleanup(&dir);
+        assert!(
+            !same,
+            "a target event must not match the link by canonicalising"
+        );
     }
 
     #[test]
