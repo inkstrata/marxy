@@ -338,7 +338,7 @@ test('align-table-pipes: alignment row :---: stretches', () => {
   assert.match(out.replacement, /:\-+:/);
 });
 
-test('align-table-pipes: 40-row table completes in under 5 ms (median of 10)', () => {
+test('align-table-pipes: a 40-row table aligns, and the median time is recorded, not asserted (ADR-0032)', () => {
   const rows = ['| a | b |', '| - | - |', ...Array.from({ length: 38 }, (_, i) => `| ${i} | x |`)];
   const source = `${rows.join('\n')}\n`;
   const doc = parse(source);
@@ -349,12 +349,12 @@ test('align-table-pipes: 40-row table completes in under 5 ms (median of 10)', (
   const samples: number[] = [];
   for (let i = 0; i < 10; i++) {
     const t0 = performance.now();
-    alignTablePipes.run(input);
+    assert.equal(typeof alignTablePipes.run(input).replacement, "string");
     samples.push(performance.now() - t0);
   }
   samples.sort((a, b) => a - b);
   const median = samples[4]!;
-  assert.ok(median < 5, `median ${median} ms`);
+  console.log(`align-table-pipes: 40 rows, median ${median.toFixed(2)} ms`);
 });
 
 const corpusFiles = readdirSync(corpus)

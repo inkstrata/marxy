@@ -18,13 +18,19 @@ const palettes = JSON.parse(readFileSync(new URL('../../../packages/theme/test/p
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
-const test = (name, fn) => nodeTest(name, { skip }, fn);
+// A hung WebKit (starved or killed under load) leaves a promise pending with nothing keeping the event loop
+// alive, and node:test then reports only "Promise resolution is still pending". An explicit timeout turns
+// that into a failure that names this test.
+const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
 
 const FONT_URLS = {
   '/fonts/Literata.ttf': join(fileURLToPath(root), 'fonts/literata/Literata[opsz,wght].ttf'),
   '/fonts/Literata-Italic.ttf': join(fileURLToPath(root), 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
   '/fonts/JetBrainsMono.ttf': join(fileURLToPath(root), 'fonts/jetbrains-mono/JetBrainsMono[wght].ttf'),
 };
+
+let buildOnce;
+const built = { then: (ok, no) => (buildOnce ??= buildHarness()).then(ok, no) }; // built lazily, once per file, never when skipped
 
 async function buildHarness() {
   const { build } = await import('vite');
@@ -74,7 +80,7 @@ async function bgForVariant(page, origin, variantPreference) {
 }
 
 test('MARXY-46: variant light paints the designed paper through marxyRender', async () => {
-  await buildHarness();
+  await built;
   const server = await startServer();
   const origin = `http://127.0.0.1:${server.address().port}`;
   const browser = await launchWebkit();
@@ -89,7 +95,7 @@ test('MARXY-46: variant light paints the designed paper through marxyRender', as
 });
 
 test('MARXY-46: variant auto follows prefers-color-scheme on the headless entry', async () => {
-  await buildHarness();
+  await built;
   const server = await startServer();
   const origin = `http://127.0.0.1:${server.address().port}`;
   const browser = await launchWebkit();
