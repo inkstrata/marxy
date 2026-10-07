@@ -209,8 +209,6 @@ room over a screenshot. Each of the author's complaints is then a number with a 
 
 **Acceptance.**
 - The negative control fails the way it should (`probe-layout.test.mjs`).
-- Every case the author reports (a table filled in with them at the start of L-01) appears in the ranked
-  list.
 - The run is deterministic: two runs give an identical `probe.json`.
 
 **Do not.** Edit the gate, the baselines, `base.css` or any `src/` file. Add the probe to CI (that is L-02).
@@ -236,8 +234,8 @@ room over a screenshot. Each of the author's complaints is then a number with a 
   edit those files. The author's answers to the decisions go to `rulings.md` through the lead.
 
 **Build order.**
-1. Get the author's list of observed errors (document, window size, what is wrong) and reproduce each
-   one in L-00's output.
+1. The author has no list of observed errors (`rulings.md`, 2026-10-07): treat L-00's ranked offenders as
+   the cases, and reproduce the worst of each hypothesis.
 2. For each hypothesis, record a verdict, the evidence, the cause at file:line, and the smallest fix.
 3. Run the conformance pass. Probe the research's verification items in WebKit with small headless pages in
    `docs/research/reader-typography/lab/`:
