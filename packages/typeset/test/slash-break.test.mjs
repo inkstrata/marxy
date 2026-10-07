@@ -24,6 +24,11 @@ nodeTest('insertSlashBreaks adds dash opportunities only after slashes in code',
   assert.equal(dashes.length, 3);
   assert.ok(tokens.some((t) => t.kind === 'piece' && t.text === 'file-name.ts'));
   assert.ok(!tokens.some((t) => t.kind === 'dash' && t.node.data[t.offset - 1] === '-'));
+  for (const token of tokens) {
+    if (token.kind !== 'piece') continue;
+    assert.equal(token.segments.length, 1);
+    assert.equal(token.text, token.segments[0].node.data.slice(token.segments[0].start, token.segments[0].end));
+  }
 });
 
 nodeTest('a path that fits never gains slash breaks', () => {
@@ -108,5 +113,5 @@ test('corpus overfull fallbacks do not rise on the rag fixtures', async () => {
     overfull += stats.reasons?.overfull ?? 0;
     await page.close();
   }
-  assert.ok(overfull <= 8, `overfull fallbacks ${overfull} rose above the published ceiling`);
+  assert.equal(overfull, 0, `overfull fallbacks ${overfull}; the measured count on these fixtures is 0`);
 });
