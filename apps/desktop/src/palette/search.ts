@@ -52,7 +52,7 @@ function prepareRow(entry: IndexEntry, readAt?: Readonly<Record<string, number>>
   };
 }
 
-/** Precompute lowercase path/title/headings. The 16 ms budget is the query, not this. */
+/** Precompute lowercase path/title/headings. The 16 ms budget is the query, not this. Assumes one entry per path (the patch map is keyed on it). */
 export function prepareIndex(
   entries: readonly IndexEntry[],
   readAt?: Readonly<Record<string, number>>,
@@ -67,7 +67,11 @@ export function prepareIndex(
   return prepared;
 }
 
-/** Replace the rows of these entries (by path) or add them; every other row is left as it was. */
+/**
+ * Replace the rows of these entries (by path) or add them; every other row is left as it was.
+ * `readAt` is the session's read-time overlay and must be the one `prepareIndex` was given: omitted,
+ * the rows carry the index's own `lastReadMs`, which drops the overlay for these entries.
+ */
 export function upsertRows(
   prepared: PreparedIndex,
   entries: readonly IndexEntry[],
@@ -156,9 +160,9 @@ export function searchPrepared(
   });
   const now = Date.now();
   const rows = prepared.rows;
-  const consider = (row: PreparedRow): boolean => {
+  const consider = (row: PreparedRow, prior: number): boolean => {
     prepareStats.rowsScored++;
-    const hit = scoreRow(row, needle, byPath, now);
+    const hit = scoreRow(row, needle, byPath, now, prior);
     if (hit === undefined) return false;
     if (hit === CANDIDATE_ONLY) return true;
     if (row.entry.root === session.currentRoot) current.push(hit);
@@ -169,22 +173,36 @@ export function searchPrepared(
   // keystroke that extends the last query scans the last query's candidates, not every row.
   const cached = candidateCache.get(prepared);
   let next: Int32Array;
+  let nextMasks: Uint8Array;
   if (cached !== undefined && cached.version === prepared.version && needle.startsWith(cached.needle)) {
     const from = cached.candidates;
+    const fromMasks = cached.masks;
     next = new Int32Array(from.length);
+    nextMasks = new Uint8Array(from.length);
     let n = 0;
     for (let k = 0; k < from.length; k++) {
       const i = from[k]!;
-      if (consider(rows[i]!)) next[n++] = i;
+      if (consider(rows[i]!, fromMasks[k]!)) {
+        next[n] = i;
+        nextMasks[n++] = outMask;
+      }
     }
     next = next.subarray(0, n);
+    nextMasks = nextMasks.subarray(0, n);
   } else {
     next = new Int32Array(rows.length);
+    nextMasks = new Uint8Array(rows.length);
     let n = 0;
-    for (let i = 0; i < rows.length; i++) if (consider(rows[i]!)) next[n++] = i;
+    for (let i = 0; i < rows.length; i++) {
+      if (consider(rows[i]!, ALL_FIELDS)) {
+        next[n] = i;
+        nextMasks[n++] = outMask;
+      }
+    }
     next = next.slice(0, n);
+    nextMasks = nextMasks.slice(0, n);
   }
-  candidateCache.set(prepared, { version: prepared.version, needle, candidates: next });
+  candidateCache.set(prepared, { version: prepared.version, needle, candidates: next, masks: nextMasks });
   const currentHits = current.values();
   if (currentHits.length >= limit) return currentHits;
 
@@ -198,10 +216,22 @@ export function searchPrepared(
   return out;
 }
 
+/**
+ * Per candidate row, which fields held the cached needle as a subsequence. A longer needle can only
+ * be held by a field that held the shorter one, so an extending keystroke skips the others.
+ * HEADINGS also stays set when the headings were not scanned (a strong title or path), as "unknown".
+ */
+const TITLE_FIELD = 1;
+const PATH_FIELD = 2;
+const HEADINGS_FIELD = 4;
+const ALL_FIELDS = TITLE_FIELD | PATH_FIELD | HEADINGS_FIELD;
+/** `scoreRow`'s second result: the field mask of the row it just scored. */
+let outMask = 0;
+
 /** The last keystroke's candidate rows per prepared index; valid only for the version it was made at. */
 const candidateCache = new WeakMap<
   PreparedIndex,
-  { version: number; needle: string; candidates: Int32Array }
+  { version: number; needle: string; candidates: Int32Array; masks: Uint8Array }
 >();
 
 /** Test hook: forget every cached candidate list, so the next search is a full scan. */
@@ -241,8 +271,16 @@ function topKHits(limit: number, compare: (a: IndexHit, b: IndexHit) => number) 
         return;
       }
       if (compare(hit, buf[limit - 1]!) >= 0) return;
-      buf[limit - 1] = hit;
-      buf.sort(compare);
+      // Binary insertion into the sorted buffer; the worst entry falls off the end.
+      let lo = 0;
+      let hi = limit - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (compare(buf[mid]!, hit) <= 0) lo = mid + 1;
+        else hi = mid;
+      }
+      buf.copyWithin(lo + 1, lo, limit - 1);
+      buf[lo] = hit;
     },
     values(): IndexHit[] {
       return buf.length < limit ? buf.slice().sort(compare) : buf;
@@ -276,27 +314,37 @@ function scoreRow(
   needle: string,
   mru: ReadonlyMap<string, number>,
   now: number,
+  prior: number,
 ): IndexHit | undefined {
-  const rawTitle = matchScore(row.title, needle);
-  const rawPath = matchScore(row.path, needle);
-  let candidate = rawTitle !== NO_MATCH || rawPath !== NO_MATCH;
+  const rawTitle = (prior & TITLE_FIELD) !== 0 ? matchScore(row.title, needle) : NO_MATCH;
+  const rawPath = (prior & PATH_FIELD) !== 0 ? matchScore(row.path, needle) : NO_MATCH;
+  let mask = 0;
+  if (rawTitle !== NO_MATCH) mask |= TITLE_FIELD;
+  if (rawPath !== NO_MATCH) mask |= PATH_FIELD;
+  let candidate = mask !== 0;
   const title = rawTitle === NO_MATCH ? 0 : rawTitle * TITLE_WEIGHT;
   const path = rawPath === NO_MATCH ? 0 : rawPath * PATH_WEIGHT;
   let headingScore = 0;
   let headingIndex: number | undefined;
   const bestSoFar = title >= path ? title : path;
-  if (bestSoFar <= 0 || headingCouldBeat(bestSoFar, needle)) {
-    for (let i = 0; i < row.headings.length; i++) {
-      const raw = matchScore(row.headings[i]!, needle);
-      if (raw === NO_MATCH) continue;
-      candidate = true;
-      const scored = raw * HEADING_WEIGHT;
-      if (scored > headingScore) {
-        headingScore = scored;
-        headingIndex = i;
+  if ((prior & HEADINGS_FIELD) !== 0) {
+    if (bestSoFar <= 0 || headingCouldBeat(bestSoFar, needle)) {
+      for (let i = 0; i < row.headings.length; i++) {
+        const raw = matchScore(row.headings[i]!, needle);
+        if (raw === NO_MATCH) continue;
+        candidate = true;
+        mask |= HEADINGS_FIELD;
+        const scored = raw * HEADING_WEIGHT;
+        if (scored > headingScore) {
+          headingScore = scored;
+          headingIndex = i;
+        }
       }
+    } else {
+      mask |= HEADINGS_FIELD; // not scanned: unknown, so the next keystroke scans them
     }
   }
+  outMask = mask;
   if (!candidate) return undefined;
   const best =
     title >= path && title >= headingScore ? title : path >= headingScore ? path : headingScore;

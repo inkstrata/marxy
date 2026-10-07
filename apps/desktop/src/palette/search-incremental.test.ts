@@ -45,7 +45,8 @@ function makeEntry(rand: () => number, i: number): IndexEntry {
   return {
     path: `/${rand() < 0.2 ? 'other' : 'repo'}/${word(rand, 2, 6)}/${word(rand, 3, 12)}-${i}.md`,
     root: rand() < 0.2 ? '/other' : '/repo',
-    title: word(rand, 3, 16),
+    // Now and then a long title, so a match can score <= 0 and still be a candidate.
+    title: rand() < 0.03 ? word(rand, 200, 260) : word(rand, 3, 16),
     headings,
     mtimeMs: Math.floor(rand() * 5),
     size: 10,
@@ -154,4 +155,16 @@ test('upsertRows of one entry into a 50,000-row index prepares exactly one row',
   removeRows(prepared, [entries[123]!.path, '/not/in/the/index.md']);
   assert.equal(prepared.rows.length, 49_999);
   assert.equal(paths(searchPrepared('renamed', prepared, emptySession('/repo'))).includes(entries[123]!.path), false);
+});
+
+// A match can score zero or less (the score subtracts the length gap), yet it still counts for the
+// next keystroke: "score > 0" is not monotone in the query, candidacy is.
+test('a long title that scores <= 0 for "ac" is still a candidate, so "acd" finds it', () => {
+  const title = 'a' + 'b'.repeat(200) + 'cd' + 'b'.repeat(47);
+  assert.equal(title.length, 250);
+  const entry: IndexEntry = { path: '/r/x.md', root: '/r', title, headings: [], mtimeMs: 1, size: 1, kind: 'markdown' };
+  const prepared = prepareIndex([entry]);
+  const session = emptySession('/r');
+  assert.equal(searchPrepared('ac', prepared, session).length, 0);
+  assert.equal(searchPrepared('acd', prepared, session).length, 1);
 });

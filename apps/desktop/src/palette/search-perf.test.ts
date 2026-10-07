@@ -75,7 +75,8 @@ test('search on a 50,000-entry index: fresh-query and typed-ahead timings are pr
   const fresh = ['title 1', 'file-300', 'heading 12', 'detail', 'document 99', 'section', 'xyz-no-such', 't', 'md', 'd3/file'];
   const typed = ['detail', 'document', 'heading', 'section', 'file-300'];
   const freshMs: number[] = [];
-  const typedMs: number[] = [];
+  const firstMs: number[] = [];
+  const extendMs: number[] = [];
   for (let round = 0; round < 6; round++) {
     for (const query of fresh) {
       // A query nobody just typed: another index version makes the cache miss.
@@ -89,17 +90,19 @@ test('search on a 50,000-entry index: fresh-query and typed-ahead timings are pr
       for (let len = 1; len <= word.length; len++) {
         const t0 = performance.now();
         searchPrepared(word.slice(0, len), prepared, session);
-        typedMs.push(performance.now() - t0);
+        (len === 1 ? firstMs : extendMs).push(performance.now() - t0);
       }
     }
   }
   freshMs.sort((a, b) => a - b);
-  typedMs.sort((a, b) => a - b);
+  firstMs.sort((a, b) => a - b);
+  extendMs.sort((a, b) => a - b);
+  const line = (name: string, x: number[]) =>
+    `${name} p50 ${quantile(x, 0.5).toFixed(2)} ms p95 ${quantile(x, 0.95).toFixed(2)} ms`;
   console.log(
-    `palette ${LARGE}: fresh p50 ${quantile(freshMs, 0.5).toFixed(2)} ms p95 ${quantile(freshMs, 0.95).toFixed(2)} ms; ` +
-      `typed-ahead (every keystroke) p50 ${quantile(typedMs, 0.5).toFixed(2)} ms p95 ${quantile(typedMs, 0.95).toFixed(2)} ms`,
+    `palette ${LARGE}: ${line('fresh', freshMs)}; ${line('typed-ahead first keystroke', firstMs)}; ${line('typed-ahead extending keystroke', extendMs)}`,
   );
-  assert.ok(freshMs.length > 0 && typedMs.length > 0);
+  assert.ok(freshMs.length > 0 && firstMs.length > 0 && extendMs.length > 0);
   const found = searchPrepared('file-300', prepared, session);
   assert.ok(found.some((hit) => hit.entry.path === '/repo/d100/file-300.md'), 'file-300 is found after the typed-ahead run');
 });
