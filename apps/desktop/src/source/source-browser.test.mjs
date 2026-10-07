@@ -91,12 +91,17 @@ test('mode switch twice without editing keeps bytes and byteOffset', async () =>
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await page.goto(`${base}src/source/harness-shell.html`);
     await page.waitForFunction(() => typeof window.marxySourceHarness?.roundTrip === 'function');
+    // Inside line 40: deep enough that Source must scroll to put it on the reading line (S-07-0003).
+    const lineStarts = [0];
+    for (let i = 0; i < bytes.length; i++) if (bytes[i] === 0x0a) lineStarts.push(i + 1);
+    const at = lineStarts[40] + 5;
     const result = await page.evaluate(
-      async ({ bytesB64 }) => window.marxySourceHarness.roundTrip(bytesB64, '/19-source-file.md', 128),
-      { bytesB64 },
+      async ({ bytesB64, at }) => window.marxySourceHarness.roundTrip(bytesB64, '/19-source-file.md', at),
+      { bytesB64, at },
     );
+    assert.equal(result.changed, false);
     assert.equal(result.hashSame, true);
-    assert.equal(result.byteOffset, 128);
+    assert.equal(result.byteOffset, lineStarts[40], 'the line on the reading line is the line holding the byte');
   } finally {
     await browser.close();
   }

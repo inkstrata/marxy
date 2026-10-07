@@ -61,3 +61,37 @@ test('reopening within one line keeps the same first visible block', () => {
   const scrollAfter = scrollTopForPosition(blocks, blocks[5].start, 0.35, viewport);
   assert.ok(sameFirstVisibleBlock(blocks, scrollBefore, scrollAfter, viewport, 24));
 });
+
+test('a pair a block apart is not "within one line" (S-05-0003)', () => {
+  const blocks: LayoutBlock[] = [
+    { start: 0, top: 0, height: 100 },
+    { start: 40, top: 100, height: 100 },
+  ];
+  const viewport = 800;
+  const top = scrollTopForPosition(blocks, 0, 0, viewport);
+  const bottom = scrollTopForPosition(blocks, 0, 1, viewport);
+  assert.equal(Math.abs(top - bottom), 100);
+  assert.equal(sameFirstVisibleBlock(blocks, top, bottom, viewport, 24), false);
+  // A fifth of a 100 px block is 20 px: within a 24 px line.
+  const near = scrollTopForPosition(blocks, 0, 0.2, viewport);
+  assert.equal(sameFirstVisibleBlock(blocks, top, near, viewport, 24), true);
+});
+
+test('a byte inside a block restores to that block, not the next one (S-05-0001)', () => {
+  const blocks: LayoutBlock[] = [
+    { start: 0, top: 0, height: 400 },
+    { start: 500, top: 400, height: 80 },
+  ];
+  const viewport = 800;
+  const top = scrollTopForPosition(blocks, 200, 0, viewport);
+  assert.deepEqual(positionAtScroll(blocks, top, viewport), { byteOffset: 0, fraction: 0 });
+  // Past the last block's start: the last block. Before the first: the first.
+  assert.deepEqual(positionAtScroll(blocks, scrollTopForPosition(blocks, 900, 0.5, viewport), viewport), {
+    byteOffset: 500,
+    fraction: 0.5,
+  });
+  const late: LayoutBlock[] = [{ start: 10, top: 50, height: 100 }, ...blocks.slice(1)];
+  assert.equal(scrollTopForPosition(late, 3, 0, viewport), 50 - 0.4 * viewport);
+  // A block start is still that block's top.
+  assert.equal(scrollTopForPosition(blocks, 500, 0, viewport), 400 - 0.4 * viewport);
+});

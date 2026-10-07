@@ -20,7 +20,9 @@ export async function createSourceEditor(
   // `doc.toString()` joins lines with \n whatever EditorState.lineSeparator says; the buffer's text
   // (and foldText's offsets into it) use the file's own separator, so read the doc through sliceDoc.
   const textNow = (): string => view.state.sliceDoc(0, view.state.doc.length);
-  const readingLine = opts.readingLinePx ?? (typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.4) : 320);
+  // Read per scroll: the window's height can change while the editor lives (the app reads its place the same way).
+  const readingLine = (): number =>
+    opts.readingLinePx ?? (typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.4) : 320);
 
   return {
     view,
@@ -44,7 +46,7 @@ export async function createSourceEditor(
       });
     },
     scrollToByte(byteOffset: number) {
-      scrollSourceToByte(buffer, view, byteOffset, readingLine);
+      scrollSourceToByte(buffer, view, byteOffset, readingLine());
     },
     docText() {
       return textNow();

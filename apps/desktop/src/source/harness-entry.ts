@@ -1,33 +1,9 @@
 // Browser test entry for Source mode (Playwright only; not shipped in index.html).
 
-import { createBuffer, type Buffer } from '@marxy/core';
-import type { EditorView } from '@codemirror/view';
+import { createBuffer } from '@marxy/core';
 import { createSourceEditor } from './editor.ts';
 import { leaveSourceMode } from './buffer-commit.ts';
-import { scrollSourceToByte, sourceVisibleByteOffset } from './mode-switch.ts';
-
-interface ModeRoundTripInput {
-  readonly buffer: Buffer;
-  readonly byteOffset: number;
-  readonly docText: string;
-  readonly view?: EditorView;
-}
-
-/** Rendered → Source → Rendered with no edits keeps bytes and the byte offset. */
-function modeRoundTripWithoutEdits(input: ModeRoundTripInput): {
-  readonly buffer: Buffer;
-  readonly byteOffset: number;
-} {
-  const left = leaveSourceMode(input.buffer, input.docText);
-  if (left.changed) {
-    throw new Error('mode round-trip expected unchanged buffer');
-  }
-  let byteOffset = input.byteOffset;
-  if (input.view) {
-    byteOffset = sourceVisibleByteOffset(input.buffer, input.view);
-  }
-  return { buffer: left.buffer, byteOffset };
-}
+import { scrollSourceToByte, sourceReadingPosition } from './mode-switch.ts';
 
 function decodeBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -61,16 +37,23 @@ async function scrollPerf(bytesB64: string, path: string, steps: number) {
   return { max, over100: deltas.filter((d) => d > 100).length, lines: editor.view.state.doc.lines };
 }
 
+/**
+ * Rendered → Source → Rendered with no edit: Source is scrolled to `byteOffset` on the reading line,
+ * and the place read back is what Source shows there, measured, not the offset passed in (S-07-0003).
+ */
 async function roundTrip(bytesB64: string, path: string, byteOffset: number) {
   const { editor, buffer } = await mountEditor(bytesB64, path);
-  scrollSourceToByte(buffer, editor.view, byteOffset, Math.round(window.innerHeight * 0.4));
-  await new Promise((r) => requestAnimationFrame(r));
+  const readingLine = Math.round(window.innerHeight * 0.4);
+  scrollSourceToByte(buffer, editor.view, byteOffset, readingLine);
+  // CodeMirror applies the scroll in its next measure, a frame later.
+  for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
   const doc = editor.docText();
   const left = leaveSourceMode(buffer, doc);
-  const trip = modeRoundTripWithoutEdits({ buffer: left.buffer, byteOffset, docText: doc });
+  const sameBytes = left.buffer.bytes.length === buffer.bytes.length && left.buffer.bytes.every((b, i) => b === buffer.bytes[i]);
   return {
-    hashSame: left.buffer.bytes.length === buffer.bytes.length && left.buffer.text === buffer.text,
-    byteOffset: trip.byteOffset,
+    changed: left.changed,
+    hashSame: sameBytes,
+    byteOffset: sourceReadingPosition(left.buffer, editor.view, readingLine).byteOffset,
   };
 }
 
