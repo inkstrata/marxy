@@ -182,6 +182,27 @@ test('scrolled in Source with no edit, leaving it lands where Source was read, n
   }
 });
 
+for (const where of ['near the top', 'at the bottom']) {
+  test(`Mod+E twice with no edit and no scroll, ${where}, lands where it started`, async () => {
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: VIEWPORT });
+      await boot(page, { '/d/wrapped.md': b64(wrappedMd) }, ['/d/wrapped.md']);
+      await settle(page);
+      // Too near either end for Source to put the entered line on the reading line.
+      await page.evaluate((top) => window.scrollTo(0, top ? 70 : document.documentElement.scrollHeight), where === 'near the top');
+      await settle(page);
+      const before = await page.evaluate(() => window.scrollY);
+      await enterSource(page);
+      await leaveSource(page);
+      const after = await page.evaluate(() => window.scrollY);
+      assert.ok(Math.abs(after - before) <= 1, `scrollY ${before} → ${after}`);
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
 test('quit from Source stores the line on the reading line, and a source file reopens on it (S-08-0002, S-08-0001)', async () => {
   const browser = await launchWebkit();
   try {

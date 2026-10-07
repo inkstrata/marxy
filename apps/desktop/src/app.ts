@@ -215,6 +215,8 @@ let scrollPersistenceInstalled = false;
 let restoreAfterTypeset = false;
 /** The byte the open in progress lands on (an `at`, or the stored place), read before anything re-notes it. */
 let openLanding: number | undefined;
+/** The line on the reading line just after Source was shown; leaving from it with no edit is exact. */
+let sourceEntryPlace: number | null = null;
 /** `sourceReadingPosition` (source/mode-switch.ts), loaded with the editor: CM6 stays on the lazy chunk. */
 let sourceReadingPositionIn:
   | ((buffer: Buffer, view: never, readingLinePx: number) => { readonly byteOffset: number; readonly fraction: number })
@@ -236,12 +238,6 @@ function sourcePosition(path: string): ReadingPosition | null {
   return { path, byteOffset: place.byteOffset, fraction: place.fraction, mode: 'source' };
 }
 
-/** The start of the line holding byte `at`. */
-function lineStartAt(bytes: Uint8Array, at: number): number {
-  let i = Math.min(at, bytes.length);
-  while (i > 0 && bytes[i - 1] !== 0x0a) i--;
-  return i;
-}
 
 function sourceMount(): HTMLElement {
   let host = document.getElementById('marxy-source');
@@ -281,9 +277,15 @@ async function ensureSourceEditor(): Promise<MountedSourceEditor> {
 async function showSource(byteOffset: number): Promise<void> {
   releaseAnchor();
   lastReadingByteOffset = byteOffset;
+  sourceEntryPlace = null;
   const editor = await ensureSourceEditor();
   setModeChrome('source');
   editor.scrollToByte(byteOffset);
+  // Where Source landed, as the reading line reads it: near either end of a document the window
+  // cannot put the entered line on the reading line, so "untouched" is "still here", not "on that line".
+  for (let i = 0; i < 2; i++) await new Promise((r) => requestAnimationFrame(r));
+  const path = openPathNow();
+  if (sourceEditor === editor && path) sourceEntryPlace = sourcePosition(path)?.byteOffset ?? null;
 }
 
 async function showRendered(byteOffset: number, fraction: number): Promise<void> {
@@ -321,12 +323,12 @@ async function leaveSourceForRendered(): Promise<void> {
   const changed = await open.commitSource(sourceEditor.docText());
   let byteOffset = lastReadingByteOffset;
   let fraction = lastReadingFraction;
-  // The line on the reading line, read before anything moves the window. Still the line Source was
-  // entered on (no edit, no scroll away): the exact place it was entered from. Otherwise that line's
-  // block, at its top.
+  // The line on the reading line, read before anything moves the window. Still where Source landed when
+  // shown (no edit, no scroll away): the exact place it was entered from. Otherwise that line's block,
+  // at its top.
   const { path, buffer } = open.snapshot();
   const place = sourcePosition(path);
-  if (place && (changed || lineStartAt(buffer.bytes, lastReadingByteOffset) !== place.byteOffset)) {
+  if (place && (changed || place.byteOffset !== sourceEntryPlace)) {
     byteOffset = place.byteOffset;
     fraction = 0;
   }
