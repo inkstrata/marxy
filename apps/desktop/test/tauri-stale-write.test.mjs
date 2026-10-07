@@ -73,3 +73,41 @@ test('a reload the store keeps (unsaved edits) records nothing: the next save st
   assert.equal((await store.save()).result, 'failed');
   assert.equal(dec(fs.get(p)), 'EXTERNAL\n');
 });
+
+test('read_file rejecting with the bare Rust string "No such file" reads as code not-found (F-09)', async () => {
+  const { hooks } = await import('./support/tauri-core-stub.mjs');
+  hooks.readError = '/data/trust.json: No such file or directory (os error 2)';
+  try {
+    await assert.rejects(() => shell.readFile('/data/trust.json'), (e) => e instanceof Error && e.code === 'not-found');
+    await assert.rejects(() => shell.peekFile('/data/trust.json'), (e) => e.code === 'not-found');
+    hooks.readError = '/data/trust.json: Input/output error (os error 5)';
+    await assert.rejects(
+      () => shell.readFile('/data/trust.json'),
+      (e) => e.code === 'io' && /Input\/output error/.test(e.message),
+    );
+  } finally {
+    hooks.readError = null;
+  }
+});
+
+test('loadTrust on the real shell: a missing trust.json starts empty, an I/O error rejects (F-09)', async () => {
+  const { hooks } = await import('./support/tauri-core-stub.mjs');
+  const { loadTrust } = await import('../src/trust/trust.ts');
+  const writes = [];
+  const io = {
+    readFile: (p) => shell.readFile(p),
+    writeFileAtomic: async (_p, b) => { writes.push(b); },
+    dataDirectory: async () => '/data',
+  };
+  hooks.readError = '/data/trust.json: No such file or directory (os error 2)';
+  try {
+    const store = await loadTrust(io);
+    assert.equal(await store.grant('/a.md', { html: true }), true);
+    assert.equal(writes.length, 1);
+    hooks.readError = '/data/trust.json: Input/output error (os error 5)';
+    await assert.rejects(loadTrust(io), /Input\/output/);
+    assert.equal(writes.length, 1);
+  } finally {
+    hooks.readError = null;
+  }
+});

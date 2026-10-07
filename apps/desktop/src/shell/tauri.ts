@@ -30,8 +30,18 @@ function assertAssetScope(path: string): void {
 const lastRead = new Map<string, Uint8Array>();
 
 /** The shell returns the file as a raw IPC body, so the bytes arrive as an ArrayBuffer rather than JSON. */
-const readBytes = async (path: string): Promise<Uint8Array> =>
-  new Uint8Array(await invoke<ArrayBuffer>('read_file', { path }));
+const readBytes = async (path: string): Promise<Uint8Array> => {
+  try {
+    return new Uint8Array(await invoke<ArrayBuffer>('read_file', { path }));
+  } catch (err) {
+    // Rust rejects with a bare string; callers (trust.json, reader config) tell a missing file from a
+    // failed read by `code`, as shell-api's ShellError documents.
+    const error = shellErrorFromInvoke(err) as ReturnType<typeof shellErrorFromInvoke> & { path?: string };
+    if (isNotFound(err)) error.code = 'not-found';
+    error.path = path;
+    throw error;
+  }
+};
 
 /** `read_file` rejects with a bare "path: No such file or directory (os error 2)" string. */
 function isNotFound(err: unknown): boolean {
