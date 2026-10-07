@@ -197,6 +197,27 @@ test('a failed save leaves no phantom history: two Undos after a later toggle st
   await page.close();
 });
 
+test('a failed write is not reported as saved: save() says failed, the store stays dirty, the baseline does not move', async () => {
+  const orig = '# T\n\n- [ ] one\n';
+  const page = await boot(orig);
+  await clickBox(page, 0);
+  await settle(page);
+  const r = await page.evaluate(async () => {
+    const sh = window.__handle.shell;
+    sh.writeFileAtomic = async () => { throw new Error('read-only'); };
+    const before = window.__handle.document().snapshot();
+    const result = await window.__handle.save();
+    const after = window.__handle.document().snapshot();
+    const same = after.disk.length === before.disk.length && after.disk.every((b, i) => b === before.disk[i]);
+    return { result, dirty: after.dirty, same };
+  });
+  assert.equal(r.result, 'failed');
+  assert.equal(r.dirty, true, 'a failed write leaves the document dirty');
+  assert.equal(r.same, true, 'a failed write does not advance the saved baseline');
+  assert.equal(await disk(page), orig);
+  await page.close();
+});
+
 test('two quick toggles land in the buffer, then a slow save writes both', async () => {
   const page = await boot('# T\n\n- [ ] one\n- [ ] two\n- [ ] three\n', { slowWrite: 150 });
   await clickBox(page, 0);
