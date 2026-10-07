@@ -25,8 +25,17 @@ export interface Shell {
   /** Atomic: write to a temp file in the same directory, fsync, rename over. Never in place. */
   writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
   stat(path: string): Promise<FileStat | null>;
-  /** Recursive directory watch, debounced by the shell; the callback receives batches. */
-  watch(root: string, onEvents: (events: readonly WatchEvent[]) => void): Promise<{ close(): void }>;
+  /**
+   * Directory watch, debounced by the shell; the callback receives batches. By default the folder's
+   * own files (and the folders of symlinked documents in it). With `recursive`, every file in the
+   * tree, never following a symlink and skipping the index's deny-listed directories; it rejects
+   * when the tree is too large or the OS refuses the watch, so the caller can fall back.
+   */
+  watch(
+    root: string,
+    onEvents: (events: readonly WatchEvent[]) => void,
+    opts?: { readonly recursive?: boolean },
+  ): Promise<{ close(): void }>;
   /** @deprecated ADR-0026 — Files under root honouring .gitignore/.ignore and the deny list; never follows into node_modules. */
   listRoot(root: string, opts: { readonly extensions: readonly string[]; readonly limit: number }): Promise<readonly FileStat[]>;
   /** @deprecated ADR-0026 — Fuzzy match over the shell's index for this root (nucleo). Returns paths and scores. */

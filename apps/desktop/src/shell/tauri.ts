@@ -12,6 +12,7 @@ import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import type { Shell, ShellError, WatchEvent } from '@marxy/shell-api';
+import { eventsForWatch } from './watch-filter.ts';
 
 /** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
 const assetScopes = new Set<string>();
@@ -147,11 +148,13 @@ export const shell: Pick<
   },
   confirmClose: () => invoke('close_confirmed'),
   /**
-   * Recurring watch of `root`. Events arrive on the one `fs-watch` channel every watcher listens to,
-   * so each keeps only its own root's and debounces them, as the contract requires. No chrome.
+   * Recurring watch of `root`, flat or `recursive`. Events arrive on the one `fs-watch` channel every
+   * watcher listens to, tagged with the key of the shell watch that saw them, so each keeps only its
+   * own watch's and debounces them, as the contract requires. No chrome.
    */
-  watch: async (root, onEvents) => {
-    await invoke('watch_root', { root });
+  watch: async (root, onEvents, opts) => {
+    const recursive = opts?.recursive === true;
+    const key = await invoke<string>('watch_root', { root, recursive });
     let pending: WatchEvent[] = [];
     let timer: ReturnType<typeof setTimeout> | undefined;
     const flush = () => {
@@ -161,8 +164,8 @@ export const shell: Pick<
       pending = [];
       onEvents(batch);
     };
-    const stop = await listen<WatchEvent[]>('fs-watch', (event) => {
-      const mine = event.payload.filter((e) => isInsideImageRoot(e.path, root) || (e.to !== undefined && isInsideImageRoot(e.to, root)));
+    const stop = await listen<unknown>('fs-watch', (event) => {
+      const mine = eventsForWatch(event.payload, key);
       if (mine.length === 0) return;
       pending.push(...mine);
       if (timer !== undefined) clearTimeout(timer);
@@ -173,7 +176,7 @@ export const shell: Pick<
         if (timer !== undefined) clearTimeout(timer);
         flush();
         stop();
-        void invoke('unwatch_root', { root });
+        void invoke('unwatch_root', { root, recursive });
       },
     };
   },
