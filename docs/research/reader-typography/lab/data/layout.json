@@ -1189,6 +1189,71 @@
      "position": "sticky"
     }
    }
+  },
+  "d4control": {
+   "rootClientWidthEqualsInnerWidth": true,
+   "box": {
+    "forced / auto": {
+     "short": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     },
+     "tall": {
+      "clientWidth": 385,
+      "contentLeft": 0
+     }
+    },
+    "forced / stable": {
+     "short": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     },
+     "tall": {
+      "clientWidth": 385,
+      "contentLeft": 0
+     }
+    },
+    "forced / stable both-edges": {
+     "short": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     },
+     "tall": {
+      "clientWidth": 385,
+      "contentLeft": 15
+     }
+    },
+    "native / auto": {
+     "short": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     },
+     "tall": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     }
+    },
+    "native / stable": {
+     "short": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     },
+     "tall": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     }
+    },
+    "native / stable both-edges": {
+     "short": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     },
+     "tall": {
+      "clientWidth": 400,
+      "contentLeft": 0
+     }
+    }
+   }
   }
  }
 }

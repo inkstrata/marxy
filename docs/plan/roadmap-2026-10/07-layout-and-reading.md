@@ -218,8 +218,10 @@ The evidence is in `docs/research/reader-typography/12-conformance.md`:
 - §2 is the conformance table above, filled in;
 - §3 describes the lab probes.
 
-Numbers are cited as `probe:` (L-00.1's kit, `docs/taste-review/2026-10-layout-audit/probe.json`) or
-`lab:` (`docs/research/reader-typography/lab/data/layout.json`, written by `lab/layout/run.mjs`).
+Numbers are cited as `probe:` or `lab:`, both in `docs/research/reader-typography/lab/data/`:
+- `probe:` is `layout-probe.json`, the slice of L-00.1's probe that is cited, copied from the dated
+  kit it was generated into (`docs/taste-review/2026-10-layout-audit/`) by `lab/layout/slice-probe.mjs`;
+- `lab:` is `layout.json`, written by `lab/layout/run.mjs`.
 
 ### What the page gets wrong, worst first
 
@@ -229,7 +231,7 @@ Numbers are cited as `probe:` (L-00.1's kit, `docs/taste-review/2026-10-layout-a
 | H6 | **Confirmed.** The notice is off the column and out of sight. | 61.11 px off the column at 960 px (an `em` basis of 16 px against 20), 32 px at 320 px; out of view when scrolled in 178 of 179 cells; 2.97 grid units high; fixed over Source (`probe:headlines.H6`) | L-05 |
 | H3 | **Confirmed below 720 px.** List markers pass the gutter floor. | 45 px marker against a 16/24 px floor; −47 px (cut off) at 320 px with 28 px type (`probe:headlines.H3`) | L-03 |
 | H2 | **Confirmed for code.** Code text starts inside the prose edge. Images are centred by design. Blockquotes are a declared indent. The paragraph offenders are a probe artefact (a hung initial capital). | 15–17.36 px (`probe:headlines.H2`) | L-04; the artefact in L-02 |
-| H4 | **Killed as a centring error**: the visible area stays centred (client offset 0). **Confirmed as a transient overflow at ≤ 720 px** until the 100 ms relayout. | 42 cells, up to 15.5 px; 2–6 px of sideways scroll in 14 cells (`probe:headlines.H4`) | L-03 |
+| H4 | **Killed as a centring error**: the visible area stays centred (client offset 0). **Confirmed as a transient overflow at ≤ 720 px** until the 100 ms relayout. | 42 cells, up to 15.5 px; 2–6 px of sideways scroll in 14 cells over all sizes, 3 of them in the size-20 dark cells (`probe:headlines.H4`) | L-03 |
 | H7 | **Confirmed on `main`.** L-06 answers the looks. | `probe:headlines.H7` | L-06 (#383), L-06.1, L-07, F-04 |
 | H5 | **Killed.** Nested blocks end exactly at the room limit. The two corpus offenders are trailing spaces in `pre-wrap`. | `pastRoomRightPx` 0 at every depth (`lab:nested`) | — (L-02 drops the artefact) |
 
@@ -271,7 +273,9 @@ and it has no ruling yet.
    - *Before/after:* centred, the image starts 278.58 px in; flush, it would start at 0
      (`24-issue-thread.md`, 960 px). No change.
 4. **A classic scrollbar: `scrollbar-gutter: stable both-edges`?**
-   - *Recorded:* yes. **It does not work in the engine measured.**
+   - *Recorded:* yes. **In this harness it had no effect, or a worse one** (macOS Playwright
+     WebKit, the scrollbar forced by `::-webkit-scrollbar`). The ruling is unchanged; L-03's Linux
+     measurement decides.
    - *Before/after:* tested on `31-essay.md` at 480 px, a scrollbar appearing after first text.
 
      | Treatment | Column moves | Lines past their box | Furthest past |
@@ -281,12 +285,15 @@ and it has no ruling yet.
      | `stable both-edges` | 15 px | 291 | 30.25 px |
      | `overflow-y: scroll` | 0 | 0 | 0 |
 
-   - *Why:* WebKit reserves no gutter until a scrollbar exists, and then reserves it twice.
-     `overflow-y: scroll` keeps everything still, but it shows an empty track at rest on short
-     documents: chrome at rest.
-   - *Recommendation, for the author to confirm:* L-03 re-measures on Linux WebKit (the scrollbar
-     here is a forced `::-webkit-scrollbar` model). If WebKitGTK behaves the same, keep today's
-     behaviour: the visible area is centred, and the overflow lasts only until the relayout, at
+   - *What the lab shows:* no gutter was reserved before the scrollbar appeared (the root's
+     `clientWidth` equalled `innerWidth` under both `stable` values), and once it appeared
+     `both-edges` reserved it on both sides. A control on a box that is not the viewport
+     (`lab:decisions.d4control`) reserved none either, with the forced scrollbar or the engine's own
+     (an overlay of width 0 on macOS). So the harness cannot tell its model from the engine, and
+     nothing here describes WebKitGTK's native classic scrollbar. `overflow-y: scroll` kept
+     everything still, but it shows an empty track at rest on short documents: chrome at rest.
+   - *Recommendation, for the author to confirm:* L-03 re-measures on Linux WebKit. If WebKitGTK
+     shows the same, keep today's behaviour: the visible area is centred, and the overflow lasts only until the relayout, at
      ≤ 720 px. Do not add a track at rest.
 5. **Where notices sit: sticky at the top of the viewport, reserving their height?**
    - *Recorded:* yes.
@@ -480,18 +487,19 @@ the CI image) and must be the only baseline story in its wave (`00-orchestration
 
 | Id | Story | Model | Size | Depends on | Status |
 |---|---|---|---|---|---|
+| L-00.1 | Correct the probe's H4 and H6 findings and give every hypothesis a control | sonnet | S–M | L-00 | merged, [#382](https://github.com/inkstrata/marxy/pull/382) |
 | L-02 | Gate the geometry | sonnet | M | B-02, L-01 | ready after B-02 |
 | L-03 | Keep marks inside the gutter and the column still under a classic scrollbar **[baselines]** | opus | S | L-02 | after L-02 |
 | L-04 | Grow wide blocks evenly and hang the code box **[baselines]** | opus | M | L-03 | after L-03 |
 | L-05 | Make notices one component, on the column and in sight **[baselines if a gated render shows a notice]** | opus | M | B-15; before D-01 | after B-15 |
-| L-06 | Source mode basics I: looks | sonnet | M | — | in review, [#383](https://github.com/inkstrata/marxy/pull/383) |
-| L-06.1 | Remember the line-number choice in `config.toml` (the lead's card, below) | sonnet | S | L-06 | ready after L-06 |
-| L-07 | Source mode basics II: a column on the page ground | opus | M | L-06; before D-11 | after L-06 |
+| L-06 | Source mode basics I: looks | sonnet | M | — | merged, [#383](https://github.com/inkstrata/marxy/pull/383) |
+| L-06.1 | Remember the line-number choice in `config.toml` (the lead's card, below) | sonnet | S | L-06 | ready |
+| L-07 | Source mode basics II: a column on the page ground | opus | M | L-06, L-11; before D-11 | after L-11 |
 | L-08.1 | Set CJK paragraphs at the script's leading **[baselines]** | sonnet | S | decision 9, L-04, F-11 | waits for the author |
 | L-08.2 | Tag the article with the document's language | sonnet | S | B-15 | after B-15 |
-| L-08.3 | Give a scrolling display formula a tab stop | sonnet | XS | — | ready now |
+| L-08.3 | Give a scrolling display formula a tab stop | sonnet | XS | — | ready now (not beside B-02.4) |
 | L-09 | Margin notes above 76 em | opus | L | after v1 (decision 8) | deferred |
-| L-10 | Keep code on the grid at every text size | sonnet | S | — | in review, [#378](https://github.com/inkstrata/marxy/pull/378) |
+| L-10 | Keep code on the grid at every text size | sonnet | S | — | merged, [#378](https://github.com/inkstrata/marxy/pull/378) |
 | L-11 | Find matches are visible in the light variant (the lead's card, below) | sonnet | S | — | ready now |
 
 ### L-02 — Gate the geometry
@@ -526,7 +534,9 @@ is gated: `checkMeasure` checks the line length, `checkNoHorizontalPageScroll` s
    There is one implementation; the gate does not copy it.
 3. Add the checks to the renders the gate already makes, plus one classic-scrollbar render per
    document at 480 and 960 px (the probe's `CLASSIC_CSS`):
-   - `checkCentred`;
+   - `checkCentred`, against the **client** axis (the window less the scrollbar). A classic
+     scrollbar puts the column 7.5 px from the window's axis and 0 from the client's
+     (`probe:headlines.H4`); only the client axis is an error;
    - `checkBlockEdges`, with the declared hangs of the screen criterion;
    - `checkRoom`, at any depth;
    - `checkMarks`: no mark left of the gutter floor except hung punctuation, and nothing outside
@@ -536,6 +546,12 @@ is gated: `checkMeasure` checks the line length, `checkNoHorizontalPageScroll` s
    - `checkTextSpacing`: the four overrides loaded as a reader theme, so the typesetter sets with
      them;
    - `checkText200`: reader size 40 through the config.
+   The classic render injects the scrollbar after first text, as the probe does, and then waits for
+   the app's own relayout (100 ms after the article's width changes, `app.ts:665-675`, plus its
+   passes) before it measures. The gate measures the app after B-02, so the relayout runs there. H4's
+   transient overflow (42 cells at ≤ 720 px; 2–6 px of sideways scroll in 14) is therefore not an
+   expected failure. If it is still there after the relayout, that is a bug: add an H4 row owned by
+   L-03 and say so in the PR.
 4. Add the expected-failure table to the gate. Each row is `{ check, document, cell, story }` and
    names L-03, L-04 or L-05. The gate fails on:
    - an unlisted failure;
@@ -607,7 +623,8 @@ relayout (`12-conformance.md` §1).
 - On a 1280 px page, the markers still hang fully: the text of item 1 is on the column's edge, and
   the marker is 2.25 em left of it.
 - L-02's `checkMarks` passes with no H3 rows.
-- Decision 4's numbers are in the PR, Linux and macOS side by side.
+- A deliverable, not a test: decision 4's numbers (the `d4` pairs and `d4control`) are in the PR
+  body, Linux and macOS side by side, for the author's answer.
 
 **Do not.** Touch `packages/typeset/src/index.ts` (the relayout already heals H4's overflow;
 F-04 owns resize). Add a track at rest.
@@ -630,7 +647,7 @@ baselines
 1011.53 px at 2560 px. H2: code text sits 15–17 px inside the prose edge.
 
 **Paths.**
-- `packages/theme/src/base.css`: §Code (`pre`, `:296-312`), §Tables (`table`, `:373-386`), and the
+- `packages/theme/src/base.css`: §Code (`pre`, `:297-313`), §Tables (`table`, `:374-387`), and the
   `--marxy-room` comment (`:99-101`)
 - `packages/theme/test/room.test.mjs`
 - `docs/adr/0033-typography-follows-the-research.md`: amend §5, which says code "starts at the
@@ -751,7 +768,7 @@ rule 2 says every unit is whole grid units.
 
 ### L-06 — Source mode basics I: looks
 
-**Model:** sonnet · **Size:** M · **Status:** in review with a merge verdict,
+**Model:** sonnet · **Size:** M · **Status:** merged,
 [#383](https://github.com/inkstrata/marxy/pull/383)
 
 **Outcome.** Source is coloured from `--marxy-tok-*` through a `HighlightStyle`, and its lines sit
@@ -770,8 +787,8 @@ Left to other stories:
 
 ### L-07 — Source mode basics II: a column on the page ground
 
-**Model:** opus · **Size:** M · **Depends on:** L-06 merged · **Parallel with:** anything outside
-`source/` · **Before:** D-11
+**Model:** opus · **Size:** M · **Depends on:** L-06 (merged), L-11 (same file, `source/theme-bridge.ts`) · **Parallel with:**
+anything outside `source/` · **Before:** D-11
 
 **Outcome.** Source reads as a page, not a full-window editor:
 - **Markdown:** a column as wide as Rendered's.
@@ -880,9 +897,10 @@ information through from every source it can".
 
 ### L-08.3 — Give a scrolling display formula a tab stop
 
-**Model:** sonnet · **Size:** XS · **Depends on:** — · **Parallel with:** anything outside its paths
+**Model:** sonnet · **Size:** XS · **Depends on:** — · **Parallel with:** anything outside its paths;
+not beside B-02.4 or the start-up cleanup, which also edit `startup/idle-work.ts`
 
-**Outcome.** A display formula wider than the column, which scrolls (`base.css:452`), can be reached
+**Outcome.** A display formula wider than the column, which scrolls (`base.css:453`), can be reached
 and scrolled from the keyboard, as a scrolling table already can.
 
 **Why now.** Ch. 4 "Wide content" and the spec's keyboard check: every scrolling region is reachable.
@@ -910,27 +928,32 @@ then yield the right room to the notes column, which revisits decision 1.
 
 ### L-10 — Keep code on the grid at every text size
 
-**Model:** sonnet · **Size:** S · **Depends on:** — · *Added 2026-10-07 by the lead, from A-10.4's stop.*
+**Model:** sonnet · **Size:** S · **Status:** merged, [#378](https://github.com/inkstrata/marxy/pull/378)
+· *Added 2026-10-07 by the lead, from A-10.4's stop.*
 
-**Outcome.** At every body size the reader can choose (15–50 px), a code line box is a whole number of
-grid units, as design-language constraint 5 asks. Today `applyReaderConfig`
-(`apps/desktop/src/theme/reader-config.ts:89-93`) overrides `--marxy-size-body` and `--marxy-line-box`
-(`lineBoxFor(size) = 2*round(0.75*size)`) but never `--marxy-line-box-code`, which stays 30 px with an
-18 px face: on the grid only at 20 and 40. B-02.1's review flagged the same.
+**Outcome (as merged).** At every body size the reader can choose (15–50 px), a code line box is a
+whole number of grid units, as design-language constraint 5 asks. `sizeProperties(size)`
+(`apps/desktop/src/theme/reader-config.ts:67-74`) now sets four properties, and `applyReaderConfig`
+(`:93-117`) applies them, removing all four at the default size:
+- `--marxy-size-body`;
+- `--marxy-line-box` (`lineBoxFor`, `:49-51`);
+- `--marxy-size-code`, from `codeSizeFor` (`:58-60`): 0.9 of the body size to the half pixel, after
+  `06-code.md` "Size and the monospace quirk";
+- `--marxy-line-box-code`, equal to the body line box (two grid units).
 
-**Paths.** `apps/desktop/src/theme/reader-config.ts` (derive the code line box and, if the research
-says so, the code size from the body size), its test; `packages/theme/test/taste.test.mjs` (extend
-A-10.4's default-size check to every size).
+Front-matter code cells are `1.2em` of their caption (`base.css:256`), so the label-to-value
+proportion holds at every size. At size 20 nothing changes and no baseline moved.
 
-**Acceptance.** For every integer size 15–50, `--marxy-line-box-code` ÷ grid unit is an integer (a test
-that fails on today's code); the default size 20 renders byte-identically (no baseline change);
-code-voice x-height ratio at each size recorded in the PR, not gated. Cite `06-code.md` for the
-code-size rule chosen.
-
-**Do not.** Change the default size's values or any baseline.
+**Checked by.**
+- `packages/theme/test/taste.test.mjs`: every integer size 15–50 measured through `applyReaderConfig`.
+- `apps/desktop/test/reader-config.test.mjs`: `sizeProperties(20)` equals the `tokens.css` values.
 
 **Order** (L-01; the lead sequences):
-- **Now, on their own paths:** L-08.3 and L-11. L-06.1 and L-07 follow L-06 (#383); L-07 before D-11.
+- **Now, on their own paths:** L-11, L-06.1 and L-08.3.
+  - L-08.3 edits `startup/idle-work.ts`, which B-02.4 (parked, committed locally) and the later
+    start-up cleanup also edit, so it does not run beside either.
+  - L-07 and L-11 both edit `source/theme-bridge.ts` (L-11 for Source's find matches). L-11 goes
+    first, being smaller, and then L-07, before D-11.
 - **After B-02 merges:** L-02, then L-03, then L-04, each alone in its wave for baselines. L-08.1
   follows L-04, once the author has answered decision 9 and F-11 has merged.
 - **After B-15:** L-05 (before D-01; otherwise its Source step folds into D-10) and L-08.2.

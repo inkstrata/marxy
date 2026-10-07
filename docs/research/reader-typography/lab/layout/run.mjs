@@ -4,7 +4,7 @@
 // spacing, 200 % text, hyphenation, fallback sizes, CJK leading, ragged right below 45 characters), the
 // nested wide blocks H5 could not sample, and a before/after pair for each layout decision. It renders
 // through the layout probe's harness (scripts/probe-layout.mjs, which renders through the aesthetics
-// gate's entry) and two standalone pages beside this file. Writes ../data/layout.json; numbers only.
+// gate's entry) and three standalone pages beside this file. Writes ../data/layout.json; numbers only.
 //
 //   node docs/research/reader-typography/lab/layout/run.mjs
 //
@@ -332,6 +332,10 @@ async function main() {
       out.decisions.d4[`${f}@${width}`] = pair;
     }
   }
+  // Control: does the engine reserve a gutter at all, on a box that is not the viewport, with the forced
+  // scrollbar and with its own? If not, the d4 pairs cannot tell the harness from the engine.
+  await page.goto(`${harness.origin}/lab/gutter.html`);
+  out.decisions.d4control = await page.evaluate(() => window.run());
   for (const width of [320, 960]) {
     const pair = {};
     for (const [k, css] of [['before', ''], ['after', STICKY_NOTICES]]) {

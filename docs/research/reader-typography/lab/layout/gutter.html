@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scrollbar gutter control</title>
+<!-- Control for decision 4: does this engine reserve a scrollbar gutter at all? A 400 px box that
+     scrolls (overflow: auto), short and then tall, with scrollbar-gutter none / stable / stable
+     both-edges, with the scrollbar forced classic (::-webkit-scrollbar, as the probe models it) and
+     with the engine's own scrollbar. The box's clientWidth and its content's left edge are recorded.
+     Run by run.mjs; window.run() returns the numbers. -->
+<style>
+  body { margin: 16px; }
+  #forced > div, #native > div { width: 400px; height: 100px; overflow: auto; }
+  #forced > div > p, #native > div > p { margin: 0; height: 10px; }
+  #forced > div::-webkit-scrollbar { width: 15px; }
+  #forced > div::-webkit-scrollbar-thumb { background: #888; }
+  #forced > div::-webkit-scrollbar-track { background: #333; }
+</style>
+</head>
+<body>
+<div id="forced"></div>
+<div id="native"></div>
+<script>
+window.run = async () => {
+  const out = {};
+  for (const forced of [true, false]) {
+    for (const gutter of ['auto', 'stable', 'stable both-edges']) {
+      const box = document.createElement('div');
+      box.style.scrollbarGutter = gutter;
+      const p = document.createElement('p');
+      box.append(p);
+      document.getElementById(forced ? 'forced' : 'native').append(box);
+      const read = () => ({ clientWidth: box.clientWidth, contentLeft: p.getBoundingClientRect().left - box.getBoundingClientRect().left });
+      const short = read();
+      p.style.height = '1000px';
+      const tall = read();
+      box.remove();
+      out[`${forced ? 'forced' : 'native'} / ${gutter}`] = { short, tall };
+    }
+  }
+  return { rootClientWidthEqualsInnerWidth: document.documentElement.clientWidth === window.innerWidth, box: out };
+};
+</script>
+</body>
+</html>
