@@ -146,7 +146,10 @@ refuses otherwise and says why, and `--match-head-commit` refuses a push that la
 merge or hold anything; a `lead-verdict: hold <sha>` comment holds a PR. Auto-merge stays off: the verdict is
 a judgement GitHub cannot see.
 
-Merge in dependency order. The repository deletes a head branch on merge, so GitHub retargets a stacked PR to
+Merge in dependency order. A PR in a GitHub stack cannot take the ordinary merge; the script falls back to
+the asynchronous endpoint (`merge-async`) with the same squash and head guard. Do not rebase the base of a stack
+before it merges: GitHub retargets and rebases the children itself only while the base's commits are unchanged,
+and a rebased base strands them (rebase each child `--onto origin/main <old base head>` if it happens). The repository deletes a head branch on merge, so GitHub retargets a stacked PR to
 `main`; the lead then rebases it (`git rebase --onto origin/main <old base>`), force-pushes with lease, and the
 PR needs fresh checks and a verdict re-posted for the new head (`--verdict notes.md --sha <new head>`) before
 it merges. Merge soon after the verdict,

@@ -130,11 +130,43 @@ function main(argv) {
   try {
     gh(['pr', 'merge', pr, '--squash', '--match-head-commit', view.headRefOid]);
   } catch (e) {
-    console.error(`#${pr}: the merge failed: ${String(e.stderr || e.message).trim()}`);
-    return 3;
+    const why = String(e.stderr || e.message).trim();
+    // GitHub refuses the ordinary merge for a PR in a stack; its asynchronous endpoint takes the same
+    // squash and the same head guard.
+    if (!/part of a stack|asynchronous merge/i.test(why)) {
+      console.error(`#${pr}: the merge failed: ${why}`);
+      return 3;
+    }
+    const outcome = mergeAsync(pr, view.headRefOid);
+    if (outcome !== 'merged') {
+      console.error(`#${pr}: the stacked merge ended ${outcome}`);
+      return 3;
+    }
   }
   console.log(`#${pr} merged: ${view.title}`);
   return 0;
+}
+
+const ASYNC_API = ['-H', 'X-GitHub-Api-Version: 2026-03-10'];
+
+/** Squash-merge a stacked PR through `merge-async` and wait for the result (merged, failed, ...). */
+function mergeAsync(pr, sha) {
+  const repo = JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+  let started;
+  try {
+    started = JSON.parse(gh(['api', '-X', 'PUT', ...ASYNC_API, `repos/${repo}/pulls/${pr}/merge-async`,
+      '-f', 'merge_method=squash', '-f', `sha=${sha}`]));
+  } catch (e) {
+    return `with the request refused: ${String(e.stderr || e.message).trim()}`;
+  }
+  const uuid = started.details?.uuid;
+  if (!uuid) return `without a request id (${started.status})`;
+  for (let i = 0; i < 120; i++) {
+    const status = JSON.parse(gh(['api', ...ASYNC_API, `repos/${repo}/pulls/${pr}/merge-async/${uuid}`])).status;
+    if (status !== 'pending') return status;
+    sleep(5000);
+  }
+  return 'still pending after ten minutes';
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) process.exit(main(process.argv.slice(2)));
