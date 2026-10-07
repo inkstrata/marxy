@@ -93,14 +93,21 @@ const pickPlace = (page) =>
     return { top, index: [...article.children].indexOf(el) };
   });
 
-/** A set paragraph at least `screens` screens above the reading line, with room to grow. */
+/**
+ * A set paragraph at least `screens` screens above the reading line, with room to grow, and a table
+ * between it and the reading line, so the grid pass that follows a re-set has an island to pad.
+ */
 const farAbove = (page, screens, where = 0.5) =>
   page.evaluate(({ screens, where }) => {
     const limit = -window.innerHeight * screens;
-    const found = [...document.querySelectorAll('#doc p.marxy-set')].filter((p) => p.getBoundingClientRect().bottom < limit && p.getBoundingClientRect().top > limit - 8 * window.innerHeight);
+    const tables = [...document.querySelectorAll('#doc table')].filter((t) => t.getBoundingClientRect().bottom < 0);
+    const lastTable = tables[tables.length - 1];
+    const found = [...document.querySelectorAll('#doc p.marxy-set')].filter((p) =>
+      p.getBoundingClientRect().bottom < limit && p.getBoundingClientRect().top > limit - 8 * window.innerHeight
+      && !!(p.compareDocumentPosition(lastTable) & Node.DOCUMENT_POSITION_FOLLOWING));
     const p = found[Math.floor(found.length * where)];
     window.__far = p;
-    return { n: found.length, height: p.getBoundingClientRect().height };
+    return { n: found.length, tables: tables.length, height: p.getBoundingClientRect().height };
   }, { screens, where });
 
 async function deepAt1Mb(page, fraction) {
@@ -133,7 +140,7 @@ test('a paragraph far above grows by markers: the block at the top of the screen
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await deepAt1Mb(page, 0.5);
     const far = await farAbove(page, 4);
-    assert.ok(far.n > 10, `${far.n} set paragraphs far above`);
+    assert.ok(far.n > 10 && far.tables > 0, `${far.n} set paragraphs far above, ${far.tables} tables above the screen`);
     const place = await pickPlace(page);
     const before = await growByMarkers(page);
     await settle(page);
@@ -152,7 +159,7 @@ test('a paragraph far above is re-set in idle time with a line more: the block a
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await deepAt1Mb(page, 0.6);
     const far = await farAbove(page, 6);
-    assert.ok(far.n > 10, `${far.n} set paragraphs far above`);
+    assert.ok(far.n > 10 && far.tables > 0, `${far.n} set paragraphs far above, ${far.tables} tables above the screen`);
     await pickPlace(page);
     // A line of text more, written the way a post-pass writes: a text node into a set paragraph.
     const grew = await page.evaluate(async () => {
