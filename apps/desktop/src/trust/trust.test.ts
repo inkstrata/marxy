@@ -12,31 +12,26 @@ import {
   serializeTrustFile,
 } from './trust.ts';
 
-function upsert(
-  envelope: ReturnType<typeof emptyTrustEnvelope>,
-  path: string,
-  change: { html: boolean },
-) {
-  const at = Date.now();
-  const documents = { ...envelope.documents, [path]: { html: change.html, at } };
-  const keys = Object.keys(documents);
-  if (keys.length <= TRUST_LRU_CAP) return { ...envelope, documents };
-  const drop = keys
-    .sort((a, b) => documents[a].at - documents[b].at)
-    .slice(0, keys.length - TRUST_LRU_CAP);
-  for (const key of drop) delete documents[key];
-  return { ...envelope, documents };
-}
-
-test('LRU cap evicts the oldest document path', () => {
-  let envelope = emptyTrustEnvelope();
-  for (let i = 0; i < TRUST_LRU_CAP + 3; i++) {
-    envelope = upsert(envelope, `/f${i}.md`, { html: true });
+test('LRU cap evicts the oldest document path from what is written', async () => {
+  const realNow = Date.now;
+  let clock = 1_000;
+  Date.now = () => clock++;
+  try {
+    const writes: Uint8Array[] = [];
+    const store = createTrustStore(emptyTrustEnvelope(), async (b) => { writes.push(b); });
+    for (let i = 0; i < TRUST_LRU_CAP + 3; i++) {
+      await store.grant(`/f${i}.md`, { html: true });
+    }
+    const last = JSON.parse(new TextDecoder().decode(writes[writes.length - 1]));
+    assert.equal(Object.keys(last.documents).length, TRUST_LRU_CAP);
+    assert.ok(!last.documents['/f0.md']);
+    assert.ok(!last.documents['/f1.md']);
+    assert.ok(!last.documents['/f2.md']);
+    assert.ok(last.documents['/f3.md']);
+    assert.ok(last.documents[`/f${TRUST_LRU_CAP + 2}.md`]);
+  } finally {
+    Date.now = realNow;
   }
-  assert.equal(Object.keys(envelope.documents).length, TRUST_LRU_CAP);
-  assert.ok(!envelope.documents['/f0.md']);
-  assert.ok(!envelope.documents['/f1.md']);
-  assert.ok(envelope.documents[`/f${TRUST_LRU_CAP + 2}.md`]);
 });
 
 const V1_WITH_HOSTS = `${JSON.stringify({
@@ -93,7 +88,7 @@ test('corrupt trust.json is quarantined as .bad-<ts>', () => {
 });
 
 test('serialize round-trips grants', () => {
-  const envelope = upsert(emptyTrustEnvelope(), '/x.md', { html: true });
+  const envelope = { ...emptyTrustEnvelope(), documents: { '/x.md': { html: true, at: 1 } } };
   const parsed = parseTrustFile(serializeTrustFile(envelope));
   assert.equal(parsed.kind, 'ok');
   if (parsed.kind === 'ok') {
@@ -148,4 +143,26 @@ test('a failed revoke keeps the committed grant, and a grant before it stays gra
   const r = await Promise.allSettled([g, v]);
   assert.deepEqual(r.map((x) => x.status), ['fulfilled', 'rejected']);
   assert.equal(store.grantsFor('/x.md').html, true);
+});
+
+const TRUST_IO = (readFile: () => Promise<Uint8Array>, writes: Uint8Array[]) => ({
+  readFile,
+  writeFileAtomic: async (_p: string, b: Uint8Array) => { writes.push(b); },
+  dataDirectory: async () => '/data',
+});
+
+test('a read failure other than not-found rejects, so no writer can replace trust.json (F-09)', async () => {
+  const writes: Uint8Array[] = [];
+  const io = TRUST_IO(async () => { throw Object.assign(new Error('EIO'), { code: 'io' }); }, writes);
+  await assert.rejects(loadTrust(io), /EIO/);
+  assert.equal(writes.length, 0);
+});
+
+test('a missing trust.json starts empty and a grant persists (F-09)', async () => {
+  const writes: Uint8Array[] = [];
+  const io = TRUST_IO(async () => { throw Object.assign(new Error('nope'), { code: 'not-found' }); }, writes);
+  const store = await loadTrust(io);
+  assert.equal(await store.grant('/a.md', { html: true }), true);
+  assert.equal(writes.length, 1);
+  assert.ok(JSON.parse(new TextDecoder().decode(writes[0])).documents['/a.md']);
 });

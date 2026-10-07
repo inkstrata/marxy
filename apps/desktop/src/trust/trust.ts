@@ -174,13 +174,23 @@ export interface TrustIo {
   dataDirectory(): Promise<string>;
 }
 
+function isNotFound(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'not-found';
+}
+
 export async function loadTrust(io: TrustIo): Promise<TrustStore> {
   const filePath = `${(await io.dataDirectory()).replace(/\/$/, '')}/trust.json`;
   let bytes: Uint8Array;
   try {
     bytes = await io.readFile(filePath);
-  } catch {
-    return createTrustStore(emptyTrustEnvelope(), (b) => io.writeFileAtomic(filePath, b));
+  } catch (err) {
+    // Only a file that is not there starts empty. Any other failure (EIO, EMFILE, a flaky volume) means
+    // trust.json may well exist: rethrow rather than install a writer whose first grant would replace
+    // every other document's grant. The controller then holds no store and trusts nothing this session.
+    if (isNotFound(err)) {
+      return createTrustStore(emptyTrustEnvelope(), (b) => io.writeFileAtomic(filePath, b));
+    }
+    throw err;
   }
   const loaded = parseTrustFile(bytes);
   if (loaded.kind === 'quarantined') {
