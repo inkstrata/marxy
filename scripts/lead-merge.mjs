@@ -130,11 +130,72 @@ function main(argv) {
   try {
     gh(['pr', 'merge', pr, '--squash', '--match-head-commit', view.headRefOid]);
   } catch (e) {
-    console.error(`#${pr}: the merge failed: ${String(e.stderr || e.message).trim()}`);
-    return 3;
+    const why = String(e.stderr || e.message).trim();
+    // GitHub refuses the ordinary merge for a PR in a stack; its asynchronous endpoint takes the same
+    // squash and the same head guard.
+    // Observed 2026-10-07: "…is part of a stack and must be merged using the asynchronous merge REST API".
+    if (!/asynchronous merge/i.test(why)) {
+      console.error(`#${pr}: the merge failed: ${why}`);
+      return 3;
+    }
+    const outcome = mergeStacked(pr, view.headRefOid);
+    if (outcome !== 'merged') {
+      console.error(`#${pr}: the stacked merge ended ${outcome}`);
+      return 3;
+    }
   }
   console.log(`#${pr} merged: ${view.title}`);
   return 0;
+}
+
+const ASYNC_API = ['-H', 'X-GitHub-Api-Version: 2026-03-10'];
+
+/**
+ * Squash-merge a stacked PR through `merge-async` and wait for the outcome. `run(args)` returns gh's stdout
+ * and `wait(ms)` pauses; both are injected so tests can drive it. Returns 'merged', or a phrase saying why not.
+ */
+export function mergeAsync(repo, pr, sha, { run = gh, wait = sleep, polls = 120 } = {}) {
+  const base = `repos/${repo}/pulls/${pr}/merge-async`;
+  let started;
+  try {
+    started = JSON.parse(run(['api', '-X', 'PUT', ...ASYNC_API, base, '-f', 'merge_method=squash', '-f', `sha=${sha}`]));
+  } catch (e) {
+    return `refused: ${String(e.stderr || e.message).trim()}`;
+  }
+  // 200 answers at once (merged, or enqueued); 202 is pending with a request id to poll.
+  if (started.status !== 'pending') return describe(started.status);
+  const uuid = started.details?.uuid;
+  if (!uuid) return 'pending without a request id; check the PR';
+  let errors = 0;
+  for (let i = 0; i < polls; i++) {
+    wait(5000);
+    let status;
+    try {
+      status = JSON.parse(run(['api', ...ASYNC_API, `${base}/${uuid}`])).status;
+    } catch (e) {
+      if (++errors >= 5) return `unknown after poll errors (${String(e.stderr || e.message).trim()}); check the PR`;
+      continue;
+    }
+    errors = 0;
+    if (status !== 'pending') return describe(status);
+  }
+  return 'still pending after ten minutes; check the PR';
+}
+
+function describe(status) {
+  if (status === 'merged') return 'merged';
+  if (status === 'enqueued') return 'queued, not merged';
+  return String(status);
+}
+
+function mergeStacked(pr, sha) {
+  let repo;
+  try {
+    repo = JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+  } catch (e) {
+    return `not attempted: the repository could not be read (${String(e.stderr || e.message).trim()})`;
+  }
+  return mergeAsync(repo, pr, sha);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) process.exit(main(process.argv.slice(2)));
