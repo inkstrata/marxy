@@ -238,6 +238,7 @@ function highlightAndReport(code: HTMLElement, coloured: (() => void) | undefine
 export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: () => void): void {
   applyInvisibleMarkers(article);
   applyLinkDestinations(article);
+  // A document with no fences sends no drop: the old jobs finish and are discarded by `isConnected`.
   dropClosedJobs();
   const blocks = fencedCodeBlocks(article);
   if (blocks.length === 0) return;

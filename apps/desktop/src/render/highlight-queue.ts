@@ -7,6 +7,22 @@ export interface Job {
   readonly id: number;
 }
 
+/**
+ * A task boundary without the timer clamp: WebKit holds nested `setTimeout(0)` to about 4 ms, which
+ * is a wait per fence. A message on a channel is its own task, so a queued `drop` is still handled
+ * before the next job starts.
+ */
+function macrotask(): (fn: () => void) => void {
+  if (typeof MessageChannel === 'undefined') return (fn) => void setTimeout(fn, 0);
+  const { port1, port2 } = new MessageChannel();
+  const waiting: (() => void)[] = [];
+  port1.onmessage = () => waiting.shift()?.();
+  return (fn) => {
+    waiting.push(fn);
+    port2.postMessage(null);
+  };
+}
+
 export class JobQueue<T extends Job> {
   private readonly queue: T[] = [];
   private draining = false;
@@ -14,7 +30,7 @@ export class JobQueue<T extends Job> {
   private readonly run: (job: T) => Promise<void>;
   private readonly nextTask: (fn: () => void) => void;
 
-  constructor(run: (job: T) => Promise<void>, nextTask: (fn: () => void) => void = (fn) => void setTimeout(fn, 0)) {
+  constructor(run: (job: T) => Promise<void>, nextTask: (fn: () => void) => void = macrotask()) {
     this.run = run;
     this.nextTask = nextTask;
   }
