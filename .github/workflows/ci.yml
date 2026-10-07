@@ -120,7 +120,9 @@ jobs:
     if: needs.changes.outputs.web == 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
-    timeout-minutes: 15
+    # 15 was cut off at 15:08 twice on 2026-10-07 as the suite grew to 9–12 min; the lead is trimming the
+    # slow additions, and this is the margin until then.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
