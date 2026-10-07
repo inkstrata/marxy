@@ -49,6 +49,30 @@ function harnessBase() {
 after(() => closeHarness());
 
 /**
+ * One WebKit page holding the 1 MB document, booted once and handed to each test that needs it
+ * (the first-text test, the live reload and the one-byte edit). Mounting 1 MB and letting its grid
+ * passes settle is most of this file's time, and none of those three needs a page of its own: each
+ * reads its own position before it acts and compares after. The first caller gets the page booted
+ * and not yet complete, which is what the first-text test observes.
+ */
+let bigShared;
+function bigPage() {
+  bigShared ??= (async () => {
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await boot(page, { '/docs/big.md': b64(BIG) }, ['/docs/big.md']);
+      return { browser, page };
+    } catch (e) {
+      await browser.close();
+      throw e;
+    }
+  })();
+  return bigShared;
+}
+after(async () => { if (bigShared) await (await bigShared.catch(() => null))?.browser.close(); });
+
+/**
  * Boots the app on `argv[0]`. At the `first_text` mark the shell records how many top-level children
  * the article holds; `window.__h` is the handle, and `window.__complete` turns true when the open
  * document is wholly in.
@@ -158,27 +182,21 @@ function blockHolding(page, at) {
 }
 
 test('at 1 MB, first text holds the first screens and the rest arrives later, on the grid, the same text', async () => {
-  const browser = await launchWebkit();
-  try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await boot(page, { '/docs/big.md': b64(BIG) }, ['/docs/big.md']);
-    const whole = await wholeMount(page);
-    const atFirstText = await page.evaluate(() => window.__atFirstText);
-    assert.ok(atFirstText > 0 && atFirstText < whole.children, `first text with ${atFirstText} of ${whole.children} blocks`);
-    await page.evaluate(() => window.__h.contentComplete());
-    const marks = await markNames(page);
-    assert.ok(marks.includes('first_screen'), marks.join(','));
-    assert.ok(marks.indexOf('first_text') < marks.indexOf('content_complete'), `first_text before content_complete: ${marks.join(',')}`);
-    const text = await page.evaluate(() => document.getElementById('doc').textContent);
-    assert.equal(text.length, whole.text.length);
-    assert.ok(text === whole.text, 'the article, complete, holds exactly the text of the whole mount');
-    await settle(page);
-    const grid = await offGrid(page);
-    assert.ok(grid.blocks > 1000, `${grid.blocks} blocks measured`);
-    assert.deepEqual(grid.off.slice(0, 10), [], `${grid.off.length} of ${grid.blocks} blocks off the grid`);
-  } finally {
-    await browser.close();
-  }
+  const { page } = await bigPage();
+  const whole = await wholeMount(page);
+  const atFirstText = await page.evaluate(() => window.__atFirstText);
+  assert.ok(atFirstText > 0 && atFirstText < whole.children, `first text with ${atFirstText} of ${whole.children} blocks`);
+  await page.evaluate(() => window.__h.contentComplete());
+  const marks = await markNames(page);
+  assert.ok(marks.includes('first_screen'), marks.join(','));
+  assert.ok(marks.indexOf('first_text') < marks.indexOf('content_complete'), `first_text before content_complete: ${marks.join(',')}`);
+  const text = await page.evaluate(() => document.getElementById('doc').textContent);
+  assert.equal(text.length, whole.text.length);
+  assert.ok(text === whole.text, 'the article, complete, holds exactly the text of the whole mount');
+  await settle(page);
+  const grid = await offGrid(page);
+  assert.ok(grid.blocks > 1000, `${grid.blocks} blocks measured`);
+  assert.deepEqual(grid.off.slice(0, 10), [], `${grid.off.length} of ${grid.blocks} blocks off the grid`);
 });
 
 test('while chunks arrive, each grid pass from the appended blocks leaves every mounted block on the grid', async () => {
@@ -259,71 +277,59 @@ test('opened at 80 % of the bytes, the block holding that byte is on the reading
 });
 
 test('a live reload at 1 MB keeps the reading byte within one block', async () => {
-  const browser = await launchWebkit();
-  try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await boot(page, { '/docs/big.md': b64(BIG) }, ['/docs/big.md']);
-    await page.evaluate(() => window.__h.contentComplete());
-    await settle(page);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight * 0.5));
-    await page.waitForFunction(() => window.scrollY > 1000);
-    const before = await readingBlock(page);
-    const next = Buffer.concat([BIG, Buffer.from('\n\nAppended after an external write.\n')]);
-    await page.evaluate(async (b64) => {
-      const h = window.__h;
-      const path = h.currentPath();
-      const raw = atob(b64);
-      const bytes = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-      await h.shell.writeFileAtomic(path, bytes);
-      h.shell.emit([{ kind: 'modified', path }]);
-      const deadline = performance.now() + 20_000;
-      while (!h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'live_reload') && performance.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 20));
-      }
-    }, b64(next));
-    assert.ok((await markNames(page)).includes('live_reload'), 'the reload happened');
-    const after = await readingBlock(page);
-    assert.ok(Math.abs(after.index - before.index) <= 1, `reading block ${before.index} (byte ${before.at}) → ${after.index} (byte ${after.at})`);
-    await page.evaluate(() => window.__h.contentComplete());
-    await settle(page);
-    const settled = await readingBlock(page);
-    assert.ok(Math.abs(settled.index - before.index) <= 1, `settled: reading block ${before.index} → ${settled.index}`);
-  } finally {
-    await browser.close();
-  }
+  const { page } = await bigPage();
+  await page.evaluate(() => window.__h.contentComplete());
+  await settle(page);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight * 0.5));
+  await page.waitForFunction(() => window.scrollY > 1000);
+  const before = await readingBlock(page);
+  const next = Buffer.concat([BIG, Buffer.from('\n\nAppended after an external write.\n')]);
+  await page.evaluate(async (b64) => {
+    const h = window.__h;
+    const path = h.currentPath();
+    const raw = atob(b64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    await h.shell.writeFileAtomic(path, bytes);
+    h.shell.emit([{ kind: 'modified', path }]);
+    const deadline = performance.now() + 20_000;
+    while (!h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'live_reload') && performance.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }, b64(next));
+  assert.ok((await markNames(page)).includes('live_reload'), 'the reload happened');
+  const after = await readingBlock(page);
+  assert.ok(Math.abs(after.index - before.index) <= 1, `reading block ${before.index} (byte ${before.at}) → ${after.index} (byte ${after.at})`);
+  await page.evaluate(() => window.__h.contentComplete());
+  await settle(page);
+  const settled = await readingBlock(page);
+  assert.ok(Math.abs(settled.index - before.index) <= 1, `settled: reading block ${before.index} → ${settled.index}`);
 });
 
 test('commitEdit of a one-byte change at 1 MB keeps the reading position', async () => {
-  const browser = await launchWebkit();
-  try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await boot(page, { '/docs/big.md': b64(BIG) }, ['/docs/big.md']);
-    await page.evaluate(() => window.__h.contentComplete());
-    await settle(page);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight * 0.6));
-    await page.waitForFunction(() => window.scrollY > 1000);
-    const before = await readingBlock(page);
-    // One byte of the document's first paragraph, well above the reading position, changes case.
-    const edited = await page.evaluate(async (core) => {
-      const h = window.__h;
-      const { createBuffer } = await import(core);
-      const open = h.openDocument();
-      const bytes = open.buffer.bytes.slice();
-      const at = bytes.indexOf(0x54 /* T */, 90);
-      bytes[at] = 0x74; /* t */
-      await h.commitEdit(createBuffer(open.path, bytes));
-      return at;
-    }, `/@fs${repoRoot}packages/core/src/buffer/buffer.ts`);
-    assert.ok(edited < before.at);
-    const after = await readingBlock(page);
-    assert.equal(after.at, before.at, `reading byte ${before.at} → ${after.at}`);
-    await page.evaluate(() => window.__h.contentComplete());
-    await settle(page);
-    assert.equal((await readingBlock(page)).at, before.at);
-  } finally {
-    await browser.close();
-  }
+  const { page } = await bigPage();
+  await page.evaluate(() => window.__h.contentComplete());
+  await settle(page);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight * 0.6));
+  await page.waitForFunction(() => window.scrollY > 1000);
+  const before = await readingBlock(page);
+  // One byte of the document's first paragraph, well above the reading position, changes case.
+  const edited = await page.evaluate(async (core) => {
+    const h = window.__h;
+    const { createBuffer } = await import(core);
+    const open = h.openDocument();
+    const bytes = open.buffer.bytes.slice();
+    const at = bytes.indexOf(0x54 /* T */, 90);
+    bytes[at] = 0x74; /* t */
+    await h.commitEdit(createBuffer(open.path, bytes));
+    return at;
+  }, `/@fs${repoRoot}packages/core/src/buffer/buffer.ts`);
+  assert.ok(edited < before.at);
+  const after = await readingBlock(page);
+  assert.equal(after.at, before.at, `reading byte ${before.at} → ${after.at}`);
+  await page.evaluate(() => window.__h.contentComplete());
+  await settle(page);
+  assert.equal((await readingBlock(page)).at, before.at);
 });
 
 test('opening a second document while chunks are pending leaves one typesetter, one observer and no stray nodes', async () => {
