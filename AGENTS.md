@@ -50,7 +50,7 @@ failure. Clear it.
 
 Pre-v1, mid-build. **The fleet is paused** (ADR-0051, `orchestration/PAUSED.md`): one author directs
 Claude agents, each on one story in its own worktree, reviewed by another agent and merged by the
-author. The plan is in [`docs/plan/roadmap-2026-10/`](docs/plan/roadmap-2026-10/README.md); read its
+lead once ready (or by the author). The plan is in [`docs/plan/roadmap-2026-10/`](docs/plan/roadmap-2026-10/README.md); read its
 `00-orchestration.md` for how a story is run and `progress.md`, the ledger the lead keeps, for what is
 done. It replaces the phase list in `docs/plan.md` and the first horizon of `docs/roadmap.md`, which stay
 as the project's earlier shape. Never trust a count written into a document: the ledger and

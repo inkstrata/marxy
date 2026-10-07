@@ -110,7 +110,8 @@ A `merge` verdict is posted on the PR by the lead, with the review's notes and t
 `lead-verdict: merge <head sha>` (`node scripts/lead-merge.mjs <pr> --verdict notes.md` posts both and merges
 if the checks are already green; run it again once they are). A push after the verdict needs a new verdict:
 the marker binds it to the head it judged. A follow-up commit the lead asked for is checked by the lead, then
-re-verdicted.
+re-verdicted. Only the repository owner's markers count (the lead posts as the owner), and a PR whose
+changed paths need a code owner's review (`reviewDecision: REVIEW_REQUIRED`) waits for the author.
 
 ## 5. Parallelism and waves
 
@@ -147,7 +148,8 @@ a judgement GitHub cannot see.
 
 Merge in dependency order. The repository deletes a head branch on merge, so GitHub retargets a stacked PR to
 `main`; the lead then rebases it (`git rebase --onto origin/main <old base>`), force-pushes with lease, and the
-PR needs fresh checks and its verdict renewed for the new head before it merges. Merge soon after the verdict,
+PR needs fresh checks and a verdict re-posted for the new head (`--verdict notes.md --sha <new head>`) before
+it merges. Merge soon after the verdict,
 so nothing stacks up and goes stale.
 
 ## 7. Progress, failure and re-planning
