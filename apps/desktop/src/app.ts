@@ -158,6 +158,8 @@ export type AppHandle = {
    * progressive threshold, after the last idle chunk for a larger one.
    */
   contentComplete(): Promise<void>;
+  /** Mounts, now, every block up to the one holding `byteOffset` (a link to a heading not yet shown). */
+  mountThrough(byteOffset: number): void;
   /** Rendered to Source or back, as `Mod+E` does; resolves when the switch is done. */
   toggleMode(): Promise<void>;
   /**
@@ -1698,6 +1700,7 @@ export async function startApp(
     },
     commitEdit,
     contentComplete: () => mount?.complete ?? Promise.resolve(),
+    mountThrough: (byteOffset) => mountThrough(document.getElementById('doc')!, byteOffset),
     toggleMode: toggleViewMode,
     jumpToSource,
     relayout: () => relayoutKeepingReader(),

@@ -11,6 +11,7 @@ import {
   type Inline,
   type Node,
 } from '@marxy/core';
+import { headingIdsForDocument } from '@marxy/core/src/render/heading-ids.ts';
 import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
@@ -96,16 +97,33 @@ function scrollToFragment(fragment: string): boolean {
   return true;
 }
 
+/** The byte where the heading `fragment` names starts, from the parsed document, mounted or not. */
+function headingByte(fragment: string): number | undefined {
+  const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
+  if (!id || !ctx) return undefined;
+  for (const [range, headingId] of headingIdsForDocument(ctx.document)) {
+    if (headingId === id) return Number(range.slice(0, range.indexOf('-')));
+  }
+  return undefined;
+}
+
 /**
- * Land on a fragment. A long document mounts progressively, so the target may not exist yet: wait for
- * the rest to mount, then land, unless the reader has moved to another document meanwhile.
+ * Land on a fragment. A long document mounts progressively, so the heading may not be on the page
+ * yet: mount through it, at once, and land. An id the document has no heading for does nothing. It
+ * never waits, so nothing can pull the page after the reader has moved on.
  */
-async function landFragment(fragment: string): Promise<void> {
+function landFragment(fragment: string): void {
   if (scrollToFragment(fragment) || !appHandle) return;
-  const path = appHandle.currentPath();
-  await appHandle.contentComplete();
-  if (appHandle.currentPath() !== path) return;
+  const byte = headingByte(fragment);
+  if (byte === undefined) return;
+  appHandle.mountThrough(byte);
   scrollToFragment(fragment);
+}
+
+/** Nothing the reader clicked in the last document names anything in the next one (or in none). */
+function forgetClick(): void {
+  lastClickTarget = null;
+  (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = undefined;
 }
 
 function recordNavOpen(nextPath: string): void {
@@ -136,7 +154,7 @@ async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<vo
 
   if (href.startsWith('#')) {
     ev.preventDefault();
-    await landFragment(href);
+    landFragment(href);
     return;
   }
 
@@ -185,7 +203,7 @@ async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<vo
   await appHandle.open(target);
   const landing = pendingFragment;
   pendingFragment = undefined;
-  if (landing) await landFragment(landing);
+  if (landing) landFragment(landing);
 }
 
 /** The app this selection follows: operations commit through it (render/tasks.ts). */
@@ -354,7 +372,7 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
     if (!open) {
       ctx = null;
       state = select(state, { kind: 'none' });
-      lastClickTarget = null;
+      forgetClick();
       return;
     }
     const next = { nodeMap: open.nodeMap, document: open.ast, buffer: open.buffer };
@@ -364,9 +382,7 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
       // Another document: nothing selected in the last one names anything in this one.
       if (ctx.buffer.path !== open.path) {
         state = select(state, { kind: 'none' });
-        lastClickTarget = null;
-        // Nor does the block clicked last: Jump to source would land at a meaningless offset.
-        (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = undefined;
+        forgetClick();
       }
       afterDocumentRendered(next);
     }
@@ -379,7 +395,7 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
     if (open && pendingFragment) {
       const landing = pendingFragment;
       pendingFragment = undefined;
-      requestAnimationFrame(() => void landFragment(landing));
+      requestAnimationFrame(() => landFragment(landing));
     }
   });
 
