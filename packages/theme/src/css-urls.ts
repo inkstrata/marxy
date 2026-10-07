@@ -75,20 +75,42 @@ function unquoteUrl(raw: string): string {
  *
  * Removing a reference joins the text on either side, which can splice a fresh `url(` together
  * (`urlurl()(https://x)`). Rather than guess every splice, the result is scanned again: a clean
- * output produces no warnings (a rewritten asset url is a plain path, an inert data: url is kept),
+ * output produces no warnings (a rewritten asset is an inert placeholder, an inert data: url is kept),
  * so any warning on the second pass means the first left a reference behind, and the theme fails
  * closed (F-16).
  */
 export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsResult {
-  const first = rewritePass(css, opts);
+  // Pass 1 emits an inert placeholder for each local asset and records its path, so the second pass
+  // never depends on, or calls, the caller's assetUrl (which may return http://asset.localhost/…
+  // or throw for an unknown path). The nonce is fresh per call and absent from the input, so a
+  // theme cannot write a placeholder of its own. The caller's assetUrl runs once per real reference.
+  let nonce = newNonce();
+  while (css.includes(nonce)) nonce = newNonce();
+  const paths: string[] = [];
+  const internal = {
+    base: opts.base,
+    assetUrl: (abs: string) => {
+      paths.push(abs);
+      return `${nonce}-${paths.length - 1}`;
+    },
+  };
+  const first = rewritePass(css, internal);
   if (first.css === '') return first;
-  if (rewritePass(first.css, opts).warnings.length > 0) {
+  if (rewritePass(first.css, { base: opts.base, assetUrl: () => 'x' }).warnings.length > 0) {
     return {
       css: '',
       warnings: [...first.warnings, 'theme joined a url() together after removing a reference; the theme was not loaded'],
     };
   }
-  return first;
+  const pattern = new RegExp(`"${nonce}-(\\d+)"`, 'g');
+  const out = first.css.replace(pattern, (_m, n: string) => `"${opts.assetUrl(paths[Number(n)]).replace(/"/g, '\\"')}"`);
+  return { css: out, warnings: first.warnings };
+}
+
+function newNonce(): string {
+  const bytes = new Uint8Array(12);
+  globalThis.crypto.getRandomValues(bytes);
+  return `marxy-asset-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function rewritePass(css: string, opts: RewriteUrlsOptions): RewriteUrlsResult {

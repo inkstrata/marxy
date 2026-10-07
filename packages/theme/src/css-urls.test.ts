@@ -210,3 +210,38 @@ test('an unterminated string inside image-set is dropped with a warning', () => 
   assert.doesNotMatch(css, /a\.png/);
   assert.ok(warnings.length >= 1);
 });
+
+// F-16 review 2: the verification pass must not depend on, or call, the caller's assetUrl.
+test('a local asset loads when assetUrl returns an http://asset.localhost url', () => {
+  const { css, warnings } = rewriteUrls('@font-face{font-family:Lit;src:url(fonts/lit.woff2)}', {
+    base,
+    assetUrl: (p) => `http://asset.localhost/${encodeURIComponent(p)}`,
+  });
+  assert.equal(css, `@font-face{font-family:Lit;src:url("http://asset.localhost/${encodeURIComponent('/themes/quiet/fonts/lit.woff2')}")}`);
+  assert.deepEqual(warnings, []);
+});
+
+test('assetUrl is called exactly once per real reference and never with anything else', () => {
+  const real = new Set(['/themes/quiet/a.png', '/themes/quiet/b.woff2']);
+  const calls: string[] = [];
+  const { css } = rewriteUrls('x{background:url(a.png)} y{src:url(b.woff2)} z{background:image-set("a.png" 1x)}', {
+    base,
+    assetUrl: (p) => {
+      calls.push(p);
+      if (!real.has(p)) throw new Error('notFound');
+      return `asset://${p}`;
+    },
+  });
+  assert.deepEqual(calls, ['/themes/quiet/a.png', '/themes/quiet/b.woff2', '/themes/quiet/a.png']);
+  assert.match(css, /asset:\/\/\/themes\/quiet\/b\.woff2/);
+});
+
+test('a theme cannot forge a placeholder to smuggle a path through', () => {
+  const calls: string[] = [];
+  const { css } = rewriteUrls('x{background:url("marxy-asset-0000-0")} y{background:url(a.png)}', {
+    base,
+    assetUrl: (p) => (calls.push(p), `asset://${p}`),
+  });
+  assert.deepEqual(calls, ['/themes/quiet/marxy-asset-0000-0', '/themes/quiet/a.png']);
+  assert.doesNotMatch(css, /marxy-asset-[0-9a-f]{24}/);
+});
