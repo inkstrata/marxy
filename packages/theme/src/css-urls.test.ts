@@ -181,3 +181,32 @@ test('a parenthesis inside a quoted string does not hide a later remote url', ()
   assert.doesNotMatch(css, /evil\.example/);
   assert.ok(warnings.length >= 1);
 });
+
+// F-16 review: removing a reference must not splice a fresh url( together.
+test('removing an empty url() cannot splice a remote url together', () => {
+  const { css, warnings } = rewriteUrls('body{background:urlurl()(https://evil.example/p.png)}', { base, assetUrl });
+  assert.doesNotMatch(css, /evil\.example/);
+  assert.ok(warnings.length >= 1);
+});
+
+test('removing an @import cannot splice a remote url together', () => {
+  const { css, warnings } = rewriteUrls('a{background:url@import x;(https://evil.example/p.png)}', { base, assetUrl });
+  assert.doesNotMatch(css, /evil\.example/);
+  assert.ok(warnings.length >= 2);
+});
+
+test('repeated removal cannot splice a remote url together', () => {
+  const { css } = rewriteUrls('body{background:urlurlurl()()(https://evil.example/p.png)}', { base, assetUrl });
+  assert.doesNotMatch(css, /evil\.example/);
+});
+
+test('removing an image-set candidate cannot splice a remote url together', () => {
+  const { css } = rewriteUrls('a{background:image-set(urlurl()(https://evil.example/p.png) 1x)}', { base, assetUrl });
+  assert.doesNotMatch(css, /evil\.example/);
+});
+
+test('an unterminated string inside image-set is dropped with a warning', () => {
+  const { css, warnings } = rewriteUrls('a{background:image-set("a.png\n" 1x)}', { base, assetUrl });
+  assert.doesNotMatch(css, /a\.png/);
+  assert.ok(warnings.length >= 1);
+});

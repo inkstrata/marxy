@@ -70,8 +70,28 @@ function unquoteUrl(raw: string): string {
   return s.trim();
 }
 
-/** Tokenises CSS and rewrites or removes url/import/image-set references that leave the theme or the network. */
+/**
+ * Tokenises CSS and rewrites or removes url/import/image-set references that leave the theme or the network.
+ *
+ * Removing a reference joins the text on either side, which can splice a fresh `url(` together
+ * (`urlurl()(https://x)`). Rather than guess every splice, the result is scanned again: a clean
+ * output produces no warnings (a rewritten asset url is a plain path, an inert data: url is kept),
+ * so any warning on the second pass means the first left a reference behind, and the theme fails
+ * closed (F-16).
+ */
 export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsResult {
+  const first = rewritePass(css, opts);
+  if (first.css === '') return first;
+  if (rewritePass(first.css, opts).warnings.length > 0) {
+    return {
+      css: '',
+      warnings: [...first.warnings, 'theme joined a url() together after removing a reference; the theme was not loaded'],
+    };
+  }
+  return first;
+}
+
+function rewritePass(css: string, opts: RewriteUrlsOptions): RewriteUrlsResult {
   const warnings: string[] = [];
   const out: string[] = [];
   const themeRoot = normalizePath(opts.base);
@@ -224,7 +244,10 @@ function rewriteOneUrl(
   themeRoot: string,
   warnings: string[],
 ): string | null {
-  if (spec === '') return null;
+  if (spec === '') {
+    warnings.push('theme has an empty url(); not loaded');
+    return null;
+  }
   // A raw newline inside a url() value ends the string in the engine's tokenizer, which then closes
   // the url( at the next `)` and reads the rest as live CSS; this scanner counts parentheses and
   // would have swallowed that rest as part of the value (F-16). No real path or raster has one.
@@ -282,11 +305,13 @@ function rewriteImageSetInner(
 
     const quote = inner[i];
     if (quote === '"' || quote === "'") {
-      let j = i + 1;
-      while (j < inner.length && inner[j] !== quote) j += 1;
-      const spec = inner.slice(i + 1, j);
-      j += 1;
-      if (/[\n\r\f]/.test(spec)) {
+      // Same string rules as the tokenizer: a line break ends the string unclosed.
+      let j = skipString(inner, i);
+      const closed = j - i >= 2 && inner[j - 1] === quote && /(?:^|[^\\])(?:\\\\)*$/.test(inner.slice(i + 1, j - 1));
+      const spec = closed ? inner.slice(i + 1, j - 1) : inner.slice(i + 1, j);
+      if (!closed) {
+        warnings.push('theme referenced a url() with an unterminated string; not loaded');
+      } else if (/[\n\r\f]/.test(spec)) {
         warnings.push('theme referenced a url() containing a line break; not loaded');
       } else if (isRemote(spec)) {
         warnings.push(`theme referenced \`${spec}\`; not loaded`);
