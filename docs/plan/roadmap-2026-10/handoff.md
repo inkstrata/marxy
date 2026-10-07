@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | B-11 (opus) | implementing, rebasing onto main after B-10 | when its PR opens: Sonnet review; on merge, B-12 |
 | B-02.5 (sonnet) | fixing return 1 (two wraps untested, 1 MB content_complete +15 %, drop `scroller`) | re-review; a second return goes to Opus with both notes (§1) |
-| L-00 (sonnet) | building the layout probe | review; then L-01 on Opus |
+| L-00 (sonnet) | **returned** (#365): geometry true, H4 and H6 causes wrong, controls missing | send the return (rulings in `progress.md`) to a Sonnet implementor; re-review; then L-01 on Opus |
 | A-10.4 (sonnet) | #360, merge verdict (lead review), default size only | author merges |
 | B-02 (opus) | **parked**: pushed (`d2885b69` code, `b2b68f0b` macOS baselines), no PR | see below |
 
