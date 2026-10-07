@@ -8,7 +8,9 @@ export function failingTests(output) {
   const lines = (at >= 0 ? text.slice(at) : text).split('\n');
   const out = [];
   for (let i = 0; i < lines.length; i++) {
-    const m = /^(\s*)(?:✖|not ok \d+ -)\s+(.*?)(?:\s+\([\d.]+m?s\))?\s*$/.exec(lines[i]);
+    // Outside a "failing tests:" section only TAP's `not ok` is unambiguous: ESLint also prints `✖ 2 problems`.
+    const marker = at >= 0 ? /(?:✖|not ok \d+ -)/ : /not ok \d+ -/;
+    const m = new RegExp(`^(\\s*)${marker.source}\\s+(.*?)(?:\\s+\\([\\d.]+m?s\\))?\\s*$`).exec(lines[i]);
     if (!m || /^failing tests:?$/.test(m[2])) continue;
     // the message: the lines after the name up to the first stack frame, blank lines dropped
     const msg = [];

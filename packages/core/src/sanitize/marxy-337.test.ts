@@ -32,8 +32,9 @@ test('a close tag with nothing open is O(1): 40000 stray closes do not go quadra
   const n = 40000;
   const start = performance.now();
   const out = sanitizeHtml('<b>'.repeat(n) + '</i>'.repeat(n)).html;
-  console.log(`sanitise: ${n} stray closes in ${(performance.now() - start).toFixed(0)} ms`);
+  const ms = performance.now() - start;
   assert.equal(out, '<b>'.repeat(n) + '</b>'.repeat(n));
+  assert.ok(ms < 1500, `took ${ms.toFixed(0)} ms`);
 });
 
 test('close tags still close the nearest matching open element', () => {
