@@ -42,6 +42,7 @@ needed.
 
 ## Order
 
+- **Third wave:** F-14 before B-12; F-15 before C-11; F-16 any time.
 - **Now, beside lane B (own paths):** F-01, F-02, F-06, F-07, F-08, F-09.
 - **The `app.ts` chain, before B-12:** F-03 → F-04 → F-05 → F-12 → B-12. F-10 runs beside it.
 - **After B-02.8** (same file, `packages/typeset/src/index.ts`): F-11.
@@ -179,3 +180,59 @@ the session, though EMFILE or EAGAIN are transient. On load failure, notify once
 trust settings, so nothing is trusted this session."); on the next `grantHtml` with no store, retry the load
 once, and notify again if it still fails. Acceptance: a rejected read shows the notice; a grant after a
 transient failure retries and persists; a grant after a second failure writes nothing and says so.
+
+## The third wave (2026-10-07, evening)
+
+Sweeps S-09 to S-12 filed six findings against `986a082a` (packets P-19 to P-23 outside the repository). The lead
+re-verified each against `75b0358a` with a repro: a Rust test on the real scan and diff, a node test on the real
+functions, or the rewritten CSS loaded in WebKit with every request to the remote host aborted. Four are real, one
+is real but contrived, one cannot be reached.
+
+| Finding | What a reader sees | Verdict at `75b0358a` | Story |
+| --- | --- | --- | --- |
+| S-10-0001 | In a README in a subfolder, `/assets/x.png` and `../img/x.png` show no image; an in-repository `../other.md` link is refused as outside the folder | confirmed: `pathsForDocument` returns the document's folder as the image root, though ADR-0027 §5 says the repository root (the index service already knows it) | F-14 |
+| S-09-0001 | A document opened through a symlink goes stale when its target is edited, and nothing is said when the link is deleted | confirmed (Rust and JS repros); the cross-directory drop the finding blames on `tauri.ts` went with C-05, and the event now dies at `samePath`. Reached by following a link or by history; argv, drop and the palette canonicalise or omit links | F-15 |
+| S-09-0002 | — (the symlink reload test passes through a `cfg(test)` helper that canonicalises; production does not) | confirmed, test only | F-15 |
+| S-12-0001 | A theme can carry a remote image past the loader inside a raster `data:` URL broken by a raw newline; WebKit parses the rest as a live rule | confirmed at the text level, **latent**: the shipping CSP's `img-src` refuses the request. Breaks the loader's promise (`05-theme.md` §Loader) and would phone home if the CSP ever loosened | F-16 |
+| S-09-0003 | An outside rewrite that keeps inode, size and mtime is not reloaded | confirmed but contrived (`cp -p` from a same-size file stamped identically, or two same-size in-place writes in one millisecond); no editor does this. Not fixed: catching it costs a hash of the open file on every wake-up | — |
+| S-10-0002 | — (`relativePath` accepts a `..` segment, and a dotted root name passes the "looks like a file" branch) | **not reachable**: the only walker lists clean, canonical children of the directory it lists; nothing outside a declared root can enter the index. Hardening only, not filed | — |
+
+### F-14 — Images and links in a nested document resolve against the repository root
+
+**Model:** sonnet · **Size:** M · **Depends on:** none; **before B-12** (it touches the link guard in
+`selection/view.ts`) · **Paths:** `apps/desktop/src/render/images.ts`, `apps/desktop/src/startup/idle-work.ts`,
+`apps/desktop/src/selection/view.ts` (the relative-link guard only), image and link tests.
+`pathsForDocument` gives the image root as the document's directory. Resolve it as ADR-0027 §5 says: the
+repository root the document is indexed under (`rootFor` in the index service, the nearest `.git`), else the
+document's directory. `stripNonLocalImages` runs on the first-text path and is synchronous: it must not strip a
+`/x` or `../x` image before the root is known (the `marxyDone` flag makes a strip permanent). The asset scope
+widens to the repository root, which is what the ADR decided; say so in the PR. Acceptance (each fails today): in
+`/repo/docs/readme.md` with `.git` at `/repo`, `/assets/logo.png` loads `/repo/assets/logo.png`; `../diagram.png`
+loads `/repo/diagram.png`; `../../etc/x.png` is still refused; `allowAssetScope` is called with `/repo`; a
+`../README.md` link from `/repo/docs/a.md` opens; a document with no repository keeps today's behaviour.
+
+### F-15 — A document opened through a symlink reloads, and says when the link is gone
+
+**Model:** sonnet · **Size:** M · **Depends on:** none · **Before C-11** (same watcher) · **Paths:**
+`apps/desktop/src-tauri/src/watch/mod.rs` (and `tree.rs` if the recursive watch has the same gap), the
+`effect_for_open_document` test helper, `apps/desktop/test/live-reload.test.mjs`.
+`scan_entries` keeps `is_file()` entries only, and `DirEntry::metadata` does not follow links, so a link is never
+in the snapshot. Record a symlink that resolves to a file under its link path, with the target's identity
+(`fs::metadata` follows), so an edit of the target is `Modified` on the link and deleting the link is `Removed`.
+Make the test helper the production comparison (or delete it and assert on the real events). Acceptance: open
+`docs/link.md` → `docs/real.md`, edit `real.md`: an event names `link.md` and the page reloads; the same with the
+target in another directory; delete the link: the removal notice shows; a plain file behaves as today; the Rust
+symlink test fails if the comparison is slash-normalising only.
+
+### F-16 — A theme's `data:` image cannot hide a remote URL
+
+**Model:** sonnet · **Size:** S · **Depends on:** none · **Paths:** `packages/theme/src/css-urls.ts`,
+`packages/theme/src/css-urls.test.ts`, a loader test. **Review:** Opus (privacy).
+`findParenClose` counts raw parentheses and ignores quotes and newlines; the CSS tokenizer ends a quoted string at
+a raw newline and closes `url(` at the next `)`. Reject a `data:` body containing a raw `\n`, `\r`, `\f`, a quote,
+a parenthesis or a backslash after unquoting (real base64 and percent-encoded rasters contain none), with a
+warning; apply the same newline rule to the relative-path branch. Acceptance (each fails today):
+`url("data:image/png,(AA\n)}b{background:url(https://evil.example/p.png)}")` leaves no `evil.example` in the
+output and records a warning, for double and single quotes, unquoted, `\r`, `\f` and inside `image-set`; an
+ordinary base64 png passes unchanged; `data:image/svg+xml` is still removed; `loadTheme` on such a theme returns a
+warning and no remote host.
