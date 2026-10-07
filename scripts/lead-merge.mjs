@@ -176,6 +176,7 @@ export function mergeAsync(repo, pr, sha, { run = gh, wait = sleep, polls = 120 
       if (++errors >= 5) return `unknown after poll errors (${String(e.stderr || e.message).trim()}); check the PR`;
       continue;
     }
+    errors = 0;
     if (status !== 'pending') return describe(status);
   }
   return 'still pending after ten minutes; check the PR';
@@ -188,7 +189,12 @@ function describe(status) {
 }
 
 function mergeStacked(pr, sha) {
-  const repo = JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+  let repo;
+  try {
+    repo = JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+  } catch (e) {
+    return `not attempted: the repository could not be read (${String(e.stderr || e.message).trim()})`;
+  }
   return mergeAsync(repo, pr, sha);
 }
 
