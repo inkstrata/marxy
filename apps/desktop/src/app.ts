@@ -213,9 +213,34 @@ let positionPersistence: PositionPersistence | null = null;
 let persistenceLoaded = false;
 let scrollPersistenceInstalled = false;
 let restoreAfterTypeset = false;
+/** The byte the open in progress lands on (an `at`, or the stored place), read before anything re-notes it. */
+let openLanding: number | undefined;
+/** `sourceReadingPosition` (source/mode-switch.ts), loaded with the editor: CM6 stays on the lazy chunk. */
+let sourceReadingPositionIn:
+  | ((buffer: Buffer, view: never, readingLinePx: number) => { readonly byteOffset: number; readonly fraction: number })
+  | null = null;
 
 function readingScroller(): HTMLElement {
   return document.documentElement;
+}
+
+/**
+ * The reader's place while Source shows (F-04): the line on the reading line. In Source the window
+ * scrolls and the article is hidden, so neither its block list nor CodeMirror's scroller says where
+ * the reader is. Null in Rendered.
+ */
+function sourcePosition(path: string): ReadingPosition | null {
+  const buffer = bufferNow();
+  if (viewMode !== 'source' || !sourceEditor || !buffer || !sourceReadingPositionIn) return null;
+  const place = sourceReadingPositionIn(buffer, sourceEditor.view as never, Math.round(window.innerHeight * 0.4));
+  return { path, byteOffset: place.byteOffset, fraction: place.fraction, mode: 'source' };
+}
+
+/** The start of the line holding byte `at`. */
+function lineStartAt(bytes: Uint8Array, at: number): number {
+  let i = Math.min(at, bytes.length);
+  while (i > 0 && bytes[i - 1] !== 0x0a) i--;
+  return i;
 }
 
 function sourceMount(): HTMLElement {
@@ -248,6 +273,7 @@ async function ensureSourceEditor(): Promise<MountedSourceEditor> {
   const buffer = bufferNow();
   if (!buffer) throw new Error('source editor requires an open buffer');
   const { createSourceEditor } = await import('./source/editor.ts');
+  ({ sourceReadingPosition: sourceReadingPositionIn } = await import('./source/mode-switch.ts'));
   sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer, lineNumbers: false });
   return sourceEditor;
 }
@@ -295,12 +321,17 @@ async function leaveSourceForRendered(): Promise<void> {
   const changed = await open.commitSource(sourceEditor.docText());
   let byteOffset = lastReadingByteOffset;
   let fraction = lastReadingFraction;
-  if (changed && sourceEditor) {
-    const { sourceVisibleByteOffset } = await import('./source/mode-switch.ts');
-    const buffer = open.snapshot().buffer;
-    sourceEditor.replaceBuffer(buffer);
-    byteOffset = sourceVisibleByteOffset(buffer, sourceEditor.view as never);
+  // The line on the reading line, read before anything moves the window. Still the line Source was
+  // entered on (no edit, no scroll away): the exact place it was entered from. Otherwise that line's
+  // block, at its top.
+  const { path, buffer } = open.snapshot();
+  const place = sourcePosition(path);
+  if (place && (changed || lineStartAt(buffer.bytes, lastReadingByteOffset) !== place.byteOffset)) {
+    byteOffset = place.byteOffset;
     fraction = 0;
+  }
+  if (changed && sourceEditor) {
+    sourceEditor.replaceBuffer(buffer);
     await refreshTitle();
   }
   lastReadingByteOffset = byteOffset;
@@ -431,14 +462,17 @@ async function restartUserTheme(dir: string | null): Promise<void> {
   userThemeHandle = await startUserTheme(userThemeContext(document.getElementById('doc')!), dir);
 }
 
-/** A change of variant or size: same position, new layout (A-14). */
-async function relayoutKeepingReader(): Promise<void> {
+/** A change of variant, size or window width: same position, new layout (A-14, S-02-0001). */
+async function relayoutKeepingReader(
+  reason: 'theme' | 'resize' = 'theme',
+  from: ReadingPosition | null = null,
+): Promise<void> {
   const doc = document.getElementById('doc');
   const path = openPathNow();
   if (!doc || !path || !state.document || viewMode !== 'rendered') return;
-  const pos = currentPosition(readingScroller(), state.document.blocks, path, 'rendered');
+  const pos = from?.path === path ? from : currentPosition(readingScroller(), state.document.blocks, path, 'rendered');
   if (typeset) {
-    typeset.relayout('theme');
+    typeset.relayout(reason);
     await typeset.ready;
   } else {
     snap(doc);
@@ -492,18 +526,32 @@ let anchorListening = false;
  */
 let heldPosition: ReadingPosition | null = null;
 
+const READER_INPUT = ['wheel', 'touchstart', 'mousedown', 'keydown'] as const;
+
 function releaseAnchor(): void {
   anchor = null;
   heldPosition = null;
+  stopListeningForReaderScroll();
 }
 
 function listenForReaderScroll(): void {
   if (anchorListening) return;
   anchorListening = true;
   // Input, not `scroll`: the anchor's own scrolls must not release it.
-  for (const type of ['wheel', 'touchstart', 'mousedown', 'keydown'] as const) {
+  for (const type of READER_INPUT) {
     window.addEventListener(type, releaseAnchor, { capture: true, passive: true });
   }
+}
+
+/**
+ * Nothing held, nothing to release: the listeners go. While any `wheel` listener is on the window,
+ * WebKit repaints the whole page after every layout (B-02.8), so one left behind would cost every
+ * later open of a large document.
+ */
+function stopListeningForReaderScroll(): void {
+  if (!anchorListening) return;
+  anchorListening = false;
+  for (const type of READER_INPUT) window.removeEventListener(type, releaseAnchor, { capture: true });
 }
 
 /** The innermost block whose node's byte range contains `at`, else the last one starting before it. */
@@ -560,6 +608,7 @@ function holdPosition(doc: HTMLElement, position: ReadingPosition): void {
     if (heldPosition !== position || mount !== current) return;
     snap(doc);
     heldPosition = null;
+    if (anchor === null) stopListeningForReaderScroll();
   })();
 }
 
@@ -680,16 +729,39 @@ function keepOnGrid(article: HTMLElement): void {
   document.fonts.addEventListener('loadingdone', fontsLoaded);
   liveResizeObservers += 1;
   const laidOut = () => !article.hidden && article.clientWidth > 0;
+  // The reader's place before a burst of resizes: read from the block list the last layout built,
+  // which the new width has not rebuilt yet, and put back once the relayout has set the page (S-02-0001).
+  let before: ReadingPosition | null = null;
+  // A window that narrows with the article at its full measure still reflows what is wider than the
+  // measure (tables, code): the article's height changes, its width does not.
+  let viewportWidth = window.innerWidth;
+  let rebreak = false;
   resizeObserver = new ResizeObserver(() => {
     // Hidden (Source mode) the article is zero-width: measuring now would zero every block position.
-    if (!laidOut() || article.clientWidth === width) return;
+    if (!laidOut() || (article.clientWidth === width && window.innerWidth === viewportWidth)) return;
+    rebreak ||= article.clientWidth !== width;
     width = article.clientWidth;
+    viewportWidth = window.innerWidth;
+    const path = openPathNow();
+    if (before === null && path && state.document) {
+      before = currentPosition(readingScroller(), state.document.blocks, path, 'rendered');
+    }
     clearTimeout(pending);
     // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
     pending = window.setTimeout(() => {
+      const position = before;
+      const relayout = rebreak;
+      before = null;
+      rebreak = false;
       if (!laidOut()) return;
-      if (typeset) typeset.relayout('resize');
-      else snap(article);
+      if (relayout) {
+        void relayoutKeepingReader('resize', position);
+        return;
+      }
+      snap(article);
+      if (position && state.document && position.path === openPathNow() && viewMode === 'rendered') {
+        restoreScrollToPosition(readingScroller(), state.document.blocks, position);
+      }
     }, 100);
   });
   resizeObserver.observe(article);
@@ -762,7 +834,15 @@ function repaint(snap: DocumentSnapshot, position: ReadingPosition): void {
   releaseAnchor();
   rerenderFromBuffer(doc, position.byteOffset);
   const typesetting = typesetDocument(doc);
-  holdPosition(doc, { ...position, path: snap.path });
+  if (viewMode === 'source' && sourceEditor) {
+    // Source shows and the window is its scroller: the place goes back into the editor, not onto the
+    // hidden article, whose block list has nothing measured to place it by (F-04).
+    lastReadingByteOffset = position.byteOffset;
+    lastReadingFraction = 0;
+    sourceEditor.scrollToByte(position.byteOffset);
+  } else {
+    holdPosition(doc, { ...position, path: snap.path });
+  }
   settlePage(typesetting);
 }
 
@@ -816,7 +896,7 @@ function followTransition(before: DocumentSnapshot, snap: DocumentSnapshot, chan
   const position =
     change.kind === 'reload' && page.reloadAt !== null
       ? page.reloadAt
-      : currentPosition(readingScroller(), state.document.blocks, before.path, 'rendered');
+      : sourcePosition(before.path) ?? currentPosition(readingScroller(), state.document.blocks, before.path, 'rendered');
   try {
     repaint(snap, position);
   } catch (e) {
@@ -888,7 +968,7 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
   const open = store;
   if (!open || !state.document) return;
   const path = open.snapshot().path;
-  const position = currentPosition(readingScroller(), state.document.blocks, path, viewMode);
+  const position = sourcePosition(path) ?? currentPosition(readingScroller(), state.document.blocks, path, viewMode);
   const diskBytes = await readOpenFileWithRetry(path);
   refreshIndexForWatch(events, path, diskBytes);
   const buffer = open.snapshot().buffer;
@@ -986,7 +1066,7 @@ function commitEdit(next: Buffer): Promise<void> {
     const snap = open.snapshot();
     const change = byteChange(snap.buffer.bytes, next.bytes);
     if (change === null) {
-      repaint(snap, currentPosition(readingScroller(), state.document.blocks, snap.path, 'rendered'));
+      repaint(snap, sourcePosition(snap.path) ?? currentPosition(readingScroller(), state.document.blocks, snap.path, 'rendered'));
     } else {
       await open.apply({
         range: { file: snap.path, start: change.start, end: change.end },
@@ -1180,7 +1260,7 @@ function deferAfterComplete(current: ProgressiveMount, file: string, doc: HTMLEl
 async function flushReadingPersistence(): Promise<void> {
   const openPath = openPathNow();
   if (!positionPersistence || !openPath || !state.document) return;
-  const pos = currentPosition(readingScroller(), state.document.blocks, openPath, viewMode);
+  const pos = sourcePosition(openPath) ?? currentPosition(readingScroller(), state.document.blocks, openPath, viewMode);
   positionPersistence.note(openPath, pos);
   await positionPersistence.flush();
 }
@@ -1213,7 +1293,11 @@ function installScrollPersistence(): void {
       frame = requestAnimationFrame(() => {
         frame = 0;
         const openPath = openPathNow();
-        if (!positionPersistence || !openPath || !state.document || viewMode !== 'rendered') return;
+        if (!positionPersistence || !openPath || !state.document) return;
+        // In Source the window scrolls the editor: the place is the line on the reading line.
+        const source = sourcePosition(openPath);
+        if (source) return positionPersistence.note(openPath, source);
+        if (viewMode !== 'rendered') return;
         const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
         positionPersistence.note(openPath, pos);
       });
@@ -1267,14 +1351,15 @@ async function restorePersistedPositionIfNeeded(): Promise<void> {
   const { path, buffer } = store.snapshot();
   const stored = positionPersistence.positionForOpen(path, buffer.bytes.length);
   if (!stored) return;
-  lastReadingByteOffset = stored.byteOffset;
-  lastReadingFraction = stored.fraction;
-  if (stored.mode === 'source') {
-    await showSource(stored.byteOffset);
-    return;
-  }
-  mountThrough(document.getElementById('doc')!, stored.byteOffset);
-  restoreScrollToPosition(readingScroller(), state.document.blocks, stored);
+  openLanding = stored.byteOffset;
+  // A file that opens in Source is put there by finishDocumentOpen, at this byte.
+  if (defaultModeForPath(path) === 'source') return;
+  // A place kept in Source is a line, not a fraction of a block: its block, at the top (S-08-0001).
+  const position = stored.mode === 'source' ? { ...stored, fraction: 0, mode: 'rendered' as const } : stored;
+  lastReadingByteOffset = position.byteOffset;
+  lastReadingFraction = position.fraction;
+  mountThrough(document.getElementById('doc')!, position.byteOffset);
+  restoreScrollToPosition(readingScroller(), state.document.blocks, position);
   landOn(stored.byteOffset);
   holdAnchor();
 }
@@ -1296,6 +1381,7 @@ async function openDocumentThroughRenderMark(
     const stored = positionPersistence.positionForOpen(file, bytes.length);
     if (stored) landing = stored.byteOffset;
   }
+  openLanding = landing;
   teardownDocument();
   clearDismissForPath(file);
   sourceMount();
@@ -1359,7 +1445,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
   });
   await shell.mark('position_restored', Date.now());
   if (defaultModeForPath(file) === 'source') {
-    await showSource(at ?? 0);
+    await showSource(at ?? openLanding ?? 0);
   } else {
     setModeChrome('rendered');
   }
@@ -1600,7 +1686,7 @@ export async function startApp(
     contentComplete: () => mount?.complete ?? Promise.resolve(),
     toggleMode: toggleViewMode,
     jumpToSource,
-    relayout: relayoutKeepingReader,
+    relayout: () => relayoutKeepingReader(),
     pinPaletteDocument(path: string) {
       const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
         .__marxyPalette;

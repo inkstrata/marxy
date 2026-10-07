@@ -8,10 +8,26 @@ export function renderedByteToCmPos(buffer: Buffer, byteOffset: number): number 
   return byteToUtf16(buffer, byteOffset);
 }
 
-/** Byte offset of the first visible line's start in Source → Rendered restore. */
+/**
+ * The reader's place in Source: the start of the line on the reading line, `readingLinePx` below the
+ * top of the window, and how far down that line the reading line falls. In the app the window scrolls,
+ * not CodeMirror's scroller (whose `scrollTop` stays 0), so the line is found from the document's
+ * top in window coordinates, which follows either. `scrollSourceToByte` puts the byte back there.
+ */
+export function sourceReadingPosition(
+  buffer: Buffer,
+  view: EditorView,
+  readingLinePx: number,
+): { readonly byteOffset: number; readonly fraction: number } {
+  const height = readingLinePx - view.documentTop;
+  const line = view.lineBlockAtHeight(height);
+  const fraction = line.height > 0 ? Math.min(1, Math.max(0, (height - line.top) / line.height)) : 0;
+  return { byteOffset: utf16ToByte(buffer, line.from), fraction };
+}
+
+/** Byte offset of the start of the first line in the window (the Source harness's round trip). */
 export function sourceVisibleByteOffset(buffer: Buffer, view: EditorView): number {
-  const line = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
-  return utf16ToByte(buffer, line.from);
+  return sourceReadingPosition(buffer, view, 0).byteOffset;
 }
 
 /** Scroll CodeMirror so `byteOffset` sits at `readingLinePx` from the viewport top. */

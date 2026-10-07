@@ -60,6 +60,8 @@ test('reopening a document restores the same first visible block within one line
   assert.ok(restored);
   const scrollAfter = scrollTopForPosition(blocks, restored!.byteOffset, restored!.fraction, viewport);
   assert.ok(sameFirstVisibleBlock(blocks, scrollBefore, scrollAfter, viewport));
+  // The check can fail: the same block 30 px lower is not the same place (S-05-0003).
+  assert.equal(sameFirstVisibleBlock(blocks, scrollBefore, scrollTopForPosition(blocks, 90, 0.1, viewport), viewport), false);
 });
 
 test('corrupt positions.json is renamed .bad-* and the app starts at the top', async () => {
