@@ -148,7 +148,7 @@ export type AppHandle = {
   /**
    * Applies an operation's result: makes `buffer` the open document and renders it through the same
    * path an open takes. The file is not written; that is an explicit save. Refused if a different
-   * document is open by then.
+   * document is open by then, or while Source holds text not yet folded into the document.
    */
   commitEdit(buffer: Buffer): Promise<void>;
   /** Source text typed and not yet in the document goes into it, as one history entry (undo and redo call this first). */
