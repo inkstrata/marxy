@@ -3,7 +3,7 @@
 // are the same attack written four ways, and only a parser is guaranteed to read them the way the
 // browser will.
 
-import { decodeReferences } from './escape.ts';
+import { decodeAttributeReferences, decodeReferences } from './escape.ts';
 import { RESOLUTION_BASES } from './document-origin.ts';
 import type { Policy, UrlContext } from './policy.ts';
 
@@ -30,8 +30,23 @@ const SURROUNDING_C0 = /^[\u0000-\u0020]+|[\u0000-\u0020]+$/g;
 const SCHEME_PREFIX = /^[a-z][a-z0-9+.-]*:/i;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 
+/**
+ * Two readings of the same attribute. The scheme is judged on the aggressive one (references decoded
+ * to a fixed point, semicolon optional), so nothing hides behind a second decoding. The value emitted
+ * is the one a browser will actually use (one attribute-rule pass), so a query parameter named
+ * `sol` or `amp` survives; it is judged too, and either reading being refused refuses the value.
+ * The guarantee is that the emitted string is itself judged and escaped once; the strict reading is
+ * defence in depth.
+ */
 export function sanitizeUrl(raw: string, context: UrlContext, policy: Policy): UrlDecision {
-  const value = decodeReferences(raw).replace(TAB_OR_NEWLINE, '').replace(SURROUNDING_C0, '');
+  const strict = decide(decodeReferences(raw), context, policy);
+  if (!strict.allowed) return strict;
+  const emitted = decodeAttributeReferences(raw);
+  return emitted === decodeReferences(raw) ? strict : decide(emitted, context, policy);
+}
+
+function decide(decoded: string, context: UrlContext, policy: Policy): UrlDecision {
+  const value = decoded.replace(TAB_OR_NEWLINE, '').replace(SURROUNDING_C0, '');
   if (value === '') return { allowed: false, value: '', reason: 'empty' };
   if (CONTROL.test(value)) {
     return { allowed: false, value, reason: 'a control character inside the reference' };
