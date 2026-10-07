@@ -41,6 +41,7 @@
   --marxy-color-selection: #1f3651;
   --marxy-color-find: #3a3010;        /* added by ADR-0024, with defaults: find highlight */
   --marxy-color-find-current: #403510; /* told apart by an outline too, never colour alone (ADR-0033) */
+  --marxy-color-find-edge: #94701a;    /* the 2 px edge of a find match: 3:1 on the grounds, so a match shows without its fill (ADR-0055) */
   --marxy-color-notice: #1f1e1b;      /* notices region background */
   --marxy-color-diff-add: #1b2f28;    /* diff: added line tint (dark); marker is the primary cue (ADR-0036) */
   --marxy-color-diff-del: #2d140b;    /* diff: deleted line tint (dark) */

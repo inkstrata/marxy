@@ -36,7 +36,7 @@ with a taste-review queue row. That is the guarantee a theme author gets (ADR-00
 names, the units and the meanings, not 30px. Its `:root` values are the **dark** variant
 (ADR-0024); the default theme's light block overrides them under
 `[data-marxy-variant="light"]`. Tokens may be *added* within version 1 when they carry a
-default (ADR-0024 added the find, notice and code-token colours); a theme that does not set
+default (ADR-0024 added the find, notice and code-token colours; ADR-0055 added `--marxy-color-find-edge`); a theme that does not set
 them renders with the defaults.
 The shape:
 

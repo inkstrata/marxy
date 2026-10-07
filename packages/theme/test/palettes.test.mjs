@@ -154,3 +154,25 @@ test('MARXY-46: committed screenshot baselines exist for light at 960 px (both e
     }
   }
 });
+
+test('L-11: the find edge is 3:1 on page and code grounds, current differs from other by 3:1, text on fills keeps 4.5:1', () => {
+  const dark = { ...readDarkTokens(), ...palettes.dark };
+  const light = { ...readLightBlock(), ...palettes.light };
+  for (const [label, t] of [['dark', dark], ['light', light]]) {
+    const rgb = (name) => parseHex(resolveColor(t[name], t));
+    const edge = rgb('--marxy-color-find-edge');
+    for (const ground of ['--marxy-color-bg', '--marxy-color-code-bg']) {
+      const r = contrastRgb(edge, rgb(ground));
+      assert.ok(r >= 3, `${label} find-edge on ${ground}: ${r} < 3:1`);
+    }
+    // The current match adds a code-text outline; it must differ from the other matches' edge by 3:1.
+    const cur = contrastRgb(edge, rgb('--marxy-color-code-text'));
+    assert.ok(cur >= 3, `${label} current outline vs other edge: ${cur} < 3:1`);
+    for (const fill of ['--marxy-color-find', '--marxy-color-find-current']) {
+      for (const fg of ['--marxy-color-text', '--marxy-color-code-text']) {
+        const r = contrastRgb(rgb(fg), rgb(fill));
+        assert.ok(r >= 4.5, `${label} ${fg} on ${fill}: ${r} < 4.5:1`);
+      }
+    }
+  }
+});

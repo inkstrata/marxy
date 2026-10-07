@@ -264,3 +264,38 @@ test('L-06.5 the search panel is painted from tokens', async () => {
     await browser.close();
   }
 });
+
+test('L-11 a search match carries the edge; the current match is outlined', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, '/src/a.ts', TS);
+    await page.click('#marxy-source .cm-line >> nth=1');
+    await page.keyboard.press('Meta+F');
+    await page.waitForSelector('#marxy-source .cm-search input');
+    await page.keyboard.type('e');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#marxy-source .cm-searchMatch-selected');
+    const seen = await page.evaluate(`(() => {
+      const probe = ${probe};
+      const all = [...document.querySelectorAll('#marxy-source .cm-searchMatch')];
+      const other = all.find((e) => !e.classList.contains('cm-searchMatch-selected'));
+      const cur = document.querySelector('#marxy-source .cm-searchMatch-selected');
+      const s = (e) => getComputedStyle(e);
+      return {
+        edgeWant: probe('var(--marxy-color-find-edge)', 'color'),
+        otherEdge: s(other).borderBottomColor, otherW: s(other).borderBottomWidth,
+        curEdge: s(cur).borderBottomColor,
+        outline: s(cur).outlineColor, outlineW: s(cur).outlineWidth,
+        outlineWant: probe('var(--marxy-color-code-text)', 'color'),
+      };
+    })()`);
+    assert.equal(seen.otherEdge, seen.edgeWant);
+    assert.equal(seen.otherW, '2px');
+    assert.equal(seen.curEdge, seen.edgeWant);
+    assert.equal(seen.outline, seen.outlineWant);
+    assert.equal(seen.outlineW, '2px');
+  } finally {
+    await browser.close();
+  }
+});
