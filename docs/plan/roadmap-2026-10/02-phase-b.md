@@ -490,6 +490,28 @@ compares, failing on the current code); no threshold raised.
 
 ---
 
+### B-02.8 — Take the typesetter's input listeners off the 1 MB critical path
+
+**Model:** opus · **Size:** S–M · **Depends on:** B-02.7 · *Added 2026-10-07 by the lead, from B-02.7's return
+(B-02.5's second).*
+
+**Outcome.** 1 MB `content_complete` is back within noise of `fedef091` (main before B-02.5), with the
+reader's place still kept. Since B-02.5 it is +18–20 % (~+0.8 s on ~4.4 s); first text is unaffected. The
+review's ablation pins it on the window-level capture listeners `attach` registers in
+`packages/typeset/src/index.ts` (wheel, touchmove, keydown, mousedown, touchstart, mouseup, touchend,
+touchcancel, blur, scroll), not on `keepPlace`'s 2–8 ms of work. Mechanism unknown: find it.
+
+**Build order.** Find why the listeners cost time during idle setting (a non-passive wheel/touch listener,
+capture at window, or something the handlers touch). Then make them passive, or register them lazily (on the
+first `keepPlace` that finds scrollTop > 0), or both. Fix the PR wording "returns before any read at
+scrollTop 0" (`placeAt` reads `scrollTop`).
+
+**Acceptance.** Interleaved pairs, order rotated each round, ≥9 per batch, with an A/A control, against
+`fedef091`: the median difference is inside the A/A spread; both numbers are in the PR. All keep-place tests
+stay green.
+
+---
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05
