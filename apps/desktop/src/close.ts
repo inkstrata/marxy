@@ -2,12 +2,15 @@
 // document while dirty takes the same path (MARXY-337).
 import type { Shell } from '@marxy/shell-api';
 import { ensureNoticesRegion } from './notices/index.ts';
-import { save } from './save.ts';
+import type { SaveResult } from './save.ts';
 
 export interface CloseGuardHost {
   readonly shell: Pick<Shell, 'onCloseRequested' | 'confirmClose'>;
+  /** The store's `dirty`, or Source text the reader typed and has not yet folded into it. */
   isDirty(): boolean;
   documentName(): string | null;
+  /** The open document's explicit save (save.ts), for "Save and close" and "Save and open". */
+  save(): Promise<SaveResult>;
 }
 
 interface Prompt {
@@ -82,7 +85,7 @@ function showPrompt(prompt: Prompt): void {
   button('marxy-notice-action', prompt.saveLabel, () => {
     line.remove();
     void (async () => {
-      const result = await save();
+      const result = await host.save();
       if (result !== 'saved' && result !== 'unchanged') return;
       // The reader kept editing while the save ran: what they see is not what reached disk, and going on
       // would drop it. Ask again.

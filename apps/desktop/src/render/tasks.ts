@@ -1,24 +1,13 @@
-// Task checkbox post-pass and article re-render after edits (MARXY-43).
-import { textOf, type Buffer } from '@marxy/core';
+// Task checkbox post-pass (MARXY-43). A click is an operation: it applies through the open document's
+// store, whose subscribers re-render the page (ADR-0037).
+import { textOf } from '@marxy/core';
 import { toggleTask } from '@marxy/core/src/operations/toggle-task.ts';
 import { nodeFor, type NodeMap } from './post.ts';
 import { apply } from '../selection/apply.ts';
 import { buildAppContext } from '../selection/bind.ts';
-import { getSelectionBufferContext, selectionApp } from '../selection/view.ts';
+import { getSelectionBufferContext } from '../selection/view.ts';
 
 const WIRED = new WeakSet<HTMLElement>();
-
-/**
- * Applies an operation's result to the open buffer and shows it; the file changes only on explicit
- * save (MARXY-49). The app renders it through its one render
- * path (images, highlight, maths, typesetter, the buffer Source mode and live reload compare against);
- * a render of its own here left all of that behind and the page unstyled until the next reload.
- */
-export async function rerenderOpenDocument(buffer: Buffer): Promise<void> {
-  const app = selectionApp();
-  if (!app) throw new Error('no open document');
-  await app.commitEdit(buffer);
-}
 
 export function installTaskMarkers(article: HTMLElement, _nodeMap?: NodeMap): void {
   if (WIRED.has(article)) return;

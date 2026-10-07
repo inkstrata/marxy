@@ -34,6 +34,7 @@ export function buildAppContext(): AppContext {
     // AppShell narrows the real shell; clipboardWrite is on every real one.
     shell: ctx?.shell ?? (appHandle()?.shell as AppContext['shell'] | undefined) ?? NO_SHELL,
     selection: ctx ? ctx.state.selection : { kind: 'none' },
+    document: appHandle()?.document() ?? null,
     operationInput() {
       return ctx ? operationInputFor(ctx.state.selection, ctx.document, ctx.buffer) : null;
     },

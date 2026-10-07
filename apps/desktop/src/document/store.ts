@@ -271,17 +271,22 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
       return transition((): 'reloaded' | 'unchanged' | 'kept' => {
         if (sameBytes(bytes, state.buffer.bytes)) {
           if (state.disk === null || !sameBytes(state.disk, bytes)) {
+            // Adopted: the stale-write guard now expects these bytes on disk (B-11).
+            io.recordRead?.(state.path, bytes);
             commit({ ...state, disk: state.buffer.bytes }, { kind: 'reload' });
           }
           return 'unchanged';
         }
         // Our own save coming back through the watcher, after the reader edited again: not a conflict.
         if (state.disk !== null && sameBytes(bytes, state.disk)) return 'unchanged';
+        // Kept, not adopted: the guard stays armed on what was read, so a save cannot overwrite the change.
         if (snap.dirty) return 'kept';
         // A clean reload is a new document: undoing across it would splice bytes the reader never saw.
         // Phase B clears it rather than mapping it through the change (ADR-0037 §3; roadmap 02-phase-b.md).
         const buffer = createBuffer(state.path, bytes);
-        commit({ ...state, disk: buffer.bytes, ...parsed(state.path, buffer), past: [], future: [] }, { kind: 'reload' });
+        const next = parsed(state.path, buffer);
+        io.recordRead?.(state.path, buffer.bytes);
+        commit({ ...state, disk: buffer.bytes, ...next, past: [], future: [] }, { kind: 'reload' });
         return 'reloaded';
       });
     },

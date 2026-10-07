@@ -1,25 +1,22 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
 import { setAppHandle } from './commands/app-handle.ts';
 import { installCommandKeys } from './selection/bind.ts';
-import { createBuffer, contentHash, parseMarkdown, type Buffer, type Document } from '@marxy/core';
+import { contentHash, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { classify } from '@marxy/core/src/index-model/kinds.ts';
-import {
-  documentIsDirty,
-  foldSourceEditIfNeeded,
-  markDocumentSaved,
-  renameDocumentPath,
-  syncSavedVersionFromOpenBuffer,
-} from './commands/edits.ts';
 import { confirmLeaveDocument, installCloseGuard } from './close.ts';
-import { installSave } from './save.ts';
+import { save, type SaveDeps, type SaveResult } from './save.ts';
+// Static, as it was through save.ts before B-11: a lazy chunk here would put the first title (and the
+// late trust read queued after it) behind a fetch.
+import { updateTitle } from './title.ts';
+import { openDocumentStore, type DocumentSnapshot, type DocumentStore, type Transition } from './document/store.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
-import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
+import { buildBlocks, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
 import { clearDismissForPath, resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
@@ -133,6 +130,13 @@ export type AppHandle = {
   debugCounts(): { typesetters: number; resizeObservers: number };
   /** The open document's buffer and parse, or null. */
   openDocument(): OpenDocumentState | null;
+  /** The open document's store (ADR-0037), or null before the first document (B-11). */
+  document(): DocumentStore | null;
+  /**
+   * The open document's explicit save (save.ts) with the deps only the app has: the fold from Source
+   * and what follows a Save as. Resolves once the title shows the result (B-11).
+   */
+  save(opts?: { as?: boolean }): Promise<SaveResult>;
   /**
    * Called whenever the open document's bytes or identity change — an open, a reload from disk, an
    * edit folded in from Source, an operation — and with null when nothing is open. Every holder of
@@ -165,13 +169,28 @@ export type AppHandle = {
 
 const state: { document: OpenDocument | null } = { document: null };
 
-let openPath: string | null = null;
-let documentBuffer: Buffer | null = null;
+/**
+ * The open document (ADR-0037): its path, its bytes and the bytes on disk, its parse and its history.
+ * Every change to them is one of the store's transitions, and the page follows them through its
+ * subscription (`followStore`). Transitional: B-15 removes this `let` when the open path leaves.
+ */
+let store: DocumentStore | null = null;
 const documentListeners = new Set<(open: OpenDocumentState | null) => void>();
 
+/** The open document's path, from the store. */
+function openPathNow(): string | null {
+  return store?.snapshot().path ?? null;
+}
+
+/** The open document's bytes, from the store. */
+function bufferNow(): Buffer | null {
+  return store?.snapshot().buffer ?? null;
+}
+
 function openDocumentState(): OpenDocumentState | null {
-  if (!openPath || !documentBuffer || !state.document) return null;
-  return { path: openPath, buffer: documentBuffer, ast: state.document.ast, nodeMap: state.document.nodeMap };
+  if (!store || !state.document) return null;
+  const snap = store.snapshot();
+  return { path: snap.path, buffer: snap.buffer, ast: snap.ast, nodeMap: snap.nodeMap };
 }
 
 /** Tell every holder of document state what is open now (see AppHandle.onDocumentChange). */
@@ -179,8 +198,6 @@ function announceDocument(): void {
   const open = openDocumentState();
   for (const cb of documentListeners) cb(open);
 }
-/** Bytes last read from disk for the open path; local edits are detected against this. */
-let bytesOnDisk: Uint8Array | null = null;
 let documentWatch: { close(): void } | null = null;
 let viewMode: 'rendered' | 'source' = 'rendered';
 let sourceEditor: MountedSourceEditor | null = null;
@@ -223,9 +240,10 @@ function setModeChrome(mode: 'rendered' | 'source'): void {
 
 async function ensureSourceEditor(): Promise<MountedSourceEditor> {
   if (sourceEditor) return sourceEditor;
-  if (!documentBuffer) throw new Error('source editor requires an open buffer');
+  const buffer = bufferNow();
+  if (!buffer) throw new Error('source editor requires an open buffer');
   const { createSourceEditor } = await import('./source/editor.ts');
-  sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer: documentBuffer, lineNumbers: false });
+  sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer, lineNumbers: false });
   return sourceEditor;
 }
 
@@ -239,13 +257,14 @@ async function showSource(byteOffset: number): Promise<void> {
 
 async function showRendered(byteOffset: number, fraction: number): Promise<void> {
   setModeChrome('rendered');
-  if (state.document && openPath) {
+  const path = openPathNow();
+  if (state.document && path) {
     const doc = document.getElementById('doc')!;
     mountThrough(doc, byteOffset);
     // Block positions must be measured with the article laid out, not from whatever a hidden pass saw.
     snap(doc);
     restoreScrollToPosition(readingScroller(), state.document.blocks, {
-      path: openPath,
+      path,
       byteOffset,
       fraction,
       mode: 'rendered',
@@ -254,30 +273,28 @@ async function showRendered(byteOffset: number, fraction: number): Promise<void>
 }
 
 async function enterSourceFromRendered(): Promise<void> {
-  if (!documentBuffer || !state.document || !openPath) return;
-  const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+  const path = openPathNow();
+  if (!state.document || !path) return;
+  const pos = currentPosition(readingScroller(), state.document.blocks, path, 'rendered');
   lastReadingByteOffset = pos.byteOffset;
   lastReadingFraction = pos.fraction;
   await showSource(pos.byteOffset);
 }
 
 async function leaveSourceForRendered(): Promise<void> {
-  if (!sourceEditor || !documentBuffer) return;
-  const docText = sourceEditor.docText();
-  const before = documentBuffer;
-  // Leaving Source is one history entry: Mod+Z in Rendered undoes what was typed there.
-  const next = await foldSourceEditIfNeeded(before, docText, async (folded) => {
-    documentBuffer = folded;
-    // The AST, the node map and the blocks were built from the old bytes; an operation resolved
-    // through them now would splice at offsets that no longer name what the reader sees.
-    rerenderFromBuffer(document.getElementById('doc')!);
-  });
+  const open = store;
+  if (!sourceEditor || !open) return;
+  // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
+  // The page follows the store: its subscription sets the article from the new bytes, so nothing
+  // resolves an operation through an AST, node map or block list built from the old ones.
+  const changed = await open.commitSource(sourceEditor.docText());
   let byteOffset = lastReadingByteOffset;
   let fraction = lastReadingFraction;
-  if (next !== before && sourceEditor) {
+  if (changed && sourceEditor) {
     const { sourceVisibleByteOffset } = await import('./source/mode-switch.ts');
-    sourceEditor.replaceBuffer(documentBuffer);
-    byteOffset = sourceVisibleByteOffset(documentBuffer, sourceEditor.view as never);
+    const buffer = open.snapshot().buffer;
+    sourceEditor.replaceBuffer(buffer);
+    byteOffset = sourceVisibleByteOffset(buffer, sourceEditor.view as never);
     fraction = 0;
     await refreshTitle();
   }
@@ -287,7 +304,7 @@ async function leaveSourceForRendered(): Promise<void> {
 }
 
 async function toggleViewMode(): Promise<void> {
-  if (modeToggleBusy || !documentBuffer) return;
+  if (modeToggleBusy || !store) return;
   modeToggleBusy = true;
   try {
     await serially(async () => {
@@ -312,12 +329,13 @@ function serially<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 function sourceHarness(): ReturnType<AppHandle['sourceHarness']> {
-  if (!documentBuffer || !openPath) return null;
+  if (!store) return null;
+  const { path, buffer } = store.snapshot();
   const byteOffset =
     viewMode === 'rendered' && state.document
-      ? currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered').byteOffset
+      ? currentPosition(readingScroller(), state.document.blocks, path, 'rendered').byteOffset
       : lastReadingByteOffset;
-  return { mode: viewMode, bufferHash: contentHash(documentBuffer.bytes), byteOffset };
+  return { mode: viewMode, bufferHash: contentHash(buffer.bytes), byteOffset };
 }
 
 /** Sanitised (or empty-state) HTML into `#doc`. `app.ts` is in registry.innerHtmlAllowedIn. */
@@ -385,7 +403,7 @@ function userThemeContext(doc: HTMLElement): UserThemeContext {
     article: doc,
     getTypeset: () => typeset,
     readingScroller,
-    getOpenPath: () => openPath,
+    getOpenPath: openPathNow,
     getBlocks: () => state.document?.blocks ?? null,
   };
 }
@@ -398,8 +416,9 @@ async function restartUserTheme(dir: string | null): Promise<void> {
 /** A change of variant or size: same position, new layout (A-14). */
 async function relayoutKeepingReader(): Promise<void> {
   const doc = document.getElementById('doc');
-  if (!doc || !openPath || !state.document || viewMode !== 'rendered') return;
-  const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
+  const path = openPathNow();
+  if (!doc || !path || !state.document || viewMode !== 'rendered') return;
+  const pos = currentPosition(readingScroller(), state.document.blocks, path, 'rendered');
   if (typeset) {
     typeset.relayout('theme');
     await typeset.ready;
@@ -407,7 +426,7 @@ async function relayoutKeepingReader(): Promise<void> {
     snap(doc);
   }
   if (!state.document) return;
-  restoreScrollToPosition(readingScroller(), state.document.blocks, { ...pos, path: openPath, mode: 'rendered' });
+  restoreScrollToPosition(readingScroller(), state.document.blocks, { ...pos, path, mode: 'rendered' });
 }
 
 /**
@@ -483,6 +502,7 @@ function blockContaining(doc: OpenDocument, at: number): BlockList[number] | und
 }
 
 function holdAnchor(): void {
+  const openPath = openPathNow();
   if (!state.document || !openPath || viewMode !== 'rendered') return;
   if (heldPosition !== null && heldPosition.path === openPath) {
     restoreScrollToPosition(readingScroller(), state.document.blocks, heldPosition);
@@ -667,7 +687,9 @@ function teardownDocument(): void {
   mount = null;
   documentWatch?.close();
   documentWatch = null;
-  bytesOnDisk = null;
+  // The store goes with its page: a transition still queued on it is refused, not applied elsewhere.
+  store?.close();
+  store = null;
   releaseAnchor();
   destroyTypeset();
   disconnectResizeObserver();
@@ -677,14 +699,121 @@ function teardownDocument(): void {
   document.getElementById('marxy-source')?.replaceChildren();
 }
 
-function hasLocalEdits(diskBytes: Uint8Array): boolean {
-  if (!documentBuffer) return false;
-  // Unfolded edits in the editor, and then — whatever the mode — edits already folded into the buffer
-  // by an earlier trip back to Rendered, which the editor's text alone no longer shows.
-  if (viewMode === 'source' && sourceEditor && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed) return true;
-  if (contentHash(documentBuffer.bytes) === contentHash(diskBytes)) return false;
-  if (!bytesOnDisk) return true;
-  return contentHash(documentBuffer.bytes) !== contentHash(bytesOnDisk);
+/** Source text the reader typed and has not yet folded into the store: the store cannot see it. */
+function unfoldedSourceEdits(): boolean {
+  const buffer = bufferNow();
+  return buffer !== null && viewMode === 'source' && sourceEditor !== null && leaveSourceMode(buffer, sourceEditor.docText()).changed;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/**
+ * What the page waits on after a store transition re-set it (B-11): the new page's first typeset pass,
+ * then the title. A repaint superseded by the next one stops being waited on. Transitional, with
+ * `store`: B-13 moves it into the per-article view.
+ */
+const page: {
+  settled: Promise<void>;
+  supersede: () => void;
+  /** A reload's reading position, mapped through the change by the watcher; read by the repaint. */
+  reloadAt: ReadingPosition | null;
+} = { settled: Promise.resolve(), supersede: () => {}, reloadAt: null };
+
+function settlePage(work: Promise<void>): void {
+  page.supersede();
+  let supersede!: () => void;
+  const superseded = new Promise<void>((resolve) => { supersede = resolve; });
+  page.supersede = supersede;
+  page.settled = Promise.race([work, superseded])
+    .then(() => refreshTitle())
+    .catch((e: unknown) => console.warn(`marxy: the page did not settle after a change: ${String(e)}`));
+}
+
+/**
+ * The page again, from the store's bytes, at `position`: the same render, typeset and hold an open
+ * gets. Used for every transition that changed the bytes or the name (an operation, undo, redo, a
+ * reload, a rename) and for `commitEdit` of unchanged bytes.
+ */
+function repaint(snap: DocumentSnapshot, position: ReadingPosition): void {
+  const doc = document.getElementById('doc')!;
+  sourceEditor?.replaceBuffer(snap.buffer);
+  releaseAnchor();
+  rerenderFromBuffer(doc, position.byteOffset);
+  const typesetting = typesetDocument(doc);
+  holdPosition(doc, { ...position, path: snap.path });
+  settlePage(typesetting);
+}
+
+/**
+ * A render that throws after the store committed (B-11): the change stands — it is in the buffer and
+ * in the history, so undo and save still see it — and the page says what went wrong in its place.
+ */
+function showRenderFailure(e: unknown): void {
+  console.warn(`marxy: the page could not be set after a change: ${String(e)}`);
+  const message = document.createElement('p');
+  message.textContent = String(e);
+  document.getElementById('doc')!.replaceChildren(message);
+  settlePage(Promise.resolve());
+}
+
+/** The page's side of a committed transition on the open store. */
+function followTransition(before: DocumentSnapshot, snap: DocumentSnapshot, change: Transition): void {
+  switch (change.kind) {
+    case 'open':
+    case 'close':
+      return;
+    case 'save':
+      // A Save as moved the store to another name: the parse the page resolves through follows it.
+      if (change.renamedFrom !== undefined && state.document) {
+        state.document = { ...state.document, ast: snap.ast, nodeMap: snap.nodeMap };
+      }
+      settlePage(Promise.resolve());
+      return;
+    case 'commitSource':
+      // Leaving Source (or folding before a save or a rename): the caller restores the position.
+      try {
+        rerenderFromBuffer(document.getElementById('doc')!);
+      } catch (e) {
+        showRenderFailure(e);
+      }
+      return;
+    case 'reload':
+      // Disk caught up with the buffer (our save's echo, or an external write of the same bytes).
+      if (snap.buffer === before.buffer) {
+        settlePage(Promise.resolve());
+        return;
+      }
+      break;
+    case 'apply':
+    case 'undo':
+    case 'redo':
+    case 'rename':
+      break;
+  }
+  if (!state.document) return;
+  const position =
+    change.kind === 'reload' && page.reloadAt !== null
+      ? page.reloadAt
+      : currentPosition(readingScroller(), state.document.blocks, before.path, 'rendered');
+  try {
+    repaint(snap, position);
+  } catch (e) {
+    showRenderFailure(e);
+  }
+}
+
+/** The page follows `next` for as long as it is the open store (ADR-0037 §1: readers subscribe). */
+function followStore(next: DocumentStore): void {
+  let shown = next.snapshot();
+  next.subscribe((snap, change) => {
+    const before = shown;
+    shown = snap;
+    if (store === next) followTransition(before, snap, change);
+  });
 }
 
 async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
@@ -698,23 +827,25 @@ async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
   return null;
 }
 
-async function reloadOpenFromDisk(bytes: Uint8Array, position: ReadingPosition): Promise<void> {
-  if (!openPath) return;
+/**
+ * New bytes from disk, as the store's `reload` transition: it adopts them (and records the read for
+ * the stale-write guard) unless the buffer has unsaved edits, which it keeps.
+ */
+async function reloadOpenFromDisk(open: DocumentStore, bytes: Uint8Array, position: ReadingPosition): Promise<void> {
   const t0 = performance.now();
-  const doc = document.getElementById('doc')!;
-  // A held palette jump names a byte offset in the old bytes; the reading position below is the
-  // one that was mapped through the edit.
-  releaseAnchor();
-  shell.recordRead?.(openPath, bytes);
-  bytesOnDisk = bytes.slice();
-  documentBuffer = createBuffer(openPath, bytes);
-  sourceEditor?.replaceBuffer(documentBuffer);
-  // The selection context still holds the previous buffer until the render below, so hand over the new one.
-  syncSavedVersionFromOpenBuffer(documentBuffer);
-  rerenderFromBuffer(doc, position.byteOffset);
-  const typesetting = typesetDocument(doc);
-  holdPosition(doc, position);
-  await typesetting;
+  page.reloadAt = position;
+  let outcome: Awaited<ReturnType<DocumentStore['reload']>>;
+  try {
+    outcome = await open.reload(bytes);
+  } finally {
+    page.reloadAt = null;
+  }
+  if (outcome === 'kept') {
+    diskChangedEditsKeptNotice();
+    return;
+  }
+  await page.settled;
+  if (outcome !== 'reloaded') return;
   const ms = performance.now() - t0;
   await shell.mark('live_reload', Date.now(), `ms=${ms.toFixed(1)}`);
 }
@@ -727,7 +858,8 @@ const isMarkdownPath = (path: string): boolean => classify(path) === 'markdown';
  * document while disk holds exactly the buffer's bytes re-walks nothing. Recursive watching is a later phase.
  */
 function refreshIndexForWatch(events: readonly WatchEvent[], path: string, diskBytes: Uint8Array | null): void {
-  const echo = diskBytes !== null && documentBuffer !== null && contentHash(diskBytes) === contentHash(documentBuffer.bytes);
+  const buffer = bufferNow();
+  const echo = diskBytes !== null && buffer !== null && contentHash(diskBytes) === contentHash(buffer.bytes);
   const changed = (p: string | undefined) => p !== undefined && isMarkdownPath(p) && !(echo && p === path);
   if (events.some((e) => changed(e.path) || changed(e.to))) {
     void index.rootFor(path).then((root) => index.refresh(root));
@@ -735,16 +867,18 @@ function refreshIndexForWatch(events: readonly WatchEvent[], path: string, diskB
 }
 
 async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
-  if (!openPath || !documentBuffer || !state.document) return;
-  const path = openPath;
+  const open = store;
+  if (!open || !state.document) return;
+  const path = open.snapshot().path;
   const position = currentPosition(readingScroller(), state.document.blocks, path, viewMode);
   const diskBytes = await readOpenFileWithRetry(path);
   refreshIndexForWatch(events, path, diskBytes);
+  const buffer = open.snapshot().buffer;
   const update = applyWatchToOpenDocument(
     events,
     position,
     diskBytes,
-    documentBuffer.bytes,
+    buffer.bytes,
   );
   if (update.action === 'ignore') return;
   if (update.action === 'gone') {
@@ -762,42 +896,27 @@ async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void>
     fileRemovedNotice();
     return;
   }
-  if (contentHash(diskBytes) === contentHash(documentBuffer.bytes)) {
-    // The file now holds exactly what the buffer does (an external write of the same edit): nothing is
-    // unsaved any more, unless the Source editor holds text not yet folded in.
-    if (!(viewMode === 'source' && sourceEditor && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed)) {
-      shell.recordRead?.(openPath, diskBytes);
-      bytesOnDisk = diskBytes.slice();
-      markDocumentSaved(documentBuffer);
-      await refreshTitle();
-    }
+  // Text typed in Source and not yet folded in is an unsaved edit the store cannot see: keep it, as the
+  // store keeps a dirty buffer. Bytes equal to the buffer change nothing the reader could lose.
+  if (unfoldedSourceEdits()) {
+    if (!sameBytes(diskBytes, buffer.bytes)) diskChangedEditsKeptNotice();
     return;
   }
-  if (hasLocalEdits(diskBytes)) {
-    diskChangedEditsKeptNotice();
-    return;
-  }
-  await reloadOpenFromDisk(diskBytes, update.position);
+  await reloadOpenFromDisk(open, diskBytes, update.position);
 }
 
 /**
  * The open file was renamed while the buffer has unsaved edits: the buffer keeps them and follows the
- * new name, still unsaved against the file it came from, rather than being reloaded over them.
+ * new name, still unsaved against the file it came from, rather than being reloaded over them. The
+ * history follows too: it is the store's, not a hash's (ADR-0037 §3).
  */
 async function retargetOpenDocument(newPath: string): Promise<void> {
-  const folded = await foldSourceIntoBuffer();
-  if (!folded || !openPath || !state.document) return;
-  const doc = document.getElementById('doc')!;
-  const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
-  renameDocumentPath(openPath, newPath);
-  openPath = newPath;
-  documentBuffer = createBuffer(newPath, folded.bytes);
-  sourceEditor?.replaceBuffer(documentBuffer);
-  releaseAnchor();
-  rerenderFromBuffer(doc, position.byteOffset);
-  const typesetting = typesetDocument(doc);
-  holdPosition(doc, { ...position, path: newPath });
-  await typesetting;
+  await foldSourceIntoBuffer();
+  const open = store;
+  if (!open || !state.document) return;
+  // The store's subscription sets the page again under the new name, at the reader's position.
+  await open.rename(newPath);
+  await page.settled;
   await shell.allowAssetScope(dirname(newPath));
   await registerDocumentWatch(newPath);
   document.title = `${basename(newPath)} — Marxy`;
@@ -820,46 +939,91 @@ async function registerDocumentWatch(file: string): Promise<void> {
   }
 }
 
-/** Apply an operation's in-memory result and re-render; disk is updated only on explicit save (MARXY-49). */
+/**
+ * The one range by which `next` differs from `bytes`, widened so neither end cuts a UTF-8 sequence;
+ * null when they are the same bytes.
+ */
+function byteChange(bytes: Uint8Array, next: Uint8Array): { start: number; end: number; replacement: Uint8Array } | null {
+  const limit = Math.min(bytes.length, next.length);
+  let prefix = 0;
+  while (prefix < limit && bytes[prefix] === next[prefix]) prefix++;
+  if (prefix === bytes.length && prefix === next.length) return null;
+  let suffix = 0;
+  while (suffix < limit - prefix && bytes[bytes.length - 1 - suffix] === next[next.length - 1 - suffix]) suffix++;
+  const continues = (b: number | undefined): boolean => b !== undefined && (b & 0xc0) === 0x80;
+  while (prefix > 0 && (continues(bytes[prefix]) || continues(next[prefix]))) prefix--;
+  while (suffix > 0 && (continues(bytes[bytes.length - suffix]) || continues(next[next.length - suffix]))) suffix--;
+  return { start: prefix, end: bytes.length - suffix, replacement: next.subarray(prefix, next.length - suffix) };
+}
+
+/**
+ * Makes `next` the open document's bytes, as one `apply` of the range by which it differs, labelled
+ * `edit`; disk is updated only on explicit save (MARXY-49). Bytes equal to the buffer change nothing in
+ * the store, but the page is set again, as it always was for this call.
+ */
 function commitEdit(next: Buffer): Promise<void> {
   return serially(async () => {
-    if (!openPath || next.path !== openPath || !state.document) throw new Error('the edited document is no longer open');
-    const doc = document.getElementById('doc')!;
-    const position = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
-    documentBuffer = next;
-    sourceEditor?.replaceBuffer(documentBuffer);
-    releaseAnchor();
-    rerenderFromBuffer(doc, position.byteOffset);
-    const typesetting = typesetDocument(doc);
-    holdPosition(doc, position);
-    await typesetting;
-    await refreshTitle();
+    const open = store;
+    if (!open || next.path !== open.snapshot().path || !state.document) throw new Error('the edited document is no longer open');
+    const snap = open.snapshot();
+    const change = byteChange(snap.buffer.bytes, next.bytes);
+    if (change === null) {
+      repaint(snap, currentPosition(readingScroller(), state.document.blocks, snap.path, 'rendered'));
+    } else {
+      await open.apply({
+        range: { file: snap.path, start: change.start, end: change.end },
+        replacement: new TextDecoder().decode(change.replacement),
+        label: 'edit',
+      });
+    }
+    await page.settled;
   });
 }
 
 async function refreshTitle(): Promise<void> {
   if (!shell.setTitle) return;
-  const { updateTitle } = await import('./title.ts');
-  const { documentIsDirty } = await import('./commands/edits.ts');
-  if (!openPath || !documentBuffer) {
+  const snap = store?.snapshot();
+  if (!snap) {
     await updateTitle(shell, null, false);
     return;
   }
-  await updateTitle(shell, openPath, documentIsDirty(documentBuffer));
+  await updateTitle(shell, snap.path, snap.dirty);
 }
 
-async function foldSourceIntoBuffer(): Promise<Buffer | null> {
-  if (!documentBuffer) return null;
-  if (viewMode === 'rendered' || !sourceEditor) return documentBuffer;
-  const doc = document.getElementById('doc')!;
-  const { foldSourceEditIfNeeded } = await import('./commands/edits.ts');
-  return foldSourceEditIfNeeded(documentBuffer, sourceEditor.docText(), async (next) => {
-    documentBuffer = next;
-    sourceEditor?.replaceBuffer(next);
-    rerenderFromBuffer(doc);
-    announceDocument();
+/** Source text into the store (`commitSource`), before a save or a rename reads the buffer. */
+async function foldSourceIntoBuffer(): Promise<void> {
+  const open = store;
+  if (!open || viewMode === 'rendered' || !sourceEditor) return;
+  if (await open.commitSource(sourceEditor.docText())) {
+    sourceEditor?.replaceBuffer(open.snapshot().buffer);
     await refreshTitle();
-  });
+  }
+}
+
+/** The store's save, with what only the app can do around it (save.ts). */
+function saveDeps(open: DocumentStore): SaveDeps {
+  return {
+    store: open,
+    shell,
+    foldSource: async () => {
+      if (store === open) await foldSourceIntoBuffer();
+    },
+    onSaveAs: async (path) => {
+      if (store !== open) return;
+      await shell.allowAssetScope(dirname(path));
+      await registerDocumentWatch(path);
+      announceDocument();
+    },
+  };
+}
+
+async function saveOpenDocument(opts?: { as?: boolean }): Promise<SaveResult> {
+  const open = store;
+  if (!open) return 'failed';
+  const result = await save(saveDeps(open), opts);
+  // The store's subscription refreshes the title on a save; resolve once it has.
+  await page.settled;
+  return result;
 }
 
 function startTypeset(article: HTMLElement): TypesetController {
@@ -905,19 +1069,18 @@ async function typesetDocument(article: HTMLElement): Promise<void> {
 }
 
 /**
- * The page again from `documentBuffer`, after its bytes or its grants changed under the open
- * document (an edit, a reload, a trust change). Same parse, render and passes as an open. Given a
- * byte offset, the mount lands there and the reading position is the caller's; given a position
- * (a trust change), it is also restored here.
+ * The page again from the store's snapshot, after its bytes or its grants changed under the open
+ * document (an edit, a reload, a trust change). The store has already parsed the bytes; this is the
+ * same render and passes as an open. Given a byte offset, the mount lands there and the reading
+ * position is the caller's; given a position (a trust change), it is also restored here.
  */
 function rerenderFromBuffer(doc: HTMLElement, at?: number | Pick<ReadingPosition, 'byteOffset' | 'fraction'>): void {
-  if (!documentBuffer || !openPath) return;
-  const file = openPath;
+  if (!store) return;
+  const { path: file, ast, nodeMap } = store.snapshot();
   const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
-  const ast = parseMarkdown(documentBuffer.bytes, { file });
   const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
   destroyTypeset();
-  state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
+  state.document = { ast, html, nodeMap, blocks: [] };
   const mounted = mountDocument(doc, html, file, byteOffset);
   announceDocument();
   trust.showNotices(removed, blockedImages);
@@ -997,6 +1160,7 @@ function deferAfterComplete(current: ProgressiveMount, file: string, doc: HTMLEl
 }
 
 async function flushReadingPersistence(): Promise<void> {
+  const openPath = openPathNow();
   if (!positionPersistence || !openPath || !state.document) return;
   const pos = currentPosition(readingScroller(), state.document.blocks, openPath, viewMode);
   positionPersistence.note(openPath, pos);
@@ -1030,6 +1194,7 @@ function installScrollPersistence(): void {
       if (frame !== 0) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
+        const openPath = openPathNow();
         if (!positionPersistence || !openPath || !state.document || viewMode !== 'rendered') return;
         const pos = currentPosition(readingScroller(), state.document.blocks, openPath, 'rendered');
         positionPersistence.note(openPath, pos);
@@ -1080,8 +1245,9 @@ async function ensurePersistenceLoaded(fallbackRoot: string): Promise<void> {
 
 /** After `first_text`, positions.json may ask to move the document already on screen (MARXY-195). */
 async function restorePersistedPositionIfNeeded(): Promise<void> {
-  if (!positionPersistence || !openPath || !state.document || !documentBuffer) return;
-  const stored = positionPersistence.positionForOpen(openPath, documentBuffer.bytes.length);
+  if (!positionPersistence || !store || !state.document) return;
+  const { path, buffer } = store.snapshot();
+  const stored = positionPersistence.positionForOpen(path, buffer.bytes.length);
   if (!stored) return;
   lastReadingByteOffset = stored.byteOffset;
   lastReadingFraction = stored.fraction;
@@ -1113,17 +1279,24 @@ async function openDocumentThroughRenderMark(
     if (stored) landing = stored.byteOffset;
   }
   teardownDocument();
-  openPath = file;
   clearDismissForPath(file);
-  bytesOnDisk = bytes.slice();
-  documentBuffer = createBuffer(file, bytes);
-  syncSavedVersionFromOpenBuffer(documentBuffer);
   sourceMount();
   await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
-  const ast = parseMarkdown(bytes, { file });
+  // The open transition (ADR-0037): the store copies the bytes, parses them once and starts an empty
+  // history with `disk` as read. The page renders from its snapshot and follows it from here on.
+  const opened = openDocumentStore(
+    {
+      writeFileAtomic: (path, written) => shell.writeFileAtomic(path, written),
+      recordRead: shell.recordRead ? (path, read) => shell.recordRead?.(path, read) : undefined,
+    },
+    file,
+    bytes,
+  );
+  store = opened;
+  followStore(opened);
+  const { ast, nodeMap } = opened.snapshot();
   await shell.mark('parsed', Date.now());
   const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
-  const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
   // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
   clearNotices();
@@ -1161,7 +1334,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
     const deferred = deferredStartup(file, doc);
     if (!current || current.isComplete()) await deferred();
     else void afterComplete(current, () => whenIdle(deferred));
-    indexing = index.ensureFor(file, documentBuffer?.bytes);
+    indexing = index.ensureFor(file, bufferNow()?.bytes);
     void indexing;
     const themeDir = await themeDirFromBootConfig();
     await restartUserTheme(themeDir);
@@ -1184,24 +1357,24 @@ function replaceOpenDocument(file: string, opts?: { at?: number }): Promise<void
     serially(async () => {
       // The document already on screen, asked for again with nowhere to go (a second launch, Finder, a
       // drag, the palette on the current document): reading it back from disk would drop unsaved edits.
-      if (file === openPath && opts?.at === undefined && hasUnsavedChanges()) return;
+      if (file === openPathNow() && opts?.at === undefined && hasUnsavedChanges()) return;
       await openReplacing(file, opts?.at);
     });
   // Another document over unsaved edits asks first (save / discard / dismiss), as a close does. Moving
   // within the open document, or opening with nothing unsaved, goes straight through.
-  if (file !== openPath && confirmLeaveDocument(open)) return Promise.resolve();
+  if (file !== openPathNow() && confirmLeaveDocument(open)) return Promise.resolve();
   return open();
 }
 
-/** Unsaved changes: in the buffer, or typed into the Source editor and not yet folded into it. */
+/** Unsaved changes: the store's buffer differs from disk, or Source holds text not yet folded into it. */
 function hasUnsavedChanges(): boolean {
-  if (!documentBuffer) return false;
-  if (documentIsDirty(documentBuffer)) return true;
-  return viewMode === 'source' && sourceEditor !== null && leaveSourceMode(documentBuffer, sourceEditor.docText()).changed;
+  if (!store) return false;
+  return store.snapshot().dirty || unfoldedSourceEdits();
 }
 
 async function openReplacing(file: string, at?: number): Promise<void> {
   const doc = document.getElementById('doc')!;
+  const openPath = openPathNow();
   if (openPath && file !== openPath) await flushReadingPersistence();
   if (file === openPath && state.document && at !== undefined) {
     // A heading in the document already on screen: move, do not read and set it again.
@@ -1224,8 +1397,6 @@ async function openReplacing(file: string, at?: number): Promise<void> {
     // Nothing of the last document may outlive the page that showed it.
     teardownDocument();
     state.document = null;
-    documentBuffer = null;
-    openPath = null;
     announceDocument();
     setModeChrome('rendered');
     // A read error names the path, and a path is not markup.
@@ -1364,8 +1535,8 @@ export async function startApp(
   };
   trust = createTrustController({
     shell,
-    currentPath: () => openPath,
-    buffer: () => documentBuffer,
+    currentPath: openPathNow,
+    buffer: bufferNow,
     position: (path) => currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode),
     rerender: (at) => rerenderFromBuffer(document.getElementById('doc')!, at),
     showSource,
@@ -1378,7 +1549,10 @@ export async function startApp(
   readerConfigApplied = false;
   resetDismissedNotices();
   wireTrustRevokeCommands({
-    grantsForPath: () => (openPath ? trust.grantsFor(openPath) : null),
+    grantsForPath: () => {
+      const path = openPathNow();
+      return path ? trust.grantsFor(path) : null;
+    },
     revokeHtml: trust.revokeHtml,
   });
   frontispiecePieces = opts?.pieces ?? null;
@@ -1394,10 +1568,12 @@ export async function startApp(
     shell,
     ready,
     open: replaceOpenDocument,
-    currentPath: () => openPath,
+    currentPath: openPathNow,
     sourceHarness,
     debugCounts: () => ({ typesetters: liveTypesetters.size, resizeObservers: liveResizeObservers }),
     openDocument: openDocumentState,
+    document: () => store,
+    save: saveOpenDocument,
     onDocumentChange(cb) {
       documentListeners.add(cb);
       return () => documentListeners.delete(cb);
@@ -1417,30 +1593,14 @@ export async function startApp(
   // here); the palette mount and the selection harness call the same idempotent install.
   setAppHandle(handle);
   installCommandKeys();
-  installSave({
-    shell,
-    getOpenBuffer: () => documentBuffer,
-    foldSourceIntoBuffer,
-    isReadOnlyPath: (path) => path.startsWith('marxy:'),
-    onSaved: async (path, buffer, documentUnchanged) => {
-      bytesOnDisk = buffer.bytes.slice();
-      // An edit made while the save was in flight is newer than what reached disk: keep it, dirty.
-      if (openPath === path && documentUnchanged) documentBuffer = buffer;
-      await refreshTitle();
-    },
-    onSaveAsPath: async (path) => {
-      if (!documentBuffer) return;
-      documentBuffer = createBuffer(path, documentBuffer.bytes);
-      openPath = path;
-      await shell.allowAssetScope(dirname(path));
-      await registerDocumentWatch(path);
-      announceDocument();
-    },
-  });
   installCloseGuard({
     shell,
     isDirty: hasUnsavedChanges,
-    documentName: () => (openPath ? basename(openPath) : null),
+    documentName: () => {
+      const path = openPathNow();
+      return path ? basename(path) : null;
+    },
+    save: () => saveOpenDocument(),
   });
   try {
     await serially(boot);
