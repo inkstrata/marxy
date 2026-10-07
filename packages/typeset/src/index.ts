@@ -172,10 +172,40 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   const onUp = (): void => {
     pressed = false;
   };
-  const onScroll = (): void => {
-    scrolled = true;
+  // The wheel is listened for only while the page is scrolled away from its top (B-02.8). A wheel
+  // listener anywhere in a WebKit document, passive or not, makes the engine keep an event region for
+  // it, recomputed by a paint of the whole page after every layout: on a 1 MB document that loads in
+  // chunks at the top, a few milliseconds a chunk and some 20 % of the time to the last chunk. At the
+  // top nothing is above the screen, so there is nothing to keep and no wheel to stay out of the way
+  // of. The first `scroll` away from the top (or the first pass that finds the page scrolled) adds the
+  // listener; a scroll back to the top removes it. The other input events cost nothing and stay.
+  // The wheel tick that leaves the top comes before its listener, so leaving the top counts as the
+  // reader's input, seen by whichever comes first: that `scroll`, or a pass that finds the page
+  // scrolled before the engine has dispatched it (a wheel's `scroll` waits for the next frame, and a
+  // pass can run in between). The trade: a position set by script away from the top (a restore) is not
+  // compensated for the quiet window after it; the app holds such a position itself (`holdAnchor`).
+  let wheel = false;
+  const listenToWheel = (on: boolean): void => {
+    if (on === wheel || win === null) return;
+    wheel = on;
+    win[on ? 'addEventListener' : 'removeEventListener']('wheel', onInput, { capture: true, passive: true });
   };
-  const inputTypes = ['wheel', 'touchmove', 'keydown'] as const;
+  const onScroll = (event?: Event): void => {
+    scrolled = true;
+    const root = scroller();
+    if (root === null) return;
+    const left = !wheel && root.scrollTop > 0;
+    listenToWheel(root.scrollTop > 0);
+    if (left && event !== undefined) onInput();
+  };
+  /** The page is scrolled and no `scroll` has said so yet: it has just left the top, as the reader's input. */
+  const leftTheTop = (): boolean => {
+    if (wheel) return false;
+    listenToWheel(true);
+    onInput();
+    return true;
+  };
+  const inputTypes = ['touchmove', 'keydown'] as const;
   const downTypes = ['mousedown', 'touchstart'] as const;
   const upTypes = ['mouseup', 'touchend', 'touchcancel', 'blur'] as const;
   const listen = (on: boolean): void => {
@@ -184,6 +214,8 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     for (const t of downTypes) win?.[add](t, onDown, { capture: true, passive: true });
     for (const t of upTypes) win?.[add](t, onUp, { capture: true, passive: true });
     win?.[add]('scroll', onScroll, { capture: true, passive: true });
+    if (on) onScroll();
+    else listenToWheel(false);
   };
   listen(true);
   const readerIsScrolling = (): boolean => pressed || performance.now() - lastInput < INPUT_QUIET_MS;
@@ -191,6 +223,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   /** The top-level block under the reading line, and where its top is. */
   const placeAt = (root: HTMLElement): { readonly el: HTMLElement; readonly top: number } | null => {
     if (root.scrollTop <= 0 || !article.isConnected) return null;
+    if (leftTheTop()) return null;
     // Nothing has scrolled since it was noted, so it is still the block under the line: no hit test.
     if (!scrolled && noted !== null && noted.parentElement === article) {
       const rect = noted.getBoundingClientRect();

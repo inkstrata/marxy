@@ -62,3 +62,196 @@ test('paragraphs above the screen set by the visibility observer leave the readi
   assert.ok(Math.abs(r.aboveDelta) >= 20, `the observer's passes changed the paragraphs above the screen by ${r.aboveDelta.toFixed(1)} px`);
   await page.close();
 });
+
+// B-02.8: a wheel listener anywhere in a WebKit document costs a paint of the whole page after every
+// layout, so the typesetter listens for the wheel only while the page is scrolled away from its top.
+// Away from the top, a wheel still holds off the compensation of a re-set above; once the reader stops,
+// the same re-set is kept in place; back at the top, the listener is gone again.
+test('the wheel is listened for only away from the top, and there a wheel still holds off a compensation', async () => {
+  const html = Array.from({ length: 6 }, () => renderCorpus('01-long-technical.md')).join('\n');
+  const page = await harness.open(html);
+  const r = await page.evaluate(async () => {
+    const wheels = new Set();
+    const add = window.addEventListener.bind(window);
+    const remove = window.removeEventListener.bind(window);
+    window.addEventListener = (type, fn, o) => { if (type === 'wheel') wheels.add(fn); add(type, fn, o); };
+    window.removeEventListener = (type, fn, o) => { if (type === 'wheel') wheels.delete(fn); remove(type, fn, o); };
+    const frames = (n) => new Promise((res) => {
+      const tick = () => (n-- <= 0 ? res() : requestAnimationFrame(tick));
+      tick();
+    });
+    const doc = document.getElementById('doc');
+    const controller = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, scheduler: window.immediateScheduler(),
+    });
+    await controller.done;
+    await frames(2);
+    const atTop = wheels.size;
+    window.scrollTo(0, document.documentElement.scrollHeight * 0.6);
+    await frames(3);
+    const deep = wheels.size;
+    // A set paragraph a few screens above, made a few lines longer the way a post-pass writes into it.
+    const farAbove = (skip) => [...doc.querySelectorAll('p.marxy-set')]
+      .filter((p) => p.getBoundingClientRect().bottom < -2 * window.innerHeight)
+      .at(-1 - skip);
+    const grow = async (p) => {
+      const h = p.getBoundingClientRect().height;
+      p.appendChild(document.createTextNode(' ' + 'further words that fill more lines of the measure '.repeat(4)));
+      // The typesetter's mutation observer runs as a microtask: revert, re-set, compensate.
+      await Promise.resolve();
+      await Promise.resolve();
+      return p.getBoundingClientRect().height - h;
+    };
+    const blockAt = () => [...doc.children].find((c) => c.getBoundingClientRect().bottom > 100);
+    let el = blockAt();
+    let top = el.getBoundingClientRect().top;
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 1 }));
+    const grewDuring = await grow(farAbove(0));
+    const movedDuring = el.getBoundingClientRect().top - top;
+    await new Promise((res) => setTimeout(res, 400));
+    await frames(2);
+    el = blockAt();
+    top = el.getBoundingClientRect().top;
+    const grewAfter = await grow(farAbove(3));
+    const movedAfter = el.getBoundingClientRect().top - top;
+    window.scrollTo(0, 0);
+    await frames(3);
+    const backAtTop = wheels.size;
+    controller.destroy();
+    return { atTop, deep, backAtTop, grewDuring, movedDuring, grewAfter, movedAfter, scrollY: window.scrollY };
+  });
+  assert.ok(r.grewDuring >= 20 && r.grewAfter >= 20, `the paragraphs above grew ${r.grewDuring.toFixed(1)} and ${r.grewAfter.toFixed(1)} px`);
+  assert.ok(Math.abs(r.movedDuring - r.grewDuring) <= 1, `during the wheel the reading block moved ${r.movedDuring.toFixed(2)} px: it should move with the ${r.grewDuring.toFixed(1)} px growth, uncompensated`);
+  assert.ok(Math.abs(r.movedAfter) <= 1, `after the wheel stopped the reading block moved ${r.movedAfter.toFixed(2)} px`);
+  assert.equal(r.atTop, 0, 'no wheel listener while the page is at its top');
+  assert.equal(r.deep, 1, 'one wheel listener once the page is scrolled');
+  assert.equal(r.backAtTop, 0, 'the wheel listener is removed once the page is back at its top');
+  await page.close();
+});
+
+/** In the page: counts the window's wheel listeners, and helpers the cases below share. */
+const installProbes = () => {
+  const wheels = new Set();
+  const add = window.addEventListener.bind(window);
+  const remove = window.removeEventListener.bind(window);
+  window.addEventListener = (type, fn, o) => { if (type === 'wheel') wheels.add(fn); add(type, fn, o); };
+  window.removeEventListener = (type, fn, o) => { if (type === 'wheel') wheels.delete(fn); remove(type, fn, o); };
+  const doc = document.getElementById('doc');
+  window.__probe = {
+    wheels: () => wheels.size,
+    attach: async () => {
+      window.__ctl = window.typeset.attach(doc, {
+        lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, scheduler: window.immediateScheduler(),
+      });
+      await window.__ctl.done;
+    },
+    blockAt: () => [...doc.children].find((c) => c.getBoundingClientRect().bottom > 100),
+    /** The last set paragraph wholly above the screen, a few lines longer; resolves after the re-set. */
+    growAbove: async () => {
+      const p = [...doc.querySelectorAll('p.marxy-set')].filter((q) => q.getBoundingClientRect().bottom < 0).at(-1);
+      const h = p.getBoundingClientRect().height;
+      p.appendChild(document.createTextNode(' ' + 'further words that fill more lines of the measure '.repeat(4)));
+      await Promise.resolve();
+      await Promise.resolve();
+      return p.getBoundingClientRect().height - h;
+    },
+  };
+};
+
+/**
+ * One real wheel tick from the top (its listener is not there yet), then, once the tick's `scroll` has
+ * been dispatched, a re-set above; and again a frame later. How far the reading block moved each time,
+ * against the growth. The page's clock stands still from the tick on, so the reader's quiet window cannot
+ * run out on a slow machine: what is tested is whether the tick counted as input, not how fast the page is.
+ * (A pass that runs before the tick's `scroll` cannot be placed reliably from here, across Playwright's
+ * round trip; the next test reaches that route in one task, with a scroll set by script.)
+ */
+async function wheelFromTop() {
+  const html = Array.from({ length: 6 }, () => renderCorpus('01-long-technical.md')).join('\n');
+  const page = await harness.open(html);
+  await page.evaluate(installProbes);
+  await page.evaluate(() => window.__probe.attach());
+  const atTop = await page.evaluate(() => window.__probe.wheels());
+  await page.evaluate(() => {
+    const still = performance.now();
+    window.__scrollEvents = 0;
+    window.addEventListener('scroll', () => window.__scrollEvents++, { capture: true, passive: true });
+    performance.now = () => still;
+  });
+  await page.mouse.move(480, 450);
+  await page.mouse.wheel(0, 1200);
+  const r = await page.evaluate(async () => {
+    const frame = () => new Promise((res) => requestAnimationFrame(res));
+    while (window.scrollY === 0 || window.__scrollEvents === 0) await frame();
+    const once = async () => {
+      const el = window.__probe.blockAt();
+      const top = el.getBoundingClientRect().top;
+      const grew = await window.__probe.growAbove();
+      return { grew, moved: el.getBoundingClientRect().top - top };
+    };
+    const first = await once();
+    await frame();
+    const second = await once();
+    return { first, second, wheels: window.__probe.wheels(), scrollY: window.scrollY };
+  });
+  await page.close();
+  return { atTop, ...r };
+}
+
+const uncompensated = (r) => {
+  assert.equal(r.atTop, 0, 'no wheel listener at the top');
+  for (const [name, x] of [['first', r.first], ['second', r.second]]) {
+    assert.ok(x.grew >= 20, `the ${name} paragraph above grew ${x.grew.toFixed(1)} px`);
+    assert.ok(Math.abs(x.moved - x.grew) <= 1, `${name} re-set: the reading block moved ${x.moved.toFixed(2)} px; it should move with the ${x.grew.toFixed(1)} px growth, uncompensated`);
+  }
+  assert.equal(r.wheels, 1, 'the wheel is listened for once the page has left the top');
+};
+
+test('the wheel tick that leaves the top is the reader scrolling: re-sets above after its scroll event are not compensated', async () => {
+  // The tick's `scroll` is what saw the page leave the top.
+  uncompensated(await wheelFromTop());
+});
+
+test('a pass that finds the page left the top before its scroll event counts it as input; destroy removes the wheel listener', async () => {
+  const html = Array.from({ length: 6 }, () => renderCorpus('01-long-technical.md')).join('\n');
+  const page = await harness.open(html);
+  await page.evaluate(installProbes);
+  await page.evaluate(() => window.__probe.attach());
+  const r = await page.evaluate(async () => {
+    let scrollEvents = 0;
+    window.addEventListener('scroll', () => scrollEvents++, { capture: true, passive: true });
+    const frame = () => new Promise((res) => requestAnimationFrame(res));
+    const once = async () => {
+      const el = window.__probe.blockAt();
+      const top = el.getBoundingClientRect().top;
+      const grew = await window.__probe.growAbove();
+      return { grew, moved: el.getBoundingClientRect().top - top };
+    };
+    // All in one task: the scroll's own event waits for the next frame, so the pass below is the first
+    // to see the page scrolled, as a pass that runs between a wheel tick and its `scroll` would be. The
+    // clock stands still from here, so the quiet window cannot run out on a slow machine.
+    window.scrollTo(0, document.documentElement.scrollHeight * 0.6);
+    const still = performance.now();
+    const now = performance.now;
+    performance.now = () => still;
+    const early = scrollEvents;
+    const first = await once();
+    const inPass = window.__probe.wheels();
+    // After the `scroll` has been dispatched (it finds the wheel already listened for, and stamps
+    // nothing), a second re-set is still inside the window the pass opened.
+    while (scrollEvents === 0) await frame();
+    const second = await once();
+    performance.now = now;
+    window.__ctl.destroy();
+    return { early, first, second, inPass, afterDestroy: window.__probe.wheels(), scrollY: window.scrollY };
+  });
+  assert.equal(r.early, 0, 'the first re-set ran before the scroll event (one task)');
+  assert.ok(r.scrollY > 1000, `scrolled to ${r.scrollY}`);
+  assert.equal(r.inPass, 1, 'the pass that found the page scrolled added the wheel listener before its scroll event');
+  for (const [name, x] of [['first', r.first], ['second', r.second]]) {
+    assert.ok(x.grew >= 20, `the ${name} paragraph above grew ${x.grew.toFixed(1)} px`);
+    assert.ok(Math.abs(x.moved - x.grew) <= 1, `${name} re-set: the reading block moved ${x.moved.toFixed(2)} px; leaving the top is input, so the ${x.grew.toFixed(1)} px growth is not compensated`);
+  }
+  assert.equal(r.afterDestroy, 0, 'destroyed while scrolled deep, no wheel listener remains');
+  await page.close();
+});
