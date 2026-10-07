@@ -1,6 +1,6 @@
 // Parse-time syntax highlighting: Shiki tokens mapped to marxy scope classes only (MARXY-27).
 import type { ThemedToken } from '@shikijs/core';
-import { tokenizeWithAllowList } from './highlighter.ts';
+import { DEFAULT_LINE_CAP, lineCapFor, tokenizeWithAllowList } from './highlighter.ts';
 import { lineClassForFenceLine, logLevelClassForToken } from './line-classes.ts';
 import { marxyScopeForTokenColor, type MarxyTokenScope } from './scopes.ts';
 import { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
@@ -8,6 +8,7 @@ import { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
 export type { MarxyTokenScope } from './scopes.ts';
 export { marxyScopeForTextMateScope, marxyScopeForTokenColor } from './scopes.ts';
 export { LANGUAGE_TO_GRAMMAR } from './languages.generated.ts';
+export { lineCapFor } from './highlighter.ts';
 export {
   DIFF_LINE_ADD,
   DIFF_LINE_DEL,
@@ -39,8 +40,11 @@ const toHighlightToken = (token: ThemedToken, lang: string): HighlightToken => {
 
 /** A block larger than this is not highlighted: the JS regex engine's cost is not linear in line length. */
 export const MAX_HIGHLIGHT_BLOCK_CHARS = 200_000;
-/** A line longer than this is left plain (minified bundles, base64, one-line logs); its neighbours are highlighted. */
-export const MAX_HIGHLIGHT_LINE_CHARS = 2_000;
+/**
+ * A line longer than this is left plain (minified bundles, base64, one-line logs); its neighbours are
+ * highlighted. Some grammars have a lower cap (`lineCapFor`, with the measurements).
+ */
+export const MAX_HIGHLIGHT_LINE_CHARS = DEFAULT_LINE_CAP;
 
 /**
  * Tokenize `code` for a markdown fence language id. Unknown ids and `plaintext` return `null`
@@ -55,7 +59,8 @@ export async function highlight(code: string, lang: string): Promise<HighlightTo
   // Over-long lines are blanked for the tokenizer and put back as plain text, so one pathological
   // line cannot stall the rest of the block and every line still comes back in order.
   const long = new Set<number>();
-  rawLines.forEach((line, index) => { if (line.length > MAX_HIGHLIGHT_LINE_CHARS) long.add(index); });
+  const cap = lineCapFor(normalized);
+  rawLines.forEach((line, index) => { if (line.length > cap) long.add(index); });
   const input = long.size === 0 ? code : rawLines.map((line, index) => (long.has(index) ? '' : line)).join('\n');
   const lines = await tokenizeWithAllowList(input, normalized);
   if (!lines) return null;
