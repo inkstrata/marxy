@@ -5,7 +5,7 @@ import type { EditorView } from '@codemirror/view';
 import { Compartment, type Extension } from '@codemirror/state';
 import { cmDocText } from './buffer-commit.ts';
 import { languageExtension, LARGE_FILE_BYTES } from './language.ts';
-import { writeLineNumbersPreference } from './line-numbers.ts';
+import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
 import { liveMarxyTheme } from './theme-bridge.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
@@ -184,7 +184,7 @@ export function toggleLineNumbersInView(view: EditorView, on: boolean, compartme
     const folding = view.state.field(foldState, false) !== undefined;
     view.dispatch({ effects: compartment.reconfigure(on ? await gutterExtensions(folding) : []) });
   })();
-  writeLineNumbersPreference(on);
+  setLineNumbersChoice(on);
 }
 
 export { scrollSourceToByte, cmDocText };
