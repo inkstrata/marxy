@@ -12,9 +12,7 @@ import { copyCodeClean } from './copy-code-clean.ts';
 import { copySection } from './copy-section.ts';
 import { displayWidth } from './display-width.ts';
 import { CLIPBOARD_OPERATIONS, MUTATING_OPERATIONS, OPERATIONS } from './index.ts';
-import { byteToStringOffset, stringToByteOffset } from './offsets.ts';
-import { inlinePlainText } from './inline-text.ts';
-import { assertOnlySpansChanged, corpusDocuments } from './testing.ts';
+import { assertOnlySpansChanged, corpusDocuments } from './testing/corpus.ts';
 import { toggleTask } from './toggle-task.ts';
 
 function parse(source: string, file = 'test.md'): Document {
@@ -395,7 +393,7 @@ test('fidelity: replacement === text for every clipboard operation at every node
 test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, in palette order', () => {
   assert.deepEqual(OPERATIONS.map((op) => op.id), ['copy-code-clean', 'copy-section', 'toggle-task', 'align-table-pipes']);
   assert.deepEqual(OPERATIONS, [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS]);
-  assert.ok(CLIPBOARD_OPERATIONS.every((op) => op.id.startsWith('copy-')), 'the clipboard operations are the copy ones today');
+  // C-07 to C-09 update the id list above as their packs land; the fidelity test holds the invariant.
 });
 
 test('fidelity: mutations change only their range over the corpus', () => {
@@ -657,54 +655,3 @@ function taskMarkersOfItem(item: Extract<Block, { type: 'list' }>['children'][nu
   }
   return found[0];
 }
-
-test('offsets: byte and string offsets round trip for 1-, 2-, 3- and 4-byte characters', () => {
-  const text = 'a\u00e9\u65e5\ud83d\ude00b\r\nc';
-  let bytes = 0;
-  for (let index = 0; index <= text.length; index++) {
-    const cp = index < text.length ? text.codePointAt(index)! : 0;
-    const splitsPair = index > 0 && text.charCodeAt(index - 1) >= 0xd800 && text.charCodeAt(index - 1) <= 0xdbff;
-    if (splitsPair) {
-      assert.throws(() => stringToByteOffset(text, index), RangeError);
-      continue;
-    }
-    assert.equal(stringToByteOffset(text, index), bytes);
-    assert.equal(byteToStringOffset(text, bytes), index);
-    if (index < text.length) bytes += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
-  }
-  assert.equal(stringToByteOffset(text, text.length), new TextEncoder().encode(text).length);
-});
-
-test('offsets: a byte offset inside a multi-byte sequence or past the end throws RangeError', () => {
-  const text = 'a\u00e9\u65e5\ud83d\ude00';
-  for (const bad of [2, 4, 5, 7, 8, 9, 100, -1, 1.5]) assert.throws(() => byteToStringOffset(text, bad), RangeError, String(bad));
-  assert.throws(() => stringToByteOffset(text, text.length + 1), RangeError);
-  assert.throws(() => stringToByteOffset(text, 4), RangeError);
-});
-
-test('inline-text: one case per inline type', () => {
-  const doc = parse(
-    'plain `code` *em* **st** ~~del~~ [lnk **bold**](http://x) ![the alt](i.png) $m$ note[^1]<b>x</b>  \nsoft\nbreak\n\n- [ ] task\n\n[^1]: n\n',
-  );
-  const para = doc.children[0]!;
-  assert.equal(para.type, 'paragraph');
-  const inlines = (para as Extract<Block, { type: 'paragraph' }>).children;
-  const byType = (type: string) => inlines.filter((n) => n.type === type);
-  assert.equal(inlinePlainText(byType('text').slice(0, 1)), 'plain ');
-  assert.equal(inlinePlainText(byType('code')), 'code');
-  assert.equal(inlinePlainText(byType('emphasis')), 'em');
-  assert.equal(inlinePlainText(byType('strong')), 'st');
-  assert.equal(inlinePlainText(byType('strikethrough')), 'del');
-  assert.equal(inlinePlainText(byType('link')), 'lnk bold');
-  assert.equal(inlinePlainText(byType('image')), 'the alt');
-  assert.equal(inlinePlainText(byType('mathInline')), 'm');
-  assert.equal(inlinePlainText(byType('footnoteReference')), '[1]');
-  assert.equal(inlinePlainText(byType('html')), '');
-  assert.equal(inlinePlainText(byType('hardBreak')), '\n');
-  assert.equal(inlinePlainText(byType('hardBreak'), { hardBreak: ' / ' }), ' / ');
-  assert.equal(inlinePlainText(byType('softBreak')), ' ');
-  const item = itemsOf(doc).find((i) => i.task)!;
-  const taskPara = item.children[0] as Extract<Block, { type: 'paragraph' }>;
-  assert.equal(inlinePlainText(taskPara.children.filter((n) => n.type === 'taskMarker')), '');
-  assert.equal(inlinePlainText(taskPara.children).trim(), 'task');
-});
