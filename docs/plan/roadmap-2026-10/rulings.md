@@ -43,3 +43,19 @@ changes a story's text, that story says so. A story the author rules out is `par
 | 19 | A scratch document the reader only reads closes without a prompt. |
 | 20 | JSON alone, unless the YAML structure check is tight. |
 | 21 | "Show what changed" compares against the version before the last reload. |
+
+## Phase A question 4 (2026-10-06)
+
+Delete both WebKit tests that first ran in the nightly full-WebKit suite and failed on Linux: the
+theme's "code voice: mono and text x-heights match" (`pair-a-tune.test.mjs`) and core's "MARXY-28
+inline math matches screenshot baseline" (`math.acceptance.test.ts`). Neither is fixed. Story A-10.3.
+
+## Lane L inputs (2026-10-07)
+
+The author has no list of observed layout errors to give and asked the lead to make do. L-01 therefore
+works from L-00's measurements alone: the "author's cases" acceptance is dropped, and the probe's ranked
+offenders stand in for them. The eight decisions in `07-layout-and-reading.md` take their recommended
+defaults: symmetric wide-block overflow; hang the code box; centred images, flush blocks; `scrollbar-gutter:
+stable both-edges`; sticky notices at the top that reserve space; Source at the Rendered column width
+(markdown) or ≤100 characters centred (code), on the page ground; the size ramp is L-01's to recommend with
+evidence (it needs an ADR if adopted); margin notes deferred to after v1.

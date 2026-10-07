@@ -221,9 +221,14 @@ so this and the next two stories have a measurement anyone can repeat.
   0.5 px, on every corpus file, width and size (`grid.test.mjs`).
 - The new structural test passes: at most 5 reads-after-write per call, on both the 53 KB and the
   256 KB document (`grid.test.mjs`).
-- `node scripts/perf-harness.mjs --large 1m --runs 5` reports a median grid stage of at most 250 ms
-  at 1 MB, down from 2,251 ms in `05` §9.1. The before and after tables are in the pull request,
-  and the reviewer re-runs the measurement and quotes their number beside it.
+- `node scripts/perf-harness.mjs --large 1m --runs 5` reports the median grid stage at 1 MB, before
+  and after, in the pull request, with the time of `snapToGrid` alone; the reviewer re-runs it and
+  quotes their numbers beside them. *Amended 2026-10-02 by the lead:* the original bound (grid stage
+  at most 250 ms) moved to A-02. A-01 found that the stage is not the grid pass: 2.3–2.8 s of it is
+  one forced restyle of the whole article, triggered by the first style read after the bundled fonts
+  load (today `[...document.fonts]` in the `fonts_ready` mark's detail, `app.ts:1110`; stubbed out,
+  the same cost moves to `snap()`'s `getComputedStyle`). The generated 1 MB document puts no block
+  off the grid, so the old quadratic loop never ran on it. Outside A-01's paths.
 - `pnpm gate:aesthetics` is green. It runs the same pass through `render/headless.ts:227`, so a
   changed padding would show up there.
 - `scripts/perf-harness.test.mjs` is green in `pnpm test`.
@@ -279,6 +284,8 @@ transcripts and logs, the second content type in `docs/brief.md`, routinely exce
 - `packages/typeset/src/index.ts`
 - `scripts/registry.json`
 - `apps/desktop/test/progressive.test.mjs` (new)
+- `docs/design/04-typeset.md`, §Grid only: one sentence that step 2 now runs in rounds (A-01) and
+  takes `from` (this story)
 - `changelog.d/A-02.md` (new)
 
 **Build order.**
@@ -350,6 +357,15 @@ transcripts and logs, the second content type in `docs/brief.md`, routinely exce
      reader was.
    - **The handle** gains `contentComplete(): Promise<void>` on `AppHandle`, so tests and the
      harness can wait for the whole document.
+   - **The `fonts_ready` mark** (*added 2026-10-02 after A-01*). Its detail iterates
+     `document.fonts` (`app.ts:1110`), which forces WebKit to restyle the whole article once the
+     bundled fonts have loaded: 1.7–2.8 s at 1 MB, booked to the grid stage. Removing the spread
+     alone saves nothing: the same restyle moves to the next style read (`snap()`'s
+     `getComputedStyle`). The target is the restyle itself, which scales with what is in the
+     article: make sure the first style read after the fonts load happens while the article holds
+     only the first screens, and drop the face list from the mark's detail (or compute it after
+     `content_complete`) so it cannot force the restyle early. Report, in the pull request, the
+     stage breakdown at 1 MB before and after.
 6. `apps/desktop/test/progressive.test.mjs`. It runs in WebKit on the app harness (`app.html`) with
    a 1 MB document built by `generateLarge` from `scripts/perf-harness.mjs`, and checks:
    - At `first_text` the article holds fewer top-level children than the document has, and
@@ -497,7 +513,9 @@ the pull-request path.
   writes a record that holds `first_text`, `typeset_viewport`, `live_reload`, `open_render` and
   palette p95 at three sizes. `scripts/perf-harness.test.mjs` asserts the record's shape on a
   canned mark list.
-- `git grep -n -E 'gate-perf|measure-parse|ci-summary|gate:perf' -- ':!docs' ':!CHANGELOG.md' ':!changelog.d'`
+- `git grep -n -E 'gate-perf|measure-parse|ci-summary|gate:perf' -- ':!docs' ':!CHANGELOG.md' ':!changelog.d' ':!orchestration'`
+  (*amended 2026-10-02 by the lead*: `orchestration/` is frozen and holds only fixture text; the stale
+  comment at `scripts/ci-changes.mjs:145` belongs to A-09)
   prints nothing. The output is pasted in the pull request.
 - `fixtures/perf-budgets.json` has no `product` and no `ci` key, and `pnpm gate:bundle` still
   passes.
@@ -674,6 +692,9 @@ validate the snapshot that `packages/core/src/index-model/persist.ts` already de
 - `apps/desktop/src/index/walk.ts`
 - `apps/desktop/src/index/service.ts`
 - `apps/desktop/test/index-service.test.mjs`
+- `apps/desktop/test/app-harness.test.mjs`, `close-guard.test.mjs`, `live-reload.test.mjs`,
+  `persist-reading.test.mjs`: only to leave the snapshot's `/data/index-*` read and write out of
+  their exact shell-call assertions (*added 2026-10-02 by the lead*)
 - `changelog.d/A-05.md` (new)
 
 **Build order.**
@@ -937,6 +958,10 @@ without this.
   URL from the script
 - `apps/desktop/scripts/smoke-verdict.test.mjs`
 - `scripts/precheck.mjs`, `scripts/gates-by-path.json`
+- `scripts/check-deferrals.test.mjs` (lines 123-127) and `scripts/gate-bundle.test.mjs` (line 126): they
+  name scripts this story removes (*added 2026-10-02 by the lead*)
+- `packages/core/src/buffer/buffer.test.ts` (the `gateFidelityAllowed` guard, which fails any branch that
+  edits `gate-fidelity.mjs`) and `fonts/README.md` (names `gate:font-attrs`) (*added 2026-10-02 by the lead*)
 - `changelog.d/A-08.md` (new)
 
 **Build order.**
@@ -1032,7 +1057,13 @@ product pull request's job-seconds and can fail only on Rust changes, and every 
 - `.github/workflows/nightly.yml`
 - `scripts/ci-changes.mjs`
 - `scripts/ci-changes.test.mjs` (new; the classifier's cases moved out of `--selftest`)
+- `scripts/ci-verdict.mjs` and `scripts/ci-verdict.test.mjs` (new): the `ci` job's verdict, out of `ci.yml`
+  and under test, since `ci` is the only required check (*added 2026-10-02 by the lead*)
 - `scripts/check-workflows.mjs` and its test, if the job names it reads change
+- `apps/desktop/scripts/smoke-verdict.mjs`: delete `workflowCliSmokeIsRequired` and
+  `cliSmokeStepFromWorkflow`, unused since A-08 (*added 2026-10-02 by the lead*). In `ci-changes.mjs`,
+  remove its own copy of the `continue-on-error` / `|| true` rule (`ci-changes.mjs:179`); A-08 put
+  that rule in `check-workflows` alone
 - `changelog.d/A-09.md` (new)
 
 **Build order.**
@@ -1217,6 +1248,42 @@ requests.
 - If the 18-file set misses a regression class the full suite catches, the nightly will show it.
   Name the file to add, rather than adding it in this story.
 
+### A-10.1 — Make the no-network gate's control page deterministic in Chromium
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-10 · *Added 2026-10-02 by the lead.*
+
+**Outcome.** `pnpm gate:no-network` never fails on its own control page. On a B-06 pull-request run
+(37103394026, attempt 1) the `browser-lite` job failed with "chromium: the control page's
+un-allow-listed element was not seen in the live DOM, so the element half of the allow-list check
+cannot fail and proves nothing", and the same for "the block inside an anchor"; the re-run passed. The
+gate read the control page's live DOM before the page had rendered it. AGENTS.md: a flaky check is
+fixed or deleted, never re-run until green. This one guards commitment 3, so it is fixed.
+
+**Paths.** `scripts/gate-no-network.mjs` (the control-page wait only) and its test; `changelog.d/A-10.1.md`.
+
+**Acceptance.** The control page is read only after a deterministic signal that it has rendered (a
+load event, a marker the page sets, or `waitForSelector` on the very elements the check needs), never a
+timer. Running the gate's Chromium leg 30 times in a row, locally and under load, gives 0 failures;
+the gate still fails when the control element is genuinely absent (mutation-checked).
+
+### A-10.2 — Let the no-network gate see a late request
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-10.1 · *Added 2026-10-03 by the lead, from the A-10.1 review.*
+
+**Outcome.** The no-network gate stops watching for requests only when the page has gone quiet, not
+after a fixed 150 ms. Today `run()` in `scripts/gate-no-network.mjs` waits `waitForTimeout(150)` after
+navigation, so a request a page fires later (a late `fetch`, a `<link>` or image inserted by script,
+a slow route callback) is never observed and the gate passes on silence. The gate guards commitment 3,
+"nothing phones home".
+
+**Paths.** `scripts/gate-no-network.mjs` (the settle only), its test in
+`packages/core/scripts/gate-assertions.test.ts`, and a crafted control page if needed;
+`changelog.d/A-10.2.md`.
+
+**Acceptance.** A crafted control page that fires a request after 500 ms (and one after 2 s) is caught
+by the gate in both engines; the gate does not slow by more than a few seconds overall; no allow-list
+or check changes. Each new case fails on today's gate (mutation-checked).
+
 ### A-11 — Rewrite the CI contract and the process documents
 
 **Model:** sonnet · **Size:** M · **Depends on:** A-03, A-07, A-08, A-09, A-10 · **Parallel with:** A-17
@@ -1301,6 +1368,43 @@ the process the documents describe.
 - `docs/sdlc.md` carries a release runbook. Point it at `docs/design/14-release.md`, which A-17
   updates, rather than duplicating the steps.
 
+### A-11.1 — Let deferral markers name a story id
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-07 · **Parallel with:** anything outside these paths
+*Added 2026-10-02 by the lead, from the A-11 review.*
+
+**Outcome.** `check-deferrals` accepts a deferral marker that names a roadmap story id (`A-07`, `B-13`,
+`A-14.1`) as well as a `MARXY-nnn` key, so new work no longer has to mint a retired Jira key to leave
+an honest "later" marker. `docs/conventions.md` stops describing the limitation.
+
+**Paths.**
+- `scripts/check-deferrals.mjs` and its test (`scripts/check-deferrals.test.mjs`)
+- `docs/conventions.md` (the sentence about deferral markers only)
+- `changelog.d/A-11.1.md` (new)
+
+**Acceptance.**
+- A marker naming `B-13` (or `A-14.1`) is accepted when allow-listed the same way a `MARXY-` key is;
+  a malformed id (`b-13`, `B-1`) is rejected; existing `MARXY-` behaviour is unchanged. Each case
+  is a test that fails on today's script.
+- `pnpm check` green.
+
+### A-11.2 — Bring the gates design document up to date
+
+**Model:** sonnet · **Size:** S · **Depends on:** A-09, A-10, A-11, B-02 · **Parallel with:** anything else
+*Added 2026-10-02 by the lead, from the A-11 review.*
+
+**Outcome.** `docs/design/10-gates-and-testing.md` describes the CI that exists: the `changes`,
+`conventions`, `fast`, `browser-lite`, `typography` and `rust` jobs and the `ci` verdict on pull
+requests, the nightly jobs, and the aesthetics gate driving the real app (B-02). It points at
+`docs/ci-contract.md` for the commands rather than repeating them. Nothing in it contradicts the contract.
+
+**Paths.**
+- `docs/design/10-gates-and-testing.md`
+- `changelog.d/A-11.2.md` (new)
+
+**Acceptance.** Every job, script and command the document names exists on `main`; a reviewer
+checks each one. No counts that will rot.
+
 ### A-12 — Make the palette list every command whose `when` holds
 
 **Model:** sonnet · **Size:** M · **Depends on:** A-07 · **Parallel with:** A-01, A-04, A-08
@@ -1327,6 +1431,9 @@ can run while focus is in Source mode's editor, and can have more than one chord
 - `apps/desktop/src/commands/navigation.ts`, `appearance.ts`, `outline.ts`, `editor.ts` (new, empty;
   for A-13, A-14, A-15 and A-16)
 - `apps/desktop/test/palette.test.mjs`
+- `apps/desktop/src/commands/source-view.ts` and `apps/desktop/test/operations-copy.test.mjs`
+  (*added 2026-10-02 by the lead*: jump-to-source reads the app handle, as the Risks below ask; the
+  copy test typed Enter on a bare `>`, and the group order moved the first row)
 - `changelog.d/A-12.md` (new)
 
 **Build order.**
@@ -1415,7 +1522,8 @@ chords go through the same dispatcher. Three private keyboard listeners in three
   controller's methods only
 - `apps/desktop/src/selection/view.ts`, `installLinkHistoryKeys` only
 - `apps/desktop/src/commands/navigation.ts`
-- `apps/desktop/test/navigation-keys.test.mjs` (new)
+- `apps/desktop/test/navigation-keys.test.mjs` (new), `apps/desktop/test/scroll-persistence.test.mjs`
+  (new, optional)
 - `changelog.d/A-13.md` (new)
 
 **Build order.**
@@ -1440,10 +1548,21 @@ chords go through the same dispatcher. Three private keyboard listeners in three
      belongs to the editor. Pass the event through, or check the visible Source host the way
      `view.ts:460-461` does.
 5. `test/navigation-keys.test.mjs` (WebKit, `palette-boot.html`).
+6. *Added 2026-10-02 by the lead, from the A-15 review.* `app.ts` `installScrollPersistence`
+   (around `app.ts:1036-1047`) listens for scroll on `readingScroller()`, which is
+   `document.documentElement`. WebKit fires the viewport `scroll` at the `Document`, not at
+   `documentElement` (probed: document 1, documentElement 0, window 1, body 0), so scrolling never
+   calls `positionPersistence.note()`. Positions survive only through the flushes on a document
+   switch, on quit and on entering Source; a crash, force-quit or a window close that skips
+   `shell.quit` loses every scroll since the last open. Listen on `document` (keep
+   `readingScroller()` for sampling), confirm the note is throttled or debounced, and flush on
+   `pagehide` as well. Test it in `navigation-keys.test.mjs` or a new
+   `test/scroll-persistence.test.mjs`: scroll, then read the pending note without a flush.
 
 **Acceptance.**
 - `Mod+E` from Rendered opens Source at the reading position, and `Mod+E` with focus inside
   CodeMirror returns to Rendered (`navigation-keys.test.mjs`).
+- Scrolling in Rendered records the reading position without a flush (step 6).
 - After following a relative link, `Mod+[` returns to the first document, and `Alt+←` does the same
   (`navigation-keys.test.mjs`).
 - `Alt+←` with the caret in Source mode's text does not navigate (`navigation-keys.test.mjs`).
@@ -1569,6 +1688,33 @@ the screen criterion ("toggle light").
 - A reader size of 15–50 px goes past the 13–24 px clamp a user theme gets
   (`docs/design/05-theme.md` §loading). The clamp applies to themes, not to the reader's own
   setting. The aesthetics gate covers only 16–28 px.
+
+### A-14.1 — Keep every byte of the edited config line except the value
+
+**Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** anything outside `packages/theme`
+*Added 2026-10-02 by the lead, from the A-14 review.*
+
+**Outcome.** When Marxy writes a key to `config.toml` (`size`, `variant`, `theme`), the only bytes that change
+are the value's. Today `setTopLevelKey` rebuilds the edited line and collapses the whitespace before a
+trailing comment to one space: `variant = "light"   # c` becomes `variant = "dark" # c`, and tabs
+become a space. That breaks the commitment "never touch a byte the user did not ask to change".
+
+**Paths.**
+- `packages/theme/src/config.ts` (`setTopLevelKey` only)
+- `packages/theme/src/config.test.ts`
+- `changelog.d/A-14.1.md` (new)
+
+**Build order.** Splice the new value into the existing line between the key's `=` (and the
+whitespace after it) and the end of the old value, keeping everything after the old value (spaces,
+tabs, the comment, the line ending) byte for byte.
+
+**Acceptance.**
+- `config.test.ts`: multiple spaces, tabs and a mix before a trailing comment survive an edit byte for
+  byte; spacing around `=` survives; CRLF, a BOM, a missing trailing newline, a key in a `[table]`, a
+  commented-out key and duplicate keys behave as today (the A-14 reviewer's probes, now pinned).
+- Each new case fails on the old `setTopLevelKey`.
+
+**Do not.** Change the parser, the config schema or any caller.
 
 ### A-15 — Summon the outline
 
@@ -1787,6 +1933,10 @@ criterion only when hardware exists, so v0.1.0 is macOS only.
 - `README.md`, an "Install" section
 - `docs/design/14-release.md`
 - `changelog.d/A-17.md` (new, folded with the rest)
+- *Added 2026-10-02 by the lead:* `scripts/gate-bundle.mjs` (the installer `katex` grep becomes an
+  entry-chunk check: KaTeX is lazy-loaded on purpose, so the installer always holds its chunk) and,
+  minimally, `orchestration/prompt-handshake.test.mjs` and `orchestration/review-order.mjs` (they look
+  for two lines under `## Unreleased`, which the release fold moves under `## 0.1.0`)
 
 **Build order.**
 1. `release.yml`:
