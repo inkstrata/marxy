@@ -43,6 +43,12 @@ export interface TypesetOptions {
    * are the idle batches, which a caller may coalesce.
    */
   readonly onPass?: (kind: 'viewport' | 'visible' | 'background') => void;
+  /**
+   * The element the page scrolls in; default the document's scrolling element. After a pass that
+   * changed a paragraph above the reader, it is scrolled by what the block at the top of the screen
+   * moved (B-02.5).
+   */
+  readonly scroller?: HTMLElement;
 }
 
 export interface TypesetStats {
@@ -140,6 +146,63 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     if (!doneSettled) return;
     doneSettled = false;
     done = new Promise<void>((resolve) => { resolveDone = settle(resolve); });
+  };
+
+  // The reader's place (B-02.5). A paragraph above the screen that changes height (set after first
+  // text, set again after a marker was written into it, adopted late) moves everything below it, and
+  // the page's own scroll anchoring is off (grid.ts). So a pass that writes while the reader is
+  // reading notes the top-level block at the top of the screen first, and scrolls by whatever its top
+  // moved once the pass has written, before the next paint. Never while the reader's own input is
+  // driving the scroll: the wheel, a key, a finger or a dragged scrollbar are not fought.
+  const win = article.ownerDocument.defaultView;
+  const scrollerOf = (): HTMLElement | null => opts.scroller ?? (article.ownerDocument.scrollingElement as HTMLElement | null);
+  const INPUT_QUIET_MS = 200;
+  let lastInput = -Infinity;
+  let pressed = false;
+  const onInput = (): void => {
+    lastInput = performance.now();
+  };
+  const onDown = (): void => {
+    pressed = true;
+    onInput();
+  };
+  const onUp = (): void => {
+    pressed = false;
+  };
+  const inputTypes = ['wheel', 'touchmove', 'keydown'] as const;
+  const downTypes = ['mousedown', 'touchstart'] as const;
+  const upTypes = ['mouseup', 'touchend', 'touchcancel', 'blur'] as const;
+  for (const t of inputTypes) win?.addEventListener(t, onInput, { capture: true, passive: true });
+  for (const t of downTypes) win?.addEventListener(t, onDown, { capture: true, passive: true });
+  for (const t of upTypes) win?.addEventListener(t, onUp, { capture: true, passive: true });
+  const stopListening = (): void => {
+    for (const t of inputTypes) win?.removeEventListener(t, onInput, { capture: true });
+    for (const t of downTypes) win?.removeEventListener(t, onDown, { capture: true });
+    for (const t of upTypes) win?.removeEventListener(t, onUp, { capture: true });
+  };
+  const readerIsScrolling = (): boolean => pressed || performance.now() - lastInput < INPUT_QUIET_MS;
+
+  /** The top-level block under the reading line, and where its top is. */
+  const placeAt = (scroller: HTMLElement): { readonly el: HTMLElement; readonly top: number } | null => {
+    if (scroller.scrollTop <= 0 || !article.isConnected) return null;
+    const box = article.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    for (const y of [4, 16, 40, 80]) {
+      let el = article.ownerDocument.elementFromPoint(x, y);
+      while (el !== null && el.parentElement !== article) el = el.parentElement;
+      if (el instanceof HTMLElement) return { el, top: el.getBoundingClientRect().top };
+    }
+    return null;
+  };
+
+  /** Runs `work`, which may change heights above the screen, and keeps the block at the top where it was. */
+  const keepPlace = (work: () => void): void => {
+    const scroller = scrollerOf();
+    const place = scroller === null || readerIsScrolling() ? null : placeAt(scroller);
+    work();
+    if (scroller === null || place === null || readerIsScrolling() || !place.el.isConnected) return;
+    const moved = place.el.getBoundingClientRect().top - place.top;
+    if (Math.abs(moved) > 0.25) scroller.scrollTop += moved;
   };
 
   const fallback = (reason: string): void => {
@@ -300,16 +363,22 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     if (near.length === 0 && far.length === 0) return;
     const before = new Map(near.map((p) => [p, breaksIn(p)]));
-    for (const p of [...near, ...far]) {
-      revert(p);
-      stats.paragraphs--;
-      stats.typeset--;
-    }
-    changes?.takeRecords();
-    if (killed()) return;
-    if (far.length > 0) enqueue(far);
-    if (near.length === 0) return;
-    setBatch(near);
+    let reset = true;
+    keepPlace(() => {
+      for (const p of [...near, ...far]) {
+        revert(p);
+        stats.paragraphs--;
+        stats.typeset--;
+      }
+      changes?.takeRecords();
+      if (killed()) {
+        reset = false;
+        return;
+      }
+      if (far.length > 0) enqueue(far);
+      if (near.length > 0) setBatch(near);
+    });
+    if (!reset || near.length === 0) return;
     // The grid pass runs again only when a paragraph's line count, and so its height, moved.
     if (near.some((p) => !p.classList.contains(SET) || breaksIn(p) !== before.get(p))) opts.onPass?.('visible');
   };
@@ -353,7 +422,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const horizon = window.innerHeight * 2;
     const tops = all.map((p) => p.getBoundingClientRect());
     const first = all.filter((_, i) => tops[i]!.bottom > 0 && tops[i]!.top < horizon);
-    setBatch(first);
+    keepPlace(() => setBatch(first));
     stats.viewportMs = performance.now() - t0;
     if (first.length > 0) opts.onPass?.('viewport');
     resolveReady();
@@ -373,7 +442,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
           const now = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement).filter((p) => queue.includes(p));
           if (now.length === 0) return;
           queue = queue.filter((p) => !now.includes(p));
-          setBatch(now);
+          keepPlace(() => setBatch(now));
           opts.onPass?.('visible');
         },
         { rootMargin: '200% 0px' },
@@ -387,7 +456,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       // Paragraphs cost roughly the same; take a few at a time while the chunk has budget left.
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
       if (batch.length > 0) {
-        setBatch(batch);
+        keepPlace(() => setBatch(batch));
         opts.onPass?.('background');
       }
       // The observer is no longer disconnected when the queue empties: paragraphs adopted later (A-02)
@@ -454,6 +523,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     destroy() {
       restoreAll();
       changes?.disconnect();
+      stopListening();
     },
   };
 }
