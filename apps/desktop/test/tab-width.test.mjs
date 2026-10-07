@@ -96,6 +96,9 @@ test('Source editor tab-size follows .editorconfig under the indexed root', asyn
         .map((c) => c.args[0]);
     });
     assert.ok(reads.includes('/repo/.editorconfig'), `readFile paths: ${reads.join(', ')}`);
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('.cm-content')).tabSize === '2');
+    const applied = await page.evaluate(() => getComputedStyle(document.querySelector('.cm-content')).tabSize);
+    assert.equal(applied, '2');
   } finally {
     await browser.close();
   }
