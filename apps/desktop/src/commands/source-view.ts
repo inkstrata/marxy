@@ -64,16 +64,12 @@ export function sourceViewCommands(): readonly Command[] {
       when: () => selectionStartByte() !== null,
       run: async () => {
         const byte = selectionStartByte();
-        const ctx = getSelectionBufferContext();
-        // The running app's handle; the bare app.html test harness never mounts the palette, so it
-        // still names its handle on window.
-        const open = (
-          appHandle() ?? (window as Window & { __marxyHandle?: AppHandle }).__marxyHandle
-        )?.openDocument?.();
-        const buffer = ctx?.buffer ?? open?.buffer;
-        if (byte === null || !buffer) return;
-        const { openSourceAtByte } = await import('../source/mode-open.ts');
-        await openSourceAtByte(buffer, byte);
+        // The running app's handle; the bare app.html test harness loads the selection harness as a
+        // bundle of its own, so it names its handle on window. Source opens only through the app, so
+        // what is typed there is the document's (F-03).
+        const app = appHandle() ?? (window as Window & { __marxyHandle?: AppHandle }).__marxyHandle;
+        if (byte === null || !app) return;
+        await app.jumpToSource(byte);
       },
     },
   ];
