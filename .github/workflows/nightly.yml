@@ -10,6 +10,11 @@ on:
   schedule:
     - cron: "0 4 * * *"
   workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: "Regenerate the Linux aesthetics baselines (screenshots and rag) and upload them; runs only the aesthetics job"
+        type: boolean
+        default: false
 concurrency:
   group: "nightly-${{ github.ref }}"
   cancel-in-progress: true
@@ -30,8 +35,29 @@ jobs:
           path: ~/.pnpm-store
           key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      # Linux baselines come from this container, never from a Mac (ADR-0047). `--update` rewrites every
+      # baseline and always exits 1 with one "baseline created" line per file; any other line is a real
+      # failure. The step after it then compares against what was just written, so a regenerated set
+      # that does not reproduce fails the run instead of being uploaded as good.
+      - name: Regenerate the Linux baselines (dispatch with update_baselines)
+        if: ${{ inputs.update_baselines }}
+        shell: bash
+        run: |
+          mkdir -p results
+          set +e
+          node scripts/gate-aesthetics.mjs --update 2>&1 | tee results/update-baselines.log
+          set -e
+          if grep '^ - ' results/update-baselines.log | grep -v 'baseline created'; then exit 1; fi
       - name: Aesthetics gate with the CLS repeat passes (MARXY-153)
         run: node scripts/gate-aesthetics.mjs --repeat 3
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.update_baselines }}
+        with:
+          name: linux-baselines
+          path: |
+            fixtures/baselines/webkit-linux/
+            fixtures/baselines/rag/webkit-linux/
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -40,6 +66,7 @@ jobs:
           if-no-files-found: ignore
 
   built-app-smoke:
+    if: ${{ !inputs.update_baselines }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -81,6 +108,7 @@ jobs:
   # a second document, and palette search at 5k, 20k and 50k entries. Fails only when a measurement it
   # asked for produced no sample. Playwright WebKit on a hosted Linux runner: a trend, not the audit's Mac.
   perf-harness:
+    if: ${{ !inputs.update_baselines }}
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 45
@@ -113,6 +141,7 @@ jobs:
   # stages and says no_paint; the measurement fails only when no launch printed a mark at all. The plan
   # calls this job build-macos; it keeps A-03's name because scripts/perf-harness.test.mjs pins it.
   startup-macos:
+    if: ${{ !inputs.update_baselines }}
     runs-on: macos-latest
     timeout-minutes: 45
     env:
@@ -165,6 +194,7 @@ jobs:
   # The pull-request `rust` job of ci.yml, every night, whatever changed: a pull request runs it only
   # when Rust, the Vite config, the CLI smoke, the toolchain or a dependency changed (A-09).
   rust-linux:
+    if: ${{ !inputs.update_baselines }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -213,6 +243,7 @@ jobs:
   # The fleet's tests, which a pull request runs only when orchestration/, scripts/ or the prose they
   # assert changed (A-09).
   fleet:
+    if: ${{ !inputs.update_baselines }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -232,6 +263,7 @@ jobs:
   # typeset, theme and core suites, whose WebKit tests no pull-request job runs (audit 04 §3). Each
   # suite runs even when one before it failed, so one night names every red suite.
   browser-full:
+    if: ${{ !inputs.update_baselines }}
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 45

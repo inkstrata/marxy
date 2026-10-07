@@ -202,7 +202,7 @@ it cannot turn a pull request red, and a red nightly is a note for the next pers
 
 | Job | What it watches | Local command |
 | --- | --- | --- |
-| `aesthetics-determinism` | the aesthetics gate with three CLS repeat passes against `main` | `node scripts/gate-aesthetics.mjs --repeat 3` |
+| `aesthetics-determinism` | the aesthetics gate with three CLS repeat passes against `main`. Dispatched with `update_baselines` (`gh workflow run nightly.yml --ref <branch> -f update_baselines=true`), it first regenerates the Linux screenshot and rag baselines in the Playwright container, runs the gate against them, uploads them as the `linux-baselines` artifact, and skips every other job | `node scripts/gate-aesthetics.mjs --repeat 3`; on a Mac, `--update` writes only `webkit-macos` |
 | `browser-full` | the full desktop suite, and the theme, typeset and core suites, all with WebKit required | `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test`, then each package's `test` |
 | `perf-harness` | the performance harness over the corpus and a 256 KB and a 1 MB document, recorded to `results/perf-nightly.json`; **numbers are recorded, not gated** (ADR-0032) | `pnpm --filter @marxy/desktop build:web && pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --record results/perf-nightly.json` |
 | `startup-macos` | the macOS build, CLI smoke, Rust unit tests and the nine-launch start-up measurement | `node scripts/measure-startup.mjs --selftest`, then `node scripts/measure-startup.mjs` with `MARXY_BIN` set |
