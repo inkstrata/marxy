@@ -55,6 +55,7 @@ test('focused clamps into the columns', () => {
   assert.equal(parseLayoutFile(enc({ version: 1, columns: cols, focused: -3 })).envelope.focused, 0);
   assert.equal(parseLayoutFile(enc({ version: 1, columns: cols, focused: 9 })).envelope.focused, 1);
   assert.equal(parseLayoutFile(enc({ version: 1, columns: [], focused: 4 })).envelope.focused, 0);
+  assert.equal(parseLayoutFile(enc({ version: 1, columns: cols, focused: 0.9 })).envelope.focused, 0);
 });
 
 test('garbage quarantines and returns the original bytes', () => {

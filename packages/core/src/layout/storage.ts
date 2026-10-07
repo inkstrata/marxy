@@ -57,8 +57,8 @@ export function parseLayoutFile(bytes: Uint8Array): LoadLayoutResult {
       const e = entry as Record<string, unknown>;
       if (typeof e.path !== 'string') continue;
       columns.push({ path: e.path, mode: e.mode === 'source' ? 'source' : 'rendered' });
+      if (columns.length === MAX_COLUMNS) break;
     }
-    columns.length = Math.min(columns.length, MAX_COLUMNS);
   }
 
   const r = obj.ratio;
