@@ -168,3 +168,26 @@ test('a long title that scores <= 0 for "ac" is still a candidate, so "acd" find
   assert.equal(searchPrepared('ac', prepared, session).length, 0);
   assert.equal(searchPrepared('acd', prepared, session).length, 1);
 });
+
+// A strong title match means the headings are not scanned; the mask must then keep the headings
+// bit set, or "deploy guide" (a heading-only match) would be missed once the title stops matching.
+test('headings skipped under a strong title match are still scanned when the title stops matching', () => {
+  const entry: IndexEntry = {
+    path: '/r/x.md',
+    root: '/r',
+    title: 'deploy',
+    headings: [{ level: 2, text: 'deploy guide', byteOffset: 0 }],
+    mtimeMs: 1,
+    size: 1,
+    kind: 'markdown',
+  };
+  const incremental = prepareIndex([entry]);
+  const fresh = prepareIndex([entry]);
+  const session = emptySession('/r');
+  for (const query of ['d', 'de', 'dep', 'deploy', 'deploy g', 'deploy gu', 'deploy guide']) {
+    const got = searchPrepared(query, incremental, session);
+    clearCandidateCache(fresh);
+    assert.deepEqual(got, searchPrepared(query, fresh, session), `query ${JSON.stringify(query)}`);
+  }
+  assert.equal(searchPrepared('deploy guide', incremental, session).length, 1);
+});

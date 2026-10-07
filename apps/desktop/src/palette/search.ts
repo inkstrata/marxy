@@ -225,7 +225,7 @@ const TITLE_FIELD = 1;
 const PATH_FIELD = 2;
 const HEADINGS_FIELD = 4;
 const ALL_FIELDS = TITLE_FIELD | PATH_FIELD | HEADINGS_FIELD;
-/** `scoreRow`'s second result: the field mask of the row it just scored. */
+/** `scoreRow`'s second result: the field mask of the row it just scored; read only straight after `consider` returns true. */
 let outMask = 0;
 
 /** The last keystroke's candidate rows per prepared index; valid only for the version it was made at. */
