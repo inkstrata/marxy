@@ -1276,6 +1276,26 @@ the store **here**. `save.ts`'s `host` is deleted **here**.
 
 ---
 
+### B-11.1 — Save as survives a document change; tighten B-11's checks
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-11 · *Added 2026-10-07 by the lead, from the B-11 review.*
+
+**Outcome.** (1) If another document opens while the Save-as dialog is up, `store.save` rejects on the closed
+store; `save.ts` catches the refused transition and returns `'cancelled'` instead of an unhandled rejection.
+(2) `data-loss.test.mjs`'s defect-1 case asserts `afterUndos === orig` and `canUndo === false`, so a phantom
+history entry fails it. (3) `store-undo.test.mjs`'s source-text case matches `/^(export\s+)?(let|var)\s/m`.
+(4) Optional: `handleDocumentWatch`'s unfolded-Source branch applies the store's own-save echo rule (today a
+false "edits kept" notice on save → edit → Source → type before the echo; never a loss).
+
+**Paths.** `apps/desktop/src/save.ts`, `apps/desktop/test/data-loss.test.mjs`, `apps/desktop/test/store-undo.test.mjs`,
+and for (4) only the watcher branch in `app.ts` (lead's say-so; B-12 owns `app.ts` otherwise).
+
+**Acceptance.** A test opens a second document while Save-as is pending and asserts `'cancelled'` with no
+unhandled rejection; each tightened check fails on a mutation that today survives (the review's M3 and the
+phantom-entry mutation).
+
+---
+
 ### B-12 — Make selection and commands read the store
 
 **Model:** opus · **Size:** M · **Depends on:** B-11 · **Parallel with:** —
@@ -1334,6 +1354,12 @@ lose their document state"), `07` §2.2 row 2, and the seven-module import cycle
 **Tests.** All of `apps/desktop/test` with WebKit required, `pnpm precheck`.
 
 **Do not.** Add span selection (Phase E). Move notices. Change which keys do what.
+
+**From the B-11 review (2026-10-07).** After a re-render throws, the selection context keeps the old buffer
+and node map, and `applyDocumentMutation` sends no `baseVersion`; an operation from a selection held across the
+failure would splice at stale offsets. When selection starts reading the store here, pass `baseVersion` on every
+`apply` (the store already refuses a stale one, `store.test.ts:236`) and clear the selection in `showRenderFailure`.
+Make `AppContext.document` required (`buildAppContext` always sets it).
 
 **Risks and open questions.** `palette/view.ts:503-506` installs selection from the palette mount.
 Moving that into `startApp` changes the order on the `app.html` harness, which has no palette.

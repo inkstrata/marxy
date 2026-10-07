@@ -123,6 +123,8 @@ Each is read off `origin/main`; L-00 confirms or kills it.
   - `theme-document.ts`.
 
   The survey read stale `main`; recheck after B-09 and B-09.1.
+- *L-00 review (2026-10-07):* the 61 px offset at 960 px is not the padding: `#marxy-notices` sizes its column
+  in `em` at the browser's 16 px instead of the article's 20 px. The padding matters only at 320 px.
 
 **H7. Source mode lacks the basics.** Confirmed on `origin/main`:
 - There is no `syntaxHighlighting` or `HighlightStyle`. The Lezer languages parse but nothing colours them,
