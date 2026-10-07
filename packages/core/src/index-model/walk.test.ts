@@ -37,3 +37,18 @@ test('a symlink to a directory outside the root is not followed', () => {
     rmSync(outside, { recursive: true, force: true });
   }
 });
+
+test('a file and a folder with a backslash in the name keep it from walk to open path', { skip: process.platform === 'win32' }, () => {
+  const root = mkdtempSync(join(tmpdir(), 'marxy-index-bslash-'));
+  try {
+    mkdirSync(join(root, 'a\\b'));
+    writeFileSync(join(root, 'a\\b', 'c.md'), '# c\n');
+    writeFileSync(join(root, 'x\\y.md'), '# y\n');
+    const found = collectFiles(root, nodeReader());
+    assert.deepEqual(found.map((f) => f.relativePath).sort(), ['a\\b/c.md', 'x\\y.md']);
+    for (const f of found) assert.ok(f.path.startsWith(root) && f.path.includes('\\'), f.path);
+    assert.ok(found.some((f) => f.path === `${root}/a\\b/c.md`));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
