@@ -9,7 +9,8 @@ import { withPaletteListing } from '../commands/navigation.ts';
 import { buildAppContext, setPaletteCloser } from '../selection/bind.ts';
 import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
-import { jumpForHit, paletteResults, prepareIndex, type PreparedIndex } from './search.ts';
+import { createIndexFeed, type IndexFeed } from './index-feed.ts';
+import { jumpForHit, paletteResults, type PreparedIndex, type RootRank } from './search.ts';
 import {
   emptySession,
   goBack,
@@ -60,6 +61,8 @@ export interface PaletteController {
   open(): void;
   close(): void;
   setIndexEntries(entries: readonly IndexEntry[]): void;
+  /** What the palette searches: the index in scope order (C-10). The collection sets its folders here. */
+  readonly feed: IndexFeed;
   /** One step back through the session history; false when there is none (the key is then left alone). */
   back(): boolean;
   /** One step forward through the session history; false when there is none. */
@@ -117,6 +120,8 @@ function queryPalette(
   entries: readonly IndexEntry[],
   session: PaletteSession,
   prepared: PreparedIndex,
+  rootRank: RootRank,
+  scopeNotice: string | undefined,
 ): PaletteModel {
   const phase = palettePhase(query, section);
   if (phase === 'operations') {
@@ -132,7 +137,7 @@ function queryPalette(
     };
   }
   const trimmed = query.trim();
-  const hits = paletteResults(trimmed, entries, session, { prepared, limit: 50 });
+  const hits = paletteResults(trimmed, entries, session, { prepared, limit: 50, rootRank });
   const filtered = filterHits(hits, phase === 'empty' ? 'documents' : section);
   return {
     phase,
@@ -141,6 +146,7 @@ function queryPalette(
     hits: filtered.slice(0, PALETTE_ROW_LIMIT),
     operationCommands: [],
     selected: 0,
+    notice: scopeNotice,
   };
 }
 
@@ -356,16 +362,21 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   injectPaletteStyles(document);
   const { input, list, notice } = ensurePaletteStructure(deps.dialog, document);
   let session = emptySession('/');
-  let entries: IndexEntry[] = [];
-  let prepared = prepareIndex(entries);
+  const feed = createIndexFeed({
+    currentRoot: () => session.currentRoot,
+    recentRoots: () => session.recentRoots,
+    readAt: () => session.readAt,
+  });
+  const query = (text: string) =>
+    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), feed.notice());
   let section: PaletteListSection = 'documents';
-  let model = queryPalette('', section, entries, session, prepared);
+  let model = query('');
   let open = false;
   let selected = 0;
   const syncSession = () => deps.onSessionChange?.(session);
 
   const repaint = (markPerf?: number) => {
-    model = queryPalette(input.value, section, entries, session, prepared);
+    model = query(input.value);
     const rowCount =
       model.phase === 'operations' ? model.operationCommands.length : model.hits.length;
     selected = Math.min(selected, Math.max(0, rowCount - 1));
@@ -394,6 +405,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (deps.dialog.open) deps.dialog.close();
   };
 
+  // Every rebuild of what the palette searches repaints it: a new walk, a folder added or dropped.
+  feed.subscribe(() => repaint());
+
   deps.dialog.addEventListener('close', () => {
     // Native cancel (Esc with focus off the input) closes the dialog without going through dismiss.
     // (Reads the live state: a stale close event must not shut a palette summoned since.)
@@ -420,9 +434,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     syncSession();
     dismiss();
     // After the palette is gone, and off this tick: the open never waits on a re-prepare.
-    setTimeout(() => {
-      prepared = prepareIndex(entries, session.readAt);
-    }, 0);
+    setTimeout(() => feed.refresh(), 0);
     // The document on screen with no heading to land on: nothing to open.
     if (deps.getCurrentPath() === jump.path && jump.byteOffset === undefined) return;
     await renderPath(deps, jump.path, jump.byteOffset);
@@ -505,9 +517,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     session = step.session;
     syncSession();
     // Off the critical path, as in activateHit: the navigation never waits on a re-prepare.
-    setTimeout(() => {
-      prepared = prepareIndex(entries, session.readAt);
-    }, 0);
+    setTimeout(() => feed.refresh(), 0);
     void renderPath(deps, step.path);
     return true;
   };
@@ -521,10 +531,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     open: summon,
     close: dismiss,
     setIndexEntries(next) {
-      entries = [...next];
-      prepared = prepareIndex(entries, session.readAt);
-      repaint();
+      feed.setEntries(next);
     },
+    feed,
   };
 }
 

@@ -47,7 +47,7 @@ export function resolveThemeDir(raw: string | null, configPath: string): string 
  * `<home>/Library/Application Support/<id>` (macOS), `<home>/.config/<name>` or `<home>/.config`
  * (XDG), or `<home>/AppData/Roaming/<id>` (Windows); anything else has no recoverable home.
  */
-function inferHomeFromConfig(configPath: string): string {
+export function inferHomeFromConfig(configPath: string): string {
   const configDir = dirname(configPath);
   const layouts = [
     /^(.*)\/Library\/Application Support(?:\/[^/]+)?$/,

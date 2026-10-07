@@ -336,6 +336,50 @@ nodeTest('a root .gitignore hides a file that exists, and the walk reads it', as
   assert.equal(paths.length, 4);
 });
 
+// C-10: declared folders are held with ensureRoot and let go with dropRoot; each root keeps a baseline.
+
+nodeTest('a second service instance over the same data directory reports the same baselineMs (C-10)', async () => {
+  const shell = createMemoryShell(snapshotRepo());
+  const first = createIndexService(shell);
+  assert.equal(first.baselineMs('/r'), undefined, 'no baseline before the root is indexed');
+  await first.ensureRoot('/r');
+  const baseline = first.baselineMs('/r');
+  assert.equal(typeof baseline, 'number');
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  await shell.writeFileAtomic('/r/docs/later.md', enc('# Later\n'));
+  const second = createIndexService(shell);
+  await second.ensureRoot('/r');
+  assert.ok(second.entries().some((e) => e.path === '/r/docs/later.md'), 'the second instance walked the root again');
+  assert.equal(second.baselineMs('/r'), baseline, 'the baseline is kept in the snapshot and never moves');
+});
+
+nodeTest('ensureRoot holds a folder as itself with its deny rules; dropRoot lets it go; isWatched follows the declaration (C-10)', async () => {
+  const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
+  const shell = createMemoryShell({
+    '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
+    '/c/README.md': enc('# Home\n'),
+    '/c/sub/a.md': enc('# A\n'),
+    '/c/sub/drafts/wip.md': enc('# Wip\n'),
+    '/d/b.md': enc('# B\n'),
+  });
+  const service = createIndexService(shell);
+  await service.ensureFor('/c/README.md');
+  await service.ensureRoot('/c/sub', { watch: true, deny: denyRulesFor(['**/drafts/**']) });
+  await service.ensureRoot('/d', { watch: false });
+  const of = (root) => service.entries().filter((e) => e.root === root).map((e) => e.path).sort();
+  assert.deepEqual(of('/c/sub'), ['/c/sub/a.md'], 'the declared folder is its own root, and its deny glob holds');
+  assert.deepEqual(of('/c'), ['/c/README.md', '/c/sub/a.md', '/c/sub/drafts/wip.md'], 'the repository keeps its own rules');
+  assert.deepEqual(service.roots(), ['/c', '/c/sub', '/d']);
+  assert.equal(service.isWatched('/c'), true, 'the open document\'s repository counts as watched');
+  assert.equal(service.isWatched('/c/sub'), true);
+  assert.equal(service.isWatched('/d'), false, 'watch = false');
+  assert.equal(shell.calls.filter((c) => c.method === 'watch').length, 0, 'nothing is watched here (C-11 starts watches)');
+  service.dropRoot('/d');
+  assert.deepEqual(of('/d'), []);
+  assert.deepEqual(service.roots(), ['/c', '/c/sub']);
+  assert.equal(service.isWatched('/d'), false);
+});
+
 nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRead', async () => {
   register('./support/tauri-stub-hooks.mjs', import.meta.url);
   globalThis.navigator ??= { platform: 'MacIntel' };
