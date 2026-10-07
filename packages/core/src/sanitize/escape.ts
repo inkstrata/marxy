@@ -28,7 +28,8 @@ export function escapeAttributeKeepingReferences(value: string): string {
  * The named references worth resolving before a value is judged. Deliberately short: anything this
  * table does not know stays as the literal text `&name;`, which keeps an `&` in the value, and an
  * `&` in the part of a URL that decides its scheme is refused outright (`urls.ts`). A partial table
- * is therefore safe here in a way a partial deny-list never is.
+ * is therefore safe here in a way a partial deny-list never is. Named references outside the table
+ * (e.g. `&copy;`) are emitted literally: old behaviour, the safe direction, not part of F-02.
  */
 const NAMED_REFERENCES: ReadonlyMap<string, string> = new Map([
   ['amp', '&'], ['AMP', '&'], ['lt', '<'], ['LT', '<'], ['gt', '>'], ['GT', '>'], ['quot', '"'],
@@ -42,18 +43,17 @@ const NAMED_REFERENCES: ReadonlyMap<string, string> = new Map([
 const REFERENCE = /&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});?/g;
 
 /**
- * Decodes character references to a fixed point, so a value that only becomes dangerous after a
- * second decoding pass (`&amp;#x6a;avascript:`) is judged in its final form rather than its
- * innocent one. Four passes is far past anything a parser will do and terminates regardless.
+ * Decodes character references to a true fixed point, so a value that only becomes dangerous after
+ * many decoding passes (`&amp;&amp;&amp;&amp;&amp;#106;avascript:`) is judged in its final form. It
+ * terminates without a cap: every pass that changes the string makes it strictly shorter.
  */
 export function decodeReferences(value: string): string {
   let current = value;
-  for (let pass = 0; pass < 4; pass += 1) {
+  for (;;) {
     const next = decodeOnce(current);
     if (next === current) return current;
     current = next;
   }
-  return current;
 }
 
 function decodeOnce(value: string): string {

@@ -35,6 +35,8 @@ const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
  * to a fixed point, semicolon optional), so nothing hides behind a second decoding. The value emitted
  * is the one a browser will actually use (one attribute-rule pass), so a query parameter named
  * `sol` or `amp` survives; it is judged too, and either reading being refused refuses the value.
+ * The guarantee is that the emitted string is itself judged and escaped once; the strict reading is
+ * defence in depth.
  */
 export function sanitizeUrl(raw: string, context: UrlContext, policy: Policy): UrlDecision {
   const strict = decide(decodeReferences(raw), context, policy);

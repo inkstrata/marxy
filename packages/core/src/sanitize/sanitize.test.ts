@@ -415,3 +415,12 @@ test('F-02: a scheme hidden behind doubled references is still refused', () => {
     assert.equal(sanitizeUrl(raw, 'link', DEFAULT_POLICY).allowed, false, raw);
   }
 });
+
+test('F-02: many layers of references cannot hide a scheme, in the helper or on the emit path', () => {
+  const deep = '&amp;amp;amp;amp;amp;#106;avascript:alert(1)';
+  assert.equal(decodeReferences(deep), 'javascript:alert(1)');
+  assert.equal(sanitizeUrl(deep, 'link', DEFAULT_POLICY).allowed, false);
+  for (const href of ['&amp;#x6a;avascript:alert(1)', deep]) {
+    assert.ok(!/href=/.test(sanitizeHtml(`<a href="${href}">x</a>`).html), href);
+  }
+});
