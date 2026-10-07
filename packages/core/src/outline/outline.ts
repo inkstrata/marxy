@@ -56,6 +56,8 @@ function inlineContribution(node: Inline): string {
   switch (node.type) {
     case 'text':
     case 'code':
+    case 'mathInline':
+      // The TeX source, undelimited: the row is plain text, as inline code is shown without its backticks.
       return node.value;
     case 'emphasis':
     case 'strong':
@@ -69,7 +71,6 @@ function inlineContribution(node: Inline): string {
       return ' ';
     case 'html':
     case 'footnoteReference':
-    case 'mathInline':
     case 'taskMarker':
       return '';
   }
