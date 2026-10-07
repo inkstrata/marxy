@@ -1,4 +1,4 @@
-// Checks a parsed document against AST_INVARIANTS from the frozen contract, one check per entry.
+// Checks a parsed document against AST_INVARIANTS from the reviewed contract (ADR-0045), one check per entry.
 // Every gate that touches the parser runs this: the invariants are what make byte provenance a
 // promise rather than a hope (ADR-0003).
 

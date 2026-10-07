@@ -1,8 +1,7 @@
 // Plain-language strings for blocked-content and truncation notices (docs/design/13-trust.md).
 
 import type { BlockedImage } from '@marxy/core/src/render/images.ts';
-import { blockedHosts } from '@marxy/core/src/render/images.ts';
-import { hostnameToUnicode } from '@marxy/core/src/render/punycode.ts';
+import { blockedImageClause } from '@marxy/core/src/render/images.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 
 const WIDE_STILL_REMOVES = new Set([
@@ -81,10 +80,10 @@ function isSchemeRelative(removal: RenderRemoval): boolean {
 }
 
 /**
- * The blocked images a per-host grant could ever load. A protocol-relative `//host/y.png` is refused
- * whatever the reader grants (it takes the document's scheme, which is no network scheme), so it is not
- * counted and its host is not offered. `blockedImages` carry the resolved https URL, so the removal
- * report is what says how each was written; one written both ways stays, because the absolute one loads.
+ * The blocked images worth naming. A protocol-relative `//host/y.png` is refused whatever the reader
+ * does (it takes the document's scheme, which is no network scheme), so it is not counted or named.
+ * `blockedImages` carry the resolved https URL, so the removal report is what says how each was written;
+ * one written both ways stays, because the absolute one loads.
  */
 export function grantableBlockedImages(
   images: readonly BlockedImage[],
@@ -99,16 +98,6 @@ export function grantableBlockedImages(
   return images.filter((image) => loadable.get(image.url) !== false);
 }
 
-function imageNoticePart(images: readonly BlockedImage[]): string {
-  const hosts = blockedHosts(images);
-  if (hosts.length === 0) return '';
-  const n = images.length;
-  const noun = n === 1 ? 'image' : 'images';
-  if (hosts.length === 1) return `${n} ${noun} from ${hosts[0]}`;
-  if (hosts.length === 2) return `${n} ${noun} from ${hosts[0]} and ${hosts[1]}`;
-  return `${n} ${noun} from ${hosts.length} hosts`;
-}
-
 function elementNoticePart(removed: readonly RenderRemoval[]): string {
   const names = simplifiedElementNames(removed);
   if (names.length === 0) return '';
@@ -121,15 +110,14 @@ export function blockedTrustNoticeText(
   blockedImages: readonly BlockedImage[],
 ): string {
   const grantable = grantableBlockedImages(blockedImages, removed);
-  const images = imageNoticePart(grantable);
-  const verb = grantable.length === 1 ? 'was' : 'were';
+  const images = blockedImageClause(grantable);
   const elements = elementNoticePart(removed);
   const httpCount = removed.filter(isHttpImage).length;
   let text = '';
   if (images && elements) {
-    text = `${images} ${verb} not loaded, and ${elements}.`;
+    text = `${images}, and ${elements}.`;
   } else if (images) {
-    text = `${images} ${verb} not loaded.`;
+    text = `${images}.`;
   } else if (elements) {
     text = `Some HTML in this document was simplified (${simplifiedElementNames(removed).join(', ')}).`;
   }
@@ -145,12 +133,6 @@ export function blockedTrustNoticeText(
 export function truncationNoticeText(line: number, remainingLines: number, tagName: string): string {
   const noun = remainingLines === 1 ? 'line' : 'lines';
   return `Everything after line ${line} (${remainingLines} ${noun}) is inside an unclosed <${tagName}> and was not shown.`;
-}
-
-/** A host as the reader should see it: `bücher.de (xn--bcher-kva.de)` when it is an IDN, else as is. */
-export function displayHost(host: string): string {
-  const unicode = hostnameToUnicode(host);
-  return unicode === host ? host : `${unicode} (${host})`;
 }
 
 /** What the reader is told when a trust change could not be saved. */

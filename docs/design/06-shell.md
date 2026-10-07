@@ -43,7 +43,7 @@ one side and parsed on the other (MARXY-198).
 | `openDialog` → `open_dialog` | `{ directory?, multiple? }` | `string[]` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
 | `webkitVersion` → `webkit_version` | — | `{ major, minor, micro } \| null` (Linux only) | — | os (`webkit2gtk::{major,minor,micro}_version`) | MARXY-21 |
 | `configPaths` → `config_paths` | — | `{ config, data }` | — | app (`tauri::path` resolver) | MARXY-38 |
-| `readDir` → `read_dir` | `dir` | `FileStat[]` (one level; deny list applied) | not-found, permission | fs (std, like `index/mod.rs`) | MARXY-87 |
+| `readDir` → `read_dir` | `dir` | `FileStat[]` (one level; deny list applied) | not-found, permission | fs (std) | MARXY-87 |
 | `setTitle` → `set_title` | `title` | `()` | — | app (`WebviewWindow::set_title`) | MARXY-49 |
 | `allowAssetScope` → `allow_asset_scope` | `dir` | `()` | invalid (not a directory) | fs | MARXY-26, MARXY-47 |
 | `saveDialog` → `save_dialog` | `{ defaultPath? }` | `string \| null` | — | os (`tauri-plugin-dialog`) | MARXY-49 |

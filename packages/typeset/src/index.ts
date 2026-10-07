@@ -4,7 +4,7 @@
  * with hanging punctuation and hyphenation; viewport first, the rest in idle time, then the grid pass.
  */
 
-import { SET, applyBreaks, contentBox, overflow, revert } from './apply.ts';
+import { LINE_BREAK, SET, applyBreaks, contentBox, overflow, revert } from './apply.ts';
 import { applyHang } from './hang.ts';
 import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
 import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
@@ -63,8 +63,13 @@ export interface TypesetStats {
 export interface TypesetController {
   /** The first pass over the viewport is done. */
   readonly ready: Promise<void>;
-  /** Every paragraph has been considered. */
+  /** Every paragraph has been considered, adopted ones included. */
   readonly done: Promise<void>;
+  /**
+   * Paragraphs inside `roots`, appended to the article after the first pass (A-02), join the
+   * background queue and the visibility observer; `done` resolves only once they are set too.
+   */
+  adopt(roots: readonly HTMLElement[]): void;
   relayout(reason: 'fonts' | 'resize' | 'theme' | 'reload'): void;
   /** Restores native wrapping everywhere. */
   destroy(): void;
@@ -119,10 +124,23 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   let queue: HTMLElement[] = [];
   let generation = 0;
   let observer: IntersectionObserver | null = null;
+  /** The background step of the current layout, while it has one; adopted paragraphs are queued to it. */
+  let background: { readonly mine: number; readonly step: (deadline: () => number) => void; running: boolean } | null = null;
   let resolveReady!: () => void;
   let resolveDone!: () => void;
+  let doneSettled = false;
   const ready = new Promise<void>((resolve) => { resolveReady = resolve; });
-  const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+  const settle = (resolve: () => void) => () => {
+    doneSettled = true;
+    resolve();
+  };
+  let done = new Promise<void>((resolve) => { resolveDone = settle(resolve); });
+  /** Work arrived after `done` resolved: a new `done` for it. */
+  const reopenDone = (): void => {
+    if (!doneSettled) return;
+    doneSettled = false;
+    done = new Promise<void>((resolve) => { resolveDone = settle(resolve); });
+  };
 
   const fallback = (reason: string): void => {
     stats.fallbacks++;
@@ -174,6 +192,9 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
    * reads or all writes.
    */
   const setBatch = (paragraphs: readonly HTMLElement[]): void => {
+    // Changes made by someone else before this batch are handled first; this batch's own writes
+    // (breaks, hang, reverts) are dropped from the change watcher below once it is done.
+    resetChanged(changes?.takeRecords() ?? []);
     const candidates = paragraphs.map(candidate).filter((x): x is Candidate => x !== null);
     const plans: Plan[] = [];
     for (const c of candidates) {
@@ -222,7 +243,78 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     stats.typeset += plans.length - over.length + retried.length - failed.length;
     for (const p of paragraphs) observer?.unobserve(p);
+    changes?.takeRecords();
   };
+
+  /** Whether a mutation can change a line: one that only adds `display: none` elements cannot. */
+  const canMoveLines = (r: MutationRecord): boolean => {
+    if (r.type !== 'childList' || r.removedNodes.length > 0) return true;
+    for (const n of r.addedNodes) {
+      if (n.nodeType !== Node.ELEMENT_NODE || getComputedStyle(n as Element).display !== 'none') return true;
+    }
+    return false;
+  };
+
+  /** Lines a set paragraph paints, from its content height; the breaks promise one more than they number. */
+  const linesOf = (p: HTMLElement): number => {
+    const cs = getComputedStyle(p);
+    const content = p.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    return Math.round(content / opts.lineBox);
+  };
+  const breaksIn = (p: HTMLElement): number => p.querySelectorAll(`.${LINE_BREAK}`).length;
+
+  /**
+   * A post-pass that writes into a paragraph after it was set (invisible-character markers, link
+   * destinations, both display-only) can change what its lines hold, and the breaks chosen for the old
+   * text may no longer fit: a marker on a full line pushed it past the measure (B-02.3). Such a
+   * paragraph is taken back to native wrapping and set again from what it now holds. Only child-list
+   * and text changes are observed; attribute and style writes (the grid pass's padding) deliberately
+   * are not, so the grid pass this triggers cannot wake it again.
+   *
+   * The work is bounded: a write that leaves every line as it was (a hidden label, a marker on a line
+   * with room for it) costs reads only; a changed paragraph near the viewport is set again in this task,
+   * before paint; one further away is reverted to native wrapping, which cannot be overfull, and queued
+   * to the idle chunks and the visibility observer like any other paragraph.
+   */
+  const resetChanged = (records: readonly MutationRecord[]): void => {
+    if (records.length === 0 || background === null || background.mine !== generation) return;
+    const touched = new Set<HTMLElement>();
+    for (const r of records) {
+      const at = r.target.nodeType === Node.ELEMENT_NODE ? (r.target as Element) : r.target.parentElement;
+      const p = at?.closest<HTMLElement>(`.${SET}`);
+      if (p === null || p === undefined || touched.has(p) || !article.contains(p)) continue;
+      if (canMoveLines(r)) touched.add(p);
+    }
+    if (touched.size === 0) return;
+    // Reads only: which touched paragraphs no longer paint the lines their breaks promise.
+    const horizon = window.innerHeight * 2;
+    const near: HTMLElement[] = [];
+    const far: HTMLElement[] = [];
+    for (const p of touched) {
+      // `scrollWidth` is whole pixels: only a one-pixel overhang needs the exact glyph walk.
+      const over = linesOf(p) === breaksIn(p) + 1 ? p.scrollWidth - p.clientWidth : Infinity;
+      const fits = over <= 0 || (over <= 1 && overflow(p, contentBox(p).right) <= 0.5);
+      if (fits) continue;
+      const rect = p.getBoundingClientRect();
+      (rect.bottom > -window.innerHeight && rect.top < horizon ? near : far).push(p);
+    }
+    if (near.length === 0 && far.length === 0) return;
+    const before = new Map(near.map((p) => [p, breaksIn(p)]));
+    for (const p of [...near, ...far]) {
+      revert(p);
+      stats.paragraphs--;
+      stats.typeset--;
+    }
+    changes?.takeRecords();
+    if (killed()) return;
+    if (far.length > 0) enqueue(far);
+    if (near.length === 0) return;
+    setBatch(near);
+    // The grid pass runs again only when a paragraph's line count, and so its height, moved.
+    if (near.some((p) => !p.classList.contains(SET) || breaksIn(p) !== before.get(p))) opts.onPass?.('visible');
+  };
+  const changes = typeof MutationObserver === 'undefined' ? null : new MutationObserver((records) => resetChanged(records));
+  changes?.observe(article, { subtree: true, childList: true, characterData: true });
 
   const run = (): void => {
     const mine = ++generation;
@@ -290,6 +382,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     const step = (deadline: () => number): void => {
       if (mine !== generation || abortIfKilled()) return;
+      bg.running = false;
       const batch: HTMLElement[] = [];
       // Paragraphs cost roughly the same; take a few at a time while the chunk has budget left.
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
@@ -297,21 +390,49 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
         setBatch(batch);
         opts.onPass?.('background');
       }
-      if (queue.length > 0) scheduler.schedule(step);
-      else {
-        observer?.disconnect();
-        resolveDone();
-      }
+      // The observer is no longer disconnected when the queue empties: paragraphs adopted later (A-02)
+      // are observed by it, and once every paragraph is set it observes nothing.
+      if (queue.length > 0) {
+        bg.running = true;
+        scheduler.schedule(step);
+      } else resolveDone();
     };
-    if (queue.length > 0) scheduler.schedule(step);
-    else resolveDone();
+    const bg = { mine, step, running: false };
+    background = bg;
+    if (queue.length > 0) {
+      bg.running = true;
+      scheduler.schedule(step);
+    } else resolveDone();
+  };
+
+  const adopt = (roots: readonly HTMLElement[]): void => {
+    // Before the first layout there is nothing to join: that layout reads the whole article as it is then.
+    const bg = background;
+    if (bg === null || bg.mine !== generation || killed()) return;
+    const found = roots.flatMap((root) => [...(root.matches(CANDIDATES) ? [root] : []), ...root.querySelectorAll<HTMLElement>(CANDIDATES)]);
+    enqueue(found);
+  };
+
+  /** Paragraphs join the background queue and the visibility observer; `done` waits for them. */
+  const enqueue = (found: readonly HTMLElement[]): void => {
+    const bg = background;
+    if (bg === null || bg.mine !== generation || found.length === 0) return;
+    reopenDone();
+    queue.push(...found);
+    for (const p of found) observer?.observe(p);
+    if (!bg.running) {
+      bg.running = true;
+      scheduler.schedule(bg.step);
+    }
   };
 
   const restoreAll = (): void => {
     generation++;
+    background = null;
     observer?.disconnect();
     queue = [];
     for (const p of article.querySelectorAll<HTMLElement>(`.${SET}`)) revert(p);
+    changes?.takeRecords();
     Object.assign(stats, { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0 });
     for (const key of Object.keys(stats.reasons)) delete stats.reasons[key];
   };
@@ -319,8 +440,11 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   run();
   return {
     ready,
-    done,
+    get done() {
+      return done;
+    },
     stats,
+    adopt,
     relayout(reason) {
       restoreAll();
       // Full flush on face/theme reload; resize re-reads computed size lazily in FontSizes.of (MARXY-280).
@@ -329,6 +453,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     },
     destroy() {
       restoreAll();
+      changes?.disconnect();
     },
   };
 }

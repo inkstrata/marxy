@@ -31,9 +31,9 @@ shell-free: the shell hands it the bytes). Unknown keys are ignored with a notic
 once. Invalid values fall back to the default for that key, with a notice. The file is read at
 startup and watched (§08 mechanism); changes apply live except `resident`.
 
-There is no settings UI in v1. Marxy writes to the config file in exactly two cases:
-`Mod+=`/`Mod+-` write `size`, and "Use this theme" (§05) writes `theme`. Both preserve the
-rest of the file byte-for-byte by editing the one top-level line for that key (or appending
+There is no settings UI in v1. Marxy writes to the config file in exactly three cases:
+`Mod+=`/`Mod+-`/`Mod+0` write `size`, "Use light variant" and "Use dark variant" write `variant`,
+and "Use this theme" (§05) writes `theme`. All three preserve the rest of the file byte-for-byte by editing the one top-level line for that key (or appending
 it before the first `[table]` header, with the file's own line ending), through one function,
 `setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`.
 

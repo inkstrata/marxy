@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession, recordOpen, togglePin, goBack, goForward, OPENS_CAP } from './session.ts';
-import { paletteResults } from './search.ts';
+import { paletteResults, prepareIndex } from './search.ts';
 
 function entry(path: string, title = path): IndexEntry {
   return {
@@ -79,4 +79,53 @@ test('back and forward walk history and drop the undone branch on a new open', (
   const again = goBack(session);
   assert.ok(again !== undefined);
   assert.equal(again!.path, '/b');
+});
+
+test('recordOpen stamps readAt, and going back is a read too', () => {
+  let session = emptySession('/repo');
+  assert.deepEqual(session.readAt, {});
+  session = recordOpen(session, '/a', undefined, 1_000);
+  session = recordOpen(session, '/b', undefined, 2_000);
+  assert.deepEqual(session.readAt, { '/a': 1_000, '/b': 2_000 });
+  const before = Date.now();
+  const back = goBack(session);
+  assert.equal(back!.path, '/a');
+  assert.ok(back!.session.readAt['/a']! >= before);
+  assert.equal(back!.session.readAt['/b'], 2_000);
+});
+
+test('recordOpen with a root in /b moves currentRoot to /b', () => {
+  const session = recordOpen(emptySession('/a'), '/b/x.md', '/b');
+  assert.equal(session.currentRoot, '/b');
+  assert.deepEqual(session.recentRoots, ['/b', '/a']);
+});
+
+test('of two equal matches the one the session read more recently ranks first', () => {
+  const entries = [
+    entry('/repo/a.md', 'notes'),
+    entry('/repo/b.md', 'notes'),
+  ];
+  const plain = emptySession('/repo');
+  assert.deepEqual(
+    paletteResults('notes', entries, plain).map((hit) => hit.entry.path),
+    ['/repo/a.md', '/repo/b.md'],
+    'with no history the path breaks the tie',
+  );
+  const now = Date.now();
+  let session = recordOpen(plain, '/repo/a.md', undefined, now - 3_600_000);
+  session = recordOpen(session, '/repo/b.md', undefined, now - 60_000);
+  const prepared = prepareIndex(entries, session.readAt);
+  const hits = paletteResults('notes', entries, { ...session, mru: [] }, { prepared });
+  assert.deepEqual(hits.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
+});
+
+test('a hit opened in root /b moves the current root, and /b hits come before /a hits', () => {
+  const entries = [
+    { ...entry('/a/guide.md', 'guide'), root: '/a' },
+    { ...entry('/b/guide.md', 'guide'), root: '/b' },
+  ];
+  const session = recordOpen(emptySession('/a'), '/b/other.md', '/b');
+  assert.equal(session.currentRoot, '/b');
+  const hits = paletteResults('guide', entries, session);
+  assert.deepEqual(hits.map((hit) => hit.entry.root), ['/b', '/a']);
 });

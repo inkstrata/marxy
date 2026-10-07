@@ -1,1 +1,0 @@
-The Cargo dependency gate now reads crate names from `[dependencies.crate-name]` table headers as well as inline `crate = "…"` lines, so a forbidden crate cannot hide behind the table form (MARXY-308)

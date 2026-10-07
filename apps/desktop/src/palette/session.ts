@@ -14,6 +14,8 @@ export interface PaletteSession {
   readonly historyIndex: number;
   readonly currentRoot: string;
   readonly recentRoots: readonly string[];
+  /** Epoch milliseconds of the last open per path; feeds ranking and history.json's `at`. */
+  readonly readAt: Readonly<Record<string, number>>;
 }
 
 let paletteHydration: PaletteSession | null = null;
@@ -37,6 +39,7 @@ export function emptySession(currentRoot: string): PaletteSession {
     historyIndex: -1,
     currentRoot,
     recentRoots: [currentRoot],
+    readAt: {},
   };
 }
 
@@ -50,7 +53,12 @@ export function rememberRoot(session: PaletteSession, root: string): PaletteSess
 }
 
 /** Record that a document was used: front of MRU, and a new history tip. */
-export function recordOpen(session: PaletteSession, path: string, root?: string): PaletteSession {
+export function recordOpen(
+  session: PaletteSession,
+  path: string,
+  root?: string,
+  now: number = Date.now(),
+): PaletteSession {
   const mru = [path, ...session.mru.filter((item) => item !== path)].slice(0, OPENS_CAP);
   const kept = session.historyIndex >= 0 ? session.history.slice(0, session.historyIndex + 1) : [];
   const withoutDup = kept.length > 0 && kept[kept.length - 1] === path ? kept : [...kept, path];
@@ -59,6 +67,7 @@ export function recordOpen(session: PaletteSession, path: string, root?: string)
     mru,
     history: withoutDup,
     historyIndex: withoutDup.length - 1,
+    readAt: { ...session.readAt, [path]: now },
   };
   return root !== undefined && root !== session.currentRoot ? rememberRoot(next, root) : next;
 }
@@ -78,7 +87,7 @@ export function goBack(
   const historyIndex = session.historyIndex - 1;
   const path = session.history[historyIndex];
   if (path === undefined) return undefined;
-  return { session: touchMru({ ...session, historyIndex }, path), path };
+  return { session: touchMru({ ...session, historyIndex }, path, Date.now()), path };
 }
 
 export function goForward(
@@ -90,7 +99,7 @@ export function goForward(
   const historyIndex = session.historyIndex + 1;
   const path = session.history[historyIndex];
   if (path === undefined) return undefined;
-  return { session: touchMru({ ...session, historyIndex }, path), path };
+  return { session: touchMru({ ...session, historyIndex }, path, Date.now()), path };
 }
 
 /** Empty-query order: pinned (newest used first), then the rest of the MRU, newest first. */
@@ -102,9 +111,10 @@ export function emptyQueryPaths(session: PaletteSession): readonly string[] {
   return [...pinnedUsed, ...pinnedIdle, ...rest];
 }
 
-function touchMru(session: PaletteSession, path: string): PaletteSession {
+function touchMru(session: PaletteSession, path: string, now: number): PaletteSession {
   return {
     ...session,
+    readAt: { ...session.readAt, [path]: now },
     mru: [path, ...session.mru.filter((item) => item !== path)].slice(0, OPENS_CAP),
   };
 }

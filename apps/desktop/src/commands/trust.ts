@@ -13,18 +13,15 @@ async function runRevoke(revoke: (() => Promise<void>) | null): Promise<void> {
   }
 }
 
-let grantsForPath: (() => { html: boolean; imageHosts: readonly string[] } | null) | null = null;
+let grantsForPath: (() => { html: boolean } | null) | null = null;
 let revokeHtml: (() => Promise<void>) | null = null;
-let revokeImages: (() => Promise<void>) | null = null;
 
 export function wireTrustRevokeCommands(opts: {
-  grantsForPath(): { html: boolean; imageHosts: readonly string[] } | null;
+  grantsForPath(): { html: boolean } | null;
   revokeHtml(): Promise<void>;
-  revokeImages(): Promise<void>;
 }): void {
   grantsForPath = opts.grantsForPath;
   revokeHtml = opts.revokeHtml;
-  revokeImages = opts.revokeImages;
 }
 
 export function trustRevokeCommands(): readonly Command[] {
@@ -39,18 +36,6 @@ export function trustRevokeCommands(): readonly Command[] {
       },
       run() {
         return runRevoke(revokeHtml);
-      },
-    },
-    {
-      id: 'trust.revoke-images',
-      title: 'Stop loading images for this document',
-      group: 'document',
-      when() {
-        const g = grantsForPath?.();
-        return (g?.imageHosts.length ?? 0) > 0;
-      },
-      run() {
-        return runRevoke(revokeImages);
       },
     },
   ];

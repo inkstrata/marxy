@@ -104,7 +104,7 @@ test('criterion 4: MARK first_text stays two fields and measure-startup still pa
 
   // Read through stripComments (scripts/lib/repo.mjs) so a comment reciting these strings —
   // rather than the live code — cannot satisfy this pin (MARXY-95 review, criterion 8).
-  const app = stripComments(readFileSync(join(desktop, 'src', 'app.ts'), 'utf8'));
+  const app = stripComments(readFileSync(join(desktop, 'src', 'startup', 'measure.ts'), 'utf8'));
   assert.match(app, /await shell\.mark\('first_text', paintedAt\);/);
   assert.doesNotMatch(app, /mark\('first_text',\s*paintedAt,/);
 
@@ -113,10 +113,19 @@ test('criterion 4: MARK first_text stays two fields and measure-startup still pa
 });
 
 test('criterion 5: paint-signal contract and the MARXY-72 frames verdict stay wired', () => {
-  const app = stripComments(readFileSync(join(desktop, 'src', 'app.ts'), 'utf8'));
-  assert.match(app, /waitForEnginePaint/);
-  assert.match(app, /signal=\$\{signal\}/);
-  assert.match(app, /frames=\$\{frames\}/);
+  const measureSrc = stripComments(readFileSync(join(desktop, 'src', 'startup', 'measure.ts'), 'utf8'));
+  assert.match(measureSrc, /waitForEnginePaint/);
+  assert.match(measureSrc, /signal=\$\{signal\}/);
+  assert.match(measureSrc, /frames=\$\{frames\}/);
+
+  // B-08: the measurement lives in startup/measure.ts, not in app.ts.
+  const appSrc = stripComments(readFileSync(join(desktop, 'src', 'app.ts'), 'utf8'));
+  for (const gone of ['framesObserved', 'observing', 'observeFrame', 'settleReady', 'inHarness']) {
+    assert.doesNotMatch(appSrc, new RegExp(`\\b${gone}\\b`), `app.ts must not hold ${gone}`);
+    assert.match(measureSrc, new RegExp(`\\b${gone}\\b`), `measure.ts must hold ${gone}`);
+  }
+  assert.doesNotMatch(appSrc, /function renderEvidence|waitForEnginePaint|isDocVisible/);
+  assert.match(measureSrc, /renderEvidence/);
 
   const smoke = readFileSync(join(desktop, 'scripts', 'smoke-cli-open.mjs'), 'utf8');
   assert.match(smoke, /waitForEnginePaint/);

@@ -17,7 +17,6 @@ import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { AppHandle, AppShell, OpenDocumentState } from '../app.ts';
 import { notify } from '../notices/index.ts';
 import { pathsForDocument } from '../render/images.ts';
-import { historyDirection } from '../palette/keys.ts';
 import type { NodeMap } from '../render/post.ts';
 import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
 import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
@@ -81,7 +80,6 @@ let installedOn: HTMLElement | null = null;
 let appHandle: AppHandle | null = null;
 let navHistory: string[] = [];
 let navIndex = -1;
-let linkHistoryKeysInstalled = false;
 let pendingFragment: string | undefined;
 
 const MARKDOWN_LINK = /\.(md|markdown|mdx|txt)$/i;
@@ -105,20 +103,12 @@ function recordNavOpen(nextPath: string): void {
   navIndex = navHistory.length - 1;
 }
 
-function installLinkHistoryKeys(): void {
-  if (linkHistoryKeysInstalled) return;
-  linkHistoryKeysInstalled = true;
-  window.addEventListener(
-    'keydown',
-    (event) => {
-      if (historyDirection(event) !== 'back' || navIndex <= 0 || !appHandle) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      navIndex -= 1;
-      void appHandle.open(navHistory[navIndex]!);
-    },
-    true,
-  );
+/** One step back in the link history; true when it moved (the caller then has nothing left to do). */
+export function linkBack(): boolean {
+  if (navIndex <= 0 || !appHandle) return false;
+  navIndex -= 1;
+  void appHandle.open(navHistory[navIndex]!);
+  return true;
 }
 
 function isExternalHref(href: string): boolean {
@@ -378,8 +368,6 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
       });
     }
   });
-
-  installLinkHistoryKeys();
 
   // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
   let downAt: { x: number; y: number } | null = null;

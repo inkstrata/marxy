@@ -1,1 +1,0 @@
-The macOS menu bar gains View (Toggle Rendered / Source, Cmd+E) and Go (Back Cmd+[, Forward Cmd+], Open Quickly… Cmd+P), so the reader's existing keyboard commands can also be found and clicked; nothing that edits the document is added (MARXY-342)

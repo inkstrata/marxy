@@ -75,3 +75,199 @@ jobs:
           WEBKIT_DISABLE_COMPOSITING_MODE: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
           NO_AT_BRIDGE: "1"
+
+  # What a reader feels, measured on the app harness and recorded, never gated (ADR-0032, A-03): first
+  # text and its stages for the corpus and the large files, the typeset viewport, live reload, opening
+  # a second document, and palette search at 5k, 20k and 50k entries. Fails only when a measurement it
+  # asked for produced no sample. Playwright WebKit on a hosted Linux runner: a trend, not the audit's Mac.
+  perf-harness:
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - name: Build the frontend
+        run: pnpm --filter @marxy/desktop build:web
+      - name: Perf harness over the corpus, 256 KB and 1 MB, reload, second open and palette
+        run: pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --record results/perf-nightly.json --summary "$GITHUB_STEP_SUMMARY"
+        env:
+          MARXY_RUNNER_CLASS: ubuntu-latest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-nightly
+          path: results/
+          if-no-files-found: ignore
+
+  # The macOS build, which left the pull-request path (A-09, ADR-0046): the binary, its licence gate,
+  # the command-line smoke and the shell's unit tests, plus start-up of the built app with every mark
+  # of every launch, recorded, never gated (A-03). A launch that never paints still yields the shell's
+  # stages and says no_paint; the measurement fails only when no launch printed a mark at all. The plan
+  # calls this job build-macos; it keeps A-03's name because scripts/perf-harness.test.mjs pins it.
+  startup-macos:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      MARXY_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci/marxy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ci-profile
+          cache-on-failure: true
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - name: Build the frontend
+        run: pnpm --filter @marxy/desktop build:web
+      # `tauri build` enables tauri/custom-protocol so the app serves the embedded frontend; a plain
+      # cargo build must pass it explicitly or the window never loads a page.
+      - name: Build the desktop binary with the ci profile
+        run: cd apps/desktop/src-tauri && cargo build --locked --profile ci --features tauri/custom-protocol
+      - name: Licence gate (post-build, populated cargo cache)
+        run: node scripts/gate-licences.mjs --require-registry
+      - name: CLI smoke check on the built binary
+        run: pnpm --filter @marxy/desktop verify:cli
+      - name: Start-up measurement rules selftest
+        run: node scripts/measure-startup.mjs --selftest
+      - name: Start-up measurement (nine launches, every mark)
+        run: node scripts/measure-startup.mjs
+        env:
+          MARXY_PERF_REQUIRED: "1"
+          MARXY_PERF_ENV: ci
+          MARXY_RUNNER_CLASS: macos-latest
+      # After the start-up measurement, never before: compiling the test harness writes a large new
+      # target tree, and launches measured right after it came out with a cold launch faster than the
+      # warm ones (cold_warm_ratio 0.77), which makes the record lie.
+      - name: Rust unit tests
+        run: cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: startup-macos
+          path: results/
+          if-no-files-found: ignore
+
+  # The pull-request `rust` job of ci.yml, every night, whatever changed: a pull request runs it only
+  # when Rust, the Vite config, the CLI smoke, the toolchain or a dependency changed (A-09).
+  rust-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MARXY_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci/marxy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - name: Linux webview and X deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus
+      - name: The webview library is visible to pkg-config
+        run: pkg-config --exists glib-2.0 && pkg-config --modversion glib-2.0
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ci-profile
+          cache-on-failure: true
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - name: Rust format and clippy
+        run: pnpm lint:rust
+      - name: Build the frontend
+        run: pnpm --filter @marxy/desktop build:web
+      - name: Build the desktop binary with the ci profile
+        run: cd apps/desktop/src-tauri && cargo build --locked --profile ci --features tauri/custom-protocol
+      - name: Licence gate (post-build, populated cargo cache)
+        run: node scripts/gate-licences.mjs --require-registry
+      - name: CLI smoke check on the built binary
+        run: pnpm --filter @marxy/desktop verify:cli
+      - name: Rust unit tests
+        run: cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet
+      - run: pnpm gate:bundle
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rust-linux
+          path: results/
+          if-no-files-found: ignore
+
+  # The fleet's tests, which a pull request runs only when orchestration/, scripts/ or the prose they
+  # assert changed (A-09).
+  fleet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      - run: pnpm test:fleet
+
+  # Every WebKit test, with WebKit required (A-10). A pull request runs only the desktop `test:lite`
+  # set in ci.yml's browser-lite job; here run the whole desktop suite, its mutation check, and the
+  # typeset, theme and core suites, whose WebKit tests no pull-request job runs (audit 04 §3). Each
+  # suite runs even when one before it failed, so one night names every red suite.
+  browser-full:
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    timeout-minutes: 45
+    env:
+      MARXY_BROWSER_TESTS_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
+      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
+      # One desktop test compiles a small Rust crate (images.test.mjs), and the Playwright image ships
+      # no C linker for cargo's build scripts.
+      - name: A C linker for the desktop suite's Rust test
+        run: apt-get update -qq && apt-get install -y -qq build-essential
+      - name: Desktop suite
+        run: pnpm --filter @marxy/desktop test
+      - name: Desktop mutation check
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/desktop test:mutations
+      - name: Theme suite
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/theme test
+      - name: Typeset suite
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/typeset test
+      - name: Core suite
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @marxy/core test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-full
+          path: results/
+          if-no-files-found: ignore

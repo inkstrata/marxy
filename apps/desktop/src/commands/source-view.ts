@@ -1,6 +1,8 @@
 // Source gutter toggle and jump-to-source palette commands (MARXY-239).
+import type { AppHandle } from '../app.ts';
 import type { Command } from './registry.ts';
 import { writeLineNumbersPreference } from '../source/line-numbers.ts';
+import { appHandle } from './app-handle.ts';
 import { getSelectionBufferContext } from '../selection/view.ts';
 
 function byteAttr(el: Element | null | undefined): number | null {
@@ -63,9 +65,11 @@ export function sourceViewCommands(): readonly Command[] {
       run: async () => {
         const byte = selectionStartByte();
         const ctx = getSelectionBufferContext();
-        const open = (window as Window & {
-          __marxyHandle?: { openDocument?: () => { buffer: import('@marxy/core').Buffer } | null };
-        }).__marxyHandle?.openDocument?.();
+        // The running app's handle; the bare app.html test harness never mounts the palette, so it
+        // still names its handle on window.
+        const open = (
+          appHandle() ?? (window as Window & { __marxyHandle?: AppHandle }).__marxyHandle
+        )?.openDocument?.();
         const buffer = ctx?.buffer ?? open?.buffer;
         if (byte === null || !buffer) return;
         const { openSourceAtByte } = await import('../source/mode-open.ts');

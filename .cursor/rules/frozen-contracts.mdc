@@ -1,6 +1,6 @@
 ---
-description: Frozen contracts — these files change only through a story that names them and carries an ADR
+description: Reviewed contracts — change by pull request; an ADR only when the meaning changes
 globs: ["packages/*/src/contracts/**", "packages/theme/src/tokens.css", "packages/shell-api/src/**"]
 alwaysApply: false
 ---
-You are looking at a frozen contract (ADR-0003, ADR-0004, ADR-0008, ADR-0010). Do not edit it unless your story's `Paths` names this file and your PR adds an ADR in `docs/adr/` explaining the change. If your task needs a contract change, stop and report `blocked` with the exact change required; the planner will write the story and the ADR.
+You are looking at a reviewed contract (ADR-0045). It changes by an ordinary pull request that says what changed and why, with the goldens it moves regenerated. Its invariants are tests (`pnpm gate:golden`, `pnpm gate:fidelity`, `pnpm check`). Write an ADR only when the meaning changes: a new node kind, a new selection granularity, a new privileged capability. The `--marxy-*` token names and units still need an ADR to change; their values are taste.

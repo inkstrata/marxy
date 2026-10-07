@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { relativeImportSpecs, memoryShellReachableFromMain, resolveRelativeModule, distChunkSpecs } from './gate-bundle.mjs';
+import { relativeImportSpecs, memoryShellReachableFromMain, resolveRelativeModule, distChunkSpecs, entryChunks, katexInEntry, staticChunkSpecs } from './gate-bundle.mjs';
 
 test('relativeImportSpecs includes dynamic import() and require() of a relative path', () => {
   const source = `
@@ -123,9 +123,46 @@ test('MARXY-337: relativeImportSpecs is not fooled by comment markers inside str
 });
 
 test('MARXY-337: gate scripts turn import.meta.url into a path with fileURLToPath, not .pathname', () => {
-  for (const f of ['gate-bundle', 'gate-no-network', 'gate-licences', 'measure-startup', 'gate-aesthetics', 'gate-protection']) {
+  for (const f of ['gate-bundle', 'gate-no-network', 'gate-licences', 'measure-startup', 'gate-aesthetics']) {
     const text = readFileSync(new URL(`./${f}.mjs`, import.meta.url), 'utf8');
     // `.pathname` percent-encodes a space, `%` or a non-ASCII letter in the checkout path.
     assert.doesNotMatch(text.replace(/new URL\(req\.url[^)]*\)\.pathname/g, '').replace(/new URL\(spec[^)]*\)\.pathname/g, ''), /import\.meta\.url\)\.pathname/, f);
   }
+});
+
+function fixtureDist(files) {
+  const dist = mkdtempSync(join(tmpdir(), 'marxy-a17-'));
+  mkdirSync(join(dist, 'assets'), { recursive: true });
+  for (const [name, text] of Object.entries(files)) writeFileSync(join(dist, name), text);
+  return dist;
+}
+const INDEX = '<html><head><script type="module" src="./assets/index-1.js"></script><link rel="modulepreload" href="./assets/vendor-1.js"></head></html>';
+
+test('A-17: KaTeX only in a lazily imported chunk passes the entry check', () => {
+  const dist = fixtureDist({
+    'index.html': INDEX,
+    'assets/index-1.js': 'import{a}from"./vendor-1.js";a(()=>import("./katex-1.js"));x.closest(".katex");',
+    'assets/vendor-1.js': 'export const a=f=>f();',
+    'assets/katex-1.js': 'throw new Error("KaTeX parse error: x")',
+  });
+  try {
+    assert.deepEqual(katexInEntry(dist), { error: null, hits: [] });
+    assert.deepEqual(staticChunkSpecs('a(()=>import("./k.js"));import{x}from"./v.js";import"./s.js"'), ['./v.js', './s.js']);
+  } finally { rmSync(dist, { recursive: true, force: true }); }
+});
+
+test('A-17: KaTeX inside the entry chunk, or a statically imported or preloaded one, fails', () => {
+  for (const files of [
+    { 'assets/index-1.js': 'throw new Error("KaTeX parse error: x")', 'assets/vendor-1.js': '' },
+    { 'assets/index-1.js': '', 'assets/vendor-1.js': 'throw new Error("KaTeX parse error: x")' },
+    { 'assets/index-1.js': 'import{k}from"./katex-1.js";', 'assets/vendor-1.js': '', 'assets/katex-1.js': 'x' },
+  ]) {
+    const dist = fixtureDist({ 'index.html': INDEX, ...files });
+    try { assert.ok(katexInEntry(dist).hits.length > 0, JSON.stringify(Object.keys(files))); } finally { rmSync(dist, { recursive: true, force: true }); }
+  }
+});
+
+test('A-17: no dist/index.html is null (the gate fails it only under MARXY_BUNDLE_REQUIRED)', () => {
+  const dist = mkdtempSync(join(tmpdir(), 'marxy-a17-'));
+  try { assert.equal(katexInEntry(dist), null); assert.equal(entryChunks(dist), null); } finally { rmSync(dist, { recursive: true, force: true }); }
 });

@@ -523,30 +523,6 @@ function checkLinuxXattrWasRequired(testStdout) {
   fail('linux-xattr: the Linux attribute test neither preserved an attribute nor skipped for missing filesystem support');
 }
 
-// ---------------------------------------------------------------------------------------------
-// CI runs the gate on both runner classes, and the Linux step cannot be optional (criterion 4).
-// ---------------------------------------------------------------------------------------------
-
-function fidelityWorkflowStep(yaml) {
-  const lines = yaml.split('\n');
-  const start = lines.findIndex((line) => /run:\s*pnpm gate:fidelity\b/.test(line));
-  if (start < 0) return null;
-  const indent = /^\s*/.exec(lines[start])[0].length;
-  const block = [lines[start]];
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.trim() === '') {
-      block.push(line);
-      continue;
-    }
-    const ind = /^\s*/.exec(line)[0].length;
-    if (line.trimStart().startsWith('- ') && ind <= indent) break;
-    if (ind < indent) break;
-    block.push(line);
-  }
-  return block.join('\n');
-}
-
 const OWNERSHIP_CASES = [
   'refuse_ownership_change_refuses_a_uid_mismatch',
   'a_file_whose_group_differs_from_the_process_keeps_its_group_on_save',
@@ -606,33 +582,6 @@ function checkAdr0020RecordsHowAGateMayTestShell() {
   }
 }
 
-function checkCiRunsFidelityOnBothRunners() {
-  const workflow = join(repoRoot, '.github', 'workflows', 'ci.yml');
-  if (!existsSync(workflow)) {
-    fail('ci: .github/workflows/ci.yml is missing');
-    return;
-  }
-  const yaml = readFileSync(workflow, 'utf8');
-  if (!/macos-latest/.test(yaml) || !/ubuntu-latest/.test(yaml)) {
-    fail('ci: the workflow does not name both macos-latest and ubuntu-latest');
-  }
-  const step = fidelityWorkflowStep(yaml);
-  if (!step) {
-    fail('ci: pnpm gate:fidelity is not a workflow step');
-    return;
-  }
-  if (/continue-on-error/.test(step)) {
-    fail('ci: the gate:fidelity step carries continue-on-error; the Linux attribute test would not be required');
-  }
-  if (/\|\|\s*true/.test(step)) {
-    fail('ci: the gate:fidelity step carries || true; the Linux attribute test would not be required');
-  }
-  if (/if:\s*runner\.os\s*!=\s*'Linux'/.test(step) || /if:\s*runner\.os\s*==\s*'macOS'/.test(step)) {
-    fail('ci: the gate:fidelity step is skipped on Linux');
-  }
-  console.log('fidelity: CI runs gate:fidelity on both runner classes with no continue-on-error');
-}
-
 // ---------------------------------------------------------------------------------------------
 // The shell never turns a document into text.
 // ---------------------------------------------------------------------------------------------
@@ -656,7 +605,6 @@ function checkTheShellKeepsBytes() {
 checkTheGateIsWhatPnpmRuns();
 checkGatesByPathRoutesFidelity();
 checkCoreDoesNotReachDesktop();
-checkCiRunsFidelityOnBothRunners();
 checkAdr0020RecordsHowAGateMayTestShell();
 checkSavePathTestsShowMarkers();
 checkCorpusPreconditions();

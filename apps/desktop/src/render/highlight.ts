@@ -2,12 +2,21 @@
 // source line of every code block, highlighted or not, becomes one `.marxy-line` span so a line that
 // wraps can mark its continuation rows (base.css, ADR-0033). The text nodes, and so `textContent`,
 // copy and find, are unchanged: the newlines stay between the spans.
-import { highlight, type HighlightToken } from '@marxy/core/src/highlight/index.ts';
+import {
+  diffMarkerIndentCh,
+  highlight,
+  lineMetaForHighlight,
+  type HighlightToken,
+} from '@marxy/core/src/highlight/index.ts';
 import { applyInvisibleMarkers, sourceTextFromCode } from './invisibles-dom.ts';
 import { applyLinkDestinations } from './link-dest.ts';
 
 const LANGUAGE_PREFIX = 'language-';
 const LINE = 'marxy-line';
+const LONG_LINE_THRESHOLD = 1000;
+const LONG_LINE_HEAD = 200;
+const ELIDED_CLASS = 'marxy-elided';
+const OMITTED_CLASS = 'marxy-line-omitted';
 /** Matches base.css `tab-size`: a tab in the leading whitespace advances to the next multiple of 4. */
 const TAB = 4;
 
@@ -29,26 +38,61 @@ function languageFromCode(code: HTMLElement): string | null {
   return null;
 }
 
+function appendTokenText(parent: HTMLElement, text: string): void {
+  parent.append(document.createTextNode(text));
+}
+
+function appendToken(parent: HTMLElement, tok: HighlightToken): void {
+  if (tok.className) {
+    const span = document.createElement('span');
+    span.className = tok.className;
+    appendTokenText(span, tok.text);
+    parent.append(span);
+    return;
+  }
+  if (!tok.scope) {
+    appendTokenText(parent, tok.text);
+    return;
+  }
+  const span = document.createElement('span');
+  span.className = `marxy-tok-${tok.scope}`;
+  appendTokenText(span, tok.text);
+  parent.append(span);
+}
+
 /** Build trusted DOM from token lines; callers attach with `replaceChildren`, never `innerHTML`. */
-export function spansFromTokens(lines: readonly (readonly HighlightToken[])[]): DocumentFragment {
+export function spansFromTokens(
+  lines: readonly (readonly HighlightToken[])[],
+  opts?: { lang?: string | null },
+): DocumentFragment {
+  const lang = opts?.lang ?? null;
+  const meta = lang ? lineMetaForHighlight(lang, lines) : [];
   const frag = document.createDocumentFragment();
   for (let li = 0; li < lines.length; li++) {
     if (li > 0) frag.append(document.createTextNode('\n'));
     // An empty last line is the fence's closing newline, not a row: a span there would add one.
     if (li === lines.length - 1 && lines[li]!.length === 0) break;
     const line = document.createElement('span');
-    line.className = LINE;
-    const indent = indentColumns(lines[li]!.map((t) => t.text).join(''));
+    const lineClass = meta[li]?.lineClass;
+    line.className = lineClass ? `${LINE} ${lineClass}` : LINE;
+    const source = lines[li]!.map((t) => t.text).join('');
+    const markerCh = diffMarkerIndentCh(lineClass);
+    const indent = markerCh ?? indentColumns(source);
     if (indent > 0) line.style.setProperty('--marxy-indent', `${indent}ch`);
-    for (const tok of lines[li]!) {
-      if (!tok.scope) {
-        line.append(document.createTextNode(tok.text));
-        continue;
-      }
-      const span = document.createElement('span');
-      span.className = `marxy-tok-${tok.scope}`;
-      span.textContent = tok.text;
-      line.append(span);
+    if (source.length > LONG_LINE_THRESHOLD) {
+      const head = source.slice(0, LONG_LINE_HEAD);
+      const tail = source.slice(LONG_LINE_HEAD);
+      appendTokenText(line, head);
+      const omitted = document.createElement('span');
+      omitted.className = OMITTED_CLASS;
+      omitted.textContent = tail;
+      line.append(omitted);
+      const elided = document.createElement('span');
+      elided.className = ELIDED_CLASS;
+      elided.textContent = `… ${tail.length.toLocaleString('en-US')} more characters`;
+      line.append(elided);
+    } else {
+      for (const tok of lines[li]!) appendToken(line, tok);
     }
     frag.append(line);
   }
@@ -59,7 +103,8 @@ export function spansFromTokens(lines: readonly (readonly HighlightToken[])[]): 
 export function applyLinesToCode(code: HTMLElement): boolean {
   if (code.dataset.marxyDone !== undefined) return false;
   const lines = sourceTextFromCode(code).split('\n');
-  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }]))));
+  const lang = languageFromCode(code);
+  code.replaceChildren(spansFromTokens(lines.map((t) => (t === '' ? [] : [{ text: t }])), { lang }));
   applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'lines';
   return true;
@@ -118,10 +163,10 @@ export async function applyHighlightToCode(code: HTMLElement): Promise<boolean> 
   applyLinesToCode(code);
   const lines = await tokenize(source, lang);
   if (!lines) return false;
-  code.replaceChildren(spansFromTokens(lines));
+  code.replaceChildren(spansFromTokens(lines, { lang }));
   applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'highlight';
-  return true;
+  return Boolean(lines);
 }
 
 /** Every code block but math, fenced or indented, with or without a language. */
@@ -135,28 +180,68 @@ export async function applyAllHighlights(article: HTMLElement): Promise<void> {
 }
 
 /**
+ * Calls `onChange` once in the frame after any number of calls, so a batch of blocks coloured
+ * together asks for one grid pass, not one each.
+ */
+function coalesced(onChange: () => void): () => void {
+  let frame = 0;
+  return () => {
+    if (frame !== 0) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      onChange();
+    });
+  };
+}
+
+/**
+ * Highlights one block and returns whether it was split into line spans just now, which happens
+ * before the first await; `coloured` is called if the colour arrives later and changes it again.
+ */
+function highlightAndReport(code: HTMLElement, coloured: (() => void) | undefined): boolean {
+  const before = code.dataset.marxyDone;
+  const done = applyHighlightToCode(code);
+  const split = code.dataset.marxyDone;
+  void done.finally(() => {
+    if (code.dataset.marxyDone !== split) coloured?.();
+  });
+  return split !== before;
+}
+
+/**
  * Lazy highlighting in visibility order. Skips blocks already marked `data-marxy-done=highlight`.
  * Does not block startup — schedule from idle after first text (MARXY-164).
+ *
+ * `onLayoutChanged` is called once per batch of blocks split into line spans, in the same task, and
+ * at most once a frame after blocks were coloured. Both happen after the grid pass that followed this
+ * call, and a split block can change height: a wrapped line hangs past its indent or diff marker, so
+ * it can take another row (B-02.1). Without a new grid pass every block below it sits off the grid.
  */
-export function startCodeHighlight(article: HTMLElement): void {
+export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: () => void): void {
   applyInvisibleMarkers(article);
   applyLinkDestinations(article);
   const blocks = fencedCodeBlocks(article);
   if (blocks.length === 0) return;
+  const coloured = onLayoutChanged === undefined ? undefined : coalesced(onLayoutChanged);
 
   if (typeof IntersectionObserver === 'undefined') {
-    void applyAllHighlights(article);
+    let split = false;
+    for (const code of blocks) split = highlightAndReport(code, coloured) || split;
+    if (split) onLayoutChanged?.();
     return;
   }
 
   const observer = new IntersectionObserver(
     (entries) => {
+      let split = false;
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
         const code = entry.target as HTMLElement;
         observer.unobserve(code);
-        void applyHighlightToCode(code);
+        split = highlightAndReport(code, coloured) || split;
       }
+      // In the same frame the blocks were split, so no frame is painted with the blocks below them off the grid.
+      if (split) onLayoutChanged?.();
     },
     { root: null, rootMargin: '200% 0px' },
   );

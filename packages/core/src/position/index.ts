@@ -6,8 +6,6 @@ export type { ReloadedDocument, OpenDocumentUpdate } from './reload.ts';
 export { staleWriteError } from './stale-write.ts';
 export { effectForOpenDocument } from './watch-events.ts';
 export type { RootWatchEvent, WatchKind, OpenDocumentEffect } from './watch-events.ts';
-export { diffSnapshots } from './snapshot.ts';
-export type { FileIdentity, DirSnapshot } from './snapshot.ts';
 export {
   READING_LINE_FRACTION,
   readingLine,

@@ -10,7 +10,7 @@ use tauri::Manager;
 
 use crate::error::ShellError;
 
-/// Same names as `index-model/deny.ts` and `index/mod.rs`; a gitignore `!` cannot undo these.
+/// Same names as `index-model/deny.ts`; a gitignore `!` cannot undo these.
 const DENY_DIRECTORY_NAMES: &[&str] = &[
     "node_modules",
     "target",
@@ -142,7 +142,8 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
         }
         // A file can vanish (or its permissions change) between `fs::read_dir` listing it and this
         // `metadata()` call; that one entry is omitted rather than failing the whole listing, the
-        // same TOCTOU tolerance `index/mod.rs`'s `walk_root` already gives a racy directory tree.
+        // same TOCTOU tolerance `collectFiles` (`packages/core/src/index-model/walk.ts`) gives a racy directory
+        // tree with its try/catch around each listing.
         let meta = match entry.metadata() {
             Ok(meta) => meta,
             Err(_) => continue,
@@ -277,6 +278,41 @@ mod tests {
         let path = corpus_png();
         let err = scope_directory(&path.to_string_lossy()).unwrap_err();
         assert_eq!(err.code, "invalid");
+    }
+
+    /// The index walk trusts `read_dir` never to list a symlink, so it never leaves the root.
+    /// Every symlink is omitted: out-of-root directory and file links, and one that stays inside.
+    #[cfg(unix)]
+    #[test]
+    fn read_dir_omits_every_symlink() {
+        use std::os::unix::fs::symlink;
+        let base =
+            std::env::temp_dir().join(format!("marxy-read-dir-links-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let root = base.join("root");
+        let outside = base.join("outside");
+        fs::create_dir_all(&root).expect("root");
+        fs::create_dir_all(&outside).expect("outside");
+        fs::write(outside.join("secret.md"), b"# secret\n").expect("secret");
+        fs::write(root.join("real.md"), b"# real\n").expect("real");
+        symlink(&outside, root.join("dirlink")).expect("dir symlink");
+        symlink(outside.join("secret.md"), root.join("filelink.md")).expect("file symlink");
+        symlink(root.join("real.md"), root.join("insidelink.md")).expect("inside symlink");
+
+        let listed = read_dir(root.to_string_lossy().into_owned()).expect("read_dir");
+        let names: Vec<String> = listed
+            .iter()
+            .map(|s| {
+                Path::new(&s.path)
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        let _ = fs::remove_dir_all(&base);
+
+        assert_eq!(names, vec!["real.md".to_string()]);
     }
 
     #[test]

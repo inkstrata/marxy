@@ -17,6 +17,12 @@
       "source": "https://github.com/microsoft/vscode/blob/main/extensions/shellscript/syntaxes/shell-unix-bash.tmLanguage.json"
     },
     {
+      "id": "shellsession",
+      "grammar": "shellsession",
+      "licence": "MIT",
+      "source": "https://github.com/hronro/sublime-linguist-syntax/blob/master/syntaxes/shellsession.tmLanguage"
+    },
+    {
       "id": "c",
       "grammar": "c",
       "licence": "MIT",
@@ -89,10 +95,22 @@
       "source": "https://github.com/microsoft/vscode/blob/main/extensions/json/syntaxes/JSONC.tmLanguage.json"
     },
     {
+      "id": "jsonl",
+      "grammar": "jsonl",
+      "licence": "MIT",
+      "source": "https://github.com/microsoft/vscode/blob/main/extensions/json/syntaxes/JSONL.tmLanguage.json"
+    },
+    {
       "id": "kotlin",
       "grammar": "kotlin",
       "licence": "MIT",
       "source": "https://github.com/fwcd/vscode-kotlin/blob/main/syntaxes/kotlin.tmLanguage.json"
+    },
+    {
+      "id": "log",
+      "grammar": "log",
+      "licence": "MIT",
+      "source": "https://github.com/emilast/vscode-logfile-highlighter/blob/master/syntaxes/log.tmLanguage"
     },
     {
       "id": "markdown",
@@ -178,7 +196,10 @@
     "htm": "html",
     "svg": "xml",
     "golang": "go",
-    "patch": "diff"
+    "patch": "diff",
+    "console": "shellsession",
+    "bash session": "shellsession",
+    "sh-session": "shellsession"
   },
   "forbiddenGrammars": [
     "ada",

@@ -1,8 +1,8 @@
 // Classifies the desktop CLI smoke: skip only when the machine delivered no frames,
 // fail when a machine that can paint did not, and keep required mode a hard fail even
 // in the frameless state (MARXY-72). The frames >= 2 assertion (MARXY-13) is never weakened.
-// `.github/workflows/ci.yml` is outside this story's paths; CI requiredness is the
-// `CLI smoke check on the built binary` step running `verify:cli` (`MARXY_SMOKE_REQUIRED=1`).
+// In CI the smoke is required: the `CLI smoke check on the built binary` step runs `verify:cli`
+// (`MARXY_SMOKE_REQUIRED=1`) in ci.yml's `rust` job and in nightly.yml's macOS and Linux builds (A-09).
 
 /** The MARXY-13 floor: first_text must be at least this many animation frames after render. */
 export const MIN_FRAMES_AFTER_RENDER = 2;
@@ -83,45 +83,4 @@ export function paintVerdict({ noPaint, frames, required, how, environment }) {
     };
   }
   return { status: 'ok', message: '' };
-}
-
-const CLI_SMOKE_STEP_NAME = 'CLI smoke check on the built binary';
-
-/** The named CI step that runs verify:cli, or null if the workflow has no such step. */
-export function cliSmokeStepFromWorkflow(yaml) {
-  const start = yaml.search(/^[ \t]*- name:[ \t]*CLI smoke check on the built binary[ \t]*$/m);
-  if (start < 0) return null;
-  const rest = yaml.slice(start);
-  const firstNewline = rest.indexOf('\n');
-  const afterFirstLine = firstNewline < 0 ? '' : rest.slice(firstNewline + 1);
-  const next = afterFirstLine.search(/^[ \t]*- name:/m);
-  return next < 0 ? rest : rest.slice(0, firstNewline + 1 + next);
-}
-
-/**
- * Both GitHub-hosted runner classes must run verify:cli, and that step must not
- * be softened with continue-on-error or `|| true`.
- */
-export function workflowCliSmokeIsRequired(yaml) {
-  const reasons = [];
-  if (!/\bmacos-latest\b/.test(yaml)) reasons.push('workflow is missing macos-latest');
-  if (!/\bubuntu-latest\b/.test(yaml)) reasons.push('workflow is missing ubuntu-latest');
-  const step = cliSmokeStepFromWorkflow(yaml);
-  if (!step) {
-    reasons.push(`workflow has no "${CLI_SMOKE_STEP_NAME}" step`);
-    return { ok: false, reasons };
-  }
-  if (!/pnpm --filter @marxy\/desktop verify:cli/.test(step)) {
-    reasons.push('CLI smoke check does not run pnpm --filter @marxy/desktop verify:cli');
-  }
-  if (/continue-on-error/.test(step)) {
-    reasons.push('CLI smoke check sets continue-on-error');
-  }
-  if (/\|\|\s*true/.test(step)) {
-    reasons.push('CLI smoke check uses || true');
-  }
-  if (/^[ \t]*if:/m.test(step)) {
-    reasons.push('CLI smoke check is gated by if: and may skip a runner class');
-  }
-  return { ok: reasons.length === 0, reasons };
 }

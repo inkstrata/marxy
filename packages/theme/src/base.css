@@ -96,8 +96,9 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
      column's own width is what sets the margin, so the gutter only has to guarantee a floor —
      16px narrow, 24px on larger screens, widened below (MARXY-263). */
   --marxy-gutter: 16px;
-  /* How far wide content (code, tables) may run into the right margin: from the gutter to the window's edge. */
-  --marxy-room: max(0px, (100vw - var(--marxy-column)) / 2 - var(--marxy-gutter));
+  /* How far wide content (code, tables) may run into the right margin: from the gutter to the edge of the box the article sits in (the window, or one pane of a split;
+     100cqi falls back to the small viewport unit where no container exists). */
+  --marxy-room: max(0px, (100cqi - var(--marxy-column)) / 2 - var(--marxy-gutter));
   box-sizing: content-box;
   max-width: var(--marxy-column);
   margin-inline: auto;
@@ -125,6 +126,12 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
 @media (min-width: 30em) {
   .marxy-article { --marxy-gutter: 24px; }
 }
+/* A narrow container wins over a wide window, so a half-width pane keeps the 16px floor. */
+@container (max-width: 30em) {
+  .marxy-article { --marxy-gutter: 16px; }
+}
+/* The article's containing block is the container --marxy-room is measured against. */
+#marxy-main { container-type: inline-size; }
 
 /* Headings: hierarchy from size and weight only (constraint 4); space belongs above (constraint 3).
    The named gaps are 2lb above and half a line below (both grid units); padding-bottom closes the
@@ -331,6 +338,28 @@ a code { font-size: calc(var(--marxy-size-code) / var(--marxy-size-body) * 1em);
 .marxy-tok-constant { color: var(--marxy-tok-constant); }
 .marxy-tok-tag { color: var(--marxy-tok-tag); }
 .marxy-tok-attribute { color: var(--marxy-tok-attribute); }
+.marxy-diff-add { background: var(--marxy-color-diff-add); }
+.marxy-diff-del { background: var(--marxy-color-diff-del); }
+.marxy-diff-add-word { background: var(--marxy-color-diff-add-word); }
+.marxy-diff-del-word { background: var(--marxy-color-diff-del-word); }
+.marxy-log-level {
+  --marxy-wght: calc(var(--marxy-weight-strong) + var(--marxy-weight-offset));
+  font-weight: var(--marxy-wght);
+  color: inherit;
+}
+/* ESC itself is drawn by the invisible-character marker (MARXY-236); the buffer keeps the byte. */
+.marxy-line-omitted {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: pre;
+}
+.marxy-elided {
+  color: var(--marxy-color-text-secondary);
+  user-select: none;
+}
 kbd {
   font-size: 0.8em;
   padding: 0 0.35em;

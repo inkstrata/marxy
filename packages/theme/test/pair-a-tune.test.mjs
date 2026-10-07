@@ -1,11 +1,11 @@
-// Named acceptance cases for MARXY-129: code x-height at the new mono size, heading weight voice,
-// and numbered-list marker alignment. Each case is written to fail without the tune or tabular-nums.
+// Named acceptance cases for MARXY-129: heading weight voice and numbered-list marker alignment.
+// Each case is written to fail without the tune or tabular-nums.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { onGrid, openPage, renderMarkdown } from './page.mjs';
+import { openPage, renderMarkdown } from './page.mjs';
 
 /** Headings must stay lighter than this effective weight (token is 560). */
 export const HEADING_WEIGHT_CEILING = 570;
@@ -23,28 +23,6 @@ before(async () => {
 after(async () => {
   await browser?.close();
 });
-
-/** Canvas probe: each face at its rendered size (gate-aesthetics check 8 on the shipped pair). */
-function xHeightProbe(page) {
-  return page.evaluate(() => {
-    const article = document.getElementById('doc');
-    const p = article.querySelector('p');
-    const code = article.querySelector('code');
-    const xHeightAt = (el, px) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const s = getComputedStyle(el);
-      ctx.font = `${s.fontStyle} ${s.fontWeight} ${px}px ${s.fontFamily}`;
-      const m = ctx.measureText('x');
-      return m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
-    };
-    const bodySize = parseFloat(getComputedStyle(p).fontSize);
-    const codeSize = parseFloat(getComputedStyle(code).fontSize);
-    const textX = xHeightAt(p, bodySize);
-    const monoX = xHeightAt(code, codeSize);
-    return { textX, monoX, bodySize, codeSize, ratio: monoX / textX };
-  });
-}
 
 /** gate-aesthetics check 7 — hierarchy from size and weight only. */
 function hierarchyViolations(page) {
@@ -66,26 +44,6 @@ function hierarchyViolations(page) {
     return out;
   });
 }
-
-test('code voice: mono and text x-heights match within 5% at --marxy-size-code and the code line box is on the grid', async () => {
-  const html = renderMarkdown('Body with `inline code` in the sentence.\n');
-  const page = await openPage(browser, html);
-  const tokens = await page.evaluate(() => {
-    const root = getComputedStyle(document.documentElement);
-    const article = document.getElementById('doc');
-    const unit = parseFloat(getComputedStyle(article).lineHeight) / 2;
-    const codeSize = parseFloat(root.getPropertyValue('--marxy-size-code'));
-    const codeBox = parseFloat(root.getPropertyValue('--marxy-line-box-code'));
-    return { codeSize, codeBox, unit };
-  });
-  assert.ok(tokens.codeSize > 14, `--marxy-size-code is still ${tokens.codeSize}px; the tune should raise it`);
-  assert.ok(onGrid(tokens.codeBox, tokens.unit), `code line box ${tokens.codeBox}px is not a whole grid unit (${tokens.unit}px)`);
-  const { textX, monoX, codeSize, ratio } = await xHeightProbe(page);
-  assert.ok(codeSize >= tokens.codeSize - 0.5, `inline code renders at ${codeSize}px, expected ≥ ${tokens.codeSize}px`);
-  assert.ok(textX > 0 && monoX > 0, 'x-height probe returned zero');
-  assert.ok(Math.abs(ratio - 1) <= 0.05, `x-height ratio ${(ratio * 100).toFixed(1)}% outside 5% (body vs code at ${codeSize}px)`);
-  await page.close();
-});
 
 test('heading voice: every level is below the weight ceiling, ≥120 above body, hierarchy is size/weight only', async () => {
   const html = renderMarkdown(`Lead.

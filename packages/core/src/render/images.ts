@@ -6,6 +6,7 @@ import { normalizePath } from '../index-model/paths.ts';
 import { DEFAULT_POLICY } from '../sanitize/policy.ts';
 import type { Removal } from '../sanitize/sanitize-html.ts';
 import { sanitizeUrl } from '../sanitize/urls.ts';
+import { hostForms } from './link-host.ts';
 
 export interface BlockedImage {
   readonly host: string;
@@ -69,16 +70,36 @@ export function blockedHosts(images: readonly BlockedImage[]): readonly string[]
   return hosts;
 }
 
-/** The one-line blocked-content notice design §02 / §12 asks the app to show. */
-export function blockedImageNoticeText(images: readonly BlockedImage[]): string {
-  const hosts = blockedHosts(images);
+/**
+ * A blocked host as the reader should recognise it. The URL parser hands back punycode, so an
+ * internationalised host is shown with its Unicode form beside it (same rule as link destinations,
+ * link-host.ts): `xn--pple-43d.com (аpple.com)`. An ordinary host is shown as is.
+ */
+export function displayBlockedHost(host: string): string {
+  const { punycode, unicode } = hostForms(host);
+  if (punycode === unicode) return punycode;
+  return punycode.includes('xn--') ? `${punycode} (${unicode})` : `${unicode} (${punycode})`;
+}
+
+/**
+ * The one wording for blocked remote images, without its full stop so a caller can join a second
+ * clause: `4 images from a.example and b.example were not loaded`. Every host is named (a hostile
+ * document is the case where the reader most needs to see them). Empty when nothing was blocked. `blockedImageNoticeText` is this plus the full stop.
+ */
+export function blockedImageClause(images: readonly BlockedImage[]): string {
+  const hosts = blockedHosts(images).map(displayBlockedHost);
   if (hosts.length === 0) return '';
   const n = images.length;
   const noun = n === 1 ? 'image' : 'images';
   const verb = n === 1 ? 'was' : 'were';
-  if (hosts.length === 1) return `${n} remote ${noun} from ${hosts[0]} ${verb} not loaded`;
-  if (hosts.length === 2) return `${n} remote ${noun} from ${hosts[0]} and ${hosts[1]} ${verb} not loaded`;
-  return `${n} remote ${noun} from ${hosts.slice(0, -1).join(', ')} and ${hosts[hosts.length - 1]} ${verb} not loaded`;
+  const from = hosts.length === 1 ? hosts[0]! : `${hosts.slice(0, -1).join(', ')} and ${hosts[hosts.length - 1]}`;
+  return `${n} ${noun} from ${from} ${verb} not loaded`;
+}
+
+/** The one-line blocked-content notice for a document with remote images and nothing else to say. */
+export function blockedImageNoticeText(images: readonly BlockedImage[]): string {
+  const clause = blockedImageClause(images);
+  return clause === '' ? '' : `${clause}.`;
 }
 
 /** Collapse `.` / `..` so a `../` that leaves the root is visible as `null` rather than as a string. */

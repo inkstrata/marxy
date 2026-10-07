@@ -4,8 +4,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createBuffer } from '../../../../packages/core/src/buffer/buffer.ts';
-import { modeRoundTripWithoutEdits, byteOffsetRoundTrip } from './mode-toggle.ts';
+import { utf16ToByte } from '../../../../packages/core/src/buffer/index.ts';
+import { leaveSourceMode } from './buffer-commit.ts';
 import { renderedByteToCmPos } from './mode-switch.ts';
+
+// The two helpers live inline: harness-entry.ts touches `window` on load, so a Node test cannot import it.
+function byteOffsetRoundTrip(buffer, byteOffset) {
+  return utf16ToByte(buffer, renderedByteToCmPos(buffer, byteOffset));
+}
+
+function modeRoundTripWithoutEdits({ buffer, byteOffset, docText }) {
+  const left = leaveSourceMode(buffer, docText);
+  if (left.changed) throw new Error('mode round-trip expected unchanged buffer');
+  return { buffer: left.buffer, byteOffset };
+}
 
 const root = new URL('../../../../', import.meta.url);
 

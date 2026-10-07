@@ -1,4 +1,4 @@
-// Deferral markers in product source must name a board key that has not landed yet (MARXY-197).
+// Deferral markers in product source must name a board key or roadmap story id that has not landed yet (MARXY-197, A-11.1).
 import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -8,9 +8,12 @@ export const ALLOWLIST = join(ROOT, 'scripts/allowlists/deferrals.json');
 
 /** Case-insensitive deferral phrases from docs/plan/tasks/MARXY-197.md. */
 export const MARKER_RE =
-  /placeholder until|until MARXY-\d+|a later story|later story (?:adds|registers|wires)|lights up when|not yet (?:wired|registered|called)/i;
+  /placeholder until|until (?:MARXY-\d+|[A-Za-z]-\d+)|a later story|later story (?:adds|registers|wires)|lights up when|not yet (?:wired|registered|called)/i;
 
-const KEY_RE = /MARXY-\d+/gi;
+// A board key (any case, normalised) or a roadmap story id: the commitlint pattern, case-sensitive.
+const KEY_RE = /MARXY-\d+|(?<![\w-])[A-E]-\d{2}(?:\.\d)?(?![\w-])/gi;
+const STORY_ID_RE = /^[A-E]-\d{2}(?:\.\d)?$/;
+const subjectKeyRe = /\((MARXY-\d+|[A-E]-\d{2}(?:\.\d)?)\)/g;
 const SOURCE_RE = /\.(m?[jt]sx?|cjs|rs)$/;
 
 export function isProductSource(file) {
@@ -31,18 +34,18 @@ export function findDeferrals(files) {
     const lines = String(content).split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       if (!MARKER_RE.test(lines[i])) continue;
-      const keys = [...new Set([...lines[i].matchAll(KEY_RE)].map(m => m[0].toUpperCase()))];
+      const keys = [...new Set([...lines[i].matchAll(KEY_RE)].map(m => m[0]).filter(k => /^MARXY-/i.test(k) || STORY_ID_RE.test(k)).map(k => k.toUpperCase()))];
       out.push({ file, line: i + 1, text: lines[i].trim(), keys });
     }
   }
   return out;
 }
 
-/** Board keys whose squash commit subject is already an ancestor of HEAD. */
+/** Board keys and story ids whose squash commit subject is already an ancestor of HEAD. */
 export function landedKeys(git = defaultGit()) {
   const landed = new Set();
   for (const subject of git.logSubjects()) {
-    for (const m of subject.matchAll(/\((MARXY-\d+)\)/g)) landed.add(m[1]);
+    for (const m of subject.matchAll(subjectKeyRe)) landed.add(m[1]);
   }
   return landed;
 }
