@@ -239,3 +239,12 @@ test('a decomposed (NFD) file name matches a composed (NFC) query and the revers
   assert.equal(paletteResults(nfc, [entry(nfd)], session).length, 1);
   assert.equal(paletteResults(nfd, [entry(nfc)], session).length, 1);
 });
+
+test('two hits with equal score and equal last read: the newer file comes first, before the path decides', () => {
+  const older = doc({ path: '/repo/a.md', title: 'Notes', mtimeMs: 1_000 });
+  const newer = doc({ path: '/repo/b.md', title: 'Notes', mtimeMs: 2_000 });
+  const hits = paletteResults('notes', [older, newer], emptySession('/repo'));
+  assert.deepEqual(hits.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
+  const reversed = paletteResults('notes', [newer, older], emptySession('/repo'));
+  assert.deepEqual(reversed.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
+});

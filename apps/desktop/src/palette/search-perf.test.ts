@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession, recordOpen } from './session.ts';
-import { prepareIndex, searchPrepared } from './search.ts';
+import { prepareIndex, searchPrepared, upsertRows } from './search.ts';
 
 const TREE = 20_000;
 const SAMPLES = 80;
@@ -58,4 +58,48 @@ test('search on a 20,000-entry index runs every query and finds what is there', 
     `file-300 is in the index; got ${named.slice(0, 5).map((hit) => hit.entry.path).join(', ')}`,
   );
   assert.equal(searchPrepared('xyz-no-such', prepared, session).length, 0);
+});
+
+const LARGE = 50_000;
+
+function quantile(sorted: number[], q: number): number {
+  return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]!;
+}
+
+// Printed, never asserted (ADR-0032). The proxy that is asserted is rows scored, in
+// search-incremental.test.ts.
+test('search on a 50,000-entry index: fresh-query and typed-ahead timings are printed', { timeout: 120_000 }, () => {
+  const entries = Array.from({ length: LARGE }, (_, i) => makeEntry(i));
+  const session = emptySession('/repo');
+  const prepared = prepareIndex(entries);
+  const fresh = ['title 1', 'file-300', 'heading 12', 'detail', 'document 99', 'section', 'xyz-no-such', 't', 'md', 'd3/file'];
+  const typed = ['detail', 'document', 'heading', 'section', 'file-300'];
+  const freshMs: number[] = [];
+  const typedMs: number[] = [];
+  for (let round = 0; round < 6; round++) {
+    for (const query of fresh) {
+      // A query nobody just typed: another index version makes the cache miss.
+      upsertRows(prepared, [entries[round]!]);
+      const t0 = performance.now();
+      searchPrepared(query, prepared, session);
+      freshMs.push(performance.now() - t0);
+    }
+    for (const word of typed) {
+      upsertRows(prepared, [entries[round]!]);
+      for (let len = 1; len <= word.length; len++) {
+        const t0 = performance.now();
+        searchPrepared(word.slice(0, len), prepared, session);
+        typedMs.push(performance.now() - t0);
+      }
+    }
+  }
+  freshMs.sort((a, b) => a - b);
+  typedMs.sort((a, b) => a - b);
+  console.log(
+    `palette ${LARGE}: fresh p50 ${quantile(freshMs, 0.5).toFixed(2)} ms p95 ${quantile(freshMs, 0.95).toFixed(2)} ms; ` +
+      `typed-ahead (every keystroke) p50 ${quantile(typedMs, 0.5).toFixed(2)} ms p95 ${quantile(typedMs, 0.95).toFixed(2)} ms`,
+  );
+  assert.ok(freshMs.length > 0 && typedMs.length > 0);
+  const found = searchPrepared('file-300', prepared, session);
+  assert.ok(found.some((hit) => hit.entry.path === '/repo/d100/file-300.md'), 'file-300 is found after the typed-ahead run');
 });

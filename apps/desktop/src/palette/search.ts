@@ -16,7 +16,19 @@ const MAX_FUZZY_SCORE = 10_500;
 /** NFC-normalised, lowercased fields (macOS file names are NFD; typed queries are NFC), built once per index load so a keystroke does not rescan bytes. */
 export interface PreparedIndex {
   readonly rows: readonly PreparedRow[];
+  /** Bumped by every `upsertRows` / `removeRows` that changes a row; a cached candidate list is valid for one version. */
+  readonly version: number;
 }
+
+interface MutablePreparedIndex {
+  rows: PreparedRow[];
+  version: number;
+  /** path -> index into `rows`. */
+  byPath: Map<string, number>;
+}
+
+/** Counters for tests: how many rows were prepared and how many were scored (matched) by keystrokes. */
+export const prepareStats = { prepareRow: 0, rowsScored: 0 };
 
 interface PreparedRow {
   readonly entry: IndexEntry;
@@ -25,26 +37,73 @@ interface PreparedRow {
   readonly headings: readonly string[];
 }
 
+function prepareRow(entry: IndexEntry, readAt?: Readonly<Record<string, number>>): PreparedRow {
+  prepareStats.prepareRow++;
+  const headings: string[] = [];
+  for (const heading of entry.headings) headings.push(heading.text.normalize('NFC').toLowerCase());
+  // The session's read time rides on the prepared row's entry, so scoring and the tie-break
+  // read one value and a keystroke does no lookup. Entries nobody has read are passed through.
+  const read = readAt?.[entry.path];
+  return {
+    entry: read === undefined ? entry : { ...entry, lastReadMs: read },
+    title: entry.title.normalize('NFC').toLowerCase(),
+    path: entry.path.normalize('NFC').toLowerCase(),
+    headings,
+  };
+}
+
 /** Precompute lowercase path/title/headings. The 16 ms budget is the query, not this. */
 export function prepareIndex(
   entries: readonly IndexEntry[],
   readAt?: Readonly<Record<string, number>>,
 ): PreparedIndex {
   const rows: PreparedRow[] = [];
+  const byPath = new Map<string, number>();
   for (const entry of entries) {
-    const headings: string[] = [];
-    for (const heading of entry.headings) headings.push(heading.text.normalize('NFC').toLowerCase());
-    // The session's read time rides on the prepared row's entry, so scoring and the tie-break
-    // read one value and a keystroke does no lookup. Entries nobody has read are passed through.
-    const read = readAt?.[entry.path];
-    rows.push({
-      entry: read === undefined ? entry : { ...entry, lastReadMs: read },
-      title: entry.title.normalize('NFC').toLowerCase(),
-      path: entry.path.normalize('NFC').toLowerCase(),
-      headings,
-    });
+    byPath.set(entry.path, rows.length);
+    rows.push(prepareRow(entry, readAt));
   }
-  return { rows };
+  const prepared: MutablePreparedIndex = { rows, version: 0, byPath };
+  return prepared;
+}
+
+/** Replace the rows of these entries (by path) or add them; every other row is left as it was. */
+export function upsertRows(
+  prepared: PreparedIndex,
+  entries: readonly IndexEntry[],
+  readAt?: Readonly<Record<string, number>>,
+): void {
+  if (entries.length === 0) return;
+  const index = prepared as MutablePreparedIndex;
+  for (const entry of entries) {
+    const row = prepareRow(entry, readAt);
+    const at = index.byPath.get(entry.path);
+    if (at === undefined) {
+      index.byPath.set(entry.path, index.rows.length);
+      index.rows.push(row);
+    } else {
+      index.rows[at] = row;
+    }
+  }
+  index.version++;
+}
+
+/** Drop the rows of these paths (swap-remove: the last row fills the gap, so order is not kept). */
+export function removeRows(prepared: PreparedIndex, paths: readonly string[]): void {
+  const index = prepared as MutablePreparedIndex;
+  let changed = false;
+  for (const path of paths) {
+    const at = index.byPath.get(path);
+    if (at === undefined) continue;
+    const last = index.rows.length - 1;
+    const moved = index.rows[last]!;
+    index.rows[at] = moved;
+    index.rows.pop();
+    index.byPath.delete(path);
+    if (at !== last) index.byPath.set(moved.entry.path, at);
+    changed = true;
+  }
+  if (changed) index.version++;
 }
 
 /** Resolve a hit into a jump. Heading hits land on the heading's byte offset. */
@@ -96,12 +155,36 @@ export function searchPrepared(
     return ar !== br ? ar - br : compareHits(a, b);
   });
   const now = Date.now();
-  for (const row of prepared.rows) {
+  const rows = prepared.rows;
+  const consider = (row: PreparedRow): boolean => {
+    prepareStats.rowsScored++;
     const hit = scoreRow(row, needle, byPath, now);
-    if (hit === undefined) continue;
+    if (hit === undefined) return false;
+    if (hit === CANDIDATE_ONLY) return true;
     if (row.entry.root === session.currentRoot) current.push(hit);
     else later.push(hit);
+    return true;
+  };
+  // A longer query can only match rows the shorter one matched (candidacy is monotone), so a
+  // keystroke that extends the last query scans the last query's candidates, not every row.
+  const cached = candidateCache.get(prepared);
+  let next: Int32Array;
+  if (cached !== undefined && cached.version === prepared.version && needle.startsWith(cached.needle)) {
+    const from = cached.candidates;
+    next = new Int32Array(from.length);
+    let n = 0;
+    for (let k = 0; k < from.length; k++) {
+      const i = from[k]!;
+      if (consider(rows[i]!)) next[n++] = i;
+    }
+    next = next.subarray(0, n);
+  } else {
+    next = new Int32Array(rows.length);
+    let n = 0;
+    for (let i = 0; i < rows.length; i++) if (consider(rows[i]!)) next[n++] = i;
+    next = next.slice(0, n);
   }
+  candidateCache.set(prepared, { version: prepared.version, needle, candidates: next });
   const currentHits = current.values();
   if (currentHits.length >= limit) return currentHits;
 
@@ -113,6 +196,38 @@ export function searchPrepared(
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/** The last keystroke's candidate rows per prepared index; valid only for the version it was made at. */
+const candidateCache = new WeakMap<
+  PreparedIndex,
+  { version: number; needle: string; candidates: Int32Array }
+>();
+
+/** Test hook: forget every cached candidate list, so the next search is a full scan. */
+export function clearCandidateCache(prepared: PreparedIndex): void {
+  candidateCache.delete(prepared);
+}
+
+/** True when `needle`'s characters appear in `hay` in order, not necessarily together. */
+export function hasSubsequence(hay: string, needle: string): boolean {
+  const nlen = needle.length;
+  if (nlen === 0) return true;
+  if (hay.length < nlen) return false;
+  let hi = 0;
+  for (let ni = 0; ni < nlen; ni++) {
+    const c = needle.charCodeAt(ni);
+    let found = -1;
+    for (let j = hi; j < hay.length; j++) {
+      if (hay.charCodeAt(j) === c) {
+        found = j;
+        break;
+      }
+    }
+    if (found === -1) return false;
+    hi = found + 1;
+  }
+  return true;
 }
 
 /** Keep only the best `limit` hits while scanning; avoids sorting tens of thousands of rows. */
@@ -152,29 +267,40 @@ function emptyHits(
   return hits;
 }
 
+/** Returned by `scoreRow` for a row that is a candidate (some field holds the needle as a subsequence) but not a hit. */
+const CANDIDATE_ONLY: IndexHit = { entry: undefined as unknown as IndexEntry, score: 0 };
+
+/** undefined: not a candidate. CANDIDATE_ONLY: a candidate whose score is not positive. Otherwise a hit. */
 function scoreRow(
   row: PreparedRow,
   needle: string,
   mru: ReadonlyMap<string, number>,
   now: number,
 ): IndexHit | undefined {
-  const title = fuzzyScore(row.title, needle) * TITLE_WEIGHT;
-  const path = fuzzyScore(row.path, needle) * PATH_WEIGHT;
+  const rawTitle = matchScore(row.title, needle);
+  const rawPath = matchScore(row.path, needle);
+  let candidate = rawTitle !== NO_MATCH || rawPath !== NO_MATCH;
+  const title = rawTitle === NO_MATCH ? 0 : rawTitle * TITLE_WEIGHT;
+  const path = rawPath === NO_MATCH ? 0 : rawPath * PATH_WEIGHT;
   let headingScore = 0;
   let headingIndex: number | undefined;
   const bestSoFar = title >= path ? title : path;
   if (bestSoFar <= 0 || headingCouldBeat(bestSoFar, needle)) {
     for (let i = 0; i < row.headings.length; i++) {
-      const scored = fuzzyScore(row.headings[i]!, needle) * HEADING_WEIGHT;
+      const raw = matchScore(row.headings[i]!, needle);
+      if (raw === NO_MATCH) continue;
+      candidate = true;
+      const scored = raw * HEADING_WEIGHT;
       if (scored > headingScore) {
         headingScore = scored;
         headingIndex = i;
       }
     }
   }
+  if (!candidate) return undefined;
   const best =
     title >= path && title >= headingScore ? title : path >= headingScore ? path : headingScore;
-  if (best <= 0) return undefined;
+  if (best <= 0) return CANDIDATE_ONLY;
   const frecency = frecencyBonus(row.entry, mru, now);
   const heading = headingScore > title && headingScore > path ? headingIndex : undefined;
   return { entry: row.entry, heading, score: best + frecency };
@@ -202,6 +328,7 @@ function compareHits(a: IndexHit, b: IndexHit): number {
   const aRead = a.entry.lastReadMs ?? 0;
   const bRead = b.entry.lastReadMs ?? 0;
   if (bRead !== aRead) return bRead - aRead;
+  if (b.entry.mtimeMs !== a.entry.mtimeMs) return b.entry.mtimeMs - a.entry.mtimeMs;
   return a.entry.path < b.entry.path ? -1 : a.entry.path > b.entry.path ? 1 : 0;
 }
 
@@ -210,10 +337,19 @@ function compareHits(a: IndexHit, b: IndexHit): number {
  * per-character loop so a 20k index stays inside the 16 ms keystroke budget (ADR-0013).
  */
 export function fuzzyScore(hay: string, needle: string): number {
+  const score = matchScore(hay, needle);
+  return score === NO_MATCH ? 0 : score;
+}
+
+/** `matchScore`'s answer for "the needle is not a subsequence of the hay": distinct from a match that scores 0 or less. */
+const NO_MATCH = Number.NEGATIVE_INFINITY;
+
+/** `fuzzyScore` with NO_MATCH for a miss, so one pass answers both "is it a candidate" and "how well". */
+function matchScore(hay: string, needle: string): number {
   const nlen = needle.length;
-  if (nlen === 0) return 0;
+  if (nlen === 0) return NO_MATCH;
   const hlen = hay.length;
-  if (hlen < nlen) return 0;
+  if (hlen < nlen) return NO_MATCH;
 
   const at = hay.indexOf(needle);
   if (at !== -1) {
@@ -235,7 +371,7 @@ export function fuzzyScore(hay: string, needle: string): number {
         break;
       }
     }
-    if (found === -1) return 0;
+    if (found === -1) return NO_MATCH;
     score += found === prev + 1 ? 40 : 4;
     if (found === 0 || isBoundary(hay, found)) score += 20;
     prev = found;

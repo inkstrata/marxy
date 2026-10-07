@@ -23,6 +23,8 @@ export const MUTATIONS = [
     files: ['src/palette/session.test.ts', 'src/palette/search.test.ts', 'src/palette/search-perf.test.ts', 'src/palette/keys.test.ts'],
     mustFail: [
       'search on a 20,000-entry index runs every query and finds what is there',
+      'search on a 50,000-entry index: fresh-query and typed-ahead timings are printed',
+      'two hits with equal score and equal last read: the newer file comes first, before the path decides',
       'a query matches title, path and headings',
       'a heading match beats a lower-quality title match even when the title score is high',
       'heading hits jump to the heading byte offset',
