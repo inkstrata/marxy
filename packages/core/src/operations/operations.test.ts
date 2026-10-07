@@ -391,7 +391,7 @@ test('fidelity: replacement === text for every clipboard operation at every node
 });
 
 test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, in palette order', () => {
-  assert.deepEqual(OPERATIONS.map((op) => op.id), ['copy-code-clean', 'copy-section', 'toggle-task', 'align-table-pipes']);
+  assert.deepEqual(OPERATIONS.map((op) => op.id), ['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'toggle-task', 'align-table-pipes']);
   assert.deepEqual(OPERATIONS, [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS]);
   // C-07 to C-09 update the id list above as their packs land; the fidelity test holds the invariant.
 });
