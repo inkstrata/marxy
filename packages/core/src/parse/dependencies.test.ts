@@ -28,7 +28,7 @@ function sourceFiles(directory: URL, prefix = ''): { path: string; text: string 
 }
 
 const all = sourceFiles(srcDir);
-const production = all.filter((file) => !file.path.endsWith('.test.ts') && !file.path.includes('parse/testing/'));
+const production = all.filter((file) => !file.path.endsWith('.test.ts') && !file.path.includes('/testing/'));
 /** Value imports only: a `import type` is erased before anything runs, so it is not a runtime edge. */
 const imports = (text: string): string[] =>
   [...text.matchAll(/(?:^|\n)\s*(?:import|export)(?!\s+type\b)[^'"\n]*from\s*['"]([^'"]+)['"]/g)].map((match) => match[1]!);
