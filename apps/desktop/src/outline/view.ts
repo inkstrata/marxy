@@ -142,6 +142,7 @@ function refresh(l: Live): void {
     l.path = open.path;
     buildRows(l);
     l.painted = { current: -1, selected: -1 };
+    l.current = currentEntry(l.entries, l.source.position());
     l.selected = Math.max(0, l.current);
   }
   l.current = currentEntry(l.entries, l.source.position());

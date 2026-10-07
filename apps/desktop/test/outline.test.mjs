@@ -45,14 +45,18 @@ before(async () => {
 });
 after(() => server?.close());
 
-async function boot(browser) {
+// Two headings only, but tall enough that landing the second can reach the reading line.
+const filler = Array.from({ length: 60 }, (_, i) => `Filler paragraph ${i}.`).join('\n\n');
+const shortDoc = Buffer.from(`# One\n\n${filler}\n\n# Two\n\n${filler}\n`);
+
+async function boot(browser, extra = {}) {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   await page.evaluate(async ({ files }) => {
     const { handle } = await window.marxyPaletteBoot.start(files, ['/docs/long.md']);
     window.__h = handle;
-  }, { files });
+  }, { files: { ...files, ...extra } });
   const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
   return { page, chord: `${mod}+Shift+KeyO` };
 }
@@ -211,5 +215,43 @@ test('Mod+Shift+O with the palette open closes the palette: overlays are exclusi
     assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
   } finally {
     await browser.close();
+  }
+});
+
+const selectedOf = (page) =>
+  page.$$eval('#marxy-outline .marxy-outline-row', (els) =>
+    els.map((el, i) => (el.getAttribute('aria-selected') === 'true' ? i : -1)).filter((i) => i >= 0));
+
+test('opening another document with the outline open keeps the selected row on the marked one, and Enter lands it', async () => {
+  for (const [from, to] of [['/docs/long.md', '/docs/short.md'], ['/docs/short.md', '/docs/long.md']]) {
+    const browser = await launchWebkit();
+    try {
+      const { page, chord } = await boot(browser, { '/docs/short.md': shortDoc.toString('base64') });
+      if (from !== '/docs/long.md') {
+        await page.evaluate((p) => window.__h.open(p), from);
+        await page.waitForTimeout(400);
+      }
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.keyboard.press(chord);
+      await page.waitForTimeout(400);
+      const targets = to === '/docs/short.md' ? outlineFrom(parseMarkdown(shortDoc, { file: to })) : entries;
+      const at = targets[to === '/docs/short.md' ? 1 : 5].src.start;
+      await page.evaluate(([p, at]) => window.__h.open(p, { at }), [to, at]);
+      await page.waitForFunction((p) => window.__h.openDocument()?.path === p, to);
+      await page.waitForTimeout(600);
+      const marked = await markedOf(page);
+      assert.equal(marked.length, 1, `${from} -> ${to}: one row marked`);
+      assert.deepEqual(await selectedOf(page), marked, `${from} -> ${to}: selected equals marked`);
+      const rows = await page.$$eval('#marxy-outline .marxy-outline-row', (e) => e.length);
+      const target = targets[marked[0]];
+      assert.ok(rows > marked[0] && target);
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => !document.getElementById('marxy-outline')?.hasAttribute('open'));
+      await page.waitForTimeout(600);
+      const landed = await page.evaluate(() => window.__h.sourceHarness().byteOffset);
+      assert.equal(landed, target.src.start);
+    } finally {
+      await browser.close();
+    }
   }
 });

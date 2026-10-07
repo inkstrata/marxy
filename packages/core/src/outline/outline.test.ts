@@ -113,6 +113,12 @@ for (const name of ['01-long-technical.md', '09-gfm-everything.md']) {
   });
 }
 
+test('math in a heading keeps its TeX source, undelimited', () => {
+  const texts = (source: string) => outlineFrom(parseMarkdown(source, { file: '/t.md' })).map((e) => e.text);
+  assert.deepEqual(texts('# Euler $E=mc^2$\n'), ['Euler E=mc^2']);
+  assert.deepEqual(texts('# $x$\n'), ['x']);
+});
+
 test('emphasis, strong and inline code markers are stripped from entry.text', () => {
   const source = '# A *em* **bold** and `code` heading\n';
   const document = parseMarkdown(source, { file: 'markers.md' });
