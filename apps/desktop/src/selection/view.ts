@@ -84,14 +84,28 @@ let pendingFragment: string | undefined;
 
 const MARKDOWN_LINK = /\.(md|markdown|mdx|txt)$/i;
 
-function scrollToFragment(fragment: string): void {
+/** Scroll the heading `fragment` names to the reading line; false when it is not on the page (yet). */
+function scrollToFragment(fragment: string): boolean {
   const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
-  if (!id || !ctx) return;
+  if (!id || !ctx) return true;
   const target = ctx.article.querySelector(`#${CSS.escape(id)}`);
-  if (!(target instanceof HTMLElement)) return;
+  if (!(target instanceof HTMLElement)) return false;
   const scroller = document.documentElement;
   const top = target.getBoundingClientRect().top + scroller.scrollTop - readingLine(scroller.clientHeight);
   scroller.scrollTop = Math.max(0, top);
+  return true;
+}
+
+/**
+ * Land on a fragment. A long document mounts progressively, so the target may not exist yet: wait for
+ * the rest to mount, then land, unless the reader has moved to another document meanwhile.
+ */
+async function landFragment(fragment: string): Promise<void> {
+  if (scrollToFragment(fragment) || !appHandle) return;
+  const path = appHandle.currentPath();
+  await appHandle.contentComplete();
+  if (appHandle.currentPath() !== path) return;
+  scrollToFragment(fragment);
 }
 
 function recordNavOpen(nextPath: string): void {
@@ -122,7 +136,7 @@ async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<vo
 
   if (href.startsWith('#')) {
     ev.preventDefault();
-    scrollToFragment(href);
+    await landFragment(href);
     return;
   }
 
@@ -169,10 +183,9 @@ async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<vo
   recordNavOpen(target);
   pendingFragment = fragment;
   await appHandle.open(target);
-  if (pendingFragment) {
-    scrollToFragment(pendingFragment);
-    pendingFragment = undefined;
-  }
+  const landing = pendingFragment;
+  pendingFragment = undefined;
+  if (landing) await landFragment(landing);
 }
 
 /** The app this selection follows: operations commit through it (render/tasks.ts). */
@@ -352,6 +365,8 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
       if (ctx.buffer.path !== open.path) {
         state = select(state, { kind: 'none' });
         lastClickTarget = null;
+        // Nor does the block clicked last: Jump to source would land at a meaningless offset.
+        (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = undefined;
       }
       afterDocumentRendered(next);
     }
@@ -362,10 +377,9 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
   handle.onDocumentChange((open) => {
     adopt(open);
     if (open && pendingFragment) {
-      requestAnimationFrame(() => {
-        scrollToFragment(pendingFragment!);
-        pendingFragment = undefined;
-      });
+      const landing = pendingFragment;
+      pendingFragment = undefined;
+      requestAnimationFrame(() => void landFragment(landing));
     }
   });
 

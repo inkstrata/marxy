@@ -129,3 +129,72 @@ test('hash link scrolls; relative opens; external calls openExternal; back retur
     await browser.close();
   }
 });
+
+// F-05: a heading far down a long document is not mounted when the link is followed (the document
+// mounts progressively); the link must still land it, at the same reading line as a mounted one.
+const BIG = [
+  '# Top',
+  '',
+  '[toc](#late-heading)',
+  '',
+  ...Array.from({ length: 5000 }, (_, i) => `${para(`P${i}`)}\n`),
+  '## Late heading',
+  '',
+  para('Lead'),
+  '',
+  ...Array.from({ length: 30 }, (_, i) => `${para(`After ${i}`)}\n`),
+].join('\n');
+const FROM = ['# From', '', '[go](./big.md#late-heading)', ''].join('\n');
+
+const landed = () => {
+  const top = document.querySelector('#late-heading')?.getBoundingClientRect().top;
+  return top !== undefined && top > 200 && top < 420;
+};
+
+test('F-05: a same-page link to a heading not yet mounted lands it at the reading line', async () => {
+  const files = { '/d/big.md': Buffer.from(BIG, 'utf8').toString('base64') };
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await page.goto(`${base}app.html`);
+    await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
+    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
+    const mounted = await page.evaluate(async ({ files }) => {
+      const handle = await window.marxyApp.start(files, ['/d/big.md']);
+      await handle.ready;
+      window.__marxyTestHandle = handle;
+      return !!document.querySelector('#late-heading');
+    }, { files });
+    assert.equal(mounted, false, 'precondition: the heading is not mounted when the link is followed');
+    await page.evaluate(() => document.querySelector('#doc a[href="#late-heading"]').click());
+    await page.waitForFunction(landed, null, { timeout: 60000 });
+  } finally {
+    await browser.close();
+  }
+});
+
+test('F-05: a cross-document link to a late heading lands it at the reading line', async () => {
+  const files = {
+    '/d/from.md': Buffer.from(FROM, 'utf8').toString('base64'),
+    '/d/big.md': Buffer.from(BIG, 'utf8').toString('base64'),
+  };
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await page.goto(`${base}app.html`);
+    await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
+    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
+    await page.evaluate(async ({ files }) => {
+      const handle = await window.marxyApp.start(files, ['/d/from.md']);
+      await handle.ready;
+      window.__marxyTestHandle = handle;
+    }, { files });
+    await page.evaluate(() => document.querySelector('#doc a[href="./big.md#late-heading"]').click());
+    await page.waitForFunction(() => window.__marxyTestHandle.currentPath().endsWith('/big.md'));
+    await page.waitForFunction(landed, null, { timeout: 60000 });
+  } finally {
+    await browser.close();
+  }
+});
