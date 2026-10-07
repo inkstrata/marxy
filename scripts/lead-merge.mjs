@@ -133,11 +133,12 @@ function main(argv) {
     const why = String(e.stderr || e.message).trim();
     // GitHub refuses the ordinary merge for a PR in a stack; its asynchronous endpoint takes the same
     // squash and the same head guard.
-    if (!/part of a stack|asynchronous merge/i.test(why)) {
+    // Observed 2026-10-07: "…is part of a stack and must be merged using the asynchronous merge REST API".
+    if (!/asynchronous merge/i.test(why)) {
       console.error(`#${pr}: the merge failed: ${why}`);
       return 3;
     }
-    const outcome = mergeAsync(pr, view.headRefOid);
+    const outcome = mergeStacked(pr, view.headRefOid);
     if (outcome !== 'merged') {
       console.error(`#${pr}: the stacked merge ended ${outcome}`);
       return 3;
@@ -149,24 +150,46 @@ function main(argv) {
 
 const ASYNC_API = ['-H', 'X-GitHub-Api-Version: 2026-03-10'];
 
-/** Squash-merge a stacked PR through `merge-async` and wait for the result (merged, failed, ...). */
-function mergeAsync(pr, sha) {
-  const repo = JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+/**
+ * Squash-merge a stacked PR through `merge-async` and wait for the outcome. `run(args)` returns gh's stdout
+ * and `wait(ms)` pauses; both are injected so tests can drive it. Returns 'merged', or a phrase saying why not.
+ */
+export function mergeAsync(repo, pr, sha, { run = gh, wait = sleep, polls = 120 } = {}) {
+  const base = `repos/${repo}/pulls/${pr}/merge-async`;
   let started;
   try {
-    started = JSON.parse(gh(['api', '-X', 'PUT', ...ASYNC_API, `repos/${repo}/pulls/${pr}/merge-async`,
-      '-f', 'merge_method=squash', '-f', `sha=${sha}`]));
+    started = JSON.parse(run(['api', '-X', 'PUT', ...ASYNC_API, base, '-f', 'merge_method=squash', '-f', `sha=${sha}`]));
   } catch (e) {
-    return `with the request refused: ${String(e.stderr || e.message).trim()}`;
+    return `refused: ${String(e.stderr || e.message).trim()}`;
   }
+  // 200 answers at once (merged, or enqueued); 202 is pending with a request id to poll.
+  if (started.status !== 'pending') return describe(started.status);
   const uuid = started.details?.uuid;
-  if (!uuid) return `without a request id (${started.status})`;
-  for (let i = 0; i < 120; i++) {
-    const status = JSON.parse(gh(['api', ...ASYNC_API, `repos/${repo}/pulls/${pr}/merge-async/${uuid}`])).status;
-    if (status !== 'pending') return status;
-    sleep(5000);
+  if (!uuid) return 'pending without a request id; check the PR';
+  let errors = 0;
+  for (let i = 0; i < polls; i++) {
+    wait(5000);
+    let status;
+    try {
+      status = JSON.parse(run(['api', ...ASYNC_API, `${base}/${uuid}`])).status;
+    } catch (e) {
+      if (++errors >= 5) return `unknown after poll errors (${String(e.stderr || e.message).trim()}); check the PR`;
+      continue;
+    }
+    if (status !== 'pending') return describe(status);
   }
-  return 'still pending after ten minutes';
+  return 'still pending after ten minutes; check the PR';
+}
+
+function describe(status) {
+  if (status === 'merged') return 'merged';
+  if (status === 'enqueued') return 'queued, not merged';
+  return String(status);
+}
+
+function mergeStacked(pr, sha) {
+  const repo = JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+  return mergeAsync(repo, pr, sha);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) process.exit(main(process.argv.slice(2)));
