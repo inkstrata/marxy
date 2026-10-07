@@ -151,7 +151,10 @@ and `teardownDocument` empties `#marxy-source` without destroying a shared edito
 another open, Jump to source or Mod+E shows an empty Source (mode `source`, no lines). Nothing is typeable, so
 nothing is lost, but it breaks "one way into Source". The command records the preference and, if Source is
 showing, asks the app to reconfigure its editor; teardown destroys `activeSourceEditor()`. Acceptance: toggle in
-Rendered, open another document, Jump to source: the editor shows the new document's lines.
+Rendered, open another document, Jump to source: the editor shows the new document's lines. Also from the F-04
+review: `repaint` calls `sourceEditor.replaceBuffer(snap.buffer)` unconditionally, so a handle-level `commitEdit`
+(or an app-level undo from the palette) while Source holds unfolded text drops that text from the editor (the
+store's bytes are untouched; reproduced on main). `repaint` folds or keeps unfolded Source text first.
 
 ## Flaky under load
 

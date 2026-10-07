@@ -512,6 +512,24 @@ stay green.
 
 ---
 
+### B-02.9 — Colour code the same however busy the machine is
+
+**Model:** sonnet · **Size:** S · *Added 2026-10-07 by the lead, from B-02's third stop.*
+
+**Outcome.** Shiki stops tokenising a line after `tokenizeTimeLimit` (500 ms by default). A fresh worker's first
+line can take that long while it compiles its grammar, especially under load, and the rest of the line is then
+one token with the grammar state wrong after it (`export function firstAtx(…` gives 5 tokens instead of 22). The
+reader sees the same code coloured differently on a busy machine; the gate sees 18, 16 and 19 move between runs.
+Tokenising no longer depends on elapsed time; long lines stay plain (`MAX_HIGHLIGHT_LINE_CHARS`) and the work
+stays in the worker.
+
+**Paths.** `packages/core/src/highlight/**` and its tests; the worker entry only if the option is set there.
+
+**Acceptance.** A test forces a tiny time budget and still gets the full token count; the worst case under the
+line cap is reported and bounded.
+
+---
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05

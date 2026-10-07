@@ -365,3 +365,37 @@ code-size rule chosen.
   - Run `pnpm done <id>` and `node scripts/open-pr.mjs <id>`, per the roadmap PR path.
 - **Non-interference:** before every push, check `git diff --name-only origin/main...HEAD` against the
   collision map. None of these stories may touch the lead ledger, `orchestration/` or another story's paths.
+
+### L-06.1 — Remember the line-number choice in `config.toml`
+
+**Model:** sonnet · **Size:** S · **Depends on:** L-06 · *Added 2026-10-07 by the lead, from the L-06 review.*
+
+**Outcome.** Showing or hiding line numbers in Source survives a relaunch. The `line_numbers` key already exists
+(`packages/theme/src/config.ts`, `docs/design/11-config-and-storage.md`), but the app never reads it: the choice
+lives in `sessionStorage` (`apps/desktop/src/source/line-numbers.ts`) and `app.ts` hard-codes `lineNumbers: false`.
+Read it in `readReaderConfig`, write it from the toggle with `setTopLevelKey` (byte-faithful, A-14.1), and apply it
+only when the key is present: `parseConfig` defaults it to `false`, which would otherwise override the per-path
+default (numbers on for code files). Make the parsed value tri-state, or check presence.
+
+**Paths.** `apps/desktop/src/theme/reader-config.ts`, `apps/desktop/src/source/line-numbers.ts`,
+`packages/theme/src/config.ts` (tri-state only), their tests, `changelog.d/L-06.1.md`.
+
+**Acceptance.** Toggle, relaunch: same choice. No key: the per-path default holds. The toggle changes only the
+value's bytes in `config.toml` (a fidelity test like A-14.1's).
+
+### L-11 — Find matches are visible in the light variant
+
+**Model:** sonnet · **Size:** S · *Added 2026-10-07 by the lead, from the L-06 review.*
+
+**Outcome.** In the light variant, every find match (Rendered and Source) is distinguishable from the code and
+page background, and the current match from the others. Measured in the L-06 review: light `--marxy-color-find`
+is 1.01:1 against the code background, its 1 px `--marxy-color-rule` outline about 1.1:1, and `find-current`
+1.14:1 against `find`. WCAG 1.4.11 asks 3:1 for a UI indicator. The default theme's values are taste and need a
+story, not an ADR (AGENTS.md); cite `docs/research/reader-typography/` on colour.
+
+**Paths.** `packages/theme/src/tokens.css` (light values of `--marxy-color-find`, `--marxy-color-find-current`
+only), `packages/theme/src/palettes.json` if the values live there, `packages/theme/test/palettes.test.mjs`.
+
+**Acceptance.** A palette test asserts 3:1 or more for a match's indicator (fill or outline) against both page and
+code background, and between current and other matches, in both variants; text on either fill keeps 4.5:1.
+Baselines move only if a gated screenshot shows find (say which).
