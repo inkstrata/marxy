@@ -11,7 +11,10 @@ import { alignTablePipes } from './align-table-pipes.ts';
 import { copyCodeClean } from './copy-code-clean.ts';
 import { copySection } from './copy-section.ts';
 import { displayWidth } from './display-width.ts';
-import { OPERATIONS } from './index.ts';
+import { CLIPBOARD_OPERATIONS, MUTATING_OPERATIONS, OPERATIONS } from './index.ts';
+import { byteToStringOffset, stringToByteOffset } from './offsets.ts';
+import { inlinePlainText } from './inline-text.ts';
+import { assertOnlySpansChanged, corpusDocuments } from './testing.ts';
 import { toggleTask } from './toggle-task.ts';
 
 function parse(source: string, file = 'test.md'): Document {
@@ -366,46 +369,37 @@ function allNodes(root: Node, out: Node[] = []): Node[] {
   return out;
 }
 
-test('fidelity: replacement === text for every applicable copy operation node in the corpus', () => {
-  const files = corpusFiles.filter((f) => f.endsWith('.md'));
-  for (const file of files) {
-    const bytes = readFileSync(new URL(file, corpus));
-    const doc = parseMarkdown(bytes, { file });
+test('fidelity: replacement === text for every clipboard operation at every node of every corpus file', () => {
+  let checked = 0;
+  for (const { file, bytes, document: doc } of corpusDocuments()) {
     const buffer = createBuffer(file, bytes);
-    const headings: Heading[] = [];
-    headingsOf(doc, headings);
-    for (const heading of headings) {
-      const range = sectionRange(doc, heading);
-      const text = textOf(buffer, range);
-      const input = { document: doc, node: heading, range, text };
-      for (const op of OPERATIONS) {
-        if (!op.id.startsWith('copy-') || !op.canApply(input)) continue;
-        const result = op.run(input);
-        assert.equal(result.replacement, text, `${file} ${op.id} @ heading L${heading.level}`);
-      }
+    const targets: { node?: Node; range: Source; label: string }[] = [{ range: doc.src, label: 'document' }];
+    for (const node of allNodes(doc)) {
+      if (node.type === 'document') continue;
+      targets.push({ node, range: node.src, label: `${node.type}@${node.src.start}` });
+      if (node.type === 'heading') targets.push({ node, range: sectionRange(doc, node), label: `section@${node.src.start}` });
     }
-    const docRange = doc.src;
-    const docText = textOf(buffer, docRange);
-    const docInput = { document: doc, range: docRange, text: docText };
-    if (copySection.canApply(docInput)) {
-      assert.equal(copySection.run(docInput).replacement, docText, `${file} copy-section document`);
-    }
-    const blocks: Block[] = [];
-    walkBlocks(doc, blocks);
-    for (const block of blocks) {
-      if (block.type !== 'codeBlock') continue;
-      const range = block.src;
+    for (const { node, range, label } of targets) {
       const text = textOf(buffer, range);
-      const input = { document: doc, node: block, range, text };
-      if (copyCodeClean.canApply(input)) {
-        assert.equal(copyCodeClean.run(input).replacement, text, `${file} copy-code-clean`);
+      const input = { document: doc, node, range, text };
+      for (const op of CLIPBOARD_OPERATIONS) {
+        if (!op.canApply(input)) continue;
+        assert.equal(op.run(input).replacement, text, `${file} ${op.id} @ ${label}`);
+        checked++;
       }
     }
   }
+  assert.ok(checked > 0);
+});
+
+test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, in palette order', () => {
+  assert.deepEqual(OPERATIONS.map((op) => op.id), ['copy-code-clean', 'copy-section', 'toggle-task', 'align-table-pipes']);
+  assert.deepEqual(OPERATIONS, [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS]);
+  assert.ok(CLIPBOARD_OPERATIONS.every((op) => op.id.startsWith('copy-')), 'the clipboard operations are the copy ones today');
 });
 
 test('fidelity: mutations change only their range over the corpus', () => {
-  const mutateOps = OPERATIONS.filter((op) => !op.id.startsWith('copy-'));
+  const mutateOps = MUTATING_OPERATIONS;
   for (const file of corpusFiles) {
     const bytes = readFileSync(new URL(file, corpus));
     const doc = parseMarkdown(bytes, { file });
@@ -481,6 +475,9 @@ test('copy-section.ts does not strip provenance with a regex over the whole html
   const src = readFileSync(fileURLToPath(new URL('./copy-section.ts', import.meta.url)), 'utf8');
   assert.ok(!src.includes('html.replace(/\\sdata-marxy-'));
   assert.ok(!src.includes('<script\\b'));
+  const clean = readFileSync(fileURLToPath(new URL('./html-clean.ts', import.meta.url)), 'utf8');
+  assert.ok(!clean.includes('html.replace(/\\sdata-marxy-'));
+  assert.ok(!clean.includes('<script\\b'));
 });
 
 test('copy-section keeps a reference link whose definition is outside the section', () => {
@@ -575,4 +572,139 @@ test('copy-section clipboard text drops trailing blank lines and adds no byte (M
     assert.equal(out.clipboard?.text, expected, JSON.stringify(source));
     assert.equal(out.replacement, text, 'the replacement stays the exact slice');
   }
+});
+
+// C-02: toggle-task applied to a list item rewrites the three marker bytes and nothing else.
+function itemsOf(node: Node, out: Extract<Block, { type: 'list' }>['children'][number][] = []): Extract<Block, { type: 'list' }>['children'][number][] {
+  if (node.type === 'listItem') out.push(node);
+  for (const child of node.children ?? []) itemsOf(child as Node, out);
+  return out;
+}
+
+function toggleItem(source: string, pick: (items: ReturnType<typeof itemsOf>) => ReturnType<typeof itemsOf>[number]): { out: string; applies: boolean } {
+  const doc = parse(source);
+  const item = pick(itemsOf(doc));
+  const range = item.src;
+  const applies = toggleTask.canApply({ document: doc, node: item, range });
+  const bytes = new TextEncoder().encode(source);
+  const text = new TextDecoder().decode(bytes.slice(range.start, range.end));
+  const { replacement } = toggleTask.run({ document: doc, node: item, range, text });
+  const out = new TextDecoder().decode(bytes.slice(0, range.start)) + replacement + new TextDecoder().decode(bytes.slice(range.end));
+  return { out, applies };
+}
+
+const itemCases: { name: string; source: string; pick: number; expect: string }[] = [
+  { name: 'LF', source: '- [ ] one\n- [x] two\n', pick: 0, expect: '- [x] one\n- [x] two\n' },
+  { name: 'LF, checked', source: '- [ ] one\n- [x] two\n', pick: 1, expect: '- [ ] one\n- [ ] two\n' },
+  { name: 'CRLF', source: '- [ ] one\r\n- [ ] two\r\n', pick: 1, expect: '- [ ] one\r\n- [x] two\r\n' },
+  { name: 'nested: outer item', source: '- [ ] outer\n  - [ ] inner\n', pick: 0, expect: '- [x] outer\n  - [ ] inner\n' },
+  { name: 'nested: inner item', source: '- [ ] outer\n  - [ ] inner\n', pick: 1, expect: '- [ ] outer\n  - [x] inner\n' },
+  { name: 'non-ASCII text in the item', source: '- [ ] caf\u00e9 \u65e5\u672c \ud83d\ude00\n', pick: 0, expect: '- [x] caf\u00e9 \u65e5\u672c \ud83d\ude00\n' },
+  { name: 'non-ASCII before the marker (in the lead-in of a nested item)', source: '1. [ ] \u00e9\n   - [X] \u00e9\n', pick: 1, expect: '1. [ ] \u00e9\n   - [ ] \u00e9\n' },
+];
+
+for (const c of itemCases) {
+  test(`toggle-task on a list item: ${c.name}`, () => {
+    const { out, applies } = toggleItem(c.source, (items) => items[c.pick]!);
+    assert.ok(applies);
+    assert.equal(out, c.expect);
+  });
+}
+
+test('toggle-task on a list item with no marker: canApply is false', () => {
+  const { applies } = toggleItem('- plain\n- [ ] task\n', (items) => items[0]!);
+  assert.equal(applies, false);
+});
+
+test('toggle-task on a list item: a range that is not the item is refused', () => {
+  const doc = parse('- [ ] a\n');
+  const item = itemsOf(doc)[0]!;
+  assert.equal(toggleTask.canApply({ document: doc, node: item, range: { ...item.src, end: item.src.end - 1 } }), false);
+});
+
+test('toggle-task on a list item: text that is not a marker is returned unchanged', () => {
+  const doc = parse('- [ ] a\n');
+  const item = itemsOf(doc)[0]!;
+  const result = toggleTask.run({ document: doc, node: item, range: item.src, text: '- (x) a\n' });
+  assert.equal(result.replacement, '- (x) a\n');
+});
+
+test('minimal diff: toggle-task on every task list item of the corpus changes only its marker bytes', () => {
+  let items = 0;
+  for (const { file, bytes, document: doc } of corpusDocuments()) {
+    const buffer = createBuffer(file, bytes);
+    for (const item of itemsOf(doc)) {
+      if (!item.task) continue;
+      const marker = taskMarkersOfItem(item);
+      assert.ok(marker, `${file}: a task item has a marker`);
+      const range = item.src;
+      const text = textOf(buffer, range);
+      const input = { document: doc, node: item, range, text };
+      assert.ok(toggleTask.canApply(input), `${file} @ ${range.start}`);
+      const next = splice(buffer, range, toggleTask.run(input).replacement);
+      assertOnlySpansChanged(bytes, next.bytes, [marker.src]);
+      assert.notDeepEqual([...next.bytes], [...bytes]);
+      items++;
+    }
+  }
+  assert.ok(items > 0, 'the corpus has task items');
+});
+
+function taskMarkersOfItem(item: Extract<Block, { type: 'list' }>['children'][number]): Extract<Inline, { type: 'taskMarker' }> | undefined {
+  const found: Extract<Inline, { type: 'taskMarker' }>[] = [];
+  for (const block of item.children) {
+    if (block.type === 'paragraph') taskMarkersOf(block, found);
+  }
+  return found[0];
+}
+
+test('offsets: byte and string offsets round trip for 1-, 2-, 3- and 4-byte characters', () => {
+  const text = 'a\u00e9\u65e5\ud83d\ude00b\r\nc';
+  let bytes = 0;
+  for (let index = 0; index <= text.length; index++) {
+    const cp = index < text.length ? text.codePointAt(index)! : 0;
+    const splitsPair = index > 0 && text.charCodeAt(index - 1) >= 0xd800 && text.charCodeAt(index - 1) <= 0xdbff;
+    if (splitsPair) {
+      assert.throws(() => stringToByteOffset(text, index), RangeError);
+      continue;
+    }
+    assert.equal(stringToByteOffset(text, index), bytes);
+    assert.equal(byteToStringOffset(text, bytes), index);
+    if (index < text.length) bytes += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+  }
+  assert.equal(stringToByteOffset(text, text.length), new TextEncoder().encode(text).length);
+});
+
+test('offsets: a byte offset inside a multi-byte sequence or past the end throws RangeError', () => {
+  const text = 'a\u00e9\u65e5\ud83d\ude00';
+  for (const bad of [2, 4, 5, 7, 8, 9, 100, -1, 1.5]) assert.throws(() => byteToStringOffset(text, bad), RangeError, String(bad));
+  assert.throws(() => stringToByteOffset(text, text.length + 1), RangeError);
+  assert.throws(() => stringToByteOffset(text, 4), RangeError);
+});
+
+test('inline-text: one case per inline type', () => {
+  const doc = parse(
+    'plain `code` *em* **st** ~~del~~ [lnk **bold**](http://x) ![the alt](i.png) $m$ note[^1]<b>x</b>  \nsoft\nbreak\n\n- [ ] task\n\n[^1]: n\n',
+  );
+  const para = doc.children[0]!;
+  assert.equal(para.type, 'paragraph');
+  const inlines = (para as Extract<Block, { type: 'paragraph' }>).children;
+  const byType = (type: string) => inlines.filter((n) => n.type === type);
+  assert.equal(inlinePlainText(byType('text').slice(0, 1)), 'plain ');
+  assert.equal(inlinePlainText(byType('code')), 'code');
+  assert.equal(inlinePlainText(byType('emphasis')), 'em');
+  assert.equal(inlinePlainText(byType('strong')), 'st');
+  assert.equal(inlinePlainText(byType('strikethrough')), 'del');
+  assert.equal(inlinePlainText(byType('link')), 'lnk bold');
+  assert.equal(inlinePlainText(byType('image')), 'the alt');
+  assert.equal(inlinePlainText(byType('mathInline')), 'm');
+  assert.equal(inlinePlainText(byType('footnoteReference')), '[1]');
+  assert.equal(inlinePlainText(byType('html')), '');
+  assert.equal(inlinePlainText(byType('hardBreak')), '\n');
+  assert.equal(inlinePlainText(byType('hardBreak'), { hardBreak: ' / ' }), ' / ');
+  assert.equal(inlinePlainText(byType('softBreak')), ' ');
+  const item = itemsOf(doc).find((i) => i.task)!;
+  const taskPara = item.children[0] as Extract<Block, { type: 'paragraph' }>;
+  assert.equal(inlinePlainText(taskPara.children.filter((n) => n.type === 'taskMarker')), '');
+  assert.equal(inlinePlainText(taskPara.children).trim(), 'task');
 });
