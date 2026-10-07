@@ -81,7 +81,8 @@ function valueExports(text) {
 // boundary. So the directory's runtime export surface is an allowlist — one shell object, nothing
 // that hands a caller the raw IPC channel.
 test('apps/desktop/src/shell exports only the shell object and the memory factory', () => {
-  const allowed = ['shell', 'createMemoryShell'];
+  // `eventsForWatch` (C-05) is a pure filter over an `fs-watch` payload; it takes no IPC handle.
+  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch'];
   const exported = files
     .filter(f => f.rel.startsWith(shellDir + sep))
     .flatMap(f => valueExports(f.text).map(name => ({ name, rel: f.rel })));

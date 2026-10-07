@@ -45,7 +45,7 @@ pub(crate) struct FileId {
 }
 
 /// Path → identity at the last poll. Paths are absolute.
-type Snapshot = BTreeMap<PathBuf, FileId>;
+pub(crate) type Snapshot = BTreeMap<PathBuf, FileId>;
 
 /// Roots watched together: the document directory and parents of symlinked documents in it.
 pub struct RootWatch {
@@ -183,7 +183,7 @@ fn scan_entries(entries: fs::ReadDir, out: &mut Snapshot) {
     }
 }
 
-fn file_id(meta: &Metadata) -> FileId {
+pub(crate) fn file_id(meta: &Metadata) -> FileId {
     FileId {
         mtime_ms: meta
             .modified()

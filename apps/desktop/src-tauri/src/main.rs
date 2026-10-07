@@ -6,6 +6,8 @@ mod error;
 mod watch;
 #[path = "watch/spawn_notify.rs"]
 mod watch_notify;
+#[path = "watch/tree.rs"]
+mod watch_tree;
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -271,19 +273,42 @@ fn canonical_watch_root(root: &str) -> Result<String, String> {
     Ok(canon.to_string_lossy().into_owned())
 }
 
-/// The watch-table key for `root`: its current canonical form, or, when it no longer canonicalises,
-/// whatever canonical key a previous `watch_root(root)` call recorded for that exact raw string.
-fn resolve_watch_key(raw_roots: &HashMap<String, String>, root: &str) -> String {
-    canonical_watch_root(root).unwrap_or_else(|_| {
-        raw_roots
-            .get(root)
-            .cloned()
-            .unwrap_or_else(|| root.to_string())
-    })
+/// Appended to a tree watch's table key, so a tree watch and a folder watch of the same directory
+/// never share a thread (C-05). A NUL cannot occur in a path, so no folder key ever ends this way.
+const TREE_KEY_SUFFIX: &str = "\u{0}tree";
+
+/// The table key for a watch of `canonical`: the path itself for a folder, the path and the suffix
+/// for a tree. Also the key of the `raw_watch_roots` recording for a raw root string.
+fn watch_table_key(canonical: &str, recursive: bool) -> String {
+    if recursive {
+        format!("{canonical}{TREE_KEY_SUFFIX}")
+    } else {
+        canonical.to_string()
+    }
 }
 
-fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
-    let payload: Vec<serde_json::Value> = events
+/// The watch-table key for `root`: its current canonical form, or, when it no longer canonicalises,
+/// whatever canonical key a previous `watch_root(root)` call recorded for that exact raw string.
+#[cfg(test)]
+fn resolve_watch_key(raw_roots: &HashMap<String, String>, root: &str) -> String {
+    resolve_table_key(raw_roots, root, false)
+}
+
+/// `resolve_watch_key` for a folder or a tree watch: the same resolution, under that kind's key.
+fn resolve_table_key(raw_roots: &HashMap<String, String>, root: &str, recursive: bool) -> String {
+    match canonical_watch_root(root) {
+        Ok(canonical) => watch_table_key(&canonical, recursive),
+        Err(_) => raw_roots
+            .get(&watch_table_key(root, recursive))
+            .cloned()
+            .unwrap_or_else(|| watch_table_key(root, recursive)),
+    }
+}
+
+/// One `fs-watch` payload: the table key of the watch that saw the batch, and its events. Every
+/// watcher in the webview listens on the one channel and keeps only its own key's.
+fn fs_watch_payload(key: &str, events: &[watch::WatchEvent]) -> serde_json::Value {
+    let events: Vec<serde_json::Value> = events
         .iter()
         .map(|event| {
             let mut value = serde_json::json!({
@@ -296,48 +321,77 @@ fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
             value
         })
         .collect();
-    let _ = app.emit("fs-watch", payload);
+    serde_json::json!({ "key": key, "events": events })
 }
 
-/// Starts (or shares) one `notify` thread per canonical root; events go to `fs-watch`. Async, so
-/// registering watches and joining a stopping thread run off the main thread.
+fn emit_fs_watch(app: &tauri::AppHandle, key: &str, events: Vec<watch::WatchEvent>) {
+    let _ = app.emit("fs-watch", fs_watch_payload(key, &events));
+}
+
+/// Starts (or shares) one `notify` thread per table key and returns the key; events go to
+/// `fs-watch` tagged with it. A folder watch (the default) sees the folder's own files; a
+/// `recursive` watch sees the tree. Async, so registering watches, scanning a tree and joining a
+/// stopping thread run off the main thread; the table is not locked while a tree is scanned.
 #[tauri::command]
-async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
-    let key = canonical_watch_root(&root)?;
+async fn watch_root(
+    app: tauri::AppHandle,
+    root: String,
+    recursive: Option<bool>,
+) -> Result<String, String> {
+    let recursive = recursive.unwrap_or(false);
+    let canonical = canonical_watch_root(&root)?;
+    let key = watch_table_key(&canonical, recursive);
     raw_watch_roots()
         .lock()
         .map_err(|e| e.to_string())?
-        .insert(root.clone(), key.clone());
-    let mut table = watch_table().lock().map_err(|e| e.to_string())?;
-    if let Some(entry) = table.get_mut(&key) {
-        entry.refs += 1;
-        return Ok(());
+        .insert(watch_table_key(&root, recursive), key.clone());
+    {
+        let mut table = watch_table().lock().map_err(|e| e.to_string())?;
+        if let Some(entry) = table.get_mut(&key) {
+            entry.refs += 1;
+            return Ok(key);
+        }
     }
     let app_handle = app.clone();
-    let running = watch_notify::spawn_poll_thread(PathBuf::from(&key), move |events| {
-        emit_fs_watch(&app_handle, events);
-    })?;
-    table.insert(key, WatchEntry { running, refs: 1 });
-    Ok(())
+    let emit_key = key.clone();
+    let emit = move |events| emit_fs_watch(&app_handle, &emit_key, events);
+    let mut running = if recursive {
+        watch_notify::spawn_tree_thread(PathBuf::from(&canonical), emit)?
+    } else {
+        watch_notify::spawn_poll_thread(PathBuf::from(&canonical), emit)?
+    };
+    let mut table = watch_table().lock().map_err(|e| e.to_string())?;
+    if let Some(entry) = table.get_mut(&key) {
+        // Another call started the same watch while this one scanned: share theirs.
+        entry.refs += 1;
+        drop(table);
+        running.stop();
+        return Ok(key);
+    }
+    table.insert(key.clone(), WatchEntry { running, refs: 1 });
+    Ok(key)
 }
 
 #[tauri::command]
-async fn unwatch_root(root: String) -> Result<(), String> {
+async fn unwatch_root(root: String, recursive: Option<bool>) -> Result<(), String> {
     let key = {
         let raw_roots = raw_watch_roots().lock().map_err(|e| e.to_string())?;
-        resolve_watch_key(&raw_roots, &root)
+        resolve_table_key(&raw_roots, &root, recursive.unwrap_or(false))
     };
-    let mut table = watch_table().lock().map_err(|e| e.to_string())?;
-    let entry = table
-        .get_mut(&key)
-        .ok_or_else(|| format!("not watching {root}"))?;
-    entry.refs -= 1;
-    if entry.refs == 0 {
-        let mut entry = table.remove(&key).expect("entry");
-        entry.running.stop();
-        if let Ok(mut raw_roots) = raw_watch_roots().lock() {
-            raw_roots.retain(|_, v| v != &key);
+    let mut entry = {
+        let mut table = watch_table().lock().map_err(|e| e.to_string())?;
+        let entry = table
+            .get_mut(&key)
+            .ok_or_else(|| format!("not watching {root}"))?;
+        entry.refs -= 1;
+        if entry.refs > 0 {
+            return Ok(());
         }
+        table.remove(&key).expect("entry")
+    };
+    entry.running.stop();
+    if let Ok(mut raw_roots) = raw_watch_roots().lock() {
+        raw_roots.retain(|_, v| v != &key);
     }
     Ok(())
 }
@@ -985,6 +1039,64 @@ mod tests {
         assert_eq!(
             resolve_watch_key(&raw_roots, "/no/such/deleted-marxy-root"),
             "/real/canonical/path",
+        );
+    }
+
+    #[test]
+    fn a_tree_watch_and_a_folder_watch_of_one_directory_have_different_keys() {
+        use super::{resolve_table_key, watch_table_key};
+        let dir = std::env::temp_dir();
+        let raw_roots = HashMap::new();
+        let folder = resolve_table_key(&raw_roots, &dir.to_string_lossy(), false);
+        let tree = resolve_table_key(&raw_roots, &dir.to_string_lossy(), true);
+        assert_ne!(folder, tree);
+        assert_eq!(tree, watch_table_key(&folder, true));
+        assert_eq!(
+            folder,
+            resolve_watch_key(&raw_roots, &dir.to_string_lossy())
+        );
+        let mut raw_roots = HashMap::new();
+        raw_roots.insert(
+            watch_table_key("/no/such/deleted-marxy-tree", true),
+            watch_table_key("/real/tree", true),
+        );
+        assert_eq!(
+            resolve_table_key(&raw_roots, "/no/such/deleted-marxy-tree", true),
+            watch_table_key("/real/tree", true),
+        );
+        assert_eq!(
+            resolve_table_key(&raw_roots, "/no/such/deleted-marxy-tree", false),
+            "/no/such/deleted-marxy-tree",
+            "a gone tree's recording does not resolve a folder watch",
+        );
+    }
+
+    #[test]
+    fn an_fs_watch_payload_carries_the_watch_key_and_its_events() {
+        use super::fs_watch_payload;
+        use crate::watch::{WatchEvent, WatchKind};
+        use std::path::PathBuf;
+        let events = [
+            WatchEvent {
+                kind: WatchKind::Created,
+                path: PathBuf::from("/r/a/b.md"),
+                to: None,
+            },
+            WatchEvent {
+                kind: WatchKind::Renamed,
+                path: PathBuf::from("/r/x.md"),
+                to: Some(PathBuf::from("/r/y.md")),
+            },
+        ];
+        assert_eq!(
+            fs_watch_payload("/r\u{0}tree", &events),
+            serde_json::json!({
+                "key": "/r\u{0}tree",
+                "events": [
+                    { "kind": "created", "path": "/r/a/b.md" },
+                    { "kind": "renamed", "path": "/r/x.md", "to": "/r/y.md" },
+                ],
+            })
         );
     }
 

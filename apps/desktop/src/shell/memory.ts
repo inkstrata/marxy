@@ -166,8 +166,8 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     emitCloseRequested() {
       for (const cb of closeListeners) cb();
     },
-    async watch(root, onEvents) {
-      record('watch', [root]);
+    async watch(root, onEvents, opts) {
+      record('watch', opts === undefined ? [root] : [root, opts]);
       listeners.push(onEvents);
       return {
         close() {
