@@ -447,7 +447,11 @@ p > img:only-child { display: block; margin-inline: auto; }
 .marxy-selected { box-shadow: -3px 0 0 var(--marxy-color-accent); }
 .marxy-set { white-space: nowrap; }
 .marxy-lb::before { content: '\A'; white-space: pre; }   /* a line break that is not text: copy and find never see it */
-.marxy-hang { display: inline-block; }
+/* A hung grapheme is an inline-block, shaped apart from the rest of its line. It has no line height of
+   its own: it sits on the line's baseline and can never make the line taller. With the body's, WebKit
+   placed its box to the 1/64 px a little below the line's own at sizes such as 16 and 28, each line
+   holding one grew by 1/64 px, and a long document drifted off the grid (B-22). */
+.marxy-hang { display: inline-block; line-height: 0; }
 
 /* Display math wider than the measure scrolls inside its own block instead of widening the page. */
 .marxy-article .katex-display { overflow-x: auto; }
