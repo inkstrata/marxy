@@ -33,5 +33,3 @@ It is so comfortable to be immature. If I have a book that understands for me, a
 ---
 
 Immanuel Kant (1724–1804), the opening of "An Answer to the Question: What is Enlightenment?", *Berlinische Monatsschrift*, December 1784. Spelling of the first printing; its bold type is kept as bold, and the Latin, set there in roman among the black letter, as italic. *Sapere aude*, "dare to be wise," is from Horace.
-
-Translated for Marxy and released with it under the MIT licence.

@@ -27,5 +27,3 @@ rights: public-domain+marxy-translation
 ---
 
 Gottfried Wilhelm Leibniz (1646–1716), from an unpublished paper "On the art of characteristic signs, for perfecting the sciences that rest on reason," first printed by C. I. Gerhardt in *Die philosophischen Schriften*, volume 7 (Berlin: Weidmann, 1890), page 200. Leibniz spent his life on a universal notation in which thinking could be reckoned; he also built one of the first machines that could multiply.
-
-Translated for Marxy and released with it under the MIT licence.

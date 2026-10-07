@@ -31,5 +31,3 @@ I lower my head and think of home.
 ---
 
 Li Bai (701–762), "Quiet Night Thought." This is the text of *Three Hundred Tang Poems*, compiled by Sun Zhu in 1763, the version nearly every reader of Chinese learns by heart. The older editions of Li Bai's collected works read 看月光 in the first line and 山月, "the mountain moon," in the third.
-
-Translated for Marxy, line for line, and released with it under the MIT licence.

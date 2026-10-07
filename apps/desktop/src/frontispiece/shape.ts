@@ -7,6 +7,8 @@ import { directionOf, type PieceMatter } from './pieces.ts';
 const MAX_INDENT = 8;
 const ELISION = '⋮';
 const EM_SPACE = ' ';
+/** The licence line. It belongs in the corpus info note, not on the page. */
+const TRANSLATION_NOTICE = /^Translated for Marxy\b/;
 
 function isElement(node: Node, tag: string): node is HTMLElement {
   return node.nodeType === 1 && (node as Element).tagName === tag;
@@ -74,6 +76,8 @@ function setStanza(p: HTMLElement): number {
  * A piece in two or more languages sets one section per language side by side (stacked when the
  * window is narrow), each carrying its language and direction. Sections are the `## ` headings in the
  * order front matter lists the languages; a piece whose headings do not match is left as it is.
+ * The headings are how the file is split. They are not shown: the texts sit raw, with the gap
+ * between the sections as the only separation.
  */
 function setParallel(page: HTMLElement, languages: readonly string[], end: Node | null): void {
   const doc = page.ownerDocument;
@@ -92,14 +96,18 @@ function setParallel(page: HTMLElement, languages: readonly string[], end: Node 
     section.className = 'marxy-frontispiece-lang';
     section.lang = languages[i]!;
     section.dir = directionOf(languages[i]!);
-    section.append(...nodes);
+    for (const node of nodes) {
+      if (isElement(node, 'H2')) node.remove();
+      else section.append(node);
+    }
     parallel.append(section);
   });
 }
 
 /**
- * Wraps the rendered piece in `doc` into the frontispiece and returns its root. The colophon is
- * everything after the last thematic break (FORMAT.md, Body).
+ * Wraps the rendered piece in `doc` into the frontispiece and returns its root. The page is the
+ * text: the front-matter head is dropped, and the colophon is everything after the last thematic
+ * break (FORMAT.md, Body) except a translation-licence line, which lives in the corpus info note.
  */
 export function shapeFrontispiece(doc: HTMLElement, matter: PieceMatter): HTMLElement {
   const owner = doc.ownerDocument;
@@ -111,12 +119,21 @@ export function shapeFrontispiece(doc: HTMLElement, matter: PieceMatter): HTMLEl
   root.append(page);
   doc.append(root);
 
+  for (const child of [...page.children]) {
+    if (child.tagName === 'H1') break;
+    if (child.tagName === 'DL') child.remove();
+  }
+
   const rules = [...page.children].filter((el) => el.tagName === 'HR');
   const lastRule = rules[rules.length - 1] ?? null;
   if (lastRule) {
     const colophon = owner.createElement('div');
     colophon.className = 'marxy-frontispiece-colophon';
     while (lastRule.nextSibling) colophon.append(lastRule.nextSibling);
+    for (const el of [...colophon.children]) {
+      const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (TRANSLATION_NOTICE.test(text)) el.remove();
+    }
     lastRule.after(colophon);
   }
 
