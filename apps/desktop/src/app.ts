@@ -217,6 +217,8 @@ let restoreAfterTypeset = false;
 let openLanding: number | undefined;
 /** The line on the reading line just after Source was shown; leaving from it with no edit is exact. */
 let sourceEntryPlace: number | null = null;
+/** Bumped each time Source is shown, so a late measurement of an earlier visit is dropped. */
+let sourceSession = 0;
 /** `sourceReadingPosition` (source/mode-switch.ts), loaded with the editor: CM6 stays on the lazy chunk. */
 let sourceReadingPositionIn:
   | ((buffer: Buffer, view: never, readingLinePx: number) => { readonly byteOffset: number; readonly fraction: number })
@@ -283,9 +285,17 @@ async function showSource(byteOffset: number): Promise<void> {
   editor.scrollToByte(byteOffset);
   // Where Source landed, as the reading line reads it: near either end of a document the window
   // cannot put the entered line on the reading line, so "untouched" is "still here", not "on that line".
-  for (let i = 0; i < 2; i++) await new Promise((r) => requestAnimationFrame(r));
-  const path = openPathNow();
-  if (sourceEditor === editor && path) sourceEntryPlace = sourcePosition(path)?.byteOffset ?? null;
+  // Measured once CodeMirror has applied the scroll (its next frame), and not awaited: the next toggle
+  // must not wait on a frame, which a hidden window may never paint.
+  const session = ++sourceSession;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const path = openPathNow();
+      if (session === sourceSession && sourceEditor === editor && viewMode === 'source' && path) {
+        sourceEntryPlace = sourcePosition(path)?.byteOffset ?? null;
+      }
+    }),
+  );
 }
 
 async function showRendered(byteOffset: number, fraction: number): Promise<void> {
@@ -328,7 +338,9 @@ async function leaveSourceForRendered(): Promise<void> {
   // at its top.
   const { path, buffer } = open.snapshot();
   const place = sourcePosition(path);
-  if (place && (changed || place.byteOffset !== sourceEntryPlace)) {
+  // Not measured yet (left within a frame or two, or the window is hidden): untouched unless edited.
+  const movedAway = sourceEntryPlace !== null && place?.byteOffset !== sourceEntryPlace;
+  if (place && (changed || movedAway)) {
     byteOffset = place.byteOffset;
     fraction = 0;
   }
