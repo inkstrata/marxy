@@ -8,7 +8,59 @@ the TypeScript walker, the ranking formula, persistence, and the palette's state
 `root = shell.repositoryRoot(path) ?? dirname(path)`. The app keeps `recentRoots: string[]`
 (most recent first, max 12) in `history.json` (§11). Queries search the current root first;
 when it returns fewer than `limit` hits, the other recent roots are queried in order and their
-hits appended, each tagged with its root so the palette can show a dim root name.
+hits appended, each tagged with its root so the palette can show a dim root name. The reader may
+also declare folders (§Collections below, ADR-0053); they sit between the current root and the
+recent roots.
+
+## Collections (ADR-0053)
+
+A **collection** is a list of folders the reader declares in `collection.toml`, beside
+`config.toml` (§11). It widens what the palette searches and never adds a surface: there is no
+tree, sidebar, library window or persistent search bar. A list of folders, searched; never browsed.
+
+- **Scope.** The current repository root first, then the declared folders in file order, then the
+  twelve recent roots. One entry per path; the earliest root in scope wins, so a folder nested in a
+  repository is not listed twice. The `collection_loaded` mark records the folder count and the
+  duration of loading the file.
+- **Caps.** 50,000 entries per root (`INDEX_LIMITS.entriesPerRoot`) and 100,000 across the scope.
+  The total is a placeholder held in app code, not in the contract. Beyond a cap the newest files
+  win and the notice line says so.
+- **Declared versus observed.** The file is the reader's; Marxy appends to it only on the explicit
+  command "Add this folder" and preserves every other byte. The snapshots, `history.json` and
+  `positions.json` are Marxy's and disposable. A snapshot may carry `baselineMs`, when Marxy first
+  indexed that root (§11).
+- **Watched folders.** A root with `watch = true` (the default) is watched recursively; a change
+  patches one entry, never the whole index. The repository of the open file counts as watched. A
+  root whose watch fails degrades to rescanning when the palette is summoned, with the notice
+  "watch unavailable for `<root>`; rescan on open".
+- **Worktrees.** Roots that share a git common directory are one group; the current root's copy of
+  a file wins and the others fold under it ("+3 worktrees") unless their size or mtime differs.
+- **Failure.** A malformed `collection.toml` falls back to no extra roots and says so once.
+
+### Empty query
+
+Three short sections, each hidden when empty, twelve rows in all, each path once:
+
+1. **Pinned.** As before.
+2. **Changed since you read.** At most five files in watched roots whose `mtimeMs` is newer than the
+   entry's `lastReadMs`; never read, newer than the root's `baselineMs`. Newest first. A pinned file
+   stays in Pinned and carries the mark.
+3. **Recent.** The MRU, minus the two above.
+
+Every row shows a dim relative age (`now`, `4m`, `3h`, `2d`, `5w`, `1y`); a changed row carries one
+small mark with the accessible name "Changed since you read". Typed rows from watched roots show
+the age and the mark too. Typed ranking is unchanged apart from `mtimeMs` as a tie-break before the
+path. No count, badge or preview appears anywhere (ADR-0050).
+
+### Content search (`/` prefix)
+
+`/` followed by text searches file contents. It is a scan run on demand, never an index: nothing is
+written to disk. Under two characters the notice reads "Type to search file contents"; otherwise,
+after a 120 ms pause, "Searching…", then "N matches in M files", "No matches" or "Showing the first
+200 matches". Rows show the document title, the line number and a dim preview with the match marked;
+at most 50 rows are painted, files are the scope's, current root first, at most 20,000 of them. Enter
+opens the file in Rendered mode at the match with the block holding it selected. Typing in this mode
+never runs the fuzzy matcher. The `content_search` mark records the milliseconds and the hit count.
 
 ## Walking (`apps/desktop/src/index/walk.ts`)
 
@@ -86,8 +138,9 @@ not exist until summoned.
 
 | State | Shown | Keys |
 | --- | --- | --- |
-| **empty query** | pinned documents, then MRU (newest first), 12 max, each with title, dim relative path, and a `⌘1..9` hint on the first nine | `↑/↓` move, `Enter` open, `⌘Enter` open in Source, `⌘P` again cycles to the *operations* section when a selection exists, `Esc` close |
+| **empty query** | Pinned, Changed since you read, Recent (see Collections), 12 rows at most, each with title, dim relative path, dim age, and a `⌘1..9` hint on the first nine; the section labels are not selectable | `↑/↓` move (skipping labels), `Enter` open, `⌘Enter` open in Source, `⌘P` again cycles to the *operations* section when a selection exists, `Esc` close |
 | **typing** | hits: documents (title, path) and headings (`Title › Heading`); a hit from a recent root shows the root name dimmed | same; `Tab` toggles between *documents* and *headings* sections |
+| **content** (`/` prefix) | matches from file contents (see Collections) | same; `Tab` does nothing; `⌘.` pins the row's file |
 | **operations** (`>` prefix or `⌘P` with a selection) | operations applicable to the current selection (§03), with the selection described ("h2 The index") | `Enter` runs |
 | **notice** | one line under the list when the index is truncated or still building | — |
 

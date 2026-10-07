@@ -37,11 +37,39 @@ and "Use this theme" (§05) writes `theme`. All three preserve the rest of the f
 it before the first `[table]` header, with the file's own line ending), through one function,
 `setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`.
 
+## `collection.toml` (ADR-0053), beside `config.toml`
+
+The folders the palette searches besides the repository of the open file. The reader's file: Marxy
+reads it, re-reads it when it changes, and writes to it in exactly one case, the command "Add this
+folder", which appends one `[[root]]` table and preserves every byte before it.
+
+```toml
+# Folders Marxy searches. Edit freely; Marxy re-reads this file when it changes.
+
+[[root]]
+path  = "~/.claude/plans"
+name  = "Claude plans"      # optional; shown dim beside results
+watch = true                # default true; false = rescan on launch only
+
+[[root]]
+path = "~/Dev/marxy/docs"
+
+[deny]
+globs = ["**/drafts/**", "**/*.generated.md"]    # added to the built-in deny list
+```
+
+- A `path` is absolute or `~`-prefixed and local; a URL is rejected. Each root is walked by the rules
+  of §07 (`.gitignore`, `.ignore`, the built-in deny list, the extension allow-list, no symlinks).
+  The built-in deny list cannot be overridden; `[deny]` only adds to it.
+- Parsed with `smol-toml`, from bytes the shell hands over (`packages/core/src/index-model/`, shell-free).
+  Unknown keys are reported once; an unparseable file falls back to no extra roots and says so, as
+  `config.toml` does. Nothing in it is about a document's content.
+
 ## Data files
 
 | File | Content | Cap | Owner |
 | --- | --- | --- | --- |
-| `index/<sha1(root)>.json` | §07 envelope | 50 000 entries; files older than 90 days unused are deleted at startup | shell |
+| `index/<sha1(root)>.json` | §07 envelope, with an optional `baselineMs` (when Marxy first indexed the root; set once, never moved; `version` stays 1) | 50 000 entries; files older than 90 days unused are deleted at startup | shell |
 | `positions.json` | §08 | 5 000 paths, LRU | app |
 | `history.json` | opens, pins, recent roots (§07) | 500 opens, 12 roots | app |
 | `trust.json` | per-document grants: HTML, image hosts ([§12](13-trust.md)) | 2 000 paths, LRU | app |

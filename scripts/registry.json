@@ -35,6 +35,8 @@
     "cm6_scroll",
     "index_build",
     "index_query",
+    "collection_loaded",
+    "content_search",
     "painted",
     "no_paint",
     "no_document",

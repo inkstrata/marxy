@@ -163,6 +163,51 @@ Algorithm, on `text = textOf(range)`:
 | CRLF table | every line keeps `\r\n` |
 | 40-row pathological table | completes in < 5 ms |
 
+## Default verbs and the verb menu (ADR-0054)
+
+One menu is the click surface for operations, and `Mod+C` runs a default copy verb. Both read one
+table, `apps/desktop/src/selection/verbs.ts`, so the order is written in one place.
+
+**Selection kinds.** A drag is `text`. The document is `document`. A section, or a heading node, is
+`section`. A `codeBlock` is `code`. A `table`, `tableRow` or `tableCell` is `table`. A task
+`listItem`, or a paragraph whose parent `listItem` has a task marker, is `task`. Any other block is
+`block`; an inline node is `inline`.
+
+**Widening.** A click on a table cell offers the table's verbs, and a click on a task item's text
+offers "Toggle task". The node's own operation input is tried first, then the enclosing `table` or
+`listItem`; the palette and the keyboard share the rule.
+
+**The tables.** `MENU_ORDER` is the order of the menu (at most seven rows, then "All actions…" when
+more apply). `COPY_DEFAULT` lists the candidates for `Mod+C`, the first registered and applicable
+wins; every id in it is clipboard-only. `MARKDOWN_COPY` is the same for `Mod+Shift+C`. Ids of
+operations not yet registered are skipped.
+
+| Kind | `MENU_ORDER` | `COPY_DEFAULT` | `MARKDOWN_COPY` |
+| --- | --- | --- | --- |
+| text | `selection.copy-rich`, `selection.copy-plain`, `selection.copy-markdown` | `selection.copy-rich` | `selection.copy-markdown` |
+| code | `op.copy-code-clean`, `op.copy-command`, `op.copy-source`, `op.copy-rich`, `view.jump-to-source` | `op.copy-code-clean` | `op.copy-source` |
+| table | `op.copy-table-tsv`, `op.copy-table-csv`, `op.copy-table-json`, `op.copy-source`, `op.copy-rich`, `op.align-table-pipes` | `op.copy-table-tsv`, `op.copy-source` | `op.copy-source` |
+| section | `op.copy-section`, `op.copy-rich`, `op.copy-plain`, `op.extract-tasks`, `op.extract-code-blocks`, `op.extract-links`, `view.jump-to-source` | `op.copy-section` | `op.copy-section` |
+| document | `op.copy-section`, `op.copy-plain`, `op.extract-tasks`, `op.extract-code-blocks`, `op.extract-links` | `op.copy-section` | `op.copy-section` |
+| task | `op.toggle-task`, `op.copy-rich`, `op.copy-plain`, `op.copy-source`, `view.jump-to-source` | `op.copy-rich`, `op.copy-source` | `op.copy-source` |
+| block | `op.copy-rich`, `op.copy-plain`, `op.copy-source`, `view.jump-to-source` | `op.copy-rich`, `op.copy-source` | `op.copy-source` |
+| inline | `op.copy-source`, `view.jump-to-source` | `op.copy-source` | `op.copy-source` |
+
+**Reading the tables.** The `selection.` prefix on the `text` kind is deliberate: those three commands act on a drag's DOM range, not on a node through an operation's `canApply`, so they are app commands rather than `op.*`. `op.copy-plain` and `op.copy-rich` are applicable to any `block`, `section` or `document` selection (a node with a source range, never a drag). `verbKindOf` yields `inline` only when a selection resolves to an inline node (a link or emphasis the reader selected with Alt+click); selection resolution mostly yields blocks, so `inline` is rare.
+
+**Rich copy of a drag.** `selection.copy-rich` writes sanitised HTML and plain text in one clipboard
+write: the cloned range loses the invisible-glyph, link-destination and break marks, soft hyphens and
+every attribute except `href`, `title`, `alt`, `colspan`, `rowspan` and `start`, then passes the core
+sanitiser. `selection.copy-markdown` copies the bytes from the first to the last top-level block the
+range touches.
+
+**The menu.** Opened by right-click, `ContextMenu` / `Shift+F10`, or `Enter` on a selection (§09).
+A `div.marxy-verb-menu` with `role="menu"`, labelled with the selection ("Code block, json"), rows
+with `role="menuitem"` showing the chord. Built on open and removed on close. ArrowUp and ArrowDown
+wrap, `Enter` runs, `Escape` closes and keeps the selection, a click outside or a scroll closes. The
+page never shows WebKit's own context menu. Every verb in a menu is also in the palette's `>` list.
+A hover glyph, a gutter handle and a selection popover are rejected (ADR-0054).
+
 ## Palette integration (§09)
 
 `OPERATIONS.filter(op => op.canApply(input))` for the current selection; each entry shows
