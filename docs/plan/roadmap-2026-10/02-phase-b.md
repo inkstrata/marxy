@@ -471,6 +471,25 @@ and by an idle re-set), and asserts the reading block's top stays within 1 px; t
 chunk adoption. No compensation while the reader is actively scrolling against it (no fighting the
 wheel). Mutation-checked.
 
+### B-02.6 — Settle the inline-matrix paragraph before the gate photographs it
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-02.5 · *Added 2026-10-07 by the lead, from B-02's second
+stop. Dispatch only if `06-math` still moves after B-02.5 merges.*
+
+**Outcome.** Two renders of `fixtures/corpus/06-math.md` at 960 px, both variants, first and last screen,
+differ by 0 pixels. B-02's stop report saw the paragraph "Matrices: (inline matrix) inline, and a fenced math
+block…" land at a different position between runs (0.6–0.8 %), the same family as B-02.2: something sets the
+paragraph again after KaTeX, or the gate's `scrollAndSettle` photographs before the last re-set.
+
+**Paths.** The KaTeX inline rules in `packages/theme/src/base.css` or the late re-set in
+`packages/typeset/src/index.ts` (whichever the probe blames), and a repeat-render test beside B-02.2's.
+`scripts/gate-aesthetics.mjs` only on B-02's branch, with the lead's say-so.
+
+**Acceptance.** Ten consecutive renders of each `06-math` cell, identical (a test that renders twice and
+compares, failing on the current code); no threshold raised.
+
+---
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05
