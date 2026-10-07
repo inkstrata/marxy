@@ -47,6 +47,7 @@ selection.
 ## Consequences
 
 - Stories C-06 (the tables and dispatch), C-07 to C-09 (the packs) and C-13 (the menu) implement this.
+- Departure from `08` §5: a plain-text drag's `Mod+C` default is now `selection.copy-rich` (rich text with formatting, as C-06's outcome states), where `08` said plain text. Plain text stays one menu row away.
 - Rich copy of a drag selection reaches the clipboard as sanitised HTML plus plain text in one write.
   Paste-side HTML must come from the webview's `paste` event; that is not decided here.
 - Writing into the rendered surface is not decided here (ADR-0005 still governs).

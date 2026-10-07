@@ -3,8 +3,9 @@
 - **Status:** proposed
 - **Date:** 2026-10-07
 - **Amends:** ADR-0012 (the indexed root is the enclosing repository; "no settings surface for roots
-  in v1" is lifted; the enclosing repository stays the implicit root). Reads `docs/brief.md` line
-  72 ("library browsing") as the author ruled; the brief is not edited.
+  in v1" is lifted; the enclosing repository stays the implicit root) and ADR-0019 (its "Not in v1:
+  content search" is lifted, as an on-demand scan only). Reads the exclusion list in the brief
+  ("library browsing") as the author ruled; the brief is not edited.
 - **Evidence:** [`docs/research/audit-2026-10/06-feature-collection-and-search.md`](../research/audit-2026-10/06-feature-collection-and-search.md)
   §3.1 to §3.4, §4.1, §4.2, §4.4, §6.3; the author's ruling of 2026-10-02
   ([`rulings.md`](../plan/roadmap-2026-10/rulings.md), question 2).
@@ -33,7 +34,7 @@ way for the reader to say which other folders count.
    persistent search bar, no sidebar and no tree (ADR-0050 keeps them out of the page at rest). The
    empty palette is where freshness lives: Pinned, Changed since you read, Recent.
 4. **Content search is an on-demand scan with no persistent index.** A `/` prefix in the palette
-   scans the files of the collection when the reader asks, and nothing is written. A full-text index
+   scans the files of the collection when the reader asks, and nothing is written. The scan reads local files only, sends nothing anywhere and writes nothing; the privacy promise of commitment 2 (AGENTS.md) names its whole action: the reader types `/`, and Marxy reads files already on their disk. A full-text index
    (`tantivy`) is not adopted: at the corpus sizes measured (10.6 MB of Markdown in 1,450 files,
    about 20 ms warm), an index buys only staleness (`06` §3.4). Revisit if a real collection passes a
    few hundred megabytes.
@@ -48,7 +49,7 @@ way for the reader to say which other folders count.
 
 ## The author's ruling on "library browsing"
 
-`docs/brief.md` line 72 excludes "library browsing". The reading this ADR relies on is the author's,
+The exclusion list in the brief excludes "library browsing". The reading this ADR relies on is the author's,
 ruled on 2026-10-02 (`rulings.md`, question 2): the exclusion means a managed library, a catalogue, a
 tree, a shelf the reader wanders. A declared list of folders, searched from the palette and never
 browsed, is consistent with it. The brief stays as written. This is a decision, not an open question.

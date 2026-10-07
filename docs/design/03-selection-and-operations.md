@@ -193,6 +193,8 @@ operations not yet registered are skipped.
 | block | `op.copy-rich`, `op.copy-plain`, `op.copy-source`, `view.jump-to-source` | `op.copy-rich`, `op.copy-source` | `op.copy-source` |
 | inline | `op.copy-source`, `view.jump-to-source` | `op.copy-source` | `op.copy-source` |
 
+**Reading the tables.** The `selection.` prefix on the `text` kind is deliberate: those three commands act on a drag's DOM range, not on a node through an operation's `canApply`, so they are app commands rather than `op.*`. `op.copy-plain` and `op.copy-rich` are applicable to any `block`, `section` or `document` selection (a node with a source range, never a drag). `verbKindOf` yields `inline` only when a selection resolves to an inline node (a link or emphasis the reader selected with Alt+click); selection resolution mostly yields blocks, so `inline` is rare.
+
 **Rich copy of a drag.** `selection.copy-rich` writes sanitised HTML and plain text in one clipboard
 write: the cloned range loses the invisible-glyph, link-destination and break marks, soft hyphens and
 every attribute except `href`, `title`, `alt`, `colspan`, `rowspan` and `start`, then passes the core
