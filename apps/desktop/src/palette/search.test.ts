@@ -166,6 +166,27 @@ test('51 equal matches in a non-recent root do not push out a recent root\'s mat
   assert.equal(hits[0]?.entry.path, '/recent/notes.md');
 });
 
+test('with few matches outside the current root a recent root still comes first', () => {
+  const old = Array.from({ length: 10 }, (_, i) =>
+    doc({ path: `/old/f${i}.md`, title: 'notes', root: '/old' }),
+  );
+  const recent = doc({ path: '/recent/notes.md', title: 'notes', root: '/recent' });
+  const session = { ...emptySession('/current'), recentRoots: ['/current', '/recent'] };
+  const hits = paletteResults('notes', [...old, recent], session, { limit: 50 });
+  assert.equal(hits.length, 11);
+  assert.equal(hits[0]?.entry.path, '/recent/notes.md');
+});
+
+test('a non-recent root with higher scores does not outrank a recent root under the cap', () => {
+  const old = Array.from({ length: 5 }, (_, i) =>
+    doc({ path: `/old/f${i}.md`, title: 'notes', root: '/old' }),
+  );
+  const recent = doc({ path: '/recent/x-notes-longer-name.md', title: 'my long notes title', root: '/recent' });
+  const session = { ...emptySession('/current'), recentRoots: ['/current', '/recent'] };
+  const hits = paletteResults('notes', [...old, recent], session, { limit: 50 });
+  assert.equal(hits[0]?.entry.path, '/recent/x-notes-longer-name.md');
+});
+
 test('two recent roots keep their recent order ahead of a non-recent root with many matches', () => {
   const old = Array.from({ length: 80 }, (_, i) =>
     doc({ path: `/old/f${String(i).padStart(2, '0')}.md`, title: 'notes', root: '/old' }),

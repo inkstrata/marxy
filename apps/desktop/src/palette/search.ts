@@ -130,7 +130,7 @@ function topKHits(limit: number, compare: (a: IndexHit, b: IndexHit) => number) 
       buf.sort(compare);
     },
     values(): IndexHit[] {
-      return buf.length < limit ? buf.slice().sort(compareHits) : buf;
+      return buf.length < limit ? buf.slice().sort(compare) : buf;
     },
   };
 }
