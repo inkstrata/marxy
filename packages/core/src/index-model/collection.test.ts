@@ -124,6 +124,36 @@ test('appendRoot writes ~/ for a path under home, and quotes safely', () => {
   assert.equal(parseCollection(out, ctx).collection.roots[0]?.path, tricky);
 });
 
+test('a backslash path warns and is skipped; a Windows drive path is kept', () => {
+  const r = parseCollection(enc("[[root]]\npath = '/Users/ian/a\\b'\n[[root]]\npath = 'C:\\Notes'\n"), ctx);
+  assert.deepEqual(
+    r.collection.roots.map((x) => x.path),
+    ['C:/Notes'],
+  );
+  assert.equal(r.warnings.length, 1);
+  assert.match(r.warnings[0]!, /backslash in a folder path is not supported yet; skipped/);
+  const tilde = parseCollection(enc("[[root]]\npath = '~\\x'\n"), ctx);
+  assert.equal(tilde.collection.roots.length, 0);
+});
+
+test('appendRoot refuses a backslash path', () => {
+  assert.throws(() => appendRoot(enc(''), '/Users/ian/a\\b', ctx), RangeError);
+  assert.throws(() => appendRoot(enc(''), '~\\x', ctx), RangeError);
+});
+
+test('appendRoot throws on an inline root array, an unclosed string, and an already-broken file', () => {
+  assert.throws(() => appendRoot(enc('root = [{path="/a"}]\n'), '/b', ctx), /not a list of \[\[root\]\] tables/);
+  assert.throws(() => appendRoot(enc('x = \"\"\"abc\n'), '/b', ctx), Error);
+  assert.throws(() => appendRoot(enc('[[root\npath = = \n'), '/b', ctx), /cannot be read as TOML/);
+});
+
+test('control characters in a path are escaped and survive a round trip', () => {
+  const p = '/a/tab\there';
+  const out = appendRoot(enc(''), p, ctx);
+  assert.match(dec(out), /path = "\/a\/tab\\u0009here"\n$/);
+  assert.equal(parseCollection(out, ctx).collection.roots[0]?.path, p);
+});
+
 test('appendRoot refuses a relative path or a URL', () => {
   assert.throws(() => appendRoot(enc(''), 'docs', ctx), RangeError);
   assert.throws(() => appendRoot(enc(''), 'https://x/y', ctx), RangeError);
@@ -179,9 +209,20 @@ test('appendRoot fuzz: random prefixes keep their bytes; a second append adds on
     for (let j = rand(12); j > 0; j--) text += atoms[rand(atoms.length)];
     // Only well-formed prefixes matter for the root list; fidelity must hold for any bytes.
     const input = enc(text);
-    const first = appendRoot(input, `/z/${i}`, ctx);
+    const parses = !parseCollection(input, ctx).warnings.includes('collection.toml could not be parsed; no extra folders');
+    let first: Uint8Array;
+    try {
+      first = appendRoot(input, `/z/${i}`, ctx);
+    } catch {
+      continue; // throw-or-valid: nothing is returned
+    }
+    assert.ok(parses, `appended to an unparseable file: ${JSON.stringify(text)}`);
     assert.deepEqual(first.slice(0, input.length), input, JSON.stringify(text));
     if (first === input) continue;
+    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    const lead = text === '' ? COLLECTION_TEMPLATE.replace(/\n/g, eol) : text.endsWith('\n') ? '' : eol;
+    assert.equal(dec(first.slice(input.length)), `${lead}[[root]]${eol}path = '/z/${i}'${eol}`, JSON.stringify(text));
+    assert.equal(parseCollection(first, ctx).collection.roots.at(-1)?.path, `/z/${i}`);
     const second = appendRoot(first, `/y/${i}`, ctx);
     assert.deepEqual(second.slice(0, first.length), first, JSON.stringify(text));
     assert.ok(second.length > first.length);

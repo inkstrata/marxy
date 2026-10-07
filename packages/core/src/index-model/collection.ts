@@ -28,6 +28,8 @@ const MAX_ROOTS = 32;
 const ROOT_KEYS = new Set(['path', 'name', 'watch']);
 const TOP_KEYS = new Set(['root', 'deny']);
 
+const UNPARSEABLE = 'collection.toml could not be parsed; no extra folders';
+
 const EMPTY: Collection = { roots: [], denyGlobs: [] };
 
 /** Header comment of a fresh file (06 §4.2). Ends in a blank line. */
@@ -49,13 +51,20 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+const WINDOWS_DRIVE = /^[A-Za-z]:[\\/]/;
+
+/** True when the path holds a backslash that is not part of a Windows drive path. */
+function hasUnsupportedBackslash(raw: string): boolean {
+  return raw.includes('\\') && !WINDOWS_DRIVE.test(raw);
+}
+
 /** Expands `~` and `~/…`; returns null for anything that is not an absolute local path. */
 function resolveRootPath(raw: string, home: string): string | null {
-  if (raw.includes('://')) return null;
+  if (raw.includes('://') || hasUnsupportedBackslash(raw)) return null;
   const h = normalizePath(home);
   let expanded = raw;
   if (raw === '~') expanded = h;
-  else if (raw.startsWith('~/') || raw.startsWith('~\\')) expanded = `${h === '/' ? '' : h}/${raw.slice(2)}`;
+  else if (raw.startsWith('~/')) expanded = `${h === '/' ? '' : h}/${raw.slice(2)}`;
   const normalized = normalizePath(expanded);
   const absolute = normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized);
   return absolute ? normalized : null;
@@ -73,7 +82,7 @@ export function parseCollection(bytes: Uint8Array, ctx: { readonly home: string 
     } catch {
       return {
         collection: EMPTY,
-        warnings: ['collection.toml could not be parsed; no extra folders'],
+        warnings: [UNPARSEABLE],
         unknownKeys: [],
       };
     }
@@ -93,6 +102,10 @@ export function parseCollection(bytes: Uint8Array, ctx: { readonly home: string 
     for (const k of Object.keys(entry)) if (!ROOT_KEYS.has(k)) unknown.add(`root.${k}`);
     if (typeof entry.path !== 'string' || entry.path === '') {
       warnings.push(`${label} has no path; skipped`);
+      continue;
+    }
+    if (hasUnsupportedBackslash(entry.path)) {
+      warnings.push(`${label} path "${entry.path}": a backslash in a folder path is not supported yet; skipped`);
       continue;
     }
     const path = resolveRootPath(entry.path, ctx.home);
@@ -153,8 +166,12 @@ function tomlString(s: string): string {
  */
 export function appendRoot(bytes: Uint8Array, path: string, ctx: { readonly home: string }): Uint8Array {
   const normalized = resolveRootPath(path, ctx.home);
-  if (normalized === null) throw new RangeError(`not an absolute local folder: ${path}`);
-  if (parseCollection(bytes, ctx).collection.roots.some((r) => r.path === normalized)) return bytes;
+  if (normalized === null) throw new RangeError(`not an absolute local folder, or has a backslash: ${path}`);
+  const before = parseCollection(bytes, ctx);
+  if (before.warnings.includes(UNPARSEABLE)) {
+    throw new Error('collection.toml cannot be read as TOML; edit it by hand');
+  }
+  if (before.collection.roots.some((r) => r.path === normalized)) return bytes;
 
   const home = normalizePath(ctx.home);
   let written = normalized;
@@ -172,5 +189,12 @@ export function appendRoot(bytes: Uint8Array, path: string, ctx: { readonly home
   const out = new Uint8Array(bytes.length + tail.length);
   out.set(bytes, 0);
   out.set(tail, bytes.length);
+  const after = parseCollection(out, ctx);
+  if (after.warnings.includes(UNPARSEABLE)) {
+    throw new Error('collection.toml has a `root` that is not a list of [[root]] tables; edit it by hand');
+  }
+  if (after.collection.roots.at(-1)?.path !== normalized) {
+    throw new Error('collection.toml could not take the new folder; edit it by hand');
+  }
   return out;
 }
