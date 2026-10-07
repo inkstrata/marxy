@@ -549,6 +549,22 @@ closed article is not run; colours stay identical for lines under the caps (gold
 
 ---
 
+### B-22 — No sub-pixel drift off the grid at any text size
+
+**Model:** opus · **Size:** S–M · *Added 2026-10-07 by the lead, from B-02's fourth stop.*
+
+**Outcome.** At body sizes 16 and 28 WebKit lays many paragraphs out 1/64 px taller than a whole number of grid
+units. `grid.ts` corrects a block only past 0.5 px and only among the article's direct children, so drift builds
+to just under 0.5 px between corrections and list items inside it end 0.52–0.53 px off (`32-long-reference`,
+960 px). The reader sees text off the baseline grid; B-02's gate (which checks every block) fails. Fix the
+growth at its source if it is a line-box computation, or make the grid pass leave no block more than a small
+epsilon off, at the same cost.
+
+**Acceptance.** Every block, list items included, within the gate's tolerance at sizes 16, 20 and 28 on the
+affected fixture; size 20 byte-identical; the 1 MB grid pass within noise.
+
+---
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05
