@@ -35,6 +35,7 @@ test('findAll is non-overlapping, skips empty matches and ignores lastIndex and 
   const index = buildTextIndex(['aaaa']);
   assert.deepEqual(findAll(index, /aa/g), [{ start: 0, end: 2 }, { start: 2, end: 4 }]);
   assert.deepEqual(findAll(index, /x*/g), []);
+  assert.deepEqual(findAll(buildTextIndex(['abx']), /x*/g), [{ start: 2, end: 3 }]);
   const re = /a/;
   re.lastIndex = 3;
   assert.equal(findAll(index, re).length, 4);
