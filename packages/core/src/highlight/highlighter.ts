@@ -38,5 +38,8 @@ export async function tokenizeWithAllowList(code: string, lang: string) {
   const grammar = await ensureLanguage(lang);
   if (!grammar) return null;
   const hi = await getHighlighter();
-  return hi.codeToTokensBase(code, { lang: grammar, theme: INTERNAL_THEME_NAME });
+  // 0 = no limit. Shiki's default (500 ms per line) stops tokenising mid-line when a cold grammar
+  // is slow to compile its regexes, so the same code would get different colours on a busy machine.
+  // Cost stays bounded by MAX_HIGHLIGHT_LINE_CHARS / MAX_HIGHLIGHT_BLOCK_CHARS, and runs in a worker.
+  return hi.codeToTokensBase(code, { lang: grammar, theme: INTERNAL_THEME_NAME, tokenizeTimeLimit: 0 });
 }

@@ -205,3 +205,18 @@ test('the one-line bash case from the repro finishes quickly', async () => {
   await highlight('a'.repeat(50000), 'bash');
   assert.ok(performance.now() - start < 3000);
 });
+
+test('colours do not depend on elapsed time: a clock that jumps a second per read still tokenises the whole line (B-02.9)', async () => {
+  const line = 'export function firstAtx(text: string, from: number, to: number): number | null {';
+  const baseline = await highlight(line, 'ts');
+  const realNow = Date.now;
+  let t = 0;
+  Date.now = () => (t += 1000);
+  try {
+    const slow = await highlight(line, 'ts');
+    assert.deepEqual(slow, baseline);
+    assert.ok(slow![0]!.length > 10, `expected a fully tokenised line, got ${slow![0]!.length} tokens`);
+  } finally {
+    Date.now = realNow;
+  }
+});
