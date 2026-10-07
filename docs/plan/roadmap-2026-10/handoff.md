@@ -19,7 +19,7 @@
 | Story | State | What the next lead does |
 | --- | --- | --- |
 | B-11 (opus) | #362, **merge verdict** (Opus review) | author merges; then B-11.1 (Sonnet) and B-12 (carries the review's `baseVersion` point) |
-| B-02.5 (sonnet) | fixing return 1 (two wraps untested, 1 MB content_complete +15 %, drop `scroller`) | re-review; a second return goes to Opus with both notes (§1) |
+| B-02.5 / B-02.7 | B-02.5 merged early (`c82fe77f`); its fixes are #363 (B-02.7), **returned** | **first in the queue**: main's 1 MB content_complete is +18–20 % since B-02.5, caused by the window-level capture listeners the typesetter registers. Opus (second return): register them lazily or passive on #363's branch, re-measure with interleaved pairs against `fedef091` |
 | L-00 (sonnet) | **returned** (#365): geometry true, H4 and H6 causes wrong, controls missing | send the return (rulings in `progress.md`) to a Sonnet implementor; re-review; then L-01 on Opus |
 | A-10.4 (sonnet) | #360, merge verdict (lead review), default size only | author merges |
 | B-02 (opus) | **parked**: pushed (`d2885b69` code, `b2b68f0b` macOS baselines), no PR | see below |
@@ -39,6 +39,8 @@ Also: the gate's wall time went 157 s → 5–10.5 min on the app. Worth a look 
 Then A-11.2 (gates design document) follows B-02.
 
 ## Waiting on the author
+
+0. **Merge B-11** (#362, Opus review: merge).
 
 1. **The v0.1.0 manual checks**: a nine-question walkthrough was posted in the session; results not yet
    in. The likeliest failures are Finder drag-and-drop (the macOS drop event was never seen on a real
