@@ -11,6 +11,7 @@ import {
   type Inline,
   type Node,
 } from '@marxy/core';
+import { headingIdsForDocument } from '@marxy/core/src/render/heading-ids.ts';
 import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
@@ -84,14 +85,45 @@ let pendingFragment: string | undefined;
 
 const MARKDOWN_LINK = /\.(md|markdown|mdx|txt)$/i;
 
-function scrollToFragment(fragment: string): void {
+/** Scroll the heading `fragment` names to the reading line; false when it is not on the page (yet). */
+function scrollToFragment(fragment: string): boolean {
   const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
-  if (!id || !ctx) return;
+  if (!id || !ctx) return true;
   const target = ctx.article.querySelector(`#${CSS.escape(id)}`);
-  if (!(target instanceof HTMLElement)) return;
+  if (!(target instanceof HTMLElement)) return false;
   const scroller = document.documentElement;
   const top = target.getBoundingClientRect().top + scroller.scrollTop - readingLine(scroller.clientHeight);
   scroller.scrollTop = Math.max(0, top);
+  return true;
+}
+
+/** The byte where the heading `fragment` names starts, from the parsed document, mounted or not. */
+function headingByte(fragment: string): number | undefined {
+  const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
+  if (!id || !ctx) return undefined;
+  for (const [range, headingId] of headingIdsForDocument(ctx.document)) {
+    if (headingId === id) return Number(range.slice(0, range.indexOf('-')));
+  }
+  return undefined;
+}
+
+/**
+ * Land on a fragment. A long document mounts progressively, so the heading may not be on the page
+ * yet: mount through it, at once, and land. An id the document has no heading for does nothing. It
+ * never waits, so nothing can pull the page after the reader has moved on.
+ */
+function landFragment(fragment: string): void {
+  if (scrollToFragment(fragment) || !appHandle) return;
+  const byte = headingByte(fragment);
+  if (byte === undefined) return;
+  appHandle.mountThrough(byte);
+  scrollToFragment(fragment);
+}
+
+/** Nothing the reader clicked in the last document names anything in the next one (or in none). */
+function forgetClick(): void {
+  lastClickTarget = null;
+  (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = undefined;
 }
 
 function recordNavOpen(nextPath: string): void {
@@ -122,7 +154,7 @@ async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<vo
 
   if (href.startsWith('#')) {
     ev.preventDefault();
-    scrollToFragment(href);
+    landFragment(href);
     return;
   }
 
@@ -169,10 +201,9 @@ async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<vo
   recordNavOpen(target);
   pendingFragment = fragment;
   await appHandle.open(target);
-  if (pendingFragment) {
-    scrollToFragment(pendingFragment);
-    pendingFragment = undefined;
-  }
+  const landing = pendingFragment;
+  pendingFragment = undefined;
+  if (landing) landFragment(landing);
 }
 
 /** The app this selection follows: operations commit through it (render/tasks.ts). */
@@ -341,7 +372,7 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
     if (!open) {
       ctx = null;
       state = select(state, { kind: 'none' });
-      lastClickTarget = null;
+      forgetClick();
       return;
     }
     const next = { nodeMap: open.nodeMap, document: open.ast, buffer: open.buffer };
@@ -351,7 +382,7 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
       // Another document: nothing selected in the last one names anything in this one.
       if (ctx.buffer.path !== open.path) {
         state = select(state, { kind: 'none' });
-        lastClickTarget = null;
+        forgetClick();
       }
       afterDocumentRendered(next);
     }
@@ -362,10 +393,9 @@ export async function installRenderedSelection(handle: AppHandle): Promise<void>
   handle.onDocumentChange((open) => {
     adopt(open);
     if (open && pendingFragment) {
-      requestAnimationFrame(() => {
-        scrollToFragment(pendingFragment!);
-        pendingFragment = undefined;
-      });
+      const landing = pendingFragment;
+      pendingFragment = undefined;
+      requestAnimationFrame(() => landFragment(landing));
     }
   });
 

@@ -142,3 +142,21 @@ test('Jump to source, type, Mod+E twice keeps the text; Mod+Z undoes it', async 
   assert.equal(await bufferText(page), TEXT, 'Mod+Z took the typed text back out');
   await page.close();
 });
+
+test('F-05: a click in one document is not the jump target after another document opens', async () => {
+  const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ a, b }) => {
+    window.__b = await window.marxyPaletteBoot.start({ '/doc/a.md': a, '/doc/b.md': b }, ['/doc/a.md'], []);
+  }, { a: Buffer.from(TEXT).toString('base64'), b: Buffer.from('# Other\n').toString('base64') });
+  await page.waitForFunction(() => document.querySelector('#doc p'));
+  await page.waitForFunction(() => typeof window.marxyRunCommand === 'function');
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.__b.handle.open('/doc/b.md'));
+  await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent === 'Other');
+  await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(await page.evaluate(() => document.body.dataset.marxyMode), 'rendered', 'no jump: nothing was clicked in this document');
+  await page.close();
+});
