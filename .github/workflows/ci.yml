@@ -139,7 +139,16 @@ jobs:
       # images.test.mjs (remote images stay blocked) compiles a small Rust crate, and the Playwright
       # image ships no C linker for cargo's build scripts.
       - name: A C linker for the desktop suite's Rust test
-        run: apt-get update -qq && apt-get install -y -qq build-essential
+        # The Ubuntu mirror fails for minutes at a time (502s, timeouts on 2026-10-07); retry before giving up.
+        run: |
+          command -v cc >/dev/null && exit 0
+          for i in 1 2 3; do
+            apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update -qq \
+              && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 install -y -qq build-essential \
+              && exit 0
+            sleep 30
+          done
+          exit 1
       - name: Desktop lite suite with WebKit required
         run: pnpm --filter @marxy/desktop test:lite
         env:
