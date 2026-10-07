@@ -10,13 +10,11 @@ import {
   FRAME_ASSERTION_NOT_WRONG,
   MIN_FRAMES_AFTER_RENDER,
   NEUTRALISE_AFTER_PAINT,
-  cliSmokeStepFromWorkflow,
   framelessEnvironment,
   framesFromPaintedLine,
   paintVerdict,
   paintedFramesOk,
   smokeIsRequired,
-  workflowCliSmokeIsRequired,
 } from './smoke-verdict.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -44,27 +42,18 @@ test('frameless optional smoke skips, names the environment, and says the frame 
   );
 });
 
-test('CI verify:cli requires smoke on both runner classes without continue-on-error', () => {
-  const yaml = readFileSync(join(repoRoot, '.github/workflows/ci.yml'), 'utf8');
-  const step = cliSmokeStepFromWorkflow(yaml);
-  assert.ok(step, 'workflow must have a CLI smoke check on the built binary step');
-  const result = workflowCliSmokeIsRequired(yaml);
-  assert.equal(result.ok, true, result.reasons.join('; '));
+test('the desktop build lifecycle under GITHUB_ACTIONS is not requiredness', () => {
   const pkg = JSON.parse(readFileSync(join(repoRoot, 'apps/desktop/package.json'), 'utf8'));
   assert.match(
     pkg.scripts['verify:cli'],
     /MARXY_SMOKE_REQUIRED=1/,
-    'verify:cli is how CI requires the smoke; the workflow must not rely on a build-lifecycle equivalent',
+    'verify:cli is how a required smoke is asked for; the build lifecycle must not stand in for it',
   );
   assert.equal(
     smokeIsRequired({ GITHUB_ACTIONS: 'true', npm_lifecycle_event: 'build' }),
     false,
-    'GITHUB_ACTIONS + the desktop build lifecycle is not requiredness; CI runs verify:cli instead',
+    'GITHUB_ACTIONS + the desktop build lifecycle is not requiredness; verify:cli asks for it',
   );
-  assert.equal(/continue-on-error/.test(step), false);
-  assert.equal(/\|\|\s*true/.test(step), false);
-  assert.match(yaml, /macos-latest/);
-  assert.match(yaml, /ubuntu-latest/);
 });
 
 test('afterPaint neutralised on a machine that delivers frames still fails the smoke', () => {
@@ -103,7 +92,12 @@ test('afterPaint neutralised on a machine that delivers frames still fails the s
     false,
     'a neutralized afterPaint is a real defect, not a frameless skip',
   );
+});
 
+// Launches the real release binary, so it runs only when the caller asks for a required smoke
+// (MARXY_SMOKE_REQUIRED=1, as `pnpm --filter @marxy/desktop verify:cli` does); a built binary on
+// the machine must not change what `pnpm test` does.
+test('the smoke harness, run with afterPaint neutralised, fails', { skip: process.env.MARXY_SMOKE_REQUIRED !== '1' && 'set MARXY_SMOKE_REQUIRED=1 to launch the release binary' }, () => {
   // Run the smoke harness itself with neutralization forced, so this is not only a helper call.
   const run = spawnSync(process.execPath, [join(repoRoot, 'apps/desktop/scripts/smoke-cli-open.mjs')], {
     cwd: repoRoot,

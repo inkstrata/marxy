@@ -6,6 +6,43 @@ tag time. Conventions in `docs/conventions.md`.
 
 ## Unreleased
 
+## 0.1.0 - 2026-10-02
+
+Marxy 0.1.0 is the first release: an unsigned pre-release for macOS on Apple silicon (see Install in the README). A 1 MB agent transcript now shows its first screen in under a second. The palette lists every command and remembers what you open, the outline is one chord away, a document can open in your external editor at the line you are reading, a file can be dragged onto the window to open it, and the light variant and text size apply from `config.toml` and by command. Below, what a reader notices comes first, then the changes to how Marxy is built and tested, then the earlier work.
+
+### What changed for readers
+
+- The baseline-grid pass measures the page a few times whatever the document's length, instead of once for every block it moves, so documents with many such blocks open and resize faster (A-01)
+- A very long document, such as a 1 MB agent transcript, shows its first screen in under a second instead of four or five, and the rest of it arrives below while you read (A-02)
+- Wide code blocks and tables now run into the margin of the box the article sits in rather than the window's, so they stay inside their own pane (B-03)
+- Open a document after launching Marxy with none, or open one in a second repository, and the palette now searches every repository you have opened; edits no longer re-read the whole repository (A-04)
+- The palette has results the moment a known repository opens, because its last index is kept and checked in the background. (A-05)
+- The palette now remembers when you actually opened each document, across restarts, and ranks recent reads first, with the current repository's hits on top. (A-06)
+- The palette now lists Toggle Rendered / Source, Back and Forward with their keys, and your place in a document is saved as you scroll, so a crash or force-quit no longer loses it (A-13)
+- The light variant and text size in `config.toml` now apply before the first text appears, "Use light variant" and "Use dark variant" in the palette switch at once and are remembered, and `Mod+=`, `Mod+-` and `Mod+0` change the text size (A-14)
+- Press Mod+Shift+O, or choose Outline in the palette, to see the document's headings in a narrow list at the right edge, with the one you are reading marked; the arrow keys move through it, Enter takes you to that heading and Esc puts it away (A-15)
+- `Mod+Shift+E` (or "Open in external editor" in the palette) opens the document in your editor at the line you are reading, using `external_editor` from `config.toml` or the system opener, and dropping a file onto the window opens it as File › Open does (A-16)
+- Typing > in the palette now lists every command that applies, each with its key, including save, undo and redo, line numbers in Source, jump to source and revoking trust (A-12)
+- Changing the theme, variant or size in Marxy now leaves the spacing before a comment on that config.toml line exactly as you wrote it (A-14.1)
+
+### Behind the scenes
+
+- Internal: the aesthetics gate can now render a page through the real app, and the app marks when the typesetter has set the whole document; nothing a reader sees changes (B-01)
+- Pull requests no longer build the app twice to time two numbers that cannot fail; a nightly run records what a reader feels instead (first text, live reload, a second open, palette search and start-up), and pnpm perf runs the same measurement locally (A-03)
+- Behind the scenes, the open document now has one owner, so undo after a failed save or after a Source edit can be made to restore exactly the bytes you had; nothing uses it yet (B-04)
+- Internal clean-up: about 700 lines of unreachable palette, Source and watch-snapshot code are gone; nothing a reader sees changes (B-05)
+- Contributing no longer needs a Jira key, a board row or a templated pull-request body, and the fleet's own tests run as pnpm test:fleet (A-07)
+- The repository's hygiene checks run as one pnpm check, and the checks that only restated what ci.yml looks like are gone (A-08)
+- A pull request that touches no Rust no longer builds Marxy on two operating systems: Rust, typography and fleet checks run only when their files change, a merge to main runs only the fast checks, and the macOS build and the full Rust job run nightly (A-09)
+- A pull request runs the desktop browser tests that guard saving, trust, data loss, closing, reloading, opening, selection, the index, progressive rendering and the promise that nothing phones home, plus the mechanical typography checks and the palette mutation check; the full desktop suite, the typesetter, theme and core browser tests and the screenshot and rag comparison run nightly (A-10)
+- Removed an unused second copy of the file indexer from the desktop app; the palette index is unchanged (B-05.1)
+- The Linux text-weight offset is now a single documented constant instead of a version table that was never consulted; nothing changes on screen (B-07)
+- The contributor documents describe the pull-request path as it is now: seven jobs, a conventional subject, a changelog fragment and one review, with the fleet, the board and the Jira keys marked as paused (A-11)
+- Marxy 0.1.0: the release workflow builds an unsigned macOS DMG on a tag, the app reports version 0.1.0, and the README says how to install it (A-17)
+- A deferral comment in the source can now name a roadmap story such as B-13 as well as a board key, so the gate no longer asks for a retired Jira key (A-11.1)
+
+### Earlier work
+
 - The module-boundary gate now catches a forbidden dependency hidden behind a template-literal dynamic `import()` or `require()` with no interpolation (MARXY-307)
 - The bundle gate's production import walk now catches dynamic `import()` and `require()` of the memory shell — quoted or as a plain template literal — not only static `from` imports, so a pre-build run still blocks dev-only entry points when `dist/` is absent (MARXY-309)
 - Hidden-character marks and the Cargo table-form dependency check are to be rebased onto main, where a locked file that root can still read is already treated as readable, and a key cap that keeps its hyphen is queued for a look (MARXY-321)
@@ -91,7 +128,6 @@ tag time. Conventions in `docs/conventions.md`.
 - Copy section and copy code block reach the clipboard from Mod+C or the palette operations list, backed by the core operation registry and Tauri clipboard write (MARXY-42)
 - The orchestrator human queue is cleared with author rulings: MARXY-183 landed (#180), MARXY-22 stays deferred without a Linux desktop or notarization account, ADR-0026 is accepted so MARXY-94 can dispatch, and interaction-speed numbers remain measured-only without CI merge gates (MARXY-188)
 - MARXY-183: second launches and macOS open events route to the running window via single-instance and `onOpenFiles`
-
 - Planner delta for 2026-09-22: task cards for the three Mac-shell stories MARXY-186 filed (single instance/open events, native menu, CLI on PATH); no board rows changed (MARXY-187)
 - The window title, app name, and document title now read "Marxy"; README and docs prose follow, while package names and identifiers stay lowercase "marxy" (MARXY-181)
 - The author's personal name no longer appears in docs prose or the readiness table's "waiting on" label; both now say "the author" (MARXY-181)
@@ -100,8 +136,6 @@ tag time. Conventions in `docs/conventions.md`.
 - The orchestrator human queue lists only the three items still waiting on a person, and a leftover `MARXY-NEW-` board cache row is renamed onto its real Jira key so it stops counting as an orphan (MARXY-179)
 - The desktop shell applies a configured user theme after first readable text, hot-reloads theme files, and offers “Use this theme” when a theme file is opened in Source (MARXY-177)
 - The theme package loads `theme.toml` + `theme.css`, rewrites local `url()` paths for the asset scope, warns on contract mismatch, and exposes byte-faithful `setTopLevelKey` for the shell story (MARXY-47)
-
-### Added
 - `docs/ci-contract.md` collects every way a pull request can go red, with the local command that reproduces each one, and `AGENTS.md` is rewritten around it so a cold session lands CI green on the first try (MARXY-180)
 - References to the pre-repository brainstorm tree are gone from the ADRs and the docs: a `**Source:**` line citing an artifact nobody can open is a dangling pointer, and the non-brainstorm sources cited beside it are kept (MARXY-180)
 - The README leads with what Marxy is and a rendered screenshot, states plainly that it is pre-v1 with no downloadable builds, and adds a documentation map so a newcomer finds the right page in one hop (MARXY-180)
@@ -139,8 +173,6 @@ tag time. Conventions in `docs/conventions.md`.
 - The render pipeline now lists every blocked remote-image host and resolves a local image against the repository root, so a later story can name those hosts and reserve a box without core talking to the shell (MARXY-26)
 - The MARXY-26 split is on main: that story now owns only the core image resolver, four new stories cover images on the page, typeset defaults in the app, the tokens.css boundary and the ADR-0030 amendment, and a fifth story will fix the 600-line branch-diff guard this landing overruns (MARXY-140)
 - The planner is now due when more than half of the last 10 merges were ops, naming the counts, and a blocked or escalated story it has already ruled on (its `blockedAt` predates the last plan) no longer keeps it due forever; a `dropped` story is refused by `ready.mjs` with its own rule, the same way `planner-trigger.mjs` already treated the label as settled (MARXY-120)
-
-### Changed
 - Headless `cursor-agent` authentication failures no longer increment a story's attempt count; dispatch restores the prior attempts, returns the story to todo, and records one dated needs-human bullet per day (MARXY-156)
 - Local `pnpm precheck` and `pnpm test` launch Playwright headless through `scripts/playwright-webkit.mjs` — browser tests, `gate:aesthetics` and both engines of `gate:no-network` — and the desktop `test` script no longer runs CLI smoke, so neither a browser nor the marxy window flashes locally; `MARXY_BROWSER_HEADED=1` still opens a real window, and `verify:cli` and the CI gates are unchanged (MARXY-149)
 - Pull requests wait about four minutes less: the aesthetics gate's three whole-corpus repeat passes were a flake detector that could not fail for anything in the diff, so they moved to a nightly run against `main`, and the corpus matrix it still checks now renders four pages at a time instead of one (356 s → 81 s on CI, same files, combos, checks and thresholds). Six checks that could not fail for anything in the diff under review no longer gate a pull request: the aesthetics CLS repeat passes, the perf gate's cold/warm ratio, two wall-clock ceilings inside unit tests, the per-PR download of the CommonMark spec, and a past story's own scope rule that had been left in a shared script where it forbade every later PR from touching `scripts/gate-perf.mjs` — all recorded, cached or moved nightly, with no correctness coverage lost. The story-boundary check now works on CI at all: a pull-request checkout is detached, so it could never read a story key from the branch and was wired to warn instead of fail; it reads `GITHUB_HEAD_REF` now and runs unguarded (MARXY-153)
@@ -153,8 +185,6 @@ tag time. Conventions in `docs/conventions.md`.
 - Long English words hyphenate and opening quotes hang into the margin in the documents a reader opens, so the rag is the one the typesetter already knew how to set (MARXY-137)
 - A taste decision on the default theme now costs a story and a review-queue row, not an ADR: theme authors can still rely on the token names, units and meanings (MARXY-133)
 - The orchestrator fleet has four compute levels instead of three: `high` (new, Opus tier) for judgement quality, `default` and `low` moved to Sonnet-led with Composer 2.5 as an implementor experiment, and `minimal` redefined as a Cursor-only floor (Composer + Grok, never Claude/GPT/Gemini) whose escalation ceiling is Grok by construction; Grok's `-fast` variant is dropped everywhere for the plain model, based on a two-round reviewer-judgement pilot across six models (MARXY-136)
-
-### Fixed
 - `pnpm done KEY --open` pushes a story branch to its own name even when the branch tracks `origin/main`, as every out-of-plan and dispatched worktree used to, instead of failing on git's upstream-mismatch refusal; new story worktrees no longer track `origin/main` at all (MARXY-209)
 - check-cards rejects duplicate CSV keys; the board CSV no longer carries a second MARXY-131/132/133 block or blank data rows, finishing the dedupe PR #134 left on main (MARXY-161)
 - The review-1 shuffle manifest no longer imports unused `readFileSync`, so repo lint is green again (MARXY-162)
@@ -163,8 +193,6 @@ tag time. Conventions in `docs/conventions.md`.
 - The aesthetics font and image window in headless render now waits on each face the article uses and on decode of reserved images before the first scored snapshot, so `gate:aesthetics` is deterministic on webkit-linux (MARXY-143)
 - Token contract tests now read `--marxy-size-code` and `--marxy-weight-heading` from the committed theme file when building mutations, so a values-only tune cannot turn a real re-kind check into a no-op (MARXY-145)
 - The 600-line branch-diff budget now counts only source, scripts, orchestration code and workflows, not board rows, plan deltas or task cards, so a plan landing is judged on the work a reviewer holds — the over-600 rule in `docs/conventions.md` (MARXY-142)
-
-### Added
 - The macOS and Linux gates jobs are skipped when the diff cannot change their result — nothing gates-relevant changed, or a real dual-OS success already proved this exact content clean — while a rust, `measure-startup.mjs` or `ci.yml` change still runs the full matrix, and a sibling job still posts the same check names when the real one is skipped (MARXY-105)
 - The parse-time budget for the long technical document now lives in `fixtures/perf-budgets.json` with a required, per-runner CI entry derived from a recorded measurement, alongside the warm-start rule it shares; the self-calibrating unit assertion is gone, and the parse test now records its measurement for the gate to read (MARXY-59)
 - The no-network gate now prints which request classes it can and cannot observe (WebSocket, dns-prefetch, service worker registration), proves the allow-list refuses each one's required element, and fails on its own silence if the set of checks it runs ever drifts from the list it declares; a mutation-coverage suite fails a named test for each of those checks if it is ever deleted (MARXY-83)
@@ -218,11 +246,7 @@ tag time. Conventions in `docs/conventions.md`.
 - The corpus now includes a long prose document, so line-breaking work can measure real paragraph volume instead of a handful of samples (MARXY-64)
 - Measured decision note on ragged-right line breaking: justif/core and tex-linebreak2 set the corpus equally well, both beat the browser's own wrapping only at a tight rag tolerance, and the harness that proves it re-runs on demand (MARXY-19)
 - The document and theme contracts stay frozen at the last ADR-sanctioned revision: a workspace check fails if they change without an ADR (MARXY-5)
-
-### Changed
 - The default faces are confirmed: Literata for text and JetBrains Mono for code, after reading both candidates at the type scale; the column stays 68 characters (MARXY-127)
-
-### Fixed
 - `overlap()`'s `parse`/`parser` regression test now checks both argument orders; the one-directional version passed even against the pre-MARXY-119 buggy implementation, so it never actually guarded the asymmetric `startsWith` collision the story fixed (MARXY-134)
 - MARXY-83's board row named a gate file and an ADR file that don't exist, which blocked four attempts on a path mismatch rather than the sanitiser gate itself; `Paths` now names the real `scripts/gate-no-network.mjs` and the real, accepted `docs/adr/0009-security-posture.md` (MARXY-135)
 - On a detached CI checkout the merge-bar CHANGELOG check takes the story key from the pull-request branch GitHub already knows, and skips when none of those names have a key instead of failing the build (MARXY-124)
@@ -239,19 +263,13 @@ tag time. Conventions in `docs/conventions.md`.
 - CI installs the Linux webview libraries with apt again; the cached install dropped a file the Rust checks need, which turned every build red (MARXY-74)
 - Commit messages may name other stories in their body again; the key-in-subject rule is now checked directly instead of through the parser's issue references, which mistook any mention for a footer (MARXY-10)
 - The anti-attribution hook the conventions promised now exists in `.githooks/commit-msg`, so trailers injected by agent tooling are stripped rather than merely forbidden (MARXY-10)
-
-### Security
 - The hostile fixture now carries every attack family the sanitiser already knew about, including the two a reviewer found, so the corpus sweep is what watches them rather than a probe string inside a test (MARXY-73)
 - A document now reaches the screen through a default-deny allow-list: nothing in a file a stranger wrote can execute, and nothing in it can fetch, so a remote image or a badge shows its alt text rather than telling whoever hosts it that you opened the file — checked over the whole fixture corpus in both browser engines, with a control that proves the check can see a request when one is made. A document also cannot make the rest of itself a link to somewhere else, and a checkbox written into a file stays as the file has it, because marxy is a reader. Text a browser keeps as text stays text: marxy will not turn something a document hid inside a `<plaintext>` or a comment into an image it then fetches for you, and a large or hostile file is cleaned in milliseconds rather than seconds (MARXY-12)
 - The licence gate now resolves a licence for every package in the lockfile and for every allow-listed grammar and hyphenation pattern, and fails on copyleft or on any licence it cannot determine (MARXY-7)
 - The licence gate now audits the 430 Rust crates that link into the shipped binary too, so a copyleft crate can no longer reach a release unnoticed (MARXY-57)
 - The licence gate now runs a second time after the desktop build, against the real cargo cache, so a stale crate-licence record cannot hide behind a file the same pull request wrote (MARXY-65)
-
-### Fixed
 - `pnpm build` no longer fails on a machine whose display is asleep; the smoke check skips with the environment named, and CI still requires a real paint (MARXY-72)
 - Documents saved with Classic Mac (CR-only) line endings keep code-block ranges on the code itself, not an empty span past the fence (MARXY-67)
-
-### Changed
 - The board carries the whole-project review's remaining recommendations as six stories: board-drift detection, worktree pruning, glob-aware path overlap, a tripwire for process work outpacing product work, one-command handoff to review, and the merge queue (MARXY-116)
 - Launch time is still measured; 500 ms is not a product promise, and a release is not failed for missing that figure (MARXY-110)
 - A release now measures a genuine cold start on reference hardware — at least five launches, each made cold first — and the tag carries that measurement with no duration claim; 500 ms is not a product ceiling (MARXY-69)
@@ -267,6 +285,48 @@ tag time. Conventions in `docs/conventions.md`.
 - Jira is now the board of record: all 51 epics and stories exist as issues, and story keys throughout the repo are the real Jira keys (MARXY-10)
 - The startup measurement now reports two honestly named numbers — a cold start, which is the first launch and only the first launch, and a warm start, which is the median of the rest — after it turned out that the single number called "cold start" had always been a warm one, and that seven of eight Linux launches were being thrown away unmeasured (MARXY-63)
 - Speed budgets are now measured in two tiers: the unchanged product budgets on reference hardware, and an envelope plus a per-runner baseline in CI, so a rented runner's slowness can no longer block a merge while a real regression still fails (MARXY-55)
-
-### Fixed
 - READMEs and licence files under fonts/ show a normal diff again; only font binaries stay binary, so a reviewer can read a text change; nothing under fonts/, licences included, can have its line endings rewritten, and `pnpm lint` fails if that ever changes (MARXY-66)
+- Opening a README can name remote images and simplified HTML in one notice; choosing to show that document's HTML widens the sanitiser for that file only, remembers the choice in `trust.json`, and still refuses script and `javascript:` links; an unclosed `<script>` gets its own truncation notice instead of a mysteriously short page (MARXY-44)
+- Explicit save (`Mod+S` / `Mod+Shift+S`) writes the open buffer atomically without touching bytes outside an edit; unsaved edits show only as ` •` in the window title (MARXY-49)
+- Task checkboxes survive when the item opens with code, emphasis or a link; section copy and splice ranges fail loudly instead of corrupting bytes (MARXY-231)
+- Diffs tint added and removed lines while keeping `+` and `-` in the text; console, log and JSONL fences use the right grammars; terminal ESC and minified lines read clearly without colour carrying the meaning (MARXY-235)
+- Invisible and bidirectional characters show as quiet hex markers in the rendered page, and links whose text names a different host than the destination say where they really go (MARXY-236)
+- Source mode shows line numbers for code files (with a palette toggle), folding, visible control characters, tab width from `.editorconfig`, and no ligatures in the editor; long paths in Rendered mode break after a slash when they would otherwise overflow (MARXY-239)
+- Heading anchors, in-document hash links, relative markdown links that open inside Marxy with Mod+[ to go back, and https/mailto links that open in the browser (MARXY-240)
+- A Finder “Open With” or Dock drop that reaches the app before the page is listening no longer shows the empty state: those paths queue in the shell until the webview drains them after registering its listener (MARXY-252)
+- Nightly monitoring now drives a release build through `tauri-driver` and WebKitWebDriver: open a CRLF fixture by argv, toggle a task, compare bytes on disk, and assert the palette's runtime styles still apply (MARXY-254)
+- Run outcomes for the fleet live in one table (`orchestration/outcomes.mjs`); a seeded simulation checks that random finish sequences never strand a story (MARXY-255)
+- An open pull request is titled `[human]` when only a person can merge it, and `(signed)` when an agent has signed that head. No prefix means the cycle will merge it. Neither mark is part of the squash commit (MARXY-274)
+- - Baseline-grid pushes re-measure each block after padding is applied so margin-collapse changes from that padding do not drift later siblings off the grid (MARXY-282)
+- A bugcatch pass fixes several small correctness defects: a theme `data:` SVG URL could embed a remote reference past the no-network rule; a theme length value bypassed its safety clamp when written in the wrong unit family (`ch` vs `px`); switching documents could keep comparing the new buffer against the previous document's saved fingerprint, misreporting the unsaved-changes indicator; the ragged line-breaker could silently treat a NaN font-size metric as if every line fit; a directory listing (and a single racy entry within it) no longer aborts entirely instead of skipping the one file that vanished mid-scan; unwatching a deleted or renamed directory could miss its own watcher thread and leak it; a dead file watcher retried forever with no diagnostic; setting a config.toml key whose old value was a multi-line array corrupted the file instead of replacing the whole value; and pressing the palette's pin shortcut with no result selected pinned an empty path into the session; opening a document at a byte offset (a palette heading jump) landed on byte 0 instead when that file's default view is Source, since the offset was silently dropped on that path; and a stale comment claimed the loader clamps the heading line-box tokens, when base.css does; and the palette's heading-match cutoff used the wrong maximum score (10,000 instead of the true 10,500), so a heading matching a query exactly could be skipped in favour of a worse title match, both mis-ranking the result and losing the heading jump target (MARXY-290)
+- Live reload no longer fails to start when an unrelated broken symlink sits in the same folder as the open document (MARXY-299)
+- The plan lets four stuck stories touch the files they already need, and splits palette history off reading position after a test that never quit (MARXY-300)
+- The registry gate now treats compound assignments to `innerHTML` and `outerHTML` (for example `+=`) like plain `=`, so an unsanitised HTML write cannot slip past `innerHtmlAllowedIn` (MARXY-306)
+- The Cargo dependency gate now reads crate names from `[dependencies.crate-name]` table headers as well as inline `crate = "…"` lines, so a forbidden crate cannot hide behind the table form (MARXY-308)
+- `check-cards` now reads a task card's "Files and signatures" bullets when that section is last, so path-boundary checks no longer skip most cards silently; the MARXY-252 task card's shorthand path is corrected to the repo path the gate expects (MARXY-311)
+- A failed `pnpm done` re-run no longer leaves the fleet result claiming done with all gates ok from an earlier green run (MARXY-312)
+- The fleet no longer serialises landings behind a one-BEHIND-branch-per-cycle refresh: with the repo owner dropping strict up-to-date branch protection, `orchestration/models.json` `requireUpToDate` (default false) lets a green, mergeable, non-conflicting, signed pull request merge the same cycle even while behind main, guarded by a new check that stops every merge and names it under Needs you whenever the latest completed `ci` run on main is red (ADR-0039) (MARXY-314)
+- A story's changelog entry is now its own file under `changelog.d/`, so pull requests no longer conflict on the same `CHANGELOG.md` line (MARXY-315)
+- The app icon is the new Marxy M: a glass-lit letter on a pastel squircle, cut out with a transparent background, in place of the placeholder icon, and the macOS bundle now carries it as an `.icns` (MARXY-320)
+- The fleet's hardening backlog now lists the precautions left open by relaxing branch protection on main: order-sensitive files, approvals across a main merge, and no pushes after approval (MARXY-322)
+- A person's approval of a change to protected files now stays valid when the fleet only merges main into the branch (MARXY-323)
+- The taste-review queue is now optional, and an entry is its own file instead of a row in one shared table (MARXY-324)
+- The changelog entry is now a one-line file per story, and a taste-review entry is optional; the agent rules say so (MARXY-325)
+- Stories get one implementor attempt, then one on the escalation model, then go to a person; they no longer burn two 45-minute attempts on the same model first. (MARXY-326)
+- Board rows and dependencies move to one file per story under docs/plan/stories/, so filing a story no longer conflicts with every other open pull request (MARXY-327)
+- Marxy's plan is now read through one shared reader that understands both the old CSV and the new one-file-per-story form, and `node scripts/plan-export.mjs --csv` prints it as a CSV (MARXY-328)
+- The fleet can wind down without stopping: `--drain` (or `MARXY_DRAIN=1`) on `orchestration/cycle.mjs` or `loop.sh start` starts no new story, while work in flight, pull requests in review, stories returned for changes and merges all carry on, and status.md says it is draining (MARXY-329)
+- MARXY-312's changelog entry, dropped from CHANGELOG.md in a merge, is restored as its own fragment (MARXY-330)
+- Under drain the fleet no longer lets a held new story keep returned work waiting on its paths, and a returned pull request the fleet will not redo is named under Needs you as needing a fix pushed to it rather than "open its PR" (MARXY-331)
+- Desktop browser tests no longer wait on the wall clock or assert a timing ceiling, so a slow machine cannot fail them (MARXY-332)
+- The fleet no longer stops merging when a CI run on main was cancelled by a newer push; it judges main by the newest run that actually finished (MARXY-333)
+- Every commit on main now gets its own completed CI run, so a red run names the merge that broke main instead of a batch of cancelled ones (MARXY-334)
+- A merge that turns main red is now reverted automatically and its story reopened for fixes with its code kept (MARXY-335)
+- The fleet's Sonnet roles (orchestrator, and the reviewer and planner where they used Sonnet) now run on Sonnet 5.5 at the same effort (MARXY-336)
+- A stability wave: CRLF files survive Source mode, undo never deletes text after a failed save, task checkboxes answer real clicks, runtime styles survive the release CSP, remote images written as https:host stay blocked, and dozens of smaller rendering, palette, theme, gate and fleet fixes (MARXY-337)
+- Clear a stale failed result when a later pnpm done run is green, so the merge bar stops reporting it (MARXY-338)
+- The task-openers golden now carries heading ids and external-link classes, so main's golden gate is green again after two merges crossed (MARXY-339)
+- Gates, tests and the commit hooks find the repository root correctly on Windows instead of crashing on a doubled drive letter (MARXY-341)
+- The macOS menu bar gains View (Toggle Rendered / Source, Cmd+E) and Go (Back Cmd+[, Forward Cmd+], Open Quickly… Cmd+P), so the reader's existing keyboard commands can also be found and clicked; nothing that edits the document is added (MARXY-342)
+- An audit corpus under docs/research/audit-2026-10 evaluates the codebase, the orchestrator, the binding decisions, performance and three feature directions, and five new fixture texts join the corpus: a pasted assistant answer, an issue thread, a notebook export, a long essay and a 230 KB reference (MARXY-346)
+- An implementation plan for the October 2026 roadmap lands under docs/plan/roadmap-2026-10 (an orchestration model for Opus and Sonnet agents, one agent-ready story plan per phase A to E, a story index and a progress ledger) with the eight proposed decision records ADR-0044 to ADR-0051 and an amendment to ADR-0037 (MARXY-347)

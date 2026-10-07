@@ -354,3 +354,147 @@ test('keystroke to rows painted p95 stays under 16 ms on a 20k index', async () 
     await browser.close();
   }
 });
+
+// A-12: `>` lists every command whose `when` holds, each with its key.
+const CMD_DOC = '# Title\n\nParagraph with **bold** text.\n';
+const HTML_DOC = '# Title\n\n<details><summary>More</summary>Hidden body.</details>\n';
+
+async function bootCommands(page, files, argv) {
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ files, argv }) => {
+    await window.marxyPaletteBoot.start(files, argv, []);
+  }, { files, argv });
+  return modChord(await page.evaluate(() => navigator.platform));
+}
+
+async function commandRows(page, mod, query = '>') {
+  if (!(await page.evaluate(() => document.getElementById('marxy-palette').open))) {
+    await page.keyboard.press(`${mod}+KeyP`);
+  }
+  await page.fill('#marxy-palette .marxy-palette-query', query);
+  return page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+    els.map((el) => ({
+      title: el.querySelector('.marxy-palette-title')?.textContent ?? el.textContent,
+      key: el.querySelector('.marxy-palette-key')?.textContent ?? null,
+    })),
+  );
+}
+
+const b64Doc = (text) => Buffer.from(text).toString('base64');
+
+test('with a document open, > lists Save with its key and Toggle line numbers in Source', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const mod = await bootCommands(page, { '/docs/readme.md': b64Doc(CMD_DOC) }, ['/docs/readme.md']);
+    const rows = await commandRows(page, mod);
+    const save = rows.find((r) => r.title === 'Save');
+    assert.ok(save, `Save is listed: ${JSON.stringify(rows)}`);
+    assert.match(save.key, /^(⌘S|Ctrl\+S)$/);
+    assert.ok(rows.some((r) => r.title === 'Toggle line numbers in Source'));
+    const filtered = await commandRows(page, mod, '>line num');
+    assert.deepEqual(filtered.map((r) => r.title), ['Toggle line numbers in Source']);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('> lists Revoke after a trust grant', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const docPath = '/docs/html.md';
+    const trust = JSON.stringify({ version: 1, documents: { [docPath]: { html: true, imageHosts: [], at: 1 } } });
+    const mod = await bootCommands(
+      page,
+      { [docPath]: b64Doc(HTML_DOC), '/data/trust.json': b64Doc(`${trust}\n`) },
+      [docPath],
+    );
+    await page.waitForFunction(() => document.querySelector('#doc details'));
+    const rows = await commandRows(page, mod);
+    assert.ok(rows.some((r) => /^Stop showing HTML/.test(r.title)), JSON.stringify(rows));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('> lists Jump to source once a block is selected', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const mod = await bootCommands(page, { '/docs/readme.md': b64Doc(CMD_DOC) }, ['/docs/readme.md']);
+    assert.ok(!(await commandRows(page, mod)).some((r) => r.title === 'Jump to source'));
+    await page.keyboard.press('Escape');
+    await page.locator('#doc p[data-marxy-s]').first().click();
+    const rows = await commandRows(page, mod);
+    assert.ok(rows.some((r) => r.title === 'Jump to source'), JSON.stringify(rows));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('with no document, > lists no Save and throws nothing', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const errors = [];
+    page.on('pageerror', (err) => errors.push(String(err)));
+    const mod = await bootCommands(page, {}, []);
+    const rows = await commandRows(page, mod);
+    assert.ok(!rows.some((r) => r.title === 'Save' || r.title === 'Save as'), JSON.stringify(rows));
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('running Toggle line numbers in Source from the palette shows the gutter', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const mod = await bootCommands(page, { '/docs/readme.md': b64Doc(CMD_DOC) }, ['/docs/readme.md']);
+    assert.equal(await page.evaluate(() => document.querySelector('#marxy-source .cm-lineNumbers') !== null), false);
+    await commandRows(page, mod, '>line numbers');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('#marxy-source .cm-lineNumbers') !== null, null, { timeout: 5000 });
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('opening a hit in root /b makes /b current, and /b hits then sort first (A-06)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    const doc = Buffer.from(HEADING_DOC).toString('base64');
+    await page.evaluate(async ({ doc }) => {
+      await window.marxyPaletteBoot.start(
+        { '/a/guide.md': doc, '/b/guide.md': doc, '/a/start.md': doc },
+        ['/a/start.md'],
+        [],
+      );
+      const entry = (path, root) => ({ path, root, title: 'guide', headings: [], mtimeMs: 1, size: 1, kind: 'markdown' });
+      window.__marxyPalette.setIndexEntries([entry('/a/guide.md', '/a'), entry('/b/guide.md', '/b')]);
+    }, { doc });
+
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    const keys = () => page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.dataset.rowKey));
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', 'guide');
+    assert.deepEqual(await keys(), ['/a/guide.md:doc', '/b/guide.md:doc']);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => window.__marxyPalette.session.currentRoot), '/b');
+
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', 'guide');
+    assert.deepEqual(await keys(), ['/b/guide.md:doc', '/a/guide.md:doc']);
+  } finally {
+    await browser.close();
+  }
+});

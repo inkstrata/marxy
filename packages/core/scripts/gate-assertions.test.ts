@@ -157,3 +157,27 @@ test('tree-depth harness runs as part of the no-network gate', () => {
     'packages/core/scripts/gate-tree-depth.mjs must pass when spawned from the gate\'s mutation-coverage suite',
   );
 });
+
+// A-10.1: the dirty control page is read only after the elements its two checks look for are in the
+// live DOM, in both engines (the one `run` serves both). A pull-request run read it before Chromium
+// had built them and failed both checks; this fails if the wait is removed or loses an element.
+test('the dirty control page waits for its own elements before the live DOM is read', () => {
+  assert.match(gateSource, /'control-dirty\.html', allowedDefault, \['#doc marquee', '#doc a p'\]\)/);
+  assert.match(gateSource, /tab\.waitForSelector\(selector, \{ state: 'attached'/);
+});
+
+// A-10.2: the gate stops watching when the page is quiet, not after a fixed 150 ms, and proves it
+// with controls that fire a request at 500 ms and 2 s. Removing the settle, a control, or the cap
+// fails here; the browser half is the controls themselves, which turn the gate red in both engines.
+test('the gate watches until the page goes quiet and proves it with late-request controls', () => {
+  assert.match(gateSource, /for \(const delayMs of \[500, 2000\]\)/);
+  assert.match(gateSource, /check\('control-interception', late\.remote\.some/);
+  assert.match(gateSource, /__gatePendingWork/);
+  assert.match(gateSource, /SETTLE_CAP_MS/);
+  assert.match(gateSource, /#never-quiet/);
+  assert.doesNotMatch(gateSource, /await tab\.waitForTimeout\(150\)/);
+  // The settle must not fail open: an unreadable poll is recorded, never read as quiet.
+  assert.match(gateSource, /#settle-unreadable/);
+  assert.doesNotMatch(gateSource, /__gatePendingWork\?\.\(\) \?\? 0\)\.catch\(\(\) => 0\)/);
+  assert.match(gateSource, /wrap\('requestIdleCallback'/);
+});

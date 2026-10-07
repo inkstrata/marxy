@@ -186,7 +186,7 @@ test('dirty Source buffer keeps edits and shows the disk-changed notice', async 
       await window.__marxyHandle.shell.writeFileAtomic(path, bytes);
     });
     const writesBefore = await page.evaluate(() =>
-      window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic').length,
+      window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/index-')).length,
     );
     await page.evaluate(() => {
       window.__marxyHandle.shell.emit([{ kind: 'modified', path: window.__marxyHandle.currentPath() }]);
@@ -194,7 +194,7 @@ test('dirty Source buffer keeps edits and shows the disk-changed notice', async 
     await page.waitForFunction((text) => document.getElementById('marxy-notices')?.textContent?.includes(text), DISK_CHANGED_EDITS_KEPT);
     const hashAfter = await page.evaluate(() => window.__marxyHandle.sourceHarness().bufferHash);
     const writesAfter = await page.evaluate(() =>
-      window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic').length,
+      window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/index-')).length,
     );
     assert.equal(hashAfter, hashBefore);
     assert.equal(writesAfter, writesBefore);

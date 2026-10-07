@@ -1,1 +1,0 @@
-`check-cards` now reads a task card's "Files and signatures" bullets when that section is last, so path-boundary checks no longer skip most cards silently; the MARXY-252 task card's shorthand path is corrected to the repo path the gate expects (MARXY-311)

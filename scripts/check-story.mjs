@@ -1,8 +1,8 @@
-// The story boundary, at commit time: files must be inside the story's paths, frozen files need an ADR,
+// The story boundary, at commit time: files must be inside the story's paths,
 // no secrets, no build artefacts, no attribution. usage: node scripts/check-story.mjs [--staged] [--key MARXY-n] [--strict]
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, registry, changedFiles, storyKey, story, pathsOf, allowedByPaths, isFrozen, fail, fix, sh } from './lib/repo.mjs';
+import { ROOT, registry, changedFiles, storyKey, story, pathsOf, allowedByPaths, fail, fix, sh } from './lib/repo.mjs';
 import { BOARD_FILES, branchBoundary } from './lib/own-row.mjs';
 const argv = process.argv; const staged = argv.includes('--staged'); const strict = argv.includes('--strict');
 const reg = registry(); const key = storyKey(argv); const files = changedFiles({ staged });
@@ -35,7 +35,6 @@ const extras = [...reg.extraAllowedPaths, `orchestration/results/${key}`, `docs/
 for (const f of files) {
   if (row && BOARD_FILES.includes(f) && !allowedByPaths(f, paths) && board && !board.ownOnly) { problems.push(`${f} changes other stories' board entries (${board.others.join(', ')}); a branch may edit only its own row${fix('move those edits to a planner PR that lists the board files in its Paths')}`); }
   if (row && !ownBoardEdit(f) && !allowedByPaths(f, paths) && !extras.some(e => f === e || f.startsWith(e))) problems.push(`${f} is outside ${key}'s paths (${paths.join(', ') || 'none listed'})${fix('revert it, or if the story genuinely needs it, stop and report blocked so the planner widens the paths')}`);
-  if (isFrozen(f, reg) && !files.some(g => g.startsWith('docs/adr/') && g.endsWith('.md'))) problems.push(`${f} is a frozen contract file and no docs/adr/*.md is in this change${fix('contracts change only with an ADR in the same commit (AGENTS.md)')}`);
   const full = join(ROOT, f); if (!existsSync(full) || !statSync(full).isFile()) continue;
   const size = statSync(full).size;
   if (size > reg.largeFileBytes && !reg.largeFileAllowedUnder.some(p => f.startsWith(p))) problems.push(`${f} is ${(size / 1e6).toFixed(1)} MB${fix('build outputs and captures do not belong in the tree; add to .gitignore or move under results/')}`);

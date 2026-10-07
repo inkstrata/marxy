@@ -63,6 +63,39 @@ test('a trailing comment, a quoted key and indentation are kept', () => {
   assert.equal(set('"theme" = "x"\n'), '"theme" = "y"\n');
 });
 
+test('the spacing before a trailing comment survives an edit byte for byte (A-14.1)', () => {
+  assert.equal(set('theme = "x"   # c\n'), 'theme = "y"   # c\n');
+  assert.equal(set('theme = "x"\t\t# c\n'), 'theme = "y"\t\t# c\n');
+  assert.equal(set('theme = "x" \t \t# c\n'), 'theme = "y" \t \t# c\n');
+  assert.equal(set('theme = "x"# c\n'), 'theme = "y"# c\n');
+  // A `#` inside the string is not the comment, and the real comment's spacing stays.
+  assert.equal(set('theme = "a#b"   # c\n'), 'theme = "y"   # c\n');
+  assert.equal(set("theme = 'a # b'\t# c\n"), 'theme = "y"\t# c\n');
+  // Trailing blanks with no comment are not the value's bytes either.
+  assert.equal(set('theme = "x"  \n'), 'theme = "y"  \n');
+  // A multi-line array keeps the spacing before the comment on its closing line.
+  assert.equal(set('theme = [\n  "o",\n]   # end\n'), 'theme = "y"   # end\n');
+});
+
+test('the spacing around `=` and the key survive an edit (A-14.1)', () => {
+  assert.equal(set('theme="x"\n'), 'theme="y"\n');
+  assert.equal(set('theme   =   "x"   # c\n'), 'theme   =   "y"   # c\n');
+  assert.equal(set('  theme\t=\t"x"\t# c\n'), '  theme\t=\t"y"\t# c\n');
+});
+
+test('CRLF, a BOM, a missing final newline, tables, commented-out and duplicate keys behave as before (A-14.1)', () => {
+  assert.equal(set('a = 1\r\ntheme = "x"  # c\r\nb = 2\r\n'), 'a = 1\r\ntheme = "y"  # c\r\nb = 2\r\n');
+  const bom = new TextEncoder().encode('\ufefftheme = "x"\t# c');
+  assert.equal(
+    new TextDecoder('utf-8', { ignoreBOM: true }).decode(setTopLevelKey(bom, 'theme', '"y"')),
+    '\ufefftheme = "y"\t# c',
+  );
+  assert.equal(set('theme = "x"   # c'), 'theme = "y"   # c');
+  assert.equal(set('[t]\ntheme = "x"   # c\n'), 'theme = "y"\n[t]\ntheme = "x"   # c\n');
+  assert.equal(set('# theme = "x"   # c\n'), '# theme = "x"   # c\ntheme = "y"\n');
+  assert.equal(set('theme = "a"   # one\ntheme = "b"  # two\n'), 'theme = "y"   # one\ntheme = "b"  # two\n');
+});
+
 test('a table header with a comment, an array of tables and a multi-line string end the top level', () => {
   assert.equal(set('size = 1\n[linux] # fonts\nweight = 1\n'), 'size = 1\ntheme = "y"\n[linux] # fonts\nweight = 1\n');
   assert.equal(set('[[x]]\ntheme = 1\n'), 'theme = "y"\n[[x]]\ntheme = 1\n');

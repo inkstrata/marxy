@@ -26,13 +26,19 @@ interface PreparedRow {
 }
 
 /** Precompute lowercase path/title/headings. The 16 ms budget is the query, not this. */
-export function prepareIndex(entries: readonly IndexEntry[]): PreparedIndex {
+export function prepareIndex(
+  entries: readonly IndexEntry[],
+  readAt?: Readonly<Record<string, number>>,
+): PreparedIndex {
   const rows: PreparedRow[] = [];
   for (const entry of entries) {
     const headings: string[] = [];
     for (const heading of entry.headings) headings.push(heading.text.normalize('NFC').toLowerCase());
+    // The session's read time rides on the prepared row's entry, so scoring and the tie-break
+    // read one value and a keystroke does no lookup. Entries nobody has read are passed through.
+    const read = readAt?.[entry.path];
     rows.push({
-      entry,
+      entry: read === undefined ? entry : { ...entry, lastReadMs: read },
       title: entry.title.normalize('NFC').toLowerCase(),
       path: entry.path.normalize('NFC').toLowerCase(),
       headings,

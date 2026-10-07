@@ -3,10 +3,13 @@
 import type { IndexEntry, IndexHit } from '@marxy/core';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
+import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
+import { withPaletteListing } from '../commands/navigation.ts';
 import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
 import { installRenderedSelection } from '../selection/view.ts';
-import { historyDirection, historyKeyBelongsToEditor, type PaletteKey } from './keys.ts';
+import type { PaletteKey } from './keys.ts';
+import { keyLabel, paletteCommands } from './commands.ts';
 import { jumpForHit, paletteResults, prepareIndex, type PreparedIndex } from './search.ts';
 import {
   emptySession,
@@ -58,6 +61,14 @@ export interface PaletteController {
   open(): void;
   close(): void;
   setIndexEntries(entries: readonly IndexEntry[]): void;
+  /** One step back through the session history; false when there is none (the key is then left alone). */
+  back(): boolean;
+  /** One step forward through the session history; false when there is none. */
+  forward(): boolean;
+}
+
+function isMacPlatform(): boolean {
+  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 }
 
 function isMod(event: KeyboardEvent | PaletteKey): boolean {
@@ -88,10 +99,17 @@ function filterHits(hits: readonly IndexHit[], section: PaletteListSection): rea
   return hits;
 }
 
-function operationCommandsForPalette(): readonly Command[] {
+function commandsForPalette(query: string): readonly Command[] {
+  const after = query.trim().slice(1);
+  return withPaletteListing(() => paletteCommands(commands(), buildAppContext(), after));
+}
+
+/** Operations close the palette themselves once they apply; every other command is closed over here. */
+function runPaletteCommand(cmd: Command | undefined): void {
+  if (cmd === undefined) return;
   const ctx = buildAppContext();
-  if (!ctx) return [];
-  return commands().filter((c) => c.id.startsWith('op.') && c.when(ctx));
+  if (!cmd.id.startsWith('op.')) ctx.closePalette();
+  void cmd.run(ctx);
 }
 
 function queryPalette(
@@ -103,7 +121,7 @@ function queryPalette(
 ): PaletteModel {
   const phase = palettePhase(query, section);
   if (phase === 'operations') {
-    const operationCommands = operationCommandsForPalette();
+    const operationCommands = commandsForPalette(query);
     return {
       phase: 'operations',
       section: 'operations',
@@ -111,7 +129,7 @@ function queryPalette(
       hits: [],
       operationCommands,
       selected: 0,
-      notice: operationCommands.length === 0 ? 'No operations for this selection' : undefined,
+      notice: operationCommands.length === 0 ? 'No commands here' : undefined,
     };
   }
   const trimmed = query.trim();
@@ -185,6 +203,14 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette .marxy-palette-row {
       padding: 0.45rem 1rem;
       cursor: default;
+    }
+    #marxy-palette .marxy-palette-row:has(.marxy-palette-key) {
+      display: flex;
+      gap: 1em;
+    }
+    #marxy-palette .marxy-palette-key {
+      margin-inline-start: auto;
+      opacity: 0.75;
     }
     #marxy-palette .marxy-palette-row[aria-selected="true"] {
       background: var(--marxy-color-accent-muted, rgb(255 255 255 / 8%));
@@ -267,8 +293,17 @@ function paintOperationRows(
     row.className = 'marxy-palette-row';
     row.dataset.rowKey = cmd.id;
     row.setAttribute('role', 'option');
-    const hint = cmd.id.startsWith('op.copy-') ? ' ⌘C' : '';
-    row.textContent = `${cmd.title}${hint}`;
+    const title = doc.createElement('span') as HTMLSpanElement;
+    title.className = 'marxy-palette-title';
+    title.textContent = cmd.title;
+    row.appendChild(title);
+    const spec = cmd.key ?? (cmd.id.startsWith('op.copy-') ? 'Mod+C' : undefined);
+    if (spec !== undefined) {
+      const key = doc.createElement('span') as HTMLSpanElement;
+      key.className = 'marxy-palette-key';
+      key.textContent = keyLabel(spec, isMacPlatform());
+      row.appendChild(key);
+    }
     row.toggleAttribute('aria-selected', i === selected);
     next.appendChild(row);
   }
@@ -316,13 +351,6 @@ function recordKeystrokePaint(ms: number, shell: AppShell): void {
   keystrokeSamples.push(ms);
   while (keystrokeSamples.length > 50) keystrokeSamples.shift();
   void shell.mark('palette_keystroke', Date.now(), `ms=${ms.toFixed(2)}`);
-}
-
-export function paletteKeystrokeP95(): number | null {
-  if (keystrokeSamples.length === 0) return null;
-  const sorted = keystrokeSamples.slice().sort((a, b) => a - b);
-  const index = Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1);
-  return sorted[index] ?? null;
 }
 
 export function mountPaletteApp(deps: PaletteDeps): PaletteController {
@@ -380,9 +408,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     const index = Array.prototype.indexOf.call(list.children, row);
     if (index < 0) return;
     if (model.phase === 'operations') {
-      const cmd = model.operationCommands[index];
-      const ctx = buildAppContext();
-      if (cmd && ctx) void cmd.run(ctx);
+      runPaletteCommand(model.operationCommands[index]);
     } else {
       void activateHit(model.hits[index]);
     }
@@ -391,9 +417,13 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   const activateHit = async (hit: IndexHit | undefined) => {
     if (hit === undefined) return;
     const jump = jumpForHit(hit);
-    session = recordOpen(session, jump.path);
+    session = recordOpen(session, jump.path, hit.entry.root);
     syncSession();
     dismiss();
+    // After the palette is gone, and off this tick: the open never waits on a re-prepare.
+    setTimeout(() => {
+      prepared = prepareIndex(entries, session.readAt);
+    }, 0);
     // The document on screen with no heading to land on: nothing to open.
     if (deps.getCurrentPath() === jump.path && jump.byteOffset === undefined) return;
     await renderPath(deps, jump.path, jump.byteOffset);
@@ -445,9 +475,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (event.key === 'Enter') {
       event.preventDefault();
       if (model.phase === 'operations') {
-        const cmd = model.operationCommands[selected];
-        const ctx = buildAppContext();
-        if (cmd && ctx) void cmd.run(ctx);
+        runPaletteCommand(model.operationCommands[selected]);
       } else {
         void activateHit(model.hits[selected]);
       }
@@ -455,18 +483,6 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   });
 
   window.addEventListener('keydown', (event) => {
-    const dir = historyDirection(event);
-    if (dir !== undefined && !open) {
-      const source = document.getElementById('marxy-source');
-      if (historyKeyBelongsToEditor(event, source !== null && !source.hidden)) return;
-      event.preventDefault();
-      const step = dir === 'back' ? goBack(session) : goForward(session);
-      if (step === undefined) return;
-      session = step.session;
-      syncSession();
-      void renderPath(deps, step.path);
-      return;
-    }
     if (isMod(event) && event.key.toLowerCase() === 'p' && !event.shiftKey) {
       event.preventDefault();
       if (open) dismiss();
@@ -485,15 +501,29 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
   });
 
+  const travel = (step: ReturnType<typeof goBack>): boolean => {
+    if (step === undefined) return false;
+    session = step.session;
+    syncSession();
+    // Off the critical path, as in activateHit: the navigation never waits on a re-prepare.
+    setTimeout(() => {
+      prepared = prepareIndex(entries, session.readAt);
+    }, 0);
+    void renderPath(deps, step.path);
+    return true;
+  };
+
   return {
     get session() {
       return session;
     },
+    back: () => travel(goBack(session)),
+    forward: () => travel(goForward(session)),
     open: summon,
     close: dismiss,
     setIndexEntries(next) {
       entries = [...next];
-      prepared = prepareIndex(entries);
+      prepared = prepareIndex(entries, session.readAt);
       repaint();
     },
   };
@@ -525,236 +555,7 @@ export function mountPaletteFromHandle(
     openDocument: (path, at) => handle.open(path, { at }),
   });
   setPaletteCloser(() => controller.close());
+  setAppHandle(handle);
+  setPalette(controller);
   return controller;
-}
-
-/** Legacy model tests re-exported from palette.ts; production uses mountPaletteFromHandle. */
-export interface PaletteViewState {
-  readonly open: boolean;
-  readonly query: string;
-  readonly hits: readonly IndexHit[];
-  readonly selected: number;
-  readonly notice?: string;
-}
-
-const LEGACY_TAB_BAR_SELECTOR =
-  '[role="tablist"], [role="tab"], [data-tab-bar], .tab-bar, #tab-bar, #marxy-tabs';
-
-export function hasTabBar(root: ParentNode): boolean {
-  return (
-    root.querySelector(LEGACY_TAB_BAR_SELECTOR) !== null ||
-    root.querySelector(TAB_BAR_SELECTOR) !== null
-  );
-}
-
-export function createPaletteDocument(): Document {
-  if (typeof document !== 'undefined') return document;
-  return createHeadlessPaletteDocument() as unknown as Document;
-}
-
-export interface PaletteView {
-  readonly root: HTMLDialogElement;
-  update(state: PaletteViewState): void;
-  destroy(): void;
-}
-
-export function mountPalette(
-  host: HTMLElement,
-  doc: Document,
-  state: PaletteViewState,
-): PaletteView {
-  injectPaletteStyles(doc);
-  const existing = doc.getElementById('marxy-palette');
-  const root =
-    existing !== null
-      ? existing
-      : (() => {
-          const created = doc.createElement('dialog') as HTMLDialogElement;
-          created.id = 'marxy-palette';
-          host.appendChild(created);
-          return created;
-        })();
-  const { input, list, notice } = ensurePaletteStructure(root, doc);
-
-  const paint = (next: PaletteViewState) => {
-    if (!next.open) {
-      root.setAttribute('hidden', '');
-      if ('open' in root && (root as HTMLDialogElement).open) (root as HTMLDialogElement).close();
-      return;
-    }
-    root.removeAttribute('hidden');
-    const dialogRoot = root as HTMLDialogElement;
-    if (!dialogRoot.open && typeof dialogRoot.showModal === 'function') {
-      dialogRoot.showModal();
-    }
-    input.value = next.query;
-    paintRows(list, next.hits, next.selected);
-    if (next.notice) {
-      notice.textContent = next.notice;
-      notice.hidden = false;
-    } else {
-      notice.hidden = true;
-    }
-  };
-
-  paint(state);
-  return {
-    root: root as HTMLDialogElement,
-    update: paint,
-    destroy() {
-      root.remove();
-    },
-  };
-}
-
-/** Node unit tests only; production uses the real document (MARXY-87). */
-function createHeadlessPaletteDocument(): PaletteOwnerDocument & {
-  createElement(tag: string): HTMLElement;
-} {
-  type HNode = {
-    tagName: string;
-    attrs: Map<string, string>;
-    children: HNode[];
-    textContent: string;
-    parent?: HNode;
-  };
-
-  const makeNode = (tag: string): HTMLElement => {
-    const node: HNode = {
-      tagName: tag.toUpperCase(),
-      attrs: new Map(),
-      children: [],
-      textContent: '',
-    };
-    const el = node as unknown as HTMLElement;
-    el.getAttribute = (name: string) => node.attrs.get(name.toLowerCase()) ?? null;
-    el.setAttribute = (name: string, value: string) => {
-      node.attrs.set(name.toLowerCase(), value);
-    };
-    el.removeAttribute = (name: string) => {
-      node.attrs.delete(name.toLowerCase());
-    };
-    el.toggleAttribute = (name: string, force?: boolean) => {
-      const has = node.attrs.has(name.toLowerCase());
-      const next = force ?? !has;
-      if (next) node.attrs.set(name.toLowerCase(), '');
-      else node.attrs.delete(name.toLowerCase());
-      return next;
-    };
-    el.appendChild = <T extends Node>(child: T): T => {
-      const h = child as unknown as HNode;
-      h.parent = node;
-      node.children.push(h);
-      return child;
-    };
-    el.removeChild = <T extends Node>(child: T): T => {
-      const at = node.children.indexOf(child as unknown as HNode);
-      if (at >= 0) node.children.splice(at, 1);
-      return child;
-    };
-    el.remove = () => {
-      if (node.parent) node.parent.children.splice(node.parent.children.indexOf(node), 1);
-    };
-    el.replaceChildren = (...nodes: Element[]) => {
-      node.children.length = 0;
-      for (const child of nodes) {
-        const h = child as unknown as HNode;
-        if (h.tagName === 'FRAGMENT') {
-          for (const grand of h.children) node.children.push(grand);
-        } else {
-          node.children.push(h);
-        }
-      }
-    };
-    Object.defineProperty(el, 'hidden', {
-      get: () => el.getAttribute('hidden') !== null,
-      set: (v: boolean) => (v ? el.setAttribute('hidden', '') : el.removeAttribute('hidden')),
-    });
-    Object.defineProperty(el, 'className', {
-      get: () => el.getAttribute('class') ?? '',
-      set: (v: string) => el.setAttribute('class', v),
-    });
-    const dataKey = (prop: string) =>
-      `data-${prop.replace(/([A-Z])/g, (_, c: string) => `-${c.toLowerCase()}`)}`;
-    Object.defineProperty(el, 'dataset', {
-      value: new Proxy({} as DOMStringMap, {
-        set(_target, prop, value) {
-          if (typeof prop === 'string') node.attrs.set(dataKey(prop), String(value));
-          return true;
-        },
-        get(_target, prop) {
-          if (typeof prop !== 'string') return undefined;
-          return node.attrs.get(dataKey(prop));
-        },
-      }),
-    });
-    Object.defineProperty(el, 'id', {
-      get: () => el.getAttribute('id') ?? '',
-      set: (v: string) => el.setAttribute('id', v),
-    });
-    el.querySelector = (sel: string) => queryHeadless(node, sel, false) as Element | null;
-    el.querySelectorAll = (sel: string) =>
-      queryHeadlessAll(node, sel) as unknown as NodeListOf<Element>;
-    return el;
-  };
-
-  const queryHeadlessAll = (root: HNode, sel: string): HNode[] => {
-    const out: HNode[] = [];
-    const visit = (n: HNode) => {
-      for (const child of n.children) {
-        if (headlessMatches(child, sel)) out.push(child);
-        visit(child);
-      }
-    };
-    visit(root);
-    return out;
-  };
-
-  const queryHeadless = (root: HNode, sel: string, deep: boolean): HNode | null => {
-    if (headlessMatches(root, sel)) return root;
-    for (const child of root.children) {
-      const hit = queryHeadless(child, sel, true);
-      if (hit) return hit;
-    }
-    return null;
-  };
-
-  const headlessMatches = (node: HNode, sel: string): boolean => {
-    const role = node.attrs.get('role');
-    const id = node.attrs.get('id');
-    const cls = node.attrs.get('class') ?? '';
-    if (sel === '[role="tablist"]' || sel === '[role=tablist]') return role === 'tablist';
-    if (sel === '[role="tab"]' || sel === '[role=tab]') return role === 'tab';
-    if (sel === '[data-tab-bar]') return node.attrs.has('data-tab-bar');
-    if (sel === '.tab-bar') return cls.split(/\s+/).includes('tab-bar');
-    if (sel === '#tab-bar') return id === 'tab-bar';
-    if (sel === '#marxy-palette') return id === 'marxy-palette';
-    if (sel === '.marxy-palette-results') return cls.split(/\s+/).includes('marxy-palette-results');
-    if (sel === '[data-marxy-s]') return node.attrs.has('data-marxy-s');
-    if (sel.includes(',')) return sel.split(',').some((part) => headlessMatches(node, part.trim()));
-    return false;
-  };
-
-  const body = makeNode('body');
-  const docRef: PaletteOwnerDocument & {
-    createElement(tag: string): HTMLElement;
-    createDocumentFragment(): DocumentFragment;
-  } = {
-    createElement(tag: string) {
-      const node = makeNode(tag);
-      (node as HTMLElement & { ownerDocument?: Document }).ownerDocument = docRef as unknown as Document;
-      return node;
-    },
-    createDocumentFragment() {
-      const frag = makeNode('fragment');
-      (frag as HTMLElement & { ownerDocument?: Document }).ownerDocument = docRef as unknown as Document;
-      return frag as unknown as DocumentFragment;
-    },
-    getElementById(id: string) {
-      return queryHeadless(body as unknown as HNode, `#${id}`, true) as HTMLElement | null;
-    },
-    head: { appendChild() {} } as unknown as HTMLHeadElement,
-  };
-  (body as HTMLElement & { ownerDocument?: Document }).ownerDocument = docRef as unknown as Document;
-  return docRef;
 }

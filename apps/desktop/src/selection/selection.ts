@@ -1,7 +1,7 @@
 // The Rendered-mode selection union and pure moves on the AST (docs/design/03-selection-and-operations.md).
 
 import type { Block, Document, Heading, Inline, Node, Source } from '@marxy/core';
-import { nodeAt, sectionRange } from '@marxy/core';
+import { nodeAt } from '@marxy/core';
 
 export type Selection =
   | { kind: 'none' }
@@ -97,8 +97,4 @@ export function parentOf(doc: Document, sel: Selection): Selection {
   if (!parent || parent === doc) return sel;
   if (isBlock(parent)) return { kind: 'node', node: parent, el: sel.el };
   return sel;
-}
-
-export function sectionSelection(doc: Document, heading: Heading): Selection {
-  return { kind: 'section', heading, range: sectionRange(doc, heading) };
 }

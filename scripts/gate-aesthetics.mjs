@@ -17,6 +17,16 @@ const corpusDir = join(root, 'fixtures/corpus');
 const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
 const SELFTEST_ONLY = process.argv.includes('--selftest');
+// --mechanical is the pull-request gate (ADR-0047, A-10): every check that cannot be argued with (grid,
+// measure, contrast, layout shift, heading colour, overflow, the room, the selftest) and no comparison
+// with a stored baseline. It takes no screenshot and reads no rag baseline under fixtures/baselines/rag;
+// the selftest still proves checkRag fails on a crafted page. The full gate, with the screenshot and
+// rag comparisons, runs nightly (aesthetics-determinism in nightly.yml).
+const MECHANICAL = process.argv.includes('--mechanical');
+if (MECHANICAL && UPDATE) {
+  console.error('aesthetics gate failed:\n - --mechanical compares no baseline, so it cannot --update one');
+  process.exit(1);
+}
 const variantIdx = process.argv.indexOf('--variant');
 const VARIANT_FILTER = variantIdx === -1 ? null : process.argv[variantIdx + 1];
 if (VARIANT_FILTER && !['dark', 'light'].includes(VARIANT_FILTER)) {
@@ -582,6 +592,13 @@ function diffDir() {
 
 const SHOT_THRESHOLD = 0.1;
 const SHOT_MAX_PCT = 0.1;
+let screenshotsTaken = 0;
+
+/** Every page.screenshot of the gate goes through here, so the --mechanical run can prove it took none. */
+function screenshot(page) {
+  screenshotsTaken++;
+  return page.screenshot({ fullPage: false, type: 'png' });
+}
 
 /** RGBA compare in-page (Playwright WebKit has createImageBitmap); matches pixelmatch threshold semantics. */
 async function compareScreenshotPng(page, expected, actual, { writeDiffPath } = {}) {
@@ -664,7 +681,7 @@ async function checkScreenshot(page, { file, width, variant, update }) {
     } else {
       await page.evaluate(() => window.scrollTo(0, 0));
     }
-    const png = await page.screenshot({ fullPage: false, type: 'png' });
+    const png = await screenshot(page);
     const name = shotName(file, width, variant, where);
     const dest = join(dir, name);
     if (update || !existsSync(dest)) {
@@ -733,6 +750,30 @@ async function craftedClsShift(page, origin) {
     const second = shift.snapshot(article);
     return { cls: shift.movedFraction(first, second), observed: true, snapshots: 2 };
   });
+}
+
+/**
+ * B-03: wide code runs into the margin of the box the article sits in, not the window. A 735 px
+ * `#marxy-main` in a 1,470 px viewport (a half-width pane) holds a 140-character code line; the
+ * `pre` must not end past the container. `css` is injectable so the selftest can prove the check
+ * fails against the pre-fix `100vw` rule.
+ */
+async function checkRoomInNarrowContainer(browser, css = defaultThemeCss()) {
+  const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
+  try {
+    await page.setContent(
+      `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${css}</style></head><body style="margin:0"><main id="marxy-main" style="width:735px"><article id="doc" class="marxy-article"><pre><code>${'x'.repeat(140)}</code></pre></article></main></body></html>`,
+      { waitUntil: 'domcontentloaded' },
+    );
+    const m = await page.evaluate(() => ({
+      pre: document.querySelector('#doc pre').getBoundingClientRect().right,
+      main: document.getElementById('marxy-main').getBoundingClientRect().right,
+    }));
+    const spill = m.pre - m.main;
+    return { spill, problems: spill > 0.5 ? [`code block spills ${spill.toFixed(1)}px past its 735px container (pre right ${m.pre.toFixed(1)}, container right ${m.main.toFixed(1)})`] : [] };
+  } finally {
+    await page.close();
+  }
 }
 
 async function selftest(browser, origin) {
@@ -841,24 +882,27 @@ async function selftest(browser, origin) {
     throw new Error(`selftest: valid ~5% optical protrusion must pass checkHanging (${opticalProblems.join('; ')})`);
   }
 
-  const shotPage = await browser.newPage({ viewport: { width: 960, height: 800 } });
-  await shotPage.setContent(
-    crafted('<h2 data-marxy-s="0" data-marxy-e="1" style="display:block;margin:0">Title</h2><p>Body text for the viewport shot.</p>'),
-    { waitUntil: 'domcontentloaded' },
-  );
-  const shotBase = await shotPage.screenshot({ fullPage: false, type: 'png' });
-  const same = await compareScreenshotPng(shotPage, shotBase, shotBase);
-  if (same.pct > SHOT_MAX_PCT) {
-    throw new Error(`selftest: identical screenshot reruns must match (got ${same.pct.toFixed(3)}% differ)`);
-  }
-  await shotPage.evaluate(() => {
-    document.querySelector('h2').style.marginTop = '1px';
-  });
-  const shotShift = await shotPage.screenshot({ fullPage: false, type: 'png' });
-  const shifted = await compareScreenshotPng(shotPage, shotBase, shotShift);
-  await shotPage.close();
-  if (shifted.pct <= SHOT_MAX_PCT) {
-    throw new Error(`selftest: 1px h2 margin must fail screenshot diff (got ${shifted.pct.toFixed(3)}% differ)`);
+  // The screenshot comparator's own selftest needs two screenshots; --mechanical compares none.
+  if (!MECHANICAL) {
+    const shotPage = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await shotPage.setContent(
+      crafted('<h2 data-marxy-s="0" data-marxy-e="1" style="display:block;margin:0">Title</h2><p>Body text for the viewport shot.</p>'),
+      { waitUntil: 'domcontentloaded' },
+    );
+    const shotBase = await screenshot(shotPage);
+    const same = await compareScreenshotPng(shotPage, shotBase, shotBase);
+    if (same.pct > SHOT_MAX_PCT) {
+      throw new Error(`selftest: identical screenshot reruns must match (got ${same.pct.toFixed(3)}% differ)`);
+    }
+    await shotPage.evaluate(() => {
+      document.querySelector('h2').style.marginTop = '1px';
+    });
+    const shotShift = await screenshot(shotPage);
+    const shifted = await compareScreenshotPng(shotPage, shotBase, shotShift);
+    await shotPage.close();
+    if (shifted.pct <= SHOT_MAX_PCT) {
+      throw new Error(`selftest: 1px h2 margin must fail screenshot diff (got ${shifted.pct.toFixed(3)}% differ)`);
+    }
   }
 
   return {
@@ -965,11 +1009,21 @@ async function main() {
     notes.push(
       'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome, hierarchy, code-voice, hanging-quote each fail on a crafted page; optical protrusion passes',
     );
+    const roomHead = await checkRoomInNarrowContainer(browser);
+    if (roomHead.problems.length) throw new Error(`aesthetics gate: ${roomHead.problems.join('; ')}`);
+    const roomPreFix = await checkRoomInNarrowContainer(browser, defaultThemeCss().replaceAll('100cqi', '100vw'));
+    if (roomPreFix.problems.length === 0) {
+      throw new Error('selftest: checkRoomInNarrowContainer did not fail against the pre-fix 100vw room');
+    }
+    notes.push(
+      `room: a 140-character code line stays inside a 735px container in a 1470px window (spill ${roomHead.spill.toFixed(1)}px); the pre-fix 100vw rule spills ${roomPreFix.spill.toFixed(1)}px`,
+    );
     if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
       throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
     }
     if (SELFTEST_ONLY) {
-      console.log(`aesthetics gate ok: selftest passed; ${notes.join('; ')}`);
+      if (MECHANICAL && screenshotsTaken !== 0) throw new Error(`--mechanical took ${screenshotsTaken} screenshot(s); it must take none`);
+      console.log(`aesthetics gate ok: selftest passed; ${notes.join('; ')}; screenshots taken: ${screenshotsTaken}`);
       return;
     }
 
@@ -1002,14 +1056,15 @@ async function main() {
           } catch (e) {
             return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
           }
-          const atRef = opts.width === 960 && opts.variant === 'dark' && opts.size === 20;
+          // --mechanical skips both baseline comparisons: the rag reference read and the screenshots.
+          const atRef = !MECHANICAL && opts.width === 960 && opts.variant === 'dark' && opts.size === 20;
           const lines = atRef ? await readSetLines(page) : [];
           const metrics = atRef ? ragOf(lines) : null;
           if (UPDATE && atRef && metrics) {
             writeRagBaseline(file, metrics);
             created++;
           }
-          const shot = screenshotCombo(opts);
+          const shot = !MECHANICAL && screenshotCombo(opts);
           return await runPageChecks(page, result, {
             file,
             ...opts,
@@ -1111,6 +1166,8 @@ async function main() {
     await browser.close();
   }
 
+  notes.push(`${MECHANICAL ? 'mechanical: no baseline comparison, ' : ''}screenshots taken: ${screenshotsTaken}`);
+  if (MECHANICAL && screenshotsTaken !== 0) fails.push(`--mechanical took ${screenshotsTaken} screenshot(s); it must take none`);
   if (fails.length) {
     console.error('aesthetics gate failed:\n - ' + fails.join('\n - '));
     process.exit(1);

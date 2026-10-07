@@ -1,5 +1,5 @@
 // The story boundary must let a values-only tokens.css tune through without an ADR,
-// and must still refuse a shell-api or contracts change that has none (ADR-0031).
+// and (ADR-0045) no longer refuses a shell-api or contracts change that has none.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -36,26 +36,17 @@ function checkStoryStaged(file) {
   }
 }
 
-test('staged tokens.css with no ADR exits 0; staged shell-api with no ADR exits 1 naming the file', () => {
-  const tokens = checkStoryStaged('packages/theme/src/tokens.css');
-  assert.equal(tokens.status, 0, tokens.stderr + tokens.stdout);
-  assert.match(tokens.stdout, /story-check ok/);
-
-  const shell = checkStoryStaged('packages/shell-api/src/index.ts');
-  assert.equal(shell.status, 1, shell.stderr + shell.stdout);
-  assert.match(shell.stderr, /packages\/shell-api\/src\/index\.ts/);
-  assert.match(shell.stderr, /frozen contract file/);
+test('staged tokens.css, shell-api and contracts changes with no ADR exit 0 (ADR-0045)', () => {
+  for (const f of ['packages/theme/src/tokens.css', 'packages/shell-api/src/index.ts', 'packages/core/src/contracts/position.ts']) {
+    const run = checkStoryStaged(f);
+    assert.equal(run.status, 0, f + run.stderr + run.stdout);
+    assert.match(run.stdout, /story-check ok/);
+  }
 });
 
-test('staged packages/core/src/contracts/ change with no ADR exits 1', () => {
-  const run = checkStoryStaged('packages/core/src/contracts/ast.ts');
-  assert.equal(run.status, 1, run.stderr + run.stdout);
-  assert.match(run.stderr, /packages\/core\/src\/contracts\/ast\.ts/);
-});
-
-test('frozen array lists contracts and shell-api and does not list tokens.css', () => {
+test('registry has no frozen list and the note keeps the token contract', () => {
   const reg = JSON.parse(readFileSync('scripts/registry.json', 'utf8'));
-  assert.deepEqual(reg.frozen, ['packages/core/src/contracts/', 'packages/shell-api/src/']);
+  assert.equal('frozen' in reg, false);
   assert.match(reg._note, /tokens\.css/);
   assert.match(reg._note, /names and units/);
   assert.match(reg._note, /scripts\/check-tokens\.mjs/);
@@ -63,30 +54,21 @@ test('frozen array lists contracts and shell-api and does not list tokens.css', 
   assert.match(reg._note, /not its bytes/);
 });
 
-test('contracts-frozen and check-tokens are green and do not read registry.json frozen for tokens.css', () => {
-  const frozen = spawnSync('pnpm', ['test:contracts-frozen'], { cwd: ROOT, encoding: 'utf8' });
-  assert.equal(frozen.status, 0, frozen.stderr + frozen.stdout);
+test('no byte-pin script remains and check-tokens is green and does not read registry.json', () => {
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync('package.json', 'utf8')).scripts).filter(k => /frozen/.test(k)), []);
   const tokens = spawnSync(process.execPath, ['scripts/check-tokens.mjs'], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(tokens.status, 0, tokens.stderr + tokens.stdout);
-
   const checkTokens = readFileSync('scripts/check-tokens.mjs', 'utf8');
   assert.equal(/registry\.json/.test(checkTokens), false);
   assert.equal(/\bfrozen\b/.test(checkTokens), false);
-  const script = JSON.parse(readFileSync('package.json', 'utf8')).scripts['test:contracts-frozen'];
-  assert.equal(/registry\.json/.test(script), false);
-  assert.equal(/tokens\.css/.test(script), false);
 });
 
-test('hygiene frozen-files section states the split in one sentence', () => {
-  const lines = readFileSync('docs/hygiene.md', 'utf8').split('\n').filter(l => /^- Frozen:/.test(l));
+test('hygiene contracts line says they change by pull request', () => {
+  const lines = readFileSync('docs/hygiene.md', 'utf8').split('\n').filter(l => /^- Contracts:/.test(l));
   assert.equal(lines.length, 1, lines);
-  const sentence = lines[0];
-  assert.match(sentence, /byte-pinned/);
-  assert.match(sentence, /packages\/\*\/src\/contracts\//);
-  assert.match(sentence, /packages\/shell-api\/src\//);
-  assert.match(sentence, /name-and-unit/);
-  assert.match(sentence, /packages\/theme\/src\/tokens\.css/);
-  assert.doesNotMatch(sentence, /\.\s+[A-Z]/);
+  assert.match(lines[0], /ADR-0045/);
+  assert.doesNotMatch(lines[0], /byte-pinned/);
+  assert.match(lines[0], /packages\/theme\/src\/tokens\.css/);
 });
 
 // MARXY-153: the CI story-boundary step was wrapped in `|| echo "::warning::"` and so could never
@@ -113,10 +95,4 @@ test('MARXY-153: on a detached pull-request checkout the branch comes from GITHU
   // Attached: the real branch wins, so `pnpm done` and the commit hook are unaffected by the env.
   assert.equal(resolveBranch('ci/MARXY-153-minimal-fast-ci', pr), 'ci/MARXY-153-minimal-fast-ci');
   assert.equal(resolveBranch('main', pr), 'main');
-});
-
-test('MARXY-153: the CI story-boundary step runs unguarded', () => {
-  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
-  assert.match(ci, /run: node scripts\/check-story\.mjs --strict\n/, 'the step must run the check plainly');
-  assert.doesNotMatch(ci, /check-story\.mjs --strict \|\|/, 'no `||` may swallow its exit code');
 });

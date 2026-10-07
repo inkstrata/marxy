@@ -10,10 +10,6 @@ export interface TabWidthResolver {
 
 let resolver: TabWidthResolver | null = null;
 
-export function setTabWidthResolver(next: TabWidthResolver | null): void {
-  resolver = next;
-}
-
 export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell, 'readFile'>): Promise<void> {
   const indexedRoot = indexedRootForDocument(filePath);
   resolver = {

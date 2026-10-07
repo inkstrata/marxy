@@ -9,12 +9,15 @@
     "file_read",
     "parsed",
     "rendered",
+    "first_screen",
     "fonts_ready",
     "first_text",
     "first_paint_frame",
     "render",
     "typeset_viewport",
+    "typeset_done",
     "position_restored",
+    "content_complete",
     "highlight_ms",
     "index_loaded",
     "live_reload",
@@ -58,6 +61,7 @@
   "tokenPrefix": "--marxy-",
   "innerHtmlAllowedIn": [
     "apps/desktop/src/app.ts",
+    "apps/desktop/src/render/progressive.ts",
     "apps/desktop/src/render/",
     "apps/desktop/src/notices/",
     "apps/desktop/src/outline/",
@@ -65,10 +69,6 @@
     "packages/core/scripts/",
     "packages/core/src/render/testing/",
     "docs/research/"
-  ],
-  "frozen": [
-    "packages/core/src/contracts/",
-    "packages/shell-api/src/"
   ],
   "extraAllowedPaths": [
     "CHANGELOG.md",
