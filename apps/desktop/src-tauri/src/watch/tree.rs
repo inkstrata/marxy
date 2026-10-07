@@ -56,11 +56,6 @@ impl TreeWatch {
         Ok(Self { root, snapshot })
     }
 
-    /// The canonical root, as events report it.
-    pub fn root(&self) -> &Path {
-        &self.root
-    }
-
     /// How many files the snapshot holds.
     #[cfg(test)]
     pub fn len(&self) -> usize {

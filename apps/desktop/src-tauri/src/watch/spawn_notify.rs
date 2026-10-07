@@ -92,7 +92,11 @@ where
     match startup_rx.recv_timeout(Duration::from_secs(10)) {
         Ok(Ok(())) => {}
         Ok(Err(e)) => return Err(e),
-        _ => return Err("watch thread failed to start".into()),
+        _ => {
+            // A thread still starting must not outlive the refusal.
+            stop.store(true, Ordering::SeqCst);
+            return Err("watch thread failed to start".into());
+        }
     }
     Ok(RunningWatch::new(stop, join))
 }
@@ -105,21 +109,39 @@ type TreeSignal = (Vec<PathBuf>, bool);
 /// write-temp-then-rename reports two paths a moment apart and is one change.
 const TREE_GATHER: Duration = Duration::from_millis(50);
 
-/// Opens `root` as a tree, listens recursively with one `notify` watcher until `stop`, and forwards
-/// non-empty batches to `emit`. Only the paths the OS reports are re-examined. A tree the scan
-/// refuses or a watch the OS refuses (inotify's limit on Linux) is an `Err`, so the app can fall
-/// back.
-pub fn spawn_tree_thread<F>(root: PathBuf, mut emit: F) -> Result<RunningWatch, String>
+/// Watches `root` as a tree with one recursive `notify` watcher until `stop`, and forwards non-empty
+/// batches to `emit`. Only the paths the OS reports are re-examined. The watcher is registered
+/// before the first scan and its signals queue meanwhile, so a change made while the tree is being
+/// scanned is replayed through `apply` afterwards (the diff makes a replay of something the scan
+/// already saw harmless). A tree the scan refuses, or a watch the OS refuses (inotify's limit on
+/// Linux), is an `Err`, so the app can fall back.
+pub fn spawn_tree_thread<F>(root: PathBuf, emit: F) -> Result<RunningWatch, String>
 where
     F: FnMut(Vec<WatchEvent>) + Send + 'static,
 {
-    let tree = TreeWatch::open(&root)?;
-    let watch_root = tree.root().to_path_buf();
+    spawn_tree_thread_with(root, emit, || {})
+}
+
+/// `spawn_tree_thread` with a hook run on the watch thread right after the first scan, so a test can
+/// change the tree between the watcher's registration and the end of the scan.
+fn spawn_tree_thread_with<F, H>(
+    root: PathBuf,
+    mut emit: F,
+    after_scan: H,
+) -> Result<RunningWatch, String>
+where
+    F: FnMut(Vec<WatchEvent>) + Send + 'static,
+    H: FnOnce() + Send + 'static,
+{
+    let watch_root =
+        std::fs::canonicalize(&root).map_err(|e| format!("{}: {e}", root.display()))?;
     let stop = Arc::new(AtomicBool::new(false));
     let stop_clone = stop.clone();
     let (signal_tx, signal_rx) = mpsc::channel::<TreeSignal>();
 
-    let (startup_tx, startup_rx) = mpsc::sync_channel(1);
+    // Two messages: the watcher is registered (bounded wait), then the scan's result (a scan always
+    // ends, so that wait is not bounded; a 200,000-file scan can outlast any fixed timeout).
+    let (startup_tx, startup_rx) = mpsc::sync_channel::<Result<(), String>>(2);
     let join = thread::spawn(move || {
         let watcher: Result<RecommendedWatcher, String> = (|| {
             let mut watcher = RecommendedWatcher::new(
@@ -153,9 +175,19 @@ where
                 return;
             }
         };
+        if startup_tx.send(Ok(())).is_err() || stop_clone.load(Ordering::SeqCst) {
+            return;
+        }
+        let mut tree = match TreeWatch::open(&watch_root) {
+            Ok(tree) => tree,
+            Err(e) => {
+                let _ = startup_tx.send(Err(e));
+                return;
+            }
+        };
+        after_scan();
         let _ = startup_tx.send(Ok(()));
 
-        let mut tree = tree;
         while !stop_clone.load(Ordering::SeqCst) {
             let first = match signal_rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(signal) => signal,
@@ -187,10 +219,17 @@ where
         }
         drop(watcher);
     });
-    match startup_rx.recv_timeout(Duration::from_secs(10)) {
-        Ok(Ok(())) => {}
-        Ok(Err(e)) => return Err(e),
-        _ => return Err("watch thread failed to start".into()),
+    let started = match startup_rx.recv_timeout(Duration::from_secs(10)) {
+        Ok(Ok(())) => startup_rx
+            .recv()
+            .unwrap_or_else(|_| Err("watch thread failed to start".into())),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err("watch thread failed to start".into()),
+    };
+    if let Err(e) = started {
+        // A watcher still registering, or a thread past its startup, must not outlive the refusal.
+        stop.store(true, Ordering::SeqCst);
+        return Err(e);
     }
     Ok(RunningWatch::new(stop, join))
 }
@@ -315,6 +354,52 @@ mod tests {
             rx.recv_timeout(Duration::from_millis(200)).is_err(),
             "no events after stop"
         );
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn tree_thread_reports_a_change_made_while_the_first_scan_ran() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let (dir, open) = scratch("tree-scan-gap");
+        let made = dir.join("a/b/during-scan.md");
+        let hook_made = made.clone();
+        let hook_open = open.clone();
+        let (tx, rx) = mpsc::channel();
+        let mut running = spawn_tree_thread_with(
+            dir.clone(),
+            move |events| {
+                let _ = tx.send(events);
+            },
+            move || {
+                // A slow scan: the change lands after the scan read the tree, and the scan goes on
+                // for a while after it, so only a watcher registered before the scan reports it.
+                std::thread::sleep(Duration::from_millis(100));
+                fs::create_dir_all(hook_made.parent().unwrap()).expect("dirs");
+                fs::write(&hook_made, b"written during the scan").expect("write");
+                fs::remove_file(&hook_open).expect("remove");
+                std::thread::sleep(Duration::from_millis(500));
+            },
+        )
+        .expect("spawn");
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        let mut seen: Vec<WatchEvent> = Vec::new();
+        let done = |seen: &[WatchEvent]| {
+            seen.iter()
+                .any(|e| e.kind == WatchKind::Created && e.path == made)
+                && seen
+                    .iter()
+                    .any(|e| e.kind == WatchKind::Removed && e.path == open)
+        };
+        while !done(&seen) {
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            match rx.recv_timeout(left) {
+                Ok(events) => seen.extend(events),
+                Err(_) => panic!("changes made during the scan not reported within 2 s: {seen:?}"),
+            }
+        }
+        running.stop();
         cleanup(&dir);
     }
 
