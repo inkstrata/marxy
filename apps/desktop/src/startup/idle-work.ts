@@ -90,8 +90,8 @@ async function guarded(step: string, fn: () => void | Promise<void>): Promise<vo
 }
 
 /**
- * A table wider than its room scrolls; a scroll region with nothing focusable in it cannot be scrolled
- * from the keyboard in WebKit, so it takes a tab stop and a name (ADR-0033, WCAG 2.1.1). Tables that
+ * A table or display formula wider than its room scrolls; a scroll region with nothing focusable in it cannot be scrolled
+ * from the keyboard in WebKit, so it takes a tab stop and a name (ADR-0033, WCAG 2.1.1). Ones that
  * fit get none: a tab stop on every table is noise.
  */
 export function focusableScrollers(doc: HTMLElement): void {
@@ -99,5 +99,12 @@ export function focusableScrollers(doc: HTMLElement): void {
     if (table.scrollWidth <= table.clientWidth + 1) continue;
     table.tabIndex = 0;
     if (!table.hasAttribute('aria-label')) table.setAttribute('aria-label', 'Table, scrolls sideways');
+  }
+  // A display formula wider than its room scrolls inside its own `.katex-display` (base.css); the same
+  // rule holds: a formula that fits gets no tab stop.
+  for (const formula of doc.querySelectorAll<HTMLElement>('.katex-display')) {
+    if (formula.scrollWidth <= formula.clientWidth + 1) continue;
+    formula.tabIndex = 0;
+    if (!formula.hasAttribute('aria-label')) formula.setAttribute('aria-label', 'Formula, scrolls sideways');
   }
 }
