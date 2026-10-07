@@ -98,7 +98,7 @@ export function attachDocumentEdits(ctx: AppContext): AppContext {
 }
 
 export function historyCanUndo(store: DocumentStore | null = openStore()): boolean {
-  return store?.snapshot().canUndo ?? false;
+  return (store?.snapshot().canUndo ?? false) || (appHandle()?.document() === store && Boolean(appHandle()?.hasUnfoldedSource()));
 }
 
 export function historyCanRedo(store: DocumentStore | null = openStore()): boolean {
@@ -108,6 +108,9 @@ export function historyCanRedo(store: DocumentStore | null = openStore()): boole
 async function stepHistory(store: DocumentStore | null, direction: 'undo' | 'redo'): Promise<void> {
   if (!store) return;
   try {
+    // Text typed in Source is part of the document's history: fold it in first, so undo takes it out
+    // and the next fold cannot write it back over the result (F-12).
+    if (appHandle()?.document() === store) await appHandle()?.foldSource();
     await (direction === 'undo' ? store.undo() : store.redo());
   } catch (e) {
     await reportFailedChange(direction, e);

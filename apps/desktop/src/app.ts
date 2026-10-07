@@ -151,6 +151,10 @@ export type AppHandle = {
    * document is open by then.
    */
   commitEdit(buffer: Buffer): Promise<void>;
+  /** Source text typed and not yet in the document goes into it, as one history entry (undo and redo call this first). */
+  foldSource(): Promise<void>;
+  /** True while Source holds typed text the document does not have yet (it would become an undo step). */
+  hasUnfoldedSource(): boolean;
   /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
   pinPaletteDocument(path: string): void;
   /** The palette index: one walk per repository root, every root opened so far published (A-04). */
@@ -261,6 +265,11 @@ function sourceMount(): HTMLElement {
 function setModeChrome(mode: 'rendered' | 'source'): void {
   const doc = document.getElementById('doc')!;
   const host = sourceMount();
+  // WebKit blurs a hidden element's focus only at a later rendering update; until then a key (Mod+Z)
+  // would go to the hidden editor. Move focus out now (F-12).
+  if (mode === 'rendered' && host.contains(document.activeElement)) {
+    (document.activeElement as HTMLElement).blur();
+  }
   viewMode = mode;
   document.body.dataset.marxyMode = mode;
   if (mode === 'source') {
@@ -861,12 +870,14 @@ function settlePage(work: Promise<void>): void {
  */
 function repaint(snap: DocumentSnapshot, position: ReadingPosition): void {
   const doc = document.getElementById('doc')!;
-  // Text typed in Source and not yet folded into the store is the reader's, and the store's new bytes
-  // (a handle-level commitEdit, undo from the palette, a reload) never saw it. Replacing the editor's
-  // text would drop it, so the editor is left holding it: the next fold (leaving Source, save, rename)
-  // writes it over the store as one edit, and the history can still undo that. A fold of the editor's
-  // own text into the store reads equal to the new bytes, so it is not held back here (F-12).
-  if (sourceEditor && !holdsUnfoldedText(sourceEditor, snap.buffer)) sourceEditor.replaceBuffer(snap.buffer);
+  // Every path that changes the store while Source shows folds the editor's text first (undo, redo, save,
+  // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does, an
+  // invariant broke: say so, and replace the text as before rather than keep a copy that a later fold
+  // would write over the store's change (F-12).
+  if (sourceEditor && holdsUnfoldedText(sourceEditor, snap.buffer)) {
+    console.error('marxy: Source held unfolded text at a repaint; the editor is reset to the document');
+  }
+  sourceEditor?.replaceBuffer(snap.buffer);
   releaseAnchor();
   rerenderFromBuffer(doc, position.byteOffset);
   const typesetting = typesetDocument(doc);
@@ -1099,6 +1110,9 @@ function commitEdit(next: Buffer): Promise<void> {
   return serially(async () => {
     const open = store;
     if (!open || next.path !== open.snapshot().path || !state.document) throw new Error('the edited document is no longer open');
+    // `next` was built from the bytes before the reader typed; applying it would be folded back over by
+    // the typed text, or lose the typed text. Refused, nothing written (F-12).
+    if (unfoldedSourceEdits()) throw new Error('Source holds text not yet in the document; leave Source or save first');
     const snap = open.snapshot();
     const change = byteChange(snap.buffer.bytes, next.bytes);
     if (change === null) {
@@ -1719,6 +1733,8 @@ export async function startApp(
       return () => documentListeners.delete(cb);
     },
     commitEdit,
+    hasUnfoldedSource: unfoldedSourceEdits,
+    foldSource: async () => { await foldSourceIntoBuffer(); },
     contentComplete: () => mount?.complete ?? Promise.resolve(),
     mountThrough: (byteOffset) => mountThrough(document.getElementById('doc')!, byteOffset),
     toggleMode: toggleViewMode,

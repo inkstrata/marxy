@@ -136,9 +136,9 @@ test('Jump to source, type, Mod+E twice keeps the text; Mod+Z undoes it', async 
   assert.ok((await sourceText(page)).includes(`Paragraph one.${TYPED}`), 'Source still shows the typed text');
   await page.keyboard.press(`${mod}+e`);
   await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+  await page.waitForFunction(() => !document.querySelector('#marxy-source')?.contains(document.activeElement));
   await page.keyboard.press(`${mod}+z`);
-  await page.waitForFunction((t) => new TextDecoder().decode(window.__b.handle.openDocument().buffer.bytes) === t, TEXT, { timeout: 3000 })
-    .catch(() => {});
+  await page.waitForFunction((t) => new TextDecoder().decode(window.__b.handle.openDocument().buffer.bytes) === t, TEXT, { timeout: 3000 });
   assert.equal(await bufferText(page), TEXT, 'Mod+Z took the typed text back out');
   await page.close();
 });
@@ -185,8 +185,8 @@ test('F-12: toggling line numbers in Rendered, then opening another document, Ju
   await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));
   await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-content'));
   const text = await sourceText(page);
-  assert.ok(text.includes('Second file.'), `Source shows the new document, got: ${text}`);
-  assert.ok(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-lineNumbers'))), 'the recorded choice reached the new editor');
+  assert.ok(text.includes('Second file.'), `Source shows the second file, got: ${text}`);
+  assert.ok(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-lineNumbers'))), 'with numbers on');
   await page.close();
 });
 
@@ -202,15 +202,42 @@ test('F-12: Mod+E after the same sequence shows the new document too', async () 
   await page.close();
 });
 
-test('F-12: a handle-level commitEdit while Source holds typed text keeps the text', async () => {
+test('F-12: commitEdit of a real change while Source holds typed text is refused and loses nothing', async () => {
   const page = await boot();
   await jumpAndType(page);
-  await page.evaluate(() => window.__b.handle.commitEdit(window.__b.handle.openDocument().buffer));
-  await new Promise((r) => setTimeout(r, 200));
-  assert.ok((await sourceText(page)).includes(`Paragraph one.${TYPED}`), 'the editor still shows the typed text');
+  const refused = await page.evaluate(async () => {
+    const h = window.__b.handle;
+    const snap = h.openDocument().buffer;
+    const bytes = new TextEncoder().encode(new TextDecoder().decode(snap.bytes).replace('Paragraph two.', 'Paragraph 2.'));
+    try { await h.commitEdit({ ...snap, bytes }); return false; } catch { return true; }
+  });
+  assert.equal(refused, true, 'commitEdit refused');
+  assert.equal(await bufferText(page), TEXT, 'the store is unchanged');
+  assert.ok((await sourceText(page)).includes(`Paragraph one.${TYPED}`), 'the typed text is kept');
+  await page.close();
+});
+
+test('F-12: palette Undo in Source takes out what was typed and nothing else', async () => {
+  const page = await boot();
+  await jumpAndType(page);
+  await page.keyboard.press(`${await modOf(page)}+KeyP`);
+  await page.fill('#marxy-palette .marxy-palette-query', '>undo');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction((t) => !document.querySelector('#marxy-source .cm-content').innerText.includes(t), TYPED.trim());
+  assert.ok((await sourceText(page)).includes('Paragraph one.'));
+  assert.equal(await bufferText(page), TEXT);
   await page.keyboard.press(`${await modOf(page)}+e`);
   await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
-  assert.equal(await bufferText(page), EDITED, 'leaving Source folded the typed text into the document');
+  assert.equal(await bufferText(page), TEXT, 'the next fold did not bring the text back');
+  await page.close();
+});
+
+test('F-12: Mod+S in Source after typing writes exactly the typed bytes', async () => {
+  const page = await boot();
+  await jumpAndType(page);
+  await page.keyboard.press(`${await modOf(page)}+s`);
+  await page.waitForFunction((p) => window.__b.handle.shell.calls.some((c) => c.method === 'writeFileAtomic' && c.args[0] === p), PATH, { timeout: 5000 });
+  assert.deepEqual(await writes(page), [EDITED]);
   await page.close();
 });
 
