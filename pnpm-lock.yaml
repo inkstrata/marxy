@@ -65,6 +65,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.12
         version: 6.43.12
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
       '@marxy/core':
         specifier: workspace:*
         version: link:../../packages/core

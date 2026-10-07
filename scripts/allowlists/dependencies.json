@@ -17,6 +17,7 @@
     "@codemirror/view",
     "@commitlint/cli",
     "@commitlint/config-conventional",
+    "@lezer/highlight",
     "@marxy/core",
     "@marxy/shell-api",
     "@shikijs/core",
