@@ -35,6 +35,9 @@ export function inlinePlainText(nodes: readonly Inline[], opts: InlinePlainTextO
         out += `[${node.label}]`;
         break;
       case 'html':
+        // A <br> separates words as a hard break does; any other raw HTML has no text of its own.
+        if (/^<br\s*\/?>$/i.test(node.value.trim())) out += hardBreak;
+        break;
       case 'taskMarker':
         break;
     }
