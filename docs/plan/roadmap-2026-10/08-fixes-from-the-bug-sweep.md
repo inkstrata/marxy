@@ -163,6 +163,11 @@ store's bytes are untouched; reproduced on main). `repaint` folds or keeps unfol
 on branches that do not touch it, and passed alone each time. CI has not shown it. AGENTS.md: a flaky test is
 fixed or deleted. If CI ever shows it, it becomes a story; until then, it is recorded here.
 
+The same day, `packages/core test` failed three times inside local `pnpm precheck` under load (F-02, C-03, C-01
+branches, none touching the failing area) with a bare `diff: 'simple'` assertion line, and passed alone each time.
+The slowest core test (`splice is identity and X-local over every node of 32-long-reference.md`, about 420 s alone
+on a loaded machine) is the first suspect. Same rule: a story if CI shows it.
+
 ### F-13 — Say so when trust settings cannot be read, and try again
 
 **Model:** sonnet · **Size:** S · **Depends on:** F-09 · *From the F-09 review.* · **Paths:**

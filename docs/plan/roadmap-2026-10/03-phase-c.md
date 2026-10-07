@@ -1469,3 +1469,18 @@ means the current repository) and C-16 and C-17 (over those roots) still stand, 
 Smaller rulings the stories report rather than decide: whether a never-read file counts as changed
 (C-12), whether "at most seven rows" means seven verbs plus "All actions…" (C-13), the plain-text
 conventions (C-07), the join for "Copy all code blocks" (C-09), and `/` as the content prefix (C-17).
+
+### C-03.1 — A backslash is part of a file name on macOS and Linux
+
+**Model:** sonnet · **Size:** S · *Added 2026-10-07 by the lead, from the C-03 review.*
+
+**Outcome.** `packages/core/src/index-model/paths.ts` turns `\` into `/` in `normalizePath` and `joinPath`, so a
+folder or file named `a\b` on macOS or Linux is indexed, ranked and opened as `a/b`, a different path. Core
+learns the platform's separator rule (POSIX: `/` only; Windows: both), and C-03's interim refusal of backslash
+paths in `collection.toml` is lifted.
+
+**Paths.** `packages/core/src/index-model/paths.ts` and its tests; `packages/core/src/index-model/collection.ts`
+(lift the refusal); callers only if the platform must be passed in.
+
+**Acceptance.** On POSIX, `a\b` survives normalisation and joining; on Windows, `C:\x\y` still normalises; a
+round trip through the index keeps a backslash name.

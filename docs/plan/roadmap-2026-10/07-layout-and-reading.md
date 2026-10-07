@@ -385,17 +385,26 @@ value's bytes in `config.toml` (a fidelity test like A-14.1's).
 
 ### L-11 — Find matches are visible in the light variant
 
-**Model:** sonnet · **Size:** S · *Added 2026-10-07 by the lead, from the L-06 review.*
+**Model:** sonnet · **Size:** S · **Depends on:** L-06 (#383) · *Added 2026-10-07 by the lead, from the L-06 review;
+rewritten after its first attempt stopped.*
 
-**Outcome.** In the light variant, every find match (Rendered and Source) is distinguishable from the code and
-page background, and the current match from the others. Measured in the L-06 review: light `--marxy-color-find`
-is 1.01:1 against the code background, its 1 px `--marxy-color-rule` outline about 1.1:1, and `find-current`
-1.14:1 against `find`. WCAG 1.4.11 asks 3:1 for a UI indicator. The default theme's values are taste and need a
-story, not an ADR (AGENTS.md); cite `docs/research/reader-typography/` on colour.
+**Outcome.** In the light variant every find match is distinguishable from the page and code grounds, and the
+current match from the others. Measured: light `--marxy-color-find` (`#fcefc0`) is about 1.01:1 against the code
+ground (`#f1eee8`) and `find-current` 1.14:1 against `find`. A fill alone cannot meet both 3:1 against the
+grounds (WCAG 1.4.11; needs relative luminance ≤ 0.25) and 4.5:1 for every `--marxy-tok-*` on it (the comment
+token needs ≥ 0.67; `10-spec.md`, and the gate's `TINT_PAIR_RULES`). So the fill stays pale for reading, and a
+2 px outline (or underline) token from the same hue family carries the 3:1 against both grounds and the
+current-versus-other difference.
 
-**Paths.** `packages/theme/src/tokens.css` (light values of `--marxy-color-find`, `--marxy-color-find-current`
-only), `packages/theme/src/palettes.json` if the values live there, `packages/theme/test/palettes.test.mjs`.
+**Paths.** `packages/theme/default/theme.css` (light values; dark values live in `tokens.css`) and
+`packages/theme/src/tokens.css` (a new `--marxy-color-find-edge` token, through `scripts/registry.json` and the
+token contract; adding a token name needs the token ADR process in AGENTS.md: a short ADR amendment, or the lead
+says if an existing token can serve), `packages/theme/test/palettes.json` and `palettes.test.mjs`, the Source search
+panel rule L-06 added in `apps/desktop/src/source/theme-bridge.ts`.
 
-**Acceptance.** A palette test asserts 3:1 or more for a match's indicator (fill or outline) against both page and
-code background, and between current and other matches, in both variants; text on either fill keeps 4.5:1.
-Baselines move only if a gated screenshot shows find (say which).
+**Acceptance.** A palette test: the edge is 3:1 or more against page and code grounds in both variants, and current
+versus other differ by 3:1 or more on some channel; text on either fill keeps 4.5:1 (unchanged). A WebKit test in
+Source: a match carries the edge.
+
+**Do not.** Style Rendered find: it does not exist on main yet. D-13 builds it and must use the same tokens and
+edge, which D-13's card now says.

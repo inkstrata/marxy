@@ -1195,6 +1195,9 @@ which `07` §1 finding 7 says is cheaper than retrofitting.
 5. Theme: highlight styles from the existing tokens, with the current match also outlined (colour is never the
    only signal, ADR-0033).
 
+**From L-11 (2026-10-07).** Matches use `--marxy-color-find` / `--marxy-color-find-current` as a pale fill and the
+`--marxy-color-find-edge` outline for the 3:1 indicator (WCAG 1.4.11), as Source does after L-11.
+
 **Acceptance.**
 - Two panes; `Mod+F` with the right pane focused opens find in the right pane only, typing a word that is in
   both documents highlights ranges in the right article only, and the count `N of M` counts the right pane
