@@ -160,3 +160,69 @@ test('F-05: a click in one document is not the jump target after another documen
   assert.equal(await page.evaluate(() => document.body.dataset.marxyMode), 'rendered', 'no jump: nothing was clicked in this document');
   await page.close();
 });
+
+async function bootTwo() {
+  const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ a, b }) => {
+    window.__b = await window.marxyPaletteBoot.start({ '/doc/a.md': a, '/doc/b.md': b }, ['/doc/a.md'], []);
+  }, { a: Buffer.from(TEXT).toString('base64'), b: Buffer.from('# Other\n\nSecond file.\n').toString('base64') });
+  await page.waitForFunction(() => document.querySelector('#doc p'));
+  await page.waitForFunction(() => typeof window.marxyRunCommand === 'function');
+  return page;
+}
+
+test('F-12: toggling line numbers in Rendered, then opening another document, Jump to source shows that document', async () => {
+  const page = await bootTwo();
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  assert.equal(await page.evaluate(() => document.body.dataset.marxyMode), 'rendered', 'the toggle does not enter Source');
+  assert.equal(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-editor'))), false, 'the toggle made no editor');
+  await page.evaluate(() => window.__b.handle.open('/doc/b.md'));
+  await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent === 'Other');
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-content'));
+  const text = await sourceText(page);
+  assert.ok(text.includes('Second file.'), `Source shows the new document, got: ${text}`);
+  assert.ok(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-lineNumbers'))), 'the recorded choice reached the new editor');
+  await page.close();
+});
+
+test('F-12: Mod+E after the same sequence shows the new document too', async () => {
+  const page = await bootTwo();
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  await page.evaluate(() => window.__b.handle.open('/doc/b.md'));
+  await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent === 'Other');
+  await page.evaluate(() => window.__b.handle.toggleMode());
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
+  assert.ok((await sourceText(page)).includes('Second file.'));
+  await page.close();
+});
+
+test('F-12: a handle-level commitEdit while Source holds typed text keeps the text', async () => {
+  const page = await boot();
+  await jumpAndType(page);
+  await page.evaluate(() => window.__b.handle.commitEdit(window.__b.handle.openDocument().buffer));
+  await new Promise((r) => setTimeout(r, 200));
+  assert.ok((await sourceText(page)).includes(`Paragraph one.${TYPED}`), 'the editor still shows the typed text');
+  await page.keyboard.press(`${await modOf(page)}+e`);
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+  assert.equal(await bufferText(page), EDITED, 'leaving Source folded the typed text into the document');
+  await page.close();
+});
+
+test('F-12: the toggle in Source still flips the numbers live', async () => {
+  const page = await bootTwo();
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));
+  await page.waitForSelector('#marxy-source .cm-content');
+  assert.equal(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-lineNumbers'))), false);
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  await page.waitForSelector('#marxy-source .cm-lineNumbers');
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  await page.waitForFunction(() => !document.querySelector('#marxy-source .cm-lineNumbers'));
+  await page.close();
+});

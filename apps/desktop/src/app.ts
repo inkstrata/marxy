@@ -53,6 +53,8 @@ interface MountedSourceEditor {
   scrollToByte(byteOffset: number): void;
   /** The buffer the editor maps bytes through; its text is kept when it already matches. */
   replaceBuffer(buffer: Buffer): void;
+  /** The buffer the editor last took (its text was equal to this one's when it was set). */
+  readonly buffer: Buffer;
   destroy(): void;
   readonly view: {
     scrollDOM: HTMLElement;
@@ -208,6 +210,8 @@ function announceDocument(): void {
 let documentWatch: { close(): void } | null = null;
 let viewMode: 'rendered' | 'source' = 'rendered';
 let sourceEditor: MountedSourceEditor | null = null;
+/** The shared Source editor's accessor, once the editor module has loaded (it stays off the start-up path). */
+let activeSourceEditorIn: (() => MountedSourceEditor | null) | null = null;
 let lastReadingByteOffset = 0;
 let lastReadingFraction = 0;
 let modeToggleBusy = false;
@@ -272,7 +276,8 @@ async function ensureSourceEditor(): Promise<MountedSourceEditor> {
   if (sourceEditor) return sourceEditor;
   const buffer = bufferNow();
   if (!buffer) throw new Error('source editor requires an open buffer');
-  const { createSourceEditor } = await import('./source/editor.ts');
+  const { createSourceEditor, activeSourceEditor } = await import('./source/editor.ts');
+  activeSourceEditorIn = activeSourceEditor;
   ({ sourceReadingPosition: sourceReadingPositionIn } = await import('./source/mode-switch.ts'));
   sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer });
   return sourceEditor;
@@ -800,7 +805,11 @@ function teardownDocument(): void {
   destroyTypeset();
   disconnectResizeObserver();
   cancelScheduledSnap();
+  // The module's shared editor too: whoever made it, it must not outlive the page it was built for, or the
+  // next Source entry would reuse an editor holding the previous document (F-12).
+  const shared = activeSourceEditorIn?.() ?? null;
   sourceEditor?.destroy();
+  if (shared && shared !== sourceEditor) shared.destroy();
   sourceEditor = null;
   document.getElementById('marxy-source')?.replaceChildren();
 }
@@ -809,6 +818,12 @@ function teardownDocument(): void {
 function unfoldedSourceEdits(): boolean {
   const buffer = bufferNow();
   return buffer !== null && viewMode === 'source' && sourceEditor !== null && leaveSourceMode(buffer, sourceEditor.docText()).changed;
+}
+
+/** True when the editor's text differs from both the buffer it last took and `next`: text only the editor has. */
+function holdsUnfoldedText(editor: MountedSourceEditor, next: Buffer): boolean {
+  const text = editor.docText();
+  return leaveSourceMode(editor.buffer, text).changed && leaveSourceMode(next, text).changed;
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
@@ -846,7 +861,12 @@ function settlePage(work: Promise<void>): void {
  */
 function repaint(snap: DocumentSnapshot, position: ReadingPosition): void {
   const doc = document.getElementById('doc')!;
-  sourceEditor?.replaceBuffer(snap.buffer);
+  // Text typed in Source and not yet folded into the store is the reader's, and the store's new bytes
+  // (a handle-level commitEdit, undo from the palette, a reload) never saw it. Replacing the editor's
+  // text would drop it, so the editor is left holding it: the next fold (leaving Source, save, rename)
+  // writes it over the store as one edit, and the history can still undo that. A fold of the editor's
+  // own text into the store reads equal to the new bytes, so it is not held back here (F-12).
+  if (sourceEditor && !holdsUnfoldedText(sourceEditor, snap.buffer)) sourceEditor.replaceBuffer(snap.buffer);
   releaseAnchor();
   rerenderFromBuffer(doc, position.byteOffset);
   const typesetting = typesetDocument(doc);

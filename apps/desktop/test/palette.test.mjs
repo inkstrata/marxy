@@ -363,7 +363,7 @@ async function bootCommands(page, files, argv) {
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
-    await window.marxyPaletteBoot.start(files, argv, []);
+    window.__b = await window.marxyPaletteBoot.start(files, argv, []);
   }, { files, argv });
   return modChord(await page.evaluate(() => navigator.platform));
 }
@@ -454,6 +454,9 @@ test('running Toggle line numbers in Source from the palette shows the gutter', 
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     const mod = await bootCommands(page, { '/docs/readme.md': b64Doc(CMD_DOC) }, ['/docs/readme.md']);
+    // The command reconfigures the editor the app made; it makes none of its own (F-12), so Source is entered first.
+    await page.evaluate(async () => { await window.__b.handle.toggleMode(); });
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-content'));
     assert.equal(await page.evaluate(() => document.querySelector('#marxy-source .cm-lineNumbers') !== null), false);
     await commandRows(page, mod, '>line numbers');
     await page.keyboard.press('Enter');
