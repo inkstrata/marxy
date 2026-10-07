@@ -18,7 +18,7 @@ const { shell } = await import('../src/shell/tauri.ts');
 const { createTrustStore, emptyTrustEnvelope, TRUST_FILE_VERSION } = await import('../src/trust/trust.ts');
 // A namespace, so the tests still load (and fail one by one) against a build that lacks a helper.
 const trustCopy = await import('../src/notices/trust-copy.ts');
-const { blockedTrustNoticeText, displayHost } = trustCopy;
+const { blockedTrustNoticeText } = trustCopy;
 const grantableBlockedImages = (...args) => trustCopy.grantableBlockedImages(...args);
 const enc = (s) => new TextEncoder().encode(s);
 const dec = (b) => new TextDecoder().decode(b);
@@ -297,7 +297,7 @@ test('B15: a protocol-relative image is not counted or offered as a blocked host
     const src = `# B\n\n${ONE_IMAGE}![p](//proto.example/y.png)\n`;
     const page = await open(browser, { '/d/B.md': b64(src) }, ['/d/B.md']);
     const text = (await notices(page)).join('\n');
-    assert.match(text, /1 remote image from img\.shields\.io was not loaded/);
+    assert.match(text, /1 image from img\.shields\.io was not loaded\./);
     assert.doesNotMatch(text, /proto\.example|2 /);
   } finally {
     await browser.close();
@@ -351,7 +351,18 @@ nodeTest('B15: the image line agrees with its verb, and the copy skips images no
   assert.equal(blockedTrustNoticeText([schemeRelative], [image(schemeRelative)]), '');
 });
 
-nodeTest('B15: displayHost shows the Unicode form beside the punycode host', () => {
-  assert.equal(displayHost('xn--pple-43d.com'), 'аpple.com (xn--pple-43d.com)');
-  assert.equal(displayHost('img.shields.io'), 'img.shields.io');
+nodeTest('B-09.1: images-only and mixed documents share one image wording, a confusable host shown both ways', () => {
+  const removal = (url) => ({ what: 'attribute', name: 'src', on: 'img', value: url, url, reason: 'remote image' });
+  const div = { what: 'element', name: 'div', reason: 'markdown-equivalent' };
+  const a = removal('https://img.shields.io/a.svg');
+  const idn = removal('https://xn--pple-43d.com/a.png');
+  const image = (r) => ({ host: new URL(r.url).hostname, url: r.url });
+  assert.equal(
+    blockedTrustNoticeText([a, idn], [image(a), image(idn)]),
+    '2 images from img.shields.io and xn--pple-43d.com (аpple.com) were not loaded.',
+  );
+  assert.equal(
+    blockedTrustNoticeText([a, div], [image(a)]),
+    '1 image from img.shields.io was not loaded, and some HTML was simplified (div).',
+  );
 });

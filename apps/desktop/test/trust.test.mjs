@@ -160,7 +160,7 @@ test('an images-only document: one plain notice naming hosts, no action, Dismiss
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, files, [docPath]);
-    assert.deepEqual(await noticeTexts(page), ['4 remote images from img.shields.io and github.com were not loaded']);
+    assert.deepEqual(await noticeTexts(page), ['4 images from img.shields.io and github.com were not loaded.']);
     assert.deepEqual(await noticeActions(page), []);
     await page.locator('#marxy-notices .marxy-notice-dismiss').click();
     assert.deepEqual(await noticeTexts(page), []);

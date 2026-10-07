@@ -9,7 +9,7 @@ first ten minutes? **Governing risk:** never shipping (A5). Recorded as ADR-0019
 on external change with reading position kept, including atomic-replace writes, delete and
 move. CommonMark + GFM (tables, task lists, footnotes, strikethrough, autolinks) passing the
 spec suite. Byte-faithful save. HTML sanitised always; discoverable per-document opt-in
-widens the allow-list.
+widens the allow-list. Remote images are blocked; the reader's opt-in waits on B-20 (ADR-0044).
 
 **Modes.** Rendered (default) and Source. Instant switch preserving position. Markdown opens
 Rendered; code opens Source.
@@ -23,7 +23,7 @@ align table pipes. Palette-reachable, single-step undo.
 
 **Rendering.** Highlighting from an allow-list of ~20 grammars with language detection,
 soft-wrap with hanging indent, copy clean. Images with reserved dimensions; remote images
-blocked with a visible opt-in. KaTeX on first use, on the grid. Knuth–Plass ragged-right,
+blocked, with a notice (the opt-in waits on B-20, ADR-0044). KaTeX on first use, on the grid. Knuth–Plass ragged-right,
 hanging punctuation, hyphenation, in the default mode.
 
 **Typography and themes.** Bundled Literata and JetBrains Mono with the Linux weight offset.
