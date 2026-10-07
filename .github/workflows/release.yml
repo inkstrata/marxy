@@ -61,6 +61,16 @@ jobs:
           releaseDraft: false
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
+      # A bundle with only the linker's ad-hoc signature has no sealed resources, and Apple silicon
+      # SIGKILLs it on launch (v0.1.0 shipped that way). tauri.conf.json's signingIdentity "-" seals
+      # the bundle; this proves it did, on the DMG as built.
+      - name: Verify the app bundle is sealed
+        run: |
+          dmg=$(ls apps/desktop/src-tauri/target/*/release/bundle/dmg/*.dmg | head -n 1)
+          mnt=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg"
+          codesign --verify --deep --strict --verbose=2 "$mnt/Marxy.app"
+          hdiutil detach "$mnt"
       - name: Offer the DMG as an artifact (dry run)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
