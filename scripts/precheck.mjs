@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, changedFiles } from './lib/repo.mjs';
+import { failingTests } from './lib/failing-tests.mjs';
 const all = process.argv.includes('--all');
 const map = JSON.parse(readFileSync(join(ROOT, 'scripts/gates-by-path.json'), 'utf8'));
 const files = all ? ['packages/', 'apps/', 'fixtures/corpus/', 'package.json'] : changedFiles();
@@ -19,7 +20,10 @@ for (const g of gates) steps.push({ name: g, cmd: ['pnpm', ['-s', g]] });
 const results = [];
 for (const s of steps) {
   const r = spawnSync(s.cmd[0], s.cmd[1], { cwd: ROOT, encoding: 'utf8' });
-  const ok = r.status === 0; const tail = (r.stdout + r.stderr).trim().split('\n').filter(Boolean).slice(-6).join('\n      ');
+  const ok = r.status === 0; const out = r.stdout + r.stderr;
+  // a failed test run names its failing tests; the tail alone is the end of the last assertion's stack
+  const named = ok ? [] : failingTests(out);
+  const tail = (named.length ? named.map(n => `✖ ${n}`) : out.trim().split('\n').filter(Boolean).slice(-6)).join('\n      ');
   results.push({ name: s.name, ok, tail });
   console.log(`${ok ? '✓' : '✗'} ${s.name}${ok ? '' : `\n      ${tail}`}`);
 }
