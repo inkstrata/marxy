@@ -1,5 +1,5 @@
 // Document commands: undo/redo and explicit save (MARXY-43, MARXY-49).
-import type { Command } from './registry.ts';
+import type { AppContext, Command } from './registry.ts';
 import { save } from '../save.ts';
 import {
   documentEditState,
@@ -7,7 +7,6 @@ import {
   historyCanRedo,
   historyCanUndo,
   redoDocumentEdit,
-  syncSavedVersionOnce,
   undoDocumentEdit,
 } from './edits.ts';
 import { buildAppContext } from '../selection/bind.ts';
@@ -73,9 +72,9 @@ export function startDocumentEditingWire(): void {
     updateTabWidthResolver(ctx.buffer.path, ctx.shell);
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
       installTaskMarkers(ctx.article, ctx.nodeMap);
-      // Baselines a newly opened document the first time it renders. It never moves the saved state
-      // for a document it has already seen, so calling it on every render is safe.
-      syncSavedVersionOnce();
+      // The harness waits on this before it edits: the rendered document is wired. The saved baseline
+      // is the store's own (`disk`), set when the document was read, so there is nothing to sync.
+      (window as Window & { __marxyOpenSynced?: boolean }).__marxyOpenSynced = true;
     });
   };
   const obs = new MutationObserver(wire);
@@ -88,17 +87,15 @@ export function startDocumentEditingWire(): void {
     wire();
   }
   w.marxyDocumentEdit = documentEditState;
-  w.marxyHarnessRedo = redoDocumentEdit;
+  w.marxyHarnessRedo = () => redoDocumentEdit();
   w.marxyHarnessAlignTable = harnessAlignFirstTable;
   w.marxyHarnessSave = () => save();
 }
 
 /** Save needs a real file: an open document whose path is not one of Marxy's own pages. */
-function canSaveOpenDocument(): boolean {
-  const open = appHandle()?.openDocument();
-  if (open) return !open.path.startsWith('marxy:');
-  const ctx = getSelectionBufferContext();
-  return ctx !== null && !ctx.buffer.path.startsWith('marxy:');
+function canSaveOpenDocument(ctx: AppContext): boolean {
+  const store = ctx.document ?? appHandle()?.document() ?? null;
+  return store !== null && !store.snapshot().path.startsWith('marxy:');
 }
 
 export function documentCommands(): readonly Command[] {
@@ -109,7 +106,8 @@ export function documentCommands(): readonly Command[] {
       key: 'Mod+S',
       group: 'document',
       // A document command, not a selection operation: it needs an open document, not a selection.
-      when: () => canSaveOpenDocument(),
+      when: (ctx) => canSaveOpenDocument(ctx),
+      // Through the app, which supplies the store's save deps (the fold from Source, Save as's watch).
       run: async () => {
         await save();
       },
@@ -119,7 +117,7 @@ export function documentCommands(): readonly Command[] {
       title: 'Save as',
       key: 'Mod+Shift+S',
       group: 'document',
-      when: () => canSaveOpenDocument(),
+      when: (ctx) => canSaveOpenDocument(ctx),
       run: async () => {
         await save({ as: true });
       },
@@ -129,16 +127,16 @@ export function documentCommands(): readonly Command[] {
       title: 'Undo',
       key: 'Mod+Z',
       group: 'document',
-      when: () => historyCanUndo(),
-      run: () => undoDocumentEdit(),
+      when: (ctx) => historyCanUndo(ctx.document),
+      run: (ctx) => undoDocumentEdit(ctx.document),
     },
     {
       id: 'document.redo',
       title: 'Redo',
       key: 'Mod+Shift+Z',
       group: 'document',
-      when: () => historyCanRedo(),
-      run: () => redoDocumentEdit(),
+      when: (ctx) => historyCanRedo(ctx.document),
+      run: (ctx) => redoDocumentEdit(ctx.document),
     },
   ];
 }

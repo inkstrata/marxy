@@ -1,30 +1,20 @@
 // Explicit byte-faithful save from either mode (docs/design/01-buffer.md §Save, MARXY-49).
 import { basename } from '@marxy/core/src/index-model/paths.ts';
-import type { Buffer } from '@marxy/core';
 import type { Shell, ShellError } from '@marxy/shell-api';
-import { documentIsDirty, markDocumentSaved } from './commands/edits.ts';
+import { appHandle } from './commands/app-handle.ts';
+import type { DocumentStore } from './document/store.ts';
 import { ensureNoticesRegion } from './notices/index.ts';
-import { updateTitle } from './title.ts';
 
 export type SaveResult = 'saved' | 'unchanged' | 'cancelled' | 'failed';
 
-export interface SaveHost {
-  readonly shell: Pick<Shell, 'writeFileAtomic' | 'saveDialog' | 'setTitle' | 'allowAssetScope'>;
-  getOpenBuffer(): Buffer | null;
-  foldSourceIntoBuffer(): Promise<Buffer | null>;
-  isReadOnlyPath(path: string): boolean;
-  /**
-   * `documentUnchanged` is false when the open document was edited while the save was in flight: the
-   * host then keeps its newer buffer (which stays dirty) and only records what reached disk.
-   */
-  onSaved(path: string, buffer: Buffer, documentUnchanged: boolean): Promise<void>;
-  onSaveAsPath(path: string): Promise<void>;
-}
-
-let host: SaveHost | null = null;
-
-export function installSave(next: SaveHost): void {
-  host = next;
+/** What a save needs: the store it writes (ADR-0037 §5), and what only the app can do around it. */
+export interface SaveDeps {
+  readonly store: DocumentStore;
+  readonly shell: Pick<Shell, 'saveDialog' | 'setTitle' | 'allowAssetScope'>;
+  /** Folds unfolded Source text into the store first (`commitSource`), so a save from Source writes it. */
+  foldSource(): Promise<void>;
+  /** The save went to a new path and the store now answers to it: scope, watch and title follow. */
+  onSaveAs(path: string): Promise<void>;
 }
 
 function shellErrorMessage(err: unknown, fallback: string): string {
@@ -34,12 +24,6 @@ function shellErrorMessage(err: unknown, fallback: string): string {
     if (typeof message === 'string' && message.trim() !== '') return message;
   }
   return fallback;
-}
-
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 function readOnlyNoticeName(path: string): string {
@@ -74,21 +58,39 @@ function showSaveFailedNotice(path: string, reason: string, retry: () => void): 
   region.append(line);
 }
 
-export async function save(opts?: { as?: boolean }): Promise<SaveResult> {
-  if (!host) return 'failed';
-  const folded = await host.foldSourceIntoBuffer();
-  if (!folded) return 'failed';
-  const dirty = documentIsDirty(folded);
-  if (!dirty && !opts?.as) return 'unchanged';
+/**
+ * Writes the open document's buffer through its store, to its own path or, with `as` (or an untitled
+ * buffer), to one the reader picks. A failed write changes nothing in the store, history included,
+ * and says why with a "Save as…" retry.
+ *
+ * Called without deps it saves whatever document the running app has open: the Source editor's own
+ * `Mod-s` keymap (source/editor.ts) calls it that way.
+ */
+export function save(deps: SaveDeps | null, opts?: { as?: boolean }): Promise<SaveResult>;
+export function save(opts?: { as?: boolean }): Promise<SaveResult>;
+export async function save(
+  first?: SaveDeps | null | { as?: boolean },
+  second?: { as?: boolean },
+): Promise<SaveResult> {
+  if (first === undefined || (first !== null && !('store' in first))) {
+    return (await appHandle()?.save(first)) ?? 'failed';
+  }
+  const deps = first;
+  const opts = second;
+  if (!deps) return 'failed';
+  const { store } = deps;
+  await deps.foldSource();
+  const snap = store.snapshot();
+  if (!snap.dirty && !opts?.as) return 'unchanged';
 
-  let path = folded.path;
+  let path = snap.path;
   if (path === 'untitled' || opts?.as) {
-    const picked = await host.shell.saveDialog({ defaultPath: path === 'untitled' ? undefined : basename(path) });
+    const picked = await deps.shell.saveDialog({ defaultPath: path === 'untitled' ? undefined : basename(path) });
     if (!picked) return 'cancelled';
     path = picked;
   }
 
-  if (host.isReadOnlyPath(path)) {
+  if (path.startsWith('marxy:')) {
     const { notify } = await import('./notices/index.ts');
     notify({
       kind: 'info',
@@ -97,34 +99,17 @@ export async function save(opts?: { as?: boolean }): Promise<SaveResult> {
     return 'cancelled';
   }
 
-  const bufferOnDisk = path === folded.path ? folded : { ...folded, path };
-
-  try {
-    await host.shell.writeFileAtomic(path, bufferOnDisk.bytes);
-  } catch (err) {
+  const written = await store.save(path === snap.path ? undefined : { to: path });
+  if (written.result === 'failed') {
+    const err = written.error;
     const code = err && typeof err === 'object' && 'code' in err ? (err as ShellError).code : undefined;
     // The shell's own message says why (read-only, hard link, not a regular file, changed on disk);
     // the code only picks a fallback when there is none.
     const reason = shellErrorMessage(err, code === 'permission' ? 'permission was denied.' : 'the write failed.');
-    showSaveFailedNotice(path, reason, () => void save({ as: true }));
+    showSaveFailedNotice(path, reason, () => void save(deps, { as: true }));
     return 'failed';
   }
-
-  // The write took time. If the reader opened another document meanwhile, the saved state belongs to
-  // this file only and must not replace the new document's baseline.
-  const openNow = await host.foldSourceIntoBuffer();
-  if (!openNow || openNow.path !== folded.path) return 'saved';
-
-  const documentUnchanged = sameBytes(openNow.bytes, folded.bytes);
-  markDocumentSaved(bufferOnDisk, documentUnchanged);
-  if (path !== folded.path) {
-    await host.onSaveAsPath(path);
-  }
-  await host.onSaved(path, bufferOnDisk, documentUnchanged);
-  // An edit made while the save was in flight leaves the document newer than the file: stay dirty.
-  const current = host.getOpenBuffer();
-  if (current && current.path === path) {
-    await updateTitle(host.shell, path, documentUnchanged ? false : documentIsDirty(current));
-  }
+  if (written.result === 'unchanged') return 'unchanged';
+  if (path !== snap.path) await deps.onSaveAs(path);
   return 'saved';
 }

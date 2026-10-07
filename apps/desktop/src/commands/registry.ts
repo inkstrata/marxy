@@ -2,12 +2,18 @@
 import type { Operation, OperationInput } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import type { Selection } from '../selection/selection.ts';
+import type { DocumentStore } from '../document/store.ts';
 import { attachDocumentEdits } from './edits.ts';
 import { apply } from '../selection/apply.ts';
 
 export interface AppContext {
   readonly shell: Pick<Shell, 'clipboardWrite'>;
   readonly selection: Selection;
+  /**
+   * The open document's store (ADR-0037): operations, undo and save are its transitions. Optional only
+   * so a hand-built context (palette/commands.test.ts) still types; `buildAppContext` always sets it.
+   */
+  readonly document?: DocumentStore | null;
   operationInput(): OperationInput | null;
   closePalette(): void;
   showNotice(text: string, opts?: { transient?: boolean }): void;
