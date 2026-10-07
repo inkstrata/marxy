@@ -1,82 +1,66 @@
-# Lead handoff — Phase A done, Phase B under way
+# Lead handoff — Phase B mid-way, lane L started, paused
 
-**For:** the next lead session, and the author. **Read with:** `00-orchestration.md`, then
-`progress.md` (one row per story, the record of what happened), then the phase documents. This page
-says what to do next; `progress.md` says where each story stands and why.
+**For:** the next lead session, and the author. **Read with:** `00-orchestration.md`, then `progress.md`
+(one row per story), then `02-phase-b.md` and `07-layout-and-reading.md`. This page says what to do next.
 
-## Where things stand (2026-10-03)
+## Where things stand (2026-10-07)
 
-- **Phase A is merged.** A-01 to A-17, plus A-14.1 and A-11.1, are on `main`. A-17 merged as
-  `351c18af`, which is the commit to tag. A 1 MB transcript shows its first screen in about 0.7–0.9 s,
-  down from 4.2 s.
-- **Phase B:** B-01, B-03, B-04, B-05, B-05.1 and B-07 are merged. B-02 is parked behind three fixes
-  (B-02.1, B-02.2, B-02.3) for typography defects the real app showed once the gate measured it.
-- **How work landed.** Each story was implemented by one agent in its own worktree and reviewed by an
-  independent Sonnet agent, and the lead merged on a `merge` verdict with green CI. That is what the
-  author authorised on 2026-10-02. Every review verdict is posted as a comment on its PR.
-
-## Waiting on the author
-
-1. **Tag v0.1.0** on `351c18af`: `git tag v0.1.0 351c18af && git push origin v0.1.0`. The release
-   workflow builds the unsigned DMG and creates the pre-release. The last dry run (37104610003) was
-   green with a 9.4 MB `marxy-dmg` artifact.
-2. **The manual checks on the built app** (`01-phase-a.md`, "Verification at the end of the phase"):
-   - launch from the Dock;
-   - search across two repositories;
-   - light variant and text size;
-   - the outline;
-   - a 1 MB transcript;
-   - the external editor;
-   - Finder drag-and-drop, including dropping a folder (A-16);
-   - `external_editor` opening TextEdit.
-3. **Phase A question 4:** the first nightly run of the full WebKit suites on Linux fails two tests
-   that had never run in CI. Fix or delete each?
-   - `packages/theme/test/pair-a-tune.test.mjs`, "code voice: mono and text x-heights match": the
-     x-height ratio is 90.9 % at 18 px, outside the test's 5 %.
-   - `packages/core/src/render/math.acceptance.test.ts`, "MARXY-28 inline math matches screenshot
-     baseline": 10.8 % of pixels differ.
-
-   The nightly stays red on these until the author decides.
-4. Phase A's other open questions, at the end of `01-phase-a.md`.
+- **Released:** v0.1.0 (pre-release, ad-hoc signed DMG) on `ad0b020c`.
+- **Merged this session:** A-10.3 (two never-run WebKit tests deleted, by ruling), B-10 (the trust
+  controller), B-09.1 (one wording for the blocked-images notice).
+- **Paused by the author:** the round in flight finishes and gets one review each; nothing new is
+  dispatched. A return found in that round is recorded, not re-dispatched.
+- **Model use:** Sonnet for implementors and every reviewer; Opus only for B-11 (L-size seam). The
+  author prefers this split (Opus for planning and L-size seams). Five Sonnet reviews this session caught
+  two real gaps (B-02.5's untested paths and +15 % cost; A-10.3's collateral grid assertion).
 
 ## In flight at this writing
 
-`progress.md` has each one's state:
+| Story | State | What the next lead does |
+| --- | --- | --- |
+| B-11 (opus) | implementing, rebasing onto main after B-10 | when its PR opens: Sonnet review; on merge, B-12 |
+| B-02.5 (sonnet) | fixing return 1 (two wraps untested, 1 MB content_complete +15 %, drop `scroller`) | re-review; a second return goes to Opus with both notes (§1) |
+| L-00 (sonnet) | building the layout probe | review; then L-01 on Opus |
+| B-02 (opus) | **parked**: pushed (`d2885b69` code, `b2b68f0b` macOS baselines), no PR | see below |
 
-- **Phase B:** B-06 (#345) and B-08 (#346) are in review.
-- **B-02's fixes:** B-02.2 (#348) is in review. B-02.1 and B-02.3 are being implemented.
-- **Process:** A-10.1, which fixes the flaky no-network control-page check, is being implemented.
+## B-02: why it is parked and how to resume
 
-## Next
+The aesthetics gate now measures the real app and every mechanical rule passes, but the screenshot
+comparison does not repeat on the same code: `06-math`'s inline-matrix paragraph moves (0.6–0.8 %), and
+`18-agent-transcript`'s last screen shifts 12 px when its code blocks finish highlighting (10.5 %, once).
+No threshold was loosened. Order to resume:
+1. Merge B-02.5 (reader's place kept on reflow; likely cures the 12 px shift).
+2. Rebase B-02 onto main, re-probe 8–10 renders per flaky cell.
+3. If `06-math` still moves, dispatch B-02.6 (card in `02-phase-b.md`).
+4. Regenerate macOS baselines after the rebase; Linux baselines in CI or the nightly (amd64 emulation on
+   an arm64 Mac is too slow and itself unstable). Re-run precheck and `--selftest`.
+Also: the gate's wall time went 157 s → 5–10.5 min on the app. Worth a look before it is a PR-path cost.
+Then A-11.2 (gates design document) follows B-02.
 
-- **After B-02.1–B-02.3 merge:** resume B-02 from its kept worktree `../marxy-wt/B-02`. The lead
-  already accepted its three out-of-path files. It then regenerates both engines' baselines with a
-  taste-review entry. A-11.2, the gates design document, follows B-02.
-- **Then the Phase B chain on `app.ts`:** B-09 to B-15, one story at a time on `app.ts`, as
-  `02-phase-b.md` lays out.
-- **Follow-ups found in review and written into the plan:** B-13 now carries the store `version`
-  caveat in its Risks. Smaller follow-ups are in `progress.md` notes:
-  - pin the external-editor call to the open document (A-16);
-  - the island observer missing from `debugCounts` (A-02);
-  - the stale Commands table in `docs/design/06-shell.md`;
-  - the dead `markIndexLoaded` helper;
-  - the pull-request template's contract checklist line and the old Cursor rule (B-06).
+## Waiting on the author
 
-## Lessons for the next lead
+1. **The v0.1.0 manual checks**: a nine-question walkthrough was posted in the session; results not yet
+   in. The likeliest failures are Finder drag-and-drop (the macOS drop event was never seen on a real
+   build). Each failure becomes a fix story.
+2. **Optional:** restore the code-line-box-on-the-grid assertion lost with A-10.3 (three lines in
+   `taste.test.mjs`); not started without a yes.
 
-- **Integration branches.** Stacking on unmerged work through `integration/wave-N` branches, or on a
-  story's own branch, kept agents busy while merges were blocked. Rebase with
-  `git rebase --onto origin/main <old base>`, and verify an integration branch before stacking on it.
-- **Keep the mutation instruction.** "Each test must fail without the change" caught several tests
-  that could not fail.
-- **The reviewer lane is worth its cost.** Each of these was found by a review:
-  - a failed walk cached for the session;
-  - a release gate that could never pass;
-  - a symlink guard with no live test;
-  - three typography defects that the headless gate hid;
-  - a Linux-only grid race;
-  - privacy tests about to leave the pull-request path.
-- **Never wait with `until … pgrep -f "<cmd>"`.** The loop matches its own command line and never
-  ends.
-- **A flaky check is fixed, not re-run** (A-10.1). Record each re-run in `progress.md` so the pattern
-  is visible.
+## Next, in order (once unpaused)
+
+- **B lane (one story at a time on `app.ts`):** B-11 → B-12 → B-13 → B-14 → B-15; then B-16/B-17 in
+  parallel. B-20 carries B-09.1's follow-ups (delete `displayBlockedHost`, no uncapped host list).
+- **Lane L:** L-01 (Opus) after L-00, working from the probe alone with the eight decisions at their
+  defaults (`rulings.md`, 2026-10-07). L-06 (Source looks, Sonnet) can start any time a slot is free.
+  L-02 to L-04 each alone after B-02 merges (baselines).
+- **Cap:** four implementors, at most two on Opus, counted across both lanes.
+
+## Lessons from this session
+
+- **Interrupted agents leave work behind.** B-09.1 (uncommitted) and B-10 (unpushed) were found four days
+  later and finished by a short Sonnet "audit and open the PR" pass with no code change. Check
+  `git status` and `git log origin/main..HEAD` in every `running` worktree at the start of a session.
+- **Stacking still works.** B-11 started on B-10's branch before it merged; tell the agent explicitly
+  when the base lands, because it will not notice.
+- **Ask the reviewer for a cost number.** B-02.5's +15 % would not have been seen without one.
+- **A gate that photographs the real app needs settled pages.** Layout that moves after "done" shows up
+  first as screenshot flakes, not as rule failures.
