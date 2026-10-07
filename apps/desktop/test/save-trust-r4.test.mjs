@@ -18,7 +18,7 @@ const { shell } = await import('../src/shell/tauri.ts');
 const { createTrustStore, emptyTrustEnvelope, TRUST_FILE_VERSION } = await import('../src/trust/trust.ts');
 // A namespace, so the tests still load (and fail one by one) against a build that lacks a helper.
 const trustCopy = await import('../src/notices/trust-copy.ts');
-const { blockedTrustNoticeText, displayHost } = trustCopy;
+const { blockedTrustNoticeText } = trustCopy;
 const grantableBlockedImages = (...args) => trustCopy.grantableBlockedImages(...args);
 const enc = (s) => new TextEncoder().encode(s);
 const dec = (b) => new TextDecoder().decode(b);
@@ -222,13 +222,13 @@ test('B13: switching documents while a grant is being written announces nothing 
         return write(p, b);
       };
     });
-    await clickAction(page, /Show HTML and images/);
+    await clickAction(page, /Show this document's HTML/);
     await page.waitForTimeout(100);
     await page.evaluate(() => __h.open('/d/C.md'));
     await page.waitForTimeout(1800);
     assert.equal(await page.evaluate(() => __h.currentPath()), '/d/C.md');
     const text = (await notices(page)).join('\n');
-    assert.doesNotMatch(text, /Showing|Images will load|C\.md/);
+    assert.doesNotMatch(text, /Showing|C\.md/);
     assert.equal(await page.evaluate(() => !!document.querySelector('#doc details')), false);
   } finally {
     await browser.close();
@@ -278,16 +278,14 @@ test('B14: a failed trust write says so, shows no success and leaves the documen
   }
 });
 
-test('B15: one summary names HTML and images from the hosts granted; Details shows the Unicode host', async () => {
+test('B15: the HTML grant announces one summary; the notice offers no host list', async () => {
   const browser = await launchWebkit();
   try {
     const page = await open(browser, { '/d/B.md': b64(BOTH) }, ['/d/B.md']);
-    await clickAction(page, /Details/);
-    const rows = await page.evaluate(() => [...document.querySelectorAll('.marxy-notice-details label')].map((l) => l.textContent));
-    assert.ok(rows.some((r) => r.includes('аpple.com') && r.includes('xn--pple-43d.com')), rows.join('|'));
-    await page.evaluate(() => document.querySelector('.marxy-notice-details').remove());
-    await clickAction(page, /Show HTML and images/);
-    await page.waitForFunction(() => /Showing HTML and images from 2 hosts for B\.md\. Undo in the palette\./.test(document.getElementById('marxy-notices')?.textContent ?? ''));
+    assert.equal(await page.locator('.marxy-notice-details').count(), 0);
+    assert.equal(await page.locator('#marxy-notices input').count(), 0);
+    await clickAction(page, /Show this document's HTML/);
+    await page.waitForFunction(() => /Showing HTML for B\.md\. Undo in the palette\./.test(document.getElementById('marxy-notices')?.textContent ?? ''));
   } finally {
     await browser.close();
   }
@@ -299,7 +297,7 @@ test('B15: a protocol-relative image is not counted or offered as a blocked host
     const src = `# B\n\n${ONE_IMAGE}![p](//proto.example/y.png)\n`;
     const page = await open(browser, { '/d/B.md': b64(src) }, ['/d/B.md']);
     const text = (await notices(page)).join('\n');
-    assert.match(text, /1 remote image from img\.shields\.io was not loaded/);
+    assert.match(text, /1 image from img\.shields\.io was not loaded\./);
     assert.doesNotMatch(text, /proto\.example|2 /);
   } finally {
     await browser.close();
@@ -331,10 +329,11 @@ nodeTest('B14: writes reach disk in the order the changes were made', async () =
     if (first) { first = false; await new Promise((r) => setTimeout(r, 40)); }
     disk.push(JSON.parse(dec(bytes)));
   });
-  await Promise.all([store.grant('/d/a.md', { html: true }), store.grant('/d/a.md', { imageHosts: ['img.shields.io'] })]);
-  const last = disk.at(-1).documents['/d/a.md'];
-  assert.equal(last.html, true);
-  assert.deepEqual(last.imageHosts, ['img.shields.io']);
+  await Promise.all([store.grant('/d/a.md', { html: true }), store.grant('/d/b.md', { html: true })]);
+  const last = disk.at(-1).documents;
+  assert.equal(last['/d/a.md'].html, true);
+  assert.equal(last['/d/b.md'].html, true);
+  assert.ok(!('imageHosts' in last['/d/a.md']));
 });
 
 nodeTest('B15: the image line agrees with its verb, and the copy skips images no grant can load', () => {
@@ -352,7 +351,18 @@ nodeTest('B15: the image line agrees with its verb, and the copy skips images no
   assert.equal(blockedTrustNoticeText([schemeRelative], [image(schemeRelative)]), '');
 });
 
-nodeTest('B15: displayHost shows the Unicode form beside the punycode host', () => {
-  assert.equal(displayHost('xn--pple-43d.com'), 'аpple.com (xn--pple-43d.com)');
-  assert.equal(displayHost('img.shields.io'), 'img.shields.io');
+nodeTest('B-09.1: images-only and mixed documents share one image wording, a confusable host shown both ways', () => {
+  const removal = (url) => ({ what: 'attribute', name: 'src', on: 'img', value: url, url, reason: 'remote image' });
+  const div = { what: 'element', name: 'div', reason: 'markdown-equivalent' };
+  const a = removal('https://img.shields.io/a.svg');
+  const idn = removal('https://xn--pple-43d.com/a.png');
+  const image = (r) => ({ host: new URL(r.url).hostname, url: r.url });
+  assert.equal(
+    blockedTrustNoticeText([a, idn], [image(a), image(idn)]),
+    '2 images from img.shields.io and xn--pple-43d.com (аpple.com) were not loaded.',
+  );
+  assert.equal(
+    blockedTrustNoticeText([a, div], [image(a)]),
+    '1 image from img.shields.io was not loaded, and some HTML was simplified (div).',
+  );
 });

@@ -16,43 +16,24 @@ import { confirmLeaveDocument, installCloseGuard } from './close.ts';
 import { installSave } from './save.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
-import { policyFor } from '@marxy/core/src/sanitize/policy.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
-import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
-import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, buildNodeMap, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
 import { stripNonLocalImages } from './render/images.ts';
-import {
-  blockedContentNotice,
-  clearBlockedNotices,
-  clearGrantSummaryNotices,
-  clearDismissForPath,
-  grantSummaryNotice,
-  imageGrantSummaryNotice,
-  resetDismissedNotices,
-  trustBlockedNotices,
-} from './notices/blocked.ts';
-import { truncationNotices } from './notices/truncation.ts';
+import { clearDismissForPath, resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
 import { wireTrustRevokeCommands } from './commands/trust.ts';
-import { loadTrust, type TrustStore } from './trust/trust.ts';
+import { createTrustController, type TrustController } from './trust/controller.ts';
 import { diskChangedEditsKeptNotice, fileRemovedNotice } from './notices/disk.ts';
-import { clearNotices, notify } from './notices/index.ts';
-import {
-  TRUST_NEWER_VERSION_TEXT,
-  grantableBlockedImages,
-  htmlGrantWouldChangeForNotice,
-  trustWriteFailedText,
-} from './notices/trust-copy.ts';
+import { clearNotices } from './notices/index.ts';
 import { leaveSourceMode } from './source/buffer-commit.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
 import { parseConfig } from '@marxy/theme';
 import { applyReaderConfig, readReaderConfig, takeConfigRead } from './theme/reader-config.ts';
 import { resolveThemeDir, startUserTheme, themeDirFromConfig, type UserThemeContext } from './theme/user-theme.ts';
-import { isDocVisible, waitForEnginePaint } from './paint-signal.mjs';
+import { createLaunchMeasure, t0, type LaunchMeasure, type RenderEvidence } from './startup/measure.ts';
 import { type ApplyImagesContext } from './render/images.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from './startup/idle-work.ts';
 import { mountProgressively, type ProgressiveMount } from './render/progressive.ts';
@@ -181,8 +162,6 @@ export type AppHandle = {
    */
   relayout(): Promise<void>;
 };
-
-const t0 = Date.now();
 
 const state: { document: OpenDocument | null } = { document: null };
 
@@ -341,25 +320,10 @@ function sourceHarness(): ReturnType<AppHandle['sourceHarness']> {
   return { mode: viewMode, bufferHash: contentHash(documentBuffer.bytes), byteOffset };
 }
 
-/**
- * Counts animation frames from the moment the script runs, independently of anything below. The
- * paint mark reports how many frames passed between the DOM mutation and `first_text`, and the CLI
- * smoke check asserts that count is at least two — because a mark that only *claims* to be after
- * the paint would silently make every cold-start number optimistic (ADR-0013). The counter lives
- * out here, not inside waitForEnginePaint(), so that a wait which never actually waited still
- * reports frames=0 and fails the check instead of passing quietly.
- */
-let framesObserved = 0;
-let observing = true;
-const observeFrame = () => { framesObserved += 1; if (observing) requestAnimationFrame(observeFrame); };
-requestAnimationFrame(observeFrame);
-
 /** Sanitised (or empty-state) HTML into `#doc`. `app.ts` is in registry.innerHtmlAllowedIn. */
 function assignHtml(doc: HTMLElement, html: string): void {
   doc.innerHTML = html;
 }
-
-interface RenderEvidence { readonly blocks: number; readonly chars: number; readonly heading: string }
 
 /** The source bytes the article holds so far: the end of its last block with provenance. */
 function mountedBytes(doc: HTMLElement): number {
@@ -370,17 +334,11 @@ function mountedBytes(doc: HTMLElement): number {
   return 0;
 }
 
-/** Evidence that the document actually reached the DOM, for the CLI smoke check. */
-function renderEvidence(doc: HTMLElement): RenderEvidence {
-  return {
-    blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length,
-    chars: doc.textContent?.length ?? 0,
-    heading: doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '',
-  };
-}
-
-/** The arguments this launch was given, kept so the error path can honour the flag too. */
+/** The arguments this launch was given (or the shell reported), for the document and the flags. */
 let launchArgs: readonly string[] = [];
+
+/** This launch's measurement (B-08): frame counter, harness detection, first text and the exit code. */
+let measure: LaunchMeasure;
 
 /** The palette index for this launch; created by startApp (A-04). */
 let index: IndexService;
@@ -406,222 +364,11 @@ function deferredStartupContext(
 /** The shell this launch is using; set by startApp, never imported from tauri.ts. */
 let shell: AppShell;
 
-let trustStore: TrustStore | null = null;
-let trustLoadPromise: Promise<void> | null = null;
-
-function trustGrantsFor(path: string): { html: boolean; imageHosts: readonly string[] } {
-  return trustStore?.grantsFor(path) ?? { html: false, imageHosts: [] };
-}
-
-function renderPolicyFor(path: string) {
-  return policyFor({ html: trustGrantsFor(path).html });
-}
-
-function startTrustLoad(): Promise<void> {
-  if (trustLoadPromise) return trustLoadPromise;
-  trustLoadPromise = (async () => {
-    if (shell.configPaths === undefined) return;
-    try {
-      if (shell.configPaths === undefined) return;
-      const io = {
-        readFile: (p: string) => shell.readFile(p),
-        writeFileAtomic: (p: string, b: Uint8Array) => shell.writeFileAtomic(p, b),
-        dataDirectory: async () => (await shell.configPaths!()).data,
-      };
-      trustStore = await loadTrust(io);
-    } catch {
-      trustStore = null;
-    }
-  })();
-  return trustLoadPromise;
-}
-
-async function byteOffsetForLine(line: number): Promise<number> {
-  if (!documentBuffer) return 0;
-  // Bytes, not UTF-16 units: a multi-byte character or a byte-order mark shifts every later offset.
-  const bytes = documentBuffer.bytes;
-  let byte = 0;
-  let current = 1;
-  for (let i = 0; i < bytes.length && current < line; i++) {
-    if (bytes[i] === 10) {
-      current++;
-      byte = i + 1;
-    }
-  }
-  return byte;
-}
-
-function showTrustNotices(
-  removed: readonly RenderRemoval[],
-  allBlockedImages: readonly BlockedImage[],
-): void {
-  if (!openPath || !documentBuffer) return;
-  // Images no per-host grant can load (protocol-relative) are neither counted nor offered a host.
-  const blockedImages = grantableBlockedImages(allBlockedImages, removed);
-  const path = openPath;
-  const grants = trustGrantsFor(path);
-  clearBlockedNotices();
-  if (blockedImages.length > 0 && !htmlGrantWouldChangeForNotice(removed)) {
-    blockedContentNotice(blockedImages);
-  } else {
-    trustBlockedNotices({
-      path,
-      removed,
-      blockedImages,
-      grants,
-      onGrantHtml: () => { void grantHtmlForOpenDocument(); },
-      onGrantImages: (hosts) => { void grantImageHostsForOpenDocument(hosts); },
-    });
-  }
-  truncationNotices({
-    buffer: documentBuffer,
-    removed,
-    showSource: (line) => {
-      void byteOffsetForLine(line).then((b) => showSource(b));
-    },
-  });
-}
-
-/**
- * Applies one trust change and says so when it cannot be kept: trust.json from a newer Marxy is left
- * alone, and a failed write leaves the store as it was. True only when the change really landed.
- */
-async function applyTrustChange(change: (store: TrustStore) => Promise<boolean>): Promise<boolean> {
-  const store = trustStore;
-  if (!store) return false;
-  try {
-    if (await change(store)) return true;
-    notify({ kind: 'info', text: TRUST_NEWER_VERSION_TEXT });
-  } catch (err) {
-    notify({ kind: 'info', text: trustWriteFailedText(err) });
-  }
-  return false;
-}
-
-/**
- * "Show HTML and images" starts both grants together; one summary is announced once the last of them
- * has landed, naming everything that was granted ("Showing HTML and images from 2 hosts for …").
- */
-const grantSummary = { inFlight: 0, html: false, hosts: 0 };
-
-function grantSummaryFinished(path: string): void {
-  if (grantSummary.inFlight > 0) return;
-  const { html, hosts } = grantSummary;
-  grantSummary.html = false;
-  grantSummary.hosts = 0;
-  if (openPath !== path) return;
-  if (html) grantSummaryNotice(path, true, hosts);
-  // Images load only when the shell can fetch them, which the summary above does not promise.
-  if (hosts > 0) imageGrantSummaryNotice();
-}
-
-async function grantHtmlForOpenDocument(): Promise<void> {
-  const doc = document.getElementById('doc')!;
-  if (!openPath || !trustStore || !documentBuffer) return;
-  const path = openPath;
-  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode);
-  grantSummary.inFlight++;
-  try {
-    const granted = await applyTrustChange((store) => store.grant(path, { html: true }));
-    // The reader may have opened another document while the write ran; the grant is theirs to keep
-    // for `path`, but nothing here may re-render or announce over the document now open.
-    if (!granted || openPath !== path) return;
-    grantSummary.html = true;
-    rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
-  } finally {
-    grantSummary.inFlight--;
-    grantSummaryFinished(path);
-  }
-}
-
-async function grantImageHostsForOpenDocument(hosts: readonly string[]): Promise<void> {
-  if (!openPath || !trustStore) return;
-  const path = openPath;
-  const prev = trustStore.grantsFor(path).imageHosts;
-  const merged = [...new Set([...prev, ...hosts])];
-  grantSummary.inFlight++;
-  try {
-    const granted = await applyTrustChange((store) => store.grant(path, { imageHosts: merged }));
-    if (!granted || openPath !== path) return;
-    grantSummary.hosts = Math.max(grantSummary.hosts, hosts.length);
-    if (state.document && documentBuffer) {
-      const { removed, blockedImages } = renderDocumentSafeHtml(state.document.ast, renderPolicyFor(path));
-      showTrustNotices(removed, blockedImages);
-    }
-  } finally {
-    grantSummary.inFlight--;
-    grantSummaryFinished(path);
-  }
-}
-
-async function revokeTrust(what: 'html' | 'images'): Promise<void> {
-  const doc = document.getElementById('doc')!;
-  if (!openPath || !trustStore) return;
-  const path = openPath;
-  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode);
-  if (!(await applyTrustChange((store) => store.revoke(path, what)))) return;
-  if (openPath !== path) return;
-  clearGrantSummaryNotices();
-  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
-}
-
-const revokeTrustHtml = (): Promise<void> => revokeTrust('html');
-const revokeTrustImages = (): Promise<void> => revokeTrust('images');
-
-function rerenderOpenDocument(doc: HTMLElement, byteOffset: number, fraction: number): void {
-  if (!documentBuffer || !openPath) return;
-  const file = openPath;
-  const ast = parseMarkdown(documentBuffer.bytes, { file });
-  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
-  destroyTypeset();
-  state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
-  const mounted = mountDocument(doc, html, file, byteOffset);
-  announceDocument();
-  showTrustNotices(removed, blockedImages);
-  snap(doc);
-  startTypeset(doc);
-  mountThrough(doc, byteOffset);
-  restoreScrollToPosition(readingScroller(), state.document.blocks, {
-    path: file,
-    byteOffset,
-    fraction,
-    mode: 'rendered',
-  });
-  deferAfterComplete(mounted, file, doc);
-}
-
-async function maybeRerenderForLateTrust(doc: HTMLElement): Promise<void> {
-  await startTrustLoad();
-  if (!openPath || !trustStore || !trustGrantsFor(openPath).html) return;
-  const pos = currentPosition(readingScroller(), state.document?.blocks ?? [], openPath, viewMode);
-  rerenderOpenDocument(doc, pos.byteOffset, pos.fraction);
-}
+/** What the open document may show (B-10); created by startApp, one per launch. */
+let trust: TrustController;
 
 /** Asset-protocol roots allowed this session (post-pass 3). */
 const scopedAssetRoots = new Set<string>();
-
-/** True when a harness launched us: the startup harness sets the env var, the flag is for a person. */
-async function inHarness(): Promise<boolean> {
-  if (launchArgs.includes('--quit-after-paint')) return true;
-  try {
-    return Boolean((await shell.startupMarks()).quit_after_paint);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Every path ends here: the frame observer stops so an idle window is not woken once a frame, and a
- * harness launch exits with a code that says whether it painted. Harness mode is resolved here rather
- * than before the render so that its IPC round trip stays out of the measured path.
- */
-let settleReady: (code: number) => void = () => {};
-
-async function finish(code: number): Promise<void> {
-  observing = false;
-  settleReady(code);
-  if (await inHarness()) await shell.quit(code);
-}
 
 /**
  * The grid pass (ADR-0030), now and whenever heights can change under it: when fonts arrive and
@@ -1158,21 +905,33 @@ async function typesetDocument(article: HTMLElement): Promise<void> {
 }
 
 /**
- * The page again from `documentBuffer`, after its bytes changed under the open document (an edit in
- * Source). Same parse, render and passes as an open; the reading position is the caller's.
+ * The page again from `documentBuffer`, after its bytes or its grants changed under the open
+ * document (an edit, a reload, a trust change). Same parse, render and passes as an open. Given a
+ * byte offset, the mount lands there and the reading position is the caller's; given a position
+ * (a trust change), it is also restored here.
  */
-function rerenderFromBuffer(doc: HTMLElement, byteOffset?: number): void {
+function rerenderFromBuffer(doc: HTMLElement, at?: number | Pick<ReadingPosition, 'byteOffset' | 'fraction'>): void {
   if (!documentBuffer || !openPath) return;
   const file = openPath;
+  const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
   const ast = parseMarkdown(documentBuffer.bytes, { file });
-  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
   destroyTypeset();
   state.document = { ast, html, nodeMap: buildNodeMap(ast), blocks: [] };
   const mounted = mountDocument(doc, html, file, byteOffset);
   announceDocument();
-  showTrustNotices(removed, blockedImages);
+  trust.showNotices(removed, blockedImages);
   snap(doc);
   startTypeset(doc);
+  if (at !== undefined && typeof at !== 'number') {
+    mountThrough(doc, at.byteOffset);
+    restoreScrollToPosition(readingScroller(), state.document.blocks, {
+      path: file,
+      byteOffset: at.byteOffset,
+      fraction: at.fraction,
+      mode: 'rendered',
+    });
+  }
   deferAfterComplete(mounted, file, doc);
 }
 
@@ -1228,10 +987,13 @@ function afterComplete(current: ProgressiveMount, fn: () => Promise<void>): Prom
   return current.complete.then(() => (mount === current && current.isComplete() ? fn() : undefined));
 }
 
+/** Images, KaTeX and highlighting for `file` (startup/idle-work.ts): the one place they are started. */
+function deferredStartup(file: string, doc: HTMLElement): () => Promise<void> {
+  return () => runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }));
+}
+
 function deferAfterComplete(current: ProgressiveMount, file: string, doc: HTMLElement): void {
-  void afterComplete(current, () =>
-    whenIdle(() => runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }))),
-  );
+  void afterComplete(current, () => whenIdle(deferredStartup(file, doc)));
 }
 
 async function flushReadingPersistence(): Promise<void> {
@@ -1360,7 +1122,7 @@ async function openDocumentThroughRenderMark(
   await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
   const ast = parseMarkdown(bytes, { file });
   await shell.mark('parsed', Date.now());
-  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, renderPolicyFor(file));
+  const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
   const nodeMap = buildNodeMap(ast);
   console.info(`marxy: sanitiser removed ${removed.length}`);
   // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
@@ -1371,7 +1133,7 @@ async function openDocumentThroughRenderMark(
   announceDocument();
   await shell.mark('rendered', Date.now());
   await shell.mark('first_screen', Date.now(), `blocks=${doc.childElementCount} bytes=${mountedBytes(doc)}`);
-  showTrustNotices(removed, blockedImages);
+  trust.showNotices(removed, blockedImages);
   void doc.offsetHeight;
   await document.fonts.ready;
   // No face list here (A-02): reading `document.fonts` made WebKit restyle the whole article as soon
@@ -1382,7 +1144,7 @@ async function openDocumentThroughRenderMark(
   // The grid pass also builds the block list the reading position is read from.
   keepOnGrid(doc);
   landOn(landing);
-  const evidence = renderEvidence(doc);
+  const evidence = measure.renderEvidence(doc);
   await shell.mark('render', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars} heading=${evidence.heading}`);
   return evidence;
 }
@@ -1396,7 +1158,7 @@ async function finishDocumentOpen(file: string, doc: HTMLElement, at?: number): 
   await whenIdle(async () => {
     // Once the whole document is in (at once under the threshold); later chunks do not hold the open
     // up, so the reader can switch mode or open another document while they are appended (A-02).
-    const deferred = () => runDeferredStartup(deferredStartupContext(file, doc, { shell, scopedRoots: scopedAssetRoots }));
+    const deferred = deferredStartup(file, doc);
     if (!current || current.isComplete()) await deferred();
     else void afterComplete(current, () => whenIdle(deferred));
     indexing = index.ensureFor(file, documentBuffer?.bytes);
@@ -1515,11 +1277,12 @@ function setFrontispiece(doc: HTMLElement): void {
 
 async function boot(): Promise<void> {
   await shell.mark('script_start', t0);
-  // Before anything is laid out, so no weight is set twice. The shell-api has webkitVersion() since
-  // MARXY-94, but AppShell and tauri.ts do not implement it, so Linux takes the table's unknown-version row.
+  // Before anything is laid out, so no weight is set twice. shell-api declares webkitVersion(), but no
+  // desktop shell calls it yet, so the version is null and the table's unknown-version row applies.
   const offset = applyWeightOffset(document.documentElement, platformOf(navigator.userAgent), null);
   void shell.mark('weight_offset', Date.now(), `offset=${offset}`);
   launchArgs = launchArgs.length > 0 ? launchArgs : await shell.args();
+  measure.adoptArgs(launchArgs);
   await shell.mark('args', Date.now(), `n=${launchArgs.length}`);
   // Skip flags and the macOS launcher's -psn_… argument; the first plain argument is the document.
   const file = launchArgs.find(a => !a.startsWith('-'));
@@ -1538,7 +1301,7 @@ async function boot(): Promise<void> {
     if (!piece) assignHtml(doc, '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>');
     await shell.mark('no_document', Date.now(), piece ? `piece=${piece}` : undefined);
     if (piece) setFrontispiece(doc);
-    return finish(0);
+    return measure.finish(0);
   }
 
   const after = performance.now();
@@ -1563,42 +1326,14 @@ async function bootDocument(file: string, doc: HTMLElement, after: number, chunk
   const evidence = await openDocumentThroughRenderMark(file, doc, undefined, chunks.promise);
   const renderedAt = Date.now();
 
-  // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
-  // must not be able to hand the startup measurement a number either — and it has no paint to wait for,
-  // so this runs before the wait. The `no_text` mark also disarms the shell's paint deadline.
-  if (evidence.blocks === 0 || evidence.chars === 0) {
-    await shell.mark('no_text', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars}`);
-    return finish(1);
-  }
-
-  // Hidden text is still in `textContent` and frames still tick; that is not a paint (MARXY-71).
-  if (!isDocVisible(doc)) {
-    await shell.mark('no_paint', Date.now(), 'reason=not-visible');
-    return finish(1);
-  }
-
-  // Counted from here, so the number covers the wait and not the render mark's IPC round trip.
-  // The wait has no deadline of its own: some environments deliver no frames and no paint entries
-  // (a Mac in dark wake, a locked screen) and there it never resolves. A harness launch is ended
-  // by the shell's deadline instead, because WebKit aligns in-page timers in a window that cannot
-  // paint to about 15 s. A reader is left waiting and gets the document when the display wakes.
-  const framesAtRender = framesObserved;
-  const { signal } = await waitForEnginePaint({ after });
-  // One timestamp for both marks: the paint detail costs an IPC round trip and `first_text` must not
-  // be pushed later by the cost of reporting it.
-  const paintedAt = Date.now();
-  const frames = framesObserved - framesAtRender;
-
-  await shell.mark('painted', paintedAt, `frames=${frames} since_render_ms=${paintedAt - renderedAt} signal=${signal}`);
-  // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
-  // Anything the check needs beyond the timestamp goes on the `painted` line above.
-  await shell.mark('first_text', paintedAt);
+  const outcome = await measure.waitForFirstText(doc, evidence, after, renderedAt);
+  if (outcome !== 'painted') return measure.finish(1);
   chunks.release();
   await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
-  setTimeout(() => void startTrustLoad().then(() => maybeRerenderForLateTrust(doc)), 0);
+  setTimeout(() => void trust.load().then(() => trust.maybeRerenderForLateTrust()), 0);
   await indexing;
-  return finish(0);
+  return measure.finish(0);
 }
 
 /**
@@ -1619,8 +1354,6 @@ export async function startApp(
   scrollPersistenceInstalled = false;
   resetPaletteHistoryMirror();
   chain = Promise.resolve();
-  trustStore = null;
-  trustLoadPromise = null;
   const base = injected;
   shell = {
     ...base,
@@ -1629,25 +1362,31 @@ export async function startApp(
       return base.quit(code);
     },
   };
+  trust = createTrustController({
+    shell,
+    currentPath: () => openPath,
+    buffer: () => documentBuffer,
+    position: (path) => currentPosition(readingScroller(), state.document?.blocks ?? [], path, viewMode),
+    rerender: (at) => rerenderFromBuffer(document.getElementById('doc')!, at),
+    showSource,
+  });
   index = createIndexService(indexShellFor(shell));
   indexing = Promise.resolve();
   historyTracked = Promise.resolve();
   launchArgs = opts?.argv ? [...opts.argv] : [];
+  measure = createLaunchMeasure(shell, launchArgs);
   readerConfigApplied = false;
   resetDismissedNotices();
   wireTrustRevokeCommands({
-    grantsForPath: () => (openPath ? trustGrantsFor(openPath) : null),
-    revokeHtml: revokeTrustHtml,
-    revokeImages: revokeTrustImages,
+    grantsForPath: () => (openPath ? trust.grantsFor(openPath) : null),
+    revokeHtml: trust.revokeHtml,
   });
   frontispiecePieces = opts?.pieces ?? null;
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
     if (file) void replaceOpenDocument(file);
   });
-  let resolveReady!: () => void;
-  const ready = new Promise<void>((resolve) => { resolveReady = resolve; });
-  settleReady = () => resolveReady();
+  const ready = measure.ready.then(() => {});
   const handle: AppHandle = {
     get state() { return state; },
     dispatch() {},
@@ -1708,7 +1447,7 @@ export async function startApp(
   } catch (e) {
     document.getElementById('doc')!.textContent = String(e);
     await shell.mark('error', Date.now(), String(e));
-    await finish(1);
+    await measure.finish(1);
   }
   return handle;
 }

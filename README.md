@@ -26,9 +26,26 @@ records why each of those is a boundary rather than a backlog item.
 
 ## Status
 
-**Pre-v1 and not yet released.** There are no tags and no downloadable builds; the way to run it
-today is to build from source. The reader works — parsing, typesetting, the palette, themes and
-the index are in — and the remaining phases are in [`docs/plan.md`](docs/plan.md).
+**Pre-v1.** The first release, v0.1.0, is an unsigned pre-release for macOS on Apple silicon. The
+reader works — parsing, typesetting, the palette, themes and the index are in — and the remaining
+phases are in [`docs/plan.md`](docs/plan.md).
+
+## Install
+
+macOS on Apple silicon only for now. There is no Linux or Intel build yet.
+
+1. Download the `.dmg` from the [Releases](https://github.com/inkstrata/marxy/releases) page and drag Marxy to Applications.
+2. The build is not signed or notarised, so macOS will refuse to open it at first. Clear the
+   quarantine flag once, in a terminal:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Marxy.app
+   ```
+
+3. Open Marxy, then open a README with it.
+
+Signing and notarisation will remove step 2 when an Apple Developer account exists. Marxy has no
+updater, so a new version is a new download.
 
 ## Build from source
 

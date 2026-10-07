@@ -1,1 +1,0 @@
-Diffs tint added and removed lines while keeping `+` and `-` in the text; console, log and JSONL fences use the right grammars; terminal ESC and minified lines read clearly without colour carrying the meaning (MARXY-235)

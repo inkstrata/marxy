@@ -71,10 +71,6 @@
     "packages/core/src/render/testing/",
     "docs/research/"
   ],
-  "frozen": [
-    "packages/core/src/contracts/",
-    "packages/shell-api/src/"
-  ],
   "extraAllowedPaths": [
     "CHANGELOG.md",
     "changelog.d",

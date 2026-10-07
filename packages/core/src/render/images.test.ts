@@ -7,7 +7,9 @@ import { DEFAULT_POLICY } from '../sanitize/policy.ts';
 import { sanitizeUrl } from '../sanitize/urls.ts';
 import {
   blockedHosts,
+  blockedImageClause,
   blockedImageNoticeText,
+  displayBlockedHost,
   blockedImagesFrom,
   collapsePath,
   hostOfRefusedSrc,
@@ -192,9 +194,22 @@ test('criterion 5: blockedImageNoticeText names each host once with a count; emp
     { host: 'example.invalid', url: 'https://example.invalid/pixel.gif?doc=hostile' },
   ];
   const notice = blockedImageNoticeText(twoOnOne);
-  assert.equal(notice, '2 remote images from example.invalid were not loaded');
+  assert.equal(notice, '2 images from example.invalid were not loaded.');
   assert.equal([...notice.matchAll(/example\.invalid/g)].length, 1);
   assert.match(notice, /2 /);
+});
+
+test('B-09.1: blockedImageNoticeText is the clause plus a full stop; an IDN host shows both forms', () => {
+  const images = [
+    { host: 'img.shields.io', url: 'https://img.shields.io/a.svg' },
+    { host: 'xn--pple-43d.com', url: 'https://xn--pple-43d.com/a.png' },
+  ];
+  assert.equal(blockedImageClause(images), '2 images from img.shields.io and xn--pple-43d.com (аpple.com) were not loaded');
+  assert.equal(blockedImageNoticeText(images), `${blockedImageClause(images)}.`);
+  assert.equal(blockedImageClause([]), '');
+  const three = ['a.example', 'b.example', 'c.example'].map((host) => ({ host, url: `https://${host}/x.png` }));
+  assert.equal(blockedImageNoticeText(three), '3 images from a.example, b.example and c.example were not loaded.');
+  assert.equal(displayBlockedHost('example.com'), 'example.com');
 });
 
 test('criterion 5: rendered 10-hostile.md HTML contains no blocked-image host and no notice text', () => {

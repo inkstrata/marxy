@@ -1,16 +1,11 @@
-// Blocked remote images and simplified HTML: one notice with grant actions (MARXY-44, MARXY-138).
+// Blocked remote images and simplified HTML: one notice, with the HTML opt-in when there is one (MARXY-44, MARXY-138).
 
 import type { BlockedImage } from '@marxy/core/src/render/images.ts';
-import { blockedHosts } from '@marxy/core/src/render/images.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 import type { Grants } from '../trust/trust.ts';
 import { blockedImageNoticeText } from '@marxy/core/src/render/images.ts';
 import { dismiss, ensureNoticesRegion, notify } from './index.ts';
-import {
-  blockedTrustNoticeText,
-  displayHost,
-  htmlGrantWouldChangeForNotice,
-} from './trust-copy.ts';
+import { blockedTrustNoticeText, htmlGrantWouldChangeForNotice } from './trust-copy.ts';
 
 export interface BlockedNoticeOpts {
   readonly path: string;
@@ -19,7 +14,6 @@ export interface BlockedNoticeOpts {
   readonly grants: Grants;
   readonly dismissed?: boolean;
   onGrantHtml?(): void;
-  onGrantImages?(hosts: readonly string[]): void;
   onDismiss?(): void;
 }
 
@@ -38,7 +32,7 @@ export function clearBlockedNotices(): void {
   for (const el of ensureNoticesRegion().querySelectorAll('[data-notice-kind="blocked"]')) el.remove();
 }
 
-/** A revoked grant no longer holds, so its "Showing …" / "Images will load …" confirmation goes too. */
+/** A revoked grant no longer holds, so its "Showing …" confirmation goes too. */
 export function clearGrantSummaryNotices(): void {
   for (const id of summaryIds) dismiss(id);
   summaryIds.clear();
@@ -71,14 +65,9 @@ export function trustBlockedNotices(opts: BlockedNoticeOpts): void {
   if (opts.dismissed || dismissedPaths.has(opts.path)) return;
 
   const text = blockedTrustNoticeText(opts.removed, opts.blockedImages);
-  const hasImages = opts.blockedImages.length > 0;
   const htmlAction = !opts.grants.html && htmlGrantWouldChangeForNotice(opts.removed);
-  const pendingHosts = blockedHosts(opts.blockedImages).filter(
-    (h) => !opts.grants.imageHosts.includes(h),
-  );
-  const imageAction = pendingHosts.length > 0;
 
-  if (text === '' && !htmlAction && !imageAction) return;
+  if (text === '' && !htmlAction) return;
 
   const region = ensureNoticesRegion();
   const line = document.createElement('div');
@@ -90,37 +79,13 @@ export function trustBlockedNotices(opts: BlockedNoticeOpts): void {
   span.textContent = text;
   line.append(span);
 
-  if (htmlAction && imageAction && opts.onGrantHtml && opts.onGrantImages) {
-    const both = document.createElement('button');
-    both.type = 'button';
-    both.className = 'marxy-notice-action';
-    both.textContent = 'Show HTML and images';
-    both.addEventListener('click', () => {
-      opts.onGrantHtml!();
-      opts.onGrantImages!(pendingHosts);
-    });
-    line.append(both);
-
-    const details = document.createElement('button');
-    details.type = 'button';
-    details.className = 'marxy-notice-action';
-    details.textContent = 'Details';
-    details.addEventListener('click', () => expandDetails(line, opts, pendingHosts));
-    line.append(details);
-  } else if (htmlAction && opts.onGrantHtml) {
+  if (htmlAction && opts.onGrantHtml) {
     const html = document.createElement('button');
     html.type = 'button';
     html.className = 'marxy-notice-action';
     html.textContent = "Show this document's HTML";
     html.addEventListener('click', () => opts.onGrantHtml!());
     line.append(html);
-  } else if (imageAction && opts.onGrantImages) {
-    const img = document.createElement('button');
-    img.type = 'button';
-    img.className = 'marxy-notice-action';
-    img.textContent = 'Load images from these hosts';
-    img.addEventListener('click', () => opts.onGrantImages!(pendingHosts));
-    line.append(img);
   }
 
   const dismiss = document.createElement('button');
@@ -137,71 +102,14 @@ export function trustBlockedNotices(opts: BlockedNoticeOpts): void {
   region.append(line);
 }
 
-function expandDetails(
-  line: HTMLElement,
-  opts: BlockedNoticeOpts,
-  pendingHosts: readonly string[],
-): void {
-  const existing = line.querySelector('.marxy-notice-details');
-  if (existing) {
-    existing.remove();
-    return;
-  }
-  const panel = document.createElement('div');
-  panel.className = 'marxy-notice-details';
-
-  const hostCounts = new Map<string, number>();
-  for (const img of opts.blockedImages) {
-    hostCounts.set(img.host, (hostCounts.get(img.host) ?? 0) + 1);
-  }
-  for (const host of pendingHosts) {
-    const row = document.createElement('label');
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.checked = true;
-    box.dataset.host = host;
-    row.append(box);
-    const count = hostCounts.get(host) ?? 0;
-    row.append(document.createTextNode(` ${count} from ${displayHost(host)}`));
-    panel.append(row);
-  }
-
-  const confirm = document.createElement('button');
-  confirm.type = 'button';
-  confirm.className = 'marxy-notice-action';
-  const withHtml = Boolean(opts.onGrantHtml) && !opts.grants.html;
-  // The label says what the click grants: nothing is widened until the reader has picked a host.
-  confirm.textContent = withHtml ? 'Show HTML and load selected hosts' : 'Load selected hosts';
-  confirm.addEventListener('click', () => {
-    const picked = [...panel.querySelectorAll<HTMLInputElement>('input[type=checkbox]:checked')]
-      .map((el) => el.dataset.host!)
-      .filter(Boolean);
-    if (picked.length === 0) return;
-    opts.onGrantImages?.(picked);
-    if (withHtml) opts.onGrantHtml!();
-  });
-  panel.append(confirm);
-  line.append(panel);
-}
-
-export function grantSummaryNotice(path: string, html: boolean, hostCount: number): void {
+export function grantSummaryNotice(path: string, html: boolean): void {
+  if (!html) return;
   const base = path.split('/').pop() ?? path;
-  const parts: string[] = [];
-  if (html) parts.push('HTML');
-  if (hostCount > 0) parts.push(`images from ${hostCount} host${hostCount === 1 ? '' : 's'}`);
-  const what = parts.join(' and ');
   summaryIds.add(
     notify({
       kind: 'info',
-      text: `Showing ${what} for ${base}. Undo in the palette.`,
+      text: `Showing HTML for ${base}. Undo in the palette.`,
       transient: true,
     }),
-  );
-}
-
-/** Confirms an image-host grant; dismissed by `clearGrantSummaryNotices` when a grant is revoked. */
-export function imageGrantSummaryNotice(): void {
-  summaryIds.add(
-    notify({ kind: 'info', text: 'Images will load when Marxy can fetch them.', transient: true }),
   );
 }

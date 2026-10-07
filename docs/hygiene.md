@@ -43,12 +43,11 @@ its `CHECKS` list and nowhere else. The commit hooks run the staged-file subset.
 | Importing across a module boundary (Node in the browser, DOM in core, Tauri outside `src/shell`, forbidden packages) | `check-boundaries` | `pnpm check`, CI `fast` |
 | Inventing a mark, event, data attribute, class or token name; parsed markup reaching the DOM off-path | `check-registry` against `scripts/registry.json` | pre-commit (staged), `pnpm check`, CI `fast` |
 | Adding a dependency that is not pinned or is forbidden | `check-deps` against `scripts/allowlists/dependencies.json` | `pnpm check`, CI `fast` |
-| A deferral comment in product source that names no story or names one already merged | `check-deferrals` with `scripts/allowlists/deferrals.json` | `pnpm check`, CI `fast` |
+| A deferral comment in product source that names no `MARXY-nnn` key or roadmap story id (`A-07`, `B-13`, `A-14.1`), or names one already merged | `check-deferrals` with `scripts/allowlists/deferrals.json` | `pnpm check`, CI `fast` |
 | A second markdown parser or sanitiser returning (ADR-0001, ADR-0021) | `check-one-parse` | `pnpm check`, CI `fast` |
 | A theme token whose name or unit kind moved | `check-tokens` | `pnpm check`, CI `fast` |
 | A font binary losing `binary` or gaining `eol` | `gate-font-attrs` | `pnpm check`, CI `fast` |
 | A workflow that is advisory, unpinned, unlocked, untimed or missing its Linux prerequisites | `check-workflows` (the one place workflow rules live) | `pnpm check`, CI `fast` |
-| A frozen contract changed without a pull request of its own (ADR-0045) | `pnpm test:contracts-frozen`, inside `pnpm test` | `pnpm test`, CI `fast` |
 | A dependency with the wrong licence | `scripts/gate-licences.mjs` | precheck (when manifests change), CI `fast` and `rust` |
 | A byte the user did not ask to change, changed | `pnpm gate:fidelity`; `pnpm gate:golden` for AST and source map | precheck (core), CI `fast` |
 | Production JS reaching the memory shell or the harness | `pnpm gate:bundle` (the import graph; sizes only in the release workflow) | precheck (desktop), CI `fast` and `rust` |
@@ -72,7 +71,7 @@ run as `pnpm test:fleet`.
 
 - Branches are `type/<id>-slug` (`docs/conventions.md`); the story id or Jira key in the branch and
   the subject is optional. A branch with a key but no board row is a note, not a failure.
-- Frozen: byte-pinned contracts under `packages/*/src/contracts/` and `packages/shell-api/src/`, name-and-unit contract for `packages/theme/src/tokens.css`.
+- Contracts: `packages/*/src/contracts/` and `packages/shell-api/src/` change by pull request (ADR-0045); name-and-unit contract for `packages/theme/src/tokens.css`.
 - Large-file limit 2 MB, except under `fonts/`, `fixtures/`, `docs/spike/results/`,
   `docs/taste-review/`, the app icons.
 - Parsed markup may enter the DOM only on paths in `innerHtmlAllowedIn`

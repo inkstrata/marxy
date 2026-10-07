@@ -1,5 +1,6 @@
 /**
- * The operation contract. FROZEN (ADR-0004).
+ * The operation contract. Reviewed contract (ADR-0004, ADR-0045): changes by pull request; the
+ * fidelity invariant is tested (`pnpm gate:fidelity`).
  *
  * An operation is a pure function from a byte range of one document to replacement text.
  * It never sees view state, never touches bytes outside its range, never writes to disk.

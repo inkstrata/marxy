@@ -180,28 +180,68 @@ export async function applyAllHighlights(article: HTMLElement): Promise<void> {
 }
 
 /**
+ * Calls `onChange` once in the frame after any number of calls, so a batch of blocks coloured
+ * together asks for one grid pass, not one each.
+ */
+function coalesced(onChange: () => void): () => void {
+  let frame = 0;
+  return () => {
+    if (frame !== 0) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      onChange();
+    });
+  };
+}
+
+/**
+ * Highlights one block and returns whether it was split into line spans just now, which happens
+ * before the first await; `coloured` is called if the colour arrives later and changes it again.
+ */
+function highlightAndReport(code: HTMLElement, coloured: (() => void) | undefined): boolean {
+  const before = code.dataset.marxyDone;
+  const done = applyHighlightToCode(code);
+  const split = code.dataset.marxyDone;
+  void done.finally(() => {
+    if (code.dataset.marxyDone !== split) coloured?.();
+  });
+  return split !== before;
+}
+
+/**
  * Lazy highlighting in visibility order. Skips blocks already marked `data-marxy-done=highlight`.
  * Does not block startup — schedule from idle after first text (MARXY-164).
+ *
+ * `onLayoutChanged` is called once per batch of blocks split into line spans, in the same task, and
+ * at most once a frame after blocks were coloured. Both happen after the grid pass that followed this
+ * call, and a split block can change height: a wrapped line hangs past its indent or diff marker, so
+ * it can take another row (B-02.1). Without a new grid pass every block below it sits off the grid.
  */
-export function startCodeHighlight(article: HTMLElement): void {
+export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: () => void): void {
   applyInvisibleMarkers(article);
   applyLinkDestinations(article);
   const blocks = fencedCodeBlocks(article);
   if (blocks.length === 0) return;
+  const coloured = onLayoutChanged === undefined ? undefined : coalesced(onLayoutChanged);
 
   if (typeof IntersectionObserver === 'undefined') {
-    void applyAllHighlights(article);
+    let split = false;
+    for (const code of blocks) split = highlightAndReport(code, coloured) || split;
+    if (split) onLayoutChanged?.();
     return;
   }
 
   const observer = new IntersectionObserver(
     (entries) => {
+      let split = false;
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
         const code = entry.target as HTMLElement;
         observer.unobserve(code);
-        void applyHighlightToCode(code);
+        split = highlightAndReport(code, coloured) || split;
       }
+      // In the same frame the blocks were split, so no frame is painted with the blocks below them off the grid.
+      if (split) onLayoutChanged?.();
     },
     { root: null, rootMargin: '200% 0px' },
   );

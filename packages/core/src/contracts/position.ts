@@ -1,4 +1,4 @@
-/** Reading position. FROZEN (ADR-0018). Never a scroll offset. */
+/** Reading position. Reviewed contract (ADR-0018, ADR-0045): changes by pull request. Never a scroll offset. */
 export interface ReadingPosition {
   readonly path: string;
   /** Byte offset of the first visible block's src.start. */

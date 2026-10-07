@@ -1,4 +1,4 @@
-// Line starts of a parsed document, kept beside the AST rather than in it (the contract is frozen).
+// Line starts of a parsed document, kept beside the AST rather than in it (a reviewed contract, ADR-0045).
 // A section that ends at a heading nested in a list item or quote must end where that heading's
 // *line* starts, before the container's marker, and only the source text knows where that is.
 
