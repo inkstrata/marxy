@@ -54,6 +54,14 @@ function resolvePath(themeRoot: string, rel: string): string | null {
   return null;
 }
 
+/** A url( value that opens a quote and does not close it before the `)`: the engine reads a bad-string. */
+function badString(inner: string): boolean {
+  const t = inner.trim();
+  const q = t[0];
+  if (q !== '"' && q !== "'") return false;
+  return !(t.length >= 2 && t.endsWith(q) && skipString(t, 0) === t.length);
+}
+
 function unquoteUrl(raw: string): string {
   let s = raw.trim();
   if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
@@ -112,10 +120,15 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
     if (at(i, 'url(')) {
       const close = findParenClose(css, i + 4);
       if (close === -1) {
-        out.push(css.slice(i));
+        warnings.push('theme has an unterminated url(); the rest of it was not loaded');
         break;
       }
       const inner = css.slice(i + 4, close);
+      if (badString(inner)) {
+        warnings.push('theme referenced a url() with an unterminated string; not loaded');
+        i = close + 1;
+        continue;
+      }
       const spec = unquoteUrl(inner);
       const replacement = rewriteOneUrl(spec, opts, themeRoot, warnings);
       if (replacement === null) {
@@ -130,7 +143,7 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
     if (at(i, 'image-set(')) {
       const close = findParenClose(css, i + 10);
       if (close === -1) {
-        out.push(css.slice(i));
+        warnings.push('theme has an unterminated image-set(); the rest of it was not loaded');
         break;
       }
       const inner = css.slice(i + 10, close);
@@ -192,6 +205,12 @@ function findParenClose(text: string, start: number): number {
   let j = start;
   while (j < text.length && depth > 0) {
     const c = text[j];
+    // Skip a string the way the engine's tokenizer does, so a parenthesis inside quotes does not
+    // count and a line break ends the string (F-16).
+    if (c === '"' || c === "'") {
+      j = skipString(text, j);
+      continue;
+    }
     if (c === '(') depth += 1;
     else if (c === ')') depth -= 1;
     j += 1;
@@ -206,8 +225,16 @@ function rewriteOneUrl(
   warnings: string[],
 ): string | null {
   if (spec === '') return null;
-  if (spec.startsWith('data:')) {
-    if (!INERT_DATA_URL.test(spec)) {
+  // A raw newline inside a url() value ends the string in the engine's tokenizer, which then closes
+  // the url( at the next `)` and reads the rest as live CSS; this scanner counts parentheses and
+  // would have swallowed that rest as part of the value (F-16). No real path or raster has one.
+  if (/[\n\r\f]/.test(spec)) {
+    warnings.push('theme referenced a url() containing a line break; not loaded');
+    return null;
+  }
+  if (/^data:/i.test(spec)) {
+    // Real base64 and percent-encoded rasters contain no quote, parenthesis or backslash.
+    if (!INERT_DATA_URL.test(spec) || /["'()\\]/.test(spec)) {
       warnings.push('theme referenced a data: URL that could embed a remote reference; not loaded');
       return null;
     }
@@ -241,8 +268,10 @@ function rewriteImageSetInner(
     if (inner.slice(i, i + 4).toLowerCase() === 'url(') {
       const close = findParenClose(inner, i + 4);
       if (close === -1) break;
-      const spec = unquoteUrl(inner.slice(i + 4, close));
-      const replacement = rewriteOneUrl(spec, opts, themeRoot, warnings);
+      const rawInner = inner.slice(i + 4, close);
+      const replacement = badString(rawInner)
+        ? (warnings.push('theme referenced a url() with an unterminated string; not loaded'), null)
+        : rewriteOneUrl(unquoteUrl(rawInner), opts, themeRoot, warnings);
       i = close + 1;
       // The descriptor belongs to this candidate: dropped with it, never glued onto the one before.
       const rest = inner.slice(i).match(/^\s*(\d+(?:\.\d+)?x|type\([^)]+\)|\d+dpi)/);
@@ -257,7 +286,9 @@ function rewriteImageSetInner(
       while (j < inner.length && inner[j] !== quote) j += 1;
       const spec = inner.slice(i + 1, j);
       j += 1;
-      if (isRemote(spec)) {
+      if (/[\n\r\f]/.test(spec)) {
+        warnings.push('theme referenced a url() containing a line break; not loaded');
+      } else if (isRemote(spec)) {
         warnings.push(`theme referenced \`${spec}\`; not loaded`);
       } else {
         const abs = resolvePath(themeRoot, spec);

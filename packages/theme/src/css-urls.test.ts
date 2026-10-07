@@ -118,3 +118,66 @@ test('@import ends at a semicolon outside its string, so a following rule surviv
   assert.equal(rewriteUrls('@import url(a;b.css);p{}', { base, assetUrl }).css, 'p{}');
   assert.ok(!rewriteUrls('@import "x\n;a{background:url(http://evil.example/x.png)}', { base, assetUrl }).css.includes('evil.example'));
 });
+
+// F-16: a raster data: URL broken by a raw line break must not hide a remote rule from the scanner.
+const EVIL = '}b{background:url(https://evil.example/p.png)}';
+
+function hidden(brk: string): Record<string, string> {
+  const body = `data:image/png,(AA${brk})${EVIL}`;
+  return {
+    'double-quoted': `x { background: url("${body}"); }`,
+    'single-quoted': `x { background: url('${body}'); }`,
+    unquoted: `x { background: url(${body}); }`,
+    padded: `x { background: url( "${body}" ); }`,
+    'image-set': `x { background: image-set(url("${body}") 1x); }`,
+  };
+}
+
+for (const [name, brk] of [['\\n', '\n'], ['\\r', '\r'], ['\\f', '\f']] as const) {
+  for (const [form, sheet] of Object.entries(hidden(brk))) {
+    test(`a data: url broken by a raw ${name} cannot hide a remote url (${form})`, () => {
+      const { css, warnings } = rewriteUrls(sheet, { base, assetUrl });
+      assert.doesNotMatch(css, /evil\.example/);
+      assert.doesNotMatch(css, /https?:/);
+      assert.ok(warnings.length >= 1);
+    });
+  }
+}
+
+test('a data: body with a quote, parenthesis or backslash is refused', () => {
+  for (const body of ['a"b', "a'b", 'a(b', 'a)b', 'a\\\\b']) {
+    const q = body.includes('"') ? "'" : '"';
+    const { css, warnings } = rewriteUrls(`x { background: url(${q}data:image/png;base64,${body}${q}); }`, { base, assetUrl });
+    assert.equal(css, 'x { background: ; }', body);
+    assert.equal(warnings.length, 1);
+  }
+});
+
+test('ordinary base64 and percent-encoded rasters pass unchanged', () => {
+  const b64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+  const pct = 'data:image/gif,GIF89a%01%00%01%00%80%00%00%FF%FF%FF%00%00%00%2C';
+  for (const d of [b64, pct]) {
+    const sheet = `x { background: url("${d}"); }`;
+    const { css, warnings } = rewriteUrls(sheet, { base, assetUrl });
+    assert.equal(css, sheet);
+    assert.deepEqual(warnings, []);
+  }
+});
+
+test('an uppercase DATA: svg is still removed, and a relative path with a line break keeps no raw newline', () => {
+  const svg = rewriteUrls('x { background: url("DATA:image/svg+xml,<svg/>"); }', { base, assetUrl });
+  assert.equal(svg.css, 'x { background: ; }');
+  const rel = rewriteUrls(`x { background: url("DATA:image/svg+xml,(\n)${EVIL}"); }`, { base, assetUrl });
+  assert.doesNotMatch(rel.css, /[\n\r\f]/);
+  assert.doesNotMatch(rel.css, /evil\.example/);
+  assert.ok(rel.warnings.length >= 1);
+  const path = rewriteUrls('x { background: url("a\n.png"); }', { base, assetUrl });
+  assert.doesNotMatch(path.css, /[\n\r\f]/);
+  assert.ok(path.warnings.length >= 1);
+});
+
+test('a parenthesis inside a quoted string does not hide a later remote url', () => {
+  const { css, warnings } = rewriteUrls('x { background: url("a(.png"); } y { background: url(https://evil.example/p.png); }', { base, assetUrl });
+  assert.doesNotMatch(css, /evil\.example/);
+  assert.ok(warnings.length >= 1);
+});
