@@ -1014,6 +1014,13 @@ per root per session … update from the watcher").
 4. `index-feed.ts`: apply a patch with `upsertRows` / `removeRows` (C-04); rebuild only when the
    root set changes; on summon, ask the service to revalidate any `rescanOnSummon` root.
 
+**From the C-05 review (2026-10-07).** The tree watch enforces its 200,000-file cap only when it opens; `examine`
+rescans without a limit afterwards, and every `need_rescan`/`Other` event rescans the whole tree on the watch
+thread. The cap counts every file and ignores `.gitignore`, so a large repository can fall back with few readable
+files. Stop a watch with an error once the cap is passed, and consider honouring the root's ignore rules. Also:
+reject NUL in `unwatch_root`; the `raw_roots` retain in `unwatch_root` can drop a concurrent watch's recording
+(pre-existing); `refreshIndexForWatch` may queue an extra idle re-walk for a symlink target's folder.
+
 **Acceptance.**
 - `apply-events.test.ts`: write-temp-then-rename onto an existing path → `reread` that path; delete →
   `remove`; a path under `node_modules` or matched by `.gitignore` → nothing; a rename out of the root

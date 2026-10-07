@@ -1,67 +1,64 @@
-# Lead handoff — Phase B mid-way, lane L started, paused
+# Lead handoff — lane F landed, Phase C wave 0–1 under way, the lead merges
 
-**For:** the next lead session, and the author. **Read with:** `00-orchestration.md`, then `progress.md`
-(one row per story), then `02-phase-b.md` and `07-layout-and-reading.md`. This page says what to do next.
+**For:** the next lead session, and the author. **Read with:** `00-orchestration.md` (§6 changed today: the lead
+merges), then `progress.md`, then `08-fixes-from-the-bug-sweep.md`, `02-phase-b.md`, `03-phase-c.md` and
+`07-layout-and-reading.md`. This page says what to do next.
 
-## Where things stand (2026-10-07)
+## Where things stand (2026-10-07, evening)
 
-- **Released:** v0.1.0 (pre-release, ad-hoc signed DMG) on `ad0b020c`.
-- **Merged this session:** A-10.3 (two never-run WebKit tests deleted, by ruling), B-10 (the trust
-  controller), B-09.1 (one wording for the blocked-images notice).
-- **Merged at the pause:** B-11, B-02.7, L-00 (the last two with their reviews' returns open, now B-02.8
-  and L-00.1), A-10.4. **Paused by the author:** the round in flight finishes and gets one review each; nothing new is
-  dispatched. A return found in that round is recorded, not re-dispatched.
-- **Model use:** Sonnet for implementors and every reviewer; Opus only for B-11 (L-size seam). The
-  author prefers this split (Opus for planning and L-size seams). Five Sonnet reviews this session caught
-  two real gaps (B-02.5's untested paths and +15 % cost; A-10.3's collateral grid assertion).
+- **The lead merges.** The author ruled that a PR is merged by the lead as soon as its review says merge and every
+  check is green: `node scripts/lead-merge.mjs <pr> --verdict notes.md --sha <reviewed head>` posts the verdict with a
+  `lead-verdict: merge <sha>` marker and squash-merges when ready (owner-only markers, `ci` must succeed, no
+  conflicts, base `main`; stacked PRs fall back to GitHub's `merge-async`). Code-owned paths (`.github/`, the
+  sanitiser, Tauri config and capabilities) still wait for the author.
+- **Merged today (40 commits):** lane F F-01–F-11 and F-13 (the bug sweep, re-verified: 21 of 23 findings real); B-02.6,
+  B-02.8, B-02.9, B-11.1, B-21, B-22; L-00.1, L-01, L-06, L-06.1, L-08.3, L-10; C-01, C-02, C-03, C-03.1, C-04, C-05,
+  C-07, C-08, C-09; the merge tool, the browser-lite trim, the precheck that names failing tests.
+- **Model use:** Sonnet for most implementors and reviewers; Opus for seams (F-03, F-04, F-11, B-02, B-22, C-05, C-10)
+  and for every review of data safety, security or a measurement. Reviews returned about half of all PRs, almost
+  always for a real defect (a regression, a data-loss path, a test that could not fail).
 
 ## In flight at this writing
 
-| Story | State | What the next lead does |
+| Story | State | Next |
 | --- | --- | --- |
-| B-11 (opus) | merged (#362) | B-11.1 (a worktree for it already exists, made outside this session: check who owns it) and B-12 |
-| B-02.5 / B-02.7 | both merged; B-02.7's return (+18–20 % 1 MB content_complete since B-02.5) is open | **first in the queue: B-02.8 on Opus** (card in `02-phase-b.md`) |
-| L-00 (sonnet) | merged (#365) with its return open | L-00.1 (Sonnet) fixes H4/H6 and the controls; then L-01 on Opus |
-| A-10.4 (sonnet) | #360, merge verdict (lead review), default size only | author merges |
-| B-02 (opus) | **parked**: pushed (`d2885b69` code, `b2b68f0b` macOS baselines), no PR | see below |
+| B-02 (opus) | running: rebase, full gate, macOS baselines, Linux baselines via a nightly `workflow_dispatch` | its PR touches `.github/`: the author merges. Then L-02 (gate the geometry), A-11.2 |
+| F-12 (sonnet) | returned: fold Source before palette Undo/Redo, refuse `commitEdit` while Source is dirty, move focus out of the hidden editor | re-review (Opus), merge. **Main loses typed text on a palette Undo in Source until this lands** |
+| C-10 (opus) | running | review (Opus), merge; then C-11, C-12, C-14 |
+| L-11 (sonnet) | running (a find-match edge token; may carry a short ADR for the token) | review, merge |
+| #394 (ci) | waiting for the author (code-owned): apt retries for the C linker step, browser-lite 20 min | author merges |
+| #407 (test) | waiting for the author (code-owned sanitiser test): record the stray-close time, not assert it | author merges |
 
-## B-02: why it is parked and how to resume
+## Next, in order
 
-The aesthetics gate now measures the real app and every mechanical rule passes, but the screenshot
-comparison does not repeat on the same code: `06-math`'s inline-matrix paragraph moves (0.6–0.8 %), and
-`18-agent-transcript`'s last screen shifts 12 px when its code blocks finish highlighting (10.5 %, once).
-No threshold was loosened. Order to resume:
-1. Merge B-02.5 (reader's place kept on reflow; likely cures the 12 px shift).
-2. Rebase B-02 onto main, re-probe 8–10 renders per flaky cell.
-3. If `06-math` still moves, dispatch B-02.6 (card in `02-phase-b.md`).
-4. Regenerate macOS baselines after the rebase; Linux baselines in CI or the nightly (amd64 emulation on
-   an arm64 Mac is too slow and itself unstable). Re-run precheck and `--selftest`.
-Also: the gate's wall time went 157 s → 5–10.5 min on the app. Worth a look before it is a PR-path cost.
-Then A-11.2 (gates design document) follows B-02.
+- **B lane:** F-12 → B-12 (Opus; reads the store; the review's `baseVersion` point) → B-13 → B-14 → B-15; then B-16/B-17.
+  B-20 carries B-09.1's follow-ups.
+- **C lane:** C-10 → C-11 (Opus; with the C-05 review's notes on its card) and C-12, C-14, C-16 (Opus, after C-05) →
+  C-15, C-17. C-06 and C-13 need B-12 (selection reads the store).
+- **L lane:** after B-02: L-02 → L-03 → L-04 (each alone, baselines). L-05 and L-07 between B-15 and D-10/D-11.
+  L-08.1 waits for the author's decision 9 (CJK leading).
+- **Cap:** four implementors, at most two on Opus.
 
 ## Waiting on the author
 
-
-1. **The v0.1.0 manual checks**: a nine-question walkthrough was posted in the session; results not yet
-   in. The likeliest failures are Finder drag-and-drop (the macOS drop event was never seen on a real
-   build). Each failure becomes a fix story.
-
-## Next, in order (once unpaused)
-
-- **B lane (one story at a time on `app.ts`):** B-11 → B-12 → B-13 → B-14 → B-15; then B-16/B-17 in
-  parallel. B-20 carries B-09.1's follow-ups (delete `displayBlockedHost`, no uncapped host list).
-- **Lane L:** L-01 (Opus) after L-00, working from the probe alone with the eight decisions at their
-  defaults (`rulings.md`, 2026-10-07). L-06 (Source looks, Sonnet) and L-10 (code on the grid at every size, Sonnet, from A-10.4) can start any time a slot is free.
-  L-02 to L-04 each alone after B-02 merges (baselines).
-- **Cap:** four implementors, at most two on Opus, counted across both lanes.
+1. Merge #394 and #407 (code-owned), and B-02's PR when it opens.
+2. Rulings from L-01 (`07-layout-and-reading.md`): decision 4 (the scrollbar gutter: no effect in macOS WebKit with a
+   forced scrollbar; L-03 re-measures on Linux), decision 6 (Source column), decision 7 (size ramp), and the new
+   decision 9 (CJK leading, recommended 35 px).
+3. ADR-0053 and ADR-0054 (collections, the verb menu) are `proposed`; accepting them is yours.
 
 ## Lessons from this session
 
-- **Interrupted agents leave work behind.** B-09.1 (uncommitted) and B-10 (unpushed) were found four days
-  later and finished by a short Sonnet "audit and open the PR" pass with no code change. Check
-  `git status` and `git log origin/main..HEAD` in every `running` worktree at the start of a session.
-- **Stacking still works.** B-11 started on B-10's branch before it merged; tell the agent explicitly
-  when the base lands, because it will not notice.
-- **Ask the reviewer for a cost number.** B-02.5's +15 % would not have been seen without one.
-- **A gate that photographs the real app needs settled pages.** Layout that moves after "done" shows up
-  first as screenshot flakes, not as rule failures.
+- **Verify a sweep before fixing it.** Weak sweepers' findings: 21 of 23 real, two not bugs, several mechanisms
+  wrong. One verifier per area, each running a repro at today's main, paid for itself.
+- **Review returns are the product.** Returns caught a data-loss regression in a fix (F-12), a broken real-shell
+  error shape (F-09), lost recent-root order (F-08), a formula-injection path (C-08) and a truncated shell command
+  (C-09). Ask reviewers to hunt adversarially and for numbers.
+- **Never post a verdict before CI is green**, and re-post it for a new head after any push or rebase.
+- **Stacks:** do not rebase a stack's base before it merges; GitHub retargets and rebases the children only while
+  the base's commits are unchanged.
+- **`git stash` is one stack for every worktree.** Tell implementors not to use it.
+- **CI noise is mostly infrastructure:** the Ubuntu mirror (#394 retries) and runner variance. Merge-wait loops should
+  re-run only `Failed to fetch` and `cancelled`, never a test failure.
+- **Wall-clock assertions do not belong in unit tests** (ADR-0032); several were removed today after flaking under
+  load. Precheck now names the failing test.
