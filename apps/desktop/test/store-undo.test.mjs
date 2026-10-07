@@ -24,9 +24,42 @@ function code(rel) {
 nodeTest('commands/edits.ts and save.ts hold no module-level let and no History instance', () => {
   for (const rel of ['src/commands/edits.ts', 'src/save.ts']) {
     const src = code(rel);
-    assert.doesNotMatch(src, /^let /m, `${rel} keeps module state; the store owns it (ADR-0037)`);
+    assert.doesNotMatch(src, /^(export\s+)?(let|var)\s/m, `${rel} keeps module state; the store owns it (ADR-0037)`);
     assert.doesNotMatch(src, /\bHistory\b/, `${rel} keeps its own undo history; the store owns it (ADR-0037 §3)`);
   }
+});
+
+nodeTest('Save as while another document opens: the closed store is refused as cancelled, nothing written, no rejection', async () => {
+  const { openDocumentStore } = await import('../src/document/store.ts');
+  const { save } = await import('../src/save.ts');
+  const enc = new TextEncoder();
+  const writes = [];
+  const io = { async writeFileAtomic(p) { writes.push(p); }, recordRead() {} };
+  const store = openDocumentStore(io, '/repo/doc.md', enc.encode('# T\n\n- [ ] one\n'));
+  const at = 7;
+  assert.equal(await store.apply({ range: { file: '/repo/doc.md', start: at, end: at + 3 }, replacement: '[x]', label: 'Toggle task' }), true);
+  const unhandled = [];
+  const onUnhandled = (e) => unhandled.push(e);
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    const result = await save({
+      store,
+      shell: {
+        // The dialog is up; the reader opens another document, which closes this store.
+        async saveDialog() { store.close(); return '/repo/other.md'; },
+        async setTitle() {},
+        async allowAssetScope() {},
+      },
+      async foldSource() {},
+      async onSaveAs() { throw new Error('onSaveAs must not run'); },
+    }, { as: true });
+    assert.equal(result, 'cancelled');
+    await new Promise((r) => setTimeout(r, 20));
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
+  assert.deepEqual(unhandled, []);
+  assert.deepEqual(writes, [], 'a closed store writes nothing');
 });
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'

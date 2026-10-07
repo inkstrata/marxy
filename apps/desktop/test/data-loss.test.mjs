@@ -185,6 +185,8 @@ test('a failed save leaves no phantom history: two Undos after a later toggle st
   await page.keyboard.press(`${await modOf(page)}+z`);
   await settle(page);
   const afterUndos = await buf(page);
+  assert.equal(afterUndos, orig, 'two Undos return exactly the original bytes');
+  assert.equal(await page.evaluate(() => window.__handle.document().snapshot().canUndo), false, 'no phantom history entry is left to undo');
   assert.ok(afterUndos.includes('Tail stays intact.'), 'Undo must not remove unrelated text');
   assert.ok(afterUndos.includes('- [ ] one'), 'the toggle was undone');
   assert.ok(afterUndos.includes('longer cell'), 'the table survives the extra Undo');
@@ -192,6 +194,27 @@ test('a failed save leaves no phantom history: two Undos after a later toggle st
   const finalDisk = await disk(page);
   assert.equal(finalDisk, afterUndos);
   assert.ok(finalDisk.includes('Tail stays intact.') && finalDisk.includes('- [ ] one'));
+  await page.close();
+});
+
+test('a failed write is not reported as saved: save() says failed, the store stays dirty, the baseline does not move', async () => {
+  const orig = '# T\n\n- [ ] one\n';
+  const page = await boot(orig);
+  await clickBox(page, 0);
+  await settle(page);
+  const r = await page.evaluate(async () => {
+    const sh = window.__handle.shell;
+    sh.writeFileAtomic = async () => { throw new Error('read-only'); };
+    const before = window.__handle.document().snapshot();
+    const result = await window.__handle.save();
+    const after = window.__handle.document().snapshot();
+    const same = after.disk.length === before.disk.length && after.disk.every((b, i) => b === before.disk[i]);
+    return { result, dirty: after.dirty, same };
+  });
+  assert.equal(r.result, 'failed');
+  assert.equal(r.dirty, true, 'a failed write leaves the document dirty');
+  assert.equal(r.same, true, 'a failed write does not advance the saved baseline');
+  assert.equal(await disk(page), orig);
   await page.close();
 });
 
