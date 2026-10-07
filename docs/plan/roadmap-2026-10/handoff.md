@@ -21,6 +21,7 @@
 | B-11 (opus) | implementing, rebasing onto main after B-10 | when its PR opens: Sonnet review; on merge, B-12 |
 | B-02.5 (sonnet) | fixing return 1 (two wraps untested, 1 MB content_complete +15 %, drop `scroller`) | re-review; a second return goes to Opus with both notes (§1) |
 | L-00 (sonnet) | building the layout probe | review; then L-01 on Opus |
+| A-10.4 (sonnet) | restoring the code-line-box grid check (author said yes) | review, then merge |
 | B-02 (opus) | **parked**: pushed (`d2885b69` code, `b2b68f0b` macOS baselines), no PR | see below |
 
 ## B-02: why it is parked and how to resume
@@ -42,8 +43,6 @@ Then A-11.2 (gates design document) follows B-02.
 1. **The v0.1.0 manual checks**: a nine-question walkthrough was posted in the session; results not yet
    in. The likeliest failures are Finder drag-and-drop (the macOS drop event was never seen on a real
    build). Each failure becomes a fix story.
-2. **Optional:** restore the code-line-box-on-the-grid assertion lost with A-10.3 (three lines in
-   `taste.test.mjs`); not started without a yes.
 
 ## Next, in order (once unpaused)
 
