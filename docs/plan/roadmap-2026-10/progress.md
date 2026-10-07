@@ -22,6 +22,9 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 
 ## Handoff
 
+**Pausing (author, 2026-10-07):** finish the round in flight (B-02, B-02.5's return, B-11, L-00, each
+with one review), dispatch nothing new, then rewrite `handoff.md`.
+
 The lead paused on 2026-10-02. What to do next, in order, is in [`handoff.md`](handoff.md).
 | A-14 | Light variant and text size from config and by command | sonnet | merged | [#336](https://github.com/inkstrata/marxy/pull/336) | ../marxy-wt/A-14 (feat/a-14-variant-and-size-from-config) | Work-ahead at the author's request (2026-10-02): stacked on A-13 (#328). Author ruled: variant remembered in config.toml; pre-paint config read OK. Rebased onto main after A-13. Open: `setTopLevelKey` collapses spaces before a trailing comment on the edited line (byte fidelity) |
 | A-03 | Measure nightly, not on pull requests; delete the product tier | opus | merged | [#331](https://github.com/inkstrata/marxy/pull/331) | ../marxy-wt/A-03 (perf/a-03-measure-nightly) | Work-ahead; rebased onto main after A-08 merged. Start-up record: the author's running Marxy.app took the local launches (single instance); the nightly from A-09's branch recorded nine full launches on a CI runner instead. Stale gates-job comments in ci.yml left for A-09 |
