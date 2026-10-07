@@ -5,7 +5,7 @@
 > end in `(A-nn)`, in `(MARXY-n)`, or in nothing. The plan is in `docs/plan/roadmap-2026-10/`. The
 > rest of this file is being rewritten in A-11 and is stale where it disagrees.
 
-You are working on **Marxy**, a markdown *reader*. Sessions start cold; this file, `docs/adr/`
+You are working on **Marxy**, a *reader* for source of any kind. Sessions start cold; this file, `docs/adr/`
 and `docs/ci-contract.md` are the project's memory. If something here contradicts a document
 elsewhere in the tree, this file and the ADRs win, and you fix the other document in your PR.
 
@@ -16,26 +16,35 @@ fragment, green product gates and one review. All of it is checkable locally.
 
 ## The spirit (not negotiable)
 
-Marxy opens a document instantly, gives you an index you can flip through, sets text like a
-well-made book, treats code and AI artifacts as first-class content, and lets you operate on
-what you read without becoming a writing tool. Content types in priority order: **READMEs,
-AI/agent artifacts, source files, prose.** None of them are written in Marxy.
+Recorded in ADR-0052. Marxy is a reader for source of any kind: Markdown, HTML, code, logs, data,
+and what people and AI agents write as text. It opens anything at once, gives you an index you can
+flip through, sets text like a well-made book, shows you exactly what a file contains, and lets
+you operate on what you read. Reading leads: Rendered is where you read and carries the quick
+operations; Source is a real editor, sized to the work of reading. Chrome at rest is zero;
+everything is summoned and dismissed. The reader owns their tools (ADR-0049).
 
-Four commitments, never traded away:
+Seven values, held together: **free, private, faithful, fast, beautiful, honest, accessible.**
+When two pull apart, resolve toward the reader in front of the page and write the trade down.
+Every value is held in review from a feature's first line, and hardens into a test, a gate and,
+where a floor can be stated exactly, a commitment.
 
-1. **MIT, free, no paid tier, no accounts.** Never ship a GPL dependency or grammar (ADR-0006).
-2. **No telemetry, ever.** Not opt-out. None.
-3. **Nothing phones home by default.** Themes cannot make network requests; remote
-   images are blocked until the reader opts in per document. Some readers are at risk.
-4. **Never touch a byte the user did not ask to change.** No reformatting, no
-   normalising, no diff noise.
+The commitments, values already hardened into floors and never traded:
 
-Reading is primary: every tension resolves toward the reader. **Aesthetics are the
-differentiator** and the thing you cannot verify yourself — see "Verification" below.
-Chrome at rest is zero: no toolbar, no tab bar, no sidebar; everything is summoned and
-dismissed.
+1. **Free.** MIT, no paid tier, no accounts; every dependency redistributable (ADR-0006).
+2. **Private by default.** No telemetry, ever, in any form. Nothing leaves the machine without a
+   reader action (ADR-0044), and every privacy promise names what that action sends and to whom.
+3. **Faithful to the bytes.** Marxy changes only the bytes the reader asked to change. Source
+   shows the file exactly. Marxy keeps its own state in plain files in the platform's config and
+   data directories, apart from the reader's documents.
+4. **Nothing hidden silently.** Rendered may reshape (fold frontmatter, set comments aside) and
+   marks every place it does, with Source one action away. A link's real target, bidi controls
+   and zero-width characters are visible in Rendered.
+5. **First text never waits for the whole file.**
 
-The bar: a competent, ordinary-looking markdown viewer is a failure. Clear it.
+Commitments 4 and 5 are hardening: each gains its test with the story that builds it. Accessible
+and the deeper half of honest harden next (ADR-0052, Consequences). Beauty is the value you cannot
+verify yourself; see "Verification" below. The bar: a competent, ordinary-looking reader is a
+failure. Clear it.
 
 ## Where the project actually is
 
