@@ -64,6 +64,10 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
   // reference and a torn-down editor would look reusable to the next mount (MARXY-239 fix).
   const wrapper: SourceEditor = {
     ...built,
+    // A spread copies a getter's value once; read through so `buffer` follows replaceBuffer.
+    get buffer() {
+      return built.buffer;
+    },
     destroy() {
       rawDestroy();
       if (sharedEditor === wrapper) {

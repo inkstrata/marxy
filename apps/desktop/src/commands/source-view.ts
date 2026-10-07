@@ -3,6 +3,7 @@ import type { AppHandle } from '../app.ts';
 import type { Command } from './registry.ts';
 import type { AppShell } from '../app.ts';
 import { writeReaderKey } from '../theme/reader-config.ts';
+import { resolveLineNumbers, setLineNumbersChoice } from '../source/line-numbers.ts';
 import { appHandle } from './app-handle.ts';
 import { getSelectionBufferContext } from '../selection/view.ts';
 
@@ -44,17 +45,16 @@ export function sourceViewCommands(): readonly Command[] {
       group: 'view',
       when: () => document.body.dataset.marxyMode === 'source' || getSelectionBufferContext() !== null,
       run: async (ctx) => {
-        const { activeSourceEditor, createSourceEditor } = await import('../source/editor.ts');
-        let editor = activeSourceEditor();
-        if (!editor) {
-          const ctx = getSelectionBufferContext();
-          const host = document.getElementById('marxy-source');
-          if (ctx && host) editor = await createSourceEditor({ parent: host, buffer: ctx.buffer });
-        }
-        if (!editor) return;
-        const hasNumbers = Boolean(editor.view.dom.querySelector('.cm-lineNumbers'));
-        const next = !hasNumbers;
-        editor.setLineNumbers(next);
+        // The preference only; the app owns the Source editor and makes it (F-03, F-12). One that is
+        // mounted is reconfigured now; with none, the next Source entry reads the recorded choice.
+        const { activeSourceEditor } = await import('../source/editor.ts');
+        const editor = activeSourceEditor();
+        const current = editor
+          ? Boolean(editor.view.dom.querySelector('.cm-lineNumbers'))
+          : resolveLineNumbers(appHandle()?.currentPath() ?? '');
+        const next = !current;
+        if (editor) editor.setLineNumbers(next);
+        else setLineNumbersChoice(next);
         const shell = appHandle()?.shell as AppShell | undefined;
         if (!shell) return;
         try {

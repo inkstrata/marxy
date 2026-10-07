@@ -53,6 +53,8 @@ interface MountedSourceEditor {
   scrollToByte(byteOffset: number): void;
   /** The buffer the editor maps bytes through; its text is kept when it already matches. */
   replaceBuffer(buffer: Buffer): void;
+  /** The buffer the editor last took (its text was equal to this one's when it was set). */
+  readonly buffer: Buffer;
   destroy(): void;
   readonly view: {
     scrollDOM: HTMLElement;
@@ -146,9 +148,13 @@ export type AppHandle = {
   /**
    * Applies an operation's result: makes `buffer` the open document and renders it through the same
    * path an open takes. The file is not written; that is an explicit save. Refused if a different
-   * document is open by then.
+   * document is open by then, or while Source holds text not yet folded into the document.
    */
   commitEdit(buffer: Buffer): Promise<void>;
+  /** Source text typed and not yet in the document goes into it, as one history entry (undo and redo call this first). */
+  foldSource(): Promise<void>;
+  /** True while Source holds typed text the document does not have yet (it would become an undo step). */
+  hasUnfoldedSource(): boolean;
   /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
   pinPaletteDocument(path: string): void;
   /** The palette index: one walk per repository root, every root opened so far published (A-04). */
@@ -208,6 +214,8 @@ function announceDocument(): void {
 let documentWatch: { close(): void } | null = null;
 let viewMode: 'rendered' | 'source' = 'rendered';
 let sourceEditor: MountedSourceEditor | null = null;
+/** The shared Source editor's accessor, once the editor module has loaded (it stays off the start-up path). */
+let activeSourceEditorIn: (() => MountedSourceEditor | null) | null = null;
 let lastReadingByteOffset = 0;
 let lastReadingFraction = 0;
 let modeToggleBusy = false;
@@ -257,6 +265,11 @@ function sourceMount(): HTMLElement {
 function setModeChrome(mode: 'rendered' | 'source'): void {
   const doc = document.getElementById('doc')!;
   const host = sourceMount();
+  // WebKit blurs a hidden element's focus only at a later rendering update; until then a key (Mod+Z)
+  // would go to the hidden editor. Move focus out now (F-12).
+  if (mode === 'rendered' && host.contains(document.activeElement)) {
+    (document.activeElement as HTMLElement).blur();
+  }
   viewMode = mode;
   document.body.dataset.marxyMode = mode;
   if (mode === 'source') {
@@ -272,7 +285,8 @@ async function ensureSourceEditor(): Promise<MountedSourceEditor> {
   if (sourceEditor) return sourceEditor;
   const buffer = bufferNow();
   if (!buffer) throw new Error('source editor requires an open buffer');
-  const { createSourceEditor } = await import('./source/editor.ts');
+  const { createSourceEditor, activeSourceEditor } = await import('./source/editor.ts');
+  activeSourceEditorIn = activeSourceEditor;
   ({ sourceReadingPosition: sourceReadingPositionIn } = await import('./source/mode-switch.ts'));
   sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer });
   return sourceEditor;
@@ -800,7 +814,11 @@ function teardownDocument(): void {
   destroyTypeset();
   disconnectResizeObserver();
   cancelScheduledSnap();
+  // The module's shared editor too: whoever made it, it must not outlive the page it was built for, or the
+  // next Source entry would reuse an editor holding the previous document (F-12).
+  const shared = activeSourceEditorIn?.() ?? null;
   sourceEditor?.destroy();
+  if (shared && shared !== sourceEditor) shared.destroy();
   sourceEditor = null;
   document.getElementById('marxy-source')?.replaceChildren();
 }
@@ -809,6 +827,12 @@ function teardownDocument(): void {
 function unfoldedSourceEdits(): boolean {
   const buffer = bufferNow();
   return buffer !== null && viewMode === 'source' && sourceEditor !== null && leaveSourceMode(buffer, sourceEditor.docText()).changed;
+}
+
+/** True when the editor's text differs from both the buffer it last took and `next`: text only the editor has. */
+function holdsUnfoldedText(editor: MountedSourceEditor, next: Buffer): boolean {
+  const text = editor.docText();
+  return leaveSourceMode(editor.buffer, text).changed && leaveSourceMode(next, text).changed;
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
@@ -846,6 +870,13 @@ function settlePage(work: Promise<void>): void {
  */
 function repaint(snap: DocumentSnapshot, position: ReadingPosition): void {
   const doc = document.getElementById('doc')!;
+  // Every path that changes the store while Source shows folds the editor's text first (undo, redo, save,
+  // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does, an
+  // invariant broke: say so, and replace the text as before rather than keep a copy that a later fold
+  // would write over the store's change (F-12).
+  if (sourceEditor && holdsUnfoldedText(sourceEditor, snap.buffer)) {
+    console.error('marxy: Source held unfolded text at a repaint; the editor is reset to the document');
+  }
   sourceEditor?.replaceBuffer(snap.buffer);
   releaseAnchor();
   rerenderFromBuffer(doc, position.byteOffset);
@@ -1079,6 +1110,9 @@ function commitEdit(next: Buffer): Promise<void> {
   return serially(async () => {
     const open = store;
     if (!open || next.path !== open.snapshot().path || !state.document) throw new Error('the edited document is no longer open');
+    // `next` was built from the bytes before the reader typed; applying it would be folded back over by
+    // the typed text, or lose the typed text. Refused, nothing written (F-12).
+    if (unfoldedSourceEdits()) throw new Error('Source holds text not yet in the document; leave Source or save first');
     const snap = open.snapshot();
     const change = byteChange(snap.buffer.bytes, next.bytes);
     if (change === null) {
@@ -1699,6 +1733,8 @@ export async function startApp(
       return () => documentListeners.delete(cb);
     },
     commitEdit,
+    hasUnfoldedSource: unfoldedSourceEdits,
+    foldSource: async () => { await foldSourceIntoBuffer(); },
     contentComplete: () => mount?.complete ?? Promise.resolve(),
     mountThrough: (byteOffset) => mountThrough(document.getElementById('doc')!, byteOffset),
     toggleMode: toggleViewMode,
