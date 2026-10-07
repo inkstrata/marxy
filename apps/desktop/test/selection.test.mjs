@@ -12,6 +12,7 @@ import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { sectionRange } from '../../../packages/core/src/sourcemap/section.ts';
 import { fileURLToPath } from 'node:url';
+import { parentOf } from '../src/selection/selection.ts';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -299,4 +300,36 @@ nodeTest('sectionRange sanity on a sample corpus file', () => {
     const range = sectionRange(doc, h);
     assert.equal(range.start, h.src.start);
   }
+});
+
+function firstInline(node, type) {
+  if (node.type === type) return node;
+  for (const c of node.children ?? []) {
+    const hit = firstInline(c, type);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+nodeTest('parent of a link or code span in a top-level paragraph is that paragraph', () => {
+  const doc = parseMarkdown(Buffer.from('A [link](https://example.invalid/) and `code`.\n'), { file: 'p.md' });
+  for (const type of ['link', 'code']) {
+    const inline = firstInline(doc, type);
+    assert.ok(inline, type);
+    const up = parentOf(doc, { kind: 'node', node: inline, el: null });
+    assert.equal(up.node?.type, 'paragraph', type);
+  }
+});
+
+nodeTest('parent of a code span in a list item is its paragraph, then the list item, then the list', () => {
+  const doc = parseMarkdown(Buffer.from('- one `code`\n- two\n'), { file: 'l.md' });
+  const code = firstInline(doc, 'code');
+  assert.ok(code);
+  let sel = { kind: 'node', node: code, el: null };
+  const seen = [];
+  for (let i = 0; i < 3; i++) {
+    sel = parentOf(doc, sel);
+    seen.push(sel.node?.type);
+  }
+  assert.deepEqual(seen, ['paragraph', 'listItem', 'list']);
 });

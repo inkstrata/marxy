@@ -84,16 +84,14 @@ export function moveSibling(doc: Document, sel: Selection, dir: -1 | 1): Selecti
   return { kind: 'node', node: next, el: sel.el };
 }
 
-/** Enclosing block for `Alt+Shift+↑`; list items promote to the list. */
+/** `Alt+Shift+↑`: an inline resolves to its enclosing block; a block walks to its parent block. */
 export function parentOf(doc: Document, sel: Selection): Selection {
   if (sel.kind !== 'node') return sel;
-  let target: Node = sel.node;
   if (!isBlock(sel.node)) {
     const block = blockAt(doc, sel.node.src.start);
-    if (!block) return sel;
-    target = block;
+    return block ? { kind: 'node', node: block, el: sel.el } : sel;
   }
-  const parent = findParent(doc, target);
+  const parent = findParent(doc, sel.node);
   if (!parent || parent === doc) return sel;
   if (isBlock(parent)) return { kind: 'node', node: parent, el: sel.el };
   return sel;
