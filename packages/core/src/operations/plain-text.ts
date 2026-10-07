@@ -89,7 +89,8 @@ function isInline(node: { type: string }): boolean {
   return !BLOCK_TYPES.has(node.type);
 }
 
-const BLOCK_TYPES: ReadonlySet<string> = new Set([
+/** The node types that are blocks (not inline, not the document). */
+export const BLOCK_TYPES: ReadonlySet<string> = new Set([
   'heading', 'paragraph', 'blockquote', 'list', 'listItem', 'codeBlock', 'htmlBlock', 'thematicBreak',
   'table', 'tableRow', 'tableCell', 'mathBlock', 'footnoteDefinition', 'frontmatter',
 ]);

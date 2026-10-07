@@ -1,7 +1,7 @@
 // C-07: copy-source, copy-plain and copy-rich — table cases and corpus properties.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Document, Heading, Node, Paragraph } from '../contracts/ast.ts';
+import type { Document, Heading, List, Node, Paragraph } from '../contracts/ast.ts';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { sectionRange } from '../sourcemap/section.ts';
@@ -9,6 +9,7 @@ import { copyPlain } from './copy-plain.ts';
 import { copyRich } from './copy-rich.ts';
 import { copySource } from './copy-source.ts';
 import { inlinePlainText } from './inline-text.ts';
+import { plainTextOf } from './plain-text.ts';
 import { COPY_PACK } from './pack-copy.ts';
 import { corpusDocuments } from './testing/corpus.ts';
 
@@ -174,9 +175,21 @@ function asWords(text: string): string {
     .replace(/\[\^([^\]]+)\]/g, '[$1]');
 }
 
-/** The structure the HTML carries as elements, not text: list markers and task boxes. */
-function withoutStructureMarks(plain: string): string {
-  return plain.replace(/^[ ]*(?:- |\d+\. )(?:\[[ x]\] )?/gm, '');
+/**
+ * The structure the HTML carries as elements, not text: list markers and task boxes. Stripped per
+ * item, from the start of the item's own first line only, so a continuation line is never trimmed.
+ */
+function withoutStructureMarks(list: List): string {
+  const lines: string[] = [];
+  const walk = (l: List): void => {
+    for (const item of l.children) {
+      const own = plainTextOf(item.children.filter((c) => c.type !== 'list'));
+      lines.push(own);
+      for (const c of item.children) if (c.type === 'list') walk(c);
+    }
+  };
+  walk(list);
+  return lines.join(' ');
 }
 
 test('copy-rich HTML has no data-marxy- attribute in a tag, and its text equals copy-plain for every top-level corpus block', () => {
@@ -193,7 +206,7 @@ test('copy-rich HTML has no data-marxy- attribute in a tag, and its text equals 
       // Elements the HTML draws instead of spelling (images, footnote marks, list markers) are
       // compared by what they have in common: the words.
       const words = (s: string) => s.replace(/\s+/g, ' ').trim();
-      const marks = node.type === 'list' ? withoutStructureMarks(plain) : plain;
+      const marks = node.type === 'list' ? withoutStructureMarks(node) : plain;
       // Raw HTML is the sanitiser's to strip (scripts, svg), so a block holding any is not compared.
       // A mermaid block is drawn with a caption of the renderer's own.
       const captioned = node.type === 'codeBlock' && node.lang === 'mermaid';
@@ -205,4 +218,13 @@ test('copy-rich HTML has no data-marxy- attribute in a tag, and its text equals 
     }
   }
   assert.ok(checked > 100);
+});
+
+test('copy-plain keeps words apart across an inline <br> (paragraph: newline; table cell: space)', () => {
+  for (const br of ['<br>', '<BR/>', '<br />']) {
+    const para = wholeDocument(`y${br}z\n`);
+    assert.equal(copyPlain.run(para).clipboard?.text, 'y\nz', br);
+    const table = wholeDocument(`| a |\n|---|\n| y${br}z |\n`);
+    assert.equal(copyPlain.run(table).clipboard?.text, 'a\ny z', br);
+  }
 });
