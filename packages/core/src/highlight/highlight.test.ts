@@ -9,6 +9,8 @@ import {
   DIFF_LINE_DEL,
   LOG_LEVEL_CLASS,
   highlight,
+  lineCapFor,
+  MAX_HIGHLIGHT_LINE_CHARS,
   lineMetaForHighlight,
   LANGUAGE_TO_GRAMMAR,
   plainTextFromTokens,
@@ -189,6 +191,27 @@ test('an over-long line is left plain and does not stall its neighbours, in ever
   const around = await highlight('echo "one"\n' + 'x'.repeat(3000) + '\necho "three"', 'bash');
   assert.ok(around![0]!.some((t) => t.scope), 'the line before is still highlighted');
   assert.ok(around![2]!.some((t) => t.scope), 'the line after is still highlighted');
+});
+
+// B-21: tokenising is not cut off by time, so the cap on line length is what bounds a slow line.
+test('a line over its grammar\'s cap stays plain and every other line keeps its colours', async () => {
+  const caps = [['cpp', lineCapFor('cpp'), 'int x = "a";'], ['c', lineCapFor('c'), 'int x = "a";'], ['go', lineCapFor('go'), 'x := "a"'], ['bash', lineCapFor('bash'), 'echo "a"'], ['ts', lineCapFor('ts'), 'const x = "a";']] as const;
+  assert.equal(lineCapFor('cpp'), 400);
+  assert.equal(lineCapFor('c++'), 400, 'an alias shares its grammar\'s cap');
+  assert.equal(lineCapFor('sh'), lineCapFor('bash'));
+  assert.equal(lineCapFor('json'), MAX_HIGHLIGHT_LINE_CHARS);
+  for (const [lang, cap, sample] of caps) {
+    const over = '"'.repeat(cap + 1);
+    const atCap = sample + ' '.repeat(cap - sample.length);
+    const code = `${sample}\n${over}\n${atCap}\n${sample}`;
+    const lines = await highlight(code, lang);
+    assert.ok(lines, lang);
+    assert.deepEqual(lines[1], [{ text: over }], `${lang}: the over-cap line is plain`);
+    assert.ok(lines[0]!.some((t) => t.scope), `${lang}: the line before keeps its colours`);
+    assert.ok(lines[2]!.some((t) => t.scope), `${lang}: a line exactly at the cap is still coloured`);
+    assert.ok(lines[3]!.some((t) => t.scope), `${lang}: the line after keeps its colours`);
+    assert.equal(plainTextFromTokens(lines), code, lang);
+  }
 });
 
 test('a block over 200 KB is returned as plain lines', async () => {
