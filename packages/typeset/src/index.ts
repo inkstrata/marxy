@@ -105,6 +105,23 @@ interface Plan extends Candidate {
   readonly measured: readonly Measured[];
 }
 
+/**
+ * Where the reader is: the top-level block under the reading line, and the top of the point in it that
+ * is compared before and after a pass. A block that starts below the line is followed by its top. A block the
+ * line runs through (a long paragraph, a list) is followed by the character under the line (F-11):
+ * its top stays put when lines inside it above the reader change height, as a re-set of that
+ * paragraph or a marker written into it does, and the words under the line would move with no
+ * compensation. The character is held as an offset into the block's text, which neither breaks,
+ * hang nor a revert change (they write elements and generated content, never text), so it is found
+ * again however the pass split or rejoined the text nodes.
+ */
+interface Place {
+  readonly el: HTMLElement;
+  readonly top: number;
+  /** The offset in `el`'s text of the character under the reading line, or -1: follow the block's top. */
+  readonly at: number;
+}
+
 export function attach(article: HTMLElement, opts: TypesetOptions): TypesetController {
   const scheduler = opts.scheduler ?? idleScheduler();
   const fonts = new FontSizes();
@@ -220,14 +237,82 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   listen(true);
   const readerIsScrolling = (): boolean => pressed || performance.now() - lastInput < INPUT_QUIET_MS;
 
-  /** The top-level block under the reading line, and where its top is. */
-  const placeAt = (root: HTMLElement): { readonly el: HTMLElement; readonly top: number } | null => {
+  /** The y the block in `noted` was found at, for the character under it. */
+  let notedY: number = READING_PROBES[0];
+
+  /** The text position at a point on screen, where the engine can say. */
+  const caretAt = (x: number, y: number): { readonly node: Node; readonly offset: number } | null => {
+    const doc = article.ownerDocument as Document & {
+      caretPositionFromPoint?: (x: number, y: number) => { readonly offsetNode: Node; readonly offset: number } | null;
+    };
+    if (typeof doc.caretRangeFromPoint === 'function') {
+      const range = doc.caretRangeFromPoint(x, y);
+      return range === null ? null : { node: range.startContainer, offset: range.startOffset };
+    }
+    const pos = doc.caretPositionFromPoint?.(x, y) ?? null;
+    return pos === null ? null : { node: pos.offsetNode, offset: pos.offset };
+  };
+
+  /** The offset in `el`'s text of a position inside one of its text nodes, or -1. */
+  const offsetIn = (el: HTMLElement, node: Node, offset: number): number => {
+    if (node.nodeType !== Node.TEXT_NODE || !el.contains(node)) return -1;
+    const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let sum = 0;
+    for (let t = walker.nextNode(); t !== null; t = walker.nextNode()) {
+      if (t === node) return sum + offset;
+      sum += (t as Text).length;
+    }
+    return -1;
+  };
+
+  /** The character at offset `at` of `el`'s text, as a node and an offset in it, or null. */
+  const charAt = (el: HTMLElement, at: number): { readonly node: Text; readonly offset: number } | null => {
+    if (at < 0) return null;
+    const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let sum = 0;
+    for (let t = walker.nextNode() as Text | null; t !== null; t = walker.nextNode() as Text | null) {
+      if (at < sum + t.length) return { node: t, offset: at - sum };
+      sum += t.length;
+    }
+    return null;
+  };
+
+  /**
+   * The top of the line that holds the character at offset `at` of `el`'s text, or null. A space a
+   * break collapsed at a line's end paints no box; the character before it is on the same line.
+   */
+  const charTop = (el: HTMLElement, at: number): number | null => {
+    const range = el.ownerDocument.createRange();
+    for (const i of [at, at - 1]) {
+      const c = charAt(el, i);
+      if (c === null) continue;
+      range.setStart(c.node, c.offset);
+      range.setEnd(c.node, c.offset + 1);
+      const rect = range.getClientRects()[0];
+      if (rect !== undefined) return rect.top;
+    }
+    return null;
+  };
+
+  /** The block `el`, found at `y`, and the point in it that is followed. */
+  const placeIn = (el: HTMLElement, y: number): Place => {
+    const top = el.getBoundingClientRect().top;
+    if (top >= y) return { el, top, at: -1 };
+    const box = article.getBoundingClientRect();
+    const caret = caretAt(box.left + box.width / 2, y);
+    const at = caret === null ? -1 : offsetIn(el, caret.node, caret.offset);
+    const line = at < 0 ? null : charTop(el, at);
+    return line === null ? { el, top, at: -1 } : { el, top: line, at };
+  };
+
+  /** The top-level block under the reading line, and the point in it that is followed. */
+  const placeAt = (root: HTMLElement): Place | null => {
     if (root.scrollTop <= 0 || !article.isConnected) return null;
     if (leftTheTop()) return null;
     // Nothing has scrolled since it was noted, so it is still the block under the line: no hit test.
     if (!scrolled && noted !== null && noted.parentElement === article) {
       const rect = noted.getBoundingClientRect();
-      if (rect.bottom > READING_PROBES[0] && rect.top < READING_PROBES[3]) return { el: noted, top: rect.top };
+      if (rect.bottom > READING_PROBES[0] && rect.top < READING_PROBES[3]) return placeIn(noted, notedY);
     }
     scrolled = false;
     noted = null;
@@ -238,19 +323,22 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       while (el !== null && el.parentElement !== article) el = el.parentElement;
       if (el instanceof HTMLElement) {
         noted = el;
-        return { el, top: el.getBoundingClientRect().top };
+        notedY = y;
+        return placeIn(el, y);
       }
     }
     return null;
   };
 
-  /** Runs `work`, which may change heights above the screen, and keeps the block at the top where it was. */
+  /** Runs `work`, which may change heights above the reading line, and keeps the point under it where it was. */
   const keepPlace = (work: () => void): void => {
     const root = scroller();
     const place = root === null || readerIsScrolling() ? null : placeAt(root);
     work();
     if (root === null || place === null || readerIsScrolling() || !place.el.isConnected) return;
-    const moved = place.el.getBoundingClientRect().top - place.top;
+    const now = place.at < 0 ? place.el.getBoundingClientRect().top : charTop(place.el, place.at);
+    if (now === null) return;
+    const moved = now - place.top;
     if (Math.abs(moved) > 0.25) {
       root.scrollTop += moved;
       scrolled = true;
@@ -476,10 +564,12 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const horizon = window.innerHeight * 2;
     const tops = all.map((p) => p.getBoundingClientRect());
     const first = all.filter((_, i) => tops[i]!.bottom > 0 && tops[i]!.top < horizon);
-    // Not inside `keepPlace`: this pass sets only what reaches the screen (bottom below its top edge),
-    // so no paragraph in it is wholly above the block under the reading line, and a relayout has
-    // already reverted every height above it, which the app puts right by position (B-02.5).
-    setBatch(first);
+    // This pass sets only what reaches the screen (bottom below its top edge), so no paragraph in it is
+    // wholly above the block under the reading line; but that block can be one of them, a paragraph the
+    // line runs through, whose lines above the reader it sets (F-11). `keepPlace` follows the character
+    // under the line through it. A relayout has already reverted every height above, which the app
+    // puts right by position (B-02.5); at the top of the page this costs one read.
+    keepPlace(() => setBatch(first));
     stats.viewportMs = performance.now() - t0;
     if (first.length > 0) opts.onPass?.('viewport');
     resolveReady();
