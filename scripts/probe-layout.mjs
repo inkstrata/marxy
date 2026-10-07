@@ -8,29 +8,24 @@
 //        [--widths 320,960] [--sizes 20] [--variants dark] [--scrollbars overlay,classic]
 //        [--workers N] [--no-png] [--overlays-dir DIR] [--readme-only]
 //
-// It renders through the same render entry as scripts/gate-aesthetics.mjs (dist/render.js, built from
-// apps/desktop/src/render/headless.ts). The gate cannot be imported (it runs its own main on load and
-// does not export the builder), so `buildRenderEntry` below is a read-only copy of it; the gate, the
-// baselines, base.css and every src/ file are untouched. Not part of CI (that is L-02).
+// It renders through the same entry as scripts/gate-aesthetics.mjs: the real app, built from
+// apps/desktop/gate.html and driven by window.marxyGate (B-02). The gate cannot be imported (it runs its
+// own main on load and does not export the builder), so `buildRenderEntry` below is a read-only copy of
+// it; the gate, the baselines, base.css and every src/ file are untouched. Not part of CI (that is L-02).
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import { cpus } from 'node:os';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpus, tmpdir } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
 import { launchWebkit } from './playwright-webkit.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const desktop = join(root, 'apps/desktop');
-const dist = join(desktop, 'dist');
+// A fresh directory per run, as the gate does, so a probe and a gate in one worktree never share output.
+const dist = mkdtempSync(join(tmpdir(), 'marxy-probe-'));
 const corpusDir = join(root, 'fixtures/corpus');
-const FONT_URLS = {
-  '/fonts/Literata.ttf': join(root, 'fonts/literata/Literata[opsz,wght].ttf'),
-  '/fonts/Literata-Italic.ttf': join(root, 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
-  '/fonts/JetBrainsMono.ttf': join(root, 'fonts/jetbrains-mono/JetBrainsMono[wght].ttf'),
-};
 
 export const DEFAULTS = {
   widths: [320, 480, 659, 720, 960, 1280, 1600, 2560],
@@ -468,40 +463,43 @@ export function drawOverlayInPage(args) {
 export async function buildRenderEntry() {
   const require = createRequire(join(desktop, 'package.json'));
   const { build } = require('vite');
-  await build({ configFile: join(desktop, 'src/render/vite.config.ts'), root: desktop, logLevel: 'error' });
-  mkdirSync(dist, { recursive: true });
-  const fontsCss = readFileSync(join(desktop, 'src/fonts/fonts.css'), 'utf8').replaceAll('./fonts/', '/fonts/');
-  writeFileSync(
-    join(dist, 'render.html'),
-    `<!doctype html>
-<html lang="en" data-marxy-variant="dark">
-<head>
-<meta charset="utf-8">
-<title>marxy render</title>
-<style id="marxy-fonts">${fontsCss}</style>
-<style id="marxy-default-theme">${defaultThemeCss()}</style>
-</head>
-<body>
-<main id="marxy-main"><article id="doc" class="marxy-article"></article></main>
-<script src="./render.js"></script>
-</body>
-</html>
-`,
-  );
-  if (!existsSync(join(dist, 'render.js'))) throw new Error('vite build did not write apps/desktop/dist/render.js');
+  await build({
+    root: desktop,
+    configFile: join(desktop, 'vite.config.ts'),
+    logLevel: 'error',
+    build: { outDir: dist, emptyOutDir: true },
+    plugins: [
+      {
+        name: 'marxy-gate-input',
+        config(config) {
+          config.build.rollupOptions.input = { gate: join(desktop, 'gate.html') };
+        },
+      },
+    ],
+  });
+  if (!existsSync(join(dist, 'gate.html'))) throw new Error(`vite build did not write ${join(dist, 'gate.html')}`);
 }
 
+/** Serves the built harness, `/` as gate.html, and the corpus image beside it so `image.png` resolves. */
 export function startHarness() {
-  const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.ttf': 'font/ttf' };
+  const types = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.ttf': 'font/ttf',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.png': 'image/png',
+  };
   const server = createServer((req, res) => {
-    const path = new URL(req.url, 'http://x').pathname;
+    const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const send = (code, type, body) => {
       res.statusCode = code;
       res.setHeader('Content-Type', type);
       res.end(body);
     };
-    if (FONT_URLS[path]) return send(200, 'font/ttf', readFileSync(FONT_URLS[path]));
-    const file = path === '/' ? join(dist, 'render.html') : join(dist, path.slice(1));
+    if (path === '/image.png') return send(200, 'image/png', readFileSync(join(corpusDir, 'image.png')));
+    const file = path === '/' ? join(dist, 'gate.html') : join(dist, path.slice(1));
     if (!file.startsWith(dist) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
     return send(200, types[file.slice(file.lastIndexOf('.'))] ?? 'application/octet-stream', readFileSync(file));
   });
@@ -516,14 +514,14 @@ export const CLASSIC_CSS = `html::-webkit-scrollbar{width:${CLASSIC_SCROLLBAR_PX
 /**
  * Render `source` at one matrix cell and measure it. `classic` models a scrollbar that appears after
  * first text: the page is typeset overlay-wide, then the scrollbar is injected and the main is left to
- * reflow (H4). Set lines are read once, as that reflow leaves them. The app re-sets paragraphs 100 ms after
- * the article's clientWidth changes (apps/desktop/src/app.ts); the headless render entry has no resize
- * observer, so the probe cannot say how long the overflow is visible, only how far it reaches before that.
+ * reflow (H4). Set lines are read once, as that reflow leaves them, two frames after the scrollbar shows.
+ * The app re-sets paragraphs 100 ms after the article's clientWidth changes (apps/desktop/src/app.ts), so
+ * the lines read are the ones before that relayout: how far the overflow reaches, not how long it shows.
  */
 export async function probeCell(page, origin, source, cell, opts = {}) {
-  await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof window.marxyRender === 'function');
-  const rendered = await page.evaluate(async ({ source, o }) => window.marxyRender(source, o), {
+  await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
+  await page.evaluate(async ({ source, o }) => window.marxyGate.render(source, o), {
     source,
     o: { variant: cell.variant, width: cell.width, size: cell.size },
   });
@@ -532,7 +530,7 @@ export async function probeCell(page, origin, source, cell, opts = {}) {
     document.getElementById('marxy-main').style.width = '';
   });
   await settle(page);
-  const out = { removed: rendered?.removed ? Object.keys(rendered.removed).length : 0 };
+  const out = {};
   if (cell.scrollbar === 'classic') {
     await page.addStyleTag({ content: CLASSIC_CSS });
     // WebKit re-reads a viewport scrollbar style only when the root's overflow changes; toggling it is
@@ -788,7 +786,7 @@ export function headlines(results, statics) {
     if (base) shift.push(Math.abs(cr.cell.centre.columnAxis - base.cell.centre.columnAxis));
   }
   out.H4 = {
-    note: 'Not errors: the column moving by half a classic scrollbar (maxColumnShiftPx, maxCentreOffsetFromWindowClassicPx) is what a classic scrollbar does, and maxCentreOffsetFromClientClassicPx 0 says the visible area stays centred. Set-line overflow is read as the 15 px scrollbar first reflows the page, before the app\'s own relayout (100 ms after clientWidth changes, apps/desktop/src/app.ts); the headless render entry has no such observer, so how long it shows is not measured. The typesetter\'s hung hyphens and punctuation are not counted (maxHungHyphenPastOverlayPx is their size, with no scrollbar).',
+    note: 'Not errors: the column moving by half a classic scrollbar (maxColumnShiftPx, maxCentreOffsetFromWindowClassicPx) is what a classic scrollbar does, and maxCentreOffsetFromClientClassicPx 0 says the visible area stays centred. Set-line overflow is read as the 15 px scrollbar first reflows the page, before the app\'s own relayout (100 ms after clientWidth changes, apps/desktop/src/app.ts); the probe reads two frames after the scrollbar shows, so how long it shows is not measured. The typesetter\'s hung hyphens and punctuation are not counted (maxHungHyphenPastOverlayPx is their size, with no scrollbar).',
     classicCellsWithScrollbar: withSb.length,
     scrollbarPx: withSb[0]?.cell.viewport.scrollbar ?? null,
     maxColumnShiftPx: r2(Math.max(0, ...shift)),
@@ -881,7 +879,7 @@ export async function run(opts) {
           mkdirSync(opts.overlaysDir, { recursive: true });
           writeFileSync(join(opts.overlaysDir, `${file.replace(/\.md$/, '')}-${cellId(cell)}.png`), (await overlayShot(page, out.cell)).png);
         }
-        return { file, id: cellId(cell), ...cell, cell: out.cell, removed: out.removed };
+        return { file, id: cellId(cell), ...cell, cell: out.cell };
       } catch (e) {
         return { file, id: cellId(cell), ...cell, error: String(e.message ?? e) };
       } finally {
@@ -934,7 +932,7 @@ export function assemble(opts, runResult) {
       units: 'CSS px, rounded to 0.01. Every delta is from the column (the article content box); dR > 0 is past the right edge.',
       offsetFromWindow: 'column axis minus window axis (innerWidth / 2); offsetFromClient uses the width minus the scrollbar.',
       margins: 'left = leftmost ink edge from the window left; right = clientWidth minus rightmost ink edge; asymmetry = left - right. bodyInk = top-level paragraphs, pageInk = all text, pageBoxes = all block boxes.',
-      classic: 'The page is set at the overlay width, then a 15px ::-webkit-scrollbar is injected (a scrollbar that appears after first text) and lines is read as that reflow leaves it, before the app\'s own relayout (100 ms after clientWidth changes; the headless render entry has no resize observer, so nothing here says how long an overflow shows). Documents shorter than the window have scrollbar 0.',
+      classic: 'The page is set at the overlay width, then a 15px ::-webkit-scrollbar is injected (a scrollbar that appears after first text) and lines is read as that reflow leaves it, before the app\'s own relayout (100 ms after clientWidth changes; it is read two frames after the scrollbar shows, so nothing here says how long an overflow shows). Documents shorter than the window have scrollbar 0.',
       offenders: 'H1 box overhangs the column unequally; H2 top-level block text not on the column edge; H3 hung mark (ol marker, checkbox, hung punctuation) left of the gutter floor; H4 set line past its paragraph content box (the typesetter\'s hung hyphens and punctuation excluded, kept apart as lines.maxHungPastPx); H5 block box past the gutter floor at any depth (or ink outside the window); H6 notice edges / grid height. The probe states facts; L-01 judges them.',
     },
     errors: results.filter((r) => r.error).map((r) => ({ file: r.file, cell: r.id, error: r.error })),
@@ -1054,7 +1052,7 @@ node scripts/probe-layout.mjs --readme-only                     # this file, fro
 node --test scripts/probe-layout.test.mjs                       # the negative controls and the determinism check
 \`\`\`
 
-The probe renders through the harness entry the aesthetics gate uses (\`apps/desktop/dist/render.js\`). Two runs
+The probe renders through the app harness the aesthetics gate uses (\`apps/desktop/gate.html\`). Two runs
 over the same tree give an identical \`probe.json\` (no timestamps; numbers rounded to 0.01 px). The probe is not
 in CI; L-02 promotes its rules into the gate.
 
@@ -1149,7 +1147,7 @@ reproduced with \`--files\`, \`--widths\` and \`--sizes\`.
 ## What the probe does not do, and caveats
 
 - It does not judge. A \`reaches: false\` margin means the document has no ink at the column's right edge, so that asymmetry says nothing.
-- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`lines\` is read as that reflow leaves it, before the app's own relayout (100 ms after \`clientWidth\` changes, \`apps/desktop/src/app.ts\`). The headless render entry has no resize observer, so the probe cannot say how long an overflow shows; L-01 must not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
+- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`lines\` is read as that reflow leaves it, before the app's own relayout (100 ms after \`clientWidth\` changes, \`apps/desktop/src/app.ts\`). The probe reads two frames after the scrollbar shows, so it cannot say how long an overflow shows; L-01 must not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
 - H5 is untested for nested tables: the corpus has no table inside a list or blockquote, so \`nestedOffenders 0\` means no sample. L-01 should add one synthetic nested-table page.
 - The classic-scrollbar column shift and centre offset from the window are what a classic scrollbar is; the visible area stays centred (\`offsetFromClient\` 0). They are not errors.
 - \`--ref\` is a label only. The probe renders whatever tree it runs in; the Measured line says which.
