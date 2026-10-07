@@ -59,3 +59,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0052](0052-the-restated-spirit.md) | The spirit: a reader for source of any kind; seven values that harden into five commitments | accepted (author, 2026-10-07) |
 | [0053](0053-collection-roots.md) | Collection roots: a reader-owned `collection.toml` of folders, searched from the palette and never browsed; scan on demand, no persistent index; amends 0012 | proposed |
 | [0054](0054-verb-menu-and-default-verbs.md) | One verb menu is the click surface; at most seven verbs per selection; `Mod+C` runs a default copy verb and never a splice; amends 0019's cap | proposed |
+| [0055](0055-find-edge-token.md) | `--marxy-color-find-edge`: a find match carries a 2 px edge in a token, because a pale fill cannot be 3:1; amends 0024 | proposed |

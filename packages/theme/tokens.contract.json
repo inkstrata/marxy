@@ -160,6 +160,11 @@
     "comment": true
   },
   {
+    "name": "--marxy-color-find-edge",
+    "kind": "colour",
+    "comment": true
+  },
+  {
     "name": "--marxy-color-notice",
     "kind": "colour",
     "comment": true

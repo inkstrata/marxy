@@ -57,11 +57,15 @@ export function marxyCodeMirrorTheme(): Extension {
       },
       '.cm-gutterElement': { lineHeight: 'var(--marxy-line-box-code, 30px)', padding: `0 ${UNIT}` },
       '.cm-foldGutter .cm-gutterElement': { padding: '0', cursor: 'pointer' },
-      '.cm-searchMatch': { backgroundColor: 'var(--marxy-color-find, #3a3010)', outline: `1px solid ${rule}` },
-      // Told apart by an outline as well as colour (ADR-0033).
+      // A pale fill cannot be 3:1 against the ground and keep every token readable, so a 2 px edge in
+      // --marxy-color-find-edge carries the 3:1 (L-11); the current match adds a 2 px text-colour outline.
+      '.cm-searchMatch': {
+        backgroundColor: 'var(--marxy-color-find, #3a3010)',
+        borderBottom: '2px solid var(--marxy-color-find-edge, #94701a)',
+      },
       '.cm-searchMatch.cm-searchMatch-selected': {
         backgroundColor: 'var(--marxy-color-find-current, #403510)',
-        outline: `2px solid ${accent}`,
+        outline: '2px solid var(--marxy-color-code-text, #e3dfd6)',
       },
       '.cm-panels': {
         backgroundColor: 'var(--marxy-color-notice, #1f1e1b)',
