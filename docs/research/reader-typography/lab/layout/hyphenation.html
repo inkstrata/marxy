@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hyphenation probe</title>
+<!-- 10-spec "Verification: Hyphenation": a long word in a narrow box, heights compared with
+     hyphens: auto against hyphens: manual. Run by run.mjs; window.run() returns the numbers. -->
+<style>
+  @font-face { font-family: "Literata"; src: url("/fonts/Literata.ttf") format("truetype"); font-weight: 200 900; }
+  body { margin: 16px; font: 20px/30px "Literata", serif; }
+  #host > div { width: 6em; margin: 0 0 30px; overflow-wrap: normal; word-break: normal; }
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script>
+const WORDS = {
+  en: 'internationalization',
+  de: 'Donaudampfschifffahrtsgesellschaft',
+  fr: 'anticonstitutionnellement',
+  es: 'electroencefalografista',
+  nl: 'arbeidsongeschiktheidsverzekering',
+  pl: 'konstantynopolitańczykowianeczka',
+  fi: 'lentokonesuihkuturbiinimoottori',
+  ru: 'достопримечательность',
+};
+window.run = async () => {
+  await document.fonts.load('20px Literata');
+  const host = document.getElementById('host');
+  const out = {};
+  for (const [lang, word] of Object.entries(WORDS)) {
+    const h = {};
+    for (const mode of ['manual', 'auto']) {
+      const div = document.createElement('div');
+      div.lang = lang;
+      div.style.hyphens = mode;
+      div.style.webkitHyphens = mode;
+      div.textContent = `${word} ${word}`;
+      host.append(div);
+      h[mode] = div.getBoundingClientRect().height;
+      div.remove();
+    }
+    out[lang] = { manualPx: h.manual, autoPx: h.auto, hyphenates: h.auto > h.manual };
+  }
+  return { supports: CSS.supports('hyphens', 'auto') || CSS.supports('-webkit-hyphens', 'auto'), byLang: out };
+};
+</script>
+</body>
+</html>

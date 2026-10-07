@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fallback size and CJK leading probe</title>
+<!-- 10-spec "Size across faces" and coupling rule 4. Ink heights by canvas at 100 px, so each is a
+     fraction of the em; the CJK paragraph is laid out at Marxy's 20 / 30 px and at 1.17 x that leading.
+     Run by run.mjs; window.run() returns the numbers. -->
+<style>
+  @font-face { font-family: "Literata"; src: url("/fonts/Literata.ttf") format("truetype"); font-weight: 200 900; }
+  @font-face { font-family: "JetBrains Mono"; src: url("/fonts/JetBrainsMono.ttf") format("truetype"); font-weight: 100 800; }
+  body { margin: 16px; }
+  p { width: 611px; margin: 0 0 30px; font-family: "Literata", serif; font-size: 20px; }
+</style>
+</head>
+<body>
+<p id="ja" lang="en" style="line-height: 30px">日本語の文章は単語の間に空白がなく、行の折り返しは文字単位で行われます。禁則処理により、句読点や閉じ括弧は行頭に来てはならず、開き括弧は行末に来てはなりません。マークダウンのリーダーはこの規則を尊重しなければ、読みにくい組版になります。強調やコードが混在する段落でも同様です。</p>
+<p id="ja35" lang="en" style="line-height: 35px">日本語の文章は単語の間に空白がなく、行の折り返しは文字単位で行われます。禁則処理により、句読点や閉じ括弧は行頭に来てはならず、開き括弧は行末に来てはなりません。マークダウンのリーダーはこの規則を尊重しなければ、読みにくい組版になります。強調やコードが混在する段落でも同様です。</p>
+<script>
+const r3 = (n) => Math.round(n * 1000) / 1000;
+function ink(font, text) {
+  const c = document.createElement('canvas').getContext('2d');
+  c.font = font;
+  const m = c.measureText(text);
+  return { asc: m.actualBoundingBoxAscent / 100, desc: m.actualBoundingBoxDescent / 100, adv: m.width / 100 / [...text].length };
+}
+function pitch(id) {
+  const p = document.getElementById(id);
+  const r = document.createRange();
+  r.selectNodeContents(p);
+  const tops = [...new Set([...r.getClientRects()].map((x) => Math.round(x.top)))].sort((a, b) => a - b);
+  const d = tops.slice(1).map((t, i) => t - tops[i]);
+  return { lines: tops.length, pitchPx: d.length ? Math.min(...d) : null, heightPx: p.getBoundingClientRect().height };
+}
+window.run = async () => {
+  await document.fonts.load('100px Literata');
+  await document.fonts.load('100px "JetBrains Mono"');
+  const lit = ink('100px Literata', 'x');
+  const litCap = ink('100px Literata', 'H');
+  const rows = {
+    'Literata x': lit.asc,
+    'Literata H': litCap.asc,
+    'JetBrains Mono x': ink('100px "JetBrains Mono"', 'x').asc,
+    'JetBrains Mono advance': ink('100px "JetBrains Mono"', 'xxxxxxxxxx').adv,
+    'system serif x (no Literata)': ink('100px serif', 'x').asc,
+    'system monospace x': ink('100px monospace', 'x').asc,
+    // Literata has no glyphs for these scripts: each falls back to the system font at the same size.
+    'Han 永 ink (fallback)': ink('100px Literata, serif', '永').asc + ink('100px Literata, serif', '永').desc,
+    'Kana あ ink (fallback)': ink('100px Literata, serif', 'あ').asc + ink('100px Literata, serif', 'あ').desc,
+    'Hebrew ש height (fallback)': ink('100px Literata, serif', 'ש').asc,
+    'Arabic ه height (fallback)': ink('100px Literata, serif', 'ه').asc,
+    'Devanagari क headline (fallback)': ink('100px Literata, serif', 'क').asc,
+    'Thai ก height (fallback)': ink('100px Literata, serif', 'ก').asc,
+  };
+  const em = {};
+  for (const [k, v] of Object.entries(rows)) em[k] = { em: r3(v), vsLiterataX: r3(v / lit.asc) };
+  return {
+    emFractions: em,
+    cjk: {
+      at30: pitch('ja'),
+      at35: pitch('ja35'),
+      hanInkPxAt20: r3(rows['Han 永 ink (fallback)'] * 20),
+    },
+  };
+};
+</script>
+</body>
+</html>
