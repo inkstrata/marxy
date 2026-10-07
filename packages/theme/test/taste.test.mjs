@@ -229,24 +229,52 @@ test('code voice: the code line box is a whole number of grid units at the defau
 });
 
 // L-10: the reader's text size sets the code line box with the body's, so code stays on the grid at
-// every size from 15 to 50 (design-language constraint 5), not only at 20 and 40.
-test('code voice: the code line box is a whole number of grid units at every text size', async () => {
-  const { sizeProperties, DEFAULT_SIZE, MIN_SIZE, MAX_SIZE } = await import('../../../apps/desktop/src/theme/reader-config.ts');
-  const page = await openPage(browser, renderMarkdown('Body with `inline code` in the sentence.\n'), { snap: false });
+// every size from 15 to 50 (design-language constraint 5), not only at 20 and 40. The sizes go
+// through the real applyReaderConfig onto a recording root; what the page then does is measured.
+test('code voice: code lines, inline code and frontmatter code stay on the grid at every text size', async () => {
+  const { applyReaderConfig, DEFAULT_SIZE, MIN_SIZE, MAX_SIZE } = await import('../../../apps/desktop/src/theme/reader-config.ts');
+  const styles = new Map();
+  const attrs = new Map();
+  const root = {
+    style: { setProperty: (k, v) => styles.set(k, v), removeProperty: (k) => styles.delete(k) },
+    ownerDocument: { documentElement: { setAttribute: (k, v) => attrs.set(k, v) } },
+  };
+  const source =
+    '---\ntitle: Hi\nobj:\n  a: 1\n  b: 2\n---\n\n' +
+    'A paragraph with `inline code` in the middle of the sentence.\n\n```js\nconst a = 1;\nconst b = 2;\nconst c = 3;\n```\n';
+  const page = await openPage(browser, renderMarkdown(source), { snap: false });
   const bad = [];
-  for (let size = MIN_SIZE; size <= MAX_SIZE; size++) {
-    // The default size sets nothing on the root, as applyReaderConfig leaves it.
-    const props = size === DEFAULT_SIZE ? {} : sizeProperties(size);
-    const m = await page.evaluate((props) => {
-      const root = document.documentElement;
-      root.removeAttribute('style');
-      for (const [k, v] of Object.entries(props)) root.style.setProperty(k, v);
+  const sizes = [...Array(MAX_SIZE - MIN_SIZE + 1).keys()].map((i) => MIN_SIZE + i);
+  for (const size of [DEFAULT_SIZE + 1, ...sizes]) {
+    applyReaderConfig(root, { variant: 'dark', size });
+    const css = [...styles].map(([k, v]) => `${k}:${v}`).join(';');
+    const m = await page.evaluate((css) => {
+      const html = document.documentElement;
+      html.setAttribute('style', css);
       const article = document.getElementById('doc');
-      const unit = parseFloat(getComputedStyle(article).lineHeight) / 2;
-      const codeBox = parseFloat(getComputedStyle(root).getPropertyValue('--marxy-line-box-code'));
-      return { codeBox, unit };
-    }, props);
-    if (!Number.isInteger(m.codeBox / m.unit)) bad.push(`${size}: code ${m.codeBox} / unit ${m.unit}`);
+      const box = parseFloat(getComputedStyle(article).lineHeight);
+      const h = (el) => el.getBoundingClientRect().height;
+      const cell = article.querySelector('dl > dd > code');
+      return {
+        box,
+        unit: box / 2,
+        pre: (() => { const pre = article.querySelector('pre'); const cs = getComputedStyle(pre); return (pre.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / 3; })(),
+        para: h(article.querySelector('p')),
+        fmCode: parseFloat(getComputedStyle(cell).fontSize),
+        fmCaption: parseFloat(getComputedStyle(cell.closest('dl')).fontSize),
+        fmLine: parseFloat(getComputedStyle(cell).lineHeight),
+      };
+    }, css);
+    const whole = (v, u) => Math.abs(v / u - Math.round(v / u)) < 0.01;
+    const tag = `${size}`;
+    if (!whole(m.pre, m.unit)) bad.push(`${tag}: pre line ${m.pre} / unit ${m.unit}`);
+    if (!whole(m.para, m.box)) bad.push(`${tag}: paragraph ${m.para} / line box ${m.box}`);
+    if (!whole(m.fmLine, m.unit)) bad.push(`${tag}: frontmatter line ${m.fmLine} / unit ${m.unit}`);
+    if (Math.abs(m.fmCode / m.fmCaption - 1.2) > 0.001) bad.push(`${tag}: frontmatter code ${m.fmCode} vs caption ${m.fmCaption}`);
+    if (size === DEFAULT_SIZE) {
+      assert.equal(styles.size, 0, 'the default size sets nothing on the root');
+      assert.equal(m.fmCode, 18);
+    }
   }
   assert.deepEqual(bad, []);
   await page.close();

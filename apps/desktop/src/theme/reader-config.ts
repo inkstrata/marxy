@@ -53,7 +53,7 @@ export function lineBoxFor(sizePx: number): number {
 /**
  * The code face for a body size: nine-tenths of it, to the half pixel. The mono face runs large at
  * equal size, so code is set at about 0.85 to 0.9 em of the text around it (06-code.md, "Size and
- * the monospace quirk"); 18 of 20 is the default's ratio, kept at every size.
+ * the monospace quirk"); 18 of 20 is the default's ratio, kept at every size (the half-pixel rounding moves it a little: 0.9 becomes 16 of 18, and the x-height ratio dips to 0.964 there).
  */
 export function codeSizeFor(sizePx: number): number {
   return Math.round(sizePx * 0.9 * 2) / 2;
