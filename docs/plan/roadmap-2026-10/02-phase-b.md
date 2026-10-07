@@ -1179,6 +1179,8 @@ the store **here**. `save.ts`'s `host` is deleted **here**.
    - Keep `state.document` for `html` and `blocks`, with `ast` and `nodeMap` filled from the
      snapshot so `AppHandle.state` keeps its shape.
    - Delete `openPath`, `documentBuffer` and `bytesOnDisk`.
+   - B-10's `TrustController` takes `buffer()` and `showSource(byteOffset)` as deps (the lead
+     accepted that signature, 2026-10-07): point `buffer()` at `store.snapshot().buffer`.
 2. Re-render on change: subscribe the page to the store. On `apply`, `undo`, `redo`,
    `commitSource` and `reload`, run `rerenderFromBuffer(doc, position)`. This replaces
    `commitEdit`'s body (`:908-921`) and the re-render callbacks in `leaveSourceForRendered` and
