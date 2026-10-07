@@ -1,0 +1,1194 @@
+{
+ "tool": "docs/research/reader-typography/lab/layout/run.mjs",
+ "engine": "webkit-macos (Playwright)",
+ "textSpacing": {
+  "09-gfm-everything.md@320": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 7
+   },
+   "asLateSheet": {
+    "hScroll": true,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 5,
+    "maxSetLinePastBoxPx": 72.95,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 5
+   }
+  },
+  "09-gfm-everything.md@960": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 1
+   },
+   "asLateSheet": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 0
+   }
+  },
+  "05-pathological-table-and-nesting.md@320": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 8
+   },
+   "asLateSheet": {
+    "hScroll": true,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 2,
+    "maxSetLinePastBoxPx": 38.99,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 3
+   }
+  },
+  "05-pathological-table-and-nesting.md@960": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 0
+   },
+   "asLateSheet": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 0
+   }
+  },
+  "27-alerts.md@320": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 4
+   },
+   "asLateSheet": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 1,
+    "maxSetLinePastBoxPx": 16.78,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 1
+   }
+  },
+  "27-alerts.md@960": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 0
+   },
+   "asLateSheet": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 0
+   }
+  },
+  "31-essay.md@320": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 49
+   },
+   "asLateSheet": {
+    "hScroll": true,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 47,
+    "maxSetLinePastBoxPx": 104.37,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 47
+   }
+  },
+  "31-essay.md@960": {
+   "asTheme": {
+    "hScroll": false,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 0,
+    "maxSetLinePastBoxPx": 0,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 46
+   },
+   "asLateSheet": {
+    "hScroll": true,
+    "clipped": 0,
+    "clippedKinds": [],
+    "setLinesPastBox": 45,
+    "maxSetLinePastBoxPx": 214.83,
+    "blockOverlaps": 0,
+    "bodyFontPx": 20,
+    "setParagraphs": 45
+   }
+  }
+ },
+ "text200": {
+  "09-gfm-everything.md@960": {
+   "hScroll": false,
+   "clipped": 0,
+   "clippedKinds": [],
+   "setLinesPastBox": 0,
+   "maxSetLinePastBoxPx": 0,
+   "blockOverlaps": 0,
+   "bodyFontPx": 40,
+   "setParagraphs": 0
+  },
+  "09-gfm-everything.md@1280": {
+   "hScroll": false,
+   "clipped": 0,
+   "clippedKinds": [],
+   "setLinesPastBox": 0,
+   "maxSetLinePastBoxPx": 0,
+   "blockOverlaps": 0,
+   "bodyFontPx": 40,
+   "setParagraphs": 0
+  },
+  "01-long-technical.md@960": {
+   "hScroll": false,
+   "clipped": 0,
+   "clippedKinds": [],
+   "setLinesPastBox": 0,
+   "maxSetLinePastBoxPx": 0,
+   "blockOverlaps": 0,
+   "bodyFontPx": 40,
+   "setParagraphs": 0
+  },
+  "01-long-technical.md@1280": {
+   "hScroll": false,
+   "clipped": 0,
+   "clippedKinds": [],
+   "setLinesPastBox": 0,
+   "maxSetLinePastBoxPx": 0,
+   "blockOverlaps": 0,
+   "bodyFontPx": 40,
+   "setParagraphs": 0
+  },
+  "05-pathological-table-and-nesting.md@960": {
+   "hScroll": false,
+   "clipped": 0,
+   "clippedKinds": [],
+   "setLinesPastBox": 0,
+   "maxSetLinePastBoxPx": 0,
+   "blockOverlaps": 0,
+   "bodyFontPx": 40,
+   "setParagraphs": 0
+  },
+  "05-pathological-table-and-nesting.md@1280": {
+   "hScroll": false,
+   "clipped": 0,
+   "clippedKinds": [],
+   "setLinesPastBox": 0,
+   "maxSetLinePastBoxPx": 0,
+   "blockOverlaps": 0,
+   "bodyFontPx": 40,
+   "setParagraphs": 0
+  }
+ },
+ "ragged": {
+  "31-essay.md@320": {
+   "lines": 686,
+   "mean": 29,
+   "min": 1,
+   "p10": 27,
+   "max": 36,
+   "textAlign": "start",
+   "wordSpacing": "0px"
+  },
+  "31-essay.md@480": {
+   "lines": 428,
+   "mean": 46,
+   "min": 1,
+   "p10": 43,
+   "max": 53,
+   "textAlign": "start",
+   "wordSpacing": "0px"
+  },
+  "31-essay.md@960": {
+   "lines": 310,
+   "mean": 63.3,
+   "min": 1,
+   "p10": 61,
+   "max": 73,
+   "textAlign": "start",
+   "wordSpacing": "0px"
+  }
+ },
+ "cjkInPage": [
+  {
+   "lines": 7,
+   "minPitchPx": 5,
+   "maxPitchPx": 30,
+   "lineHeight": "30px",
+   "lang": "en",
+   "set": false
+  },
+  {
+   "lines": 4,
+   "minPitchPx": 30,
+   "maxPitchPx": 30,
+   "lineHeight": "30px",
+   "lang": "en",
+   "set": false
+  },
+  {
+   "lines": 1,
+   "minPitchPx": null,
+   "maxPitchPx": null,
+   "lineHeight": "30px",
+   "lang": "en",
+   "set": false
+  },
+  {
+   "lines": 3,
+   "minPitchPx": 5,
+   "maxPitchPx": 30,
+   "lineHeight": "30px",
+   "lang": "en",
+   "set": false
+  }
+ ],
+ "faces": {
+  "emFractions": {
+   "Literata x": {
+    "em": 0.513,
+    "vsLiterataX": 1
+   },
+   "Literata H": {
+    "em": 0.73,
+    "vsLiterataX": 1.423
+   },
+   "JetBrains Mono x": {
+    "em": 0.55,
+    "vsLiterataX": 1.072
+   },
+   "JetBrains Mono advance": {
+    "em": 0.6,
+    "vsLiterataX": 1.17
+   },
+   "system serif x (no Literata)": {
+    "em": 0.449,
+    "vsLiterataX": 0.875
+   },
+   "system monospace x": {
+    "em": 0.451,
+    "vsLiterataX": 0.879
+   },
+   "Han 永 ink (fallback)": {
+    "em": 0.925,
+    "vsLiterataX": 1.803
+   },
+   "Kana あ ink (fallback)": {
+    "em": 0.854,
+    "vsLiterataX": 1.665
+   },
+   "Hebrew ש height (fallback)": {
+    "em": 0.59,
+    "vsLiterataX": 1.151
+   },
+   "Arabic ه height (fallback)": {
+    "em": 0.396,
+    "vsLiterataX": 0.772
+   },
+   "Devanagari क headline (fallback)": {
+    "em": 0.642,
+    "vsLiterataX": 1.251
+   },
+   "Thai ก height (fallback)": {
+    "em": 0.569,
+    "vsLiterataX": 1.109
+   }
+  },
+  "cjk": {
+   "at30": {
+    "lines": 5,
+    "pitchPx": 30,
+    "heightPx": 150
+   },
+   "at35": {
+    "lines": 5,
+    "pitchPx": 35,
+    "heightPx": 175
+   },
+   "hanInkPxAt20": 18.497
+  }
+ },
+ "hyphenation": {
+  "engine": {
+   "supports": true,
+   "byLang": {
+    "en": {
+     "manualPx": 60,
+     "autoPx": 120,
+     "hyphenates": true
+    },
+    "de": {
+     "manualPx": 60,
+     "autoPx": 240,
+     "hyphenates": true
+    },
+    "fr": {
+     "manualPx": 60,
+     "autoPx": 180,
+     "hyphenates": true
+    },
+    "es": {
+     "manualPx": 60,
+     "autoPx": 120,
+     "hyphenates": true
+    },
+    "nl": {
+     "manualPx": 60,
+     "autoPx": 210,
+     "hyphenates": true
+    },
+    "pl": {
+     "manualPx": 60,
+     "autoPx": 210,
+     "hyphenates": true
+    },
+    "fi": {
+     "manualPx": 60,
+     "autoPx": 210,
+     "hyphenates": true
+    },
+    "ru": {
+     "manualPx": 60,
+     "autoPx": 180,
+     "hyphenates": true
+    }
+   }
+  },
+  "typesetter": {
+   "patternForDocumentLang": "en-us",
+   "patternForDe": null,
+   "enUsOnOtherLanguages": {
+    "Donaudampfschifffahrtsgesellschaft": "Donau-dampf-schiff-fahrts-ge-sellschaft",
+    "anticonstitutionnellement": "an-ti-con-sti-tu-tion-nelle-ment",
+    "electroencefalografista": "elec-troence-falo-grafista"
+   }
+  }
+ },
+ "nested": {
+  "320": [
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": 0,
+    "scrolls": true,
+    "heightInUnits": 40
+   },
+   {
+    "tag": "table",
+    "depth": 2,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -25,
+    "scrolls": true,
+    "heightInUnits": 36
+   },
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -19,
+    "scrolls": true,
+    "heightInUnits": 40
+   },
+   {
+    "tag": "pre",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -19,
+    "scrolls": false,
+    "heightInUnits": 16
+   },
+   {
+    "tag": "table",
+    "depth": 0,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": 0,
+    "scrolls": true,
+    "heightInUnits": 10
+   }
+  ],
+  "960": [
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -150.41,
+    "scrolls": false,
+    "heightInUnits": 16
+   },
+   {
+    "tag": "table",
+    "depth": 2,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -175.41,
+    "scrolls": false,
+    "heightInUnits": 14
+   },
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -169.41,
+    "scrolls": false,
+    "heightInUnits": 18
+   },
+   {
+    "tag": "pre",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -169.41,
+    "scrolls": false,
+    "heightInUnits": 6
+   },
+   {
+    "tag": "table",
+    "depth": 0,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -150.41,
+    "scrolls": true,
+    "heightInUnits": 10
+   }
+  ],
+  "1280": [
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -310.41,
+    "scrolls": false,
+    "heightInUnits": 12
+   },
+   {
+    "tag": "table",
+    "depth": 2,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -335.41,
+    "scrolls": false,
+    "heightInUnits": 10
+   },
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -329.41,
+    "scrolls": false,
+    "heightInUnits": 14
+   },
+   {
+    "tag": "pre",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -329.41,
+    "scrolls": false,
+    "heightInUnits": 6
+   },
+   {
+    "tag": "table",
+    "depth": 0,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -310.41,
+    "scrolls": true,
+    "heightInUnits": 10
+   }
+  ],
+  "480-classic-16": [
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": 0,
+    "scrolls": true,
+    "heightInUnits": 51
+   },
+   {
+    "tag": "table",
+    "depth": 2,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -20,
+    "scrolls": true,
+    "heightInUnits": 45.75
+   },
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -16,
+    "scrolls": true,
+    "heightInUnits": 51
+   },
+   {
+    "tag": "pre",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -16,
+    "scrolls": false,
+    "heightInUnits": 12
+   },
+   {
+    "tag": "table",
+    "depth": 0,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": 0,
+    "scrolls": true,
+    "heightInUnits": 13
+   }
+  ],
+  "480-classic-20": [
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": 0,
+    "scrolls": true,
+    "heightInUnits": 41
+   },
+   {
+    "tag": "table",
+    "depth": 2,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -25,
+    "scrolls": true,
+    "heightInUnits": 37
+   },
+   {
+    "tag": "table",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -19,
+    "scrolls": true,
+    "heightInUnits": 41
+   },
+   {
+    "tag": "pre",
+    "depth": 1,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": -19,
+    "scrolls": false,
+    "heightInUnits": 10
+   },
+   {
+    "tag": "table",
+    "depth": 0,
+    "pastRoomRightPx": 0,
+    "pastRoomLeftPx": 0,
+    "scrolls": true,
+    "heightInUnits": 11
+   }
+  ]
+ },
+ "decisions": {
+  "d1d2": {
+   "01-long-technical.md@480": {
+    "before": {
+     "pageBoxesAsymmetry": 0,
+     "preTextFromColumn": [
+      null,
+      null
+     ],
+     "preBoxLeftRight": [
+      null,
+      null
+     ],
+     "tableBoxLeftRight": [
+      0,
+      0
+     ],
+     "imageTextFromColumn": null,
+     "room": 0
+    },
+    "after": {
+     "pageBoxesAsymmetry": 0,
+     "preTextFromColumn": [
+      null,
+      null
+     ],
+     "preBoxLeftRight": [
+      null,
+      null
+     ],
+     "tableBoxLeftRight": [
+      0,
+      0
+     ],
+     "imageTextFromColumn": null,
+     "room": 0
+    }
+   },
+   "01-long-technical.md@960": {
+    "before": {
+     "pageBoxesAsymmetry": 150.41,
+     "preTextFromColumn": [
+      null,
+      null
+     ],
+     "preBoxLeftRight": [
+      null,
+      null
+     ],
+     "tableBoxLeftRight": [
+      0,
+      150.41
+     ],
+     "imageTextFromColumn": null,
+     "room": 150.41
+    },
+    "after": {
+     "pageBoxesAsymmetry": -0.02,
+     "preTextFromColumn": [
+      null,
+      null
+     ],
+     "preBoxLeftRight": [
+      null,
+      null
+     ],
+     "tableBoxLeftRight": [
+      -150.42,
+      150.41
+     ],
+     "imageTextFromColumn": null,
+     "room": 150.41
+    }
+   },
+   "01-long-technical.md@1280": {
+    "before": {
+     "pageBoxesAsymmetry": 310.41,
+     "preTextFromColumn": [
+      null,
+      null
+     ],
+     "preBoxLeftRight": [
+      null,
+      null
+     ],
+     "tableBoxLeftRight": [
+      0,
+      310.41
+     ],
+     "imageTextFromColumn": null,
+     "room": 310.41
+    },
+    "after": {
+     "pageBoxesAsymmetry": -0.02,
+     "preTextFromColumn": [
+      null,
+      null
+     ],
+     "preBoxLeftRight": [
+      null,
+      null
+     ],
+     "tableBoxLeftRight": [
+      -310.42,
+      310.41
+     ],
+     "imageTextFromColumn": null,
+     "room": 310.41
+    }
+   },
+   "03-ai-plan.md@480": {
+    "before": {
+     "pageBoxesAsymmetry": 0,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      0
+     ],
+     "tableBoxLeftRight": [
+      0,
+      0
+     ],
+     "imageTextFromColumn": null,
+     "room": 0
+    },
+    "after": {
+     "pageBoxesAsymmetry": 0,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      0
+     ],
+     "tableBoxLeftRight": [
+      0,
+      0
+     ],
+     "imageTextFromColumn": null,
+     "room": 0
+    }
+   },
+   "03-ai-plan.md@960": {
+    "before": {
+     "pageBoxesAsymmetry": 150.41,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      150.41
+     ],
+     "tableBoxLeftRight": [
+      0,
+      150.41
+     ],
+     "imageTextFromColumn": null,
+     "room": 150.41
+    },
+    "after": {
+     "pageBoxesAsymmetry": -0.02,
+     "preTextFromColumn": [
+      -135.42,
+      0.08
+     ],
+     "preBoxLeftRight": [
+      -150.42,
+      150.41
+     ],
+     "tableBoxLeftRight": [
+      -102.92,
+      103.14
+     ],
+     "imageTextFromColumn": null,
+     "room": 150.41
+    }
+   },
+   "03-ai-plan.md@1280": {
+    "before": {
+     "pageBoxesAsymmetry": 310.41,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      310.41
+     ],
+     "tableBoxLeftRight": [
+      0,
+      206.06
+     ],
+     "imageTextFromColumn": null,
+     "room": 310.41
+    },
+    "after": {
+     "pageBoxesAsymmetry": 0.2,
+     "preTextFromColumn": [
+      -228.92,
+      0.08
+     ],
+     "preBoxLeftRight": [
+      -243.92,
+      244.13
+     ],
+     "tableBoxLeftRight": [
+      -102.92,
+      103.14
+     ],
+     "imageTextFromColumn": null,
+     "room": 310.41
+    }
+   },
+   "06-math.md@480": {
+    "before": {
+     "pageBoxesAsymmetry": 0,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      0
+     ],
+     "tableBoxLeftRight": [
+      null,
+      null
+     ],
+     "imageTextFromColumn": null,
+     "room": 0
+    },
+    "after": {
+     "pageBoxesAsymmetry": 0,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      0
+     ],
+     "tableBoxLeftRight": [
+      null,
+      null
+     ],
+     "imageTextFromColumn": null,
+     "room": 0
+    }
+   },
+   "06-math.md@960": {
+    "before": {
+     "pageBoxesAsymmetry": 150.41,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      150.41
+     ],
+     "tableBoxLeftRight": [
+      null,
+      null
+     ],
+     "imageTextFromColumn": null,
+     "room": 150.41
+    },
+    "after": {
+     "pageBoxesAsymmetry": -0.02,
+     "preTextFromColumn": [
+      -135.42,
+      -66.92
+     ],
+     "preBoxLeftRight": [
+      -150.42,
+      150.41
+     ],
+     "tableBoxLeftRight": [
+      null,
+      null
+     ],
+     "imageTextFromColumn": null,
+     "room": 150.41
+    }
+   },
+   "06-math.md@1280": {
+    "before": {
+     "pageBoxesAsymmetry": 310.41,
+     "preTextFromColumn": [
+      15,
+      15
+     ],
+     "preBoxLeftRight": [
+      0,
+      310.41
+     ],
+     "tableBoxLeftRight": [
+      null,
+      null
+     ],
+     "imageTextFromColumn": null,
+     "room": 310.41
+    },
+    "after": {
+     "pageBoxesAsymmetry": 0,
+     "preTextFromColumn": [
+      -234.42,
+      -66.92
+     ],
+     "preBoxLeftRight": [
+      -249.42,
+      249.42
+     ],
+     "tableBoxLeftRight": [
+      null,
+      null
+     ],
+     "imageTextFromColumn": null,
+     "room": 310.41
+    }
+   }
+  },
+  "d3": {
+   "24-issue-thread.md@960": {
+    "centred": 278.58,
+    "flush": 0
+   }
+  },
+  "d4": {
+   "31-essay.md@480": {
+    "today": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 113,
+     "maxLinePastBoxPx": 15.25,
+     "columnWidthPx": [
+      448,
+      433
+     ]
+    },
+    "stable": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 113,
+     "maxLinePastBoxPx": 15.25,
+     "columnWidthPx": [
+      448,
+      433
+     ]
+    },
+    "stableBothEdges": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -15,
+     "offsetFromWindowPx": -15,
+     "linesPastBox": 291,
+     "maxLinePastBoxPx": 30.25,
+     "columnWidthPx": [
+      448,
+      418
+     ]
+    },
+    "overflowScroll": {
+     "scrollbarBeforePx": 15,
+     "columnMovedPx": 0,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      433,
+      433
+     ]
+    },
+    "supported": true
+   },
+   "31-essay.md@960": {
+    "today": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "stable": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "stableBothEdges": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -15,
+     "offsetFromWindowPx": -15,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "overflowScroll": {
+     "scrollbarBeforePx": 15,
+     "columnMovedPx": 0,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "supported": true
+   },
+   "15-prose-volume.md@480": {
+    "today": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 284,
+     "maxLinePastBoxPx": 15.41,
+     "columnWidthPx": [
+      448,
+      433
+     ]
+    },
+    "stable": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 284,
+     "maxLinePastBoxPx": 15.41,
+     "columnWidthPx": [
+      448,
+      433
+     ]
+    },
+    "stableBothEdges": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -15,
+     "offsetFromWindowPx": -15,
+     "linesPastBox": 632,
+     "maxLinePastBoxPx": 30.41,
+     "columnWidthPx": [
+      448,
+      418
+     ]
+    },
+    "overflowScroll": {
+     "scrollbarBeforePx": 15,
+     "columnMovedPx": 0,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      433,
+      433
+     ]
+    },
+    "supported": true
+   },
+   "15-prose-volume.md@960": {
+    "today": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "stable": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -7.5,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "stableBothEdges": {
+     "scrollbarBeforePx": 0,
+     "columnMovedPx": -15,
+     "offsetFromWindowPx": -15,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "overflowScroll": {
+     "scrollbarBeforePx": 15,
+     "columnMovedPx": 0,
+     "offsetFromWindowPx": -7.5,
+     "linesPastBox": 0,
+     "maxLinePastBoxPx": 0,
+     "columnWidthPx": [
+      611.16,
+      611.16
+     ]
+    },
+    "supported": true
+   }
+  },
+  "d5": {
+   "15-prose-volume.md@320": {
+    "before": {
+     "edgeFromColumnPx": 32,
+     "inViewWhenScrolled": false,
+     "topWhenScrolledPx": -2700,
+     "position": "static"
+    },
+    "after": {
+     "edgeFromColumnPx": 0,
+     "inViewWhenScrolled": true,
+     "topWhenScrolledPx": 0,
+     "position": "sticky"
+    }
+   },
+   "15-prose-volume.md@960": {
+    "before": {
+     "edgeFromColumnPx": 61.11,
+     "inViewWhenScrolled": false,
+     "topWhenScrolledPx": -2700,
+     "position": "static"
+    },
+    "after": {
+     "edgeFromColumnPx": 0,
+     "inViewWhenScrolled": true,
+     "topWhenScrolledPx": 0,
+     "position": "sticky"
+    }
+   }
+  }
+ }
+}
