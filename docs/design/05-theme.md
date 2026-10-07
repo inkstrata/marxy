@@ -166,7 +166,7 @@ below is an inversion of anything else; each value was chosen on its own ground.
 | `--marxy-color-selection` | `#1f3651` | text on it 9.7 | `#dbe9ff` | text on it 14.0 |
 | `--marxy-color-find` | `#3a3010` | text on it 10.3 | `#fcefc0` | 15.0 |
 | `--marxy-color-find-current` | `#403510` + an outline | text on it 9.5 | `#f8df8f` + an outline | 13.1 |
-| `--marxy-color-find-edge` | `#94701a` | 4.0 on code bg, 3.4 vs code text | `#8a6200` | 4.7 on code bg, 3.1 vs code text |
+| `--marxy-color-find-edge` | `#94701a` | 3.7 on code bg (4.0 on page), 3.4 vs code text | `#8a6200` | 4.7 on code bg, 3.1 vs code text |
 | `--marxy-color-notice` | `#1f1e1b` | — | `#f1eee8` | — |
 | `--marxy-weight-body` | 380 | | 400 | |
 | `--marxy-weight-heading` | 560 | | 580 | |
