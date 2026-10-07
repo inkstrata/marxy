@@ -6,7 +6,8 @@ import { Compartment, type Extension } from '@codemirror/state';
 import { cmDocText } from './buffer-commit.ts';
 import { languageExtension, LARGE_FILE_BYTES } from './language.ts';
 import { writeLineNumbersPreference } from './line-numbers.ts';
-import { marxyCodeMirrorTheme } from './theme-bridge.ts';
+import { marxyHighlighting } from './highlight-style.ts';
+import { liveMarxyTheme } from './theme-bridge.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
 import { tabSizeForFile } from './tab-width.ts';
@@ -31,6 +32,7 @@ export interface SourceEditor {
 
 const lineNumbersCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
+const themeCompartment = new Compartment();
 
 let sharedParent: HTMLElement | null = null;
 let sharedEditor: SourceEditor | null = null;
@@ -91,9 +93,20 @@ async function foldingExtensions(): Promise<Extension[]> {
   // Transitive via lang-* packages; not a direct desktop dependency (MARXY-33 path budget).
   const { codeFolding, foldGutter } = await import('@codemirror/language');
   return [
-    codeFolding({ placeholderDOM: () => document.createTextNode('…') }),
-    foldGutter(),
+    codeFolding({ placeholderDOM: () => {
+        const el = document.createElement('span');
+        el.textContent = '…';
+        return el;
+      } }),
   ];
+}
+
+/** Line numbers, and the fold gutter beside them only where folding is on: no gutter of folds alone. */
+async function gutterExtensions(folding: boolean): Promise<Extension[]> {
+  const { lineNumbers } = await import('@codemirror/view');
+  if (!folding) return [lineNumbers()];
+  const { foldGutter } = await import('@codemirror/language');
+  return [lineNumbers(), foldGutter()];
 }
 
 /** Base extensions shared by create and tests. */
@@ -104,7 +117,7 @@ export async function baseExtensions(
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
-  const { EditorView, drawSelection, highlightActiveLine, lineNumbers: ln, keymap, highlightSpecialChars } = await import(
+  const { EditorView, drawSelection, highlightActiveLine, keymap, highlightSpecialChars } = await import(
     '@codemirror/view'
   );
   const { searchKeymap } = await import('@codemirror/search');
@@ -145,8 +158,9 @@ export async function baseExtensions(
     ]),
     EditorState.lineSeparator.of(lineSeparator),
     tabComp.of(EditorState.tabSize.of(tabSize)),
-    marxyCodeMirrorTheme(),
-    lnComp.of(lnOn ? ln() : []),
+    liveMarxyTheme(themeCompartment),
+    marxyHighlighting(),
+    lnComp.of(lnOn ? await gutterExtensions(!isLargeSourceFile(buffer)) : []),
   ];
   if (!isLargeSourceFile(buffer)) {
     exts.push(EditorView.lineWrapping);
@@ -164,9 +178,12 @@ export async function reconfigureTabSize(view: EditorView, path: string, compart
 }
 
 export function toggleLineNumbersInView(view: EditorView, on: boolean, compartment: Compartment = lineNumbersCompartment): void {
-  void import('@codemirror/view').then(({ lineNumbers: ln }) => {
-    view.dispatch({ effects: compartment.reconfigure(on ? ln() : []) });
-  });
+  void (async () => {
+    const { foldState } = await import('@codemirror/language');
+    // `foldState` is installed by `codeFolding`, which large files do not get.
+    const folding = view.state.field(foldState, false) !== undefined;
+    view.dispatch({ effects: compartment.reconfigure(on ? await gutterExtensions(folding) : []) });
+  })();
   writeLineNumbersPreference(on);
 }
 
