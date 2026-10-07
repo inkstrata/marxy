@@ -185,6 +185,8 @@ test('a failed save leaves no phantom history: two Undos after a later toggle st
   await page.keyboard.press(`${await modOf(page)}+z`);
   await settle(page);
   const afterUndos = await buf(page);
+  assert.equal(afterUndos, orig, 'two Undos return exactly the original bytes');
+  assert.equal(await page.evaluate(() => window.__handle.document().snapshot().canUndo), false, 'no phantom history entry is left to undo');
   assert.ok(afterUndos.includes('Tail stays intact.'), 'Undo must not remove unrelated text');
   assert.ok(afterUndos.includes('- [ ] one'), 'the toggle was undone');
   assert.ok(afterUndos.includes('longer cell'), 'the table survives the extra Undo');

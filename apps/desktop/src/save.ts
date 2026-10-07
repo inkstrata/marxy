@@ -99,7 +99,15 @@ export async function save(
     return 'cancelled';
   }
 
-  const written = await store.save(path === snap.path ? undefined : { to: path });
+  let written: Awaited<ReturnType<DocumentStore['save']>>;
+  try {
+    written = await store.save(path === snap.path ? undefined : { to: path });
+  } catch (err) {
+    // Another document opened while the dialog was up and closed this store: the transition is
+    // refused, nothing was written, and the reader's edits were already guarded on leaving.
+    if (err instanceof Error && /\bis closed$/.test(err.message)) return 'cancelled';
+    throw err;
+  }
   if (written.result === 'failed') {
     const err = written.error;
     const code = err && typeof err === 'object' && 'code' in err ? (err as ShellError).code : undefined;
