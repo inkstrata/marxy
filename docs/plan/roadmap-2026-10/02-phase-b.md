@@ -1909,6 +1909,12 @@ reader would notice on every README.
 **Do not.** Build the Rust fetcher (ADR-0044: hardened mode only). Allow
 `http:` images. Change the HTML opt-in (`html = narrow | ask | wide` is not in this phase).
 
+**From the B-09.1 review (2026-10-07).** B-09.1 left the blocked-images notice naming every host,
+uncapped, through `displayBlockedHost` in `packages/core/src/render/images.ts`, a line-for-line copy of
+the private `displayHost` in `link-host.ts`. When this story replaces the wording with ADR-0044's count
+(decision 8), delete `displayBlockedHost`; if any host is still shown, export `displayHost` from
+`link-host.ts` and use it, so images and links cannot drift apart.
+
 **Risks and open questions.** The author chose (b) over (a), which would make the sanitiser the only boundary between a
 document and a read receipt, which ADR-0027 argued against. (b) needs Rust and a spike; if the
 spike shows the reload cannot reopen at the reading position inside the open-document budget,
