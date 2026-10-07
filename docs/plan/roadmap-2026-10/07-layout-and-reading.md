@@ -292,6 +292,27 @@ and must be the only one in its wave.
 | L-08 | Typography conformance fixes that L-01 marks Open, each small and each citing its spec line. Likely: the size ramp (if accepted, with an ADR for the unit), heading balance, ragged right below 45 characters, CJK leading factor, fallback `size-adjust` **[baselines]** | split per finding | `packages/theme/src/*`, `packages/typeset/*` | after L-04 |
 | L-09 | Margin notes above 76 em (only if decision 8 says now) | opus L | core footnote AST, `base.css`, `render/*` | Phase C or later |
 
+### L-10 — Keep code on the grid at every text size
+
+**Model:** sonnet · **Size:** S · **Depends on:** — · *Added 2026-10-07 by the lead, from A-10.4's stop.*
+
+**Outcome.** At every body size the reader can choose (15–50 px), a code line box is a whole number of
+grid units, as design-language constraint 5 asks. Today `applyReaderConfig`
+(`apps/desktop/src/theme/reader-config.ts:89-93`) overrides `--marxy-size-body` and `--marxy-line-box`
+(`lineBoxFor(size) = 2*round(0.75*size)`) but never `--marxy-line-box-code`, which stays 30 px with an
+18 px face: on the grid only at 20 and 40. B-02.1's review flagged the same.
+
+**Paths.** `apps/desktop/src/theme/reader-config.ts` (derive the code line box and, if the research
+says so, the code size from the body size), its test; `packages/theme/test/taste.test.mjs` (extend
+A-10.4's default-size check to every size).
+
+**Acceptance.** For every integer size 15–50, `--marxy-line-box-code` ÷ grid unit is an integer (a test
+that fails on today's code); the default size 20 renders byte-identically (no baseline change);
+code-voice x-height ratio at each size recorded in the PR, not gated. Cite `06-code.md` for the
+code-size rule chosen.
+
+**Do not.** Change the default size's values or any baseline.
+
 **Suggested order:**
 - L-00 and L-01 now, in parallel with B (no shared paths).
 - L-06 now.

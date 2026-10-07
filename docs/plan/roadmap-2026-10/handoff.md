@@ -49,7 +49,7 @@ Then A-11.2 (gates design document) follows B-02.
 - **B lane (one story at a time on `app.ts`):** B-11 → B-12 → B-13 → B-14 → B-15; then B-16/B-17 in
   parallel. B-20 carries B-09.1's follow-ups (delete `displayBlockedHost`, no uncapped host list).
 - **Lane L:** L-01 (Opus) after L-00, working from the probe alone with the eight decisions at their
-  defaults (`rulings.md`, 2026-10-07). L-06 (Source looks, Sonnet) can start any time a slot is free.
+  defaults (`rulings.md`, 2026-10-07). L-06 (Source looks, Sonnet) and L-10 (code on the grid at every size, Sonnet, from A-10.4) can start any time a slot is free.
   L-02 to L-04 each alone after B-02 merges (baselines).
 - **Cap:** four implementors, at most two on Opus, counted across both lanes.
 
