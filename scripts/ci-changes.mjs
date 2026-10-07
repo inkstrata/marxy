@@ -24,21 +24,18 @@ const BOARD_OR_CODE = /^(orchestration\/.*\.(mjs|js|json|sh)$|orchestration\/pro
 const isDoc = f => !BOARD_OR_CODE.test(f) && (/^(docs\/|orchestration\/|\.cursor\/|\.githooks\/|README\.md$|CONTRIBUTING\.md$|CHANGELOG\.md$|AGENTS\.md$|LICENSE$|\.editorconfig$|\.gitattributes$|fonts\/.*\/(LICENSE|README)|docs\/.*\.png$)/.test(f) || (/\.md$/.test(f) && !f.startsWith('fixtures/')));
 
 // Anything the browser job's gates and the desktop suite can see (unchanged by A-09).
-const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|vite\.config|package\.json|scripts)|fixtures\/|scripts\/|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/;
+const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|gate\.html|vite\.config|package\.json|scripts)|fixtures\/|scripts\/|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/;
 
 // What gate:aesthetics and gate:specimen render: the theme, the typesetter, the corpus, the fonts and
-// the gates themselves, and everything gate-aesthetics.mjs loads into the page: the headless render
-// entry (apps/desktop/src/render/headless.ts, built by src/render/vite.config.ts) and every module
-// its import graph reaches in core (through @marxy/core's index: parse, render, sanitise, buffer,
-// contracts, index model, outline, source map) and in the desktop app (theme/offset.ts), the
-// @font-face sheet and the WebKit launcher. ci-changes.test.mjs walks that graph and fails when it
-// reaches a file this set misses. Highlighting, the idle-work scheduler and selection are listed
-// too: the rendered page uses them, though the static graph from headless.ts does not reach them today.
+// the gates themselves, and everything gate-aesthetics.mjs loads into the page. Since B-02 that page is
+// the real app (apps/desktop/gate.html, entry src/harness/gate-entry.ts, which calls startApp), so the
+// whole desktop front end is in it, and through it most of core (parse, render, sanitise, operations,
+// position, index model) and the shell-api types. ci-changes.test.mjs walks that graph from the
+// harness entry and fails when it reaches a file this set misses. src-tauri is not under src/.
 const TYPOGRAPHY = new RegExp('^(' + [
-  'packages/theme/', 'packages/typeset/', 'fixtures/', 'fonts/', 'scripts/specimen/',
-  'scripts/gate-aesthetics\\.mjs$', 'scripts/playwright-webkit\\.mjs$', 'apps/desktop/index\\.html$',
-  'packages/core/src/(index\\.ts$|render/|sanitize/|parse/|buffer/|contracts/|index-model/|outline/|sourcemap/|highlight/|layout/|position/)',
-  'apps/desktop/src/(render/|fonts/|theme/|selection/|startup/idle-work\\.ts$)',
+  'packages/theme/', 'packages/typeset/', 'packages/core/src/', 'packages/shell-api/', 'fixtures/', 'fonts/', 'scripts/specimen/',
+  'scripts/gate-aesthetics\\.mjs$', 'scripts/playwright-webkit\\.mjs$', 'apps/desktop/(index|gate)\\.html$',
+  'apps/desktop/src/',
 ].join('|') + ')');
 
 // What the Rust job builds and runs: the Tauri crate (tauri.conf.json and Cargo.lock live in it), the

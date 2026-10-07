@@ -12,32 +12,37 @@ Playwright at the root, `cargo test` in the shell, the perf observations of ADR-
 | `core` | `node --test` over `src/**/*.test.ts` | `scripts/golden.ts` (AST), `scripts/fidelity.ts` (bytes), the CommonMark suite | none |
 | `typeset` | pure parts (`items`, `scheduler`) with `node --test` | rag metrics via `scripts/measure-rag.mjs` | Playwright: apply/revert, hanging, grid |
 | `theme` | lint script | — | Playwright: grid by construction |
-| `desktop` | `node --test` for `state`, `position`, `keys` | shell-boundary test | Playwright over the headless entry; smoke launch of the binary |
+| `desktop` | `node --test` for `state`, `position`, `keys` | shell-boundary test | Playwright over the app harness (`app.html`, `gate.html`); smoke launch of the binary |
 | `src-tauri` | `cargo test` | — | — |
 
 Dependency tests: copy the pattern of `packages/core/src/parse/dependencies.test.ts` into
 each package (`dependencies.test.ts` reading its own `package.json` and every `import`
 statement under `src/`, asserting the §00 table).
 
-## The headless render entry (MARXY-25)
+## The gate render entry (B-01, B-02)
 
-`apps/desktop/src/render/headless.ts`, built by Vite as a second entry to
-`apps/desktop/dist/render.js`. In a Playwright page:
+The aesthetics gate renders through the real app. `apps/desktop/gate.html` (entry
+`apps/desktop/src/harness/gate-entry.ts`) is built by Vite with the desktop config, so it carries
+the bundled fonts and the inlined default theme exactly as the window does. In a Playwright page:
 
 ```ts
-window.marxyRender(source: string, opts: { theme?: string; variant: 'light' | 'dark'; width: number; size?: number; typeset?: boolean }): Promise<{ removed, stats }>
+window.marxyGate.render(source: string, opts: { variant: 'dark' | 'light' | 'auto'; width: number; size?: number; theme?: string; image?: string }): Promise<{ stats }>
 ```
 
-It creates the article, runs the same post-passes as the app with a **stub shell** (`imageSize`
-from an in-page decoder over `data:` URLs the harness supplies; no IPC), applies the theme and
-tokens, runs the typesetter and grid pass, and resolves when `typeset.ready` and fonts are
-done. Fonts are served by the harness from `fonts/` as `data:` URLs. This is the single entry
-every browser-side gate uses, so a gate never re-implements rendering.
+It writes the source and a config file (`variant`, `size`) into a memory shell, calls `startApp`
+with that document, and resolves once the whole document is in the article, its fonts and
+reserved images are loaded, the typesetter has marked `typeset_done` (or the app has marked
+`no_text` for a document with no text) and the coalesced grid snap has run. Highlighting, KaTeX,
+notices and user-theme loading are therefore in every page the gate measures. `stats` is the
+layout-shift report (`harness/layout-shift.ts`). One render per page load: the app keeps module
+state. `window.marxyGate.layoutShift` exposes the measurement helpers for the gate's crafted
+selftest. The headless copy of the render pipeline (`render/headless.ts`, `dist/render.js`) that
+this replaced was deleted in B-02.
 
 ## The app harness entry (MARXY-95)
 
-The headless render entry renders; it has no palette, no notices, no commands, no buffer and no
-save. Phase 2–3 behaviour — the palette (MARXY-87), operations (42, 43), trust (44), find and
+The headless render entry this section was written against rendered only; it had no palette, no
+notices, no commands, no buffer and no save. Phase 2–3 behaviour — the palette (MARXY-87), operations (42, 43), trust (44), find and
 outline (48), save (49), themes (47) — has to be driven in a browser **through the real app
 code**, without Tauri. So the app's startup is split once:
 
@@ -61,8 +66,8 @@ the first idle pass).
 
 Rules: `app.ts` never imports `./shell/tauri.ts` (the boundary test asserts it);
 `memory.ts` is test-only and is excluded from the production bundle (the bundle gate greps for
-its marker string); the no-network harness can attach to `app.html` exactly as to
-`render.html`. The render entry (above) stays the one used by gates that only render.
+its marker string); the no-network harness can attach to `app.html`. The gate render entry (above) is the
+same app behind `gate.html`.
 
 ## Aesthetics gate algorithms (`scripts/gate-aesthetics.mjs`, tier 1)
 
@@ -85,7 +90,7 @@ no-network gate only and never for aesthetics.
 3. **Contrast.** Relative luminance from computed `color` and `background-color` of `p`,
    `.marxy-caption`, `code`; body ≥ 7:1, secondary ≥ 4.5:1.
 4. **Layout shift.** `PerformanceObserver({ type: 'layout-shift', buffered: true })` from
-   `marxyRender` start to resolve; assert the sum of `value` is 0.
+   `marxyGate.render` start to resolve; assert the sum of `value` is 0.
 5. **Rag.** For each `p.marxy-set`: line rectangles via a `Range` per `<br>` interval; compute
    CV of widths and short-line count exactly as `measure-rag.mjs` does; compare with the stored
    baseline JSON (`fixtures/baselines/rag/<file>.json`); fail if CV or short-line rate exceeds
@@ -120,7 +125,7 @@ before `pnpm gate:perf` and writes only `results/perf-parse.json` as
 `{ "parse_long_technical_ms": <median> }` of `fixtures/corpus/01-long-technical.md`. The
 parse snapshot must be present; its value is not a merge-bar ceiling. New metrics land the
 same way: the app emits `MARK <metric> <ms>` lines for `typeset_viewport`, `live_reload`,
-`palette_keystroke` (p95 over a scripted session in the headless entry) and
+`palette_keystroke` (p95 over a scripted session in the app harness) and
 `find_first_match`; the harness collects them into the same JSON.
 
 ## Skipping the gates jobs when they cannot change the result (MARXY-105)
@@ -172,5 +177,5 @@ name.
   fails (a deliberately broken input or a neutralised function), as MARXY-12 did.
 - Fixtures are bytes: never generate them at test time from a parser (the golden becomes a
   tautology); commit them.
-- Browser tests use the headless render entry for rendering and the app harness entry for
-  behaviour, never `apps/desktop/src/main.ts` (which would need Tauri).
+- Browser tests use the gate render entry (`gate.html`) for rendering and the app harness entry
+  (`app.html`) for behaviour; both run the real app, never `apps/desktop/src/main.ts` (which would need Tauri).

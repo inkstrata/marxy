@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Mechanical aesthetics gate (ADR-0014, docs/design/10-gates-and-testing.md §10). Token checks stay
-// as the floor; the headless render entry runs the ten page checks over the corpus in Playwright WebKit.
+// as the floor; the app harness (apps/desktop/gate.html) renders each corpus page through the real app
+// and the ten page checks run over it in Playwright WebKit.
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { cpus } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpus, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ragMetrics } from '../packages/typeset/scripts/rag-model.mjs';
@@ -12,7 +13,8 @@ import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const desktop = join(root, 'apps/desktop');
-const dist = join(desktop, 'dist');
+// A fresh directory per run, so two gates in one worktree (or a gate and a desktop test) never share output.
+const gateDist = mkdtempSync(join(tmpdir(), 'marxy-gate-'));
 const corpusDir = join(root, 'fixtures/corpus');
 const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
@@ -68,11 +70,6 @@ const WIDTHS = [720, 960, 1280];
 const VARIANTS = ['dark', 'light'];
 const SIZES = [16, 20, 24, 28];
 const LINE_BOX = { 16: 24, 20: 30, 24: 36, 28: 42 };
-const FONT_URLS = {
-  '/fonts/Literata.ttf': join(root, 'fonts/literata/Literata[opsz,wght].ttf'),
-  '/fonts/Literata-Italic.ttf': join(root, 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
-  '/fonts/JetBrainsMono.ttf': join(root, 'fonts/jetbrains-mono/JetBrainsMono[wght].ttf'),
-};
 
 const tokens = readFileSync(join(root, 'packages/theme/src/tokens.css'), 'utf8');
 const get = (k) => (tokens.match(new RegExp(`${k}:\\s*([^;]+);`)) || [])[1];
@@ -120,52 +117,54 @@ function matrix() {
   return out;
 }
 
+/**
+ * Builds the app harness (B-01, B-02): `apps/desktop/gate.html` boots the real app over a memory shell,
+ * so every page the gate measures is the one a reader sees, highlighting, KaTeX, notices and the user
+ * theme loader included. The desktop Vite config supplies the bundled fonts and the inlined default
+ * theme; only the input is replaced, so the window and index pages are not built here.
+ */
 async function buildRenderEntry() {
   const require = createRequire(join(desktop, 'package.json'));
   const { build } = require('vite');
   await build({
-    configFile: join(desktop, 'src/render/vite.config.ts'),
     root: desktop,
+    configFile: join(desktop, 'vite.config.ts'),
     logLevel: 'error',
+    build: { outDir: gateDist, emptyOutDir: true },
+    plugins: [
+      {
+        name: 'marxy-gate-input',
+        config(config) {
+          config.build.rollupOptions.input = { gate: join(desktop, 'gate.html') };
+        },
+      },
+    ],
   });
-  mkdirSync(dist, { recursive: true });
-  const fontsCss = readFileSync(join(desktop, 'src/fonts/fonts.css'), 'utf8').replaceAll('./fonts/', '/fonts/');
-  writeFileSync(
-    join(dist, 'render.html'),
-    `<!doctype html>
-<html lang="en" data-marxy-variant="dark">
-<head>
-<meta charset="utf-8">
-<title>marxy render</title>
-<style id="marxy-fonts">${fontsCss}</style>
-<style id="marxy-default-theme">${defaultThemeCss()}</style>
-</head>
-<body>
-<main id="marxy-main"><article id="doc" class="marxy-article"></article></main>
-<script src="./render.js"></script>
-</body>
-</html>
-`,
-  );
-  if (!existsSync(join(dist, 'render.js'))) throw new Error('vite build did not write apps/desktop/dist/render.js');
+  if (!existsSync(join(gateDist, 'gate.html'))) throw new Error(`vite build did not write ${join(gateDist, 'gate.html')}`);
 }
 
+/** Serves the built harness, `/` as gate.html, and the corpus image beside it so `image.png` resolves. */
 function startHarness() {
   const types = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
     '.ttf': 'font/ttf',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.png': 'image/png',
+    '.txt': 'text/plain; charset=utf-8',
   };
   const server = createServer((req, res) => {
-    const path = new URL(req.url, 'http://x').pathname;
+    const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const send = (code, type, body) => {
       res.statusCode = code;
       res.setHeader('Content-Type', type);
       res.end(body);
     };
-    if (FONT_URLS[path]) return send(200, 'font/ttf', readFileSync(FONT_URLS[path]));
-    const file = path === '/' ? join(dist, 'render.html') : join(dist, path.slice(1));
-    if (!file.startsWith(dist) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
+    if (path === '/image.png') return send(200, 'image/png', readFileSync(join(corpusDir, 'image.png')));
+    const file = path === '/' ? join(gateDist, 'gate.html') : join(gateDist, path.slice(1));
+    if (!file.startsWith(gateDist) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
     const ext = file.slice(file.lastIndexOf('.'));
     return send(200, types[ext] ?? 'application/octet-stream', readFileSync(file));
   });
@@ -665,22 +664,52 @@ async function compareScreenshotPng(page, expected, actual, { writeDiffPath } = 
   return payload;
 }
 
+/**
+ * Scrolls to the top (`first`) or brings the last heading into view (`last`) and waits for the page
+ * to hold still. The app highlights a code block when it comes near the viewport (render/highlight.ts):
+ * plain line spans at once, colour when the worker answers, and a grid pass after each, so blocks can
+ * change height and colour after the scroll. Each round lets the app's coalesced grid snap (250 ms) and
+ * two frames pass; the page is settled when three rounds in a row see the same scroll height, position,
+ * target top and number of coloured blocks. Returns false when there is no heading to scroll to.
+ */
+async function scrollAndSettle(where) {
+  let target = null;
+  if (where === 'last') {
+    const headings = [...document.querySelectorAll('#doc h1, #doc h2, #doc h3, #doc h4, #doc h5, #doc h6')];
+    target = headings[headings.length - 1] ?? null;
+    if (!target) return false;
+  }
+  const place = () => (target ? target.scrollIntoView() : window.scrollTo(0, 0));
+  const settle = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  };
+  const state = () =>
+    [
+      document.documentElement.scrollHeight,
+      window.scrollY,
+      target ? target.getBoundingClientRect().top : 0,
+      document.querySelectorAll('#doc code[data-marxy-done="highlight"]').length,
+    ].join(':');
+  let before = null;
+  let still = 0;
+  for (let i = 0; i < 30; i++) {
+    place();
+    await settle();
+    const now = state();
+    still = now === before ? still + 1 : 0;
+    if (still === 3) return true;
+    before = now;
+  }
+  throw new Error(`the page did not hold still at the ${where} screenshot after 30 rounds`);
+}
+
 async function checkScreenshot(page, { file, width, variant, update }) {
   const dir = shotDir();
   const out = [];
   for (const where of ['first', 'last']) {
-    if (where === 'last') {
-      const moved = await page.evaluate(() => {
-        const headings = [...document.querySelectorAll('#doc h1, #doc h2, #doc h3, #doc h4, #doc h5, #doc h6')];
-        const last = headings[headings.length - 1];
-        if (!last) return false;
-        last.scrollIntoView();
-        return true;
-      });
-      if (!moved) continue;
-    } else {
-      await page.evaluate(() => window.scrollTo(0, 0));
-    }
+    const placed = await page.evaluate(scrollAndSettle, where);
+    if (!placed) continue;
     const png = await screenshot(page);
     const name = shotName(file, width, variant, where);
     const dest = join(dir, name);
@@ -695,7 +724,7 @@ async function checkScreenshot(page, { file, width, variant, update }) {
     const diffPath = join(diffDir(), name.replace(/\.png$/, '.diff.png'));
     const diff = await compareScreenshotPng(page, expected, png, { writeDiffPath: diffPath });
     if (diff.pct > SHOT_MAX_PCT) {
-      out.push(`${file} ${width} ${variant} ${where}: ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''} (diff ${diffPath.slice(root.length + 1)})`);
+      out.push(`${file} ${width} ${variant} ${where}: ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''} (diff ${diffPath.slice(root.length)})`);
     }
   }
   return out;
@@ -727,17 +756,17 @@ ${extraCss}
 </style></head><body><main id="marxy-main"><article id="doc" class="marxy-article">${body}</article></main></body></html>`;
 }
 
-/** Image swap that moves a following block, using the same in-page geometry as marxyRender. */
+/** Image swap that moves a following block, using the app harness's own layout-shift geometry. */
 async function craftedClsShift(page, origin) {
-  await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof window.marxyLayoutShift?.snapshot === 'function');
+  await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.marxyGate?.layoutShift?.snapshot === 'function');
   return page.evaluate(async () => {
     const article = document.getElementById('doc');
     article.innerHTML =
       '<p data-marxy-s="0" data-marxy-e="1" style="display:block;margin:0">Above</p>' +
       '<img id="late" alt="" style="display:block">' +
       '<p data-marxy-s="2" data-marxy-e="3" style="display:block;margin:0">Moves when the image arrives</p>';
-    const shift = window.marxyLayoutShift;
+    const shift = window.marxyGate.layoutShift;
     shift.assertCanObserve();
     const first = shift.snapshot(article);
     const img = document.getElementById('late');
@@ -914,10 +943,11 @@ async function selftest(browser, origin) {
   };
 }
 
+/** One fresh harness page per render: the app keeps module state, so gate.html renders once per load. */
 async function renderCorpus(page, origin, source, opts) {
-  await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof window.marxyRender === 'function');
-  return page.evaluate(async ({ source, opts }) => window.marxyRender(source, opts), { source, opts });
+  await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
+  return page.evaluate(async ({ source, opts }) => window.marxyGate.render(source, opts), { source, opts });
 }
 
 /** Documents whose font/image window (snaps[0]→[1]) scored movement; used by --repeat. */
@@ -937,7 +967,7 @@ async function clsCorpusPass(browser, harness, files, combos) {
       const result = await renderCorpus(page, harness.origin, source, opts);
       return fontWindowOffenders(result, { file, ...opts });
     } catch (e) {
-      return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
+      return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyGate.render threw: ${e.message}`];
     } finally {
       await page.close();
     }
@@ -976,7 +1006,7 @@ async function main() {
   }
 
   await buildRenderEntry();
-  notes.push('apps/desktop/dist/render.js built');
+  notes.push('apps/desktop/gate.html built');
 
   let webkit;
   try {
@@ -1039,9 +1069,9 @@ async function main() {
       }));
       await smoke.close();
       if (painted.heading !== 'Hello' || !painted.paragraph || !/Literata/.test(painted.css) || !result) {
-        throw new Error(`selftest: marxyRender did not typeset without the shell (${JSON.stringify(painted)})`);
+        throw new Error(`selftest: marxyGate.render did not paint a document through the app (${JSON.stringify(painted)})`);
       }
-      notes.push('selftest: dist/render.js painted a document through marxyRender');
+      notes.push('selftest: the app harness painted a document through marxyGate.render');
       const tasks = files.flatMap((file) => {
         const source = readFileSync(join(corpusDir, file), 'utf8');
         const ragBase = loadRagBaseline(file);
@@ -1054,7 +1084,7 @@ async function main() {
           try {
             result = await renderCorpus(page, harness.origin, source, opts);
           } catch (e) {
-            return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
+            return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyGate.render threw: ${e.message}`];
           }
           // --mechanical skips both baseline comparisons: the rag reference read and the screenshots.
           const atRef = !MECHANICAL && opts.width === 960 && opts.variant === 'dark' && opts.size === 20;
@@ -1098,7 +1128,7 @@ async function main() {
           const problems = await checkContrast(page);
           return problems.map((p) => `${file} theme/${themeName} ${variant}: ${p}`);
         } catch (e) {
-          return [`${file} theme/${themeName} ${variant}: marxyRender threw: ${e.message}`];
+          return [`${file} theme/${themeName} ${variant}: marxyGate.render threw: ${e.message}`];
         } finally {
           await page.close();
         }
@@ -1127,7 +1157,7 @@ async function main() {
           const problems = await checkNoHorizontalPageScroll(page);
           return problems.map((p) => `${file} ${mode.tag} ${variant}: ${p}`);
         } catch (e) {
-          return [`${file} ${mode.tag} ${variant}: marxyRender threw: ${e.message}`];
+          return [`${file} ${mode.tag} ${variant}: marxyGate.render threw: ${e.message}`];
         } finally {
           await page.close();
         }
@@ -1164,6 +1194,7 @@ async function main() {
   } finally {
     harness.close();
     await browser.close();
+    rmSync(gateDist, { recursive: true, force: true });
   }
 
   notes.push(`${MECHANICAL ? 'mechanical: no baseline comparison, ' : ''}screenshots taken: ${screenshotsTaken}`);

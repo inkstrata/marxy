@@ -54,12 +54,6 @@ function attachOptionsApp() {
   return attachOptionsFrom(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'view', 'rendered-view.ts'), 'utf8'));
 }
 
-function attachOptionsHeadless() {
-  const src = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'render', 'headless.ts'), 'utf8');
-  assert.doesNotMatch(src, /hyphenate and hanging stay\s*\n\s*off until MARXY-24/, 'stale MARXY-24 comment must be gone from headless.ts');
-  return attachOptionsFrom(src);
-}
-
 async function startDoc(page, files, argv) {
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
@@ -69,20 +63,6 @@ async function startDoc(page, files, argv) {
     return handle.shell.calls.filter((c) => c.method === 'mark').map((c) => ({ name: c.args[0], data: c.args[2] }));
   }, { files, argv });
 }
-
-test('app.ts and headless.ts pass attach() the same option set', () => {
-  const app = attachOptionsApp();
-  const headless = attachOptionsHeadless();
-  const keys = (opts) => [...opts.matchAll(/(\w+):/g)].map((m) => m[1]).sort();
-  assert.deepEqual(keys(app), keys(headless), 'attach() property names must match');
-  for (const opts of [app, headless]) {
-    assert.doesNotMatch(opts, /\bhyphenate\b/);
-    assert.doesNotMatch(opts, /\bhanging\b/);
-    assert.match(opts, /glueStretchEm:\s*0\.6/);
-    assert.match(opts, /lastLineMinWidth:\s*0\.33/);
-    assert.match(opts, /onPass:/);
-  }
-});
 
 test('app.ts attach() does not pass hyphenate or hanging, and no other argument changes', () => {
   const opts = attachOptionsApp();

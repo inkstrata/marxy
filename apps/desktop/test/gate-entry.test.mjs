@@ -154,3 +154,76 @@ test('a progressive document marks typeset_done only once its last chunk is in a
   assert.equal(r.stats.observed, true);
   console.log(`# chunked 960 dark 20: cls=${r.stats.cls} ${r.marks[done].data}`);
 });
+
+/**
+ * B-02, from B-01's review: the stale-document guards in app.ts's typesetDocument. A large first
+ * document is still being mounted in idle chunks when a second is opened over it; only the second, the
+ * live document, may mark `typeset_done`, once. A cancelled mount or a replaced typesetter emits nothing.
+ */
+test('a second open while the first document\'s chunks are pending marks typeset_done once, for the live document', async () => {
+  const large = [
+    ...Array.from({ length: 6 }, () => prose),
+    ...Array.from({ length: 6000 }, (_, i) => `### Section ${i + 1}`),
+    `The closing paragraph. ${prose}`,
+  ].join('\n\n') + '\n';
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  try {
+    await page.goto(`${base}gate.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
+    const r = await page.evaluate(async ({ large, technical }) => {
+      const { stats } = await window.marxyGate.render(large, { variant: 'dark', width: 960, size: 20, reopen: technical });
+      // Long enough for the first document's typesetter to reach its last paragraph, had it lived on.
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const marks = window.marxyGate.calls().filter((c) => c.method === 'mark').map((c) => ({ name: c.args[0], data: c.args[2] ?? null }));
+      return { stats, marks, heading: document.querySelector('#doc h1')?.textContent?.trim() ?? '' };
+    }, { large, technical });
+    const names = markNames(r.marks);
+    const reads = r.marks.flatMap((m, i) => (m.name === 'file_read' ? [{ i, bytes: m.data }] : []));
+    assert.deepEqual(reads.map((x) => x.bytes), [`bytes=${Buffer.byteLength(large)}`, `bytes=${Buffer.byteLength(technical)}`], `two opens; marks: ${names.join(' ')}`);
+    const secondOpen = reads[1].i;
+    assert.equal(names.slice(0, secondOpen).includes('content_complete'), false, `the first document was still being mounted when the second opened; marks: ${names.join(' ')}`);
+    const done = names.flatMap((n, i) => (n === 'typeset_done' ? [i] : []));
+    assert.equal(done.length, 1, `exactly one typeset_done; marks: ${names.join(' ')}`);
+    assert.ok(done[0] > secondOpen, `typeset_done belongs to the live document; marks: ${names.join(' ')}`);
+    assert.equal(r.heading, 'Stack evaluation', 'the second document is on screen');
+    assert.equal(r.stats.observed, true);
+  } finally {
+    await page.close();
+  }
+});
+
+/**
+ * The same guard for a document mounted at once: its typesetter is still setting paragraphs in idle
+ * time when the second document replaces it, and a destroyed typesetter must not mark `typeset_done`.
+ */
+test('a second open while the first document is still being set marks typeset_done once, for the live document', async () => {
+  const many = Array.from({ length: 60 }, (_, i) => `${i + 1}. ${prose}`).join('\n\n') + '\n';
+  assert.ok(Buffer.byteLength(many) < 64 * 1024, 'under the progressive threshold: mounted at once');
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  try {
+    await page.goto(`${base}gate.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
+    const r = await page.evaluate(async ({ many, technical }) => {
+      await window.marxyGate.render(many, { variant: 'dark', width: 960, size: 20, reopen: technical });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return window.marxyGate.calls().filter((c) => c.method === 'mark').map((c) => ({ name: c.args[0], data: c.args[2] ?? null }));
+    }, { many, technical });
+    const names = markNames(r);
+    const secondOpen = names.lastIndexOf('file_read');
+    assert.equal(names.filter((n) => n === 'file_read').length, 2, `two opens; marks: ${names.join(' ')}`);
+    assert.equal(names.indexOf('content_complete'), -1, `neither document is chunked; marks: ${names.join(' ')}`);
+    const done = names.flatMap((n, i) => (n === 'typeset_done' ? [i] : []));
+    assert.equal(done.length, 1, `exactly one typeset_done; marks: ${names.join(' ')}`);
+    assert.ok(done[0] > secondOpen, `typeset_done belongs to the live document; marks: ${names.join(' ')}`);
+  } finally {
+    await page.close();
+  }
+});
+
+test('an empty document renders: the app marks no_text and typesets nothing, so the render does not wait for typeset_done', async () => {
+  const r = await render('', { variant: 'dark', width: 960, size: 20 });
+  const names = markNames(r.marks);
+  assert.ok(names.includes('no_text'), `marks: ${names.join(' ')}`);
+  assert.equal(names.includes('typeset_done'), false);
+  assert.equal(r.stats.observed, true);
+});

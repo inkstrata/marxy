@@ -5,8 +5,12 @@ Tier 1 runs on every PR; tier 2 runs at the end of every phase and before any re
 
 ## Tier 1 — mechanical, in CI (`scripts/gate-aesthetics.mjs`)
 
-Runs the corpus through the real renderer in Playwright WebKit on both platforms, at three
-widths and three sizes, dark then light, and asserts:
+Runs the corpus through the real app in Playwright WebKit on both platforms, at three widths and
+four sizes, dark then light, and asserts. Each page is rendered by the app harness
+(`apps/desktop/gate.html`, B-02): `startApp` over a memory shell, so highlighting, KaTeX, notices
+and user-theme loading are in every page measured and in every screenshot baseline. The
+pull-request path runs `--mechanical` (every check below except the two baseline comparisons, rag
+and screenshot); the nightly run adds them (ADR-0047).
 
 | Check | Assertion | Source constraint |
 | --- | --- | --- |

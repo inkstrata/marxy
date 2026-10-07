@@ -20,11 +20,14 @@ const CASES = [
   ['docs only: no job but changes and ci', ['docs/x.md'], only('docs_only')],
   ['prose no test reads is still docs only', ['docs/research/x.md', 'orchestration/needs-human.md', 'README.md'], only('docs_only')],
   ['a theme CSS change runs the browser and typography jobs', ['packages/theme/src/tokens.css'], only('web', 'typography')],
-  ['a TypeScript-only desktop change runs fast and browser, nothing else', ['apps/desktop/src/app.ts'], only('web')],
+  ['the app the aesthetics gate renders through is typography (B-02)', ['apps/desktop/src/app.ts'], only('web', 'typography')],
   ['the parser is typography: it decides what is rendered', ['packages/core/src/parse/blocks.ts'], only('web', 'typography')],
-  ['an operation is not typography', ['packages/core/src/operations/align-table.ts'], only('web')],
+  ['an operation is typography: the app the gate renders through imports them (B-02)', ['packages/core/src/operations/align-table.ts'], only('web', 'typography')],
+  ['a core test is not typography', ['packages/core/test/parse.test.mjs'], only('web')],
+  ['a desktop test is not typography', ['apps/desktop/test/palette.test.mjs'], only('web')],
   ['a corpus file is typography and not docs, though it ends in .md', ['fixtures/corpus/01-long-technical.md'], only('web', 'typography')],
-  ['the headless render entry the aesthetics gate builds is typography', ['apps/desktop/src/render/headless.ts'], only('web', 'typography')],
+  ['the app harness page the aesthetics gate builds is typography', ['apps/desktop/gate.html'], only('web', 'typography')],
+  ['the app harness entry the aesthetics gate renders through is typography', ['apps/desktop/src/harness/gate-entry.ts'], only('web', 'typography')],
   ['a font file is typography', ['fonts/literata/Literata-Regular.woff2'], only('typography')],
   ['a font\'s README is docs only', ['fonts/literata/README.md'], only('docs_only')],
   ['a font\'s LICENSE is docs only', ['fonts/literata/LICENSE'], only('docs_only')],
@@ -34,8 +37,8 @@ const CASES = [
   ['the aesthetics gate itself is typography', ['scripts/gate-aesthetics.mjs'], only('web', 'typography', 'fleet')],
   ['a fixture that is not markdown is typography', ['fixtures/themes/sepia/theme.css'], only('web', 'typography')],
   ['highlighting is typography', ['packages/core/src/highlight/grammars.ts'], only('web', 'typography')],
-  ['the weight offset headless.ts applies is typography', ['apps/desktop/src/theme/offset.ts'], only('web', 'typography')],
-  ['core\'s index, which headless.ts imports, is typography', ['packages/core/src/index.ts'], only('web', 'typography')],
+  ['the weight offset the app applies is typography', ['apps/desktop/src/theme/offset.ts'], only('web', 'typography')],
+  ['core\'s index, which the app imports, is typography', ['packages/core/src/index.ts'], only('web', 'typography')],
   ['Rust source runs the Rust job only', ['apps/desktop/src-tauri/src/main.rs'], only('rust')],
   ['tauri.conf.json runs the Rust job', ['apps/desktop/src-tauri/tauri.conf.json'], only('rust')],
   ['the Vite config the binary embeds runs the Rust job', ['apps/desktop/vite.config.ts'], only('web', 'rust')],
@@ -64,10 +67,10 @@ for (const [why, diff, want] of CASES) {
 // Every repository file the aesthetics gate's page is built from must start the typography job. The
 // graph is walked the way gate-bundle walks main.ts's: relative imports, deep @marxy/<pkg>/src/
 // imports, and @marxy/<pkg> through the package's src/index.ts.
-test('every file headless.ts reaches is typography', () => {
+test('every file the app harness entry reaches is typography', () => {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const seen = new Set();
-  const queue = [join(root, 'apps/desktop/src/render/headless.ts')];
+  const queue = [join(root, 'apps/desktop/src/harness/gate-entry.ts')];
   while (queue.length) {
     const file = queue.pop();
     if (seen.has(file) || !existsSync(file) || file.includes('/node_modules/')) continue;
