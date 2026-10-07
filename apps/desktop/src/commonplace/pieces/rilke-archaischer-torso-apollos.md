@@ -57,5 +57,3 @@ that does not see you. You must change your life.
 ---
 
 Rainer Maria Rilke (1875–1926), "Archaic Torso of Apollo," the sonnet that opens *Der neuen Gedichte anderer Teil* (Leipzig: Insel-Verlag, 1908). Text of the Insel edition. Rilke wrote it after the years he spent in Paris as Rodin's secretary, learning to look at a thing until it looked back.
-
-Translated for Marxy, line for line, and released with it under the MIT licence.

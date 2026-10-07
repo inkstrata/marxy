@@ -51,6 +51,8 @@ const verse = [
   '',
   COLOPHON,
   '',
+  'Translated for Marxy and released with it under the MIT licence.',
+  '',
 ].join('\n');
 
 const bilingual = [
@@ -74,6 +76,8 @@ const bilingual = [
   '---',
   '',
   'Written for the MARXY-257 test.',
+  '',
+  'Translated for Marxy, line for line, and released with it under the MIT licence.',
   '',
 ].join('\n');
 
@@ -161,7 +165,9 @@ test('a launch with no document shows a piece, emits no_document and never first
         path: h.currentPath(),
         source: h.sourceHarness(),
         open: h.openDocument(),
-        frontMatterShown: document.getElementById('doc').textContent.includes('rights:'),
+        frontMatterShown: document.querySelector('#doc dl') !== null
+          || document.getElementById('doc').textContent.includes('Nobody')
+          || document.getElementById('doc').textContent.includes('Translated for Marxy'),
       };
     });
     assert.deepEqual(shown, {
@@ -293,7 +299,9 @@ test('two languages sit side by side on a wide window, stacked on a narrow one, 
       const sections = [...document.querySelectorAll('.marxy-frontispiece-parallel > .marxy-frontispiece-lang')];
       const boxes = sections.map((s) => s.getBoundingClientRect());
       return {
-        langs: sections.map((s) => [s.lang, s.dir, s.querySelector('h2')?.textContent]),
+        langs: sections.map((s) => [s.lang, s.dir, s.querySelector('h2') !== null, s.textContent.replaceAll('\u00a0', ' ').trim()]),
+        notice: document.getElementById('doc').textContent.includes('Translated for Marxy'),
+        head: document.querySelector('#doc dl') !== null,
         sideBySide: boxes.length === 2 && Math.abs(boxes[0].top - boxes[1].top) < 1 && boxes[1].left > boxes[0].right,
         stacked: boxes.length === 2 && boxes[1].top >= boxes[0].bottom && Math.abs(boxes[0].left - boxes[1].left) < 1,
         // The pair is centred in the article, and the title starts on the first column's left edge.
@@ -307,7 +315,12 @@ test('two languages sit side by side on a wide window, stacked on a narrow one, 
       };
     });
     const wide = await layout();
-    assert.deepEqual(wide.langs, [['de', 'ltr', 'Deutsch'], ['en', 'ltr', 'English']]);
+    assert.deepEqual(wide.langs, [
+      ['de', 'ltr', false, 'Ein Absatz auf Deutsch, für diesen Test geschrieben.'],
+      ['en', 'ltr', false, 'A paragraph in English, written for this test.'],
+    ]);
+    assert.equal(wide.notice, false, 'the translation line is metadata, not the text');
+    assert.equal(wide.head, false, 'front matter is metadata, not the text');
     assert.equal(wide.sideBySide, true, 'two languages on a 1500 px window should be side by side');
     assert.equal(wide.centred, true, 'short parallel text should sit centred, not against the left edge');
     await page.setViewportSize({ width: 640, height: 800 });

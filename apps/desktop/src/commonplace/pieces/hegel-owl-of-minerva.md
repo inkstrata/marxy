@@ -25,5 +25,3 @@ To say one word more about teaching the world how it ought to be: philosophy in 
 ---
 
 G. W. F. Hegel (1770–1831), the close of the preface to the *Elements of the Philosophy of Right*, dated 25 June 1820 and published that October with 1821 on its title page (Berlin: Nicolai). German in the modernised spelling of the zeno.org transcription, without its page marks.
-
-Translated for Marxy and released with it under the MIT licence.

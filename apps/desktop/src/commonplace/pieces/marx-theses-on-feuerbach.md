@@ -37,5 +37,3 @@ rights: public-domain+marxy-translation
 Karl Marx (1818–1883), two of the eleven theses he wrote in Brussels in the spring of 1845. They were first printed by Friedrich Engels, lightly edited, as an appendix to his *Ludwig Feuerbach* (Stuttgart: J. H. W. Dietz, 1888), whose text and spelling this follows; its spaced-out type is set in italics. Thesis 11 is carved on Marx's grave in Highgate.
 
 It is worth saying, in a reader, that the eleventh thesis is about what comes after reading.
-
-Translated for Marxy and released with it under the MIT licence.

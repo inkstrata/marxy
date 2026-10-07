@@ -27,5 +27,3 @@ the sound of water.
 ---
 
 Matsuo Bashō (1644–1694). Composed at a gathering at his hut in Fukagawa in the spring of 1686 and printed that year in *Kawazu awase* and in *Haru no hi*, whose spelling this keeps; modern books usually write it 古池や蛙飛び込む水の音. A hokku is written in one line; the English takes three.
-
-Translated for Marxy, line for line, and released with it under the MIT licence.

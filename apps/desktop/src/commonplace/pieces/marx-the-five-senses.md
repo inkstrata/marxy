@@ -26,5 +26,3 @@ Just as music alone awakens the musical sense of man, and for the unmusical ear 
 ---
 
 Karl Marx (1818–1883), from the third of the Paris manuscripts of 1844, which he never published; they were first printed in the *Marx–Engels Gesamtausgabe* (Berlin, 1932). German in the spelling of the zeno.org transcription; the bracketed word is an editor's.
-
-Translated for Marxy and released with it under the MIT licence.

@@ -2,7 +2,9 @@
 
 A commonplace book is what a reader keeps: passages copied out by hand, each with where it came
 from. This is Marxy's. When Marxy opens with nothing to read, it shows one of these, chosen at
-random and set like a page of a well-made book, with its source beneath it.
+random and set like a page of a well-made book, with its source beneath it. The page is the
+text. Front matter, the names of the languages, and the translation licence are recorded in
+[`INFO.md`](INFO.md) and are not set on the page.
 
 The pieces are what Marxy is for. They are about truth as what is brought out of hiding
 (*alētheia*), about mind and spirit (*Geist*), about the senses and the forming of them, about
@@ -13,7 +15,8 @@ something else.
 
 Every piece is a markdown file in [`pieces/`](pieces/), in the shape set out in
 [`FORMAT.md`](FORMAT.md): front matter a machine can check, then the text, then a colophon a
-reader can see. `node scripts/check-commonplace.mjs` checks all of it, and so does `pnpm test`.
+reader can see. The licence for a translation made here is in [`INFO.md`](INFO.md), not in the
+piece. `node scripts/check-commonplace.mjs` checks all of it, and so does `pnpm test`.
 
 ## The rights rule
 

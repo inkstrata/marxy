@@ -53,5 +53,3 @@ The weathervanes clatter.
 ---
 
 Friedrich Hölderlin (1770–1843), "Half of Life." First printed in the *Taschenbuch für das Jahr 1805* (Frankfurt am Main: Friedrich Wilmans, 1804), page 85, whose text this follows. It was among the last poems he published before the illness that took the second half of his life.
-
-Translated for Marxy, line for line, and released with it under the MIT licence.
