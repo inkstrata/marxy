@@ -6,7 +6,7 @@
 > [`00-orchestration.md`](plan/roadmap-2026-10/00-orchestration.md), the ledger in `progress.md`);
 > one story is one branch, one worktree and one pull request; the pull-request path is a
 > Conventional Commits subject, a `changelog.d/<id>.md` fragment, green product gates and one
-> review, and the author merges by squash (`docs/ci-contract.md`). None of it needs a Jira key, board row,
+> review, and the lead merges by squash once those hold (`scripts/lead-merge.mjs`, `docs/plan/roadmap-2026-10/00-orchestration.md` §6). None of it needs a Jira key, board row,
 > result file or enforced PR body. The sections **The board**, **Definition of ready**, **The loop,
 > per story**, **Work outside the plan**, **Review order**, **Cadence**, **Credentials** and **Which of the four definition-of-done commands may skip** (it
 > names `pnpm done` and `open-pr`) describe the
