@@ -73,3 +73,26 @@ function decodeOnce(value: string): string {
     return NAMED_REFERENCES.get(body) ?? match;
   });
 }
+
+/** Named references a browser resolves in an attribute without a semicolon (the legacy set, within this table). */
+const LEGACY_UNTERMINATED = new Set(['amp', 'AMP', 'lt', 'LT', 'gt', 'GT', 'quot', 'QUOT', 'nbsp']);
+
+/**
+ * One decoding pass by the rules a browser applies to an attribute value, and no more: what the
+ * attribute will actually mean. A named reference needs its semicolon, except the legacy few, and
+ * those are left alone when the next character is `=` or alphanumeric (`?a=1&amp=2` is a query
+ * parameter named `amp`). Used for the value a URL attribute emits; `decodeReferences` stays the
+ * aggressive reading used to judge the scheme.
+ */
+export function decodeAttributeReferences(value: string): string {
+  if (!value.includes('&')) return value;
+  return value.replace(/&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31})(;?)/g,
+    (match, body: string, semi: string, offset: number, whole: string) => {
+      if (body.startsWith('#')) return decodeOnce(match);
+      if (semi === '') {
+        const next = whole[offset + match.length] ?? '';
+        if (!LEGACY_UNTERMINATED.has(body) || /[=A-Za-z0-9]/.test(next)) return match;
+      }
+      return NAMED_REFERENCES.get(body) ?? match;
+    });
+}

@@ -398,3 +398,20 @@ test('a checkbox a document wrote cannot be toggled either', () => {
 test('an absolute link is emitted in the form the browser will use, so a host reads as itself', () => {
   assert.equal(clean('<a href="https://g\u043eogle.com/">x</a>'), '<a href="https://xn--gogle-jye.com/">x</a>');
 });
+
+test('F-02: a link query keeps parameters named like references, through the real pipeline', async () => {
+  const { renderSafeHtml } = await import('../render/pipeline.ts');
+  const href = (md: string): string => renderSafeHtml(md, { file: 't.md' }).html.match(/href="([^"]*)"/)![1]!;
+  assert.equal(href('[a](https://example.com/?q=1&sol=2)\n'), 'https://example.com/?q=1&amp;sol=2');
+  assert.equal(href('[a](https://example.com/?q=1&amp=2)\n'), 'https://example.com/?q=1&amp;amp=2');
+  assert.equal(href('[a](https://example.com/?q=1&lt=2)\n'), 'https://example.com/?q=1&amp;lt=2');
+  assert.equal(href('[a](https://example.com/?q=1&gt=2)\n'), 'https://example.com/?q=1&amp;gt=2');
+  assert.equal(href('[a](https://example.com/?foo=1&bar=2)\n'), 'https://example.com/?foo=1&amp;bar=2');
+});
+
+test('F-02: a scheme hidden behind doubled references is still refused', () => {
+  for (const raw of ['&amp;#x6a;avascript:alert(1)', '&#x26;#106;avascript:alert(1)', '&amp;#106avascript:alert(1)',
+    '&amp;#x6a;avascript&colon;alert(1)', 'java&amp;Tab;script:alert(1)']) {
+    assert.equal(sanitizeUrl(raw, 'link', DEFAULT_POLICY).allowed, false, raw);
+  }
+});
