@@ -196,7 +196,10 @@ export function measureInPage(args) {
   }
 
   // Set lines: per paragraph set by the typesetter, the right edge of each line against its content box.
-  const lineStats = { paragraphs: 0, lines: 0, overflowing: 0, maxOverflow: 0 };
+  // The typesetter hangs a hyphen past the measure on purpose (.marxy-hyphen) and hangs opening punctuation
+  // (.marxy-hang): those boxes are not line overflow. Their rects are left out of a line's right edge and the
+  // worst one is kept apart as `maxHungPastPx`, the baseline a reader of the numbers can compare against.
+  const lineStats = { paragraphs: 0, lines: 0, overflowing: 0, maxOverflow: 0, maxHungPastPx: 0 };
   const lineOffenders = [];
   for (const p of article.querySelectorAll('p.marxy-set')) {
     const ps = getComputedStyle(p);
@@ -205,9 +208,15 @@ export function measureInPage(args) {
     const lh = parseFloat(ps.lineHeight);
     const top = pb.top + parseFloat(ps.paddingTop);
     const lines = new Map();
+    const hung = [...p.querySelectorAll('.marxy-hang, .marxy-hyphen')].flatMap((e) => [...e.getClientRects()]);
+    const isHung = (rc) => hung.some((h) => Math.abs(h.left - rc.left) < 0.5 && Math.abs(h.right - rc.right) < 0.5 && Math.abs(h.top - rc.top) < 0.5);
     range.selectNodeContents(p);
     for (const rc of range.getClientRects()) {
       if (rc.width === 0) continue;
+      if (isHung(rc)) {
+        lineStats.maxHungPastPx = Math.max(lineStats.maxHungPastPx, rc.right - contentR);
+        continue;
+      }
       const key = Math.floor((rc.top + rc.height / 2 - top) / lh);
       const cur = lines.get(key) ?? { r: -Infinity };
       cur.r = Math.max(cur.r, rc.right);
@@ -260,7 +269,7 @@ export function measureInPage(args) {
     const past = floorL - m.left;
     if (past > 0.5) offenders.push({ h: 'H3', k: `${m.type}@${m.owner}`, tag: m.type, depth: 0, s: Number(m.owner ?? -1), e: -1, metric: r2(past), why: `${m.type} hangs ${r2(m.hang)} left of the column; its left edge is ${r2(m.left)} (gutter floor ${r2(floorL)}${m.left < 0 ? ', clipped' : ''})`, top: null, l: m.left, r: m.left, bh: 0 });
   }
-  for (const lo of lineOffenders) offenders.push({ h: 'H4', k: lo.k, tag: 'p.set-line', depth: 0, s: lo.s, e: lo.e, metric: r2(lo.over), why: `a set line runs ${r2(lo.over)} past its paragraph's content box`, top: lo.top, l: lo.l, r: lo.r, bh: lo.h });
+  for (const lo of lineOffenders) offenders.push({ h: 'H4', k: lo.k, tag: 'p.set-line', depth: 0, s: lo.s, e: lo.e, metric: r2(lo.over), why: `a set line runs ${r2(lo.over)} past its paragraph's content box (hung hyphens and punctuation not counted)`, top: lo.top, l: lo.l, r: lo.r, bh: lo.h });
 
   // Aggregates per kind (the full block list is kept only at the reference cells).
   const kinds = {};
@@ -337,7 +346,23 @@ export function measureInPage(args) {
       lineHeightInGridUnits: r2((Number.isFinite(nLine) ? nLine : parseFloat(ns.fontSize) * 1.4) / unit),
       pushesTextDown: r2(topAfter - topBefore),
       position: getComputedStyle(host).position,
+      regionFontPx: r2(parseFloat(getComputedStyle(host).fontSize)),
+      articleFontPx: r2(parseFloat(cs.fontSize)),
+      regionColumnPx: r2(hb.width - parseFloat(getComputedStyle(host).paddingLeft) - parseFloat(getComputedStyle(host).paddingRight)),
+      articleColumnPx: r2(colR - colL),
     };
+    // Counterfactuals, so the cause is measured and not asserted: the same region with the article's font
+    // size, and with the article's gutter as its side padding. Each is undone before anything else is read.
+    const edgeWith = (css) => {
+      host.style.cssText = css;
+      void host.offsetHeight;
+      const left = host.firstElementChild.getBoundingClientRect().left - colL;
+      host.style.cssText = '';
+      void host.offsetHeight;
+      return r2(left);
+    };
+    notice.edgeIfRegionFontMatchedArticle = edgeWith(`font-size:${cs.fontSize}`);
+    notice.edgeIfRegionPaddingMatchedArticle = edgeWith(`padding-left:${padL}px;padding-right:${padR}px`);
     const maxScroll = html.scrollHeight - window.innerHeight;
     if (maxScroll > 0) {
       window.scrollTo(0, Math.min(maxScroll, Math.round(window.innerHeight * 3)));
@@ -355,7 +380,7 @@ export function measureInPage(args) {
       for (const o of offenders) if (o.top !== null) o.top += notice.pushesTextDown;
     } else host.remove();
     if (Math.abs(notice.boxLeft - colL) > 1 || Math.abs(notice.boxRight - colR) > 1) {
-      offenders.push({ h: 'H6', k: 'notice', tag: 'notice', depth: 0, s: -1, e: -1, metric: r2(Math.max(Math.abs(notice.boxLeft - colL), Math.abs(notice.boxRight - colR))), why: `notice box edges ${r2(nb.left - colL)} / ${r2(nb.right - colR)} from the column (its region pads ${notice.regionPadLeft}px, the article's gutter is ${notice.articleGutter}px)`, top: args.keepNotice ? hb.top + window.scrollY : topBefore, l: nb.left, r: nb.right, bh: nb.height });
+      offenders.push({ h: 'H6', k: 'notice', tag: 'notice', depth: 0, s: -1, e: -1, metric: r2(Math.max(Math.abs(notice.boxLeft - colL), Math.abs(notice.boxRight - colR))), why: `notice box edges ${r2(nb.left - colL)} / ${r2(nb.right - colR)} from the column: #marxy-notices sizes its column in em at its own ${notice.regionFontPx}px font (the article's is ${notice.articleFontPx}px), so its column is ${notice.regionColumnPx}px against ${notice.articleColumnPx}px; with the article's font size the edge would be ${notice.edgeIfRegionFontMatchedArticle} off, with the article's gutter as side padding ${notice.edgeIfRegionPaddingMatchedArticle} off (region padding ${notice.regionPadLeft}px, article gutter ${notice.articleGutter}px: padding matters only where the window clamps the box)`, top: args.keepNotice ? hb.top + window.scrollY : topBefore, l: nb.left, r: nb.right, bh: nb.height });
     }
     if (notice.lineHeightInGridUnits % 1 !== 0 && Math.abs((notice.lineHeightInGridUnits % 1) - 0) > 0.001) {
       offenders.push({ h: 'H6', k: 'notice.line', tag: 'notice', depth: 0, s: -1, e: -1, metric: r2(notice.lineHeightPx), why: `notice line height ${notice.lineHeightPx}px is ${notice.lineHeightInGridUnits} grid units`, top: null, l: colL, r: colR, bh: 0 });
@@ -374,7 +399,7 @@ export function measureInPage(args) {
       offsetFromClient: r2(axisColumn - cw / 2),
     },
     margins: { bodyInk: inkOf((b) => b.tag === 'p' && b.depth === 0), pageInk: inkOf(() => true), pageBoxes: boxes },
-    lines: { ...lineStats, maxOverflow: r2(lineStats.maxOverflow) },
+    lines: { ...lineStats, maxOverflow: r2(lineStats.maxOverflow), maxHungPastPx: r2(lineStats.maxHungPastPx) },
     notice,
     blocksMeasured: blocks.length,
     marks: marks.length
@@ -485,15 +510,15 @@ export function startHarness() {
   });
 }
 
-const CLASSIC_CSS = `html::-webkit-scrollbar{width:${CLASSIC_SCROLLBAR_PX}px;height:${CLASSIC_SCROLLBAR_PX}px}html::-webkit-scrollbar-thumb{background:#888}html::-webkit-scrollbar-track{background:#333}
+export const CLASSIC_CSS = `html::-webkit-scrollbar{width:${CLASSIC_SCROLLBAR_PX}px;height:${CLASSIC_SCROLLBAR_PX}px}html::-webkit-scrollbar-thumb{background:#888}html::-webkit-scrollbar-track{background:#333}
 #doc table::-webkit-scrollbar,#doc pre::-webkit-scrollbar{height:${CLASSIC_SCROLLBAR_PX}px;width:${CLASSIC_SCROLLBAR_PX}px}`;
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Render `source` at one matrix cell and measure it. `classic` models a scrollbar that appears after
  * first text: the page is typeset overlay-wide, then the scrollbar is injected and the main is left to
- * reflow (H4), so set lines are measured immediately and again after the page settles.
+ * reflow (H4). Set lines are read once, as that reflow leaves them. The app re-sets paragraphs 100 ms after
+ * the article's clientWidth changes (apps/desktop/src/app.ts); the headless render entry has no resize
+ * observer, so the probe cannot say how long the overflow is visible, only how far it reaches before that.
  */
 export async function probeCell(page, origin, source, cell, opts = {}) {
   await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
@@ -519,15 +544,9 @@ export async function probeCell(page, origin, source, cell, opts = {}) {
       el.style.overflowY = '';
       void el.offsetHeight;
     });
-    const immediate = await page.evaluate(measureInPage, { blocks: false, notice: false });
-    out.linesImmediate = immediate.lines;
-    await sleep(600);
     await settle(page);
   }
   out.cell = await page.evaluate(measureInPage, { blocks: Boolean(opts.blocks), notice: true, keepNotice: Boolean(opts.keepNotice) });
-  if (out.linesImmediate) out.cell.linesImmediate = out.linesImmediate;
-  // Offenders from the immediate reading are the H4 evidence; the settled reading says whether a relayout fixed them.
-  if (out.linesImmediate && out.linesImmediate.overflowing > 0 && out.cell.lines.overflowing === 0) out.cell.lines.fixedByRelayout = true;
   return out;
 }
 
@@ -769,20 +788,23 @@ export function headlines(results, statics) {
     if (base) shift.push(Math.abs(cr.cell.centre.columnAxis - base.cell.centre.columnAxis));
   }
   out.H4 = {
+    note: 'Not errors: the column moving by half a classic scrollbar (maxColumnShiftPx, maxCentreOffsetFromWindowClassicPx) is what a classic scrollbar does, and maxCentreOffsetFromClientClassicPx 0 says the visible area stays centred. Set-line overflow is read as the 15 px scrollbar first reflows the page, before the app\'s own relayout (100 ms after clientWidth changes, apps/desktop/src/app.ts); the headless render entry has no such observer, so how long it shows is not measured. The typesetter\'s hung hyphens and punctuation are not counted (maxHungHyphenPastOverlayPx is their size, with no scrollbar).',
     classicCellsWithScrollbar: withSb.length,
     scrollbarPx: withSb[0]?.cell.viewport.scrollbar ?? null,
     maxColumnShiftPx: r2(Math.max(0, ...shift)),
     maxCentreOffsetFromWindowClassicPx: r2(maxBy(withSb, (r) => Math.abs(r.cell.centre.offsetFromWindow))),
     maxCentreOffsetFromWindowOverlayPx: r2(maxBy(o, (r) => Math.abs(r.cell.centre.offsetFromWindow))),
     maxCentreOffsetFromClientClassicPx: r2(maxBy(withSb, (r) => Math.abs(r.cell.centre.offsetFromClient))),
-    cellsWithLinesOverflowingImmediately: withSb.filter((r) => (r.cell.linesImmediate?.overflowing ?? 0) > 0).length,
-    cellsWithLinesOverflowingSettled: withSb.filter((r) => r.cell.lines.overflowing > 0).length,
-    maxLineOverflowImmediatePx: r2(maxBy(withSb, (r) => r.cell.linesImmediate?.maxOverflow)),
+    cellsWithLinesOverflowingClassic: withSb.filter((r) => r.cell.lines.overflowing > 0).length,
+    cellsWithLinesOverflowingOverlay: o.filter((r) => r.cell.lines.overflowing > 0).length,
+    maxLineOverflowClassicPx: r2(maxBy(withSb, (r) => r.cell.lines.maxOverflow)),
     maxLineOverflowOverlayPx: r2(maxBy(o, (r) => r.cell.lines.maxOverflow)),
+    maxHungHyphenPastOverlayPx: r2(maxBy(o, (r) => r.cell.lines.maxHungPastPx)),
     cellsWithHorizontalPageScroll: refs.filter((r) => r.cell.viewport.hScroll).length,
   };
   const nested = refs.flatMap((r) => r.cell.offenders.filter((x) => x.h === 'H5' && x.depth > 0));
   out.H5 = {
+    note: 'Untested for nested tables: no table in the corpus sits inside a list or blockquote (nestedWideBlocksMeasured_960.table is 0), and the only nested pre are three in blockquotes of 24-issue-thread. nestedOffenders 0 means no sample, not that H5 is dead. Cell right padding and snapToGrid on scrolled tables are not measured. The two ranked H5 rows are classic-scrollbar clipping at 320 px, not the nested case.',
     cellsWithBlockPastGutterFloor: o.filter((r) => r.cell.offenders.some((x) => x.h === 'H5')).length,
     nestedOffenders: nested.length,
     maxPastFloorPx: r2(maxBy(o, (r) => Math.max(0, ...r.cell.offenders.filter((x) => x.h === 'H5').map((x) => x.metric)))),
@@ -797,15 +819,20 @@ export function headlines(results, statics) {
   out.H6 = {
     noticeEdgeVsColumnLeft_960: first(n960)?.boxVsColumnL ?? null,
     noticeEdgeVsColumnLeft_320: first(n320)?.boxVsColumnL ?? null,
-    noticeRegionPadVsArticleGutter_960: first(n960) ? [first(n960).regionPadLeft, first(n960).articleGutter] : null,
+    noticeRegionFontPxVsArticle_960: first(n960) ? [first(n960).regionFontPx, first(n960).articleFontPx] : null,
+    noticeColumnPxVsArticle_960: first(n960) ? [first(n960).regionColumnPx, first(n960).articleColumnPx] : null,
+    noticeEdgeIfRegionFontMatchedArticle_960: first(n960)?.edgeIfRegionFontMatchedArticle ?? null,
+    noticeEdgeIfRegionPaddingMatchedArticle_960: first(n960)?.edgeIfRegionPaddingMatchedArticle ?? null,
     noticeRegionPadVsArticleGutter_320: first(n320) ? [first(n320).regionPadLeft, first(n320).articleGutter] : null,
+    noticeEdgeIfRegionPaddingMatchedArticle_320: first(n320)?.edgeIfRegionPaddingMatchedArticle ?? null,
     noticeLineHeightInGridUnits: first(n960)?.lineHeightInGridUnits ?? null,
     noticeHeightInGridUnits: first(n960)?.heightInGridUnits ?? null,
     noticePushesTextDownPx: first(n960)?.pushesTextDown ?? null,
     cellsWhereNoticeIsOutOfViewWhenScrolled: o.filter((r) => r.cell.notice && r.cell.notice.inViewWhenScrolled === false).length,
     cellsMeasuredScrolled: o.filter((r) => r.cell.notice && r.cell.notice.scrolledTo > 0).length,
     sourceModeNoticeFixed: statics.H6.sourceModeFixed.length > 0,
-    adHocNoticeBuilders: statics.H6.adHocBuilders.length,
+    adHocNoticeBuilderFiles: new Set(statics.H6.adHocBuilders.map((h) => h.at.replace(/:\d+$/, ''))).size,
+    adHocNoticeBuilderLines: statics.H6.adHocBuilders.length,
   };
   out.H7 = {
     note: 'Source mode is CodeMirror, not part of the render entry: these are static facts with file:line (see static.H7), measured by L-01 where it needs a render.',
@@ -888,7 +915,6 @@ export function assemble(opts, runResult) {
       centre: r.cell.centre,
       margins: r.cell.margins,
       lines: r.cell.lines,
-      ...(r.cell.linesImmediate ? { linesImmediate: r.cell.linesImmediate } : {}),
       marks: r.cell.marks,
       kinds: r.cell.kinds,
       offenderCounts: Object.fromEntries(HYPOTHESES.map((h) => [h, r.cell.offenders.filter((o) => o.h === h).length]).filter(([, n]) => n > 0)),
@@ -900,20 +926,22 @@ export function assemble(opts, runResult) {
   }
   return {
     tool: 'scripts/probe-layout.mjs',
-    ref: { name: opts.ref, sha: refSha(opts.ref) },
+    ref: { name: opts.ref, sha: refSha(opts.ref), label: 'only a label: --ref does not select what is rendered' },
+    tree: { rendered: 'the working tree this was run in', head: refSha('HEAD') },
     engine: process.platform === 'darwin' ? 'webkit-macos' : `webkit-${process.platform}`,
     matrix: { widths: opts.widths, sizes: opts.sizes, variants: opts.variants, scrollbars: opts.scrollbars, classicScrollbarPx: CLASSIC_SCROLLBAR_PX, cells: cells.length, documents: files.length, referenceCell: REF },
     definitions: {
       units: 'CSS px, rounded to 0.01. Every delta is from the column (the article content box); dR > 0 is past the right edge.',
       offsetFromWindow: 'column axis minus window axis (innerWidth / 2); offsetFromClient uses the width minus the scrollbar.',
       margins: 'left = leftmost ink edge from the window left; right = clientWidth minus rightmost ink edge; asymmetry = left - right. bodyInk = top-level paragraphs, pageInk = all text, pageBoxes = all block boxes.',
-      classic: 'The page is set at the overlay width, then a 15px ::-webkit-scrollbar is injected (a scrollbar that appears after first text); lines is read after settling, linesImmediate before. Documents shorter than the window have scrollbar 0.',
-      offenders: 'H1 box overhangs the column unequally; H2 top-level block text not on the column edge; H3 hung mark (ol marker, checkbox, hung punctuation) left of the gutter floor; H4 set line past its paragraph content box; H5 block box past the gutter floor at any depth (or ink outside the window); H6 notice edges / grid height. The probe states facts; L-01 judges them.',
+      classic: 'The page is set at the overlay width, then a 15px ::-webkit-scrollbar is injected (a scrollbar that appears after first text) and lines is read as that reflow leaves it, before the app\'s own relayout (100 ms after clientWidth changes; the headless render entry has no resize observer, so nothing here says how long an overflow shows). Documents shorter than the window have scrollbar 0.',
+      offenders: 'H1 box overhangs the column unequally; H2 top-level block text not on the column edge; H3 hung mark (ol marker, checkbox, hung punctuation) left of the gutter floor; H4 set line past its paragraph content box (the typesetter\'s hung hyphens and punctuation excluded, kept apart as lines.maxHungPastPx); H5 block box past the gutter floor at any depth (or ink outside the window); H6 notice edges / grid height. The probe states facts; L-01 judges them.',
     },
     errors: results.filter((r) => r.error).map((r) => ({ file: r.file, cell: r.id, error: r.error })),
     headlines: headlines(ok, statics),
     rankings: rankOffenders(ok),
     rankingsByKind: rankByKind(ok),
+    rankingsAtReadingWidths: Object.fromEntries([960, 1280].map((w) => [`${w}x20-dark-overlay`, rankOffenders(ok.filter((r) => r.width === w && r.size === 20 && r.variant === 'dark' && r.scrollbar === 'overlay'), 10)])),
     static: statics,
     notices: noticesOf(ok, files),
     documents: Object.fromEntries(Object.entries(docs).sort(([a], [b]) => (a < b ? -1 : 1)).map(([f, cellsOf]) => [f, Object.fromEntries(Object.entries(cellsOf).sort(([a], [b]) => (a < b ? -1 : 1)))])),
@@ -950,7 +978,7 @@ async function writeContactSheets(browser, shots, files, widths, probe, outDir) 
     const page = await browser.newPage({ viewport: { width: cols * (tileW + 8) + 12, height: 800 } });
     await page.setContent(html, { waitUntil: 'load' });
     const path = join(outDir, 'contact-sheets', `w${String(width).padStart(4, '0')}.jpg`);
-    writeFileSync(path, await page.screenshot({ fullPage: true, type: 'jpeg', quality: 80 }));
+    writeFileSync(path, await page.screenshot({ fullPage: true, type: 'jpeg', quality: 45 }));
     await page.close();
     written.push(path);
   }
@@ -1013,7 +1041,7 @@ A geometry probe over the corpus. It measures the page and states facts; it does
 reads \`probe.json\`, confirms or kills H1 to H7 from it, and writes the findings. Hypotheses are in
 \`docs/plan/roadmap-2026-10/07-layout-and-reading.md\`.
 
-- Measured: \`${probe.ref.name}\` at \`${probe.ref.sha}\`, ${probe.engine}, ${probe.matrix.documents} documents x ${probe.matrix.cells} cells = ${probe.matrix.documents * probe.matrix.cells} renders.
+- Measured: the working tree at \`${probe.tree.head}\` (\`--ref\` is only a label and selects nothing; this run's label was \`${probe.ref.name}\`, which was \`${probe.ref.sha}\`), ${probe.engine}, ${probe.matrix.documents} documents x ${probe.matrix.cells} cells = ${probe.matrix.documents * probe.matrix.cells} renders.
 - Matrix: widths ${probe.matrix.widths.join(', ')} px; sizes ${probe.matrix.sizes.join(', ')} px; ${probe.matrix.variants.join(' and ')}; scrollbars ${probe.matrix.scrollbars.join(' and ')} (classic is ${probe.matrix.classicScrollbarPx} px, forced with \`::-webkit-scrollbar\` to model WebKitGTK).
 - Errors during the run: ${probe.errors.length}.
 
@@ -1052,7 +1080,7 @@ Taken over the size-20, dark cells (both scrollbar modes where the key says so).
   }
 
   out.push('## Ranked offenders, by hypothesis\n');
-  out.push('The worst blocks across the whole matrix, the worst block of each document and kind (the worst cell kept), by the size of the miss in px; `probe.json` keeps up to three per document and kind. `H4` here includes the steady-state overlay misses (set lines that already overflow before any scrollbar appears); the classic-scrollbar numbers are under the headline table.\n');
+  out.push('The worst blocks across the whole matrix, the worst block of each document and kind (the worst cell kept), by the size of the miss in px; `probe.json` keeps up to three per document and kind. `H4` here is set lines past their box in any cell, hung hyphens excluded.\n');
   for (const h of HYPOTHESES) {
     const seen = new Set();
     const rows = probe.rankings[h]
@@ -1061,6 +1089,21 @@ Taken over the size-20, dark cells (both scrollbar modes where the key says so).
       .map((o, i) => [i + 1, o.file === ANY_DOC ? o.file : `\`${o.file}\``, cellLabel(o.cell), o.tag, o.depth, o.signed, o.e >= 0 ? `${o.s}-${o.e}` : '', o.why]);
     out.push(`### ${hdr[h]}\n`);
     out.push(rows.length ? `${table(rows, ['#', 'document', 'cell', 'kind', 'depth', 'px', 'bytes', 'what'])}\n` : 'No offenders in this matrix.\n');
+  }
+
+  out.push('## Ranked offenders at the cells a reader uses\n');
+  out.push('The same ranking restricted to 960 px and 1280 px windows, 20 px type, dark, overlay scrollbar, so the order is not set by window width alone. Every row is at that cell.\n');
+  for (const [cellId, byH] of Object.entries(probe.rankingsAtReadingWidths)) {
+    out.push(`### ${cellLabel(cellId)}\n`);
+    for (const h of HYPOTHESES) {
+      const seen = new Set();
+      const rows = (byH[h] ?? [])
+        .filter((o) => !seen.has(`${o.file}|${o.tag}`) && seen.add(`${o.file}|${o.tag}`))
+        .slice(0, 6)
+        .map((o, i) => [i + 1, o.file === ANY_DOC ? o.file : `\`${o.file}\``, o.tag, o.depth, o.signed, o.e >= 0 ? `${o.s}-${o.e}` : '', o.why]);
+      out.push(`#### ${h}\n`);
+      out.push(rows.length ? `${table(rows, ['#', 'document', 'kind', 'depth', 'px', 'bytes', 'what'])}\n` : 'No offenders.\n');
+    }
   }
 
   out.push('## Worst per block kind\n');
@@ -1106,7 +1149,10 @@ reproduced with \`--files\`, \`--widths\` and \`--sizes\`.
 ## What the probe does not do, and caveats
 
 - It does not judge. A \`reaches: false\` margin means the document has no ink at the column's right edge, so that asymmetry says nothing.
-- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`linesImmediate\` is read at once, \`lines\` after 600 ms.
+- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`lines\` is read as that reflow leaves it, before the app's own relayout (100 ms after \`clientWidth\` changes, \`apps/desktop/src/app.ts\`). The headless render entry has no resize observer, so the probe cannot say how long an overflow shows; L-01 must not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
+- H5 is untested for nested tables: the corpus has no table inside a list or blockquote, so \`nestedOffenders 0\` means no sample. L-01 should add one synthetic nested-table page.
+- The classic-scrollbar column shift and centre offset from the window are what a classic scrollbar is; the visible area stays centred (\`offsetFromClient\` 0). They are not errors.
+- \`--ref\` is a label only. The probe renders whatever tree it runs in; the Measured line says which.
 - The notice is a synthetic region built the way \`apps/desktop/index.html\` builds it; the harness page has none.
 - Light and dark can differ by sub-pixel type weight, so both are kept.
 - Source mode, the palette and the outline are not rendered. H7 is static facts until L-01 probes it.

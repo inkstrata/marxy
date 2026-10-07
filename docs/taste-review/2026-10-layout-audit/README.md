@@ -4,7 +4,7 @@ A geometry probe over the corpus. It measures the page and states facts; it does
 reads `probe.json`, confirms or kills H1 to H7 from it, and writes the findings. Hypotheses are in
 `docs/plan/roadmap-2026-10/07-layout-and-reading.md`.
 
-- Measured: `origin/main` at `b04a49bbf347`, webkit-macos, 28 documents x 96 cells = 2688 renders.
+- Measured: the working tree at `a7cde7305699` (`--ref` is only a label and selects nothing; this run's label was `origin/main`, which was `a7cde7305699`), webkit-macos, 28 documents x 96 cells = 2688 renders.
 - Matrix: widths 320, 480, 659, 720, 960, 1280, 1600, 2560 px; sizes 16, 20, 28 px; dark and light; scrollbars overlay and classic (classic is 15 px, forced with `::-webkit-scrollbar` to model WebKitGTK).
 - Errors during the run: 0.
 
@@ -69,6 +69,8 @@ Taken over the size-20, dark cells (both scrollbar modes where the key says so).
 
 ### H4. A classic scrollbar moves the centre and overflows set lines
 
+Not errors: the column moving by half a classic scrollbar (maxColumnShiftPx, maxCentreOffsetFromWindowClassicPx) is what a classic scrollbar does, and maxCentreOffsetFromClientClassicPx 0 says the visible area stays centred. Set-line overflow is read as the 15 px scrollbar first reflows the page, before the app's own relayout (100 ms after clientWidth changes, apps/desktop/src/app.ts); the headless render entry has no such observer, so how long it shows is not measured. The typesetter's hung hyphens and punctuation are not counted (maxHungHyphenPastOverlayPx is their size, with no scrollbar).
+
 | key | value |
 | --- | --- |
 | `classicCellsWithScrollbar` | 178 |
@@ -77,13 +79,16 @@ Taken over the size-20, dark cells (both scrollbar modes where the key says so).
 | `maxCentreOffsetFromWindowClassicPx` | 7.5 |
 | `maxCentreOffsetFromWindowOverlayPx` | 0 |
 | `maxCentreOffsetFromClientClassicPx` | 0 |
-| `cellsWithLinesOverflowingImmediately` | 57 |
-| `cellsWithLinesOverflowingSettled` | 57 |
-| `maxLineOverflowImmediatePx` | 21.94 |
-| `maxLineOverflowOverlayPx` | 6.94 |
+| `cellsWithLinesOverflowingClassic` | 42 |
+| `cellsWithLinesOverflowingOverlay` | 0 |
+| `maxLineOverflowClassicPx` | 15.5 |
+| `maxLineOverflowOverlayPx` | 0 |
+| `maxHungHyphenPastOverlayPx` | 6.94 |
 | `cellsWithHorizontalPageScroll` | 3 |
 
 ### H5. Blocks pass the gutter floor (nested blocks, scrollbars)
+
+Untested for nested tables: no table in the corpus sits inside a list or blockquote (nestedWideBlocksMeasured_960.table is 0), and the only nested pre are three in blockquotes of 24-issue-thread. nestedOffenders 0 means no sample, not that H5 is dead. Cell right padding and snapToGrid on scrolled tables are not measured. The two ranked H5 rows are classic-scrollbar clipping at 320 px, not the nested case.
 
 | key | value |
 | --- | --- |
@@ -101,15 +106,20 @@ Taken over the size-20, dark cells (both scrollbar modes where the key says so).
 | --- | --- |
 | `noticeEdgeVsColumnLeft_960` | 61.11 |
 | `noticeEdgeVsColumnLeft_320` | 32 |
-| `noticeRegionPadVsArticleGutter_960` | `[48,24]` |
+| `noticeRegionFontPxVsArticle_960` | `[16,20]` |
+| `noticeColumnPxVsArticle_960` | `[488.92,611.16]` |
+| `noticeEdgeIfRegionFontMatchedArticle_960` | 0 |
+| `noticeEdgeIfRegionPaddingMatchedArticle_960` | 61.11 |
 | `noticeRegionPadVsArticleGutter_320` | `[48,16]` |
+| `noticeEdgeIfRegionPaddingMatchedArticle_320` | 0 |
 | `noticeLineHeightInGridUnits` | 1.4 |
 | `noticeHeightInGridUnits` | 2.97 |
 | `noticePushesTextDownPx` | 59.5 |
 | `cellsWhereNoticeIsOutOfViewWhenScrolled` | 178 |
 | `cellsMeasuredScrolled` | 179 |
 | `sourceModeNoticeFixed` | true |
-| `adHocNoticeBuilders` | 18 |
+| `adHocNoticeBuilderFiles` | 5 |
+| `adHocNoticeBuilderLines` | 18 |
 
 ### H7. Source mode lacks the basics (static facts only)
 
@@ -126,7 +136,7 @@ Source mode is CodeMirror, not part of the render entry: these are static facts 
 
 ## Ranked offenders, by hypothesis
 
-The worst blocks across the whole matrix, the worst block of each document and kind (the worst cell kept), by the size of the miss in px; `probe.json` keeps up to three per document and kind. `H4` here includes the steady-state overlay misses (set lines that already overflow before any scrollbar appears); the classic-scrollbar numbers are under the headline table.
+The worst blocks across the whole matrix, the worst block of each document and kind (the worst cell kept), by the size of the miss in px; `probe.json` keeps up to three per document and kind. `H4` here is set lines past their box in any cell, hung hyphens excluded.
 
 ### H1. Wide blocks grow to one side only
 
@@ -176,16 +186,16 @@ The worst blocks across the whole matrix, the worst block of each document and k
 
 | # | document | cell | kind | depth | px | bytes | what |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `32-long-reference.md` | 320 px, 20 px type, dark, classic scrollbar | p.set-line | 0 | 21.94 | 122772-122877 | a set line runs 21.94 past its paragraph's content box |
-| 2 | `30-notebook-export.md` | 320 px, 28 px type, dark, classic scrollbar | p.set-line | 0 | 20.44 | 3818-3877 | a set line runs 20.44 past its paragraph's content box |
-| 3 | `31-essay.md` | 480 px, 20 px type, dark, classic scrollbar | p.set-line | 0 | 20.25 | 8241-9113 | a set line runs 20.25 past its paragraph's content box |
-| 4 | `15-prose-volume.md` | 659 px, 28 px type, light, classic scrollbar | p.set-line | 0 | 19.19 | 39255-40026 | a set line runs 19.19 past its paragraph's content box |
-| 5 | `28-llm-answer.md` | 480 px, 20 px type, dark, classic scrollbar | p.set-line | 0 | 18.82 | 1736-1823 | a set line runs 18.82 past its paragraph's content box |
-| 6 | `01-long-technical.md` | 720 px, 28 px type, dark, classic scrollbar | p.set-line | 0 | 18.68 | 3375-3432 | a set line runs 18.68 past its paragraph's content box |
-| 7 | `14-marxy-plan.md` | 320 px, 16 px type, dark, classic scrollbar | p.set-line | 0 | 16.4 | 23-396 | a set line runs 16.4 past its paragraph's content box |
-| 8 | `09-gfm-everything.md` | 320 px, 16 px type, light, classic scrollbar | p.set-line | 0 | 16.25 | 1694-1749 | a set line runs 16.25 past its paragraph's content box |
-| 9 | `24-issue-thread.md` | 720 px, 28 px type, dark, classic scrollbar | p.set-line | 0 | 15.74 | 4384-4677 | a set line runs 15.74 past its paragraph's content box |
-| 10 | `18-agent-transcript.md` | 320 px, 20 px type, light, classic scrollbar | p.set-line | 0 | 15.53 | 2406-2513 | a set line runs 15.53 past its paragraph's content box |
+| 1 | `15-prose-volume.md` | 320 px, 20 px type, light, classic scrollbar | p.set-line | 0 | 15.5 | 23222-23961 | a set line runs 15.5 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 2 | `31-essay.md` | 320 px, 20 px type, dark, classic scrollbar | p.set-line | 0 | 15.5 | 5808-6127 | a set line runs 15.5 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 3 | `32-long-reference.md` | 320 px, 16 px type, dark, classic scrollbar | p.set-line | 0 | 15.5 | 8369-9005 | a set line runs 15.5 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 4 | `24-issue-thread.md` | 480 px, 20 px type, light, classic scrollbar | p.set-line | 0 | 15.49 | 3049-3476 | a set line runs 15.49 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 5 | `28-llm-answer.md` | 480 px, 20 px type, dark, classic scrollbar | p.set-line | 0 | 15.49 | 4958-5316 | a set line runs 15.49 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 6 | `03-ai-plan.md` | 720 px, 28 px type, dark, classic scrollbar | p.set-line | 0 | 15.46 | 134-284 | a set line runs 15.46 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 7 | `30-notebook-export.md` | 320 px, 16 px type, dark, classic scrollbar | p.set-line | 0 | 15.45 | 8873-8977 | a set line runs 15.45 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 8 | `01-long-technical.md` | 480 px, 28 px type, light, classic scrollbar | p.set-line | 0 | 15.44 | 7832-7892 | a set line runs 15.44 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 9 | `16-api-reference.md` | 480 px, 28 px type, light, classic scrollbar | p.set-line | 0 | 15.4 | 1574-1733 | a set line runs 15.4 past its paragraph's content box (hung hyphens and punctuation not counted) |
+| 10 | `18-agent-transcript.md` | 320 px, 20 px type, dark, classic scrollbar | p.set-line | 0 | 15.4 | 160-352 | a set line runs 15.4 past its paragraph's content box (hung hyphens and punctuation not counted) |
 
 ### H5. Blocks pass the gutter floor (nested blocks, scrollbars)
 
@@ -198,7 +208,95 @@ The worst blocks across the whole matrix, the worst block of each document and k
 
 | # | document | cell | kind | depth | px | bytes | what |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | (any document) | 960 px, 28 px type, dark, overlay scrollbar | notice | 0 | 183.35 |  | notice box edges 183.34 / -183.34 from the column (its region pads 48px, the article's gutter is 24px) |
+| 1 | (any document) | 960 px, 28 px type, dark, overlay scrollbar | notice | 0 | 183.35 |  | notice box edges 183.34 / -183.34 from the column: #marxy-notices sizes its column in em at its own 16px font (the article's is 28px), so its column is 488.92px against 855.61px; with the article's font size the edge would be 0 off, with the article's gutter as side padding 183.34 off (region padding 48px, article gutter 24px: padding matters only where the window clamps the box) |
+
+## Ranked offenders at the cells a reader uses
+
+The same ranking restricted to 960 px and 1280 px windows, 20 px type, dark, overlay scrollbar, so the order is not set by window width alone. Every row is at that cell.
+
+### 960 px, 20 px type, dark, overlay scrollbar
+
+#### H1
+
+| # | document | kind | depth | px | bytes | what |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `01-long-technical.md` | table | 0 | 150.41 | 9071-11149 | box overhangs the column 0 left, 150.41 right |
+| 2 | `02-readme-real-world.md` | table | 0 | 150.41 | 763-1043 | box overhangs the column 0 left, 150.41 right |
+| 3 | `03-ai-plan.md` | table | 0 | 150.41 | 690-988 | box overhangs the column 0 left, 150.41 right |
+| 4 | `03-ai-plan.md` | pre | 0 | 150.41 | 1151-1493 | box overhangs the column 0 left, 150.41 right |
+| 5 | `05-pathological-table-and-nesting.md` | table | 0 | 150.41 | 57-5814 | box overhangs the column 0 left, 150.41 right |
+| 6 | `06-math.md` | pre | 0 | 150.41 | 164-471 | box overhangs the column 0 left, 150.41 right |
+
+#### H2
+
+| # | document | kind | depth | px | bytes | what |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `10-hostile.md` | p>img | 0 | 288.58 | 950-263124 | text starts 288.58 from the column's left edge (box 0) |
+| 2 | `30-notebook-export.md` | p>img | 0 | 285.08 | 4583-4605 | text starts 285.08 from the column's left edge (box 0) |
+| 3 | `24-issue-thread.md` | p>img | 0 | 278.58 | 5998-6055 | text starts 278.58 from the column's left edge (box 0) |
+| 4 | `24-issue-thread.md` | pre | 0 | 17.36 | 1544-2785 | text starts 17.36 from the column's left edge (box 0) |
+| 5 | `28-artifact-fences.md` | pre | 0 | 17.36 | 772-813 | text starts 17.36 from the column's left edge (box 0) |
+| 6 | `02-readme-real-world.md` | pre | 0 | 15 | 508-536 | text starts 15 from the column's left edge (box 0) |
+
+#### H3
+
+No offenders.
+
+#### H4
+
+No offenders.
+
+#### H5
+
+No offenders.
+
+#### H6
+
+| # | document | kind | depth | px | bytes | what |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | (any document) | notice | 0 | 61.13 |  | notice box edges 61.11 / -61.12 from the column: #marxy-notices sizes its column in em at its own 16px font (the article's is 20px), so its column is 488.92px against 611.16px; with the article's font size the edge would be 0 off, with the article's gutter as side padding 61.11 off (region padding 48px, article gutter 24px: padding matters only where the window clamps the box) |
+
+### 1280 px, 20 px type, dark, overlay scrollbar
+
+#### H1
+
+| # | document | kind | depth | px | bytes | what |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `01-long-technical.md` | table | 0 | 310.41 | 9071-11149 | box overhangs the column 0 left, 310.41 right |
+| 2 | `03-ai-plan.md` | pre | 0 | 310.41 | 1151-1493 | box overhangs the column 0 left, 310.41 right |
+| 3 | `05-pathological-table-and-nesting.md` | table | 0 | 310.41 | 57-5814 | box overhangs the column 0 left, 310.41 right |
+| 4 | `06-math.md` | pre | 0 | 310.41 | 164-471 | box overhangs the column 0 left, 310.41 right |
+| 5 | `16-api-reference.md` | table | 0 | 310.41 | 618-1146 | box overhangs the column 0 left, 310.41 right |
+| 6 | `18-agent-transcript.md` | pre | 0 | 310.41 | 1468-1579 | box overhangs the column 0 left, 310.41 right |
+
+#### H2
+
+| # | document | kind | depth | px | bytes | what |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `10-hostile.md` | p>img | 0 | 288.58 | 950-263124 | text starts 288.58 from the column's left edge (box 0) |
+| 2 | `30-notebook-export.md` | p>img | 0 | 285.08 | 4583-4605 | text starts 285.08 from the column's left edge (box 0) |
+| 3 | `24-issue-thread.md` | p>img | 0 | 278.58 | 5998-6055 | text starts 278.58 from the column's left edge (box 0) |
+| 4 | `24-issue-thread.md` | pre | 0 | 17.36 | 1544-2785 | text starts 17.36 from the column's left edge (box 0) |
+| 5 | `28-artifact-fences.md` | pre | 0 | 17.36 | 772-813 | text starts 17.36 from the column's left edge (box 0) |
+| 6 | `02-readme-real-world.md` | pre | 0 | 15 | 508-536 | text starts 15 from the column's left edge (box 0) |
+
+#### H3
+
+No offenders.
+
+#### H4
+
+No offenders.
+
+#### H5
+
+No offenders.
+
+#### H6
+
+| # | document | kind | depth | px | bytes | what |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | (any document) | notice | 0 | 61.13 |  | notice box edges 61.11 / -61.12 from the column: #marxy-notices sizes its column in em at its own 16px font (the article's is 20px), so its column is 488.92px against 611.16px; with the article's font size the edge would be 0 off, with the article's gutter as side padding 61.11 off (region padding 48px, article gutter 24px: padding matters only where the window clamps the box) |
 
 ## Worst per block kind
 
@@ -231,7 +329,7 @@ So a loud kind (a centred image in H2) cannot hide the rest: the worst block of 
 
 | kind | blocks affected | worst document | cell | px |
 | --- | --- | --- | --- | --- |
-| p.set-line | 863 | `32-long-reference.md` | 320 px, 20 px type, dark, classic scrollbar | 21.94 |
+| p.set-line | 861 | `15-prose-volume.md` | 320 px, 20 px type, light, classic scrollbar | 15.5 |
 
 ### H5
 
@@ -272,7 +370,7 @@ Read from the source tree with file and line; a render cannot show these. Source
 - `noticeRegionPadding`: `packages/theme/src/base.css:37`
 - `noticeLineHeight`: `packages/theme/src/base.css:48`
 - `sourceModeFixed`: `apps/desktop/index.html:18`
-- `adHocBuilders`: `apps/desktop/src/close.ts:68`, `apps/desktop/src/close.ts:70`, `apps/desktop/src/notices/blocked.ts:74`, `apps/desktop/src/notices/blocked.ts:78`, `apps/desktop/src/notices/blocked.ts:85`, `apps/desktop/src/notices/blocked.ts:93`, and 12 more
+- `adHocBuilders`: `apps/desktop/src/close.ts:71`, `apps/desktop/src/close.ts:73`, `apps/desktop/src/notices/blocked.ts:74`, `apps/desktop/src/notices/blocked.ts:78`, `apps/desktop/src/notices/blocked.ts:85`, `apps/desktop/src/notices/blocked.ts:93`, and 12 more
 - `notifyCallers`: 19
 
 ### H7
@@ -296,7 +394,10 @@ Read from the source tree with file and line; a render cannot show these. Source
 ## What the probe does not do, and caveats
 
 - It does not judge. A `reaches: false` margin means the document has no ink at the column's right edge, so that asymmetry says nothing.
-- The harness fixes `#marxy-main` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; `linesImmediate` is read at once, `lines` after 600 ms.
+- The harness fixes `#marxy-main` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; `lines` is read as that reflow leaves it, before the app's own relayout (100 ms after `clientWidth` changes, `apps/desktop/src/app.ts`). The headless render entry has no resize observer, so the probe cannot say how long an overflow shows; L-01 must not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
+- H5 is untested for nested tables: the corpus has no table inside a list or blockquote, so `nestedOffenders 0` means no sample. L-01 should add one synthetic nested-table page.
+- The classic-scrollbar column shift and centre offset from the window are what a classic scrollbar is; the visible area stays centred (`offsetFromClient` 0). They are not errors.
+- `--ref` is a label only. The probe renders whatever tree it runs in; the Measured line says which.
 - The notice is a synthetic region built the way `apps/desktop/index.html` builds it; the harness page has none.
 - Light and dark can differ by sub-pixel type weight, so both are kept.
 - Source mode, the palette and the outline are not rendered. H7 is static facts until L-01 probes it.
