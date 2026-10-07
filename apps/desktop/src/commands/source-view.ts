@@ -60,7 +60,7 @@ export function sourceViewCommands(): readonly Command[] {
         try {
           await writeReaderKey(shell, 'line_numbers', String(next));
         } catch (e) {
-          ctx.showNotice(`config.toml could not be updated: ${e instanceof Error ? e.message : String(e)}`);
+          ctx.showNotice(`config.toml could not be updated: ${e instanceof Error ? e.message : String(e)}; this choice lasts until you quit`);
         }
       },
     },
