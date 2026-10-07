@@ -55,6 +55,15 @@ nodeTest('lineBoxFor: 16, 20, 24, 28 give 24, 30, 36, 42; every size gives an ev
   for (let size = 15; size <= 50; size++) assert.equal(lineBoxFor(size) % 2, 0, `size ${size}`);
 });
 
+nodeTest('sizeProperties: the default size reproduces the values parsed from tokens.css', async () => {
+  const { sizeProperties, DEFAULT_SIZE } = await import('../src/theme/reader-config.ts');
+  const tokens = readFileSync(join(desktopRoot, '../../packages/theme/src/tokens.css'), 'utf8');
+  const parsed = Object.fromEntries(
+    Object.keys(sizeProperties(DEFAULT_SIZE)).map((name) => [name, new RegExp(`${name}:\\s*([0-9.]+px)`).exec(tokens)?.[1]]),
+  );
+  assert.deepEqual(sizeProperties(DEFAULT_SIZE), parsed);
+});
+
 /** Boots the app on the palette harness; `config` is the bytes of /config, or null for none. */
 async function boot(browser, config) {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -257,6 +266,24 @@ test('a config that exists but cannot be read is never overwritten: the command 
     await settle(page);
     assert.equal(await writesOf(page), 0);
     assert.match(await page.evaluate(() => document.getElementById('marxy-notices').textContent), /config\.toml could not be updated/);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('size 20, and returning to 20 from another size, sets none of the size properties on the root', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, 'size = 20\n');
+    // The root's inline style holds only the platform's weight offset (offset.ts) at the default size.
+    const style = () => page.evaluate(() => [...document.documentElement.style]);
+    assert.deepEqual(await style(), ['--marxy-weight-offset']);
+    await page.keyboard.press(`${mod}+Equal`);
+    await settle(page);
+    assert.ok((await style()).includes('--marxy-line-box-code'));
+    await page.keyboard.press(`${mod}+Digit0`);
+    await settle(page);
+    assert.deepEqual(await style(), ['--marxy-weight-offset']);
   } finally {
     await browser.close();
   }

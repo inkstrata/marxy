@@ -50,6 +50,29 @@ export function lineBoxFor(sizePx: number): number {
   return 2 * Math.round(0.75 * sizePx);
 }
 
+/**
+ * The code face for a body size: nine-tenths of it, to the half pixel. The mono face runs large at
+ * equal size, so code is set at about 0.85 to 0.9 em of the text around it (06-code.md, "Size and
+ * the monospace quirk"); 18 of 20 is the default's ratio, kept at every size (the half-pixel rounding moves it a little: 0.9 becomes 16 of 18, and the x-height ratio dips to 0.964 there).
+ */
+export function codeSizeFor(sizePx: number): number {
+  return Math.round(sizePx * 0.9 * 2) / 2;
+}
+
+/**
+ * The custom properties a body size overrides, name to value. The code line box is the body line
+ * box, two grid units, so a code line is a whole number of units at every size (design-language
+ * constraint 5). The default size overrides nothing: the stylesheet's own values stand.
+ */
+export function sizeProperties(sizePx: number): Record<string, string> {
+  return {
+    '--marxy-size-body': `${sizePx}px`,
+    '--marxy-line-box': `${lineBoxFor(sizePx)}px`,
+    '--marxy-size-code': `${codeSizeFor(sizePx)}px`,
+    '--marxy-line-box-code': `${lineBoxFor(sizePx)}px`,
+  };
+}
+
 let currentSize = DEFAULT_SIZE;
 let stopAuto: (() => void) | null = null;
 
@@ -85,12 +108,9 @@ export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, '
     applyVariant(variant, doc);
   }
   currentSize = size;
-  if (size === DEFAULT_SIZE) {
-    root.style.removeProperty('--marxy-size-body');
-    root.style.removeProperty('--marxy-line-box');
-  } else {
-    root.style.setProperty('--marxy-size-body', `${size}px`);
-    root.style.setProperty('--marxy-line-box', `${lineBoxFor(size)}px`);
+  for (const [name, value] of Object.entries(sizeProperties(size))) {
+    if (size === DEFAULT_SIZE) root.style.removeProperty(name);
+    else root.style.setProperty(name, value);
   }
   return stop;
 }

@@ -252,7 +252,8 @@ blockquote {
   display: block;
   white-space: pre-wrap;
   font-family: var(--marxy-font-mono);
-  font-size: calc(var(--marxy-size-code) / var(--marxy-size-caption) * 1em);
+  /* 18/15 of the caption it sits in: the label/value proportion the default has, at every text size */
+  font-size: 1.2em;
   line-height: var(--marxy-line-box-code);
 }
 
