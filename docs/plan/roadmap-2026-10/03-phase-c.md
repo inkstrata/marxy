@@ -1226,7 +1226,8 @@ the reader can read and edit in the tool) and §6.4 story 8.
    `appendRoot` (C-03), `writeFileAtomic`, and notifies `Added <name> to the collection`; if already
    present, `Already in the collection`.
    `collection.edit` "Edit collection": if the file is absent, write `COLLECTION_TEMPLATE`; open it
-   (`handle.open`), then `openSourceAtByte(buffer, 0)` (`apps/desktop/src/source/mode-open.ts:18`).
+   (`handle.open`), then `handle.jumpToSource(0)` (F-03 removed `openSourceAtByte`: a second way into Source lost
+   the reader's edits; there is one Source entry, the app's).
 2. `commands/index.ts`: add `...collectionCommands()`.
 
 **Acceptance.**
