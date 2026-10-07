@@ -1,6 +1,6 @@
-// DOM selection text for copy: marker glyphs are display-only (MARXY-236).
+// DOM selection text for copy: marker glyphs and the long-line elision note are display-only (MARXY-236, F-01).
 
-const SKIP = new Set(['marxy-invisible-glyph', 'marxy-link-dest', 'marxy-link-host-label']);
+const SKIP = new Set(['marxy-elided', 'marxy-invisible-glyph', 'marxy-link-dest', 'marxy-link-host-label']);
 
 /** Text for the clipboard from a DOM selection; invisible marker labels are omitted. */
 export function textFromDomSelection(sel: Selection): string {
