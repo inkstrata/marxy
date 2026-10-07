@@ -55,6 +55,17 @@ nodeTest('lineBoxFor: 16, 20, 24, 28 give 24, 30, 36, 42; every size gives an ev
   for (let size = 15; size <= 50; size++) assert.equal(lineBoxFor(size) % 2, 0, `size ${size}`);
 });
 
+nodeTest('sizeProperties: the default size reproduces tokens.css (20, 30, 18, 30); every size keeps code on the grid', async () => {
+  const { sizeProperties, DEFAULT_SIZE } = await import('../src/theme/reader-config.ts');
+  assert.deepEqual(sizeProperties(DEFAULT_SIZE), {
+    '--marxy-size-body': '20px', '--marxy-line-box': '30px', '--marxy-size-code': '18px', '--marxy-line-box-code': '30px',
+  });
+  for (let size = 15; size <= 50; size++) {
+    const p = sizeProperties(size);
+    assert.equal(parseFloat(p['--marxy-line-box-code']) % (parseFloat(p['--marxy-line-box']) / 2), 0, `size ${size}`);
+  }
+});
+
 /** Boots the app on the palette harness; `config` is the bytes of /config, or null for none. */
 async function boot(browser, config) {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });

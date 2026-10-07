@@ -216,8 +216,6 @@ test('tables: a wrapped cell uses the code line box and one grid unit of vertica
   await page.close();
 });
 
-// Only the default size is checked: at other body sizes the code line box stays 30px and is off the
-// grid, a known product bug filed as plan story L-10.
 test('code voice: the code line box is a whole number of grid units at the default size', async () => {
   const page = await openPage(browser, renderMarkdown('Body with `inline code` in the sentence.\n'));
   const tokens = await page.evaluate(() => {
@@ -227,5 +225,29 @@ test('code voice: the code line box is a whole number of grid units at the defau
     return { codeBox, unit };
   });
   assert.ok(onGrid(tokens.codeBox, tokens.unit), `code line box ${tokens.codeBox}px is not a whole grid unit (${tokens.unit}px)`);
+  await page.close();
+});
+
+// L-10: the reader's text size sets the code line box with the body's, so code stays on the grid at
+// every size from 15 to 50 (design-language constraint 5), not only at 20 and 40.
+test('code voice: the code line box is a whole number of grid units at every text size', async () => {
+  const { sizeProperties, DEFAULT_SIZE, MIN_SIZE, MAX_SIZE } = await import('../../../apps/desktop/src/theme/reader-config.ts');
+  const page = await openPage(browser, renderMarkdown('Body with `inline code` in the sentence.\n'), { snap: false });
+  const bad = [];
+  for (let size = MIN_SIZE; size <= MAX_SIZE; size++) {
+    // The default size sets nothing on the root, as applyReaderConfig leaves it.
+    const props = size === DEFAULT_SIZE ? {} : sizeProperties(size);
+    const m = await page.evaluate((props) => {
+      const root = document.documentElement;
+      root.removeAttribute('style');
+      for (const [k, v] of Object.entries(props)) root.style.setProperty(k, v);
+      const article = document.getElementById('doc');
+      const unit = parseFloat(getComputedStyle(article).lineHeight) / 2;
+      const codeBox = parseFloat(getComputedStyle(root).getPropertyValue('--marxy-line-box-code'));
+      return { codeBox, unit };
+    }, props);
+    if (!Number.isInteger(m.codeBox / m.unit)) bad.push(`${size}: code ${m.codeBox} / unit ${m.unit}`);
+  }
+  assert.deepEqual(bad, []);
   await page.close();
 });
