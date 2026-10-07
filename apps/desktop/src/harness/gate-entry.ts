@@ -1,6 +1,7 @@
 // The aesthetics gate's render entry (B-01): the real app, started with startApp over a memory shell,
 // renders one corpus file at a given width, variant and text size, and reports layout shift on the page
 // a reader sees (highlighting, KaTeX, notices and all). Loaded only by gate.html, never by main.ts.
+import { LANGUAGE_TO_GRAMMAR } from '@marxy/core/src/highlight/index.ts';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import { startApp } from '../app.ts';
 import { type Call, createMemoryShell } from '../shell/memory.ts';
@@ -98,6 +99,16 @@ async function awaitMark(calls: readonly Call[], names: readonly string[]): Prom
   }
 }
 
+/**
+ * Whether the highlighter colours a fence in `lang`, by the same test as `highlight()` in packages/core:
+ * a block in such a language that is still plain is waiting for the worker, and the gate's screenshot
+ * waits for it; any other block stays plain, so nothing is waited for.
+ */
+function colourable(lang: string): boolean {
+  const id = lang.trim().toLowerCase();
+  return id !== '' && id !== 'plaintext' && id !== 'text' && id !== 'txt' && LANGUAGE_TO_GRAMMAR[id] !== undefined;
+}
+
 let rendered = false;
 let recorded: readonly Call[] = [];
 
@@ -170,6 +181,8 @@ declare global {
       };
       /** The memory shell's recorded calls for the render on this page, for tests. */
       calls(): readonly Call[];
+      /** Whether the highlighter colours a fence in this language (the screenshot waits for those). */
+      colourable: typeof colourable;
     };
   }
 }
@@ -178,4 +191,5 @@ window.marxyGate = {
   render,
   layoutShift: { snapshot: snapshotBlocks, movedFraction, assertCanObserve: assertCanObserveShift, finishShift },
   calls: () => recorded,
+  colourable,
 };

@@ -53,6 +53,19 @@ const WORKERS = Math.max(
     Math.min(4, Math.max(1, cpus().length)),
 );
 
+/**
+ * Where the gate's time goes (B-02): wall seconds per phase, and summed page-seconds per step inside the
+ * corpus pass (render, the checks, the screenshot settle), printed with the notes. Measured, never judged.
+ */
+const spent = { render: 0, checks: 0, shots: 0 };
+const phases = [];
+let phaseStart = performance.now();
+function phase(name) {
+  const now = performance.now();
+  phases.push(`${name} ${((now - phaseStart) / 1000).toFixed(1)}s`);
+  phaseStart = now;
+}
+
 /** Run `task` over `items`, at most WORKERS in flight, results in input order so failures are stable. */
 async function pool(items, task) {
   const out = new Array(items.length);
@@ -669,8 +682,14 @@ async function compareScreenshotPng(page, expected, actual, { writeDiffPath } = 
  * to hold still. The app highlights a code block when it comes near the viewport (render/highlight.ts):
  * plain line spans at once, colour when the worker answers, and a grid pass after each, so blocks can
  * change height and colour after the scroll. Each round lets the app's coalesced grid snap (250 ms) and
- * two frames pass; the page is settled when three rounds in a row see the same scroll height, position,
- * target top and number of coloured blocks. Returns false when there is no heading to scroll to.
+ * two frames pass; the page is settled when no block the highlighter will colour is still waiting for
+ * the worker, and three rounds in a row after that see the same scroll height, position, target top and
+ * number of coloured blocks. The wait for colour is a condition, not a time: on a loaded machine the
+ * worker can answer after three quiet rounds, and the screenshot then caught the block uncoloured
+ * (18-agent-transcript, 0.28 %). A block is waiting when it is in the highlighter's reach (its
+ * IntersectionObserver margin, 200 % of the viewport above and below), its language is one the
+ * highlighter colours (`marxyGate.colourable`), and it is not yet `data-marxy-done="highlight"`.
+ * Returns false when there is no heading to scroll to.
  */
 async function scrollAndSettle(where) {
   let target = null;
@@ -691,24 +710,41 @@ async function scrollAndSettle(where) {
       target ? target.getBoundingClientRect().top : 0,
       document.querySelectorAll('#doc code[data-marxy-done="highlight"]').length,
     ].join(':');
+  const reach = 2 * window.innerHeight;
+  const waiting = () =>
+    [...document.querySelectorAll('#doc pre:not(.marxy-math-block) > code')].filter((code) => {
+      if (code.dataset.marxyDone === 'highlight') return false;
+      const lang = [...code.classList].find((c) => c.startsWith('language-'))?.slice('language-'.length);
+      if (!lang || !window.marxyGate.colourable(lang)) return false;
+      const box = code.getBoundingClientRect();
+      return box.bottom > -reach && box.top < window.innerHeight + reach;
+    }).length;
   let before = null;
   let still = 0;
-  for (let i = 0; i < 30; i++) {
+  let pending = 0;
+  // A cap on a page that never holds still, not a wait: a settled page returns after four rounds, and
+  // a loaded machine's worker gets ~30 s to answer before this throws.
+  for (let i = 0; i < 100; i++) {
     place();
     await settle();
     const now = state();
-    still = now === before ? still + 1 : 0;
+    pending = waiting();
+    still = pending === 0 && now === before ? still + 1 : 0;
     if (still === 3) return true;
     before = now;
   }
-  throw new Error(`the page did not hold still at the ${where} screenshot after 30 rounds`);
+  throw new Error(
+    `the page did not hold still at the ${where} screenshot after 100 rounds${pending ? ` (${pending} code block(s) still waiting for colour)` : ''}`,
+  );
 }
 
 async function checkScreenshot(page, { file, width, variant, update }) {
   const dir = shotDir();
   const out = [];
   for (const where of ['first', 'last']) {
+    const t0 = performance.now();
     const placed = await page.evaluate(scrollAndSettle, where);
+    spent.shots += performance.now() - t0;
     if (!placed) continue;
     const png = await screenshot(page);
     const name = shotName(file, width, variant, where);
@@ -1006,6 +1042,7 @@ async function main() {
   }
 
   await buildRenderEntry();
+  phase('build');
   notes.push('apps/desktop/gate.html built');
 
   let webkit;
@@ -1051,6 +1088,7 @@ async function main() {
     if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
       throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
     }
+    phase('selftest');
     if (SELFTEST_ONLY) {
       if (MECHANICAL && screenshotsTaken !== 0) throw new Error(`--mechanical took ${screenshotsTaken} screenshot(s); it must take none`);
       console.log(`aesthetics gate ok: selftest passed; ${notes.join('; ')}; screenshots taken: ${screenshotsTaken}`);
@@ -1081,6 +1119,7 @@ async function main() {
         const page = await browser.newPage({ viewport: { width: opts.width, height: 900 } });
         try {
           let result;
+          const t0 = performance.now();
           try {
             result = await renderCorpus(page, harness.origin, source, opts);
           } catch (e) {
@@ -1095,17 +1134,22 @@ async function main() {
             created++;
           }
           const shot = !MECHANICAL && screenshotCombo(opts);
-          return await runPageChecks(page, result, {
+          const t1 = performance.now();
+          spent.render += t1 - t0;
+          const problems = await runPageChecks(page, result, {
             file,
             ...opts,
             rag: atRef && metrics ? { metrics, baseline: UPDATE ? metrics : ragBase.data } : null,
             shot: shot ? { file, width: opts.width, variant: opts.variant, update: UPDATE } : null,
           });
+          spent.checks += performance.now() - t1;
+          return problems;
         } finally {
           await page.close();
         }
       });
       for (const problems of batched) fails.push(...problems);
+      phase('corpus');
       notes.push(`corpus: ${tasks.length} render(s) = ${files.length} file(s) × ${combos.length} combo(s), ${WORKERS} page(s) at a time`);
 
       const themeTasks = themeFixtureNames().flatMap((themeName) => {
@@ -1134,6 +1178,7 @@ async function main() {
         }
       });
       fails.push(...themeFails.flat());
+      phase('themes');
       if (themeTasks.length) notes.push(`contrast: ${themeTasks.length} theme fixture render(s)`);
 
       const reflowModes = [
@@ -1163,6 +1208,7 @@ async function main() {
         }
       });
       fails.push(...reflowFails.flat());
+      phase('reflow');
       notes.push(`reflow: ${reflowTasks.length} render(s) at 320 px, 400 % zoom and three media preferences`);
 
     if (UPDATE || created) {
@@ -1198,6 +1244,10 @@ async function main() {
   }
 
   notes.push(`${MECHANICAL ? 'mechanical: no baseline comparison, ' : ''}screenshots taken: ${screenshotsTaken}`);
+  // Printed on success and failure alike: the breakdown matters most on a slow red run.
+  console.log(
+    `aesthetics gate time: ${phases.join(', ')}; corpus page-seconds: render ${(spent.render / 1000).toFixed(0)}, checks ${((spent.checks - spent.shots) / 1000).toFixed(0)}, screenshot settle ${(spent.shots / 1000).toFixed(0)}`,
+  );
   if (MECHANICAL && screenshotsTaken !== 0) fails.push(`--mechanical took ${screenshotsTaken} screenshot(s); it must take none`);
   if (fails.length) {
     console.error('aesthetics gate failed:\n - ' + fails.join('\n - '));
