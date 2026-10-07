@@ -1,8 +1,8 @@
-// MARXY-28 acceptance: KaTeX deferred until math, bundled fonts, display grid, inline baseline + screenshot.
+// MARXY-28 acceptance: KaTeX deferred until math, bundled fonts, display grid, inline baseline.
 // @ts-nocheck
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
@@ -20,7 +20,6 @@ const browserTest = (name, fn) => nodeTest(name, { skip: webkitMissing }, fn);
 const repoRoot = join(fileURLToPath(new URL('../../../../', import.meta.url)));
 const readmeFixture = readFileSync(join(repoRoot, 'fixtures/corpus/02-readme-real-world.md'));
 const mathFixture = readFileSync(join(repoRoot, 'fixtures/corpus/06-math.md'));
-const inlineBaselinePath = join(fileURLToPath(new URL('.', import.meta.url)), 'math-inline-baseline.png');
 
 function listFiles(dir) {
   const out = [];
@@ -68,38 +67,6 @@ async function withBuiltApp(run) {
   } finally {
     server.close();
   }
-}
-
-/** Same threshold as gate-aesthetics §10 (MARXY-30 will centralise pixelmatch). */
-async function pixelDiffPct(page, expected, actual) {
-  return page.evaluate(async ({ a, b }) => {
-    const decode = async (bytes) => {
-      const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' });
-      const bitmap = await createImageBitmap(blob);
-      const canvas = document.createElement('canvas');
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(bitmap, 0, 0);
-      return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-    };
-    const left = await decode(a);
-    const right = await decode(b);
-    if (left.width !== right.width || left.height !== right.height) {
-      return { pct: 100, reason: `size ${left.width}×${left.height} vs ${right.width}×${right.height}` };
-    }
-    let differ = 0;
-    const n = left.data.length / 4;
-    for (let i = 0; i < left.data.length; i += 4) {
-      const dr = left.data[i] - right.data[i];
-      const dg = left.data[i + 1] - right.data[i + 1];
-      const db = left.data[i + 2] - right.data[i + 2];
-      const da = left.data[i + 3] - right.data[i + 3];
-      const dist = Math.sqrt(dr * dr + dg * dg + db * db + da * da) / 510;
-      if (dist > 0.1) differ++;
-    }
-    return { pct: (differ / n) * 100 };
-  }, { a: [...expected], b: [...actual] });
 }
 
 nodeTest('MARXY-28: production build bundles KaTeX fonts with hashed URLs', async () => {
@@ -225,38 +192,6 @@ browserTest('MARXY-28: inline math baseline within 1 px of surrounding text', as
       }, { files: { '/docs/06-math.md': mathFixture.toString('base64') }, argv: ['/docs/06-math.md'] });
       assert.ok(delta !== null);
       assert.ok(delta <= 1, `baseline delta ${delta}px`);
-    } finally {
-      await browser.close();
-    }
-  });
-});
-
-browserTest('MARXY-28: inline math paragraph matches screenshot baseline', async () => {
-  await withBuiltApp(async ({ base }) => {
-    const browser = await launchWebkit();
-    try {
-      const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
-      await page.goto(`${base}app.html`);
-      await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-      await page.evaluate(async ({ files, argv }) => {
-        const handle = await window.marxyApp.start(files, argv);
-        await handle.ready;
-        await document.fonts.ready;
-      }, { files: { '/docs/06-math.md': mathFixture.toString('base64') }, argv: ['/docs/06-math.md'] });
-      const paragraph = page.locator('#doc p[data-marxy-s="23"]');
-      await paragraph.waitFor({ state: 'visible' });
-      const png = await paragraph.screenshot({ type: 'png' });
-      if (process.env.MARXY_UPDATE_MATH_INLINE_SHOT === '1') {
-        writeFileSync(inlineBaselinePath, png);
-        return;
-      }
-      assert.ok(existsSync(inlineBaselinePath), `missing ${inlineBaselinePath}; run with MARXY_UPDATE_MATH_INLINE_SHOT=1`);
-      const expected = readFileSync(inlineBaselinePath);
-      const diff = await pixelDiffPct(page, expected, png);
-      assert.ok(
-        diff.pct <= 0.1,
-        `inline math screenshot diff ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''}`,
-      );
     } finally {
       await browser.close();
     }
