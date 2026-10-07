@@ -21,10 +21,12 @@ concurrency:
 permissions: { contents: read }
 
 jobs:
+  # Through the app (B-02) one Linux pass is about ten minutes and each CLS repeat about five, so the
+  # scheduled run takes about 26 of the 30 minutes it used to have; 45 leaves a loaded runner room.
   aesthetics-determinism:
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
@@ -37,8 +39,8 @@ jobs:
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       # Linux baselines come from this container, never from a Mac (ADR-0047). `--update` rewrites every
       # baseline and always exits 1 with one "baseline created" line per file; any other line is a real
-      # failure. The step after it then compares against what was just written, so a regenerated set
-      # that does not reproduce fails the run instead of being uploaded as good.
+      # failure. The step after it then compares against what was just written (without the repeat
+      # passes), so a regenerated set that does not reproduce fails the run instead of being uploaded.
       - name: Regenerate the Linux baselines (dispatch with update_baselines)
         if: ${{ inputs.update_baselines }}
         shell: bash
@@ -48,7 +50,11 @@ jobs:
           node scripts/gate-aesthetics.mjs --update 2>&1 | tee results/update-baselines.log
           set -e
           if grep '^ - ' results/update-baselines.log | grep -v 'baseline created'; then exit 1; fi
+      - name: The gate against the baselines just written
+        if: ${{ inputs.update_baselines }}
+        run: node scripts/gate-aesthetics.mjs
       - name: Aesthetics gate with the CLS repeat passes (MARXY-153)
+        if: ${{ !inputs.update_baselines }}
         run: node scripts/gate-aesthetics.mjs --repeat 3
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.update_baselines }}
