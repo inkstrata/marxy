@@ -132,6 +132,50 @@ test('Mod+C on a code block copies plain source without fences or highlight mark
   }
 });
 
+for (const [name, len] of [['a line over 1,000 characters', 1508], ['a line of 1,000 characters or fewer', 400]]) {
+  test(`F-01: drag-select and Mod+C over ${name} copies exactly the file's characters`, async () => {
+    const line = Array.from({ length: len }, (_, i) => 'abcdefghij'[i % 10]).join('');
+    const docPath = '/long-line.md';
+    const body = `# T\n\n\`\`\`text\n${line}\n\`\`\`\n`;
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+      await bootPalette(page, { [docPath]: Buffer.from(body, 'utf8').toString('base64') }, [docPath]);
+      await page.waitForFunction(() => {
+        const c = document.querySelector('#doc pre code');
+        return c && (c.dataset.marxyDone === 'highlight' || c.dataset.marxyDone === 'lines');
+      }, undefined, { timeout: 15_000 });
+      const hasElision = await page.evaluate(() => Boolean(document.querySelector('#doc .marxy-elided')));
+      assert.equal(hasElision, len > 1000);
+      const bb = await page.locator('#doc pre').boundingBox();
+      await page.mouse.move(bb.x + 2, bb.y + 2);
+      await page.mouse.down();
+      await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2, { steps: 5 });
+      await page.mouse.move(bb.x + bb.width - 1, bb.y + bb.height - 2, { steps: 5 });
+      await page.mouse.up();
+      // Cover the whole line regardless of where the pointer landed.
+      await page.evaluate(() => {
+        const span = document.querySelector('#doc .marxy-line');
+        const r = document.createRange();
+        r.selectNodeContents(span);
+        const s = getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+        document.dispatchEvent(new Event('selectionchange'));
+      });
+      const mod = modKey(await page.evaluate(() => navigator.platform));
+      await page.keyboard.press(`${mod}+KeyC`);
+      const copies = await page.evaluate(() =>
+        window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+      );
+      assert.equal(copies.length, 1);
+      assert.equal(copies[0].args[0].text, line);
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
 test('Mod+C in the palette query copies the query text, not the selected section', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
