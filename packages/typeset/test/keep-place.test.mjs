@@ -380,3 +380,123 @@ test('the first pass at attach sets the paragraph the reading line runs through 
   withinOneLine(r, 'setting the paragraph');
   await page.close();
 });
+
+// A large block under the reading line: the noted character is read again from its own text node, with
+// no walk over the block's text, when the pass left the node whole; and a character that paints no box
+// after the pass leaves the block's top to follow, not nothing.
+const LISTING = Array.from({ length: 3000 }, (_, i) =>
+  `<span>${String(i).padStart(4, '0')} the listing runs on and on so that every line is wider than half of the measure of the page</span>`).join('\n');
+
+/** Six corpus documents, then a long listing, then one more; scrolled to the middle of the listing and attached. */
+async function deepInListing() {
+  const before = Array.from({ length: 6 }, () => renderCorpus('01-long-technical.md')).join('\n');
+  const page = await harness.open(`${before}<pre id="listing">${LISTING}</pre>${renderCorpus('01-long-technical.md')}`);
+  await page.evaluate(installProbes);
+  await page.evaluate(() => window.__probe.attach());
+  await page.evaluate(async () => {
+    const pre = document.getElementById('listing');
+    const r = pre.getBoundingClientRect();
+    window.scrollTo(0, r.top + window.scrollY + r.height / 2);
+    // Past the reader's quiet window: leaving the top was the reader's input.
+    await new Promise((res) => setTimeout(res, 600));
+  });
+  return page;
+}
+
+test('deep in a large block, the character under the reading line is read again without walking the block', async () => {
+  const page = await deepInListing();
+  const r = await page.evaluate(async () => {
+    const pre = document.getElementById('listing');
+    const doc = document.getElementById('doc');
+    const box = doc.getBoundingClientRect();
+    const line = document.caretRangeFromPoint(box.left + box.width / 2, 40).startContainer.parentElement;
+    const top = line.getBoundingClientRect().top;
+    let walks = 0;
+    const create = document.createTreeWalker.bind(document);
+    document.createTreeWalker = (root, ...rest) => {
+      if (root === pre || root.contains?.(pre)) walks++;
+      return create(root, ...rest);
+    };
+    const grew = await window.__probe.growAbove();
+    document.createTreeWalker = create;
+    return { straddles: pre.getBoundingClientRect().top < 0, grew, moved: line.getBoundingClientRect().top - top, walks };
+  });
+  assert.ok(r.straddles, 'the listing starts above the screen');
+  assert.ok(r.grew >= 20, `the paragraph above grew ${r.grew.toFixed(1)} px`);
+  assert.ok(Math.abs(r.moved) <= 1, `the line under the reading line moved ${r.moved.toFixed(2)} px`);
+  assert.equal(r.walks, 0, 'no walk over the listing\'s text to find the character again');
+  await page.close();
+});
+
+test('a character under the reading line that paints no box after the pass leaves the block\'s top to follow', async () => {
+  const page = await deepInListing();
+  const r = await page.evaluate(async () => {
+    const pre = document.getElementById('listing');
+    const top = pre.getBoundingClientRect().top;
+    // During the pass (a revert normalises the paragraph above), the lines at the reading line are hidden.
+    let hid = 0;
+    const normalize = Element.prototype.normalize;
+    Element.prototype.normalize = function () {
+      if (hid === 0) {
+        for (const s of pre.children) {
+          const b = s.getBoundingClientRect();
+          if (b.bottom > -5 && b.top < 100) {
+            s.style.display = 'none';
+            hid++;
+          }
+        }
+      }
+      return normalize.call(this);
+    };
+    const grew = await window.__probe.growAbove();
+    Element.prototype.normalize = normalize;
+    return { grew, hid, moved: pre.getBoundingClientRect().top - top };
+  });
+  assert.ok(r.hid > 0, 'the lines at the reading line were hidden during the pass');
+  assert.ok(r.grew >= 20, `the paragraph above grew ${r.grew.toFixed(1)} px`);
+  assert.ok(Math.abs(r.moved) <= 1, `the listing's top moved ${r.moved.toFixed(2)} px: the ${r.grew.toFixed(1)} px growth above should be compensated by the block's top`);
+  await page.close();
+});
+
+test('inside a set paragraph the pass leaves alone, the character is read again from its node: one walk, to note it', async () => {
+  const before = Array.from({ length: 6 }, () => renderCorpus('01-long-technical.md')).join('\n');
+  const page = await harness.open(`${before}<p data-marxy-s="1" id="long">${MARKED.repeat(60)}</p>${renderCorpus('01-long-technical.md')}`);
+  await page.evaluate(installProbes);
+  await page.evaluate(async () => {
+    // Every paragraph set at once, then the idle chunks stall: the re-set below is the only pass.
+    const immediate = window.immediateScheduler();
+    window.__ctl = window.typeset.attach(document.getElementById('doc'), {
+      lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33,
+      scheduler: { schedule: (fn) => { if (!window.__stall) immediate.schedule(fn); } },
+    });
+    await window.__ctl.done;
+    window.__stall = true;
+  });
+  const r = await page.evaluate(async () => {
+    const p = document.getElementById('long');
+    const rect = p.getBoundingClientRect();
+    window.scrollTo(0, rect.top + window.scrollY + rect.height / 2);
+    await new Promise((res) => setTimeout(res, 600));
+    const doc = document.getElementById('doc');
+    const box = doc.getBoundingClientRect();
+    const caret = document.caretRangeFromPoint(box.left + box.width / 2, 40);
+    const range = document.createRange();
+    range.setStart(caret.startContainer, caret.startOffset);
+    range.setEnd(caret.startContainer, caret.startOffset + 1);
+    const top = range.getClientRects()[0].top;
+    let walks = 0;
+    const create = document.createTreeWalker.bind(document);
+    document.createTreeWalker = (root, ...rest) => {
+      if (root === p) walks++;
+      return create(root, ...rest);
+    };
+    const grew = await window.__probe.growAbove();
+    document.createTreeWalker = create;
+    return { set: p.classList.contains('marxy-set'), straddles: p.getBoundingClientRect().top < 0, grew, moved: range.getClientRects()[0].top - top, walks };
+  });
+  assert.ok(r.set && r.straddles, 'a set paragraph starting above the screen is under the reading line');
+  assert.ok(r.grew >= 20, `the paragraph above grew ${r.grew.toFixed(1)} px`);
+  assert.ok(Math.abs(r.moved) <= 1, `the character under the reading line moved ${r.moved.toFixed(2)} px`);
+  assert.equal(r.walks, 1, `${r.walks} walks: one over the paragraph, to note the character's offset; none to find it again`);
+  await page.close();
+});
