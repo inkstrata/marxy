@@ -37,7 +37,7 @@ const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|vit
 const TYPOGRAPHY = new RegExp('^(' + [
   'packages/theme/', 'packages/typeset/', 'fixtures/', 'fonts/', 'scripts/specimen/',
   'scripts/gate-aesthetics\\.mjs$', 'scripts/playwright-webkit\\.mjs$', 'apps/desktop/index\\.html$',
-  'packages/core/src/(index\\.ts$|render/|sanitize/|parse/|buffer/|contracts/|index-model/|outline/|sourcemap/|highlight/)',
+  'packages/core/src/(index\\.ts$|render/|sanitize/|parse/|buffer/|contracts/|index-model/|outline/|sourcemap/|highlight/|layout/|position/)',
   'apps/desktop/src/(render/|fonts/|theme/|selection/|startup/idle-work\\.ts$)',
 ].join('|') + ')');
 
