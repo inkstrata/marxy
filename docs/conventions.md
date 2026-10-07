@@ -55,7 +55,7 @@ story id, `(A-07)` or `(A-14.1)`; older work and anything tracked in Jira ends i
 
 ## Pull requests
 
-**Title** = the squash-commit subject, same format as above; the `conventions` job lints it. (While the fleet ran, its cycle prefixed `[human]` or `(signed)` to an open title; the job strips such a prefix first, and nothing adds one now.) The author merges by squash through GitHub; nobody else merges and auto-merge stays off.
+**Title** = the squash-commit subject, same format as above; the `conventions` job lints it. (While the fleet ran, its cycle prefixed `[human]` or `(signed)` to an open title; the job strips such a prefix first, and nothing adds one now.) The lead merges by squash as soon as a PR is ready, through `node scripts/lead-merge.mjs` (green checks, no conflicts, a merge verdict naming the head commit); the author may merge or hold anything. Auto-merge stays off.
 
 **Body**, in this order. The template (`.github/pull_request_template.md`) is a suggestion that nothing in CI enforces, but a reviewer reads it in this order:
 

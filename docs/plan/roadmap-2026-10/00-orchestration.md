@@ -5,11 +5,11 @@ fleet is paused:** `orchestration/README.md`, `docs/sdlc.md` "The loop, per stor
 dispatch half of ADR-0034 (suspended by ADR-0051, proposed).
 
 **Abstract.** One lead session plans and reviews; Claude Opus and Claude Sonnet subagents
-implement, one story each, in their own worktrees; the author merges. Stories come from the five
+implement, one story each, in their own worktrees; the lead merges what is ready. Stories come from the five
 phase documents beside this one, each written so an agent with no memory of the audit can start
 from the story and the files it names. Parallelism is by disjoint paths within a wave; waves are
-serial. Review is by an Opus agent against the story's acceptance list, then by the author, who
-is the only one who merges. The pull-request path is the pruned one Phase A lands; until it
+serial. Review is by an agent against the story's acceptance list; the lead merges a PR as soon as
+its review says merge and every check is green (the author's ruling, 2026-10-07). The pull-request path is the pruned one Phase A lands; until it
 lands, stories pass the current one. There is no board, no Jira mirror, no planner; progress is a
 table in `progress.md` in this directory, kept by the lead. The author's first priority, stated
 2026-10-02, is the large-document performance work, which is why Phase A's first wave is that
@@ -19,8 +19,8 @@ lane.
 
 | Role | Who | Does | Never does |
 | --- | --- | --- | --- |
-| **Author** | the repository owner | rules on the open questions each phase names; merges; tags releases; opens the app and judges taste | writes stories under time pressure; merges a PR a reviewer returned |
-| **Lead** | one Claude Code session (Opus) that holds this plan | picks the next wave; spawns one implementor per story; spawns a reviewer per PR; reads reviews; keeps `progress.md`; re-plans a story that failed twice | implements (beyond a one-line fix the reviewer named); merges |
+| **Author** | the repository owner | rules on the open questions each phase names; may merge or hold any PR; tags releases; opens the app and judges taste | writes stories under time pressure; merges a PR a reviewer returned |
+| **Lead** | one Claude Code session (Opus) that holds this plan | picks the next wave; spawns one implementor per story; spawns a reviewer per PR; reads reviews; merges ready PRs with `scripts/lead-merge.mjs`; rebases and retargets stacked PRs after their base merges; keeps `progress.md`; re-plans a story that failed twice | implements (beyond a one-line fix the reviewer named); merges a PR whose review returned it, or before its checks are green |
 | **Implementor** | a subagent, Opus or Sonnet per the story's `Model` line | one story, in its own worktree, inside its `Paths`; opens a PR with the story id in the title | touches another story's paths; edits a contract the story did not name; changes a baseline without a queue row; merges |
 | **Reviewer** | an Opus subagent | reads the diff against the story's `Acceptance` and `Do not` lists; runs the gates; writes a verdict with Conventional Comments | reviews its own implementation; approves on green CI alone |
 
@@ -106,9 +106,11 @@ question:, nitpick:), most severe first, each naming the acceptance bullet or ru
 A return says what would satisfy you. Never approve on green CI alone.
 ```
 
-A `merge` verdict goes to the author as a PR approval comment from the lead, quoting the
-reviewer's notes. A `return` goes back to the same implementor with the notes prepended, once;
-the second return goes to the lead.
+A `merge` verdict is posted on the PR by the lead, with the review's notes and the marker line
+`lead-verdict: merge <head sha>` (`node scripts/lead-merge.mjs <pr> --verdict notes.md` posts both and merges
+if the checks are already green; run it again once they are). A push after the verdict needs a new verdict:
+the marker binds it to the head it judged. A follow-up commit the lead asked for is checked by the lead, then
+re-verdicted.
 
 ## 5. Parallelism and waves
 
@@ -137,7 +139,16 @@ key. Once A's pruning is on `main`, the path is:
 Conventional subject, changelog fragment, green product gates, one review. Nothing else is
 required of a PR, and `docs/ci-contract.md` is rewritten in the same phase to say so.
 
-The author merges by squash through GitHub. The lead never merges. Auto-merge is never enabled.
+The lead merges by squash, through `node scripts/lead-merge.mjs <pr>`, as soon as a PR is ready: every check
+green (`ci` among them), no conflicts, base `main`, and a merge verdict naming the head commit. The script
+refuses otherwise and says why, and `--match-head-commit` refuses a push that lands mid-merge. The author may
+merge or hold anything; a `lead-verdict: hold <sha>` comment holds a PR. Auto-merge stays off: the verdict is
+a judgement GitHub cannot see.
+
+Merge in dependency order. The repository deletes a head branch on merge, so GitHub retargets a stacked PR to
+`main`; the lead then rebases it (`git rebase --onto origin/main <old base>`), force-pushes with lease, and the
+PR needs fresh checks and its verdict renewed for the new head before it merges. Merge soon after the verdict,
+so nothing stacks up and goes stale.
 
 ## 7. Progress, failure and re-planning
 

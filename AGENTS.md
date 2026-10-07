@@ -61,8 +61,11 @@ Two things worth knowing before you touch anything:
 - **Several worktrees are usually live** (`git worktree list`), and the main checkout at
   `~/Dev/marxy` may be mid-story under another session. **Work in your own worktree** on your own
   branch, and edit only your story's listed paths.
-- **The merge is by hand.** The author squash-merges through GitHub; nobody else merges and
-  auto-merge stays off. Branch protection requires the one check `ci`, and does not require a
+- **The lead merges when a PR is ready** (the author's ruling, 2026-10-07): no waiting for the author,
+  so PRs do not stack up and go stale. Ready is mechanical: `node scripts/lead-merge.mjs <pr>` squash-merges
+  only when every check is green (`ci` among them), there are no conflicts, the base is `main`, and a review's
+  merge verdict names the current head commit (a push after the review needs a new one). The author may still
+  merge or hold anything. Auto-merge stays off. Branch protection requires the one check `ci`, and does not require a
   branch to be up to date with `main` (ADR-0040). GitHub's native merge queue is not available
   (this repository is User-owned, and the queue exists only on organisation-owned ones); `ci.yml`
   still listens for `merge_group` so a transfer would need no change.
