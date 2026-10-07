@@ -85,8 +85,16 @@ export function searchPrepared(
   const byPath = new Map<string, number>();
   for (let i = 0; i < session.mru.length; i++) byPath.set(session.mru[i]!, i);
 
-  const current = topKHits(limit);
-  const later = topKHits(limit);
+  // Recent-root order is part of the capped comparison for hits outside the current root, so a
+  // recent root's match is never evicted by equal-scoring matches from a root that is not recent.
+  const recent = new Map<string, number>();
+  for (let i = 0; i < session.recentRoots.length; i++) recent.set(session.recentRoots[i]!, i);
+  const current = topKHits(limit, compareHits);
+  const later = topKHits(limit, (a, b) => {
+    const ar = recent.get(a.entry.root) ?? 1_000;
+    const br = recent.get(b.entry.root) ?? 1_000;
+    return ar !== br ? ar - br : compareHits(a, b);
+  });
   const now = Date.now();
   for (const row of prepared.rows) {
     const hit = scoreRow(row, needle, byPath, now);
@@ -97,16 +105,9 @@ export function searchPrepared(
   const currentHits = current.values();
   if (currentHits.length >= limit) return currentHits;
 
-  const recent = new Map<string, number>();
-  for (let i = 0; i < session.recentRoots.length; i++) recent.set(session.recentRoots[i]!, i);
   const seen = new Set(currentHits.map((hit) => hit.entry.path));
   const out = currentHits.slice();
-  for (const hit of later.values().sort((a, b) => {
-    const ar = recent.get(a.entry.root) ?? 1_000;
-    const br = recent.get(b.entry.root) ?? 1_000;
-    if (ar !== br) return ar - br;
-    return compareHits(a, b);
-  })) {
+  for (const hit of later.values()) {
     if (seen.has(hit.entry.path)) continue;
     out.push(hit);
     if (out.length >= limit) break;
@@ -115,21 +116,21 @@ export function searchPrepared(
 }
 
 /** Keep only the best `limit` hits while scanning; avoids sorting tens of thousands of rows. */
-function topKHits(limit: number) {
+function topKHits(limit: number, compare: (a: IndexHit, b: IndexHit) => number) {
   const buf: IndexHit[] = [];
   return {
     push(hit: IndexHit) {
       if (buf.length < limit) {
         buf.push(hit);
-        if (buf.length === limit) buf.sort(compareHits);
+        if (buf.length === limit) buf.sort(compare);
         return;
       }
-      if (compareHits(hit, buf[limit - 1]!) >= 0) return;
+      if (compare(hit, buf[limit - 1]!) >= 0) return;
       buf[limit - 1] = hit;
-      buf.sort(compareHits);
+      buf.sort(compare);
     },
     values(): IndexHit[] {
-      return buf.length < limit ? buf.slice().sort(compareHits) : buf;
+      return buf.length < limit ? buf.slice().sort(compare) : buf;
     },
   };
 }
