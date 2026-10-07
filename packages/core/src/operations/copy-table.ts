@@ -1,10 +1,9 @@
 // copy-table-tsv, copy-table-csv, copy-table-json: a table's cells for a spreadsheet or a script (C-08).
 //
-// Cell text is copied as the reader sees it, never altered to suit a spreadsheet: a cell that begins
-// with `=`, `+`, `-` or `@` is not prefixed or quoted differently. A spreadsheet may read such a
-// cell as a formula when pasted; guarding it would silently change the reader's data ("-5", "+1",
-// "@handle") and Marxy changes only what the reader asked to change (AGENTS.md, faithful).
-// The reader sees the same text in Rendered before copying.
+// The three spreadsheet payloads (TSV text, its HTML, CSV) carry no live formula: a cell that a
+// spreadsheet would read as one gets a leading `'`, which Sheets and Excel show as plain text.
+// JSON is not a formula context and stays faithful. The trade is written in
+// docs/design/03-selection-and-operations.md.
 import type { Table } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { escapeText } from '../sanitize/escape.ts';
@@ -18,6 +17,14 @@ function gridOf(input: OperationInput): string[][] {
   return cellGrid(input.node as Table);
 }
 
+const PLAIN_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/** Prefix `'` to a cell a spreadsheet would run: `=`, `@`, or `+`/`-` not forming a plain number. */
+export function guardFormula(cell: string): string {
+  if (/^[=@]/.test(cell) || (/^[+-]/.test(cell) && !PLAIN_NUMBER.test(cell))) return `'${cell}`;
+  return cell;
+}
+
 /** A tab or line break inside a cell would shift the grid; each run becomes one space. */
 function flat(cell: string): string {
   return cell.replace(/[\t\r\n]+/g, ' ');
@@ -25,13 +32,19 @@ function flat(cell: string): string {
 
 function tableHtml(grid: readonly (readonly string[])[]): string {
   const row = (cells: readonly string[], tag: 'th' | 'td') =>
-    `<tr>${cells.map((c) => `<${tag}>${escapeText(flat(c))}</${tag}>`).join('')}</tr>`;
+    `<tr>${cells.map((c) => `<${tag}>${escapeText(guardFormula(flat(c)))}</${tag}>`).join('')}</tr>`;
   const [head, ...body] = grid;
   return `<table><thead>${head === undefined ? '' : row(head, 'th')}</thead><tbody>${body.map((r) => row(r, 'td')).join('')}</tbody></table>`;
 }
 
+/** A cell starting with `"` is quoted so a plain-text paste does not swallow the cells after it. */
+function tsvField(cell: string): string {
+  const v = guardFormula(flat(cell));
+  return v.startsWith('"') ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
 export function tsvOf(grid: readonly (readonly string[])[]): string {
-  return grid.map((row) => row.map(flat).join('\t')).join('\n');
+  return grid.map((row) => row.map(tsvField).join('\t')).join('\n');
 }
 
 function csvField(cell: string): string {
@@ -40,7 +53,7 @@ function csvField(cell: string): string {
 
 /** RFC 4180: fields with a comma, quote, CR or LF are quoted, inner quotes doubled, rows joined by CRLF. */
 export function csvOf(grid: readonly (readonly string[])[]): string {
-  return grid.map((row) => row.map(csvField).join(',')).join('\r\n');
+  return grid.map((row) => row.map((c) => csvField(guardFormula(c))).join(',')).join('\r\n');
 }
 
 /** Header text as keys: empty becomes `column N`, a repeat `name (2)`; all values strings. */

