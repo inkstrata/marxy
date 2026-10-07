@@ -95,9 +95,10 @@ test('a non-markdown file opens in Source with line numbers and copy omits them'
     assert.ok(!/^\s*\d+\s/m.test(copied), 'pasted text must not start lines with gutter numbers');
     const afterToggle = await page.evaluate(async () => {
       await window.marxyRunCommand?.('view.toggle-line-numbers');
-      return sessionStorage.getItem('marxy-source-line-numbers');
+      await new Promise((r) => setTimeout(r, 200));
+      return Boolean(document.querySelector('.cm-lineNumbers'));
     });
-    assert.equal(afterToggle, 'off');
+    assert.equal(afterToggle, false);
   } finally {
     await browser.close();
   }

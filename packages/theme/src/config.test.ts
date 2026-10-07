@@ -145,3 +145,29 @@ test('setTopLevelKey refuses when a dotted key already defines the key (MARXY-33
   assert.throws(() => set('"theme".x = 1\nsize = 2\n'), /dotted key/);
   assert.equal(set('themes.x = 1\n'), 'themes.x = 1\ntheme = "y"\n');
 });
+
+test('line_numbers is true, false or undefined: absent leaves the per-path default (L-06.1)', () => {
+  const enc = (t: string) => new TextEncoder().encode(t);
+  assert.equal(parseConfig(enc('')).config.lineNumbers, undefined);
+  assert.equal(parseConfig(enc('size = 20\n')).config.lineNumbers, undefined);
+  assert.equal(parseConfig(enc('line_numbers = true\n')).config.lineNumbers, true);
+  assert.equal(parseConfig(enc('line_numbers = false\n')).config.lineNumbers, false);
+});
+
+test('a malformed line_numbers warns and falls back to the default for the file (L-06.1)', () => {
+  const r = parseConfig(new TextEncoder().encode('line_numbers = "yes"\n'));
+  assert.equal(r.config.lineNumbers, undefined);
+  assert.deepEqual(r.warnings, ['line_numbers was invalid; using the default for the file']);
+});
+
+test('setTopLevelKey on line_numbers changes only the value bytes: comments, CRLF and spacing stay (L-06.1)', () => {
+  const dec = new TextDecoder();
+  const enc = (t: string) => new TextEncoder().encode(t);
+  const before = '# mine\r\nvariant = "light"\r\n  line_numbers   =   false   # gutter\r\nsize = 22\r\n\r\n[linux]\r\nweight_offset = 75\r\n';
+  const after = dec.decode(setTopLevelKey(enc(before), 'line_numbers', 'true'));
+  assert.equal(after, before.replace('=   false', '=   true'));
+  assert.equal(
+    dec.decode(setTopLevelKey(enc('# top\r\nunknown = 1\r\n[linux]\r\n'), 'line_numbers', 'true')),
+    '# top\r\nunknown = 1\r\nline_numbers = true\r\n[linux]\r\n',
+  );
+});

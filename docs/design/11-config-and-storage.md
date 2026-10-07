@@ -18,7 +18,7 @@ variant = "dark"                # dark (default, ADR-0024) | light | auto (follo
 size = 20                       # body px, 15–50 (75–250 % of the default, ADR-0033)
 measure = 66                    # average characters per line, 45–80 (never ch, ADR-0033)
 typeset = true                  # the Knuth–Plass path; false = engine wrapping, grid pass only
-line_numbers = false            # Source mode
+line_numbers = false            # Source mode; absent: on for code files, off for prose
 external_editor = "code --goto {file}:{line}"   # {file} {line} substituted; absent → the OS default opener
 resident = false                # stay running after the last window closes (ADR-0013)
 

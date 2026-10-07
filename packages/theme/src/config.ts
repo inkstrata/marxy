@@ -8,7 +8,8 @@ export interface Config {
   readonly size: number;
   readonly measure: number;
   readonly typeset: boolean;
-  readonly lineNumbers: boolean;
+  /** `undefined` when the key is absent or invalid: the per-path default stands (numbers on for code files). */
+  readonly lineNumbers: boolean | undefined;
   readonly externalEditor: string | null;
   readonly resident: boolean;
   readonly linuxWeightOffset: number | null;
@@ -26,7 +27,7 @@ const DEFAULTS: Config = {
   size: 20,
   measure: 66,
   typeset: true,
-  lineNumbers: false,
+  lineNumbers: undefined,
   externalEditor: null,
   resident: false,
   linuxWeightOffset: null,
@@ -83,7 +84,7 @@ export function parseConfig(bytes: Uint8Array): ParseConfigResult {
 
   let lineNumbers = DEFAULTS.lineNumbers;
   if (typeof raw.line_numbers === 'boolean') lineNumbers = raw.line_numbers;
-  else if (raw.line_numbers !== undefined) warnings.push('line_numbers was invalid; using false');
+  else if (raw.line_numbers !== undefined) warnings.push('line_numbers was invalid; using the default for the file');
 
   let externalEditor: string | null = DEFAULTS.externalEditor;
   if (typeof raw.external_editor === 'string') externalEditor = raw.external_editor;

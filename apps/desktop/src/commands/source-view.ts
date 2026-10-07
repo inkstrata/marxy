@@ -1,7 +1,8 @@
 // Source gutter toggle and jump-to-source palette commands (MARXY-239).
 import type { AppHandle } from '../app.ts';
 import type { Command } from './registry.ts';
-import { writeLineNumbersPreference } from '../source/line-numbers.ts';
+import type { AppShell } from '../app.ts';
+import { writeReaderKey } from '../theme/reader-config.ts';
 import { appHandle } from './app-handle.ts';
 import { getSelectionBufferContext } from '../selection/view.ts';
 
@@ -42,7 +43,7 @@ export function sourceViewCommands(): readonly Command[] {
       title: 'Toggle line numbers in Source',
       group: 'view',
       when: () => document.body.dataset.marxyMode === 'source' || getSelectionBufferContext() !== null,
-      run: async () => {
+      run: async (ctx) => {
         const { activeSourceEditor, createSourceEditor } = await import('../source/editor.ts');
         let editor = activeSourceEditor();
         if (!editor) {
@@ -53,8 +54,14 @@ export function sourceViewCommands(): readonly Command[] {
         if (!editor) return;
         const hasNumbers = Boolean(editor.view.dom.querySelector('.cm-lineNumbers'));
         const next = !hasNumbers;
-        writeLineNumbersPreference(next);
         editor.setLineNumbers(next);
+        const shell = appHandle()?.shell as AppShell | undefined;
+        if (!shell) return;
+        try {
+          await writeReaderKey(shell, 'line_numbers', String(next));
+        } catch (e) {
+          ctx.showNotice(`config.toml could not be updated: ${e instanceof Error ? e.message : String(e)}; this choice lasts until you quit`);
+        }
       },
     },
     {

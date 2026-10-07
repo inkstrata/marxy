@@ -274,7 +274,7 @@ async function ensureSourceEditor(): Promise<MountedSourceEditor> {
   if (!buffer) throw new Error('source editor requires an open buffer');
   const { createSourceEditor } = await import('./source/editor.ts');
   ({ sourceReadingPosition: sourceReadingPositionIn } = await import('./source/mode-switch.ts'));
-  sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer, lineNumbers: false });
+  sourceEditor = await createSourceEditor({ parent: sourceMount(), buffer });
   return sourceEditor;
 }
 

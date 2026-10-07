@@ -65,7 +65,7 @@ nodeTest('sizeProperties: the default size reproduces the values parsed from tok
 });
 
 /** Boots the app on the palette harness; `config` is the bytes of /config, or null for none. */
-async function boot(browser, config) {
+async function boot(browser, config, doc = { path: DOC, bytes: fixture.toString('base64') }) {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
   // Stamps every change of html[data-marxy-variant], on the clock the marks use.
   await page.addInitScript(() => {
@@ -75,12 +75,12 @@ async function boot(browser, config) {
   });
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
-  const files = { [DOC]: fixture.toString('base64') };
+  const files = { [doc.path]: doc.bytes };
   if (config !== null) files['/config'] = b64(config);
-  await page.evaluate(async ({ files }) => {
-    const { handle } = await window.marxyPaletteBoot.start(files, ['/docs/long.md']);
+  await page.evaluate(async ({ files, doc }) => {
+    const { handle } = await window.marxyPaletteBoot.start(files, [doc.path]);
     window.__h = handle;
-  }, { files });
+  }, { files, doc });
   await settle(page);
   const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
   return { page, mod };
@@ -284,6 +284,94 @@ test('size 20, and returning to 20 from another size, sets none of the size prop
     await page.keyboard.press(`${mod}+Digit0`);
     await settle(page);
     assert.deepEqual(await style(), ['--marxy-weight-offset']);
+  } finally {
+    await browser.close();
+  }
+});
+
+// L-06.1: the Source line-number choice lives in config.toml.
+const RS = { path: '/src/main.rs', bytes: b64('fn main() {\n    println!("hi");\n}\n') };
+const gutter = (page) => page.evaluate(() => document.querySelector('#marxy-source .cm-lineNumbers') !== null);
+const toggleNumbers = async (page) => {
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  await settle(page);
+};
+/** Shows Source for the open document (a code file opens there already). */
+async function inSource(page) {
+  if ((await page.evaluate(() => document.body.dataset.marxyMode)) !== 'source') {
+    await page.evaluate(() => window.__h.toggleMode());
+    await page.waitForSelector('#marxy-source .cm-editor');
+  }
+  await settle(page);
+}
+
+test('line numbers toggled on, then a relaunch with the same config: Source still has them; toggled off likewise', async () => {
+  const browser = await launchWebkit();
+  try {
+    const first = await boot(browser, CONFIG);
+    await inSource(first.page);
+    assert.equal(await gutter(first.page), false, 'markdown defaults to no numbers');
+    await toggleNumbers(first.page);
+    assert.equal(await gutter(first.page), true);
+    const saved = await configOf(first.page);
+    assert.match(saved, /^line_numbers = true\n/m);
+    assert.equal(saved.replace('line_numbers = true\n', ''), CONFIG, 'only the one new line was added');
+    const second = await boot(browser, saved);
+    await inSource(second.page);
+    assert.equal(await gutter(second.page), true, 'relaunch keeps the numbers on');
+    await toggleNumbers(second.page);
+    const off = await configOf(second.page);
+    assert.equal(off, saved.replace('line_numbers = true', 'line_numbers = false'));
+    const third = await boot(browser, off, RS);
+    await inSource(third.page);
+    assert.equal(await gutter(third.page), false, 'relaunch keeps a code file off when the reader turned them off');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('no line_numbers key: the per-path default holds (markdown off, code on)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const md = await boot(browser, CONFIG);
+    await inSource(md.page);
+    assert.equal(await gutter(md.page), false);
+    const rs = await boot(browser, CONFIG, RS);
+    await inSource(rs.page);
+    assert.equal(await gutter(rs.page), true);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a malformed line_numbers falls back to the per-path default', async () => {
+  const browser = await launchWebkit();
+  try {
+    const config = 'line_numbers = "yes"\n';
+    const rs = await boot(browser, config, RS);
+    await inSource(rs.page);
+    assert.equal(await gutter(rs.page), true);
+    const md = await boot(browser, config);
+    await inSource(md.page);
+    assert.equal(await gutter(md.page), false);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('the toggle changes only the value bytes of line_numbers: comments, CRLF and spacing stay', async () => {
+  const browser = await launchWebkit();
+  try {
+    const original = '# mine\r\nvariant = "light"\r\n  line_numbers   =   true   # gutter\r\nsize = 22\r\n\r\n[linux]\r\nweight_offset = 75\r\n';
+    const { page } = await boot(browser, original, RS);
+    await inSource(page);
+    assert.equal(await gutter(page), true);
+    await toggleNumbers(page);
+    assert.equal(await gutter(page), false);
+    assert.equal(await configOf(page), original.replace('=   true', '=   false'));
+    await toggleNumbers(page);
+    assert.equal(await configOf(page), original);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('marxy-source-line-numbers')), null);
   } finally {
     await browser.close();
   }
