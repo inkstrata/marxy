@@ -8,7 +8,8 @@
 - **Released:** v0.1.0 (pre-release, ad-hoc signed DMG) on `ad0b020c`.
 - **Merged this session:** A-10.3 (two never-run WebKit tests deleted, by ruling), B-10 (the trust
   controller), B-09.1 (one wording for the blocked-images notice).
-- **Paused by the author:** the round in flight finishes and gets one review each; nothing new is
+- **Merged at the pause:** B-11, B-02.7, L-00 (the last two with their reviews' returns open, now B-02.8
+  and L-00.1), A-10.4. **Paused by the author:** the round in flight finishes and gets one review each; nothing new is
   dispatched. A return found in that round is recorded, not re-dispatched.
 - **Model use:** Sonnet for implementors and every reviewer; Opus only for B-11 (L-size seam). The
   author prefers this split (Opus for planning and L-size seams). Five Sonnet reviews this session caught
@@ -18,9 +19,9 @@
 
 | Story | State | What the next lead does |
 | --- | --- | --- |
-| B-11 (opus) | #362, **merge verdict** (Opus review) | author merges; then B-11.1 (Sonnet) and B-12 (carries the review's `baseVersion` point) |
-| B-02.5 / B-02.7 | B-02.5 merged early (`c82fe77f`); its fixes are #363 (B-02.7), **returned** | **first in the queue**: main's 1 MB content_complete is +18–20 % since B-02.5, caused by the window-level capture listeners the typesetter registers. Opus (second return): register them lazily or passive on #363's branch, re-measure with interleaved pairs against `fedef091` |
-| L-00 (sonnet) | **returned** (#365): geometry true, H4 and H6 causes wrong, controls missing | send the return (rulings in `progress.md`) to a Sonnet implementor; re-review; then L-01 on Opus |
+| B-11 (opus) | merged (#362) | B-11.1 (a worktree for it already exists, made outside this session: check who owns it) and B-12 |
+| B-02.5 / B-02.7 | both merged; B-02.7's return (+18–20 % 1 MB content_complete since B-02.5) is open | **first in the queue: B-02.8 on Opus** (card in `02-phase-b.md`) |
+| L-00 (sonnet) | merged (#365) with its return open | L-00.1 (Sonnet) fixes H4/H6 and the controls; then L-01 on Opus |
 | A-10.4 (sonnet) | #360, merge verdict (lead review), default size only | author merges |
 | B-02 (opus) | **parked**: pushed (`d2885b69` code, `b2b68f0b` macOS baselines), no PR | see below |
 
@@ -40,7 +41,6 @@ Then A-11.2 (gates design document) follows B-02.
 
 ## Waiting on the author
 
-0. **Merge B-11** (#362, Opus review: merge).
 
 1. **The v0.1.0 manual checks**: a nine-question walkthrough was posted in the session; results not yet
    in. The likeliest failures are Finder drag-and-drop (the macOS drop event was never seen on a real

@@ -215,6 +215,34 @@ room over a screenshot. Each of the author's complaints is then a number with a 
 
 **Do not.** Edit the gate, the baselines, `base.css` or any `src/` file. Add the probe to CI (that is L-02).
 
+### L-00.1 — Correct the probe's H4 and H6 findings and give every hypothesis a control
+
+**Model:** sonnet · **Size:** S–M · **Depends on:** L-00 · *Added 2026-10-07 by the lead, from L-00's review
+(merged with the return open).*
+
+**Outcome.** The probe's numbers L-01 builds on are true:
+- **H4:** the probe counts the typesetter's deliberately hung hyphen (~7 px) as line overflow, and its
+  "settled" read skips the app's 100 ms resize relayout (`app.ts`), so 21.9 px / 57 cells are inflated.
+  Exclude hung punctuation, and wait for the relayout.
+- **H6:** the 61 px at 960 px comes from `#marxy-notices` sizing its column in `em` at the browser's 16 px,
+  not the article's 20 px. It is not caused by the padding, which matters only at 320 px. Fix the `why`
+  string and the README.
+- **Controls:** add a negative control for H2, H4, H5 and H6, and for the client-axis centre. Each must go
+  silent when its rule is silenced.
+- **README:** say plainly that H5 is untested, because the corpus has no nested wide table.
+- **Notice builders:** the count of ad-hoc notice builders is five, not 18 lines.
+- **`--ref`:** record the SHA actually rendered, not just the label.
+- **Rankings:** also rank at 960 and 1280 px at 20 px.
+- **Weight:** re-encode the contact sheets at JPEG quality 45 (option D, about 5.5 MB packed). Regenerate the
+  kit.
+
+**Paths.** `scripts/probe-layout.mjs`, `scripts/probe-layout.test.mjs`, `docs/taste-review/2026-10-layout-audit/`.
+
+**Acceptance.** Every hypothesis has a control that fails when its rule is silenced. The H4 and H6 headlines
+are restated with their true causes. The kit is regenerated and stays deterministic.
+
+---
+
 ### L-01 — Write the findings: each hypothesis judged, a typography conformance pass, and the fix cards finalised
 
 **Model:** opus · **Size:** M · **Depends on:** L-00 · **Parallel with:** B lane
