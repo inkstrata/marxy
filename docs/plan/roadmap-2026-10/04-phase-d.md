@@ -1234,6 +1234,11 @@ and 4 and say so. `CSS.highlights` ranges over text that the typesetter later sp
 tracks DOM mutation) but a re-run after a pass is cheap and safe; the test above decides whether a re-run on
 `data-marxy-typeset` changes is needed.
 
+**From the D-03 review (2026-10-07).** `locate(offset)` places an offset on a piece boundary in the later piece, so
+a match ending at the end of piece 0 locates at `(piece 1, 0)`. A `CSS.highlights` Range ending there is valid; a
+`<mark>` fallback built with `surroundContents` throws when the next piece is in another block. If D-13 needs the
+fallback, add an end bias (`locate(offset, 'end')` prefers the previous non-empty piece) and move D-03's tests with it.
+
 ---
 
 ### D-14 — Close the phase: the split in the aesthetics gate, the screen-criterion test and the cost bounds

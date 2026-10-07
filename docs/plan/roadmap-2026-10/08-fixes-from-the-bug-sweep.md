@@ -236,3 +236,15 @@ warning; apply the same newline rule to the relative-path branch. Acceptance (ea
 output and records a warning, for double and single quotes, unquoted, `\r`, `\f` and inside `image-set`; an
 ordinary base64 png passes unchanged; `data:image/svg+xml` is still removed; `loadTheme` on such a theme returns a
 warning and no remote host.
+
+### F-15.1 — A renamed symlink target says the link is gone
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-15 · *From the F-15 review.* · **Paths:**
+`apps/desktop/src-tauri/src/watch/mod.rs`, its tests.
+A link's snapshot entry carries its target's inode, so `mv elsewhere/real.md elsewhere/moved.md` pairs by inode and
+reports `Renamed{docs/link.md → elsewhere/moved.md}`: the open document silently retargets to a file in another
+directory while the link itself now dangles. A link entry never pairs as a rename; a link whose target vanished is
+`Removed` on the link path. While there: `diff`'s rename search can give two `Renamed` events one `to` (skip a `to`
+already used), and the extra roots (target parents) are computed once at open, so a link retargeted into a new
+directory relies on the 200 ms poll; say so in a comment. Acceptance: renaming the target of an open link shows the
+removal notice; renaming a plain open file still follows it.
