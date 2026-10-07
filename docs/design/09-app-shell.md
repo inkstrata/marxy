@@ -63,7 +63,10 @@ chrome.
 | `Mod+Shift+S` | save as | §01 |
 | `Space` / `Shift+Space`, `PageDown/Up`, `Home/End`, arrows | scroll | native |
 | `Esc` | close overlay, else clear selection | |
-| `Mod+C` | copy | with a `node`/`section` selection: runs `copy-section` or `copy-code-clean` when applicable, else the DOM selection |
+| `Mod+C` | copy | runs the selection's default copy verb, from the table in §03 (never a splice, never a string-prefix match); with no default verb, the DOM selection |
+| `Mod+Shift+C` | copy as markdown | the exact source bytes of the selected block, or of the blocks a drag covers (§03) |
+| `Enter` | open the verb menu | with a `node`, `section`, `document` or `text` selection, outside editable fields and with no dialog open; anchored to the selection (§03, ADR-0054) |
+| `ContextMenu` / `Shift+F10` | open the verb menu | same; right-click and Ctrl-click open it at the pointer |
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 

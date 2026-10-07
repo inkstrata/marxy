@@ -57,3 +57,5 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0050](0050-at-rest-defined.md) | "At rest" is defined: the column of text; summoned surfaces may be any shape; amends 0011 and design constraint 6 | accepted (author, 2026-10-02) |
 | [0051](0051-the-fleet-is-paused.md) | The fleet is paused and the process it needs is paused with it; suspends 0017, 0025, 0034, 0040 and 0043's mechanisms | accepted (author, 2026-10-02) |
 | [0052](0052-the-restated-spirit.md) | The spirit: a reader for source of any kind; seven values that harden into five commitments | accepted (author, 2026-10-07) |
+| [0053](0053-collection-roots.md) | Collection roots: a reader-owned `collection.toml` of folders, searched from the palette and never browsed; scan on demand, no persistent index; amends 0012 | proposed |
+| [0054](0054-verb-menu-and-default-verbs.md) | One verb menu is the click surface; at most seven verbs per selection; `Mod+C` runs a default copy verb and never a splice; amends 0019's cap | proposed |
