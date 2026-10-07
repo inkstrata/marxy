@@ -33,5 +33,5 @@ export function isDeniedPath(relativePath: string): boolean {
 }
 
 function normalizeSegments(relativePath: string): string[] {
-  return relativePath.replace(/\\/g, '/').split('/').filter((segment) => segment.length > 0);
+  return relativePath.split('/').filter((segment) => segment.length > 0);
 }

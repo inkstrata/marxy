@@ -285,3 +285,8 @@ test('resolveImageSrc still refuses a traversal hidden by percent-encoding', () 
   }
   assert.equal(resolveImageSrc('a%00.png', opts).kind, 'invalid');
 });
+
+test('resolveImageSrc reads a backslash in an image reference as a separator (Windows-authored docs)', () => {
+  const ctx = { documentDir: '/repo/docs/sub', imageRoot: '/repo' };
+  assert.deepEqual(resolveImageSrc('..\\img.png', ctx), resolveImageSrc('../img.png', ctx));
+});

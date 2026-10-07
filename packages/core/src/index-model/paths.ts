@@ -37,6 +37,7 @@ export function basename(path: string): string {
 /** Join `base` and `child`, keeping an absolute base absolute. */
 export function joinPath(base: string, child: string): string {
   if (!child) return normalizePath(base);
+  // Mixed platforms: a base that is a Windows path makes the child's backslashes separators; otherwise they are name characters.
   const windows = isWindowsPath(base);
   const kid = windows ? child.replace(/\\/g, '/') : child;
   if (kid.startsWith('/') || /^[A-Za-z]:\//.test(kid) || isWindowsPath(child)) return normalizePath(child);

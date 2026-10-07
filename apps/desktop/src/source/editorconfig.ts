@@ -1,5 +1,7 @@
 // Resolves EditorConfig tab width for Source mode (reader-artifacts handbook §04).
 
+import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
+
 const TAB_KEYS = new Set(['tab_width', 'indent_size', 'indent_style']);
 
 export interface EditorConfigSection {
@@ -49,7 +51,7 @@ export function parseEditorConfig(text: string): EditorConfigSection[] {
 }
 
 function globMatch(pattern: string, path: string): boolean {
-  const norm = path.replace(/\\/g, '/');
+  const norm = normalizePath(path);
   const base = norm.split('/').pop() ?? norm;
   if (pattern.includes('/')) {
     const re = new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
@@ -87,15 +89,15 @@ export function clampTab(n: number): number {
 
 /** POSIX dirname. */
 export function dirname(path: string): string {
-  const norm = path.replace(/\\/g, '/');
+  const norm = normalizePath(path);
   const slash = norm.lastIndexOf('/');
   if (slash <= 0) return '/';
   return norm.slice(0, slash) || '/';
 }
 
 function isUnder(path: string, root: string): boolean {
-  const p = path.replace(/\\/g, '/');
-  const r = root.replace(/\\/g, '/').replace(/\/+$/, '') || '/';
+  const p = normalizePath(path);
+  const r = normalizePath(root);
   if (r === '/') return true;
   return p === r || p.startsWith(`${r}/`);
 }
@@ -110,7 +112,7 @@ export async function resolveTabWidth(
   readText: (path: string) => Promise<string>,
 ): Promise<number> {
   let dir = dirname(filePath);
-  const root = indexedRoot.replace(/\\/g, '/').replace(/\/+$/, '') || '/';
+  const root = normalizePath(indexedRoot);
   while (isUnder(dir, root)) {
     const configPath = dir === '/' ? '/.editorconfig' : `${dir}/.editorconfig`;
     try {
@@ -130,7 +132,7 @@ export async function resolveTabWidth(
 
 /** Indexed root for harness documents: `/repo` for `/repo/pkg/file.rs`. */
 export function indexedRootForDocument(filePath: string): string {
-  const parts = filePath.replace(/\\/g, '/').split('/').filter(Boolean);
+  const parts = normalizePath(filePath).split('/').filter(Boolean);
   if (parts.length === 0) return '/';
   return `/${parts[0]}`;
 }

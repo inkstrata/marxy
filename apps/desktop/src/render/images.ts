@@ -19,7 +19,7 @@ export interface ApplyImagesContext {
 
 /** Directory containing the document and the image root (repository root or the same directory). */
 export function pathsForDocument(documentPath: string): { documentDir: string; imageRoot: string } {
-  const normalized = normalizePath(documentPath.replace(/\\/g, '/'));
+  const normalized = normalizePath(documentPath);
   const slash = normalized.lastIndexOf('/');
   const documentDir = slash >= 0 ? normalized.slice(0, slash) : normalized;
   return { documentDir, imageRoot: documentDir };
