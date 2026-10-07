@@ -20,3 +20,12 @@ export { collectFiles, type DirectoryReader, type WalkEntry, type WalkOptions } 
 export { buildIndex, snapshotFromBuild, type IndexBuild } from './build.ts';
 export { INDEX_SCHEDULE } from './schedule.ts';
 export { dirname, basename, joinPath, normalizePath, relativePath } from './paths.ts';
+export {
+  parseCollection,
+  appendRoot,
+  denyRulesFor,
+  COLLECTION_TEMPLATE,
+  type Collection,
+  type CollectionRoot,
+  type ParseCollectionResult,
+} from './collection.ts';

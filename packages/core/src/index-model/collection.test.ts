@@ -1,0 +1,189 @@
+// collection.toml: parse, deny rules, and the byte-faithful append (C-03).
+
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { COLLECTION_TEMPLATE, appendRoot, denyRulesFor, isIgnored, parseCollection } from './index.ts';
+
+const home = '/Users/ian';
+const ctx = { home };
+const enc = (s: string) => new TextEncoder().encode(s);
+const dec = (b: Uint8Array) => new TextDecoder('utf-8', { ignoreBOM: true }).decode(b);
+
+const EXAMPLE = `# Folders Marxy searches. Edit freely; Marxy re-reads this file when it changes.
+
+[[root]]
+path  = "~/.claude/plans"
+name  = "Claude plans"      # optional; shown dim beside results
+watch = true                # default true; false = rescan on launch only
+
+[[root]]
+path = "~/Dev/marxy/docs"
+
+[deny]
+globs = ["**/drafts/**", "**/*.generated.md"]    # added to the built-in deny list
+`;
+
+test('the 06 section 4.2 example parses to two roots, watch flags and deny globs', () => {
+  const r = parseCollection(enc(EXAMPLE), ctx);
+  assert.deepEqual(r.collection.roots, [
+    { path: '/Users/ian/.claude/plans', name: 'Claude plans', watch: true },
+    { path: '/Users/ian/Dev/marxy/docs', watch: true },
+  ]);
+  assert.deepEqual(r.collection.denyGlobs, ['**/drafts/**', '**/*.generated.md']);
+  assert.deepEqual(r.warnings, []);
+  assert.deepEqual(r.unknownKeys, []);
+});
+
+test('watch = false is kept; a non-boolean warns and defaults to true', () => {
+  const r = parseCollection(enc('[[root]]\npath = "/a"\nwatch = false\n[[root]]\npath = "/b"\nwatch = "no"\n'), ctx);
+  assert.deepEqual(
+    r.collection.roots.map((x) => x.watch),
+    [false, true],
+  );
+  assert.equal(r.warnings.length, 1);
+});
+
+test('~ and ~/ expand against ctx.home; a trailing slash is normalised', () => {
+  const r = parseCollection(enc('[[root]]\npath = "~"\n[[root]]\npath = "~/x/"\n'), { home: '/h/' });
+  assert.deepEqual(
+    r.collection.roots.map((x) => x.path),
+    ['/h', '/h/x'],
+  );
+});
+
+test('relative and URL paths warn and are skipped', () => {
+  const r = parseCollection(
+    enc('[[root]]\npath = "docs"\n[[root]]\npath = "https://example.com/x"\n[[root]]\npath = "/ok"\n'),
+    ctx,
+  );
+  assert.deepEqual(
+    r.collection.roots.map((x) => x.path),
+    ['/ok'],
+  );
+  assert.equal(r.warnings.length, 2);
+});
+
+test('duplicate roots fold after normalisation, with a warning', () => {
+  const r = parseCollection(enc('[[root]]\npath = "~/a"\n[[root]]\npath = "/Users/ian/a/"\n'), ctx);
+  assert.equal(r.collection.roots.length, 1);
+  assert.equal(r.warnings.length, 1);
+});
+
+test('more than 32 roots warn and the rest are dropped', () => {
+  const text = Array.from({ length: 40 }, (_, i) => `[[root]]\npath = "/r${i}"\n`).join('');
+  const r = parseCollection(enc(text), ctx);
+  assert.equal(r.collection.roots.length, 32);
+  assert.equal(r.warnings.length, 8);
+});
+
+test('a malformed file gives an empty collection and exactly one warning', () => {
+  const r = parseCollection(enc('[[root\npath = = \n'), ctx);
+  assert.deepEqual(r.collection, { roots: [], denyGlobs: [] });
+  assert.deepEqual(r.warnings, ['collection.toml could not be parsed; no extra folders']);
+});
+
+test('an empty file is an empty collection with no warning', () => {
+  const r = parseCollection(enc(''), ctx);
+  assert.deepEqual(r.collection, { roots: [], denyGlobs: [] });
+  assert.deepEqual(r.warnings, []);
+});
+
+test('unknown keys are listed once', () => {
+  const r = parseCollection(
+    enc('color = 1\n[[root]]\npath = "/a"\nflavour = 1\n[[root]]\npath = "/b"\nflavour = 2\n[deny]\nx = 1\n'),
+    ctx,
+  );
+  assert.deepEqual([...r.unknownKeys].sort(), ['color', 'deny.x', 'root.flavour']);
+});
+
+test('a BOM at the start does not break parsing', () => {
+  const r = parseCollection(enc('﻿[[root]]\npath = "/a"\n'), ctx);
+  assert.equal(r.collection.roots.length, 1);
+});
+
+test('denyRulesFor ignores a/drafts/x.md and not a/draft.md; !node_modules does not un-deny', () => {
+  const rules = denyRulesFor(['**/drafts/**']);
+  assert.equal(isIgnored('a/drafts/x.md', false, rules), true);
+  assert.equal(isIgnored('a/draft.md', false, rules), false);
+  const neg = denyRulesFor(['!node_modules']);
+  assert.equal(isIgnored('node_modules/x.md', false, neg), true);
+});
+
+test('appendRoot on empty input writes the template then the table', () => {
+  const out = dec(appendRoot(new Uint8Array(), '/a/b', ctx));
+  assert.equal(out, `${COLLECTION_TEMPLATE}[[root]]\npath = '/a/b'\n`);
+  assert.deepEqual(parseCollection(enc(out), ctx).collection.roots, [{ path: '/a/b', watch: true }]);
+});
+
+test('appendRoot writes ~/ for a path under home, and quotes safely', () => {
+  assert.match(dec(appendRoot(enc('x = 1\n'), '/Users/ian/Notes', ctx)), /path = '~\/Notes'\n$/);
+  assert.match(dec(appendRoot(enc('x = 1\n'), "/Users/it's", { home: '/nope' })), /path = "\/Users\/it's"\n$/);
+  assert.match(dec(appendRoot(enc('x = 1\n'), '/a"b/c\'', ctx)), /path = "\/a\\"b\/c'"\n$/);
+  const tricky = '/a/it\'s "q" x';
+  const out = appendRoot(enc(''), tricky, ctx);
+  assert.equal(parseCollection(out, ctx).collection.roots[0]?.path, tricky);
+});
+
+test('appendRoot refuses a relative path or a URL', () => {
+  assert.throws(() => appendRoot(enc(''), 'docs', ctx), RangeError);
+  assert.throws(() => appendRoot(enc(''), 'https://x/y', ctx), RangeError);
+});
+
+test('a folder already listed returns the input unchanged', () => {
+  const input = enc(EXAMPLE);
+  assert.equal(appendRoot(input, '/Users/ian/Dev/marxy/docs/', ctx), input);
+});
+
+// Byte fidelity: the output starts with the input (plus at most one line ending), only text is added.
+const FIXTURES: Record<string, string> = {
+  empty: '',
+  lf: EXAMPLE,
+  crlf: EXAMPLE.replace(/\n/g, '\r\n'),
+  noFinalNewline: '[[root]]\npath = "/a"',
+  noFinalNewlineCrlf: '[[root]]\r\npath = "/a"',
+  comments: '# only a comment',
+  commentsEol: '# only a comment\n# another   \n',
+  bom: '﻿[[root]]\npath = "/a"\n',
+  oddSpacing: '  [[root]]  \n\tpath\t=\t"/a"   \n\n\n\n  # trailing   \n',
+  trailingSpaceNoEol: '[deny]\nglobs = []   ',
+  mixedEol: '[[root]]\r\npath = "/a"\n# x\r\n',
+  unicode: '# café ☕ ​\nname = "日本語"\n',
+  whitespaceOnly: '  \n  ',
+};
+
+for (const [name, text] of Object.entries(FIXTURES)) {
+  test(`appendRoot keeps every input byte (${name}), lists the new root last, and is idempotent`, () => {
+    const input = enc(text);
+    const out = appendRoot(input, '/Users/ian/new folder', ctx);
+    const prefixLen = input.length === 0 ? 0 : input.length;
+    assert.deepEqual(out.slice(0, prefixLen), input, 'input bytes are a prefix of the output');
+    const crlf = text.includes('\r\n');
+    const added = dec(out.slice(prefixLen));
+    if (text !== '' && !text.endsWith('\n')) assert.ok(added.startsWith(crlf ? '\r\n' : '\n'));
+    if (crlf) assert.ok(!/(^|[^\r])\n/.test(added), 'CRLF files get only CRLF additions');
+    const roots = parseCollection(out, ctx).collection.roots;
+    assert.equal(roots.at(-1)?.path, '/Users/ian/new folder');
+    assert.deepEqual(appendRoot(out, '/Users/ian/new folder', ctx), out);
+  });
+}
+
+test('appendRoot fuzz: random prefixes keep their bytes; a second append adds only its own text', () => {
+  let seed = 0xc03;
+  const rand = (n: number) => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % n;
+  };
+  const atoms = ['\n', '\r\n', ' ', '\t', '# c', '[[root]]', 'path = "/p"', 'x = 1', '﻿', 'é', '[deny]', "'", '#'];
+  for (let i = 0; i < 300; i++) {
+    let text = '';
+    for (let j = rand(12); j > 0; j--) text += atoms[rand(atoms.length)];
+    // Only well-formed prefixes matter for the root list; fidelity must hold for any bytes.
+    const input = enc(text);
+    const first = appendRoot(input, `/z/${i}`, ctx);
+    assert.deepEqual(first.slice(0, input.length), input, JSON.stringify(text));
+    if (first === input) continue;
+    const second = appendRoot(first, `/y/${i}`, ctx);
+    assert.deepEqual(second.slice(0, first.length), first, JSON.stringify(text));
+    assert.ok(second.length > first.length);
+  }
+});

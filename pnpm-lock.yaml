@@ -132,6 +132,9 @@ importers:
       micromark-util-decode-string:
         specifier: ^2.0.1
         version: 2.0.1
+      smol-toml:
+        specifier: ^1.8.0
+        version: 1.8.0
     devDependencies:
       '@types/commonmark':
         specifier: ^0.27.10
