@@ -512,6 +512,43 @@ stay green.
 
 ---
 
+### B-02.9 — Colour code the same however busy the machine is
+
+**Model:** sonnet · **Size:** S · *Added 2026-10-07 by the lead, from B-02's third stop.*
+
+**Outcome.** Shiki stops tokenising a line after `tokenizeTimeLimit` (500 ms by default). A fresh worker's first
+line can take that long while it compiles its grammar, especially under load, and the rest of the line is then
+one token with the grammar state wrong after it (`export function firstAtx(…` gives 5 tokens instead of 22). The
+reader sees the same code coloured differently on a busy machine; the gate sees 18, 16 and 19 move between runs.
+Tokenising no longer depends on elapsed time; long lines stay plain (`MAX_HIGHLIGHT_LINE_CHARS`) and the work
+stays in the worker.
+
+**Paths.** `packages/core/src/highlight/**` and its tests; the worker entry only if the option is set there.
+
+**Acceptance.** A test forces a tiny time budget and still gets the full token count; the worst case under the
+line cap is reported and bounded.
+
+---
+
+### B-21 — A slow code line cannot hold every other block's colour
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-02.9 · *Added 2026-10-07 by the lead, from the B-02.9 review.*
+
+**Outcome.** With tokenising no longer cut off by time (B-02.9), one adversarial C-family line (2000 `"` in C++)
+holds the single highlight worker for 4–8 s, and every later code block on the page, and in the next document,
+waits uncoloured behind it (text shows at once, plain). Make the bound deterministic and local: a per-grammar
+line cap (about 300–500 characters for the C family; consider 1000 globally for minified JS), still blanked and
+put back as plain text; and drop queued jobs for an article that is gone (a token per article). Never a time
+limit.
+
+**Paths.** `packages/core/src/highlight/highlighter.ts` (the cap map) and its tests; `apps/desktop/src/render/highlight.ts`
+and the worker entry (job tokens).
+
+**Acceptance.** The worst measured line under each cap is recorded in a comment and the PR; a test shows a job for a
+closed article is not run; colours stay identical for lines under the caps (goldens unchanged).
+
+---
+
 ### B-03 — Make `--marxy-room` relative to the column's container
 
 **Model:** sonnet · **Size:** S · **Depends on:** — · **Parallel with:** B-01, B-04, B-05

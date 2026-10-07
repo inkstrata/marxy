@@ -994,8 +994,8 @@ where 'reader but adept at both' meets the split."
 
 **Paths.**
 - Edit: `apps/desktop/src/source/editor.ts` (`sharedParent`/`sharedEditor` `:35-36`, `activeSourceEditor`
-  `:44`, `createSourceEditor` `:49-77`), `apps/desktop/src/source/mode-open.ts` (`openSourceAtByte`
-  `:17-30`, its own `sourceMount`), `apps/desktop/src/source/tab-width.ts` (`:28`),
+  `:44`, `createSourceEditor` `:49-77`), `AppHandle.jumpToSource` (F-03 deleted `mode-open.ts`; the app's
+  `showSource` is the one Source entry), `apps/desktop/src/source/tab-width.ts` (`:28`),
   `apps/desktop/src/commands/source-view.ts` (`view.toggle-line-numbers`, `:38-55`), the view's mode
   handling (`apps/desktop/src/view/rendered-view.ts`; today `app.ts:201-262` `sourceMount`,
   `setModeChrome`, `showSource`, `showRendered`, and `:314-321` `installKeyDispatcher`, the `Mod+E`
@@ -1018,8 +1018,9 @@ where 'reader but adept at both' meets the split."
    keep working; document the mirror in a comment.
 3. `Mod+E` (`toggleViewMode`) acts on `panes.focused.view`. The busy flag `modeToggleBusy` (`app.ts:191`) is
    per view.
-4. `openSourceAtByte(buffer, byteOffset)` (palette jump-to-source) targets the focused pane's mount, `article`
-   and a reading line from that pane's `clientHeight`, not `window.innerHeight` (`mode-open.ts:28`).
+4. `jumpToSource(byteOffset)` (palette jump-to-source) acts on the focused pane's view: its mount, `article`
+   and a reading line from that pane's `clientHeight`, not `window.innerHeight`. Never a second path that
+   shows the editor without the view's mode state (F-03).
    `tab-width.ts:28` resolves the editor through `activeSourceEditor()` instead of
    `#marxy-source .cm-editor`. `view.toggle-line-numbers` uses the focused pane's mount.
 5. Default mode when a pane opens a document: `defaultModeForPath(path)` (`source/default-mode.ts:15`), then the
@@ -1193,6 +1194,9 @@ which `07` §1 finding 7 says is cheaper than retrofitting.
    `currentPosition(scroller, blocks, …)`), not a second scroll listener.
 5. Theme: highlight styles from the existing tokens, with the current match also outlined (colour is never the
    only signal, ADR-0033).
+
+**From L-11 (2026-10-07).** Matches use `--marxy-color-find` / `--marxy-color-find-current` as a pale fill and the
+`--marxy-color-find-edge` outline for the 3:1 indicator (WCAG 1.4.11), as Source does after L-11.
 
 **Acceptance.**
 - Two panes; `Mod+F` with the right pane focused opens find in the right pane only, typing a word that is in
