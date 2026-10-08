@@ -448,6 +448,23 @@ export function measureInPage(args) {
   if (args.blocks) {
     cell.blocks = blocks.map((b) => [b.k, b.tag, b.depth, r2(b.l), r2(b.r), r2(b.dL), r2(b.dR), b.iL === null ? null : r2(b.iL), b.iR === null ? null : r2(b.iR), b.idL === null ? null : r2(b.idL), b.scroll ? 1 : 0, r2(b.hBar)]);
   }
+  if (args.blocks) {
+    // The right edge of body text (L-02.1): for each top-level paragraph, how far its set lines' box (the
+    // content box the typesetter measures and sets them to) ends short of the column's right edge. Ragged
+    // lines are not a fault; a paragraph whose lines cannot reach the edge, because a padding, a border or a
+    // margin holds them in, is. The box is geometry, not the words' ink, so no renderer's line ends are read.
+    cell.rightEdge = [];
+    for (const el of blockEls) {
+      if (el.tagName !== 'P' || kindOf(el) !== 'p' || depthOf(el) !== 0 || !el.textContent.trim()) continue;
+      const s = getComputedStyle(el);
+      if (['auto', 'scroll', 'hidden'].includes(s.overflowX)) continue;
+      const lh = parseFloat(s.lineHeight);
+      const box = el.getBoundingClientRect();
+      const inner = box.height - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) - parseFloat(s.borderTopWidth) - parseFloat(s.borderBottomWidth);
+      const setRight = box.right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
+      cell.rightEdge.push([`p@${el.getAttribute('data-marxy-s') ?? '-'}`, Math.round(inner / lh), r2(colR - setRight)]);
+    }
+  }
   return cell;
 }
 
@@ -504,6 +521,14 @@ export function geometryFailures(cell, { classic: _classic = false } = {}) {
     const iL = at(b, 'iL');
     const iR = at(b, 'iR');
     if (iL !== null && !at(b, 'scroll') && (iL < -0.5 || iR > vp.cw + 0.5)) add('noClip', 'ink', `${label}: ink is cut off by the window`);
+  }
+
+  // 2. The right edge: a top-level paragraph's set lines run to the column's right edge. Ragged lines end
+  // short and that is not a fault; what is, is a padding, border or margin on the right that holds every
+  // line of the paragraph in from the edge. Read from the lines' content box, so no rasteriser's line ends
+  // are assumed (the first version of this rule, on ink, was exactly that).
+  for (const [k, lines, inset] of cell.rightEdge ?? []) {
+    if (inset > 1) add('blockEdges', 'p-right', `${k} (p, ${lines} line(s)): its lines end ${inset}px short of the column's right edge`);
   }
 
   // 3. No mark left of the gutter floor but hung punctuation, and none outside the window.
@@ -640,17 +665,30 @@ export function surveyInPage() {
     maxSetLinePastBoxPx: r(maxOver),
     blockOverlaps: overlaps,
     bodyFontPx: parseFloat(getComputedStyle(a).fontSize),
-    // What the page actually computes for a paragraph, so the checks can prove their condition was applied.
+    // What the page actually computes, per kind of text block: for each of the four WCAG 1.4.12 properties the
+    // element of that kind that falls shortest of its condition (px, with the font size it is judged against),
+    // so one paragraph set right cannot vouch for a list or a heading that was not.
     spacing: (() => {
-      const p = a.querySelector('p');
-      const cs = getComputedStyle(p ?? a);
-      return {
-        fontPx: parseFloat(cs.fontSize),
-        letterPx: parseFloat(cs.letterSpacing),
-        wordPx: parseFloat(cs.wordSpacing),
-        lineHeightPx: parseFloat(cs.lineHeight),
-        marginBottomPx: p ? parseFloat(cs.marginBottom) : null,
-      };
+      const KINDS = { p: 'p', li: 'li', h1: 'h', h2: 'h', h3: 'h', h4: 'h', h5: 'h', h6: 'h', td: 'cell', th: 'cell', blockquote: 'blockquote', dd: 'dd' };
+      const out = {};
+      const els = [...a.querySelectorAll(Object.keys(KINDS).join(','))].filter((el) => el.textContent.trim() && !el.closest('.marxy-line-omitted, .marxy-invisible'));
+      // A document with none of these (an empty file, a source file that is one code block): the article itself.
+      const reads = els.length ? els.map((el) => [el, KINDS[el.tagName.toLowerCase()]]) : [[a, 'article']];
+      for (const [el, kind] of reads) {
+        const cs = getComputedStyle(el);
+        const f = parseFloat(cs.fontSize);
+        const k = (out[kind] ??= { n: 0 });
+        k.n++;
+        const worst = (name, v, want) => {
+          const slack = Number.isFinite(v) ? v - want : -Infinity;
+          if (!k[name] || slack < k[name].slack) k[name] = { slack, v, f };
+        };
+        worst('letter', parseFloat(cs.letterSpacing), 0.12 * f);
+        worst('word', parseFloat(cs.wordSpacing), 0.16 * f);
+        worst('lineHeight', parseFloat(cs.lineHeight), 1.5 * f);
+        if (kind === 'p') worst('marginBottom', parseFloat(cs.marginBottom), 2 * f);
+      }
+      return out;
     })(),
   };
 }
@@ -666,18 +704,28 @@ export function surveyFailures(s) {
 }
 
 /**
- * The WCAG 1.4.12 text-spacing conditions, read from the computed style of a paragraph: line height 1.5,
- * paragraph spacing 2, letter spacing 0.12 and word spacing 0.16, all times the font size. A check that
- * passes with these not applied proves nothing, so the check asserts them first.
+ * The WCAG 1.4.12 text-spacing conditions, read from the computed style of every kind of text block (p, li,
+ * headings, table cells, blockquotes, dd): line height 1.5, paragraph spacing 2, letter spacing 0.12 and
+ * word spacing 0.16, all times the font size. They are "at least" conditions, so each is a floor with
+ * 0.05 px for rounding, judged on the element of its kind that falls shortest. A check that passes with
+ * these not applied proves nothing, so the check asserts them first; and it asserts that something was read.
  */
 export function spacingAppliedFailures(s) {
-  const { fontPx: f, letterPx, wordPx, lineHeightPx, marginBottomPx } = s.spacing;
   const out = [];
-  const near = (v, want) => Number.isFinite(v) && Math.abs(v - want) <= 0.5;
-  if (!near(letterPx, 0.12 * f)) out.push(`letter-spacing is ${letterPx}px, not ${0.12 * f}px (0.12 x ${f}px): the text-spacing overrides were not applied`);
-  if (!near(wordPx, 0.16 * f)) out.push(`word-spacing is ${wordPx}px, not ${0.16 * f}px (0.16 x ${f}px): the text-spacing overrides were not applied`);
-  if (!(lineHeightPx >= 1.5 * f - 0.5)) out.push(`line-height is ${lineHeightPx}px, under 1.5 x ${f}px`);
-  if (marginBottomPx !== null && !(marginBottomPx >= 2 * f - 0.5)) out.push(`paragraph spacing is ${marginBottomPx}px, under 2 x ${f}px`);
+  const kinds = Object.entries(s.spacing ?? {});
+  if (!kinds.length) return ['no text block was found to read the text-spacing overrides from'];
+  const floor = (kind, name, label, em, slackPx) => {
+    const w = s.spacing[kind][name];
+    if (!w) return;
+    const want = em * w.f;
+    if (!(w.v >= want - slackPx)) out.push(`${kind}: ${label} is ${w.v}px, under ${want}px (${em} x ${w.f}px): the text-spacing overrides were not applied`);
+  };
+  for (const [kind] of kinds) {
+    floor(kind, 'letter', 'letter-spacing', 0.12, 0.05);
+    floor(kind, 'word', 'word-spacing', 0.16, 0.05);
+    floor(kind, 'lineHeight', 'line-height', 1.5, 0.5);
+    floor(kind, 'marginBottom', 'paragraph spacing', 2, 0.5);
+  }
   return out;
 }
 
@@ -1157,7 +1205,9 @@ function leftEdges(cells) {
 
 export async function run(opts) {
   await buildRenderEntry();
-  const browser = await launchWebkit();
+  // `opts.browser`: a browser the caller owns and shares between runs (the determinism test); not closed here.
+  const shared = Boolean(opts.browser);
+  const browser = opts.browser ?? (await launchWebkit());
   const harness = await startHarness();
   try {
     const files = (opts.files ?? corpusFiles()).slice().sort();
@@ -1185,7 +1235,7 @@ export async function run(opts) {
     return { files, cells, results, shots, browser, harness };
   } catch (e) {
     harness.close();
-    await browser.close();
+    if (!shared) await browser.close();
     throw e;
   }
 }
