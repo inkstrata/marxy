@@ -280,6 +280,29 @@ mod tests {
         assert_eq!(err.code, "invalid");
     }
 
+    /// The scope handed to the asset protocol is exactly the directory asked for, never its parent
+    /// (G-04: the Rust half of the asset-scope tests in test/images.test.mjs; `allow_asset_scope`
+    /// itself needs a Tauri `AppHandle`, so its argument check is the testable part).
+    #[test]
+    fn allow_asset_scope_on_a_directory_is_that_directory_and_no_wider() {
+        let root = std::env::temp_dir().join(format!("marxy-asset-scope-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let docs = root.join("docs");
+        fs::create_dir_all(&docs).expect("tmpdir");
+
+        let got = scope_directory(&docs.to_string_lossy()).expect("a directory is a valid scope");
+        let _ = fs::remove_dir_all(&root);
+
+        assert_eq!(got, docs);
+        assert_ne!(got, root, "the scope must not widen to the parent");
+    }
+
+    #[test]
+    fn allow_asset_scope_on_a_missing_path_is_invalid() {
+        let err = scope_directory("/no/such/marxy-asset-dir").unwrap_err();
+        assert_eq!(err.code, "invalid");
+    }
+
     /// The index walk trusts `read_dir` never to list a symlink, so it never leaves the root.
     /// Every symlink is omitted: out-of-root directory and file links, and one that stays inside.
     #[cfg(unix)]
