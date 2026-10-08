@@ -824,6 +824,12 @@ D-07: `openIn(1, …)` into a dirty pane while the focused one is clean replaces
 dirty the prompt names and saves only the focused document; `close()` of a dirty pane discards without asking. This
 story makes the guard per pane and tests all three.
 
+**From the D-01 re-review (2026-10-08).** A refused close (`close()` returning `false` when the fold leaves text
+behind, or when the right pane is empty) shows nothing today; this story's close command must say so in the pane.
+D-01 added `ownsTitle` and a focus listener in `pane/index.ts` that re-titles the window: replace that listener with
+`updateTitle` and the dirty dot here, so there is one title writer. `09-app-shell.md` §State lists the close guard's
+prompt as bound to the first pane, but `app.ts` binds it to the focused pane; this story fixes the doc with the code.
+
 ### D-09 — Follow a link into the neighbour pane
 
 **Model:** sonnet · **Size:** M · **Depends on:** D-06, D-07, D-08 · **Parallel with:** D-10, D-12
