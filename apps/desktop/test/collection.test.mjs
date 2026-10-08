@@ -69,7 +69,10 @@ async function search(page, mod, query) {
   await page.keyboard.press(`${mod}+KeyP`);
   await page.waitForSelector('#marxy-palette[open]');
   await page.fill('#marxy-palette .marxy-palette-query', query);
-  const rows = await page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.textContent ?? ''));
+  const rows = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+    // A row's title, without the age a watched root's row carries beside it (C-12).
+    els.map((el) => (el.querySelector('.marxy-palette-title') ?? el).textContent ?? ''),
+  );
   await page.keyboard.press('Escape');
   return rows;
 }
