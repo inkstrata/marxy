@@ -37,7 +37,7 @@ gh api -X PATCH repos/inkstrata/marxy/branches/main/protection/required_status_c
 Two commands and two habits. If these are green, CI has only your judgement left to find.
 
 ```bash
-pnpm precheck      # typecheck, lint and tests for the packages you touched, plus the gates your paths map to
+pnpm precheck      # CI's `fast` job for what you touched: parallel, timed, under 90 s for a one-package change
 pnpm check         # the eight hygiene checks in one command (the first thing `fast` runs)
 ```
 
@@ -51,12 +51,24 @@ pnpm check         # the eight hygiene checks in one command (the first thing `f
   plain-language Summary first, then Changes, Verification, For the reviewer. Open the pull
   request with `gh pr create --body-file FILE`, never `--body`, so the template is not replaced.
 
-`pnpm precheck` maps your changed paths to gates through `scripts/gates-by-path.json`, so it runs
-a subset; `pnpm precheck --all` runs everything it knows. CI runs everything its path filters
-allow. pnpm's pre and post hooks are switched off (`enablePrePostScripts: false` in
-`pnpm-workspace.yaml`): `pnpm check` does not run `precheck` first, and `pnpm precheck` runs
-`pnpm check` itself as one of its gates. Nothing else in the repository relies on a `pre…` or
-`post…` script.
+`pnpm precheck` is the `fast` job for the paths you changed, and nothing else: `pnpm check`;
+typecheck, lint and tests for each touched package (a change to `scripts/` runs the scripts tests
+instead; root manifests, `pnpm-workspace.yaml`, tsconfigs and `biome.json` still mean every package);
+and the node-only gates `scripts/gates-by-path.json` maps to your paths (`gate:golden` and
+`gate:fidelity` for core or the corpus, `gate:bundle` for desktop, `gate:licences` for manifests and
+lockfiles, `cargo fmt --check` for `src-tauri`). The steps run in parallel, each with a timeout (5 minutes,
+`--timeout <seconds>`), each step's output goes to `results/precheck/<step>.log`, and a timed summary
+prints on every exit, including `Ctrl-C` and a kill (those steps read `killed`).
+
+It runs **no browser**: package tests run with `PLAYWRIGHT_BROWSERS_PATH` pointing at an empty
+directory, so the WebKit tests skip exactly as they do in `fast`, and the summary says so. CI runs those
+in `browser-lite` (and nightly in `browser-full`). `pnpm precheck --browser` runs them for the touched
+packages; `pnpm precheck --all` is the slow path (every package, WebKit on, every gate including
+`gate:no-network`, `gate:aesthetics` and clippy). Not run by default, each runnable by name:
+`gate:no-network`, `gate:aesthetics`, `lint:rust`, and the paused fleet's `check-cards` and `check:story`.
+pnpm's pre and post hooks are switched off (`enablePrePostScripts: false` in `pnpm-workspace.yaml`):
+`pnpm check` does not run `precheck` first, and `pnpm precheck` runs `pnpm check` itself as one of its
+steps. Nothing else in the repository relies on a `pre…` or `post…` script.
 
 `pnpm done`, `node scripts/open-pr.mjs` and `node scripts/check-pr.mjs` (draft a result file,
 validate a template-shaped body, expecting a `MARXY-nnn` key) are **optional local helpers from

@@ -152,14 +152,14 @@ file concurrently corrupt both changes and cost more than the work they saved.
 ## The commands before a pull request
 
 ```bash
-pnpm precheck                        # typecheck/lint/test for what you touched + the gates your paths map to
+pnpm precheck                        # CI's `fast` job for what you touched: parallel, no browser, under 90 s
 pnpm check                           # the eight hygiene checks, in one command
 gh pr create --base main --title "<subject>" --body-file FILE   # the template; never --body
 ```
 
-`pnpm precheck --all` runs everything it knows rather than the subset your paths map to. `pnpm
-done`, `node scripts/open-pr.mjs` and `node scripts/check-pr.mjs` are optional local helpers from
-the fleet era (they expect a `MARXY-nnn` key); CI runs none of them. If the first two are green and
+`pnpm precheck --browser` adds the WebKit tests of the packages you touched; `pnpm precheck --all` runs
+everything it knows (every package, WebKit on, every gate). `pnpm done`, `node scripts/open-pr.mjs` and `node scripts/check-pr.mjs` are optional
+local helpers from the fleet era (they expect a `MARXY-nnn` key); CI runs none of them. If the first two are green and
 the subject, fragment and gates your story names are in place, the reviewer has only judgement
 left. Everything these check, and every other way CI can go red, is in
 [`docs/ci-contract.md`](docs/ci-contract.md).
