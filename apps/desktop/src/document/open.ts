@@ -312,11 +312,13 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     const evidence = await readAndShow(file, undefined, chunks.promise);
     const renderedAt = Date.now();
     const outcome = await measure.waitForFirstText(doc, evidence, after, renderedAt);
-    // F-17: a document of blocks with no text (only images) was not painted as text, and the measurement
-    // said so with `no_text`, but it is a document: it opens like any other and ends with finish(0).
-    // Nothing at all (an empty file) still fails with finish(1).
-    const imagesOnly = outcome === 'no_text' && evidence.blocks > 0;
-    if (outcome !== 'painted' && !imagesOnly) return measure.finish(1);
+    // F-17: a document with no text (only images) was not painted as text, and the measurement said so
+    // with `no_text`, but it is a document: it opens like any other and ends with finish(0). F-17.1: what
+    // makes it a document is its source (a byte that is not white space), not the rendered selector, which
+    // misses a lone `---`, a comment, a `<div>`. Only a blank file (an empty file) still fails with finish(1).
+    const hasSource = current?.snapshot().buffer.bytes.some((b) => b !== 0x20 && (b < 0x09 || b > 0x0d)) ?? false;
+    const textless = outcome === 'no_text' && hasSource;
+    if (outcome !== 'painted' && !textless) return measure.finish(1);
     chunks.release();
     await finishDocumentOpen(file, { firstOpen: true });
     setTimeout(() => void trust.load().then(() => trust.maybeRerenderForLateTrust()), 0);

@@ -84,7 +84,7 @@ export function createLaunchMeasure(
 
   function renderEvidence(doc: HTMLElement): RenderEvidence {
     return {
-      blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length,
+      blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote,dl').length,
       chars: doc.textContent?.length ?? 0,
       hasText: /\S/.test(doc.textContent ?? ''),
       heading: doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '',
