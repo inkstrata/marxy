@@ -323,3 +323,12 @@ should hold byte 0, as `positionAtScroll` now does. Acceptance: a WebKit case pe
 text on screen; fails without the change. Also fix the F-19.1 comments: "table cell" is never held (the reader is
 held on the table) in `startsAnyBlock`'s doc comment, and type `INLINE_TYPES` as `Set<InlineType>`
 (`packages/core/src/position/restore.ts`, comment and type only).
+
+### F-19.3 — A reload keeps the Source caret
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.2 · *From the F-19.2 review (note 4); true before F-19.2.*
+**Paths:** `apps/desktop/src/view/rendered-view.ts` (the Source reload), `apps/desktop/test/live-reload.test.mjs`.
+An outside write to a file open, unedited, in Source puts the caret back on line 1. Map the caret (and a
+selection) through the change the way the reading position is mapped (`offsetThroughEdit`), so a reader whose caret
+was on line 20 finds it on the same text after the write. Acceptance: a WebKit case with the caret on a line below
+an insertion keeps it on the same text; a caret inside deleted text lands at the deletion point.
