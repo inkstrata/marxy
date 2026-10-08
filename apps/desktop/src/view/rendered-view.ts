@@ -4,7 +4,8 @@
 // store owns the bytes; the view subscribes to the store it shows and sets the page again when they
 // change. Nothing here is held at module scope, so a second view can be created beside the first.
 
-import { contentHash, type Buffer, type Document } from '@marxy/core';
+import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document } from '@marxy/core';
+import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
@@ -35,6 +36,8 @@ interface MountedSourceEditor {
   readonly view: {
     scrollDOM: HTMLElement;
     lineBlockAtHeight(height: number): { from: number };
+    readonly state: { readonly selection: { readonly main: { readonly anchor: number; readonly head: number } }; readonly doc: { readonly length: number } };
+    dispatch(spec: { selection: { anchor: number; head: number } }): void;
   };
 }
 
@@ -846,6 +849,24 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   }
 
   /**
+   * The editor takes new bytes from outside (a reload). Replacing the text would put the caret back on
+   * line 1, so the caret and selection are carried through the change the way the reading position is
+   * (`offsetThroughEdit`): the same text stays selected, and a caret in removed text lands where it was
+   * removed (F-19.3).
+   */
+  function replaceSourceBuffer(editor: MountedSourceEditor, next: Buffer): void {
+    const old = editor.buffer;
+    const { anchor, head } = editor.view.state.selection.main;
+    const mapped = (pos: number): number =>
+      Math.min(byteToUtf16(next, offsetThroughEdit(utf16ToByte(old, pos), old.bytes, next.bytes)), next.text.length);
+    const target = old === next ? null : { anchor: mapped(anchor), head: mapped(head) };
+    editor.replaceBuffer(next);
+    if (target === null) return;
+    const length = editor.view.state.doc.length;
+    editor.view.dispatch({ selection: { anchor: Math.min(target.anchor, length), head: Math.min(target.head, length) } });
+  }
+
+  /**
    * The page again, from the store's bytes, at `position`: the same render, typeset and hold an open
    * gets. Used for every transition that changed the bytes or the name (an operation, undo, redo, a
    * reload, a rename) and for `commitEdit` of unchanged bytes. `landing`, when given, is the anchor
@@ -859,7 +880,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (sourceEditor && holdsUnfoldedText(sourceEditor, snapshot.buffer)) {
       console.error('marxy: Source held unfolded text at a repaint; the editor is reset to the document');
     }
-    sourceEditor?.replaceBuffer(snapshot.buffer);
+    if (sourceEditor) replaceSourceBuffer(sourceEditor, snapshot.buffer);
     releaseAnchor();
     rerenderFromBuffer(landing ?? position.byteOffset);
     const typesetting = typesetDocument();
