@@ -92,15 +92,22 @@ export function startDocumentEditingWire(context: () => AppContext): void {
 export function wireArticle(
   article: HTMLElement,
   context: () => AppContext,
-  runtime: () => { readonly article: HTMLElement; readonly buffer: { readonly path: string }; readonly shell: Parameters<typeof updateTabWidthResolver>[1] } | null,
+  runtime: () => {
+    readonly article: HTMLElement;
+    readonly buffer: { readonly path: string };
+    readonly shell: Parameters<typeof updateTabWidthResolver>[1];
+    /** The store version the page was set from: a task toggle carries it. */
+    readonly version: number;
+  } | null,
 ): () => void {
   if (typeof document === 'undefined') return () => {};
   let live = true;
+  const pageVersion = (): number | undefined => runtime()?.version;
   let untask: (() => void) | null = null;
   const installTasks = (): void => {
     if (untask) return;
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
-      if (live && !untask) untask = installTaskMarkers(article, context);
+      if (live && !untask) untask = installTaskMarkers(article, context, pageVersion);
     });
   };
   const wire = (): void => {
@@ -109,7 +116,7 @@ export function wireArticle(
     updateTabWidthResolver(ctx.buffer.path, ctx.shell);
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
       if (!live) return;
-      if (!untask) untask = installTaskMarkers(article, context);
+      if (!untask) untask = installTaskMarkers(article, context, pageVersion);
       // The harness waits on this before it edits: the rendered document is wired. The saved baseline
       // is the store's own (`disk`), set when the document was read, so there is nothing to sync.
       (window as Window & { __marxyOpenSynced?: boolean }).__marxyOpenSynced = true;

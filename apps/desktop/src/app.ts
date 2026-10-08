@@ -767,27 +767,6 @@ async function openReplacing(file: string, at?: number): Promise<void> {
 let frontispiecePieces: readonly PieceSource[] | null = null;
 
 /**
- * One Commonplace piece, through the one parse and the sanitiser, into `#doc` (MARXY-257). Returns its
- * name, or null when there is none to show — no pieces bundled, or one that could not be read — and
- * the caller shows the hint instead.
- */
-async function showFrontispiece(doc: HTMLElement): Promise<string | null> {
-  try {
-    const frontispiece = await import('./frontispiece/index.ts');
-    const piece = await frontispiece.renderPiece(frontispiecePieces ?? frontispiece.bundledPieces);
-    if (!piece) return null;
-    theView().setHtml(piece.html);
-    stripNonLocalImages(doc, piece.file);
-    frontispiece.shape(doc, piece.matter);
-    return piece.name;
-  } catch (e) {
-    console.warn(`marxy: no frontispiece: ${String(e)}`);
-    doc.replaceChildren();
-    return null;
-  }
-}
-
-/**
  * The frontispiece set like a page, after `no_document`: the grid pass and the typesetter for its
  * prose (the typesetter never sets verse), and highlighting for a code piece. The next open's
  * teardown stops all of it, as it does a document's.
@@ -824,8 +803,8 @@ async function boot(): Promise<void> {
   // and no reading position, so the palette and every open replace it as they would the hint.
   if (!file) {
     await applyReaderConfigOnce();
-    const piece = await showFrontispiece(doc);
-    if (!piece) theView().setHtml('<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>');
+    const piece = await theView().showFrontispiece(frontispiecePieces);
+    if (!piece) theView().showEmptyHint();
     await shell.mark('no_document', Date.now(), piece ? `piece=${piece}` : undefined);
     if (piece) setFrontispiece(doc);
     return measure.finish(0);

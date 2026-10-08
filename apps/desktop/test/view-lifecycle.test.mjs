@@ -38,14 +38,27 @@ const C = [
   ...Array.from({ length: 30 }, (_, i) => `${para(`After ${i}`).repeat(2)}\n`),
 ].join('\n');
 const RS = 'fn main() {\n    println!("hello");\n}\n';
+// A heading so near the end that the window cannot bring it to the reading line: the reader's block
+// position (the block on the reading line) and the held anchor (the heading) are different bytes.
+const E = [
+  '# Echo',
+  '',
+  ...Array.from({ length: 30 }, (_, i) => `${para(`Lead ${i}`).repeat(2)}\n`),
+  '## Last heading',
+  '',
+  'The end.',
+  '',
+].join('\n');
 const bytes = (text) => Buffer.from(text, 'utf8');
 const files = {
   '/r/A.md': bytes(A).toString('base64'),
   '/r/B.md': bytes(B).toString('base64'),
   '/r/C.md': bytes(C).toString('base64'),
   '/r/D.rs': bytes(RS).toString('base64'),
+  '/r/E.md': bytes(E).toString('base64'),
 };
 const target = bytes(C).indexOf('## Target heading');
+const lastHeading = bytes(E).indexOf('## Last heading');
 
 before(async () => {
   if (skip) return;
@@ -240,4 +253,131 @@ test('an edit above a held anchor keeps the reader on the same heading: the anch
     }, { files, target });
     assert.equal(seen.before, target, 'the open landed on the heading');
     assert.equal(seen.after, target + seen.shift, 'the same heading, at its new offset');
+  }));
+
+test('undo and redo map a held anchor back and forth: the reader stays on the same heading', () =>
+  withPage(async (page) => {
+    const seen = await page.evaluate(async ({ files, target }) => {
+      const h = await window.marxyApp.start(files, ['/r/A.md']);
+      await h.ready;
+      await h.open('/r/C.md', { at: target });
+      const store = h.document();
+      const inserted = '# Inserted\n\nA paragraph the edit puts above everything the reader can see.\n\n';
+      // Two frames after the page is in, so the passes the change scheduled have run.
+      const frames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const settle = async () => {
+        await h.contentComplete();
+        await frames();
+      };
+      await store.apply({ range: { file: '/r/C.md', start: 0, end: 0 }, replacement: inserted, label: 'edit' });
+      await settle();
+      const afterEdit = h.sourceHarness().byteOffset;
+      await store.undo();
+      await settle();
+      const afterUndo = h.sourceHarness().byteOffset;
+      await store.redo();
+      await settle();
+      const afterRedo = h.sourceHarness().byteOffset;
+      return { afterEdit, afterUndo, afterRedo, shift: new TextEncoder().encode(inserted).length };
+    }, { files, target });
+    assert.equal(seen.afterEdit, target + seen.shift);
+    assert.equal(seen.afterUndo, target, 'undo takes the inserted bytes away again');
+    assert.equal(seen.afterRedo, target + seen.shift);
+  }));
+
+test('an edit between the reading line and a held heading keeps the heading, not the block above it, on screen', () =>
+  withPage(async (page) => {
+    const seen = await page.evaluate(async ({ files, lastHeading }) => {
+      const h = await window.marxyApp.start(files, ['/r/A.md']);
+      await h.ready;
+      await h.open('/r/E.md', { at: lastHeading });
+      const before = h.sourceHarness().byteOffset;
+      const store = h.document();
+      const para = 'Inserted text that runs long enough to fill a good part of a line in the column. ';
+      const inserted = Array.from({ length: 30 }, () => para.repeat(3)).join('\n\n') + '\n\n';
+      await store.apply({ range: { file: '/r/E.md', start: lastHeading, end: lastHeading }, replacement: inserted, label: 'edit' });
+      await h.contentComplete();
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const heading = [...document.querySelectorAll('#doc h2')].find((el) => el.textContent === 'Last heading');
+      const r = heading.getBoundingClientRect();
+      return { before, visible: r.top >= 0 && r.bottom <= window.innerHeight };
+    }, { files, lastHeading });
+    assert.ok(seen.before < lastHeading, `the reading line sits above the heading (${seen.before} < ${lastHeading})`);
+    assert.equal(seen.visible, true, 'the held heading is still on screen after the edit');
+  }));
+
+test('a reload from disk with an anchor held keeps the reader on the same heading in the new bytes', () =>
+  withPage(async (page) => {
+    const seen = await page.evaluate(async ({ files, target }) => {
+      const h = await window.marxyApp.start(files, ['/r/A.md']);
+      await h.ready;
+      await h.open('/r/C.md', { at: target });
+      const before = h.sourceHarness().byteOffset;
+      const prefix = '# Written by someone else\n\nA paragraph another program put at the top.\n\n';
+      const old = h.document().snapshot().buffer.bytes;
+      const added = new TextEncoder().encode(prefix);
+      const next = new Uint8Array(added.length + old.length);
+      next.set(added);
+      next.set(old, added.length);
+      await h.shell.writeFileAtomic('/r/C.md', next);
+      const reloaded = () => h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'live_reload');
+      h.shell.emit([{ kind: 'modified', path: '/r/C.md' }]);
+      for (let i = 0; i < 500 && !reloaded(); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+      await h.contentComplete();
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return { before, reloaded: reloaded(), after: h.sourceHarness().byteOffset, shift: added.length };
+    }, { files, target });
+    assert.equal(seen.reloaded, true, 'the reload ran');
+    assert.equal(seen.before, target);
+    assert.equal(seen.after, target + seen.shift, 'the same heading, at its offset in the new bytes');
+  }));
+
+test('a task clicked on a page the store has moved past carries the page\'s version, so its toggle is refused', () =>
+  withPage(async (page) => {
+    const seen = await page.evaluate(async ({ A }) => {
+      const one = window.marxyViewHarness.view('/v/one.md', A, { wire: true });
+      const text = () => new TextDecoder().decode(one.store.snapshot().buffer.bytes);
+      const clickTask = () => {
+        const box = one.article.querySelector('input[type=checkbox]');
+        const r = box.getBoundingClientRect();
+        const init = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+        (box.closest('li') ?? box).dispatchEvent(new MouseEvent('click', init));
+      };
+      // Every apply the click makes, with its outcome: the toggle goes through a lazy import first.
+      const applies = [];
+      const apply = one.store.apply.bind(one.store);
+      one.store.apply = (input) => {
+        const result = apply(input);
+        if (input.label !== 'edit') applies.push(result);
+        return result;
+      };
+      const nextToggle = async (n) => {
+        for (let i = 0; i < 1000 && applies.length < n; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+        return applies.length >= n ? applies[n - 1] : 'no toggle';
+      };
+      // Subscribed before the view: it clicks after the store committed and before the page is set again.
+      let clicked = false;
+      one.store.subscribe((_snap, change) => {
+        if (change.kind !== 'apply' || clicked) return;
+        clicked = true;
+        clickTask();
+      });
+      await one.view.show(one.store);
+      await new Promise((resolve) => {
+        const poll = () => (window.__marxyTasksReady ? resolve() : setTimeout(poll, 10));
+        poll();
+      });
+      const end = new TextEncoder().encode(text()).length;
+      // An edit after the task: the bytes changed, the task's own offsets did not.
+      await one.store.apply({ range: { file: '/v/one.md', start: end, end }, replacement: 'more\n', label: 'edit' });
+      const stale = await nextToggle(1);
+      // The page caught up: the same click now toggles.
+      clickTask();
+      const fresh = await nextToggle(2);
+      return { clicked, stale, fresh, ticked: text().includes('- [x] alpha task') };
+    }, { A });
+    assert.equal(seen.clicked, true);
+    assert.equal(seen.stale, false, 'a toggle from the page before the edit is refused');
+    assert.equal(seen.fresh, true, 'a toggle from the page as it is lands');
+    assert.equal(seen.ticked, true);
   }));

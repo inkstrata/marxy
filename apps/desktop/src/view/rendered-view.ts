@@ -10,6 +10,7 @@ import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { AppShell } from '../app.ts';
 import type { AppContext } from '../commands/registry.ts';
+import type { PieceSource } from '../frontispiece/pieces.ts';
 import { wireArticle } from '../commands/document.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
 import { currentPosition, restoreScrollToPosition } from '../position/index.ts';
@@ -135,8 +136,16 @@ export interface RenderedView {
   relayout(reason?: 'theme' | 'resize', from?: ReadingPosition | null): Promise<void>;
   /** A user theme was applied: every paragraph set again, the reader kept on the same block. */
   relayoutForTheme(): Promise<void>;
-  /** Markup with no store behind it (the frontispiece, the empty hint) into the article. */
-  setHtml(html: string): void;
+  /**
+   * One Commonplace piece, through the one parse and the sanitiser, into the article (MARXY-257).
+   * `pieces` null is the bundled Commonplace. Returns its name, or null when there is none to show
+   * (none bundled, or one that could not be read), and the caller shows the hint instead. Markup
+   * reaches the article only from here, the hint and a store's render: nothing outside the view
+   * hands it a string (the B-13 review).
+   */
+  showFrontispiece(pieces: readonly PieceSource[] | null): Promise<string | null>;
+  /** The empty-state hint, for a launch with no document and no piece. */
+  showEmptyHint(): void;
   /** The grid pass and the typesetter for a page with no store (the frontispiece). */
   setStatic(): void;
   /** `{ ast, html, nodeMap, blocks }` of the shown document, or null. */
@@ -164,6 +173,9 @@ const READER_INPUT = ['wheel', 'touchstart', 'mousedown', 'keydown'] as const;
 const SNAP_INTERVAL_MS = 250;
 
 const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
+
+/** What a launch with no document and no Commonplace piece shows. */
+const EMPTY_HINT = '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>';
 
 /** The source bytes the article holds so far: the end of its last block with provenance. */
 function mountedBytes(doc: HTMLElement): number {
@@ -840,7 +852,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         : sourcePosition(before.path) ?? currentPosition(scroller, shown.blocks, before.path, 'rendered');
     // The place was read in the bytes before the change; the page is set in the bytes after it (ADR-0037 §6).
     const position = { ...read, byteOffset: mapThroughTransition(change, read.byteOffset) };
-    const landing = anchor !== null && viewMode === 'rendered' ? mapThroughTransition(change, anchor) : null;
+    // A held anchor is mapped through a splice. A reload is not a splice: its place is the watcher's,
+    // already mapped through the new bytes (`reloadAt`), and the anchor's old offset means nothing in
+    // them, so the page holds that place instead, as before B-13 (the B-13 review).
+    const landing =
+      anchor !== null && viewMode === 'rendered' && change.kind !== 'reload' ? mapThroughTransition(change, anchor) : null;
     try {
       repaint(snapshot, position, landing);
     } catch (e) {
@@ -1087,7 +1103,22 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     },
     relayout: relayoutKeepingReader,
     relayoutForTheme,
-    setHtml: (html) => assignHtml(doc, html),
+    async showFrontispiece(pieces) {
+      try {
+        const frontispiece = await import('../frontispiece/index.ts');
+        const piece = await frontispiece.renderPiece(pieces ?? frontispiece.bundledPieces);
+        if (!piece) return null;
+        assignHtml(doc, piece.html);
+        stripNonLocalImages(doc, piece.file);
+        frontispiece.shape(doc, piece.matter);
+        return piece.name;
+      } catch (e) {
+        console.warn(`marxy: no frontispiece: ${String(e)}`);
+        doc.replaceChildren();
+        return null;
+      }
+    },
+    showEmptyHint: () => assignHtml(doc, EMPTY_HINT),
     setStatic() {
       keepOnGrid(doc);
       startTypeset(doc);

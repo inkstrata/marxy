@@ -10,11 +10,16 @@ const WIRED = new WeakSet<HTMLElement>();
 
 /**
  * The task click, on `article`, once. `context` is read at click time: the open document is its store's
- * snapshot then, and the toggle carries that snapshot's version (ADR-0037 Amendment 1). Returns what
+ * snapshot then. The toggle carries `pageVersion()`, the store version the page clicked on was set from
+ * (the selection's, B-13), else that snapshot's version (ADR-0037 Amendment 1). Returns what
  * takes it off again, so the article's next view can install its own (B-13); a second install while
  * one is on is a no-op, and so is its undo.
  */
-export function installTaskMarkers(article: HTMLElement, context: () => AppContext): () => void {
+export function installTaskMarkers(
+  article: HTMLElement,
+  context: () => AppContext,
+  pageVersion?: () => number | undefined,
+): () => void {
   if (WIRED.has(article)) return () => {};
   WIRED.add(article);
   if (typeof window !== 'undefined') {
@@ -41,10 +46,12 @@ export function installTaskMarkers(article: HTMLElement, context: () => AppConte
       text: textOf(snap.buffer, range),
     };
     if (!toggleTask.canApply(input)) return;
+    // The version the page was set from, read now: a page behind the store has a stale task under it.
+    const baseVersion = pageVersion?.() ?? snap.version;
     void import('../commands/edits.ts').then(({ applyDocumentMutation }) => {
       const ctx: AppContext = {
         ...base,
-        applyBufferMutation: (edit) => applyDocumentMutation(base.document, { ...edit, baseVersion: snap.version }),
+        applyBufferMutation: (edit) => applyDocumentMutation(base.document, { ...edit, baseVersion }),
       };
       void apply(toggleTask, ctx, input);
     });
