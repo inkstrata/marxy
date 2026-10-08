@@ -12,6 +12,7 @@ import type { RenderedSelection } from '../selection/view.ts';
 import { createRenderedView, type RenderedView, type RenderedViewDeps, type ViewHost } from '../view/rendered-view.ts';
 import { adoptFirstPane, type PaneParts, type Slot } from './dom.ts';
 import { createPaneSet, type PaneContent, type PaneSet } from './pane-set.ts';
+import { installScroll } from './scroll.ts';
 
 export { MAX_PANES, type Pane, type PaneContent, type PaneSet } from './pane-set.ts';
 export { idsForSlot, type Slot } from './dom.ts';
@@ -32,9 +33,9 @@ export interface PanesDeps {
 }
 
 /**
- * The first pane's view is on the window's scroller and keeps `data-marxy-mode` on <body>, as the one
- * view always has; a second pane scrolls in its own section and carries its own mode (D-05 and D-11
- * move the first pane's).
+ * The first pane's view starts on the window's scroller (`installScroll` moves it to its section while
+ * a second pane is shown) and keeps `data-marxy-mode` on <body>, as the one view always has; a second
+ * pane scrolls in its own section and carries its own mode (D-11 moves the first pane's).
  */
 function hostFor(parts: PaneParts, slot: Slot): ViewHost {
   return slot === 0
@@ -102,6 +103,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
     mark: (name, data) => void shell.mark(name, Date.now(), data),
   });
   set = panes;
+  installScroll(panes);
   // Focus moves the window title to the focused pane's document.
   panes.onChange((e) => {
     if (e.kind !== 'focus') return;
