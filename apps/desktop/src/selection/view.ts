@@ -183,6 +183,8 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   let pointerDown = false;
   let navHistory: string[] = [];
   let navIndex = -1;
+  /** The index a Back still in flight is heading for, so a second press steps on from it; null when none is. */
+  let pendingBack: number | null = null;
   /** The path of the document the page last showed: a different one starts with nothing selected. */
   let shownPath: string | null = null;
   /** The store version the page was last set from (`afterRender`); null before the first. */
@@ -245,6 +247,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     if (kept[kept.length - 1] !== nextPath) kept.push(nextPath);
     navHistory = kept;
     navIndex = navHistory.length - 1;
+    pendingBack = null;
   };
 
   const followLink = async (anchor: HTMLAnchorElement, ev?: MouseEvent): Promise<void> => {
@@ -278,6 +281,13 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       return;
     }
     const { target, fragment } = local;
+
+    // A link to a heading of this very document (`[self](a.md#far)`) is the `#` branch with a path: land
+    // on it. No open, no re-read of the file, no history entry, so unsaved edits are left alone.
+    if (target === opts.currentPath()) {
+      if (fragment) landFragment(fragment);
+      return;
+    }
 
     try {
       await opts.shell.readFile(target);
@@ -519,10 +529,16 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       if (doc) move(parentOf(doc, state.selection));
     },
     back() {
-      if (navIndex <= 0) return false;
-      const index = navIndex - 1;
+      // A second press before the first open has landed steps on from where the first is heading. The
+      // pending index lasts only while that open is in flight: `open()` settles at once when it asks
+      // about unsaved edits, so a Dismiss clears it and the next press starts from the page that is shown.
+      const from = pendingBack ?? navIndex;
+      if (from <= 0) return false;
+      const index = from - 1;
+      pendingBack = index;
+      const settle = (): void => { if (pendingBack === index) pendingBack = null; };
       // The step back counts only once that document is on screen; a Dismiss over unsaved edits keeps the place.
-      void opts.open(navHistory[index]!, { onLanded: () => { navIndex = index; } });
+      void opts.open(navHistory[index]!, { onLanded: () => { navIndex = index; settle(); } }).then(settle, settle);
       return true;
     },
     selectBlockAtByte(byte) {

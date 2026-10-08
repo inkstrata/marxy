@@ -45,8 +45,9 @@ after(() => server?.close());
 const filler = `${'word '.repeat(40)}\n\n`;
 const FILES = {
   '/repo/.git/HEAD': 'ref: refs/heads/main\n',
-  '/repo/linky.md': `# Linky\n\n- [ ] task\n\n[to guide](docs/guide.md#guide)\n\n${filler.repeat(30)}## Guide\n\nLinky has its own Guide heading.\n`,
-  '/repo/docs/guide.md': `# Top\n\n${filler.repeat(30)}## Guide\n\nThe guide heading is down here.\n\n${filler.repeat(30)}`,
+  '/repo/linky.md': `# Linky\n\n- [ ] task\n\n[to guide](docs/guide.md#guide)\n\n[self](linky.md#guide)\n\n${filler.repeat(30)}## Guide\n\nLinky has its own Guide heading.\n\n${filler.repeat(30)}`,
+  '/repo/docs/guide.md': `# Top\n\n${filler.repeat(30)}## Guide\n\nThe guide heading is down here.\n\n[to c](c.md)\n\n${filler.repeat(30)}`,
+  '/repo/docs/c.md': `# C\n\n- [ ] c task\n\nMore.\n`,
   '/collection.toml': '[[root]]\npath = "/repo"\n',
 };
 
@@ -66,10 +67,10 @@ async function bootDirty(browser) {
   return page;
 }
 
-const followLink = (page) => page.evaluate(() => {
-  [...document.querySelectorAll('#doc a')].find((x) => /to guide/.test(x.textContent))
+const followLink = (page, label = 'to guide') => page.evaluate((l) => {
+  [...document.querySelectorAll('#doc a')].find((x) => x.textContent === l)
     .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-});
+}, label);
 const editCollection = async (page) => {
   await page.keyboard.press(`${(await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control'}+KeyP`);
   await page.waitForSelector('#marxy-palette[open]');
@@ -197,6 +198,110 @@ test('Edit collection over unsaved edits, Save and open: writes linky.md, then c
     await page.waitForFunction(() => window.__h.currentPath() === '/collection.toml');
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
     assert.equal((await state(page)).writes, 1);
+  } finally {
+    await browser.close();
+  }
+});
+
+// ---- a link to the document's own heading, written with its file name ----
+
+const selfLanded = async (page) => {
+  await page.waitForFunction(() => {
+    const h = [...document.querySelectorAll('#doc h2')].find((x) => x.textContent === 'Guide');
+    return h && h.getBoundingClientRect().top < window.innerHeight * 0.6 && h.getBoundingClientRect().top > -50;
+  });
+};
+
+test('a same-file link with a path over unsaved edits lands at the heading: nothing written, no notice, no history', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await bootDirty(browser);
+    const before = await state(page);
+    await followLink(page, 'self');
+    await selfLanded(page);
+    const after = await state(page);
+    assert.equal(after.path, '/repo/linky.md');
+    assert.equal(after.dirty, true, 'the edit is kept');
+    assert.equal(after.writes, 0);
+    assert.equal(before.writes, 0);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#marxy-notices .marxy-notice').length), 0, 'no notice');
+    assert.equal(await page.evaluate(() => window.__h.selection.back()), false, 'no history entry');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a same-file link with a path in a clean document lands at the heading without a history entry', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await bootDirty(browser);
+    // A clean document: save the edit, then follow the link.
+    await page.keyboard.press(`${(await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control'}+KeyS`);
+    await page.waitForFunction(() => window.marxyDocumentEdit().dirty === false);
+    await followLink(page, 'self');
+    await selfLanded(page);
+    assert.equal((await state(page)).path, '/repo/linky.md');
+    assert.equal(await page.evaluate(() => window.__h.selection.back()), false);
+  } finally {
+    await browser.close();
+  }
+});
+
+// ---- Back across a Dismiss ----
+
+const cleanTo = async (page, label, path) => {
+  await followLink(page, label);
+  await page.waitForFunction((p) => window.__h.currentPath() === p, path);
+  await page.waitForTimeout(150);
+};
+const bootThree = async (browser) => {
+  const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async (files) => {
+    const r = await window.marxyPaletteBoot.start(files, ['/repo/linky.md']);
+    window.__h = r.handle;
+    await r.handle.collection.loaded;
+  }, Object.fromEntries(Object.entries(FILES).map(([k, v]) => [k, Buffer.from(v, 'utf8').toString('base64')])));
+  await cleanTo(page, 'to guide', '/repo/docs/guide.md');
+  await cleanTo(page, 'to c', '/repo/docs/c.md');
+  return page;
+};
+const pathIs = (page, p) => page.waitForFunction((x) => window.__h.currentPath() === x, p);
+
+test('Back over unsaved edits: a Dismiss does not cost a step (linky, guide, c: lands c, guide, linky, then nothing)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await bootThree(browser);
+    await page.waitForFunction(() => window.__marxyTasksReady === true);
+    await page.evaluate(() => document.querySelector('#doc input[type=checkbox]').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+    await page.waitForFunction(() => window.marxyDocumentEdit().dirty === true);
+    assert.equal(await page.evaluate(() => window.__h.selection.back()), true);
+    await asked(page);
+    await choose(page, 'Dismiss');
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__h.currentPath()), '/repo/docs/c.md', 'Dismiss stays on c.md');
+    assert.equal(await page.evaluate(() => window.__h.selection.back()), true);
+    await asked(page);
+    await choose(page, 'Open without saving');
+    await pathIs(page, '/repo/docs/guide.md');
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__h.selection.back()), true);
+    await pathIs(page, '/repo/linky.md');
+    assert.equal(await page.evaluate(() => window.__h.selection.back()), false, 'the history is exhausted');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('two Back presses in quick succession step back twice', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await bootThree(browser);
+    assert.deepEqual(await page.evaluate(() => [window.__h.selection.back(), window.__h.selection.back()]), [true, true]);
+    await pathIs(page, '/repo/linky.md');
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__h.selection.back()), false);
   } finally {
     await browser.close();
   }
