@@ -1,16 +1,15 @@
 {
-  "_note": "Which gates a change must run, by path prefix. precheck.mjs unions the entries for every changed file. 'always' runs for any change.",
-  "always": ["check", "check:story"],
-  "packages/core": ["gate:golden", "gate:fidelity", "gate:no-network"],
-  "packages/theme": ["gate:aesthetics", "lint:theme"],
-  "packages/typeset": ["gate:aesthetics"],
-  "apps/desktop": ["gate:no-network", "gate:bundle"],
-  "apps/desktop/src-tauri": ["lint:rust"],
-  "fixtures/corpus": ["gate:golden", "gate:fidelity", "gate:no-network"],
+  "_note": "Which node-only gates a change must run, by path prefix ('**/name' matches that file name anywhere). precheck.mjs unions the entries for every changed file; this is CI's `fast` job, for what you touched. 'always' runs for any change; 'all' is the extra slow gates only `pnpm precheck --all` adds. Not run by default, still runnable by name: gate:no-network, gate:aesthetics, clippy (lint:rust), check-cards and check:story (the paused fleet; nightly `fleet`).",
+  "always": ["check"],
+  "packages/core": ["gate:golden", "gate:fidelity"],
+  "fixtures/corpus": ["gate:golden", "gate:fidelity"],
+  "apps/desktop": ["gate:bundle"],
+  "apps/desktop/src-tauri": ["fmt:rust"],
   "scripts/gate-fidelity.mjs": ["gate:fidelity"],
   "scripts/allowlists": ["gate:licences"],
-  "package.json": ["gate:licences"],
+  "**/package.json": ["gate:licences"],
   "pnpm-lock.yaml": ["gate:licences"],
-  "apps/desktop/src-tauri/Cargo.toml": ["gate:licences"],
-  "apps/desktop/src-tauri/Cargo.lock": ["gate:licences"]
+  "**/Cargo.toml": ["gate:licences"],
+  "**/Cargo.lock": ["gate:licences"],
+  "all": ["gate:licences", "gate:no-network", "gate:aesthetics", "clippy:rust", "fmt:rust"]
 }
