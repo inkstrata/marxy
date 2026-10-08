@@ -42,15 +42,16 @@ before(async () => {
 });
 after(() => server?.close());
 
-/** Normalised attach() option literals from a source file (app.ts or headless.ts). */
+/** Normalised attach() option literals from a source file (the view or headless.ts). */
 function attachOptionsFrom(src) {
   const match = src.match(/attach\(article, \{([^}]+)\}\)/);
   assert.ok(match, 'source still calls attach(article, { … })');
   return match[1].replace(/\s+/g, ' ').trim();
 }
 
+/** The app's typesetter is the per-article view's (B-13). */
 function attachOptionsApp() {
-  return attachOptionsFrom(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'app.ts'), 'utf8'));
+  return attachOptionsFrom(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'view', 'rendered-view.ts'), 'utf8'));
 }
 
 function attachOptionsHeadless() {

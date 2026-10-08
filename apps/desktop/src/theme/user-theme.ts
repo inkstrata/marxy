@@ -1,11 +1,9 @@
 // User theme load, apply, watch, and config resolution (docs/design/05-theme.md §App side). MARXY-177.
 import { joinPath, normalizePath, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { applyTheme, loadTheme, parseConfig } from '@marxy/theme';
-import type { TypesetController } from '@marxy/typeset';
 import type { WatchEvent } from '@marxy/shell-api';
 import { notify } from '../notices/index.ts';
-import type { BlockList } from '../render/post.ts';
-import { currentPosition, restoreScrollToPosition } from '../position/index.ts';
+import type { RenderedView } from '../view/rendered-view.ts';
 
 export interface UserThemeShell {
   readFile(path: string): Promise<Uint8Array>;
@@ -22,11 +20,8 @@ const WARNINGS_SHOWN = 3;
 
 export interface UserThemeContext {
   readonly shell: UserThemeShell;
-  readonly article: HTMLElement;
-  getTypeset(): TypesetController | null;
-  readingScroller(): HTMLElement;
-  getOpenPath(): string | null;
-  getBlocks(): BlockList | null;
+  /** Every view the app shows: each is set again, with its reader kept in place, when a theme applies (B-13). */
+  views(): readonly RenderedView[];
 }
 
 /** Expands `~` and resolves relative theme paths against the config file's directory. */
@@ -75,17 +70,7 @@ function displayPath(dir: string): string {
 }
 
 async function relayoutKeepingPosition(ctx: UserThemeContext): Promise<void> {
-  const typeset = ctx.getTypeset();
-  const openPath = ctx.getOpenPath();
-  const blocks = ctx.getBlocks();
-  const scroller = ctx.readingScroller();
-  if (!typeset || !openPath || !blocks) {
-    return;
-  }
-  const pos = currentPosition(scroller, blocks, openPath, 'rendered');
-  typeset.relayout('theme');
-  await typeset.ready;
-  restoreScrollToPosition(scroller, blocks, { ...pos, path: openPath, mode: 'rendered' });
+  for (const view of ctx.views()) await view.relayoutForTheme();
 }
 
 async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<void> {

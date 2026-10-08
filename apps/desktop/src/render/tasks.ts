@@ -10,47 +10,50 @@ const WIRED = new WeakSet<HTMLElement>();
 
 /**
  * The task click, on `article`, once. `context` is read at click time: the open document is its store's
- * snapshot then, and the toggle carries that snapshot's version (ADR-0037 Amendment 1).
+ * snapshot then, and the toggle carries that snapshot's version (ADR-0037 Amendment 1). Returns what
+ * takes it off again, so the article's next view can install its own (B-13); a second install while
+ * one is on is a no-op, and so is its undo.
  */
-export function installTaskMarkers(article: HTMLElement, context: () => AppContext): void {
-  if (WIRED.has(article)) return;
+export function installTaskMarkers(article: HTMLElement, context: () => AppContext): () => void {
+  if (WIRED.has(article)) return () => {};
   WIRED.add(article);
   if (typeof window !== 'undefined') {
     (window as Window & { __marxyTasksReady?: boolean }).__marxyTasksReady = true;
   }
-  article.addEventListener(
-    'click',
-    (ev) => {
-      const box = taskBoxFor(ev, article);
-      if (!box) return;
-      const carrier = box.closest('[data-marxy-s]');
-      if (!carrier) return;
-      const base = context();
-      const snap = base.document?.snapshot();
-      if (!snap) return;
-      const resolved = nodeFor(snap.nodeMap, carrier);
-      if (!resolved || resolved.type !== 'taskMarker') return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      const marker = resolved;
-      const range = marker.src;
-      const input = {
-        document: snap.ast,
-        node: marker,
-        range,
-        text: textOf(snap.buffer, range),
+  const onClick = (ev: MouseEvent): void => {
+    const box = taskBoxFor(ev, article);
+    if (!box) return;
+    const carrier = box.closest('[data-marxy-s]');
+    if (!carrier) return;
+    const base = context();
+    const snap = base.document?.snapshot();
+    if (!snap) return;
+    const resolved = nodeFor(snap.nodeMap, carrier);
+    if (!resolved || resolved.type !== 'taskMarker') return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const marker = resolved;
+    const range = marker.src;
+    const input = {
+      document: snap.ast,
+      node: marker,
+      range,
+      text: textOf(snap.buffer, range),
+    };
+    if (!toggleTask.canApply(input)) return;
+    void import('../commands/edits.ts').then(({ applyDocumentMutation }) => {
+      const ctx: AppContext = {
+        ...base,
+        applyBufferMutation: (edit) => applyDocumentMutation(base.document, { ...edit, baseVersion: snap.version }),
       };
-      if (!toggleTask.canApply(input)) return;
-      void import('../commands/edits.ts').then(({ applyDocumentMutation }) => {
-        const ctx: AppContext = {
-          ...base,
-          applyBufferMutation: (edit) => applyDocumentMutation(base.document, { ...edit, baseVersion: snap.version }),
-        };
-        void apply(toggleTask, ctx, input);
-      });
-    },
-    true,
-  );
+      void apply(toggleTask, ctx, input);
+    });
+  };
+  article.addEventListener('click', onClick, true);
+  return () => {
+    article.removeEventListener('click', onClick, true);
+    WIRED.delete(article);
+  };
 }
 
 /**

@@ -76,7 +76,12 @@ export interface SelectionRuntime {
   readonly nodeMap: NodeMap;
   readonly document: Document;
   readonly buffer: Buffer;
-  /** The store's version these were read at; an edit passes it as `baseVersion` (ADR-0037 Amendment 1). */
+  /**
+   * The store version the page on the article, and so every selection resolved on it, was set from:
+   * an edit passes it as `baseVersion` (ADR-0037 Amendment 1). It is recorded when the page is set
+   * (`afterRender`), not read when the edit is made, so a page that has not yet caught up with the
+   * store's bytes cannot hand an edit offsets the store has moved past (the B-12 review).
+   */
   readonly version: number;
   readonly shell: SelectionShell;
 }
@@ -158,11 +163,14 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   let pendingFragment: string | undefined;
   /** The path of the document the page last showed: a different one starts with nothing selected. */
   let shownPath: string | null = null;
+  /** The store version the page was last set from (`afterRender`); null before the first. */
+  let shownVersion: number | null = null;
 
   const runtime = (): SelectionRuntime | null => {
     const snap = opts.store()?.snapshot();
     if (!snap) return null;
-    return { article, nodeMap: snap.nodeMap, document: snap.ast, buffer: snap.buffer, version: snap.version, shell: opts.shell };
+    const version = shownVersion ?? snap.version;
+    return { article, nodeMap: snap.nodeMap, document: snap.ast, buffer: snap.buffer, version, shell: opts.shell };
   };
 
   const paint = (): void => paintSelected(article, state.selection);
@@ -421,9 +429,11 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       if (!snap) {
         state = select(state, { kind: 'none' });
         shownPath = null;
+        shownVersion = null;
         forgetClick();
         return;
       }
+      shownVersion = snap.version;
       // Another document: nothing selected in the last one names anything in this one.
       if (shownPath !== null && shownPath !== snap.path) {
         state = select(state, { kind: 'none' });
