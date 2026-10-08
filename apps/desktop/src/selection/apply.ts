@@ -1,7 +1,12 @@
-// Applies a core operation: clipboard, optional splice, notice (§03, MARXY-42).
+// Applies a core operation: clipboard, optional splice, notice (§03, MARXY-42, C-06).
 import type { Operation, OperationInput } from '@marxy/core';
-import type { AppContext } from '../commands/registry.ts';
-import { textFromDomSelection } from './copy-text.ts';
+import type { AppContext, Command } from '../commands/registry.ts';
+import { copyDefault, markdownCopy } from './verbs.ts';
+
+/** What a copy says it did, from its title: "Copy table as TSV" says "Copied table as TSV". */
+export function copiedNotice(title: string): string {
+  return title.startsWith('Copy ') ? `Copied ${title.slice('Copy '.length)}` : 'Copied';
+}
 
 export async function apply(
   op: Operation,
@@ -28,29 +33,29 @@ export async function apply(
     }
   }
   ctx.closePalette();
-  if (result.clipboard) {
-    ctx.showNotice('Copied', { transient: true });
-  } else if (result.summary) {
+  // The operation's own account first ("Copied 3 links"), else what its title says it copied.
+  if (result.summary) {
     ctx.showNotice(result.summary, { transient: true });
+  } else if (result.clipboard) {
+    ctx.showNotice(copiedNotice(op.title), { transient: true });
   }
 }
 
-/** Mod+C: first applicable copy operation, else native copy. */
-export async function runCopyShortcut(ctx: AppContext, copyOps: readonly Operation[]): Promise<void> {
-  const input = ctx.operationInput();
-  if (input) {
-    for (const op of copyOps) {
-      if (op.id.startsWith('copy-') && op.canApply(input)) {
-        await apply(op, ctx, input);
-        return;
-      }
-    }
-  }
-  if (ctx.selection.kind === 'text') {
-    const domSel = window.getSelection();
-    const text = domSel && !domSel.isCollapsed ? textFromDomSelection(domSel) : ctx.selection.text;
-    await ctx.shell.clipboardWrite({ text });
+/**
+ * Mod+C: the selection's default copy verb (`COPY_DEFAULT`, ADR-0054), else native copy. Never a splice:
+ * every default is clipboard-only, and `verbs.test.ts` holds that over the corpus.
+ */
+export async function runCopyShortcut(ctx: AppContext, registered: readonly Command[]): Promise<void> {
+  const cmd = copyDefault(ctx, registered);
+  if (cmd) {
+    await cmd.run(ctx);
     return;
   }
   document.execCommand('copy');
+}
+
+/** Mod+Shift+C: the selection's exact markdown (`MARKDOWN_COPY`); nothing when no verb applies. */
+export async function runMarkdownCopy(ctx: AppContext, registered: readonly Command[]): Promise<void> {
+  const cmd = markdownCopy(ctx, registered);
+  if (cmd) await cmd.run(ctx);
 }

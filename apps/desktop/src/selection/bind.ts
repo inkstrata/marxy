@@ -1,11 +1,11 @@
 // Binds registry commands to keyboard chords and builds AppContext (MARXY-42).
-import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { commands, type AppContext } from '../commands/index.ts';
 import { chordMatches, commandForKey } from '../palette/commands.ts';
 import { notify } from '../notices/index.ts';
-import { runCopyShortcut } from './apply.ts';
-import { operationInputFor } from './input.ts';
+import { runCopyShortcut, runMarkdownCopy } from './apply.ts';
+import { operationInputFor, operationInputsFor } from './input.ts';
+import { copyDefault, markdownCopy } from './verbs.ts';
 import { applyDocumentMutation } from '../commands/edits.ts';
 import type { AppHandle } from '../app.ts';
 
@@ -15,6 +15,19 @@ let paletteCloser: PaletteCloser = () => {};
 
 export function setPaletteCloser(close: PaletteCloser): void {
   paletteCloser = close;
+}
+
+/** Summons the palette, optionally with a query (`'>'` for the actions list): C-13's "All actions…". */
+export type PaletteOpener = (query?: string) => void;
+
+let paletteOpener: PaletteOpener = () => {};
+
+export function setPaletteOpener(open: PaletteOpener): void {
+  paletteOpener = open;
+}
+
+export function openPalette(query?: string): void {
+  paletteOpener(query);
 }
 
 function isMac(): boolean {
@@ -37,7 +50,10 @@ export function buildAppContext(handle: AppHandle | null = appHandle()): AppCont
   const store = handle?.document() ?? null;
   // With no document there is no selection runtime: the context is the empty one, so the commands
   // that make sense without a document (and only those) still hold.
-  const selection: AppContext['selection'] = runtime && handle ? handle.selection.state().selection : { kind: 'none' };
+  // In Source the article is hidden: what was selected on it is not on screen, so no verb may act on it.
+  const hidden = runtime?.article?.closest('[hidden]') != null;
+  const selection: AppContext['selection'] =
+    runtime && handle && !hidden ? handle.selection.state().selection : { kind: 'none' };
   return {
     // AppShell narrows the real shell; clipboardWrite is on every real one.
     shell: runtime?.shell ?? (handle?.shell as AppContext['shell'] | undefined) ?? NO_SHELL,
@@ -45,6 +61,12 @@ export function buildAppContext(handle: AppHandle | null = appHandle()): AppCont
     document: store,
     operationInput() {
       return runtime ? operationInputFor(selection, runtime.document, runtime.buffer) : null;
+    },
+    operationInputs() {
+      return runtime ? operationInputsFor(selection, runtime.document, runtime.buffer) : [];
+    },
+    renderedPage() {
+      return runtime ? { article: runtime.article, buffer: runtime.buffer, version: runtime.version } : null;
     },
     applyBufferMutation: (input) =>
       applyDocumentMutation(store, { ...input, baseVersion: runtime?.version }),
@@ -73,14 +95,19 @@ export function installCommandKeys(handle: AppHandle): void {
   document.addEventListener('keydown', (event) => {
     const editable = inEditable(event);
     const appCtx = buildAppContext(keysFor);
-    if (!editable && (event.key === 'c' || event.key === 'C')) {
-      if ((isMac() ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey) {
-        const input = appCtx.operationInput();
-        const copyApplies =
-          input !== null && OPERATIONS.some((op) => op.id.startsWith('copy-') && op.canApply(input));
-        if (copyApplies || appCtx.selection.kind === 'text') {
+    if (!editable && (event.key === 'c' || event.key === 'C') && !event.altKey) {
+      // Mod+C and Mod+Shift+C run the selection's verbs from the written tables (ADR-0054), never a
+      // prefix of a command id; with no applicable verb the keys are left to the webview.
+      if (isMac() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) {
+        const list = commands();
+        if (!event.shiftKey && copyDefault(appCtx, list)) {
           event.preventDefault();
-          void runCopyShortcut(appCtx, OPERATIONS);
+          void runCopyShortcut(appCtx, list);
+          return;
+        }
+        if (event.shiftKey && markdownCopy(appCtx, list)) {
+          event.preventDefault();
+          void runMarkdownCopy(appCtx, list);
           return;
         }
       }
