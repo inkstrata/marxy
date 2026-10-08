@@ -12,8 +12,11 @@ function layoutOf(blocks: BlockList): LayoutBlock[] {
   return blocks.map(({ start, top, height }) => ({ start, top, height }));
 }
 
+/** What a reading position is read from: a scroller, or its offset and height as last seen (D-05). */
+export type ScrollerGeometry = Pick<HTMLElement, 'scrollTop' | 'clientHeight'>;
+
 export function currentPosition(
-  scroller: HTMLElement,
+  scroller: ScrollerGeometry,
   blocks: BlockList,
   path: string,
   mode: ReadingPosition['mode'],

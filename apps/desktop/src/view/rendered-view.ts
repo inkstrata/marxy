@@ -82,7 +82,17 @@ export type SourceHarness = {
 };
 
 export interface RenderedView {
+  /** Where the view was made to draw; `host.scroller` is the scroller it started on. */
   readonly host: ViewHost;
+  /** What the view scrolls now: the window with one pane, its own pane with two (D-05). */
+  readonly scroller: HTMLElement;
+  /**
+   * Scroll `next` from now on, keeping the reader's place (read from where the old scroller was last
+   * seen) or holding `position` when given. `pane/scroll.ts` calls it as a second pane comes and goes.
+   */
+  rebindScroller(next: HTMLElement, position?: ReadingPosition): void;
+  /** `cb` on each scroll of the view's scroller, whichever it is now; returns the unsubscribe. */
+  onScroll(cb: () => void): () => void;
   /**
    * Shows `store` in the article: subscribes to it, renders its snapshot through the one mount (the
    * first screens from `at` down now, the rest in idle chunks once `start` settles), sets the grid and
@@ -233,8 +243,37 @@ function spliceOf(change: Transition): { start: number; removed: number; inserte
 }
 
 export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): RenderedView {
-  const { article: doc, scroller, sourceHost, modeHost } = host;
+  const { article: doc, sourceHost, modeHost } = host;
   const { shell, trust } = deps;
+  /**
+   * What this view scrolls (D-05, `pane/scroll.ts`): the window while its pane is the only one, its own
+   * pane while two are shown. `rebindScroller` moves it, keeping the reader's place.
+   */
+  let scroller = host.scroller;
+  /**
+   * The scroller's offset and height as last seen: on each of its scroll events and after each restore.
+   * Read when the scroller is rebound, because by then the layout has changed under it (the window
+   * cannot scroll once two panes are shown, and a pane cannot once it is alone) and its own `scrollTop`
+   * has been clamped.
+   */
+  let seen = { scrollTop: scroller.scrollTop, clientHeight: scroller.clientHeight };
+  const scrollListeners = new Set<() => void>();
+  const noteScroll = (): void => {
+    seen = { scrollTop: scroller.scrollTop, clientHeight: scroller.clientHeight };
+  };
+  const onScrollerScroll = (): void => {
+    noteScroll();
+    for (const cb of [...scrollListeners]) cb();
+  };
+  /** WebKit fires the viewport's scroll at the Document, not at documentElement. */
+  const scrollTarget = (el: HTMLElement): EventTarget => (el === document.documentElement ? document : el);
+  scrollTarget(scroller).addEventListener('scroll', onScrollerScroll, { passive: true });
+
+  /** Puts `p` on the reading line of this view's scroller, and notes where that left it. */
+  function restoreTo(blocks: BlockList, p: ReadingPosition): void {
+    restoreScrollToPosition(scroller, blocks, p);
+    noteScroll();
+  }
 
   /** The store this view shows, and its subscription. */
   let store: DocumentStore | null = null;
@@ -405,7 +444,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       mountThrough(byteOffset);
       // Block positions must be measured with the article laid out, not from whatever a hidden pass saw.
       snap(doc);
-      restoreScrollToPosition(scroller, shown.blocks, {
+      restoreTo(shown.blocks, {
         path,
         byteOffset,
         fraction,
@@ -514,7 +553,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       snap(doc);
     }
     if (!shown) return;
-    restoreScrollToPosition(scroller, shown.blocks, { ...pos, path, mode: 'rendered' });
+    restoreTo(shown.blocks, { ...pos, path, mode: 'rendered' });
   }
 
   /** A user theme was applied (theme/user-theme.ts): the typesetter sets every paragraph again. */
@@ -526,7 +565,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const pos = currentPosition(scroller, blocks, openPath, 'rendered');
     set.relayout('theme');
     await set.ready;
-    restoreScrollToPosition(scroller, blocks, { ...pos, path: openPath, mode: 'rendered' });
+    restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' });
   }
 
   function snap(article: HTMLElement, from?: HTMLElement): void {
@@ -543,12 +582,31 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     stopListeningForReaderScroll();
   }
 
+  /**
+   * Reader input releases what this view holds only when it is this view's (D-05). With the window as
+   * the scroller (one pane) every input is. With a pane of its own, a pointer or touch counts inside
+   * that pane, and a key inside it or, from outside every pane (the body), when this pane has focus:
+   * scrolling the other pane must not let this pane's pending open drift.
+   */
+  function isOwnInput(event: Event): boolean {
+    if (scroller === document.documentElement) return true;
+    const target = event.target;
+    if (target instanceof Node && scroller.contains(target)) return true;
+    if (event.type !== 'keydown') return false;
+    const inPane = target instanceof Element && target.closest('[data-marxy-pane]') !== null;
+    return !inPane && scroller.hasAttribute('data-marxy-focus');
+  }
+
+  function onReaderInput(event: Event): void {
+    if (isOwnInput(event)) releaseAnchor();
+  }
+
   function listenForReaderScroll(): void {
     if (anchorListening) return;
     anchorListening = true;
     // Input, not `scroll`: the anchor's own scrolls must not release it.
     for (const type of READER_INPUT) {
-      window.addEventListener(type, releaseAnchor, { capture: true, passive: true });
+      window.addEventListener(type, onReaderInput, { capture: true, passive: true });
     }
   }
 
@@ -560,7 +618,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   function stopListeningForReaderScroll(): void {
     if (!anchorListening) return;
     anchorListening = false;
-    for (const type of READER_INPUT) window.removeEventListener(type, releaseAnchor, { capture: true });
+    for (const type of READER_INPUT) window.removeEventListener(type, onReaderInput, { capture: true });
   }
 
   /** The innermost block whose node's byte range contains `at`, else the last one starting before it. */
@@ -580,13 +638,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const openPath = openPathNow();
     if (!shown || !openPath || viewMode !== 'rendered') return;
     if (heldPosition !== null && heldPosition.path === openPath) {
-      restoreScrollToPosition(scroller, shown.blocks, heldPosition);
+      restoreTo(shown.blocks, heldPosition);
       return;
     }
     if (anchor === null) return;
     const block = blockContaining(shown, anchor);
     if (block === undefined) return;
-    restoreScrollToPosition(scroller, shown.blocks, {
+    restoreTo(shown.blocks, {
       path: openPath,
       byteOffset: block.start,
       fraction: 0,
@@ -601,7 +659,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   function holdPosition(position: ReadingPosition): void {
     mountThrough(position.byteOffset);
     if (!shown) return;
-    restoreScrollToPosition(scroller, shown.blocks, position);
+    restoreTo(shown.blocks, position);
     listenForReaderScroll();
     anchor = null;
     heldPosition = position;
@@ -737,7 +795,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         }
         snap(article);
         if (position && shown && position.path === openPathNow() && viewMode === 'rendered') {
-          restoreScrollToPosition(scroller, shown.blocks, position);
+          restoreTo(shown.blocks, position);
         }
       }, 100);
     });
@@ -960,7 +1018,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     startTypeset(doc);
     if (at !== undefined && typeof at !== 'number') {
       mountThrough(at.byteOffset);
-      restoreScrollToPosition(scroller, shown.blocks, {
+      restoreTo(shown.blocks, {
         path: file,
         byteOffset: at.byteOffset,
         fraction: at.fraction,
@@ -1066,6 +1124,30 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return evidence;
   }
 
+  /**
+   * This view scrolls `next` from now on (D-05): the scroll listeners move to it, and the reader's place,
+   * read from where the old scroller was last seen, is put back on it and held through the passes that
+   * follow (the width changes with the scroller, so the typesetter re-breaks the page). A pending open's
+   * anchor is kept instead, unless `given` names the place to hold (a pane closing on its left hands the
+   * survivor's place, fraction and all, to the first pane). Source keeps its own place (D-11).
+   */
+  function rebindScroller(next: HTMLElement, given?: ReadingPosition): void {
+    const path = openPathNow();
+    const before =
+      given ?? (shown && path && viewMode === 'rendered' ? currentPosition(seen, shown.blocks, path, 'rendered') : null);
+    if (next !== scroller) {
+      scrollTarget(scroller).removeEventListener('scroll', onScrollerScroll);
+      scroller = next;
+      scrollTarget(scroller).addEventListener('scroll', onScrollerScroll, { passive: true });
+    }
+    noteScroll();
+    if (!shown || !path || viewMode !== 'rendered' || doc.hidden) return;
+    // The block list again at the new geometry; a held anchor is put back on the new scroller by it.
+    snap(doc);
+    if (given === undefined && anchor !== null) return;
+    if (before && before.path === path && before.mode === 'rendered') holdPosition({ ...before, path });
+  }
+
   function position(): ReadingPosition {
     const path = openPathNow() ?? '';
     return sourcePosition(path) ?? currentPosition(scroller, shown?.blocks ?? [], path, viewMode);
@@ -1073,6 +1155,16 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   const view: RenderedView = {
     host,
+    get scroller() {
+      return scroller;
+    },
+    rebindScroller,
+    onScroll(cb) {
+      scrollListeners.add(cb);
+      return () => {
+        scrollListeners.delete(cb);
+      };
+    },
     show,
     store: () => store,
     rerender: (at) => rerenderFromBuffer(at),
@@ -1092,7 +1184,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       lastReadingByteOffset = p.byteOffset;
       lastReadingFraction = p.fraction;
       mountThrough(p.byteOffset);
-      if (shown) restoreScrollToPosition(scroller, shown.blocks, p);
+      if (shown) restoreTo(shown.blocks, p);
     },
     landOn,
     mountThrough,
@@ -1155,6 +1247,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     destroy() {
       clear();
       unwire();
+      scrollListeners.clear();
+      scrollTarget(scroller).removeEventListener('scroll', onScrollerScroll);
     },
   };
   return view;

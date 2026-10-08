@@ -50,6 +50,13 @@ export function createReadingPersistence(
   /** Removes the scroll and pagehide listeners, once they are installed. */
   let stopListening = (): void => {};
   let view: RenderedView | null = null;
+  /** The scroll listener, once installed; it follows the view to whatever it scrolls (D-05). */
+  let onScroll: (() => void) | null = null;
+  let unsubscribeScroll = (): void => {};
+  const listenTo = (next: RenderedView | null): void => {
+    unsubscribeScroll();
+    unsubscribeScroll = next && onScroll ? next.onScroll(onScroll) : () => {};
+  };
   /** History records opens in order even though each waits on its root (palette/history.ts). */
   let historyTracked: Promise<void> = Promise.resolve();
 
@@ -71,12 +78,13 @@ export function createReadingPersistence(
   function installScrollPersistence(): void {
     if (listening || closed || !positions) return;
     listening = true;
-    // WebKit fires the viewport's scroll at the Document, not at documentElement, so listen there.
+    // On the followed view's scroller (the window with one pane, the first pane's own with two: D-05),
+    // as the view rebinds it. Only the first pane's place is written until D-12.
     // PositionPersistence debounces the write itself (POSITIONS_DEBOUNCE_MS), so noting on every
     // scroll event only updates an in-memory entry.
     // One sample per frame: currentPosition walks the blocks, so it must not run per scroll event.
     let frame = 0;
-    const onScroll = (): void => {
+    onScroll = (): void => {
       if (frame !== 0) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
@@ -93,10 +101,11 @@ export function createReadingPersistence(
     const onPageHide = (): void => {
       void flushReading();
     };
-    document.addEventListener('scroll', onScroll, { passive: true });
+    listenTo(view);
     window.addEventListener('pagehide', onPageHide);
     stopListening = () => {
-      document.removeEventListener('scroll', onScroll);
+      onScroll = null;
+      listenTo(null);
       window.removeEventListener('pagehide', onPageHide);
       if (frame !== 0) cancelAnimationFrame(frame);
       frame = 0;
@@ -137,6 +146,7 @@ export function createReadingPersistence(
     },
     follow(next) {
       view = next;
+      listenTo(next);
     },
     storedFor: (path, length) => positions?.positionForOpen(path, length) ?? null,
     trackOpen(path, root) {
