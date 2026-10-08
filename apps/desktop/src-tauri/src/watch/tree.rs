@@ -605,6 +605,15 @@ mod tests {
                 "{name} is in kinds.ts but not in tree.rs"
             );
         }
+        // The special names `classify` accepts whatever their extension.
+        let classify = &source[end..];
+        for name in ["theme.css", "theme.toml", "Dockerfile", "Makefile"] {
+            assert!(
+                classify.contains(&format!("'{name}'")),
+                "{name} is no longer special in kinds.ts"
+            );
+            assert!(is_listed(std::ffi::OsStr::new(name)), "{name}");
+        }
     }
 
     #[test]

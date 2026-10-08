@@ -350,6 +350,18 @@ fn release_watch(
     Ok(())
 }
 
+/// A watch that ended itself (a tree past its limit): take its entry and recordings out, so a later
+/// `watch_root` of the same tree starts a fresh watch rather than sharing one that never fires. The
+/// thread is already leaving, so nothing is joined; a later `unwatch_root` of it finds no entry.
+fn forget_watch(table: &WatchTable, raw_roots: &RawRoots, key: &str) {
+    if let Ok(mut table) = table.lock() {
+        table.remove(key);
+        if let Ok(mut raw_roots) = raw_roots.lock() {
+            raw_roots.retain(|_, v| v != key);
+        }
+    }
+}
+
 fn canonical_watch_root(root: &str) -> Result<String, String> {
     let path = PathBuf::from(root);
     let canon = path.canonicalize().map_err(|e| format!("{root}: {e}"))?;
@@ -455,6 +467,7 @@ async fn watch_root(
         let app_handle = app.clone();
         let refuse_key = key.clone();
         let refuse = move |reason: String| {
+            forget_watch(watch_table(), raw_watch_roots(), &refuse_key);
             let _ = app_handle.emit("fs-watch", fs_watch_refusal_payload(&refuse_key, &reason));
         };
         watch_notify::spawn_tree_thread(PathBuf::from(&canonical), emit, refuse)?
@@ -1244,6 +1257,19 @@ mod tests {
             "the old watch's other recording went with it",
         );
         assert!(table.lock().unwrap().contains_key("/real/tree"));
+    }
+
+    #[test]
+    fn a_watch_that_ended_itself_leaves_no_entry_for_a_later_call_to_share() {
+        use super::{forget_watch, install_watch, share_watch};
+        use std::sync::Mutex;
+        let table = Mutex::new(HashMap::new());
+        let raw_roots = Mutex::new(HashMap::new());
+        let running = idle_watch_entry(1).running;
+        install_watch(&table, &raw_roots, "/t", "/t\u{0}tree", running).expect("install");
+        forget_watch(&table, &raw_roots, "/t\u{0}tree");
+        assert!(!share_watch(&table, &raw_roots, "/t", "/t\u{0}tree").expect("share"));
+        assert!(raw_roots.lock().unwrap().is_empty());
     }
 
     #[test]

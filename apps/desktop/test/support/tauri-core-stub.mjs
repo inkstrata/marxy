@@ -5,7 +5,7 @@ export const fs = new Map();
  * `invoked` records every other command's name and arguments; `search_content` answers with
  * `hooks.search(args)` (a promise, so a test can hold the scan open).
  */
-export const hooks = { readError: null, invoked: [], search: null };
+export const hooks = { readError: null, invoked: [], search: null, watchRoot: null };
 export const convertFileSrc = (p) => p;
 export const invoke = async (cmd, args, opts) => {
   if (cmd === 'read_file') {
@@ -22,6 +22,12 @@ export const invoke = async (cmd, args, opts) => {
     hooks.invoked.push({ cmd, args });
     if (cmd === 'search_content' && hooks.search) return hooks.search(args);
     return cmd === 'search_content' ? { hits: [], scannedFiles: 0, truncated: false } : undefined;
+  }
+  if (cmd === 'watch_root' || cmd === 'unwatch_root') {
+    hooks.invoked.push({ cmd, args });
+    // `watchRoot(args)` answers the key and may emit on `fs-watch` before it does, as a thread would.
+    if (cmd === 'watch_root') return hooks.watchRoot ? hooks.watchRoot(args) : args.root;
+    return;
   }
   throw new Error(`unstubbed invoke ${cmd}`);
 };
