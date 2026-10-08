@@ -124,3 +124,37 @@ test('text inserted inside a held heading keeps the offset at the heading start 
   const previous = { path: 'x.md', byteOffset: held, fraction: 0, mode: 'rendered' as const };
   assert.equal(reloadOpenDocument(next, previous, before).position.byteOffset, held);
 });
+
+/** `source` with `text` spliced in at `marker`, held at `marker`, reloaded: where the position lands. */
+function insertedAt(source: string, marker: string, text: string): { landed: number; held: number; next: string } {
+  const enc = new TextEncoder();
+  const at = source.indexOf(marker);
+  const held = enc.encode(source.slice(0, at)).length;
+  const next = enc.encode(source.slice(0, at) + text + source.slice(at));
+  const previous = { path: 'x.md', byteOffset: held, fraction: 0, mode: 'rendered' as const };
+  return {
+    landed: reloadOpenDocument(next, previous, enc.encode(source)).position.byteOffset,
+    held,
+    next: new TextDecoder().decode(next),
+  };
+}
+
+test('a reader held at offset 0 stays at the top when text is prepended (F-19.1)', () => {
+  for (const text of ['Preface.\n\n', '# Title\n\n']) {
+    const r = insertedAt('# One\n\nintro\n', '# One', text);
+    assert.equal(r.held, 0);
+    assert.equal(r.landed, 0, JSON.stringify(text));
+  }
+});
+
+test('a held nested list item follows text inserted where it begins (F-19.1)', () => {
+  const r = insertedAt('- a\n  - b\n  - c\n\nafter\n', '- c', '- new\n  ');
+  assert.equal(r.landed, r.held + '- new\n  '.length);
+  assert.equal(r.next.slice(r.landed, r.landed + 3), '- c');
+});
+
+test('a held fence in a list follows text inserted where it begins (F-19.1)', () => {
+  const r = insertedAt('- item\n\n  ```js\n  let a;\n  ```\n\nafter\n', '```js', 'More text.\n\n  ');
+  assert.equal(r.landed, r.held + 'More text.\n\n  '.length);
+  assert.equal(r.next.slice(r.landed, r.landed + 5), '```js');
+});
