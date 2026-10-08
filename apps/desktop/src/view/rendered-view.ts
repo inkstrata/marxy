@@ -244,8 +244,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   let viewMode: 'rendered' | 'source' = 'rendered';
   let sourceEditor: MountedSourceEditor | null = null;
-  /** The shared Source editor's accessor, once the editor module has loaded (it stays off the start-up path). */
-  let activeSourceEditorIn: (() => MountedSourceEditor | null) | null = null;
+  /** The accessor for the editor in a Source mount, once the editor module has loaded (it stays off the start-up path). */
+  let activeSourceEditorIn: ((parent: HTMLElement) => MountedSourceEditor | null) | null = null;
   let lastReadingByteOffset = 0;
   let lastReadingFraction = 0;
   let modeToggleBusy = false;
@@ -761,9 +761,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     destroyTypeset();
     disconnectResizeObserver();
     cancelScheduledSnap();
-    // The module's shared editor too: whoever made it, it must not outlive the page it was built for, or the
-    // next Source entry would reuse an editor holding the previous document (F-12).
-    const shared = activeSourceEditorIn?.() ?? null;
+    // The editor in this view's mount too, whoever made it: it must not outlive the page it was built for,
+    // or the next Source entry would reuse an editor holding the previous document (F-12). Only this
+    // mount's: another view's editor is its own (D-01).
+    const shared = activeSourceEditorIn?.(sourceHost) ?? null;
     sourceEditor?.destroy();
     if (shared && shared !== sourceEditor) shared.destroy();
     sourceEditor = null;

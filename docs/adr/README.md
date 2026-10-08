@@ -60,3 +60,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0053](0053-collection-roots.md) | Collection roots: a reader-owned `collection.toml` of folders, searched from the palette and never browsed; scan on demand, no persistent index; amends 0012 | proposed |
 | [0054](0054-verb-menu-and-default-verbs.md) | One verb menu is the click surface; at most seven verbs per selection; `Mod+C` runs a default copy verb and never a splice; amends 0019's cap | proposed |
 | [0055](0055-find-edge-token.md) | `--marxy-color-find-edge`: a find match carries a 2 px edge in a token, because a pale fill cannot be 3:1; amends 0024 | proposed |
+| [0057](0057-two-column-split.md) | Two documents side by side: at most two columns in one window, no tree and no OS windows, independent scroll, `#doc` the first pane; amends 0005 and 0011 | proposed (D-01) |

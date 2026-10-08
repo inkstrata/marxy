@@ -26,12 +26,28 @@ import { updateTitle } from '../title.ts';
 import type { TrustController } from '../trust/controller.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import { oneWatchPerStore, watchDocument } from './live-reload.ts';
+import type { StoreRegistry } from './registry.ts';
 import { openDocumentStore, type DocumentSnapshot, type DocumentStore } from './store.ts';
+
+/**
+ * How a document is opened (`AppHandle.open`, `PaneSet.openIn`, a pane's `open` and `replace`): `at` is a
+ * byte held at the reading line; `onLanded` runs once the document is on screen in the pane it was opened
+ * in, never when the open is refused or the reader dismisses the unsaved-edits prompt (C-17, D-01).
+ */
+export interface OpenOptions {
+  readonly at?: number;
+  readonly onLanded?: () => void;
+}
 
 export interface OpenPathDeps {
   readonly shell: AppShell;
-  /** The view every open shows its store in (one, on `#doc`, until Phase D). */
+  /** The view every open shows its store in: one pane's (D-01). */
   readonly view: RenderedView;
+  /**
+   * The stores open in the window, one per path (D-01): a document another pane already shows is shown
+   * through its store rather than read and parsed again. Without it, each open makes its own store.
+   */
+  readonly stores?: StoreRegistry;
   readonly persistence: ReadingPersistence;
   readonly index: IndexService;
   readonly trust: TrustController;
@@ -40,13 +56,17 @@ export interface OpenPathDeps {
   selection(): RenderedSelection | null;
   /** The pieces a launch with no document chooses from; null is the bundled Commonplace (MARXY-256). */
   readonly pieces: readonly PieceSource[] | null;
+  /** This open path's document titles the window (the focused pane's, D-01); unset, it always does. */
+  ownsTitle?(): boolean;
 }
 
 export interface OpenPath {
   /** The launch: the document `argv` names (the shell's arguments when it names none), else the frontispiece. */
   boot(argv: readonly string[]): Promise<void>;
   /** `AppHandle.open`: after any open under way, and asking first over unsaved edits. */
-  open(path: string, opts?: { at?: number; onLanded?: () => void }): Promise<void>;
+  open(path: string, opts?: OpenOptions): Promise<void>;
+  /** `open` without asking: the caller already has (closing the left pane, D-01). */
+  replace(path: string, opts?: OpenOptions): Promise<void>;
   currentPath(): string | null;
   /** The open document's store, or null. */
   store(): DocumentStore | null;
@@ -109,6 +129,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   let indexing: Promise<void> = Promise.resolve();
 
   const serially = <T>(fn: () => Promise<T>): Promise<T> => view.serially(fn);
+  const ownsTitle = (): boolean => deps.ownsTitle?.() ?? true;
   const currentPath = (): string | null => current?.snapshot().path ?? null;
 
   /**
@@ -123,7 +144,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       serially,
       foldSource,
       async renamed(path) {
-        document.title = `${basename(path)} — Marxy`;
+        if (ownsTitle()) document.title = `${basename(path)} — Marxy`;
         deps.selection()?.afterRender();
         await refreshTitle();
       },
@@ -134,7 +155,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   );
 
   async function refreshTitle(): Promise<void> {
-    if (!shell.setTitle) return;
+    if (!shell.setTitle || !ownsTitle()) return;
     const snap = current?.snapshot();
     await updateTitle(shell, snap?.path ?? null, snap?.dirty ?? false);
   }
@@ -156,9 +177,20 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   function teardownDocument(): void {
     view.clear();
     // The store goes with its page: a transition still queued on it is refused, not applied elsewhere.
-    // Its watch closes with it (document/live-reload.ts).
-    current?.close();
+    // Its watch closes with it (document/live-reload.ts). One another pane still shows stays open, and
+    // only this open path's watch on it closes.
+    if (current) release(current);
     current = null;
+  }
+
+  /**
+   * This open path lets `store` go. The last holder closes it, and its watch with it; a store another pane
+   * still shows stays open, so the watch this open path started on it is closed here, or it would outlive
+   * the page it reloads (the D-01 review).
+   */
+  function release(store: DocumentStore): void {
+    if (!deps.stores) return store.close();
+    if (!deps.stores.release(store)) watches.release(store);
   }
 
   /** The store's save, with what only the app can do around it (save.ts). */
@@ -200,7 +232,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
    * A large document's idle chunks wait for `start` (A-02), so nothing is appended before first text.
    */
   async function readAndShow(file: string, at: number | undefined, start: Promise<unknown>): Promise<RenderEvidence> {
-    const bytes = await shell.readFile(file);
+    // Shown in another pane: its store is the document, unsaved edits and all, and is not read again.
+    const shown = deps.stores?.held(file) ?? null;
+    const bytes = shown && shown !== current ? shown.snapshot().buffer.bytes : await shell.readFile(file);
     await config.applyOnce(document.documentElement);
     let lands = at;
     if (lands === undefined) {
@@ -213,14 +247,16 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
     // The open transition (ADR-0037): the store copies the bytes, parses them once and starts an empty
     // history with `disk` as read. The page renders from its snapshot and follows it from here on.
-    const opened = openDocumentStore(
-      {
-        writeFileAtomic: (path, written) => shell.writeFileAtomic(path, written),
-        recordRead: shell.recordRead ? (path, read) => shell.recordRead?.(path, read) : undefined,
-      },
-      file,
-      bytes,
-    );
+    const make = (): DocumentStore =>
+      openDocumentStore(
+        {
+          writeFileAtomic: (path, written) => shell.writeFileAtomic(path, written),
+          recordRead: shell.recordRead ? (path, read) => shell.recordRead?.(path, read) : undefined,
+        },
+        file,
+        bytes,
+      );
+    const opened = deps.stores ? deps.stores.acquire(file, make) : make();
     current = opened;
     await shell.mark('parsed', Date.now());
     // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
@@ -233,7 +269,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         for (const follow of [...followers]) follow(opened);
       },
     });
-    document.title = `${file.split('/').pop()} — Marxy`;
+    if (ownsTitle()) document.title = `${file.split('/').pop()} — Marxy`;
     return evidence;
   }
 
@@ -293,7 +329,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     }
   }
 
-  function open(file: string, opts?: { at?: number; onLanded?: () => void }): Promise<void> {
+  function open(file: string, opts?: OpenOptions): Promise<void> {
     const run = () =>
       serially(async () => {
         // The document already on screen, asked for again with nowhere to go (a second launch, Finder, a
@@ -305,7 +341,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       });
     // Another document over unsaved edits asks first (save / discard / dismiss), as a close does. Moving
     // within the open document, or opening with nothing unsaved, goes straight through.
-    if (file !== currentPath() && confirmLeaveDocument(run)) return Promise.resolve();
+    // Only this pane's unsaved edits ask (D-01): the guard's notice is about the document being left.
+    if (file !== currentPath() && hasUnsavedChanges() && confirmLeaveDocument(run)) return Promise.resolve();
     return run();
   }
 
@@ -395,6 +432,11 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   return {
     boot: (argv) => serially(() => boot(argv)),
     open,
+    replace: (file, opts) =>
+      serially(async () => {
+        await openReplacing(file, opts?.at);
+        if (currentPath() === file) opts?.onLanded?.();
+      }),
     currentPath,
     store: () => current,
     openDocument: () => (current ? documentState(current.snapshot()) : null),
@@ -431,7 +473,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     close() {
       closed = true;
       followers.clear();
-      current?.close();
+      if (current) release(current);
       current = null;
     },
   };

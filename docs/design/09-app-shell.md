@@ -8,10 +8,13 @@ visible else. Everything below is summoned and dismissed.
 ```html
 <body data-marxy-mode="rendered" data-marxy-variant="dark">   <!-- dark is primary (ADR-0024) -->
   <main id="marxy-main">
-    <div id="marxy-notices" role="status"></div>            <!-- empty at rest -->
-    <article class="marxy-article" data-marxy-s="0" data-marxy-e="…"></article>
+    <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus>   <!-- one pane per document shown (ADR-0057) -->
+      <div id="marxy-notices" role="status"></div>          <!-- empty at rest -->
+      <article id="doc" class="marxy-article" data-marxy-s="0" data-marxy-e="…"></article>
+      <div id="marxy-source" class="marxy-source-mount" hidden></div>   <!-- CodeMirror mounts here in Source mode -->
+      <div class="marxy-find-slot"></div>                   <!-- empty and not drawn at rest; Rendered find fills it -->
+    </section>
   </main>
-  <div id="marxy-source" hidden></div>                      <!-- CodeMirror mounts here in Source mode -->
   <dialog id="marxy-palette"></dialog>                      <!-- §07 -->
   <dialog id="marxy-outline"></dialog>
   <div id="marxy-find" hidden></div>
@@ -22,6 +25,16 @@ No element outside `#marxy-main` is visible unless its state is open. There is n
 tab bar, status bar or sidebar element in the DOM at all, so the "chrome at rest" gate is a DOM
 assertion, not a screenshot judgement.
 
+**Two documents side by side** (ADR-0057). `#marxy-main` takes `data-marxy-split` and becomes a grid of
+two columns (`ratio fr` and `1 − ratio fr`), and a second `section.marxy-pane[data-marxy-pane="1"]`
+follows the first with the same four children, whose ids end in `-2` (`doc-2`, `marxy-notices-2`,
+`marxy-source-2`). Each pane of a split scrolls on its own (`overflow-y: auto; height: 100vh`), and its
+Source mount covers only its pane. `data-marxy-focus` marks the focused pane's section and no other.
+The first pane is permanent: its elements keep their ids, and closing the left pane shows the right
+pane's document in it. Each pane is a size container, so an article's margins (`--marxy-room`) are
+measured against its own pane. With one document none of this is visible: one pane fills
+`#marxy-main`, and there is no divider element and no split attribute.
+
 ## State
 
 There is no `AppState` record and no `state.ts`. State lives in three places, each owned by one object
@@ -31,21 +44,33 @@ There is no `AppState` record and no `state.ts`. State lives in three places, ea
   `disk` (the bytes last read or written), `buffer`, the parse (`ast`, `nodeMap`), one undo history
   for both modes, and a `version`. `dirty` is derived (`buffer ≠ disk`). Every change is one of its
   transitions: `open`, `reload`, `apply`, `commitSource`, `undo`, `redo`, `save`, `rename`, `close`.
-  Readers call `snapshot()` or `subscribe()`.
-- **The view** (`apps/desktop/src/view/rendered-view.ts`): how one article shows a store. The mode
+  Readers call `snapshot()` or `subscribe()`. One store per open path, however many panes show it: the
+  registry (`document/registry.ts`) hands the open store to the next view of that path and closes it
+  when the last view lets go.
+- **The view** (`apps/desktop/src/view/rendered-view.ts`): how one article shows a store. The **mode**
   (Rendered or Source) and the Source editor, the anchor the reader is held at, the layout (the mount,
   the typesetter, the grid, the block list). It subscribes to the store it shows and sets the page
-  again after each transition, mapping its anchor through the edit (ADR-0037 §6).
-- **The app instance** (`apps/desktop/src/app.ts`, the composition root): which view has focus (one,
-  on `#doc`, until the split view) and the overlays. `startApp` builds the instance from a shell and
-  connects its parts: the open path (`document/open.ts`), live reload (`document/live-reload.ts`),
-  reading persistence (`position/reading-persistence.ts`), trust (`trust/controller.ts`), the launch
-  measurement (`startup/measure.ts`) and the selection.
+  again after each transition, mapping its anchor through the edit (ADR-0037 §6). One per pane.
+- **The app instance** (`apps/desktop/src/app.ts`, the composition root): the **layout** and the
+  **focused pane** (`pane/pane-set.ts`, `AppHandle.panes()`: one pane or two, their ratio, which one has
+  focus) and the overlays. `startApp` builds the instance from a shell and connects its parts: the
+  panes (`pane/index.ts`: for each, a view and an open path, `document/open.ts`), live reload
+  (`document/live-reload.ts`), reading persistence (`position/reading-persistence.ts`), trust
+  (`trust/controller.ts`), the launch measurement (`startup/measure.ts`) and the selection.
 
 No module keeps any of this at module scope (`apps/desktop/test/module-state.test.mjs`).
-`AppHandle.dispatch(action)` routes `apply`, `undo`, `redo` and `save` to the focused view's store and
-`toggle-mode` to the view. Overlays are exclusive: opening one closes another. `Esc` closes the open
-overlay, else clears the selection, else does nothing.
+`AppHandle.dispatch(action)` routes `apply`, `undo`, `redo` and `save` to the focused pane's store and
+`toggle-mode` to its view; `open`, `currentPath`, `document` and `save` are the focused pane's too.
+Overlays are exclusive: opening one closes another. `Esc` closes the open overlay, else clears the
+selection, else does nothing.
+
+Still bound to the first pane rather than the focused one, until the Phase D story named moves them:
+the Rendered selection and command context (D-06), the window as scroller and the reading persistence
+(D-05, D-12), the mode attribute on `<body>` (D-11), the close guard's prompt (D-08), notices other
+than a pane's own region (D-10). The window title is the focused pane's document: a document opened in
+the other pane does not take it, and focus moves it. Each pane's open path keeps its own live-reload
+watch on the store it shows, closed when that pane lets the store go, even while the other pane still
+shows it; one watch per store, however many panes, is D-10's.
 
 ## Keyboard map
 

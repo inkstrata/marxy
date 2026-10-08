@@ -22,3 +22,9 @@ held) or on hover at the top edge, never at rest.
 The macOS menu lists Back, Forward and Open Quickly… (the palette) under Go. They only make the
 same keys discoverable and clickable; the palette stays the tab manager, and no tab list or
 document-specific command is added to the menu.
+
+## Note: a split is not a tab bar (ADR-0057)
+Two documents side by side (D-01 onward) is a summoned state, opened from the palette and closed by
+key, with no strip, label or handle at rest; with one document the window is what it was. It
+therefore passes this decision as written: the palette stays the document manager, and the reversal
+criterion above is unchanged.
