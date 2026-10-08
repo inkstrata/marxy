@@ -38,11 +38,6 @@ export type PalettePhase = 'empty' | 'typing' | 'operations';
 
 export const PALETTE_ROW_LIMIT = 12;
 
-/** Named mutation: CI must fail if a tab strip is inserted without removing this hook. */
-export const TAB_BAR_DOM_MUTATION = 'marxy-87-insert-tab-bar';
-
-const TAB_BAR_SELECTOR = '[role=tablist], [role=tab], .tab-bar, #marxy-tabs';
-
 export interface PaletteModel {
   readonly phase: PalettePhase;
   readonly section: PaletteListSection;
@@ -207,25 +202,6 @@ function queryPalette(
     selected: 0,
     notice: foldedNotice(folded, scopeNotice),
   };
-}
-
-/** True when the live document contains tab-bar chrome (ADR-0011). */
-export function documentHasTabBar(doc: Document = document): boolean {
-  applyTabBarMutation(doc);
-  return doc.querySelector(TAB_BAR_SELECTOR) !== null;
-}
-
-function applyTabBarMutation(doc: Document): void {
-  if (
-    typeof process !== 'undefined' &&
-    process.env?.MARXY_87_MUTATION === TAB_BAR_DOM_MUTATION &&
-    doc.querySelector(TAB_BAR_SELECTOR) === null
-  ) {
-    const strip = doc.createElement('div');
-    strip.id = 'marxy-tabs';
-    strip.setAttribute('role', 'tablist');
-    doc.body.appendChild(strip);
-  }
 }
 
 async function renderPath(deps: PaletteDeps, path: string, byteOffset?: number): Promise<void> {

@@ -11,15 +11,26 @@
 // usage: node scripts/mutations.mjs        (pnpm --filter @marxy/desktop test:mutations)
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { SEARCH_PREPARED_BODY_MUTATION } from '../src/palette/search.ts';
 
 const desktop = fileURLToPath(new URL('..', import.meta.url));
 
-/** Each mutation: the env hook product code reads, the files to run, and the tests it must turn red. */
+/** The mutation that empties `searchPrepared`'s body (MARXY-86). */
+export const SEARCH_PREPARED_BODY_MUTATION = 'search-prepared-body';
+
+/**
+ * Each mutation: the source patch the loader (scripts/mutation-hooks.mjs) applies to one product file as
+ * the child run loads it, the files to run, and the tests it must turn red. The patch lives here, on the
+ * test side: product code carries no switch and reads no environment variable for it (B-16).
+ * `find` must occur exactly once in `file`, or the child run fails to load it.
+ */
 export const MUTATIONS = [
   {
     name: SEARCH_PREPARED_BODY_MUTATION,
-    env: { MARXY_86_MUTATION: SEARCH_PREPARED_BODY_MUTATION },
+    patch: {
+      file: 'src/palette/search.ts',
+      find: "): readonly IndexHit[] {\n  const needle = query.trim().normalize('NFC').toLowerCase();\n  // The empty state",
+      replace: "): readonly IndexHit[] {\n  return [];\n  const needle = query.trim().normalize('NFC').toLowerCase();\n  // The empty state",
+    },
     files: ['src/palette/session.test.ts', 'src/palette/search.test.ts', 'src/palette/search-perf.test.ts', 'src/palette/keys.test.ts'],
     mustFail: [
       'search on a 20,000-entry index runs every query and finds what is there',
@@ -41,7 +52,6 @@ export const MUTATIONS = [
       'two recent roots keep their recent order ahead of a non-recent root with many matches',
       'within one root a higher score still wins when the root is not recent',
     ],
-    mustSkip: [`mutation ${SEARCH_PREPARED_BODY_MUTATION}: searchPrepared is live when the env hook is unset`],
   },
 ];
 
@@ -89,8 +99,8 @@ export function judge({ tap, status }, spec) {
 function runMutation(spec) {
   const child = spawnSync(
     process.execPath,
-    ['--test', '--test-concurrency=1', '--experimental-strip-types', '--test-reporter=tap', ...spec.files],
-    { cwd: desktop, env: { ...process.env, ...spec.env }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    ['--import', './scripts/mutation-register.mjs', '--test', '--test-concurrency=1', '--experimental-strip-types', '--test-reporter=tap', ...spec.files],
+    { cwd: desktop, env: { ...process.env, MARXY_MUTATION_PATCH: JSON.stringify(spec.patch) }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );
   if (child.error) return { ok: false, errors: [`could not start node --test: ${child.error.message}`] };
   const verdict = judge({ tap: child.stdout, status: child.status }, spec);

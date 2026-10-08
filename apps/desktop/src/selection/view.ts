@@ -3,10 +3,6 @@
 // and reads the open document from its store whenever it needs it, so nothing here can go stale.
 
 import {
-  createBuffer,
-  parseMarkdown,
-  sectionRange,
-  textOf,
   type Block,
   type Buffer,
   type Document,
@@ -116,6 +112,8 @@ export interface RenderedSelection {
   selectAt(target: Element, opts: { readonly link: 'select' | 'follow' }): Promise<void>;
   /** One step back in the link history; true when it moved (the caller then has nothing left to do). */
   back(): boolean;
+  /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
+  lastPointerCarrier(): Element | null;
   /** The page was set again: re-resolve the selection on it, mark it, and land a pending fragment. */
   afterRender(): void;
   destroy(): void;
@@ -168,6 +166,8 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   const { article, scroller } = opts;
   let state: SelectionState = { selection: { kind: 'none' } };
   let lastClickTarget: Element | null = null;
+  /** The block carrier last pressed on, which Jump to source starts from; cleared when the document changes. */
+  let pointerCarrier: Element | null = null;
   let pointerDrag = false;
   let downAt: { x: number; y: number } | null = null;
   let pointerDown = false;
@@ -226,7 +226,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   /** Nothing the reader clicked in the last document names anything in the next one (or in none). */
   const forgetClick = (): void => {
     lastClickTarget = null;
-    (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = undefined;
+    pointerCarrier = null;
   };
 
   const recordNavOpen = (nextPath: string): void => {
@@ -316,14 +316,6 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       if (!el) state = select(state, { kind: 'none' });
     }
     paint();
-  };
-
-  /** Test hook: replace `#doc` HTML without changing bytes, then restore selection. */
-  const rerenderWithSameHtml = (): void => {
-    if (!opts.store()) return;
-    const cloned = [...article.childNodes].map((n) => n.cloneNode(true));
-    article.replaceChildren(...cloned);
-    reresolve();
   };
 
   const selectNone = (): void => {
@@ -463,6 +455,12 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     if (isSecondaryClick(ev)) return;
     void onClick(ev);
   };
+  const onPointerDown = (ev: PointerEvent): void => {
+    const raw = ev.target;
+    const carrier = raw instanceof Element ? raw.closest('[data-marxy-s]') : null;
+    if (carrier) pointerCarrier = carrier;
+  };
+  article.addEventListener('pointerdown', onPointerDown, true);
   article.addEventListener('mousedown', onMouseDown);
   article.addEventListener('mousemove', onMouseMove);
   article.addEventListener('click', onArticleClick);
@@ -495,6 +493,9 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       void opts.open(navHistory[navIndex]!);
       return true;
     },
+    lastPointerCarrier() {
+      return pointerCarrier;
+    },
     afterRender() {
       const snap = opts.store()?.snapshot();
       if (!snap) {
@@ -525,25 +526,13 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       }
     },
     destroy() {
+      article.removeEventListener('pointerdown', onPointerDown, true);
       article.removeEventListener('mousedown', onMouseDown);
       article.removeEventListener('mousemove', onMouseMove);
       article.removeEventListener('click', onArticleClick);
       document.removeEventListener('selectionchange', onSelectionChange);
       document.removeEventListener('mouseup', onDocumentMouseUp);
-      const w = window as Window & { marxySelection?: { getSelectionState(): SelectionState } };
-      if (w.marxySelection?.getSelectionState === controller.state) w.marxySelection = undefined;
     },
-  };
-
-  (window as Window & { marxySelection?: unknown }).marxySelection = {
-    getSelectionState: controller.state,
-    rerenderWithSameHtml,
-    afterDocumentRendered: reresolve,
-    resolve,
-    textOf,
-    parseMarkdown,
-    sectionRange,
-    createBuffer,
   };
 
   return controller;

@@ -64,7 +64,7 @@ async function boot(file) {
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
     window.__marxyOpsBoot = await window.marxyPaletteBoot.start(files, argv, []);
-    window.__marxyOrigBytes = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(argv[0]));
+    window.__testOrigBytes = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(argv[0]));
   }, { files: { [docPath]: readFileSync(join(corpusDir, file)).toString('base64') }, argv: [docPath] });
   await page.waitForFunction(() => typeof window.marxySelection?.getSelectionState === 'function');
   await page.waitForFunction(() => window.__marxyOpenSynced === true);
@@ -206,7 +206,7 @@ test("C-13: right-click a task item's text offers Toggle task, which changes onl
     await page.waitForFunction(() => window.marxyDocumentEdit?.().dirty === true);
     const { now, orig } = await page.evaluate(() => ({
       now: [...window.__marxyOpsBoot.handle.openDocument().buffer.bytes],
-      orig: [...window.__marxyOrigBytes],
+      orig: [...window.__testOrigBytes],
     }));
     const diffs = byteDiffs(orig, now);
     assert.ok(diffs.length > 0);

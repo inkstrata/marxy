@@ -22,6 +22,7 @@
     import { bootApplication } from '../src/main.ts';
     import { createMemoryShell } from '../src/shell/memory.ts';
     import { prepareStats } from '../src/palette/search.ts';
+    import { installTestHooks } from '../src/harness/test-hooks.ts';
 
     function decodeBase64(b64) {
       const bin = atob(b64);
@@ -49,6 +50,7 @@
           };
         }
         const handle = await bootApplication(shell, { argv });
+        installTestHooks(handle);
         await handle.ready;
         if (indexEntries?.length) handle.palette.setIndexEntries(indexEntries);
         return { handle, marks: shell.calls.filter((c) => c.method === 'mark') };

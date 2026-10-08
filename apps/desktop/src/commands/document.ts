@@ -2,90 +2,17 @@
 import type { AppContext, Command } from './registry.ts';
 import { save } from '../save.ts';
 import {
-  documentEditState,
-  harnessAlignFirstTable,
   historyCanRedo,
   historyCanUndo,
   redoDocumentEdit,
   undoDocumentEdit,
 } from './edits.ts';
 import { updateTabWidthResolver } from '../source/tab-width.ts';
-import { sourceViewCommands } from './source-view.ts';
-import { appHandle } from './app-handle.ts';
 
-export { attachDocumentEdits, documentEditState } from './edits.ts';
+export { attachDocumentEdits } from './edits.ts';
 
 /**
- * The context the window's harness hooks run commands in: the latest app's, so a restart replaces it
- * (the B-12 review). Each article's own wiring takes its context from its view (`wireArticle`).
- */
-let windowContext: (() => AppContext) | null = null;
-
-/**
- * The harness hooks, once per window. `context` is the registry's context for the running app
- * (`buildAppContext`); calling this again (a restart) moves the hooks to the new one. Everything here
- * reads the open document through it or through `AppHandle.selection` when it runs, never a copy
- * taken now.
- */
-export function startDocumentEditingWire(context: () => AppContext): void {
-  if (typeof document === 'undefined') return;
-  windowContext = context;
-  const w = window as Window & {
-    __marxyDocumentWire?: boolean;
-    marxyDocumentEdit?: typeof documentEditState;
-    marxyHarnessAlignTable?: () => Promise<string | undefined>;
-    marxyHarnessUndo?: () => Promise<void>;
-    marxyHarnessRedo?: () => Promise<void>;
-    marxyHarnessSave?: () => Promise<import('../save.ts').SaveResult>;
-    marxyRunCommand?: (id: string) => Promise<void>;
-    marxyRefreshSourceTab?: () => void;
-    marxySourceTabSize?: () => Promise<number | null>;
-  };
-  if (w.__marxyDocumentWire) return;
-  w.__marxyDocumentWire = true;
-  document.addEventListener('pointerdown', (ev) => {
-    const raw = ev.target;
-    if (!(raw instanceof Element)) return;
-    const carrier = raw.closest('[data-marxy-s]');
-    if (carrier) (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = carrier;
-  }, true);
-  w.marxyRunCommand = async (id: string) => {
-    const cmd = sourceViewCommands().find((c) => c.id === id);
-    if (!cmd || !windowContext) return;
-    const ctx = windowContext();
-    if (!cmd.when(ctx)) return;
-    await cmd.run(ctx);
-  };
-  w.marxyRefreshSourceTab = async () => {
-    const ctx = appHandle()?.selection.runtime() ?? null;
-    const handle = (window as Window & {
-      __marxyHandle?: {
-        shell: { readFile(path: string): Promise<Uint8Array> };
-        openDocument?: () => { path: string } | null;
-      };
-    }).__marxyHandle;
-    const shell = ctx?.shell ?? handle?.shell;
-    const path = ctx?.buffer.path ?? handle?.openDocument?.()?.path;
-    if (!shell || !path) return;
-    const { updateTabWidthResolver } = await import('../source/tab-width.ts');
-    await updateTabWidthResolver(path, shell);
-    await new Promise((r) => setTimeout(r, 0));
-  };
-  w.marxySourceTabSize = async () => {
-    const { EditorView } = await import('@codemirror/view');
-    const dom = document.querySelector<HTMLElement>('#marxy-source .cm-editor');
-    const view = dom ? EditorView.findFromDOM(dom) : null;
-    return view?.state.tabSize ?? null;
-  };
-  w.marxyDocumentEdit = documentEditState;
-  w.marxyHarnessUndo = () => undoDocumentEdit();
-  w.marxyHarnessRedo = () => redoDocumentEdit();
-  w.marxyHarnessAlignTable = harnessAlignFirstTable;
-  w.marxyHarnessSave = () => save();
-}
-
-/**
- * One article's wiring (B-13): the task click and the harness's "wired" flag, both with the context
+ * One article's wiring (B-13): the task click, with the context
  * of the view that owns `article`. Returns what undoes it, which the view calls when it is destroyed;
  * a second view, or the next app's view on the same article, wires with its own context.
  */
@@ -115,11 +42,7 @@ export function wireArticle(
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     updateTabWidthResolver(ctx.buffer.path, ctx.shell);
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
-      if (!live) return;
-      if (!untask) untask = installTaskMarkers(article, context, pageVersion);
-      // The harness waits on this before it edits: the rendered document is wired. The saved baseline
-      // is the store's own (`disk`), set when the document was read, so there is nothing to sync.
-      (window as Window & { __marxyOpenSynced?: boolean }).__marxyOpenSynced = true;
+      if (live && !untask) untask = installTaskMarkers(article, context, pageVersion);
     });
   };
   const obs = new MutationObserver(wire);

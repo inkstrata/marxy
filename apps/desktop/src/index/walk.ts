@@ -24,9 +24,6 @@ export interface IndexLoadShell {
   hasGitMarker?(dir: string): boolean;
 }
 
-/** Named in palette-index.test.mjs: with `MARXY_196_MUTATION` set, loadIndex returns [] so CI goes red. */
-export const LOAD_INDEX_EMPTY_MUTATION = 'load-index-empty';
-
 const HEADING_SCAN_BYTES = 256 * 1024;
 
 export interface IndexWalk {
@@ -52,11 +49,7 @@ export interface WalkLimits {
 }
 
 function indexDisabled(shell: IndexLoadShell): boolean {
-  const mutation =
-    (typeof process !== 'undefined' && process.env.MARXY_196_MUTATION === LOAD_INDEX_EMPTY_MUTATION) ||
-    (typeof globalThis !== 'undefined' &&
-      (globalThis as { __MARXY_196_MUTATION?: string }).__MARXY_196_MUTATION === LOAD_INDEX_EMPTY_MUTATION);
-  return mutation || typeof shell.readDir !== 'function';
+  return typeof shell.readDir !== 'function';
 }
 
 /** Walk the repository root of `openedPath` and turn allow-listed files into palette index entries. */

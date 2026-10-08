@@ -15,6 +15,8 @@ const test = (name, fn) => nodeTest(name, { skip }, fn);
 
 const repoRoot = new URL('../../../', import.meta.url).pathname;
 const longMd = readFileSync(join(repoRoot, 'fixtures', 'corpus', '01-long-technical.md'));
+const quietToml = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.toml'));
+const quietCss = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.css'));
 let serverPromise;
 let closeServer = () => {};
 after(() => closeServer());
@@ -146,16 +148,39 @@ async function appPage(browser) {
   return page;
 }
 
-test('a second startApp in one page leaves none of the first instance\'s persistence running (the B-14 review)', async () => {
+test('a second startApp in one page leaves none of the first instance\'s persistence, store or watches running (the B-14 and B-15 reviews)', async () => {
   const browser = await launchWebkit();
   try {
     const page = await appPage(browser);
-    const seen = await page.evaluate(async ({ b64 }) => {
+    const seen = await page.evaluate(async ({ b64, theme }) => {
       const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const writes = (h, from = 0) =>
         h.shell.calls.slice(from).filter((c) => c.method === 'writeFileAtomic' && c.args[0] === '/data/positions.json').length;
-      const first = await window.marxyApp.start({ '/r/long.md': b64 }, ['/r/long.md']);
+      const bytesOf = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+      // The first instance runs on a memory shell of its own with its watches counted: the document's
+      // folder watch and the user theme's (a `theme` in config.toml). Every one opened must be closed.
+      const { createMemoryShell } = await import('/src/shell/memory.ts');
+      const { startApp } = await import('/src/app.ts');
+      const inner = createMemoryShell({
+        '/r/long.md': bytesOf(b64),
+        '/config': new TextEncoder().encode('theme = "/t/quiet"\n'),
+        '/t/quiet/theme.toml': bytesOf(theme.toml),
+        '/t/quiet/theme.css': bytesOf(theme.css),
+      });
+      const opened = [];
+      const closed = [];
+      const origWatch = inner.watch.bind(inner);
+      inner.watch = async (root, onEvents, opts) => {
+        const handle = await origWatch(root, onEvents, opts);
+        opened.push(root);
+        return { close() { closed.push(root); handle.close(); } };
+      };
+      const first = await startApp(inner, { argv: ['/r/long.md'] });
       await first.ready;
+      // The user theme starts after first text; wait (bounded) until its watch is open.
+      for (let i = 0; i < 200 && !opened.includes('/t/quiet'); i++) await new Promise((r) => setTimeout(r, 25));
+      const openedByFirst = [...opened];
+      const firstStore = first.document();
       const listenersAfterFirst = window.__pagehideListeners();
       // The first instance notes a place; its debounced write is still waiting when the second starts.
       window.scrollTo(0, 4000);
@@ -167,6 +192,13 @@ test('a second startApp in one page leaves none of the first instance\'s persist
       // document it reaches `ready` at once, and its persistence is not loaded: any write now is the first's.
       const second = await window.marxyApp.start({}, [], {});
       await second.ready;
+      // The first instance's store takes no more transitions.
+      let storeRefused = false;
+      try {
+        storeRefused = (await firstStore.apply({ range: { file: '/r/long.md', start: 0, end: 0 }, replacement: 'x', label: 'late' })) === false;
+      } catch {
+        storeRefused = true;
+      }
       // Past the first instance's debounce (POSITIONS_DEBOUNCE_MS, 500 ms), and its listeners asked again.
       await new Promise((r) => setTimeout(r, 1200));
       window.scrollTo(0, 3000);
@@ -178,12 +210,21 @@ test('a second startApp in one page leaves none of the first instance\'s persist
         listenersAfterSecond: window.__pagehideListeners(),
         firstWroteEarly,
         staleWrites: writes(first, firstCalls),
+        openedByFirst,
+        closed: [...closed],
+        firstDocumentAfter: first.document(),
+        storeRefused,
       };
-    }, { b64: longMd.toString('base64') });
+    }, { b64: longMd.toString('base64'), theme: { toml: quietToml.toString('base64'), css: quietCss.toString('base64') } });
     assert.equal(seen.listenersAfterFirst, 1);
     assert.equal(seen.firstWroteEarly, false, 'the first instance\'s write was still pending when the second started');
     assert.equal(seen.listenersAfterSecond, 0, 'the first instance\'s pagehide listener is gone');
     assert.equal(seen.staleWrites, 0, 'the first instance wrote positions.json after it was replaced');
+    assert.equal(seen.firstDocumentAfter, null, 'the first instance\'s document store is closed');
+    assert.equal(seen.storeRefused, true, 'a closed store refuses a transition');
+    assert.ok(seen.openedByFirst.includes('/t/quiet'), `the first instance watched its user theme: ${seen.openedByFirst}`);
+    assert.ok(seen.openedByFirst.length >= 2, `the first instance watched its folder and its theme: ${seen.openedByFirst}`);
+    assert.deepEqual([...seen.closed].sort(), [...seen.openedByFirst].sort(), 'every watch the first instance opened is closed (folder and user theme)');
   } finally {
     await browser.close();
   }

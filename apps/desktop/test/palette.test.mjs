@@ -1,6 +1,5 @@
 // Palette view: real document mount, ADR-0011 tab-bar assertion, keys, and keystroke perf (MARXY-87).
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -11,7 +10,6 @@ import { webkit } from 'playwright';
 import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { updateRecord } from '../../../scripts/lib/perf-record.mjs';
-import { TAB_BAR_DOM_MUTATION } from '../src/palette/view.ts';
 import { togglePin, recordOpen, emptySession, goBack, goForward } from '../src/palette/session.ts';
 import { paletteResults } from '../src/palette/search.ts';
 import { historyDirection } from '../src/palette/keys.ts';
@@ -139,35 +137,6 @@ nodeTest('empty query lists pinned paths before MRU (model)', () => {
     hits.map((hit) => hit.entry.path),
     ['/repo/old.md', '/repo/new.md', '/repo/mid.md'],
   );
-});
-
-nodeTest(`mutation ${TAB_BAR_DOM_MUTATION} makes the live tab-bar assertion fail`, () => {
-  const probe = `
-    import assert from 'node:assert/strict';
-    import { documentHasTabBar, TAB_BAR_DOM_MUTATION } from './src/palette/view.ts';
-    process.env.MARXY_87_MUTATION = TAB_BAR_DOM_MUTATION;
-    const nodes = [];
-    const doc = {
-      querySelector(sel) {
-        for (const n of nodes) {
-          if (sel.includes('marxy-tabs') && n.id === 'marxy-tabs') return n;
-          if (sel.includes('tablist') && n.role === 'tablist') return n;
-        }
-        return null;
-      },
-      createElement() {
-        return { id: '', setAttribute(k, v) { if (k === 'id') this.id = v; if (k === 'role') this.role = v; } };
-      },
-      body: { appendChild(n) { nodes.push(n); } },
-    };
-    assert.equal(documentHasTabBar(doc), false, 'ADR-0011 expects no tab bar in the live document');
-  `;
-  const result = spawnSync(process.execPath, ['--experimental-strip-types', '--input-type=module', '-e', probe], {
-    cwd: desktopRoot,
-    encoding: 'utf8',
-    env: process.env,
-  });
-  assert.notEqual(result.status, 0, 'tab-bar mutation must fail the no-tab-bar assertion');
 });
 
 test('bootApplication mounts dialog#marxy-palette; Mod+P summons input and list', async () => {

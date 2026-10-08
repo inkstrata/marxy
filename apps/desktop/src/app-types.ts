@@ -48,9 +48,12 @@ export interface OpenDocumentState {
   readonly nodeMap: NodeMap;
 }
 
-/** What `AppHandle.dispatch` routes to the focused view's store or view (ADR-0037 §2). */
+/**
+ * What `AppHandle.dispatch` routes to the focused view's store or view (ADR-0037 §2). An `apply` names the
+ * store version its range was resolved at (`baseVersion`, required: B-12), so the store's stale-edit check always runs.
+ */
 export type AppAction =
-  | { readonly type: 'apply'; readonly range: Edit['range']; readonly replacement: string; readonly label: string; readonly baseVersion?: number }
+  | { readonly type: 'apply'; readonly range: Edit['range']; readonly replacement: string; readonly label: string; readonly baseVersion: number }
   | { readonly type: 'undo' | 'redo' | 'toggle-mode' }
   | { readonly type: 'save'; readonly as?: boolean };
 

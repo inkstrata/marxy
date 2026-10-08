@@ -1,5 +1,6 @@
 // Browser entry that boots startApp against createMemoryShell (MARXY-95).
 import { startApp, type AppHandle } from '../app.ts';
+import { installReadinessFlags, installTestHooks } from './test-hooks.ts';
 import { createMemoryShell } from '../shell/memory.ts';
 import { openDocumentStore, type DocumentStore } from '../document/store.ts';
 import { createTrustController } from '../trust/controller.ts';
@@ -29,7 +30,9 @@ async function start(
   const sources = pieces
     ? Object.entries(pieces).map(([name, text]) => ({ name, load: async () => text }))
     : undefined;
-  return startApp(shell, { argv, pieces: sources });
+  const handle = await startApp(shell, { argv, pieces: sources });
+  installTestHooks(handle);
+  return handle;
 }
 
 /**
@@ -104,5 +107,6 @@ declare global {
   }
 }
 
+installReadinessFlags();
 window.marxyApp = { start };
 window.marxyViewHarness = { view };
