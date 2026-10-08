@@ -75,6 +75,42 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   outline-offset: 2px;
 }
 
+/* The verb menu (C-13, ADR-0054): summoned by right-click, the context-menu key or Enter; built on open
+   and removed on close, so nothing here applies at rest. Existing tokens only. */
+.marxy-verb-menu {
+  position: fixed;
+  z-index: 10;
+  box-sizing: border-box;
+  min-width: 14em;
+  max-width: min(24em, calc(100vw - 8px));
+  padding: 0.25em 0;
+  font-family: var(--marxy-font-text);
+  font-size: var(--marxy-size-caption);
+  line-height: 1.4;
+  color: var(--marxy-color-text);
+  background: var(--marxy-color-bg);
+  border: 1px solid var(--marxy-color-rule);
+  border-radius: var(--marxy-code-radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.marxy-verb-menu-item {
+  display: flex;
+  align-items: baseline;
+  gap: 2em;
+  padding: 0.3em 0.9em;
+  cursor: default;
+  outline: none;
+}
+.marxy-verb-menu-item:focus { background: var(--marxy-color-selection); }
+.marxy-verb-menu-title { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.marxy-verb-menu-key {
+  flex: 0 0 auto;
+  color: var(--marxy-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .marxy-article {
   --lb: var(--marxy-line-box);
   --marxy-half: calc(var(--lb) / 2);
@@ -526,6 +562,9 @@ a:focus .marxy-link-dest { display: inline; }
   a { text-decoration: underline; forced-color-adjust: none; }
   del, s { text-decoration: line-through; }
   :is(pre, table):focus-visible { outline: 2px solid ButtonText; outline-offset: 2px; }
+  .marxy-verb-menu { border-color: CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
+  .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
 }
 @media (prefers-contrast: more) {
   .marxy-diff-add { border-inline-start: 3px solid currentColor; }
