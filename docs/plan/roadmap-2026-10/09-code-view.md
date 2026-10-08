@@ -20,6 +20,54 @@ pass drove the app in WebKit. Every report has a cause in the tree, and one caus
 The lane has eight stories. Ids are `K-nn`, and commitlint takes `(K-01)` as a plain parenthetical. A
 richer Rendered *overview* of a source file (symbols, docstrings as prose) is deferred; see the last section.
 
+## Measured (2026-10-08)
+
+Method: Playwright WebKit over the browser-lite boot of `source-looks.test.mjs`, at 1280×800 in dark. The
+fixtures were thirteen real files (Python with tabs, a CRLF copy, TypeScript, Rust, Go, JSON, YAML, TOML,
+shell, Makefile, Dockerfile, a log, a 2.2 MB Python file). The scripts are not committed; a story that needs
+them rebuilds them from this description.
+
+**Source**
+- Every file opens in Source.
+- The editor text equals the file bytes in every case, with tabs, CRLF and long lines kept.
+- Gutter misalignment is **0 px** on every unwrapped row. What reads as misalignment is the wrap: the
+  487-character Python line takes 6 rows, starting at column 0, with one number. There is also a 60 px gap
+  between the numbers and the code.
+- Only about 25 lines fit in an 800 px window.
+- Fold chevrons sit against every block line's number, and the active line is tinted on open with no caret:
+  both are chrome at rest.
+
+**Colour**
+- Python, Rust and TypeScript reach 4–5 distinct colours in their first 100 lines.
+- Go, TOML, shell, the Makefile, the Dockerfile and the log reach 1.
+
+**Rendered**
+
+| File | What Rendered does to it |
+| --- | --- |
+| `server.ts` | `Promise<T>` opens raw HTML; only 163 of 976 characters stay visible, behind the trust notice |
+| `deploy.sh`, `Makefile` | `$…$` and `$(CC)`, `$@` become KaTeX math |
+| `.py`, `.yaml`, `.toml` | `#` comments become `h1`, and `__name__` becomes bold |
+| every file | the typesetter adds smart quotes, turns `--` into an en dash, merges lines and hyphenates identifiers (`im-port`) |
+| `app.log` | its 120 lines become one paragraph |
+
+**Place across a round trip.** Scroll a code file, go Source → Rendered → Source, and the top line moves:
+
+| File | Top line before | Top line after |
+| --- | --- | --- |
+| `inventory.py` | 45 | 32 |
+| `lib.rs` | 24 | 6 |
+| `server.ts` | 8 | 1 |
+| `app.log` | 50 | 1 |
+
+The place travels through the misparsed Rendered blocks.
+
+**Toggles.** Presses made while the editor builds are dropped, so ten quick Mod+E presses end in a mode that
+depends on timing, not on the count. No console error and no blank view appeared in any run.
+
+**The 2.2 MB file** opens in Source in about 1.9 s. CodeMirror logged "Measure loop restarted more than 5
+times" in one run of two. Its Rendered view builds about 2 M characters of typeset paragraphs.
+
 ## What is wrong, worst first
 
 Sources (relative to `apps/desktop/src/` unless the path says otherwise):
@@ -233,7 +281,7 @@ The plan assumes the answer in parentheses until the author rules.
 | K-04 | Source has its own metrics: tighter type, an exact gutter, scroll for code (ADR-0056) | opus | M | K-R1, K-R3 | K1 |
 | K-05 | Generous highlighting: a hue per role, every tag mapped, Rendered and Source agree (ADR-0057) | opus | M | K-04 (`tokens.css`) | K2 |
 | K-06 | Source grammars for the common languages, fences in Markdown, every line ending | sonnet | M | K-01, K-04 | K3 |
-| K-07 | The swap keeps Rendered right: nothing set while hidden, no stale editor | opus | M | K-03 | K3 |
+| K-07 | The swap keeps Rendered right: nothing set while hidden, no stale editor | opus | M | K-03, K-02 | K3 |
 | K-08 | One tab width for both modes, and a correct EditorConfig reader | sonnet | S | — | K1 |
 
 **Waves.** Within a wave, paths are disjoint.
@@ -336,6 +384,8 @@ Uses the existing `code` node kind, so no contract change. If a field is needed,
 - For a file whose default mode is Source, `finishDocumentOpen` and `bootDocument` mount Source first. The
   Rendered pass for that file is deferred until the reader first asks for Rendered. Nothing Markdown-shaped
   is ever painted for it.
+- Mod+E presses are never lost or reordered: each press is a request against the mode in force when it was
+  pressed. Ten quick presses on any file end where ten flips would end (measured: they end by timing today).
 - A Mod+E pressed during an open applies to the document that finished opening, as the reader meant it.
   Either drop it, or resolve it against the mode in force when it was pressed. Never flip the mode after the
   fact.
@@ -355,6 +405,8 @@ Uses the existing `code` node kind, so no contract change. If a field is needed,
 - Opening `x.py` never paints an `h1` in `#doc` before `.cm-editor` appears. Sample every frame until
   Source mounts.
 - Mod+E pressed before `.cm-editor` exists leaves the reader in the mode they chose, once the queue drains.
+- Ten `Meta+E` presses, sent as fast as Playwright sends them, end in the starting mode, on a `.md` and on a
+  `.py`.
 - An empty `.py` mounts Source.
 - With `@codemirror/lang-python`'s import forced to fail:
   - Mod+E shows the notice;
@@ -381,6 +433,8 @@ Uses the existing `code` node kind, so no contract change. If a field is needed,
 - **Row height.** Every row keeps exactly one line box, including rows drawn in a fallback font:
   `line-height` on the inline runs, the way `base.css` holds prose.
 - **Weight.** Source takes the article's weight variable, so it is 380 in dark.
+- **Nothing at rest.** Fold chevrons appear on hover of the gutter, not on every block line, and the active
+  line is tinted only while the editor has focus (ADR-0011).
 - **Column and ground (L-07's outcome).** Markdown sits in a column as wide as Rendered's. Code files sit in
   a column of at most 100 characters at the new size. Both are centred and on the page ground.
 - Update the stale rows of `docs/research/reader-artifacts/10-spec.md` (ligatures, tabs, gutter, folding).
@@ -526,7 +580,7 @@ The aesthetics baselines move. Regenerate them in this PR, alone in its wave (`0
 
 ### K-07 — The swap keeps Rendered right
 
-**Model:** opus · **Size:** M · **Depends on:** K-03 (`view/rendered-view.ts`)
+**Model:** opus · **Size:** M · **Depends on:** K-03 (`view/rendered-view.ts`), K-02 (for the round-trip place)
 
 **Outcome.**
 - **Nothing is set while hidden.** While Source is showing, Rendered is never typeset, gridded or anchored.
@@ -535,6 +589,8 @@ The aesthetics baselines move. Regenerate them in this PR, alone in its wave (`0
   - reload;
   - theme relayout;
   - trust re-render.
+- **The place survives a round trip.** Source → Rendered → Source keeps the top line of a code file (needs
+  K-02's line-exact blocks).
 - **No empty overlay.** Opening another document from Source never shows an empty overlay.
 - **The editor follows the document.** `replaceBuffer` reconfigures the language, `lineSeparator`, wrapping
   and large-file mode when the path, `eol` or size class changes.
@@ -555,6 +611,7 @@ The aesthetics baselines move. Regenerate them in this PR, alone in its wave (`0
 - In Source, open another `.md` with a stored position. No frame shows an empty `#marxy-source`, and the
   landing byte is at the reading line.
 - "Show source", then an immediate open of another file: the next Mod+E commits nothing into the new store.
+- Scroll `inventory.py` to line 45, then go Source → Rendered → Source: the top line is 45 (32 on `main`).
 
 **Do not.** Change the reading-position model (F-04's), only when it runs.
 

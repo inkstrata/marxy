@@ -102,7 +102,7 @@ its wave for baselines; L-05 and L-07 between B-15 and D-10/D-11, or folded into
 | K-04 | Source has its own metrics: tighter type, an exact gutter, scroll for code (ADR-0056; supersedes L-07) | opus | M | K-R1, K-R3 |
 | K-05 | Generous highlighting: a hue per role, every tag mapped, the modes agree (ADR-0057) | opus | M | K-04 |
 | K-06 | Source grammars, fences in Markdown, every line ending | sonnet | M | K-01, K-04 |
-| K-07 | The swap keeps Rendered right: nothing set while hidden, no stale editor | opus | M | K-03 |
+| K-07 | The swap keeps Rendered right: nothing set while hidden, no stale editor | opus | M | K-03, K-02 |
 | K-08 | One tab width for both modes, and a correct EditorConfig reader | sonnet | S | — |
 
 Order: K-01, K-04, K-08 first; then K-02, K-03, K-05; then K-06 and K-07. K-03 and K-07 before D-11.
