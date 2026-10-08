@@ -1872,6 +1872,28 @@ each pattern file in justif's package; the author decides.
 it checks the kill switch: check `killed()` first. Acceptance: the off test fails when `run()` stops emitting
 `typeset_done`; with typesetting off, no hyphenation chunk is requested (count the requests).
 
+### B-24 — Re-render only what a reload changed
+
+**Model:** opus · **Size:** M · **Depends on:** B-23 · *Added 2026-10-08 by the lead, from B-23's measurement.*
+After B-23 a 1 MB reload's parse costs 2–25 ms, but the store's synchronous repaint still renders, sanitises and
+maps the whole document and remounts the first screen: about 130–230 ms on a transcript and about 550 ms on a dense
+1 MB document, against the 100 ms budget. Reuse the rendered DOM of the blocks B-23 reused (their bytes and nodes
+are unchanged, only shifted), re-render only the changed region, and shift the node map. **Paths:**
+`apps/desktop/src/view/rendered-view.ts` (the repaint), `apps/desktop/src/render/` (the node map shift),
+`apps/desktop/test/live-reload.test.mjs`, `scripts/measure-reload.mjs`. **Acceptance:** `scripts/measure-reload.mjs`
+prints the repaint stage under 100 ms on the transcript (recorded, not asserted); a WebKit test that the reused
+blocks are the same DOM nodes after a one-line write far from them; the sanitiser still runs over every new byte
+(commitment: nothing unsanitised reaches the DOM). Runs after D-01 (same file).
+
+### B-25 — Find what stalls `contentComplete` on a 1 MB document
+
+**Model:** opus · **Size:** S · **Depends on:** — · *Added 2026-10-08 by the lead, from B-23 (found in passing).*
+In the Vite dev server the first `contentComplete` on a 1 MB document ran for over 15 minutes of WebKit CPU without
+finishing; 256 KB finished in seconds. Reproduce it (and in the built app), profile it, and say what is quadratic.
+**Paths:** a measurement under `scripts/`, then the file the profile names (report before fixing if it is outside
+`apps/desktop/src/render/` or `packages/typeset/`). **Acceptance:** a reproduction with a profile in the PR; if the
+cause is in Marxy, `content_complete` at 1 MB in under 10 s in the perf harness (recorded).
+
 ### B-23 — Reload a large document inside the budget
 
 **Model:** opus · **Size:** M · **Depends on:** B-15 · *Added 2026-10-08 by the lead, from the F-19.1 review.*
