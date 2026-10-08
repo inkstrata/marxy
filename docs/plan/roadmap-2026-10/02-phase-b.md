@@ -1845,6 +1845,15 @@ each pattern file in justif's package; the author decides.
 
 ---
 
+### B-17.1 — With typesetting off, prove the mark and skip the hyphenation load
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-17 · *Added 2026-10-08 by the lead, from the B-17 review.*
+**Paths:** `packages/typeset/src/index.ts`, `apps/desktop/test/typeset-off.test.mjs`. `typeset-off.test.mjs` waits for
+"`typeset_done` or 2 s" but never asserts the mark, so a missing mark would pass after 2 s: assert `typeset_done`
+(with `set=0`) in the off case and make the timeout a failure. `run()` loads justif's two hyphenation chunks before
+it checks the kill switch: check `killed()` first. Acceptance: the off test fails when `run()` stops emitting
+`typeset_done`; with typesetting off, no hyphenation chunk is requested (count the requests).
+
 ### B-18 — Make `Shell` the interface the app programs to
 
 **Model:** opus · **Size:** M · **Depends on:** B-06, B-07, B-16 · **Parallel with:** —
