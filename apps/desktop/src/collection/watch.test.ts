@@ -270,6 +270,25 @@ test('a declared home folder opens no recursive watch and is rescanned on summon
   trees.stop();
 });
 
+test('a declared ~/Documents, ~/Downloads or volume is budgeted but still watched recursively, with no notice (C-10.1)', async () => {
+  const home = '/Users/ian';
+  const shell = createMemoryShell({
+    [`${home}/notes.md`]: enc('# N\n'),
+    [`${home}/Documents/a.md`]: enc('# A\n'),
+    [`${home}/Downloads/b.md`]: enc('# B\n'),
+    '/Volumes/Ext/c.md': enc('# C\n'),
+  });
+  const host = { ...shell, configPaths: async () => ({ config: `${home}/.config/marxy`, data: '/data' }) };
+  const index = createIndexService(host, { notify: () => {} });
+  const trees = startTreeWatches({ shell, index });
+  for (const root of [`${home}/Documents`, `${home}/Downloads`, '/Volumes/Ext']) await index.ensureRoot(root, { watch: true });
+  await trees.settled();
+  const recursive = shell.calls.filter((c) => c.method === 'watch' && (c.args[1] as { recursive?: boolean })?.recursive).map((c) => c.args[0]);
+  assert.deepEqual(recursive.sort(), [`${home}/Documents`, `${home}/Downloads`, '/Volumes/Ext'], 'each is watched');
+  assert.equal(index.watchNotice(), undefined, 'no "Not watching" line');
+  trees.stop();
+});
+
 test('a summon rescans a refused home folder no sooner than HOME_REVALIDATE_MIN_MS, an ordinary tree at REVALIDATE_MIN_MS (C-10.1)', async () => {
   const home = '/Users/ian';
   const shell = createMemoryShell({ [`${home}/notes.md`]: enc('# N\n'), '/n/notes.md': enc('# Notes\n') });

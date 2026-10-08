@@ -272,7 +272,7 @@ interface RootState {
   checkouts?: ReadonlyMap<string, string>;
   /** A recent home-sized root: its snapshot is all it has, and nothing walks it (C-10.1). */
   snapshotOnly?: boolean;
-  /** Walked under a budget (C-10.1): a summon rescans it at `HOME_REVALIDATE_MIN_MS`, not `REVALIDATE_MIN_MS`. */
+  /** Holds the home folder (C-10.1): a summon rescans it at `HOME_REVALIDATE_MIN_MS`, not `REVALIDATE_MIN_MS`. */
   homeSized?: boolean;
   /** Watch events waiting for the next patch. */
   events: FileEvent[];
@@ -517,7 +517,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       const policy = await policyFor(root);
       const deny = snapshot ? await denyRules() : [];
       state.snapshotOnly = recent && policy.snapshotOnlyWhenRecent;
-      state.homeSized = policy.budget !== undefined;
+      state.homeSized = policy.skip.length > 0;
       if (snapshot && roots.get(root) === state) {
         state.snapshot = snapshot;
         state.baselineMs = snapshot.baselineMs;
@@ -828,8 +828,10 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     },
     watchNotice,
     async homeSized(tree) {
+      // Only a root that holds the home folder skips anything; a declared ~/Documents or a volume is
+      // budgeted but watched, as before (C-10.1).
       const policy = await policyFor(tree);
-      return policy.budget !== undefined || policy.skip.length > 0;
+      return policy.skip.length > 0;
     },
     entries: () => published,
     subscribe(cb) {
