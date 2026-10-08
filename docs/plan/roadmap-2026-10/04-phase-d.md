@@ -262,6 +262,10 @@ results across a close, that is a bug to fix where found. Whether `container-typ
 that is also `overflow-y: auto` and `height: 100vh` behaves in WKWebView and WebKitGTK is checked here by
 `packages/theme/test/layout.test.mjs` plus the new test; report any difference.
 
+**From the B-13 review (2026-10-07).** A second view stands beside the first for Rendered only: `source/editor.ts`
+keeps a module-shared `sharedEditor`/`sharedParent`, and one view's `clear()` destroys the other's editor. Replace
+that pair here.
+
 ---
 
 ### D-02 — Write the layout geometry and the `layout.json` format

@@ -1386,6 +1386,10 @@ in.
 **Risks and open questions.** The path list for a 50,000-entry collection is a few MB of JSON per
 call; C-17 caps it. Unicode case folding is out of scope (ASCII only); report if the author wants it.
 
+**From the C-16 review (2026-10-07).** Previews pass bidi controls and zero-width characters through untouched; show
+them (commitment 4). An abort rejects only after Rust returns: drop stale results by token, never block on the
+promise. Case folding is ASCII only. A 100,000-path call is several MB of JSON: cap or batch it.
+
 ---
 
 ### C-17 — `/` in the palette searches file contents and lands at the match
@@ -1507,4 +1511,15 @@ asked for. Give the walk a budget (directories or entries) with one plain notice
 at or above `~` from its snapshot only, and never descend `~/Library`. Acceptance: a declared `~` stops at the
 budget with one notice and no permission prompt path is listed; a recent `~/Downloads` loads from its snapshot
 without a walk; an ordinary repository is unaffected.
+
+### C-11.1 — The watcher's leftovers from the C-05 and C-11 reviews
+
+**Model:** sonnet · **Size:** M · **Depends on:** C-11 · *Added 2026-10-07 by the lead, from the C-11 review.*
+Rust (`apps/desktop/src-tauri/src/watch/`): enforce the 200,000-file cap after a watch opens, not only at open, and
+count only files the walk would list; rescan only the affected subtree on `need_rescan`/`Other`, not the whole tree;
+reject a NUL in `unwatch_root` (a raw `"X\0tree"` can resolve to a tree watch's key); fix the `raw_roots` retain that
+can drop another watch's recording. Shell: a `stat` and a head-limited read, so a patch neither lists the folder nor
+reads the whole file. Desktop: a minimum interval (about 30 s per root) for `revalidate` on a refused tree; reject
+empty path segments in `pathUnder`. Acceptance: one Rust test per item; a patch makes no `readDir` and reads at most
+the head.
 

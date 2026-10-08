@@ -19,15 +19,14 @@ says what to do next.
 
 | Story | State | Next |
 | --- | --- | --- |
-| B-02 (opus) | #423: Opus review, one return fixed by the lead (the Vite config now starts the typography job); CI on 7bd120dd | **the author merges** (code-owned); the review summary is on the PR. Then L-02 → L-03 → L-04, A-11.2 |
-| B-12 (opus) | merged (#426) | — |
-| B-13 (opus) | running: the per-article view moves into `view/rendered-view.ts`, with the B-12 review's notes | review (Opus), merge; then B-14 |
-| C-10 (opus) | returned once (#417): deny globs apply to every root, read before the first walk; a declared `/` is skipped | re-review (Opus), merge; then C-11 (notes on its card), C-12, C-14, C-10.1 |
-| F-17 (sonnet) | merged (#427) | F-17.1 after B-13 |
-| F-18 (sonnet) | running: two Source undo tests time out under load (`store-undo` "ADR-0037 defect 2", `jump-to-source-edits` "Mod+Z"); seen by three implementors, never by CI | review, merge: a real race fixed, a test waiting on the right signal, or a deletion with the coverage named |
+| B-02 (opus) | #423 ready (review merge after the lead's path-filter fix) | **the author merges** (code-owned) |
+| B-13 (opus) | #433 returned once (a reload jumped a reader with a held anchor) | re-review (Opus), merge; then B-14 |
+| C-15 (sonnet) | running | review, merge |
+| C-16 (opus) | #435: the lead fixed the review's two findings (named pipe, cap wrap) | merging on green; then C-17 (needs C-13) |
 | #394, #407 | waiting for the author (code-owned) | author merges |
 
-Merged this evening, after the first handoff: F-14, F-15.1, F-16.1 and two plan PRs. Every third-wave story is in.
+Merged this evening: F-14, F-15.1, F-16.1, F-17, F-18, B-12, C-10, C-11, C-12, C-14, and #434 (main was red in
+WebKit after C-12 and C-14).
 
 ## Next, in order
 
@@ -45,13 +44,16 @@ Merged this evening, after the first handoff: F-14, F-15.1, F-16.1 and two plan 
 
 ## Waiting on the author
 
-1. Merge #394 and #407 (code-owned), and B-02's PR when it opens.
+1. Merge #394 and #407 (code-owned), and B-02's #423.
 2. Rulings from L-01 (`07-layout-and-reading.md`): decisions 4, 6, 7 and 9.
 3. ADR-0053, ADR-0054 and ADR-0055 are `proposed`. One discrepancy for ADR-0053 §5: it says the newest files win past
    the 50k cap; C-10's card and code drop the end of the scope order instead. Say which you want.
 4. Image scope reach (F-14, per ADR-0027 §5): a `.git` in the home folder makes the whole home folder the image
    scope for any document beneath it, and the scope only grows during a session. Nothing leaves the machine (the CSP
    allows no network images). Say if you want a ceiling (for example, never above a repository below home).
+5. **Security, for C-16 and before:** `read_file` reads any path the webview names, and `search_content` checks
+   paths against the roots the webview passes. A compromised webview can read any file today. One Rust-owned root
+   allow-list (declared, current and recent roots) for both commands is the hardening; say if you want it now.
 
 ## Lessons from this session
 
@@ -64,3 +66,10 @@ Merged this evening, after the first handoff: F-14, F-15.1, F-16.1 and two plan 
 - **A path filter test catches new imports.** D-02 broke `every file headless.ts reaches is typography` because core's
   index now reaches `layout/`: widen `scripts/ci-changes.mjs` in the same PR.
 - **Counts in tests rot.** L-11's new token broke a literal "55 tokens"; derive counts from the source of truth.
+- **Two green PRs can make a red main.** CI on `main` runs only `fast`. C-12 put an age in palette rows and C-14's
+  tests read whole-row text; each was green alone, and the WebKit suite failed on main (#434). Before merging the
+  second of two PRs that touch the same surface, rebase it so CI runs on the combination.
+- **Each agent writes its PR body to its own file.** Two agents shared one scratch name and a PR got the other's body.
+- **"Unreachable" is a claim about today's callers.** S-10-0002 was ruled unreachable for the walker; C-11's watch
+  events reached it within hours. Fix a weak primitive when it is cheap, even if no caller hits it yet.
+
