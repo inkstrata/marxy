@@ -373,7 +373,7 @@ const parseSnapshotPath = new URL('perf-parse.json', resultsDir);
 function writeParseMeasurement(median: number): void {
   mkdirSync(fileURLToPath(resultsDir), { recursive: true });
   const envClass = process.env.MARXY_PERF_ENV ?? (process.env.CI ? 'ci' : 'reference');
-  // Atomic and merged under a lock: desktop's palette test updates the same file at the same time.
+  // Written whole (temp file, then rename): desktop's palette test updates the same file at the same time.
   updateRecord(fileURLToPath(perfPath), (existing) => ({
     parse_long_technical_ms: median,
     env_class: existing.env_class ?? envClass,

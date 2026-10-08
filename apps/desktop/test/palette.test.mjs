@@ -335,7 +335,7 @@ test('keystroke to rows painted p95 stays under 16 ms on a 20k index', async () 
     assert.equal(samples.lat.length, 50, 'every keystroke was measured');
     assert.ok(Number.isFinite(samples.p95) && samples.p95 > 0, `palette keystroke p95 was not measured (${samples.p95})`);
     console.log(`palette keystroke p95 ${samples.p95.toFixed(1)} ms (16 ms product budget, ${budget.toFixed(1)} ms envelope here; recorded, ADR-0032)`);
-    // Atomic and merged under a lock: core's parse test updates the same file at the same time.
+    // Written whole (temp file, then rename): core's parse test updates the same file at the same time.
     updateRecord(join(repoRoot, 'results/perf.json'), (record) => ({
       env_class: record.env_class ?? 'reference',
       palette_keystroke_ms: Math.round(samples.p95 * 100) / 100,
