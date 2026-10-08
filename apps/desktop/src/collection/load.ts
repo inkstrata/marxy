@@ -206,7 +206,7 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
     for (const root of deps.recentRoots()) {
       if (stopped) return;
       if (isFilesystemRoot(root) || index.roots().includes(root)) continue;
-      await index.ensureRoot(root);
+      await index.ensureRoot(root, { recent: true });
     }
   });
 
