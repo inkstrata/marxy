@@ -268,6 +268,8 @@ test('the overlay draws a red box for every offender that has a position', async
 });
 
 test('two runs over the render entry produce an identical probe.json', { timeout: 900_000 }, async () => {
+  // Both runs share the file-level browser: a second WebKit beside it, driven by two workers, is what dies
+  // under load, and a probe that must be identical should not depend on how many browsers were alive.
   const opts = {
     ...DEFAULTS,
     ref: 'origin/main',
@@ -278,6 +280,7 @@ test('two runs over the render entry produce an identical probe.json', { timeout
     scrollbars: ['overlay', 'classic'],
     workers: 2,
     png: false,
+    browser,
   };
   const dumps = [];
   for (let i = 0; i < 2; i++) {
@@ -287,9 +290,48 @@ test('two runs over the render entry produce an identical probe.json', { timeout
       dumps.push(JSON.stringify(assemble(opts, rr)));
     } finally {
       rr.harness.close();
-      await rr.browser.close();
     }
   }
   assert.ok(dumps[0].length > 10_000, 'the probe measured nothing');
   assert.equal(dumps[0], dumps[1]);
+});
+
+// ---- Controls added in L-02.1: the right edge of body text, and the per-kind spacing survey.
+
+const LONG = 'A long paragraph of body text, set over several lines so that the longest of them must come close to the right edge of the column. '.repeat(6);
+
+test('negative control (right edge): a paragraph held in from the right is reported by that inset; a ragged one is not', async () => {
+  const bad = await measure(page(blk('p', 0, LONG).replace('<p ', '<p style="padding-right:60px" ')), 960);
+  assert.equal(bad.rightEdge.length, 1);
+  const [, lines, inset] = bad.rightEdge[0];
+  assert.ok(lines >= 4, `only ${lines} lines`);
+  assert.equal(inset, 60);
+  // Twin: the same text unpadded sets to the edge. Its lines are ragged, which is not read at all.
+  const ok = await measure(page(blk('p', 0, LONG)), 960);
+  assert.equal(ok.rightEdge[0][2], 0, JSON.stringify(ok.rightEdge));
+  // A margin holds the lines in just the same.
+  const margin = await measure(page(blk('p', 0, LONG).replace('<p ', '<p style="margin-right:40px" ')), 960);
+  assert.equal(margin.rightEdge[0][2], 40);
+  // Short paragraphs are held to the column too.
+  const short = await measure(page(PROSE.replace('<p ', '<p style="padding-right:60px" ')), 960);
+  assert.equal(short.rightEdge[0][2], 60);
+});
+
+test('the spacing survey reports, per kind of block, the element that falls shortest', async () => {
+  const p = await browser.newPage({ viewport: { width: 960, height: 900 } });
+  try {
+    const styled = (html, css) => html.replace(/^<(\w+) /, `<$1 style="${css}" `);
+    const body = PROSE + styled(blk('p', 1, 'second'), 'letter-spacing:0.1em !important') + blk('ul', 2, styled(blk('li', 3, 'one two'), 'word-spacing:0 !important')) + blk('h2', 4, 'Heading');
+    await p.setContent(page(body, { extraCss: '.marxy-article, .marxy-article *{letter-spacing:0.12em;word-spacing:0.16em}' }), { waitUntil: 'load' });
+    const { surveyInPage, spacingAppliedFailures } = await import('./probe-layout.mjs');
+    const s = await p.evaluate(surveyInPage);
+    assert.deepEqual(Object.keys(s.spacing).sort(), ['h', 'li', 'p']);
+    assert.equal(s.spacing.p.n, 2);
+    const failures = spacingAppliedFailures(s).filter((m) => /letter-spacing|word-spacing/.test(m));
+    assert.ok(failures.some((m) => m.startsWith('p: letter-spacing')), failures.join('; '));
+    assert.ok(failures.some((m) => m.startsWith('li: word-spacing')), failures.join('; '));
+    assert.ok(!failures.some((m) => m.startsWith('h:')), failures.join('; '));
+  } finally {
+    await p.close();
+  }
 });

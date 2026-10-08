@@ -1055,6 +1055,7 @@ function geometrySelftestCases() {
     `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${defaultThemeCss()}${extraCss}</style></head><body><main id="marxy-main">${before}<article id="doc" class="marxy-article">${body}</article></main></body></html>`;
   const blk = (tag, i, inner, style = '') => `<${tag} data-marxy-s="${i * 100}" data-marxy-e="${i * 100 + 99}"${style ? ` style="${style}"` : ''}>${inner}</${tag}>`;
   const PROSE = blk('p', 0, 'A short paragraph of body text that sits on the column and nowhere else.');
+  const LONG = 'A long paragraph of body text, set over several lines so that the longest of them must come close to the right edge of the column. '.repeat(6);
   const TALL = blk('div', 9, '', 'height:3000px');
   const REGION = '<div id="marxy-notices" role="status"></div>';
   const SOURCE = '<div id="marxy-source"><div class="cm-content"><div class="cm-line" style="height:30px">first line of source</div></div></div>';
@@ -1074,6 +1075,13 @@ function geometrySelftestCases() {
       html: themed(blk('p', 0, 'A paragraph that starts forty pixels in.', 'margin-left:40px')),
       ok: themed(PROSE),
       run: async (page) => details(checkBlockEdges(await measured(page))),
+    },
+    {
+      // A ragged right edge is not a fault; a paragraph held in from the right, so that no line reaches, is.
+      name: 'blockEdges (right edge)',
+      html: themed(blk('p', 0, LONG, 'padding-right:60px')),
+      ok: themed(blk('p', 0, LONG)),
+      run: async (page) => details(checkBlockEdges(await measured(page)).filter((f) => f.sub === 'p-right')),
     },
     {
       name: 'room (past the room)',
@@ -1138,6 +1146,26 @@ function geometrySelftestCases() {
       name: 'textSpacing (overrides applied)',
       html: themed(PROSE),
       ok: themed(PROSE, TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      // WCAG 1.4.12 is "at least": 0.1 em letter spacing is under 0.12 em and fails, 0.12 em or more does not.
+      name: 'textSpacing (letter spacing below the floor)',
+      html: themed(blk('p', 0, 'A paragraph held at 0.1 em.', 'letter-spacing:0.1em !important'), TEXT_SPACING_CSS),
+      ok: themed(blk('p', 0, 'A paragraph held at 0.2 em.', 'letter-spacing:0.2em !important'), TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      // The first paragraph is set right; a list item and a heading are not. Each kind is judged on its own.
+      name: 'textSpacing (every kind of block)',
+      html: themed(PROSE + blk('ul', 1, blk('li', 2, 'a list item with no word spacing', 'word-spacing:0 !important')), TEXT_SPACING_CSS),
+      ok: themed(PROSE + blk('ul', 1, blk('li', 2, 'a list item with word spacing')), TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      name: 'textSpacing (heading)',
+      html: themed(PROSE + blk('h2', 1, 'A heading with no letter spacing', 'letter-spacing:0 !important'), TEXT_SPACING_CSS),
+      ok: themed(PROSE + blk('h2', 1, 'A heading with letter spacing'), TEXT_SPACING_CSS),
       run: checkTextSpacing,
     },
     {
