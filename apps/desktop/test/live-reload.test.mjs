@@ -344,3 +344,42 @@ test('edits folded in from an earlier Source visit are kept when the file change
     await browser.close();
   }
 });
+
+test('text written at a held heading\'s first byte leaves the heading on the page (F-19)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const head = `# Alpha\n\n${para('Alpha').repeat(12)}\n\n`;
+    const tail = `## Bravo\n\n${para('Bravo').repeat(12)}\n`;
+    const inserted = `Written by another program.\n\n${para('Inserted').repeat(4)}\n\n`;
+    await boot(page, { '/r/A.md': b64(head + tail) }, ['/r/A.md']);
+    const bravoStart = Buffer.byteLength(head, 'utf8');
+    // Scroll until the reading position is the heading's start (the first block at the reading line).
+    const held = await page.evaluate((want) => {
+      const heading = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent.includes('Bravo'));
+      const top = heading.getBoundingClientRect().top + window.scrollY;
+      for (let y = top - 400; y <= top + 40; y += 4) {
+        window.scrollTo(0, y);
+        if (window.__marxyHandle.sourceHarness().byteOffset === want) return true;
+      }
+      return false;
+    }, bravoStart);
+    assert.ok(held, 'some scroll position holds the Bravo heading as the reading position');
+    await page.waitForFunction((want) => window.__marxyHandle.sourceHarness().byteOffset === want, bravoStart);
+    await page.evaluate(async (text) => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    }, head + inserted + tail);
+    await page.waitForFunction((snippet) => document.getElementById('doc')?.textContent?.includes(snippet), 'Written by another program.');
+    const want = Buffer.byteLength(head + inserted, 'utf8');
+    await page.waitForFunction((offset) => window.__marxyHandle.sourceHarness().byteOffset === offset, want);
+    const top = await page.evaluate(() => {
+      const heading = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent.includes('Bravo'));
+      return heading.getBoundingClientRect().top;
+    });
+    assert.ok(top >= 0 && top < 400, `the Bravo heading is near the top of the page after the write (top=${top})`);
+  } finally {
+    await browser.close();
+  }
+});

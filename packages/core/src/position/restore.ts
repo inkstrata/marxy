@@ -14,7 +14,12 @@ export function restorePosition(
   document: Document,
   edit?: { readonly before: Uint8Array; readonly after: Uint8Array },
 ): ReadingPosition {
-  const byteOffset = edit === undefined ? previous.byteOffset : offsetThroughEdit(previous.byteOffset, edit.before, edit.after);
+  const byteOffset =
+    edit === undefined
+      ? previous.byteOffset
+      : offsetThroughEdit(previous.byteOffset, edit.before, edit.after, (offset) =>
+          document.children.some((block) => block.src.start === offset),
+        );
   return {
     path: document.path,
     byteOffset,
@@ -27,17 +32,39 @@ export function restorePosition(
  * Where `offset` in `before` is in `after`. The two differ in one run between their longest common
  * prefix and suffix: an offset before the run stays, one after it moves by the change in length, and
  * one inside it lands where the run starts — the nearest place both versions still agree on.
+ * An offset exactly where text was inserted is ambiguous: the reader was either at the gap or at the
+ * block that began there. When `startsBlock` says a block starts where that offset lands after the
+ * insertion, the block moved and the offset follows it; otherwise it stays.
  */
-export function offsetThroughEdit(offset: number, before: Uint8Array, after: Uint8Array): number {
+export function offsetThroughEdit(
+  offset: number,
+  before: Uint8Array,
+  after: Uint8Array,
+  startsBlock?: (offset: number) => boolean,
+): number {
   const limit = Math.min(before.length, after.length);
   let prefix = 0;
   while (prefix < limit && before[prefix] === after[prefix]) prefix++;
-  if (offset <= prefix) return offset;
+  if (offset <= prefix) {
+    // The longest common prefix may run past the offset when the inserted text repeats bytes the
+    // block starts with, so check the insertion at the offset itself: everything from the offset on
+    // survives, shifted.
+    const moved = offset + (after.length - before.length);
+    if (moved > offset && startsBlock?.(moved) === true && endsWith(before, offset, after, moved)) return moved;
+    return offset;
+  }
   let suffix = 0;
   while (suffix < limit - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
   const changedEnd = before.length - suffix;
   if (offset >= changedEnd) return offset + (after.length - before.length);
   return prefix;
+}
+
+/** Whether `a` from `aFrom` to its end is byte-for-byte `b` from `bFrom` to its end. */
+function endsWith(a: Uint8Array, aFrom: number, b: Uint8Array, bFrom: number): boolean {
+  if (a.length - aFrom !== b.length - bFrom) return false;
+  for (let i = aFrom, j = bFrom; i < a.length; i++, j++) if (a[i] !== b[j]) return false;
+  return true;
 }
 
 /**
