@@ -6,6 +6,8 @@
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { IndexService } from '../index/service.ts';
+import type { IndexEntry } from '@marxy/core';
+import type { IndexFeed } from '../palette/index-feed.ts';
 
 export interface TreeWatchShell {
   watch?(
@@ -118,4 +120,25 @@ export function onPaletteSummon(dialog: HTMLDialogElement, onSummon: () => void)
   });
   observer.observe(dialog, { attributes: true, attributeFilter: ['open'] });
   return () => observer.disconnect();
+}
+
+/**
+ * Feed the palette from the index for the whole session and keep it fresh (A-04, C-11): a watch
+ * event's patch changes only its rows, anything else rebuilds what the palette searches; watched
+ * folders get their tree watches, and summoning the palette re-walks a folder that could not be watched.
+ */
+export function keepFresh(
+  handle: { readonly shell: TreeWatchShell; readonly index: IndexService },
+  palette: { readonly feed: Pick<IndexFeed, 'applyPatch' | 'setWatchNotice'>; setIndexEntries(entries: readonly IndexEntry[]): void },
+  dialog: Element | null = typeof document === 'undefined' ? null : document.getElementById('marxy-palette'),
+): TreeWatchHandle {
+  const { index } = handle;
+  index.subscribe((entries, patch) => {
+    palette.feed.setWatchNotice(index.watchNotice());
+    if (patch) palette.feed.applyPatch(entries, patch);
+    else palette.setIndexEntries(entries);
+  });
+  const trees = startTreeWatches({ shell: handle.shell, index });
+  if (typeof HTMLDialogElement !== 'undefined' && dialog instanceof HTMLDialogElement) onPaletteSummon(dialog, () => index.revalidate());
+  return trees;
 }
