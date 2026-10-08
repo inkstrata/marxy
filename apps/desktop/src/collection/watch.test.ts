@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
-import { createIndexService, REVALIDATE_MIN_MS, type IndexPatch } from '../index/service.ts';
+import { createIndexService, HOME_REVALIDATE_MIN_MS, REVALIDATE_MIN_MS, type IndexPatch } from '../index/service.ts';
 import { createIndexFeed } from '../palette/index-feed.ts';
 import { emptySession } from '../palette/session.ts';
 import { createMemoryShell } from '../shell/memory.ts';
@@ -266,6 +266,41 @@ test('a declared home folder opens no recursive watch and is rescanned on summon
   await trees.settled();
   const recursive = shell.calls.filter((c) => c.method === 'watch' && (c.args[1] as { recursive?: boolean })?.recursive).map((c) => c.args[0]);
   assert.deepEqual(recursive, ['/n'], 'only the ordinary folder is watched');
-  assert.match(index.watchNotice() ?? '', /ian/, 'the palette line says the home folder is not watched');
+  assert.match(index.watchNotice() ?? '', /^Not watching your home folder;/, 'the palette line says the home folder is not watched');
   trees.stop();
+});
+
+test('a summon rescans a refused home folder no sooner than HOME_REVALIDATE_MIN_MS, an ordinary tree at REVALIDATE_MIN_MS (C-10.1)', async () => {
+  const home = '/Users/ian';
+  const shell = createMemoryShell({ [`${home}/notes.md`]: enc('# N\n'), '/n/notes.md': enc('# Notes\n') });
+  const host = { ...shell, configPaths: async () => ({ config: `${home}/.config/marxy`, data: '/data' }) };
+  const watch = shell.watch;
+  host.watch = async (root, onEvents, opts) => {
+    if (opts?.recursive && root === '/n') throw new Error('/n: too many files');
+    return watch(root, onEvents, opts);
+  };
+  let clock = 1_000;
+  const index = createIndexService(host, { now: () => clock, notify: () => {} });
+  await index.ensureRoot(home, { watch: true });
+  await index.ensureRoot('/n', { watch: true });
+  await index.settled();
+  const trees = startTreeWatches({ shell: host, index });
+  await trees.settled();
+  const walks = (root: string) =>
+    shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded' && String(c.args[2]).includes(`root=${root} `)).length;
+  const summon = async () => {
+    const before = [walks(home), walks('/n')];
+    index.revalidate();
+    await index.settled();
+    return { home: walks(home) - before[0]!, n: walks('/n') - before[1]! };
+  };
+  assert.deepEqual(await summon(), { home: 1, n: 1 }, 'the first summon walks both');
+  clock += REVALIDATE_MIN_MS;
+  assert.deepEqual(await summon(), { home: 0, n: 1 }, 'thirty seconds on, the home folder is left alone and an ordinary tree is rescanned');
+  clock += HOME_REVALIDATE_MIN_MS - REVALIDATE_MIN_MS - 1;
+  assert.equal((await summon()).home, 0, 'one millisecond short of HOME_REVALIDATE_MIN_MS it is still left alone');
+  clock += 1;
+  assert.equal((await summon()).home, 1, 'at HOME_REVALIDATE_MIN_MS it is rescanned');
+  trees.stop();
+  await trees.settled();
 });

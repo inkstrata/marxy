@@ -753,7 +753,7 @@ nodeTest('a walk of ~ stops at its directory budget with one notice, shallow fol
   assert.equal(listed(shell).filter((d) => d.startsWith(HOME)).length, 6, 'exactly the budget is listed');
   assert.equal(said.length, 1);
   assert.match(said[0], /too large to index in full/);
-  assert.match(said[0], /ian/);
+  assert.match(said[0], /^Your home folder is too large/);
   // Breadth first: the root and five of its twelve children are kept, not one chain to the bottom.
   assert.ok(!listed(shell).some((d) => d.endsWith('/deep')), 'no folder two levels down was listed');
   // Walked again (settings change), the notice does not stack.
@@ -805,6 +805,38 @@ nodeTest('a recent ~/Downloads loads from its snapshot and is not walked; a rece
   assert.ok(listed(second.shell).includes(downloads), 'declared, it is walked');
 });
 
+nodeTest('startCollection serves a recent ~/Downloads from its snapshot and walks it only when a document in it is opened (C-10.1)', async () => {
+  const { startCollection } = await import('../src/collection/load.ts');
+  const downloads = `${HOME}/Downloads`;
+  const files = { [`${downloads}/loose.md`]: enc('# Loose\n'), '/r/.git/HEAD': enc('x'), '/r/a.md': enc('# A\n') };
+  const first = homeShell(files);
+  const wrote = createIndexService(first.host);
+  await wrote.ensureFor(`${downloads}/loose.md`);
+  const snap = `/data/index-${await sha1(downloads)}.json`;
+  const second = homeShell({ ...files, [snap]: await first.shell.readFile(snap) });
+  const service = createIndexService(second.host);
+  const feed = { setDeclared() {}, setCurrent() {}, entries: () => service.entries() };
+  const collection = startCollection({
+    shell: second.host,
+    index: service,
+    feed,
+    currentPath: () => null,
+    recentRoots: () => [downloads, '/r'],
+    notify: () => {},
+  });
+  await collection.recentLoaded;
+  await service.settled();
+  assert.ok(!listed(second.shell).includes(downloads), 'Downloads was not listed');
+  assert.ok(service.entries().some((e) => e.path === `${downloads}/loose.md`), 'its snapshot entry is held');
+  assert.ok(listed(second.shell).includes('/r'), 'the repository was listed');
+  // Opening a document in it is a reader action: now it is walked.
+  await service.ensureFor(`${downloads}/loose.md`);
+  await service.settled();
+  const walked = second.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'index_loaded' && c.args[2].includes(`root=${downloads} source=walk`));
+  assert.ok(walked, 'opening a document in it walks it');
+  collection.stop();
+});
+
 nodeTest('a snapshot of ~ written before Library was skipped never serves its files (C-10.1)', async () => {
   const { shell, host } = homeShell(homeTree());
   const stale = {
@@ -840,7 +872,7 @@ nodeTest('the notice names the folders actually skipped, once, and a walk with n
   const service = createIndexService(host, { notify: sayInto(said) });
   await service.ensureRoot(HOME, { watch: true });
   assert.deepEqual(said, [
-    'ian does not include Desktop, Documents, Downloads and Library, which macOS protects. To include one, add that folder itself (for example ~/Documents).',
+    'Your home folder does not include Desktop, Documents, Downloads and Library, which macOS protects. To include one, add that folder itself (for example ~/Documents).',
   ]);
   service.setDeny([]);
   const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');

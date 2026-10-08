@@ -7,9 +7,9 @@
 // deny list for every root held: read from collection.toml before the first walk, replaced by `setDeny`.
 // A watched root stays fresh from its tree watch (C-11, `collection/watch.ts`): a batch of events is
 // planned against the root (`planEvents`), each changed file is stat'ed and its head read again, and
+// subscribers get the patch `{ root, upserted, removed }` rather than a rebuild.
 // A home-sized root (`home-sized.ts`, C-10.1) is walked under a directory budget with one notice when it is hit,
 // never lists the home folders macOS guards, and a recent one is served from its snapshot only.
-// subscribers get the patch `{ root, upserted, removed }` rather than a rebuild.
 import type { IndexEntry } from '@marxy/core';
 import { INDEX_LIMITS } from '@marxy/core/src/contracts/index-entry.ts';
 import { planEvents, type FileEvent } from '@marxy/core/src/index-model/apply-events.ts';
@@ -132,6 +132,8 @@ export interface IndexService {
  * such walk, so a reader who opens the palette in a loop does not walk a large tree each time.
  */
 export const REVALIDATE_MIN_MS = 30_000;
+/** The same, for a home-sized root (C-10.1): its walk lists thousands of folders, so a summon asks for it less often. */
+export const HOME_REVALIDATE_MIN_MS = 300_000;
 
 /** A root's snapshot is written at most once in this many ms while watch events patch it. */
 export const PATCH_PERSIST_INTERVAL_MS = 2000;
@@ -270,6 +272,8 @@ interface RootState {
   checkouts?: ReadonlyMap<string, string>;
   /** A recent home-sized root: its snapshot is all it has, and nothing walks it (C-10.1). */
   snapshotOnly?: boolean;
+  /** Walked under a budget (C-10.1): a summon rescans it at `HOME_REVALIDATE_MIN_MS`, not `REVALIDATE_MIN_MS`. */
+  homeSized?: boolean;
   /** Watch events waiting for the next patch. */
   events: FileEvent[];
   /** A patch is queued on `pending` and has not started yet. */
@@ -344,12 +348,14 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   /** Roots whose walk stopped at its budget and said so this session: one notice each. */
   const budgetSaid = new Set<string>();
   let homeRead: Promise<string | undefined> | undefined;
+  let homeKnown: string | undefined;
   /** The home directory, recovered from the config directory as `~` is; undefined when it cannot be. */
   const homeDir = (): Promise<string | undefined> => {
     homeRead ??= (async () => {
       try {
         if (!shell.configPaths) return undefined;
         const home = inferHomeFromConfig((await shell.configPaths()).config);
+        homeKnown = home === '/' ? undefined : normalizePath(home);
         return home === '/' ? undefined : home;
       } catch {
         return undefined;
@@ -357,6 +363,9 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     })();
     return homeRead;
   };
+  /** How a notice names a root: the home folder is "Your home folder", not the reader's account name. */
+  const rootName = (root: string): string => (homeKnown !== undefined && normalizePath(root) === homeKnown ? 'Your home folder' : nameOf(root));
+  const treeName = (tree: string): string => (homeKnown !== undefined && normalizePath(tree) === homeKnown ? 'your home folder' : basename(tree) || tree);
   const policyFor = async (root: string): Promise<WalkPolicy> => walkPolicy(root, await homeDir(), walkBudget);
   /** Roots, most recently ensured first. */
   let order: string[] = [];
@@ -444,10 +453,10 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
         if (skipped && skipped.length > 0) {
           const names = skipped.map(basename).sort();
           const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-          parts.push(`${nameOf(root)} does not include ${list}, which macOS protects. To include one, add that folder itself (for example ~/Documents).`);
+          parts.push(`${rootName(root)} does not include ${list}, which macOS protects. To include one, add that folder itself (for example ~/Documents).`);
         }
         if (stoppedAt !== undefined) {
-          parts.push(`${parts.length > 0 ? 'It is' : `${nameOf(root)} is`} too large to index in full: Marxy listed its first ${stoppedAt.toLocaleString()} folders. Add a smaller folder to see the rest.`);
+          parts.push(`${parts.length > 0 ? 'It is' : `${rootName(root)} is`} too large to index in full: Marxy listed its first ${stoppedAt.toLocaleString()} folders. Add a smaller folder to see the rest.`);
         }
         say({ kind: 'info', text: parts.join(' ') });
       }
@@ -508,6 +517,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       const policy = await policyFor(root);
       const deny = snapshot ? await denyRules() : [];
       state.snapshotOnly = recent && policy.snapshotOnlyWhenRecent;
+      state.homeSized = policy.budget !== undefined;
       if (snapshot && roots.get(root) === state) {
         state.snapshot = snapshot;
         state.baselineMs = snapshot.baselineMs;
@@ -702,7 +712,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   const watchNotice = (): string | undefined => {
     const refused = [...treeWatches].filter(([, state]) => state === 'refused').map(([tree]) => tree);
     if (refused.length === 0) return undefined;
-    return refused.map((tree) => `Not watching ${basename(tree) || tree}; rescanned when you open the palette.`).join(' ');
+    return refused.map((tree) => `Not watching ${treeName(tree)}; rescanned when you open the palette.`).join(' ');
   };
 
   return {
@@ -811,7 +821,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       for (const root of order) {
         if (!refused.some((tree) => isUnder(root, tree))) continue;
         const last = revalidatedAt.get(root);
-        if (last !== undefined && t - last < REVALIDATE_MIN_MS) continue;
+        if (last !== undefined && t - last < (roots.get(root)?.homeSized ? HOME_REVALIDATE_MIN_MS : REVALIDATE_MIN_MS)) continue;
         revalidatedAt.set(root, t);
         rewalk(root);
       }
