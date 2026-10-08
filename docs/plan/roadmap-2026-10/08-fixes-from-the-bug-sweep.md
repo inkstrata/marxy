@@ -248,3 +248,15 @@ directory while the link itself now dangles. A link entry never pairs as a renam
 already used), and the extra roots (target parents) are computed once at open, so a link retargeted into a new
 directory relies on the 200 ms poll; say so in a comment. Acceptance: renaming the target of an open link shows the
 removal notice; renaming a plain open file still follows it.
+
+### F-16.1 — The theme loader escapes the asset URL it inserts
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-16 · *From the F-16 review.* · **Paths:**
+`packages/theme/src/css-urls.ts`, its tests.
+The final substitution writes the caller's `assetUrl(path)` into `url("…")` escaping only `"`: a backslash or a line
+break in the result can end the string early. Unreachable in Tauri (`convertFileSrc` percent-encodes); the loader
+should not rely on that. Escape `\` and `\n`/`\r`/`\f` for a CSS string (or refuse such a result with a warning).
+While there, `image-set` string candidates lose their `type()` and resolution descriptors (pre-existing); keep them
+if the change is small. Acceptance: a callback returning `a\` or `a\nb){x:url(https://evil.example/q)}` yields one
+url token and no remote URL outside a string; ordinary results are byte-identical.
+

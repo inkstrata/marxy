@@ -1044,6 +1044,11 @@ the tree); C-05's key filter keeps them apart, but verify one reload per change 
 folder with very frequent writes (a log) could patch continuously; report if the debounce is not
 enough.
 
+**From the C-10 review (2026-10-07).** `isWatched` is true for the current repository and for declared roots with
+`watch = true`; a declared folder nested inside a watched repository would be watched twice while its entries dedupe
+under the outer root, so watch distinct trees only. `dropRoot` clears the declared flag even when the root stays as
+a recent or current root.
+
 ---
 
 ### C-12 — The empty palette shows Pinned, Changed since you read, and Recent, each with its age
@@ -1491,3 +1496,15 @@ paths in `collection.toml` is lifted.
 
 **Acceptance.** On POSIX, `a\b` survives normalisation and joining; on Windows, `C:\x\y` still normalises; a
 round trip through the index keeps a backslash name.
+
+### C-10.1 — Bound the walk of a home-sized root
+
+**Model:** sonnet · **Size:** M · **Depends on:** C-10 · *Added 2026-10-07 by the lead, from the C-10 review.*
+A root at or above the home directory (`~`, `/Volumes/X`, or a recent root of `~/Downloads` left by opening a loose
+file) is walked at idle on every launch. The prefetch in `walk.ts` lists every directory with no budget (the 50k
+cap applies after the walk), and descending `~/Library` can raise macOS folder-permission prompts the reader never
+asked for. Give the walk a budget (directories or entries) with one plain notice when it is hit, serve a recent root
+at or above `~` from its snapshot only, and never descend `~/Library`. Acceptance: a declared `~` stops at the
+budget with one notice and no permission prompt path is listed; a recent `~/Downloads` loads from its snapshot
+without a walk; an ordinary repository is unaffected.
+
