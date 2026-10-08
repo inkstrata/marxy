@@ -258,8 +258,52 @@ export const fencedCodeMarker: MdastExtension = {
       const node = this.stack[this.stack.length - 1];
       if (node?.type === 'code') fencedCode.add(node);
     },
+    // No other handler takes a line ending on entry; mdast appends it to the code's buffer on exit.
+    lineEnding(this: CompileContext, token) {
+      const top = this.stack[this.stack.length - 1];
+      const node = this.stack[this.stack.length - 2];
+      if (top?.type !== 'fragment' || node?.type !== 'code') return;
+      const tail = top.children[top.children.length - 1];
+      const endings = codeEndings.get(node) ?? [];
+      endings.push({ at: tail?.type === 'text' ? tail.value.length : 0, text: this.sliceSerialize(token) });
+      codeEndings.set(node, endings);
+    },
   },
 };
+
+/**
+ * Where each line ending of a code block sits in the text mdast builds its value from, recorded by
+ * `fencedCodeMarker`. mdast trims that text with `/^(\r?\n|\r)|(\r?\n|\r)$/`, meaning to drop the
+ * opening fence's line ending and the last line's. A CR, a line of indentation alone (which leaves no
+ * text) and an LF read as one CRLF there, so the trim takes a blank line with it (F-20.1).
+ */
+const codeEndings = new WeakMap<object, { at: number; text: string }[]>();
+
+/**
+ * The code block's value with one line ending trimmed at each end, as CommonMark has it, whatever
+ * mdast's trim took. `value` is mdast's; the text it came from is rebuilt from it and the endings.
+ */
+function codeValue(node: md.Code, fenced: boolean): string {
+  const endings = codeEndings.get(node);
+  // Without a lone CR the trim cannot take two endings for one.
+  if (!endings || !endings.some((ending) => ending.text === '\r')) return node.value;
+  const charAt = (index: number): string => {
+    const ending = endings.find((candidate) => index >= candidate.at && index < candidate.at + candidate.text.length);
+    return ending ? ending.text[index - ending.at]! : '';
+  };
+  // What mdast's trim took from the front: only a fenced block's text starts with a line ending.
+  const opens = fenced && endings[0]!.at === 0;
+  const lead = !opens ? 0 : charAt(0) === '\r' && charAt(1) === '\n' ? 2 : 1;
+  const last = endings[endings.length - 1]!;
+  const length = Math.max(lead + node.value.length, last.at + last.text.length);
+  let head = '';
+  for (let index = 0; index < lead; index++) head += charAt(index);
+  let tail = '';
+  for (let index = lead + node.value.length; index < length; index++) tail += charAt(index);
+  const start = opens ? endings[0]!.text.length : 0;
+  const end = last.at + last.text.length === length ? last.at : length;
+  return (head + node.value + tail).slice(start, Math.max(start, end));
+}
 
 function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
   const [start, end] = utf16Range(node, ctx);
@@ -268,9 +312,10 @@ function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
     throw new Error(`parse: ${ctx.file} was built without fencedCodeMarker, so its code blocks cannot tell a fence from indentation`);
   }
   const fenced = fencedCode.has(node);
+  const value = codeValue(node, fenced);
   const base = {
-    type: 'codeBlock' as const, src, value: node.value,
-    content: contentRange(raw, node.value, fenced, start, end, ctx),
+    type: 'codeBlock' as const, src, value,
+    content: contentRange(raw, value, fenced, start, end, ctx),
   };
   const info = fenced ? infoString(raw) : undefined;
   return {
@@ -296,12 +341,17 @@ function contentRange(raw: string, value: string, fenced: boolean, start: number
   const offset = openEnding === undefined ? 0 : openEnding.end;
   if (value.length === 0) return span(start + offset, start + offset, ctx);
   let cursor = offset;
-  // value keeps the document's own endings (CR, CRLF or LF); counting on a bare LF would
-  // collapse a multi-line Classic Mac block to a single line.
-  for (let line = splitLines(value).length; line > 0; line--) {
+  // value keeps the document's own endings (CR, CRLF or LF), one for each of the source's, so the two
+  // are walked side by side. Counting on a bare LF would collapse a multi-line Classic Mac block to a
+  // single line, and splitting the value on its own would read a CR, then a line of indentation
+  // alone, then an LF as one CRLF (F-20.1).
+  for (let index = 0; ; ) {
     const ending = nextLineEnding(raw, cursor);
     if (ending === undefined) return span(start + offset, end, ctx);
     cursor = ending.end;
+    const next = nextLineEnding(value, index);
+    if (next === undefined) break;
+    index = next.start + ending.end - ending.start;
   }
   return span(start + offset, start + cursor, ctx);
 }
