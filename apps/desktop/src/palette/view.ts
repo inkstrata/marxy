@@ -1,6 +1,7 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
+import type { ContentHit, Shell } from '@marxy/shell-api';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
 import { setAppHandle, setPalette } from '../commands/app-handle.ts';
@@ -9,6 +10,14 @@ import { withPaletteListing } from '../commands/navigation.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
 import { copyDefault, markdownCopy } from '../selection/verbs.ts';
+import {
+  contentQuery,
+  createContentSearch,
+  CONTENT_ROW_LIMIT,
+  HINT_NOTICE,
+  type ContentSearch,
+  type ContentState,
+} from './content.ts';
 import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
 import {
@@ -34,7 +43,7 @@ import {
 } from './session.ts';
 
 export type PaletteListSection = 'documents' | 'headings' | 'operations';
-export type PalettePhase = 'empty' | 'typing' | 'operations';
+export type PalettePhase = 'empty' | 'typing' | 'operations' | 'content';
 
 export const PALETTE_ROW_LIMIT = 12;
 
@@ -46,6 +55,8 @@ export interface PaletteModel {
   readonly operationCommands: readonly Command[];
   readonly selected: number;
   readonly notice?: string;
+  /** The content phase only (C-17): the matches painted, in the order the shell returned them. */
+  readonly contentHits?: readonly ContentHit[];
   /** The empty phase only: `hits` is these sections' rows in order, so a row index never counts a label. */
   readonly sections?: readonly EmptySection[];
 }
@@ -64,6 +75,12 @@ export interface PaletteDeps {
    * never writes `#doc` itself, so the app never holds one file's buffer while showing another.
    */
   readonly openDocument: (path: string, at?: number) => Promise<void>;
+  /** Selects the innermost block of the open document that holds `byte` (the rendered selection, C-17). */
+  readonly selectBlockAtByte?: (byte: number) => void;
+  /** Content search for `/` queries (C-16). Without it the `/` phase says so and finds nothing. */
+  readonly searchContent?: Shell['searchContent'];
+  /** Milliseconds a content query waits for the next keystroke; 120 unless a test says otherwise. */
+  readonly contentDebounceMs?: number;
   /** Whether a root is watched (the index service's `isWatched`). Read on each summon, never held. */
   readonly isWatched?: (root: string) => boolean;
   /** When Marxy first indexed a root (the index service's `baselineMs`). */
@@ -110,6 +127,7 @@ function palettePhase(query: string, section: PaletteListSection): PalettePhase 
   const trimmed = query.trim();
   if (trimmed.length === 0) return 'empty';
   if (trimmed.startsWith('>')) return 'operations';
+  if (trimmed.startsWith('/')) return 'content';
   return 'typing';
 }
 
@@ -157,8 +175,22 @@ function queryPalette(
   fold: FoldCopies | undefined,
   scopeNotice: string | undefined,
   emptySections: () => readonly EmptySection[],
+  content: ContentState,
 ): PaletteModel {
   const phase = palettePhase(query, section);
+  if (phase === 'content') {
+    // Never the fuzzy matcher: the shell's scan answers, after a pause (content.ts).
+    return {
+      phase,
+      section: 'documents',
+      query,
+      hits: [],
+      operationCommands: [],
+      selected: 0,
+      notice: content.notice,
+      contentHits: content.hits.slice(0, CONTENT_ROW_LIMIT),
+    };
+  }
   if (phase === 'operations') {
     const operationCommands = commandsForPalette(query);
     return {
@@ -294,6 +326,32 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette .marxy-palette-heading {
       opacity: 0.75;
       margin-left: 0.35rem;
+    }
+    #marxy-palette .marxy-palette-hit-head { display: flex; gap: 0.6em; align-items: baseline; }
+    #marxy-palette .marxy-palette-hit-head .marxy-palette-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #marxy-palette .marxy-palette-line {
+      flex: none;
+      color: var(--marxy-color-text-secondary, #a39e94);
+      font-size: 0.85em;
+      font-variant-numeric: tabular-nums;
+    }
+    #marxy-palette .marxy-palette-preview {
+      color: var(--marxy-color-text-secondary, #a39e94);
+      font-size: 0.85em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #marxy-palette .marxy-palette-match {
+      background: transparent;
+      color: var(--marxy-color-text, #eee);
+      font-weight: 600;
+      text-decoration: underline;
     }
     #marxy-palette .marxy-palette-notice {
       margin: 0;
@@ -498,6 +556,46 @@ function paintEmptyRows(
   list.replaceChildren(next);
 }
 
+/** A content hit's row: the document's title, `· line N`, and a dim preview with the match marked (textContent only). */
+function paintContentRows(
+  list: HTMLOListElement,
+  hits: readonly ContentHit[],
+  titleOf: (path: string) => string,
+  selected: number,
+): void {
+  const doc = ownerDocumentOf(list);
+  const next = doc.createDocumentFragment();
+  for (let i = 0; i < hits.length; i++) {
+    const hit = hits[i]!;
+    const row = doc.createElement('li') as HTMLLIElement;
+    row.className = 'marxy-palette-row marxy-palette-hit';
+    row.dataset.rowKey = `${hit.path}:${hit.byteOffset}`;
+    row.setAttribute('role', 'option');
+    const head = doc.createElement('div') as HTMLDivElement;
+    head.className = 'marxy-palette-hit-head';
+    const title = doc.createElement('span') as HTMLSpanElement;
+    title.className = 'marxy-palette-title';
+    title.textContent = titleOf(hit.path);
+    const line = doc.createElement('span') as HTMLSpanElement;
+    line.className = 'marxy-palette-line';
+    line.textContent = `· line ${hit.line}`;
+    head.append(title, line);
+    const preview = doc.createElement('div') as HTMLDivElement;
+    preview.className = 'marxy-palette-preview';
+    const start = Math.min(Math.max(0, hit.matchStart), hit.preview.length);
+    const end = Math.min(Math.max(start, hit.matchEnd), hit.preview.length);
+    const mark = doc.createElement('mark') as HTMLElement;
+    mark.className = 'marxy-palette-match';
+    mark.textContent = hit.preview.slice(start, end);
+    preview.append(hit.preview.slice(0, start), mark, hit.preview.slice(end));
+    row.append(head, preview);
+    row.setAttribute('aria-label', `${titleOf(hit.path)}, line ${hit.line}: ${hit.preview}`);
+    row.toggleAttribute('aria-selected', i === selected);
+    next.appendChild(row);
+  }
+  list.replaceChildren(next);
+}
+
 function paintRows(
   list: HTMLOListElement,
   hits: readonly IndexHit[],
@@ -567,8 +665,43 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     const open = deps.getCurrentPath();
     return { keyOf, currentCheckout: (open === null ? undefined : keyOf(open)?.checkout) ?? session.currentRoot };
   };
+  // C-17: the latest answer of the content search. Only the `/` phase reads it.
+  let contentState: ContentState = { status: 'hint', notice: HINT_NOTICE, hits: [] };
+  const titleCache: { entries?: readonly IndexEntry[]; byPath: Map<string, string> } = { byPath: new Map() };
+  const titleOf = (path: string): string => {
+    const entries = feed.entries();
+    if (titleCache.entries !== entries) {
+      titleCache.entries = entries;
+      titleCache.byPath = new Map(entries.map((entry) => [entry.path, entry.title]));
+    }
+    return titleCache.byPath.get(path) ?? path.slice(path.lastIndexOf('/') + 1);
+  };
+  const search: ContentSearch | undefined =
+    deps.searchContent === undefined
+      ? undefined
+      : createContentSearch(
+          { searchContent: deps.searchContent, mark: (name, t, data) => deps.shell.mark(name, t, data) },
+          () => {
+            const entries = feed.entries();
+            const roots = new Set<string>();
+            for (const entry of entries) roots.add(entry.root);
+            return { paths: entries.map((entry) => entry.path), roots: [...roots] };
+          },
+          (state) => {
+            contentState = state;
+            if (open && palettePhase(input.value, section) === 'content') repaint();
+          },
+          { debounceMs: deps.contentDebounceMs },
+        );
+  /** Starts, restarts or cancels the content search for what the input holds now. */
+  const syncContent = () => {
+    const phrase = contentQuery(input.value);
+    if (phrase === null || section === 'operations') search?.update(null);
+    else if (search === undefined) contentState = { status: 'failed', notice: 'Content search is not available here', hits: [] };
+    else search.update(phrase);
+  };
   const query = (text: string) =>
-    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections);
+    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections, contentState);
   const decor: RowDecor = {
     // Empty: every row has its age. Typed: only a document in a watched root does.
     age: (hit) =>
@@ -577,6 +710,13 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
         : undefined,
     changed: (hit) =>
       watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root), now()),
+  };
+  const rowCountOf = (m: PaletteModel): number =>
+    m.phase === 'operations' ? m.operationCommands.length : m.phase === 'content' ? (m.contentHits?.length ?? 0) : m.hits.length;
+  const paintModel = () => {
+    if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
+    else if (model.phase === 'content') paintContentRows(list, model.contentHits ?? [], titleOf, selected);
+    else paintDocuments();
   };
   const paintDocuments = () => {
     if (model.phase === 'empty' && model.sections !== undefined) {
@@ -593,11 +733,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
 
   const repaint = (markPerf?: number) => {
     model = query(input.value);
-    const rowCount =
-      model.phase === 'operations' ? model.operationCommands.length : model.hits.length;
-    selected = Math.min(selected, Math.max(0, rowCount - 1));
-    if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
-    else paintDocuments();
+    selected = Math.min(selected, Math.max(0, rowCountOf(model) - 1));
+    paintModel();
     if (model.notice) {
       notice.textContent = model.notice;
       notice.hidden = false;
@@ -616,6 +753,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     deps.onSummon?.();
     if (typeof withQuery === 'string') selected = 0;
     input.value = typeof withQuery === 'string' ? withQuery : model.query;
+    syncContent();
     repaint();
     input.focus();
     // A given query is kept and typed after (`>` then the action's name); a remembered one is replaced.
@@ -625,6 +763,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
 
   const dismiss = () => {
     open = false;
+    search?.cancel();
     if (deps.dialog.open) deps.dialog.close();
   };
 
@@ -646,6 +785,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (index < 0) return;
     if (model.phase === 'operations') {
       runPaletteCommand(model.operationCommands[index]);
+    } else if (model.phase === 'content') {
+      void activateContentHit(model.contentHits?.[index]);
     } else {
       void activateHit(model.hits[index]);
     }
@@ -664,9 +805,25 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     await renderPath(deps, jump.path, jump.byteOffset);
   };
 
+  const rootOf = (path: string): string => {
+    for (const entry of feed.entries()) if (entry.path === path) return entry.root;
+    return session.currentRoot;
+  };
+  /** Open the file at the match and select the block that holds it (C-17). */
+  const activateContentHit = async (hit: ContentHit | undefined) => {
+    if (hit === undefined) return;
+    session = recordOpen(session, hit.path, rootOf(hit.path));
+    syncSession();
+    dismiss();
+    setTimeout(() => feed.refresh(), 0);
+    await renderPath(deps, hit.path, hit.byteOffset);
+    deps.selectBlockAtByte?.(hit.byteOffset);
+  };
+
   input.addEventListener('input', () => {
     selected = 0;
     const started = performance.now();
+    syncContent();
     repaint();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -686,31 +843,31 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     }
     if (event.key === 'Tab') {
       event.preventDefault();
+      if (model.phase === 'content') return;
       section = toggleListSection(section, model.phase);
       selected = 0;
       repaint();
       return;
     }
-    const rowCount =
-      model.phase === 'operations' ? model.operationCommands.length : model.hits.length;
+    const rowCount = rowCountOf(model);
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      selected = Math.min(rowCount - 1, selected + 1);
-      if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
-      else paintDocuments();
+      selected = Math.max(0, Math.min(rowCount - 1, selected + 1));
+      paintModel();
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       selected = Math.max(0, selected - 1);
-      if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
-      else paintDocuments();
+      paintModel();
       return;
     }
     if (event.key === 'Enter') {
       event.preventDefault();
       if (model.phase === 'operations') {
         runPaletteCommand(model.operationCommands[selected]);
+      } else if (model.phase === 'content') {
+        void activateContentHit(model.contentHits?.[selected]);
       } else {
         void activateHit(model.hits[selected]);
       }
@@ -722,6 +879,16 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       event.preventDefault();
       if (open) dismiss();
       else summon();
+    }
+    if (isMod(event) && event.key === '.' && open && model.phase === 'content') {
+      const found = model.contentHits?.[selected];
+      if (found !== undefined) {
+        event.preventDefault();
+        session = togglePin(session, found.path);
+        syncSession();
+        repaint();
+      }
+      return;
     }
     if (isMod(event) && event.key === '.' && open) {
       const hit = model.hits[selected];
@@ -789,6 +956,9 @@ export function mountPaletteFromHandle(
     getCurrentPath: () => handle.currentPath() ?? opts?.initialPath ?? null,
     setCurrentPath: () => {},
     openDocument: (path, at) => handle.open(path, { at }),
+    selectBlockAtByte: (byte) => handle.selection.selectBlockAtByte(byte),
+    // The real shells have it (C-16); `AppShell` is the narrower type the app is built against.
+    searchContent: (handle.shell as AppShell & Partial<Pick<Shell, 'searchContent'>>).searchContent?.bind(handle.shell),
     // Looked up on each call: the service's answers move as roots are walked and watched.
     isWatched: (root) => handle.index.isWatched(root),
     baselineMs: (root) => handle.index.baselineMs(root),
