@@ -570,6 +570,7 @@ a:focus .marxy-link-dest { display: inline; }
 #marxy-main[data-marxy-split] { position: relative; }
 .marxy-divider { position: absolute; top: 0; bottom: 0; z-index: 5; width: var(--marxy-divider-hit); margin-inline-start: calc(var(--marxy-divider-hit) / -2); cursor: col-resize; touch-action: none; }
 .marxy-divider::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--marxy-color-divider); }
+.marxy-divider:is(:hover, :active, :focus-visible)::before { background: var(--marxy-color-divider-focus); }
 .marxy-divider:focus-visible { outline: 2px solid var(--marxy-color-divider-focus); outline-offset: -2px; }
 #marxy-main:has(> .marxy-pane[data-marxy-pane="0"][data-marxy-focus]) > .marxy-divider::before { left: calc(50% - 1px); animation: marxy-divider-fade-0 150ms ease-out; }
 #marxy-main:has(> .marxy-pane[data-marxy-pane="1"][data-marxy-focus]) > .marxy-divider::before { left: 50%; animation: marxy-divider-fade-1 150ms ease-out; }
@@ -584,7 +585,7 @@ a:focus .marxy-link-dest { display: inline; }
   .marxy-verb-menu { border-color: CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
-  .marxy-divider::before { background: CanvasText; animation: none !important; }
+  .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }
 }
 @media (prefers-contrast: more) {
   .marxy-diff-add { border-inline-start: 3px solid currentColor; }

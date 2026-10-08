@@ -1,7 +1,8 @@
 // The hairline between two panes (D-04; ADR-0057): one 1 px line, no handle, no label and no layout
 // width. It exists exactly while two panes do (`PaneSet.onSplit`). Dragging it, the arrow keys on it and
 // the palette's split commands all go through `PaneSet.setRatio`, clamped so neither column drops below
-// the 45-character floor (`clampRatio`, D-02). Double-click, Home and "Even split" make the panes even.
+// the 45-character floor (`clampRatio`, D-02). Double-click and "Even split" make the
+// panes even; Home and End go to the smallest and largest left column the floor allows (APG splitter).
 // How it looks is `.marxy-divider` in the theme's base.css and three `--marxy-*` tokens.
 
 import { DEFAULT_RATIO, clampRatio, type SplitMetrics } from '@marxy/core/src/layout/index.ts';
@@ -33,11 +34,12 @@ export function createDivider<C extends PaneContent>(panes: PaneSet<C>, main: HT
   el.setAttribute('role', 'separator');
   el.setAttribute('aria-orientation', 'vertical');
   el.setAttribute('aria-label', 'Resize panes');
-  el.setAttribute('aria-valuemin', '0');
-  el.setAttribute('aria-valuemax', '100');
   el.tabIndex = 0;
 
   const place = (): void => {
+    // The reachable range, as a percentage: what the floor leaves at this window width.
+    el.setAttribute('aria-valuemin', String(Math.ceil(clampToMain(main, 0) * 100)));
+    el.setAttribute('aria-valuemax', String(Math.floor(clampToMain(main, 1) * 100)));
     el.style.left = `${panes.ratio * 100}%`;
     el.setAttribute('aria-valuenow', String(Math.round(panes.ratio * 100)));
   };
@@ -66,15 +68,18 @@ export function createDivider<C extends PaneContent>(panes: PaneSet<C>, main: HT
   el.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const next =
-      e.key === 'ArrowLeft' ? panes.ratio - RATIO_STEP : e.key === 'ArrowRight' ? panes.ratio + RATIO_STEP : e.key === 'Home' ? DEFAULT_RATIO : null;
+      e.key === 'ArrowLeft' ? panes.ratio - RATIO_STEP : e.key === 'ArrowRight' ? panes.ratio + RATIO_STEP : e.key === 'Home' ? 0 : e.key === 'End' ? 1 : null;
     if (next === null) return;
     e.preventDefault();
     e.stopPropagation();
     set(next);
   });
 
+  // In DOM order between the panes, so Tab reaches it at the boundary it sits on (WCAG 2.4.3).
+  main.insertBefore(el, panes.panes[1]?.host ?? null);
   place();
-  main.append(el);
+  const onResize = (): void => place();
+  window.addEventListener('resize', onResize);
   const off = panes.onChange((e) => {
     if (e.kind === 'ratio') place();
   });
@@ -82,6 +87,7 @@ export function createDivider<C extends PaneContent>(panes: PaneSet<C>, main: HT
     el,
     destroy() {
       off();
+      window.removeEventListener('resize', onResize);
       el.remove();
     },
   };
