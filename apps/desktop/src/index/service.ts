@@ -442,7 +442,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
         budgetSaid.add(root);
         const parts: string[] = [];
         if (skipped && skipped.length > 0) {
-          const names = skipped.map(basename);
+          const names = skipped.map(basename).sort();
           const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
           parts.push(`${nameOf(root)} does not include ${list}, which macOS protects. To include one, add that folder itself (for example ~/Documents).`);
         }
