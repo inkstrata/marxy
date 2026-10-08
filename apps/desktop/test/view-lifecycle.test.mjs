@@ -164,7 +164,7 @@ test('two views in one page typeset independently, follow their own stores, and 
 
 test('a task click in a second view applies to that view\'s store: the article wiring is per view', () =>
   withPage(async (page) => {
-    const box = await page.evaluate(async ({ A, B }) => {
+    await page.evaluate(async ({ A, B }) => {
       const one = window.marxyViewHarness.view('/v/one.md', A, { wire: true });
       const two = window.marxyViewHarness.view('/v/two.md', B, { wire: true });
       window.__two = two;
@@ -172,17 +172,15 @@ test('a task click in a second view applies to that view\'s store: the article w
       await one.view.show(one.store);
       await two.view.show(two.store);
       two.article.scrollIntoView();
-      // The task wiring loads its module lazily; it marks itself ready.
-      await new Promise((resolve) => {
-        const poll = () => (window.__marxyTasksReady ? resolve() : setTimeout(poll, 10));
-        poll();
-      });
-      const input = two.article.querySelector('input[type=checkbox]');
-      const r = input.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     }, { A, B });
+    // The task wiring loads its module lazily; it marks itself ready. Bounded, so no wiring fails here.
+    await page.waitForFunction(() => window.__marxyTasksReady === true, null, { timeout: 10_000 });
+    const box = await page.evaluate(() => {
+      const r = window.__two.article.querySelector('input[type=checkbox]').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
     await page.mouse.click(box.x, box.y);
-    await page.waitForFunction(() => new TextDecoder().decode(window.__two.store.snapshot().buffer.bytes).includes('- [x] bravo task'));
+    await page.waitForFunction(() => new TextDecoder().decode(window.__two.store.snapshot().buffer.bytes).includes('- [x] bravo task'), null, { timeout: 10_000 });
     const one = await page.evaluate(() => new TextDecoder().decode(window.__one.store.snapshot().buffer.bytes));
     assert.ok(one.includes('- [ ] alpha task'), 'the first view\'s store is untouched');
   }));
