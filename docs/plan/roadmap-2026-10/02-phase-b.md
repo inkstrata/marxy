@@ -1874,18 +1874,21 @@ it checks the kill switch: check `killed()` first. Acceptance: the off test fail
 
 ### B-25.1 — The diagram-caption rule without a two-step `:has()`
 
-**Model:** opus · **Size:** S · **Depends on:** B-25, L-03 (same file) · *Added 2026-10-08 by the lead, from B-25.*
-`packages/theme/src/base.css`'s caption rule `.marxy-article > p:has(+ pre > code.language-mermaid)` (and its
-plantuml, dot and d2 siblings, MARXY-234) makes WebKit spend time proportional to the article on every appended
-block, because the `:has()` argument is a sibling step followed by a child step. A transcript has a fence every few
-blocks, so the progressive mount goes cubic: 8.1 s of a 9.8 s mount at 128 KB; deleting the rule takes
-`content_complete` at 128 KB from 12.4 s to 0.8 s. A single step after `+` (`p:has(+ pre.language-mermaid)`) stays
-linear. Put the language on the `<pre>` in the renderer (prefer a route the sanitiser already allows, since
-`packages/core/src/sanitize/` is code-owned) or a class on the caption paragraph, and rewrite the rule. **Paths:**
-`packages/core/src/render/render-html.ts`, `packages/theme/src/base.css` (the caption rules), `scripts/registry.json`
-if a new name, the goldens the renderer change moves. **Acceptance:** the captions look the same (specimen and
-aesthetics gates); a WebKit microbenchmark-shaped test counts style recalcs or asserts the selector has one step
-(no timing assertion); the perf harness records a 1 MB transcript with `content_complete` under 10 s.
+**Model:** opus · **Size:** S · **Depends on:** B-25, L-03 (same file) · *Added 2026-10-08 by the lead, from B-25 and
+its review.* `packages/theme/src/base.css`'s caption rule `.marxy-article > p:has(+ pre > code.language-mermaid)`
+(and its plantuml, dot and d2 siblings, MARXY-234) makes WebKit spend time proportional to the article on every
+appended block: a microbenchmark appending 4,000 blocks takes 152 ms with no rule, 105 s with one such rule and 352 s
+with all four; `p:has(+ pre.language-mermaid)` takes 74 ms. A transcript has a fence every few blocks, so the mount
+goes cubic (41 s at 256 KB with the rule, 0.5 s without). **The fix needs no sanitiser change:** `pre` already allows
+`class` matching `^(?:language-[A-Za-z0-9#+._-]{1,32}|marxy-[a-z-]{1,32})$` (`packages/core/src/sanitize/policy.ts`).
+Emit `<pre class="language-<lang>">` in `packages/core/src/render/render-html.ts` with the **lowercased** language
+(the caption `<p>` is emitted on the lowercased language; a fence written `Mermaid` must still be styled), and
+rewrite the four rules as `.marxy-article > p:has(+ pre.language-mermaid)` etc. Highlighting reads `<code>`, not
+`<pre>`, so it is unaffected. **Paths:** `packages/core/src/render/render-html.ts`, `packages/theme/src/base.css` (the
+caption rules), the goldens the renderer change moves (regenerate in this PR). **Acceptance:** captions look the
+same (specimen and aesthetics gates); a test that the caption rules' selectors have one step after `+` (no timing
+assertion); a test that `Mermaid` (capitalised) still gets its caption; the perf harness records a 1 MB transcript
+with `content_complete` under 10 s.
 
 ### B-24 — Re-render only what a reload changed
 
