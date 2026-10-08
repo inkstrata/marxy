@@ -1,5 +1,5 @@
 // The reader's config.toml and user theme for one app instance (B-15, lifted from app.ts): variant and
-// size applied once, before anything is read onto the page (A-14), and the user theme, started at idle
+// size (and `typeset = false`) applied once, before anything is read onto the page (A-14), and the user theme, started at idle
 // after the first document and moved when the reader adopts a theme document. Nothing at module scope:
 // a second app instance in one page has its own.
 import { parseConfig, type Config } from '@marxy/theme';
@@ -28,6 +28,9 @@ export interface AppConfig {
  */
 export function applyAppConfig(root: HTMLElement, config: Config): void {
   applyReaderConfig(root, config);
+  // `typeset = false`: the existing kill switch (--marxy-typeset: none) leaves every paragraph to the engine (B-17).
+  if (config.typeset === false) root.style.setProperty('--marxy-typeset', 'none');
+  else root.style.removeProperty('--marxy-typeset');
   applyWeightOffset(root, platformOf(navigator.userAgent), config.linuxWeightOffset);
 }
 

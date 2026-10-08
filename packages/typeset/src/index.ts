@@ -1,15 +1,15 @@
 /**
  * The typesetter (ADR-0007, docs/design/04-typeset.md): ragged-right line breaking (the per-line
- * right-skip breaker by default, justif/core on request) on paragraphs, tight list items and quotes,
+ * right-skip breaker) on paragraphs, tight list items and quotes,
  * with hanging punctuation and hyphenation; viewport first, the rest in idle time, then the grid pass.
  */
 
 import { LINE_BREAK, SET, applyBreaks, contentBox, overflow, revert } from './apply.ts';
 import { applyHang } from './hang.ts';
 import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
-import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
+import type { Measured } from './items.ts';
 import { FontSizes, measureTokens } from './measure.ts';
-import { DEFAULT_RAGGED, breakRagged, type RaggedSettings } from './ragged.ts';
+import { DEFAULT_RAGGED, breakRagged } from './ragged.ts';
 import { insertSlashBreaks } from './slash-break.ts';
 export { insertSlashBreaks };
 import { collectTokens, type Token } from './runs.ts';
@@ -23,10 +23,6 @@ export interface TypesetOptions {
   readonly lineBox: number;
   /** The ragged breaker's per-line stretch, in em (TeX's \rightskip); see RESEARCH.md "Rendered". */
   readonly raggedStretchEm?: number;
-  /** Stretch per word space for the justif engine (MARXY-19's model); used only when `engine` is 'justif'. */
-  readonly glueStretchEm: number;
-  /** 'ragged' (default): the per-line right-skip breaker. 'justif': justif/core over MARXY-19's stream. */
-  readonly engine?: 'ragged' | 'justif';
   /** Allow-listed hyphenation; default true. */
   readonly hyphenate?: boolean;
   /** Accepted for the §04 surface; the ending pressure stays justif's default, see RESEARCH.md "Rendered". */
@@ -139,15 +135,7 @@ interface Char {
 export function attach(article: HTMLElement, opts: TypesetOptions): TypesetController {
   const scheduler = opts.scheduler ?? idleScheduler();
   const fonts = new FontSizes();
-  // justif/core hyphen demerits follow the same TeX costs as the ragged breaker (ADR-0033).
-  const hyphenCosts = (r: RaggedSettings): Pick<typeof DEFAULT_BREAK, 'hyphenPenalty' | 'doubleHyphenDemerits' | 'finalHyphenDemerits'> => ({
-    hyphenPenalty: r.hyphenPenalty,
-    doubleHyphenDemerits: r.doubleDashDemerits,
-    finalHyphenDemerits: r.finalHyphenDemerits,
-  });
-  const settings = { ...DEFAULT_BREAK, glueStretchEm: opts.glueStretchEm, ...hyphenCosts(DEFAULT_RAGGED) };
   const ragged = { ...DEFAULT_RAGGED, stretchEm: opts.raggedStretchEm ?? DEFAULT_RAGGED.stretchEm };
-  const engine = opts.engine ?? 'ragged';
   const hyphenateOn = opts.hyphenate !== false;
   const hanging = opts.hanging ?? 'left';
   const stats: TypesetStats = { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0, viewportMs: 0, hyphenationLoadMs: 0, reasons: {} };
@@ -378,7 +366,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
 
   /** Breakpoints for a measured paragraph, or null when a line cannot fit. */
   const choose = (c: Candidate, measured: readonly Measured[], width: number): readonly number[] | null => {
-    const broken = engine === 'justif' ? breakTokens(measured, width, settings) : breakRagged(measured, width, fonts.of(c.p).size, ragged);
+    const broken = breakRagged(measured, width, fonts.of(c.p).size, ragged);
     return broken.overfull ? null : broken.after;
   };
 

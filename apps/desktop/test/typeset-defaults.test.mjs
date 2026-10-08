@@ -69,7 +69,7 @@ test('app.ts attach() does not pass hyphenate or hanging, and no other argument 
   assert.doesNotMatch(opts, /\bhyphenate\b/, 'hyphenate must not be passed; the package default is true');
   assert.doesNotMatch(opts, /\bhanging\b/, "hanging must not be passed; the package default is 'left'");
   assert.match(opts, /\blineBox\b/);
-  assert.match(opts, /glueStretchEm:\s*0\.6/);
+  assert.doesNotMatch(opts, /glueStretchEm|engine/, 'the justif engine option is gone (B-17)');
   assert.match(opts, /lastLineMinWidth:\s*0\.33/);
   // Background idle batches are coalesced; a pass the reader can see is snapped at once (MARXY-198).
   assert.match(opts, /onPass:\s*\(kind\)\s*=>\s*\(kind === 'background' \? scheduleSnap\(article\) : snap\(article\)\)/);

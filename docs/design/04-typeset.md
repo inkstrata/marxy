@@ -16,8 +16,6 @@ four are built here, and the aesthetics gate measures all four (§10).
 export interface TypesetOptions {
   readonly lineBox: number;                 // px; from --marxy-line-box
   readonly raggedStretchEm?: number;        // per-line right-skip for the ragged breaker; default 2
-  readonly glueStretchEm: number;           // per-space stretch, only for engine 'justif' (MARXY-19's 0.6)
-  readonly engine?: 'ragged' | 'justif';    // default 'ragged' (ADR-0007 Amendment 1)
   readonly hyphenate: boolean;              // MARXY-24
   readonly lastLineMinWidth: number;        // accepted; the ragged breaker's last line is free
   readonly hanging: 'none' | 'left';        // MARXY-24
@@ -64,9 +62,14 @@ layouts however many paragraphs it holds.
    line end takes its font's width from a space measured elsewhere.
 3. **Break** (`src/ragged.ts`): total-fit, ragged-right with a per-line right-skip of 2 em
    (`\RaggedRight`). Line cost `(10 + badness)²`, badness `100·(shortfall / 2em)³`, penalty 50 after a
-   dash, 3000 extra for two dash-ended lines in a row, last line free. justif/core over MARXY-19's
-   per-space stream is the `engine: 'justif'` option, kept for comparison and for justified setting:
-   it made technical text worse than the engine (ADR-0007 Amendment 1, RESEARCH.md "Rendered").
+   dash, 3000 extra for two dash-ended lines in a row, last line free. justif/core's line breaker over
+   MARXY-19's per-space stream made technical text worse than the engine (ADR-0007 Amendment 1,
+   RESEARCH.md "Rendered") and the `engine: 'justif'` option that kept it is gone (B-17): justif
+   supplies the hyphenation patterns and the hanging-punctuation tables only.
+
+   **The switch.** `typeset = false` in `config.toml` makes the app set `--marxy-typeset: none` on the
+   root (`theme/app-config.ts`); the typesetter reads it at `attach` and between chunks, restores every
+   paragraph and leaves the wrapping to the engine. Absent or `true`, the property is removed.
 4. **Apply** (`src/apply.ts`): for each break, split the text node just after the space (or dash) and
    insert an empty `<span class="marxy-lb">`, whose `::before` is a generated newline
    (`content: '\A'; white-space: pre`, base.css); the paragraph gets `.marxy-set` (`nowrap`). Generated
