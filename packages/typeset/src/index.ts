@@ -542,6 +542,11 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       }
       layout(mine);
     };
+    // With typesetting off nothing will use the patterns: skip the load, and settle the controller now.
+    if (killed()) {
+      go();
+      return;
+    }
     if (hyphenateOn && hyphenators === null) {
       const loadStart = performance.now();
       // A chunk that fails to load must not stall boot: set without hyphens, and the next run retries.
