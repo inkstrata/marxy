@@ -26,6 +26,7 @@ const KILL_GRACE_MS = 2000;
 const GATE_COMMANDS = {
   'fmt:rust': { cmd: 'cargo', args: ['fmt', '--check'], cwd: 'apps/desktop/src-tauri' },
   'clippy:rust': { cmd: 'cargo', args: ['clippy', '--locked', '--quiet', '--', '-D', 'warnings'], cwd: 'apps/desktop/src-tauri' },
+  'commonmark:selftest': { cmd: 'node', args: ['--experimental-strip-types', 'packages/core/scripts/commonmark-spec.ts', '--selftest'] },
   'scripts:test': { cmd: 'sh', args: ['-c', 'node --test scripts/lib/*.test.mjs scripts/*.test.mjs'] },
 };
 
@@ -67,6 +68,7 @@ export function planSteps(files, { all = false, packages = PACKAGES, map = {} } 
     }
   }
   if (fleet) gates.add('test:fleet');
+  if (pkgs.has('packages/core')) gates.add('commonmark:selftest'); // CI's `fast` runs it; node only, about 2 s
   if (scripts) gates.add('scripts:test');
 
   const steps = [];
@@ -77,6 +79,9 @@ export function planSteps(files, { all = false, packages = PACKAGES, map = {} } 
     if (p === 'apps/desktop') steps.push({ name: `${p} test:mutations`, cmd: 'pnpm', args: ['--filter', `./${p}`, 'test:mutations'] });
   }
   for (const g of gates) if (g !== 'check') steps.push({ name: g, ...(GATE_COMMANDS[g] ?? { cmd: 'pnpm', args: ['-s', g] }) });
+  // desktop consumes core: a core change must still typecheck it, though desktop's own tests do not run
+  const alsoTypecheck = pkgs.has('packages/core') && !pkgs.has('apps/desktop') && packages.includes('apps/desktop') ? ['apps/desktop'] : [];
+  for (const p of alsoTypecheck) steps.push({ name: `${p} typecheck`, cmd: 'pnpm', args: ['--filter', `./${p}`, 'typecheck'] });
   for (const p of order) {
     steps.push({ name: `${p} typecheck`, cmd: 'pnpm', args: ['--filter', `./${p}`, 'typecheck'] });
     steps.push({ name: `${p} lint`, cmd: 'pnpm', args: ['--filter', `./${p}`, 'lint'] });

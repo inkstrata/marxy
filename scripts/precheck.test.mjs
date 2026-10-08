@@ -48,12 +48,18 @@ test('G-02: a desktop-only change runs the desktop package, the bundle gate and 
   assert.ok(!n.some(x => x.startsWith('packages/')), 'no other package');
 });
 
-test('G-02: a core-only change runs core and the golden and fidelity gates, nothing of desktop', () => {
+test('G-02.1: a core-only change runs core, the golden, fidelity and CommonMark selftest gates, and only typechecks desktop', () => {
   const n = names(['packages/core/src/parse/foo.ts']);
   assert.deepEqual(n.filter(x => x.startsWith('packages/')).sort(), ['packages/core lint', 'packages/core test', 'packages/core typecheck']);
-  for (const want of ['gate:golden', 'gate:fidelity', 'check']) assert.ok(n.includes(want), want);
+  for (const want of ['gate:golden', 'gate:fidelity', 'commonmark:selftest', 'check']) assert.ok(n.includes(want), want);
   for (const nope of ['gate:bundle', 'gate:no-network', 'gate:aesthetics', 'gate:licences']) assert.ok(!n.includes(nope), nope);
-  assert.ok(!n.some(x => x.startsWith('apps/')));
+  assert.deepEqual(n.filter(x => x.startsWith('apps/')), ['apps/desktop typecheck'], 'desktop consumes core: typecheck, no tests');
+  const selftest = planSteps(['packages/core/src/parse/foo.ts'], { map }).find(s => s.name === 'commonmark:selftest');
+  assert.match(selftest.args.join(' '), /commonmark-spec\.ts --selftest/);
+  // core plus desktop: one desktop typecheck, not two
+  assert.equal(names(['packages/core/src/a.ts', 'apps/desktop/src/b.ts']).filter(x => x === 'apps/desktop typecheck').length, 1);
+  // desktop alone does not pull in core's selftest
+  assert.ok(!names(['apps/desktop/src/app.ts']).includes('commonmark:selftest'));
 });
 
 test('G-02: a scripts-only change runs the scripts tests, not the five packages', () => {
@@ -151,7 +157,7 @@ test('G-02: all steps passing exits 0', async () => {
   assert.equal(await run([{ name: 'a', cmd: 'x', args: [] }], { runner: stubRunner() }).p, 0);
 });
 
-test('G-02: a step past its timeout is ✗ timed out, the others still report, and the exit code is non-zero', async () => {
+test('G-02: a step past its timeout is ✗ timed out, the others still report, and the exit code is non-zero', { timeout: 5000 }, async () => {
   const steps = [{ name: 'quick', cmd: 'x', args: [] }, { name: 'stuck', cmd: 'x', args: [] }];
   const r = run(steps, { runner: stubRunner(s => s.name === 'stuck' ? 'hang' : { code: 0, output: '' }), timeoutMs: 60 });
   assert.equal(await r.p, 1);
@@ -159,7 +165,7 @@ test('G-02: a step past its timeout is ✗ timed out, the others still report, a
   assert.match(r.text(), /✓ quick/);
 });
 
-test('G-02: a timeout is enforced even by a runner that ignores the abort', async () => {
+test('G-02: a timeout is enforced even by a runner that ignores the abort', { timeout: 5000 }, async () => {
   const r = run([{ name: 'deaf', cmd: 'x', args: [] }], { runner: () => new Promise(() => {}), timeoutMs: 30, graceMs: 50 });
   assert.equal(await r.p, 1);
   assert.match(r.text(), /✗ deaf.*timed out/);
@@ -203,7 +209,7 @@ test('G-02: an uncaught error prints the summary too', { timeout: 5000 }, async 
   assert.match(r.text(), /precheck: 0\/1 passed/);
 });
 
-test('G-02: a real SIGTERM to a real precheck process kills the step and still prints the summary', async () => {
+test('G-02: a real SIGTERM to a real precheck process kills the step and still prints the summary', { timeout: 15000 }, async () => {
   // A child that runs precheck's own runPrecheck over one real, hanging step, on the real process object.
   const script = `
     import { runPrecheck, spawnStep } from ${JSON.stringify(pathToFileURL(join(ROOT, 'scripts/precheck.mjs')).href)};
@@ -223,14 +229,17 @@ test('G-02: a real SIGTERM to a real precheck process kills the step and still p
   assert.match(out, /interrupted by SIGTERM/);
 });
 
-test('G-02: a step runs in its own process group, and an abort kills what it started', async () => {
+test('G-02: a step runs in its own process group, and an abort kills what it started', { timeout: 5000 }, async t => {
   const dir = tmp();
+  let grandchild = 0;
+  // a regression must not leave the sleeper (and the open pipe it holds) running for a minute; t.after runs even when the timeout cancels the test
+  t.after(() => { if (grandchild) try { process.kill(grandchild, 'SIGKILL'); } catch { /* already gone */ } });
   try {
     const pidFile = join(dir, 'pid');
     const ac = new AbortController();
     const p = spawnStep({ cmd: 'sh', args: ['-c', `sleep 60 & echo $! > ${pidFile}; wait`] }, { signal: ac.signal });
     while (!existsSync(pidFile) || !readFileSync(pidFile, 'utf8').trim()) await sleep(20);
-    const grandchild = Number(readFileSync(pidFile, 'utf8'));
+    grandchild = Number(readFileSync(pidFile, 'utf8'));
     assert.doesNotThrow(() => process.kill(grandchild, 0), 'the grandchild is alive');
     ac.abort();
     await p;
