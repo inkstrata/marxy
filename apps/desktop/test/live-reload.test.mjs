@@ -509,3 +509,88 @@ test('a .md file toggled to Source, unscrolled, stays at the top when text is wr
     await browser.close();
   }
 });
+
+// F-19.3: an outside write to a file open in Source carries the caret and selection through the change.
+const SOURCE_LINES = Array.from({ length: 60 }, (_, i) => `export const value${i} = ${i};`);
+const withCaret = async (page, from, to = from) => {
+  await page.evaluate(async ({ from, to }) => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const ed = activeSourceEditor(document.querySelector('#marxy-source'));
+    ed.view.dispatch({ selection: { anchor: from, head: to } });
+  }, { from, to });
+};
+const writeOutside = async (page, text) => {
+  await page.evaluate(async (text) => {
+    const path = window.__marxyHandle.currentPath();
+    await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+    window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+  }, text);
+  await page.waitForFunction(() => {
+    const t = document.querySelector('#marxy-source')?.textContent ?? '';
+    return t.includes('Changed') || !t.includes('value20 = 20');
+  });
+  await new Promise((r) => setTimeout(r, 300));
+};
+const selectionNow = (page) =>
+  page.evaluate(async () => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const { state } = activeSourceEditor(document.querySelector('#marxy-source')).view;
+    const { anchor, head } = state.selection.main;
+    return { anchor, head, text: state.sliceDoc(Math.min(anchor, head), Math.max(anchor, head)), line: state.doc.lineAt(head).text };
+  });
+const bootSource = async (page) => {
+  await boot(page, { '/r/A.ts': b64(SOURCE_LINES.join('\n') + '\n') }, ['/r/A.ts']);
+  await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+  await page.waitForFunction(() => document.querySelector('#marxy-source .cm-line'));
+};
+
+test('a write above the caret leaves the Source caret on the same text (F-19.3)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page);
+    const at = SOURCE_LINES.slice(0, 20).join('\n').length + 1 + 7;
+    await withCaret(page, at);
+    await writeOutside(page, ['// Changed', '// Changed again', ...SOURCE_LINES].join('\n') + '\n');
+    const now = await selectionNow(page);
+    assert.equal(now.line, 'export const value20 = 20;');
+    assert.equal(now.anchor, now.head);
+    assert.equal(now.head, ['// Changed', '// Changed again', ...SOURCE_LINES.slice(0, 20)].join('\n').length + 1 + 7);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a Source selection follows an insertion above it (F-19.3)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page);
+    const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
+    await withCaret(page, start + 13, start + 20);
+    await writeOutside(page, ['// Changed', ...SOURCE_LINES].join('\n') + '\n');
+    const now = await selectionNow(page);
+    assert.equal(now.text, 'value20');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a Source caret inside deleted text lands at the deletion point (F-19.3)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page);
+    const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
+    await withCaret(page, start + 10);
+    // The next line starts differently, so the deleted run is unambiguous (a shared prefix would hold the caret).
+    const kept = [...SOURCE_LINES.slice(0, 20), '// tail', ...SOURCE_LINES.slice(23)];
+    await writeOutside(page, kept.join('\n') + '\n');
+    const now = await selectionNow(page);
+    assert.equal(now.anchor, start);
+    assert.equal(now.head, start);
+    assert.equal(now.line, '// tail');
+  } finally {
+    await browser.close();
+  }
+});
