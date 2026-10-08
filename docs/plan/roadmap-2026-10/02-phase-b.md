@@ -1614,6 +1614,10 @@ positions.json format. Persist per view (Phase D's rule).
 inside `serially` (comment at `:840-842`). Keep the non-queued call or the reload deadlocks. A
 test for that exists in `live-reload.test.mjs`; name it in the PR.
 
+**From the B-13 review (2026-10-07).** When live reload moves into the view, a reload maps the anchor through the
+watch position from `applyWatchToOpenDocument`, never through `mapThroughTransition` (which keeps a reload's byte).
+`render/tasks.ts` reads `snap.version` at click time; record it at render if B-13 did not.
+
 ---
 
 ### B-15 — Lift the open path; `app.ts` becomes the composition root

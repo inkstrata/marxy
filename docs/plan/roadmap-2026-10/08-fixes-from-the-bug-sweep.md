@@ -195,7 +195,7 @@ is real but contrived, one cannot be reached.
 | S-09-0002 | — (the symlink reload test passes through a `cfg(test)` helper that canonicalises; production does not) | confirmed, test only | F-15 |
 | S-12-0001 | A theme can carry a remote image past the loader inside a raster `data:` URL broken by a raw newline; WebKit parses the rest as a live rule | confirmed at the text level, **latent**: the shipping CSP's `img-src` refuses the request. Breaks the loader's promise (`05-theme.md` §Loader) and would phone home if the CSP ever loosened | F-16 |
 | S-09-0003 | An outside rewrite that keeps inode, size and mtime is not reloaded | confirmed but contrived (`cp -p` from a same-size file stamped identically, or two same-size in-place writes in one millisecond); no editor does this. Not fixed: catching it costs a hash of the open file on every wake-up | — |
-| S-10-0002 | — (`relativePath` accepts a `..` segment, and a dotted root name passes the "looks like a file" branch) | **not reachable**: the only walker lists clean, canonical children of the directory it lists; nothing outside a declared root can enter the index. Hardening only, not filed | — |
+| S-10-0002 | A watch event could read and list a `.gitignore`d file outside a nested root whose name looks like a file (`notes.d`) | first judged **not reachable** (no walker produces such a path); **wrong**: C-11's watch events reached it. Fixed in C-11 with one strict `pathUnder` in core | C-11 |
 
 ### F-14 — Images and links in a nested document resolve against the repository root
 
