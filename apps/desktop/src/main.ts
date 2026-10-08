@@ -12,6 +12,7 @@ export type BootHandle = AppHandle & { readonly palette: PaletteController; read
 export async function bootApplication(appShell: AppShell, opts?: { argv?: readonly string[] }): Promise<BootHandle> {
   const handle = await startApp(appShell, opts);
   const palette = mountPaletteFromHandle(handle, { initialPath: opts?.argv?.find((a) => !a.startsWith('-')) ?? null });
+  handle.setPaletteSession(() => palette.session);
   // Every root the index walks, for the whole session; a watch event patches only its rows (A-04, C-11).
   const trees = keepFresh(handle, palette);
   // startApp resolves after first_text: the declared folders and recent roots join the scope now (C-10).
