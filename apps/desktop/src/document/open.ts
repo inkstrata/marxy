@@ -34,12 +34,16 @@ import { documentName, isUntitled } from './untitled.ts';
  * How a document is opened (`AppHandle.open`, `PaneSet.openIn`, a pane's `open` and `replace`): `at` is a
  * byte held at the reading line; `onLanded` runs once the document is on screen in the pane it was opened
  * in, never when the open is refused or the reader dismisses the unsaved-edits prompt (C-17, D-01).
+ * `onCommitted` (a pane's `open` only) runs once the open goes ahead, before anything is read or shown, and
+ * on the same terms (never on a Dismiss): state that must not lag the page across its awaits, such as a link
+ * history, is set there (F-21).
  * `scratch` is what a scratch path (`untitled.ts`) opens: the bytes the document was born with, and a label
  * for its window title (E-13). A scratch path another pane already shows needs none.
  */
 export interface OpenOptions {
   readonly at?: number;
   readonly onLanded?: () => void;
+  readonly onCommitted?: () => void;
   readonly scratch?: { readonly bytes: Uint8Array; readonly label?: string };
 }
 
@@ -415,6 +419,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         // The document already on screen, asked for again with nowhere to go (a second launch, Finder, a
         // drag, the palette on the current document): reading it back from disk would drop unsaved edits.
         if (file === currentPath() && opts?.at === undefined && hasUnsavedChanges()) return;
+        opts?.onCommitted?.();
         await openReplacing(file, opts?.at, opts?.scratch);
         // Only once `file` is on screen: after a confirmed "Save and open" too, never on the old document (C-17).
         if (currentPath() === file) opts?.onLanded?.();

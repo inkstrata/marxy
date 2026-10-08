@@ -89,7 +89,7 @@ export function bindFocus<C extends PaneContent>(panes: PaneSet<C>, selection: (
       article: right.article,
       scroller: right.view.host.scroller,
       store: () => right.view.store(),
-      open: (path) => right.content.open(path),
+      open: (path, o) => right.content.open(path, o),
       currentPath: () => right.content.currentPath(),
       mountThrough: (byte) => right.view.mountThrough(byte),
     });
