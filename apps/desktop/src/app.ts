@@ -3,18 +3,14 @@ import { setAppHandle } from './commands/app-handle.ts';
 import { startDocumentEditingWire } from './commands/document.ts';
 import { buildAppContext, installCommandKeys } from './selection/bind.ts';
 import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
-import { contentHash, type Buffer, type Document } from '@marxy/core';
-import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
+import type { Buffer, Document } from '@marxy/core';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
-import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import { confirmLeaveDocument, installCloseGuard } from './close.ts';
 import { save, type SaveDeps, type SaveResult } from './save.ts';
 // Static, as it was through save.ts before B-11: a lazy chunk here would put the first title (and the
 // late trust read queued after it) behind a fetch.
 import { updateTitle } from './title.ts';
 import { openDocumentStore, type DocumentSnapshot, type DocumentStore } from './document/store.ts';
-import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
-import type { WatchEvent } from '@marxy/shell-api';
 import type { Shell } from '@marxy/shell-api';
 import type { NodeMap } from './render/post.ts';
 import { pathsForDocument } from './render/images.ts';
@@ -22,7 +18,6 @@ import { clearDismissForPath, resetDismissedNotices } from './notices/blocked.ts
 import { commands as appCommands } from './commands/index.ts';
 import { wireTrustRevokeCommands } from './commands/trust.ts';
 import { createTrustController, type TrustController } from './trust/controller.ts';
-import { diskChangedEditsKeptNotice, fileRemovedNotice } from './notices/disk.ts';
 import { clearNotices } from './notices/index.ts';
 import { applyWeightOffset, platformOf } from './theme/offset.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme/theme-document.ts';
@@ -32,15 +27,10 @@ import { resolveThemeDir, startUserTheme, themeDirFromConfig, type UserThemeCont
 import { createLaunchMeasure, t0, type LaunchMeasure, type RenderEvidence } from './startup/measure.ts';
 import { whenIdle } from './startup/idle-work.ts';
 import { createIndexService, indexShellFor, type IndexService } from './index/service.ts';
-import { PositionPersistence } from './position/index.ts';
-import {
-  flushPaletteHistoryFromApp,
-  loadPaletteHistory,
-  pinDocumentOnPaletteSession,
-  resetPaletteHistoryMirror,
-  trackDocumentOpen,
-} from './palette/history.ts';
-import { emptySession } from './palette/session.ts';
+import { createReadingPersistence, type ReadingPersistence } from './position/reading-persistence.ts';
+import { watchDocument } from './document/live-reload.ts';
+import { pinDocumentOnPaletteSession } from './palette/history.ts';
+import { emptySession, type PaletteSession } from './palette/session.ts';
 import { defaultModeForPath } from './source/default-mode.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
 import { createRenderedView, type OpenDocument, type RenderedView, type ViewHost } from './view/rendered-view.ts';
@@ -137,6 +127,11 @@ export type AppHandle = {
   hasUnfoldedSource(): boolean;
   /** Pin or unpin a document for palette history (same as Mod+. on a document row). */
   pinPaletteDocument(path: string): void;
+  /**
+   * The mounted palette's session (main.ts, once the palette is mounted): what a pin and the quit
+   * flush of history.json read. Before it is called there is no palette session (B-14).
+   */
+  setPaletteSession(session: () => PaletteSession): void;
   /** The palette index: one walk per repository root, every root opened so far published (A-04). */
   readonly index: IndexService;
   /**
@@ -237,10 +232,8 @@ function onDocumentChange(cb: (open: OpenDocumentState | null) => void): () => v
     unsubscribe = null;
   };
 }
-let documentWatch: { close(): void } | null = null;
-let positionPersistence: PositionPersistence | null = null;
-let persistenceLoaded = false;
-let scrollPersistenceInstalled = false;
+/** positions.json and history.json for this launch (B-14); made by startApp. */
+let persistence: ReadingPersistence;
 let restoreAfterTypeset = false;
 /** The byte the open in progress lands on (an `at`, or the stored place), read before anything re-notes it. */
 let openLanding: number | undefined;
@@ -255,8 +248,6 @@ let measure: LaunchMeasure;
 let index: IndexService;
 /** The launch document's walk, so `ready` (and a harness quit) follows its `index_loaded` mark. */
 let indexing: Promise<void> = Promise.resolve();
-/** History records opens in order even though each waits on its root (palette/history.ts). */
-let historyTracked: Promise<void> = Promise.resolve();
 
 /** The shell this launch is using; set by startApp, never imported from tauri.ts. */
 let shell: AppShell;
@@ -306,142 +297,28 @@ async function themeDirFromBootConfig(): Promise<string | null> {
  */
 function teardownDocument(): void {
   view?.clear();
-  documentWatch?.close();
-  documentWatch = null;
   // The store goes with its page: a transition still queued on it is refused, not applied elsewhere.
+  // Its watch closes with it (document/live-reload.ts).
   store?.close();
   store = null;
 }
 
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
-
-
-async function readOpenFileWithRetry(path: string): Promise<Uint8Array | null> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      return await (shell.peekFile ? shell.peekFile(path) : shell.readFile(path));
-    } catch {
-      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-  }
-  return null;
-}
-
-/**
- * New bytes from disk, as the store's `reload` transition: it adopts them (and records the read for
- * the stale-write guard) unless the buffer has unsaved edits, which it keeps.
- */
-async function reloadOpenFromDisk(open: DocumentStore, bytes: Uint8Array, position: ReadingPosition): Promise<void> {
-  const t0 = performance.now();
-  const shownIn = theView();
-  shownIn.expectReloadAt(position);
-  let outcome: Awaited<ReturnType<DocumentStore['reload']>>;
-  try {
-    outcome = await open.reload(bytes);
-  } finally {
-    shownIn.expectReloadAt(null);
-  }
-  if (outcome === 'kept') {
-    diskChangedEditsKeptNotice();
-    return;
-  }
-  await shownIn.settled();
-  if (outcome !== 'reloaded') return;
-  const ms = performance.now() - t0;
-  await shell.mark('live_reload', Date.now(), `ms=${ms.toFixed(1)}`);
-}
-
-const isMarkdownPath = (path: string): boolean => classify(path) === 'markdown';
-
-/**
- * The watch is the document's directory: a markdown file there changed, so its root is re-walked
- * (coalesced, at idle). The echo of Marxy's own save is not a change: an event naming the open
- * document while disk holds exactly the buffer's bytes re-walks nothing. Recursive watching is a later phase.
- */
-function refreshIndexForWatch(events: readonly WatchEvent[], path: string, diskBytes: Uint8Array | null): void {
-  const buffer = bufferNow();
-  const echo = diskBytes !== null && buffer !== null && contentHash(diskBytes) === contentHash(buffer.bytes);
-  const changed = (p: string | undefined) => p !== undefined && isMarkdownPath(p) && !(echo && p === path);
-  if (events.some((e) => changed(e.path) || changed(e.to))) {
-    void index.rootFor(path).then((root) => index.refresh(root));
-  }
-}
-
-async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
-  const open = store;
-  if (!open || !view?.document()) return;
-  const path = open.snapshot().path;
-  const position = view.position();
-  const diskBytes = await readOpenFileWithRetry(path);
-  refreshIndexForWatch(events, path, diskBytes);
-  const buffer = open.snapshot().buffer;
-  const update = applyWatchToOpenDocument(
-    events,
-    position,
-    diskBytes,
-    buffer.bytes,
-  );
-  if (update.action === 'ignore') return;
-  if (update.action === 'gone') {
-    fileRemovedNotice();
-    return;
-  }
-  if (update.action === 'follow') {
-    // Already inside `serially`: going through replaceOpenDocument would queue this open behind the
-    // task waiting for it, and every open, mode switch and reload after it would wait forever.
-    if (hasUnsavedChanges()) await retargetOpenDocument(update.path);
-    else await openReplacing(update.path, update.position.byteOffset);
-    return;
-  }
-  if (diskBytes === null) {
-    fileRemovedNotice();
-    return;
-  }
-  // Text typed in Source and not yet folded in is an unsaved edit the store cannot see: keep it, as the
-  // store keeps a dirty buffer. Bytes equal to the buffer change nothing the reader could lose.
-  if (theView().sourceHasUnfoldedEdits()) {
-    if (!sameBytes(diskBytes, buffer.bytes)) diskChangedEditsKeptNotice();
-    return;
-  }
-  await reloadOpenFromDisk(open, diskBytes, update.position);
-}
-
-/**
- * The open file was renamed while the buffer has unsaved edits: the buffer keeps them and follows the
- * new name, still unsaved against the file it came from, rather than being reloaded over them. The
- * history follows too: it is the store's, not a hash's (ADR-0037 §3).
- */
-async function retargetOpenDocument(newPath: string): Promise<void> {
-  await foldSourceIntoBuffer();
-  const open = store;
-  if (!open || !view?.document()) return;
-  // The store's subscription sets the page again under the new name, at the reader's position.
-  await open.rename(newPath);
-  await view.settled();
-  await shell.allowAssetScope(dirname(newPath));
-  await registerDocumentWatch(newPath);
-  document.title = `${basename(newPath)} — Marxy`;
-  selection?.afterRender();
-  await refreshTitle();
-}
-
-async function registerDocumentWatch(file: string): Promise<void> {
-  documentWatch?.close();
-  documentWatch = null;
-  try {
-    documentWatch = await shell.watch(dirname(file), (events) => {
-      void serially(() => handleDocumentWatch(events));
-    });
-  } catch (e) {
-    // The document is already on the page; a directory that cannot be watched costs live reload,
-    // not the page the reader is looking at.
-    console.warn(`marxy: not watching ${dirname(file)}: ${String(e)}`);
-    await shell.mark('watch_failed', Date.now(), String(e));
-  }
+/** Live reload for the store just opened (B-14): one watch, which follows the store and closes with it. */
+async function watchOpenDocument(open: DocumentStore): Promise<void> {
+  await watchDocument(open, () => (view ? [view] : []), {
+    shell,
+    open: openReplacing,
+    serially,
+    foldSource: foldSourceIntoBuffer,
+    async renamed(path) {
+      document.title = `${basename(path)} — Marxy`;
+      selection?.afterRender();
+      await refreshTitle();
+    },
+    changed(path) {
+      void index.rootFor(path).then((root) => index.refresh(root));
+    },
+  });
 }
 
 /**
@@ -517,7 +394,7 @@ function saveDeps(open: DocumentStore): SaveDeps {
     onSaveAs: async (path) => {
       if (store !== open) return;
       await shell.allowAssetScope(dirname(path));
-      await registerDocumentWatch(path);
+      // The watch moved with the store when it took the new path (document/live-reload.ts).
       selection?.afterRender();
     },
   };
@@ -533,98 +410,11 @@ async function saveOpenDocument(opts?: { as?: boolean }): Promise<SaveResult> {
 }
 
 
-async function flushReadingPersistence(): Promise<void> {
-  const openPath = openPathNow();
-  if (!positionPersistence || !openPath || !view?.document()) return;
-  const pos = view.position();
-  positionPersistence.note(openPath, pos);
-  await positionPersistence.flush();
-}
-
-async function flushPaletteHistory(): Promise<void> {
-  const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
-    .__marxyPalette;
-  if (!shell.configPaths) return;
-  await historyTracked;
-  await flushPaletteHistoryFromApp({ ...shell, configPaths: shell.configPaths }, palette?.session);
-}
-
-async function flushAllPersistence(): Promise<void> {
-  await flushReadingPersistence();
-  await flushPaletteHistory();
-}
-
-function installScrollPersistence(): void {
-  if (scrollPersistenceInstalled || !positionPersistence) return;
-  scrollPersistenceInstalled = true;
-  // WebKit fires the viewport's scroll at the Document, not at documentElement, so listen there.
-  // PositionPersistence debounces the write itself (POSITIONS_DEBOUNCE_MS), so noting on every
-  // scroll event only updates an in-memory entry.
-  // One sample per frame: currentPosition walks the blocks, so it must not run per scroll event.
-  let frame = 0;
-  document.addEventListener(
-    'scroll',
-    () => {
-      if (frame !== 0) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const openPath = openPathNow();
-        if (!positionPersistence || !openPath || !view?.document()) return;
-        // In Source the window scrolls the editor: the place is the line on the reading line.
-        const source = view.sourcePosition();
-        if (source) return positionPersistence.note(openPath, source);
-        if (view.mode !== 'rendered') return;
-        positionPersistence.note(openPath, view.blockPosition(openPath, 'rendered'));
-      });
-    },
-    { passive: true },
-  );
-  // A window close that skips shell.quit still gets the last position out.
-  window.addEventListener('pagehide', () => {
-    void flushReadingPersistence();
-  });
-}
-
-/** The memory shell can say a state file is absent without a recorded `readFile`. */
-function optionalStatePresent(path: string): boolean | undefined {
-  const peek = shell as AppShell & { hasFile?(p: string): boolean };
-  return typeof peek.hasFile === 'function' ? peek.hasFile(path) : undefined;
-}
-
-async function readOptionalState(path: string): Promise<Uint8Array> {
-  if (optionalStatePresent(path) === false) {
-    const err = new Error(`not found: ${path}`) as Error & { code: 'not-found'; path: string };
-    err.code = 'not-found';
-    err.path = path;
-    throw err;
-  }
-  return shell.readFile(path);
-}
-
-async function ensurePersistenceLoaded(fallbackRoot: string): Promise<void> {
-  if (persistenceLoaded) return;
-  persistenceLoaded = true;
-  // A shell without configPaths (ADR-0026) has nowhere to keep state: read and write nothing.
-  if (!shell.configPaths) return;
-  const io = {
-    readFile: (path: string) => readOptionalState(path),
-    writeFileAtomic: (path: string, bytes: Uint8Array) => shell.writeFileAtomic(path, bytes),
-    dataDirectory: async () => (await shell.configPaths!()).data,
-  };
-  positionPersistence = await PositionPersistence.open(io);
-  await loadPaletteHistory(
-    { ...shell, readFile: readOptionalState, configPaths: shell.configPaths },
-    fallbackRoot,
-  );
-  installScrollPersistence();
-  restoreAfterTypeset = true;
-}
-
 /** After `first_text`, positions.json may ask to move the document already on screen (MARXY-195). */
 async function restorePersistedPositionIfNeeded(): Promise<void> {
-  if (!positionPersistence || !store || !view?.document()) return;
+  if (!store || !view?.document()) return;
   const { path, buffer } = store.snapshot();
-  const stored = positionPersistence.positionForOpen(path, buffer.bytes.length);
+  const stored = persistence.storedFor(path, buffer.bytes.length);
   if (!stored) return;
   openLanding = stored.byteOffset;
   // A file that opens in Source is put there by finishDocumentOpen, at this byte.
@@ -648,8 +438,8 @@ async function openDocumentThroughRenderMark(
   const bytes = await shell.readFile(file);
   await applyReaderConfigOnce();
   let landing = at;
-  if (landing === undefined && positionPersistence) {
-    const stored = positionPersistence.positionForOpen(file, bytes.length);
+  if (landing === undefined) {
+    const stored = persistence.storedFor(file, bytes.length);
     if (stored) landing = stored.byteOffset;
   }
   openLanding = landing;
@@ -705,7 +495,7 @@ async function finishDocumentOpen(file: string, at?: number): Promise<void> {
   await maybeThemeDocumentNotice(userThemeContext(), file, async (dir) => {
     userThemeHandle = await adoptThemeDirectory(userThemeContext(), dir, userThemeHandle);
   });
-  await registerDocumentWatch(file);
+  if (store) await watchOpenDocument(store);
   await refreshTitle();
 }
 
@@ -733,7 +523,7 @@ async function openReplacing(file: string, at?: number): Promise<void> {
   const shownIn = theView();
   const doc = shownIn.host.article;
   const openPath = openPathNow();
-  if (openPath && file !== openPath) await flushReadingPersistence();
+  if (openPath && file !== openPath) await persistence.flushReading();
   if (file === openPath && shownIn.document() && at !== undefined) {
     // A heading in the document already on screen: move, do not read and set it again.
     if (shownIn.mode === 'source') await shownIn.leaveSource();
@@ -744,11 +534,7 @@ async function openReplacing(file: string, at?: number): Promise<void> {
   try {
     await openDocumentThroughRenderMark(file, at, chunks.promise);
     chunks.release();
-    historyTracked = historyTracked
-      .then(() => index.rootFor(file))
-      .then((root) => trackDocumentOpen(file, root))
-      // A failed record must not poison the chain: every later open and the quit flush wait on it.
-      .catch((e: unknown) => console.warn(`marxy: history could not record ${file}: ${String(e)}`));
+    persistence.trackOpen(file, () => index.rootFor(file));
     await finishDocumentOpen(file, at);
   } catch (e) {
     chunks.release();
@@ -838,7 +624,8 @@ async function bootDocument(file: string, doc: HTMLElement, after: number, chunk
   const imagesOnly = outcome === 'no_text' && evidence.blocks > 0;
   if (outcome !== 'painted' && !imagesOnly) return measure.finish(1);
   chunks.release();
-  await ensurePersistenceLoaded(dirname(file));
+  await persistence.ensureLoaded(dirname(file));
+  restoreAfterTypeset = true;
   await finishDocumentOpen(file);
   setTimeout(() => void trust.load().then(() => trust.maybeRerenderForLateTrust()), 0);
   await indexing;
@@ -857,19 +644,18 @@ export async function startApp(
     pieces?: readonly PieceSource[];
   },
 ): Promise<AppHandle> {
-  persistenceLoaded = false;
-  positionPersistence = null;
   restoreAfterTypeset = false;
-  scrollPersistenceInstalled = false;
-  resetPaletteHistoryMirror();
   const base = injected;
+  // The mounted palette's session, once main.ts has said where it is (B-14).
+  let paletteSession: (() => PaletteSession) | null = null;
   shell = {
     ...base,
     quit: async (code) => {
-      await flushAllPersistence();
+      await persistence.flush();
       return base.quit(code);
     },
   };
+  persistence = createReadingPersistence(shell, () => paletteSession?.());
   trust = createTrustController({
     shell,
     currentPath: openPathNow,
@@ -880,7 +666,6 @@ export async function startApp(
   });
   index = createIndexService(indexShellFor(shell));
   indexing = Promise.resolve();
-  historyTracked = Promise.resolve();
   launchArgs = opts?.argv ? [...opts.argv] : [];
   measure = createLaunchMeasure(shell, launchArgs);
   readerConfigApplied = false;
@@ -927,6 +712,7 @@ export async function startApp(
     refreshTitle,
   });
   view = articleView;
+  persistence.follow(articleView);
   const renderedSelection = createRenderedSelection({
     article: host.article,
     scroller: host.scroller,
@@ -965,9 +751,10 @@ export async function startApp(
     jumpToSource: (byteOffset) => articleView.jumpToSource(byteOffset),
     relayout: () => articleView.relayout(),
     pinPaletteDocument(path: string) {
-      const palette = (window as Window & { __marxyPalette?: { session: import('./palette/session.ts').PaletteSession } })
-        .__marxyPalette;
-      pinDocumentOnPaletteSession(palette?.session ?? emptySession('/'), path);
+      pinDocumentOnPaletteSession(paletteSession?.() ?? emptySession('/'), path);
+    },
+    setPaletteSession(session) {
+      paletteSession = session;
     },
     index,
   };

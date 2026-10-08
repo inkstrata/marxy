@@ -110,6 +110,18 @@ nodeTest('app.ts keeps none of the state-map rows B-13 moves into the view', () 
   assert.doesNotMatch(app, /\battach\(|\bsnapToGrid\(|new ResizeObserver\(|source\/editor\.ts/);
 });
 
+nodeTest('app.ts holds no watch and no persistence state, and never reaches for the palette on window (B-14)', () => {
+  const app = readFileSync(join(src, 'app.ts'), 'utf8');
+  for (const name of ['documentWatch', 'positionPersistence', 'persistenceLoaded', 'scrollPersistenceInstalled', '__marxyPalette']) {
+    assert.doesNotMatch(app, new RegExp(`\\b${name}\\b`), `app.ts still names ${name}`);
+  }
+  // Where they went.
+  assert.match(readFileSync(join(src, 'document', 'live-reload.ts'), 'utf8'), /export async function watchDocument\(/);
+  const persistence = readFileSync(join(src, 'position', 'reading-persistence.ts'), 'utf8');
+  assert.match(persistence, /export function createReadingPersistence\(/);
+  assert.doesNotMatch(persistence, /__marxyPalette/);
+});
+
 nodeTest('rendered-view.ts has no module-level let: two views share nothing', () => {
   const view = readFileSync(join(src, 'view', 'rendered-view.ts'), 'utf8');
   assert.deepEqual(topLevel(view, 'let'), []);
