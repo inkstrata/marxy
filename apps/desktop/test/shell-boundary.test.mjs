@@ -120,7 +120,7 @@ function handlerCommandNames(mainText) {
   const names = [];
   for (const part of block.split(',')) {
     const token = part.trim().replace(/\s+/g, ' ');
-    const scoped = /commands::(?:fs|os)::(\w+)/.exec(token);
+    const scoped = /commands::(?:fs|os|search)::(\w+)/.exec(token);
     if (scoped) names.push(scoped[1]);
     else if (/^[a-z][a-z0-9_]*$/.test(token)) names.push(token);
   }

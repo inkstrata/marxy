@@ -924,6 +924,8 @@ fn main() {
             take_pending_opens,
             commands::os::open_external,
             commands::os::reveal_in_editor,
+            commands::search::search_content,
+            commands::search::cancel_content_search,
         ])
         .build(tauri::generate_context!())
         .expect("error while building marxy")

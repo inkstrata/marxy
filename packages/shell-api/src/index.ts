@@ -13,6 +13,44 @@ export interface WatchEvent {
   readonly to?: string;
 }
 
+/** One place a content search matched (C-16). */
+export interface ContentHit {
+  readonly path: string;
+  /** 1-based, counting `\n` (a CRLF file numbers its lines as an LF one does). */
+  readonly line: number;
+  /** Absolute byte offset of the match in the file as written: UTF-8, byte-order mark and CRLF included. */
+  readonly byteOffset: number;
+  /** The matching line, cut to at most 160 characters around the match, control characters as spaces. */
+  readonly preview: string;
+  /** UTF-16 offsets of the match in `preview`. */
+  readonly matchStart: number;
+  readonly matchEnd: number;
+}
+
+export interface ContentSearchOptions {
+  /**
+   * The collection's roots. A path outside every root, in a built-in deny-listed directory, matched
+   * by `denyGlobs`, or reached through a symlink is never read.
+   */
+  readonly roots: readonly string[];
+  /** The reader's deny globs from `collection.toml`, as the index walk applies them. */
+  readonly denyGlobs?: readonly string[];
+  /** Hits in all; default 200. */
+  readonly limit?: number;
+  /** Hits per file; default 5. */
+  readonly perFile?: number;
+  /** Aborting stops the scan in the shell and rejects with an `AbortError`. */
+  readonly signal?: AbortSignal;
+}
+
+export interface ContentSearchResult {
+  readonly hits: readonly ContentHit[];
+  /** Files read and searched; skipped files (missing, a directory, binary, over 4 MB) do not count. */
+  readonly scannedFiles: number;
+  /** More hits exist than were returned, or the scan stopped at a cap before reading every path. */
+  readonly truncated: boolean;
+}
+
 export type ShellError = {
   readonly code: 'not-found' | 'permission' | 'io' | 'invalid' | 'unsupported';
   readonly message: string;
@@ -87,6 +125,12 @@ export interface Shell {
   onCloseRequested(cb: () => void): void;
   /** Let a previously-requested window close proceed. */
   confirmClose(): Promise<void>;
+  /**
+   * Search these files' contents for `query` in one shell call (C-16, ADR-0053 §4): nothing is
+   * indexed or written, and nothing but the passed paths is read. Smart case: an all-lowercase query
+   * matches ASCII case-insensitively, any uppercase means exact bytes. Hits come in path order.
+   */
+  searchContent(paths: readonly string[], query: string, opts: ContentSearchOptions): Promise<ContentSearchResult>;
 }
 
 /** No-op Shell used only for compile-time completeness checks (MARXY-94, ADR-0039). */
@@ -121,6 +165,7 @@ function stubShellImpl(): Shell {
     fetchRemoteImage: async () => '',
     onCloseRequested: () => {},
     confirmClose: async () => {},
+    searchContent: async () => ({ hits: [], scannedFiles: 0, truncated: false }),
   };
 }
 
