@@ -298,3 +298,15 @@ further up maps correctly. Map an anchor at an insertion point to the far side o
 a block start (the heading moved; the reader was reading it, not the gap before it). Acceptance: a core test
 inserting at a held heading's first byte lands on the heading; one inserting inside the heading's text keeps the
 current behaviour; a WebKit live-reload case through `startApp` shows the heading after an outside write.
+
+### F-19.1 — The top stays the top, and nested blocks follow too
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19 · *From the F-19 review.* · **Paths:**
+`packages/core/src/position/restore.ts`, `packages/core/src/position/reload.test.ts`.
+Three things. A reader held at offset 0 stays at the top when text is prepended (lead ruling, 2026-10-08: a reader
+who has not scrolled is reading the top, not the first heading); today F-19 moves them below the new text.
+`startsBlock` checks only top-level children, so a held list item, table cell or fence nested in a list keeps the
+old behaviour; use the same innermost blocks the desktop's `buildBlocks` uses (or the AST's block nodes at any
+depth). And say in a comment which way an appended duplicate of the rest of the file now breaks the tie (the reader
+follows to the copy; the bytes cannot tell). Acceptance: a core test for offset 0 (stays), one for a nested list item
+and one for a fence in a list (both follow).
