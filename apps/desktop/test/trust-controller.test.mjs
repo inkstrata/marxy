@@ -17,11 +17,16 @@ const desktopRoot = new URL('..', import.meta.url).pathname;
 const repoRoot = new URL('../../../', import.meta.url).pathname;
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 
-/** app.ts without comments, so a name mentioned in prose does not count as code. */
-function appSource() {
-  return readFileSync(join(desktopRoot, 'src', 'app.ts'), 'utf8')
+/** A source file without comments, so a name mentioned in prose does not count as code. */
+function sourceOf(file) {
+  return readFileSync(join(desktopRoot, 'src', file), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+/** app.ts without comments. */
+function appSource() {
+  return sourceOf('app.ts');
 }
 
 nodeTest('app.ts holds no trust state and no second re-render path', () => {
@@ -33,7 +38,9 @@ nodeTest('app.ts holds no trust state and no second re-render path', () => {
 });
 
 nodeTest('app.ts builds the deferred-startup context in one place', () => {
-  const calls = appSource().match(/\bdeferredStartupContext\(/g) ?? [];
+  // The page and its deferred work moved into the per-article view (B-13): app.ts builds none.
+  assert.equal(appSource().match(/\bdeferredStartupContext\(/g), null);
+  const calls = sourceOf('view/rendered-view.ts').match(/\bdeferredStartupContext\(/g) ?? [];
   // The declaration and its one call.
   assert.equal(calls.length, 2, `deferredStartupContext( appears ${calls.length} times`);
 });

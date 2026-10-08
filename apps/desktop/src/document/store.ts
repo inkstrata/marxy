@@ -114,7 +114,15 @@ interface State {
   readonly buffer: Buffer;
   readonly ast: Document;
   readonly nodeMap: NodeMap;
-  /** The version of the last transition that changed the bytes: a range read at or after it still holds. */
+  /**
+   * The version of the last transition that changed the bytes: a range read at or after it still holds.
+   * `commit` decides "changed" by reference, `next.buffer.bytes !== state.buffer.bytes`, not by content,
+   * so this depends on one invariant: every transition that changes the bytes makes a new Uint8Array
+   * (`splice`, `createBuffer`), and every one that does not keeps the very same array (`save`, `rename`
+   * and an unchanged `reload` spread `state` or rename the buffer around its bytes). A bytes-changing
+   * transition that edited the array in place would leave `bytesVersion` behind, and a stale range
+   * would pass `baseVersion`. Never mutate `buffer.bytes`; store.test.ts pins both halves.
+   */
   readonly bytesVersion: number;
   /** Oldest first. Plain arrays rather than `History`: it moves its stacks before the splice succeeds. */
   readonly past: readonly Edit[];

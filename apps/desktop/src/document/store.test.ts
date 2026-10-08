@@ -275,6 +275,46 @@ test('a save, a rename or an adopted reload between reading a range and applying
   assert.equal(text(store.snapshot()), 'uno TWO\n');
 });
 
+test('bytesVersion is by reference: every bytes-changing transition makes a new array, and no other one does', async () => {
+  // `commit` compares `buffer.bytes` by reference to decide whether a range read earlier still holds
+  // (B-12 review). Pin both halves, so a transition that edits the array in place, or copies it when the
+  // bytes are unchanged, fails here rather than letting a stale range through or refusing a good one.
+  const io = recordingIo();
+  const store = openDocumentStore(io, PATH, enc.encode('one two\n'));
+  const bytesNow = (): Uint8Array => store.snapshot().buffer.bytes;
+  const changes = async (label: string, run: () => Promise<unknown>): Promise<void> => {
+    const before = bytesNow();
+    const copy = new Uint8Array(before);
+    await run();
+    assert.notEqual(bytesNow(), before, `${label}: a new array`);
+    assert.deepEqual(before, copy, `${label}: the old array is untouched`);
+  };
+  const keeps = async (label: string, run: () => Promise<unknown>): Promise<void> => {
+    const before = bytesNow();
+    const version = store.snapshot().version;
+    await run();
+    assert.ok(store.snapshot().version > version, `${label}: a committed transition`);
+    assert.equal(bytesNow(), before, `${label}: the same array`);
+  };
+  await changes('apply', () => store.apply({ range: range(0, 3), replacement: 'ONE', label: 'edit' }));
+  await changes('undo', () => store.undo());
+  await changes('redo', () => store.redo());
+  await changes('commitSource', () => store.commitSource('ONE two!\n'));
+  await keeps('save', () => store.save());
+  await keeps('save as', () => store.save({ to: '/repo/as.md' }));
+  await keeps('rename', () => store.rename('/repo/renamed.md'));
+  await changes('reload', () => store.reload(enc.encode('three\n')));
+  await store.apply({ range: range(0, 5), replacement: 'four', label: 'edit' });
+  await keeps('reload of the buffer\'s own bytes', () => store.reload(enc.encode('four\n')));
+  // And what that buys: a range read before the transitions that kept the array still applies.
+  const read = store.snapshot().version;
+  await store.save();
+  await store.rename('/repo/again.md');
+  assert.equal(await store.apply({ range: range(0, 4), replacement: 'FOUR', label: 'late', baseVersion: read }), true);
+  await store.undo();
+  assert.equal(await store.apply({ range: range(0, 4), replacement: 'FOUR', label: 'stale', baseVersion: read }), false);
+});
+
 test('commitSource with a stale baseVersion resolves false and leaves the store untouched', async () => {
   const store = openDocumentStore(recordingIo(), PATH, enc.encode('# Title\n\nbody\n'));
   const base = store.snapshot().version;

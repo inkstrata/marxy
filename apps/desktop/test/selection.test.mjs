@@ -4,7 +4,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
@@ -39,21 +39,6 @@ const BLOCK_TYPES = new Set([
 before(async () => {
   if (skip) return;
   await build({ root: appRoot, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
-  await build({
-    configFile: false,
-    root: appRoot,
-    logLevel: 'silent',
-    build: {
-      lib: {
-        entry: resolve(appRoot, 'src/selection/harness-entry.ts'),
-        formats: ['iife'],
-        name: 'MarxySelectionHarness',
-        fileName: 'selection-harness',
-      },
-      outDir: join(outDir, 'sel'),
-      emptyOutDir: true,
-    },
-  });
   const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.txt': 'text/plain', '.css': 'text/css' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -74,8 +59,6 @@ function b64(path) {
 async function boot(page, files, argv) {
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-  await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-  await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
   await page.evaluate(async ({ files, argv }) => {
     const handle = await window.marxyApp.start(files, argv);
     await handle.ready;

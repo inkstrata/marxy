@@ -65,7 +65,7 @@
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
   "innerHtmlAllowedIn": [
-    "apps/desktop/src/app.ts",
+    "apps/desktop/src/view/",
     "apps/desktop/src/render/progressive.ts",
     "apps/desktop/src/render/",
     "apps/desktop/src/notices/",

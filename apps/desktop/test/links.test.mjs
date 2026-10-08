@@ -4,7 +4,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
@@ -48,21 +48,6 @@ const OTHER = ['# Other doc', '', para('Body'), ''].join('\n');
 before(async () => {
   if (skip) return;
   await build({ root: appRoot, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
-  await build({
-    configFile: false,
-    root: appRoot,
-    logLevel: 'silent',
-    build: {
-      lib: {
-        entry: resolve(appRoot, 'src/selection/harness-entry.ts'),
-        formats: ['iife'],
-        name: 'MarxySelectionHarness',
-        fileName: 'selection-harness',
-      },
-      outDir: join(outDir, 'sel'),
-      emptyOutDir: true,
-    },
-  });
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.ttf': 'font/ttf' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -79,8 +64,6 @@ after(() => server?.close());
 async function boot(page, files, argv) {
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-  await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-  await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
   await page.evaluate(async ({ files, argv }) => {
     const handle = await window.marxyApp.start(files, argv);
     await handle.ready;
@@ -172,8 +155,6 @@ test('F-05: a same-page link to a heading not yet mounted lands it at the readin
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await page.goto(`${base}app.html`);
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
     const mounted = await page.evaluate(async ({ files }) => {
       const handle = await window.marxyApp.start(files, ['/d/big.md']);
       await handle.ready;
@@ -198,8 +179,6 @@ test('F-05: a cross-document link to a late heading lands it at the reading line
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await page.goto(`${base}app.html`);
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
     await page.evaluate(async ({ files }) => {
       const handle = await window.marxyApp.start(files, ['/d/from.md']);
       await handle.ready;
@@ -217,8 +196,6 @@ async function bootBig(page) {
   const files = { '/d/big.md': Buffer.from(BIG, 'utf8').toString('base64') };
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-  await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-  await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
   await page.evaluate(async ({ files }) => {
     const handle = await window.marxyApp.start(files, ['/d/big.md']);
     await handle.ready;

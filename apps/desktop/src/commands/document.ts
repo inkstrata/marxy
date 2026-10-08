@@ -16,12 +16,20 @@ import { appHandle } from './app-handle.ts';
 export { attachDocumentEdits, documentEditState } from './edits.ts';
 
 /**
- * The rendered document's wiring and the harness hooks, once per window. `context` is the registry's
- * context for the running app (`buildAppContext`); everything here reads the open document through it
- * or through `AppHandle.selection` when it runs, never a copy taken now.
+ * The context the window's harness hooks run commands in: the latest app's, so a restart replaces it
+ * (the B-12 review). Each article's own wiring takes its context from its view (`wireArticle`).
+ */
+let windowContext: (() => AppContext) | null = null;
+
+/**
+ * The harness hooks, once per window. `context` is the registry's context for the running app
+ * (`buildAppContext`); calling this again (a restart) moves the hooks to the new one. Everything here
+ * reads the open document through it or through `AppHandle.selection` when it runs, never a copy
+ * taken now.
  */
 export function startDocumentEditingWire(context: () => AppContext): void {
   if (typeof document === 'undefined') return;
+  windowContext = context;
   const w = window as Window & {
     __marxyDocumentWire?: boolean;
     marxyDocumentEdit?: typeof documentEditState;
@@ -43,8 +51,8 @@ export function startDocumentEditingWire(context: () => AppContext): void {
   }, true);
   w.marxyRunCommand = async (id: string) => {
     const cmd = sourceViewCommands().find((c) => c.id === id);
-    if (!cmd) return;
-    const ctx = context();
+    if (!cmd || !windowContext) return;
+    const ctx = windowContext();
     if (!cmd.when(ctx)) return;
     await cmd.run(ctx);
   };
@@ -69,32 +77,64 @@ export function startDocumentEditingWire(context: () => AppContext): void {
     const view = dom ? EditorView.findFromDOM(dom) : null;
     return view?.state.tabSize ?? null;
   };
-  const article = document.getElementById('doc');
+  w.marxyDocumentEdit = documentEditState;
+  w.marxyHarnessUndo = () => undoDocumentEdit();
+  w.marxyHarnessRedo = () => redoDocumentEdit();
+  w.marxyHarnessAlignTable = harnessAlignFirstTable;
+  w.marxyHarnessSave = () => save();
+}
+
+/**
+ * One article's wiring (B-13): the task click and the harness's "wired" flag, both with the context
+ * of the view that owns `article`. Returns what undoes it, which the view calls when it is destroyed;
+ * a second view, or the next app's view on the same article, wires with its own context.
+ */
+export function wireArticle(
+  article: HTMLElement,
+  context: () => AppContext,
+  runtime: () => {
+    readonly article: HTMLElement;
+    readonly buffer: { readonly path: string };
+    readonly shell: Parameters<typeof updateTabWidthResolver>[1];
+    /** The store version the page was set from: a task toggle carries it. */
+    readonly version: number;
+  } | null,
+): () => void {
+  if (typeof document === 'undefined') return () => {};
+  let live = true;
+  const pageVersion = (): number | undefined => runtime()?.version;
+  let untask: (() => void) | null = null;
+  const installTasks = (): void => {
+    if (untask) return;
+    void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
+      if (live && !untask) untask = installTaskMarkers(article, context, pageVersion);
+    });
+  };
   const wire = (): void => {
-    const ctx = appHandle()?.selection.runtime() ?? null;
+    const ctx = runtime();
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     updateTabWidthResolver(ctx.buffer.path, ctx.shell);
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
-      installTaskMarkers(ctx.article, context);
+      if (!live) return;
+      if (!untask) untask = installTaskMarkers(article, context, pageVersion);
       // The harness waits on this before it edits: the rendered document is wired. The saved baseline
       // is the store's own (`disk`), set when the document was read, so there is nothing to sync.
       (window as Window & { __marxyOpenSynced?: boolean }).__marxyOpenSynced = true;
     });
   };
   const obs = new MutationObserver(wire);
-  if (article) {
-    obs.observe(article, { childList: true, subtree: true });
-    // The click handler is delegated and resolves its task at click time, so it does not need a
-    // rendered document to exist. Installing it here, not on the first mutation, means a first
-    // document that nothing mutates afterwards still has working checkboxes.
-    void import('../render/tasks.ts').then(({ installTaskMarkers }) => installTaskMarkers(article, context));
-    wire();
-  }
-  w.marxyDocumentEdit = documentEditState;
-  w.marxyHarnessUndo = () => undoDocumentEdit();
-  w.marxyHarnessRedo = () => redoDocumentEdit();
-  w.marxyHarnessAlignTable = harnessAlignFirstTable;
-  w.marxyHarnessSave = () => save();
+  obs.observe(article, { childList: true, subtree: true });
+  // The click handler is delegated and resolves its task at click time, so it does not need a
+  // rendered document to exist. Installing it here, not on the first mutation, means a first
+  // document that nothing mutates afterwards still has working checkboxes.
+  installTasks();
+  wire();
+  return () => {
+    live = false;
+    obs.disconnect();
+    untask?.();
+    untask = null;
+  };
 }
 
 /** Save needs a real file: an open document whose path is not one of Marxy's own pages. */
