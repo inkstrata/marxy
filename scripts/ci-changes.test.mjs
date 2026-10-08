@@ -41,7 +41,7 @@ const CASES = [
   ['core\'s index, which the app imports, is typography', ['packages/core/src/index.ts'], only('web', 'typography')],
   ['Rust source runs the Rust job only', ['apps/desktop/src-tauri/src/main.rs'], only('rust')],
   ['tauri.conf.json runs the Rust job', ['apps/desktop/src-tauri/tauri.conf.json'], only('rust')],
-  ['the Vite config the binary embeds runs the Rust job', ['apps/desktop/vite.config.ts'], only('web', 'rust')],
+  ['the Vite config runs the Rust job (the binary embeds its output) and typography (it builds gate.html)', ['apps/desktop/vite.config.ts'], only('web', 'typography', 'rust')],
   ['the command-line smoke runs the Rust job', ['apps/desktop/scripts/smoke-cli-open.mjs'], only('web', 'rust')],
   ['mise.toml pins the toolchain the Rust job uses', ['mise.toml'], only('web', 'rust')],
   ['Cargo.lock is Rust and a lockfile', ['apps/desktop/src-tauri/Cargo.lock'], only('rust', 'lockfile')],

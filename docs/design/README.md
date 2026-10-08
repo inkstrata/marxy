@@ -22,7 +22,7 @@ They are written against the code as it is on `main` at the time of writing (the
 | [07-index-and-palette](07-index-and-palette.md) | root detection, walking, entries, persistence, fuzzy ranking, palette states, history | MARXY-35, MARXY-36 |
 | [08-position-and-watching](08-position-and-watching.md) | reading position from the DOM and back, watch events, reload with position kept | MARXY-34, MARXY-38 |
 | [09-app-shell](09-app-shell.md) | DOM skeleton, state machine, keyboard map, outline, find, notices, Source mode, mode switch | MARXY-37, MARXY-47, MARXY-48 |
-| [10-gates-and-testing](10-gates-and-testing.md) | how to write tests per package, the headless render entry, grid and rag checks, screenshot diffs | MARXY-25, MARXY-30 |
+| [10-gates-and-testing](10-gates-and-testing.md) | how to write tests per package, the app harness the aesthetics gate renders through, grid and rag checks, screenshot diffs | MARXY-25, MARXY-30 |
 | [11-config-and-storage](11-config-and-storage.md) | config file, app data files, versioning, corruption handling | MARXY-38, MARXY-46 |
 | [12-outline](12-outline.md) | heading list from the AST with byte provenance; frontmatter title rule | MARXY-109 |
 | [13-trust](13-trust.md) | the wide policy, deferred remote images, grants and `trust.json`, the blocked-content and truncation notices, revoking | MARXY-44, MARXY-97, MARXY-45 |

@@ -35,7 +35,7 @@ const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|gat
 const TYPOGRAPHY = new RegExp('^(' + [
   'packages/theme/', 'packages/typeset/', 'packages/core/src/', 'packages/shell-api/', 'fixtures/', 'fonts/', 'scripts/specimen/',
   'scripts/gate-aesthetics\\.mjs$', 'scripts/playwright-webkit\\.mjs$', 'apps/desktop/(index|gate)\\.html$',
-  'apps/desktop/src/',
+  'apps/desktop/src/', 'apps/desktop/vite\\.config\\.ts$',
 ].join('|') + ')');
 
 // What the Rust job builds and runs: the Tauri crate (tauri.conf.json and Cargo.lock live in it), the
