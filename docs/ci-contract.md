@@ -56,16 +56,38 @@ typecheck, lint and tests for each touched package (a change to `scripts/` runs 
 instead; root manifests, `pnpm-workspace.yaml`, tsconfigs and `biome.json` still mean every package);
 and the node-only gates `scripts/gates-by-path.json` maps to your paths (`gate:golden` and
 `gate:fidelity` for core or the corpus, `gate:bundle` for desktop, `gate:licences` for manifests and
-lockfiles, `cargo fmt --check` for `src-tauri`). The steps run in parallel, each with a timeout (5 minutes,
-`--timeout <seconds>`), each step's output goes to `results/precheck/<step>.log`, and a timed summary
-prints on every exit, including `Ctrl-C` and a kill (those steps read `killed`).
+lockfiles, `cargo fmt --check` for `src-tauri`). A change to `packages/core` also runs the CommonMark
+spec selftest and typechecks `apps/desktop` (which consumes core), without running desktop's tests. The
+steps run in parallel, each with a timeout (5 minutes, `--timeout <seconds>`), each step's output goes to
+`results/precheck/<step>.log`, and a timed summary prints on every exit, including `Ctrl-C` and a kill
+(those steps read `killed`).
+
+Flags: `--all` (the slow path below), `--browser` (below), `--timeout <seconds>` (per step; 5 minutes, or
+30 with `--browser`/`--all`), `--jobs <n>` (how many steps run at once; default
+`os.availableParallelism()`, so `--jobs 2` on a busy or small machine), and `--files a,b,...` (plan
+from this comma-separated list of repo-relative paths instead of the git diff against `origin/main`
+and your uncommitted and untracked files, for example to ask what a change would run).
+
+What it does **not** mirror from `fast`, so a green `precheck` is not a green `fast`:
+
+- Desktop's typecheck, lint and tests after a change that touches only another package (only core's
+  change typechecks desktop; a `shell-api`, `theme` or `typeset` change does not).
+- `gate:licences`, `gate:bundle`, the golden and fidelity gates, and the `scripts/` tests run only on the
+  paths `scripts/gates-by-path.json` maps to them (`scripts/` changes run the scripts tests, not the
+  packages), whereas `fast` runs them on every pull request.
+- `test:fleet` runs only for `orchestration/` changes; `fast` runs it when the fleet changed, and it
+  leaves the pull-request path in G-03.
+- The CommonMark spec suite itself (the download-and-compare step); only the selftest runs.
+
+`pnpm precheck --all` closes most of that gap (it does not run the fleet tests or the CommonMark spec suite).
 
 It runs **no browser**: package tests run with `PLAYWRIGHT_BROWSERS_PATH` pointing at an empty
 directory, so the WebKit tests skip exactly as they do in `fast`, and the summary says so. CI runs those
 in `browser-lite` (and nightly in `browser-full`). `pnpm precheck --browser` runs them for the touched
 packages; `pnpm precheck --all` is the slow path (every package, WebKit on, every gate including
-`gate:no-network`, `gate:aesthetics` and clippy). Not run by default, each runnable by name:
-`gate:no-network`, `gate:aesthetics`, `lint:rust`, and the paused fleet's `check-cards` and `check:story`.
+`gate:no-network`, `gate:aesthetics` and clippy). Not run by default:
+`gate:no-network`, `gate:aesthetics`, `lint:rust` and the paused fleet's `check:story` are pnpm
+scripts, run by name; `check-cards` is not one, run it as `node scripts/check-cards.mjs`.
 pnpm's pre and post hooks are switched off (`enablePrePostScripts: false` in `pnpm-workspace.yaml`):
 `pnpm check` does not run `precheck` first, and `pnpm precheck` runs `pnpm check` itself as one of its
 steps. Nothing else in the repository relies on a `pre…` or `post…` script.
