@@ -37,6 +37,12 @@ export async function collectionFile(shell: CollectionShell): Promise<string | u
 
 const EMPTY: Collection = { roots: [], denyGlobs: [] };
 
+/** parseCollection's warning for a file that is not TOML at all (core `collection.ts`). */
+export const UNPARSEABLE_WARNING = 'collection.toml could not be parsed; no extra folders';
+
+/** `/` or a bare drive: walking one would walk the whole disk. */
+export const isFilesystemRoot = (path: string): boolean => path === '/' || /^[A-Za-z]:\/?$/.test(path);
+
 /**
  * The declared collection. No file (or no config directory) is an empty collection and says
  * nothing; every warning the parse gave goes into one info notice, and the folders that did parse
@@ -45,7 +51,7 @@ const EMPTY: Collection = { roots: [], denyGlobs: [] };
 export async function loadCollection(
   shell: CollectionShell,
   opts: { readonly notify?: Notify } = {},
-): Promise<{ collection: Collection; warnings: readonly string[] }> {
+): Promise<{ collection: Collection; warnings: readonly string[]; unparseable?: boolean }> {
   const file = await collectionFile(shell);
   if (file === undefined) return { collection: EMPTY, warnings: [] };
   let bytes: Uint8Array;
@@ -58,7 +64,15 @@ export async function loadCollection(
     return { collection: EMPTY, warnings: [] };
   }
   const { config } = await shell.configPaths!();
-  const { collection, warnings } = parseCollection(bytes, { home: inferHomeFromConfig(config) });
+  const parsed = parseCollection(bytes, { home: inferHomeFromConfig(config) });
+  const warnings = [...parsed.warnings];
+  // A whole disk is too large to index: the folder is skipped, and the one notice says so.
+  const roots = parsed.collection.roots.filter((root) => {
+    if (!isFilesystemRoot(root.path)) return true;
+    warnings.push(`${root.path} is a whole disk, too large to index; skipped`);
+    return false;
+  });
+  const collection: Collection = { ...parsed.collection, roots };
   if (warnings.length > 0) {
     const head = warnings.slice(0, WARNINGS_SHOWN).join('; ');
     const more = warnings.length - WARNINGS_SHOWN;
@@ -67,7 +81,7 @@ export async function loadCollection(
       text: `${COLLECTION_FILE}: ${head}${more > 0 ? ` and ${more} more` : ''}.`,
     });
   }
-  return { collection, warnings };
+  return { collection, warnings, unparseable: warnings.includes(UNPARSEABLE_WARNING) };
 }
 
 /**
@@ -89,11 +103,9 @@ export async function watchCollection(shell: CollectionShell, onChange: () => vo
   }
 }
 
-const isFilesystemRoot = (path: string) => path === '/' || /^[A-Za-z]:\/?$/.test(path);
-
 export interface CollectionDeps {
   readonly shell: CollectionShell;
-  readonly index: Pick<IndexService, 'rootFor' | 'ensureRoot' | 'dropRoot' | 'roots'>;
+  readonly index: Pick<IndexService, 'rootFor' | 'ensureRoot' | 'dropRoot' | 'roots' | 'setDeny'>;
   readonly feed: Pick<IndexFeed, 'setDeclared' | 'setCurrent' | 'entries'>;
   /** The document on screen, or null. */
   currentPath(): string | null;
@@ -146,17 +158,20 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
     feed.setDeclared(next);
     const keep = new Set([...(current === undefined ? [] : [current]), ...deps.recentRoots()]);
     for (const root of gone) if (!keep.has(root)) index.dropRoot(root);
-    const deny = denyRulesFor(collection.denyGlobs);
+    // The deny globs hold for every root the index has, not only the declared ones.
+    index.setDeny(denyRulesFor(collection.denyGlobs));
     for (const root of collection.roots) {
       if (stopped) return;
-      await index.ensureRoot(root.path, { watch: root.watch, deny });
+      await index.ensureRoot(root.path, { watch: root.watch });
     }
   };
 
   const reload = () =>
     serially(async () => {
       if (stopped) return;
-      const { collection } = await loadCollection(shell, { notify: deps.notify });
+      const { collection, unparseable } = await loadCollection(shell, { notify: deps.notify });
+      // A file broken mid-edit keeps the last good collection; its one notice says what is wrong.
+      if (unparseable) return;
       await apply(collection);
     });
 

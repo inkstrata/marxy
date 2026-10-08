@@ -119,3 +119,92 @@ test('rewriting collection.toml and its watch event drop a folder and add anothe
   assert.equal(h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'collection_loaded').length, 1, 'marked once, at launch');
   collection.stop();
 });
+
+/** /c is a repository holding the declared /c/docs; /r is a recent root holding the declared /r/n. */
+function leakHarness() {
+  const shell = createMemoryShell({
+    '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
+    '/c/README.md': enc('# Home\n'),
+    '/c/docs/guide.md': enc('# Guide\n'),
+    '/c/docs/drafts/secret.md': enc('# Secret\n'),
+    '/r/n/kept.md': enc('# Kept\n'),
+    '/r/n/drafts/secret-r.md': enc('# Secret r\n'),
+    '/collection.toml': enc('[[root]]\npath = "/c/docs"\n\n[[root]]\npath = "/r/n"\n\n[deny]\nglobs = ["**/drafts/**"]\n'),
+  });
+  const index = createIndexService(shell);
+  const session = { ...emptySession('/c'), recentRoots: ['/c', '/r'] };
+  const feed = createIndexFeed({
+    currentRoot: () => session.currentRoot,
+    recentRoots: () => session.recentRoots,
+    readAt: () => session.readAt,
+  });
+  index.subscribe((entries) => feed.setEntries(entries));
+  const search = (q: string) =>
+    paletteResults(q, feed.entries(), session, { prepared: feed.prepared(), rootRank: feed.rootRank() }).map(
+      (hit) => `${hit.entry.root}|${hit.entry.path}`,
+    );
+  return { shell, index, feed, session, search };
+}
+
+test('a deny glob holds through the repository that contains a declared folder (C-10 review)', async () => {
+  const h = leakHarness();
+  await h.index.ensureFor('/c/README.md');
+  const collection = startCollection({
+    shell: h.shell,
+    index: h.index,
+    feed: h.feed,
+    currentPath: () => '/c/README.md',
+    recentRoots: () => h.session.recentRoots,
+    notify: () => {},
+  });
+  await collection.loaded;
+  await collection.recentLoaded;
+  assert.deepEqual(h.search('secret'), [], 'neither /c|…/drafts/secret.md nor /r|…/drafts/secret-r.md');
+  assert.ok(h.search('guide').length > 0 && h.search('kept').length > 0, 'the rest is there');
+  collection.stop();
+});
+
+test('a deny glob holds through a recent root that contains a declared folder (C-10 review)', async () => {
+  const h = leakHarness();
+  const collection = startCollection({
+    shell: h.shell,
+    index: h.index,
+    feed: h.feed,
+    currentPath: () => null,
+    recentRoots: () => ['/r'],
+    notify: () => {},
+  });
+  await collection.loaded;
+  await collection.recentLoaded;
+  assert.ok(h.index.roots().includes('/r'));
+  assert.deepEqual(h.search('secret'), []);
+  collection.stop();
+});
+
+test('a declared / or C:/ is skipped and the one notice says so (C-10 review)', async () => {
+  const h = harness('[[root]]\npath = "/"\n\n[[root]]\npath = "C:/"\n\n[[root]]\npath = "/a"\n');
+  const collection = await h.start();
+  await collection.loaded;
+  assert.deepEqual(h.index.roots(), ['/c', '/a'], 'only /a is held');
+  assert.equal(h.notices.length, 1, JSON.stringify(h.notices));
+  assert.match(h.notices[0]!, /\/ is a whole disk, too large to index; skipped/);
+  // A bare drive is already refused by the parse (it normalises to `C:`, not an absolute folder).
+  assert.match(h.notices[0]!, /"C:\/".*skipped/);
+  assert.equal(h.shell.calls.filter((c) => c.method === 'readDir' && c.args[0] === '/').length, 0, '/ was never listed');
+  collection.stop();
+});
+
+test('collection.toml broken mid-run keeps the last good folders, with one notice (C-10 review)', async () => {
+  const h = harness('[[root]]\npath = "/a"\n');
+  const collection = await h.start();
+  await collection.loaded;
+  assert.equal(h.notices.length, 0);
+  await h.shell.writeFileAtomic('/collection.toml', enc('[[root]\npath = "/a"\n'));
+  h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+  await collection.settled();
+  assert.equal(h.notices.length, 1, JSON.stringify(h.notices));
+  assert.match(h.notices[0]!, /could not be parsed/, 'the core warning text this relies on (UNPARSEABLE_WARNING)');
+  assert.deepEqual(h.index.roots(), ['/c', '/a']);
+  assert.deepEqual(h.search('notes'), ['/c/notes.md', '/a/notes.md']);
+  collection.stop();
+});

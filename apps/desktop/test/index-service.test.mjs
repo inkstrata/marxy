@@ -184,7 +184,8 @@ const stampedShell = (files, mtimes = new Map()) => {
 };
 
 const walkCalls = (shell, method) =>
-  shell.calls.filter((c) => c.method === method && !String(c.args[0]).startsWith('/data/'));
+  // The collection.toml read (C-10) is the deny list's, not the walk's.
+  shell.calls.filter((c) => c.method === method && !String(c.args[0]).startsWith('/data/') && c.args[0] !== '/collection.toml');
 
 nodeTest('a cold walk makes exactly one readDir per directory, one read per ignore file and one per markdown file', async () => {
   const { shell, host } = stampedShell(snapshotRepo());
@@ -353,22 +354,36 @@ nodeTest('a second service instance over the same data directory reports the sam
   assert.equal(second.baselineMs('/r'), baseline, 'the baseline is kept in the snapshot and never moves');
 });
 
-nodeTest('ensureRoot holds a folder as itself with its deny rules; dropRoot lets it go; isWatched follows the declaration (C-10)', async () => {
-  const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
+nodeTest('a snapshot\'s baselineMs is served as kept, not replaced by its generatedAtMs or the walk time (C-10)', async () => {
+  const shell = createMemoryShell(snapshotRepo());
+  const snapshot = {
+    version: 1,
+    root: '/r',
+    generatedAtMs: 1_700_000_500_000,
+    baselineMs: 1_600_000_000_000,
+    entries: [{ path: '/r/README.md', root: '/r', title: 'Rho', mtimeMs: 1, size: 12, kind: 'markdown', headings: [] }],
+  };
+  await shell.writeFileAtomic(`/data/index-${await sha1('/r')}.json`, enc(JSON.stringify(snapshot)));
+  const service = createIndexService(shell);
+  await service.ensureRoot('/r');
+  assert.equal(service.baselineMs('/r'), 1_600_000_000_000);
+  const kept = JSON.parse(new TextDecoder().decode(await shell.readFile(`/data/index-${await sha1('/r')}.json`)));
+  assert.equal(kept.baselineMs, 1_600_000_000_000, 'the rewritten snapshot carries the same baseline');
+});
+
+nodeTest('ensureRoot holds a folder as itself; dropRoot lets it go; isWatched follows the declaration (C-10)', async () => {
   const shell = createMemoryShell({
     '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
     '/c/README.md': enc('# Home\n'),
     '/c/sub/a.md': enc('# A\n'),
-    '/c/sub/drafts/wip.md': enc('# Wip\n'),
     '/d/b.md': enc('# B\n'),
   });
   const service = createIndexService(shell);
   await service.ensureFor('/c/README.md');
-  await service.ensureRoot('/c/sub', { watch: true, deny: denyRulesFor(['**/drafts/**']) });
+  await service.ensureRoot('/c/sub', { watch: true });
   await service.ensureRoot('/d', { watch: false });
   const of = (root) => service.entries().filter((e) => e.root === root).map((e) => e.path).sort();
-  assert.deepEqual(of('/c/sub'), ['/c/sub/a.md'], 'the declared folder is its own root, and its deny glob holds');
-  assert.deepEqual(of('/c'), ['/c/README.md', '/c/sub/a.md', '/c/sub/drafts/wip.md'], 'the repository keeps its own rules');
+  assert.deepEqual(of('/c/sub'), ['/c/sub/a.md'], 'the declared folder is its own root');
   assert.deepEqual(service.roots(), ['/c', '/c/sub', '/d']);
   assert.equal(service.isWatched('/c'), true, 'the open document\'s repository counts as watched');
   assert.equal(service.isWatched('/c/sub'), true);
@@ -378,6 +393,52 @@ nodeTest('ensureRoot holds a folder as itself with its deny rules; dropRoot lets
   assert.deepEqual(of('/d'), []);
   assert.deepEqual(service.roots(), ['/c', '/c/sub']);
   assert.equal(service.isWatched('/d'), false);
+});
+
+/** A repository /c holding a declared folder /c/docs, and a recent root /r holding a declared /r/n. */
+const deniedTree = (collection) => ({
+  '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
+  '/c/README.md': enc('# Home\n'),
+  '/c/docs/guide.md': enc('# Guide\n'),
+  '/c/docs/drafts/secret.md': enc('# Secret\n'),
+  '/r/n/drafts/secret-r.md': enc('# Secret r\n'),
+  '/r/n/kept.md': enc('# Kept\n'),
+  ...(collection === undefined ? {} : { '/collection.toml': enc(collection) }),
+});
+const DENY_DRAFTS = '[[root]]\npath = "/c/docs"\n\n[[root]]\npath = "/r/n"\n\n[deny]\nglobs = ["**/drafts/**"]\n';
+
+nodeTest('the deny globs hold for the current repository and a recent root, not only the declared folders (C-10)', async () => {
+  const shell = createMemoryShell(deniedTree(DENY_DRAFTS));
+  const service = createIndexService(shell);
+  // The repository's first walk already honours collection.toml: it is read before any walk.
+  await service.ensureFor('/c/README.md');
+  await service.ensureRoot('/c/docs');
+  await service.ensureRoot('/r');
+  await service.ensureRoot('/r/n');
+  const paths = service.entries().map((e) => `${e.root} ${e.path}`);
+  assert.ok(!paths.some((p) => p.includes('/drafts/')), `no drafts through any root: ${JSON.stringify(paths)}`);
+  assert.ok(paths.includes('/c /c/docs/guide.md') && paths.includes('/r /r/n/kept.md'), JSON.stringify(paths));
+  assert.equal(
+    shell.calls.filter((c) => c.method === 'readFile' && String(c.args[0]).includes('/drafts/')).length,
+    0,
+    'nothing under a deny glob is read',
+  );
+});
+
+nodeTest('setDeny with new globs re-walks every root held, and an emptied list brings the files back (C-10)', async () => {
+  const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
+  const shell = createMemoryShell(deniedTree(undefined));
+  const service = createIndexService(shell);
+  await service.ensureFor('/c/README.md');
+  await service.ensureRoot('/r');
+  const drafts = () => service.entries().filter((e) => e.path.includes('/drafts/')).map((e) => e.path).sort();
+  assert.deepEqual(drafts(), ['/c/docs/drafts/secret.md', '/r/n/drafts/secret-r.md']);
+  service.setDeny(denyRulesFor(['**/drafts/**']));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual(drafts(), [], 'both roots were walked again with the rule');
+  service.setDeny([]);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual(drafts(), ['/c/docs/drafts/secret.md', '/r/n/drafts/secret-r.md'], 'no rule lingers');
 });
 
 nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRead', async () => {

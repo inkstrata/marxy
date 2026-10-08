@@ -83,8 +83,15 @@ test('declared /b and /a follow the open repository /c; a denied draft never app
       const { handle } = await window.marxyPaletteBoot.start(files, ['/c/README.md']);
       window.__h = handle;
       await handle.collection.loaded;
-      return handle.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]);
+      // Marks, and where collection.toml was read, in call order.
+      return handle.shell.calls
+        .filter((c) => c.method === 'mark' || (c.method === 'readFile' && c.args[0] === '/collection.toml'))
+        .map((c) => (c.method === 'mark' ? c.args[0] : 'read collection.toml'));
     }, { files: toB64(files()) });
+
+    // The deny list is read for the repository's first walk, but never before first text.
+    assert.ok(marks.indexOf('read collection.toml') > marks.indexOf('first_text'), JSON.stringify(marks));
+    assert.ok(marks.indexOf('read collection.toml') < marks.indexOf('index_loaded'), 'read before the first walk is published');
 
     // collection_loaded is marked once, and after first_text.
     assert.equal(marks.filter((m) => m === 'collection_loaded').length, 1, JSON.stringify(marks));
