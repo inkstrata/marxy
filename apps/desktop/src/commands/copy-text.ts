@@ -1,50 +1,29 @@
 // The drag selection's verbs: copy as rich text, plain text or exact markdown (ADR-0054, design 03, C-06).
-// They act on the DOM range rather than on a node, so they are app commands rather than `op.*`; each
-// writes the clipboard once and never changes the document.
-import { textOf, type Source } from '@marxy/core';
-import { htmlFromDomSelection } from '../selection/copy-html.ts';
-import { textFromDomSelection } from '../selection/copy-text.ts';
+// They act on the drag recorded when it was made (its range and its blocks' bytes), never on the live DOM
+// selection, which the palette takes away; so they are app commands rather than `op.*`. Each writes the
+// clipboard once and never changes the document.
+import { textOf } from '@marxy/core';
+import { htmlFromRange } from '../selection/copy-html.ts';
+import { textFromRange } from '../selection/copy-text.ts';
 import type { AppContext, Command } from './registry.ts';
 
-/** The live DOM selection when it lies in the rendered article, else null. */
-function liveSelection(ctx: AppContext): globalThis.Selection | null {
-  if (typeof window === 'undefined') return null;
-  const article = ctx.renderedPage?.()?.article;
-  const sel = window.getSelection();
-  if (!article || !sel || sel.isCollapsed || sel.rangeCount === 0) return null;
-  const range = sel.getRangeAt(0);
-  return article.contains(range.commonAncestorContainer) ? sel : null;
-}
-
-/** The outermost element carrying provenance that holds `node`, below `article`: its top-level block. */
-function topLevelBlock(article: HTMLElement, node: Node): Element | null {
-  let el: Element | null = node instanceof Element ? node : node.parentElement;
-  let found: Element | null = null;
-  while (el && el !== article) {
-    if (el.hasAttribute('data-marxy-s') && el.hasAttribute('data-marxy-e')) found = el;
-    el = el.parentElement;
-  }
-  return el === article ? found : null;
-}
-
-/** The byte range from the first to the last top-level block a DOM range touches, or null. */
-export function blockRangeOf(article: HTMLElement, range: Range, file: string): Source | null {
-  const first = topLevelBlock(article, range.startContainer);
-  const last = topLevelBlock(article, range.endContainer);
-  if (!first || !last) return null;
-  const start = Number(first.getAttribute('data-marxy-s'));
-  const end = Number(last.getAttribute('data-marxy-e'));
-  if (!Number.isInteger(start) || !Number.isInteger(end) || end < start) return null;
-  return { file, start, end };
-}
-
-async function write(ctx: AppContext, data: { readonly text: string; readonly html?: string }): Promise<void> {
+async function write(ctx: AppContext, data: { readonly text: string; readonly html?: string }, notice: string): Promise<void> {
   await ctx.shell.clipboardWrite(data);
   ctx.closePalette();
-  ctx.showNotice('Copied', { transient: true });
+  ctx.showNotice(notice, { transient: true });
 }
 
 const isDrag = (ctx: AppContext): boolean => ctx.selection.kind === 'text';
+
+type Drag = Extract<AppContext['selection'], { kind: 'text' }>;
+
+/** The recorded drag's range while it still holds part of the rendered page, else null. */
+function liveRange(ctx: AppContext, drag: Drag): Range | null {
+  const page = ctx.renderedPage?.();
+  const range = drag.range;
+  if (!page || !range || range.collapsed || !page.article.contains(range.commonAncestorContainer)) return null;
+  return range;
+}
 
 export function copyTextCommands(): readonly Command[] {
   return [
@@ -55,11 +34,11 @@ export function copyTextCommands(): readonly Command[] {
       when: isDrag,
       async run(ctx) {
         if (ctx.selection.kind !== 'text') return;
-        const sel = liveSelection(ctx);
-        if (!sel) return write(ctx, { text: ctx.selection.text });
-        const html = htmlFromDomSelection(sel);
-        const text = textFromDomSelection(sel);
-        return write(ctx, html === '' ? { text } : { text, html });
+        const range = liveRange(ctx, ctx.selection);
+        if (!range) return write(ctx, { text: ctx.selection.text }, 'Copied as plain text');
+        const html = htmlFromRange(range);
+        const text = textFromRange(range);
+        return html === '' ? write(ctx, { text }, 'Copied as plain text') : write(ctx, { text, html }, 'Copied');
       },
     },
     {
@@ -69,8 +48,8 @@ export function copyTextCommands(): readonly Command[] {
       when: isDrag,
       async run(ctx) {
         if (ctx.selection.kind !== 'text') return;
-        const sel = liveSelection(ctx);
-        return write(ctx, { text: sel ? textFromDomSelection(sel) : ctx.selection.text });
+        const range = liveRange(ctx, ctx.selection);
+        return write(ctx, { text: range ? textFromRange(range) : ctx.selection.text }, 'Copied as plain text');
       },
     },
     {
@@ -79,15 +58,16 @@ export function copyTextCommands(): readonly Command[] {
       group: 'selection',
       when: isDrag,
       async run(ctx) {
+        if (ctx.selection.kind !== 'text') return;
         const page = ctx.renderedPage?.();
-        const sel = liveSelection(ctx);
-        const range = page && sel ? blockRangeOf(page.article, sel.getRangeAt(0), page.buffer.path) : null;
-        if (!page || !range || range.end > page.buffer.bytes.length) {
+        const src = ctx.selection.src;
+        // The bytes are those of the page the drag was made on: a page set since has dropped the drag.
+        if (!page || !src || ctx.selection.version !== page.version || src.end > page.buffer.bytes.length) {
           ctx.closePalette();
-          ctx.showNotice('Select the text again to copy its markdown', { transient: true });
+          ctx.showNotice('Nothing to copy as markdown: the selection holds no block', { transient: true });
           return;
         }
-        return write(ctx, { text: textOf(page.buffer, range) });
+        return write(ctx, { text: textOf(page.buffer, src) }, 'Copied as markdown');
       },
     },
   ];

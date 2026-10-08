@@ -9,6 +9,7 @@ import { webkit } from 'playwright';
 import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createBuffer, parseMarkdown, sectionRange, textOf } from '../../../packages/core/src/index.ts';
+import { DEFAULT_POLICY, sanitizeHtml } from '../../../packages/core/src/sanitize/index.ts';
 import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -220,7 +221,7 @@ test('palette lists no copy operations for a paragraph selection', async () => {
   }
 });
 
-test('palette Copy code runs on Enter, closes, and shows Copied', async () => {
+test('palette Copy code runs on Enter, closes, and says what it copied', async () => {
   const file = '19-source-file.md';
   const docPath = `/corpus/${file}`;
   const browser = await launchWebkit();
@@ -245,7 +246,7 @@ test('palette Copy code runs on Enter, closes, and shows Copied', async () => {
       { timeout: 5000 },
     );
     const notice = await page.locator('#marxy-notices .marxy-notice-text').textContent();
-    assert.equal(notice?.trim(), 'Copied');
+    assert.equal(notice?.trim(), 'Copied code');
     const copies = await page.evaluate(() =>
       window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
     );
@@ -435,3 +436,227 @@ test('C-06: the palette shows Mod+C on the selection\'s default verb and Mod+Shi
     await browser.close();
   }
 });
+
+async function clipboardWrites(page) {
+  return page.evaluate(() => window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite').map((c) => c.args[0]));
+}
+
+/** Runs the palette row `rowKey` from a `> copy` query; the palette's input takes the DOM selection away. */
+async function runFromPalette(page, rowKey) {
+  const mod = modKey(await page.evaluate(() => navigator.platform));
+  await page.keyboard.press(`${mod}+KeyP`);
+  await page.locator('#marxy-palette .marxy-palette-query').fill('> copy');
+  const row = page.locator(`#marxy-palette .marxy-palette-row[data-row-key="${rowKey}"]`);
+  await row.waitFor();
+  assert.equal(
+    await page.evaluate(() => getSelection().rangeCount > 0 && document.querySelector('#doc').contains(getSelection().getRangeAt(0).commonAncestorContainer) && !getSelection().isCollapsed),
+    false,
+    'the palette holds focus: the article has no live DOM selection',
+  );
+  await row.click();
+  await page.waitForFunction(() => !document.getElementById('marxy-palette').open);
+}
+
+for (const [rowKey, check] of [
+  ['selection.copy-rich', (w) => {
+    assert.ok(w.text.includes('Fast, tiny widgets'), w.text);
+    assert.match(w.html, /<strong>Fast, tiny widgets/);
+    assert.match(w.html, /<a href=/);
+  }],
+  ['selection.copy-plain', (w) => {
+    assert.ok(w.text.includes('Fast, tiny widgets'), w.text);
+    assert.equal(w.html, undefined);
+  }],
+]) {
+  test(`C-06 review: ${rowKey} from the palette copies the drag recorded before the palette opened`, async () => {
+    const file = '02-readme-real-world.md';
+    const docPath = `/corpus/${file}`;
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+      await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+      await dragSelect(page, '#doc strong', '#doc a[href]');
+      await runFromPalette(page, rowKey);
+      const writes = await clipboardWrites(page);
+      assert.equal(writes.length, 1);
+      check(writes[0]);
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+test('C-06 review: Copy as markdown from the palette copies the dragged paragraph\'s bytes', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const buffer = createBuffer(file, readFileSync(join(corpusDir, file)));
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    const para = page.locator('#doc > p[data-marxy-s]').filter({ hasText: 'widgetlib authors' });
+    await para.scrollIntoViewIfNeeded();
+    const range = { file, start: Number(await para.getAttribute('data-marxy-s')), end: Number(await para.getAttribute('data-marxy-e')) };
+    const box = await para.boundingBox();
+    await page.mouse.move(box.x + 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await runFromPalette(page, 'selection.copy-markdown');
+    assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, range) }]);
+    assert.equal((await page.locator('#marxy-notices .marxy-notice-text').last().textContent())?.trim(), 'Copied as markdown');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06 review: Mod+A then Mod+Shift+C copies the bytes of every block of the file', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const bytes = readFileSync(join(corpusDir, file));
+  const ast = parseMarkdown(bytes, { file });
+  const buffer = createBuffer(file, bytes);
+  const whole = { file, start: ast.children[0].src.start, end: ast.children.at(-1).src.end };
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyA`);
+    await page.waitForFunction(() => window.marxySelection.getSelectionState().selection.kind === 'text');
+    await page.keyboard.press(`${mod}+Shift+KeyC`);
+    assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, whole) }]);
+    assert.equal(whole.start, 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06 review: a drag that starts in the space between blocks copies from the next block', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const buffer = createBuffer(file, readFileSync(join(corpusDir, file)));
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    const expected = await page.evaluate(() => {
+      const article = document.querySelector('#doc');
+      const para = [...article.querySelectorAll(':scope > p[data-marxy-s]')].find((p) => p.textContent.includes('widgetlib authors'));
+      // Start in the article itself, just before the element ahead of the paragraph's heading (between blocks).
+      const heading = para.previousElementSibling;
+      const at = [...article.childNodes].indexOf(heading);
+      const r = document.createRange();
+      r.setStart(article, at);
+      r.setEnd(para.firstChild, 3);
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      document.dispatchEvent(new Event('selectionchange'));
+      return { start: Number(heading.getAttribute('data-marxy-s')), end: Number(para.getAttribute('data-marxy-e')) };
+    });
+    await page.waitForFunction(() => window.marxySelection.getSelectionState().selection.kind === 'text');
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+Shift+KeyC`);
+    assert.deepEqual(await clipboardWrites(page), [{ text: textOf(buffer, { file, ...expected }) }]);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06 review: a drag over the hostile fixture copies html the sanitiser would not change, and fetches nothing', async () => {
+  const file = '10-hostile.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    await page.evaluate(() => {
+      const r = document.createRange();
+      r.selectNodeContents(document.querySelector('#doc'));
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      document.querySelector('#doc').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
+    const requests = [];
+    page.on('request', (req) => requests.push(req.url()));
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyC`);
+    const writes = await clipboardWrites(page);
+    assert.equal(writes.length, 1);
+    const { html } = writes[0];
+    assert.ok(typeof html === 'string' && html.length > 0);
+    assert.equal(html, sanitizeHtml(html, DEFAULT_POLICY).html, 'the copy passed the sanitiser');
+    assert.ok(!/href\s*=\s*["']?\s*(javascript|data|vbscript):/i.test(html), html);
+    assert.ok(!/\son[a-z]+\s*=/i.test(html), html);
+    assert.ok(!/<(script|iframe|object|embed|style)/i.test(html), html);
+    assert.deepEqual(requests, [], 'copying fetched nothing');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06 review: recording and copying a drag over an image fetches nothing', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    // An image whose source is not cached (it is missing): a clone made in the page would ask again.
+    const src = `${base}c06-probe-${Date.now()}.png`;
+    await page.evaluate((src) => new Promise((done) => {
+      const p = document.createElement('p');
+      p.id = 'c06-probe';
+      const img = document.createElement('img');
+      img.alt = 'probe';
+      img.onerror = img.onload = () => done();
+      img.src = src;
+      p.append('before ', img, ' after');
+      document.querySelector('#doc').prepend(p);
+    }), src);
+    const requests = [];
+    page.on('request', (req) => requests.push(req.url()));
+    await page.evaluate(() => {
+      const r = document.createRange();
+      r.selectNodeContents(document.getElementById('c06-probe'));
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      document.querySelector('#doc').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyC`);
+    const writes = await clipboardWrites(page);
+    assert.equal(writes.length, 1);
+    assert.match(writes[0].html, /<img alt="probe"/);
+    // A frame for any fetch a clone started to be reported.
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    assert.deepEqual(requests.filter((u) => u === src), [], 'recording and copying the drag fetched the image again');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06 review: in Source, Mod+C and Mod+Shift+C do not copy the hidden Rendered selection', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    await page.locator('#doc h2').filter({ hasText: 'Install' }).click();
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForFunction(() => document.querySelector('#doc').closest('[hidden]') !== null);
+    await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+    await page.keyboard.press(`${mod}+KeyC`);
+    await page.keyboard.press(`${mod}+Shift+KeyC`);
+    assert.deepEqual(await clipboardWrites(page), []);
+  } finally {
+    await browser.close();
+  }
+});
+

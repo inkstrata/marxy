@@ -41,10 +41,14 @@ export function operationInputFor(
 }
 
 /**
- * The selection's own input first, then the widened ones (design 03 §Widening, C-06): a table cell or
- * row adds its enclosing table, and a task item's paragraph adds the item, so a click on a cell offers
- * the table's verbs and a click on a task's text offers "Toggle task". The palette and the keyboard
- * both read this list; each operation runs on the first input its `canApply` accepts.
+ * The inputs a selection offers, in the order operations try them (design 03 §Widening, C-06): a table
+ * cell or row offers its enclosing table, and a task item's paragraph offers the item, so a click on a
+ * cell offers the table's verbs and a click on a task's text offers "Toggle task". The palette and the
+ * keyboard both read this list; each operation runs on the first input its `canApply` accepts.
+ *
+ * A paragraph comes before its task item (its own copy is the paragraph's). A cell or row comes after its
+ * table: the selection's kind is `table`, so Copy as markdown and Copy as rich text copy the table, in
+ * the palette as on Cmd+C and Cmd+Shift+C, never a fragment of one row (the C-06 review).
  */
 export function operationInputsFor(
   sel: Selection,
@@ -63,5 +67,6 @@ export function operationInputsFor(
     if (isTaskItem(parent)) wider = parent;
   }
   if (!wider) return [own];
-  return [own, { document, node: wider, range: wider.src, text: textOf(buffer, wider.src) }];
+  const widened: OperationInput = { document, node: wider, range: wider.src, text: textOf(buffer, wider.src) };
+  return wider.type === 'table' ? [widened, own] : [own, widened];
 }

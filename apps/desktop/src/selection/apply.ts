@@ -3,6 +3,11 @@ import type { Operation, OperationInput } from '@marxy/core';
 import type { AppContext, Command } from '../commands/registry.ts';
 import { copyDefault, markdownCopy } from './verbs.ts';
 
+/** What a copy says it did, from its title: "Copy table as TSV" says "Copied table as TSV". */
+export function copiedNotice(title: string): string {
+  return title.startsWith('Copy ') ? `Copied ${title.slice('Copy '.length)}` : 'Copied';
+}
+
 export async function apply(
   op: Operation,
   ctx: AppContext,
@@ -28,10 +33,11 @@ export async function apply(
     }
   }
   ctx.closePalette();
-  if (result.clipboard) {
-    ctx.showNotice('Copied', { transient: true });
-  } else if (result.summary) {
+  // The operation's own account first ("Copied 3 links"), else what its title says it copied.
+  if (result.summary) {
     ctx.showNotice(result.summary, { transient: true });
+  } else if (result.clipboard) {
+    ctx.showNotice(copiedNotice(op.title), { transient: true });
   }
 }
 

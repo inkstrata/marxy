@@ -25,7 +25,7 @@ import type { NodeMap } from '../render/post.ts';
 import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
 import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
 import { applyLinkDestinations } from '../render/link-dest.ts';
-import { textFromDomSelection } from './copy-text.ts';
+import { recordDrag } from './drag.ts';
 import { resolve } from './resolve.ts';
 
 const INLINE_TYPES: ReadonlySet<Inline['type']> = new Set([
@@ -158,6 +158,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   let lastClickTarget: Element | null = null;
   let pointerDrag = false;
   let downAt: { x: number; y: number } | null = null;
+  let pointerDown = false;
   let navHistory: string[] = [];
   let navIndex = -1;
   let pendingFragment: string | undefined;
@@ -370,18 +371,43 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     paint();
   };
 
-  const onPointerUp = (): void => {
-    if (!opts.store()) return;
+  /**
+   * The DOM selection on the article becomes the `text` selection, recorded now: its range, its text and
+   * the bytes of the blocks it touches, at the version the page shows (C-06). A copy verb run later, from
+   * the palette whose input has taken the DOM selection away, reads this record.
+   */
+  const recordTextSelection = (): void => {
+    const snap = opts.store()?.snapshot();
     const domSel = window.getSelection();
-    if (domSel && !domSel.isCollapsed && domSel.toString().trim().length > 0) {
-      state = select(state, { kind: 'text', text: textFromDomSelection(domSel) });
-      clearSelectedClass(article);
-    }
+    if (!snap || !domSel || article.closest('[hidden]') !== null) return;
+    const drag = recordDrag(article, domSel, snap.buffer.path, snap.ast.children.map((b) => b.src));
+    if (!drag) return;
+    state = select(state, { kind: 'text', ...drag, version: shownVersion ?? snap.version });
+    clearSelectedClass(article);
+  };
+
+  const onPointerUp = (): void => {
+    pointerDown = false;
+    recordTextSelection();
+  };
+
+  // A selection made with the keyboard (Cmd+A, Shift+arrows) has no pointer-up: it is recorded when it
+  // changes, unless a pointer is down (the pointer-up records that one) or it lies outside the article.
+  const onSelectionChange = (): void => {
+    if (pointerDown) return;
+    const domSel = window.getSelection();
+    if (!domSel || domSel.isCollapsed || domSel.rangeCount === 0) return;
+    if (!domSel.getRangeAt(0).intersectsNode(article)) return;
+    recordTextSelection();
+  };
+  const onDocumentMouseUp = (): void => {
+    pointerDown = false;
   };
 
   // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
   const onMouseDown = (ev: MouseEvent): void => {
     pointerDrag = false;
+    pointerDown = true;
     downAt = { x: ev.clientX, y: ev.clientY };
   };
   const onMouseMove = (ev: MouseEvent): void => {
@@ -398,6 +424,8 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   article.addEventListener('mousemove', onMouseMove);
   article.addEventListener('mouseup', onPointerUp);
   article.addEventListener('click', onArticleClick);
+  document.addEventListener('selectionchange', onSelectionChange);
+  document.addEventListener('mouseup', onDocumentMouseUp);
 
   const controller: RenderedSelection = {
     state: () => state,
@@ -434,6 +462,10 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
         return;
       }
       shownVersion = snap.version;
+      // A drag names bytes of the page it was made on: a page set from other bytes drops it.
+      if (state.selection.kind === 'text' && state.selection.version !== snap.version) {
+        state = select(state, { kind: 'none' });
+      }
       // Another document: nothing selected in the last one names anything in this one.
       if (shownPath !== null && shownPath !== snap.path) {
         state = select(state, { kind: 'none' });
@@ -454,6 +486,8 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       article.removeEventListener('mousemove', onMouseMove);
       article.removeEventListener('mouseup', onPointerUp);
       article.removeEventListener('click', onArticleClick);
+      document.removeEventListener('selectionchange', onSelectionChange);
+      document.removeEventListener('mouseup', onDocumentMouseUp);
       const w = window as Window & { marxySelection?: { getSelectionState(): SelectionState } };
       if (w.marxySelection?.getSelectionState === controller.state) w.marxySelection = undefined;
     },

@@ -2,6 +2,7 @@
 // The cloned range loses every display-only mark and every attribute a paste target has no use for,
 // then passes the core sanitiser: nothing raw from the page reaches the clipboard.
 import { DEFAULT_POLICY, sanitizeHtml } from '@marxy/core/src/sanitize/index.ts';
+import { cloneRangeInert, inertDocument } from './copy-text.ts';
 
 /** Display-only elements dropped with their contents: glyph labels, link destinations, typesetter breaks. */
 const DROP_CLASSES: readonly string[] = [
@@ -34,10 +35,11 @@ function clean(root: Node): void {
       if (text.includes('\u00ad')) child.textContent = text.replace(SOFT_HYPHEN, '');
       continue;
     }
-    if (!(child instanceof Element)) {
+    if (child.nodeType !== Node.ELEMENT_NODE) {
       child.remove();
       continue;
     }
+    if (!(child instanceof Element)) continue;
     if (DROP_ELEMENTS.has(child.localName) || hasAny(child, DROP_CLASSES)) {
       child.remove();
       continue;
@@ -54,12 +56,11 @@ function clean(root: Node): void {
   }
 }
 
-/** Sanitised HTML for the DOM selection's first range; '' when nothing is selected. */
-export function htmlFromDomSelection(sel: globalThis.Selection): string {
-  if (sel.rangeCount === 0 || sel.isCollapsed) return '';
-  const fragment = sel.getRangeAt(0).cloneContents();
-  const box = (sel.anchorNode?.ownerDocument ?? document).createElement('div');
-  box.append(fragment);
+/** Sanitised HTML for a range of the page; '' when it is empty. Built in an inert document: nothing in it loads. */
+export function htmlFromRange(range: Range): string {
+  if (range.collapsed) return '';
+  const box = inertDocument().createElement('div');
+  box.append(cloneRangeInert(range));
   clean(box);
   // Reading the markup of a detached container, never writing any: the sanitiser is the second line.
   const html = box.innerHTML;

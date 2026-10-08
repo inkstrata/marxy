@@ -18,7 +18,7 @@ export interface AppContext {
    */
   operationInputs?(): readonly OperationInput[];
   /** The page the selection was made on and the bytes it was rendered from (B-13): a drag's copies read it. */
-  renderedPage?(): { readonly article: HTMLElement; readonly buffer: Buffer } | null;
+  renderedPage?(): { readonly article: HTMLElement; readonly buffer: Buffer; readonly version: number } | null;
   closePalette(): void;
   showNotice(text: string, opts?: { transient?: boolean }): void;
   applyBufferMutation?(input: {

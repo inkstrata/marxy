@@ -50,7 +50,10 @@ export function buildAppContext(handle: AppHandle | null = appHandle()): AppCont
   const store = handle?.document() ?? null;
   // With no document there is no selection runtime: the context is the empty one, so the commands
   // that make sense without a document (and only those) still hold.
-  const selection: AppContext['selection'] = runtime && handle ? handle.selection.state().selection : { kind: 'none' };
+  // In Source the article is hidden: what was selected on it is not on screen, so no verb may act on it.
+  const hidden = runtime?.article?.closest('[hidden]') != null;
+  const selection: AppContext['selection'] =
+    runtime && handle && !hidden ? handle.selection.state().selection : { kind: 'none' };
   return {
     // AppShell narrows the real shell; clipboardWrite is on every real one.
     shell: runtime?.shell ?? (handle?.shell as AppContext['shell'] | undefined) ?? NO_SHELL,
@@ -63,7 +66,7 @@ export function buildAppContext(handle: AppHandle | null = appHandle()): AppCont
       return runtime ? operationInputsFor(selection, runtime.document, runtime.buffer) : [];
     },
     renderedPage() {
-      return runtime ? { article: runtime.article, buffer: runtime.buffer } : null;
+      return runtime ? { article: runtime.article, buffer: runtime.buffer, version: runtime.version } : null;
     },
     applyBufferMutation: (input) =>
       applyDocumentMutation(store, { ...input, baseVersion: runtime?.version }),

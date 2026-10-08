@@ -8,6 +8,7 @@ import type { OperationInput } from '@marxy/core';
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { commands } from '../commands/index.ts';
 import { fromOperation, type AppContext, type Command } from '../commands/registry.ts';
+import { copiedNotice } from './apply.ts';
 import { operationInputFor, operationInputsFor } from './input.ts';
 import type { Selection } from './selection.ts';
 import {
@@ -162,13 +163,20 @@ test('firstApplicable skips ids not registered and ids that do not apply, in the
   assert.equal(firstApplicable(['x.unregistered', 'x.no'], ctx, [no]), null);
 });
 
-test('widening: a table cell offers its table, a task paragraph its item, and the own input comes first', async () => {
+test('widening: a table cell offers its table first, a task paragraph its item after itself', async () => {
   const { doc, buffer } = load('02-readme-real-world.md');
   const cell = find(doc, (n) => n.type === 'tableCell');
   const table = find(doc, (n) => n.type === 'table');
   const inputs = operationInputsFor(nodeSel(cell), doc, buffer);
-  assert.deepEqual(inputs.map((i: OperationInput) => i.node?.type), ['tableCell', 'table']);
-  assert.equal(inputs[1]!.text, textOf(buffer, table.src));
+  assert.deepEqual(inputs.map((i: OperationInput) => i.node?.type), ['table', 'tableCell']);
+  assert.equal(inputs[0]!.text, textOf(buffer, table.src));
+  // Cmd+Shift+C and Cmd+C on a cell copy the table, never a fragment of its row.
+  const writes: { text: string }[] = [];
+  const cellCtx = { ...ctxFor(nodeSel(cell), doc, buffer), shell: { clipboardWrite: async (d: { text: string }) => void writes.push(d) } };
+  const md = markdownCopy(cellCtx, commands());
+  assert.equal(md?.id, 'op.copy-source');
+  await md.run(cellCtx);
+  assert.equal(writes[0]?.text, textOf(buffer, table.src));
   const align = fromOperation(OPERATIONS.find((op) => op.id === 'align-table-pipes')!);
   assert.equal(align.when(ctxFor(nodeSel(cell), doc, buffer)), true);
   const row = find(doc, (n) => n.type === 'tableRow');
@@ -187,4 +195,10 @@ test('widening: a table cell offers its table, a task paragraph its item, and th
   // A plain paragraph widens to nothing.
   const p = find(doc, (n) => n.type === 'paragraph');
   assert.equal(operationInputsFor(nodeSel(p), doc, buffer).length, 1);
+});
+
+test('a copy says what it copied', () => {
+  assert.equal(copiedNotice('Copy table as TSV'), 'Copied table as TSV');
+  assert.equal(copiedNotice('Copy code'), 'Copied code');
+  assert.equal(copiedNotice('Toggle task'), 'Copied');
 });
