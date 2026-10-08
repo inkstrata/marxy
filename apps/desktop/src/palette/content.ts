@@ -70,6 +70,7 @@ export function createContentSearch(
   let generation = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
+  let lastPhrase: string | null = null;
 
   const stop = () => {
     generation++;
@@ -96,12 +97,16 @@ export function createContentSearch(
       onResult({ status: 'done', notice: countNotice(result, fileCapped), hits: result.hits });
     } catch (err) {
       if (mine !== generation) return;
+      lastPhrase = null; // so typing it again tries again
       onResult({ status: 'failed', notice: `Search failed: ${err instanceof Error ? err.message : String(err)}`, hits: [] });
     }
   };
 
   return {
     update(phrase) {
+      // The same phrase (a trailing space, a repaint) keeps its rows and its search in flight.
+      if (phrase !== null && phrase === lastPhrase) return;
+      lastPhrase = phrase;
       stop();
       if (phrase === null) return;
       if ([...phrase].length < CONTENT_MIN_CHARS) {
@@ -115,6 +120,9 @@ export function createContentSearch(
         void run(phrase, mine);
       }, debounceMs);
     },
-    cancel: stop,
+    cancel() {
+      lastPhrase = null;
+      stop();
+    },
   };
 }

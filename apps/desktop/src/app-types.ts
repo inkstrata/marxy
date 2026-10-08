@@ -27,6 +27,7 @@ export type AppShell = Pick<
   | 'allowAssetScope'
   | 'onCloseRequested'
   | 'confirmClose'
+  | 'searchContent'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;

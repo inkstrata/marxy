@@ -1,6 +1,7 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
+import { invisibleHexLabel, invisibleSegments } from '@marxy/core/src/render/index.ts';
 import type { ContentHit, Shell } from '@marxy/shell-api';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppHandle, AppShell } from '../app.ts';
@@ -8,6 +9,7 @@ import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
 import type { DocumentStore } from '../document/store.ts';
+import { appendWithInvisibles } from '../render/invisibles-dom.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
 import { copyDefault, markdownCopy } from '../selection/verbs.ts';
 import {
@@ -557,6 +559,14 @@ function paintEmptyRows(
 }
 
 /** A content hit's row: the document's title, `· line N`, and a dim preview with the match marked (textContent only). */
+/** `text` with each flagged character named (`U+202E`) in place of itself, for a label a screen reader speaks. */
+function namedInvisibles(text: string): string {
+  return invisibleSegments(text, { inCode: false, sourceStart: 1 })
+    .map((seg) =>
+      seg.kind === 'text' ? seg.value : seg.kind === 'tag-run' ? `tag ×${seg.count}` : `U+${invisibleHexLabel(seg.cp)}`)
+    .join('');
+}
+
 function paintContentRows(
   list: HTMLOListElement,
   hits: readonly ContentHit[],
@@ -586,10 +596,13 @@ function paintContentRows(
     const end = Math.min(Math.max(start, hit.matchEnd), hit.preview.length);
     const mark = doc.createElement('mark') as HTMLElement;
     mark.className = 'marxy-palette-match';
-    mark.textContent = hit.preview.slice(start, end);
-    preview.append(hit.preview.slice(0, start), mark, hit.preview.slice(end));
+    // Bidi controls and zero-width characters are marked, never painted raw (commitment 4).
+    appendWithInvisibles(preview, hit.preview.slice(0, start));
+    appendWithInvisibles(mark, hit.preview.slice(start, end));
+    preview.append(mark);
+    appendWithInvisibles(preview, hit.preview.slice(end));
     row.append(head, preview);
-    row.setAttribute('aria-label', `${titleOf(hit.path)}, line ${hit.line}: ${hit.preview}`);
+    row.setAttribute('aria-label', `${titleOf(hit.path)}, line ${hit.line}: ${namedInvisibles(hit.preview)}`);
     row.toggleAttribute('aria-selected', i === selected);
     next.appendChild(row);
   }
@@ -957,8 +970,7 @@ export function mountPaletteFromHandle(
     setCurrentPath: () => {},
     openDocument: (path, at) => handle.open(path, { at }),
     selectBlockAtByte: (byte) => handle.selection.selectBlockAtByte(byte),
-    // The real shells have it (C-16); `AppShell` is the narrower type the app is built against.
-    searchContent: (handle.shell as AppShell & Partial<Pick<Shell, 'searchContent'>>).searchContent?.bind(handle.shell),
+    searchContent: (paths, query, opts) => handle.shell.searchContent(paths, query, opts),
     // Looked up on each call: the service's answers move as roots are walked and watched.
     isWatched: (root) => handle.index.isWatched(root),
     baselineMs: (root) => handle.index.baselineMs(root),

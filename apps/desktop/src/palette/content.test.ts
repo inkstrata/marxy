@@ -114,3 +114,41 @@ test('cancel drops an answer still to come', async () => {
   await wait(5);
   assert.equal(states.length, before);
 });
+
+test('more than 20,000 files in scope: only the first 20,000 are searched, and the notice says so', async () => {
+  const sent: number[] = [];
+  const pending: Array<(r: ContentSearchResult) => void> = [];
+  const states: ContentState[] = [];
+  const shell: ContentShell = {
+    searchContent: (paths) => {
+      sent.push(paths.length);
+      return new Promise((resolve) => pending.push(resolve));
+    },
+    mark: async () => {},
+  };
+  const paths = Array.from({ length: 20_001 }, (_, i) => `/r/${i}.md`);
+  const search = createContentSearch(shell, () => ({ paths, roots: ['/r'] }), (s) => states.push(s), { debounceMs: 1, now: () => 0 });
+  search.update('foo');
+  await wait(30);
+  assert.deepEqual(sent, [20_000]);
+  pending[0]!(result([hit('/r/0.md')]));
+  await wait(5);
+  assert.equal(states.at(-1)!.notice, '1 match in 1 file. Searched the first 20,000 files in scope.');
+});
+
+test('the same phrase again keeps the rows and starts no second search; after a cancel it is searched afresh', async () => {
+  const { pending, states, search } = fake();
+  search.update('foo');
+  await wait(80);
+  pending[0]!.resolve(result([hit('/r/a.md')]));
+  await wait(5);
+  const seen = states.length;
+  search.update('foo');
+  await wait(80);
+  assert.equal(states.length, seen, 'no "Searching…" flicker');
+  assert.equal(pending.length, 1);
+  search.cancel();
+  search.update('foo');
+  await wait(80);
+  assert.equal(pending.length, 2, 'after a cancel the phrase is searched afresh');
+});
