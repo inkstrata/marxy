@@ -1872,6 +1872,21 @@ each pattern file in justif's package; the author decides.
 it checks the kill switch: check `killed()` first. Acceptance: the off test fails when `run()` stops emitting
 `typeset_done`; with typesetting off, no hyphenation chunk is requested (count the requests).
 
+### B-25.1 — The diagram-caption rule without a two-step `:has()`
+
+**Model:** opus · **Size:** S · **Depends on:** B-25, L-03 (same file) · *Added 2026-10-08 by the lead, from B-25.*
+`packages/theme/src/base.css`'s caption rule `.marxy-article > p:has(+ pre > code.language-mermaid)` (and its
+plantuml, dot and d2 siblings, MARXY-234) makes WebKit spend time proportional to the article on every appended
+block, because the `:has()` argument is a sibling step followed by a child step. A transcript has a fence every few
+blocks, so the progressive mount goes cubic: 8.1 s of a 9.8 s mount at 128 KB; deleting the rule takes
+`content_complete` at 128 KB from 12.4 s to 0.8 s. A single step after `+` (`p:has(+ pre.language-mermaid)`) stays
+linear. Put the language on the `<pre>` in the renderer (prefer a route the sanitiser already allows, since
+`packages/core/src/sanitize/` is code-owned) or a class on the caption paragraph, and rewrite the rule. **Paths:**
+`packages/core/src/render/render-html.ts`, `packages/theme/src/base.css` (the caption rules), `scripts/registry.json`
+if a new name, the goldens the renderer change moves. **Acceptance:** the captions look the same (specimen and
+aesthetics gates); a WebKit microbenchmark-shaped test counts style recalcs or asserts the selector has one step
+(no timing assertion); the perf harness records a 1 MB transcript with `content_complete` under 10 s.
+
 ### B-24 — Re-render only what a reload changed
 
 **Model:** opus · **Size:** M · **Depends on:** B-23 · *Added 2026-10-08 by the lead, from B-23's measurement.*
