@@ -70,7 +70,7 @@
 <h3 data-marxy-s="12654" data-marxy-e="12676">2.3 Durable budget</h3>
 <p data-marxy-s="12678" data-marxy-e="12818">Raising <code data-marxy-s="12686" data-marxy-e="12712">scheduler.durable_budget</code> increases CPU use but shortens recovery time. Related: <a href="#952-metricsdeferred_channeltarget" data-marxy-s="12768" data-marxy-e="12817">see §9.5.2</a>.</p>
 <p data-marxy-s="12820" data-marxy-e="12943">This is independent of scheduler limits set elsewhere in the file. Values are read as ratios; a bare number is taken in ms.</p>
-<pre data-marxy-s="12945" data-marxy-e="13085"><code class="language-json" data-marxy-s="12953" data-marxy-e="13082">{
+<pre class="language-json" data-marxy-s="12945" data-marxy-e="13085"><code class="language-json" data-marxy-s="12953" data-marxy-e="13082">{
   "scheduler": {
     "tiered_profile": {
       "ttl": "5m",
@@ -87,7 +87,7 @@
 :   Operators who run 5 or more nodes should set <code data-marxy-s="13423" data-marxy-e="13449">scheduler.strict_horizon</code> explicitly rather than rely on the default.</p>
 <p data-marxy-s="13495" data-marxy-e="13570">ttl
 :   The default lease is evaluated once per claim, never between ticks.</p>
-<pre data-marxy-s="13572" data-marxy-e="13889"><code class="language-typescript" data-marxy-s="13586" data-marxy-e="13886">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="13572" data-marxy-e="13889"><code class="language-typescript" data-marxy-s="13586" data-marxy-e="13886">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const batch = await brindle.scheduler.get('ephemeral-window');
@@ -163,7 +163,7 @@ if (budget.depth &gt; 80) {
 <p data-marxy-s="15246" data-marxy-e="15429">Operators who run 31 or more nodes should set <code data-marxy-s="15292" data-marxy-e="15320">scheduler.sticky_threshold</code> explicitly rather than rely on the default. Values are read as byte counts; a bare number is taken in h.<sup class="marxy-footnote-ref" id="marxy-fnref-2" data-marxy-s="15425" data-marxy-e="15429"><a href="#marxy-fn-2">2</a></sup></p>
 <h3 data-marxy-s="15431" data-marxy-e="15451">2.7 Tiered batch</h3>
 <p data-marxy-s="15453" data-marxy-e="15521">The default window is evaluated once per claim, never between ticks.</p>
-<pre data-marxy-s="15523" data-marxy-e="15675"><code class="language-json" data-marxy-s="15531" data-marxy-e="15672">{
+<pre class="language-json" data-marxy-s="15523" data-marxy-e="15675"><code class="language-json" data-marxy-s="15531" data-marxy-e="15672">{
   "scheduler": {
     "ephemeral_shard": {
       "interval": true,
@@ -202,7 +202,7 @@ if (budget.depth &gt; 80) {
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="16524" data-marxy-e="16758"><code class="language-yaml" data-marxy-s="16532" data-marxy-e="16755"># If a node restarts, Brindle holds the work and records the event in the audit log.
+<pre class="language-yaml" data-marxy-s="16524" data-marxy-e="16758"><code class="language-yaml" data-marxy-s="16532" data-marxy-e="16755"># If a node restarts, Brindle holds the work and records the event in the audit log.
 scheduler:
   verbose_digest:
     interval: 8
@@ -215,7 +215,7 @@ scheduler:
 <p data-marxy-s="16774" data-marxy-e="16987">If the cluster is partitioned, Brindle escalates to the operator channel and records the event in the audit log. Operators who run 8 or more nodes should set <code data-marxy-s="16932" data-marxy-e="16943">queue.max</code> explicitly rather than rely on the default.</p>
 <h3 data-marxy-s="16989" data-marxy-e="17012">3.1 Relaxed cadence</h3>
 <p data-marxy-s="17014" data-marxy-e="17110">If the clock moves backwards, Brindle refuses new claims and records the event in the audit log.</p>
-<pre data-marxy-s="17112" data-marxy-e="17353"><code class="language-yaml" data-marxy-s="17120" data-marxy-e="17350"># The queue.relaxed_cadence setting controls how a plugin is replayed when the primary is unreachable.
+<pre class="language-yaml" data-marxy-s="17112" data-marxy-e="17353"><code class="language-yaml" data-marxy-s="17120" data-marxy-e="17350"># The queue.relaxed_cadence setting controls how a plugin is replayed when the primary is unreachable.
 queue:
   strict_budget:
     enabled: "strict"
@@ -226,7 +226,7 @@ queue:
 </code></pre>
 <h4 data-marxy-s="17355" data-marxy-e="17395">3.1.1 <code data-marxy-s="17366" data-marxy-e="17395">queue.verbose_horizon.grace</code></h4>
 <p data-marxy-s="17397" data-marxy-e="17482">Raising <code data-marxy-s="17405" data-marxy-e="17434">queue.verbose_horizon.grace</code> increases memory use but shortens restart time.</p>
-<pre data-marxy-s="17484" data-marxy-e="17792"><code class="language-typescript" data-marxy-s="17498" data-marxy-e="17789">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="17484" data-marxy-e="17792"><code class="language-typescript" data-marxy-s="17498" data-marxy-e="17789">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const budget = await brindle.queue.get('compact-cadence');
@@ -250,7 +250,7 @@ if (quorum.level &gt; 16) {
 </ul>
 <h4 data-marxy-s="18821" data-marxy-e="18859">3.2.1 <code data-marxy-s="18832" data-marxy-e="18859">queue.compact_profile.max</code></h4>
 <p data-marxy-s="18861" data-marxy-e="18969">Changing <code data-marxy-s="18870" data-marxy-e="18897">queue.compact_profile.max</code> at run time takes effect after the next rotation; no restart is needed.</p>
-<pre data-marxy-s="18971" data-marxy-e="19276"><code class="language-python" data-marxy-s="18981" data-marxy-e="19273">from brindle import Client
+<pre class="language-python" data-marxy-s="18971" data-marxy-e="19276"><code class="language-python" data-marxy-s="18981" data-marxy-e="19273">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 quorum = client.queue.get("compact-cursor")
@@ -261,7 +261,7 @@ else:
 </code></pre>
 <h4 id="notes" data-marxy-s="19278" data-marxy-e="19288">Notes</h4>
 <p data-marxy-s="19290" data-marxy-e="19442">Values are read as byte counts; a bare number is taken in s. The <code data-marxy-s="19355" data-marxy-e="19380">queue.compact_handshake</code> setting controls how a queue is rotated when a node restarts.</p>
-<pre data-marxy-s="19444" data-marxy-e="19590"><code class="language-json" data-marxy-s="19452" data-marxy-e="19587">{
+<pre class="language-json" data-marxy-s="19444" data-marxy-e="19590"><code class="language-json" data-marxy-s="19452" data-marxy-e="19587">{
   "queue": {
     "default_ledger": {
       "jitter": 0.25,
@@ -283,7 +283,7 @@ else:
 :   Operators who run 28 or more nodes should set <code data-marxy-s="20386" data-marxy-e="20418">queue.adaptive_manifest.factor</code> explicitly rather than rely on the default.</p>
 <p data-marxy-s="20464" data-marxy-e="20588">retain
 :   The <code data-marxy-s="20479" data-marxy-e="20511">queue.adaptive_manifest.factor</code> setting controls how a webhook delivery is released when the queue is empty.</p>
-<pre data-marxy-s="20590" data-marxy-e="20904"><code class="language-typescript" data-marxy-s="20604" data-marxy-e="20901">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="20590" data-marxy-e="20904"><code class="language-typescript" data-marxy-s="20604" data-marxy-e="20901">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const channel = await brindle.queue.get('compact-policy');
@@ -325,7 +325,7 @@ if (cadence.level &gt; 64) {
 <p data-marxy-s="21830" data-marxy-e="22020">Operators who run 32 or more nodes should set <code data-marxy-s="21876" data-marxy-e="21897">queue.durable_batch</code> explicitly rather than rely on the default. Raising <code data-marxy-s="21950" data-marxy-e="21971">queue.durable_batch</code> increases network use but shortens restart time.</p>
 <h3 data-marxy-s="22022" data-marxy-e="22047">3.7 Relaxed handshake</h3>
 <p data-marxy-s="22049" data-marxy-e="22116">The strict horizon is evaluated once per tick, never between ticks.</p>
-<pre data-marxy-s="22118" data-marxy-e="22336"><code class="language-yaml" data-marxy-s="22126" data-marxy-e="22333"># The relaxed threshold is evaluated once per tick, never between ticks.
+<pre class="language-yaml" data-marxy-s="22118" data-marxy-e="22336"><code class="language-yaml" data-marxy-s="22126" data-marxy-e="22333"># The relaxed threshold is evaluated once per tick, never between ticks.
 queue:
   priority_manifest:
     target: false
@@ -392,7 +392,7 @@ queue:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="23043" data-marxy-e="23347"><code class="language-python" data-marxy-s="23053" data-marxy-e="23344">from brindle import Client
+<pre class="language-python" data-marxy-s="23043" data-marxy-e="23347"><code class="language-python" data-marxy-s="23053" data-marxy-e="23344">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 ledger = client.queue.get("tiered-threshold")
@@ -441,7 +441,7 @@ else:
 :   Operators who run 39 or more nodes should set <code data-marxy-s="25944" data-marxy-e="25966">worker.shared_policy</code> explicitly rather than rely on the default.</p>
 <p data-marxy-s="26012" data-marxy-e="26102">interval
 :   Raising <code data-marxy-s="26033" data-marxy-e="26055">worker.shared_policy</code> increases disk use but shortens recovery time.</p>
-<pre data-marxy-s="26104" data-marxy-e="26381"><code class="language-bash" data-marxy-s="26112" data-marxy-e="26378"># Flushed a snapshot
+<pre class="language-bash" data-marxy-s="26104" data-marxy-e="26381"><code class="language-bash" data-marxy-s="26112" data-marxy-e="26378"># Flushed a snapshot
 brindle config set worker.shared_policy.limit 64
 brindle worker inspect --format json \
   | jq '.items[] | select(.interval != null)'
@@ -459,7 +459,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   Values are read as durations; a bare number is taken in s.</p>
 <p data-marxy-s="27063" data-marxy-e="27130">size
 :   A value of <code data-marxy-s="27083" data-marxy-e="27087">64</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="27132" data-marxy-e="27401"><code class="language-bash" data-marxy-s="27140" data-marxy-e="27398"># Claimed a lease
+<pre class="language-bash" data-marxy-s="27132" data-marxy-e="27401"><code class="language-bash" data-marxy-s="27140" data-marxy-e="27398"># Claimed a lease
 brindle config set worker.strict_manifest.max 64
 brindle worker list --format json \
   | jq '.items[] | select(.target != null)'
@@ -546,7 +546,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="29087" data-marxy-e="29397"><code class="language-typescript" data-marxy-s="29101" data-marxy-e="29394">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="29087" data-marxy-e="29397"><code class="language-typescript" data-marxy-s="29101" data-marxy-e="29394">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const handshake = await brindle.worker.get('bounded-quorum');
@@ -562,7 +562,7 @@ if (cursor.ttl &gt; 5) {
 :   The <code data-marxy-s="29627" data-marxy-e="29649">worker.compact_batch</code> setting controls how a node is rotated when the queue is empty.</p>
 <h4 data-marxy-s="29715" data-marxy-e="29756">4.6.1 <code data-marxy-s="29726" data-marxy-e="29756">worker.adaptive_snapshot.min</code></h4>
 <p data-marxy-s="29758" data-marxy-e="29914">Raising <code data-marxy-s="29766" data-marxy-e="29796">worker.adaptive_snapshot.min</code> increases file descriptor use but shortens tail latency. A value of <code data-marxy-s="29865" data-marxy-e="29871">true</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="29916" data-marxy-e="30226"><code class="language-python" data-marxy-s="29926" data-marxy-e="30223">from brindle import Client
+<pre class="language-python" data-marxy-s="29916" data-marxy-e="30226"><code class="language-python" data-marxy-s="29926" data-marxy-e="30223">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 cadence = client.worker.get("ephemeral-manifest")
@@ -612,7 +612,7 @@ else:
 </table>
 <h3 data-marxy-s="31356" data-marxy-e="31380">4.8 Sticky handshake</h3>
 <p data-marxy-s="31382" data-marxy-e="31446">This is independent of workers limits set elsewhere in the file.</p>
-<pre data-marxy-s="31448" data-marxy-e="31657"><code class="language-yaml" data-marxy-s="31456" data-marxy-e="31654"># The priority channel is evaluated once per claim, never between ticks.
+<pre class="language-yaml" data-marxy-s="31448" data-marxy-e="31657"><code class="language-yaml" data-marxy-s="31456" data-marxy-e="31654"># The priority channel is evaluated once per claim, never between ticks.
 worker:
   compact_digest:
     level: 250ms
@@ -629,7 +629,7 @@ worker:
 <p data-marxy-s="32187" data-marxy-e="32314">Values are read as durations; a bare number is taken in h. The shared ceiling is evaluated once per claim, never between ticks.</p>
 <h3 data-marxy-s="32316" data-marxy-e="32342">5.1 Priority handshake</h3>
 <p data-marxy-s="32344" data-marxy-e="32517">Raising <code data-marxy-s="32352" data-marxy-e="32378">retry.priority_handshake</code> increases network use but shortens time to first claim. If a node restarts, Brindle holds the work and records the event in the audit log.</p>
-<pre data-marxy-s="32519" data-marxy-e="32761"><code class="language-yaml" data-marxy-s="32527" data-marxy-e="32758"># If the queue is empty, Brindle logs a warning and continues and records the event in the audit log.
+<pre class="language-yaml" data-marxy-s="32519" data-marxy-e="32761"><code class="language-yaml" data-marxy-s="32527" data-marxy-e="32758"># If the queue is empty, Brindle logs a warning and continues and records the event in the audit log.
 retry:
   ephemeral_ceiling:
     timeout: "strict"
@@ -646,7 +646,7 @@ retry:
 </ul>
 <h4 data-marxy-s="33189" data-marxy-e="33228">5.1.2 <code data-marxy-s="33200" data-marxy-e="33228">retry.regional_shard.grace</code></h4>
 <p data-marxy-s="33230" data-marxy-e="33306">This is independent of retries and backoff limits set elsewhere in the file.</p>
-<pre data-marxy-s="33308" data-marxy-e="33619"><code class="language-typescript" data-marxy-s="33322" data-marxy-e="33616">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="33308" data-marxy-e="33619"><code class="language-typescript" data-marxy-s="33322" data-marxy-e="33616">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const digest = await brindle.retry.get('ephemeral-manifest');
@@ -702,7 +702,7 @@ if (floor.limit &gt; 92) {
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="34146" data-marxy-e="34280"><code class="language-json" data-marxy-s="34154" data-marxy-e="34277">{
+<pre class="language-json" data-marxy-s="34146" data-marxy-e="34280"><code class="language-json" data-marxy-s="34154" data-marxy-e="34277">{
   "retry": {
     "bounded_lease": {
       "max": 8,
@@ -715,7 +715,7 @@ if (floor.limit &gt; 92) {
 <h4 id="notes-2" data-marxy-s="34282" data-marxy-e="34292">Notes</h4>
 <p data-marxy-s="34294" data-marxy-e="34372">Raising <code data-marxy-s="34302" data-marxy-e="34324">retry.relaxed_policy</code> increases memory use but shortens restart time.</p>
 <p data-marxy-s="34374" data-marxy-e="34562">Changing <code data-marxy-s="34383" data-marxy-e="34405">retry.relaxed_policy</code> at run time takes effect after the next sweep; no restart is needed. Raising <code data-marxy-s="34483" data-marxy-e="34505">retry.relaxed_policy</code> increases file descriptor use but shortens tail latency.</p>
-<pre data-marxy-s="34564" data-marxy-e="34869"><code class="language-python" data-marxy-s="34574" data-marxy-e="34866">from brindle import Client
+<pre class="language-python" data-marxy-s="34564" data-marxy-e="34869"><code class="language-python" data-marxy-s="34574" data-marxy-e="34866">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 window = client.retry.get("priority-horizon")
@@ -726,7 +726,7 @@ else:
 </code></pre>
 <h3 data-marxy-s="34871" data-marxy-e="34893">5.3 Sticky cadence</h3>
 <p data-marxy-s="34895" data-marxy-e="35129">Raising <code data-marxy-s="34903" data-marxy-e="34925">retry.sticky_cadence</code> increases connection use but shortens time to first claim. Raising <code data-marxy-s="34993" data-marxy-e="35015">retry.sticky_cadence</code> increases memory use but shortens time to first claim. Related: <a href="#1152-logdurable_handshaketarget" data-marxy-s="35080" data-marxy-e="35128">see §11.5.2</a>.</p>
-<pre data-marxy-s="35131" data-marxy-e="35273"><code class="language-json" data-marxy-s="35139" data-marxy-e="35270">{
+<pre class="language-json" data-marxy-s="35131" data-marxy-e="35273"><code class="language-json" data-marxy-s="35139" data-marxy-e="35270">{
   "retry": {
     "regional_batch": {
       "min": "250ms",
@@ -774,7 +774,7 @@ else:
 </ul>
 <h4 data-marxy-s="36378" data-marxy-e="36419">5.5.2 <code data-marxy-s="36389" data-marxy-e="36419">retry.relaxed_lease.interval</code></h4>
 <p data-marxy-s="36421" data-marxy-e="36479">A value of <code data-marxy-s="36432" data-marxy-e="36436">12</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="36481" data-marxy-e="36783"><code class="language-python" data-marxy-s="36491" data-marxy-e="36780">from brindle import Client
+<pre class="language-python" data-marxy-s="36481" data-marxy-e="36783"><code class="language-python" data-marxy-s="36491" data-marxy-e="36780">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 lease = client.retry.get("adaptive-profile")
@@ -835,7 +835,7 @@ else:
 <p data-marxy-s="38405" data-marxy-e="38556">Raising <code data-marxy-s="38413" data-marxy-e="38442">retry.durable_ceiling.burst</code> increases disk use but shortens time to first claim. Related: <a href="#2012-webhookadaptive_handshakettl" data-marxy-s="38505" data-marxy-e="38555">see §20.1.2</a>.</p>
 <h4 data-marxy-s="38558" data-marxy-e="38597">5.8.3 <code data-marxy-s="38569" data-marxy-e="38597">retry.adaptive_floor.grace</code></h4>
 <p data-marxy-s="38599" data-marxy-e="38720">Operators who run 9 or more nodes should set <code data-marxy-s="38644" data-marxy-e="38672">retry.adaptive_floor.grace</code> explicitly rather than rely on the default.<sup class="marxy-footnote-ref" id="marxy-fnref-7" data-marxy-s="38716" data-marxy-e="38720"><a href="#marxy-fn-7">7</a></sup></p>
-<pre data-marxy-s="38722" data-marxy-e="39034"><code class="language-python" data-marxy-s="38732" data-marxy-e="39031">from brindle import Client
+<pre class="language-python" data-marxy-s="38722" data-marxy-e="39034"><code class="language-python" data-marxy-s="38732" data-marxy-e="39031">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 quorum = client.retry.get("compact-cadence")
@@ -852,7 +852,7 @@ else:
 <p data-marxy-s="39493" data-marxy-e="39676">Raising <code data-marxy-s="39501" data-marxy-e="39532">storage.durable_budget.jitter</code> increases file descriptor use but shortens restart time. Raising <code data-marxy-s="39598" data-marxy-e="39629">storage.durable_budget.jitter</code> increases memory use but shortens queue depth.</p>
 <h4 id="errors-1" data-marxy-s="39678" data-marxy-e="39689">Errors</h4>
 <p data-marxy-s="39691" data-marxy-e="39859">This is independent of storage limits set elsewhere in the file. Changing <code data-marxy-s="39765" data-marxy-e="39791">storage.tiered_threshold</code> at run time takes effect after the next tick; no restart is needed.</p>
-<pre data-marxy-s="39861" data-marxy-e="40155"><code class="language-bash" data-marxy-s="39869" data-marxy-e="40152"># Rescheduled a webhook delivery
+<pre class="language-bash" data-marxy-s="39861" data-marxy-e="40155"><code class="language-bash" data-marxy-s="39869" data-marxy-e="40152"># Rescheduled a webhook delivery
 brindle config set storage.tiered_threshold.grace 64
 brindle storage inspect --format json \
   | jq '.items[] | select(.timeout != null)'
@@ -863,7 +863,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="40183" data-marxy-e="40316">The compact policy is evaluated once per sweep, never between ticks. This is independent of storage limits set elsewhere in the file.</p>
 <h4 data-marxy-s="40318" data-marxy-e="40361">6.2.1 <code data-marxy-s="40329" data-marxy-e="40361">storage.sticky_handshake.level</code></h4>
 <p data-marxy-s="40363" data-marxy-e="40421">Values are read as integers; a bare number is taken in ms.</p>
-<pre data-marxy-s="40423" data-marxy-e="40669"><code class="language-yaml" data-marxy-s="40431" data-marxy-e="40666"># Changing storage.sticky_handshake.level at run time takes effect after the next rotation; no restart is needed.
+<pre class="language-yaml" data-marxy-s="40423" data-marxy-e="40669"><code class="language-yaml" data-marxy-s="40431" data-marxy-e="40666"># Changing storage.sticky_handshake.level at run time takes effect after the next rotation; no restart is needed.
 storage:
   sticky_lease:
     level: 8
@@ -874,7 +874,7 @@ storage:
 </code></pre>
 <h3 data-marxy-s="40671" data-marxy-e="40693">6.3 Relaxed budget</h3>
 <p data-marxy-s="40695" data-marxy-e="40859">Values are read as durations; a bare number is taken in s. Changing <code data-marxy-s="40763" data-marxy-e="40787">storage.relaxed_budget</code> at run time takes effect after the next rotation; no restart is needed.</p>
-<pre data-marxy-s="40861" data-marxy-e="41010"><code class="language-json" data-marxy-s="40869" data-marxy-e="41007">{
+<pre class="language-json" data-marxy-s="40861" data-marxy-e="41010"><code class="language-json" data-marxy-s="40869" data-marxy-e="41007">{
   "storage": {
     "deferred_cursor": {
       "timeout": false,
@@ -930,7 +930,7 @@ storage:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="42636" data-marxy-e="42911"><code class="language-bash" data-marxy-s="42644" data-marxy-e="42908"># Replayed a queue
+<pre class="language-bash" data-marxy-s="42636" data-marxy-e="42911"><code class="language-bash" data-marxy-s="42644" data-marxy-e="42908"># Replayed a queue
 brindle config set storage.strict_floor.retain 5m
 brindle storage status --format json \
   | jq '.items[] | select(.mode != null)'
@@ -1003,7 +1003,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <h4 data-marxy-s="44160" data-marxy-e="44202">6.6.1 <code data-marxy-s="44171" data-marxy-e="44202">storage.adaptive_digest.level</code></h4>
 <p data-marxy-s="44204" data-marxy-e="44372">This is independent of storage limits set elsewhere in the file. A value of <code data-marxy-s="44280" data-marxy-e="44284">1h</code> is the default and suits most deployments. Related: <a href="#104-regional-policy" data-marxy-s="44337" data-marxy-e="44371">see §10.4</a>.</p>
 <p data-marxy-s="44374" data-marxy-e="44549">Changing <code data-marxy-s="44383" data-marxy-e="44414">storage.adaptive_digest.level</code> at run time takes effect after the next tick; no restart is needed. The strict quorum is evaluated once per tick, never between ticks.</p>
-<pre data-marxy-s="44551" data-marxy-e="44788"><code class="language-yaml" data-marxy-s="44559" data-marxy-e="44785"># The storage.adaptive_digest.level setting controls how a queue is promoted when the clock moves backwards.
+<pre class="language-yaml" data-marxy-s="44551" data-marxy-e="44788"><code class="language-yaml" data-marxy-s="44559" data-marxy-e="44785"># The storage.adaptive_digest.level setting controls how a queue is promoted when the clock moves backwards.
 storage:
   strict_window:
     factor: 12
@@ -1017,7 +1017,7 @@ storage:
 <p data-marxy-s="45016" data-marxy-e="45139">This is independent of storage limits set elsewhere in the file. Values are read as integers; a bare number is taken in ms.</p>
 <h4 data-marxy-s="45141" data-marxy-e="45181">6.6.3 <code data-marxy-s="45152" data-marxy-e="45181">storage.default_batch.level</code></h4>
 <p data-marxy-s="45183" data-marxy-e="45387">Raising <code data-marxy-s="45191" data-marxy-e="45220">storage.default_batch.level</code> increases connection use but shortens restart time. The <code data-marxy-s="45277" data-marxy-e="45306">storage.default_batch.level</code> setting controls how a webhook delivery is drained when a deploy is in progress.</p>
-<pre data-marxy-s="45389" data-marxy-e="45700"><code class="language-typescript" data-marxy-s="45403" data-marxy-e="45697">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="45389" data-marxy-e="45700"><code class="language-typescript" data-marxy-s="45403" data-marxy-e="45697">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const cadence = await brindle.storage.get('shared-cursor');
@@ -1093,7 +1093,7 @@ if (budget.min &gt; 49) {
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="46442" data-marxy-e="46757"><code class="language-typescript" data-marxy-s="46456" data-marxy-e="46754">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="46442" data-marxy-e="46757"><code class="language-typescript" data-marxy-s="46456" data-marxy-e="46754">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const channel = await brindle.storage.get('bounded-cadence');
@@ -1129,7 +1129,7 @@ if (policy.target &gt; 71) {
 <h3 data-marxy-s="48468" data-marxy-e="48491">7.1 Verbose ceiling</h3>
 <p data-marxy-s="48493" data-marxy-e="48593">Changing <code data-marxy-s="48502" data-marxy-e="48524">lock.verbose_ceiling</code> at run time takes effect after the next sweep; no restart is needed.</p>
 <p data-marxy-s="48595" data-marxy-e="48722">A value of <code data-marxy-s="48606" data-marxy-e="48610">5m</code> is the default and suits most deployments. The ephemeral shard is evaluated once per tick, never between ticks.</p>
-<pre data-marxy-s="48724" data-marxy-e="48999"><code class="language-bash" data-marxy-s="48732" data-marxy-e="48996"># Quarantined a tenant
+<pre class="language-bash" data-marxy-s="48724" data-marxy-e="48999"><code class="language-bash" data-marxy-s="48732" data-marxy-e="48996"># Quarantined a tenant
 brindle config set lock.verbose_ceiling.burst true
 brindle lock drain --format json \
   | jq '.items[] | select(.interval != null)'
@@ -1220,7 +1220,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   Operators who run 19 or more nodes should set <code data-marxy-s="50966" data-marxy-e="50995">lock.priority_lease.enabled</code> explicitly rather than rely on the default.</p>
 <h4 data-marxy-s="51041" data-marxy-e="51077">7.2.2 <code data-marxy-s="51052" data-marxy-e="51077">lock.adaptive_shard.max</code></h4>
 <p data-marxy-s="51079" data-marxy-e="51161">If a node restarts, Brindle holds the work and records the event in the audit log.</p>
-<pre data-marxy-s="51163" data-marxy-e="51482"><code class="language-python" data-marxy-s="51173" data-marxy-e="51479">from brindle import Client
+<pre class="language-python" data-marxy-s="51163" data-marxy-e="51482"><code class="language-python" data-marxy-s="51173" data-marxy-e="51479">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 cadence = client.lock.get("ephemeral-window")
@@ -1231,7 +1231,7 @@ else:
 </code></pre>
 <h3 data-marxy-s="51484" data-marxy-e="51506">7.3 Relaxed quorum</h3>
 <p data-marxy-s="51508" data-marxy-e="51574">The tiered lease is evaluated once per sweep, never between ticks.</p>
-<pre data-marxy-s="51576" data-marxy-e="51841"><code class="language-bash" data-marxy-s="51584" data-marxy-e="51838"># Claimed a worker
+<pre class="language-bash" data-marxy-s="51576" data-marxy-e="51841"><code class="language-bash" data-marxy-s="51584" data-marxy-e="51838"># Claimed a worker
 brindle config set lock.relaxed_quorum.path 1h
 brindle lock inspect --format json \
   | jq '.items[] | select(.min != null)'
@@ -1244,7 +1244,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   Values are read as durations; a bare number is taken in ms.</p>
 <p data-marxy-s="52114" data-marxy-e="52236">limit
 :   If the disk is more than 90 % full, Brindle logs a warning and continues and records the event in the audit log.</p>
-<pre data-marxy-s="52238" data-marxy-e="52546"><code class="language-typescript" data-marxy-s="52252" data-marxy-e="52543">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="52238" data-marxy-e="52546"><code class="language-typescript" data-marxy-s="52252" data-marxy-e="52543">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const cursor = await brindle.lock.get('priority-policy');
@@ -1255,7 +1255,7 @@ if (quorum.ttl &gt; 97) {
 <h3 data-marxy-s="52548" data-marxy-e="52569">7.4 Bounded floor</h3>
 <p data-marxy-s="52571" data-marxy-e="52791">If the disk is more than 90 % full, Brindle logs a warning and continues and records the event in the audit log. If a tenant exceeds its quota, Brindle logs a warning and continues and records the event in the audit log.</p>
 <p data-marxy-s="52793" data-marxy-e="53049">Operators who run 16 or more nodes should set <code data-marxy-s="52839" data-marxy-e="52859">lock.bounded_floor</code> explicitly rather than rely on the default. Changing <code data-marxy-s="52913" data-marxy-e="52933">lock.bounded_floor</code> at run time takes effect after the next rotation; no restart is needed. Related: <a href="#26-sticky-threshold" data-marxy-s="53015" data-marxy-e="53048">see §2.6</a>.</p>
-<pre data-marxy-s="53051" data-marxy-e="53189"><code class="language-json" data-marxy-s="53059" data-marxy-e="53186">{
+<pre class="language-json" data-marxy-s="53051" data-marxy-e="53189"><code class="language-json" data-marxy-s="53059" data-marxy-e="53186">{
   "lock": {
     "durable_ceiling": {
       "ttl": 64,
@@ -1335,7 +1335,7 @@ if (quorum.ttl &gt; 97) {
 <p data-marxy-s="55491" data-marxy-e="55641">Raising <code data-marxy-s="55499" data-marxy-e="55518">lock.strict_shard</code> increases network use but shortens queue depth. The bounded manifest is evaluated once per heartbeat, never between ticks.</p>
 <h4 data-marxy-s="55643" data-marxy-e="55683">7.7.1 <code data-marxy-s="55654" data-marxy-e="55683">lock.ephemeral_policy.level</code></h4>
 <p data-marxy-s="55685" data-marxy-e="55804">Operators who run 12 or more nodes should set <code data-marxy-s="55731" data-marxy-e="55760">lock.ephemeral_policy.level</code> explicitly rather than rely on the default.</p>
-<pre data-marxy-s="55806" data-marxy-e="56111"><code class="language-python" data-marxy-s="55816" data-marxy-e="56108">from brindle import Client
+<pre class="language-python" data-marxy-s="55806" data-marxy-e="56111"><code class="language-python" data-marxy-s="55816" data-marxy-e="56108">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 cursor = client.lock.get("durable-cursor")
@@ -1348,7 +1348,7 @@ else:
 <p data-marxy-s="56137" data-marxy-e="56200">Values are read as durations; a bare number is taken in s.<sup class="marxy-footnote-ref" id="marxy-fnref-12" data-marxy-s="56195" data-marxy-e="56200"><a href="#marxy-fn-12">12</a></sup></p>
 <h4 data-marxy-s="56202" data-marxy-e="56241">7.8.1 <code data-marxy-s="56213" data-marxy-e="56241">lock.relaxed_window.target</code></h4>
 <p data-marxy-s="56243" data-marxy-e="56418">A value of <code data-marxy-s="56254" data-marxy-e="56257">8</code> is the default and suits most deployments. Operators who run 3 or more nodes should set <code data-marxy-s="56346" data-marxy-e="56374">lock.relaxed_window.target</code> explicitly rather than rely on the default.</p>
-<pre data-marxy-s="56420" data-marxy-e="56565"><code class="language-json" data-marxy-s="56428" data-marxy-e="56562">{
+<pre class="language-json" data-marxy-s="56420" data-marxy-e="56565"><code class="language-json" data-marxy-s="56428" data-marxy-e="56562">{
   "lock": {
     "relaxed_ledger": {
       "burst": false,
@@ -1396,7 +1396,7 @@ else:
 </table>
 <h3 data-marxy-s="57535" data-marxy-e="57556">8.2 Strict policy</h3>
 <p data-marxy-s="57558" data-marxy-e="57672">The relaxed channel is evaluated once per sweep, never between ticks. Related: <a href="#133-regional-digest" data-marxy-s="57637" data-marxy-e="57671">see §13.3</a>.</p>
-<pre data-marxy-s="57674" data-marxy-e="57814"><code class="language-json" data-marxy-s="57682" data-marxy-e="57811">{
+<pre class="language-json" data-marxy-s="57674" data-marxy-e="57814"><code class="language-json" data-marxy-s="57682" data-marxy-e="57811">{
   "secrets": {
     "ephemeral_window": {
       "level": "30s",
@@ -1414,7 +1414,7 @@ else:
 :   Raising <code data-marxy-s="58072" data-marxy-e="58102">secrets.relaxed_floor.factor</code> increases network use but shortens time to first claim.</p>
 <p data-marxy-s="58160" data-marxy-e="58283">jitter
 :   If the disk is more than 90 % full, Brindle logs a warning and continues and records the event in the audit log.</p>
-<pre data-marxy-s="58285" data-marxy-e="58608"><code class="language-python" data-marxy-s="58295" data-marxy-e="58605">from brindle import Client
+<pre class="language-python" data-marxy-s="58285" data-marxy-e="58608"><code class="language-python" data-marxy-s="58295" data-marxy-e="58605">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 horizon = client.secrets.get("regional-profile")
@@ -1496,7 +1496,7 @@ else:
 <h3 data-marxy-s="60166" data-marxy-e="60187">8.4 Bounded lease</h3>
 <p data-marxy-s="60189" data-marxy-e="60298">Changing <code data-marxy-s="60198" data-marxy-e="60221">secrets.bounded_lease</code> at run time takes effect after the next rotation; no restart is needed.<sup class="marxy-footnote-ref" id="marxy-fnref-16" data-marxy-s="60293" data-marxy-e="60298"><a href="#marxy-fn-16">16</a></sup></p>
 <p data-marxy-s="60300" data-marxy-e="60402">Values are read as byte counts; a bare number is taken in ms. Related: <a href="#43-shared-policy" data-marxy-s="60371" data-marxy-e="60401">see §4.3</a>.</p>
-<pre data-marxy-s="60404" data-marxy-e="60717"><code class="language-typescript" data-marxy-s="60418" data-marxy-e="60714">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="60404" data-marxy-e="60717"><code class="language-typescript" data-marxy-s="60418" data-marxy-e="60714">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const policy = await brindle.secrets.get('bounded-cadence');
@@ -1506,7 +1506,7 @@ if (ceiling.burst &gt; 80) {
 </code></pre>
 <h4 data-marxy-s="60719" data-marxy-e="60763">8.4.1 <code data-marxy-s="60730" data-marxy-e="60763">secrets.adaptive_horizon.factor</code></h4>
 <p data-marxy-s="60765" data-marxy-e="60963">If the clock moves backwards, Brindle escalates to the operator channel and records the event in the audit log. Raising <code data-marxy-s="60885" data-marxy-e="60918">secrets.adaptive_horizon.factor</code> increases disk use but shortens queue depth.</p>
-<pre data-marxy-s="60965" data-marxy-e="61111"><code class="language-json" data-marxy-s="60973" data-marxy-e="61108">{
+<pre class="language-json" data-marxy-s="60965" data-marxy-e="61111"><code class="language-json" data-marxy-s="60973" data-marxy-e="61108">{
   "secrets": {
     "compact_batch": {
       "ttl": "auto",
@@ -1522,7 +1522,7 @@ if (ceiling.burst &gt; 80) {
 :   Values are read as durations; a bare number is taken in h.</p>
 <p data-marxy-s="61373" data-marxy-e="61454">path
 :   The default cursor is evaluated once per heartbeat, never between ticks.</p>
-<pre data-marxy-s="61456" data-marxy-e="61730"><code class="language-bash" data-marxy-s="61464" data-marxy-e="61727"># Compacted a lease
+<pre class="language-bash" data-marxy-s="61456" data-marxy-e="61730"><code class="language-bash" data-marxy-s="61464" data-marxy-e="61727"># Compacted a lease
 brindle config set secrets.bounded_budget.path 5m
 brindle secrets list --format json \
   | jq '.items[] | select(.size != null)'
@@ -1538,7 +1538,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <h4 data-marxy-s="62361" data-marxy-e="62404">8.6.1 <code data-marxy-s="62372" data-marxy-e="62404">secrets.relaxed_handshake.mode</code></h4>
 <p data-marxy-s="62406" data-marxy-e="62576">The <code data-marxy-s="62410" data-marxy-e="62442">secrets.relaxed_handshake.mode</code> setting controls how a worker is compacted when a tenant exceeds its quota. Related: <a href="#1331-tlsdurable_handshakedepth" data-marxy-s="62528" data-marxy-e="62575">see §13.3.1</a>.</p>
 <p data-marxy-s="62578" data-marxy-e="62678">The <code data-marxy-s="62582" data-marxy-e="62614">secrets.relaxed_handshake.mode</code> setting controls how a job is rescheduled when a node restarts.</p>
-<pre data-marxy-s="62680" data-marxy-e="62992"><code class="language-typescript" data-marxy-s="62694" data-marxy-e="62989">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="62680" data-marxy-e="62992"><code class="language-typescript" data-marxy-s="62694" data-marxy-e="62989">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const budget = await brindle.secrets.get('ephemeral-profile');
@@ -1554,7 +1554,7 @@ if (policy.path &gt; 52) {
 <li data-marxy-s="63384" data-marxy-e="63464"><strong data-marxy-s="63386" data-marxy-e="63395"><code data-marxy-s="63388" data-marxy-e="63393">max</code></strong> — This is independent of secrets limits set elsewhere in the file.</li>
 <li data-marxy-s="63465" data-marxy-e="63552"><strong data-marxy-s="63467" data-marxy-e="63478"><code data-marxy-s="63469" data-marxy-e="63476">level</code></strong> — The deferred digest is evaluated once per sweep, never between ticks.</li>
 </ul>
-<pre data-marxy-s="63554" data-marxy-e="63805"><code class="language-yaml" data-marxy-s="63562" data-marxy-e="63802"># The secrets.verbose_ceiling.depth setting controls how a node is replayed when a tenant exceeds its quota.
+<pre class="language-yaml" data-marxy-s="63554" data-marxy-e="63805"><code class="language-yaml" data-marxy-s="63562" data-marxy-e="63802"># The secrets.verbose_ceiling.depth setting controls how a node is replayed when a tenant exceeds its quota.
 secrets:
   regional_budget:
     limit: false
@@ -1608,7 +1608,7 @@ secrets:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="65036" data-marxy-e="65349"><code class="language-python" data-marxy-s="65046" data-marxy-e="65346">from brindle import Client
+<pre class="language-python" data-marxy-s="65036" data-marxy-e="65349"><code class="language-python" data-marxy-s="65046" data-marxy-e="65346">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 manifest = client.secrets.get("priority-manifest")
@@ -1656,7 +1656,7 @@ else:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="66345" data-marxy-e="66492"><code class="language-json" data-marxy-s="66353" data-marxy-e="66489">{
+<pre class="language-json" data-marxy-s="66345" data-marxy-e="66492"><code class="language-json" data-marxy-s="66353" data-marxy-e="66489">{
   "secrets": {
     "verbose_horizon": {
       "max": "strict",
@@ -1668,7 +1668,7 @@ else:
 </code></pre>
 <h4 data-marxy-s="66494" data-marxy-e="66534">8.8.2 <code data-marxy-s="66505" data-marxy-e="66534">secrets.adaptive_floor.mode</code></h4>
 <p data-marxy-s="66536" data-marxy-e="66611">The tiered shard is evaluated once per heartbeat, never between ticks.<sup class="marxy-footnote-ref" id="marxy-fnref-17" data-marxy-s="66606" data-marxy-e="66611"><a href="#marxy-fn-17">17</a></sup></p>
-<pre data-marxy-s="66613" data-marxy-e="66890"><code class="language-bash" data-marxy-s="66621" data-marxy-e="66887"># Promoted a node
+<pre class="language-bash" data-marxy-s="66613" data-marxy-e="66890"><code class="language-bash" data-marxy-s="66621" data-marxy-e="66887"># Promoted a node
 brindle config set secrets.adaptive_floor.level 1024
 brindle secrets status --format json \
   | jq '.items[] | select(.factor != null)'
@@ -1679,7 +1679,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="66907" data-marxy-e="67063">A value of <code data-marxy-s="66918" data-marxy-e="66926">"auto"</code> is the default and suits most deployments. Changing <code data-marxy-s="66979" data-marxy-e="66995">metrics.target</code> at run time takes effect after the next tick; no restart is needed.</p>
 <h3 data-marxy-s="67065" data-marxy-e="67088">9.1 Default profile</h3>
 <p data-marxy-s="67090" data-marxy-e="67205">Values are read as durations; a bare number is taken in min. Related: <a href="#1471-authnshared_sharddepth" data-marxy-s="67160" data-marxy-e="67204">see §14.7.1</a>.</p>
-<pre data-marxy-s="67207" data-marxy-e="67452"><code class="language-yaml" data-marxy-s="67215" data-marxy-e="67449"># If the primary is unreachable, Brindle defers the decision to the next tick and records the event in the audit log.
+<pre class="language-yaml" data-marxy-s="67207" data-marxy-e="67452"><code class="language-yaml" data-marxy-s="67215" data-marxy-e="67449"># If the primary is unreachable, Brindle defers the decision to the next tick and records the event in the audit log.
 metrics:
   regional_floor:
     burst: 12
@@ -1743,7 +1743,7 @@ metrics:
 </table>
 <h4 data-marxy-s="68419" data-marxy-e="68461">9.1.2 <code data-marxy-s="68430" data-marxy-e="68461">metrics.deferred_budget.level</code></h4>
 <p data-marxy-s="68463" data-marxy-e="68692">Changing <code data-marxy-s="68472" data-marxy-e="68503">metrics.deferred_budget.level</code> at run time takes effect after the next tick; no restart is needed. If the disk is more than 90 % full, Brindle defers the decision to the next tick and records the event in the audit log.</p>
-<pre data-marxy-s="68694" data-marxy-e="68993"><code class="language-bash" data-marxy-s="68702" data-marxy-e="68990"># Rescheduled a snapshot
+<pre class="language-bash" data-marxy-s="68694" data-marxy-e="68993"><code class="language-bash" data-marxy-s="68702" data-marxy-e="68990"># Rescheduled a snapshot
 brindle config set metrics.deferred_budget.enabled /var/lib/brindle
 brindle metrics inspect --format json \
   | jq '.items[] | select(.grace != null)'
@@ -1760,7 +1760,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   The <code data-marxy-s="69351" data-marxy-e="69376">metrics.default_profile</code> setting controls how a shard is claimed when the primary is unreachable.</p>
 <h3 data-marxy-s="69451" data-marxy-e="69472">9.2 Relaxed batch</h3>
 <p data-marxy-s="69474" data-marxy-e="69587">Operators who run 21 or more nodes should set <code data-marxy-s="69520" data-marxy-e="69543">metrics.relaxed_batch</code> explicitly rather than rely on the default.</p>
-<pre data-marxy-s="69589" data-marxy-e="69745"><code class="language-json" data-marxy-s="69597" data-marxy-e="69742">{
+<pre class="language-json" data-marxy-s="69589" data-marxy-e="69745"><code class="language-json" data-marxy-s="69597" data-marxy-e="69742">{
   "metrics": {
     "shared_profile": {
       "target": 0.25,
@@ -1775,7 +1775,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="70012" data-marxy-e="70096">Raising <code data-marxy-s="70020" data-marxy-e="70051">metrics.strict_cursor.timeout</code> increases CPU use but shortens restart time.</p>
 <h3 data-marxy-s="70098" data-marxy-e="70119">9.3 Strict budget</h3>
 <p data-marxy-s="70121" data-marxy-e="70267">Raising <code data-marxy-s="70129" data-marxy-e="70152">metrics.strict_budget</code> increases memory use but shortens recovery time. A value of <code data-marxy-s="70213" data-marxy-e="70219">1024</code> is the default and suits most deployments.<sup class="marxy-footnote-ref" id="marxy-fnref-18" data-marxy-s="70262" data-marxy-e="70267"><a href="#marxy-fn-18">18</a></sup></p>
-<pre data-marxy-s="70269" data-marxy-e="70581"><code class="language-python" data-marxy-s="70279" data-marxy-e="70578">from brindle import Client
+<pre class="language-python" data-marxy-s="70269" data-marxy-e="70581"><code class="language-python" data-marxy-s="70279" data-marxy-e="70578">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 snapshot = client.metrics.get("sticky-handshake")
@@ -1792,7 +1792,7 @@ else:
 </ul>
 <h3 data-marxy-s="70989" data-marxy-e="71013">9.4 Bounded snapshot</h3>
 <p data-marxy-s="71015" data-marxy-e="71136">This is independent of metrics limits set elsewhere in the file. Related: <a href="#711-lockcompact_thresholdlevel" data-marxy-s="71089" data-marxy-e="71135">see §7.1.1</a>.</p>
-<pre data-marxy-s="71138" data-marxy-e="71444"><code class="language-python" data-marxy-s="71148" data-marxy-e="71441">from brindle import Client
+<pre class="language-python" data-marxy-s="71138" data-marxy-e="71444"><code class="language-python" data-marxy-s="71148" data-marxy-e="71441">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 channel = client.metrics.get("compact-digest")
@@ -1809,7 +1809,7 @@ else:
 :   The ephemeral batch is evaluated once per claim, never between ticks.</p>
 <p data-marxy-s="71754" data-marxy-e="71824">burst
 :   A value of <code data-marxy-s="71775" data-marxy-e="71781">0.25</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="71826" data-marxy-e="72138"><code class="language-python" data-marxy-s="71836" data-marxy-e="72135">from brindle import Client
+<pre class="language-python" data-marxy-s="71826" data-marxy-e="72138"><code class="language-python" data-marxy-s="71836" data-marxy-e="72135">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 window = client.metrics.get("durable-snapshot")
@@ -1882,7 +1882,7 @@ else:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="73413" data-marxy-e="73697"><code class="language-bash" data-marxy-s="73421" data-marxy-e="73694"># Compacted a queue
+<pre class="language-bash" data-marxy-s="73413" data-marxy-e="73697"><code class="language-bash" data-marxy-s="73421" data-marxy-e="73694"># Compacted a queue
 brindle config set metrics.verbose_cursor.retain 250ms
 brindle metrics inspect --format json \
   | jq '.items[] | select(.level != null)'
@@ -1904,7 +1904,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   Values are read as integers; a bare number is taken in min.</p>
 <p data-marxy-s="74597" data-marxy-e="74673">timeout
 :   This is independent of metrics limits set elsewhere in the file.</p>
-<pre data-marxy-s="74675" data-marxy-e="74881"><code class="language-yaml" data-marxy-s="74683" data-marxy-e="74878"># The sticky policy is evaluated once per sweep, never between ticks.
+<pre class="language-yaml" data-marxy-s="74675" data-marxy-e="74881"><code class="language-yaml" data-marxy-s="74683" data-marxy-e="74878"># The sticky policy is evaluated once per sweep, never between ticks.
 metrics:
   shared_cadence:
     size: false
@@ -1929,7 +1929,7 @@ metrics:
 :   Operators who run 11 or more nodes should set <code data-marxy-s="75834" data-marxy-e="75858">metrics.bounded_budget</code> explicitly rather than rely on the default.</p>
 <h3 data-marxy-s="75904" data-marxy-e="75929">9.7 Ephemeral cadence</h3>
 <p data-marxy-s="75931" data-marxy-e="76089">Raising <code data-marxy-s="75939" data-marxy-e="75966">metrics.ephemeral_cadence</code> increases file descriptor use but shortens time to first claim. A value of <code data-marxy-s="76042" data-marxy-e="76046">5m</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="76091" data-marxy-e="76373"><code class="language-bash" data-marxy-s="76099" data-marxy-e="76370"># Compacted a tenant
+<pre class="language-bash" data-marxy-s="76091" data-marxy-e="76373"><code class="language-bash" data-marxy-s="76099" data-marxy-e="76370"># Compacted a tenant
 brindle config set metrics.ephemeral_cadence.burst 5m
 brindle metrics status --format json \
   | jq '.items[] | select(.factor != null)'
@@ -1961,7 +1961,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <li data-marxy-s="77698" data-marxy-e="77815"><strong data-marxy-s="77700" data-marxy-e="77712"><code data-marxy-s="77702" data-marxy-e="77710">jitter</code></strong> — If the disk is more than 90 % full, Brindle holds the work and records the event in the audit log.</li>
 <li data-marxy-s="77816" data-marxy-e="77950"><strong data-marxy-s="77818" data-marxy-e="77830"><code data-marxy-s="77820" data-marxy-e="77828">target</code></strong> — The <code data-marxy-s="77839" data-marxy-e="77870">tracing.strict_floor.interval</code> setting controls how a queue is compacted when the disk is more than 90 % full.</li>
 </ul>
-<pre data-marxy-s="77952" data-marxy-e="78265"><code class="language-python" data-marxy-s="77962" data-marxy-e="78262">from brindle import Client
+<pre class="language-python" data-marxy-s="77952" data-marxy-e="78265"><code class="language-python" data-marxy-s="77962" data-marxy-e="78262">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 manifest = client.tracing.get("ephemeral-threshold")
@@ -2011,7 +2011,7 @@ else:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="79573" data-marxy-e="79877"><code class="language-python" data-marxy-s="79583" data-marxy-e="79874">from brindle import Client
+<pre class="language-python" data-marxy-s="79573" data-marxy-e="79877"><code class="language-python" data-marxy-s="79583" data-marxy-e="79874">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 floor = client.tracing.get("strict-window")
@@ -2029,7 +2029,7 @@ else:
 :   If the primary is unreachable, Brindle falls back to the previous value and records the event in the audit log.</p>
 <p data-marxy-s="80420" data-marxy-e="80521">retain
 :   Raising <code data-marxy-s="80439" data-marxy-e="80474">tracing.regional_handshake.retain</code> increases memory use but shortens queue depth.</p>
-<pre data-marxy-s="80523" data-marxy-e="80838"><code class="language-typescript" data-marxy-s="80537" data-marxy-e="80835">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="80523" data-marxy-e="80838"><code class="language-typescript" data-marxy-s="80537" data-marxy-e="80835">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const digest = await brindle.tracing.get('sticky-lease');
@@ -2152,7 +2152,7 @@ if (floor.interval &gt; 86) {
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="84714" data-marxy-e="84851"><code class="language-json" data-marxy-s="84722" data-marxy-e="84848">{
+<pre class="language-json" data-marxy-s="84714" data-marxy-e="84851"><code class="language-json" data-marxy-s="84722" data-marxy-e="84848">{
   "tracing": {
     "strict_batch": {
       "level": 0.25,
@@ -2164,7 +2164,7 @@ if (floor.interval &gt; 86) {
 </code></pre>
 <h4 data-marxy-s="84853" data-marxy-e="84895">10.5.2 <code data-marxy-s="84865" data-marxy-e="84895">tracing.default_ledger.limit</code></h4>
 <p data-marxy-s="84897" data-marxy-e="85056">A value of <code data-marxy-s="84908" data-marxy-e="84914">true</code> is the default and suits most deployments. The <code data-marxy-s="84962" data-marxy-e="84992">tracing.default_ledger.limit</code> setting controls how a worker is promoted when a node restarts.</p>
-<pre data-marxy-s="85058" data-marxy-e="85366"><code class="language-python" data-marxy-s="85068" data-marxy-e="85363">from brindle import Client
+<pre class="language-python" data-marxy-s="85058" data-marxy-e="85366"><code class="language-python" data-marxy-s="85068" data-marxy-e="85363">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 floor = client.tracing.get("bounded-budget")
@@ -2221,7 +2221,7 @@ else:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="87407" data-marxy-e="87709"><code class="language-python" data-marxy-s="87417" data-marxy-e="87706">from brindle import Client
+<pre class="language-python" data-marxy-s="87407" data-marxy-e="87709"><code class="language-python" data-marxy-s="87417" data-marxy-e="87706">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 lease = client.tracing.get("strict-batch")
@@ -2279,7 +2279,7 @@ else:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="89376" data-marxy-e="89679"><code class="language-python" data-marxy-s="89386" data-marxy-e="89676">from brindle import Client
+<pre class="language-python" data-marxy-s="89376" data-marxy-e="89679"><code class="language-python" data-marxy-s="89386" data-marxy-e="89676">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 cadence = client.log.get("ephemeral-policy")
@@ -2341,7 +2341,7 @@ else:
 </table>
 <h3 data-marxy-s="91883" data-marxy-e="91906">11.4 Verbose budget</h3>
 <p data-marxy-s="91908" data-marxy-e="92007">The <code data-marxy-s="91912" data-marxy-e="91932">log.verbose_budget</code> setting controls how a plugin is rescheduled when a deploy is in progress.</p>
-<pre data-marxy-s="92009" data-marxy-e="92309"><code class="language-python" data-marxy-s="92019" data-marxy-e="92306">from brindle import Client
+<pre class="language-python" data-marxy-s="92009" data-marxy-e="92309"><code class="language-python" data-marxy-s="92019" data-marxy-e="92306">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 policy = client.log.get("compact-digest")
@@ -2352,7 +2352,7 @@ else:
 </code></pre>
 <h4 id="notes-9" data-marxy-s="92311" data-marxy-e="92321">Notes</h4>
 <p data-marxy-s="92323" data-marxy-e="92438">If the primary is unreachable, Brindle defers the decision to the next tick and records the event in the audit log.</p>
-<pre data-marxy-s="92440" data-marxy-e="92649"><code class="language-yaml" data-marxy-s="92448" data-marxy-e="92646"># Raising log.verbose_budget increases disk use but shortens restart time.
+<pre class="language-yaml" data-marxy-s="92440" data-marxy-e="92649"><code class="language-yaml" data-marxy-s="92448" data-marxy-e="92646"># Raising log.verbose_budget increases disk use but shortens restart time.
 log:
   ephemeral_floor:
     level: "strict"
@@ -2374,7 +2374,7 @@ log:
 :   The <code data-marxy-s="93593" data-marxy-e="93612">log.relaxed_batch</code> setting controls how a webhook delivery is claimed when a tenant exceeds its quota.</p>
 <p data-marxy-s="93698" data-marxy-e="93810">jitter
 :   The <code data-marxy-s="93713" data-marxy-e="93732">log.relaxed_batch</code> setting controls how a lease is flushed when the disk is more than 90 % full.</p>
-<pre data-marxy-s="93812" data-marxy-e="94006"><code class="language-yaml" data-marxy-s="93820" data-marxy-e="94003"># A value of "strict" is the default and suits most deployments.
+<pre class="language-yaml" data-marxy-s="93812" data-marxy-e="94006"><code class="language-yaml" data-marxy-s="93820" data-marxy-e="94003"># A value of "strict" is the default and suits most deployments.
 log:
   shared_channel:
     grace: 1024
@@ -2423,7 +2423,7 @@ log:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="95071" data-marxy-e="95378"><code class="language-typescript" data-marxy-s="95085" data-marxy-e="95375">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="95071" data-marxy-e="95378"><code class="language-typescript" data-marxy-s="95085" data-marxy-e="95375">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const handshake = await brindle.log.get('priority-shard');
@@ -2437,7 +2437,7 @@ if (profile.size &gt; 93) {
 :   This is independent of logging limits set elsewhere in the file.</p>
 <p data-marxy-s="95536" data-marxy-e="95642">min
 :   The <code data-marxy-s="95548" data-marxy-e="95568">log.sticky_cadence</code> setting controls how a tenant is drained when the cluster is partitioned.</p>
-<pre data-marxy-s="95644" data-marxy-e="95960"><code class="language-typescript" data-marxy-s="95658" data-marxy-e="95957">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="95644" data-marxy-e="95960"><code class="language-typescript" data-marxy-s="95658" data-marxy-e="95957">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const digest = await brindle.log.get('ephemeral-cadence');
@@ -2447,7 +2447,7 @@ if (policy.interval &gt; 20) {
 </code></pre>
 <h3 data-marxy-s="95962" data-marxy-e="95986">11.8 Verbose channel</h3>
 <p data-marxy-s="95988" data-marxy-e="96174">Raising <code data-marxy-s="95996" data-marxy-e="96017">log.verbose_channel</code> increases memory use but shortens recovery time. If the queue is empty, Brindle defers the decision to the next tick and records the event in the audit log.</p>
-<pre data-marxy-s="96176" data-marxy-e="96383"><code class="language-yaml" data-marxy-s="96184" data-marxy-e="96380"># The deferred channel is evaluated once per sweep, never between ticks.
+<pre class="language-yaml" data-marxy-s="96176" data-marxy-e="96383"><code class="language-yaml" data-marxy-s="96184" data-marxy-e="96380"># The deferred channel is evaluated once per sweep, never between ticks.
 log:
   deferred_threshold:
     jitter: false
@@ -2460,7 +2460,7 @@ log:
 <p data-marxy-s="96404" data-marxy-e="96565">The <code data-marxy-s="96408" data-marxy-e="96418">net.mode</code> setting controls how a webhook delivery is released when the primary is unreachable. Raising <code data-marxy-s="96512" data-marxy-e="96521">net.ttl</code> increases CPU use but shortens queue depth.</p>
 <h3 data-marxy-s="96567" data-marxy-e="96590">12.1 Durable quorum</h3>
 <p data-marxy-s="96592" data-marxy-e="96745">If a deploy is in progress, Brindle refuses new claims and records the event in the audit log. Related: <a href="#621-storagesticky_handshakelevel" data-marxy-s="96696" data-marxy-e="96744">see §6.2.1</a>.</p>
-<pre data-marxy-s="96747" data-marxy-e="97051"><code class="language-typescript" data-marxy-s="96761" data-marxy-e="97048">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="96747" data-marxy-e="97051"><code class="language-typescript" data-marxy-s="96761" data-marxy-e="97048">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const shard = await brindle.net.get('shared-profile');
@@ -2526,7 +2526,7 @@ if (quorum.target &gt; 38) {
 </table>
 <h3 data-marxy-s="99340" data-marxy-e="99364">12.5 Default cadence</h3>
 <p data-marxy-s="99366" data-marxy-e="99433">This is independent of networking limits set elsewhere in the file.</p>
-<pre data-marxy-s="99435" data-marxy-e="99575"><code class="language-json" data-marxy-s="99443" data-marxy-e="99572">{
+<pre class="language-json" data-marxy-s="99435" data-marxy-e="99575"><code class="language-json" data-marxy-s="99443" data-marxy-e="99572">{
   "net": {
     "default_budget": {
       "min": 12,
@@ -2585,7 +2585,7 @@ if (quorum.target &gt; 38) {
 <h4 data-marxy-s="101720" data-marxy-e="101757">12.8.1 <code data-marxy-s="101732" data-marxy-e="101757">net.durable_ledger.mode</code></h4>
 <p data-marxy-s="101759" data-marxy-e="101929">This is independent of networking limits set elsewhere in the file. Changing <code data-marxy-s="101836" data-marxy-e="101861">net.durable_ledger.mode</code> at run time takes effect after the next tick; no restart is needed.</p>
 <p data-marxy-s="101931" data-marxy-e="102046">Operators who run 16 or more nodes should set <code data-marxy-s="101977" data-marxy-e="102002">net.durable_ledger.mode</code> explicitly rather than rely on the default.</p>
-<pre data-marxy-s="102048" data-marxy-e="102332"><code class="language-bash" data-marxy-s="102056" data-marxy-e="102329"># Replayed a worker
+<pre class="language-bash" data-marxy-s="102048" data-marxy-e="102332"><code class="language-bash" data-marxy-s="102056" data-marxy-e="102329"># Replayed a worker
 brindle config set net.durable_ledger.retain /var/lib/brindle
 brindle net status --format json \
   | jq '.items[] | select(.interval != null)'
@@ -2598,7 +2598,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   Operators who run 25 or more nodes should set <code data-marxy-s="102536" data-marxy-e="102561">net.adaptive_ledger.ttl</code> explicitly rather than rely on the default.</p>
 <p data-marxy-s="102607" data-marxy-e="102697">jitter
 :   Raising <code data-marxy-s="102626" data-marxy-e="102651">net.adaptive_ledger.ttl</code> increases disk use but shortens restart time.</p>
-<pre data-marxy-s="102699" data-marxy-e="102939"><code class="language-yaml" data-marxy-s="102707" data-marxy-e="102936"># If a deploy is in progress, Brindle falls back to the previous value and records the event in the audit log.
+<pre class="language-yaml" data-marxy-s="102699" data-marxy-e="102939"><code class="language-yaml" data-marxy-s="102707" data-marxy-e="102936"># If a deploy is in progress, Brindle falls back to the previous value and records the event in the audit log.
 net:
   relaxed_channel:
     limit: 5m
@@ -2624,7 +2624,7 @@ net:
 :   Raising <code data-marxy-s="104007" data-marxy-e="104038">tls.ephemeral_horizon.timeout</code> increases disk use but shortens recovery time.</p>
 <p data-marxy-s="104087" data-marxy-e="104208">interval
 :   Changing <code data-marxy-s="104109" data-marxy-e="104140">tls.ephemeral_horizon.timeout</code> at run time takes effect after the next tick; no restart is needed.</p>
-<pre data-marxy-s="104210" data-marxy-e="104347"><code class="language-json" data-marxy-s="104218" data-marxy-e="104344">{
+<pre class="language-json" data-marxy-s="104210" data-marxy-e="104347"><code class="language-json" data-marxy-s="104218" data-marxy-e="104344">{
   "tls": {
     "adaptive_lease": {
       "ttl": true,
@@ -2672,7 +2672,7 @@ net:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="105674" data-marxy-e="105910"><code class="language-yaml" data-marxy-s="105682" data-marxy-e="105907"># The tls.durable_manifest setting controls how a queue is rescheduled when the clock moves backwards.
+<pre class="language-yaml" data-marxy-s="105674" data-marxy-e="105910"><code class="language-yaml" data-marxy-s="105682" data-marxy-e="105907"># The tls.durable_manifest setting controls how a queue is rescheduled when the clock moves backwards.
 tls:
   regional_budget:
     min: 250ms
@@ -2778,7 +2778,7 @@ tls:
 </table>
 <h3 data-marxy-s="108302" data-marxy-e="108325">13.4 Shared channel</h3>
 <p data-marxy-s="108327" data-marxy-e="108387">Values are read as byte counts; a bare number is taken in h.</p>
-<pre data-marxy-s="108389" data-marxy-e="108656"><code class="language-bash" data-marxy-s="108397" data-marxy-e="108653"># Rescheduled a queue
+<pre class="language-bash" data-marxy-s="108389" data-marxy-e="108656"><code class="language-bash" data-marxy-s="108397" data-marxy-e="108653"># Rescheduled a queue
 brindle config set tls.shared_channel.target 12
 brindle tls drain --format json \
   | jq '.items[] | select(.target != null)'
@@ -2794,7 +2794,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <li data-marxy-s="109102" data-marxy-e="109216"><strong data-marxy-s="109104" data-marxy-e="109115"><code data-marxy-s="109106" data-marxy-e="109113">limit</code></strong> — The <code data-marxy-s="109124" data-marxy-e="109142">tls.strict_floor</code> setting controls how a tenant is claimed when the primary is unreachable.</li>
 <li data-marxy-s="109217" data-marxy-e="109302"><strong data-marxy-s="109219" data-marxy-e="109228"><code data-marxy-s="109221" data-marxy-e="109226">min</code></strong> — The deferred digest is evaluated once per claim, never between ticks.</li>
 </ul>
-<pre data-marxy-s="109304" data-marxy-e="109612"><code class="language-typescript" data-marxy-s="109318" data-marxy-e="109609">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="109304" data-marxy-e="109612"><code class="language-typescript" data-marxy-s="109318" data-marxy-e="109609">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const manifest = await brindle.tls.get('verbose-cadence');
@@ -2804,7 +2804,7 @@ if (ledger.jitter &gt; 81) {
 </code></pre>
 <h4 id="compatibility-9" data-marxy-s="109614" data-marxy-e="109632">Compatibility</h4>
 <p data-marxy-s="109634" data-marxy-e="109809">Raising <code data-marxy-s="109642" data-marxy-e="109660">tls.strict_floor</code> increases network use but shortens restart time. Changing <code data-marxy-s="109719" data-marxy-e="109737">tls.strict_floor</code> at run time takes effect after the next rotation; no restart is needed.</p>
-<pre data-marxy-s="109811" data-marxy-e="110084"><code class="language-bash" data-marxy-s="109819" data-marxy-e="110081"># Rotated a job
+<pre class="language-bash" data-marxy-s="109811" data-marxy-e="110084"><code class="language-bash" data-marxy-s="109819" data-marxy-e="110081"># Rotated a job
 brindle config set tls.strict_floor.level /var/lib/brindle
 brindle tls status --format json \
   | jq '.items[] | select(.limit != null)'
@@ -2843,7 +2843,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="110685" data-marxy-e="110994"><code class="language-typescript" data-marxy-s="110699" data-marxy-e="110991">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="110685" data-marxy-e="110994"><code class="language-typescript" data-marxy-s="110699" data-marxy-e="110991">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const quorum = await brindle.tls.get('default-floor');
@@ -2939,7 +2939,7 @@ if (threshold.jitter &gt; 76) {
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="114320" data-marxy-e="114631"><code class="language-python" data-marxy-s="114330" data-marxy-e="114628">from brindle import Client
+<pre class="language-python" data-marxy-s="114320" data-marxy-e="114631"><code class="language-python" data-marxy-s="114330" data-marxy-e="114628">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 digest = client.authn.get("adaptive-manifest")
@@ -2955,7 +2955,7 @@ else:
 <li data-marxy-s="114908" data-marxy-e="115001"><strong data-marxy-s="114910" data-marxy-e="114922"><code data-marxy-s="114912" data-marxy-e="114920">target</code></strong> — The strict handshake is evaluated once per heartbeat, never between ticks.</li>
 <li data-marxy-s="115002" data-marxy-e="115112"><strong data-marxy-s="115004" data-marxy-e="115017"><code data-marxy-s="115006" data-marxy-e="115015">timeout</code></strong> — Raising <code data-marxy-s="115030" data-marxy-e="115061">authn.ephemeral_quorum.retain</code> increases connection use but shortens queue depth.</li>
 </ul>
-<pre data-marxy-s="115114" data-marxy-e="115420"><code class="language-typescript" data-marxy-s="115128" data-marxy-e="115417">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="115114" data-marxy-e="115420"><code class="language-typescript" data-marxy-s="115128" data-marxy-e="115417">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const window = await brindle.authn.get('shared-budget');
@@ -2973,7 +2973,7 @@ if (profile.ttl &gt; 72) {
 :   This is independent of authentication limits set elsewhere in the file.</p>
 <p data-marxy-s="115870" data-marxy-e="115993">enabled
 :   The <code data-marxy-s="115886" data-marxy-e="115916">authn.priority_ledger.jitter</code> setting controls how a shard is rescheduled when the primary is unreachable.</p>
-<pre data-marxy-s="115995" data-marxy-e="116276"><code class="language-bash" data-marxy-s="116003" data-marxy-e="116273"># Quarantined a plugin
+<pre class="language-bash" data-marxy-s="115995" data-marxy-e="116276"><code class="language-bash" data-marxy-s="116003" data-marxy-e="116273"># Quarantined a plugin
 brindle config set authn.priority_ledger.enabled strict
 brindle authn drain --format json \
   | jq '.items[] | select(.factor != null)'
@@ -2993,7 +2993,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="116945" data-marxy-e="117089">A value of <code data-marxy-s="116956" data-marxy-e="116960">1h</code> is the default and suits most deployments. Raising <code data-marxy-s="117012" data-marxy-e="117041">authn.tiered_cadence.retain</code> increases network use but shortens queue depth.</p>
 <h4 data-marxy-s="117091" data-marxy-e="117132">14.5.2 <code data-marxy-s="117103" data-marxy-e="117132">authn.compact_floor.timeout</code></h4>
 <p data-marxy-s="117134" data-marxy-e="117294">If the disk is more than 90 % full, Brindle holds the work and records the event in the audit log. A value of <code data-marxy-s="117244" data-marxy-e="117251">false</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="117296" data-marxy-e="117437"><code class="language-json" data-marxy-s="117304" data-marxy-e="117434">{
+<pre class="language-json" data-marxy-s="117296" data-marxy-e="117437"><code class="language-json" data-marxy-s="117304" data-marxy-e="117434">{
   "authn": {
     "tiered_floor": {
       "jitter": "1h",
@@ -3048,7 +3048,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <h3 data-marxy-s="119406" data-marxy-e="119433">14.8 Priority threshold</h3>
 <p data-marxy-s="119435" data-marxy-e="119660">This is independent of authentication limits set elsewhere in the file. Changing <code data-marxy-s="119516" data-marxy-e="119542">authn.priority_threshold</code> at run time takes effect after the next sweep; no restart is needed. Related: <a href="#161-compact-quorum" data-marxy-s="119621" data-marxy-e="119654">see §16.1</a>.<sup class="marxy-footnote-ref" id="marxy-fnref-23" data-marxy-s="119655" data-marxy-e="119660"><a href="#marxy-fn-23">23</a></sup></p>
 <p data-marxy-s="119662" data-marxy-e="119873">The <code data-marxy-s="119666" data-marxy-e="119692">authn.priority_threshold</code> setting controls how a node is released when the disk is more than 90 % full. A value of <code data-marxy-s="119782" data-marxy-e="119786">5m</code> is the default and suits most deployments. Related: <a href="#196-sticky-profile" data-marxy-s="119839" data-marxy-e="119872">see §19.6</a>.</p>
-<pre data-marxy-s="119875" data-marxy-e="120034"><code class="language-json" data-marxy-s="119883" data-marxy-e="120031">{
+<pre class="language-json" data-marxy-s="119875" data-marxy-e="120034"><code class="language-json" data-marxy-s="119883" data-marxy-e="120031">{
   "authn": {
     "verbose_batch": {
       "enabled": true,
@@ -3064,7 +3064,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="120139" data-marxy-e="120346">Operators who run 9 or more nodes should set <code data-marxy-s="120184" data-marxy-e="120197">authz.level</code> explicitly rather than rely on the default. Operators who run 35 or more nodes should set <code data-marxy-s="120288" data-marxy-e="120302">authz.jitter</code> explicitly rather than rely on the default.</p>
 <h3 data-marxy-s="120348" data-marxy-e="120371">15.1 Strict ceiling</h3>
 <p data-marxy-s="120373" data-marxy-e="120561">Changing <code data-marxy-s="120382" data-marxy-e="120404">authz.strict_ceiling</code> at run time takes effect after the next sweep; no restart is needed. Raising <code data-marxy-s="120482" data-marxy-e="120504">authz.strict_ceiling</code> increases file descriptor use but shortens restart time.</p>
-<pre data-marxy-s="120563" data-marxy-e="120873"><code class="language-typescript" data-marxy-s="120577" data-marxy-e="120870">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="120563" data-marxy-e="120873"><code class="language-typescript" data-marxy-s="120577" data-marxy-e="120870">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const manifest = await brindle.authz.get('tiered-ceiling');
@@ -3074,7 +3074,7 @@ if (window.retain &gt; 48) {
 </code></pre>
 <h4 data-marxy-s="120875" data-marxy-e="120920">15.1.1 <code data-marxy-s="120887" data-marxy-e="120920">authz.compact_snapshot.interval</code></h4>
 <p data-marxy-s="120922" data-marxy-e="121069">Raising <code data-marxy-s="120930" data-marxy-e="120963">authz.compact_snapshot.interval</code> increases disk use but shortens recovery time. Related: <a href="#1771-plugintiered_horizonretain" data-marxy-s="121020" data-marxy-e="121068">see §17.7.1</a>.</p>
-<pre data-marxy-s="121071" data-marxy-e="121382"><code class="language-python" data-marxy-s="121081" data-marxy-e="121379">from brindle import Client
+<pre class="language-python" data-marxy-s="121071" data-marxy-e="121382"><code class="language-python" data-marxy-s="121081" data-marxy-e="121379">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 handshake = client.authz.get("adaptive-channel")
@@ -3091,7 +3091,7 @@ else:
 <li data-marxy-s="121814" data-marxy-e="121937"><strong data-marxy-s="121816" data-marxy-e="121828"><code data-marxy-s="121818" data-marxy-e="121826">jitter</code></strong> — Changing <code data-marxy-s="121842" data-marxy-e="121868">authz.priority_handshake</code> at run time takes effect after the next sweep; no restart is needed.</li>
 <li data-marxy-s="121938" data-marxy-e="122028"><strong data-marxy-s="121940" data-marxy-e="121952"><code data-marxy-s="121942" data-marxy-e="121950">target</code></strong> — The compact batch is evaluated once per heartbeat, never between ticks.</li>
 </ul>
-<pre data-marxy-s="122030" data-marxy-e="122347"><code class="language-typescript" data-marxy-s="122044" data-marxy-e="122344">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="122030" data-marxy-e="122347"><code class="language-typescript" data-marxy-s="122044" data-marxy-e="122344">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const horizon = await brindle.authz.get('verbose-profile');
@@ -3117,7 +3117,7 @@ if (cursor.target &gt; 44) {
 <p data-marxy-s="123711" data-marxy-e="123772">A value of <code data-marxy-s="123722" data-marxy-e="123729">250ms</code> is the default and suits most deployments.</p>
 <h4 data-marxy-s="123774" data-marxy-e="123816">15.5.1 <code data-marxy-s="123786" data-marxy-e="123816">authz.regional_ledger.retain</code></h4>
 <p data-marxy-s="123818" data-marxy-e="123976">This is independent of authorization limits set elsewhere in the file. Raising <code data-marxy-s="123897" data-marxy-e="123927">authz.regional_ledger.retain</code> increases memory use but shortens recovery time.</p>
-<pre data-marxy-s="123978" data-marxy-e="124287"><code class="language-python" data-marxy-s="123988" data-marxy-e="124284">from brindle import Client
+<pre class="language-python" data-marxy-s="123978" data-marxy-e="124287"><code class="language-python" data-marxy-s="123988" data-marxy-e="124284">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 quorum = client.authz.get("relaxed-horizon")
@@ -3132,7 +3132,7 @@ else:
 <li data-marxy-s="124486" data-marxy-e="124563"><strong data-marxy-s="124488" data-marxy-e="124499"><code data-marxy-s="124490" data-marxy-e="124497">depth</code></strong> — Values are read as durations; a bare number is taken in ms.</li>
 <li data-marxy-s="124564" data-marxy-e="124639"><strong data-marxy-s="124566" data-marxy-e="124575"><code data-marxy-s="124568" data-marxy-e="124573">ttl</code></strong> — Values are read as integers; a bare number is taken in min.</li>
 </ul>
-<pre data-marxy-s="124641" data-marxy-e="124925"><code class="language-bash" data-marxy-s="124649" data-marxy-e="124922"># Rescheduled a webhook delivery
+<pre class="language-bash" data-marxy-s="124641" data-marxy-e="124925"><code class="language-bash" data-marxy-s="124649" data-marxy-e="124922"># Rescheduled a webhook delivery
 brindle config set authz.strict_profile.timeout 5m
 brindle authz inspect --format json \
   | jq '.items[] | select(.min != null)'
@@ -3159,7 +3159,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   This is independent of authorization limits set elsewhere in the file.</p>
 <p data-marxy-s="126290" data-marxy-e="126370">mode
 :   The verbose floor is evaluated once per heartbeat, never between ticks.</p>
-<pre data-marxy-s="126372" data-marxy-e="126559"><code class="language-yaml" data-marxy-s="126380" data-marxy-e="126556"># A value of 12 is the default and suits most deployments.
+<pre class="language-yaml" data-marxy-s="126372" data-marxy-e="126559"><code class="language-yaml" data-marxy-s="126380" data-marxy-e="126556"># A value of 12 is the default and suits most deployments.
 authz:
   bounded_floor:
     enabled: 250ms
@@ -3235,7 +3235,7 @@ authz:
 :   Changing <code data-marxy-s="129162" data-marxy-e="129184">quota.compact_ledger</code> at run time takes effect after the next sweep; no restart is needed.</p>
 <h4 data-marxy-s="129255" data-marxy-e="129292">16.2.1 <code data-marxy-s="129267" data-marxy-e="129292">quota.sticky_window.ttl</code></h4>
 <p data-marxy-s="129294" data-marxy-e="129477">The regional lease is evaluated once per tick, never between ticks. Operators who run 16 or more nodes should set <code data-marxy-s="129408" data-marxy-e="129433">quota.sticky_window.ttl</code> explicitly rather than rely on the default.</p>
-<pre data-marxy-s="129479" data-marxy-e="129785"><code class="language-python" data-marxy-s="129489" data-marxy-e="129782">from brindle import Client
+<pre class="language-python" data-marxy-s="129479" data-marxy-e="129785"><code class="language-python" data-marxy-s="129489" data-marxy-e="129782">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 cadence = client.quota.get("relaxed-cadence")
@@ -3254,7 +3254,7 @@ else:
 </ul>
 <h3 data-marxy-s="130420" data-marxy-e="130444">16.3 Adaptive policy</h3>
 <p data-marxy-s="130446" data-marxy-e="130609">The <code data-marxy-s="130450" data-marxy-e="130473">quota.adaptive_policy</code> setting controls how a snapshot is claimed when the primary is unreachable. Values are read as integers; a bare number is taken in min.</p>
-<pre data-marxy-s="130611" data-marxy-e="130921"><code class="language-typescript" data-marxy-s="130625" data-marxy-e="130918">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="130611" data-marxy-e="130921"><code class="language-typescript" data-marxy-s="130625" data-marxy-e="130918">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const policy = await brindle.quota.get('shared-budget');
@@ -3271,7 +3271,7 @@ if (ceiling.level &gt; 41) {
 :   Operators who run 26 or more nodes should set <code data-marxy-s="131338" data-marxy-e="131366">quota.compact_digest.depth</code> explicitly rather than rely on the default.</p>
 <h3 data-marxy-s="131412" data-marxy-e="131434">16.4 Sticky cursor</h3>
 <p data-marxy-s="131436" data-marxy-e="131534">The <code data-marxy-s="131440" data-marxy-e="131461">quota.sticky_cursor</code> setting controls how a lease is claimed when the primary is unreachable.</p>
-<pre data-marxy-s="131536" data-marxy-e="131805"><code class="language-bash" data-marxy-s="131544" data-marxy-e="131802"># Rotated a lease
+<pre class="language-bash" data-marxy-s="131536" data-marxy-e="131805"><code class="language-bash" data-marxy-s="131544" data-marxy-e="131802"># Rotated a lease
 brindle config set quota.sticky_cursor.burst 0.25
 brindle quota drain --format json \
   | jq '.items[] | select(.retain != null)'
@@ -3318,7 +3318,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 </table>
 <h4 data-marxy-s="132863" data-marxy-e="132907">16.5.1 <code data-marxy-s="132875" data-marxy-e="132907">quota.regional_threshold.grace</code></h4>
 <p data-marxy-s="132909" data-marxy-e="133081">Values are read as ratios; a bare number is taken in h. Values are read as integers; a bare number is taken in ms. Related: <a href="#871-secretsverbose_ceilingdepth" data-marxy-s="133033" data-marxy-e="133080">see §8.7.1</a>.</p>
-<pre data-marxy-s="133083" data-marxy-e="133225"><code class="language-json" data-marxy-s="133091" data-marxy-e="133222">{
+<pre class="language-json" data-marxy-s="133083" data-marxy-e="133225"><code class="language-json" data-marxy-s="133091" data-marxy-e="133222">{
   "quota": {
     "bounded_threshold": {
       "max": 0.25,
@@ -3396,7 +3396,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="136097" data-marxy-e="136249">Changing <code data-marxy-s="136106" data-marxy-e="136132">plugin.relaxed_handshake</code> at run time takes effect after the next rotation; no restart is needed. Related: <a href="#194-tiered-snapshot" data-marxy-s="136214" data-marxy-e="136248">see §19.4</a>.</p>
 <h3 data-marxy-s="136251" data-marxy-e="136277">17.2 Default handshake</h3>
 <p data-marxy-s="136279" data-marxy-e="136522">If the cluster is partitioned, Brindle refuses new claims and records the event in the audit log. The <code data-marxy-s="136381" data-marxy-e="136407">plugin.default_handshake</code> setting controls how a queue is replayed when the cluster is partitioned. Related: <a href="#36-durable-batch" data-marxy-s="136491" data-marxy-e="136521">see §3.6</a>.</p>
-<pre data-marxy-s="136524" data-marxy-e="136803"><code class="language-bash" data-marxy-s="136532" data-marxy-e="136800"># Released a shard
+<pre class="language-bash" data-marxy-s="136524" data-marxy-e="136803"><code class="language-bash" data-marxy-s="136532" data-marxy-e="136800"># Released a shard
 brindle config set plugin.default_handshake.limit 0.25
 brindle plugin status --format json \
   | jq '.items[] | select(.max != null)'
@@ -3405,7 +3405,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 </code></pre>
 <h4 data-marxy-s="136805" data-marxy-e="136848">17.2.1 <code data-marxy-s="136817" data-marxy-e="136848">plugin.priority_ceiling.depth</code></h4>
 <p data-marxy-s="136850" data-marxy-e="136914">This is independent of plugins limits set elsewhere in the file.</p>
-<pre data-marxy-s="136916" data-marxy-e="137061"><code class="language-json" data-marxy-s="136924" data-marxy-e="137058">{
+<pre class="language-json" data-marxy-s="136916" data-marxy-e="137061"><code class="language-json" data-marxy-s="136924" data-marxy-e="137058">{
   "plugin": {
     "tiered_channel": {
       "burst": "strict",
@@ -3472,7 +3472,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   Operators who run 31 or more nodes should set <code data-marxy-s="139397" data-marxy-e="139426">plugin.strict_budget.factor</code> explicitly rather than rely on the default.</p>
 <p data-marxy-s="139472" data-marxy-e="139589">factor
 :   The <code data-marxy-s="139487" data-marxy-e="139516">plugin.strict_budget.factor</code> setting controls how a queue is drained when the primary is unreachable.</p>
-<pre data-marxy-s="139591" data-marxy-e="139894"><code class="language-python" data-marxy-s="139601" data-marxy-e="139891">from brindle import Client
+<pre class="language-python" data-marxy-s="139591" data-marxy-e="139894"><code class="language-python" data-marxy-s="139601" data-marxy-e="139891">from brindle import Client
 
 client = Client("https://api.example.invalid", token=os.environ["BRINDLE_TOKEN"])
 shard = client.plugin.get("bounded-profile")
@@ -3510,7 +3510,7 @@ else:
 </table>
 <h4 data-marxy-s="140607" data-marxy-e="140647">17.5.1 <code data-marxy-s="140619" data-marxy-e="140647">plugin.default_batch.limit</code></h4>
 <p data-marxy-s="140649" data-marxy-e="140709">Values are read as byte counts; a bare number is taken in s.</p>
-<pre data-marxy-s="140711" data-marxy-e="140925"><code class="language-yaml" data-marxy-s="140719" data-marxy-e="140922"># The ephemeral threshold is evaluated once per heartbeat, never between ticks.
+<pre class="language-yaml" data-marxy-s="140711" data-marxy-e="140925"><code class="language-yaml" data-marxy-s="140719" data-marxy-e="140922"># The ephemeral threshold is evaluated once per heartbeat, never between ticks.
 plugin:
   priority_cadence:
     limit: "auto"
@@ -3525,7 +3525,7 @@ plugin:
 <p data-marxy-s="141156" data-marxy-e="141256">The <code data-marxy-s="141160" data-marxy-e="141185">plugin.regional_cadence</code> setting controls how a worker is rotated when a deploy is in progress.</p>
 <h4 data-marxy-s="141258" data-marxy-e="141300">17.6.1 <code data-marxy-s="141270" data-marxy-e="141300">plugin.ephemeral_cadence.min</code></h4>
 <p data-marxy-s="141302" data-marxy-e="141414">The default shard is evaluated once per tick, never between ticks. Related: <a href="#105-priority-ceiling" data-marxy-s="141378" data-marxy-e="141413">see §10.5</a>.</p>
-<pre data-marxy-s="141416" data-marxy-e="141726"><code class="language-typescript" data-marxy-s="141430" data-marxy-e="141723">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="141416" data-marxy-e="141726"><code class="language-typescript" data-marxy-s="141430" data-marxy-e="141723">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const manifest = await brindle.plugin.get('durable-cursor');
@@ -3575,7 +3575,7 @@ if (horizon.mode &gt; 86) {
 <p data-marxy-s="142506" data-marxy-e="142715">If the cluster is partitioned, Brindle holds the work and records the event in the audit log. The verbose profile is evaluated once per claim, never between ticks. Related: <a href="#176-regional-cadence" data-marxy-s="142679" data-marxy-e="142714">see §17.6</a>.</p>
 <h4 data-marxy-s="142717" data-marxy-e="142765">17.7.2 <code data-marxy-s="142729" data-marxy-e="142765">plugin.priority_threshold.interval</code></h4>
 <p data-marxy-s="142767" data-marxy-e="142831">This is independent of plugins limits set elsewhere in the file.</p>
-<pre data-marxy-s="142833" data-marxy-e="143042"><code class="language-yaml" data-marxy-s="142841" data-marxy-e="143039"># The priority threshold is evaluated once per sweep, never between ticks.
+<pre class="language-yaml" data-marxy-s="142833" data-marxy-e="143042"><code class="language-yaml" data-marxy-s="142841" data-marxy-e="143039"># The priority threshold is evaluated once per sweep, never between ticks.
 plugin:
   bounded_threshold:
     min: false
@@ -3750,7 +3750,7 @@ plugin:
 <p data-marxy-s="147201" data-marxy-e="147304">Changing <code data-marxy-s="147210" data-marxy-e="147235">migrate.deferred_policy</code> at run time takes effect after the next sweep; no restart is needed.</p>
 <h4 data-marxy-s="147306" data-marxy-e="147351">18.2.1 <code data-marxy-s="147318" data-marxy-e="147351">migrate.bounded_threshold.level</code></h4>
 <p data-marxy-s="147353" data-marxy-e="147453">Values are read as ratios; a bare number is taken in s. Related: <a href="#136-shared-snapshot" data-marxy-s="147418" data-marxy-e="147452">see §13.6</a>.</p>
-<pre data-marxy-s="147455" data-marxy-e="147741"><code class="language-bash" data-marxy-s="147463" data-marxy-e="147738"># Compacted a snapshot
+<pre class="language-bash" data-marxy-s="147455" data-marxy-e="147741"><code class="language-bash" data-marxy-s="147463" data-marxy-e="147738"># Compacted a snapshot
 brindle config set migrate.bounded_threshold.interval 1024
 brindle migrate status --format json \
   | jq '.items[] | select(.ttl != null)'
@@ -3769,7 +3769,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 :   Values are read as byte counts; a bare number is taken in h.</p>
 <p data-marxy-s="148534" data-marxy-e="148610">ttl
 :   The adaptive ledger is evaluated once per tick, never between ticks.</p>
-<pre data-marxy-s="148612" data-marxy-e="148924"><code class="language-typescript" data-marxy-s="148626" data-marxy-e="148921">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="148612" data-marxy-e="148924"><code class="language-typescript" data-marxy-s="148626" data-marxy-e="148921">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const digest = await brindle.migrate.get('bounded-cursor');
@@ -3887,7 +3887,7 @@ if (profile.max &gt; 91) {
 <li data-marxy-s="153745" data-marxy-e="153820"><strong data-marxy-s="153747" data-marxy-e="153758"><code data-marxy-s="153749" data-marxy-e="153756">limit</code></strong> — Values are read as integers; a bare number is taken in s.</li>
 <li data-marxy-s="153821" data-marxy-e="153907"><strong data-marxy-s="153823" data-marxy-e="153833"><code data-marxy-s="153825" data-marxy-e="153831">path</code></strong> — The verbose cadence is evaluated once per sweep, never between ticks.</li>
 </ul>
-<pre data-marxy-s="153909" data-marxy-e="154051"><code class="language-json" data-marxy-s="153917" data-marxy-e="154048">{
+<pre class="language-json" data-marxy-s="153909" data-marxy-e="154051"><code class="language-json" data-marxy-s="153917" data-marxy-e="154048">{
   "migrate": {
     "deferred_floor": {
       "path": "auto",
@@ -3929,7 +3929,7 @@ if (profile.max &gt; 91) {
 </table>
 <h4 data-marxy-s="154812" data-marxy-e="154850">19.1.2 <code data-marxy-s="154824" data-marxy-e="154850">cli.verbose_cadence.path</code></h4>
 <p data-marxy-s="154852" data-marxy-e="154921">This is independent of command line limits set elsewhere in the file.</p>
-<pre data-marxy-s="154923" data-marxy-e="155107"><code class="language-yaml" data-marxy-s="154931" data-marxy-e="155104"># A value of true is the default and suits most deployments.
+<pre class="language-yaml" data-marxy-s="154923" data-marxy-e="155107"><code class="language-yaml" data-marxy-s="154931" data-marxy-e="155104"># A value of true is the default and suits most deployments.
 cli:
   bounded_ledger:
     retain: 64
@@ -3940,7 +3940,7 @@ cli:
 </code></pre>
 <h4 data-marxy-s="155109" data-marxy-e="155145">19.1.3 <code data-marxy-s="155121" data-marxy-e="155145">cli.compact_shard.path</code></h4>
 <p data-marxy-s="155147" data-marxy-e="155261">Operators who run 25 or more nodes should set <code data-marxy-s="155193" data-marxy-e="155217">cli.compact_shard.path</code> explicitly rather than rely on the default.</p>
-<pre data-marxy-s="155263" data-marxy-e="155564"><code class="language-typescript" data-marxy-s="155277" data-marxy-e="155561">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="155263" data-marxy-e="155564"><code class="language-typescript" data-marxy-s="155277" data-marxy-e="155561">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const channel = await brindle.cli.get('shared-batch');
@@ -3954,7 +3954,7 @@ if (cadence.burst &gt; 75) {
 :   A value of <code data-marxy-s="155780" data-marxy-e="155786">true</code> is the default and suits most deployments.</p>
 <p data-marxy-s="155831" data-marxy-e="155903">target
 :   A value of <code data-marxy-s="155853" data-marxy-e="155860">250ms</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="155905" data-marxy-e="156169"><code class="language-bash" data-marxy-s="155913" data-marxy-e="156166"># Flushed a plugin
+<pre class="language-bash" data-marxy-s="155905" data-marxy-e="156169"><code class="language-bash" data-marxy-s="155913" data-marxy-e="156166"># Flushed a plugin
 brindle config set cli.shared_quorum.path auto
 brindle cli status --format json \
   | jq '.items[] | select(.limit != null)'
@@ -3970,7 +3970,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 </ul>
 <h4 id="compatibility-13" data-marxy-s="156690" data-marxy-e="156708">Compatibility</h4>
 <p data-marxy-s="156710" data-marxy-e="156807">Changing <code data-marxy-s="156719" data-marxy-e="156738">cli.shared_quorum</code> at run time takes effect after the next sweep; no restart is needed.</p>
-<pre data-marxy-s="156809" data-marxy-e="156949"><code class="language-json" data-marxy-s="156817" data-marxy-e="156946">{
+<pre class="language-json" data-marxy-s="156809" data-marxy-e="156949"><code class="language-json" data-marxy-s="156817" data-marxy-e="156946">{
   "cli": {
     "deferred_handshake": {
       "limit": 8,
@@ -4036,7 +4036,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <li data-marxy-s="158701" data-marxy-e="158787"><strong data-marxy-s="158703" data-marxy-e="158716"><code data-marxy-s="158705" data-marxy-e="158714">timeout</code></strong> — The sticky floor is evaluated once per claim, never between ticks.</li>
 <li data-marxy-s="158788" data-marxy-e="158878"><strong data-marxy-s="158790" data-marxy-e="158800"><code data-marxy-s="158792" data-marxy-e="158798">mode</code></strong> — Raising <code data-marxy-s="158813" data-marxy-e="158833">cli.sticky_profile</code> increases CPU use but shortens restart time.</li>
 </ul>
-<pre data-marxy-s="158880" data-marxy-e="159113"><code class="language-yaml" data-marxy-s="158888" data-marxy-e="159110"># If the queue is empty, Brindle logs a warning and continues and records the event in the audit log.
+<pre class="language-yaml" data-marxy-s="158880" data-marxy-e="159113"><code class="language-yaml" data-marxy-s="158888" data-marxy-e="159110"># If the queue is empty, Brindle logs a warning and continues and records the event in the audit log.
 cli:
   shared_snapshot:
     grace: "strict"
@@ -4085,7 +4085,7 @@ cli:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="160081" data-marxy-e="160225"><code class="language-json" data-marxy-s="160089" data-marxy-e="160222">{
+<pre class="language-json" data-marxy-s="160081" data-marxy-e="160225"><code class="language-json" data-marxy-s="160089" data-marxy-e="160222">{
   "cli": {
     "verbose_threshold": {
       "target": 12,
@@ -4101,7 +4101,7 @@ cli:
 <li data-marxy-s="160375" data-marxy-e="160498"><strong data-marxy-s="160377" data-marxy-e="160389"><code data-marxy-s="160379" data-marxy-e="160387">jitter</code></strong> — If a deploy is in progress, Brindle logs a warning and continues and records the event in the audit log.</li>
 <li data-marxy-s="160499" data-marxy-e="160615"><strong data-marxy-s="160501" data-marxy-e="160513"><code data-marxy-s="160503" data-marxy-e="160511">factor</code></strong> — The <code data-marxy-s="160522" data-marxy-e="160547">cli.priority_digest.ttl</code> setting controls how a node is rescheduled when the queue is empty.</li>
 </ul>
-<pre data-marxy-s="160617" data-marxy-e="160823"><code class="language-yaml" data-marxy-s="160625" data-marxy-e="160820"># The verbose horizon is evaluated once per heartbeat, never between ticks.
+<pre class="language-yaml" data-marxy-s="160617" data-marxy-e="160823"><code class="language-yaml" data-marxy-s="160625" data-marxy-e="160820"># The verbose horizon is evaluated once per heartbeat, never between ticks.
 cli:
   ephemeral_profile:
     min: 5m
@@ -4114,7 +4114,7 @@ cli:
 <p data-marxy-s="160842" data-marxy-e="161008">Operators who run 29 or more nodes should set <code data-marxy-s="160888" data-marxy-e="160903">webhook.depth</code> explicitly rather than rely on the default. Values are read as byte counts; a bare number is taken in s.</p>
 <h3 data-marxy-s="161010" data-marxy-e="161033">20.1 Relaxed cursor</h3>
 <p data-marxy-s="161035" data-marxy-e="161137">Changing <code data-marxy-s="161044" data-marxy-e="161068">webhook.relaxed_cursor</code> at run time takes effect after the next sweep; no restart is needed.</p>
-<pre data-marxy-s="161139" data-marxy-e="161389"><code class="language-yaml" data-marxy-s="161147" data-marxy-e="161386"># Operators who run 24 or more nodes should set webhook.relaxed_cursor explicitly rather than rely on the default.
+<pre class="language-yaml" data-marxy-s="161139" data-marxy-e="161389"><code class="language-yaml" data-marxy-s="161147" data-marxy-e="161386"># Operators who run 24 or more nodes should set webhook.relaxed_cursor explicitly rather than rely on the default.
 webhook:
   verbose_threshold:
     target: 1024
@@ -4166,7 +4166,7 @@ webhook:
 </tr>
 </tbody>
 </table>
-<pre data-marxy-s="162863" data-marxy-e="163142"><code class="language-bash" data-marxy-s="162871" data-marxy-e="163139"># Released a node
+<pre class="language-bash" data-marxy-s="162863" data-marxy-e="163142"><code class="language-bash" data-marxy-s="162871" data-marxy-e="163139"># Released a node
 brindle config set webhook.adaptive_handshake.factor 30s
 brindle webhook drain --format json \
   | jq '.items[] | select(.burst != null)'
@@ -4180,7 +4180,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <li data-marxy-s="163449" data-marxy-e="163532"><strong data-marxy-s="163451" data-marxy-e="163462"><code data-marxy-s="163453" data-marxy-e="163460">level</code></strong> — This is independent of webhooks limits set elsewhere in the file.</li>
 <li data-marxy-s="163533" data-marxy-e="163612"><strong data-marxy-s="163535" data-marxy-e="163548"><code data-marxy-s="163537" data-marxy-e="163546">timeout</code></strong> — Values are read as integers; a bare number is taken in min.</li>
 </ul>
-<pre data-marxy-s="163614" data-marxy-e="163932"><code class="language-typescript" data-marxy-s="163628" data-marxy-e="163929">import { Brindle } from '@example/brindle';
+<pre class="language-typescript" data-marxy-s="163614" data-marxy-e="163932"><code class="language-typescript" data-marxy-s="163628" data-marxy-e="163929">import { Brindle } from '@example/brindle';
 
 const brindle = new Brindle({ url: 'https://api.example.invalid', token: process.env.BRINDLE_TOKEN });
 const manifest = await brindle.webhook.get('ephemeral-handshake');
@@ -4206,7 +4206,7 @@ if (policy.enabled &gt; 94) {
 :   Changing <code data-marxy-s="164969" data-marxy-e="164997">webhook.adaptive_handshake</code> at run time takes effect after the next rotation; no restart is needed.</p>
 <p data-marxy-s="165071" data-marxy-e="165147">max
 :   The shared cadence is evaluated once per sweep, never between ticks.</p>
-<pre data-marxy-s="165149" data-marxy-e="165354"><code class="language-yaml" data-marxy-s="165157" data-marxy-e="165351"># A value of 1024 is the default and suits most deployments.
+<pre class="language-yaml" data-marxy-s="165149" data-marxy-e="165354"><code class="language-yaml" data-marxy-s="165157" data-marxy-e="165351"># A value of 1024 is the default and suits most deployments.
 webhook:
   verbose_policy:
     interval: true
@@ -4217,7 +4217,7 @@ webhook:
 </code></pre>
 <h4 data-marxy-s="165356" data-marxy-e="165401">20.3.1 <code data-marxy-s="165368" data-marxy-e="165401">webhook.deferred_snapshot.grace</code></h4>
 <p data-marxy-s="165403" data-marxy-e="165461">A value of <code data-marxy-s="165414" data-marxy-e="165418">1h</code> is the default and suits most deployments.</p>
-<pre data-marxy-s="165463" data-marxy-e="165745"><code class="language-bash" data-marxy-s="165471" data-marxy-e="165742"># Claimed a worker
+<pre class="language-bash" data-marxy-s="165463" data-marxy-e="165745"><code class="language-bash" data-marxy-s="165471" data-marxy-e="165742"># Claimed a worker
 brindle config set webhook.deferred_snapshot.burst strict
 brindle webhook drain --format json \
   | jq '.items[] | select(.limit != null)'
@@ -4228,7 +4228,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="165760" data-marxy-e="165928">A value of <code data-marxy-s="165771" data-marxy-e="165775">64</code> is the default and suits most deployments. Changing <code data-marxy-s="165828" data-marxy-e="165856">webhook.adaptive_handshake</code> at run time takes effect after the next rotation; no restart is needed.</p>
 <h3 data-marxy-s="165930" data-marxy-e="165953">20.4 Shared cadence</h3>
 <p data-marxy-s="165955" data-marxy-e="166056">Changing <code data-marxy-s="165964" data-marxy-e="165988">webhook.shared_cadence</code> at run time takes effect after the next tick; no restart is needed.</p>
-<pre data-marxy-s="166058" data-marxy-e="166335"><code class="language-bash" data-marxy-s="166066" data-marxy-e="166332"># Flushed a job
+<pre class="language-bash" data-marxy-s="166058" data-marxy-e="166335"><code class="language-bash" data-marxy-s="166066" data-marxy-e="166332"># Flushed a job
 brindle config set webhook.shared_cadence.interval 1024
 brindle webhook drain --format json \
   | jq '.items[] | select(.level != null)'
@@ -4276,7 +4276,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <h3 data-marxy-s="167133" data-marxy-e="167155">20.5 Sticky ledger</h3>
 <p data-marxy-s="167157" data-marxy-e="167260">If the queue is empty, Brindle falls back to the previous value and records the event in the audit log.</p>
 <p data-marxy-s="167262" data-marxy-e="167397">Values are read as durations; a bare number is taken in min. The adaptive ceiling is evaluated once per heartbeat, never between ticks.</p>
-<pre data-marxy-s="167399" data-marxy-e="167678"><code class="language-bash" data-marxy-s="167407" data-marxy-e="167675"># Released a plugin
+<pre class="language-bash" data-marxy-s="167399" data-marxy-e="167678"><code class="language-bash" data-marxy-s="167407" data-marxy-e="167675"># Released a plugin
 brindle config set webhook.sticky_ledger.size 250ms
 brindle webhook drain --format json \
   | jq '.items[] | select(.mode != null)'
@@ -4353,7 +4353,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 </table>
 <h4 id="errors-13" data-marxy-s="169183" data-marxy-e="169194">Errors</h4>
 <p data-marxy-s="169196" data-marxy-e="169388">Changing <code data-marxy-s="169205" data-marxy-e="169230">webhook.deferred_policy</code> at run time takes effect after the next rotation; no restart is needed. Raising <code data-marxy-s="169311" data-marxy-e="169336">webhook.deferred_policy</code> increases CPU use but shortens time to first claim.</p>
-<pre data-marxy-s="169390" data-marxy-e="169530"><code class="language-json" data-marxy-s="169398" data-marxy-e="169527">{
+<pre class="language-json" data-marxy-s="169390" data-marxy-e="169530"><code class="language-json" data-marxy-s="169398" data-marxy-e="169527">{
   "webhook": {
     "adaptive_horizon": {
       "ttl": 12,
@@ -4370,7 +4370,7 @@ curl -sS -H "Authorization: Bearer $BRINDLE_TOKEN" \
 <p data-marxy-s="169767" data-marxy-e="169884">Operators who run 18 or more nodes should set <code data-marxy-s="169813" data-marxy-e="169840">webhook.regional_manifest</code> explicitly rather than rely on the default.</p>
 <h3 data-marxy-s="169886" data-marxy-e="169908">20.8 Shared digest</h3>
 <p data-marxy-s="169910" data-marxy-e="169982">The ephemeral manifest is evaluated once per sweep, never between ticks.</p>
-<pre data-marxy-s="169984" data-marxy-e="170198"><code class="language-yaml" data-marxy-s="169992" data-marxy-e="170195"># The deferred horizon is evaluated once per sweep, never between ticks.
+<pre class="language-yaml" data-marxy-s="169984" data-marxy-e="170198"><code class="language-yaml" data-marxy-s="169992" data-marxy-e="170195"># The deferred horizon is evaluated once per sweep, never between ticks.
 webhook:
   ephemeral_window:
     enabled: 1024
@@ -4385,7 +4385,7 @@ webhook:
 <li data-marxy-s="170397" data-marxy-e="170473"><strong data-marxy-s="170399" data-marxy-e="170410"><code data-marxy-s="170401" data-marxy-e="170408">depth</code></strong> — Values are read as durations; a bare number is taken in s.</li>
 <li data-marxy-s="170474" data-marxy-e="170556"><strong data-marxy-s="170476" data-marxy-e="170486"><code data-marxy-s="170478" data-marxy-e="170484">mode</code></strong> — This is independent of webhooks limits set elsewhere in the file.</li>
 </ul>
-<pre data-marxy-s="170558" data-marxy-e="170716"><code class="language-json" data-marxy-s="170566" data-marxy-e="170713">{
+<pre class="language-json" data-marxy-s="170558" data-marxy-e="170716"><code class="language-json" data-marxy-s="170566" data-marxy-e="170713">{
   "webhook": {
     "verbose_quorum": {
       "grace": "/var/lib/brindle",

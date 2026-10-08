@@ -308,10 +308,12 @@ blockquote {
   border: 0;
 }
 
-.marxy-article > p:has(+ pre > code.language-mermaid),
-.marxy-article > p:has(+ pre > code.language-plantuml),
-.marxy-article > p:has(+ pre > code.language-dot),
-.marxy-article > p:has(+ pre > code.language-d2) {
+/* A diagram fence's caption. One step past the `+` only: a `:has(+ pre > code…)` makes WebKit
+   re-check the whole article on every appended block (B-25.1); test/caption-rule.test.mjs holds it. */
+.marxy-article > p:has(+ pre.language-mermaid),
+.marxy-article > p:has(+ pre.language-plantuml),
+.marxy-article > p:has(+ pre.language-dot),
+.marxy-article > p:has(+ pre.language-d2) {
   margin: 0 0 calc(var(--lb) / 4);
   font-size: var(--marxy-size-caption);
   line-height: var(--lb);

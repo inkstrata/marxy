@@ -25,7 +25,7 @@ test('text is escaped, so prose cannot become markup', () => {
 test('a fenced code block is literal text with its language on it', () => {
   assert.equal(
     html('```html\n<script>alert(1)</script>\n```\n'),
-    '<pre><code class="language-html">&lt;script&gt;alert(1)&lt;/script&gt;\n</code></pre>',
+    '<pre class="language-html"><code class="language-html">&lt;script&gt;alert(1)&lt;/script&gt;\n</code></pre>',
   );
 });
 
@@ -63,9 +63,18 @@ test('frontmatter is a quiet head above the body', () => {
 
 test('a mermaid fence shows its source and one diagram caption only', () => {
   const out = html('```mermaid\nflowchart LR\n  A --> B\n```\n');
-  assert.match(out, /<p>mermaid · diagram source<\/p>\n<pre><code class="language-mermaid">/);
+  assert.match(out, /<p>mermaid · diagram source<\/p>\n<pre class="language-mermaid"><code class="language-mermaid">/);
   assert.match(out, /flowchart LR\n  A --&gt; B\n<\/code><\/pre>/);
   assert.ok(!out.includes('```'));
+});
+
+test('a diagram fence written in capitals still carries the lowercased language its caption rule matches (B-25.1)', () => {
+  // The theme's caption rule is `p:has(+ pre.language-mermaid)`: the `<pre>` takes the language in
+  // lower case whatever the writer typed, while the `<code>` keeps it as written for highlighting.
+  for (const [written, lower] of [['Mermaid', 'mermaid'], ['PlantUML', 'plantuml'], ['DOT', 'dot'], ['D2', 'd2']]) {
+    const out = html(`\`\`\`${written}\nA -> B\n\`\`\`\n`);
+    assert.match(out, new RegExp(`^<p>${lower} · diagram source</p>\\n<pre class="language-${lower}"><code class="language-${written}">`));
+  }
 });
 
 test('a local image keeps its source; a remote one keeps only its alt text', () => {
