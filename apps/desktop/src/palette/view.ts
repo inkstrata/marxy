@@ -9,6 +9,13 @@ import { withPaletteListing } from '../commands/navigation.ts';
 import { buildAppContext, setPaletteCloser } from '../selection/bind.ts';
 import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
+import {
+  changedSinceRead,
+  emptyStateSections,
+  relativeAge,
+  type EmptySection,
+  type EmptySectionKind,
+} from './empty-state.ts';
 import { createIndexFeed, type IndexFeed } from './index-feed.ts';
 import { jumpForHit, paletteResults, type PreparedIndex, type RootRank } from './search.ts';
 import {
@@ -38,6 +45,8 @@ export interface PaletteModel {
   readonly operationCommands: readonly Command[];
   readonly selected: number;
   readonly notice?: string;
+  /** The empty phase only: `hits` is these sections' rows in order, so a row index never counts a label. */
+  readonly sections?: readonly EmptySection[];
 }
 
 export interface PaletteDeps {
@@ -54,6 +63,12 @@ export interface PaletteDeps {
    * never writes `#doc` itself, so the app never holds one file's buffer while showing another.
    */
   readonly openDocument: (path: string, at?: number) => Promise<void>;
+  /** Whether a root is watched (the index service's `isWatched`). Read on each summon, never held. */
+  readonly isWatched?: (root: string) => boolean;
+  /** When Marxy first indexed a root (the index service's `baselineMs`). */
+  readonly baselineMs?: (root: string) => number | undefined;
+  /** The clock, for the ages. */
+  readonly now?: () => number;
 }
 
 export interface PaletteController {
@@ -122,6 +137,7 @@ function queryPalette(
   prepared: PreparedIndex,
   rootRank: RootRank,
   scopeNotice: string | undefined,
+  emptySections: () => readonly EmptySection[],
 ): PaletteModel {
   const phase = palettePhase(query, section);
   if (phase === 'operations') {
@@ -136,12 +152,25 @@ function queryPalette(
       notice: operationCommands.length === 0 ? 'No commands here' : undefined,
     };
   }
+  if (phase === 'empty') {
+    const sections = emptySections();
+    return {
+      phase,
+      section: 'documents',
+      query,
+      hits: sections.flatMap((one) => one.hits),
+      operationCommands: [],
+      selected: 0,
+      notice: scopeNotice,
+      sections,
+    };
+  }
   const trimmed = query.trim();
   const hits = paletteResults(trimmed, entries, session, { prepared, limit: 50, rootRank });
-  const filtered = filterHits(hits, phase === 'empty' ? 'documents' : section);
+  const filtered = filterHits(hits, section);
   return {
     phase,
-    section: phase === 'empty' ? 'documents' : section,
+    section,
     query,
     hits: filtered.slice(0, PALETTE_ROW_LIMIT),
     operationCommands: [],
@@ -212,6 +241,39 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette .marxy-palette-row:has(.marxy-palette-key) {
       display: flex;
       gap: 1em;
+    }
+    #marxy-palette .marxy-palette-row:has(.marxy-palette-age) {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6em;
+    }
+    #marxy-palette .marxy-palette-row:has(.marxy-palette-age) .marxy-palette-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #marxy-palette .marxy-palette-section {
+      padding: 0.55rem 1rem 0.15rem;
+      font-size: 0.8em;
+      color: var(--marxy-color-text-secondary, #a39e94);
+      cursor: default;
+      user-select: none;
+    }
+    #marxy-palette .marxy-palette-section:first-child { padding-top: 0.25rem; }
+    #marxy-palette .marxy-palette-age {
+      color: var(--marxy-color-text-secondary, #a39e94);
+      font-size: 0.85em;
+      font-variant-numeric: tabular-nums;
+    }
+    #marxy-palette .marxy-palette-changed {
+      flex: none;
+      align-self: center;
+      width: 0.4em;
+      height: 0.4em;
+      border-radius: 50%;
+      background: var(--marxy-color-accent, #8fb4dd);
     }
     #marxy-palette .marxy-palette-key {
       margin-inline-start: auto;
@@ -315,7 +377,92 @@ function paintOperationRows(
   list.replaceChildren(next);
 }
 
-function paintRows(list: HTMLOListElement, hits: readonly IndexHit[], selected: number): void {
+/** What a document row says besides its title: its age and whether it changed since it was read. */
+interface RowDecor {
+  readonly age: (hit: IndexHit) => string | undefined;
+  readonly changed: (hit: IndexHit) => boolean;
+}
+
+const SECTION_LABELS: Record<EmptySectionKind, string> = {
+  pinned: 'Pinned',
+  changed: 'Changed since you read',
+  recent: 'Recent',
+};
+
+function documentRow(
+  doc: Document,
+  hit: IndexHit,
+  decor: RowDecor,
+  selected: boolean,
+  reuse?: HTMLLIElement,
+): HTMLLIElement {
+  const key = `${hit.entry.path}:${hit.heading ?? 'doc'}`;
+  const row = reuse ?? (doc.createElement('li') as HTMLLIElement);
+  if (reuse === undefined) {
+    row.className = 'marxy-palette-row';
+    row.dataset.rowKey = key;
+    row.setAttribute('role', 'option');
+  }
+  const age = decor.age(hit);
+  if (age === undefined) {
+    row.textContent = labelForHit(hit);
+  } else {
+    const title = doc.createElement('span') as HTMLSpanElement;
+    title.className = 'marxy-palette-title';
+    title.textContent = labelForHit(hit);
+    row.replaceChildren(title);
+    if (decor.changed(hit)) {
+      const mark = doc.createElement('span') as HTMLSpanElement;
+      mark.className = 'marxy-palette-changed';
+      mark.setAttribute('role', 'img');
+      mark.setAttribute('aria-label', 'Changed since you read');
+      row.appendChild(mark);
+    }
+    const when = doc.createElement('span') as HTMLSpanElement;
+    when.className = 'marxy-palette-age';
+    when.textContent = age;
+    row.appendChild(when);
+  }
+  row.toggleAttribute('aria-selected', selected);
+  if (hit.heading !== undefined) {
+    const heading = hit.entry.headings[hit.heading];
+    if (heading !== undefined) row.dataset.marxyS = String(heading.byteOffset);
+  } else {
+    delete row.dataset.marxyS;
+  }
+  return row;
+}
+
+/** The empty phase: a quiet label before each section, then its rows. Labels are not options. */
+function paintEmptyRows(
+  list: HTMLOListElement,
+  sections: readonly EmptySection[],
+  selected: number,
+  decor: RowDecor,
+): void {
+  const doc = ownerDocumentOf(list);
+  const next =
+    'createDocumentFragment' in doc
+      ? (doc as Document).createDocumentFragment()
+      : document.createDocumentFragment();
+  let index = 0;
+  for (const section of sections) {
+    const label = doc.createElement('li') as HTMLLIElement;
+    label.className = 'marxy-palette-section';
+    label.setAttribute('role', 'presentation');
+    label.textContent = SECTION_LABELS[section.kind];
+    next.appendChild(label);
+    for (const hit of section.hits) next.appendChild(documentRow(doc, hit, decor, index++ === selected));
+  }
+  list.replaceChildren(next);
+}
+
+function paintRows(
+  list: HTMLOListElement,
+  hits: readonly IndexHit[],
+  selected: number,
+  decor: RowDecor,
+): void {
   const doc = ownerDocumentOf(list);
   const keyed = new Map<string, HTMLLIElement>();
   for (const child of list.children) {
@@ -330,22 +477,7 @@ function paintRows(list: HTMLOListElement, hits: readonly IndexHit[], selected: 
   for (let i = 0; i < hits.length; i++) {
     const hit = hits[i]!;
     const key = `${hit.entry.path}:${hit.heading ?? 'doc'}`;
-    let row = keyed.get(key);
-    if (!row) {
-      row = doc.createElement('li') as HTMLLIElement;
-      row.className = 'marxy-palette-row';
-      row.dataset.rowKey = key;
-      row.setAttribute('role', 'option');
-    }
-    row.textContent = labelForHit(hit);
-    row.toggleAttribute('aria-selected', i === selected);
-    if (hit.heading !== undefined) {
-      const heading = hit.entry.headings[hit.heading];
-      if (heading !== undefined) row.dataset.marxyS = String(heading.byteOffset);
-    } else {
-      delete row.dataset.marxyS;
-    }
-    next.appendChild(row);
+    next.appendChild(documentRow(doc, hit, decor, i === selected, keyed.get(key)));
   }
   list.replaceChildren(next);
 }
@@ -367,8 +499,44 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     recentRoots: () => session.recentRoots,
     readAt: () => session.readAt,
   });
+  const now = deps.now ?? Date.now;
+  const watched = (root: string) => deps.isWatched?.(root) === true;
+  const baselineMs = (root: string) => deps.baselineMs?.(root);
+  // The empty state is worked out when the palette is summoned or what it reads changes, never on a
+  // keystroke: clearing the query reuses it. Ages are those of the moment of the summons.
+  let emptyNow = now();
+  let emptyCache: { entries: readonly IndexEntry[]; session: PaletteSession; sections: readonly EmptySection[] } | undefined;
+  const emptySections = (): readonly EmptySection[] => {
+    const entries = feed.entries();
+    if (emptyCache !== undefined && emptyCache.entries === entries && emptyCache.session === session) {
+      return emptyCache.sections;
+    }
+    const started = performance.now();
+    const entriesByPath = new Map<string, IndexEntry>();
+    for (const entry of entries) entriesByPath.set(entry.path, entry);
+    const sections = emptyStateSections({ entriesByPath, session, nowMs: emptyNow, watched, baselineMs });
+    emptyCache = { entries, session, sections };
+    void deps.shell.mark('palette_empty', Date.now(), `ms=${(performance.now() - started).toFixed(2)}`);
+    return sections;
+  };
   const query = (text: string) =>
-    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), feed.notice());
+    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), feed.notice(), emptySections);
+  const decor: RowDecor = {
+    // Empty: every row has its age. Typed: only a document in a watched root does.
+    age: (hit) =>
+      model.phase === 'empty' || watched(hit.entry.root)
+        ? relativeAge(model.phase === 'empty' ? emptyNow : now(), hit.entry.mtimeMs)
+        : undefined,
+    changed: (hit) =>
+      watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root)),
+  };
+  const paintDocuments = () => {
+    if (model.phase === 'empty' && model.sections !== undefined) {
+      paintEmptyRows(list, model.sections, selected, decor);
+    } else {
+      paintRows(list, model.hits, selected, decor);
+    }
+  };
   let section: PaletteListSection = 'documents';
   let model = query('');
   let open = false;
@@ -381,7 +549,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       model.phase === 'operations' ? model.operationCommands.length : model.hits.length;
     selected = Math.min(selected, Math.max(0, rowCount - 1));
     if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
-    else paintRows(list, model.hits, selected);
+    else paintDocuments();
     if (model.notice) {
       notice.textContent = model.notice;
       notice.hidden = false;
@@ -393,6 +561,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
 
   const summon = () => {
     open = true;
+    emptyNow = now();
+    emptyCache = undefined;
     if (!deps.dialog.open) deps.dialog.showModal();
     input.value = model.query;
     repaint();
@@ -418,7 +588,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     const target = event.target as { closest?: (s: string) => Element | null } | null;
     const row = target?.closest?.('.marxy-palette-row') as HTMLElement | null | undefined;
     if (!row) return;
-    const index = Array.prototype.indexOf.call(list.children, row);
+    // Section labels sit between rows in the empty phase: count rows only.
+    const index = Array.prototype.indexOf.call(list.querySelectorAll('.marxy-palette-row'), row);
     if (index < 0) return;
     if (model.phase === 'operations') {
       runPaletteCommand(model.operationCommands[index]);
@@ -473,14 +644,14 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       event.preventDefault();
       selected = Math.min(rowCount - 1, selected + 1);
       if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
-      else paintRows(list, model.hits, selected);
+      else paintDocuments();
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       selected = Math.max(0, selected - 1);
       if (model.phase === 'operations') paintOperationRows(list, model.operationCommands, selected);
-      else paintRows(list, model.hits, selected);
+      else paintDocuments();
       return;
     }
     if (event.key === 'Enter') {
@@ -559,6 +730,9 @@ export function mountPaletteFromHandle(
     getCurrentPath: () => handle.currentPath() ?? opts?.initialPath ?? null,
     setCurrentPath: () => {},
     openDocument: (path, at) => handle.open(path, { at }),
+    // Looked up on each call: the service's answers move as roots are walked and watched.
+    isWatched: (root) => handle.index.isWatched(root),
+    baselineMs: (root) => handle.index.baselineMs(root),
   });
   setPaletteCloser(() => controller.close());
   setAppHandle(handle);

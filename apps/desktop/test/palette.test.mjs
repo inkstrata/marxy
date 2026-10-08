@@ -501,3 +501,141 @@ test('opening a hit in root /b makes /b current, and /b hits then sort first (A-
     await browser.close();
   }
 });
+
+// C-12: the empty palette shows Pinned, Changed since you read and Recent, each row with its age.
+const EMPTY_DOC = '# Doc\n\nBody.\n';
+
+async function bootEmptyState(page) {
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  return page.evaluate(async ({ doc }) => {
+    const files = Object.fromEntries(
+      ['readme', 'pin-doc', 'ch1', 'ch2', 'old-doc', 'far'].map((name) => [`/docs/${name}.md`, doc]),
+    );
+    files['/far/far.md'] = doc;
+    const boot = await window.marxyPaletteBoot.start(files, ['/docs/readme.md'], []);
+    const now = Date.now();
+    // The reader's folder is watched and was first indexed an hour ago; /far is not watched at all.
+    boot.handle.index.isWatched = (root) => root === '/docs';
+    boot.handle.index.baselineMs = (root) => (root === '/docs' ? now - 3_600_000 : undefined);
+    const entry = (path, root, mtimeMs) => ({ path, root, title: path.split('/').pop().replace('.md', ''), headings: [], mtimeMs, size: 1, kind: 'markdown' });
+    window.__marxyPalette.setIndexEntries([
+      entry('/docs/readme.md', '/docs', now - 5 * 86_400_000),
+      entry('/docs/pin-doc.md', '/docs', now - 9 * 86_400_000),
+      entry('/docs/ch1.md', '/docs', now - 125_000),
+      entry('/docs/ch2.md', '/docs', now - 2_400_000),
+      entry('/docs/old-doc.md', '/docs', now - 20 * 86_400_000),
+      entry('/far/far.md', '/far', now - 60_000),
+    ]);
+    return now;
+  }, { doc: b64Doc(EMPTY_DOC) });
+}
+
+const listShape = (page) =>
+  page.$$eval('#marxy-palette .marxy-palette-results > li', (els) =>
+    els.map((el) => (el.classList.contains('marxy-palette-section') ? `label:${el.textContent}` : `row:${el.dataset.rowKey}`)),
+  );
+const selectedKey = (page) =>
+  page.$eval('#marxy-palette [aria-selected]', (el) => el.dataset.rowKey);
+
+test('the empty palette shows its three labels in order, arrows skip labels, and an opened changed row moves to Recent (C-12)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await bootEmptyState(page);
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    const input = '#marxy-palette .marxy-palette-query';
+
+    // Open one old file so it is Recent, then pin another through the typed list.
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill(input, 'old-doc');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.getElementById('marxy-palette').open);
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill(input, 'pin-doc');
+    await page.keyboard.press(`${mod}+Period`);
+    await page.fill(input, '');
+
+    const shape = await listShape(page);
+    const at = (needle) => shape.findIndex((item) => item.includes(needle));
+    assert.deepEqual(
+      shape.filter((item) => item.startsWith('label:')),
+      ['label:Pinned', 'label:Changed since you read', 'label:Recent'],
+    );
+    assert.ok(at('label:Pinned') < at('pin-doc') && at('pin-doc') < at('label:Changed'), JSON.stringify(shape));
+    assert.deepEqual(shape.slice(at('label:Changed') + 1, at('label:Recent')), ['row:/docs/ch1.md:doc', 'row:/docs/ch2.md:doc'], 'newest change first; the unwatched /far file is not here');
+    assert.ok(shape.indexOf('row:/docs/old-doc.md:doc') > at('label:Recent'), JSON.stringify(shape));
+    assert.ok(!shape.some((item) => item.includes('/far/far.md')), 'a file never opened in an unwatched root is not listed');
+
+    // Labels are not options and never selected; the rows are the options.
+    const roles = await page.$$eval('#marxy-palette .marxy-palette-section', (els) =>
+      els.map((el) => [el.getAttribute('role'), el.hasAttribute('aria-selected')]),
+    );
+    assert.deepEqual(roles, [['presentation', false], ['presentation', false], ['presentation', false]]);
+    assert.equal(await page.$$eval('#marxy-palette [role=option]', (els) => els.length), shape.filter((item) => item.startsWith('row:')).length);
+
+    // Ages are dim text; the changed rows alone carry the mark.
+    const decor = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+      Object.fromEntries(els.map((el) => [el.dataset.rowKey, {
+        age: el.querySelector('.marxy-palette-age')?.textContent ?? null,
+        mark: el.querySelector('.marxy-palette-changed')?.getAttribute('aria-label') ?? null,
+      }])),
+    );
+    assert.deepEqual(decor['/docs/ch1.md:doc'], { age: '2m', mark: 'Changed since you read' });
+    assert.deepEqual(decor['/docs/ch2.md:doc'], { age: '40m', mark: 'Changed since you read' });
+    assert.deepEqual(decor['/docs/pin-doc.md:doc'], { age: '9d', mark: null });
+    assert.deepEqual(decor['/docs/old-doc.md:doc'], { age: '2w', mark: null });
+
+    // ArrowDown from the last Pinned row lands on the first Changed row; ArrowUp goes back.
+    assert.equal(await selectedKey(page), '/docs/pin-doc.md:doc');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await selectedKey(page), '/docs/ch1.md:doc');
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await selectedKey(page), '/docs/pin-doc.md:doc');
+    await page.keyboard.press('ArrowDown');
+
+    // Open the changed row: the next summons lists it under Recent, not Changed.
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.getElementById('marxy-palette').open);
+    await page.keyboard.press(`${mod}+KeyP`);
+    const after = await listShape(page);
+    const recentAt = after.indexOf('label:Recent');
+    assert.ok(after.indexOf('row:/docs/ch1.md:doc') > recentAt, JSON.stringify(after));
+    assert.deepEqual(after.slice(after.indexOf('label:Changed since you read') + 1, recentAt), ['row:/docs/ch2.md:doc']);
+
+    // Command-period pins the selected row's path, and the list moves it under Pinned at once.
+    const rowKeys = after.filter((item) => item.startsWith('row:'));
+    for (let i = 0; i < rowKeys.indexOf('row:/docs/old-doc.md:doc'); i++) await page.keyboard.press('ArrowDown');
+    await page.keyboard.press(`${mod}+Period`);
+    const pinnedNow = await listShape(page);
+    assert.deepEqual(pinnedNow.slice(0, 3), ['label:Pinned', 'row:/docs/old-doc.md:doc', 'row:/docs/pin-doc.md:doc'], JSON.stringify(pinnedNow));
+
+    // Still no tab bar anywhere in the document (ADR-0011).
+    assert.equal(await page.evaluate(() => document.querySelector('[role=tablist], [role=tab], .tab-bar, #marxy-tabs')), null);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('typed results from a watched folder show the age and the mark; an unwatched folder shows neither (C-12)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await bootEmptyState(page);
+    const mod = modChord(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.fill('#marxy-palette .marxy-palette-query', 'ch1');
+    const typed = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+      els.map((el) => [el.dataset.rowKey, el.querySelector('.marxy-palette-age')?.textContent ?? null, el.querySelector('.marxy-palette-changed') !== null]),
+    );
+    assert.deepEqual(typed, [['/docs/ch1.md:doc', '2m', true]]);
+    assert.equal(await page.$('#marxy-palette .marxy-palette-section'), null, 'a typed list has no section labels');
+    await page.fill('#marxy-palette .marxy-palette-query', 'far');
+    const far = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+      els.filter((el) => el.dataset.rowKey === '/far/far.md:doc').map((el) => [el.querySelector('.marxy-palette-age'), el.querySelector('.marxy-palette-changed')]),
+    );
+    assert.deepEqual(far, [[null, null]]);
+  } finally {
+    await browser.close();
+  }
+});

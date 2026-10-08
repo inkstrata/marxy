@@ -22,6 +22,7 @@
     "index_loaded",
     "live_reload",
     "palette_keystroke",
+    "palette_empty",
     "find_first_match",
     "weight_offset",
     "user_theme",
