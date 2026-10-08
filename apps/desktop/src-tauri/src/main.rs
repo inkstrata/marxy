@@ -523,7 +523,7 @@ async fn watch_root(
         move |payload| {
             let _ = app.emit("fs-watch", payload);
         },
-        |root, emit, refuse| watch_notify::spawn_tree_thread(root, emit, refuse),
+        watch_notify::spawn_tree_thread,
     )
 }
 

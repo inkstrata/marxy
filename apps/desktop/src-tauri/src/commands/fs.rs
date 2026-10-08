@@ -241,7 +241,12 @@ pub fn read_head_bytes(path: &str, max_bytes: u64) -> Result<Vec<u8>, ShellError
         ));
     }
     let file = open_head(p).map_err(|e| ShellError::io(path, e.to_string()))?;
-    // The path may have been swapped for something else between the check and the open.
+    read_opened_head(path, file, max_bytes)
+}
+
+/// Read the head of a file `open_head` opened. The path may have been swapped for something else
+/// between the type check and the open, so the opened file's own type is checked again here.
+fn read_opened_head(path: &str, file: File, max_bytes: u64) -> Result<Vec<u8>, ShellError> {
     if !file.metadata().map(|m| m.is_file()).unwrap_or(false) {
         return Err(ShellError::invalid(
             path,
@@ -598,14 +603,23 @@ mod tests {
             .unwrap();
         assert!(made.success());
         let (tx, rx) = std::sync::mpsc::channel();
+        let opening = pipe.clone();
         std::thread::spawn(move || {
-            let _ = tx.send(open_head(&pipe).is_ok());
+            let _ = tx.send(open_head(&opening).is_ok());
         });
         assert_eq!(
             rx.recv_timeout(std::time::Duration::from_secs(30))
                 .expect("the head open blocked on a named pipe"),
             true,
             "a FIFO opens at once (and the fstat check then refuses it)"
+        );
+        // A FIFO swapped in after the type check: the opened file's own type refuses it.
+        let opened = open_head(&pipe).unwrap();
+        let err = read_opened_head(pipe.to_str().unwrap(), opened, 16).unwrap_err();
+        assert!(
+            err.message.contains("not a regular file"),
+            "{}",
+            err.message
         );
         let _ = fs::remove_dir_all(&dir);
     }
