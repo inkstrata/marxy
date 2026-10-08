@@ -42,7 +42,7 @@ before(async () => {
 });
 after(() => server?.close());
 
-/** Normalised attach() option literals from a source file (the view or headless.ts). */
+/** Normalised attach() option literals from a source file (the per-article view). */
 function attachOptionsFrom(src) {
   const match = src.match(/attach\(article, \{([^}]+)\}\)/);
   assert.ok(match, 'source still calls attach(article, { … })');
