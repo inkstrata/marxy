@@ -36,7 +36,22 @@ export function blockIndexAtReadingLine(
   return ans;
 }
 
+/**
+ * The reading position at a scroll offset. A reader who has not scrolled (`scrollTop <= 0`) is
+ * reading the top of the file, not whichever block crosses the reading line, so that is byte 0
+ * (ruling, 2026-10-08); text written above it then leaves them at the top (`restore.ts`).
+ */
 export function positionAtScroll(
+  blocks: readonly LayoutBlock[],
+  scrollTop: number,
+  viewportHeight: number,
+): { readonly byteOffset: number; readonly fraction: number } {
+  if (scrollTop <= 0) return { byteOffset: 0, fraction: 0 };
+  return blockPositionAtScroll(blocks, scrollTop, viewportHeight);
+}
+
+/** The block under the reading line and how far through it the line is, with no top-of-file rule. */
+function blockPositionAtScroll(
   blocks: readonly LayoutBlock[],
   scrollTop: number,
   viewportHeight: number,
@@ -80,8 +95,8 @@ export function sameFirstVisibleBlock(
   viewportHeight: number,
   lineHeight = 24,
 ): boolean {
-  const a = positionAtScroll(blocks, scrollA, viewportHeight);
-  const b = positionAtScroll(blocks, scrollB, viewportHeight);
+  const a = blockPositionAtScroll(blocks, scrollA, viewportHeight);
+  const b = blockPositionAtScroll(blocks, scrollB, viewportHeight);
   if (a.byteOffset !== b.byteOffset) return false;
   // Fractions are of the block's height: the distance between them, in pixels, against one line.
   const block = blocks[blockIndexAtReadingLine(blocks, scrollA, viewportHeight)];
