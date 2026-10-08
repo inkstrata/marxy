@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
+import { parseCollection } from '@marxy/core/src/index-model/collection.ts';
 import { webkit } from 'playwright';
 import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
@@ -116,6 +117,205 @@ test('declared /b and /a follow the open repository /c; a denied draft never app
       await page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'collection_loaded').length),
       1,
     );
+  } finally {
+    await browser.close();
+  }
+});
+
+// ---- C-14: the two palette commands ------------------------------------------------------------
+
+const dec = (b) => Buffer.from(b).toString('utf8');
+
+/** A harness booted on `doc`, with `extra` files beside the repositories and no collection.toml unless given. */
+async function boot(browser, doc, extra = {}) {
+  const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  const all = { ...files(), ...extra };
+  if (!('/collection.toml' in extra)) delete all['/collection.toml'];
+  all['/a/.git/HEAD'] = enc('ref: refs/heads/main\n');
+  await page.evaluate(async ({ files: f, doc: d }) => {
+    const { handle } = await window.marxyPaletteBoot.start(f, [d]);
+    window.__h = handle;
+    await handle.collection.loaded;
+  }, { files: toB64(all), doc });
+  const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+  return { page, mod };
+}
+
+/** Runs the first palette row for `query` and waits for the app to settle. */
+async function runCommand(page, mod, query) {
+  await page.keyboard.press(`${mod}+KeyP`);
+  await page.waitForSelector('#marxy-palette[open]');
+  await page.fill('#marxy-palette .marxy-palette-query', `>${query}`);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => !document.querySelector('#marxy-palette[open]'));
+}
+
+const readToml = (page) => page.evaluate(async () => {
+  try {
+    return Array.from(await window.__h.shell.readFile(window.__tomlPath ?? '/collection.toml'));
+  } catch {
+    return null;
+  }
+});
+const tomlWrites = (page) => page.evaluate(
+  () => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === (window.__tomlPath ?? '/collection.toml')).length,
+);
+const noticeText = (page) => page.evaluate(() => document.getElementById('marxy-notices')?.textContent ?? '');
+/** Delivers the config directory's watch event, as the shell does, and waits for the reload. */
+const follow = (page) => page.evaluate(async () => {
+  window.__h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+  await window.__h.collection.settled();
+});
+
+test('both commands are in the palette', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, '/c/README.md');
+    const rows = await search(page, mod, '>collection');
+    assert.ok(rows.some((r) => r.includes('Add this folder to the collection')), JSON.stringify(rows));
+    assert.ok(rows.some((r) => r.includes('Edit collection')), JSON.stringify(rows));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Add on an empty config directory writes the template and one root, and the palette searches it', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, '/a/notes.md');
+    assert.equal(await readToml(page), null, 'no collection.toml yet');
+    await runCommand(page, mod, 'Add this folder');
+    const written = dec(await readToml(page));
+    assert.ok(written.startsWith('# Folders Marxy searches.'), written);
+    assert.ok(written.endsWith("[[root]]\npath = '/a'\n"), written);
+    assert.equal((written.match(/^\[\[root\]\]/gm) ?? []).length, 1);
+    assert.match(await noticeText(page), /Added a to the collection/);
+    // The reader moves to another repository; /a is held because it is declared.
+    await follow(page);
+    await page.evaluate(() => window.__h.open('/c/README.md'));
+    await page.evaluate(() => window.__h.collection.settled());
+    assert.ok((await search(page, mod, 'Notes in a')).includes('Notes in a'));
+    const roots = await page.evaluate(() => window.__h.index.roots());
+    assert.ok(roots.includes('/a'), JSON.stringify(roots));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Add keeps every byte of a hand-edited CRLF file and lists the new root last', async () => {
+  const browser = await launchWebkit();
+  try {
+    // Comments, CRLF, a deny table, and no final newline.
+    const hand = '# mine\r\n\r\n[[root]]\r\npath = "/b"   # kept\r\n\r\n[deny]\r\nglobs = ["**/drafts/**"]';
+    const { page, mod } = await boot(browser, '/a/notes.md', { '/collection.toml': enc(hand) });
+    await runCommand(page, mod, 'Add this folder');
+    const written = dec(await readToml(page));
+    assert.ok(written.startsWith(hand), 'every prior byte is where it was');
+    const tail = written.slice(hand.length);
+    assert.equal(tail, `\r\n[[root]]\r\npath = '/a'\r\n`);
+    const parsed = parseCollection(Buffer.from(written), { home: '/home/x' });
+    assert.deepEqual(parsed.collection.roots.map((r) => r.path), ['/b', '/a'], 'the new root is listed last');
+    assert.deepEqual(parsed.collection.denyGlobs, ['**/drafts/**']);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Add twice writes once, and a folder written another way counts as declared', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, '/a/notes.md');
+    await runCommand(page, mod, 'Add this folder');
+    await runCommand(page, mod, 'Add this folder');
+    assert.equal(await tomlWrites(page), 1);
+    assert.match(await noticeText(page), /Already in the collection/);
+    const once = await readToml(page);
+
+    // The same folder with a trailing slash is the same folder.
+    const b = await boot(browser, '/a/notes.md', { '/collection.toml': enc('[[root]]\npath = "/a/"\n') });
+    await runCommand(b.page, b.mod, 'Add this folder');
+    assert.equal(await tomlWrites(b.page), 0);
+    assert.match(await noticeText(b.page), /Already in the collection/);
+    assert.ok(once.length > 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Add refuses a file that is not TOML and a filesystem root, and changes nothing', async () => {
+  const browser = await launchWebkit();
+  try {
+    const broken = '[[root\npath = = "/b"\n';
+    const { page, mod } = await boot(browser, '/a/notes.md', { '/collection.toml': enc(broken) });
+    await runCommand(page, mod, 'Add this folder');
+    assert.equal(dec(await readToml(page)), broken);
+    assert.equal(await tomlWrites(page), 0);
+    assert.match(await noticeText(page), /collection\.toml was not changed/);
+
+    const disk = await boot(browser, '/loose.md', { '/loose.md': enc('# Loose\n') });
+    await runCommand(disk.page, disk.mod, 'Add this folder');
+    assert.equal(await tomlWrites(disk.page), 0);
+    assert.equal(await readToml(disk.page), null);
+    assert.match(await noticeText(disk.page), /whole disk/);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Edit collection creates the template when absent and opens it in Source showing its bytes', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page, mod } = await boot(browser, '/c/README.md');
+    // Marxy's config folder lives inside the repository /c, as a reader's might.
+    await page.evaluate(() => {
+      window.__h.shell.configPaths = async () => ({ config: '/c/cfg/config.toml', data: '/c/data' });
+      window.__tomlPath = '/c/cfg/collection.toml';
+    });
+    await runCommand(page, mod, 'Edit collection');
+    await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
+    const template = dec(await readToml(page));
+    assert.ok(template.startsWith('# Folders Marxy searches.'));
+    assert.ok(!/^\[\[root\]\]/m.test(template), 'the template declares no folder');
+    assert.equal(await page.evaluate(() => window.__h.currentPath()), '/c/cfg/collection.toml');
+    const shown = await page.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '');
+    assert.ok(shown.includes('Folders Marxy searches'), shown.slice(0, 200));
+    assert.equal(await tomlWrites(page), 1);
+    // jumpToSource(0) puts the reader in Source as soon as the open settles.
+    assert.equal(await page.evaluate(() => document.body.dataset.marxyMode), 'source');
+
+    // With collection.toml itself open, Add would declare Marxy's own config folder: refused.
+    await runCommand(page, mod, 'Add this folder');
+    assert.equal(await tomlWrites(page), 1, 'nothing more was written');
+    assert.equal(dec(await readToml(page)), template);
+    assert.match(await noticeText(page), /Marxy's own settings and state/);
+
+    // An existing file is opened as it is, not rewritten.
+    const hand = await boot(browser, '/c/README.md', { '/collection.toml': enc('# mine\r\n') });
+    await runCommand(hand.page, hand.mod, 'Edit collection');
+    await hand.page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
+    assert.equal(await tomlWrites(hand.page), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("Add escapes a folder named it's, keeps every prior byte and parses back to that path", async () => {
+  const browser = await launchWebkit();
+  try {
+    const hand = '# mine\r\n[[root]]\r\npath = "/b"\r\n';
+    const { page, mod } = await boot(browser, "/it's/notes.md", {
+      "/it's/.git/HEAD": enc('ref: refs/heads/main\n'),
+      "/it's/notes.md": enc('# Quoted\n'),
+      '/collection.toml': enc(hand),
+    });
+    await runCommand(page, mod, 'Add this folder');
+    const written = dec(await readToml(page));
+    assert.ok(written.startsWith(hand), 'every prior byte is where it was');
+    const parsed = parseCollection(Buffer.from(written), { home: '/home/x' });
+    assert.deepEqual(parsed.warnings, []);
+    assert.deepEqual(parsed.collection.roots.map((r) => r.path), ['/b', "/it's"]);
   } finally {
     await browser.close();
   }
