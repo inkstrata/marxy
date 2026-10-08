@@ -24,7 +24,9 @@ import { launchWebkit } from './playwright-webkit.mjs';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const desktop = join(root, 'apps/desktop');
 // A fresh directory per run, as the gate does, so a probe and a gate in one worktree never share output.
-const dist = mkdtempSync(join(tmpdir(), 'marxy-probe-'));
+// Made on first use, so the gate importing this module's rules leaves no empty directory behind.
+let distDir = null;
+const dist = () => (distDir ??= mkdtempSync(join(tmpdir(), 'marxy-probe-')));
 const corpusDir = join(root, 'fixtures/corpus');
 
 export const DEFAULTS = {
@@ -96,6 +98,19 @@ export function measureInPage(args) {
     return t;
   };
 
+  // The box that clips an element's ink sideways: the nearest ancestor below the article that scrolls or
+  // clips (a scrolling formula, a table, the omitted tail of a very long line). Ink outside it is not on the
+  // page and is not cut off by the window.
+  const clipCache = new Map();
+  const clipOf = (el) => {
+    if (!el || el === article) return null;
+    if (!clipCache.has(el)) {
+      const box = getComputedStyle(el).overflowX !== 'visible' ? el.getBoundingClientRect() : null;
+      clipCache.set(el, box ? { l: box.left, r: box.right } : clipOf(el.parentElement));
+    }
+    return clipCache.get(el);
+  };
+
   // Ink per block: the union of its own text nodes' client rects (hung punctuation kept apart).
   const ink = new Map();
   const hangs = [];
@@ -105,17 +120,36 @@ export function measureInPage(args) {
     if (!n.nodeValue.trim()) continue;
     const owner = ownerOf(n);
     if (!owner) continue;
-    range.selectNodeContents(n);
     const isHang = n.parentElement?.closest('.marxy-hang') !== null;
-    for (const rc of range.getClientRects()) {
-      if (rc.width === 0 || rc.height === 0) continue;
-      if (isHang) {
-        hangs.push({ owner, left: rc.left, right: rc.right });
-        continue;
+    // A line of preserved spaces (`pre-wrap`) hangs past its box, and the client rects of a text node
+    // include the spaces: whitespace is not ink. Such a node is read one run of non-space at a time.
+    const kept = ['pre', 'pre-wrap', 'break-spaces'].includes(getComputedStyle(n.parentElement).whiteSpace);
+    const rects = [];
+    if (kept) {
+      for (const m of n.nodeValue.matchAll(/\S+/g)) {
+        range.setStart(n, m.index);
+        range.setEnd(n, m.index + m[0].length);
+        rects.push(...range.getClientRects());
       }
+    } else {
+      range.selectNodeContents(n);
+      rects.push(...range.getClientRects());
+    }
+    // The typesetter's `.marxy-hang` wraps the first letter of a line (optical margin) or an opening
+    // quote (hung punctuation). A hung letter is ink that is allowed to hang: it counts, from the
+    // column's edge. Hung punctuation is kept apart.
+    const isLetter = isHang && /[\p{L}\p{N}]/u.test(n.nodeValue);
+    const clip = clipOf(n.parentElement);
+    for (const rc of rects) {
+      if (rc.width === 0 || rc.height === 0) continue;
+      if (isHang) hangs.push({ owner, left: rc.left, right: rc.right });
+      if (isHang && !isLetter) continue;
+      const left = clip ? Math.max(rc.left, clip.l) : rc.left;
+      const right = clip ? Math.min(rc.right, clip.r) : rc.right;
+      if (right <= left) continue;
       const cur = ink.get(owner) ?? { l: Infinity, r: -Infinity };
-      cur.l = Math.min(cur.l, rc.left);
-      cur.r = Math.max(cur.r, rc.right);
+      cur.l = Math.min(cur.l, isLetter ? Math.max(left, colL) : left);
+      cur.r = Math.max(cur.r, right);
       ink.set(owner, cur);
     }
   }
@@ -414,6 +448,220 @@ export function measureInPage(args) {
   return cell;
 }
 
+// ---------------------------------------------------------------------------------------------
+// The rules, as the aesthetics gate holds them (L-02). Each reads what measureInPage returned (with
+// `blocks: true`) and names what fails; the gate imports these and keeps no copy of them.
+// ---------------------------------------------------------------------------------------------
+
+/** Top-level blocks whose text is held to the column's left edge (the screen criterion's "Edges"). */
+export const EDGE_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'table', 'blockquote', 'ul', 'ol', 'dl', 'dl.front', 'p>img', 'figure', 'footnotes']);
+const BLOCK_AT = { tag: 1, depth: 2, l: 3, r: 4, dL: 5, dR: 6, iL: 7, iR: 8, idL: 9, scroll: 10 };
+
+/**
+ * Judge one measured cell against rules 1 to 4 of the screen criterion. `classic` says the cell was
+ * measured under a classic scrollbar. Returns `{ check, sub, detail }` for every failure; `check` is the
+ * gate's check (centred, blockEdges, room, marks, noClip) and `sub` the kind of block or mark at fault, so
+ * an expected failure can name exactly the case it defers.
+ */
+export function geometryFailures(cell, { classic = false } = {}) {
+  const out = [];
+  const add = (check, sub, detail) => out.push({ check, sub, detail });
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const { column: col, viewport: vp } = cell;
+  const at = (b, f) => b[BLOCK_AT[f]];
+
+  // 1. Centre: the column's axis is the axis of what the reader sees (the window less a classic
+  // scrollbar). Where body text reaches both edges of an overlay-scrollbar page, its ink margins agree.
+  const off = cell.centre.offsetFromClient;
+  if (Math.abs(off) > 0.5) add('centred', 'axis', `the column's axis is ${off}px from the visible area's axis`);
+  // "Reaches" means the longest line comes within 1px of the column's right edge: a ragged paragraph that
+  // stops short says nothing about the page.
+  const ink = cell.margins.bodyInk;
+  const reaches = ink !== null && ink.left <= col.left + 1 && vp.cw - ink.right >= col.right - 1;
+  if (!classic && reaches && Math.abs(ink.asymmetry) > 1) {
+    add('centred', 'ink', `body text has ${ink.left}px of margin on the left and ${ink.right}px on the right`);
+  }
+
+  for (const b of cell.blocks ?? []) {
+    const tag = at(b, 'tag');
+    const depth = at(b, 'depth');
+    const label = `${b[0]} (${tag}, depth ${depth})`;
+    // 2. Edges: top-level text starts on the column's left edge, but for the declared hangs.
+    const idL = at(b, 'idL');
+    if (depth === 0 && EDGE_TAGS.has(tag) && idL !== null && Math.abs(idL) > 1) {
+      const grown = (tag === 'pre' || tag === 'table') && at(b, 'dL') < -1; // a wide block grown about the axis
+      const indented = tag === 'blockquote' && idL > 0; // a blockquote's declared indent
+      if (tag !== 'p>img' && !grown && !indented) {
+        add('blockEdges', tag === 'pre' ? 'code' : tag, `${label}: text starts ${idL}px from the column's left edge`);
+      }
+    }
+    // 3. Room: no box past the column plus the room, at any depth, and wide boxes grow evenly.
+    const pastL = col.roomLimitLeft - at(b, 'l');
+    const pastR = at(b, 'r') - col.roomLimitRight;
+    if (pastL > 0.5 || pastR > 0.5) add('room', 'limit', `${label}: box passes the room by ${r2(Math.max(pastL, pastR))}px`);
+    const overL = Math.max(0, col.left - at(b, 'l'));
+    const overR = Math.max(0, at(b, 'r') - col.right);
+    if (Math.abs(overR - overL) > 1) add('room', 'even', `${label}: box overhangs the column ${r2(overL)}px left and ${r2(overR)}px right`);
+    // 3. No ink cut off by the window (a box that scrolls on its own is not cut off).
+    const iL = at(b, 'iL');
+    const iR = at(b, 'iR');
+    if (iL !== null && !at(b, 'scroll') && (iL < -0.5 || iR > vp.cw + 0.5)) add('noClip', 'ink', `${label}: ink is cut off by the window`);
+  }
+
+  // 3. No mark left of the gutter floor but hung punctuation, and none outside the window.
+  for (const [type, m] of Object.entries(cell.marks)) {
+    if (type === 'punct') continue;
+    if (m.minLeft < col.gutter - 0.5) add('marks', type, `a ${type} sits at ${m.minLeft}px, left of the gutter floor (${col.gutter}px)`);
+  }
+
+  // 4. The page never scrolls sideways.
+  if (vp.hScroll) add('noClip', 'scroll', `the page scrolls sideways (${vp.scrollWidth}px of content in ${vp.cw}px)`);
+  // 4. Once the relayout has settled, no set line runs past its paragraph's box.
+  if (cell.lines.overflowing > 0) add('noClip', 'line', `${cell.lines.overflowing} set line(s) run up to ${cell.lines.maxOverflow}px past their paragraph's box`);
+  return out;
+}
+
+/** Whether a classic scrollbar took space in this page (a page too short to scroll has none to model). */
+export const hasClassicScrollbar = (cell) => cell.viewport.scrollbar > 0;
+
+/**
+ * Rule 5, measured on the app's own `#marxy-notices` region: one line built the way notify() builds it,
+ * its box against the column, whether it is in view three screens down, and its height in grid units.
+ * Serialised into the page. The line is removed again, so the region is empty as before.
+ */
+export function measureNoticeInPage(args = {}) {
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const region = document.getElementById('marxy-notices');
+  const article = document.getElementById('doc');
+  const html = document.documentElement;
+  if (!region) return { missing: true };
+  const cs = getComputedStyle(article);
+  const ar = article.getBoundingClientRect();
+  const colL = ar.left + parseFloat(cs.paddingLeft);
+  const colR = ar.right - parseFloat(cs.paddingRight);
+  const unit = parseFloat(cs.lineHeight) / 2;
+  const line = document.createElement('div');
+  line.className = 'marxy-notice';
+  line.dataset.noticeKind = 'info';
+  const text = document.createElement('span');
+  text.className = 'marxy-notice-text';
+  text.textContent = 'The file changed on disk.';
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'marxy-notice-dismiss';
+  dismiss.textContent = 'Dismiss';
+  line.append(text, dismiss);
+  region.append(line);
+  void region.offsetHeight;
+  const box = line.getBoundingClientRect();
+  if (args.source) {
+    // Source mode: the notice must not sit on the editor's first line of text.
+    const first = document.querySelector('#marxy-source .cm-content .cm-line');
+    const text = first?.getBoundingClientRect();
+    const covers = Boolean(text) && box.left < text.right && box.right > text.left && box.top < text.bottom && box.bottom > text.top;
+    line.remove();
+    return { missing: !text, source: true, covers, noticeTop: r2(box.top), noticeBottom: r2(box.bottom), textTop: text ? r2(text.top) : null };
+  }
+  const out = {
+    missing: false,
+    edgeL: r2(box.left - colL),
+    edgeR: r2(box.right - colR),
+    heightInUnits: r2(box.height / unit),
+    position: getComputedStyle(region).position,
+  };
+  const maxScroll = html.scrollHeight - window.innerHeight;
+  out.scrollable = maxScroll > 0;
+  if (maxScroll > 0) {
+    window.scrollTo(0, Math.min(maxScroll, Math.round(window.innerHeight * 3)));
+    const b = line.getBoundingClientRect();
+    out.inViewScrolled = b.bottom > 0 && b.top < window.innerHeight;
+    out.topScrolled = r2(b.top);
+    window.scrollTo(0, 0);
+  } else out.inViewScrolled = true;
+  line.remove();
+  return out;
+}
+
+/** Rule 5 against one `measureNoticeInPage` reading. */
+export function noticeFailures(n) {
+  if (n.missing) return [{ check: 'noticeColumn', sub: 'region', detail: 'the app has no #marxy-notices region, or Source has no first line' }];
+  const out = [];
+  const add = (sub, detail) => out.push({ check: 'noticeColumn', sub, detail });
+  if (n.source) {
+    if (n.covers) add('source', `in Source the notice (${n.noticeTop} to ${n.noticeBottom}px) covers the first line of text (from ${n.textTop}px)`);
+    return out;
+  }
+  if (Math.abs(n.edgeL) > 1 || Math.abs(n.edgeR) > 1) add('edges', `the notice's edges are ${n.edgeL}px and ${n.edgeR}px from the column's`);
+  if (!n.inViewScrolled) add('sight', `scrolled down, the notice is at ${n.topScrolled}px and out of view`);
+  const off = Math.abs(n.heightInUnits - Math.round(n.heightInUnits));
+  if (off > 0.05) add('grid', `the notice is ${n.heightInUnits} grid units high`);
+  return out;
+}
+
+/**
+ * Rule 6, read in the page: clipping, set lines past their box, blocks overlapping, sideways scroll. Used
+ * with WCAG 1.4.12 text spacing and at 200 % text.
+ */
+export function surveyInPage() {
+  const a = document.getElementById('doc');
+  const html = document.documentElement;
+  const r = (n) => Math.round(n * 100) / 100;
+  const hid = (v) => v === 'hidden' || v === 'clip';
+  const clipped = [];
+  for (const el of a.querySelectorAll('*')) {
+    if (el.closest('.marxy-line-omitted, .marxy-invisible')) continue;
+    const cs = getComputedStyle(el);
+    if ((hid(cs.overflowX) && el.scrollWidth > el.clientWidth + 1) || (hid(cs.overflowY) && el.scrollHeight > el.clientHeight + 1)) {
+      clipped.push(el.tagName.toLowerCase() + (el.className ? `.${String(el.className).split(' ')[0]}` : ''));
+    }
+  }
+  const range = document.createRange();
+  let over = 0;
+  let maxOver = 0;
+  for (const p of a.querySelectorAll('.marxy-set')) {
+    const cs = getComputedStyle(p);
+    const right = p.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+    const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    let m = -Infinity;
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      if (!n.nodeValue.trim() || n.parentElement.closest('.marxy-hang, .marxy-hyphen')) continue;
+      range.selectNodeContents(n);
+      for (const rc of range.getClientRects()) if (rc.width) m = Math.max(m, rc.right);
+    }
+    if (m > right + 0.5) {
+      over++;
+      maxOver = Math.max(maxOver, m - right);
+    }
+  }
+  let overlaps = 0;
+  // Block-level children only: an inline element of raw HTML (a badge, a link) sits on a line of its own.
+  const BLOCKS = ['block', 'table', 'list-item', 'flow-root', 'grid', 'flex'];
+  const kids = [...a.children].filter((e) => e.getBoundingClientRect().height > 0 && BLOCKS.includes(getComputedStyle(e).display));
+  for (let i = 1; i < kids.length; i++) if (kids[i].getBoundingClientRect().top < kids[i - 1].getBoundingClientRect().bottom - 1) overlaps++;
+  return {
+    hScroll: html.scrollWidth > html.clientWidth + 1,
+    clipped: [...new Set(clipped)].sort(),
+    setLinesPastBox: over,
+    maxSetLinePastBoxPx: r(maxOver),
+    blockOverlaps: overlaps,
+    bodyFontPx: parseFloat(getComputedStyle(a).fontSize),
+  };
+}
+
+/** Rule 6 against one `surveyInPage` reading. */
+export function surveyFailures(s) {
+  const out = [];
+  if (s.hScroll) out.push('the page scrolls sideways');
+  if (s.clipped.length) out.push(`clipped: ${s.clipped.slice(0, 6).join(', ')}`);
+  if (s.setLinesPastBox) out.push(`${s.setLinesPastBox} set line(s) run up to ${s.maxSetLinePastBoxPx}px past their box`);
+  if (s.blockOverlaps) out.push(`${s.blockOverlaps} block(s) overlap the one above`);
+  return out;
+}
+
+/** The four WCAG 1.4.12 overrides, as a reader theme: the typesetter sets with them. */
+export const TEXT_SPACING_CSS = `.marxy-article, .marxy-article * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
+.marxy-article p { margin-bottom: 2em !important; }`;
+
 /** Draw hairlines (window centre, column edges, gutter floors, room limits) and red boxes for offenders. */
 export function drawOverlayInPage(args) {
   const { cell, only, onlyH } = args;
@@ -467,7 +715,7 @@ export async function buildRenderEntry() {
     root: desktop,
     configFile: join(desktop, 'vite.config.ts'),
     logLevel: 'error',
-    build: { outDir: dist, emptyOutDir: true },
+    build: { outDir: dist(), emptyOutDir: true },
     plugins: [
       {
         name: 'marxy-gate-input',
@@ -477,7 +725,7 @@ export async function buildRenderEntry() {
       },
     ],
   });
-  if (!existsSync(join(dist, 'gate.html'))) throw new Error(`vite build did not write ${join(dist, 'gate.html')}`);
+  if (!existsSync(join(dist(), 'gate.html'))) throw new Error(`vite build did not write ${join(dist(), 'gate.html')}`);
 }
 
 /** Serves the built harness, `/` as gate.html, and the corpus image beside it so `image.png` resolves. */
@@ -499,8 +747,8 @@ export function startHarness() {
       res.end(body);
     };
     if (path === '/image.png') return send(200, 'image/png', readFileSync(join(corpusDir, 'image.png')));
-    const file = path === '/' ? join(dist, 'gate.html') : join(dist, path.slice(1));
-    if (!file.startsWith(dist) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
+    const file = path === '/' ? join(dist(), 'gate.html') : join(dist(), path.slice(1));
+    if (!file.startsWith(dist()) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
     return send(200, types[file.slice(file.lastIndexOf('.'))] ?? 'application/octet-stream', readFileSync(file));
   });
   return new Promise((resolve) => {
@@ -548,8 +796,28 @@ export async function probeCell(page, origin, source, cell, opts = {}) {
   return out;
 }
 
-async function settle(page) {
+export async function settle(page) {
   await page.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => res()))));
+}
+
+/**
+ * A classic scrollbar that appears after first text, as probeCell injects it: the main is released to
+ * the window, the scrollbar is forced, and the root's overflow is toggled so WebKit re-reads it.
+ */
+export async function injectClassicScrollbar(page) {
+  await page.evaluate(() => {
+    document.getElementById('marxy-main').style.width = '';
+  });
+  await settle(page);
+  await page.addStyleTag({ content: CLASSIC_CSS });
+  await page.evaluate(() => {
+    const el = document.documentElement;
+    el.style.overflowY = 'hidden';
+    void el.offsetHeight;
+    el.style.overflowY = '';
+    void el.offsetHeight;
+  });
+  await settle(page);
 }
 
 /** Screenshot a clip of the page with the overlay drawn; returns { png, clip }. */
