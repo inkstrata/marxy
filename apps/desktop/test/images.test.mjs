@@ -164,6 +164,76 @@ test('post-pass 3: a refused path keeps alt text, drops src, and never calls ass
   }
 });
 
+// F-14: in a repository the image root is the repository root (ADR-0027 §5), not the document's folder.
+const NESTED_SOURCE = [
+  '# Nested',
+  '',
+  'Text first, so the page has something to read.',
+  '',
+  '![logo](/assets/logo.png)',
+  '',
+  'Between.',
+  '',
+  '![diagram](../diagram.png)',
+  '',
+  'More.',
+  '',
+  '![escape](../../etc/x.png)',
+  '',
+].join('\n');
+const nestedFiles = (withGit) => ({
+  '/repo/docs/readme.md': Buffer.from(NESTED_SOURCE).toString('base64'),
+  '/repo/assets/logo.png': b64(join(corpusDir, 'image.png')),
+  '/repo/diagram.png': b64(join(corpusDir, 'image.png')),
+  ...(withGit ? { '/repo/.git/HEAD': Buffer.from('ref: refs/heads/main\n').toString('base64') } : {}),
+});
+
+async function nestedImages(files) {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const handle = await boot(page, files, ['/repo/docs/readme.md']);
+    const sizes = handle.shell.calls.filter((c) => c.method === 'imageSize').map((c) => c.args[0]);
+    const scopes = handle.shell.calls.filter((c) => c.method === 'allowAssetScope').map((c) => c.args[0]);
+    const srcs = await page.evaluate(() =>
+      [...document.querySelectorAll('#doc img')].map((el) => ({ alt: el.getAttribute('alt'), src: el.getAttribute('src') })),
+    );
+    return { sizes, scopes, srcs };
+  } finally {
+    await browser.close();
+  }
+}
+
+test('F-14: /x.png in a nested document loads from the repository root', async () => {
+  const { sizes, srcs } = await nestedImages(nestedFiles(true));
+  assert.ok(sizes.includes('/repo/assets/logo.png'), `sized: ${sizes}`);
+  assert.ok(srcs.find((i) => i.alt === 'logo')?.src, 'the logo has a src');
+});
+
+test('F-14: ../x.png in a nested document loads from inside the repository', async () => {
+  const { sizes, srcs } = await nestedImages(nestedFiles(true));
+  assert.ok(sizes.includes('/repo/diagram.png'), `sized: ${sizes}`);
+  assert.ok(srcs.find((i) => i.alt === 'diagram')?.src, 'the diagram has a src');
+});
+
+test('F-14: ../../etc/x.png still leaves the repository and is refused', async () => {
+  const { sizes, srcs } = await nestedImages(nestedFiles(true));
+  assert.equal(sizes.some((p) => p.includes('etc')), false);
+  assert.equal(srcs.find((i) => i.alt === 'escape')?.src, null);
+});
+
+test('F-14: the asset scope is the repository root, once', async () => {
+  const { scopes } = await nestedImages(nestedFiles(true));
+  assert.deepEqual(scopes, ['/repo']);
+});
+
+test('F-14: a document in no repository keeps its own folder as the image root', async () => {
+  const { sizes, scopes, srcs } = await nestedImages(nestedFiles(false));
+  assert.deepEqual(scopes, ['/repo/docs']);
+  assert.ok(sizes.every((p) => p.startsWith('/repo/docs/')), `sized: ${sizes}`);
+  assert.ok(srcs.every((i) => i.src === null), 'nothing outside the folder loads');
+});
+
 test('post-pass 3: width and height are set before src', async () => {
   const docPath = '/corpus/09-gfm-everything.md';
   const files = {
