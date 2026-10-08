@@ -1150,6 +1150,7 @@ function commitEdit(next: Buffer): Promise<void> {
         range: { file: snap.path, start: change.start, end: change.end },
         replacement: new TextDecoder().decode(change.replacement),
         label: 'edit',
+        baseVersion: snap.version,
       });
     }
     await page.settled;
