@@ -1,6 +1,7 @@
 // Fuzzy over path, title and headings; empty query is the MRU stack (ADR-0011, ADR-0012).
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
+import { foldHitsCounted, type CheckoutKey } from './fold.ts';
 import { emptyQueryPaths, type PaletteSession } from './session.ts';
 
 /** Named in search.test.ts: with `MARXY_86_MUTATION` set, searchPrepared is a no-op so CI goes red. */
@@ -127,6 +128,23 @@ export function jumpForHit(
 export type RootRank = (root: string) => number;
 
 /**
+ * Folds the copies of a document that checkouts of one repository each hold (C-15). `keyOf` is the
+ * index service's side-table; `currentCheckout` is the checkout of the open document, whose copy wins.
+ */
+export interface FoldCopies {
+  readonly keyOf: (path: string) => CheckoutKey | undefined;
+  readonly currentCheckout: string | undefined;
+  /** Told, after every folded query, how many copies were folded into the hits listed. */
+  readonly folded?: (copies: number) => void;
+}
+
+/**
+ * Folding removes hits after the best are picked, so the pick is wider than the list: a document with
+ * a copy in every worktree takes several places before it folds to one.
+ */
+const FOLD_HEADROOM = 8;
+
+/**
  * Palette results for a keystroke. An empty query is pinned-on-top MRU; a non-empty query
  * is fuzzy over the current root first, then the other roots in `rootRank` order (the session's
  * recent roots when it is absent), ranked by match then frecency within a root.
@@ -135,10 +153,10 @@ export function paletteResults(
   query: string,
   entries: readonly IndexEntry[],
   session: PaletteSession,
-  options?: { limit?: number; prepared?: PreparedIndex; rootRank?: RootRank },
+  options?: { limit?: number; prepared?: PreparedIndex; rootRank?: RootRank; fold?: FoldCopies },
 ): readonly IndexHit[] {
   const prepared = options?.prepared ?? prepareIndex(entries);
-  return searchPrepared(query, prepared, session, options?.limit ?? DEFAULT_LIMIT, options?.rootRank);
+  return searchPrepared(query, prepared, session, options?.limit ?? DEFAULT_LIMIT, options?.rootRank, options?.fold);
 }
 
 /** Search a prepared index. This is the keystroke path the 16 ms budget measures. */
@@ -148,10 +166,30 @@ export function searchPrepared(
   session: PaletteSession,
   limit = DEFAULT_LIMIT,
   rootRank?: RootRank,
+  fold?: FoldCopies,
 ): readonly IndexHit[] {
   if (process.env.MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION) return [];
   const needle = query.trim().normalize('NFC').toLowerCase();
+  // The empty state is the reader's own pinned and recent paths: never folded.
   if (needle.length === 0) return emptyHits(prepared, session, limit);
+  if (fold === undefined) return searchRows(needle, prepared, session, limit, rootRank);
+  const wide = searchRows(needle, prepared, session, limit * FOLD_HEADROOM, rootRank);
+  // A query that spells out a checkout's folder name (`b/agents`) lists that checkout's copies.
+  const named = new Set(needle.split(/[\s/]+/).filter((part) => part !== ''));
+  const { hits, dropped } = foldHitsCounted(wide, fold.keyOf, fold.currentCheckout, named);
+  const shown = hits.slice(0, limit);
+  fold.folded?.(dropped.slice(0, limit).reduce((sum, n) => sum + n, 0));
+  return shown;
+}
+
+/** The best `limit` rows for a normalised, non-empty needle, current root first. */
+function searchRows(
+  needle: string,
+  prepared: PreparedIndex,
+  session: PaletteSession,
+  limit: number,
+  rootRank: RootRank | undefined,
+): readonly IndexHit[] {
 
   const byPath = new Map<string, number>();
   for (let i = 0; i < session.mru.length; i++) byPath.set(session.mru[i]!, i);

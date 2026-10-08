@@ -184,8 +184,11 @@ const stampedShell = (files, mtimes = new Map()) => {
 };
 
 const walkCalls = (shell, method) =>
-  // The collection.toml read (C-10) is the deny list's, not the walk's.
-  shell.calls.filter((c) => c.method === method && !String(c.args[0]).startsWith('/data/') && c.args[0] !== '/collection.toml');
+  // The collection.toml read (C-10) is the deny list's, not the walk's; `.git` and `.git/HEAD` are
+  // C-15's probes for which checkout a folder is (counted in the test that names them).
+  shell.calls.filter((c) => c.method === method && !String(c.args[0]).startsWith('/data/') && c.args[0] !== '/collection.toml' && !isGitProbe(c));
+
+const isGitProbe = (c) => c.method === 'readFile' && /\/\.git(\/HEAD)?$/.test(String(c.args[0]));
 
 nodeTest('a cold walk makes exactly one readDir per directory, one read per ignore file and one per markdown file', async () => {
   const { shell, host } = stampedShell(snapshotRepo());
@@ -666,3 +669,35 @@ test('with a live tree watch: neither the save echo nor another file re-walks th
     assert.ok(counts.listed, 'the new file is in the index');
     assert.ok((await search(page, mod, 'later')).includes('Later'), 'and in the palette');
   }));
+
+// ---- C-15: which checkout a path is in ---------------------------------------------------------------
+
+nodeTest('checkoutKey: worktrees of one repository share a group; a folder the walk hid is never probed (C-15)', async () => {
+  const shell = createMemoryShell({
+    '/r/.git/HEAD': enc('ref: refs/heads/main\n'),
+    '/r/.gitignore': enc('hidden/\n'),
+    '/r/AGENTS.md': enc('# Agents\n'),
+    '/r/hidden/secret.md': enc('# Secret\n'),
+    '/r/docs/guide.md': enc('# Guide\n'),
+    '/wt/a/.git': enc('gitdir: /r/.git/worktrees/a\n'),
+    '/wt/a/AGENTS.md': enc('# Agents\n'),
+    '/wt/rel/.git': enc('gitdir: ../../r/.git/worktrees/rel\n'),
+    '/wt/rel/AGENTS.md': enc('# Agents\n'),
+    '/o/.git/HEAD': enc('ref: refs/heads/main\n'),
+    '/o/AGENTS.md': enc('# Agents\n'),
+    '/plain/AGENTS.md': enc('# Agents\n'),
+  });
+  const service = createIndexService(shell);
+  for (const root of ['/r', '/wt/a', '/wt/rel', '/o', '/plain']) await service.ensureRoot(root);
+  await service.settled();
+  const key = (path) => service.checkoutKey(path);
+  assert.deepEqual(key('/wt/a/AGENTS.md'), { group: '/r/.git', rel: 'AGENTS.md', checkout: '/wt/a' });
+  assert.deepEqual(key('/r/docs/guide.md'), { group: '/r/.git', rel: 'docs/guide.md', checkout: '/r' });
+  assert.equal(key('/wt/rel/AGENTS.md').group, '/r/.git', 'a relative gitdir is resolved against the checkout');
+  assert.equal(key('/o/AGENTS.md').group, '/o/.git', 'an unrelated repository has its own group');
+  assert.equal(key('/plain/AGENTS.md'), undefined, 'a folder with no .git has none');
+  assert.equal(key('/elsewhere/AGENTS.md'), undefined);
+  const probed = shell.calls.filter(isGitProbe).map((c) => c.args[0]);
+  assert.ok(!probed.some((p) => p.includes('/hidden/')), `a hidden folder is not probed: ${probed}`);
+  assert.ok(probed.every((p) => /\/\.git(\/HEAD)?$/.test(p)), 'only .git and .git/HEAD are read');
+});

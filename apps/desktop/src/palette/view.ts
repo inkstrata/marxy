@@ -20,7 +20,8 @@ import {
 } from './empty-state.ts';
 import { setOpenListener } from './history.ts';
 import { createIndexFeed, type IndexFeed } from './index-feed.ts';
-import { jumpForHit, paletteResults, type PreparedIndex, type RootRank } from './search.ts';
+import type { CheckoutKey } from './fold.ts';
+import { jumpForHit, paletteResults, type FoldCopies, type PreparedIndex, type RootRank } from './search.ts';
 import {
   emptySession,
   goBack,
@@ -71,6 +72,8 @@ export interface PaletteDeps {
   readonly isWatched?: (root: string) => boolean;
   /** When Marxy first indexed a root (the index service's `baselineMs`). */
   readonly baselineMs?: (root: string) => number | undefined;
+  /** Which repository and checkout hold a path (the index service's `checkoutKey`): copies from worktrees fold (C-15). */
+  readonly checkoutKey?: (path: string) => CheckoutKey | undefined;
   /** The clock, for the ages. */
   readonly now?: () => number;
   /** Called each time the palette is summoned: the index re-walks folders it could not watch (C-11). */
@@ -140,6 +143,13 @@ function runPaletteCommand(cmd: Command | undefined): void {
   void cmd.run(ctx);
 }
 
+/** One quiet line when copies from other checkouts were folded away (commitment 4: nothing hidden silently). */
+export function foldedNotice(copies: number, scopeNotice: string | undefined): string | undefined {
+  if (copies === 0) return scopeNotice;
+  const line = `${copies} ${copies === 1 ? 'copy' : 'copies'} in other checkouts ${copies === 1 ? 'is' : 'are'} folded; type a checkout's folder name and a slash first to list ${copies === 1 ? 'it' : 'them'}.`;
+  return scopeNotice === undefined ? line : `${scopeNotice} ${line}`;
+}
+
 function queryPalette(
   query: string,
   section: PaletteListSection,
@@ -147,6 +157,7 @@ function queryPalette(
   session: PaletteSession,
   prepared: PreparedIndex,
   rootRank: RootRank,
+  fold: FoldCopies | undefined,
   scopeNotice: string | undefined,
   emptySections: () => readonly EmptySection[],
 ): PaletteModel {
@@ -177,7 +188,13 @@ function queryPalette(
     };
   }
   const trimmed = query.trim();
-  const hits = paletteResults(trimmed, entries, session, { prepared, limit: 50, rootRank });
+  let folded = 0;
+  const hits = paletteResults(trimmed, entries, session, {
+    prepared,
+    limit: 50,
+    rootRank,
+    fold: fold && { ...fold, folded: (copies) => (folded = copies) },
+  });
   const filtered = filterHits(hits, section);
   return {
     phase,
@@ -186,7 +203,7 @@ function queryPalette(
     hits: filtered.slice(0, PALETTE_ROW_LIMIT),
     operationCommands: [],
     selected: 0,
-    notice: scopeNotice,
+    notice: foldedNotice(folded, scopeNotice),
   };
 }
 
@@ -550,8 +567,15 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     void deps.shell.mark('palette_empty', Date.now(), `ms=${(performance.now() - started).toFixed(2)}`);
     return sections;
   };
+  // Copies of one document from worktrees of one repository fold to the open document's checkout.
+  const foldCopies = (): FoldCopies | undefined => {
+    const keyOf = deps.checkoutKey;
+    if (keyOf === undefined) return undefined;
+    const open = deps.getCurrentPath();
+    return { keyOf, currentCheckout: (open === null ? undefined : keyOf(open)?.checkout) ?? session.currentRoot };
+  };
   const query = (text: string) =>
-    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), feed.notice(), emptySections);
+    queryPalette(text, section, feed.entries(), session, feed.prepared(), feed.rootRank(), foldCopies(), feed.notice(), emptySections);
   const decor: RowDecor = {
     // Empty: every row has its age. Typed: only a document in a watched root does.
     age: (hit) =>
@@ -771,6 +795,7 @@ export function mountPaletteFromHandle(
     // Looked up on each call: the service's answers move as roots are walked and watched.
     isWatched: (root) => handle.index.isWatched(root),
     baselineMs: (root) => handle.index.baselineMs(root),
+    checkoutKey: (path) => handle.index.checkoutKey(path),
     onSummon: () => handle.index.revalidate(),
   });
   setPaletteCloser(() => controller.close());

@@ -556,3 +556,130 @@ test('C-11: a change to the open document, heard by its folder watch and its tre
     await browser.close();
   }
 });
+
+// ---- C-15: copies of one document from worktrees of one repository fold -----------------------------
+
+const agents = '# Agents\n\nHow to work here.\n';
+const worktree = (main, name) => enc(`gitdir: ${main}/.git/worktrees/${name}\n`);
+const worktreeFiles = () => ({
+  '/r/.git/HEAD': enc('ref: refs/heads/main\n'),
+  '/r/AGENTS.md': enc(agents),
+  '/wt/a/.git': worktree('/r', 'a'),
+  '/wt/a/AGENTS.md': enc(agents),
+  '/wt/b/.git': worktree('/r', 'b'),
+  '/wt/b/AGENTS.md': enc(agents),
+  '/collection.toml': enc('[[root]]\npath = "/r"\n\n[[root]]\npath = "/wt/b"\n'),
+});
+
+/** The palette's notice line after a typed query ('' when hidden). */
+async function noticeFor(page, mod, query) {
+  await page.keyboard.press(`${mod}+KeyP`);
+  await page.waitForSelector('#marxy-palette[open]');
+  await page.fill('#marxy-palette .marxy-palette-query', query);
+  const text = await page.$eval('#marxy-palette .marxy-palette-notice', (el) => (el.hidden ? '' : el.textContent ?? ''));
+  await page.keyboard.press('Escape');
+  return text;
+}
+
+/** The document paths of the rows a typed query lists (a row's key is `<path>:<heading or doc>`). */
+async function openedBy(page, mod, query) {
+  await page.keyboard.press(`${mod}+KeyP`);
+  await page.waitForSelector('#marxy-palette[open]');
+  await page.fill('#marxy-palette .marxy-palette-query', query);
+  const keys = await page.$$eval('#marxy-palette .marxy-palette-row', (els) => els.map((el) => el.dataset.rowKey ?? ''));
+  await page.keyboard.press('Escape');
+  return keys.map((k) => k.replace(/:[^:]*$/, ''));
+}
+
+test('three checkouts of one repository list one AGENTS.md: the open checkout\'s', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ files: f }) => {
+      const { handle } = await window.marxyPaletteBoot.start(f, ['/wt/a/AGENTS.md']);
+      window.__h = handle;
+      await handle.collection.loaded;
+      await handle.index.settled();
+    }, { files: toB64(worktreeFiles()) });
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    // Every copy is indexed; the service says which repository each is a checkout of.
+    const keys = await page.evaluate(() => ['/r', '/wt/a', '/wt/b'].map((d) => window.__h.index.checkoutKey(`${d}/AGENTS.md`)));
+    assert.equal(new Set(keys.map((k) => k.group)).size, 1, JSON.stringify(keys));
+    assert.deepEqual(keys.map((k) => k.rel), ['AGENTS.md', 'AGENTS.md', 'AGENTS.md']);
+    assert.equal(await page.evaluate(() => window.__h.index.entries().filter((e) => e.title === 'Agents').length), 3);
+
+    assert.deepEqual(await openedBy(page, mod, 'agents'), ['/wt/a/AGENTS.md'], 'one hit, and it is the open checkout\'s');
+
+    // Folding is said once, in the notice line; a query that names a checkout lists its copy.
+    assert.match(await noticeFor(page, mod, 'agents'), /2 copies in other checkouts are folded/);
+    assert.deepEqual(await openedBy(page, mod, 'b/agents'), ['/wt/b/AGENTS.md'], 'naming the checkout lists its copy');
+    assert.equal(await noticeFor(page, mod, 'b/agents'), '', 'nothing folded, nothing said');
+
+    // The same file in /wt/b no longer matches /wt/a's size: both list.
+    await page.evaluate(async () => {
+      const h = window.__h;
+      await h.shell.writeFileAtomic('/wt/b/AGENTS.md', new TextEncoder().encode('# Agents\n\nHow to work here, and a note.\n'));
+      h.shell.emit([{ kind: 'modified', path: '/wt/b/AGENTS.md' }]);
+      await h.index.settled();
+    });
+    assert.deepEqual((await openedBy(page, mod, 'agents')).sort(), ['/wt/a/AGENTS.md', '/wt/b/AGENTS.md']);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('one declared root holding several checkouts folds the same way', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    const f = {
+      '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
+      '/c/README.md': enc('# Home\n'),
+      '/m/main/.git/HEAD': enc('ref: refs/heads/main\n'),
+      '/m/main/AGENTS.md': enc(agents),
+      '/m/one/.git': worktree('/m/main', 'one'),
+      '/m/one/AGENTS.md': enc(agents),
+      '/m/two/.git': worktree('/m/main', 'two'),
+      '/m/two/AGENTS.md': enc(agents),
+      '/collection.toml': enc('[[root]]\npath = "/m"\n'),
+    };
+    await page.evaluate(async ({ files: g }) => {
+      const { handle } = await window.marxyPaletteBoot.start(g, ['/c/README.md']);
+      window.__h = handle;
+      await handle.collection.loaded;
+      await handle.index.settled();
+    }, { files: toB64(f) });
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    assert.equal((await openedBy(page, mod, 'agents')).length, 1, 'three checkouts under /m list one AGENTS.md');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('the empty state keeps every copy: pinned documents are never folded', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await page.goto(`${base}test/palette-boot.html`);
+    await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+    await page.evaluate(async ({ files: g }) => {
+      const { handle } = await window.marxyPaletteBoot.start(g, ['/wt/a/AGENTS.md']);
+      window.__h = handle;
+      await handle.collection.loaded;
+      await handle.index.settled();
+    }, { files: toB64(worktreeFiles()) });
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.evaluate(async () => {
+      await window.__h.open('/r/AGENTS.md');
+      await window.__h.open('/wt/a/AGENTS.md');
+    });
+    const rows = await search(page, mod, '');
+    assert.equal(rows.filter((r) => r.includes('Agents')).length, 2, JSON.stringify(rows));
+  } finally {
+    await browser.close();
+  }
+});
