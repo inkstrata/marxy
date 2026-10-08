@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eventsForWatch } from './watch-filter.ts';
+import { eventsForWatch, refusalForWatch } from './watch-filter.ts';
 
 const TREE = '/notes\u0000tree';
 const FOLDER = '/notes';
@@ -50,4 +50,14 @@ test('a malformed event inside a good payload is dropped and the rest kept', () 
     events: [null, 'created', { kind: 'exploded', path: '/notes/a.md' }, { kind: 'created' }, { kind: 'renamed', path: '/notes/b.md', to: 7 }, good],
   };
   assert.deepEqual(eventsForWatch(payload, TREE), [good]);
+});
+
+test('a refusal payload for this key gives its reason; no other payload does', () => {
+  assert.equal(refusalForWatch({ key: TREE, events: [], refused: 'too many files' }, TREE), 'too many files');
+  assert.equal(refusalForWatch({ key: FOLDER, events: [], refused: 'too many files' }, TREE), undefined, "another watch's");
+  assert.equal(refusalForWatch({ key: TREE, events: [] }, TREE), undefined, 'an ordinary batch');
+  for (const payload of [undefined, null, 'refused', 7, { key: TREE, refused: 7 }, { refused: 'x' }]) {
+    assert.equal(refusalForWatch(payload, TREE), undefined, JSON.stringify(payload));
+  }
+  assert.deepEqual(eventsForWatch({ key: TREE, events: [], refused: 'too many files' }, TREE), [], 'and it carries no events');
 });

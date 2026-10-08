@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
-import { createIndexService, type IndexPatch } from '../index/service.ts';
+import { createIndexService, REVALIDATE_MIN_MS, type IndexPatch } from '../index/service.ts';
 import { createIndexFeed } from '../palette/index-feed.ts';
 import { emptySession } from '../palette/session.ts';
 import { createMemoryShell } from '../shell/memory.ts';
@@ -117,6 +117,84 @@ test('a refused watch reaches the notice line at once, with no walk to carry it,
   trees.stop();
   await trees.settled();
   assert.equal(index.watchNotice(), undefined, 'a closed tree says nothing');
+});
+
+test('a tree the shell refuses after it opened is closed and noticed, and summon re-walks it', async () => {
+  const shell = createMemoryShell(files());
+  const watch = shell.watch;
+  const refusals = new Map<string, (reason: string) => void>();
+  const closed: string[] = [];
+  shell.watch = async (root, onEvents, opts) => {
+    const handle = await watch(root, onEvents, opts);
+    if (opts?.onRefused) refusals.set(root, opts.onRefused);
+    return { close: () => (closed.push(root), handle.close()) };
+  };
+  const index = createIndexService(shell);
+  await index.ensureFor('/c/README.md');
+  await index.ensureRoot('/n', { watch: true });
+  await index.settled();
+  const trees = startTreeWatches({ shell, index });
+  await trees.settled();
+  assert.equal(index.watchNotice(), undefined, 'both open');
+  refusals.get('/n')!('too many files');
+  assert.equal(index.watchNotice(), 'Not watching n; rescanned when you open the palette.');
+  assert.deepEqual(closed, ['/n'], 'the refused watch is closed');
+  assert.deepEqual([...trees.trees()].sort(), ['/c', '/n'], 'and held as refused, not reopened');
+  const walks = () => shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded' && String(c.args[2]).includes('root=/n ')).length;
+  const before = walks();
+  index.revalidate();
+  await index.settled();
+  assert.equal(walks(), before + 1);
+  trees.stop();
+  await trees.settled();
+});
+
+test('a refusal that arrives before the watch has resolved is the same refusal', async () => {
+  const shell = createMemoryShell(files());
+  const watch = shell.watch;
+  shell.watch = async (root, onEvents, opts) => {
+    if (opts?.recursive && root === '/n') opts.onRefused?.('too many files');
+    return watch(root, onEvents, opts);
+  };
+  const index = createIndexService(shell);
+  await index.ensureRoot('/n', { watch: true });
+  await index.settled();
+  const trees = startTreeWatches({ shell, index });
+  await trees.settled();
+  assert.equal(index.watchNotice(), 'Not watching n; rescanned when you open the palette.');
+  trees.stop();
+  await trees.settled();
+});
+
+test('a root under a refused tree is walked again on a summon no sooner than REVALIDATE_MIN_MS after its last such walk', async () => {
+  const shell = createMemoryShell(files());
+  const watch = shell.watch;
+  shell.watch = async (root, onEvents, opts) => {
+    if (opts?.recursive && root === '/n') throw new Error('/n: too many files');
+    return watch(root, onEvents, opts);
+  };
+  let clock = 1_000;
+  const index = createIndexService(shell, { now: () => clock });
+  await index.ensureRoot('/n', { watch: true });
+  await index.settled();
+  const trees = startTreeWatches({ shell, index });
+  await trees.settled();
+  const walks = () => shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded' && String(c.args[2]).includes('root=/n ')).length;
+  const summon = async () => {
+    const before = walks();
+    index.revalidate();
+    await index.settled();
+    return walks() - before;
+  };
+  assert.equal(await summon(), 1, 'the first summon walks');
+  clock += REVALIDATE_MIN_MS - 1;
+  assert.equal(await summon(), 0, 'a summon inside the interval does not');
+  clock += 1;
+  assert.equal(await summon(), 1, 'one at the interval does');
+  clock += 1;
+  assert.equal(await summon(), 0, 'and the interval starts again from that walk');
+  trees.stop();
+  await trees.settled();
 });
 
 test('a move out of a nested root named like a file, into a folder the outer root ignores, reads and lists nothing', async () => {

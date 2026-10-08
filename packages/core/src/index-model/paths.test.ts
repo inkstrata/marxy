@@ -37,6 +37,9 @@ test('pathUnder: strict and lexical containment, with no guess from a root name 
   assert.equal(pathUnder('/a/docs', '/a/docs/../private/y.md'), undefined, 'a `..` segment is never under a root');
   assert.equal(pathUnder('/a/docs', '/a/docs/./x.md'), undefined, 'nor is a `.` segment');
   assert.equal(pathUnder('/', '/b.md'), 'b.md');
+  assert.equal(pathUnder('/a/docs', '/a/docs//x.md'), undefined, 'an empty segment is never under a root');
+  assert.equal(pathUnder('/a/docs', '/a/docs/x//y.md'), undefined);
+  assert.equal(pathUnder('/', '//b.md'), undefined);
   assert.equal(pathUnder('C:\\x', 'C:\\x\\y\\z.md'), 'y/z.md');
   assert.equal(isUnderRoot('/a/docs/x.md', '/a/docs/'), true);
   assert.equal(isUnderRoot('/a/docsx', '/a/docs'), false);

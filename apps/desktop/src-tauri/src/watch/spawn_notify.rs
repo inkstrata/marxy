@@ -105,32 +105,50 @@ where
 /// said it dropped or coalesced events so only a rescan of the whole root is safe.
 type TreeSignal = (Vec<PathBuf>, bool);
 
+/// The signal for one `notify` event, or none when it is of no interest. An event the OS flags as
+/// lost or coalesced (`need_rescan`, `Other`) names the paths it covers (FSEvents' must-scan-subdirs
+/// names the directory), and only those are rescanned; the whole root is rescanned only when the
+/// event names no path at all.
+fn tree_signal(event: Event) -> Option<TreeSignal> {
+    let rescan = event.need_rescan() || matches!(event.kind, EventKind::Other);
+    if !rescan && matches!(event.kind, EventKind::Access(_)) {
+        return None;
+    }
+    let whole = rescan && event.paths.is_empty();
+    Some((event.paths, whole))
+}
+
 /// How long the tree loop keeps gathering after the first event before it examines the paths: a
 /// write-temp-then-rename reports two paths a moment apart and is one change.
 const TREE_GATHER: Duration = Duration::from_millis(50);
 
 /// Watches `root` as a tree with one recursive `notify` watcher until `stop`, and forwards non-empty
-/// batches to `emit`. Only the paths the OS reports are re-examined. The watcher is registered
+/// batches to `emit`. A tree that grows past `MAX_FILES` listed files after it opened ends the
+/// watch: `refuse` is called once with the reason and nothing more is emitted. Only the paths the OS reports are re-examined. The watcher is registered
 /// before the first scan and its signals queue meanwhile, so a change made while the tree is being
 /// scanned is replayed through `apply` afterwards (the diff makes a replay of something the scan
 /// already saw harmless). A tree the scan refuses, or a watch the OS refuses (inotify's limit on
 /// Linux), is an `Err`, so the app can fall back.
-pub fn spawn_tree_thread<F>(root: PathBuf, emit: F) -> Result<RunningWatch, String>
+pub fn spawn_tree_thread<F, R>(root: PathBuf, emit: F, refuse: R) -> Result<RunningWatch, String>
 where
     F: FnMut(Vec<WatchEvent>) + Send + 'static,
+    R: FnOnce(String) + Send + 'static,
 {
-    spawn_tree_thread_with(root, emit, || {})
+    spawn_tree_thread_with(root, emit, refuse, crate::watch_tree::MAX_FILES, || {})
 }
 
-/// `spawn_tree_thread` with a hook run on the watch thread right after the first scan, so a test can
+/// `spawn_tree_thread` with the file limit as an argument, and a hook run on the watch thread right after the first scan, so a test can
 /// change the tree between the watcher's registration and the end of the scan.
-fn spawn_tree_thread_with<F, H>(
+fn spawn_tree_thread_with<F, R, H>(
     root: PathBuf,
     mut emit: F,
+    refuse: R,
+    max_files: usize,
     after_scan: H,
 ) -> Result<RunningWatch, String>
 where
     F: FnMut(Vec<WatchEvent>) + Send + 'static,
+    R: FnOnce(String) + Send + 'static,
     H: FnOnce() + Send + 'static,
 {
     let watch_root =
@@ -147,15 +165,11 @@ where
             let mut watcher = RecommendedWatcher::new(
                 move |res: notify::Result<Event>| {
                     let signal = match res {
-                        Ok(event) => {
-                            let rescan =
-                                event.need_rescan() || matches!(event.kind, EventKind::Other);
-                            if !rescan && matches!(event.kind, EventKind::Access(_)) {
-                                return;
-                            }
-                            (event.paths, rescan)
-                        }
-                        // An error from the backend may mean events were lost.
+                        Ok(event) => match tree_signal(event) {
+                            Some(signal) => signal,
+                            None => return,
+                        },
+                        // An error from the backend may mean events were lost, and says where not.
                         Err(_) => (Vec::new(), true),
                     };
                     let _ = signal_tx.send(signal);
@@ -178,7 +192,7 @@ where
         if startup_tx.send(Ok(())).is_err() || stop_clone.load(Ordering::SeqCst) {
             return;
         }
-        let mut tree = match TreeWatch::open(&watch_root) {
+        let mut tree = match TreeWatch::open_limited(&watch_root, max_files) {
             Ok(tree) => tree,
             Err(e) => {
                 let _ = startup_tx.send(Err(e));
@@ -212,9 +226,16 @@ where
             if stop_clone.load(Ordering::SeqCst) {
                 break;
             }
-            let events = tree.apply(&paths, rescan);
-            if !events.is_empty() {
-                emit(events);
+            match tree.apply(&paths, rescan) {
+                Ok(events) if !events.is_empty() => emit(events),
+                Ok(_) => {}
+                Err(reason) => {
+                    // Past the limit: let go of the OS watch and the snapshot, and say so once.
+                    drop(watcher);
+                    drop(tree);
+                    refuse(reason);
+                    return;
+                }
             }
         }
         drop(watcher);
@@ -329,9 +350,13 @@ mod tests {
         let (dir, _open) = scratch("tree-thread");
         fs::create_dir_all(dir.join("a/b")).expect("nested dirs");
         let (tx, rx) = mpsc::channel();
-        let mut running = spawn_tree_thread(dir.clone(), move |events| {
-            let _ = tx.send(events);
-        })
+        let mut running = spawn_tree_thread(
+            dir.clone(),
+            move |events| {
+                let _ = tx.send(events);
+            },
+            |_| {},
+        )
         .expect("spawn");
         std::thread::sleep(Duration::from_millis(70));
         let nested = dir.join("a/b/new.md");
@@ -372,6 +397,8 @@ mod tests {
             move |events| {
                 let _ = tx.send(events);
             },
+            |_| {},
+            crate::watch_tree::MAX_FILES,
             move || {
                 // A slow scan: the change lands after the scan read the tree, and the scan goes on
                 // for a while after it, so only a watcher registered before the scan reports it.
@@ -404,10 +431,75 @@ mod tests {
     }
 
     #[test]
+    fn tree_thread_that_outgrows_its_limit_refuses_once_and_goes_quiet() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let (dir, _open) = scratch("tree-outgrows");
+        let (tx, rx) = mpsc::channel::<Vec<WatchEvent>>();
+        let (refused_tx, refused_rx) = mpsc::channel::<String>();
+        // `open.md` is the one file; a limit of three.
+        let mut running = spawn_tree_thread_with(
+            dir.clone(),
+            move |events| {
+                let _ = tx.send(events);
+            },
+            move |reason| {
+                let _ = refused_tx.send(reason);
+            },
+            3,
+            || {},
+        )
+        .expect("spawn");
+        std::thread::sleep(Duration::from_millis(70));
+        for name in ["a.md", "b.md", "c.md", "d.md"] {
+            fs::write(dir.join(name), b"x").expect("write");
+        }
+        let reason = refused_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("refused within 5 s");
+        assert_eq!(reason, crate::watch_tree::TOO_MANY);
+        fs::write(dir.join("e.md"), b"x").expect("write after refusal");
+        assert!(
+            refused_rx.recv_timeout(Duration::from_millis(300)).is_err(),
+            "refused once"
+        );
+        let seen: Vec<_> = rx.try_iter().flatten().collect();
+        assert!(
+            seen.iter().all(|e| e.path != dir.join("e.md")),
+            "nothing after the refusal: {seen:?}"
+        );
+        running.stop();
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn a_rescan_flag_with_paths_rescans_only_those_paths() {
+        use notify::event::{Flag, ModifyKind};
+        let sub = PathBuf::from("/r/sub");
+        let flagged = Event::new(EventKind::Modify(ModifyKind::Any))
+            .add_path(sub.clone())
+            .set_flag(Flag::Rescan);
+        assert_eq!(tree_signal(flagged), Some((vec![sub.clone()], false)));
+        let other = Event::new(EventKind::Other).add_path(sub.clone());
+        assert_eq!(tree_signal(other), Some((vec![sub], false)));
+    }
+
+    #[test]
+    fn a_rescan_flag_with_no_path_rescans_the_whole_root() {
+        use notify::event::Flag;
+        let flagged = Event::new(EventKind::Other).set_flag(Flag::Rescan);
+        assert_eq!(tree_signal(flagged), Some((Vec::new(), true)));
+        let access = Event::new(EventKind::Access(notify::event::AccessKind::Any))
+            .add_path(PathBuf::from("/r/x"));
+        assert_eq!(tree_signal(access), None);
+    }
+
+    #[test]
     fn tree_thread_refuses_a_root_that_is_not_a_directory() {
         let (dir, open) = scratch("tree-not-dir");
-        assert!(spawn_tree_thread(open, |_| {}).is_err());
-        assert!(spawn_tree_thread(dir.join("missing"), |_| {}).is_err());
+        assert!(spawn_tree_thread(open, |_| {}, |_| {}).is_err());
+        assert!(spawn_tree_thread(dir.join("missing"), |_| {}, |_| {}).is_err());
         cleanup(&dir);
     }
     /// The resident-set cost of a 50,000-file tree watch (C-05 Risks). A measurement, not a gate:
@@ -435,7 +527,7 @@ mod tests {
         }
         let before = rss_kib();
         let started = std::time::Instant::now();
-        let mut running = spawn_tree_thread(dir.clone(), |_| {}).expect("spawn");
+        let mut running = spawn_tree_thread(dir.clone(), |_| {}, |_| {}).expect("spawn");
         let scan = started.elapsed();
         std::thread::sleep(Duration::from_millis(200));
         let after = rss_kib();

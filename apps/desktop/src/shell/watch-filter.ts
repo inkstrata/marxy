@@ -24,3 +24,13 @@ export function eventsForWatch(payload: unknown, key: string): WatchEvent[] {
   }
   return out;
 }
+
+/**
+ * The reason an `fs-watch` payload gives for ending the watch under `key` (`{ key, events: [],
+ * refused }`), else undefined: another watch's payload, an ordinary batch, or anything malformed.
+ */
+export function refusalForWatch(payload: unknown, key: string): string | undefined {
+  if (typeof payload !== 'object' || payload === null) return undefined;
+  const { key: from, refused } = payload as { key?: unknown; refused?: unknown };
+  return from === key && typeof refused === 'string' ? refused : undefined;
+}

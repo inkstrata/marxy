@@ -13,7 +13,7 @@ import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { searchablePaths } from '@marxy/core/src/index-model/content-search.ts';
 import type { ContentSearchResult, Shell, ShellError, WatchEvent } from '@marxy/shell-api';
-import { eventsForWatch } from './watch-filter.ts';
+import { eventsForWatch, refusalForWatch } from './watch-filter.ts';
 
 /** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
 const assetScopes = new Set<string>();
@@ -197,7 +197,6 @@ export const shell: Pick<
    */
   watch: async (root, onEvents, opts) => {
     const recursive = opts?.recursive === true;
-    const key = await invoke<string>('watch_root', { root, recursive });
     let pending: WatchEvent[] = [];
     let timer: ReturnType<typeof setTimeout> | undefined;
     const flush = () => {
@@ -207,19 +206,43 @@ export const shell: Pick<
       pending = [];
       onEvents(batch);
     };
-    const stop = await listen<unknown>('fs-watch', (event) => {
-      const mine = eventsForWatch(event.payload, key);
+    const receive = (payload: unknown, key: string) => {
+      const refusal = refusalForWatch(payload, key);
+      if (refusal !== undefined) {
+        if (timer !== undefined) clearTimeout(timer);
+        flush();
+        opts?.onRefused?.(refusal);
+        return;
+      }
+      const mine = eventsForWatch(payload, key);
       if (mine.length === 0) return;
       pending.push(...mine);
       if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(flush, 25);
+    };
+    // Listen BEFORE asking for the watch: the shell emits to nobody who is not listening, and a tree
+    // watch can refuse (or report a change) a moment after `watch_root` returns, before this
+    // function would have registered. What arrives before the key is known is kept, then replayed.
+    let key: string | undefined;
+    const early: unknown[] = [];
+    const stop = await listen<unknown>('fs-watch', (event) => {
+      if (key === undefined) early.push(event.payload);
+      else receive(event.payload, key);
     });
+    try {
+      key = await invoke<string>('watch_root', { root, recursive });
+    } catch (err) {
+      stop();
+      throw err;
+    }
+    for (const payload of early) receive(payload, key);
     return {
       close() {
         if (timer !== undefined) clearTimeout(timer);
         flush();
         stop();
-        void invoke('unwatch_root', { root, recursive });
+        // A watch the shell already ended (it refused) has no entry left to release.
+        void invoke('unwatch_root', { root, recursive }).catch(() => {});
       },
     };
   },

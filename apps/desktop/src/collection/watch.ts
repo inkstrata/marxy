@@ -13,7 +13,7 @@ export interface TreeWatchShell {
   watch?(
     root: string,
     onEvents: (events: readonly WatchEvent[]) => void,
-    opts?: { readonly recursive?: boolean },
+    opts?: { readonly recursive?: boolean; readonly onRefused?: (reason: string) => void },
   ): Promise<{ close(): void }>;
 }
 
@@ -71,10 +71,29 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
           try {
             // The shell's key filter hands this callback only this tree's events; the index patches
             // each root by the paths under it, so an event from elsewhere would change nothing.
-            const handle = await shell.watch(tree, (events) => index.applyEvents(events), { recursive: true });
+            // A tree that outgrows the shell's limit after it opened is refused the same way: closed
+            // here, and walked again whenever the palette is summoned. The shell may say so before
+            // `watch` has resolved; that is handled once it has.
+            let refusal: string | undefined;
+            let handle: { close(): void } | undefined;
+            const refuse = (reason: string, h: { close(): void }) => {
+              console.warn(`marxy: not watching ${tree}: ${reason}`);
+              open.set(tree, null);
+              h.close();
+              index.setTreeWatch(tree, 'refused');
+            };
+            const onRefused = (reason: string) => {
+              if (handle && open.get(tree) === handle) refuse(reason, handle);
+              else refusal = reason;
+            };
+            handle = await shell.watch(tree, (events) => index.applyEvents(events), { recursive: true, onRefused });
             if (stopped || !distinctTrees(index.watchedRoots()).includes(tree)) {
               // Unwanted while it opened: the next sync would not see it, so close it here.
               handle.close();
+              continue;
+            }
+            if (refusal !== undefined) {
+              refuse(refusal, handle);
               continue;
             }
             open.set(tree, handle);

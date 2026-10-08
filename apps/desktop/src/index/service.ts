@@ -99,7 +99,10 @@ export interface IndexService {
   applyEvents(events: readonly FileEvent[]): void;
   /** The tree watch on `tree` is open (`live`), refused by the shell (`refused`), or closed (undefined). */
   setTreeWatch(tree: string, state: TreeWatchState | undefined): void;
-  /** The palette was summoned: walk again, at idle, every held root under a tree whose watch was refused. */
+  /**
+   * The palette was summoned: walk again, at idle, every held root under a tree whose watch was
+   * refused, unless that root was walked this way less than `REVALIDATE_MIN_MS` ago.
+   */
   revalidate(): void;
   /** The palette's notice line for refused watches, or undefined when every watch is open. */
   watchNotice(): string | undefined;
@@ -113,6 +116,12 @@ export interface IndexService {
   /** Resolves once every walk, patch and snapshot write queued so far is done (tests). */
   settled(): Promise<void>;
 }
+
+/**
+ * A root under a refused tree is walked again on a summon no sooner than this many ms after its last
+ * such walk, so a reader who opens the palette in a loop does not walk a large tree each time.
+ */
+export const REVALIDATE_MIN_MS = 30_000;
 
 /** A root's snapshot is written at most once in this many ms while watch events patch it. */
 export const PATCH_PERSIST_INTERVAL_MS = 2000;
@@ -313,6 +322,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   const watchedListeners = new Set<() => void>();
   /** Tree watches by tree root, as `collection/watch.ts` reports them. */
   const treeWatches = new Map<string, TreeWatchState>();
+  /** When each root was last walked by `revalidate`, on `now`'s clock. */
+  const revalidatedAt = new Map<string, number>();
   let watchedKey = '';
   const rootCache = new Map<string, Promise<string>>();
   /** `watch` as `collection.toml` declared it, per declared root; a recent root has none. */
@@ -666,6 +677,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     },
     dropRoot(root) {
       declaredWatch.delete(root);
+      revalidatedAt.delete(root);
       if (roots.delete(root)) {
         order = order.filter((r) => r !== root);
         publish();
@@ -712,7 +724,14 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     revalidate() {
       const refused = [...treeWatches].filter(([, state]) => state === 'refused').map(([tree]) => tree);
       if (refused.length === 0) return;
-      for (const root of order) if (refused.some((tree) => isUnder(root, tree))) rewalk(root);
+      const t = now();
+      for (const root of order) {
+        if (!refused.some((tree) => isUnder(root, tree))) continue;
+        const last = revalidatedAt.get(root);
+        if (last !== undefined && t - last < REVALIDATE_MIN_MS) continue;
+        revalidatedAt.set(root, t);
+        rewalk(root);
+      }
     },
     watchNotice,
     entries: () => published,

@@ -33,27 +33,80 @@ pub const DENY_DIRECTORY_NAMES: [&str; 12] = [
 ];
 
 /// Past this many files a tree is refused, so the app can fall back rather than hold a snapshot of
-/// a whole disk.
+/// a whole disk. Only files the index walk would list count (`is_listed`), at open and afterwards.
 pub const MAX_FILES: usize = 200_000;
+
+/// What `open` and `apply` answer when the tree holds more than `MAX_FILES` listed files.
+pub const TOO_MANY: &str = "too many files";
+
+/// The extensions of `MARKDOWN`, `TEXT` and `SOURCE` in `packages/core/src/index-model/kinds.ts`; a
+/// test reads that file and fails when an extension there is missing here.
+const LISTED_EXTENSIONS: &[&str] = &[
+    "md", "mdx", "markdown", "mdown", "mkd", "txt", "text", "ts", "tsx", "js", "jsx", "mjs", "cjs",
+    "mts", "cts", "rs", "py", "go", "java", "kt", "kts", "c", "h", "cc", "cpp", "cxx", "hpp", "hh",
+    "rb", "php", "swift", "sh", "bash", "zsh", "json", "toml", "yaml", "yml", "html", "htm", "xml",
+    "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss",
+];
+
+/// File names `classify` accepts whatever their extension, and the two ignore files whose change
+/// makes the index walk a root again (`apply-events.ts`).
+const LISTED_NAMES: &[&str] = &[
+    "theme.css",
+    "theme.toml",
+    "Dockerfile",
+    "Makefile",
+    ".gitignore",
+    ".ignore",
+];
+
+/// Whether the index walk could list a file of this name (`classify` in `kinds.ts`, or an ignore
+/// file). The snapshot holds only these: a tree of images and binaries costs nothing against
+/// `MAX_FILES`, and its files make no events. The walk's ignore rules are not applied here, so this
+/// is an upper bound on what the walk lists.
+pub fn is_listed(name: &std::ffi::OsStr) -> bool {
+    let name = name.to_string_lossy();
+    if LISTED_NAMES.contains(&name.as_ref()) {
+        return true;
+    }
+    // `extensionOf`: the text after the last dot, none when the dot leads the name.
+    match name.rfind('.') {
+        Some(i) if i > 0 => {
+            let ext = name[i + 1..].to_lowercase();
+            !ext.is_empty() && LISTED_EXTENSIONS.contains(&ext.as_str())
+        }
+        _ => false,
+    }
+}
 
 /// A watched tree: its canonical root and the identity of every regular file under it.
 pub struct TreeWatch {
     root: PathBuf,
     snapshot: Snapshot,
+    /// `MAX_FILES`, smaller in a test that must cross it.
+    max: usize,
 }
 
 impl TreeWatch {
     /// Scan `root` once. The scan is the baseline, so opening is silent. Fails when the root is not
-    /// a readable directory or holds more than `MAX_FILES` files.
+    /// a readable directory or holds more than `MAX_FILES` listed files.
+    #[cfg(test)]
     pub fn open(root: &Path) -> Result<Self, String> {
+        Self::open_limited(root, MAX_FILES)
+    }
+
+    pub(crate) fn open_limited(root: &Path, max: usize) -> Result<Self, String> {
         let root = fs::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
         let meta = lstat(&root).map_err(|e| format!("{}: {e}", root.display()))?;
         if !meta.is_dir() {
             return Err(format!("{}: not a directory", root.display()));
         }
         let mut snapshot = BTreeMap::new();
-        scan_tree(&root, &mut snapshot, Some(MAX_FILES))?;
-        Ok(Self { root, snapshot })
+        scan_tree(&root, &mut snapshot, Some(max))?;
+        Ok(Self {
+            root,
+            snapshot,
+            max,
+        })
     }
 
     /// How many files the snapshot holds.
@@ -66,14 +119,17 @@ impl TreeWatch {
     /// re-stat'ed, a directory has its subtree rescanned, a path that is gone (or is no longer a
     /// real directory on the way down) removes itself and every key under it. `rescan_all` rescans
     /// the whole root, for a batch the OS says it dropped or coalesced.
-    pub fn apply(&mut self, changed: &[PathBuf], rescan_all: bool) -> Vec<WatchEvent> {
+    pub fn apply(
+        &mut self,
+        changed: &[PathBuf],
+        rescan_all: bool,
+    ) -> Result<Vec<WatchEvent>, String> {
         let regions: Vec<PathBuf> = if rescan_all {
             vec![self.root.clone()]
         } else {
             self.regions_for(changed)
         };
         let mut prev = Snapshot::new();
-        let mut next = Snapshot::new();
         for region in &regions {
             prev.extend(
                 self.snapshot
@@ -81,14 +137,22 @@ impl TreeWatch {
                     .take_while(|(path, _)| path.starts_with(region))
                     .map(|(path, id)| (path.clone(), *id)),
             );
-            examine(region, &mut next);
+        }
+        // The limit holds after the patch as it did at open: what the snapshot keeps outside the
+        // regions, plus what they hold now, may not pass `MAX_FILES`. A rebuild stops reading as
+        // soon as it would.
+        let kept = self.snapshot.len() - prev.len();
+        let room = self.max.saturating_sub(kept);
+        let mut next = Snapshot::new();
+        for region in &regions {
+            examine(region, &mut next, room)?;
         }
         let events = diff(&prev, &next);
         for path in prev.keys() {
             self.snapshot.remove(path);
         }
         self.snapshot.extend(next);
-        events
+        Ok(events)
     }
 
     /// The subtrees to rebuild for `changed`: each reported path under the root and outside a denied
@@ -143,21 +207,31 @@ fn outermost(paths: BTreeSet<PathBuf>) -> Vec<PathBuf> {
     out
 }
 
-/// What `region` holds now: itself when it is a regular file, its subtree when it is a real
-/// directory, nothing when it is gone, a symlink or anything else.
-fn examine(region: &Path, out: &mut Snapshot) {
+/// What `region` holds now: itself when it is a listed regular file, its subtree when it is a real
+/// directory, nothing when it is gone, a symlink or anything else. Past `room` listed files in
+/// `out` it is `TOO_MANY`.
+fn examine(region: &Path, out: &mut Snapshot, room: usize) -> Result<(), String> {
     let Ok(meta) = lstat(region) else {
-        return;
+        return Ok(());
     };
     if meta.is_file() {
-        out.insert(region.to_path_buf(), file_id(&meta));
+        if region.file_name().is_some_and(is_listed) {
+            out.insert(region.to_path_buf(), file_id(&meta));
+            if out.len() > room {
+                return Err(TOO_MANY.into());
+            }
+        }
     } else if meta.is_dir() {
-        // A rebuild is never refused: only `open` holds the tree to the limit.
-        let _ = scan_tree(region, out, None);
+        match scan_tree(region, out, Some(room)) {
+            Err(e) if e == TOO_MANY => return Err(e),
+            // A directory that vanished or cannot be read now has nothing to list.
+            _ => {}
+        }
     }
+    Ok(())
 }
 
-/// Every regular file under `dir`, never following a symlink and skipping denied names. An
+/// Every listed regular file under `dir`, never following a symlink and skipping denied names. An
 /// unreadable subdirectory is skipped; an unreadable `dir` is an error.
 fn scan_tree(dir: &Path, out: &mut Snapshot, limit: Option<usize>) -> Result<(), String> {
     let mut stack = vec![dir.to_path_buf()];
@@ -179,10 +253,10 @@ fn scan_tree(dir: &Path, out: &mut Snapshot, limit: Option<usize>) -> Result<(),
             };
             if meta.is_dir() {
                 stack.push(path);
-            } else if meta.is_file() {
+            } else if meta.is_file() && is_listed(&entry.file_name()) {
                 out.insert(path, file_id(&meta));
                 if limit.is_some_and(|max| out.len() > max) {
-                    return Err("too many files".into());
+                    return Err(TOO_MANY.into());
                 }
             }
         }
@@ -259,7 +333,9 @@ mod tests {
         let mut tree = TreeWatch::open(&dir).expect("open");
         let new = dir.join("a/b/new.md");
         write(&new, b"# new\n");
-        let events = tree.apply(std::slice::from_ref(&new), false);
+        let events = tree
+            .apply(std::slice::from_ref(&new), false)
+            .expect("apply");
         assert_eq!(
             events,
             vec![WatchEvent {
@@ -269,7 +345,10 @@ mod tests {
             }]
         );
         // FSEvents may name the directory instead; the subtree rebuild finds nothing new again.
-        assert!(tree.apply(&[dir.join("a")], false).is_empty());
+        assert!(tree
+            .apply(&[dir.join("a")], false)
+            .expect("apply")
+            .is_empty());
         cleanup(&dir);
     }
 
@@ -279,7 +358,7 @@ mod tests {
         let mut tree = TreeWatch::open(&dir).expect("open");
         let new = dir.join("a/b/new.md");
         write(&new, b"# new\n");
-        let events = tree.apply(&[dir.join("a")], false);
+        let events = tree.apply(&[dir.join("a")], false).expect("apply");
         assert_eq!(
             events,
             vec![WatchEvent {
@@ -300,7 +379,9 @@ mod tests {
         let tmp = dir.join("a/b/.doc.md.tmp");
         fs::write(&tmp, b"# doc\n\nreplaced atomically\n").expect("tmp");
         fs::rename(&tmp, &doc).expect("rename");
-        let events = tree.apply(&[tmp.clone(), doc.clone()], false);
+        let events = tree
+            .apply(&[tmp.clone(), doc.clone()], false)
+            .expect("apply");
         assert_eq!(
             events,
             vec![WatchEvent {
@@ -321,7 +402,9 @@ mod tests {
         let mut tree = TreeWatch::open(&dir).expect("open");
         let to = dir.join("b/c/x.md");
         fs::rename(&from, &to).expect("move");
-        let events = tree.apply(&[from.clone(), to.clone()], false);
+        let events = tree
+            .apply(&[from.clone(), to.clone()], false)
+            .expect("apply");
         assert_eq!(
             events,
             vec![WatchEvent {
@@ -355,7 +438,7 @@ mod tests {
             dir.join("a/b/c"),
             gone[2].clone(),
         ];
-        let events = tree.apply(&reported, false);
+        let events = tree.apply(&reported, false).expect("apply");
         let mut removed: Vec<_> = events
             .iter()
             .inspect(|e| assert_eq!(e.kind, WatchKind::Removed, "{events:?}"))
@@ -365,8 +448,14 @@ mod tests {
         let mut want = gone.to_vec();
         want.sort();
         assert_eq!(removed, want);
-        assert!(tree.apply(&reported, false).is_empty(), "once");
-        assert!(tree.apply(&[], true).is_empty(), "a full rescan agrees");
+        assert!(
+            tree.apply(&reported, false).expect("apply").is_empty(),
+            "once"
+        );
+        assert!(
+            tree.apply(&[], true).expect("apply").is_empty(),
+            "a full rescan agrees"
+        );
         assert_eq!(tree.len(), 1);
         cleanup(&dir);
     }
@@ -388,8 +477,11 @@ mod tests {
         let mut reported = hidden.to_vec();
         reported.push(dir.join("node_modules"));
         reported.push(dir.join("a"));
-        assert!(tree.apply(&reported, false).is_empty());
-        assert!(tree.apply(&[], true).is_empty(), "nor on a full rescan");
+        assert!(tree.apply(&reported, false).expect("apply").is_empty());
+        assert!(
+            tree.apply(&[], true).expect("apply").is_empty(),
+            "nor on a full rescan"
+        );
         assert!(
             TreeWatch::open(&dir).expect("reopen").len() == 1,
             "nor in the baseline"
@@ -410,8 +502,8 @@ mod tests {
         assert_eq!(tree.len(), 1, "the baseline holds only keep.md");
         write(&outside.join("deep/new.md"), b"new");
         let reported = [link.clone(), link.join("deep/new.md"), link.join("deep")];
-        assert!(tree.apply(&reported, false).is_empty());
-        assert!(tree.apply(&[], true).is_empty());
+        assert!(tree.apply(&reported, false).expect("apply").is_empty());
+        assert!(tree.apply(&[], true).expect("apply").is_empty());
         cleanup(&dir);
         cleanup(&outside);
     }
@@ -422,7 +514,10 @@ mod tests {
         let mut tree = TreeWatch::open(&dir).expect("open");
         let other = scratch("outside-other");
         write(&other.join("x.md"), b"x");
-        assert!(tree.apply(&[other.join("x.md")], false).is_empty());
+        assert!(tree
+            .apply(&[other.join("x.md")], false)
+            .expect("apply")
+            .is_empty());
         cleanup(&dir);
         cleanup(&other);
     }
@@ -442,6 +537,120 @@ mod tests {
     }
 
     #[test]
+    fn files_the_walk_would_not_list_do_not_count_against_the_limit() {
+        let dir = scratch("unlisted");
+        for i in 0..10 {
+            write(&dir.join(format!("img/{i}.png")), b"x");
+            write(&dir.join(format!("bin/{i}.dat")), b"x");
+        }
+        write(&dir.join("a.md"), b"a");
+        write(&dir.join("sub/b.TS"), b"b");
+        write(&dir.join(".gitignore"), b"x");
+        let mut out = Snapshot::new();
+        scan_tree(&dir, &mut out, Some(3)).expect("three listed files fit a limit of three");
+        assert_eq!(out.len(), 3, "{out:?}");
+        let tree = TreeWatch::open_limited(&dir, 3).expect("open");
+        assert_eq!(tree.len(), 3);
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn is_listed_follows_the_walks_classification() {
+        use std::ffi::OsStr;
+        for yes in [
+            "a.md",
+            "A.MD",
+            "x.test.ts",
+            "notes.txt",
+            "Dockerfile",
+            "Makefile",
+            "theme.css",
+            "theme.toml",
+            ".gitignore",
+            ".ignore",
+            "a.b.rs",
+        ] {
+            assert!(is_listed(OsStr::new(yes)), "{yes}");
+        }
+        for no in [
+            "a.png",
+            "a",
+            ".md",
+            ".ts",
+            "a.",
+            "readme",
+            "archive.zip",
+            "dockerfile",
+            "x.mdx.bak",
+        ] {
+            assert!(!is_listed(OsStr::new(no)), "{no}");
+        }
+    }
+
+    #[test]
+    fn an_extension_in_kinds_ts_is_listed_here() {
+        let kinds_ts = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../packages/core/src/index-model/kinds.ts");
+        let source = fs::read_to_string(&kinds_ts).expect("read kinds.ts");
+        let start = source.find("const MARKDOWN").expect("MARKDOWN in kinds.ts");
+        let end = source.find("/** Lowercase extension").expect("extensionOf");
+        let mut names = Vec::new();
+        for part in source[start..end].split('\'').skip(1).step_by(2) {
+            names.push(part.to_string());
+        }
+        assert!(names.len() >= 50, "parsed {names:?}");
+        for name in names {
+            assert!(
+                is_listed(std::ffi::OsStr::new(&format!("f.{name}"))),
+                "{name} is in kinds.ts but not in tree.rs"
+            );
+        }
+        // The special names `classify` accepts whatever their extension.
+        let classify = &source[end..];
+        for name in ["theme.css", "theme.toml", "Dockerfile", "Makefile"] {
+            assert!(
+                classify.contains(&format!("'{name}'")),
+                "{name} is no longer special in kinds.ts"
+            );
+            assert!(is_listed(std::ffi::OsStr::new(name)), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_tree_that_outgrows_the_limit_after_open_is_refused_and_keeps_its_snapshot() {
+        let dir = scratch("grows");
+        write(&dir.join("a.md"), b"a");
+        write(&dir.join("b.md"), b"b");
+        let mut tree = TreeWatch::open_limited(&dir, 3).expect("two files fit a limit of three");
+        // A new file brings it to three: still within the limit.
+        let c = dir.join("sub/c.md");
+        write(&c, b"c");
+        assert_eq!(
+            tree.apply(std::slice::from_ref(&c), false)
+                .expect("fits")
+                .len(),
+            1
+        );
+        // A directory of three more takes it past the limit; reported as the directory (a subtree
+        // rebuild)...
+        for name in ["x.md", "y.md", "z.md"] {
+            write(&dir.join("big").join(name), b"x");
+        }
+        assert_eq!(
+            tree.apply(&[dir.join("big")], false),
+            Err(TOO_MANY.to_string())
+        );
+        assert_eq!(tree.len(), 3, "a refused patch changes nothing");
+        // ...as one of its files...
+        let one = dir.join("big/x.md");
+        let two = dir.join("big/y.md");
+        assert_eq!(tree.apply(&[one, two], false), Err(TOO_MANY.to_string()));
+        // ...or by a full rescan.
+        assert_eq!(tree.apply(&[], true), Err(TOO_MANY.to_string()));
+        cleanup(&dir);
+    }
+
+    #[test]
     fn one_changed_file_in_ten_thousand_costs_fewer_than_ten_stat_calls() {
         let dir = scratch("no-rescan");
         for d in 0..100 {
@@ -456,7 +665,9 @@ mod tests {
         let changed = dir.join("d042/f017.md");
         fs::write(&changed, b"changed, and longer").expect("edit");
         let before = stat_count::get();
-        let events = tree.apply(std::slice::from_ref(&changed), false);
+        let events = tree
+            .apply(std::slice::from_ref(&changed), false)
+            .expect("apply");
         let calls = stat_count::get() - before;
         assert_eq!(
             events,
