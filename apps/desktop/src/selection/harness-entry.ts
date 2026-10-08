@@ -1,7 +1,8 @@
-// Patches `marxyApp.start` in the Playwright harness so selection installs without touching app.ts (MARXY-41).
+// The selection harness bundle (MARXY-41). `startApp` now makes the selection controller and installs the
+// command keys itself (B-12), so this bundle adds nothing of its own: it marks the page patched and,
+// after a start, checks that the app's controller is the one there is. Installing keys or selection
+// from this bundle's own copy of the modules would put a second dispatcher on the page.
 
-import { setAppHandle } from '../commands/app-handle.ts';
-import { installCommandKeys } from './bind.ts';
 import { installRenderedSelection } from './view.ts';
 
 declare global {
@@ -16,10 +17,7 @@ if (typeof window !== 'undefined' && !window.__marxySelectionHarnessPatched && w
   window.marxyApp.start = async (files: Record<string, string>, argv: string[]) => {
     const handle = await original(files, argv);
     await handle.ready;
-    // This bundle has its own copy of the registry's module state: the history commands read the handle from it.
-    setAppHandle(handle);
-    await installRenderedSelection(handle);
-    installCommandKeys();
+    installRenderedSelection(handle);
     return handle;
   };
 }

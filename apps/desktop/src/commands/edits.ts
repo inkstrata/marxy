@@ -7,7 +7,6 @@ import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts
 import type { AppContext } from './registry.ts';
 import { appHandle } from './app-handle.ts';
 import type { DocumentStore } from '../document/store.ts';
-import { getSelectionBufferContext } from '../selection/view.ts';
 
 /** The open document's store, through the running app; null before the first document. */
 function openStore(): DocumentStore | null {
@@ -43,8 +42,9 @@ export function documentEditState(): { readonly dirty: boolean; readonly savedVe
 }
 
 export async function harnessAlignFirstTable(): Promise<string | undefined> {
-  const ctx = getSelectionBufferContext();
-  if (!ctx) return undefined;
+  const store = openStore();
+  const snap = store?.snapshot();
+  if (!snap) return undefined;
   const findTable = (node: import('@marxy/core').Node): import('@marxy/core').Node | null => {
     if (node.type === 'table') return node;
     for (const child of node.children ?? []) {
@@ -53,17 +53,22 @@ export async function harnessAlignFirstTable(): Promise<string | undefined> {
     }
     return null;
   };
-  const table = findTable(ctx.document);
+  const table = findTable(snap.ast);
   if (!table || table.type !== 'table') return undefined;
   const range = table.src;
   const result = alignTablePipes.run({
-    document: ctx.document,
+    document: snap.ast,
     node: table,
     range,
-    text: textOf(ctx.buffer, range),
+    text: textOf(snap.buffer, range),
   });
-  if (result.replacement === textOf(ctx.buffer, range)) return result.summary;
-  await applyDocumentMutation(openStore(), { range, replacement: result.replacement, label: alignTablePipes.title });
+  if (result.replacement === textOf(snap.buffer, range)) return result.summary;
+  await applyDocumentMutation(store, {
+    range,
+    replacement: result.replacement,
+    label: alignTablePipes.title,
+    baseVersion: snap.version,
+  });
   const { notify } = await import('../notices/index.ts');
   if (result.summary) notify({ kind: 'info', text: result.summary, transient: true });
   return result.summary;
@@ -77,24 +82,38 @@ async function reportFailedChange(what: string, e: unknown): Promise<void> {
 /**
  * An operation's splice, as the store's `apply` transition. Resolves false when the change was refused
  * (no document, a range the buffer no longer has, a store closed by another open): the store is
- * untouched and the reader is told so, so a caller shows no success.
+ * untouched and the reader is told so, so a caller shows no success. `baseVersion` is the store version
+ * the range was resolved at: the store refuses it, untouched, once another change to the bytes has
+ * landed since (ADR-0037 Amendment 1, the B-11 review). A save or a rename in between does not.
  */
 export async function applyDocumentMutation(
   store: DocumentStore | null,
-  input: { readonly range: Edit['range']; readonly replacement: string; readonly label: string },
+  input: {
+    readonly range: Edit['range'];
+    readonly replacement: string;
+    readonly label: string;
+    readonly baseVersion: number | undefined;
+  },
 ): Promise<boolean> {
   try {
     if (!store) throw new Error('no open document');
-    return await store.apply({ range: input.range, replacement: input.replacement, label: input.label });
+    return await store.apply({
+      range: input.range,
+      replacement: input.replacement,
+      label: input.label,
+      baseVersion: input.baseVersion,
+    });
   } catch (e) {
     await reportFailedChange('apply that change', e);
     return false;
   }
 }
 
+/** A context with edits through its store, at the version it has now, for one built without them. */
 export function attachDocumentEdits(ctx: AppContext): AppContext {
   if (ctx.applyBufferMutation) return ctx;
-  return { ...ctx, applyBufferMutation: (input) => applyDocumentMutation(ctx.document ?? null, input) };
+  const baseVersion = ctx.document?.snapshot().version;
+  return { ...ctx, applyBufferMutation: (input) => applyDocumentMutation(ctx.document, { ...input, baseVersion }) };
 }
 
 export function historyCanUndo(store: DocumentStore | null = openStore()): boolean {

@@ -2,14 +2,17 @@
 // store, whose subscribers re-render the page (ADR-0037).
 import { textOf } from '@marxy/core';
 import { toggleTask } from '@marxy/core/src/operations/toggle-task.ts';
-import { nodeFor, type NodeMap } from './post.ts';
+import { nodeFor } from './post.ts';
+import type { AppContext } from '../commands/registry.ts';
 import { apply } from '../selection/apply.ts';
-import { buildAppContext } from '../selection/bind.ts';
-import { getSelectionBufferContext } from '../selection/view.ts';
 
 const WIRED = new WeakSet<HTMLElement>();
 
-export function installTaskMarkers(article: HTMLElement, _nodeMap?: NodeMap): void {
+/**
+ * The task click, on `article`, once. `context` is read at click time: the open document is its store's
+ * snapshot then, and the toggle carries that snapshot's version (ADR-0037 Amendment 1).
+ */
+export function installTaskMarkers(article: HTMLElement, context: () => AppContext): void {
   if (WIRED.has(article)) return;
   WIRED.add(article);
   if (typeof window !== 'undefined') {
@@ -22,25 +25,28 @@ export function installTaskMarkers(article: HTMLElement, _nodeMap?: NodeMap): vo
       if (!box) return;
       const carrier = box.closest('[data-marxy-s]');
       if (!carrier) return;
-      const ctx = getSelectionBufferContext();
-      if (!ctx) return;
-      const resolved = nodeFor(ctx.nodeMap, carrier);
+      const base = context();
+      const snap = base.document?.snapshot();
+      if (!snap) return;
+      const resolved = nodeFor(snap.nodeMap, carrier);
       if (!resolved || resolved.type !== 'taskMarker') return;
       ev.preventDefault();
       ev.stopPropagation();
       const marker = resolved;
       const range = marker.src;
       const input = {
-        document: ctx.document,
+        document: snap.ast,
         node: marker,
         range,
-        text: textOf(ctx.buffer, range),
+        text: textOf(snap.buffer, range),
       };
       if (!toggleTask.canApply(input)) return;
-      const base = buildAppContext();
-      if (!base) return;
-      void import('../commands/edits.ts').then(({ attachDocumentEdits }) => {
-        void apply(toggleTask, attachDocumentEdits(base), input);
+      void import('../commands/edits.ts').then(({ applyDocumentMutation }) => {
+        const ctx: AppContext = {
+          ...base,
+          applyBufferMutation: (edit) => applyDocumentMutation(base.document, { ...edit, baseVersion: snap.version }),
+        };
+        void apply(toggleTask, ctx, input);
       });
     },
     true,

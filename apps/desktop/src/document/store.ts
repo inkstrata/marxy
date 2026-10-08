@@ -55,9 +55,10 @@ export interface DocumentStore {
   subscribe(cb: (snap: DocumentSnapshot, change: Transition) => void): () => void;
   /**
    * An operation's splice; one history entry. Never writes. Resolves false, with the store untouched,
-   * when the replacement equals the bytes it replaces (a no-op) or when `baseVersion` is given and is
-   * not the store's version when this edit's turn comes: the range was resolved against a snapshot
-   * another view's edit has since replaced (ADR-0037 Amendment 1, point 3). Omit `baseVersion` to
+   * when the replacement equals the bytes it replaces (a no-op) or when `baseVersion` is given and the
+   * bytes have changed since that version by the time this edit's turn comes: the range was resolved
+   * against a snapshot another view's edit has since replaced (ADR-0037 Amendment 1, point 3). A
+   * transition that leaves the bytes alone (a save, a rename) does not make a range stale. Omit `baseVersion` to
    * apply against whatever the buffer is at that turn. A range outside the buffer or cutting a UTF-8
    * code point rejects with `splice`'s RangeError, also with the store untouched.
    */
@@ -113,6 +114,8 @@ interface State {
   readonly buffer: Buffer;
   readonly ast: Document;
   readonly nodeMap: NodeMap;
+  /** The version of the last transition that changed the bytes: a range read at or after it still holds. */
+  readonly bytesVersion: number;
   /** Oldest first. Plain arrays rather than `History`: it moves its stacks before the splice succeeds. */
   readonly past: readonly Edit[];
   readonly future: readonly Edit[];
@@ -168,14 +171,16 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     past: [],
     future: [],
     version: 0,
+    bytesVersion: 0,
   };
   let snap = freezeSnapshot(state);
   let closed = false;
   let queue: Promise<unknown> = Promise.resolve();
   const subscribers = new Set<(snap: DocumentSnapshot, change: Transition) => void>();
 
-  const commit = (next: Omit<State, 'version'>, change: Transition): void => {
-    state = { ...next, version: state.version + 1 };
+  const commit = (next: Omit<State, 'version' | 'bytesVersion'>, change: Transition): void => {
+    const version = state.version + 1;
+    state = { ...next, version, bytesVersion: next.buffer.bytes === state.buffer.bytes ? state.bytesVersion : version };
     snap = freezeSnapshot(state);
     for (const cb of [...subscribers]) {
       try {
@@ -192,8 +197,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     return run;
   };
 
-  /** True when the caller's snapshot version is not the store's: its ranges are stale. */
-  const stale = (baseVersion: number | undefined): boolean => baseVersion !== undefined && baseVersion !== state.version;
+  /** True when the bytes changed after the caller's snapshot version: its ranges are stale. */
+  const stale = (baseVersion: number | undefined): boolean => baseVersion !== undefined && baseVersion < state.bytesVersion;
 
   /** A mutator's body, on the queue, refused once the store is closed. */
   const transition = <T>(fn: () => T | Promise<T>): Promise<T> =>

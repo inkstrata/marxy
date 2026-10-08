@@ -1,15 +1,14 @@
-// Structured selection moves as registry commands (MARXY-42 migrates keys from view.ts).
-import type { Command } from './registry.ts';
-import {
-  clearStructuredSelection,
-  moveSelectionDown,
-  moveSelectionParent,
-  moveSelectionUp,
-  structuredSelectionActive,
-} from '../selection/view.ts';
+// Structured selection moves as registry commands (MARXY-42 migrates keys from view.ts). They act on the
+// app's selection controller (`AppHandle.selection`, B-12) and decide from the context they are given.
+import type { AppContext, Command } from './registry.ts';
+import { appHandle } from './app-handle.ts';
+
+function structured(ctx: AppContext): boolean {
+  const kind = ctx.selection.kind;
+  return kind === 'node' || kind === 'section' || kind === 'document';
+}
 
 export function selectionNavigationCommands(): readonly Command[] {
-  const whenStructured = () => structuredSelectionActive();
   return [
     {
       id: 'selection.clear',
@@ -18,7 +17,7 @@ export function selectionNavigationCommands(): readonly Command[] {
       group: 'selection',
       when: (ctx) => ctx.selection.kind !== 'none',
       run: async () => {
-        clearStructuredSelection();
+        appHandle()?.selection.clear();
       },
     },
     {
@@ -26,9 +25,9 @@ export function selectionNavigationCommands(): readonly Command[] {
       title: 'Select next block',
       key: 'Alt+ArrowDown',
       group: 'selection',
-      when: whenStructured,
+      when: structured,
       run: async () => {
-        moveSelectionDown();
+        appHandle()?.selection.moveDown();
       },
     },
     {
@@ -36,9 +35,9 @@ export function selectionNavigationCommands(): readonly Command[] {
       title: 'Select previous block',
       key: 'Alt+ArrowUp',
       group: 'selection',
-      when: whenStructured,
+      when: structured,
       run: async () => {
-        moveSelectionUp();
+        appHandle()?.selection.moveUp();
       },
     },
     {
@@ -46,9 +45,9 @@ export function selectionNavigationCommands(): readonly Command[] {
       title: 'Select parent block',
       key: 'Alt+Shift+ArrowUp',
       group: 'selection',
-      when: whenStructured,
+      when: structured,
       run: async () => {
-        moveSelectionParent();
+        appHandle()?.selection.moveParent();
       },
     },
   ];
