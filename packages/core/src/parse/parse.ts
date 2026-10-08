@@ -11,7 +11,7 @@ import { mathFromMarkdown } from 'mdast-util-math';
 import { math } from './math-syntax.ts';
 import type { Document } from '../contracts/ast.ts';
 import { byteOffsets, decodeWithOffsets, type ByteOffsets } from './byte-offsets.ts';
-import { documentFromMdast } from './from-mdast.ts';
+import { documentFromMdast, holdsDefinitions } from './from-mdast.ts';
 
 export interface ParseOptions {
   /** Absolute path, or a stable identifier for an untitled buffer. Defaults to `untitled`. */
@@ -33,6 +33,29 @@ export function parseMarkdown(source: string | Uint8Array, options: ParseOptions
   return documentFromMdast(tree, { file, text: body, offsets });
 }
 
+/**
+ * The top-level blocks of `bytes[start, end)` parsed on their own, with offsets into the whole of
+ * `bytes`, and whether that parse held a link reference or footnote definition. For the reparse
+ * (reparse.ts), which proves the result equals the whole file's parse there before using it. A region
+ * after the first byte never holds frontmatter, which only the top of a file can. `null` when the
+ * region opens with U+FEFF, which micromark would drop and so shift every offset.
+ */
+export function parseBlocksIn(
+  bytes: Uint8Array,
+  start: number,
+  end: number,
+  options: ParseOptions = {},
+): { readonly blocks: Document['children']; readonly definitions: boolean } | null {
+  const file = options.file ?? 'untitled';
+  const view = end === bytes.length ? bytes : bytes.subarray(0, end);
+  const { body: text, offsets } = start === 0 ? fromBytes(view) : fromRegion(view, start);
+  if (start > 0 && text.charCodeAt(0) === 0xfeff) return null;
+  const { extensions, mdastExtensions } = syntax(start === 0 ? options : { ...options, frontmatter: false });
+  const tree = fromMarkdown(text, { extensions, mdastExtensions });
+  const document = documentFromMdast(tree, { file, text, offsets });
+  return { blocks: document.children, definitions: holdsDefinitions(document) === true };
+}
+
 // A byte-order mark is bytes of the file but not markdown: leaving it in would make the first line
 // start with U+FEFF and stop being a heading. It is skipped for parsing and paid for in `base`.
 function fromString(text: string): { body: string; offsets: ByteOffsets } {
@@ -49,6 +72,11 @@ function fromBytes(bytes: Uint8Array): { body: string; offsets: ByteOffsets } {
   let skipped = 0;
   while (bytes[skipped] === 0xef && bytes[skipped + 1] === 0xbb && bytes[skipped + 2] === 0xbf) skipped += 3;
   const { text, offsets } = decodeWithOffsets(bytes, skipped);
+  return { body: text, offsets };
+}
+
+function fromRegion(bytes: Uint8Array, start: number): { body: string; offsets: ByteOffsets } {
+  const { text, offsets } = decodeWithOffsets(bytes, start);
   return { body: text, offsets };
 }
 

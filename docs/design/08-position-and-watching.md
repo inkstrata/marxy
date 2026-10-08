@@ -62,7 +62,7 @@ on marxy:watch batch:
      if dirty: notice "The file changed on disk" [Reload, discarding your changes] [Keep mine]; stop
      pos = current(); pos.byteOffset = offsetThroughEdit(pos.byteOffset, buffer.bytes, bytes)
      history.clear(); buffer = createBuffer(path, bytes)
-     reparse → re-render → typeset viewport (cache) → restore(pos)        // budget 100 ms at 200 KB
+     reparse the changed blocks → re-render → typeset viewport (cache) → restore(pos)   // budget 100 ms at 200 KB
   if event.kind == 'removed' && event.path == buffer.path:
      notice "The file was deleted" [Keep showing it] [Close]; the buffer stays; saving recreates the file
   else: index update only (§07)
@@ -74,7 +74,34 @@ changed run between the old and new bytes' common prefix and suffix; an offset b
 one after it moves by the change in length, one inside it lands at the run's start
 (`reloadOpenDocument(bytes, previous, previousBytes)`, MARXY-198).
 
-The `mark('live_reload', …)` pair around this path feeds the perf gate's `live_reload_ms`.
+The reparse is incremental (B-23, `core/parse/reparse.ts`): `reparseMarkdown(previous, before,
+after)` parses only the top-level blocks the change touches and keeps the rest of the previous parse
+by byte range, moving the blocks after the change by its length. Both ends of the region are fresh
+lines: a line that starts a top-level block at column 0, after a blank line, and not after indented
+code, so nothing before it is still open (a list item, which micromark keeps open across blank
+lines, takes only indented lines). The region restarts at a fresh line in a block wholly before the
+change and not after a list, and ends at a witness, a fresh line in the previous parse after the
+change. The region is parsed through the witness's line and its line ending; when the witness is
+fresh in that parse too, every block from it on is the previous parse's, moved. Otherwise the region
+grows, and past half the file it parses the whole file. A previous parse or a region's parse that
+holds a link reference or footnote definition (they apply file-wide) is parsed whole, and so is a
+file opening like frontmatter that does not close; text that only looks like a definition (`if
+xs[0]:` in code) is not. The result equals `parseMarkdown` node for node and line start for line
+start (`reparse.test.ts`: a structured generator of 44 block constructs on every pull request,
+`pnpm --filter @marxy/core test:reparse-stress` for 1,500 seeds, random edits over the corpus, and
+the cases the review of #467 found). The watcher reparses to map the place, and the store's `reload`
+reparses from its own parse the same way.
+
+The `live_reload` mark spans the watch event to every view settled at its place, with the stages
+in its detail (`read`, `map`, `store`, `settle`); `node scripts/measure-reload.mjs` prints them for
+a 1 MB agent transcript. Measured on 2026-10-08 (WebKit, medians of three, one line written above
+the reader): 1,034 ms before B-23, 150 to 260 ms after; on the denser 200,000-node document of the
+F-19.1 review, 5.4 s before and about 0.6 s after. **The nightly `live_reload` series changes
+meaning at B-23:** the mark used to span the store's reload to settled and now spans the watch event
+to settled, so it includes the file read and the watcher's parse, which the reader waits through.
+A step in the nightly record at that commit is partly this widening, not only the reparse. What
+remains is the whole-document render, sanitise and node map, which a partial re-render would cut
+(02-phase-b.md, "left out").
 
 Atomic-replace writes (write-temp-then-rename) arrive as `renamed → path` or `created` (§06
 mapping) and take the same branch as `modified`. The watcher is on the root directory, so the

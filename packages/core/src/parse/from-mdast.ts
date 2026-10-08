@@ -25,8 +25,21 @@ interface Ctx extends ConvertContext {
   readonly definitions: Map<string, md.Definition>;
 }
 
+/**
+ * Whether a document's parse held a link reference definition or a footnote definition: the
+ * constructs whose effect reaches across the whole file (a reference anywhere resolves against them).
+ * Recorded for the reparse (reparse.ts), since the AST keeps no node for a link reference definition.
+ * `undefined` for a document this module did not build and nobody marked.
+ */
+const crossFile = new WeakMap<Document, boolean>();
+export const holdsDefinitions = (document: Document): boolean | undefined => crossFile.get(document);
+export const markDefinitions = (document: Document, holds: boolean): void => {
+  crossFile.set(document, holds);
+};
+
 export function documentFromMdast(root: md.Root, context: ConvertContext): Document {
-  const ctx: Ctx = { ...context, definitions: collectDefinitions(root) };
+  const { definitions, footnotes } = collectDefinitions(root);
+  const ctx: Ctx = { ...context, definitions };
   const document: Document = {
     type: 'document',
     src: { file: ctx.file, start: 0, end: ctx.offsets.byteLength },
@@ -34,6 +47,7 @@ export function documentFromMdast(root: md.Root, context: ConvertContext): Docum
     children: blocks(root.children, ctx),
   };
   registerLineStarts(document, () => lineStarts(ctx));
+  crossFile.set(document, definitions.size > 0 || footnotes);
   return document;
 }
 
@@ -48,14 +62,17 @@ function lineStarts(ctx: Ctx): number[] {
   return starts;
 }
 
-function collectDefinitions(root: md.Root): Map<string, md.Definition> {
+/** The link reference definitions by identifier, and whether any footnote definition is there. */
+function collectDefinitions(root: md.Root): { definitions: Map<string, md.Definition>; footnotes: boolean } {
   const found = new Map<string, md.Definition>();
+  let footnotes = false;
   const walk = (node: md.Nodes): void => {
     if (node.type === 'definition' && !found.has(node.identifier)) found.set(node.identifier, node);
+    if (node.type === 'footnoteDefinition') footnotes = true;
     if ('children' in node) for (const child of node.children) walk(child);
   };
   walk(root);
-  return found;
+  return { definitions: found, footnotes };
 }
 
 // --- source ranges -----------------------------------------------------------------------------
