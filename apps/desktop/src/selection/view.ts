@@ -17,7 +17,7 @@ import { headingIdsForDocument } from '@marxy/core/src/render/heading-ids.ts';
 import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
-import type { AppHandle, AppShell } from '../app.ts';
+import type { AppShell } from '../app.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { notify } from '../notices/index.ts';
 import { pathsForDocument } from '../render/images.ts';
@@ -471,12 +471,4 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   };
 
   return controller;
-}
-
-/**
- * The app's selection controller. `startApp` makes it once `#doc` exists; this stays for the callers
- * that installed it before (the selection harness), and is idempotent: it returns the one there is.
- */
-export function installRenderedSelection(handle: AppHandle): RenderedSelection {
-  return handle.selection;
 }
