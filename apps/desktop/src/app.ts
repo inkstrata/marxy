@@ -3,7 +3,6 @@
 // open path, the close guard, the commands and the handle. It holds no module state (ADR-0037): a second
 // `startApp` in one page releases the first instance and starts clean.
 import { appHandle, setAppHandle } from './commands/app-handle.ts';
-import { startDocumentEditingWire } from './commands/document.ts';
 import { applyDocumentMutation, redoDocumentEdit, undoDocumentEdit } from './commands/edits.ts';
 import { buildAppContext, installCommandKeys } from './selection/bind.ts';
 import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
@@ -194,7 +193,6 @@ export async function startApp(
   // here); the palette mount and the selection harness call the same idempotent install.
   setAppHandle(handle);
   installCommandKeys(handle);
-  startDocumentEditingWire(() => buildAppContext(handle));
   installCloseGuard({
     shell,
     isDirty: openPath.hasUnsavedChanges,

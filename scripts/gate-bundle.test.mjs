@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { relativeImportSpecs, memoryShellReachableFromMain, resolveRelativeModule, distChunkSpecs, entryChunks, katexInEntry, staticChunkSpecs } from './gate-bundle.mjs';
+import { relativeImportSpecs, memoryShellReachableFromMain, resolveRelativeModule, distChunkSpecs, entryChunks, katexInEntry, staticChunkSpecs, testOnlyStringsIn, TEST_ONLY_STRINGS } from './gate-bundle.mjs';
 
 test('relativeImportSpecs includes dynamic import() and require() of a relative path', () => {
   const source = `
@@ -165,4 +165,12 @@ test('A-17: KaTeX inside the entry chunk, or a statically imported or preloaded 
 test('A-17: no dist/index.html is null (the gate fails it only under MARXY_BUNDLE_REQUIRED)', () => {
   const dist = mkdtempSync(join(tmpdir(), 'marxy-a17-'));
   try { assert.equal(katexInEntry(dist), null); assert.equal(entryChunks(dist), null); } finally { rmSync(dist, { recursive: true, force: true }); }
+});
+
+test('the bundle gate names the test hooks and the mutation switches as strings a release must not contain (B-16)', () => {
+  for (const name of ['installTestHooks', 'marxyHarness', 'marxyRunCommand', '__marxyOrigBytes', 'MARXY_8', 'MARXY_19']) {
+    assert.ok(TEST_ONLY_STRINGS.includes(name), name);
+  }
+  assert.deepEqual(testOnlyStringsIn('const a = 1; window.marxyRunCommand = f; process.env.MARXY_86_MUTATION'), ['marxyRunCommand', 'MARXY_8']);
+  assert.deepEqual(testOnlyStringsIn('export const reader = 1;'), []);
 });

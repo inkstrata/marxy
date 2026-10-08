@@ -2,8 +2,7 @@
 // module holds no document state: the buffer, the history and the saved baseline are the store's
 // (document/store.ts), and every change here is one of its transitions. Operations change only the
 // in-memory buffer; the file changes on explicit save (save.ts).
-import { textOf, type Edit } from '@marxy/core';
-import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts';
+import type { Edit } from '@marxy/core';
 import type { AppContext } from './registry.ts';
 import { appHandle } from './app-handle.ts';
 import type { DocumentStore } from '../document/store.ts';
@@ -11,67 +10,6 @@ import type { DocumentStore } from '../document/store.ts';
 /** The open document's store, through the running app; null before the first document. */
 function openStore(): DocumentStore | null {
   return appHandle()?.document() ?? null;
-}
-
-function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
-
-/**
- * Whether the open buffer differs from what is on disk: the store's `dirty` (`buffer ≠ disk`).
- * The Playwright harness may set `window.__marxyOrigBytes` as its own baseline (data-loss.test.mjs,
- * operations-edit.test.mjs, save.test.mjs); only this reading honours it. B-16 removes the override.
- */
-export function documentIsDirty(store: DocumentStore | null = openStore()): boolean {
-  if (!store) return false;
-  const snap = store.snapshot();
-  const harnessOrig = typeof window === 'undefined'
-    ? undefined
-    : (window as Window & { __marxyOrigBytes?: Uint8Array }).__marxyOrigBytes;
-  if (harnessOrig) return !bytesEqual(snap.buffer.bytes, harnessOrig);
-  return snap.dirty;
-}
-
-/** Playwright harness (`window.marxyDocumentEdit`): the open document's dirty state and version. */
-export function documentEditState(): { readonly dirty: boolean; readonly savedVersion: number } {
-  const store = openStore();
-  if (!store) return { dirty: false, savedVersion: 0 };
-  return { dirty: documentIsDirty(store), savedVersion: store.snapshot().version };
-}
-
-export async function harnessAlignFirstTable(): Promise<string | undefined> {
-  const store = openStore();
-  const snap = store?.snapshot();
-  if (!snap) return undefined;
-  const findTable = (node: import('@marxy/core').Node): import('@marxy/core').Node | null => {
-    if (node.type === 'table') return node;
-    for (const child of node.children ?? []) {
-      const hit = findTable(child);
-      if (hit) return hit;
-    }
-    return null;
-  };
-  const table = findTable(snap.ast);
-  if (!table || table.type !== 'table') return undefined;
-  const range = table.src;
-  const result = alignTablePipes.run({
-    document: snap.ast,
-    node: table,
-    range,
-    text: textOf(snap.buffer, range),
-  });
-  if (result.replacement === textOf(snap.buffer, range)) return result.summary;
-  await applyDocumentMutation(store, {
-    range,
-    replacement: result.replacement,
-    label: alignTablePipes.title,
-    baseVersion: snap.version,
-  });
-  const { notify } = await import('../notices/index.ts');
-  if (result.summary) notify({ kind: 'info', text: result.summary, transient: true });
-  return result.summary;
 }
 
 async function reportFailedChange(what: string, e: unknown): Promise<void> {

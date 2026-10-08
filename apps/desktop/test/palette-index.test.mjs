@@ -1,6 +1,5 @@
 // Palette index from loadIndex (src/index/walk.ts) + memory readDir (MARXY-196): heading search and open at byte offset.
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -9,7 +8,6 @@ import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { LOAD_INDEX_EMPTY_MUTATION } from '../src/index/walk.ts';
 import { createMemoryShell } from '../src/shell/memory.ts';
 import { fileURLToPath } from 'node:url';
 
@@ -74,42 +72,6 @@ nodeTest('loadIndex walks the memory repo and finds two markdown entries', async
   assert.equal(entries.length, 2);
   const guide = entries.find((e) => e.path === '/repo/docs/guide.md');
   assert.ok(guide?.headings.some((h) => h.text === 'Installing'));
-});
-
-nodeTest(`mutation ${LOAD_INDEX_EMPTY_MUTATION}: loadIndex returns no entries`, async () => {
-  const prev = process.env.MARXY_196_MUTATION;
-  process.env.MARXY_196_MUTATION = LOAD_INDEX_EMPTY_MUTATION;
-  try {
-    const shell = createMemoryShell(repoFiles());
-    const { loadIndex } = await import('../src/index/walk.ts');
-    const { entries } = await loadIndex(shell, '/repo/README.md');
-    assert.equal(entries.length, 0);
-  } finally {
-    if (prev === undefined) delete process.env.MARXY_196_MUTATION;
-    else process.env.MARXY_196_MUTATION = prev;
-  }
-});
-
-nodeTest(`mutation ${LOAD_INDEX_EMPTY_MUTATION} makes the two-entry loadIndex assertion fail`, () => {
-  const probe = `
-    import assert from 'node:assert/strict';
-    import { loadIndex, LOAD_INDEX_EMPTY_MUTATION } from './src/index/walk.ts';
-    import { createMemoryShell } from './src/shell/memory.ts';
-    process.env.MARXY_196_MUTATION = LOAD_INDEX_EMPTY_MUTATION;
-    const shell = createMemoryShell({
-      '/repo/.git/HEAD': new TextEncoder().encode('ref: main\\n'),
-      '/repo/README.md': new TextEncoder().encode('# Home\\n'),
-      '/repo/docs/guide.md': new TextEncoder().encode('# Guide\\n\\n## Installing\\n'),
-    });
-    const { entries } = await loadIndex(shell, '/repo/README.md');
-    assert.equal(entries.length, 2);
-  `;
-  const result = spawnSync(process.execPath, ['--experimental-strip-types', '--input-type=module', '-e', probe], {
-    cwd: desktopRoot,
-    encoding: 'utf8',
-    env: process.env,
-  });
-  assert.notEqual(result.status, 0, 'empty-index mutation must fail the entry-count assertion');
 });
 
 test('typing Installing finds guide.md, not node_modules; Enter opens at the heading byte offset', async () => {

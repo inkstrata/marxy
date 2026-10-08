@@ -115,6 +115,30 @@ export function katexInEntry(distDir) {
   return { error: null, hits: Object.entries(entry.chunks).filter(([f, t]) => /katex/i.test(f) || t.includes('KaTeX parse error')).map(([f]) => f) };
 }
 
+/**
+ * Strings that only the test harness holds (B-16): the memory shell, the harness entries and the hooks
+ * tests drive, and the names of the removed mutation switches. A release bundle that contains one has
+ * shipped test plumbing.
+ */
+export const TEST_ONLY_STRINGS = [
+  'createMemoryShell',
+  'marxyApp',
+  'installTestHooks',
+  'marxyHarness',
+  'marxyRunCommand',
+  'marxySelection',
+  '__marxyOrigBytes',
+  '__marxyOpenSynced',
+  '__marxyTasksReady',
+  'MARXY_8',
+  'MARXY_19',
+];
+
+/** The test-only strings `bundle` contains. */
+export function testOnlyStringsIn(bundle) {
+  return TEST_ONLY_STRINGS.filter((s) => bundle.includes(s));
+}
+
 /** Walk main.ts's relative import graph; returns absolute paths of memory shell / harness hits. */
 export function memoryShellReachableFromMain(desktop) {
   const main = join(desktop, 'src', 'main.ts');
@@ -173,11 +197,12 @@ function assertProductionExcludesMemoryShell() {
       }
     }
     const bundle = chunks.join('\n');
-    if (bundle.includes('createMemoryShell') || bundle.includes('marxyApp')) {
-      console.error('bundle gate: production index JS contains createMemoryShell or the harness entry');
+    const shipped = testOnlyStringsIn(bundle);
+    if (shipped.length > 0) {
+      console.error(`bundle gate: production index JS contains test-only strings: ${shipped.join(', ')}`);
       process.exit(1);
     }
-    console.log('bundle gate: production index JS excludes createMemoryShell and the harness');
+    console.log('bundle gate: production index JS excludes createMemoryShell, the harness and the test hooks');
   } else {
     console.log('bundle gate: no vite dist; dist bundle string check skipped (import graph ran)');
   }

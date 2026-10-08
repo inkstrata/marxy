@@ -8,6 +8,11 @@ import { apply } from '../selection/apply.ts';
 
 const WIRED = new WeakSet<HTMLElement>();
 
+/** Whether `article` has the task click installed; the test harness reads it (harness/test-hooks.ts). */
+export function taskMarkersInstalled(article: HTMLElement): boolean {
+  return WIRED.has(article);
+}
+
 /**
  * The task click, on `article`, once. `context` is read at click time: the open document is its store's
  * snapshot then. The toggle carries `pageVersion()`, the store version the page clicked on was set from
@@ -22,9 +27,6 @@ export function installTaskMarkers(
 ): () => void {
   if (WIRED.has(article)) return () => {};
   WIRED.add(article);
-  if (typeof window !== 'undefined') {
-    (window as Window & { __marxyTasksReady?: boolean }).__marxyTasksReady = true;
-  }
   const onClick = (ev: MouseEvent): void => {
     const box = taskBoxFor(ev, article);
     if (!box) return;

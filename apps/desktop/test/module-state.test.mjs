@@ -51,3 +51,18 @@ test('app.ts is the composition root: under 300 lines', () => {
   const lines = read('app.ts').split('\n').length;
   assert.ok(lines < 300, `app.ts has ${lines} lines; ${why}`);
 });
+
+/** Product sources: every `.ts` under src outside tests and the harness entries (src/harness, source/harness-entry.ts). */
+const product = () => sources('.').filter((rel) => !rel.startsWith('harness/') && rel !== 'source/harness-entry.ts');
+
+test('no product module reads process.env: switches for tests live in the tests (B-16)', () => {
+  const readers = product().filter((rel) => /\bprocess\.env\b/.test(read(rel)));
+  assert.deepEqual(readers, [], `process.env read in product code: ${readers.join(', ')}`);
+});
+
+test('no product module installs a test hook on window or defines a MARXY_*_MUTATION switch (B-16)', () => {
+  // main.ts's __marxyPalette is the built-app smoke test's (scripts/smoke-built-app.mjs), not a harness hook.
+  const hook = /\b(?:window|w)\.(?:marxy[A-Z]\w*|__marxy\w+)|__marxy(?!Palette\b)\w+|MARXY_\d+_MUTATION/;
+  const hits = product().filter((rel) => hook.test(read(rel)));
+  assert.deepEqual(hits, [], `test plumbing in product code: ${hits.join(', ')}; move it to src/harness/test-hooks.ts`);
+});

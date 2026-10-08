@@ -81,7 +81,6 @@ async function boot(page, file) {
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
     window.__marxySaveBoot = await window.marxyPaletteBoot.start(files, argv, []);
-    window.__marxyOrigBytes = new Uint8Array(await window.__marxySaveBoot.handle.shell.readFile(argv[0]));
   }, { files: { [docPath]: b64(join(corpusDir, file)) }, argv: [docPath] });
   await page.waitForFunction(() => window.__marxyTasksReady === true);
   await page.waitForFunction(() => window.__marxyOpenSynced === true);
