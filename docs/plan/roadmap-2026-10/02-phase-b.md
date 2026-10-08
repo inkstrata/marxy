@@ -1872,6 +1872,59 @@ each pattern file in justif's package; the author decides.
 it checks the kill switch: check `killed()` first. Acceptance: the off test fails when `run()` stops emitting
 `typeset_done`; with typesetting off, no hyphenation chunk is requested (count the requests).
 
+### B-26 — The typesetter holds the reader's place inside a pane
+
+**Model:** opus · **Size:** S · **Depends on:** D-05 · *Added 2026-10-08 by the lead, from D-05.* When paragraphs
+above the reading line reflow, `packages/typeset` keeps the reader's place by reading `document.scrollingElement`, so
+inside a pane (D-05 made each pane its own scroller) it does nothing: a pane scrolled to its end before its paragraphs
+were set drifts, the last paragraph moving below the pane. Give the typesetter the scroller to hold (an option on
+`attach`, passed by the view, which `rebindScroller` updates). **Paths:** `packages/typeset/src/` (the keep-place
+read and the attach option), `apps/desktop/src/view/rendered-view.ts` (passing the scroller), a typeset test and a
+pane test. **Acceptance:** with two panes, a pane scrolled to its end before typesetting keeps its last paragraph in
+view after the set; one pane unchanged (F-11's keep-place tests).
+
+### B-25.1 — The diagram-caption rule without a two-step `:has()`
+
+**Model:** opus · **Size:** S · **Depends on:** B-25, L-03 (same file) · *Added 2026-10-08 by the lead, from B-25 and
+its review.* `packages/theme/src/base.css`'s caption rule `.marxy-article > p:has(+ pre > code.language-mermaid)`
+(and its plantuml, dot and d2 siblings, MARXY-234) makes WebKit spend time proportional to the article on every
+appended block: a microbenchmark appending 4,000 blocks takes 152 ms with no rule, 105 s with one such rule and 352 s
+with all four; `p:has(+ pre.language-mermaid)` takes 74 ms. A transcript has a fence every few blocks, so the mount
+goes cubic (41 s at 256 KB with the rule, 0.5 s without). **The fix needs no sanitiser change:** `pre` already allows
+`class` matching `^(?:language-[A-Za-z0-9#+._-]{1,32}|marxy-[a-z-]{1,32})$` (`packages/core/src/sanitize/policy.ts`).
+Emit `<pre class="language-<lang>">` in `packages/core/src/render/render-html.ts` with the **lowercased** language
+(the caption `<p>` is emitted on the lowercased language; a fence written `Mermaid` must still be styled), and
+rewrite the four rules as `.marxy-article > p:has(+ pre.language-mermaid)` etc. Highlighting reads `<code>`, not
+`<pre>`, so it is unaffected. **Paths:** `packages/core/src/render/render-html.ts`, `packages/theme/src/base.css` (the
+caption rules), the goldens the renderer change moves (regenerate in this PR). **Acceptance:** captions look the
+same (specimen and aesthetics gates); a test that the caption rules' selectors have one step after `+` (no timing
+assertion); a test that `Mermaid` (capitalised) still gets its caption; the perf harness records a 1 MB transcript
+with `content_complete` under 10 s.
+
+### B-24 — Re-render only what a reload changed
+
+**Model:** opus · **Size:** M · **Depends on:** B-23 · *Added 2026-10-08 by the lead, from B-23's measurement.*
+After B-23 a 1 MB reload's parse costs 2–25 ms, but the store's synchronous repaint still renders, sanitises and
+maps the whole document and remounts the first screen: about 130–230 ms on a transcript and about 550 ms on a dense
+1 MB document, against the 100 ms budget. Reuse the rendered DOM of the blocks B-23 reused (their bytes and nodes
+are unchanged, only shifted), re-render only the changed region, and shift the node map. **Paths:**
+`apps/desktop/src/view/rendered-view.ts` (the repaint), `apps/desktop/src/render/` (the node map shift),
+`apps/desktop/test/live-reload.test.mjs`, `scripts/measure-reload.mjs`. **Acceptance:** `scripts/measure-reload.mjs`
+prints the repaint stage under 100 ms on the transcript (recorded, not asserted); a WebKit test that the reused
+blocks are the same DOM nodes after a one-line write far from them; the sanitiser still runs over every new byte
+(commitment: nothing unsanitised reaches the DOM). Runs after D-01 (same file).
+
+### B-25 — Find what makes `contentComplete` cubic on a transcript
+
+**Model:** opus · **Size:** S · **Depends on:** — · *Added 2026-10-08 by the lead, from B-23 and its review.*
+The first `contentComplete` of a transcript-shaped document grows about 8× per doubling: 1.2 s at 64 KB, 9.8 s at
+128 KB, 75 s at 256 KB in the dev server (over an hour at 1 MB). A prose document of the same size takes 0.6 s at
+128 KB and 1.2 s at 256 KB, so the shape matters, not the server. The nightly cannot see it: its large document is
+prose. Add a transcript-shaped large document to the perf harness, profile, and fix what is super-linear. **Paths:**
+`scripts/perf-harness.mjs` and its corpus generator, then the file the profile names (report before fixing if it is
+outside `apps/desktop/src/render/`, `apps/desktop/src/view/` or `packages/typeset/`). **Acceptance:** the perf harness
+records a transcript at 256 KB and 1 MB; `content_complete` at 1 MB under 10 s (recorded, not asserted).
+
 ### B-23 — Reload a large document inside the budget
 
 **Model:** opus · **Size:** M · **Depends on:** B-15 · *Added 2026-10-08 by the lead, from the F-19.1 review.*

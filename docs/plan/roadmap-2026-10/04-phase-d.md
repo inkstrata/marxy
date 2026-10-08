@@ -737,6 +737,13 @@ so, report and choose the next free chord rather than overloading it.
 
 ---
 
+**From the D-05 review (2026-10-08).** Fix before a reader can open a split: D-05 remembers a scroller's last offset
+and height (`seen`) because `onSplit` fires after the window's scroll is clamped to 0, and a stale `seen` restores
+the wrong place. (1) A window resize without a scroll leaves `seen.clientHeight` old, so the reading line (0.4 × height)
+moves: measured byte 1914 restored instead of 2295. Note the scroll on window `resize` too. (2) A script scroll then
+a split in the same task lands on byte 0: add a hook before the split in `pane-set.ts` (this story edits it) that
+notes the first pane's place. Also update the stale comment at `pane-set.ts:219`.
+
 ### D-08 — Close a pane, and make save, the title and quit know about two documents
 
 **Model:** opus · **Size:** M · **Depends on:** D-01 · **Parallel with:** D-04, D-05, D-06
@@ -817,6 +824,18 @@ the quit guard for the other. If P1's store has no `dirty`, derive it the way `c
 (`documentIsDirty`) does today and report.
 
 ---
+
+**From the D-01 review (2026-10-08).** D-01 asks the unsaved-edits guard only when the pane being replaced is dirty,
+but `confirmLeaveDocument` still reads the focused pane. Three ways to lose edits, unreachable from any UI until
+D-07: `openIn(1, …)` into a dirty pane while the focused one is clean replaces it without asking; with both panes
+dirty the prompt names and saves only the focused document; `close()` of a dirty pane discards without asking. This
+story makes the guard per pane and tests all three.
+
+**From the D-01 re-review (2026-10-08).** A refused close (`close()` returning `false` when the fold leaves text
+behind, or when the right pane is empty) shows nothing today; this story's close command must say so in the pane.
+D-01 added `ownsTitle` and a focus listener in `pane/index.ts` that re-titles the window: replace that listener with
+`updateTitle` and the dirty dot here, so there is one title writer. `09-app-shell.md` §State lists the close guard's
+prompt as bound to the first pane, but `app.ts` binds it to the focused pane; this story fixes the doc with the code.
 
 ### D-09 — Follow a link into the neighbour pane
 

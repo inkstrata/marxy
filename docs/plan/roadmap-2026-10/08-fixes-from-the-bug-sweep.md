@@ -332,3 +332,43 @@ An outside write to a file open, unedited, in Source puts the caret back on line
 selection) through the change the way the reading position is mapped (`offsetThroughEdit`), so a reader whose caret
 was on line 20 finds it on the same text after the write. Acceptance: a WebKit case with the caret on a line below
 an insertion keeps it on the same text; a caret inside deleted text lands at the deletion point.
+
+### F-20 — Text nodes whose value does not match their bytes
+
+**Model:** opus · **Size:** S · **Depends on:** — · *From the B-23 review (note 8); predates B-23.* · **Paths:**
+`packages/core/src/parse/` (the node builder), its tests, `packages/core/goldens/` only if a fixture moves.
+About 4 in 158k short random inputs break the parser's provenance invariants: ``1. [x] \r -` `` (a text node at
+[8,11) decodes to `` -` `` with a leading space but its value lacks it), `"- [x] \n    \uFEFF\t"`, ``">\t   ```\n"``
+(the code block's content), and the `11-empty.md` case B-23 met. Commitment 3 rests on provenance. Find the rule
+each breaks (task-list markers with CR, a BOM inside an indented line, a tab after a block-quote marker) and fix it.
+**Acceptance:** each reproducer is a fixed test; a property test over random short inputs checks every invariant the
+golden check asserts, at a seed count that found these.
+
+### F-21 — Following a link or a collection command over unsaved edits acts on the wrong document
+
+**Model:** sonnet · **Size:** S · **Depends on:** C-17 (its `onLanded` open option) · *From the C-17 fix.* · **Paths:**
+`apps/desktop/src/selection/view.ts` (link-follow: `landFragment` after `await opts.open`), the collection command
+that calls `jumpToSource(0)` after `await handle.open` (grep `commands/`), their tests. Over unsaved edits `open()`
+shows the Save / Open without saving / Dismiss notice and resolves at once, so both then act on the document still on
+screen. Use `open(path, { onLanded })` as C-17 does. Acceptance: for each, a browser test that dirties the current
+document and covers the three choices; nothing in the current document changes on Dismiss.
+
+### F-22 — Ordered lists keep their start number and their wide markers
+
+**Model:** sonnet · **Size:** S · **Depends on:** L-03 · *From the L-03 review (note 4); true on main before L-03.*
+**Paths:** `packages/theme/src/base.css` (the ordered-list counter and marker box), `packages/theme/test/layout.test.mjs`.
+`counter-reset: marxy-ol` ignores `<ol start="7">`, so a list that starts at 7 is numbered from 1; and a "1000."
+marker is about 2.66em wide while its box holds 1.9em, so it runs into the item's text ("100." clears by about 3 px).
+Honour `start` (e.g. `counter-reset: marxy-ol calc(attr(start) - 1)` where supported, or the renderer setting the
+reset as a style the sanitiser allows), and size the marker box to the widest number the list holds. Acceptance: a
+list starting at 7 shows 7, 8, 9; a 1000-item list's markers never overlap their text at 320 and 1280 px; L-03's
+gutter-floor test still passes.
+
+### F-20.1 — A blank line between CR and LF inside a code block
+
+**Model:** opus · **Size:** S · **Depends on:** F-20 · *From the F-20 review (note 6); true on main.* · **Paths:**
+`packages/core/src/parse/from-mdast.ts`, `packages/core/src/parse/provenance.test.ts`. About 2 in 715k inputs: a code
+block whose value reads a lone CR followed by a whitespace-only line as one CRLF, so the content range stops early:
+`"    a\r  \n    b"`, `` "-   ```\r  \n\ta  " ``, `"   ~~~\r  \n===\n"`, `` "  ```js\n---\n\r  \n1. " ``. Map the value's line
+endings to the bytes one by one. Acceptance: each reproducer is a fixed test; the invariant stress passes at its seed
+count with these shapes in the generator.
