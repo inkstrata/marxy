@@ -90,3 +90,78 @@ test('an edit below the reader leaves the byteOffset alone; one inside it lands 
   assert.equal(reloadOpenDocument(inside, previous, before).position.byteOffset, 7);
   assert.equal(reloadOpenDocument(below, previous).position.byteOffset, 8, 'no previous bytes: offset kept as before');
 });
+
+test('text inserted at a held heading\'s first byte moves the position with the heading (F-19)', () => {
+  const enc = new TextEncoder();
+  const before = enc.encode('# One\n\nintro\n\n## Two\n\nbody\n');
+  const held = before.length - enc.encode('## Two\n\nbody\n').length;
+  const previous = { path: 'x.md', byteOffset: held, fraction: 0, mode: 'rendered' as const };
+  const insert = (text: string): Uint8Array => {
+    const bits = enc.encode(text);
+    const out = new Uint8Array(before.length + bits.length);
+    out.set(before.subarray(0, held), 0);
+    out.set(bits, held);
+    out.set(before.subarray(held), held + bits.length);
+    return out;
+  };
+  for (const text of ['Inserted paragraph.\n\n', '## Fresh\n\nnew\n\n']) {
+    const next = insert(text);
+    const reloaded = reloadOpenDocument(next, previous, before);
+    assert.equal(reloaded.position.byteOffset, held + enc.encode(text).length, JSON.stringify(text));
+    const block = reloaded.document.children.find((b) => b.src.start === reloaded.position.byteOffset);
+    assert.equal(block?.type, 'heading', 'the offset names the heading the reader was at');
+  }
+  // Inserted text that runs into the heading line is no longer a block start there: kept as before.
+  const glued = reloadOpenDocument(insert('glued '), previous, before);
+  assert.equal(glued.position.byteOffset, held);
+});
+
+test('text inserted inside a held heading keeps the offset at the heading start (F-19)', () => {
+  const enc = new TextEncoder();
+  const before = enc.encode('# One\n\nintro\n\n## Two\n\nbody\n');
+  const next = enc.encode('# One\n\nintro\n\n## Two and a half\n\nbody\n');
+  const held = enc.encode('# One\n\nintro\n\n').length;
+  const previous = { path: 'x.md', byteOffset: held, fraction: 0, mode: 'rendered' as const };
+  assert.equal(reloadOpenDocument(next, previous, before).position.byteOffset, held);
+});
+
+/** `source` with `text` spliced in at `marker`, held at `marker`, reloaded: where the position lands. */
+function insertedAt(source: string, marker: string, text: string): { landed: number; held: number; next: string } {
+  const enc = new TextEncoder();
+  const at = source.indexOf(marker);
+  const held = enc.encode(source.slice(0, at)).length;
+  const next = enc.encode(source.slice(0, at) + text + source.slice(at));
+  const previous = { path: 'x.md', byteOffset: held, fraction: 0, mode: 'rendered' as const };
+  return {
+    landed: reloadOpenDocument(next, previous, enc.encode(source)).position.byteOffset,
+    held,
+    next: new TextDecoder().decode(next),
+  };
+}
+
+test('a reader held at offset 0 stays at the top when text is prepended (F-19.1)', () => {
+  for (const text of ['Preface.\n\n', '# Title\n\n']) {
+    const r = insertedAt('# One\n\nintro\n', '# One', text);
+    assert.equal(r.held, 0);
+    assert.equal(r.landed, 0, JSON.stringify(text));
+  }
+});
+
+test('a held nested list item follows text inserted where it begins (F-19.1)', () => {
+  const r = insertedAt('- a\n  - b\n  - c\n\nafter\n', '- c', '- new\n  ');
+  assert.equal(r.landed, r.held + '- new\n  '.length);
+  assert.equal(r.next.slice(r.landed, r.landed + 3), '- c');
+});
+
+test('a held fence in a list follows text inserted where it begins (F-19.1)', () => {
+  const r = insertedAt('- item\n\n  ```js\n  let a;\n  ```\n\nafter\n', '```js', 'More text.\n\n  ');
+  assert.equal(r.landed, r.held + 'More text.\n\n  '.length);
+  assert.equal(r.next.slice(r.landed, r.landed + 5), '```js');
+});
+
+test('an inline node starting where text was written is not a block, so the offset stays (F-19.1)', () => {
+  // The reader is at a soft-wrapped line inside a paragraph; the text node that begins there moves
+  // with the insertion, but only a block start counts.
+  const r = insertedAt('First line of the paragraph\nsecond line of it\n\nafter\n', 'second', 'new words\n');
+  assert.equal(r.landed, r.held);
+});

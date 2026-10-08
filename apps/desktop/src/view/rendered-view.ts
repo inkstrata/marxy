@@ -203,16 +203,33 @@ function holdsUnfoldedText(editor: MountedSourceEditor, next: Buffer): boolean {
  * not splice.
  */
 export function mapThroughTransition(change: Transition, byte: number): number {
-  if (change.kind !== 'apply' && change.kind !== 'commitSource' && change.kind !== 'undo' && change.kind !== 'redo') {
-    return byte;
-  }
-  const { edit } = change;
-  const [removed, inserted] = change.kind === 'undo' ? [edit.after.length, edit.before.length] : [edit.before.length, edit.after.length];
-  const start = edit.range.start;
+  const splice = spliceOf(change);
+  if (splice === null) return byte;
+  const { start, removed, inserted } = splice;
   const end = start + removed;
   if (byte < start) return byte;
   if (byte >= end) return byte + inserted - removed;
   return start;
+}
+
+/**
+ * True when `change` removed the bytes `byte` was in, so it maps to the edit's start (B-15, from the
+ * B-13 review): an edit that starts in the block above a held heading and runs into it. The page then
+ * holds the first block that starts at or after the edit's start, not the block the start is in.
+ */
+export function removedBy(change: Transition, byte: number): boolean {
+  const splice = spliceOf(change);
+  return splice !== null && byte >= splice.start && byte < splice.start + splice.removed;
+}
+
+/** The range a splicing transition replaced, in the bytes before it; null for one that did not splice. */
+function spliceOf(change: Transition): { start: number; removed: number; inserted: number } | null {
+  if (change.kind !== 'apply' && change.kind !== 'commitSource' && change.kind !== 'undo' && change.kind !== 'redo') {
+    return null;
+  }
+  const { edit } = change;
+  const [removed, inserted] = change.kind === 'undo' ? [edit.after.length, edit.before.length] : [edit.before.length, edit.after.length];
+  return { start: edit.range.start, removed, inserted };
 }
 
 export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): RenderedView {
@@ -319,11 +336,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   /**
    * The reader's place while Source shows (F-04): the line on the reading line. In Source the window
    * scrolls and the article is hidden, so neither its block list nor CodeMirror's scroller says where
-   * the reader is. Null in Rendered.
+   * the reader is. Null in Rendered. A reader who has not scrolled (`scrollTop <= 0`) is at the top of
+   * the file, byte 0, as `positionAtScroll` reads it in Rendered (F-19.1): a line under the reading
+   * line would put them below text written above.
    */
   function sourcePosition(path: string): ReadingPosition | null {
     const buffer = bufferNow();
     if (viewMode !== 'source' || !sourceEditor || !buffer || !sourceReadingPositionIn) return null;
+    if (scroller.scrollTop <= 0) return { path, byteOffset: 0, fraction: 0, mode: 'source' };
     const place = sourceReadingPositionIn(buffer, sourceEditor.view as never, Math.round(window.innerHeight * 0.4));
     return { path, byteOffset: place.byteOffset, fraction: place.fraction, mode: 'source' };
   }
@@ -601,11 +621,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     })();
   }
 
-  function landOn(at: number | undefined): void {
+  /** `from`: hold the first block that starts at or after `at`, not the block `at` is in (a spanning edit). */
+  function landOn(at: number | undefined, opts?: { from?: boolean }): void {
     if (at === undefined) return;
     mountThrough(at);
     listenForReaderScroll();
-    anchor = at;
+    anchor = (opts?.from ? shown?.blocks.find((block) => block.start >= at)?.start : undefined) ?? at;
     holdAnchor();
   }
 
@@ -771,7 +792,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * reload, a rename) and for `commitEdit` of unchanged bytes. `landing`, when given, is the anchor
    * the view held, mapped through the change: it is held again rather than released.
    */
-  function repaint(snapshot: DocumentSnapshot, position: ReadingPosition, landing: number | null = null): void {
+  function repaint(snapshot: DocumentSnapshot, position: ReadingPosition, landing: number | null = null, spanned = false): void {
     // Every path that changes the store while Source shows folds the editor's text first (undo, redo, save,
     // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does, an
     // invariant broke: say so, and replace the text as before rather than keep a copy that a later fold
@@ -790,7 +811,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       lastReadingFraction = 0;
       sourceEditor.scrollToByte(position.byteOffset);
     } else if (landing !== null) {
-      landOn(landing);
+      landOn(landing, { from: spanned });
     } else {
       holdPosition({ ...position, path: snapshot.path });
     }
@@ -857,8 +878,10 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // them, so the page holds that place instead, as before B-13 (the B-13 review).
     const landing =
       anchor !== null && viewMode === 'rendered' && change.kind !== 'reload' ? mapThroughTransition(change, anchor) : null;
+    // An anchor the edit removed lands on the edit's start: the block from there on is held, not the one above.
+    const spanned = landing !== null && anchor !== null && removedBy(change, anchor);
     try {
-      repaint(snapshot, position, landing);
+      repaint(snapshot, position, landing, spanned);
     } catch (e) {
       showRenderFailure(e);
     }
@@ -880,7 +903,6 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     destroyTypeset();
     typeset = attach(article, {
       lineBox,
-      glueStretchEm: 0.6,
       lastLineMinWidth: 0.33,
       onPass: (kind) => (kind === 'background' ? scheduleSnap(article) : snap(article)),
     });

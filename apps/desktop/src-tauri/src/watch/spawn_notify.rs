@@ -139,7 +139,7 @@ where
 
 /// `spawn_tree_thread` with the file limit as an argument, and a hook run on the watch thread right after the first scan, so a test can
 /// change the tree between the watcher's registration and the end of the scan.
-fn spawn_tree_thread_with<F, R, H>(
+pub(crate) fn spawn_tree_thread_with<F, R, H>(
     root: PathBuf,
     mut emit: F,
     refuse: R,

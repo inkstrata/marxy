@@ -28,7 +28,7 @@ const pr = (number, key, extra = {}) => ({
 const approved = { ok: true, head: HEAD };
 
 /** A world the cycle can run against: an in-memory event log, a snapshot, and a record of every effect. */
-function world({ stories = {}, rows = [], open = [], recent = [], worktrees = [], runObs = {}, facts = {}, results = {}, hasCli = true, m = M, lastPlan = minutesAgo(60), extraEvents = [] } = {}) {
+function world({ stories = {}, rows = [], open = [], recent = [], worktrees = [], liveEntries = [], runObs = {}, facts = {}, results = {}, hasCli = true, m = M, lastPlan = minutesAgo(60), extraEvents = [] } = {}) {
   const events = [{ type: 'imported', at: minutesAgo(600), by: 'test', board: { stories, merges: 0, mergesAtLastPlan: 0, lastPlan } }, ...extraEvents];
   const calls = { gh: [], spawn: [], stop: [], notes: [], jira: [], exit: [], specs: [] };
   let mirror = null;
@@ -42,6 +42,8 @@ function world({ stories = {}, rows = [], open = [], recent = [], worktrees = []
     snapshot: () => snapshotFrom(open, recent),
     runs: b => Object.fromEntries(Object.entries(b.runs).filter(([, r]) => !r.ended).map(([id]) => [id, runObs[id] ?? { alive: true, logBytes: 10 }])),
     worktrees: () => worktrees,
+    // The claims scan reads no real git: this machine's worktrees are not the fake world's.
+    liveEntries: () => liveEntries,
     hasCli: () => hasCli,
     result: key => results[key] ?? null,
     logTail: () => '',
@@ -80,6 +82,15 @@ test('2026-09-26: idle dirty worktrees no longer hold every todo story; they are
   assert.ok(r.attention.some(a => a.key === 'MARXY-195' && /nothing owns it/.test(a.why)));
   assert.equal(w.b().stories['MARXY-1'].status, 'in_progress');
   assert.equal(w.b().stories['MARXY-1'].attempts, 1);
+});
+
+test('the claims the cycle names come from its world, not from the git worktrees of the machine running it', () => {
+  const w = world({
+    rows: [row('MARXY-7', 'packages/core/src/c')],
+    liveEntries: [{ path: '/wt/MARXY-7', branch: 'feat/MARXY-7-x', usable: true, dirty: true, ahead: 2, prState: null }],
+  });
+  const r = w.run();
+  assert.ok(r.lines.some(l => l.startsWith('worktree holds paths: MARXY-7 (/wt/MARXY-7, 2 commits ahead, dirty')), r.lines.join('\n'));
 });
 
 test('a worktree someone is working in right now does hold its paths, for as long as it stays active', () => {

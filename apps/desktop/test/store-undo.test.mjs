@@ -164,6 +164,44 @@ const undoWhenReady = async (page) => {
   await undoKey(page);
 };
 
+test('AppHandle.dispatch reaches the store\'s transitions: apply, then undo, then redo (ADR-0037 §2)', async () => {
+  const page = await boot();
+  const toggled = ORIGINAL.replace('- [ ] one', '- [x] one');
+  const at = ORIGINAL.indexOf('- [ ] one') + 2;
+  const applied = await page.evaluate(
+    (at) => window.__handle.dispatch({
+      type: 'apply',
+      range: { file: '/d/t.md', start: at, end: at + 3 },
+      replacement: '[x]',
+      label: 'Toggle task',
+      baseVersion: window.__handle.document().snapshot().version,
+    }),
+    at,
+  );
+  assert.equal(applied, true);
+  await untilBuffer(page, toggled);
+  await page.evaluate(() => window.__handle.dispatch({ type: 'undo' }));
+  await untilBuffer(page, ORIGINAL);
+  assert.equal(await canUndo(page), false, 'the undo took the one entry');
+  await page.evaluate(() => window.__handle.dispatch({ type: 'redo' }));
+  await untilBuffer(page, toggled);
+  await page.close();
+});
+
+test('AppHandle.dispatch apply carries the version it resolved at: a stale one is refused and the buffer is untouched (B-12)', async () => {
+  const page = await boot();
+  const at = ORIGINAL.indexOf('- [ ] one') + 2;
+  const refused = await page.evaluate(async (at) => {
+    const store = window.__handle.document();
+    const stale = store.snapshot().version;
+    await window.__handle.dispatch({ type: 'apply', range: { file: '/d/t.md', start: at, end: at + 3 }, replacement: '[x]', label: 'first', baseVersion: stale });
+    return window.__handle.dispatch({ type: 'apply', range: { file: '/d/t.md', start: at, end: at + 3 }, replacement: '[ ]', label: 'second', baseVersion: stale });
+  }, at);
+  assert.equal(refused, false);
+  await untilBuffer(page, ORIGINAL.replace('- [ ] one', '- [x] one'));
+  await page.close();
+});
+
 test('ADR-0037 defect 2: toggle, Source edit, two undos restore the original', async () => {
   const page = await boot();
   const toggled = ORIGINAL.replace('- [ ] one', '- [x] one');

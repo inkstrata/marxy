@@ -2178,6 +2178,7 @@ name = "marxy"
 version = "0.1.0"
 dependencies = [
  "imagesize",
+ "libc",
  "notify",
  "serde",
  "serde_json",

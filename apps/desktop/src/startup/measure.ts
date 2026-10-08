@@ -12,10 +12,20 @@ export const t0 = Date.now();
 // running before the first render. `createLaunchMeasure` restarts it for a later launch in one page.
 let observed = 0;
 let observing = false;
-const observeFrame = () => { observed += 1; if (observing) requestAnimationFrame(observeFrame); };
+/**
+ * Bumped by each start: a frame callback of an earlier loop, still queued when `finish` stopped it and
+ * a later launch started another, ends there instead of counting every frame a second time (B-15).
+ */
+let generation = 0;
 function startObserving(): void {
   if (observing) return;
   observing = true;
+  const loop = ++generation;
+  const observeFrame = (): void => {
+    if (loop !== generation) return;
+    observed += 1;
+    if (observing) requestAnimationFrame(observeFrame);
+  };
   requestAnimationFrame(observeFrame);
 }
 startObserving();
@@ -59,7 +69,8 @@ export interface LaunchMeasure {
  * check asserts that count is at least two — because a mark that only *claims* to be after the paint
  * would silently make every cold-start number optimistic. The counter lives here, not inside
  * waitForEnginePaint(), so that a wait which never actually waited still reports frames=0 and fails
- * the check instead of passing quietly. `startApp` calls this first, so the count covers the launch.
+ * the check instead of passing quietly. The count runs from module evaluation; a later launch in the
+ * same page (the tests' second `startApp`) restarts it here, with one loop at a time.
  */
 export function createLaunchMeasure(
   shell: Pick<Shell, 'mark' | 'quit' | 'startupMarks'>,
@@ -73,7 +84,7 @@ export function createLaunchMeasure(
 
   function renderEvidence(doc: HTMLElement): RenderEvidence {
     return {
-      blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length,
+      blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote,dl').length,
       chars: doc.textContent?.length ?? 0,
       hasText: /\S/.test(doc.textContent ?? ''),
       heading: doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '',

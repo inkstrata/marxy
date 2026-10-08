@@ -12,8 +12,8 @@ import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { searchablePaths } from '@marxy/core/src/index-model/content-search.ts';
-import type { ContentSearchResult, Shell, ShellError, WatchEvent } from '@marxy/shell-api';
-import { eventsForWatch, refusalForWatch } from './watch-filter.ts';
+import type { ContentSearchResult, FileStat, Shell, ShellError, WatchEvent } from '@marxy/shell-api';
+import { createEarlyBuffer, eventsForWatch, isNotWatching, refusalForWatch } from './watch-filter.ts';
 
 /** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
 const assetScopes = new Set<string>();
@@ -77,6 +77,8 @@ function shellErrorFromInvoke(err: unknown): Error & { code?: ShellError['code']
 export const shell: Pick<
   Shell,
   | 'readFile'
+  | 'readHead'
+  | 'stat'
   | 'writeFileAtomic'
   | 'watch'
   | 'platform'
@@ -119,6 +121,23 @@ export const shell: Pick<
     return bytes;
   },
   peekFile: (path) => readBytes(path),
+  /** The head of a regular file; Rust refuses a symlink or anything that is not a regular file. */
+  readHead: async (path, maxBytes) => {
+    try {
+      return new Uint8Array(await invoke<ArrayBuffer>('read_head', { path, maxBytes }));
+    } catch (err) {
+      const error = shellErrorFromInvoke(err) as ReturnType<typeof shellErrorFromInvoke> & { path?: string };
+      error.path = path;
+      throw error;
+    }
+  },
+  stat: async (path) => {
+    try {
+      return await invoke<FileStat | null>('stat_file', { path });
+    } catch (err) {
+      throw shellErrorFromInvoke(err);
+    }
+  },
   recordRead: (path, bytes) => {
     lastRead.set(path, bytes.slice());
   },
@@ -224,25 +243,31 @@ export const shell: Pick<
     // watch can refuse (or report a change) a moment after `watch_root` returns, before this
     // function would have registered. What arrives before the key is known is kept, then replayed.
     let key: string | undefined;
-    const early: unknown[] = [];
+    const early = createEarlyBuffer();
     const stop = await listen<unknown>('fs-watch', (event) => {
-      if (key === undefined) early.push(event.payload);
+      if (key === undefined) early.add(event.payload);
       else receive(event.payload, key);
     });
+    let id: number;
     try {
-      key = await invoke<string>('watch_root', { root, recursive });
+      ({ key, id } = await invoke<{ key: string; id: number }>('watch_root', { root, recursive }));
     } catch (err) {
       stop();
       throw err;
     }
-    for (const payload of early) receive(payload, key);
+    for (const payload of early.drain()) receive(payload, key);
     return {
       close() {
         if (timer !== undefined) clearTimeout(timer);
         flush();
         stop();
-        // A watch the shell already ended (it refused) has no entry left to release.
-        void invoke('unwatch_root', { root, recursive }).catch(() => {});
+        // A watch the shell already ended (it refused) has no entry left to release, or a newer watch
+        // of the same tree holds the key: `id` names this one, and the shell answers "not watching".
+        // Any other failure is real: the returned promise rejects with it (a caller that ignores the
+        // promise, as the `close(): void` contract allows, sees an unhandled rejection in the console).
+        return invoke<void>('unwatch_root', { root, recursive, id }).catch((err) => {
+          if (!isNotWatching(err)) throw err;
+        });
       },
     };
   },

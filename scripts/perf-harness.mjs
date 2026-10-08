@@ -2,8 +2,9 @@
 // appendix scripts (docs/research/audit-2026-10/05-performance-audit.md §13.3 and the §9.2 layout
 // loop), so anyone can reproduce its §9.1 table on their own machine.
 //
-// It boots the built web app (apps/desktop/dist/app.html, the harness entry
-// apps/desktop/src/harness/app-harness.ts) in Playwright WebKit against an in-memory shell, opens
+// It boots the built web app (apps/desktop/harness/dist/app.html, the harness entry
+// apps/desktop/src/harness/app-harness.ts, built by `build:harness` and never into the shipped dist/,
+// B-16.1) in Playwright WebKit against an in-memory shell, opens
 // one document, and reads back every mark the app made. A measurement, not a gate: nothing here
 // fails on a number (ADR-0032). It exits non-zero only when a measurement it was asked for produced
 // no sample at all.
@@ -252,10 +253,19 @@ function documents(opts) {
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.wasm': 'application/wasm', '.txt': 'text/plain' };
 
-/** Serves apps/desktop/dist on 127.0.0.1, on a free port. */
+/** The harness build: its own directory, since the shipped dist/ holds only index.html (B-16.1). */
+const HARNESS_DIST = fileURLToPath(new URL('apps/desktop/harness/dist/', ROOT));
+
+/** Builds the harness into HARNESS_DIST. */
+function buildHarness() {
+  const r = spawnSync('pnpm', ['--filter', '@marxy/desktop', 'build:harness'], { cwd: ROOT, stdio: 'inherit' });
+  if (r.status !== 0) throw new Error('build:harness failed');
+}
+
+/** Serves apps/desktop/harness/dist on 127.0.0.1, on a free port. */
 async function serveDist() {
-  const dist = fileURLToPath(new URL('apps/desktop/dist/', ROOT));
-  if (!existsSync(join(dist, 'app.html'))) throw new Error('apps/desktop/dist/app.html is missing: run with --build');
+  const dist = HARNESS_DIST;
+  if (!existsSync(join(dist, 'app.html'))) throw new Error('apps/desktop/harness/dist/app.html is missing: run with --build');
   const server = createServer((req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');
     const file = join(dist, path === '/' ? 'app.html' : path);
@@ -447,10 +457,9 @@ async function main(argv) {
     }
     return 0;
   }
-  if (opts.build) {
-    const r = spawnSync('pnpm', ['--filter', '@marxy/desktop', 'build:web'], { cwd: ROOT, stdio: 'inherit' });
-    if (r.status !== 0) throw new Error('build:web failed');
-  }
+  // With no harness build yet (a fresh checkout, or a job that ran only build:web), build one rather
+  // than fail: the shipped dist/ no longer holds app.html (B-16.1).
+  if (opts.build || !existsSync(join(HARNESS_DIST, 'app.html'))) buildHarness();
   const docs = documents(opts);
   const results = [];
   let webkit = null;

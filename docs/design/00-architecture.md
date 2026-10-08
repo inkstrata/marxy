@@ -44,6 +44,13 @@ and nothing reaches the DOM without passing the sanitiser (§02, ADR-0009).
 | `apps/desktop/src/**` (rest) | `@marxy/core`, `@marxy/typeset`, `@marxy/theme`, `@marxy/shell-api`, `./shell` | `@tauri-apps/*` directly, Node built-ins | browser |
 | `apps/desktop/src-tauri` (Rust) | crates in `Cargo.toml`; none copyleft (ADR-0006) | — | native |
 
+Inside `apps/desktop/src`, `app.ts` is the composition root: `startApp` builds and connects the parts
+and holds no state of its own (ADR-0037). `document/` owns the open document: `store.ts` (the bytes,
+the parse and the history; every change a transition), `open.ts` (the open path and the launch) and
+`live-reload.ts` (one watch per store). `view/rendered-view.ts` shows one store in one article: the
+mode, the Source editor, the typesetter, the grid and the anchor. `trust/controller.ts` decides what a
+document may show, and `startup/measure.ts` makes the start-up marks honest numbers.
+
 A dependency test per package asserts these (the pattern already exists in
 `packages/core/src/parse/dependencies.test.ts`; §10 says how to extend it). `apps/desktop`'s
 test `shell-boundary.test.mjs` asserts that `@tauri-apps` appears only under `src/shell/`.

@@ -62,7 +62,18 @@ export interface Shell {
   readFile(path: string): Promise<Uint8Array>;
   /** Atomic: write to a temp file in the same directory, fsync, rename over. Never in place. */
   writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
+  /**
+   * One file's size and modification time without listing its folder (C-11.2). A narrower form of
+   * `readDir`: `null` for a path that is missing, one that is itself a symlink (`readDir` omits every one) or named like a
+   * deny-listed directory; a folder is reported with `isDir`.
+   */
   stat(path: string): Promise<FileStat | null>;
+  /**
+   * At most the first `maxBytes` of a regular file, capped by the shell at 256 KB (C-11.2). A narrower
+   * form of `readFile`: it rejects when the path itself is a symlink, a folder or any file that is not a regular one,
+   * and its open neither follows a link nor blocks on a named pipe. It does not arm the stale-write guard.
+   */
+  readHead(path: string, maxBytes: number): Promise<Uint8Array>;
   /**
    * Directory watch, debounced by the shell; the callback receives batches. By default the folder's
    * own files (and the folders of symlinked documents in it). With `recursive`, every file in the
@@ -141,6 +152,7 @@ function stubShellImpl(): Shell {
     readFile: async () => new Uint8Array(),
     writeFileAtomic: async () => {},
     stat: async () => null,
+    readHead: async () => new Uint8Array(),
     watch: async () => ({ close() {} }),
     listRoot: async () => [],
     fuzzy: async () => [],

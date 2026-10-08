@@ -31,6 +31,32 @@ export interface LiveReloadDeps {
 
 export interface DocumentWatch {
   close(): void;
+  /**
+   * Resolves once the watch follows the store's path as it is now: after a rename or a Save as, when
+   * the new folder's watch is registered (on Tauri, `watch_root` and `listen` are round trips), so a
+   * write right after it is seen (the B-14 review).
+   */
+  moved(): Promise<void>;
+}
+
+/**
+ * One watch per store, however often the open path asks (the B-14 review): asking again for the store
+ * already watched returns its watch; asking for another starts one. The last store's watch closes
+ * with that store, not here.
+ */
+export function oneWatchPerStore(start: (store: DocumentStore) => Promise<DocumentWatch>): {
+  watch(store: DocumentStore): Promise<DocumentWatch>;
+  /** The watch started for `store`, or null when none was. */
+  of(store: DocumentStore): Promise<DocumentWatch> | null;
+} {
+  let last: { readonly store: DocumentStore; readonly watch: Promise<DocumentWatch> } | null = null;
+  return {
+    watch(store) {
+      if (last?.store !== store) last = { store, watch: start(store) };
+      return last.watch;
+    },
+    of: (store) => (last?.store === store ? last.watch : null),
+  };
 }
 
 const isMarkdownPath = (path: string): boolean => classify(path) === 'markdown';
@@ -201,6 +227,7 @@ export async function watchDocument(
     moving = watchFolderOf(snap.path);
   });
 
-  await watchFolderOf(watchedPath);
-  return { close };
+  moving = watchFolderOf(watchedPath);
+  await moving;
+  return { close, moved: () => moving };
 }

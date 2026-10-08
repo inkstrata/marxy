@@ -55,12 +55,13 @@ function b64(text) {
   return Buffer.from(text, 'utf8').toString('base64');
 }
 
-async function boot(page, files, argv) {
+/** `lateWatch`: a watch on that folder registers only after a delay, as one on Tauri does (two round trips). */
+async function boot(page, files, argv, { lateWatch = null } = {}) {
   const base = await harnessBase();
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(
-    async ({ files, argv }) => {
+    async ({ files, argv, lateWatch }) => {
       const bin = atob;
       const bytes = {};
       for (const [path, b64] of Object.entries(files)) {
@@ -74,6 +75,7 @@ async function boot(page, files, argv) {
       const watchCloses = [];
       const origWatch = inner.watch.bind(inner);
       inner.watch = async (root, onEvents) => {
+        if (root === lateWatch) await new Promise((r) => setTimeout(r, 300));
         const handle = await origWatch(root, onEvents);
         return {
           close() {
@@ -88,7 +90,7 @@ async function boot(page, files, argv) {
       window.__marxyHandle = handle;
       window.__watchCloses = watchCloses;
     },
-    { files, argv },
+    { files, argv, lateWatch },
   );
 }
 
@@ -141,6 +143,53 @@ test('modified on disk reloads appended text and keeps byteOffset', async () => 
       window.__marxyHandle.shell.calls.find((c) => c.method === 'mark' && c.args[0] === 'live_reload' && String(c.args[2] ?? '').includes('ms=')),
     );
     assert.ok(reloadMark, 'expected live_reload mark with ms=');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Save as closes the old folder\'s watch and watches the new one', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A) }, ['/r/A.md']);
+    const seen = await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      h.shell.queueSaveDialog('/e/A.md');
+      const result = await h.save({ as: true });
+      return {
+        result,
+        watched: h.shell.calls.filter((c) => c.method === 'watch').map((c) => c.args[0]),
+        closes: [...window.__watchCloses],
+      };
+    });
+    assert.equal(seen.result, 'saved');
+    assert.deepEqual(seen.watched, ['/r', '/e']);
+    assert.deepEqual(seen.closes, ['/r'], 'the old folder is no longer watched');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a write right after Save as reloads, when the new folder\'s watch registers late (Tauri)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A) }, ['/r/A.md'], { lateWatch: '/e' });
+    const seen = await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      h.shell.queueSaveDialog('/e/A.md');
+      const result = await h.save({ as: true });
+      // At once, before anything else runs: another program writes the file the reader just saved.
+      await h.shell.writeFileAtomic('/e/A.md', new TextEncoder().encode('# Rewritten\n\nBy someone else.\n'));
+      h.shell.emit([{ kind: 'modified', path: '/e/A.md' }]);
+      const reloaded = () => h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'live_reload');
+      for (let i = 0; i < 500 && !reloaded(); i++) await new Promise((r) => setTimeout(r, 10));
+      return { result, reloaded: reloaded(), heading: document.querySelector('#doc h1')?.textContent };
+    });
+    assert.equal(seen.result, 'saved');
+    assert.equal(seen.reloaded, true, 'the write after Save as was seen');
+    assert.equal(seen.heading, 'Rewritten');
   } finally {
     await browser.close();
   }
@@ -291,6 +340,127 @@ test('edits folded in from an earlier Source visit are kept when the file change
     });
     await page.waitForFunction((text) => document.getElementById('marxy-notices')?.textContent?.includes(text), DISK_CHANGED_EDITS_KEPT);
     assert.equal(await page.evaluate(() => window.__marxyHandle.sourceHarness().bufferHash), hashBefore);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('text written at a held heading\'s first byte leaves the heading on the page (F-19)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const head = `# Alpha\n\n${para('Alpha').repeat(12)}\n\n`;
+    const tail = `## Bravo\n\n${para('Bravo').repeat(12)}\n`;
+    const inserted = `Written by another program.\n\n${para('Inserted').repeat(4)}\n\n`;
+    await boot(page, { '/r/A.md': b64(head + tail) }, ['/r/A.md']);
+    const bravoStart = Buffer.byteLength(head, 'utf8');
+    // Scroll until the reading position is the heading's start (the first block at the reading line).
+    const held = await page.evaluate((want) => {
+      const heading = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent.includes('Bravo'));
+      const top = heading.getBoundingClientRect().top + window.scrollY;
+      for (let y = top - 400; y <= top + 40; y += 4) {
+        window.scrollTo(0, y);
+        if (window.__marxyHandle.sourceHarness().byteOffset === want) return true;
+      }
+      return false;
+    }, bravoStart);
+    assert.ok(held, 'some scroll position holds the Bravo heading as the reading position');
+    await page.waitForFunction((want) => window.__marxyHandle.sourceHarness().byteOffset === want, bravoStart);
+    await page.evaluate(async (text) => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    }, head + inserted + tail);
+    await page.waitForFunction((snippet) => document.getElementById('doc')?.textContent?.includes(snippet), 'Written by another program.');
+    const want = Buffer.byteLength(head + inserted, 'utf8');
+    await page.waitForFunction((offset) => window.__marxyHandle.sourceHarness().byteOffset === offset, want);
+    const top = await page.evaluate(() => {
+      const heading = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent.includes('Bravo'));
+      return heading.getBoundingClientRect().top;
+    });
+    assert.ok(top >= 0 && top < 400, `the Bravo heading is near the top of the page after the write (top=${top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a reader who has not scrolled stays at the top when text is written above a short opening heading (F-19.1)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    // A short heading, then a long paragraph: the reading line (40% of the window) falls in the
+    // paragraph, so a reader at scrollY 0 does not naively hold byte 0.
+    const doc = `# Alpha\n\n${para('Alpha').repeat(12)}\n`;
+    await boot(page, { '/r/A.md': b64(doc) }, ['/r/A.md']);
+    assert.equal(await page.evaluate(() => window.scrollY), 0);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.sourceHarness().byteOffset), 0);
+    await page.evaluate(async (text) => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    }, `# Preface\n\nPrepended.\n\n${doc}`);
+    await page.waitForFunction(() => document.getElementById('doc')?.textContent?.includes('Prepended.'));
+    await new Promise((r) => setTimeout(r, 300));
+    const after = await page.evaluate(() => ({
+      y: window.scrollY,
+      b: window.__marxyHandle.sourceHarness().byteOffset,
+      top: [...document.querySelectorAll('#doc p')].find((p) => p.textContent.includes('Prepended.')).getBoundingClientRect().top,
+    }));
+    assert.equal(after.y, 0);
+    assert.equal(after.b, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended text is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+// A reader in Source who has not scrolled is at byte 0, so text written above leaves them at the top (F-19.2).
+const prependedInSource = async (page) => {
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
+  await page.evaluate(async () => {
+    const path = window.__marxyHandle.currentPath();
+    const old = await window.__marxyHandle.shell.readFile(path);
+    const text = new TextDecoder().decode(old);
+    const fresh = path.endsWith('.ts') ? `// Prepended.\nconst first = 1;\n${text}` : `# Preface\n\nPrepended.\n\n${text}`;
+    await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(fresh));
+    window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+  });
+  await page.waitForFunction(() => document.querySelector('#marxy-source')?.textContent?.includes('Prepended.'));
+  await new Promise((r) => setTimeout(r, 400));
+  return page.evaluate(() => {
+    const line = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.textContent.includes('Prepended.'));
+    return { y: window.scrollY, top: line.getBoundingClientRect().top };
+  });
+};
+
+test('a .ts file opens in Source, unscrolled, and stays at the top when text is written above (F-19.2)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const code = Array.from({ length: 400 }, (_, i) => `export const value${i} = ${i};`).join('\n') + '\n';
+    await boot(page, { '/r/A.ts': b64(code) }, ['/r/A.ts']);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const after = await prependedInSource(page);
+    assert.equal(after.y, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended line is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a .md file toggled to Source, unscrolled, stays at the top when text is written above (F-19.2)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    // Hand-wrapped lines: the reading line (40% of the window) falls on a source line below the heading.
+    const md = `# Alpha\n\n${Array.from({ length: 80 }, (_, i) => `Line ${i} of a paragraph that the author wrapped by hand.`).join('\n')}\n`;
+    await boot(page, { '/r/A.md': b64(md) }, ['/r/A.md']);
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const after = await prependedInSource(page);
+    assert.equal(after.y, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended line is on screen (top=${after.top})`);
   } finally {
     await browser.close();
   }

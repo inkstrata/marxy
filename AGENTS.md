@@ -94,7 +94,7 @@ Privileged work (files, watching, dialogs, clipboard) goes through the thin
 | `packages/typeset` | Knuth–Plass line breaking, hanging punctuation, baseline-grid enforcement, font-metric measurement | DOM only, no shell |
 | `packages/theme` | the default theme, the `--marxy-*` custom-property contract, theme loading and validation | none |
 | `packages/shell-api` | the privileged-operation interface (types only) | none |
-| `apps/desktop` | the Tauri shell implementing `shell-api`; the app UI (palette, outline, find, modes) | all of the above |
+| `apps/desktop` | the Tauri shell implementing `shell-api`; the app UI (palette, outline, find, modes): composition root `app.ts`; document store `document/`; per-article view `view/` | all of the above |
 | `fixtures/corpus` | the fixture corpus that goldens, the aesthetics gates and the nightly perf harness run on | — |
 | `scripts/` | CI gates | — |
 

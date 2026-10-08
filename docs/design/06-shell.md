@@ -30,14 +30,16 @@ one side and parsed on the other (MARXY-198).
 | --- | --- | --- | --- | --- | --- |
 | `readFile` → `read_file` | `path` | raw body (`ipc::Response`), an `ArrayBuffer` in the webview | not-found, permission, io | fs | done |
 | `writeFileAtomic` → `write_file_atomic` | raw body = bytes; header `x-marxy-path` = `encodeURIComponent(path)` | `()` | permission, io | fs | MARXY-14 |
-| `stat` | `path` | `FileStat \| null` | permission | fs | MARXY-14 |
+| `stat` → `stat_file` | `path` | `FileStat \| null`: one entry's size and mtime without listing its folder; `null` for a missing path, one that is itself a symlink or a deny-listed name (the last component only, as `read_dir` checks) | permission, io | fs | MARXY-14, C-11.2 |
+| `readHead` → `read_head` | `path, maxBytes` | raw body (`ipc::Response`): at most the first `maxBytes`, capped at 256 KB in Rust | not-found, invalid (a symlink at the path, a folder, a FIFO or device), io | fs; opens with `O_NOFOLLOW \| O_NONBLOCK` on unix and checks the type again after opening; does not arm the stale-write guard | C-11.2 |
 | `imageSize` → `image_size` | `path` | `{ width, height } \| null` | not-found | fs (`imagesize` crate, MIT) | MARXY-26 |
 | `repositoryRoot` → `repository_root` | `path` | `string \| null` | — | fs | MARXY-35 |
 | `listRoot` → `list_root` | `root, extensions[], limit` | `FileStat[]` | permission | index (`ignore` walker) | MARXY-35 |
 | `indexBuild` → `index_build` | `root` | `{ count, ms, truncated }` | permission | index | MARXY-35 |
 | `indexQuery` → `index_query` | `root, query, limit` | `IndexHit[]` | invalid | index (`nucleo-matcher`) | MARXY-35 |
 | `indexLoad` / `indexSave` | `root` | `IndexEntry[]` / `()` | io | index | MARXY-35 |
-| `watch` → `watch_start` / `watch_stop` | `root` → `watchId` | `number` | permission | watch (`notify` + `notify-debouncer-full`) | MARXY-34 |
+| `watch` → `watch_start` / `watch_stop` | `root` → `watchId` | `number` | permission | watch (`notify` + `notify-debouncer-full`); history, see the next row | MARXY-34 |
+| `watch_root` / `unwatch_root` | `root, recursive?` / `root, recursive?, id?` | `{ key, id }` / `()`; `id` names the watch the handle holds, so a late close of an ended watch finds "not watching" and leaves a newer watch of the same tree alone | permission, io | watch (`notify`) | C-05, C-11.1 |
 | `openExternal` → `open_external` | `url` | `()` | unsupported (scheme not http/https/mailto) | os (`open` crate) | MARXY-61 |
 | `revealInExternalEditor` → `reveal_in_editor` | `path, line?` | `()` | unsupported (no editor configured) | os | MARXY-48 |
 | `clipboardWrite` → `clipboard_write` | `{ text, html? }` | `()` | io | os (`tauri-plugin-clipboard-manager`) | MARXY-42 |

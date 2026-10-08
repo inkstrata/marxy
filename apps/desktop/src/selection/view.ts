@@ -3,10 +3,6 @@
 // and reads the open document from its store whenever it needs it, so nothing here can go stale.
 
 import {
-  createBuffer,
-  parseMarkdown,
-  sectionRange,
-  textOf,
   type Block,
   type Buffer,
   type Document,
@@ -109,14 +105,28 @@ export interface RenderedSelection {
   moveDown(): void;
   moveUp(): void;
   moveParent(): void;
+  /**
+   * Select what a click on `target` selects, without following a link when `link` is `'select'` (the verb
+   * menu's right-click, C-13). Synchronous for `'select'`.
+   */
+  selectAt(target: Element, opts: { readonly link: 'select' | 'follow' }): Promise<void>;
   /** One step back in the link history; true when it moved (the caller then has nothing left to do). */
   back(): boolean;
+  /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
+  lastPointerCarrier(): Element | null;
   /** The page was set again: re-resolve the selection on it, mark it, and land a pending fragment. */
   afterRender(): void;
   destroy(): void;
 }
 
 const DRAG_THRESHOLD_PX = 4;
+
+/** A right-click, or a Ctrl-click on a Mac: it opens the verb menu (C-13), and is not a click that selects. */
+export function isSecondaryClick(ev: MouseEvent): boolean {
+  if (ev.button === 2) return true;
+  const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  return mac && ev.ctrlKey && ev.button === 0;
+}
 const MARKDOWN_LINK = /\.(md|markdown|mdx|txt)$/i;
 
 function isExternalHref(href: string): boolean {
@@ -156,6 +166,8 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   const { article, scroller } = opts;
   let state: SelectionState = { selection: { kind: 'none' } };
   let lastClickTarget: Element | null = null;
+  /** The block carrier last pressed on, which Jump to source starts from; cleared when the document changes. */
+  let pointerCarrier: Element | null = null;
   let pointerDrag = false;
   let downAt: { x: number; y: number } | null = null;
   let pointerDown = false;
@@ -214,7 +226,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   /** Nothing the reader clicked in the last document names anything in the next one (or in none). */
   const forgetClick = (): void => {
     lastClickTarget = null;
-    (window as Window & { __marxyJumpCarrier?: Element }).__marxyJumpCarrier = undefined;
+    pointerCarrier = null;
   };
 
   const recordNavOpen = (nextPath: string): void => {
@@ -226,32 +238,32 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     navIndex = navHistory.length - 1;
   };
 
-  const followLink = async (anchor: HTMLAnchorElement, ev: MouseEvent): Promise<void> => {
+  const followLink = async (anchor: HTMLAnchorElement, ev?: MouseEvent): Promise<void> => {
     const href = anchor.getAttribute('href');
     const snap = opts.store()?.snapshot();
     if (!href || !snap) return;
     const path = opts.currentPath() ?? snap.buffer.path;
 
     if (href.startsWith('#')) {
-      ev.preventDefault();
+      ev?.preventDefault();
       landFragment(href);
       return;
     }
 
     if (isExternalHref(href) || anchor.classList.contains('marxy-external')) {
-      ev.preventDefault();
+      ev?.preventDefault();
       if (typeof opts.shell.openExternal === 'function') await opts.shell.openExternal(href);
       return;
     }
 
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
-      ev.preventDefault();
+      ev?.preventDefault();
       notify({ kind: 'info', text: 'That link uses a scheme Marxy does not open.' });
       return;
     }
 
     const local = localLinkTarget(path, href, opts.imageRoot(path));
-    ev.preventDefault();
+    ev?.preventDefault();
     if ('refused' in local) {
       notify({ kind: 'info', text: local.refused });
       return;
@@ -306,53 +318,43 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     paint();
   };
 
-  /** Test hook: replace `#doc` HTML without changing bytes, then restore selection. */
-  const rerenderWithSameHtml = (): void => {
-    if (!opts.store()) return;
-    const cloned = [...article.childNodes].map((n) => n.cloneNode(true));
-    article.replaceChildren(...cloned);
-    reresolve();
-  };
-
   const selectNone = (): void => {
     state = select(state, { kind: 'none' });
     paint();
   };
 
-  const onClick = async (ev: MouseEvent): Promise<void> => {
+  /**
+   * Select what a click on `raw` selects (C-13: a click and a right-click share it). A link is followed
+   * (`link: 'follow'`, a plain click) or selected as its inline node (`'select'`: Alt+click, and the verb
+   * menu, which never follows one). Resolves once a followed link has landed; a selection is made
+   * synchronously, before the returned promise is awaited.
+   */
+  const selectAt = (raw: Element, how: { readonly link: 'select' | 'follow' }, ev?: MouseEvent): Promise<void> => {
     const snap = opts.store()?.snapshot();
-    if (!snap) return;
+    if (!snap) return Promise.resolve();
     const { nodeMap } = snap;
-    if (pointerDrag) return;
-    const domSel = window.getSelection();
-    if (domSel && !domSel.isCollapsed) return;
-
-    const raw = ev.target;
-    if (!(raw instanceof Element) || raw === article || !article.contains(raw)) {
+    if (raw === article || !article.contains(raw)) {
       selectNone();
-      return;
+      return Promise.resolve();
     }
 
     const link = raw.closest('a[href]');
-    if (link instanceof HTMLAnchorElement && !ev.altKey) {
-      await followLink(link, ev);
-      return;
-    }
+    if (link instanceof HTMLAnchorElement && how.link === 'follow') return followLink(link, ev);
 
     const carrier = raw.closest('[data-marxy-s]');
     if (!carrier) {
       selectNone();
-      return;
+      return Promise.resolve();
     }
 
     const resolved = resolve(carrier, nodeMap);
-    if (!resolved) return;
+    if (!resolved) return Promise.resolve();
 
-    if (ev.altKey && link instanceof HTMLAnchorElement) {
+    if (link instanceof HTMLAnchorElement) {
       state = select(state, { kind: 'node', node: resolved.node as Inline, el: carrier });
       lastClickTarget = carrier;
       paint();
-      return;
+      return Promise.resolve();
     }
 
     if (isInline(resolved.node) && resolved.node.type === 'code' && carrier === lastClickTarget) {
@@ -362,13 +364,28 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
         state = select(state, { kind: 'node', node: blockResolved.node, el: blockEl });
         lastClickTarget = blockEl;
         paint();
-        return;
+        return Promise.resolve();
       }
     }
 
     lastClickTarget = carrier;
     state = select(state, { kind: 'node', node: resolved.node as Block | Inline, el: carrier });
     paint();
+    return Promise.resolve();
+  };
+
+  const onClick = async (ev: MouseEvent): Promise<void> => {
+    if (!opts.store()) return;
+    if (pointerDrag) return;
+    const domSel = window.getSelection();
+    if (domSel && !domSel.isCollapsed) return;
+
+    const raw = ev.target;
+    if (!(raw instanceof Element)) {
+      selectNone();
+      return;
+    }
+    await selectAt(raw, { link: ev.altKey ? 'select' : 'follow' }, ev);
   };
 
   /**
@@ -397,11 +414,27 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   };
   // On the document, not the article: a drag that ends in the margin or outside the window's text column
   // releases off the article, and it is still the selection the reader sees (C-06 review).
-  const onDocumentMouseUp = (): void => {
+  const onDocumentMouseUp = (ev: MouseEvent): void => {
     pointerDown = false;
+    // A secondary click (right-click, or Ctrl-click on a Mac) opens the verb menu (C-13): it neither makes
+    // nor drops a drag, and the word WebKit selects under it is not the reader's selection.
+    if (isSecondaryClick(ev)) return;
     // Only a selection that touches the article is recorded (`recordDrag` clamps to it), wherever the
     // pointer came up.
     recordTextSelection();
+    // A plain click that takes the highlight away (in the margin, say) takes the recorded drag with it, so
+    // Mod+C cannot copy a passage the reader no longer sees (C-06 review). WebKit collapses the selection as
+    // the press's default action, after this listener, so the check waits a task. A click in a summoned
+    // surface (the palette, the verb menu) is not one: they act on the drag made before they were summoned.
+    const inSurface = ev.target instanceof Element && ev.target.closest('dialog, .marxy-verb-menu') !== null;
+    if (!inSurface) {
+      const recorded = state.selection;
+      setTimeout(() => {
+        const live = window.getSelection();
+        const collapsed = !live || live.isCollapsed || live.rangeCount === 0;
+        if (collapsed && state.selection === recorded && recorded.kind === 'text') selectNone();
+      }, 0);
+    }
   };
 
   // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
@@ -418,8 +451,16 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     // click that is not prevented navigates the window whether or not a handler follows it.
     const link = ev.target instanceof Element ? ev.target.closest('a[href]') : null;
     if (link) ev.preventDefault();
+    // Ctrl-click on a Mac is a secondary click: the verb menu's, never a link to follow (C-13).
+    if (isSecondaryClick(ev)) return;
     void onClick(ev);
   };
+  const onPointerDown = (ev: PointerEvent): void => {
+    const raw = ev.target;
+    const carrier = raw instanceof Element ? raw.closest('[data-marxy-s]') : null;
+    if (carrier) pointerCarrier = carrier;
+  };
+  article.addEventListener('pointerdown', onPointerDown, true);
   article.addEventListener('mousedown', onMouseDown);
   article.addEventListener('mousemove', onMouseMove);
   article.addEventListener('click', onArticleClick);
@@ -429,6 +470,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   const controller: RenderedSelection = {
     state: () => state,
     runtime,
+    selectAt: (target, how) => selectAt(target, how),
     clear() {
       if (!opts.store()) return;
       selectNone();
@@ -450,6 +492,9 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       navIndex -= 1;
       void opts.open(navHistory[navIndex]!);
       return true;
+    },
+    lastPointerCarrier() {
+      return pointerCarrier;
     },
     afterRender() {
       const snap = opts.store()?.snapshot();
@@ -481,25 +526,13 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       }
     },
     destroy() {
+      article.removeEventListener('pointerdown', onPointerDown, true);
       article.removeEventListener('mousedown', onMouseDown);
       article.removeEventListener('mousemove', onMouseMove);
       article.removeEventListener('click', onArticleClick);
       document.removeEventListener('selectionchange', onSelectionChange);
       document.removeEventListener('mouseup', onDocumentMouseUp);
-      const w = window as Window & { marxySelection?: { getSelectionState(): SelectionState } };
-      if (w.marxySelection?.getSelectionState === controller.state) w.marxySelection = undefined;
     },
-  };
-
-  (window as Window & { marxySelection?: unknown }).marxySelection = {
-    getSelectionState: controller.state,
-    rerenderWithSameHtml,
-    afterDocumentRendered: reresolve,
-    resolve,
-    textOf,
-    parseMarkdown,
-    sectionRange,
-    createBuffer,
   };
 
   return controller;

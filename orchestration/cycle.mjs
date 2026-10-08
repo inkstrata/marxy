@@ -210,6 +210,8 @@ export function liveIo({ m, dry = false }) {
     },
     runs: b => observeRuns(b),
     worktrees: () => observeWorktrees(),
+    // Every worktree's dirty and ahead state, for the claims the cycle names; one git status per worktree.
+    liveEntries: snap => readLiveEntries(snap ? { branchState: snap.branchState } : {}),
     hasCli: () => Boolean(read('sh', ['-c', 'command -v "$1"', 'sh', bin])),
     result: (key, sinceIso) => {
       const p = resultPath(key);
@@ -425,7 +427,7 @@ export function reconcile({ io, m = models(), dry = false, noMerge = false, drai
   if (plan) {
     const statusOf = k => b.stories[k]?.status;
     const rowsOf = (key, wtPath) => plan.byKey.get(key) ?? defaultRowsOf()(key, wtPath);
-    sayWorktreeClaims(liveClaims(readLiveEntries(snap ? { branchState: snap.branchState } : {}), {
+    sayWorktreeClaims(liveClaims(io.liveEntries(snap), {
       rowsOf,
       isDone: k => statusOf(k) === 'done',
       statusOf,

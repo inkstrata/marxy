@@ -2,7 +2,7 @@
 // watched tree, opened when a root becomes watched (the open document's repository, a folder declared
 // with `watch`) and closed when it stops being one or the collection stops. A folder nested in another
 // watched folder shares the outer one's watch: two watches on one tree would report every change twice.
-// The open document's own folder watch (ADR-0018, app.ts `registerDocumentWatch`) is not touched here.
+// The open document's own folder watch (ADR-0018, document/live-reload.ts `watchDocument`) is not touched here.
 import { isUnderRoot, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { IndexService } from '../index/service.ts';
@@ -19,7 +19,7 @@ export interface TreeWatchShell {
 
 export type TreeWatchIndex = Pick<
   IndexService,
-  'watchedRoots' | 'onWatchedRootsChange' | 'applyEvents' | 'setTreeWatch' | 'revalidate'
+  'watchedRoots' | 'onWatchedRootsChange' | 'applyEvents' | 'setTreeWatch' | 'revalidate' | 'homeSized'
 >;
 
 export interface TreeWatchHandle {
@@ -63,7 +63,9 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
         }
         for (const tree of wanted) {
           if (open.has(tree)) continue;
-          if (!shell.watch) {
+          // A tree that holds the home folder is never watched recursively: the watch would descend into
+          // Library (C-10.1). A declared ~/Documents or a volume is budgeted but watched.
+          if (!shell.watch || (await index.homeSized(tree))) {
             open.set(tree, null);
             index.setTreeWatch(tree, 'refused');
             continue;

@@ -1,5 +1,4 @@
 // Source gutter toggle and jump-to-source palette commands (MARXY-239).
-import type { AppHandle } from '../app.ts';
 import type { AppContext, Command } from './registry.ts';
 import type { AppShell } from '../app.ts';
 import { writeReaderKey } from '../theme/reader-config.ts';
@@ -12,8 +11,7 @@ function byteAttr(el: Element | null | undefined): number | null {
 }
 
 function clickedBlockByte(): number | null {
-  const carrier = (window as Window & { __marxyJumpCarrier?: Element | null }).__marxyJumpCarrier;
-  return byteAttr(carrier);
+  return byteAttr(appHandle()?.selection.lastPointerCarrier());
 }
 
 function selectionStartByte(ctx: AppContext): number | null {
@@ -69,10 +67,8 @@ export function sourceViewCommands(): readonly Command[] {
       when: (ctx) => selectionStartByte(ctx) !== null,
       run: async (ctx) => {
         const byte = selectionStartByte(ctx);
-        // The running app's handle; the bare app.html test harness loads the selection harness as a
-        // bundle of its own, so it names its handle on window. Source opens only through the app, so
-        // what is typed there is the document's (F-03).
-        const app = appHandle() ?? (window as Window & { __marxyHandle?: AppHandle }).__marxyHandle;
+        // Source opens only through the running app, so what is typed there is the document's (F-03).
+        const app = appHandle();
         if (byte === null || !app) return;
         await app.jumpToSource(byte);
       },

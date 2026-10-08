@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { relativeImportSpecs, memoryShellReachableFromMain, resolveRelativeModule, distChunkSpecs, entryChunks, katexInEntry, staticChunkSpecs } from './gate-bundle.mjs';
+import { relativeImportSpecs, memoryShellReachableFromMain, resolveRelativeModule, distChunkSpecs, entryChunks, katexInEntry, staticChunkSpecs, testOnlyStringsIn, TEST_ONLY_STRINGS, shippedDistProblems } from './gate-bundle.mjs';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 test('relativeImportSpecs includes dynamic import() and require() of a relative path', () => {
   const source = `
@@ -165,4 +167,44 @@ test('A-17: KaTeX inside the entry chunk, or a statically imported or preloaded 
 test('A-17: no dist/index.html is null (the gate fails it only under MARXY_BUNDLE_REQUIRED)', () => {
   const dist = mkdtempSync(join(tmpdir(), 'marxy-a17-'));
   try { assert.equal(katexInEntry(dist), null); assert.equal(entryChunks(dist), null); } finally { rmSync(dist, { recursive: true, force: true }); }
+});
+
+test('the bundle gate names the test hooks and the mutation switches as strings a release must not contain (B-16)', () => {
+  for (const name of ['installTestHooks', 'marxyHarness', 'marxyRunCommand', '__marxyOrigBytes', 'MARXY_8', 'MARXY_19']) {
+    assert.ok(TEST_ONLY_STRINGS.includes(name), name);
+  }
+  assert.deepEqual(testOnlyStringsIn('const a = 1; window.marxyRunCommand = f; process.env.MARXY_86_MUTATION'), ['marxyRunCommand', 'MARXY_8']);
+  assert.deepEqual(testOnlyStringsIn('export const reader = 1;'), []);
+});
+
+test('B-16.1: a dist/ holding only index.html and clean files passes the shipped-dist check', () => {
+  const dist = fixtureDist({ 'index.html': INDEX, 'assets/index-1.js': 'export const reader = 1;', 'assets/vendor-1.js': '' });
+  try { assert.deepEqual(shippedDistProblems(dist), { files: 3, extraHtml: [], hits: [] }); } finally { rmSync(dist, { recursive: true, force: true }); }
+});
+
+test('B-16.1: a second HTML entry under dist/ fails, wherever it sits', () => {
+  for (const extra of ['app.html', 'assets/gate.html']) {
+    const dist = fixtureDist({ 'index.html': INDEX, [extra]: '<html></html>' });
+    try { assert.deepEqual(shippedDistProblems(dist).extraHtml, [extra]); } finally { rmSync(dist, { recursive: true, force: true }); }
+  }
+});
+
+test('B-16.1: a test-only string in any file under dist/ fails, not only in the index graph', () => {
+  // Neither file is reachable from index.html: the old index-graph walk passed both.
+  const dist = fixtureDist({ 'index.html': INDEX, 'assets/app-1.js': 'window.marxyRunCommand = f;', 'assets/worker-1.js': 'installTestHooks()' });
+  try {
+    assert.deepEqual(shippedDistProblems(dist).hits, [
+      { file: 'assets/app-1.js', strings: ['marxyRunCommand'] },
+      { file: 'assets/worker-1.js', strings: ['installTestHooks'] },
+    ]);
+  } finally { rmSync(dist, { recursive: true, force: true }); }
+});
+
+test('B-16.1: the desktop Vite config leaves app.html out of dist/ and keeps it for any other outDir', async () => {
+  const desktop = fileURLToPath(new URL('../apps/desktop/', import.meta.url));
+  const { resolveConfig } = createRequire(join(desktop, 'package.json'))('vite');
+  const inputs = async (outDir) => Object.keys((await resolveConfig({ root: desktop, logLevel: 'silent', build: outDir ? { outDir } : {} }, 'build')).build.rollupOptions.input);
+  assert.deepEqual(await inputs(undefined), ['index']);
+  assert.deepEqual(await inputs('harness/dist'), ['index', 'app']);
+  assert.deepEqual(await inputs(join(tmpdir(), 'marxy-suite')), ['index', 'app']);
 });
