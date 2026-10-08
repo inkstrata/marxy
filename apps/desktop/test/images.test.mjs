@@ -363,3 +363,53 @@ test('F-17: an empty document still reports no text and is not watched', async (
     await browser.close();
   }
 });
+
+// F-17.1: "empty" is decided by the source, not by the rendered selector.
+const TEXTLESS = {
+  'a lone ---': '---\n',
+  'a lone ***': '***\n',
+  'an HTML comment alone': '<!-- nothing to read -->\n',
+  'a lone <div>': '<div>\n',
+};
+for (const [name, source] of Object.entries(TEXTLESS)) {
+  test(`F-17.1: ${name} opens and registers its watch`, async () => {
+    const browser = await webkit.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+      const r = await bootBounded(page, { '/docs/t.md': Buffer.from(source).toString('base64') }, ['/docs/t.md']);
+      assert.equal(r.outcome, 'ready', JSON.stringify(r));
+      assert.equal(r.watches, 1, JSON.stringify(r));
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+test('F-17.1: front matter alone reaches first_text and registers its watch', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const source = '---\ntitle: Only metadata\n---\n';
+    const r = await bootBounded(page, { '/docs/fm.md': Buffer.from(source).toString('base64') }, ['/docs/fm.md']);
+    const marks = await page.evaluate(() => window.__f17?.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]) ?? []);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    assert.ok(marks.includes('first_text'), `marks: ${marks}`);
+    assert.equal(marks.includes('no_text'), false, `marks: ${marks}`);
+    assert.equal(r.watches, 1, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('F-17.1: a file of only white space is empty: no_text and no watch', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, { '/docs/ws.md': Buffer.from(' \n\n\t\n').toString('base64') }, ['/docs/ws.md']);
+    const marks = await page.evaluate(() => window.__f17?.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]) ?? []);
+    assert.ok(marks.includes('no_text'), `marks: ${marks}`);
+    assert.equal(r.watches, 0, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});
