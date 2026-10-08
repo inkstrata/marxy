@@ -260,3 +260,18 @@ While there, `image-set` string candidates lose their `type()` and resolution de
 if the change is small. Acceptance: a callback returning `a\` or `a\nb){x:url(https://evil.example/q)}` yields one
 url token and no remote URL outside a string; ordinary results are byte-identical.
 
+### F-17 — A document with only images finishes opening
+
+**Model:** sonnet · **Size:** S · **Depends on:** none · *From the F-14 review, reproduced on main.* · **Paths:**
+`apps/desktop/src/app.ts` (the boot branch only), `apps/desktop/src/startup/` if the cause is there, a desktop test.
+A document with no text characters gets `no_text` from `waitForFirstText`, and `bootDocument` calls `finish(1)`,
+skipping `finishDocumentOpen`: a local image keeps its raw `src` and never loads, and with two image blocks `start`
+never resolves. The reader sees a half-open document (no images, probably no watch and no saved place). Fix the boot
+so such a document finishes opening while measurements stay honest about there being no text. Acceptance: one local
+image loads; two image blocks resolve `start` and register the watch; an empty file behaves as today. Runs beside
+B-12 (same file): keep the change local to the boot branch.
+
+From the same review, smaller: the link refusal says "outside this folder" where it now means the repository (B-12
+may carry it); a refused image has no visible mark (commitment 4; a story with E-lane image work); the
+`await resolveImageRoot` in idle work is untested.
+
