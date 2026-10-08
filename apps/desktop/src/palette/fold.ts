@@ -16,30 +16,58 @@ export interface CheckoutKey {
   readonly checkout: string;
 }
 
-/** Folded hits keep the order of the list; each bucket takes the place of its first member. */
-export function foldHits(
+/**
+ * Folded hits keep the order of the list; each bucket takes the place of its first member.
+ * `named` holds the folder names a query spelled out (`b/agents`): a copy in such a checkout is
+ * listed as it is, never folded, so a folded copy is always one query away. `dropped[i]` is how many
+ * copies folded into `hits[i]`.
+ */
+export function foldHitsCounted(
   hits: readonly IndexHit[],
   keyOf: (path: string) => CheckoutKey | undefined,
   currentCheckout: string | undefined,
-): IndexHit[] {
-  const winner = new Map<string, { hit: IndexHit }>();
+  named: ReadonlySet<string> = new Set(),
+): { hits: IndexHit[]; dropped: number[] } {
+  const winner = new Map<string, { hit: IndexHit; dropped: number }>();
   const slots: (IndexHit | string)[] = [];
   for (const hit of hits) {
     const key = keyOf(hit.entry.path);
-    if (key === undefined) {
+    if (key === undefined || named.has(key.checkout.slice(key.checkout.lastIndexOf('/') + 1).toLowerCase())) {
       slots.push(hit);
       continue;
     }
     const bucket = `${key.group}\0${key.rel}\0${hit.entry.size}\0${hit.entry.title}`;
     const held = winner.get(bucket);
     if (held === undefined) {
-      winner.set(bucket, { hit });
+      winner.set(bucket, { hit, dropped: 0 });
       slots.push(bucket);
       continue;
     }
+    held.dropped++;
     if (beats(hit, held.hit, keyOf, currentCheckout)) held.hit = hit;
   }
-  return slots.map((slot) => (typeof slot === 'string' ? winner.get(slot)!.hit : slot));
+  const out: IndexHit[] = [];
+  const dropped: number[] = [];
+  for (const slot of slots) {
+    if (typeof slot === 'string') {
+      const w = winner.get(slot)!;
+      out.push(w.hit);
+      dropped.push(w.dropped);
+    } else {
+      out.push(slot);
+      dropped.push(0);
+    }
+  }
+  return { hits: out, dropped };
+}
+
+export function foldHits(
+  hits: readonly IndexHit[],
+  keyOf: (path: string) => CheckoutKey | undefined,
+  currentCheckout: string | undefined,
+  named?: ReadonlySet<string>,
+): IndexHit[] {
+  return foldHitsCounted(hits, keyOf, currentCheckout, named).hits;
 }
 
 /** The current checkout's copy, else the better score, else the newer file. */

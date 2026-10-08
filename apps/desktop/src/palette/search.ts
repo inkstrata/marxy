@@ -1,7 +1,7 @@
 // Fuzzy over path, title and headings; empty query is the MRU stack (ADR-0011, ADR-0012).
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
-import { foldHits, type CheckoutKey } from './fold.ts';
+import { foldHitsCounted, type CheckoutKey } from './fold.ts';
 import { emptyQueryPaths, type PaletteSession } from './session.ts';
 
 /** Named in search.test.ts: with `MARXY_86_MUTATION` set, searchPrepared is a no-op so CI goes red. */
@@ -134,6 +134,8 @@ export type RootRank = (root: string) => number;
 export interface FoldCopies {
   readonly keyOf: (path: string) => CheckoutKey | undefined;
   readonly currentCheckout: string | undefined;
+  /** Told, after every folded query, how many copies were folded into the hits listed. */
+  readonly folded?: (copies: number) => void;
 }
 
 /**
@@ -172,7 +174,12 @@ export function searchPrepared(
   if (needle.length === 0) return emptyHits(prepared, session, limit);
   if (fold === undefined) return searchRows(needle, prepared, session, limit, rootRank);
   const wide = searchRows(needle, prepared, session, limit * FOLD_HEADROOM, rootRank);
-  return foldHits(wide, fold.keyOf, fold.currentCheckout).slice(0, limit);
+  // A query that spells out a checkout's folder name (`b/agents`) lists that checkout's copies.
+  const named = new Set(needle.split(/[\s/]+/).filter((part) => part !== ''));
+  const { hits, dropped } = foldHitsCounted(wide, fold.keyOf, fold.currentCheckout, named);
+  const shown = hits.slice(0, limit);
+  fold.folded?.(dropped.slice(0, limit).reduce((sum, n) => sum + n, 0));
+  return shown;
 }
 
 /** The best `limit` rows for a normalised, non-empty needle, current root first. */

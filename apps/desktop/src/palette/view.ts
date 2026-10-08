@@ -143,6 +143,13 @@ function runPaletteCommand(cmd: Command | undefined): void {
   void cmd.run(ctx);
 }
 
+/** One quiet line when copies from other checkouts were folded away (commitment 4: nothing hidden silently). */
+export function foldedNotice(copies: number, scopeNotice: string | undefined): string | undefined {
+  if (copies === 0) return scopeNotice;
+  const line = `${copies} ${copies === 1 ? 'copy' : 'copies'} in other checkouts ${copies === 1 ? 'is' : 'are'} folded; type a checkout's folder name and a slash first to list ${copies === 1 ? 'it' : 'them'}.`;
+  return scopeNotice === undefined ? line : `${scopeNotice} ${line}`;
+}
+
 function queryPalette(
   query: string,
   section: PaletteListSection,
@@ -181,7 +188,13 @@ function queryPalette(
     };
   }
   const trimmed = query.trim();
-  const hits = paletteResults(trimmed, entries, session, { prepared, limit: 50, rootRank, fold });
+  let folded = 0;
+  const hits = paletteResults(trimmed, entries, session, {
+    prepared,
+    limit: 50,
+    rootRank,
+    fold: fold && { ...fold, folded: (copies) => (folded = copies) },
+  });
   const filtered = filterHits(hits, section);
   return {
     phase,
@@ -190,7 +203,7 @@ function queryPalette(
     hits: filtered.slice(0, PALETTE_ROW_LIMIT),
     operationCommands: [],
     selected: 0,
-    notice: scopeNotice,
+    notice: foldedNotice(folded, scopeNotice),
   };
 }
 

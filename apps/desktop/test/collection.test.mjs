@@ -571,6 +571,16 @@ const worktreeFiles = () => ({
   '/collection.toml': enc('[[root]]\npath = "/r"\n\n[[root]]\npath = "/wt/b"\n'),
 });
 
+/** The palette's notice line after a typed query ('' when hidden). */
+async function noticeFor(page, mod, query) {
+  await page.keyboard.press(`${mod}+KeyP`);
+  await page.waitForSelector('#marxy-palette[open]');
+  await page.fill('#marxy-palette .marxy-palette-query', query);
+  const text = await page.$eval('#marxy-palette .marxy-palette-notice', (el) => (el.hidden ? '' : el.textContent ?? ''));
+  await page.keyboard.press('Escape');
+  return text;
+}
+
 /** The document paths of the rows a typed query lists (a row's key is `<path>:<heading or doc>`). */
 async function openedBy(page, mod, query) {
   await page.keyboard.press(`${mod}+KeyP`);
@@ -601,6 +611,11 @@ test('three checkouts of one repository list one AGENTS.md: the open checkout\'s
     assert.equal(await page.evaluate(() => window.__h.index.entries().filter((e) => e.title === 'Agents').length), 3);
 
     assert.deepEqual(await openedBy(page, mod, 'agents'), ['/wt/a/AGENTS.md'], 'one hit, and it is the open checkout\'s');
+
+    // Folding is said once, in the notice line; a query that names a checkout lists its copy.
+    assert.match(await noticeFor(page, mod, 'agents'), /2 copies in other checkouts are folded/);
+    assert.deepEqual(await openedBy(page, mod, 'b/agents'), ['/wt/b/AGENTS.md'], 'naming the checkout lists its copy');
+    assert.equal(await noticeFor(page, mod, 'b/agents'), '', 'nothing folded, nothing said');
 
     // The same file in /wt/b no longer matches /wt/a's size: both list.
     await page.evaluate(async () => {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import type { IndexEntry, IndexHit } from '@marxy/core';
 import { checkoutOf, gitGroupKey } from '@marxy/core/src/index-model/checkout.ts';
 import { pathUnder } from '@marxy/core/src/index-model/paths.ts';
-import { foldHits, type CheckoutKey } from './fold.ts';
+import { foldHits, foldHitsCounted, type CheckoutKey } from './fold.ts';
 import { paletteResults, prepareIndex } from './search.ts';
 import { emptySession, togglePin } from './session.ts';
 
@@ -24,6 +24,7 @@ const dotGit = new Map<string, string>([
   ['/r', gitGroupKey('/r', undefined)],
   ['/wt/a', gitGroupKey('/wt/a', 'gitdir: /r/.git/worktrees/a\n')],
   ['/wt/b', gitGroupKey('/wt/b', 'gitdir: /r/.git/worktrees/b\n')],
+  ['/wt/ab', gitGroupKey('/wt/ab', 'gitdir: /r/.git/worktrees/ab\n')],
   ['/wt/c', gitGroupKey('/wt/c', 'gitdir: /r/.git/worktrees/c\n')],
   ['/other', gitGroupKey('/other', undefined)],
 ]);
@@ -106,4 +107,37 @@ test('the empty state is never folded: pinned and recent copies all show', () =>
   session = togglePin(session, '/wt/a/AGENTS.md');
   const hits = paletteResults('', entries, session, { prepared: prepareIndex(entries), fold: { keyOf, currentCheckout: '/r' } });
   assert.deepEqual(paths(hits).sort(), ['/r/AGENTS.md', '/wt/a/AGENTS.md']);
+});
+
+test('a copy in a checkout the query names is never folded; the others still fold', () => {
+  const hits = [hit(entry('/r', 'AGENTS.md')), hit(entry('/wt/a', 'AGENTS.md')), hit(entry('/wt/b', 'AGENTS.md'))];
+  const plain = foldHitsCounted(hits, keyOf, '/wt/a');
+  assert.deepEqual(paths(plain.hits), ['/wt/a/AGENTS.md']);
+  assert.deepEqual(plain.dropped, [2], 'two copies folded into the one shown');
+  const named = foldHitsCounted(hits, keyOf, '/wt/a', new Set(['b']));
+  assert.deepEqual(paths(named.hits).sort(), ['/wt/a/AGENTS.md', '/wt/b/AGENTS.md']);
+  assert.deepEqual(named.dropped.reduce((a, b) => a + b, 0), 1, 'only /r is still folded');
+});
+
+test('the query reports how many copies it folded, and a query naming a checkout lists its copy', () => {
+  const entries = ['/r', '/wt/a', '/wt/b'].map((root) => entry(root, 'AGENTS.md'));
+  const session = emptySession('/wt/a');
+  const prepared = prepareIndex(entries);
+  const told: number[] = [];
+  const fold = { keyOf, currentCheckout: '/wt/a', folded: (n: number) => told.push(n) };
+  assert.deepEqual(paths(paletteResults('agents', entries, session, { prepared, fold })), ['/wt/a/AGENTS.md']);
+  assert.deepEqual(told, [2]);
+  const named = paletteResults('b/agents', entries, session, { prepared, fold });
+  assert.deepEqual(paths(named), ['/wt/b/AGENTS.md']);
+  assert.deepEqual(told, [2, 0], 'nothing folded, so nothing to say');
+});
+
+test('naming a checkout in the query keeps its copy beside another that also matches', () => {
+  const entries = ['/wt/ab', '/wt/b'].map((root) => entry(root, 'AGENTS.md'));
+  const session = emptySession('/elsewhere');
+  const prepared = prepareIndex(entries);
+  const named = paletteResults('b/agents', entries, session, { prepared, fold: { keyOf, currentCheckout: undefined } });
+  assert.deepEqual(paths(named).sort(), ['/wt/ab/AGENTS.md', '/wt/b/AGENTS.md']);
+  const unnamed = paletteResults('agents', entries, session, { prepared, fold: { keyOf, currentCheckout: undefined } });
+  assert.equal(unnamed.length, 1);
 });
