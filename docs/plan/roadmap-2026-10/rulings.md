@@ -63,6 +63,7 @@ evidence (it needs an ADR if adopted); margin notes deferred to after v1.
 ## Lane K: highlighting breadth (2026-10-08)
 
 K-R2: the author favours broadly generous highlighting. Every syntax role gets its own hue, not the four of
-ADR-0033's restrained palette; K-05 writes ADR-0057 for the departure. The contrast floor (4.5:1 per role,
+ADR-0033's restrained palette; K-05 writes ADR-0057 for the departure. Markdown in Source is
+coloured too: titles and headings, their marks, links, code, list and quote marks. The contrast floor (4.5:1 per role,
 both variants) and the rule that status meaning never takes a token hue still hold. K-R1, K-R3 and K-R4
 (`09-code-view.md`) are open, with recommended defaults.

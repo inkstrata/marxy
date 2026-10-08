@@ -131,7 +131,8 @@ The restraint is deliberate:
 - Seven of the twelve roles fall back to the code-text colour, which leaves four hues.
 - The evidence under highlighting is thin. The largest study (390 students) found no gain in comprehension.
   The palette choice is **[D]**, so its breadth is the author's taste call.
-- **Ruled 2026-10-08 (K-R2): broadly generous highlighting.** Every role gets its own hue. The restraint
+- **Ruled 2026-10-08 (K-R2): broadly generous highlighting,** including Markdown in Source (titles,
+  headings and their marks, links, code, list and quote marks). Every role gets its own hue. The restraint
   above is reversed by ADR-0057, which K-05 writes.
 
 The gaps break even the handbook's own rule:
@@ -418,7 +419,7 @@ broadly generous
 **Outcome.**
 - **ADR-0057** (proposed in this PR) records the departure from ADR-0033's minimal palette and its reason: the
   evidence is **[D]** either way, and the author reads code by its colours. It adds the new roles
-  `--marxy-tok-{builtin,property,decorator,self,escape}`.
+  `--marxy-tok-{builtin,property,decorator,self,escape,heading,mark}`.
 - **The default theme gives every role a value** in both variants:
   - the six that fall back to code text today;
   - the five new roles.
@@ -442,6 +443,22 @@ broadly generous
   - `standard(variableName)` and Shiki's `support.function` / `support.type` to builtin.
 - Definitions (`def`, `fn`, `class` names) also take a heavier weight. JetBrains Mono is fixed-width at every
   weight, so alignment is unchanged.
+- **Markdown in Source is generous too** (the author, 2026-10-08). Today headings and strong are only bold,
+  and everything else is plain. With this story, `@lezer/markdown`'s tags get roles:
+  - headings, the `#` marks and the setext underline: the new `heading` role, with ATX levels kept by weight,
+    not by size, so every row stays one line box;
+  - emphasis and strong: italic and bold, in text colour;
+  - link text: function;
+  - URLs and link destinations: string;
+  - inline code and fences: string, with fence info strings as keyword;
+  - block-quote marks, list bullets and numbers, task boxes and the horizontal rule: the new `mark` role;
+  - frontmatter delimiters: decorator, with the frontmatter body coloured as YAML (`markdown()` takes it as a
+    nested language);
+  - raw HTML: `tag` and `attribute`;
+  - math delimiters: constant.
+
+  `heading` and `mark` join ADR-0057's new roles. The same values colour Rendered's nothing: Rendered sets
+  headings as type, not colour, so these roles exist only in Source.
 - **Status hues stay out of code.** Per `04-code-typography.md` "Colour budget", diff and log severity never
   take a token hue: generous applies to syntax, not to status.
 
@@ -463,6 +480,8 @@ The aesthetics baselines move. Regenerate them in this PR, alone in its wave (`0
 - A parity test tokenises one fixture per language (Python, TypeScript, Rust, Go, shell) with both engines and
   asserts the same role for each listed construct: keyword, decorator, class definition, `def` name, call,
   builtin, `self`/`this`, property, escape, f-string placeholder, macro, attribute value, number, comment.
+- In WebKit, a Markdown fixture in Source shows every heading level, link, URL, inline code span, list
+  marker and quote mark in a non-text token colour, and every row stays one line box.
 - In WebKit, the Python fixture in Source uses at least nine distinct token colours in its first 100 lines,
   and no keyword, decorator, class name or escape is left in the code-text colour.
 
