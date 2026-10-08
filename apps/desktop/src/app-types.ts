@@ -3,8 +3,10 @@
 // imports them from there still does.
 import type { Buffer, Document, Edit } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
+import type { OpenOptions } from './document/open.ts';
 import type { DocumentStore } from './document/store.ts';
 import type { IndexService } from './index/service.ts';
+import type { AppPane, PaneSet } from './pane/index.ts';
 import type { PaletteSession } from './palette/session.ts';
 import type { NodeMap } from './render/post.ts';
 import type { SaveResult } from './save.ts';
@@ -71,15 +73,15 @@ export type AppHandle = {
   readonly shell: AppShell;
   readonly ready: Promise<void>;
   /**
-   * Opens `path` through the one open path, after any open already under way: launch, open events
-   * and the palette all end here. `at` is a byte offset; the block containing it is held at the
+   * Opens `path` in the focused pane (`panes().openIn('focused', …)`), after any open already under way
+   * there: launch, open events and the palette all end here. `at` is a byte offset; the block containing it is held at the
    * reading line until the reader scrolls. `at` for the document already on screen moves to it
    * without reading the file again. `onLanded` runs once `path` is the document on screen; over unsaved
    * edits the promise settles as soon as the reader is asked, and `onLanded` waits for their choice
    * (never on "Dismiss").
    */
-  open(path: string, opts?: { at?: number; onLanded?: () => void }): Promise<void>;
-  /** The document on screen, or null before the first one. */
+  open(path: string, opts?: OpenOptions): Promise<void>;
+  /** The focused pane's document, or null before the first one. */
   currentPath(): string | null;
   /** The folder every image and link of the document at `path` must stay inside: its repository root, else its folder (ADR-0027 §5). */
   imageRoot(path: string): string;
@@ -146,6 +148,8 @@ export type AppHandle = {
    * the same line (A-14). Nothing to do in Source mode or with no document open.
    */
   relayout(): Promise<void>;
+  /** The window's panes (D-01): one, or two side by side; every member above reads the focused one. */
+  panes(): PaneSet<AppPane>;
   /**
    * Releases everything this instance started: its open store and watch, its view, its selection, its
    * persistence listeners and its user theme. `startApp` calls it on the instance it replaces in a page.

@@ -42,12 +42,15 @@ export interface DocumentWatch {
 /**
  * One watch per store, however often the open path asks (the B-14 review): asking again for the store
  * already watched returns its watch; asking for another starts one. The last store's watch closes
- * with that store, not here.
+ * with that store, not here; one this open path lets go while another pane still shows the store
+ * closes on `release`.
  */
 export function oneWatchPerStore(start: (store: DocumentStore) => Promise<DocumentWatch>): {
   watch(store: DocumentStore): Promise<DocumentWatch>;
   /** The watch started for `store`, or null when none was. */
   of(store: DocumentStore): Promise<DocumentWatch> | null;
+  /** Closes and forgets the watch for `store`, which stays open in another pane (D-01). */
+  release(store: DocumentStore): void;
 } {
   let last: { readonly store: DocumentStore; readonly watch: Promise<DocumentWatch> } | null = null;
   return {
@@ -56,6 +59,11 @@ export function oneWatchPerStore(start: (store: DocumentStore) => Promise<Docume
       return last.watch;
     },
     of: (store) => (last?.store === store ? last.watch : null),
+    release(store) {
+      if (last?.store !== store) return;
+      void last.watch.then((watch) => watch.close(), () => {});
+      last = null;
+    },
   };
 }
 

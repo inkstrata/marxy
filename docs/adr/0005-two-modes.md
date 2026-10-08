@@ -5,7 +5,8 @@
 ## Decision
 **Rendered**: typeset, no caret, selection and operations. **Source**: the raw text in
 CodeMirror 6 with caret, undo, multi-cursor; also the code viewer for files opened directly.
-Markdown opens Rendered; anything else opens Source. One key toggles. Switching preserves
+Markdown opens Rendered; anything else opens Source. One key toggles the focused pane: with two
+documents side by side each pane has its own mode (ADR-0057). Switching preserves
 reading position via the source-map coordinate (ADR-0018), never scroll offset.
 
 ## Why

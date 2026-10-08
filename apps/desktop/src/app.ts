@@ -1,14 +1,14 @@
 // The composition root (B-15): `startApp` builds one app instance from a shell and connects its parts:
-// the shell wrapper, the launch measurement, trust, persistence, the view on `#doc`, the selection, the
-// open path, the close guard, the commands and the handle. It holds no module state (ADR-0037): a second
-// `startApp` in one page releases the first instance and starts clean.
+// the shell wrapper, the launch measurement, trust, persistence, the panes (each a view and an open path,
+// D-01), the selection, the close guard, the commands and the handle. Everything that means "the open
+// document" reads the focused pane. It holds no module state (ADR-0037): a second `startApp` in one page
+// releases the first instance and starts clean.
 import { appHandle, setAppHandle } from './commands/app-handle.ts';
 import { applyDocumentMutation, redoDocumentEdit, undoDocumentEdit } from './commands/edits.ts';
 import { buildAppContext, installCommandKeys } from './selection/bind.ts';
 import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import { installCloseGuard } from './close.ts';
-import { createOpenPath } from './document/open.ts';
 import { pathsForDocument } from './render/images.ts';
 import { resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
@@ -21,22 +21,10 @@ import { createReadingPersistence } from './position/reading-persistence.ts';
 import { pinDocumentOnPaletteSession } from './palette/history.ts';
 import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
-import { createRenderedView, type ViewHost } from './view/rendered-view.ts';
+import { createPanes } from './pane/index.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
 
 export type { AppAction, AppHandle, AppShell, OpenDocument, OpenDocumentState } from './app-types.ts';
-
-/** The Source mount, `#marxy-source`: the app skeleton has one; the harness page gets one here. */
-function sourceMount(): HTMLElement {
-  let host = document.getElementById('marxy-source');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'marxy-source';
-    host.hidden = true;
-    document.body.appendChild(host);
-  }
-  return host;
-}
 
 /**
  * Everything main.ts used to do after it had a shell. `opts.argv` overrides `shell.args` so the
@@ -66,65 +54,53 @@ export async function startApp(
   const index = createIndexService(indexShellFor(shell));
   const measure = createLaunchMeasure(shell, argv);
   resetDismissedNotices();
-  // One view for `#doc` (B-13). The host is the DOM the app always had: `#doc`, the window's scroller,
-  // `#marxy-source` and `data-marxy-mode` on the body.
-  const host: ViewHost = {
-    article: document.getElementById('doc')!,
-    scroller: document.documentElement,
-    sourceHost: sourceMount(),
-    modeHost: document.body,
-  };
-  // Made below, once the view they read exists; the view reads them only when the page changes.
+  // Made below, once the panes they read exist; read only when the page changes.
   let selection: RenderedSelection | null = null;
   let handleRef: AppHandle | null = null;
+  const focused = () => panes.focused.content;
   const trust = createTrustController({
     shell,
-    currentPath: () => openPath.currentPath(),
-    buffer: () => openPath.store()?.snapshot().buffer ?? null,
-    position: (path) => view.blockPosition(path),
-    rerender: (at) => view.rerender(at),
-    showSource: (byteOffset) => view.showSource(byteOffset),
+    currentPath: () => focused().currentPath(),
+    buffer: () => focused().store()?.snapshot().buffer ?? null,
+    position: (path) => focused().view.blockPosition(path),
+    rerender: (at) => focused().view.rerender(at),
+    showSource: (byteOffset) => focused().view.showSource(byteOffset),
   });
   wireTrustRevokeCommands({
     grantsForPath: () => {
-      const path = openPath.currentPath();
+      const path = focused().currentPath();
       return path ? trust.grantsFor(path) : null;
     },
     revokeHtml: trust.revokeHtml,
   });
-  const view = createRenderedView(host, {
+  const config = createAppConfig(shell, () => panes.panes.map((pane) => pane.view));
+  const panes = createPanes({
     shell,
-    trust,
-    // Asset-protocol roots allowed this session (post-pass 3): one set per app instance, shared by its views.
-    assetRoots: new Set<string>(),
-    measure,
-    rootFor: (path) => index.rootFor(path),
+    view: {
+      trust,
+      // Asset-protocol roots allowed this session (post-pass 3): one set per app instance, shared by its views.
+      assetRoots: new Set<string>(),
+      measure,
+      rootFor: (path) => index.rootFor(path),
+    },
+    open: { persistence, index, trust, measure, config, pieces: opts?.pieces ?? null },
     selection: () => selection,
     context: () => buildAppContext(handleRef),
-    refreshTitle: () => openPath.refreshTitle(),
   });
+  // The window's first pane: the selection, the reader's place and the launch are its (D-05, D-06 move them per pane).
+  const first = panes.panes[0]!;
+  const openPath = first.content;
+  const view = first.view;
   persistence.follow(view);
-  const config = createAppConfig(shell, () => [view]);
-  const openPath = createOpenPath({
-    shell,
-    view,
-    persistence,
-    index,
-    trust,
-    measure,
-    config,
-    selection: () => selection,
-    pieces: opts?.pieces ?? null,
-  });
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
-    if (file) void openPath.open(file);
+    if (file) void panes.openIn('focused', file);
   });
   // The repository root once the index has said (F-14), else the document's folder.
   const imageRootFor = (path: string): string => pathsForDocument(path).imageRoot;
   const renderedSelection = createRenderedSelection({
-    article: host.article,
-    scroller: host.scroller,
+    article: first.article,
+    scroller: view.host.scroller,
     store: () => openPath.store(),
     // AppShell narrows the real shell; clipboardWrite (and openExternal, where there is one) is on it.
     shell: shell as SelectionShell,
@@ -134,10 +110,11 @@ export async function startApp(
     imageRoot: imageRootFor,
   });
   selection = renderedSelection;
+  // The open document is the focused pane's; with one pane that is the first pane, as it always was.
   const handle: AppHandle = {
-    get state() { return { document: view.document() }; },
+    get state() { return { document: focused().view.document() }; },
     dispatch(action) {
-      const store = openPath.store();
+      const store = focused().store();
       switch (action.type) {
         case 'apply':
           return applyDocumentMutation(store, { ...action, baseVersion: action.baseVersion });
@@ -146,33 +123,36 @@ export async function startApp(
         case 'redo':
           return redoDocumentEdit(store);
         case 'save':
-          return openPath.save({ as: action.as });
+          return focused().save({ as: action.as });
         case 'toggle-mode':
-          return view.toggleMode();
+          return focused().view.toggleMode();
       }
     },
     commands() { return appCommands(); },
     shell,
     ready: measure.ready.then(() => {}),
-    open: openPath.open,
-    currentPath: openPath.currentPath,
+    async open(path, opts) {
+      await panes.openIn('focused', path, opts);
+    },
+    currentPath: () => focused().currentPath(),
     imageRoot: imageRootFor,
-    sourceHarness: () => view.sourceHarness(),
-    // Summed over the app's views; there is one until Phase D.
-    debugCounts: () => view.debugCounts(),
-    openDocument: openPath.openDocument,
-    document: openPath.store,
-    save: openPath.save,
+    sourceHarness: () => focused().view.sourceHarness(),
+    // Summed over every view the panes made and have not destroyed.
+    debugCounts: () => panes.debugCounts(),
+    openDocument: () => focused().openDocument(),
+    document: () => focused().store(),
+    save: (opts) => focused().save(opts),
+    // The first pane's, as the selection is (D-06 moves both with focus).
     onDocumentChange: openPath.onDocumentChange,
     selection: renderedSelection,
-    commitEdit: openPath.commitEdit,
-    hasUnfoldedSource: () => view.sourceHasUnfoldedEdits(),
-    foldSource: openPath.foldSource,
-    contentComplete: () => view.contentComplete(),
-    mountThrough: (byteOffset) => view.mountThrough(byteOffset),
-    toggleMode: () => view.toggleMode(),
-    jumpToSource: (byteOffset) => view.jumpToSource(byteOffset),
-    relayout: () => view.relayout(),
+    commitEdit: (buffer) => focused().commitEdit(buffer),
+    hasUnfoldedSource: () => focused().view.sourceHasUnfoldedEdits(),
+    foldSource: () => focused().foldSource(),
+    contentComplete: () => focused().view.contentComplete(),
+    mountThrough: (byteOffset) => focused().view.mountThrough(byteOffset),
+    toggleMode: () => focused().view.toggleMode(),
+    jumpToSource: (byteOffset) => focused().view.jumpToSource(byteOffset),
+    relayout: () => focused().view.relayout(),
     pinPaletteDocument(path: string) {
       pinDocumentOnPaletteSession(paletteSession?.() ?? emptySession('/'), path);
     },
@@ -180,10 +160,10 @@ export async function startApp(
       paletteSession = session;
     },
     index,
+    panes: () => panes,
     destroy() {
-      openPath.close();
       renderedSelection.destroy();
-      view.destroy();
+      panes.destroy();
       persistence.close();
       config.stop();
     },
@@ -195,17 +175,17 @@ export async function startApp(
   installCommandKeys(handle);
   installCloseGuard({
     shell,
-    isDirty: openPath.hasUnsavedChanges,
+    isDirty: () => focused().hasUnsavedChanges(),
     documentName: () => {
-      const path = openPath.currentPath();
+      const path = focused().currentPath();
       return path ? basename(path) : null;
     },
-    save: () => openPath.save(),
+    save: () => focused().save(),
   });
   try {
     await openPath.boot(argv);
   } catch (e) {
-    host.article.textContent = String(e);
+    first.article.textContent = String(e);
     await shell.mark('error', Date.now(), String(e));
     await measure.finish(1);
   }

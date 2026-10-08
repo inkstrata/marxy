@@ -161,3 +161,17 @@ test('one watch per store, however often it is asked for; another store gets its
   assert.equal(watches.of(a), null);
   assert.deepEqual(fake.watches.map((w) => w.closed), [true, false]);
 });
+
+test('release closes and forgets the watch of a store another pane still shows; asking again starts one (D-01)', async () => {
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode('# A\n')]]));
+  const watches = oneWatchPerStore((store) => watchDocument(store, () => [], deps(fake.shell)));
+  const a = storeFor(fake, '/d/a.md');
+  await watches.watch(a);
+  watches.release(a);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(watches.of(a), null);
+  assert.deepEqual(fake.watches.map((w) => w.closed), [true], 'the store is still open, its watch from this open path is not');
+  await watches.watch(a);
+  assert.deepEqual(fake.watches.map((w) => w.closed), [true, false]);
+  a.close();
+});
