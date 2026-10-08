@@ -90,3 +90,37 @@ test('an edit below the reader leaves the byteOffset alone; one inside it lands 
   assert.equal(reloadOpenDocument(inside, previous, before).position.byteOffset, 7);
   assert.equal(reloadOpenDocument(below, previous).position.byteOffset, 8, 'no previous bytes: offset kept as before');
 });
+
+test('text inserted at a held heading\'s first byte moves the position with the heading (F-19)', () => {
+  const enc = new TextEncoder();
+  const before = enc.encode('# One\n\nintro\n\n## Two\n\nbody\n');
+  const held = before.length - enc.encode('## Two\n\nbody\n').length;
+  const previous = { path: 'x.md', byteOffset: held, fraction: 0, mode: 'rendered' as const };
+  const insert = (text: string): Uint8Array => {
+    const bits = enc.encode(text);
+    const out = new Uint8Array(before.length + bits.length);
+    out.set(before.subarray(0, held), 0);
+    out.set(bits, held);
+    out.set(before.subarray(held), held + bits.length);
+    return out;
+  };
+  for (const text of ['Inserted paragraph.\n\n', '## Fresh\n\nnew\n\n']) {
+    const next = insert(text);
+    const reloaded = reloadOpenDocument(next, previous, before);
+    assert.equal(reloaded.position.byteOffset, held + enc.encode(text).length, JSON.stringify(text));
+    const block = reloaded.document.children.find((b) => b.src.start === reloaded.position.byteOffset);
+    assert.equal(block?.type, 'heading', 'the offset names the heading the reader was at');
+  }
+  // Inserted text that runs into the heading line is no longer a block start there: kept as before.
+  const glued = reloadOpenDocument(insert('glued '), previous, before);
+  assert.equal(glued.position.byteOffset, held);
+});
+
+test('text inserted inside a held heading keeps the offset at the heading start (F-19)', () => {
+  const enc = new TextEncoder();
+  const before = enc.encode('# One\n\nintro\n\n## Two\n\nbody\n');
+  const next = enc.encode('# One\n\nintro\n\n## Two and a half\n\nbody\n');
+  const held = enc.encode('# One\n\nintro\n\n').length;
+  const previous = { path: 'x.md', byteOffset: held, fraction: 0, mode: 'rendered' as const };
+  assert.equal(reloadOpenDocument(next, previous, before).position.byteOffset, held);
+});
