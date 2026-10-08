@@ -21,6 +21,8 @@ export type MemoryShell = Pick<
   quit(code?: number): Promise<void>;
   readonly calls: Call[];
   emit(events: WatchEvent[]): void;
+  /** Delete `path` from the store, as another program would (harness; recorded, emits nothing). */
+  remove(path: string): void;
   queueSaveDialog(path: string | null): void;
   /** Next writeFileAtomic rejects with this shell error code (harness). */
   rejectNextWrite(code: 'permission' | 'io'): void;
@@ -178,6 +180,10 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     },
     emit(events) {
       for (const listener of listeners) listener(events);
+    },
+    remove(path) {
+      record('remove', [path]);
+      store.delete(path);
     },
     queueSaveDialog(path) {
       queuedSave = path;

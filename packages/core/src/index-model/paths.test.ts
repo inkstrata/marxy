@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { basename, dirname, joinPath, normalizePath, relativePath } from './paths.ts';
+import { basename, dirname, isUnderRoot, joinPath, normalizePath, pathUnder, relativePath } from './paths.ts';
 
 test('normalizePath strips trailing slashes except the filesystem root', () => {
   assert.equal(normalizePath('/a/b/'), '/a/b');
@@ -21,11 +21,25 @@ test('relativePath from an index root directory to nested files', () => {
   assert.equal(relativePath(root, joinPath(root, 'src/nested/doc.md')), 'src/nested/doc.md');
 });
 
-test('relativePath resolves a mistaken file path for from when basename could match to', () => {
-  const root = '/var/project';
-  const doc = joinPath(root, 'foo.md');
-  const nested = joinPath(joinPath(root, 'foo'), 'bar.md');
-  assert.equal(relativePath(doc, nested), 'foo/bar.md');
+test('relativePath takes a dotted root name as a folder, never as a mistaken file (C-11)', () => {
+  // A root named like a file (`v1.2`, `notes.d`) is a folder: a sibling of it is outside, by `..`.
+  assert.equal(relativePath('/repo/v1.2', '/repo/readme.md'), '../readme.md');
+  assert.equal(relativePath('/a/notes.d', '/a/private/y.md'), '../private/y.md');
+  assert.equal(relativePath('/repo/v1.2', '/repo/v1.2/x.md'), 'x.md');
+});
+
+test('pathUnder: strict and lexical containment, with no guess from a root name (C-11)', () => {
+  assert.equal(pathUnder('/repo/v1.2', '/repo/readme.md'), undefined, 'a dotted root name is still a folder');
+  assert.equal(pathUnder('/a/notes.d', '/a/private/y.md'), undefined);
+  assert.equal(pathUnder('/repo/v1.2', '/repo/v1.2/a/b.md'), 'a/b.md');
+  assert.equal(pathUnder('/a/docs', '/a/docs2/x.md'), undefined, 'a shared name prefix is not containment');
+  assert.equal(pathUnder('/a/docs', '/a/docs'), '');
+  assert.equal(pathUnder('/a/docs', '/a/docs/../private/y.md'), undefined, 'a `..` segment is never under a root');
+  assert.equal(pathUnder('/a/docs', '/a/docs/./x.md'), undefined, 'nor is a `.` segment');
+  assert.equal(pathUnder('/', '/b.md'), 'b.md');
+  assert.equal(pathUnder('C:\\x', 'C:\\x\\y\\z.md'), 'y/z.md');
+  assert.equal(isUnderRoot('/a/docs/x.md', '/a/docs/'), true);
+  assert.equal(isUnderRoot('/a/docsx', '/a/docs'), false);
 });
 
 test('relativePath keeps directory from when to is under it', () => {

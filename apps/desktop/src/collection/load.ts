@@ -105,7 +105,7 @@ export async function watchCollection(shell: CollectionShell, onChange: () => vo
 
 export interface CollectionDeps {
   readonly shell: CollectionShell;
-  readonly index: Pick<IndexService, 'rootFor' | 'ensureRoot' | 'dropRoot' | 'roots' | 'setDeny'>;
+  readonly index: Pick<IndexService, 'rootFor' | 'ensureRoot' | 'dropRoot' | 'undeclare' | 'roots' | 'setDeny'>;
   readonly feed: Pick<IndexFeed, 'setDeclared' | 'setCurrent' | 'entries'>;
   /** The document on screen, or null. */
   currentPath(): string | null;
@@ -157,7 +157,12 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
     declared = next;
     feed.setDeclared(next);
     const keep = new Set([...(current === undefined ? [] : [current]), ...deps.recentRoots()]);
-    for (const root of gone) if (!keep.has(root)) index.dropRoot(root);
+    // A folder that leaves the file but stays in scope (current or recent) keeps its entries and
+    // loses the watch its declaration gave it (C-11).
+    for (const root of gone) {
+      if (keep.has(root)) index.undeclare(root);
+      else index.dropRoot(root);
+    }
     // The deny globs hold for every root the index has, not only the declared ones.
     index.setDeny(denyRulesFor(collection.denyGlobs));
     for (const root of collection.roots) {

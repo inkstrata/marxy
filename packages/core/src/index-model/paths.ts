@@ -46,30 +46,34 @@ export function joinPath(base: string, child: string): string {
   return normalizePath(`${left}/${kid}`);
 }
 
-/** True when `child` is `parent` or a strict descendant path (segment-safe, after normalisation). */
-function isPathUnder(child: string, parent: string): boolean {
-  const c = normalizePath(child);
-  const p = normalizePath(parent);
-  if (p === '/') return c.startsWith('/');
-  return c === p || c.startsWith(`${p}/`);
+/**
+ * `path` relative to `root` when `path` is `root` itself (`''`) or lies under it, else undefined.
+ * Strict and lexical: after normalising, `path` must equal `root` or start with `root + '/'`, and a
+ * `path` with a `.` or `..` segment is never under anything (it could climb out). A root is always a
+ * folder, whatever its name looks like (`notes.d`, `site.v2`). The one test of containment for the
+ * index: a walk, a watch event and a snapshot all ask it.
+ */
+export function pathUnder(root: string, path: string): string | undefined {
+  const r = normalizePath(root);
+  const p = normalizePath(path);
+  if (p.split('/').some((segment) => segment === '..' || segment === '.')) return undefined;
+  if (p === r) return '';
+  const prefix = r === '/' ? '/' : `${r}/`;
+  return p.startsWith(prefix) ? p.slice(prefix.length) : undefined;
+}
+
+/** `path` is `root` or lies under it, by `pathUnder`'s rule. */
+export function isUnderRoot(path: string, root: string): boolean {
+  return pathUnder(root, path) !== undefined;
 }
 
 /**
- * `to` relative to `from`, using `/`. Both must be absolute or the same kind of relative.
- * `from` must be a directory path; if a document path is passed by mistake, it is resolved via
- * `dirname(from)` when `to` lies under that directory but not under the mistaken path.
+ * `to` relative to the folder `from`, using `/`; `..` segments climb out of it. Lexical: `from` is
+ * always taken as a folder, never guessed to be a file from its name.
  */
 export function relativePath(from: string, to: string): string {
-  const normFrom = normalizePath(from);
+  const fromDir = normalizePath(from);
   const normTo = normalizePath(to);
-  let fromDir = normFrom;
-  if (!isPathUnder(normTo, normFrom) && normTo !== normFrom) {
-    const parent = dirname(normFrom);
-    // Only a path that reads as a file (its last segment has an extension) is taken as a mistaken
-    // file path; `/a/docs` and `/a/docs2/x.md` are siblings, and the second is outside the first.
-    const looksLikeFile = /.\.[^./]+$/.test(basename(normFrom));
-    if (looksLikeFile && (isPathUnder(normTo, parent) || normTo === parent)) fromDir = parent;
-  }
   const a = fromDir === '/' ? [''] : fromDir.split('/');
   const b = normTo.split('/');
   let i = 0;
