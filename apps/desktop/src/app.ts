@@ -128,7 +128,7 @@ export async function startApp(
     store: () => openPath.store(),
     // AppShell narrows the real shell; clipboardWrite (and openExternal, where there is one) is on it.
     shell: shell as SelectionShell,
-    open: (path) => openPath.open(path),
+    open: (path, o) => openPath.open(path, o),
     currentPath: openPath.currentPath,
     mountThrough: (byteOffset) => view.mountThrough(byteOffset),
     imageRoot: imageRootFor,
