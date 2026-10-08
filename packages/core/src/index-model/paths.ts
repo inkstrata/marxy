@@ -49,7 +49,8 @@ export function joinPath(base: string, child: string): string {
 /**
  * `path` relative to `root` when `path` is `root` itself (`''`) or lies under it, else undefined.
  * Strict and lexical: after normalising, `path` must equal `root` or start with `root + '/'`, and a
- * `path` with a `.` or `..` segment is never under anything (it could climb out). A root is always a
+ * `path` with a `.` or `..` segment is never under anything (it could climb out), nor is one with an
+ * empty segment below the root (`/a//b`: no walk lists such a path, and it names no entry). A root is always a
  * folder, whatever its name looks like (`notes.d`, `site.v2`). The one test of containment for the
  * index: a walk, a watch event and a snapshot all ask it.
  */
@@ -59,7 +60,9 @@ export function pathUnder(root: string, path: string): string | undefined {
   if (p.split('/').some((segment) => segment === '..' || segment === '.')) return undefined;
   if (p === r) return '';
   const prefix = r === '/' ? '/' : `${r}/`;
-  return p.startsWith(prefix) ? p.slice(prefix.length) : undefined;
+  if (!p.startsWith(prefix)) return undefined;
+  const rel = p.slice(prefix.length);
+  return rel.split('/').some((segment) => segment === '') ? undefined : rel;
 }
 
 /** `path` is `root` or lies under it, by `pathUnder`'s rule. */

@@ -67,12 +67,14 @@ export interface Shell {
    * Directory watch, debounced by the shell; the callback receives batches. By default the folder's
    * own files (and the folders of symlinked documents in it). With `recursive`, every file in the
    * tree, never following a symlink and skipping the index's deny-listed directories; it rejects
-   * when the tree is too large or the OS refuses the watch, so the caller can fall back.
+   * when the tree is too large or the OS refuses the watch, so the caller can fall back. A tree that
+   * grows too large after the watch opened ends it: `onRefused` is then called once with the reason,
+   * no event follows, and the caller still `close()`s the handle.
    */
   watch(
     root: string,
     onEvents: (events: readonly WatchEvent[]) => void,
-    opts?: { readonly recursive?: boolean },
+    opts?: { readonly recursive?: boolean; readonly onRefused?: (reason: string) => void },
   ): Promise<{ close(): void }>;
   /** @deprecated ADR-0026 — Files under root honouring .gitignore/.ignore and the deny list; never follows into node_modules. */
   listRoot(root: string, opts: { readonly extensions: readonly string[]; readonly limit: number }): Promise<readonly FileStat[]>;
