@@ -1,7 +1,8 @@
-// Concatenates feature command lists; operations come from core (MARXY-42, MARXY-43).
+// Concatenates feature command lists; operations come from core (MARXY-42, MARXY-43, C-06).
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { appearanceCommands } from './appearance.ts';
 import { collectionCommands } from './collection.ts';
+import { copyTextCommands } from './copy-text.ts';
 import { documentCommands } from './document.ts';
 import { editorCommands } from './editor.ts';
 import { navigationCommands } from './navigation.ts';
@@ -25,6 +26,7 @@ export function commands(): readonly Command[] {
     ...outlineCommands(),
     ...editorCommands(),
     ...collectionCommands(),
+    ...copyTextCommands(),
     ...OPERATIONS.map(fromOperation),
   ];
 }

@@ -254,3 +254,184 @@ test('palette Copy code runs on Enter, closes, and shows Copied', async () => {
     await browser.close();
   }
 });
+
+/** Selects from the start of `from` to the end of `to` (selectors in #doc), as a drag would, and marks it a drag. */
+async function dragSelect(page, from, to) {
+  await page.locator(from).first().scrollIntoViewIfNeeded();
+  const box = await page.locator(from).first().boundingBox();
+  await page.mouse.move(box.x + 1, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await page.evaluate(({ from, to }) => {
+    const r = document.createRange();
+    r.setStartBefore(document.querySelector(from));
+    r.setEndAfter([...document.querySelectorAll(to)].at(-1));
+    const s = getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    document.querySelector('#doc').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  }, { from, to });
+  assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
+}
+
+test('C-06: Mod+C on a drag across bold text and a link copies sanitised rich text and plain text in one write', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    await dragSelect(page, '#doc strong', '#doc a[href]');
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyC`);
+    const copies = await page.evaluate(() =>
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+    );
+    assert.equal(copies.length, 1);
+    const { text, html } = copies[0].args[0];
+    assert.ok(typeof text === 'string' && text.includes('Fast, tiny widgets'), text);
+    assert.ok(typeof html === 'string', 'html beside the text');
+    assert.match(html, /<strong>/);
+    assert.match(html, /<a href=/);
+    assert.ok(!html.includes('data-marxy-'), html);
+    assert.ok(!html.includes('class='), html);
+    assert.ok(!/<script/i.test(html), html);
+    assert.ok(!html.includes('\u00ad'), 'no soft hyphen');
+    assert.ok(!/<img[^>]*\ssrc=/i.test(html), 'no image source leaves the page');
+    const names = [...html.matchAll(/<[a-z][a-z0-9]*((?:\s+[^\s=>/]+(?:="[^"]*")?)*)\s*\/?>/gi)]
+      .flatMap((m) => [...m[1].matchAll(/\s([^\s=>/]+)/g)].map((a) => a[1]));
+    assert.ok(names.length > 0, 'the link keeps its target');
+    for (const name of names) assert.ok(['href', 'title', 'alt', 'colspan', 'rowspan', 'start'].includes(name), `attribute ${name}`);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06: Mod+Shift+C on a drag inside one paragraph copies its exact source bytes', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const bytes = readFileSync(join(corpusDir, file));
+  const buffer = createBuffer(file, bytes);
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    const para = page.locator('#doc > p[data-marxy-s]').filter({ hasText: 'widgetlib authors' });
+    const range = {
+      file,
+      start: Number(await para.getAttribute('data-marxy-s')),
+      end: Number(await para.getAttribute('data-marxy-e')),
+    };
+    await para.scrollIntoViewIfNeeded();
+    const box = await para.boundingBox();
+    await page.mouse.move(box.x + 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+    assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+Shift+KeyC`);
+    const copies = await page.evaluate(() =>
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+    );
+    assert.equal(copies.length, 1);
+    assert.deepEqual(copies[0].args[0], { text: textOf(buffer, range) });
+    assert.equal(textOf(buffer, range), 'MIT © the widgetlib authors');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06: the drag\'s rich copy drops display marks, soft hyphens, image sources and every attribute but the allowed ones', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    // A paragraph carrying every mark the page adds, built in the article, then selected whole.
+    await page.evaluate(() => {
+      const h = (tag, attrs, ...kids) => {
+        const el = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+        el.append(...kids);
+        return el;
+      };
+      const p = h('p', { id: 'probe', style: 'color: red', lang: 'fr', dir: 'ltr', class: 'marxy-set', 'data-marxy-s': '0', 'data-marxy-e': '1' },
+        'Hy\u00adphen',
+        h('span', { class: 'marxy-lb' }),
+        ' ',
+        h('span', { class: 'marxy-hang' }, '“'),
+        h('em', { class: 'marxy-x', 'data-marxy-s': '0' }, 'quote'),
+        ' ',
+        h('a', { href: 'https://example.invalid/', title: 't', target: '_blank', rel: 'noopener' }, 'link', h('span', { class: 'marxy-link-dest' }, 'example.invalid')),
+        h('span', { class: 'marxy-invisible-glyph' }, 'ZWSP'),
+        h('img', { src: 'https://example.invalid/x.png', alt: 'pic', width: '3' }),
+        h('input', { type: 'checkbox' }),
+        h('td', { colspan: '2', bgcolor: 'red' }, 'cell'),
+      );
+      document.querySelector('#doc').prepend(p);
+      const r = document.createRange();
+      r.selectNodeContents(p);
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      document.querySelector('#doc').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    const mod = modKey(await page.evaluate(() => navigator.platform));
+    await page.keyboard.press(`${mod}+KeyC`);
+    const copies = await page.evaluate(() =>
+      window.__marxyOpsBoot.handle.shell.calls.filter((c) => c.method === 'clipboardWrite'),
+    );
+    assert.equal(copies.length, 1);
+    const { html } = copies[0].args[0];
+    assert.ok(html.includes('Hyphen'), html);
+    assert.ok(!html.includes('\u00ad'), 'no soft hyphen');
+    assert.ok(html.includes('Hyphen \u201c<em>quote</em>'), `hanging punctuation unwrapped: ${html}`);
+    assert.ok(!html.includes('example.invalid</'), `no link destination label: ${html}`);
+    assert.ok(!html.includes('ZWSP'), `no invisible-glyph label: ${html}`);
+    assert.ok(!/<input/i.test(html), html);
+    assert.ok(!/\ssrc=/i.test(html), html);
+    assert.match(html, /<a href="https:\/\/example\.invalid\/" title="t">link<\/a>/);
+    assert.match(html, /alt="pic"/);
+    for (const banned of ['id=', 'style=', 'lang=', 'dir=', 'class=', 'data-marxy-', 'target=', 'rel=', 'width=', 'bgcolor=']) {
+      assert.ok(!html.includes(banned), `${banned} in ${html}`);
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-06: the palette shows Mod+C on the selection\'s default verb and Mod+Shift+C on its markdown copy, and opens on a given query', async () => {
+  const file = '02-readme-real-world.md';
+  const docPath = `/corpus/${file}`;
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+    const para = page.locator('#doc > p[data-marxy-s]').filter({ hasText: 'widgetlib authors' });
+    await para.scrollIntoViewIfNeeded();
+    await para.click();
+    await page.evaluate(() => window.__marxyOpsBoot.handle.palette.open('>'));
+    const query = page.locator('#marxy-palette .marxy-palette-query');
+    assert.equal(await query.inputValue(), '>');
+    await query.press('End');
+    await query.type(' copy');
+    await page.waitForSelector('#marxy-palette .marxy-palette-row[data-row-key="op.copy-rich"]');
+    const keys = await page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll('#marxy-palette .marxy-palette-row')].map((row) => [
+          row.dataset.rowKey,
+          row.querySelector('.marxy-palette-key')?.textContent ?? null,
+        ]),
+      ),
+    );
+    const mac = (await page.evaluate(() => navigator.platform)) === 'MacIntel';
+    assert.equal(keys['op.copy-rich'], mac ? '⌘C' : 'Ctrl+C');
+    assert.equal(keys['op.copy-source'], mac ? '⇧⌘C' : 'Ctrl+Shift+C');
+    assert.equal(keys['op.copy-plain'], null, 'only the default verbs carry a chord');
+  } finally {
+    await browser.close();
+  }
+});

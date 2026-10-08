@@ -7,7 +7,8 @@ import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
 import type { DocumentStore } from '../document/store.ts';
-import { buildAppContext, setPaletteCloser } from '../selection/bind.ts';
+import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
+import { copyDefault, markdownCopy } from '../selection/verbs.ts';
 import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
 import {
@@ -82,7 +83,8 @@ export interface PaletteDeps {
 
 export interface PaletteController {
   readonly session: PaletteSession;
-  open(): void;
+  /** Summons the palette; with `query` (such as `'>'`), opens it on that query (C-06, for C-13's menu). */
+  open(query?: string): void;
   close(): void;
   setIndexEntries(entries: readonly IndexEntry[]): void;
   /** What the palette searches: the index in scope order (C-10). The collection sets its folders here. */
@@ -385,6 +387,11 @@ function paintOperationRows(
     'createDocumentFragment' in doc
       ? (doc as Document).createDocumentFragment()
       : document.createDocumentFragment();
+  // The chords name the selection's own default verbs, from the written tables (ADR-0054).
+  const ctx = buildAppContext();
+  const registered = commands();
+  const copyId = copyDefault(ctx, registered)?.id;
+  const markdownId = markdownCopy(ctx, registered)?.id;
   for (let i = 0; i < cmds.length; i++) {
     const cmd = cmds[i]!;
     const row = doc.createElement('li') as HTMLLIElement;
@@ -395,7 +402,7 @@ function paintOperationRows(
     title.className = 'marxy-palette-title';
     title.textContent = cmd.title;
     row.appendChild(title);
-    const spec = cmd.key ?? (cmd.id.startsWith('op.copy-') ? 'Mod+C' : undefined);
+    const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : cmd.id === markdownId ? 'Mod+Shift+C' : undefined);
     if (spec !== undefined) {
       const key = doc.createElement('span') as HTMLSpanElement;
       key.className = 'marxy-palette-key';
@@ -614,16 +621,19 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (markPerf !== undefined) recordKeystrokePaint(markPerf, deps.shell);
   };
 
-  const summon = () => {
+  const summon = (withQuery?: string) => {
     open = true;
     emptyNow = now();
     emptyCache = undefined;
     if (!deps.dialog.open) deps.dialog.showModal();
     deps.onSummon?.();
-    input.value = model.query;
+    if (typeof withQuery === 'string') selected = 0;
+    input.value = typeof withQuery === 'string' ? withQuery : model.query;
     repaint();
     input.focus();
-    input.select();
+    // A given query is kept and typed after (`>` then the action's name); a remembered one is replaced.
+    if (typeof withQuery === 'string') input.setSelectionRange(withQuery.length, withQuery.length);
+    else input.select();
   };
 
   const dismiss = () => {
@@ -799,6 +809,7 @@ export function mountPaletteFromHandle(
     onSummon: () => handle.index.revalidate(),
   });
   setPaletteCloser(() => controller.close());
+  setPaletteOpener((query) => controller.open(query));
   // Any open the app records (command line, menu, a link), not only the palette's own (C-12).
   setOpenListener((path) => controller.noteRead(path, 'open'));
   // A save from Marxy is a read too: follow whichever store is open and note each of its saves.
