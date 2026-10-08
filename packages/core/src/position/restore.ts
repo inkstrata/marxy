@@ -36,17 +36,19 @@ function startsAnyBlock(document: Document, offset: number): boolean {
   const todo: Node[] = [...document.children];
   while (todo.length > 0) {
     const node = todo.pop()!;
+    // A child lies within its parent, so only nodes that contain the offset (its ancestors) can hold
+    // a block that starts there: skip what lies wholly before or after it.
+    if (node.src.start > offset || node.src.end < offset) continue;
     if (node.src.start === offset && isBlock(node)) return true;
-    // Blocks start at or after their parent, and children are in order: skip what lies wholly before.
-    if (node.src.end < offset || node.children === undefined) continue;
+    if (node.children === undefined) continue;
     for (const child of node.children) todo.push(child);
   }
   return false;
 }
 
-const INLINE_FREE = new Set(['text', 'emphasis', 'strong', 'strikethrough', 'code', 'link', 'image', 'html', 'softBreak', 'hardBreak', 'footnoteReference', 'mathInline', 'taskMarker']);
+const INLINE_TYPES = new Set(['text', 'emphasis', 'strong', 'strikethrough', 'code', 'link', 'image', 'html', 'softBreak', 'hardBreak', 'footnoteReference', 'mathInline', 'taskMarker']);
 function isBlock(node: Node): boolean {
-  return !INLINE_FREE.has(node.type);
+  return !INLINE_TYPES.has(node.type);
 }
 
 /**
@@ -58,8 +60,9 @@ function isBlock(node: Node): boolean {
  * not the first heading, so text prepended to the file stays above the held offset in view (ruling,
  * 2026-10-08). The same ambiguity decides a duplicate: if the whole tail from the held offset is
  * appended again at the end of the file, the bytes cannot tell an insertion at the reader from a copy
- * after them, and the reader follows to the copy (the text they see is identical). When `startsBlock` says a block starts where that offset lands after the
- * insertion, the block moved and the offset follows it; otherwise it stays.
+ * after them, and the reader follows to the copy (the text they see is identical). When `startsBlock`
+ * says a block starts where that offset lands after the insertion, the block moved and the offset
+ * follows it; otherwise it stays.
  */
 export function offsetThroughEdit(
   offset: number,

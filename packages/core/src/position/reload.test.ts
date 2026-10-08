@@ -158,3 +158,10 @@ test('a held fence in a list follows text inserted where it begins (F-19.1)', ()
   assert.equal(r.landed, r.held + 'More text.\n\n  '.length);
   assert.equal(r.next.slice(r.landed, r.landed + 5), '```js');
 });
+
+test('an inline node starting where text was written is not a block, so the offset stays (F-19.1)', () => {
+  // The reader is at a soft-wrapped line inside a paragraph; the text node that begins there moves
+  // with the insertion, but only a block start counts.
+  const r = insertedAt('First line of the paragraph\nsecond line of it\n\nafter\n', 'second', 'new words\n');
+  assert.equal(r.landed, r.held);
+});

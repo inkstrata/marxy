@@ -383,3 +383,33 @@ test('text written at a held heading\'s first byte leaves the heading on the pag
     await browser.close();
   }
 });
+
+test('a reader who has not scrolled stays at the top when text is written above a short opening heading (F-19.1)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    // A short heading, then a long paragraph: the reading line (40% of the window) falls in the
+    // paragraph, so a reader at scrollY 0 does not naively hold byte 0.
+    const doc = `# Alpha\n\n${para('Alpha').repeat(12)}\n`;
+    await boot(page, { '/r/A.md': b64(doc) }, ['/r/A.md']);
+    assert.equal(await page.evaluate(() => window.scrollY), 0);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.sourceHarness().byteOffset), 0);
+    await page.evaluate(async (text) => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    }, `# Preface\n\nPrepended.\n\n${doc}`);
+    await page.waitForFunction(() => document.getElementById('doc')?.textContent?.includes('Prepended.'));
+    await new Promise((r) => setTimeout(r, 300));
+    const after = await page.evaluate(() => ({
+      y: window.scrollY,
+      b: window.__marxyHandle.sourceHarness().byteOffset,
+      top: [...document.querySelectorAll('#doc p')].find((p) => p.textContent.includes('Prepended.')).getBoundingClientRect().top,
+    }));
+    assert.equal(after.y, 0);
+    assert.equal(after.b, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended text is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});
