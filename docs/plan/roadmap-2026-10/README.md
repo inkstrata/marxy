@@ -18,6 +18,7 @@ Phase A's first wave.
 | [04-phase-d.md](04-phase-d.md) | Phase D — the two-pane split; ends with v0.4.0 |
 | [05-phase-e.md](05-phase-e.md) | Phase E — edit one block in Source, the transform operations, paste as scratch, diff; ends with v0.5.0 |
 | [07-layout-and-reading.md](07-layout-and-reading.md) | Lane L — the page measured against the research: a geometry probe, the findings, then layout, notice and Source-mode fixes; runs beside Phase B |
+| [09-code-view.md](09-code-view.md) | Lane K — code as read: code files open as code in both modes, Source's own metrics, generous highlighting, the grammars, a reliable swap; runs beside Phase C, K-03 and K-07 before D-11 |
 | [rulings.md](rulings.md) | The author's answers to the 21 open questions, 2026-10-02 |
 | [06-story-index.md](06-story-index.md) | Every story on one page: id, title, model, size, dependencies, wave |
 | [progress.md](progress.md) | The ledger the lead keeps; the only record of state |

@@ -114,3 +114,11 @@ The lead paused on 2026-10-02. What to do next, in order, is in [`handoff.md`](h
 | D-03 | (Phase D) the text index and query compiler for Rendered find | sonnet | merged | [#414](https://github.com/inkstrata/marxy/pull/414) | ../marxy-wt/D-03 | Started early (pure). Timing recorded, not asserted. Note for D-13 on the boundary bias |
 | B-12 | (Phase B) selection and commands read the store | opus | merged | [#426](https://github.com/inkstrata/marxy/pull/426) | ../marxy-wt/B-12 | `baseVersion` on every apply; the store refuses a stale one only when the bytes changed since (`bytesVersion`), so a save in flight does not block an edit. Opus review checked every transition. Import cycle gone. Notes on B-13 |
 | B-13 | (Phase B) lift the per-article view into `view/rendered-view.ts` | opus | returned | [#433](https://github.com/inkstrata/marxy/pull/433) | ../marxy-wt/B-13 | Opus review, return 1: a reload from disk jumped a reader whose anchor was held (the old byte used in the new bytes); undo mapping and anchor-vs-position untested; `setHtml` a raw sink callable from `app.ts` |
+| K-01 | (Lane K) one file-type table: mode, index kind, CodeMirror and Shiki ids | sonnet | ready | — | — | `09-code-view.md`, wave K1 |
+| K-02 | (Lane K) Rendered shows a code file as code, never as Markdown | opus | ready | — | — | After K-01 |
+| K-03 | (Lane K) a code file opens straight into Source; a failed mount says so | opus | ready | — | — | After K-01; ruling K-R4 (default a). Before D-11 |
+| K-04 | (Lane K) Source has its own metrics; exact gutter; scroll for code (ADR-0056) | opus | ready | — | — | Rulings K-R1, K-R3 (defaults a). Supersedes L-07 |
+| K-05 | (Lane K) generous highlighting; every tag mapped; the modes agree (ADR-0057) | opus | ready | — | — | K-R2 ruled generous. After K-04 (`tokens.css`); moves baselines |
+| K-06 | (Lane K) Source grammars, fences in Markdown, every line ending | sonnet | ready | — | — | After K-01 and K-04 |
+| K-07 | (Lane K) the swap keeps Rendered right; nothing set while hidden | opus | ready | — | — | After K-03. Before D-11 |
+| K-08 | (Lane K) one tab width for both modes; a correct EditorConfig reader | sonnet | ready | — | — | Wave K1 |
