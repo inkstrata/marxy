@@ -13,6 +13,7 @@ commands/mod.rs  re-exports; every #[tauri::command] lives under commands/
 commands/fs.rs   read_file, write_file_atomic, stat, image_size, repository_root
 commands/watch.rs   watch_start, watch_stop; emits "marxy:watch" events
 commands/index.rs   index_build, index_query, index_load, index_save; headings scanner
+commands/search.rs  search_content, cancel_content_search: on-demand content scan (C-16)
 commands/os.rs   open_external, reveal_in_editor, clipboard_write, open_dialog, webkit_version
 commands/app.rs  args, mark_from_webview, startup_marks, quit, config_paths, on second-instance forwarding
 commands/net.rs  fetch_remote_image and the marxy-remote: URI scheme handler (ADR-0027); the only socket in the app
@@ -48,6 +49,7 @@ one side and parsed on the other (MARXY-198).
 | `allowAssetScope` → `allow_asset_scope` | `dir` | `()` | invalid (not a directory) | fs | MARXY-26, MARXY-47 |
 | `saveDialog` → `save_dialog` | `{ defaultPath? }` | `string \| null` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
 | `fetchRemoteImage` → `fetch_remote_image` | `url` | `string` (a `marxy-remote:` URL) | unsupported (not https, or no network in the sandbox), invalid (not an image, too large), io | net (`ureq`, ADR-0027) | MARXY-97 |
+| `searchContent` → `search_content`, `cancel_content_search` | `paths[], query, roots[], limit?, perFile?, token`; `token` | `{ hits: ContentHit[], scannedFiles, truncated }`; `()` | — (an unreadable, missing, binary, oversized or out-of-root file is skipped) | search (std only; `spawn_blocking`). Reads only the passed paths, each under a root, below no deny-listed directory and reached through no symlink; nothing is indexed or written (ADR-0053 §4) | C-16 |
 | `args`, `mark_from_webview`, `startup_marks`, `quit` | | | | app | done |
 | `onOpenFiles` | callback | — | — | `listen('marxy:open-files')` from the single-instance plugin | MARXY-183 |
 | `onWatch` | callback | — | — | `listen('marxy:watch')` | MARXY-34 |

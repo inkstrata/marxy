@@ -11,7 +11,8 @@ import { listen } from '@tauri-apps/api/event';
 import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
-import type { Shell, ShellError, WatchEvent } from '@marxy/shell-api';
+import { searchablePaths } from '@marxy/core/src/index-model/content-search.ts';
+import type { ContentSearchResult, Shell, ShellError, WatchEvent } from '@marxy/shell-api';
 import { eventsForWatch } from './watch-filter.ts';
 
 /** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
@@ -25,6 +26,15 @@ function assertAssetScope(path: string): void {
   error.code = 'permission';
   error.path = path;
   throw error;
+}
+
+/** Names each content search for `cancel_content_search`; a random start keeps a reload's tokens apart. */
+let nextSearchToken = Math.floor(Math.random() * 2 ** 32) * 1024;
+
+function abortError(): Error {
+  const error = new Error('content search aborted');
+  error.name = 'AbortError';
+  return error;
 }
 
 /** Bytes last returned by `readFile` for a path; a save is refused if disk no longer matches. */
@@ -81,6 +91,7 @@ export const shell: Pick<
   | 'confirmClose'
   | 'openExternal'
   | 'revealInExternalEditor'
+  | 'searchContent'
 > & {
   args(): Promise<string[]>;
   /** Marks also drive the shell's harness-mode paint deadline; see `mark_from_webview`. */
@@ -140,6 +151,38 @@ export const shell: Pick<
       throw shellErrorFromInvoke(err);
     }
     lastRead.set(path, bytes.slice());
+  },
+  /**
+   * One `search_content` call per query (C-16). The paths are first narrowed by the same rules as the
+   * index walk (roots, the built-in deny list, the reader's deny globs); Rust checks the roots, the
+   * deny list and symlinks again on its side before it opens a file. Aborting cancels the scan in Rust.
+   */
+  searchContent: async (paths, query, opts) => {
+    const signal = opts.signal;
+    if (signal?.aborted) throw abortError();
+    const allowed = searchablePaths(paths, opts.roots, opts.denyGlobs ?? []);
+    const token = nextSearchToken++;
+    const onAbort = () => {
+      void invoke('cancel_content_search', { token });
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      const result = await invoke<ContentSearchResult>('search_content', {
+        paths: allowed,
+        query,
+        roots: opts.roots,
+        limit: opts.limit ?? null,
+        perFile: opts.perFile ?? null,
+        token,
+      });
+      if (signal?.aborted) throw abortError();
+      return result;
+    } catch (err) {
+      if (signal?.aborted) throw abortError();
+      throw shellErrorFromInvoke(err);
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+    }
   },
   setTitle: (title) => invoke('set_title', { title }),
   saveDialog: (opts) => invoke<string | null>('save_dialog', { defaultPath: opts.defaultPath ?? null }),

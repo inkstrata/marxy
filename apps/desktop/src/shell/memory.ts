@@ -2,6 +2,7 @@
 import { imageSizeFromBytes, isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { DENY_DIRECTORY_NAMES } from '@marxy/core/src/index-model/deny.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { searchContent, searchablePaths } from '@marxy/core/src/index-model/content-search.ts';
 import type { FileStat, Shell, WatchEvent } from '@marxy/shell-api';
 
 export type Call = {
@@ -14,7 +15,17 @@ const DATA_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAf
 
 export type MemoryShell = Pick<
   Shell,
-  'readFile' | 'writeFileAtomic' | 'watch' | 'platform' | 'startupMarks' | 'readDir' | 'setTitle' | 'saveDialog' | 'onCloseRequested' | 'confirmClose'
+  | 'readFile'
+  | 'writeFileAtomic'
+  | 'watch'
+  | 'platform'
+  | 'startupMarks'
+  | 'readDir'
+  | 'setTitle'
+  | 'saveDialog'
+  | 'onCloseRequested'
+  | 'confirmClose'
+  | 'searchContent'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -204,6 +215,28 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     async configPaths() {
       record('configPaths');
       return { config: '/config', data: '/data' };
+    },
+    /**
+     * The same search as Rust's `search_content` (C-16), over the store. Directories are path
+     * prefixes and there are no symlinks, so the Rust-only symlink check has nothing to refuse here.
+     */
+    async searchContent(paths, query, opts) {
+      record('searchContent', [paths, query, { ...opts, signal: undefined }]);
+      const aborted = () => opts.signal?.aborted === true;
+      const abort = () => Object.assign(new Error('content search aborted'), { name: 'AbortError' });
+      if (aborted()) throw abort();
+      const allowed = searchablePaths(paths, opts.roots, opts.denyGlobs ?? []);
+      const result = searchContent(
+        allowed,
+        query,
+        (path) => {
+          const bytes = store.get(path);
+          return bytes ? { size: bytes.byteLength, read: () => bytes.slice() } : null;
+        },
+        { limit: opts.limit, perFile: opts.perFile, cancelled: aborted },
+      );
+      if (aborted()) throw abort();
+      return result;
     },
     hasFile(path) {
       return store.has(path);
