@@ -513,45 +513,57 @@ async fn watch_root(
     root: String,
     recursive: Option<bool>,
 ) -> Result<WatchHandle, String> {
-    let recursive = recursive.unwrap_or(false);
-    let canonical = canonical_watch_root(&root)?;
+    let emit_app = app.clone();
+    start_watch(
+        watch_table(),
+        raw_watch_roots(),
+        &root,
+        recursive.unwrap_or(false),
+        move |key, events| emit_fs_watch(&emit_app, &key, events),
+        move |payload| {
+            let _ = app.emit("fs-watch", payload);
+        },
+        |root, emit, refuse| watch_notify::spawn_tree_thread(root, emit, refuse),
+    )
+}
+
+/// The body of `watch_root`: share the running watch of `root` if there is one, else start one (the
+/// tree through `spawn_tree`, so a test can start a small-limit tree) and install it. `emit_events` is
+/// handed the table key and each batch; `emit_payload` the refusal of a tree that outgrew its limit.
+/// Lifted out of the command so a test drives the id through the same path the webview does.
+fn start_watch(
+    table: &'static WatchTable,
+    raw_roots: &'static RawRoots,
+    root: &str,
+    recursive: bool,
+    emit_events: impl Fn(String, Vec<watch::WatchEvent>) + Send + Sync + 'static,
+    emit_payload: impl FnOnce(serde_json::Value) + Send + 'static,
+    spawn_tree: impl FnOnce(
+        PathBuf,
+        Box<dyn FnMut(Vec<watch::WatchEvent>) + Send>,
+        Box<dyn FnOnce(String) + Send>,
+    ) -> Result<watch::RunningWatch, String>,
+) -> Result<WatchHandle, String> {
+    let canonical = canonical_watch_root(root)?;
     let key = watch_table_key(&canonical, recursive);
-    let raw_key = watch_table_key(&root, recursive);
-    if let Some(id) = share_watch(watch_table(), raw_watch_roots(), &raw_key, &key)? {
+    let raw_key = watch_table_key(root, recursive);
+    if let Some(id) = share_watch(table, raw_roots, &raw_key, &key)? {
         return Ok(WatchHandle { key, id });
     }
     let id = next_watch_id();
-    let app_handle = app.clone();
     let emit_key = key.clone();
-    let emit = move |events| emit_fs_watch(&app_handle, &emit_key, events);
+    let emit = move |events| emit_events(emit_key.clone(), events);
     let running = if recursive {
-        let app_handle = app.clone();
         let refuse_key = key.clone();
         let refuse = move |reason: String| {
-            on_tree_refused(
-                watch_table(),
-                raw_watch_roots(),
-                &refuse_key,
-                id,
-                &reason,
-                |payload| {
-                    let _ = app_handle.emit("fs-watch", payload);
-                },
-            );
+            on_tree_refused(table, raw_roots, &refuse_key, id, &reason, emit_payload);
         };
-        watch_notify::spawn_tree_thread(PathBuf::from(&canonical), emit, refuse)?
+        spawn_tree(PathBuf::from(&canonical), Box::new(emit), Box::new(refuse))?
     } else {
         watch_notify::spawn_poll_thread(PathBuf::from(&canonical), emit)?
     };
     // Another call may have started the same watch while this one scanned: share theirs.
-    let (spare, id) = install_watch(
-        watch_table(),
-        raw_watch_roots(),
-        &raw_key,
-        &key,
-        id,
-        running,
-    )?;
+    let (spare, id) = install_watch(table, raw_roots, &raw_key, &key, id, running)?;
     if let Some(mut spare) = spare {
         spare.stop();
     }
@@ -564,18 +576,30 @@ async fn unwatch_root(
     recursive: Option<bool>,
     id: Option<u64>,
 ) -> Result<(), String> {
-    let key = {
-        let raw_roots = raw_watch_roots().lock().map_err(|e| e.to_string())?;
-        unwatch_key(&raw_roots, &root, recursive.unwrap_or(false))?
-    };
-    release_watch(
+    stop_watch(
         watch_table(),
         raw_watch_roots(),
-        &key,
-        id,
         &root,
-        |mut entry| entry.running.stop(),
+        recursive.unwrap_or(false),
+        id,
     )
+}
+
+/// The body of `unwatch_root`: let go of one reference to the watch the handle `id` holds.
+fn stop_watch(
+    table: &WatchTable,
+    raw_roots: &RawRoots,
+    root: &str,
+    recursive: bool,
+    id: Option<u64>,
+) -> Result<(), String> {
+    let key = {
+        let raw = raw_roots.lock().map_err(|e| e.to_string())?;
+        unwatch_key(&raw, root, recursive)?
+    };
+    release_watch(table, raw_roots, &key, id, root, |mut entry| {
+        entry.running.stop()
+    })
 }
 
 /// Ends the process the one sanctioned way: Tauri's own teardown, then `exit(code)`.
@@ -1453,6 +1477,90 @@ mod tests {
             emitted,
             Some(serde_json::json!({ "key": key, "events": [], "refused": "too many files" })),
         );
+    }
+
+    /// The path the webview takes through the commands: watch a tree, have it outgrow its limit and
+    /// refuse, watch it again, then close the first handle by its id. The second watch stays held. Runs
+    /// the real tree thread with a small limit, through `start_watch` and `stop_watch` (the bodies of
+    /// `watch_root` and `unwatch_root`).
+    #[test]
+    fn closing_a_refused_trees_handle_leaves_the_watch_that_replaced_it_held() {
+        use super::{start_watch, stop_watch, NOT_WATCHING};
+        use std::sync::mpsc;
+        use std::sync::Mutex;
+        use std::time::Duration;
+
+        let table: &'static super::WatchTable = Box::leak(Box::new(Mutex::new(HashMap::new())));
+        let raw_roots: &'static super::RawRoots = Box::leak(Box::new(Mutex::new(HashMap::new())));
+        let dir = std::env::temp_dir().join(format!("marxy-watch-id-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("dir");
+        std::fs::write(dir.join("open.md"), b"# open\n").expect("seed");
+        let root = std::fs::canonicalize(&dir).expect("canon");
+        let root = root.to_string_lossy().into_owned();
+
+        let (refused_tx, refused_rx) = mpsc::channel();
+        let first = start_watch(
+            table,
+            raw_roots,
+            &root,
+            true,
+            |_, _| {},
+            move |payload| {
+                let _ = refused_tx.send(payload);
+            },
+            |path, emit, refuse| {
+                crate::watch_notify::spawn_tree_thread_with(path, emit, refuse, 3, || {})
+            },
+        )
+        .expect("first watch");
+        std::thread::sleep(Duration::from_millis(70));
+        for name in ["a.md", "b.md", "c.md", "d.md"] {
+            std::fs::write(dir.join(name), b"x").expect("write");
+        }
+        let payload = refused_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("the first tree refuses");
+        assert_eq!(payload["key"], serde_json::json!(first.key));
+        assert!(
+            table.lock().unwrap().is_empty() && raw_roots.lock().unwrap().is_empty(),
+            "a refused tree forgets its own entry"
+        );
+
+        let second = start_watch(
+            table,
+            raw_roots,
+            &root,
+            true,
+            |_, _| {},
+            |_| {},
+            |path, emit, refuse| {
+                crate::watch_notify::spawn_tree_thread_with(path, emit, refuse, 1000, || {})
+            },
+        )
+        .expect("second watch");
+        assert_eq!(second.key, first.key);
+        assert_ne!(
+            second.id, first.id,
+            "a fresh watch, not the dead one shared"
+        );
+
+        let err = stop_watch(table, raw_roots, &root, true, Some(first.id))
+            .expect_err("the first handle's late close finds nothing of its own");
+        assert!(err.starts_with(NOT_WATCHING));
+        assert_eq!(
+            table
+                .lock()
+                .unwrap()
+                .get(&second.key)
+                .map(|e| (e.refs, e.id)),
+            Some((1, second.id)),
+            "the second watch is still held"
+        );
+
+        stop_watch(table, raw_roots, &root, true, Some(second.id)).expect("the second's own close");
+        assert!(table.lock().unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

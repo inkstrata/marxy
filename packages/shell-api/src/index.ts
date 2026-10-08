@@ -64,14 +64,14 @@ export interface Shell {
   writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
   /**
    * One file's size and modification time without listing its folder (C-11.2). A narrower form of
-   * `readDir`: `null` for a path that is missing, a symlink (`readDir` omits every one) or named like a
+   * `readDir`: `null` for a path that is missing, one that is itself a symlink (`readDir` omits every one) or named like a
    * deny-listed directory; a folder is reported with `isDir`.
    */
   stat(path: string): Promise<FileStat | null>;
   /**
    * At most the first `maxBytes` of a regular file, capped by the shell at 256 KB (C-11.2). A narrower
-   * form of `readFile`: it rejects for a symlink, a folder or any file that is not a regular one,
-   * and never opens a named pipe. It does not arm the stale-write guard.
+   * form of `readFile`: it rejects when the path itself is a symlink, a folder or any file that is not a regular one,
+   * and its open neither follows a link nor blocks on a named pipe. It does not arm the stale-write guard.
    */
   readHead(path: string, maxBytes: number): Promise<Uint8Array>;
   /**

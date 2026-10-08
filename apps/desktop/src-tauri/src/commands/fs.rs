@@ -202,9 +202,29 @@ pub fn stat_file(path: String) -> Result<Option<FileStat>, ShellError> {
     }))
 }
 
+/// Opens `p` for `read_head_bytes` without following a link at the path and without blocking. On unix
+/// the open itself carries `O_NOFOLLOW` (a symlink at the path fails the open) and `O_NONBLOCK` (opening
+/// a FIFO returns at once instead of waiting for a writer; it has no effect on a regular file), so a
+/// path swapped for a link or a pipe between the type check and the open cannot slip through.
+fn open_head(p: &Path) -> std::io::Result<File> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+            .open(p)
+    }
+    #[cfg(not(unix))]
+    {
+        File::open(p)
+    }
+}
+
 /// The first `max_bytes` of a regular file (never more than `MAX_HEAD_BYTES`), behind the `read_head`
-/// command in `main.rs`. A narrower form of `read_file`: a symlink, a FIFO, a device or a folder is
-/// refused, and the type is checked before `open` (opening a FIFO blocks until a writer appears).
+/// command in `main.rs`. A narrower form of `read_file`: a symlink at the path, a FIFO, a device or a
+/// folder is refused. The type is checked before the open, and the open itself neither follows a link
+/// nor blocks on a pipe (`open_head`); the type of what was opened is checked again.
 pub fn read_head_bytes(path: &str, max_bytes: u64) -> Result<Vec<u8>, ShellError> {
     let p = Path::new(path);
     let meta = fs::symlink_metadata(p).map_err(|e| {
@@ -220,7 +240,7 @@ pub fn read_head_bytes(path: &str, max_bytes: u64) -> Result<Vec<u8>, ShellError
             format!("{path}: not a regular file"),
         ));
     }
-    let file = File::open(p).map_err(|e| ShellError::io(path, e.to_string()))?;
+    let file = open_head(p).map_err(|e| ShellError::io(path, e.to_string()))?;
     // The path may have been swapped for something else between the check and the open.
     if !file.metadata().map(|m| m.is_file()).unwrap_or(false) {
         return Err(ShellError::invalid(
@@ -556,6 +576,37 @@ mod tests {
         symlink(dir.join("real.md"), dir.join("link.md")).unwrap();
         let err = read_head_bytes(&dir.join("link.md").to_string_lossy(), 10).unwrap_err();
         assert_eq!(err.code, "invalid");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The open itself refuses a symlink at the path, whatever the type check before it saw (the swap
+    /// between the check and the open), and returns at once on a FIFO.
+    #[cfg(unix)]
+    #[test]
+    fn the_head_open_refuses_a_symlink_and_does_not_block_on_a_pipe() {
+        use std::os::unix::fs::symlink;
+        let dir = scratch_dir("head-open");
+        fs::write(dir.join("real.md"), b"# real\n").unwrap();
+        symlink(dir.join("real.md"), dir.join("link.md")).unwrap();
+        assert!(open_head(&dir.join("real.md")).is_ok());
+        let err = open_head(&dir.join("link.md")).unwrap_err();
+        assert_eq!(err.raw_os_error(), Some(libc::ELOOP));
+        let pipe = dir.join("pipe.md");
+        let made = std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap();
+        assert!(made.success());
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(open_head(&pipe).is_ok());
+        });
+        assert_eq!(
+            rx.recv_timeout(std::time::Duration::from_secs(30))
+                .expect("the head open blocked on a named pipe"),
+            true,
+            "a FIFO opens at once (and the fstat check then refuses it)"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
