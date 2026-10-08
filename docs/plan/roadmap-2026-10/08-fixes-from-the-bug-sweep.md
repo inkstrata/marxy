@@ -287,3 +287,14 @@ and widen the evidence selector so front matter counts as text. The `no_text` ma
 Acceptance: each of the five documents above opens with a watch; front matter alone reaches `first_text`; an empty
 file is unchanged.
 
+
+### F-19 — A reload keeps a held heading when text is inserted at its first byte
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-15 · *From the B-15 review (note 4); true on main before
+B-15.* · **Paths:** `packages/core/src/position/reload.ts`, its test, a desktop reload test.
+When another program inserts text exactly at a held heading's first byte, `restorePosition` keeps the old offset,
+so after the reload the page shows the inserted text instead of the heading the reader was at. Text inserted
+further up maps correctly. Map an anchor at an insertion point to the far side of the insertion when the anchor is
+a block start (the heading moved; the reader was reading it, not the gap before it). Acceptance: a core test
+inserting at a held heading's first byte lands on the heading; one inserting inside the heading's text keeps the
+current behaviour; a WebKit live-reload case through `startApp` shows the heading after an outside write.
