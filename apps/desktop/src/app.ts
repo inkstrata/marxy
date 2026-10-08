@@ -17,7 +17,7 @@ import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { Shell } from '@marxy/shell-api';
 import type { NodeMap } from './render/post.ts';
-import { pathsForDocument, stripNonLocalImages } from './render/images.ts';
+import { pathsForDocument } from './render/images.ts';
 import { clearDismissForPath, resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
 import { wireTrustRevokeCommands } from './commands/trust.ts';
