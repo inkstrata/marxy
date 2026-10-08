@@ -14,6 +14,9 @@ function focusSlot(slot: 0 | 1): Command['run'] {
 
 /** Whether the window has a pane at `slot`, and so something to focus there. */
 function hasSlot(slot: 0 | 1): boolean {
+  // An open dialog (the outline, the palette) owns the keyboard and is bound to the pane it opened from:
+  // moving focus under it would split the overlay from the selection. One rule for every dispatch route.
+  if (document.querySelector('dialog[open]') !== null) return false;
   const panes = appHandle()?.panes();
   return (panes?.panes.length ?? 0) > 1 && panes?.panes[slot] !== undefined;
 }

@@ -5,6 +5,7 @@
 // a Source editor included (a pane key must work from CodeMirror); it stops the event there, so the
 // registry's bubble-phase dispatcher (`installCommandKeys`, selection/bind.ts) does not run it again.
 
+import { closeVerbMenu } from '../selection/verb-menu.ts';
 import type { AppContext, Command } from '../commands/registry.ts';
 
 export interface PaneChord {
@@ -50,8 +51,9 @@ export interface PaneKeysDeps {
 
 /**
  * Runs a pane chord's command: looked up by id in the registry, skipped when it is not registered (yet)
- * or its `when` does not hold, skipped while a dialog is open (the palette, the verb menu) except
- * `Mod+\`. Editable targets are not skipped. Returns what takes the listener off.
+ * or its `when` does not hold, skipped while a dialog is open (the palette, the outline) except
+ * `Mod+\`. An open verb menu (a `div[role=menu]`, not a dialog) is closed first, so focus lands in the
+ * target pane and not on `body`. Editable targets are not skipped. Returns what takes the listener off.
  */
 export function installPaneKeys(deps: PaneKeysDeps): () => void {
   const onKey = (event: KeyboardEvent): void => {
@@ -64,6 +66,7 @@ export function installPaneKeys(deps: PaneKeysDeps): () => void {
     if (!command.when(ctx)) return;
     event.preventDefault();
     event.stopPropagation();
+    closeVerbMenu();
     void command.run(ctx);
   };
   window.addEventListener('keydown', onKey, true);

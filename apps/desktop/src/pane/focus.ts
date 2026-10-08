@@ -51,6 +51,21 @@ export function focusRules<C extends PaneContent>(panes: PaneSet<C>, main: HTMLE
   };
 }
 
+/**
+ * Each pane host names its document, so a screen reader announces the pane focus lands in ("Left pane,
+ * A.md"). Set on every pane change and whenever focus arrives, since a pane can navigate without an event.
+ */
+function labelPanes<C extends PaneContent>(panes: PaneSet<C>): void {
+  if (panes.panes.length < 2) {
+    for (const pane of panes.panes) pane.host.removeAttribute('aria-label');
+    return;
+  }
+  panes.panes.forEach((pane, i) => {
+    const name = pane.path()?.split('/').pop() || 'no document';
+    pane.host.setAttribute('aria-label', `${i === 0 ? 'Left' : 'Right'} pane, ${name}`);
+  });
+}
+
 /** A pane showing Source passes focus on to its editor, so typing and `Mod+F` go to the right pane. */
 function focusEditor(pane: Pane): void {
   if (pane.view.mode !== 'source' || document.activeElement !== pane.host) return;
@@ -80,11 +95,18 @@ export function bindFocus<C extends PaneContent>(panes: PaneSet<C>, selection: (
     });
   });
   const off = panes.onChange((e) => {
+    labelPanes(panes);
     if (e.kind !== 'focus' || !e.pane) return;
     follow(e.pane);
     focusEditor(e.pane);
   });
-  return off;
+  const onFocusIn = (): void => labelPanes(panes);
+  document.addEventListener('focusin', onFocusIn, true);
+  labelPanes(panes);
+  return () => {
+    off();
+    document.removeEventListener('focusin', onFocusIn, true);
+  };
 }
 
 /**

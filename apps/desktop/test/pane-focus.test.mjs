@@ -272,3 +272,63 @@ test('focusOrigin gives focus back to the pane an overlay opened from', async ()
     assert.deepEqual(restored, { focused: 1, active: true });
   });
 });
+
+/** Presses every pane chord and asserts focus, the mark, the selection and the document stay on the left pane. */
+async function assertChordsHeldOnLeft(page, mod) {
+  const before = await page.evaluate(() => ({ version: window.__marxyHandle.selection.runtime()?.version ?? null }));
+  for (const chord of [`${mod}+2`, `${mod}+1`, `${mod}+Alt+ArrowRight`, `${mod}+Alt+ArrowLeft`]) {
+    await page.keyboard.press(chord);
+    const state = await page.evaluate(() => ({
+      focused: window.__marxyHandle.panes().focused.slot,
+      marked: [...document.querySelectorAll('#marxy-main > section.marxy-pane[data-marxy-focus]')].map((h) => h.getAttribute('data-marxy-pane')),
+      article: window.__marxyHandle.selection.runtime()?.article?.id ?? null,
+      path: window.__marxyHandle.currentPath(),
+    }));
+    assert.deepEqual(state, { focused: 0, marked: ['0'], article: 'doc', path: '/r/A.md' }, chord);
+  }
+  assert.equal(await page.evaluate(() => window.__focusEvents), 0);
+  assert.ok(before);
+}
+
+test('with the outline open, Mod+1, Mod+2 and Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
+  await withTwoPanes(async (page, mod) => {
+    await page.keyboard.press(`${mod}+Shift+KeyO`);
+    await page.waitForFunction(() => document.getElementById('marxy-outline')?.hasAttribute('open'));
+    await assertChordsHeldOnLeft(page, mod);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('dialog[open]').length), 1);
+  });
+});
+
+test('with the palette open, Mod+1, Mod+2 and Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
+  await withTwoPanes(async (page, mod) => {
+    await page.evaluate(async () => {
+      const { mountPaletteFromHandle } = await import('/src/palette/view.ts');
+      const { openPalette } = await import('/src/selection/bind.ts');
+      mountPaletteFromHandle(window.__marxyHandle);
+      openPalette();
+    });
+    await page.waitForFunction(() => document.getElementById('marxy-palette')?.hasAttribute('open'));
+    await assertChordsHeldOnLeft(page, mod);
+  });
+});
+
+test('a pane chord with the verb menu open closes the menu and lands focus inside the target pane', async () => {
+  await withTwoPanes(async (page, mod) => {
+    await clickOn(page, '#doc p:nth-of-type(2)');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[role=menu]');
+    await page.keyboard.press(`${mod}+2`);
+    assert.equal(await page.evaluate(() => document.querySelector('[role=menu]') === null), true);
+    assert.deepEqual(await focusState(page), RIGHT);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.selection.runtime()?.article?.id), 'doc-2');
+  });
+});
+
+test('each pane host is labelled with its document, so a screen reader announces the pane focus lands in', async () => {
+  await withTwoPanes(async (page, mod) => {
+    const labels = () => page.evaluate(() => [...document.querySelectorAll('#marxy-main > section.marxy-pane')].map((h) => h.getAttribute('aria-label')));
+    assert.deepEqual(await labels(), ['Left pane, A.md', 'Right pane, B.md']);
+    await page.keyboard.press(`${mod}+2`);
+    assert.deepEqual(await labels(), ['Left pane, A.md', 'Right pane, B.md']);
+  });
+});
