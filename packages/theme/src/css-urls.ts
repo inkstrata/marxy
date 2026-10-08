@@ -103,8 +103,17 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
     };
   }
   const pattern = new RegExp(`"${nonce}-(\\d+)"`, 'g');
-  const out = first.css.replace(pattern, (_m, n: string) => `"${opts.assetUrl(paths[Number(n)]).replace(/"/g, '\\"')}"`);
+  const out = first.css.replace(pattern, (_m, n: string) => `"${cssStringEscape(opts.assetUrl(paths[Number(n)]))}"`);
   return { css: out, warnings: first.warnings };
+}
+
+/**
+ * Escapes a caller-supplied URL for the inside of a CSS double-quoted string (F-16.1). A backslash
+ * and a quote take a backslash; a line break would end the string, so it becomes a hex escape
+ * (with the trailing space that ends it). The value the engine reads back is the original text.
+ */
+function cssStringEscape(url: string): string {
+  return url.replace(/[\\"\n\r\f]/g, (c) => (c === '\\' || c === '"' ? `\\${c}` : `\\${c.charCodeAt(0).toString(16)} `));
 }
 
 function newNonce(): string {
@@ -295,7 +304,7 @@ function rewriteOneUrl(
     return null;
   }
   const url = opts.assetUrl(abs);
-  return `"${url.replace(/"/g, '\\"')}"`;
+  return `"${cssStringEscape(url)}"`;
 }
 
 function rewriteImageSetInner(
@@ -343,8 +352,8 @@ function rewriteImageSetInner(
           warnings.push(`theme referenced \`${spec}\`; not loaded`);
         } else {
           const url = opts.assetUrl(abs);
-          let candidate = `"${url.replace(/"/g, '\\"')}"`;
-          const tail = inner.slice(j).match(/^\s*(\d+(?:\.\d+)?x)/);
+          let candidate = `"${cssStringEscape(url)}"`;
+          const tail = inner.slice(j).match(/^\s*(\d+(?:\.\d+)?x|type\([^)]+\)|\d+dpi)/);
           if (tail) {
             candidate += ` ${tail[1]}`;
             j += tail[0].length;

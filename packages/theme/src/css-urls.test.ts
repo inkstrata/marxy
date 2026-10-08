@@ -245,3 +245,44 @@ test('a theme cannot forge a placeholder to smuggle a path through', () => {
   assert.deepEqual(calls, ['/themes/quiet/marxy-asset-0000-0', '/themes/quiet/a.png']);
   assert.doesNotMatch(css, /marxy-asset-[0-9a-f]{24}/);
 });
+
+// F-16.1: the caller's assetUrl result is escaped for a double-quoted CSS string.
+function cssUnescape(s: string): string {
+  return s.replace(/\\(?:([0-9a-fA-F]{1,6}) ?|([\s\S]))/g, (_m, hex?: string, ch?: string) =>
+    hex ? String.fromCodePoint(parseInt(hex, 16)) : (ch as string));
+}
+
+test('a backslash in an assetUrl result stays inside the url string', () => {
+  const { css } = rewriteUrls('x{background:url(a.png)}', { base, assetUrl: () => 'a\\' });
+  assert.equal(css, 'x{background:url("a\\\\")}');
+  const m = /^x\{background:url\("((?:[^"\\\n]|\\[\s\S])*)"\)\}$/.exec(css);
+  assert.ok(m, 'one url token');
+  assert.equal(cssUnescape(m[1]), 'a\\');
+});
+
+test('a line break in an assetUrl result cannot end the string or open a rule', () => {
+  const evil = 'a\nb){x:url(https://evil.example/q)}';
+  for (const sheet of ['x{background:url(a.png)}', 'x{background:image-set("a.png" 1x)}']) {
+    const { css } = rewriteUrls(sheet, { base, assetUrl: () => evil });
+    assert.doesNotMatch(css, /[\n\r\f]/);
+    assert.match(css, /a\\a b\)\{x:url\(https:\/\/evil\.example\/q\)\}"/);
+    // everything after the opening quote up to the closing one is one string
+    const m = /"((?:[^"\\]|\\[\s\S])*)"/.exec(css);
+    assert.ok(m);
+    assert.equal(cssUnescape(m[1]), evil);
+    assert.equal(css.replace(/"(?:[^"\\]|\\[\s\S])*"/g, '""').includes('evil.example'), false);
+  }
+});
+
+test('\\r, \\f and a quote in an assetUrl result are escaped', () => {
+  const { css } = rewriteUrls('x{background:url(a.png)}', { base, assetUrl: () => 'a"\r\fb' });
+  assert.equal(css, 'x{background:url("a\\"\\d \\c b")}');
+});
+
+test('image-set keeps the type() and dpi descriptors of a string candidate', () => {
+  const { css } = rewriteUrls('a{background:image-set("a.avif" type("image/avif"), "b.png" 96dpi)}', { base, assetUrl });
+  assert.equal(
+    css,
+    'a{background:image-set("asset:///themes/quiet/a.avif" type("image/avif"), "asset:///themes/quiet/b.png" 96dpi)}',
+  );
+});
