@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { openPage, renderCorpus } from './page.mjs';
+import { openPage, renderCorpus, renderMarkdown } from './page.mjs';
 
 const skip =
   !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -95,4 +95,64 @@ test('a narrow window never lets the gutter shrink to zero or overflow the viewp
     assert.ok(scrollWidth <= clientWidth + 1, `${file}: the page scrolls sideways at 320px (${scrollWidth} > ${clientWidth})`);
     await page.close();
   }
+});
+
+// L-03: a mark hangs into the margin only as far as there is room, so it never crosses the gutter's
+// floor (Reader Typography ch.4 "Margins": a minimum gutter of 16px on phones and 24px above). Where
+// the room holds the whole hang, the markers still hang fully and the item text keeps the prose edge.
+const LISTS = '- a bullet item\n- another\n\n1. first item\n2. second\n\n- [ ] an open task\n- [x] a done task\n';
+
+/** Where the marks and the item text sit: measured as the layout probe measures them (scripts/probe-layout.mjs). */
+function measureMarks() {
+  const article = document.getElementById('doc');
+  const cs = getComputedStyle(article);
+  const colL = article.getBoundingClientRect().left + parseFloat(cs.paddingLeft);
+  const firstText = (li) => {
+    const walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      return range.getClientRects()[0].left;
+    }
+    return null;
+  };
+  const lists = [...article.children].filter((el) => el.tagName === 'UL' || el.tagName === 'OL');
+  const ol = lists.find((el) => el.tagName === 'OL').querySelector('li');
+  const before = getComputedStyle(ol, '::before');
+  const olMarker = ol.getBoundingClientRect().left + parseFloat(getComputedStyle(ol).paddingLeft) + parseFloat(before.marginInlineStart);
+  const bullet = lists[0].querySelector('li');
+  return {
+    colL,
+    gutter: parseFloat(cs.paddingLeft),
+    em: parseFloat(cs.fontSize),
+    olMarker,
+    olMarkerWidth: parseFloat(before.width),
+    olText: firstText(ol),
+    bulletText: firstText(bullet),
+    checkboxes: [...article.querySelectorAll('input[type="checkbox"]')].map((cb) => cb.getBoundingClientRect().left),
+  };
+}
+
+test('at 320px with 28px type, list markers and checkboxes stay inside the gutter floor (L-03)', async () => {
+  const page = await openPage(browser, renderMarkdown(LISTS), { width: 320, extraCss: ':root { --marxy-size-body: 28px; }' });
+  const m = await page.evaluate(measureMarks);
+  await page.close();
+  assert.equal(m.gutter, 16);
+  assert.ok(m.olMarker >= 16 - 0.5, `the ordered-list marker starts at ${m.olMarker}px, left of the 16px gutter floor`);
+  assert.equal(m.checkboxes.length, 2);
+  for (const left of m.checkboxes) assert.ok(left >= 16 - 0.5, `a checkbox starts at ${left}px, left of the 16px gutter floor`);
+  // A bullet's ink hangs at most 1.25em (measured: 1.04 to 1.19em at 16 to 28px type), so its text sits that far in.
+  assert.ok(m.bulletText - 1.25 * m.em >= 16 - 0.5, `a bullet's text starts at ${m.bulletText}px: its bullet could cross the floor`);
+});
+
+test('at 1280px the markers still hang fully: item text on the column edge, the marker 2.25em left of it (L-03)', async () => {
+  const page = await openPage(browser, renderMarkdown(LISTS), { width: 1280 });
+  const m = await page.evaluate(measureMarks);
+  await page.close();
+  assert.ok(Math.abs(m.olText - m.colL) <= 1, `item 1's text starts ${m.olText - m.colL}px from the column edge`);
+  assert.ok(Math.abs(m.bulletText - m.colL) <= 1, `a bullet item's text starts ${m.bulletText - m.colL}px from the column edge`);
+  assert.equal(m.olMarkerWidth, 2.25 * m.em);
+  assert.ok(Math.abs(m.colL - m.olMarker - 2.25 * m.em) <= 0.5, `the marker hangs ${m.colL - m.olMarker}px, not 2.25em (${2.25 * m.em}px)`);
+  for (const left of m.checkboxes) assert.ok(left < m.colL, `a checkbox at ${left}px does not hang left of the column (${m.colL}px)`);
 });
