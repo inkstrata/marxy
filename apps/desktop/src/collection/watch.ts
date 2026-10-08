@@ -19,7 +19,7 @@ export interface TreeWatchShell {
 
 export type TreeWatchIndex = Pick<
   IndexService,
-  'watchedRoots' | 'onWatchedRootsChange' | 'applyEvents' | 'setTreeWatch' | 'revalidate'
+  'watchedRoots' | 'onWatchedRootsChange' | 'applyEvents' | 'setTreeWatch' | 'revalidate' | 'homeSized'
 >;
 
 export interface TreeWatchHandle {
@@ -63,7 +63,8 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
         }
         for (const tree of wanted) {
           if (open.has(tree)) continue;
-          if (!shell.watch) {
+          // A home-sized tree is never watched recursively: the watch would descend into Library (C-10.1).
+          if (!shell.watch || (await index.homeSized(tree))) {
             open.set(tree, null);
             index.setTreeWatch(tree, 'refused');
             continue;

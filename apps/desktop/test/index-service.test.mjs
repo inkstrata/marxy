@@ -831,3 +831,75 @@ nodeTest('a volume root is budgeted and a plain folder is not (C-10.1)', async (
   assert.equal(walkPolicy('/Volumes/X/sub', HOME, 9).budget, undefined);
   assert.equal(walkPolicy('/r', undefined, 9).budget, undefined, 'home unknown: only a volume root is sized');
 });
+
+const sayInto = (said) => (n) => said.push(n.text);
+
+nodeTest('the notice names the folders actually skipped, once, and a walk with no skip says nothing of skips (C-10.1)', async () => {
+  const said = [];
+  const { host } = homeShell({ ...homeTree(), [`${HOME}/Pictures/p.md`]: enc('# P\n') });
+  const service = createIndexService(host, { notify: sayInto(said) });
+  await service.ensureRoot(HOME, { watch: true });
+  assert.deepEqual(said, [
+    'ian does not include Desktop, Documents, Downloads and Library, which macOS protects. To include one, add that folder itself (for example ~/Documents).',
+  ]);
+  service.setDeny([]);
+  const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
+  service.setDeny(denyRulesFor(['**/zzz/**']));
+  await service.settled();
+  assert.equal(said.length, 1, 'once per root per session');
+
+  const only = [];
+  const partial = homeShell({ [`${HOME}/Library/a.md`]: enc('# A\n'), [`${HOME}/n.md`]: enc('# N\n') });
+  await createIndexService(partial.host, { notify: sayInto(only) }).ensureRoot(HOME, { watch: true });
+  assert.match(only[0], /does not include Library, which macOS/);
+
+  const none = [];
+  const plain = homeShell({ '/r/.git/HEAD': enc('x'), '/r/a.md': enc('# A\n') });
+  await createIndexService(plain.host, { notify: sayInto(none) }).ensureFor('/r/a.md');
+  const vol = homeShell({ '/Volumes/X/a.md': enc('# A\n') });
+  await createIndexService(vol.host, { notify: sayInto(none) }).ensureRoot('/Volumes/X', { watch: true });
+  assert.deepEqual(none, []);
+});
+
+nodeTest('a skip and a budget stop together make one notice (C-10.1)', async () => {
+  const files = { [`${HOME}/Library/a.md`]: enc('# A\n') };
+  for (let i = 0; i < 8; i++) files[`${HOME}/d${i}/f.md`] = enc('# F\n');
+  const said = [];
+  const { host } = homeShell(files);
+  await createIndexService(host, { walkBudget: 4, notify: sayInto(said) }).ensureRoot(HOME, { watch: true });
+  assert.equal(said.length, 1);
+  assert.match(said[0], /does not include Library, which macOS protects\..* It is too large to index in full/);
+});
+
+nodeTest('an event under a skipped folder adds no entry and causes no read (C-10.1)', async () => {
+  const { shell, host } = homeShell(homeTree());
+  const service = createIndexService(host, { notify: () => {} });
+  await service.ensureRoot(HOME, { watch: true });
+  await service.settled();
+  await shell.writeFileAtomic(`${HOME}/Library/new.md`, enc('# New\n'));
+  const marker = shell.calls.length;
+  service.applyEvents([
+    { kind: 'created', path: `${HOME}/Library/new.md` },
+    { kind: 'modified', path: `${HOME}/Documents/doc.md` },
+  ]);
+  await service.settled();
+  assert.ok(!service.entries().some((e) => e.path.includes('/Library/') || e.path.includes('/Documents/')));
+  assert.deepEqual(
+    shell.calls.slice(marker).filter((c) => /Library|Documents/.test(String(c.args[0]))),
+    [],
+    'nothing under a skipped folder was read or listed',
+  );
+});
+
+nodeTest('an unbudgeted walk lists an ordinary repository as before (C-10.1)', async () => {
+  const files = { '/r/.git/HEAD': enc('x'), '/r/.gitignore': enc('out/\n'), '/r/out/x.md': enc('# X\n') };
+  for (const d of ['a', 'b/c', 'b/c/d', 'e']) files[`/r/${d}/n.md`] = enc(`# ${d}\n`);
+  files['/r/z.md'] = enc('# Z\n');
+  const { host } = homeShell(files);
+  const service = createIndexService(host, { notify: () => {} });
+  await service.ensureFor('/r/z.md');
+  assert.deepEqual(
+    service.entries().map((e) => e.path).sort(),
+    ['/r/a/n.md', '/r/b/c/d/n.md', '/r/b/c/n.md', '/r/e/n.md', '/r/z.md'],
+  );
+});

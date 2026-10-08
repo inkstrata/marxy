@@ -102,6 +102,11 @@ export interface IndexService {
    * for markdown, one head read per changed file, never a walk (unless an ignore file changed).
    */
   applyEvents(events: readonly FileEvent[]): void;
+  /**
+   * Whether `tree` is home-sized (C-10.1): a recursive watch on it would descend into the folders its
+   * walk leaves out, so the tree watch is not opened and the tree is rescanned on summon instead.
+   */
+  homeSized(tree: string): Promise<boolean>;
   /** The tree watch on `tree` is open (`live`), refused by the shell (`refused`), or closed (undefined). */
   setTreeWatch(tree: string, state: TreeWatchState | undefined): void;
   /**
@@ -412,7 +417,7 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
           : undefined);
       const deny = await denyRules();
       const policy = await policyFor(root);
-      const { entries, notice, calls, ignoreRules, stoppedAt } = await walkRoot(shell, root, openedPath, openedBytes, previous, deny, {
+      const { entries, notice, calls, ignoreRules, stoppedAt, skipped } = await walkRoot(shell, root, openedPath, openedBytes, previous, deny, {
         budget: policy.budget,
         skip: policy.skip,
       });
@@ -433,12 +438,18 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
           text: `Index limited to the ${notice.limit.toLocaleString()} most recently changed files (${notice.omitted.toLocaleString()} omitted).`,
         });
       }
-      if (stoppedAt !== undefined && !budgetSaid.has(root)) {
+      if ((stoppedAt !== undefined || (skipped?.length ?? 0) > 0) && !budgetSaid.has(root)) {
         budgetSaid.add(root);
-        say({
-          kind: 'info',
-          text: `${nameOf(root)} is too large to index in full: Marxy listed its first ${stoppedAt.toLocaleString()} folders. Add a smaller folder to see the rest.`,
-        });
+        const parts: string[] = [];
+        if (skipped && skipped.length > 0) {
+          const names = skipped.map(basename);
+          const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+          parts.push(`${nameOf(root)} does not include ${list}, which macOS protects. To include one, add that folder itself (for example ~/Documents).`);
+        }
+        if (stoppedAt !== undefined) {
+          parts.push(`${parts.length > 0 ? 'It is' : `${nameOf(root)} is`} too large to index in full: Marxy listed its first ${stoppedAt.toLocaleString()} folders. Add a smaller folder to see the rest.`);
+        }
+        say({ kind: 'info', text: parts.join(' ') });
       }
       await shell.mark('index_loaded', Date.now(), `entries=${entries.length} root=${root} source=walk calls=${calls}`);
       const checkouts = await checkoutTable(shell, root, entries);
@@ -602,11 +613,21 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     }
     const deny = await denyRules();
     const known = new Set(state.entries.map((e) => e.path));
-    const plan = planEvents(known, events, root, state.rules, deny);
-    if (plan.revalidate) {
+    const planned = planEvents(known, events, root, state.rules, deny);
+    if (planned.revalidate) {
       rewalk(root);
       return;
     }
+    // A folder the walk leaves out is left out here too, whoever's watch reported the event (C-10.1).
+    const { skip } = await policyFor(root);
+    const plan =
+      skip.length === 0
+        ? planned
+        : {
+            ...planned,
+            reread: planned.reread.filter((p) => !skip.some((dir) => isUnderRoot(p, dir))),
+            remove: planned.remove.filter((p) => !skip.some((dir) => isUnderRoot(p, dir))),
+          };
     // A file read less than PATCH_GAP_MS ago waits for the end of its gap; removals never wait.
     const t = now();
     for (const [path, at] of state.lastRead) if (t - at >= PATCH_GAP_MS) state.lastRead.delete(path);
@@ -796,6 +817,10 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
       }
     },
     watchNotice,
+    async homeSized(tree) {
+      const policy = await policyFor(tree);
+      return policy.budget !== undefined || policy.skip.length > 0;
+    },
     entries: () => published,
     subscribe(cb) {
       subscribers.add(cb);

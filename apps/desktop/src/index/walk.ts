@@ -41,6 +41,8 @@ export interface IndexWalk {
   readonly ignoreRules: readonly IgnoreRule[];
   /** The walk stopped at its directory budget (C-10.1): how many folders it listed before it did. */
   readonly stoppedAt?: number;
+  /** The `skip` folders this walk met and left unlisted (C-10.1), for the notice that names them. */
+  readonly skipped?: readonly string[];
 }
 
 /** What a walk may not do (C-10.1): list more than `budget` directories, or list a folder in `skip`. */
@@ -101,7 +103,7 @@ export async function walkRoot(
       return shell.readFile(path);
     },
   };
-  const { reader, ignoreTexts, stoppedAt } = await prefetchDirectoryReader(counted, root, deny, limits);
+  const { reader, ignoreTexts, stoppedAt, skipped } = await prefetchDirectoryReader(counted, root, deny, limits);
   const candidates = collectFiles(root, reader, { extraRules: deny });
   const reusable = new Map<string, IndexEntry>();
   if (previous && previous.root === root) {
@@ -138,7 +140,7 @@ export async function walkRoot(
     const kept = reusable.get(entry.path);
     return kept ? { ...entry, title: kept.title, headings: kept.headings } : entry;
   });
-  return { entries, notice: built.notice, calls, ignoreRules: ignoreRulesFrom(root, ignoreTexts), stoppedAt };
+  return { entries, notice: built.notice, calls, ignoreRules: ignoreRulesFrom(root, ignoreTexts), stoppedAt, skipped };
 }
 
 /** The repository root that indexes `path`: the nearest ancestor holding `.git`, else its directory. */
@@ -186,13 +188,14 @@ async function prefetchDirectoryReader(
   root: string,
   deny: readonly IgnoreRule[] = [],
   limits: WalkLimits = {},
-): Promise<{ reader: DirectoryReader; ignoreTexts: ReadonlyMap<string, string>; stoppedAt?: number }> {
+): Promise<{ reader: DirectoryReader; ignoreTexts: ReadonlyMap<string, string>; stoppedAt?: number; skipped: string[] }> {
   const dirCache = new Map<string, WalkEntry[]>();
   const textCache = new Map<string, string>();
   const skip = new Set((limits.skip ?? []).map(normalizePath));
   // Breadth first: under a budget the shallow folders are the ones kept.
   const queue: string[] = [normalizePath(root)];
   let stoppedAt: number | undefined;
+  const skipped: string[] = [];
 
   for (let at = 0; at < queue.length; at++) {
     if (limits.budget !== undefined && dirCache.size >= limits.budget) {
@@ -224,7 +227,11 @@ async function prefetchDirectoryReader(
       }
     }
     for (const entry of entries) {
-      if (!entry.isDir || isDeniedName(entry.name) || skip.has(entry.path)) continue;
+      if (!entry.isDir || isDeniedName(entry.name)) continue;
+      if (skip.has(entry.path)) {
+        skipped.push(entry.path);
+        continue;
+      }
       if (deny.length > 0 && isIgnored(relativePath(root, entry.path), true, deny)) continue;
       queue.push(entry.path);
     }
@@ -238,5 +245,5 @@ async function prefetchDirectoryReader(
       return textCache.get(normalizePath(absPath));
     },
   };
-  return { reader, ignoreTexts: textCache, stoppedAt };
+  return { reader, ignoreTexts: textCache, stoppedAt, skipped };
 }

@@ -254,3 +254,18 @@ test('a file written again within PATCH_GAP_MS is read once more when the gap en
   assert.equal(reads() - before, 2, 'the trailing write is read once');
   assert.deepEqual(titles(), ['Three']);
 });
+
+test('a declared home folder opens no recursive watch and is rescanned on summon instead (C-10.1)', async () => {
+  const home = '/Users/ian';
+  const shell = createMemoryShell({ [`${home}/notes.md`]: enc('# N\n'), [`${home}/Library/x/leak.md`]: enc('# L\n'), '/n/notes.md': enc('# Notes\n') });
+  const host = { ...shell, configPaths: async () => ({ config: `${home}/.config/marxy`, data: '/data' }) };
+  const index = createIndexService(host, { notify: () => {} });
+  const trees = startTreeWatches({ shell, index });
+  await index.ensureRoot(home, { watch: true });
+  await index.ensureRoot('/n', { watch: true });
+  await trees.settled();
+  const recursive = shell.calls.filter((c) => c.method === 'watch' && (c.args[1] as { recursive?: boolean })?.recursive).map((c) => c.args[0]);
+  assert.deepEqual(recursive, ['/n'], 'only the ordinary folder is watched');
+  assert.match(index.watchNotice() ?? '', /ian/, 'the palette line says the home folder is not watched');
+  trees.stop();
+});
