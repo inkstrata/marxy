@@ -1,64 +1,57 @@
-# Lead handoff — lane F landed, Phase C wave 0–1 under way, the lead merges
+# Lead handoff — the third sweep wave, Phase D's pure modules, B-12 and C-10 under way
 
-**For:** the next lead session, and the author. **Read with:** `00-orchestration.md` (§6 changed today: the lead
-merges), then `progress.md`, then `08-fixes-from-the-bug-sweep.md`, `02-phase-b.md`, `03-phase-c.md` and
-`07-layout-and-reading.md`. This page says what to do next.
+**For:** the next lead session, and the author. **Read with:** `00-orchestration.md` (§6: the lead merges), then
+`progress.md`, then `08-fixes-from-the-bug-sweep.md`, `02-phase-b.md`, `03-phase-c.md` and `04-phase-d.md`. This page
+says what to do next.
 
-## Where things stand (2026-10-07, evening)
+## Where things stand (2026-10-07, 17:45)
 
-- **The lead merges.** The author ruled that a PR is merged by the lead as soon as its review says merge and every
-  check is green: `node scripts/lead-merge.mjs <pr> --verdict notes.md --sha <reviewed head>` posts the verdict with a
-  `lead-verdict: merge <sha>` marker and squash-merges when ready (owner-only markers, `ci` must succeed, no
-  conflicts, base `main`; stacked PRs fall back to GitHub's `merge-async`). Code-owned paths (`.github/`, the
-  sanitiser, Tauri config and capabilities) still wait for the author.
-- **Merged today (40 commits):** lane F F-01–F-11 and F-13 (the bug sweep, re-verified: 21 of 23 findings real); B-02.6,
-  B-02.8, B-02.9, B-11.1, B-21, B-22; L-00.1, L-01, L-06, L-06.1, L-08.3, L-10; C-01, C-02, C-03, C-03.1, C-04, C-05,
-  C-07, C-08, C-09; the merge tool, the browser-lite trim, the precheck that names failing tests.
-- **Model use:** Sonnet for most implementors and reviewers; Opus for seams (F-03, F-04, F-11, B-02, B-22, C-05, C-10)
-  and for every review of data safety, security or a measurement. Reviews returned about half of all PRs, almost
-  always for a real defect (a regression, a data-loss path, a test that could not fail).
+- **The lead merges** when a review says merge and every check is green (`node scripts/lead-merge.mjs <pr> --verdict
+  notes.md --sha <reviewed head>`). Code-owned paths (`.github/`, the sanitiser, Tauri config and capabilities) wait
+  for the author.
+- **Merged since the morning handoff:** F-12 and L-11; the third sweep wave verified (#412) and F-15 and F-16
+  fixed; D-02 and D-03 (Phase D's pure modules, started early while lanes B and C waited on Opus slots); two plan PRs.
+- **The third sweep wave** (S-09 to S-12, six findings): four real, one contrived (a same-inode, same-size,
+  same-mtime rewrite; not fixed), one unreachable (a `..` path no walker produces). Mechanisms were again partly
+  wrong (a filter C-05 had already removed; an escape that does not work). Re-verifying first still pays.
 
 ## In flight at this writing
 
 | Story | State | Next |
 | --- | --- | --- |
-| B-02 (opus) | running: rebase, full gate, macOS baselines, Linux baselines via a nightly `workflow_dispatch` | its PR touches `.github/`: the author merges. Then L-02 (gate the geometry), A-11.2 |
-| F-12 (sonnet) | returned: fold Source before palette Undo/Redo, refuse `commitEdit` while Source is dirty, move focus out of the hidden editor | re-review (Opus), merge. **Main loses typed text on a palette Undo in Source until this lands** |
-| C-10 (opus) | running | review (Opus), merge; then C-11, C-12, C-14 |
-| L-11 (sonnet) | running (a find-match edge token; may carry a short ADR for the token) | review, merge |
-| #394 (ci) | waiting for the author (code-owned): apt retries for the C linker step, browser-lite 20 min | author merges |
-| #407 (test) | waiting for the author (code-owned sanitiser test): record the stray-close time, not assert it | author merges |
+| B-02 (opus) | running: gate on the app, macOS and Linux baselines (nightly from the branch green) | its PR touches `.github/`: the author merges. Then L-02 → L-03 → L-04, A-11.2 |
+| B-12 (opus) | running: selection and commands read the store; `baseVersion` on every apply | review (Opus); rebases over #417 and #419. Then B-13 |
+| C-10 (opus) | returned once (#417): deny globs apply to every root, read before the first walk; a declared `/` is skipped | re-review (Opus), merge; then C-11 (notes on its card), C-12, C-14 |
+| F-14 (sonnet) | #419 in Opus review: asset scope widens to the repository root; deferred images carry `data-marxy-src` | the review checks a sanitised document cannot supply `data-marxy-src`, and whether an image-only document hangs on main |
+| F-15.1 (sonnet) | #420 review: merge; merging on green CI | — |
+| F-16.1 (sonnet) | running: escape the inserted asset URL | review, merge |
+| #394, #407 | waiting for the author (code-owned) | author merges |
 
 ## Next, in order
 
-- **B lane:** F-12 → B-12 (Opus; reads the store; the review's `baseVersion` point) → B-13 → B-14 → B-15; then B-16/B-17.
-  B-20 carries B-09.1's follow-ups.
-- **C lane:** C-10 → C-11 (Opus; with the C-05 review's notes on its card) and C-12, C-14, C-16 (Opus, after C-05) →
-  C-15, C-17. C-06 and C-13 need B-12 (selection reads the store).
-- **L lane:** after B-02: L-02 → L-03 → L-04 (each alone, baselines). L-05 and L-07 between B-15 and D-10/D-11.
-  L-08.1 waits for the author's decision 9 (CJK leading).
+- **B lane:** B-12 → B-13 → B-14 → B-15; then B-16/B-17. B-20 carries B-09.1's follow-ups.
+- **C lane:** C-10 → C-11 (Opus) and C-12, C-14; C-16 (Opus) → C-17; C-15. C-06 and C-13 after B-12. C-10.1 (a walk
+  budget for home-sized roots) any time after C-10.
+- **D lane:** D-02 and D-03 are in. The rest needs Phase B's view split (D-01 needs P1–P5). D-13 has a note from the
+  D-03 review on the boundary bias.
+- **L lane:** after B-02: L-02 → L-03 → L-04 (each alone, baselines). L-08.1 waits for decision 9.
 - **Cap:** four implementors, at most two on Opus.
 
 ## Waiting on the author
 
 1. Merge #394 and #407 (code-owned), and B-02's PR when it opens.
-2. Rulings from L-01 (`07-layout-and-reading.md`): decision 4 (the scrollbar gutter: no effect in macOS WebKit with a
-   forced scrollbar; L-03 re-measures on Linux), decision 6 (Source column), decision 7 (size ramp), and the new
-   decision 9 (CJK leading, recommended 35 px).
-3. ADR-0053 and ADR-0054 (collections, the verb menu) are `proposed`; accepting them is yours.
+2. Rulings from L-01 (`07-layout-and-reading.md`): decisions 4, 6, 7 and 9.
+3. ADR-0053, ADR-0054 and ADR-0055 are `proposed`. One discrepancy for ADR-0053 §5: it says the newest files win past
+   the 50k cap; C-10's card and code drop the end of the scope order instead. Say which you want.
 
 ## Lessons from this session
 
-- **Verify a sweep before fixing it.** Weak sweepers' findings: 21 of 23 real, two not bugs, several mechanisms
-  wrong. One verifier per area, each running a repro at today's main, paid for itself.
-- **Review returns are the product.** Returns caught a data-loss regression in a fix (F-12), a broken real-shell
-  error shape (F-09), lost recent-root order (F-08), a formula-injection path (C-08) and a truncated shell command
-  (C-09). Ask reviewers to hunt adversarially and for numbers.
-- **Never post a verdict before CI is green**, and re-post it for a new head after any push or rebase.
-- **Stacks:** do not rebase a stack's base before it merges; GitHub retargets and rebases the children only while
-  the base's commits are unchanged.
-- **`git stash` is one stack for every worktree.** Tell implementors not to use it.
-- **CI noise is mostly infrastructure:** the Ubuntu mirror (#394 retries) and runner variance. Merge-wait loops should
-  re-run only `Failed to fetch` and `cancelled`, never a test failure.
-- **Wall-clock assertions do not belong in unit tests** (ADR-0032); several were removed today after flaking under
-  load. Precheck now names the failing test.
+- **Adversarial privacy reviews earn their cost.** F-16 went back twice: once for a pre-existing splice
+  (`urlurl()(https://…)` became a live remote `url(`), once because the fail-closed second pass would have emptied
+  every theme on Windows. The third review fuzzed 600k inputs in WebKit with requests aborted. Ask for a WebKit
+  ground truth, not a reading.
+- **Ask the reviewer to drive the real path.** F-15's unit tests called `scan` directly; the review drove the
+  notify thread to prove a target in another directory is seen. Name the real entry point in the review brief.
+- **A path filter test catches new imports.** D-02 broke `every file headless.ts reaches is typography` because core's
+  index now reaches `layout/`: widen `scripts/ci-changes.mjs` in the same PR.
+- **Counts in tests rot.** L-11's new token broke a literal "55 tokens"; derive counts from the source of truth.
