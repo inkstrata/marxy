@@ -42,6 +42,9 @@ pub(crate) struct FileId {
     mtime_ms: u128,
     size: u64,
     ino: u64,
+    /// A symlink's entry carries its target's identity, so the inode is not the link's own and
+    /// must never pair the link with another path as a rename (F-15.1).
+    link: bool,
 }
 
 /// Path → identity at the last poll. Paths are absolute.
@@ -57,6 +60,8 @@ impl RootWatch {
     /// Start watching `root`. The first scan is the baseline, so opening is silent.
     pub fn open(root: &Path) -> Result<Self, String> {
         let root = fs::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
+        // The extra roots (target parents) are computed once, here. A link retargeted into a new
+        // directory is not watched there; it is noticed only by the 200 ms poll of the link itself.
         let roots = watch_roots(&root)?;
         let snapshot = scan_roots(&roots)?;
         Ok(Self { roots, snapshot })
@@ -187,7 +192,13 @@ fn scan_entries(entries: fs::ReadDir, out: &mut Snapshot) {
             // loop cannot arise.
             if let Ok(target) = fs::metadata(&path) {
                 if target.is_file() {
-                    out.insert(path, file_id(&target));
+                    out.insert(
+                        path,
+                        FileId {
+                            link: true,
+                            ..file_id(&target)
+                        },
+                    );
                 }
             }
         }
@@ -204,6 +215,7 @@ pub(crate) fn file_id(meta: &Metadata) -> FileId {
             .unwrap_or(0),
         size: meta.len(),
         ino: inode(meta),
+        link: false,
     }
 }
 
@@ -225,11 +237,17 @@ pub fn diff(prev: &Snapshot, next: &Snapshot) -> Vec<WatchEvent> {
     let mut events = Vec::new();
 
     for (from, id) in prev {
-        if next.contains_key(from) || id.ino == 0 {
+        // A link never pairs: its inode is its target's, so a renamed target would retarget the
+        // open document to a file elsewhere while the link dangles. A vanished link is `Removed`.
+        if next.contains_key(from) || id.ino == 0 || id.link {
             continue;
         }
         let to = next.iter().find_map(|(path, other)| {
-            if !prev.contains_key(path) && other.ino == id.ino {
+            if !prev.contains_key(path)
+                && !other.link
+                && !used_added.contains(path)
+                && other.ino == id.ino
+            {
                 Some(path.clone())
             } else {
                 None
@@ -522,6 +540,79 @@ mod tests {
         assert!(real_untouched);
         assert!(named, "{events:?}");
         assert_eq!(effect, OpenEffect::Gone);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn renaming_the_target_of_a_link_is_removed_on_the_link_and_never_follows() {
+        let (dir, docs, real, link) = linked("link-target-renamed", false);
+        let mut watch = RootWatch::open(&docs).expect("watch");
+        let moved = real.with_file_name("moved.md");
+        fs::rename(&real, &moved).expect("rename target");
+        let events = watch.poll().expect("poll");
+        let effect = effect_for_open_document(&events, &link);
+        let link_renamed = events
+            .iter()
+            .any(|e| e.kind == WatchKind::Renamed && e.path == link);
+        let link_removed = events
+            .iter()
+            .any(|e| e.kind == WatchKind::Removed && e.path == link);
+        cleanup(&dir);
+        assert!(!link_renamed, "{events:?}");
+        assert!(link_removed, "{events:?}");
+        assert_eq!(effect, OpenEffect::Gone);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_save_of_a_target_still_reloads_the_link() {
+        let (dir, docs, real, link) = linked("link-atomic-save", false);
+        let mut watch = RootWatch::open(&docs).expect("watch");
+        let temp = real.with_file_name(".real.md.tmp");
+        fs::write(&temp, b"# real, saved atomically\n").expect("temp");
+        fs::rename(&temp, &real).expect("rename over target");
+        let events = watch.poll().expect("poll");
+        let effect = effect_for_open_document(&events, &link);
+        cleanup(&dir);
+        assert_eq!(effect, OpenEffect::Reload, "{events:?}");
+    }
+
+    #[test]
+    fn a_new_link_is_never_the_destination_of_a_rename() {
+        let id = |link| FileId {
+            mtime_ms: 1,
+            size: 1,
+            ino: 9,
+            link,
+        };
+        let prev: Snapshot = [(PathBuf::from("/d/real.md"), id(false))]
+            .into_iter()
+            .collect();
+        let next: Snapshot = [(PathBuf::from("/d/link.md"), id(true))]
+            .into_iter()
+            .collect();
+        let events = diff(&prev, &next);
+        assert!(events.iter().all(|e| e.to.is_none()), "{events:?}");
+    }
+
+    #[test]
+    fn two_renames_never_share_one_destination() {
+        let id = |ino| FileId {
+            mtime_ms: 1,
+            size: 1,
+            ino,
+            link: false,
+        };
+        let prev: Snapshot = [
+            (PathBuf::from("/d/a"), id(7)),
+            (PathBuf::from("/d/b"), id(7)),
+        ]
+        .into_iter()
+        .collect();
+        let next: Snapshot = [(PathBuf::from("/d/c"), id(7))].into_iter().collect();
+        let events = diff(&prev, &next);
+        let tos: Vec<_> = events.iter().filter_map(|e| e.to.clone()).collect();
+        assert_eq!(tos, vec![PathBuf::from("/d/c")], "{events:?}");
     }
 
     #[cfg(unix)]
