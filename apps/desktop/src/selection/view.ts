@@ -112,8 +112,8 @@ export interface RenderedSelection {
   selectAt(target: Element, opts: { readonly link: 'select' | 'follow' }): Promise<void>;
   /**
    * Select the innermost block whose `[data-marxy-s, data-marxy-e)` holds `byte` (a content-search hit,
-   * C-17), mounting the page through it first when a long document has not reached it. Nothing is
-   * selected when no block holds the byte (a gap between blocks, or a byte past the end).
+   * C-17). The caller has already mounted the page through `byte` (the open's `landOn`). Nothing is
+   * selected when no mounted block holds the byte (a gap between blocks, or a byte past the end).
    */
   selectBlockAtByte(byte: number): void;
   /** One step back in the link history; true when it moved (the caller then has nothing left to do). */
@@ -521,11 +521,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     selectBlockAtByte(byte) {
       const snap = opts.store()?.snapshot();
       if (!snap) return;
-      let carrier = blockCarrierAt(byte);
-      if (carrier === null) {
-        opts.mountThrough(byte);
-        carrier = blockCarrierAt(byte);
-      }
+      const carrier = blockCarrierAt(byte);
       if (carrier === null) return;
       const resolved = resolve(carrier, snap.nodeMap);
       if (!resolved || !isBlock(resolved.node)) return;

@@ -74,9 +74,11 @@ export type AppHandle = {
    * Opens `path` through the one open path, after any open already under way: launch, open events
    * and the palette all end here. `at` is a byte offset; the block containing it is held at the
    * reading line until the reader scrolls. `at` for the document already on screen moves to it
-   * without reading the file again.
+   * without reading the file again. `onLanded` runs once `path` is the document on screen; over unsaved
+   * edits the promise settles as soon as the reader is asked, and `onLanded` waits for their choice
+   * (never on "Dismiss").
    */
-  open(path: string, opts?: { at?: number }): Promise<void>;
+  open(path: string, opts?: { at?: number; onLanded?: () => void }): Promise<void>;
   /** The document on screen, or null before the first one. */
   currentPath(): string | null;
   /** The folder every image and link of the document at `path` must stay inside: its repository root, else its folder (ADR-0027 §5). */

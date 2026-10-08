@@ -9,7 +9,7 @@ import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
 import type { DocumentStore } from '../document/store.ts';
-import { appendWithInvisibles } from '../render/invisibles-dom.ts';
+import { appendInvisibleSegments } from '../render/invisibles-dom.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
 import { copyDefault, markdownCopy } from '../selection/verbs.ts';
 import {
@@ -17,6 +17,7 @@ import {
   createContentSearch,
   CONTENT_ROW_LIMIT,
   HINT_NOTICE,
+  splitSegments,
   type ContentSearch,
   type ContentState,
 } from './content.ts';
@@ -76,8 +77,11 @@ export interface PaletteDeps {
    * deferred passes, and teardown of the one before. `at` is a byte offset to land on. The palette
    * never writes `#doc` itself, so the app never holds one file's buffer while showing another.
    */
-  readonly openDocument: (path: string, at?: number) => Promise<void>;
-  /** Selects the innermost block of the open document that holds `byte` (the rendered selection, C-17). */
+  readonly openDocument: (path: string, at?: number, onLanded?: () => void) => Promise<void>;
+  /**
+   * Selects the innermost block of the open document that holds `byte` (the rendered selection, C-17).
+   * Called only from `openDocument`'s `onLanded`, so the document is the hit's and is mounted through `byte`.
+   */
   readonly selectBlockAtByte?: (byte: number) => void;
   /** Content search for `/` queries (C-16). Without it the `/` phase says so and finds nothing. */
   readonly searchContent?: Shell['searchContent'];
@@ -238,8 +242,8 @@ function queryPalette(
   };
 }
 
-async function renderPath(deps: PaletteDeps, path: string, byteOffset?: number): Promise<void> {
-  await deps.openDocument(path, byteOffset);
+async function renderPath(deps: PaletteDeps, path: string, byteOffset?: number, onLanded?: () => void): Promise<void> {
+  await deps.openDocument(path, byteOffset, onLanded);
   deps.setCurrentPath(path);
 }
 
@@ -558,15 +562,15 @@ function paintEmptyRows(
   list.replaceChildren(next);
 }
 
-/** A content hit's row: the document's title, `· line N`, and a dim preview with the match marked (textContent only). */
 /** `text` with each flagged character named (`U+202E`) in place of itself, for a label a screen reader speaks. */
 function namedInvisibles(text: string): string {
   return invisibleSegments(text, { inCode: false, sourceStart: 1 })
     .map((seg) =>
-      seg.kind === 'text' ? seg.value : seg.kind === 'tag-run' ? `tag ×${seg.count}` : `U+${invisibleHexLabel(seg.cp)}`)
+      seg.kind === 'text' ? seg.value : seg.kind === 'tag-run' ? ` tag ×${seg.count} ` : ` U+${invisibleHexLabel(seg.cp)} `)
     .join('');
 }
 
+/** A content hit's row: the document's title, `· line N`, and a dim preview with the match marked (textContent only). */
 function paintContentRows(
   list: HTMLOListElement,
   hits: readonly ContentHit[],
@@ -596,11 +600,13 @@ function paintContentRows(
     const end = Math.min(Math.max(start, hit.matchEnd), hit.preview.length);
     const mark = doc.createElement('mark') as HTMLElement;
     mark.className = 'marxy-palette-match';
-    // Bidi controls and zero-width characters are marked, never painted raw (commitment 4).
-    appendWithInvisibles(preview, hit.preview.slice(0, start));
-    appendWithInvisibles(mark, hit.preview.slice(start, end));
+    // Bidi controls and zero-width characters are marked, never painted raw (commitment 4). The whole
+    // preview is segmented once and then cut, so a joiner at the match's edge is judged with its neighbours.
+    const [before, match, after] = splitSegments(invisibleSegments(hit.preview, { inCode: false, sourceStart: 1 }), start, end);
+    appendInvisibleSegments(preview, before);
+    appendInvisibleSegments(mark, match);
     preview.append(mark);
-    appendWithInvisibles(preview, hit.preview.slice(end));
+    appendInvisibleSegments(preview, after);
     row.append(head, preview);
     row.setAttribute('aria-label', `${titleOf(hit.path)}, line ${hit.line}: ${namedInvisibles(hit.preview)}`);
     row.toggleAttribute('aria-selected', i === selected);
@@ -829,8 +835,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     syncSession();
     dismiss();
     setTimeout(() => feed.refresh(), 0);
-    await renderPath(deps, hit.path, hit.byteOffset);
-    deps.selectBlockAtByte?.(hit.byteOffset);
+    // The block is selected once the hit's document is on screen: over unsaved edits that waits for "Save
+    // and open" or "Open without saving", and "Dismiss" leaves the open document untouched.
+    await renderPath(deps, hit.path, hit.byteOffset, () => deps.selectBlockAtByte?.(hit.byteOffset));
   };
 
   input.addEventListener('input', () => {
@@ -968,7 +975,7 @@ export function mountPaletteFromHandle(
     // session change named the document being opened as the one already shown, so it never opened.
     getCurrentPath: () => handle.currentPath() ?? opts?.initialPath ?? null,
     setCurrentPath: () => {},
-    openDocument: (path, at) => handle.open(path, { at }),
+    openDocument: (path, at, onLanded) => handle.open(path, { at, onLanded }),
     selectBlockAtByte: (byte) => handle.selection.selectBlockAtByte(byte),
     searchContent: (paths, query, opts) => handle.shell.searchContent(paths, query, opts),
     // Looked up on each call: the service's answers move as roots are walked and watched.

@@ -3,7 +3,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ContentHit, ContentSearchOptions, ContentSearchResult } from '@marxy/shell-api';
-import { contentQuery, createContentSearch, HINT_NOTICE, type ContentShell, type ContentState } from './content.ts';
+import { invisibleSegments, type InvisibleSegment } from '@marxy/core/src/render/index.ts';
+import {
+  contentQuery,
+  createContentSearch,
+  HINT_NOTICE,
+  splitSegments,
+  type ContentShell,
+  type ContentState,
+} from './content.ts';
 
 const hit = (path: string): ContentHit => ({ path, line: 1, byteOffset: 0, preview: 'x', matchStart: 0, matchEnd: 1 });
 const result = (hits: ContentHit[], truncated = false): ContentSearchResult => ({ hits, scannedFiles: 3, truncated });
@@ -12,6 +20,7 @@ interface Pending {
   readonly query: string;
   readonly opts: ContentSearchOptions;
   resolve(r: ContentSearchResult): void;
+  reject(e: Error): void;
 }
 
 function fake() {
@@ -20,7 +29,7 @@ function fake() {
   const states: ContentState[] = [];
   const shell: ContentShell = {
     searchContent: (_paths, query, opts) =>
-      new Promise((resolve) => pending.push({ query, opts, resolve })),
+      new Promise((resolve, reject) => pending.push({ query, opts, resolve, reject })),
     mark: async (name, _t, data) => {
       marks.push(`${name} ${data ?? ''}`);
     },
@@ -151,4 +160,47 @@ test('the same phrase again keeps the rows and starts no second search; after a 
   search.update('foo');
   await wait(80);
   assert.equal(pending.length, 2, 'after a cancel the phrase is searched afresh');
+});
+
+test('after a failed search the same phrase is tried again', async () => {
+  const { pending, states, search } = fake();
+  search.update('foo');
+  await wait(80);
+  pending[0]!.reject(new Error('disk on fire'));
+  await wait(5);
+  assert.equal(states.at(-1)!.notice, 'Search failed: disk on fire');
+  search.update('foo');
+  await wait(80);
+  assert.equal(pending.length, 2, 'the failure is not remembered as an answer');
+  pending[1]!.resolve(result([hit('/r/a.md')]));
+  await wait(5);
+  assert.equal(states.at(-1)!.notice, '1 match in 1 file');
+});
+
+// What each slice shows: text as is, a flagged character as `<hex>`.
+const shown = (segs: readonly InvisibleSegment[]): string =>
+  segs.map((seg) => (seg.kind === 'text' ? seg.value : seg.kind === 'marker' ? `<${seg.cp.toString(16)}>` : '<tags>')).join('');
+const cut = (text: string, match: string) => {
+  const start = text.indexOf(match);
+  return splitSegments(invisibleSegments(text, { inCode: false, sourceStart: 1 }), start, start + match.length).map(shown);
+};
+
+test('a preview is segmented whole, then cut into before, match and after', () => {
+  assert.deepEqual(cut('a \u202ex zebra\u200bcrossing y', 'zebra\u200bcrossing'), ['a <202e>x ', 'zebra<200b>crossing', ' y']);
+  assert.deepEqual(cut('plain text here', 'text'), ['plain ', 'text', ' here']);
+  // An empty match leaves the middle empty.
+  assert.deepEqual(splitSegments([{ kind: 'text', value: 'abc' }], 1, 1).map(shown), ['a', '', 'bc']);
+});
+
+test('a joiner at the edge of the match is judged with its neighbours, as Rendered judges it', () => {
+  // The ZWJ after the man is inside an emoji sequence: no marker, though the match ends just before it.
+  const family = 'family \u{1F468}\u200d\u{1F469}\u200d\u{1F467}';
+  const slices = cut(family, 'ly \u{1F468}');
+  assert.equal(slices.join(''), family, 'nothing is marked');
+  assert.equal(slices[1], 'ly \u{1F468}');
+  // A Persian ZWNJ between two Arabic-script letters, with the match ending at it.
+  const persian = 'x \u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645';
+  assert.equal(cut(persian, 'x \u0645\u06cc').join(''), persian);
+  // A ZWJ between plain letters is still flagged, in the slice it starts in.
+  assert.deepEqual(cut('ab\u200dcd', 'ab'), ['', 'ab', '<200d>cd']);
 });

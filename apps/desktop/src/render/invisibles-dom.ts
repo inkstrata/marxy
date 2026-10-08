@@ -73,13 +73,14 @@ function replaceTextWithMarkers(text: Text): void {
 }
 
 /**
- * Append `text` to `parent` with every flagged character drawn as the same marker Rendered uses (a hex
- * label over the isolated character), so a bidi control or a zero-width character is never painted raw
- * (commitment 4). Built with `createElement` and `textContent` only. `text` is treated as prose, not code.
+ * Append `segments` (core's `invisibleSegments` of one string, or a slice of them) to `parent` with every
+ * flagged character drawn as the same marker Rendered uses (a hex label over the isolated character), so a
+ * bidi control or a zero-width character is never painted raw (commitment 4). Built with `createElement`
+ * and `textContent` only.
  */
-export function appendWithInvisibles(parent: Element, text: string): void {
+export function appendInvisibleSegments(parent: Element, segments: readonly InvisibleSegment[]): void {
   const doc = parent.ownerDocument;
-  for (const seg of invisibleSegments(text, { inCode: false, sourceStart: 1 })) {
+  for (const seg of segments) {
     if (seg.kind === 'text') {
       if (seg.value !== '') parent.append(doc.createTextNode(seg.value));
     } else if (seg.kind === 'tag-run') {

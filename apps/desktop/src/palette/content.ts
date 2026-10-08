@@ -3,6 +3,7 @@
 // scoped entries' own paths are read, on this machine. A pause after the last keystroke starts a
 // search (120 ms), a newer query aborts the one in flight, and an answer that arrives late is dropped,
 // so typing never waits on a scan and the fuzzy matcher is never run for this phase.
+import type { InvisibleSegment } from '@marxy/core/src/render/index.ts';
 import type { ContentHit, ContentSearchOptions, ContentSearchResult } from '@marxy/shell-api';
 
 /** The phrase after a leading `/`, or null when the query is not a content query (`foo/bar` is fuzzy). */
@@ -10,6 +11,39 @@ export function contentQuery(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed.startsWith('/')) return null;
   return trimmed.slice(1).trim();
+}
+
+/**
+ * A whole preview's invisible segments split at the UTF-16 offsets `start` and `end` into before, match
+ * and after. Segmenting once and cutting afterwards judges a joiner at the edge of the match with its
+ * neighbours (a ZWJ inside an emoji sequence, a Persian ZWNJ), as Rendered and the row's label do. A
+ * flagged character goes to the slice it starts in.
+ */
+export function splitSegments(
+  segments: readonly InvisibleSegment[],
+  start: number,
+  end: number,
+): [InvisibleSegment[], InvisibleSegment[], InvisibleSegment[]] {
+  const out: [InvisibleSegment[], InvisibleSegment[], InvisibleSegment[]] = [[], [], []];
+  const slot = (at: number): 0 | 1 | 2 => (at < start ? 0 : at < end ? 1 : 2);
+  const limits = [start, end, Infinity] as const;
+  let pos = 0;
+  for (const seg of segments) {
+    if (seg.kind === 'text') {
+      const v = seg.value;
+      for (let i = 0; i < v.length; ) {
+        const k = slot(pos + i);
+        const j = Math.min(v.length, limits[k] - pos);
+        out[k].push({ kind: 'text', value: v.slice(i, j) });
+        i = j;
+      }
+      pos += v.length;
+    } else {
+      out[slot(pos)].push(seg);
+      pos += seg.kind === 'marker' ? (seg.cp > 0xffff ? 2 : 1) : seg.payload.length;
+    }
+  }
+  return out;
 }
 
 export const CONTENT_DEBOUNCE_MS = 120;
