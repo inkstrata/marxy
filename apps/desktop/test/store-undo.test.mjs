@@ -144,7 +144,9 @@ const clickBox = async (page, i) => {
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
     const at = () => { const r = el.getBoundingClientRect(); return `${r.x},${r.y}`; };
     let last = at();
-    for (let same = 0; same < 3;) {
+    // Counted in frames, not time: a box that never settles (or a page that stops painting) fails the test.
+    for (let same = 0, frames = 0; same < 3; frames += 1) {
+      if (frames >= 300) throw new Error('checkbox never held still');
       await frame();
       const now = at();
       same = now === last ? same + 1 : 0;
@@ -181,6 +183,49 @@ test('ADR-0037 defect 2: toggle, Source edit, two undos restore the original', a
   assert.equal(await buf(page), ORIGINAL);
   assert.equal(await canUndo(page), false, 'two entries, two undos');
   assert.equal(await page.evaluate(() => window.marxyDocumentEdit().dirty), false, 'back at the bytes on disk');
+  await page.close();
+});
+
+test('F-12: focus has left the hidden Source editor at the moment the mode flips to Rendered', async () => {
+  const page = await boot();
+  await toggleMode(page, 'source');
+  await page.click('.cm-content');
+  await page.waitForFunction(() => document.querySelector('#marxy-source .cm-content')?.contains(document.activeElement));
+  // A mutation callback runs right after the task that flipped the attribute, before WebKit's next
+  // rendering update (which is when it would blur a hidden element by itself).
+  await page.evaluate(() => {
+    window.__focusInSourceAtFlip = null;
+    new MutationObserver(() => {
+      if (document.body.dataset.marxyMode === 'rendered' && window.__focusInSourceAtFlip === null) {
+        window.__focusInSourceAtFlip = Boolean(document.querySelector('#marxy-source')?.contains(document.activeElement));
+      }
+    }).observe(document.body, { attributes: true, attributeFilter: ['data-marxy-mode'] });
+  });
+  await page.keyboard.press(`${await modOf(page)}+e`);
+  await page.waitForFunction(() => window.__focusInSourceAtFlip !== null);
+  assert.equal(await page.evaluate(() => window.__focusInSourceAtFlip), false, 'Mod+Z right after the flip would go to the hidden editor');
+  await page.close();
+});
+
+test('undo while Source holds typing not yet in the document: the typing goes, the earlier edit stays', async () => {
+  const page = await boot();
+  const toggled = ORIGINAL.replace('- [ ] one', '- [x] one');
+  await clickBox(page, 0);
+  await untilBuffer(page, toggled);
+  await toggleMode(page, 'source');
+  await page.click('.cm-content');
+  await page.waitForFunction(() => document.querySelector('#marxy-source .cm-content')?.contains(document.activeElement));
+  await page.keyboard.press((await modOf(page)) === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
+  await page.keyboard.type('X');
+  // No leave, no wait for canUndo: the typing is only in the editor. Undo (the palette's command, as
+  // in Source Mod+Z belongs to the editor) must fold it in first, then step it out.
+  assert.equal(await buf(page), toggled, 'the typing is not in the document yet');
+  await page.evaluate(() => window.marxyHarnessUndo());
+  // The undo has run once there is something to redo. The buffer is `toggled` before and after, so it
+  // cannot say so; without the fold, undo would step over the task toggle instead (buffer ORIGINAL).
+  await page.waitForFunction(() => window.__handle.document().snapshot().canRedo);
+  assert.equal(await buf(page), toggled, 'only the typing was undone');
+  assert.equal(await canUndo(page), true, 'the task toggle is still in the history');
   await page.close();
 });
 
