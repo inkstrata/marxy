@@ -1,6 +1,8 @@
 // Application startup: given a shell, open the document, render it, and emit startup marks (MARXY-95).
 import { setAppHandle } from './commands/app-handle.ts';
-import { installCommandKeys } from './selection/bind.ts';
+import { startDocumentEditingWire } from './commands/document.ts';
+import { buildAppContext, installCommandKeys } from './selection/bind.ts';
+import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
 import { contentHash, type Buffer, type Document } from '@marxy/core';
 import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
@@ -132,7 +134,7 @@ export type AppHandle = {
   } | null;
   /** Playwright harness: live typesetters and resize observers, so N opens are seen to leave one of each. */
   debugCounts(): { typesetters: number; resizeObservers: number };
-  /** The open document's buffer and parse, or null. */
+  /** The open document's buffer and parse, from its store's snapshot, or null. */
   openDocument(): OpenDocumentState | null;
   /** The open document's store (ADR-0037), or null before the first document (B-11). */
   document(): DocumentStore | null;
@@ -142,11 +144,13 @@ export type AppHandle = {
    */
   save(opts?: { as?: boolean }): Promise<SaveResult>;
   /**
-   * Called whenever the open document's bytes or identity change — an open, a reload from disk, an
-   * edit folded in from Source, an operation — and with null when nothing is open. Every holder of
-   * document state follows the app through this, instead of keeping a copy that goes stale.
+   * The open document's store subscription, seen through the app (ADR-0037): called with the document
+   * on every committed transition and on each open, which moves the subscription to the new store, and
+   * with null when the store closes. A page set again with the same bytes is not a change.
    */
   onDocumentChange(cb: (open: OpenDocumentState | null) => void): () => void;
+  /** The Rendered selection on `#doc` (B-12): what is selected, and the open document as it resolves it. */
+  readonly selection: RenderedSelection;
   /**
    * Applies an operation's result: makes `buffer` the open document and renders it through the same
    * path an open takes. The file is not written; that is an explicit save. Refused if a different
@@ -190,7 +194,10 @@ const state: { document: OpenDocument | null } = { document: null };
  * subscription (`followStore`). Transitional: B-15 removes this `let` when the open path leaves.
  */
 let store: DocumentStore | null = null;
-const documentListeners = new Set<(open: OpenDocumentState | null) => void>();
+/** `onDocumentChange` subscribers: each moves its subscription to a newly opened store (B-12). */
+const storeFollowers = new Set<(next: DocumentStore) => void>();
+/** The selection controller on `#doc`, made by `startApp`. */
+let selection: RenderedSelection | null = null;
 
 /** The open document's path, from the store. */
 function openPathNow(): string | null {
@@ -202,16 +209,32 @@ function bufferNow(): Buffer | null {
   return store?.snapshot().buffer ?? null;
 }
 
-function openDocumentState(): OpenDocumentState | null {
-  if (!store || !state.document) return null;
-  const snap = store.snapshot();
+function documentState(snap: DocumentSnapshot): OpenDocumentState {
   return { path: snap.path, buffer: snap.buffer, ast: snap.ast, nodeMap: snap.nodeMap };
 }
 
-/** Tell every holder of document state what is open now (see AppHandle.onDocumentChange). */
-function announceDocument(): void {
-  const open = openDocumentState();
-  for (const cb of documentListeners) cb(open);
+function openDocumentState(): OpenDocumentState | null {
+  return store ? documentState(store.snapshot()) : null;
+}
+
+/** `cb` on the open store's transitions, and on every store opened after this. */
+function onDocumentChange(cb: (open: OpenDocumentState | null) => void): () => void {
+  let unsubscribe: (() => void) | null = null;
+  const follow = (next: DocumentStore): void => {
+    unsubscribe?.();
+    unsubscribe = next.subscribe((snap, change) => cb(change.kind === 'close' ? null : documentState(snap)));
+  };
+  const opened = (next: DocumentStore): void => {
+    follow(next);
+    cb(documentState(next.snapshot()));
+  };
+  if (store) follow(store);
+  storeFollowers.add(opened);
+  return () => {
+    storeFollowers.delete(opened);
+    unsubscribe?.();
+    unsubscribe = null;
+  };
 }
 let documentWatch: { close(): void } | null = null;
 let viewMode: 'rendered' | 'source' = 'rendered';
@@ -902,6 +925,8 @@ function repaint(snap: DocumentSnapshot, position: ReadingPosition): void {
  */
 function showRenderFailure(e: unknown): void {
   console.warn(`marxy: the page could not be set after a change: ${String(e)}`);
+  // What was selected named elements of the page that is gone, at offsets of bytes the store has moved past.
+  selection?.clear();
   const message = document.createElement('p');
   message.textContent = String(e);
   document.getElementById('doc')!.replaceChildren(message);
@@ -1068,7 +1093,7 @@ async function retargetOpenDocument(newPath: string): Promise<void> {
   await shell.allowAssetScope(dirname(newPath));
   await registerDocumentWatch(newPath);
   document.title = `${basename(newPath)} — Marxy`;
-  announceDocument();
+  selection?.afterRender();
   await refreshTitle();
 }
 
@@ -1125,6 +1150,7 @@ function commitEdit(next: Buffer): Promise<void> {
         range: { file: snap.path, start: change.start, end: change.end },
         replacement: new TextDecoder().decode(change.replacement),
         label: 'edit',
+        baseVersion: snap.version,
       });
     }
     await page.settled;
@@ -1163,7 +1189,7 @@ function saveDeps(open: DocumentStore): SaveDeps {
       if (store !== open) return;
       await shell.allowAssetScope(dirname(path));
       await registerDocumentWatch(path);
-      announceDocument();
+      selection?.afterRender();
     },
   };
 }
@@ -1233,7 +1259,7 @@ function rerenderFromBuffer(doc: HTMLElement, at?: number | Pick<ReadingPosition
   destroyTypeset();
   state.document = { ast, html, nodeMap, blocks: [] };
   const mounted = mountDocument(doc, html, file, byteOffset);
-  announceDocument();
+  selection?.afterRender();
   trust.showNotices(removed, blockedImages);
   snap(doc);
   startTypeset(doc);
@@ -1462,7 +1488,8 @@ async function openDocumentThroughRenderMark(
   state.document = { ast, html, nodeMap, blocks: [] };
   // Only the first screens go in now (A-02); images are checked before any block reaches the page.
   mountDocument(doc, html, file, landing, start);
-  announceDocument();
+  selection?.afterRender();
+  for (const follow of [...storeFollowers]) follow(opened);
   await shell.mark('rendered', Date.now());
   await shell.mark('first_screen', Date.now(), `blocks=${doc.childElementCount} bytes=${mountedBytes(doc)}`);
   trust.showNotices(removed, blockedImages);
@@ -1556,7 +1583,7 @@ async function openReplacing(file: string, at?: number): Promise<void> {
     // Nothing of the last document may outlive the page that showed it.
     teardownDocument();
     state.document = null;
-    announceDocument();
+    selection?.afterRender();
     setModeChrome('rendered');
     // A read error names the path, and a path is not markup.
     const message = document.createElement('p');
@@ -1720,6 +1747,24 @@ export async function startApp(
     if (file) void replaceOpenDocument(file);
   });
   const ready = measure.ready.then(() => {});
+  // The repository root once the index has said (F-14), else the document's folder.
+  const imageRootFor = (path: string): string => pathsForDocument(path).imageRoot;
+  // The selection on `#doc`, which the skeleton always has; it reads the open document from the store.
+  selection?.destroy();
+  storeFollowers.clear();
+  const article = document.getElementById('doc')!;
+  const renderedSelection = createRenderedSelection({
+    article,
+    scroller: readingScroller(),
+    store: () => store,
+    // AppShell narrows the real shell; clipboardWrite (and openExternal, where there is one) is on it.
+    shell: shell as SelectionShell,
+    open: (path) => replaceOpenDocument(path),
+    currentPath: openPathNow,
+    mountThrough: (byteOffset) => mountThrough(article, byteOffset),
+    imageRoot: imageRootFor,
+  });
+  selection = renderedSelection;
   const handle: AppHandle = {
     get state() { return state; },
     dispatch() {},
@@ -1728,16 +1773,14 @@ export async function startApp(
     ready,
     open: replaceOpenDocument,
     currentPath: openPathNow,
-    imageRoot: (path) => pathsForDocument(path).imageRoot,
+    imageRoot: imageRootFor,
     sourceHarness,
     debugCounts: () => ({ typesetters: liveTypesetters.size, resizeObservers: liveResizeObservers }),
     openDocument: openDocumentState,
     document: () => store,
     save: saveOpenDocument,
-    onDocumentChange(cb) {
-      documentListeners.add(cb);
-      return () => documentListeners.delete(cb);
-    },
+    onDocumentChange,
+    selection: renderedSelection,
     commitEdit,
     hasUnfoldedSource: unfoldedSourceEdits,
     foldSource: async () => { await foldSourceIntoBuffer(); },
@@ -1756,7 +1799,8 @@ export async function startApp(
   // The registry's one key dispatcher runs wherever the app does (it used to be Mod+E's own listener
   // here); the palette mount and the selection harness call the same idempotent install.
   setAppHandle(handle);
-  installCommandKeys();
+  installCommandKeys(handle);
+  startDocumentEditingWire(() => buildAppContext(handle));
   installCloseGuard({
     shell,
     isDirty: hasUnsavedChanges,

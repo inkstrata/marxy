@@ -124,7 +124,8 @@ test('hash link scrolls; relative opens; external calls openExternal; back retur
 
     await page.locator('#doc a[href="../../elsewhere.md"]').click();
     await page.waitForFunction(() =>
-      document.querySelector('#marxy-notices')?.textContent?.includes('outside'),
+      // In a repository the boundary is the repository, and the notice says so.
+      document.querySelector('#marxy-notices')?.textContent?.includes('outside this repository'),
     );
     assert.match(await page.evaluate(() => window.__marxyTestHandle.currentPath()), /index\.md$/);
 

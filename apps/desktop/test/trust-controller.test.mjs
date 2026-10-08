@@ -71,8 +71,12 @@ async function withApp(docName, fn, text) {
       const handle = await window.marxyApp.start(files, argv);
       await handle.ready;
       window.__h = handle;
+      // A render sets the page anew: one change to #doc's own children that removes the last page's.
+      // (onDocumentChange is the store's subscription since B-12, and a render of the same bytes is no change.)
       window.__renders = 0;
-      handle.onDocumentChange(() => { window.__renders += 1; });
+      new MutationObserver((records) => {
+        for (const r of records) if (r.removedNodes.length > 0) window.__renders += 1;
+      }).observe(document.getElementById('doc'), { childList: true });
     }, { files, argv: [docPath] });
     return await fn(page);
   } finally {
@@ -80,7 +84,7 @@ async function withApp(docName, fn, text) {
   }
 }
 
-/** Renders (document announcements) and typesetter starts (typeset_viewport marks) so far. */
+/** Renders (pages set anew) and typesetter starts (typeset_viewport marks) so far. */
 function counts(page) {
   return page.evaluate(() => ({
     renders: window.__renders,

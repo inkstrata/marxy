@@ -262,6 +262,62 @@ test('selection survives a re-render with unchanged bytes', async () => {
   }
 });
 
+test('a selection made in one document does not survive opening another', async () => {
+  // The same bytes at the same offsets: only the document change, not a missing element, can clear it.
+  const a = '/a.md';
+  const b = '/b.md';
+  const text = '# Title\n\nThe same first paragraph.\n';
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const files = { [a]: Buffer.from(text, 'utf8').toString('base64'), [b]: Buffer.from(text, 'utf8').toString('base64') };
+    await boot(page, files, [a]);
+    await page.locator('#doc p[data-marxy-s]').first().click();
+    assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'node');
+    await page.evaluate(async (path) => { await window.__marxyTestHandle.open(path); }, b);
+    assert.equal(await page.evaluate(() => window.__marxyTestHandle.currentPath()), b);
+    assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'none');
+    assert.equal(await page.locator('#doc .marxy-selected').count(), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('after the page fails to render a change, nothing stays selected', async () => {
+  // The B-11 review: a selection held across a failed render names a page that is gone, at offsets
+  // of bytes the store has moved past.
+  const docPath = '/fail.md';
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, { [docPath]: Buffer.from('# Title\n\nA paragraph.\n', 'utf8').toString('base64') }, [docPath]);
+    await page.locator('#doc p[data-marxy-s]').first().click();
+    assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'node');
+    const failed = await page.evaluate(async (path) => {
+      const article = document.getElementById('doc');
+      // The next query of the article throws once: the repaint that follows the store's commit fails.
+      article.querySelectorAll = () => {
+        delete article.querySelectorAll;
+        throw new Error('render failed');
+      };
+      const next = window.marxySelection.createBuffer(path, new TextEncoder().encode('# Title\n\nA changed paragraph.\n'));
+      const warn = console.warn;
+      console.warn = () => {};
+      try {
+        await window.__marxyTestHandle.commitEdit(next);
+      } finally {
+        console.warn = warn;
+        delete article.querySelectorAll;
+      }
+      return article.textContent;
+    }, docPath);
+    assert.match(failed, /render failed/);
+    assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'none');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('a text drag stays kind text and never becomes structured', async () => {
   const source = 'First paragraph here.\n\nSecond paragraph there.\n';
   const docPath = '/two-para.md';

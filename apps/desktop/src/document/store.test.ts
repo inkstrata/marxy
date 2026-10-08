@@ -257,6 +257,24 @@ test('two un-awaited applies with the same baseVersion: the first lands, the sec
   assert.equal(text(store.snapshot()), 'XYdef\n');
 });
 
+test('a save, a rename or an adopted reload between reading a range and applying it leaves the range good', async () => {
+  // A tick made while a save is in flight: the bytes it was resolved against are the bytes it lands on.
+  const io = recordingIo();
+  const store = openDocumentStore(io, PATH, enc.encode('one two\n'));
+  assert.equal(await store.apply({ range: range(0, 3), replacement: 'ONE', label: 'edit' }), true);
+  const read = store.snapshot().version;
+  const saving = store.save();
+  const applying = store.apply({ range: range(4, 7), replacement: 'TWO', label: 'tick', baseVersion: read });
+  assert.equal((await saving).result, 'saved');
+  assert.equal(await applying, true);
+  const again = store.snapshot().version;
+  await store.rename('/repo/renamed.md');
+  await store.reload(enc.encode('ONE TWO\n'));
+  assert.ok(store.snapshot().version > again);
+  assert.equal(await store.apply({ range: range(0, 3), replacement: 'uno', label: 'late', baseVersion: again }), true);
+  assert.equal(text(store.snapshot()), 'uno TWO\n');
+});
+
 test('commitSource with a stale baseVersion resolves false and leaves the store untouched', async () => {
   const store = openDocumentStore(recordingIo(), PATH, enc.encode('# Title\n\nbody\n'));
   const base = store.snapshot().version;

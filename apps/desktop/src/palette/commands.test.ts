@@ -7,6 +7,7 @@ import { commandForKey, keyLabel, paletteCommands } from './commands.ts';
 const ctx = {
   shell: { clipboardWrite: async () => {} },
   selection: { kind: 'none' },
+  document: null,
   operationInput: () => null,
   closePalette: () => {},
   showNotice: () => {},

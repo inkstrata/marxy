@@ -6,8 +6,7 @@ import type { AppHandle, AppShell } from '../app.ts';
 import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
-import { buildAppContext, installCommandKeys, setPaletteCloser } from '../selection/bind.ts';
-import { installRenderedSelection } from '../selection/view.ts';
+import { buildAppContext, setPaletteCloser } from '../selection/bind.ts';
 import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
 import { jumpForHit, paletteResults, prepareIndex, type PreparedIndex } from './search.ts';
@@ -533,9 +532,7 @@ export function mountPaletteFromHandle(
   handle: AppHandle,
   opts?: { initialPath?: string | null },
 ): PaletteController {
-  void installRenderedSelection(handle).then(() => {
-    installCommandKeys();
-  });
+  // The selection controller and the command keys are the app's own: `startApp` made and installed them.
   const main = document.getElementById('marxy-main');
   const article = document.getElementById('doc') ?? document.querySelector('.marxy-article');
   const dialog = document.getElementById('marxy-palette');

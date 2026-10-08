@@ -1,11 +1,10 @@
 // Source gutter toggle and jump-to-source palette commands (MARXY-239).
 import type { AppHandle } from '../app.ts';
-import type { Command } from './registry.ts';
+import type { AppContext, Command } from './registry.ts';
 import type { AppShell } from '../app.ts';
 import { writeReaderKey } from '../theme/reader-config.ts';
 import { resolveLineNumbers, setLineNumbersChoice } from '../source/line-numbers.ts';
 import { appHandle } from './app-handle.ts';
-import { getSelectionBufferContext } from '../selection/view.ts';
 
 function byteAttr(el: Element | null | undefined): number | null {
   const s = el?.getAttribute('data-marxy-s');
@@ -17,10 +16,9 @@ function clickedBlockByte(): number | null {
   return byteAttr(carrier);
 }
 
-function selectionStartByte(): number | null {
-  const ctx = getSelectionBufferContext();
-  if (ctx) {
-    const sel = ctx.state.selection;
+function selectionStartByte(ctx: AppContext): number | null {
+  if (ctx.document) {
+    const sel = ctx.selection;
     if (sel.kind === 'node' && sel.el instanceof Element) {
       const s = byteAttr(sel.el.closest('[data-marxy-s]'));
       if (s !== null) return s;
@@ -43,7 +41,7 @@ export function sourceViewCommands(): readonly Command[] {
       id: 'view.toggle-line-numbers',
       title: 'Toggle line numbers in Source',
       group: 'view',
-      when: () => document.body.dataset.marxyMode === 'source' || getSelectionBufferContext() !== null,
+      when: (ctx) => document.body.dataset.marxyMode === 'source' || ctx.document !== null,
       run: async (ctx) => {
         // The preference only; the app owns the Source editor and makes it (F-03, F-12). One that is
         // mounted is reconfigured now; with none, the next Source entry reads the recorded choice.
@@ -68,9 +66,9 @@ export function sourceViewCommands(): readonly Command[] {
       id: 'view.jump-to-source',
       title: 'Jump to source',
       group: 'view',
-      when: () => selectionStartByte() !== null,
-      run: async () => {
-        const byte = selectionStartByte();
+      when: (ctx) => selectionStartByte(ctx) !== null,
+      run: async (ctx) => {
+        const byte = selectionStartByte(ctx);
         // The running app's handle; the bare app.html test harness loads the selection harness as a
         // bundle of its own, so it names its handle on window. Source opens only through the app, so
         // what is typed there is the document's (F-03).

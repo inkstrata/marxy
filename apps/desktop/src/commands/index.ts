@@ -1,7 +1,7 @@
 // Concatenates feature command lists; operations come from core (MARXY-42, MARXY-43).
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { appearanceCommands } from './appearance.ts';
-import { documentCommands, startDocumentEditingWire } from './document.ts';
+import { documentCommands } from './document.ts';
 import { editorCommands } from './editor.ts';
 import { navigationCommands } from './navigation.ts';
 import { outlineCommands } from './outline.ts';
@@ -12,8 +12,6 @@ import { trustRevokeCommands } from './trust.ts';
 
 export type { AppContext, Command } from './registry.ts';
 export { fromOperation } from './registry.ts';
-
-startDocumentEditingWire();
 
 export function commands(): readonly Command[] {
   return [

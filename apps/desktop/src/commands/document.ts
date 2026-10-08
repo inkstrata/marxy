@@ -9,15 +9,18 @@ import {
   redoDocumentEdit,
   undoDocumentEdit,
 } from './edits.ts';
-import { buildAppContext } from '../selection/bind.ts';
-import { getSelectionBufferContext } from '../selection/view.ts';
 import { updateTabWidthResolver } from '../source/tab-width.ts';
 import { sourceViewCommands } from './source-view.ts';
 import { appHandle } from './app-handle.ts';
 
 export { attachDocumentEdits, documentEditState } from './edits.ts';
 
-export function startDocumentEditingWire(): void {
+/**
+ * The rendered document's wiring and the harness hooks, once per window. `context` is the registry's
+ * context for the running app (`buildAppContext`); everything here reads the open document through it
+ * or through `AppHandle.selection` when it runs, never a copy taken now.
+ */
+export function startDocumentEditingWire(context: () => AppContext): void {
   if (typeof document === 'undefined') return;
   const w = window as Window & {
     __marxyDocumentWire?: boolean;
@@ -40,12 +43,12 @@ export function startDocumentEditingWire(): void {
   w.marxyRunCommand = async (id: string) => {
     const cmd = sourceViewCommands().find((c) => c.id === id);
     if (!cmd) return;
-    const ctx = buildAppContext();
+    const ctx = context();
     if (!cmd.when(ctx)) return;
     await cmd.run(ctx);
   };
   w.marxyRefreshSourceTab = async () => {
-    const ctx = getSelectionBufferContext();
+    const ctx = appHandle()?.selection.runtime() ?? null;
     const handle = (window as Window & {
       __marxyHandle?: {
         shell: { readFile(path: string): Promise<Uint8Array> };
@@ -67,11 +70,11 @@ export function startDocumentEditingWire(): void {
   };
   const article = document.getElementById('doc');
   const wire = (): void => {
-    const ctx = getSelectionBufferContext();
+    const ctx = appHandle()?.selection.runtime() ?? null;
     if (!ctx?.article.querySelector('[data-marxy-s]')) return;
     updateTabWidthResolver(ctx.buffer.path, ctx.shell);
     void import('../render/tasks.ts').then(({ installTaskMarkers }) => {
-      installTaskMarkers(ctx.article, ctx.nodeMap);
+      installTaskMarkers(ctx.article, context);
       // The harness waits on this before it edits: the rendered document is wired. The saved baseline
       // is the store's own (`disk`), set when the document was read, so there is nothing to sync.
       (window as Window & { __marxyOpenSynced?: boolean }).__marxyOpenSynced = true;
@@ -83,7 +86,7 @@ export function startDocumentEditingWire(): void {
     // The click handler is delegated and resolves its task at click time, so it does not need a
     // rendered document to exist. Installing it here, not on the first mutation, means a first
     // document that nothing mutates afterwards still has working checkboxes.
-    void import('../render/tasks.ts').then(({ installTaskMarkers }) => installTaskMarkers(article));
+    void import('../render/tasks.ts').then(({ installTaskMarkers }) => installTaskMarkers(article, context));
     wire();
   }
   w.marxyDocumentEdit = documentEditState;
@@ -94,7 +97,7 @@ export function startDocumentEditingWire(): void {
 
 /** Save needs a real file: an open document whose path is not one of Marxy's own pages. */
 function canSaveOpenDocument(ctx: AppContext): boolean {
-  const store = ctx.document ?? appHandle()?.document() ?? null;
+  const store = ctx.document;
   return store !== null && !store.snapshot().path.startsWith('marxy:');
 }
 
