@@ -54,6 +54,14 @@ function resolvePath(themeRoot: string, rel: string): string | null {
   return null;
 }
 
+/** A url( value that opens a quote and does not close it before the `)`: the engine reads a bad-string. */
+function badString(inner: string): boolean {
+  const t = inner.trim();
+  const q = t[0];
+  if (q !== '"' && q !== "'") return false;
+  return !(t.length >= 2 && t.endsWith(q) && skipString(t, 0) === t.length);
+}
+
 function unquoteUrl(raw: string): string {
   let s = raw.trim();
   if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
@@ -62,8 +70,50 @@ function unquoteUrl(raw: string): string {
   return s.trim();
 }
 
-/** Tokenises CSS and rewrites or removes url/import/image-set references that leave the theme or the network. */
+/**
+ * Tokenises CSS and rewrites or removes url/import/image-set references that leave the theme or the network.
+ *
+ * Removing a reference joins the text on either side, which can splice a fresh `url(` together
+ * (`urlurl()(https://x)`). Rather than guess every splice, the result is scanned again: a clean
+ * output produces no warnings (a rewritten asset is an inert placeholder, an inert data: url is kept),
+ * so any warning on the second pass means the first left a reference behind, and the theme fails
+ * closed (F-16).
+ */
 export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsResult {
+  // Pass 1 emits an inert placeholder for each local asset and records its path, so the second pass
+  // never depends on, or calls, the caller's assetUrl (which may return http://asset.localhost/…
+  // or throw for an unknown path). The nonce is fresh per call and absent from the input, so a
+  // theme cannot write a placeholder of its own. The caller's assetUrl runs once per real reference.
+  let nonce = newNonce();
+  while (css.includes(nonce)) nonce = newNonce();
+  const paths: string[] = [];
+  const internal = {
+    base: opts.base,
+    assetUrl: (abs: string) => {
+      paths.push(abs);
+      return `${nonce}-${paths.length - 1}`;
+    },
+  };
+  const first = rewritePass(css, internal);
+  if (first.css === '') return first;
+  if (rewritePass(first.css, { base: opts.base, assetUrl: () => 'x' }).warnings.length > 0) {
+    return {
+      css: '',
+      warnings: [...first.warnings, 'theme joined a url() together after removing a reference; the theme was not loaded'],
+    };
+  }
+  const pattern = new RegExp(`"${nonce}-(\\d+)"`, 'g');
+  const out = first.css.replace(pattern, (_m, n: string) => `"${opts.assetUrl(paths[Number(n)]).replace(/"/g, '\\"')}"`);
+  return { css: out, warnings: first.warnings };
+}
+
+function newNonce(): string {
+  const bytes = new Uint8Array(12);
+  globalThis.crypto.getRandomValues(bytes);
+  return `marxy-asset-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function rewritePass(css: string, opts: RewriteUrlsOptions): RewriteUrlsResult {
   const warnings: string[] = [];
   const out: string[] = [];
   const themeRoot = normalizePath(opts.base);
@@ -112,10 +162,15 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
     if (at(i, 'url(')) {
       const close = findParenClose(css, i + 4);
       if (close === -1) {
-        out.push(css.slice(i));
+        warnings.push('theme has an unterminated url(); the rest of it was not loaded');
         break;
       }
       const inner = css.slice(i + 4, close);
+      if (badString(inner)) {
+        warnings.push('theme referenced a url() with an unterminated string; not loaded');
+        i = close + 1;
+        continue;
+      }
       const spec = unquoteUrl(inner);
       const replacement = rewriteOneUrl(spec, opts, themeRoot, warnings);
       if (replacement === null) {
@@ -130,7 +185,7 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
     if (at(i, 'image-set(')) {
       const close = findParenClose(css, i + 10);
       if (close === -1) {
-        out.push(css.slice(i));
+        warnings.push('theme has an unterminated image-set(); the rest of it was not loaded');
         break;
       }
       const inner = css.slice(i + 10, close);
@@ -192,6 +247,12 @@ function findParenClose(text: string, start: number): number {
   let j = start;
   while (j < text.length && depth > 0) {
     const c = text[j];
+    // Skip a string the way the engine's tokenizer does, so a parenthesis inside quotes does not
+    // count and a line break ends the string (F-16).
+    if (c === '"' || c === "'") {
+      j = skipString(text, j);
+      continue;
+    }
     if (c === '(') depth += 1;
     else if (c === ')') depth -= 1;
     j += 1;
@@ -205,9 +266,20 @@ function rewriteOneUrl(
   themeRoot: string,
   warnings: string[],
 ): string | null {
-  if (spec === '') return null;
-  if (spec.startsWith('data:')) {
-    if (!INERT_DATA_URL.test(spec)) {
+  if (spec === '') {
+    warnings.push('theme has an empty url(); not loaded');
+    return null;
+  }
+  // A raw newline inside a url() value ends the string in the engine's tokenizer, which then closes
+  // the url( at the next `)` and reads the rest as live CSS; this scanner counts parentheses and
+  // would have swallowed that rest as part of the value (F-16). No real path or raster has one.
+  if (/[\n\r\f]/.test(spec)) {
+    warnings.push('theme referenced a url() containing a line break; not loaded');
+    return null;
+  }
+  if (/^data:/i.test(spec)) {
+    // Real base64 and percent-encoded rasters contain no quote, parenthesis or backslash.
+    if (!INERT_DATA_URL.test(spec) || /["'()\\]/.test(spec)) {
       warnings.push('theme referenced a data: URL that could embed a remote reference; not loaded');
       return null;
     }
@@ -241,8 +313,10 @@ function rewriteImageSetInner(
     if (inner.slice(i, i + 4).toLowerCase() === 'url(') {
       const close = findParenClose(inner, i + 4);
       if (close === -1) break;
-      const spec = unquoteUrl(inner.slice(i + 4, close));
-      const replacement = rewriteOneUrl(spec, opts, themeRoot, warnings);
+      const rawInner = inner.slice(i + 4, close);
+      const replacement = badString(rawInner)
+        ? (warnings.push('theme referenced a url() with an unterminated string; not loaded'), null)
+        : rewriteOneUrl(unquoteUrl(rawInner), opts, themeRoot, warnings);
       i = close + 1;
       // The descriptor belongs to this candidate: dropped with it, never glued onto the one before.
       const rest = inner.slice(i).match(/^\s*(\d+(?:\.\d+)?x|type\([^)]+\)|\d+dpi)/);
@@ -253,11 +327,15 @@ function rewriteImageSetInner(
 
     const quote = inner[i];
     if (quote === '"' || quote === "'") {
-      let j = i + 1;
-      while (j < inner.length && inner[j] !== quote) j += 1;
-      const spec = inner.slice(i + 1, j);
-      j += 1;
-      if (isRemote(spec)) {
+      // Same string rules as the tokenizer: a line break ends the string unclosed.
+      let j = skipString(inner, i);
+      const closed = j - i >= 2 && inner[j - 1] === quote && /(?:^|[^\\])(?:\\\\)*$/.test(inner.slice(i + 1, j - 1));
+      const spec = closed ? inner.slice(i + 1, j - 1) : inner.slice(i + 1, j);
+      if (!closed) {
+        warnings.push('theme referenced a url() with an unterminated string; not loaded');
+      } else if (/[\n\r\f]/.test(spec)) {
+        warnings.push('theme referenced a url() containing a line break; not loaded');
+      } else if (isRemote(spec)) {
         warnings.push(`theme referenced \`${spec}\`; not loaded`);
       } else {
         const abs = resolvePath(themeRoot, spec);

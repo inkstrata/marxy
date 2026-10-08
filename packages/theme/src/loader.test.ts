@@ -140,3 +140,11 @@ test('a comment between a clamped property and its colon does not escape the cla
     }
   }
 });
+
+test('a raster data: url broken by a line break cannot carry a remote url past the loader (F-16)', async () => {
+  const { css, warnings } = await cssOf(
+    'x { background: url("data:image/png,(AA\n)}b{background:url(https://evil.example/p.png)}"); }\n',
+  );
+  assert.doesNotMatch(css, /evil\.example/);
+  assert.ok(warnings.length >= 1);
+});
