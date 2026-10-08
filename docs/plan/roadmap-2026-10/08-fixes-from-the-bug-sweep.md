@@ -275,3 +275,15 @@ From the same review, smaller: the link refusal says "outside this folder" where
 may carry it); a refused image has no visible mark (commitment 4; a story with E-lane image work); the
 `await resolveImageRoot` in idle work is untested.
 
+### F-17.1 — Tell an empty file from a text-less one by its source
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-17, and after B-13 (the boot code moves) · *From the F-17
+review.* · **Paths:** `apps/desktop/src/startup/measure.ts`, the boot branch, a desktop test.
+F-17 continues a `no_text` open when `evidence.blocks > 0`, but `blocks` counts only h1–h6, p, pre, ul, ol, table
+and blockquote. A lone `---` or `***`, an HTML comment alone, front matter alone (a `<dl>`, real text reported as
+`no_text`) and a lone `<div>` still end with `finish(1)`: no watch and no saved place, as on main. Decide "empty" by
+the source bytes or the parse (zero non-white-space bytes, or no blocks in the AST), not by the rendered selector,
+and widen the evidence selector so front matter counts as text. The `no_text` mark stays honest (ADR-0032).
+Acceptance: each of the five documents above opens with a watch; front matter alone reaches `first_text`; an empty
+file is unchanged.
+

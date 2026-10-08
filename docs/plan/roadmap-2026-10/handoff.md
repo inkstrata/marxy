@@ -20,9 +20,10 @@ says what to do next.
 | Story | State | Next |
 | --- | --- | --- |
 | B-02 (opus) | #423: Opus review, one return fixed by the lead (the Vite config now starts the typography job); CI on 7bd120dd | **the author merges** (code-owned); the review summary is on the PR. Then L-02 → L-03 → L-04, A-11.2 |
-| B-12 (opus) | running: selection and commands read the store; `baseVersion` on every apply | review (Opus); rebase over F-14 (merged) and #417; keep `AppHandle.imageRoot` and the un-awaited root lookup. Then B-13 |
+| B-12 (opus) | merged (#426) | — |
+| B-13 (opus) | running: the per-article view moves into `view/rendered-view.ts`, with the B-12 review's notes | review (Opus), merge; then B-14 |
 | C-10 (opus) | returned once (#417): deny globs apply to every root, read before the first walk; a declared `/` is skipped | re-review (Opus), merge; then C-11 (notes on its card), C-12, C-14, C-10.1 |
-| F-17 (sonnet) | running: a document with only images finishes opening | review, merge; touches `app.ts` beside B-12 |
+| F-17 (sonnet) | merged (#427) | F-17.1 after B-13 |
 | F-18 (sonnet) | running: two Source undo tests time out under load (`store-undo` "ADR-0037 defect 2", `jump-to-source-edits` "Mod+Z"); seen by three implementors, never by CI | review, merge: a real race fixed, a test waiting on the right signal, or a deletion with the coverage named |
 | #394, #407 | waiting for the author (code-owned) | author merges |
 
