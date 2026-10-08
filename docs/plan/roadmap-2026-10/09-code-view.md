@@ -457,8 +457,8 @@ broadly generous
   - raw HTML: `tag` and `attribute`;
   - math delimiters: constant.
 
-  `heading` and `mark` join ADR-0057's new roles. The same values colour Rendered's nothing: Rendered sets
-  headings as type, not colour, so these roles exist only in Source.
+  `heading` and `mark` join ADR-0057's new roles. They are Source-only: Rendered sets
+  headings as type, not colour, and draws no marks.
 - **Status hues stay out of code.** Per `04-code-typography.md` "Colour budget", diff and log severity never
   take a token hue: generous applies to syntax, not to status.
 
