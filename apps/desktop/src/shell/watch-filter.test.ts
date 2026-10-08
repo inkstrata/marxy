@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eventsForWatch, refusalForWatch } from './watch-filter.ts';
+import { createEarlyBuffer, eventsForWatch, isNotWatching, refusalForWatch } from './watch-filter.ts';
 
 const TREE = '/notes\u0000tree';
 const FOLDER = '/notes';
@@ -60,4 +60,40 @@ test('a refusal payload for this key gives its reason; no other payload does', (
     assert.equal(refusalForWatch(payload, TREE), undefined, JSON.stringify(payload));
   }
   assert.deepEqual(eventsForWatch({ key: TREE, events: [], refused: 'too many files' }, TREE), [], 'and it carries no events');
+});
+
+test('the early buffer replays what it kept once, then is empty (C-11.2)', () => {
+  const buffer = createEarlyBuffer();
+  buffer.add({ key: TREE, events: [{ kind: 'created', path: '/notes/a.md' }] });
+  buffer.add({ key: TREE, events: [], refused: 'too many files' });
+  assert.equal(buffer.drain().length, 2);
+  assert.deepEqual(buffer.drain(), [], 'a second drain finds nothing: the payloads are not held for the life of the watch');
+});
+
+test('the early buffer drops batches past its limit but keeps a refusal that comes after them (C-11.2)', () => {
+  const buffer = createEarlyBuffer(3);
+  for (let i = 0; i < 10; i++) buffer.add({ key: TREE, events: [{ kind: 'modified', path: `/notes/${i}.md` }] });
+  buffer.add({ key: TREE, events: [], refused: 'too many files' });
+  const kept = buffer.drain();
+  assert.equal(kept.length, 4, 'three batches and the refusal');
+  assert.deepEqual(kept.at(-1), { key: TREE, events: [], refused: 'too many files' });
+  assert.deepEqual(
+    kept.slice(0, 3).map((p) => (p as { events: { path: string }[] }).events[0]?.path),
+    ['/notes/0.md', '/notes/1.md', '/notes/2.md'],
+  );
+});
+
+test('the early buffer bounds refusals too, so other watches cannot fill it (C-11.2)', () => {
+  const buffer = createEarlyBuffer(2);
+  for (let i = 0; i < 9; i++) buffer.add({ key: `/other${i}`, events: [], refused: 'x' });
+  assert.equal(buffer.drain().length, 2);
+});
+
+test('only the shell\'s "not watching" is a benign unwatch error (C-11.2)', () => {
+  assert.equal(isNotWatching('not watching /notes'), true);
+  assert.equal(isNotWatching(new Error('not watching /notes')), true);
+  assert.equal(isNotWatching('/notes: Permission denied (os error 13)'), false);
+  assert.equal(isNotWatching(new Error('failed to lock the watch table')), false);
+  assert.equal(isNotWatching(undefined), false);
+  assert.equal(isNotWatching({ code: 'io', message: 'not watching' }), false, 'a bare string or an Error, as Tauri rejects');
 });

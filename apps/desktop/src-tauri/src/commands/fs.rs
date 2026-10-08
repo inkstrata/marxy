@@ -1,6 +1,7 @@
 //! File commands: natural image size, asset-protocol scoping, and read_dir (docs/design/06-shell.md).
 
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -167,6 +168,96 @@ pub fn read_dir(dir: String) -> Result<Vec<FileStat>, ShellError> {
     }
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
+}
+
+/// The most `read_head` ever returns, whatever the caller asks for: the index's head size.
+pub const MAX_HEAD_BYTES: u64 = 256 * 1024;
+
+/// One file's size and modification time, without listing its folder (C-11.2). A narrower form of
+/// `read_dir`, so it reaches no further: `None` for a path that is missing, is a symlink (`read_dir`
+/// omits every one), or is named like a deny-listed directory. A folder is reported as one.
+#[tauri::command]
+pub fn stat_file(path: String) -> Result<Option<FileStat>, ShellError> {
+    let p = Path::new(&path);
+    if p.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(denied_name)
+    {
+        return Ok(None);
+    }
+    let meta = match fs::symlink_metadata(p) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(ShellError::io(&path, e.to_string())),
+    };
+    if meta.file_type().is_symlink() {
+        return Ok(None);
+    }
+    let is_dir = meta.is_dir();
+    Ok(Some(FileStat {
+        path,
+        size: if is_dir { 0 } else { meta.len() },
+        mtime_ms: mtime_ms(&meta),
+        is_dir,
+    }))
+}
+
+/// Opens `p` for `read_head_bytes` without following a link at the path and without blocking. On unix
+/// the open itself carries `O_NOFOLLOW` (a symlink at the path fails the open) and `O_NONBLOCK` (opening
+/// a FIFO returns at once instead of waiting for a writer; it has no effect on a regular file), so a
+/// path swapped for a link or a pipe between the type check and the open cannot slip through.
+fn open_head(p: &Path) -> std::io::Result<File> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+            .open(p)
+    }
+    #[cfg(not(unix))]
+    {
+        File::open(p)
+    }
+}
+
+/// The first `max_bytes` of a regular file (never more than `MAX_HEAD_BYTES`), behind the `read_head`
+/// command in `main.rs`. A narrower form of `read_file`: a symlink at the path, a FIFO, a device or a
+/// folder is refused. The type is checked before the open, and the open itself neither follows a link
+/// nor blocks on a pipe (`open_head`); the type of what was opened is checked again.
+pub fn read_head_bytes(path: &str, max_bytes: u64) -> Result<Vec<u8>, ShellError> {
+    let p = Path::new(path);
+    let meta = fs::symlink_metadata(p).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            ShellError::not_found(path, format!("{path}: no such file"))
+        } else {
+            ShellError::io(path, e.to_string())
+        }
+    })?;
+    if !meta.file_type().is_file() {
+        return Err(ShellError::invalid(
+            path,
+            format!("{path}: not a regular file"),
+        ));
+    }
+    let file = open_head(p).map_err(|e| ShellError::io(path, e.to_string()))?;
+    read_opened_head(path, file, max_bytes)
+}
+
+/// Read the head of a file `open_head` opened. The path may have been swapped for something else
+/// between the type check and the open, so the opened file's own type is checked again here.
+fn read_opened_head(path: &str, file: File, max_bytes: u64) -> Result<Vec<u8>, ShellError> {
+    if !file.metadata().map(|m| m.is_file()).unwrap_or(false) {
+        return Err(ShellError::invalid(
+            path,
+            format!("{path}: not a regular file"),
+        ));
+    }
+    let mut head = Vec::new();
+    file.take(max_bytes.min(MAX_HEAD_BYTES))
+        .read_to_end(&mut head)
+        .map_err(|e| ShellError::io(path, e.to_string()))?;
+    Ok(head)
 }
 
 #[cfg(test)]
@@ -378,5 +469,182 @@ mod tests {
         assert!(sub.is_dir);
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    fn scratch_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("marxy-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("tmpdir");
+        dir
+    }
+
+    #[test]
+    fn stat_file_reports_a_file_a_folder_and_a_missing_path() {
+        let dir = scratch_dir("stat-basic");
+        fs::write(dir.join("a.md"), b"# a\n").unwrap();
+        fs::create_dir(dir.join("sub")).unwrap();
+        let file = stat_file(dir.join("a.md").to_string_lossy().into_owned())
+            .unwrap()
+            .expect("file");
+        assert_eq!((file.size, file.is_dir), (4, false));
+        assert!(file.mtime_ms > 0);
+        let sub = stat_file(dir.join("sub").to_string_lossy().into_owned())
+            .unwrap()
+            .expect("folder");
+        assert!(sub.is_dir);
+        assert!(
+            stat_file(dir.join("gone.md").to_string_lossy().into_owned())
+                .unwrap()
+                .is_none()
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stat_file_omits_what_read_dir_omits() {
+        let dir = scratch_dir("stat-denied");
+        fs::create_dir(dir.join("node_modules")).unwrap();
+        assert!(
+            stat_file(dir.join("node_modules").to_string_lossy().into_owned())
+                .unwrap()
+                .is_none()
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stat_file_refuses_a_symlink_to_a_file_or_a_folder() {
+        use std::os::unix::fs::symlink;
+        let dir = scratch_dir("stat-link");
+        fs::write(dir.join("real.md"), b"# real\n").unwrap();
+        symlink(dir.join("real.md"), dir.join("filelink.md")).unwrap();
+        symlink(&dir, dir.join("dirlink")).unwrap();
+        for name in ["filelink.md", "dirlink"] {
+            assert!(
+                stat_file(dir.join(name).to_string_lossy().into_owned())
+                    .unwrap()
+                    .is_none(),
+                "{name}"
+            );
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_head_returns_at_most_the_bytes_asked_for() {
+        let dir = scratch_dir("head-limit");
+        fs::write(dir.join("a.md"), b"0123456789").unwrap();
+        let path = dir.join("a.md").to_string_lossy().into_owned();
+        assert_eq!(read_head_bytes(&path, 4).unwrap(), b"0123");
+        assert_eq!(read_head_bytes(&path, 100).unwrap(), b"0123456789");
+        assert_eq!(read_head_bytes(&path, 0).unwrap(), b"");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_head_is_capped_whatever_the_caller_asks_for() {
+        let dir = scratch_dir("head-cap");
+        fs::write(dir.join("big.md"), vec![b'x'; MAX_HEAD_BYTES as usize + 10]).unwrap();
+        let path = dir.join("big.md").to_string_lossy().into_owned();
+        assert_eq!(
+            read_head_bytes(&path, u64::MAX).unwrap().len() as u64,
+            MAX_HEAD_BYTES
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_head_refuses_a_folder_and_reports_a_missing_file() {
+        let dir = scratch_dir("head-kinds");
+        assert_eq!(
+            read_head_bytes(&dir.to_string_lossy(), 10)
+                .unwrap_err()
+                .code,
+            "invalid"
+        );
+        assert_eq!(
+            read_head_bytes(&dir.join("gone.md").to_string_lossy(), 10)
+                .unwrap_err()
+                .code,
+            "not-found"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_head_refuses_a_symlink() {
+        use std::os::unix::fs::symlink;
+        let dir = scratch_dir("head-link");
+        fs::write(dir.join("real.md"), b"# real\n").unwrap();
+        symlink(dir.join("real.md"), dir.join("link.md")).unwrap();
+        let err = read_head_bytes(&dir.join("link.md").to_string_lossy(), 10).unwrap_err();
+        assert_eq!(err.code, "invalid");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The open itself refuses a symlink at the path, whatever the type check before it saw (the swap
+    /// between the check and the open), and returns at once on a FIFO.
+    #[cfg(unix)]
+    #[test]
+    fn the_head_open_refuses_a_symlink_and_does_not_block_on_a_pipe() {
+        use std::os::unix::fs::symlink;
+        let dir = scratch_dir("head-open");
+        fs::write(dir.join("real.md"), b"# real\n").unwrap();
+        symlink(dir.join("real.md"), dir.join("link.md")).unwrap();
+        assert!(open_head(&dir.join("real.md")).is_ok());
+        let err = open_head(&dir.join("link.md")).unwrap_err();
+        assert_eq!(err.raw_os_error(), Some(libc::ELOOP));
+        let pipe = dir.join("pipe.md");
+        let made = std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap();
+        assert!(made.success());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let opening = pipe.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(open_head(&opening).is_ok());
+        });
+        assert_eq!(
+            rx.recv_timeout(std::time::Duration::from_secs(30))
+                .expect("the head open blocked on a named pipe"),
+            true,
+            "a FIFO opens at once (and the fstat check then refuses it)"
+        );
+        // A FIFO swapped in after the type check: the opened file's own type refuses it.
+        let opened = open_head(&pipe).unwrap();
+        let err = read_opened_head(pipe.to_str().unwrap(), opened, 16).unwrap_err();
+        assert!(
+            err.message.contains("not a regular file"),
+            "{}",
+            err.message
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Opening a FIFO blocks until a writer appears, so the type is checked first. The read runs on a
+    /// thread, and a missing answer is a failure rather than a hang; the bound guards against blocking.
+    #[cfg(unix)]
+    #[test]
+    fn read_head_refuses_a_named_pipe_without_opening_it() {
+        let dir = scratch_dir("head-fifo");
+        let pipe = dir.join("pipe.md").to_string_lossy().into_owned();
+        let made = std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap();
+        assert!(made.success());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let p = pipe.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(read_head_bytes(&p, 10).map_err(|e| e.code));
+        });
+        let got = rx
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .expect("read_head blocked on a named pipe");
+        assert_eq!(got, Err("invalid".to_string()));
+        let _ = fs::remove_dir_all(&dir);
     }
 }

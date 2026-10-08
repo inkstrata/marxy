@@ -57,6 +57,7 @@
     "dirs",
     "ignore",
     "imagesize",
+    "libc",
     "notify",
     "notify-debouncer-full",
     "nucleo-matcher",

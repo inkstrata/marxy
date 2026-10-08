@@ -213,7 +213,7 @@ test('a move out of a nested root named like a file, into a folder the outer roo
   const mark = shell.calls.length;
   index.applyEvents([{ kind: 'renamed', path: '/a/notes.d/x.md', to: '/a/private/y.md' }]);
   await index.settled();
-  const touched = shell.calls.slice(mark).filter((c) => c.method === 'readDir' || c.method === 'readFile').map((c) => `${c.method} ${c.args[0]}`);
+  const touched = shell.calls.slice(mark).filter((c) => c.method === 'readDir' || c.method === 'readFile' || c.method === 'readHead' || c.method === 'stat').map((c) => `${c.method} ${c.args[0]}`);
   assert.deepEqual(touched, [], 'nothing under /a/private is listed or read');
   assert.deepEqual(index.entries().map((e) => e.path).filter((p) => p.includes('private') || p.includes('x.md')), []);
 });
@@ -225,7 +225,7 @@ test('a file written again within PATCH_GAP_MS is read once more when the gap en
   const index = createIndexService(shell, { now: () => clock, later: (ms, fn) => void timers.push({ ms, fn }) });
   await index.ensureRoot('/n', { watch: true });
   await index.settled().catch(() => {});
-  const reads = () => shell.calls.filter((c) => c.method === 'readFile' && c.args[0] === '/n/notes.md').length;
+  const reads = () => shell.calls.filter((c) => c.method === 'readHead' && c.args[0] === '/n/notes.md').length;
   const titles = () => index.entries().filter((e) => e.path === '/n/notes.md').map((e) => e.title);
   const write = async (title: string) => {
     await shell.writeFileAtomic('/n/notes.md', enc(`# ${title}\n`));

@@ -82,8 +82,9 @@ function valueExports(text) {
 // that hands a caller the raw IPC channel.
 test('apps/desktop/src/shell exports only the shell object and the memory factory', () => {
   // `eventsForWatch` (C-05) and `refusalForWatch` (C-11.1) are pure filters over an `fs-watch`
-  // payload; they take no IPC handle.
-  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch', 'refusalForWatch'];
+  // payload; they take no IPC handle. So do `createEarlyBuffer`, its `EARLY_LIMIT` and `isNotWatching`
+  // (C-11.2): the bounded buffer for what arrives before a watch knows its key, and a test of an error.
+  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch', 'refusalForWatch', 'createEarlyBuffer', 'EARLY_LIMIT', 'isNotWatching'];
   const exported = files
     .filter(f => f.rel.startsWith(shellDir + sep))
     .flatMap(f => valueExports(f.text).map(name => ({ name, rel: f.rel })));

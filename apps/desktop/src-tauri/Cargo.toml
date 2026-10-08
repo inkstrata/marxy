@@ -20,6 +20,10 @@ notify = "8"
 # Reads `external_editor` from config.toml (docs/design/09-app-shell.md); 0.9 is already in Cargo.lock.
 toml = "0.9"
 
+# O_NOFOLLOW and O_NONBLOCK for `read_head`'s open (MIT OR Apache-2.0); already in Cargo.lock through other crates.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [profile.release]
 codegen-units = 1
 lto = true
