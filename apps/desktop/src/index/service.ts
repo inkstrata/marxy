@@ -16,7 +16,9 @@ import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import { isIgnored, type IgnoreRule } from '@marxy/core/src/index-model/ignore.ts';
 import { denyRulesFor } from '@marxy/core/src/index-model/collection.ts';
 import { loadCollection } from '../collection/load.ts';
-import { basename, dirname, isUnderRoot, normalizePath, pathUnder } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname, isUnderRoot, joinPath, normalizePath, pathUnder } from '@marxy/core/src/index-model/paths.ts';
+import { checkoutOf, gitGroupKey } from '@marxy/core/src/index-model/checkout.ts';
+import type { CheckoutKey } from '../palette/fold.ts';
 import { notify } from '../notices/index.ts';
 import {
   INDEX_SNAPSHOT_VERSION,
@@ -66,6 +68,12 @@ export interface IndexService {
    * keeps its entries and loses the watch its declaration gave it.
    */
   undeclare(root: string): void;
+  /**
+   * Which repository, and which checkout of it, holds `path`, as the walks of the roots held saw
+   * `.git` (C-15); undefined where no `.git` was seen above it. Two checkouts of one repository
+   * (git worktrees) answer with the same `group`. App state: `IndexEntry` is unchanged.
+   */
+  checkoutKey(path: string): CheckoutKey | undefined;
   /** The roots held, in the order their entries are published. */
   roots(): readonly string[];
   /**
@@ -145,6 +153,52 @@ async function snapshotPath(shell: IndexServiceShell, root: string): Promise<str
   }
 }
 
+/** How far below a root a checkout is looked for: a worktree beside others, or under `.claude/worktrees/<name>`. */
+export const CHECKOUT_PROBE_DEPTH = 3;
+
+/**
+ * Each checkout under `root` -> its repository's key. The shell's `readDir` leaves `.git` out of every
+ * listing, so `.git` is probed: in the root and in each folder, down to `CHECKOUT_PROBE_DEPTH`, that
+ * holds or leads to an entry the walk kept (a folder the ignore files or the deny globs hid has no
+ * entry and is never probed). A `.git` file is a worktree's, read once; `.git/HEAD` is a main
+ * checkout's. Reads go through the shell the index already reads with; only the key is kept.
+ */
+async function checkoutTable(
+  shell: IndexServiceShell,
+  root: string,
+  entries: readonly IndexEntry[],
+): Promise<ReadonlyMap<string, string>> {
+  const dirs = new Set<string>([normalizePath(root)]);
+  const visited = new Set<string>();
+  for (const entry of entries) {
+    for (let dir = dirname(entry.path); !dirs.has(dir) && !visited.has(dir); dir = dirname(dir)) {
+      visited.add(dir);
+      const rel = pathUnder(root, dir);
+      if (rel === undefined || rel === '') break;
+      if (rel.split('/').length <= CHECKOUT_PROBE_DEPTH) dirs.add(dir);
+    }
+  }
+  const table = new Map<string, string>();
+  await Promise.all(
+    [...dirs].map(async (dir) => {
+      try {
+        const text = new TextDecoder().decode(await shell.readFile(joinPath(dir, '.git')));
+        table.set(dir, gitGroupKey(dir, text));
+        return;
+      } catch {
+        // not a worktree's `.git` file
+      }
+      try {
+        await shell.readFile(joinPath(dir, '.git/HEAD'));
+        table.set(dir, gitGroupKey(dir, undefined));
+      } catch {
+        // no `.git` here
+      }
+    }),
+  );
+  return table;
+}
+
 const KINDS = new Set(['markdown', 'text', 'source', 'theme']);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
@@ -193,6 +247,8 @@ interface RootState {
   baselineMs?: number;
   /** The root's own ignore rules as its last walk read them; undefined until a walk this session. */
   rules?: IndexWalkRules;
+  /** Each directory under the root that holds a `.git` (C-15) -> its repository's key; undefined until a walk this session. */
+  checkouts?: ReadonlyMap<string, string>;
   /** Watch events waiting for the next patch. */
   events: FileEvent[];
   /** A patch is queued on `pending` and has not started yet. */
@@ -325,6 +381,8 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
         });
       }
       await shell.mark('index_loaded', Date.now(), `entries=${entries.length} root=${root} source=walk calls=${calls}`);
+      const checkouts = await checkoutTable(shell, root, entries);
+      if (roots.get(root) === state) state.checkouts = checkouts;
       if (!unchanged) await writeSnapshot(root, entries, notice, state.baselineMs);
       state.snapshot = undefined;
       return true;
@@ -617,6 +675,17 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
     undeclare(root) {
       declaredWatch.delete(root);
       watchedChanged();
+    },
+    checkoutKey(path) {
+      for (const root of order) {
+        const table = roots.get(root)?.checkouts;
+        if (table === undefined || table.size === 0 || pathUnder(root, path) === undefined) continue;
+        const checkout = checkoutOf(path, root, (dir) => table.has(dir));
+        const group = table.get(checkout);
+        const rel = pathUnder(checkout, path);
+        if (group !== undefined && rel !== undefined && rel !== '') return { group, rel, checkout };
+      }
+      return undefined;
     },
     roots: () => order,
     baselineMs: (root) => roots.get(root)?.baselineMs,

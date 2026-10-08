@@ -90,7 +90,8 @@ test('window.marxyApp.start boots the real app and records one readFile', async 
       // `/data/index-<sha1>.json`, and collection.toml (C-10) for the index's deny list after first text,
       // in an order the idle queue decides; both are left out of the ordered list.
       const all = handle.shell.calls.filter((c) => c.method === 'readFile').map((c) => c.args[0]);
-      const reads = all.filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml');
+      // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
+      const reads = all.filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && !/\/\.git(\/HEAD)?$/.test(String(p)));
       return { heading, reads, collectionReads: all.filter((p) => p === '/collection.toml').length };
     }, { files: { '/docs/README.md': fixture.toString('base64') }, argv: ['/docs/README.md'] });
     assert.equal(result.heading, 'widgetlib');
