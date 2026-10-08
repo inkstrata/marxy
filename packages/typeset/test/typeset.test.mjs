@@ -193,6 +193,31 @@ test('an opening quote hangs left of the content edge by at least 40% of its adv
   await page.close();
 });
 
+test('every hung glyph is pulled by its own advance: one ratio per character, a whole advance for an opening quote (B-25)', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'), { extraCss: '.marxy-article { max-width: 30ch !important; }' });
+  await attachOn(page);
+  const glyphs = await page.evaluate(() => {
+    const range = document.createRange();
+    return [...document.querySelectorAll('.marxy-hang')].map((hang) => {
+      range.selectNodeContents(hang);
+      let advance = 0;
+      for (const r of range.getClientRects()) advance = Math.max(advance, r.width);
+      return { text: hang.textContent, advance, margin: parseFloat(hang.style.marginInlineStart) || 0 };
+    });
+  });
+  assert.ok(glyphs.length > 20, `hung glyphs: ${glyphs.length}`);
+  const ratio = new Map();
+  for (const g of glyphs) {
+    assert.ok(g.advance > 0, `${g.text} has an advance`);
+    const r = -g.margin / g.advance;
+    if (/^[“"‘]$/.test(g.text)) assert.ok(Math.abs(r - 1) < 1e-6, `${g.text} hangs by its whole advance, not ${r}`);
+    if (!ratio.has(g.text)) ratio.set(g.text, r);
+    assert.ok(Math.abs(r - ratio.get(g.text)) < 1e-6, `${g.text}: hung by ${r} of its advance here and ${ratio.get(g.text)} elsewhere`);
+  }
+  assert.ok(ratio.size > 3, `${ratio.size} different characters hung`);
+  await page.close();
+});
+
 test('a hyphenated break shows a hyphen, keeps find and selection clean, and never splits code', async () => {
   const html = '<p data-marxy-s="0" lang="en-us">Hyphenation internationalization responsibility demonstration of a deliberately overlong paragraph so the breaker must take a hyphenation point rather than leave a hole.</p><p data-marxy-s="1" lang="en-us">A filename like <code>internationalization-config</code> stays whole beside ordinary words that fill the rest of this line enough to typeset.</p>';
   const page = await harness.open(html, { extraCss: '.marxy-article { max-width: 28ch !important; }' });
@@ -764,5 +789,137 @@ test('a chunk pass lays out at most six times: the drift check, the islands and 
   });
   assert.ok(r.writes > 10, `the pass had work to do: ${JSON.stringify(r)}`);
   assert.ok(r.layouts >= 4 && r.layouts <= 6, `${r.layouts} layouts in one chunk pass`);
+  await page.close();
+});
+
+test('a chunk pass orders nothing by document position, so it does not pay for the blocks above it (B-25)', async () => {
+  // Islands the passes padded and measured above the chunk: before B-25 each was ordered against the
+  // chunk with compareDocumentPosition, which WebKit answers by walking the siblings between them.
+  const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
+  const pre = (i) => `<pre data-marxy-s="${i}" data-marxy-e="${i + 1}"><code>one\ntwo</code></pre>`;
+  const html = Array.from({ length: 40 }, (_, i) => para(i * 2) + pre(i * 2 + 1)).join('');
+  const page = await harness.open(html, { extraCss: '#doc pre { padding: 12px; line-height: 17px; }' });
+  await chunked(page, 20, 10);
+  const r = await page.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const order = Node.prototype.compareDocumentPosition;
+    const counts = [];
+    for (let i = 0; i < 5; i++) {
+      const from = window.__nextChunk();
+      let n = 0;
+      Node.prototype.compareDocumentPosition = function (other) {
+        n++;
+        return order.call(this, other);
+      };
+      try {
+        window.typeset.snapToGrid(doc, window.lineBox, { from });
+      } finally {
+        Node.prototype.compareDocumentPosition = order;
+      }
+      counts.push(n);
+    }
+    return { counts, padded: doc.querySelectorAll('pre[style*="padding-bottom"]').length };
+  });
+  assert.ok(r.padded > 20, `the passes padded the islands above each chunk: ${JSON.stringify(r)}`);
+  assert.deepEqual(r.counts, [0, 0, 0, 0, 0]);
+  await page.close();
+});
+
+test('a background batch that leaves every height as it was asks for no grid pass (B-25)', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'), { height: 400 });
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const paragraphs = [...doc.querySelectorAll('p[data-marxy-s], li[data-marxy-s]')];
+    const native = new Map(paragraphs.map((p) => [p, p.getBoundingClientRect().height]));
+    const queued = [];
+    let background = 0;
+    window.controller = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: true, lastLineMinWidth: 0.33, hanging: 'left',
+      scheduler: { schedule: (work) => queued.push(work) },
+      onPass: (kind) => { if (kind === 'background') background++; },
+    });
+    await window.controller.ready;
+    const steps = [];
+    let set = new Set(paragraphs.filter((p) => p.classList.contains('marxy-set')));
+    while (queued.length) {
+      const calls = background;
+      queued.shift()(() => Number.POSITIVE_INFINITY);
+      const now = paragraphs.filter((p) => p.classList.contains('marxy-set') && !set.has(p));
+      set = new Set([...set, ...now]);
+      const moved = now.some((p) => Math.abs(p.getBoundingClientRect().height - native.get(p)) >= 0.5);
+      steps.push({ set: now.length, moved, called: background > calls });
+    }
+    return steps;
+  });
+  const setting = r.filter((s) => s.set > 0);
+  assert.ok(setting.length > 5, `background batches set paragraphs: ${JSON.stringify(r)}`);
+  assert.ok(setting.some((s) => !s.moved), 'some batch left every height as it was');
+  assert.ok(setting.some((s) => s.moved), 'some batch moved a height');
+  for (const s of setting) assert.equal(s.called, s.moved, `a batch asks for the grid pass exactly when it moved something: ${JSON.stringify(s)}`);
+  await page.close();
+});
+
+test('while paragraphs are still being adopted, the background batches wait on a scheduler that can wait (B-25)', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'));
+  await splitAt(page, 20);
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const queued = [];
+    const waits = [];
+    const scheduler = { schedule: (work) => queued.push(work), after: (ms, work) => waits.push({ ms, work }) };
+    const flush = () => { while (queued.length) queued.shift()(() => Number.POSITIVE_INFINITY); };
+    const controller = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler,
+    });
+    flush();
+    await controller.done;
+    const waitedBeforeAdopt = waits.length;
+    const head = doc.childElementCount;
+    window.__appendTail();
+    const tail = [...doc.children].slice(head);
+    controller.adopt(tail);
+    flush();
+    const waited = waits.map(({ ms }) => ms);
+    const setWhileAdopting = tail.filter((el) => el.classList.contains('marxy-set')).length;
+    await new Promise((r) => setTimeout(r, 80));
+    for (const { work } of waits.splice(0)) work(() => Number.POSITIVE_INFINITY);
+    flush();
+    await controller.done;
+    return { waitedBeforeAdopt, waited, setWhileAdopting, setAfter: tail.filter((el) => el.classList.contains('marxy-set')).length, waitsAfter: waits.length };
+  });
+  assert.equal(r.waitedBeforeAdopt, 0, 'nothing waits before anything is adopted');
+  assert.equal(r.waited.length, 1, `the batch after an adoption waits once: ${JSON.stringify(r)}`);
+  assert.ok(r.waited[0] > 0 && r.waited[0] <= 50, `for what is left of the quiet time: ${r.waited[0]}`);
+  assert.equal(r.setWhileAdopting, 0);
+  assert.equal(r.waitsAfter, 0, 'once adoption is quiet the batches run');
+  assert.ok(r.setAfter > 10, `the adopted paragraphs are set once it is quiet: ${r.setAfter}`);
+  await page.close();
+});
+
+test('setting a whole document makes one Range, not one per paragraph or line (B-25)', async () => {
+  // WebKit visits every Range a script made, until the collector frees it, on every DOM mutation.
+  const page = await harness.open(renderCorpus('15-prose-volume.md'));
+  const r = await page.evaluate(async () => {
+    let made = 0;
+    const create = Document.prototype.createRange;
+    Document.prototype.createRange = function () {
+      made++;
+      return create.call(this);
+    };
+    const Native = window.Range;
+    window.Range = new Proxy(Native, { construct(target, args) { made++; return Reflect.construct(target, args); } });
+    try {
+      const controller = window.typeset.attach(document.getElementById('doc'), {
+        lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: true, lastLineMinWidth: 0.33, hanging: 'left', scheduler: window.immediateScheduler(),
+      });
+      await controller.done;
+      return { made, set: controller.stats.typeset };
+    } finally {
+      Document.prototype.createRange = create;
+      window.Range = Native;
+    }
+  });
+  assert.ok(r.set > 50, `the prose is set: ${JSON.stringify(r)}`);
+  assert.ok(r.made <= 1, `${r.made} Ranges made`);
   await page.close();
 });

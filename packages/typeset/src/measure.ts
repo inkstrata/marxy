@@ -76,6 +76,26 @@ interface Edge {
 /** Two characters are on one line when their centres are this close; lines are a line box apart. */
 const SAME_LINE_PX = 6;
 
+const scratch = new WeakMap<Document, Range>();
+
+/**
+ * The one Range every read in this package reuses, per document (B-25). WebKit keeps every Range a
+ * script made registered on its document until the collector frees it, and visits each of them on
+ * every DOM mutation: an append, a text split, an insert. A Range made per paragraph, per line and per
+ * check left thousands of them waiting for collection while a large document was still mounting and
+ * being set, and every mutation of the mount and of the typesetter paid for all of them, a cost that
+ * grew with the work done since the last collection. One Range per document makes that cost constant.
+ * Callers set both ends before reading and never hold it across a call that might use it too.
+ */
+export function scratchRange(doc: Document): Range {
+  let range = scratch.get(doc);
+  if (range === undefined) {
+    range = doc.createRange();
+    scratch.set(doc, range);
+  }
+  return range;
+}
+
 /** The rectangle of one character. */
 function charRect(range: Range, node: Text, offset: number): Edge {
   range.setStart(node, offset);
@@ -86,7 +106,9 @@ function charRect(range: Range, node: Text, offset: number): Edge {
 
 /** Widths for every token of a paragraph in its native (engine-wrapped) layout. Reads only. */
 export function measureTokens(tokens: readonly Token[], fonts: FontSizes): Measured[] {
-  const range = new Range();
+  const t0 = tokens.find((t) => t.kind === 'piece' || t.kind === 'space');
+  const owner = t0 === undefined ? undefined : t0.kind === 'piece' ? t0.segments[0]!.node : t0.node;
+  const range = scratchRange(owner?.ownerDocument ?? document);
   // First character of every piece and space, and last character of every piece.
   const first: (Edge | undefined)[] = tokens.map((t) => {
     if (t.kind === 'piece') return charRect(range, t.segments[0]!.node, t.segments[0]!.start);

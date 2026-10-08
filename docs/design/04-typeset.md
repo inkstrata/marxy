@@ -120,7 +120,15 @@ because below that no breaker makes the spacing even (research: 11 very loose li
 - An IntersectionObserver with a 200 % margin sets an unset paragraph immediately when scrolled near.
 - `relayout(reason)` reverts everything and runs again; the app calls it on a width change (debounced
   100 ms). Fonts are ready before `attach`, so no `fonts` relayout is needed at startup.
-- After every pass the app re-runs `snapToGrid` and rebuilds the reading-position blocks (`onPass`).
+- While a large document is still being appended in chunks (`adopt`), the background batches wait until
+  adoption has been quiet for 50 ms, on a scheduler that can wait (`Scheduler.after`; the idle scheduler
+  can): each batch lays the article out two or three times, and taken between chunks they made the last
+  chunk wait on work that grew with the square of the document (B-25). The observer still sets what
+  the reader scrolls to at once.
+- After every pass the app re-runs `snapToGrid` and rebuilds the reading-position blocks (`onPass`),
+  except after a background batch that left every paragraph it set at its native height, which moved
+  nothing (B-25). Every Range the typesetter reads through is one per document (`scratchRange`): WebKit
+  visits every live Range on every DOM mutation until the collector frees it.
 
 ## Grid (D-A7)
 
