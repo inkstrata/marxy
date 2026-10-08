@@ -1788,6 +1788,24 @@ in CI (`04` §3: "reads as a real bug"). If it fails here, report its history ra
 
 ---
 
+### B-16.1 — The shipped app carries no harness
+
+**Model:** opus · **Size:** S · **Depends on:** B-16 · *Added 2026-10-08 by the lead, from the B-16 review; before
+the next DMG or release.* **Outcome.** `apps/desktop/dist/`, which Tauri embeds whole (`tauri.conf.json`
+`build.frontendDist: "../dist"`), holds only `index.html`'s graph. Today `vite.config.ts` also builds `app.html`
+(the harness entry `scripts/perf-harness.mjs` boots) into `dist/`, so the release binary embeds
+`/app.html`, an `assets/app-*.js` chunk with `installTestHooks`, `marxyRunCommand`, `createMemoryShell` and the
+fixture corpus (seen with `strings` on the installed app). It is dormant (nothing navigates to it; it boots on a
+memory shell), but `navigation_allowed` accepts any `tauri:` URL and the CSP lets it run.
+**Paths.** `apps/desktop/vite.config.ts`, `scripts/perf-harness.mjs` (and any other script that loads `dist/app.html`;
+grep), `scripts/gate-bundle.mjs` and its test, `apps/desktop/package.json` (a harness build script only).
+**Build order.** Build the harness into its own directory (e.g. `dist-harness/`, gitignored) with its own script; point
+the perf harness and anything else that loads `app.html` at it; make `gate:bundle` scan every file under `dist/` for
+`TEST_ONLY_STRINGS` and for a second HTML entry. Do not change `tauri.conf.json` or the capabilities (code-owned).
+**Acceptance.** `gate:bundle` fails when `app.html` is built into `dist/` (mutate the vite input back) and when any
+file under `dist/` contains a test-only string; the perf harness still runs from its own build; `pnpm build:web`
+leaves `dist/` with one HTML file.
+
 ### B-17 — Honour `typeset = false` and take justif's engine off the critical path
 
 **Model:** sonnet · **Size:** S · **Depends on:** B-15 · **Parallel with:** B-16
@@ -1844,6 +1862,38 @@ pattern files and is a question for the author (below). Change `ragged.ts`. Add 
 each pattern file in justif's package; the author decides.
 
 ---
+
+### B-17.1 — With typesetting off, prove the mark and skip the hyphenation load
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-17 · *Added 2026-10-08 by the lead, from the B-17 review.*
+**Paths:** `packages/typeset/src/index.ts`, `apps/desktop/test/typeset-off.test.mjs`. `typeset-off.test.mjs` waits for
+"`typeset_done` or 2 s" but never asserts the mark, so a missing mark would pass after 2 s: assert `typeset_done`
+(with `set=0`) in the off case and make the timeout a failure. `run()` loads justif's two hyphenation chunks before
+it checks the kill switch: check `killed()` first. Acceptance: the off test fails when `run()` stops emitting
+`typeset_done`; with typesetting off, no hyphenation chunk is requested (count the requests).
+
+### B-23 — Reload a large document inside the budget
+
+**Model:** opus · **Size:** M · **Depends on:** B-15 · *Added 2026-10-08 by the lead, from the F-19.1 review.*
+**Outcome.** A live reload of a 1 MB document (an agent transcript after an outside write) reaches the reader's
+place well under a second, and the budget table's "live reload after external change < 100 ms" is measured, not
+assumed. **Why now.** The F-19.1 review measured a whole reload of a 1.0 MB document (201,138 nodes, 24,381
+top-level blocks) at 4.8 to 6.4 s, almost all of it parsing, against the 100 ms in AGENTS.md "Budgets". Phase A
+deferred incremental reload by block (`01-phase-a.md`, "Left out") until A-03's nightly record showed whether it
+still mattered; this is that evidence, and the author's first priority is large documents.
+**Paths.** `apps/desktop/src/document/live-reload.ts`, `apps/desktop/src/document/store.ts` (the reparse only),
+`packages/core/src/parse/` (only if the chosen lever lives there), `apps/desktop/test/live-reload.test.mjs`, a
+measurement script under `scripts/` beside `perf-harness`, `docs/design/` (the reload section).
+**Build order.** 1. Measure first: time each stage of a reload at 1 MB (read, decode, parse, sanitise, render the
+changed region, restore) in WebKit through `startApp`, three runs, and write the table into the PR. 2. Pick the
+lever the numbers point at: reuse unchanged blocks by byte range (parse only the changed region and the blocks it
+touches; the AST's byte provenance makes the splice exact), or parse off the main thread, or both. A change of
+meaning (a new parse entry point in a contract, a worker as a new privileged path) stops and reports for an ADR.
+3. Keep byte fidelity: `pnpm gate:fidelity` and the goldens unchanged; a property test that an incremental reparse
+equals a full parse for random edits over the corpus.
+**Acceptance.** A 1 MB reload with a one-line outside write reaches the reader's place in under 1 s in the
+measurement script (and the number is printed, not asserted in CI, per ADR-0032); the incremental-equals-full
+property test; the F-19/F-19.1 reload tests still pass. **Do not.** Assert wall-clock time in a PR test.
 
 ### B-18 — Make `Shell` the interface the app programs to
 

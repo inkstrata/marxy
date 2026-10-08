@@ -287,3 +287,48 @@ and widen the evidence selector so front matter counts as text. The `no_text` ma
 Acceptance: each of the five documents above opens with a watch; front matter alone reaches `first_text`; an empty
 file is unchanged.
 
+
+### F-19 — A reload keeps a held heading when text is inserted at its first byte
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-15 · *From the B-15 review (note 4); true on main before
+B-15.* · **Paths:** `packages/core/src/position/reload.ts`, its test, a desktop reload test.
+When another program inserts text exactly at a held heading's first byte, `restorePosition` keeps the old offset,
+so after the reload the page shows the inserted text instead of the heading the reader was at. Text inserted
+further up maps correctly. Map an anchor at an insertion point to the far side of the insertion when the anchor is
+a block start (the heading moved; the reader was reading it, not the gap before it). Acceptance: a core test
+inserting at a held heading's first byte lands on the heading; one inserting inside the heading's text keeps the
+current behaviour; a WebKit live-reload case through `startApp` shows the heading after an outside write.
+
+### F-19.1 — The top stays the top, and nested blocks follow too
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19 · *From the F-19 review.* · **Paths:**
+`packages/core/src/position/restore.ts`, `packages/core/src/position/reload.test.ts`.
+Three things. A reader held at offset 0 stays at the top when text is prepended (lead ruling, 2026-10-08: a reader
+who has not scrolled is reading the top, not the first heading); today F-19 moves them below the new text.
+`startsBlock` checks only top-level children, so a held list item, table cell or fence nested in a list keeps the
+old behaviour; use the same innermost blocks the desktop's `buildBlocks` uses (or the AST's block nodes at any
+depth). And say in a comment which way an appended duplicate of the rest of the file now breaks the tie (the reader
+follows to the copy; the bytes cannot tell). Acceptance: a core test for offset 0 (stays), one for a nested list item
+and one for a fence in a list (both follow).
+
+### F-19.2 — Source at the top stays at the top on reload
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.1 · *From the F-19.1 re-review.* · **Paths:**
+`apps/desktop/src/view/rendered-view.ts` (`sourcePosition` only), `apps/desktop/test/live-reload.test.mjs`.
+F-19.1 keeps an unscrolled Rendered reader at the top when text is prepended, but a reader in Source (every code
+file opens there) is still pushed below it: measured `scrollY` 43 for a `.ts` file and 103 for a `.md` file in
+Source, the first new line at −13. `sourcePosition` holds the line under the reading line; at `scrollTop <= 0` it
+should hold byte 0, as `positionAtScroll` now does. Acceptance: a WebKit case per mode-entry (a `.ts` file, and a
+`.md` file toggled to Source), unscrolled, text prepended by an outside write, ends at `scrollY === 0` with the new
+text on screen; fails without the change. Also fix the F-19.1 comments: "table cell" is never held (the reader is
+held on the table) in `startsAnyBlock`'s doc comment, and type `INLINE_TYPES` as `Set<InlineType>`
+(`packages/core/src/position/restore.ts`, comment and type only).
+
+### F-19.3 — A reload keeps the Source caret
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.2 · *From the F-19.2 review (note 4); true before F-19.2.*
+**Paths:** `apps/desktop/src/view/rendered-view.ts` (the Source reload), `apps/desktop/test/live-reload.test.mjs`.
+An outside write to a file open, unedited, in Source puts the caret back on line 1. Map the caret (and a
+selection) through the change the way the reading position is mapped (`offsetThroughEdit`), so a reader whose caret
+was on line 20 finds it on the same text after the write. Acceptance: a WebKit case with the caret on a line below
+an insertion keeps it on the same text; a caret inside deleted text lands at the deletion point.
