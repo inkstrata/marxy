@@ -363,3 +363,12 @@ Honour `start` (e.g. `counter-reset: marxy-ol calc(attr(start) - 1)` where suppo
 reset as a style the sanitiser allows), and size the marker box to the widest number the list holds. Acceptance: a
 list starting at 7 shows 7, 8, 9; a 1000-item list's markers never overlap their text at 320 and 1280 px; L-03's
 gutter-floor test still passes.
+
+### F-20.1 — A blank line between CR and LF inside a code block
+
+**Model:** opus · **Size:** S · **Depends on:** F-20 · *From the F-20 review (note 6); true on main.* · **Paths:**
+`packages/core/src/parse/from-mdast.ts`, `packages/core/src/parse/provenance.test.ts`. About 2 in 715k inputs: a code
+block whose value reads a lone CR followed by a whitespace-only line as one CRLF, so the content range stops early:
+`"    a\r  \n    b"`, `` "-   ```\r  \n\ta  " ``, `"   ~~~\r  \n===\n"`, `` "  ```js\n---\n\r  \n1. " ``. Map the value's line
+endings to the bytes one by one. Acceptance: each reproducer is a fixed test; the invariant stress passes at its seed
+count with these shapes in the generator.
