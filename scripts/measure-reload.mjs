@@ -15,8 +15,11 @@
 //   now does, the place's mapping, the node map, render and sanitise.
 //
 // usage: node scripts/measure-reload.mjs [--runs N] [--size 1m|<bytes>] [--at top|end|both]
-//                                       [--shape transcript|dense] [--json <path>]
+//                                       [--shape transcript|dense] [--index-colon] [--json <path>]
 //   --shape dense   the denser synthetic document the F-19.1 review measured, instead of the transcript
+//   --index-colon   the first turn also holds a Python fence with `if xs[0]:`, text that looks like a
+//                   definition's `]:` and is not one (before the review of #467 it sent every reload
+//                   to the whole parse)
 //   --at top   one line inserted near the top of the file, above the reader (the default, and the worst
 //              case: everything after it moves)
 //   --at end   one line appended, as an agent writing its transcript does
@@ -33,14 +36,19 @@ const TRANSCRIPT = join(ROOT, 'fixtures', 'corpus', '18-agent-transcript.md');
 /** The line an outside editor writes. */
 export const LINE = 'One line an outside editor wrote into the transcript.\n\n';
 
+/** A fence with `]:` in it, as Python and TypeScript put it in a transcript's code. */
+export const INDEX_COLON = '```python\nif xs[0]:\n    pass\n```\n\n';
+
 /**
  * `fixtures/corpus/18-agent-transcript.md` repeated until `targetBytes`, each copy a turn of its own
  * (`## Turn n` above it), so headings, fences, tool output and prose recur as a long session's do.
  */
-export function generateTranscript(targetBytes) {
+export function generateTranscript(targetBytes, { indexColon = false } = {}) {
   const turn = readFileSync(TRANSCRIPT, 'utf8');
   let out = '';
-  for (let n = 1; Buffer.byteLength(out) < targetBytes; n++) out += `## Turn ${n}\n\n${turn}\n`;
+  for (let n = 1; Buffer.byteLength(out) < targetBytes; n++) {
+    out += `## Turn ${n}\n\n${n === 1 && indexColon ? INDEX_COLON : ''}${turn}\n`;
+  }
   return Buffer.from(out, 'utf8');
 }
 
@@ -64,7 +72,7 @@ export function insertionNearTop(bytes) {
 }
 
 export function parseArgs(argv) {
-  const opts = { runs: 3, size: 1024 * 1024, at: 'top', shape: 'transcript', json: undefined };
+  const opts = { runs: 3, size: 1024 * 1024, at: 'top', shape: 'transcript', indexColon: false, json: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -78,6 +86,7 @@ export function parseArgs(argv) {
       opts.size = v === '1m' ? 1024 * 1024 : v === '256k' ? 256 * 1024 : v === '5m' ? 5 * 1024 * 1024 : Number(v);
     } else if (a === '--at') opts.at = value();
     else if (a === '--shape') opts.shape = value();
+    else if (a === '--index-colon') opts.indexColon = true;
     else if (a === '--json') opts.json = value();
     else throw new Error(`unknown argument ${a}`);
   }
@@ -251,7 +260,7 @@ const f1 = (x) => (Number.isFinite(x) ? x.toFixed(1) : '—');
 
 async function main(argv) {
   const opts = parseArgs(argv);
-  const bytes = opts.shape === 'dense' ? generateDense(opts.size) : generateTranscript(opts.size);
+  const bytes = opts.shape === 'dense' ? generateDense(opts.size) : generateTranscript(opts.size, { indexColon: opts.indexColon });
   const { launchWebkit } = await import('./playwright-webkit.mjs');
   const { server, base } = await devServer();
   const browser = await launchWebkit();
@@ -280,7 +289,7 @@ async function main(argv) {
       const med = (pick) => median(runs.map(pick));
       const d = (k) => med((r) => reloadDetail(r.detail)[k]);
       const s = (k) => med((r) => r.stages[k]);
-      console.log(`\n${opts.shape}, ${at}: medians of ${runs.length} runs, ms (WebKit ${browser.version()}, load ${runs.map((r) => r.load.toFixed(1)).join('/')})\n`);
+      console.log(`\n${opts.shape}${opts.indexColon ? " with `if xs[0]:`" : ""}, ${at}: medians of ${runs.length} runs, ms (WebKit ${browser.version()}, load ${runs.map((r) => r.load.toFixed(1)).join('/')})\n`);
       console.log('| Stage | ms |');
       console.log('| --- | ---: |');
       console.log(`| read (memory shell) | ${f1(d('read'))} |`);

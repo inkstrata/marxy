@@ -4,24 +4,35 @@
 // reload reach the reader's place inside its budget.
 //
 // The result is the whole file's parse, not an approximation of it: where the shortcut cannot show
-// that, it parses the whole file. Why each step is exact:
+// that, it parses the whole file. It rests on one idea, a fresh line: a line where nothing before it is
+// still open, so the parse from that line on is the parse of those bytes alone. A line is fresh when it
+// starts a top-level block at column 0 with a non-blank byte, and a blank line comes between it and the
+// block before. A blank line closes every leaf block that could be continued or claimed (a paragraph a
+// setext underline, a table row or a lazy line could take), and a line at column 0 continues no
+// container (a list item, which micromark keeps open across blank lines, takes only indented lines) and
+// no indented code. A fence, math block or HTML block left open would have taken the line, so it would
+// not start a block. The one container a column-0 line can still join is a list, as its next item.
 //
-// - Blocks wholly before the change keep their bytes, and block parsing only looks forward, so they
-//   parse as before. The region restarts at the line start of the top-level block before the first
-//   one the change touches, after a blank line: nothing before that line can still be open (a
-//   paragraph a setext underline or a table could claim, a list item an indented line could join).
-// - The region is parsed alone and ends with a witness: the first top-level block after the change
-//   whose whole line, and the line ending before it, the change left alone. If the region's parse
-//   ends with that block exactly as it was (same structure, same ranges moved by the change's length),
-//   the change closed everything before it, so every block after it parses as it did, moved. If not
-//   (an opened fence, a lazy continuation), the region grows past the next witness and tries again.
-// - Link reference and footnote definitions apply across the whole file, so a file whose bytes hold
-//   `]:` before or after the change is parsed whole.
+// - The restart is a fresh line in the previous parse, in a block wholly before the change and not
+//   after a list (the change may turn that block's first line into the list's next item): the bytes
+//   and the parse before it stay, and the region is parsed from it on its own.
+// - The witness is a fresh line in the previous parse after the change, so every block from it on is
+//   the parse of the bytes from it on, which the change left alone. The region is parsed through the
+//   witness's line and its line ending, as the whole file holds it (a line cut at its end can parse
+//   differently), and the witness is fresh in the new parse when the region's last block starts there
+//   at column 0 with a blank line before it. Then every block from it on is the previous parse's,
+//   moved by the change's length, and the region's own block at the witness is dropped for it. If not
+//   (an opened fence, a list the line now joins), the region grows to a later witness and tries again.
+// - Link reference and footnote definitions apply across the whole file, so a previous parse or a
+//   region's parse that holds one sends the reparse to the whole file. One added is in the region's
+//   parse; one removed was in the previous parse; text that only looks like one (`if xs[0]:`) is not.
 //
-// The property test (reparse.test.ts) holds it to `parseMarkdown` for random edits over the corpus.
+// The property test (reparse.test.ts) holds it to `parseMarkdown` for structured random documents and
+// edits, and for random edits over the corpus.
 
 import type { Block, CodeBlock, Document, Node } from '../contracts/ast.ts';
 import { registerLineStarts } from '../sourcemap/line-starts.ts';
+import { holdsDefinitions, markDefinitions } from './from-mdast.ts';
 import { parseBlocksIn, parseMarkdown, type ParseOptions } from './parse.ts';
 
 /** What the last reparse did, for a test or a measurement to read; nothing behaves differently by it. */
@@ -50,11 +61,14 @@ export function reparseMarkdown(previous: Document, before: Uint8Array, after: U
     return parseMarkdown(after, options);
   };
   if (previous.path !== file || previous.src.end !== before.length) return whole('the previous parse is not of these bytes');
-  if (holdsDefinitionMark(before) || holdsDefinitionMark(after)) return whole('a definition may apply across the file');
-  return regionParse(previous, before, after, options, file) ?? whole('the region could not be shown to close');
+  // A previous parse that does not say (one not built by this package) is judged by its bytes.
+  if (holdsDefinitions(previous) ?? holdsDefinitionMark(before)) return whole('a definition applies across the file');
+  const result = regionParse(previous, before, after, options, file);
+  if (result === 'definition') return whole('the change holds a definition, which applies across the file');
+  return result ?? whole('the region could not be shown to close');
 }
 
-function regionParse(previous: Document, before: Uint8Array, after: Uint8Array, options: ParseOptions, file: string): Document | null {
+function regionParse(previous: Document, before: Uint8Array, after: Uint8Array, options: ParseOptions, file: string): Document | 'definition' | null {
   const blocks = previous.children;
   const n = before.length;
   const m = after.length;
@@ -67,7 +81,7 @@ function regionParse(previous: Document, before: Uint8Array, after: Uint8Array, 
     last = { kind: 'region', parsed: 0, attempts: 0 };
     return previous; // the same bytes: the same parse
   }
-  const changeEnd = n - suffix; // in `before`
+  const changeEnd = n - suffix; // in `before`; `before[changeEnd…]` is `after[changeEnd + delta…]`
   const delta = m - n;
   // A file that opens like frontmatter (`---` or `+++` alone on the first line) but does not close it
   // is parsed by micromark with a state that lasts the whole file (a block quote then no longer
@@ -78,47 +92,78 @@ function regionParse(previous: Document, before: Uint8Array, after: Uint8Array, 
     return null;
   }
 
-  // The restart: the line start of the block before the first one the change touches, after a blank line.
-  let i = firstIndex(blocks, (b) => b.src.end >= prefix) - 1;
-  let restart = 0;
-  for (; i > 0; i--) {
-    const at = lineStart(before, blocks[i]!.src.start);
-    if (at !== null && blankBetween(before, blocks[i - 1]!.src.end, at)) {
-      restart = at;
-      break;
-    }
-  }
-  const kept = restart === 0 ? 0 : i;
+  // The restart: a fresh line at the start of a block wholly before the change, not after a list.
+  let kept = firstIndex(blocks, (b) => b.src.end >= prefix) - 1;
+  while (kept > 0 && !(blocks[kept - 1]!.type !== 'list' && fresh(before, blocks[kept - 1]!, blocks[kept]!.src.start))) kept--;
+  if (kept < 0) kept = 0;
+  const restart = kept === 0 ? 0 : blocks[kept]!.src.start;
 
-  // The witness: the first block after the change whose line, and the line ending before it, are unchanged.
-  let k = firstIndex(blocks, (b) => {
-    const at = lineStart(before, b.src.start);
-    return at !== null && at - 1 >= changeEnd && at > restart;
-  });
+  // The witness: a fresh line in the previous parse whose bytes, and every byte after it, the change left alone.
+  const witnessAt = (from: number): number => {
+    let k = Math.max(from, kept + 1);
+    while (k < blocks.length && !(blocks[k]!.src.start >= changeEnd && fresh(before, blocks[k - 1]!, blocks[k]!.src.start))) k++;
+    return k;
+  };
+  let k = witnessAt(firstIndex(blocks, (b) => b.src.start >= changeEnd));
   let step = 1;
   for (let attempts = 1; ; attempts++) {
-    const witness = k < blocks.length ? blocks[k]! : null;
-    const end = witness === null ? m : witness.src.end + delta;
+    const at = k < blocks.length ? blocks[k]!.src.start + delta : m; // the witness's line start, in `after`
+    const end = k < blocks.length ? lineEndAfter(after, at) : m;
     // A region past half the file is no cheaper than the file; parse it whole instead.
-    if (witness !== null && end - restart > m / 2) return null;
+    if (k < blocks.length && end - restart > m / 2) return null;
     const region = parseBlocksIn(after, restart, end, options);
     if (region === null) return null;
-    const tail = region.at(-1);
-    if (witness === null || (tail !== undefined && sameMoved(tail, witness, delta))) {
-      const moved = witness === null ? [] : blocks.slice(k + 1).map((b) => (delta === 0 ? b : movedBy(b, delta)));
+    if (region.definitions) return 'definition';
+    if (k >= blocks.length) {
       last = { kind: 'region', parsed: end - restart, attempts };
-      return documentOf(file, after, [...blocks.slice(0, kept), ...region, ...moved]);
+      return documentOf(file, after, [...blocks.slice(0, kept), ...region.blocks]);
     }
-    k += step;
+    const tail = region.blocks.at(-1);
+    const prior = region.blocks.at(-2);
+    if (tail !== undefined && prior !== undefined && tail.src.start === at && fresh(after, prior, at)) {
+      const moved = blocks.slice(k).map((b) => (delta === 0 ? b : movedBy(b, delta)));
+      last = { kind: 'region', parsed: end - restart, attempts };
+      return documentOf(file, after, [...blocks.slice(0, kept), ...region.blocks.slice(0, -1), ...moved]);
+    }
+    k = witnessAt(k + step);
     step *= 2;
-    if (k > blocks.length) k = blocks.length;
   }
+}
+
+/**
+ * True when the line starting at `at` is fresh after the top-level block `prior`: `at` starts a line,
+ * its first byte is not a space, tab or line ending, only blanks and a blank line lie between, and
+ * `prior` is not indented code, after which micromark carries state across the blank lines (`    a`,
+ * a blank line, then `-` and `~~~` parse as a paragraph and a fence, where alone they are an empty
+ * list item and a fence).
+ */
+function fresh(bytes: Uint8Array, prior: Block, at: number): boolean {
+  if (at <= 0 || !isLineEnding(bytes[at - 1])) return false;
+  const first = bytes[at];
+  if (first === undefined || isBlank(first) || isLineEnding(first)) return false;
+  if (prior.type === 'codeBlock' && !fenced(bytes, prior)) return false;
+  return blankBetween(bytes, prior.src.end, at);
+}
+
+/** A code block's content starts on a later line than the block when a fence opens it. */
+function fenced(bytes: Uint8Array, block: CodeBlock): boolean {
+  for (let i = block.src.start; i < block.content.start; i++) if (isLineEnding(bytes[i])) return true;
+  return false;
+}
+
+/** The offset just past the line ending of the line starting at `at`, or the end of the bytes. */
+function lineEndAfter(bytes: Uint8Array, at: number): number {
+  let i = at;
+  while (i < bytes.length && !isLineEnding(bytes[i])) i++;
+  if (bytes[i] === 0x0d && bytes[i + 1] === 0x0a) return i + 2;
+  return i < bytes.length ? i + 1 : i;
 }
 
 /** A document over `bytes` with these children, its line starts registered as `parseMarkdown` does. */
 function documentOf(file: string, bytes: Uint8Array, children: readonly Block[]): Document {
   const document: Document = { type: 'document', src: { file, start: 0, end: bytes.length }, path: file, children };
   registerLineStarts(document, () => lineStarts(bytes));
+  markDefinitions(document, false); // a region parse is used only when neither side held a definition
   return document;
 }
 
@@ -153,13 +198,6 @@ function firstIndex(blocks: readonly Block[], test: (b: Block) => boolean): numb
 const isLineEnding = (b: number | undefined): boolean => b === 0x0a || b === 0x0d;
 const isBlank = (b: number | undefined): boolean => b === 0x20 || b === 0x09;
 
-/** The start of the line `at` is on, when only spaces and tabs come before it there; else null. */
-function lineStart(bytes: Uint8Array, at: number): number | null {
-  let i = at;
-  while (i > 0 && isBlank(bytes[i - 1])) i--;
-  return i === 0 || isLineEnding(bytes[i - 1]) ? i : null;
-}
-
 /** True when `bytes[from, to)` is only spaces, tabs and line endings, with a blank line among them. */
 function blankBetween(bytes: Uint8Array, from: number, to: number): boolean {
   let endings = 0;
@@ -183,7 +221,7 @@ function opensLikeFrontmatter(bytes: Uint8Array): boolean {
   return i === bytes.length || isLineEnding(bytes[i]);
 }
 
-/** `]:` anywhere: a link reference or footnote definition may be there, and it applies file-wide. */
+/** `]:` anywhere: a link reference or footnote definition may be there. For a previous parse that does not say. */
 function holdsDefinitionMark(bytes: Uint8Array): boolean {
   for (let i = bytes.indexOf(0x5d); i !== -1 && i < bytes.length - 1; i = bytes.indexOf(0x5d, i + 1)) {
     if (bytes[i + 1] === 0x3a) return true;
