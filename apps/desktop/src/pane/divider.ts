@@ -2,7 +2,7 @@
 // width. It exists exactly while two panes do (`PaneSet.onSplit`). Dragging it, the arrow keys on it and
 // the palette's split commands all go through `PaneSet.setRatio`, clamped so neither column drops below
 // the 45-character floor (`clampRatio`, D-02). Double-click and "Even split" make the
-// panes even; Home and End go to the smallest and largest left column the floor allows (APG splitter).
+// panes even; Home does the same (there is no End). Arrow keys and Home are the whole keyboard.
 // How it looks is `.marxy-divider` in the theme's base.css and three `--marxy-*` tokens.
 
 import { DEFAULT_RATIO, clampRatio, type SplitMetrics } from '@marxy/core/src/layout/index.ts';
@@ -37,11 +37,12 @@ export function createDivider<C extends PaneContent>(panes: PaneSet<C>, main: HT
   el.tabIndex = 0;
 
   const place = (): void => {
-    // The reachable range, as a percentage: what the floor leaves at this window width.
-    el.setAttribute('aria-valuemin', String(Math.ceil(clampToMain(main, 0) * 100)));
-    el.setAttribute('aria-valuemax', String(Math.floor(clampToMain(main, 1) * 100)));
+    // The left pane's share of the window, 0 to 100. The floor is not advertised: it depends on each
+    // column's own gutter, so it is not one stable number. `aria-valuenow` is clamped into the range anyway.
+    el.setAttribute('aria-valuemin', '0');
+    el.setAttribute('aria-valuemax', '100');
     el.style.left = `${panes.ratio * 100}%`;
-    el.setAttribute('aria-valuenow', String(Math.round(panes.ratio * 100)));
+    el.setAttribute('aria-valuenow', String(Math.min(100, Math.max(0, Math.round(panes.ratio * 100)))));
   };
   const set = (ratio: number): void => panes.setRatio(clampToMain(main, ratio));
 
@@ -67,8 +68,10 @@ export function createDivider<C extends PaneContent>(panes: PaneSet<C>, main: HT
   el.addEventListener('dblclick', () => set(DEFAULT_RATIO));
   el.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const next =
-      e.key === 'ArrowLeft' ? panes.ratio - RATIO_STEP : e.key === 'ArrowRight' ? panes.ratio + RATIO_STEP : e.key === 'Home' ? 0 : e.key === 'End' ? 1 : null;
+    // Home evens the panes rather than going to the smallest column (the APG splitter's Home). The floor
+    // depends on the column's own gutter (24 px or 16 px with its width), so a fixed minimum is not stable:
+    // pressed twice it would move again. Evening is a fixed point, and matches double-click.
+    const next = e.key === 'ArrowLeft' ? panes.ratio - RATIO_STEP : e.key === 'ArrowRight' ? panes.ratio + RATIO_STEP : e.key === 'Home' ? DEFAULT_RATIO : null;
     if (next === null) return;
     e.preventDefault();
     e.stopPropagation();

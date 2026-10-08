@@ -586,6 +586,7 @@ a:focus .marxy-link-dest { display: inline; }
   .marxy-verb-menu-item:focus { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .marxy-verb-menu-item:focus .marxy-verb-menu-key { color: HighlightText; }
   .marxy-divider::before { background: CanvasText; animation: none !important; forced-color-adjust: none; }
+  .marxy-divider:is(:hover, :active, :focus-visible)::before { background: Highlight; }
 }
 @media (prefers-contrast: more) {
   .marxy-diff-add { border-inline-start: 3px solid currentColor; }

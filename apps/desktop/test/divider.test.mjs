@@ -164,7 +164,7 @@ test('the palette commands: offered only with two panes; even, widen and narrow 
   });
 });
 
-test('the divider is a keyboard widget: arrows move it, Home and End go to the ends of the reachable range, and it says where it is', async () => {
+test('the divider is a keyboard widget: arrows move it, Home evens the panes, and it says where it is', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     const divider = page.locator('.marxy-divider');
@@ -194,20 +194,88 @@ test('the divider is a keyboard widget: arrows move it, Home and End go to the e
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     assert.ok(Math.abs((await left(page)) - VIEW.width * 0.55) <= 1);
-    const min = Number(await divider.getAttribute('aria-valuemin'));
-    const max = Number(await divider.getAttribute('aria-valuemax'));
-    const floor = await floorPx(page);
-    assert.ok(min > 0 && max < 100 && min < 50 && max > 50, `${min}..${max}`);
-    assert.ok(Math.abs(min - Math.ceil((floor / VIEW.width) * 100)) <= 1, `valuemin ${min}, the floor is ${floor}px`);
-    assert.equal(min + max, 100);
     await page.keyboard.press('Home');
-    // (The gutter is read from the page as it is when the key is pressed and varies with column width, so allow a percent or two.)
-    assert.ok(Math.abs((await left(page)) - (VIEW.width * min) / 100) <= VIEW.width * 0.01, `left ${await left(page)}, valuemin ${min}`);
-    assert.equal(await divider.getAttribute('aria-valuenow'), String(Math.round(((await left(page)) / VIEW.width) * 100)));
-    await page.keyboard.press('End');
-    const w = await widths(page);
-    const maxNow = Number(await divider.getAttribute('aria-valuemax'));
-    assert.ok(Math.abs(w.panes[1] - (VIEW.width * (100 - maxNow)) / 100) <= VIEW.width * 0.02, `right pane ${w.panes[1]}, valuemax ${maxNow}`);
+    const evened = await widths(page);
+    assert.ok(Math.abs(evened.panes[0] - evened.panes[1]) <= 1, String(evened.panes));
+    assert.equal(await divider.getAttribute('aria-valuenow'), '50');
+  });
+});
+
+test('Home is idempotent: pressed twice it leaves the divider where the first press put it, at wide and narrow windows', async () => {
+  for (const width of [1800, 1400, 1100, 940]) {
+    await withPage(async (page) => {
+      await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+      const divider = page.locator('.marxy-divider');
+      await page.evaluate(() => window.__marxyHandle.panes().setRatio(0.3));
+      await divider.focus();
+      await page.keyboard.press('Home');
+      const first = await left(page);
+      await page.keyboard.press('Home');
+      const second = await left(page);
+      assert.ok(Math.abs(first - second) <= 0.5, `${width}px: Home moved the divider from ${first} to ${second}`);
+      await page.keyboard.press('ArrowLeft');
+      await page.keyboard.press('Home');
+      assert.ok(Math.abs((await left(page)) - first) <= 0.5, `${width}px: Home after an arrow is not where it was`);
+    }, { viewport: { width, height: 900 } });
+  }
+});
+
+test('aria-valuenow is always inside [aria-valuemin, aria-valuemax]: after arrows, Home, a drag and a window resize', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    const divider = page.locator('.marxy-divider');
+    const inRange = async (what) => {
+      const [min, max, now] = await Promise.all(['aria-valuemin', 'aria-valuemax', 'aria-valuenow'].map(async (a) => Number(await divider.getAttribute(a))));
+      assert.ok(Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(now), `${what}: ${min} ${now} ${max}`);
+      assert.ok(min <= now && now <= max, `${what}: valuenow ${now} outside ${min}..${max}`);
+    };
+    await divider.focus();
+    await inRange('at rest');
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('ArrowLeft');
+      await inRange(`ArrowLeft ${i}`);
+    }
+    for (let i = 0; i < 24; i++) {
+      await page.keyboard.press('ArrowRight');
+      await inRange(`ArrowRight ${i}`);
+    }
+    await page.keyboard.press('Home');
+    await inRange('Home');
+    const box = await dividerBox(page);
+    const y = box.y + 100;
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(2, y, { steps: 4 });
+    await inRange('drag to the left edge');
+    await page.mouse.move(VIEW.width - 2, y, { steps: 4 });
+    await inRange('drag to the right edge');
+    await page.mouse.up();
+    for (const width of [1100, 940, 1800]) {
+      await page.setViewportSize({ width, height: 900 });
+      await inRange(`resize to ${width}`);
+    }
+  });
+});
+
+test('a window resize refreshes the divider: its position and value follow the new width', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await page.evaluate(() => window.__marxyHandle.panes().setRatio(0.3));
+    const divider = page.locator('.marxy-divider');
+    // Make the attributes stale on purpose, as a layout change would leave them, then resize.
+    await divider.evaluate((el) => {
+      el.setAttribute('aria-valuenow', '99');
+      el.style.left = '99%';
+    });
+    await page.setViewportSize({ width: 1200, height: 900 });
+    await page.waitForFunction(() => document.querySelector('.marxy-divider').getAttribute('aria-valuenow') !== '99');
+    assert.equal(await divider.getAttribute('aria-valuenow'), '30');
+    const got = await page.evaluate(() => {
+      const main = document.getElementById('marxy-main').getBoundingClientRect();
+      const el = document.querySelector('.marxy-divider').getBoundingClientRect();
+      return { centre: el.left + el.width / 2 - main.left, main: main.width };
+    });
+    assert.ok(Math.abs(got.centre - got.main * 0.3) <= 1, `divider at ${got.centre} of ${got.main}`);
   });
 });
 
@@ -295,7 +363,7 @@ test('focus moving fades the focused side in over 150 ms, and not under reduced 
   );
 });
 
-test('under forced colours the line is CanvasText, with no fade', async () => {
+test('under forced colours the line is CanvasText, with no fade, and Highlight when hovered', async () => {
   await withPage(
     async (page) => {
       await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
@@ -311,6 +379,17 @@ test('under forced colours the line is CanvasText, with no fade', async () => {
       });
       assert.equal(got.line, got.canvasText);
       assert.equal(got.animation, 'none');
+      const box = await page.locator('.marxy-divider').boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + 100);
+      const hovered = await page.evaluate(() => {
+        const probe = document.createElement('i');
+        probe.style.color = 'Highlight';
+        document.body.append(probe);
+        const highlight = getComputedStyle(probe).color;
+        probe.remove();
+        return { line: getComputedStyle(document.querySelector('.marxy-divider'), '::before').backgroundColor, highlight };
+      });
+      assert.equal(hovered.line, hovered.highlight);
     },
     { forcedColors: 'active' },
   );
