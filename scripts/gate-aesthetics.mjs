@@ -10,6 +10,18 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ragMetrics } from '../packages/typeset/scripts/rag-model.mjs';
 import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
+import {
+  geometryFailures,
+  injectClassicScrollbar,
+  measureInPage,
+  measureNoticeInPage,
+  noticeFailures,
+  surveyFailures,
+  surveyInPage,
+  TEXT_SPACING_CSS,
+  spacingAppliedFailures,
+  text200AppliedFailures,
+} from './probe-layout.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const desktop = join(root, 'apps/desktop');
@@ -29,6 +41,12 @@ if (MECHANICAL && UPDATE) {
   console.error('aesthetics gate failed:\n - --mechanical compares no baseline, so it cannot --update one');
   process.exit(1);
 }
+// --files a.md,b.md narrows the corpus (a quick look at one document); --emit-expected prints the geometry
+// failures as expected-failure rows (L-02) and compares nothing. Neither is a way to pass: a run that
+// narrows the corpus judges only the cases it ran.
+const filesIdx = process.argv.indexOf('--files');
+const FILES_FILTER = filesIdx === -1 ? null : process.argv[filesIdx + 1].split(',').filter(Boolean);
+const EMIT_EXPECTED = process.argv.includes('--emit-expected');
 const variantIdx = process.argv.indexOf('--variant');
 const VARIANT_FILTER = variantIdx === -1 ? null : process.argv[variantIdx + 1];
 if (VARIANT_FILTER && !['dark', 'light'].includes(VARIANT_FILTER)) {
@@ -112,7 +130,8 @@ function engineName() {
 }
 
 function corpusFiles() {
-  return readdirSync(corpusDir).filter((f) => /^\d{2}-.+\.md$/.test(f)).sort();
+  const all = readdirSync(corpusDir).filter((f) => /^\d{2}-.+\.md$/.test(f)).sort();
+  return FILES_FILTER ? all.filter((f) => FILES_FILTER.includes(f)) : all;
 }
 
 function matrix() {
@@ -391,6 +410,189 @@ async function checkNoHorizontalPageScroll(page) {
     const cw = doc.clientWidth;
     return sw > cw + 1 ? [`horizontal scroll ${sw}px > ${cw}px viewport`] : [];
   });
+}
+
+// ---- L-02: the geometry of the page (docs/aesthetics-acceptance.md, the six rules of the screen criterion) ----
+//
+// The rules live in scripts/probe-layout.mjs and are read from there: one implementation of "where the
+// column, the blocks and the marks sit". Each check below takes a measured cell and names what fails; a
+// failure is a *case* (check, sub-check, document, cell). Where today's page fails a rule, the case is
+// listed in EXPECTED_FAILURES with the story that clears it; the gate fails on a case that is not listed
+// and on a listed case that passes, so the list can neither hide a new fault nor go stale.
+
+/** The check names a geometry failure can carry, and the in-page pass that measures each. */
+const GEOMETRY_CHECKS = ['centred', 'blockEdges', 'room', 'marks', 'noClip'];
+const geometryCheck = (name) => (cell, opts) => geometryFailures(cell, opts).filter((f) => f.check === name);
+const checkCentred = geometryCheck('centred');
+const checkBlockEdges = geometryCheck('blockEdges');
+const checkRoom = geometryCheck('room');
+const checkMarks = geometryCheck('marks');
+const checkNoClip = geometryCheck('noClip');
+
+/** Rule 5 on the app's own `#marxy-notices` region. */
+async function checkNoticeColumn(page) {
+  return noticeFailures(await page.evaluate(measureNoticeInPage, {}));
+}
+/** Rule 5 in Source: the reader's own shortcut switches the app to its editor, and the notice must not cover text. */
+async function checkNoticeInSource(page) {
+  await page.keyboard.press('ControlOrMeta+e');
+  await page.waitForSelector('#marxy-source .cm-content .cm-line', { timeout: 20_000 });
+  return noticeFailures(await page.evaluate(measureNoticeInPage, { source: true }));
+}
+/** Rule 6, with the four WCAG 1.4.12 overrides loaded as a reader theme (the render is given them). */
+async function checkTextSpacing(page) {
+  const s = await page.evaluate(surveyInPage);
+  return [...spacingAppliedFailures(s), ...surveyFailures(s)];
+}
+/** Rule 6, at 200 % text: the reader's size at 40 px, through the config (the render is given it). */
+async function checkText200(page) {
+  const s = await page.evaluate(surveyInPage);
+  return [...text200AppliedFailures(s, TEXT200_PX), ...surveyFailures(s)];
+}
+
+/** The long document the notice is measured on: it scrolls three screens at every width. */
+const NOTICE_DOC = '15-prose-volume.md';
+const NOTICE_SOURCE_WIDTHS = [320, 960];
+/** Classic-scrollbar renders: the narrow end, and the width most readers have. */
+const CLASSIC_WIDTHS = [480, 960];
+const SPACING_WIDTHS = [320, 960];
+const TEXT200_WIDTH = 960;
+/** The reader's default body size is 20 px; 200 % of it. */
+const TEXT200_PX = 40;
+/**
+ * Documents left out of the text-spacing pass, with the reason. Not a threshold: 32-long-reference.md is the
+ * corpus's largest document, and the render entry gives the typesetter 10 s (gate-entry.ts), which the
+ * universal line-height override takes more than on a loaded machine (plain 19 s in all, spacing over 50 s).
+ * It still runs in the 200 % pass and in every geometry pass.
+ */
+const SPACING_SKIPS = new Set(['32-long-reference.md']);
+
+const cellId = (o) => `${o.width}x${o.size}-${o.variant}${o.classic ? '-classic' : ''}`;
+const familyOf = (check) => (check === 'noticeColumn' ? 'noticeColumn' : 'geometry');
+/** The cases the run found, `check/sub|document|cell` to the details, and the (family, document, cell) it measured. */
+const foundCases = new Map();
+const measuredCells = new Set();
+
+function recordCases(family, doc, cell, failures) {
+  measuredCells.add(`${family}|${doc}|${cell}`);
+  for (const f of failures) {
+    const key = `${f.check}/${f.sub}|${doc}|${cell}`;
+    foundCases.set(key, [...(foundCases.get(key) ?? []), f.detail]);
+  }
+}
+
+/** All five geometry checks over the page as it stands; the cases are recorded, not returned as failures. */
+async function checkGeometry(page, doc, o) {
+  const cell = await page.evaluate(measureInPage, { blocks: true, notice: false });
+  const opts = { classic: Boolean(o.classic) };
+  recordCases('geometry', doc, cellId(o), [
+    ...checkCentred(cell, opts),
+    ...checkBlockEdges(cell, opts),
+    ...checkRoom(cell, opts),
+    ...checkMarks(cell, opts),
+    ...checkNoClip(cell, opts),
+  ]);
+  return cell;
+}
+
+/**
+ * The classic scrollbar appears after first text, so the app relays the page out: it re-sets the paragraphs
+ * 100 ms after the article's width changes (rendered-view.ts), then runs its passes. The page is read once
+ * it holds still: the same width, height and set lines on two reads a beat apart. A cap, not a wait: a page
+ * that never holds still is a failure the caller reports.
+ */
+async function awaitRelayout(page) {
+  const read = () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => {
+            const a = document.getElementById('doc');
+            const lines = [...a.querySelectorAll('p.marxy-set')].slice(0, 400).map((p) => Math.round(p.getBoundingClientRect().height)).join(',');
+            resolve(`${a.clientWidth}:${document.documentElement.scrollHeight}:${lines}`);
+          }, 150),
+        ),
+    );
+  let before = await read();
+  for (let i = 0; i < 40; i++) {
+    const now = await read();
+    if (now === before) return;
+    before = now;
+  }
+  throw new Error('the page did not hold still 6 s after a classic scrollbar appeared');
+}
+
+/**
+ * Expected failures: where today's page fails a rule, the story that clears it. That story deletes the row.
+ * A row is `{ check, document, cells, story }`: `check` is `check/sub-check`, and the row stands for the case in
+ * each of its cells, so a row whose case passes in any measured cell fails the gate.
+ */
+const rowsFor = (check, story, cells, documents) => documents.map((document) => ({ check, document, cells, story }));
+// Cell sets: the `<width>x<size>-<variant>` of a render, with `-classic` after a classic-scrollbar render and
+// `-source` after one in Source mode. They are measured, not chosen: `--emit-expected` prints them.
+// The code box sits 15 px inside the prose edge (H2, code): every cell, in every document that has a code block.
+const CODE_BOX_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+// A checkbox hangs past the gutter floor (H3): at 320 px and under a classic scrollbar at 480 px.
+const CHECKBOX_CELLS = ["320x20-dark", "480x20-dark-classic"];
+// An ordered-list marker hangs past the gutter floor (H3): up to 720 px, and at 28 px type.
+const OL_MARKER_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "720x20-light", "960x28-dark", "960x28-light"];
+// A notice is off the column (H6): its region sizes the column in em at its own 16 px, so every cell but 960 px at 16 px, where that font is the article's.
+const NOTICE_EDGE_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+// A notice is not a whole number of grid units high (H6).
+const NOTICE_GRID_CELLS = ["320x20-dark", "960x16-dark", "960x16-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light"];
+// A notice scrolls out of sight (H6): in every cell, the document being taller than three screens.
+const NOTICE_SIGHT_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+// A notice covers the first line of text in Source (H6).
+const NOTICE_SOURCE_CELLS = ["320x20-dark-source", "960x20-dark-source"];
+// A wide block grows to the right only (H1): every cell with room to grow (720 px and up) in every document that has one.
+const WIDE_BLOCK_CELLS = ["720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+
+/** One row per document for each check, each naming the cells it fails in and the story that clears it. */
+const EXPECTED_FAILURES = [
+  ...rowsFor('blockEdges/code', 'L-04', CODE_BOX_CELLS, ["02-readme-real-world.md", "03-ai-plan.md", "06-math.md", "09-gfm-everything.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "27-alerts.md", "28-artifact-fences.md", "28-llm-answer.md", "29-hidden-characters.md", "30-notebook-export.md", "32-long-reference.md"]),
+  ...rowsFor('marks/checkbox', 'L-03', CHECKBOX_CELLS, ["03-ai-plan.md", "09-gfm-everything.md", "23-task-openers.md", "24-issue-thread.md"]),
+  ...rowsFor('marks/ol-marker', 'L-03', OL_MARKER_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "09-gfm-everything.md", "15-prose-volume.md", "24-issue-thread.md", "28-llm-answer.md", "31-essay.md", "32-long-reference.md"]),
+  ...rowsFor('noticeColumn/edges', 'L-05', NOTICE_EDGE_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('noticeColumn/grid', 'L-05', NOTICE_GRID_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('noticeColumn/sight', 'L-05', NOTICE_SIGHT_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('noticeColumn/source', 'L-05', NOTICE_SOURCE_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('room/even', 'L-04', WIDE_BLOCK_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "05-pathological-table-and-nesting.md", "06-math.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "28-artifact-fences.md", "28-llm-answer.md", "30-notebook-export.md", "31-essay.md", "32-long-reference.md"]),
+];
+
+/**
+ * Judge the cases a run found against a table of expected failures. A row is `{ check, document, cells,
+ * story }`: `check` is `check/sub`, and it stands for the case in each of its cells. Returns the messages
+ * of failures: a case with no row, and a row whose case did not occur in a cell that was measured.
+ * `measured` is what the run measured, so a narrowed run judges only its own cells.
+ */
+function judgeExpected(found, measured, table) {
+  const out = [];
+  const listed = new Set();
+  for (const row of table) {
+    for (const cell of row.cells) {
+      const key = `${row.check}|${row.document}|${cell}`;
+      listed.add(key);
+      if (!measured.has(`${familyOf(row.check.split('/')[0])}|${row.document}|${cell}`)) continue;
+      if (!found.has(key)) out.push(`${row.document} ${cell}: ${row.check} now passes, so its row (${row.story}) is stale: delete it`);
+    }
+  }
+  for (const [key, details] of found) {
+    if (listed.has(key)) continue;
+    const [check, doc, cell] = key.split('|');
+    out.push(`${doc} ${cell}: ${check}: ${details.slice(0, 3).join('; ')}${details.length > 3 ? ` (and ${details.length - 3} more)` : ''}`);
+  }
+  return out;
+}
+
+/** The found cases as rows of the table: one per check and document, with the cells it fails in. */
+function rowsOf(found) {
+  const rows = new Map();
+  for (const key of found.keys()) {
+    const [check, doc, cell] = key.split('|');
+    const k = `${check}|${doc}`;
+    rows.set(k, { check, document: doc, cells: [...(rows.get(k)?.cells ?? []), cell] });
+  }
+  return [...rows.values()].sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : a.document < b.document ? -1 : 1));
 }
 
 function themeFixtureNames() {
@@ -778,6 +980,8 @@ async function runPageChecks(page, result, ctx) {
   add(await checkHierarchy(page));
   add(await checkCodeVoice(page));
   add(await checkChrome(page));
+  await checkGeometry(page, ctx.file, ctx);
+  if (ctx.file === NOTICE_DOC) recordCases('noticeColumn', ctx.file, cellId(ctx), await checkNoticeColumn(page));
   if (ctx.rag) add(checkRag(ctx.rag.metrics, ctx.rag.baseline, ctx.file));
   if (ctx.shot) add(await checkScreenshot(page, ctx.shot));
   return problems;
@@ -839,6 +1043,117 @@ async function checkRoomInNarrowContainer(browser, css = defaultThemeCss()) {
   } finally {
     await page.close();
   }
+}
+
+/**
+ * Crafted pages for the L-02 checks, each with one fault the rule must catch and a twin without it that must
+ * pass. The faults are written in inline style, so they hold whatever the theme does: a story that clears an
+ * expected failure cannot make a control pass.
+ */
+function geometrySelftestCases() {
+  const themed = (body, extraCss = '', before = '') =>
+    `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${defaultThemeCss()}${extraCss}</style></head><body><main id="marxy-main">${before}<article id="doc" class="marxy-article">${body}</article></main></body></html>`;
+  const blk = (tag, i, inner, style = '') => `<${tag} data-marxy-s="${i * 100}" data-marxy-e="${i * 100 + 99}"${style ? ` style="${style}"` : ''}>${inner}</${tag}>`;
+  const PROSE = blk('p', 0, 'A short paragraph of body text that sits on the column and nowhere else.');
+  const TALL = blk('div', 9, '', 'height:3000px');
+  const REGION = '<div id="marxy-notices" role="status"></div>';
+  const SOURCE = '<div id="marxy-source"><div class="cm-content"><div class="cm-line" style="height:30px">first line of source</div></div></div>';
+  const FIXED_NOTICES = '#marxy-notices{position:fixed;top:0;left:0;right:0}';
+  const measured = async (page) => page.evaluate(measureInPage, { blocks: true, notice: false });
+  const details = (list) => list.map((f) => f.detail);
+  const sub = (name) => async (page) => (await checkNoticeColumn(page)).filter((f) => f.sub === name).map((f) => f.detail);
+  return [
+    {
+      name: 'centred (axis)',
+      html: themed(PROSE, '.marxy-article{margin-inline:0}'),
+      ok: themed(PROSE),
+      run: async (page) => details(checkCentred(await measured(page))),
+    },
+    {
+      name: 'blockEdges',
+      html: themed(blk('p', 0, 'A paragraph that starts forty pixels in.', 'margin-left:40px')),
+      ok: themed(PROSE),
+      run: async (page) => details(checkBlockEdges(await measured(page))),
+    },
+    {
+      name: 'room (past the room)',
+      // Even on both sides, but 400px each way is far past the room.
+      html: themed(PROSE + blk('div', 1, 'a box that runs 400px past the column on both sides', 'margin-inline:-400px')),
+      ok: themed(PROSE + blk('div', 1, 'a box inside the column')),
+      run: async (page) => details(checkRoom(await measured(page)).filter((f) => f.sub === 'limit')),
+    },
+    {
+      name: 'room (uneven)',
+      // Inside the room, but only on the right.
+      html: themed(PROSE + blk('div', 1, 'a box that runs 100px past the right edge only', 'margin-right:-100px')),
+      ok: themed(PROSE + blk('div', 1, 'a box that runs 100px past each edge', 'margin-inline:-100px')),
+      run: async (page) => details(checkRoom(await measured(page)).filter((f) => f.sub === 'even')),
+    },
+    {
+      name: 'marks',
+      viewport: { width: 480, height: 800 },
+      html: themed(blk('ul', 0, blk('li', 1, '<input type="checkbox" style="margin-left:-60px">an item whose checkbox hangs out of the page'))),
+      ok: themed(blk('ul', 0, blk('li', 1, '<input type="checkbox" style="margin:0 !important">an item')), 'ul{padding-left:0 !important}'),
+      run: async (page) => details(checkMarks(await measured(page))),
+    },
+    {
+      name: 'noClip',
+      html: themed(blk('p', 0, 'text pushed off the left of the window', 'margin-left:-300px')),
+      ok: themed(PROSE),
+      run: async (page) => details(checkNoClip(await measured(page))),
+    },
+    {
+      name: 'noticeColumn (edges)',
+      html: themed(PROSE, '#marxy-notices{margin-inline-start:140px}', REGION),
+      // The region inside the article's own column, with nothing of its own to move it, sits on the column.
+      ok: themed(`<div id="marxy-notices" role="status" style="padding:0 !important;margin:0 !important;max-width:none !important"></div>` + PROSE),
+      run: sub('edges'),
+    },
+    {
+      name: 'noticeColumn (in sight)',
+      html: themed(PROSE + TALL, '#marxy-notices{position:static !important}', REGION),
+      ok: themed(PROSE + TALL, '#marxy-notices{position:sticky;top:0}', REGION),
+      run: sub('sight'),
+    },
+    {
+      name: 'noticeColumn (grid units)',
+      html: themed(PROSE, '.marxy-notice{padding-block:7px !important;line-height:1 !important}', REGION),
+      ok: themed(PROSE, '.marxy-notice{display:block !important;height:30px !important;padding:0 !important;border:0 !important}', REGION),
+      run: sub('grid'),
+    },
+    {
+      name: 'noticeColumn (not over Source text)',
+      html: themed(PROSE, FIXED_NOTICES + '#marxy-source{position:fixed;inset:0}', REGION + SOURCE),
+      ok: themed(PROSE, FIXED_NOTICES + '#marxy-source{position:fixed;inset:200px 0 0 0}', REGION + SOURCE),
+      run: async (page) => (noticeFailures(await page.evaluate(measureNoticeInPage, { source: true }))).map((f) => f.detail),
+    },
+    {
+      name: 'textSpacing (clipped text)',
+      html: themed(blk('div', 0, 'a line of text that the spacing pushes out of a box of fixed height '.repeat(4), 'height:20px;overflow:hidden'), TEXT_SPACING_CSS),
+      ok: themed(PROSE, TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      // The overrides never loaded: the check must say so, not pass on a page it did not stress.
+      name: 'textSpacing (overrides applied)',
+      html: themed(PROSE),
+      ok: themed(PROSE, TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      name: 'text200 (wide box)',
+      html: themed(blk('div', 0, 'a box wider than the window', 'width:3000px'), `.marxy-article{font-size:${TEXT200_PX}px}`),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`),
+      run: checkText200,
+    },
+    {
+      // The size was not doubled: the check must say so.
+      name: 'text200 (size applied)',
+      html: themed(PROSE, '.marxy-article{font-size:20px}'),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`),
+      run: checkText200,
+    },
+  ];
 }
 
 async function selftest(browser, origin) {
@@ -903,6 +1218,7 @@ async function selftest(browser, origin) {
       html: crafted('<p>Body <code>x</code></p>', 'p,code{font-family:serif}'),
       run: (page) => checkCodeVoice(page, { xHeight: true }),
     },
+    ...geometrySelftestCases(),
     {
       name: 'hanging-quote',
       html: crafted(
@@ -912,14 +1228,36 @@ async function selftest(browser, origin) {
     },
   ];
   const missed = [];
+  const falseAlarms = [];
   for (const c of cases) {
-    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const page = await browser.newPage({ viewport: c.viewport ?? { width: 960, height: 800 } });
     if (c.html) await page.setContent(c.html, { waitUntil: 'domcontentloaded' });
     const problems = await c.run(page);
+    // The twin without the fault: a check that fails there too would fail every page.
+    let twin = [];
+    if (c.ok) {
+      await page.setContent(c.ok, { waitUntil: 'domcontentloaded' });
+      twin = await c.run(page);
+    }
     await page.close();
     if (problems.length === 0) missed.push(c.name);
+    if (twin.length) falseAlarms.push(`${c.name}: ${twin.join('; ')}`);
   }
   if (missed.length) throw new Error(`selftest: these checks did not fail on a crafted page: ${missed.join(', ')}`);
+  if (falseAlarms.length) throw new Error(`selftest: these checks failed on a crafted page without the fault: ${falseAlarms.join(' | ')}`);
+
+  // The expected-failure table is held both ways: a case with no row fails, and a row whose case passes fails.
+  const row = { check: 'room/even', document: 'x.md', cells: ['960x20-dark'], story: 'L-04' };
+  const ran = new Set(['geometry|x.md|960x20-dark']);
+  const occurs = new Map([['room/even|x.md|960x20-dark', ['a box overhangs']]]);
+  const tableCases = [
+    ['an unlisted failure fails', judgeExpected(occurs, ran, []).length === 1],
+    ['a listed row whose case passes fails', judgeExpected(new Map(), ran, [row]).length === 1],
+    ['a listed failure that occurs passes', judgeExpected(occurs, ran, [row]).length === 0],
+    ['a row for a cell this run did not measure is not judged', judgeExpected(new Map(), new Set(), [row]).length === 0],
+  ];
+  const wrongTable = tableCases.filter(([, ok]) => !ok).map(([name]) => name);
+  if (wrongTable.length) throw new Error(`selftest: the expected-failure table is not held both ways: ${wrongTable.join('; ')}`);
 
   const optical = await browser.newPage({ viewport: { width: 960, height: 800 } });
   await optical.setContent(
@@ -1074,7 +1412,7 @@ async function main() {
       `selftest: optical ~5% protrusion (margin/width=${opticalSelftest.marginOverWidth.toFixed(3)}, rect.width=${opticalSelftest.rectWidth.toFixed(2)}px) fails pre-fix (${opticalSelftest.preFixProblems.join('; ')}) and passes head (${opticalSelftest.headProblems.length ? opticalSelftest.headProblems.join('; ') : '[]'})`,
     );
     notes.push(
-      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome, hierarchy, code-voice, hanging-quote each fail on a crafted page; optical protrusion passes',
+      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome, hierarchy, code-voice, hanging-quote, and the geometry checks (centred, blockEdges, room, marks, noClip, noticeColumn, textSpacing, text200) each fail on a crafted page and pass on its twin; optical protrusion passes; the expected-failure table is held both ways',
     );
     const roomHead = await checkRoomInNarrowContainer(browser);
     if (roomHead.problems.length) throw new Error(`aesthetics gate: ${roomHead.problems.join('; ')}`);
@@ -1199,6 +1537,12 @@ async function main() {
         try {
           if (Object.keys(mode.emulate).length) await page.emulateMedia(mode.emulate);
           await renderCorpus(page, harness.origin, source, { variant, width: mode.width, size: 20 });
+          // The narrowest page the gate renders is also where the geometry is tightest.
+          if (mode.tag === '320px') {
+            const o = { width: mode.width, size: 20, variant };
+            await checkGeometry(page, file, o);
+            if (file === NOTICE_DOC) recordCases('noticeColumn', file, cellId(o), await checkNoticeColumn(page));
+          }
           const problems = await checkNoHorizontalPageScroll(page);
           return problems.map((p) => `${file} ${mode.tag} ${variant}: ${p}`);
         } catch (e) {
@@ -1210,6 +1554,82 @@ async function main() {
       fails.push(...reflowFails.flat());
       phase('reflow');
       notes.push(`reflow: ${reflowTasks.length} render(s) at 320 px, 400 % zoom and three media preferences`);
+
+    // Classic scrollbars (WebKitGTK, or macOS set to always show them): one render per document at the
+    // narrow width and the usual one, the scrollbar injected after first text and the app's relayout awaited.
+    const classicTasks = files.flatMap((file) => {
+      const source = readFileSync(join(corpusDir, file), 'utf8');
+      return CLASSIC_WIDTHS.map((width) => ({ file, source, o: { width, size: 20, variant: 'dark', classic: true } }));
+    });
+    const classicFails = await pool(classicTasks, async ({ file, source, o }) => {
+      const page = await browser.newPage({ viewport: { width: o.width, height: 900 } });
+      try {
+        await renderCorpus(page, harness.origin, source, { variant: o.variant, width: o.width, size: o.size });
+        await injectClassicScrollbar(page);
+        await awaitRelayout(page);
+        const cell = await checkGeometry(page, file, o);
+        // A page too short to scroll has no scrollbar to model; only a page that took one is a classic page.
+        if (cell.viewport.scrollbar === 0 && cell.viewport.docHeight > 900) {
+          return [`${file} ${cellId(o)}: the classic scrollbar took no space on a page ${cell.viewport.docHeight}px tall`];
+        }
+        return [];
+      } catch (e) {
+        return [`${file} ${cellId(o)}: ${e.message}`];
+      } finally {
+        await page.close();
+      }
+    });
+    fails.push(...classicFails.flat());
+    phase('classic');
+    notes.push(`classic scrollbar: ${classicTasks.length} render(s) at ${CLASSIC_WIDTHS.join(' and ')} px, after the app's relayout`);
+
+    // Rule 5 in Source mode, on the long document: the app is put into its editor the way a reader does it.
+    if (files.includes(NOTICE_DOC)) {
+      const source = readFileSync(join(corpusDir, NOTICE_DOC), 'utf8');
+      const inSource = await pool(NOTICE_SOURCE_WIDTHS, async (width) => {
+        const page = await browser.newPage({ viewport: { width, height: 900 } });
+        try {
+          await renderCorpus(page, harness.origin, source, { variant: 'dark', width, size: 20 });
+          recordCases('noticeColumn', NOTICE_DOC, `${cellId({ width, size: 20, variant: 'dark' })}-source`, await checkNoticeInSource(page));
+          return [];
+        } catch (e) {
+          return [`${NOTICE_DOC} ${width}px in Source: ${e.message}`];
+        } finally {
+          await page.close();
+        }
+      });
+      fails.push(...inSource.flat());
+    }
+
+    // Rule 6: WCAG 1.4.12 text spacing as a reader theme, and 200 % text (the reader's size at 40 px).
+    const accessTasks = files.flatMap((file) => {
+      const source = readFileSync(join(corpusDir, file), 'utf8');
+      return [
+        ...SPACING_WIDTHS.filter(() => !SPACING_SKIPS.has(file)).map((width) => ({ file, source, kind: 'text spacing', width, opts: { variant: 'dark', width, size: 20, theme: TEXT_SPACING_CSS }, check: checkTextSpacing })),
+        { file, source, kind: '200 % text', width: TEXT200_WIDTH, opts: { variant: 'dark', width: TEXT200_WIDTH, size: TEXT200_PX }, check: checkText200 },
+      ];
+    });
+    const accessFails = await pool(accessTasks, async ({ file, source, kind, width, opts, check }) => {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      try {
+        await renderCorpus(page, harness.origin, source, opts);
+        return (await check(page)).map((p) => `${file} ${kind} ${width}px: ${p}`);
+      } catch (e) {
+        return [`${file} ${kind} ${width}px: marxyGate.render threw: ${e.message}`];
+      } finally {
+        await page.close();
+      }
+    });
+    fails.push(...accessFails.flat());
+    phase('access');
+    notes.push(`access: ${accessTasks.length} render(s), text spacing at ${SPACING_WIDTHS.join(' and ')} px and 200 % text at ${TEXT200_WIDTH} px`);
+
+    if (EMIT_EXPECTED) {
+      console.log(`expected-failure rows (${foundCases.size} case(s)):\n${rowsOf(foundCases).map((r) => `  ${JSON.stringify(r)},`).join('\n')}`);
+    } else {
+      fails.push(...judgeExpected(foundCases, measuredCells, EXPECTED_FAILURES));
+      notes.push(`geometry: ${foundCases.size} listed failure case(s) across ${measuredCells.size} measured cell(s); ${EXPECTED_FAILURES.length} expected-failure row(s)`);
+    }
 
     if (UPDATE || created) {
       fails.push('baseline created; add a queue entry');

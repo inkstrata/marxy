@@ -205,6 +205,14 @@ them.
 | `gate:no-network` | something reached off the machine, or unsanitised markup reached the DOM (ADR-0009) | `pnpm gate:no-network` (both engines, against live controls) |
 | desktop lite suite | a WebKit test failed, or WebKit was missing (`MARXY_BROWSER_TESTS_REQUIRED=1` turns a skip into a failure) | `pnpm exec playwright install webkit`, then `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite` |
 | `gate:aesthetics --mechanical` | a mechanical aesthetics check moved (`docs/aesthetics-acceptance.md`) | `node scripts/gate-aesthetics.mjs --mechanical`; never loosen a threshold; `--workers N` tunes speed |
+| `gate:aesthetics` centred | the column's axis is off the visible area's axis | `node scripts/gate-aesthetics.mjs --mechanical --files <doc>.md`; the case names the cell |
+| `gate:aesthetics` blockEdges | a top-level block's text does not start on the column's left edge | as above |
+| `gate:aesthetics` room | a block box passes the column plus the room, or overhangs one side more than the other | as above |
+| `gate:aesthetics` marks | a list marker or checkbox sits left of the gutter floor | as above |
+| `gate:aesthetics` noClip | ink cut off by the window, a set line past its box after the relayout, or sideways scroll | as above |
+| `gate:aesthetics` noticeColumn | a notice is off the column, out of view when scrolled, not a whole number of grid units high, or over Source text | as above |
+| `gate:aesthetics` textSpacing, text200 | something clipped, overlapping or scrolling sideways with 1.4.12 text spacing or at 40 px text | as above |
+| `gate:aesthetics` an expected failure | a case in `EXPECTED_FAILURES` now passes (delete its row), or a failing case has no row (fix the page, never add a row without the story that clears it) | `node scripts/gate-aesthetics.mjs --mechanical --emit-expected` |
 | `gate:specimen` | a specimen render moved or made a network request | `pnpm gate:specimen` |
 | `lint:rust` | `cargo fmt --check` or `clippy -D warnings` | `pnpm lint:rust` |
 | Rust build or `cargo test` | a compile error, or a failing `#[test]` in `apps/desktop/src-tauri`; `Cargo.toml` changed without `Cargo.lock` (`cannot update the lock file`) | the `rust` block above; `cargo check` in `src-tauri`, then commit `Cargo.lock` |
