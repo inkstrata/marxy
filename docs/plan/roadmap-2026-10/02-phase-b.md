@@ -1788,6 +1788,24 @@ in CI (`04` §3: "reads as a real bug"). If it fails here, report its history ra
 
 ---
 
+### B-16.1 — The shipped app carries no harness
+
+**Model:** opus · **Size:** S · **Depends on:** B-16 · *Added 2026-10-08 by the lead, from the B-16 review; before
+the next DMG or release.* **Outcome.** `apps/desktop/dist/`, which Tauri embeds whole (`tauri.conf.json`
+`build.frontendDist: "../dist"`), holds only `index.html`'s graph. Today `vite.config.ts` also builds `app.html`
+(the harness entry `scripts/perf-harness.mjs` boots) into `dist/`, so the release binary embeds
+`/app.html`, an `assets/app-*.js` chunk with `installTestHooks`, `marxyRunCommand`, `createMemoryShell` and the
+fixture corpus (seen with `strings` on the installed app). It is dormant (nothing navigates to it; it boots on a
+memory shell), but `navigation_allowed` accepts any `tauri:` URL and the CSP lets it run.
+**Paths.** `apps/desktop/vite.config.ts`, `scripts/perf-harness.mjs` (and any other script that loads `dist/app.html`;
+grep), `scripts/gate-bundle.mjs` and its test, `apps/desktop/package.json` (a harness build script only).
+**Build order.** Build the harness into its own directory (e.g. `dist-harness/`, gitignored) with its own script; point
+the perf harness and anything else that loads `app.html` at it; make `gate:bundle` scan every file under `dist/` for
+`TEST_ONLY_STRINGS` and for a second HTML entry. Do not change `tauri.conf.json` or the capabilities (code-owned).
+**Acceptance.** `gate:bundle` fails when `app.html` is built into `dist/` (mutate the vite input back) and when any
+file under `dist/` contains a test-only string; the perf harness still runs from its own build; `pnpm build:web`
+leaves `dist/` with one HTML file.
+
 ### B-17 — Honour `typeset = false` and take justif's engine off the critical path
 
 **Model:** sonnet · **Size:** S · **Depends on:** B-15 · **Parallel with:** B-16
