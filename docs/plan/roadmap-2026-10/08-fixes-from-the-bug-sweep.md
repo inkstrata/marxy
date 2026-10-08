@@ -343,3 +343,12 @@ About 4 in 158k short random inputs break the parser's provenance invariants: ``
 each breaks (task-list markers with CR, a BOM inside an indented line, a tab after a block-quote marker) and fix it.
 **Acceptance:** each reproducer is a fixed test; a property test over random short inputs checks every invariant the
 golden check asserts, at a seed count that found these.
+
+### F-21 — Following a link or a collection command over unsaved edits acts on the wrong document
+
+**Model:** sonnet · **Size:** S · **Depends on:** C-17 (its `onLanded` open option) · *From the C-17 fix.* · **Paths:**
+`apps/desktop/src/selection/view.ts` (link-follow: `landFragment` after `await opts.open`), the collection command
+that calls `jumpToSource(0)` after `await handle.open` (grep `commands/`), their tests. Over unsaved edits `open()`
+shows the Save / Open without saving / Dismiss notice and resolves at once, so both then act on the document still on
+screen. Use `open(path, { onLanded })` as C-17 does. Acceptance: for each, a browser test that dirties the current
+document and covers the three choices; nothing in the current document changes on Dismiss.
