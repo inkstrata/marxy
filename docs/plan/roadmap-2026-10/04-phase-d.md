@@ -818,6 +818,12 @@ the quit guard for the other. If P1's store has no `dirty`, derive it the way `c
 
 ---
 
+**From the D-01 review (2026-10-08).** D-01 asks the unsaved-edits guard only when the pane being replaced is dirty,
+but `confirmLeaveDocument` still reads the focused pane. Three ways to lose edits, unreachable from any UI until
+D-07: `openIn(1, …)` into a dirty pane while the focused one is clean replaces it without asking; with both panes
+dirty the prompt names and saves only the focused document; `close()` of a dirty pane discards without asking. This
+story makes the guard per pane and tests all three.
+
 ### D-09 — Follow a link into the neighbour pane
 
 **Model:** sonnet · **Size:** M · **Depends on:** D-06, D-07, D-08 · **Parallel with:** D-10, D-12
