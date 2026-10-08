@@ -336,11 +336,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   /**
    * The reader's place while Source shows (F-04): the line on the reading line. In Source the window
    * scrolls and the article is hidden, so neither its block list nor CodeMirror's scroller says where
-   * the reader is. Null in Rendered.
+   * the reader is. Null in Rendered. A reader who has not scrolled (`scrollTop <= 0`) is at the top of
+   * the file, byte 0, as `positionAtScroll` reads it in Rendered (F-19.1): a line under the reading
+   * line would put them below text written above.
    */
   function sourcePosition(path: string): ReadingPosition | null {
     const buffer = bufferNow();
     if (viewMode !== 'source' || !sourceEditor || !buffer || !sourceReadingPositionIn) return null;
+    if (scroller.scrollTop <= 0) return { path, byteOffset: 0, fraction: 0, mode: 'source' };
     const place = sourceReadingPositionIn(buffer, sourceEditor.view as never, Math.round(window.innerHeight * 0.4));
     return { path, byteOffset: place.byteOffset, fraction: place.fraction, mode: 'source' };
   }
