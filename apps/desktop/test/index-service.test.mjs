@@ -701,3 +701,133 @@ nodeTest('checkoutKey: worktrees of one repository share a group; a folder the w
   assert.ok(!probed.some((p) => p.includes('/hidden/')), `a hidden folder is not probed: ${probed}`);
   assert.ok(probed.every((p) => /\/\.git(\/HEAD)?$/.test(p)), 'only .git and .git/HEAD are read');
 });
+
+// C-10.1: a root as large as a home directory is walked under a budget, skips the folders macOS guards,
+// and a recent one is served from its snapshot only.
+
+const HOME = '/Users/ian';
+const homeShell = (files) => {
+  const shell = createMemoryShell(files);
+  return { shell, host: { ...shell, configPaths: async () => ({ config: `${HOME}/.config/marxy`, data: '/data' }) } };
+};
+const listed = (shell) => shell.calls.filter((c) => c.method === 'readDir').map((c) => c.args[0]);
+const homeTree = () => ({
+  [`${HOME}/notes.md`]: enc('# Notes\n'),
+  [`${HOME}/projects/a/readme.md`]: enc('# A\n'),
+  [`${HOME}/Library/Application Support/x/leak.md`]: enc('# Leak\n'),
+  [`${HOME}/Library/Mobile Documents/m.md`]: enc('# M\n'),
+  [`${HOME}/Documents/doc.md`]: enc('# Doc\n'),
+  [`${HOME}/Downloads/dl.md`]: enc('# Dl\n'),
+  [`${HOME}/Desktop/desk.md`]: enc('# Desk\n'),
+});
+
+nodeTest('a declared ~ never lists Library, Desktop, Documents or Downloads (C-10.1)', async () => {
+  const { shell, host } = homeShell(homeTree());
+  const service = createIndexService(host);
+  await service.ensureRoot(HOME, { watch: true });
+  assert.deepEqual(
+    service.entries().map((e) => e.path).sort(),
+    [`${HOME}/notes.md`, `${HOME}/projects/a/readme.md`],
+  );
+  const dirs = listed(shell);
+  for (const guarded of ['Library', 'Desktop', 'Documents', 'Downloads']) {
+    assert.ok(!dirs.some((d) => d === `${HOME}/${guarded}` || d.startsWith(`${HOME}/${guarded}/`)), `${guarded} is not listed: ${dirs}`);
+  }
+});
+
+nodeTest('a folder inside Documents declared on its own is walked (C-10.1)', async () => {
+  const { shell, host } = homeShell(homeTree());
+  const service = createIndexService(host);
+  await service.ensureRoot(`${HOME}/Documents`, { watch: true });
+  assert.deepEqual(service.entries().map((e) => e.path), [`${HOME}/Documents/doc.md`]);
+  assert.ok(listed(shell).includes(`${HOME}/Documents`));
+});
+
+nodeTest('a walk of ~ stops at its directory budget with one notice, shallow folders first (C-10.1)', async () => {
+  const files = { [`${HOME}/top.md`]: enc('# Top\n') };
+  for (let i = 0; i < 12; i++) files[`${HOME}/d${String(i).padStart(2, '0')}/deep/er/f${i}.md`] = enc(`# F${i}\n`);
+  const { shell, host } = homeShell(files);
+  const said = [];
+  const service = createIndexService(host, { walkBudget: 6, notify: (n) => said.push(n.text) });
+  await service.ensureRoot(HOME, { watch: true });
+  assert.equal(listed(shell).filter((d) => d.startsWith(HOME)).length, 6, 'exactly the budget is listed');
+  assert.equal(said.length, 1);
+  assert.match(said[0], /too large to index in full/);
+  assert.match(said[0], /ian/);
+  // Breadth first: the root and five of its twelve children are kept, not one chain to the bottom.
+  assert.ok(!listed(shell).some((d) => d.endsWith('/deep')), 'no folder two levels down was listed');
+  // Walked again (settings change), the notice does not stack.
+  service.setDeny([]);
+  await service.settled();
+  const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
+  service.setDeny(denyRulesFor(['**/zzz/**']));
+  await service.settled();
+  assert.equal(said.length, 1, 'one notice per root per session');
+});
+
+nodeTest('an ordinary repository has no budget and no notice (C-10.1)', async () => {
+  const files = { '/r/.git/HEAD': enc('x') };
+  for (let i = 0; i < 30; i++) files[`/r/d${i}/e/f.md`] = enc('# F\n');
+  const { host } = homeShell(files);
+  const said = [];
+  const service = createIndexService(host, { walkBudget: 3, notify: (n) => said.push(n.text) });
+  await service.ensureFor('/r/d0/e/f.md');
+  assert.equal(service.entries().length, 30);
+  assert.deepEqual(said, []);
+});
+
+nodeTest('a recent ~/Downloads loads from its snapshot and is not walked; a recent repository still is (C-10.1)', async () => {
+  const downloads = `${HOME}/Downloads`;
+  const files = { [`${downloads}/loose.md`]: enc('# Loose\n'), '/r/.git/HEAD': enc('x'), '/r/a.md': enc('# A\n') };
+  const first = homeShell(files);
+  // The session that left the snapshot: Downloads was the open document's root.
+  const wrote = createIndexService(first.host);
+  await wrote.ensureFor(`${downloads}/loose.md`);
+  assert.deepEqual(wrote.entries().map((e) => e.path), [`${downloads}/loose.md`]);
+  const snap = `/data/index-${await sha1(downloads)}.json`;
+  const second = homeShell({ ...files, [snap]: await first.shell.readFile(snap) });
+  const service = createIndexService(second.host);
+  await service.ensureRoot(downloads, { recent: true });
+  await service.ensureRoot('/r', { recent: true });
+  await service.settled();
+  assert.deepEqual(service.entries().map((e) => e.path).sort(), [`${downloads}/loose.md`, '/r/a.md']);
+  assert.ok(!listed(second.shell).includes(downloads), 'Downloads was not listed');
+  assert.ok(listed(second.shell).includes('/r'), 'the repository was');
+  // Nothing re-walks it either: not a refresh, not a changed deny list.
+  service.refresh(downloads);
+  const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
+  service.setDeny(denyRulesFor(['**/zzz/**']));
+  await service.settled();
+  assert.ok(!listed(second.shell).includes(downloads));
+  // The reader declares it: now it is walked.
+  await service.ensureRoot(downloads, { watch: true });
+  await service.settled();
+  assert.ok(listed(second.shell).includes(downloads), 'declared, it is walked');
+});
+
+nodeTest('a snapshot of ~ written before Library was skipped never serves its files (C-10.1)', async () => {
+  const { shell, host } = homeShell(homeTree());
+  const stale = {
+    version: 1, root: HOME, generatedAtMs: 1, baselineMs: 1,
+    entries: ['notes.md', 'Library/Application Support/x/leak.md'].map((rel) => ({
+      path: `${HOME}/${rel}`, root: HOME, title: rel, mtimeMs: 1, size: 1, kind: 'markdown', headings: [],
+    })),
+  };
+  await shell.writeFileAtomic(`/data/index-${await sha1(HOME)}.json`, enc(JSON.stringify(stale)));
+  const service = createIndexService(host);
+  await service.ensureRoot(HOME, { recent: true });
+  assert.deepEqual(service.entries().map((e) => e.path), [`${HOME}/notes.md`]);
+});
+
+nodeTest('a volume root is budgeted and a plain folder is not (C-10.1)', async () => {
+  const { walkPolicy } = await import('../src/index/home-sized.ts');
+  assert.equal(walkPolicy('/Volumes/X', HOME, 9).budget, 9);
+  assert.equal(walkPolicy(HOME, HOME, 9).budget, 9);
+  assert.equal(walkPolicy('/Users', HOME, 9).budget, 9, 'a root above home');
+  assert.equal(walkPolicy(`${HOME}/Downloads`, HOME, 9).snapshotOnlyWhenRecent, true);
+  assert.deepEqual(walkPolicy(`${HOME}/Downloads`, HOME, 9).skip, []);
+  assert.equal(walkPolicy(`${HOME}/Documents/notes`, HOME, 9).budget, undefined);
+  assert.equal(walkPolicy('/Users/ianthony', HOME, 9).budget, undefined, 'a sibling that shares a prefix is not home');
+  assert.equal(walkPolicy('/Volumes/X/sub', HOME, 9).budget, undefined);
+  assert.equal(walkPolicy('/r', undefined, 9).budget, undefined, 'home unknown: only a volume root is sized');
+});
