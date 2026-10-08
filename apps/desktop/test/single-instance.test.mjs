@@ -42,6 +42,14 @@ nodeTest('tauri.conf.json declares markdown file associations', () => {
   assert.equal(assoc[0].mimeType, 'text/markdown');
 });
 
+nodeTest('tauri.conf.json lets Finder offer Marxy for source and text files', () => {
+  const conf = JSON.parse(readFileSync(join(desktopRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const types = conf.bundle.fileAssociations.flatMap((row) => row.contentTypes ?? []);
+  assert.ok(types.includes('public.text') && types.includes('public.source-code'));
+  const exts = conf.bundle.fileAssociations.flatMap((row) => row.ext ?? []);
+  assert.ok(exts.includes('py'));
+});
+
 nodeTest('main.rs queues Finder opens until take_pending_opens (MARXY-252)', () => {
   const main = readFileSync(join(desktopRoot, 'src-tauri', 'src', 'main.rs'), 'utf8');
   assert.match(main, /take_pending_opens/);

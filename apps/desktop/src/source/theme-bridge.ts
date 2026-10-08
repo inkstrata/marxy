@@ -36,7 +36,13 @@ export function marxyCodeMirrorTheme(): Extension {
         fontFamily: mono,
         fontSize: 'var(--marxy-size-code, var(--marxy-size-body, 20px))',
       },
-      '.cm-scroller': { fontFamily: 'inherit', lineHeight: 'var(--marxy-line-box-code, 30px)' },
+      // Source sits in the same margins Rendered has: past 100 columns of code the free width goes to
+      // both sides of the gutter and text, not to a ragged right edge.
+      '.cm-scroller': {
+        fontFamily: 'inherit',
+        lineHeight: 'var(--marxy-line-box-code, 30px)',
+        paddingInline: 'max(0px, calc((100% - 108ch) / 2))',
+      },
       '.cm-content': {
         caretColor: accent,
         fontVariantLigatures: 'none',

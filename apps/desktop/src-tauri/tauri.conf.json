@@ -50,6 +50,18 @@
         "name": "Markdown",
         "mimeType": "text/markdown",
         "role": "Viewer"
+      },
+      {
+        "name": "Source and text",
+        "contentTypes": [
+          "public.text",
+          "public.source-code",
+          "public.script",
+          "public.json",
+          "public.xml"
+        ],
+        "ext": ["txt", "log", "py", "rs", "toml", "yaml", "yml", "csv"],
+        "role": "Viewer"
       }
     ],
     "shortDescription": "A markdown reader",
