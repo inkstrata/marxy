@@ -4,7 +4,7 @@
 
 import { AST_INVARIANTS } from '../contracts/ast.ts';
 import type { Node } from '../contracts/ast.ts';
-import { nextLineEnding, splitLines } from './line-endings.ts';
+import { splitLines } from './line-endings.ts';
 import { decodeString } from 'micromark-util-decode-string';
 
 export interface Violation {
@@ -40,7 +40,7 @@ export function checkInvariants(root: Node, bytes: Uint8Array): Violation[] {
       if (content.start < src.start || content.end > src.end || content.start > content.end) {
         violations.push({ invariant: CODE_CONTENT, detail: `content [${content.start},${content.end}) escapes ${where(node)}` });
       } else {
-        const openingFenceEnds = openingFenceLineEnd(decoder.decode(bytes.subarray(src.start, src.end)), src.start);
+        const openingFenceEnds = openingFenceLineEnd(bytes, src.start, src.end, node.value);
         if (openingFenceEnds !== undefined && content.start < openingFenceEnds) {
           violations.push({ invariant: CODE_CONTENT, detail: `content of ${where(node)} includes the opening fence line` });
         } else if (!isJustTheCode(decoder.decode(bytes.subarray(content.start, content.end)), node.value)) {
@@ -77,12 +77,23 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
  * The byte offset just past a fenced block's opening fence line: content must start at or after it.
  * Undefined for an indented code block, which has no fence to exclude. A closing fence needs no check
  * of its own: content that swallowed it would have one line more than the block's value.
+ *
+ * A first line that looks like a fence is the code's own first line when the value starts with it:
+ * after `>` and a tab the block's range starts past the tab, whose leftover columns make `   ````
+ * indented code (F-20). A fenced block can begin with a copy of its opening line only when that line
+ * has an info string (`` ```js `` twice); then this check stands down and the line count catches a
+ * range that took the fence. The offset is counted in the file's bytes, never re-encoded, so a byte
+ * that is not UTF-8 on the fence line counts once (F-20).
  */
-function openingFenceLineEnd(source: string, start: number): number | undefined {
-  if (!FENCE.test(source)) return undefined;
-  const ending = nextLineEnding(source, 0);
-  if (ending === undefined) return undefined;
-  return start + new TextEncoder().encode(source.slice(0, ending.end)).byteLength;
+function openingFenceLineEnd(bytes: Uint8Array, start: number, end: number, value: string): number | undefined {
+  let lineEnd = start;
+  while (lineEnd < end && bytes[lineEnd] !== 0x0a && bytes[lineEnd] !== 0x0d) lineEnd++;
+  if (lineEnd === end) return undefined;
+  const firstLine = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false }).decode(bytes.subarray(start, lineEnd));
+  if (!FENCE.test(firstLine)) return undefined;
+  const strip = (line: string) => line.replace(/^[ \t>]*/, '');
+  if (strip(firstLine) === strip(splitLines(value)[0] ?? '')) return undefined;
+  return lineEnd + (bytes[lineEnd] === 0x0d && bytes[lineEnd + 1] === 0x0a ? 2 : 1);
 }
 
 /**
