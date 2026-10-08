@@ -55,12 +55,13 @@ function b64(text) {
   return Buffer.from(text, 'utf8').toString('base64');
 }
 
-async function boot(page, files, argv) {
+/** `lateWatch`: a watch on that folder registers only after a delay, as one on Tauri does (two round trips). */
+async function boot(page, files, argv, { lateWatch = null } = {}) {
   const base = await harnessBase();
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(
-    async ({ files, argv }) => {
+    async ({ files, argv, lateWatch }) => {
       const bin = atob;
       const bytes = {};
       for (const [path, b64] of Object.entries(files)) {
@@ -74,6 +75,7 @@ async function boot(page, files, argv) {
       const watchCloses = [];
       const origWatch = inner.watch.bind(inner);
       inner.watch = async (root, onEvents) => {
+        if (root === lateWatch) await new Promise((r) => setTimeout(r, 300));
         const handle = await origWatch(root, onEvents);
         return {
           close() {
@@ -88,7 +90,7 @@ async function boot(page, files, argv) {
       window.__marxyHandle = handle;
       window.__watchCloses = watchCloses;
     },
-    { files, argv },
+    { files, argv, lateWatch },
   );
 }
 
@@ -141,6 +143,53 @@ test('modified on disk reloads appended text and keeps byteOffset', async () => 
       window.__marxyHandle.shell.calls.find((c) => c.method === 'mark' && c.args[0] === 'live_reload' && String(c.args[2] ?? '').includes('ms=')),
     );
     assert.ok(reloadMark, 'expected live_reload mark with ms=');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Save as closes the old folder\'s watch and watches the new one', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A) }, ['/r/A.md']);
+    const seen = await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      h.shell.queueSaveDialog('/e/A.md');
+      const result = await h.save({ as: true });
+      return {
+        result,
+        watched: h.shell.calls.filter((c) => c.method === 'watch').map((c) => c.args[0]),
+        closes: [...window.__watchCloses],
+      };
+    });
+    assert.equal(seen.result, 'saved');
+    assert.deepEqual(seen.watched, ['/r', '/e']);
+    assert.deepEqual(seen.closes, ['/r'], 'the old folder is no longer watched');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a write right after Save as reloads, when the new folder\'s watch registers late (Tauri)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A) }, ['/r/A.md'], { lateWatch: '/e' });
+    const seen = await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      h.shell.queueSaveDialog('/e/A.md');
+      const result = await h.save({ as: true });
+      // At once, before anything else runs: another program writes the file the reader just saved.
+      await h.shell.writeFileAtomic('/e/A.md', new TextEncoder().encode('# Rewritten\n\nBy someone else.\n'));
+      h.shell.emit([{ kind: 'modified', path: '/e/A.md' }]);
+      const reloaded = () => h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'live_reload');
+      for (let i = 0; i < 500 && !reloaded(); i++) await new Promise((r) => setTimeout(r, 10));
+      return { result, reloaded: reloaded(), heading: document.querySelector('#doc h1')?.textContent };
+    });
+    assert.equal(seen.result, 'saved');
+    assert.equal(seen.reloaded, true, 'the write after Save as was seen');
+    assert.equal(seen.heading, 'Rewritten');
   } finally {
     await browser.close();
   }

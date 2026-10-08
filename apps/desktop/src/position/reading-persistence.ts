@@ -25,6 +25,11 @@ export interface ReadingPersistence {
   flushReading(): Promise<void>;
   /** The place and the palette's history, written now (quit). */
   flush(): Promise<void>;
+  /**
+   * Stops noting: the scroll and pagehide listeners go, and nothing more is written. The app instance
+   * that made this calls it when a later one replaces it in the same page (the B-14 review).
+   */
+  close(): void;
 }
 
 type PersistenceShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
@@ -41,6 +46,9 @@ export function createReadingPersistence(
   let positions: PositionPersistence | null = null;
   let loaded = false;
   let listening = false;
+  let closed = false;
+  /** Removes the scroll and pagehide listeners, once they are installed. */
+  let stopListening = (): void => {};
   let view: RenderedView | null = null;
   /** History records opens in order even though each waits on its root (palette/history.ts). */
   let historyTracked: Promise<void> = Promise.resolve();
@@ -49,7 +57,7 @@ export function createReadingPersistence(
 
   async function flushReading(): Promise<void> {
     const path = openPath();
-    if (!positions || !path || !view?.document()) return;
+    if (closed || !positions || !path || !view?.document()) return;
     positions.note(path, view.position());
     await positions.flush();
   }
@@ -61,34 +69,38 @@ export function createReadingPersistence(
   }
 
   function installScrollPersistence(): void {
-    if (listening || !positions) return;
+    if (listening || closed || !positions) return;
     listening = true;
     // WebKit fires the viewport's scroll at the Document, not at documentElement, so listen there.
     // PositionPersistence debounces the write itself (POSITIONS_DEBOUNCE_MS), so noting on every
     // scroll event only updates an in-memory entry.
     // One sample per frame: currentPosition walks the blocks, so it must not run per scroll event.
     let frame = 0;
-    document.addEventListener(
-      'scroll',
-      () => {
-        if (frame !== 0) return;
-        frame = requestAnimationFrame(() => {
-          frame = 0;
-          const path = openPath();
-          if (!positions || !path || !view?.document()) return;
-          // In Source the window scrolls the editor: the place is the line on the reading line.
-          const source = view.sourcePosition();
-          if (source) return positions.note(path, source);
-          if (view.mode !== 'rendered') return;
-          positions.note(path, view.blockPosition(path, 'rendered'));
-        });
-      },
-      { passive: true },
-    );
+    const onScroll = (): void => {
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const path = openPath();
+        if (closed || !positions || !path || !view?.document()) return;
+        // In Source the window scrolls the editor: the place is the line on the reading line.
+        const source = view.sourcePosition();
+        if (source) return positions.note(path, source);
+        if (view.mode !== 'rendered') return;
+        positions.note(path, view.blockPosition(path, 'rendered'));
+      });
+    };
     // A window close that skips shell.quit still gets the last position out.
-    window.addEventListener('pagehide', () => {
+    const onPageHide = (): void => {
       void flushReading();
-    });
+    };
+    document.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('pagehide', onPageHide);
+    stopListening = () => {
+      document.removeEventListener('scroll', onScroll);
+      window.removeEventListener('pagehide', onPageHide);
+      if (frame !== 0) cancelAnimationFrame(frame);
+      frame = 0;
+    };
   }
 
   /** The memory shell can say a state file is absent without a recorded `readFile`. */
@@ -138,6 +150,13 @@ export function createReadingPersistence(
     async flush() {
       await flushReading();
       await flushPaletteHistory();
+    },
+    close() {
+      closed = true;
+      stopListening();
+      view = null;
+      // A write still waiting on the debounce is dropped with the rest (PositionPersistence.close).
+      void positions?.close();
     },
   };
 }

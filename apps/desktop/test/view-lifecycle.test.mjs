@@ -393,3 +393,26 @@ test('a task clicked on a page the store has moved past carries the page\'s vers
     assert.equal(seen.fresh, true, 'a toggle from the page as it is lands');
     assert.equal(seen.ticked, true);
   }));
+
+test('an edit that starts in the block above a held heading and runs into it holds the heading, not the block above', () =>
+  withPage(async (page) => {
+    const seen = await page.evaluate(async ({ files, target }) => {
+      const h = await window.marxyApp.start(files, ['/r/A.md']);
+      await h.ready;
+      await h.open('/r/C.md', { at: target });
+      const before = h.sourceHarness().byteOffset;
+      const store = h.document();
+      const text = new TextDecoder().decode(store.snapshot().buffer.bytes);
+      // From inside the paragraph above, through the heading's `## `: the heading is written back, one word
+      // longer above it. The anchor was in the replaced range, so it maps to the edit's start.
+      const start = target - 20;
+      const replacement = `${text.slice(start, target - 3)} too.\n\n## `;
+      await store.apply({ range: { file: '/r/C.md', start, end: target + 3 }, replacement, label: 'edit' });
+      await h.contentComplete();
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const after = new TextDecoder().decode(store.snapshot().buffer.bytes);
+      return { before, after: h.sourceHarness().byteOffset, heading: new TextEncoder().encode(after.slice(0, after.indexOf('## Target heading'))).length };
+    }, { files, target });
+    assert.equal(seen.before, target, 'the open landed on the heading');
+    assert.equal(seen.after, seen.heading, 'the heading is held at its new offset, not the paragraph above it');
+  }));

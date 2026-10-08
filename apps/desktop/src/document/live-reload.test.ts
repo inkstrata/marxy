@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { RenderedView } from '../view/rendered-view.ts';
-import { watchDocument, type LiveReloadDeps } from './live-reload.ts';
+import { oneWatchPerStore, watchDocument, type LiveReloadDeps } from './live-reload.ts';
 import { openDocumentStore, type DocumentStore } from './store.ts';
 
 const enc = new TextEncoder();
@@ -122,4 +122,42 @@ test('the watch closes with its store', async () => {
   assert.equal(fake.watches[0].closed, false);
   store.close();
   assert.equal(fake.watches[0].closed, true);
+});
+
+test('a Save as resolves `moved` only once the new folder\'s watch is registered (the B-14 review)', async () => {
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode('# A\n')]]));
+  // On Tauri a watch is two round trips (watch_root, listen): registration resolves later than the save.
+  const register = fake.shell.watch;
+  let release!: () => void;
+  const late = new Promise<void>((resolve) => { release = resolve; });
+  fake.shell.watch = async (root, onEvents) => {
+    if (root === '/e') await late;
+    return register(root, onEvents);
+  };
+  const store = storeFor(fake, '/d/a.md');
+  const watch = await watchDocument(store, () => [], deps(fake.shell));
+  assert.equal((await store.save({ to: '/e/b.md' })).result, 'saved');
+  let moved = false;
+  const moving = watch.moved().then(() => { moved = true; });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(moved, false, 'moved before the new watch exists');
+  release();
+  await moving;
+  assert.deepEqual(fake.watches.map((w) => [w.root, w.closed]), [['/d', true], ['/e', false]]);
+});
+
+test('one watch per store, however often it is asked for; another store gets its own', async () => {
+  const fake = fakeShell(new Map([['/d/a.md', enc.encode('# A\n')], ['/d/b.md', enc.encode('# B\n')]]));
+  const watches = oneWatchPerStore((store) => watchDocument(store, () => [], deps(fake.shell)));
+  const a = storeFor(fake, '/d/a.md');
+  assert.equal(watches.of(a), null);
+  const first = await watches.watch(a);
+  assert.equal(await watches.watch(a), first);
+  assert.equal(await watches.of(a), first);
+  assert.equal(fake.watches.length, 1, 'a second finishDocumentOpen for one store starts no second watch');
+  a.close();
+  const b = storeFor(fake, '/d/b.md');
+  assert.notEqual(await watches.watch(b), first);
+  assert.equal(watches.of(a), null);
+  assert.deepEqual(fake.watches.map((w) => w.closed), [true, false]);
 });

@@ -22,23 +22,30 @@ No element outside `#marxy-main` is visible unless its state is open. There is n
 tab bar, status bar or sidebar element in the DOM at all, so the "chrome at rest" gate is a DOM
 assertion, not a screenshot judgement.
 
-## State (`apps/desktop/src/state.ts`)
+## State
 
-```ts
-interface AppState {
-  document: { buffer: Buffer; ast: Document; nodeMap: NodeMap; blocks: BlockList } | null;
-  mode: 'rendered' | 'source';
-  overlay: 'none' | 'palette' | 'outline' | 'find';
-  selection: Selection;            // §03
-  dirty: boolean;
-  variant: 'light' | 'dark';
-}
-```
+There is no `AppState` record and no `state.ts`. State lives in three places, each owned by one object
+(ADR-0037 and its Amendment 1):
 
-A single `dispatch(action)` mutates it; every mutation is one of: `open(path)`, `reloaded`,
-`setMode`, `setOverlay`, `select`, `applied(op)`, `saved`, `setVariant`. Overlays are
-exclusive: opening one closes another. `Esc` closes the open overlay, else clears the
-selection, else does nothing.
+- **The document store** (`apps/desktop/src/document/store.ts`): what is true of the bytes. Its path,
+  `disk` (the bytes last read or written), `buffer`, the parse (`ast`, `nodeMap`), one undo history
+  for both modes, and a `version`. `dirty` is derived (`buffer ≠ disk`). Every change is one of its
+  transitions: `open`, `reload`, `apply`, `commitSource`, `undo`, `redo`, `save`, `rename`, `close`.
+  Readers call `snapshot()` or `subscribe()`.
+- **The view** (`apps/desktop/src/view/rendered-view.ts`): how one article shows a store. The mode
+  (Rendered or Source) and the Source editor, the anchor the reader is held at, the layout (the mount,
+  the typesetter, the grid, the block list). It subscribes to the store it shows and sets the page
+  again after each transition, mapping its anchor through the edit (ADR-0037 §6).
+- **The app instance** (`apps/desktop/src/app.ts`, the composition root): which view has focus (one,
+  on `#doc`, until the split view) and the overlays. `startApp` builds the instance from a shell and
+  connects its parts: the open path (`document/open.ts`), live reload (`document/live-reload.ts`),
+  reading persistence (`position/reading-persistence.ts`), trust (`trust/controller.ts`), the launch
+  measurement (`startup/measure.ts`) and the selection.
+
+No module keeps any of this at module scope (`apps/desktop/test/module-state.test.mjs`).
+`AppHandle.dispatch(action)` routes `apply`, `undo`, `redo` and `save` to the focused view's store and
+`toggle-mode` to the view. Overlays are exclusive: opening one closes another. `Esc` closes the open
+overlay, else clears the selection, else does nothing.
 
 ## Keyboard map
 
