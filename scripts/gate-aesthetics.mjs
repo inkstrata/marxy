@@ -532,10 +532,6 @@ const rowsFor = (check, story, cells, documents) => documents.map((document) => 
 // `-source` after one in Source mode. They are measured, not chosen: `--emit-expected` prints them.
 // The code box sits 15 px inside the prose edge (H2, code): every cell, in every document that has a code block.
 const CODE_BOX_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
-// A checkbox hangs past the gutter floor (H3): at 320 px and under a classic scrollbar at 480 px.
-const CHECKBOX_CELLS = ["320x20-dark", "480x20-dark-classic"];
-// An ordered-list marker hangs past the gutter floor (H3): up to 720 px, and at 28 px type.
-const OL_MARKER_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "720x20-light", "960x28-dark", "960x28-light"];
 // A notice is off the column (H6): its region sizes the column in em at its own 16 px, so every cell but 960 px at 16 px, where that font is the article's.
 const NOTICE_EDGE_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
 // A notice is not a whole number of grid units high (H6).
@@ -550,8 +546,6 @@ const WIDE_BLOCK_CELLS = ["720x20-dark", "720x20-light", "960x16-dark", "960x16-
 /** One row per document for each check, each naming the cells it fails in and the story that clears it. */
 const EXPECTED_FAILURES = [
   ...rowsFor('blockEdges/code', 'L-04', CODE_BOX_CELLS, ["02-readme-real-world.md", "03-ai-plan.md", "06-math.md", "09-gfm-everything.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "27-alerts.md", "28-artifact-fences.md", "28-llm-answer.md", "29-hidden-characters.md", "30-notebook-export.md", "32-long-reference.md"]),
-  ...rowsFor('marks/checkbox', 'L-03', CHECKBOX_CELLS, ["03-ai-plan.md", "09-gfm-everything.md", "23-task-openers.md", "24-issue-thread.md"]),
-  ...rowsFor('marks/ol-marker', 'L-03', OL_MARKER_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "09-gfm-everything.md", "15-prose-volume.md", "24-issue-thread.md", "28-llm-answer.md", "31-essay.md", "32-long-reference.md"]),
   ...rowsFor('noticeColumn/edges', 'L-05', NOTICE_EDGE_CELLS, ["15-prose-volume.md"]),
   ...rowsFor('noticeColumn/grid', 'L-05', NOTICE_GRID_CELLS, ["15-prose-volume.md"]),
   ...rowsFor('noticeColumn/sight', 'L-05', NOTICE_SIGHT_CELLS, ["15-prose-volume.md"]),

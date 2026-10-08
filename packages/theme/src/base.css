@@ -212,9 +212,15 @@ dd { margin: 0 0 0 calc(var(--lb) * 1.25); }
 dt { --marxy-wght: calc(var(--marxy-weight-heading) + var(--marxy-weight-offset)); font-weight: var(--marxy-wght); }
 
 /* Lists. At the top level the markers hang in the margin, so the text of an item aligns with the
-   paragraphs around it; nested lists indent. */
+   paragraphs around it; nested lists indent. A mark hangs only as far as there is room: the margin is
+   what the column leaves, down to a minimum gutter (Reader Typography ch.4 "Margins"), and a hang
+   spends that margin as protrusion does (ch.5 "Microtypography"), never past its floor. So a top-level
+   list indents by the part of its hang the room cannot hold: at 480 px and below it does not hang at
+   all, and at 20 px type a bullet hangs fully from about 710 px, a number from about 750 px (L-03).
+   Bullets (their ink is 1.15em) and checkboxes hang within 1.25em, ordered markers 2.25em (below). */
 ul, ol { padding-inline-start: 1.25em; }
-.marxy-article > :is(ul, ol), .marxy-footnotes { padding-inline-start: 0; }
+.marxy-article > :is(ul, ol) { padding-inline-start: max(0em, 1.25em - var(--marxy-room)); }
+.marxy-article > ol, .marxy-footnotes { padding-inline-start: max(0em, 2.25em - var(--marxy-room)); }
 li { margin: 0; }
 li > :is(ul, ol) { margin-bottom: 0; }
 li::marker { color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }

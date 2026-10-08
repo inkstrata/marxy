@@ -82,7 +82,9 @@ test('negative control: a column off the window axis is reported with the offset
 });
 
 test('negative control: a top-level ordered list hangs its marker past the gutter floor at 320px, not at 960px', async () => {
-  const html = page(blk('ol', 0, `<li>${'first item'}</li><li>second item</li>`));
+  // The fault is built: the list hangs its whole marker whatever the room (the theme's rule before L-03).
+  const list = blk('ol', 0, `<li>${'first item'}</li><li>second item</li>`);
+  const html = page(list, { extraCss: '.marxy-article > ol { padding-inline-start: 0; }' });
   const narrow = await measure(html, 320);
   const h3 = narrow.offenders.filter((o) => o.h === 'H3');
   assert.ok(h3.length >= 1, JSON.stringify(narrow.marks));
@@ -91,6 +93,9 @@ test('negative control: a top-level ordered list hangs its marker past the gutte
   assert.equal(h3[0].metric, Math.round((narrow.column.gutter - (narrow.column.left - hang)) * 100) / 100);
   const wide = await measure(html, 960);
   assert.deepEqual(wide.offenders.filter((o) => o.h === 'H3'), []);
+  // The twin: the theme's own list hangs only into the room, so at 320px nothing is reported (L-03).
+  const kept = await measure(page(list), 320);
+  assert.deepEqual(kept.offenders.filter((o) => o.h === 'H3'), [], JSON.stringify(kept.marks));
 });
 
 // ---- Controls added in L-00.1: one per rule the first version left unguarded. Each builds the fault with a
