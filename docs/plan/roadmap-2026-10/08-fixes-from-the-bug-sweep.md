@@ -332,3 +332,14 @@ An outside write to a file open, unedited, in Source puts the caret back on line
 selection) through the change the way the reading position is mapped (`offsetThroughEdit`), so a reader whose caret
 was on line 20 finds it on the same text after the write. Acceptance: a WebKit case with the caret on a line below
 an insertion keeps it on the same text; a caret inside deleted text lands at the deletion point.
+
+### F-20 — Text nodes whose value does not match their bytes
+
+**Model:** opus · **Size:** S · **Depends on:** — · *From the B-23 review (note 8); predates B-23.* · **Paths:**
+`packages/core/src/parse/` (the node builder), its tests, `packages/core/goldens/` only if a fixture moves.
+About 4 in 158k short random inputs break the parser's provenance invariants: ``1. [x] \r -` `` (a text node at
+[8,11) decodes to `` -` `` with a leading space but its value lacks it), `"- [x] \n    \uFEFF\t"`, ``">\t   ```\n"``
+(the code block's content), and the `11-empty.md` case B-23 met. Commitment 3 rests on provenance. Find the rule
+each breaks (task-list markers with CR, a BOM inside an indented line, a tab after a block-quote marker) and fix it.
+**Acceptance:** each reproducer is a fixed test; a property test over random short inputs checks every invariant the
+golden check asserts, at a seed count that found these.

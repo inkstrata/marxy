@@ -1885,14 +1885,16 @@ prints the repaint stage under 100 ms on the transcript (recorded, not asserted)
 blocks are the same DOM nodes after a one-line write far from them; the sanitiser still runs over every new byte
 (commitment: nothing unsanitised reaches the DOM). Runs after D-01 (same file).
 
-### B-25 — Find what stalls `contentComplete` on a 1 MB document
+### B-25 — Find what makes `contentComplete` cubic on a transcript
 
-**Model:** opus · **Size:** S · **Depends on:** — · *Added 2026-10-08 by the lead, from B-23 (found in passing).*
-In the Vite dev server the first `contentComplete` on a 1 MB document ran for over 15 minutes of WebKit CPU without
-finishing; 256 KB finished in seconds. Reproduce it (and in the built app), profile it, and say what is quadratic.
-**Paths:** a measurement under `scripts/`, then the file the profile names (report before fixing if it is outside
-`apps/desktop/src/render/` or `packages/typeset/`). **Acceptance:** a reproduction with a profile in the PR; if the
-cause is in Marxy, `content_complete` at 1 MB in under 10 s in the perf harness (recorded).
+**Model:** opus · **Size:** S · **Depends on:** — · *Added 2026-10-08 by the lead, from B-23 and its review.*
+The first `contentComplete` of a transcript-shaped document grows about 8× per doubling: 1.2 s at 64 KB, 9.8 s at
+128 KB, 75 s at 256 KB in the dev server (over an hour at 1 MB). A prose document of the same size takes 0.6 s at
+128 KB and 1.2 s at 256 KB, so the shape matters, not the server. The nightly cannot see it: its large document is
+prose. Add a transcript-shaped large document to the perf harness, profile, and fix what is super-linear. **Paths:**
+`scripts/perf-harness.mjs` and its corpus generator, then the file the profile names (report before fixing if it is
+outside `apps/desktop/src/render/`, `apps/desktop/src/view/` or `packages/typeset/`). **Acceptance:** the perf harness
+records a transcript at 256 KB and 1 MB; `content_complete` at 1 MB under 10 s (recorded, not asserted).
 
 ### B-23 — Reload a large document inside the budget
 
