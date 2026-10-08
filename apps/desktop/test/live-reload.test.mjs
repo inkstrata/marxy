@@ -148,6 +148,50 @@ test('modified on disk reloads appended text and keeps byteOffset', async () => 
   }
 });
 
+/** Many short turns, so a write above the reader leaves most of the file's blocks unchanged (B-23). */
+const T = Array.from({ length: 60 }, (_, i) =>
+  `## Turn ${i + 1}\n\n${para(`Turn ${i + 1}`)}\n\n- an item with \`code\`\n  - nested *a* b\n\n\`\`\`js\nconst n = ${i};\n\`\`\`\n\n`,
+).join('');
+
+test('a write above the reader in a long file reloads to the whole parse of the new bytes, at the same text (B-23)', async () => {
+  const { parseMarkdown } = await import('../../../packages/core/src/parse/parse.ts');
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/T.md': b64(T) }, ['/r/T.md']);
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 3));
+    await page.waitForFunction(() => window.scrollY > 1000);
+    const writes = [
+      // One line above the reader: everything after it moves.
+      (text) => text.replace('## Turn 2\n', 'One line an outside editor wrote.\n\n## Turn 2\n'),
+      // A fence opened above the reader and closed further down: the parse after it changes, then settles.
+      (text) => text.replace('## Turn 3\n', '```\nopened\n\n').replace('## Turn 5\n', '```\n\n## Turn 5\n'),
+    ];
+    let text = T;
+    for (const write of writes) {
+      const held = await page.evaluate(() => window.__marxyHandle.sourceHarness().byteOffset);
+      const heldText = Buffer.from(text).subarray(held, held + 24).toString();
+      const next = write(text);
+      const seen = await page.evaluate(async ({ next }) => {
+        const h = window.__marxyHandle;
+        const path = h.currentPath();
+        const count = () => h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'live_reload').length;
+        const before = count();
+        await h.shell.writeFileAtomic(path, new TextEncoder().encode(next));
+        h.shell.emit([{ kind: 'modified', path }]);
+        for (let i = 0; i < 500 && count() === before; i++) await new Promise((r) => setTimeout(r, 10));
+        return { reloaded: count() > before, ast: JSON.stringify(h.document().snapshot().ast), place: h.sourceHarness().byteOffset };
+      }, { next });
+      assert.equal(seen.reloaded, true);
+      assert.equal(seen.ast, JSON.stringify(parseMarkdown(new TextEncoder().encode(next), { file: '/r/T.md' })), 'the store holds the whole parse');
+      assert.equal(Buffer.from(next).subarray(seen.place, seen.place + 24).toString(), heldText, 'the reader is on the same text');
+      text = next;
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 test('Save as closes the old folder\'s watch and watches the new one', async () => {
   const browser = await launchWebkit();
   try {

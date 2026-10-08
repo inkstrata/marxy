@@ -62,7 +62,7 @@ on marxy:watch batch:
      if dirty: notice "The file changed on disk" [Reload, discarding your changes] [Keep mine]; stop
      pos = current(); pos.byteOffset = offsetThroughEdit(pos.byteOffset, buffer.bytes, bytes)
      history.clear(); buffer = createBuffer(path, bytes)
-     reparse → re-render → typeset viewport (cache) → restore(pos)        // budget 100 ms at 200 KB
+     reparse the changed blocks → re-render → typeset viewport (cache) → restore(pos)   // budget 100 ms at 200 KB
   if event.kind == 'removed' && event.path == buffer.path:
      notice "The file was deleted" [Keep showing it] [Close]; the buffer stays; saving recreates the file
   else: index update only (§07)
@@ -74,7 +74,23 @@ changed run between the old and new bytes' common prefix and suffix; an offset b
 one after it moves by the change in length, one inside it lands at the run's start
 (`reloadOpenDocument(bytes, previous, previousBytes)`, MARXY-198).
 
-The `mark('live_reload', …)` pair around this path feeds the perf gate's `live_reload_ms`.
+The reparse is incremental (B-23, `core/parse/reparse.ts`): `reparseMarkdown(previous, before,
+after)` parses only the top-level blocks the change touches and keeps the rest of the previous parse
+by byte range, moving the blocks after the change by its length. It restarts at the line start of
+the block before the first one touched, after a blank line, and ends at a witness, the first block
+after the change whose line the change left alone; when the region's parse ends with that block
+exactly as it was, every later block parses as before. Otherwise the region grows, and past half
+the file it parses the whole file. A file holding `]:` anywhere (a definition applies file-wide) or
+opening like frontmatter that does not close is parsed whole. The result equals `parseMarkdown`
+node for node (`reparse.test.ts`, random edits over the corpus). The watcher reparses to map the
+place, and the store's `reload` reparses from its own parse the same way.
+
+The `live_reload` mark spans the watch event to every view settled at its place, with the stages
+in its detail (`read`, `map`, `store`, `settle`); `node scripts/measure-reload.mjs` prints them for
+a 1 MB agent transcript. Measured on 2026-10-08 (WebKit, medians of three, one line written above
+the reader): 1,034 ms before B-23, 150 to 260 ms after; on the denser 200,000-node document of the
+F-19.1 review, 5.4 s before and about 0.6 s after. What remains is the whole-document render,
+sanitise and node map, which a partial re-render would cut (02-phase-b.md, "left out").
 
 Atomic-replace writes (write-temp-then-rename) arrive as `renamed → path` or `created` (§06
 mapping) and take the same branch as `modified`. The watcher is on the root directory, so the
