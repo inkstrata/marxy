@@ -900,7 +900,6 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     destroyTypeset();
     typeset = attach(article, {
       lineBox,
-      glueStretchEm: 0.6,
       lastLineMinWidth: 0.33,
       onPass: (kind) => (kind === 'background' ? scheduleSnap(article) : snap(article)),
     });

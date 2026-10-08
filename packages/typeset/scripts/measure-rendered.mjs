@@ -15,16 +15,15 @@ const research = new URL('../RESEARCH.md', import.meta.url);
 const files = readdirSync(corpus).filter((f) => f.endsWith('.md')).sort();
 const OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };
 const HYPHENATE = process.env.HYPHENATE === '1' || process.argv.includes('--hyphenate');
-const ENGINE = { name: process.env.ENGINE ?? 'ragged', stretch: Number(process.env.STRETCH ?? 2), hyphenate: HYPHENATE };
+const ENGINE = { stretch: Number(process.env.STRETCH ?? 2), hyphenate: HYPHENATE };
 const STRETCHES = [ENGINE.stretch];
 /** The alternatives the decision was made between, each pooled over the same paragraphs. */
 const ALTERNATIVES = [
   { label: 'engine wrapping (WebKit, `text-wrap: auto`)', css: '' },
   { label: 'WebKit `text-wrap: pretty`', css: '.marxy-article :is(p, li) { text-wrap: pretty; }' },
-  { label: 'justif/core, 0.6 em per word space (MARXY-19 model)', engine: { name: 'justif', stretch: 2 } },
-  { label: 'ragged breaker, 1 em per line', engine: { name: 'ragged', stretch: 1 } },
-  { label: '**ragged breaker, 2 em per line (shipped)**', engine: { name: 'ragged', stretch: 2 } },
-  { label: 'ragged breaker, 3 em per line', engine: { name: 'ragged', stretch: 3 } },
+  { label: 'ragged breaker, 1 em per line', engine: { stretch: 1 } },
+  { label: '**ragged breaker, 2 em per line (shipped)**', engine: { stretch: 2 } },
+  { label: 'ragged breaker, 3 em per line', engine: { stretch: 3 } },
 ];
 
 const harness = await startHarness();
@@ -36,7 +35,7 @@ for (const file of files) {
   const page = await harness.open(renderCorpus(file));
   const native = await readLines(page);
   const stats = await page.evaluate(async (engine) => {
-    const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, glueStretchEm: 0.6, raggedStretchEm: engine.stretch, engine: engine.name, hyphenate: engine.hyphenate, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
+    const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, raggedStretchEm: engine.stretch, hyphenate: engine.hyphenate, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
     await c.done;
     return JSON.parse(JSON.stringify(c.stats));
   }, ENGINE);
@@ -62,7 +61,7 @@ for (const alt of HYPHENATE ? [] : ALTERNATIVES) {
     const page = await harness.open(renderCorpus(file), { extraCss: alt.css ?? '' });
     if (alt.engine) {
       await page.evaluate(async (engine) => {
-        const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, glueStretchEm: 0.6, raggedStretchEm: engine.stretch, engine: engine.name, hyphenate: engine.hyphenate === true, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
+        const c = window.typeset.attach(document.getElementById('doc'), { lineBox: window.lineBox, raggedStretchEm: engine.stretch, hyphenate: engine.hyphenate === true, lastLineMinWidth: 0.33, hanging: 'none', scheduler: window.immediateScheduler() });
         await c.done;
       }, alt.engine);
     }
