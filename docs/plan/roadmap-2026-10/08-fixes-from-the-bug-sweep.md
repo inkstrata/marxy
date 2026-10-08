@@ -372,3 +372,22 @@ block whose value reads a lone CR followed by a whitespace-only line as one CRLF
 `"    a\r  \n    b"`, `` "-   ```\r  \n\ta  " ``, `"   ~~~\r  \n===\n"`, `` "  ```js\n---\n\r  \n1. " ``. Map the value's line
 endings to the bytes one by one. Acceptance: each reproducer is a fixed test; the invariant stress passes at its seed
 count with these shapes in the generator.
+
+### F-23 — Source positions in a CRLF file
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.3 · *From the F-19.3 review (comment 1); true on main.* · **Paths:**
+`apps/desktop/src/source/mode-switch.ts`, `apps/desktop/src/view/rendered-view.ts` (`replaceSourceBuffer`), a desktop
+test. `editorDocConfig` keeps `\r\n` as the editor's line separator, but CodeMirror counts each break as one position,
+so every place that treats a CodeMirror position as a buffer UTF-16 offset drifts one position per line above it:
+`renderedByteToCmPos`, `selectionToCmRange`, `cmSelectionToBytes`, `sourceReadingPosition` and F-19.3's reload caret
+(on main, Jump to source on `value20` in a CRLF file lands on `" const "`, 20 positions off). Add one pair of helpers,
+`cmPosToUtf16` / `utf16ToCmPos` (add the line count for CRLF, and 1 for a BOM), and use them everywhere. Acceptance:
+a CRLF case each for Jump to source, the mode-switch place, and the reload caret; a BOM case.
+
+### F-24 — A file with only CR line endings shows as one line in Source
+
+**Model:** sonnet · **Size:** S · **Depends on:** — · *From the F-19.3 review (note 3); true on main.* · **Paths:**
+`apps/desktop/src/source/` (the editor's line-separator config), a desktop test. A classic-Mac file (`\r` only) shows
+as a single line in Source, though Source must show the file exactly (commitment 3). Detect a CR-only file and set
+the editor's line separator to `\r` (as CRLF sets `\r\n`), without changing a byte. Acceptance: a CR-only file shows
+its lines in Source; saving it unchanged writes the same bytes; Jump to source lands on the right line.
