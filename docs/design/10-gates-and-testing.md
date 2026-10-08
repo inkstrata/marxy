@@ -50,7 +50,7 @@ code**, without Tauri. So the app's startup is split once:
 // apps/desktop/src/app.ts — everything main.ts does today after it has a shell
 export async function startApp(shell: AppShell, opts?: { argv?: readonly string[] }): Promise<AppHandle>
 // apps/desktop/src/main.ts — shrinks to: startApp(tauriShell)
-// apps/desktop/src/harness/app-harness.ts — built to dist/app.html + dist/app.js
+// apps/desktop/src/harness/app-harness.ts — built to harness/dist/app.html, never into the shipped dist/ (B-16.1)
 window.marxyApp = { start(files: Record<string, string /* base64 */>, argv: string[]): Promise<AppHandle> }
 ```
 

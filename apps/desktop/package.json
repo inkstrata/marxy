@@ -10,6 +10,7 @@
     "build": "vite build && tauri build --no-bundle -- --locked && node scripts/smoke-cli-open.mjs",
     "bundle": "vite build && tauri build -- --locked",
     "build:web": "vite build",
+    "build:harness": "vite build --outDir harness/dist",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",
     "test": "node --test --test-concurrency=1 --experimental-strip-types 'src/**/*.test.ts' 'src/source/*.test.mjs' 'src/startup/*.test.mjs' 'test/**/*.test.mjs' 'scripts/**/*.test.mjs'",
