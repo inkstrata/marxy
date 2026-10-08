@@ -283,6 +283,86 @@ test('C-13: Enter on a clicked code block opens the menu with the first row focu
   }
 });
 
+/** Make the first code block focusable and focus it, so "focus returned" is a claim that can fail. */
+async function focusBlock(page) {
+  const pre = page.locator('#doc pre[data-marxy-s]').first();
+  await pre.click();
+  await pre.evaluate((el) => {
+    el.setAttribute('tabindex', '-1');
+    el.focus();
+  });
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'PRE', 'the block holds focus');
+  return pre;
+}
+
+test('C-13.1: focus returns to the focused block after Escape and after a verb runs', async () => {
+  const page = await boot('28-llm-answer.md');
+  try {
+    await focusBlock(page);
+    await page.keyboard.press('Enter');
+    assert.equal(await menuExists(page), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await menuExists(page), false);
+    assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'PRE', 'after Escape');
+    await page.keyboard.press('Enter');
+    assert.equal(await menuExists(page), true);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    assert.equal(await menuExists(page), false);
+    assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'PRE', 'after a verb runs');
+  } finally {
+    await page.close();
+  }
+});
+
+test('C-13.1: "All actions…" is the last row, and choosing it opens the palette on >', async () => {
+  const page = await boot('28-llm-answer.md');
+  try {
+    await page.locator('#doc td').nth(1).click({ button: 'right' });
+    const rows = await menuRows(page);
+    assert.ok(rows.length > 1, rows.map((r) => r.title).join(' | '));
+    assert.equal(rows.at(-1).id, 'palette.all-actions', rows.map((r) => r.title).join(' | '));
+    assert.equal(rows.at(-1).title, 'All actions…');
+    assert.equal(rows.filter((r) => r.id === 'palette.all-actions').length, 1, 'only once');
+    await page.locator('.marxy-verb-menu [role="menuitem"]').last().click();
+    assert.equal(await menuExists(page), false);
+    await page.waitForFunction(() => document.getElementById('marxy-palette')?.open === true);
+    assert.equal(await page.locator('#marxy-palette .marxy-palette-query').inputValue(), '>');
+  } finally {
+    await page.close();
+  }
+});
+
+test('C-13.1: a key the menu does not own closes it and goes on: Mod+P opens the palette, Mod+C copies', async () => {
+  const page = await boot('28-llm-answer.md');
+  const mod = await modKey(page);
+  try {
+    await page.locator('#doc pre[data-marxy-s]').first().click({ button: 'right' });
+    assert.equal(await menuExists(page), true);
+    await page.keyboard.press(`${mod}+KeyP`);
+    assert.equal(await menuExists(page), false, 'the menu closed');
+    await page.waitForFunction(() => document.getElementById('marxy-palette')?.open === true);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('marxy-palette').open);
+
+    await page.locator('#doc pre[data-marxy-s]').first().click({ button: 'right' });
+    assert.equal(await menuExists(page), true);
+    assert.equal((await clipboard(page)).length, 0);
+    await page.keyboard.press(`${mod}+KeyC`);
+    assert.equal(await menuExists(page), false, 'the menu closed');
+    await page.waitForFunction(() => window.__marxyOpsBoot.handle.shell.calls.some((c) => c.method === 'clipboardWrite'));
+    assert.equal((await clipboard(page)).length, 1, 'the selection was copied');
+
+    // Escape stays the menu's: it closes the menu and does not also clear the selection.
+    await page.locator('#doc pre[data-marxy-s]').first().click({ button: 'right' });
+    await page.keyboard.press('Escape');
+    assert.equal(await menuExists(page), false);
+    assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'node');
+  } finally {
+    await page.close();
+  }
+});
+
 test("C-13: every command in the menu is also in the palette's > list, for three selections", async () => {
   const page = await boot('28-llm-answer.md');
   const mod = await modKey(page);
