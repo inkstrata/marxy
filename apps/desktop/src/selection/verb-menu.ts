@@ -232,9 +232,6 @@ export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOpti
   const onKey = (ev: KeyboardEvent): void => {
     const menu = current;
     if (!menu) return;
-    // The menu owns the keyboard while it is up: the registry's Escape (`selection.clear`) and Enter
-    // (the opener) must not also fire.
-    ev.stopPropagation();
     switch (ev.key) {
       case 'ArrowDown':
         focusRow(menu, menu.active + 1);
@@ -256,9 +253,21 @@ export function openVerbMenu(at: MenuAnchor, ctx: AppContext, opts: VerbMenuOpti
       case 'Tab':
         closeVerbMenu();
         break;
+      case 'Shift':
+      case 'Control':
+      case 'Alt':
+      case 'Meta':
+        // A chord is being built (Mod, then P): the menu waits for its last key.
+        return;
       default:
+        // Not the menu's key (Mod+P, Mod+S, Mod+Z, Mod+C…): the menu closes and the key goes on to do its
+        // work, as it would with no menu up.
+        closeVerbMenu();
         return;
     }
+    // The menu's own keys are the menu's alone: the registry's Escape (`selection.clear`) and Enter (the
+    // opener) must not also fire.
+    ev.stopPropagation();
     ev.preventDefault();
   };
   const onPointerDown = (ev: Event): void => {
