@@ -16,6 +16,8 @@ const DATA_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAf
 export type MemoryShell = Pick<
   Shell,
   | 'readFile'
+  | 'readHead'
+  | 'stat'
   | 'writeFileAtomic'
   | 'watch'
   | 'platform'
@@ -63,6 +65,9 @@ function notFound(path: string): Error & { code: 'not-found'; path: string } {
   err.path = path;
   return err;
 }
+
+/** The most the Rust shell's `read_head` returns. */
+const HEAD_CAP_BYTES = 256 * 1024;
 
 const deniedDir = new Set<string>(DENY_DIRECTORY_NAMES);
 
@@ -121,6 +126,22 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
       const bytes = store.get(path);
       if (!bytes) throw notFound(path);
       return bytes.slice();
+    },
+    async readHead(path, maxBytes) {
+      record('readHead', [path, maxBytes]);
+      const bytes = store.get(path);
+      if (!bytes) throw notFound(path);
+      return bytes.slice(0, Math.min(maxBytes, HEAD_CAP_BYTES));
+    },
+    async stat(path) {
+      record('stat', [path]);
+      const name = path.slice(path.lastIndexOf('/') + 1);
+      if (deniedDir.has(name)) return null;
+      const bytes = store.get(path);
+      if (bytes) return { path, isDir: false, size: bytes.byteLength, mtimeMs: 1 };
+      const prefix = `${path.replace(/\/$/, '')}/`;
+      for (const key of store.keys()) if (key.startsWith(prefix)) return { path, isDir: true, size: 0, mtimeMs: 1 };
+      return null;
     },
     async readDir(dir) {
       record('readDir', [dir]);

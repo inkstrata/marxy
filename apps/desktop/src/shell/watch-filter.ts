@@ -3,6 +3,49 @@
 
 import type { WatchEvent } from '@marxy/shell-api';
 
+/** How many payloads of each kind `createEarlyBuffer` keeps. */
+export const EARLY_LIMIT = 256;
+
+/**
+ * The `fs-watch` payloads that arrive before `watch_root` has said which key is ours: kept to be
+ * replayed once, then forgotten. Bounded: past `limit` ordinary batches the rest are dropped, and a
+ * refusal (a payload with a `refused` reason) is kept whatever else was dropped, because it ends the
+ * watch. Refusals count apart, so another watch's refusals cannot crowd out ours without bound.
+ */
+export function createEarlyBuffer(limit: number = EARLY_LIMIT): { add(payload: unknown): void; drain(): unknown[] } {
+  let kept: unknown[] = [];
+  let batches = 0;
+  let refusals = 0;
+  const isRefusal = (payload: unknown) =>
+    typeof payload === 'object' && payload !== null && typeof (payload as { refused?: unknown }).refused === 'string';
+  return {
+    add(payload) {
+      if (isRefusal(payload)) {
+        if (refusals >= limit) return;
+        refusals++;
+      } else {
+        if (batches >= limit) return;
+        batches++;
+      }
+      kept.push(payload);
+    },
+    /** What was kept, in arrival order. The buffer is empty afterwards. */
+    drain() {
+      const out = kept;
+      kept = [];
+      batches = 0;
+      refusals = 0;
+      return out;
+    },
+  };
+}
+
+/** What `unwatch_root` rejects with (a bare string) for a watch the shell no longer holds. */
+export function isNotWatching(err: unknown): boolean {
+  const text = typeof err === 'string' ? err : err instanceof Error ? err.message : '';
+  return text.startsWith('not watching');
+}
+
 const KINDS: ReadonlySet<string> = new Set(['modified', 'created', 'removed', 'renamed']);
 
 /**

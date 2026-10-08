@@ -17,7 +17,7 @@ test('a refusal emitted before watch_root returns still reaches onRefused', asyn
   hooks.watchRoot = async () => {
     // The shell's thread refuses right after the scan, before the caller has its key.
     emit('fs-watch', { key: KEY, events: [], refused: 'too many files' });
-    return KEY;
+    return { key: KEY };
   };
   const refusals = [];
   const handle = await shell.watch('/tree', () => {}, { recursive: true, onRefused: (reason) => refusals.push(reason) });
@@ -29,7 +29,7 @@ test('events emitted before watch_root returns are delivered, and another watch\
   hooks.watchRoot = async () => {
     emit('fs-watch', { key: '/other', events: [{ kind: 'created', path: '/other/x.md' }] });
     emit('fs-watch', { key: KEY, events: [{ kind: 'created', path: '/tree/a.md' }] });
-    return KEY;
+    return { key: KEY };
   };
   const batches = [];
   const handle = await shell.watch('/tree', (events) => batches.push(events), { recursive: true });
@@ -45,4 +45,41 @@ test('a watch_root that fails leaves no listener behind', async () => {
   await assert.rejects(shell.watch('/tree', () => assert.fail('no events'), { recursive: true }));
   emit('fs-watch', { key: KEY, events: [{ kind: 'created', path: '/tree/a.md' }] });
   await new Promise((r) => setTimeout(r, 40));
+});
+
+test('payloads that arrived before the key are replayed once, and the buffer does not outlive the replay (C-11.2)', async () => {
+  const received = [];
+  hooks.watchRoot = async () => {
+    emit('fs-watch', { key: KEY, events: [{ kind: 'created', path: '/tree/early.md' }] });
+    return { key: KEY };
+  };
+  const handle = await shell.watch('/tree', (events) => received.push(...events), { recursive: true });
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(received.length, 1);
+  handle.close();
+});
+
+test('close names the watch it opened, and swallows only "not watching" (C-11.2)', async () => {
+  hooks.invoked.length = 0;
+  hooks.watchRoot = async () => ({ key: KEY, id: 42 });
+  const handle = await shell.watch('/tree', () => {}, { recursive: true });
+  try {
+    hooks.unwatchRoot = async () => {
+      throw 'not watching /tree';
+    };
+    // The shell no longer holds this watch: nothing to report.
+    await handle.close();
+
+    hooks.unwatchRoot = async () => {
+      throw '/tree: Permission denied (os error 13)';
+    };
+    await assert.rejects(handle.close(), (err) => err === '/tree: Permission denied (os error 13)', 'a real error stays visible');
+  } finally {
+    hooks.unwatchRoot = null;
+  }
+  const unwatch = hooks.invoked.filter((c) => c.cmd === 'unwatch_root');
+  assert.deepEqual(unwatch.map((c) => c.args), [
+    { root: '/tree', recursive: true, id: 42 },
+    { root: '/tree', recursive: true, id: 42 },
+  ]);
 });

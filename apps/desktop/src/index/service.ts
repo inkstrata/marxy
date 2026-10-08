@@ -153,6 +153,9 @@ const isUnder = isUnderRoot;
 /** `configPaths` and `writeFileAtomic` are optional: a shell without them keeps no snapshot. */
 export type IndexServiceShell = IndexLoadShell &
   MarkShell & {
+    /** The patch path's two narrow reads (C-11.2): one file's stat, and at most the head of a markdown file. */
+    stat(path: string): Promise<{ path: string; size: number; mtimeMs: number; isDir: boolean } | null>;
+    readHead(path: string, maxBytes: number): Promise<Uint8Array>;
     configPaths?(): Promise<{ config: string; data: string }>;
     writeFileAtomic?(path: string, bytes: Uint8Array): Promise<void>;
   };
@@ -551,50 +554,40 @@ export function createIndexService(shell: IndexServiceShell, opts: IndexServiceO
   };
 
   /**
-   * Stat each path through a listing of its folder (the shell has no `stat`; `readDir` omits every
-   * symlink, so nothing outside a root is reached through a link), and read a markdown file's head.
-   * A path its folder no longer lists, or one that is now a folder, maps to null.
+   * Stat each path and read a markdown file's head: one `stat` per path and at most `HEAD_BYTES` of
+   * a markdown file, never a folder listing and never the whole file. The shell's `stat` omits
+   * a symlink as `readDir` does, so nothing outside a root is reached through a link. A path that is
+   * gone, a symlink, or now a folder maps to null.
    */
   const reread = async (root: string, paths: readonly string[]): Promise<Map<string, IndexEntry | null>> => {
-    const byDir = new Map<string, string[]>();
-    for (const path of paths) {
-      const dir = dirname(path);
-      byDir.set(dir, [...(byDir.get(dir) ?? []), path]);
-    }
     const out = new Map<string, IndexEntry | null>();
     await Promise.all(
-      [...byDir].map(async ([dir, wanted]) => {
-        let listing: Awaited<ReturnType<IndexServiceShell['readDir']>> = [];
-        try {
-          listing = await shell.readDir(dir);
-        } catch {
-          // The folder is gone: so is every file named in it.
+      paths.map(async (path) => {
+        const rel = pathUnder(root, path);
+        // planEvents only names paths strictly under the root; this is the second lock.
+        if (rel === undefined || rel === '') {
+          out.set(path, null);
+          return;
         }
-        await Promise.all(
-          wanted.map(async (path) => {
-            const stat = listing.find((s) => normalizePath(s.path) === path && !s.isDir);
-            if (!stat) {
-              out.set(path, null);
-              return;
-            }
-            const rel = pathUnder(root, path);
-            // planEvents only names paths strictly under the root; this is the second lock.
-            if (rel === undefined || rel === '') {
-              out.set(path, null);
-              return;
-            }
-            let bytes: Uint8Array | undefined;
-            if (classify(rel) === 'markdown') {
-              try {
-                const read = await shell.readFile(path);
-                bytes = read.byteLength > HEAD_BYTES ? read.slice(0, HEAD_BYTES) : read;
-              } catch {
-                // Unreadable now: listed by name, as the walk lists it.
-              }
-            }
-            out.set(path, entryFromCandidate(root, { path, relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size, bytes }));
-          }),
-        );
+        let stat: Awaited<ReturnType<IndexServiceShell['stat']>> = null;
+        try {
+          stat = await shell.stat(path);
+        } catch {
+          // Unstatable now: as good as gone.
+        }
+        if (!stat || stat.isDir) {
+          out.set(path, null);
+          return;
+        }
+        let bytes: Uint8Array | undefined;
+        if (classify(rel) === 'markdown') {
+          try {
+            bytes = await shell.readHead(path, HEAD_BYTES);
+          } catch {
+            // Unreadable now: listed by name, as the walk lists it.
+          }
+        }
+        out.set(path, entryFromCandidate(root, { path, relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size, bytes }));
       }),
     );
     return out;

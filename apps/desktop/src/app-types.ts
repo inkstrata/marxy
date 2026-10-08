@@ -15,6 +15,8 @@ import type { OpenDocument } from './view/rendered-view.ts';
 export type AppShell = Pick<
   Shell,
   | 'readFile'
+  | 'readHead'
+  | 'stat'
   | 'writeFileAtomic'
   | 'watch'
   | 'platform'
