@@ -1,6 +1,6 @@
 # 09 — Lane G: a fast pull-request path and a fast `precheck`
 
-**Date:** 2026-10-08 · **Status:** proposed, for the author · **Runs:** beside lanes B and C, inside the
+**Date:** 2026-10-08 · **Status:** accepted with every default (author, 2026-10-08); G-01, G-02, G-04 dispatched · **Runs:** beside lanes B and C, inside the
 four-agent cap (`00-orchestration.md` §5). **Brief:** `docs/plan/ci-and-precheck-slimming-handoff.md`.
 
 Story cards follow the house shape (`02-phase-b.md`). Ids are `G-nn`.
