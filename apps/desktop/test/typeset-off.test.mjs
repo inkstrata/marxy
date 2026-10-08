@@ -47,9 +47,17 @@ before(async () => {
 after(() => server?.close());
 
 
-/** Boots the app on the palette harness with `config` as /config (null: none); resolves after typeset_done or 2 s. */
+/** The two hyphenation pattern chunks (justif/hyphenate/en-us, en-gb), as the build names them. */
+const HYPHENATION_CHUNK = /\/assets\/en-(us|gb)-[^/]+\.js$/;
+
+/**
+ * Boots the app on the palette harness with `config` as /config (null: none) and waits for `typeset_done`;
+ * running out of 5 s without it is a failure. `page.hyphenationRequests` lists the pattern chunks fetched.
+ */
 async function boot(browser, config) {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  page.hyphenationRequests = [];
+  page.on('request', (req) => { if (HYPHENATION_CHUNK.test(new URL(req.url()).pathname)) page.hyphenationRequests.push(req.url()); });
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   const files = { [DOC]: fixture.toString('base64') };
@@ -58,10 +66,13 @@ async function boot(browser, config) {
     const { handle } = await window.marxyPaletteBoot.start(files, [doc]);
     window.__h = handle;
   }, { files, doc: DOC });
-  await page.evaluate(async () => {
-    const marks = () => window.__h.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]);
-    for (let waited = 0; waited < 2000 && !marks().includes('typeset_done'); waited += 50) await new Promise((r) => setTimeout(r, 50));
+  const done = await page.evaluate(async () => {
+    const marks = () => window.__h.shell.calls.filter((c) => c.method === 'mark').filter((c) => c.args[0] === 'typeset_done');
+    for (let waited = 0; waited < 5000 && marks().length === 0; waited += 50) await new Promise((r) => setTimeout(r, 50));
+    return marks().map((c) => c.args[2] ?? c.args[1]);
   });
+  assert.equal(done.length, 1, 'typeset_done mark emitted exactly once');
+  page.typesetDone = done[0];
   return page;
 }
 
@@ -80,6 +91,8 @@ test('typeset = false: no paragraph is engine-set, and first text is still emitt
     assert.equal(s.typeset, 'none');
     assert.ok(s.paragraphs > 20, `the document has paragraphs: ${s.paragraphs}`);
     assert.equal(s.set, 0, 'no .marxy-set paragraph');
+    assert.equal(page.typesetDone, 'set=0', 'typeset_done carries set=0');
+    assert.deepEqual(page.hyphenationRequests, [], 'no hyphenation chunk is requested');
     assert.ok(s.firstText, 'first_text mark emitted');
   } finally {
     await browser.close();
@@ -94,6 +107,7 @@ test('no config: the typesetter sets paragraphs', async () => {
     assert.equal(s.typeset, '');
     assert.ok(s.set > 0, `.marxy-set paragraphs exist: ${s.set}`);
     assert.ok(s.firstText);
+    assert.equal(page.hyphenationRequests.length, 2, 'both hyphenation chunks are requested with typesetting on');
   } finally {
     await browser.close();
   }
