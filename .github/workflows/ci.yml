@@ -17,17 +17,20 @@ env:
 
 jobs:
   # What changed decides what runs: a docs-only change never builds the app or starts a browser, a
-  # change that touches no Rust never builds the app, and a push to main runs only `fast` (A-09). The
-  # paths behind each output are in scripts/ci-changes.mjs and its test.
+  # change that touches no Rust never starts the Rust job, and a push to main runs only `fast` (A-09).
+  # The paths behind each output are in scripts/ci-changes.mjs and its test.
+  #
+  # The pull-request path holds the five commitments and nothing else (G-03, ADR-0056): what leaves it
+  # (the mechanical aesthetics gate, the specimen gate, the Linux build, the release-profile binary and
+  # the CLI smoke, the fleet's tests, the slower WebKit files) runs in nightly.yml, where a red is a note
+  # for the next session and not a blocked merge.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.detect.outputs.docs_only }}
       web: ${{ steps.detect.outputs.web }}
-      typography: ${{ steps.detect.outputs.typography }}
       rust: ${{ steps.detect.outputs.rust }}
-      fleet: ${{ steps.detect.outputs.fleet }}
       lockfile: ${{ steps.detect.outputs.lockfile }}
     steps:
       - uses: actions/checkout@v4
@@ -82,8 +85,6 @@ jobs:
       # The import-graph half: production main.ts must not reach the memory shell or the harness. Cheap
       # without a build; the rust job runs it again over the built dist.
       - run: pnpm gate:bundle
-      - if: needs.changes.outputs.fleet == 'true'
-        run: pnpm test:fleet
       - name: CommonMark spec selftest
         run: node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --selftest
       # The spec is an immutable pinned version, and it was re-downloaded on every pull request: a
@@ -111,16 +112,26 @@ jobs:
 
   # Browser gates in the official Playwright image: browsers and their system libraries are already
   # there. Pull requests and merge groups only: the push to main proves a tree its pull request proved.
-  # The desktop suite here is `test:lite` (A-10): the files that guard save, trust, data loss, close,
-  # reload, open, selection, persistence, the index and progressive rendering, and the three that hold
-  # "nothing phones home" (release CSP, remote images blocked, themes make no request). The full suite,
-  # the mutation check and the typeset, theme and core WebKit tests run in nightly.yml's browser-full.
+  # The desktop suite here is `test:lite` (A-10, G-04): the files that hold a commitment. Save, trust,
+  # data loss, close, reload, operations and progressive rendering (its 1 MB first-text test) are
+  # faithfulness and "first text never waits"; release CSP, remote images blocked and themes make no
+  # request are "nothing phones home". The full suite, the mutation check and the typeset, theme and
+  # core WebKit tests run in nightly.yml's browser-full.
+  #
+  # Two shards, so the job's wall time is half the suite's: `node --test --test-shard=i/2` takes every
+  # second file of test:lite's list. pnpm appends what follows the script name, without a `--`. The
+  # no-network gate runs in shard 1 only; it is one Vite build and two browsers, not worth doing twice.
+  # `ci` waits for `browser-lite` as one job: GitHub reports a matrix as the aggregate of its legs.
   browser-lite:
     needs: changes
     if: needs.changes.outputs.web == 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     container: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
@@ -131,115 +142,67 @@ jobs:
           path: ~/.pnpm-store
           key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - run: pnpm gate:no-network
+      - name: No network, in both engines (shard 1)
+        if: matrix.shard == 1
+        run: pnpm gate:no-network
       # The desktop suite's WebKit tests (live reload, the open path, operations, Source mode) skip in
       # `fast`, which has no browser; here WebKit is in the image, so a skip would be a lie and is
       # refused. Nothing ran them on a pull request before MARXY-247, and the edit-after-reload data
-      # loss MARXY-246 fixed reached main through that gap.
-      # images.test.mjs (remote images stay blocked) compiles a small Rust crate, and the Playwright
-      # image ships no C linker for cargo's build scripts.
-      - name: A C linker for the desktop suite's Rust test
-        run: apt-get update -qq && apt-get install -y -qq build-essential
-      - name: Desktop lite suite with WebKit required
-        run: pnpm --filter @marxy/desktop test:lite
+      # loss MARXY-246 fixed reached main through that gap. The Rust half of the images test is a
+      # `#[test]` that the rust job runs, so this job needs no C linker (G-04).
+      - name: Desktop lite suite with WebKit required (shard ${{ matrix.shard }} of 2)
+        run: pnpm --filter @marxy/desktop test:lite --test-shard=${{ matrix.shard }}/2
         env:
           MARXY_BROWSER_TESTS_REQUIRED: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: browser-results
+          name: browser-results-${{ matrix.shard }}
           path: results/
           if-no-files-found: ignore
 
-  # The typography gates, when what they render changed: the theme, the typesetter, the parse, render
-  # and sanitise path, the corpus, the fonts, or a dependency (scripts/ci-changes.mjs). The aesthetics
-  # gate runs its mechanical checks only; screenshot and rag comparison with the baselines is nightly
-  # (ADR-0047, A-10).
-  typography:
+  # The Rust shell's own checks, on macOS (the product target; the repository is public, so the minutes
+  # are free), when the crate, the toolchain or a dependency changed: format, clippy and the crate's
+  # unit tests, then the licence gate over every crate in Cargo.lock. Nothing is built into a binary:
+  # `cargo test` of the plain dev profile does not embed the frontend, so there is no `dist/` to make
+  # first (verified in G-03). The release-profile binary, the CLI smoke and the Linux build run in
+  # nightly.yml (ADR-0046 amended by ADR-0056). On a lockfile-only change (an npm bump) only the
+  # licence steps run: nothing in Rust can have moved.
+  rust:
     needs: changes
-    if: (needs.changes.outputs.typography == 'true' || needs.changes.outputs.lockfile == 'true') && github.event_name != 'push'
-    runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    if: (needs.changes.outputs.rust == 'true' || needs.changes.outputs.lockfile == 'true') && github.event_name != 'push'
+    runs-on: macos-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
         with:
           cache: true
-      - uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
-      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - run: node scripts/gate-aesthetics.mjs --mechanical
-      - run: pnpm gate:specimen
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: typography-results
-          path: results/
-          if-no-files-found: ignore
-
-  # The desktop binary, on Ubuntu only (ADR-0046: Linux is a release criterion; macOS builds nightly),
-  # when Rust, tauri.conf.json, the Vite config, the CLI smoke, the toolchain or a dependency changed.
-  rust:
-    needs: changes
-    if: (needs.changes.outputs.rust == 'true' || needs.changes.outputs.lockfile == 'true') && github.event_name != 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      MARXY_BIN: ${{ github.workspace }}/apps/desktop/src-tauri/target/ci/marxy
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-      # Plain apt, not cache-apt-pkgs-action: its cached restore dropped glib-2.0.pc, so clippy and
-      # the build could not find glib on a cache hit and main went red (runs 35376241346, 35377516836).
-      - name: Linux webview and X deps
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus
-      - name: The webview library is visible to pkg-config
-        run: pkg-config --exists glib-2.0 && pkg-config --modversion glib-2.0
-      - uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      # The dependencies compiled for clippy and the tests. A pull request restores main's cache, which the
+      # nightly startup-macos job writes under the same shared key after running these same commands; with
+      # no run on main of its own, this job would otherwise compile Tauri from nothing every time.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-          key: ci-profile
+          shared-key: macos-rust
           cache-on-failure: true   # a red clippy or test must not throw away the compiled dependencies
-      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Rust format and clippy
+        if: needs.changes.outputs.rust == 'true'
         run: pnpm lint:rust
-      - name: Build the frontend
-        run: pnpm --filter @marxy/desktop build:web
-      # `tauri build` enables tauri/custom-protocol so the app serves the embedded frontend instead of the dev
-      # server; a plain cargo build must pass it explicitly or the window never loads a page.
-      - name: Build the desktop binary with the ci profile (thin LTO, cached dependencies)
-        run: cd apps/desktop/src-tauri && cargo build --locked --profile ci --features tauri/custom-protocol
-      - name: Licence gate (post-build, populated cargo cache)
-        run: node scripts/gate-licences.mjs --require-registry
-      - name: CLI smoke check on the built binary
-        run: pnpm --filter @marxy/desktop verify:cli
-      # The shell's own unit tests (watcher, navigation guard, argument paths, IPC decoding) ran nowhere
-      # before MARXY-247. Same profile and features as the build above, so the dependencies are reused.
       - name: Rust unit tests
-        run: cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet
-      - run: pnpm gate:bundle
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: rust-results
-          path: results/
-          if-no-files-found: ignore
+        if: needs.changes.outputs.rust == 'true'
+        run: cd apps/desktop/src-tauri && cargo test --locked --quiet
+      # The gate reads every crate's licence from the cargo registry cache, which a fetch fills: it needs
+      # the sources, not a build (G-03).
+      - name: Fetch the locked crates
+        run: cd apps/desktop/src-tauri && cargo fetch --locked
+      - name: Licence gate (every crate in Cargo.lock, read from the registry)
+        run: node scripts/gate-licences.mjs --require-registry
 
   # The one status check branch protection requires. It runs whatever happened above, so it reports on
   # every pull request, path-filtered or docs-only; scripts/ci-verdict.mjs says what turns it red.
   ci:
-    needs: [changes, conventions, fast, browser-lite, typography, rust]
+    needs: [changes, conventions, fast, browser-lite, rust]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 3

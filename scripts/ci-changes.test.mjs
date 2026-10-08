@@ -11,46 +11,56 @@ import { OUTPUTS, classify } from './ci-changes.mjs';
 import { resolveRelativeModule } from './gate-bundle.mjs';
 import { importSpecs } from './lib/imports.mjs';
 
-const none = { docs_only: false, web: false, typography: false, rust: false, fleet: false, lockfile: false };
-const every = { docs_only: false, web: true, typography: true, rust: true, fleet: true, lockfile: true };
+const none = { docs_only: false, web: false, rust: false, lockfile: false };
+const every = { docs_only: false, web: true, rust: true, lockfile: true };
 const only = (...keys) => ({ ...none, ...Object.fromEntries(keys.map(k => [k, true])) });
 
 /** [why, diff, expected outputs]. */
 const CASES = [
   ['docs only: no job but changes and ci', ['docs/x.md'], only('docs_only')],
   ['prose no test reads is still docs only', ['docs/research/x.md', 'orchestration/needs-human.md', 'README.md'], only('docs_only')],
-  ['a theme CSS change runs the browser and typography jobs', ['packages/theme/src/tokens.css'], only('web', 'typography')],
-  ['the app the aesthetics gate renders through is typography (B-02)', ['apps/desktop/src/app.ts'], only('web', 'typography')],
-  ['the parser is typography: it decides what is rendered', ['packages/core/src/parse/blocks.ts'], only('web', 'typography')],
-  ['an operation is typography: the app the gate renders through imports them (B-02)', ['packages/core/src/operations/align-table.ts'], only('web', 'typography')],
-  ['a core test is not typography', ['packages/core/test/parse.test.mjs'], only('web')],
-  ['a desktop test is not typography', ['apps/desktop/test/palette.test.mjs'], only('web')],
-  ['a corpus file is typography and not docs, though it ends in .md', ['fixtures/corpus/01-long-technical.md'], only('web', 'typography')],
-  ['the app harness page the aesthetics gate builds is typography', ['apps/desktop/gate.html'], only('web', 'typography')],
-  ['the app harness entry the aesthetics gate renders through is typography', ['apps/desktop/src/harness/gate-entry.ts'], only('web', 'typography')],
-  ['a font file is typography', ['fonts/literata/Literata-Regular.woff2'], only('typography')],
+  // G-03: widened. test:fleet left the pull-request path, so the prose only the fleet's tests asserted is documentation.
+  ['a changelog fragment is docs only', ['changelog.d/G-03.md'], only('docs_only')],
+  ['a changelog fragment beside a doc is docs only', ['changelog.d/G-03.md', 'docs/adr/0056-x.md'], only('docs_only')],
+  ['agent configuration under .claude/ is docs only, whatever its extension', ['.claude/settings.json', '.claude/skills/install-local/install.sh', '.claude/skills/install-local/SKILL.md'], only('docs_only')],
+  ['orchestration prose the fleet\'s tests asserted is docs only now', ['orchestration/README.md', 'orchestration/prompts/implementor.md', 'orchestration/needs-human.md'], only('docs_only')],
+  ['a task card is docs only now', ['docs/plan/tasks/MARXY-1.md'], only('docs_only')],
+  ['the roadmap documents are docs only', ['docs/plan/roadmap-2026-10/progress.md', 'docs/plan/roadmap-2026-10/09-ci-and-precheck.md'], only('docs_only')],
+  // Not widened: `fast` itself reads these (lib/no-ceiling, check-story, smoke-verdict, smoke-built-app, check-one-parse, lib/plan).
+  ['AGENTS.md is read by a scripts test, so `fast` runs', ['AGENTS.md'], none],
+  ['the process docs are read by scripts tests, so `fast` runs', ['docs/sdlc.md', 'docs/hygiene.md', 'docs/ci-contract.md', 'docs/plan.md'], none],
+  ['the board CSV is read by lib/plan.test, so `fast` runs', ['docs/plan/jira-issues.csv'], none],
+  ['fleet code is still code: `fast` runs, nothing else', ['orchestration/x.mjs', 'orchestration/deps.json', 'orchestration/loop.sh'], none],
+  ['git hooks are code', ['.githooks/commit-msg'], none],
+  ['a docs change beside fleet code is not docs only', ['docs/x.md', 'orchestration/cycle.mjs'], none],
+  ['a theme CSS change runs the browser job', ['packages/theme/src/tokens.css'], only('web')],
+  ['the app is web', ['apps/desktop/src/app.ts'], only('web')],
+  ['the parser is web', ['packages/core/src/parse/blocks.ts'], only('web')],
+  ['a core test is web', ['packages/core/test/parse.test.mjs'], only('web')],
+  ['a desktop test is web', ['apps/desktop/test/palette.test.mjs'], only('web')],
+  ['a corpus file is web and not docs, though it ends in .md', ['fixtures/corpus/01-long-technical.md'], only('web')],
+  ['the app harness page is web', ['apps/desktop/gate.html'], only('web')],
+  ['a font file starts no PR job: nightly renders it', ['fonts/literata/Literata-Regular.woff2'], none],
   ['a font\'s README is docs only', ['fonts/literata/README.md'], only('docs_only')],
   ['a font\'s LICENSE is docs only', ['fonts/literata/LICENSE'], only('docs_only')],
-  ['the @font-face sheet the aesthetics gate inlines is typography', ['apps/desktop/src/fonts/fonts.css'], only('web', 'typography')],
-  ['the WebKit launcher the aesthetics gate uses is typography', ['scripts/playwright-webkit.mjs'], only('web', 'typography', 'fleet')],
-  ['the specimen gate\'s own code is typography', ['scripts/specimen/specimen.mjs'], only('web', 'typography', 'fleet')],
-  ['the aesthetics gate itself is typography', ['scripts/gate-aesthetics.mjs'], only('web', 'typography', 'fleet')],
-  ['a fixture that is not markdown is typography', ['fixtures/themes/sepia/theme.css'], only('web', 'typography')],
-  ['highlighting is typography', ['packages/core/src/highlight/grammars.ts'], only('web', 'typography')],
-  ['the weight offset the app applies is typography', ['apps/desktop/src/theme/offset.ts'], only('web', 'typography')],
-  ['core\'s index, which the app imports, is typography', ['packages/core/src/index.ts'], only('web', 'typography')],
+  ['the @font-face sheet is web (the app loads it)', ['apps/desktop/src/fonts/fonts.css'], only('web')],
+  // G-03: `web` narrowed from "anything under scripts/" to the scripts the browser job runs or imports.
+  ['the WebKit launcher every browser test imports is web', ['scripts/playwright-webkit.mjs'], only('web')],
+  ['the no-network gate is web', ['scripts/gate-no-network.mjs'], only('web')],
+  ['the perf harness, whose generator progressive.test.mjs imports, is web', ['scripts/perf-harness.mjs'], only('web')],
+  ['the CSP check release-csp.test.mjs imports, and the lib files it loads, are web', ['scripts/check-csp.mjs', 'scripts/lib/repo.mjs', 'scripts/lib/plan.mjs'], only('web')],
+  ['the release CSP lives in tauri.conf.json: editing it runs the browser job that asserts it, and the Rust job', ['apps/desktop/src-tauri/tauri.conf.json'], only('web', 'rust')],
+  ['the specimen gate is nightly: no PR job, but `fast` runs', ['scripts/specimen/specimen.mjs'], none],
+  ['the aesthetics gate is nightly: no PR job, but `fast` runs', ['scripts/gate-aesthetics.mjs'], none],
+  ['a script no browser job runs starts only `fast`', ['scripts/precheck.mjs', 'scripts/ci-changes.mjs', 'scripts/check-workflows.mjs', 'scripts/lib/imports.mjs'], none],
+  ['a script the fleet imports no longer starts a fleet job', ['scripts/check-pr.mjs'], none],
   ['Rust source runs the Rust job only', ['apps/desktop/src-tauri/src/main.rs'], only('rust')],
-  ['tauri.conf.json runs the Rust job', ['apps/desktop/src-tauri/tauri.conf.json'], only('rust')],
-  ['the Vite config runs the Rust job (the binary embeds its output) and typography (it builds gate.html)', ['apps/desktop/vite.config.ts'], only('web', 'typography', 'rust')],
-  ['the command-line smoke runs the Rust job', ['apps/desktop/scripts/smoke-cli-open.mjs'], only('web', 'rust')],
+  ['the Vite config is web: the Rust job no longer builds the frontend', ['apps/desktop/vite.config.ts'], only('web')],
+  ['the command-line smoke is web and nightly: the Rust job no longer runs it', ['apps/desktop/scripts/smoke-cli-open.mjs'], only('web')],
   ['mise.toml pins the toolchain the Rust job uses', ['mise.toml'], only('web', 'rust')],
   ['Cargo.lock is Rust and a lockfile', ['apps/desktop/src-tauri/Cargo.lock'], only('rust', 'lockfile')],
   ['pnpm-lock.yaml is a lockfile', ['pnpm-lock.yaml'], only('web', 'lockfile')],
   ['a package manifest anywhere is a lockfile change', ['packages/core/package.json'], only('web', 'lockfile')],
-  ['fleet code runs the fleet tests only', ['orchestration/x.mjs'], only('fleet')],
-  ['AGENTS.md is asserted by the fleet tests, so it is not docs only', ['AGENTS.md'], only('fleet')],
-  ['the board CSV is the fleet\'s, not docs (MARXY-191)', ['docs/plan/jira-issues.csv'], only('fleet')],
-  ['a script the fleet imports runs the fleet tests', ['scripts/check-pr.mjs'], only('web', 'fleet')],
   ['a docs change beside Rust is not docs only', ['docs/x.md', 'apps/desktop/src-tauri/src/lib.rs'], only('rust')],
   ['a workflow change runs everything', ['.github/workflows/ci.yml'], every],
   ['anything under .github/ counts as a workflow change, even prose', ['.github/notes.md'], every],
@@ -64,26 +74,35 @@ for (const [why, diff, want] of CASES) {
   });
 }
 
-// Every repository file the aesthetics gate's page is built from must start the typography job. The
-// graph is walked the way gate-bundle walks main.ts's: relative imports, deep @marxy/<pkg>/src/
-// imports, and @marxy/<pkg> through the package's src/index.ts.
-test('every file the app harness entry reaches is typography', () => {
+// Every scripts/ file the browser job runs or loads must start it. The job runs `gate:no-network` and
+// the files `test:lite` names; the walk follows their relative imports the way gate-bundle walks
+// main.ts's, so a lite test that starts importing another script fails here instead of silently
+// skipping the browser job when only that script changes.
+test('every scripts/ file the browser job reaches is web', () => {
   const root = fileURLToPath(new URL('..', import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(root, 'apps/desktop/package.json'), 'utf8'));
+  const lite = pkg.scripts['test:lite'].split(/\s+/).filter(a => /^test\/.*\.test\.mjs$/.test(a));
+  assert.ok(lite.length >= 10, `test:lite names only ${lite.length} files; the pattern is broken`);
   const seen = new Set();
-  const queue = [join(root, 'apps/desktop/src/harness/gate-entry.ts')];
+  const queue = [join(root, 'scripts/gate-no-network.mjs'), ...lite.map(f => join(root, 'apps/desktop', f))];
   while (queue.length) {
     const file = queue.pop();
     if (seen.has(file) || !existsSync(file) || file.includes('/node_modules/')) continue;
     seen.add(file);
     for (const spec of importSpecs(readFileSync(file, 'utf8'), file)) {
       if (spec.startsWith('.')) queue.push(resolveRelativeModule(file, spec));
-      else if (/^@marxy\/[a-z-]+\/src\//.test(spec)) queue.push(join(root, 'packages', spec.slice('@marxy/'.length)));
-      else if (/^@marxy\/[a-z-]+$/.test(spec)) queue.push(join(root, 'packages', spec.slice('@marxy/'.length), 'src/index.ts'));
     }
   }
   const files = [...seen].map(f => relative(root, f));
-  assert.ok(files.length > 30, `the walk reached only ${files.length} files; it is broken`);
-  assert.deepEqual(files.filter(f => !classify([f]).typography), []);
+  const scripts = files.filter(f => f.startsWith('scripts/'));
+  assert.ok(scripts.includes('scripts/playwright-webkit.mjs') && scripts.includes('scripts/perf-harness.mjs'), `the walk missed the known imports: ${scripts}`);
+  assert.ok(files.length > 20, `the walk reached only ${files.length} files; it is broken`);
+  assert.deepEqual(scripts.filter(f => !classify([f]).web), []);
+});
+
+test('the specimen and aesthetics gates and test:fleet are nightly: no pull-request output names them', () => {
+  assert.deepEqual([...OUTPUTS], ['docs_only', 'web', 'rust', 'lockfile']);
+  for (const [, diff] of CASES) for (const gone of ['typography', 'fleet']) assert.ok(!(gone in classify(diff)), `${gone} is no longer an output`);
 });
 
 test('classify answers every output the changes job declares, and nothing else', () => {

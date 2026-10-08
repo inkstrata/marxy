@@ -25,14 +25,14 @@ const ALLOWED = new Set([
   'tauri-apps/tauri-action',
 ]);
 
-// Every cargo build, check, clippy or test, and every tauri build, runs with --locked (MARXY-270), as pnpm
-// installs with --frozen-lockfile: without it cargo re-resolves a stale Cargo.lock on the runner and CI
-// tests a dependency graph nobody committed. cargo's own flags come before any `--`; tauri build hands
+// Every cargo build, check, clippy, test or fetch, and every tauri build, runs with --locked (MARXY-270),
+// as pnpm installs with --frozen-lockfile: without it cargo re-resolves a stale Cargo.lock on the runner
+// and CI tests a dependency graph nobody committed. cargo's own flags come before any `--`; tauri build hands
 // what follows its `--` to cargo, so --locked has to be there.
 function unlocked(command) {
   const found = [];
   for (const part of command.split(/&&|\|\||;|\|/)) {
-    const cargo = /\bcargo\s+(build|check|clippy|test)\b(.*)/.exec(part);
+    const cargo = /\bcargo\s+(build|check|clippy|test|fetch)\b(.*)/.exec(part);
     if (cargo && !cargo[2].split(/\s--(?:\s|$)/)[0].split(/\s+/).includes('--locked')) found.push(`cargo ${cargo[1]}`);
     const tauri = /\btauri\s+build\b(.*)/.exec(part);
     if (tauri && !lockedAfterSeparator(tauri[1])) found.push('tauri build');
@@ -145,8 +145,10 @@ function linuxCargoProblems(text) {
 
 /**
  * Kept from gate-licences when it stopped asserting what ci.yml looks like (A-08): the licence gate
- * that reads every crate from the cargo registry (--require-registry) is worth nothing before the
- * build has populated that cache, so in any job that runs it, a cargo or tauri build comes first.
+ * that reads every crate from the cargo registry (--require-registry) is worth nothing before something
+ * has populated that cache, so in any job that runs it, a cargo or tauri build comes first, or a
+ * `cargo fetch`, which downloads and unpacks every crate in Cargo.lock without compiling one (G-03: the
+ * pull-request `rust` job no longer builds a binary, and fetching is all the gate needs).
  */
 function licenceOrderProblems(text) {
   const found = [];
@@ -154,8 +156,8 @@ function licenceOrderProblems(text) {
     const steps = body.split(/\n\s*- /).map(step => codeLines(step).map(([, line]) => line).join('\n'));
     const gate = steps.findIndex(step => /gate-licences\.mjs\s+--require-registry/.test(step));
     if (gate < 0) continue;
-    const build = steps.findIndex(step => /\bcargo\s+build\b|\btauri\s+build\b|@marxy\/desktop build/.test(step));
-    if (build < 0 || build > gate) found.push(`${name}: the --require-registry licence gate runs before any build has filled the cargo cache`);
+    const build = steps.findIndex(step => /\bcargo\s+(?:build|fetch)\b|\btauri\s+build\b|@marxy\/desktop build/.test(step));
+    if (build < 0 || build > gate) found.push(`${name}: the --require-registry licence gate runs before any build or fetch has filled the cargo cache`);
   }
   return found;
 }
@@ -167,6 +169,8 @@ const SELFTEST = [
   ['run: cargo clippy --locked --quiet -- -D warnings', []],
   ['run: cargo clippy --quiet -- --locked', ['1: cargo clippy']],
   ['run: cargo test --quiet', ['1: cargo test']],
+  ['run: cd x && cargo fetch', ['1: cargo fetch']],
+  ['run: cd x && cargo fetch --locked', []],
   ['run: vite build && tauri build --no-bundle', ['1: tauri build']],
   ['run: vite build && tauri build --no-bundle -- --locked', []],
   ['run: tauri build --locked', ['1: tauri build']],
@@ -195,12 +199,17 @@ const LINUX_CARGO = [
   ['jobs:\n  rust:\n    runs-on: ubuntu-latest\n    steps:\n      - run: sudo apt-get install -y dbus\n      - run: cargo test --locked', ['rust: no pkg-config --exists glib-2.0 probe']],
   ['jobs:\n  other-name:\n    runs-on: ${{ matrix.os }}\n    strategy:\n      matrix:\n        os: [macos-latest, ubuntu-latest]\n    steps:\n      - run: cd x && cargo test --locked', ['other-name: no pkg-config --exists glib-2.0 probe', 'other-name: no apt-get install line with dbus']],
   ['jobs:\n  mac:\n    runs-on: macos-latest\n    steps:\n      - run: cargo build --locked', []],
+  ['jobs:\n  mac:\n    runs-on: macos-latest\n    steps:\n      - run: cargo test --locked --quiet\n      - run: cargo fetch --locked', []],
+  ['jobs:\n  fetch-only:\n    runs-on: ubuntu-latest\n    steps:\n      - run: cargo fetch --locked', []],
   ['jobs:\n  web:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n      # cargo build in a comment', []],
 ];
 const LICENCE_ORDER = [
   ['jobs:\n  g:\n    steps:\n      - run: cargo build --locked\n      - run: node scripts/gate-licences.mjs --require-registry', []],
-  ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs --require-registry\n      - run: cargo build --locked', ['g: the --require-registry licence gate runs before any build has filled the cargo cache']],
-  ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs --require-registry', ['g: the --require-registry licence gate runs before any build has filled the cargo cache']],
+  ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs --require-registry\n      - run: cargo build --locked', ['g: the --require-registry licence gate runs before any build or fetch has filled the cargo cache']],
+  ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs --require-registry', ['g: the --require-registry licence gate runs before any build or fetch has filled the cargo cache']],
+  ['jobs:\n  g:\n    steps:\n      - run: cd x && cargo fetch --locked\n      - run: node scripts/gate-licences.mjs --require-registry', []],
+  ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs --require-registry\n      - run: cd x && cargo fetch --locked', ['g: the --require-registry licence gate runs before any build or fetch has filled the cargo cache']],
+  ['jobs:\n  g:\n    steps:\n      - run: cargo test --locked\n      - run: node scripts/gate-licences.mjs --require-registry', ['g: the --require-registry licence gate runs before any build or fetch has filled the cargo cache']],
   ['jobs:\n  g:\n    steps:\n      - run: node scripts/gate-licences.mjs\n      - run: cargo build --locked', []],
 ];
 const UNTIMED = [
