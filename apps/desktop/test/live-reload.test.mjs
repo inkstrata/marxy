@@ -413,3 +413,55 @@ test('a reader who has not scrolled stays at the top when text is written above 
     await browser.close();
   }
 });
+
+// A reader in Source who has not scrolled is at byte 0, so text written above leaves them at the top (F-19.2).
+const prependedInSource = async (page) => {
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
+  await page.evaluate(async () => {
+    const path = window.__marxyHandle.currentPath();
+    const old = await window.__marxyHandle.shell.readFile(path);
+    const text = new TextDecoder().decode(old);
+    const fresh = path.endsWith('.ts') ? `// Prepended.\nconst first = 1;\n${text}` : `# Preface\n\nPrepended.\n\n${text}`;
+    await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(fresh));
+    window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+  });
+  await page.waitForFunction(() => document.querySelector('#marxy-source')?.textContent?.includes('Prepended.'));
+  await new Promise((r) => setTimeout(r, 400));
+  return page.evaluate(() => {
+    const line = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.textContent.includes('Prepended.'));
+    return { y: window.scrollY, top: line.getBoundingClientRect().top };
+  });
+};
+
+test('a .ts file opens in Source, unscrolled, and stays at the top when text is written above (F-19.2)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const code = Array.from({ length: 400 }, (_, i) => `export const value${i} = ${i};`).join('\n') + '\n';
+    await boot(page, { '/r/A.ts': b64(code) }, ['/r/A.ts']);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const after = await prependedInSource(page);
+    assert.equal(after.y, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended line is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a .md file toggled to Source, unscrolled, stays at the top when text is written above (F-19.2)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    // Hand-wrapped lines: the reading line (40% of the window) falls on a source line below the heading.
+    const md = `# Alpha\n\n${Array.from({ length: 80 }, (_, i) => `Line ${i} of a paragraph that the author wrapped by hand.`).join('\n')}\n`;
+    await boot(page, { '/r/A.md': b64(md) }, ['/r/A.md']);
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const after = await prependedInSource(page);
+    assert.equal(after.y, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended line is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});

@@ -1,6 +1,6 @@
 // Reading position is a source-map coordinate, never a scroll offset (ADR-0018).
 
-import type { Block, Document, Node } from '../contracts/ast.ts';
+import type { Block, Document, InlineType, Node } from '../contracts/ast.ts';
 import type { ReadingPosition } from '../contracts/position.ts';
 
 /**
@@ -30,7 +30,7 @@ export function restorePosition(
 
 /**
  * Whether a block begins at `offset`, at any depth: the Rendered reading position is the innermost
- * block (a list item, a table cell, a fence in a list), so a held nested block follows an insertion too.
+ * block (a list item, a fence in a list; a table is held whole, never by a cell), so a held nested block follows an insertion too.
  */
 function startsAnyBlock(document: Document, offset: number): boolean {
   const todo: Node[] = [...document.children];
@@ -46,9 +46,9 @@ function startsAnyBlock(document: Document, offset: number): boolean {
   return false;
 }
 
-const INLINE_TYPES = new Set(['text', 'emphasis', 'strong', 'strikethrough', 'code', 'link', 'image', 'html', 'softBreak', 'hardBreak', 'footnoteReference', 'mathInline', 'taskMarker']);
+const INLINE_TYPES = new Set<InlineType>(['text', 'emphasis', 'strong', 'strikethrough', 'code', 'link', 'image', 'html', 'softBreak', 'hardBreak', 'footnoteReference', 'mathInline', 'taskMarker']);
 function isBlock(node: Node): boolean {
-  return !INLINE_TYPES.has(node.type);
+  return !INLINE_TYPES.has(node.type as InlineType);
 }
 
 /**
