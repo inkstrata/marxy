@@ -352,3 +352,14 @@ that calls `jumpToSource(0)` after `await handle.open` (grep `commands/`), their
 shows the Save / Open without saving / Dismiss notice and resolves at once, so both then act on the document still on
 screen. Use `open(path, { onLanded })` as C-17 does. Acceptance: for each, a browser test that dirties the current
 document and covers the three choices; nothing in the current document changes on Dismiss.
+
+### F-22 — Ordered lists keep their start number and their wide markers
+
+**Model:** sonnet · **Size:** S · **Depends on:** L-03 · *From the L-03 review (note 4); true on main before L-03.*
+**Paths:** `packages/theme/src/base.css` (the ordered-list counter and marker box), `packages/theme/test/layout.test.mjs`.
+`counter-reset: marxy-ol` ignores `<ol start="7">`, so a list that starts at 7 is numbered from 1; and a "1000."
+marker is about 2.66em wide while its box holds 1.9em, so it runs into the item's text ("100." clears by about 3 px).
+Honour `start` (e.g. `counter-reset: marxy-ol calc(attr(start) - 1)` where supported, or the renderer setting the
+reset as a style the sanitiser allows), and size the marker box to the widest number the list holds. Acceptance: a
+list starting at 7 shows 7, 8, 9; a 1000-item list's markers never overlap their text at 320 and 1280 px; L-03's
+gutter-floor test still passes.
