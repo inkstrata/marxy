@@ -137,6 +137,8 @@ test('Jump to source, type, Mod+E twice keeps the text; Mod+Z undoes it', async 
   await page.keyboard.press(`${mod}+e`);
   await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
   await page.waitForFunction(() => !document.querySelector('#marxy-source')?.contains(document.activeElement));
+  // Mod+Z is gated on the store having an entry to undo; a key it refuses is dropped silently.
+  await page.waitForFunction(() => window.__b.handle.document().snapshot().canUndo);
   await page.keyboard.press(`${mod}+z`);
   await page.waitForFunction((t) => new TextDecoder().decode(window.__b.handle.openDocument().buffer.bytes) === t, TEXT, { timeout: 3000 });
   assert.equal(await bufferText(page), TEXT, 'Mod+Z took the typed text back out');

@@ -122,20 +122,45 @@ const buf = (page) => page.evaluate(() => new TextDecoder().decode(window.__hand
 const untilBuffer = (page, text) =>
   page.waitForFunction((t) => new TextDecoder().decode(window.__handle.openDocument().buffer.bytes) === t, text, { timeout: 5000 });
 const canUndo = (page) => page.evaluate(() => window.__handle.document().snapshot().canUndo);
+/**
+ * Mod+E, then wait until the mode has changed and focus is where a following key will land: in Source
+ * the editor holds focus only after the reader's click, and in Rendered it is outside the hidden editor
+ * (WebKit drops a hidden element's focus at a later rendering update, so Mod+Z could go to the editor).
+ */
 const toggleMode = async (page, m) => {
   await page.keyboard.press(`${await modOf(page)}+e`);
   await page.waitForFunction((m) => document.body.dataset.marxyMode === m, m);
+  if (m === 'rendered') await page.waitForFunction(() => !document.querySelector('#marxy-source')?.contains(document.activeElement));
 };
+/**
+ * A click on the box once it has stopped moving: the typeset pass may still shift the page after the
+ * tasks are wired, and a click at coordinates read before the shift lands beside the box. (The box is
+ * `disabled`, so Playwright's own actionability wait refuses it; the stability check is done here.)
+ */
 const clickBox = async (page, i) => {
-  const [x, y] = await page.evaluate((i) => {
+  const [x, y] = await page.evaluate(async (i) => {
     const el = document.querySelectorAll('#doc input[type=checkbox]')[i];
     el.scrollIntoView({ block: 'center' });
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const at = () => { const r = el.getBoundingClientRect(); return `${r.x},${r.y}`; };
+    let last = at();
+    for (let same = 0; same < 3;) {
+      await frame();
+      const now = at();
+      same = now === last ? same + 1 : 0;
+      last = now;
+    }
     const r = el.getBoundingClientRect();
     return [r.x + r.width / 2, r.y + r.height / 2];
   }, i);
   await page.mouse.click(x, y);
 };
 const undoKey = async (page) => page.keyboard.press(`${await modOf(page)}+z`);
+/** Mod+Z once the store has something to undo: the command is gated on it, and a key it refuses is dropped silently. */
+const undoWhenReady = async (page) => {
+  await page.waitForFunction(() => window.__handle.document().snapshot().canUndo);
+  await undoKey(page);
+};
 
 test('ADR-0037 defect 2: toggle, Source edit, two undos restore the original', async () => {
   const page = await boot();
@@ -144,13 +169,14 @@ test('ADR-0037 defect 2: toggle, Source edit, two undos restore the original', a
   await untilBuffer(page, toggled);
   await toggleMode(page, 'source');
   await page.click('.cm-content');
+  await page.waitForFunction(() => document.querySelector('#marxy-source .cm-content')?.contains(document.activeElement));
   await page.keyboard.press((await modOf(page)) === 'Meta' ? 'Meta+ArrowUp' : 'Control+Home');
   await page.keyboard.type('X');
   await toggleMode(page, 'rendered');
   await untilBuffer(page, `X${toggled}`);
-  await undoKey(page);
+  await undoWhenReady(page);
   await untilBuffer(page, toggled);
-  await undoKey(page);
+  await undoWhenReady(page);
   await untilBuffer(page, ORIGINAL);
   assert.equal(await buf(page), ORIGINAL);
   assert.equal(await canUndo(page), false, 'two entries, two undos');
@@ -172,7 +198,7 @@ test('rename keeps history: an unsaved edit followed to the new name can still b
   assert.equal(await buf(page), toggled, 'the unsaved edit followed the rename');
   assert.equal(await canUndo(page), true, 'the history followed the rename');
   await page.click('#doc h1');
-  await undoKey(page);
+  await undoWhenReady(page);
   await untilBuffer(page, ORIGINAL);
   await page.close();
 });
