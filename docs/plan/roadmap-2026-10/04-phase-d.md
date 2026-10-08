@@ -737,6 +737,13 @@ so, report and choose the next free chord rather than overloading it.
 
 ---
 
+**From the D-05 review (2026-10-08).** Fix before a reader can open a split: D-05 remembers a scroller's last offset
+and height (`seen`) because `onSplit` fires after the window's scroll is clamped to 0, and a stale `seen` restores
+the wrong place. (1) A window resize without a scroll leaves `seen.clientHeight` old, so the reading line (0.4 × height)
+moves: measured byte 1914 restored instead of 2295. Note the scroll on window `resize` too. (2) A script scroll then
+a split in the same task lands on byte 0: add a hook before the split in `pane-set.ts` (this story edits it) that
+notes the first pane's place. Also update the stale comment at `pane-set.ts:219`.
+
 ### D-08 — Close a pane, and make save, the title and quit know about two documents
 
 **Model:** opus · **Size:** M · **Depends on:** D-01 · **Parallel with:** D-04, D-05, D-06
