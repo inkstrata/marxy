@@ -16,7 +16,7 @@ import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import { isIgnored, type IgnoreRule } from '@marxy/core/src/index-model/ignore.ts';
 import { denyRulesFor } from '@marxy/core/src/index-model/collection.ts';
 import { loadCollection } from '../collection/load.ts';
-import { basename, dirname, normalizePath, relativePath } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname, isUnderRoot, normalizePath, pathUnder } from '@marxy/core/src/index-model/paths.ts';
 import { notify } from '../notices/index.ts';
 import {
   INDEX_SNAPSHOT_VERSION,
@@ -109,14 +109,17 @@ export interface IndexService {
 /** A root's snapshot is written at most once in this many ms while watch events patch it. */
 export const PATCH_PERSIST_INTERVAL_MS = 2000;
 
+/**
+ * A file read by a patch is not read again for this many ms: a file written continuously (a log, a
+ * streaming agent) patches about twice a second rather than at the watch's own rate. Trailing: the
+ * last write within the gap is always read.
+ */
+export const PATCH_GAP_MS = 500;
+
 const HEAD_BYTES = 256 * 1024;
 
-/** `path` is `root` or lies under it. */
-const isUnder = (path: string, root: string): boolean => {
-  const r = normalizePath(root);
-  const p = normalizePath(path);
-  return r === '/' ? p.startsWith('/') : p === r || p.startsWith(`${r}/`);
-};
+/** `path` is `root` or lies under it: strict and lexical (`pathUnder`), whatever the root's name looks like. */
+const isUnder = isUnderRoot;
 
 /** `configPaths` and `writeFileAtomic` are optional: a shell without them keeps no snapshot. */
 export type IndexServiceShell = IndexLoadShell &
@@ -170,7 +173,7 @@ function isEntry(e: unknown): e is IndexEntry {
 async function readSnapshot(shell: IndexServiceShell, path: string, root: string): Promise<IndexSnapshot | undefined> {
   try {
     const snapshot = parseSnapshot(new TextDecoder().decode(await shell.readFile(path)));
-    return snapshot && snapshot.root === root && Array.isArray(snapshot.entries) && snapshot.entries.every(isEntry)
+    return snapshot && snapshot.root === root && Array.isArray(snapshot.entries) && snapshot.entries.every((e) => isEntry(e) && isUnderRoot(e.path, root))
       ? snapshot
       : undefined;
   } catch {
@@ -196,6 +199,12 @@ interface RootState {
   patchQueued: boolean;
   /** A snapshot write is waiting out `PATCH_PERSIST_INTERVAL_MS`. */
   persist?: Promise<void>;
+  /** When each file was last read by a patch, for `PATCH_GAP_MS`. */
+  lastRead: Map<string, number>;
+  /** Files held back by `PATCH_GAP_MS`, read again when the gap ends. */
+  held: Set<string>;
+  /** The gap's timer is set; it resolves when the held files have been queued again. */
+  holding?: Promise<void>;
 }
 
 type IndexWalkRules = Awaited<ReturnType<typeof walkRoot>>['ignoreRules'];
@@ -206,7 +215,10 @@ type IndexWalkRules = Awaited<ReturnType<typeof walkRoot>>['ignoreRules'];
  */
 function allowed(root: string, entries: readonly IndexEntry[], deny: readonly IgnoreRule[]): readonly IndexEntry[] {
   if (deny.length === 0) return entries;
-  return entries.filter((e) => !isIgnored(relativePath(root, e.path), false, deny));
+  return entries.filter((e) => {
+    const rel = pathUnder(root, e.path);
+    return rel !== undefined && !isIgnored(rel, false, deny);
+  });
 }
 
 /** One string per rule set, so a second `ensureRoot` can tell whether the rules changed. */
@@ -227,7 +239,16 @@ export function indexShellFor<S extends IndexServiceShell & { peekFile?(path: st
   };
 }
 
-export function createIndexService(shell: IndexServiceShell): IndexService {
+export interface IndexServiceOptions {
+  /** The clock for the per-file gap; `Date.now` by default (tests pass their own). */
+  readonly now?: () => number;
+  /** Run `fn` after `ms`; `setTimeout` by default (tests pass their own, to step time). */
+  readonly later?: (ms: number, fn: () => void) => void;
+}
+
+export function createIndexService(shell: IndexServiceShell, opts: IndexServiceOptions = {}): IndexService {
+  const now = opts.now ?? Date.now;
+  const later = opts.later ?? ((ms: number, fn: () => void) => void setTimeout(fn, ms));
   const roots = new Map<string, RootState>();
   /** Roots, most recently ensured first. */
   let order: string[] = [];
@@ -348,7 +369,7 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
    * session. A failed refresh keeps the entries the root already had.
    */
   const hold = (root: string, idle: boolean, path?: string, openedBytes?: Uint8Array): RootState => {
-    const state: RootState = { entries: [], pending: Promise.resolve(), queued: false, events: [], patchQueued: false };
+    const state: RootState = { entries: [], pending: Promise.resolve(), queued: false, events: [], patchQueued: false, lastRead: new Map(), held: new Set() };
     roots.set(root, state);
     state.pending = (async () => {
       // The last session's index, published before the walk lists anything, less what today's deny
@@ -414,7 +435,12 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
               out.set(path, null);
               return;
             }
-            const rel = relativePath(root, path);
+            const rel = pathUnder(root, path);
+            // planEvents only names paths strictly under the root; this is the second lock.
+            if (rel === undefined || rel === '') {
+              out.set(path, null);
+              return;
+            }
             let bytes: Uint8Array | undefined;
             if (classify(rel) === 'markdown') {
               try {
@@ -435,7 +461,7 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
   /** Write `root`'s snapshot once the interval is out; every patch meanwhile rides on that write. */
   const persistSoon = (root: string, state: RootState) => {
     if (state.persist) return;
-    state.persist = new Promise<void>((resolve) => setTimeout(resolve, PATCH_PERSIST_INTERVAL_MS)).then(async () => {
+    state.persist = new Promise<void>((resolve) => later(PATCH_PERSIST_INTERVAL_MS, resolve)).then(async () => {
       state.persist = undefined;
       if (roots.get(root) !== state) return;
       await writeSnapshot(root, state.entries, undefined, state.baselineMs);
@@ -460,12 +486,38 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
       rewalk(root);
       return;
     }
-    if (plan.reread.length === 0 && plan.remove.length === 0) return;
-    const read = await reread(root, plan.reread);
+    // A file read less than PATCH_GAP_MS ago waits for the end of its gap; removals never wait.
+    const t = now();
+    for (const [path, at] of state.lastRead) if (t - at >= PATCH_GAP_MS) state.lastRead.delete(path);
+    const due: string[] = [];
+    let wait = 0;
+    for (const path of plan.reread) {
+      const at = state.lastRead.get(path);
+      if (at === undefined) due.push(path);
+      else {
+        state.held.add(path);
+        wait = Math.max(wait, at + PATCH_GAP_MS - t);
+      }
+    }
+    if (state.held.size > 0 && !state.holding) {
+      state.holding = new Promise<void>((resolve) =>
+        later(wait, () => {
+          state.holding = undefined;
+          const paths = [...state.held];
+          state.held.clear();
+          for (const path of paths) state.lastRead.delete(path);
+          if (roots.get(root) === state) applyEvents(paths.map((path) => ({ kind: 'modified' as const, path })));
+          resolve();
+        }),
+      );
+    }
+    for (const path of due) state.lastRead.set(path, t);
+    if (due.length === 0 && plan.remove.length === 0) return;
+    const read = await reread(root, due);
     if (roots.get(root) !== state) return;
     const removed = new Set(plan.remove);
     const upserted = new Map<string, IndexEntry>();
-    for (const path of plan.reread) {
+    for (const path of due) {
       const entry = read.get(path);
       if (entry) upserted.set(path, entry);
       else if (known.has(path)) removed.add(path);
@@ -604,9 +656,10 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
     },
     async settled() {
       for (;;) {
-        const waits = [...roots.values()].flatMap((s) => [s.pending, ...(s.persist ? [s.persist] : [])]);
+        const all = () => [...roots.values()].flatMap((s) => [s.pending, ...(s.persist ? [s.persist] : []), ...(s.holding ? [s.holding] : [])]);
+        const waits = all();
         await Promise.all(waits);
-        const again = [...roots.values()].flatMap((s) => [s.pending, ...(s.persist ? [s.persist] : [])]);
+        const again = all();
         if (again.length === waits.length && again.every((p, i) => p === waits[i])) return;
       }
     },

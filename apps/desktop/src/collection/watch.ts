@@ -3,7 +3,7 @@
 // with `watch`) and closed when it stops being one or the collection stops. A folder nested in another
 // watched folder shares the outer one's watch: two watches on one tree would report every change twice.
 // The open document's own folder watch (ADR-0018, app.ts `registerDocumentWatch`) is not touched here.
-import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { isUnderRoot, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { IndexService } from '../index/service.ts';
 import type { IndexEntry } from '@marxy/core';
@@ -31,11 +31,7 @@ export interface TreeWatchHandle {
   stop(): void;
 }
 
-const under = (path: string, root: string): boolean => {
-  const p = normalizePath(path);
-  const r = normalizePath(root);
-  return r === '/' ? p.startsWith('/') : p === r || p.startsWith(`${r}/`);
-};
+const under = isUnderRoot;
 
 /** `roots` without any root that lies inside another one in the list: the distinct trees. */
 export function distinctTrees(roots: readonly string[]): string[] {
@@ -109,28 +105,13 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
 }
 
 /**
- * Calls `onSummon` each time the palette dialog opens. The palette's own view is not this story's to
- * change, so the dialog's `open` attribute is what is watched.
- */
-export function onPaletteSummon(dialog: HTMLDialogElement, onSummon: () => void): () => void {
-  let wasOpen = dialog.open;
-  const observer = new MutationObserver(() => {
-    if (dialog.open && !wasOpen) onSummon();
-    wasOpen = dialog.open;
-  });
-  observer.observe(dialog, { attributes: true, attributeFilter: ['open'] });
-  return () => observer.disconnect();
-}
-
-/**
  * Feed the palette from the index for the whole session and keep it fresh (A-04, C-11): a watch
  * event's patch changes only its rows, anything else rebuilds what the palette searches; watched
- * folders get their tree watches, and summoning the palette re-walks a folder that could not be watched.
+ * folders get their tree watches. Summoning the palette (`palette/view.ts`) re-walks one that could not be.
  */
 export function keepFresh(
   handle: { readonly shell: TreeWatchShell; readonly index: IndexService },
   palette: { readonly feed: Pick<IndexFeed, 'applyPatch' | 'setWatchNotice'>; setIndexEntries(entries: readonly IndexEntry[]): void },
-  dialog: Element | null = typeof document === 'undefined' ? null : document.getElementById('marxy-palette'),
 ): TreeWatchHandle {
   const { index } = handle;
   index.subscribe((entries, patch) => {
@@ -138,7 +119,5 @@ export function keepFresh(
     if (patch) palette.feed.applyPatch(entries, patch);
     else palette.setIndexEntries(entries);
   });
-  const trees = startTreeWatches({ shell: handle.shell, index });
-  if (typeof HTMLDialogElement !== 'undefined' && dialog instanceof HTMLDialogElement) onPaletteSummon(dialog, () => index.revalidate());
-  return trees;
+  return startTreeWatches({ shell: handle.shell, index });
 }

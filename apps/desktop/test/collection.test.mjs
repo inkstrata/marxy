@@ -319,7 +319,11 @@ test("Add escapes a folder named it's, keeps every prior byte and parses back to
     const parsed = parseCollection(Buffer.from(written), { home: '/home/x' });
     assert.deepEqual(parsed.warnings, []);
     assert.deepEqual(parsed.collection.roots.map((r) => r.path), ['/b', "/it's"]);
-||||||| parent of 17668199 (feat(desktop): a watch event patches one entry in the collection, never the whole index (C-11))
+  } finally {
+    await browser.close();
+  }
+});
+
 // ---------------------------------------------------------------------------------------------
 // C-11: a watch event patches one entry, never the whole index.
 
@@ -412,6 +416,11 @@ test('C-11: a file written temp-then-rename into a watched folder is listed afte
       await window.__until(() => h.index.entries().filter((e) => e.title === 'Field guide').length === 2, 'both roots');
     });
     assert.deepEqual(await search(page, mod, 'field guide'), ['Field guide']);
+    // What the palette searches holds each path once, and the earliest root in scope (/c, current) wins.
+    const scoped = await page.evaluate(() => window.__h.palette.feed.entries().map((e) => [e.path, e.root]));
+    const paths = scoped.map(([p]) => p);
+    assert.equal(new Set(paths).size, paths.length, `one entry per path: ${JSON.stringify(scoped)}`);
+    assert.deepEqual(scoped.filter(([p]) => p === '/c/docs/guide.md'), [['/c/docs/guide.md', '/c']]);
   } finally {
     await browser.close();
   }

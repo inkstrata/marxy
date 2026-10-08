@@ -118,3 +118,61 @@ test('a refused watch reaches the notice line at once, with no walk to carry it,
   await trees.settled();
   assert.equal(index.watchNotice(), undefined, 'a closed tree says nothing');
 });
+
+test('a move out of a nested root named like a file, into a folder the outer root ignores, reads and lists nothing', async () => {
+  const shell = createMemoryShell({
+    '/a/.git/HEAD': enc('ref: refs/heads/main\n'),
+    '/a/.gitignore': enc('private/\n'),
+    '/a/README.md': enc('# A\n'),
+    '/a/notes.d/x.md': enc('# X\n'),
+  });
+  const index = createIndexService(shell);
+  await index.ensureFor('/a/README.md');
+  await index.ensureRoot('/a/notes.d', { watch: true });
+  await index.settled();
+  shell.remove('/a/notes.d/x.md');
+  await shell.writeFileAtomic('/a/private/y.md', enc('# Secret title\n'));
+  const mark = shell.calls.length;
+  index.applyEvents([{ kind: 'renamed', path: '/a/notes.d/x.md', to: '/a/private/y.md' }]);
+  await index.settled();
+  const touched = shell.calls.slice(mark).filter((c) => c.method === 'readDir' || c.method === 'readFile').map((c) => `${c.method} ${c.args[0]}`);
+  assert.deepEqual(touched, [], 'nothing under /a/private is listed or read');
+  assert.deepEqual(index.entries().map((e) => e.path).filter((p) => p.includes('private') || p.includes('x.md')), []);
+});
+
+test('a file written again within PATCH_GAP_MS is read once more when the gap ends, not at every write', async () => {
+  let clock = 1_000_000;
+  const timers: { ms: number; fn: () => void }[] = [];
+  const shell = createMemoryShell(files());
+  const index = createIndexService(shell, { now: () => clock, later: (ms, fn) => void timers.push({ ms, fn }) });
+  await index.ensureRoot('/n', { watch: true });
+  await index.settled().catch(() => {});
+  const reads = () => shell.calls.filter((c) => c.method === 'readFile' && c.args[0] === '/n/notes.md').length;
+  const titles = () => index.entries().filter((e) => e.path === '/n/notes.md').map((e) => e.title);
+  const write = async (title: string) => {
+    await shell.writeFileAtomic('/n/notes.md', enc(`# ${title}\n`));
+    index.applyEvents([{ kind: 'modified', path: '/n/notes.md' }]);
+    // Let the queued patch run (no timers fire unless the test fires them).
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+  };
+  const before = reads();
+  await write('One');
+  assert.deepEqual(titles(), ['One']);
+  clock += 100;
+  await write('Two');
+  clock += 100;
+  await write('Three');
+  assert.equal(reads() - before, 1, 'two writes inside the gap read nothing yet');
+  assert.deepEqual(titles(), ['One']);
+  const gap = timers.find((t) => t.ms !== 2000);
+  assert.ok(gap, 'a timer for the end of the gap');
+  assert.equal(gap.ms, 400, 'it ends 500 ms after the first read');
+  clock += 400;
+  gap.fn();
+  await new Promise((r) => setTimeout(r, 0));
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(reads() - before, 2, 'the trailing write is read once');
+  assert.deepEqual(titles(), ['Three']);
+});

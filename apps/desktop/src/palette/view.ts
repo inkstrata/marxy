@@ -73,6 +73,8 @@ export interface PaletteDeps {
   readonly baselineMs?: (root: string) => number | undefined;
   /** The clock, for the ages. */
   readonly now?: () => number;
+  /** Called each time the palette is summoned: the index re-walks folders it could not watch (C-11). */
+  readonly onSummon?: () => void;
 }
 
 export interface PaletteController {
@@ -593,6 +595,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     emptyNow = now();
     emptyCache = undefined;
     if (!deps.dialog.open) deps.dialog.showModal();
+    deps.onSummon?.();
     input.value = model.query;
     repaint();
     input.focus();
@@ -768,6 +771,7 @@ export function mountPaletteFromHandle(
     // Looked up on each call: the service's answers move as roots are walked and watched.
     isWatched: (root) => handle.index.isWatched(root),
     baselineMs: (root) => handle.index.baselineMs(root),
+    onSummon: () => handle.index.revalidate(),
   });
   setPaletteCloser(() => controller.close());
   // Any open the app records (command line, menu, a link), not only the palette's own (C-12).

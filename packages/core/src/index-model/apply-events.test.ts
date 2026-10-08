@@ -108,3 +108,38 @@ test('ignoreRulesFrom orders a folder before its subfolders, so a nested negatio
     ['/r/docs/keep.md'],
   );
 });
+
+test('a root named like a file is a folder: a move out of it, into an ignored folder of the outer root, reads nothing (C-11)', () => {
+  const event = { kind: 'renamed' as const, path: '/a/notes.d/x.md', to: '/a/private/y.md' };
+  // The nested root /a/notes.d: the file left it, and its new place is not its business.
+  assert.deepEqual(planEvents(new Set(['/a/notes.d/x.md']), [event], '/a/notes.d', []), {
+    reread: [],
+    remove: ['/a/notes.d/x.md'],
+    revalidate: false,
+  });
+  // The outer root /a ignores private/: the file's new place is never read.
+  assert.deepEqual(planEvents(new Set(['/a/notes.d/x.md']), [event], '/a', parseIgnore('private/\n', '')), {
+    reread: [],
+    remove: ['/a/notes.d/x.md'],
+    revalidate: false,
+  });
+  for (const root of ['/repo/v1.2', '/me.github.io', '/site.v2']) {
+    assert.deepEqual(planEvents(none, [{ kind: 'created', path: `${root}-sibling/a.md` }, { kind: 'created', path: '/elsewhere.md' }], root, []).reread, []);
+  }
+});
+
+test('an event path with a `..` segment is no root\'s', () => {
+  assert.deepEqual(
+    planEvents(none, [{ kind: 'created', path: '/r/docs/../../etc/secret.md' }, { kind: 'renamed', path: '/r/a.md', to: '/r/../x.md' }], root, []),
+    { reread: [], remove: [], revalidate: false },
+  );
+});
+
+test('an ignore file in a folder the walk never enters does not ask for a walk', () => {
+  const rules = parseIgnore('generated/\n', '');
+  const deny = denyRulesFor(['**/private/**']);
+  for (const path of ['/r/.venv/.gitignore', '/r/node_modules/pkg/.gitignore', '/r/generated/.ignore', '/r/notes/private/.gitignore']) {
+    assert.equal(planEvents(none, [{ kind: 'modified', path }], root, rules, deny).revalidate, false, path);
+  }
+  assert.equal(planEvents(none, [{ kind: 'modified', path: '/r/notes/.gitignore' }], root, rules, deny).revalidate, true);
+});

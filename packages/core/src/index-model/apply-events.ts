@@ -4,7 +4,7 @@
 
 import { isIgnored, parseIgnore, type IgnoreRule } from './ignore.ts';
 import { classify } from './kinds.ts';
-import { basename, normalizePath, relativePath } from './paths.ts';
+import { basename, normalizePath, pathUnder } from './paths.ts';
 
 /**
  * One watch event, in the shape the shell reports (`@marxy/shell-api` `WatchEvent`; core imports
@@ -42,17 +42,17 @@ export function planEvents(
   rules: readonly IgnoreRule[],
   deny: readonly IgnoreRule[] = [],
 ): EventPlan {
-  const base = normalizePath(root);
+  // Strictly inside: the root itself is no file, and a path with a `..` segment is no one's.
   const inRoot = (path: string): string | undefined => {
-    const rel = relativePath(base, normalizePath(path));
-    return rel === '' || rel === '..' || rel.startsWith('../') ? undefined : rel;
+    const rel = pathUnder(root, path);
+    return rel === '' ? undefined : rel;
   };
   const last = new Map<string, 'reread' | 'remove'>();
   let revalidate = false;
   const note = (path: string, what: 'reread' | 'remove') => {
     const p = normalizePath(path);
     if (inRoot(p) === undefined) return;
-    if (IGNORE_FILES.has(basename(p))) revalidate = true;
+    if (IGNORE_FILES.has(basename(p)) && !insideSkippedFolder(inRoot(p)!, rules, deny)) revalidate = true;
     // Re-inserting moves the path to the end, so `reread` keeps the order of the last event.
     last.delete(p);
     last.set(p, what);
@@ -74,6 +74,17 @@ export function planEvents(
   return { reread, remove, revalidate };
 }
 
+/**
+ * An ignore file in a folder the walk never enters (`.venv/.gitignore`, one under a `.gitignore`d or
+ * denied folder) changes nothing the root lists.
+ */
+function insideSkippedFolder(rel: string, rules: readonly IgnoreRule[], deny: readonly IgnoreRule[]): boolean {
+  // A deny glob covers the file itself (`**/private/**` names no folder, only what is under it).
+  if (deny.length > 0 && isIgnored(rel, false, deny)) return true;
+  const slash = rel.lastIndexOf('/');
+  return slash >= 0 && isIgnored(rel.slice(0, slash), true, rules);
+}
+
 /** Whether the walk would list `rel`: the same three tests `collectFiles` applies to a file. */
 function allowed(rel: string, rules: readonly IgnoreRule[], deny: readonly IgnoreRule[]): boolean {
   if (classify(rel) === undefined) return false;
@@ -87,11 +98,10 @@ function allowed(rel: string, rules: readonly IgnoreRule[], deny: readonly Ignor
  * directory), so the last matching rule wins as it does in the walk.
  */
 export function ignoreRulesFrom(root: string, files: ReadonlyMap<string, string>): IgnoreRule[] {
-  const base = normalizePath(root);
   const found: { dir: string; depth: number; order: number; text: string }[] = [];
   for (const [path, text] of files) {
-    const rel = relativePath(base, normalizePath(path));
-    if (rel === '' || rel.startsWith('../')) continue;
+    const rel = pathUnder(root, path);
+    if (rel === undefined || rel === '') continue;
     const name = basename(rel);
     if (!IGNORE_FILES.has(name)) continue;
     const dir = rel === name ? '' : rel.slice(0, rel.length - name.length - 1);
