@@ -26,6 +26,7 @@ export function startDocumentEditingWire(context: () => AppContext): void {
     __marxyDocumentWire?: boolean;
     marxyDocumentEdit?: typeof documentEditState;
     marxyHarnessAlignTable?: () => Promise<string | undefined>;
+    marxyHarnessUndo?: () => Promise<void>;
     marxyHarnessRedo?: () => Promise<void>;
     marxyHarnessSave?: () => Promise<import('../save.ts').SaveResult>;
     marxyRunCommand?: (id: string) => Promise<void>;
@@ -90,6 +91,7 @@ export function startDocumentEditingWire(context: () => AppContext): void {
     wire();
   }
   w.marxyDocumentEdit = documentEditState;
+  w.marxyHarnessUndo = () => undoDocumentEdit();
   w.marxyHarnessRedo = () => redoDocumentEdit();
   w.marxyHarnessAlignTable = harnessAlignFirstTable;
   w.marxyHarnessSave = () => save();
