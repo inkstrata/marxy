@@ -121,17 +121,24 @@ export function jumpForHit(
 }
 
 /**
+ * Where a root stands in the palette's scope (C-10): 0 is the current repository, then the declared
+ * folders in file order, then the recent roots; a root outside the scope ranks after all of them.
+ */
+export type RootRank = (root: string) => number;
+
+/**
  * Palette results for a keystroke. An empty query is pinned-on-top MRU; a non-empty query
- * is fuzzy over the current root first, then recent roots, ranked by match then frecency.
+ * is fuzzy over the current root first, then the other roots in `rootRank` order (the session's
+ * recent roots when it is absent), ranked by match then frecency within a root.
  */
 export function paletteResults(
   query: string,
   entries: readonly IndexEntry[],
   session: PaletteSession,
-  options?: { limit?: number; prepared?: PreparedIndex },
+  options?: { limit?: number; prepared?: PreparedIndex; rootRank?: RootRank },
 ): readonly IndexHit[] {
   const prepared = options?.prepared ?? prepareIndex(entries);
-  return searchPrepared(query, prepared, session, options?.limit ?? DEFAULT_LIMIT);
+  return searchPrepared(query, prepared, session, options?.limit ?? DEFAULT_LIMIT, options?.rootRank);
 }
 
 /** Search a prepared index. This is the keystroke path the 16 ms budget measures. */
@@ -140,6 +147,7 @@ export function searchPrepared(
   prepared: PreparedIndex,
   session: PaletteSession,
   limit = DEFAULT_LIMIT,
+  rootRank?: RootRank,
 ): readonly IndexHit[] {
   if (process.env.MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION) return [];
   const needle = query.trim().normalize('NFC').toLowerCase();
@@ -148,14 +156,34 @@ export function searchPrepared(
   const byPath = new Map<string, number>();
   for (let i = 0; i < session.mru.length; i++) byPath.set(session.mru[i]!, i);
 
-  // Recent-root order is part of the capped comparison for hits outside the current root, so a
-  // recent root's match is never evicted by equal-scoring matches from a root that is not recent.
-  const recent = new Map<string, number>();
-  for (let i = 0; i < session.recentRoots.length; i++) recent.set(session.recentRoots[i]!, i);
+  // Root order is part of the capped comparison for hits outside the current root, so an earlier
+  // root's match is never evicted by equal-scoring matches from a later root. With `rootRank` the
+  // scope says both which root is current (rank 0) and the order of the rest; without it, the
+  // session's current root and recent roots do.
+  let rankOf: RootRank;
+  let isCurrent: (root: string) => boolean;
+  if (rootRank !== undefined) {
+    rankOf = rootRank;
+    // Rows of one root sit together, so one lookup answers a run of them.
+    let lastRoot: string | undefined;
+    let lastCurrent = false;
+    isCurrent = (root) => {
+      if (root !== lastRoot) {
+        lastRoot = root;
+        lastCurrent = rootRank(root) === 0;
+      }
+      return lastCurrent;
+    };
+  } else {
+    const recent = new Map<string, number>();
+    for (let i = 0; i < session.recentRoots.length; i++) recent.set(session.recentRoots[i]!, i);
+    rankOf = (root) => recent.get(root) ?? 1_000;
+    isCurrent = (root) => root === session.currentRoot;
+  }
   const current = topKHits(limit, compareHits);
   const later = topKHits(limit, (a, b) => {
-    const ar = recent.get(a.entry.root) ?? 1_000;
-    const br = recent.get(b.entry.root) ?? 1_000;
+    const ar = rankOf(a.entry.root);
+    const br = rankOf(b.entry.root);
     return ar !== br ? ar - br : compareHits(a, b);
   });
   const now = Date.now();
@@ -165,7 +193,7 @@ export function searchPrepared(
     const hit = scoreRow(row, needle, byPath, now, prior);
     if (hit === undefined) return false;
     if (hit === CANDIDATE_ONLY) return true;
-    if (row.entry.root === session.currentRoot) current.push(hit);
+    if (isCurrent(row.entry.root)) current.push(hit);
     else later.push(hit);
     return true;
   };

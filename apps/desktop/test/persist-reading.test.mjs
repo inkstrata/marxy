@@ -136,7 +136,11 @@ test('first launch without store files records only the document and config read
       window.__marxyHandle.shell.calls.some((c) => c.method === 'readFile' && c.args[0] === '/data/trust.json'),
     );
     const reads = await page.evaluate(() =>
-      window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-')).map((c) => c.args[0]),
+      window.__marxyHandle.shell.calls
+        .filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-'))
+        .map((c) => c.args[0])
+        // collection.toml is the reader's file, read for the index's deny list (C-10), not a store file.
+        .filter((p) => p !== '/collection.toml'),
     );
     assert.deepEqual(reads, [path, '/config', '/data/trust.json']);
   } finally {

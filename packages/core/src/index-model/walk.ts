@@ -23,6 +23,12 @@ export interface DirectoryReader {
 export interface WalkOptions {
   /** Soft cap used as a stop-early hint. Ceiling still runs on the result. */
   readonly limit?: number;
+  /**
+   * The reader's deny globs (`collection.toml`), checked after the root's own ignore rules and
+   * apart from them, so no `.gitignore` negation can bring a denied path back. The built-in deny
+   * list still wins over everything.
+   */
+  readonly extraRules?: readonly IgnoreRule[];
 }
 
 /**
@@ -32,6 +38,9 @@ export interface WalkOptions {
 export function collectFiles(root: string, reader: DirectoryReader, options: WalkOptions = {}): IndexCandidate[] {
   const rules: IgnoreRule[] = [];
   loadIgnore(reader, root, '', rules);
+  const extra = options.extraRules ?? [];
+  const denied = (rel: string, isDir: boolean) =>
+    isIgnored(rel, isDir, rules) || (extra.length > 0 && isIgnored(rel, isDir, extra));
   const out: IndexCandidate[] = [];
   const stack = [root];
   while (stack.length > 0) {
@@ -48,12 +57,12 @@ export function collectFiles(root: string, reader: DirectoryReader, options: Wal
       if (rel.startsWith('../')) continue;
       if (entry.isDir) {
         loadIgnore(reader, entry.path, rel, rules);
-        if (isIgnored(rel, true, rules)) continue;
+        if (denied(rel, true)) continue;
         stack.push(entry.path);
         continue;
       }
       if (!classify(entry.path) && !classify(rel)) continue;
-      if (isIgnored(rel, false, rules)) continue;
+      if (denied(rel, false)) continue;
       out.push({
         path: entry.path,
         relativePath: rel,

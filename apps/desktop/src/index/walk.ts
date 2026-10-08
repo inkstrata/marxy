@@ -6,12 +6,14 @@ import {
   classify,
   collectFiles,
   type DirectoryReader,
+  type IgnoreRule,
   type IndexNotice,
   type WalkEntry,
 } from '@marxy/core/src/index-model/index.ts';
 import { invalidateByMtime, type IndexSnapshot } from '@marxy/core/src/index-model/persist.ts';
 import { isDeniedName } from '@marxy/core/src/index-model/deny.ts';
-import { basename, dirname, joinPath, normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { isIgnored } from '@marxy/core/src/index-model/ignore.ts';
+import { basename, dirname, joinPath, normalizePath, relativePath } from '@marxy/core/src/index-model/paths.ts';
 
 /** Shell surface the index walk needs (ADR-0026 `readDir`, byte reads for headings). */
 export interface IndexLoadShell {
@@ -59,7 +61,8 @@ export async function loadIndex(
  * Walk `root` (already detected). `openedPath`/`openedBytes` name a document whose bytes are on
  * screen, so the walk does not read it again. `previous` is an earlier snapshot of this root: a
  * markdown file whose size and modification time still match it keeps its title and headings and
- * is not read.
+ * is not read. `deny` holds the reader's deny globs (`collection.toml`): nothing under them is listed
+ * or read.
  */
 export async function walkRoot(
   shell: IndexLoadShell,
@@ -67,6 +70,7 @@ export async function walkRoot(
   openedPath?: string,
   openedBytes?: Uint8Array,
   previous?: IndexSnapshot,
+  deny: readonly IgnoreRule[] = [],
 ): Promise<IndexWalk> {
   if (indexDisabled(shell)) {
     return { entries: [], calls: 0 };
@@ -82,8 +86,8 @@ export async function walkRoot(
       return shell.readFile(path);
     },
   };
-  const reader = await prefetchDirectoryReader(counted, root);
-  const candidates = collectFiles(root, reader);
+  const reader = await prefetchDirectoryReader(counted, root, deny);
+  const candidates = collectFiles(root, reader, { extraRules: deny });
   const reusable = new Map<string, IndexEntry>();
   if (previous && previous.root === root) {
     const { fresh } = invalidateByMtime(previous, candidates);
@@ -162,7 +166,11 @@ async function pathIsDirectory(shell: IndexLoadShell, path: string): Promise<boo
   return listing.some((entry) => entry.path === path && entry.isDir);
 }
 
-async function prefetchDirectoryReader(shell: IndexLoadShell, root: string): Promise<DirectoryReader> {
+async function prefetchDirectoryReader(
+  shell: IndexLoadShell,
+  root: string,
+  deny: readonly IgnoreRule[] = [],
+): Promise<DirectoryReader> {
   const dirCache = new Map<string, WalkEntry[]>();
   const textCache = new Map<string, string>();
 
@@ -193,6 +201,7 @@ async function prefetchDirectoryReader(shell: IndexLoadShell, root: string): Pro
     }
     for (const entry of entries) {
       if (!entry.isDir || isDeniedName(entry.name)) continue;
+      if (deny.length > 0 && isIgnored(relativePath(root, entry.path), true, deny)) continue;
       await fillDir(entry.path);
     }
   }

@@ -12,6 +12,12 @@ export interface IndexSnapshot {
   readonly generatedAtMs: number;
   readonly entries: readonly IndexEntry[];
   readonly notice?: IndexNotice;
+  /**
+   * When Marxy first indexed this root (epoch ms). Set once and carried by every later snapshot of
+   * the root, so a folder added today does not count every file in it as changed (ADR-0053).
+   * Optional: a snapshot written before it existed still parses, and the version stays 1.
+   */
+  readonly baselineMs?: number;
 }
 
 export interface FileStamp {
@@ -39,6 +45,11 @@ export function parseSnapshot(json: string): IndexSnapshot | undefined {
     if (value.version !== INDEX_SNAPSHOT_VERSION) return undefined;
     if (typeof value.root !== 'string' || !Array.isArray(value.entries)) return undefined;
     if (typeof value.generatedAtMs !== 'number') return undefined;
+    // A baseline that is not a time is dropped, not trusted: the rest of the snapshot still serves.
+    if (value.baselineMs !== undefined && !(typeof value.baselineMs === 'number' && Number.isFinite(value.baselineMs))) {
+      const { baselineMs: _dropped, ...rest } = value;
+      return rest as IndexSnapshot;
+    }
     return value as IndexSnapshot;
   } catch {
     return undefined;

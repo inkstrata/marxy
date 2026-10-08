@@ -2,8 +2,14 @@
 // A root's last walk is kept on disk (A-05): the next session publishes it at once, then walks to check it.
 // Each root is walked once per session; every root opened so far is published to subscribers, most
 // recently ensured first; a change in the open document's directory re-walks its root on the idle queue.
+// Declared folders (`collection.toml`, C-10) are held with `ensureRoot` and let go with `dropRoot`; every
+// root remembers when Marxy first indexed it (`baselineMs`). The reader's deny globs join the built-in
+// deny list for every root held: read from collection.toml before the first walk, replaced by `setDeny`.
 import type { IndexEntry } from '@marxy/core';
-import { dirname, normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { isIgnored, type IgnoreRule } from '@marxy/core/src/index-model/ignore.ts';
+import { denyRulesFor } from '@marxy/core/src/index-model/collection.ts';
+import { loadCollection } from '../collection/load.ts';
+import { dirname, normalizePath, relativePath } from '@marxy/core/src/index-model/paths.ts';
 import { notify } from '../notices/index.ts';
 import {
   INDEX_SNAPSHOT_VERSION,
@@ -22,6 +28,28 @@ export interface IndexService {
    * already on screen for `path`, so the walk does not read that file again.
    */
   ensureFor(path: string, openedBytes?: Uint8Array): Promise<void>;
+  /**
+   * Hold `root` itself (not its repository): serve its snapshot at once, walk it at idle, publish.
+   * Idempotent. `watch` is what `collection.toml` declared (C-11 starts the watches; nothing is
+   * watched here).
+   */
+  ensureRoot(root: string, opts?: { readonly watch?: boolean }): Promise<void>;
+  /**
+   * The reader's deny globs (`collection.toml`), for every root: the current repository, declared
+   * folders and recent roots alike. Rules that differ from the last ones re-walk every root held.
+   */
+  setDeny(rules: readonly IgnoreRule[]): void;
+  /** Let go of `root`: its entries leave the published set. Its snapshot stays on disk. */
+  dropRoot(root: string): void;
+  /** The roots held, in the order their entries are published. */
+  roots(): readonly string[];
+  /**
+   * When Marxy first indexed `root` (epoch ms), kept in its snapshot and never moved; undefined until
+   * the root's snapshot is read or its first walk is done.
+   */
+  baselineMs(root: string): number | undefined;
+  /** Whether `root` is watched: declared with `watch` (the default), or the open document's repository. */
+  isWatched(root: string): boolean;
   /** Re-walk `root` on the idle queue; calls made while one is pending coalesce into it. */
   refresh(root: string): void;
   /** Every indexed root's entries, the most recently ensured root first. */
@@ -98,7 +126,22 @@ interface RootState {
   queued: boolean;
   /** The snapshot served at the start of this session, until a walk replaces it. */
   snapshot?: IndexSnapshot;
+  /** When Marxy first indexed this root; from its snapshot, else the end of its first walk. */
+  baselineMs?: number;
 }
+
+/**
+ * `entries` without those under the reader's deny globs, by the walk's own matcher. A snapshot was
+ * written under the rules of its day: nothing it holds is served past today's.
+ */
+function allowed(root: string, entries: readonly IndexEntry[], deny: readonly IgnoreRule[]): readonly IndexEntry[] {
+  if (deny.length === 0) return entries;
+  return entries.filter((e) => !isIgnored(relativePath(root, e.path), false, deny));
+}
+
+/** One string per rule set, so a second `ensureRoot` can tell whether the rules changed. */
+const denyKey = (rules: readonly IgnoreRule[]): string =>
+  rules.map((r) => `${r.negated ? '!' : ''}${r.anchored ? '/' : ''}${r.pattern}${r.directoryOnly ? '/' : ''}@${r.baseDir}`).join('\n');
 
 /**
  * The shell the index reads through: `peekFile` where the shell has one, so index reads do not
@@ -121,6 +164,25 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
   let published: readonly IndexEntry[] = [];
   const subscribers = new Set<(entries: readonly IndexEntry[]) => void>();
   const rootCache = new Map<string, Promise<string>>();
+  /** `watch` as `collection.toml` declared it, per declared root; a recent root has none. */
+  const declaredWatch = new Map<string, boolean>();
+  /** The open document's repository root: the last root `ensureFor` held. */
+  let currentRoot: string | undefined;
+  /** The reader's deny globs; undefined until collection.toml is read or `setDeny` sets them. */
+  let globalDeny: readonly IgnoreRule[] | undefined;
+  let denyRead: Promise<readonly IgnoreRule[]> | undefined;
+  /**
+   * The deny rules a walk uses. The first walk reads collection.toml for them (a small file, read
+   * after first text: no walk runs before it), silently: the collection's own load gives the notice.
+   */
+  const denyRules = (): Promise<readonly IgnoreRule[]> => {
+    if (globalDeny !== undefined) return Promise.resolve(globalDeny);
+    denyRead ??= loadCollection(shell, { notify: () => {} })
+      .then(({ collection }) => denyRulesFor(collection.denyGlobs))
+      .catch(() => [] as IgnoreRule[])
+      .then((rules) => (globalDeny ??= rules));
+    return denyRead;
+  };
 
   const publish = () => {
     published = order.flatMap((root) => roots.get(root)?.entries ?? []);
@@ -135,8 +197,16 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
         (state.entries.length > 0
           ? { version: INDEX_SNAPSHOT_VERSION, root, generatedAtMs: Date.now(), entries: state.entries }
           : undefined);
-      const { entries, notice, calls } = await walkRoot(shell, root, openedPath, openedBytes, previous);
-      const unchanged = state.snapshot !== undefined && JSON.stringify(state.snapshot.entries) === JSON.stringify(entries);
+      const deny = await denyRules();
+      const { entries, notice, calls } = await walkRoot(shell, root, openedPath, openedBytes, previous, deny);
+      const unchanged =
+        state.snapshot !== undefined &&
+        state.snapshot.baselineMs !== undefined &&
+        JSON.stringify(state.snapshot.entries) === JSON.stringify(entries);
+      // A root's first walk sets its baseline. A snapshot from before baselines were kept is the
+      // nearest record of when Marxy first saw the root, so its time stands in.
+      state.baselineMs ??= state.snapshot?.generatedAtMs ?? Date.now();
+      if (roots.get(root) !== state) return true;
       state.entries = entries;
       publish();
       if (notice) {
@@ -146,7 +216,7 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
         });
       }
       await shell.mark('index_loaded', Date.now(), `entries=${entries.length} root=${root} source=walk calls=${calls}`);
-      if (!unchanged) await writeSnapshot(root, entries, notice);
+      if (!unchanged) await writeSnapshot(root, entries, notice, state.baselineMs);
       state.snapshot = undefined;
       return true;
     } catch (e) {
@@ -155,11 +225,16 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
     }
   };
 
-  const writeSnapshot = async (root: string, entries: readonly IndexEntry[], notice: IndexSnapshot['notice']) => {
+  const writeSnapshot = async (
+    root: string,
+    entries: readonly IndexEntry[],
+    notice: IndexSnapshot['notice'],
+    baselineMs: number | undefined,
+  ) => {
     const path = await snapshotPath(shell, root);
     if (!path) return;
     try {
-      const snapshot: IndexSnapshot = { version: INDEX_SNAPSHOT_VERSION, root, generatedAtMs: Date.now(), entries, notice };
+      const snapshot: IndexSnapshot = { version: INDEX_SNAPSHOT_VERSION, root, generatedAtMs: Date.now(), entries, notice, baselineMs };
       await shell.writeFileAtomic!(path, new TextEncoder().encode(serializeSnapshot(snapshot)));
     } catch (e) {
       console.warn(`marxy: could not keep the index of ${root}: ${String(e)}`);
@@ -179,10 +254,54 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
     return cached;
   };
 
+  /**
+   * Start holding `root`: its snapshot first, then a walk (at idle when `idle`). A first walk that
+   * fails forgets the root, so the next ensure walks it again rather than keeping it empty for the
+   * session. A failed refresh keeps the entries the root already had.
+   */
+  const hold = (root: string, idle: boolean, path?: string, openedBytes?: Uint8Array): RootState => {
+    const state: RootState = { entries: [], pending: Promise.resolve(), queued: false };
+    roots.set(root, state);
+    state.pending = (async () => {
+      // The last session's index, published before the walk lists anything, less what today's deny
+      // globs cover (the reader may have added one while Marxy was closed).
+      const file = await snapshotPath(shell, root);
+      const snapshot = file ? await readSnapshot(shell, file, root) : undefined;
+      const deny = snapshot ? await denyRules() : [];
+      if (snapshot && roots.get(root) === state) {
+        state.snapshot = snapshot;
+        state.baselineMs = snapshot.baselineMs;
+        state.entries = allowed(root, snapshot.entries, deny);
+        publish();
+        await shell.mark('index_loaded', Date.now(), `entries=${state.entries.length} root=${root} source=snapshot`);
+      }
+      if (roots.get(root) !== state) return;
+      const ok = idle ? await whenIdle(() => walk(root, state)) : await walk(root, state, path, openedBytes);
+      if (ok || roots.get(root) !== state) return;
+      roots.delete(root);
+      order = order.filter((r) => r !== root);
+      if (snapshot) publish();
+    })();
+    return state;
+  };
+
+  const refresh = (root: string): void => {
+    const state = roots.get(root);
+    if (!state || state.queued) return;
+    state.queued = true;
+    state.pending = state.pending.then(() =>
+      whenIdle(async () => {
+        state.queued = false;
+        await walk(root, state);
+      }),
+    );
+  };
+
   return {
     rootFor,
     async ensureFor(path, openedBytes) {
       const root = await rootFor(path);
+      currentRoot = root;
       const moved = order[0] !== root;
       order = [root, ...order.filter((r) => r !== root)];
       const existing = roots.get(root);
@@ -191,39 +310,40 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
         await existing.pending;
         return;
       }
-      const state: RootState = { entries: [], pending: Promise.resolve(), queued: false };
-      roots.set(root, state);
-      // A first walk that fails forgets the root, so the next ensureFor walks it again rather than
-      // keeping it empty for the session. A failed refresh keeps the entries the root already had.
-      state.pending = (async () => {
-        // The last session's index, published before the walk lists anything.
-        const file = await snapshotPath(shell, root);
-        const snapshot = file ? await readSnapshot(shell, file, root) : undefined;
-        if (snapshot && roots.get(root) === state) {
-          state.snapshot = snapshot;
-          state.entries = snapshot.entries;
-          publish();
-          await shell.mark('index_loaded', Date.now(), `entries=${snapshot.entries.length} root=${root} source=snapshot`);
-        }
-        const ok = await walk(root, state, path, openedBytes);
-        if (ok || roots.get(root) !== state) return;
-        roots.delete(root);
-        order = order.filter((r) => r !== root);
-        if (snapshot) publish();
-      })();
-      await state.pending;
+      await hold(root, false, path, openedBytes).pending;
     },
-    refresh(root) {
-      const state = roots.get(root);
-      if (!state || state.queued) return;
-      state.queued = true;
-      state.pending = state.pending.then(() =>
-        whenIdle(async () => {
-          state.queued = false;
-          await walk(root, state);
-        }),
-      );
+    async ensureRoot(root, opts) {
+      if (opts?.watch !== undefined) declaredWatch.set(root, opts.watch);
+      const existing = roots.get(root);
+      if (existing) {
+        await existing.pending;
+        return;
+      }
+      order = [...order, root];
+      await hold(root, true).pending;
     },
+    setDeny(rules) {
+      const changed = denyKey(rules) !== denyKey(globalDeny ?? []);
+      globalDeny = rules;
+      if (!changed) return;
+      // Hide what the new rules cover at once; the re-walks bring back what they no longer cover.
+      for (const root of order) {
+        const state = roots.get(root);
+        if (state) state.entries = allowed(root, state.entries, rules);
+      }
+      publish();
+      for (const root of order) refresh(root);
+    },
+    dropRoot(root) {
+      declaredWatch.delete(root);
+      if (!roots.delete(root)) return;
+      order = order.filter((r) => r !== root);
+      publish();
+    },
+    roots: () => order,
+    baselineMs: (root) => roots.get(root)?.baselineMs,
+    isWatched: (root) => root === currentRoot || declaredWatch.get(root) === true,
+    refresh,
     entries: () => published,
     subscribe(cb) {
       subscribers.add(cb);
