@@ -9,6 +9,9 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import type { Node } from '../contracts/ast.ts';
+import { fromMarkdown } from 'mdast-util-from-markdown';
+import { byteOffsets } from './byte-offsets.ts';
+import { documentFromMdast, fencedCodeMarker } from './from-mdast.ts';
 import { checkInvariants } from './invariants.ts';
 import { parseMarkdown } from './parse.ts';
 
@@ -34,6 +37,18 @@ test('a task marker that ends its line with CR: the next text starts past the in
   // GFM dropped the CR from the value and moved the start one code unit, onto the next line's space.
   assert.deepEqual(ranges(parsed('1. [x] \r -`', 'text')), [[9, 11, '-`']]);
   assert.deepEqual(ranges(parsed('- [ ]\n task', 'text')), [[7, 11, 'task']]);
+});
+
+test('a task marker that ends its line inside a block quote: the next text starts past the `>` (F-20)', () => {
+  // GFM dropped the line ending and moved the start onto the next line's `>`, which the value lacks.
+  assert.deepEqual(ranges(parsed('> - [ ]\n>   task two\n', 'text')), [[12, 20, 'task two']]);
+  assert.deepEqual(ranges(parsed('> - [x]\n> b', 'text')), [[10, 11, 'b']]);
+  assert.deepEqual(ranges(parsed('> - [x]\r> b', 'text')), [[10, 11, 'b']]);
+  assert.deepEqual(ranges(parsed('> - [x]\r\n> b', 'text')), [[11, 12, 'b']]);
+  assert.deepEqual(ranges(parsed('>\t- [x]\n> b', 'text')), [[10, 11, 'b']]);
+  assert.deepEqual(ranges(parsed('> -\t[x]\n> b', 'text')), [[10, 11, 'b']]);
+  assert.deepEqual(ranges(parsed('>\t>\t- [x]\n> b', 'text')), [[12, 13, 'b']]);
+  assert.deepEqual(ranges(parsed('> 1. [x]\n>    b', 'text')), [[14, 15, 'b']]);
 });
 
 test('a task marker that ends its line before an indented BOM: the text is the BOM alone (F-20)', () => {
@@ -73,6 +88,45 @@ test('a fence line with a byte that is not UTF-8 counts that byte once (F-20)', 
   const [block] = parsed(new Uint8Array([0x60, 0x60, 0x60, 0xff, 0x0a, 0x61]), 'codeBlock');
   assert.ok(block?.type === 'codeBlock');
   assert.deepEqual([block.content.start, block.content.end], [5, 6]);
+});
+
+test('the checker reports a code range moved up onto a fence its code repeats (F-20)', () => {
+  // The review's mutation `offset = 0`: content starts at the opening fence and keeps the value's
+  // line count, so it drops the last code line. Every line here copies the fence line, give or take
+  // indentation, so only the opening-fence check can see it; each input must be reported.
+  const inputs = [
+    '```js\n```js\n```\n', '~~~ py\n~~~ py\n~~~\n', '> ```js\n> ```js\n> ```\n', '- ```js\n  ```js\n  ```\n',
+    '~~~\n> ~~~\n~~~\n', '```\n    ```\n```\n', '```\n\t```\n```\n', '> ~~~\n> > ~~~\n> ~~~\n',
+    '>\t```js\n>\t```js\n>\t```\n', '>\t```\n>\t    ```\n>\t```\n',
+  ];
+  for (const input of inputs) {
+    const bytes = encode(input);
+    const document = parseMarkdown(bytes, { file: '/f20.md' });
+    assert.deepEqual(checkInvariants(document, bytes), [], input);
+    const block = nodes(document).find((node) => node.type === 'codeBlock');
+    assert.ok(block?.type === 'codeBlock', input);
+    let end = block.src.start;
+    for (let line = block.value.split(/\r\n|\r|\n/).length; line > 0; line--) {
+      while (end < block.src.end && bytes[end] !== 0x0a && bytes[end] !== 0x0d) end++;
+      end += bytes[end] === 0x0d && bytes[end + 1] === 0x0a ? 2 : 1;
+    }
+    // A hand-built wrong range: the AST is read-only to its consumers, not to this test.
+    (block as { content: typeof block.content }).content = { ...block.content, start: block.src.start, end: Math.min(end, block.src.end) };
+    const reported = checkInvariants(document, bytes).map((violation) => violation.invariant);
+    assert.ok(reported.some((invariant) => invariant.startsWith('codeBlock')), `${JSON.stringify(input)} was not reported`);
+  }
+});
+
+test('a tree built without fencedCodeMarker is refused when it holds code (F-20)', () => {
+  // Without the marker every fence would read as indented code, and quietly so.
+  const text = '```js\nx\n```\n';
+  const context = { file: 'unmarked.md', text, offsets: byteOffsets(text) };
+  assert.throws(() => documentFromMdast(fromMarkdown(text), context), /fencedCodeMarker/);
+  const [block] = documentFromMdast(fromMarkdown(text, { mdastExtensions: [fencedCodeMarker] }), context).children ?? [];
+  assert.ok(block?.type === 'codeBlock');
+  assert.deepEqual([block.content.start, block.content.end, block.info], [6, 8, 'js']);
+  // A tree with no code needs no marker.
+  assert.doesNotThrow(() => documentFromMdast(fromMarkdown('a\n'), { file: 'plain.md', text: 'a\n', offsets: byteOffsets('a\n') }));
 });
 
 /** A small deterministic generator (mulberry32), so a failure names an input that reproduces it. */

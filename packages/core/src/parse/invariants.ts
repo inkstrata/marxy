@@ -40,7 +40,7 @@ export function checkInvariants(root: Node, bytes: Uint8Array): Violation[] {
       if (content.start < src.start || content.end > src.end || content.start > content.end) {
         violations.push({ invariant: CODE_CONTENT, detail: `content [${content.start},${content.end}) escapes ${where(node)}` });
       } else {
-        const openingFenceEnds = openingFenceLineEnd(bytes, src.start, src.end, node.value);
+        const openingFenceEnds = openingFenceLineEnd(bytes, src.start, src.end, node.value, node.info);
         if (openingFenceEnds !== undefined && content.start < openingFenceEnds) {
           violations.push({ invariant: CODE_CONTENT, detail: `content of ${where(node)} includes the opening fence line` });
         } else if (!isJustTheCode(decoder.decode(bytes.subarray(content.start, content.end)), node.value)) {
@@ -78,23 +78,39 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
  * Undefined for an indented code block, which has no fence to exclude. A closing fence needs no check
  * of its own: content that swallowed it would have one line more than the block's value.
  *
- * A first line that looks like a fence is the code's own first line when the value starts with it:
- * after `>` and a tab the block's range starts past the tab, whose leftover columns make `   ````
- * indented code (F-20). A fenced block can begin with a copy of its opening line only when that line
- * has an info string (`` ```js `` twice); then this check stands down and the line count catches a
- * range that took the fence. The offset is counted in the file's bytes, never re-encoded, so a byte
- * that is not UTF-8 on the fence line counts once (F-20).
+ * One indented block has a first line that looks like a fence: after `>` and a tab the block's range
+ * starts past the tab, whose leftover columns make `   ```` indented code (F-20). Its value's first
+ * line is that line less some of its indentation, so the check stands down only for that shape: no
+ * info string, a tab just before the block, the same line once spaces and tabs are stripped, and no
+ * more indentation in the value than in the source. A fenced block whose code repeats its fence line
+ * (`` ```js `` twice, or ```` ``` ```` then an indented ```` ``` ````) is still held to the fence, so a
+ * range moved up onto the fence is caught (F-20 review, mutation `offset = 0`). The offset is counted
+ * in the file's bytes, never re-encoded, so a byte that is not UTF-8 on the fence line counts once.
  */
-function openingFenceLineEnd(bytes: Uint8Array, start: number, end: number, value: string): number | undefined {
+function openingFenceLineEnd(bytes: Uint8Array, start: number, end: number, value: string, info: string | undefined): number | undefined {
   let lineEnd = start;
   while (lineEnd < end && bytes[lineEnd] !== 0x0a && bytes[lineEnd] !== 0x0d) lineEnd++;
   if (lineEnd === end) return undefined;
   const firstLine = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false }).decode(bytes.subarray(start, lineEnd));
   if (!FENCE.test(firstLine)) return undefined;
-  const strip = (line: string) => line.replace(/^[ \t>]*/, '');
-  if (strip(firstLine) === strip(splitLines(value)[0] ?? '')) return undefined;
+  const valueLine = splitLines(value)[0] ?? '';
+  if (info === undefined && bytes[start - 1] === 0x09 && stripIndent(firstLine) === stripIndent(valueLine)
+    && indentWidth(valueLine) <= indentWidth(firstLine)) return undefined;
   return lineEnd + (bytes[lineEnd] === 0x0d && bytes[lineEnd + 1] === 0x0a ? 2 : 1);
 }
+
+const stripIndent = (line: string): string => line.replace(/^[ \t]*/, '');
+
+/** The leading spaces and tabs of a line, a tab counted at its widest (four columns). */
+const indentWidth = (line: string): number => {
+  let width = 0;
+  for (const character of line) {
+    if (character === ' ') width += 1;
+    else if (character === '\t') width += 4;
+    else break;
+  }
+  return width;
+};
 
 /**
  * The content range holds the code and nothing else: line for line it is the block's value, give or

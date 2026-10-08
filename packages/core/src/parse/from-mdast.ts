@@ -24,6 +24,8 @@ export interface ConvertContext {
 interface Ctx extends ConvertContext {
   /** Link/image reference definitions, by normalised identifier. */
   readonly definitions: Map<string, md.Definition>;
+  /** Whether the tree was built with `fencedCodeMarker`, without which no code block can be read. */
+  readonly marked: boolean;
 }
 
 /**
@@ -38,9 +40,14 @@ export const markDefinitions = (document: Document, holds: boolean): void => {
   crossFile.set(document, holds);
 };
 
+/**
+ * The AST for an mdast tree. The tree must be built with `fencedCodeMarker` among its mdast
+ * extensions (parse.ts always passes it): a tree that holds a code block but was built without it
+ * is refused with an error.
+ */
 export function documentFromMdast(root: md.Root, context: ConvertContext): Document {
   const { definitions, footnotes } = collectDefinitions(root);
-  const ctx: Ctx = { ...context, definitions };
+  const ctx: Ctx = { ...context, definitions, marked: markedTrees.has(root) };
   const document: Document = {
     type: 'document',
     src: { file: ctx.file, start: 0, end: ctx.offsets.byteLength },
@@ -235,8 +242,16 @@ function attachTaskMarker(children: Block[], node: md.ListItem, ctx: Ctx): Block
  */
 const fencedCode = new WeakSet<object>();
 
-/** The mdast extension that records `fencedCode`; parse.ts passes it with every parse. */
+/** The trees built with `fencedCodeMarker`, so `documentFromMdast` can refuse one built without it. */
+const markedTrees = new WeakSet<object>();
+
+/**
+ * The mdast extension that records `fencedCode`; parse.ts passes it with every parse, and
+ * `documentFromMdast` throws on a tree that holds code but was built without it, because every
+ * fence would otherwise silently become indented code.
+ */
 export const fencedCodeMarker: MdastExtension = {
+  transforms: [(tree) => { markedTrees.add(tree); }],
   enter: {
     // A token no other handler takes, and one only a fence has; the code node is on top of the stack.
     codeFencedFenceSequence(this: CompileContext) {
@@ -249,6 +264,9 @@ export const fencedCodeMarker: MdastExtension = {
 function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
   const [start, end] = utf16Range(node, ctx);
   const raw = ctx.text.slice(start, end);
+  if (!ctx.marked) {
+    throw new Error(`parse: ${ctx.file} was built without fencedCodeMarker, so its code blocks cannot tell a fence from indentation`);
+  }
   const fenced = fencedCode.has(node);
   const base = {
     type: 'codeBlock' as const, src, value: node.value,
@@ -409,19 +427,26 @@ function decodesTo(source: string, value: string): boolean {
  * GFM's task-list handling drops the first character of an item's first text (the space after
  * `[x]`) and moves the node's start one code unit on. When the marker ends its line, that character
  * was the line ending, so the start lands on the next line's indentation (or between CR and LF),
- * which the value never had: `1. [x] \r -` would give the text ` -` for the value `-`. Paragraph text
+ * which the value never had: `1. [x] \r -` would give the text ` -` for the value `-`. Inside a block
+ * quote that next line also opens with the quote's `>`, which is skipped the same way. Paragraph text
  * never starts with whitespace micromark kept, so only a run the value lacks is skipped.
  */
-function unheldLead(raw: string, value: string): number {
-  const run = (text: string): number => {
+function unheldLead(text: string, start: number, end: number, value: string): number {
+  const raw = text.slice(start, end);
+  const run = (line: string): number => {
     let index = 0;
-    while (index < text.length && (text[index] === ' ' || text[index] === '\t' || text[index] === '\r' || text[index] === '\n')) index++;
+    while (index < line.length && (line[index] === ' ' || line[index] === '\t' || line[index] === '\r' || line[index] === '\n')) index++;
     return index;
   };
   const rawRun = run(raw);
   const valueRun = run(value);
-  if (rawRun <= valueRun || !raw.slice(0, rawRun).endsWith(value.slice(0, valueRun))) return 0;
-  return rawRun - valueRun;
+  const skip = rawRun <= valueRun || !raw.slice(0, rawRun).endsWith(value.slice(0, valueRun)) ? 0 : rawRun - valueRun;
+  // When the start now sits just past a line ending (GFM dropped it, or the run above crossed it), the
+  // line may open with its container's prefix (`> - [ ]\n>   task two`): skip that too, as a soft
+  // break does, but not a `>` that is text. The prefix ends where the line decodes to the value's.
+  const before = text[start + skip - 1];
+  if (valueRun > 0 || (before !== '\n' && before !== '\r')) return skip;
+  return containerPrefixEnd(raw, skip, splitLines(value)[0]);
 }
 
 /**
@@ -449,7 +474,7 @@ function heldValue(source: string, value: string): string {
  */
 function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
   const [mdastStart, end] = utf16Range(node, ctx);
-  const start = mdastStart + unheldLead(ctx.text.slice(mdastStart, end), node.value);
+  const start = mdastStart + unheldLead(ctx.text, mdastStart, end, node.value);
   const raw = ctx.text.slice(start, end);
   if (!LINE_ENDING.test(raw)) {
     return [{ type: 'text', src: span(start, end, ctx), value: heldValue(raw, node.value) }];
