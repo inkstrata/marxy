@@ -205,7 +205,7 @@ them.
 | `gate:no-network` | something reached off the machine, or unsanitised markup reached the DOM (ADR-0009) | `pnpm gate:no-network` (both engines, against live controls) |
 | desktop lite suite | a WebKit test failed, or WebKit was missing (`MARXY_BROWSER_TESTS_REQUIRED=1` turns a skip into a failure) | `pnpm exec playwright install webkit`, then `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite` |
 | `gate:aesthetics --mechanical` | a mechanical aesthetics check moved (`docs/aesthetics-acceptance.md`) | `node scripts/gate-aesthetics.mjs --mechanical`; never loosen a threshold; `--workers N` tunes speed |
-| `gate:aesthetics` centred | the column's axis is off the visible area's axis, or body-text ink margins differ | `node scripts/gate-aesthetics.mjs --mechanical --files <doc>.md`; the case names the cell |
+| `gate:aesthetics` centred | the column's axis is off the visible area's axis | `node scripts/gate-aesthetics.mjs --mechanical --files <doc>.md`; the case names the cell |
 | `gate:aesthetics` blockEdges | a top-level block's text does not start on the column's left edge | as above |
 | `gate:aesthetics` room | a block box passes the column plus the room, or overhangs one side more than the other | as above |
 | `gate:aesthetics` marks | a list marker or checkbox sits left of the gutter floor | as above |

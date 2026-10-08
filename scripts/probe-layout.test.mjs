@@ -132,6 +132,17 @@ test('negative control (H2 artefact): a hung initial letter is ink that is allow
   assert.ok(h2[0].metric > 13 && h2[0].metric < 16, String(h2[0].metric));
 });
 
+test('negative control (H2 artefact): a hung letter is excused only by the hang the typesetter declared, so a paragraph drifting outward is seen', async () => {
+  const hang = (c) => `<span class="marxy-hang" style="margin-inline-start:-0.7px">${c}</span>`;
+  const hung = blk('p', 0, `${hang('T')}his line starts with a hung capital<br>${hang('V')}alues on the second line do too`);
+  for (const shift of [3, 6, 9]) {
+    const out = await measure(page(hung.replace('<p ', `<p style="margin-left:-${shift}px" `)), 960);
+    const h2 = out.offenders.filter((o) => o.h === 'H2');
+    assert.equal(h2.length, 1, `a ${shift}px outward shift was not seen: ${JSON.stringify(out.offenders)}`);
+    assert.ok(Math.abs(h2[0].metric) > shift - 1.5, `${shift}px outward read as ${h2[0].metric}`);
+  }
+});
+
 test('negative control (H5 artefact): trailing spaces in a pre-wrap line are not ink', async () => {
   const code = `<code>let x = 1;${' '.repeat(220)}\nlet y = 2;</code>`;
   const bad = await measure(page(PROSE + blk('pre', 1, code).replace('<pre ', '<pre style="white-space:pre-wrap" ')), 480);

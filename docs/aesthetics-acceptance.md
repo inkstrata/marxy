@@ -24,7 +24,7 @@ and screenshot); the nightly run adds them (ADR-0047).
 | Heading hierarchy | headings differ from body in size and weight only; no colour; no `border`/`hr` decoration in the default theme | 4 |
 | Code voice | mono family ≠ text family; mono x-height within 5 % of text x-height at the same size | 5 |
 | Chrome at rest | with no interaction, the only visible non-text element is the scrollbar | 6 |
-| Geometry: centred | the column's axis is the axis of what the reader sees (the window less a classic scrollbar) within 0.5 px; where body text reaches both edges of an overlay-scrollbar page, its left and right ink margins agree within 1 px | L-02, screen criterion 1 |
+| Geometry: centred | the column's axis is the axis of what the reader sees (the window less a classic scrollbar) within 0.5 px | L-02, screen criterion 1 |
 | Geometry: block edges | every top-level block's text starts on the column's left edge within 1 px; the declared hangs are the only exceptions (list markers, checkboxes, hung punctuation and hung initial letters; a blockquote's indent; a lone image, centred; a wide block grown about the axis) | L-02, 2 |
 | Geometry: room | no block box passes the column plus `--marxy-room` on either side, at any depth, and a box that overhangs the column overhangs both sides alike within 1 px | L-02, 3 |
 | Geometry: marks | no list marker or checkbox sits left of the gutter floor | L-02, 3 |

@@ -19,6 +19,8 @@ import {
   surveyFailures,
   surveyInPage,
   TEXT_SPACING_CSS,
+  spacingAppliedFailures,
+  text200AppliedFailures,
 } from './probe-layout.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -439,11 +441,13 @@ async function checkNoticeInSource(page) {
 }
 /** Rule 6, with the four WCAG 1.4.12 overrides loaded as a reader theme (the render is given them). */
 async function checkTextSpacing(page) {
-  return surveyFailures(await page.evaluate(surveyInPage));
+  const s = await page.evaluate(surveyInPage);
+  return [...spacingAppliedFailures(s), ...surveyFailures(s)];
 }
 /** Rule 6, at 200 % text: the reader's size at 40 px, through the config (the render is given it). */
 async function checkText200(page) {
-  return surveyFailures(await page.evaluate(surveyInPage));
+  const s = await page.evaluate(surveyInPage);
+  return [...text200AppliedFailures(s, TEXT200_PX), ...surveyFailures(s)];
 }
 
 /** The long document the notice is measured on: it scrolls three screens at every width. */
@@ -453,6 +457,8 @@ const NOTICE_SOURCE_WIDTHS = [320, 960];
 const CLASSIC_WIDTHS = [480, 960];
 const SPACING_WIDTHS = [320, 960];
 const TEXT200_WIDTH = 960;
+/** The reader's default body size is 20 px; 200 % of it. */
+const TEXT200_PX = 40;
 /**
  * Documents left out of the text-spacing pass, with the reason. Not a threshold: 32-long-reference.md is the
  * corpus's largest document, and the render entry gives the typesetter 10 s (gate-entry.ts), which the
@@ -1122,15 +1128,29 @@ function geometrySelftestCases() {
       run: async (page) => (noticeFailures(await page.evaluate(measureNoticeInPage, { source: true }))).map((f) => f.detail),
     },
     {
-      name: 'textSpacing',
-      html: themed(blk('div', 0, 'a line of text that the spacing pushes out of a box of fixed height '.repeat(4), 'height:20px;overflow:hidden')),
-      ok: themed(PROSE),
+      name: 'textSpacing (clipped text)',
+      html: themed(blk('div', 0, 'a line of text that the spacing pushes out of a box of fixed height '.repeat(4), 'height:20px;overflow:hidden'), TEXT_SPACING_CSS),
+      ok: themed(PROSE, TEXT_SPACING_CSS),
       run: checkTextSpacing,
     },
     {
-      name: 'text200',
-      html: themed(blk('div', 0, 'a box wider than the window', 'width:3000px')),
-      ok: themed(PROSE),
+      // The overrides never loaded: the check must say so, not pass on a page it did not stress.
+      name: 'textSpacing (overrides applied)',
+      html: themed(PROSE),
+      ok: themed(PROSE, TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      name: 'text200 (wide box)',
+      html: themed(blk('div', 0, 'a box wider than the window', 'width:3000px'), `.marxy-article{font-size:${TEXT200_PX}px}`),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`),
+      run: checkText200,
+    },
+    {
+      // The size was not doubled: the check must say so.
+      name: 'text200 (size applied)',
+      html: themed(PROSE, '.marxy-article{font-size:20px}'),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`),
       run: checkText200,
     },
   ];
@@ -1586,7 +1606,7 @@ async function main() {
       const source = readFileSync(join(corpusDir, file), 'utf8');
       return [
         ...SPACING_WIDTHS.filter(() => !SPACING_SKIPS.has(file)).map((width) => ({ file, source, kind: 'text spacing', width, opts: { variant: 'dark', width, size: 20, theme: TEXT_SPACING_CSS }, check: checkTextSpacing })),
-        { file, source, kind: '200 % text', width: TEXT200_WIDTH, opts: { variant: 'dark', width: TEXT200_WIDTH, size: 40 }, check: checkText200 },
+        { file, source, kind: '200 % text', width: TEXT200_WIDTH, opts: { variant: 'dark', width: TEXT200_WIDTH, size: TEXT200_PX }, check: checkText200 },
       ];
     });
     const accessFails = await pool(accessTasks, async ({ file, source, kind, width, opts, check }) => {

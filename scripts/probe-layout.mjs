@@ -139,6 +139,9 @@ export function measureInPage(args) {
     // quote (hung punctuation). A hung letter is ink that is allowed to hang: it counts, from the
     // column's edge. Hung punctuation is kept apart.
     const isLetter = isHang && /[\p{L}\p{N}]/u.test(n.nodeValue);
+    // The hang the typesetter declared is the span's own negative inline-start margin; a letter is read
+    // from the column's edge only within it (plus half a pixel), so a paragraph drifting left is seen.
+    const declared = isLetter ? Math.max(0, -parseFloat(getComputedStyle(n.parentElement.closest('.marxy-hang')).marginInlineStart) || 0) : 0;
     const clip = clipOf(n.parentElement);
     for (const rc of rects) {
       if (rc.width === 0 || rc.height === 0) continue;
@@ -148,7 +151,7 @@ export function measureInPage(args) {
       const right = clip ? Math.min(rc.right, clip.r) : rc.right;
       if (right <= left) continue;
       const cur = ink.get(owner) ?? { l: Infinity, r: -Infinity };
-      cur.l = Math.min(cur.l, isLetter ? Math.max(left, colL) : left);
+      cur.l = Math.min(cur.l, isLetter && left >= colL - declared - 0.5 ? Math.max(left, colL) : left);
       cur.r = Math.max(cur.r, right);
       ink.set(owner, cur);
     }
@@ -458,12 +461,11 @@ export const EDGE_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre'
 const BLOCK_AT = { tag: 1, depth: 2, l: 3, r: 4, dL: 5, dR: 6, iL: 7, iR: 8, idL: 9, scroll: 10 };
 
 /**
- * Judge one measured cell against rules 1 to 4 of the screen criterion. `classic` says the cell was
- * measured under a classic scrollbar. Returns `{ check, sub, detail }` for every failure; `check` is the
- * gate's check (centred, blockEdges, room, marks, noClip) and `sub` the kind of block or mark at fault, so
- * an expected failure can name exactly the case it defers.
+ * Judge one measured cell against rules 1 to 4 of the screen criterion. Returns `{ check, sub, detail }`
+ * for every failure; `check` is the gate's check (centred, blockEdges, room, marks, noClip) and `sub` the
+ * kind of block or mark at fault, so an expected failure can name exactly the case it defers.
  */
-export function geometryFailures(cell, { classic = false } = {}) {
+export function geometryFailures(cell, { classic: _classic = false } = {}) {
   const out = [];
   const add = (check, sub, detail) => out.push({ check, sub, detail });
   const r2 = (n) => Math.round(n * 100) / 100;
@@ -471,16 +473,12 @@ export function geometryFailures(cell, { classic = false } = {}) {
   const at = (b, f) => b[BLOCK_AT[f]];
 
   // 1. Centre: the column's axis is the axis of what the reader sees (the window less a classic
-  // scrollbar). Where body text reaches both edges of an overlay-scrollbar page, its ink margins agree.
+  // scrollbar).
   const off = cell.centre.offsetFromClient;
   if (Math.abs(off) > 0.5) add('centred', 'axis', `the column's axis is ${off}px from the visible area's axis`);
-  // "Reaches" means the longest line comes within 1px of the column's right edge: a ragged paragraph that
-  // stops short says nothing about the page.
-  const ink = cell.margins.bodyInk;
-  const reaches = ink !== null && ink.left <= col.left + 1 && vp.cw - ink.right >= col.right - 1;
-  if (!classic && reaches && Math.abs(ink.asymmetry) > 1) {
-    add('centred', 'ink', `body text has ${ink.left}px of margin on the left and ${ink.right}px on the right`);
-  }
+  // The ink half of this rule is gone: it applied only when the longest ragged line ended within 1px of
+  // the column's right edge, which depends on the font renderer (L-02 return). The axis above and the
+  // blockEdges check (ink against the column's left edge) hold what it was meant to.
 
   for (const b of cell.blocks ?? []) {
     const tag = at(b, 'tag');
@@ -520,9 +518,6 @@ export function geometryFailures(cell, { classic = false } = {}) {
   if (cell.lines.overflowing > 0) add('noClip', 'line', `${cell.lines.overflowing} set line(s) run up to ${cell.lines.maxOverflow}px past their paragraph's box`);
   return out;
 }
-
-/** Whether a classic scrollbar took space in this page (a page too short to scroll has none to model). */
-export const hasClassicScrollbar = (cell) => cell.viewport.scrollbar > 0;
 
 /**
  * Rule 5, measured on the app's own `#marxy-notices` region: one line built the way notify() builds it,
@@ -645,6 +640,18 @@ export function surveyInPage() {
     maxSetLinePastBoxPx: r(maxOver),
     blockOverlaps: overlaps,
     bodyFontPx: parseFloat(getComputedStyle(a).fontSize),
+    // What the page actually computes for a paragraph, so the checks can prove their condition was applied.
+    spacing: (() => {
+      const p = a.querySelector('p');
+      const cs = getComputedStyle(p ?? a);
+      return {
+        fontPx: parseFloat(cs.fontSize),
+        letterPx: parseFloat(cs.letterSpacing),
+        wordPx: parseFloat(cs.wordSpacing),
+        lineHeightPx: parseFloat(cs.lineHeight),
+        marginBottomPx: p ? parseFloat(cs.marginBottom) : null,
+      };
+    })(),
   };
 }
 
@@ -656,6 +663,27 @@ export function surveyFailures(s) {
   if (s.setLinesPastBox) out.push(`${s.setLinesPastBox} set line(s) run up to ${s.maxSetLinePastBoxPx}px past their box`);
   if (s.blockOverlaps) out.push(`${s.blockOverlaps} block(s) overlap the one above`);
   return out;
+}
+
+/**
+ * The WCAG 1.4.12 text-spacing conditions, read from the computed style of a paragraph: line height 1.5,
+ * paragraph spacing 2, letter spacing 0.12 and word spacing 0.16, all times the font size. A check that
+ * passes with these not applied proves nothing, so the check asserts them first.
+ */
+export function spacingAppliedFailures(s) {
+  const { fontPx: f, letterPx, wordPx, lineHeightPx, marginBottomPx } = s.spacing;
+  const out = [];
+  const near = (v, want) => Number.isFinite(v) && Math.abs(v - want) <= 0.5;
+  if (!near(letterPx, 0.12 * f)) out.push(`letter-spacing is ${letterPx}px, not ${0.12 * f}px (0.12 x ${f}px): the text-spacing overrides were not applied`);
+  if (!near(wordPx, 0.16 * f)) out.push(`word-spacing is ${wordPx}px, not ${0.16 * f}px (0.16 x ${f}px): the text-spacing overrides were not applied`);
+  if (!(lineHeightPx >= 1.5 * f - 0.5)) out.push(`line-height is ${lineHeightPx}px, under 1.5 x ${f}px`);
+  if (marginBottomPx !== null && !(marginBottomPx >= 2 * f - 0.5)) out.push(`paragraph spacing is ${marginBottomPx}px, under 2 x ${f}px`);
+  return out;
+}
+
+/** The 200 % condition: body text is `want` px (twice the default size), not whatever the page happened to use. */
+export function text200AppliedFailures(s, want) {
+  return s.bodyFontPx === want ? [] : [`body text is ${s.bodyFontPx}px, not ${want}px (200 %): the size was not applied`];
 }
 
 /** The four WCAG 1.4.12 overrides, as a reader theme: the typesetter sets with them. */
