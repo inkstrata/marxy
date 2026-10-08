@@ -11,7 +11,7 @@ import { mathFromMarkdown } from 'mdast-util-math';
 import { math } from './math-syntax.ts';
 import type { Document } from '../contracts/ast.ts';
 import { byteOffsets, decodeWithOffsets, type ByteOffsets } from './byte-offsets.ts';
-import { documentFromMdast, holdsDefinitions } from './from-mdast.ts';
+import { documentFromMdast, fencedCodeMarker, holdsDefinitions } from './from-mdast.ts';
 
 export interface ParseOptions {
   /** Absolute path, or a stable identifier for an untitled buffer. Defaults to `untitled`. */
@@ -93,7 +93,7 @@ function syntax(options: ParseOptions): Syntax {
   const key = `${options.gfm !== false}:${options.frontmatter !== false}:${options.math !== false}`;
   const cached = syntaxCache.get(key);
   if (cached) return cached;
-  const built: Syntax = { extensions: [], mdastExtensions: [] };
+  const built: Syntax = { extensions: [], mdastExtensions: [fencedCodeMarker] };
   if (options.gfm !== false) {
     built.extensions.push(gfm());
     built.mdastExtensions.push(withoutTransforms(gfmFromMarkdown()));

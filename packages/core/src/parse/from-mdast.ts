@@ -10,6 +10,7 @@ import type { ByteOffsets } from './byte-offsets.ts';
 import { registerLineStarts } from '../sourcemap/line-starts.ts';
 import { LINE_ENDING, LINE_ENDINGS, nextLineEnding, splitLines } from './line-endings.ts';
 import type * as md from 'mdast';
+import type { CompileContext, Extension as MdastExtension } from 'mdast-util-from-markdown';
 import { decodeString } from 'micromark-util-decode-string';
 
 export interface ConvertContext {
@@ -23,6 +24,8 @@ export interface ConvertContext {
 interface Ctx extends ConvertContext {
   /** Link/image reference definitions, by normalised identifier. */
   readonly definitions: Map<string, md.Definition>;
+  /** Whether the tree was built with `fencedCodeMarker`, without which no code block can be read. */
+  readonly marked: boolean;
 }
 
 /**
@@ -37,9 +40,14 @@ export const markDefinitions = (document: Document, holds: boolean): void => {
   crossFile.set(document, holds);
 };
 
+/**
+ * The AST for an mdast tree. The tree must be built with `fencedCodeMarker` among its mdast
+ * extensions (parse.ts always passes it): a tree that holds a code block but was built without it
+ * is refused with an error.
+ */
 export function documentFromMdast(root: md.Root, context: ConvertContext): Document {
   const { definitions, footnotes } = collectDefinitions(root);
-  const ctx: Ctx = { ...context, definitions };
+  const ctx: Ctx = { ...context, definitions, marked: markedTrees.has(root) };
   const document: Document = {
     type: 'document',
     src: { file: ctx.file, start: 0, end: ctx.offsets.byteLength },
@@ -226,14 +234,45 @@ function attachTaskMarker(children: Block[], node: md.ListItem, ctx: Ctx): Block
   return [widened, ...children.slice(1)];
 }
 
+/**
+ * The code nodes micromark opened with a fence. mdast gives a fenced and an indented block the same
+ * shape, and the source cannot always tell them apart: after `>` and a tab, micromark starts the
+ * block's range past the tab, whose leftover columns still count as indentation, so `>\t   ```` is
+ * an indented block whose range reads `   ````. The parser knows which it opened, so it says.
+ */
+const fencedCode = new WeakSet<object>();
+
+/** The trees built with `fencedCodeMarker`, so `documentFromMdast` can refuse one built without it. */
+const markedTrees = new WeakSet<object>();
+
+/**
+ * The mdast extension that records `fencedCode`; parse.ts passes it with every parse, and
+ * `documentFromMdast` throws on a tree that holds code but was built without it, because every
+ * fence would otherwise silently become indented code.
+ */
+export const fencedCodeMarker: MdastExtension = {
+  transforms: [(tree) => { markedTrees.add(tree); }],
+  enter: {
+    // A token no other handler takes, and one only a fence has; the code node is on top of the stack.
+    codeFencedFenceSequence(this: CompileContext) {
+      const node = this.stack[this.stack.length - 1];
+      if (node?.type === 'code') fencedCode.add(node);
+    },
+  },
+};
+
 function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
   const [start, end] = utf16Range(node, ctx);
   const raw = ctx.text.slice(start, end);
+  if (!ctx.marked) {
+    throw new Error(`parse: ${ctx.file} was built without fencedCodeMarker, so its code blocks cannot tell a fence from indentation`);
+  }
+  const fenced = fencedCode.has(node);
   const base = {
     type: 'codeBlock' as const, src, value: node.value,
-    content: contentRange(raw, node.value, start, end, ctx),
+    content: contentRange(raw, node.value, fenced, start, end, ctx),
   };
-  const info = infoString(raw);
+  const info = fenced ? infoString(raw) : undefined;
   return {
     ...base,
     ...(node.lang ? { lang: node.lang } : {}),
@@ -241,8 +280,8 @@ function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
   };
 }
 
-// Up to three *spaces* of indentation, per CommonMark: a leading tab is four columns, so a line that
-// starts with one opens an indented code block whose content may well look like a fence.
+// Up to three *spaces* of indentation, per CommonMark: a leading tab is four columns. Used only on a
+// block micromark says is fenced, to find where its fence ends.
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
@@ -251,8 +290,7 @@ const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
  * because a fence may be indented by its container and an indented code block's source may trail
  * blank lines its value does not keep.
  */
-function contentRange(raw: string, value: string, start: number, end: number, ctx: Ctx): Source {
-  const fenced = FENCE_OPEN.test(raw);
+function contentRange(raw: string, value: string, fenced: boolean, start: number, end: number, ctx: Ctx): Source {
   const openEnding = fenced ? nextLineEnding(raw, 0) : undefined;
   if (fenced && openEnding === undefined) return span(end, end, ctx); // An unterminated, empty fenced block.
   const offset = openEnding === undefined ? 0 : openEnding.end;
@@ -355,6 +393,9 @@ function rawText(node: md.PhrasingContent, ctx: Ctx): Inline {
  * indentation) but not past a `>` that is text. The text of the line is known — it is the next
  * value of the node — so the prefix is the shortest run of spaces, tabs and `>` after which the rest
  * of the line decodes to that value. Without a usable value, every leading space, tab and `>` counts.
+ *
+ * The line's trailing spaces and tabs are part of its value when the node ends on that line (a link
+ * or an HTML tag follows them), and not when a line ending does, so both readings are tried.
  */
 function containerPrefixEnd(raw: string, from: number, value: string | undefined): number {
   let limit = from;
@@ -363,10 +404,67 @@ function containerPrefixEnd(raw: string, from: number, value: string | undefined
   const lineEnd = nextLineEnding(raw, from)?.start ?? raw.length;
   let textEnd = lineEnd;
   while (textEnd > from && (raw[textEnd - 1] === ' ' || raw[textEnd - 1] === '\t')) textEnd--;
-  for (let candidate = from; candidate <= limit && candidate < textEnd; candidate++) {
-    if (decodeString(raw.slice(candidate, textEnd)) === value) return candidate;
+  for (let candidate = from; candidate <= limit && candidate < lineEnd; candidate++) {
+    if (decodesTo(raw.slice(candidate, lineEnd), value)) return candidate;
+    if (candidate < textEnd && decodesTo(raw.slice(candidate, textEnd), value)) return candidate;
   }
   return limit;
+}
+
+/**
+ * Whether source text is the markdown for `value`: as written, with its escapes and character
+ * references decoded, and with a NUL read as the replacement character CommonMark makes of it.
+ * The same reading as the text-decoding invariant (invariants.ts).
+ */
+function decodesTo(source: string, value: string): boolean {
+  if (source === value) return true;
+  const sanitised = source.includes('\u0000') ? source.replace(/\u0000/g, '\ufffd') : source;
+  return sanitised === value || decodeString(sanitised) === value;
+}
+
+/**
+ * How many leading spaces, tabs and line endings of a text node's source its value does not hold.
+ * GFM's task-list handling drops the first character of an item's first text (the space after
+ * `[x]`) and moves the node's start one code unit on. When the marker ends its line, that character
+ * was the line ending, so the start lands on the next line's indentation (or between CR and LF),
+ * which the value never had: `1. [x] \r -` would give the text ` -` for the value `-`. Inside a block
+ * quote that next line also opens with the quote's `>`, which is skipped the same way. Paragraph text
+ * never starts with whitespace micromark kept, so only a run the value lacks is skipped.
+ */
+function unheldLead(text: string, start: number, end: number, value: string): number {
+  const raw = text.slice(start, end);
+  const run = (line: string): number => {
+    let index = 0;
+    while (index < line.length && (line[index] === ' ' || line[index] === '\t' || line[index] === '\r' || line[index] === '\n')) index++;
+    return index;
+  };
+  const rawRun = run(raw);
+  const valueRun = run(value);
+  const skip = rawRun <= valueRun || !raw.slice(0, rawRun).endsWith(value.slice(0, valueRun)) ? 0 : rawRun - valueRun;
+  // When the start now sits just past a line ending (GFM dropped it, or the run above crossed it), the
+  // line may open with its container's prefix (`> - [ ]\n>   task two`): skip that too, as a soft
+  // break does, but not a `>` that is text. The prefix ends where the line decodes to the value's.
+  const before = text[start + skip - 1];
+  if (valueRun > 0 || (before !== '\n' && before !== '\r')) return skip;
+  return containerPrefixEnd(raw, skip, splitLines(value)[0]);
+}
+
+/**
+ * The value a stretch of text holds: mdast's, except where micromark miscounts what is left of an
+ * emphasis run. When a run that opens emphasis ends at a NUL (`**\0*`), the leftover's end moves back
+ * from the start of the NUL's chunk to a negative index, and micromark serialises the whole run: the
+ * one `*` left at [0,1) carries `**`. Only the end of the value can be too long, by marker characters
+ * alone, so those are trimmed until the bytes decode to the value. The render of `**\0*` then matches
+ * the one of `**a*` (`*` and an emphasis), as CommonMark reads it.
+ */
+function heldValue(source: string, value: string): string {
+  if (decodesTo(source, value)) return value;
+  let trimmed = value;
+  while (trimmed.length > 0 && (trimmed.endsWith('*') || trimmed.endsWith('_'))) {
+    trimmed = trimmed.slice(0, -1);
+    if (decodesTo(source, trimmed)) return trimmed;
+  }
+  return value;
 }
 
 /**
@@ -375,10 +473,11 @@ function containerPrefixEnd(raw: string, from: number, value: string | undefined
  * (`> `, list indentation) that belong to neither line's text.
  */
 function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
-  const [start, end] = utf16Range(node, ctx);
+  const [mdastStart, end] = utf16Range(node, ctx);
+  const start = mdastStart + unheldLead(ctx.text, mdastStart, end, node.value);
   const raw = ctx.text.slice(start, end);
   if (!LINE_ENDING.test(raw)) {
-    return [{ type: 'text', src: span(start, end, ctx), value: node.value }];
+    return [{ type: 'text', src: span(start, end, ctx), value: heldValue(raw, node.value) }];
   }
   // All three CommonMark line endings split a line: a file written with CR alone gets soft-break nodes
   // like any other, rather than carrying a CR inside a text node's value.
@@ -396,7 +495,7 @@ function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
     if (ending === undefined) {
       const value = valueOf(line, cursor, raw.length);
       if (raw.length > cursor && value.length > 0) {
-        out.push({ type: 'text', src: span(start + cursor, start + raw.length, ctx), value });
+        out.push({ type: 'text', src: span(start + cursor, start + raw.length, ctx), value: heldValue(raw.slice(cursor), value) });
       }
       break;
     }
@@ -404,7 +503,7 @@ function textAndSoftBreaks(node: md.Text, ctx: Ctx): Inline[] {
     while (textEnd > cursor && (raw[textEnd - 1] === ' ' || raw[textEnd - 1] === '\t')) textEnd--;
     const value = valueOf(line, cursor, textEnd);
     if (textEnd > cursor && value.length > 0) {
-      out.push({ type: 'text', src: span(start + cursor, start + textEnd, ctx), value });
+      out.push({ type: 'text', src: span(start + cursor, start + textEnd, ctx), value: heldValue(raw.slice(cursor, textEnd), value) });
     }
     // The break owns the line ending and whatever block markers continue the container.
     const next = containerPrefixEnd(raw, ending.end, aligned ? values[line + 1] : undefined);
