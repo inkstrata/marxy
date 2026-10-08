@@ -85,12 +85,27 @@ Waves:
 | L-04 | Wide blocks and tables as one policy (candidate) [baselines] | opus | M | L-03 |
 | L-05 | Notices as one component (candidate) | opus | M | L-01, B-09.1, B-11; before D-10 |
 | L-06 | Source mode basics I: looks (candidate) | sonnet | M | L-01; before D-11 |
-| L-07 | Source mode basics II: place (candidate) | opus | M | L-06; before D-11 |
+| L-07 | Source mode basics II: place (superseded by K-04) | opus | M | L-06; before D-11 |
 | L-08 | Typography conformance fixes (candidate, split per finding) [baselines] | — | — | L-04 |
 | L-09 | Margin notes above 76 em (candidate, only if the author says now) | opus | L | Phase C or later |
 
 Order: L-00, then L-01 (both beside B, no shared paths); after B-02 merges, L-02, L-03, L-04, each alone in
 its wave for baselines; L-05 and L-07 between B-15 and D-10/D-11, or folded into D-10 and D-11.
+
+## Lane K — code as read (beside Phase C; `09-code-view.md`)
+
+| Id | Title | Model | Size | Depends on |
+| --- | --- | --- | --- | --- |
+| K-01 | One file-type table: mode, index kind, CodeMirror and Shiki ids | sonnet | S | — |
+| K-02 | Rendered shows a code file as code, never as Markdown | opus | M | K-01 |
+| K-03 | A code file opens straight into Source, and a failed mount says so | opus | M | K-01, K-R4 |
+| K-04 | Source has its own metrics: tighter type, an exact gutter, scroll for code (ADR-0056; supersedes L-07) | opus | M | K-R1, K-R3 |
+| K-05 | Generous highlighting: a hue per role, every tag mapped, the modes agree (ADR-0057) | opus | M | K-04 |
+| K-06 | Source grammars, fences in Markdown, every line ending | sonnet | M | K-01, K-04 |
+| K-07 | The swap keeps Rendered right: nothing set while hidden, no stale editor | opus | M | K-03 |
+| K-08 | One tab width for both modes, and a correct EditorConfig reader | sonnet | S | — |
+
+Order: K-01, K-04, K-08 first; then K-02, K-03, K-05; then K-06 and K-07. K-03 and K-07 before D-11.
 
 ## Phase C — collections and copy (17 stories; `03-phase-c.md`)
 

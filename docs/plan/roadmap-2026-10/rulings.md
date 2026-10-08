@@ -59,3 +59,10 @@ defaults: symmetric wide-block overflow; hang the code box; centred images, flus
 stable both-edges`; sticky notices at the top that reserve space; Source at the Rendered column width
 (markdown) or ≤100 characters centred (code), on the page ground; the size ramp is L-01's to recommend with
 evidence (it needs an ADR if adopted); margin notes deferred to after v1.
+
+## Lane K: highlighting breadth (2026-10-08)
+
+K-R2: the author favours broadly generous highlighting. Every syntax role gets its own hue, not the four of
+ADR-0033's restrained palette; K-05 writes ADR-0057 for the departure. The contrast floor (4.5:1 per role,
+both variants) and the rule that status meaning never takes a token hue still hold. K-R1, K-R3 and K-R4
+(`09-code-view.md`) are open, with recommended defaults.

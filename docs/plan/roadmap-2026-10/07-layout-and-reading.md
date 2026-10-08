@@ -787,6 +787,8 @@ Left to other stories:
 
 ### L-07 — Source mode basics II: a column on the page ground
 
+**Superseded (2026-10-08) by K-04** (`09-code-view.md`), which takes this outcome and acceptance with Source's own metrics.
+
 **Model:** opus · **Size:** M · **Depends on:** L-06 (merged), L-11 (same file, `source/theme-bridge.ts`) · **Parallel with:**
 anything outside `source/` · **Before:** D-11
 
