@@ -319,6 +319,230 @@ test("Add escapes a folder named it's, keeps every prior byte and parses back to
     const parsed = parseCollection(Buffer.from(written), { home: '/home/x' });
     assert.deepEqual(parsed.warnings, []);
     assert.deepEqual(parsed.collection.roots.map((r) => r.path), ['/b', "/it's"]);
+||||||| parent of 17668199 (feat(desktop): a watch event patches one entry in the collection, never the whole index (C-11))
+// ---------------------------------------------------------------------------------------------
+// C-11: a watch event patches one entry, never the whole index.
+
+/** /c is the open repository; /n is declared; /c/docs is declared inside /c; drafts are denied. */
+const watchedFiles = () => ({
+  '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
+  '/c/README.md': enc('# Home\n'),
+  '/c/docs/guide.md': enc('# Guide\n'),
+  '/n/notes.md': enc('# Notes in n\n'),
+  '/collection.toml': enc('[[root]]\npath = "/n"\n\n[[root]]\npath = "/c/docs"\n\n[deny]\nglobs = ["**/drafts/**"]\n'),
+});
+
+/** Boots the palette harness on `files` and waits until every root is walked and every watch is open. */
+async function bootWatched(page, files, opts) {
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ files, opts }) => {
+    const { handle } = await window.marxyPaletteBoot.start(files, ['/c/README.md'], undefined, opts);
+    window.__h = handle;
+    await handle.collection.recentLoaded;
+    await handle.index.settled();
+    await handle.trees.settled();
+    // A bounded wait for a condition in the page; a timeout reads as the failure it is.
+    window.__until = async (ok, what) => {
+      const deadline = performance.now() + 5000;
+      while (!ok()) {
+        if (performance.now() > deadline) throw new Error(`timed out waiting for ${what}`);
+        await new Promise((r) => setTimeout(r, 10));
+      }
+    };
+  }, { files: toB64(files), opts });
+  return (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+}
+
+test('C-11: a file written temp-then-rename into a watched folder is listed after the batch; deleting it removes it', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const mod = await bootWatched(page, watchedFiles());
+    const watches = await page.evaluate(() => ({
+      trees: window.__h.trees.trees(),
+      recursive: window.__h.shell.calls.filter((c) => c.method === 'watch' && c.args[1]?.recursive).map((c) => c.args[0]),
+    }));
+    // /c/docs lies inside /c: one watch on the outer tree serves both.
+    assert.deepEqual([...watches.trees].sort(), ['/c', '/n']);
+    assert.deepEqual([...watches.recursive].sort(), ['/c', '/n']);
+
+    const walks = () => page.evaluate(() => window.__h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded').length);
+    const walked = await walks();
+    await page.evaluate(async () => {
+      const h = window.__h;
+      await h.shell.writeFileAtomic('/n/plan.md', new TextEncoder().encode('# Agent plan\n\n## Steps\n'));
+      h.shell.emit([
+        { kind: 'created', path: '/n/.plan.md.tmp' },
+        { kind: 'renamed', path: '/n/.plan.md.tmp', to: '/n/plan.md' },
+      ]);
+      await window.__until(() => h.index.entries().some((e) => e.path === '/n/plan.md'), 'the patch');
+    });
+    assert.deepEqual(await search(page, mod, 'agent plan'), ['Agent plan']);
+    assert.equal(await walks(), walked, 'no walk: the batch was a patch');
+
+    await page.evaluate(async () => {
+      const h = window.__h;
+      h.shell.remove('/n/plan.md');
+      h.shell.emit([{ kind: 'removed', path: '/n/plan.md' }]);
+      await window.__until(() => !h.index.entries().some((e) => e.path === '/n/plan.md'), 'the removal');
+    });
+    assert.deepEqual(await search(page, mod, 'agent plan'), []);
+
+    // A denied path never joins, though its folder is watched and the event names it.
+    const denied = await page.evaluate(async () => {
+      const h = window.__h;
+      await h.shell.writeFileAtomic('/n/drafts/secret.md', new TextEncoder().encode('# Secret draft\n'));
+      await h.shell.writeFileAtomic('/n/after.md', new TextEncoder().encode('# After\n'));
+      h.shell.emit([{ kind: 'created', path: '/n/drafts/secret.md' }]);
+      h.shell.emit([{ kind: 'created', path: '/n/after.md' }]);
+      await window.__until(() => h.index.entries().some((e) => e.path === '/n/after.md'), 'the control file');
+      return {
+        listed: h.index.entries().some((e) => e.path.includes('drafts')),
+        read: h.shell.calls.some((c) => c.method === 'readFile' && String(c.args[0]).includes('drafts')),
+      };
+    });
+    assert.deepEqual(denied, { listed: false, read: false }, '**/drafts/** is denied for a patch as for a walk');
+
+    // A change inside the nested declared folder patches both roots that hold it; the palette lists it once.
+    await page.evaluate(async () => {
+      const h = window.__h;
+      await h.shell.writeFileAtomic('/c/docs/guide.md', new TextEncoder().encode('# Field guide\n'));
+      h.shell.emit([{ kind: 'modified', path: '/c/docs/guide.md' }]);
+      await window.__until(() => h.index.entries().filter((e) => e.title === 'Field guide').length === 2, 'both roots');
+    });
+    assert.deepEqual(await search(page, mod, 'field guide'), ['Field guide']);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-11: one changed file prepares one row, not the whole index; a burst of 20 events writes the snapshot once', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const mod = await bootWatched(page, watchedFiles());
+    const rows = await page.evaluate(async () => {
+      const h = window.__h;
+      const stats = window.marxyPaletteBoot.prepareStats;
+      const before = stats.prepareRow;
+      await h.shell.writeFileAtomic('/n/notes.md', new TextEncoder().encode('# Notes in n, revised\n'));
+      h.shell.emit([{ kind: 'modified', path: '/n/notes.md' }]);
+      await window.__until(() => h.palette.feed.entries().some((e) => e.title === 'Notes in n, revised'), 'the patch');
+      return { prepared: stats.prepareRow - before, scope: h.palette.feed.entries().length };
+    });
+    assert.equal(rows.prepared, 1, `one row, of ${rows.scope}`);
+    assert.ok(rows.scope > 1);
+    assert.deepEqual(await search(page, mod, 'revised'), ['Notes in n, revised']);
+
+    const writes = await page.evaluate(async () => {
+      const h = window.__h;
+      await h.index.settled();
+      const snapshotWrites = () => h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && String(c.args[0]).startsWith('/data/index-')).length;
+      const before = snapshotWrites();
+      // Twenty files, each its own batch and its own patch.
+      for (let i = 0; i < 20; i++) {
+        const path = `/n/burst-${i}.md`;
+        await h.shell.writeFileAtomic(path, new TextEncoder().encode(`# Burst ${i}\n`));
+        h.shell.emit([{ kind: 'created', path }]);
+        await window.__until(() => h.index.entries().some((e) => e.path === path), path);
+      }
+      await h.index.settled();
+      return snapshotWrites() - before;
+    });
+    assert.equal(writes, 1, 'twenty patches, one snapshot write');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-11: a folder the shell refuses to watch says so in the palette, and summoning the palette walks it again once', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const mod = await bootWatched(page, watchedFiles(), { refuseTreeWatch: true });
+    const count = () => page.evaluate(() => ({
+      walksOfN: window.__h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded' && String(c.args[2]).includes('root=/n ')).length,
+      readDirOfN: window.__h.shell.calls.filter((c) => c.method === 'readDir' && c.args[0] === '/n').length,
+    }));
+    const before = await count();
+    await page.keyboard.press(`${mod}+KeyP`);
+    await page.waitForSelector('#marxy-palette[open]');
+    const notice = await page.$eval('#marxy-palette .marxy-palette-notice', (el) => (el.hidden ? null : el.textContent));
+    assert.ok(notice?.includes('Not watching n; rescanned when you open the palette.'), `notice: ${notice}`);
+    assert.ok(notice?.includes('Not watching c; rescanned when you open the palette.'), `notice: ${notice}`);
+    await page.evaluate(() => window.__h.index.settled());
+    const after = await count();
+    await page.keyboard.press('Escape');
+    assert.equal(after.walksOfN, before.walksOfN + 1, `one revalidation walk of /n: ${JSON.stringify({ before, after })}`);
+    assert.equal(after.readDirOfN, before.readDirOfN + 1, 'its listing read once more');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-11: a folder that leaves collection.toml but stays a recent root keeps its entries and stops being watched', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const files = {
+      '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
+      '/c/README.md': enc('# Home\n'),
+      '/n/notes.md': enc('# Notes in n\n'),
+      '/collection.toml': enc('[[root]]\npath = "/n"\n'),
+    };
+    const mod = await bootWatched(page, files);
+    const first = await page.evaluate(() => [...window.__h.trees.trees()].sort());
+    // Reading a file in /n from the palette makes /n a recent root; then back to /c.
+    for (const [query, path] of [['notes in n', '/n/notes.md'], ['home', '/c/README.md']]) {
+      await page.keyboard.press(`${mod}+KeyP`);
+      await page.waitForSelector('#marxy-palette[open]');
+      await page.fill('#marxy-palette .marxy-palette-query', query);
+      await page.keyboard.press('Enter');
+      await page.waitForFunction((p) => window.__h.currentPath() === p, path);
+    }
+    const trees = await page.evaluate(async (first) => {
+      const h = window.__h;
+      if (!h.palette.session.recentRoots.includes('/n')) throw new Error(`not recent: ${h.palette.session.recentRoots}`);
+      // /n leaves the file but stays in scope as a recent root: it stays held and loses its watch.
+      await h.shell.writeFileAtomic('/collection.toml', new TextEncoder().encode('# nothing\n'));
+      h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+      await h.collection.settled();
+      await h.trees.settled();
+      return {
+        first,
+        then: [...h.trees.trees()].sort(),
+        watched: h.index.isWatched('/n'),
+        held: h.index.entries().some((e) => e.path === '/n/notes.md'),
+      };
+    }, first);
+    assert.deepEqual(trees.first, ['/c', '/n']);
+    assert.deepEqual(trees.then, ['/c']);
+    assert.equal(trees.watched, false);
+    assert.equal(trees.held, true);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('C-11: a change to the open document, heard by its folder watch and its tree watch, reloads it once', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootWatched(page, watchedFiles());
+    const seen = await page.evaluate(async () => {
+      const h = window.__h;
+      const reloads = () => h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'live_reload').length;
+      const before = reloads();
+      await h.shell.writeFileAtomic('/c/README.md', new TextEncoder().encode('# Home, rewritten\n\nBy an agent.\n'));
+      h.shell.emit([{ kind: 'renamed', path: '/c/README.md' }]);
+      await window.__until(() => reloads() > before, 'the reload');
+      await window.__until(() => h.index.entries().some((e) => e.title === 'Home, rewritten'), 'the patch');
+      await h.index.settled();
+      return { reloads: reloads() - before, text: document.getElementById('doc').textContent };
+    });
+    assert.equal(seen.reloads, 1);
+    assert.ok(seen.text.includes('By an agent.'));
   } finally {
     await browser.close();
   }

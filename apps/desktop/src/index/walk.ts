@@ -5,6 +5,7 @@ import {
   buildIndex,
   classify,
   collectFiles,
+  ignoreRulesFrom,
   type DirectoryReader,
   type IgnoreRule,
   type IndexNotice,
@@ -33,6 +34,11 @@ export interface IndexWalk {
   readonly notice?: IndexNotice;
   /** Shell calls this walk made (`readDir` and `readFile`; root detection is not counted). */
   readonly calls: number;
+  /**
+   * The root's own ignore rules (its `.gitignore` and `.ignore` files) as this walk read them, so a
+   * watch event can be judged by the same rules without walking again (C-11). Empty on a disabled walk.
+   */
+  readonly ignoreRules: readonly IgnoreRule[];
 }
 
 function indexDisabled(shell: IndexLoadShell): boolean {
@@ -51,7 +57,7 @@ export async function loadIndex(
   previous?: IndexSnapshot,
 ): Promise<IndexWalk> {
   if (indexDisabled(shell)) {
-    return { entries: [], calls: 0 };
+    return { entries: [], calls: 0, ignoreRules: [] };
   }
   const root = await detectIndexRootAsync(shell, openedPath);
   return walkRoot(shell, root, openedPath, openedBytes, previous);
@@ -73,7 +79,7 @@ export async function walkRoot(
   deny: readonly IgnoreRule[] = [],
 ): Promise<IndexWalk> {
   if (indexDisabled(shell)) {
-    return { entries: [], calls: 0 };
+    return { entries: [], calls: 0, ignoreRules: [] };
   }
   let calls = 0;
   const counted: IndexLoadShell = {
@@ -86,7 +92,7 @@ export async function walkRoot(
       return shell.readFile(path);
     },
   };
-  const reader = await prefetchDirectoryReader(counted, root, deny);
+  const { reader, ignoreTexts } = await prefetchDirectoryReader(counted, root, deny);
   const candidates = collectFiles(root, reader, { extraRules: deny });
   const reusable = new Map<string, IndexEntry>();
   if (previous && previous.root === root) {
@@ -123,7 +129,7 @@ export async function walkRoot(
     const kept = reusable.get(entry.path);
     return kept ? { ...entry, title: kept.title, headings: kept.headings } : entry;
   });
-  return { entries, notice: built.notice, calls };
+  return { entries, notice: built.notice, calls, ignoreRules: ignoreRulesFrom(root, ignoreTexts) };
 }
 
 /** The repository root that indexes `path`: the nearest ancestor holding `.git`, else its directory. */
@@ -170,7 +176,7 @@ async function prefetchDirectoryReader(
   shell: IndexLoadShell,
   root: string,
   deny: readonly IgnoreRule[] = [],
-): Promise<DirectoryReader> {
+): Promise<{ reader: DirectoryReader; ignoreTexts: ReadonlyMap<string, string> }> {
   const dirCache = new Map<string, WalkEntry[]>();
   const textCache = new Map<string, string>();
 
@@ -208,7 +214,7 @@ async function prefetchDirectoryReader(
 
   await fillDir(root);
 
-  return {
+  const reader: DirectoryReader = {
     readDir(absPath: string): readonly WalkEntry[] {
       return dirCache.get(normalizePath(absPath)) ?? [];
     },
@@ -216,4 +222,5 @@ async function prefetchDirectoryReader(
       return textCache.get(normalizePath(absPath));
     },
   };
+  return { reader, ignoreTexts: textCache };
 }

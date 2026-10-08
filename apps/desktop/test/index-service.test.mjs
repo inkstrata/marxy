@@ -506,16 +506,16 @@ nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRea
 // ---------------------------------------------------------------------------------------------
 // WebKit: the palette over the real app.
 
-async function launch(argv, fn) {
+async function launch(argv, fn, opts) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     await page.goto(`${base}test/palette-boot.html`);
     await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
-    await page.evaluate(async ({ files, argv }) => {
-      const { handle } = await window.marxyPaletteBoot.start(files, argv);
+    await page.evaluate(async ({ files, argv, opts }) => {
+      const { handle } = await window.marxyPaletteBoot.start(files, argv, undefined, opts);
       window.__h = handle;
-    }, { files: toB64(twoRepos()), argv });
+    }, { files: toB64(twoRepos()), argv, opts });
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
     await fn(page, mod);
   } finally {
@@ -604,7 +604,9 @@ test('history.json records repository roots, /a and /b, not /a/docs', () =>
     assert.deepEqual(recentRoots, ['/b', '/a'], history);
   }));
 
-test("the echo of Marxy's own save re-walks nothing; another markdown file's change re-walks the root", () =>
+// The open document's folder watch re-walks its root only when no tree watch covers it (C-11): here the
+// shell refuses the tree watch, so the folder watch is what keeps /a fresh.
+test("with no tree watch: the echo of Marxy's own save re-walks nothing; another markdown file's change re-walks the root", () =>
   launch(['/a/README.md'], async (page) => {
     await indexed(page, '/a');
     const counts = await page.evaluate(async () => {
@@ -640,4 +642,27 @@ test("the echo of Marxy's own save re-walks nothing; another markdown file's cha
     assert.deepEqual(counts.echo, counts.before, `the save echo walked: ${JSON.stringify(counts)}`);
     assert.equal(counts.other.index_loaded, counts.echo.index_loaded + 1, `another file did not re-walk: ${JSON.stringify(counts)}`);
     assert.ok(counts.other.readDir > counts.echo.readDir);
+  }, { refuseTreeWatch: true }));
+
+test('with a live tree watch: neither the save echo nor another file re-walks the root; the new file is patched in (C-11)', () =>
+  launch(['/a/README.md'], async (page, mod) => {
+    await indexed(page, '/a');
+    const counts = await page.evaluate(async () => {
+      const h = window.__h;
+      await h.trees.settled();
+      await h.index.settled();
+      const walks = () => h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded').length;
+      const before = walks();
+      await h.commitEdit(h.openDocument().buffer);
+      await h.shell.writeFileAtomic('/a/README.md', h.openDocument().buffer.bytes);
+      h.shell.emit([{ kind: 'modified', path: '/a/README.md' }]);
+      await h.shell.writeFileAtomic('/a/later.md', new TextEncoder().encode('# Later\n'));
+      h.shell.emit([{ kind: 'created', path: '/a/later.md' }]);
+      await h.index.settled();
+      return { trees: h.trees.trees(), before, after: walks(), listed: h.index.entries().some((e) => e.path === '/a/later.md') };
+    });
+    assert.deepEqual(counts.trees, ['/a'], 'the open repository is watched as a tree');
+    assert.equal(counts.after, counts.before, `a walk ran: ${JSON.stringify(counts)}`);
+    assert.ok(counts.listed, 'the new file is in the index');
+    assert.ok((await search(page, mod, 'later')).includes('Later'), 'and in the palette');
   }));

@@ -29,3 +29,4 @@ export {
   type CollectionRoot,
   type ParseCollectionResult,
 } from './collection.ts';
+export { planEvents, ignoreRulesFrom, type FileEvent, type EventPlan } from './apply-events.ts';
