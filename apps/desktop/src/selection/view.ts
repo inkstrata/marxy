@@ -110,6 +110,12 @@ export interface RenderedSelection {
    * menu's right-click, C-13). Synchronous for `'select'`.
    */
   selectAt(target: Element, opts: { readonly link: 'select' | 'follow' }): Promise<void>;
+  /**
+   * Select the innermost block whose `[data-marxy-s, data-marxy-e)` holds `byte` (a content-search hit,
+   * C-17). The caller has already mounted the page through `byte` (the open's `landOn`). Nothing is
+   * selected when no mounted block holds the byte (a gap between blocks, or a byte past the end).
+   */
+  selectBlockAtByte(byte: number): void;
   /** One step back in the link history; true when it moved (the caller then has nothing left to do). */
   back(): boolean;
   /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
@@ -318,6 +324,25 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     paint();
   };
 
+  /** The block carrier holding `byte`, the narrowest range winning; inline carriers are skipped. */
+  const blockCarrierAt = (byte: number): Element | null => {
+    const snap = opts.store()?.snapshot();
+    if (!snap) return null;
+    let best: Element | null = null;
+    let bestSpan = Infinity;
+    for (const el of article.querySelectorAll('[data-marxy-s][data-marxy-e]')) {
+      const start = Number(el.getAttribute('data-marxy-s'));
+      const end = Number(el.getAttribute('data-marxy-e'));
+      if (!(start <= byte && byte < end) || end - start >= bestSpan) continue;
+      const resolved = resolve(el, snap.nodeMap);
+      if (resolved && isBlock(resolved.node)) {
+        best = el;
+        bestSpan = end - start;
+      }
+    }
+    return best;
+  };
+
   const selectNone = (): void => {
     state = select(state, { kind: 'none' });
     paint();
@@ -492,6 +517,17 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       navIndex -= 1;
       void opts.open(navHistory[navIndex]!);
       return true;
+    },
+    selectBlockAtByte(byte) {
+      const snap = opts.store()?.snapshot();
+      if (!snap) return;
+      const carrier = blockCarrierAt(byte);
+      if (carrier === null) return;
+      const resolved = resolve(carrier, snap.nodeMap);
+      if (!resolved || !isBlock(resolved.node)) return;
+      lastClickTarget = carrier;
+      state = select(state, { kind: 'node', node: resolved.node, el: carrier });
+      paint();
     },
     lastPointerCarrier() {
       return pointerCarrier;

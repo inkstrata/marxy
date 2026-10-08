@@ -46,7 +46,7 @@ export interface OpenPath {
   /** The launch: the document `argv` names (the shell's arguments when it names none), else the frontispiece. */
   boot(argv: readonly string[]): Promise<void>;
   /** `AppHandle.open`: after any open under way, and asking first over unsaved edits. */
-  open(path: string, opts?: { at?: number }): Promise<void>;
+  open(path: string, opts?: { at?: number; onLanded?: () => void }): Promise<void>;
   currentPath(): string | null;
   /** The open document's store, or null. */
   store(): DocumentStore | null;
@@ -293,13 +293,15 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     }
   }
 
-  function open(file: string, opts?: { at?: number }): Promise<void> {
+  function open(file: string, opts?: { at?: number; onLanded?: () => void }): Promise<void> {
     const run = () =>
       serially(async () => {
         // The document already on screen, asked for again with nowhere to go (a second launch, Finder, a
         // drag, the palette on the current document): reading it back from disk would drop unsaved edits.
         if (file === currentPath() && opts?.at === undefined && hasUnsavedChanges()) return;
         await openReplacing(file, opts?.at);
+        // Only once `file` is on screen: after a confirmed "Save and open" too, never on the old document (C-17).
+        if (currentPath() === file) opts?.onLanded?.();
       });
     // Another document over unsaved edits asks first (save / discard / dismiss), as a close does. Moving
     // within the open document, or opening with nothing unsaved, goes straight through.
