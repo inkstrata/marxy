@@ -164,6 +164,24 @@ const undoWhenReady = async (page) => {
   await undoKey(page);
 };
 
+test('AppHandle.dispatch reaches the store\'s transitions: apply, then undo, then redo (ADR-0037 §2)', async () => {
+  const page = await boot();
+  const toggled = ORIGINAL.replace('- [ ] one', '- [x] one');
+  const at = ORIGINAL.indexOf('- [ ] one') + 2;
+  const applied = await page.evaluate(
+    (at) => window.__handle.dispatch({ type: 'apply', range: { file: '/d/t.md', start: at, end: at + 3 }, replacement: '[x]', label: 'Toggle task' }),
+    at,
+  );
+  assert.equal(applied, true);
+  await untilBuffer(page, toggled);
+  await page.evaluate(() => window.__handle.dispatch({ type: 'undo' }));
+  await untilBuffer(page, ORIGINAL);
+  assert.equal(await canUndo(page), false, 'the undo took the one entry');
+  await page.evaluate(() => window.__handle.dispatch({ type: 'redo' }));
+  await untilBuffer(page, toggled);
+  await page.close();
+});
+
 test('ADR-0037 defect 2: toggle, Source edit, two undos restore the original', async () => {
   const page = await boot();
   const toggled = ORIGINAL.replace('- [ ] one', '- [x] one');
