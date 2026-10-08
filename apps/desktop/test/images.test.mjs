@@ -369,3 +369,69 @@ nodeTest('assetUrl arguments over the corpus are never http or https URLs', () =
     }
   }
 });
+
+// F-17: a document with no text characters (only images) is still a document that opens.
+const imageOnly = (n) => Array.from({ length: n }, (_, i) => `![pic${i}](a.png)`).join('\n\n') + '\n';
+const imageOnlyFiles = (n) => ({
+  '/docs/only.md': Buffer.from(imageOnly(n)).toString('base64'),
+  '/docs/a.png': b64(join(corpusDir, 'image.png')),
+});
+
+// `start` is raced against a bound so that a hang reads as a failure naming the cause, not a timeout.
+async function bootBounded(page, files, argv, boundMs = 15000) {
+  await page.goto(`${base}app.html`);
+  await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+  return page.evaluate(async ({ files, argv, boundMs }) => {
+    const bound = new Promise((resolve) => setTimeout(() => resolve('hung'), boundMs));
+    const started = window.marxyApp.start(files, argv).then((h) => { window.__f17 = h; return 'started'; });
+    const outcome = await Promise.race([started, bound]);
+    if (outcome !== 'started') return { outcome };
+    const exit = await Promise.race([window.__f17.ready.then(() => 'ready'), bound]);
+    const calls = window.__f17.shell.calls.map((c) => c.method);
+    return { outcome: exit, watches: calls.filter((m) => m === 'watch').length, assetUrls: calls.filter((m) => m === 'assetUrl').length };
+  }, { files, argv, boundMs });
+}
+
+test('F-17: a document of one image and no text loads the image', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, imageOnlyFiles(1), ['/docs/only.md']);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    await page.waitForFunction(() => {
+      const el = document.querySelector('#doc img');
+      return el && el.getAttribute('src') && el.getAttribute('src') !== 'a.png';
+    }, undefined, { timeout: 10000 });
+    const src = await page.evaluate(() => document.querySelector('#doc img').getAttribute('src'));
+    assert.notEqual(src, 'a.png');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('F-17: a document of two image blocks and no text starts and registers its watch', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, imageOnlyFiles(2), ['/docs/only.md']);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    assert.equal(r.watches, 1, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('F-17: an empty document still reports no text and is not watched', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, { '/docs/empty.md': '' }, ['/docs/empty.md']);
+    const marks = await page.evaluate(() => window.__f17?.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]) ?? []);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    assert.ok(marks.includes('no_text'), `marks: ${marks}`);
+    assert.equal(marks.includes('first_text'), false);
+    assert.equal(r.watches, 0, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});

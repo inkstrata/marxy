@@ -1657,7 +1657,10 @@ async function bootDocument(file: string, doc: HTMLElement, after: number, chunk
   const renderedAt = Date.now();
 
   const outcome = await measure.waitForFirstText(doc, evidence, after, renderedAt);
-  if (outcome !== 'painted') return measure.finish(1);
+  // A document of blocks with no text (only images, F-17) was not painted as text, and the measurement
+  // said so with `no_text`, but it is a document: it opens like any other. Nothing at all still fails.
+  const imagesOnly = outcome === 'no_text' && evidence.blocks > 0;
+  if (outcome !== 'painted' && !imagesOnly) return measure.finish(1);
   chunks.release();
   await ensurePersistenceLoaded(dirname(file));
   await finishDocumentOpen(file, doc);
