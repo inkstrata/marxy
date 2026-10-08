@@ -88,8 +88,12 @@ export interface RenderedSelectionOptions {
   /** The open document's store, or null when nothing is open. */
   store(): DocumentStore | null;
   readonly shell: SelectionShell;
-  /** Opens a document through the app's one open path. */
-  open(path: string): Promise<void>;
+  /**
+   * Opens a document through the app's one open path. Over unsaved edits the promise settles once the reader
+   * is asked, so anything that must follow the move (a landing, a history entry) goes in `onLanded`, which
+   * runs only once `path` is the document on screen.
+   */
+  open(path: string, opts?: { onLanded?: () => void }): Promise<void>;
   currentPath(): string | null;
   /** Mounts every block up to the one holding `byte` (a link to a heading not yet on the page). */
   mountThrough(byte: number): void;
@@ -179,7 +183,8 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   let pointerDown = false;
   let navHistory: string[] = [];
   let navIndex = -1;
-  let pendingFragment: string | undefined;
+  /** The index a Back still in flight is heading for, so a second press steps on from it; null when none is. */
+  let pendingBack: number | null = null;
   /** The path of the document the page last showed: a different one starts with nothing selected. */
   let shownPath: string | null = null;
   /** The store version the page was last set from (`afterRender`); null before the first. */
@@ -235,13 +240,14 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     pointerCarrier = null;
   };
 
-  const recordNavOpen = (nextPath: string): void => {
-    const current = opts.currentPath();
+  /** `current` is the document the move leaves: read before the open, since a landed open has replaced it. */
+  const recordNavOpen = (current: string | null, nextPath: string): void => {
     const kept = navIndex >= 0 ? navHistory.slice(0, navIndex + 1) : [];
     if (current && kept[kept.length - 1] !== current) kept.push(current);
     if (kept[kept.length - 1] !== nextPath) kept.push(nextPath);
     navHistory = kept;
     navIndex = navHistory.length - 1;
+    pendingBack = null;
   };
 
   const followLink = async (anchor: HTMLAnchorElement, ev?: MouseEvent): Promise<void> => {
@@ -276,6 +282,13 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     }
     const { target, fragment } = local;
 
+    // A link to a heading of this very document (`[self](a.md#far)`) is the `#` branch with a path: land
+    // on it. No open, no re-read of the file, no history entry, so unsaved edits are left alone.
+    if (target === opts.currentPath()) {
+      if (fragment) landFragment(fragment);
+      return;
+    }
+
     try {
       await opts.shell.readFile(target);
     } catch {
@@ -283,12 +296,15 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       return;
     }
 
-    recordNavOpen(target);
-    pendingFragment = fragment;
-    await opts.open(target);
-    const landing = pendingFragment;
-    pendingFragment = undefined;
-    if (landing) landFragment(landing);
+    // Over unsaved edits the reader is asked first: the history entry and the landing wait for their
+    // choice (F-21), and a Dismiss leaves both undone.
+    const from = opts.currentPath();
+    await opts.open(target, {
+      onLanded: () => {
+        recordNavOpen(from, target);
+        if (fragment) landFragment(fragment);
+      },
+    });
   };
 
   /** The selection's element again, by its byte range, after a move or a new page. */
@@ -513,9 +529,16 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       if (doc) move(parentOf(doc, state.selection));
     },
     back() {
-      if (navIndex <= 0) return false;
-      navIndex -= 1;
-      void opts.open(navHistory[navIndex]!);
+      // A second press before the first open has landed steps on from where the first is heading. The
+      // pending index lasts only while that open is in flight: `open()` settles at once when it asks
+      // about unsaved edits, so a Dismiss clears it and the next press starts from the page that is shown.
+      const from = pendingBack ?? navIndex;
+      if (from <= 0) return false;
+      const index = from - 1;
+      pendingBack = index;
+      const settle = (): void => { if (pendingBack === index) pendingBack = null; };
+      // The step back counts only once that document is on screen; a Dismiss over unsaved edits keeps the place.
+      void opts.open(navHistory[index]!, { onLanded: () => { navIndex = index; settle(); } }).then(settle, settle);
       return true;
     },
     selectBlockAtByte(byte) {
@@ -555,11 +578,6 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       reresolve();
       applyInvisibleMarkers(article);
       applyLinkDestinations(article);
-      if (pendingFragment) {
-        const landing = pendingFragment;
-        pendingFragment = undefined;
-        requestAnimationFrame(() => landFragment(landing));
-      }
     },
     destroy() {
       article.removeEventListener('pointerdown', onPointerDown, true);

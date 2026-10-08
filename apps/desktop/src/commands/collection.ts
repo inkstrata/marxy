@@ -93,8 +93,9 @@ async function editCollection(): Promise<void> {
       return;
     }
   }
-  await handle.open(file);
-  await handle.jumpToSource(0);
+  // Over unsaved edits the open waits for the reader's choice: Source is shown only once collection.toml is
+  // the document, never on the one still on screen (F-21).
+  await handle.open(file, { onLanded: () => void handle.jumpToSource(0) });
 }
 
 export function collectionCommands(): readonly Command[] {
