@@ -44,3 +44,13 @@ in the same page is now construction rather than a rewrite.
   notices, the close guard) is bound to the first pane until the story that owns it moves it
   to the focused pane. `docs/design/09-app-shell.md` §State lists them.
 - A third column, linked scrolling or a second OS window each need a new decision.
+- The divider between two panes is drawn from three theme tokens: `--marxy-color-divider` (the 1 px line;
+  the rule colour by default), `--marxy-color-divider-focus` (the line on the focused pane's side, and
+  the divider's hover, drag and keyboard-focus states; the accent by default) and `--marxy-divider-hit`
+  (the pointer target, centred on the line, which takes no layout width; 8px by default). At rest the
+  line is deliberately below 3:1 against the page (about 1.25:1): chrome at rest is zero, the edge
+  between two columns is visible from the text itself, and the control is a named `separator` with
+  keyboard and palette alternatives. Its interactive states are not below 3:1: hover, drag and
+  keyboard focus draw the line in the accent (6.4:1 or better), a test holds that, and focus also
+  shows a 2px outline. The 8px target is under WCAG 2.2's 24px (2.5.8); the gutters keep other targets
+  clear of it and the palette commands are the equivalent.
