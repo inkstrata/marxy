@@ -10,6 +10,7 @@ import { createStoreRegistry } from '../document/registry.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { createRenderedView, type RenderedView, type RenderedViewDeps, type ViewHost } from '../view/rendered-view.ts';
+import { createDivider } from './divider.ts';
 import { adoptFirstPane, type PaneParts, type Slot } from './dom.ts';
 import { createPaneSet, type PaneContent, type PaneSet } from './pane-set.ts';
 import { installScroll } from './scroll.ts';
@@ -104,6 +105,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
   });
   set = panes;
   installScroll(panes);
+  panes.onSplit((m) => createDivider(panes, m).destroy);
   // Focus moves the window title to the focused pane's document.
   panes.onChange((e) => {
     if (e.kind !== 'focus') return;

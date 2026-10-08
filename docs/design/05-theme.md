@@ -160,6 +160,8 @@ below is an inversion of anything else; each value was chosen on its own ground.
 | `--marxy-color-text-secondary` | `#a39e94` | 6.9 | `#5e5a53` | 6.5 |
 | `--marxy-color-accent` / `-link` | `#8fb4dd` | 8.5 | `#2c5f8a` | 6.4 |
 | `--marxy-color-rule` | `#2a2825` | — | `#e4e0d8` | — |
+| `--marxy-color-divider` | `var(--marxy-color-rule)` | — | `var(--marxy-color-rule)` | — |
+| `--marxy-color-divider-focus` | `var(--marxy-color-accent)` | 8.5 | `var(--marxy-color-accent)` | 6.4 |
 | `--marxy-color-code-bg` | `#1d1c19` | — | `#f1eee8` | — |
 | `--marxy-color-code-text` | `#e3dfd6` | 12.8 (on code bg) | `#1c1b19` | 14.9 (on code bg) |
 | `--marxy-color-quote-rule` | `#3a3833` | — | `#d6d1c8` | — |

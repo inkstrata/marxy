@@ -35,6 +35,9 @@
   --marxy-color-accent: #8fb4dd;
   --marxy-color-link: var(--marxy-color-accent);
   --marxy-color-rule: #2a2825;
+  --marxy-color-divider: var(--marxy-color-rule);           /* the 1 px line between two panes; none is drawn with one */
+  --marxy-color-divider-focus: var(--marxy-color-accent);   /* the line on the focused pane's side, for 150 ms after focus moves */
+  --marxy-divider-hit: 8px;           /* the pointer target of the divider, centred on the line; it takes no layout width */
   --marxy-color-code-bg: #1d1c19;
   --marxy-color-code-text: #e3dfd6;
   --marxy-color-quote-rule: #3a3833;
