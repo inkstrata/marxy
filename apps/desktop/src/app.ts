@@ -17,7 +17,7 @@ import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { Shell } from '@marxy/shell-api';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from './render/post.ts';
-import { stripNonLocalImages } from './render/images.ts';
+import { pathsForDocument, resolveImageRoot, stripNonLocalImages } from './render/images.ts';
 import { clearDismissForPath, resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
 import { wireTrustRevokeCommands } from './commands/trust.ts';
@@ -122,6 +122,8 @@ export type AppHandle = {
   open(path: string, opts?: { at?: number }): Promise<void>;
   /** The document on screen, or null before the first one. */
   currentPath(): string | null;
+  /** The folder every image and link of the document at `path` must stay inside: its repository root, else its folder (ADR-0027 §5). */
+  imageRoot(path: string): string;
   /** Playwright harness: buffer fingerprint and reading position (MARXY-169). */
   sourceHarness(): {
     readonly mode: 'rendered' | 'source';
@@ -453,6 +455,7 @@ function deferredStartupContext(
     shell,
     file,
     doc,
+    rootFor: (path) => index.rootFor(path),
     imageCtx,
     onLayoutChanged: () => snap(doc),
   };
@@ -1254,6 +1257,8 @@ function rerenderFromBuffer(doc: HTMLElement, at?: number | Pick<ReadingPosition
 function mountDocument(doc: HTMLElement, html: string, file: string, landing?: number, start?: Promise<unknown>): ProgressiveMount {
   mount?.cancel();
   cancelScheduledSnap();
+  // The repository root the images and links resolve against (F-14): asked once, never waited on.
+  void resolveImageRoot(file, (path) => index.rootFor(path));
   const t0 = performance.now();
   let chunks = 0;
   const current: ProgressiveMount = mountProgressively(doc, html, {
@@ -1723,6 +1728,7 @@ export async function startApp(
     ready,
     open: replaceOpenDocument,
     currentPath: openPathNow,
+    imageRoot: (path) => pathsForDocument(path).imageRoot,
     sourceHarness,
     debugCounts: () => ({ typesetters: liveTypesetters.size, resizeObservers: liveResizeObservers }),
     openDocument: openDocumentState,

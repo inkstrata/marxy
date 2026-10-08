@@ -1,6 +1,6 @@
 // Post-pass 3: local image paths, reserved boxes, asset URLs (docs/design/02-render.md). MARXY-138.
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
-import { presentLocalImage, resolveImageSrc, type ImageSize } from '@marxy/core/src/render/images.ts';
+import { isInsideImageRoot, presentLocalImage, resolveImageSrc, type ImageSize } from '@marxy/core/src/render/images.ts';
 
 export interface ImageShell {
   imageSize(path: string): Promise<ImageSize | null>;
@@ -17,12 +17,44 @@ export interface ApplyImagesContext {
   readonly scopedRoots: Set<string>;
 }
 
-/** Directory containing the document and the image root (repository root or the same directory). */
-export function pathsForDocument(documentPath: string): { documentDir: string; imageRoot: string } {
+/**
+ * The image root found for each document directory (ADR-0027 §5): the repository root that indexes it.
+ * Filled once per document from the index service's `rootFor`; read synchronously by everything else.
+ */
+const knownRoots = new Map<string, string>();
+
+function directoryOf(documentPath: string): string {
   const normalized = normalizePath(documentPath);
   const slash = normalized.lastIndexOf('/');
-  const documentDir = slash >= 0 ? normalized.slice(0, slash) : normalized;
-  return { documentDir, imageRoot: documentDir };
+  return slash >= 0 ? normalized.slice(0, slash) : normalized;
+}
+
+/** Records `root` as the image root of `documentPath`'s folder. A root that does not contain the folder is ignored. */
+export function rememberImageRoot(documentPath: string, root: string): void {
+  const dir = directoryOf(documentPath);
+  const normalized = normalizePath(root);
+  if (isInsideImageRoot(dir, normalized)) knownRoots.set(dir, normalized);
+}
+
+/** True once the image root of `documentPath` is known, so a strict check of its images is final. */
+export function imageRootKnown(documentPath: string): boolean {
+  return knownRoots.has(directoryOf(documentPath));
+}
+
+/** Asks `rootFor` once for the document's repository root and remembers it. A failed lookup leaves the folder as the root. */
+export async function resolveImageRoot(documentPath: string, rootFor: (path: string) => Promise<string>): Promise<void> {
+  if (imageRootKnown(documentPath)) return;
+  try {
+    rememberImageRoot(documentPath, await rootFor(documentPath));
+  } catch {
+    rememberImageRoot(documentPath, directoryOf(documentPath));
+  }
+}
+
+/** Directory containing the document and the image root (repository root once known, else the same directory). */
+export function pathsForDocument(documentPath: string): { documentDir: string; imageRoot: string } {
+  const documentDir = directoryOf(documentPath);
+  return { documentDir, imageRoot: knownRoots.get(documentDir) ?? documentDir };
 }
 
 function measurePx(article: HTMLElement): number {
@@ -38,15 +70,21 @@ function measurePx(article: HTMLElement): number {
  */
 export function stripNonLocalImages(article: HTMLElement, documentPath: string): void {
   const { documentDir, imageRoot } = pathsForDocument(documentPath);
+  const known = imageRootKnown(documentPath);
   const measure = measurePx(article);
   const opts = { documentDir, imageRoot, measurePx: measure };
   for (const img of article.querySelectorAll<HTMLImageElement>('img[src]')) {
     if (img.dataset.marxyRemote !== undefined || img.dataset.marxyDone === 'images') continue;
-    const resolved = resolveImageSrc(img.getAttribute('src') ?? '', opts);
-    if (resolved.kind !== 'local') {
-      img.removeAttribute('src');
-      img.dataset.marxyDone = 'images';
+    const raw = img.getAttribute('src') ?? '';
+    const resolved = resolveImageSrc(raw, opts);
+    if (resolved.kind === 'local') continue;
+    img.removeAttribute('src');
+    if (resolved.kind === 'outside' && !known) {
+      // Outside the folder is not outside the repository: keep the reference, and let applyImages decide once the root is known.
+      img.dataset.marxySrc = raw;
+      continue;
     }
+    img.dataset.marxyDone = 'images';
   }
 }
 
@@ -58,9 +96,10 @@ export async function applyImages(article: HTMLElement, ctx: ApplyImagesContext)
   const measure = measurePx(article);
   const opts = { documentDir: ctx.documentDir, imageRoot: ctx.imageRoot, measurePx: measure };
 
-  for (const img of article.querySelectorAll<HTMLImageElement>('img[src]')) {
+  for (const img of article.querySelectorAll<HTMLImageElement>('img[src], img[data-marxy-src]')) {
     if (img.dataset.marxyRemote !== undefined || img.dataset.marxyDone === 'images') continue;
-    const rawSrc = img.getAttribute('src') ?? '';
+    const rawSrc = img.getAttribute('src') ?? img.dataset.marxySrc ?? '';
+    delete img.dataset.marxySrc;
     const resolved = resolveImageSrc(rawSrc, opts);
     if (resolved.kind !== 'local') {
       img.removeAttribute('src');

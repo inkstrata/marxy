@@ -37,6 +37,8 @@ const INDEX = [
   '',
   '[away](../outside.md)',
   '',
+  '[beyond](../../elsewhere.md)',
+  '',
   '[web](https://example.invalid/)',
   '',
 ].join('\n');
@@ -87,7 +89,7 @@ async function boot(page, files, argv) {
   await page.waitForFunction(() => document.querySelector('#doc h2#target-section'));
 }
 
-test('hash link scrolls; relative opens; external calls openExternal; back returns; outside is refused', async () => {
+test('hash link scrolls; relative opens; external calls openExternal; back returns; outside the repository is refused; one folder up inside it opens (F-14)', async () => {
   const root = '/repo/docs';
   const files = {
     [`${root}/index.md`]: Buffer.from(INDEX, 'utf8').toString('base64'),
@@ -120,11 +122,15 @@ test('hash link scrolls; relative opens; external calls openExternal; back retur
     );
     assert.ok(external.length >= 1);
 
-    await page.locator('#doc a[href="../outside.md"]').click();
+    await page.locator('#doc a[href="../../elsewhere.md"]').click();
     await page.waitForFunction(() =>
       document.querySelector('#marxy-notices')?.textContent?.includes('outside'),
     );
     assert.match(await page.evaluate(() => window.__marxyTestHandle.currentPath()), /index\.md$/);
+
+    // F-14: ../outside.md leaves the folder but not the repository, so it opens.
+    await page.locator('#doc a[href="../outside.md"]').click();
+    await page.waitForFunction(() => window.__marxyTestHandle.currentPath() === '/repo/outside.md');
   } finally {
     await browser.close();
   }

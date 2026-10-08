@@ -1,6 +1,6 @@
 // Deferred startup work after reading position is restored (MARXY-33): highlight, math, images.
 // The palette index is not here: it has an owner, apps/desktop/src/index/service.ts (A-04).
-import { applyImages, pathsForDocument, type ApplyImagesContext } from '../render/images.ts';
+import { applyImages, pathsForDocument, resolveImageRoot, type ApplyImagesContext } from '../render/images.ts';
 import { applyMath } from '../render/math.ts';
 
 export interface MarkShell {
@@ -29,6 +29,8 @@ export interface DeferredStartupContext {
   readonly shell: MarkShell;
   readonly file: string;
   readonly doc: HTMLElement;
+  /** The index service's `rootFor`: the repository root the document's images resolve against (ADR-0027 §5). */
+  readonly rootFor?: (path: string) => Promise<string>;
   readonly imageCtx: Omit<ApplyImagesContext, 'documentPath' | 'documentDir' | 'imageRoot'>;
   /**
    * Called when a post-pass changed the page's geometry (image boxes, invisible-character markers),
@@ -43,7 +45,6 @@ export interface DeferredStartupContext {
  */
 export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<void> {
   const { shell, file, doc } = ctx;
-  const { documentDir, imageRoot } = pathsForDocument(file);
   const highlightStart = Date.now();
   // Every step is a post-pass over a page that is already readable: one that fails (a refused asset
   // scope, a lazy chunk that did not load) must not take the rendered page or the open document with it.
@@ -52,6 +53,8 @@ export async function runDeferredStartup(ctx: DeferredStartupContext): Promise<v
   };
   await guarded('images', async () => {
     try {
+      if (ctx.rootFor) await resolveImageRoot(file, ctx.rootFor);
+      const { documentDir, imageRoot } = pathsForDocument(file);
       await applyImages(doc, { ...ctx.imageCtx, documentPath: file, documentDir, imageRoot });
     } finally {
       regrid();

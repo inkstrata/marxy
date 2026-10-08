@@ -177,7 +177,7 @@ async function followLink(anchor: HTMLAnchorElement, ev: MouseEvent): Promise<vo
   const { documentDir } = pathsForDocument(path);
   const base = documentDir.endsWith('/') ? documentDir : `${documentDir}/`;
   const target = normalizePath(new URL(pathPart, `file://${base}`).pathname);
-  const { imageRoot } = pathsForDocument(path);
+  const imageRoot = appHandle.imageRoot(path);
 
   ev.preventDefault();
 
