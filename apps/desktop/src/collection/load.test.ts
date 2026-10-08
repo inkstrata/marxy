@@ -208,3 +208,17 @@ test('collection.toml broken mid-run keeps the last good folders, with one notic
   assert.deepEqual(h.search('notes'), ['/c/notes.md', '/a/notes.md']);
   collection.stop();
 });
+
+test('adding a glob to collection.toml mid-run hides a file through every root, with no restart (C-10 review 2)', async () => {
+  // No declared folder to wait on: the reload is applied the moment it is read, before any re-walk.
+  const h = harness('');
+  await h.shell.writeFileAtomic('/c/drafts/plan.md', enc('# Plan notes\n'));
+  const collection = await h.start();
+  await collection.loaded;
+  assert.ok(h.search('plan').includes('/c/drafts/plan.md'));
+  await h.shell.writeFileAtomic('/collection.toml', enc('[deny]\nglobs = ["**/drafts/**"]\n'));
+  h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+  await collection.settled();
+  assert.deepEqual(h.search('plan'), [], 'gone once the reload is applied, before any re-walk');
+  collection.stop();
+});

@@ -6,10 +6,10 @@
 // root remembers when Marxy first indexed it (`baselineMs`). The reader's deny globs join the built-in
 // deny list for every root held: read from collection.toml before the first walk, replaced by `setDeny`.
 import type { IndexEntry } from '@marxy/core';
-import type { IgnoreRule } from '@marxy/core/src/index-model/ignore.ts';
+import { isIgnored, type IgnoreRule } from '@marxy/core/src/index-model/ignore.ts';
 import { denyRulesFor } from '@marxy/core/src/index-model/collection.ts';
 import { loadCollection } from '../collection/load.ts';
-import { dirname, normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { dirname, normalizePath, relativePath } from '@marxy/core/src/index-model/paths.ts';
 import { notify } from '../notices/index.ts';
 import {
   INDEX_SNAPSHOT_VERSION,
@@ -128,6 +128,15 @@ interface RootState {
   snapshot?: IndexSnapshot;
   /** When Marxy first indexed this root; from its snapshot, else the end of its first walk. */
   baselineMs?: number;
+}
+
+/**
+ * `entries` without those under the reader's deny globs, by the walk's own matcher. A snapshot was
+ * written under the rules of its day: nothing it holds is served past today's.
+ */
+function allowed(root: string, entries: readonly IndexEntry[], deny: readonly IgnoreRule[]): readonly IndexEntry[] {
+  if (deny.length === 0) return entries;
+  return entries.filter((e) => !isIgnored(relativePath(root, e.path), false, deny));
 }
 
 /** One string per rule set, so a second `ensureRoot` can tell whether the rules changed. */
@@ -254,15 +263,17 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
     const state: RootState = { entries: [], pending: Promise.resolve(), queued: false };
     roots.set(root, state);
     state.pending = (async () => {
-      // The last session's index, published before the walk lists anything.
+      // The last session's index, published before the walk lists anything, less what today's deny
+      // globs cover (the reader may have added one while Marxy was closed).
       const file = await snapshotPath(shell, root);
       const snapshot = file ? await readSnapshot(shell, file, root) : undefined;
+      const deny = snapshot ? await denyRules() : [];
       if (snapshot && roots.get(root) === state) {
         state.snapshot = snapshot;
         state.baselineMs = snapshot.baselineMs;
-        state.entries = snapshot.entries;
+        state.entries = allowed(root, snapshot.entries, deny);
         publish();
-        await shell.mark('index_loaded', Date.now(), `entries=${snapshot.entries.length} root=${root} source=snapshot`);
+        await shell.mark('index_loaded', Date.now(), `entries=${state.entries.length} root=${root} source=snapshot`);
       }
       if (roots.get(root) !== state) return;
       const ok = idle ? await whenIdle(() => walk(root, state)) : await walk(root, state, path, openedBytes);
@@ -314,7 +325,14 @@ export function createIndexService(shell: IndexServiceShell): IndexService {
     setDeny(rules) {
       const changed = denyKey(rules) !== denyKey(globalDeny ?? []);
       globalDeny = rules;
-      if (changed) for (const root of order) refresh(root);
+      if (!changed) return;
+      // Hide what the new rules cover at once; the re-walks bring back what they no longer cover.
+      for (const root of order) {
+        const state = roots.get(root);
+        if (state) state.entries = allowed(root, state.entries, rules);
+      }
+      publish();
+      for (const root of order) refresh(root);
     },
     dropRoot(root) {
       declaredWatch.delete(root);

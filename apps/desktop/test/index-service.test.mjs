@@ -441,6 +441,36 @@ nodeTest('setDeny with new globs re-walks every root held, and an emptied list b
   assert.deepEqual(drafts(), ['/c/docs/drafts/secret.md', '/r/n/drafts/secret-r.md'], 'no rule lingers');
 });
 
+nodeTest('a glob added while Marxy was closed: the last snapshot never publishes the denied file (C-10 review 2)', async () => {
+  const shell = createMemoryShell(deniedTree(undefined));
+  const first = createIndexService(shell);
+  await first.ensureFor('/c/README.md');
+  assert.ok(first.entries().some((e) => e.path === '/c/docs/drafts/secret.md'), 'the snapshot holds the draft');
+  await shell.writeFileAtomic('/collection.toml', enc('[deny]\nglobs = ["**/drafts/**"]\n'));
+  const second = createIndexService(shell);
+  const published = [];
+  second.subscribe((entries) => published.push(entries.map((e) => e.path)));
+  await second.ensureFor('/c/README.md');
+  assert.ok(
+    shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'index_loaded' && String(c.args[2]).includes('source=snapshot')),
+    'the second session served its snapshot',
+  );
+  assert.ok(!published.some((paths) => paths.some((p) => p.includes('/drafts/'))), JSON.stringify(published));
+});
+
+nodeTest('setDeny hides a matching entry at once, before its re-walk resolves (C-10 review 2)', async () => {
+  const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
+  const shell = createMemoryShell(deniedTree(undefined));
+  const service = createIndexService(shell);
+  await service.ensureFor('/c/README.md');
+  await service.ensureRoot('/r');
+  const walks = () => shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded').length;
+  const before = walks();
+  service.setDeny(denyRulesFor(['**/drafts/**']));
+  assert.equal(walks(), before, 'no re-walk has run yet');
+  assert.deepEqual(service.entries().filter((e) => e.path.includes('/drafts/')), [], 'hidden synchronously');
+});
+
 nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRead', async () => {
   register('./support/tauri-stub-hooks.mjs', import.meta.url);
   globalThis.navigator ??= { platform: 'MacIntel' };
