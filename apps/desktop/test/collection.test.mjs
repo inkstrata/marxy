@@ -154,13 +154,13 @@ async function runCommand(page, mod, query) {
 
 const readToml = (page) => page.evaluate(async () => {
   try {
-    return Array.from(await window.__h.shell.readFile('/collection.toml'));
+    return Array.from(await window.__h.shell.readFile(window.__tomlPath ?? '/collection.toml'));
   } catch {
     return null;
   }
 });
 const tomlWrites = (page) => page.evaluate(
-  () => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === '/collection.toml').length,
+  () => window.__h.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === (window.__tomlPath ?? '/collection.toml')).length,
 );
 const noticeText = (page) => page.evaluate(() => document.getElementById('marxy-notices')?.textContent ?? '');
 /** Delivers the config directory's watch event, as the shell does, and waits for the reload. */
@@ -268,21 +268,54 @@ test('Edit collection creates the template when absent and opens it in Source sh
   const browser = await launchWebkit();
   try {
     const { page, mod } = await boot(browser, '/c/README.md');
+    // Marxy's config folder lives inside the repository /c, as a reader's might.
+    await page.evaluate(() => {
+      window.__h.shell.configPaths = async () => ({ config: '/c/cfg/config.toml', data: '/c/data' });
+      window.__tomlPath = '/c/cfg/collection.toml';
+    });
     await runCommand(page, mod, 'Edit collection');
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
     const template = dec(await readToml(page));
     assert.ok(template.startsWith('# Folders Marxy searches.'));
     assert.ok(!/^\[\[root\]\]/m.test(template), 'the template declares no folder');
-    assert.equal(await page.evaluate(() => window.__h.currentPath()), '/collection.toml');
+    assert.equal(await page.evaluate(() => window.__h.currentPath()), '/c/cfg/collection.toml');
     const shown = await page.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '');
     assert.ok(shown.includes('Folders Marxy searches'), shown.slice(0, 200));
     assert.equal(await tomlWrites(page), 1);
+    // jumpToSource(0) puts the reader in Source as soon as the open settles.
+    assert.equal(await page.evaluate(() => document.body.dataset.marxyMode), 'source');
+
+    // With collection.toml itself open, Add would declare Marxy's own config folder: refused.
+    await runCommand(page, mod, 'Add this folder');
+    assert.equal(await tomlWrites(page), 1, 'nothing more was written');
+    assert.equal(dec(await readToml(page)), template);
+    assert.match(await noticeText(page), /Marxy's own settings and state/);
 
     // An existing file is opened as it is, not rewritten.
     const hand = await boot(browser, '/c/README.md', { '/collection.toml': enc('# mine\r\n') });
     await runCommand(hand.page, hand.mod, 'Edit collection');
     await hand.page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
     assert.equal(await tomlWrites(hand.page), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("Add escapes a folder named it's, keeps every prior byte and parses back to that path", async () => {
+  const browser = await launchWebkit();
+  try {
+    const hand = '# mine\r\n[[root]]\r\npath = "/b"\r\n';
+    const { page, mod } = await boot(browser, "/it's/notes.md", {
+      "/it's/.git/HEAD": enc('ref: refs/heads/main\n'),
+      "/it's/notes.md": enc('# Quoted\n'),
+      '/collection.toml': enc(hand),
+    });
+    await runCommand(page, mod, 'Add this folder');
+    const written = dec(await readToml(page));
+    assert.ok(written.startsWith(hand), 'every prior byte is where it was');
+    const parsed = parseCollection(Buffer.from(written), { home: '/home/x' });
+    assert.deepEqual(parsed.warnings, []);
+    assert.deepEqual(parsed.collection.roots.map((r) => r.path), ['/b', "/it's"]);
   } finally {
     await browser.close();
   }

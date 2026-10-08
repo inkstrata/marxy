@@ -1,7 +1,7 @@
 // Two palette commands for the reader's collection (C-14, ADR-0053): add the open document's folder
 // to collection.toml, and open collection.toml in Source. No dialog, no settings pane, no key.
 import { appendRoot, COLLECTION_TEMPLATE } from '@marxy/core/src/index-model/collection.ts';
-import { basename } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { collectionFile, isFilesystemRoot } from '../collection/load.ts';
 import { notify } from '../notices/index.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
@@ -28,6 +28,13 @@ async function addThisFolder(): Promise<void> {
   const root = await handle.index.rootFor(path);
   if (isFilesystemRoot(root)) {
     say('This is a whole disk, too large to index; it was not added to the collection.');
+    return;
+  }
+  // Marxy's own config and data folders hold its state (trust, positions, snapshots): never indexed.
+  const paths = await shell.configPaths();
+  const own = [dirname(paths.config), paths.data].filter((d) => d !== '');
+  if (own.some((dir) => dir === root || dir.startsWith(root.endsWith('/') ? root : `${root}/`))) {
+    say("This folder holds Marxy's own settings and state, so it was not added to the collection.");
     return;
   }
   let bytes: Uint8Array;
