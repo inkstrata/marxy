@@ -386,11 +386,6 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     clearSelectedClass(article);
   };
 
-  const onPointerUp = (): void => {
-    pointerDown = false;
-    recordTextSelection();
-  };
-
   // A selection made with the keyboard (Cmd+A, Shift+arrows) has no pointer-up: it is recorded when it
   // changes, unless a pointer is down (the pointer-up records that one) or it lies outside the article.
   const onSelectionChange = (): void => {
@@ -400,8 +395,13 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     if (!domSel.getRangeAt(0).intersectsNode(article)) return;
     recordTextSelection();
   };
+  // On the document, not the article: a drag that ends in the margin or outside the window's text column
+  // releases off the article, and it is still the selection the reader sees (C-06 review).
   const onDocumentMouseUp = (): void => {
     pointerDown = false;
+    // Only a selection that touches the article is recorded (`recordDrag` clamps to it), wherever the
+    // pointer came up.
+    recordTextSelection();
   };
 
   // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
@@ -422,7 +422,6 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   };
   article.addEventListener('mousedown', onMouseDown);
   article.addEventListener('mousemove', onMouseMove);
-  article.addEventListener('mouseup', onPointerUp);
   article.addEventListener('click', onArticleClick);
   document.addEventListener('selectionchange', onSelectionChange);
   document.addEventListener('mouseup', onDocumentMouseUp);
@@ -484,7 +483,6 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     destroy() {
       article.removeEventListener('mousedown', onMouseDown);
       article.removeEventListener('mousemove', onMouseMove);
-      article.removeEventListener('mouseup', onPointerUp);
       article.removeEventListener('click', onArticleClick);
       document.removeEventListener('selectionchange', onSelectionChange);
       document.removeEventListener('mouseup', onDocumentMouseUp);

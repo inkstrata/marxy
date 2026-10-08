@@ -170,3 +170,19 @@ export function markdownCopy(ctx: AppContext, registered: readonly Command[]): C
   const kind = verbKindIn(ctx);
   return kind ? firstApplicable(MARKDOWN_COPY[kind], ctx, registered) : null;
 }
+
+/**
+ * The verbs the selection in `ctx` offers, in menu order: the ids of `MENU_ORDER` for its kind that are
+ * registered and applicable. The verb menu (C-13), the palette's chord hints and the chords read this and
+ * the two defaults above, so the order is written once.
+ */
+export function menuVerbs(ctx: AppContext, registered: readonly Command[]): Command[] {
+  const kind = verbKindIn(ctx);
+  if (!kind) return [];
+  const out: Command[] = [];
+  for (const id of MENU_ORDER[kind]) {
+    const cmd = registered.find((c) => c.id === id);
+    if (cmd?.when(ctx)) out.push(cmd);
+  }
+  return out;
+}

@@ -660,3 +660,37 @@ test('C-06 review: in Source, Mod+C and Mod+Shift+C do not copy the hidden Rende
   }
 });
 
+
+for (const [chord, label, wantHtml] of [['KeyC', 'Mod+C', true], ['Shift+KeyC', 'Mod+Shift+C', false]]) {
+  test(`C-06 review: a drag that ends outside the article is the selection ${label} copies, not the last clicked block`, async () => {
+    const file = '02-readme-real-world.md';
+    const docPath = `/corpus/${file}`;
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+      await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
+      const code = page.locator('#doc pre').first();
+      await code.scrollIntoViewIfNeeded();
+      await code.click();
+      const para = page.locator('#doc > p[data-marxy-s]').filter({ hasText: 'widgetlib authors' });
+      await para.scrollIntoViewIfNeeded();
+      const box = await para.boundingBox();
+      const art = await page.locator('#doc').boundingBox();
+      await page.mouse.move(box.x + 2, box.y + box.height / 2);
+      await page.mouse.down();
+      // Release 150 px right of the text column: the pointer-up is not on the article.
+      await page.mouse.move(art.x + art.width + 150, box.y + box.height / 2, { steps: 8 });
+      await page.mouse.up();
+      assert.match(await page.evaluate(() => getSelection().toString()), /widgetlib authors/);
+      const mod = modKey(await page.evaluate(() => navigator.platform));
+      await page.keyboard.press(`${mod}+${chord}`);
+      const writes = await clipboardWrites(page);
+      assert.equal(writes.length, 1);
+      assert.match(writes[0].text, /widgetlib authors/);
+      assert.doesNotMatch(writes[0].text, /pnpm add widgetlib/);
+      if (wantHtml) assert.ok(writes[0].html, 'a drag copies rich text');
+    } finally {
+      await browser.close();
+    }
+  });
+}

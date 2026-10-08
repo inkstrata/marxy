@@ -19,6 +19,7 @@ import {
   copyDefault,
   firstApplicable,
   markdownCopy,
+  menuVerbs,
   verbKindOf,
 } from './verbs.ts';
 
@@ -201,4 +202,19 @@ test('a copy says what it copied', () => {
   assert.equal(copiedNotice('Copy table as TSV'), 'Copied table as TSV');
   assert.equal(copiedNotice('Copy code'), 'Copied code');
   assert.equal(copiedNotice('Toggle task'), 'Copied');
+});
+
+test('menuVerbs lists the applicable registered verbs in MENU_ORDER, and the defaults are among them', () => {
+  const { doc, buffer } = load('02-readme-real-world.md');
+  const sel = nodeSel(find(doc, (n) => n.type === 'codeBlock'));
+  const ctx = ctxFor(sel, doc, buffer);
+  // The view verbs read the page (`window`), which this node test has none of.
+  const registered = commands().filter((c) => !c.id.startsWith('view.'));
+  const ids = menuVerbs(ctx, registered).map((c) => c.id);
+  assert.ok(ids.length > 0);
+  const rank = (id: string) => MENU_ORDER.code.indexOf(id);
+  assert.deepEqual(ids, [...ids].sort((a, b) => rank(a) - rank(b)), 'menu order');
+  assert.ok(ids.includes(copyDefault(ctx, registered)!.id));
+  assert.ok(ids.includes(markdownCopy(ctx, registered)!.id));
+  assert.deepEqual(menuVerbs(ctxFor({ kind: 'none' }, doc, buffer), registered), []);
 });

@@ -377,6 +377,20 @@ function ownerDocumentOf(node: HTMLElement): Document {
   throw new Error('paintRows requires an owner document');
 }
 
+/**
+ * The chords name the selection's own default verbs, from the written tables (ADR-0054). The selection
+ * cannot change while the palette is up, so they are read once per summon, not on every keystroke.
+ */
+let chordCache: { readonly copyId?: string; readonly markdownId?: string } | undefined;
+function selectionChords(): { readonly copyId?: string; readonly markdownId?: string } {
+  if (chordCache === undefined) {
+    const ctx = buildAppContext();
+    const registered = commands();
+    chordCache = { copyId: copyDefault(ctx, registered)?.id, markdownId: markdownCopy(ctx, registered)?.id };
+  }
+  return chordCache;
+}
+
 function paintOperationRows(
   list: HTMLOListElement,
   cmds: readonly Command[],
@@ -387,11 +401,7 @@ function paintOperationRows(
     'createDocumentFragment' in doc
       ? (doc as Document).createDocumentFragment()
       : document.createDocumentFragment();
-  // The chords name the selection's own default verbs, from the written tables (ADR-0054).
-  const ctx = buildAppContext();
-  const registered = commands();
-  const copyId = copyDefault(ctx, registered)?.id;
-  const markdownId = markdownCopy(ctx, registered)?.id;
+  const { copyId, markdownId } = selectionChords();
   for (let i = 0; i < cmds.length; i++) {
     const cmd = cmds[i]!;
     const row = doc.createElement('li') as HTMLLIElement;
@@ -623,6 +633,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
 
   const summon = (withQuery?: string) => {
     open = true;
+    chordCache = undefined;
     emptyNow = now();
     emptyCache = undefined;
     if (!deps.dialog.open) deps.dialog.showModal();
