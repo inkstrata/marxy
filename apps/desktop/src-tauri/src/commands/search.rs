@@ -135,6 +135,12 @@ fn resolve(path: &str, roots: &[Root]) -> Option<PathBuf> {
 /// 8 KB; `None` skips it. `budget` is what the search may still read; a file that would pass it
 /// returns `Err(())` so the search stops.
 fn read_candidate(original: &Path, canonical: &Path, budget: u64) -> Result<Option<Vec<u8>>, ()> {
+    // Only a regular file is ever opened: opening a FIFO blocks until a writer appears (and would take
+    // another process's bytes), and a device never ends. Checked before `open`, not after.
+    match fs::symlink_metadata(canonical) {
+        Ok(m) if m.file_type().is_file() => {}
+        _ => return Ok(None),
+    }
     let Ok(file) = File::open(canonical) else {
         return Ok(None);
     };
@@ -338,7 +344,11 @@ pub fn search(
         let Some(canonical) = resolve(path, &roots) else {
             continue;
         };
-        let bytes = match read_candidate(Path::new(path), &canonical, MAX_TOTAL_BYTES - total) {
+        let bytes = match read_candidate(
+            Path::new(path),
+            &canonical,
+            MAX_TOTAL_BYTES.saturating_sub(total),
+        ) {
             Ok(Some(bytes)) => bytes,
             Ok(None) => continue,
             Err(()) => {
@@ -697,6 +707,30 @@ mod tests {
             &AtomicBool::new(false),
         );
         assert_eq!(got.hits.len(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_named_pipe_is_skipped_without_opening_it() {
+        let dir = TempDir::new("fifo");
+        let p = dir.write("a.md", b"needle");
+        let pipe = format!("{}/pipe.md", dir.root());
+        let made = std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap();
+        assert!(made.success());
+        // Opening the pipe would block forever, so the search runs on a thread and a missing answer is a
+        // failure, not a hang. The bound is a guard against blocking, not a speed claim.
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let got = run(&dir, &[pipe, p], "needle");
+            let _ = tx.send(got.hits.len());
+        });
+        let hits = rx
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .expect("the search blocked on a named pipe");
+        assert_eq!(hits, 1);
     }
 
     #[test]
