@@ -64,9 +64,11 @@ No module keeps any of this at module scope (`apps/desktop/test/module-state.tes
 Overlays are exclusive: opening one closes another. `Esc` closes the open overlay, else clears the
 selection, else does nothing.
 
-Still bound to the first pane rather than the focused one, until the Phase D story named moves them:
-the Rendered selection and command context (D-06), the window as scroller and the reading persistence
-(D-05, D-12), the mode attribute on `<body>` (D-11), the close guard's prompt (D-08), notices other
+The Rendered selection is the window's one and acts on the focused pane's article (D-06): it listens on
+every pane's article, each view tells it when its page is set, and focusing another pane clears it, so
+copy, the operations and `Mod+Z` reach the focused pane's document. Still bound to the first pane rather
+than the focused one, until the Phase D story named moves them: the window as scroller and the reading
+persistence (D-05, D-12), the mode attribute on `<body>` (D-11), the close guard's prompt (D-08), notices other
 than a pane's own region (D-10). The window title is the focused pane's document: a document opened in
 the other pane does not take it, and focus moves it. Each pane's open path keeps its own live-reload
 watch on the store it shows, closed when that pane lets the store go, even while the other pane still
@@ -101,6 +103,27 @@ chrome.
 | `ContextMenu` / `Shift+F10` | open the verb menu | same; right-click and Ctrl-click open it at the pointer |
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
+
+**Pane chords (Phase D).** One table, `apps/desktop/src/pane/keys.ts`, matched on physical keys
+(`event.code`: `Mod+Shift+\` arrives as `|` on a US layout), run from a `window` capture-phase listener so
+they work from inside a Source editor too, and run once (the registry's dispatcher does not see them).
+They do nothing while a dialog is open, except `Mod+\`. A chord whose command is not registered yet, or
+whose `when` does not hold (one pane), does nothing.
+
+| Key | Action | Notes |
+| --- | --- | --- |
+| `Mod+\` | open beside (`view.open-beside`) | D-07 |
+| `Mod+Shift+\` | close the focused pane (`view.close-pane`) | D-08; never `Mod+W`, which is the native Close Window and quits |
+| `Mod+1` | focus the left pane (`view.focus-left`) | with two panes |
+| `Mod+2` | focus the right pane (`view.focus-right`) | with two panes |
+| `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane | the same two commands; `Alt+←`/`→` without `Mod` stays history |
+
+A press in a pane focuses it before anything in the pane sees the press, so a click in the other pane
+focuses it and then selects. The first wheel event over the other pane after 150 ms without one focuses it
+too (`FOCUS_ON_WHEEL` in `pane/focus.ts`, one constant). Focus is shown by the window title naming the
+focused document and by the divider's fade, never by a ring or by dimming. A pane in Source passes focus
+to its editor. An overlay records the pane focused when it opened (`focusOrigin` in `pane/focus.ts`) and
+gives focus back to it on `Esc` or dismissal.
 
 **Guaranteed by the native menu, not only by this table (macOS, MARXY-184).** `Mod+Q`,
 `Mod+C`/`Mod+V`/`Mod+A`, and `Mod+Z`/`Mod+Shift+Z` also have a native macOS menu item behind
