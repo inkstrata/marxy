@@ -310,3 +310,16 @@ old behaviour; use the same innermost blocks the desktop's `buildBlocks` uses (o
 depth). And say in a comment which way an appended duplicate of the rest of the file now breaks the tie (the reader
 follows to the copy; the bytes cannot tell). Acceptance: a core test for offset 0 (stays), one for a nested list item
 and one for a fence in a list (both follow).
+
+### F-19.2 — Source at the top stays at the top on reload
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.1 · *From the F-19.1 re-review.* · **Paths:**
+`apps/desktop/src/view/rendered-view.ts` (`sourcePosition` only), `apps/desktop/test/live-reload.test.mjs`.
+F-19.1 keeps an unscrolled Rendered reader at the top when text is prepended, but a reader in Source (every code
+file opens there) is still pushed below it: measured `scrollY` 43 for a `.ts` file and 103 for a `.md` file in
+Source, the first new line at −13. `sourcePosition` holds the line under the reading line; at `scrollTop <= 0` it
+should hold byte 0, as `positionAtScroll` now does. Acceptance: a WebKit case per mode-entry (a `.ts` file, and a
+`.md` file toggled to Source), unscrolled, text prepended by an outside write, ends at `scrollY === 0` with the new
+text on screen; fails without the change. Also fix the F-19.1 comments: "table cell" is never held (the reader is
+held on the table) in `startsAnyBlock`'s doc comment, and type `INLINE_TYPES` as `Set<InlineType>`
+(`packages/core/src/position/restore.ts`, comment and type only).
