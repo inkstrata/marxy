@@ -20,7 +20,13 @@ function startObserving(): void {
 }
 startObserving();
 
-export interface RenderEvidence { readonly blocks: number; readonly chars: number; readonly heading: string }
+export interface RenderEvidence {
+  readonly blocks: number;
+  readonly chars: number;
+  /** Any character that is not white space: the newline between two image blocks is not text (F-17). */
+  readonly hasText: boolean;
+  readonly heading: string;
+}
 
 export type FirstTextOutcome = 'painted' | 'no_text' | 'no_paint';
 
@@ -69,6 +75,7 @@ export function createLaunchMeasure(
     return {
       blocks: doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,pre,ul,ol,table,blockquote').length,
       chars: doc.textContent?.length ?? 0,
+      hasText: /\S/.test(doc.textContent ?? ''),
       heading: doc.querySelector('h1,h2,h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '',
     };
   }
@@ -91,8 +98,10 @@ export function createLaunchMeasure(
     async waitForFirstText(doc, evidence, after, renderedAt) {
       // Nothing on screen is not "first readable text": a build whose rendering silently produced nothing
       // must not be able to hand the startup measurement a number either — and it has no paint to wait for,
-      // so this runs before the wait. The `no_text` mark also disarms the shell's paint deadline.
-      if (evidence.blocks === 0 || evidence.chars === 0) {
+      // so this runs before the wait (there is nothing to paint, so the wait would never end: F-17). The
+      // `no_text` mark also disarms the shell's paint deadline. The caller decides what a document with
+      // blocks but no text (only images) does next; the measurement says there was no text either way.
+      if (evidence.blocks === 0 || !evidence.hasText) {
         await shell.mark('no_text', Date.now(), `blocks=${evidence.blocks} chars=${evidence.chars}`);
         return 'no_text';
       }
