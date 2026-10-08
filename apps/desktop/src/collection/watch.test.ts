@@ -323,3 +323,34 @@ test('a summon rescans a refused home folder no sooner than HOME_REVALIDATE_MIN_
   trees.stop();
   await trees.settled();
 });
+
+test('a declared ~/Documents refused for another reason is rescanned at REVALIDATE_MIN_MS, not HOME_REVALIDATE_MIN_MS (C-10.1)', async () => {
+  const home = '/Users/ian';
+  const docs = `${home}/Documents`;
+  const shell = createMemoryShell({ [`${docs}/a.md`]: enc('# A\n') });
+  const host = { ...shell, configPaths: async () => ({ config: `${home}/.config/marxy`, data: '/data' }) };
+  const watch = shell.watch;
+  host.watch = async (root, onEvents, opts) => {
+    if (opts?.recursive && root === docs) throw new Error(`${docs}: too many files`);
+    return watch(root, onEvents, opts);
+  };
+  let clock = 1_000;
+  const index = createIndexService(host, { now: () => clock, notify: () => {} });
+  await index.ensureRoot(docs, { watch: true });
+  await index.settled();
+  const trees = startTreeWatches({ shell: host, index });
+  await trees.settled();
+  const walks = () =>
+    shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded' && String(c.args[2]).includes(`root=${docs} `)).length;
+  const summon = async () => {
+    const before = walks();
+    index.revalidate();
+    await index.settled();
+    return walks() - before;
+  };
+  assert.equal(await summon(), 1, 'the first summon walks it');
+  clock += REVALIDATE_MIN_MS;
+  assert.equal(await summon(), 1, 'thirty seconds on it is rescanned, as an ordinary refused tree');
+  trees.stop();
+  await trees.settled();
+});

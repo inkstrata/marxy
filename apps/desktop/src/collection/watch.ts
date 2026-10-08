@@ -63,7 +63,8 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
         }
         for (const tree of wanted) {
           if (open.has(tree)) continue;
-          // A home-sized tree is never watched recursively: the watch would descend into Library (C-10.1).
+          // A tree that holds the home folder is never watched recursively: the watch would descend into
+          // Library (C-10.1). A declared ~/Documents or a volume is budgeted but watched.
           if (!shell.watch || (await index.homeSized(tree))) {
             open.set(tree, null);
             index.setTreeWatch(tree, 'refused');
