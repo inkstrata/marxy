@@ -1872,6 +1872,17 @@ each pattern file in justif's package; the author decides.
 it checks the kill switch: check `killed()` first. Acceptance: the off test fails when `run()` stops emitting
 `typeset_done`; with typesetting off, no hyphenation chunk is requested (count the requests).
 
+### B-26 — The typesetter holds the reader's place inside a pane
+
+**Model:** opus · **Size:** S · **Depends on:** D-05 · *Added 2026-10-08 by the lead, from D-05.* When paragraphs
+above the reading line reflow, `packages/typeset` keeps the reader's place by reading `document.scrollingElement`, so
+inside a pane (D-05 made each pane its own scroller) it does nothing: a pane scrolled to its end before its paragraphs
+were set drifts, the last paragraph moving below the pane. Give the typesetter the scroller to hold (an option on
+`attach`, passed by the view, which `rebindScroller` updates). **Paths:** `packages/typeset/src/` (the keep-place
+read and the attach option), `apps/desktop/src/view/rendered-view.ts` (passing the scroller), a typeset test and a
+pane test. **Acceptance:** with two panes, a pane scrolled to its end before typesetting keeps its last paragraph in
+view after the set; one pane unchanged (F-11's keep-place tests).
+
 ### B-25.1 — The diagram-caption rule without a two-step `:has()`
 
 **Model:** opus · **Size:** S · **Depends on:** B-25, L-03 (same file) · *Added 2026-10-08 by the lead, from B-25 and
