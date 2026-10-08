@@ -201,11 +201,19 @@ export function pinDocumentOnPaletteSession(session: PaletteSession, path: strin
   pendingPinPaths.push(path);
 }
 
+let openListener: ((path: string, root: string) => void) | undefined;
+
+/** The palette's ear for every open the app records, whatever route it came by (C-12). One listener. */
+export function setOpenListener(cb: ((path: string, root: string) => void) | undefined): void {
+  openListener = cb;
+}
+
 /**
  * App opens (argv, reload, palette) merge into the mirror saved beside the palette session on quit.
  * `root` is the document's repository root (the index service's `rootFor`), not its directory.
  */
 export function trackDocumentOpen(path: string, root: string = dirname(path)): void {
+  openListener?.(path, root);
   const base = sessionMirror ?? emptySessionUncached(root);
   sessionMirror = recordOpen(base, path, root);
   scheduleWrite();

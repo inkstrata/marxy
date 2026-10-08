@@ -33,9 +33,17 @@ export const EMPTY_STATE_CHANGED_CAP = 5;
  * The file was modified after the reader last read it; or, never read, after Marxy began indexing its
  * root. A file never read in a root with no baseline yet is not changed: there is nothing to compare.
  */
-export function changedSinceRead(entry: IndexEntry, baselineMs: number | undefined): boolean {
-  if (entry.lastReadMs !== undefined) return entry.mtimeMs > entry.lastReadMs;
-  return baselineMs !== undefined && entry.mtimeMs > baselineMs;
+export function changedSinceRead(
+  entry: IndexEntry,
+  baselineMs: number | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  // A modification time in the future (a clock set wrong, an archive) reads as now, so such a file
+  // is changed until it is read and not for ever. A time that moves backwards (a checkout of older
+  // content) is below the read time and so is not changed: only newer content is news.
+  const mtime = Math.min(entry.mtimeMs, nowMs);
+  if (entry.lastReadMs !== undefined) return mtime > entry.lastReadMs;
+  return baselineMs !== undefined && mtime > baselineMs;
 }
 
 const MINUTE = 60_000;
@@ -52,6 +60,16 @@ export function relativeAge(nowMs: number, thenMs: number): string {
   if (days < 14) return `${days}d`;
   if (days < 7 * 52) return `${Math.floor(days / 7)}w`;
   return `${Math.max(1, Math.floor(days / 365))}y`;
+}
+
+const SPOKEN_UNITS: Record<string, string> = { m: 'minute', h: 'hour', d: 'day', w: 'week', y: 'year' };
+
+/** An age from `relativeAge` as words for a screen reader: `4m` is "4 minutes ago"; `now` is "just now". */
+export function spokenAge(age: string): string {
+  if (age === 'now') return 'just now';
+  const count = Number.parseInt(age, 10);
+  const unit = SPOKEN_UNITS[age.slice(-1)];
+  return unit === undefined ? age : `${count} ${unit}${count === 1 ? '' : 's'} ago`;
 }
 
 /** The entry as the reader's session knows it: its read time over the index's own. */
@@ -84,7 +102,7 @@ export function emptyStateSections(input: EmptyStateInput): readonly EmptySectio
     for (const [path, raw] of entriesByPath) {
       if (taken.has(path) || !watched(raw.root)) continue;
       const entry = withRead(raw, session);
-      if (changedSinceRead(entry, baselineMs(entry.root))) changed.push(entry);
+      if (changedSinceRead(entry, baselineMs(entry.root), input.nowMs)) changed.push(entry);
     }
     changed.sort((a, b) => b.mtimeMs - a.mtimeMs || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
     changed.length = Math.min(changed.length, room);

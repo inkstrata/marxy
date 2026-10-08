@@ -6,6 +6,7 @@ import type { AppHandle, AppShell } from '../app.ts';
 import { setAppHandle, setPalette } from '../commands/app-handle.ts';
 import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
+import type { DocumentStore } from '../document/store.ts';
 import { buildAppContext, setPaletteCloser } from '../selection/bind.ts';
 import type { PaletteKey } from './keys.ts';
 import { keyLabel, paletteCommands } from './commands.ts';
@@ -13,15 +14,18 @@ import {
   changedSinceRead,
   emptyStateSections,
   relativeAge,
+  spokenAge,
   type EmptySection,
   type EmptySectionKind,
 } from './empty-state.ts';
+import { setOpenListener } from './history.ts';
 import { createIndexFeed, type IndexFeed } from './index-feed.ts';
 import { jumpForHit, paletteResults, type PreparedIndex, type RootRank } from './search.ts';
 import {
   emptySession,
   goBack,
   goForward,
+  markRead,
   recordOpen,
   togglePin,
   type PaletteSession,
@@ -78,6 +82,11 @@ export interface PaletteController {
   setIndexEntries(entries: readonly IndexEntry[]): void;
   /** What the palette searches: the index in scope order (C-10). The collection sets its folders here. */
   readonly feed: IndexFeed;
+  /**
+   * `path` was read (an open by any route) or saved from Marxy: its read time is now, so it is no longer
+   * "changed since you read". A save leaves the MRU order alone.
+   */
+  noteRead(path: string, how: 'open' | 'save'): void;
   /** One step back through the session history; false when there is none (the key is then left alone). */
   back(): boolean;
   /** One step forward through the session history; false when there is none. */
@@ -254,14 +263,17 @@ function injectPaletteStyles(doc: Document): void {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    #marxy-palette .marxy-palette-group { list-style: none; }
+    #marxy-palette .marxy-palette-group > ol { list-style: none; margin: 0; padding: 0; }
     #marxy-palette .marxy-palette-section {
+      display: block;
       padding: 0.55rem 1rem 0.15rem;
       font-size: 0.8em;
       color: var(--marxy-color-text-secondary, #a39e94);
       cursor: default;
       user-select: none;
     }
-    #marxy-palette .marxy-palette-section:first-child { padding-top: 0.25rem; }
+    #marxy-palette .marxy-palette-group:first-child > .marxy-palette-section { padding-top: 0.25rem; }
     #marxy-palette .marxy-palette-age {
       color: var(--marxy-color-text-secondary, #a39e94);
       font-size: 0.85em;
@@ -406,6 +418,7 @@ function documentRow(
   const age = decor.age(hit);
   if (age === undefined) {
     row.textContent = labelForHit(hit);
+    row.removeAttribute('aria-label');
   } else {
     const title = doc.createElement('span') as HTMLSpanElement;
     title.className = 'marxy-palette-title';
@@ -414,14 +427,20 @@ function documentRow(
     if (decor.changed(hit)) {
       const mark = doc.createElement('span') as HTMLSpanElement;
       mark.className = 'marxy-palette-changed';
-      mark.setAttribute('role', 'img');
-      mark.setAttribute('aria-label', 'Changed since you read');
+      mark.setAttribute('aria-hidden', 'true');
       row.appendChild(mark);
     }
     const when = doc.createElement('span') as HTMLSpanElement;
     when.className = 'marxy-palette-age';
+    when.setAttribute('aria-hidden', 'true');
     when.textContent = age;
     row.appendChild(when);
+    // An option's children are presentational to a screen reader, so the age and the changed state
+    // are said in the option's own name.
+    row.setAttribute(
+      'aria-label',
+      `${labelForHit(hit)}, ${spokenAge(age)}${decor.changed(hit) ? ', changed since you read' : ''}`,
+    );
   }
   row.toggleAttribute('aria-selected', selected);
   if (hit.heading !== undefined) {
@@ -446,13 +465,23 @@ function paintEmptyRows(
       ? (doc as Document).createDocumentFragment()
       : document.createDocumentFragment();
   let index = 0;
+  let n = 0;
   for (const section of sections) {
-    const label = doc.createElement('li') as HTMLLIElement;
+    // One group per section, named by its label. The label is not an option: the arrow keys count
+    // `.marxy-palette-row` only.
+    const group = doc.createElement('li') as HTMLLIElement;
+    group.className = 'marxy-palette-group';
+    group.setAttribute('role', 'group');
+    const label = doc.createElement('span') as HTMLSpanElement;
     label.className = 'marxy-palette-section';
-    label.setAttribute('role', 'presentation');
+    label.id = `marxy-palette-section-${n++}`;
     label.textContent = SECTION_LABELS[section.kind];
-    next.appendChild(label);
-    for (const hit of section.hits) next.appendChild(documentRow(doc, hit, decor, index++ === selected));
+    group.setAttribute('aria-labelledby', label.id);
+    const rows = doc.createElement('ol') as HTMLOListElement;
+    rows.setAttribute('role', 'none');
+    for (const hit of section.hits) rows.appendChild(documentRow(doc, hit, decor, index++ === selected));
+    group.append(label, rows);
+    next.appendChild(group);
   }
   list.replaceChildren(next);
 }
@@ -528,7 +557,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
         ? relativeAge(model.phase === 'empty' ? emptyNow : now(), hit.entry.mtimeMs)
         : undefined,
     changed: (hit) =>
-      watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root)),
+      watched(hit.entry.root) && changedSinceRead(hit.entry, baselineMs(hit.entry.root), now()),
   };
   const paintDocuments = () => {
     if (model.phase === 'empty' && model.sections !== undefined) {
@@ -697,6 +726,12 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     get session() {
       return session;
     },
+    noteRead(path, how) {
+      session = markRead(session, path, how, now());
+      syncSession();
+      // Off this tick, as in activateHit: the prepared index follows, the open never waits on it.
+      setTimeout(() => feed.refresh(), 0);
+    },
     back: () => travel(goBack(session)),
     forward: () => travel(goForward(session)),
     open: summon,
@@ -735,6 +770,22 @@ export function mountPaletteFromHandle(
     baselineMs: (root) => handle.index.baselineMs(root),
   });
   setPaletteCloser(() => controller.close());
+  // Any open the app records (command line, menu, a link), not only the palette's own (C-12).
+  setOpenListener((path) => controller.noteRead(path, 'open'));
+  // A save from Marxy is a read too: follow whichever store is open and note each of its saves.
+  let followed: DocumentStore | null = null;
+  let unfollow: (() => void) | undefined;
+  const followStore = () => {
+    const store = handle.document();
+    if (store === followed) return;
+    unfollow?.();
+    followed = store;
+    unfollow = store?.subscribe((_snap, change) => {
+      if (change.kind === 'save') controller.noteRead(change.path, 'save');
+    });
+  };
+  followStore();
+  handle.onDocumentChange(followStore);
   setAppHandle(handle);
   setPalette(controller);
   return controller;

@@ -6,9 +6,10 @@ import {
   changedSinceRead,
   emptyStateSections,
   relativeAge,
+  spokenAge,
   type EmptyStateInput,
 } from './empty-state.ts';
-import { emptySession, recordOpen, togglePin, type PaletteSession } from './session.ts';
+import { emptySession, markRead, recordOpen, togglePin, type PaletteSession } from './session.ts';
 
 const NOW = 1_800_000_000_000;
 const HOUR = 3_600_000;
@@ -70,7 +71,7 @@ test('a pinned and changed file sits in Pinned only, with its changed state inta
   const sections = emptyStateSections(input([entry('/w/p.md', '/w', NOW - HOUR)], session));
   assert.deepEqual(paths(sections), [['pinned', ['/w/p.md']]]);
   const only = sections[0]!.hits[0]!.entry;
-  assert.equal(changedSinceRead(only, BASELINE), true, 'the entry carries the session read time, so the view can mark it');
+  assert.equal(changedSinceRead(only, BASELINE, NOW), true, 'the entry carries the session read time, so the view can mark it');
 });
 
 test('Changed is newest first and capped at five; the overflow is left out of it', () => {
@@ -123,4 +124,29 @@ test('relativeAge at each unit boundary', () => {
   ];
   for (const [delta, expected] of table) assert.equal(age(delta), expected, `${delta} ms`);
   assert.equal(relativeAge(NOW, NOW + 5 * h), 'now', 'a future time is now');
+});
+
+test('a modification time in the future reads as now, so reading the file ends its change', () => {
+  const future = entry('/w/f.md', '/w', NOW + 10 * HOUR);
+  assert.equal(changedSinceRead(future, BASELINE, NOW), true);
+  assert.equal(changedSinceRead({ ...future, lastReadMs: NOW + 1 }, BASELINE, NOW), false, 'a read after now ends it');
+  assert.equal(changedSinceRead({ ...future, lastReadMs: NOW - 1000 }, BASELINE, NOW), true);
+  assert.equal(changedSinceRead(entry('/w/b.md', '/w', NOW - 9 * HOUR, NOW - HOUR), BASELINE, NOW), false, 'an older mtime than the read (a checkout of older content) is not changed');
+});
+
+test('spokenAge says the units in words', () => {
+  assert.deepEqual(['now', '1m', '4m', '3h', '1d', '5w', '1y'].map(spokenAge), [
+    'just now', '1 minute ago', '4 minutes ago', '3 hours ago', '1 day ago', '5 weeks ago', '1 year ago',
+  ]);
+});
+
+test('an open or a save is a read: the file leaves Changed; only an open adds to the MRU', () => {
+  const entries = [entry('/w/a.md', '/w', BASELINE + HOUR), entry('/w/b.md', '/w', BASELINE + HOUR)];
+  const before = emptySession('/w');
+  assert.deepEqual(paths(emptyStateSections(input(entries, before))).map((s) => s[0]), ['changed']);
+  const opened = markRead(before, '/w/a.md', 'open', NOW);
+  assert.deepEqual(opened.mru, ['/w/a.md']);
+  const saved = markRead(opened, '/w/b.md', 'save', NOW);
+  assert.deepEqual(saved.mru, ['/w/a.md'], 'a save leaves the MRU alone');
+  assert.deepEqual(paths(emptyStateSections(input(entries, saved))), [['recent', ['/w/a.md']]]);
 });
