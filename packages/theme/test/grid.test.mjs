@@ -1,7 +1,7 @@
 // The default theme, measured in Playwright WebKit over the rendered corpus (MARXY-20;
 // docs/design/10-gates-and-testing.md checks 1–3, ADR-0030). No shell: the corpus is rendered by the
 // core pipeline in Node, the page carries exactly the stylesheet the app inlines, and the grid pass is
-// the one the app runs. The headless render entry (MARXY-25) will replace the page builder here.
+// the one the app runs. The aesthetics gate measures the same theme on the app itself (apps/desktop/gate.html).
 
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
