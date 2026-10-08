@@ -1545,6 +1545,13 @@ typesetter's own two reads stay; `07` §1 item 3).
   version that only buffer-changing transitions bump, and compare `baseVersion` against that.
 no `hyphenate` or `hanging`. Keep the literal. B-17 changes the options.
 
+**From the B-12 review (2026-10-07).** (1) B-12 reads `baseVersion` from the store snapshot when the context is
+built; that is safe only because the page re-renders synchronously in the store subscriber. Store the version with
+the resolved selection instead, and test it. (2) `bytesVersion` relies on every bytes-changing transition allocating
+a new array (a reference comparison): document it in the store and pin it with a test. (3) `startDocumentEditingWire`
+installs once per window and keeps the first handle: move its context onto the per-article view. (4)
+`selection/harness-entry.ts` is a no-op now; delete it with the six tests' waits on its flag.
+
 ---
 
 ### B-14 — Lift live reload and reading persistence out of `app.ts`
