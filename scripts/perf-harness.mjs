@@ -11,13 +11,16 @@
 //
 // The nightly workflow runs it as `pnpm perf` (A-03) and keeps the one JSON record `--record` writes:
 // first text and its stages for the corpus and the large files, the typeset viewport, live reload,
-// opening a second document, and palette search at 5k, 20k and 50k entries.
+// opening a second document, and palette search at 5k, 20k and 50k entries. It can also open an agent
+// transcript (`--transcript`, B-25); the nightly does not record one yet.
 //
 // usage: node scripts/perf-harness.mjs [--build] [--runs N] [--files a.md,b.md|corpus] [--large 256k,1m,5m]
-//                                      [--reload] [--open-second] [--palette] [--grid-only]
+//                                      [--transcript 64k,256k,1m] [--reload] [--open-second] [--palette] [--grid-only]
 //                                      [--json <path>] [--record <path>] [--summary <path>]
 //        node scripts/perf-harness.mjs --write <dir> --large 1m      writes big-1m.md and exits
+//        node scripts/perf-harness.mjs --write <dir> --transcript 1m writes transcript-1m.md and exits
 //
+//   --transcript     an agent transcript of each size (generateTranscript, B-25), named transcript-<size>
 //   --files corpus   every numbered .md of fixtures/corpus except 11-empty.md, which has no text to show
 //   --reload         after first text, append bytes through the memory shell, emit a watch event, and
 //                    record the `ms=` of the `live_reload` mark (05 §8.1)
@@ -40,9 +43,9 @@ const ROOT = new URL('../', import.meta.url);
 const CORPUS = new URL('fixtures/corpus/', ROOT);
 
 /** The size names the CLI accepts, in bytes. */
-export const SIZES = { '256k': 256 * 1024, '1m': 1024 * 1024, '5m': 5 * 1024 * 1024 };
+export const SIZES = { '64k': 64 * 1024, '256k': 256 * 1024, '1m': 1024 * 1024, '5m': 5 * 1024 * 1024 };
 
-/** `256k`, `1m`, `5m` (or a plain byte count) → bytes. */
+/** `64k`, `256k`, `1m`, `5m` (or a plain byte count) → bytes. */
 export function parseSize(name) {
   if (name in SIZES) return SIZES[name];
   if (/^\d+$/.test(name)) return Number(name);
@@ -60,6 +63,25 @@ export function generateLarge(targetBytes) {
   const out = new Uint8Array(copy.length * n);
   for (let i = 0; i < n; i++) out.set(copy, i * copy.length);
   return out;
+}
+
+/**
+ * The product's primary large document (B-25): `fixtures/corpus/18-agent-transcript.md` repeated
+ * until the size is reached, each copy a turn of its own (`## Turn n` above it), so headings, fences,
+ * tool output and lists recur as a long agent session's do. The prose of `generateLarge` hid a cost
+ * that grew with the number of fences; this shape shows it. The same generator as B-23's
+ * `measure-reload.mjs`. Deterministic, and never shorter than `targetBytes`.
+ */
+export function generateTranscript(targetBytes) {
+  const turn = readFileSync(new URL('18-agent-transcript.md', CORPUS), 'utf8');
+  const parts = [];
+  let bytes = 0;
+  for (let n = 1; bytes < targetBytes; n++) {
+    const part = `## Turn ${n}\n\n${turn}\n`;
+    parts.push(part);
+    bytes += Buffer.byteLength(part);
+  }
+  return new Uint8Array(Buffer.from(parts.join(''), 'utf8'));
 }
 
 /** The middle value; the mean of the two middle values for an even count; NaN for none. */
@@ -213,7 +235,7 @@ function medians(records) {
 const round = (x) => Math.round(x * 10) / 10;
 
 export function parseArgs(argv) {
-  const opts = { build: false, runs: 5, files: [], large: [], gridOnly: false, reload: false, openSecond: false, palette: false, json: undefined, record: undefined, summary: undefined, write: undefined };
+  const opts = { build: false, runs: 5, files: [], large: [], transcript: [], gridOnly: false, reload: false, openSecond: false, palette: false, json: undefined, record: undefined, summary: undefined, write: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -225,6 +247,7 @@ export function parseArgs(argv) {
     else if (a === '--runs') opts.runs = Number(value());
     else if (a === '--files') opts.files = value().split(',').filter(Boolean).flatMap((f) => (f === 'corpus' ? corpusFiles() : [f]));
     else if (a === '--large') opts.large = value().split(',').filter(Boolean);
+    else if (a === '--transcript') opts.transcript = value().split(',').filter(Boolean);
     else if (a === '--grid-only') opts.gridOnly = true;
     else if (a === '--reload') opts.reload = true;
     else if (a === '--open-second') opts.openSecond = true;
@@ -247,6 +270,7 @@ export function parseArgs(argv) {
 function documents(opts) {
   const docs = opts.files.map((name) => ({ name, bytes: readFileSync(new URL(name, CORPUS)) }));
   for (const size of opts.large) docs.push({ name: `big-${size}`, bytes: generateLarge(parseSize(size)) });
+  for (const size of opts.transcript) docs.push({ name: `transcript-${size}`, bytes: generateTranscript(parseSize(size)) });
   if (docs.length === 0 && !opts.palette) docs.push({ name: `big-1m`, bytes: generateLarge(SIZES['1m']) });
   return docs;
 }
@@ -450,9 +474,14 @@ async function main(argv) {
   const opts = parseArgs(argv);
   if (opts.write) {
     mkdirSync(opts.write, { recursive: true });
-    for (const size of opts.large.length ? opts.large : ['1m']) {
+    for (const size of opts.large.length || opts.transcript.length ? opts.large : ['1m']) {
       const path = join(opts.write, `big-${size}.md`);
       writeFileSync(path, generateLarge(parseSize(size)));
+      console.log(path);
+    }
+    for (const size of opts.transcript) {
+      const path = join(opts.write, `transcript-${size}.md`);
+      writeFileSync(path, generateTranscript(parseSize(size)));
       console.log(path);
     }
     return 0;

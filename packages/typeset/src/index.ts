@@ -8,7 +8,7 @@ import { LINE_BREAK, SET, applyBreaks, contentBox, overflow, revert } from './ap
 import { applyHang } from './hang.ts';
 import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
 import type { Measured } from './items.ts';
-import { FontSizes, measureTokens } from './measure.ts';
+import { FontSizes, measureTokens, scratchRange } from './measure.ts';
 import { DEFAULT_RAGGED, breakRagged } from './ragged.ts';
 import { insertSlashBreaks } from './slash-break.ts';
 export { insertSlashBreaks };
@@ -36,7 +36,8 @@ export interface TypesetOptions {
   /**
    * Called after each pass that changed line breaks, so the app can re-run the grid pass and re-read
    * positions. `viewport` and `visible` passes set what the reader is looking at; `background` passes
-   * are the idle batches, which a caller may coalesce.
+   * are the idle batches, which a caller may coalesce. A background batch that left every paragraph it
+   * set at the height it had moved nothing on the page and does not call (B-25).
    */
   readonly onPass?: (kind: 'viewport' | 'visible' | 'background') => void;
 }
@@ -72,6 +73,10 @@ export interface TypesetController {
   readonly stats: TypesetStats;
 }
 
+/** A paragraph whose height moved by less than this after setting kept its lines: layout is in 1/64 px. */
+const HEIGHT_MOVED = 0.5;
+/** How long adoption must be quiet before the background batches resume; see `lastAdopt`. */
+const ADOPT_QUIET_MS = 50;
 /** §04 "Which elements". A list item is its own paragraph only when it is tight (no block inside). */
 const CANDIDATES = 'p[data-marxy-s], li[data-marxy-s], dd, figcaption';
 const BLOCK_CHILD = ':scope > :is(p, ul, ol, pre, blockquote, table, div, h1, h2, h3, h4, h5, h6, hr, dl)';
@@ -272,7 +277,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
    * space a break collapsed at a line's end paints none; the character before it is on the same line.
    */
   const topAt = (node: Text, offset: number): number | null => {
-    const range = node.ownerDocument.createRange();
+    const range = scratchRange(node.ownerDocument);
     for (const i of [offset, offset - 1]) {
       if (i < 0 || i >= node.length) continue;
       range.setStart(node, i);
@@ -396,13 +401,17 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   /**
    * One batch: read and measure every paragraph in its native layout, break, write every break, then
    * verify and revert the failures. Two layouts however many paragraphs, because every step is all
-   * reads or all writes.
+   * reads or all writes. Returns whether any paragraph it set may have changed height, read in those
+   * two layouts: a set paragraph almost always keeps its native line count, and then nothing below it
+   * moved (B-25).
    */
-  const setBatch = (paragraphs: readonly HTMLElement[]): void => {
+  const setBatch = (paragraphs: readonly HTMLElement[]): boolean => {
     // Changes made by someone else before this batch are handled first; this batch's own writes
     // (breaks, hang, reverts) are dropped from the change watcher below once it is done.
     resetChanged(changes?.takeRecords() ?? []);
     const candidates = paragraphs.map(candidate).filter((x): x is Candidate => x !== null);
+    // Read in the native layout the candidates were just measured in: no layout of its own.
+    const heights = new Map(candidates.map(({ p }) => [p, p.getBoundingClientRect().height]));
     const plans: Plan[] = [];
     for (const c of candidates) {
       let tokens = c.tokens;
@@ -429,12 +438,17 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     // overflow check below must see the paragraph as it will paint.
     const place = (list: readonly Plan[]): void => {
       for (const { p, tokens, after } of list) applyBreaks(p, tokens, after);
-      if (hanging === 'left') for (const { p } of list) applyHang(p);
+      if (hanging === 'left') applyHang(list.map(({ p }) => p));
     };
     place(plans);
     // Positions are good to about a pixel, so a line the breaker filled to the edge can paint a
     // fraction past it. Such a paragraph is set once more on a measure short by what it overran.
-    const over = plans.map((plan) => ({ plan, by: overflow(plan.p, plan.right) })).filter(({ by }) => by > 0.5);
+    // The heights are read in the layouts the overflow checks read anyway. A paragraph reverted after
+    // all is back in its native layout, at the height it had.
+    const changed = (p: HTMLElement): boolean => Math.abs(p.getBoundingClientRect().height - heights.get(p)!) >= HEIGHT_MOVED;
+    const checked = plans.map((plan) => ({ plan, by: overflow(plan.p, plan.right) }));
+    const over = checked.filter(({ by }) => by > 0.5);
+    let moved = checked.some(({ plan, by }) => by <= 0.5 && changed(plan.p));
     for (const { plan } of over) revert(plan.p);
     const retried: Plan[] = [];
     for (const { plan, by } of over) {
@@ -443,7 +457,9 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       else fallback('overflow after setting');
     }
     place(retried);
-    const failed = retried.filter(({ p, right }) => overflow(p, right) > 0.5);
+    const rechecked = retried.map((plan) => ({ plan, by: overflow(plan.p, plan.right) }));
+    moved ||= rechecked.some(({ plan, by }) => by <= 0.5 && changed(plan.p));
+    const failed = rechecked.filter(({ by }) => by > 0.5).map(({ plan }) => plan);
     for (const { p } of failed) {
       revert(p);
       fallback('overflow after setting');
@@ -451,6 +467,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     stats.typeset += plans.length - over.length + retried.length - failed.length;
     for (const p of paragraphs) observer?.unobserve(p);
     changes?.takeRecords();
+    return moved;
   };
 
   /** Whether a mutation can change a line: one that only adds `display: none` elements cannot. */
@@ -609,13 +626,25 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     const step = (deadline: () => number): void => {
       if (mine !== generation || abortIfKilled()) return;
+      // While a large document is still arriving in chunks, the mount has the idle time (B-25).
+      const sinceAdopt = performance.now() - lastAdopt;
+      if (scheduler.after !== undefined && sinceAdopt < ADOPT_QUIET_MS) {
+        scheduler.after(ADOPT_QUIET_MS - sinceAdopt, step);
+        return;
+      }
       bg.running = false;
       const batch: HTMLElement[] = [];
       // Paragraphs cost roughly the same; take a few at a time while the chunk has budget left.
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
       if (batch.length > 0) {
-        keepPlace(() => setBatch(batch));
-        opts.onPass?.('background');
+        let moved = false;
+        keepPlace(() => {
+          moved = setBatch(batch);
+        });
+        // Only a batch that moved something below it asks for the grid pass and new positions (B-25):
+        // the caller's pass covers the whole article, and asked after every batch of a large document
+        // it was most of the time to its last chunk, for nothing, since a set paragraph seldom changes height.
+        if (moved) opts.onPass?.('background');
       }
       // The observer is no longer disconnected when the queue empties: paragraphs adopted later (A-02)
       // are observed by it, and once every paragraph is set it observes nothing.
@@ -632,11 +661,20 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     } else resolveDone();
   };
 
+  /**
+   * When paragraphs were last adopted. The background batches wait until adoption has been quiet for
+   * ADOPT_QUIET_MS (B-25): each batch reads layout two or three times, and a layout of the article
+   * costs in proportion to what is in it, so batches taken between a large document's chunks made
+   * the mount's last chunk wait on work that grew with the square of the document. What the reader
+   * scrolls to is still set at once, by the visibility observer.
+   */
+  let lastAdopt = -Infinity;
   const adopt = (roots: readonly HTMLElement[]): void => {
     // Before the first layout there is nothing to join: that layout reads the whole article as it is then.
     const bg = background;
     if (bg === null || bg.mine !== generation || killed()) return;
     const found = roots.flatMap((root) => [...(root.matches(CANDIDATES) ? [root] : []), ...root.querySelectorAll<HTMLElement>(CANDIDATES)]);
+    if (found.length > 0) lastAdopt = performance.now();
     enqueue(found);
   };
 

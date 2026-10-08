@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  PALETTE_SIZES, buildRecord, commitOf, corpusFiles, detailMs, firstMarks, generateLarge, liveReloadMs, median, openRenderMs,
+  PALETTE_SIZES, buildRecord, commitOf, corpusFiles, detailMs, firstMarks, generateLarge, generateTranscript, liveReloadMs, median, openRenderMs,
   palettePerf, parseArgs, parseSize, percentile, stageDeltas, summaryTable,
 } from './perf-harness.mjs';
 
@@ -31,7 +31,27 @@ test('generateLarge repeats the long technical document with one blank line betw
   assert.equal(two, text + text);
 });
 
-test('parseSize knows the three names and a plain byte count, and nothing else', () => {
+test('generateTranscript repeats the agent transcript as numbered turns, deterministically, to at least the size (B-25)', () => {
+  const turn = readFileSync(new URL('../fixtures/corpus/18-agent-transcript.md', import.meta.url), 'utf8');
+  for (const size of ['64k', '256k', '1m']) {
+    const target = parseSize(size);
+    const a = generateTranscript(target);
+    assert.equal(sha(a), sha(generateTranscript(target)), `${size}: two calls, two different documents`);
+    assert.ok(a.length >= target, `${size}: ${a.length} bytes, under ${target}`);
+  }
+  const text = new TextDecoder().decode(generateTranscript(1));
+  assert.equal(text, `## Turn 1\n\n${turn}\n`);
+  const two = new TextDecoder().decode(generateTranscript(Buffer.byteLength(text) + 1));
+  assert.equal(two, `${text}## Turn 2\n\n${turn}\n`);
+});
+
+test('--transcript takes sizes, as --large does', () => {
+  assert.deepEqual(parseArgs(['--transcript', '64k,256k,1m']).transcript, ['64k', '256k', '1m']);
+  assert.deepEqual(parseArgs([]).transcript, []);
+});
+
+test('parseSize knows the four names and a plain byte count, and nothing else', () => {
+  assert.equal(parseSize('64k'), 65_536);
   assert.equal(parseSize('256k'), 262_144);
   assert.equal(parseSize('1m'), 1_048_576);
   assert.equal(parseSize('5m'), 5_242_880);
