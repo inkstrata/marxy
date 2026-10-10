@@ -12,6 +12,7 @@ import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
 import { tabSizeForFile } from './tab-width.ts';
 import { appHandle } from '../commands/app-handle.ts';
+import { sourceEditChords } from '../commands/source-edit.ts';
 
 export interface SourceEditorOptions {
   readonly parent: HTMLElement;
@@ -124,6 +125,10 @@ async function gutterExtensions(folding: boolean): Promise<Extension[]> {
   return [lineNumbers(), foldGutter()];
 }
 
+function isMacPlatform(): boolean {
+  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+}
+
 /** Base extensions shared by create and tests. */
 export async function baseExtensions(
   buffer: Buffer,
@@ -136,6 +141,7 @@ export async function baseExtensions(
     '@codemirror/view'
   );
   const { searchKeymap } = await import('@codemirror/search');
+  const { withoutRegistryChords } = await import('./structure.ts');
 
   const { lineSeparator } = editorDocConfig(buffer);
   const tabSize = await tabSizeForFile(buffer.path);
@@ -146,6 +152,8 @@ export async function baseExtensions(
 
   const exts: Extension[] = [
     history(),
+    // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.
+    EditorState.allowMultipleSelections.of(true),
     drawSelection(),
     highlightActiveLine(),
     highlightSpecialChars(),
@@ -168,9 +176,8 @@ export async function baseExtensions(
           return true;
         },
       },
-      ...defaultKeymap,
-      ...historyKeymap,
-      ...searchKeymap,
+      // The chords the command registry binds in Source (V-01) are its alone, so a press runs one thing.
+      ...withoutRegistryChords([...defaultKeymap, ...historyKeymap, ...searchKeymap], sourceEditChords(), isMacPlatform()),
     ]),
     // A compartment: a reload that changes the file's line-ending class swaps it (F-25).
     sepComp.of(EditorState.lineSeparator.of(lineSeparator)),
