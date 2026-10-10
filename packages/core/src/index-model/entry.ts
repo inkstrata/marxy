@@ -1,6 +1,8 @@
 // Turns a walked file into an IndexEntry. Title is the first h1, or the filename (ADR-0012).
 
 import type { IndexEntry } from '../contracts/index-entry.ts';
+import { detectKind } from '../kind/detect.ts';
+import type { KindRule } from '../kind/detect.ts';
 import { classify } from './kinds.ts';
 import { basename } from './paths.ts';
 
@@ -21,9 +23,12 @@ export interface IndexHeading {
 }
 
 /** Build an entry. Headings are filled only when `bytes` are provided — the 20k walk stays metadata. */
-export function entryFromCandidate(root: string, candidate: IndexCandidate): IndexEntry {
+export function entryFromCandidate(root: string, candidate: IndexCandidate, rules: readonly KindRule[] = []): IndexEntry {
   const kind = classify(candidate.relativePath) ?? classify(candidate.path) ?? 'text';
   const name = basename(candidate.path);
+  // ADR-0060 tiers 1 to 3 from the path alone: an empty `head` runs no shape tier, so the walk reads nothing more.
+  // Seam for K-04: the reader's `[[kind]]` rules arrive through `rules` (none today).
+  const readerKind = detectKind({ path: candidate.path, head: new Uint8Array(), rules }).kind;
   const headings = candidate.bytes ? headingsFromMarkdown(candidate.bytes) : [];
   const h1 = headings.find((heading) => heading.level === 1);
   return {
@@ -34,6 +39,7 @@ export function entryFromCandidate(root: string, candidate: IndexCandidate): Ind
     mtimeMs: candidate.mtimeMs,
     size: candidate.size,
     kind,
+    readerKind,
   };
 }
 

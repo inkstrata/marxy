@@ -74,3 +74,14 @@ test('a snapshot with baselineMs round-trips; one without still parses, and the 
   assert.equal(bad.baselineMs, undefined);
   assert.equal(bad.entries.length, 1);
 });
+
+test('a snapshot written before K-06 (no readerKind) still parses and stays current (K-06)', () => {
+  const old = snapshotFromBuild(buildIndex(root, [fresh]), 1);
+  const legacy = { ...old, entries: old.entries.map(({ readerKind: _dropped, ...rest }) => rest) };
+  const parsed = parseSnapshot(JSON.stringify(legacy));
+  assert.ok(parsed);
+  assert.equal(parsed.version, 1);
+  assert.equal(parsed.entries[0]?.readerKind, undefined);
+  assert.equal(snapshotIsCurrent(invalidateByMtime(parsed, [{ path: fresh.path, mtimeMs: fresh.mtimeMs, size: fresh.size }])), true);
+  assert.equal(parseSnapshot(serializeSnapshot(old))?.entries[0]?.readerKind, 'article');
+});

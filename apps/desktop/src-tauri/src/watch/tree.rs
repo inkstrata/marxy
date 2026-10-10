@@ -45,7 +45,8 @@ const LISTED_EXTENSIONS: &[&str] = &[
     "md", "mdx", "markdown", "mdown", "mkd", "txt", "text", "ts", "tsx", "js", "jsx", "mjs", "cjs",
     "mts", "cts", "rs", "py", "go", "java", "kt", "kts", "c", "h", "cc", "cpp", "cxx", "hpp", "hh",
     "rb", "php", "swift", "sh", "bash", "zsh", "json", "toml", "yaml", "yml", "html", "htm", "xml",
-    "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss",
+    "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss", "log", "csv",
+    "tsv", "jsonl",
 ];
 
 /// File names `classify` accepts whatever their extension, and the two ignore files whose change
