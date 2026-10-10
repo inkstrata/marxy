@@ -36,6 +36,12 @@ in the same page is now construction rather than a rewrite.
 6. **One store per document, however many panes show it.** A store is shared through a registry keyed
    by path that counts the views holding it; the last view to let go closes it.
 
+7. **One watch per store, and a notice in the pane it is about** (D-10). A file shown in both panes is one
+   store and one watch, owned by the window and closed with the store. A change on disk is read once,
+   asked of every view (Source text typed in either keeps it out) and mapped to each view's own place;
+   "removed", "changed on disk", blocked content and a failed save are said in the pane that shows the
+   file, and opening a document clears that pane's notices only.
+
 ## Consequences
 
 - Nothing a reader sees changes with one document; the split is reached from the palette and keys

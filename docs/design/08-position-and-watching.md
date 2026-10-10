@@ -108,6 +108,32 @@ mapping) and take the same branch as `modified`. The watcher is on the root dire
 inode of the file never matters. Delete-then-recreate within one debounce window collapses to
 one batch containing `removed` and `created`; the app applies the last event for the path.
 
+## Two views of one file (D-10)
+
+A file shown in both panes ("Split this document") is one store and one watch. The registry hands the
+second pane the store already open for the path, so the file is read and parsed once, and the window's
+live reload (`oneWatchPerStore`, started by whichever pane shows the store first) is the store's: it
+closes with the store when the last view lets go, and a pane that goes while another still shows the
+store leaves it running. The folder's watch fires for every file in it, so an event that names another
+file is that file's store's and this one's bytes are not read for it.
+
+A change on disk is handled once for the store and reaches every view:
+
+- **Ask every view before the store reloads.** Source text typed in either pane and not yet folded in is
+  an unsaved edit the store cannot see. The watch asks every view, and the store asks again at the turn it
+  would commit (`reload(bytes, { holds })`), so a key typed in between cannot slip through. Either answer
+  keeps the change out, says so in each pane that shows the file, and leaves the stale-write guard on the
+  bytes the text came from: a save is then refused, never written over the other program's change.
+- **Each view keeps its own place.** The reload maps each view's place through the change; an edit or fold
+  from either view maps the other's anchor by the edit's delta (ADR-0037 §6). A Rendered view over a store
+  the other pane folded Source text into is set again as for any edit, not sent to the top.
+- **A rename follows once.** With unsaved text in any view the store is renamed in place under every pane
+  (the buffer keeps its edits and the guard is armed on the new name with the bytes last read, so a save
+  that would overwrite what the new name holds is refused); with none, each view in turn opens the new path
+  and the registry gives them one store.
+- **Notices are per pane.** "Removed", "changed on disk", blocked content and a failed save are said in the
+  pane that shows the file and in no other; opening a document clears that pane's notices only.
+
 ## Re-layout (fonts, resize, theme)
 
 Position is captured before `typeset.relayout(reason)` and restored after its viewport pass,

@@ -39,7 +39,7 @@ test('the app watcher re-read goes through peekFile, and a reload goes through t
   const retry = watch.slice(watch.indexOf('async function readOpenFileWithRetry'), watch.indexOf('async function reloadOpenFromDisk'));
   assert.match(retry, /peekFile/);
   const reload = watch.slice(watch.indexOf('async function reloadOpenFromDisk'), watch.indexOf('function refreshIndexForWatch'));
-  assert.match(reload, /\.reload\(bytes\)/);
+  assert.match(reload, /\.reload\(bytes[,)]/);
 });
 
 /** A document store on the Tauri shell, as app.ts opens one (B-11): the store records what it adopts. */

@@ -4,14 +4,14 @@
 // `createOpenPath` returns, never module state, so a second app instance in one page starts clean
 // (ADR-0037). Every edit, save and fold of the open document goes through its store here.
 import type { Buffer } from '@marxy/core';
-import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import { dirname } from '@marxy/core/src/index-model/paths.ts';
 import type { AppShell, OpenDocumentState } from '../app.ts';
 import { confirmLeaveDocument } from '../close.ts';
 import { setFrontispiece, showFrontispiece } from '../frontispiece/mount.ts';
 import type { PieceSource } from '../frontispiece/pieces.ts';
 import type { IndexService } from '../index/service.ts';
 import { clearDismissForPath } from '../notices/blocked.ts';
-import { clearNotices } from '../notices/index.ts';
+import { clearNotices, paneOf } from '../notices/index.ts';
 import type { ReadingPersistence } from '../position/reading-persistence.ts';
 import { save, type SaveDeps, type SaveResult } from '../save.ts';
 import type { RenderedSelection } from '../selection/view.ts';
@@ -25,7 +25,7 @@ import { applyWeightOffset, platformOf } from '../theme/offset.ts';
 import { updateTitle } from '../title.ts';
 import type { TrustController } from '../trust/controller.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
-import { oneWatchPerStore, watchDocument } from './live-reload.ts';
+import type { DocumentWatch } from './live-reload.ts';
 import type { StoreRegistry } from './registry.ts';
 import { openDocumentStore, type DocumentSnapshot, type DocumentStore } from './store.ts';
 
@@ -39,6 +39,14 @@ export interface OpenOptions {
   readonly onLanded?: () => void;
 }
 
+/** The window's live reload: one watch per store, started by whichever pane shows it first (D-10). */
+export interface StoreWatches {
+  /** The store's watch; asking again for a store already watched starts nothing. */
+  watch(store: DocumentStore): Promise<DocumentWatch>;
+  /** The watch started for `store`, or null when none was. */
+  of(store: DocumentStore): Promise<DocumentWatch> | null;
+}
+
 export interface OpenPathDeps {
   readonly shell: AppShell;
   /** The view every open shows its store in: one pane's (D-01). */
@@ -48,6 +56,10 @@ export interface OpenPathDeps {
    * through its store rather than read and parsed again. Without it, each open makes its own store.
    */
   readonly stores?: StoreRegistry;
+  /** The window's watches: a store is watched once, however many panes show it, and follows its own path. */
+  readonly watches: StoreWatches;
+  /** Every view in the window that shows `store`, left to right, this one included. */
+  viewsOver(store: DocumentStore): readonly RenderedView[];
   readonly persistence: ReadingPersistence;
   readonly index: IndexService;
   readonly trust: TrustController;
@@ -67,6 +79,11 @@ export interface OpenPath {
   open(path: string, opts?: OpenOptions): Promise<void>;
   /** `open` without asking: the caller already has (closing the left pane, D-01). */
   replace(path: string, opts?: OpenOptions): Promise<void>;
+  /**
+   * `replace` for a caller already on this view's queue, so it does not queue (a watch following a rename
+   * on disk, D-10): `at` is the byte held at the reading line.
+   */
+  follow(path: string, at: number): Promise<void>;
   currentPath(): string | null;
   /** The open document's store, or null. */
   store(): DocumentStore | null;
@@ -132,42 +149,35 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   const ownsTitle = (): boolean => deps.ownsTitle?.() ?? true;
   const currentPath = (): string | null => current?.snapshot().path ?? null;
 
-  /**
-   * Live reload, one watch per store (B-14): it follows the store through a rename or a Save as and
-   * closes with it. Its `open` is the non-queuing `openReplacing`: a rename follow runs inside
-   * `serially`, and a queued open would wait on the task waiting for it.
-   */
-  const watches = oneWatchPerStore((open) =>
-    watchDocument(open, () => [view], {
-      shell,
-      open: openReplacing,
-      serially,
-      foldSource,
-      async renamed(path) {
-        if (ownsTitle()) document.title = `${basename(path)} — Marxy`;
-        deps.selection()?.afterRender();
-        await refreshTitle();
-      },
-      changed(path) {
-        void index.rootFor(path).then((root) => index.refresh(root));
-      },
-    }),
-  );
+  const { watches } = deps;
+  /** Every view in the window over `store`; this view alone for a store no pane shows yet. */
+  const viewsOf = (store: DocumentStore): readonly RenderedView[] => {
+    const over = deps.viewsOver(store);
+    return over.includes(view) ? over : [view, ...over];
+  };
+  /** Source text typed, in any pane that shows the open document, and not yet folded into its store. */
+  const unfoldedAnywhere = (store: DocumentStore): boolean => viewsOf(store).some((v) => v.sourceHasUnfoldedEdits());
 
   async function refreshTitle(): Promise<void> {
     if (!shell.setTitle || !ownsTitle()) return;
     const snap = current?.snapshot();
-    await updateTitle(shell, snap?.path ?? null, snap?.dirty ?? false);
+    // The document is unsaved when its store is, or when any pane that shows it holds Source text the
+    // store does not (D-10): the focused pane is not the only one that can.
+    await updateTitle(shell, snap?.path ?? null, (snap?.dirty ?? false) || (current !== null && unfoldedAnywhere(current)));
   }
 
+  /** Source text typed in any pane that shows the open document goes into its store. */
   async function foldSource(): Promise<void> {
-    if (!current) return;
-    if (await view.foldSource()) await refreshTitle();
+    const open = current;
+    if (!open) return;
+    let folded = false;
+    for (const v of viewsOf(open)) if (await v.foldSource()) folded = true;
+    if (folded) await refreshTitle();
   }
 
   function hasUnsavedChanges(): boolean {
     if (!current) return false;
-    return current.snapshot().dirty || view.sourceHasUnfoldedEdits();
+    return current.snapshot().dirty || unfoldedAnywhere(current);
   }
 
   /**
@@ -185,12 +195,12 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
 
   /**
    * This open path lets `store` go. The last holder closes it, and its watch with it; a store another pane
-   * still shows stays open, so the watch this open path started on it is closed here, or it would outlive
-   * the page it reloads (the D-01 review).
+   * still shows stays open, and so does its watch: it reloads that pane's page too (D-10).
    */
   function release(store: DocumentStore): void {
     if (!deps.stores) return store.close();
-    if (!deps.stores.release(store)) watches.release(store);
+    // The store's watch is the window's: it closes with the store, when its last view lets go.
+    deps.stores.release(store);
   }
 
   /** The store's save, with what only the app can do around it (save.ts). */
@@ -201,7 +211,8 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       foldSource: async () => {
         if (current === open) await foldSource();
       },
-      holdsUnfoldedSource: () => current === open && view.sourceHasUnfoldedEdits(),
+      holdsUnfoldedSource: () => current === open && unfoldedAnywhere(open),
+      pane: paneOf(doc),
       onSaveAs: async (path) => {
         if (current !== open) return;
         await shell.allowAssetScope(dirname(path));
@@ -248,8 +259,10 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     await shell.mark('file_read', Date.now(), `bytes=${bytes.length}`);
     // The open transition (ADR-0037): the store copies the bytes, parses them once and starts an empty
     // history with `disk` as read. The page renders from its snapshot and follows it from here on.
-    const make = (): DocumentStore =>
-      openDocumentStore(
+    let parsedHere = false;
+    const make = (): DocumentStore => {
+      parsedHere = true;
+      return openDocumentStore(
         {
           writeFileAtomic: (path, written) => shell.writeFileAtomic(path, written),
           recordRead: shell.recordRead ? (path, read) => shell.recordRead?.(path, read) : undefined,
@@ -257,11 +270,13 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
         file,
         bytes,
       );
+    };
     const opened = deps.stores ? deps.stores.acquire(file, make) : make();
     current = opened;
-    await shell.mark('parsed', Date.now());
-    // A different document starts with no notices (blocked.ts no longer clears the rest on every render).
-    clearNotices();
+    // One parse for a file however many panes show it: a pane that shares the store makes none (D-10).
+    if (parsedHere) await shell.mark('parsed', Date.now());
+    // A different document starts with no notices in this pane; another pane's are its own (D-10).
+    clearNotices(paneOf(doc));
     // The view renders from the store's snapshot and follows it from here on (B-13).
     const evidence = await view.show(opened, {
       at: lands,
@@ -472,6 +487,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       return result;
     },
     refreshTitle,
+    follow: (file, at) => openReplacing(file, at),
     close() {
       closed = true;
       followers.clear();

@@ -1,5 +1,8 @@
 // Live reload (ADR-0018): one watch per document store, following it through a rename and a Save as,
-// and closed with it (B-14, lifted from app.ts).
+// and closed with it (B-14, lifted from app.ts). The watch belongs to the store, not to a pane: however
+// many views show it, the store is read and reloaded once, every view is asked before it is (a view
+// holding Source text the store cannot see keeps the change out), and each view is put at its own place
+// in the new bytes (D-10).
 import { contentHash, reparseMarkdown } from '@marxy/core';
 import { followPath, restorePosition } from '@marxy/core/src/position/restore.ts';
 import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
@@ -9,19 +12,21 @@ import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { AppShell } from '../app.ts';
 import { diskChangedEditsKeptNotice, fileRemovedNotice } from '../notices/disk.ts';
+import { paneOf, type NoticeTarget } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import type { DocumentStore } from './store.ts';
 
 export interface LiveReloadDeps {
   readonly shell: Pick<AppShell, 'watch' | 'readFile' | 'peekFile' | 'mark' | 'allowAssetScope'>;
   /**
-   * Opens `path` with `at` on the reading line, replacing this store. Called from inside `serially`
+   * Opens `path` with `at` on the reading line, replacing this store, in `view` (every view of the store in
+   * turn, each at its own place; `view` is unset for a caller with one). Called from inside `serially`
    * (a rename with nothing unsaved), so it must not queue: the open would wait on the task waiting for it.
    */
-  open(path: string, at: number): Promise<void>;
-  /** The queue opens, mode switches and watch events run on, one at a time. */
+  open(path: string, at: number, view?: RenderedView): Promise<void>;
+  /** The queue opens, mode switches and watch events run on, one at a time: every view's of the store. */
   serially<T>(fn: () => Promise<T>): Promise<T>;
-  /** Source text typed and not yet in the store goes into it, before a rename follow reads the buffer. */
+  /** Source text typed, in any view, and not yet in the store goes into it, before a rename follow reads the buffer. */
   foldSource(): Promise<void>;
   /** The store follows a rename under unsaved edits and every view has set the page again: title and selection. */
   renamed(path: string): Promise<void>;
@@ -40,30 +45,33 @@ export interface DocumentWatch {
 }
 
 /**
- * One watch per store, however often the open path asks (the B-14 review): asking again for the store
- * already watched returns its watch; asking for another starts one. The last store's watch closes
- * with that store, not here; one this open path lets go while another pane still shows the store
- * closes on `release`.
+ * One watch per store, however many panes show it and however often they ask (the B-14 review, D-10):
+ * asking again for the store already watched returns its watch; asking for another starts one. A watch
+ * closes with its store, which closes with its last view, so a pane that goes while another still shows
+ * the store leaves the watch where it is.
  */
 export function oneWatchPerStore(start: (store: DocumentStore) => Promise<DocumentWatch>): {
   watch(store: DocumentStore): Promise<DocumentWatch>;
   /** The watch started for `store`, or null when none was. */
   of(store: DocumentStore): Promise<DocumentWatch> | null;
-  /** Closes and forgets the watch for `store`, which stays open in another pane (D-01). */
-  release(store: DocumentStore): void;
 } {
-  let last: { readonly store: DocumentStore; readonly watch: Promise<DocumentWatch> } | null = null;
+  const started = new Map<DocumentStore, Promise<DocumentWatch>>();
   return {
     watch(store) {
-      if (last?.store !== store) last = { store, watch: start(store) };
-      return last.watch;
+      let watch = started.get(store);
+      if (!watch) {
+        watch = start(store);
+        started.set(store, watch);
+        // The watch closed with the store; a store closed before its watch was ready is not asked for again.
+        const off = store.subscribe((_snap, change) => {
+          if (change.kind !== 'close') return;
+          started.delete(store);
+          off();
+        });
+      }
+      return watch;
     },
-    of: (store) => (last?.store === store ? last.watch : null),
-    release(store) {
-      if (last?.store !== store) return;
-      void last.watch.then((watch) => watch.close(), () => {});
-      last = null;
-    },
+    of: (store) => started.get(store) ?? null,
   };
 }
 
@@ -125,12 +133,15 @@ export async function watchDocument(
     for (const [view, place] of places) view.expectReloadAt(place);
     let outcome: Awaited<ReturnType<DocumentStore['reload']>>;
     try {
-      outcome = await store.reload(bytes);
+      // Every view is asked, at the turn the store would commit: Source text typed in any pane that shows
+      // it is an unsaved edit the store cannot see, and an outside write must not be adopted over it (and
+      // the stale-write guard armed on it), or a save would write over the other program's change.
+      outcome = await store.reload(bytes, { holds: unfoldedSourceInAnyView });
     } finally {
       for (const view of places.keys()) view.expectReloadAt(null);
     }
     if (outcome === 'kept') {
-      diskChangedEditsKeptNotice();
+      say(diskChangedEditsKeptNotice);
       return;
     }
     const t1 = performance.now();
@@ -162,10 +173,21 @@ export async function watchDocument(
     if (events.some((e) => changed(e.path) || changed(e.to))) deps.changed(path);
   }
 
+  /** Source text typed in any view of the store and not yet folded into it. */
+  function unfoldedSourceInAnyView(): boolean {
+    return views().some((view) => view.sourceHasUnfoldedEdits());
+  }
+
   /** Unsaved changes: the buffer differs from disk, or a view's Source holds text not yet folded in. */
   function hasUnsavedChanges(): boolean {
-    return store.snapshot().dirty || views().some((view) => view.sourceHasUnfoldedEdits());
+    return store.snapshot().dirty || unfoldedSourceInAnyView();
   }
+
+  /** The pane `view` draws in: a notice about the file is said in the panes that show it, and in no other. */
+  const targetOf = (view: RenderedView): NoticeTarget => ({ pane: paneOf(view.host?.article) });
+  const say = (notice: (target: NoticeTarget) => void): void => {
+    for (const view of views()) notice(targetOf(view));
+  };
 
   async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
     const first = views()[0];
@@ -173,31 +195,44 @@ export async function watchDocument(
     const start = performance.now();
     const path = store.snapshot().path;
     const position = first.position();
-    const diskBytes = await readOpenFileWithRetry(path);
-    const read = performance.now();
-    refreshIndexForWatch(events, path, diskBytes);
     const effect = effectForOpenDocument(events, path);
-    if (effect.action === 'ignore') return;
+    // The folder's watch fires for every file in it: an event that names another file is that file's
+    // store's, and this document's bytes are not read for it.
+    if (effect.action === 'ignore') {
+      refreshIndexForWatch(events, path, null);
+      return;
+    }
     if (effect.action === 'gone') {
-      fileRemovedNotice();
+      refreshIndexForWatch(events, path, null);
+      say(fileRemovedNotice);
       return;
     }
     if (effect.action === 'follow') {
+      refreshIndexForWatch(events, path, null);
       // Already inside `serially`: queuing the open would put it behind the task waiting for it, and
-      // every open, mode switch and reload after it would wait forever.
-      if (hasUnsavedChanges()) await retarget(effect.path);
-      else await deps.open(effect.path, followPath(position, effect.path).byteOffset);
+      // every open, mode switch and reload after it would wait forever. Any view's unfolded Source text
+      // counts: the store follows the rename once, under every pane, rather than each pane opening the new
+      // path on a store of its own.
+      if (hasUnsavedChanges()) {
+        await retarget(effect.path);
+        return;
+      }
+      const places = views().map((view) => [view, view === first ? position : view.position()] as const);
+      for (const [view, place] of places) await deps.open(effect.path, followPath(place, effect.path).byteOffset, view);
       return;
     }
+    const diskBytes = await readOpenFileWithRetry(path);
+    const read = performance.now();
+    refreshIndexForWatch(events, path, diskBytes);
     if (diskBytes === null) {
-      fileRemovedNotice();
+      say(fileRemovedNotice);
       return;
     }
     const { buffer, ast } = store.snapshot();
     // Text typed in Source and not yet folded in is an unsaved edit the store cannot see: keep it, as the
     // store keeps a dirty buffer. Bytes equal to the buffer change nothing the reader could lose.
-    if (views().some((view) => view.sourceHasUnfoldedEdits())) {
-      if (!sameBytes(diskBytes, buffer.bytes)) diskChangedEditsKeptNotice();
+    if (unfoldedSourceInAnyView()) {
+      if (!sameBytes(diskBytes, buffer.bytes)) say(diskChangedEditsKeptNotice);
       return;
     }
     // The new bytes' parse, of only the blocks the change touched (B-23): the place is mapped through it.

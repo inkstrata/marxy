@@ -414,6 +414,19 @@ test('rename changes the path and keeps history and dirty', async () => {
   assert.equal(store.snapshot().dirty, false);
 });
 
+test('rename arms the stale-write guard on the new name with the bytes last read (D-10)', async () => {
+  const io = recordingIo();
+  const store = openDocumentStore(io, PATH, enc.encode('# A\n\nbody\n'));
+  await store.apply({ range: range(2, 3), replacement: 'B', label: 'edit' });
+  io.reads.length = 0;
+  await store.rename('/repo/renamed.md');
+  assert.deepEqual(
+    io.reads.map((r) => [r.path, dec.decode(r.bytes)]),
+    [['/repo/renamed.md', '# A\n\nbody\n']],
+    'the guard expects what disk held when the file was read, not the edited buffer',
+  );
+});
+
 test('CRLF and BOM bytes survive apply and undo byte-for-byte', async () => {
   const original = corpus('12-crlf-and-bom.md');
   assert.deepEqual([...original.subarray(0, 3)], [0xef, 0xbb, 0xbf]);

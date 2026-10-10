@@ -20,7 +20,7 @@ import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/po
 import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
-import { notify, SOURCE_HELD_APART } from '../notices/index.ts';
+import { notify, paneOf, SOURCE_HELD_APART } from '../notices/index.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
@@ -506,7 +506,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (!sourceEditor || !open) return;
     // Held apart from the other pane's fold (D-11): leaving would fold this text over it. Stay, and say why.
     if (stillHeldApart()) {
-      notify({ kind: 'info', text: SOURCE_HELD_APART });
+      notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
       return;
     }
     // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
@@ -975,7 +975,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (!open || !editor || viewMode !== 'source' || heldApart) return false;
     const text = editor.docText();
     if (!leaveSourceMode(before.buffer, text).changed) return false;
-    if (change.kind === 'reload') diskChangedEditsKeptNotice();
+    if (change.kind === 'reload') diskChangedEditsKeptNotice({ pane: paneOf(doc) });
     void open.commitSource(text).then(
       (changed) => {
         if (changed && sourceEditor === editor && store === open) editor.replaceBuffer(open.snapshot().buffer);
@@ -1009,7 +1009,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * the other's. Its text still counts as unsaved, so a close, an open over it or quitting asks first.
    */
   function holdApart(): void {
-    if (!heldApart) notify({ kind: 'info', text: SOURCE_HELD_APART });
+    if (!heldApart) notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: paneOf(doc) });
     heldApart = true;
   }
 
@@ -1040,6 +1040,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         settlePage(Promise.resolve());
         return;
       case 'commitSource':
+        // A Rendered view over a store another view folded Source text into (two panes on one file) is set
+        // again as for any edit: its own place mapped through the fold's splice, not sent to the top (D-10).
+        if (viewMode === 'rendered') break;
         // Leaving Source (or folding before a save or a rename): the caller restores the position. Another
         // view's fold reaches this view's editor too, or its next fold would write the old text back (D-11).
         if (sourceEditor) followFoldIn(sourceEditor, snapshot);
@@ -1146,14 +1149,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function rerenderFromBuffer(at?: number | Pick<ReadingPosition, 'byteOffset' | 'fraction'>): void {
     if (!store) return;
-    const { path: file, ast, nodeMap } = store.snapshot();
+    const { path: file, ast, nodeMap, buffer } = store.snapshot();
     const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
     const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
     destroyTypeset();
     shown = { ast, html, nodeMap, blocks: [] };
     const mounted = mountDocument(html, file, byteOffset);
     afterRender();
-    trust.showNotices(removed, blockedImages);
+    trust.showNotices(removed, blockedImages, { path: file, buffer, pane: paneOf(doc) });
     snap(doc);
     startTypeset(doc);
     if (at !== undefined && typeof at !== 'number') {
@@ -1239,7 +1242,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (store !== null) clear();
     store = next;
     follow(next);
-    const { path: file, ast, nodeMap } = next.snapshot();
+    const { path: file, ast, nodeMap, buffer } = next.snapshot();
     const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
     console.info(`marxy: sanitiser removed ${removed.length}`);
     shown = { ast, html, nodeMap, blocks: [] };
@@ -1249,7 +1252,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     opts?.onMounted?.();
     await shell.mark('rendered', Date.now());
     await shell.mark('first_screen', Date.now(), `blocks=${doc.childElementCount} bytes=${mountedBytes(doc)}`);
-    trust.showNotices(removed, blockedImages);
+    trust.showNotices(removed, blockedImages, { path: file, buffer, pane: paneOf(doc) });
     void doc.offsetHeight;
     await document.fonts.ready;
     // No face list here (A-02): reading `document.fonts` made WebKit restyle the whole article as soon

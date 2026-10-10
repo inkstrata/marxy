@@ -81,10 +81,16 @@ export interface DocumentStore {
    * only for a real external change while the buffer is dirty: nothing changes. Otherwise
    * 'reloaded', and history is cleared.
    *
+   * `opts.holds` is asked, synchronously, at the turn the change would commit and never before it: a view
+   * of this store holding text the store cannot see (Source typed and not yet folded in, in any pane that
+   * shows it) answers true, and the change is 'kept' as for a dirty buffer. Asked at the commit and not
+   * earlier, so a key typed while the transition waited in the queue cannot slip between the question and
+   * the answer. Nothing is recorded as read, so the stale-write guard stays on the bytes the text came from.
+   *
    * The new bytes are reparsed from the store's own parse: only the blocks the change touched are
    * parsed again (B-23, `reparseMarkdown`).
    */
-  reload(bytes: Uint8Array): Promise<'reloaded' | 'unchanged' | 'kept'>;
+  reload(bytes: Uint8Array, opts?: { holds?: () => boolean }): Promise<'reloaded' | 'unchanged' | 'kept'>;
   save(opts?: { to?: string }): Promise<{ result: 'saved' | 'unchanged' | 'failed'; error?: unknown }>;
   /**
    * The file now answers to `to`. History is kept; its entries keep the `range.file` they were made
@@ -283,7 +289,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
       });
     },
 
-    reload(bytes) {
+    reload(bytes, opts) {
       return transition((): 'reloaded' | 'unchanged' | 'kept' => {
         if (sameBytes(bytes, state.buffer.bytes)) {
           if (state.disk === null || !sameBytes(state.disk, bytes)) {
@@ -296,7 +302,7 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
         // Our own save coming back through the watcher, after the reader edited again: not a conflict.
         if (state.disk !== null && sameBytes(bytes, state.disk)) return 'unchanged';
         // Kept, not adopted: the guard stays armed on what was read, so a save cannot overwrite the change.
-        if (snap.dirty) return 'kept';
+        if (snap.dirty || opts?.holds?.()) return 'kept';
         // A clean reload is a new document: undoing across it would splice bytes the reader never saw.
         // Phase B clears it rather than mapping it through the change (ADR-0037 §3; roadmap 02-phase-b.md).
         const buffer = createBuffer(state.path, bytes);
@@ -346,10 +352,16 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     serially,
   };
 
-  /** The file now answers to `to`: same bytes, same disk, same history; the AST carries the new name. */
+  /**
+   * The file now answers to `to`: same bytes, same disk, same history; the AST carries the new name. The
+   * stale-write guard follows it (D-10): it is armed on `to` with the bytes last read or written, so a save
+   * is refused if the file at the new name is not what the buffer came from (another program wrote it before
+   * it was renamed, or after), instead of writing over it unguarded because the new name was never read.
+   */
   function renameNow(to: string): void {
     const from = state.path;
     if (from === to) return;
+    if (state.disk !== null) io.recordRead?.(to, state.disk);
     commit({ ...state, path: to, ...parsed(to, renamed(state.buffer, to)) }, { kind: 'rename', from, to });
   }
 

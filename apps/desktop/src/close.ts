@@ -86,7 +86,7 @@ function documentOf(pane: GuardPane, all: readonly GuardPane[]): DirtyDocument |
       // A pane still holding Source text the store lacks (held apart from another pane's fold, D-11) would
       // lose it to whatever is written: the save, and so the prompt's open or close, stops.
       if (showing().some((p) => p.view.sourceHasUnfoldedEdits())) {
-        notify({ kind: 'info', text: SOURCE_HELD_APART });
+        notify({ kind: 'info', text: SOURCE_HELD_APART }, { pane: pane.host });
         return 'cancelled';
       }
       return pane.content.save();
