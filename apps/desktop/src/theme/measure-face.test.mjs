@@ -10,16 +10,16 @@ import { after, before, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { readFont } from '../../../packages/typeset/scripts/font-metrics.mjs';
-import { MEASURE_SAMPLE, averageAdvance } from '../../../packages/core/src/layout/average-advance.ts';
+import { launchWebkit } from '../../../../scripts/playwright-webkit.mjs';
+import { readFont } from '../../../../packages/typeset/scripts/font-metrics.mjs';
+import { MEASURE_SAMPLE, averageAdvance } from '../../../../packages/core/src/layout/average-advance.ts';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repo = fileURLToPath(new URL('../../../', import.meta.url));
+const repo = fileURLToPath(new URL('../../../../', import.meta.url));
 const FACES = [
   { family: 'Literata', file: 'fonts/literata/Literata[opsz,wght].ttf' },
   { family: 'Source Serif 4', file: 'fonts/source-serif-4/SourceSerif4Variable-Roman.ttf' },
@@ -148,4 +148,27 @@ test('measureFaceWhenIdle does not measure before the first frame has painted', 
     assert.deepEqual(r.order, ['scheduled', 'measured']);
     assert.ok(r.value > 0.4);
   });
+});
+
+test('afterFirstPaint runs the callback after a frame has painted, never inline', async () => {
+  await withPage(async (page) => {
+    const order = await page.evaluate(async () => {
+      const order = [];
+      const done = new Promise((resolve) => window.MeasureFace.afterFirstPaint(() => { order.push('run'); resolve(); }));
+      order.push('scheduled');
+      await new Promise((resolve) => requestAnimationFrame(() => { order.push('frame'); resolve(); }));
+      await done;
+      return order;
+    });
+    assert.deepEqual(order, ['scheduled', 'frame', 'run']);
+  });
+});
+
+nodeTest('user-theme reaches the measurement only from inside afterFirstPaint (H-06: first text never waits)', () => {
+  const src = readFileSync(join(repo, 'apps/desktop/src/theme/user-theme.ts'), 'utf8');
+  const body = /function checkAvgCharAfterPaint[\s\S]*?\n}\n/.exec(src)[0];
+  assert.match(body, /afterFirstPaint\(\(\) => \{/);
+  assert.equal(src.match(/measureAverageAdvance\(/g).length, 1, 'one call, inside the post-paint callback');
+  assert.ok(body.indexOf('afterFirstPaint(') < body.indexOf('measureAverageAdvance('));
+  assert.match(src, /await ctx\.shell\.allowAssetScope[\s\S]*?applyTheme\(css\);[\s\S]*?checkAvgCharAfterPaint\(/);
 });

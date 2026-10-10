@@ -91,19 +91,20 @@ function firstFamily(family: string): string {
   return (m?.[1] ?? family).trim();
 }
 
-/**
- * Measures after first paint: one frame, then an idle slot, so the measurement is never in the way of
- * first text. `run` receives the number (or null) when it is ready.
- */
-export function measureFaceWhenIdle(face: FaceSpec, run: (value: number | null) => void, doc: Document = document): void {
+/** Runs `run` after the first frame has painted and the page is idle: one frame, then an idle slot (or a timer). */
+export function afterFirstPaint(run: () => void, doc: Document = document): void {
   const win = doc.defaultView;
   if (win === null) return;
-  const go = (): void => void measureAverageAdvance(face, doc).then(run);
   const afterPaint = (): void => {
-    if (typeof win.requestIdleCallback === 'function') win.requestIdleCallback(go, { timeout: 2000 });
-    else win.setTimeout(go, 0);
+    if (typeof win.requestIdleCallback === 'function') win.requestIdleCallback(run, { timeout: 2000 });
+    else win.setTimeout(run, 0);
   };
   win.requestAnimationFrame(() => win.setTimeout(afterPaint, 0));
+}
+
+/** Measures after first paint, so the measurement is never in the way of first text; `run` gets the number or null. */
+export function measureFaceWhenIdle(face: FaceSpec, run: (value: number | null) => void, doc: Document = document): void {
+  afterFirstPaint(() => void measureAverageAdvance(face, doc).then(run), doc);
 }
 
 /** Test seam: forgets every memoised measurement. */
