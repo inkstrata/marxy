@@ -105,6 +105,33 @@ chrome.
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 
+**Source editing keys (V-01).** In a pane that shows Source, and only there (Rendered does nothing with them),
+the registry binds these from `apps/desktop/src/commands/source-edit.ts`; each is also a palette command. They
+are `global` commands, so they run from inside the editor, and the editor's own default on the same chord is
+removed so a press runs one thing. A literal `Ctrl` is a Mac's Control key; elsewhere those operations are in
+the palette.
+
+| Key | Action | Notes |
+| --- | --- | --- |
+| `Mod+L` | select line | the editor's own, on `⌘L` |
+| `Ctrl+Shift+B` | select block | the parse's innermost block at the caret; any file that is not Markdown: the paragraph |
+| `Ctrl+Shift+S` | select section | the heading's section, to the next heading of equal or higher rank; Markdown only |
+| `Ctrl+Shift+→` | expand selection | word, line, block, section, document; stops at the document |
+| `Mod+D` / `Mod+Shift+L` | add next occurrence / select all occurrences | the editor's search; several selections |
+| `Ctrl+J` | join lines | a caret joins its line to the next; a selection joins what it reaches |
+| `Mod+Shift+K` | delete line | with its break |
+| `Ctrl+Shift+T` | toggle task | `[ ]` and `[x]` on list lines; a plain item gains `[ ] `; a line with no list marker is left alone |
+| `Ctrl+Shift+Q` | toggle quote | `> ` on or off each line of the selection |
+| `Ctrl+Shift+C` | toggle comment | the language's own comment syntax; `Mod+/` is the transforms key and is not this |
+| `Alt+↑/↓`, `Alt+Shift+↑/↓` | move line, duplicate line | the editor's own; Rendered's `Alt+↑/↓` are the block moves and stay so |
+| palette only | sort lines (byte order) | UTF-8 byte-wise, not the locale's |
+
+One operation is one undo step, changes only the bytes it targets, and writes the file's own line separator
+(LF, CRLF or CR) and keeps its BOM and its last line's ending (`source/structure.ts`; the pure part is
+`packages/core/src/source-edit/`). Three of the defaults a Mac's editor had on these chords go (next
+occurrence, all occurrences and delete line are the registry's now; emacs `Ctrl+Shift+→` and `Ctrl+Shift+B`,
+which select by syntax and by character, give way to expand and select block).
+
 **Pane chords (Phase D).** One table, `apps/desktop/src/pane/keys.ts`, matched on physical keys
 (`event.code`: `Mod+Shift+\` arrives as `|` on a US layout), run from a `window` capture-phase listener so
 they work from inside a Source editor too, and run once (the registry's dispatcher does not see them).
@@ -154,6 +181,22 @@ the menu (ADR-0011); a command joins it only when the table above already binds 
 implements it.
 `Mod+W` (Close Window) is native-menu-only too, and — since Marxy is single-window — exits
 through the same path as Quit (`docs/design/06-shell.md` §Capabilities).
+
+## Navigation
+
+A plain click on a relative link to a Markdown document replaces the document in the pane it was clicked in, and
+`Mod+[` / `Mod+]` walk that pane's link history, not the window's (each pane keeps its own).
+
+### Open a link beside (D-09)
+
+Cmd-click (Ctrl-click off a Mac) on a relative link opens the target in the other pane, made when there is only
+one and the window holds two columns at the typography floor (otherwise the fit notice, `splitFitNotice`, and
+nothing opens). The pane clicked in keeps its document, its place and its focus; the neighbour's history starts
+with the target, a fragment is landed in the neighbour, and unsaved edits in the neighbour go through the pane
+set's guard (`beforeReplace`, D-08) before it is replaced. Beside only, a link to a file that opens in Source
+(`defaultModeForPath`) is accepted when its first 8 KB hold no NUL byte, and opens there; otherwise the notice
+is "That file is not text." A plain click keeps refusing such files. A `#fragment` link scrolls the pane it is in,
+and an external link ignores the modifier. Links never leave the image root, beside or not.
 
 ## Outline
 

@@ -2,6 +2,7 @@
 import { OPERATIONS } from '@marxy/core/src/operations/index.ts';
 import { appearanceCommands } from './appearance.ts';
 import { collectionCommands } from './collection.ts';
+import { kindCommands } from './kind.ts';
 import { copyTextCommands } from './copy-text.ts';
 import { documentCommands } from './document.ts';
 import { editorCommands } from './editor.ts';
@@ -14,6 +15,7 @@ import { paneCloseCommands } from './pane-close.ts';
 import { paneOpenCommands } from './pane-open.ts';
 import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
+import { sourceEditCommands } from './source-edit.ts';
 import { sourceViewCommands } from './source-view.ts';
 import { trustRevokeCommands } from './trust.ts';
 
@@ -25,6 +27,7 @@ export function commands(): readonly Command[] {
     ...selectionNavigationCommands(),
     ...documentCommands(),
     ...sourceViewCommands(),
+    ...sourceEditCommands(),
     ...trustRevokeCommands(),
     ...navigationCommands(),
     ...paneFocusCommands(),
@@ -35,6 +38,7 @@ export function commands(): readonly Command[] {
     ...paneOpenCommands(),
     ...editorCommands(),
     ...collectionCommands(),
+    ...kindCommands(),
     ...copyTextCommands(),
     ...findCommands(),
     ...OPERATIONS.map(fromOperation),

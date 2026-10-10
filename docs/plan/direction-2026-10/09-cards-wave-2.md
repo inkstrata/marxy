@@ -9,7 +9,8 @@
 the at-rest gate for two states (W-01), the changed-on-disk choice (V-07), the clipboard capability
 in `shell-api` (J-02) and the transform library (J-03). The models are Sonnet by default. Three rows
 are Opus in `05-plan.md` and change a seam (H-03, W-01, J-02); each says **Try Sonnet first** (author,
-2026-10-10: be cost-effective), so the lead starts on Sonnet and escalates only on a return.
+2026-10-10: be cost-effective), so the lead starts on Sonnet and escalates only on a return. H-03.1, the repoint H-03 left for later, is
+recorded at the end (#523).
 
 State of the stories these wait on, as of 2026-10-10 evening: **merged**: H-01 (#490), H-02 (#506),
 K-01 (#500), J-01 (#502). **Open**: K-03 (#510, reviewed, merge pending), J-01.1 (#512), D-11 (#496).
@@ -279,3 +280,19 @@ the contract with a declaration, a kind and a comment.
 **Do not.** Port from the prototype's JavaScript without tests; add a Rust twin (the mock's note is superseded by ADR-0065 item 4, which says core); add a UI (W-21, J-06); call the clipboard.
 
 **Risks.** L: split by group if one PR passes a reviewable size (the lead decides after the Clean group). Until E-01 lands there is no test kit; do not start by writing a local one.
+
+---
+
+### H-03.1 — The palette and outline read the contract-2 edge roles (recorded after the fact)
+
+**Model:** sonnet · **Size:** S · **Depends on:** H-03 (merged) · **State:** #523 open, written from the lead's brief with no card; this entry is its record.
+
+**Outcome.** The palette and the outline stop reading the two names ADR-0059's Consequences retire, `--marxy-color-border` and `--marxy-color-accent-muted`, and read the roles that replace them: `--marxy-color-rule-strong` for the outline of a surface (the palette, the outline, the palette's notice rule), `--marxy-color-edge` for the palette query field's bottom edge, and `--marxy-color-accent-wash` for the selected outline row and the active palette row. No new name. H-03 left this repoint out; it is the "split the validator as H-03.1" the H-03 card anticipated, for a different reason.
+
+**Paths.** `apps/desktop/src/palette/view.ts`, `apps/desktop/src/outline/view.ts`, and a new `apps/desktop/test/chrome-edges.test.mjs` (a theme that sets the three roles repaints the surfaces; with none set they resolve to the v1 fallbacks). A contract-1 theme resolves through `tokens.css`'s fallbacks to the rule, secondary-text and selection colours.
+
+**A visible change, for the author's taste.** The old literals (`#444` and white at 8 %) were undeclared fallbacks, wrong in the light variant; the repoint makes them follow the theme. The default theme's chrome is therefore not byte-identical to before, in dark as well as light. The lead reviewed and merged on that reading; the author sees it in the app and may overturn it.
+
+**Checked.** `gate:contrast` 430 pairs, 0 failing; `check-tokens` ok (93 tokens); `gate:aesthetics --mechanical` ok; `pnpm precheck` 7 of 7.
+
+**Do not.** Declare a name; touch `tokens.css`; set a value (H-04).

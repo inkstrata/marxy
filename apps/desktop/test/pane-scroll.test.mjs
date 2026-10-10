@@ -291,7 +291,7 @@ test('one pane: the window scrolls and the view is on it, as before', async () =
   });
 });
 
-test("two panes: the first pane's scroll writes its place, and the second pane's writes nothing yet (D-12)", async () => {
+test("two panes: each pane's scroll writes the place of its own file (D-12)", async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await settle(page);
@@ -315,7 +315,8 @@ test("two panes: the first pane's scroll writes its place, and the second pane's
     const entries = JSON.stringify(stored);
     assert.match(entries, /\/r\/A\.md/, `positions.json: ${entries.slice(0, 300)}`);
     assert.match(entries, new RegExp(`"byteOffset":\\s*${seen.left}\\b`), `positions.json: ${entries.slice(0, 300)}`);
-    assert.doesNotMatch(entries, /\/r\/B\.md/, 'the second pane does not write until D-12');
+    // D-12 retired the temporary slot-0 rule: the second pane writes the place of its own file.
+    assert.match(entries, /\/r\/B\.md/, `the second pane wrote its file's place: ${entries.slice(0, 300)}`);
   });
 });
 

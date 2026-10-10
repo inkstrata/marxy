@@ -16,6 +16,7 @@ wrong. Nothing here is ever about a document's content.
 theme = "~/themes/quiet"        # a directory with theme.toml; absent → the default theme
 variant = "dark"                # dark (default, ADR-0024) | light | auto (follows the OS)
 size = 20                       # body px, 15–50 (75–250 % of the default, ADR-0033)
+chrome_size = 13                # control text px, 11–26; unset, the theme's value stands (ADR-0059 item 6)
 measure = 66                    # average characters per line, 45–80 (never ch, ADR-0033)
 typeset = true                  # the Knuth–Plass path; false = engine wrapping, grid pass only
 line_numbers = false            # Source mode; absent: on for code files, off for prose
@@ -24,6 +25,11 @@ resident = false                # stay running after the last window closes (ADR
 
 [linux]
 weight_offset = 75              # overrides the WebKitGTK-version table (§05)
+
+[[kind]]                        # how a folder's files are read (ADR-0060 item 9); first match wins
+glob = "~/.claude/projects/**/*.jsonl"
+is = "transcript"               # one of the fourteen kinds
+read = true                     # optional: open in Read (true) or Source (false)
 ```
 
 Parsed with `smol-toml` (MIT) by `packages/theme/src/config.ts` (it is theme-adjacent and
@@ -31,11 +37,57 @@ shell-free: the shell hands it the bytes). Unknown keys are ignored with a notic
 once. Invalid values fall back to the default for that key, with a notice. The file is read at
 startup and watched (§08 mechanism); changes apply live except `resident`.
 
-There is no settings UI in v1. Marxy writes to the config file in exactly three cases:
+There is no settings UI in v1. Marxy writes to the config file in exactly four cases:
 `Mod+=`/`Mod+-`/`Mod+0` write `size`, "Use light variant" and "Use dark variant" write `variant`,
 and "Use this theme" (§05) writes `theme`. All three preserve the rest of the file byte-for-byte by editing the one top-level line for that key (or appending
 it before the first `[table]` header, with the file's own line ending), through one function,
-`setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`.
+`setTopLevelKey(bytes, key, tomlValue): Uint8Array` in `packages/theme/src/config.ts`. The fourth is
+"Always open this folder as" (below), which appends one `[[kind]]` table.
+
+### `[[kind]]` (ADR-0060 item 9, K-04)
+
+A reader's rule for how files are read, in file order; the first rule whose `glob` matches a path
+decides its kind, and a rule beats detection. `glob` and `is` are required; `read` is optional.
+
+- `glob` is absolute (`/…`, `~/…`, `C:/…`) or opens with `**`; `~` is expanded, `.`, `..` and `//`
+  are resolved lexically and the text is composed (NFC), the way a `[[capture]]` path is. A `..` that
+  would climb above the root, or that follows a segment holding `*` or `?`, refuses the rule. A UNC
+  path is refused. Matching ignores case and Unicode composition on every platform, so `~/Notes/**`
+  matches `~/notes/a.md`; `*` stays inside a folder, `**` crosses folders.
+- `is` is one of the fourteen kinds (`KINDS`, `packages/core/src/contracts/kinds.ts`). A name outside
+  the set drops the rule with a warning naming it. `read = true` opens the file Rendered, `false` in
+  Source (ADR-0060 item 7).
+- A bad rule is skipped with a warning naming its position (`kind 2 …`); unknown keys are listed once
+  as `kind.<key>`; at most 200 rules are read; `kind` that is not a list of tables is ignored with one
+  warning. None is fatal.
+- "Always open this folder as" appends `[[kind]]` with `glob = '<folder>/**'` (the home folder written
+  as `~`) and `is`, through `appendKindRule(bytes, rule, { home })` in `packages/theme/src/config.ts`:
+  every input byte stays as the prefix of the output; only a line ending (the file's own), a blank line
+  and the table are added; an empty file starts from a one-line comment. A rule already there, in any
+  spelling the matcher treats as the same, changes nothing; the same glob with another kind is
+  refused (the older rule would win), so the reader edits it by hand. A file that is not TOML, or whose
+  `kind` is not a list of tables, is left exactly as it is.
+
+## `kinds.json` (ADR-0060 item 9, K-04), in the data directory beside `positions.json`
+
+*Show as* for one file: the kind a reader chose for it, which beats any rule. Marxy's own record, in
+a plain file, never a part of the document.
+
+```json
+{ "version": 1, "kinds": { "/users/ian/.claude/projects/a.jsonl": "transcript" } }
+```
+
+- It holds a kind and nothing else: a version and path to kind. No front-matter value, no tool name.
+  A path is kept in one spelling (`.`, `..` and `//` resolved, composed, lower-cased), so a file has
+  one entry however it was opened.
+- Unlike `positions.json` it is **never evicted**. At 5,000 files a choice for a new file is refused
+  with a notice naming the cap and nothing earlier is dropped; changing or forgetting a file's choice
+  still works. A version newer than this Marxy's is read and not written back; a corrupt file (not
+  UTF-8, not JSON, no numeric version) is copied to `kinds.json.bad-<ms>` and an empty one started;
+  an entry whose value is not a kind is ignored.
+- Precedence (item 9): *show as* for the file, then the first matching `[[kind]]` rule, then
+  detection. Forgetting the choice restores the rule's kind. `detectFileKind` in
+  `packages/core/src/kind/show-as.ts` applies it.
 
 ## `collection.toml` (ADR-0053), beside `config.toml`
 
@@ -124,12 +176,29 @@ Unknown keys are reported as `capture.<key>`. More than 32 rules warn and the re
 Privacy page's sentence is the constant `CAPTURE_PRIVACY_LINE` (ADR-0063 item 6, verbatim, with a test
 that reads the ADR), and `capturePrivacyLines(rules)` fills in each rule's paths.
 
+## `layout.json` (ADR-0057, D-12), in the data directory beside `positions.json`
+
+The split the reader left: `{ "version": 1, "columns": [{ "path", "mode" }], "ratio", "focused" }`, at
+most two columns, `mode` `rendered` or `source`, `ratio` the left pane's share (0.2 to 0.8), `focused` the
+index of the focused column. Paths only, never contents and never a scroll coordinate: each document's
+place stays in `positions.json`, by path. Written debounced 500 ms after the layout or a pane's mode
+changes and at quit (`LayoutPersistence`, `packages/core/src/layout/persistence.ts`), with the same
+atomic-write, quarantine (`layout.json.bad-<ms>`) and newer-version rules as `positions.json`.
+
+Restored at launch, after the first pane's document, never before it is readable
+(`apps/desktop/src/layout/restore.ts`): with no file argument the saved first column is the launch's
+document and the second opens after first text; with one, the argument opens in the focused pane and the
+other pane keeps its document. A column whose file is gone or unreadable is left out with a notice. A
+window too narrow for two columns, or a layout with one column left, shows the focused column alone and
+leaves `layout.json` as it was until the reader changes the layout.
+
 ## Data files
 
 | File | Content | Cap | Owner |
 | --- | --- | --- | --- |
 | `index/<sha1(root)>.json` | §07 envelope, with an optional `baselineMs` (when Marxy first indexed the root; set once, never moved; `version` stays 1) | 50 000 entries; files older than 90 days unused are deleted at startup | shell |
 | `positions.json` | §08 | 5 000 paths, LRU | app |
+| `layout.json` | the split: two columns at most, ratio, focus (above) | 2 columns | app |
 | `history.json` | opens, pins, recent roots (§07) | 500 opens, 12 roots | app |
 | `trust.json` | per-document grants: HTML, image hosts ([§12](13-trust.md)) | 2 000 paths, LRU | app |
 

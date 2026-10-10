@@ -13,6 +13,7 @@ import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { searchablePaths } from '@marxy/core/src/index-model/content-search.ts';
 import type { ContentSearchResult, FileStat, Shell, ShellError, WatchEvent } from '@marxy/shell-api';
+import { clipboard } from './clipboard.ts';
 import { createEarlyBuffer, eventsForWatch, isNotWatching, refusalForWatch } from './watch-filter.ts';
 
 /** Session-only asset-protocol roots (ADR-0026). Rust also records each one; this copy is the app's check. */
@@ -85,6 +86,9 @@ export const shell: Pick<
   | 'startupMarks'
   | 'onOpenFiles'
   | 'clipboardWrite'
+  | 'clipboardTypes'
+  | 'clipboardRead'
+  | 'clipboardWriteItem'
   | 'configPaths'
   | 'readDir'
   | 'setTitle'
@@ -300,6 +304,7 @@ export const shell: Pick<
   clipboardWrite: async (data) => {
     await invoke('clipboard_write', { text: data.text, html: data.html ?? null });
   },
+  ...clipboard.tauri(invoke),
   configPaths: () => invoke<{ config: string; data: string }>('config_paths'),
   readDir: (dir) => invoke('read_dir', { dir }),
   openExternal: async (url) => {

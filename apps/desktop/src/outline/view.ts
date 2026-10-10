@@ -59,7 +59,7 @@ function injectStyles(doc: Document): void {
       max-height: none;
       box-sizing: border-box;
       border: 0;
-      border-inline-start: 1px solid var(--marxy-color-border, #444);
+      border-inline-start: 1px solid var(--marxy-color-rule-strong);
       background: var(--marxy-color-surface, #1a1a1a);
       color: var(--marxy-color-text, #eee);
       box-shadow: 0 0 40px rgb(0 0 0 / 25%);
@@ -89,7 +89,7 @@ function injectStyles(doc: Document): void {
       box-shadow: inset 2px 0 0 var(--marxy-color-accent, currentColor);
     }
     #marxy-outline .marxy-outline-row[aria-selected="true"] {
-      background: var(--marxy-color-accent-muted, rgb(255 255 255 / 8%));
+      background: var(--marxy-color-accent-wash);
     }
   `);
 }
