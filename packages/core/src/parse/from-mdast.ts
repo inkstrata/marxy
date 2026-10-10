@@ -280,10 +280,13 @@ export const fencedCodeMarker: MdastExtension = {
 const codeEndings = new WeakMap<object, { at: number; text: string }[]>();
 
 /**
- * The code block's value with one line ending trimmed at each end, as CommonMark has it, whatever
- * mdast's trim took. `value` is mdast's; the text it came from is rebuilt from it and the endings.
+ * A fenced code block's value with one line ending trimmed at each end, as CommonMark has it, whatever
+ * mdast's trim took; an indented block's is mdast's own. `value` is mdast's; the text it came from is rebuilt from it and the endings.
  */
 function codeValue(node: md.Code, fenced: boolean): string {
+  // Indented code holds no opening ending, and its buffer also holds the endings of trailing blank
+  // lines, which CommonMark drops: an ending the trim took there is never put back (F-20.1 review).
+  if (!fenced) return node.value;
   const endings = codeEndings.get(node);
   // Without a lone CR the trim cannot take two endings for one.
   if (!endings || !endings.some((ending) => ending.text === '\r')) return node.value;
@@ -291,8 +294,8 @@ function codeValue(node: md.Code, fenced: boolean): string {
     const ending = endings.find((candidate) => index >= candidate.at && index < candidate.at + candidate.text.length);
     return ending ? ending.text[index - ending.at]! : '';
   };
-  // What mdast's trim took from the front: only a fenced block's text starts with a line ending.
-  const opens = fenced && endings[0]!.at === 0;
+  // What mdast's trim took from the front: the opening fence's line ending, when the text has one.
+  const opens = endings[0]!.at === 0;
   const lead = !opens ? 0 : charAt(0) === '\r' && charAt(1) === '\n' ? 2 : 1;
   const last = endings[endings.length - 1]!;
   const length = Math.max(lead + node.value.length, last.at + last.text.length);

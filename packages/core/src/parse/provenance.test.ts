@@ -108,6 +108,17 @@ test('a CR, a line of indentation alone and an LF inside code are two line endin
   assert.deepEqual(code('- ```\n  \n  x\n  \n  ```'), [6, 16, '\nx\n']);
 });
 
+test('indented code ending in a CR and blank lines keeps no trailing ending (F-20.1 review)', () => {
+  // mdast's trim takes the CR and a blank line's LF as one CRLF; that is right for indented code,
+  // whose trailing blank lines CommonMark drops, so nothing is put back.
+  for (const [source, value] of [['    a\r \n    \nb', 'a'], ['\t    x\r  \n\t', '    x']] as const) {
+    const [block] = parsed(source, 'codeBlock');
+    assert.ok(block?.type === 'codeBlock', JSON.stringify(source));
+    // `parsed` holds every invariant.
+    assert.equal(block.value, value, JSON.stringify(source));
+  }
+});
+
 test('the checker reports a code range moved up onto a fence its code repeats (F-20)', () => {
   // The review's mutation `offset = 0`: content starts at the opening fence and keeps the value's
   // line count, so it drops the last code line. Every line here copies the fence line, give or take
