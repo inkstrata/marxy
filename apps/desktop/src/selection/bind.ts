@@ -8,6 +8,8 @@ import { operationInputFor, operationInputsFor } from './input.ts';
 import { copyDefault, markdownCopy } from './verbs.ts';
 import { openVerbMenu, verbMenuIsOpen, type MenuAnchor } from './verb-menu.ts';
 import { applyDocumentMutation } from '../commands/edits.ts';
+import { bindFocus, focusRules } from '../pane/focus.ts';
+import { installPaneKeys } from '../pane/keys.ts';
 import type { AppHandle } from '../app.ts';
 
 export type PaletteCloser = () => void;
@@ -182,13 +184,39 @@ function installVerbMenuOpeners(): void {
 
 let keysInstalled = false;
 let keysFor: AppHandle | null = null;
+/** The panes focus is bound on (D-06), and what unbinds it when a newer app takes the page. */
+let focusBoundTo: unknown = null;
+let unbindFocus: () => void = () => {};
 
-/** The registry's one key dispatcher, for `handle`; installing it again moves it to the newer handle. */
+/**
+ * Focus for `handle`'s panes (D-06): the pointer rules on the grid they sit in, and the selection
+ * following the focused pane. A handle without panes (a test's stand-in) has nothing to bind.
+ */
+function bindPaneFocus(handle: AppHandle): void {
+  const panes = typeof handle.panes === 'function' ? handle.panes() : null;
+  if (!panes || panes === focusBoundTo) return;
+  unbindFocus();
+  focusBoundTo = panes;
+  const main = panes.panes[0]?.host.parentElement;
+  const offRules = main ? focusRules(panes, main) : () => {};
+  const offFollow = bindFocus(panes, () => handle.selection);
+  unbindFocus = () => {
+    offRules();
+    offFollow();
+  };
+}
+
+/**
+ * The registry's one key dispatcher, for `handle`; installing it again moves it to the newer handle. The
+ * pane chords (pane/keys.ts) run ahead of it, in the capture phase, and focus is bound to the handle's panes.
+ */
 export function installCommandKeys(handle: AppHandle): void {
   keysFor = handle;
+  if (typeof document !== 'undefined') bindPaneFocus(handle);
   if (keysInstalled || typeof document === 'undefined') return;
   keysInstalled = true;
   installVerbMenuOpeners();
+  installPaneKeys({ commands, context: () => buildAppContext(keysFor), mac: isMac });
   document.addEventListener('keydown', (event) => {
     const editable = inEditable(event);
     const appCtx = buildAppContext(keysFor);

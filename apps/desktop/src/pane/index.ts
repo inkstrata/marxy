@@ -59,8 +59,9 @@ export function createPanes(deps: PanesDeps): AppPanes {
   function content(parts: PaneParts, slot: Slot): AppPane {
     let openPath: OpenPath | null = null;
     let self: AppPane | null = null;
-    // The selection and the command context are the first pane's (D-06 binds them per pane). A second
-    // pane's task click edits its own store, never the focused one's.
+    // The command context is the first pane's; a second pane's task click edits its own store, never the
+    // focused one's. The selection is the window's one, told about this pane's page (D-06).
+    const selection = (): RenderedSelection | null => deps.selection()?.forArticle(parts.article) ?? null;
     const context =
       slot === 0
         ? deps.context
@@ -68,7 +69,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
     const view = createRenderedView(hostFor(parts, slot), {
       ...deps.view,
       shell,
-      selection: slot === 0 ? deps.selection : () => null,
+      selection,
       context,
       refreshTitle: () => openPath?.refreshTitle() ?? Promise.resolve(),
     });
@@ -78,7 +79,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
       shell,
       view,
       stores,
-      selection: slot === 0 ? deps.selection : () => null,
+      selection,
       pieces: slot === 0 ? deps.open.pieces : null,
       // The window title is the focused pane's document: a pane opening beside it does not take it (D-06
       // carries the rest of focus).
