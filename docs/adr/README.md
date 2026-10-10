@@ -63,7 +63,7 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0057](0057-two-column-split.md) | Two documents side by side: at most two columns in one window, no tree and no OS windows, independent scroll, `#doc` the first pane; amends 0005 and 0011 | proposed (D-01) |
 | [0058](0058-the-fold-up-workspace.md) | The fold-up workspace: at rest is the folded window; unfolded, sidebar, tabs, toolbar, inspector and status bar may persist; windows open folded; reverses 0050 item 4 and 0011 inside the workspace | accepted (author, 2026-10-10) |
 | [0059](0059-token-contract-v2.md) | Token contract v2: 27 surface, status, accent, face and chrome roles with v1 fallbacks; a kind re-scopes `--marxy-*`, no `--k-*` family; contract 2; amends 0008 and 0031 | proposed (H-01) |
-| 0060 | Kinds (reserved for K-01) | — |
+| [0060](0060-kinds.md) | Kinds: fourteen ways a file is read, `article` the default, detected from the reader's rules, name, format, shape and byline, never from who wrote it; a kind sets the default mode; amends 0005 | proposed (K-01) |
 | 0061 | Derived views (reserved for K-02) | — |
 | [0062](0062-the-library.md) | The library: the collection can be browsed in a sidebar tree and a library view, with saved queries; amends 0053 and 0012 | accepted (author, 2026-10-10) |
 | [0063](0063-capture-rules.md) | Capture rules: a standing, declared request to copy files byte-exact into a reader folder | accepted (author, 2026-10-10) |
