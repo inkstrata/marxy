@@ -1,15 +1,15 @@
 /**
  * The typesetter (ADR-0007, docs/design/04-typeset.md): ragged-right line breaking (the per-line
- * right-skip breaker by default, justif/core on request) on paragraphs, tight list items and quotes,
+ * right-skip breaker) on paragraphs, tight list items and quotes,
  * with hanging punctuation and hyphenation; viewport first, the rest in idle time, then the grid pass.
  */
 
 import { LINE_BREAK, SET, applyBreaks, contentBox, overflow, revert } from './apply.ts';
 import { applyHang } from './hang.ts';
 import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
-import { DEFAULT_BREAK, breakTokens, type Measured } from './items.ts';
-import { FontSizes, measureTokens } from './measure.ts';
-import { DEFAULT_RAGGED, breakRagged, type RaggedSettings } from './ragged.ts';
+import type { Measured } from './items.ts';
+import { FontSizes, measureTokens, scratchRange } from './measure.ts';
+import { DEFAULT_RAGGED, breakRagged } from './ragged.ts';
 import { insertSlashBreaks } from './slash-break.ts';
 export { insertSlashBreaks };
 import { collectTokens, type Token } from './runs.ts';
@@ -23,10 +23,6 @@ export interface TypesetOptions {
   readonly lineBox: number;
   /** The ragged breaker's per-line stretch, in em (TeX's \rightskip); see RESEARCH.md "Rendered". */
   readonly raggedStretchEm?: number;
-  /** Stretch per word space for the justif engine (MARXY-19's model); used only when `engine` is 'justif'. */
-  readonly glueStretchEm: number;
-  /** 'ragged' (default): the per-line right-skip breaker. 'justif': justif/core over MARXY-19's stream. */
-  readonly engine?: 'ragged' | 'justif';
   /** Allow-listed hyphenation; default true. */
   readonly hyphenate?: boolean;
   /** Accepted for the §04 surface; the ending pressure stays justif's default, see RESEARCH.md "Rendered". */
@@ -40,9 +36,17 @@ export interface TypesetOptions {
   /**
    * Called after each pass that changed line breaks, so the app can re-run the grid pass and re-read
    * positions. `viewport` and `visible` passes set what the reader is looking at; `background` passes
-   * are the idle batches, which a caller may coalesce.
+   * are the idle batches, which a caller may coalesce. A background batch that left every paragraph it
+   * set at the height it had moved nothing on the page and does not call (B-25).
    */
   readonly onPass?: (kind: 'viewport' | 'visible' | 'background') => void;
+  /**
+   * The element that scrolls the article, read at each pass, so a caller whose scroller changes (a
+   * view moved between the window and a pane of its own, D-05) returns the current one. Its offset is
+   * what the reader's place is held by, and its top is where the reading line is measured from (B-26).
+   * Default: the document's scrolling element.
+   */
+  readonly scroller?: () => HTMLElement | null;
 }
 
 export interface TypesetStats {
@@ -76,6 +80,10 @@ export interface TypesetController {
   readonly stats: TypesetStats;
 }
 
+/** A paragraph whose height moved by less than this after setting kept its lines: layout is in 1/64 px. */
+const HEIGHT_MOVED = 0.5;
+/** How long adoption must be quiet before the background batches resume; see `lastAdopt`. */
+const ADOPT_QUIET_MS = 50;
 /** §04 "Which elements". A list item is its own paragraph only when it is tight (no block inside). */
 const CANDIDATES = 'p[data-marxy-s], li[data-marxy-s], dd, figcaption';
 const BLOCK_CHILD = ':scope > :is(p, ul, ol, pre, blockquote, table, div, h1, h2, h3, h4, h5, h6, hr, dl)';
@@ -105,18 +113,41 @@ interface Plan extends Candidate {
   readonly measured: readonly Measured[];
 }
 
+/**
+ * Where the reader is: the top-level block under the reading line, and the top of the point in it that
+ * is compared before and after a pass. A block that starts below the line is followed by its top. A block
+ * the line runs through (a long paragraph, a list, a code block) is followed by the character under the
+ * line (F-11): its top stays put when lines inside it above the reader change height, as a re-set of
+ * that paragraph or a marker written into it does, and the words under the line would move with no
+ * compensation.
+ *
+ * The character is kept as its text node and offset, read again directly after the pass, so a large
+ * block costs no walk over its text. A pass splits and rejoins text nodes only inside the paragraphs it
+ * sets (breaks, hang, revert), and never changes their text, so for a character inside such a paragraph
+ * its offset in the paragraph's text is noted as well, and the paragraph alone is walked when the pass
+ * moved the node.
+ */
+interface Place {
+  readonly el: HTMLElement;
+  /** The block's top before the pass: what is compared when no character is followed or it paints no box after. */
+  readonly blockTop: number;
+  /** The character under the reading line, or null: follow the block's top. */
+  readonly char: Char | null;
+}
+
+/** A character noted under the reading line, and the top of its line before the pass. */
+interface Char {
+  readonly node: Text;
+  readonly offset: number;
+  readonly top: number;
+  /** The settable paragraph around it, and its offset in that paragraph's text; null when no pass splits its node. */
+  readonly scope: { readonly p: HTMLElement; readonly at: number } | null;
+}
+
 export function attach(article: HTMLElement, opts: TypesetOptions): TypesetController {
   const scheduler = opts.scheduler ?? idleScheduler();
   const fonts = new FontSizes();
-  // justif/core hyphen demerits follow the same TeX costs as the ragged breaker (ADR-0033).
-  const hyphenCosts = (r: RaggedSettings): Pick<typeof DEFAULT_BREAK, 'hyphenPenalty' | 'doubleHyphenDemerits' | 'finalHyphenDemerits'> => ({
-    hyphenPenalty: r.hyphenPenalty,
-    doubleHyphenDemerits: r.doubleDashDemerits,
-    finalHyphenDemerits: r.finalHyphenDemerits,
-  });
-  const settings = { ...DEFAULT_BREAK, glueStretchEm: opts.glueStretchEm, ...hyphenCosts(DEFAULT_RAGGED) };
   const ragged = { ...DEFAULT_RAGGED, stretchEm: opts.raggedStretchEm ?? DEFAULT_RAGGED.stretchEm };
-  const engine = opts.engine ?? 'ragged';
   const hyphenateOn = opts.hyphenate !== false;
   const hanging = opts.hanging ?? 'left';
   const stats: TypesetStats = { paragraphs: 0, typeset: 0, fallbacks: 0, short: 0, viewportMs: 0, hyphenationLoadMs: 0, reasons: {} };
@@ -153,7 +184,10 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   // pointer are not fought. (A scrollbar drag the engine does not report as a pointer press is only
   // covered by the quiet window after its last wheel or key event.)
   const win = article.ownerDocument.defaultView;
-  const scroller = (): HTMLElement | null => article.ownerDocument.scrollingElement as HTMLElement | null;
+  const pageScroller = (): HTMLElement | null => article.ownerDocument.scrollingElement as HTMLElement | null;
+  const scroller = opts.scroller ?? pageScroller;
+  /** Where the scroller's visible area starts on screen: 0 for the page, its top for an element of its own (a pane). */
+  const viewTop = (root: HTMLElement): number => (root === pageScroller() ? 0 : root.getBoundingClientRect().top);
   const INPUT_QUIET_MS = 200;
   /** Probes down the reading line: the block at the first that hits the article is the one noted. */
   const READING_PROBES = [4, 16, 40, 80] as const;
@@ -162,20 +196,67 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   /** The block noted last, kept while it stays under the reading line, so most passes cost one rect read. */
   let noted: HTMLElement | null = null;
   let scrolled = true;
-  const onInput = (): void => {
+  // Inside a pane (B-26.2) the window-level listeners also hear the other pane's wheel, keys and
+  // scrolls. An event whose target lies outside this scroller is not this scroller's reader input:
+  // it would hold off the place here for the quiet window while the other pane was being read. The
+  // page's own scroller takes every event, as before. A target that belongs to no element (the
+  // document, `html`, `body`) is not told apart and counts.
+  const isMine = (event?: Event): boolean => {
+    const target = event?.target;
+    if (!(target instanceof Node)) return true;
+    const root = scroller();
+    if (root === null || root === pageScroller()) return true;
+    const doc = article.ownerDocument;
+    if (target === doc || target === doc.documentElement || target === doc.body) return true;
+    return root.contains(target);
+  };
+  const onInput = (event?: Event): void => {
+    if (!isMine(event)) return;
     lastInput = performance.now();
   };
-  const onDown = (): void => {
+  const onDown = (event?: Event): void => {
+    if (!isMine(event)) return;
     pressed = true;
     onInput();
   };
   const onUp = (): void => {
     pressed = false;
   };
-  const onScroll = (): void => {
-    scrolled = true;
+  // The wheel is listened for only while the page is scrolled away from its top (B-02.8). A wheel
+  // listener anywhere in a WebKit document, passive or not, makes the engine keep an event region for
+  // it, recomputed by a paint of the whole page after every layout: on a 1 MB document that loads in
+  // chunks at the top, a few milliseconds a chunk and some 20 % of the time to the last chunk. At the
+  // top nothing is above the screen, so there is nothing to keep and no wheel to stay out of the way
+  // of. The first `scroll` away from the top (or the first pass that finds the page scrolled) adds the
+  // listener; a scroll back to the top removes it. The other input events cost nothing and stay.
+  // The wheel tick that leaves the top comes before its listener, so leaving the top counts as the
+  // reader's input, seen by whichever comes first: that `scroll`, or a pass that finds the page
+  // scrolled before the engine has dispatched it (a wheel's `scroll` waits for the next frame, and a
+  // pass can run in between). The trade: a position set by script away from the top (a restore) is not
+  // compensated for the quiet window after it; the app holds such a position itself (`holdAnchor`).
+  let wheel = false;
+  const listenToWheel = (on: boolean): void => {
+    if (on === wheel || win === null) return;
+    wheel = on;
+    win[on ? 'addEventListener' : 'removeEventListener']('wheel', onInput, { capture: true, passive: true });
   };
-  const inputTypes = ['wheel', 'touchmove', 'keydown'] as const;
+  const onScroll = (event?: Event): void => {
+    if (!isMine(event)) return;
+    scrolled = true;
+    const root = scroller();
+    if (root === null) return;
+    const left = !wheel && root.scrollTop > 0;
+    listenToWheel(root.scrollTop > 0);
+    if (left && event !== undefined) onInput();
+  };
+  /** The page is scrolled and no `scroll` has said so yet: it has just left the top, as the reader's input. */
+  const leftTheTop = (): boolean => {
+    if (wheel) return false;
+    listenToWheel(true);
+    onInput();
+    return true;
+  };
+  const inputTypes = ['touchmove', 'keydown'] as const;
   const downTypes = ['mousedown', 'touchstart'] as const;
   const upTypes = ['mouseup', 'touchend', 'touchcancel', 'blur'] as const;
   const listen = (on: boolean): void => {
@@ -184,40 +265,165 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     for (const t of downTypes) win?.[add](t, onDown, { capture: true, passive: true });
     for (const t of upTypes) win?.[add](t, onUp, { capture: true, passive: true });
     win?.[add]('scroll', onScroll, { capture: true, passive: true });
+    if (on) onScroll();
+    else listenToWheel(false);
   };
   listen(true);
   const readerIsScrolling = (): boolean => pressed || performance.now() - lastInput < INPUT_QUIET_MS;
 
-  /** The top-level block under the reading line, and where its top is. */
-  const placeAt = (root: HTMLElement): { readonly el: HTMLElement; readonly top: number } | null => {
+  /** The y the block in `noted` was found at, for the character under it. */
+  let notedY: number = READING_PROBES[0];
+
+  /** The text position at a point on screen, where the engine can say. */
+  const caretAt = (x: number, y: number): { readonly node: Node; readonly offset: number } | null => {
+    const doc = article.ownerDocument as Document & {
+      caretPositionFromPoint?: (x: number, y: number) => { readonly offsetNode: Node; readonly offset: number } | null;
+    };
+    if (typeof doc.caretRangeFromPoint === 'function') {
+      const range = doc.caretRangeFromPoint(x, y);
+      return range === null ? null : { node: range.startContainer, offset: range.startOffset };
+    }
+    const pos = doc.caretPositionFromPoint?.(x, y) ?? null;
+    return pos === null ? null : { node: pos.offsetNode, offset: pos.offset };
+  };
+
+  /** Walks `p`'s text nodes; `visit` returns a value to stop with, or undefined to go on. */
+  const walkText = <T>(p: HTMLElement, visit: (t: Text, sum: number) => T | undefined): T | null => {
+    const walker = p.ownerDocument.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    let sum = 0;
+    for (let t = walker.nextNode() as Text | null; t !== null; t = walker.nextNode() as Text | null) {
+      const found = visit(t, sum);
+      if (found !== undefined) return found;
+      sum += t.length;
+    }
+    return null;
+  };
+
+  /**
+   * The top of the line holding the character at `offset` of `node`, or null when it paints no box. A
+   * space a break collapsed at a line's end paints none; the character before it is on the same line.
+   */
+  const topAt = (node: Text, offset: number): number | null => {
+    const range = scratchRange(node.ownerDocument);
+    for (const i of [offset, offset - 1]) {
+      if (i < 0 || i >= node.length) continue;
+      range.setStart(node, i);
+      range.setEnd(node, i + 1);
+      const rect = range.getClientRects()[0];
+      if (rect !== undefined) return rect.top;
+    }
+    return null;
+  };
+
+  /** Where the noted character is now: its own node if the pass left it whole in the block, else found again by offset. */
+  const charTopNow = (el: HTMLElement, c: Char): number | null => {
+    // A break splits a node and keeps the head: the character is still in it while the offset is.
+    if (c.node.isConnected && el.contains(c.node) && c.offset < c.node.length) return topAt(c.node, c.offset);
+    if (c.scope === null || !c.scope.p.isConnected) return null;
+    const at = c.scope.at;
+    return walkText(c.scope.p, (t, sum) => (at < sum + t.length ? topAt(t, at - sum) : undefined));
+  };
+
+  /** The block `el`, found at `y`, and the point in it that is followed. */
+  const placeIn = (el: HTMLElement, y: number): Place => {
+    const blockTop = el.getBoundingClientRect().top;
+    if (blockTop >= y) return { el, blockTop, char: null };
+    const box = article.getBoundingClientRect();
+    const caret = caretAt(box.left + box.width / 2, y);
+    if (caret === null || caret.node.nodeType !== Node.TEXT_NODE || !el.contains(caret.node)) return { el, blockTop, char: null };
+    const node = caret.node as Text;
+    // A point past a line's last character (a short heading, a listing's line) gives the offset after it.
+    const offset = caret.offset > 0 && caret.offset >= node.length ? node.length - 1 : caret.offset;
+    const top = topAt(node, offset);
+    if (top === null) return { el, blockTop, char: null };
+    const p = node.parentElement?.closest<HTMLElement>(CANDIDATES) ?? null;
+    const scope = p === null || !el.contains(p) ? null : { p, at: walkText(p, (t, sum) => (t === node ? sum + offset : undefined)) ?? -1 };
+    return { el, blockTop, char: { node, offset, top, scope: scope !== null && scope.at >= 0 ? scope : null } };
+  };
+
+  /** The top-level block under the reading line, and the point in it that is followed. */
+  const placeAt = (root: HTMLElement): Place | null => {
     if (root.scrollTop <= 0 || !article.isConnected) return null;
+    if (leftTheTop()) return null;
+    const top = viewTop(root);
     // Nothing has scrolled since it was noted, so it is still the block under the line: no hit test.
     if (!scrolled && noted !== null && noted.parentElement === article) {
       const rect = noted.getBoundingClientRect();
-      if (rect.bottom > READING_PROBES[0] && rect.top < READING_PROBES[3]) return { el: noted, top: rect.top };
+      if (rect.bottom > top + READING_PROBES[0] && rect.top < top + READING_PROBES[3]) return placeIn(noted, notedY);
     }
     scrolled = false;
     noted = null;
     const box = article.getBoundingClientRect();
     const x = box.left + box.width / 2;
-    for (const y of READING_PROBES) {
+    for (const probe of READING_PROBES) {
+      const y = top + probe;
       let el = article.ownerDocument.elementFromPoint(x, y);
       while (el !== null && el.parentElement !== article) el = el.parentElement;
       if (el instanceof HTMLElement) {
         noted = el;
-        return { el, top: el.getBoundingClientRect().top };
+        notedY = y;
+        return placeIn(el, y);
       }
     }
     return null;
   };
 
-  /** Runs `work`, which may change heights above the screen, and keeps the block at the top where it was. */
-  const keepPlace = (work: () => void): void => {
+  // The end of the scroller is held through a pass's writes (B-26.1). Setting a paragraph splits its
+  // text nodes (the breaks, the hang), and WebKit lays out a text node that was split as if the text
+  // moved into the new nodes were not there yet: inside the one layout that follows, the paragraph is
+  // as short as what its first node kept (one line, when every split is at a line's end). A scroller
+  // within that much of its end clamps its offset to the shorter content and keeps the clamped offset
+  // once the paragraph is whole again: a pane or window put at its end before its paragraphs were set
+  // jumped some 2,000 px back, the first time a batch of paragraphs far above was set. No script moves
+  // it, and it comes inside the quiet window after the reader's own scroll, so `keepPlace` does not
+  // put it right. So while a pass writes, the article keeps at least the height it had, and the
+  // transient shrink never reaches the scroller; a real change of height is the engine's again once
+  // the pass is done, the same layout as without the hold. Taken only when the scroller is nearer its
+  // end than the paragraphs the pass rewrites are tall, the most they can shrink: at the top, or
+  // mid-document, it costs one read of the offset. Replacing the split nodes with new ones instead
+  // also avoids the shrink, but moves the reader's selection out of a paragraph that is set again.
+  let holding = false;
+  const holdEnd = (root: HTMLElement, rewrites: readonly HTMLElement[]): (() => void) | null => {
+    if (holding || rewrites.length === 0) return null;
+    const top = root.scrollTop;
+    if (top <= 0) return null;
+    let most = 0;
+    for (const p of rewrites) most += p.getBoundingClientRect().height;
+    if (root.scrollHeight - root.clientHeight - top >= most) return null;
+    const style = article.style;
+    const value = style.getPropertyValue('min-height');
+    const priority = style.getPropertyPriority('min-height');
+    const cs = getComputedStyle(article);
+    let height = article.getBoundingClientRect().height;
+    if (cs.boxSizing !== 'border-box') {
+      for (const side of [cs.paddingTop, cs.paddingBottom, cs.borderTopWidth, cs.borderBottomWidth]) height -= parseFloat(side) || 0;
+    }
+    style.setProperty('min-height', `${height}px`, 'important');
+    holding = true;
+    return () => {
+      holding = false;
+      if (value === '') style.removeProperty('min-height');
+      else style.setProperty('min-height', value, priority);
+    };
+  };
+
+  /**
+   * Runs `work`, which may change heights above the reading line, and keeps the point under it where it
+   * was. `rewrites` are the paragraphs whose text it may split: the end of the scroller is held for them.
+   */
+  const keepPlace = (work: () => void, rewrites: readonly HTMLElement[]): void => {
     const root = scroller();
     const place = root === null || readerIsScrolling() ? null : placeAt(root);
-    work();
+    const release = root === null ? null : holdEnd(root, rewrites);
+    try {
+      work();
+    } finally {
+      release?.();
+    }
     if (root === null || place === null || readerIsScrolling() || !place.el.isConnected) return;
-    const moved = place.el.getBoundingClientRect().top - place.top;
+    const char = place.char === null ? null : charTopNow(place.el, place.char);
+    // A character that paints no box after the pass (hidden, or gone) leaves the block's top to follow.
+    const moved = char !== null && place.char !== null ? char - place.char.top : place.el.getBoundingClientRect().top - place.blockTop;
     if (Math.abs(moved) > 0.25) {
       root.scrollTop += moved;
       scrolled = true;
@@ -241,7 +447,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
 
   /** Breakpoints for a measured paragraph, or null when a line cannot fit. */
   const choose = (c: Candidate, measured: readonly Measured[], width: number): readonly number[] | null => {
-    const broken = engine === 'justif' ? breakTokens(measured, width, settings) : breakRagged(measured, width, fonts.of(c.p).size, ragged);
+    const broken = breakRagged(measured, width, fonts.of(c.p).size, ragged);
     return broken.overfull ? null : broken.after;
   };
 
@@ -271,13 +477,17 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   /**
    * One batch: read and measure every paragraph in its native layout, break, write every break, then
    * verify and revert the failures. Two layouts however many paragraphs, because every step is all
-   * reads or all writes.
+   * reads or all writes. Returns whether any paragraph it set may have changed height, read in those
+   * two layouts: a set paragraph almost always keeps its native line count, and then nothing below it
+   * moved (B-25).
    */
-  const setBatch = (paragraphs: readonly HTMLElement[]): void => {
+  const setBatch = (paragraphs: readonly HTMLElement[]): boolean => {
     // Changes made by someone else before this batch are handled first; this batch's own writes
     // (breaks, hang, reverts) are dropped from the change watcher below once it is done.
     resetChanged(changes?.takeRecords() ?? []);
     const candidates = paragraphs.map(candidate).filter((x): x is Candidate => x !== null);
+    // Read in the native layout the candidates were just measured in: no layout of its own.
+    const heights = new Map(candidates.map(({ p }) => [p, p.getBoundingClientRect().height]));
     const plans: Plan[] = [];
     for (const c of candidates) {
       let tokens = c.tokens;
@@ -304,12 +514,17 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     // overflow check below must see the paragraph as it will paint.
     const place = (list: readonly Plan[]): void => {
       for (const { p, tokens, after } of list) applyBreaks(p, tokens, after);
-      if (hanging === 'left') for (const { p } of list) applyHang(p);
+      if (hanging === 'left') applyHang(list.map(({ p }) => p));
     };
     place(plans);
     // Positions are good to about a pixel, so a line the breaker filled to the edge can paint a
     // fraction past it. Such a paragraph is set once more on a measure short by what it overran.
-    const over = plans.map((plan) => ({ plan, by: overflow(plan.p, plan.right) })).filter(({ by }) => by > 0.5);
+    // The heights are read in the layouts the overflow checks read anyway. A paragraph reverted after
+    // all is back in its native layout, at the height it had.
+    const changed = (p: HTMLElement): boolean => Math.abs(p.getBoundingClientRect().height - heights.get(p)!) >= HEIGHT_MOVED;
+    const checked = plans.map((plan) => ({ plan, by: overflow(plan.p, plan.right) }));
+    const over = checked.filter(({ by }) => by > 0.5);
+    let moved = checked.some(({ plan, by }) => by <= 0.5 && changed(plan.p));
     for (const { plan } of over) revert(plan.p);
     const retried: Plan[] = [];
     for (const { plan, by } of over) {
@@ -318,7 +533,9 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       else fallback('overflow after setting');
     }
     place(retried);
-    const failed = retried.filter(({ p, right }) => overflow(p, right) > 0.5);
+    const rechecked = retried.map((plan) => ({ plan, by: overflow(plan.p, plan.right) }));
+    moved ||= rechecked.some(({ plan, by }) => by <= 0.5 && changed(plan.p));
+    const failed = rechecked.filter(({ by }) => by > 0.5).map(({ plan }) => plan);
     for (const { p } of failed) {
       revert(p);
       fallback('overflow after setting');
@@ -326,6 +543,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     stats.typeset += plans.length - over.length + retried.length - failed.length;
     for (const p of paragraphs) observer?.unobserve(p);
     changes?.takeRecords();
+    return moved;
   };
 
   /** Whether a mutation can change a line: one that only adds `display: none` elements cannot. */
@@ -398,7 +616,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       }
       if (far.length > 0) enqueue(far);
       if (near.length > 0) setBatch(near);
-    });
+    }, near);
     if (!reset || near.length === 0) return;
     // The grid pass runs again only when a paragraph's line count, and so its height, moved.
     if (near.some((p) => !p.classList.contains(SET) || breaksIn(p) !== before.get(p))) opts.onPass?.('visible');
@@ -417,6 +635,11 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       }
       layout(mine);
     };
+    // With typesetting off nothing will use the patterns: skip the load, and settle the controller now.
+    if (killed()) {
+      go();
+      return;
+    }
     if (hyphenateOn && hyphenators === null) {
       const loadStart = performance.now();
       // A chunk that fails to load must not stall boot: set without hyphens, and the next run retries.
@@ -443,10 +666,14 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const horizon = window.innerHeight * 2;
     const tops = all.map((p) => p.getBoundingClientRect());
     const first = all.filter((_, i) => tops[i]!.bottom > 0 && tops[i]!.top < horizon);
-    // Not inside `keepPlace`: this pass sets only what reaches the screen (bottom below its top edge),
-    // so no paragraph in it is wholly above the block under the reading line, and a relayout has
-    // already reverted every height above it, which the app puts right by position (B-02.5).
-    setBatch(first);
+    // This pass sets only what reaches the screen (bottom below its top edge), so no paragraph in it is
+    // wholly above the block under the reading line; but that block can be one of them, a paragraph the
+    // line runs through, whose lines above the reader it sets (F-11). `keepPlace` follows the character
+    // under the line through it. A relayout has already reverted every height above, which the app
+    // puts right by position (B-02.5); at the top of the page this costs one read. At a relayout the
+    // app's `relayoutKeepingReader` restores by position after `ready`, so this matters only where
+    // nothing restores afterwards (an attach on a scrolled page, a relayout the caller does not restore after).
+    keepPlace(() => setBatch(first), first);
     stats.viewportMs = performance.now() - t0;
     if (first.length > 0) opts.onPass?.('viewport');
     resolveReady();
@@ -466,7 +693,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
           const now = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement).filter((p) => queue.includes(p));
           if (now.length === 0) return;
           queue = queue.filter((p) => !now.includes(p));
-          keepPlace(() => setBatch(now));
+          keepPlace(() => setBatch(now), now);
           opts.onPass?.('visible');
         },
         { rootMargin: '200% 0px' },
@@ -475,13 +702,25 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     const step = (deadline: () => number): void => {
       if (mine !== generation || abortIfKilled()) return;
+      // While a large document is still arriving in chunks, the mount has the idle time (B-25).
+      const sinceAdopt = performance.now() - lastAdopt;
+      if (scheduler.after !== undefined && sinceAdopt < ADOPT_QUIET_MS) {
+        scheduler.after(ADOPT_QUIET_MS - sinceAdopt, step);
+        return;
+      }
       bg.running = false;
       const batch: HTMLElement[] = [];
       // Paragraphs cost roughly the same; take a few at a time while the chunk has budget left.
       while (queue.length > 0 && deadline() > 0 && batch.length < 8) batch.push(queue.shift()!);
       if (batch.length > 0) {
-        keepPlace(() => setBatch(batch));
-        opts.onPass?.('background');
+        let moved = false;
+        keepPlace(() => {
+          moved = setBatch(batch);
+        }, batch);
+        // Only a batch that moved something below it asks for the grid pass and new positions (B-25):
+        // the caller's pass covers the whole article, and asked after every batch of a large document
+        // it was most of the time to its last chunk, for nothing, since a set paragraph seldom changes height.
+        if (moved) opts.onPass?.('background');
       }
       // The observer is no longer disconnected when the queue empties: paragraphs adopted later (A-02)
       // are observed by it, and once every paragraph is set it observes nothing.
@@ -498,11 +737,20 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     } else resolveDone();
   };
 
+  /**
+   * When paragraphs were last adopted. The background batches wait until adoption has been quiet for
+   * ADOPT_QUIET_MS (B-25): each batch reads layout two or three times, and a layout of the article
+   * costs in proportion to what is in it, so batches taken between a large document's chunks made
+   * the mount's last chunk wait on work that grew with the square of the document. What the reader
+   * scrolls to is still set at once, by the visibility observer.
+   */
+  let lastAdopt = -Infinity;
   const adopt = (roots: readonly HTMLElement[]): void => {
     // Before the first layout there is nothing to join: that layout reads the whole article as it is then.
     const bg = background;
     if (bg === null || bg.mine !== generation || killed()) return;
     const found = roots.flatMap((root) => [...(root.matches(CANDIDATES) ? [root] : []), ...root.querySelectorAll<HTMLElement>(CANDIDATES)]);
+    if (found.length > 0) lastAdopt = performance.now();
     enqueue(found);
   };
 

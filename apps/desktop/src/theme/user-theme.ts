@@ -1,11 +1,10 @@
 // User theme load, apply, watch, and config resolution (docs/design/05-theme.md §App side). MARXY-177.
 import { joinPath, normalizePath, dirname } from '@marxy/core/src/index-model/paths.ts';
-import { applyTheme, loadTheme, parseConfig } from '@marxy/theme';
-import type { TypesetController } from '@marxy/typeset';
+import { applyTheme, avgCharWarnings, loadTheme, parseConfig } from '@marxy/theme';
 import type { WatchEvent } from '@marxy/shell-api';
 import { notify } from '../notices/index.ts';
-import type { BlockList } from '../render/post.ts';
-import { currentPosition, restoreScrollToPosition } from '../position/index.ts';
+import type { RenderedView } from '../view/rendered-view.ts';
+import { afterFirstPaint, measureAverageAdvance } from './measure-face.ts';
 
 export interface UserThemeShell {
   readFile(path: string): Promise<Uint8Array>;
@@ -22,11 +21,8 @@ const WARNINGS_SHOWN = 3;
 
 export interface UserThemeContext {
   readonly shell: UserThemeShell;
-  readonly article: HTMLElement;
-  getTypeset(): TypesetController | null;
-  readingScroller(): HTMLElement;
-  getOpenPath(): string | null;
-  getBlocks(): BlockList | null;
+  /** Every view the app shows: each is set again, with its reader kept in place, when a theme applies (B-13). */
+  views(): readonly RenderedView[];
 }
 
 /** Expands `~` and resolves relative theme paths against the config file's directory. */
@@ -47,7 +43,7 @@ export function resolveThemeDir(raw: string | null, configPath: string): string 
  * `<home>/Library/Application Support/<id>` (macOS), `<home>/.config/<name>` or `<home>/.config`
  * (XDG), or `<home>/AppData/Roaming/<id>` (Windows); anything else has no recoverable home.
  */
-function inferHomeFromConfig(configPath: string): string {
+export function inferHomeFromConfig(configPath: string): string {
   const configDir = dirname(configPath);
   const layouts = [
     /^(.*)\/Library\/Application Support(?:\/[^/]+)?$/,
@@ -75,22 +71,28 @@ function displayPath(dir: string): string {
 }
 
 async function relayoutKeepingPosition(ctx: UserThemeContext): Promise<void> {
-  const typeset = ctx.getTypeset();
-  const openPath = ctx.getOpenPath();
-  const blocks = ctx.getBlocks();
-  const scroller = ctx.readingScroller();
-  if (!typeset || !openPath || !blocks) {
-    return;
-  }
-  const pos = currentPosition(scroller, blocks, openPath, 'rendered');
-  typeset.relayout('theme');
-  await typeset.ready;
-  restoreScrollToPosition(scroller, blocks, { ...pos, path: openPath, mode: 'rendered' });
+  for (const view of ctx.views()) await view.relayoutForTheme();
+}
+
+/**
+ * H-06: tells the reader when the theme's `--marxy-avg-char` is far from what its text face measures. Runs
+ * after first paint (commitment 5): measuring waits for the face to load, and nothing here is on the way to text.
+ */
+function checkAvgCharAfterPaint(css: string, themeName: string): void {
+  afterFirstPaint(() => {
+    const bodyPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-body'));
+    void avgCharWarnings(css, themeName, (family) =>
+      measureAverageAdvance({ family, sizePx: Number.isFinite(bodyPx) && bodyPx > 0 ? bodyPx : undefined }),
+    ).then((found) => {
+      const text = themeNoticeText(found);
+      if (text !== null) notify({ kind: 'info', text });
+    });
+  });
 }
 
 async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<void> {
   await ctx.shell.allowAssetScope(dir);
-  const { css, warnings } = await loadTheme(
+  const { manifest, css, warnings } = await loadTheme(
     dir,
     async (rel) => ctx.shell.readFile(joinPath(dir, rel)),
     (abs) => ctx.shell.assetUrl(abs),
@@ -98,6 +100,7 @@ async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<voi
   applyTheme(css);
   const notice = themeNoticeText(warnings);
   if (notice !== null) notify({ kind: 'info', text: notice });
+  checkAvgCharAfterPaint(css, manifest.name);
   await relayoutKeepingPosition(ctx);
   await ctx.shell.mark('user_theme', Date.now(), `dir=${dir}`);
 }

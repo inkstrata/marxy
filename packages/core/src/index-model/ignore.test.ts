@@ -67,3 +67,9 @@ test('an invalid range drops that rule and leaves the others in force', () => {
   assert.equal(isIgnored('x.log', false, rules), true);
   assert.equal(isIgnored('foo', false, rules), false);
 });
+
+test('a backslash is part of a name: the rule `a/` does not ignore a folder named a\\b', () => {
+  const rules = parseIgnore('a/\n');
+  assert.equal(isIgnored('a\\b/c.md', false, rules), false);
+  assert.equal(isIgnored('a/b/c.md', false, rules), true);
+});

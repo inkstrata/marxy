@@ -1,0 +1,855 @@
+{
+ "$comment": "C-16: content-search cases shared by the Rust search (commands/search.rs) and the memory shell (memory-search.test.ts). Paths are rewritten under a temporary directory by the Rust test. A file is {text} (UTF-8) or {hex}, optionally padded with 'x' to padTo bytes.",
+ "cases": [
+  {
+   "name": "lf: line and offset",
+   "files": {
+    "/r/a.md": {
+     "text": "alpha\nbeta needle gamma\n"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 2,
+      "byteOffset": 11,
+      "preview": "beta needle gamma",
+      "matchStart": 5,
+      "matchEnd": 11
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "crlf: lines count line feeds, the preview drops the return",
+   "files": {
+    "/r/a.md": {
+     "text": "one\r\ntwo\r\nthree needle\r\nfour"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 3,
+      "byteOffset": 16,
+      "preview": "three needle",
+      "matchStart": 6,
+      "matchEnd": 12
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "bom: the offset counts the byte-order mark, the preview leaves it out",
+   "files": {
+    "/r/a.md": {
+     "text": "\ufeffneedle here"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 3,
+      "preview": "needle here",
+      "matchStart": 0,
+      "matchEnd": 6
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "multi-byte characters before the match: UTF-8 bytes in the offset, UTF-16 units in the preview",
+   "files": {
+    "/r/a.md": {
+     "text": "na\u00efve \ud83d\ude00 needle"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 12,
+      "preview": "na\u00efve \ud83d\ude00 needle",
+      "matchStart": 9,
+      "matchEnd": 15
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "smart case: an all-lowercase query folds ASCII case",
+   "files": {
+    "/r/a.md": {
+     "text": "Needle NEEDLE needle"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "Needle NEEDLE needle",
+      "matchStart": 0,
+      "matchEnd": 6
+     },
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 7,
+      "preview": "Needle NEEDLE needle",
+      "matchStart": 7,
+      "matchEnd": 13
+     },
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 14,
+      "preview": "Needle NEEDLE needle",
+      "matchStart": 14,
+      "matchEnd": 20
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "smart case: any uppercase means exact bytes",
+   "files": {
+    "/r/a.md": {
+     "text": "Needle NEEDLE needle"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "NEEDLE",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 7,
+      "preview": "Needle NEEDLE needle",
+      "matchStart": 7,
+      "matchEnd": 13
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "smart case: a non-ASCII uppercase letter also means exact bytes",
+   "files": {
+    "/r/a.md": {
+     "text": "\u00c9X \u00c9x"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "\u00c9x",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 4,
+      "preview": "\u00c9X \u00c9x",
+      "matchStart": 3,
+      "matchEnd": 5
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "folding is ASCII only",
+   "files": {
+    "/r/a.md": {
+     "text": "\u00c9mile \u00e9mile"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "\u00e9mile",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 7,
+      "preview": "\u00c9mile \u00e9mile",
+      "matchStart": 6,
+      "matchEnd": 11
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "several hits over several lines",
+   "files": {
+    "/r/a.md": {
+     "text": "a\nb needle needle\nc needle"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 2,
+      "byteOffset": 4,
+      "preview": "b needle needle",
+      "matchStart": 2,
+      "matchEnd": 8
+     },
+     {
+      "path": "/r/a.md",
+      "line": 2,
+      "byteOffset": 11,
+      "preview": "b needle needle",
+      "matchStart": 9,
+      "matchEnd": 15
+     },
+     {
+      "path": "/r/a.md",
+      "line": 3,
+      "byteOffset": 20,
+      "preview": "c needle",
+      "matchStart": 2,
+      "matchEnd": 8
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a file with a NUL in its first 8 KB is binary and skipped",
+   "files": {
+    "/r/bin.md": {
+     "text": "needle\u0000needle"
+    },
+    "/r/t.md": {
+     "text": "needle"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/bin.md",
+    "/r/t.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/t.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "needle",
+      "matchStart": 0,
+      "matchEnd": 6
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a file over 4 MB is skipped; one of exactly 4 MB is searched",
+   "files": {
+    "/r/big.md": {
+     "text": "needle",
+     "padTo": 4194305
+    },
+    "/r/ok.md": {
+     "text": "needle",
+     "padTo": 4194304
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/big.md",
+    "/r/ok.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/ok.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "needlexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "matchStart": 0,
+      "matchEnd": 6
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "perFile is respected and says truncated",
+   "files": {
+    "/r/a.md": {
+     "text": "n n n n"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "n",
+   "opts": {
+    "perFile": 3
+   },
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "n n n n",
+      "matchStart": 0,
+      "matchEnd": 1
+     },
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 2,
+      "preview": "n n n n",
+      "matchStart": 2,
+      "matchEnd": 3
+     },
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 4,
+      "preview": "n n n n",
+      "matchStart": 4,
+      "matchEnd": 5
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": true
+   }
+  },
+  {
+   "name": "limit is respected across files and says truncated",
+   "files": {
+    "/r/a.md": {
+     "text": "n n"
+    },
+    "/r/b.md": {
+     "text": "n n"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md",
+    "/r/b.md"
+   ],
+   "query": "n",
+   "opts": {
+    "limit": 3
+   },
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "n n",
+      "matchStart": 0,
+      "matchEnd": 1
+     },
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 2,
+      "preview": "n n",
+      "matchStart": 2,
+      "matchEnd": 3
+     },
+     {
+      "path": "/r/b.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "n n",
+      "matchStart": 0,
+      "matchEnd": 1
+     }
+    ],
+    "scannedFiles": 2,
+    "truncated": true
+   }
+  },
+  {
+   "name": "a limit met exactly is not truncated",
+   "files": {
+    "/r/a.md": {
+     "text": "n n"
+    },
+    "/r/b.md": {
+     "text": "n n"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md",
+    "/r/b.md"
+   ],
+   "query": "n",
+   "opts": {
+    "limit": 4
+   },
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "n n",
+      "matchStart": 0,
+      "matchEnd": 1
+     },
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 2,
+      "preview": "n n",
+      "matchStart": 2,
+      "matchEnd": 3
+     },
+     {
+      "path": "/r/b.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "n n",
+      "matchStart": 0,
+      "matchEnd": 1
+     },
+     {
+      "path": "/r/b.md",
+      "line": 1,
+      "byteOffset": 2,
+      "preview": "n n",
+      "matchStart": 2,
+      "matchEnd": 3
+     }
+    ],
+    "scannedFiles": 2,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a missing path is skipped; a repeated path is searched once",
+   "files": {
+    "/r/a.md": {
+     "text": "needle"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/gone.md",
+    "/r/a.md",
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "needle",
+      "matchStart": 0,
+      "matchEnd": 6
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a file outside every root is never read",
+   "files": {
+    "/r/a.md": {
+     "text": "secret"
+    },
+    "/s/b.md": {
+     "text": "secret"
+    },
+    "/r2/c.md": {
+     "text": "secret"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/s/b.md",
+    "/r2/c.md",
+    "/r/../s/b.md",
+    "/r/a.md"
+   ],
+   "query": "secret",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "secret",
+      "matchStart": 0,
+      "matchEnd": 6
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a dotted root is a folder, and a sibling sharing its prefix is outside it",
+   "files": {
+    "/r/notes.d/a.md": {
+     "text": "secret"
+    },
+    "/r/notes.d2/b.md": {
+     "text": "secret"
+    },
+    "/r/c.md": {
+     "text": "secret"
+    },
+    "/r/docs2/d.md": {
+     "text": "secret"
+    },
+    "/r/docs/e.md": {
+     "text": "secret"
+    }
+   },
+   "roots": [
+    "/r/notes.d",
+    "/r/docs"
+   ],
+   "paths": [
+    "/r/notes.d2/b.md",
+    "/r/c.md",
+    "/r/docs2/d.md",
+    "/r/notes.d/./a.md",
+    "/r/notes.d/a.md",
+    "/r/docs/e.md"
+   ],
+   "query": "secret",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/notes.d/a.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "secret",
+      "matchStart": 0,
+      "matchEnd": 6
+     },
+     {
+      "path": "/r/docs/e.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "secret",
+      "matchStart": 0,
+      "matchEnd": 6
+     }
+    ],
+    "scannedFiles": 2,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a file in a deny-listed directory is never read",
+   "files": {
+    "/r/node_modules/x/a.md": {
+     "text": "secret"
+    },
+    "/r/docs/.git/b.md": {
+     "text": "secret"
+    },
+    "/r/ok.md": {
+     "text": "secret"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/node_modules/x/a.md",
+    "/r/docs/.git/b.md",
+    "/r/ok.md"
+   ],
+   "query": "secret",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/ok.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "secret",
+      "matchStart": 0,
+      "matchEnd": 6
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a long line is cut to 160 characters around the match",
+   "files": {
+    "/r/a.md": {
+     "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaneedlebbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 300,
+      "preview": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaneedlebbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "matchStart": 77,
+      "matchEnd": 83
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "a match near the start of a long line keeps what follows",
+   "files": {
+    "/r/a.md": {
+     "text": "ab needlecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 3,
+      "preview": "ab needleccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "matchStart": 3,
+      "matchEnd": 9
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "control characters become spaces in the preview",
+   "files": {
+    "/r/a.md": {
+     "text": "\tkey:\u0007needle\u0085"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 6,
+      "preview": " key: needle ",
+      "matchStart": 6,
+      "matchEnd": 12
+     }
+    ],
+    "scannedFiles": 1,
+    "truncated": false
+   }
+  },
+  {
+   "name": "invalid UTF-8 shows as replacement characters and keeps byte offsets",
+   "files": {
+    "/r/a.md": {
+     "hex": "ff6e6565646c65"
+    },
+    "/r/b.md": {
+     "hex": "e2826e6565646c65"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md",
+    "/r/b.md"
+   ],
+   "query": "needle",
+   "opts": {},
+   "expect": {
+    "hits": [
+     {
+      "path": "/r/a.md",
+      "line": 1,
+      "byteOffset": 1,
+      "preview": "\ufffdneedle",
+      "matchStart": 1,
+      "matchEnd": 7
+     },
+     {
+      "path": "/r/b.md",
+      "line": 1,
+      "byteOffset": 2,
+      "preview": "\ufffdneedle",
+      "matchStart": 1,
+      "matchEnd": 7
+     }
+    ],
+    "scannedFiles": 2,
+    "truncated": false
+   }
+  },
+  {
+   "name": "an empty query or one with a line break matches nothing",
+   "files": {
+    "/r/a.md": {
+     "text": "a\nb"
+    }
+   },
+   "roots": [
+    "/r"
+   ],
+   "paths": [
+    "/r/a.md"
+   ],
+   "query": "a\nb",
+   "opts": {},
+   "expect": {
+    "hits": [],
+    "scannedFiles": 0,
+    "truncated": false
+   }
+  }
+ ]
+}

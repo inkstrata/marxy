@@ -2,49 +2,67 @@
 // store, whose subscribers re-render the page (ADR-0037).
 import { textOf } from '@marxy/core';
 import { toggleTask } from '@marxy/core/src/operations/toggle-task.ts';
-import { nodeFor, type NodeMap } from './post.ts';
+import { nodeFor } from './post.ts';
+import type { AppContext } from '../commands/registry.ts';
 import { apply } from '../selection/apply.ts';
-import { buildAppContext } from '../selection/bind.ts';
-import { getSelectionBufferContext } from '../selection/view.ts';
 
 const WIRED = new WeakSet<HTMLElement>();
 
-export function installTaskMarkers(article: HTMLElement, _nodeMap?: NodeMap): void {
-  if (WIRED.has(article)) return;
+/** Whether `article` has the task click installed; the test harness reads it (harness/test-hooks.ts). */
+export function taskMarkersInstalled(article: HTMLElement): boolean {
+  return WIRED.has(article);
+}
+
+/**
+ * The task click, on `article`, once. `context` is read at click time: the open document is its store's
+ * snapshot then. The toggle carries `pageVersion()`, the store version the page clicked on was set from
+ * (the selection's, B-13), else that snapshot's version (ADR-0037 Amendment 1). Returns what
+ * takes it off again, so the article's next view can install its own (B-13); a second install while
+ * one is on is a no-op, and so is its undo.
+ */
+export function installTaskMarkers(
+  article: HTMLElement,
+  context: () => AppContext,
+  pageVersion?: () => number | undefined,
+): () => void {
+  if (WIRED.has(article)) return () => {};
   WIRED.add(article);
-  if (typeof window !== 'undefined') {
-    (window as Window & { __marxyTasksReady?: boolean }).__marxyTasksReady = true;
-  }
-  article.addEventListener(
-    'click',
-    (ev) => {
-      const box = taskBoxFor(ev, article);
-      if (!box) return;
-      const carrier = box.closest('[data-marxy-s]');
-      if (!carrier) return;
-      const ctx = getSelectionBufferContext();
-      if (!ctx) return;
-      const resolved = nodeFor(ctx.nodeMap, carrier);
-      if (!resolved || resolved.type !== 'taskMarker') return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      const marker = resolved;
-      const range = marker.src;
-      const input = {
-        document: ctx.document,
-        node: marker,
-        range,
-        text: textOf(ctx.buffer, range),
+  const onClick = (ev: MouseEvent): void => {
+    const box = taskBoxFor(ev, article);
+    if (!box) return;
+    const carrier = box.closest('[data-marxy-s]');
+    if (!carrier) return;
+    const base = context();
+    const snap = base.document?.snapshot();
+    if (!snap) return;
+    const resolved = nodeFor(snap.nodeMap, carrier);
+    if (!resolved || resolved.type !== 'taskMarker') return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const marker = resolved;
+    const range = marker.src;
+    const input = {
+      document: snap.ast,
+      node: marker,
+      range,
+      text: textOf(snap.buffer, range),
+    };
+    if (!toggleTask.canApply(input)) return;
+    // The version the page was set from, read now: a page behind the store has a stale task under it.
+    const baseVersion = pageVersion?.() ?? snap.version;
+    void import('../commands/edits.ts').then(({ applyDocumentMutation }) => {
+      const ctx: AppContext = {
+        ...base,
+        applyBufferMutation: (edit) => applyDocumentMutation(base.document, { ...edit, baseVersion }),
       };
-      if (!toggleTask.canApply(input)) return;
-      const base = buildAppContext();
-      if (!base) return;
-      void import('../commands/edits.ts').then(({ attachDocumentEdits }) => {
-        void apply(toggleTask, attachDocumentEdits(base), input);
-      });
-    },
-    true,
-  );
+      void apply(toggleTask, ctx, input);
+    });
+  };
+  article.addEventListener('click', onClick, true);
+  return () => {
+    article.removeEventListener('click', onClick, true);
+    WIRED.delete(article);
+  };
 }
 
 /**

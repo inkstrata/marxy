@@ -1,10 +1,12 @@
 // Per-file-type default view mode on open (docs/design/09-app-shell.md §Source mode).
 
+import { basename } from '@marxy/core/src/index-model/paths.ts';
+
 const RENDERED_EXT = new Set(['.md', '.markdown', '.mdx', '.txt']);
 
 /** Lowercase extension including the dot, or '' when there is none. */
 export function extensionOf(path: string): string {
-  const base = path.replace(/\\/g, '/').split('/').pop() ?? path;
+  const base = basename(path);
   const dot = base.lastIndexOf('.');
   if (dot <= 0) return '';
   return base.slice(dot).toLowerCase();
@@ -22,7 +24,7 @@ export function defaultModeForPath(path: string): 'rendered' | 'source' {
  */
 export function themeCssOpenNotice(path: string, siblingHasThemeToml: boolean): string | null {
   if (!siblingHasThemeToml) return null;
-  const base = path.replace(/\\/g, '/').split('/').pop() ?? path;
+  const base = basename(path);
   if (base !== 'theme.css') return null;
   return 'This file styles a marxy theme. Switch to Rendered after editing, or use “apply this theme” from the notice.';
 }

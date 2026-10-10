@@ -8,6 +8,7 @@ import {
   lineMetaForHighlight,
   type HighlightToken,
 } from '@marxy/core/src/highlight/index.ts';
+import { closedJobIds } from './highlight-queue.ts';
 import { applyInvisibleMarkers, sourceTextFromCode } from './invisibles-dom.ts';
 import { applyLinkDestinations } from './link-dest.ts';
 
@@ -115,7 +116,8 @@ type Lines = HighlightToken[][] | null;
 /** The highlight worker, started on first use; null when a worker cannot run here (then the page highlights). */
 let worker: Worker | null | undefined;
 let nextId = 0;
-const pending = new Map<number, { code: string; lang: string; resolve: (lines: Lines) => void }>();
+/** `block` is the code element the job colours: when it has left the page its document is gone. */
+const pending = new Map<number, { code: string; lang: string; block: HTMLElement; resolve: (lines: Lines) => void }>();
 
 function startWorker(): Worker | null {
   if (typeof Worker === 'undefined') return null;
@@ -133,7 +135,10 @@ function startWorker(): Worker | null {
       w.terminate();
       const jobs = [...pending.values()];
       pending.clear();
-      for (const job of jobs) void highlight(job.code, job.lang).then(job.resolve, () => job.resolve(null));
+      for (const job of jobs) {
+        if (!job.block.isConnected) job.resolve(null);
+        else void highlight(job.code, job.lang).then(job.resolve, () => job.resolve(null));
+      }
     };
     return w;
   } catch {
@@ -141,14 +146,26 @@ function startWorker(): Worker | null {
   }
 }
 
+/**
+ * Takes back the queued jobs of blocks that have left the page, so the next document's fences never
+ * wait behind the last one's (B-21). The job the worker is running cannot be taken back; its result is
+ * discarded when it arrives.
+ */
+function dropClosedJobs(): void {
+  if (!worker) return;
+  const ids = closedJobIds(pending);
+  if (ids.length > 0) worker.postMessage({ drop: ids });
+}
+
 /** Token lines for one block, from the worker when there is one. */
-function tokenize(code: string, lang: string): Promise<Lines> {
+function tokenize(block: HTMLElement, code: string, lang: string): Promise<Lines> {
   if (worker === undefined) worker = startWorker();
   const w = worker;
   if (w === null) return highlight(code, lang);
+  dropClosedJobs();
   return new Promise((resolve) => {
     const id = nextId++;
-    pending.set(id, { code, lang, resolve });
+    pending.set(id, { code, lang, block, resolve });
     w.postMessage({ id, code, lang });
   });
 }
@@ -161,8 +178,9 @@ export async function applyHighlightToCode(code: HTMLElement): Promise<boolean> 
   if (!lang) return (applyLinesToCode(code), false);
   // Plain lines first, so a long wrapped line is marked even while its colour is on the way.
   applyLinesToCode(code);
-  const lines = await tokenize(source, lang);
-  if (!lines) return false;
+  const lines = await tokenize(code, source, lang);
+  // A block whose document closed while its colour was on the way is not painted.
+  if (!lines || !code.isConnected) return false;
   code.replaceChildren(spansFromTokens(lines, { lang }));
   applyInvisibleMarkers(code);
   code.dataset.marxyDone = 'highlight';
@@ -220,6 +238,8 @@ function highlightAndReport(code: HTMLElement, coloured: (() => void) | undefine
 export function startCodeHighlight(article: HTMLElement, onLayoutChanged?: () => void): void {
   applyInvisibleMarkers(article);
   applyLinkDestinations(article);
+  // A document with no fences sends no drop: the old jobs finish and are discarded by `isConnected`.
+  dropClosedJobs();
   const blocks = fencedCodeBlocks(article);
   if (blocks.length === 0) return;
   const coloured = onLayoutChanged === undefined ? undefined : coalesced(onLayoutChanged);

@@ -81,7 +81,12 @@ function valueExports(text) {
 // boundary. So the directory's runtime export surface is an allowlist — one shell object, nothing
 // that hands a caller the raw IPC channel.
 test('apps/desktop/src/shell exports only the shell object and the memory factory', () => {
-  const allowed = ['shell', 'createMemoryShell'];
+  // `eventsForWatch` (C-05) and `refusalForWatch` (C-11.1) are pure filters over an `fs-watch`
+  // payload; they take no IPC handle. So do `createEarlyBuffer`, its `EARLY_LIMIT` and `isNotWatching`
+  // (C-11.2): the bounded buffer for what arrives before a watch knows its key, and a test of an error.
+  // `clipboard` (J-02): the clipboard type names, the write check and the Tauri adapter, which takes
+  // `invoke` as an argument; it holds no IPC handle.
+  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch', 'refusalForWatch', 'createEarlyBuffer', 'EARLY_LIMIT', 'isNotWatching', 'clipboard'];
   const exported = files
     .filter(f => f.rel.startsWith(shellDir + sep))
     .flatMap(f => valueExports(f.text).map(name => ({ name, rel: f.rel })));
@@ -119,7 +124,7 @@ function handlerCommandNames(mainText) {
   const names = [];
   for (const part of block.split(',')) {
     const token = part.trim().replace(/\s+/g, ' ');
-    const scoped = /commands::(?:fs|os)::(\w+)/.exec(token);
+    const scoped = /commands::(?:fs|os|search)::(\w+)/.exec(token);
     if (scoped) names.push(scoped[1]);
     else if (/^[a-z][a-z0-9_]*$/.test(token)) names.push(token);
   }

@@ -143,3 +143,6 @@ export function trustWriteFailedText(err: unknown): string {
 
 export const TRUST_NEWER_VERSION_TEXT =
   'Trust settings are from a newer Marxy and were left unchanged, so this change was not saved.';
+
+export const TRUST_UNREADABLE_TEXT =
+  'Marxy could not read its trust settings, so nothing is trusted this session.';

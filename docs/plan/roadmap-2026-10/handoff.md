@@ -1,67 +1,84 @@
-# Lead handoff — Phase B mid-way, lane L started, paused
+# Lead handoff: the 2026-10-08 round, stopped at the author's request
 
-**For:** the next lead session, and the author. **Read with:** `00-orchestration.md`, then `progress.md`
-(one row per story), then `02-phase-b.md` and `07-layout-and-reading.md`. This page says what to do next.
+**For:** the next lead session, and the author. **Read with:** `00-orchestration.md` §3 to §6, then `progress.md`,
+then the phase documents the stories below name. This page says what to do next.
 
-## Where things stand (2026-10-07)
+## Where things stand (2026-10-08, evening)
 
-- **Released:** v0.1.0 (pre-release, ad-hoc signed DMG) on `ad0b020c`.
-- **Merged this session:** A-10.3 (two never-run WebKit tests deleted, by ruling), B-10 (the trust
-  controller), B-09.1 (one wording for the blocked-images notice).
-- **Merged at the pause:** B-11, B-02.7, L-00 (the last two with their reviews' returns open, now B-02.8
-  and L-00.1), A-10.4. **Paused by the author:** the round in flight finishes and gets one review each; nothing new is
-  dispatched. A return found in that round is recorded, not re-dispatched.
-- **Model use:** Sonnet for implementors and every reviewer; Opus only for B-11 (L-size seam). The
-  author prefers this split (Opus for planning and L-size seams). Five Sonnet reviews this session caught
-  two real gaps (B-02.5's untested paths and +15 % cost; A-10.3's collateral grid assertion).
+The author asked the lead to run the implementation cycle, then to stop gracefully. Twenty-five pull requests merged
+this round, each after an Opus review that the lead acted on (the ledger has the detail): C-06, B-15, C-10.1, C-11.2,
+C-13, C-13.1, C-17 (Phase C is complete), F-17.1, F-19, F-19.1, F-19.2, F-19.3, F-20, B-16, B-16.1, B-17, B-17.1,
+B-23, B-25, L-02, L-02.1, L-03, D-01, D-04, D-05; and the plan PRs #455 and #477.
 
-## In flight at this writing
+Large documents, the author's first priority, moved most:
 
-| Story | State | What the next lead does |
-| --- | --- | --- |
-| B-11 (opus) | merged (#362) | B-11.1 (a worktree for it already exists, made outside this session: check who owns it) and B-12 |
-| B-02.5 / B-02.7 | both merged; B-02.7's return (+18–20 % 1 MB content_complete since B-02.5) is open | **first in the queue: B-02.8 on Opus** (card in `02-phase-b.md`) |
-| L-00 (sonnet) | merged (#365) with its return open | L-00.1 (Sonnet) fixes H4/H6 and the controls; then L-01 on Opus |
-| A-10.4 (sonnet) | #360, merge verdict (lead review), default size only | author merges |
-| B-02 (opus) | **parked**: pushed (`d2885b69` code, `b2b68f0b` macOS baselines), no PR | see below |
+- A live reload of a 1 MB document dropped from 5.4 s to about 0.2 s (B-23, incremental reparse; two adversarial
+  reviews, about 475,000 fuzzed edits, no mismatch).
+- The first full mount of a transcript-shaped document was cubic: 59 s at 256 KB, over 11 minutes at 1 MB. With B-25
+  merged and B-25.1 open, it is 0.8 s and about 4 s. **B-25.1 (#479) is the next merge to land.**
 
-## B-02: why it is parked and how to resume
+## Open pull requests, and what each needs
 
-The aesthetics gate now measures the real app and every mechanical rule passes, but the screenshot
-comparison does not repeat on the same code: `06-math`'s inline-matrix paragraph moves (0.6–0.8 %), and
-`18-agent-transcript`'s last screen shifts 12 px when its code blocks finish highlighting (10.5 %, once).
-No threshold was loosened. Order to resume:
-1. Merge B-02.5 (reader's place kept on reflow; likely cures the 12 px shift).
-2. Rebase B-02 onto main, re-probe 8–10 renders per flaky cell.
-3. If `06-math` still moves, dispatch B-02.6 (card in `02-phase-b.md`).
-4. Regenerate macOS baselines after the rebase; Linux baselines in CI or the nightly (amd64 emulation on
-   an arm64 Mac is too slow and itself unstable). Re-run precheck and `--selftest`.
-Also: the gate's wall time went 157 s → 5–10.5 min on the app. Worth a look before it is a PR-path cost.
-Then A-11.2 (gates design document) follows B-02.
+| PR | Story | State | Next |
+| --- | --- | --- | --- |
+| #479 | B-25.1 | review was stopped | a fresh Opus review (brief: the sanitiser keeps `language-*` on `pre` for every language name; goldens moved only by the attribute; captions unchanged; re-measure), then merge |
+| #475 | D-06 | fixed after return 1; re-review stopped | a fresh re-review of `14473ac1` (check the `dialog[open]` rule does not block pane focus while a notice shows), then merge |
+| #480 | F-20.1 | review stopped just after it reported "an introduced divergence" against commonmark.js | **do not merge**; re-review, comparing CR-heavy inputs against commonmark.js 0.31.2 |
+| #470 | F-21 | returned twice on Sonnet | re-run on Opus after D-08 merges (it needs an `onCommitted` hook in `document/open.ts`, which D-08 is editing); the second review describes the race |
+
+## Stopped mid-work: resume in the worktree
+
+Each was stopped with uncommitted work. Read `git diff` in the worktree before continuing; do not `git stash` (the
+stash is shared across worktrees).
+
+| Story | Worktree | Model | What is there |
+| --- | --- | --- | --- |
+| D-08 | `../marxy-wt/D-08` | opus | close, save, title and quit for two documents; most files edited, test file written; the pane/index.ts title listener and the command were next |
+| B-26 | `../marxy-wt/B-26` | opus | the typesetter's keep-place reads the pane's scroller; implemented, mutations were running |
+| F-23 | `../marxy-wt/F-23` | sonnet | CRLF position helpers (`source/cm-position.ts`) and their use; tests written |
+| F-24 | `../marxy-wt/F-24` | sonnet | a CR-only file's line separator; test written, precheck was running |
+
+## Next, in order
+
+1. Land #479 (B-25.1), #475 (D-06); re-review #480.
+2. Finish D-08, then F-21 on Opus; then D-07 (the D-05 review's stale-offset fix is on its card), D-11, D-13 (each
+   after D-06), and B-24 (re-render only what a reload changed; after F-23 lands, same file).
+3. F-23, F-24, B-26; then F-22 (ordered lists; after B-25.1, same file `base.css`), B-18 (after D-08: `app.ts`).
+4. A-11.2 waits for G-03 (#450, lane G's session).
+- **Cap:** four implementors, at most two on Opus. Reviews are not capped, and every one this round found something.
 
 ## Waiting on the author
 
+1. **Code-owned files**, which the lead cannot merge:
+   - **B-16.1:** `nightly.yml`'s perf job still builds `dist/`, which it no longer uses.
+   - **L-02.1:** the probe tests' nightly step (the YAML is in #469's body).
+   - **B-23:** a nightly `pnpm --filter @marxy/core test:reparse-stress`.
+   - **B-25:** the transcript step (YAML in #471's body).
+   - **`release.yml`:** it runs `gate:bundle` after `tauri-action` has published; move it before.
+   - Merge #394 and #407.
+2. **Decision 4 (classic scrollbar):** L-03 measured macOS and Linux and recommends no root rule. The measurement was
+   at 20 px type only; the overflow range grows with size.
+3. **Rulings carried from earlier:**
+   - L-01 decisions 6, 7 and 9;
+   - ADR-0053, ADR-0054, ADR-0055 and now ADR-0057 (proposed);
+   - the image-scope ceiling;
+   - a Rust-owned root allow-list for `read_file` and `search_content`.
+4. **New questions from this round:**
+   - **Content search (C-17):** a hit in a code file opens in Source.
+   - **The `/` prefix (C-17):** it collides with typing an absolute path.
+   - **The verb menu (C-13):** a right-clicked link offers only "Jump to source"; and Enter on a Tab-focused link
+     follows it, while on a selected link it opens the menu.
+   - **WKWebView's menu (C-13):** whether `contextmenu`'s `preventDefault` hides WKWebView's own menu in the built app.
+   - **Taste (L-03):** the partial list hang at narrow widths.
+   - **TCC prompts (C-10.1):** whether walking `~` raises a prompt for Pictures, Music or Movies on macOS 26.
 
-1. **The v0.1.0 manual checks**: a nine-question walkthrough was posted in the session; results not yet
-   in. The likeliest failures are Finder drag-and-drop (the macOS drop event was never seen on a real
-   build). Each failure becomes a fix story.
+## Lessons from this round
 
-## Next, in order (once unpaused)
-
-- **B lane (one story at a time on `app.ts`):** B-11 → B-12 → B-13 → B-14 → B-15; then B-16/B-17 in
-  parallel. B-20 carries B-09.1's follow-ups (delete `displayBlockedHost`, no uncapped host list).
-- **Lane L:** L-01 (Opus) after L-00, working from the probe alone with the eight decisions at their
-  defaults (`rulings.md`, 2026-10-07). L-06 (Source looks, Sonnet) and L-10 (code on the grid at every size, Sonnet, from A-10.4) can start any time a slot is free.
-  L-02 to L-04 each alone after B-02 merges (baselines).
-- **Cap:** four implementors, at most two on Opus, counted across both lanes.
-
-## Lessons from this session
-
-- **Interrupted agents leave work behind.** B-09.1 (uncommitted) and B-10 (unpushed) were found four days
-  later and finished by a short Sonnet "audit and open the PR" pass with no code change. Check
-  `git status` and `git log origin/main..HEAD` in every `running` worktree at the start of a session.
-- **Stacking still works.** B-11 started on B-10's branch before it merged; tell the agent explicitly
-  when the base lands, because it will not notice.
-- **Ask the reviewer for a cost number.** B-02.5's +15 % would not have been seen without one.
-- **A gate that photographs the real app needs settled pages.** Layout that moves after "done" shows up
-  first as screenshot flakes, not as rule failures.
+- **Machine load is the bottleneck.** With about ten WebKit-running agents, load reached 100 and test runs timed out
+  for hours. Brief every agent to run tests serially and targeted, and to re-run a timeout alone.
+- **Adversarial reviews with an oracle pay.** B-23's first reparse was wrong on lists and line ends, and F-20's checker
+  loosening hid a wrong range. Both were found by fuzzers the reviewers wrote, not by the PRs' own tests.
+- **A test that waits can hide a product race.** F-21's 300 ms wait hid a Back press going one step too far.
+- **The lead's own requests need the same scrutiny.** The APG Home/End behaviour the lead asked of D-04 broke it.
+- **A card's paths can be wrong.** F-19 named the wrong file, and F-19.1's "offset 0" was never held by an unscrolled
+  reader. Implementors who stopped and reported saved a round each time.

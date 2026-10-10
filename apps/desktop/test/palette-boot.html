@@ -21,6 +21,8 @@
   <script type="module">
     import { bootApplication } from '../src/main.ts';
     import { createMemoryShell } from '../src/shell/memory.ts';
+    import { prepareStats } from '../src/palette/search.ts';
+    import { installTestHooks } from '../src/harness/test-hooks.ts';
 
     function decodeBase64(b64) {
       const bin = atob(b64);
@@ -30,11 +32,25 @@
     }
 
     window.marxyPaletteBoot = {
-      async start(files, argv, indexEntries) {
+      /** C-04's row counter, so a test can tell a patch (one row) from a rebuild. */
+      prepareStats,
+      /** `opts.refuseTreeWatch`: the shell rejects every recursive watch, as it does past its limit (C-11). */
+      async start(files, argv, indexEntries, opts) {
         const bytes = {};
         for (const [path, b64] of Object.entries(files)) bytes[path] = decodeBase64(b64);
         const shell = createMemoryShell(bytes);
+        if (opts?.refuseTreeWatch) {
+          const watch = shell.watch;
+          shell.watch = async (root, onEvents, watchOpts) => {
+            if (watchOpts?.recursive) {
+              shell.calls.push({ method: 'watch', args: [root, watchOpts] });
+              throw Object.assign(new Error(`${root}: too many files`), { code: 'unsupported' });
+            }
+            return watch(root, onEvents, watchOpts);
+          };
+        }
         const handle = await bootApplication(shell, { argv });
+        installTestHooks(handle);
         await handle.ready;
         if (indexEntries?.length) handle.palette.setIndexEntries(indexEntries);
         return { handle, marks: shell.calls.filter((c) => c.method === 'mark') };

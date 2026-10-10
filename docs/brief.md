@@ -81,6 +81,7 @@ macOS first; Linux becomes a release criterion once it can be verified (ADR-0046
 
 ## Out of scope
 
-Sharing, hosting, publishing, sync, accounts, mobile, library browsing, a plugin API
-(unless an ADR adds one), export, Mermaid, composed documents. The parse-and-render pipeline stays shell-free
+Sharing, hosting, publishing, sync, accounts, mobile, a managed library that owns or copies the
+reader's files, a plugin API (unless an ADR adds one), Mermaid, composed documents. Library browsing (ADR-0062) and local export from the unfolded
+workspace (`docs/plan/direction-2026-10/`) were lifted from this list on 2026-10-10. The parse-and-render pipeline stays shell-free
 (ADR-0020) so none of these is foreclosed.

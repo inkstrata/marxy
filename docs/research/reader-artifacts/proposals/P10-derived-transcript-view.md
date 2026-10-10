@@ -1,6 +1,6 @@
 # Draft P10. A JSONL transcript has a derived, read-only view
 
-**Status:** draft proposal, not an ADR and not accepted. It edits nothing. **Blocked by:** ast-contract. **Evidence:** [Agent artifacts](../02-agent-artifacts.md).
+**Status:** decided by [ADR-0061](../../../adr/0061-derived-views.md) (proposed; the author accepts), which answers the ast-contract block: a separate derived tree beside the AST. Built by K-12. This draft edits nothing. **Evidence:** [Agent artifacts](../02-agent-artifacts.md).
 
 ## Context
 

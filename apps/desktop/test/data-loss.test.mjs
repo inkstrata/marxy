@@ -61,8 +61,6 @@ async function boot(text, { slowWrite = 0 } = {}) {
   await page.evaluate(async ({ b64, slow, path }) => {
     const r = await window.marxyPaletteBoot.start({ [path]: b64 }, [path], []);
     window.__handle = r.handle;
-    // Dirty baseline the harness provides (as save.test.mjs does): the bytes as first read.
-    window.__marxyOrigBytes = new Uint8Array(await r.handle.shell.readFile(path));
     if (slow) {
       const sh = r.handle.shell;
       const orig = sh.writeFileAtomic;
@@ -85,13 +83,7 @@ const saveKey = async (page) => {
   await page.click('#doc h1');
   await page.keyboard.press(`${await modOf(page)}+s`);
   await settle(page);
-  await rebaseAfterSave(page);
 };
-// The harness baseline does not move on save; follow the disk so a second save is judged against it.
-const rebaseAfterSave = (page) =>
-  page.evaluate(async (p) => {
-    window.__marxyOrigBytes = new Uint8Array(await window.__handle.shell.readFile(p));
-  }, PATH);
 const mode = (page, m) => page.waitForFunction((m) => document.body.dataset.marxyMode === m, m);
 const toggleMode = async (page, m) => {
   await page.keyboard.press(`${await modOf(page)}+e`);
@@ -229,7 +221,6 @@ test('two quick toggles land in the buffer, then a slow save writes both', async
   await page.click('#doc h1');
   await page.keyboard.press(`${await modOf(page)}+s`);
   await settle(page, 1200);
-  await rebaseAfterSave(page);
   assert.equal(await disk(page), both);
   await page.close();
 });

@@ -8,29 +8,26 @@
 //        [--widths 320,960] [--sizes 20] [--variants dark] [--scrollbars overlay,classic]
 //        [--workers N] [--no-png] [--overlays-dir DIR] [--readme-only]
 //
-// It renders through the same render entry as scripts/gate-aesthetics.mjs (dist/render.js, built from
-// apps/desktop/src/render/headless.ts). The gate cannot be imported (it runs its own main on load and
-// does not export the builder), so `buildRenderEntry` below is a read-only copy of it; the gate, the
-// baselines, base.css and every src/ file are untouched. Not part of CI (that is L-02).
+// It renders through the same entry as scripts/gate-aesthetics.mjs: the real app, built from
+// apps/desktop/gate.html and driven by window.marxyGate (B-02). The gate cannot be imported (it runs its
+// own main on load and does not export the builder), so `buildRenderEntry` below is a read-only copy of
+// it; the gate, the baselines, base.css and every src/ file are untouched. Not part of CI (that is L-02).
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import { cpus } from 'node:os';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpus, tmpdir } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
 import { launchWebkit } from './playwright-webkit.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const desktop = join(root, 'apps/desktop');
-const dist = join(desktop, 'dist');
+// A fresh directory per run, as the gate does, so a probe and a gate in one worktree never share output.
+// Made on first use, so the gate importing this module's rules leaves no empty directory behind.
+let distDir = null;
+const dist = () => (distDir ??= mkdtempSync(join(tmpdir(), 'marxy-probe-')));
 const corpusDir = join(root, 'fixtures/corpus');
-const FONT_URLS = {
-  '/fonts/Literata.ttf': join(root, 'fonts/literata/Literata[opsz,wght].ttf'),
-  '/fonts/Literata-Italic.ttf': join(root, 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
-  '/fonts/JetBrainsMono.ttf': join(root, 'fonts/jetbrains-mono/JetBrainsMono[wght].ttf'),
-};
 
 export const DEFAULTS = {
   widths: [320, 480, 659, 720, 960, 1280, 1600, 2560],
@@ -101,6 +98,19 @@ export function measureInPage(args) {
     return t;
   };
 
+  // The box that clips an element's ink sideways: the nearest ancestor below the article that scrolls or
+  // clips (a scrolling formula, a table, the omitted tail of a very long line). Ink outside it is not on the
+  // page and is not cut off by the window.
+  const clipCache = new Map();
+  const clipOf = (el) => {
+    if (!el || el === article) return null;
+    if (!clipCache.has(el)) {
+      const box = getComputedStyle(el).overflowX !== 'visible' ? el.getBoundingClientRect() : null;
+      clipCache.set(el, box ? { l: box.left, r: box.right } : clipOf(el.parentElement));
+    }
+    return clipCache.get(el);
+  };
+
   // Ink per block: the union of its own text nodes' client rects (hung punctuation kept apart).
   const ink = new Map();
   const hangs = [];
@@ -110,17 +120,39 @@ export function measureInPage(args) {
     if (!n.nodeValue.trim()) continue;
     const owner = ownerOf(n);
     if (!owner) continue;
-    range.selectNodeContents(n);
     const isHang = n.parentElement?.closest('.marxy-hang') !== null;
-    for (const rc of range.getClientRects()) {
-      if (rc.width === 0 || rc.height === 0) continue;
-      if (isHang) {
-        hangs.push({ owner, left: rc.left, right: rc.right });
-        continue;
+    // A line of preserved spaces (`pre-wrap`) hangs past its box, and the client rects of a text node
+    // include the spaces: whitespace is not ink. Such a node is read one run of non-space at a time.
+    const kept = ['pre', 'pre-wrap', 'break-spaces'].includes(getComputedStyle(n.parentElement).whiteSpace);
+    const rects = [];
+    if (kept) {
+      for (const m of n.nodeValue.matchAll(/\S+/g)) {
+        range.setStart(n, m.index);
+        range.setEnd(n, m.index + m[0].length);
+        rects.push(...range.getClientRects());
       }
+    } else {
+      range.selectNodeContents(n);
+      rects.push(...range.getClientRects());
+    }
+    // The typesetter's `.marxy-hang` wraps the first letter of a line (optical margin) or an opening
+    // quote (hung punctuation). A hung letter is ink that is allowed to hang: it counts, from the
+    // column's edge. Hung punctuation is kept apart.
+    const isLetter = isHang && /[\p{L}\p{N}]/u.test(n.nodeValue);
+    // The hang the typesetter declared is the span's own negative inline-start margin; a letter is read
+    // from the column's edge only within it (plus half a pixel), so a paragraph drifting left is seen.
+    const declared = isLetter ? Math.max(0, -parseFloat(getComputedStyle(n.parentElement.closest('.marxy-hang')).marginInlineStart) || 0) : 0;
+    const clip = clipOf(n.parentElement);
+    for (const rc of rects) {
+      if (rc.width === 0 || rc.height === 0) continue;
+      if (isHang) hangs.push({ owner, left: rc.left, right: rc.right });
+      if (isHang && !isLetter) continue;
+      const left = clip ? Math.max(rc.left, clip.l) : rc.left;
+      const right = clip ? Math.min(rc.right, clip.r) : rc.right;
+      if (right <= left) continue;
       const cur = ink.get(owner) ?? { l: Infinity, r: -Infinity };
-      cur.l = Math.min(cur.l, rc.left);
-      cur.r = Math.max(cur.r, rc.right);
+      cur.l = Math.min(cur.l, isLetter && left >= colL - declared - 0.5 ? Math.max(left, colL) : left);
+      cur.r = Math.max(cur.r, right);
       ink.set(owner, cur);
     }
   }
@@ -416,8 +448,295 @@ export function measureInPage(args) {
   if (args.blocks) {
     cell.blocks = blocks.map((b) => [b.k, b.tag, b.depth, r2(b.l), r2(b.r), r2(b.dL), r2(b.dR), b.iL === null ? null : r2(b.iL), b.iR === null ? null : r2(b.iR), b.idL === null ? null : r2(b.idL), b.scroll ? 1 : 0, r2(b.hBar)]);
   }
+  if (args.blocks) {
+    // The right edge of body text (L-02.1): for each top-level paragraph, how far its set lines' box (the
+    // content box the typesetter measures and sets them to) ends short of the column's right edge. Ragged
+    // lines are not a fault; a paragraph whose lines cannot reach the edge, because a padding, a border or a
+    // margin holds them in, is. The box is geometry, not the words' ink, so no renderer's line ends are read.
+    cell.rightEdge = [];
+    for (const el of blockEls) {
+      if (el.tagName !== 'P' || kindOf(el) !== 'p' || depthOf(el) !== 0 || !el.textContent.trim()) continue;
+      const s = getComputedStyle(el);
+      if (['auto', 'scroll', 'hidden'].includes(s.overflowX)) continue;
+      const lh = parseFloat(s.lineHeight);
+      const box = el.getBoundingClientRect();
+      const inner = box.height - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) - parseFloat(s.borderTopWidth) - parseFloat(s.borderBottomWidth);
+      const setRight = box.right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
+      cell.rightEdge.push([`p@${el.getAttribute('data-marxy-s') ?? '-'}`, Math.round(inner / lh), r2(colR - setRight)]);
+    }
+  }
   return cell;
 }
+
+// ---------------------------------------------------------------------------------------------
+// The rules, as the aesthetics gate holds them (L-02). Each reads what measureInPage returned (with
+// `blocks: true`) and names what fails; the gate imports these and keeps no copy of them.
+// ---------------------------------------------------------------------------------------------
+
+/** Top-level blocks whose text is held to the column's left edge (the screen criterion's "Edges"). */
+export const EDGE_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'table', 'blockquote', 'ul', 'ol', 'dl', 'dl.front', 'p>img', 'figure', 'footnotes']);
+const BLOCK_AT = { tag: 1, depth: 2, l: 3, r: 4, dL: 5, dR: 6, iL: 7, iR: 8, idL: 9, scroll: 10 };
+
+/**
+ * Judge one measured cell against rules 1 to 4 of the screen criterion. Returns `{ check, sub, detail }`
+ * for every failure; `check` is the gate's check (centred, blockEdges, room, marks, noClip) and `sub` the
+ * kind of block or mark at fault, so an expected failure can name exactly the case it defers.
+ */
+export function geometryFailures(cell, { classic: _classic = false } = {}) {
+  const out = [];
+  const add = (check, sub, detail) => out.push({ check, sub, detail });
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const { column: col, viewport: vp } = cell;
+  const at = (b, f) => b[BLOCK_AT[f]];
+
+  // 1. Centre: the column's axis is the axis of what the reader sees (the window less a classic
+  // scrollbar).
+  const off = cell.centre.offsetFromClient;
+  if (Math.abs(off) > 0.5) add('centred', 'axis', `the column's axis is ${off}px from the visible area's axis`);
+  // The ink half of this rule is gone: it applied only when the longest ragged line ended within 1px of
+  // the column's right edge, which depends on the font renderer (L-02 return). The axis above and the
+  // blockEdges check (ink against the column's left edge) hold what it was meant to.
+
+  for (const b of cell.blocks ?? []) {
+    const tag = at(b, 'tag');
+    const depth = at(b, 'depth');
+    const label = `${b[0]} (${tag}, depth ${depth})`;
+    // 2. Edges: top-level text starts on the column's left edge, but for the declared hangs.
+    const idL = at(b, 'idL');
+    if (depth === 0 && EDGE_TAGS.has(tag) && idL !== null && Math.abs(idL) > 1) {
+      const grown = (tag === 'pre' || tag === 'table') && at(b, 'dL') < -1; // a wide block grown about the axis
+      const indented = tag === 'blockquote' && idL > 0; // a blockquote's declared indent
+      if (tag !== 'p>img' && !grown && !indented) {
+        add('blockEdges', tag === 'pre' ? 'code' : tag, `${label}: text starts ${idL}px from the column's left edge`);
+      }
+    }
+    // 3. Room: no box past the column plus the room, at any depth, and wide boxes grow evenly.
+    const pastL = col.roomLimitLeft - at(b, 'l');
+    const pastR = at(b, 'r') - col.roomLimitRight;
+    if (pastL > 0.5 || pastR > 0.5) add('room', 'limit', `${label}: box passes the room by ${r2(Math.max(pastL, pastR))}px`);
+    const overL = Math.max(0, col.left - at(b, 'l'));
+    const overR = Math.max(0, at(b, 'r') - col.right);
+    if (Math.abs(overR - overL) > 1) add('room', 'even', `${label}: box overhangs the column ${r2(overL)}px left and ${r2(overR)}px right`);
+    // 3. No ink cut off by the window (a box that scrolls on its own is not cut off).
+    const iL = at(b, 'iL');
+    const iR = at(b, 'iR');
+    if (iL !== null && !at(b, 'scroll') && (iL < -0.5 || iR > vp.cw + 0.5)) add('noClip', 'ink', `${label}: ink is cut off by the window`);
+  }
+
+  // 2. The right edge: a top-level paragraph's set lines run to the column's right edge. Ragged lines end
+  // short and that is not a fault; what is, is a padding, border or margin on the right that holds every
+  // line of the paragraph in from the edge. Read from the lines' content box, so no rasteriser's line ends
+  // are assumed (the first version of this rule, on ink, was exactly that).
+  for (const [k, lines, inset] of cell.rightEdge ?? []) {
+    if (inset > 1) add('blockEdges', 'p-right', `${k} (p, ${lines} line(s)): its lines end ${inset}px short of the column's right edge`);
+  }
+
+  // 3. No mark left of the gutter floor but hung punctuation, and none outside the window.
+  for (const [type, m] of Object.entries(cell.marks)) {
+    if (type === 'punct') continue;
+    if (m.minLeft < col.gutter - 0.5) add('marks', type, `a ${type} sits at ${m.minLeft}px, left of the gutter floor (${col.gutter}px)`);
+  }
+
+  // 4. The page never scrolls sideways.
+  if (vp.hScroll) add('noClip', 'scroll', `the page scrolls sideways (${vp.scrollWidth}px of content in ${vp.cw}px)`);
+  // 4. Once the relayout has settled, no set line runs past its paragraph's box.
+  if (cell.lines.overflowing > 0) add('noClip', 'line', `${cell.lines.overflowing} set line(s) run up to ${cell.lines.maxOverflow}px past their paragraph's box`);
+  return out;
+}
+
+/**
+ * Rule 5, measured on the app's own `#marxy-notices` region: one line built the way notify() builds it,
+ * its box against the column, whether it is in view three screens down, and its height in grid units.
+ * Serialised into the page. The line is removed again, so the region is empty as before.
+ */
+export function measureNoticeInPage(args = {}) {
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const region = document.getElementById('marxy-notices');
+  const article = document.getElementById('doc');
+  const html = document.documentElement;
+  if (!region) return { missing: true };
+  const cs = getComputedStyle(article);
+  const ar = article.getBoundingClientRect();
+  const colL = ar.left + parseFloat(cs.paddingLeft);
+  const colR = ar.right - parseFloat(cs.paddingRight);
+  const unit = parseFloat(cs.lineHeight) / 2;
+  const line = document.createElement('div');
+  line.className = 'marxy-notice';
+  line.dataset.noticeKind = 'info';
+  const text = document.createElement('span');
+  text.className = 'marxy-notice-text';
+  text.textContent = 'The file changed on disk.';
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'marxy-notice-dismiss';
+  dismiss.textContent = 'Dismiss';
+  line.append(text, dismiss);
+  region.append(line);
+  void region.offsetHeight;
+  const box = line.getBoundingClientRect();
+  if (args.source) {
+    // Source mode: the notice must not sit on the editor's first line of text.
+    const first = document.querySelector('#marxy-source .cm-content .cm-line');
+    const text = first?.getBoundingClientRect();
+    const covers = Boolean(text) && box.left < text.right && box.right > text.left && box.top < text.bottom && box.bottom > text.top;
+    line.remove();
+    return { missing: !text, source: true, covers, noticeTop: r2(box.top), noticeBottom: r2(box.bottom), textTop: text ? r2(text.top) : null };
+  }
+  const out = {
+    missing: false,
+    edgeL: r2(box.left - colL),
+    edgeR: r2(box.right - colR),
+    heightInUnits: r2(box.height / unit),
+    position: getComputedStyle(region).position,
+  };
+  const maxScroll = html.scrollHeight - window.innerHeight;
+  out.scrollable = maxScroll > 0;
+  if (maxScroll > 0) {
+    window.scrollTo(0, Math.min(maxScroll, Math.round(window.innerHeight * 3)));
+    const b = line.getBoundingClientRect();
+    out.inViewScrolled = b.bottom > 0 && b.top < window.innerHeight;
+    out.topScrolled = r2(b.top);
+    window.scrollTo(0, 0);
+  } else out.inViewScrolled = true;
+  line.remove();
+  return out;
+}
+
+/** Rule 5 against one `measureNoticeInPage` reading. */
+export function noticeFailures(n) {
+  if (n.missing) return [{ check: 'noticeColumn', sub: 'region', detail: 'the app has no #marxy-notices region, or Source has no first line' }];
+  const out = [];
+  const add = (sub, detail) => out.push({ check: 'noticeColumn', sub, detail });
+  if (n.source) {
+    if (n.covers) add('source', `in Source the notice (${n.noticeTop} to ${n.noticeBottom}px) covers the first line of text (from ${n.textTop}px)`);
+    return out;
+  }
+  if (Math.abs(n.edgeL) > 1 || Math.abs(n.edgeR) > 1) add('edges', `the notice's edges are ${n.edgeL}px and ${n.edgeR}px from the column's`);
+  if (!n.inViewScrolled) add('sight', `scrolled down, the notice is at ${n.topScrolled}px and out of view`);
+  const off = Math.abs(n.heightInUnits - Math.round(n.heightInUnits));
+  if (off > 0.05) add('grid', `the notice is ${n.heightInUnits} grid units high`);
+  return out;
+}
+
+/**
+ * Rule 6, read in the page: clipping, set lines past their box, blocks overlapping, sideways scroll. Used
+ * with WCAG 1.4.12 text spacing and at 200 % text.
+ */
+export function surveyInPage() {
+  const a = document.getElementById('doc');
+  const html = document.documentElement;
+  const r = (n) => Math.round(n * 100) / 100;
+  const hid = (v) => v === 'hidden' || v === 'clip';
+  const clipped = [];
+  for (const el of a.querySelectorAll('*')) {
+    if (el.closest('.marxy-line-omitted, .marxy-invisible')) continue;
+    const cs = getComputedStyle(el);
+    if ((hid(cs.overflowX) && el.scrollWidth > el.clientWidth + 1) || (hid(cs.overflowY) && el.scrollHeight > el.clientHeight + 1)) {
+      clipped.push(el.tagName.toLowerCase() + (el.className ? `.${String(el.className).split(' ')[0]}` : ''));
+    }
+  }
+  const range = document.createRange();
+  let over = 0;
+  let maxOver = 0;
+  for (const p of a.querySelectorAll('.marxy-set')) {
+    const cs = getComputedStyle(p);
+    const right = p.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+    const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    let m = -Infinity;
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      if (!n.nodeValue.trim() || n.parentElement.closest('.marxy-hang, .marxy-hyphen')) continue;
+      range.selectNodeContents(n);
+      for (const rc of range.getClientRects()) if (rc.width) m = Math.max(m, rc.right);
+    }
+    if (m > right + 0.5) {
+      over++;
+      maxOver = Math.max(maxOver, m - right);
+    }
+  }
+  let overlaps = 0;
+  // Block-level children only: an inline element of raw HTML (a badge, a link) sits on a line of its own.
+  const BLOCKS = ['block', 'table', 'list-item', 'flow-root', 'grid', 'flex'];
+  const kids = [...a.children].filter((e) => e.getBoundingClientRect().height > 0 && BLOCKS.includes(getComputedStyle(e).display));
+  for (let i = 1; i < kids.length; i++) if (kids[i].getBoundingClientRect().top < kids[i - 1].getBoundingClientRect().bottom - 1) overlaps++;
+  return {
+    hScroll: html.scrollWidth > html.clientWidth + 1,
+    clipped: [...new Set(clipped)].sort(),
+    setLinesPastBox: over,
+    maxSetLinePastBoxPx: r(maxOver),
+    blockOverlaps: overlaps,
+    bodyFontPx: parseFloat(getComputedStyle(a).fontSize),
+    // What the page actually computes, per kind of text block: for each of the four WCAG 1.4.12 properties the
+    // element of that kind that falls shortest of its condition (px, with the font size it is judged against),
+    // so one paragraph set right cannot vouch for a list or a heading that was not.
+    spacing: (() => {
+      const KINDS = { p: 'p', li: 'li', h1: 'h', h2: 'h', h3: 'h', h4: 'h', h5: 'h', h6: 'h', td: 'cell', th: 'cell', blockquote: 'blockquote', dd: 'dd' };
+      const out = {};
+      const els = [...a.querySelectorAll(Object.keys(KINDS).join(','))].filter((el) => el.textContent.trim() && !el.closest('.marxy-line-omitted, .marxy-invisible'));
+      // A document with none of these (an empty file, a source file that is one code block): the article itself.
+      const reads = els.length ? els.map((el) => [el, KINDS[el.tagName.toLowerCase()]]) : [[a, 'article']];
+      for (const [el, kind] of reads) {
+        const cs = getComputedStyle(el);
+        const f = parseFloat(cs.fontSize);
+        const k = (out[kind] ??= { n: 0 });
+        k.n++;
+        const worst = (name, v, want) => {
+          const slack = Number.isFinite(v) ? v - want : -Infinity;
+          if (!k[name] || slack < k[name].slack) k[name] = { slack, v, f };
+        };
+        worst('letter', parseFloat(cs.letterSpacing), 0.12 * f);
+        worst('word', parseFloat(cs.wordSpacing), 0.16 * f);
+        worst('lineHeight', parseFloat(cs.lineHeight), 1.5 * f);
+        if (kind === 'p') worst('marginBottom', parseFloat(cs.marginBottom), 2 * f);
+      }
+      return out;
+    })(),
+  };
+}
+
+/** Rule 6 against one `surveyInPage` reading. */
+export function surveyFailures(s) {
+  const out = [];
+  if (s.hScroll) out.push('the page scrolls sideways');
+  if (s.clipped.length) out.push(`clipped: ${s.clipped.slice(0, 6).join(', ')}`);
+  if (s.setLinesPastBox) out.push(`${s.setLinesPastBox} set line(s) run up to ${s.maxSetLinePastBoxPx}px past their box`);
+  if (s.blockOverlaps) out.push(`${s.blockOverlaps} block(s) overlap the one above`);
+  return out;
+}
+
+/**
+ * The WCAG 1.4.12 text-spacing conditions, read from the computed style of every kind of text block (p, li,
+ * headings, table cells, blockquotes, dd): line height 1.5, paragraph spacing 2, letter spacing 0.12 and
+ * word spacing 0.16, all times the font size. They are "at least" conditions, so each is a floor with
+ * 0.05 px for rounding, judged on the element of its kind that falls shortest. A check that passes with
+ * these not applied proves nothing, so the check asserts them first; and it asserts that something was read.
+ */
+export function spacingAppliedFailures(s) {
+  const out = [];
+  const kinds = Object.entries(s.spacing ?? {});
+  if (!kinds.length) return ['no text block was found to read the text-spacing overrides from'];
+  const floor = (kind, name, label, em, slackPx) => {
+    const w = s.spacing[kind][name];
+    if (!w) return;
+    const want = em * w.f;
+    if (!(w.v >= want - slackPx)) out.push(`${kind}: ${label} is ${w.v}px, under ${want}px (${em} x ${w.f}px): the text-spacing overrides were not applied`);
+  };
+  for (const [kind] of kinds) {
+    floor(kind, 'letter', 'letter-spacing', 0.12, 0.05);
+    floor(kind, 'word', 'word-spacing', 0.16, 0.05);
+    floor(kind, 'lineHeight', 'line-height', 1.5, 0.5);
+    floor(kind, 'marginBottom', 'paragraph spacing', 2, 0.5);
+  }
+  return out;
+}
+
+/** The 200 % condition: body text is `want` px (twice the default size), not whatever the page happened to use. */
+export function text200AppliedFailures(s, want) {
+  return s.bodyFontPx === want ? [] : [`body text is ${s.bodyFontPx}px, not ${want}px (200 %): the size was not applied`];
+}
+
+/** The four WCAG 1.4.12 overrides, as a reader theme: the typesetter sets with them. */
+export const TEXT_SPACING_CSS = `.marxy-article, .marxy-article * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
+.marxy-article p { margin-bottom: 2em !important; }`;
 
 /** Draw hairlines (window centre, column edges, gutter floors, room limits) and red boxes for offenders. */
 export function drawOverlayInPage(args) {
@@ -468,41 +787,44 @@ export function drawOverlayInPage(args) {
 export async function buildRenderEntry() {
   const require = createRequire(join(desktop, 'package.json'));
   const { build } = require('vite');
-  await build({ configFile: join(desktop, 'src/render/vite.config.ts'), root: desktop, logLevel: 'error' });
-  mkdirSync(dist, { recursive: true });
-  const fontsCss = readFileSync(join(desktop, 'src/fonts/fonts.css'), 'utf8').replaceAll('./fonts/', '/fonts/');
-  writeFileSync(
-    join(dist, 'render.html'),
-    `<!doctype html>
-<html lang="en" data-marxy-variant="dark">
-<head>
-<meta charset="utf-8">
-<title>marxy render</title>
-<style id="marxy-fonts">${fontsCss}</style>
-<style id="marxy-default-theme">${defaultThemeCss()}</style>
-</head>
-<body>
-<main id="marxy-main"><article id="doc" class="marxy-article"></article></main>
-<script src="./render.js"></script>
-</body>
-</html>
-`,
-  );
-  if (!existsSync(join(dist, 'render.js'))) throw new Error('vite build did not write apps/desktop/dist/render.js');
+  await build({
+    root: desktop,
+    configFile: join(desktop, 'vite.config.ts'),
+    logLevel: 'error',
+    build: { outDir: dist(), emptyOutDir: true },
+    plugins: [
+      {
+        name: 'marxy-gate-input',
+        config(config) {
+          config.build.rollupOptions.input = { gate: join(desktop, 'gate.html') };
+        },
+      },
+    ],
+  });
+  if (!existsSync(join(dist(), 'gate.html'))) throw new Error(`vite build did not write ${join(dist(), 'gate.html')}`);
 }
 
+/** Serves the built harness, `/` as gate.html, and the corpus image beside it so `image.png` resolves. */
 export function startHarness() {
-  const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.ttf': 'font/ttf' };
+  const types = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.ttf': 'font/ttf',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.png': 'image/png',
+  };
   const server = createServer((req, res) => {
-    const path = new URL(req.url, 'http://x').pathname;
+    const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const send = (code, type, body) => {
       res.statusCode = code;
       res.setHeader('Content-Type', type);
       res.end(body);
     };
-    if (FONT_URLS[path]) return send(200, 'font/ttf', readFileSync(FONT_URLS[path]));
-    const file = path === '/' ? join(dist, 'render.html') : join(dist, path.slice(1));
-    if (!file.startsWith(dist) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
+    if (path === '/image.png') return send(200, 'image/png', readFileSync(join(corpusDir, 'image.png')));
+    const file = path === '/' ? join(dist(), 'gate.html') : join(dist(), path.slice(1));
+    if (!file.startsWith(dist()) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
     return send(200, types[file.slice(file.lastIndexOf('.'))] ?? 'application/octet-stream', readFileSync(file));
   });
   return new Promise((resolve) => {
@@ -516,14 +838,14 @@ export const CLASSIC_CSS = `html::-webkit-scrollbar{width:${CLASSIC_SCROLLBAR_PX
 /**
  * Render `source` at one matrix cell and measure it. `classic` models a scrollbar that appears after
  * first text: the page is typeset overlay-wide, then the scrollbar is injected and the main is left to
- * reflow (H4). Set lines are read once, as that reflow leaves them. The app re-sets paragraphs 100 ms after
- * the article's clientWidth changes (apps/desktop/src/app.ts); the headless render entry has no resize
- * observer, so the probe cannot say how long the overflow is visible, only how far it reaches before that.
+ * reflow (H4). Set lines are read once, as that reflow leaves them, two frames after the scrollbar shows.
+ * The app re-sets paragraphs 100 ms after the article's clientWidth changes (apps/desktop/src/app.ts), so
+ * the lines read are the ones before that relayout: how far the overflow reaches, not how long it shows.
  */
 export async function probeCell(page, origin, source, cell, opts = {}) {
-  await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof window.marxyRender === 'function');
-  const rendered = await page.evaluate(async ({ source, o }) => window.marxyRender(source, o), {
+  await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
+  await page.evaluate(async ({ source, o }) => window.marxyGate.render(source, o), {
     source,
     o: { variant: cell.variant, width: cell.width, size: cell.size },
   });
@@ -532,7 +854,7 @@ export async function probeCell(page, origin, source, cell, opts = {}) {
     document.getElementById('marxy-main').style.width = '';
   });
   await settle(page);
-  const out = { removed: rendered?.removed ? Object.keys(rendered.removed).length : 0 };
+  const out = {};
   if (cell.scrollbar === 'classic') {
     await page.addStyleTag({ content: CLASSIC_CSS });
     // WebKit re-reads a viewport scrollbar style only when the root's overflow changes; toggling it is
@@ -550,8 +872,28 @@ export async function probeCell(page, origin, source, cell, opts = {}) {
   return out;
 }
 
-async function settle(page) {
+export async function settle(page) {
   await page.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => res()))));
+}
+
+/**
+ * A classic scrollbar that appears after first text, as probeCell injects it: the main is released to
+ * the window, the scrollbar is forced, and the root's overflow is toggled so WebKit re-reads it.
+ */
+export async function injectClassicScrollbar(page) {
+  await page.evaluate(() => {
+    document.getElementById('marxy-main').style.width = '';
+  });
+  await settle(page);
+  await page.addStyleTag({ content: CLASSIC_CSS });
+  await page.evaluate(() => {
+    const el = document.documentElement;
+    el.style.overflowY = 'hidden';
+    void el.offsetHeight;
+    el.style.overflowY = '';
+    void el.offsetHeight;
+  });
+  await settle(page);
 }
 
 /** Screenshot a clip of the page with the overlay drawn; returns { png, clip }. */
@@ -788,7 +1130,7 @@ export function headlines(results, statics) {
     if (base) shift.push(Math.abs(cr.cell.centre.columnAxis - base.cell.centre.columnAxis));
   }
   out.H4 = {
-    note: 'Not errors: the column moving by half a classic scrollbar (maxColumnShiftPx, maxCentreOffsetFromWindowClassicPx) is what a classic scrollbar does, and maxCentreOffsetFromClientClassicPx 0 says the visible area stays centred. Set-line overflow is read as the 15 px scrollbar first reflows the page, before the app\'s own relayout (100 ms after clientWidth changes, apps/desktop/src/app.ts); the headless render entry has no such observer, so how long it shows is not measured. The typesetter\'s hung hyphens and punctuation are not counted (maxHungHyphenPastOverlayPx is their size, with no scrollbar).',
+    note: 'Not errors: the column moving by half a classic scrollbar (maxColumnShiftPx, maxCentreOffsetFromWindowClassicPx) is what a classic scrollbar does, and maxCentreOffsetFromClientClassicPx 0 says the visible area stays centred. Set-line overflow is read as the 15 px scrollbar first reflows the page, before the app\'s own relayout (100 ms after clientWidth changes, apps/desktop/src/app.ts); the probe reads two frames after the scrollbar shows, so how long it shows is not measured. The typesetter\'s hung hyphens and punctuation are not counted (maxHungHyphenPastOverlayPx is their size, with no scrollbar).',
     classicCellsWithScrollbar: withSb.length,
     scrollbarPx: withSb[0]?.cell.viewport.scrollbar ?? null,
     maxColumnShiftPx: r2(Math.max(0, ...shift)),
@@ -863,7 +1205,9 @@ function leftEdges(cells) {
 
 export async function run(opts) {
   await buildRenderEntry();
-  const browser = await launchWebkit();
+  // `opts.browser`: a browser the caller owns and shares between runs (the determinism test); not closed here.
+  const shared = Boolean(opts.browser);
+  const browser = opts.browser ?? (await launchWebkit());
   const harness = await startHarness();
   try {
     const files = (opts.files ?? corpusFiles()).slice().sort();
@@ -881,7 +1225,7 @@ export async function run(opts) {
           mkdirSync(opts.overlaysDir, { recursive: true });
           writeFileSync(join(opts.overlaysDir, `${file.replace(/\.md$/, '')}-${cellId(cell)}.png`), (await overlayShot(page, out.cell)).png);
         }
-        return { file, id: cellId(cell), ...cell, cell: out.cell, removed: out.removed };
+        return { file, id: cellId(cell), ...cell, cell: out.cell };
       } catch (e) {
         return { file, id: cellId(cell), ...cell, error: String(e.message ?? e) };
       } finally {
@@ -891,7 +1235,7 @@ export async function run(opts) {
     return { files, cells, results, shots, browser, harness };
   } catch (e) {
     harness.close();
-    await browser.close();
+    if (!shared) await browser.close();
     throw e;
   }
 }
@@ -934,7 +1278,7 @@ export function assemble(opts, runResult) {
       units: 'CSS px, rounded to 0.01. Every delta is from the column (the article content box); dR > 0 is past the right edge.',
       offsetFromWindow: 'column axis minus window axis (innerWidth / 2); offsetFromClient uses the width minus the scrollbar.',
       margins: 'left = leftmost ink edge from the window left; right = clientWidth minus rightmost ink edge; asymmetry = left - right. bodyInk = top-level paragraphs, pageInk = all text, pageBoxes = all block boxes.',
-      classic: 'The page is set at the overlay width, then a 15px ::-webkit-scrollbar is injected (a scrollbar that appears after first text) and lines is read as that reflow leaves it, before the app\'s own relayout (100 ms after clientWidth changes; the headless render entry has no resize observer, so nothing here says how long an overflow shows). Documents shorter than the window have scrollbar 0.',
+      classic: 'The page is set at the overlay width, then a 15px ::-webkit-scrollbar is injected (a scrollbar that appears after first text) and lines is read as that reflow leaves it, before the app\'s own relayout (100 ms after clientWidth changes; it is read two frames after the scrollbar shows, so nothing here says how long an overflow shows). Documents shorter than the window have scrollbar 0.',
       offenders: 'H1 box overhangs the column unequally; H2 top-level block text not on the column edge; H3 hung mark (ol marker, checkbox, hung punctuation) left of the gutter floor; H4 set line past its paragraph content box (the typesetter\'s hung hyphens and punctuation excluded, kept apart as lines.maxHungPastPx); H5 block box past the gutter floor at any depth (or ink outside the window); H6 notice edges / grid height. The probe states facts; L-01 judges them.',
     },
     errors: results.filter((r) => r.error).map((r) => ({ file: r.file, cell: r.id, error: r.error })),
@@ -1054,7 +1398,7 @@ node scripts/probe-layout.mjs --readme-only                     # this file, fro
 node --test scripts/probe-layout.test.mjs                       # the negative controls and the determinism check
 \`\`\`
 
-The probe renders through the harness entry the aesthetics gate uses (\`apps/desktop/dist/render.js\`). Two runs
+The probe renders through the app harness the aesthetics gate uses (\`apps/desktop/gate.html\`). Two runs
 over the same tree give an identical \`probe.json\` (no timestamps; numbers rounded to 0.01 px). The probe is not
 in CI; L-02 promotes its rules into the gate.
 
@@ -1149,7 +1493,7 @@ reproduced with \`--files\`, \`--widths\` and \`--sizes\`.
 ## What the probe does not do, and caveats
 
 - It does not judge. A \`reaches: false\` margin means the document has no ink at the column's right edge, so that asymmetry says nothing.
-- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`lines\` is read as that reflow leaves it, before the app's own relayout (100 ms after \`clientWidth\` changes, \`apps/desktop/src/app.ts\`). The headless render entry has no resize observer, so the probe cannot say how long an overflow shows; L-01 must not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
+- The harness fixes \`#marxy-main\` to the window width; the probe releases it after the render so the main fills the window as it does in the app. A classic scrollbar is injected after the page is set (a scrollbar that appears after first text), which is the H4 case; \`lines\` is read as that reflow leaves it, before the app's own relayout (100 ms after \`clientWidth\` changes, \`apps/desktop/src/app.ts\`). The probe reads two frames after the scrollbar shows, so it cannot say how long an overflow shows; L-01 must not read it as "relayout does not help". Hung hyphens and punctuation are not line overflow and are left out.
 - H5 is untested for nested tables: the corpus has no table inside a list or blockquote, so \`nestedOffenders 0\` means no sample. L-01 should add one synthetic nested-table page.
 - The classic-scrollbar column shift and centre offset from the window are what a classic scrollbar is; the visible area stays centred (\`offsetFromClient\` 0). They are not errors.
 - \`--ref\` is a label only. The probe renders whatever tree it runs in; the Measured line says which.

@@ -31,7 +31,7 @@ export function parseIgnore(text: string, baseDir = ''): IgnoreRule[] {
  */
 export function isIgnored(relativePath: string, isDir: boolean, rules: readonly IgnoreRule[]): boolean {
   if (isDeniedPath(relativePath)) return true;
-  const parts = relativePath.replace(/\\/g, '/').split('/').filter(Boolean);
+  const parts = relativePath.split('/').filter(Boolean);
   for (let i = 0; i < parts.length; i++) {
     const prefix = parts.slice(0, i + 1).join('/');
     const prefixIsDir = isDir || i < parts.length - 1;

@@ -54,9 +54,31 @@ function inlineDefaultTheme(): Plugin {
   };
 }
 
+/**
+ * The directory Tauri embeds whole (src-tauri/tauri.conf.json, build.frontendDist "../dist"). Only
+ * index.html's graph may land there (B-16.1): app.html, the harness the perf harness and the WebKit
+ * suites boot over a memory shell, carries the test hooks, so a build into this directory drops it.
+ * Every other outDir keeps it: the suites build into temporary directories and `build:harness`
+ * writes harness/dist/ (named dist so .gitignore and the repository scanners pass over it, as they
+ * do the shipped one). scripts/gate-bundle.mjs fails a dist/ holding a second HTML entry.
+ */
+const shippedDist = resolve(dir, 'dist');
+
+function shipIndexOnly(): Plugin {
+  return {
+    name: 'marxy-ship-index-only',
+    config(config) {
+      const outDir = resolve(config.root ?? dir, config.build?.outDir ?? 'dist');
+      const input = config.build?.rollupOptions?.input;
+      if (outDir !== shippedDist || !input || typeof input !== 'object' || Array.isArray(input)) return;
+      delete (input as Record<string, string>).app;
+    },
+  };
+}
+
 export default defineConfig({
   base: './',
-  plugins: [bundleFonts(), inlineDefaultTheme()],
+  plugins: [bundleFonts(), inlineDefaultTheme(), shipIndexOnly()],
   build: {
     target: 'es2022',
     outDir: 'dist',
@@ -64,6 +86,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(dir, 'index.html'),
+        // The harness entry; shipIndexOnly() leaves it out of the shipped dist/.
         app: resolve(dir, 'app.html'),
       },
     },

@@ -9,21 +9,36 @@
   /* The empty state only; the document is styled by the default theme above (MARXY-20). */
   .marxy-empty { color: var(--marxy-color-text-secondary); font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
   #marxy-main { min-height: 100vh; }
-  #marxy-notices:empty { display: none; }
+  /* A pane (D-01): the box its article's margins are measured against (--marxy-room). One pane fills
+     #marxy-main exactly, so a single document is laid out as it always was. */
+  .marxy-pane { container-type: inline-size; min-width: 0; }
+  .marxy-pane:focus { outline: none; }
+  .marxy-pane > [role="status"]:empty { display: none; }
+  .marxy-find-slot { position: sticky; top: 0; height: 0; }
+  .marxy-find-slot:empty { display: none; }
   #marxy-palette:not([open]) { display: none; }
-  #marxy-outline:not([open]), #marxy-find[hidden], #marxy-source[hidden] { display: none; }
-  /* Source mode mount (§09); visible only while `data-marxy-mode="source"`. */
-  #marxy-source:not([hidden]) { position: fixed; inset: 0; overflow: auto; }
-  /* The Source overlay covers the whole window, notices included; a notice is still the app speaking. */
-  body[data-marxy-mode="source"] #marxy-notices { position: fixed; top: 0; left: 0; right: 0; z-index: 10; }
+  #marxy-outline:not([open]), #marxy-find[hidden], .marxy-source-mount[hidden] { display: none; }
+  /* One pane: Source covers the window (§09), notices included; a notice is still the app speaking. */
+  #marxy-main:not([data-marxy-split]) .marxy-source-mount:not([hidden]) { position: fixed; inset: 0; overflow: auto; }
+  body[data-marxy-mode="source"] #marxy-main:not([data-marxy-split]) #marxy-notices { position: fixed; top: 0; left: 0; right: 0; z-index: 10; }
+  /* Two panes, side by side: each scrolls on its own, and Source covers only its pane. */
+  #marxy-main[data-marxy-split] { display: grid; height: 100vh; }
+  #marxy-main[data-marxy-split] > .marxy-pane { position: relative; overflow-y: auto; height: 100vh; }
+  #marxy-main[data-marxy-split] .marxy-source-mount:not([hidden]) { position: absolute; inset: 0; overflow: auto; }
+  .marxy-pane[data-marxy-mode="source"] > [role="status"] { position: sticky; top: 0; z-index: 10; }
+  /* The first pane's mode is on the body element (until D-11): its notices sit over its own Source too (D-08). */
+  body[data-marxy-mode="source"] #marxy-main[data-marxy-split] > .marxy-pane[data-marxy-pane="0"] > [role="status"] { position: sticky; top: 0; z-index: 10; }
 </style>
 </head>
 <body data-marxy-mode="rendered" data-marxy-variant="dark">
   <main id="marxy-main">
-    <div id="marxy-notices" role="status"></div>
-    <article id="doc" class="marxy-article"></article>
+    <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus>
+      <div id="marxy-notices" role="status"></div>
+      <article id="doc" class="marxy-article"></article>
+      <div id="marxy-source" class="marxy-source-mount" hidden></div>
+      <div class="marxy-find-slot"></div>
+    </section>
   </main>
-  <div id="marxy-source" hidden></div>
   <dialog id="marxy-palette"></dialog>
   <dialog id="marxy-outline"></dialog>
   <div id="marxy-find" hidden></div>

@@ -115,6 +115,55 @@ export function katexInEntry(distDir) {
   return { error: null, hits: Object.entries(entry.chunks).filter(([f, t]) => /katex/i.test(f) || t.includes('KaTeX parse error')).map(([f]) => f) };
 }
 
+/**
+ * Strings that only the test harness holds (B-16): the memory shell, the harness entries and the hooks
+ * tests drive, and the names of the removed mutation switches. A release bundle that contains one has
+ * shipped test plumbing.
+ */
+export const TEST_ONLY_STRINGS = [
+  'createMemoryShell',
+  'marxyApp',
+  'installTestHooks',
+  'marxyHarness',
+  'marxyRunCommand',
+  'marxySelection',
+  '__marxyOrigBytes',
+  '__marxyOpenSynced',
+  '__marxyTasksReady',
+  'MARXY_8',
+  'MARXY_19',
+];
+
+/** The test-only strings `bundle` contains. */
+export function testOnlyStringsIn(bundle) {
+  return TEST_ONLY_STRINGS.filter((s) => bundle.includes(s));
+}
+
+/** Every file under `dir`, as paths relative to it. */
+function filesUnder(dir, prefix = '') {
+  return readdirSync(join(dir, prefix), { withFileTypes: true }).flatMap((e) => {
+    const rel = prefix ? `${prefix}/${e.name}` : e.name;
+    return e.isDirectory() ? filesUnder(dir, rel) : [rel];
+  });
+}
+
+/**
+ * What must not be in the shipped dist/ (B-16.1). Tauri embeds the directory whole
+ * (tauri.conf.json build.frontendDist), so a file there ships whether or not index.html reaches it:
+ * any HTML file other than index.html is a second entry, and every file, chunk, worker or asset, is
+ * scanned for TEST_ONLY_STRINGS. Returns `{ files, extraHtml, hits: [{ file, strings }] }`.
+ */
+export function shippedDistProblems(distDir) {
+  const all = filesUnder(distDir);
+  const extraHtml = all.filter((f) => /\.html?$/i.test(f) && f !== 'index.html');
+  const hits = [];
+  for (const file of all) {
+    const strings = testOnlyStringsIn(readFileSync(join(distDir, file), 'latin1'));
+    if (strings.length > 0) hits.push({ file, strings });
+  }
+  return { files: all.length, extraHtml, hits };
+}
+
 /** Walk main.ts's relative import graph; returns absolute paths of memory shell / harness hits. */
 export function memoryShellReachableFromMain(desktop) {
   const main = join(desktop, 'src', 'main.ts');
@@ -133,9 +182,9 @@ export function memoryShellReachableFromMain(desktop) {
 }
 
 /**
- * The memory shell and the app harness must not ship in the production entry. The import-graph
- * walk from main.ts always runs (including pre-build precheck); CI's gates job runs `build:web`
- * before this gate so the dist/index.html bundle grep runs there as a second backstop.
+ * The memory shell and the app harness must not ship. The import-graph walk from main.ts always runs
+ * (including pre-build precheck); where `build:web` has run (CI's rust job), every file under dist/
+ * is grepped for the test-only strings and a second HTML entry fails (B-16.1).
  */
 function assertProductionExcludesMemoryShell() {
   const desktop = join(root, 'apps', 'desktop');
@@ -150,34 +199,25 @@ function assertProductionExcludesMemoryShell() {
     for (const f of memory) console.error('  ' + rel(f));
     process.exit(1);
   }
-  const distHtml = join(desktop, 'dist', 'index.html');
+  const distDir = join(desktop, 'dist');
+  const distHtml = join(distDir, 'index.html');
   if (existsSync(distHtml)) {
     const html = readFileSync(distHtml, 'utf8');
-    const queue = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1].replace(/^\.\//, ''));
-    if (queue.length === 0) {
+    if (!/<script[^>]+src="([^"]+)"/.test(html)) {
       console.error('bundle gate: dist/index.html has no script; the production check is broken');
       process.exit(1);
     }
-    const walked = new Set();
-    const chunks = [];
-    while (queue.length) {
-      const src = queue.pop();
-      if (walked.has(src)) continue;
-      walked.add(src);
-      const file = join(desktop, 'dist', src);
-      if (!existsSync(file)) continue;
-      const text = readFileSync(file, 'utf8');
-      chunks.push(text);
-      for (const spec of distChunkSpecs(text)) {
-        queue.push(decodeURIComponent(new URL(spec, `file:///${src}`).pathname).replace(/^\//, ''));
-      }
-    }
-    const bundle = chunks.join('\n');
-    if (bundle.includes('createMemoryShell') || bundle.includes('marxyApp')) {
-      console.error('bundle gate: production index JS contains createMemoryShell or the harness entry');
+    const { files, extraHtml, hits } = shippedDistProblems(distDir);
+    if (extraHtml.length > 0) {
+      console.error(`bundle gate: dist/ holds a second HTML entry, which Tauri would embed: ${extraHtml.join(', ')} (only index.html ships)`);
       process.exit(1);
     }
-    console.log('bundle gate: production index JS excludes createMemoryShell and the harness');
+    if (hits.length > 0) {
+      console.error('bundle gate: files under dist/ contain test-only strings:');
+      for (const { file, strings } of hits) console.error(`  ${file}: ${strings.join(', ')}`);
+      process.exit(1);
+    }
+    console.log(`bundle gate: dist/ holds one HTML entry and none of its ${files} files contain createMemoryShell, the harness or the test hooks`);
   } else {
     console.log('bundle gate: no vite dist; dist bundle string check skipped (import graph ran)');
   }

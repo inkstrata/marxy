@@ -14,5 +14,6 @@ export {
   eolString,
   lineOf,
 } from './buffer.ts';
+export { foldSlice } from './fold-slice.ts';
 export type { Edit } from './history.ts';
 export { History } from './history.ts';

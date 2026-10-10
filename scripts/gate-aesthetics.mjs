@@ -1,18 +1,32 @@
 #!/usr/bin/env node
 // Mechanical aesthetics gate (ADR-0014, docs/design/10-gates-and-testing.md §10). Token checks stay
-// as the floor; the headless render entry runs the ten page checks over the corpus in Playwright WebKit.
+// as the floor; the app harness (apps/desktop/gate.html) renders each corpus page through the real app
+// and the ten page checks run over it in Playwright WebKit.
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { cpus } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpus, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ragMetrics } from '../packages/typeset/scripts/rag-model.mjs';
 import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
+import {
+  geometryFailures,
+  injectClassicScrollbar,
+  measureInPage,
+  measureNoticeInPage,
+  noticeFailures,
+  surveyFailures,
+  surveyInPage,
+  TEXT_SPACING_CSS,
+  spacingAppliedFailures,
+  text200AppliedFailures,
+} from './probe-layout.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const desktop = join(root, 'apps/desktop');
-const dist = join(desktop, 'dist');
+// A fresh directory per run, so two gates in one worktree (or a gate and a desktop test) never share output.
+const gateDist = mkdtempSync(join(tmpdir(), 'marxy-gate-'));
 const corpusDir = join(root, 'fixtures/corpus');
 const ragRoot = join(root, 'fixtures/baselines/rag');
 const UPDATE = process.argv.includes('--update');
@@ -27,6 +41,12 @@ if (MECHANICAL && UPDATE) {
   console.error('aesthetics gate failed:\n - --mechanical compares no baseline, so it cannot --update one');
   process.exit(1);
 }
+// --files a.md,b.md narrows the corpus (a quick look at one document); --emit-expected prints the geometry
+// failures as expected-failure rows (L-02) and compares nothing. Neither is a way to pass: a run that
+// narrows the corpus judges only the cases it ran.
+const filesIdx = process.argv.indexOf('--files');
+const FILES_FILTER = filesIdx === -1 ? null : process.argv[filesIdx + 1].split(',').filter(Boolean);
+const EMIT_EXPECTED = process.argv.includes('--emit-expected');
 const variantIdx = process.argv.indexOf('--variant');
 const VARIANT_FILTER = variantIdx === -1 ? null : process.argv[variantIdx + 1];
 if (VARIANT_FILTER && !['dark', 'light'].includes(VARIANT_FILTER)) {
@@ -51,6 +71,19 @@ const WORKERS = Math.max(
     Math.min(4, Math.max(1, cpus().length)),
 );
 
+/**
+ * Where the gate's time goes (B-02): wall seconds per phase, and summed page-seconds per step inside the
+ * corpus pass (render, the checks, the screenshot settle), printed with the notes. Measured, never judged.
+ */
+const spent = { render: 0, checks: 0, shots: 0 };
+const phases = [];
+let phaseStart = performance.now();
+function phase(name) {
+  const now = performance.now();
+  phases.push(`${name} ${((now - phaseStart) / 1000).toFixed(1)}s`);
+  phaseStart = now;
+}
+
 /** Run `task` over `items`, at most WORKERS in flight, results in input order so failures are stable. */
 async function pool(items, task) {
   const out = new Array(items.length);
@@ -68,11 +101,6 @@ const WIDTHS = [720, 960, 1280];
 const VARIANTS = ['dark', 'light'];
 const SIZES = [16, 20, 24, 28];
 const LINE_BOX = { 16: 24, 20: 30, 24: 36, 28: 42 };
-const FONT_URLS = {
-  '/fonts/Literata.ttf': join(root, 'fonts/literata/Literata[opsz,wght].ttf'),
-  '/fonts/Literata-Italic.ttf': join(root, 'fonts/literata/Literata-Italic[opsz,wght].ttf'),
-  '/fonts/JetBrainsMono.ttf': join(root, 'fonts/jetbrains-mono/JetBrainsMono[wght].ttf'),
-};
 
 const tokens = readFileSync(join(root, 'packages/theme/src/tokens.css'), 'utf8');
 const get = (k) => (tokens.match(new RegExp(`${k}:\\s*([^;]+);`)) || [])[1];
@@ -102,7 +130,8 @@ function engineName() {
 }
 
 function corpusFiles() {
-  return readdirSync(corpusDir).filter((f) => /^\d{2}-.+\.md$/.test(f)).sort();
+  const all = readdirSync(corpusDir).filter((f) => /^\d{2}-.+\.md$/.test(f)).sort();
+  return FILES_FILTER ? all.filter((f) => FILES_FILTER.includes(f)) : all;
 }
 
 function matrix() {
@@ -120,52 +149,54 @@ function matrix() {
   return out;
 }
 
+/**
+ * Builds the app harness (B-01, B-02): `apps/desktop/gate.html` boots the real app over a memory shell,
+ * so every page the gate measures is the one a reader sees, highlighting, KaTeX, notices and the user
+ * theme loader included. The desktop Vite config supplies the bundled fonts and the inlined default
+ * theme; only the input is replaced, so the window and index pages are not built here.
+ */
 async function buildRenderEntry() {
   const require = createRequire(join(desktop, 'package.json'));
   const { build } = require('vite');
   await build({
-    configFile: join(desktop, 'src/render/vite.config.ts'),
     root: desktop,
+    configFile: join(desktop, 'vite.config.ts'),
     logLevel: 'error',
+    build: { outDir: gateDist, emptyOutDir: true },
+    plugins: [
+      {
+        name: 'marxy-gate-input',
+        config(config) {
+          config.build.rollupOptions.input = { gate: join(desktop, 'gate.html') };
+        },
+      },
+    ],
   });
-  mkdirSync(dist, { recursive: true });
-  const fontsCss = readFileSync(join(desktop, 'src/fonts/fonts.css'), 'utf8').replaceAll('./fonts/', '/fonts/');
-  writeFileSync(
-    join(dist, 'render.html'),
-    `<!doctype html>
-<html lang="en" data-marxy-variant="dark">
-<head>
-<meta charset="utf-8">
-<title>marxy render</title>
-<style id="marxy-fonts">${fontsCss}</style>
-<style id="marxy-default-theme">${defaultThemeCss()}</style>
-</head>
-<body>
-<main id="marxy-main"><article id="doc" class="marxy-article"></article></main>
-<script src="./render.js"></script>
-</body>
-</html>
-`,
-  );
-  if (!existsSync(join(dist, 'render.js'))) throw new Error('vite build did not write apps/desktop/dist/render.js');
+  if (!existsSync(join(gateDist, 'gate.html'))) throw new Error(`vite build did not write ${join(gateDist, 'gate.html')}`);
 }
 
+/** Serves the built harness, `/` as gate.html, and the corpus image beside it so `image.png` resolves. */
 function startHarness() {
   const types = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
     '.ttf': 'font/ttf',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.png': 'image/png',
+    '.txt': 'text/plain; charset=utf-8',
   };
   const server = createServer((req, res) => {
-    const path = new URL(req.url, 'http://x').pathname;
+    const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const send = (code, type, body) => {
       res.statusCode = code;
       res.setHeader('Content-Type', type);
       res.end(body);
     };
-    if (FONT_URLS[path]) return send(200, 'font/ttf', readFileSync(FONT_URLS[path]));
-    const file = path === '/' ? join(dist, 'render.html') : join(dist, path.slice(1));
-    if (!file.startsWith(dist) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
+    if (path === '/image.png') return send(200, 'image/png', readFileSync(join(corpusDir, 'image.png')));
+    const file = path === '/' ? join(gateDist, 'gate.html') : join(gateDist, path.slice(1));
+    if (!file.startsWith(gateDist) || !existsSync(file) || !statSync(file).isFile()) return send(404, 'text/plain', 'not found');
     const ext = file.slice(file.lastIndexOf('.'));
     return send(200, types[ext] ?? 'application/octet-stream', readFileSync(file));
   });
@@ -381,6 +412,183 @@ async function checkNoHorizontalPageScroll(page) {
   });
 }
 
+// ---- L-02: the geometry of the page (docs/aesthetics-acceptance.md, the six rules of the screen criterion) ----
+//
+// The rules live in scripts/probe-layout.mjs and are read from there: one implementation of "where the
+// column, the blocks and the marks sit". Each check below takes a measured cell and names what fails; a
+// failure is a *case* (check, sub-check, document, cell). Where today's page fails a rule, the case is
+// listed in EXPECTED_FAILURES with the story that clears it; the gate fails on a case that is not listed
+// and on a listed case that passes, so the list can neither hide a new fault nor go stale.
+
+/** The check names a geometry failure can carry, and the in-page pass that measures each. */
+const GEOMETRY_CHECKS = ['centred', 'blockEdges', 'room', 'marks', 'noClip'];
+const geometryCheck = (name) => (cell, opts) => geometryFailures(cell, opts).filter((f) => f.check === name);
+const checkCentred = geometryCheck('centred');
+const checkBlockEdges = geometryCheck('blockEdges');
+const checkRoom = geometryCheck('room');
+const checkMarks = geometryCheck('marks');
+const checkNoClip = geometryCheck('noClip');
+
+/** Rule 5 on the app's own `#marxy-notices` region. */
+async function checkNoticeColumn(page) {
+  return noticeFailures(await page.evaluate(measureNoticeInPage, {}));
+}
+/** Rule 5 in Source: the reader's own shortcut switches the app to its editor, and the notice must not cover text. */
+async function checkNoticeInSource(page) {
+  await page.keyboard.press('ControlOrMeta+e');
+  await page.waitForSelector('#marxy-source .cm-content .cm-line', { timeout: 20_000 });
+  return noticeFailures(await page.evaluate(measureNoticeInPage, { source: true }));
+}
+/** Rule 6, with the four WCAG 1.4.12 overrides loaded as a reader theme (the render is given them). */
+async function checkTextSpacing(page) {
+  const s = await page.evaluate(surveyInPage);
+  return [...spacingAppliedFailures(s), ...surveyFailures(s)];
+}
+/** Rule 6, at 200 % text: the reader's size at 40 px, through the config (the render is given it). */
+async function checkText200(page) {
+  const s = await page.evaluate(surveyInPage);
+  return [...text200AppliedFailures(s, TEXT200_PX), ...surveyFailures(s)];
+}
+
+/** The long document the notice is measured on: it scrolls three screens at every width. */
+const NOTICE_DOC = '15-prose-volume.md';
+const NOTICE_SOURCE_WIDTHS = [320, 960];
+/** Classic-scrollbar renders: the narrow end, and the width most readers have. */
+const CLASSIC_WIDTHS = [480, 960];
+const SPACING_WIDTHS = [320, 960];
+const TEXT200_WIDTH = 960;
+/** The reader's default body size is 20 px; 200 % of it. */
+const TEXT200_PX = 40;
+/**
+ * Documents left out of the text-spacing pass, with the reason. Not a threshold: 32-long-reference.md is the
+ * corpus's largest document, and the render entry gives the typesetter 10 s (gate-entry.ts), which the
+ * universal line-height override takes more than on a loaded machine (plain 19 s in all, spacing over 50 s).
+ * It still runs in the 200 % pass and in every geometry pass.
+ */
+const SPACING_SKIPS = new Set(['32-long-reference.md']);
+
+const cellId = (o) => `${o.width}x${o.size}-${o.variant}${o.classic ? '-classic' : ''}`;
+const familyOf = (check) => (check === 'noticeColumn' ? 'noticeColumn' : 'geometry');
+/** The cases the run found, `check/sub|document|cell` to the details, and the (family, document, cell) it measured. */
+const foundCases = new Map();
+const measuredCells = new Set();
+
+function recordCases(family, doc, cell, failures) {
+  measuredCells.add(`${family}|${doc}|${cell}`);
+  for (const f of failures) {
+    const key = `${f.check}/${f.sub}|${doc}|${cell}`;
+    foundCases.set(key, [...(foundCases.get(key) ?? []), f.detail]);
+  }
+}
+
+/** All five geometry checks over the page as it stands; the cases are recorded, not returned as failures. */
+async function checkGeometry(page, doc, o) {
+  const cell = await page.evaluate(measureInPage, { blocks: true, notice: false });
+  const opts = { classic: Boolean(o.classic) };
+  recordCases('geometry', doc, cellId(o), [
+    ...checkCentred(cell, opts),
+    ...checkBlockEdges(cell, opts),
+    ...checkRoom(cell, opts),
+    ...checkMarks(cell, opts),
+    ...checkNoClip(cell, opts),
+  ]);
+  return cell;
+}
+
+/**
+ * The classic scrollbar appears after first text, so the app relays the page out: it re-sets the paragraphs
+ * 100 ms after the article's width changes (rendered-view.ts), then runs its passes. The page is read once
+ * it holds still: the same width, height and set lines on two reads a beat apart. A cap, not a wait: a page
+ * that never holds still is a failure the caller reports.
+ */
+async function awaitRelayout(page) {
+  const read = () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => {
+            const a = document.getElementById('doc');
+            const lines = [...a.querySelectorAll('p.marxy-set')].slice(0, 400).map((p) => Math.round(p.getBoundingClientRect().height)).join(',');
+            resolve(`${a.clientWidth}:${document.documentElement.scrollHeight}:${lines}`);
+          }, 150),
+        ),
+    );
+  let before = await read();
+  for (let i = 0; i < 40; i++) {
+    const now = await read();
+    if (now === before) return;
+    before = now;
+  }
+  throw new Error('the page did not hold still 6 s after a classic scrollbar appeared');
+}
+
+/**
+ * Expected failures: where today's page fails a rule, the story that clears it. That story deletes the row.
+ * A row is `{ check, document, cells, story }`: `check` is `check/sub-check`, and the row stands for the case in
+ * each of its cells, so a row whose case passes in any measured cell fails the gate.
+ */
+const rowsFor = (check, story, cells, documents) => documents.map((document) => ({ check, document, cells, story }));
+// Cell sets: the `<width>x<size>-<variant>` of a render, with `-classic` after a classic-scrollbar render and
+// `-source` after one in Source mode. They are measured, not chosen: `--emit-expected` prints them.
+// The code box sits 15 px inside the prose edge (H2, code): every cell, in every document that has a code block.
+const CODE_BOX_CELLS = ["320x20-dark", "480x20-dark-classic", "720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+// A notice is off the column (H6): its region sizes the column in em at its own 16 px, so every cell but 960 px at 16 px, where that font is the article's.
+const NOTICE_EDGE_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+// A notice is not a whole number of grid units high (H6).
+const NOTICE_GRID_CELLS = ["320x20-dark", "960x16-dark", "960x16-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light"];
+// A notice scrolls out of sight (H6): in every cell, the document being taller than three screens.
+const NOTICE_SIGHT_CELLS = ["320x20-dark", "720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+// A notice covers the first line of text in Source (H6).
+const NOTICE_SOURCE_CELLS = ["320x20-dark-source", "960x20-dark-source"];
+// A wide block grows to the right only (H1): every cell with room to grow (720 px and up) in every document that has one.
+const WIDE_BLOCK_CELLS = ["720x20-dark", "720x20-light", "960x16-dark", "960x16-light", "960x20-dark", "960x20-dark-classic", "960x20-light", "960x24-dark", "960x24-light", "960x28-dark", "960x28-light", "1280x20-dark", "1280x20-light"];
+
+/** One row per document for each check, each naming the cells it fails in and the story that clears it. */
+const EXPECTED_FAILURES = [
+  ...rowsFor('blockEdges/code', 'L-04', CODE_BOX_CELLS, ["02-readme-real-world.md", "03-ai-plan.md", "06-math.md", "09-gfm-everything.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "27-alerts.md", "28-artifact-fences.md", "28-llm-answer.md", "29-hidden-characters.md", "30-notebook-export.md", "32-long-reference.md"]),
+  ...rowsFor('noticeColumn/edges', 'L-05', NOTICE_EDGE_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('noticeColumn/grid', 'L-05', NOTICE_GRID_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('noticeColumn/sight', 'L-05', NOTICE_SIGHT_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('noticeColumn/source', 'L-05', NOTICE_SOURCE_CELLS, ["15-prose-volume.md"]),
+  ...rowsFor('room/even', 'L-04', WIDE_BLOCK_CELLS, ["01-long-technical.md", "02-readme-real-world.md", "03-ai-plan.md", "05-pathological-table-and-nesting.md", "06-math.md", "10-hostile.md", "16-api-reference.md", "18-agent-transcript.md", "19-source-file.md", "24-issue-thread.md", "28-artifact-fences.md", "28-llm-answer.md", "30-notebook-export.md", "31-essay.md", "32-long-reference.md"]),
+];
+
+/**
+ * Judge the cases a run found against a table of expected failures. A row is `{ check, document, cells,
+ * story }`: `check` is `check/sub`, and it stands for the case in each of its cells. Returns the messages
+ * of failures: a case with no row, and a row whose case did not occur in a cell that was measured.
+ * `measured` is what the run measured, so a narrowed run judges only its own cells.
+ */
+function judgeExpected(found, measured, table) {
+  const out = [];
+  const listed = new Set();
+  for (const row of table) {
+    for (const cell of row.cells) {
+      const key = `${row.check}|${row.document}|${cell}`;
+      listed.add(key);
+      if (!measured.has(`${familyOf(row.check.split('/')[0])}|${row.document}|${cell}`)) continue;
+      if (!found.has(key)) out.push(`${row.document} ${cell}: ${row.check} now passes, so its row (${row.story}) is stale: delete it`);
+    }
+  }
+  for (const [key, details] of found) {
+    if (listed.has(key)) continue;
+    const [check, doc, cell] = key.split('|');
+    out.push(`${doc} ${cell}: ${check}: ${details.slice(0, 3).join('; ')}${details.length > 3 ? ` (and ${details.length - 3} more)` : ''}`);
+  }
+  return out;
+}
+
+/** The found cases as rows of the table: one per check and document, with the cells it fails in. */
+function rowsOf(found) {
+  const rows = new Map();
+  for (const key of found.keys()) {
+    const [check, doc, cell] = key.split('|');
+    const k = `${check}|${doc}`;
+    rows.set(k, { check, document: doc, cells: [...(rows.get(k)?.cells ?? []), cell] });
+  }
+  return [...rows.values()].sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : a.document < b.document ? -1 : 1));
+}
+
 function themeFixtureNames() {
   const dir = join(root, 'fixtures/themes');
   if (!existsSync(dir)) return [];
@@ -554,14 +762,41 @@ async function checkCodeVoice(page, { xHeight = false } = {}) {
   }, xHeight);
 }
 
-/** §10 check 9. html/body and the main landmark itself are the page, not chrome. */
-async function checkChrome(page) {
-  return page.evaluate(() => {
+/**
+ * The unfolded window's vocabulary (ADR-0058, 02-fold-up-workspace.md). ADR-0058 lists the surfaces
+ * (sidebar, toolbar, tabs, the kind's tool strip, inspector, status bar) but names no attribute, so
+ * the spellings live here and in scripts/registry.json only. W-02 owns them: if it prefers other
+ * names it edits both in one change. This file runs on import, so the constant cannot be exported.
+ */
+const WORKSPACE = {
+  attribute: 'data-marxy-workspace', // on <html> or <body>: 'folded' | 'unfolded'
+  regionAttribute: 'data-marxy-workspace-region',
+  regions: ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar'],
+};
+
+/**
+ * §10 check 9. html/body and the main landmark itself are the page, not chrome.
+ * `state: 'folded'` (the default, and what the corpus run uses) is the at-rest window: nothing visible
+ * outside #marxy-main, whatever its name. `state: 'unfolded'` additionally allows the workspace's
+ * named regions and their contents; any other visible element outside #marxy-main, and any region
+ * with a name outside the list, still fails.
+ */
+async function checkChrome(page, { state = 'folded' } = {}) {
+  return page.evaluate(({ state, ws }) => {
     const main = document.getElementById('marxy-main');
     const out = [];
+    const regionSel = `[${ws.regionAttribute}]`;
     for (const el of document.querySelectorAll('*')) {
       if (el === document.documentElement || el === document.body || el === main) continue;
       if (main && main.contains(el)) continue;
+      if (state === 'unfolded') {
+        const region = el.closest(regionSel);
+        if (region) {
+          const name = region.getAttribute(ws.regionAttribute);
+          if (el === region && !ws.regions.includes(name)) out.push(`workspace region "${name}" is not one of ${ws.regions.join(', ')}`);
+          continue;
+        }
+      }
       const s = getComputedStyle(el);
       if (s.visibility === 'hidden' || s.display === 'none') continue;
       const r = el.getBoundingClientRect();
@@ -569,7 +804,7 @@ async function checkChrome(page) {
       out.push(`visible <${el.tagName.toLowerCase()}> outside #marxy-main`);
     }
     return out;
-  });
+  }, { state, ws: WORKSPACE });
 }
 
 function shotDir() {
@@ -665,22 +900,75 @@ async function compareScreenshotPng(page, expected, actual, { writeDiffPath } = 
   return payload;
 }
 
+/**
+ * Scrolls to the top (`first`) or brings the last heading into view (`last`) and waits for the page
+ * to hold still. The app highlights a code block when it comes near the viewport (render/highlight.ts):
+ * plain line spans at once, colour when the worker answers, and a grid pass after each, so blocks can
+ * change height and colour after the scroll. Each round lets the app's coalesced grid snap (250 ms) and
+ * two frames pass; the page is settled when no block the highlighter will colour is still waiting for
+ * the worker, and three rounds in a row after that see the same scroll height, position, target top and
+ * number of coloured blocks. The wait for colour is a condition, not a time: on a loaded machine the
+ * worker can answer after three quiet rounds, and the screenshot then caught the block uncoloured
+ * (18-agent-transcript, 0.28 %). A block is waiting when it is in the highlighter's reach (its
+ * IntersectionObserver margin, 200 % of the viewport above and below), its language is one the
+ * highlighter colours (`marxyGate.colourable`), and it is not yet `data-marxy-done="highlight"`.
+ * Returns false when there is no heading to scroll to.
+ */
+async function scrollAndSettle(where) {
+  let target = null;
+  if (where === 'last') {
+    const headings = [...document.querySelectorAll('#doc h1, #doc h2, #doc h3, #doc h4, #doc h5, #doc h6')];
+    target = headings[headings.length - 1] ?? null;
+    if (!target) return false;
+  }
+  const place = () => (target ? target.scrollIntoView() : window.scrollTo(0, 0));
+  const settle = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  };
+  const state = () =>
+    [
+      document.documentElement.scrollHeight,
+      window.scrollY,
+      target ? target.getBoundingClientRect().top : 0,
+      document.querySelectorAll('#doc code[data-marxy-done="highlight"]').length,
+    ].join(':');
+  const reach = 2 * window.innerHeight;
+  const waiting = () =>
+    [...document.querySelectorAll('#doc pre:not(.marxy-math-block) > code')].filter((code) => {
+      if (code.dataset.marxyDone === 'highlight') return false;
+      const lang = [...code.classList].find((c) => c.startsWith('language-'))?.slice('language-'.length);
+      if (!lang || !window.marxyGate.colourable(lang)) return false;
+      const box = code.getBoundingClientRect();
+      return box.bottom > -reach && box.top < window.innerHeight + reach;
+    }).length;
+  let before = null;
+  let still = 0;
+  let pending = 0;
+  // A cap on a page that never holds still, not a wait: a settled page returns after four rounds, and
+  // a loaded machine's worker gets ~30 s to answer before this throws.
+  for (let i = 0; i < 100; i++) {
+    place();
+    await settle();
+    const now = state();
+    pending = waiting();
+    still = pending === 0 && now === before ? still + 1 : 0;
+    if (still === 3) return true;
+    before = now;
+  }
+  throw new Error(
+    `the page did not hold still at the ${where} screenshot after 100 rounds${pending ? ` (${pending} code block(s) still waiting for colour)` : ''}`,
+  );
+}
+
 async function checkScreenshot(page, { file, width, variant, update }) {
   const dir = shotDir();
   const out = [];
   for (const where of ['first', 'last']) {
-    if (where === 'last') {
-      const moved = await page.evaluate(() => {
-        const headings = [...document.querySelectorAll('#doc h1, #doc h2, #doc h3, #doc h4, #doc h5, #doc h6')];
-        const last = headings[headings.length - 1];
-        if (!last) return false;
-        last.scrollIntoView();
-        return true;
-      });
-      if (!moved) continue;
-    } else {
-      await page.evaluate(() => window.scrollTo(0, 0));
-    }
+    const t0 = performance.now();
+    const placed = await page.evaluate(scrollAndSettle, where);
+    spent.shots += performance.now() - t0;
+    if (!placed) continue;
     const png = await screenshot(page);
     const name = shotName(file, width, variant, where);
     const dest = join(dir, name);
@@ -695,7 +983,7 @@ async function checkScreenshot(page, { file, width, variant, update }) {
     const diffPath = join(diffDir(), name.replace(/\.png$/, '.diff.png'));
     const diff = await compareScreenshotPng(page, expected, png, { writeDiffPath: diffPath });
     if (diff.pct > SHOT_MAX_PCT) {
-      out.push(`${file} ${width} ${variant} ${where}: ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''} (diff ${diffPath.slice(root.length + 1)})`);
+      out.push(`${file} ${width} ${variant} ${where}: ${diff.pct.toFixed(3)}% pixels differ${diff.reason ? ` (${diff.reason})` : ''} (diff ${diffPath.slice(root.length)})`);
     }
   }
   return out;
@@ -712,7 +1000,9 @@ async function runPageChecks(page, result, ctx) {
   add(await checkHanging(page));
   add(await checkHierarchy(page));
   add(await checkCodeVoice(page));
-  add(await checkChrome(page));
+  add(await checkChrome(page, { state: 'folded' }));
+  await checkGeometry(page, ctx.file, ctx);
+  if (ctx.file === NOTICE_DOC) recordCases('noticeColumn', ctx.file, cellId(ctx), await checkNoticeColumn(page));
   if (ctx.rag) add(checkRag(ctx.rag.metrics, ctx.rag.baseline, ctx.file));
   if (ctx.shot) add(await checkScreenshot(page, ctx.shot));
   return problems;
@@ -727,17 +1017,25 @@ ${extraCss}
 </style></head><body><main id="marxy-main"><article id="doc" class="marxy-article">${body}</article></main></body></html>`;
 }
 
-/** Image swap that moves a following block, using the same in-page geometry as marxyRender. */
+/** A workspace skeleton around crafted(): one visible element per region, outside #marxy-main. */
+function craftedWorkspace(state, { stray = '', extraRegion = '' } = {}) {
+  const regions = WORKSPACE.regions
+    .map((r) => `<div ${WORKSPACE.regionAttribute}="${r}"><button>${r}</button></div>`)
+    .join('');
+  return crafted('<p>In</p>').replace('<body>', `<body ${WORKSPACE.attribute}="${state}">${regions}${extraRegion}${stray}`);
+}
+
+/** Image swap that moves a following block, using the app harness's own layout-shift geometry. */
 async function craftedClsShift(page, origin) {
-  await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof window.marxyLayoutShift?.snapshot === 'function');
+  await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.marxyGate?.layoutShift?.snapshot === 'function');
   return page.evaluate(async () => {
     const article = document.getElementById('doc');
     article.innerHTML =
       '<p data-marxy-s="0" data-marxy-e="1" style="display:block;margin:0">Above</p>' +
       '<img id="late" alt="" style="display:block">' +
       '<p data-marxy-s="2" data-marxy-e="3" style="display:block;margin:0">Moves when the image arrives</p>';
-    const shift = window.marxyLayoutShift;
+    const shift = window.marxyGate.layoutShift;
     shift.assertCanObserve();
     const first = shift.snapshot(article);
     const img = document.getElementById('late');
@@ -774,6 +1072,145 @@ async function checkRoomInNarrowContainer(browser, css = defaultThemeCss()) {
   } finally {
     await page.close();
   }
+}
+
+/**
+ * Crafted pages for the L-02 checks, each with one fault the rule must catch and a twin without it that must
+ * pass. The faults are written in inline style, so they hold whatever the theme does: a story that clears an
+ * expected failure cannot make a control pass.
+ */
+function geometrySelftestCases() {
+  const themed = (body, extraCss = '', before = '') =>
+    `<!doctype html><html lang="en" data-marxy-variant="dark"><head><meta charset="utf-8"><style>${defaultThemeCss()}${extraCss}</style></head><body><main id="marxy-main">${before}<article id="doc" class="marxy-article">${body}</article></main></body></html>`;
+  const blk = (tag, i, inner, style = '') => `<${tag} data-marxy-s="${i * 100}" data-marxy-e="${i * 100 + 99}"${style ? ` style="${style}"` : ''}>${inner}</${tag}>`;
+  const PROSE = blk('p', 0, 'A short paragraph of body text that sits on the column and nowhere else.');
+  const LONG = 'A long paragraph of body text, set over several lines so that the longest of them must come close to the right edge of the column. '.repeat(6);
+  const TALL = blk('div', 9, '', 'height:3000px');
+  const REGION = '<div id="marxy-notices" role="status"></div>';
+  const SOURCE = '<div id="marxy-source"><div class="cm-content"><div class="cm-line" style="height:30px">first line of source</div></div></div>';
+  const FIXED_NOTICES = '#marxy-notices{position:fixed;top:0;left:0;right:0}';
+  const measured = async (page) => page.evaluate(measureInPage, { blocks: true, notice: false });
+  const details = (list) => list.map((f) => f.detail);
+  const sub = (name) => async (page) => (await checkNoticeColumn(page)).filter((f) => f.sub === name).map((f) => f.detail);
+  return [
+    {
+      name: 'centred (axis)',
+      html: themed(PROSE, '.marxy-article{margin-inline:0}'),
+      ok: themed(PROSE),
+      run: async (page) => details(checkCentred(await measured(page))),
+    },
+    {
+      name: 'blockEdges',
+      html: themed(blk('p', 0, 'A paragraph that starts forty pixels in.', 'margin-left:40px')),
+      ok: themed(PROSE),
+      run: async (page) => details(checkBlockEdges(await measured(page))),
+    },
+    {
+      // A ragged right edge is not a fault; a paragraph held in from the right, so that no line reaches, is.
+      name: 'blockEdges (right edge)',
+      html: themed(blk('p', 0, LONG, 'padding-right:60px')),
+      ok: themed(blk('p', 0, LONG)),
+      run: async (page) => details(checkBlockEdges(await measured(page)).filter((f) => f.sub === 'p-right')),
+    },
+    {
+      name: 'room (past the room)',
+      // Even on both sides, but 400px each way is far past the room.
+      html: themed(PROSE + blk('div', 1, 'a box that runs 400px past the column on both sides', 'margin-inline:-400px')),
+      ok: themed(PROSE + blk('div', 1, 'a box inside the column')),
+      run: async (page) => details(checkRoom(await measured(page)).filter((f) => f.sub === 'limit')),
+    },
+    {
+      name: 'room (uneven)',
+      // Inside the room, but only on the right.
+      html: themed(PROSE + blk('div', 1, 'a box that runs 100px past the right edge only', 'margin-right:-100px')),
+      ok: themed(PROSE + blk('div', 1, 'a box that runs 100px past each edge', 'margin-inline:-100px')),
+      run: async (page) => details(checkRoom(await measured(page)).filter((f) => f.sub === 'even')),
+    },
+    {
+      name: 'marks',
+      viewport: { width: 480, height: 800 },
+      html: themed(blk('ul', 0, blk('li', 1, '<input type="checkbox" style="margin-left:-60px">an item whose checkbox hangs out of the page'))),
+      ok: themed(blk('ul', 0, blk('li', 1, '<input type="checkbox" style="margin:0 !important">an item')), 'ul{padding-left:0 !important}'),
+      run: async (page) => details(checkMarks(await measured(page))),
+    },
+    {
+      name: 'noClip',
+      html: themed(blk('p', 0, 'text pushed off the left of the window', 'margin-left:-300px')),
+      ok: themed(PROSE),
+      run: async (page) => details(checkNoClip(await measured(page))),
+    },
+    {
+      name: 'noticeColumn (edges)',
+      html: themed(PROSE, '#marxy-notices{margin-inline-start:140px}', REGION),
+      // The region inside the article's own column, with nothing of its own to move it, sits on the column.
+      ok: themed(`<div id="marxy-notices" role="status" style="padding:0 !important;margin:0 !important;max-width:none !important"></div>` + PROSE),
+      run: sub('edges'),
+    },
+    {
+      name: 'noticeColumn (in sight)',
+      html: themed(PROSE + TALL, '#marxy-notices{position:static !important}', REGION),
+      ok: themed(PROSE + TALL, '#marxy-notices{position:sticky;top:0}', REGION),
+      run: sub('sight'),
+    },
+    {
+      name: 'noticeColumn (grid units)',
+      html: themed(PROSE, '.marxy-notice{padding-block:7px !important;line-height:1 !important}', REGION),
+      ok: themed(PROSE, '.marxy-notice{display:block !important;height:30px !important;padding:0 !important;border:0 !important}', REGION),
+      run: sub('grid'),
+    },
+    {
+      name: 'noticeColumn (not over Source text)',
+      html: themed(PROSE, FIXED_NOTICES + '#marxy-source{position:fixed;inset:0}', REGION + SOURCE),
+      ok: themed(PROSE, FIXED_NOTICES + '#marxy-source{position:fixed;inset:200px 0 0 0}', REGION + SOURCE),
+      run: async (page) => (noticeFailures(await page.evaluate(measureNoticeInPage, { source: true }))).map((f) => f.detail),
+    },
+    {
+      name: 'textSpacing (clipped text)',
+      html: themed(blk('div', 0, 'a line of text that the spacing pushes out of a box of fixed height '.repeat(4), 'height:20px;overflow:hidden'), TEXT_SPACING_CSS),
+      ok: themed(PROSE, TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      // The overrides never loaded: the check must say so, not pass on a page it did not stress.
+      name: 'textSpacing (overrides applied)',
+      html: themed(PROSE),
+      ok: themed(PROSE, TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      // WCAG 1.4.12 is "at least": 0.1 em letter spacing is under 0.12 em and fails, 0.12 em or more does not.
+      name: 'textSpacing (letter spacing below the floor)',
+      html: themed(blk('p', 0, 'A paragraph held at 0.1 em.', 'letter-spacing:0.1em !important'), TEXT_SPACING_CSS),
+      ok: themed(blk('p', 0, 'A paragraph held at 0.2 em.', 'letter-spacing:0.2em !important'), TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      // The first paragraph is set right; a list item and a heading are not. Each kind is judged on its own.
+      name: 'textSpacing (every kind of block)',
+      html: themed(PROSE + blk('ul', 1, blk('li', 2, 'a list item with no word spacing', 'word-spacing:0 !important')), TEXT_SPACING_CSS),
+      ok: themed(PROSE + blk('ul', 1, blk('li', 2, 'a list item with word spacing')), TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      name: 'textSpacing (heading)',
+      html: themed(PROSE + blk('h2', 1, 'A heading with no letter spacing', 'letter-spacing:0 !important'), TEXT_SPACING_CSS),
+      ok: themed(PROSE + blk('h2', 1, 'A heading with letter spacing'), TEXT_SPACING_CSS),
+      run: checkTextSpacing,
+    },
+    {
+      name: 'text200 (wide box)',
+      html: themed(blk('div', 0, 'a box wider than the window', 'width:3000px'), `.marxy-article{font-size:${TEXT200_PX}px}`),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`),
+      run: checkText200,
+    },
+    {
+      // The size was not doubled: the check must say so.
+      name: 'text200 (size applied)',
+      html: themed(PROSE, '.marxy-article{font-size:20px}'),
+      ok: themed(PROSE, `.marxy-article{font-size:${TEXT200_PX}px}`),
+      run: checkText200,
+    },
+  ];
 }
 
 async function selftest(browser, origin) {
@@ -829,6 +1266,24 @@ async function selftest(browser, origin) {
       run: checkChrome,
     },
     {
+      name: 'chrome-folded-region',
+      html: craftedWorkspace('folded'),
+      ok: crafted('<p>In</p>'),
+      run: (page) => checkChrome(page, { state: 'folded' }),
+    },
+    {
+      name: 'chrome-unfolded-stray',
+      html: craftedWorkspace('unfolded', { stray: '<mark>out</mark>' }),
+      ok: craftedWorkspace('unfolded'),
+      run: (page) => checkChrome(page, { state: 'unfolded' }),
+    },
+    {
+      name: 'chrome-unfolded-unknown-region',
+      html: craftedWorkspace('unfolded', { extraRegion: `<div ${WORKSPACE.regionAttribute}="banner"><b>x</b></div>` }),
+      ok: craftedWorkspace('unfolded'),
+      run: (page) => checkChrome(page, { state: 'unfolded' }),
+    },
+    {
       name: 'hierarchy',
       html: crafted('<h2 style="color:red">Red</h2><p>Body</p>'),
       run: checkHierarchy,
@@ -838,6 +1293,7 @@ async function selftest(browser, origin) {
       html: crafted('<p>Body <code>x</code></p>', 'p,code{font-family:serif}'),
       run: (page) => checkCodeVoice(page, { xHeight: true }),
     },
+    ...geometrySelftestCases(),
     {
       name: 'hanging-quote',
       html: crafted(
@@ -847,14 +1303,36 @@ async function selftest(browser, origin) {
     },
   ];
   const missed = [];
+  const falseAlarms = [];
   for (const c of cases) {
-    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const page = await browser.newPage({ viewport: c.viewport ?? { width: 960, height: 800 } });
     if (c.html) await page.setContent(c.html, { waitUntil: 'domcontentloaded' });
     const problems = await c.run(page);
+    // The twin without the fault: a check that fails there too would fail every page.
+    let twin = [];
+    if (c.ok) {
+      await page.setContent(c.ok, { waitUntil: 'domcontentloaded' });
+      twin = await c.run(page);
+    }
     await page.close();
     if (problems.length === 0) missed.push(c.name);
+    if (twin.length) falseAlarms.push(`${c.name}: ${twin.join('; ')}`);
   }
   if (missed.length) throw new Error(`selftest: these checks did not fail on a crafted page: ${missed.join(', ')}`);
+  if (falseAlarms.length) throw new Error(`selftest: these checks failed on a crafted page without the fault: ${falseAlarms.join(' | ')}`);
+
+  // The expected-failure table is held both ways: a case with no row fails, and a row whose case passes fails.
+  const row = { check: 'room/even', document: 'x.md', cells: ['960x20-dark'], story: 'L-04' };
+  const ran = new Set(['geometry|x.md|960x20-dark']);
+  const occurs = new Map([['room/even|x.md|960x20-dark', ['a box overhangs']]]);
+  const tableCases = [
+    ['an unlisted failure fails', judgeExpected(occurs, ran, []).length === 1],
+    ['a listed row whose case passes fails', judgeExpected(new Map(), ran, [row]).length === 1],
+    ['a listed failure that occurs passes', judgeExpected(occurs, ran, [row]).length === 0],
+    ['a row for a cell this run did not measure is not judged', judgeExpected(new Map(), new Set(), [row]).length === 0],
+  ];
+  const wrongTable = tableCases.filter(([, ok]) => !ok).map(([name]) => name);
+  if (wrongTable.length) throw new Error(`selftest: the expected-failure table is not held both ways: ${wrongTable.join('; ')}`);
 
   const optical = await browser.newPage({ viewport: { width: 960, height: 800 } });
   await optical.setContent(
@@ -914,10 +1392,11 @@ async function selftest(browser, origin) {
   };
 }
 
+/** One fresh harness page per render: the app keeps module state, so gate.html renders once per load. */
 async function renderCorpus(page, origin, source, opts) {
-  await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof window.marxyRender === 'function');
-  return page.evaluate(async ({ source, opts }) => window.marxyRender(source, opts), { source, opts });
+  await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof window.marxyGate?.render === 'function');
+  return page.evaluate(async ({ source, opts }) => window.marxyGate.render(source, opts), { source, opts });
 }
 
 /** Documents whose font/image window (snaps[0]→[1]) scored movement; used by --repeat. */
@@ -937,7 +1416,7 @@ async function clsCorpusPass(browser, harness, files, combos) {
       const result = await renderCorpus(page, harness.origin, source, opts);
       return fontWindowOffenders(result, { file, ...opts });
     } catch (e) {
-      return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
+      return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyGate.render threw: ${e.message}`];
     } finally {
       await page.close();
     }
@@ -976,7 +1455,8 @@ async function main() {
   }
 
   await buildRenderEntry();
-  notes.push('apps/desktop/dist/render.js built');
+  phase('build');
+  notes.push('apps/desktop/gate.html built');
 
   let webkit;
   try {
@@ -1007,7 +1487,7 @@ async function main() {
       `selftest: optical ~5% protrusion (margin/width=${opticalSelftest.marginOverWidth.toFixed(3)}, rect.width=${opticalSelftest.rectWidth.toFixed(2)}px) fails pre-fix (${opticalSelftest.preFixProblems.join('; ')}) and passes head (${opticalSelftest.headProblems.length ? opticalSelftest.headProblems.join('; ') : '[]'})`,
     );
     notes.push(
-      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome, hierarchy, code-voice, hanging-quote each fail on a crafted page; optical protrusion passes',
+      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome (folded, plus a region folded, a stray and an unknown region unfolded), hierarchy, code-voice, hanging-quote, and the geometry checks (centred, blockEdges, room, marks, noClip, noticeColumn, textSpacing, text200) each fail on a crafted page and pass on its twin; optical protrusion passes; the expected-failure table is held both ways',
     );
     const roomHead = await checkRoomInNarrowContainer(browser);
     if (roomHead.problems.length) throw new Error(`aesthetics gate: ${roomHead.problems.join('; ')}`);
@@ -1021,6 +1501,7 @@ async function main() {
     if (!loadRagBaseline('01-long-technical.md').path.includes(`${join('rag', engineName())}`)) {
       throw new Error(`rag baselines must be engine-keyed under rag/${engineName()}/`);
     }
+    phase('selftest');
     if (SELFTEST_ONLY) {
       if (MECHANICAL && screenshotsTaken !== 0) throw new Error(`--mechanical took ${screenshotsTaken} screenshot(s); it must take none`);
       console.log(`aesthetics gate ok: selftest passed; ${notes.join('; ')}; screenshots taken: ${screenshotsTaken}`);
@@ -1039,9 +1520,9 @@ async function main() {
       }));
       await smoke.close();
       if (painted.heading !== 'Hello' || !painted.paragraph || !/Literata/.test(painted.css) || !result) {
-        throw new Error(`selftest: marxyRender did not typeset without the shell (${JSON.stringify(painted)})`);
+        throw new Error(`selftest: marxyGate.render did not paint a document through the app (${JSON.stringify(painted)})`);
       }
-      notes.push('selftest: dist/render.js painted a document through marxyRender');
+      notes.push('selftest: the app harness painted a document through marxyGate.render');
       const tasks = files.flatMap((file) => {
         const source = readFileSync(join(corpusDir, file), 'utf8');
         const ragBase = loadRagBaseline(file);
@@ -1051,10 +1532,11 @@ async function main() {
         const page = await browser.newPage({ viewport: { width: opts.width, height: 900 } });
         try {
           let result;
+          const t0 = performance.now();
           try {
             result = await renderCorpus(page, harness.origin, source, opts);
           } catch (e) {
-            return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyRender threw: ${e.message}`];
+            return [`${file} ${opts.width}×${opts.size} ${opts.variant}: marxyGate.render threw: ${e.message}`];
           }
           // --mechanical skips both baseline comparisons: the rag reference read and the screenshots.
           const atRef = !MECHANICAL && opts.width === 960 && opts.variant === 'dark' && opts.size === 20;
@@ -1065,17 +1547,22 @@ async function main() {
             created++;
           }
           const shot = !MECHANICAL && screenshotCombo(opts);
-          return await runPageChecks(page, result, {
+          const t1 = performance.now();
+          spent.render += t1 - t0;
+          const problems = await runPageChecks(page, result, {
             file,
             ...opts,
             rag: atRef && metrics ? { metrics, baseline: UPDATE ? metrics : ragBase.data } : null,
             shot: shot ? { file, width: opts.width, variant: opts.variant, update: UPDATE } : null,
           });
+          spent.checks += performance.now() - t1;
+          return problems;
         } finally {
           await page.close();
         }
       });
       for (const problems of batched) fails.push(...problems);
+      phase('corpus');
       notes.push(`corpus: ${tasks.length} render(s) = ${files.length} file(s) × ${combos.length} combo(s), ${WORKERS} page(s) at a time`);
 
       const themeTasks = themeFixtureNames().flatMap((themeName) => {
@@ -1098,12 +1585,13 @@ async function main() {
           const problems = await checkContrast(page);
           return problems.map((p) => `${file} theme/${themeName} ${variant}: ${p}`);
         } catch (e) {
-          return [`${file} theme/${themeName} ${variant}: marxyRender threw: ${e.message}`];
+          return [`${file} theme/${themeName} ${variant}: marxyGate.render threw: ${e.message}`];
         } finally {
           await page.close();
         }
       });
       fails.push(...themeFails.flat());
+      phase('themes');
       if (themeTasks.length) notes.push(`contrast: ${themeTasks.length} theme fixture render(s)`);
 
       const reflowModes = [
@@ -1124,16 +1612,99 @@ async function main() {
         try {
           if (Object.keys(mode.emulate).length) await page.emulateMedia(mode.emulate);
           await renderCorpus(page, harness.origin, source, { variant, width: mode.width, size: 20 });
+          // The narrowest page the gate renders is also where the geometry is tightest.
+          if (mode.tag === '320px') {
+            const o = { width: mode.width, size: 20, variant };
+            await checkGeometry(page, file, o);
+            if (file === NOTICE_DOC) recordCases('noticeColumn', file, cellId(o), await checkNoticeColumn(page));
+          }
           const problems = await checkNoHorizontalPageScroll(page);
           return problems.map((p) => `${file} ${mode.tag} ${variant}: ${p}`);
         } catch (e) {
-          return [`${file} ${mode.tag} ${variant}: marxyRender threw: ${e.message}`];
+          return [`${file} ${mode.tag} ${variant}: marxyGate.render threw: ${e.message}`];
         } finally {
           await page.close();
         }
       });
       fails.push(...reflowFails.flat());
+      phase('reflow');
       notes.push(`reflow: ${reflowTasks.length} render(s) at 320 px, 400 % zoom and three media preferences`);
+
+    // Classic scrollbars (WebKitGTK, or macOS set to always show them): one render per document at the
+    // narrow width and the usual one, the scrollbar injected after first text and the app's relayout awaited.
+    const classicTasks = files.flatMap((file) => {
+      const source = readFileSync(join(corpusDir, file), 'utf8');
+      return CLASSIC_WIDTHS.map((width) => ({ file, source, o: { width, size: 20, variant: 'dark', classic: true } }));
+    });
+    const classicFails = await pool(classicTasks, async ({ file, source, o }) => {
+      const page = await browser.newPage({ viewport: { width: o.width, height: 900 } });
+      try {
+        await renderCorpus(page, harness.origin, source, { variant: o.variant, width: o.width, size: o.size });
+        await injectClassicScrollbar(page);
+        await awaitRelayout(page);
+        const cell = await checkGeometry(page, file, o);
+        // A page too short to scroll has no scrollbar to model; only a page that took one is a classic page.
+        if (cell.viewport.scrollbar === 0 && cell.viewport.docHeight > 900) {
+          return [`${file} ${cellId(o)}: the classic scrollbar took no space on a page ${cell.viewport.docHeight}px tall`];
+        }
+        return [];
+      } catch (e) {
+        return [`${file} ${cellId(o)}: ${e.message}`];
+      } finally {
+        await page.close();
+      }
+    });
+    fails.push(...classicFails.flat());
+    phase('classic');
+    notes.push(`classic scrollbar: ${classicTasks.length} render(s) at ${CLASSIC_WIDTHS.join(' and ')} px, after the app's relayout`);
+
+    // Rule 5 in Source mode, on the long document: the app is put into its editor the way a reader does it.
+    if (files.includes(NOTICE_DOC)) {
+      const source = readFileSync(join(corpusDir, NOTICE_DOC), 'utf8');
+      const inSource = await pool(NOTICE_SOURCE_WIDTHS, async (width) => {
+        const page = await browser.newPage({ viewport: { width, height: 900 } });
+        try {
+          await renderCorpus(page, harness.origin, source, { variant: 'dark', width, size: 20 });
+          recordCases('noticeColumn', NOTICE_DOC, `${cellId({ width, size: 20, variant: 'dark' })}-source`, await checkNoticeInSource(page));
+          return [];
+        } catch (e) {
+          return [`${NOTICE_DOC} ${width}px in Source: ${e.message}`];
+        } finally {
+          await page.close();
+        }
+      });
+      fails.push(...inSource.flat());
+    }
+
+    // Rule 6: WCAG 1.4.12 text spacing as a reader theme, and 200 % text (the reader's size at 40 px).
+    const accessTasks = files.flatMap((file) => {
+      const source = readFileSync(join(corpusDir, file), 'utf8');
+      return [
+        ...SPACING_WIDTHS.filter(() => !SPACING_SKIPS.has(file)).map((width) => ({ file, source, kind: 'text spacing', width, opts: { variant: 'dark', width, size: 20, theme: TEXT_SPACING_CSS }, check: checkTextSpacing })),
+        { file, source, kind: '200 % text', width: TEXT200_WIDTH, opts: { variant: 'dark', width: TEXT200_WIDTH, size: TEXT200_PX }, check: checkText200 },
+      ];
+    });
+    const accessFails = await pool(accessTasks, async ({ file, source, kind, width, opts, check }) => {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      try {
+        await renderCorpus(page, harness.origin, source, opts);
+        return (await check(page)).map((p) => `${file} ${kind} ${width}px: ${p}`);
+      } catch (e) {
+        return [`${file} ${kind} ${width}px: marxyGate.render threw: ${e.message}`];
+      } finally {
+        await page.close();
+      }
+    });
+    fails.push(...accessFails.flat());
+    phase('access');
+    notes.push(`access: ${accessTasks.length} render(s), text spacing at ${SPACING_WIDTHS.join(' and ')} px and 200 % text at ${TEXT200_WIDTH} px`);
+
+    if (EMIT_EXPECTED) {
+      console.log(`expected-failure rows (${foundCases.size} case(s)):\n${rowsOf(foundCases).map((r) => `  ${JSON.stringify(r)},`).join('\n')}`);
+    } else {
+      fails.push(...judgeExpected(foundCases, measuredCells, EXPECTED_FAILURES));
+      notes.push(`geometry: ${foundCases.size} listed failure case(s) across ${measuredCells.size} measured cell(s); ${EXPECTED_FAILURES.length} expected-failure row(s)`);
+    }
 
     if (UPDATE || created) {
       fails.push('baseline created; add a queue entry');
@@ -1164,9 +1735,14 @@ async function main() {
   } finally {
     harness.close();
     await browser.close();
+    rmSync(gateDist, { recursive: true, force: true });
   }
 
   notes.push(`${MECHANICAL ? 'mechanical: no baseline comparison, ' : ''}screenshots taken: ${screenshotsTaken}`);
+  // Printed on success and failure alike: the breakdown matters most on a slow red run.
+  console.log(
+    `aesthetics gate time: ${phases.join(', ')}; corpus page-seconds: render ${(spent.render / 1000).toFixed(0)}, checks ${((spent.checks - spent.shots) / 1000).toFixed(0)}, screenshot settle ${(spent.shots / 1000).toFixed(0)}`,
+  );
   if (MECHANICAL && screenshotsTaken !== 0) fails.push(`--mechanical took ${screenshotsTaken} screenshot(s); it must take none`);
   if (fails.length) {
     console.error('aesthetics gate failed:\n - ' + fails.join('\n - '));

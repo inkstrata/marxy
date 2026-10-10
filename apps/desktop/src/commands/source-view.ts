@@ -1,9 +1,9 @@
 // Source gutter toggle and jump-to-source palette commands (MARXY-239).
-import type { AppHandle } from '../app.ts';
-import type { Command } from './registry.ts';
-import { writeLineNumbersPreference } from '../source/line-numbers.ts';
+import type { AppContext, Command } from './registry.ts';
+import type { AppShell } from '../app.ts';
+import { writeReaderKey } from '../theme/reader-config.ts';
+import { resolveLineNumbers, setLineNumbersChoice } from '../source/line-numbers.ts';
 import { appHandle } from './app-handle.ts';
-import { getSelectionBufferContext } from '../selection/view.ts';
 
 function byteAttr(el: Element | null | undefined): number | null {
   const s = el?.getAttribute('data-marxy-s');
@@ -11,14 +11,12 @@ function byteAttr(el: Element | null | undefined): number | null {
 }
 
 function clickedBlockByte(): number | null {
-  const carrier = (window as Window & { __marxyJumpCarrier?: Element | null }).__marxyJumpCarrier;
-  return byteAttr(carrier);
+  return byteAttr(appHandle()?.selection.lastPointerCarrier());
 }
 
-function selectionStartByte(): number | null {
-  const ctx = getSelectionBufferContext();
-  if (ctx) {
-    const sel = ctx.state.selection;
+function selectionStartByte(ctx: AppContext): number | null {
+  if (ctx.document) {
+    const sel = ctx.selection;
     if (sel.kind === 'node' && sel.el instanceof Element) {
       const s = byteAttr(sel.el.closest('[data-marxy-s]'));
       if (s !== null) return s;
@@ -41,33 +39,36 @@ export function sourceViewCommands(): readonly Command[] {
       id: 'view.toggle-line-numbers',
       title: 'Toggle line numbers in Source',
       group: 'view',
-      when: () => document.body.dataset.marxyMode === 'source' || getSelectionBufferContext() !== null,
-      run: async () => {
-        const { activeSourceEditor, createSourceEditor } = await import('../source/editor.ts');
-        let editor = activeSourceEditor();
-        if (!editor) {
-          const ctx = getSelectionBufferContext();
-          const host = document.getElementById('marxy-source');
-          if (ctx && host) editor = await createSourceEditor({ parent: host, buffer: ctx.buffer });
+      when: (ctx) => document.body.dataset.marxyMode === 'source' || ctx.document !== null,
+      run: async (ctx) => {
+        // The preference only; the app owns the Source editor and makes it (F-03, F-12). One that is
+        // mounted is reconfigured now; with none, the next Source entry reads the recorded choice.
+        const { activeSourceEditor } = await import('../source/editor.ts');
+        const editor = activeSourceEditor();
+        const current = editor
+          ? Boolean(editor.view.dom.querySelector('.cm-lineNumbers'))
+          : resolveLineNumbers(appHandle()?.currentPath() ?? '');
+        const next = !current;
+        if (editor) editor.setLineNumbers(next);
+        else setLineNumbersChoice(next);
+        const shell = appHandle()?.shell as AppShell | undefined;
+        if (!shell) return;
+        try {
+          await writeReaderKey(shell, 'line_numbers', String(next));
+        } catch (e) {
+          ctx.showNotice(`config.toml could not be updated: ${e instanceof Error ? e.message : String(e)}; this choice lasts until you quit`);
         }
-        if (!editor) return;
-        const hasNumbers = Boolean(editor.view.dom.querySelector('.cm-lineNumbers'));
-        const next = !hasNumbers;
-        writeLineNumbersPreference(next);
-        editor.setLineNumbers(next);
       },
     },
     {
       id: 'view.jump-to-source',
       title: 'Jump to source',
       group: 'view',
-      when: () => selectionStartByte() !== null,
-      run: async () => {
-        const byte = selectionStartByte();
-        // The running app's handle; the bare app.html test harness loads the selection harness as a
-        // bundle of its own, so it names its handle on window. Source opens only through the app, so
-        // what is typed there is the document's (F-03).
-        const app = appHandle() ?? (window as Window & { __marxyHandle?: AppHandle }).__marxyHandle;
+      when: (ctx) => selectionStartByte(ctx) !== null,
+      run: async (ctx) => {
+        const byte = selectionStartByte(ctx);
+        // Source opens only through the running app, so what is typed there is the document's (F-03).
+        const app = appHandle();
         if (byte === null || !app) return;
         await app.jumpToSource(byte);
       },

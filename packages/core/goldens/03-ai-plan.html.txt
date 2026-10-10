@@ -52,12 +52,12 @@ a fallback for 90 days. Three phases, each behind a flag.</p>
 </tbody>
 </table>
 <h2 id="api-changes" data-marxy-s="990" data-marxy-e="1004">API changes</h2>
-<pre data-marxy-s="1006" data-marxy-e="1149"><code class="language-http" data-marxy-s="1014" data-marxy-e="1146">POST /v2/webauthn/register/options
+<pre class="language-http" data-marxy-s="1006" data-marxy-e="1149"><code class="language-http" data-marxy-s="1014" data-marxy-e="1146">POST /v2/webauthn/register/options
 POST /v2/webauthn/register/verify
 POST /v2/webauthn/login/options
 POST /v2/webauthn/login/verify
 </code></pre>
-<pre data-marxy-s="1151" data-marxy-e="1493"><code class="language-json" data-marxy-s="1159" data-marxy-e="1490">{
+<pre class="language-json" data-marxy-s="1151" data-marxy-e="1493"><code class="language-json" data-marxy-s="1159" data-marxy-e="1490">{
   "rp": { "id": "auth.example.com", "name": "Example" },
   "user": { "id": "b64url", "name": "ana@example.com", "displayName": "Ana" },
   "pubKeyCredParams": [{ "type": "public-key", "alg": -7 }, { "type": "public-key", "alg": -257 }],
@@ -71,7 +71,7 @@ POST /v2/webauthn/login/verify
 <li data-marxy-s="1637" data-marxy-e="1689">Should the <code data-marxy-s="1651" data-marxy-e="1669">passkeys.require</code> flag be per-tenant?</li>
 </ol>
 <h2 id="rollback" data-marxy-s="1691" data-marxy-e="1702">Rollback</h2>
-<pre data-marxy-s="1704" data-marxy-e="1810"><code class="language-sh" data-marxy-s="1710" data-marxy-e="1807">flagctl set passkeys.require=false --all-tenants
+<pre class="language-sh" data-marxy-s="1704" data-marxy-e="1810"><code class="language-sh" data-marxy-s="1710" data-marxy-e="1807">flagctl set passkeys.require=false --all-tenants
 flagctl set passkeys.enroll=false --all-tenants
 </code></pre>
 <p data-marxy-s="1812" data-marxy-e="1910">Passwords remain valid throughout phase 1–2; phase 3 rollback re-enables them within one

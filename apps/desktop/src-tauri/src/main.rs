@@ -3,9 +3,12 @@
 mod atomic_write;
 mod commands;
 mod error;
+mod pasteboard;
 mod watch;
 #[path = "watch/spawn_notify.rs"]
 mod watch_notify;
+#[path = "watch/tree.rs"]
+mod watch_tree;
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -103,6 +106,13 @@ fn read_file(path: String) -> Result<tauri::ipc::Response, String> {
     std::fs::read(&path)
         .map(tauri::ipc::Response::new)
         .map_err(|e| format!("{path}: {e}"))
+}
+
+/// The first `max_bytes` of a regular file, at most 256 KB, as a raw IPC body (C-11.2). A narrower
+/// form of `read_file`: a symlink or anything that is not a regular file is refused before it is opened.
+#[tauri::command]
+fn read_head(path: String, max_bytes: u64) -> Result<tauri::ipc::Response, ShellError> {
+    commands::fs::read_head_bytes(&path, max_bytes).map(tauri::ipc::Response::new)
 }
 
 /// The header `write_file_atomic` reads its destination from, percent-encoded by the webview.
@@ -249,6 +259,23 @@ fn startup_marks() -> serde_json::Value {
 struct WatchEntry {
     running: watch::RunningWatch,
     refs: u32,
+    /// Which watch this is, among those that ever held its key. Everything that acts on an entry on
+    /// behalf of one watch (its refusal, its handle's close) names this, so a watch that has ended
+    /// and been replaced by a newer one of the same tree cannot remove, stop or release the newer one.
+    id: u64,
+}
+
+fn next_watch_id() -> u64 {
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
+
+/// What `watch_root` returns: the key the watch's `fs-watch` payloads carry, and the id its
+/// `unwatch_root` names.
+#[derive(serde::Serialize)]
+struct WatchHandle {
+    key: String,
+    id: u64,
 }
 
 fn watch_table() -> &'static Mutex<HashMap<String, WatchEntry>> {
@@ -260,9 +287,140 @@ fn watch_table() -> &'static Mutex<HashMap<String, WatchEntry>> {
 /// at that time. `unwatch_root` consults this when the root no longer canonicalises (deleted or
 /// renamed since), so it can still find the table entry that was actually stored under the old
 /// canonical path instead of a fresh, non-matching fallback string.
+///
+/// Lock order: the watch table, then this. A recording is added and dropped with the table lock held,
+/// in the same step as the entry it belongs to, so a watch registered while an older one for the same
+/// key is still stopping keeps its recording (C-11.1).
 fn raw_watch_roots() -> &'static Mutex<HashMap<String, String>> {
     static TABLE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
     TABLE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+type WatchTable = Mutex<HashMap<String, WatchEntry>>;
+type RawRoots = Mutex<HashMap<String, String>>;
+
+/// Share the running watch under `key` if there is one: one more reference, and `raw_key` recorded.
+/// Returns that watch's id.
+fn share_watch(
+    table: &WatchTable,
+    raw_roots: &RawRoots,
+    raw_key: &str,
+    key: &str,
+) -> Result<Option<u64>, String> {
+    let mut table = table.lock().map_err(|e| e.to_string())?;
+    let Some(entry) = table.get_mut(key) else {
+        return Ok(None);
+    };
+    entry.refs += 1;
+    raw_roots
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(raw_key.to_string(), key.to_string());
+    Ok(Some(entry.id))
+}
+
+/// Install a watch that was started without the table locked. When another call installed one for
+/// `key` meanwhile, theirs is shared and `running` is handed back to be stopped. Returns the spare
+/// (if any) and the id of the watch now under `key`: `id` when `running` was installed.
+fn install_watch(
+    table: &WatchTable,
+    raw_roots: &RawRoots,
+    raw_key: &str,
+    key: &str,
+    id: u64,
+    running: watch::RunningWatch,
+) -> Result<(Option<watch::RunningWatch>, u64), String> {
+    let mut table = table.lock().map_err(|e| e.to_string())?;
+    let (spare, id) = match table.get_mut(key) {
+        Some(entry) => {
+            entry.refs += 1;
+            (Some(running), entry.id)
+        }
+        None => {
+            table.insert(
+                key.to_string(),
+                WatchEntry {
+                    running,
+                    refs: 1,
+                    id,
+                },
+            );
+            (None, id)
+        }
+    };
+    raw_roots
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(raw_key.to_string(), key.to_string());
+    Ok((spare, id))
+}
+
+/// Let go of one reference to the watch under `key`, when it is still the watch `id` (a handle whose
+/// watch ended and was replaced finds "not watching", and the replacement keeps its references). The
+/// last one removes the entry and every recording that points at it, both under the table lock, then
+/// hands the entry to `stop` with no lock held (stopping joins a thread). Dropping the recordings
+/// after the stop instead would also drop one made by a watch registered in between. `id` is `None`
+/// only from a caller that does not know which watch it holds.
+fn release_watch(
+    table: &WatchTable,
+    raw_roots: &RawRoots,
+    key: &str,
+    id: Option<u64>,
+    what: &str,
+    stop: impl FnOnce(WatchEntry),
+) -> Result<(), String> {
+    let entry = {
+        let mut table = table.lock().map_err(|e| e.to_string())?;
+        let entry = table
+            .get_mut(key)
+            .filter(|entry| id.is_none_or(|id| entry.id == id))
+            .ok_or_else(|| format!("{NOT_WATCHING} {what}"))?;
+        entry.refs -= 1;
+        if entry.refs > 0 {
+            return Ok(());
+        }
+        let entry = table.remove(key).expect("entry");
+        if let Ok(mut raw_roots) = raw_roots.lock() {
+            raw_roots.retain(|_, v| v != key);
+        }
+        entry
+    };
+    stop(entry);
+    Ok(())
+}
+
+/// What `unwatch_root` says for a watch that is not (or no longer) there; the webview matches it.
+const NOT_WATCHING: &str = "not watching";
+
+/// A watch that ended itself (a tree past its limit): take its entry and recordings out, so a later
+/// `watch_root` of the same tree starts a fresh watch rather than sharing one that never fires. The
+/// thread is already leaving, so nothing is joined; a later `unwatch_root` of it finds no entry.
+/// Only the watch `id` is forgotten: when a newer watch of the same tree already holds the key, the
+/// late cleanup of the old one leaves it alone.
+fn forget_watch(table: &WatchTable, raw_roots: &RawRoots, key: &str, id: u64) {
+    if let Ok(mut table) = table.lock() {
+        if table.get(key).is_none_or(|entry| entry.id != id) {
+            return;
+        }
+        table.remove(key);
+        if let Ok(mut raw_roots) = raw_roots.lock() {
+            raw_roots.retain(|_, v| v != key);
+        }
+    }
+}
+
+/// What a tree watch does when it ends itself past its limit: forget its own entry, then tell the
+/// webview (in that order, so a webview that reacts by watching again finds no stale entry to share).
+fn on_tree_refused(
+    table: &WatchTable,
+    raw_roots: &RawRoots,
+    key: &str,
+    id: u64,
+    reason: &str,
+    emit: impl FnOnce(serde_json::Value),
+) {
+    forget_watch(table, raw_roots, key, id);
+    emit(fs_watch_refusal_payload(key, reason));
 }
 
 fn canonical_watch_root(root: &str) -> Result<String, String> {
@@ -271,19 +429,56 @@ fn canonical_watch_root(root: &str) -> Result<String, String> {
     Ok(canon.to_string_lossy().into_owned())
 }
 
-/// The watch-table key for `root`: its current canonical form, or, when it no longer canonicalises,
-/// whatever canonical key a previous `watch_root(root)` call recorded for that exact raw string.
-fn resolve_watch_key(raw_roots: &HashMap<String, String>, root: &str) -> String {
-    canonical_watch_root(root).unwrap_or_else(|_| {
-        raw_roots
-            .get(root)
-            .cloned()
-            .unwrap_or_else(|| root.to_string())
-    })
+/// Appended to a tree watch's table key, so a tree watch and a folder watch of the same directory
+/// never share a thread (C-05). A NUL cannot occur in a path, so no folder key ever ends this way.
+const TREE_KEY_SUFFIX: &str = "\u{0}tree";
+
+/// The table key for a watch of `canonical`: the path itself for a folder, the path and the suffix
+/// for a tree. Also the key of the `raw_watch_roots` recording for a raw root string.
+fn watch_table_key(canonical: &str, recursive: bool) -> String {
+    if recursive {
+        format!("{canonical}{TREE_KEY_SUFFIX}")
+    } else {
+        canonical.to_string()
+    }
 }
 
-fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
-    let payload: Vec<serde_json::Value> = events
+/// The watch-table key for `root`: its current canonical form, or, when it no longer canonicalises,
+/// whatever canonical key a previous `watch_root(root)` call recorded for that exact raw string.
+#[cfg(test)]
+fn resolve_watch_key(raw_roots: &HashMap<String, String>, root: &str) -> String {
+    resolve_table_key(raw_roots, root, false)
+}
+
+/// `resolve_watch_key` for a folder or a tree watch: the same resolution, under that kind's key.
+fn resolve_table_key(raw_roots: &HashMap<String, String>, root: &str, recursive: bool) -> String {
+    match canonical_watch_root(root) {
+        Ok(canonical) => watch_table_key(&canonical, recursive),
+        Err(_) => raw_roots
+            .get(&watch_table_key(root, recursive))
+            .cloned()
+            .unwrap_or_else(|| watch_table_key(root, recursive)),
+    }
+}
+
+/// `resolve_table_key` for a root the webview names in `unwatch_root`. A path holds no NUL, so one
+/// that does is refused: `X\0tree` would otherwise find the recording of a tree watch of `X` and
+/// release it from a call that named a folder.
+fn unwatch_key(
+    raw_roots: &HashMap<String, String>,
+    root: &str,
+    recursive: bool,
+) -> Result<String, String> {
+    if root.contains('\u{0}') {
+        return Err("not a path: contains a NUL".to_string());
+    }
+    Ok(resolve_table_key(raw_roots, root, recursive))
+}
+
+/// One `fs-watch` payload: the table key of the watch that saw the batch, and its events. Every
+/// watcher in the webview listens on the one channel and keeps only its own key's.
+fn fs_watch_payload(key: &str, events: &[watch::WatchEvent]) -> serde_json::Value {
+    let events: Vec<serde_json::Value> = events
         .iter()
         .map(|event| {
             let mut value = serde_json::json!({
@@ -296,50 +491,116 @@ fn emit_fs_watch(app: &tauri::AppHandle, events: Vec<watch::WatchEvent>) {
             value
         })
         .collect();
-    let _ = app.emit("fs-watch", payload);
+    serde_json::json!({ "key": key, "events": events })
 }
 
-/// Starts (or shares) one `notify` thread per canonical root; events go to `fs-watch`. Async, so
-/// registering watches and joining a stopping thread run off the main thread.
+/// The `fs-watch` payload of a tree watch that ended after it opened (it outgrew its limit): no
+/// events, and the reason. The webview treats the watch as refused.
+fn fs_watch_refusal_payload(key: &str, reason: &str) -> serde_json::Value {
+    serde_json::json!({ "key": key, "events": [], "refused": reason })
+}
+
+fn emit_fs_watch(app: &tauri::AppHandle, key: &str, events: Vec<watch::WatchEvent>) {
+    let _ = app.emit("fs-watch", fs_watch_payload(key, &events));
+}
+
+/// Starts (or shares) one `notify` thread per table key and returns the key; events go to
+/// `fs-watch` tagged with it. A folder watch (the default) sees the folder's own files; a
+/// `recursive` watch sees the tree. Async, so registering watches, scanning a tree and joining a
+/// stopping thread run off the main thread; the table is not locked while a tree is scanned.
 #[tauri::command]
-async fn watch_root(app: tauri::AppHandle, root: String) -> Result<(), String> {
-    let key = canonical_watch_root(&root)?;
-    raw_watch_roots()
-        .lock()
-        .map_err(|e| e.to_string())?
-        .insert(root.clone(), key.clone());
-    let mut table = watch_table().lock().map_err(|e| e.to_string())?;
-    if let Some(entry) = table.get_mut(&key) {
-        entry.refs += 1;
-        return Ok(());
+async fn watch_root(
+    app: tauri::AppHandle,
+    root: String,
+    recursive: Option<bool>,
+) -> Result<WatchHandle, String> {
+    let emit_app = app.clone();
+    start_watch(
+        watch_table(),
+        raw_watch_roots(),
+        &root,
+        recursive.unwrap_or(false),
+        move |key, events| emit_fs_watch(&emit_app, &key, events),
+        move |payload| {
+            let _ = app.emit("fs-watch", payload);
+        },
+        watch_notify::spawn_tree_thread,
+    )
+}
+
+/// The body of `watch_root`: share the running watch of `root` if there is one, else start one (the
+/// tree through `spawn_tree`, so a test can start a small-limit tree) and install it. `emit_events` is
+/// handed the table key and each batch; `emit_payload` the refusal of a tree that outgrew its limit.
+/// Lifted out of the command so a test drives the id through the same path the webview does.
+fn start_watch(
+    table: &'static WatchTable,
+    raw_roots: &'static RawRoots,
+    root: &str,
+    recursive: bool,
+    emit_events: impl Fn(String, Vec<watch::WatchEvent>) + Send + Sync + 'static,
+    emit_payload: impl FnOnce(serde_json::Value) + Send + 'static,
+    spawn_tree: impl FnOnce(
+        PathBuf,
+        Box<dyn FnMut(Vec<watch::WatchEvent>) + Send>,
+        Box<dyn FnOnce(String) + Send>,
+    ) -> Result<watch::RunningWatch, String>,
+) -> Result<WatchHandle, String> {
+    let canonical = canonical_watch_root(root)?;
+    let key = watch_table_key(&canonical, recursive);
+    let raw_key = watch_table_key(root, recursive);
+    if let Some(id) = share_watch(table, raw_roots, &raw_key, &key)? {
+        return Ok(WatchHandle { key, id });
     }
-    let app_handle = app.clone();
-    let running = watch_notify::spawn_poll_thread(PathBuf::from(&key), move |events| {
-        emit_fs_watch(&app_handle, events);
-    })?;
-    table.insert(key, WatchEntry { running, refs: 1 });
-    Ok(())
-}
-
-#[tauri::command]
-async fn unwatch_root(root: String) -> Result<(), String> {
-    let key = {
-        let raw_roots = raw_watch_roots().lock().map_err(|e| e.to_string())?;
-        resolve_watch_key(&raw_roots, &root)
+    let id = next_watch_id();
+    let emit_key = key.clone();
+    let emit = move |events| emit_events(emit_key.clone(), events);
+    let running = if recursive {
+        let refuse_key = key.clone();
+        let refuse = move |reason: String| {
+            on_tree_refused(table, raw_roots, &refuse_key, id, &reason, emit_payload);
+        };
+        spawn_tree(PathBuf::from(&canonical), Box::new(emit), Box::new(refuse))?
+    } else {
+        watch_notify::spawn_poll_thread(PathBuf::from(&canonical), emit)?
     };
-    let mut table = watch_table().lock().map_err(|e| e.to_string())?;
-    let entry = table
-        .get_mut(&key)
-        .ok_or_else(|| format!("not watching {root}"))?;
-    entry.refs -= 1;
-    if entry.refs == 0 {
-        let mut entry = table.remove(&key).expect("entry");
-        entry.running.stop();
-        if let Ok(mut raw_roots) = raw_watch_roots().lock() {
-            raw_roots.retain(|_, v| v != &key);
-        }
+    // Another call may have started the same watch while this one scanned: share theirs.
+    let (spare, id) = install_watch(table, raw_roots, &raw_key, &key, id, running)?;
+    if let Some(mut spare) = spare {
+        spare.stop();
     }
-    Ok(())
+    Ok(WatchHandle { key, id })
+}
+
+#[tauri::command]
+async fn unwatch_root(
+    root: String,
+    recursive: Option<bool>,
+    id: Option<u64>,
+) -> Result<(), String> {
+    stop_watch(
+        watch_table(),
+        raw_watch_roots(),
+        &root,
+        recursive.unwrap_or(false),
+        id,
+    )
+}
+
+/// The body of `unwatch_root`: let go of one reference to the watch the handle `id` holds.
+fn stop_watch(
+    table: &WatchTable,
+    raw_roots: &RawRoots,
+    root: &str,
+    recursive: bool,
+    id: Option<u64>,
+) -> Result<(), String> {
+    let key = {
+        let raw = raw_roots.lock().map_err(|e| e.to_string())?;
+        unwatch_key(&raw, root, recursive)?
+    };
+    release_watch(table, raw_roots, &key, id, root, |mut entry| {
+        entry.running.stop()
+    })
 }
 
 /// Ends the process the one sanctioned way: Tauri's own teardown, then `exit(code)`.
@@ -866,10 +1127,17 @@ fn main() {
             commands::fs::allow_asset_scope,
             config_paths,
             commands::fs::read_dir,
+            commands::fs::stat_file,
+            read_head,
             clipboard_write,
+            pasteboard::pasteboard_types,
+            pasteboard::pasteboard_read,
+            pasteboard::pasteboard_write,
             take_pending_opens,
             commands::os::open_external,
             commands::os::reveal_in_editor,
+            commands::search::search_content,
+            commands::search::cancel_content_search,
         ])
         .build(tauri::generate_context!())
         .expect("error while building marxy")
@@ -985,6 +1253,354 @@ mod tests {
         assert_eq!(
             resolve_watch_key(&raw_roots, "/no/such/deleted-marxy-root"),
             "/real/canonical/path",
+        );
+    }
+
+    #[test]
+    fn a_tree_watch_and_a_folder_watch_of_one_directory_have_different_keys() {
+        use super::{resolve_table_key, watch_table_key};
+        let dir = std::env::temp_dir();
+        let raw_roots = HashMap::new();
+        let folder = resolve_table_key(&raw_roots, &dir.to_string_lossy(), false);
+        let tree = resolve_table_key(&raw_roots, &dir.to_string_lossy(), true);
+        assert_ne!(folder, tree);
+        assert_eq!(tree, watch_table_key(&folder, true));
+        assert_eq!(
+            folder,
+            resolve_watch_key(&raw_roots, &dir.to_string_lossy())
+        );
+        let mut raw_roots = HashMap::new();
+        raw_roots.insert(
+            watch_table_key("/no/such/deleted-marxy-tree", true),
+            watch_table_key("/real/tree", true),
+        );
+        assert_eq!(
+            resolve_table_key(&raw_roots, "/no/such/deleted-marxy-tree", true),
+            watch_table_key("/real/tree", true),
+        );
+        assert_eq!(
+            resolve_table_key(&raw_roots, "/no/such/deleted-marxy-tree", false),
+            "/no/such/deleted-marxy-tree",
+            "a gone tree's recording does not resolve a folder watch",
+        );
+    }
+
+    fn idle_watch_entry(refs: u32) -> super::WatchEntry {
+        use std::sync::atomic::AtomicBool;
+        use std::sync::Arc;
+        super::WatchEntry {
+            running: crate::watch::RunningWatch::new(
+                Arc::new(AtomicBool::new(false)),
+                std::thread::spawn(|| {}),
+            ),
+            refs,
+            id: 0,
+        }
+    }
+
+    #[test]
+    fn unwatch_refuses_a_root_with_a_nul_so_it_cannot_name_a_tree_watchs_key() {
+        use super::{unwatch_key, watch_table_key};
+        let mut raw_roots = HashMap::new();
+        raw_roots.insert(
+            watch_table_key("/no/such/deleted-marxy-tree", true),
+            watch_table_key("/real/tree", true),
+        );
+        // The tree watch's own raw root resolves to its key...
+        assert_eq!(
+            unwatch_key(&raw_roots, "/no/such/deleted-marxy-tree", true),
+            Ok(watch_table_key("/real/tree", true)),
+        );
+        // ...and the same string with the suffix typed out by hand, as a folder, does not.
+        let forged = format!("/no/such/deleted-marxy-tree{}", super::TREE_KEY_SUFFIX);
+        assert!(unwatch_key(&raw_roots, &forged, false).is_err());
+        assert!(unwatch_key(&raw_roots, &forged, true).is_err());
+        assert!(unwatch_key(&raw_roots, "/a\0b", false).is_err());
+    }
+
+    #[test]
+    fn the_last_unwatch_drops_its_recordings_before_the_stop_so_a_new_watch_keeps_its_own() {
+        use super::{install_watch, release_watch, share_watch};
+        use std::sync::Mutex;
+        let table = Mutex::new(HashMap::new());
+        let raw_roots = Mutex::new(HashMap::new());
+        let running = idle_watch_entry(1).running;
+        assert!(
+            install_watch(&table, &raw_roots, "/link/tree", "/real/tree", 1, running)
+                .expect("install")
+                .0
+                .is_none()
+        );
+        assert!(share_watch(&table, &raw_roots, "/other/tree", "/real/tree")
+            .expect("share")
+            .is_some());
+        release_watch(&table, &raw_roots, "/real/tree", Some(1), "x", |_| {
+            panic!("one still holds it")
+        })
+        .expect("first release");
+        assert_eq!(
+            raw_roots.lock().unwrap().len(),
+            2,
+            "still held, still recorded"
+        );
+        let mut stopped = 0;
+        release_watch(
+            &table,
+            &raw_roots,
+            "/real/tree",
+            Some(1),
+            "x",
+            |mut entry| {
+                // While the old thread stops, the same tree is watched again.
+                let running = idle_watch_entry(1).running;
+                assert!(
+                    install_watch(&table, &raw_roots, "/link/tree", "/real/tree", 2, running)
+                        .expect("install again")
+                        .0
+                        .is_none()
+                );
+                entry.running.stop();
+                stopped += 1;
+            },
+        )
+        .expect("last release");
+        assert_eq!(stopped, 1);
+        assert_eq!(
+            raw_roots
+                .lock()
+                .unwrap()
+                .get("/link/tree")
+                .map(String::as_str),
+            Some("/real/tree"),
+            "the new watch's recording survived the old one's stop",
+        );
+        assert!(
+            !raw_roots.lock().unwrap().contains_key("/other/tree"),
+            "the old watch's other recording went with it",
+        );
+        assert!(table.lock().unwrap().contains_key("/real/tree"));
+    }
+
+    #[test]
+    fn a_watch_that_ended_itself_leaves_no_entry_for_a_later_call_to_share() {
+        use super::{forget_watch, install_watch, share_watch};
+        use std::sync::Mutex;
+        let table = Mutex::new(HashMap::new());
+        let raw_roots = Mutex::new(HashMap::new());
+        let running = idle_watch_entry(1).running;
+        install_watch(&table, &raw_roots, "/t", "/t\u{0}tree", 7, running).expect("install");
+        forget_watch(&table, &raw_roots, "/t\u{0}tree", 7);
+        assert!(share_watch(&table, &raw_roots, "/t", "/t\u{0}tree")
+            .expect("share")
+            .is_none());
+        assert!(raw_roots.lock().unwrap().is_empty());
+    }
+
+    /// The refused watch A is forgotten and watched again as B; A's late cleanup (the webview closes
+    /// A's handle, or A's own forget runs late) must neither drop B's entry nor release B's reference.
+    #[test]
+    fn a_refused_watchs_late_cleanup_leaves_a_newer_watch_of_the_same_tree_alone() {
+        use super::{forget_watch, install_watch, release_watch};
+        use std::sync::Mutex;
+        let table = Mutex::new(HashMap::new());
+        let raw_roots = Mutex::new(HashMap::new());
+        let key = "/t\u{0}tree";
+        install_watch(
+            &table,
+            &raw_roots,
+            "/t",
+            key,
+            1,
+            idle_watch_entry(1).running,
+        )
+        .expect("A");
+        forget_watch(&table, &raw_roots, key, 1);
+        install_watch(
+            &table,
+            &raw_roots,
+            "/t",
+            key,
+            2,
+            idle_watch_entry(1).running,
+        )
+        .expect("B");
+
+        forget_watch(&table, &raw_roots, key, 1);
+        assert!(
+            table.lock().unwrap().contains_key(key),
+            "B's entry survives A's late forget"
+        );
+        assert_eq!(
+            raw_roots.lock().unwrap().get("/t").map(String::as_str),
+            Some(key)
+        );
+
+        let err = release_watch(&table, &raw_roots, key, Some(1), "/t", |_| {
+            panic!("A's close must not stop B")
+        })
+        .expect_err("A's close finds nothing of A");
+        assert!(err.starts_with(super::NOT_WATCHING));
+        assert_eq!(table.lock().unwrap().get(key).map(|e| e.refs), Some(1));
+
+        let mut stopped = false;
+        release_watch(&table, &raw_roots, key, Some(2), "/t", |mut entry| {
+            entry.running.stop();
+            stopped = true;
+        })
+        .expect("B's own close");
+        assert!(stopped);
+    }
+
+    /// The closure `watch_root` hands a tree watch: a refusal forgets the watch's entry and tells the
+    /// webview, in that order.
+    #[test]
+    fn a_tree_watchs_refusal_forgets_its_entry_before_it_tells_the_webview() {
+        use super::{install_watch, on_tree_refused};
+        use std::sync::Mutex;
+        let table = Mutex::new(HashMap::new());
+        let raw_roots = Mutex::new(HashMap::new());
+        let key = "/t\u{0}tree";
+        install_watch(
+            &table,
+            &raw_roots,
+            "/t",
+            key,
+            3,
+            idle_watch_entry(1).running,
+        )
+        .expect("install");
+        let mut emitted = None;
+        on_tree_refused(&table, &raw_roots, key, 3, "too many files", |payload| {
+            assert!(
+                table.lock().unwrap().is_empty() && raw_roots.lock().unwrap().is_empty(),
+                "forgotten before the webview hears"
+            );
+            emitted = Some(payload);
+        });
+        assert_eq!(
+            emitted,
+            Some(serde_json::json!({ "key": key, "events": [], "refused": "too many files" })),
+        );
+    }
+
+    /// The path the webview takes through the commands: watch a tree, have it outgrow its limit and
+    /// refuse, watch it again, then close the first handle by its id. The second watch stays held. Runs
+    /// the real tree thread with a small limit, through `start_watch` and `stop_watch` (the bodies of
+    /// `watch_root` and `unwatch_root`).
+    #[test]
+    fn closing_a_refused_trees_handle_leaves_the_watch_that_replaced_it_held() {
+        use super::{start_watch, stop_watch, NOT_WATCHING};
+        use std::sync::mpsc;
+        use std::sync::Mutex;
+        use std::time::Duration;
+
+        let table: &'static super::WatchTable = Box::leak(Box::new(Mutex::new(HashMap::new())));
+        let raw_roots: &'static super::RawRoots = Box::leak(Box::new(Mutex::new(HashMap::new())));
+        let dir = std::env::temp_dir().join(format!("marxy-watch-id-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("dir");
+        std::fs::write(dir.join("open.md"), b"# open\n").expect("seed");
+        let root = std::fs::canonicalize(&dir).expect("canon");
+        let root = root.to_string_lossy().into_owned();
+
+        let (refused_tx, refused_rx) = mpsc::channel();
+        let first = start_watch(
+            table,
+            raw_roots,
+            &root,
+            true,
+            |_, _| {},
+            move |payload| {
+                let _ = refused_tx.send(payload);
+            },
+            |path, emit, refuse| {
+                crate::watch_notify::spawn_tree_thread_with(path, emit, refuse, 3, || {})
+            },
+        )
+        .expect("first watch");
+        std::thread::sleep(Duration::from_millis(70));
+        for name in ["a.md", "b.md", "c.md", "d.md"] {
+            std::fs::write(dir.join(name), b"x").expect("write");
+        }
+        let payload = refused_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("the first tree refuses");
+        assert_eq!(payload["key"], serde_json::json!(first.key));
+        assert!(
+            table.lock().unwrap().is_empty() && raw_roots.lock().unwrap().is_empty(),
+            "a refused tree forgets its own entry"
+        );
+
+        let second = start_watch(
+            table,
+            raw_roots,
+            &root,
+            true,
+            |_, _| {},
+            |_| {},
+            |path, emit, refuse| {
+                crate::watch_notify::spawn_tree_thread_with(path, emit, refuse, 1000, || {})
+            },
+        )
+        .expect("second watch");
+        assert_eq!(second.key, first.key);
+        assert_ne!(
+            second.id, first.id,
+            "a fresh watch, not the dead one shared"
+        );
+
+        let err = stop_watch(table, raw_roots, &root, true, Some(first.id))
+            .expect_err("the first handle's late close finds nothing of its own");
+        assert!(err.starts_with(NOT_WATCHING));
+        assert_eq!(
+            table
+                .lock()
+                .unwrap()
+                .get(&second.key)
+                .map(|e| (e.refs, e.id)),
+            Some((1, second.id)),
+            "the second watch is still held"
+        );
+
+        stop_watch(table, raw_roots, &root, true, Some(second.id)).expect("the second's own close");
+        assert!(table.lock().unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_refusal_payload_carries_the_key_the_reason_and_no_events() {
+        assert_eq!(
+            super::fs_watch_refusal_payload("/r\u{0}tree", "too many files"),
+            serde_json::json!({ "key": "/r\u{0}tree", "events": [], "refused": "too many files" }),
+        );
+    }
+
+    #[test]
+    fn an_fs_watch_payload_carries_the_watch_key_and_its_events() {
+        use super::fs_watch_payload;
+        use crate::watch::{WatchEvent, WatchKind};
+        use std::path::PathBuf;
+        let events = [
+            WatchEvent {
+                kind: WatchKind::Created,
+                path: PathBuf::from("/r/a/b.md"),
+                to: None,
+            },
+            WatchEvent {
+                kind: WatchKind::Renamed,
+                path: PathBuf::from("/r/x.md"),
+                to: Some(PathBuf::from("/r/y.md")),
+            },
+        ];
+        assert_eq!(
+            fs_watch_payload("/r\u{0}tree", &events),
+            serde_json::json!({
+                "key": "/r\u{0}tree",
+                "events": [
+                    { "kind": "created", "path": "/r/a/b.md" },
+                    { "kind": "renamed", "path": "/r/x.md", "to": "/r/y.md" },
+                ],
+            })
         );
     }
 

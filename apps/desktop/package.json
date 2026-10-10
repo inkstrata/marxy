@@ -10,10 +10,11 @@
     "build": "vite build && tauri build --no-bundle -- --locked && node scripts/smoke-cli-open.mjs",
     "bundle": "vite build && tauri build -- --locked",
     "build:web": "vite build",
+    "build:harness": "vite build --outDir harness/dist",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",
-    "test": "node --test --test-concurrency=1 --experimental-strip-types 'src/**/*.test.ts' 'src/source/*.test.mjs' 'src/startup/*.test.mjs' 'test/**/*.test.mjs' 'scripts/**/*.test.mjs'",
-    "test:lite": "node --test --test-concurrency=1 --experimental-strip-types test/app-harness.test.mjs test/close-guard.test.mjs test/data-loss.test.mjs test/explicit-save.test.mjs test/links.test.mjs test/live-reload.test.mjs test/open-path.test.mjs test/operations-edit.test.mjs test/persist-reading.test.mjs test/save.test.mjs test/save-close-r5.test.mjs test/save-trust-r4.test.mjs test/selection.test.mjs test/single-instance.test.mjs test/trust.test.mjs test/palette-index.test.mjs test/index-service.test.mjs test/progressive.test.mjs test/release-csp.test.mjs test/images.test.mjs test/user-theme.test.mjs",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types 'src/**/*.test.ts' 'src/source/*.test.mjs' 'src/startup/*.test.mjs' 'src/theme/*.test.mjs' 'test/**/*.test.mjs' 'scripts/**/*.test.mjs'",
+    "test:lite": "node --test --test-concurrency=1 --experimental-strip-types test/close-guard.test.mjs test/data-loss.test.mjs test/explicit-save.test.mjs test/live-reload.test.mjs test/operations-edit.test.mjs test/progressive.test.mjs test/save.test.mjs test/save-close-r5.test.mjs test/save-trust-r4.test.mjs test/trust.test.mjs test/release-csp.test.mjs test/images.test.mjs test/user-theme.test.mjs",
     "test:mutations": "node scripts/mutations.mjs",
     "verify:cli": "MARXY_SMOKE_REQUIRED=1 node scripts/smoke-cli-open.mjs",
     "tauri": "tauri"

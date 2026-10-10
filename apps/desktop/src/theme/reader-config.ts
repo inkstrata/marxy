@@ -1,8 +1,10 @@
 // The reader's own settings from config.toml: light variant and text size, applied before first
-// text and changed by command (A-14). Only `variant` and `size` are read or written here.
+// text and changed by command (A-14), and the Source line-number choice (L-06.1). Only `variant`, `size`,
+// `chrome_size` and `line_numbers` are read or written here.
 import { applyVariant, parseConfig, resolveVariantPreference, setTopLevelKey } from '@marxy/theme';
 import type { Config } from '@marxy/theme';
 import type { AppShell } from '../app.ts';
+import { setLineNumbersChoice } from '../source/line-numbers.ts';
 
 type ConfigShell = Pick<AppShell, 'readFile' | 'configPaths'>;
 type WriteShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
@@ -11,7 +13,10 @@ export const DEFAULT_SIZE = 20;
 export const MIN_SIZE = 15;
 export const MAX_SIZE = 50;
 
-const DEFAULTS: Pick<Config, 'variant' | 'size'> = { variant: 'dark', size: DEFAULT_SIZE };
+const DEFAULTS: Pick<Config, 'variant' | 'size'> = { variant: 'dark', size: DEFAULT_SIZE }
+
+/** The custom property the reader's `chrome_size` sets on the root (ADR-0059 item 6). */
+export const CHROME_SIZE_PROPERTY = '--marxy-size-chrome';;
 
 /** The config bytes the pre-paint read saw, handed on once to the theme read so the file is read once. */
 let lastRead: { readonly path: string; readonly bytes: Uint8Array } | null = null;
@@ -23,9 +28,20 @@ export function takeConfigRead(): { readonly path: string; readonly bytes: Uint8
   return read;
 }
 
+/** What the config read has to tell the reader (a refused `chrome_size`), held until a document is on the page, since opening one clears notices. */
+let pendingNotices: string[] = [];
+
+/** Takes the config notices; the second caller gets none. */
+export function takeConfigNotices(): string[] {
+  const out = pendingNotices;
+  pendingNotices = [];
+  return out;
+}
+
 /** The parsed config, or the defaults on any failure (no path, no file, unreadable, unparsable). */
 export async function readReaderConfig(shell: ConfigShell): Promise<Config> {
   lastRead = null;
+  pendingNotices = [];
   const fallback = parseConfig(new Uint8Array()).config;
   if (shell.configPaths === undefined) return fallback;
   let path: string;
@@ -37,7 +53,9 @@ export async function readReaderConfig(shell: ConfigShell): Promise<Config> {
   try {
     const bytes = await shell.readFile(path);
     lastRead = { path, bytes };
-    return parseConfig(bytes).config;
+    const parsed = parseConfig(bytes);
+    pendingNotices = parsed.warnings.filter((w) => w.startsWith('chrome_size'));
+    return parsed.config;
   } catch (e) {
     // No file is an answer too: the theme read need not ask the same question again.
     if ((e as { code?: string } | null)?.code === 'not-found') lastRead = { path, bytes: new Uint8Array() };
@@ -90,11 +108,13 @@ export function currentVariant(root: HTMLElement = document.documentElement): 'l
  * Applies variant and size to `root`. `auto` follows the system until the next call; the returned
  * function stops that following.
  */
-export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size'>>): () => void {
+export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, 'variant' | 'size' | 'lineNumbers' | 'chromeSize'>>): () => void {
   stopAuto?.();
   stopAuto = null;
   const variant = cfg.variant ?? DEFAULTS.variant;
   const size = cfg.size ?? DEFAULTS.size;
+  // Only a key the reader wrote speaks for the gutter; absent, the per-path default stands (L-06.1).
+  if (cfg.lineNumbers !== undefined) setLineNumbersChoice(cfg.lineNumbers);
   const doc = root.ownerDocument;
   let stop = (): void => {};
   if (variant === 'auto') {
@@ -112,6 +132,9 @@ export function applyReaderConfig(root: HTMLElement, cfg: Partial<Pick<Config, '
     if (size === DEFAULT_SIZE) root.style.removeProperty(name);
     else root.style.setProperty(name, value);
   }
+  // Set only when the reader wrote a valid value; unset, the theme's value stands (the default look is unchanged).
+  if (cfg.chromeSize === undefined || cfg.chromeSize === null) root.style.removeProperty(CHROME_SIZE_PROPERTY);
+  else root.style.setProperty(CHROME_SIZE_PROPERTY, `${cfg.chromeSize}px`);
   return stop;
 }
 
@@ -122,7 +145,7 @@ let writes: Promise<void> = Promise.resolve();
  * created; a file that exists but cannot be read is left alone. Writes run one after another, so
  * three quick presses are three read-modify-writes in order, not three that overwrite each other.
  */
-export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size', tomlValue: string): Promise<void> {
+export function writeReaderKey(shell: WriteShell, key: 'variant' | 'size' | 'line_numbers' | 'chrome_size', tomlValue: string): Promise<void> {
   const run = async (): Promise<void> => {
     if (shell.configPaths === undefined) return;
     const { config } = await shell.configPaths();

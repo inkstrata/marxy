@@ -82,7 +82,9 @@ test('negative control: a column off the window axis is reported with the offset
 });
 
 test('negative control: a top-level ordered list hangs its marker past the gutter floor at 320px, not at 960px', async () => {
-  const html = page(blk('ol', 0, `<li>${'first item'}</li><li>second item</li>`));
+  // The fault is built: the list hangs its whole marker whatever the room (the theme's rule before L-03).
+  const list = blk('ol', 0, `<li>${'first item'}</li><li>second item</li>`);
+  const html = page(list, { extraCss: '.marxy-article > ol { padding-inline-start: 0; }' });
   const narrow = await measure(html, 320);
   const h3 = narrow.offenders.filter((o) => o.h === 'H3');
   assert.ok(h3.length >= 1, JSON.stringify(narrow.marks));
@@ -91,6 +93,9 @@ test('negative control: a top-level ordered list hangs its marker past the gutte
   assert.equal(h3[0].metric, Math.round((narrow.column.gutter - (narrow.column.left - hang)) * 100) / 100);
   const wide = await measure(html, 960);
   assert.deepEqual(wide.offenders.filter((o) => o.h === 'H3'), []);
+  // The twin: the theme's own list hangs only into the room, so at 320px nothing is reported (L-03).
+  const kept = await measure(page(list), 320);
+  assert.deepEqual(kept.offenders.filter((o) => o.h === 'H3'), [], JSON.stringify(kept.marks));
 });
 
 // ---- Controls added in L-00.1: one per rule the first version left unguarded. Each builds the fault with a
@@ -111,6 +116,54 @@ test('negative control (H2): a code block whose text starts inside the column ed
   // The twin: body text alone starts on the column edge.
   const ok = await measure(page(PROSE), 960);
   assert.deepEqual(ok.offenders.filter((o) => o.h === 'H2'), []);
+});
+
+// ---- Controls added in L-02: the two artefacts L-01 found in the probe itself. Each has a control that fails
+// when the probe is wrong and a twin that keeps the rule alive.
+
+test('negative control (H2 artefact): a hung initial letter is ink that is allowed to hang, not the paragraph starting one letter late', async () => {
+  // As the typesetter leaves a set paragraph: the first letter of every line is wrapped in a hang.
+  const hang = (c) => `<span class="marxy-hang" style="margin-inline-start:-0.7px">${c}</span>`;
+  const hung = blk('p', 0, `${hang('T')}his line starts with a hung capital<br>${hang('V')}alues on the second line do too`);
+  const ok = await measure(page(hung), 960);
+  assert.deepEqual(ok.offenders.filter((o) => o.h === 'H2'), [], 'the hung capital made the text start a letter late');
+  const [, , , , , , , iL, , idL] = blockOf(ok, 'p');
+  assert.ok(Math.abs(idL) < 1, `the paragraph's ink starts ${idL}px from the column edge`);
+  assert.ok(Math.abs(iL - ok.column.left) < 1);
+  // Twin: the same paragraph inset by 15px is a real H2, hung letter or not.
+  const inset = await measure(page(hung.replace('<p ', '<p style="padding-left:15px" ')), 960);
+  const h2 = inset.offenders.filter((o) => o.h === 'H2');
+  assert.equal(h2.length, 1, JSON.stringify(inset.offenders));
+  assert.ok(h2[0].metric > 13 && h2[0].metric < 16, String(h2[0].metric));
+});
+
+test('negative control (H2 artefact): a hung letter is excused only by the hang the typesetter declared, so a paragraph drifting outward is seen', async () => {
+  const hang = (c) => `<span class="marxy-hang" style="margin-inline-start:-0.7px">${c}</span>`;
+  const hung = blk('p', 0, `${hang('T')}his line starts with a hung capital<br>${hang('V')}alues on the second line do too`);
+  for (const shift of [3, 6, 9]) {
+    const out = await measure(page(hung.replace('<p ', `<p style="margin-left:-${shift}px" `)), 960);
+    const h2 = out.offenders.filter((o) => o.h === 'H2');
+    assert.equal(h2.length, 1, `a ${shift}px outward shift was not seen: ${JSON.stringify(out.offenders)}`);
+    assert.ok(Math.abs(h2[0].metric) > shift - 1.5, `${shift}px outward read as ${h2[0].metric}`);
+  }
+});
+
+test('negative control (H5 artefact): trailing spaces in a pre-wrap line are not ink', async () => {
+  const code = `<code>let x = 1;${' '.repeat(220)}\nlet y = 2;</code>`;
+  const bad = await measure(page(PROSE + blk('pre', 1, code).replace('<pre ', '<pre style="white-space:pre-wrap" ')), 480);
+  assert.deepEqual(bad.offenders.filter((o) => o.h === 'H5'), [], JSON.stringify(bad.offenders));
+  // Twin: the same line with real text where the spaces were is ink past the window, and is reported.
+  const real = await measure(page(PROSE + blk('pre', 1, `<code>let x = 1;${'z'.repeat(220)}</code>`).replace('<pre ', '<pre style="white-space:pre;overflow:visible;max-width:none;width:max-content" ')), 480);
+  assert.ok(real.offenders.some((o) => o.h === 'H5'), `real overflow was not reported: ${JSON.stringify(real.offenders)}`);
+});
+
+test('negative control (clip): ink inside a scrolling descendant is not ink cut off by the window', async () => {
+  const wide = (clip) => blk('div', 1, `<span style="display:block;white-space:nowrap;${clip}">${'x'.repeat(200)}</span>`);
+  const ok = await measure(page(PROSE + wide('overflow-x:auto')), 480);
+  assert.deepEqual(ok.offenders.filter((o) => o.h === 'H5'), [], JSON.stringify(ok.offenders));
+  // Twin: the same line that does not scroll or clip is ink past the window.
+  const bad = await measure(page(PROSE + wide('')), 480);
+  assert.ok(bad.offenders.some((o) => o.h === 'H5'), JSON.stringify(bad.offenders));
 });
 
 /** A set paragraph: the typesetter's class on a nowrap paragraph, as the app leaves it. */
@@ -220,6 +273,8 @@ test('the overlay draws a red box for every offender that has a position', async
 });
 
 test('two runs over the render entry produce an identical probe.json', { timeout: 900_000 }, async () => {
+  // Both runs share the file-level browser: a second WebKit beside it, driven by two workers, is what dies
+  // under load, and a probe that must be identical should not depend on how many browsers were alive.
   const opts = {
     ...DEFAULTS,
     ref: 'origin/main',
@@ -230,6 +285,7 @@ test('two runs over the render entry produce an identical probe.json', { timeout
     scrollbars: ['overlay', 'classic'],
     workers: 2,
     png: false,
+    browser,
   };
   const dumps = [];
   for (let i = 0; i < 2; i++) {
@@ -239,9 +295,48 @@ test('two runs over the render entry produce an identical probe.json', { timeout
       dumps.push(JSON.stringify(assemble(opts, rr)));
     } finally {
       rr.harness.close();
-      await rr.browser.close();
     }
   }
   assert.ok(dumps[0].length > 10_000, 'the probe measured nothing');
   assert.equal(dumps[0], dumps[1]);
+});
+
+// ---- Controls added in L-02.1: the right edge of body text, and the per-kind spacing survey.
+
+const LONG = 'A long paragraph of body text, set over several lines so that the longest of them must come close to the right edge of the column. '.repeat(6);
+
+test('negative control (right edge): a paragraph held in from the right is reported by that inset; a ragged one is not', async () => {
+  const bad = await measure(page(blk('p', 0, LONG).replace('<p ', '<p style="padding-right:60px" ')), 960);
+  assert.equal(bad.rightEdge.length, 1);
+  const [, lines, inset] = bad.rightEdge[0];
+  assert.ok(lines >= 4, `only ${lines} lines`);
+  assert.equal(inset, 60);
+  // Twin: the same text unpadded sets to the edge. Its lines are ragged, which is not read at all.
+  const ok = await measure(page(blk('p', 0, LONG)), 960);
+  assert.equal(ok.rightEdge[0][2], 0, JSON.stringify(ok.rightEdge));
+  // A margin holds the lines in just the same.
+  const margin = await measure(page(blk('p', 0, LONG).replace('<p ', '<p style="margin-right:40px" ')), 960);
+  assert.equal(margin.rightEdge[0][2], 40);
+  // Short paragraphs are held to the column too.
+  const short = await measure(page(PROSE.replace('<p ', '<p style="padding-right:60px" ')), 960);
+  assert.equal(short.rightEdge[0][2], 60);
+});
+
+test('the spacing survey reports, per kind of block, the element that falls shortest', async () => {
+  const p = await browser.newPage({ viewport: { width: 960, height: 900 } });
+  try {
+    const styled = (html, css) => html.replace(/^<(\w+) /, `<$1 style="${css}" `);
+    const body = PROSE + styled(blk('p', 1, 'second'), 'letter-spacing:0.1em !important') + blk('ul', 2, styled(blk('li', 3, 'one two'), 'word-spacing:0 !important')) + blk('h2', 4, 'Heading');
+    await p.setContent(page(body, { extraCss: '.marxy-article, .marxy-article *{letter-spacing:0.12em;word-spacing:0.16em}' }), { waitUntil: 'load' });
+    const { surveyInPage, spacingAppliedFailures } = await import('./probe-layout.mjs');
+    const s = await p.evaluate(surveyInPage);
+    assert.deepEqual(Object.keys(s.spacing).sort(), ['h', 'li', 'p']);
+    assert.equal(s.spacing.p.n, 2);
+    const failures = spacingAppliedFailures(s).filter((m) => /letter-spacing|word-spacing/.test(m));
+    assert.ok(failures.some((m) => m.startsWith('p: letter-spacing')), failures.join('; '));
+    assert.ok(failures.some((m) => m.startsWith('li: word-spacing')), failures.join('; '));
+    assert.ok(!failures.some((m) => m.startsWith('h:')), failures.join('; '));
+  } finally {
+    await p.close();
+  }
 });

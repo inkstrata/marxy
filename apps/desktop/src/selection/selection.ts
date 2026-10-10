@@ -8,7 +8,16 @@ export type Selection =
   | { kind: 'node'; node: Block | Inline; el: Element }
   | { kind: 'section'; heading: Heading; range: Source }
   | { kind: 'document' }
-  | { kind: 'text'; text: string };
+  | {
+      kind: 'text';
+      text: string;
+      /** The selected part of the article, recorded when the drag was made (C-06); absent when not known. */
+      range?: Range;
+      /** The bytes of the top-level blocks the drag touches, at `version`; null when it touches none. */
+      src?: Source | null;
+      /** The store version the page showed when the drag was made: a later page drops it. */
+      version?: number;
+    };
 
 export interface SelectionState {
   selection: Selection;

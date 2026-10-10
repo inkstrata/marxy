@@ -22,6 +22,7 @@
     "index_loaded",
     "live_reload",
     "palette_keystroke",
+    "palette_empty",
     "find_first_match",
     "weight_offset",
     "user_theme",
@@ -41,7 +42,8 @@
     "no_paint",
     "no_document",
     "no_text",
-    "quit"
+    "quit",
+    "split_open"
   ],
   "events": [
     "marxy:watch",
@@ -58,16 +60,26 @@
     "data-marxy-mode",
     "data-marxy-variant",
     "data-marxy-doc",
-    "data-marxy-remote"
+    "data-marxy-remote",
+    "data-marxy-src",
+    "data-marxy-pane",
+    "data-marxy-focus",
+    "data-marxy-split",
+    "data-marxy-kind",
+    "data-marxy-lang",
+    "data-marxy-workspace",
+    "data-marxy-workspace-region"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
   "innerHtmlAllowedIn": [
-    "apps/desktop/src/app.ts",
+    "apps/desktop/src/view/",
     "apps/desktop/src/render/progressive.ts",
     "apps/desktop/src/render/",
     "apps/desktop/src/notices/",
     "apps/desktop/src/outline/",
+    "apps/desktop/src/paste/",
+    "apps/desktop/test/paste-convert.test.mjs",
     "scripts/",
     "packages/core/scripts/",
     "packages/core/src/render/testing/",

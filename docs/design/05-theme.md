@@ -160,12 +160,15 @@ below is an inversion of anything else; each value was chosen on its own ground.
 | `--marxy-color-text-secondary` | `#a39e94` | 6.9 | `#5e5a53` | 6.5 |
 | `--marxy-color-accent` / `-link` | `#8fb4dd` | 8.5 | `#2c5f8a` | 6.4 |
 | `--marxy-color-rule` | `#2a2825` | — | `#e4e0d8` | — |
+| `--marxy-color-divider` | `var(--marxy-color-rule)` | — | `var(--marxy-color-rule)` | — |
+| `--marxy-color-divider-focus` | `var(--marxy-color-accent)` | 8.5 | `var(--marxy-color-accent)` | 6.4 |
 | `--marxy-color-code-bg` | `#1d1c19` | — | `#f1eee8` | — |
 | `--marxy-color-code-text` | `#e3dfd6` | 12.8 (on code bg) | `#1c1b19` | 14.9 (on code bg) |
 | `--marxy-color-quote-rule` | `#3a3833` | — | `#d6d1c8` | — |
 | `--marxy-color-selection` | `#1f3651` | text on it 9.7 | `#dbe9ff` | text on it 14.0 |
 | `--marxy-color-find` | `#3a3010` | text on it 10.3 | `#fcefc0` | 15.0 |
 | `--marxy-color-find-current` | `#403510` + an outline | text on it 9.5 | `#f8df8f` + an outline | 13.1 |
+| `--marxy-color-find-edge` | `#94701a` | 3.7 on code bg (4.0 on page), 3.4 vs code text | `#8a6200` | 4.7 on code bg, 3.1 vs code text |
 | `--marxy-color-notice` | `#1f1e1b` | — | `#f1eee8` | — |
 | `--marxy-weight-body` | 380 | | 400 | |
 | `--marxy-weight-heading` | 560 | | 580 | |

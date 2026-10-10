@@ -9,6 +9,8 @@ import {
   DIFF_LINE_DEL,
   LOG_LEVEL_CLASS,
   highlight,
+  lineCapFor,
+  MAX_HIGHLIGHT_LINE_CHARS,
   lineMetaForHighlight,
   LANGUAGE_TO_GRAMMAR,
   plainTextFromTokens,
@@ -94,7 +96,7 @@ test('plainTextFromTokens concatenates runs without markup', () => {
   assert.doesNotMatch(plainTextFromTokens(lines), /marxy-tok/);
 });
 
-test('highlighting every fenced block in 03-ai-plan.md stays under 30 ms', async () => {
+test('highlighting every fenced block in 03-ai-plan.md tokenises each block; the time is recorded, not asserted (ADR-0032)', async () => {
   const source = readFileSync(join(root, 'fixtures/corpus/03-ai-plan.md'), 'utf8');
   const blocks: { lang: string; code: string }[] = [];
   const fence = /^```(\w*)\n([\s\S]*?)^```/gm;
@@ -108,10 +110,10 @@ test('highlighting every fenced block in 03-ai-plan.md stays under 30 ms', async
   for (const { lang, code } of blocks) await highlight(code, lang);
   const start = performance.now();
   for (const { lang, code } of blocks) {
-    await highlight(code, lang);
+    const lines = await highlight(code, lang);
+    if (lines) assert.equal(plainTextFromTokens(lines), code, lang);
   }
-  const ms = performance.now() - start;
-  assert.ok(ms < 30, `highlight pass took ${ms.toFixed(1)} ms (budget 30 ms)`);
+  console.log(`highlight: ${blocks.length} fenced blocks in ${(performance.now() - start).toFixed(1)} ms`);
 });
 
 test('forbidden grammars are absent from highlight sources and bundle gate passes', () => {
@@ -177,18 +179,36 @@ test('an over-long line is left plain and does not stall its neighbours, in ever
   for (const lang of ['bash', 'shellscript', 'ts', 'json']) {
     const long = 'echo ' + '"a b" '.repeat(9000);
     const code = `echo one\n${long}\necho three`;
-    const start = performance.now();
     const lines = await highlight(code, lang);
-    const ms = performance.now() - start;
     assert.ok(lines, lang);
     assert.equal(lines.length, 3, lang);
     assert.deepEqual(lines[1], [{ text: long }], lang);
     assert.equal(plainTextFromTokens(lines), code, lang);
-    assert.ok(ms < 5000, `${lang} took ${ms.toFixed(0)} ms`);
   }
   const around = await highlight('echo "one"\n' + 'x'.repeat(3000) + '\necho "three"', 'bash');
   assert.ok(around![0]!.some((t) => t.scope), 'the line before is still highlighted');
   assert.ok(around![2]!.some((t) => t.scope), 'the line after is still highlighted');
+});
+
+// B-21: tokenising is not cut off by time, so the cap on line length is what bounds a slow line.
+test('a line over its grammar\'s cap stays plain and every other line keeps its colours', async () => {
+  const caps = [['cpp', lineCapFor('cpp'), 'int x = "a";'], ['c', lineCapFor('c'), 'int x = "a";'], ['go', lineCapFor('go'), 'x := "a"'], ['bash', lineCapFor('bash'), 'echo "a"'], ['ts', lineCapFor('ts'), 'const x = "a";']] as const;
+  assert.equal(lineCapFor('cpp'), 400);
+  assert.equal(lineCapFor('c++'), 400, 'an alias shares its grammar\'s cap');
+  assert.equal(lineCapFor('sh'), lineCapFor('bash'));
+  assert.equal(lineCapFor('json'), MAX_HIGHLIGHT_LINE_CHARS);
+  for (const [lang, cap, sample] of caps) {
+    const over = '"'.repeat(cap + 1);
+    const atCap = sample + ' '.repeat(cap - sample.length);
+    const code = `${sample}\n${over}\n${atCap}\n${sample}`;
+    const lines = await highlight(code, lang);
+    assert.ok(lines, lang);
+    assert.deepEqual(lines[1], [{ text: over }], `${lang}: the over-cap line is plain`);
+    assert.ok(lines[0]!.some((t) => t.scope), `${lang}: the line before keeps its colours`);
+    assert.ok(lines[2]!.some((t) => t.scope), `${lang}: a line exactly at the cap is still coloured`);
+    assert.ok(lines[3]!.some((t) => t.scope), `${lang}: the line after keeps its colours`);
+    assert.equal(plainTextFromTokens(lines), code, lang);
+  }
 });
 
 test('a block over 200 KB is returned as plain lines', async () => {
@@ -200,10 +220,10 @@ test('a block over 200 KB is returned as plain lines', async () => {
   assert.equal(plainTextFromTokens(lines!), code);
 });
 
-test('the one-line bash case from the repro finishes quickly', async () => {
-  const start = performance.now();
-  await highlight('a'.repeat(50000), 'bash');
-  assert.ok(performance.now() - start < 3000);
+test('the one-line bash case from the repro is left plain (the cap, not a clock, keeps it quick)', async () => {
+  const lines = await highlight('a'.repeat(50000), 'bash');
+  assert.equal(lines!.length, 1);
+  assert.deepEqual(lines![0], [{ text: 'a'.repeat(50000) }]);
 });
 
 test('colours do not depend on elapsed time: a clock that jumps a second per read still tokenises the whole line (B-02.9)', async () => {

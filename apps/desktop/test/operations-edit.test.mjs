@@ -63,7 +63,7 @@ async function boot(page, file, argv) {
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
     window.__marxyOpsBoot = await window.marxyPaletteBoot.start(files, argv, []);
-    window.__marxyOrigBytes = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(argv[0]));
+    window.__testOrigBytes = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(argv[0]));
   }, { files: { [docPath]: b64(join(corpusDir, file)) }, argv: [docPath] });
   await page.waitForFunction(() => typeof window.marxySelection?.getSelectionState === 'function');
   await page.waitForFunction(() => window.__marxyTasksReady === true);
@@ -120,7 +120,7 @@ test('clicking the first open task checkbox toggles only the marker bytes', asyn
     const result = await page.evaluate(
       async ({ path, beforeBlock, markerStart }) => {
         const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
-        const orig = window.__marxyOrigBytes;
+        const orig = window.__testOrigBytes;
         const checked = document.querySelector(`#doc input[data-marxy-s="${markerStart}"]`)?.checked;
         const afterBlock = document.querySelector('#doc [data-marxy-s]');
         return {
@@ -217,7 +217,7 @@ test('Mod+Z undoes a task toggle and Mod+Shift+Z redoes it', async () => {
     await page.waitForFunction(
       async (path) => {
         const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
-        const orig = window.__marxyOrigBytes;
+        const orig = window.__testOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return true;
         return false;
       },
@@ -228,7 +228,7 @@ test('Mod+Z undoes a task toggle and Mod+Shift+Z redoes it', async () => {
     await page.waitForFunction(
       async (path) => {
         const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
-        const orig = window.__marxyOrigBytes;
+        const orig = window.__testOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return false;
         return true;
       },
@@ -240,7 +240,7 @@ test('Mod+Z undoes a task toggle and Mod+Shift+Z redoes it', async () => {
     await page.waitForFunction(
       async (path) => {
         const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
-        const orig = window.__marxyOrigBytes;
+        const orig = window.__testOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return true;
         return false;
       },
@@ -291,7 +291,7 @@ test('dirty is true after an edit and false after undo to the saved version', as
     await page.waitForFunction(
       async (path) => {
         const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
-        const orig = window.__marxyOrigBytes;
+        const orig = window.__testOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return true;
         return false;
       },
@@ -303,7 +303,7 @@ test('dirty is true after an edit and false after undo to the saved version', as
     await page.waitForFunction(
       async (path) => {
         const now = Uint8Array.from(window.__marxyOpsBoot.handle.openDocument().buffer.bytes);
-        const orig = window.__marxyOrigBytes;
+        const orig = window.__testOrigBytes;
         for (let i = 0; i < orig.length; i++) if (orig[i] !== now[i]) return false;
         return true;
       },
@@ -336,10 +336,119 @@ test('switching to a second document does not carry over the first one\'s dirty 
     await page.evaluate((path) => window.__marxyOpsBoot.handle.open(path), docPathB);
     await page.waitForFunction((path) => window.__marxyOpsBoot.handle.currentPath() === path, docPathB);
     await page.waitForFunction(() => document.querySelector('#doc [data-marxy-s]') !== null);
-    // documentEditState() only compares against savedFingerprint when the Playwright harness's own
-    // bytes override is absent, so remove it to exercise the real (non-harness) dirty computation.
-    await page.evaluate(() => { delete window.__marxyOrigBytes; });
+    // The store's own dirty (buffer against disk) is what the hook reports: nothing was edited here.
     assert.equal(await page.evaluate(() => window.marxyDocumentEdit?.().dirty), false);
+  } finally {
+    await browser.close();
+  }
+});
+
+/** Boots the app on one document given as text. */
+async function bootText(page, docPath, text) {
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ files, argv }) => {
+    window.__marxyOpsBoot = await window.marxyPaletteBoot.start(files, argv, []);
+    window.__testOrigBytes = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(argv[0]));
+  }, { files: { [docPath]: Buffer.from(text, 'utf8').toString('base64') }, argv: [docPath] });
+  await page.waitForFunction(() => typeof window.marxySelection?.getSelectionState === 'function');
+  await page.waitForFunction(() => window.__marxyOpenSynced === true);
+}
+
+/** Clicks the middle of the first text node in `#doc` that contains `words` (not a checkbox, not a link). */
+async function clickWords(page, words) {
+  const point = await page.evaluate((words) => {
+    const walker = document.createTreeWalker(document.querySelector('#doc'), NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const at = n.textContent.indexOf(words);
+      if (at < 0) continue;
+      n.parentElement.scrollIntoView({ block: 'center' });
+      const r = document.createRange();
+      r.setStart(n, at);
+      r.setEnd(n, at + words.length);
+      const box = r.getBoundingClientRect();
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    }
+    return null;
+  }, words);
+  assert.ok(point, `text "${words}" on the page`);
+  await page.mouse.click(point.x, point.y);
+}
+
+async function actionTitles(page, query) {
+  const mod = modKey(await page.evaluate(() => navigator.platform));
+  await page.keyboard.press(`${mod}+KeyP`);
+  await page.locator('#marxy-palette .marxy-palette-query').fill(query);
+  await page.waitForSelector('#marxy-palette .marxy-palette-row');
+  return page.locator('#marxy-palette .marxy-palette-row .marxy-palette-title').allTextContents();
+}
+
+async function bytesNow(page) {
+  return page.evaluate(() => ({
+    now: [...window.__marxyOpsBoot.handle.openDocument().buffer.bytes],
+    orig: [...window.__testOrigBytes],
+  }));
+}
+
+for (const [name, docPath, text, words] of [
+  ['a tight task list (03-ai-plan.md)', '/corpus/03-ai-plan.md', null, 'Attestation policy decided'],
+  ['a loose task list', '/loose-tasks.md', '# Plan\n\n- [ ] Write the brief\n\n- [x] Book the room\n', 'Write the brief'],
+]) {
+  test(`C-06: a click on a task item's text offers Toggle task, which changes only the marker bytes: ${name}`, async () => {
+    const source = text ?? readFileSync(join(corpusDir, docPath.slice('/corpus/'.length)), 'utf8');
+    const ast = parseMarkdown(Buffer.from(source, 'utf8'), { file: docPath });
+    let item;
+    const walk = (n) => {
+      if (!item && n.type === 'listItem' && n.task !== undefined) {
+        const body = Buffer.from(source, 'utf8').subarray(n.src.start, n.src.end).toString('utf8');
+        if (body.includes(words)) item = n;
+      }
+      for (const c of n.children ?? []) walk(c);
+    };
+    walk(ast);
+    assert.ok(item);
+    const marker = item.children.flatMap((b) => b.children ?? []).find((c) => c.type === 'taskMarker');
+    assert.ok(marker);
+    const browser = await launchWebkit();
+    try {
+      const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+      if (text === null) await boot(page, '03-ai-plan.md', [docPath]);
+      else await bootText(page, docPath, text);
+      await clickWords(page, words);
+      const picked = await page.evaluate(() => window.marxySelection.getSelectionState().selection.node?.type);
+      assert.equal(picked, text === null ? 'listItem' : 'paragraph', 'what the click selects');
+      const titles = await actionTitles(page, '> toggle');
+      assert.ok(titles.includes('Toggle task'), titles.join(' | '));
+      await page.locator('#marxy-palette .marxy-palette-row', { hasText: 'Toggle task' }).click();
+      await page.waitForFunction(() => window.marxyDocumentEdit?.().dirty === true);
+      const { now, orig } = await bytesNow(page);
+      const diffs = byteDiffs(Uint8Array.from(orig), Uint8Array.from(now));
+      assert.ok(diffs.length > 0);
+      for (const [s, e] of diffs) {
+        assert.ok(s >= marker.src.start && e <= marker.src.end, `diff [${s},${e}) outside the marker`);
+      }
+      assert.equal(
+        Buffer.from(now).subarray(marker.src.start, marker.src.end).toString('utf8'),
+        marker.checked ? '[ ]' : '[x]',
+      );
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+test('C-06: a click on a table cell offers the table\'s verbs, Align table pipes among them', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    await boot(page, '02-readme-real-world.md', ['/corpus/02-readme-real-world.md']);
+    await clickWords(page, 'Title shown in the frame');
+    const sel = await page.evaluate(() => window.marxySelection.getSelectionState().selection);
+    assert.equal(sel.kind, 'node');
+    assert.equal(sel.node.type, 'tableCell', 'the click selects the cell, not the table');
+    const titles = await actionTitles(page, '> table');
+    assert.ok(titles.includes('Align table pipes'), titles.join(' | '));
+    assert.ok(titles.includes('Copy table as TSV'), titles.join(' | '));
   } finally {
     await browser.close();
   }

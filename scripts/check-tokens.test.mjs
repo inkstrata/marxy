@@ -62,7 +62,8 @@ test('added token is red', () => {
 
 test('removed token is red', () => {
   const mutated = css.replace(/^\s*--marxy-size-code:.*\n/m, '');
-  const found = check(mutated, contract);
+  // its system-owned root copy (--marxy-root-size-code, ADR-0059) reads it, so it is re-kinded with it
+  const found = check(mutated, contract).filter(p => p.token !== '--marxy-root-size-code');
   assert.ok(found.some(p => p.kind === 'removed' && p.token === '--marxy-size-code'), found);
   assert.equal(found.length, 1);
 });
@@ -71,7 +72,7 @@ test('re-kinded token is red', () => {
   const live = valueOf(css, '--marxy-size-code');
   const bare = String(parseFloat(live));
   const mutated = withValue(css, '--marxy-size-code', bare);
-  const found = check(mutated, contract);
+  const found = check(mutated, contract).filter(p => p.token !== '--marxy-root-size-code');
   assert.ok(found.some(p => p.kind === 're-kinded' && p.token === '--marxy-size-code'), found);
   assert.match(found[0].message, /length → number/);
   assert.equal(found.length, 1);
@@ -115,5 +116,47 @@ test('the committed tree is green and the snapshot carries no values', () => {
   }
   const run = spawnSync(process.execPath, ['scripts/check-tokens.mjs'], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr + run.stdout);
-  assert.match(run.stdout, /tokens-contract ok \(55 tokens\)/);
+  assert.match(run.stdout, new RegExp(`tokens-contract ok \\(${contract.length} tokens\\)`));
+});
+
+test('contract 2 (ADR-0059): the 27 names are in the snapshot with the kinds the ADR gives, each explained', () => {
+  const want = {
+    colour: [
+      'color-surface', 'color-surface-glass', 'color-text-strong', 'color-text-faint', 'color-rule-strong', 'color-edge',
+      'color-accent-strong', 'color-accent-fg', 'color-accent-wash', 'color-status-ok', 'color-status-warn', 'color-status-err',
+      'color-status-info', 'color-status-ok-wash', 'color-status-warn-wash', 'color-status-err-wash', 'tok-marker', 'tok-heading', 'tok-link',
+    ],
+    keyword: ['shadow-surface'],
+    family: ['face-book', 'face-article', 'face-sans', 'face-readme', 'face-mono', 'face-chrome'],
+    length: ['size-chrome'],
+  };
+  const byName = new Map(declarations(css).map(d => [d.name, d]));
+  let n = 0;
+  for (const [kind, names] of Object.entries(want)) {
+    for (const name of names) {
+      const d = byName.get(`--marxy-${name}`);
+      assert.ok(d, `${name} is not declared`);
+      assert.equal(d.kind, kind, name);
+      assert.ok(d.comment, `${name} has no comment (ADR-0031)`);
+      n++;
+    }
+  }
+  assert.equal(n, 27);
+  for (const name of ['size-body', 'size-code', 'size-caption', 'line-box', 'line-box-code', 'lh-h1', 'lh-h2']) {
+    const d = byName.get(`--marxy-root-${name}`);
+    assert.equal(d?.kind, 'length', `--marxy-root-${name}`);
+    assert.ok(d.comment);
+  }
+});
+
+test('a contract-2 name removed from tokens.css is refused', () => {
+  const mutated = css.replace(/^\s*--marxy-color-edge:[^;]+;.*$/m, '');
+  assert.deepEqual(reasons(mutated), ['removed:--marxy-color-edge']);
+});
+
+test('Source reads the three contract-2 token roles (markers, headings, links)', () => {
+  const src = readFileSync('apps/desktop/src/source/highlight-style.ts', 'utf8');
+  assert.match(src, /t\.processingInstruction, color: tok\('marker'\)/);
+  assert.match(src, /t\.heading, color: tok\('heading'\)/);
+  assert.match(src, /t\.link, t\.url\], color: tok\('link'\)/);
 });

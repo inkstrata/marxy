@@ -20,6 +20,17 @@ notify = "8"
 # Reads `external_editor` from config.toml (docs/design/09-app-shell.md); 0.9 is already in Cargo.lock.
 toml = "0.9"
 
+# O_NOFOLLOW and O_NONBLOCK for `read_head`'s open (MIT OR Apache-2.0); already in Cargo.lock through other crates.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# The native pasteboard (J-01, src/pasteboard/macos.rs): NSPasteboard for type listing, HTML and RTF
+# reads and one multi-representation item. MIT; the versions tauri's macOS stack already pulls in.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.4"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSPasteboard", "NSPasteboardItem"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSData", "NSString"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

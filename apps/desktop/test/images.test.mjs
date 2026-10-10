@@ -1,7 +1,8 @@
 // Local images, asset scope, notices and layout shift (MARXY-138).
+// The Rust half (`image_size`, `allow_asset_scope`) is #[test]s in src-tauri/src/commands/fs.rs, run by
+// `cargo test`; it used to compile a crate here, which needed a C linker in the browser container (G-04).
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
@@ -54,79 +55,6 @@ async function boot(page, files, argv) {
   }, { files, argv });
 }
 
-function rustImageSizeCrate() {
-  const srcTauri = join(repoRoot, 'apps', 'desktop', 'src-tauri');
-  const toml = readFileSync(join(srcTauri, 'Cargo.toml'), 'utf8');
-  const imagesize = /imagesize = "([^"]+)"/.exec(toml)?.[1];
-  assert.ok(imagesize, 'Cargo.toml must pin imagesize');
-  const fsSource = readFileSync(join(srcTauri, 'src', 'commands', 'fs.rs'), 'utf8');
-  assert.match(fsSource, /#\[tauri::command\]/);
-  assert.match(fsSource, /pub fn image_size/);
-  assert.match(fsSource, /fn scope_directory/);
-  const root = repoRoot.replaceAll('\\', '/').replaceAll('"', '\\"');
-  const stripped = fsSource
-    .replace(/^use tauri::Manager;\n/m, '')
-    .replace(/^#\[tauri::command\]\n/gm, '')
-    .replace(/\n\/\/\/ Adds a recursive asset-protocol scope[\s\S]*?\npub fn allow_asset_scope\([\s\S]*?\n}\n/, '\n')
-    .replace(
-      /PathBuf::from\(env!\("CARGO_MANIFEST_DIR"\)\)\.join\("\.\.\/\.\.\/\.\.\/fixtures\/corpus\/([^"]+)"\)/g,
-      (_, name) => `PathBuf::from("${root}/fixtures/corpus/${name}")`,
-    );
-  assert.match(stripped, /pub fn image_size/);
-  assert.match(stripped, /fn scope_directory/);
-  assert.doesNotMatch(stripped, /tauri::/);
-  const work = mkdtempSync(join(tmpdir(), 'marxy-image-size-'));
-  mkdirSync(join(work, 'src'));
-  writeFileSync(join(work, 'Cargo.toml'), [
-    '[package]',
-    'name = "marxy_image_size_test"',
-    'version = "0.0.0"',
-    'edition = "2021"',
-    'publish = false',
-    '',
-    '[dependencies]',
-    `imagesize = "${imagesize}"`,
-    'serde = { version = "1", features = ["derive"] }',
-    '',
-  ].join('\n'));
-  writeFileSync(join(work, 'src', 'error.rs'), readFileSync(join(srcTauri, 'src', 'error.rs')));
-  writeFileSync(join(work, 'src', 'fs.rs'), stripped);
-  writeFileSync(join(work, 'src', 'lib.rs'), 'pub mod error;\nmod fs;\n');
-  return work;
-}
-
-function resolveCargo() {
-  const fromMise = spawnSync('mise', ['which', 'cargo'], { cwd: repoRoot, encoding: 'utf8' });
-  if (fromMise.status === 0 && fromMise.stdout.trim()) return fromMise.stdout.trim();
-  return 'cargo';
-}
-
-nodeTest('Rust image_size and allow_asset_scope (cargo test fs)', () => {
-  // The desktop crate's test harness pulls in Tauri and needs webkit2gtk, which
-  // the fast job does not install (see the paint-deadline comment in main.rs).
-  // Compile the same fs.rs body without Tauri, the way gate-fidelity rustc's
-  // atomic_write.rs, so AC1 and AC2 still run on every `pnpm test`.
-  const work = rustImageSizeCrate();
-  try {
-    const run = spawnSync(resolveCargo(), ['test', '--lib', '--', '--nocapture'], {
-      cwd: work,
-      encoding: 'utf8',
-      maxBuffer: 16 * 1024 * 1024,
-    });
-    if (run.stdout) process.stdout.write(run.stdout);
-    if (run.stderr) process.stderr.write(run.stderr);
-    assert.equal(
-      run.status,
-      0,
-      `image_size rust tests failed\n${run.error?.message ?? ''}\n${run.stderr ?? ''}\n${run.stdout ?? ''}`,
-    );
-    assert.match(run.stdout ?? '', /image_size_on_corpus_png_is_1200_by_400/);
-    assert.match(run.stdout ?? '', /allow_asset_scope_on_a_file_is_invalid/);
-  } finally {
-    rmSync(work, { recursive: true, force: true });
-  }
-});
-
 test('post-pass 3: allowAssetScope once per image root for two images under one root', async () => {
   const docPath = '/corpus/09-gfm-everything.md';
   const files = {
@@ -162,6 +90,76 @@ test('post-pass 3: a refused path keeps alt text, drops src, and never calls ass
   } finally {
     await browser.close();
   }
+});
+
+// F-14: in a repository the image root is the repository root (ADR-0027 §5), not the document's folder.
+const NESTED_SOURCE = [
+  '# Nested',
+  '',
+  'Text first, so the page has something to read.',
+  '',
+  '![logo](/assets/logo.png)',
+  '',
+  'Between.',
+  '',
+  '![diagram](../diagram.png)',
+  '',
+  'More.',
+  '',
+  '![escape](../../etc/x.png)',
+  '',
+].join('\n');
+const nestedFiles = (withGit) => ({
+  '/repo/docs/readme.md': Buffer.from(NESTED_SOURCE).toString('base64'),
+  '/repo/assets/logo.png': b64(join(corpusDir, 'image.png')),
+  '/repo/diagram.png': b64(join(corpusDir, 'image.png')),
+  ...(withGit ? { '/repo/.git/HEAD': Buffer.from('ref: refs/heads/main\n').toString('base64') } : {}),
+});
+
+async function nestedImages(files) {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const handle = await boot(page, files, ['/repo/docs/readme.md']);
+    const sizes = handle.shell.calls.filter((c) => c.method === 'imageSize').map((c) => c.args[0]);
+    const scopes = handle.shell.calls.filter((c) => c.method === 'allowAssetScope').map((c) => c.args[0]);
+    const srcs = await page.evaluate(() =>
+      [...document.querySelectorAll('#doc img')].map((el) => ({ alt: el.getAttribute('alt'), src: el.getAttribute('src') })),
+    );
+    return { sizes, scopes, srcs };
+  } finally {
+    await browser.close();
+  }
+}
+
+test('F-14: /x.png in a nested document loads from the repository root', async () => {
+  const { sizes, srcs } = await nestedImages(nestedFiles(true));
+  assert.ok(sizes.includes('/repo/assets/logo.png'), `sized: ${sizes}`);
+  assert.ok(srcs.find((i) => i.alt === 'logo')?.src, 'the logo has a src');
+});
+
+test('F-14: ../x.png in a nested document loads from inside the repository', async () => {
+  const { sizes, srcs } = await nestedImages(nestedFiles(true));
+  assert.ok(sizes.includes('/repo/diagram.png'), `sized: ${sizes}`);
+  assert.ok(srcs.find((i) => i.alt === 'diagram')?.src, 'the diagram has a src');
+});
+
+test('F-14: ../../etc/x.png still leaves the repository and is refused', async () => {
+  const { sizes, srcs } = await nestedImages(nestedFiles(true));
+  assert.equal(sizes.some((p) => p.includes('etc')), false);
+  assert.equal(srcs.find((i) => i.alt === 'escape')?.src, null);
+});
+
+test('F-14: the asset scope is the repository root, once', async () => {
+  const { scopes } = await nestedImages(nestedFiles(true));
+  assert.deepEqual(scopes, ['/repo']);
+});
+
+test('F-14: a document in no repository keeps its own folder as the image root', async () => {
+  const { sizes, scopes, srcs } = await nestedImages(nestedFiles(false));
+  assert.deepEqual(scopes, ['/repo/docs']);
+  assert.ok(sizes.every((p) => p.startsWith('/repo/docs/')), `sized: ${sizes}`);
+  assert.ok(srcs.every((i) => i.src === null), 'nothing outside the folder loads');
 });
 
 test('post-pass 3: width and height are set before src', async () => {
@@ -297,5 +295,121 @@ nodeTest('assetUrl arguments over the corpus are never http or https URLs', () =
       if (resolved.kind !== 'local') continue;
       assert.doesNotMatch(resolved.path, /^https?:/i, `${file}: ${resolved.path}`);
     }
+  }
+});
+
+// F-17: a document with no text characters (only images) is still a document that opens.
+const imageOnly = (n) => Array.from({ length: n }, (_, i) => `![pic${i}](a.png)`).join('\n\n') + '\n';
+const imageOnlyFiles = (n) => ({
+  '/docs/only.md': Buffer.from(imageOnly(n)).toString('base64'),
+  '/docs/a.png': b64(join(corpusDir, 'image.png')),
+});
+
+// `start` is raced against a bound so that a hang reads as a failure naming the cause, not a timeout.
+async function bootBounded(page, files, argv, boundMs = 15000) {
+  await page.goto(`${base}app.html`);
+  await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+  return page.evaluate(async ({ files, argv, boundMs }) => {
+    const bound = new Promise((resolve) => setTimeout(() => resolve('hung'), boundMs));
+    const started = window.marxyApp.start(files, argv).then((h) => { window.__f17 = h; return 'started'; });
+    const outcome = await Promise.race([started, bound]);
+    if (outcome !== 'started') return { outcome };
+    const exit = await Promise.race([window.__f17.ready.then(() => 'ready'), bound]);
+    const calls = window.__f17.shell.calls.map((c) => c.method);
+    return { outcome: exit, watches: calls.filter((m) => m === 'watch').length, assetUrls: calls.filter((m) => m === 'assetUrl').length };
+  }, { files, argv, boundMs });
+}
+
+test('F-17: a document of one image and no text loads the image', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, imageOnlyFiles(1), ['/docs/only.md']);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    await page.waitForFunction(() => {
+      const el = document.querySelector('#doc img');
+      return el && el.getAttribute('src') && el.getAttribute('src') !== 'a.png';
+    }, undefined, { timeout: 10000 });
+    const src = await page.evaluate(() => document.querySelector('#doc img').getAttribute('src'));
+    assert.notEqual(src, 'a.png');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('F-17: a document of two image blocks and no text starts and registers its watch', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, imageOnlyFiles(2), ['/docs/only.md']);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    assert.equal(r.watches, 1, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('F-17: an empty document still reports no text and is not watched', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, { '/docs/empty.md': '' }, ['/docs/empty.md']);
+    const marks = await page.evaluate(() => window.__f17?.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]) ?? []);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    assert.ok(marks.includes('no_text'), `marks: ${marks}`);
+    assert.equal(marks.includes('first_text'), false);
+    assert.equal(r.watches, 0, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});
+
+// F-17.1: "empty" is decided by the source, not by the rendered selector.
+const TEXTLESS = {
+  'a lone ---': '---\n',
+  'a lone ***': '***\n',
+  'an HTML comment alone': '<!-- nothing to read -->\n',
+  'a lone <div>': '<div>\n',
+};
+for (const [name, source] of Object.entries(TEXTLESS)) {
+  test(`F-17.1: ${name} opens and registers its watch`, async () => {
+    const browser = await webkit.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+      const r = await bootBounded(page, { '/docs/t.md': Buffer.from(source).toString('base64') }, ['/docs/t.md']);
+      assert.equal(r.outcome, 'ready', JSON.stringify(r));
+      assert.equal(r.watches, 1, JSON.stringify(r));
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+test('F-17.1: front matter alone reaches first_text and registers its watch', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const source = '---\ntitle: Only metadata\n---\n';
+    const r = await bootBounded(page, { '/docs/fm.md': Buffer.from(source).toString('base64') }, ['/docs/fm.md']);
+    const marks = await page.evaluate(() => window.__f17?.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]) ?? []);
+    assert.equal(r.outcome, 'ready', JSON.stringify(r));
+    assert.ok(marks.includes('first_text'), `marks: ${marks}`);
+    assert.equal(marks.includes('no_text'), false, `marks: ${marks}`);
+    assert.equal(r.watches, 1, JSON.stringify(r));
+  } finally {
+    await browser.close();
+  }
+});
+
+test('F-17.1: a file of only white space is empty: no_text and no watch', async () => {
+  const browser = await webkit.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const r = await bootBounded(page, { '/docs/ws.md': Buffer.from(' \n\n\t\n').toString('base64') }, ['/docs/ws.md']);
+    const marks = await page.evaluate(() => window.__f17?.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]) ?? []);
+    assert.ok(marks.includes('no_text'), `marks: ${marks}`);
+    assert.equal(r.watches, 0, JSON.stringify(r));
+  } finally {
+    await browser.close();
   }
 });

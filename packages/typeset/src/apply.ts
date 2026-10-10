@@ -5,6 +5,7 @@
 // first designed, would put a newline into every copied paragraph. A hyphenation break is the same
 // span with `.marxy-hyphen`, whose generated content is a hyphen then a newline, still not text.
 
+import { scratchRange } from './measure.ts';
 import type { Token } from './runs.ts';
 
 export const SET = 'marxy-set';
@@ -84,7 +85,7 @@ export function contentBox(p: HTMLElement): { left: number; right: number; width
  * Generated hyphens hang outside the measure by design and are not overfull.
  */
 export function overflow(p: HTMLElement, right: number): number {
-  const range = new Range();
+  const range = scratchRange(p.ownerDocument);
   let most = 0;
   const walker = p.ownerDocument.createTreeWalker(p, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode() as Text | null; node !== null; node = walker.nextNode() as Text | null) {

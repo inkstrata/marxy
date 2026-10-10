@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
@@ -42,21 +42,6 @@ let base;
 before(async () => {
   if (skip) return;
   await build({ root: appRoot, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
-  await build({
-    configFile: false,
-    root: appRoot,
-    logLevel: 'silent',
-    build: {
-      lib: {
-        entry: resolve(appRoot, 'src/selection/harness-entry.ts'),
-        formats: ['iife'],
-        name: 'MarxySelectionHarness',
-        fileName: 'selection-harness',
-      },
-      outDir: join(outDir, 'sel'),
-      emptyOutDir: true,
-    },
-  });
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -77,8 +62,6 @@ test('Source editor tab-size follows .editorconfig under the indexed root', asyn
     const file = '/repo/pkg/main.rs';
     const ec = '/repo/.editorconfig';
     await page.goto(`${base}app.html`);
-    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
     await page.evaluate(async ({ file, ec }) => {
       const files = {
         [file]: btoa('fn main() {\n\tlet x = 1;\n}\n'),

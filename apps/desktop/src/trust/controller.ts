@@ -15,9 +15,10 @@ import {
   trustBlockedNotices,
 } from '../notices/blocked.ts';
 import { truncationNotices } from '../notices/truncation.ts';
-import { notify } from '../notices/index.ts';
+import { notify as showNotice, type NoticeInput } from '../notices/index.ts';
 import {
   TRUST_NEWER_VERSION_TEXT,
+  TRUST_UNREADABLE_TEXT,
   grantableBlockedImages,
   htmlGrantWouldChangeForNotice,
   trustWriteFailedText,
@@ -43,6 +44,8 @@ export interface TrustControllerDeps {
   rerender(at: TrustPosition): void;
   /** Source mode at a byte: the truncation notice's "show source" action. */
   showSource(byteOffset: number): Promise<void>;
+  /** Where notices go; the page's notice line unless a test supplies its own. */
+  notify?(input: NoticeInput): void;
 }
 
 export interface TrustController {
@@ -61,8 +64,11 @@ export interface TrustController {
 
 export function createTrustController(deps: TrustControllerDeps): TrustController {
   const { shell } = deps;
+  const notify = deps.notify ?? showNotice;
   let store: TrustStore | null = null;
   let loading: Promise<void> | null = null;
+  /** True after a read that failed for a reason other than the file being absent. */
+  let loadFailed = false;
 
   function grantsFor(path: string): { html: boolean } {
     return store?.grantsFor(path) ?? { html: false };
@@ -80,8 +86,13 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
           dataDirectory: async () => (await shell.configPaths!()).data,
         };
         store = await loadTrust(io);
+        loadFailed = false;
       } catch {
+        // Fail closed: nothing is trusted and nothing is written. Say so, since a grant offer may be on
+        // screen and would otherwise do nothing.
         store = null;
+        loadFailed = true;
+        notify({ kind: 'info', text: TRUST_UNREADABLE_TEXT });
       }
     })();
     return loading;
@@ -148,7 +159,14 @@ export function createTrustController(deps: TrustControllerDeps): TrustControlle
 
   async function grantHtml(): Promise<void> {
     const path = deps.currentPath();
-    if (!path || !store || !deps.buffer()) return;
+    if (!path || !deps.buffer()) return;
+    if (!store && loadFailed) {
+      // The failure may have been transient (EMFILE, EAGAIN): read again, once, for this grant. A second
+      // failure notifies again inside load() and the grant is dropped with nothing written.
+      loading = null;
+      await load();
+    }
+    if (!store) return;
     const pos = deps.position(path);
     const granted = await applyTrustChange((s) => s.grant(path, { html: true }));
     // The reader may have opened another document while the write ran; the grant is theirs to keep

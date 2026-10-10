@@ -5,8 +5,12 @@ Tier 1 runs on every PR; tier 2 runs at the end of every phase and before any re
 
 ## Tier 1 — mechanical, in CI (`scripts/gate-aesthetics.mjs`)
 
-Runs the corpus through the real renderer in Playwright WebKit on both platforms, at three
-widths and three sizes, dark then light, and asserts:
+Runs the corpus through the real app in Playwright WebKit on both platforms, at three widths and
+four sizes, dark then light, and asserts. Each page is rendered by the app harness
+(`apps/desktop/gate.html`, B-02): `startApp` over a memory shell, so highlighting, KaTeX, notices
+and user-theme loading are in every page measured and in every screenshot baseline. The
+pull-request path runs `--mechanical` (every check below except the two baseline comparisons, rag
+and screenshot); the nightly run adds them (ADR-0047).
 
 | Check | Assertion | Source constraint |
 | --- | --- | --- |
@@ -20,7 +24,26 @@ widths and three sizes, dark then light, and asserts:
 | Heading hierarchy | headings differ from body in size and weight only; no colour; no `border`/`hr` decoration in the default theme | 4 |
 | Code voice | mono family ≠ text family; mono x-height within 5 % of text x-height at the same size | 5 |
 | Chrome at rest | with no interaction, the only visible non-text element is the scrollbar | 6 |
+| Geometry: centred | the column's axis is the axis of what the reader sees (the window less a classic scrollbar) within 0.5 px | L-02, screen criterion 1 |
+| Geometry: block edges | every top-level block's text starts on the column's left edge within 1 px; the declared hangs are the only exceptions (list markers, checkboxes, hung punctuation and hung initial letters; a blockquote's indent; a lone image, centred; a wide block grown about the axis) | L-02, 2 |
+| Geometry: room | no block box passes the column plus `--marxy-room` on either side, at any depth, and a box that overhangs the column overhangs both sides alike within 1 px | L-02, 3 |
+| Geometry: marks | no list marker or checkbox sits left of the gutter floor | L-02, 3 |
+| Geometry: no clip | no ink is cut off by the window; no set line runs past its paragraph's box once the app's relayout has settled; the page never scrolls sideways | L-02, 3 and 4 |
+| Geometry: notice column | on the app's own `#marxy-notices` region: a notice is on the column's edges within 1 px, in view three screens down, a whole number of grid units high, and in Source never on the first line of text | L-02, 5 |
+| Geometry: text spacing | with the four WCAG 1.4.12 overrides loaded as a reader theme (line height 1.5, paragraph spacing 2, letter spacing 0.12, word spacing 0.16, all in em), nothing is clipped, no block overlaps, no set line passes its box and the page does not scroll sideways | WCAG 1.4.12, L-02, 6 |
+| Geometry: 200 % text | the same, with the reader's size set to 40 px through the config | WCAG 1.4.4, L-02, 6 |
 | Screenshot diff | per engine, per fixture, pixel diff ≤ 0.1 % against the committed baseline unless the PR updates the baseline (a taste-review entry in `docs/taste-review/queue.d/` is welcome, not required) | drift |
+
+The geometry checks read the rules from `scripts/probe-layout.mjs` (`geometryFailures`, `noticeFailures`,
+`surveyInPage`), the one implementation of where the column, the blocks and the marks sit. They run on the
+renders the gate already makes (widths 720, 960 and 1280 and the four sizes at 960, both variants; the 320 px
+reflow render), on one classic-scrollbar render per document at 480 and 960 px (the scrollbar appears after
+first text and the app's relayout is awaited), and on extra renders for text spacing (320 and 960 px), 200 %
+text (960 px) and the notice in Source (320 and 960 px). Where today's page fails a rule, the case (check,
+sub-check, document, cell) is listed in `EXPECTED_FAILURES` in the gate with the story that clears it, and that
+story deletes the row. The gate fails on a case that is not listed and on a listed case that now passes, so
+the list can neither hide a new fault nor go stale. `node scripts/gate-aesthetics.mjs --mechanical
+--emit-expected` prints the cases found as rows; `--files a.md,b.md` narrows a run to those documents.
 
 Baselines live under `fixtures/baselines/<engine>/`. A PR that changes them must say why in
 the taste-review queue.

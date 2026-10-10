@@ -15,6 +15,17 @@ export function cmDocText(buffer: Buffer): string {
 }
 
 /**
+ * The line separator CM6 gets for `buffer`: the file's own when every ending is the same (CRLF, or a lone
+ * CR: a classic-Mac file). A mixed-ending file keeps `\n`: its `\r\n` lines keep the CR as a character at
+ * the end of the line, and a lone CR is a character inside a line, so no byte changes on an unchanged
+ * save (F-24). One rule for the editor and its tests (F-25); it lives here because a node test can import
+ * this file and not `editor.ts`, which pulls in the app.
+ */
+export function lineSeparatorFor(buffer: Buffer): '\n' | '\r\n' | '\r' {
+  return buffer.eol === 'crlf' ? '\r\n' : buffer.eol === 'cr' ? '\r' : '\n';
+}
+
+/**
  * Leaving Source: unchanged text keeps the original bytes; otherwise one splice over the part that
  * changed, so every byte outside it — a mixed file's line endings, a byte that is not UTF-8 — stays.
  */

@@ -10,12 +10,15 @@
   --marxy-color-text-secondary: #5e5a53;
   --marxy-color-accent: #2c5f8a;
   --marxy-color-rule: #e4e0d8;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
   --marxy-color-code-bg: #f1eee8;
   --marxy-color-code-text: #1c1b19;
   --marxy-color-quote-rule: #d6d1c8;
   --marxy-color-selection: #dbe9ff;
   --marxy-color-find: #fcefc0;
   --marxy-color-find-current: #f8df8f;
+  --marxy-color-find-edge: #8a6200;
   --marxy-color-notice: #f1eee8;
   --marxy-tok-string: #356024;
   --marxy-tok-comment: #85521a;

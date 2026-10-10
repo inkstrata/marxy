@@ -262,6 +262,10 @@ results across a close, that is a bug to fix where found. Whether `container-typ
 that is also `overflow-y: auto` and `height: 100vh` behaves in WKWebView and WebKitGTK is checked here by
 `packages/theme/test/layout.test.mjs` plus the new test; report any difference.
 
+**From the B-13 review (2026-10-07).** A second view stands beside the first for Rendered only: `source/editor.ts`
+keeps a module-shared `sharedEditor`/`sharedParent`, and one view's `clear()` destroys the other's editor. Replace
+that pair here.
+
 ---
 
 ### D-02 — Write the layout geometry and the `layout.json` format
@@ -733,6 +737,18 @@ so, report and choose the next free chord rather than overloading it.
 
 ---
 
+**From the D-05 review (2026-10-08).** Fix before a reader can open a split: D-05 remembers a scroller's last offset
+and height (`seen`) because `onSplit` fires after the window's scroll is clamped to 0, and a stale `seen` restores
+the wrong place. (1) A window resize without a scroll leaves `seen.clientHeight` old, so the reading line (0.4 × height)
+moves: measured byte 1914 restored instead of 2295. Note the scroll on window `resize` too. (2) A script scroll then
+a split in the same task lands on byte 0: add a hook before the split in `pane-set.ts` (this story edits it) that
+notes the first pane's place. Also update the stale comment at `pane-set.ts:219`.
+
+**For D-07, from the D-06 review (2026-10-10; D-06 is merged, so this story closes the gap).** Mutation M10 (drop `if (!mod) return null` in `paneChordFor`) survives:
+the Alt+ArrowLeft test presses it with the left pane already focused. Press Alt+ArrowLeft and Alt+ArrowRight with the
+right pane focused and assert focus stays on pane 1, or unit-test `paneChordFor`. The palette-chord test cannot fail
+for the dialog hold (the registry skips the editable input); the outline test pins it.
+
 ### D-08 — Close a pane, and make save, the title and quit know about two documents
 
 **Model:** opus · **Size:** M · **Depends on:** D-01 · **Parallel with:** D-04, D-05, D-06
@@ -813,6 +829,25 @@ the quit guard for the other. If P1's store has no `dirty`, derive it the way `c
 (`documentIsDirty`) does today and report.
 
 ---
+
+**From the D-01 review (2026-10-08).** D-01 asks the unsaved-edits guard only when the pane being replaced is dirty,
+but `confirmLeaveDocument` still reads the focused pane. Three ways to lose edits, unreachable from any UI until
+D-07: `openIn(1, …)` into a dirty pane while the focused one is clean replaces it without asking; with both panes
+dirty the prompt names and saves only the focused document; `close()` of a dirty pane discards without asking. This
+story makes the guard per pane and tests all three.
+
+**From the D-01 re-review (2026-10-08).** A refused close (`close()` returning `false` when the fold leaves text
+behind, or when the right pane is empty) shows nothing today; this story's close command must say so in the pane.
+D-01 added `ownsTitle` and a focus listener in `pane/index.ts` that re-titles the window: replace that listener with
+`updateTitle` and the dirty dot here, so there is one title writer. `09-app-shell.md` §State lists the close guard's
+prompt as bound to the first pane, but `app.ts` binds it to the focused pane; this story fixes the doc with the code.
+
+**From the D-08 review (2026-10-10), return 1.** Quitting snapshots `dirtyDocuments` once, so an edit made while a
+prompt is up is dropped without a question (A clean and B dirty, tick a task in A during B's prompt, discard B:
+`confirmClose` runs with A dirty), and a close request during a "Save and close" starts a second walk. Recompute before
+`confirmClose`, run one walk at a time, and test both, plus a failed "Save and close" and the dot for the focused
+document only. Left for whoever next owns `pane/index.ts` and `document/open.ts`: `document.title` is still written at
+`pane/index.ts:113` and `open.ts:147`, `:272` beside `updateTitle`, a second, DOM-only title.
 
 ### D-09 — Follow a link into the neighbour pane
 
@@ -978,6 +1013,22 @@ reimplementing the store. Canonical-path keying: `/r/A.md` and a symlink to it m
 
 ---
 
+**From the D-08 review (2026-10-10).** `clearNotices` (`document/open.ts:263`) empties the first pane's region, not the
+opening pane's: an open in the right pane wipes a close prompt in the left (the close is refused or the quit stops,
+silently; nothing is lost). Notices per pane are this story's.
+
+**From the D-11 review (2026-10-10).** Each pane's open path runs its own watch (`document/open.ts:141`); this story
+makes it one watch per store. D-11's `keepTypedText` keeps unfolded Source text across another view's reload, but (P4)
+after an outside write it folds on top of the reloaded store, re-arming the stale-write guard on the outside bytes, so
+Mod+S then overwrites the other program's write without a conflict prompt (with one pane the guard stays armed on the
+old read): ask every view of the store before it reloads. (P5) A rename on disk splits the panes onto two stores at one
+path; `keepTypedText`'s rename branch did not run in that order.
+
+**From the D-08 fix (2026-10-10).** In a split window a Source pane's CodeMirror mount covers its own notices region
+(`apps/desktop/index.html:27`, `#marxy-main[data-marxy-split] .marxy-source-mount:not([hidden]) { position: absolute;
+inset: 0 }`, with no split counterpart of line 23's fixed, `z-index: 10` notices rule), so the reader cannot click a
+guard's buttons there. Notices per pane are this story's; fix the stacking here.
+
 ### D-11 — Let each pane be Rendered or Source
 
 **Model:** opus · **Size:** M · **Depends on:** D-01, D-05, D-06 · **Parallel with:** D-07, D-13
@@ -994,8 +1045,8 @@ where 'reader but adept at both' meets the split."
 
 **Paths.**
 - Edit: `apps/desktop/src/source/editor.ts` (`sharedParent`/`sharedEditor` `:35-36`, `activeSourceEditor`
-  `:44`, `createSourceEditor` `:49-77`), `apps/desktop/src/source/mode-open.ts` (`openSourceAtByte`
-  `:17-30`, its own `sourceMount`), `apps/desktop/src/source/tab-width.ts` (`:28`),
+  `:44`, `createSourceEditor` `:49-77`), `AppHandle.jumpToSource` (F-03 deleted `mode-open.ts`; the app's
+  `showSource` is the one Source entry), `apps/desktop/src/source/tab-width.ts` (`:28`),
   `apps/desktop/src/commands/source-view.ts` (`view.toggle-line-numbers`, `:38-55`), the view's mode
   handling (`apps/desktop/src/view/rendered-view.ts`; today `app.ts:201-262` `sourceMount`,
   `setModeChrome`, `showSource`, `showRendered`, and `:314-321` `installKeyDispatcher`, the `Mod+E`
@@ -1018,8 +1069,9 @@ where 'reader but adept at both' meets the split."
    keep working; document the mirror in a comment.
 3. `Mod+E` (`toggleViewMode`) acts on `panes.focused.view`. The busy flag `modeToggleBusy` (`app.ts:191`) is
    per view.
-4. `openSourceAtByte(buffer, byteOffset)` (palette jump-to-source) targets the focused pane's mount, `article`
-   and a reading line from that pane's `clientHeight`, not `window.innerHeight` (`mode-open.ts:28`).
+4. `jumpToSource(byteOffset)` (palette jump-to-source) acts on the focused pane's view: its mount, `article`
+   and a reading line from that pane's `clientHeight`, not `window.innerHeight`. Never a second path that
+   shows the editor without the view's mode state (F-03).
    `tab-width.ts:28` resolves the editor through `activeSourceEditor()` instead of
    `#marxy-source .cm-editor`. `view.toggle-line-numbers` uses the focused pane's mount.
 5. Default mode when a pane opens a document: `defaultModeForPath(path)` (`source/default-mode.ts:15`), then the
@@ -1194,6 +1246,9 @@ which `07` §1 finding 7 says is cheaper than retrofitting.
 5. Theme: highlight styles from the existing tokens, with the current match also outlined (colour is never the
    only signal, ADR-0033).
 
+**From L-11 (2026-10-07).** Matches use `--marxy-color-find` / `--marxy-color-find-current` as a pale fill and the
+`--marxy-color-find-edge` outline for the 3:1 indicator (WCAG 1.4.11), as Source does after L-11.
+
 **Acceptance.**
 - Two panes; `Mod+F` with the right pane focused opens find in the right pane only, typing a word that is in
   both documents highlights ranges in the right article only, and the count `N of M` counts the right pane
@@ -1229,6 +1284,11 @@ Add find to the native menu.
 and 4 and say so. `CSS.highlights` ranges over text that the typesetter later splits stay valid (a range
 tracks DOM mutation) but a re-run after a pass is cheap and safe; the test above decides whether a re-run on
 `data-marxy-typeset` changes is needed.
+
+**From the D-03 review (2026-10-07).** `locate(offset)` places an offset on a piece boundary in the later piece, so
+a match ending at the end of piece 0 locates at `(piece 1, 0)`. A `CSS.highlights` Range ending there is valid; a
+`<mark>` fallback built with `surroundContents` throws when the next piece is in another block. If D-13 needs the
+fallback, add an end bias (`locate(offset, 'end')` prefers the previous non-empty piece) and move D-03's tests with it.
 
 ---
 

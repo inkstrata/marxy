@@ -111,3 +111,46 @@ test('a stacked base, a conflict, a draft, requested changes and a required revi
 test('a closed or merged PR blocks', () => {
   assert.ok(why({ state: 'MERGED' }).some(w => /state is MERGED/.test(w)));
 });
+
+// The stacked-PR fallback, driven with a stubbed gh.
+import { mergeAsync } from './lead-merge.mjs';
+
+function stub(replies) {
+  const calls = [];
+  return {
+    calls,
+    run(args) {
+      calls.push(args);
+      const r = replies.shift();
+      if (r instanceof Error) throw r;
+      return JSON.stringify(r);
+    },
+  };
+}
+const noWait = () => {};
+
+test('a stacked merge that completes at once (200, merged) is reported merged, not failed', () => {
+  const s = stub([{ status: 'merged' }]);
+  assert.equal(mergeAsync('o/r', 7, HEAD, { run: s.run, wait: noWait }), 'merged');
+  assert.ok(s.calls[0].includes('merge_method=squash') && s.calls[0].includes(`sha=${HEAD}`));
+});
+
+test('a pending stacked merge is polled until it merges', () => {
+  const s = stub([{ status: 'pending', details: { uuid: 'u1' } }, { status: 'pending' }, { status: 'merged' }]);
+  assert.equal(mergeAsync('o/r', 7, HEAD, { run: s.run, wait: noWait }), 'merged');
+  assert.ok(s.calls[2].some(a => a.endsWith('/merge-async/u1')));
+});
+
+test('a transient poll error is retried; persistent errors end in a plain "check the PR"', () => {
+  const ok = stub([{ status: 'pending', details: { uuid: 'u' } }, new Error('502'), { status: 'merged' }]);
+  assert.equal(mergeAsync('o/r', 7, HEAD, { run: ok.run, wait: noWait }), 'merged');
+  const bad = stub([{ status: 'pending', details: { uuid: 'u' } }, ...Array(5).fill(new Error('502'))]);
+  assert.match(mergeAsync('o/r', 7, HEAD, { run: bad.run, wait: noWait }), /unknown after poll errors.*check the PR/);
+});
+
+test('enqueued and failed are not merged; a refused request says so', () => {
+  assert.equal(mergeAsync('o/r', 7, HEAD, { run: stub([{ status: 'enqueued' }]).run, wait: noWait }), 'queued, not merged');
+  const s = stub([{ status: 'pending', details: { uuid: 'u' } }, { status: 'failed' }]);
+  assert.equal(mergeAsync('o/r', 7, HEAD, { run: s.run, wait: noWait }), 'failed');
+  assert.match(mergeAsync('o/r', 7, HEAD, { run: stub([new Error('403 head moved')]).run, wait: noWait }), /^refused: 403 head moved/);
+});

@@ -42,21 +42,16 @@ before(async () => {
 });
 after(() => server?.close());
 
-/** Normalised attach() option literals from a source file (app.ts or headless.ts). */
+/** Normalised attach() option literals from a source file (the per-article view). */
 function attachOptionsFrom(src) {
   const match = src.match(/attach\(article, \{([^}]+)\}\)/);
   assert.ok(match, 'source still calls attach(article, { … })');
   return match[1].replace(/\s+/g, ' ').trim();
 }
 
+/** The app's typesetter is the per-article view's (B-13). */
 function attachOptionsApp() {
-  return attachOptionsFrom(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'app.ts'), 'utf8'));
-}
-
-function attachOptionsHeadless() {
-  const src = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'render', 'headless.ts'), 'utf8');
-  assert.doesNotMatch(src, /hyphenate and hanging stay\s*\n\s*off until MARXY-24/, 'stale MARXY-24 comment must be gone from headless.ts');
-  return attachOptionsFrom(src);
+  return attachOptionsFrom(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'view', 'rendered-view.ts'), 'utf8'));
 }
 
 async function startDoc(page, files, argv) {
@@ -69,26 +64,12 @@ async function startDoc(page, files, argv) {
   }, { files, argv });
 }
 
-test('app.ts and headless.ts pass attach() the same option set', () => {
-  const app = attachOptionsApp();
-  const headless = attachOptionsHeadless();
-  const keys = (opts) => [...opts.matchAll(/(\w+):/g)].map((m) => m[1]).sort();
-  assert.deepEqual(keys(app), keys(headless), 'attach() property names must match');
-  for (const opts of [app, headless]) {
-    assert.doesNotMatch(opts, /\bhyphenate\b/);
-    assert.doesNotMatch(opts, /\bhanging\b/);
-    assert.match(opts, /glueStretchEm:\s*0\.6/);
-    assert.match(opts, /lastLineMinWidth:\s*0\.33/);
-    assert.match(opts, /onPass:/);
-  }
-});
-
 test('app.ts attach() does not pass hyphenate or hanging, and no other argument changes', () => {
   const opts = attachOptionsApp();
   assert.doesNotMatch(opts, /\bhyphenate\b/, 'hyphenate must not be passed; the package default is true');
   assert.doesNotMatch(opts, /\bhanging\b/, "hanging must not be passed; the package default is 'left'");
   assert.match(opts, /\blineBox\b/);
-  assert.match(opts, /glueStretchEm:\s*0\.6/);
+  assert.doesNotMatch(opts, /glueStretchEm|engine/, 'the justif engine option is gone (B-17)');
   assert.match(opts, /lastLineMinWidth:\s*0\.33/);
   // Background idle batches are coalesced; a pass the reader can see is snapped at once (MARXY-198).
   assert.match(opts, /onPass:\s*\(kind\)\s*=>\s*\(kind === 'background' \? scheduleSnap\(article\) : snap\(article\)\)/);

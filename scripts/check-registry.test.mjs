@@ -1,7 +1,7 @@
 // Every route from a string to parsed markup must respect innerHtmlAllowedIn (MARXY-132).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, copyFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -168,4 +168,71 @@ test('MARXY-337: a "/*" inside a string does not hide a later route behind a fak
   const code = "const glob = 'src/*.ts'; el.innerHTML = x; /** doc */";
   assert.equal(viaGate(code).length, 1);
   assert.deepEqual(viaGate("/* el.innerHTML = x */ const a = 'ok';"), []);
+});
+
+// H-01 (ADR-0059): the kind scope and per-language colour are registered names. The gate runs from a
+// copy of the scripts over a two-file tree, once with the real registry and once with both removed.
+test('H-01: a source file using data-marxy-kind and data-marxy-lang passes the registry gate', () => {
+  const repo = fileURLToPath(new URL('../', import.meta.url));
+  const real = JSON.parse(readFileSync(join(repo, 'scripts/registry.json'), 'utf8'));
+  const names = ['data-marxy-kind', 'data-marxy-lang'];
+  const run = (dataAttributes) => {
+    const dir = mkdtempSync(join(tmpdir(), 'marxy-h01-'));
+    try {
+      mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
+      for (const f of ['check-registry.mjs', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) {
+        copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+      }
+      writeFileSync(join(dir, 'scripts/registry.json'), JSON.stringify({ ...real, dataAttributes }));
+      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      mkdirSync(join(dir, 'apps/desktop/src/pane'), { recursive: true });
+      writeFileSync(
+        join(dir, 'apps/desktop/src/pane/kind.ts'),
+        "export function scope(root: HTMLElement, code: HTMLElement): void {\n" +
+          "  root.setAttribute('data-marxy-kind', 'report');\n" +
+          "  code.setAttribute('data-marxy-lang', 'rust');\n}\n",
+      );
+      writeFileSync(
+        join(dir, 'apps/desktop/src/pane/kind.css'),
+        '[data-marxy-kind="log"] { --marxy-color-bg: #0b0b0c; }\n[data-marxy-lang="rust"] { --marxy-tok-function: #b7410e; }\n',
+      );
+      return spawnSync(process.execPath, ['scripts/check-registry.mjs'], { encoding: 'utf8', cwd: dir });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  for (const name of names) assert.ok(real.dataAttributes.includes(name), `${name} missing from scripts/registry.json`);
+  const ok = run(real.dataAttributes);
+  assert.equal(ok.status, 0, ok.stderr || ok.stdout);
+  assert.match(ok.stdout, /registry ok \(\d+ files\)/);
+  // Control: without the entries the same tree fails on both names, so the pass above is not vacuous.
+  const without = run(real.dataAttributes.filter((a) => !names.includes(a)));
+  assert.equal(without.status, 1, without.stdout);
+  for (const name of names) assert.match(without.stderr + without.stdout, new RegExp(`attribute "${name}" is not in the registry`));
+});
+
+// Design plates under docs/plan/<round>/studio/ are reference HTML like mock* and galley (J-D1). The gate
+// runs from a copy of the scripts over one plate, once inside studio/ and once in a sibling folder.
+test('a design plate under docs/plan/<round>/studio/ is exempt; the same plate elsewhere is not', () => {
+  const repo = fileURLToPath(new URL('../', import.meta.url));
+  const run = (folder) => {
+    const dir = mkdtempSync(join(tmpdir(), 'marxy-studio-'));
+    try {
+      mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
+      for (const f of ['check-registry.mjs', 'registry.json', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) {
+        copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+      }
+      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      mkdirSync(join(dir, 'docs/plan/direction-2026-10', folder), { recursive: true });
+      writeFileSync(join(dir, 'docs/plan/direction-2026-10', folder, 'plate.html'), '<div class="sd-plate"></div>\n');
+      return spawnSync(process.execPath, ['scripts/check-registry.mjs'], { encoding: 'utf8', cwd: dir });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const studio = run('studio');
+  assert.equal(studio.status, 0, studio.stderr || studio.stdout);
+  const elsewhere = run('plates');
+  assert.equal(elsewhere.status, 1, elsewhere.stdout);
+  assert.match(elsewhere.stderr + elsewhere.stdout, /sd-plate/);
 });

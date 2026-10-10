@@ -3,6 +3,7 @@
 
 import { hangingCharacters, latinProtrusion } from 'justif/core';
 import { HANG, HYPHEN, LINE_BREAK } from './apply.ts';
+import { scratchRange } from './measure.ts';
 
 const segmenter = typeof Intl !== 'undefined' && 'Segmenter' in Intl
   ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
@@ -47,7 +48,7 @@ function wrapGrapheme(node: Text, offset: number, grapheme: string): HTMLElement
 }
 
 function measureAdvance(span: HTMLElement): number {
-  const range = new Range();
+  const range = scratchRange(span.ownerDocument);
   range.selectNodeContents(span);
   let width = 0;
   for (const rect of range.getClientRects()) width = Math.max(width, rect.width);
@@ -57,23 +58,33 @@ function measureAdvance(span: HTMLElement): number {
 /**
  * After applyBreaks: wrap the first grapheme of each line and pull it left by hangFraction of its
  * measured advance. Quotes take the whole advance; protrusion entries take their thousandths.
+ *
+ * Every paragraph's wraps are written first, then every advance is read, then every margin written:
+ * one layout for the batch (B-25). Measuring each wrap as it was made cost a layout per hung line, and
+ * a layout of a large article is not cheap. A wrap's advance is its own glyph's, which neither the
+ * other wraps nor the margins change, so the numbers are the ones the one-at-a-time order read.
  */
-export function applyHang(p: HTMLElement): void {
-  const starts: { node: Text; offset: number }[] = [];
-  const first = firstTextAfter(p, null);
-  if (first !== null) starts.push(first);
-  for (const br of p.querySelectorAll(`.${LINE_BREAK}`)) {
-    const next = firstTextAfter(p, br);
-    if (next !== null) starts.push(next);
+export function applyHang(paragraphs: readonly HTMLElement[]): void {
+  const wraps: { span: HTMLElement; fraction: number }[] = [];
+  for (const p of paragraphs) {
+    const starts: { node: Text; offset: number }[] = [];
+    const first = firstTextAfter(p, null);
+    if (first !== null) starts.push(first);
+    for (const br of p.querySelectorAll(`.${LINE_BREAK}`)) {
+      const next = firstTextAfter(p, br);
+      if (next !== null) starts.push(next);
+    }
+    // Reverse so later (node, offset) pairs stay valid while earlier wraps split text nodes.
+    for (const { node, offset } of starts.reverse()) {
+      const grapheme = firstGrapheme(node.data.slice(offset));
+      const fraction = hangFraction(grapheme);
+      if (fraction <= 0 || grapheme.length === 0) continue;
+      wraps.push({ span: wrapGrapheme(node, offset, grapheme), fraction });
+    }
   }
-  // Reverse so later (node, offset) pairs stay valid while earlier wraps split text nodes.
-  for (const { node, offset } of starts.reverse()) {
-    const grapheme = firstGrapheme(node.data.slice(offset));
-    const fraction = hangFraction(grapheme);
-    if (fraction <= 0 || grapheme.length === 0) continue;
-    const span = wrapGrapheme(node, offset, grapheme);
-    const advance = measureAdvance(span);
-    if (advance <= 0) continue;
-    span.style.marginInlineStart = `${-(fraction * advance)}px`;
-  }
+  const advances = wraps.map(({ span }) => measureAdvance(span));
+  wraps.forEach(({ span, fraction }, i) => {
+    const advance = advances[i]!;
+    if (advance > 0) span.style.marginInlineStart = `${-(fraction * advance)}px`;
+  });
 }

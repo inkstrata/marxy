@@ -19,20 +19,23 @@ const isStringy = n => n && (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplat
  * Every module specifier in a source text, in source order, as `{ spec, kind }` where kind is
  * `static` (import/export … from, `import 'x'`, `import x = require('x')`, `import('x')` types),
  * `dynamic` (`import('x')`) or `require`. An interpolated template (`import(\`./${x}\`)`) cannot be
- * resolved statically and is not returned.
+ * resolved statically and is not returned. `typeOnly` is true for `import type`, `export type … from`
+ * and `import('x')` types, which load nothing at run time; under `verbatimModuleSyntax` an
+ * `import { type X }` still loads its module, so it is not type-only.
  */
 export function importSpecEntries(text, fileName = 'file.ts') {
   const out = [];
   const visit = node => {
     if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && isStringy(node.moduleSpecifier)) {
-      out.push({ spec: node.moduleSpecifier.text, kind: 'static' });
+      const typeOnly = ts.isImportDeclaration(node) ? Boolean(node.importClause?.isTypeOnly) : node.isTypeOnly;
+      out.push({ spec: node.moduleSpecifier.text, kind: 'static', typeOnly });
     } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference) && isStringy(node.moduleReference.expression)) {
-      out.push({ spec: node.moduleReference.expression.text, kind: 'static' });
+      out.push({ spec: node.moduleReference.expression.text, kind: 'static', typeOnly: node.isTypeOnly });
     } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && isStringy(node.argument.literal)) {
-      out.push({ spec: node.argument.literal.text, kind: 'static' });
+      out.push({ spec: node.argument.literal.text, kind: 'static', typeOnly: true });
     } else if (ts.isCallExpression(node) && node.arguments.length >= 1 && isStringy(node.arguments[0])) {
-      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) out.push({ spec: node.arguments[0].text, kind: 'dynamic' });
-      else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') out.push({ spec: node.arguments[0].text, kind: 'require' });
+      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) out.push({ spec: node.arguments[0].text, kind: 'dynamic', typeOnly: false });
+      else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') out.push({ spec: node.arguments[0].text, kind: 'require', typeOnly: false });
     }
     ts.forEachChild(node, visit);
   };
@@ -42,6 +45,9 @@ export function importSpecEntries(text, fileName = 'file.ts') {
 
 /** Just the specifier strings, static and dynamic alike. */
 export const importSpecs = (text, fileName) => importSpecEntries(text, fileName).map(e => e.spec);
+
+/** Static specifiers that load a module when this one runs: not `import type` nor `export type`. */
+export const valueImportSpecs = (text, fileName) => importSpecEntries(text, fileName).filter(e => e.kind === 'static' && !e.typeOnly).map(e => e.spec);
 
 /** Only `import()` and `require()` specifiers. */
 export const dynamicImportSpecs = (text, fileName) => importSpecEntries(text, fileName).filter(e => e.kind !== 'static').map(e => e.spec);

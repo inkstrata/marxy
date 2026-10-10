@@ -13,6 +13,58 @@ export interface WatchEvent {
   readonly to?: string;
 }
 
+/** One place a content search matched (C-16). */
+export interface ContentHit {
+  readonly path: string;
+  /** 1-based, counting `\n` (a CRLF file numbers its lines as an LF one does). */
+  readonly line: number;
+  /** Absolute byte offset of the match in the file as written: UTF-8, byte-order mark and CRLF included. */
+  readonly byteOffset: number;
+  /** The matching line, cut to at most 160 characters around the match, control characters as spaces. */
+  readonly preview: string;
+  /** UTF-16 offsets of the match in `preview`. */
+  readonly matchStart: number;
+  readonly matchEnd: number;
+}
+
+export interface ContentSearchOptions {
+  /**
+   * The collection's roots. A path outside every root, in a built-in deny-listed directory, matched
+   * by `denyGlobs`, or reached through a symlink is never read.
+   */
+  readonly roots: readonly string[];
+  /** The reader's deny globs from `collection.toml`, as the index walk applies them. */
+  readonly denyGlobs?: readonly string[];
+  /** Hits in all; default 200. */
+  readonly limit?: number;
+  /** Hits per file; default 5. */
+  readonly perFile?: number;
+  /** Aborting stops the scan in the shell and rejects with an `AbortError`. */
+  readonly signal?: AbortSignal;
+}
+
+export interface ContentSearchResult {
+  readonly hits: readonly ContentHit[];
+  /** Files read and searched; skipped files (missing, a directory, binary, over 4 MB) do not count. */
+  readonly scannedFiles: number;
+  /** More hits exist than were returned, or the scan stopped at a cap before reading every path. */
+  readonly truncated: boolean;
+}
+
+/**
+ * The types on the pasteboard's first item (UTI strings, as the OS reports them), plus
+ * `org.nspasteboard.ConcealedType` when any item carries it (ADR-0065 §3). Listing reads no data.
+ */
+export type PasteboardTypes = readonly string[];
+
+/** One representation of a clipboard item: a type and its bytes (text types are UTF-8). */
+export interface ClipboardRep { readonly type: string; readonly bytes: Uint8Array; }
+
+export interface ClipboardMeta {
+  /** Mark the item `org.nspasteboard.TransientType` so clipboard managers skip it. Default false. */
+  readonly transient?: boolean;
+}
+
 export type ShellError = {
   readonly code: 'not-found' | 'permission' | 'io' | 'invalid' | 'unsupported';
   readonly message: string;
@@ -24,9 +76,31 @@ export interface Shell {
   readFile(path: string): Promise<Uint8Array>;
   /** Atomic: write to a temp file in the same directory, fsync, rename over. Never in place. */
   writeFileAtomic(path: string, bytes: Uint8Array): Promise<void>;
+  /**
+   * One file's size and modification time without listing its folder (C-11.2). A narrower form of
+   * `readDir`: `null` for a path that is missing, one that is itself a symlink (`readDir` omits every one) or named like a
+   * deny-listed directory; a folder is reported with `isDir`.
+   */
   stat(path: string): Promise<FileStat | null>;
-  /** Recursive directory watch, debounced by the shell; the callback receives batches. */
-  watch(root: string, onEvents: (events: readonly WatchEvent[]) => void): Promise<{ close(): void }>;
+  /**
+   * At most the first `maxBytes` of a regular file, capped by the shell at 256 KB (C-11.2). A narrower
+   * form of `readFile`: it rejects when the path itself is a symlink, a folder or any file that is not a regular one,
+   * and its open neither follows a link nor blocks on a named pipe. It does not arm the stale-write guard.
+   */
+  readHead(path: string, maxBytes: number): Promise<Uint8Array>;
+  /**
+   * Directory watch, debounced by the shell; the callback receives batches. By default the folder's
+   * own files (and the folders of symlinked documents in it). With `recursive`, every file in the
+   * tree, never following a symlink and skipping the index's deny-listed directories; it rejects
+   * when the tree is too large or the OS refuses the watch, so the caller can fall back. A tree that
+   * grows too large after the watch opened ends it: `onRefused` is then called once with the reason,
+   * no event follows, and the caller still `close()`s the handle.
+   */
+  watch(
+    root: string,
+    onEvents: (events: readonly WatchEvent[]) => void,
+    opts?: { readonly recursive?: boolean; readonly onRefused?: (reason: string) => void },
+  ): Promise<{ close(): void }>;
   /** @deprecated ADR-0026 — Files under root honouring .gitignore/.ignore and the deny list; never follows into node_modules. */
   listRoot(root: string, opts: { readonly extensions: readonly string[]; readonly limit: number }): Promise<readonly FileStat[]>;
   /** @deprecated ADR-0026 — Fuzzy match over the shell's index for this root (nucleo). Returns paths and scores. */
@@ -36,6 +110,26 @@ export interface Shell {
   openDialog(opts: { readonly directory?: boolean; readonly multiple?: boolean }): Promise<readonly string[]>;
   revealInExternalEditor(path: string, line?: number): Promise<void>;
   clipboardWrite(data: { readonly text: string; readonly html?: string }): Promise<void>;
+  /**
+   * The first pasteboard item's types; reads no data. Call only from a reader action (paste,
+   * transform the clipboard): nothing in the shell polls or observes the pasteboard (ADR-0065 §3).
+   * Rejects `unsupported` where there is no native pasteboard.
+   */
+  clipboardTypes(): Promise<PasteboardTypes>;
+  /**
+   * One representation of the first item, or `null` when it holds none of that type or the type
+   * is not readable (text, HTML, RTF, URL, PNG). A concealed item (a password manager's copy)
+   * rejects `permission` before any of it is read; a representation over 16 MB rejects `invalid`.
+   * Call only from a reader action (ADR-0065 §3).
+   */
+  clipboardRead(type: string): Promise<ClipboardRep | null>;
+  /**
+   * Replace the clipboard with ONE item holding every representation, tagged with Marxy as its
+   * source. Only text, HTML, RTF and URL types are accepted; any other type (the pasteboard marker
+   * types included), an empty list or a repeated type rejects `invalid` before the shell is called.
+   * Text types must be valid UTF-8.
+   */
+  clipboardWriteItem(reps: readonly ClipboardRep[], meta?: ClipboardMeta): Promise<void>;
   /** A URL the webview may load for a local file (asset protocol), scoped to the document's directory. */
   assetUrl(path: string): string;
   /** Files handed to a running instance by the OS or a second launch (single-instance). */
@@ -78,6 +172,12 @@ export interface Shell {
   onCloseRequested(cb: () => void): void;
   /** Let a previously-requested window close proceed. */
   confirmClose(): Promise<void>;
+  /**
+   * Search these files' contents for `query` in one shell call (C-16, ADR-0053 §4): nothing is
+   * indexed or written, and nothing but the passed paths is read. Smart case: an all-lowercase query
+   * matches ASCII case-insensitively, any uppercase means exact bytes. Hits come in path order.
+   */
+  searchContent(paths: readonly string[], query: string, opts: ContentSearchOptions): Promise<ContentSearchResult>;
 }
 
 /** No-op Shell used only for compile-time completeness checks (MARXY-94, ADR-0039). */
@@ -86,6 +186,7 @@ function stubShellImpl(): Shell {
     readFile: async () => new Uint8Array(),
     writeFileAtomic: async () => {},
     stat: async () => null,
+    readHead: async () => new Uint8Array(),
     watch: async () => ({ close() {} }),
     listRoot: async () => [],
     fuzzy: async () => [],
@@ -93,6 +194,9 @@ function stubShellImpl(): Shell {
     openDialog: async () => [],
     revealInExternalEditor: async () => {},
     clipboardWrite: async () => {},
+    clipboardTypes: async () => [],
+    clipboardRead: async () => null,
+    clipboardWriteItem: async () => {},
     assetUrl: () => '',
     onOpenFiles: () => {},
     platform: 'macos',
@@ -112,6 +216,7 @@ function stubShellImpl(): Shell {
     fetchRemoteImage: async () => '',
     onCloseRequested: () => {},
     confirmClose: async () => {},
+    searchContent: async () => ({ hits: [], scannedFiles: 0, truncated: false }),
   };
 }
 

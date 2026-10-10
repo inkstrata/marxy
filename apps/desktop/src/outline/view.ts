@@ -1,8 +1,9 @@
 // The summoned outline: the document's headings at the right edge, the current one marked (A-15).
 // Nothing is on screen until it is opened. The view reads its document, position and landing from
-// an OutlineSource, so Phase D can bind it to the focused pane without touching this file.
+// an OutlineSource; with two panes it is bound to the focused one (D-13, `pane.ts`).
 import { outlineFrom, type Document as Markdown, type OutlineEntry } from '@marxy/core';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
+import { focusedPaneSource } from './pane.ts';
 
 export interface OutlineSource {
   /** The open document, or null; `AppHandle.openDocument()`. */
@@ -11,13 +12,19 @@ export interface OutlineSource {
   position(): number;
   /** Lands `byte` of `path` on the reading line; `AppHandle.open(path, { at })`. */
   land(path: string, byte: number): Promise<void>;
+  /** The scroll subscription of the view `position` reads; without it, the window's scroll. */
+  onScroll?(cb: () => void): () => void;
+  /** The pane whose right edge the dialog sits against, or null for the window's (one pane). */
+  anchor?(): HTMLElement | null;
+  /** Focus back where the outline was opened from; without it, the article or the Source editor. */
+  restoreFocus?(): void;
 }
 
 interface Live {
   readonly source: OutlineSource;
   readonly dialog: HTMLDialogElement;
   readonly list: HTMLOListElement;
-  readonly scroller: Document;
+  offScroll: () => void;
   ast: Markdown;
   path: string;
   entries: readonly OutlineEntry[];
@@ -26,7 +33,6 @@ interface Live {
   selected: number;
   painted: { current: number; selected: number };
   frame: number | null;
-  readonly onScroll: () => void;
 }
 
 let live: Live | null = null;
@@ -53,7 +59,7 @@ function injectStyles(doc: Document): void {
       max-height: none;
       box-sizing: border-box;
       border: 0;
-      border-inline-start: 1px solid var(--marxy-color-border, #444);
+      border-inline-start: 1px solid var(--marxy-color-rule-strong);
       background: var(--marxy-color-surface, #1a1a1a);
       color: var(--marxy-color-text, #eee);
       box-shadow: 0 0 40px rgb(0 0 0 / 25%);
@@ -83,7 +89,7 @@ function injectStyles(doc: Document): void {
       box-shadow: inset 2px 0 0 var(--marxy-color-accent, currentColor);
     }
     #marxy-outline .marxy-outline-row[aria-selected="true"] {
-      background: var(--marxy-color-accent-muted, rgb(255 255 255 / 8%));
+      background: var(--marxy-color-accent-wash);
     }
   `);
 }
@@ -183,10 +189,16 @@ export function closeOutline(): void {
   const l = live;
   if (!l) return;
   live = null;
-  l.scroller.removeEventListener('scroll', l.onScroll);
+  l.offScroll();
   if (l.frame !== null) cancelAnimationFrame(l.frame);
   if (l.dialog.open) l.dialog.close();
+  l.dialog.style.removeProperty('inset-inline-end');
+  if (l.dialog.getAttribute('style') === '') l.dialog.removeAttribute('style');
   l.list.replaceChildren();
+  if (l.source.restoreFocus) {
+    l.source.restoreFocus();
+    return;
+  }
   const cm = document.body.dataset.marxyMode === 'source'
     ? document.querySelector<HTMLElement>('#marxy-source .cm-content')
     : null;
@@ -199,8 +211,20 @@ export function closeOutline(): void {
   }
 }
 
-export function openOutline(source: OutlineSource): void {
+/** The dialog against `pane`'s right edge (it is modal over the text; with one pane, the window's edge). */
+function anchorTo(dialog: HTMLDialogElement, pane: HTMLElement | null): void {
+  if (!pane) {
+    dialog.style.removeProperty('inset-inline-end');
+    return;
+  }
+  const rect = pane.getBoundingClientRect();
+  const end = Math.max(0, document.documentElement.clientWidth - rect.right);
+  dialog.style.setProperty('inset-inline-end', `${end}px`);
+}
+
+export function openOutline(given: OutlineSource): void {
   if (live) return;
+  const source = given.onScroll ? given : focusedPaneSource(given);
   const open = source.document();
   if (!open) return;
   injectStyles(document);
@@ -214,26 +238,32 @@ export function openOutline(source: OutlineSource): void {
   list.tabIndex = 0;
   dialog.replaceChildren(list);
 
-  // The viewport's scroll event is dispatched at the document, not at documentElement.
-  const scroller = document;
+  const onScroll = (): void => {
+    if (l.frame !== null) return;
+    l.frame = requestAnimationFrame(() => {
+      l.frame = null;
+      if (live === l) refresh(l);
+    });
+  };
+  const subscribe = (): (() => void) => {
+    if (source.onScroll) return source.onScroll(onScroll);
+    // The viewport's scroll event is dispatched at the document, not at documentElement.
+    document.addEventListener('scroll', onScroll, { passive: true });
+    return () => document.removeEventListener('scroll', onScroll);
+  };
   const l: Live = {
-    source, dialog, list, scroller,
+    source, dialog, list,
+    offScroll: () => {},
     ast: open.ast, path: open.path,
     entries: [], rows: [], current: -1, selected: 0, painted: { current: -1, selected: -1 }, frame: null,
-    onScroll: () => {
-      if (l.frame !== null) return;
-      l.frame = requestAnimationFrame(() => {
-        l.frame = null;
-        if (live === l) refresh(l);
-      });
-    },
   };
   buildRows(l);
   l.current = currentEntry(l.entries, source.position());
   l.selected = Math.max(0, l.current);
   live = l;
   list.addEventListener('keydown', (event) => onKey(l, event));
-  scroller.addEventListener('scroll', l.onScroll, { passive: true });
+  l.offScroll = subscribe();
+  anchorTo(dialog, source.anchor?.() ?? null);
   if (!dialog.open) dialog.show();
   list.focus({ preventScroll: true });
   paint(l);

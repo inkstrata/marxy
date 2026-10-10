@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marxy Content Modes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/app.css">
+<link rel="stylesheet" href="shared/lang-colors.css">
+<style>
+  /* Left to right: the type list, its typography, then the sample document, the widest region. */
+  .cm { flex: 1; display: grid; grid-template-columns: 228px 308px minmax(0, 1fr); min-height: 0; }
+  .cm.no-spec { grid-template-columns: 228px 0 minmax(0, 1fr); }
+  .cm.no-spec .spec { display: none; }
+  .kinds { border-right: 1px solid var(--line); background: var(--win); overflow: auto; padding: 8px; }
+  .kinds h3 { font-size: 11px; color: var(--fg-faint); font-weight: 650; margin: 8px 8px 6px; }
+  .krow { display: grid; grid-template-columns: 18px 1fr; gap: 2px 10px; padding: 7px 9px; border-radius: 7px; border: 0; background: none; width: 100%; text-align: left; color: var(--fg); }
+  .krow:hover { background: var(--hover); }
+  .krow[aria-selected="true"] { background: var(--accent-wash-strong); }
+  .krow[aria-selected="true"] svg { color: var(--accent); }
+  .krow svg { color: var(--fg-muted); margin-top: 1px; }
+  .krow b { font-weight: 600; font-size: 13px; }
+  .krow span { grid-column: 2; font-size: 11.5px; color: var(--fg-muted); line-height: 1.35; }
+  .stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--doc); }
+  .stage-body { flex: 1; display: flex; min-height: 0; position: relative; container-type: inline-size; }
+  @container (max-width: 1080px) { .stage-body:has(.rail.right) > .rail:not(.right) { display: none; } }
+  @container (max-width: 780px) { .rail { display: none; } }
+  .stage-scroll { flex: 1; overflow: auto; min-width: 0; position: relative; }
+  .rail { width: 210px; flex: none; border-right: 1px solid var(--line); overflow: auto; padding: 14px 10px; font-size: 12.5px; background: var(--doc); }
+  .rail.right { border-right: 0; border-left: 1px solid var(--line); }
+  .rail h4 { font-size: 11px; font-weight: 650; color: var(--fg-faint); margin: 0 0 6px 6px; display: flex; gap: 6px; align-items: center; }
+  .rail a, .rail button.rl { display: block; padding: 4px 8px; border-radius: 5px; color: var(--fg); text-decoration: none; border: 0; background: none; width: 100%; text-align: left; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rail a:hover, .rail button.rl:hover { background: var(--hover); }
+  .rail a.on { color: var(--accent); background: var(--accent-wash); }
+  .rail .l3 { padding-left: 20px; } .rail .l4 { padding-left: 32px; }
+  .rail section + section { margin-top: 16px; }
+  .rail .item { display: flex; gap: 6px; align-items: baseline; padding: 3px 6px; font-size: 12px; color: var(--fg-muted); }
+  .rail .item svg { flex: none; transform: translateY(2px); }
+  .spec { border-right: 1px solid var(--line); background: var(--side); overflow: auto; padding: 12px 14px 30px; }
+  .spec h3 { margin: 4px 0 2px; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  .spec .lede { font-size: 12px; color: var(--fg-muted); line-height: 1.5; margin: 4px 0 12px; }
+  .spec h4 { font-size: 11px; font-weight: 650; color: var(--fg-faint); margin: 16px 0 6px; display: flex; gap: 6px; align-items: center; }
+  .spec table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .spec td { padding: 4px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .spec td:first-child { color: var(--fg-muted); width: 92px; padding-right: 8px; }
+  .spec td b { font-weight: 600; }
+  .spec .live { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .spec ul { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.5; }
+  .spec li + li { margin-top: 2px; }
+  .ctl { display: grid; grid-template-columns: 76px 1fr 44px; gap: 8px; align-items: center; font-size: 12px; margin: 6px 0; }
+  .ctl input[type=range] { width: 100%; }
+  .ctl output { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg-muted); }
+  .rule { font-size: 11.5px; line-height: 1.45; padding: 7px 9px; border-radius: 7px; background: var(--warn-wash); color: var(--fg); margin: 8px 0; display: flex; gap: 7px; }
+  .rule svg { color: var(--warn); flex: none; margin-top: 1px; }
+  .rule.ok { background: var(--ok-wash); } .rule.ok svg { color: var(--ok); }
+  .src-link { font-size: 11.5px; color: var(--accent); }
+  /* Report frame */
+  .report-panel .item b { color: var(--fg); font-weight: 600; }
+  /* Article frame */
+  .readbar { position: sticky; top: 0; height: 3px; background: transparent; z-index: 3; }
+  .readbar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  .doc[data-kind="article"] .sidenote { float: right; clear: right; width: 13em; margin-right: -15.5em; margin-top: 0.3em; font: 400 0.74em/1.45 var(--face-sans); color: var(--fg-muted); text-indent: 0; }
+  .doc[data-kind="article"] .sidenote b { color: var(--accent); margin-right: 4px; }
+  .doc[data-kind="article"].with-sidenotes { padding-right: 17em; }
+  .doc[data-kind="article"].with-sidenotes .footnotes { display: none; }
+  /* Book frame: CSS columns as pages */
+  .book-view { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--doc); }
+  .book-pages { flex: 1; overflow: hidden; position: relative; min-height: 0; width: 100%; }
+  .book-pages .doc.paged { height: 100%; column-width: var(--measure); column-gap: 5em; column-fill: auto; padding: 2.2em 3em 2.4em; overflow: visible; box-sizing: border-box; }
+  .book-pages .doc.paged > * { max-width: none; break-inside: avoid-column; }
+  .book-pages .doc.paged > p { break-inside: auto; orphans: 2; widows: 2; }
+  .book-pages .doc.paged h1 { break-after: avoid; }
+  .book-foot { height: 40px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--fg-muted); }
+  .book-foot .progress { flex: 1; max-width: 360px; }
+  /* README frame */
+  .repo-head { border-bottom: 1px solid var(--line); padding: 18px 26px 14px; display: grid; grid-template-columns: 1fr auto; gap: 8px 20px; background: var(--win); }
+  .repo-head h2 { margin: 0; font: 650 20px var(--face-readme); color: var(--fg-strong); display: flex; gap: 8px; align-items: center; }
+  .repo-head p { margin: 0; color: var(--fg-muted); font-size: 13.5px; }
+  .facts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--fg-muted); grid-column: 1 / -1; }
+  .facts span { display: inline-flex; gap: 5px; align-items: center; }
+  .install { display: flex; align-items: center; gap: 0; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--inset); align-self: start; }
+  .install code { font: 12.5px var(--face-code); padding: 6px 10px; color: var(--fg-strong); }
+  .install button { border: 0; border-left: 1px solid var(--line-strong); background: var(--raised); height: 30px; padding: 0 10px; display: inline-flex; gap: 5px; align-items: center; color: var(--fg); }
+  .install select { border: 0; background: none; font-size: 12px; color: var(--fg-muted); padding: 0 6px; height: 30px; border-right: 1px solid var(--line-strong); }
+  .tocchips { display: flex; gap: 6px; padding: 10px 26px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tocchips a { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg); text-decoration: none; }
+  .tocchips a:hover { background: var(--hover); }
+  /* Docs frame */
+  .crumbs { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--fg-muted); padding: 14px 2.4em 0; max-width: calc(var(--measure, 40em) + 4.8em); }
+  .docnav-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 3em auto 0; }
+  .docnav-foot a { border: 1px solid var(--line); border-radius: 9px; padding: 10px 14px; text-decoration: none; color: var(--fg); font: 13px var(--face-chrome); }
+  .docnav-foot a small { display: block; color: var(--fg-faint); font-size: 11px; }
+  .docnav-foot a:last-child { text-align: right; }
+  /* Code frame */
+  .code-crumbs { display: flex; gap: 6px; align-items: center; font: 12px var(--face-code); color: var(--fg-muted); padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--doc); }
+  .code-crumbs .seg { margin-left: 4px; font-family: var(--face-chrome); }
+  .code-crumbs .seg button { height: 22px; padding: 0 8px; font-size: 11.5px; }
+  .lang-name { display: inline-flex; gap: 6px; align-items: center; color: var(--fg); font-family: var(--face-chrome); font-size: 11.5px; }
+  .lang-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lang, var(--fg-muted)); flex: none; }
+  .sym { display: flex; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 5px; font: 12px var(--face-code); color: var(--fg); border: 0; background: none; width: 100%; text-align: left; }
+  .sym:hover { background: var(--hover); }
+  .sym i.k { font: 600 10px var(--face-chrome); color: var(--fg-faint); width: 34px; font-style: normal; }
+  /* Transcript frame */
+  .tfilter { display: flex; gap: 4px; padding: 6px 6px 10px; flex-wrap: wrap; }
+  .tprompt { display: block; padding: 6px 8px; border-radius: 6px; border: 0; background: none; text-align: left; width: 100%; color: var(--fg); font-size: 12px; line-height: 1.4; }
+  .tprompt:hover { background: var(--hover); }
+  .tprompt small { color: var(--fg-faint); display: block; font-size: 10.5px; }
+  /* Log and terminal frames: mono, size only. Tokens only; level and role are carried by weight and value, not hue. */
+  .doc[data-kind="log"], .doc[data-kind="terminal"] { --k-face: var(--face-code); --k-size: 0.8125rem; --k-leading: 1.55; --k-measure: 200; padding: 0; font-feature-settings: var(--code-liga); }
+  .doc.doc[data-kind="log"] > *, .doc.doc[data-kind="terminal"] > * { max-width: none; margin: 0; }
+  .col { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .logbar { display: flex; gap: 10px; align-items: center; padding: 7px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--fg-muted); background: var(--doc); flex-wrap: wrap; }
+  .logbar b { color: var(--fg-strong); font-weight: 600; font-family: var(--face-code); font-size: 12px; }
+  .txtseg { display: inline-flex; gap: 2px; align-items: center; }
+  .txtseg button { border: 0; background: none; padding: 2px 8px; border-radius: 5px; font: 500 12px var(--face-chrome); color: var(--fg-muted); height: 24px; }
+  .txtseg button:hover { background: var(--hover); color: var(--fg); }
+  .txtseg button[aria-pressed="true"] { color: var(--fg-strong); font-weight: 700; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1.5px; }
+  .logview { padding: 10px 0 40vh; min-width: max-content; }
+  .logview.wrap { min-width: 0; }
+  .ll { display: grid; grid-template-columns: 4.2em minmax(0, 1fr); }
+  .ll .n { text-align: right; padding-right: 1em; color: var(--fg-faint); user-select: none; border-right: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .ll .lt { white-space: pre; padding: 0 1.4em 0 1em; }
+  .logview.wrap .lt { white-space: pre-wrap; overflow-wrap: anywhere; padding-left: calc(1em + 4ch); text-indent: -4ch; }
+  .ll .ts { color: var(--tk-comment); }
+  .ll .lv { font-weight: 700; color: var(--fg-strong); }
+  .ll.cont .lt { padding-left: calc(1em + 2ch); color: var(--fg-muted); }
+  .logview.wrap .ll.cont .lt { padding-left: calc(1em + 6ch); }
+  .ll[data-lv="debug"] .msg { color: var(--fg-muted); }
+  .ll[data-lv="error"] { box-shadow: inset 3px 0 0 var(--fg-strong); background: var(--hover); }
+  .ll[data-lv="error"] .msg, .ll[data-lv="error"].cont .lt { color: var(--fg-strong); }
+  .ll.hot { background: var(--accent-wash-strong); }
+  .logview[data-min="1"] .ll[data-rank="0"], .logview[data-min="2"] .ll:is([data-rank="0"], [data-rank="1"]), .logview[data-min="3"] .ll:not([data-rank="3"]) { display: none; }
+  .esc { color: var(--tk-comment); }
+  .follow-pill { position: absolute; right: 18px; bottom: 14px; display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line-strong); box-shadow: var(--shadow); font-size: 11.5px; color: var(--fg); }
+  .term { padding: 14px 0 40vh; min-width: max-content; }
+  .term.wrap { min-width: 0; }
+  .tg + .tg { margin-top: calc(var(--k-leading) * 0.5em); }
+  .term .tc, .term .to { padding: 0 1.6em; white-space: pre; }
+  .term.wrap :is(.tc, .to) { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .term .pr { color: var(--tk-punct); }
+  .term .tcmd { color: var(--fg-strong); font-weight: 600; }
+  .term .to { color: var(--fg); }
+  /* Page-local dropdown */
+  .pmenu { position: fixed; z-index: 60; min-width: 210px; padding: 4px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 9px; box-shadow: var(--shadow); font: 13px var(--face-chrome); }
+  .pmenu button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 5px 10px; border: 0; border-radius: 6px; background: none; color: var(--fg); text-align: left; font: inherit; }
+  .pmenu button:hover, .pmenu button:focus-visible { background: var(--accent); color: var(--accent-fg); outline: none; }
+  .pmenu button svg { color: var(--fg-muted); flex: none; }
+  .pmenu button:is(:hover, :focus-visible) svg, .pmenu button:is(:hover, :focus-visible) .k { color: inherit; }
+  .pmenu .k { margin-left: auto; color: var(--fg-faint); font-size: 11.5px; padding-left: 16px; }
+  .pmenu .ck { width: 16px; display: inline-grid; place-items: center; flex: none; }
+  .pmenu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+  /* Data frame */
+  .databar { display: flex; gap: 8px; align-items: center; padding: 8px 18px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .databar .field { height: 26px; }
+</style>
+</head>
+<body>
+<div class="win no-side">
+  <aside class="sidebar" data-slot="sidebar"></aside>
+  <div class="main">
+    <header class="toolbar">
+      <div class="tb-title"><b>Content modes</b><small>Each type gets its own layout, tools and typography</small></div>
+      <div class="tb-space"></div>
+      <div class="seg" role="group" aria-label="Width" id="widthseg">
+        <button data-w="narrow" title="Narrow window (720 px)">Narrow</button>
+        <button data-w="full" aria-pressed="true" title="Fill the window">Full</button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" id="b-open" title="Open this document in the Workspace"><i data-lucide="app-window"></i></button>
+        <button class="tb-btn on" id="b-spec" title="Typography spec panel"><i data-lucide="ruler"></i></button>
+      </div>
+    </header>
+    <div class="cm" id="cm">
+      <nav class="kinds" aria-label="Content types" id="kinds"></nav>
+      <aside class="spec" id="spec" aria-label="Typography for this type"></aside>
+      <section class="stage" aria-label="Preview">
+        <div class="modebar" id="modebar" role="toolbar"></div>
+        <div class="stage-body" id="frame"></div>
+      </section>
+    </div>
+    <footer class="statusbar" id="status"></footer>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="shared/corpus.js"></script>
+<script src="shared/app.js"></script>
+<script src="shared/render.js"></script>
+<script>
+(function () {
+  const G = Marxy, { $, $$, esc, ic, fmt } = G;
+
+  // Per-kind typography, drawn from the handbook spec (../docs/src/10-spec.md) and genre chapter (07-content-types.md).
+  const SPEC = {
+    report: { doc: 'pg16-plan', role: 'sans', size: 17, leading: 1.55, measure: 74, para: 'Space, 0.85 em', align: 'Ragged right, no hyphenation', heads: 'Sans, 640 weight, small scale (1.75 / 1.32 / 1.08 em)', code: 'Mono at 0.87 em inline; blocks scroll, never reflow', page: 'Scroll', spacing: 'Prose only',
+      why: 'Scanned before read: headings, tables and commands carry the meaning. A sans, a wider measure for tables, paragraph space instead of indents.',
+      preserve: ['Code and commands verbatim', 'Heading hierarchy', 'Checklist state', 'Table row and column relationships', 'Admonition types'], adapt: ['Face, size, measure, leading', 'Code wrap (with care)', 'Right-hand panel on or off'] },
+    article: { doc: 'ragged-right', role: 'article', size: 20, leading: 1.58, measure: 66, para: 'Space, 0.75 em', align: 'Ragged right, hyphenated', heads: 'Display serif with optical size; dek in a larger, quieter size', code: '0.87 em', page: 'Scroll, with reading progress', spacing: 'All',
+      why: 'Read once, start to finish. A screen serif with optical sizes and generous leading; notes sit in the margin on wide windows.',
+      preserve: ['Paragraphing', 'Italic for emphasis and titles', 'Block quotations', 'Footnotes beside their reference'], adapt: ['Face, size, measure, leading', 'Alignment and hyphenation', 'Note presentation'] },
+    book: { doc: 'cartographer-ch3', role: 'book', size: 20, leading: 1.5, measure: 64, para: 'Indent 1 em, no space; first paragraph flush', align: 'Ragged right by default; justified with total-fit breaking as an option above 45 characters', heads: 'Centred chapter titles, small-caps opening line', code: 'Rare; as Article', page: 'Paged (scroll available)', spacing: 'All',
+      why: 'Fiction wants to disappear. Indents keep the page an even texture; scene breaks get a visible asterism.',
+      preserve: ['Paragraphing and indents', 'Italic', 'Scene breaks', 'Chapter structure'], adapt: ['Face, size, measure, leading', 'Justification (with total-fit breaking)', 'Paged or scrolling'] },
+    readme: { doc: 'tidemark-readme', role: 'readme', size: 16, leading: 1.62, measure: 84, para: 'Space, 1 em', align: 'Ragged right', heads: 'Ruled H1 and H2, like the forges people know', code: 'Install and usage blocks with one-click copy', page: 'Scroll', spacing: 'Prose only',
+      why: 'A front door. Familiar forge conventions beat novelty; the install command is lifted into the header.',
+      preserve: ['Commands verbatim', 'Badges (rendered locally, no network)', 'Heading order'], adapt: ['Face, size, measure'] },
+    docs: { doc: 'watch-docs', role: 'sans', size: 16.5, leading: 1.62, measure: 74, para: 'Space, 0.9 em', align: 'Ragged right; hyphenate prose only', heads: 'Sans with hover anchors; at most three levels', code: 'Signature block emphasised; examples extend wider than the prose measure', page: 'Scroll, three columns', spacing: 'Prose only',
+      why: 'Navigated more than read. Structure stays visible; code and tables may run wider than prose.',
+      preserve: ['Code verbatim', 'UI names', 'Admonition types', 'Heading hierarchy'], adapt: ['Prose face, size, measure', 'Code block wrapping'] },
+    code: { doc: 'indexer-rs', role: 'code', size: 13, leading: 1.65, measure: null, para: 'n/a', align: 'Never altered', heads: 'n/a; symbols outline instead', code: 'JetBrains Mono, ligatures off, tab width 4, comments never dimmed below 4.5:1; definitions and keywords take the language tint', page: 'Scroll both ways', spacing: 'Size and face only',
+      why: 'Every character may carry meaning, so nothing is reflowed or substituted. Definitions and keywords take the language’s own tint.',
+      preserve: ['Every character and all whitespace', 'Line structure', 'Copied text identical to the file'], adapt: ['Face, size, colours', 'Wrap versus scroll', 'Tab width'] },
+    transcript: { doc: 'indexer-chat', role: 'sans', size: 16, leading: 1.55, measure: 76, para: 'Space, 0.7 em', align: 'Ragged right', heads: 'Speaker labels in small capitals, outdented', code: 'Tool calls fold to one line', page: 'Scroll', spacing: 'Prose only',
+      why: 'Speakers must stay attached and distinct. Tool calls collapse so the conversation carries the page.',
+      preserve: ['Speaker attribution', 'Turn order', 'Tool output verbatim'], adapt: ['Face, size', 'Show or hide tool calls', 'Filter to prompts or answers'] },
+    log: { doc: 'build-log', role: 'code', size: 13, leading: 1.55, measure: null, para: 'n/a', align: 'Never altered', heads: 'n/a', code: 'Timestamps in comment colour, level words in weight 700, traces indented, line numbers in a faint gutter', page: 'Scroll both ways', spacing: 'Size and face only',
+      why: 'Scanned for the one line that matters. Timestamps recede, level words stand out by weight, traces stay with their error.',
+      preserve: ['Every character and line break', 'Stack-trace indentation', 'Timestamps and level words as written', 'Escape sequences shown, never run'], adapt: ['Size and face', 'Wrap versus scroll', 'Level filter (view only)', 'Follow tail'],
+      detect: (d) => { const L = parseLog(d.src); const n = L.filter((l) => !l.cont).length; const ext = (d.path.match(/\.(\w+)$/) || [])[1]; return [ext === 'log' ? 'Extension .log' : null, `${n} of ${L.length} lines open with a timestamp and level`, L.some((l) => l.cont) ? 'Indented stack frames follow an error' : null].filter(Boolean); } },
+    terminal: { doc: 'shell-session', role: 'code', size: 13, leading: 1.55, measure: null, para: 'n/a', align: 'Never altered', heads: 'n/a', code: 'Prompts in punctuation colour, commands in weight 600, output regular; escapes shown as ␛', page: 'Scroll both ways', spacing: 'Size and face only',
+      why: 'A sequence of commands and what they printed. Prompts recede, commands lead, each group stands apart.',
+      preserve: ['Commands and output verbatim', 'Blank lines inside output', 'Escape sequences shown as ␛, never interpreted'], adapt: ['Size and face', 'Wrap versus scroll'],
+      detect: (d) => { const T = parseTerm(d.src); return [`${T.groups.filter((g) => g.prompt != null).length} prompt lines (user@host dir %)`, 'Each command is followed by its output', /\u001b/.test(d.src) ? 'ANSI escape sequences present' : null].filter(Boolean); } },
+    data: { doc: 'bench-csv', role: 'sans', size: 13, leading: 1.4, measure: null, para: 'n/a', align: 'Text left, numbers right', heads: 'Sticky column headers with detected type', code: 'IDs in mono', page: 'Grid, scrolls in its container', spacing: 'Size only',
+      why: 'Read in two directions, so alignment carries meaning: tabular figures, numbers right-aligned, few rules.',
+      preserve: ['Row and column relationships', 'Number alignment'], adapt: ['Font size', 'Sort and filter (view only)'] },
+    notes: { doc: 'notes-1008', role: 'sans', size: 16, leading: 1.55, measure: 70, para: 'Space, 0.6 em', align: 'Ragged right', heads: 'Small', code: 'Inline', page: 'Scroll', spacing: 'All',
+      why: 'Short, dated, informal. Quiet, with tasks and backlinks a click away.', preserve: ['Tasks', 'Links'], adapt: ['Everything else'] },
+    changelog: { doc: 'changelog', role: 'sans', size: 15.5, leading: 1.55, measure: 80, para: 'Space, 0.5 em', align: 'Ragged right', heads: 'Version headings with dates; change-type subheadings', code: 'Inline', page: 'Scroll', spacing: 'Prose only',
+      why: 'Scanned by version. Each release is a section that can be copied as release notes.', preserve: ['Version order', 'Change types'], adapt: ['Face, size'] }
+  };
+  const ORDER = ['report', 'article', 'book', 'readme', 'docs', 'code', 'transcript', 'log', 'terminal', 'data', 'notes', 'changelog'];
+  // One-line type descriptions for the list (kept short; the engine's longer text is not used here).
+  const BLURB = { report: 'Plans, handoffs, audits', article: 'Essays and posts', book: 'Long-form chapters', readme: 'Project front pages', docs: 'Reference and guides', code: 'Source files, verbatim', transcript: 'Chat and agent sessions', log: 'Build and app logs', terminal: 'Shell sessions and console captures', data: 'CSV, TSV, JSON, YAML', notes: 'Short, dated notes', changelog: 'Release notes by version' };
+  // Log and terminal may not be in the engine yet; fill in only what is missing.
+  G.kinds.log = G.kinds.log || { name: 'Log', icon: 'scroll-text', desc: BLURB.log };
+  G.kinds.terminal = G.kinds.terminal || { name: 'Terminal', icon: 'square-terminal', desc: BLURB.terminal };
+  G.kindTools = G.kindTools || {};
+  G.kindTools.log = [['level-menu', 'Filter by level', 'list-filter'], ['wrap', 'Wrap', 'wrap-text'], ['jump-error', 'Jump to first error', 'octagon-alert'], ['follow', 'Follow tail', 'arrow-down-to-line']];
+  G.kindTools.terminal = [['wrap', 'Wrap', 'wrap-text'], ['copy-cmds', 'Copy commands only', 'terminal']];
+
+  /* ---------- Fallback samples, used only when the corpus has no build-log or shell-session ---------- */
+  const FALLBACK = {
+    'build-log': { id: 'build-log', kind: 'log', collection: 'projects', path: '~/Code/tidemark/ci/build.log', title: 'build.log', status: {}, src: `2026-10-08T09:14:02.118Z INFO  [build] tidemark 0.9.2 (rev 4f1a9c2) starting on eris
+2026-10-08T09:14:02.131Z INFO  [build] rust 1.84.0, node 22.11.0, pnpm 9.14.2
+2026-10-08T09:14:02.140Z DEBUG [cache] restoring target/ from key v3-4f1a9c2
+2026-10-08T09:14:03.402Z DEBUG [cache] restored 1,846 entries (212 MB) in 1.26 s
+2026-10-08T09:14:03.410Z INFO  [build] step 1/5 fetch dependencies
+2026-10-08T09:14:03.977Z INFO  [fetch] 214 crates locked, 0 to download
+2026-10-08T09:14:04.020Z INFO  [build] step 2/5 compile
+2026-10-08T09:14:04.905Z INFO  [rustc] Compiling fxhash v0.2.1
+2026-10-08T09:14:05.318Z INFO  [rustc] Compiling anyhow v1.0.93
+2026-10-08T09:14:05.776Z INFO  [rustc] Compiling notify v6.1.1
+2026-10-08T09:14:07.204Z INFO  [rustc] Compiling pulldown-cmark v0.12.2
+2026-10-08T09:14:08.651Z INFO  [rustc] Compiling tidemark v0.9.2
+2026-10-08T09:14:09.615Z WARN  [rustc] unused import: \`Lang\` in src/watch.rs:3
+2026-10-08T09:14:09.616Z WARN  [rustc] \x1b[33mwarning\x1b[0m: field \`peak\` is never read (src/stats.rs:18)
+2026-10-08T09:14:11.040Z INFO  [rustc] Finished dev profile [unoptimized + debuginfo] in 7.0 s
+2026-10-08T09:14:11.052Z INFO  [build] step 3/5 lint
+2026-10-08T09:14:12.330Z INFO  [clippy] 0 errors, 2 warnings
+2026-10-08T09:14:12.331Z DEBUG [clippy] cache hit for 212 of 214 crates
+2026-10-08T09:14:12.340Z INFO  [build] step 4/5 test
+2026-10-08T09:14:13.902Z INFO  [test] running 14 tests
+2026-10-08T09:14:13.941Z INFO  [test] indexer::tests::unchanged_file_is_skipped ... ok
+2026-10-08T09:14:13.958Z INFO  [test] indexer::tests::reindex_after_edit ... ok
+2026-10-08T09:14:14.102Z INFO  [test] store::tests::put_then_get ... ok
+2026-10-08T09:14:14.377Z INFO  [test] cache::tests::evicts_oldest ... ok
+2026-10-08T09:14:15.490Z WARN  [test] watch::tests::burst_of_events took 1.4 s (budget 1.0 s)
+2026-10-08T09:14:16.205Z INFO  [test] highlight::tests::rust_roundtrip ... ok
+2026-10-08T09:14:16.640Z INFO  [test] highlight::tests::unknown_lang_is_plain ... ok
+2026-10-08T09:14:17.118Z INFO  [test] watch::tests::coalesces_duplicates ... ok
+2026-10-08T09:14:17.903Z DEBUG [test] 11 more tests omitted from the log
+2026-10-08T09:14:21.760Z ERROR [test] watch::tests::survives_rename panicked at src/watch.rs:88:17
+thread 'watch::tests::survives_rename' panicked at src/watch.rs:88:17:
+called \`Result::unwrap()\` on an \`Err\` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/90b35a6239/library/std/src/panicking.rs:665:5
+   1: core::result::unwrap_failed
+             at /rustc/90b35a6239/library/core/src/result.rs:1677:5
+   2: tidemark::watch::Watcher::rescan
+             at ./src/watch.rs:88:17
+   3: tidemark::watch::tests::survives_rename
+             at ./src/watch.rs:141:9
+2026-10-08T09:14:21.771Z INFO  [test] 13 passed, 1 failed, 0 ignored
+2026-10-08T09:14:21.772Z INFO  [build] step 5/5 package skipped, tests failed
+2026-10-08T09:14:21.790Z INFO  [cache] saving target/ under key v3-4f1a9c2
+2026-10-08T09:14:23.115Z DEBUG [cache] saved 1,852 entries (214 MB) in 1.33 s
+2026-10-08T09:14:23.140Z INFO  [build] finished in 21.0 s, exit status 101
+` },
+    'shell-session': { id: 'shell-session', kind: 'terminal', collection: 'projects', path: '~/Code/tidemark/notes/release-session.txt', title: 'release-session.txt', status: {}, src: `ian@eris tidemark % cargo test
+   Compiling tidemark v0.9.2 (/Users/ian/Code/tidemark)
+    Finished \`test\` profile [unoptimized + debuginfo] target(s) in 4.82s
+     Running unittests src/lib.rs (target/debug/deps/tidemark-3f9a1c2e5b7d)
+
+running 14 tests
+test indexer::tests::unchanged_file_is_skipped ... ok
+test indexer::tests::reindex_after_edit ... ok
+test store::tests::put_then_get ... ok
+test cache::tests::evicts_oldest ... ok
+test watch::tests::survives_rename ... ok
+test watch::tests::coalesces_duplicates ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+ian@eris tidemark % git tag v0.5.0
+ian@eris tidemark % git tag --list 'v0.*'
+v0.3.0
+v0.4.0
+v0.5.0
+ian@eris tidemark % git push origin v0.5.0
+Enumerating objects: 1, done.
+Counting objects: 100% (1/1), done.
+Writing objects: 100% (1/1), 164 bytes | 164.00 KiB/s, done.
+To github.com:inkstrata/tidemark.git
+ * [new tag]         v0.5.0 -> v0.5.0
+ian@eris tidemark % pnpm build
+
+> tidemark-site@0.5.0 build /Users/ian/Code/tidemark/site
+> vite build
+
+\x1b[36mvite v5.4.10\x1b[0m \x1b[32mbuilding for production...\x1b[0m
+\x1b[32m\u2713\x1b[0m 128 modules transformed.
+dist/index.html          1.42 kB
+dist/assets/index.css   18.07 kB
+dist/assets/index.js   212.60 kB
+\x1b[32m\u2713 built in 2.31s\x1b[0m
+ian@eris tidemark %
+` }
+  };
+  const doc = () => {
+    const k = S.kind;
+    if (k === 'code') return codeDoc();
+    return G.doc(SPEC[k].doc) || FALLBACK[SPEC[k].doc];
+  };
+  const esca = (s) => esc(s).replace(/\u001b/g, '<span class="esc" title="Escape character, shown not interpreted">\u241b</span>');
+
+  /* ---------- Code: one sample in four languages ---------- */
+  const LANGS = [
+    { id: 'rust', name: 'Rust', hl: 'rust', file: 'indexer.rs' },
+    { id: 'typescript', name: 'TypeScript', hl: 'ts', file: 'indexer.ts' },
+    { id: 'python', name: 'Python', hl: 'python', file: 'indexer.py' },
+    { id: 'go', name: 'Go', hl: 'go', file: 'indexer.go' }
+  ];
+  const SNIPPET = {
+    typescript: `import { readFile } from "node:fs/promises";
+import { hashOf, highlight, langFromPath } from "./highlight";
+import type { Cache, Store } from "./store";
+
+/** One indexed file. */
+export interface Entry {
+  path: string;
+  hash: bigint;
+  words: number;
+  html: string;
+}
+
+export class Indexer {
+  constructor(private store: Store, private cache: Cache) {}
+
+  /** Index one file. Returns null when the file is unchanged since the last run. */
+  async indexFile(path: string): Promise<Entry | null> {
+    const src = await readFile(path, "utf8");
+    const hash = hashOf(src);
+    if (this.store.hashOf(path) === hash) {
+      return null; // unchanged: skip parse and highlight
+    }
+    const lang = langFromPath(path);
+    // Highlight once per content hash; most re-index runs hit the cache.
+    const html = await this.cache.getOrInsert(hash, () => highlight(src, lang));
+    const words = src.split(/\\s+/).filter(Boolean).length;
+    const entry: Entry = { path, hash, words, html };
+    await this.store.put(entry);
+    return entry;
+  }
+}
+`,
+    python: `from dataclasses import dataclass
+from pathlib import Path
+
+from .highlight import highlight, lang_from_path
+from .store import Cache, Store, hash_of
+
+
+@dataclass
+class Entry:
+    """One indexed file."""
+    path: Path
+    hash: int
+    words: int
+    html: str
+
+
+class Indexer:
+    def __init__(self, store: Store, cache: Cache) -> None:
+        self.store = store
+        self.cache = cache
+
+    def index_file(self, path: Path) -> Entry | None:
+        """Index one file. Returns None when the file is unchanged since the last run."""
+        src = path.read_text()
+        digest = hash_of(src)
+        if self.store.hash_of(path) == digest:
+            return None  # unchanged: skip parse and highlight
+        lang = lang_from_path(path)
+        # Highlight once per content hash; most re-index runs hit the cache.
+        html = self.cache.get_or_insert(digest, lambda: highlight(src, lang))
+        entry = Entry(path, digest, len(src.split()), html)
+        self.store.put(entry)
+        return entry
+`,
+    go: `package tidemark
+
+import (
+	"os"
+	"strings"
+)
+
+// Entry is one indexed file.
+type Entry struct {
+	Path  string
+	Hash  uint64
+	Words int
+	HTML  string
+}
+
+type Indexer struct {
+	store *Store
+	cache *Cache
+}
+
+// IndexFile indexes one file. It returns nil when the file is unchanged since the last run.
+func (ix *Indexer) IndexFile(path string) (*Entry, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	src := string(b)
+	hash := HashOf(src)
+	if ix.store.HashOf(path) == hash {
+		return nil, nil // unchanged: skip parse and highlight
+	}
+	// Highlight once per content hash; most re-index runs hit the cache.
+	html, err := ix.cache.GetOrInsert(hash, func() string { return Highlight(src, LangFromPath(path)) })
+	if err != nil {
+		return nil, err
+	}
+	entry := &Entry{path, hash, len(strings.Fields(src)), html}
+	return entry, ix.store.Put(entry)
+}
+`
+  };
+  // Go has no rules in the shared highlighter, so this page tokenises it with the same tk-* classes.
+  const GO_RULES = [[/\/\/[^\n]*|\/\*[\s\S]*?\*\//, 'c'], [/"(?:\\.|[^"\\\n])*"|`[^`]*`|'(?:\\.|[^'\\])'/, 's'], [/\b\d[\d_]*(?:\.\d+)?\b/, 'n'], [/\b(?:true|false|nil|iota)\b/, 'n'], [/(?<=\b(?:func|type)\s+)[A-Za-z_]\w*/, 'd'], [/(?<=\bfunc\s*\([^)]*\)\s*)[A-Za-z_]\w*/, 'd'], [/\b(?:break|case|chan|const|continue|default|defer|else|fallthrough|for|func|go|goto|if|import|interface|map|package|range|return|select|struct|switch|type|var)\b/, 'k'], [/\b(?:string|int|int64|uint64|bool|error|byte|rune|float64|any)\b|\b[A-Z]\w*\b/, 't']];
+  const GO_RE = new RegExp(GO_RULES.map(([r]) => '(' + r.source + ')').join('|'), 'g');
+  function goHl(code) {
+    let out = '', last = 0;
+    code.replace(GO_RE, (...m) => {
+      const off = m[m.length - 2]; const gi = m.slice(1, GO_RULES.length + 1).findIndex((x) => x !== undefined);
+      out += esc(code.slice(last, off)) + `<span class="tk-${GO_RULES[gi][1]}">${esc(m[0])}</span>`; last = off + m[0].length; return m[0];
+    });
+    return out + esc(code.slice(last));
+  }
+  // The attribute value lang-colors.css keys on may be "typescript" or "ts": use whichever it defines.
+  function langAttr(l) {
+    const alias = { typescript: ['typescript', 'ts'], python: ['python', 'py'], rust: ['rust', 'rs'], go: ['go', 'golang'] }[l.id];
+    try {
+      const defined = new Set();
+      Array.from(document.styleSheets).forEach((ss) => { try { Array.from(ss.cssRules).forEach((r) => { const m = (r.selectorText || '').match(/\[data-lang=["']?([\w-]+)["']?\]/g); m && m.forEach((x) => defined.add(x.replace(/\[data-lang=["']?|["']?\]/g, ''))); }); } catch (e) { /* cross-origin sheet */ } });
+      return alias.find((a) => defined.has(a)) || alias[0];
+    } catch (e) { return alias[0]; }
+  }
+  const codeDocs = {};
+  function codeDoc() {
+    const base = G.doc('indexer-rs'); const l = LANGS.find((x) => x.id === S.lang) || LANGS[0];
+    if (l.id === 'rust') return base;
+    return codeDocs[l.id] || (codeDocs[l.id] = Object.assign({}, base, { src: SNIPPET[l.id], lang: l.hl, title: l.file, path: base.path.replace('indexer.rs', l.file) }));
+  }
+  function symbolsOf(src, lang) {
+    const out = []; const ls = src.split('\n'); const ind = (l) => l.match(/^\s*/)[0].replace(/\t/g, '    ').length;
+    ls.forEach((l, i) => {
+      let m;
+      if (lang === 'rust') {
+        if ((m = l.match(/^\s*(pub\s+)?(fn|struct|impl|mod|enum|trait)\s+([A-Za-z_]\w*)/))) out.push({ kind: m[2], name: m[3], line: i + 1, ind: ind(l) });
+        else if (/#\[test\]/.test(l)) out.push({ kind: 'test', name: (ls[i + 1].match(/fn\s+(\w+)/) || [])[1], line: i + 2, ind: 4 });
+      } else if (lang === 'ts') {
+        if ((m = l.match(/^\s*(?:export\s+)?(class|interface|function)\s+(\w+)/))) out.push({ kind: m[1] === 'function' ? 'fn' : m[1], name: m[2], line: i + 1, ind: ind(l) });
+        else if ((m = l.match(/^\s+(?:async\s+)?(\w+)\(.*\)\s*(?::[^{]*)?\{/)) && !/^(if|for|while|switch|catch)$/.test(m[1])) out.push({ kind: 'fn', name: m[1], line: i + 1, ind: ind(l) });
+      } else if (lang === 'python') {
+        if ((m = l.match(/^\s*(?:async\s+)?(class|def)\s+(\w+)/))) out.push({ kind: m[1] === 'def' ? 'fn' : 'class', name: m[2], line: i + 1, ind: ind(l) });
+      } else if (lang === 'go') {
+        if ((m = l.match(/^func\s+(?:\([^)]*\)\s*)?(\w+)/))) out.push({ kind: 'fn', name: m[1], line: i + 1, ind: 0 });
+        else if ((m = l.match(/^type\s+(\w+)\s+(struct|interface)/))) out.push({ kind: m[2], name: m[1], line: i + 1, ind: 0 });
+      }
+    });
+    return out;
+  }
+  const DOCC = { rust: /^\s*\/\/[\/!]/gm, ts: /^\s*\/\*\*/gm, python: /"""/gm, go: /^\/\/ [A-Z]\w+ /gm };
+
+  /* ---------- Log and terminal: parsed and drawn by this page ---------- */
+  const LV_RE = /^(\[?)(\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d(?:[.,]\d+)?Z?|\d\d:\d\d:\d\d(?:[.,]\d+)?)(\]?\s+\[?)(TRACE|DEBUG|INFO|NOTICE|WARNING|WARN|ERROR|ERR|FATAL|CRITICAL)(\]?:?\s*)(.*)$/i;
+  const RANK = { trace: 0, debug: 0, info: 1, notice: 1, warn: 2, warning: 2, error: 3, err: 3, fatal: 3, critical: 3 };
+  const RANKNAME = ['debug', 'info', 'warn', 'error'];
+  function parseLog(src) {
+    let rank = 1;
+    return src.replace(/\n$/, '').split('\n').map((raw, i) => {
+      const m = raw.match(LV_RE);
+      if (m) { rank = RANK[m[4].toLowerCase()]; return { n: i + 1, rank, raw, m }; }
+      return { n: i + 1, rank, raw, cont: true };
+    });
+  }
+  function logLineHtml(l) {
+    const body = l.cont ? `<span class="msg">${esca(l.raw) || ' '}</span>` : `${esc(l.m[1])}<span class="ts">${esc(l.m[2])}</span>${esc(l.m[3])}<span class="lv">${esc(l.m[4])}</span>${esc(l.m[5])}<span class="msg">${esca(l.m[6])}</span>`;
+    return `<div class="ll${l.cont ? ' cont' : ''}" data-rank="${l.rank}" data-lv="${RANKNAME[l.rank]}" data-n="${l.n}"><span class="n" aria-hidden="true">${l.n}</span><span class="lt">${body}</span></div>`;
+  }
+  const PROMPT_RE = /^((?:(?:[^\s$#%\u276f]+ ){1,3}[$#%\u276f]|[$%\u276f]))(?: (.*))?$/;
+  function parseTerm(src) {
+    const lines = src.replace(/\n$/, '').split('\n'); const groups = []; let cur = { prompt: null, cmd: '', out: [] };
+    lines.forEach((l) => {
+      const m = l.match(PROMPT_RE);
+      if (m) { groups.push(cur); cur = { prompt: m[1], cmd: m[2] || '', out: [] }; } else cur.out.push(l);
+    });
+    groups.push(cur);
+    groups.forEach((g) => { while (g.out.length && !g.out[g.out.length - 1].trim()) g.out.pop(); });
+    return { groups: groups.filter((g) => g.prompt != null || g.out.length), lines: lines.length };
+  }
+  const S = { kind: 'report', tool: {}, over: {}, page: 0, lang: 'rust' };
+  let docEl = null, res = null;
+
+  $('#kinds').innerHTML = '<h3>CONTENT TYPES</h3>' + ORDER.map((k) => `<button class="krow" role="tab" data-k="${k}" aria-selected="false">${ic(G.kinds[k].icon)}<b>${G.kinds[k].name}</b><span>${esc(BLURB[k])}</span></button>`).join('') +
+    `<h3 style="margin-top:16px">ALSO HANDLED</h3><div style="font-size:11.5px;color:var(--fg-muted);padding:0 9px;line-height:1.5">Verse, slides, drama and screenplays, math. See TYPOGRAPHY.md.</div>`;
+  $('#kinds').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) show(b.dataset.k); });
+
+  function show(k) {
+    S.kind = k; S.tool = {}; S.over = {}; S.page = 0; S.lang = 'rust';
+    history.replaceState(null, '', '#' + k);
+    $$('.krow').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.k === k)));
+    const d = doc();
+    G.current = { id: d.id, title: d.title, path: d.path, src: d.src, kind: k, collection: d.collection, headings: [] };
+    frame(); modebar(); spec(); status();
+  }
+
+  /* ---------- Frames: the kind-specific layout around the document ---------- */
+  function renderInto(host, opts = {}) {
+    docEl = host;
+    res = G.renderDoc(host, doc(), Object.assign({ kindTheme: true, kind: S.kind, justify: S.tool.justify, focus: S.tool.focus, wrap: S.tool.wrap, literate: S.tool.literate }, opts));
+    G.current.headings = res.headings;
+    Object.entries(S.over).forEach(([k, v]) => host.style.setProperty(k, v));
+    G.attachSelectionToolbar(host, doc);
+    return res;
+  }
+  function outlineRail(title = 'Outline', levels = [2, 3]) {
+    return `<section><h4>${ic('list-tree', 'ic-sm')}${title}</h4>${res.headings.filter((h) => levels.includes(h.level)).map((h) => `<a href="#" class="l${h.level}" data-h="${h.id}">${esc(h.text)}</a>`).join('')}</section>`;
+  }
+  function frame() {
+    const f = $('#frame'); f.innerHTML = '';
+    const k = S.kind;
+    stopFollow();
+    if (k === 'book') return bookFrame(f);
+    if (k === 'log' || k === 'terminal') return monoFrame(f, k);
+    const scroll = G.el('<div class="stage-scroll"><article class="doc"></article></div>');
+    const art = $('article', scroll);
+    if (k === 'report') {
+      f.append(G.el('<nav class="rail" id="lrail" aria-label="Outline"></nav>'), scroll, G.el('<aside class="rail right report-panel" id="rrail" aria-label="Report panel"></aside>'));
+      renderInto(art);
+      const paths = G.transform('x-paths', doc().src).split('\n').filter(Boolean);
+      $('#lrail').innerHTML = outlineRail();
+      const sec = (title) => { const h = res.headings.find((x) => x.text === title); if (!h) return []; const ls = doc().src.split('\n'); const out = []; for (let i = h.line; i < ls.length && !/^##\s/.test(ls[i]); i++) if (/^\s*([-*]|\d+\.)\s/.test(ls[i])) out.push(ls[i].replace(/^\s*([-*]|\d+\.)\s+/, '').replace(/\*\*|`/g, '')); return out; };
+      $('#rrail').innerHTML = `<section><h4>${ic('circle-help', 'ic-sm')}OPEN QUESTIONS</h4>${sec('Open questions').map((q) => `<div class="item">${ic('circle-help', 'ic-sm')}<span>${esc(q)}</span></div>`).join('')}</section>
+        <section><h4>${ic('triangle-alert', 'ic-sm')}RISKS</h4>${sec('Risks').map((q) => `<div class="item">${ic('triangle-alert', 'ic-sm')}<span><b>${esc(q.split('.')[0])}.</b></span></div>`).join('')}</section>
+        <section><h4>${ic('arrow-right', 'ic-sm')}NEXT STEPS</h4>${sec('Next steps').map((q) => `<div class="item">${ic('arrow-right', 'ic-sm')}<span>${esc(q)}</span></div>`).join('')}</section>
+        <section><h4>${ic('folder-check', 'ic-sm')}PATHS MENTIONED</h4>${paths.map((p) => { const ok = G.fs.has(p); return `<div class="item mono" style="font-size:11px">${ic(ok ? 'circle-check' : 'circle-x', 'ic-sm')}<span style="color:${ok ? 'var(--fg-muted)' : 'var(--err)'}">${esc(p)}</span></div>`; }).join('')}</section>`;
+    } else if (k === 'article') {
+      const bar = G.el('<div class="readbar" aria-hidden="true"><i></i></div>');
+      scroll.prepend(bar); f.append(scroll); renderInto(art);
+      // Margin notes only when the column plus a 15em margin fits; otherwise notes stay as pop-ups.
+      const probe = G.el('<div style="width:calc(var(--measure) + 17em);max-width:none;height:0"></div>'); art.appendChild(probe); const need = probe.offsetWidth + 96; probe.remove();
+      if (!S.tool.endnotes && scroll.clientWidth >= need) sidenotes(art);
+      scroll.addEventListener('scroll', () => { $('i', bar).style.width = Math.min(100, 100 * scroll.scrollTop / Math.max(1, scroll.scrollHeight - scroll.clientHeight)) + '%'; status(); }, { passive: true });
+    } else if (k === 'readme') {
+      const head = G.el(`<div class="repo-head"><div><h2>${ic('book-marked')}tidemark <span class="chip">${ic('git-branch')}main</span></h2><p>A fast Markdown indexer for the command line.</p></div>
+        <div class="install"><select aria-label="Install method"><option>brew</option><option>cargo</option></select><code id="instcmd">brew install tidemark</code><button id="instcopy" title="Copy install command">${ic('copy')}Copy</button></div>
+        <div class="facts"><span>${ic('scale')}MIT</span><span>${ic('code')}Rust</span><span>${ic('tag')}0.9.2</span><span>${ic('folder')}~/Code/tidemark</span><span>${ic('git-commit-horizontal')}last commit 4 days ago</span><span>${ic('file-text')}docs/ (14 files)</span></div></div>`);
+      const toc = G.el('<nav class="tocchips" aria-label="Sections"></nav>');
+      f.append(scroll); scroll.prepend(toc); scroll.prepend(head); renderInto(art);
+      toc.innerHTML = res.headings.filter((h) => h.level === 2).map((h) => `<a href="#" data-h="${h.id}">${esc(h.text)}</a>`).join('');
+      $('select', head).onchange = (e) => ($('#instcmd').textContent = e.target.value === 'brew' ? 'brew install tidemark' : 'cargo install tidemark --locked');
+      $('#instcopy').onclick = () => G.copy($('#instcmd').textContent, { as: 'Code' });
+    } else if (k === 'docs') {
+      f.append(G.el(`<nav class="rail" aria-label="Docs set"><section><h4>${ic('library-big', 'ic-sm')}TIDEMARK DOCS</h4><a href="#">Getting started</a><a href="#">Configuration</a><div style="font-size:11px;color:var(--fg-faint);padding:8px 8px 2px">API</div><a href="#" class="l3">Index::open</a><a href="#" class="l3">Index::search</a><a href="#" class="l3 on">Index::watch</a><a href="#" class="l3">Index::remove</a><div style="font-size:11px;color:var(--fg-faint);padding:8px 8px 2px">Guides</div><a href="#" class="l3">Embedding in an app</a><a href="#" class="l3">Large folders</a></section><section><h4>${ic('search', 'ic-sm')}SEARCH THIS SET</h4><input class="field" style="width:100%" placeholder="Search 14 pages" aria-label="Search docs set"></section></nav>`), scroll, G.el('<aside class="rail right" id="onpage" aria-label="On this page"></aside>'));
+      scroll.prepend(G.el(`<div class="crumbs">${ic('library-big', 'ic-sm')}tidemark ${ic('chevron-right', 'ic-sm')} API ${ic('chevron-right', 'ic-sm')} <b style="color:var(--fg)">Index::watch</b><span class="grow"></span><span class="chip">v0.9</span></div>`));
+      renderInto(art);
+      art.insertAdjacentHTML('beforeend', `<nav class="docnav-foot"><a href="#"><small>Previous</small>Index::search</a><a href="#"><small>Next</small>Index::remove</a></nav>`);
+      $('#onpage').innerHTML = outlineRail('ON THIS PAGE', [2, 3]) + `<section><h4>${ic('square-code', 'ic-sm')}EXAMPLES</h4>${res.code.map((c, i) => `<button class="rl" data-code="${i}">${esc(c.lang)} · line ${c.line}</button>`).join('')}</section>`;
+      const spy = new IntersectionObserver((es) => es.forEach((e2) => { if (e2.isIntersecting) $$('#onpage a').forEach((a) => a.classList.toggle('on', a.dataset.h === e2.target.id)); }), { root: scroll, rootMargin: '0px 0px -70% 0px' });
+      $$('h2, h3', art).forEach((h) => spy.observe(h));
+    } else if (k === 'code') {
+      const d = doc(); const L = LANGS.find((x) => x.id === S.lang) || LANGS[0]; const attr = langAttr(L);
+      const syms = symbolsOf(d.src, L.hl);
+      const nDoc = (d.src.match(DOCC[L.hl === 'ts' ? 'ts' : L.hl]) || []).length;
+      const col = G.el(`<div class="col" data-lang="${attr}"></div>`);
+      col.append(G.el(`<div class="code-crumbs">${ic('folder', 'ic-sm')}tidemark ${ic('chevron-right', 'ic-sm')} src ${ic('chevron-right', 'ic-sm')} <b style="color:var(--fg)">${L.file}</b> ${ic('chevron-right', 'ic-sm')} <span id="symcrumb">${esc((syms.find((x) => /impl|class|struct/.test(x.kind)) || syms[0] || {}).name || '')}</span><span class="grow"></span><span class="lang-name" title="Language"><i class="lang-dot"></i>${L.name}</span><div class="seg" role="group" aria-label="Language">${LANGS.map((x) => `<button data-lang="${x.id}" aria-pressed="${x.id === L.id}">${x.name}</button>`).join('')}</div><span class="chip">${d.src.split('\n').length - 1} lines</span><span class="chip warn">${ic('git-compare')}changed</span></div>`), scroll);
+      f.append(col, G.el(`<aside class="rail right" aria-label="Symbols"><section><h4>${ic('braces', 'ic-sm')}SYMBOLS</h4>${syms.map((s) => `<button class="sym" data-line="${s.line}" data-name="${esc(s.name || '')}" style="padding-left:${6 + s.ind * 2}px"><i class="k">${s.kind}</i>${esc(s.name || '')}</button>`).join('')}</section><section><h4>${ic('message-square-text', 'ic-sm')}DOC COMMENTS</h4><div class="item">${nDoc} lines${L.hl === 'rust' ? '; Literate view shows them as prose' : ''}</div></section><section><h4>${ic('git-compare', 'ic-sm')}CHANGES</h4><div class="item">+3 \u22121 since you last read it</div></section></aside>`));
+      scroll.style.overflow = 'auto';
+      renderInto(art); art.dataset.lang = attr;
+      if (L.hl === 'go') { const cc = $('.cv-code', art); if (cc) cc.innerHTML = d.src.replace(/\n$/, '').split('\n').map((l, i) => `<span class="cv-line" data-line="${i + 1}">${goHl(l) || ' '}</span>`).join('\n'); }
+      $$('.code-crumbs [data-lang]').forEach((b) => (b.onclick = () => { S.lang = b.dataset.lang; S.tool.literate = false; frame(); modebar(); spec(); status(); }));
+      $$('.sym').forEach((b) => (b.onclick = () => { const line = $(`.cv-line[data-line="${b.dataset.line}"]`, art); $$('.cv-line.hot', art).forEach((x) => x.classList.remove('hot')); if (line) { line.classList.add('hot'); line.scrollIntoView({ block: 'center' }); } $('#symcrumb').textContent = b.dataset.name; }));
+    } else if (k === 'transcript') {
+      f.append(G.el('<nav class="rail" id="tr-rail" aria-label="Prompts"></nav>'), scroll);
+      renderInto(art); applyTranscriptFilter(art);
+      const prompts = $$('.turn.user', art);
+      $('#tr-rail').innerHTML = `<div class="tfilter">${['All', 'Prompts', 'Answers', 'Tools'].map((x) => `<button class="qbtn${(S.tool.tf || 'All') === x ? ' on' : ''}" data-tf="${x}">${x}</button>`).join('')}</div><h4>${ic('user', 'ic-sm')}YOUR PROMPTS · ${prompts.length}</h4>` + prompts.map((p, i) => `<button class="tprompt" data-turn="${i}"><small>Turn ${i * 2 + 1}</small>${esc(p.querySelector('.turn-body').textContent.trim().slice(0, 80))}</button>`).join('') + `<section style="margin-top:14px"><h4>${ic('wrench', 'ic-sm')}TOOL CALLS · ${$$('.toolcall', art).length}</h4>${$$('.toolcall', art).map((t) => `<div class="item">${ic('wrench', 'ic-sm')}${esc(Array.from(t.querySelectorAll('summary span')).map((x) => x.textContent.trim()).join(' · '))}</div>`).join('')}</section>`;
+      $$('[data-tf]').forEach((b) => (b.onclick = () => { S.tool.tf = b.dataset.tf; frame(); }));
+      $$('[data-turn]').forEach((b) => (b.onclick = () => prompts[+b.dataset.turn].scrollIntoView({ block: 'start' })));
+    } else if (k === 'data') {
+      f.append(scroll);
+      scroll.prepend(G.el(`<div class="databar">${ic('table-2')}<b>results.csv</b><span class="faint">6 rows · 6 columns · comma-separated · header detected</span><span class="grow"></span><input class="field" id="dfilter" placeholder="Filter rows" aria-label="Filter rows"><select class="field" aria-label="Delimiter"><option>Comma</option><option>Tab</option><option>Semicolon</option></select></div>`));
+      renderInto(art);
+      $('#dfilter').oninput = (e) => { const q = e.target.value.toLowerCase(); $$('tbody tr', art).forEach((r) => (r.hidden = q && !r.textContent.toLowerCase().includes(q))); };
+    } else {
+      f.append(scroll); renderInto(art);
+      if (k === 'changelog') f.append(G.el(`<aside class="rail right"><section><h4>${ic('tag', 'ic-sm')}VERSIONS</h4>${res.headings.filter((h) => h.level === 2).map((h) => `<a href="#" data-h="${h.id}">${esc(h.text)}</a>`).join('')}</section></aside>`));
+      if (k === 'notes') f.append(G.el(`<aside class="rail right"><section><h4>${ic('calendar', 'ic-sm')}DAILY</h4><a href="#">Wednesday 7 October</a><a href="#" class="on">Thursday 8 October</a><a href="#">Friday 9 October (empty)</a></section><section><h4>${ic('undo-2', 'ic-sm')}BACKLINKS · 2</h4><div class="item">${ic('file-text', 'ic-sm')}Marxy feature ideas</div><div class="item">${ic('file-text', 'ic-sm')}2026-10-07</div></section></aside>`));
+    }
+    f.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-h]'); if (a) { e.preventDefault(); const t = document.getElementById(a.dataset.h); t && t.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+      const c = e.target.closest('[data-code]'); if (c) { const blk = $$('.cb', docEl)[+c.dataset.code]; blk && blk.scrollIntoView({ block: 'center' }); }
+    });
+    G.icons(f);
+    setTimeout(spec, 60);
+  }
+  function sidenotes(art) {
+    const notes = $$('.fnref a', art);
+    if (!notes.length) return;
+    art.classList.add('with-sidenotes');
+    notes.forEach((a) => {
+      const def = res.footnotes[a.dataset.fn]; if (!def) return;
+      const blk = a.closest('p, li, blockquote');
+      blk.insertAdjacentHTML('afterbegin', `<span class="sidenote" role="note"><b>${a.textContent}</b>${def.html}</span>`);
+    });
+  }
+  function applyTranscriptFilter(art) {
+    const tf = S.tool.tf || 'All';
+    art.classList.toggle('only-prompts', tf === 'Prompts');
+    art.classList.toggle('only-answers', tf === 'Answers');
+    if (tf === 'Tools') $$('.toolcall', art).forEach((d) => (d.open = true));
+    if (S.tool.expandTools) $$('.toolcall', art).forEach((d) => (d.open = true));
+  }
+
+  /* Log and terminal frames. Mono, size only: the page draws them itself from the source. */
+  const LG = { lines: [], tick: 0 };
+  let followTimer = null;
+  function stopFollow() { clearInterval(followTimer); followTimer = null; }
+  const LVL = ['all', 'info', 'warn', 'error'];
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  function monoFrame(f, k) {
+    const d = doc(); const col = G.el('<div class="col"></div>');
+    const scroll = G.el('<div class="stage-scroll"><article class="doc"></article></div>');
+    const art = $('article', scroll); art.dataset.kind = k; docEl = art; res = { headings: [] };
+    let bar;
+    if (k === 'log') {
+      const L = LG.lines = parseLog(d.src); const errs = L.filter((l) => !l.cont && l.rank === 3).length, warns = L.filter((l) => !l.cont && l.rank === 2).length;
+      const lvl = S.tool.lvl || 'all';
+      bar = G.el(`<div class="logbar">${ic(G.kinds.log.icon, 'ic-sm')}<b>${esc(d.title)}</b><span id="lg-count">${plural(L.length, 'line')}</span><span>${plural(errs, 'error')} · ${plural(warns, 'warning')}</span><span class="grow"></span><span class="faint">Level</span><div class="txtseg" role="group" aria-label="Level filter">${['All', 'Info', 'Warn', 'Error'].map((x, i) => `<button data-lvl="${LVL[i]}" aria-pressed="${LVL[i] === lvl}" title="${i ? x + ' and above' : 'Every line'}">${x}</button>`).join('')}</div></div>`);
+      art.innerHTML = `<div class="logview${S.tool.wrap ? ' wrap' : ''}" data-min="${LVL.indexOf(lvl)}" role="region" tabindex="0" aria-label="${esc(d.title)}">${L.map(logLineHtml).join('')}</div>`;
+      $$('[data-lvl]', bar).forEach((b) => (b.onclick = () => setLevel(b.dataset.lvl)));
+    } else {
+      const T = parseTerm(d.src); const n = T.groups.filter((g) => g.prompt != null).length;
+      bar = G.el(`<div class="logbar">${ic(G.kinds.terminal.icon, 'ic-sm')}<b>${esc(d.title)}</b><span>${plural(T.lines, 'line')}</span><span>${plural(n, 'command')}</span></div>`);
+      art.innerHTML = `<div class="term${S.tool.wrap ? ' wrap' : ''}" tabindex="0" aria-label="${esc(d.title)}">${T.groups.map((g) => `<div class="tg">${g.prompt != null ? `<div class="tc"><span class="pr">${esc(g.prompt)}</span> <span class="tcmd">${esca(g.cmd)}</span></div>` : ''}${g.out.length ? `<div class="to">${esca(g.out.join('\n'))}</div>` : ''}</div>`).join('')}</div>`;
+    }
+    col.append(bar, scroll); f.append(col);
+    G.applyReadingPrefs(art, 'code'); // size and face only, as for code
+    Object.entries(S.over).forEach(([p, v]) => art.style.setProperty(p, v));
+    G.icons(f);
+    if (k === 'log' && S.tool.follow) startFollow(col, scroll);
+    setTimeout(spec, 60);
+  }
+  function setLevel(v) {
+    S.tool.lvl = v; const lv = $('.logview'); if (!lv) return;
+    lv.dataset.min = LVL.indexOf(v);
+    $$('[data-lvl]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lvl === v)));
+    modebar();
+  }
+  const visibleLog = () => LG.lines.filter((l) => l.rank >= LVL.indexOf(S.tool.lvl || 'all')).map((l) => l.raw).join('\n');
+  function startFollow(col, scroll) {
+    const pill = G.el(`<span class="follow-pill" role="status">${ic('arrow-down-to-line', 'ic-sm')}Following the tail</span>`); col.append(pill); G.icons(pill);
+    const view = $('.logview', scroll); scroll.scrollTop = scroll.scrollHeight;
+    followTimer = setInterval(() => {
+      if (!view.isConnected) return stopFollow();
+      const last = LG.lines[LG.lines.length - 1]; const prev = LG.lines.filter((l) => !l.cont).pop();
+      const t0 = prev && Date.parse(prev.m[2]); const ts = new Date((isNaN(t0) ? Date.now() : t0) + 2400 + (LG.tick++ % 3) * 310).toISOString();
+      const raw = `${ts} INFO  [watch] reindexed ${3 + (LG.tick % 5)} files in ${(0.2 + (LG.tick % 4) / 10).toFixed(1)} s`;
+      const l = { n: last.n + 1, rank: 1, raw, m: raw.match(LV_RE) }; LG.lines.push(l);
+      view.insertAdjacentHTML('beforeend', logLineHtml(l)); const c = $('#lg-count'); if (c) c.textContent = plural(LG.lines.length, 'line');
+      scroll.scrollTop = scroll.scrollHeight;
+    }, 1800);
+  }
+  // Page-local dropdown: 28 px rows, 8 px icon gap, 4 px padding and separators, shortcut on the right.
+  function pmenu(anchor, items) {
+    $$('.pmenu').forEach((m) => m.remove());
+    const m = G.el('<div class="pmenu" role="menu"></div>');
+    m.innerHTML = items.map((it, i) => it.sep ? '<hr role="separator">' : `<button role="${it.checked === undefined ? 'menuitem' : 'menuitemradio'}" ${it.checked === undefined ? '' : `aria-checked="${it.checked}"`} data-i="${i}"><span class="ck">${it.checked ? ic('check', 'ic-sm') : it.icon ? ic(it.icon, 'ic-sm') : ''}</span>${esc(it.label)}${it.kbd ? `<span class="k">${esc(it.kbd)}</span>` : ''}</button>`).join('');
+    document.body.append(m); G.icons(m);
+    const r = anchor.getBoundingClientRect();
+    m.style.left = Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8)) + 'px'; m.style.top = r.bottom + 4 + 'px';
+    const btns = $$('button', m); (btns.find((b) => b.getAttribute('aria-checked') === 'true') || btns[0]).focus();
+    const close = () => { m.remove(); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); anchor.focus && anchor.focus(); };
+    const pick = (b) => { const it = items[+b.dataset.i]; close(); it.run && it.run(); };
+    const away = (e) => { if (!m.contains(e.target)) close(); };
+    const key = (e) => {
+      const i = btns.indexOf(document.activeElement);
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); btns[(i + 1) % btns.length].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); btns[(i + btns.length - 1) % btns.length].focus(); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const b = btns[i]; b && pick(b); }
+      else { const hit = items.findIndex((it) => it.kbd === e.key); if (hit >= 0) { e.preventDefault(); pick(btns.find((b) => +b.dataset.i === hit)); } }
+    };
+    m.addEventListener('click', (e) => { const b = e.target.closest('button'); b && pick(b); });
+    setTimeout(() => { document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true); });
+  }
+  // Tools of the log and terminal types; returns true when handled.
+  function monoTool(id, b) {
+    const view = $('.logview, .term');
+    switch (id) {
+      case 'copy-as': G.copyMenu(b, visibleLog); return true;
+      case 'level-menu': {
+        const cur = S.tool.lvl || 'all';
+        pmenu(b, [['all', 'All levels', '1'], ['info', 'Info and above', '2'], ['warn', 'Warn and above', '3'], ['error', 'Error only', '4']].map(([v, label, kbd]) => ({ label, kbd, checked: cur === v, run: () => setLevel(v) }))
+          .concat([{ sep: true }, { label: 'Copy visible lines', icon: 'clipboard-copy', run: () => G.copy(visibleLog(), { as: 'Log' }) }]));
+        return true;
+      }
+      case 'wrap': S.tool.wrap = !S.tool.wrap; view && view.classList.toggle('wrap', S.tool.wrap); modebar(); return true;
+      case 'jump-error': {
+        const e = $('.ll[data-rank="3"]:not(.cont)'); if (!e) { G.toast('No error lines in this log.', { icon: 'info' }); return true; }
+        $$('.ll.hot').forEach((x) => x.classList.remove('hot')); e.classList.add('hot'); e.scrollIntoView({ block: 'center' }); return true;
+      }
+      case 'follow': S.tool.follow = !S.tool.follow; frame(); modebar(); return true;
+      case 'copy-cmds': { const T = parseTerm(doc().src); G.copy(T.groups.filter((g) => g.prompt != null && g.cmd).map((g) => g.cmd).join('\n'), { as: 'Code' }); return true; }
+      case 'copy-out': { const T = parseTerm(doc().src); G.copy(T.groups.filter((g) => g.out.length).map((g) => g.out.join('\n')).join('\n\n'), { as: 'Text' }); return true; }
+    }
+    return false;
+  }
+
+  /* Book: CSS columns as pages; arrow keys and buttons turn them */
+  function bookFrame(f) {
+    const v = G.el(`<div class="book-view"><div class="book-pages" id="pages" tabindex="0" aria-label="Pages; use arrow keys to turn"><article class="doc paged"></article></div><div class="book-foot"><button class="tb-btn" id="pg-prev" title="Previous page (←)">${ic('chevron-left')}</button><span id="pg-n" class="num"></span><button class="tb-btn" id="pg-next" title="Next page (→)">${ic('chevron-right')}</button><div class="progress"><i id="pg-prog"></i></div><span>Chapter 3 · <span class="num">38%</span> of book</span><span class="grow"></span><span>Location 1,204 · about 9 min left in chapter</span></div></div>`);
+    if (S.tool.scroll) {
+      const scroll = G.el('<div class="stage-scroll"><article class="doc"></article></div>'); f.append(scroll); renderInto($('article', scroll));
+      return G.icons(f);
+    }
+    f.append(v); const art = $('article', v); renderInto(art);
+    const pages = $('#pages'); let pitch = 1;
+    // Fixed-width columns at the measure; as many per spread as fit. Padding of half a gap per side
+    // makes the overflow columns land exactly one spread width apart, so scrollLeft pages cleanly.
+    const layout = () => {
+      const probe = G.el('<div style="width:var(--measure);height:0"></div>'); art.appendChild(probe); const mw = probe.offsetWidth; probe.remove();
+      const gap = parseFloat(getComputedStyle(art).fontSize) * 2.5; const W = pages.parentElement.clientWidth;
+      const n = Math.max(1, Math.min(2, Math.floor(W / (mw + gap)))); pitch = n * (mw + gap);
+      // The viewport is exactly one spread wide, so the next page never peeks in.
+      Object.assign(pages.style, { width: pitch + 'px', maxWidth: '100%', alignSelf: 'center' });
+      Object.assign(art.style, { width: pitch + 'px', columnWidth: 'auto', columnCount: n, columnGap: gap + 'px', paddingLeft: gap / 2 + 'px', paddingRight: gap / 2 + 'px' });
+    };
+    const count = () => Math.max(1, Math.ceil((pages.scrollWidth - 2) / pitch));
+    const go = (n) => { layout(); S.page = Math.max(0, Math.min(count() - 1, n)); pages.scrollLeft = S.page * pitch; $('#pg-n').textContent = `Page ${41 + S.page} · ${S.page + 1} of ${count()} in chapter`; $('#pg-prog').style.width = Math.round(100 * (S.page + 1) / count()) + '%'; };
+    $('#pg-prev').onclick = () => go(S.page - 1); $('#pg-next').onclick = () => go(S.page + 1);
+    pages.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { go(S.page + 1); e.preventDefault(); } if (e.key === 'ArrowLeft' || e.key === 'PageUp') { go(S.page - 1); e.preventDefault(); } });
+    pages.addEventListener('click', (e) => { if (window.getSelection().toString() || e.target.closest('a,button')) return; const r = pages.getBoundingClientRect(); go(S.page + (e.clientX > r.left + r.width / 2 ? 1 : -1)); });
+    const ro = new ResizeObserver(() => (pages.isConnected ? go(S.page) : ro.disconnect())); ro.observe(pages);
+    G.icons(f); setTimeout(() => go(0), 50);
+  }
+
+  /* ---------- Mode bar ---------- */
+  const EXTRA = {}; // no extra tools: each kind keeps at most four buttons, plus the one copy tool that lives in the … menu
+  const OVERFLOW = new Set(['copy-install', 'copy-fenced', 'copy-cmds']);
+  function modebar() {
+    const all = (G.kindTools[S.kind] || []).concat(EXTRA[S.kind] || []); const tools = all.filter(([id]) => !OVERFLOW.has(id)); const more = all.filter(([id]) => OVERFLOW.has(id));
+    $('#modebar').innerHTML = `<span class="mb-label">${G.kinds[S.kind].name.toUpperCase()} TOOLS</span>` + tools.map(([id, label, icon, k]) => `<button class="qbtn${S.tool[id] || (id === 'paged' && !S.tool.scroll && S.kind === 'book') || (id === 'level-menu' && S.tool.lvl && S.tool.lvl !== 'all') ? ' on' : ''}" data-tool="${id}" title="${esc(label)}${k ? ' (' + k + ')' : ''}">${ic(icon)}${esc(label)}</button>`).join('') + `<span class="grow"></span>${more.length ? `<button class="qbtn" data-tool="overflow" title="More tools for this kind" aria-haspopup="menu" aria-label="More tools">${ic('ellipsis')}</button>` : ''}<button class="qbtn" data-tool="open" title="Open in Workspace">${ic('app-window')}Open in Workspace</button>`;
+    G.icons($('#modebar'));
+  }
+  $('#modebar').addEventListener('click', (e) => { const b = e.target.closest('[data-tool]'); if (b) runTool(b.dataset.tool, b); });
+  function runTool(id, b) {
+    const src = doc().src;
+    if (id === 'overflow') return G.menu(b, (G.kindTools[S.kind] || []).filter(([x]) => OVERFLOW.has(x)).map(([x, label, icon]) => ({ label, icon, run: () => runTool(x, b) })), { width: 240, align: 'end' });
+    const flip = (k) => { S.tool[k] = !S.tool[k]; frame(); modebar(); };
+    const msg = {
+      highlight: 'Select text, then Highlight in the selection bar. Highlights are stored beside the file, never written into it.',
+      'notes-margin': 'Margin notes are on: footnotes sit beside their reference on wide windows and behind a tap when narrow.',
+      speak: 'Read aloud with word highlighting, using the macOS voice set in Settings › Accessibility.',
+      contents: 'Contents drawer: 12 chapters with your position and highlights per chapter.',
+      bookmark: 'Bookmarked page 41. Bookmarks sync with the file path, not the file contents.',
+      badges: 'Badges are drawn locally from the shields.io URL; no network request is made.',
+      outline: 'Outline opens in the inspector, as in the Workspace.',
+      'x-config': 'Configuration table copied as CSV.',
+      'open-repo': 'Opens the repository folder in Finder, or its remote in the browser.',
+      'on-page': 'The "On this page" rail tracks your position as you scroll.',
+      'copy-anchor': 'Link to the nearest heading copied.',
+      examples: 'Shows only the code examples, each with its heading.',
+      docset: 'Searches the 14 pages of this docs set, ranked by heading match first.',
+      'prev-next': 'Previous and next follow the docs set order.',
+      symbols: 'The symbol rail on the right lists functions, types and tests.',
+      'goto-line': 'Go to line (⌃G) opens the palette in line mode.',
+      'col-stats': 'Column statistics are in the table footer: min, max, mean.',
+      filter: 'Type in the filter box above the table.',
+      transpose: 'Transposed view swaps rows and columns without changing the file.',
+      chart: 'A quick bar chart of the selected numeric column.',
+      backlinks: 'Backlinks list documents that link here.',
+      daily: 'Daily navigation moves between dated notes.',
+      versions: 'Each version is a section; click to jump.',
+      tasks: 'Tasks are listed in the inspector and can be sent to Reminders.',
+      diff: 'Version comparison is shown in the Workspace prototype.',
+      'split-h2': 'Split by H2 writes one file per section into a new folder.',
+      verify: 'Verify paths checks every path the report mentions against the collection’s base folder.',
+      'append-clip': 'Appends the clipboard to today’s note under a timestamp.',
+      'copy-release': 'The release under the cursor is copied as release notes.',
+      'export-doc': 'Export as document keeps the assistant’s answers and drops the conversation.'
+    };
+    if ((S.kind === 'log' || S.kind === 'terminal') && id !== 'open' && monoTool(id, b)) return;
+    switch (id) {
+      case 'open': return (location.href = G.page('workspace') + '#doc=' + doc().id);
+      case 'copy-as': case 'copy-as-table': return G.copyMenu(b, () => (S.kind === 'data' ? G.transform('tsv-to-table', src) : src));
+      case 'extract': return G.extractMenu(b, src);
+      case 'quote-link': return G.copyAs('quote', 'Ragged right is not a compromise. It is the setting that lets every space be the same width.');
+      case 'focus': case 'justify': case 'wrap': case 'literate': case 'scroll': case 'endnotes': case 'expandTools': case 'dropcap':
+        if (id === 'justify' && !S.tool.justify) { const c = G.colophon(docEl); if (c.cpl && c.cpl < 45) return G.toast(`Justification needs at least 45 characters per line; this column has ${c.cpl}. Staying ragged right.`, { icon: 'align-left', ms: 4500 }); }
+        if (id === 'literate' && S.lang !== 'rust') return G.toast('Literate view sets doc comments as prose. The prototype reads Rust ///, so switch the language back to Rust to try it.', { icon: 'book-text', ms: 4500 });
+        if (id === 'dropcap') { S.tool.dropcap = !S.tool.dropcap; docEl.classList.toggle('dropcap', S.tool.dropcap); return modebar(); }
+        return flip(id);
+      case 'paged': S.tool.scroll = false; frame(); return modebar();
+      case 'collapse-tools': S.tool.expandTools = false; S.tool.tf = 'All'; return frame();
+      case 'only-prompts': S.tool.tf = 'Prompts'; return frame();
+      case 'only-answers': S.tool.tf = 'Answers'; return frame();
+      case 'x-final': return G.copy('Warm run: **1.6 s**. Cold run is unchanged at 41 s, which is expected, since the cache starts empty.', { as: 'final answer' });
+      case 'copy-install': return G.copy('brew install tidemark', { as: 'Code' });
+      case 'x-commands': return G.copy(G.transform('x-commands', src), { as: 'script' });
+      case 'copy-section': return G.copy(G.sectionOf(src, res.headings[1].line), { as: 'Markdown section' });
+      case 'copy-fenced': return G.copy('```' + (LANGS.find((x) => x.id === S.lang) || LANGS[0]).id + '\n' + src.replace(/\n$/, '') + '\n```', { as: 'Markdown' });
+      default: if (msg[id]) G.toast(msg[id], { icon: 'info', ms: 4200 });
+    }
+  }
+
+  /* ---------- Typography spec panel with live controls ---------- */
+  function spec() {
+    const s = SPEC[S.kind]; const c = docEl ? G.colophon(docEl) : {};
+    const prose = !['code', 'data', 'log', 'terminal'].includes(S.kind);
+    const why = s.detect ? s.detect(doc()) : null;
+    const ts = G.typesets.find((t) => t.id === G.prefs.typeset);
+    const curSize = S.over['--k-size'] ? parseFloat(S.over['--k-size']) * 16 : s.size;
+    const curLead = S.over['--k-leading'] ? +S.over['--k-leading'] : s.leading;
+    const curMeasure = S.over['--k-measure'] ? +S.over['--k-measure'] : s.measure;
+    const ls = +(S.over['letter-spacing'] || '0').replace('em', '');
+    $('#spec').innerHTML = `<h3>${ic(G.kinds[S.kind].icon)}${G.kinds[S.kind].name} typography</h3><p class="lede">${esc(s.why)}</p>
+      <table><tbody>
+        <tr><td>Face</td><td><b>${esc(c.face || '–')}</b><br><span class="faint">${esc(s.role)} role in the ${esc(ts.name)} type set</span></td></tr>
+        <tr><td>Size</td><td>${s.size} px default <span class="live">· ${c.size ? c.size.toFixed(1) + ' px now' : ''}</span></td></tr>
+        <tr><td>Leading</td><td>${s.leading} <span class="live">· ${c.leading || ''} now</span></td></tr>
+        <tr><td>Measure</td><td>${s.measure ? s.measure + ' average characters' : 'n/a (no reflow)'} ${c.cpl && prose ? `<span class="live">· ${c.cpl} measured</span>` : ''}${c.avg && prose ? `<br><span class="faint">avg advance ${c.avg.toFixed(3)} em, measured from the face</span>` : ''}</td></tr>
+        <tr><td>Paragraphs</td><td>${esc(s.para)}</td></tr>
+        <tr><td>Alignment</td><td>${esc(s.align)}</td></tr>
+        <tr><td>Headings</td><td>${esc(s.heads)}</td></tr>
+        <tr><td>Code</td><td>${esc(s.code)}</td></tr>
+        <tr><td>Page model</td><td>${esc(s.page)}</td></tr>
+        <tr><td>Spacing controls</td><td>${esc(s.spacing)}</td></tr>
+        ${why ? `<tr><td>Detected by</td><td>${why.map((x) => esc(x)).join('<br>')}</td></tr>` : ''}
+      </tbody></table>
+      <h4>${ic('sliders-horizontal', 'ic-sm')}TRY IT (THIS VIEW ONLY)</h4>
+      <div class="ctl"><label for="c-size">Size</label><input id="c-size" type="range" min="12" max="${prose ? 28 : 20}" step="0.5" value="${curSize}"><output>${curSize}px</output></div>
+      ${prose ? `<div class="ctl"><label for="c-lead">Leading</label><input id="c-lead" type="range" min="1.3" max="2" step="0.05" value="${curLead}"><output>${curLead}</output></div>
+      <div class="ctl"><label for="c-meas">Measure</label><input id="c-meas" type="range" min="40" max="90" step="1" value="${curMeasure}"><output>${curMeasure}</output></div>
+      <div class="ctl"><label for="c-ls">Letter sp.</label><input id="c-ls" type="range" min="0" max="0.12" step="0.01" value="${ls}"><output>${ls}em</output></div>` : `<div class="rule ok">${ic('lock')}<span>Size and face only: spacing would change what ${G.kinds[S.kind].name.toLowerCase()} says.</span></div>`}
+      ${prose && c.cpl && c.cpl < 45 ? `<div class="rule">${ic('align-left')}<span>${c.cpl} characters per line, under 45: justification is off (rule 2).</span></div>` : ''}
+      ${prose && ls > 0 ? `<div class="rule ok">${ic('link-2')}<span>Word spacing rose with letter spacing (+${ls} em) (rule 3).</span></div>` : ''}
+      ${prose && /ink|dusk|night|fjord|hc-dark/.test(G.resolvedTheme()) ? `<div class="rule ok">${ic('moon')}<span>Dark theme: text weight lightened to ${getComputedStyle(document.documentElement).getPropertyValue('--text-wght').trim()}.</span></div>` : ''}
+      <div class="row" style="margin-top:6px"><button class="btn sm" id="c-reset">${ic('rotate-ccw')}Reset</button><button class="btn sm" id="c-save">${ic('save')}Save for ${esc(G.kinds[S.kind].name)}</button></div>
+      <h4>${ic('lock', 'ic-sm')}MUST PRESERVE</h4><ul>${s.preserve.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      <h4>${ic('sliders-horizontal', 'ic-sm')}READER MAY ADAPT</h4><ul>${s.adapt.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      <h4>${ic('book-open', 'ic-sm')}SOURCES</h4><div style="font-size:11.5px;line-height:1.6"><a class="src-link" href="../docs/site/10-spec.html">Reader Typography Spec</a> · <a class="src-link" href="../docs/site/07-content-types.html">Typography by Content Type</a>${S.kind === 'code' ? ' · <a class="src-link" href="../docs/site/06-code.html">Code and Syntax Highlighting</a>' : ''} · <a class="src-link" href="TYPOGRAPHY.md">TYPOGRAPHY.md</a></div>`;
+    G.icons($('#spec'));
+    const bind = (id, fn) => { const el = $('#' + id); if (el) el.oninput = () => { fn(+el.value); el.nextElementSibling.textContent = id === 'c-size' ? el.value + 'px' : id === 'c-ls' ? el.value + 'em' : el.value; G.measureDoc(docEl); clearTimeout(bind.t); bind.t = setTimeout(spec, 250); status(); }; };
+    bind('c-size', (v) => setVar('--k-size', (v / 16) + 'rem'));
+    bind('c-lead', (v) => setVar('--k-leading', v));
+    bind('c-meas', (v) => setVar('--k-measure', v));
+    bind('c-ls', (v) => { setVar('letter-spacing', v + 'em'); setVar('word-spacing', v + 'em'); });
+    $('#c-reset').onclick = () => { S.over = {}; frame(); };
+    $('#c-save').onclick = () => G.toast(`Saved as the ${G.kinds[S.kind].name} default. Other types keep theirs.`, { icon: 'save' });
+  }
+  function setVar(k, v) { S.over[k] = v; docEl.style.setProperty(k, v); }
+
+  function status() {
+    const c = docEl ? G.colophon(docEl) : {}; const st = G.stats(doc().src);
+    $('#status').innerHTML = G.ui.statusbar([
+      { icon: G.kinds[S.kind].icon, html: G.kinds[S.kind].name },
+      { icon: 'type', html: esc(c.face || '') },
+      { html: `${c.size ? c.size.toFixed(1) : ''} px / ${c.leading || ''}` },
+      { icon: 'ruler', html: c.cpl ? c.cpl + ' chars per line' : 'no reflow' },
+      { icon: 'book-open-text', html: `${fmt(st.words)} words · ${st.readMin} min` },
+      { cmd: 'theme-menu', icon: 'palette', html: G.themes.find((t) => t.id === G.resolvedTheme()).name + ' · ' + G.typesets.find((t) => t.id === G.prefs.typeset).name }
+    ]);
+    G.icons($('#status'));
+  }
+
+  $('#b-open').onclick = () => (location.href = G.page('workspace') + '#doc=' + doc().id);
+  $('#b-spec').onclick = () => { $('#cm').classList.toggle('no-spec'); $('#b-spec').classList.toggle('on'); };
+  $$('#widthseg button').forEach((b) => b.addEventListener('click', () => { $$('#widthseg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); $('.stage').style.maxWidth = b.dataset.w === 'narrow' ? '720px' : ''; setTimeout(() => { if (S.kind === 'book') frame(); G.measureDoc(docEl); spec(); status(); }, 30); }));
+  G.on('theme', () => setTimeout(() => { frame(); }, 60));
+  G.on('measured', () => { if (docEl) { spec(); status(); } });
+  G.on('reading-prefs', () => frame());
+  ORDER.forEach((k) => G.command({ id: 'mode-' + k, name: 'Show ' + G.kinds[k].name + ' mode', icon: G.kinds[k].icon, group: 'Content modes', run: () => show(k) }));
+  document.addEventListener('keydown', (e) => { if (e.target.closest('input, textarea, select')) return; if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { const i = ORDER.indexOf(S.kind); show(ORDER[(i + (e.key === 'ArrowDown' ? 1 : ORDER.length - 1)) % ORDER.length]); e.preventDefault(); } });
+
+  window.addEventListener('hashchange', () => { const k = location.hash.slice(1); if (ORDER.includes(k) && k !== S.kind) show(k); });
+  G.boot({});
+  show(ORDER.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'report');
+  if (document.fonts) document.fonts.ready.then(() => { G.measureAll(); spec(); status(); });
+})();
+</script>
+</body>
+</html>

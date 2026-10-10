@@ -9,7 +9,7 @@ import { scrollSourceToByte } from './mode-switch.ts';
 
 export async function createSourceEditor(
   opts: SourceEditorOptions,
-  compartments: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment },
+  compartments: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment: Compartment },
 ): Promise<SourceEditor> {
   let buffer = opts.buffer;
   const { doc } = editorDocConfig(buffer);
@@ -20,7 +20,9 @@ export async function createSourceEditor(
   // `doc.toString()` joins lines with \n whatever EditorState.lineSeparator says; the buffer's text
   // (and foldText's offsets into it) use the file's own separator, so read the doc through sliceDoc.
   const textNow = (): string => view.state.sliceDoc(0, view.state.doc.length);
-  const readingLine = opts.readingLinePx ?? (typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.4) : 320);
+  // Read per scroll: the window's height can change while the editor lives (the app reads its place the same way).
+  const readingLine = (): number =>
+    opts.readingLinePx ?? (typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.4) : 320);
 
   return {
     view,
@@ -32,10 +34,20 @@ export async function createSourceEditor(
     },
     replaceBuffer(next: Buffer) {
       buffer = next;
-      const { doc: nextDoc } = editorDocConfig(next);
+      const { doc: nextDoc, lineSeparator } = editorDocConfig(next);
+      const separatorChanged = view.state.lineBreak !== lineSeparator;
       // The buffer this editor's own edits were folded into already reads as its text: keep the
-      // editor's history and selection, and take only the new byte mapping.
-      if (nextDoc === textNow()) return;
+      // editor's history and selection, and take only the new byte mapping. (A changed separator
+      // means the text is read differently, so it never counts as the same.)
+      if (!separatorChanged && nextDoc === textNow()) return;
+      // The line-ending class changed on disk (CR to LF, LF to CR, ...): the separator is part of the
+      // state, and the new text is split by the state it is dispatched into, so swap it first (F-25).
+      if (separatorChanged) {
+        view.dispatch({
+          effects: compartments.lineSeparatorCompartment.reconfigure(EditorState.lineSeparator.of(lineSeparator)),
+          annotations: Transaction.addToHistory.of(false),
+        });
+      }
       // New bytes from outside (a reload from disk): not the reader's edit, so Mod+Z must not bring
       // the text on disk back to what it was before.
       view.dispatch({
@@ -44,7 +56,7 @@ export async function createSourceEditor(
       });
     },
     scrollToByte(byteOffset: number) {
-      scrollSourceToByte(buffer, view, byteOffset, readingLine);
+      scrollSourceToByte(buffer, view, byteOffset, readingLine());
     },
     docText() {
       return textNow();

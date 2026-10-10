@@ -3,7 +3,6 @@
 // text fields (decided in `historyAllowed`), and link history wins over the palette's session
 // history.
 import { historyKeyBelongsToEditor } from '../palette/keys.ts';
-import { linkBack } from '../selection/view.ts';
 import { appHandle, palette } from './app-handle.ts';
 import type { Command } from './registry.ts';
 
@@ -65,7 +64,7 @@ export function navigationCommands(): readonly Command[] {
       when: historyAllowed,
       run: async () => {
         if (paletteIsOpen()) return;
-        if (linkBack()) return;
+        if (appHandle()?.selection.back()) return;
         palette()?.back();
       },
     },

@@ -1,15 +1,18 @@
-// MARXY-143: the headless font/image window waits, the gate repeat flag, and frozen CLS thresholds.
+// MARXY-143: the gate render's font/image window waits (apps/desktop/src/harness, B-02), the gate repeat
+// flag, and frozen CLS thresholds.
 
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { extname, join } from 'node:path';
 import { test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
 
 const root = new URL('../../../', import.meta.url);
-const headlessPath = new URL('apps/desktop/src/render/headless.ts', root);
+const entryPath = new URL('apps/desktop/src/harness/gate-entry.ts', root);
+const shiftPath = new URL('apps/desktop/src/harness/layout-shift.ts', root);
 const gatePath = new URL('scripts/gate-aesthetics.mjs', root);
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -41,20 +44,25 @@ const MAIN_GATE_SNIPPETS = {
 }`,
 };
 
-function headlessSource() {
-  return readFileSync(headlessPath, 'utf8');
+function entrySource() {
+  return readFileSync(entryPath, 'utf8');
+}
+
+function shiftSource() {
+  return readFileSync(shiftPath, 'utf8');
 }
 
 function gateSource() {
   return readFileSync(gatePath, 'utf8');
 }
 
-test('MARXY-143: headless awaits document.fonts.load per used face and decode on reserved images before the first scored snapshot', () => {
-  const src = headlessSource();
-  assert.match(src, /export async function awaitArticleFonts/, 'awaitArticleFonts is exported');
-  assert.match(src, /document\.fonts\.load/, 'loads each face the article uses');
-  assert.match(src, /export async function awaitReservedImages/, 'awaitReservedImages is exported');
-  assert.match(src, /img\.decode/, 'decodes reserved images');
+test('MARXY-143: the gate render awaits document.fonts.load per used face and decode on reserved images before the first scored snapshot', () => {
+  const helpers = shiftSource();
+  assert.match(helpers, /export async function awaitArticleFonts/, 'awaitArticleFonts is exported');
+  assert.match(helpers, /document\.fonts\.load/, 'loads each face the article uses');
+  assert.match(helpers, /export async function awaitReservedImages/, 'awaitReservedImages is exported');
+  assert.match(helpers, /img\.decode/, 'decodes reserved images');
+  const src = entrySource();
   const beforeFirstSnap = src.slice(src.indexOf('const snaps'), src.indexOf('takeSnapshot(article, snaps);'));
   assert.match(beforeFirstSnap, /await awaitArticleFonts\(article\)/);
   assert.match(beforeFirstSnap, /await awaitReservedImages\(article\)/);
@@ -67,37 +75,34 @@ test('MARXY-143: headless awaits document.fonts.load per used face and decode on
 });
 
 test('MARXY-143: fonts.ready alone before the first snapshot would fail the wait case', () => {
-  const src = headlessSource();
+  const src = entrySource();
   const stub = src.replace(/await awaitArticleFonts\(article\);\s*\n\s*await awaitReservedImages\(article\);\s*\n/, '  await document.fonts.ready;\n');
   assert.doesNotMatch(stub, /await awaitArticleFonts\(article\)/);
   assert.doesNotMatch(stub, /await awaitReservedImages\(article\)/);
-  assert.match(stub, /await document\.fonts\.ready;\s*\n\s*settleGrid\(article, lineBox\)/);
+  assert.match(stub, /await document\.fonts\.ready;\s*\n\s*takeSnapshot\(article, snaps\)/);
 });
 
 test('MARXY-143: an unreserved image after the first snapshot still yields fontWindow > 0', async () => {
   const { build } = await import('vite');
-  const { writeFileSync } = await import('node:fs');
   const desktop = join(fileURLToPath(new URL('..', import.meta.url)));
+  const outDir = mkdtempSync(join(tmpdir(), 'marxy-layout-shift-'));
   await build({
-    configFile: join(desktop, 'src/render/vite.config.ts'),
     root: desktop,
+    configFile: join(desktop, 'vite.config.ts'),
     logLevel: 'error',
+    build: { outDir, emptyOutDir: true },
+    plugins: [{ name: 'marxy-gate-input', config(c) { c.build.rollupOptions.input = { gate: join(desktop, 'gate.html') }; } }],
   });
-  const dist = join(desktop, 'dist');
-  writeFileSync(
-    join(dist, 'render.html'),
-    `<!doctype html><html><body><main id="marxy-main"><article id="doc" class="marxy-article"></article></main><script src="./render.js"></script></body></html>`,
-  );
   const { createServer } = await import('node:http');
+  const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css', '.ttf': 'font/ttf' };
   const server = createServer((req, res) => {
     const path = new URL(req.url, 'http://x').pathname;
-    const file = path === '/render.html' ? join(dist, 'render.html') : join(dist, path.slice(1));
-    if (!existsSync(file)) {
+    const file = join(outDir, path === '/' ? 'gate.html' : path.slice(1));
+    if (!file.startsWith(outDir) || !existsSync(file) || !statSync(file).isFile()) {
       res.statusCode = 404;
       return res.end('not found');
     }
-    if (file.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    else if (file.endsWith('.html')) res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Type', types[extname(file)] ?? 'application/octet-stream');
     res.end(readFileSync(file));
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -105,8 +110,8 @@ test('MARXY-143: an unreserved image after the first snapshot still yields fontW
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
-    await page.goto(`${origin}/render.html`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => typeof window.marxyLayoutShift?.finishShift === 'function');
+    await page.goto(`${origin}/gate.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof window.marxyGate?.layoutShift?.finishShift === 'function');
     const fontWindow = await page.evaluate(async () => {
       const article = document.getElementById('doc');
       const mk = (s, e, text) => {
@@ -119,7 +124,7 @@ test('MARXY-143: an unreserved image after the first snapshot still yields fontW
         return p;
       };
       article.replaceChildren(mk('0', '1', 'Above'), mk('2', '3', 'Below'));
-      const shift = window.marxyLayoutShift;
+      const shift = window.marxyGate.layoutShift;
       shift.assertCanObserve();
       const snaps = [];
       const snap = () => snaps.push(shift.snapshot(article));
@@ -144,6 +149,7 @@ test('MARXY-143: an unreserved image after the first snapshot still yields fontW
   } finally {
     await browser.close();
     server.close();
+    rmSync(outDir, { recursive: true, force: true });
   }
 });
 

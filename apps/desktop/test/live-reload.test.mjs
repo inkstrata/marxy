@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { launchWebkit as launchWebkitUntracked } from '../../../scripts/playwright-webkit.mjs';
 import { createServer } from 'vite';
 import { DISK_CHANGED_EDITS_KEPT, FILE_REMOVED_ON_DISK } from '../src/notices/disk.ts';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,26 @@ import { fileURLToPath } from 'node:url';
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
-const test = (name, fn) => nodeTest(name, { skip }, fn);
+// F-30: CI lost 15-minute jobs to a test of this file that never returned. `page.evaluate` has no timeout of
+// its own, so a page promise that never settles waits forever. Each test now has a deadline that fails it by
+// name, and the browsers it launched are closed when it ends so a stuck evaluate is cancelled and the
+// process can exit.
+const TEST_TIMEOUT_MS = 60_000;
+const launched = new Set();
+async function launchWebkit(...args) {
+  const browser = await launchWebkitUntracked(...args);
+  launched.add(browser);
+  return browser;
+}
+const closeLaunched = async () => {
+  await Promise.all([...launched].map((b) => b.close().catch(() => {})));
+  launched.clear();
+};
+const test = (name, fn) =>
+  nodeTest(name, { skip, timeout: TEST_TIMEOUT_MS }, async (t) => {
+    t.after(closeLaunched);
+    return fn(t);
+  });
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const mainRs = readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'src', 'main.rs'), 'utf8');
@@ -55,12 +74,13 @@ function b64(text) {
   return Buffer.from(text, 'utf8').toString('base64');
 }
 
-async function boot(page, files, argv) {
+/** `lateWatch`: a watch on that folder registers only after a delay, as one on Tauri does (two round trips). */
+async function boot(page, files, argv, { lateWatch = null } = {}) {
   const base = await harnessBase();
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(
-    async ({ files, argv }) => {
+    async ({ files, argv, lateWatch }) => {
       const bin = atob;
       const bytes = {};
       for (const [path, b64] of Object.entries(files)) {
@@ -74,6 +94,7 @@ async function boot(page, files, argv) {
       const watchCloses = [];
       const origWatch = inner.watch.bind(inner);
       inner.watch = async (root, onEvents) => {
+        if (root === lateWatch) await new Promise((r) => setTimeout(r, 300));
         const handle = await origWatch(root, onEvents);
         return {
           close() {
@@ -84,11 +105,14 @@ async function boot(page, files, argv) {
       };
       const { startApp } = await import('/src/app.ts');
       const handle = await startApp(inner, { argv });
-      await handle.ready;
       window.__marxyHandle = handle;
       window.__watchCloses = watchCloses;
+      // `ready` settles only once the engine reports a paint after the render, and a headless page that
+      // never does leaves it pending forever (startup/measure.ts, by design). Bound it: every test goes on
+      // to wait for its own condition, which has its own deadline.
+      await Promise.race([handle.ready, new Promise((r) => setTimeout(r, 15_000))]);
     },
-    { files, argv },
+    { files, argv, lateWatch },
   );
 }
 
@@ -146,6 +170,97 @@ test('modified on disk reloads appended text and keeps byteOffset', async () => 
   }
 });
 
+/** Many short turns, so a write above the reader leaves most of the file's blocks unchanged (B-23). */
+const T = Array.from({ length: 60 }, (_, i) =>
+  `## Turn ${i + 1}\n\n${para(`Turn ${i + 1}`)}\n\n- an item with \`code\`\n  - nested *a* b\n\n\`\`\`js\nconst n = ${i};\n\`\`\`\n\n`,
+).join('');
+
+test('a write above the reader in a long file reloads to the whole parse of the new bytes, at the same text (B-23)', async () => {
+  const { parseMarkdown } = await import('../../../packages/core/src/parse/parse.ts');
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/T.md': b64(T) }, ['/r/T.md']);
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 3));
+    await page.waitForFunction(() => window.scrollY > 1000);
+    const writes = [
+      // One line above the reader: everything after it moves.
+      (text) => text.replace('## Turn 2\n', 'One line an outside editor wrote.\n\n## Turn 2\n'),
+      // A fence opened above the reader and closed further down: the parse after it changes, then settles.
+      (text) => text.replace('## Turn 3\n', '```\nopened\n\n').replace('## Turn 5\n', '```\n\n## Turn 5\n'),
+    ];
+    let text = T;
+    for (const write of writes) {
+      const held = await page.evaluate(() => window.__marxyHandle.sourceHarness().byteOffset);
+      const heldText = Buffer.from(text).subarray(held, held + 24).toString();
+      const next = write(text);
+      const seen = await page.evaluate(async ({ next }) => {
+        const h = window.__marxyHandle;
+        const path = h.currentPath();
+        const count = () => h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'live_reload').length;
+        const before = count();
+        await h.shell.writeFileAtomic(path, new TextEncoder().encode(next));
+        h.shell.emit([{ kind: 'modified', path }]);
+        for (let i = 0; i < 500 && count() === before; i++) await new Promise((r) => setTimeout(r, 10));
+        return { reloaded: count() > before, ast: JSON.stringify(h.document().snapshot().ast), place: h.sourceHarness().byteOffset };
+      }, { next });
+      assert.equal(seen.reloaded, true);
+      assert.equal(seen.ast, JSON.stringify(parseMarkdown(new TextEncoder().encode(next), { file: '/r/T.md' })), 'the store holds the whole parse');
+      assert.equal(Buffer.from(next).subarray(seen.place, seen.place + 24).toString(), heldText, 'the reader is on the same text');
+      text = next;
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Save as closes the old folder\'s watch and watches the new one', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A) }, ['/r/A.md']);
+    const seen = await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      h.shell.queueSaveDialog('/e/A.md');
+      const result = await h.save({ as: true });
+      return {
+        result,
+        watched: h.shell.calls.filter((c) => c.method === 'watch').map((c) => c.args[0]),
+        closes: [...window.__watchCloses],
+      };
+    });
+    assert.equal(seen.result, 'saved');
+    assert.deepEqual(seen.watched, ['/r', '/e']);
+    assert.deepEqual(seen.closes, ['/r'], 'the old folder is no longer watched');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a write right after Save as reloads, when the new folder\'s watch registers late (Tauri)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/A.md': b64(A) }, ['/r/A.md'], { lateWatch: '/e' });
+    const seen = await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      h.shell.queueSaveDialog('/e/A.md');
+      const result = await h.save({ as: true });
+      // At once, before anything else runs: another program writes the file the reader just saved.
+      await h.shell.writeFileAtomic('/e/A.md', new TextEncoder().encode('# Rewritten\n\nBy someone else.\n'));
+      h.shell.emit([{ kind: 'modified', path: '/e/A.md' }]);
+      const reloaded = () => h.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'live_reload');
+      for (let i = 0; i < 500 && !reloaded(); i++) await new Promise((r) => setTimeout(r, 10));
+      return { result, reloaded: reloaded(), heading: document.querySelector('#doc h1')?.textContent };
+    });
+    assert.equal(seen.result, 'saved');
+    assert.equal(seen.reloaded, true, 'the write after Save as was seen');
+    assert.equal(seen.heading, 'Rewritten');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('one watch per open and the previous handle is closed', async () => {
   const browser = await launchWebkit();
   try {
@@ -198,6 +313,29 @@ test('dirty Source buffer keeps edits and shows the disk-changed notice', async 
     );
     assert.equal(hashAfter, hashBefore);
     assert.equal(writesAfter, writesBefore);
+  } finally {
+    await browser.close();
+  }
+});
+
+// F-15: the memory shell cannot model a symlink, so this pins the webview half only: once the
+// watcher names the link path (the Rust tests pin that it does), an open link reloads and, when
+// the link goes, shows the removal notice.
+test('events on the open link path reload it and show the removal notice (F-15)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/docs/link.md': b64(C) }, ['/r/docs/link.md']);
+    await page.evaluate(async () => {
+      const path = '/r/docs/link.md';
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode('# Charlie\n\nThe target was edited.\n'));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    });
+    await page.waitForFunction(() => document.getElementById('doc')?.textContent?.includes('The target was edited.'));
+    await page.evaluate(() => {
+      window.__marxyHandle.shell.emit([{ kind: 'removed', path: '/r/docs/link.md' }]);
+    });
+    await page.waitForFunction((text) => document.getElementById('marxy-notices')?.textContent?.includes(text), FILE_REMOVED_ON_DISK);
   } finally {
     await browser.close();
   }
@@ -272,3 +410,218 @@ test('edits folded in from an earlier Source visit are kept when the file change
     await browser.close();
   }
 });
+
+test('text written at a held heading\'s first byte leaves the heading on the page (F-19)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const head = `# Alpha\n\n${para('Alpha').repeat(12)}\n\n`;
+    const tail = `## Bravo\n\n${para('Bravo').repeat(12)}\n`;
+    const inserted = `Written by another program.\n\n${para('Inserted').repeat(4)}\n\n`;
+    await boot(page, { '/r/A.md': b64(head + tail) }, ['/r/A.md']);
+    const bravoStart = Buffer.byteLength(head, 'utf8');
+    // Scroll until the reading position is the heading's start (the first block at the reading line).
+    const held = await page.evaluate((want) => {
+      const heading = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent.includes('Bravo'));
+      const top = heading.getBoundingClientRect().top + window.scrollY;
+      for (let y = top - 400; y <= top + 40; y += 4) {
+        window.scrollTo(0, y);
+        if (window.__marxyHandle.sourceHarness().byteOffset === want) return true;
+      }
+      return false;
+    }, bravoStart);
+    assert.ok(held, 'some scroll position holds the Bravo heading as the reading position');
+    await page.waitForFunction((want) => window.__marxyHandle.sourceHarness().byteOffset === want, bravoStart);
+    await page.evaluate(async (text) => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    }, head + inserted + tail);
+    await page.waitForFunction((snippet) => document.getElementById('doc')?.textContent?.includes(snippet), 'Written by another program.');
+    const want = Buffer.byteLength(head + inserted, 'utf8');
+    await page.waitForFunction((offset) => window.__marxyHandle.sourceHarness().byteOffset === offset, want);
+    const top = await page.evaluate(() => {
+      const heading = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent.includes('Bravo'));
+      return heading.getBoundingClientRect().top;
+    });
+    assert.ok(top >= 0 && top < 400, `the Bravo heading is near the top of the page after the write (top=${top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a reader who has not scrolled stays at the top when text is written above a short opening heading (F-19.1)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    // A short heading, then a long paragraph: the reading line (40% of the window) falls in the
+    // paragraph, so a reader at scrollY 0 does not naively hold byte 0.
+    const doc = `# Alpha\n\n${para('Alpha').repeat(12)}\n`;
+    await boot(page, { '/r/A.md': b64(doc) }, ['/r/A.md']);
+    assert.equal(await page.evaluate(() => window.scrollY), 0);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.sourceHarness().byteOffset), 0);
+    await page.evaluate(async (text) => {
+      const path = window.__marxyHandle.currentPath();
+      await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+      window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+    }, `# Preface\n\nPrepended.\n\n${doc}`);
+    await page.waitForFunction(() => document.getElementById('doc')?.textContent?.includes('Prepended.'));
+    await new Promise((r) => setTimeout(r, 300));
+    const after = await page.evaluate(() => ({
+      y: window.scrollY,
+      b: window.__marxyHandle.sourceHarness().byteOffset,
+      top: [...document.querySelectorAll('#doc p')].find((p) => p.textContent.includes('Prepended.')).getBoundingClientRect().top,
+    }));
+    assert.equal(after.y, 0);
+    assert.equal(after.b, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended text is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+// A reader in Source who has not scrolled is at byte 0, so text written above leaves them at the top (F-19.2).
+const prependedInSource = async (page) => {
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
+  await page.evaluate(async () => {
+    const path = window.__marxyHandle.currentPath();
+    const old = await window.__marxyHandle.shell.readFile(path);
+    const text = new TextDecoder().decode(old);
+    const fresh = path.endsWith('.ts') ? `// Prepended.\nconst first = 1;\n${text}` : `# Preface\n\nPrepended.\n\n${text}`;
+    await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(fresh));
+    window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+  });
+  await page.waitForFunction(() => document.querySelector('#marxy-source')?.textContent?.includes('Prepended.'));
+  await new Promise((r) => setTimeout(r, 400));
+  return page.evaluate(() => {
+    const line = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.textContent.includes('Prepended.'));
+    return { y: window.scrollY, top: line.getBoundingClientRect().top };
+  });
+};
+
+test('a .ts file opens in Source, unscrolled, and stays at the top when text is written above (F-19.2)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    const code = Array.from({ length: 400 }, (_, i) => `export const value${i} = ${i};`).join('\n') + '\n';
+    await boot(page, { '/r/A.ts': b64(code) }, ['/r/A.ts']);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const after = await prependedInSource(page);
+    assert.equal(after.y, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended line is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a .md file toggled to Source, unscrolled, stays at the top when text is written above (F-19.2)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    // Hand-wrapped lines: the reading line (40% of the window) falls on a source line below the heading.
+    const md = `# Alpha\n\n${Array.from({ length: 80 }, (_, i) => `Line ${i} of a paragraph that the author wrapped by hand.`).join('\n')}\n`;
+    await boot(page, { '/r/A.md': b64(md) }, ['/r/A.md']);
+    const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${mod}+KeyE`);
+    await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+    const after = await prependedInSource(page);
+    assert.equal(after.y, 0);
+    assert.ok(after.top >= 0 && after.top < 760, `the prepended line is on screen (top=${after.top})`);
+  } finally {
+    await browser.close();
+  }
+});
+
+// F-19.3: an outside write to a file open in Source carries the caret and selection through the change.
+const SOURCE_LINES = Array.from({ length: 60 }, (_, i) => `export const value${i} = ${i};`);
+const withCaret = async (page, from, to = from) => {
+  await page.evaluate(async ({ from, to }) => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const ed = activeSourceEditor(document.querySelector('#marxy-source'));
+    ed.view.dispatch({ selection: { anchor: from, head: to } });
+  }, { from, to });
+};
+const writeOutside = async (page, text) => {
+  await page.evaluate(async (text) => {
+    const path = window.__marxyHandle.currentPath();
+    await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+    window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+  }, text);
+  await page.waitForFunction(() => {
+    const t = document.querySelector('#marxy-source')?.textContent ?? '';
+    return t.includes('Changed') || !t.includes('value20 = 20');
+  });
+  await new Promise((r) => setTimeout(r, 300));
+};
+const selectionNow = (page) =>
+  page.evaluate(async () => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const { state } = activeSourceEditor(document.querySelector('#marxy-source')).view;
+    const { anchor, head } = state.selection.main;
+    return { anchor, head, text: state.sliceDoc(Math.min(anchor, head), Math.max(anchor, head)), line: state.doc.lineAt(head).text };
+  });
+const bootSource = async (page, { eol, bom }) => {
+  await boot(page, { '/r/A.ts': b64(bom + SOURCE_LINES.join(eol) + eol) }, ['/r/A.ts']);
+  await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+  await page.waitForFunction(() => document.querySelector('#marxy-source .cm-line'));
+};
+
+// F-23: CodeMirror counts a line break as one position and leaves the BOM out; the buffer counts both.
+const FILE_SHAPES = [
+  { label: '', eol: '\n', bom: '' },
+  { label: ' in a CRLF file (F-23)', eol: '\r\n', bom: '' },
+  { label: ' in a file with a BOM (F-23)', eol: '\n', bom: '\uFEFF' },
+  { label: ' in a CRLF file with a BOM (F-23)', eol: '\r\n', bom: '\uFEFF' },
+];
+for (const { label, eol, bom } of FILE_SHAPES) {
+test(`a write above the caret leaves the Source caret on the same text (F-19.3)${label}`, async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page, { eol, bom });
+    const at = SOURCE_LINES.slice(0, 20).join('\n').length + 1 + 7;
+    await withCaret(page, at);
+    await writeOutside(page, bom + ['// Changed', '// Changed again', ...SOURCE_LINES].join(eol) + eol);
+    const now = await selectionNow(page);
+    assert.equal(now.line, 'export const value20 = 20;');
+    assert.equal(now.anchor, now.head);
+    assert.equal(now.head, ['// Changed', '// Changed again', ...SOURCE_LINES.slice(0, 20)].join('\n').length + 1 + 7);
+  } finally {
+    await browser.close();
+  }
+});
+
+test(`a Source selection follows an insertion above it (F-19.3)${label}`, async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page, { eol, bom });
+    const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
+    await withCaret(page, start + 13, start + 20);
+    await writeOutside(page, bom + ['// Changed', ...SOURCE_LINES].join(eol) + eol);
+    const now = await selectionNow(page);
+    assert.equal(now.text, 'value20');
+  } finally {
+    await browser.close();
+  }
+});
+
+test(`a Source caret inside deleted text lands at the deletion point (F-19.3)${label}`, async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page, { eol, bom });
+    const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
+    await withCaret(page, start + 10);
+    // The next line starts differently, so the deleted run is unambiguous (a shared prefix would hold the caret).
+    const kept = [...SOURCE_LINES.slice(0, 20), '// tail', ...SOURCE_LINES.slice(23)];
+    await writeOutside(page, bom + kept.join(eol) + eol);
+    const now = await selectionNow(page);
+    assert.equal(now.anchor, start);
+    assert.equal(now.head, start);
+    assert.equal(now.line, '// tail');
+  } finally {
+    await browser.close();
+  }
+});
+}

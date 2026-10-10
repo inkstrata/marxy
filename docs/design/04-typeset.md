@@ -16,8 +16,6 @@ four are built here, and the aesthetics gate measures all four (§10).
 export interface TypesetOptions {
   readonly lineBox: number;                 // px; from --marxy-line-box
   readonly raggedStretchEm?: number;        // per-line right-skip for the ragged breaker; default 2
-  readonly glueStretchEm: number;           // per-space stretch, only for engine 'justif' (MARXY-19's 0.6)
-  readonly engine?: 'ragged' | 'justif';    // default 'ragged' (ADR-0007 Amendment 1)
   readonly hyphenate: boolean;              // MARXY-24
   readonly lastLineMinWidth: number;        // accepted; the ragged breaker's last line is free
   readonly hanging: 'none' | 'left';        // MARXY-24
@@ -64,9 +62,14 @@ layouts however many paragraphs it holds.
    line end takes its font's width from a space measured elsewhere.
 3. **Break** (`src/ragged.ts`): total-fit, ragged-right with a per-line right-skip of 2 em
    (`\RaggedRight`). Line cost `(10 + badness)²`, badness `100·(shortfall / 2em)³`, penalty 50 after a
-   dash, 3000 extra for two dash-ended lines in a row, last line free. justif/core over MARXY-19's
-   per-space stream is the `engine: 'justif'` option, kept for comparison and for justified setting:
-   it made technical text worse than the engine (ADR-0007 Amendment 1, RESEARCH.md "Rendered").
+   dash, 3000 extra for two dash-ended lines in a row, last line free. justif/core's line breaker over
+   MARXY-19's per-space stream made technical text worse than the engine (ADR-0007 Amendment 1,
+   RESEARCH.md "Rendered") and the `engine: 'justif'` option that kept it is gone (B-17): justif
+   supplies the hyphenation patterns and the hanging-punctuation tables only.
+
+   **The switch.** `typeset = false` in `config.toml` makes the app set `--marxy-typeset: none` on the
+   root (`theme/app-config.ts`); the typesetter reads it at `attach` and between chunks, restores every
+   paragraph and leaves the wrapping to the engine. Absent or `true`, the property is removed.
 4. **Apply** (`src/apply.ts`): for each break, split the text node just after the space (or dash) and
    insert an empty `<span class="marxy-lb">`, whose `::before` is a generated newline
    (`content: '\A'; white-space: pre`, base.css); the paragraph gets `.marxy-set` (`nowrap`). Generated
@@ -117,7 +120,15 @@ because below that no breaker makes the spacing even (research: 11 very loose li
 - An IntersectionObserver with a 200 % margin sets an unset paragraph immediately when scrolled near.
 - `relayout(reason)` reverts everything and runs again; the app calls it on a width change (debounced
   100 ms). Fonts are ready before `attach`, so no `fonts` relayout is needed at startup.
-- After every pass the app re-runs `snapToGrid` and rebuilds the reading-position blocks (`onPass`).
+- While a large document is still being appended in chunks (`adopt`), the background batches wait until
+  adoption has been quiet for 50 ms, on a scheduler that can wait (`Scheduler.after`; the idle scheduler
+  can): each batch lays the article out two or three times, and taken between chunks they made the last
+  chunk wait on work that grew with the square of the document (B-25). The observer still sets what
+  the reader scrolls to at once.
+- After every pass the app re-runs `snapToGrid` and rebuilds the reading-position blocks (`onPass`),
+  except after a background batch that left every paragraph it set at its native height, which moved
+  nothing (B-25). Every Range the typesetter reads through is one per document (`scratchRange`): WebKit
+  visits every live Range on every DOM mutation until the collector frees it.
 
 ## Grid (D-A7)
 

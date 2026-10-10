@@ -87,12 +87,16 @@ test('window.marxyApp.start boots the real app and records one readFile', async 
       await handle.ready;
       const heading = document.querySelector('#doc h1, #doc h2, #doc h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '';
       // Launch reads the document, the config and trust.json. The index snapshot (A-05) is read from
-      // `/data/index-<sha1>.json` and is the only read left out.
-      const reads = handle.shell.calls.filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-'));
-      return { heading, reads: reads.map((c) => c.args[0]) };
+      // `/data/index-<sha1>.json`, and collection.toml (C-10) for the index's deny list after first text,
+      // in an order the idle queue decides; both are left out of the ordered list.
+      const all = handle.shell.calls.filter((c) => c.method === 'readFile').map((c) => c.args[0]);
+      // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
+      const reads = all.filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && !/\/\.git(\/HEAD)?$/.test(String(p)));
+      return { heading, reads, collectionReads: all.filter((p) => p === '/collection.toml').length };
     }, { files: { '/docs/README.md': fixture.toString('base64') }, argv: ['/docs/README.md'] });
     assert.equal(result.heading, 'widgetlib');
     assert.deepEqual(result.reads, ['/docs/README.md', '/config', '/data/trust.json']);
+    assert.ok(result.collectionReads <= 1, 'collection.toml is read at most once by the index');
   } finally {
     await browser.close();
   }

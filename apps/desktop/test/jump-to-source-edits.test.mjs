@@ -136,9 +136,122 @@ test('Jump to source, type, Mod+E twice keeps the text; Mod+Z undoes it', async 
   assert.ok((await sourceText(page)).includes(`Paragraph one.${TYPED}`), 'Source still shows the typed text');
   await page.keyboard.press(`${mod}+e`);
   await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+  await page.waitForFunction(() => !document.querySelector('#marxy-source')?.contains(document.activeElement));
+  // Mod+Z is gated on the store having an entry to undo; a key it refuses is dropped silently.
+  await page.waitForFunction(() => window.__b.handle.document().snapshot().canUndo);
   await page.keyboard.press(`${mod}+z`);
-  await page.waitForFunction((t) => new TextDecoder().decode(window.__b.handle.openDocument().buffer.bytes) === t, TEXT, { timeout: 3000 })
-    .catch(() => {});
+  await page.waitForFunction((t) => new TextDecoder().decode(window.__b.handle.openDocument().buffer.bytes) === t, TEXT, { timeout: 3000 });
   assert.equal(await bufferText(page), TEXT, 'Mod+Z took the typed text back out');
+  await page.close();
+});
+
+test('F-05: a click in one document is not the jump target after another document opens', async () => {
+  const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ a, b }) => {
+    window.__b = await window.marxyPaletteBoot.start({ '/doc/a.md': a, '/doc/b.md': b }, ['/doc/a.md'], []);
+  }, { a: Buffer.from(TEXT).toString('base64'), b: Buffer.from('# Other\n').toString('base64') });
+  await page.waitForFunction(() => document.querySelector('#doc p'));
+  await page.waitForFunction(() => typeof window.marxyRunCommand === 'function');
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.__b.handle.open('/doc/b.md'));
+  await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent === 'Other');
+  await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(await page.evaluate(() => document.body.dataset.marxyMode), 'rendered', 'no jump: nothing was clicked in this document');
+  await page.close();
+});
+
+async function bootTwo() {
+  const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+  await page.goto(`${base}test/palette-boot.html`);
+  await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
+  await page.evaluate(async ({ a, b }) => {
+    window.__b = await window.marxyPaletteBoot.start({ '/doc/a.md': a, '/doc/b.md': b }, ['/doc/a.md'], []);
+  }, { a: Buffer.from(TEXT).toString('base64'), b: Buffer.from('# Other\n\nSecond file.\n').toString('base64') });
+  await page.waitForFunction(() => document.querySelector('#doc p'));
+  await page.waitForFunction(() => typeof window.marxyRunCommand === 'function');
+  return page;
+}
+
+test('F-12: toggling line numbers in Rendered, then opening another document, Jump to source shows that document', async () => {
+  const page = await bootTwo();
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  assert.equal(await page.evaluate(() => document.body.dataset.marxyMode), 'rendered', 'the toggle does not enter Source');
+  assert.equal(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-editor'))), false, 'the toggle made no editor');
+  await page.evaluate(() => window.__b.handle.open('/doc/b.md'));
+  await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent === 'Other');
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'source' && document.querySelector('#marxy-source .cm-content'));
+  const text = await sourceText(page);
+  assert.ok(text.includes('Second file.'), `Source shows the second file, got: ${text}`);
+  assert.ok(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-lineNumbers'))), 'with numbers on');
+  await page.close();
+});
+
+test('F-12: Mod+E after the same sequence shows the new document too', async () => {
+  const page = await bootTwo();
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  await page.evaluate(() => window.__b.handle.open('/doc/b.md'));
+  await page.waitForFunction(() => document.querySelector('#doc h1')?.textContent === 'Other');
+  await page.evaluate(() => window.__b.handle.toggleMode());
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
+  assert.ok((await sourceText(page)).includes('Second file.'));
+  await page.close();
+});
+
+test('F-12: commitEdit of a real change while Source holds typed text is refused and loses nothing', async () => {
+  const page = await boot();
+  await jumpAndType(page);
+  const refused = await page.evaluate(async () => {
+    const h = window.__b.handle;
+    const snap = h.openDocument().buffer;
+    const bytes = new TextEncoder().encode(new TextDecoder().decode(snap.bytes).replace('Paragraph two.', 'Paragraph 2.'));
+    try { await h.commitEdit({ ...snap, bytes }); return false; } catch { return true; }
+  });
+  assert.equal(refused, true, 'commitEdit refused');
+  assert.equal(await bufferText(page), TEXT, 'the store is unchanged');
+  assert.ok((await sourceText(page)).includes(`Paragraph one.${TYPED}`), 'the typed text is kept');
+  await page.close();
+});
+
+test('F-12: palette Undo in Source takes out what was typed and nothing else', async () => {
+  const page = await boot();
+  await jumpAndType(page);
+  await page.keyboard.press(`${await modOf(page)}+KeyP`);
+  await page.fill('#marxy-palette .marxy-palette-query', '>undo');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction((t) => !document.querySelector('#marxy-source .cm-content').innerText.includes(t), TYPED.trim());
+  assert.ok((await sourceText(page)).includes('Paragraph one.'));
+  assert.equal(await bufferText(page), TEXT);
+  await page.keyboard.press(`${await modOf(page)}+e`);
+  await page.waitForFunction(() => document.body.dataset.marxyMode === 'rendered');
+  assert.equal(await bufferText(page), TEXT, 'the next fold did not bring the text back');
+  await page.close();
+});
+
+test('F-12: Mod+S in Source after typing writes exactly the typed bytes', async () => {
+  const page = await boot();
+  await jumpAndType(page);
+  await page.keyboard.press(`${await modOf(page)}+s`);
+  await page.waitForFunction((p) => window.__b.handle.shell.calls.some((c) => c.method === 'writeFileAtomic' && c.args[0] === p), PATH, { timeout: 5000 });
+  assert.deepEqual(await writes(page), [EDITED]);
+  await page.close();
+});
+
+test('F-12: the toggle in Source still flips the numbers live', async () => {
+  const page = await bootTwo();
+  await page.click('#doc p >> nth=0');
+  await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));
+  await page.waitForSelector('#marxy-source .cm-content');
+  assert.equal(await page.evaluate(() => Boolean(document.querySelector('#marxy-source .cm-lineNumbers'))), false);
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  await page.waitForSelector('#marxy-source .cm-lineNumbers');
+  await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
+  await page.waitForFunction(() => !document.querySelector('#marxy-source .cm-lineNumbers'));
   await page.close();
 });

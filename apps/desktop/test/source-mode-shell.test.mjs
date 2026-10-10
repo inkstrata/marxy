@@ -62,9 +62,10 @@ async function boot(page, files, argv) {
   }, { files, argv });
 }
 
-nodeTest('app.ts does not statically import @codemirror (startup deferral)', () => {
-  const app = readFileSync(join(desktopSrc, 'app.ts'), 'utf8');
-  assert.doesNotMatch(app, /@codemirror/);
+nodeTest('app.ts and view/rendered-view.ts do not statically import @codemirror (startup deferral)', () => {
+  for (const file of ['app.ts', join('view', 'rendered-view.ts')]) {
+    assert.doesNotMatch(readFileSync(join(desktopSrc, file), 'utf8'), /@codemirror/, file);
+  }
 });
 
 nodeTest('main.ts static import walk still excludes CodeMirror after app wiring', () => {

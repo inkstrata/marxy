@@ -5,8 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
 import { emptySession } from './session.ts';
-import { jumpForHit, paletteResults, SEARCH_PREPARED_BODY_MUTATION } from './search.ts';
-import { judge, MUTATIONS } from '../../scripts/mutations.mjs';
+import { jumpForHit, paletteResults } from './search.ts';
+import { judge, MUTATIONS, SEARCH_PREPARED_BODY_MUTATION } from '../../scripts/mutations.mjs';
 
 const MODEL_FILES = ['session.ts', 'search.ts', 'keys.ts'] as const;
 const MODEL_FORBIDDEN = [/MiniNode/i, /\bview\.ts\b/, /querySelector\s*\(/, /createElement\s*\(/];
@@ -26,13 +26,12 @@ test('desktop test scripts run the palette model tests and the named mutation', 
     /src\/palette\/\*\.test\.ts|src\/\*\*\/\*\.test\.ts/,
     'test script must include palette model tests',
   );
-  assert.doesNotMatch(script, /MARXY_86_MUTATION/, 'the mutation run belongs to test:mutations, not test');
+  assert.doesNotMatch(script, /MUTATION/, 'the mutation run belongs to test:mutations, not test');
   assert.equal(pkg.scripts['test:mutations'], 'node scripts/mutations.mjs');
   const runner = readFileSync(new URL('../../scripts/mutations.mjs', import.meta.url), 'utf8');
   assert.match(runner, /\bSEARCH_PREPARED_BODY_MUTATION\b/, 'mutations.mjs must name the mutation constant');
   const spec = MUTATIONS.find((m) => m.name === SEARCH_PREPARED_BODY_MUTATION);
   assert.ok(spec, 'mutations.mjs must run the searchPrepared body mutation');
-  assert.equal(spec.env.MARXY_86_MUTATION, SEARCH_PREPARED_BODY_MUTATION);
   assert.ok(spec.mustFail.length > 0, 'the mutation must name the tests it turns red');
 });
 
@@ -64,16 +63,11 @@ test('palette model files stay DOM-free', () => {
   }
 });
 
-test(`mutation ${SEARCH_PREPARED_BODY_MUTATION}: searchPrepared is live when the env hook is unset`, {
-  skip: process.env.MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION,
-}, () => {
-  assert.notEqual(process.env.MARXY_86_MUTATION, SEARCH_PREPARED_BODY_MUTATION);
+test(`mutation ${SEARCH_PREPARED_BODY_MUTATION}: its patch still matches searchPrepared once, and the product reads no switch`, () => {
+  const spec = MUTATIONS.find((m) => m.name === SEARCH_PREPARED_BODY_MUTATION)!;
   const searchSource = readFileSync(new URL('./search.ts', import.meta.url), 'utf8');
-  assert.match(
-    searchSource,
-    new RegExp(`MARXY_86_MUTATION === SEARCH_PREPARED_BODY_MUTATION`),
-    'searchPrepared must honor the named body mutation',
-  );
+  assert.equal(searchSource.split(spec.patch.find).length - 1, 1, 'the patch must match exactly one place in search.ts');
+  assert.doesNotMatch(searchSource, /process\.env/, 'search.ts carries no environment switch (B-16)');
 });
 
 function doc(partial: Partial<IndexEntry> & Pick<IndexEntry, 'path' | 'title'>): IndexEntry {
@@ -238,4 +232,13 @@ test('a decomposed (NFD) file name matches a composed (NFC) query and the revers
   const session = emptySession('/repo');
   assert.equal(paletteResults(nfc, [entry(nfd)], session).length, 1);
   assert.equal(paletteResults(nfd, [entry(nfc)], session).length, 1);
+});
+
+test('two hits with equal score and equal last read: the newer file comes first, before the path decides', () => {
+  const older = doc({ path: '/repo/a.md', title: 'Notes', mtimeMs: 1_000 });
+  const newer = doc({ path: '/repo/b.md', title: 'Notes', mtimeMs: 2_000 });
+  const hits = paletteResults('notes', [older, newer], emptySession('/repo'));
+  assert.deepEqual(hits.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
+  const reversed = paletteResults('notes', [newer, older], emptySession('/repo'));
+  assert.deepEqual(reversed.map((hit) => hit.entry.path), ['/repo/b.md', '/repo/a.md']);
 });

@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
@@ -24,21 +24,6 @@ let base;
 before(async () => {
   if (skip) return;
   await build({ root: appRoot, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
-  await build({
-    configFile: false,
-    root: appRoot,
-    logLevel: 'silent',
-    build: {
-      lib: {
-        entry: resolve(appRoot, 'src/selection/harness-entry.ts'),
-        formats: ['iife'],
-        name: 'MarxySelectionHarness',
-        fileName: 'selection-harness',
-      },
-      outDir: join(outDir, 'sel'),
-      emptyOutDir: true,
-    },
-  });
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -59,8 +44,6 @@ test('jump-to-source opens Source at data-marxy-s of the selected block', async 
     const mdPath = '/doc/sample.md';
     const md = '# Title\n\nParagraph with **bold** text.\n';
     await page.goto(`${base}app.html`);
-    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
     await page.evaluate(async ({ mdPath, md }) => {
       const handle = await window.marxyApp.start({ [mdPath]: btoa(md) }, [mdPath]);
       await handle.ready;
@@ -86,16 +69,15 @@ test('jump-to-source opens Source at data-marxy-s of the selected block', async 
   }
 });
 
-test('jump-to-source on a block far down a long document holds it at the reading line', async () => {
+for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file (F-23)', eol: '\r\n' }]) {
+test(`jump-to-source on a block far down a long document holds it at the reading line${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     const mdPath = '/doc/long.md';
     const paras = Array.from({ length: 120 }, (_, i) => `Paragraph number ${i + 1} of the long document.`);
-    const md = `# Long\n\n${paras.join('\n\n')}\n`;
+    const md = `# Long\n\n${paras.join('\n\n')}\n`.replaceAll('\n', eol);
     await page.goto(`${base}app.html`);
-    await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-    await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
     await page.evaluate(async ({ mdPath, md }) => {
       const handle = await window.marxyApp.start({ [mdPath]: btoa(md) }, [mdPath]);
       await handle.ready;
@@ -127,3 +109,4 @@ test('jump-to-source on a block far down a long document holds it at the reading
     await browser.close();
   }
 });
+}

@@ -1,6 +1,6 @@
 // Layout-shift measurement for the aesthetics gate (B-01): block snapshots keyed by provenance, the
 // moved area between two of them, and the report the gate reads. Copied unchanged from
-// render/headless.ts, which B-02 deletes once the gate renders through the app (gate-entry.ts).
+// the headless render entry B-02 deleted once the gate rendered through the app (gate-entry.ts).
 
 /** In-page layout-shift report. `observed` is never implied by `cls === 0`. */
 export interface LayoutShift {

@@ -3,14 +3,16 @@
 import type { Buffer } from '@marxy/core';
 import type { EditorView } from '@codemirror/view';
 import { Compartment, type Extension } from '@codemirror/state';
-import { cmDocText } from './buffer-commit.ts';
+import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
 import { languageExtension, LARGE_FILE_BYTES } from './language.ts';
-import { writeLineNumbersPreference } from './line-numbers.ts';
+import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
 import { liveMarxyTheme } from './theme-bridge.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
 import { tabSizeForFile } from './tab-width.ts';
+import { appHandle } from '../commands/app-handle.ts';
+import { sourceEditChords } from '../commands/source-edit.ts';
 
 export interface SourceEditorOptions {
   readonly parent: HTMLElement;
@@ -32,48 +34,62 @@ export interface SourceEditor {
 
 const lineNumbersCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
+const lineSeparatorCompartment = new Compartment();
 const themeCompartment = new Compartment();
 
-let sharedParent: HTMLElement | null = null;
-let sharedEditor: SourceEditor | null = null;
+/**
+ * The live editor in each Source mount, newest last (D-01). One per mount, not one per page: two panes
+ * each have a mount, and one view clearing its own editor must not destroy the other's (the B-13 review).
+ */
+const editors = new Map<HTMLElement, SourceEditor>();
 
 /** Dynamic import boundary: CM6 stays off the startup path (MARXY-33). */
 export async function loadCodeMirror(): Promise<typeof import('./editor-cm6.ts')> {
   return import('./editor-cm6.ts');
 }
 
-/** Active Source editor when mounted (one per `#marxy-source` parent). */
-export function activeSourceEditor(): SourceEditor | null {
-  return sharedEditor;
+/**
+ * The editor mounted in `parent`; without one, the focused pane's (D-11): the running app's focused pane
+ * names its mount, and that mount's editor is the one keys and commands mean, or null when that pane has
+ * none (it shows Rendered). With no app in the page (the editor's own harness), the one mounted last.
+ */
+export function activeSourceEditor(parent?: HTMLElement): SourceEditor | null {
+  const mount = parent ?? focusedSourceMount();
+  if (mount) return editors.get(mount) ?? null;
+  return [...editors.values()].at(-1) ?? null;
 }
 
-/** Create a Source editor for `buffer`. */
+/** The focused pane's Source mount, from the running app; null with none. */
+function focusedSourceMount(): HTMLElement | null {
+  return appHandle()?.panes?.().focused.parts.source ?? null;
+}
+
+/** Create a Source editor for `buffer` in `opts.parent`; the editor already there takes the buffer instead. */
 export async function createSourceEditor(opts: SourceEditorOptions): Promise<SourceEditor> {
-  if (sharedEditor && sharedParent === opts.parent) {
-    sharedEditor.replaceBuffer(opts.buffer);
-    return sharedEditor;
+  const existing = editors.get(opts.parent);
+  if (existing) {
+    existing.replaceBuffer(opts.buffer);
+    return existing;
   }
-  sharedEditor?.destroy();
   const cm = await loadCodeMirror();
-  sharedParent = opts.parent;
-  const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment });
+  const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment, lineSeparatorCompartment });
   const rawDestroy = built.destroy.bind(built);
-  // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built
-  // and assigned to `sharedEditor`; comparing against `built` (the pre-wrap object) here would
-  // never match `sharedEditor` (always the wrapper), so destroy would never clear the shared
-  // reference and a torn-down editor would look reusable to the next mount (MARXY-239 fix).
+  // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built and
+  // registered; comparing against `built` (the pre-wrap object) would never match the registered
+  // wrapper, so a torn-down editor would look reusable to the next mount (MARXY-239 fix).
   const wrapper: SourceEditor = {
     ...built,
+    // A spread copies a getter's value once; read through so `buffer` follows replaceBuffer.
+    get buffer() {
+      return built.buffer;
+    },
     destroy() {
       rawDestroy();
-      if (sharedEditor === wrapper) {
-        sharedEditor = null;
-        sharedParent = null;
-      }
+      if (editors.get(opts.parent) === wrapper) editors.delete(opts.parent);
     },
   };
-  sharedEditor = wrapper;
-  return sharedEditor;
+  editors.set(opts.parent, wrapper);
+  return wrapper;
 }
 
 /** Whether wrapping and grammar should be disabled for this buffer. */
@@ -81,11 +97,11 @@ export function isLargeSourceFile(buffer: Buffer): boolean {
   return buffer.bytes.length > LARGE_FILE_BYTES;
 }
 
-/** Initial doc string and line separator for CM6. */
-export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' } {
+/** Initial doc string and line separator for CM6 (the separator rule is `lineSeparatorFor`, F-24, F-25). */
+export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' | '\r' } {
   return {
     doc: cmDocText(buffer),
-    lineSeparator: buffer.eol === 'crlf' ? '\r\n' : '\n',
+    lineSeparator: lineSeparatorFor(buffer),
   };
 }
 
@@ -109,11 +125,15 @@ async function gutterExtensions(folding: boolean): Promise<Extension[]> {
   return [lineNumbers(), foldGutter()];
 }
 
+function isMacPlatform(): boolean {
+  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+}
+
 /** Base extensions shared by create and tests. */
 export async function baseExtensions(
   buffer: Buffer,
   lineNumbers: boolean,
-  compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment },
+  compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment },
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
@@ -121,15 +141,19 @@ export async function baseExtensions(
     '@codemirror/view'
   );
   const { searchKeymap } = await import('@codemirror/search');
+  const { withoutRegistryChords } = await import('./structure.ts');
 
   const { lineSeparator } = editorDocConfig(buffer);
   const tabSize = await tabSizeForFile(buffer.path);
   const lnOn = lineNumbers;
   const lnComp = compartments?.lineNumbersCompartment ?? lineNumbersCompartment;
+  const sepComp = compartments?.lineSeparatorCompartment ?? lineSeparatorCompartment;
   const tabComp = compartments?.tabSizeCompartment ?? tabSizeCompartment;
 
   const exts: Extension[] = [
     history(),
+    // Several selections: next and all occurrences (V-01) add ranges, which a single-selection state drops.
+    EditorState.allowMultipleSelections.of(true),
     drawSelection(),
     highlightActiveLine(),
     highlightSpecialChars(),
@@ -152,11 +176,11 @@ export async function baseExtensions(
           return true;
         },
       },
-      ...defaultKeymap,
-      ...historyKeymap,
-      ...searchKeymap,
+      // The chords the command registry binds in Source (V-01) are its alone, so a press runs one thing.
+      ...withoutRegistryChords([...defaultKeymap, ...historyKeymap, ...searchKeymap], sourceEditChords(), isMacPlatform()),
     ]),
-    EditorState.lineSeparator.of(lineSeparator),
+    // A compartment: a reload that changes the file's line-ending class swaps it (F-25).
+    sepComp.of(EditorState.lineSeparator.of(lineSeparator)),
     tabComp.of(EditorState.tabSize.of(tabSize)),
     liveMarxyTheme(themeCompartment),
     marxyHighlighting(),
@@ -184,7 +208,7 @@ export function toggleLineNumbersInView(view: EditorView, on: boolean, compartme
     const folding = view.state.field(foldState, false) !== undefined;
     view.dispatch({ effects: compartment.reconfigure(on ? await gutterExtensions(folding) : []) });
   })();
-  writeLineNumbersPreference(on);
+  setLineNumbersChoice(on);
 }
 
-export { scrollSourceToByte, cmDocText };
+export { scrollSourceToByte, cmDocText, lineSeparatorFor };

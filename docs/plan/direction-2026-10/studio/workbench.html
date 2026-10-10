@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" data-theme="night" data-typeset="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clipboard workbench</title>
+<link rel="stylesheet" href="../mock-v2/shared/tokens.css">
+<link rel="stylesheet" href="../mock-v2/shared/app.css">
+<link rel="stylesheet" href="studio.css">
+<script>(function(){try{var t=localStorage.getItem('marxy.studio.theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V5h6v5.8l3 3.2v2H6v-2z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+  <symbol id="i-slash" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+</svg>
+<div class="page">
+  <header>
+    <h1>Workbench and pipelines</h1>
+    <nav aria-label="Studio pages"><a href="README.md">Studio</a><a href="workbench.md">Spec</a><a href="history.html">History</a><a href="rules.html">Rules</a><a href="collect.html">Collect</a><a href="ring.html">Ring</a></nav>
+    <span class="grow"></span>
+    <button class="btn sm" type="button" data-toggle-theme><svg class="i"><use href="#i-sun"/></svg>Night / Paper</button>
+  </header>
+  <p class="lede">W-21's result sheet, given room: one input, a chain of transforms from J-03's library, the output as Before, After or Diff. The result is copied, copied as, chained, or opened as a scratch document; it never writes a document on disk. Spec: <a href="workbench.md">workbench.md</a>. Sample text only.</p>
+
+  <h2 class="plate-h">1 · Normal: a history item through two steps</h2>
+  <p class="cap">Input from history (<kbd>⌥↵</kbd> on a row). Two steps, each with its size change and a skip switch. After is shown; <kbd>⌘↵</kbd> copies it, recorded in history as a workbench result.</p>
+  <div class="frame">
+    <div class="chrome"><span class="lights"><i></i><i></i><i></i></span><b>Clipboard</b><span>· workbench</span></div>
+    <section class="bench" aria-label="Workbench">
+      <div class="blk">
+        <div class="phead"><b>Input</b><span class="src-chip"><svg class="i sm"><use href="#i-file"/></svg>From history: plan.md:42<svg class="i sm"><use href="#i-chev"/></svg></span><span class="grow"></span><span class="stats">412 chars · 6 lines</span></div>
+<pre class="ed"><span class="tk-h">## Migration plan</span>
+
+<span class="tk-m">-</span> step 3 moves the **index** to the new volume
+<span class="tk-m">-</span> step 4 rebuilds **positions** from the index
+<span class="tk-m">-</span> see the runbook, *section 5*</pre>
+      </div>
+      <div class="blk">
+        <div class="phead"><b>Pipeline: Unsaved</b><span class="grow"></span><button class="btn sm" type="button"><svg class="i"><use href="#i-plus"/></svg>Add step <kbd>⇧⌘A</kbd></button><button class="btn sm ghost" type="button">Load<svg class="i sm"><use href="#i-chev"/></svg></button><button class="btn sm ghost" type="button">Save as pipeline…</button></div>
+        <div class="steps" role="list" aria-label="Steps">
+          <div class="step" role="listitem"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">1</span><span class="name">Remove bold<span class="g">Clean</span></span><span class="d">−8 chars</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="step sel" role="listitem"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">2</span><span class="name">Markdown → Slack<span class="g">Convert</span></span><span class="d">−21 chars</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+        </div>
+      </div>
+      <div>
+        <div class="phead"><b>Output</b><span class="seg"><button type="button">Before</button><button type="button" aria-pressed="true">After</button><button type="button">Diff</button></span><span class="grow"></span><span class="stats">412 → 383 chars · −7%</span></div>
+<pre class="ed">*Migration plan*
+
+• step 3 moves the index to the new volume
+• step 4 rebuilds positions from the index
+• see the runbook, _section 5_</pre>
+        <div class="out-actions"><button class="btn sm primary" type="button"><svg class="i"><use href="#i-copy"/></svg>Copy <kbd>⌘↵</kbd></button><button class="btn sm" type="button">Copy as<svg class="i sm"><use href="#i-chev"/></svg></button><button class="btn sm ghost" type="button">As input</button><button class="btn sm ghost" type="button">Open as scratch document</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="plates">
+    <div>
+      <h2 class="plate-h">2 · Diff</h2>
+      <p class="cap">E-16's line diff, input against output; unchanged runs fold.</p>
+      <div class="frame">
+        <div class="phead"><b>Output</b><span class="seg"><button type="button">Before</button><button type="button">After</button><button type="button" aria-pressed="true">Diff</button></span></div>
+        <div class="diff">
+          <div class="del">- ## Migration plan</div><div class="add">+ *Migration plan*</div>
+          <div class="fold">1 unchanged line</div>
+          <div class="del">- - step 3 moves the **index** to the new volume</div><div class="add">+ • step 3 moves the index to the new volume</div>
+          <div class="del">- - see the runbook, *section 5*</div><div class="add">+ • see the runbook, _section 5_</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h2 class="plate-h">3 · Empty</h2>
+      <p class="cap">No input yet: the three inputs, and three quick starts for the steps.</p>
+      <div class="frame" style="min-height:260px">
+        <div class="empty"><span>Choose an input: a history item, the clipboard, or the selection.</span>
+          <span style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap"><button class="btn sm" type="button">A history item</button><button class="btn sm" type="button">The clipboard</button><button class="btn sm" type="button">The selection</button></span>
+          <span class="stats">Quick starts: Remove bold · Markdown → Slack · Markdown → Jira wiki</span></div>
+      </div>
+    </div>
+    <div>
+      <h2 class="plate-h">4 · A step that fails, a step that changes nothing</h2>
+      <p class="cap">A failing step keeps its input and names the error; the chain goes on.</p>
+      <div class="frame">
+        <div class="steps">
+          <div class="step"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">1</span><span class="name">Format JSON<span class="g">Convert</span></span><span class="d flat">no change</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="step"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">2</span><span class="name">Markdown table → JSON<span class="g">Convert</span></span><span class="d err">error: no table</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="step off"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">3</span><span class="name">Sort lines<span class="g">Lines</span></span><span class="d flat">skipped</span><label class="switch sm" aria-label="Run this step"><input type="checkbox"><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h2 class="plate-h">5 · Large input</h2>
+      <p class="cap">Over 1 MB nothing runs; the reader is offered a scratch document instead.</p>
+      <div class="frame" style="min-height:200px">
+        <div class="banner"><svg class="i"><use href="#i-alert"/></svg><span class="grow">Too large for the workbench (3.4 MB); open it as a scratch document.</span><button class="btn sm" type="button">Open</button></div>
+      </div>
+    </div>
+    <div>
+      <h2 class="plate-h">6 · Save as pipeline</h2>
+      <p class="cap">Appends one <code>[[pipeline]]</code> table to <code>config.toml</code>; every other byte stays. Skipped steps are left out, and the sheet says so.</p>
+      <div class="stage" style="min-height:300px">
+        <div class="sheet" role="dialog" aria-label="Save as pipeline">
+          <div class="sh">Save as pipeline</div>
+          <div class="sb">
+            <label style="display:grid;gap:4px">Name <span class="field" style="display:flex;align-items:center">Slack, no bold</span></label>
+            <p style="margin:10px 0 0">Steps: Remove bold → Markdown → Slack. One skipped step is left out.</p>
+<pre class="ed" style="margin-top:8px;border:1px solid var(--line);border-radius:7px;min-height:0">[[pipeline]]
+name  = "Slack, no bold"
+steps = ["strip-bold", "to-slack"]</pre>
+          </div>
+          <div class="sf"><button class="btn sm" type="button">Cancel</button><button class="btn sm primary" type="button">Save to config.toml</button></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h2 class="plate-h">7 · Running a pipeline from the palette</h2>
+      <p class="cap">With no selection, <code>&gt;Run pipeline</code> reads the clipboard on that action, writes the result back, and shows the result sheet with Undo.</p>
+      <div class="stage" style="min-height:300px">
+        <div class="sheet" role="dialog" aria-label="Pipeline result">
+          <div class="sh">Slack, no bold · on the clipboard</div>
+          <div class="sb"><span class="stats">412 → 383 chars · copied</span>
+<pre class="ed" style="margin-top:8px;border:1px solid var(--line);border-radius:7px;min-height:0">*Migration plan*
+• step 3 moves the index to the new volume</pre></div>
+          <div class="sf"><button class="btn sm" type="button">Undo</button><button class="btn sm" type="button">Open in the workbench</button><button class="btn sm primary" type="button">Done</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="plate-h">Saved pipelines in <code>config.toml</code></h2>
+  <table class="spec" aria-label="Pipeline keys">
+    <thead><tr><th>Key</th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td><code>name</code></td><td>Required; at most 80 characters; unique, case-insensitive (a later duplicate is dropped with a warning)</td></tr>
+      <tr><td><code>steps</code></td><td>Required; 1 to 32 transform ids from J-03's library; an unknown id skips the pipeline with a warning naming it</td></tr>
+      <tr><td><code>key</code></td><td>Optional; inside Marxy only; <code>Mod</code> or <code>Ctrl</code> with another modifier; ignored with a warning if W-19's registry holds it</td></tr>
+    </tbody>
+  </table>
+</div>
+<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-toggle-theme]');if(!b)return;var r=document.documentElement;var n=r.dataset.theme==='night'?'paper':'night';r.dataset.theme=n;try{localStorage.setItem('marxy.studio.theme',n);}catch(x){}});</script>
+</body>
+</html>

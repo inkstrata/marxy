@@ -2,7 +2,7 @@
 // constructs the contract names, and the parse-time measurement the perf gate reads (ADR-0022).
 
 import { strict as assert } from 'node:assert';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { fromMarkdown } from 'mdast-util-from-markdown';
@@ -16,6 +16,7 @@ import { ParseProvenanceError, documentFromMdast } from './from-mdast.ts';
 import { checkInvariants } from './invariants.ts';
 import { splitLines } from './line-endings.ts';
 import { parseMarkdown } from './parse.ts';
+import { updateRecord } from '../../../../scripts/lib/perf-record.mjs';
 
 const corpusDir = new URL('../../../../fixtures/corpus/', import.meta.url);
 const markdownFixtures = readdirSync(corpusDir).filter((name) => name.endsWith('.md')).sort();
@@ -371,22 +372,13 @@ const parseSnapshotPath = new URL('perf-parse.json', resultsDir);
 // `parsed − file_read`; this write keeps a developer machine's Node number in the same results/ files.
 function writeParseMeasurement(median: number): void {
   mkdirSync(fileURLToPath(resultsDir), { recursive: true });
-  let existing: Record<string, unknown> = {};
-  if (existsSync(perfPath)) {
-    try {
-      existing = JSON.parse(readFileSync(perfPath, 'utf8')) as Record<string, unknown>;
-    } catch {
-      existing = {};
-    }
-  }
   const envClass = process.env.MARXY_PERF_ENV ?? (process.env.CI ? 'ci' : 'reference');
-  const record = {
-    ...existing,
+  // Written whole (temp file, then rename): desktop's palette test updates the same file at the same time.
+  updateRecord(fileURLToPath(perfPath), (existing) => ({
     parse_long_technical_ms: median,
     env_class: existing.env_class ?? envClass,
     runner_class: existing.runner_class ?? process.env.MARXY_RUNNER_CLASS ?? null,
-  };
-  writeFileSync(perfPath, `${JSON.stringify(record, null, 2)}\n`);
+  }));
   writeFileSync(parseSnapshotPath, `${JSON.stringify({ parse_long_technical_ms: median }, null, 2)}\n`);
 }
 

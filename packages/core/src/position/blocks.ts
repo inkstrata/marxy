@@ -36,7 +36,22 @@ export function blockIndexAtReadingLine(
   return ans;
 }
 
+/**
+ * The reading position at a scroll offset. A reader who has not scrolled (`scrollTop <= 0`) is
+ * reading the top of the file, not whichever block crosses the reading line, so that is byte 0
+ * (ruling, 2026-10-08); text written above it then leaves them at the top (`restore.ts`).
+ */
 export function positionAtScroll(
+  blocks: readonly LayoutBlock[],
+  scrollTop: number,
+  viewportHeight: number,
+): { readonly byteOffset: number; readonly fraction: number } {
+  if (scrollTop <= 0) return { byteOffset: 0, fraction: 0 };
+  return blockPositionAtScroll(blocks, scrollTop, viewportHeight);
+}
+
+/** The block under the reading line and how far through it the line is, with no top-of-file rule. */
+function blockPositionAtScroll(
   blocks: readonly LayoutBlock[],
   scrollTop: number,
   viewportHeight: number,
@@ -50,11 +65,12 @@ export function positionAtScroll(
   return { byteOffset: block.start, fraction };
 }
 
-function blockForByteOffset(blocks: readonly LayoutBlock[], byteOffset: number): LayoutBlock {
-  let chosen = blocks[0];
-  for (const block of blocks) {
-    if (block.start >= byteOffset) return block;
-    chosen = block;
+/** The block holding `byteOffset`: the last one starting at or before it, as `restore.ts`'s `blockAt`. */
+function blockIndexForByteOffset(blocks: readonly LayoutBlock[], byteOffset: number): number {
+  let chosen = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i].start > byteOffset) break;
+    chosen = i;
   }
   return chosen;
 }
@@ -66,12 +82,12 @@ export function scrollTopForPosition(
   viewportHeight: number,
 ): number {
   if (blocks.length === 0) return 0;
-  const block = blockForByteOffset(blocks, byteOffset);
+  const block = blocks[blockIndexForByteOffset(blocks, byteOffset)];
   const line = readingLine(viewportHeight);
   return block.top + fraction * block.height - line;
 }
 
-/** True when two scroll positions show the same block start within one line box. */
+/** True when two scroll positions put the reading line in the same block, within one line box of each other. */
 export function sameFirstVisibleBlock(
   blocks: readonly LayoutBlock[],
   scrollA: number,
@@ -79,8 +95,10 @@ export function sameFirstVisibleBlock(
   viewportHeight: number,
   lineHeight = 24,
 ): boolean {
-  const a = positionAtScroll(blocks, scrollA, viewportHeight);
-  const b = positionAtScroll(blocks, scrollB, viewportHeight);
+  const a = blockPositionAtScroll(blocks, scrollA, viewportHeight);
+  const b = blockPositionAtScroll(blocks, scrollB, viewportHeight);
   if (a.byteOffset !== b.byteOffset) return false;
-  return Math.abs(a.fraction - b.fraction) * lineHeight <= lineHeight;
+  // Fractions are of the block's height: the distance between them, in pixels, against one line.
+  const block = blocks[blockIndexAtReadingLine(blocks, scrollA, viewportHeight)];
+  return Math.abs(a.fraction - b.fraction) * block.height <= lineHeight;
 }

@@ -175,3 +175,31 @@ test('a paragraph that only starts like a list marker is not in a container (MAR
   assertAgrees('*Note* text\n===\n<img src="a.png">\n# Not a heading\n', []);
   assertAgrees('-1 degrees\n===\n<my-tag>\n# Not a heading\n', []);
 });
+
+test('the four log and data extensions are indexed, each with its ADR-0060 reader kind from the path alone (K-06)', () => {
+  const expected: Record<string, string> = {
+    'a.log': 'log',
+    'b.csv': 'data',
+    'c.tsv': 'data',
+    'd.jsonl': 'data',
+    'e.md': 'article',
+  };
+  for (const [name, readerKind] of Object.entries(expected)) {
+    const path = `/repo/${name}`;
+    assert.notEqual(classify(name), undefined, name);
+    const entry = entryFromCandidate('/repo', { path, relativePath: name, mtimeMs: 1, size: 0 });
+    assert.equal(entry.readerKind, readerKind, name);
+    assert.equal(entry.kind, name === 'e.md' ? 'markdown' : 'source', name);
+  }
+});
+
+test('a .jsonl is not refined to transcript by the index, whatever the bytes say (K-06)', () => {
+  const bytes = new TextEncoder().encode('{"role":"user","content":"hi"}\n{"role":"assistant","content":"yo"}\n');
+  const entry = entryFromCandidate('/repo', { path: '/repo/chat.jsonl', relativePath: 'chat.jsonl', mtimeMs: 1, size: bytes.length, bytes });
+  assert.equal(entry.readerKind, 'data');
+});
+
+test('a reader rule passed to entryFromCandidate decides the reader kind (the K-04 seam)', () => {
+  const entry = entryFromCandidate('/repo', { path: '/repo/x.log', relativePath: 'x.log', mtimeMs: 1, size: 0 }, [{ glob: '/repo/*.log', is: 'notes' }]);
+  assert.equal(entry.readerKind, 'notes');
+});

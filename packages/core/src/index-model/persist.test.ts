@@ -57,3 +57,31 @@ test('garbage or a version mismatch is not a snapshot', () => {
   assert.equal(parseSnapshot('{'), undefined);
   assert.equal(parseSnapshot(JSON.stringify({ version: 2, root, generatedAtMs: 1, entries: [] })), undefined);
 });
+
+test('a snapshot with baselineMs round-trips; one without still parses, and the version stays 1 (C-10)', () => {
+  const snapshot = { ...snapshotFromBuild(buildIndex(root, [fresh]), 2_000), baselineMs: 1_000 };
+  const parsed = parseSnapshot(serializeSnapshot(snapshot));
+  assert.ok(parsed);
+  assert.equal(parsed.baselineMs, 1_000);
+  assert.equal(parsed.version, 1);
+  const without = parseSnapshot(serializeSnapshot(snapshotFromBuild(buildIndex(root, [fresh]), 2_000)));
+  assert.ok(without);
+  assert.equal(without.baselineMs, undefined);
+  assert.equal(without.entries.length, 1);
+  // A baseline that is not a time is dropped; the entries still serve.
+  const bad = parseSnapshot(JSON.stringify({ ...snapshot, baselineMs: 'yesterday' }));
+  assert.ok(bad);
+  assert.equal(bad.baselineMs, undefined);
+  assert.equal(bad.entries.length, 1);
+});
+
+test('a snapshot written before K-06 (no readerKind) still parses and stays current (K-06)', () => {
+  const old = snapshotFromBuild(buildIndex(root, [fresh]), 1);
+  const legacy = { ...old, entries: old.entries.map(({ readerKind: _dropped, ...rest }) => rest) };
+  const parsed = parseSnapshot(JSON.stringify(legacy));
+  assert.ok(parsed);
+  assert.equal(parsed.version, 1);
+  assert.equal(parsed.entries[0]?.readerKind, undefined);
+  assert.equal(snapshotIsCurrent(invalidateByMtime(parsed, [{ path: fresh.path, mtimeMs: fresh.mtimeMs, size: fresh.size }])), true);
+  assert.equal(parseSnapshot(serializeSnapshot(old))?.entries[0]?.readerKind, 'article');
+});

@@ -72,6 +72,21 @@ export function recordOpen(
   return root !== undefined && root !== session.currentRoot ? rememberRoot(next, root) : next;
 }
 
+/**
+ * A document was read without the palette's help (opened from the command line or the menu, or saved
+ * from Marxy): its read time is `now`. A save leaves the MRU order alone; an open puts a path the MRU
+ * does not hold yet at the front. The history stack is untouched (back and forward own it).
+ */
+export function markRead(
+  session: PaletteSession,
+  path: string,
+  how: 'open' | 'save',
+  now: number = Date.now(),
+): PaletteSession {
+  const mru = how === 'open' && !session.mru.includes(path) ? [path, ...session.mru].slice(0, OPENS_CAP) : session.mru;
+  return { ...session, mru, readAt: { ...session.readAt, [path]: now } };
+}
+
 /** Pin or unpin a path. Pinned documents sit above the rest of the MRU list. */
 export function togglePin(session: PaletteSession, path: string): PaletteSession {
   const pinned = session.pinned.includes(path)
@@ -117,4 +132,13 @@ function touchMru(session: PaletteSession, path: string, now: number): PaletteSe
     readAt: { ...session.readAt, [path]: now },
     mru: [path, ...session.mru.filter((item) => item !== path)].slice(0, OPENS_CAP),
   };
+}
+
+/**
+ * The documents "open beside" offers when nothing is typed: the MRU, newest first, without those already
+ * on screen (D-07). Pins do not lift a row here; the list is what was read last.
+ */
+export function recentExcluding(session: PaletteSession, paths: Iterable<string>): readonly string[] {
+  const shown = new Set(paths);
+  return session.mru.filter((path) => !shown.has(path));
 }

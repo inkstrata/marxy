@@ -1014,6 +1014,13 @@ per root per session … update from the watcher").
 4. `index-feed.ts`: apply a patch with `upsertRows` / `removeRows` (C-04); rebuild only when the
    root set changes; on summon, ask the service to revalidate any `rescanOnSummon` root.
 
+**From the C-05 review (2026-10-07).** The tree watch enforces its 200,000-file cap only when it opens; `examine`
+rescans without a limit afterwards, and every `need_rescan`/`Other` event rescans the whole tree on the watch
+thread. The cap counts every file and ignores `.gitignore`, so a large repository can fall back with few readable
+files. Stop a watch with an error once the cap is passed, and consider honouring the root's ignore rules. Also:
+reject NUL in `unwatch_root`; the `raw_roots` retain in `unwatch_root` can drop a concurrent watch's recording
+(pre-existing); `refreshIndexForWatch` may queue an extra idle re-walk for a symlink target's folder.
+
 **Acceptance.**
 - `apply-events.test.ts`: write-temp-then-rename onto an existing path → `reread` that path; delete →
   `remove`; a path under `node_modules` or matched by `.gitignore` → nothing; a rename out of the root
@@ -1036,6 +1043,11 @@ declared and not current. Read whole files for the index (the 256 KB head, `star
 the tree); C-05's key filter keeps them apart, but verify one reload per change in the built app. A
 folder with very frequent writes (a log) could patch continuously; report if the debounce is not
 enough.
+
+**From the C-10 review (2026-10-07).** `isWatched` is true for the current repository and for declared roots with
+`watch = true`; a declared folder nested inside a watched repository would be watched twice while its entries dedupe
+under the outer root, so watch distinct trees only. `dropRoot` clears the declared flag even when the root stays as
+a recent or current root.
 
 ---
 
@@ -1201,6 +1213,19 @@ more apply; report if the author meant eight lines total. Confirm in the built a
 
 ---
 
+### C-13.1 — The verb menu's untested promises, and keys it swallows
+
+**Model:** sonnet · **Size:** S · **Depends on:** C-13 · *Added 2026-10-08 by the lead, from the C-13 review.*
+**Paths:** `apps/desktop/src/selection/verb-menu.ts`, `apps/desktop/test/verb-menu.test.mjs`, a unit test beside
+`verb-menu.ts`. Four gaps: the focus-return assertion cannot fail (the click leaves focus on `BODY`; give the block
+`tabindex=-1`, focus it, assert focus after Escape and after a verb runs); "All actions…" is never asserted (last row,
+opens the palette on `>`); the seven-row limit is untested (a unit test of `verbMenuRows` with eight commands pins
+the limit and "All actions…"); and while the menu is open its key listener stops every key, so Mod+P, Mod+S, Mod+Z
+and Mod+C do nothing — an unhandled key closes the menu and passes through. Acceptance: each of the four has a test
+that fails without the change. Questions for the author from the same review: a right-clicked link offers only
+"Jump to source" (design 09 says a link's default verb is "open link"); Enter on a Tab-focused link follows it while
+Enter on a selected link opens the menu; whether `preventDefault` hides WKWebView's own menu in the built app.
+
 ### C-14 — Two palette commands: Edit collection, and Add this folder
 
 **Model:** sonnet · **Size:** S · **Depends on:** C-03, C-10 · **Parallel with:** C-11, C-12
@@ -1226,7 +1251,8 @@ the reader can read and edit in the tool) and §6.4 story 8.
    `appendRoot` (C-03), `writeFileAtomic`, and notifies `Added <name> to the collection`; if already
    present, `Already in the collection`.
    `collection.edit` "Edit collection": if the file is absent, write `COLLECTION_TEMPLATE`; open it
-   (`handle.open`), then `openSourceAtByte(buffer, 0)` (`apps/desktop/src/source/mode-open.ts:18`).
+   (`handle.open`), then `handle.jumpToSource(0)` (F-03 removed `openSourceAtByte`: a second way into Source lost
+   the reader's edits; there is one Source entry, the app's).
 2. `commands/index.ts`: add `...collectionCommands()`.
 
 **Acceptance.**
@@ -1373,6 +1399,10 @@ in.
 **Risks and open questions.** The path list for a 50,000-entry collection is a few MB of JSON per
 call; C-17 caps it. Unicode case folding is out of scope (ASCII only); report if the author wants it.
 
+**From the C-16 review (2026-10-07).** Previews pass bidi controls and zero-width characters through untouched; show
+them (commitment 4). An abort rejects only after Rust returns: drop stale results by token, never block on the
+promise. Case folding is ASCII only. A 100,000-path call is several MB of JSON: cap or batch it.
+
 ---
 
 ### C-17 — `/` in the palette searches file contents and lands at the match
@@ -1468,3 +1498,41 @@ means the current repository) and C-16 and C-17 (over those roots) still stand, 
 Smaller rulings the stories report rather than decide: whether a never-read file counts as changed
 (C-12), whether "at most seven rows" means seven verbs plus "All actions…" (C-13), the plain-text
 conventions (C-07), the join for "Copy all code blocks" (C-09), and `/` as the content prefix (C-17).
+
+### C-03.1 — A backslash is part of a file name on macOS and Linux
+
+**Model:** sonnet · **Size:** S · *Added 2026-10-07 by the lead, from the C-03 review.*
+
+**Outcome.** `packages/core/src/index-model/paths.ts` turns `\` into `/` in `normalizePath` and `joinPath`, so a
+folder or file named `a\b` on macOS or Linux is indexed, ranked and opened as `a/b`, a different path. Core
+learns the platform's separator rule (POSIX: `/` only; Windows: both), and C-03's interim refusal of backslash
+paths in `collection.toml` is lifted.
+
+**Paths.** `packages/core/src/index-model/paths.ts` and its tests; `packages/core/src/index-model/collection.ts`
+(lift the refusal); callers only if the platform must be passed in.
+
+**Acceptance.** On POSIX, `a\b` survives normalisation and joining; on Windows, `C:\x\y` still normalises; a
+round trip through the index keeps a backslash name.
+
+### C-10.1 — Bound the walk of a home-sized root
+
+**Model:** sonnet · **Size:** M · **Depends on:** C-10 · *Added 2026-10-07 by the lead, from the C-10 review.*
+A root at or above the home directory (`~`, `/Volumes/X`, or a recent root of `~/Downloads` left by opening a loose
+file) is walked at idle on every launch. The prefetch in `walk.ts` lists every directory with no budget (the 50k
+cap applies after the walk), and descending `~/Library` can raise macOS folder-permission prompts the reader never
+asked for. Give the walk a budget (directories or entries) with one plain notice when it is hit, serve a recent root
+at or above `~` from its snapshot only, and never descend `~/Library`. Acceptance: a declared `~` stops at the
+budget with one notice and no permission prompt path is listed; a recent `~/Downloads` loads from its snapshot
+without a walk; an ordinary repository is unaffected.
+
+### C-11.1 — The watcher's leftovers from the C-05 and C-11 reviews
+
+**Model:** sonnet · **Size:** M · **Depends on:** C-11 · *Added 2026-10-07 by the lead, from the C-11 review.*
+Rust (`apps/desktop/src-tauri/src/watch/`): enforce the 200,000-file cap after a watch opens, not only at open, and
+count only files the walk would list; rescan only the affected subtree on `need_rescan`/`Other`, not the whole tree;
+reject a NUL in `unwatch_root` (a raw `"X\0tree"` can resolve to a tree watch's key); fix the `raw_roots` retain that
+can drop another watch's recording. Shell: a `stat` and a head-limited read, so a patch neither lists the folder nor
+reads the whole file. Desktop: a minimum interval (about 30 s per root) for `revalidate` on a refused tree; reject
+empty path segments in `pathUnder`. Acceptance: one Rust test per item; a patch makes no `readDir` and reads at most
+the head.
+

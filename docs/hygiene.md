@@ -11,7 +11,7 @@ branch, before a PR), and CI (the merge).
 pnpm new module core buffer            # start a unit in the house shape (also: operation, command)
 …implement…
 pnpm precheck                          # typecheck/lint/test for what you touched + the gates your paths need
-pnpm check                             # the eight hygiene checks, in one command
+pnpm check                             # the nine hygiene checks, in one command
 gh pr create --body-file FILE          # the template in .github/pull_request_template.md; never --body
 ```
 
@@ -21,7 +21,7 @@ changelog fragment `changelog.d/<id>.md`, green product gates and one review. `p
 and `node orchestration/out-of-plan.mjs` belong to the fleet's board-and-key process; they still
 work, they expect a `MARXY-nnn` key and a board row, and **nothing requires them**. CI runs none of
 them. pnpm's pre and post hooks are off (`enablePrePostScripts: false` in `pnpm-workspace.yaml`),
-so `pnpm check` runs exactly the eight checks and `pnpm precheck` runs `pnpm check` as one of its
+so `pnpm check` runs exactly the nine checks and `pnpm precheck` runs `pnpm check` as one of its
 gates; neither triggers the other.
 
 ## Local precheck vs the real app
@@ -47,6 +47,7 @@ its `CHECKS` list and nowhere else. The commit hooks run the staged-file subset.
 | A second markdown parser or sanitiser returning (ADR-0001, ADR-0021) | `check-one-parse` | `pnpm check`, CI `fast` |
 | A theme token whose name or unit kind moved | `check-tokens` | `pnpm check`, CI `fast` |
 | A font binary losing `binary` or gaining `eol` | `gate-font-attrs` | `pnpm check`, CI `fast` |
+| A bundled theme colour pair (any variant or kind scope) below ADR-0059's contrast floor, unrounded | `gate-contrast` | `pnpm check`, CI `fast` |
 | A workflow that is advisory, unpinned, unlocked, untimed or missing its Linux prerequisites | `check-workflows` (the one place workflow rules live) | `pnpm check`, CI `fast` |
 | A dependency with the wrong licence | `scripts/gate-licences.mjs` | precheck (when manifests change), CI `fast` and `rust` |
 | A byte the user did not ask to change, changed | `pnpm gate:fidelity`; `pnpm gate:golden` for AST and source map | precheck (core), CI `fast` |

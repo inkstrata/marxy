@@ -1,0 +1,570 @@
+/* Marxy design tokens: themes, type sets, per-content-kind typography.
+   Every theme is audited by tools/audit_contrast.py: body text 7:1, secondary and code tokens 4.5:1,
+   control edges 3:1 (WCAG 1.4.3 / 1.4.6 / 1.4.11). Change a colour, re-run the audit. */
+
+/* ---------- Themes ---------- */
+
+:root, [data-theme="paper"] {
+  color-scheme: light;
+  --win: #e9e7e3;
+  --side: #e2e0db;
+  --doc: #fbfaf8;
+  --raised: #ffffff;
+  --inset: #f2f1ed;
+  --hover: rgba(30, 28, 24, 0.06);
+  --press: rgba(30, 28, 24, 0.11);
+  --line: #dcd9d3;
+  --line-strong: #c3bfb7;
+  --edge: #7d786f;
+  --fg: #1f2124;
+  --fg-strong: #0f1113;
+  --fg-muted: #4f545a;
+  --fg-faint: #5a5f65;
+  --accent: #2357a0;
+  --accent-strong: #173f78;
+  --accent-fg: #ffffff;
+  --accent-wash: rgba(35, 87, 160, 0.09);
+  --accent-wash-strong: rgba(35, 87, 160, 0.17);
+  --sel: rgba(35, 87, 160, 0.16);
+  --mark: rgba(222, 170, 30, 0.34);
+  --mark-edge: #9a6a00;
+  --ok: #2b6a2e;
+  --warn: #855600;
+  --err: #b1261d;
+  --info: #2357a0;
+  --ok-wash: rgba(43, 106, 46, 0.1);
+  --warn-wash: rgba(160, 110, 0, 0.12);
+  --err-wash: rgba(177, 38, 29, 0.09);
+  --tk-comment: #4f575f;
+  --tk-keyword: #74389a;
+  --tk-string: #2e6629;
+  --tk-constant: #86400a;
+  --tk-def: #1b5a8c;
+  --tk-type: #7a5200;
+  --tk-punct: #4f545a;
+  --tk-marker: #62676d;
+  --tk-heading: #0f1113;
+  --tk-link: #2357a0;
+  --add-wash: rgba(43, 106, 46, 0.12);
+  --del-wash: rgba(177, 38, 29, 0.1);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.14);
+  --glass: rgba(245, 244, 241, 0.72);
+  --text-wght: 400;
+  --strong-wght: 650;
+  --head-wght: 640;
+  --swatch: #fbfaf8;
+}
+
+[data-theme="ink"] {
+  color-scheme: dark;
+  --win: #181c1f;
+  --side: #1b2023;
+  --doc: #14181b;
+  --raised: #20262a;
+  --inset: #101316;
+  --hover: rgba(220, 235, 240, 0.06);
+  --press: rgba(220, 235, 240, 0.11);
+  --line: #2b3338;
+  --line-strong: #3d474d;
+  --edge: #6b777f;
+  --fg: #d7dde0;
+  --fg-strong: #edf1f3;
+  --fg-muted: #a6b1b8;
+  --fg-faint: #8f9ba2;
+  --accent: #7fc3da;
+  --accent-strong: #b0dcec;
+  --accent-fg: #0b1a20;
+  --accent-wash: rgba(127, 195, 218, 0.11);
+  --accent-wash-strong: rgba(127, 195, 218, 0.22);
+  --sel: rgba(127, 195, 218, 0.26);
+  --mark: rgba(227, 192, 125, 0.3);
+  --mark-edge: #e3c07d;
+  --ok: #9ccf8a;
+  --warn: #e3c07d;
+  --err: #f19a8e;
+  --info: #7fc3da;
+  --ok-wash: rgba(156, 207, 138, 0.12);
+  --warn-wash: rgba(227, 192, 125, 0.12);
+  --err-wash: rgba(241, 154, 142, 0.12);
+  --tk-comment: #a3afb6;
+  --tk-keyword: #c8b4e6;
+  --tk-string: #b8d5a3;
+  --tk-constant: #e6c28f;
+  --tk-def: #7fc3da;
+  --tk-type: #9fd4c4;
+  --tk-punct: #a6b1b8;
+  --tk-marker: #8f9ba2;
+  --tk-heading: #edf1f3;
+  --tk-link: #7fc3da;
+  --add-wash: rgba(156, 207, 138, 0.13);
+  --del-wash: rgba(241, 154, 142, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --glass: rgba(27, 32, 35, 0.74);
+  --text-wght: 380;
+  --strong-wght: 620;
+  --head-wght: 600;
+  --swatch: #14181b;
+}
+
+[data-theme="sepia"] {
+  color-scheme: light;
+  --win: #ebe1cd;
+  --side: #e6dbc5;
+  --doc: #f6efe0;
+  --raised: #fbf6ec;
+  --inset: #ede4d1;
+  --hover: rgba(70, 50, 20, 0.07);
+  --press: rgba(70, 50, 20, 0.12);
+  --line: #dccfb6;
+  --line-strong: #c6b698;
+  --edge: #87775c;
+  --fg: #33291c;
+  --fg-strong: #1f170d;
+  --fg-muted: #5c4c37;
+  --fg-faint: #6b5a43;
+  --accent: #8a3f1a;
+  --accent-strong: #682c0e;
+  --accent-fg: #fbf6ec;
+  --accent-wash: rgba(138, 63, 26, 0.09);
+  --accent-wash-strong: rgba(138, 63, 26, 0.17);
+  --sel: rgba(138, 63, 26, 0.15);
+  --mark: rgba(214, 160, 30, 0.34);
+  --mark-edge: #8a5c00;
+  --ok: #3f5e1a;
+  --warn: #7e4f00;
+  --err: #a3271a;
+  --info: #2c5a6e;
+  --ok-wash: rgba(63, 94, 26, 0.1);
+  --warn-wash: rgba(150, 100, 0, 0.12);
+  --err-wash: rgba(163, 39, 26, 0.09);
+  --tk-comment: #5c4c36;
+  --tk-keyword: #773463;
+  --tk-string: #41561a;
+  --tk-constant: #8a3f1a;
+  --tk-def: #2c5a6e;
+  --tk-type: #6c4c08;
+  --tk-punct: #5c4c37;
+  --tk-marker: #6b5a43;
+  --tk-heading: #1f170d;
+  --tk-link: #8a3f1a;
+  --add-wash: rgba(63, 94, 26, 0.12);
+  --del-wash: rgba(163, 39, 26, 0.1);
+  --shadow: 0 1px 2px rgba(60, 40, 10, 0.08), 0 8px 28px rgba(60, 40, 10, 0.16);
+  --glass: rgba(240, 231, 213, 0.74);
+  --text-wght: 400;
+  --strong-wght: 650;
+  --head-wght: 640;
+  --swatch: #f6efe0;
+}
+
+[data-theme="dusk"] {
+  color-scheme: dark;
+  --win: #1f1b17;
+  --side: #221e1a;
+  --doc: #1b1814;
+  --raised: #2a2520;
+  --inset: #161310;
+  --hover: rgba(240, 225, 200, 0.06);
+  --press: rgba(240, 225, 200, 0.11);
+  --line: #383129;
+  --line-strong: #4b4239;
+  --edge: #7e7366;
+  --fg: #e6dccb;
+  --fg-strong: #f5eddf;
+  --fg-muted: #b8ab96;
+  --fg-faint: #a09480;
+  --accent: #e3ab6e;
+  --accent-strong: #f2c897;
+  --accent-fg: #1b1814;
+  --accent-wash: rgba(227, 171, 110, 0.11);
+  --accent-wash-strong: rgba(227, 171, 110, 0.21);
+  --sel: rgba(227, 171, 110, 0.24);
+  --mark: rgba(230, 200, 110, 0.28);
+  --mark-edge: #e6c86e;
+  --ok: #b6cf8a;
+  --warn: #ebc66f;
+  --err: #f0a08c;
+  --info: #9fc8d8;
+  --ok-wash: rgba(182, 207, 138, 0.12);
+  --warn-wash: rgba(235, 198, 111, 0.12);
+  --err-wash: rgba(240, 160, 140, 0.12);
+  --tk-comment: #b3a690;
+  --tk-keyword: #dcb6d8;
+  --tk-string: #c6d49c;
+  --tk-constant: #f0b97a;
+  --tk-def: #9fc8d8;
+  --tk-type: #dcc690;
+  --tk-punct: #b8ab96;
+  --tk-marker: #a09480;
+  --tk-heading: #f5eddf;
+  --tk-link: #e3ab6e;
+  --add-wash: rgba(182, 207, 138, 0.13);
+  --del-wash: rgba(240, 160, 140, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --glass: rgba(34, 30, 26, 0.76);
+  --text-wght: 380;
+  --strong-wght: 620;
+  --head-wght: 600;
+  --swatch: #1b1814;
+}
+
+[data-theme="night"] {
+  color-scheme: dark;
+  --win: #0b0b0c;
+  --side: #0e0f10;
+  --doc: #000000;
+  --raised: #17181a;
+  --inset: #0d0e0f;
+  --hover: rgba(230, 235, 240, 0.07);
+  --press: rgba(230, 235, 240, 0.12);
+  --line: #232528;
+  --line-strong: #34373b;
+  --edge: #6c7177;
+  --fg: #c9cfd4;
+  --fg-strong: #e2e6e9;
+  --fg-muted: #9aa1a8;
+  --fg-faint: #868d94;
+  --accent: #8fb4ff;
+  --accent-strong: #bdd2ff;
+  --accent-fg: #000000;
+  --accent-wash: rgba(143, 180, 255, 0.11);
+  --accent-wash-strong: rgba(143, 180, 255, 0.2);
+  --sel: rgba(143, 180, 255, 0.24);
+  --mark: rgba(230, 200, 110, 0.26);
+  --mark-edge: #e6c86e;
+  --ok: #8fcf8f;
+  --warn: #e6c46e;
+  --err: #f39b93;
+  --info: #8fb4ff;
+  --ok-wash: rgba(143, 207, 143, 0.12);
+  --warn-wash: rgba(230, 196, 110, 0.12);
+  --err-wash: rgba(243, 155, 147, 0.12);
+  --tk-comment: #9aa3ab;
+  --tk-keyword: #c5b3ec;
+  --tk-string: #a9d49c;
+  --tk-constant: #e7c08c;
+  --tk-def: #8fb4ff;
+  --tk-type: #94d3cb;
+  --tk-punct: #9aa1a8;
+  --tk-marker: #868d94;
+  --tk-heading: #e2e6e9;
+  --tk-link: #8fb4ff;
+  --add-wash: rgba(143, 207, 143, 0.13);
+  --del-wash: rgba(243, 155, 147, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.7);
+  --glass: rgba(14, 15, 16, 0.8);
+  --text-wght: 370;
+  --strong-wght: 610;
+  --head-wght: 590;
+  --swatch: #000000;
+}
+
+[data-theme="fjord"] {
+  color-scheme: dark;
+  --win: #272c36;
+  --side: #2a303b;
+  --doc: #242933;
+  --raised: #313846;
+  --inset: #1f232b;
+  --hover: rgba(225, 235, 250, 0.06);
+  --press: rgba(225, 235, 250, 0.11);
+  --line: #3a4150;
+  --line-strong: #4b5568;
+  --edge: #7e8aa0;
+  --fg: #dde3ec;
+  --fg-strong: #eef1f6;
+  --fg-muted: #b3bdcc;
+  --fg-faint: #a0abbc;
+  --accent: #8cc4d4;
+  --accent-strong: #b6dce6;
+  --accent-fg: #1f232b;
+  --accent-wash: rgba(140, 196, 212, 0.12);
+  --accent-wash-strong: rgba(140, 196, 212, 0.22);
+  --sel: rgba(140, 196, 212, 0.21);
+  --mark: rgba(235, 203, 139, 0.28);
+  --mark-edge: #ebcb8b;
+  --ok: #b0cf98;
+  --warn: #ebcb8b;
+  --err: #eea0a6;
+  --info: #8cc4d4;
+  --ok-wash: rgba(176, 207, 152, 0.12);
+  --warn-wash: rgba(235, 203, 139, 0.12);
+  --err-wash: rgba(238, 160, 166, 0.12);
+  --tk-comment: #b1bbcc;
+  --tk-keyword: #a9c1e0;
+  --tk-string: #b8d2a1;
+  --tk-constant: #d4b0cc;
+  --tk-def: #8cc4d4;
+  --tk-type: #9fd3d1;
+  --tk-punct: #b3bdcc;
+  --tk-marker: #a0abbc;
+  --tk-heading: #eef1f6;
+  --tk-link: #8cc4d4;
+  --add-wash: rgba(176, 207, 152, 0.13);
+  --del-wash: rgba(238, 160, 166, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.45);
+  --glass: rgba(42, 48, 59, 0.78);
+  --text-wght: 380;
+  --strong-wght: 620;
+  --head-wght: 600;
+  --swatch: #242933;
+}
+
+[data-theme="hc-light"] {
+  color-scheme: light;
+  --win: #f0f0f0;
+  --side: #ebebeb;
+  --doc: #ffffff;
+  --raised: #ffffff;
+  --inset: #f4f4f4;
+  --hover: rgba(0, 0, 0, 0.08);
+  --press: rgba(0, 0, 0, 0.14);
+  --line: #8c8c8c;
+  --line-strong: #3d3d3d;
+  --edge: #3d3d3d;
+  --fg: #000000;
+  --fg-strong: #000000;
+  --fg-muted: #262626;
+  --fg-faint: #3a3a3a;
+  --accent: #0033a0;
+  --accent-strong: #001f66;
+  --accent-fg: #ffffff;
+  --accent-wash: rgba(0, 51, 160, 0.1);
+  --accent-wash-strong: rgba(0, 51, 160, 0.2);
+  --sel: rgba(0, 51, 160, 0.26);
+  --mark: rgba(255, 210, 0, 0.55);
+  --mark-edge: #000000;
+  --ok: #0a5212;
+  --warn: #6b4200;
+  --err: #9e0000;
+  --info: #0033a0;
+  --ok-wash: rgba(10, 82, 18, 0.1);
+  --warn-wash: rgba(150, 95, 0, 0.14);
+  --err-wash: rgba(158, 0, 0, 0.09);
+  --tk-comment: #333333;
+  --tk-keyword: #560a8a;
+  --tk-string: #0a5212;
+  --tk-constant: #7a2600;
+  --tk-def: #002d73;
+  --tk-type: #5c3600;
+  --tk-punct: #262626;
+  --tk-marker: #3a3a3a;
+  --tk-heading: #000000;
+  --tk-link: #0033a0;
+  --add-wash: rgba(10, 82, 18, 0.13);
+  --del-wash: rgba(158, 0, 0, 0.11);
+  --shadow: 0 0 0 1px #000, 0 8px 24px rgba(0, 0, 0, 0.25);
+  --glass: rgba(240, 240, 240, 0.96);
+  --text-wght: 450;
+  --strong-wght: 720;
+  --head-wght: 720;
+  --swatch: #ffffff;
+}
+
+[data-theme="hc-dark"] {
+  color-scheme: dark;
+  --win: #0a0a0a;
+  --side: #0f0f0f;
+  --doc: #000000;
+  --raised: #121212;
+  --inset: #0d0d0d;
+  --hover: rgba(255, 255, 255, 0.1);
+  --press: rgba(255, 255, 255, 0.17);
+  --line: #8a8a8a;
+  --line-strong: #d0d0d0;
+  --edge: #d0d0d0;
+  --fg: #ffffff;
+  --fg-strong: #ffffff;
+  --fg-muted: #e3e3e3;
+  --fg-faint: #cccccc;
+  --accent: #ffd60a;
+  --accent-strong: #ffe766;
+  --accent-fg: #000000;
+  --accent-wash: rgba(255, 214, 10, 0.14);
+  --accent-wash-strong: rgba(255, 214, 10, 0.26);
+  --sel: rgba(255, 214, 10, 0.32);
+  --mark: rgba(0, 200, 255, 0.4);
+  --mark-edge: #ffffff;
+  --ok: #8dff8d;
+  --warn: #ffd60a;
+  --err: #ff9b9b;
+  --info: #8fd3ff;
+  --ok-wash: rgba(141, 255, 141, 0.14);
+  --warn-wash: rgba(255, 214, 10, 0.14);
+  --err-wash: rgba(255, 155, 155, 0.14);
+  --tk-comment: #d9d9d9;
+  --tk-keyword: #ffb3ff;
+  --tk-string: #b6ff9e;
+  --tk-constant: #ffcf8a;
+  --tk-def: #9ed8ff;
+  --tk-type: #fff59e;
+  --tk-punct: #e3e3e3;
+  --tk-marker: #cccccc;
+  --tk-heading: #ffffff;
+  --tk-link: #ffd60a;
+  --add-wash: rgba(141, 255, 141, 0.16);
+  --del-wash: rgba(255, 155, 155, 0.16);
+  --shadow: 0 0 0 1px #fff, 0 8px 24px rgba(0, 0, 0, 0.8);
+  --glass: rgba(15, 15, 15, 0.97);
+  --text-wght: 430;
+  --strong-wght: 700;
+  --head-wght: 700;
+  --swatch: #000000;
+}
+
+/* ---------- Type sets: one choice maps every reading role to a face ----------
+   Roles: book (long-form serif), article (editorial serif), sans (reports, docs, transcripts), code. */
+
+:root, [data-typeset="classic"] {
+  --face-book: "Literata", "Literata Fallback", Georgia, serif;
+  --face-article: "Source Serif 4", "Literata", Georgia, serif;
+  --face-sans: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
+  --face-readme: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --face-code: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --code-liga: "liga" 0, "calt" 0;
+}
+[data-typeset="plex"] {
+  --face-book: "IBM Plex Serif", Georgia, serif;
+  --face-article: "IBM Plex Serif", Georgia, serif;
+  --face-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --face-readme: "IBM Plex Sans", system-ui, sans-serif;
+  --face-code: "IBM Plex Mono", ui-monospace, monospace;
+}
+[data-typeset="hyperlegible"] {
+  --face-book: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --face-article: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --face-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --face-readme: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --face-code: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+}
+[data-typeset="system"] {
+  --face-book: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+  --face-article: ui-serif, "New York", Georgia, serif;
+  --face-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --face-readme: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --face-code: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+[data-typeset="typewriter"] {
+  --face-book: "IBM Plex Mono", ui-monospace, monospace;
+  --face-article: "IBM Plex Mono", ui-monospace, monospace;
+  --face-sans: "IBM Plex Mono", ui-monospace, monospace;
+  --face-readme: "IBM Plex Mono", ui-monospace, monospace;
+  --face-code: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* Chrome is always the platform face at platform size: the reader's choices style text, not controls. */
+:root {
+  --face-chrome: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  --chrome-size: 13px;
+  --user-scale: 1;
+  --r-sm: 6px;
+  --r-md: 9px;
+  --r-lg: 13px;
+  --side-w: 252px;
+  --insp-w: 300px;
+  --tb-h: 52px;
+  --sb-h: 26px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+/* ---------- Per-kind reading typography (handbook ch. 7 and 10) ----------
+   --k-measure is in average characters; app.js measures the active face's average advance
+   and writes --avg-char, so the column holds the character count whatever the face. */
+
+.doc {
+  --k-face: var(--face-sans);
+  --k-size: 1.0625rem;
+  --k-leading: 1.55;
+  --k-measure: 72;
+  --k-para-space: 0.85em;
+  --k-indent: 0;
+  --k-align: left;
+  --k-hyphens: manual;
+  --k-head-face: var(--k-face);
+  --k-h1: 1.75em;
+  --k-h2: 1.32em;
+  --k-h3: 1.08em;
+  --k-code-size: 0.87em;
+  --avg-char: 0.45;
+}
+.doc[data-kind="report"] {
+  --k-face: var(--face-sans);
+  --k-size: 1.0625rem;
+  --k-leading: 1.55;
+  --k-measure: 74;
+}
+.doc[data-kind="article"] {
+  --k-face: var(--face-article);
+  --k-size: 1.25rem;
+  --k-leading: 1.58;
+  --k-measure: 66;
+  --k-para-space: 0.75em;
+  --k-hyphens: auto;
+  --k-h1: 2.3em;
+  --k-h2: 1.4em;
+  --k-h3: 1.12em;
+}
+.doc[data-kind="book"] {
+  --k-face: var(--face-book);
+  --k-size: 1.25rem;
+  --k-leading: 1.5;
+  --k-measure: 64;
+  --k-para-space: 0;
+  --k-indent: 1em;
+  --k-hyphens: auto;
+  --k-h1: 1.9em;
+  --k-h2: 1.3em;
+  --k-h3: 1.08em;
+}
+.doc[data-kind="readme"] {
+  --k-face: var(--face-readme);
+  --k-size: 1rem;
+  --k-leading: 1.62;
+  --k-measure: 84;
+  --k-para-space: 1em;
+  --k-h1: 2em;
+  --k-h2: 1.45em;
+  --k-h3: 1.15em;
+}
+.doc[data-kind="docs"] {
+  --k-face: var(--face-sans);
+  --k-size: 1.03rem;
+  --k-leading: 1.62;
+  --k-measure: 74;
+  --k-para-space: 0.9em;
+}
+.doc[data-kind="transcript"] {
+  --k-face: var(--face-sans);
+  --k-size: 1rem;
+  --k-leading: 1.55;
+  --k-measure: 76;
+  --k-para-space: 0.7em;
+}
+.doc[data-kind="notes"] {
+  --k-face: var(--face-sans);
+  --k-size: 1rem;
+  --k-leading: 1.55;
+  --k-measure: 70;
+  --k-para-space: 0.6em;
+}
+.doc[data-kind="changelog"] {
+  --k-face: var(--face-sans);
+  --k-size: 0.97rem;
+  --k-leading: 1.55;
+  --k-measure: 80;
+  --k-para-space: 0.5em;
+}
+.doc[data-kind="code"], .doc[data-kind="data"] {
+  --k-face: var(--face-code);
+  --k-size: 0.875rem;
+  --k-leading: 1.6;
+  --k-measure: 200;
+}
+/* Logs and terminal captures: mono 13.5px / 1.6, as authored, never reflowed (wrap is a reader's tool, not the default). */
+.doc[data-kind="log"], .doc[data-kind="terminal"] {
+  --k-face: var(--face-code);
+  --k-size: 0.84375rem;
+  --k-leading: 1.6;
+  --k-measure: 200;
+  --k-code-size: 1em;
+}

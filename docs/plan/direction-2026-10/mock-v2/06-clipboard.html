@@ -1,0 +1,2144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marxy Clipboard Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/app.css">
+<link rel="stylesheet" href="shared/lang-colors.css">
+<style>
+  /* ---------- Studio layout: history | workbench | side panel ---------- */
+  .studio { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr) 312px; position: relative; }
+  .studio.no-right { grid-template-columns: 290px minmax(0, 1fr); }
+  .studio.no-right .rpanel { display: none; }
+  .col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .hist { background: var(--side); border-right: 1px solid var(--line); }
+  .bench { background: var(--doc); }
+  .rpanel { background: var(--side); border-left: 1px solid var(--line); }
+  .phead { height: 34px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--fg-muted); white-space: nowrap; min-width: 0; background: var(--doc); }
+  .hist .phead, .rpanel .phead { background: var(--side); }
+  .phead > b { color: var(--fg-strong); font-size: 12px; font-weight: 650; }
+  .phead .tb-btn { height: 24px; min-width: 26px; padding: 0 6px; border-radius: 6px; }
+  .phead .tb-btn.lbl-btn { padding: 0 8px; font-size: 12px; }
+  .phead .seg button { height: 22px; padding: 0 8px; font-size: 12px; }
+  .ministats { font-size: 11px; color: var(--fg-faint); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ibtn { width: 22px; height: 22px; border: 0; background: none; border-radius: 5px; color: var(--fg-muted); display: inline-grid; place-items: center; padding: 0; flex: none; }
+  .ibtn:hover { background: var(--press); color: var(--fg); }
+  .ibtn[aria-pressed="true"] { color: var(--accent); background: var(--accent-wash); }
+  .ibtn:disabled { opacity: 0.35; pointer-events: none; }
+  .ibtn svg.lucide { width: 14px; height: 14px; }
+  .btn:disabled { opacity: 0.45; pointer-events: none; }
+  .btn .chev { width: 12px; height: 12px; color: var(--fg-faint); margin-left: -2px; }
+  .linkish { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; font: inherit; }
+  .switch.sm { width: 28px; height: 16px; }
+  .switch.sm i::after { width: 12px; height: 12px; }
+  .switch.sm input:checked + i::after { transform: translateX(12px); }
+  .seg.sm button { height: 22px; padding: 0 8px; font-size: 11.5px; }
+  .empty-sm { padding: 18px 14px; color: var(--fg-faint); font-size: 12px; line-height: 1.5; }
+  .flash-sec { animation: flash 1.4s var(--ease); }
+  #stackcount { font-size: 11.5px; }
+
+  /* ---------- History ---------- */
+  .h-top { flex: none; padding: 9px 10px 8px; display: flex; flex-direction: column; gap: 7px; border-bottom: 1px solid var(--line); }
+  .h-search { position: relative; display: flex; }
+  .h-search > svg { position: absolute; left: 8px; top: 6px; color: var(--fg-faint); pointer-events: none; }
+  .h-search .field { width: 100%; padding-left: 28px; padding-right: 28px; background: var(--raised); }
+  .h-search .ibtn { position: absolute; right: 3px; top: 3px; }
+  .fchips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .fchip { height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); background: none; font-size: 11.5px; color: var(--fg-muted); display: inline-flex; gap: 5px; align-items: center; }
+  .fchip:hover { background: var(--hover); }
+  .fchip[aria-pressed="true"] { background: var(--accent-wash-strong); color: var(--fg-strong); border-color: transparent; }
+  .fchip .n { font-size: 10.5px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .from-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--fg-faint); }
+  .hlist { flex: 1; overflow: auto; padding: 0 6px 8px; outline: none; min-height: 0; }
+  .hg { font-size: 11px; font-weight: 650; color: var(--fg-faint); padding: 9px 6px 3px; display: flex; gap: 6px; align-items: center; }
+  .crow { display: grid; grid-template-columns: 14px 16px minmax(0, 1fr); gap: 7px; align-items: center; padding: 5px 6px; border-radius: 6px; min-height: 42px; position: relative; }
+  .crow:hover, .crow.hot { background: var(--hover); }
+  .hlist:focus-visible .crow.hot, .hlist:focus .crow.hot { box-shadow: inset 0 0 0 2px var(--accent); }
+  .crow.sel { background: var(--accent-wash-strong); }
+  .crow .ck { margin: 0; width: 13px; height: 13px; opacity: 0; }
+  .crow:hover .ck, .crow.sel .ck, .hlist.multi .crow .ck, .crow .ck:focus-visible { opacity: 1; }
+  .crow .tico { color: var(--fg-muted); display: grid; }
+  .crow .mid { min-width: 0; }
+  .crow .t { font-size: 12.5px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crow .s { font-size: 11px; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .crow .s .pinned { color: var(--accent); font-weight: 600; }
+  .crow .s .flag { color: var(--fg-muted); }
+  .crow mark, .hud mark { background: var(--mark); color: inherit; border-radius: 2px; box-shadow: 0 1px 0 var(--mark-edge); }
+  .crow .acts { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: flex; gap: 1px; padding: 1px; border-radius: 7px; background: var(--raised); border: 1px solid var(--line); box-shadow: 0 1px 3px rgba(0,0,0,.08); opacity: 0; pointer-events: none; }
+  .crow:hover .acts, .hlist:focus .crow.hot .acts { opacity: 1; pointer-events: auto; }
+  .crow.skip { min-height: 30px; }
+  .crow.skip .t { color: var(--fg-faint); font-style: italic; font-size: 12px; }
+  .crow.skip .tico { color: var(--fg-faint); }
+  .hempty { padding: 24px 12px; text-align: center; color: var(--fg-faint); font-size: 12px; line-height: 1.6; }
+  .hprev { flex: none; height: 210px; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--doc); min-height: 0; }
+  .hprev .pv-meta { flex: none; padding: 6px 10px 6px 12px; display: flex; flex-wrap: wrap; gap: 3px 10px; align-items: center; font-size: 11px; color: var(--fg-muted); border-bottom: 1px solid var(--line); }
+  .hprev .pv-meta > span { display: inline-flex; gap: 4px; align-items: center; }
+  .hprev .uti { font-family: var(--face-code); font-size: 10.5px; color: var(--fg-faint); }
+  .hprev pre { flex: 1; margin: 0; padding: 8px 12px; overflow: auto; font: 11.5px/1.55 var(--face-code); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg); min-height: 0; }
+  .pv-note { flex: none; display: flex; gap: 6px; align-items: center; padding: 3px 6px 3px 12px; font-size: 11.5px; color: var(--fg); background: var(--accent-wash); border-bottom: 1px solid var(--line); }
+  .pv-note .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pv-note svg { color: var(--accent); }
+  .imgph { margin: 10px 12px 6px; height: 74px; border: 1px dashed var(--edge); border-radius: 6px; display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--fg-muted); font-size: 11.5px; background: var(--inset); }
+  .pv-ocr { padding: 0 12px 8px; font-size: 12px; overflow: auto; }
+  .pv-ocr div { font-family: var(--face-code); font-size: 11.5px; color: var(--fg); margin-top: 4px; }
+  .pv-empty { padding: 20px; color: var(--fg-faint); text-align: center; font-size: 12px; }
+  .hpol { flex: none; display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 11px; line-height: 1.45; color: var(--fg-muted); }
+  .hpol > svg { color: var(--ok); margin-top: 1px; }
+  .hpol code { font-family: var(--face-code); font-size: 10.5px; }
+  .hselbar { flex: none; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 7px 8px; border-top: 1px solid var(--line); background: var(--accent-wash); }
+  .hselbar b { font-size: 12px; margin-right: auto; padding-left: 4px; color: var(--fg-strong); }
+  .hselbar .btn.sm { padding: 0 7px; }
+
+  /* ---------- Workbench ---------- */
+  .in-wrap { flex: none; display: flex; flex-direction: column; height: var(--in-h, 236px); min-height: 110px; }
+  .bench[data-mode="compare"] .in-wrap, .bench[data-mode="compare"] .hsplit { display: none; }
+  #edhost { flex: 1; display: flex; min-height: 0; min-width: 0; }
+  #edhost .ed-hl, #edhost .ed-ta { padding-bottom: 28px; }
+  .srcchip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 7px 0 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--fg); font-size: 11.5px; max-width: 250px; min-width: 0; }
+  .srcchip span { overflow: hidden; text-overflow: ellipsis; }
+  .srcchip svg.lucide { width: 13px; height: 13px; color: var(--fg-muted); }
+  .srcchip .chev { width: 11px; height: 11px; color: var(--fg-faint); }
+  .srcchip:hover { background: var(--hover); }
+  .hsplit { flex: none; height: 7px; cursor: row-resize; background: var(--win); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); position: relative; }
+  .hsplit::after { content: ""; position: absolute; left: 50%; top: 2px; width: 30px; margin-left: -15px; height: 1px; background: var(--edge); box-shadow: 0 2px 0 var(--edge); opacity: 0.6; }
+  .hsplit:hover, .hsplit:focus-visible { background: var(--accent-wash-strong); outline: none; }
+  .mode { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .pipe { flex: none; display: flex; flex-direction: column; max-height: 46%; border-bottom: 1px solid var(--line); }
+  .pname { font-size: 12px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .pname em { font-style: normal; color: var(--warn); font-size: 11px; margin-left: 4px; }
+  .steps { overflow: auto; padding: 4px 8px 6px; min-height: 0; }
+  .step { display: grid; grid-template-columns: 14px 16px 16px minmax(0, 1fr) auto auto auto; gap: 7px; align-items: center; min-height: 34px; padding: 3px 6px; border-radius: 7px; position: relative; }
+  .step:hover { background: var(--hover); }
+  .step:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .step.pv { background: var(--accent-wash-strong); }
+  .step.off .sname, .step.off .sico, .step.off .no { opacity: 0.55; }
+  .step.off .sname .t { text-decoration: line-through; text-decoration-color: var(--fg-faint); }
+  .step .grip { color: var(--fg-faint); cursor: grab; display: grid; }
+  .step .no { font: 600 11px var(--face-chrome); color: var(--fg-faint); text-align: right; font-variant-numeric: tabular-nums; }
+  .step .sico { color: var(--fg-muted); display: grid; }
+  .step .sname { min-width: 0; display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
+  .step .sname .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; color: var(--fg); }
+  .step .sname .g { font-size: 11px; color: var(--fg-faint); white-space: nowrap; }
+  .step .sname .g.warnc { color: var(--warn); }
+  .step .sacts { display: flex; gap: 1px; }
+  .delta { font: 500 11px var(--face-chrome); font-variant-numeric: tabular-nums; color: var(--fg-faint); min-width: 52px; text-align: right; white-space: nowrap; }
+  .delta.minus { color: var(--ok); }
+  .delta.plus { color: var(--fg-muted); }
+  .delta.err { color: var(--err); font-weight: 650; }
+  .step.drop-before::before, .step.drop-after::after { content: ""; position: absolute; left: 6px; right: 6px; height: 2px; background: var(--accent); border-radius: 2px; }
+  .step.drop-before::before { top: -1px; }
+  .step.drop-after::after { bottom: -1px; }
+  .step.dragging { opacity: 0.4; }
+  .addstep { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; margin-top: 2px; padding: 0 8px 0 28px; border: 1px dashed var(--line-strong); border-radius: 7px; background: none; color: var(--fg-muted); font-size: 12px; }
+  .addstep:hover { background: var(--hover); color: var(--fg); border-color: var(--edge); }
+  .addstep .kbd { margin-left: auto; }
+  .pipe-empty { padding: 8px 6px 4px; font-size: 12px; color: var(--fg-muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; line-height: 1.5; }
+  .out { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .ostats { flex: none; display: flex; flex-wrap: wrap; gap: 3px 12px; align-items: center; padding: 5px 12px; font-size: 11.5px; color: var(--fg-muted); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .ostats b { color: var(--fg-strong); font-weight: 600; }
+  .ostats .save { color: var(--ok); font-weight: 600; }
+  .pv-banner { flex: none; display: flex; gap: 8px; align-items: center; padding: 4px 8px 4px 12px; background: var(--accent-wash); border-bottom: 1px solid var(--line); font-size: 12px; }
+  .pv-banner svg { color: var(--accent); }
+  .out-body { flex: 1; overflow: auto; min-height: 0; outline: none; }
+  .out-body pre.txt { margin: 0; padding: 10px 14px 24px; font: calc(12.5px * var(--user-scale))/1.6 var(--face-code); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg); tab-size: 4; }
+  .out-body .doc { padding: 14px 20px 30px; font-size: calc(15px * var(--user-scale)); }
+  .out-body .doc > * { max-width: 72ch; margin-left: 0; }
+  .ofoot { flex: none; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 7px 10px; border-top: 1px solid var(--line); background: var(--win); }
+  .udiff { font: 12px/1.6 var(--face-code); padding-bottom: 24px; }
+  .udiff .dl { display: grid; grid-template-columns: 3em 3em 1.4em minmax(0, 1fr); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .udiff .dl > span:nth-child(-n+2) { color: var(--fg-faint); text-align: right; padding-right: 8px; user-select: none; }
+  .udiff .dl.add { background: var(--add-wash); }
+  .udiff .dl.del { background: var(--del-wash); }
+  .udiff .dl.add > span:nth-child(3) { color: var(--ok); font-weight: 700; }
+  .udiff .dl.del > span:nth-child(3) { color: var(--err); font-weight: 700; }
+  .hunk { color: var(--fg-muted); background: var(--inset); padding: 3px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font: 11.5px var(--face-chrome); display: flex; gap: 6px; align-items: center; }
+
+  /* Compare */
+  .cmp-ctl { flex: none; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .cmp-ctl label { display: inline-flex; gap: 6px; align-items: center; }
+  .cmp-ctl select.field { height: 26px; max-width: 230px; font-size: 12px; }
+  .cmp-heads { display: grid; grid-template-columns: 1fr 1fr; position: sticky; top: 0; z-index: 1; background: var(--doc); border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--fg-muted); }
+  .cmp-heads > div { padding: 5px 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmp-heads > div + div { border-left: 1px solid var(--line); }
+  .sbs { display: grid; grid-template-columns: 2.8em minmax(0, 1fr) 2.8em minmax(0, 1fr); font: 12px/1.55 var(--face-code); padding-bottom: 24px; }
+  .sbs > span { padding: 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.55em; }
+  .sbs > .ln { color: var(--fg-faint); text-align: right; padding: 0 6px 0 0; user-select: none; }
+  .sbs > .ln.r { border-left: 1px solid var(--line); }
+  .sbs .del { background: var(--del-wash); }
+  .sbs .add { background: var(--add-wash); }
+  .sbs .gap { background: var(--inset); }
+  .sbs del { text-decoration: none; background: color-mix(in srgb, var(--err) 26%, transparent); border-radius: 2px; }
+  .sbs ins { text-decoration: none; background: color-mix(in srgb, var(--ok) 26%, transparent); border-radius: 2px; }
+  .sbs .fold { grid-column: 1 / -1; padding: 3px 12px; font: 11.5px var(--face-chrome); color: var(--fg-muted); background: var(--inset); border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; display: flex; gap: 6px; align-items: center; }
+  .sbs .fold:hover { color: var(--fg); background: var(--hover); }
+
+  /* ---------- Side panel ---------- */
+  .rpanel .insp-tabs { padding: 6px 6px 0; gap: 0; }
+  .rpanel .insp-tabs button { padding: 6px 8px 8px; font-size: 12px; flex: 1; justify-content: center; white-space: nowrap; }
+  .rpanel .insp-tabs .n { font-size: 10.5px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .rp-intro { font-size: 11.5px; color: var(--fg-muted); line-height: 1.45; margin: 0 0 8px; }
+  .ctl-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
+  .ctl-row > .lbl { color: var(--fg-muted); min-width: 70px; }
+  .ctl-row select.field, .ctl-row input.field { height: 24px; font-size: 12px; flex: 1; }
+  .ct { padding: 8px 2px 9px; border-top: 1px solid var(--line); }
+  .ct-h { display: flex; align-items: center; gap: 7px; }
+  .ct-h > svg { color: var(--fg-muted); }
+  .ct-h .nm { flex: 1; min-width: 0; }
+  .ct-h .nm b { font-weight: 600; font-size: 12.5px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+  .ct-h .nm small { display: block; font-size: 11px; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ct .cpv { margin: 6px 0 0; padding: 5px 8px; max-height: 5.2em; overflow: hidden; background: var(--inset); border: 1px solid var(--line); border-radius: 6px; font: 11px/1.5 var(--face-code); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg-muted); cursor: default; }
+  .ct.open .cpv { max-height: 18em; overflow: auto; color: var(--fg); }
+  .ct .cpv.rich { font: 12px/1.45 var(--face-sans); white-space: normal; color: var(--fg); }
+  .ct .cpv.rich :is(h1, h2, h3, h4) { font-size: 12.5px; margin: 4px 0 2px; }
+  .ct .cpv.rich :is(p, ul, ol, table, pre) { margin: 2px 0; }
+  .ct .cpv.rich ul, .ct .cpv.rich ol { padding-left: 16px; }
+  .ct .cpv.rich :is(.blk-handle, .cb-head) { display: none; }
+  .ct .uti { margin-top: 4px; font: 10.5px var(--face-code); color: var(--fg-faint); }
+  .pl, .sn { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 4px 6px 8px; border-radius: 7px; }
+  .pl:hover, .sn:hover { background: var(--hover); }
+  .pl.sel, .sn.sel { background: var(--accent-wash-strong); }
+  .pl:focus-visible, .sn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .pl > svg, .sn > svg { color: var(--fg-muted); }
+  .pl .mid, .sn .mid { min-width: 0; }
+  .pl .t, .sn .t { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; color: var(--fg); }
+  .pl .flow, .sn .flow { font-size: 11px; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .pl .r, .sn .r { display: flex; gap: 2px; align-items: center; }
+  .pl .r .kbd { margin-right: 2px; }
+  .detail { margin: 4px 0 10px; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--doc); display: flex; flex-direction: column; gap: 9px; font-size: 12px; }
+  .detail .field { height: 26px; font-size: 12.5px; }
+  .detail select.field { height: 24px; font-size: 12px; max-width: 170px; }
+  .detail textarea.field { width: 100%; min-height: 104px; font: 12px/1.5 var(--face-code); resize: vertical; }
+  .opt { display: flex; align-items: center; gap: 10px; }
+  .detail .row { flex-wrap: wrap; gap: 6px; }
+  .opt > .grow { min-width: 0; }
+  .opt small { display: block; color: var(--fg-faint); font-size: 11px; line-height: 1.35; }
+  .keyrec { min-width: 96px; justify-content: center; font-variant-numeric: tabular-nums; }
+  .keyrec.rec { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); }
+  .mini-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+  .mini-steps li { display: flex; gap: 7px; align-items: center; font-size: 12px; }
+  .mini-steps li .n { width: 14px; text-align: right; color: var(--fg-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .mini-steps li svg { color: var(--fg-muted); }
+  .warnline { color: var(--warn); font-size: 11.5px; display: flex; gap: 5px; align-items: center; }
+  .abbr { font: 600 11px var(--face-code); color: var(--accent); background: var(--accent-wash); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+  .ph-btns { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ph-btns button { height: 22px; padding: 0 6px; border-radius: 5px; border: 1px solid var(--line); background: var(--raised); color: var(--fg-muted); font: 11px var(--face-code); }
+  .ph-btns button:hover { color: var(--fg); background: var(--hover); }
+  .prevbox { margin: 0; max-height: 140px; overflow: auto; padding: 6px 8px; background: var(--inset); border: 1px solid var(--line); border-radius: 6px; font: 11px/1.5 var(--face-code); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg-muted); }
+  .collect { display: flex; gap: 8px; align-items: center; padding: 7px 8px; border-radius: 8px; background: var(--hover); font-size: 12px; margin-bottom: 8px; }
+  .collect.on { background: var(--ok-wash); }
+  .collect.on > svg { color: var(--ok); }
+  .srow { display: grid; grid-template-columns: 14px 16px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 4px 4px 4px 6px; border-radius: 6px; min-height: 34px; position: relative; }
+  .srow:hover { background: var(--hover); }
+  .srow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .srow .grip { color: var(--fg-faint); display: grid; cursor: grab; }
+  .srow .n { font: 600 11px var(--face-chrome); color: var(--fg-faint); text-align: right; }
+  .srow .mid { min-width: 0; }
+  .srow .t { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow .s { font-size: 11px; color: var(--fg-faint); }
+  .srow .acts { display: flex; }
+  .srow.drop-before::before { content: ""; position: absolute; left: 6px; right: 6px; top: -1px; height: 2px; background: var(--accent); }
+  .srow.drop-after::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 2px; background: var(--accent); }
+
+  /* ---------- Step picker ---------- */
+  .picker { position: fixed; z-index: 55; width: 640px; max-width: calc(100vw - 24px); background: var(--raised); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; animation: pop .12s var(--ease); }
+  .pk-in { display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 42px; border-bottom: 1px solid var(--line); }
+  .pk-in > svg { color: var(--fg-faint); }
+  .pk-in input { flex: 1; border: 0; background: none; outline: none; font-size: 14px; color: var(--fg-strong); }
+  .pk-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); height: 340px; }
+  .pk-list { overflow: auto; padding: 4px; }
+  .pk-g { font-size: 11px; font-weight: 650; color: var(--fg-faint); padding: 7px 8px 3px; }
+  .pk-i { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 12.5px; }
+  .pk-i .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pk-i > svg { color: var(--fg-muted); }
+  .pk-i .faint { font-size: 11px; }
+  .pk-i.hot { background: var(--accent-wash-strong); }
+  .pk-prev { border-left: 1px solid var(--line); padding: 10px 12px; overflow: hidden; background: var(--doc); font-size: 12px; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .pk-prev pre { margin: 0; flex: 1; overflow: auto; background: var(--inset); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 11px/1.5 var(--face-code); white-space: pre-wrap; overflow-wrap: anywhere; min-height: 0; }
+  .pk-foot { display: flex; gap: 14px; padding: 6px 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--fg-faint); flex-wrap: wrap; }
+  .pk-foot span { display: inline-flex; gap: 4px; align-items: center; }
+
+  /* ---------- Sheets ---------- */
+  .sheet-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.22); display: flex; justify-content: center; align-items: flex-start; padding-top: 5vh; animation: fade .12s; }
+  .sheet { width: min(760px, calc(100vw - 40px)); max-height: 88vh; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; animation: pop .14s var(--ease); outline: none; }
+  .sheet.wide { width: min(940px, calc(100vw - 40px)); }
+  .sheet-h { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .sheet-h b { font-size: 14px; color: var(--fg-strong); }
+  .sheet-b { overflow: auto; padding: 0 18px 16px; }
+  .sheet-b h3 { font-size: 11px; font-weight: 650; color: var(--fg-faint); margin: 16px 0 0; letter-spacing: .01em; }
+  .sheet-f { display: flex; gap: 8px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); }
+  .frow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .frow small { display: block; color: var(--fg-faint); font-size: 11.5px; line-height: 1.45; margin-top: 2px; }
+  .frow code { font: 11px var(--face-code); color: var(--fg-muted); }
+  .frow select.field { height: 26px; }
+  .frow .sub { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+  .chiplist .chip { height: 22px; }
+  .chiplist .chip button { border: 0; background: none; padding: 0; margin-left: 2px; color: inherit; display: grid; }
+  .eg { font: 11.5px/1.5 var(--face-code); background: var(--inset); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; overflow-wrap: anywhere; color: var(--fg-muted); width: 100%; }
+  .eg b { color: var(--fg); font-weight: 500; }
+  .keys { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; padding-top: 4px; }
+  .keys h3 { margin-top: 14px; }
+  .krow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .krow > span:last-child { display: inline-flex; gap: 3px; align-items: center; color: var(--fg-faint); white-space: nowrap; }
+
+  /* ---------- Clipboard ring HUD (mock over another app) ---------- */
+  .hud-scrim { position: fixed; inset: 0; z-index: 72; background: rgba(0,0,0,.34); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; animation: fade .12s; outline: none; }
+  .hud-cap { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--fg); background: var(--raised); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 6px 4px 14px; box-shadow: var(--shadow); max-width: calc(100vw - 40px); }
+  .hud-cap svg { color: var(--accent); }
+  .hud-desk { position: relative; width: min(940px, calc(100vw - 48px)); height: min(600px, calc(100vh - 110px)); }
+  .fake-app { position: absolute; inset: 0; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--doc); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+  .fa-bar { height: 40px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--win); font-size: 12.5px; }
+  .fa-bar .lights { padding: 0; }
+  .fa-bar b { color: var(--fg-strong); }
+  .fa-msgs { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; overflow: auto; font-size: 13px; }
+  .fa-msg { display: grid; grid-template-columns: 32px 1fr; gap: 10px; }
+  .fa-av { width: 32px; height: 32px; border-radius: 7px; background: var(--accent-wash-strong); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+  .fa-msg b { font-size: 12.5px; color: var(--fg-strong); }
+  .fa-msg b small { font-weight: 400; color: var(--fg-faint); margin-left: 6px; }
+  .fa-msg p { margin: 2px 0 0; color: var(--fg); white-space: pre-wrap; }
+  .fa-compose { flex: none; margin: 0 14px 14px; border: 1px solid var(--edge); border-radius: 9px; min-height: 66px; max-height: 190px; overflow: auto; padding: 10px 12px; font-size: 13px; white-space: pre-wrap; background: var(--raised); color: var(--fg); }
+  .fa-compose .ph { color: var(--fg-faint); }
+  .fa-compose .fresh { background: var(--accent-wash); border-radius: 3px; }
+  .hud { position: absolute; left: 50%; top: 7%; transform: translateX(-50%); width: 500px; max-width: calc(100% - 24px); background: var(--glass); -webkit-backdrop-filter: blur(22px) saturate(1.5); backdrop-filter: blur(22px) saturate(1.5); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; animation: pop .14s var(--ease); }
+  .hud-in { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+  .hud-in > svg { color: var(--fg-faint); }
+  .hud-in input { flex: 1; border: 0; background: none; outline: none; font-size: 15px; color: var(--fg-strong); }
+  .hud-scope { display: flex; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  .hud-scope button { border: 1px solid var(--line); background: none; border-radius: 999px; height: 22px; padding: 0 9px; font-size: 11.5px; color: var(--fg-muted); display: inline-flex; gap: 5px; align-items: center; }
+  .hud-scope button[aria-pressed="true"] { background: var(--accent-wash-strong); color: var(--fg-strong); border-color: transparent; }
+  .hud-list { max-height: 296px; overflow: auto; padding: 4px; }
+  .hrow { display: grid; grid-template-columns: 22px 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 7px; font-size: 12.5px; color: var(--fg); }
+  .hrow .kbd { min-width: 18px; height: 17px; font-size: 10.5px; }
+  .hrow > svg { color: var(--fg-muted); }
+  .hrow .t { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .hrow .s { font-size: 11px; color: var(--fg-faint); white-space: nowrap; }
+  .hrow.hot { background: var(--accent); color: var(--accent-fg); }
+  .hrow.hot .s, .hrow.hot > svg { color: inherit; }
+  .hrow.hot .kbd { background: transparent; color: inherit; border-color: currentColor; }
+  .hrow.hot mark { background: transparent; color: inherit; text-decoration: underline; box-shadow: none; }
+  .hud-prev { border-top: 1px solid var(--line); padding: 7px 12px; font: 11px/1.5 var(--face-code); color: var(--fg-muted); max-height: 82px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .hud-foot { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 6px 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--fg-muted); }
+  .hud-foot span { display: inline-flex; gap: 4px; align-items: center; }
+  .hud-foot .kbd { height: 16px; min-width: 16px; font-size: 10px; }
+
+  @media (max-width: 1240px) { .studio { grid-template-columns: 270px minmax(0, 1fr) 296px; } }
+  @media (max-width: 1100px) {
+    .toolbar .tlbl, .toolbar .tb-title { display: none; }
+    .studio, .studio.no-right { grid-template-columns: 260px minmax(0, 1fr); }
+    .rpanel { position: absolute; right: 0; top: 0; bottom: 0; width: 320px; z-index: 20; box-shadow: var(--shadow); }
+  }
+  .later-note { flex: none; display: flex; align-items: center; gap: 8px; margin: 6px 14px 0; padding: 5px 10px; background: var(--inset); border: 1px solid var(--line); border-radius: 6px; color: var(--fg-muted); font-size: 12px; }
+  .later-note svg { width: 14px; height: 14px; flex: none; }
+</style>
+</head>
+<body>
+<div class="win">
+  <aside class="sidebar" data-slot="sidebar"></aside>
+  <div class="main">
+    <div class="later-note" role="note"><i data-lucide="info"></i><span><b>Descoped for now.</b> Good ideas, too much scope; copying lives in the reading and source views instead. This page is kept for reference.</span></div>
+    <header class="toolbar" role="toolbar" aria-label="Clipboard studio toolbar">
+      <div class="tb-title"><b>Clipboard studio</b><small id="t-sub">Transform and copy anywhere</small></div>
+      <div class="seg" role="group" aria-label="Workbench mode" id="modeseg">
+        <button data-mode="pipeline" title="Build a transform pipeline (⌥⌘1)"><i data-lucide="workflow"></i>Pipeline</button>
+        <button data-mode="compare" title="Compare two texts (⌥⌘2)"><i data-lucide="git-compare"></i>Compare</button>
+      </div>
+      <div class="tb-space"></div>
+      <div class="tb-group">
+        <button class="tb-btn lbl-btn" id="b-paste" title="Load the current clipboard into the workbench input"><i data-lucide="clipboard-paste"></i><span class="tlbl">Paste in</span></button>
+        <button class="tb-btn" id="b-runclip" title="Run the pipeline on the clipboard and copy the result (⌘R)" aria-label="Run pipeline on clipboard"><i data-lucide="play"></i></button>
+        <button class="tb-btn" id="b-hist" title="History: pause, ignore next copy, clear" aria-label="History options"><i data-lucide="history"></i><i data-lucide="chevron-down" class="chev"></i></button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" id="b-stack" title="Collect mode: copies stack up (⌥⌘K)" aria-label="Collect mode"><i data-lucide="layers"></i><span id="stackcount" class="num" hidden>0</span></button>
+        <button class="tb-btn" id="b-hud" title="Clipboard ring, the floating panel (⌥⌘V)" aria-label="Clipboard ring"><i data-lucide="picture-in-picture-2"></i></button>
+        <button class="tb-btn" id="b-rules" title="Clipboard rules (⌥⌘R)" aria-label="Clipboard rules"><i data-lucide="shield-check"></i></button>
+        <button class="tb-btn" id="b-keys" title="Keyboard map (⌘?)" aria-label="Keyboard map"><i data-lucide="keyboard"></i></button>
+        <button class="tb-btn" id="b-right" title="Copy formats, pipelines, stack and snippets (⌥⌘I)" aria-label="Side panel"><i data-lucide="panel-right"></i></button>
+      </div>
+    </header>
+
+    <div class="studio" id="studio">
+      <!-- Clipboard history -->
+      <section class="hist col" aria-label="Clipboard history">
+        <div class="phead"><b>History</b><span class="ministats" id="h-count"></span><span class="grow"></span>
+          <button class="tb-btn" id="h-multi" title="Select several clips (or ⌘-click, ⇧-click)" aria-label="Select several" aria-pressed="false"><i data-lucide="list-checks"></i></button>
+          <button class="tb-btn" id="h-prevbtn" title="Preview pane (Space)" aria-label="Preview pane" aria-pressed="true"><i data-lucide="panel-bottom"></i></button>
+          <button class="tb-btn" id="h-menu" title="History options" aria-label="History options"><i data-lucide="ellipsis"></i></button>
+        </div>
+        <div class="h-top">
+          <div class="h-search"><i data-lucide="search" class="ic-sm"></i><input class="field" id="h-q" placeholder="Search clips   app:  type:  is:pinned" aria-label="Search clipboard history" spellcheck="false" autocomplete="off"><button class="ibtn" id="h-qx" title="Clear search (esc)" aria-label="Clear search" hidden><i data-lucide="x"></i></button></div>
+          <div class="fchips" id="fchips" role="group" aria-label="Filter by type"></div>
+          <div class="from-row"><span>From</span><div class="seg sm" role="group" aria-label="Filter by source" id="fromseg">
+            <button data-from="any">Any app</button><button data-from="marxy">Marxy</button><button data-from="other">Other apps</button>
+          </div></div>
+        </div>
+        <div class="hlist" id="hlist" role="listbox" aria-label="Clips, newest first" aria-multiselectable="true" tabindex="0"></div>
+        <div class="hselbar" id="hselbar" hidden></div>
+        <div class="hprev" id="hprev" aria-label="Clip preview" role="region"></div>
+        <div class="hpol" id="hpol"></div>
+      </section>
+
+      <!-- Workbench -->
+      <section class="bench col" id="bench" data-mode="pipeline" aria-label="Workbench">
+        <div class="in-wrap" id="in-wrap">
+          <div class="phead">
+            <b>Input</b>
+            <button class="srcchip" id="in-src" title="Where the input came from. Click to load something else." aria-haspopup="menu"></button>
+            <span class="grow"></span>
+            <span class="ministats" id="in-stats"></span>
+            <button class="tb-btn" id="in-paste" title="Replace the input with the clipboard" aria-label="Paste the clipboard in"><i data-lucide="clipboard-paste"></i></button>
+            <button class="tb-btn" id="in-undo" title="Undo (⌘Z)" aria-label="Undo"><i data-lucide="undo-2"></i></button>
+            <button class="tb-btn on" id="in-wrap-btn" title="Soft wrap" aria-label="Soft wrap" aria-pressed="true"><i data-lucide="wrap-text"></i></button>
+            <button class="tb-btn" id="in-clear" title="Clear the input" aria-label="Clear the input"><i data-lucide="eraser"></i></button>
+          </div>
+          <div id="edhost"></div>
+        </div>
+        <div class="hsplit" id="hsplit" role="separator" aria-orientation="horizontal" aria-label="Resize the input" tabindex="0"></div>
+
+        <!-- Pipeline mode -->
+        <div class="mode" id="m-pipe">
+          <div class="pipe">
+            <div class="phead">
+              <b>Pipeline</b><span class="pname" id="pname"></span><span class="grow"></span>
+              <button class="tb-btn lbl-btn" id="add-step" title="Add a step (⇧⌘A)"><i data-lucide="plus"></i>Add step</button>
+              <button class="tb-btn" id="p-load" title="Load a saved pipeline" aria-label="Load a saved pipeline"><i data-lucide="folder-open"></i><i data-lucide="chevron-down" class="chev"></i></button>
+              <button class="tb-btn" id="p-save" title="Save (⌘S)" aria-label="Save pipeline"><i data-lucide="save"></i></button>
+              <button class="tb-btn" id="p-saveas" title="Save as a new pipeline (⇧⌘S)" aria-label="Save as new pipeline"><i data-lucide="files"></i></button>
+              <button class="tb-btn" id="p-clear" title="Remove every step" aria-label="Remove every step"><i data-lucide="eraser"></i></button>
+            </div>
+            <div class="steps" id="steps" role="list" aria-label="Pipeline steps, in order"></div>
+          </div>
+          <div class="out">
+            <div class="phead">
+              <b>Output</b>
+              <div class="seg" role="group" aria-label="Output view (⌘D cycles)" id="viewseg">
+                <button data-v="before" title="The text going in">Before</button>
+                <button data-v="after" title="The result">After</button>
+                <button data-v="diff" title="Line diff, before to after">Diff</button>
+                <button data-v="rendered" title="The result rendered as Markdown">Rendered</button>
+              </div>
+              <span class="grow"></span>
+            </div>
+            <div id="pv-banner"></div>
+            <div class="ostats" id="ostats"></div>
+            <div class="out-body" id="out-body" tabindex="0" aria-label="Pipeline output"></div>
+            <div class="ofoot">
+              <button class="btn sm primary" id="o-copy" title="Copy the output (⌘↵)"><i data-lucide="copy"></i>Copy</button>
+              <button class="btn sm" id="o-copyas" title="Copy in another format" aria-haspopup="menu">Copy as<i data-lucide="chevron-down" class="chev"></i></button>
+              <button class="btn sm" id="o-replace" title="Put the output on the clipboard in place of the newest history item (⌥⌘↵)"><i data-lucide="clipboard-check"></i>Replace clipboard</button>
+              <span class="grow"></span>
+              <button class="btn sm ghost" id="o-use" title="Use the output as the new input (⌘U)"><i data-lucide="corner-left-up"></i>As input</button>
+              <button class="btn sm" id="o-send" title="New document, Inbox, write back, stack, snippet, share" aria-haspopup="menu"><i data-lucide="send"></i>Send to<i data-lucide="chevron-down" class="chev"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compare mode -->
+        <div class="mode" id="m-cmp" hidden>
+          <div class="phead"><b>Compare</b><span class="ministats" id="cmp-stats"></span><span class="grow"></span>
+            <button class="tb-btn lbl-btn" id="cmp-swap" title="Swap left and right"><i data-lucide="arrow-left-right"></i>Swap</button>
+            <button class="tb-btn lbl-btn" id="cmp-copy" title="Copy as a unified diff"><i data-lucide="copy"></i>Copy diff</button>
+            <button class="tb-btn lbl-btn" id="cmp-use" title="Load the right side into the workbench input"><i data-lucide="corner-left-up"></i>Right as input</button>
+          </div>
+          <div class="cmp-ctl">
+            <label>Left <select class="field" id="cmp-a" aria-label="Left text"></select></label>
+            <label>Right <select class="field" id="cmp-b" aria-label="Right text"></select></label>
+            <label><input type="checkbox" id="cmp-ws">Ignore whitespace</label>
+            <label><input type="checkbox" id="cmp-ic">Ignore case</label>
+          </div>
+          <div class="out-body" id="cmp-body" tabindex="0" aria-label="Side-by-side diff"></div>
+        </div>
+      </section>
+
+      <!-- Side panel -->
+      <aside class="rpanel col" id="rpanel" aria-label="Copy formats, pipelines, stack and snippets">
+        <div class="insp-tabs" role="tablist" id="rtabs">
+          <button role="tab" data-rt="copy" id="rt-copy" aria-controls="rp-copy">Copy as</button>
+          <button role="tab" data-rt="pipelines" id="rt-pipelines" aria-controls="pipelines">Pipelines</button>
+          <button role="tab" data-rt="stack" id="rt-stack" aria-controls="rp-stack">Stack <span class="n" id="rt-stack-n"></span></button>
+          <button role="tab" data-rt="snippets" id="rt-snippets" aria-controls="rp-snippets">Snippets</button>
+        </div>
+        <div class="insp-body" id="rp-copy" role="tabpanel" aria-labelledby="rt-copy"></div>
+        <div class="insp-body" id="pipelines" role="tabpanel" aria-labelledby="rt-pipelines" hidden></div>
+        <div class="insp-body" id="rp-stack" role="tabpanel" aria-labelledby="rt-stack" hidden></div>
+        <div class="insp-body" id="rp-snippets" role="tabpanel" aria-labelledby="rt-snippets" hidden></div>
+      </aside>
+    </div>
+    <footer class="statusbar" id="status"></footer>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="shared/corpus.js"></script>
+<script src="shared/app.js"></script>
+<script src="shared/render.js"></script>
+<script>
+(function () {
+  const G = Marxy, { $, $$, esc, ic, fmt } = G;
+  const store = G.store;
+  const MIN = 60000, HOUR = 60 * MIN, DAY = 24 * HOUR;
+  const NOW = Date.now();
+  const MODES = ['pipeline', 'compare'];
+  const RING_KEY = '⌥⌘V', PAL_KEY = '⌃⌥Space'; // the app's default global shortcuts; Settings › Shortcuts rebinds them
+
+  /* ===================== Demo content ===================== */
+
+  const SAMPLE_MD = [
+    '# What changed in the indexer',
+    '',
+    '- **Cache:** highlighted HTML is cached by a hash of the source and language [1].',
+    '- **I/O:** files are memory-mapped instead of read into a `Vec<u8>`.',
+    '- **Parallelism:** the walker feeds a bounded channel, so parsing overlaps with I/O.',
+    '',
+    '## Results',
+    '',
+    '**p95** dropped from **182 ms** to **51 ms** on the 1,290-file corpus.',
+    '',
+    '---',
+    '',
+    'Next: write the benchmark section of the PR description.'
+  ].join('\n');
+  const SAMPLE_TSV = ['Run\tp50 ms\tp95 ms\tFiles', 'baseline\t41\t182\t1290', 'cache-on\t12\t64\t1290', 'cache-on + mmap\t9\t51\t1290'].join('\n');
+  const NOTE_RAW = "**Root cause:** the login cache was keyed by user id only, so two tabs refreshing in the same second shared a token.\n\n**Fix:** key by `(user_id, device_id)` and add a case to `tests/auth_flow.rs`.";
+
+  // Clips from other apps, so every filter has something in it. Kept in memory until the ring is next saved.
+  const EXTRA_CLIPS = [
+    { text: NOTE_RAW, as: 'Markdown', app: 'Notes', at: NOW - 12 * MIN, pinned: false },
+    { text: SAMPLE_TSV, as: 'Plain', app: 'Numbers', at: NOW - 38 * MIN, pinned: false },
+    { text: 'https://v2.tauri.app/plugin/clipboard/?utm_source=newsletter&utm_medium=email&utm_campaign=oct-digest&fbclid=IwAR2xQ', as: 'URL', app: 'Mail', at: NOW - 72 * MIN, pinned: false },
+    { text: '{"clinic":"north","synced":412,"skipped":3,"errors":[{"code":"SQLITE_BUSY","count":2}]}', as: 'Code', lang: 'json', app: 'Terminal', at: NOW - 3 * HOUR, pinned: false },
+    { text: 'Screenshot 2026-10-08 at 09.41.12.png', as: 'Image', image: { w: 1440, h: 900, kb: 412 }, ocr: 'p95 latency  /api/search  182 ms -> 196 ms  (+7.7%)', app: 'Screenshot', at: NOW - 5 * HOUR, pinned: false }
+  ];
+  if (!store.get('studio.seeded', false)) {
+    const have = new Set(G.clips.items.map((c) => c.text));
+    EXTRA_CLIPS.forEach((c) => { if (!have.has(c.text)) G.clips.items.push(c); });
+    G.clips.items.sort((a, b) => b.at - a.at);
+  }
+  const ringSave = G.clips.save.bind(G.clips);
+  G.clips.save = function () { store.set('studio.seeded', true); ringSave(); };
+
+  // Copies Marxy declined to record. Only the fact is kept: app, reason, time. Never the content.
+  const SKIPPED = [
+    { app: '1Password', why: 'concealed copy (org.nspasteboard.ConcealedType)', at: NOW - 9 * MIN, icon: 'lock' },
+    { app: 'Terminal', why: 'looked like a secret (AWS access key pattern)', at: NOW - 47 * MIN, icon: 'key-round' },
+    { app: 'Keychain Access', why: 'app is on the ignore list', at: NOW - 3 * HOUR, icon: 'eye-off' }
+  ];
+
+  const SEED_PIPES = [
+    { id: 'p-slack', name: 'Notes → Slack', steps: ['strip-bold', 'to-slack'], key: '⌃⌥⌘S', services: true, shortcuts: true, menubar: true, input: 'clipboard', output: 'replace', uses: 41, last: NOW - 2 * HOUR },
+    { id: 'p-jira', name: 'Notes → Jira', steps: ['strip-frontmatter', 'to-jira'], key: '⌃⌥⌘J', services: true, shortcuts: true, menubar: true, input: 'clipboard', output: 'replace', uses: 17, last: NOW - 26 * HOUR },
+    { id: 'p-table', name: 'Tidy table', steps: ['tsv-to-table'], key: '⌃⌥⌘T', services: true, shortcuts: false, menubar: true, input: 'clipboard', output: 'paste', uses: 9, last: NOW - 3 * DAY },
+    { id: 'p-email', name: 'Email-ready plain text', steps: ['strip-citations', 'to-plain', 'smart-punct'], key: '', services: true, shortcuts: true, menubar: false, input: 'selection', output: 'paste', uses: 6, last: NOW - 5 * DAY },
+    { id: 'p-tasks', name: 'Open tasks → Jira checklist', steps: ['x-tasks', 'to-jira'], key: '', services: false, shortcuts: true, menubar: false, input: 'clipboard', output: 'replace', uses: 3, last: NOW - 8 * DAY }
+  ];
+  const SEED_SNIPS = [
+    { id: 's-handoff', name: 'Handoff note', abbr: ';handoff', body: 'Handoff for {{title}} ({{path}}) as of {{date}}.\nSections: State, What changed, Verified, Not verified, Next.\nName every file touched.' },
+    { id: 's-review', name: 'Review checklist', abbr: ';review', body: 'Review {{path}} for factual and technical errors. List each problem with the line it is on.\n\n{{clipboard}}' },
+    { id: 's-quote', name: 'Quote with source', abbr: ';q', body: '> {{selection}}\n>\n> — [{{title}}]({{path}}), {{date}}' },
+    { id: 's-standup', name: 'Standup line', abbr: ';su', body: '{{date}} · Yesterday: {{cursor}} · Today: · Blockers: none' },
+    { id: 's-fence', name: 'Fence the clipboard', abbr: ';cb', body: '```\n{{clipboard}}\n```' }
+  ];
+  const PLACEHOLDERS = [['date', 'Today, YYYY-MM-DD'], ['time', 'Now, HH:MM'], ['clipboard', 'Newest clipboard text'], ['selection', 'Selection in the input'], ['title', 'Source document title'], ['path', 'Source document path'], ['cursor', 'Where the caret lands']];
+
+  /* ===================== State ===================== */
+
+  const R = Object.assign({ maxItemKb: 1024, images: true, richFormats: true, skipSecrets: true, stripTracking: false, nameSource: 'never', pastePlain: false, pasteDirect: true, shortcutsApp: true, expandEverywhere: false, pausedUntil: 0 }, store.get('studio.rules', {}));
+  const saveRules = () => store.set('studio.rules', R);
+  const UI = Object.assign({ right: 'copy', rightOpen: true, inH: 236, view: 'after', previewOpen: true }, store.get('studio.ui', {}));
+  const saveUI = () => store.set('studio.ui', UI);
+
+  const S = {
+    mode: 'pipeline', filter: 'all', from: 'any', q: '', vis: [], hot: 0, sel: new Set(), anchor: null, multi: false, showOrig: false,
+    input: { kind: 'paste', label: 'Empty', icon: 'type' },
+    pipe: { id: null, name: 'Untitled pipeline', steps: [], dirty: false }, res: [], stepPreview: null,
+    pipes: store.get('studio.pipes', null) || SEED_PIPES.map((p) => Object.assign({}, p)),
+    selPipe: 'p-slack', recording: null,
+    snips: store.get('studio.snips', null) || SEED_SNIPS.map((s) => Object.assign({}, s)),
+    selSnip: null, copySrc: 'output', openCt: new Set(),
+    cmp: { a: 'in', b: 'out', ws: false, ic: false, open: new Set() },
+    lastSel: [0, 0], stackSep: 'blank', stackCustom: '\\n\\n* * *\\n\\n', stackDedupe: false, stackSeq: false,
+    ignoreNext: 0
+  };
+  const savePipes = () => { store.set('studio.pipes', S.pipes); registerPipeCommands(); };
+  const saveSnips = () => store.set('studio.snips', S.snips);
+  let editor = null;
+
+  /* ===================== Clip helpers ===================== */
+
+  const KINDS = { markdown: ['Markdown', 'file-text'], code: ['Code', 'code'], url: ['URL', 'link'], plain: ['Plain', 'type'], image: ['Image', 'image'] };
+  const looksMd = (t) => /^#{1,6}\s|^\s*[-*+]\s|^\s*\d+\.\s|\*\*|`[^`\n]+`|\]\(|^\|.*\|\s*$|^>\s/m.test(t);
+  function kindOf(c) {
+    if (c.as === 'Image' || c.image) return 'image';
+    if (c.as === 'Code' || c.lang) return 'code';
+    if (c.as === 'URL' || /^https?:\/\/\S+$/.test(c.text.trim())) return 'url';
+    if (/^plain/i.test(c.as || '')) return 'plain';
+    return looksMd(c.text) ? 'markdown' : 'plain';
+  }
+  const FILTERS = [['all', 'All'], ['pinned', 'Pinned'], ['markdown', 'Markdown'], ['code', 'Code'], ['url', 'URL'], ['plain', 'Plain'], ['image', 'Images']];
+  const passType = (c, f) => f === 'all' || (f === 'pinned' ? c.pinned : kindOf(c) === f);
+  const passFrom = (c) => S.from === 'any' || (S.from === 'marxy' ? c.app === 'Marxy' : c.app !== 'Marxy');
+  const firstLine = (t) => (String(t).split('\n').find((l) => l.trim()) || '').trim();
+  const clockOf = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const srcLabel = (c) => (c.source ? c.source.title + (c.source.line ? ' · L' + c.source.line : '') : c.app || 'Unknown app');
+  const docForClip = (c) => c && c.source && G.docs.find((d) => d.path === c.source.path);
+  const newestText = () => { const c = G.clips.items.find((x) => kindOf(x) !== 'image'); return c ? c.text : ''; };
+  const hay = (c) => (c.text + '\n' + (c.source ? c.source.title + ' ' + c.source.path : '') + '\n' + (c.app || '') + (c.ocr ? '\n' + c.ocr : '')).toLowerCase();
+  function parseQuery(q) {
+    const terms = [];
+    const text = q.replace(/\b(app|is|type|from):(\S+)/gi, (m, k, v) => { terms.push([k.toLowerCase(), v.toLowerCase()]); return ''; }).trim().toLowerCase();
+    return { text, terms };
+  }
+  const matchTerms = (c, terms) => terms.every(([k, v]) => k === 'app' ? (c.app || '').toLowerCase().startsWith(v)
+    : k === 'is' ? (v === 'pinned' ? c.pinned : v === 'replaced' ? !!c.replaced : true)
+    : k === 'type' ? kindOf(c).startsWith(v)
+    : k === 'from' ? !!c.source && (c.source.title + ' ' + c.source.path).toLowerCase().includes(v) : true);
+  function hl(s, q) {
+    s = String(s); if (!q) return esc(s);
+    const i = s.toLowerCase().indexOf(q); if (i < 0) return esc(s);
+    return esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + q.length)) + '</mark>' + esc(s.slice(i + q.length));
+  }
+  function snippetFor(c, q) {
+    const lines = c.text.split('\n'); const first = firstLine(c.text);
+    if (!q) return esc(first.slice(0, 220));
+    const li = lines.findIndex((l) => l.toLowerCase().includes(q));
+    if (li < 0) return esc(first.slice(0, 220));
+    const l = lines[li]; const at = l.toLowerCase().indexOf(q); const start = Math.max(0, at - 24);
+    return (li > 0 || start > 0 ? '… ' : '') + hl(l.slice(start, start + 220), q);
+  }
+  function utis(c) {
+    const k = kindOf(c);
+    if (k === 'image') return ['public.png', 'public.tiff'];
+    if (k === 'url') return ['public.url', 'public.utf8-plain-text'];
+    if (/^Rich/.test(c.as || '')) return ['public.html', 'public.rtf', 'public.utf8-plain-text'];
+    if (c.app === 'Marxy' && k === 'markdown') return ['public.utf8-plain-text', 'net.daringfireball.markdown'];
+    return ['public.utf8-plain-text'];
+  }
+  const TRACK = /^(utm_[a-z]+|fbclid|gclid|dclid|gbraid|wbraid|msclkid|mc_cid|mc_eid|igshid|_hsenc|_hsmi|mkt_tok|yclid|ref_src)$/i;
+  function trackingParams(u) { try { return Array.from(new URL(u.trim()).searchParams.keys()).filter((k) => TRACK.test(k)); } catch (e) { return []; } }
+  function stripTracking(u) { try { const x = new URL(u.trim()); Array.from(x.searchParams.keys()).forEach((k) => TRACK.test(k) && x.searchParams.delete(k)); return x.toString(); } catch (e) { return u; } }
+  const SECRETS = [
+    ['AWS access key', /\bAKIA[0-9A-Z]{16}\b/],
+    ['GitHub token', /\bgh[pousr]_[A-Za-z0-9]{36,}\b/],
+    ['Slack token', /\bxox[abprs]-[A-Za-z0-9-]{10,}/],
+    ['Anthropic API key', /\bsk-ant-[A-Za-z0-9_-]{20,}/],
+    ['OpenAI-style key', /\bsk-[A-Za-z0-9]{20,}\b/],
+    ['Private key block', /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
+    ['JSON Web Token', /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/]
+  ];
+  const hash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  const pad = (n) => String(n).padStart(2, '0');
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+  /* ===================== Diff ===================== */
+
+  // LCS over arrays of lines or words. Returns [op, a, b, aLine, bLine] with op ' ', '-' or '+'.
+  function diffOps(A, B, norm) {
+    const n = A.length, m = B.length;
+    if (n * m > 4e6) return null;
+    const NA = norm ? A.map(norm) : A, NB = norm ? B.map(norm) : B;
+    const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = NA[i] === NB[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    const out = []; let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (NA[i] === NB[j]) { out.push([' ', A[i], B[j], i + 1, j + 1]); i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push(['-', A[i], null, i + 1, null]); i++; }
+      else { out.push(['+', null, B[j], null, j + 1]); j++; }
+    }
+    while (i < n) { out.push(['-', A[i], null, i + 1, null]); i++; }
+    while (j < m) { out.push(['+', null, B[j], null, j + 1]); j++; }
+    return out;
+  }
+  function unifiedHtml(before, after) {
+    const d = diffOps(before.split('\n'), after.split('\n'));
+    if (!d) return '<div class="empty-sm">Too large to diff in the prototype. The app diffs in Rust, off the main thread.</div>';
+    const adds = d.filter((x) => x[0] === '+').length, dels = d.filter((x) => x[0] === '-').length;
+    if (!adds && !dels) return '<div class="empty-sm">No differences: this pipeline leaves the text unchanged.</div>';
+    const keep = new Set(); d.forEach((x, k) => { if (x[0] !== ' ') for (let c = k - 3; c <= k + 3; c++) keep.add(c); });
+    let html = '<div class="udiff">', skip = 0;
+    const flush = () => { if (skip) { html += `<div class="hunk">${ic('fold-vertical', 'ic-sm')}${fmt(skip)} unchanged line${skip === 1 ? '' : 's'}</div>`; skip = 0; } };
+    d.forEach((x, k) => {
+      if (!keep.has(k)) { skip++; return; }
+      flush();
+      const t = x[0] === '+' ? x[2] : x[1];
+      html += `<div class="dl ${x[0] === '+' ? 'add' : x[0] === '-' ? 'del' : ''}"><span>${x[3] || ''}</span><span>${x[4] || ''}</span><span>${x[0] === ' ' ? '' : x[0] === '-' ? '−' : '+'}</span><span>${esc(t) || ' '}</span></div>`;
+    });
+    flush();
+    return html + '</div>';
+  }
+  const unifiedText = (before, after, la, lb) => {
+    const d = diffOps(before.split('\n'), after.split('\n')); if (!d) return '';
+    return `--- ${la}\n+++ ${lb}\n` + d.map((x) => (x[0] === '+' ? '+' + x[2] : x[0] === '-' ? '-' + x[1] : ' ' + x[1])).join('\n');
+  };
+  function wordDiff(a, b) {
+    const A = a.split(/(\s+)/), B = b.split(/(\s+)/);
+    const d = A.length * B.length < 160000 ? diffOps(A, B) : null;
+    if (!d) return [esc(a), esc(b)];
+    let L = '', Rr = '';
+    d.forEach(([o, x, y]) => { if (o === ' ') { L += esc(x); Rr += esc(y); } else if (o === '-') L += x.trim() ? `<del>${esc(x)}</del>` : esc(x); else Rr += y.trim() ? `<ins>${esc(y)}</ins>` : esc(y); });
+    return [L, Rr];
+  }
+
+  /* ===================== Pipeline engine ===================== */
+
+  const T = (id) => G.transforms.find((t) => t.id === id);
+  let uidN = 1;
+  const mkStep = (tid, on = true) => ({ uid: uidN++, tid, on });
+  const ctx = () => ({ path: (G.current && G.current.path) || 'clipboard', lang: S.input.lang || '' });
+  function runSteps(steps, text, cx) {
+    const res = [{ out: text, ms: 0 }]; let cur = text; const c0 = cx || ctx();
+    steps.forEach((st) => {
+      const t = T(st.tid);
+      if (!t || !st.on) { res.push({ out: cur, ms: 0, skipped: true, missing: !t }); return; }
+      const t0 = performance.now(); let out = cur, err = null;
+      try { out = t.fn(cur, c0); if (typeof out !== 'string') out = out == null ? '' : String(out); } catch (e) { err = e.message || String(e); out = cur; }
+      res.push({ out, ms: performance.now() - t0, err });
+      cur = out;
+    });
+    return res;
+  }
+  const runSaved = (p, text, cx) => { const r = runSteps(p.steps.map((tid) => ({ tid, on: true })), text, cx); return r[r.length - 1].out; };
+  // A pipeline run on the clipboard takes its context from the clip, not from whatever is in the workbench.
+  const clipCtx = () => { const c = G.clips.items.find((x) => kindOf(x) !== 'image'); return { path: c && c.source ? c.source.path : 'clipboard', lang: (c && c.lang) || '' }; };
+  const inputText = () => (editor ? editor.getValue() : '');
+  const finalOut = () => (S.res.length ? S.res[S.res.length - 1].out : inputText());
+  function shownPair() {
+    if (S.stepPreview != null && S.res[S.stepPreview + 1]) return [S.res[S.stepPreview].out, S.res[S.stepPreview + 1].out];
+    return [inputText(), finalOut()];
+  }
+  function recompute() {
+    S.res = runSteps(S.pipe.steps, inputText());
+    if (S.stepPreview != null && S.stepPreview >= S.pipe.steps.length) S.stepPreview = null;
+    if (G.current) G.current.src = inputText();
+    renderSteps(); renderOutput(); renderCopy(); renderInHead(); renderStatus();
+    if (S.mode === 'compare') renderCompare();
+  }
+  function setDirty() { S.pipe.dirty = true; recompute(); }
+
+  /* ===================== Input ===================== */
+
+  function buildEditor(value) {
+    $('#edhost').innerHTML = '';
+    editor = G.Editor($('#edhost'), { value, lang: 'markdown', wrap: true, minimap: false, lint: false });
+    G.editor = editor;
+    editor.ta.setAttribute('aria-label', 'Workbench input');
+    editor.on('change', () => recompute());
+    const track = () => { S.lastSel = [editor.ta.selectionStart, editor.ta.selectionEnd]; };
+    ['select', 'keyup', 'mouseup', 'input', 'focus'].forEach((ev) => editor.ta.addEventListener(ev, track));
+  }
+  // Capture phase so these win over the editor's own Tab (indent) and ⌘↵ (toggle task) handlers.
+  $('#edhost').addEventListener('keydown', (e) => {
+    if (e.target !== editor.ta) return;
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (e.altKey) replaceClipboard(); else copyOut(); return; }
+    if (e.key !== 'Tab' || e.shiftKey) return;
+    const ta = editor.ta, pos = ta.selectionStart;
+    if (pos !== ta.selectionEnd) return;
+    const m = ta.value.slice(0, pos).match(/(;[\w-]+)$/); if (!m) return;
+    const sn = S.snips.find((s) => s.abbr === m[1]); if (!sn) return;
+    e.preventDefault(); e.stopPropagation();
+    const x = expand(sn.body); const start = pos - m[1].length;
+    ta.setSelectionRange(start, pos); editor.insert(x.text);
+    if (x.cursor >= 0) ta.setSelectionRange(start + x.cursor, start + x.cursor);
+    G.toast(`Expanded ${esc(sn.abbr)} · ${esc(sn.name)}`, { icon: 'text-quote' });
+  }, true);
+
+  function setInput(text, src = {}) {
+    editor.setValue(text);
+    S.input = Object.assign({ kind: 'paste', label: 'Pasted text', icon: 'clipboard-paste', lang: '' }, src);
+    const d = src.doc || (src.clip && docForClip(src.clip));
+    if (d) G.current = { id: d.id, title: d.title, path: d.path, src: text, collection: d.collection, kind: d.kind, headings: [] };
+    else if (src.clip && src.clip.source) G.current = { title: src.clip.source.title, path: src.clip.source.path, src: text, headings: [] };
+    else if (!src.keepCurrent) G.current = null;
+    S.stepPreview = null; S.lastSel = [0, 0];
+    recompute();
+  }
+  const fromDoc = (d) => setInput(d.src, { kind: 'doc', label: d.title, icon: G.kinds[d.kind].icon, doc: d, lang: d.kind === 'code' ? d.lang : '' });
+  function fromClip(c) {
+    if (kindOf(c) === 'image') {
+      setInput(c.ocr || '', { kind: 'clip', label: 'Text in ' + c.text, icon: 'scan-text', clip: c });
+      return G.toast('The workbench takes text: loaded the text recognised in the image', { icon: 'scan-text' });
+    }
+    setInput(c.text, { kind: 'clip', label: firstLine(c.text).slice(0, 44) || 'Clip', icon: KINDS[kindOf(c)][1], clip: c, lang: c.lang || '' });
+  }
+  function renderInHead() {
+    const st = G.stats(inputText());
+    $('#in-src').innerHTML = ic(S.input.icon || 'type') + `<span>${esc(S.input.label)}</span>` + ic('chevron-down', 'chev');
+    $('#in-stats').textContent = `${fmt(st.chars)} ch · ${fmt(st.words)} w · ${fmt(st.lines)} ln`;
+    G.icons($('#in-src'));
+  }
+  async function readSystemClipboard() {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.readText) return null;
+      return await Promise.race([navigator.clipboard.readText(), new Promise((r) => setTimeout(() => r(null), 700))]);
+    } catch (e) { return null; }
+  }
+  async function pasteIn() {
+    const t = await readSystemClipboard();
+    if (t && t.trim()) return setInput(t, { kind: 'paste', label: 'Pasted from the clipboard', icon: 'clipboard-paste' });
+    const c = G.clips.items.find((x) => kindOf(x) !== 'image');
+    if (!c) return G.toast('The clipboard is empty', { icon: 'info' });
+    fromClip(c);
+    G.toast('The browser would not share the clipboard, so the newest history item was loaded. The app reads NSPasteboard directly.', { icon: 'info', ms: 4200 });
+  }
+  function editorSelection() { const [a, b] = S.lastSel; return a !== b ? inputText().slice(a, b) : ''; }
+  function insertAtCursor(text, cursorOffset = -1) {
+    if (S.mode === 'compare') setMode('pipeline');
+    const ta = editor.ta; const len = ta.value.length;
+    ta.focus(); ta.setSelectionRange(Math.min(S.lastSel[0], len), Math.min(S.lastSel[1], len));
+    const start = ta.selectionStart; editor.insert(text);
+    if (cursorOffset >= 0) ta.setSelectionRange(start + cursorOffset, start + cursorOffset);
+    S.lastSel = [ta.selectionStart, ta.selectionEnd];
+  }
+  function expand(body) {
+    const d = new Date();
+    const vals = { date: today(), time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, clipboard: newestText(), selection: editorSelection(), title: (G.current && G.current.title) || 'Untitled', path: (G.current && G.current.path) || 'clipboard' };
+    let out = body.replace(/\{\{(\w+)\}\}/g, (m, k) => (k === 'cursor' ? '\u0000' : k in vals ? vals[k] : m));
+    const cursor = out.indexOf('\u0000'); out = out.replace(/\u0000/g, '');
+    return { text: out, cursor };
+  }
+  function loadMenu(anchor) {
+    const hot = S.vis[S.hot] && S.vis[S.hot].c;
+    G.menu(anchor, [
+      { header: 'Load into the workbench' },
+      { label: 'Current clipboard', icon: 'clipboard-paste', run: pasteIn },
+      { label: 'Selected clip', icon: 'clipboard-list', disabled: !hot, run: () => fromClip(hot) },
+      { label: `Selected clips, merged (${S.sel.size})`, icon: 'merge', disabled: S.sel.size < 2, run: () => mergeSel('old') },
+      { label: 'Marxy document', icon: 'file-text', sub: G.docs.map((d) => ({ label: d.title, icon: G.kinds[d.kind].icon, run: () => fromDoc(d) })) },
+      { label: 'Snippet', icon: 'text-quote', sub: S.snips.map((s) => ({ label: s.name, icon: 'text-quote', run: () => setInput(expand(s.body).text, { kind: 'snippet', label: 'Snippet · ' + s.name, icon: 'text-quote', keepCurrent: true }) })) },
+      { label: `Collect stack (${G.stack.items.length})`, icon: 'layers', disabled: !G.stack.items.length, run: () => setInput(stackJoined(), { kind: 'stack', label: `Stack of ${G.stack.items.length}`, icon: 'layers' }) },
+      { label: 'Pipeline output (chain)', icon: 'corner-left-up', kbd: '⌘U', run: useAsInput },
+      { sep: true },
+      { label: 'Sample: Markdown with formatting', icon: 'file-text', run: () => setInput(SAMPLE_MD, { kind: 'sample', label: 'Sample Markdown', icon: 'file-text' }) },
+      { label: 'Sample: rows copied from a spreadsheet', icon: 'table', run: () => setInput(SAMPLE_TSV, { kind: 'sample', label: 'Sample TSV', icon: 'table' }) },
+      { label: 'Open a file…', icon: 'folder-open', run: () => G.toast('Open panel for any text file up to 8 MB; it loads here without being added to a collection', { icon: 'folder-open' }) }
+    ], { width: 290 });
+  }
+
+  /* ===================== History ===================== */
+
+  const bucket = (t) => {
+    if (Date.now() - t < HOUR) return 'Last hour';
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    return t >= d0.getTime() ? 'Today' : t >= d0.getTime() - DAY ? 'Yesterday' : 'Earlier';
+  };
+  function renderHistory() {
+    const hotClip = S.vis[S.hot] && S.vis[S.hot].c;
+    const { text: q, terms } = parseQuery(S.q);
+    S.sel.forEach((c) => { if (!G.clips.items.includes(c)) S.sel.delete(c); });
+    const base = G.clips.items.filter(passFrom);
+    const counts = {}; FILTERS.forEach(([id]) => { counts[id] = base.filter((c) => passType(c, id)).length; });
+    let vis = base.filter((c) => passType(c, S.filter) && matchTerms(c, terms) && (!q || hay(c).includes(q))).map((c) => ({ c }));
+    vis = vis.filter((v) => v.c.pinned).concat(vis.filter((v) => !v.c.pinned));
+    S.vis = vis;
+    const k0 = hotClip ? vis.findIndex((v) => v.c === hotClip) : -1;
+    S.hot = k0 >= 0 ? k0 : Math.max(0, Math.min(S.hot, vis.length - 1));
+
+    $('#fchips').innerHTML = FILTERS.map(([id, label]) => `<button class="fchip" data-f="${id}" aria-pressed="${S.filter === id}">${label}<span class="n">${counts[id]}</span></button>`).join('');
+    $$('#fromseg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.from === S.from)));
+    const pinned = G.clips.items.filter((c) => c.pinned).length;
+    $('#h-count').textContent = vis.length === G.clips.items.length ? `${fmt(vis.length)} clips · ${pinned} pinned` : `${fmt(vis.length)} of ${fmt(G.clips.items.length)}`;
+    $('#h-qx').hidden = !S.q;
+
+    const showSkips = S.filter === 'all' && !q && !terms.length && S.from !== 'marxy';
+    let html = '', lastG = null;
+    const head = (g) => { if (g !== lastG) { html += `<div class="hg" role="presentation">${g === 'Pinned' ? ic('pin', 'ic-sm') : ''}${g}</div>`; lastG = g; } };
+    const skips = showSkips ? SKIPPED.slice().sort((a, b) => b.at - a.at) : [];
+    const skipRow = (s) => { head(bucket(s.at)); html += `<div class="crow skip" role="presentation" title="Marxy saw this copy and did not record it. Only the app, the reason and the time are kept."><span></span><span class="tico">${ic(s.icon, 'ic-sm')}</span><div class="mid"><div class="t">Not recorded: ${esc(s.why)}</div><div class="s">${esc(s.app)} · ${G.ago(s.at)}</div></div></div>`; };
+    vis.forEach((v, k) => {
+      const c = v.c;
+      if (!c.pinned) while (skips.length && skips[0].at > c.at) skipRow(skips.shift());
+      head(c.pinned ? 'Pinned' : bucket(c.at));
+      const kd = kindOf(c), sel = S.sel.has(c);
+      const flagsHtml = [kd === 'url' && trackingParams(c.text).length ? '<span class="flag">tracking</span>' : '', c.replaced ? '<span class="flag">replaced</span>' : ''].filter(Boolean).join(' · ');
+      html += `<div class="crow${k === S.hot ? ' hot' : ''}${sel ? ' sel' : ''}" role="option" id="cr-${k}" data-k="${k}" aria-selected="${sel || k === S.hot}">
+        <input type="checkbox" class="ck" tabindex="-1" aria-label="Select clip" ${sel ? 'checked' : ''}>
+        <span class="tico" title="${KINDS[kd][0]}">${ic(KINDS[kd][1], 'ic-sm')}</span>
+        <div class="mid"><div class="t">${kd === 'image' ? esc(c.text) : snippetFor(c, q)}</div><div class="s">${c.pinned ? `<span class="pinned">Pinned</span> · ` : ''}${hl(srcLabel(c), q)} · ${G.ago(c.at)}${kd !== 'image' ? ' · ' + fmt(c.text.length) + ' ch' : ''}${flagsHtml ? ' · ' + flagsHtml : ''}</div></div>
+        <div class="acts">
+          <button class="ibtn" data-a="copy" tabindex="-1" title="Copy (⌘C)" aria-label="Copy">${ic('copy')}</button>
+          <button class="ibtn" data-a="load" tabindex="-1" title="Paste into the workbench (↵)" aria-label="Paste into the workbench">${ic('text-cursor-input')}</button>
+          <button class="ibtn" data-a="pin" tabindex="-1" title="${c.pinned ? 'Unpin' : 'Pin'} (⌥P)" aria-label="${c.pinned ? 'Unpin' : 'Pin'}" aria-pressed="${!!c.pinned}">${ic(c.pinned ? 'pin-off' : 'pin')}</button>
+          <button class="ibtn" data-a="more" tabindex="-1" title="More: copy as, run a pipeline, open source, delete (⇧F10)" aria-label="More actions">${ic('ellipsis')}</button>
+        </div></div>`;
+    });
+    skips.forEach(skipRow);
+    if (!vis.length) html += `<div class="hempty">No clips match${S.q ? ` "${esc(S.q)}"` : ''}.<br><button class="btn sm" id="h-reset" style="margin-top:8px">Clear search and filters</button></div>`;
+    const list = $('#hlist');
+    list.innerHTML = html;
+    list.classList.toggle('multi', S.multi || S.sel.size > 0);
+    if (vis.length) list.setAttribute('aria-activedescendant', 'cr-' + S.hot); else list.removeAttribute('aria-activedescendant');
+    G.icons(list); G.icons($('#fchips'));
+    renderSelBar(); renderPolicy();
+  }
+  function renderSelBar() {
+    const n = S.sel.size, bar = $('#hselbar');
+    bar.hidden = !n; if (!n) return;
+    bar.innerHTML = `<b>${n} selected</b>
+      <button class="btn sm" data-sb="merge" aria-haspopup="menu">${ic('merge')}Merge${ic('chevron-down', 'chev')}</button>
+      <button class="btn sm" data-sb="compare" ${n === 2 ? '' : 'disabled'} title="Compare exactly two clips">${ic('git-compare')}Compare</button>
+      <button class="btn sm" data-sb="stack" title="Add to the collect stack">${ic('layers')}Stack</button>
+      <button class="btn sm" data-sb="pin">${ic('pin')}Pin</button>
+      <button class="btn sm" data-sb="del">${ic('trash-2')}Delete</button>
+      <button class="ibtn" data-sb="clear" title="Clear selection (esc)" aria-label="Clear selection">${ic('x')}</button>`;
+    G.icons(bar);
+  }
+  function renderPolicy() {
+    const apps = G.prefs.clipIgnoreApps.split(/\s*,\s*/).filter(Boolean);
+    const box = $('#hpol');
+    if (!G.prefs.clipHistory) {
+      box.innerHTML = `${ic('circle-pause', 'ic-sm')}<span class="grow">${R.pausedUntil > Date.now() ? 'Recording paused until ' + clockOf(R.pausedUntil) : R.pausedUntil === -1 ? 'Recording paused' : 'History is off'}. Marxy keeps only the current clipboard. <button class="linkish" data-pol="resume">Resume</button></span>`;
+    } else {
+      box.innerHTML = `${ic('shield-check', 'ic-sm')}<span class="grow" title="Also skipped: org.nspasteboard.TransientType and AutoGeneratedType">Never recorded: concealed copies (<code>org.nspasteboard.ConcealedType</code>), likely secrets${apps.length ? ', ' + esc(apps.join(', ')) : ''}. ${SKIPPED.length} skipped today · <button class="linkish" data-pol="rules">Rules</button></span>`;
+    }
+    G.icons(box);
+  }
+  function renderPreview() {
+    const box = $('#hprev');
+    box.hidden = !UI.previewOpen; $('#h-prevbtn').setAttribute('aria-pressed', String(UI.previewOpen));
+    if (!UI.previewOpen) return;
+    const v = S.vis[S.hot];
+    if (!v) { box.innerHTML = '<div class="pv-empty">Nothing selected</div>'; return; }
+    const c = v.c, k = kindOf(c), st = G.stats(c.text), d = docForClip(c);
+    const tracking = k === 'url' ? trackingParams(c.text) : [];
+    const shown = S.showOrig && c.original ? c.original : c.text;
+    const notes = [];
+    if (c.original && c.replaced) notes.push(`<div class="pv-note">${ic('workflow', 'ic-sm')}<span class="grow">${S.showOrig ? 'The original, as copied' : 'Replaced with a pipeline result'}</span><button class="btn sm ghost" data-pv="orig">${S.showOrig ? 'Show current' : 'Show original'}</button><button class="btn sm ghost" data-pv="restore" title="Keep the original instead">Restore</button></div>`);
+    if (tracking.length) notes.push(`<div class="pv-note">${ic('link-2-off', 'ic-sm')}<span class="grow" title="${esc(tracking.join(', '))}">${tracking.length} tracking parameters: ${esc(tracking.join(', '))}</span><button class="btn sm ghost" data-pv="strip">Strip</button></div>`);
+    const src = c.source ? `<span>${ic('file-text', 'ic-sm')}${d ? `<button class="linkish" data-pv="open" title="${esc(c.source.path)}">${esc(c.source.title)}${c.source.line ? ', line ' + c.source.line : ''}</button>` : esc(c.source.title)}</span>` : '';
+    const meta = `<div class="pv-meta"><span class="chip">${ic(KINDS[k][1])}${KINDS[k][0]}${c.lang ? ' · ' + esc(c.lang) : ''}</span><span>${esc(c.app || 'Unknown app')} · ${clockOf(c.at)}</span><span>${k === 'image' ? `${c.image.w} × ${c.image.h} · ${fmt(c.image.kb)} KB` : `${fmt(st.chars)} ch · ${fmt(st.lines)} ln`}</span>${src}<span class="uti" title="Pasteboard types Marxy stored for this clip">${utis(c).join(' · ')}</span></div>`;
+    const body = k === 'image'
+      ? `<div class="imgph">${ic('image')}<span>${esc(c.text)}</span></div><div class="pv-ocr"><div class="row"><b>Recognised text</b><span class="grow"></span><button class="btn sm ghost" data-pv="ocr">Use the text</button></div><div>${esc(c.ocr || 'None found')}</div></div>`
+      : `<pre tabindex="0" aria-label="Clip text">${k === 'code' ? G.hl(shown, c.lang || '') : k === 'markdown' ? G.hl(shown, 'markdown') : esc(shown)}</pre>`;
+    box.innerHTML = meta + notes.join('') + body;
+    G.icons(box);
+  }
+  const hotClip = () => S.vis[S.hot] && S.vis[S.hot].c;
+  function setHot(k, scroll = true) {
+    S.hot = Math.max(0, Math.min(S.vis.length - 1, k));
+    $$('#hlist .crow.hot').forEach((r) => r.classList.remove('hot'));
+    const row = $('#cr-' + S.hot);
+    if (row) { row.classList.add('hot'); $('#hlist').setAttribute('aria-activedescendant', row.id); if (scroll) row.scrollIntoView({ block: 'nearest' }); }
+    S.showOrig = false; renderPreview();
+  }
+  function rangeSel(a, b) { S.sel.clear(); for (let i = Math.min(a, b); i <= Math.max(a, b); i++) if (S.vis[i]) S.sel.add(S.vis[i].c); }
+  function toggleSel(c) { S.sel.has(c) ? S.sel.delete(c) : S.sel.add(c); }
+
+  // Copying from history moves the item to the top and keeps its pin and source app.
+  function promote(c) {
+    if (kindOf(c) === 'image') return G.toast(`Copied ${esc(c.text)} (PNG and TIFF on the pasteboard in the app)`, { icon: 'image' });
+    G.writeClipboard(c.text);
+    c.at = Date.now();
+    G.clips.items = [c].concat(G.clips.items.filter((x) => x !== c));
+    if (G.stack.on) { G.stack.items.push({ text: c.text }); G.emit('stack', G.stack); }
+    G.clips.save(); G.emit('clips', G.clips.items);
+    G.toast(`${G.stack.on ? 'Stacked' : 'Copied'} · ${fmt(c.text.length)} chars · moved to the top`, { icon: G.stack.on ? 'layers' : 'clipboard-check' });
+  }
+  function pin(c) { const i = G.clips.items.indexOf(c); if (i >= 0) G.clips.togglePin(i); }
+  function del(c) {
+    const i = G.clips.items.indexOf(c); if (i < 0) return;
+    G.clips.remove(i);
+    G.toast('Deleted from history', { icon: 'trash-2', action: { label: 'Undo', run: () => { G.clips.items.splice(i, 0, c); G.clips.save(); G.emit('clips', G.clips.items); } } });
+  }
+  function deleteSel() {
+    const gone = Array.from(S.sel); const before = G.clips.items.slice();
+    G.clips.items = G.clips.items.filter((c) => !S.sel.has(c)); S.sel.clear(); G.clips.save(); G.emit('clips', G.clips.items);
+    G.toast(`Deleted ${gone.length} clips`, { icon: 'trash-2', action: { label: 'Undo', run: () => { G.clips.items = before; G.clips.save(); G.emit('clips', G.clips.items); } } });
+  }
+  function openSource(c) {
+    const d = docForClip(c);
+    if (d) location.href = G.page('workspace') + '#doc=' + d.id + (c.source.line ? '&line=' + c.source.line : '');
+    else G.toast(c.source ? 'That document is indexed metadata only in this prototype' : `Copied in ${esc(c.app)}; the app would bring ${esc(c.app)} to the front`, { icon: 'info' });
+  }
+  function mergeSel(order, style = 'blank', copyOnly = false) {
+    const list = Array.from(S.sel).filter((c) => kindOf(c) !== 'image').sort((a, b) => (order === 'old' ? a.at - b.at : b.at - a.at));
+    if (list.length < 2) return G.toast('Select at least two text clips to merge', { icon: 'info' });
+    const text = style === 'bullets' ? list.map((c) => '- ' + c.text.trim().replace(/\n+/g, ' ')).join('\n') : list.map((c) => c.text.trim()).join(style === 'rule' ? '\n\n---\n\n' : '\n\n');
+    if (copyOnly === 'clip') { G.clips.add({ text, as: 'Markdown', app: 'Marxy', source: null }); return G.toast(`Saved ${list.length} clips as one new clip`, { icon: 'merge' }); }
+    if (copyOnly) return G.copy(text, { as: `merge of ${list.length}`, clean: false });
+    setInput(text, { kind: 'merge', label: `${list.length} clips merged`, icon: 'merge' });
+    if (S.mode === 'compare') setMode('pipeline');
+  }
+  function addToStack(clips) {
+    clips.filter((c) => kindOf(c) !== 'image').forEach((c) => G.stack.items.push({ text: c.text }));
+    G.emit('stack', G.stack); showRight('stack');
+    G.toast(`Added to the stack · ${G.stack.items.length} items`, { icon: 'layers' });
+  }
+  function clipMenu(c, anchor) {
+    const d = docForClip(c), img = kindOf(c) === 'image';
+    G.menu(anchor, [
+      { header: firstLine(c.text).slice(0, 44) || 'Clip' },
+      { label: 'Copy', icon: 'copy', kbd: '⌘C', run: () => promote(c) },
+      { label: 'Copy as', icon: 'files', disabled: img, sub: G.copyFormats.map((f) => ({ label: f.name, icon: f.icon, run: () => copyFmt(f.id, c.text) })) },
+      { label: img ? 'Use the recognised text' : 'Paste into the workbench', icon: 'text-cursor-input', kbd: '↵', run: () => fromClip(c) },
+      { label: 'Insert at the input caret', icon: 'text-cursor', disabled: img, run: () => insertAtCursor(c.text) },
+      { label: 'Run a saved pipeline on it', icon: 'workflow', disabled: img, sub: S.pipes.map((p) => ({ label: p.name, icon: 'workflow', run: () => { loadPipe(p); fromClip(c); setMode('pipeline'); } })) },
+      { label: 'Add to the stack', icon: 'layers', disabled: img, run: () => addToStack([c]) },
+      { label: 'Compare with the input', icon: 'git-compare', disabled: img, run: () => { S.cmp.a = 'in'; S.cmp.b = c; setMode('compare'); } },
+      { label: 'Save as a snippet', icon: 'text-quote', disabled: img, run: () => newSnippet(c.text, firstLine(c.text).slice(0, 40)) },
+      { sep: true },
+      { label: c.pinned ? 'Unpin' : 'Pin', icon: c.pinned ? 'pin-off' : 'pin', kbd: '⌥P', run: () => pin(c) },
+      { label: d ? 'Open the source document' : c.source ? 'Source is metadata only' : `Show ${c.app || 'the app'}`, icon: 'external-link', disabled: !!c.source && !d, run: () => openSource(c) },
+      { label: 'Delete', icon: 'trash-2', kbd: '⌫', run: () => del(c) }
+    ], { width: 270 });
+  }
+
+  $('#hlist').addEventListener('click', (e) => {
+    if (e.target.id === 'h-reset') { S.q = ''; $('#h-q').value = ''; S.filter = 'all'; S.from = 'any'; return renderHistory(); }
+    const row = e.target.closest('.crow[data-k]'); if (!row) return;
+    const k = +row.dataset.k, c = S.vis[k].c;
+    const a = e.target.closest('[data-a]');
+    if (a) {
+      const act = a.dataset.a;
+      if (act === 'copy') promote(c);
+      else if (act === 'load') fromClip(c);
+      else if (act === 'pin') pin(c);
+      else if (act === 'more') clipMenu(c, a);
+      return;
+    }
+    if (e.target.classList.contains('ck')) { toggleSel(c); S.anchor = k; }
+    else if (e.metaKey || e.ctrlKey) { toggleSel(c); S.anchor = k; }
+    else if (e.shiftKey && S.anchor != null) rangeSel(S.anchor, k);
+    else { if (!S.multi) S.sel.clear(); S.anchor = k; }
+    S.hot = k; S.showOrig = false; renderHistory(); renderPreview();
+    $('#hlist').focus({ preventScroll: true });
+  });
+  $('#hlist').addEventListener('dblclick', (e) => { const row = e.target.closest('.crow[data-k]'); if (row && !e.target.closest('[data-a], .ck')) fromClip(S.vis[+row.dataset.k].c); });
+  $('#hlist').addEventListener('contextmenu', (e) => { const row = e.target.closest('.crow[data-k]'); if (!row) return; e.preventDefault(); S.hot = +row.dataset.k; renderHistory(); renderPreview(); clipMenu(S.vis[S.hot].c, { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }); });
+  $('#hlist').addEventListener('keydown', (e) => {
+    const mod = e.metaKey || e.ctrlKey, n = S.vis.length, c = hotClip();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+      if (!n) return; e.preventDefault();
+      const k = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : S.hot + (e.key === 'ArrowDown' ? 1 : -1);
+      const kk = Math.max(0, Math.min(n - 1, k));
+      if (e.shiftKey) { if (S.anchor == null) S.anchor = S.hot; rangeSel(S.anchor, kk); S.hot = kk; renderHistory(); renderPreview(); $('#cr-' + S.hot).scrollIntoView({ block: 'nearest' }); }
+      else { S.anchor = kk; setHot(kk); }
+    } else if (e.key === 'Enter' && c) { e.preventDefault(); if (e.shiftKey && S.sel.size > 1) mergeSel('old'); else fromClip(c); }
+    else if (mod && e.key.toLowerCase() === 'c' && c) { e.preventDefault(); promote(c); }
+    else if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); S.vis.forEach((v) => S.sel.add(v.c)); renderHistory(); }
+    else if (e.altKey && e.code === 'KeyP' && c) { e.preventDefault(); pin(c); }
+    else if ((e.key === 'Backspace' || e.key === 'Delete') && c) { e.preventDefault(); S.sel.size > 1 ? deleteSel() : del(c); }
+    else if (e.key === ' ') { e.preventDefault(); UI.previewOpen = !UI.previewOpen; saveUI(); renderPreview(); }
+    else if (e.key === 'Escape') { if (S.sel.size) { S.sel.clear(); renderHistory(); } else if (S.q) { S.q = ''; $('#h-q').value = ''; renderHistory(); } }
+    else if ((e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) && c) { e.preventDefault(); clipMenu(c, $('#cr-' + S.hot)); }
+    else if (e.key.length === 1 && !mod && !e.altKey && /\S/.test(e.key)) { const q = $('#h-q'); q.focus(); q.value += e.key; S.q = q.value; renderHistory(); renderPreview(); e.preventDefault(); }
+  });
+  $('#h-q').addEventListener('input', (e) => { S.q = e.target.value; S.hot = 0; renderHistory(); renderPreview(); });
+  $('#h-q').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); $('#hlist').focus(); setHot(0); }
+    else if (e.key === 'Enter') { e.preventDefault(); const c = hotClip(); if (c) fromClip(c); }
+    else if (e.key === 'Escape') { e.preventDefault(); S.q = ''; e.target.value = ''; renderHistory(); renderPreview(); }
+  });
+  $('#h-qx').onclick = () => { S.q = ''; $('#h-q').value = ''; renderHistory(); renderPreview(); $('#h-q').focus(); };
+  $('#fchips').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; S.filter = b.dataset.f; S.hot = 0; renderHistory(); renderPreview(); });
+  $('#fromseg').addEventListener('click', (e) => { const b = e.target.closest('[data-from]'); if (!b) return; S.from = b.dataset.from; S.hot = 0; renderHistory(); renderPreview(); });
+  $('#h-multi').onclick = () => { S.multi = !S.multi; if (!S.multi) S.sel.clear(); $('#h-multi').setAttribute('aria-pressed', String(S.multi)); $('#h-multi').classList.toggle('on', S.multi); renderHistory(); };
+  $('#h-prevbtn').onclick = () => { UI.previewOpen = !UI.previewOpen; saveUI(); renderPreview(); };
+  $('#h-menu').onclick = (e) => historyMenu(e.currentTarget);
+  $('#hselbar').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sb]'); if (!b) return; const act = b.dataset.sb, n = S.sel.size;
+    if (act === 'merge') G.menu(b, [{ header: `Merge ${n} clips` },
+      { label: 'Into the workbench, oldest first', icon: 'arrow-down', kbd: '⇧↵', run: () => mergeSel('old') },
+      { label: 'Into the workbench, newest first', icon: 'arrow-up', run: () => mergeSel('new') },
+      { label: 'As a bullet list', icon: 'list', run: () => mergeSel('old', 'bullets') },
+      { label: 'With rules between', icon: 'separator-horizontal', run: () => mergeSel('old', 'rule') },
+      { sep: true },
+      { label: 'Copy merged', icon: 'copy', run: () => mergeSel('old', 'blank', true) },
+      { label: 'Save merged as a new clip', icon: 'clipboard-plus', run: () => mergeSel('old', 'blank', 'clip') }], { width: 270 });
+    else if (act === 'compare') { const [a, c] = Array.from(S.sel).sort((x, y) => x.at - y.at); S.cmp.a = a; S.cmp.b = c; setMode('compare'); }
+    else if (act === 'stack') addToStack(Array.from(S.sel).sort((x, y) => x.at - y.at));
+    else if (act === 'pin') { S.sel.forEach((c) => { c.pinned = true; }); G.clips.save(); G.emit('clips', G.clips.items); G.toast(`Pinned ${n} clips`, { icon: 'pin' }); }
+    else if (act === 'del') deleteSel();
+    else if (act === 'clear') { S.sel.clear(); renderHistory(); }
+  });
+  $('#hprev').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pv]'); const c = hotClip(); if (!b || !c) return;
+    const act = b.dataset.pv;
+    if (act === 'open') openSource(c);
+    else if (act === 'orig') { S.showOrig = !S.showOrig; renderPreview(); }
+    else if (act === 'restore') { const was = { text: c.text, replaced: c.replaced }; c.text = c.original; c.replaced = false; S.showOrig = false; G.clips.save(); G.emit('clips', G.clips.items); G.toast('Kept the original as copied', { icon: 'rotate-ccw', action: { label: 'Undo', run: () => { Object.assign(c, was); G.clips.save(); G.emit('clips', G.clips.items); } } }); }
+    else if (act === 'strip') { const before = c.text; c.text = stripTracking(c.text); G.clips.save(); G.emit('clips', G.clips.items); G.writeClipboard(c.text); G.toast('Tracking parameters removed; the clean link is on the clipboard', { icon: 'link-2-off', action: { label: 'Undo', run: () => { c.text = before; G.clips.save(); G.emit('clips', G.clips.items); } } }); }
+    else if (act === 'ocr') fromClip(c);
+  });
+  $('#hpol').addEventListener('click', (e) => { const b = e.target.closest('[data-pol]'); if (!b) return; if (b.dataset.pol === 'rules') openRules(); else resumeRecording(); });
+
+  function historyMenu(anchor) {
+    const paused = !G.prefs.clipHistory;
+    G.menu(anchor, [
+      { header: 'Clipboard history' },
+      paused ? { label: 'Resume recording', icon: 'circle-play', run: resumeRecording }
+        : { label: 'Pause recording', icon: 'circle-pause', sub: [['For 5 minutes', 5 * MIN], ['For 1 hour', HOUR], ['Until I resume', -1]].map(([l, ms]) => ({ label: l, run: () => pauseRecording(ms) })) },
+      { label: 'Ignore the next copy', icon: 'eye-off', run: () => { S.ignoreNext = Date.now(); G.toast('The next copy will not be recorded', { icon: 'eye-off' }); } },
+      { sep: true },
+      { label: 'Select several', icon: 'list-checks', checked: S.multi, run: () => $('#h-multi').click() },
+      { label: 'Preview pane', checked: UI.previewOpen, kbd: 'Space', run: () => $('#h-prevbtn').click() },
+      { sep: true },
+      { label: 'Clear unpinned…', icon: 'trash-2', run: () => clearHistory(false) },
+      { label: 'Clear everything…', icon: 'trash', run: () => clearHistory(true) },
+      { sep: true },
+      { label: 'Clipboard rules…', icon: 'shield-check', kbd: '⌥⌘R', run: openRules },
+      { label: 'History in Settings…', icon: 'settings', run: () => (location.href = G.page('settings') + '#clipboard') }
+    ], { width: 250 });
+  }
+  function pauseRecording(ms) {
+    R.pausedUntil = ms < 0 ? -1 : Date.now() + ms; saveRules();
+    G.setPref('clipHistory', false);
+    G.toast(ms < 0 ? 'Recording paused until you resume' : 'Recording paused until ' + clockOf(R.pausedUntil), { icon: 'circle-pause', action: { label: 'Resume', run: resumeRecording } });
+  }
+  function resumeRecording() { R.pausedUntil = 0; saveRules(); G.setPref('clipHistory', true); G.toast('Recording clipboard history', { icon: 'circle-dot' }); }
+  function clearHistory(all) {
+    const before = G.clips.items.slice();
+    const n = all ? before.length : before.filter((c) => !c.pinned).length;
+    G.clips.items = all ? [] : before.filter((c) => c.pinned); S.sel.clear();
+    G.clips.save(); G.emit('clips', G.clips.items);
+    G.toast(`Cleared ${n} clips${all ? '' : '; pinned clips kept'}`, { icon: 'trash-2', ms: 10000, action: { label: 'Undo', run: () => { G.clips.items = before; G.clips.save(); G.emit('clips', G.clips.items); } } });
+  }
+
+  /* ===================== Pipeline builder ===================== */
+
+  function loadPipe(p) {
+    S.pipe = { id: p.id, name: p.name, steps: p.steps.map((tid) => mkStep(tid)), dirty: false };
+    S.stepPreview = null; S.selPipe = p.id;
+    recompute(); renderPipes();
+  }
+  function renderSteps() {
+    const box = $('#steps'), steps = S.pipe.steps;
+    $('#pname').innerHTML = `${esc(S.pipe.name)}${S.pipe.dirty ? '<em>edited</em>' : ''}`;
+    if (!steps.length) {
+      box.innerHTML = `<div class="pipe-empty">No steps: the output equals the input. Start with
+        <button class="btn sm" data-quick="strip-bold">${ic('bold')}Remove bold</button>
+        <button class="btn sm" data-quick="to-slack">${ic('message-circle')}Markdown → Slack</button>
+        <button class="btn sm" data-quick="to-jira">${ic('square-kanban')}Markdown → Jira wiki</button>
+        or load a saved pipeline.</div><button class="addstep" data-add>${ic('plus', 'ic-sm')}Add a step…<span class="kbd">⇧⌘A</span></button>`;
+      return G.icons(box);
+    }
+    box.innerHTML = steps.map((st, k) => {
+      const t = T(st.tid) || { name: st.tid + ' (missing)', icon: 'circle-help', group: 'Unknown' };
+      const r = S.res[k + 1] || {}, prev = S.res[k] || {};
+      const d = r.out != null && prev.out != null ? r.out.length - prev.out.length : 0;
+      const delta = r.err ? `<span class="delta err" title="${esc(r.err)}">error</span>`
+        : !st.on ? '<span class="delta">skipped</span>'
+        : `<span class="delta ${d < 0 ? 'minus' : d > 0 ? 'plus' : ''}" title="${fmt((prev.out || '').length)} → ${fmt((r.out || '').length)} chars · ${(r.ms || 0).toFixed(2)} ms">${d === 0 ? '±0' : (d > 0 ? '+' : '−') + fmt(Math.abs(d))}</span>`;
+      const note = r.err ? '' : st.on && r.out === '' ? '<span class="g warnc">empty result</span>' : st.on && d === 0 && !r.skipped ? '<span class="g">no change</span>' : '';
+      return `<div class="step${st.on ? '' : ' off'}${S.stepPreview === k ? ' pv' : ''}" role="listitem" tabindex="0" draggable="true" data-k="${k}" aria-label="Step ${k + 1}: ${esc(t.name)}${st.on ? '' : ', skipped'}">
+        <span class="grip" aria-hidden="true" title="Drag to reorder">${ic('grip-vertical', 'ic-sm')}</span>
+        <span class="no">${k + 1}</span>
+        <span class="sico" aria-hidden="true">${ic(t.icon, 'ic-sm')}</span>
+        <span class="sname"><span class="t" title="${esc(t.desc || t.name)}">${esc(t.name)}</span><span class="g">${esc(t.group)}</span>${note}</span>
+        ${delta}
+        <label class="switch sm" title="Run or skip this step (⌘E)"><input type="checkbox" data-sa="on" ${st.on ? 'checked' : ''} aria-label="Run ${esc(t.name)}"><i></i></label>
+        <span class="sacts">
+          <button class="ibtn" data-sa="peek" aria-pressed="${S.stepPreview === k}" title="Show the output after this step (↵)" aria-label="Preview after step ${k + 1}">${ic('eye')}</button>
+          <button class="ibtn" data-sa="up" ${k === 0 ? 'disabled' : ''} title="Move up (⌥↑)" aria-label="Move up">${ic('chevron-up')}</button>
+          <button class="ibtn" data-sa="down" ${k === steps.length - 1 ? 'disabled' : ''} title="Move down (⌥↓)" aria-label="Move down">${ic('chevron-down')}</button>
+          <button class="ibtn" data-sa="rm" title="Remove (⌫)" aria-label="Remove step">${ic('x')}</button>
+        </span></div>`;
+    }).join('') + `<button class="addstep" data-add>${ic('plus', 'ic-sm')}Add a step…<span class="kbd">⇧⌘A</span></button>`;
+    G.icons(box);
+  }
+  const focusStep = (k) => { const r = $(`#steps .step[data-k="${k}"]`); if (r) r.focus(); };
+  function addStep(tid, at) {
+    const k = at == null ? S.pipe.steps.length : at;
+    S.pipe.steps.splice(k, 0, mkStep(tid)); setDirty();
+    const row = $(`#steps .step[data-k="${k}"]`); if (row) { row.classList.add('flash-sec'); row.scrollIntoView({ block: 'nearest' }); }
+  }
+  function moveStep(a, b) {
+    const s = S.pipe.steps; if (b < 0 || b >= s.length || a === b) return;
+    const [x] = s.splice(a, 1); s.splice(b, 0, x);
+    if (S.stepPreview === a) S.stepPreview = b;
+    setDirty(); focusStep(b);
+  }
+  function removeStep(k) {
+    const [x] = S.pipe.steps.splice(k, 1); if (!x) return;
+    if (S.stepPreview === k) S.stepPreview = null;
+    setDirty();
+    G.toast(`Removed "${esc((T(x.tid) || { name: x.tid }).name)}"`, { icon: 'x', action: { label: 'Undo', run: () => { S.pipe.steps.splice(k, 0, x); setDirty(); } } });
+  }
+  const steps = $('#steps');
+  steps.addEventListener('click', (e) => {
+    const q = e.target.closest('[data-quick]'); if (q) return addStep(q.dataset.quick);
+    if (e.target.closest('[data-add]')) return openPicker(e.target.closest('[data-add]'));
+    const row = e.target.closest('.step'); if (!row) return; const k = +row.dataset.k;
+    const a = e.target.closest('button[data-sa]'); if (!a) return;
+    const act = a.dataset.sa;
+    if (act === 'peek') { S.stepPreview = S.stepPreview === k ? null : k; recompute(); const again = $(`#steps .step[data-k="${k}"] [data-sa="peek"]`); if (again) again.focus(); }
+    else if (act === 'up') moveStep(k, k - 1);
+    else if (act === 'down') moveStep(k, k + 1);
+    else if (act === 'rm') removeStep(k);
+  });
+  steps.addEventListener('change', (e) => {
+    const inp = e.target.closest('input[data-sa="on"]'); if (!inp) return;
+    const k = +inp.closest('.step').dataset.k; S.pipe.steps[k].on = inp.checked; setDirty();
+    const again = $(`#steps .step[data-k="${k}"] input[data-sa="on"]`); if (again) again.focus();
+  });
+  steps.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.step'); if (!row || e.target !== row) return;
+    const k = +row.dataset.k, mod = e.metaKey || e.ctrlKey;
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); moveStep(k, k + (e.key === 'ArrowUp' ? -1 : 1)); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); focusStep(k + (e.key === 'ArrowUp' ? -1 : 1)); }
+    else if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); S.pipe.steps[k].on = !S.pipe.steps[k].on; setDirty(); focusStep(k); }
+    else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); removeStep(k); focusStep(Math.min(k, S.pipe.steps.length - 1)); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); S.stepPreview = S.stepPreview === k ? null : k; recompute(); focusStep(k); }
+  });
+  let dragK = null;
+  const clearDrop = () => $$('#steps .step').forEach((x) => x.classList.remove('drop-before', 'drop-after', 'dragging'));
+  steps.addEventListener('dragstart', (e) => { const row = e.target.closest('.step'); if (!row) return; dragK = +row.dataset.k; row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'step ' + dragK); });
+  steps.addEventListener('dragover', (e) => {
+    const row = e.target.closest('.step'); if (dragK == null || !row) return; e.preventDefault();
+    const r = row.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+    $$('#steps .step').forEach((x) => x.classList.remove('drop-before', 'drop-after'));
+    row.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  steps.addEventListener('drop', (e) => {
+    const row = e.target.closest('.step'); if (dragK == null || !row) return; e.preventDefault();
+    let to = +row.dataset.k + (row.classList.contains('drop-after') ? 1 : 0); if (dragK < to) to--;
+    const from = dragK; dragK = null; clearDrop(); moveStep(from, to);
+  });
+  steps.addEventListener('dragend', () => { dragK = null; clearDrop(); });
+
+  function savePipe() {
+    const p = S.pipes.find((x) => x.id === S.pipe.id);
+    if (!p) return saveAs($('#p-saveas'));
+    const off = S.pipe.steps.filter((s) => !s.on).length;
+    p.steps = S.pipe.steps.filter((s) => s.on).map((s) => s.tid); p.name = S.pipe.name;
+    S.pipe.dirty = false; savePipes(); renderSteps(); renderPipes();
+    G.toast(`Saved "${esc(p.name)}"${off ? ` · ${off} skipped step${off === 1 ? '' : 's'} left out` : ''}`, { icon: 'save' });
+  }
+  function saveAs(anchor) {
+    if (!S.pipe.steps.length) return G.toast('Add a step first', { icon: 'info' });
+    promptName(anchor || $('#p-saveas'), 'Name the pipeline', S.pipe.id ? S.pipe.name + ' copy' : 'My pipeline', (name) => {
+      const p = { id: 'p-' + Date.now().toString(36), name, steps: S.pipe.steps.filter((s) => s.on).map((s) => s.tid), key: '', services: false, shortcuts: true, menubar: false, input: 'clipboard', output: 'replace', uses: 0, last: null };
+      S.pipes.push(p); S.pipe.id = p.id; S.pipe.name = name; S.pipe.dirty = false; S.selPipe = p.id;
+      savePipes(); renderSteps(); showPipelines(true);
+      G.toast(`Saved "${esc(name)}". Give it a shortcut or put it in the Services menu.`, { icon: 'save' });
+    });
+  }
+  function promptName(anchor, title, initial, done) {
+    const m = G.menu(anchor, [{ html: `<div style="padding:6px 6px 4px"><label class="mh" for="pn-in" style="padding:0 0 6px;display:block">${esc(title)}</label><input class="field" id="pn-in" style="width:100%" value="${esc(initial)}"><div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn sm" data-pn="cancel">Cancel</button><button class="btn sm primary" data-pn="ok">Save</button></div></div>` }], { width: 290, align: 'end' });
+    const inp = $('#pn-in', m); inp.focus(); inp.select();
+    const ok = () => { const v = inp.value.trim(); if (!v) return inp.focus(); G.closeMenu(); done(v); };
+    inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') ok(); if (e.key === 'Escape') { G.closeMenu(); anchor.focus && anchor.focus(); } });
+    m.addEventListener('click', (e) => { const b = e.target.closest('[data-pn]'); if (!b) return; e.stopPropagation(); b.dataset.pn === 'ok' ? ok() : G.closeMenu(); });
+  }
+  $('#add-step').onclick = (e) => openPicker(e.currentTarget);
+  $('#p-load').onclick = (e) => G.menu(e.currentTarget, [{ header: 'Load a saved pipeline' }].concat(S.pipes.map((p) => ({ label: p.name, icon: 'workflow', kbd: p.key, checked: undefined, run: () => loadPipe(p) }))).concat([{ sep: true }, { label: 'Manage pipelines…', icon: 'settings-2', run: () => showPipelines(true) }]), { width: 290 });
+  $('#p-save').onclick = savePipe;
+  $('#p-saveas').onclick = (e) => saveAs(e.currentTarget);
+  $('#p-clear').onclick = () => {
+    if (!S.pipe.steps.length) return;
+    const old = S.pipe.steps.slice(); S.pipe.steps = []; S.stepPreview = null; setDirty();
+    G.toast(`Removed ${old.length} steps`, { icon: 'eraser', action: { label: 'Undo', run: () => { S.pipe.steps = old; setDirty(); } } });
+  };
+
+  /* Step picker: searchable, grouped, with a live preview of the step applied to the current output */
+  let picker = null;
+  function closePicker() { if (picker) { picker.remove(); picker = null; } }
+  function openPicker(anchor) {
+    closePicker(); G.closeMenu();
+    if (S.mode !== 'pipeline') setMode('pipeline');
+    const box = G.el(`<div class="picker" role="dialog" aria-label="Add a transform step">
+      <div class="pk-in">${ic('search')}<input placeholder="Search ${G.transforms.length} transforms" aria-label="Search transforms" aria-controls="pk-list" spellcheck="false" autocomplete="off"><span class="kbd">esc</span></div>
+      <div class="pk-body"><div class="pk-list" id="pk-list" role="listbox" aria-label="Transforms"></div><div class="pk-prev" aria-live="polite"></div></div>
+      <div class="pk-foot"><span><span class="kbd">↑</span><span class="kbd">↓</span> move</span><span><span class="kbd">↵</span> add at the end</span><span><span class="kbd">⌥</span><span class="kbd">↵</span> add and keep open</span><span>Esc closes</span></div>
+    </div>`);
+    document.body.appendChild(box); picker = box; G.icons(box);
+    const r = (anchor && anchor.getBoundingClientRect) ? anchor.getBoundingClientRect() : { left: 300, bottom: 200, top: 200 };
+    const w = box.offsetWidth, h = box.offsetHeight;
+    box.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px';
+    box.style.top = (r.bottom + h + 8 < innerHeight ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
+    const input = $('input', box), list = $('.pk-list', box), prev = $('.pk-prev', box);
+    let hot = 0, flat = [];
+    const base = finalOut();
+    const render = () => {
+      const q = input.value.trim(); flat = []; let html = '';
+      ['Clean', 'Convert', 'Lines', 'Case', 'Extract'].forEach((g) => {
+        let items = G.transforms.filter((t) => t.group === g);
+        if (q) items = items.map((t) => ({ t, m: G.fuzzy(q, t.name + ' ' + (t.desc || '')) })).filter((x) => x.m).sort((a, b) => b.m.score - a.m.score).map((x) => x.t);
+        if (!items.length) return;
+        html += `<div class="pk-g" role="presentation">${g}</div>` + items.map((t) => { const i = flat.push(t) - 1; const used = S.pipe.steps.some((s) => s.tid === t.id); return `<div class="pk-i" role="option" id="pk-${i}" data-i="${i}">${ic(t.icon, 'ic-sm')}<span class="t">${esc(t.name)}</span>${used ? '<span class="faint">in use</span>' : ''}</div>`; }).join('');
+      });
+      list.innerHTML = html || '<div class="empty-sm">No transform matches. Try "slack", "table" or "clean".</div>';
+      hot = Math.min(hot, Math.max(0, flat.length - 1)); G.icons(list); mark();
+    };
+    const mark = () => {
+      $$('.pk-i', list).forEach((n) => { const on = +n.dataset.i === hot; n.classList.toggle('hot', on); n.setAttribute('aria-selected', String(on)); });
+      const h2 = $('.pk-i.hot', list); if (h2) { h2.scrollIntoView({ block: 'nearest' }); input.setAttribute('aria-activedescendant', h2.id); }
+      const t = flat[hot]; if (!t) { prev.innerHTML = ''; return; }
+      let out = ''; try { out = t.fn(base, ctx()); } catch (err) { out = 'Error: ' + err.message; }
+      const d = out.length - base.length;
+      prev.innerHTML = `<div class="row">${ic(t.icon)}<b>${esc(t.name)}</b><span class="grow"></span><span class="chip">${esc(t.group)}</span></div>${t.desc ? `<div class="muted">${esc(t.desc)}</div>` : ''}<div class="faint">Applied after step ${S.pipe.steps.length}: ${fmt(base.length)} → ${fmt(out.length)} chars (${d <= 0 ? '−' : '+'}${fmt(Math.abs(d))})</div><pre>${esc(out.slice(0, 2400)) || '<span class="faint">(empty result)</span>'}</pre>`;
+      G.icons(prev);
+    };
+    const choose = (keep) => { const t = flat[hot]; if (!t) return; addStep(t.id); if (!keep) { closePicker(); focusStep(S.pipe.steps.length - 1); } else { G.toast(`Added "${esc(t.name)}"`, { icon: 'plus', ms: 1200 }); } };
+    input.addEventListener('input', () => { hot = 0; render(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { hot = Math.min(flat.length - 1, hot + 1); mark(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { hot = Math.max(0, hot - 1); mark(); e.preventDefault(); }
+      else if (e.key === 'Enter') { e.preventDefault(); choose(e.altKey); }
+      else if (e.key === 'Escape') { e.preventDefault(); closePicker(); anchor && anchor.focus && anchor.focus(); }
+    });
+    list.addEventListener('mousemove', (e) => { const n = e.target.closest('.pk-i'); if (n && +n.dataset.i !== hot) { hot = +n.dataset.i; mark(); } });
+    list.addEventListener('click', (e) => { const n = e.target.closest('.pk-i'); if (n) { hot = +n.dataset.i; choose(e.altKey); } });
+    render(); input.focus();
+  }
+  document.addEventListener('mousedown', (e) => { if (picker && !picker.contains(e.target)) closePicker(); });
+
+  /* ===================== Output ===================== */
+
+  function renderOutput() {
+    const [before, after] = shownPair(); const v = UI.view;
+    $$('#viewseg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    const k = S.stepPreview;
+    $('#pv-banner').innerHTML = k != null ? `<div class="pv-banner">${ic('eye', 'ic-sm')}<span class="grow">Step ${k + 1} of ${S.pipe.steps.length}: <b>${esc((T(S.pipe.steps[k].tid) || {}).name || '')}</b>. Before is its input, After its output.</span><button class="btn sm" id="pv-x">Show the final output</button></div>` : '';
+    const a = G.stats(before), b = G.stats(after), saved = a.chars - b.chars, pct = a.chars ? Math.round((100 * (a.chars - b.chars)) / a.chars) : 0;
+    const ms = (k != null ? (S.res[k + 1] || {}).ms || 0 : S.res.reduce((s, r) => s + (r.ms || 0), 0)).toFixed(1);
+    $('#ostats').innerHTML = `<span>${fmt(a.chars)} → <b>${fmt(b.chars)}</b> chars</span>${saved > 0 ? `<span class="save">saves ${fmt(saved)} chars (${pct}%)</span>` : saved < 0 ? `<span>adds ${fmt(-saved)} chars</span>` : '<span>same size</span>'}<span>${fmt(a.lines)} → ${fmt(b.lines)} lines</span><span class="faint">${ms} ms</span>`;
+    const body = $('#out-body');
+    if (v === 'before') body.innerHTML = `<pre class="txt">${esc(before)}</pre>`;
+    else if (v === 'diff') body.innerHTML = unifiedHtml(before, after);
+    else if (v === 'rendered') body.innerHTML = `<article class="doc" data-kind="report">${G.md.render(after, { bare: true }).html}</article>`;
+    else body.innerHTML = after ? `<pre class="txt">${esc(after)}</pre>` : '<div class="empty-sm">The pipeline produced no text. A step that extracts something (code, tasks, tables) finds nothing in this input; preview each step with the eye button to see where it went empty.</div>';
+    G.icons($('#pv-banner')); G.icons(body);
+    const x = $('#pv-x'); if (x) x.onclick = () => { S.stepPreview = null; recompute(); };
+  }
+  $('#viewseg').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; UI.view = b.dataset.v; saveUI(); renderOutput(); });
+  function cycleView() { const vs = ['before', 'after', 'diff', 'rendered']; UI.view = vs[(vs.indexOf(UI.view) + 1) % vs.length]; saveUI(); renderOutput(); G.toast('Output view: ' + UI.view, { icon: 'columns-2', ms: 1200 }); }
+  const outName = () => (S.pipe.steps.some((s) => s.on) ? S.pipe.name : 'Markdown');
+  function copyOut() { const out = finalOut(); if (!out) return G.toast('Nothing to copy', { icon: 'info' }); G.copy(out, { as: outName(), clean: false }); }
+  function replaceClipboard() {
+    const out = finalOut(); if (!out) return G.toast('Nothing to copy', { icon: 'info' });
+    G.writeClipboard(out);
+    const top = G.clips.items[0];
+    if (!top || !G.prefs.clipHistory) return G.toast('Clipboard replaced', { icon: 'clipboard-check' });
+    const prev = Object.assign({}, top);
+    Object.assign(top, { text: out, at: Date.now(), as: outName(), replaced: true, original: prev.text });
+    G.clips.items = [top].concat(G.clips.items.slice(1).filter((x) => x.text !== out));
+    G.clips.save(); G.emit('clips', G.clips.items);
+    G.toast(`Clipboard replaced · ${fmt(out.length)} chars · the newest history item now holds the output`, { icon: 'clipboard-check', action: { label: 'Undo', run: () => { Object.keys(top).forEach((k) => delete top[k]); Object.assign(top, prev); G.writeClipboard(prev.text); G.clips.save(); G.emit('clips', G.clips.items); } } });
+  }
+  function useAsInput() {
+    const out = finalOut();
+    setInput(out, { kind: 'output', label: 'Output of ' + S.pipe.name, icon: 'corner-left-up', doc: S.input.doc, keepCurrent: true });
+    G.toast('Output is now the input. Add more steps, or clear the pipeline to start over.', { icon: 'corner-left-up', action: { label: 'Clear steps', run: () => $('#p-clear').click() } });
+  }
+  const stamp = () => { const d = new Date(); return `${today()}-${pad(d.getHours())}${pad(d.getMinutes())}`; };
+  function newDoc() { G.toast(`Opened "Untitled (${esc(S.pipe.name)})" in a new Workspace tab · ${fmt(finalOut().length)} chars, unsaved`, { icon: 'file-plus-2', action: { label: 'Workspace', run: () => (location.href = G.page('workspace')) } }); }
+  function toInbox() { G.toast(`Saved to Inbox as clip-${stamp()}.md, with the source and pipeline in its front matter`, { icon: 'inbox', action: { label: 'Open Inbox', run: () => (location.href = G.page('collections') + '#c=inbox') } }); }
+  $('#o-copy').onclick = copyOut;
+  $('#o-copyas').onclick = (e) => G.copyMenu(e.currentTarget, finalOut);
+  $('#o-replace').onclick = replaceClipboard;
+  $('#o-use').onclick = useAsInput;
+  function writeBack() {
+    const file = G.current && G.current.path ? G.current.path.split('/').pop() : 'the file';
+    G.toast(`Replace ${esc(file)} with the output? Marxy snapshots the current version first.`, { icon: 'file-input', ms: 6000, action: { label: 'Write', run: () => G.toast(`Written to ${esc(file)} · the old text is kept as a snapshot for 30 days`, { icon: 'check' }) } });
+  }
+  $('#o-send').onclick = (e) => {
+    const out = finalOut(), hasDoc = !!(G.current && G.current.id);
+    G.menu(e.currentTarget, [
+      { header: 'Send the output to' },
+      { label: 'A new document', icon: 'file-plus-2', kbd: '⌥⌘N', run: newDoc },
+      { label: 'The Marxy Inbox', icon: 'inbox', run: toInbox },
+      { label: hasDoc ? 'Write back to ' + G.current.path.split('/').pop() : 'Write back (input is not a document)', icon: 'file-input', disabled: !hasDoc, run: writeBack },
+      { sep: true },
+      { label: 'The collect stack', icon: 'layers', run: () => { G.stack.items.push({ text: out }); G.emit('stack', G.stack); G.toast(`Added to the stack · ${G.stack.items.length} items`, { icon: 'layers' }); } },
+      { label: 'A new snippet', icon: 'text-quote', run: () => newSnippet(out, 'From ' + S.pipe.name) },
+      { label: 'Compare with the input', icon: 'git-compare', run: () => { S.cmp.a = 'in'; S.cmp.b = 'out'; setMode('compare'); } },
+      { sep: true },
+      { label: 'Share…', icon: 'share', run: () => G.toast('macOS share sheet: Mail, Messages, Notes, AirDrop', { icon: 'share' }) },
+      { label: 'Save as a file…', icon: 'file-down', run: () => G.toast(`Save panel for ${esc(S.pipe.name.replace(/[^\w]+/g, '-').toLowerCase())}.md`, { icon: 'file-down' }) }
+    ], { width: 270, align: 'end' });
+  };
+
+  /* ===================== Copy formats panel ===================== */
+
+  const CT = {
+    markdown: { apps: 'Editors, GitHub, Obsidian, issue trackers', types: ['public.utf8-plain-text', 'net.daringfireball.markdown'] },
+    plain: { apps: 'Terminals, forms, Messages, search fields', types: ['public.utf8-plain-text'] },
+    rich: { apps: 'Mail, Notes, Pages, Google Docs, Word', types: ['public.html', 'public.rtf', 'public.utf8-plain-text'] },
+    html: { apps: 'CMS source views, email builders, code', types: ['public.utf8-plain-text'] },
+    slack: { apps: 'Slack composer (mrkdwn)', types: ['public.utf8-plain-text'] },
+    jira: { apps: 'Jira Data Center, Confluence "Insert markup"', types: ['public.utf8-plain-text'] },
+    json: { apps: 'Code, config files, API payloads', types: ['public.utf8-plain-text'] },
+    quote: { apps: 'Notes, PR descriptions, docs', types: ['public.utf8-plain-text'] }
+  };
+  const copySource = () => (S.copySrc === 'input' ? inputText() : finalOut());
+  function formatText(f, text) {
+    let out = f.fn(text);
+    const inc = R.nameSource;
+    if (inc === 'always' && G.current && G.current.path && !['quote', 'json'].includes(f.id)) out = out.replace(/\n*$/, '') + `\n\nSource: ${G.current.title} (${G.current.path})`;
+    return out;
+  }
+  function copyFmt(fid, text) {
+    const f = G.copyFormats.find((x) => x.id === fid) || G.copyFormats[0];
+    return G.copy(formatText(f, text), { as: f.name, html: f.html ? f.html(text) : undefined, clean: false });
+  }
+  function renderCopy() {
+    if (!UI.rightOpen || UI.right !== 'copy') return;
+    const box = $('#rp-copy'), text = copySource();
+    const inc = R.nameSource;
+    box.innerHTML = `<p class="rp-intro">Each format is live: the previews follow the ${S.copySrc === 'input' ? 'input' : 'pipeline output'} as you edit. The star sets the default for ⌘C everywhere in Marxy.</p>
+      <div class="ctl-row"><span class="lbl">Copy from</span><div class="seg sm" role="group" aria-label="Copy from"><button data-cs="output" aria-pressed="${S.copySrc === 'output'}">Output</button><button data-cs="input" aria-pressed="${S.copySrc === 'input'}">Input</button></div></div>
+      <div class="ctl-row"><label class="lbl" for="ct-src">Name source</label><select class="field" id="ct-src"><option value="always"${inc === 'always' ? ' selected' : ''}>With every format</option><option value="never"${inc === 'never' ? ' selected' : ''}>Never</option></select></div>
+      ${G.copyFormats.map((f) => {
+        const meta = CT[f.id] || { apps: '', types: ['public.utf8-plain-text'] };
+        let pv = ''; try { pv = f.html ? f.html(text) : formatText(f, text); } catch (e) { pv = 'Error: ' + e.message; }
+        const open = S.openCt.has(f.id), def = G.prefs.copyDefault === f.id;
+        return `<div class="ct${open ? ' open' : ''}" data-f="${f.id}">
+          <div class="ct-h">${ic(f.icon)}<div class="nm"><b>${esc(f.name)}</b><small>${f.kbd ? `<span title="Shortcut in the Workspace">${esc(f.kbd)}</span> · ` : ''}${esc(meta.apps)}</small></div>
+            <button class="ibtn" data-def="${f.id}" aria-pressed="${def}" title="${def ? 'Default for ⌘C' : 'Make this the default for ⌘C'}" aria-label="Default for Command C">${ic('star')}</button>
+            <button class="ibtn" data-open="${f.id}" aria-expanded="${open}" title="${open ? 'Collapse' : 'Expand'} the preview" aria-label="Expand preview">${ic(open ? 'chevron-up' : 'chevron-down')}</button>
+            <button class="btn sm" data-copy="${f.id}" title="Copy as ${esc(f.name)}">Copy</button></div>
+          <div class="cpv${f.html ? ' rich' : ''}" data-open="${f.id}">${f.html ? pv : esc(pv.slice(0, 4000))}</div>
+          <div class="uti" title="Pasteboard types written on macOS">${meta.types.join(' · ')}</div></div>`;
+      }).join('')}
+      <p class="rp-intro" style="margin-top:10px">The prototype writes text/plain, plus text/html for rich text. The app writes the macOS types listed under each format; see 06-clipboard.md.</p>`;
+    G.icons(box);
+  }
+  $('#rp-copy').addEventListener('click', (e) => {
+    const cs = e.target.closest('[data-cs]'); if (cs) { S.copySrc = cs.dataset.cs; return renderCopy(); }
+    const c = e.target.closest('[data-copy]'); if (c) return copyFmt(c.dataset.copy, copySource());
+    const d = e.target.closest('[data-def]'); if (d) { G.setPref('copyDefault', d.dataset.def); G.toast('⌘C now copies as ' + esc(G.copyFormats.find((f) => f.id === d.dataset.def).name), { icon: 'star' }); return; }
+    const o = e.target.closest('[data-open]'); if (o) { const id = o.dataset.open; S.openCt.has(id) ? S.openCt.delete(id) : S.openCt.add(id); renderCopy(); }
+  });
+  $('#rp-copy').addEventListener('change', (e) => { if (e.target.id === 'ct-src') { R.nameSource = e.target.value; saveRules(); renderCopy(); } });
+
+  /* ===================== Saved pipelines (#pipelines) ===================== */
+
+  const RESERVED = { '⌥⌘V': 'the clipboard ring', '⌃⌥Space': 'the Marxy palette', '⇧⌘V': 'Open the studio', '⌥⌘K': 'Collect mode', '⌘C': 'Copy', '⌘V': 'Paste', '⌘Space': 'Spotlight', '⇧⌘3': 'Screenshot', '⇧⌘4': 'Screenshot', '⇧⌘5': 'Screenshot' };
+  function conflictOf(p) {
+    if (!p.key) return '';
+    if (RESERVED[p.key]) return `Already used by ${RESERVED[p.key]}`;
+    const o = S.pipes.find((x) => x !== p && x.key === p.key);
+    return o ? `Already used by "${o.name}"` : '';
+  }
+  function detailHtml(p) {
+    const conflict = conflictOf(p);
+    const sel = (k, opts) => `<select class="field" data-pf="${k}" aria-label="${k}">${opts.map(([v, l]) => `<option value="${v}"${p[k] === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+    const sw = (k, label, sub) => `<label class="opt"><span class="grow">${label}<small>${sub}</small></span><span class="switch sm"><input type="checkbox" data-pf="${k}" ${p[k] ? 'checked' : ''} aria-label="${label}"><i></i></span></label>`;
+    return `<div class="detail" data-pd="${p.id}">
+      <label class="opt"><span style="width:44px" class="muted">Name</span><input class="field grow" data-pf="name" value="${esc(p.name)}" aria-label="Pipeline name"></label>
+      <ol class="mini-steps">${p.steps.map((s, i) => { const t = T(s) || { name: s, icon: 'circle-help' }; return `<li><span class="n">${i + 1}</span>${ic(t.icon, 'ic-sm')}<span>${esc(t.name)}</span></li>`; }).join('')}</ol>
+      <div class="row"><button class="btn sm" data-pa="load">${ic('square-pen')}Edit in the builder</button><button class="btn sm" data-pa="run">${ic('play')}Run on the clipboard</button></div>
+      <div class="opt"><span class="grow">Global shortcut<small>Works in any app while Marxy is running</small></span><button class="btn sm keyrec${S.recording === p.id ? ' rec' : ''}" data-pa="rec" aria-label="Record a global shortcut">${S.recording === p.id ? 'Type keys…' : esc(p.key || 'Record')}</button>${p.key ? `<button class="ibtn" data-pa="unkey" title="Remove the shortcut" aria-label="Remove the shortcut">${ic('x')}</button>` : ''}</div>
+      ${conflict ? `<div class="warnline">${ic('triangle-alert', 'ic-sm')}${esc(conflict)}</div>` : ''}
+      <div class="opt"><span class="grow">Input</span>${sel('input', [['clipboard', 'The clipboard'], ['selection', 'Selected text in the front app'], ['prompt', 'Prompt each time']])}</div>
+      <div class="opt"><span class="grow">Result</span>${sel('output', [['replace', 'Replace the clipboard'], ['paste', 'Paste into the front app'], ['preview', 'Preview in the ring first'], ['inbox', 'Save to Inbox']])}</div>
+      ${sw('services', 'Services menu', 'Listed under Services › Transform with Marxy')}
+      ${sw('shortcuts', 'Shortcuts app', 'Offered to the "Run Marxy pipeline" action')}
+      ${sw('menubar', 'Menu bar extra', 'One click from the Marxy menu bar icon')}
+      <div class="row faint" style="font-size:11.5px">Used ${fmt(p.uses || 0)} times · last ${p.last ? G.ago(p.last) + ' ago' : 'never'}<span class="grow"></span><button class="btn sm ghost" data-pa="delete">${ic('trash-2')}Delete</button></div>
+    </div>`;
+  }
+  function renderPipes() {
+    const box = $('#pipelines');
+    const rows = S.pipes.map((p) => {
+      const sel = p.id === S.selPipe, loaded = S.pipe.id === p.id;
+      return `<div class="pl${sel ? ' sel' : ''}" data-p="${p.id}" tabindex="0" role="button" aria-expanded="${sel}" aria-label="${esc(p.name)}, ${p.steps.length} steps${p.key ? ', shortcut ' + esc(p.key) : ''}">
+        ${ic('workflow', 'ic-sm')}
+        <span class="mid"><span class="t">${esc(p.name)}${loaded ? ' <span class="chip accent">in builder</span>' : ''}</span><span class="flow">${p.steps.map((s) => esc((T(s) || { name: s }).name)).join(' → ')}</span></span>
+        <span class="r">${p.key ? `<span class="kbd">${esc(p.key)}</span>` : ''}<button class="ibtn" data-pa="run" title="Run on the clipboard and copy the result" aria-label="Run ${esc(p.name)} on the clipboard">${ic('play')}</button><button class="ibtn" data-pa="more" title="More" aria-label="More for ${esc(p.name)}">${ic('ellipsis')}</button></span>
+      </div>${sel ? detailHtml(p) : ''}`;
+    }).join('');
+    const sw = (attr, k, on, label, sub) => `<label class="opt"><span class="grow">${label}<small>${sub}</small></span><span class="switch sm"><input type="checkbox" ${attr}="${k}" ${on ? 'checked' : ''} aria-label="${label}"><i></i></span></label>`;
+    box.innerHTML = `<div class="insp-sec"><h4>${ic('workflow', 'ic-sm')}Saved pipelines · ${S.pipes.length}<span class="grow"></span><button class="btn sm" data-pa="new" title="Save the builder's pipeline as a new one (⇧⌘S)">${ic('plus')}From builder</button></h4>${rows}</div>
+      <div class="insp-sec"><h4>${ic('command', 'ic-sm')}Where pipelines appear</h4>
+        <div class="stack" style="gap:9px">
+          ${sw('data-gp', 'servicesMenu', G.prefs.servicesMenu, 'Services menu', 'One entry, Transform with Marxy, opens a chooser of the pipelines switched on above')}
+          ${sw('data-gr', 'shortcutsApp', R.shortcutsApp, 'Shortcuts app', 'A "Run Marxy pipeline" action; pick any saved pipeline as its parameter')}
+          ${sw('data-gp', 'menubarExtra', G.prefs.menubarExtra, 'Menu bar extra', 'Recent clips and your menu bar pipelines')}
+          <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-pa="shortcuts">${ic('square-dashed')}Add to Shortcuts…</button><button class="btn sm" data-pa="export">${ic('braces')}Copy all as JSON</button><button class="btn sm" data-pa="import">${ic('clipboard-paste')}Import from clipboard</button></div>
+        </div></div>`;
+    G.icons(box);
+    $('#rt-pipelines').title = `${S.pipes.length} saved pipelines`;
+  }
+  function pipeMenu(p, anchor) {
+    G.menu(anchor, [
+      { header: p.name },
+      { label: 'Run on the clipboard', icon: 'play', kbd: p.key, run: () => runOnClipboard(p) },
+      { label: 'Edit in the builder', icon: 'square-pen', run: () => { loadPipe(p); setMode('pipeline'); } },
+      { label: 'Rename…', icon: 'pencil', run: () => promptName(anchor, 'Rename the pipeline', p.name, (n) => { p.name = n; if (S.pipe.id === p.id) S.pipe.name = n; savePipes(); renderPipes(); renderSteps(); }) },
+      { label: 'Duplicate', icon: 'files', run: () => { const c = Object.assign({}, p, { id: 'p-' + Date.now().toString(36), name: p.name + ' copy', key: '', uses: 0, last: null }); S.pipes.splice(S.pipes.indexOf(p) + 1, 0, c); S.selPipe = c.id; savePipes(); renderPipes(); } },
+      { label: 'Assign a shortcut…', icon: 'keyboard', run: () => { S.selPipe = p.id; renderPipes(); startRecord(p); } },
+      { label: 'Copy as JSON', icon: 'braces', run: () => G.copy(JSON.stringify(exportPipe(p), null, 2), { as: 'pipeline JSON', clean: false }) },
+      { sep: true },
+      { label: 'Delete', icon: 'trash-2', run: () => deletePipe(p) }
+    ], { width: 240, align: 'end' });
+  }
+  const exportPipe = (p) => ({ name: p.name, steps: p.steps, shortcut: p.key || null, input: p.input, output: p.output, services: p.services, shortcuts: p.shortcuts, menubar: p.menubar });
+  function deletePipe(p) {
+    const i = S.pipes.indexOf(p); if (i < 0) return;
+    S.pipes.splice(i, 1); if (S.selPipe === p.id) S.selPipe = null; savePipes(); renderPipes();
+    G.toast(`Deleted "${esc(p.name)}"`, { icon: 'trash-2', action: { label: 'Undo', run: () => { S.pipes.splice(i, 0, p); savePipes(); renderPipes(); } } });
+  }
+  function runOnClipboard(p) {
+    const src = newestText(); if (!src) return G.toast('The clipboard has no text', { icon: 'info' });
+    const name = p ? p.name : S.pipe.name;
+    const out = p ? runSaved(p, src, clipCtx()) : (() => { const r = runSteps(S.pipe.steps, src, clipCtx()); return r[r.length - 1].out; })();
+    G.copy(out, { as: name, clean: false });
+    if (p) { p.uses = (p.uses || 0) + 1; p.last = Date.now(); savePipes(); renderPipes(); }
+    setTimeout(() => G.toast(`${esc(name)}: ${fmt(src.length)} → ${fmt(out.length)} chars, now on the clipboard`, { icon: 'workflow', action: { label: 'Review', run: () => { if (p) loadPipe(p); setInput(src, { kind: 'clip', label: 'The clipboard, before', icon: 'clipboard' }); setMode('pipeline'); } } }), 300);
+  }
+  function keyName(e) {
+    if (e.code.startsWith('Key')) return e.code.slice(3);
+    if (e.code.startsWith('Digit')) return e.code.slice(5);
+    return { Space: 'Space', Enter: '↵', Backspace: '⌫', Tab: '⇥', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Slash: '/', Period: '.', Comma: ',', Semicolon: ';', Quote: "'", BracketLeft: '[', BracketRight: ']', Backslash: '\\', Minus: '-', Equal: '=', Backquote: '`' }[e.code] || e.key.toUpperCase();
+  }
+  function startRecord(p) {
+    S.recording = p.id; renderPipes();
+    const onKey = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (['Meta', 'Control', 'Alt', 'Shift', 'OS'].includes(e.key)) return;
+      if (e.key === 'Escape') return done(p.key);
+      if ((e.key === 'Backspace' || e.key === 'Delete') && !e.metaKey && !e.ctrlKey && !e.altKey) return done('');
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) { G.toast('A global shortcut needs ⌘, ⌃ or ⌥', { icon: 'info' }); return; }
+      done((e.ctrlKey ? '⌃' : '') + (e.altKey ? '⌥' : '') + (e.shiftKey ? '⇧' : '') + (e.metaKey ? '⌘' : '') + keyName(e));
+    };
+    const onDown = (e) => { if (!e.target.closest('[data-pa="rec"]')) done(p.key, true); };
+    const done = (k, silent) => {
+      document.removeEventListener('keydown', onKey, true); document.removeEventListener('mousedown', onDown, true); S.recording = null; p.key = k; savePipes(); renderPipes();
+      if (silent) return;
+      const c = conflictOf(p);
+      G.toast(k ? `${esc(p.name)}: ${esc(k)}${c ? ' · ' + esc(c) : ''}` : 'Shortcut removed', { icon: c ? 'triangle-alert' : 'keyboard' });
+      const b = $(`#pipelines [data-pd="${p.id}"] [data-pa="rec"]`); if (b) b.focus();
+    };
+    document.addEventListener('keydown', onKey, true);
+    setTimeout(() => document.addEventListener('mousedown', onDown, true), 0);
+  }
+  const pbox = $('#pipelines');
+  pbox.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-pa]'); const row = e.target.closest('[data-p]'); const det = e.target.closest('[data-pd]');
+    const p = S.pipes.find((x) => x.id === ((row && row.dataset.p) || (det && det.dataset.pd)));
+    if (a) {
+      const act = a.dataset.pa;
+      if (act === 'new') return saveAs(a);
+      if (act === 'run') return runOnClipboard(p);
+      if (act === 'more') return pipeMenu(p, a);
+      if (act === 'load') { loadPipe(p); setMode('pipeline'); return focusStep(0); }
+      if (act === 'rec') return S.recording ? null : startRecord(p);
+      if (act === 'unkey') { p.key = ''; savePipes(); return renderPipes(); }
+      if (act === 'delete') return deletePipe(p);
+      if (act === 'shortcuts') return G.toast('Opens Shortcuts with a new shortcut holding the "Run Marxy pipeline" action. Turn on "Use as Quick Action" there to put it in the Services menu with your own name.', { icon: 'square-dashed', ms: 6500 });
+      if (act === 'export') return G.copy(JSON.stringify({ marxyPipelines: 1, pipelines: S.pipes.map(exportPipe) }, null, 2), { as: 'pipelines JSON', clean: false });
+      if (act === 'import') return importPipes();
+      return;
+    }
+    if (row && !e.target.closest('input, select, label')) { S.selPipe = S.selPipe === p.id ? null : p.id; renderPipes(); const r2 = $(`#pipelines [data-p="${p.id}"]`); if (r2) r2.focus(); }
+  });
+  pbox.addEventListener('keydown', (e) => {
+    const row = e.target.closest('[data-p]'); if (!row || e.target !== row) return;
+    const p = S.pipes.find((x) => x.id === row.dataset.p);
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const all = $$('#pipelines [data-p]'); const i = all.indexOf(row) + (e.key === 'ArrowDown' ? 1 : -1); if (all[i]) all[i].focus(); }
+    else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') runOnClipboard(p);
+    else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); deletePipe(p); }
+  });
+  pbox.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.dataset.gp) { G.setPref(t.dataset.gp, t.checked); return G.toast(`${t.dataset.gp === 'servicesMenu' ? 'Services menu entry' : 'Menu bar extra'} ${t.checked ? 'on' : 'off'}`, { icon: 'command' }); }
+    if (t.dataset.gr) { R[t.dataset.gr] = t.checked; saveRules(); return; }
+    const det = t.closest('[data-pd]'); if (!det || !t.dataset.pf) return;
+    const p = S.pipes.find((x) => x.id === det.dataset.pd), k = t.dataset.pf;
+    p[k] = t.type === 'checkbox' ? t.checked : t.value.trim() || p[k];
+    if (k === 'name' && S.pipe.id === p.id) { S.pipe.name = p.name; renderSteps(); }
+    savePipes(); renderPipes();
+  });
+  function importPipes() {
+    try {
+      const data = JSON.parse(newestText());
+      const list = (Array.isArray(data) ? data : data.pipelines || [data]).filter((x) => x && x.name && Array.isArray(x.steps));
+      if (!list.length) throw new Error('no pipelines');
+      const unknown = new Set();
+      list.forEach((x) => { x.steps.forEach((s) => !T(s) && unknown.add(s)); S.pipes.push({ id: 'p-' + Math.random().toString(36).slice(2, 8), name: x.name, steps: x.steps.filter((s) => T(s)), key: '', services: !!x.services, shortcuts: x.shortcuts !== false, menubar: !!x.menubar, input: x.input || 'clipboard', output: x.output || 'replace', uses: 0, last: null }); });
+      savePipes(); renderPipes();
+      G.toast(`Imported ${list.length} pipeline${list.length === 1 ? '' : 's'}${unknown.size ? ' · dropped unknown steps: ' + esc(Array.from(unknown).join(', ')) : ''}. Shortcuts are not imported.`, { icon: 'clipboard-paste', ms: 4500 });
+    } catch (err) { G.toast('The clipboard does not hold pipeline JSON. Copy one with "Copy as JSON" first.', { icon: 'info' }); }
+  }
+  function showPipelines(flash) {
+    showRight('pipelines');
+    const box = $('#pipelines'); box.scrollTop = 0;
+    if (flash) { const sec = $('.insp-sec', box); if (sec) { sec.classList.remove('flash-sec'); void sec.offsetWidth; sec.classList.add('flash-sec'); } }
+    const first = $(`#pipelines [data-p="${S.selPipe}"]`) || $('#pipelines [data-p]'); if (first) first.focus({ preventScroll: true });
+  }
+  function registerPipeCommands() {
+    G.commands = G.commands.filter((c) => !c.id.startsWith('cs-run-p'));
+    S.pipes.forEach((p) => G.command({ id: 'cs-run-' + p.id, name: 'Run pipeline: ' + p.name, icon: 'workflow', kbd: p.key, group: 'Pipelines', run: () => runOnClipboard(p) }));
+  }
+
+  /* ===================== Stack ===================== */
+
+  const SEPS = { blank: ['Blank line', '\n\n'], rule: ['Horizontal rule', '\n\n---\n\n'], newline: ['Newline', '\n'], custom: ['Custom…', null] };
+  const sepVal = () => (S.stackSep === 'custom' ? S.stackCustom.replace(/\\n/g, '\n').replace(/\\t/g, '\t') : SEPS[S.stackSep][1]);
+  const stackList = () => { const items = G.stack.items.map((x) => x.text); return S.stackDedupe ? Array.from(new Set(items)) : items; };
+  const stackJoined = () => stackList().join(sepVal());
+  function renderStack() {
+    $('#rt-stack-n').textContent = G.stack.items.length || '';
+    const sc = $('#stackcount'); sc.hidden = !G.stack.items.length; sc.textContent = G.stack.items.length;
+    $('#b-stack').classList.toggle('on', G.stack.on);
+    if (!UI.rightOpen || UI.right !== 'stack') return;
+    const box = $('#rp-stack'), items = G.stack.items, on = G.stack.on, joined = stackJoined();
+    box.innerHTML = `<div class="collect${on ? ' on' : ''}">${ic(on ? 'circle-dot' : 'layers', 'ic-sm')}<span class="grow">${on ? '<b>Collecting.</b> Each copy adds to the stack.' : 'Collect mode is off.'}</span><button class="btn sm${on ? '' : ' primary'}" data-st="toggle">${on ? 'Stop' : 'Start collecting'}</button></div>
+      <p class="rp-intro">Copy pieces from anywhere, then copy them out as one. In the app this catches copies in every app, not only Marxy. ⌥⌘K toggles it from anywhere.</p>
+      <div class="insp-sec"><h4>${ic('layers', 'ic-sm')}Stack · ${items.length}<span class="grow"></span>${items.length > 1 ? `<button class="ibtn" data-st="reverse" title="Reverse the order" aria-label="Reverse the order">${ic('arrow-down-up')}</button>` : ''}</h4>
+        ${items.length ? `<div class="slist" role="list" aria-label="Stack items">${items.map((x, k) => `<div class="srow" role="listitem" draggable="true" tabindex="0" data-s="${k}" aria-label="Item ${k + 1}: ${esc(firstLine(x.text).slice(0, 60))}">
+          <span class="grip" aria-hidden="true">${ic('grip-vertical', 'ic-sm')}</span><span class="n">${k + 1}</span>
+          <div class="mid"><div class="t">${esc(firstLine(x.text)) || '<span class="faint">(blank)</span>'}</div><div class="s">${fmt(x.text.length)} chars${x.text.split('\n').length > 1 ? ' · ' + x.text.split('\n').length + ' lines' : ''}</div></div>
+          <span class="acts"><button class="ibtn" data-st="up" ${k ? '' : 'disabled'} aria-label="Move up" title="Move up (⌥↑)">${ic('chevron-up')}</button><button class="ibtn" data-st="down" ${k < items.length - 1 ? '' : 'disabled'} aria-label="Move down" title="Move down (⌥↓)">${ic('chevron-down')}</button><button class="ibtn" data-st="rm" aria-label="Remove" title="Remove (⌫)">${ic('x')}</button></span></div>`).join('')}</div>`
+        : '<div class="faint" style="font-size:12px;line-height:1.5">Empty. Start collecting and copy a few things, or select clips in the history and choose Stack.</div>'}
+      </div>
+      ${items.length ? `<div class="insp-sec"><h4>Join and copy</h4>
+        <div class="ctl-row"><label class="lbl" for="st-sep">Separator</label><select class="field" id="st-sep" data-st="sep">${Object.entries(SEPS).map(([k, [l]]) => `<option value="${k}"${S.stackSep === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="ctl-row"${S.stackSep === 'custom' ? '' : ' hidden'}><label class="lbl" for="st-custom">Custom</label><input class="field" id="st-custom" data-st="custom" value="${esc(S.stackCustom)}" aria-describedby="st-hint"></div>
+        <div class="faint" id="st-hint" style="font-size:11px;margin:-2px 0 6px 78px"${S.stackSep === 'custom' ? '' : ' hidden'}>\\n is a newline, \\t a tab</div>
+        <label class="ctl-row"><input type="checkbox" data-st="dedupe" ${S.stackDedupe ? 'checked' : ''}>Drop duplicates</label>
+        <label class="ctl-row"><input type="checkbox" data-st="seq" ${S.stackSeq ? 'checked' : ''}>Paste in sequence: each ⌘V pastes the next item</label>
+        <pre class="prevbox" aria-label="Joined preview">${esc(joined.slice(0, 3000))}</pre>
+        <div class="faint" style="font-size:11px;margin:4px 0 8px">${fmt(joined.length)} chars</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm primary" data-st="copy">${ic('copy')}Copy all</button><button class="btn sm" data-st="load">${ic('text-cursor-input')}Into the workbench</button><button class="btn sm" data-st="clear">${ic('eraser')}Clear</button></div>
+      </div>` : ''}`;
+    G.icons(box);
+  }
+  function moveStack(a, b) { const it = G.stack.items; if (b < 0 || b >= it.length) return; const [x] = it.splice(a, 1); it.splice(b, 0, x); G.emit('stack', G.stack); const r = $(`#rp-stack [data-s="${b}"]`); if (r) r.focus(); }
+  function removeStack(k) { const [x] = G.stack.items.splice(k, 1); G.emit('stack', G.stack); G.toast('Removed from the stack', { icon: 'x', action: { label: 'Undo', run: () => { G.stack.items.splice(k, 0, x); G.emit('stack', G.stack); } } }); }
+  const sbox = $('#rp-stack');
+  sbox.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-st]'); if (!b) return; const act = b.dataset.st; const row = b.closest('[data-s]'); const k = row ? +row.dataset.s : -1;
+    if (act === 'toggle') G.stack.toggle();
+    else if (act === 'up') moveStack(k, k - 1);
+    else if (act === 'down') moveStack(k, k + 1);
+    else if (act === 'rm') removeStack(k);
+    else if (act === 'reverse') { G.stack.items.reverse(); G.emit('stack', G.stack); }
+    else if (act === 'copy') { G.copy(stackJoined(), { as: `stack of ${stackList().length}`, clean: false }); if (S.stackSeq) G.toast('Paste in sequence is on: in the app each ⌘V pastes the next item and the ring shows 1 of ' + stackList().length, { icon: 'layers', ms: 4000 }); }
+    else if (act === 'load') setInput(stackJoined(), { kind: 'stack', label: `Stack of ${stackList().length}`, icon: 'layers' });
+    else if (act === 'clear') { const old = G.stack.items.splice(0); G.emit('stack', G.stack); G.toast(`Cleared ${old.length} items`, { icon: 'eraser', action: { label: 'Undo', run: () => { G.stack.items.push(...old); G.emit('stack', G.stack); } } }); }
+  });
+  sbox.addEventListener('change', (e) => {
+    const t = e.target, act = t.dataset.st;
+    if (act === 'sep') S.stackSep = t.value;
+    else if (act === 'custom') S.stackCustom = t.value;
+    else if (act === 'dedupe') S.stackDedupe = t.checked;
+    else if (act === 'seq') { S.stackSeq = t.checked; if (t.checked) G.toast('In the app, ⌘V pastes item 1, the next ⌘V item 2, and so on; the ring counts down', { icon: 'layers', ms: 4000 }); }
+    renderStack();
+    if (act === 'custom') { const c = $('#st-custom'); if (c) { c.focus(); c.setSelectionRange(c.value.length, c.value.length); } }
+  });
+  sbox.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.srow'); if (!row || e.target !== row) return; const k = +row.dataset.s;
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); moveStack(k, k + (e.key === 'ArrowUp' ? -1 : 1)); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const n = $(`#rp-stack [data-s="${k + (e.key === 'ArrowUp' ? -1 : 1)}"]`); if (n) n.focus(); }
+    else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); removeStack(k); }
+  });
+  let sdrag = null;
+  sbox.addEventListener('dragstart', (e) => { const r = e.target.closest('.srow'); if (!r) return; sdrag = +r.dataset.s; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'stack ' + sdrag); });
+  sbox.addEventListener('dragover', (e) => { const r = e.target.closest('.srow'); if (sdrag == null || !r) return; e.preventDefault(); const b = r.getBoundingClientRect(); $$('#rp-stack .srow').forEach((x) => x.classList.remove('drop-before', 'drop-after')); r.classList.add(e.clientY > b.top + b.height / 2 ? 'drop-after' : 'drop-before'); });
+  sbox.addEventListener('drop', (e) => { const r = e.target.closest('.srow'); if (sdrag == null || !r) return; e.preventDefault(); let to = +r.dataset.s + (r.classList.contains('drop-after') ? 1 : 0); if (sdrag < to) to--; const from = sdrag; sdrag = null; moveStack(from, to); });
+  sbox.addEventListener('dragend', () => { sdrag = null; $$('#rp-stack .srow').forEach((x) => x.classList.remove('drop-before', 'drop-after')); });
+
+  /* ===================== Snippets ===================== */
+
+  function renderSnips() {
+    if (!UI.rightOpen || UI.right !== 'snippets') return;
+    const box = $('#rp-snippets');
+    const rows = S.snips.map((s) => {
+      const sel = s.id === S.selSnip;
+      const phs = Array.from(new Set((s.body.match(/\{\{(\w+)\}\}/g) || [])));
+      return `<div class="sn${sel ? ' sel' : ''}" data-sn="${s.id}" tabindex="0" role="button" aria-expanded="${sel}" aria-label="${esc(s.name)}, abbreviation ${esc(s.abbr)}">
+        ${ic('text-quote', 'ic-sm')}
+        <span class="mid"><span class="t">${esc(s.name)}</span><span class="flow">${phs.length ? esc(phs.join(' ')) + ' · ' : ''}${esc(firstLine(s.body))}</span></span>
+        <span class="r">${s.abbr ? `<span class="abbr">${esc(s.abbr)}</span>` : ''}<button class="ibtn" data-sx="expand" title="Expand into the workbench at the caret" aria-label="Expand ${esc(s.name)}">${ic('text-cursor-input')}</button><button class="ibtn" data-sx="copy" title="Copy expanded" aria-label="Copy ${esc(s.name)} expanded">${ic('copy')}</button></span>
+      </div>${sel ? `<div class="detail" data-sd="${s.id}">
+        <label class="opt"><span style="width:52px" class="muted">Name</span><input class="field grow" data-sf="name" value="${esc(s.name)}" aria-label="Snippet name"></label>
+        <label class="opt"><span style="width:52px" class="muted">Abbrev.</span><input class="field grow" data-sf="abbr" value="${esc(s.abbr)}" aria-label="Abbreviation" placeholder=";name" spellcheck="false"></label>
+        <textarea class="field" data-sf="body" aria-label="Snippet text" spellcheck="false">${esc(s.body)}</textarea>
+        <div class="ph-btns" role="group" aria-label="Insert a placeholder">${PLACEHOLDERS.map(([p, d]) => `<button data-ph="${p}" title="${esc(d)}">{{${p}}}</button>`).join('')}</div>
+        <div class="faint" style="font-size:11px">Expands to</div>
+        <pre class="prevbox" data-sprev>${esc(expand(s.body).text)}</pre>
+        <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm primary" data-sx="expand">${ic('text-cursor-input')}Expand into the input</button><button class="btn sm" data-sx="copy">${ic('copy')}Copy</button><span class="grow"></span><button class="btn sm ghost" data-sx="delete">${ic('trash-2')}Delete</button></div>
+      </div>` : ''}`;
+    }).join('');
+    box.innerHTML = `<div class="insp-sec"><h4>${ic('text-quote', 'ic-sm')}Snippets · ${S.snips.length}<span class="grow"></span><button class="btn sm" data-sx="new">${ic('plus')}New</button><button class="btn sm" data-sx="fromout" title="New snippet from the pipeline output">From output</button></h4>${rows}</div>
+      <div class="insp-sec"><h4>Abbreviations</h4><p class="rp-intro">Type an abbreviation in the workbench input and press ⇥ to expand it. Placeholders fill in when it expands: ${PLACEHOLDERS.map(([p]) => `<code>{{${p}}}</code>`).join(' ')}.</p>
+        <label class="opt"><span class="grow">Expand in other apps<small>Watches typing system-wide; needs Accessibility permission. Off by default.</small></span><span class="switch sm"><input type="checkbox" data-sx2="everywhere" ${R.expandEverywhere ? 'checked' : ''} aria-label="Expand abbreviations in other apps"><i></i></span></label></div>`;
+    G.icons(box);
+  }
+  function newSnippet(body = '', name = 'New snippet') {
+    const s = { id: 's-' + Date.now().toString(36), name, abbr: '', body };
+    S.snips.unshift(s); S.selSnip = s.id; saveSnips(); showRight('snippets');
+    const f = $(`#rp-snippets [data-sd="${s.id}"] [data-sf="name"]`); if (f) { f.focus(); f.select(); }
+  }
+  const nbox = $('#rp-snippets');
+  nbox.addEventListener('click', (e) => {
+    const ph = e.target.closest('[data-ph]');
+    if (ph) { const ta = $('[data-sf="body"]', ph.closest('.detail')); ta.focus(); ta.setRangeText('{{' + ph.dataset.ph + '}}', ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); return; }
+    const a = e.target.closest('[data-sx]'); const row = e.target.closest('[data-sn]'); const det = e.target.closest('[data-sd]');
+    const s = S.snips.find((x) => x.id === ((row && row.dataset.sn) || (det && det.dataset.sd)));
+    if (a) {
+      const act = a.dataset.sx;
+      if (act === 'new') return newSnippet();
+      if (act === 'fromout') return newSnippet(finalOut(), 'From ' + S.pipe.name);
+      if (act === 'expand') { const x = expand(s.body); insertAtCursor(x.text, x.cursor); return G.toast(`Expanded "${esc(s.name)}" at the caret`, { icon: 'text-cursor-input' }); }
+      if (act === 'copy') return G.copy(expand(s.body).text, { as: 'snippet', clean: false });
+      if (act === 'delete') { const i = S.snips.indexOf(s); S.snips.splice(i, 1); saveSnips(); renderSnips(); return G.toast(`Deleted "${esc(s.name)}"`, { icon: 'trash-2', action: { label: 'Undo', run: () => { S.snips.splice(i, 0, s); saveSnips(); renderSnips(); } } }); }
+      return;
+    }
+    if (row) { S.selSnip = S.selSnip === s.id ? null : s.id; renderSnips(); const r2 = $(`#rp-snippets [data-sn="${s.id}"]`); if (r2) r2.focus(); }
+  });
+  nbox.addEventListener('keydown', (e) => { const row = e.target.closest('[data-sn]'); if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); row.click(); } });
+  nbox.addEventListener('input', (e) => {
+    const t = e.target; const det = t.closest('[data-sd]'); if (!det || !t.dataset.sf) return;
+    const s = S.snips.find((x) => x.id === det.dataset.sd); s[t.dataset.sf] = t.value; saveSnips();
+    $('[data-sprev]', det).textContent = expand(s.body).text;
+    const row = $(`#rp-snippets [data-sn="${s.id}"]`);
+    if (row && t.dataset.sf !== 'body') { $('.t', row).textContent = s.name; const ab = $('.abbr', row); if (ab) ab.textContent = s.abbr; }
+  });
+  nbox.addEventListener('change', (e) => {
+    if (e.target.dataset.sx2) { R.expandEverywhere = e.target.checked; saveRules(); if (e.target.checked) G.toast('The app asks for Accessibility permission the first time; until it is granted, abbreviations expand only inside Marxy', { icon: 'shield-check', ms: 4500 }); return; }
+    if (e.target.dataset.sf === 'abbr') { const v = e.target.value.trim(); const s = S.snips.find((x) => x.id === e.target.closest('[data-sd]').dataset.sd); const dup = S.snips.find((x) => x !== s && x.abbr && x.abbr === v); if (dup) G.toast(`"${esc(v)}" is already the abbreviation for "${esc(dup.name)}"`, { icon: 'triangle-alert' }); if (v && !/^;/.test(v)) G.toast('Tip: start abbreviations with ; so they never fire on ordinary words', { icon: 'info' }); renderSnips(); }
+  });
+
+  /* ===================== Side panel ===================== */
+
+  function showRight(tab) {
+    UI.right = tab; UI.rightOpen = true; saveUI();
+    $('#studio').classList.remove('no-right'); $('#b-right').classList.add('on');
+    $$('#rtabs [role="tab"]').forEach((b) => { const on = b.dataset.rt === tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+    ['copy', 'pipelines', 'stack', 'snippets'].forEach((t) => { $(t === 'pipelines' ? '#pipelines' : '#rp-' + t).hidden = t !== tab; });
+    if (tab === 'copy') renderCopy(); else if (tab === 'pipelines') renderPipes(); else if (tab === 'stack') renderStack(); else renderSnips();
+  }
+  function toggleRight() {
+    UI.rightOpen = !UI.rightOpen; saveUI();
+    $('#studio').classList.toggle('no-right', !UI.rightOpen); $('#b-right').classList.toggle('on', UI.rightOpen);
+    if (UI.rightOpen) showRight(UI.right);
+  }
+  $('#rtabs').addEventListener('click', (e) => { const b = e.target.closest('[data-rt]'); if (b) showRight(b.dataset.rt); });
+  $('#rtabs').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const tabs = $$('#rtabs [role="tab"]'); const i = tabs.findIndex((b) => b.dataset.rt === UI.right);
+    const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length]; showRight(n.dataset.rt); n.focus(); e.preventDefault();
+  });
+  $('#b-right').onclick = toggleRight;
+
+  /* ===================== Compare ===================== */
+
+  const cmpKey = (v) => (typeof v === 'string' ? v : (() => { const i = G.clips.items.indexOf(v); return i >= 0 ? 'clip:' + i : 'in'; })());
+  function cmpText(k) {
+    if (k === 'in') return inputText();
+    if (k === 'out') return finalOut();
+    if (k.startsWith('clip:')) { const c = G.clips.items[+k.slice(5)]; return c ? (kindOf(c) === 'image' ? c.ocr || '' : c.text) : ''; }
+    if (k.startsWith('rev:')) return (G.prevVersions[k.slice(4)] || {}).src || '';
+    if (k.startsWith('doc:')) return (G.doc(k.slice(4)) || {}).src || '';
+    return '';
+  }
+  function cmpLabel(k) {
+    if (k === 'in') return 'Workbench input'; if (k === 'out') return 'Workbench output';
+    if (k.startsWith('clip:')) { const c = G.clips.items[+k.slice(5)]; return c ? `Clip · ${firstLine(c.text).slice(0, 46)} (${c.app}, ${G.ago(c.at)})` : 'Clip'; }
+    if (k.startsWith('rev:')) return 'Document · ' + G.doc(k.slice(4)).title + ', ' + G.prevVersions[k.slice(4)].label;
+    if (k.startsWith('doc:')) return 'Document · ' + (G.doc(k.slice(4)) || {}).title;
+    return k;
+  }
+  function cmpOptionsHtml(cur) {
+    const o = (k) => `<option value="${k}"${k === cur ? ' selected' : ''}>${esc(cmpLabel(k))}</option>`;
+    const clips = G.clips.items.slice(0, 40).map((c, i) => (kindOf(c) === 'image' ? '' : o('clip:' + i))).join('');
+    const docs = G.docs.map((d) => o('doc:' + d.id)).join('') + Object.keys(G.prevVersions).filter((id) => G.prevVersions[id].src).map((id) => o('rev:' + id)).join('');
+    return `<optgroup label="Workbench">${o('in')}${o('out')}</optgroup><optgroup label="Clipboard history">${clips}</optgroup><optgroup label="Documents">${docs}</optgroup>`;
+  }
+  function renderCompare() {
+    const ka = cmpKey(S.cmp.a), kb = cmpKey(S.cmp.b);
+    $('#cmp-a').innerHTML = cmpOptionsHtml(ka); $('#cmp-b').innerHTML = cmpOptionsHtml(kb);
+    $('#cmp-ws').checked = S.cmp.ws; $('#cmp-ic').checked = S.cmp.ic;
+    const A = cmpText(ka), B = cmpText(kb);
+    const norm = (l) => { let x = l; if (S.cmp.ws) x = x.replace(/\s+/g, ' ').trim(); if (S.cmp.ic) x = x.toLowerCase(); return x; };
+    const d = diffOps(A.split('\n'), B.split('\n'), norm);
+    const body = $('#cmp-body');
+    if (!d) { body.innerHTML = '<div class="empty-sm">Too large to compare in the prototype.</div>'; $('#cmp-stats').textContent = ''; return; }
+    const rows = []; let i = 0;
+    while (i < d.length) {
+      if (d[i][0] === ' ') { rows.push({ t: 'eq', l: d[i][1], r: d[i][2], ln: d[i][3], rn: d[i][4] }); i++; continue; }
+      const dels = [], adds = [];
+      while (i < d.length && d[i][0] !== ' ') { (d[i][0] === '-' ? dels : adds).push(d[i]); i++; }
+      for (let k = 0; k < Math.max(dels.length, adds.length); k++) rows.push({ t: 'chg', l: dels[k] ? dels[k][1] : null, r: adds[k] ? adds[k][2] : null, ln: dels[k] && dels[k][3], rn: adds[k] && adds[k][4] });
+    }
+    const adds = d.filter((x) => x[0] === '+').length, dels = d.filter((x) => x[0] === '-').length;
+    $('#cmp-stats').innerHTML = adds || dels ? `<span style="color:var(--ok)">+${adds}</span> <span style="color:var(--err)">−${dels}</span> lines` : 'identical';
+    let html = `<div class="cmp-heads"><div title="${esc(cmpLabel(ka))}">${esc(cmpLabel(ka))}</div><div title="${esc(cmpLabel(kb))}">${esc(cmpLabel(kb))}</div></div><div class="sbs">`;
+    const line = (r) => {
+      if (r.t === 'eq') return `<span class="ln">${r.ln}</span><span>${esc(r.l) || ' '}</span><span class="ln r">${r.rn}</span><span>${esc(r.r) || ' '}</span>`;
+      const [L, Rr] = r.l != null && r.r != null && r.l.length + r.r.length < 1200 ? wordDiff(r.l, r.r) : [r.l != null ? esc(r.l) : '', r.r != null ? esc(r.r) : ''];
+      return `<span class="ln${r.l == null ? ' gap' : ' del'}">${r.ln || ''}</span><span class="${r.l == null ? 'gap' : 'del'}">${L || ' '}</span><span class="ln r${r.r == null ? ' gap' : ' add'}">${r.rn || ''}</span><span class="${r.r == null ? 'gap' : 'add'}">${Rr || ' '}</span>`;
+    };
+    let k = 0;
+    while (k < rows.length) {
+      if (rows[k].t !== 'eq') { html += line(rows[k]); k++; continue; }
+      let j = k; while (j < rows.length && rows[j].t === 'eq') j++;
+      const run = j - k;
+      if (run > 8 && !S.cmp.open.has(k)) {
+        const head = k === 0 ? 0 : 3, tail = j === rows.length ? 0 : 3;
+        for (let x = k; x < k + head; x++) html += line(rows[x]);
+        html += `<button class="fold" data-fold="${k}">${ic('fold-vertical', 'ic-sm')}${fmt(run - head - tail)} unchanged lines · show</button>`;
+        for (let x = j - tail; x < j; x++) html += line(rows[x]);
+      } else for (let x = k; x < j; x++) html += line(rows[x]);
+      k = j;
+    }
+    body.innerHTML = html + '</div>';
+    G.icons(body);
+  }
+  $('#cmp-a').onchange = (e) => { S.cmp.a = e.target.value; S.cmp.open.clear(); renderCompare(); };
+  $('#cmp-b').onchange = (e) => { S.cmp.b = e.target.value; S.cmp.open.clear(); renderCompare(); };
+  $('#cmp-ws').onchange = (e) => { S.cmp.ws = e.target.checked; renderCompare(); };
+  $('#cmp-ic').onchange = (e) => { S.cmp.ic = e.target.checked; renderCompare(); };
+  $('#cmp-body').addEventListener('click', (e) => { const f = e.target.closest('[data-fold]'); if (f) { S.cmp.open.add(+f.dataset.fold); renderCompare(); } });
+  $('#cmp-swap').onclick = () => { const a = S.cmp.a; S.cmp.a = S.cmp.b; S.cmp.b = a; S.cmp.open.clear(); renderCompare(); };
+  $('#cmp-copy').onclick = () => { const ka = cmpKey(S.cmp.a), kb = cmpKey(S.cmp.b); G.copy(unifiedText(cmpText(ka), cmpText(kb), cmpLabel(ka), cmpLabel(kb)), { as: 'diff', lang: 'diff', clean: false }); };
+  $('#cmp-use').onclick = () => { const kb = cmpKey(S.cmp.b); setInput(cmpText(kb), { kind: 'compare', label: cmpLabel(kb).slice(0, 44), icon: 'git-compare' }); setMode('pipeline'); };
+
+  /* ===================== Modes, splitter ===================== */
+
+  function setMode(m) {
+    S.mode = m; $('#bench').dataset.mode = m;
+    $('#m-pipe').hidden = m !== 'pipeline'; $('#m-cmp').hidden = m !== 'compare';
+    $$('#modeseg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    $('#t-sub').textContent = { pipeline: 'Clean, convert and copy with a pipeline', compare: 'Line diff of any two texts' }[m];
+    if (m === 'compare') renderCompare();
+  }
+  $('#modeseg').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
+  const inWrap = $('#in-wrap');
+  const setInH = (h) => { UI.inH = Math.max(110, Math.min(h, $('#bench').clientHeight - 180)); inWrap.style.setProperty('--in-h', UI.inH + 'px'); $('#hsplit').setAttribute('aria-valuenow', String(Math.round(UI.inH))); };
+  $('#hsplit').addEventListener('pointerdown', (e) => {
+    const el = e.currentTarget, y0 = e.clientY, h0 = inWrap.offsetHeight; el.setPointerCapture(e.pointerId);
+    const mv = (ev) => setInH(h0 + ev.clientY - y0);
+    const up = () => { el.removeEventListener('pointermove', mv); saveUI(); };
+    el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up, { once: true });
+  });
+  $('#hsplit').addEventListener('keydown', (e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setInH(inWrap.offsetHeight + (e.key === 'ArrowUp' ? -24 : 24)); saveUI(); } });
+  $('#hsplit').addEventListener('dblclick', () => { setInH(236); saveUI(); });
+
+  /* ===================== Sheets: rules, keyboard map ===================== */
+
+  function sheet(id, title, icon, body, foot, opts = {}) {
+    closeSheet();
+    const opener = document.activeElement;
+    const sc = G.el(`<div class="sheet-scrim" role="dialog" aria-modal="true" aria-labelledby="${id}-t"><div class="sheet${opts.wide ? ' wide' : ''}" id="${id}" tabindex="-1">
+      <div class="sheet-h">${ic(icon)}<b id="${id}-t">${esc(title)}</b>${opts.sub ? `<span class="faint">${opts.sub}</span>` : ''}<span class="grow"></span><button class="tb-btn" data-x title="Close (esc)" aria-label="Close">${ic('x')}</button></div>
+      <div class="sheet-b">${body}</div>${foot ? `<div class="sheet-f">${foot}</div>` : ''}</div></div>`);
+    document.body.appendChild(sc); G.icons(sc);
+    const close = () => { sc.remove(); if (opener && opener.focus) opener.focus(); };
+    sc._close = close;
+    sc.addEventListener('mousedown', (e) => { if (e.target === sc) close(); });
+    sc.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$('.menu')) { e.stopPropagation(); close(); }
+      if (e.key === 'Tab') { const f = $$('button, input, select, textarea, [tabindex="0"]', sc).filter((x) => !x.disabled && x.offsetParent); if (!f.length) return; const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { f[f.length - 1].focus(); e.preventDefault(); } else if (!e.shiftKey && i === f.length - 1) { f[0].focus(); e.preventDefault(); } }
+    });
+    $$('[data-x]', sc).forEach((b) => (b.onclick = close));
+    $('.sheet', sc).focus();
+    return sc;
+  }
+  const closeSheet = () => { const s = $('.sheet-scrim'); if (s && s._close) s._close(); };
+  function openRules() {
+    G.closeMenu();
+    const P = G.prefs;
+    const sw = (attr, key, on, label, dis) => `<label class="switch"><input type="checkbox" ${attr}="${key}" ${on ? 'checked' : ''} ${dis ? 'disabled' : ''} aria-label="${esc(label)}"><i></i></label>`;
+    const opt = (v, cur, l) => `<option value="${v}"${String(v) === String(cur) ? ' selected' : ''}>${l}</option>`;
+    const apps = P.clipIgnoreApps.split(/\s*,\s*/).filter(Boolean);
+    const sample = (G.clips.items.find((c) => kindOf(c) === 'url' && trackingParams(c.text).length) || {}).text || 'https://example.com/post?id=42&utm_source=newsletter&fbclid=abc123';
+    const body = `
+      <h3>Recording</h3>
+      <div class="frow"><div>Record clipboard history<small>Marxy checks the pasteboard's change count twice a second and reads it only when the count moves. macOS has no change notification.</small></div>${sw('data-pref', 'clipHistory', P.clipHistory, 'Record clipboard history')}</div>
+      <div class="frow"><div>Keep at most<small>Pinned clips do not count toward the limit and are never removed automatically.</small></div><select class="field" data-pref="clipLimit" aria-label="Maximum number of clips">${[100, 250, 500, 1000, 5000].map((n) => opt(n, P.clipLimit, fmt(n) + ' clips')).join('')}</select></div>
+      <div class="frow"><div>Remove unpinned clips after</div><select class="field" data-pref="clipExpireDays" aria-label="Remove unpinned clips after">${[[1, '1 day'], [7, '7 days'], [30, '30 days'], [90, '90 days'], [0, 'Never']].map(([v, l]) => opt(v, P.clipExpireDays, l)).join('')}</select></div>
+      <div class="frow"><div>Skip clips larger than<small>A larger copy still works as the clipboard; it just is not written to history.</small></div><select class="field" data-rule="maxItemKb" aria-label="Skip clips larger than">${[[256, '256 KB'], [1024, '1 MB'], [10240, '10 MB'], [0, 'No limit']].map(([v, l]) => opt(v, R.maxItemKb, l)).join('')}</select></div>
+      <div class="frow"><div>Record images<small>Screenshots and copied images, kept as PNG; recognised text is indexed for search.</small></div>${sw('data-rule', 'images', R.images, 'Record images')}</div>
+      <div class="frow"><div>Keep rich formats<small>Store HTML and RTF beside the plain text, so pasting from history keeps formatting.</small></div>${sw('data-rule', 'richFormats', R.richFormats, 'Keep rich formats')}</div>
+      <h3>Privacy</h3>
+      <div class="frow"><div>Never record from these apps<div class="sub chiplist" id="ign">${apps.map((a) => `<span class="chip">${esc(a)}<button data-ign-rm="${esc(a)}" aria-label="Stop ignoring ${esc(a)}" title="Remove">${ic('x')}</button></span>`).join('')}<input class="field" id="ign-add" list="ign-list" placeholder="Add an app" aria-label="Add an app to ignore" style="height:24px;width:150px"><datalist id="ign-list">${['Passwords', 'Bitwarden', 'KeePassXC', 'Dashlane', 'Enpass', 'Proton Pass', 'Terminal', 'Messages'].map((a) => `<option value="${a}">`).join('')}</datalist></div></div><span></span></div>
+      <div class="frow"><div>Skip concealed and transient copies<small>Password managers mark copies with <code>org.nspasteboard.ConcealedType</code>; apps mark short-lived ones <code>org.nspasteboard.TransientType</code> or <code>AutoGeneratedType</code>. Marxy never stores them, and keeps no trace of their content. Always on.</small></div>${sw('data-locked', 'concealed', true, 'Skip concealed and transient copies', true)}</div>
+      <div class="frow"><div>Skip text that looks like a secret<small>API keys, tokens and private key blocks, matched on this Mac before anything is written.</small><div class="sub"><input class="field" id="sec-test" placeholder="Paste a string to test it" aria-label="Test a string against the secret patterns" style="flex:1;height:26px"><span id="sec-res" class="faint">${SECRETS.length} patterns</span></div></div>${sw('data-rule', 'skipSecrets', R.skipSecrets, 'Skip text that looks like a secret')}</div>
+      <div class="frow"><div>Strip tracking parameters from links<small>utm_*, fbclid, gclid, msclkid, mc_eid and similar. Off by default, because some links need their parameters.</small><div class="sub"><div class="eg" id="trk-eg"></div></div></div>${sw('data-rule', 'stripTracking', R.stripTracking, 'Strip tracking parameters')}</div>
+      <h3>Cleaning</h3>
+      <div class="frow"><div>Remove emoji when cleaning</div>${sw('data-pref', 'stripEmoji', P.stripEmoji, 'Remove emoji when cleaning')}</div>
+      <div class="frow"><div>Smart punctuation on copy<small>Curly quotes, en and em dashes, ellipses. Code is left alone.</small></div>${sw('data-pref', 'smartPunctOnCopy', P.smartPunctOnCopy, 'Smart punctuation on copy')}</div>
+      <h3>Copy and paste</h3>
+      <div class="frow"><div>Default format for ⌘C in Marxy</div><select class="field" data-pref="copyDefault" aria-label="Default copy format">${G.copyFormats.map((f) => opt(f.id, P.copyDefault, esc(f.name))).join('')}</select></div>
+      <div class="frow"><div>Name the source when copying<small>Adds the document title and path.</small></div><select class="field" data-rule="nameSource" aria-label="Name the source">${opt('always', R.nameSource, 'With every format')}${opt('never', R.nameSource, 'Never')}</select></div>
+      <div class="frow"><div>Paste from the ring as plain text by default<small>Swaps ↵ and ⌥↵ in the ring.</small></div>${sw('data-rule', 'pastePlain', R.pastePlain, 'Paste as plain text by default')}</div>
+      <div class="frow"><div>Paste straight into the front app<small>Marxy sends ⌘V for you, which needs Accessibility permission. Off: the ring only puts the clip on the clipboard and you press ⌘V.</small></div>${sw('data-rule', 'pasteDirect', R.pasteDirect, 'Paste straight into the front app')}</div>
+      <h3>Clear</h3>
+      <div class="frow"><div>Clear history<small>Undo is offered for ten seconds afterwards.</small></div><div class="row"><button class="btn sm" data-clear="unpinned">Clear unpinned</button><button class="btn sm" data-clear="all">Clear everything</button></div></div>`;
+    const sc = sheet('rules', 'Clipboard rules', 'shield-check', body, `<span class="faint">The same settings live in Settings › Clipboard.</span><span class="grow"></span><button class="btn" data-go="settings">Open Settings</button><button class="btn primary" data-x>Done</button>`, { sub: 'what Marxy records, cleans and pastes' });
+    const trk = () => { const out = stripTracking(sample); $('#trk-eg', sc).innerHTML = `${esc(sample)}<br>→ <b>${esc(out)}</b>${R.stripTracking ? '' : ' <span class="faint">(when on)</span>'}`; };
+    trk();
+    sc.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.dataset.pref) { const k = t.dataset.pref; let v = t.type === 'checkbox' ? t.checked : t.value; if (typeof G.prefDefaults[k] === 'number') v = +v; G.setPref(k, v); if (k === 'clipHistory' && v) R.pausedUntil = 0; if (k === 'clipLimit' && G.clips.items.length > v) G.toast(`The oldest ${G.clips.items.length - v} unpinned clips are removed at the next save`, { icon: 'info' }); }
+      else if (t.dataset.rule) { const k = t.dataset.rule; R[k] = t.type === 'checkbox' ? t.checked : typeof R[k] === 'number' ? +t.value : t.value; saveRules(); if (k === 'stripTracking') trk(); if (k === 'nameSource') renderCopy(); }
+      renderHistory(); renderStatus();
+    });
+    const addIgn = () => { const inp = $('#ign-add', sc); const v = inp.value.trim(); if (!v) return; const list = G.prefs.clipIgnoreApps.split(/\s*,\s*/).filter(Boolean); if (!list.includes(v)) list.push(v); G.setPref('clipIgnoreApps', list.join(', ')); inp.value = ''; reIgn(); };
+    const reIgn = () => { const list = G.prefs.clipIgnoreApps.split(/\s*,\s*/).filter(Boolean); $$('#ign .chip', sc).forEach((c) => c.remove()); $('#ign-add', sc).insertAdjacentHTML('beforebegin', list.map((a) => `<span class="chip">${esc(a)}<button data-ign-rm="${esc(a)}" aria-label="Stop ignoring ${esc(a)}" title="Remove">${ic('x')}</button></span>`).join('')); G.icons($('#ign', sc)); renderPolicy(); };
+    $('#ign-add', sc).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addIgn(); } });
+    $('#ign-add', sc).addEventListener('change', addIgn);
+    $('#sec-test', sc).addEventListener('input', (e) => { const v = e.target.value; const hit = SECRETS.find(([, re]) => re.test(v)); $('#sec-res', sc).innerHTML = !v ? `${SECRETS.length} patterns` : hit ? `<span style="color:var(--warn)">${esc(hit[0])}: would not be recorded</span>` : 'No match: would be recorded'; });
+    sc.addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-ign-rm]'); if (rm) { G.setPref('clipIgnoreApps', G.prefs.clipIgnoreApps.split(/\s*,\s*/).filter((a) => a && a !== rm.dataset.ignRm).join(', ')); return reIgn(); }
+      const c = e.target.closest('[data-clear]'); if (c) return clearHistory(c.dataset.clear === 'all');
+      if (e.target.closest('[data-go]')) location.href = G.page('settings') + '#clipboard';
+    });
+  }
+  const KEYMAP = () => [
+    ['Anywhere on the Mac', [['Clipboard ring', RING_KEY], ['Marxy palette', PAL_KEY], ['Collect mode on or off', '⌥⌘K']].concat(S.pipes.filter((p) => p.key).map((p) => ['Run ' + p.name, p.key]))],
+    ['Studio', [['Open the studio', '⇧⌘V'], ['Search the history', '⌘F'], ['Focus history, input, pipeline, output', '⌘1 – ⌘4'], ['Pipeline, Compare', '⌥⌘1 – ⌥⌘2'], ['Side panel', '⌥⌘I'], ['Clipboard rules', '⌥⌘R'], ['Command palette', '⌘K'], ['Transform palette', '⌘/'], ['This keyboard map', '⌘?']]],
+    ['History list', [['Move', '↑ ↓'], ['Extend the selection', '⇧↑ ⇧↓'], ['Select all', '⌘A'], ['Load into the workbench', '↵'], ['Merge selected into the workbench', '⇧↵'], ['Copy and move to the top', '⌘C'], ['Pin or unpin', '⌥P'], ['Delete', '⌫'], ['Preview pane', 'Space'], ['More actions', '⇧F10'], ['Search', 'type any letter']]],
+    ['Input', [['Expand a snippet abbreviation', '⇥'], ['Undo', '⌘Z'], ['Copy the output', '⌘↵'], ['Replace the clipboard', '⌥⌘↵']]],
+    ['Pipeline', [['Add a step', '⇧⌘A'], ['Move a step', '⌥↑ ⌥↓'], ['Run or skip a step', '⌘E'], ['Preview after a step', '↵'], ['Remove a step', '⌫'], ['Save', '⌘S'], ['Save as', '⇧⌘S'], ['Run on the clipboard', '⌘R']]],
+    ['Output', [['Copy', '⌘↵'], ['Replace the clipboard', '⌥⌘↵'], ['Before, After, Diff, Rendered', '⌘D'], ['Use as input', '⌘U'], ['New document', '⌥⌘N']]],
+    ['Clipboard ring', [['Paste', '↵'], ['Paste as plain text', '⌥↵'], ['Paste item 1 to 9', '⌘1 – ⌘9'], ['Next scope', '⇥'], ['Pin', '⌥P'], ['Delete from history', '⌥⌫'], ['Close', 'esc']]]
+  ];
+  function openKeys() {
+    G.closeMenu();
+    const keys = (s) => (/^[a-z ]{5,}$/.test(s) ? `<span>${esc(s)}</span>` : s.split(' ').map((t) => (t === '–' ? '<span>–</span>' : `<span class="kbd">${esc(t)}</span>`)).join(''));
+    const groups = KEYMAP().map(([g, rows]) => `<section><h3>${esc(g)}</h3>${rows.map(([a, k]) => `<div class="krow"><span>${esc(a)}</span><span>${keys(k)}</span></div>`).join('')}</section>`);
+    sheet('keys', 'Keyboard map', 'keyboard', `<div class="keys"><div>${groups.slice(0, 3).join('')}</div><div>${groups.slice(3).join('')}</div></div>`, `<span class="faint">Rebind any of these in Settings › Shortcuts. Global shortcuts work while Marxy runs, even with no window open.</span><span class="grow"></span><button class="btn primary" data-x>Done</button>`, { wide: true });
+  }
+
+  /* ===================== Clipboard ring HUD (mock) ===================== */
+
+  const HUD = { scope: 'history', hot: 0, q: '', items: [], el: null };
+  const HSCOPES = [['history', 'History', 'clipboard-list'], ['pinned', 'Pinned', 'pin'], ['snippets', 'Snippets', 'text-quote'], ['pipelines', 'Pipelines', 'workflow']];
+  function hudItems() {
+    const q = HUD.q.toLowerCase(); let list;
+    if (HUD.scope === 'snippets') list = S.snips.map((s) => ({ kind: 'snip', s, title: s.name, sub: s.abbr, icon: 'text-quote', text: expand(s.body).text }));
+    else if (HUD.scope === 'pipelines') list = S.pipes.map((p) => ({ kind: 'pipe', p, title: p.name, sub: p.key || p.steps.length + ' steps', icon: 'workflow', text: '' }));
+    else list = G.clips.items.filter((c) => HUD.scope !== 'pinned' || c.pinned).map((c) => ({ kind: 'clip', c, title: kindOf(c) === 'image' ? c.text : firstLine(c.text), sub: (c.app || '') + ' · ' + G.ago(c.at), icon: KINDS[kindOf(c)][1], text: c.text }));
+    if (q) list = list.filter((x) => (x.title + ' ' + x.text + ' ' + x.sub).toLowerCase().includes(q));
+    return list.slice(0, 60);
+  }
+  function renderHud() {
+    const box = HUD.el; if (!box) return;
+    HUD.items = hudItems(); HUD.hot = Math.max(0, Math.min(HUD.hot, HUD.items.length - 1));
+    const q = HUD.q.toLowerCase();
+    $('.hud-scope', box).innerHTML = HSCOPES.map(([id, l, i]) => `<button data-hs="${id}" aria-pressed="${HUD.scope === id}">${ic(i, 'ic-sm')}${l}</button>`).join('');
+    $('.hud-list', box).innerHTML = HUD.items.map((x, i) => `<div class="hrow${i === HUD.hot ? ' hot' : ''}" role="option" id="hr-${i}" data-i="${i}" aria-selected="${i === HUD.hot}">${i < 9 ? `<span class="kbd">${i + 1}</span>` : '<span></span>'}${ic(x.icon, 'ic-sm')}<span class="t">${hl(x.title, q)}</span><span class="s">${esc(x.sub)}</span></div>`).join('') || '<div class="empty-sm">Nothing matches</div>';
+    const it = HUD.items[HUD.hot];
+    $('.hud-prev', box).textContent = !it ? '' : it.kind === 'pipe' ? `Runs on the clipboard: ${firstLine(newestText()).slice(0, 70)}\n→ ${firstLine(runSaved(it.p, newestText(), clipCtx())).slice(0, 90)}` : it.kind === 'clip' && kindOf(it.c) === 'image' ? `${it.c.image.w} × ${it.c.image.h} PNG · text: ${it.c.ocr}` : it.text.split('\n').slice(0, 5).join('\n');
+    $('#hud-q').setAttribute('aria-activedescendant', it ? 'hr-' + HUD.hot : '');
+    const plain = R.pastePlain;
+    $('.hud-foot', box).innerHTML = `<span><span class="kbd">↵</span>${plain ? 'Plain text' : 'Paste'}</span><span><span class="kbd">⌥</span><span class="kbd">↵</span>${plain ? 'As copied' : 'Plain text'}</span><span><span class="kbd">⌘</span><span class="kbd">1–9</span>Pick</span><span><span class="kbd">⇥</span>Scope</span><span><span class="kbd">⌥</span><span class="kbd">P</span>Pin</span><span><span class="kbd">esc</span>Close</span>`;
+    G.icons(box);
+    const h = $('.hrow.hot', box); if (h) h.scrollIntoView({ block: 'nearest' });
+  }
+  function hudPaste(i, mods = {}) {
+    const it = HUD.items[i]; if (!it) return;
+    let text = it.kind === 'pipe' ? runSaved(it.p, newestText(), clipCtx()) : it.kind === 'snip' ? it.text : it.kind === 'clip' && kindOf(it.c) === 'image' ? '[image: ' + it.c.text + ']' : it.c.text;
+    let how = R.pastePlain ? (mods.alt ? 'as copied' : 'plain') : mods.alt ? 'plain' : 'as copied';
+    if (how === 'plain') text = G.transform('to-plain', text);
+    const tgt = $('.fa-compose', HUD.scrim);
+    const ph = $('.ph', tgt); if (ph) ph.remove();
+    $$('.fresh', tgt).forEach((x) => x.classList.remove('fresh'));
+    tgt.insertAdjacentHTML('beforeend', `${tgt.textContent ? '\n' : ''}<span class="fresh">${esc(text)}</span>`); tgt.scrollTop = tgt.scrollHeight;
+    G.writeClipboard(text);
+    if (it.kind === 'clip' && G.prefs.clipHistory) { it.c.at = Date.now(); G.clips.items = [it.c].concat(G.clips.items.filter((x) => x !== it.c)); G.clips.save(); G.emit('clips', G.clips.items); }
+    if (it.kind === 'pipe') { it.p.uses = (it.p.uses || 0) + 1; it.p.last = Date.now(); savePipes(); }
+    HUD.el.hidden = true;
+    $('.hud-cap span', HUD.scrim).innerHTML = `Pasted ${it.kind === 'pipe' ? 'the result of ' + esc(it.p.name) : it.kind === 'snip' ? 'snippet ' + esc(it.s.name) : 'a clip'} ${how === 'plain' ? 'as plain text ' : ''}${R.pasteDirect ? 'into the team chat' : 'onto the clipboard'}. <span class="kbd">⌥⌘V</span> opens the ring again, <span class="kbd">esc</span> closes this mock.`;
+    HUD.scrim.focus();
+  }
+  function openHud() {
+    G.closeMenu(); closePicker();
+    if (HUD.scrim) { HUD.el.hidden = false; HUD.q = ''; $('#hud-q').value = ''; HUD.hot = 0; renderHud(); $('#hud-q').focus(); return; }
+    const sc = G.el(`<div class="hud-scrim" role="dialog" aria-modal="true" aria-label="Clipboard ring, shown over another app" tabindex="-1">
+      <div class="hud-cap">${ic('picture-in-picture-2', 'ic-sm')}<span>Mock: the ring floats over whatever app is in front (here, a team chat). In the app ${esc(RING_KEY)} opens it anywhere.</span><button class="btn sm" data-hx>Close mock</button></div>
+      <div class="hud-desk">
+        <div class="fake-app" aria-hidden="true">
+          <div class="fa-bar"><span class="lights"><span></span><span></span><span></span></span><b>#eng-db</b><span class="faint">team chat</span></div>
+          <div class="fa-msgs">
+            <div class="fa-msg"><span class="fa-av">PN</span><div><b>Priya N.<small>09:52</small></b><p>Is the pg16 rehearsal still Thursday? Can someone drop the cutover plan in here?</p></div></div>
+            <div class="fa-msg"><span class="fa-av">SO</span><div><b>Sam O.<small>09:54</small></b><p>I have it open, one sec.</p></div></div>
+          </div>
+          <div class="fa-compose"><span class="ph">Message #eng-db</span></div>
+        </div>
+        <div class="hud" role="combobox" aria-expanded="true" aria-owns="hud-list" aria-haspopup="listbox">
+          <div class="hud-in">${ic('search')}<input id="hud-q" placeholder="Type to filter" aria-label="Filter the clipboard ring" aria-controls="hud-list" autocomplete="off" spellcheck="false"><span class="kbd">${esc(RING_KEY)}</span></div>
+          <div class="hud-scope" role="group" aria-label="Scope"></div>
+          <div class="hud-list" id="hud-list" role="listbox" aria-label="Clips"></div>
+          <div class="hud-prev" aria-live="polite"></div>
+          <div class="hud-foot"></div>
+        </div>
+      </div></div>`);
+    document.body.appendChild(sc); G.icons(sc); HUD.scrim = sc; HUD.el = $('.hud', sc); HUD.q = ''; HUD.hot = 0;
+    const close = () => { sc.remove(); HUD.scrim = null; HUD.el = null; $('#b-hud').focus(); };
+    sc.addEventListener('mousedown', (e) => { if (e.target === sc) close(); });
+    $('[data-hx]', sc).onclick = close;
+    sc.addEventListener('keydown', (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.altKey && e.code === 'KeyV') { e.preventDefault(); e.stopPropagation(); if (HUD.el.hidden) openHud(); else { HUD.el.hidden = true; sc.focus(); } return; }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!HUD.el.hidden && HUD.q) { HUD.q = ''; $('#hud-q').value = ''; renderHud(); } else close(); return; }
+      if (HUD.el.hidden) return;
+      const q = $('#hud-q');
+      if (document.activeElement !== q && e.key.length === 1 && !mod && !e.altKey) { q.focus(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); HUD.hot = Math.max(0, Math.min(HUD.items.length - 1, HUD.hot + (e.key === 'ArrowDown' ? 1 : -1))); renderHud(); }
+      else if (e.key === 'Enter') { e.preventDefault(); hudPaste(HUD.hot, { alt: e.altKey, meta: mod }); }
+      else if (mod && /^Digit[1-9]$/.test(e.code)) { e.preventDefault(); hudPaste(+e.code.slice(5) - 1, { alt: e.altKey }); }
+      else if (e.key === 'Tab') { e.preventDefault(); const i = HSCOPES.findIndex(([id]) => id === HUD.scope); HUD.scope = HSCOPES[(i + (e.shiftKey ? -1 : 1) + HSCOPES.length) % HSCOPES.length][0]; HUD.hot = 0; renderHud(); }
+      else if (e.altKey && e.code === 'KeyP') { e.preventDefault(); const it = HUD.items[HUD.hot]; if (it && it.kind === 'clip') { pin(it.c); renderHud(); } }
+      else if (e.altKey && e.key === 'Backspace') { e.preventDefault(); const it = HUD.items[HUD.hot]; if (it && it.kind === 'clip') { del(it.c); renderHud(); } }
+    });
+    $('#hud-q').addEventListener('input', (e) => { HUD.q = e.target.value; HUD.hot = 0; renderHud(); });
+    $('.hud-list', sc).addEventListener('click', (e) => { const r = e.target.closest('.hrow'); if (r) hudPaste(+r.dataset.i, { alt: e.altKey, meta: e.metaKey || e.ctrlKey }); });
+    $('.hud-list', sc).addEventListener('mousemove', (e) => { const r = e.target.closest('.hrow'); if (r && +r.dataset.i !== HUD.hot) { HUD.hot = +r.dataset.i; $$('.hrow', sc).forEach((x) => x.classList.toggle('hot', x === r)); } });
+    $('.hud-scope', sc).addEventListener('click', (e) => { const b = e.target.closest('[data-hs]'); if (b) { HUD.scope = b.dataset.hs; HUD.hot = 0; renderHud(); $('#hud-q').focus(); } });
+    renderHud(); $('#hud-q').focus();
+  }
+
+  /* ===================== Status bar ===================== */
+
+  function renderStatus() {
+    const pinned = G.clips.items.filter((c) => c.pinned).length, on = S.pipe.steps.filter((s) => s.on).length, out = finalOut();
+    const paused = !G.prefs.clipHistory;
+    $('#status').innerHTML = G.ui.statusbar([
+      { cmd: 'cs-pause', html: paused ? `${ic('circle-pause')}${R.pausedUntil > Date.now() ? 'Paused until ' + clockOf(R.pausedUntil) : R.pausedUntil === -1 ? 'Paused' : 'History off'}` : '<span class="dot" aria-hidden="true"></span>Recording', title: paused ? 'Resume recording' : 'Pause recording' },
+      { html: `${fmt(G.clips.items.length)} clips · ${pinned} pinned` },
+      { cmd: 'cs-rules', icon: 'shield-check', html: `${SKIPPED.length} not recorded today`, title: 'Clipboard rules (⌥⌘R)' },
+      { icon: 'workflow', html: `${esc(S.pipe.name)} · ${on} of ${S.pipe.steps.length} steps` },
+      { html: '<span class="grow"></span>' },
+      { cmd: 'collect', icon: 'layers', html: `Stack ${G.stack.items.length}${G.stack.on ? ' · collecting' : ''}`, title: 'Collect mode (⌥⌘K)' },
+      { cmd: 'cs-hud', icon: 'picture-in-picture-2', html: esc(RING_KEY), title: 'Clipboard ring' },
+      { cmd: 'theme-menu', icon: 'palette', html: G.themes.find((t) => t.id === G.resolvedTheme()).name },
+      { cmd: 'scale-reset', html: Math.round(G.prefs.scale * 100) + '%', title: 'Text size (⌘0 resets)' }
+    ]).replace('<span class="sb-item"><span class="grow"></span></span>', '<span class="grow"></span>');
+    G.icons($('#status'));
+  }
+
+  /* ===================== Commands and keys ===================== */
+
+  const focusPanel = (n) => {
+    if (n === 1) { $('#hlist').focus(); setHot(S.hot); }
+    else if (n === 2) { if (S.mode === 'compare') setMode('pipeline'); editor.ta.focus(); }
+    else if (n === 3) { setMode('pipeline'); const s = $('#steps .step'); (s || $('#add-step')).focus(); }
+    else if (n === 4) { setMode('pipeline'); $('#out-body').focus(); }
+  };
+  const focusSearch = () => { const q = $('#h-q'); q.focus(); q.select(); };
+  [
+    ['cs-search', 'Search clipboard history', 'search', '⌘F', focusSearch],
+    ['cs-focus-history', 'Focus the history', 'clipboard-list', '⌘1', () => focusPanel(1)],
+    ['cs-focus-input', 'Focus the workbench input', 'text-cursor-input', '⌘2', () => focusPanel(2)],
+    ['cs-focus-pipeline', 'Focus the pipeline', 'workflow', '⌘3', () => focusPanel(3)],
+    ['cs-focus-output', 'Focus the output', 'file-output', '⌘4', () => focusPanel(4)],
+    ['cs-mode-pipeline', 'Workbench: Pipeline', 'workflow', '⌥⌘1', () => setMode('pipeline')],
+    ['cs-mode-compare', 'Workbench: Compare two texts', 'git-compare', '⌥⌘2', () => setMode('compare')],
+    ['cs-add-step', 'Add a pipeline step…', 'plus', '⇧⌘A', () => openPicker($('#add-step'))],
+    ['cs-save-pipe', 'Save the pipeline', 'save', '⌘S', savePipe],
+    ['cs-save-pipe-as', 'Save the pipeline as…', 'files', '⇧⌘S', () => saveAs($('#p-saveas'))],
+    ['cs-run-clip', 'Run the pipeline on the clipboard', 'play', '⌘R', () => runOnClipboard()],
+    ['cs-copy-out', 'Copy the output', 'copy', '⌘↵', copyOut],
+    ['cs-replace-clip', 'Replace the clipboard with the output', 'clipboard-check', '⌥⌘↵', replaceClipboard],
+    ['cs-use-out', 'Use the output as input', 'corner-left-up', '⌘U', useAsInput],
+    ['cs-new-doc', 'Open the output as a new document', 'file-plus-2', '⌥⌘N', newDoc],
+    ['cs-inbox', 'Send the output to the Inbox', 'inbox', '', toInbox],
+    ['cs-cycle-view', 'Output view: Before, After, Diff, Rendered', 'columns-2', '⌘D', cycleView],
+    ['cs-pipelines', 'Saved pipelines', 'workflow', '', () => showPipelines(true)],
+    ['cs-copy-formats', 'Copy formats', 'copy', '', () => showRight('copy')],
+    ['cs-stack', 'Show the collect stack', 'layers', '', () => showRight('stack')],
+    ['cs-snippets', 'Snippets', 'text-quote', '', () => showRight('snippets')],
+    ['cs-new-snippet', 'New snippet from the output', 'plus', '', () => newSnippet(finalOut(), 'From ' + S.pipe.name)],
+    ['cs-rules', 'Clipboard rules…', 'shield-check', '⌥⌘R', openRules],
+    ['cs-hud', 'Clipboard ring', 'picture-in-picture-2', RING_KEY, openHud],
+    ['cs-keys', 'Clipboard studio keyboard map', 'keyboard', '⌘?', openKeys],
+    ['cs-pause', 'Pause or resume clipboard recording', 'circle-pause', '', () => (G.prefs.clipHistory ? pauseRecording(5 * MIN) : resumeRecording())],
+    ['cs-ignore-next', 'Ignore the next copy', 'eye-off', '', () => { S.ignoreNext = Date.now(); G.toast('The next copy will not be recorded', { icon: 'eye-off' }); }],
+    ['cs-clear-unpinned', 'Clear unpinned clipboard history', 'trash-2', '', () => clearHistory(false)],
+    ['cs-right', 'Toggle the studio side panel', 'panel-right', '⌥⌘I', toggleRight],
+    ['cs-paste-in', 'Paste the clipboard into the workbench', 'clipboard-paste', '', pasteIn],
+    ['cs-sample', 'Load sample: Markdown with formatting', 'file-text', '', () => setInput(SAMPLE_MD, { kind: 'sample', label: 'Sample Markdown', icon: 'file-text' })]
+  ].forEach(([id, name, icon, kbd, run]) => G.command({ id, name, icon, kbd, group: 'Clipboard studio', run }));
+  registerPipeCommands();
+
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || $('.sheet-scrim') || HUD.scrim || picker || G.palette.el || S.recording) return;
+    const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+    const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (mod && e.altKey && e.code === 'KeyV') { e.preventDefault(); openHud(); }
+    else if (mod && e.altKey && e.code === 'KeyR') { e.preventDefault(); openRules(); }
+    else if (mod && e.altKey && e.code === 'KeyI') { e.preventDefault(); toggleRight(); }
+    else if (mod && e.altKey && /^Digit[12]$/.test(e.code)) { e.preventDefault(); setMode(MODES[+e.code.slice(5) - 1]); }
+    else if (mod && e.altKey && e.code === 'KeyN') { e.preventDefault(); newDoc(); }
+    else if (mod && e.altKey && e.key === 'Enter') { e.preventDefault(); replaceClipboard(); }
+    else if (mod && !e.altKey && e.key === 'Enter') { e.preventDefault(); copyOut(); }
+    else if (mod && !e.altKey && !e.shiftKey && /^Digit[1-4]$/.test(e.code)) { e.preventDefault(); focusPanel(+e.code.slice(5)); }
+    else if (mod && !e.altKey && !e.shiftKey && k === 'f') { e.preventDefault(); focusSearch(); }
+    else if (mod && e.shiftKey && k === 'a') { e.preventDefault(); openPicker($('#add-step')); }
+    else if (mod && !e.altKey && k === 's') { e.preventDefault(); e.shiftKey ? saveAs($('#p-saveas')) : savePipe(); }
+    else if (mod && !e.shiftKey && !e.altKey && k === 'r') { e.preventDefault(); runOnClipboard(); }
+    else if (mod && !e.shiftKey && !e.altKey && k === 'd') { e.preventDefault(); cycleView(); }
+    else if (mod && !e.shiftKey && !e.altKey && k === 'u') { e.preventDefault(); useAsInput(); }
+    else if ((mod && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) || (!inField && !mod && e.key === '?')) { e.preventDefault(); openKeys(); }
+  });
+
+  /* ===================== Toolbar ===================== */
+
+  $('#b-paste').onclick = pasteIn;
+  $('#b-runclip').onclick = () => runOnClipboard();
+  $('#b-hist').onclick = (e) => historyMenu(e.currentTarget);
+  $('#b-stack').onclick = () => G.stack.toggle();
+  $('#b-hud').onclick = openHud;
+  $('#b-rules').onclick = openRules;
+  $('#b-keys').onclick = openKeys;
+  $('#in-src').onclick = (e) => loadMenu(e.currentTarget);
+  $('#in-paste').onclick = pasteIn;
+  $('#in-undo').onclick = () => editor.undo();
+  $('#in-clear').onclick = () => { const old = inputText(), src = S.input; setInput('', { kind: 'paste', label: 'Empty', icon: 'type' }); editor.ta.focus(); G.toast('Input cleared', { icon: 'eraser', action: { label: 'Undo', run: () => setInput(old, Object.assign({}, src, { keepCurrent: true })) } }); };
+  $('#in-wrap-btn').onclick = (e) => { const b = e.currentTarget, on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('on', on); editor.setWrap(on); };
+
+  /* ===================== Integration with the palette and other pages ===================== */
+
+  G.openDoc = (id) => { const d = G.doc(id); if (!d) return G.toast('Indexed metadata only in this prototype', { icon: 'info' }); fromDoc(d); if (S.mode === 'compare') setMode('pipeline'); G.toast(`Loaded ${esc(d.title)} into the workbench`, { icon: 'file-text', action: { label: 'Open in Workspace', run: () => (location.href = G.page('workspace') + '#doc=' + id) } }); };
+  G.replaceText = (out, sel) => { if (sel && editor.hasSelection()) editor.replaceSelection(out); else setInput(out, Object.assign({}, S.input, { keepCurrent: true })); };
+  G.insertText = (t) => insertAtCursor(t);
+  G.undo = () => editor.undo();
+
+  G.on('clips', () => {
+    if (S.ignoreNext && G.clips.items[0] && G.clips.items[0].at >= S.ignoreNext) { S.ignoreNext = 0; G.clips.items.shift(); G.clips.save(); G.toast('Not recorded: "Ignore the next copy" was on', { icon: 'eye-off' }); }
+    renderHistory(); renderPreview(); renderStatus();
+    if (HUD.el && !HUD.el.hidden) renderHud();
+    if (S.mode === 'compare') renderCompare();
+  });
+  G.on('stack', () => { renderStack(); renderStatus(); });
+  G.on('pref', ({ key }) => {
+    if (['copyDefault'].includes(key)) renderCopy();
+    if (['servicesMenu', 'menubarExtra'].includes(key)) renderPipes();
+    if (['clipHistory', 'clipIgnoreApps'].includes(key)) { renderPolicy(); renderStatus(); }
+  });
+  G.on('theme', () => renderStatus());
+  window.addEventListener('hashchange', routeHash);
+  function routeHash() {
+    const h = location.hash.replace(/^#/, '');
+    if (!h) return;
+    if (h.startsWith('pipelines')) showPipelines(true);
+    else if (h === 'copy' || h === 'stack' || h === 'snippets') showRight(h);
+    else if (MODES.includes(h)) setMode(h);
+    else if (h === 'rules') openRules();
+    else if (h === 'hud' || h === 'ring') openHud();
+    else if (h === 'keys') openKeys();
+  }
+
+  /* ===================== Boot ===================== */
+
+  G.boot({});
+  if (R.pausedUntil > 0 && R.pausedUntil < Date.now() && !G.prefs.clipHistory) { R.pausedUntil = 0; saveRules(); G.setPref('clipHistory', true); }
+  if (!G.stack.items.length) {
+    const d = G.doc('pg16-plan').src;
+    G.stack.items.push({ text: d.match(/## TL;DR\n\n([\s\S]*?)\n\n## /)[1] }, { text: d.match(/\| Step \| Owner[\s\S]*?\n\n/)[0].trim() }, { text: d.match(/## Next steps\n\n([\s\S]*?)\n\n/)[1] });
+  }
+  buildEditor('');
+  inWrap.style.setProperty('--in-h', UI.inH + 'px');
+  // In a narrow window the side panel overlays the workbench, so start with it closed (not saved).
+  if (innerWidth < 1100) UI.rightOpen = false;
+  $('#studio').classList.toggle('no-right', !UI.rightOpen); $('#b-right').classList.toggle('on', UI.rightOpen);
+  loadPipe(S.pipes.find((p) => p.id === 'p-slack') || S.pipes[0] || { id: null, name: 'Untitled pipeline', steps: [] });
+  fromDoc(G.doc('pg16-plan'));
+  setMode('pipeline');
+  renderHistory(); renderPreview(); renderStack();
+  if (UI.rightOpen) showRight(UI.right);
+  routeHash();
+})();
+</script>
+</body>
+</html>

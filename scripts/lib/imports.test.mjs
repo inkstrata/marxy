@@ -1,7 +1,7 @@
 // The AST reader the boundary, bundle and registry gates share: each shape a regex missed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { importSpecs, dynamicImportSpecs, rawInvokeCalls, isNodeBuiltin, stripCommentsAst } from './imports.mjs';
+import { importSpecs, valueImportSpecs, dynamicImportSpecs, rawInvokeCalls, isNodeBuiltin, stripCommentsAst } from './imports.mjs';
 
 test('importSpecs reads a multi-line import list', () => {
   assert.deepEqual(importSpecs("import {\n  a,\n  b,\n} from 'node:fs';"), ['node:fs']);
@@ -16,6 +16,20 @@ test('importSpecs reads import-equals, import types, import() and require(), ski
   const src = "import q = require('q'); type T = import('t').X; void import('d'); require(`r`); import(`./${x}`);";
   assert.deepEqual(importSpecs(src), ['q', 't', 'd', 'r']);
   assert.deepEqual(dynamicImportSpecs(src), ['d', 'r']);
+});
+
+test('valueImportSpecs skips import type, export type and type queries, and keeps an inline type import', () => {
+  const src = [
+    "import type { A } from 'ta';",
+    "export type { B } from 'tb';",
+    "type C = import('tc').C;",
+    "import { type D } from 'vd';",
+    "import { e } from 've';",
+    "export { f } from 'vf';",
+    "import 'vg';",
+    "const h = import('dh');",
+  ].join('\n');
+  assert.deepEqual(valueImportSpecs(src), ['vd', 've', 'vf', 'vg']);
 });
 
 test('importSpecs ignores import-shaped text inside strings and comments', () => {

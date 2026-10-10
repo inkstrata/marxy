@@ -52,6 +52,16 @@ small mark with the accessible name "Changed since you read". Typed rows from wa
 the age and the mark too. Typed ranking is unchanged apart from `mtimeMs` as a tie-break before the
 path. No count, badge or preview appears anywhere (ADR-0050).
 
+### Open beside (D-07)
+
+`Mod+\` summons the palette with a target of `'split'`: the empty list is one section, Recent, from
+`recentExcluding(session, visiblePaths)` (the MRU newest first, without the documents the panes show), with
+the first row selected. Typing, `>` and `/` behave as ever. `Enter`, and `Mod+Enter` on any row, open the
+hit in the other pane through `AppHandle.open(path, { target: 'other' })`, which is `PaneSet.openIn('other')`
+and so asks `beforeReplace` first. Plain `Mod+P` is unchanged and opens here. The notice line reads "Open
+beside"; if a second pane cannot be made (the window is narrower than two columns, `pane/fit.ts`) the
+palette stays open with the reason in that line and `Enter` then opens here.
+
 ### Content search (`/` prefix)
 
 `/` followed by text searches file contents. It is a scan run on demand, never an index: nothing is
@@ -156,6 +166,23 @@ Opening a heading hit navigates to the document and scrolls the heading to the r
 `opens` capped at 500 (oldest dropped); MRU = distinct paths from `opens` newest first.
 Back/forward is an in-memory stack of `{ path, position }` for the session; `⌘[` / `⌘]`.
 Pin/unpin is a palette operation on a document hit (`⌘.`).
+
+## Query syntax
+
+The library's query field is parsed by `parseQuery` in `packages/core/src/index-model/query.ts` (Q-02); the
+token table is in `docs/plan/direction-2026-10/mock-v2/05-collections.md`, section "Query syntax". In short:
+plain words and `"phrases"` search text, tokens combine with AND, `OR` (upper case) separates groups, a
+leading `-` excludes, commas inside a value mean any of. `a b OR c` is `(a AND b) OR c`: `OR` has the lowest
+precedence and there is no grouping. Keys are `kind`, `is`, `has`, `modified`, `words`, `tasks`, `size`,
+`path` and `in`; `model:`, `session:`, `tag:`, `is:ai` and `is:live` are not keys (ADR-0062) and parse as
+text. An unknown key, or an unknown value of a known key (`is:foo`), is an `unknown` term kept as text; a
+missing or malformed value (`words:>`) is an `incomplete` term that filters nothing. Every term carries its
+`[start, end)` range in UTF-16 code units of the input so the field can draw chips. Counts (`words:`,
+`tasks:`) are decimal (`2k` = 2,000); sizes are binary (`1kb` = 1,024, `1mb` = 1,048,576). `completeQuery`
+suggests keys and values at a caret. Ages: `mo` is 30 days and `y` is 365 days. A comparison key (`modified:`, `words:`, `tasks:`, `size:`) takes
+one value; a comma makes the term `incomplete`. Keys are case-insensitive while `OR` is case-sensitive
+(`or` is a word). `kind:` and `path:` values keep their case as written; how they match is Q-03's to decide.
+Completion replaces only up to the caret. Evaluating a query against the index is Q-03.
 
 ## Tests
 

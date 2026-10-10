@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from 'vite';
@@ -23,21 +23,6 @@ let base;
 before(async () => {
   if (skip) return;
   await build({ root: appRoot, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
-  await build({
-    configFile: false,
-    root: appRoot,
-    logLevel: 'silent',
-    build: {
-      lib: {
-        entry: resolve(appRoot, 'src/selection/harness-entry.ts'),
-        formats: ['iife'],
-        name: 'MarxySelectionHarness',
-        fileName: 'selection-harness',
-      },
-      outDir: join(outDir, 'sel'),
-      emptyOutDir: true,
-    },
-  });
   const types = { '.html': 'text/html', '.ttf': 'font/ttf', '.js': 'text/javascript', '.txt': 'text/plain', '.css': 'text/css' };
   server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -67,8 +52,6 @@ const MD = '# Title\n\nSome `inline` code and a [link](https://example.com).\n\n
 async function boot(page, path, body) {
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
-  await page.addScriptTag({ url: `${base}sel/selection-harness.iife.js` });
-  await page.waitForFunction(() => window.__marxySelectionHarnessPatched === true);
   await page.evaluate(async ({ files, argv }) => {
     const handle = await window.marxyApp.start(files, argv);
     await handle.ready;
@@ -260,6 +243,41 @@ test('L-06.5 the search panel is painted from tokens', async () => {
     assert.equal(seen.panel, seen.panelWant);
     assert.equal(seen.text, seen.textWant);
     assert.equal(seen.font, seen.fontWant);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('L-11 a search match carries the edge; the current match is outlined', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await boot(page, '/src/a.ts', TS);
+    await page.click('#marxy-source .cm-line >> nth=1');
+    await page.keyboard.press('Meta+F');
+    await page.waitForSelector('#marxy-source .cm-search input');
+    await page.keyboard.type('e');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#marxy-source .cm-searchMatch-selected');
+    const seen = await page.evaluate(`(() => {
+      const probe = ${probe};
+      const all = [...document.querySelectorAll('#marxy-source .cm-searchMatch')];
+      const other = all.find((e) => !e.classList.contains('cm-searchMatch-selected'));
+      const cur = document.querySelector('#marxy-source .cm-searchMatch-selected');
+      const s = (e) => getComputedStyle(e);
+      return {
+        edgeWant: probe('var(--marxy-color-find-edge)', 'color'),
+        otherEdge: s(other).borderBottomColor, otherW: s(other).borderBottomWidth,
+        curEdge: s(cur).borderBottomColor,
+        outline: s(cur).outlineColor, outlineW: s(cur).outlineWidth,
+        outlineWant: probe('var(--marxy-color-code-text)', 'color'),
+      };
+    })()`);
+    assert.equal(seen.otherEdge, seen.edgeWant);
+    assert.equal(seen.otherW, '2px');
+    assert.equal(seen.curEdge, seen.edgeWant);
+    assert.equal(seen.outline, seen.outlineWant);
+    assert.equal(seen.outlineW, '2px');
   } finally {
     await browser.close();
   }

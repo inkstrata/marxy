@@ -31,7 +31,9 @@ page and the research disagree, the research wins and this page is wrong.
 5. **Monospace is a voice, not a size.** Code is a different family at a matched x-height,
    on its own line box that is still a grid multiple; never the body face at `0.85em`. Code is
    verbatim: no ligatures, no reader spacing, no hyphens, and it keeps its authored width.
-6. **Chrome at rest is zero.** Rendered mode at rest is a column of text and nothing else.
+6. **Chrome at rest is zero.** Rendered mode at rest is a column of text and nothing else. At
+   rest is the folded window (ADR-0058); the workspace the reader unfolds may persist until they
+   fold it.
    Everything is summoned by intent and dismissed. This is the constraint convenience erodes
    first: every affordance will feel worth 32 px of permanent chrome, and none is.
 

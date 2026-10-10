@@ -23,8 +23,11 @@ export function marxyCodeMirrorTheme(): Extension {
   const bg = 'var(--marxy-color-code-bg, #1d1c19)';
   const accent = 'var(--marxy-color-accent, #8fb4dd)';
   const selection = 'var(--marxy-color-selection, #1f3651)';
-  const rule = 'var(--marxy-color-rule, #2a2825)';
+  // Contract-2 roles fall back, in tokens.css, to the v1 token they replace, so these read as before for a v1 theme.
+  const rule = 'var(--marxy-color-rule-strong, var(--marxy-color-rule, #2a2825))';
   const secondary = 'var(--marxy-color-text-secondary, #a39e94)';
+  const faint = 'var(--marxy-color-text-faint, var(--marxy-color-text-secondary, #a39e94))';
+  const surface = 'var(--marxy-color-surface, var(--marxy-color-notice, #1f1e1b))';
   const mono = 'var(--marxy-font-mono, "JetBrains Mono", ui-monospace, monospace)';
   const activeLine = `color-mix(in srgb, ${selection} 40%, transparent)`;
 
@@ -36,7 +39,13 @@ export function marxyCodeMirrorTheme(): Extension {
         fontFamily: mono,
         fontSize: 'var(--marxy-size-code, var(--marxy-size-body, 20px))',
       },
-      '.cm-scroller': { fontFamily: 'inherit', lineHeight: 'var(--marxy-line-box-code, 30px)' },
+      // Source sits in the same margins Rendered has: past 100 columns of code the free width goes to
+      // both sides of the gutter and text, not to a ragged right edge.
+      '.cm-scroller': {
+        fontFamily: 'inherit',
+        lineHeight: 'var(--marxy-line-box-code, 30px)',
+        paddingInline: 'max(0px, calc((100% - 108ch) / 2))',
+      },
       '.cm-content': {
         caretColor: accent,
         fontVariantLigatures: 'none',
@@ -52,19 +61,23 @@ export function marxyCodeMirrorTheme(): Extension {
       '.cm-activeLineGutter': { backgroundColor: activeLine },
       '.cm-gutters': {
         backgroundColor: bg,
-        color: secondary,
+        color: faint,
         border: 'none',
       },
       '.cm-gutterElement': { lineHeight: 'var(--marxy-line-box-code, 30px)', padding: `0 ${UNIT}` },
       '.cm-foldGutter .cm-gutterElement': { padding: '0', cursor: 'pointer' },
-      '.cm-searchMatch': { backgroundColor: 'var(--marxy-color-find, #3a3010)', outline: `1px solid ${rule}` },
-      // Told apart by an outline as well as colour (ADR-0033).
+      // A pale fill cannot be 3:1 against the ground and keep every token readable, so a 2 px edge in
+      // --marxy-color-find-edge carries the 3:1 (L-11); the current match adds a 2 px text-colour outline.
+      '.cm-searchMatch': {
+        backgroundColor: 'var(--marxy-color-find, #3a3010)',
+        borderBottom: '2px solid var(--marxy-color-find-edge, #94701a)',
+      },
       '.cm-searchMatch.cm-searchMatch-selected': {
         backgroundColor: 'var(--marxy-color-find-current, #403510)',
-        outline: `2px solid ${accent}`,
+        outline: '2px solid var(--marxy-color-code-text, #e3dfd6)',
       },
       '.cm-panels': {
-        backgroundColor: 'var(--marxy-color-notice, #1f1e1b)',
+        backgroundColor: surface,
         color: 'var(--marxy-color-text, #e8e4dc)',
         borderColor: rule,
         fontFamily: mono,

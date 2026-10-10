@@ -130,8 +130,19 @@ test('first launch without store files records only the document and config read
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     const path = '/docs/README.md';
     await bootApp(page, { [path]: b64(Buffer.from('# widgetlib\n\nHello.\n')) }, [path]);
+    // trust.json is read on a timer after first paint (app.ts), so `ready` can resolve before it:
+    // wait for that read rather than racing it, then hold the whole log to the expected three.
+    await page.waitForFunction(() =>
+      window.__marxyHandle.shell.calls.some((c) => c.method === 'readFile' && c.args[0] === '/data/trust.json'),
+    );
     const reads = await page.evaluate(() =>
-      window.__marxyHandle.shell.calls.filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-')).map((c) => c.args[0]),
+      window.__marxyHandle.shell.calls
+        .filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-'))
+        .map((c) => c.args[0])
+        // collection.toml is the reader's file, read for the index's deny list (C-10), not a store file.
+        .filter((p) => p !== '/collection.toml')
+        // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
+        .filter((p) => !/\/\.git(\/HEAD)?$/.test(String(p))),
     );
     assert.deepEqual(reads, [path, '/config', '/data/trust.json']);
   } finally {

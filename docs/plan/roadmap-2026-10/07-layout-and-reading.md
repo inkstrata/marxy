@@ -579,6 +579,19 @@ is gated: `checkMeasure` checks the line length, `checkNoHorizontalPageScroll` s
 - The classic scrollbar is a forced `::-webkit-scrollbar` model. On the Linux CI image, check that
   the column moves by half a scrollbar, as on macOS.
 
+### L-02.1 — Tighten the geometry gate's proofs
+
+**Model:** sonnet · **Size:** S · **Depends on:** L-02 · *Added 2026-10-08 by the lead, from the L-02 re-review.*
+**Paths:** `scripts/gate-aesthetics.mjs`, `scripts/probe-layout.mjs`, `scripts/probe-layout.test.mjs`. The spacing
+proof accepts ±0.5 px (about 20 % of 0.12 em at 20 px): make it a one-sided floor (`v >= 0.12*f - 0.05`, words
+`0.16*f`), and take the minimum across each kind of text block (p, li, headings), not the first `p`. A right-side
+inset of body text is unchecked (`p { padding-right: 60px }` passes): add a right-edge rule from set-line boxes
+against the column's right, as a check or a table row. The probe's WebKit controls run in no CI job (`fast` has no
+WebKit; nightly `browser-full` runs only the package suites): make "identical probe.json" share one browser and run
+the probe tests in nightly. Acceptance: `p { letter-spacing: 0.1em !important }` and `li { word-spacing: 0
+!important }` each fail the gate; `p { padding-right: 60px }` fails; the probe tests appear in a nightly job's log.
+Workflow edits (`.github/`) wait for the author.
+
 ### L-03 — Keep marks inside the gutter and the column still under a classic scrollbar [baselines]
 
 **Model:** opus · **Size:** S · **Depends on:** L-02 · **Parallel with:** nothing that touches

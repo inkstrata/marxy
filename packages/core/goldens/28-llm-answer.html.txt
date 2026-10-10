@@ -18,7 +18,7 @@
 • Which team gets paged when the queue depth alarm fires</p>
 <h2 id="step-1-inventory-the-cron-job" data-marxy-s="1498" data-marxy-e="1531">Step 1: Inventory the cron job</h2>
 <p data-marxy-s="1533" data-marxy-e="1610">Run this on the old host and keep the output; you will diff against it later.</p>
-<pre data-marxy-s="1612" data-marxy-e="1734"><code class="language-bash" data-marxy-s="1620" data-marxy-e="1731">crontab -l | grep invoice-export
+<pre class="language-bash" data-marxy-s="1612" data-marxy-e="1734"><code class="language-bash" data-marxy-s="1620" data-marxy-e="1731">crontab -l | grep invoice-export
 ls -la /opt/invoice-export/
 grep -R "sendmail\|curl" /opt/invoice-export/*.sh
 </code></pre>
@@ -38,7 +38,7 @@ grep -R "sendmail\|curl" /opt/invoice-export/*.sh
 </ol>
 <h2 id="step-2-make-the-handler-idempotent" data-marxy-s="2323" data-marxy-e="2361">Step 2: Make the handler idempotent</h2>
 <p data-marxy-s="2363" data-marxy-e="2580">A queue will deliver a job more than once eventually, so the handler must be safe to run twice for the same <code data-marxy-s="2471" data-marxy-e="2494">(customer_id, period)</code>. The simplest way is to derive the output filename from the job and write atomically.</p>
-<pre data-marxy-s="2582" data-marxy-e="3001"><code class="language-python" data-marxy-s="2592" data-marxy-e="2998">def export_invoices(job: dict) -&gt; str:
+<pre class="language-python" data-marxy-s="2582" data-marxy-e="3001"><code class="language-python" data-marxy-s="2592" data-marxy-e="2998">def export_invoices(job: dict) -&gt; str:
     customer = job["customer_id"]
     period = job["period"]          # e.g. "2026-09"
     final = f"/var/exports/{customer}-{period}.csv"
@@ -60,7 +60,7 @@ grep -R "sendmail\|curl" /opt/invoice-export/*.sh
 <h2 id="step-3-stand-up-the-queue" data-marxy-s="3356" data-marxy-e="3385">Step 3: Stand up the queue</h2>
 <p data-marxy-s="3387" data-marxy-e="3436">Here is the topology I would use. Keep it boring.</p>
 <p>mermaid · diagram source</p>
-<pre data-marxy-s="3438" data-marxy-e="3679"><code class="language-mermaid" data-marxy-s="3449" data-marxy-e="3676">flowchart LR
+<pre class="language-mermaid" data-marxy-s="3438" data-marxy-e="3679"><code class="language-mermaid" data-marxy-s="3449" data-marxy-e="3676">flowchart LR
     P[Producer: scheduler] --&gt;|enqueue| Q[(exports queue)]
     Q --&gt; W1[Worker 1]
     Q --&gt; W2[Worker 2]
@@ -70,7 +70,7 @@ grep -R "sendmail\|curl" /opt/invoice-export/*.sh
     W2 --&gt; S
 </code></pre>
 <p data-marxy-s="3681" data-marxy-e="3704">And the queue settings:</p>
-<pre data-marxy-s="3706" data-marxy-e="3875"><code class="language-json" data-marxy-s="3714" data-marxy-e="3872">{
+<pre class="language-json" data-marxy-s="3706" data-marxy-e="3875"><code class="language-json" data-marxy-s="3714" data-marxy-e="3872">{
   "queue": "invoice-export",
   "visibilityTimeoutSeconds": 900,
   "maxReceiveCount": 3,
@@ -136,12 +136,12 @@ grep -R "sendmail\|curl" /opt/invoice-export/*.sh
 </table>
 <h2 id="step-4-shadow-mode" data-marxy-s="4706" data-marxy-e="4728">Step 4: Shadow mode</h2>
 <p data-marxy-s="4730" data-marxy-e="4855">For two weeks, let the cron job keep writing to <code data-marxy-s="4778" data-marxy-e="4792">/var/exports</code> and have the worker write to a different prefix. Then compare:</p>
-<pre data-marxy-s="4857" data-marxy-e="4956"><code class="language-bash" data-marxy-s="4865" data-marxy-e="4953">diff -rq /var/exports/ /mnt/shadow/exports/ | tee shadow-diff.txt
+<pre class="language-bash" data-marxy-s="4857" data-marxy-e="4956"><code class="language-bash" data-marxy-s="4865" data-marxy-e="4953">diff -rq /var/exports/ /mnt/shadow/exports/ | tee shadow-diff.txt
 wc -l shadow-diff.txt
 </code></pre>
 <p data-marxy-s="4958" data-marxy-e="5316">A clean night means the diff is empty. Anything else is a bug in one of the two paths — usually the worker, but not always. One thing I’ve seen: the old script rounded to two decimals with “banker’s rounding”, while the new code uses “round half up”. Another: the old CSVs had CRLF line endings – the finance team’s importer silently depended on them.</p>
 <p data-marxy-s="5318" data-marxy-e="5375">Here’s a template you can drop into the migration ticket:</p>
-<pre data-marxy-s="5377" data-marxy-e="5828"><code class="language-markdown" data-marxy-s="5391" data-marxy-e="5823"># Migration ticket: invoice-export
+<pre class="language-markdown" data-marxy-s="5377" data-marxy-e="5828"><code class="language-markdown" data-marxy-s="5391" data-marxy-e="5823"># Migration ticket: invoice-export
 
 ## Summary
 
@@ -176,7 +176,7 @@ Platform team
 <li data-marxy-s="5851" data-marxy-e="5889">Disable the producer’s shadow flag.</li>
 <li data-marxy-s="5890" data-marxy-e="5931">Watch the first real night end to end.</li>
 </ol>
-<pre data-marxy-s="5933" data-marxy-e="6001"><code class="language-sh" data-marxy-s="5939" data-marxy-e="5998">kubectl logs -l app=invoice-export --since=1h | tail -n 50
+<pre class="language-sh" data-marxy-s="5933" data-marxy-e="6001"><code class="language-sh" data-marxy-s="5939" data-marxy-e="5998">kubectl logs -l app=invoice-export --since=1h | tail -n 50
 </code></pre>
 <ol data-marxy-s="6003" data-marxy-e="6106">
 <li data-marxy-s="6003" data-marxy-e="6077">Confirm the heartbeat, the email, and the cleanup job all still happen.</li>
@@ -192,7 +192,7 @@ Platform team
 <li data-marxy-s="6767" data-marxy-e="6896"><strong data-marxy-s="6769" data-marxy-e="6782">Duration:</strong> record the wall time per job and chart the 95th percentile, so a slow trend shows up weeks before a timeout does.</li>
 </ul>
 <p data-marxy-s="6898" data-marxy-e="6941">A minimal alert definition looks like this:</p>
-<pre data-marxy-s="6943" data-marxy-e="7234"><code class="language-yaml" data-marxy-s="6951" data-marxy-e="7231">alerts:
+<pre class="language-yaml" data-marxy-s="6943" data-marxy-e="7234"><code class="language-yaml" data-marxy-s="6951" data-marxy-e="7231">alerts:
   - name: invoice-export-oldest-message
     expr: queue_oldest_message_age_seconds{queue="invoice-export"} &gt; 1800
     for: 10m

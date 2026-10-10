@@ -1,6 +1,6 @@
 # ADR-0050 — "At rest" is defined: the column of text; anything else is summoned
 
-- **Status:** accepted (author, 2026-10-02)
+- **Status:** accepted (author, 2026-10-02); item 4 and ADR-0011 reversed inside the unfolded workspace by ADR-0058 (2026-10-10); at rest is the folded window
 - **Date:** 2026-10-02
 - **Amends:** ADR-0011 (the palette is the tab manager) and design constraint 6 in
   `docs/design-language.md` ("Chrome at rest is zero"). The ADR-0011 reversal criterion is retired.

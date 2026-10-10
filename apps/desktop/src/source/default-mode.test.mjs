@@ -20,3 +20,7 @@ for (const [path, mode] of cases) {
     assert.equal(defaultModeForPath(path), mode);
   });
 }
+
+test('a backslash in a folder name does not change the file name', () => {
+  assert.equal(defaultModeForPath('/repo/a\\b.rs/readme.md'), 'rendered');
+});

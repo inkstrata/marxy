@@ -9,13 +9,17 @@ is the only TypeScript that imports `@tauri-apps/*`.
 
 ```
 main.rs          builder, plugins, single-instance, startup marks (exists)
-commands/mod.rs  re-exports; every #[tauri::command] lives under commands/
+commands/mod.rs  re-exports; most #[tauri::command]s live under commands/ (main.rs and pasteboard/ hold the rest)
 commands/fs.rs   read_file, write_file_atomic, stat, image_size, repository_root
 commands/watch.rs   watch_start, watch_stop; emits "marxy:watch" events
 commands/index.rs   index_build, index_query, index_load, index_save; headings scanner
+commands/search.rs  search_content, cancel_content_search: on-demand content scan (C-16)
 commands/os.rs   open_external, reveal_in_editor, clipboard_write, open_dialog, webkit_version
 commands/app.rs  args, mark_from_webview, startup_marks, quit, config_paths, on second-instance forwarding
 commands/net.rs  fetch_remote_image and the marxy-remote: URI scheme handler (ADR-0027); the only socket in the app
+pasteboard/mod.rs  pasteboard_types, pasteboard_read, pasteboard_write: the Pasteboard trait and its logic (J-01)
+pasteboard/macos.rs  NSPasteboard through objc2-app-kit; the only cfg(target_os = "macos") file of the three
+pasteboard/fake.rs   an in-memory pasteboard that counts snapshots and data reads (#[cfg(test)])
 error.rs         ShellError { code, message, path } ← std::io::ErrorKind mapping
 ```
 
@@ -29,17 +33,25 @@ one side and parsed on the other (MARXY-198).
 | --- | --- | --- | --- | --- | --- |
 | `readFile` → `read_file` | `path` | raw body (`ipc::Response`), an `ArrayBuffer` in the webview | not-found, permission, io | fs | done |
 | `writeFileAtomic` → `write_file_atomic` | raw body = bytes; header `x-marxy-path` = `encodeURIComponent(path)` | `()` | permission, io | fs | MARXY-14 |
-| `stat` | `path` | `FileStat \| null` | permission | fs | MARXY-14 |
+| `stat` → `stat_file` | `path` | `FileStat \| null`: one entry's size and mtime without listing its folder; `null` for a missing path, one that is itself a symlink or a deny-listed name (the last component only, as `read_dir` checks) | permission, io | fs | MARXY-14, C-11.2 |
+| `readHead` → `read_head` | `path, maxBytes` | raw body (`ipc::Response`): at most the first `maxBytes`, capped at 256 KB in Rust | not-found, invalid (a symlink at the path, a folder, a FIFO or device), io | fs; opens with `O_NOFOLLOW \| O_NONBLOCK` on unix and checks the type again after opening; does not arm the stale-write guard | C-11.2 |
 | `imageSize` → `image_size` | `path` | `{ width, height } \| null` | not-found | fs (`imagesize` crate, MIT) | MARXY-26 |
 | `repositoryRoot` → `repository_root` | `path` | `string \| null` | — | fs | MARXY-35 |
 | `listRoot` → `list_root` | `root, extensions[], limit` | `FileStat[]` | permission | index (`ignore` walker) | MARXY-35 |
 | `indexBuild` → `index_build` | `root` | `{ count, ms, truncated }` | permission | index | MARXY-35 |
 | `indexQuery` → `index_query` | `root, query, limit` | `IndexHit[]` | invalid | index (`nucleo-matcher`) | MARXY-35 |
 | `indexLoad` / `indexSave` | `root` | `IndexEntry[]` / `()` | io | index | MARXY-35 |
-| `watch` → `watch_start` / `watch_stop` | `root` → `watchId` | `number` | permission | watch (`notify` + `notify-debouncer-full`) | MARXY-34 |
+| `watch` → `watch_start` / `watch_stop` | `root` → `watchId` | `number` | permission | watch (`notify` + `notify-debouncer-full`); history, see the next row | MARXY-34 |
+| `watch_root` / `unwatch_root` | `root, recursive?` / `root, recursive?, id?` | `{ key, id }` / `()`; `id` names the watch the handle holds, so a late close of an ended watch finds "not watching" and leaves a newer watch of the same tree alone | permission, io | watch (`notify`) | C-05, C-11.1 |
 | `openExternal` → `open_external` | `url` | `()` | unsupported (scheme not http/https/mailto) | os (`open` crate) | MARXY-61 |
 | `revealInExternalEditor` → `reveal_in_editor` | `path, line?` | `()` | unsupported (no editor configured) | os | MARXY-48 |
 | `clipboardWrite` → `clipboard_write` | `{ text, html? }` | `()` | io | os (`tauri-plugin-clipboard-manager`) | MARXY-42 |
+| `clipboardTypes` → `pasteboard_types` | — | `PasteboardTypes` (`string[]`) | unsupported | `tauriClipboard` in `src/shell/clipboard.ts`. A reader action calls it; nothing in the shell calls it on its own (ADR-0065 §3) | J-02 |
+| `clipboardRead` → `pasteboard_read` | `type` | `ClipboardRep \| null` (`{ type, bytes }`; null when the item lacks the type or it is not readable) | permission (concealed, nothing read), invalid (over 16 MB: the native `skipped` entry becomes a refusal), unsupported | as above; reads one type per call | J-02 |
+| `clipboardWriteItem` → `pasteboard_write` | `reps: ClipboardRep[], { transient? }` | `()`; one native call, one item | invalid (empty, a repeated type, a type outside text/HTML/RTF/URL, or text that is not UTF-8: all before any native call), io, unsupported | as above | J-02 |
+| `pasteboard_types` | — | `string[]`: the first item's types (plus `org.nspasteboard.ConcealedType` if any item carries it), from one snapshot of the item array; reads no data | unsupported (not macOS) | pasteboard (`objc2-app-kit` NSPasteboard; a synchronous command, so on the main thread). Called only on a reader action; nothing polls or reads `changeCount` (ADR-0065 §3) | J-01 |
+| `pasteboard_read` | `types[]` | `{ reps: { type, encoding: 'utf8' \| 'base64', data }[], skipped: { type, len }[] }`: from one snapshot of the item array, of the requested types, those of text (`public.utf8-plain-text`), HTML (`public.html`), RTF (`public.rtf`), URL (`public.url`) and PNG (`public.png`) the first item holds, in that order; PNG and non-UTF-8 bytes as base64. Any other type is never read. A representation over 16 MB is skipped and listed in `skipped`, the rest returned (the cap limits the response, not memory) | permission (a concealed marker on any item, refused before any data read), unsupported (not macOS) | pasteboard. The only path that reads clipboard data | J-01 |
+| `pasteboard_write` | `reps: { type, data }[], transient` | `()`: only text, HTML, RTF and URL types; clears once and writes one item holding every representation plus `org.nspasteboard.source` = `dev.marxy.app`, and `org.nspasteboard.TransientType` when `transient` (ADR-0065 §2). If AppKit refuses `writeObjects` after the clear, the clipboard is left empty | invalid (no representations, or a type outside the allowlist, markers included), io, unsupported (not macOS) | pasteboard | J-01 |
 | `openDialog` → `open_dialog` | `{ directory?, multiple? }` | `string[]` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
 | `webkitVersion` → `webkit_version` | — | `{ major, minor, micro } \| null` (Linux only) | — | os (`webkit2gtk::{major,minor,micro}_version`) | MARXY-21 |
 | `configPaths` → `config_paths` | — | `{ config, data }` | — | app (`tauri::path` resolver) | MARXY-38 |
@@ -48,6 +60,7 @@ one side and parsed on the other (MARXY-198).
 | `allowAssetScope` → `allow_asset_scope` | `dir` | `()` | invalid (not a directory) | fs | MARXY-26, MARXY-47 |
 | `saveDialog` → `save_dialog` | `{ defaultPath? }` | `string \| null` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
 | `fetchRemoteImage` → `fetch_remote_image` | `url` | `string` (a `marxy-remote:` URL) | unsupported (not https, or no network in the sandbox), invalid (not an image, too large), io | net (`ureq`, ADR-0027) | MARXY-97 |
+| `searchContent` → `search_content`, `cancel_content_search` | `paths[], query, roots[], limit?, perFile?, token`; `token` | `{ hits: ContentHit[], scannedFiles, truncated }`; `()` | — (an unreadable, missing, binary, oversized or out-of-root file is skipped) | search (std only; `spawn_blocking`). Reads only the passed paths, each under a root, below no deny-listed directory and reached through no symlink; nothing is indexed or written (ADR-0053 §4) | C-16 |
 | `args`, `mark_from_webview`, `startup_marks`, `quit` | | | | app | done |
 | `onOpenFiles` | callback | — | — | `listen('marxy:open-files')` from the single-instance plugin | MARXY-183 |
 | `onWatch` | callback | — | — | `listen('marxy:watch')` | MARXY-34 |
@@ -110,7 +123,9 @@ sanitiser's subresource rule admits only when the allow-list is widened (MARXY-4
 plus each custom command (Tauri 2 requires `allow-<command>` entries for commands defined in
 the app when using the permission system; generate them with the `tauri` CLI's permission
 autogen). Nothing else. `fs` plugin is **not** used; file access goes only through our commands
-so the audit surface is the table above.
+so the audit surface is the table above. The commands defined in the app itself (as opposed to a plugin's) need no entry while
+`build.rs` declares no `AppManifest`: Tauri's permission system then gates only plugin commands,
+which is why `pasteboard_*` (J-01) added none.
 
 **Native menu (macOS, MARXY-184).** `main.rs` builds and sets a `tauri::menu::Menu` from
 `.setup(...)`, entirely in Rust: no capability entry is added for it because a capability gates

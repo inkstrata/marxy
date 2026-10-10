@@ -94,7 +94,7 @@ Privileged work (files, watching, dialogs, clipboard) goes through the thin
 | `packages/typeset` | Knuth–Plass line breaking, hanging punctuation, baseline-grid enforcement, font-metric measurement | DOM only, no shell |
 | `packages/theme` | the default theme, the `--marxy-*` custom-property contract, theme loading and validation | none |
 | `packages/shell-api` | the privileged-operation interface (types only) | none |
-| `apps/desktop` | the Tauri shell implementing `shell-api`; the app UI (palette, outline, find, modes) | all of the above |
+| `apps/desktop` | the Tauri shell implementing `shell-api`; the app UI (palette, outline, find, modes): composition root `app.ts`; document store `document/`; per-article view `view/` | all of the above |
 | `fixtures/corpus` | the fixture corpus that goldens, the aesthetics gates and the nightly perf harness run on | — |
 | `scripts/` | CI gates | — |
 
@@ -152,16 +152,17 @@ file concurrently corrupt both changes and cost more than the work they saved.
 ## The commands before a pull request
 
 ```bash
-pnpm precheck                        # typecheck/lint/test for what you touched + the gates your paths map to
-pnpm check                           # the eight hygiene checks, in one command
+pnpm precheck                        # CI's `fast` job for what you touched: parallel, no browser, under 90 s
+pnpm check                           # the nine hygiene checks, in one command
 gh pr create --base main --title "<subject>" --body-file FILE   # the template; never --body
 ```
 
-`pnpm precheck --all` runs everything it knows rather than the subset your paths map to. `pnpm
-done`, `node scripts/open-pr.mjs` and `node scripts/check-pr.mjs` are optional local helpers from
-the fleet era (they expect a `MARXY-nnn` key); CI runs none of them. If the first two are green and
-the subject, fragment and gates your story names are in place, the reviewer has only judgement
-left. Everything these check, and every other way CI can go red, is in
+`pnpm precheck --browser` adds the WebKit tests of the packages you touched; `pnpm precheck --all`
+runs everything it knows (every package, WebKit on, every gate). `pnpm done`,
+`node scripts/open-pr.mjs` and `node scripts/check-pr.mjs` are optional local helpers from the fleet
+era (they expect a `MARXY-nnn` key); CI runs none of them. If the first two are green and the
+subject, fragment and gates your story names are in place, the reviewer has only judgement left.
+Everything these check, and every other way CI can go red, is in
 [`docs/ci-contract.md`](docs/ci-contract.md).
 
 ## Verification — what you can and cannot check
@@ -169,7 +170,7 @@ left. Everything these check, and every other way CI can go red, is in
 You cannot see. Push everything you can into machine gates and treat the rest as a
 queue for a human.
 
-**Machine, on every pull request (`docs/ci-contract.md`):** typecheck, lint and the eight hygiene
+**Machine, on every pull request (`docs/ci-contract.md`):** typecheck, lint and the nine hygiene
 checks; unit tests; golden AST+source-map files over the corpus; the byte-fidelity property
 test; the licence audit; bundle import graph; the no-network assertion; the desktop lite suite
 in WebKit; and, when what they render changed, the mechanical half of the aesthetics test
