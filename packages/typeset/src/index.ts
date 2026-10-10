@@ -40,6 +40,13 @@ export interface TypesetOptions {
    * set at the height it had moved nothing on the page and does not call (B-25).
    */
   readonly onPass?: (kind: 'viewport' | 'visible' | 'background') => void;
+  /**
+   * The element that scrolls the article, read at each pass, so a caller whose scroller changes (a
+   * view moved between the window and a pane of its own, D-05) returns the current one. Its offset is
+   * what the reader's place is held by, and its top is where the reading line is measured from (B-26).
+   * Default: the document's scrolling element.
+   */
+  readonly scroller?: () => HTMLElement | null;
 }
 
 export interface TypesetStats {
@@ -177,7 +184,10 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   // pointer are not fought. (A scrollbar drag the engine does not report as a pointer press is only
   // covered by the quiet window after its last wheel or key event.)
   const win = article.ownerDocument.defaultView;
-  const scroller = (): HTMLElement | null => article.ownerDocument.scrollingElement as HTMLElement | null;
+  const pageScroller = (): HTMLElement | null => article.ownerDocument.scrollingElement as HTMLElement | null;
+  const scroller = opts.scroller ?? pageScroller;
+  /** Where the scroller's visible area starts on screen: 0 for the page, its top for an element of its own (a pane). */
+  const viewTop = (root: HTMLElement): number => (root === pageScroller() ? 0 : root.getBoundingClientRect().top);
   const INPUT_QUIET_MS = 200;
   /** Probes down the reading line: the block at the first that hits the article is the one noted. */
   const READING_PROBES = [4, 16, 40, 80] as const;
@@ -318,16 +328,18 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   const placeAt = (root: HTMLElement): Place | null => {
     if (root.scrollTop <= 0 || !article.isConnected) return null;
     if (leftTheTop()) return null;
+    const top = viewTop(root);
     // Nothing has scrolled since it was noted, so it is still the block under the line: no hit test.
     if (!scrolled && noted !== null && noted.parentElement === article) {
       const rect = noted.getBoundingClientRect();
-      if (rect.bottom > READING_PROBES[0] && rect.top < READING_PROBES[3]) return placeIn(noted, notedY);
+      if (rect.bottom > top + READING_PROBES[0] && rect.top < top + READING_PROBES[3]) return placeIn(noted, notedY);
     }
     scrolled = false;
     noted = null;
     const box = article.getBoundingClientRect();
     const x = box.left + box.width / 2;
-    for (const y of READING_PROBES) {
+    for (const probe of READING_PROBES) {
+      const y = top + probe;
       let el = article.ownerDocument.elementFromPoint(x, y);
       while (el !== null && el.parentElement !== article) el = el.parentElement;
       if (el instanceof HTMLElement) {
