@@ -64,7 +64,9 @@
     "data-marxy-src",
     "data-marxy-pane",
     "data-marxy-focus",
-    "data-marxy-split"
+    "data-marxy-split",
+    "data-marxy-kind",
+    "data-marxy-lang"
   ],
   "classPrefix": "marxy-",
   "tokenPrefix": "--marxy-",
