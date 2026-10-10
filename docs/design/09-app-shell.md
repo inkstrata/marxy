@@ -213,11 +213,16 @@ external editor's line) take the focused pane's (`activeSourceEditor()`).
 Two panes on one file, one Rendered and one Source: what is typed in Source reaches the other view
 when focus leaves the editor (a click or `Mod+1`/`Mod+2` into the other pane, the palette), not per
 keystroke. It is folded into the store then, one history entry, exactly as leaving Source folds it; a
-Source pane that is the only view of its store folds only on leaving Source, as before. With the file
-in Source in both panes, each fold reaches the other editor: one holding no text of its own takes the
-new bytes, and one still holding its own unfolded typing has that edit carried onto them (aligned
-byte by byte through the folded run; an insertion at the same place goes after the other's), so
-neither pane's next fold writes the other's typing back out. If another view's watch reloads the file
+Source pane that is the only view of its store folds only on leaving Source, as before. Two views of one
+store never both hold unfolded Source text: a pane that comes to show a document another pane holds
+unfolded in Source folds the holder first, so the newcomer starts from bytes that include it. With the
+file in Source in both panes, each fold reaches the other editor, which then holds no typing of its own
+and takes the new bytes (caret mapped), so neither pane's next fold writes the other's typing back
+out. Edits are never merged. Should an editor with its own typing still meet another pane's fold, it is
+held apart: it keeps its text, the store keeps the other pane's, a notice says "Source in the other pane
+changed this file; your text was not folded", and that editor's folds (on blur, before a save, an undo
+or a close) and leaving Source are refused until its text reads as the store's again or the pane opens
+the document again. Its text still counts as unsaved, so closing, opening over it or quitting asks. If another view's watch reloads the file
 from disk while a Source pane holds text not yet folded, that text is kept and folded on top, as an
 unsaved edit the store kept. A rename followed by the other pane's watch is not settled here: each
 pane still runs its own watch, and one watch per store is D-10's. Live mirroring per keystroke would

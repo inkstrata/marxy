@@ -26,6 +26,8 @@ const files = {
   '/r/C.md': `# Charlie\n\n${para('Charlie').repeat(4)}\n`,
   '/r/README.md': '# Readme\n\nThe crate is in [lib.rs](lib.rs).\n',
   '/r/lib.rs': 'pub fn answer() -> u32 {\n    42\n}\n',
+  '/r/L.md': Array.from({ length: 8 }, (_, i) => `line${i + 1} hello world`).join('\n') + '\n',
+  '/r/mid.md': Array.from({ length: 80 }, (_, i) => `mid ${i} the quick brown fox`).join('\n') + '\n',
 };
 
 async function withPanes(open, fn) {
@@ -371,14 +373,14 @@ test('the same file in Source in both panes: each pane\'s fold reaches the other
   });
 });
 
-test('a fold from the other pane meets Source text of this pane\'s own not yet folded: both are kept', async () => {
+test('a fold from the other pane meets Source text of this pane\'s own not yet folded: it is held apart, nothing lost', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await bothInSource(page, mod);
     // The right pane focused, with typing of its own still in its editor alone.
     await typeAtFirstLineEnd(page, 1, 'Y');
     assert.equal((await storeText(page, 0)).split('\n')[0], '# Alpha');
-    // The left editor takes an edit at the same place and at a later line, and is folded while the
-    // right pane keeps focus (as a fold before a save of the left document would).
+    // The left editor takes edits and is folded while the right pane keeps focus (no route of the app
+    // does this any more: it is the guard behind them).
     await page.evaluate(async () => {
       const { activeSourceEditor } = await import('/src/source/editor.ts');
       const view = activeSourceEditor(document.getElementById('marxy-source')).view;
@@ -387,15 +389,76 @@ test('a fold from the other pane meets Source text of this pane\'s own not yet f
       view.dispatch({ changes: [{ from: end, insert: 'X' }, { from: later, insert: 'Lx ' }] });
       await window.__marxyHandle.panes().panes[0].content.foldSource();
     });
-    const store = await storeText(page, 0);
-    assert.ok(store.startsWith('# AlphaX\n\nLx Alpha'), store.slice(0, 40));
-    const right = await editorText(page, 1);
-    assert.ok(right.startsWith('# AlphaXY\n\nLx Alpha'), right.slice(0, 40));
-    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.sourceHasUnfoldedEdits()), true);
-    // The right pane's own text folds when focus leaves it, on top of the left's: both in the store.
+    const folded = await storeText(page, 0);
+    assert.ok(folded.startsWith('# AlphaX\n\nLx Alpha'), folded.slice(0, 40));
+    // The right editor keeps its own text as typed; the reader is told.
+    assert.ok((await editorText(page, 1)).startsWith('# AlphaY\n\nAlpha'), (await editorText(page, 1)).slice(0, 40));
+    await page.waitForFunction(() => document.body.textContent.includes('Source in the other pane changed this file'));
+    // Its folds are refused: on blur, and on leaving Source, which would write it over the left's.
     await page.keyboard.press(`${mod}+1`);
-    const both = await storeText(page, 0);
-    assert.ok(both.startsWith('# AlphaXY\n\nLx Alpha'), both.slice(0, 40));
-    assert.deepEqual(await firstLines(page), ['# AlphaXY', '# AlphaXY', '# AlphaXY']);
+    assert.equal(await storeText(page, 0), folded);
+    await page.keyboard.press(`${mod}+2`);
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.mode), 'source');
+    assert.equal(await storeText(page, 0), folded);
+    assert.ok((await editorText(page, 1)).startsWith('# AlphaY\n'));
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.sourceHasUnfoldedEdits()), true);
+  });
+});
+
+/**
+ * The route the review found: the right pane holds unfolded Source on `file`, which only it shows; the
+ * left pane opens `file`, goes to Source and types; focus moves back to the right editor and then left.
+ */
+async function openOverUnfolded(page, mod, file, rightEdits, leftEdits) {
+  await page.evaluate((f) => window.__marxyHandle.panes().openIn(1, f), file);
+  await page.keyboard.press(`${mod}+2`);
+  await page.keyboard.press(`${mod}+e`);
+  await page.waitForSelector('#marxy-source-2 .cm-content');
+  for (const [line, typed] of rightEdits) await typeAtLineEnd(page, 1, line, typed);
+  await page.keyboard.press(`${mod}+1`);
+  await page.evaluate((f) => window.__marxyHandle.panes().openIn(0, f), file);
+  await page.waitForFunction((f) => window.__marxyHandle.panes().panes[0].path() === f, file);
+  await page.keyboard.press(`${mod}+e`);
+  await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'source');
+  await page.waitForSelector('#marxy-source .cm-content');
+  for (const [line, typed] of leftEdits) await typeAtLineEnd(page, 0, line, typed);
+  await page.keyboard.press(`${mod}+2`);
+  await page.keyboard.press(`${mod}+1`);
+  await page.waitForTimeout(200);
+}
+
+async function typeAtLineEnd(page, slot, line, typed) {
+  const mount = slot === 0 ? '#marxy-source' : '#marxy-source-2';
+  await page.focus(`${mount} .cm-content`);
+  await page.evaluate(async ({ mount, line }) => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const view = activeSourceEditor(document.querySelector(mount)).view;
+    const end = view.state.doc.line(line).to;
+    view.dispatch({ selection: { anchor: end, head: end } });
+  }, { mount, line });
+  await page.keyboard.type(typed);
+}
+
+test('a pane opening a file the other pane holds unfolded in Source folds the holder first: both panes\' typing survives (C2)', async () => {
+  await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
+    await openOverUnfolded(page, mod, '/r/L.md', [[1, 'R1'], [6, 'R6']], [[3, 'LEFT3']]);
+    const want = files['/r/L.md'].replace('line1 hello world', 'line1 hello worldR1').replace('line6 hello world', 'line6 hello worldR6').replace('line3 hello world', 'line3 hello worldLEFT3');
+    assert.equal(await storeText(page, 0), want);
+    assert.equal(await editorText(page, 0), want);
+    assert.equal(await editorText(page, 1), want);
+  });
+});
+
+test('the same route in an 80-line file: no typed text moves to another line (C9)', async () => {
+  await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
+    await openOverUnfolded(page, mod, '/r/mid.md', [[40, 'RIGHT']], [[2, 'L'], [78, 'L']]);
+    const want = files['/r/mid.md'].split('\n');
+    want[39] += 'RIGHT';
+    want[1] += 'L';
+    want[77] += 'L';
+    assert.equal(await storeText(page, 0), want.join('\n'));
+    assert.equal(await editorText(page, 1), want.join('\n'));
   });
 });

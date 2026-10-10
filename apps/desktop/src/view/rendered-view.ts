@@ -4,7 +4,7 @@
 // store owns the bytes; the view subscribes to the store it shows and sets the page again when they
 // change. Nothing here is held at module scope, so a second view can be created beside the first.
 
-import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document, type Edit } from '@marxy/core';
+import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document } from '@marxy/core';
 import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
@@ -20,6 +20,7 @@ import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/po
 import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
+import { notify } from '../notices/index.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
@@ -39,10 +40,7 @@ interface MountedSourceEditor {
     scrollDOM: HTMLElement;
     lineBlockAtHeight(height: number): { from: number };
     readonly state: CmStateLike & { readonly selection: { readonly main: { readonly anchor: number; readonly head: number } } };
-    dispatch(spec: {
-      selection: { anchor: number; head: number };
-      changes?: { from: number; to: number; insert: string };
-    }): void;
+    dispatch(spec: { selection: { anchor: number; head: number } }): void;
   };
 }
 
@@ -211,49 +209,9 @@ function assignHtml(doc: HTMLElement, html: string): void {
   doc.innerHTML = html;
 }
 
-/** The largest run (old bytes × new bytes) aligned byte by byte; a longer one maps to the run's end. */
-const MAX_ALIGNED_RUN = 4_000_000;
-
-/**
- * Where the gap before byte `k` of `a` is in `b`, by their longest common subsequence: the bytes both
- * keep are matched, so a place between kept bytes stays between them. A gap where `b` inserted bytes
- * goes after them. Past `MAX_ALIGNED_RUN`, the end of `b` (after everything the run inserted).
- */
-function gapThroughRun(a: Uint8Array, b: Uint8Array, k: number): number {
-  const n = a.length;
-  const m = b.length;
-  if (n * m > MAX_ALIGNED_RUN) return m;
-  // lcs[i * (m + 1) + j]: the common subsequence of a[i..] and b[j..].
-  const lcs = new Uint32Array((n + 1) * (m + 1));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      lcs[i * (m + 1) + j] =
-        a[i] === b[j] ? lcs[(i + 1) * (m + 1) + j + 1]! + 1 : Math.max(lcs[(i + 1) * (m + 1) + j]!, lcs[i * (m + 1) + j + 1]!);
-    }
-  }
-  let i = 0;
-  let j = 0;
-  for (;;) {
-    const at = (x: number, y: number): number => lcs[x * (m + 1) + y]!;
-    const match = i < n && j < m && a[i] === b[j] && at(i, j) === at(i + 1, j + 1) + 1;
-    const insert = j < m && !match && (i === n || at(i, j + 1) >= at(i + 1, j));
-    if (i === k && !insert) return j;
-    if (match) {
-      i++;
-      j++;
-    } else if (insert) {
-      j++;
-    } else {
-      i++;
-    }
-  }
-}
-
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
+/** What a pane says when its Source text and the other pane's fold of the same file meet (D-11). */
+export const SOURCE_HELD_APART =
+  'Source in the other pane changed this file; your text was not folded. It stays here until it matches the file or you open the file again.';
 
 /** True when the editor's text differs from both the buffer it last took and `next`: text only the editor has. */
 function holdsUnfoldedText(editor: MountedSourceEditor, next: Buffer): boolean {
@@ -342,6 +300,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let lastReadingByteOffset = 0;
   let lastReadingFraction = 0;
   let modeToggleBusy = false;
+  /** This pane's Source text and the store went different ways under it (D-11; `holdApart`). */
+  let heldApart = false;
   /** The line on the reading line just after Source was shown; leaving from it with no edit is exact. */
   let sourceEntryPlace: number | null = null;
   /** Bumped each time Source is shown, so a late measurement of an earlier visit is dropped. */
@@ -548,6 +508,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   async function leaveSourceForRendered(): Promise<void> {
     const open = store;
     if (!sourceEditor || !open) return;
+    // Held apart from the other pane's fold (D-11): leaving would fold this text over it. Stay, and say why.
+    if (stillHeldApart()) {
+      notify({ kind: 'info', text: SOURCE_HELD_APART });
+      return;
+    }
     // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
     // The page follows the store: its subscription sets the article from the new bytes, so nothing
     // resolves an operation through an AST, node map or block list built from the old ones.
@@ -909,6 +874,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     sourceEditor?.destroy();
     if (shared && shared !== sourceEditor) shared.destroy();
     sourceEditor = null;
+    heldApart = false;
     sourceHost.replaceChildren();
   }
 
@@ -958,13 +924,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function repaint(snapshot: DocumentSnapshot, position: ReadingPosition, landing: number | null = null, spanned = false): void {
     // Every path that changes the store while Source shows folds the editor's text first (undo, redo, save,
-    // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does, an
-    // invariant broke: say so, and replace the text as before rather than keep a copy that a later fold
-    // would write over the store's change (F-12).
-    if (sourceEditor && holdsUnfoldedText(sourceEditor, snapshot.buffer)) {
-      console.error('marxy: Source held unfolded text at a repaint; the editor is reset to the document');
+    // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does (another
+    // pane changed the store under it, D-11), the editor is held apart: its text is kept, not reset, and
+    // its folds are refused, so neither the reader's text nor the store's change is written over (F-12).
+    if (sourceEditor && !heldApart && holdsUnfoldedText(sourceEditor, snapshot.buffer)) {
+      console.error('marxy: Source held unfolded text at a repaint; the editor keeps it, held apart');
+      holdApart();
     }
-    if (sourceEditor) replaceSourceBuffer(sourceEditor, snapshot.buffer);
+    if (sourceEditor && !heldApart) replaceSourceBuffer(sourceEditor, snapshot.buffer);
     releaseAnchor();
     rerenderFromBuffer(landing ?? position.byteOffset);
     const typesetting = typesetDocument();
@@ -1009,7 +976,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     if (snapshot.buffer === before.buffer) return false;
     const open = store;
     const editor = sourceEditor;
-    if (!open || !editor || viewMode !== 'source') return false;
+    if (!open || !editor || viewMode !== 'source' || heldApart) return false;
     const text = editor.docText();
     if (!leaveSourceMode(before.buffer, text).changed) return false;
     if (change.kind === 'reload') diskChangedEditsKeptNotice();
@@ -1024,43 +991,42 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
 
   /**
    * A fold committed to the store this view shows, from this view or another (two panes on one file,
-   * D-11). The editor takes the new bytes. When it holds text of its own that the store does not have
-   * (typed here while the other pane's text was folded in), that edit is carried onto the new bytes
-   * rather than dropped or written back over them: both panes' typing stays, the other's in the store
-   * and this one's still to fold. Where the two edits overlap, this one replaces what the mapped range
-   * then holds; an insertion at the same place goes after the other's.
+   * D-11). Two safe cases only: the editor already reads as the store (this view's own fold), so it is
+   * re-pointed at the new bytes and the caret stays; or it holds no typing of its own, so it takes the
+   * new bytes, caret mapped. An editor still holding its own unfolded typing (no route should reach
+   * this: a pane opening a file another pane holds unfolded folds the holder first, app.ts) is held
+   * apart rather than merged: both texts are kept, neither written over the other.
    */
-  function followFoldIn(editor: MountedSourceEditor, before: DocumentSnapshot, snapshot: DocumentSnapshot, incoming: Edit): void {
+  function followFoldIn(editor: MountedSourceEditor, snapshot: DocumentSnapshot): void {
+    if (heldApart) return;
     const text = editor.docText();
-    // This view's own fold (or text that already reads as the store's): only the byte mapping changes,
-    // and the caret, already in the new text, stays where it is.
     if (!leaveSourceMode(snapshot.buffer, text).changed) return editor.replaceBuffer(snapshot.buffer);
-    const own = leaveSourceMode(editor.buffer, text);
-    if (!own.changed || !own.edit) return replaceSourceBuffer(editor, snapshot.buffer);
-    if (!sameBytes(editor.buffer.bytes, before.buffer.bytes)) {
-      // The editor was set from other bytes than the fold was made against: nothing to map the edit
-      // through. Its text stays as it is, unfolded; nothing typed in either pane is lost (the other
-      // pane's is in the store and its history).
-      console.warn('marxy: a fold from another pane met Source text built on other bytes; the editor keeps its text');
-      return;
+    if (!leaveSourceMode(editor.buffer, text).changed) return replaceSourceBuffer(editor, snapshot.buffer);
+    holdApart();
+  }
+
+  /**
+   * This pane's Source text and the store went different ways under it (D-11): the editor keeps its text
+   * and the store keeps the other pane's, and the reader is told. Until the editor's text reads as the
+   * store's again, or this pane opens a document again, its folds are refused (on blur, before a save,
+   * an undo or a close) and so is leaving Source, which would fold: nothing of one pane is written over
+   * the other's. Its text still counts as unsaved, so a close, an open over it or quitting asks first.
+   */
+  function holdApart(): void {
+    if (!heldApart) notify({ kind: 'info', text: SOURCE_HELD_APART });
+    heldApart = true;
+  }
+
+  /** Whether the editor is still held apart; it is released once its text reads as the store's. */
+  function stillHeldApart(): boolean {
+    if (!heldApart) return false;
+    const buffer = bufferNow();
+    if (sourceEditor && buffer && !leaveSourceMode(buffer, sourceEditor.docText()).changed) {
+      heldApart = false;
+      sourceEditor.replaceBuffer(buffer);
+      return false;
     }
-    const { range, after } = own.edit;
-    const s = incoming.range.start;
-    const removed = incoming.before.length;
-    const inserted = incoming.after.length;
-    const map = (pos: number): number =>
-      pos < s ? pos : pos >= s + removed ? pos + inserted - removed : s + gapThroughRun(incoming.before, incoming.after, pos - s);
-    const start = map(range.start);
-    const end = Math.max(start, map(range.end));
-    const next = snapshot.buffer;
-    replaceSourceBuffer(editor, next);
-    const state = editor.view.state;
-    const cm = (byte: number): number => utf16ToCmPos(next, state, byteToUtf16(next, byte));
-    const caret = cm(start) + new TextDecoder().decode(after).length;
-    editor.view.dispatch({
-      changes: { from: cm(start), to: cm(end), insert: new TextDecoder().decode(after) },
-      selection: { anchor: caret, head: caret },
-    });
+    return true;
   }
 
   /** The page's side of a committed transition on the shown store. */
@@ -1080,7 +1046,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       case 'commitSource':
         // Leaving Source (or folding before a save or a rename): the caller restores the position. Another
         // view's fold reaches this view's editor too, or its next fold would write the old text back (D-11).
-        if (sourceEditor) followFoldIn(sourceEditor, before, snapshot, change.edit);
+        if (sourceEditor) followFoldIn(sourceEditor, snapshot);
         try {
           rerenderFromBuffer();
         } catch (e) {
@@ -1378,7 +1344,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     showRenderedChrome: () => setModeChrome('rendered'),
     async foldSource() {
       const open = store;
-      if (!open || viewMode === 'rendered' || !sourceEditor) return false;
+      if (!open || viewMode === 'rendered' || !sourceEditor || stillHeldApart()) return false;
       if (!(await open.commitSource(sourceEditor.docText()))) return false;
       sourceEditor?.replaceBuffer(open.snapshot().buffer);
       return true;

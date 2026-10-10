@@ -49,8 +49,28 @@ function followPaneModes(panes: AppPanes): () => void {
     }
   };
   document.addEventListener('focusout', left, true);
+  // Two views of one store never both hold unfolded Source text: a pane that comes to show a document
+  // another pane holds unfolded in Source folds the holder first, so the newcomer's bytes include it.
+  // Each pane's open path says when its page shows a new store (`onDocumentChange` also fires on every
+  // transition, so the store is compared with the last one seen).
+  const watchOpens = (pane: AppPanes['panes'][number]): (() => void) => {
+    let last = pane.content.store();
+    return pane.content.onDocumentChange(() => {
+      const now = pane.content.store();
+      if (now === last) return;
+      last = now;
+      for (const other of panes.panes) {
+        if (other !== pane && now && other.content.store() === now && other.view.sourceHasUnfoldedEdits()) {
+          void other.content.foldSource();
+        }
+      }
+    });
+  };
+  const offFirst = watchOpens(panes.panes[0]!);
+  panes.onSplit(() => (panes.panes[1] ? watchOpens(panes.panes[1]) : () => {}));
   return () => {
     off();
+    offFirst();
     document.removeEventListener('focusout', left, true);
   };
 }
