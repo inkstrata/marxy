@@ -47,10 +47,13 @@ export class LayoutPersistence {
       return new LayoutPersistence(io, filePath, emptyLayoutEnvelope(), false);
     }
     if (bytes.length > LAYOUT_MAX_BYTES) {
-      // Not a layout. The start of it is kept beside the file; the file itself is left exactly as it is
-      // and is never written, so nothing of it is lost, and the launch goes on as if there were no layout.
+      // Not a layout. Quarantined as a corrupt file is: the shell has no rename, so the start of it (the
+      // bounded read) is kept beside the file, and the file starts again empty. The next launch finds a
+      // small file, so the copies do not pile up.
       await io.writeFileAtomic(quarantinePathFor(filePath), bytes.slice(0, LAYOUT_MAX_BYTES));
-      return new LayoutPersistence(io, filePath, emptyLayoutEnvelope(), true);
+      const fresh = emptyLayoutEnvelope();
+      await io.writeFileAtomic(filePath, serializeLayoutFile(fresh));
+      return new LayoutPersistence(io, filePath, fresh, false);
     }
     const loaded = parseLayoutFile(bytes);
     if (loaded.kind === 'quarantined') {

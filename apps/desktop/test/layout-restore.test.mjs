@@ -295,7 +295,7 @@ test('the focused pane writes a file shown twice; the other does not; a second p
   });
 });
 
-test('a layout.json over 64 KB is not read whole: the launch goes on with no layout and the file is left alone', async () => {
+test('a layout.json over 64 KB is not read whole: quarantined once, replaced, and the launch goes on with no layout', async () => {
   await withBrowser(async (browser) => {
     const big = JSON.stringify({ version: 1, columns: [rendered('/r/A.md')], ratio: 0.5, focused: 0, pad: 'x'.repeat(70 * 1024) });
     const page = await boot(browser, { files: { ...files, '/data/layout.json': big }, argv: [] });
@@ -312,6 +312,17 @@ test('a layout.json over 64 KB is not read whole: the launch goes on with no lay
     assert.equal(seen.wholeReads, 0);
     assert.deepEqual(seen.head, [64 * 1024 + 1]);
     assert.equal(seen.bad, 1);
-    assert.equal(seen.overwrote, 0);
+    assert.equal(seen.overwrote, 1, 'replaced by an empty layout');
+    // A second launch on what the first left finds a small file and makes no second quarantine copy.
+    const data = await dataOf(page);
+    const left = await page.evaluate(() => {
+      const w = window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && /layout\.json\.bad-/.test(c.args[0]));
+      return w.map((c) => c.args[0]);
+    });
+    const again = await boot(browser, { files: { ...files, '/data/layout.json': data['/data/layout.json'] }, argv: [] });
+    assert.equal(left.length, 1);
+    const second = await again.evaluate(() =>
+      window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && /layout\.json\.bad-/.test(c.args[0])).length);
+    assert.equal(second, 0);
   });
 });

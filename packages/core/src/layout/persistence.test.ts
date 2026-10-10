@@ -114,7 +114,7 @@ test('no file is an empty layout and nothing is written until something is noted
   assert.deepEqual(writes, ['/data/layout.json']);
 });
 
-test('a layout.json over the cap is read only to the cap, quarantined, left untouched and never written', async () => {
+test('a layout.json over the cap is read only to the cap, quarantined once, and replaced by an empty layout', async () => {
   const huge = enc(JSON.stringify({ version: 1, columns: [{ path: '/a.md', mode: 'rendered' }], pad: 'x'.repeat(LAYOUT_MAX_BYTES) }));
   const { io, store, writes } = memoryIo({ '/data/layout.json': huge });
   const asked: number[] = [];
@@ -122,10 +122,9 @@ test('a layout.json over the cap is read only to the cap, quarantined, left unto
   const layout = await LayoutPersistence.open(bounded);
   assert.deepEqual(asked, [LAYOUT_MAX_BYTES + 1], 'the read is bounded');
   assert.deepEqual(layout.saved(), emptyLayoutEnvelope());
-  layout.note(two);
-  await layout.flush();
-  assert.deepEqual(store.get('/data/layout.json'), huge, 'the original is untouched');
-  const bad = writes.filter((w) => w.startsWith('/data/layout.json.bad-'));
-  assert.equal(bad.length, 1);
-  assert.equal(writes.length, 1, 'only the quarantine copy was written');
+  assert.equal(writes.filter((w) => w.startsWith('/data/layout.json.bad-')).length, 1);
+  assert.deepEqual(JSON.parse(dec(store.get('/data/layout.json')!)).columns, []);
+  // A second launch finds the small file: no second copy.
+  await LayoutPersistence.open(bounded);
+  assert.equal(writes.filter((w) => w.startsWith('/data/layout.json.bad-')).length, 1);
 });
