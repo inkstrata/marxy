@@ -26,9 +26,9 @@ accepted; the others are written by the story named, from the approved direction
 | [0062](../../adr/0062-the-library.md) | **The library.** Sidebar tree, library view, query language, saved queries | Lifts the brief's "library browsing" exclusion; amends ADR-0053, ADR-0012 | accepted |
 | [0063](../../adr/0063-capture-rules.md) | **Capture rules** | Reads commitment 3 | accepted |
 | 0064 | File metadata capabilities in `shell-api`: read times, permissions, extended attributes and git facts; rename, the executable bit, Finder tags and quarantine removal, each a reader action with undo | ADR-0026 | W-18 |
-| W-19 | **Held** (06 rows 1 to 3 open). Keys from mock-v2: `⌘K` palette (`⌘P` kept as alias), `⇧⌘P` commands, `⌘/` transforms, `⌘E` Extract, `⌘1` to `⌘3` modes; content matches as an Everything section; every key through the registry | sonnet | M | A-13, C-17 |
+| W-19 | Keys: `⌘K` opens the palette (`⌘P` kept as an alias), `⇧⌘P` commands, `⌘/` transforms under `>`, `⌘1` to `⌘3` modes; `/` stays content search and `⌘E` stays the toggle; every key through the registry | sonnet | S | A-13 |
 | W-20 | The native menu bar, with conflict-checked shortcuts | sonnet | M | W-19 |
-| W-21 | **Held** (06 row 4 open). Toolbar Transform and Extract buttons; the transform library and its result sheet (before, after, apply, chain) over E's operations | opus | M | W-05, J-03 |
+| W-21 | A Transform button on the toolbar (no Extract button); the transform library's result sheet (before, after, apply, chain) over E's operations | opus | M | W-05, J-03 |
 | W-22 | Accessibility settings: increase contrast, reduce transparency, forced colours | sonnet | S | W-12, H-05 |
 | W-23 | Focus mode, and the reading-progress line for article and book | sonnet | S | W-02, K-05 |
 | [0065](../../adr/0065-the-clipboard.md) | **The clipboard is essential.** Copy as targets, multi-format writes, paste, Transform; clipboard read on reader action only; the studio waits for a design (J-D1) | ADR-0026, ADR-0054 | accepted |
