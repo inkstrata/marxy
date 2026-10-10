@@ -4,7 +4,7 @@
 
 import { AST_INVARIANTS } from '../contracts/ast.ts';
 import type { Node } from '../contracts/ast.ts';
-import { splitLines } from './line-endings.ts';
+import { nextLineEnding, splitLines } from './line-endings.ts';
 import { decodeString } from 'micromark-util-decode-string';
 
 export interface Violation {
@@ -122,9 +122,28 @@ const indentWidth = (line: string): number => {
  */
 function isJustTheCode(content: string, value: string): boolean {
   // parse.test.ts 'a NUL in a fenced/indented code block' fails if this replace is dropped.
-  const lines = splitLines(content.replace(/\u0000/g, '\ufffd'));
+  const text = content.replace(/\u0000/g, '\ufffd');
+  const lines: string[] = [];
+  const endings: string[] = [];
+  for (let at = 0; ; ) {
+    const ending = nextLineEnding(text, at);
+    lines.push(text.slice(at, ending?.start));
+    if (ending === undefined) break;
+    endings.push(text.slice(ending.start, ending.end));
+    at = ending.end;
+  }
   if (lines.at(-1) === '') lines.pop();
-  const valueLines = value === '' ? [] : splitLines(value);
+  // The value keeps the source's endings, one for one, so it is split on the content's: split on its
+  // own, a CR, then a line of indentation alone, then an LF would read as one CRLF (F-20.1).
+  const valueLines: string[] = [];
+  for (let at = 0, line = 0; value !== ''; line++) {
+    const ending = nextLineEnding(value, at);
+    valueLines.push(value.slice(at, ending?.start));
+    if (ending === undefined) break;
+    const expected = endings[line];
+    if (expected === undefined || !value.startsWith(expected, ending.start)) return false;
+    at = ending.start + expected.length;
+  }
   if (lines.length !== valueLines.length) return false;
   // A content line may still carry its container's markers (`> `) and the indentation micromark
   // stripped; what must match is the code after them. Stripping both sides means a content range that

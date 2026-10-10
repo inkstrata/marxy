@@ -90,6 +90,35 @@ test('a fence line with a byte that is not UTF-8 counts that byte once (F-20)', 
   assert.deepEqual([block.content.start, block.content.end], [5, 6]);
 });
 
+test('a CR, a line of indentation alone and an LF inside code are two line endings, not one CRLF (F-20.1)', () => {
+  // The value reads `\r\n` there. Split on its own it is one CRLF, so the content stopped a line short;
+  // at a fence, mdast's trim took the blank line with the opening fence's ending.
+  const code = (source: string) => {
+    const [block] = parsed(source, 'codeBlock');
+    assert.ok(block?.type === 'codeBlock', JSON.stringify(source));
+    return [block.content.start, block.content.end, block.value];
+  };
+  assert.deepEqual(code('    a\r  \n    b'), [0, 14, 'a\r\nb']);
+  assert.deepEqual(code('-   ```\r  \n\ta  '), [8, 15, '\na  ']);
+  assert.deepEqual(code('   ~~~\r  \n===\n'), [7, 14, '\n===']);
+  assert.deepEqual(code('  ```js\n---\n\r  \n1. '), [8, 19, '---\n\r\n1. ']);
+  // In a container, and at the close: each blank line is kept, as it is with LF alone.
+  assert.deepEqual(code('> ```\r>\n> x\n> ```'), [6, 12, '\nx']);
+  assert.deepEqual(code('- ```\r  \n  x\r  \n  ```'), [6, 16, '\nx\r']);
+  assert.deepEqual(code('- ```\n  \n  x\n  \n  ```'), [6, 16, '\nx\n']);
+});
+
+test('indented code ending in a CR and blank lines keeps no trailing ending (F-20.1 review)', () => {
+  // mdast's trim takes the CR and a blank line's LF as one CRLF; that is right for indented code,
+  // whose trailing blank lines CommonMark drops, so nothing is put back.
+  for (const [source, value] of [['    a\r \n    \nb', 'a'], ['\t    x\r  \n\t', '    x']] as const) {
+    const [block] = parsed(source, 'codeBlock');
+    assert.ok(block?.type === 'codeBlock', JSON.stringify(source));
+    // `parsed` holds every invariant.
+    assert.equal(block.value, value, JSON.stringify(source));
+  }
+});
+
 test('the checker reports a code range moved up onto a fence its code repeats (F-20)', () => {
   // The review's mutation `offset = 0`: content starts at the opening fence and keeps the value's
   // line count, so it drops the last code line. Every line here copies the fence line, give or take
@@ -144,13 +173,15 @@ function random(seed: number): () => number {
 /**
  * The review's fragments (line endings of every kind, indentation, tabs, list, quote and task
  * markers, fences, setext and math lines, a BOM, a two-byte letter) with what found the rest: a NUL,
- * emphasis runs, an inline after trailing spaces, a character reference, an escape, HTML and a byte
- * that is not UTF-8.
+ * emphasis runs, an inline after trailing spaces, a character reference, an escape, HTML, a byte
+ * that is not UTF-8, and a CR and an LF with a line of indentation alone between them.
  */
 const FRAGMENTS: readonly (string | Uint8Array)[] = [
   '\n', '\r\n', '\r', ' ', '  ', '    ', '\t', 'x', '```\n', '```js\n', '~~~', '- ', '* ', '1. ', '> ', '>', '-',
   '===\n', '---\n', '# ', '$$\n', '`', '[x] ', '[ ] ', 'lazy\n', '﻿', 'ÿ', '\u0000', '**', '_', '|',
   '[link](http://a.example)', '<div>', '&amp;', '\\*', new Uint8Array([0xff]),
+  // A CR, then a line of indentation or a `>` alone, then an LF (F-20.1); `'\r'` above is the lone CR.
+  '\r  \n', '\r\t\n', '\r>\n', '~~~\n', '    x',
 ];
 
 /** Inputs per run; the review found 4 breaks in 158k, so the stress run takes 400k. */
