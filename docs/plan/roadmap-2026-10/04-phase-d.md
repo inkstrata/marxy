@@ -744,6 +744,11 @@ moves: measured byte 1914 restored instead of 2295. Note the scroll on window `r
 a split in the same task lands on byte 0: add a hook before the split in `pane-set.ts` (this story edits it) that
 notes the first pane's place. Also update the stale comment at `pane-set.ts:219`.
 
+**For D-07, from the D-06 review (2026-10-10; D-06 is merged, so this story closes the gap).** Mutation M10 (drop `if (!mod) return null` in `paneChordFor`) survives:
+the Alt+ArrowLeft test presses it with the left pane already focused. Press Alt+ArrowLeft and Alt+ArrowRight with the
+right pane focused and assert focus stays on pane 1, or unit-test `paneChordFor`. The palette-chord test cannot fail
+for the dialog hold (the registry skips the editable input); the outline test pins it.
+
 ### D-08 — Close a pane, and make save, the title and quit know about two documents
 
 **Model:** opus · **Size:** M · **Depends on:** D-01 · **Parallel with:** D-04, D-05, D-06
@@ -836,6 +841,13 @@ behind, or when the right pane is empty) shows nothing today; this story's close
 D-01 added `ownsTitle` and a focus listener in `pane/index.ts` that re-titles the window: replace that listener with
 `updateTitle` and the dirty dot here, so there is one title writer. `09-app-shell.md` §State lists the close guard's
 prompt as bound to the first pane, but `app.ts` binds it to the focused pane; this story fixes the doc with the code.
+
+**From the D-08 review (2026-10-10), return 1.** Quitting snapshots `dirtyDocuments` once, so an edit made while a
+prompt is up is dropped without a question (A clean and B dirty, tick a task in A during B's prompt, discard B:
+`confirmClose` runs with A dirty), and a close request during a "Save and close" starts a second walk. Recompute before
+`confirmClose`, run one walk at a time, and test both, plus a failed "Save and close" and the dot for the focused
+document only. Left for whoever next owns `pane/index.ts` and `document/open.ts`: `document.title` is still written at
+`pane/index.ts:113` and `open.ts:147`, `:272` beside `updateTitle`, a second, DOM-only title.
 
 ### D-09 — Follow a link into the neighbour pane
 
@@ -1000,6 +1012,10 @@ reimplementing the store. Canonical-path keying: `/r/A.md` and a symlink to it m
 (use whatever canonicalisation `openStore` has; the Rust side canonicalises roots, `main.rs:268`).
 
 ---
+
+**From the D-08 review (2026-10-10).** `clearNotices` (`document/open.ts:263`) empties the first pane's region, not the
+opening pane's: an open in the right pane wipes a close prompt in the left (the close is refused or the quit stops,
+silently; nothing is lost). Notices per pane are this story's.
 
 ### D-11 — Let each pane be Rendered or Source
 

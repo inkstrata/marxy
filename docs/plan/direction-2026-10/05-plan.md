@@ -43,6 +43,7 @@ accepted; the others are written by the story named, from the approved direction
 | H-04 | The default theme becomes Night (dark) and Paper (light), with Ink as its own theme directory; bundle the Classic type set with a licence audit per face; before-and-after artifact | opus | M | H-02, H-03 |
 | H-05 | Ship `ink` (Ink), `warm` (Dusk, Sepia), `fjord`, `high-contrast` | sonnet | M | H-04 |
 | H-06 | Measure the average character width per face and size in the app, so a type-set change keeps the character count | opus | M | H-03 |
+| H-07 | The reader's `chrome_size` setting (11 to 26 px) in `config.toml`, `reader-config.ts` and `app-config.ts`; its control on W-12's page (ADR-0059 item 6) | sonnet | S | H-03 |
 
 ## Phase W — the fold-up workspace
 

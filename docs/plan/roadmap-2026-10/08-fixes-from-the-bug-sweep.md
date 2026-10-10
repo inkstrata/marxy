@@ -406,6 +406,9 @@ where CommonMark has one. Acceptance: each reproducer a fixed test against commo
 (`oracle.mjs`, kept in the F-20.1 reviewer's scratchpad; copy it to `packages/core/test/` if it is to last) shows 0
 introduced and these classes fixed; the invariant stress and `pnpm gate:fidelity` pass. Rendered draws a blank line
 the document does not have, and copy-code copies it (commitment 4).
+Also from the F-20.1 re-review: `"- ~~~\r    \n\r\n\r \n  \r\n~~~|<!--"` gives a value whose last separator is a
+CR where the source has an LF (copy-code would carry the wrong byte), and a content range that ends partway through
+the `"  "` line, which the checker accepts; tighten the checker for it.
 
 ### F-25 — An open Source editor keeps its line separator through a live reload
 
@@ -421,3 +424,16 @@ file's lines and Enter inserts the new class's newline (one test per transition,
 save stays byte-exact; `mode-switch.test.mjs` covers CR-only through the shared function. Also from the F-23 review: a
 live-reload case whose BOM appears or disappears across the reload, since the BOM-only cases cancel today.
 
+
+### F-26 — The sanitiser keeps a list item's `value` and a negative `start`
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-22 · *From the F-22 review (2026-10-10); true on main.* ·
+**Code-owned:** the sanitiser (`.github/CODEOWNERS`); the author merges. · **Paths:**
+`packages/core/src/sanitize/policy.ts` (the `ol` and `li` entries, `SMALL_INTEGER`), the sanitiser's tests under
+`packages/core/src/sanitize/`, `packages/theme/test/layout.test.mjs` (one rendered case). `<li value="10">` loses
+`value` and `<ol start="-3">` becomes `<ol>`, so a list shows 1, 2, 3 where the document says otherwise, though F-22
+made the CSS honour both (commitment 3, the number shown is the number written). Allow `value` on `li` and a signed
+small integer for `start` and `value`; keep every other refusal (no expression, no unit, no leading `+`, a length
+cap). Acceptance: `<ol start="-3">` shows -3, -2; `<li value="10">` mid-list shows 1, 10, 11; `value="1e3"`,
+`value="10px"`, `start="--1"` and a 20-digit number are still dropped (a test each, red without the change); no
+golden moves.
