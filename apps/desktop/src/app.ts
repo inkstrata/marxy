@@ -20,6 +20,7 @@ import { createReadingPersistence } from './position/reading-persistence.ts';
 import { pinDocumentOnPaletteSession } from './palette/history.ts';
 import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
+import { splitRefusal } from './pane/fit.ts';
 import { createPanes } from './pane/index.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
 
@@ -86,6 +87,8 @@ export async function startApp(
     selection: () => selection,
     context: () => buildAppContext(handleRef),
   });
+  // A second pane is made only where two columns fit at the typography floor (D-07).
+  panes.canSplit = () => splitRefusal(panes) === null;
   // The window's first pane: the selection, the reader's place and the launch are its (D-05, D-06 move them per pane).
   const first = panes.panes[0]!;
   const openPath = first.content;
@@ -131,7 +134,22 @@ export async function startApp(
     shell,
     ready: measure.ready.then(() => {}),
     async open(path, opts) {
-      await panes.openIn('focused', path, opts);
+      const { target, focus, ...rest } = opts ?? {};
+      if (target !== 'other') {
+        await panes.openIn('focused', path, rest);
+        return;
+      }
+      // Beside: the pane that is not focused now. Focus follows the document into it once it is on screen,
+      // before the caller's `onLanded` (a selection made there acts on the focused pane).
+      const slot = panes.focused.slot === 0 ? 1 : 0;
+      await panes.openIn('other', path, {
+        ...rest,
+        onLanded() {
+          const pane = panes.panes[slot];
+          if (focus !== 'stay' && pane) panes.focus(pane);
+          rest.onLanded?.();
+        },
+      });
     },
     currentPath: () => focused().currentPath(),
     imageRoot: imageRootFor,

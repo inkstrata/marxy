@@ -21,6 +21,7 @@ export const CHECKS = [
   { name: 'check-one-parse', script: 'check-one-parse.mjs' },
   { name: 'check-tokens', script: 'check-tokens.mjs' },
   { name: 'gate-font-attrs', script: 'gate-font-attrs.mjs' },
+  { name: 'gate-contrast', script: 'gate-contrast.mjs' },
   { name: 'check-workflows', script: 'check-workflows.mjs' },
 ];
 

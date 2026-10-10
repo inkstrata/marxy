@@ -153,7 +153,7 @@ file concurrently corrupt both changes and cost more than the work they saved.
 
 ```bash
 pnpm precheck                        # CI's `fast` job for what you touched: parallel, no browser, under 90 s
-pnpm check                           # the eight hygiene checks, in one command
+pnpm check                           # the nine hygiene checks, in one command
 gh pr create --base main --title "<subject>" --body-file FILE   # the template; never --body
 ```
 
@@ -170,7 +170,7 @@ Everything these check, and every other way CI can go red, is in
 You cannot see. Push everything you can into machine gates and treat the rest as a
 queue for a human.
 
-**Machine, on every pull request (`docs/ci-contract.md`):** typecheck, lint and the eight hygiene
+**Machine, on every pull request (`docs/ci-contract.md`):** typecheck, lint and the nine hygiene
 checks; unit tests; golden AST+source-map files over the corpus; the byte-fidelity property
 test; the licence audit; bundle import graph; the no-network assertion; the desktop lite suite
 in WebKit; and, when what they render changed, the mechanical half of the aesthetics test

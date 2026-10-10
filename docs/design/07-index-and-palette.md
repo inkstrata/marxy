@@ -52,6 +52,16 @@ small mark with the accessible name "Changed since you read". Typed rows from wa
 the age and the mark too. Typed ranking is unchanged apart from `mtimeMs` as a tie-break before the
 path. No count, badge or preview appears anywhere (ADR-0050).
 
+### Open beside (D-07)
+
+`Mod+\` summons the palette with a target of `'split'`: the empty list is one section, Recent, from
+`recentExcluding(session, visiblePaths)` (the MRU newest first, without the documents the panes show), with
+the first row selected. Typing, `>` and `/` behave as ever. `Enter`, and `Mod+Enter` on any row, open the
+hit in the other pane through `AppHandle.open(path, { target: 'other' })`, which is `PaneSet.openIn('other')`
+and so asks `beforeReplace` first. Plain `Mod+P` is unchanged and opens here. The notice line reads "Open
+beside"; if a second pane cannot be made (the window is narrower than two columns, `pane/fit.ts`) the
+palette stays open with the reason in that line and `Enter` then opens here.
+
 ### Content search (`/` prefix)
 
 `/` followed by text searches file contents. It is a scan run on demand, never an index: nothing is

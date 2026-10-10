@@ -69,6 +69,11 @@ export interface PaneSet<C extends PaneContent = PaneContent> {
   focus(pane: Pane<C>): void;
   /** The grid's two columns as `ratio fr` and `1 - ratio fr`; callers clamp (D-02's `clampRatio`). */
   setRatio(ratio: number): void;
+  /**
+   * `cb` runs just before a second pane is made, while the first still has the window's size and scroll:
+   * the first pane's place is read there (D-05; `onSplit` runs after the layout has clamped the scroll).
+   */
+  onBeforeSplit(cb: () => void): void;
   /** `cb` runs when a second pane appears (at once if one is open); its cleanup runs when that pane goes. */
   onSplit(cb: (main: HTMLElement) => () => void): void;
   onChange(cb: (e: PaneChange<C>) => void): () => void;
@@ -95,6 +100,7 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
   const panes: Pane<C>[] = [];
   const changeListeners = new Set<(e: PaneChange<C>) => void>();
   const splitListeners: ((main: HTMLElement) => () => void)[] = [];
+  const beforeSplitListeners: (() => void)[] = [];
   /** The cleanups the split listeners returned for the second pane now open. */
   let splitCleanups: (() => void)[] = [];
   let ratio = 0.5;
@@ -136,6 +142,7 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
 
   /** The second pane: in the grid, at its width, before anything is opened in it. */
   function split(): Pane<C> {
+    for (const cb of beforeSplitListeners) cb();
     const parts = createPaneElement(1);
     main.append(parts.host);
     main.setAttribute('data-marxy-split', '');
@@ -215,8 +222,8 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
         const position = right.view.position();
         await left.content.replace(path, { at: position.byteOffset });
         if (left.path() !== path) return false;
-        // The place is kept to the block: the open's landing holds the block's top, so the fraction within
-        // it is D-05's (per-pane scroll).
+        // The open's landing holds the block's top; the fraction within it is put back by `pane/scroll.ts`,
+        // which hands this pane's place to slot 0 when the close is reported below.
         if (source && left.view.mode !== 'source') await left.view.jumpToSource(position.byteOffset);
       }
       unsplit();
@@ -240,6 +247,10 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
       emit({ kind: 'ratio' });
     },
 
+    onBeforeSplit(cb) {
+      beforeSplitListeners.push(cb);
+    },
+
     onSplit(cb) {
       splitListeners.push(cb);
       if (panes.length > 1) splitCleanups.push(cb(main));
@@ -259,6 +270,7 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
       panes[0]!.content.destroy();
       changeListeners.clear();
       splitListeners.length = 0;
+      beforeSplitListeners.length = 0;
     },
   };
   return set;
