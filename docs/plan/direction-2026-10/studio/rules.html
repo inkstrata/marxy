@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="night" data-typeset="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clipboard rules</title>
+<link rel="stylesheet" href="../mock-v2/shared/tokens.css">
+<link rel="stylesheet" href="../mock-v2/shared/app.css">
+<link rel="stylesheet" href="studio.css">
+<script>(function(){try{var t=localStorage.getItem('marxy.studio.theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V5h6v5.8l3 3.2v2H6v-2z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+  <symbol id="i-slash" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+</svg>
+<div class="marxy-sd-page">
+  <header>
+    <h1>Clipboard rules</h1>
+    <nav aria-label="Studio pages"><a href="README.md">Studio</a><a href="rules.md">Spec</a><a href="history.html">History</a><a href="workbench.html">Workbench</a><a href="collect.html">Collect</a><a href="ring.html">Ring</a></nav>
+    <span class="marxy-sd-grow"></span>
+    <button class="marxy-sd-btn marxy-sd-sm" type="button" data-toggle-theme><svg class="marxy-sd-i"><use href="#i-sun"/></svg>Night / Paper</button>
+  </header>
+  <p class="marxy-sd-lede">The mock's rules sheet becomes rows in W-12's settings view over <code>config.toml</code>, and one sentence on the Privacy page, verbatim from <a href="../../../adr/0066-clipboard-history.md">ADR-0066</a> (proposed). Spec: <a href="rules.md">rules.md</a>.</p>
+
+  <div class="marxy-sd-plates">
+    <div>
+      <h2 class="marxy-sd-plate-h">1 · Settings › Clipboard (option A)</h2>
+      <p class="marxy-sd-cap">A dot marks a value that differs from the default; clicking it resets. Rows that do not apply are disabled and say why.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-set">
+        <h3>Clipboard</h3>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h"><span class="marxy-sd-dot" aria-label="Changed"></span>Clipboard history</span><span class="marxy-sd-seg"><button type="button">Off</button><button type="button">This session</button><button type="button" aria-pressed="true">Keep between launches</button></span><span class="marxy-sd-s">What you copy in Marxy. In memory until you quit, or kept as plain files in Marxy's data folder.</span></div>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h">Keep at most</span><span class="marxy-sd-num-f">500</span><span class="marxy-sd-s">Unpinned copies. Pinned copies are never removed.</span></div>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h">Remove unpinned copies after</span><span class="marxy-sd-num-f">30 days</span><span class="marxy-sd-s">0 keeps them until you remove them.</span></div>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h">Skip text that looks like a secret</span><label class="marxy-sd-switch" aria-label="Skip text that looks like a secret"><input type="checkbox" checked><i></i></label><span class="marxy-sd-s">API keys, tokens and private keys are matched on this Mac before anything is kept.</span></div>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h">Default copy format</span><span class="marxy-sd-field" style="display:inline-flex;align-items:center">Markdown</span><span class="marxy-sd-s">What <kbd>⌘C</kbd> writes (J-04).</span></div>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h">Kept copies</span><span style="display:flex;gap:6px"><button class="marxy-sd-btn marxy-sd-sm" type="button">Clear unpinned…</button><button class="marxy-sd-btn marxy-sd-sm" type="button">Clear everything…</button></span><span class="marxy-sd-s marxy-sd-path">~/Library/Application Support/marxy/clipboard/ · 212 copies · 1.8 MB</span></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">2 · The Privacy page</h2>
+      <p class="marxy-sd-cap">Shown while history is not off: <code>CLIPBOARD_HISTORY_PRIVACY_LINE</code>, then, in <code>keep</code>, the folder.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-set">
+        <h3>Privacy · what Marxy keeps</h3>
+        <blockquote class="marxy-sd-priv">Marxy keeps what you copy in Marxy on this Mac, in memory until you quit or, if you choose to keep it, as plain files in Marxy's data folder. It reads what other apps copy only when you paste or ask it to, and sends nothing anywhere.</blockquote>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h marxy-sd-path">~/Library/Application Support/marxy/clipboard/</span><span style="display:flex;gap:6px"><button class="marxy-sd-btn marxy-sd-sm" type="button">Reveal</button><button class="marxy-sd-btn marxy-sd-sm" type="button">Clear everything…</button></span><span class="marxy-sd-s">1.8 MB · plain files you can open, move or delete</span></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">3 · Keep → This session</h2>
+      <p class="marxy-sd-cap">Moving away from <code>keep</code> asks once, then deletes the folder.</p>
+      <div class="marxy-sd-stage" style="min-height:240px">
+        <div class="marxy-sd-sheet" role="dialog" aria-label="Delete kept copies">
+          <div class="marxy-sd-sh">Delete the 212 kept copies from this Mac?</div>
+          <div class="marxy-sd-sb">History will be kept in memory until you quit. The folder <span class="marxy-sd-path">clipboard/</span> in Marxy's data folder is deleted.</div>
+          <div class="marxy-sd-sf"><button class="marxy-sd-btn marxy-sd-sm" type="button">Cancel</button><button class="marxy-sd-btn marxy-sd-sm marxy-sd-primary" type="button">Delete</button></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">4 · Option B, if the author chooses it</h2>
+      <p class="marxy-sd-cap">One more switch, off by default, and the second Privacy line while it is on. If macOS refuses the read, the switch turns itself off and says so.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-set">
+        <div class="marxy-sd-srow"><span class="marxy-sd-h">Also record copies from other apps</span><label class="marxy-sd-switch" aria-label="Also record copies from other apps"><input type="checkbox"><i></i></label><span class="marxy-sd-s">Off. Concealed, transient and auto-generated items, excluded apps and likely secrets are never recorded.</span></div>
+        <div class="marxy-sd-srow"><span class="marxy-sd-h">Never record from these apps</span><span class="marxy-sd-field" style="display:inline-flex;align-items:center">1Password, Bitwarden, Keychain Access, Passwords</span></div>
+        <div class="marxy-sd-banner"><svg class="marxy-sd-i"><use href="#i-alert"/></svg><span class="marxy-sd-grow">macOS is not letting Marxy read what other apps copy. History keeps copies made in Marxy.</span><button class="marxy-sd-btn marxy-sd-sm" type="button">Open Privacy &amp; Security…</button></div>
+        <blockquote class="marxy-sd-priv">While Marxy is running it also records what you copy in other apps, except concealed, transient and auto-generated items, apps you excluded and text that looks like a secret; it keeps them as above and sends nothing anywhere.</blockquote>
+      </div></div>
+    </div>
+  </div>
+
+  <h2 class="marxy-sd-plate-h">Never recorded</h2>
+  <table class="marxy-sd-spec" aria-label="Never recorded">
+    <thead><tr><th>Item</th><th>Option</th></tr></thead>
+    <tbody>
+      <tr><td>Marxy's temporary writes (<code>org.nspasteboard.TransientType</code>)</td><td>A, B</td></tr>
+      <tr><td>A concealed item (<code>org.nspasteboard.ConcealedType</code>); its data is never read</td><td>A (Keep the clipboard), B</td></tr>
+      <tr><td>An auto-generated item (<code>org.nspasteboard.AutoGeneratedType</code>)</td><td>B</td></tr>
+      <tr><td>Text that looks like a secret, while the switch is on</td><td>A, B</td></tr>
+      <tr><td>Text over 1 MB; images and file references</td><td>A, B</td></tr>
+      <tr><td>Anything while paused or off</td><td>A, B</td></tr>
+      <tr><td>An item from an excluded app</td><td>B</td></tr>
+    </tbody>
+  </table>
+</div>
+<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-toggle-theme]');if(!b)return;var r=document.documentElement;var n=r.dataset.theme==='night'?'paper':'night';r.dataset.theme=n;try{localStorage.setItem('marxy.studio.theme',n);}catch(x){}});</script>
+</body>
+</html>

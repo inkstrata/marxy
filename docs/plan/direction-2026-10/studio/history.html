@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en" data-theme="night" data-typeset="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clipboard history</title>
+<link rel="stylesheet" href="../mock-v2/shared/tokens.css">
+<link rel="stylesheet" href="../mock-v2/shared/app.css">
+<link rel="stylesheet" href="studio.css">
+<script>(function(){try{var t=localStorage.getItem('marxy.studio.theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V5h6v5.8l3 3.2v2H6v-2z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+  <symbol id="i-slash" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+</svg>
+<div class="marxy-sd-page">
+  <header>
+    <h1>Clipboard history</h1>
+    <nav aria-label="Studio pages"><a href="README.md">Studio</a><a href="history.md">Spec</a><a href="workbench.html">Workbench</a><a href="rules.html">Rules</a><a href="collect.html">Collect</a><a href="ring.html">Ring</a></nav>
+    <span class="marxy-sd-grow"></span>
+    <button class="marxy-sd-btn marxy-sd-sm" type="button" data-toggle-theme><svg class="marxy-sd-i"><use href="#i-sun"/></svg>Night / Paper</button>
+  </header>
+  <p class="marxy-sd-lede">Plates of the Clipboard view's history pane under ADR-0066 option A: what Marxy itself copied, newest first, with the document and line it came from. Static drawings of each state, not a prototype; the spec is <a href="history.md">history.md</a>. Sample text only.</p>
+
+  <h2 class="marxy-sd-plate-h">1 · Normal, unfolded (<kbd>⇧⌘V</kbd>)</h2>
+  <p class="marxy-sd-cap">History beside the workbench. The first row is selected on open; <kbd>↵</kbd> copies it back, <kbd>⌥↵</kbd> opens it in the workbench. The foot line says where history lives.</p>
+  <div class="marxy-sd-frame">
+    <div class="marxy-sd-chrome"><span class="marxy-sd-lights"><i></i><i></i><i></i></span><b>Clipboard</b><span>· marxy</span></div>
+    <div class="marxy-sd-split">
+      <section class="marxy-sd-pane marxy-sd-side" aria-label="History">
+        <div class="marxy-sd-phead"><b>Clipboard</b><span class="marxy-sd-grow"></span><button class="marxy-sd-ib" type="button" aria-label="History menu"><svg class="marxy-sd-i"><use href="#i-more"/></svg></button></div>
+        <div class="marxy-sd-search"><svg class="marxy-sd-i"><use href="#i-search"/></svg>Search copies <span class="marxy-sd-grow"></span><kbd>⌘F</kbd></div>
+        <div class="marxy-sd-chips"><span class="marxy-sd-chip" aria-pressed="true">All 23</span><span class="marxy-sd-chip">Pinned 2</span><span class="marxy-sd-chip">Markdown 11</span><span class="marxy-sd-chip">Slack 4</span><span class="marxy-sd-chip">Plain 5</span><span class="marxy-sd-chip">CSV 1</span></div>
+        <div class="marxy-sd-rows" role="listbox" aria-label="Copies">
+          <div class="marxy-sd-group">Pinned</div>
+          <div class="marxy-sd-clip" role="option"><span class="marxy-sd-t">Release checklist: tag, build, notarise, upload</span><svg class="marxy-sd-i marxy-sd-sm marxy-sd-pin"><use href="#i-pin"/></svg><span class="marxy-sd-m">Markdown · release.md:12 · 3 d</span></div>
+          <div class="marxy-sd-group">Today</div>
+          <div class="marxy-sd-clip marxy-sd-sel" role="option" aria-selected="true"><span class="marxy-sd-t">*Migration plan* · step 3 moves the index to the new volume</span><span></span><span class="marxy-sd-m">Slack · plan.md:42 · 2 min</span></div>
+          <div class="marxy-sd-clip" role="option"><span class="marxy-sd-t marxy-sd-mono">pnpm --filter @marxy/desktop test:lite</span><span></span><span class="marxy-sd-m">Plain · build.log:1,204 · 18 min</span></div>
+          <div class="marxy-sd-clip marxy-sd-skip" role="option"><span class="marxy-sd-t">Not recorded · looked like a secret</span><span></span><span class="marxy-sd-m">.env:3 · 31 min</span></div>
+          <div class="marxy-sd-clip" role="option"><span class="marxy-sd-t">name,size,modified</span><span></span><span class="marxy-sd-m">CSV · inventory.md:8 · 1 h</span></div>
+          <div class="marxy-sd-clip" role="option"><span class="marxy-sd-t">The reader owns their tools.</span><span></span><span class="marxy-sd-m">Markdown · Kept from the clipboard · 2 h</span></div>
+          <div class="marxy-sd-group">Yesterday</div>
+          <div class="marxy-sd-clip" role="option"><span class="marxy-sd-t">## Context — Much of what Marxy shows is read once…</span><span></span><span class="marxy-sd-m">Rich · 0065-the-clipboard.md:9 · 1 d</span></div>
+        </div>
+        <div class="marxy-sd-foot">Kept until you quit · nothing written to disk</div>
+      </section>
+      <section class="marxy-sd-pane marxy-sd-bench" aria-label="Workbench">
+        <div class="marxy-sd-phead"><b>Workbench</b><span class="marxy-sd-grow"></span><span class="marxy-sd-stats">see workbench.html</span></div>
+        <div class="marxy-sd-empty">The workbench takes this pane: <a href="workbench.html">its plates</a>.</div>
+      </section>
+    </div>
+  </div>
+
+  <div class="marxy-sd-plates">
+    <div>
+      <h2 class="marxy-sd-plate-h">2 · Search</h2>
+      <p class="marxy-sd-cap">A substring match over the text and the source path. The row shows the matching line.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:300px">
+        <div class="marxy-sd-search" style="color:var(--fg)"><svg class="marxy-sd-i"><use href="#i-search"/></svg>volume<span class="marxy-sd-grow"></span><svg class="marxy-sd-i marxy-sd-sm"><use href="#i-x"/></svg></div>
+        <div class="marxy-sd-rows">
+          <div class="marxy-sd-clip marxy-sd-sel"><span class="marxy-sd-t">step 3 moves the index to the new <mark class="marxy-sd-hit">volume</mark></span><span></span><span class="marxy-sd-m">Slack · plan.md:42 · 2 min</span></div>
+          <div class="marxy-sd-clip"><span class="marxy-sd-t">mount the <mark class="marxy-sd-hit">volume</mark> before the first scan</span><span></span><span class="marxy-sd-m">Markdown · runbook.md:77 · 1 d</span></div>
+        </div>
+        <div class="marxy-sd-preview"><span class="marxy-sd-m">plan.md · bytes 1,204–1,616 · line 42 · text</span><pre>*Migration plan*
+• step 3 moves the index to the new volume
+• step 4 rebuilds positions</pre></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">3 · Several selected</h2>
+      <p class="marxy-sd-cap"><kbd>⇧↑</kbd> <kbd>⇧↓</kbd> or <kbd>⌘</kbd>-click. Copy joined (oldest first, a blank line between) is the stack's result without a mode.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:300px">
+        <div class="marxy-sd-rows">
+          <div class="marxy-sd-clip marxy-sd-sel"><span class="marxy-sd-t">*Migration plan* · step 3 moves the index</span><span></span><span class="marxy-sd-m">Slack · plan.md:42 · 2 min</span></div>
+          <div class="marxy-sd-clip marxy-sd-sel"><span class="marxy-sd-t marxy-sd-mono">pnpm --filter @marxy/desktop test:lite</span><span></span><span class="marxy-sd-m">Plain · build.log:1,204 · 18 min</span></div>
+          <div class="marxy-sd-clip marxy-sd-sel"><span class="marxy-sd-t">name,size,modified</span><span></span><span class="marxy-sd-m">CSV · inventory.md:8 · 1 h</span></div>
+          <div class="marxy-sd-clip"><span class="marxy-sd-t">The reader owns their tools.</span><span></span><span class="marxy-sd-m">Markdown · Kept from the clipboard · 2 h</span></div>
+        </div>
+        <div class="marxy-sd-selbar"><b>3 selected</b><span class="marxy-sd-grow"></span><button class="marxy-sd-btn marxy-sd-sm marxy-sd-primary" type="button">Copy joined <kbd>⇧↵</kbd></button><button class="marxy-sd-btn marxy-sd-sm" type="button">Pin</button><button class="marxy-sd-btn marxy-sd-sm" type="button">Delete</button></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">4 · Empty, this session</h2>
+      <p class="marxy-sd-cap">The default mode. Keep the clipboard reads the clipboard once, on this click; a concealed item is refused unread.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:280px">
+        <div class="marxy-sd-phead"><b>Clipboard</b></div>
+        <div class="marxy-sd-empty"><span>Nothing copied yet. What you copy in Marxy appears here until you quit.</span><button class="marxy-sd-btn marxy-sd-sm" type="button"><svg class="marxy-sd-i"><use href="#i-clip"/></svg>Keep the clipboard</button></div>
+        <div class="marxy-sd-foot">Kept until you quit · nothing written to disk</div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">5 · Off</h2>
+      <p class="marxy-sd-cap"><code>clipboard_history = "off"</code>. Nothing is recorded and nothing is shown.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:280px">
+        <div class="marxy-sd-phead"><b>Clipboard</b></div>
+        <div class="marxy-sd-empty"><span>Clipboard history is off.</span><button class="marxy-sd-btn marxy-sd-sm" type="button">Turn on for this session</button></div>
+        <div class="marxy-sd-foot"><a href="rules.html">Clipboard settings</a></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">6 · Paused, with a gap shown</h2>
+      <p class="marxy-sd-cap">Pause lasts this session. A not-recorded row names source, reason and time, never the text.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:280px">
+        <div class="marxy-sd-banner"><svg class="marxy-sd-i"><use href="#i-pause"/></svg><span class="marxy-sd-grow">Paused. Copies are not kept until you resume.</span><button class="marxy-sd-btn marxy-sd-sm" type="button">Resume</button></div>
+        <div class="marxy-sd-rows">
+          <div class="marxy-sd-clip marxy-sd-skip"><span class="marxy-sd-t">Not recorded · larger than 1 MB</span><span></span><span class="marxy-sd-m">server.log · 4 min</span></div>
+          <div class="marxy-sd-clip"><span class="marxy-sd-t">*Migration plan* · step 3 moves the index</span><span></span><span class="marxy-sd-m">Slack · plan.md:42 · 9 min</span></div>
+        </div>
+        <div class="marxy-sd-foot">Paused · <span class="marxy-sd-lk">Resume</span></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">7 · Large, kept between launches</h2>
+      <p class="marxy-sd-cap"><code>keep</code> with 500 copies: the list is virtualised; search shows the first 200 matches and says so.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:280px">
+        <div class="marxy-sd-search" style="color:var(--fg)"><svg class="marxy-sd-i"><use href="#i-search"/></svg>the</div>
+        <div class="marxy-sd-banner marxy-sd-info"><span class="marxy-sd-grow">Showing 200 of 1,214 matches</span></div>
+        <div class="marxy-sd-rows">
+          <div class="marxy-sd-clip"><span class="marxy-sd-t"><mark class="marxy-sd-hit">the</mark> index moves to <mark class="marxy-sd-hit">the</mark> new volume</span><span></span><span class="marxy-sd-m">Slack · plan.md:42 · 2 min</span></div>
+          <div class="marxy-sd-clip"><span class="marxy-sd-t">read <mark class="marxy-sd-hit">the</mark> types before any data</span><span></span><span class="marxy-sd-m">Markdown · 0065-the-clipboard.md:31 · 4 d</span></div>
+        </div>
+        <div class="marxy-sd-foot">Kept between launches in <span class="marxy-sd-path">…/marxy/clipboard/</span> · <span class="marxy-sd-lk">Reveal</span></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">8 · Error: the index did not parse</h2>
+      <p class="marxy-sd-cap">Set aside, never deleted; history starts empty; one notice.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:280px">
+        <div class="marxy-sd-banner marxy-sd-err"><svg class="marxy-sd-i"><use href="#i-alert"/></svg><span class="marxy-sd-grow">Clipboard history could not be read and was set aside as <span class="marxy-sd-path">history.json.bad-20261010T1402</span>.</span><button class="marxy-sd-btn marxy-sd-sm" type="button">Reveal</button></div>
+        <div class="marxy-sd-empty"><span>Nothing copied yet. What you copy in Marxy is kept here between launches.</span></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">9 · Keep the clipboard, concealed</h2>
+      <p class="marxy-sd-cap">J-02 reads the types first. A password manager's item is refused, and none of its data is read.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-pane marxy-sd-side" style="min-height:280px">
+        <div class="marxy-sd-banner"><svg class="marxy-sd-i"><use href="#i-lock"/></svg><span class="marxy-sd-grow">The clipboard holds a concealed item (a password manager's, usually). Marxy did not read it.</span></div>
+        <div class="marxy-sd-rows"><div class="marxy-sd-clip"><span class="marxy-sd-t">*Migration plan* · step 3 moves the index</span><span></span><span class="marxy-sd-m">Slack · plan.md:42 · 2 min</span></div></div>
+      </div></div>
+    </div>
+    <div>
+      <h2 class="marxy-sd-plate-h">10 · Folded, one column</h2>
+      <p class="marxy-sd-cap">Folded or under 900 px: history at the reading measure; opening an item swaps in the workbench with a back control. <kbd>Esc</kbd> returns to the document.</p>
+      <div class="marxy-sd-frame"><div class="marxy-sd-split marxy-sd-one" style="min-height:280px"><div class="marxy-sd-pane" style="max-width:560px;margin:0 auto;width:100%">
+        <div class="marxy-sd-phead"><button class="marxy-sd-ib" type="button" aria-label="Back to the document"><svg class="marxy-sd-i"><use href="#i-back"/></svg></button><b>Clipboard</b><span class="marxy-sd-grow"></span><kbd>Esc</kbd></div>
+        <div class="marxy-sd-rows">
+          <div class="marxy-sd-clip marxy-sd-sel"><span class="marxy-sd-t">*Migration plan* · step 3 moves the index to the new volume</span><span></span><span class="marxy-sd-m">Slack · plan.md:42 · 2 min</span></div>
+          <div class="marxy-sd-clip"><span class="marxy-sd-t marxy-sd-mono">pnpm --filter @marxy/desktop test:lite</span><span></span><span class="marxy-sd-m">Plain · build.log:1,204 · 18 min</span></div>
+        </div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <h2 class="marxy-sd-plate-h">Row menu</h2>
+  <table class="marxy-sd-spec" aria-label="Row actions">
+    <thead><tr><th>Action</th><th>Key</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td>Copy</td><td><kbd>↵</kbd> <kbd>⌘C</kbd></td><td>Writes the stored representations back as one item, tagged with Marxy; moves to the top</td></tr>
+      <tr><td>Copy as ▸</td><td><kbd>⇧⌘C</kbd></td><td>J-04's menu over the item's text</td></tr>
+      <tr><td>Open in the workbench</td><td><kbd>⌥↵</kbd></td><td>The item becomes the workbench's input</td></tr>
+      <tr><td>Open the source</td><td>—</td><td>The document at the byte range; at the line with a notice if it changed</td></tr>
+      <tr><td>Pin / Unpin</td><td><kbd>⌥P</kbd></td><td>Never expires, not counted</td></tr>
+      <tr><td>Delete</td><td><kbd>⌫</kbd></td><td>Removes it, files included in <code>keep</code>; Undo for 10 s</td></tr>
+    </tbody>
+  </table>
+</div>
+<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-toggle-theme]');if(!b)return;var r=document.documentElement;var n=r.dataset.theme==='night'?'paper':'night';r.dataset.theme=n;try{localStorage.setItem('marxy.studio.theme',n);}catch(x){}});</script>
+</body>
+</html>
