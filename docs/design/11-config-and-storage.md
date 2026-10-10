@@ -77,6 +77,53 @@ description = "Plans with open tasks"   # optional
   ignored with one. Built-in smart collections (near-duplicates, broken paths) are code and are never
   written here. Saving a query appends one `[[query]]` table, byte-faithfully like a folder.
 
+### `[[capture]]` (ADR-0063)
+
+A rule is the reader's standing request that Marxy copy files out to a folder they own. Marxy ships
+none, and writes none: the reader edits the file by hand. This section is the parse and validation
+only; the copying is P-03.
+
+```toml
+[[capture]]
+from = "~/.claude/projects/**/*.jsonl"   # a glob; its first fixed folder is the base
+to   = "~/Notes/sessions"                # a folder
+```
+
+| Key | Meaning |
+| --- | --- |
+| `from` | An absolute or `~`-prefixed glob. `fromBase` is the folder part before its first glob character (`~/.claude/projects`), which P-03 keeps copies relative to. |
+| `to` | An absolute or `~`-prefixed folder. |
+
+A rule that fails any check is skipped with one warning that names it (`capture 2 (from "…" to "…") …`);
+the others stand. Refused:
+
+- a missing or non-string `from` or `to`;
+- a path that is not absolute and local (the rule the roots use), or a `\\host\share` network path;
+- a `..` that climbs above the root, or that follows a glob segment in `from`. `.`, `..` and empty
+  segments are otherwise resolved lexically before any comparison, and `from`, `to` and `fromBase` are
+  stored resolved;
+- a `from` with no fixed folder (`/**/*.md`);
+- a `to` that is `/` or the home folder itself;
+- a `to` inside `fromBase`, or a `fromBase` inside `to`, which would copy in a loop;
+- a `to` inside, equal to, or holding (an ancestor of) Marxy's own config or data folder (the host passes
+  them as `ownFolders`, as it passes `home`, in `~` form or absolute; the desktop shell takes them from
+  `configPaths`, as the C-14 refusal of a root does);
+- a `to` matching a `[deny]` glob or the built-in deny list, as written or case-folded.
+
+The loop, root/home and own-folder checks compare on a folded key (Unicode NFC, then lower case) on
+every platform, so `~/notes` and `~/Notes` count as the same folder; a case-sensitive volume may
+therefore see a false refusal, and the warning says it compared without regard to case.
+
+**What P-03 must do at copy time.** These are string checks and cannot see symlinks, hard links or a
+volume's real case sensitivity. P-03 must (a) realpath `fromBase` and `to` and re-run the loop and
+own-folder checks on the resolved paths; (b) never follow a symlink out of `fromBase`; (c) check each
+destination file's realpath is still under `to`; (d) skip any source whose resolved path is under `to`
+or an own folder.
+
+Unknown keys are reported as `capture.<key>`. More than 32 rules warn and the rest are dropped. The
+Privacy page's sentence is the constant `CAPTURE_PRIVACY_LINE` (ADR-0063 item 6, verbatim, with a test
+that reads the ADR), and `capturePrivacyLines(rules)` fills in each rule's paths.
+
 ## Data files
 
 | File | Content | Cap | Owner |
