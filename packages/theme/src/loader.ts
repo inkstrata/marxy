@@ -437,3 +437,43 @@ export async function loadTheme(
   const css = clampThemeValues(rewritten, warnings);
   return { manifest, css, warnings };
 }
+
+/** How far a declared `--marxy-avg-char` may sit from the measured one before a theme is told (H-06). */
+export const AVG_CHAR_TOLERANCE = 0.03;
+
+/** The value `prop` has in the theme's global scopes (`:root`, `html`, a variant), the last declaration winning, or null. */
+function globalValue(css: string, prop: string): string | null {
+  let found: string | null = null;
+  for (const rule of findRules(css)) {
+    if (rule.selector.startsWith('@') || globalScopeVariant(rule.selector) === null) continue;
+    const re = new RegExp(`${escapeRegExp(prop)}\\s*:\\s*([^;}\\n]+)`, 'g');
+    for (const m of css.slice(rule.from, rule.to).matchAll(re)) found = m[1]!.replace(IMPORTANT, '').trim();
+  }
+  return found;
+}
+
+/**
+ * Warns when a theme's declared `--marxy-avg-char` is more than 3 % from what its text face measures
+ * (docs/theme-contract.md §Measuring a face). `measure` takes the face's CSS font-family value and answers
+ * its average advance in em, or null when it cannot be measured (the face is not loaded, or no canvas); null
+ * and a theme that declares no number or no face are silent. It never rewrites the theme's value, and it
+ * is a separate, later step from `loadTheme` because measuring waits for the face: call it after first paint.
+ */
+export async function avgCharWarnings(
+  css: string,
+  themeName: string,
+  measure: (family: string) => Promise<number | null>,
+): Promise<string[]> {
+  const declared = Number(globalValue(css, '--marxy-avg-char'));
+  let family = globalValue(css, '--marxy-font-text');
+  const role = family === null ? null : /^var\(\s*(--marxy-face-[a-z0-9-]+)\s*\)$/.exec(family)?.[1];
+  if (role) family = globalValue(css, role);
+  if (!Number.isFinite(declared) || declared <= 0 || family === null || /^var\(/.test(family)) return [];
+  const measured = await measure(family);
+  if (measured === null || !(measured > 0)) return [];
+  if (Math.abs(declared - measured) / measured <= AVG_CHAR_TOLERANCE) return [];
+  const face = family.split(',')[0]!.trim().replace(/^["']|["']$/g, '');
+  return [
+    `Theme '${themeName}' declares --marxy-avg-char ${declared}, but ${face} measures ${Number(measured.toFixed(3))}; the column will hold about ${Math.round((66 * declared) / measured)} characters instead of 66.`,
+  ];
+}

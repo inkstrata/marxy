@@ -1,3 +1,4 @@
+export * from './average-advance.ts';
 export * from './geometry.ts';
 export {
   LAYOUT_FILE_VERSION,
