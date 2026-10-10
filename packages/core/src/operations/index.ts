@@ -7,6 +7,7 @@ import { COPY_PACK } from './pack-copy.ts';
 import { EXTRACT_PACK } from './pack-extract.ts';
 import { TABLE_PACK } from './pack-table.ts';
 import { toggleTask } from './toggle-task.ts';
+import { unwrapMarkdownFence } from './unwrap-markdown-fence.ts';
 
 /** Operations whose replacement is always the input text: they only fill the clipboard. */
 export const CLIPBOARD_OPERATIONS: readonly Operation[] = [
@@ -18,8 +19,8 @@ export const CLIPBOARD_OPERATIONS: readonly Operation[] = [
 ];
 
 /** Operations that rewrite the bytes they were given, and only those. */
-export const MUTATING_OPERATIONS: readonly Operation[] = [toggleTask, alignTablePipes];
+export const MUTATING_OPERATIONS: readonly Operation[] = [toggleTask, alignTablePipes, unwrapMarkdownFence];
 
 export const OPERATIONS: readonly Operation[] = [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS];
 
-export { alignTablePipes, copyCodeClean, copySection, toggleTask };
+export { alignTablePipes, copyCodeClean, copySection, toggleTask, unwrapMarkdownFence };
