@@ -4,7 +4,7 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { loadTheme, V2_COLOUR_ROLES } from './loader.ts';
+import { avgCharWarnings, loadTheme, V2_COLOUR_ROLES } from './loader.ts';
 
 const loaderSrc = readFileSync(fileURLToPath(new URL('./loader.ts', import.meta.url)), 'utf8');
 
@@ -316,4 +316,37 @@ test('the theme chrome size is held to 11-26 px', async () => {
 test('the kind scope computes --marxy-measure where its own measure-chars apply; :root keeps the v1 declaration', () => {
   assert.match(tokensCss, /^\s*--marxy-measure:\s*calc\(var\(--marxy-measure-chars\) \* var\(--marxy-avg-char\) \* 1em\)/m);
   assert.match(baseCss, /\[data-marxy-kind\]\s*\{[^}]*--marxy-measure:\s*calc\(var\(--marxy-measure-chars\) \* var\(--marxy-avg-char\) \* 1em\)/);
+});
+
+test('a theme declaring 0.463 for a face that measures 0.52 warns once, naming theme, face and both numbers (H-06)', async () => {
+  const css = ':root{--marxy-font-text:"Inter",sans-serif;--marxy-avg-char:0.463}';
+  const warnings = await avgCharWarnings(css, 'sans', async (family) => (family.startsWith('"Inter"') ? 0.52 : null));
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0]!, /Theme 'sans'.*0\.463.*Inter.*0\.52/);
+});
+
+test('a declared avg-char within 3 % of the measured one is silent; just past 3 % warns (H-06)', async () => {
+  const css = (n: number) => `:root{--marxy-font-text:"Literata",serif;--marxy-avg-char:${n}}`;
+  assert.deepEqual(await avgCharWarnings(css(0.463), 't', async () => 0.4725), []);
+  assert.equal((await avgCharWarnings(css(0.463), 't', async () => 0.4775)).length, 1);
+});
+
+test('the avg-char warning follows a face role, and is silent without a number, a face or a measurement (H-06)', async () => {
+  const roleCss = ':root{--marxy-face-article:"Source Serif 4",serif;--marxy-font-text:var(--marxy-face-article);--marxy-avg-char:0.4}';
+  const seen: string[] = [];
+  const w = await avgCharWarnings(roleCss, 't', async (f) => (seen.push(f), 0.5));
+  assert.deepEqual(seen, ['"Source Serif 4",serif']);
+  assert.equal(w.length, 1);
+  assert.deepEqual(await avgCharWarnings(':root{--marxy-font-text:"X"}', 't', async () => 0.9), []);
+  assert.deepEqual(await avgCharWarnings(':root{--marxy-avg-char:0.4}', 't', async () => 0.9), []);
+  assert.deepEqual(await avgCharWarnings(':root{--marxy-font-text:"X";--marxy-avg-char:0.4}', 't', async () => null), []);
+});
+
+test('the avg-char check never rewrites the theme: loadTheme leaves the declared value as written (H-06)', async () => {
+  const files = new Map<string, Uint8Array>([
+    ['theme.toml', new TextEncoder().encode('name = "n"\ncontract = 2\n')],
+    ['theme.css', new TextEncoder().encode(':root{--marxy-avg-char:0.9}')],
+  ]);
+  const { css } = await loadTheme(dir, (r) => Promise.resolve(files.get(r)!), (p) => p);
+  assert.match(css, /--marxy-avg-char:0\.9\}/);
 });

@@ -63,6 +63,24 @@ average character (the mean advance of English prose, in em) and sets `--marxy-a
 column will not hold the character count. Never set a measure in `ch`: a `ch` is the digit zero,
 which in most faces is 13–58 % wider than an average character.
 
+## Measuring a face (H-06)
+
+`--marxy-avg-char` is a measurement, not a taste. `apps/desktop/src/theme/measure-face.ts` makes it: it
+waits for the loaded face, sets a fixed sample of English prose (`MEASURE_SAMPLE` in
+`packages/core/src/layout/average-advance.ts`, the opening of *Pride and Prejudice*) on a canvas, and answers
+the width of one character in em. It runs after first paint, never on the first-text path, and remembers
+each face, weight and size it has measured.
+
+- **Measure at the size the face is set at.** A face with an optical-size axis (Literata, Source Serif 4)
+  is drawn narrower as it grows, so its number depends on the size; a face without one gives the same
+  number at any size. Pass the body size (the default is 20 px).
+- **Kerning is in the number.** The canvas and the typesetter both kern, so the measured value is a
+  little under the sum of the `hmtx` advances (`packages/typeset/scripts/font-metrics.mjs`, no kerning):
+  Literata by about 1.4 %, the others by under 1 %. Use the measured number, not the table's.
+- **The loader tells, and does not rewrite.** `avgCharWarnings` (`@marxy/theme`) compares a theme's
+  declared `--marxy-avg-char` with the measured value for its text face and warns when they are more than
+  3 % apart, naming the theme, the face and both numbers. A face that cannot be measured (not loaded) is silent.
+
 ## Contract v2 (ADR-0059): shipped
 
 `tokens.css` declares the names below and the loader speaks `contract = 2` (H-03). H-04 sets Night's and
