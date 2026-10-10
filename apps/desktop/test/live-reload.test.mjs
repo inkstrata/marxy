@@ -1,6 +1,6 @@
 // Live reload through startApp and the memory shell (MARXY-194).
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
@@ -187,6 +187,405 @@ test('a write above the reader in a long file reloads to the whole parse of the 
       assert.equal(Buffer.from(next).subarray(seen.place, seen.place + 24).toString(), heldText, 'the reader is on the same text');
       text = next;
     }
+  } finally {
+    await browser.close();
+  }
+});
+
+/**
+ * Turns of an agent transcript (B-24): a heading, prose, a task, a list, a fence, an HTML comment (which renders
+ * nothing) and a table. `turns(220)` is over 64 KiB, the size from which a reload replaces blocks rather
+ * than render the page whole; `turns(2000)` is a megabyte, which a progressive mount takes a while to fill.
+ */
+const turn = (i) =>
+  `## Turn ${i}\n\n${para(`Turn ${i}`)}\n\n- [ ] task ${i}\n- an item with \`code\`\n\n\`\`\`js\nconst n = ${i};\n\`\`\`\n\n<!-- tool call ${i} -->\n\n| a | b |\n|---|---|\n| ${i} | y |\n\n`;
+const turns = (n) => Array.from({ length: n }, (_, i) => turn(i + 1)).join('');
+const BIG = turns(220);
+
+/** Writes `next` over the open file from outside, and resolves once the reload has settled at the reader's place. */
+async function writeFromOutside(page, next) {
+  return page.evaluate(async ({ next }) => {
+    const h = window.__marxyHandle;
+    const path = h.currentPath();
+    const count = () => h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'live_reload').length;
+    const before = count();
+    await h.shell.writeFileAtomic(path, new TextEncoder().encode(next));
+    h.shell.emit([{ kind: 'modified', path }]);
+    for (let i = 0; i < 1000 && count() === before; i++) await new Promise((r) => setTimeout(r, 10));
+    const repaint = performance.getEntriesByName('marxy:repaint').at(-1);
+    return { reloaded: count() > before, repaint: repaint?.detail ?? null, place: h.sourceHarness().byteOffset };
+  }, { next });
+}
+
+/** The page's top-level provenance against the document's: every block that renders an element, in order. */
+function pageMatchesDocument(page) {
+  return page.evaluate(() => {
+    const kinds = new Set(['paragraph', 'heading', 'list', 'blockquote', 'codeBlock', 'table', 'thematicBreak', 'mathBlock']);
+    const ast = window.__marxyHandle.document().snapshot().ast;
+    const want = ast.children.filter((b) => kinds.has(b.type)).map((b) => [b.src.start, b.src.end]);
+    const got = [...document.querySelectorAll('#doc > [data-marxy-s]')].map((el) => [Number(el.getAttribute('data-marxy-s')), Number(el.getAttribute('data-marxy-e'))]);
+    const sameRanges = got.length === want.length && got.every(([s, e], i) => s === want[i][0] && e === want[i][1]);
+    return { sameRanges, got: got.length, want: want.length };
+  });
+}
+
+test('a reload replaces only the blocks it changed; the rest stay the same elements, moved, and the reader keeps the place (B-24)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/B.md': b64(BIG) }, ['/r/B.md']);
+    await page.evaluate(async () => {
+      await window.__marxyHandle.contentComplete();
+      window.scrollTo(0, window.innerHeight * 3);
+      // Every top-level element is told apart by what a reload must not replace: its own object.
+      [...document.getElementById('doc').children].forEach((el, i) => { el.__before = i; });
+    });
+    await page.waitForFunction(() => window.scrollY > 1000);
+    const held = await page.evaluate(() => window.__marxyHandle.sourceHarness().byteOffset);
+    const heldText = Buffer.from(BIG).subarray(held, held + 24).toString();
+    // One paragraph rewritten above the reader (every block after it moves), carrying markup the sanitiser must refuse.
+    const hostile = '<img src="x" onerror="alert(1)"> <b onclick="alert(1)">bold</b> rewritten by an outside editor';
+    const next = BIG.replace(para('Turn 2'), `${hostile}\n`);
+    const seen = await writeFromOutside(page, next);
+    assert.equal(seen.reloaded, true);
+    assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
+    const after = await page.evaluate(() => {
+      const article = document.getElementById('doc');
+      const children = [...article.children];
+      const kept = children.filter((el) => el.__before !== undefined);
+      const turn = (n) => [...article.querySelectorAll('h2')].find((h) => h.textContent === `Turn ${n}`);
+      const far = turn(190);
+      return {
+        total: children.length,
+        kept: kept.length,
+        farKept: far?.__before !== undefined,
+        farBlockKept: far?.nextElementSibling?.__before !== undefined,
+        rewritten: [...children].find((el) => el.textContent.includes('rewritten by an outside editor'))?.__before,
+        hasOnerror: article.querySelector('[onerror], [onclick]') !== null,
+        rewrittenText: [...article.querySelectorAll('p')].find((el) => el.textContent.includes('rewritten by an outside editor'))?.textContent ?? '',
+      };
+    });
+    assert.ok(after.kept > after.total - 8, `only the changed blocks were replaced: ${after.kept} of ${after.total} elements are the ones from before`);
+    assert.equal(after.farKept, true, 'a heading far below the change is the same element');
+    assert.equal(after.farBlockKept, true, 'and so is the block after it');
+    assert.equal(after.rewritten, undefined, 'the rewritten paragraph is a new element');
+    assert.equal(after.hasOnerror, false, 'the sanitiser ran over the new bytes');
+    assert.match(after.rewrittenText, /rewritten by an outside editor/);
+    const matches = await pageMatchesDocument(page);
+    assert.equal(matches.sameRanges, true, `the page's provenance is the document's: ${JSON.stringify(matches)}`);
+    assert.equal(Buffer.from(next).subarray(seen.place, seen.place + 24).toString(), heldText, 'the reader is on the same text');
+
+    // The shifted provenance is what an edit resolves through: a task far below the change toggles its own bytes.
+    const task = await page.evaluate(() => {
+      const box = [...document.querySelectorAll('#doc input[type="checkbox"]')].find((el) => el.closest('li')?.textContent.includes('task 150'));
+      box.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return Number(box.getAttribute('data-marxy-s'));
+    });
+    await page.waitForFunction(() => window.__marxyHandle.document().snapshot().dirty);
+    const marker = await page.evaluate((start) => new TextDecoder().decode(window.__marxyHandle.document().snapshot().buffer.bytes.subarray(start, start + 3)), task);
+    assert.equal(marker, '[x]', 'the click toggled the task at the shifted offset');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('formulas set before a reload are not set again, and a new one is set (B-24)', async () => {
+  const withMath = Array.from({ length: 400 }, (_, i) => `## Turn ${i + 1}\n\n${para(`Turn ${i + 1}`)}\n\nInline $a_{${i}}$ here.\n\n$$\nx_{${i}}^2\n$$\n\n`).join('');
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/M.md': b64(withMath) }, ['/r/M.md']);
+    const unset = () => document.querySelectorAll('#doc pre.marxy-math-block:not([data-marxy-done="math"]), #doc code.marxy-math:not([data-marxy-done="math"])').length;
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    await page.waitForFunction(`(${unset})() === 0 && document.querySelector('#doc .katex') !== null`, null, { timeout: 30000 });
+    const before = await page.evaluate(() => {
+      const turn = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent === 'Turn 300');
+      const block = (turn.nextElementSibling.nextElementSibling.nextElementSibling);
+      return { text: block.textContent, tag: block.tagName, kept: (block.__before = 1) };
+    });
+    const next = withMath.replace('## Turn 2\n', () => '$$\ny^2 + z^2\n$$\n\n## Turn 2\n');
+    const seen = await writeFromOutside(page, next);
+    assert.equal(seen.repaint?.how, 'replaced', JSON.stringify(seen.repaint));
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    await page.waitForFunction(`(${unset})() === 0`, null, { timeout: 30000 });
+    const after = await page.evaluate(() => {
+      const turn = [...document.querySelectorAll('#doc h2')].find((h) => h.textContent === 'Turn 300');
+      const block = turn.nextElementSibling.nextElementSibling.nextElementSibling;
+      const fresh = [...document.querySelectorAll('#doc pre.marxy-math-block')].find((el) => el.textContent.includes('z'));
+      return { text: block.textContent, kept: block.__before === 1, freshSet: fresh?.querySelector('.katex') !== null && fresh?.dataset.marxyDone === 'math' };
+    });
+    assert.equal(after.kept, true, 'the formula block below the change is the same element');
+    assert.equal(after.text, before.text, 'and holds what KaTeX made of it, not a second pass over that');
+    assert.equal(after.freshSet, true, 'the formula written in the change is set');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a reload while the mount is still filling replaces blocks in what is pending as well (B-24)', async () => {
+  const text = turns(1700);
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/C.md': b64(text) }, ['/r/C.md']);
+    const filling = await page.evaluate(async () => {
+      let done = false;
+      void window.__marxyHandle.contentComplete().then(() => { done = true; });
+      await new Promise((r) => setTimeout(r, 0));
+      const article = document.getElementById('doc');
+      [...article.children].forEach((el, i) => { el.__before = i; });
+      return { complete: done, mounted: article.childElementCount };
+    });
+    assert.equal(filling.complete, false, 'the page is still being filled when the file changes');
+    // A line above the reader, in what the page holds, then a paragraph far down, in what is still pending.
+    const near = text.replace('## Turn 2\n', 'One line an outside editor wrote.\n\n## Turn 2\n');
+    let seen = await writeFromOutside(page, near);
+    assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
+    const next = near.replace('## Turn 1500\n', '## Turn 1500\n\nAnd one far down.\n\n');
+    seen = await writeFromOutside(page, next);
+    assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    const matches = await pageMatchesDocument(page);
+    assert.equal(matches.sameRanges, true, `every block is in the page once, at the document's ranges: ${JSON.stringify(matches)}`);
+    const far = await page.evaluate(() => [...document.querySelectorAll('#doc p')].some((p) => p.textContent === 'And one far down.'));
+    assert.equal(far, true, 'the block written in the part not yet mounted is in the page');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a reload that adds a footnote renders the page whole, and the next ordinary one replaces blocks again (B-24)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/D.md': b64(BIG) }, ['/r/D.md']);
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    const withNote = BIG.replace('## Turn 3\n', 'A claim[^1].\n\n[^1]: the note\n\n## Turn 3\n');
+    let seen = await writeFromOutside(page, withNote);
+    assert.equal(seen.repaint?.how, 'whole');
+    assert.match(seen.repaint?.reason ?? '', /footnote/);
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    assert.equal((await pageMatchesDocument(page)).sameRanges, true);
+    assert.equal(await page.evaluate(() => document.querySelector('#doc .marxy-footnotes') !== null), true, 'the footnote list is there');
+    // The same file with the note gone is a whole render too (the page held a footnote), and then blocks are kept again.
+    seen = await writeFromOutside(page, BIG);
+    assert.equal(seen.repaint?.how, 'whole');
+    assert.equal(await page.evaluate(() => document.querySelector('#doc .marxy-footnotes') === null), true, 'and the list is gone');
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    seen = await writeFromOutside(page, BIG.replace('## Turn 4\n', 'One more line.\n\n## Turn 4\n'));
+    assert.equal(seen.repaint?.how, 'replaced', JSON.stringify(seen.repaint));
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    assert.equal((await pageMatchesDocument(page)).sameRanges, true);
+  } finally {
+    await browser.close();
+  }
+});
+
+// The differential check of B-24, run in the page (Playwright serialises this function, so it holds
+// everything it uses): random edits over the corpus, each rendered two ways, and the two must agree.
+//
+//   whole        `renderDocumentSafeHtml` over the new parse, as every open and every other repaint does
+//   replaced     the page the previous render left, with `spliceRendered` putting in only the blocks the
+//                edit changed and moving the provenance of the blocks after them
+//
+// "Agree" is the page's markup byte for byte (`innerHTML`, so every element, attribute and
+// `data-marxy-s` / `data-marxy-e` value) and the sanitiser's removals, in order. An edit the shortcut
+// declines (`spliced: false`) is a whole render and is correct by definition; the count of those, by
+// reason, comes back so a test can see it is not declining everything. Edits are chained, as a long-lived
+// page meets them: after a replacement the next edit splices into the replaced page, and the page is
+// cut at a random block between what is "in the page" and what a progressive mount still holds.
+//
+// Returns `{ cases, spliced, declined: { reason: count }, kept, replaced, mismatches }`.
+async function differential({ docs, core, seeds, edits = 6 }) {
+  const imp = (p) => import(`/@fs${core}${p}`);
+  const { parseMarkdown } = await imp('packages/core/src/parse/parse.ts');
+  const { reparseMarkdown } = await imp('packages/core/src/parse/reparse.ts');
+  const { renderDocumentSafeHtml } = await imp('packages/core/src/render/pipeline.ts');
+  const { DEFAULT_POLICY } = await imp('packages/core/src/sanitize/policy.ts');
+  const { spliceRendered, renderRecord, parseInert } = await import('/src/render/incremental.ts');
+
+  const enc = new TextEncoder();
+  const inert = document.implementation.createHTMLDocument('');
+  const mulberry32 = (a) => () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const hash = (s) => [...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7);
+
+  // What an editor, or an agent writing a transcript, might put into a file: blocks of every kind, the
+  // constructs a render reaches across blocks with (duplicate headings, footnotes, definitions, raw tags
+  // left open or closed that were never opened), and bare noise.
+  const FRAGMENTS = [
+    'Words an outside editor wrote.',
+    'A longer paragraph with **bold**, *emphasis*, `code` and a [link](https://example.com/page) in it.',
+    '# A new heading',
+    '## Same heading',
+    '## Turn 1',
+    'Setext heading\n==============',
+    '- an item\n- another item\n  - nested',
+    '1. one\n2. two',
+    '> a quote\n> over two lines',
+    '```js\nconst x = 1;\n```',
+    '```mermaid\ngraph TD\n  a --> b\n```',
+    '~~~\ntilde fence\n~~~',
+    '| a | b |\n|---|---|\n| 1 | 2 |',
+    '$$\nx^2 + y^2\n$$',
+    'inline math $a+b$ here',
+    '---',
+    '<!-- a comment -->',
+    '<details>\n<summary>Summary</summary>\n\nBody.\n\n</details>',
+    'text with <b>raw bold</b> in it',
+    'a stray </b> closer',
+    '<div>an open div',
+    '</div>',
+    '<span class="x">span</span> and <kbd>K</kbd> and a<br>break',
+    '*emphasis <b> across* raw</b>',
+    '- first </ul> stray close\n- second item\n- third',
+    '> a quote </blockquote> stray\n> more quote',
+    '1. one </ol> stray\n2. two',
+    '- an item </li> with a stray\n  continued',
+    'a stray </p> closer and <p> opener',
+    '- item <ul> raw open\n- next',
+    '![remote](https://example.com/a.png)',
+    '![other](https://other.example.org/b.png)',
+    '![local](./image.png)',
+    '[ref]: https://example.com/ref',
+    '[^1]: a footnote',
+    'a reference[^1] to it',
+    '- [ ] a task\n- [x] done',
+    '    indented code',
+    '<script>alert(1)</script>',
+    '<style>p { color: red }</style>',
+    'hard  \nbreak',
+    '"quoted" -- text... and it\'s smart',
+    '# Heading {#my-id}',
+    '<p align="center">aligned</p>',
+    '​zero width and ‮bidi',
+    '',
+    ' ',
+  ];
+
+  const pick = (rnd, xs) => xs[Math.floor(rnd() * xs.length)];
+  /** One edit of `text`: an insertion, a deletion or a replacement, at a line or inside one. */
+  const edit = (rnd, text) => {
+    const lines = text.split('\n');
+    const kind = rnd();
+    const at = Math.floor(rnd() * (lines.length + 1));
+    const blank = rnd() < 0.7 ? '\n' : '';
+    if (kind < 0.45) {
+      const piece = pick(rnd, FRAGMENTS);
+      return [...lines.slice(0, at), ...(blank ? [''] : []), piece, ...(blank ? [''] : []), ...lines.slice(at)].join('\n');
+    }
+    if (kind < 0.7) {
+      const n = 1 + Math.floor(rnd() * 3);
+      return [...lines.slice(0, at), ...lines.slice(at + n)].join('\n');
+    }
+    if (kind < 0.85) {
+      return [...lines.slice(0, at), pick(rnd, FRAGMENTS), ...lines.slice(at + 1)].join('\n');
+    }
+    // Inside a line.
+    const i = Math.min(at, lines.length - 1);
+    const line = lines[i] ?? '';
+    const cut = Math.floor(rnd() * (line.length + 1));
+    const next = [...lines];
+    next[i] = line.slice(0, cut) + (rnd() < 0.5 ? pick(rnd, ['x', ' word', '**', '`', '<b>', '</b>', '[', ']: y', '\t', '#']) : '') + line.slice(cut + Math.floor(rnd() * 3));
+    return next.join('\n');
+  };
+
+  /** The page as a render leaves it: some top-level nodes in `live`, the rest in `pending`. */
+  const pageOf = (rnd, html) => {
+    const live = parseInert(html);
+    const pending = inert.createElement('div');
+    const nodes = [...live.childNodes];
+    const cut = Math.floor(rnd() * (nodes.length + 1));
+    for (const node of nodes.slice(cut)) pending.appendChild(node);
+    return { live, pending };
+  };
+  const markup = ({ live, pending }) => live.innerHTML + pending.innerHTML;
+  const whole = (html) => parseInert(html).innerHTML;
+
+  const out = { cases: 0, spliced: 0, declined: {}, kept: 0, replaced: 0, mismatches: [] };
+  for (const [name, original] of Object.entries(docs)) {
+    for (let seed = 1; seed <= seeds; seed++) {
+      const rnd = mulberry32(hash(name) * 31 + seed);
+      const file = `/d/${name}`;
+      let text = original;
+      let bytes = enc.encode(text);
+      let ast = parseMarkdown(bytes, { file });
+      let render = renderDocumentSafeHtml(ast, DEFAULT_POLICY);
+      let record = renderRecord(ast, render.removed, false);
+      let page = pageOf(rnd, render.html);
+      for (let step = 1; step <= edits; step++) {
+        const nextText = edit(rnd, text);
+        const nextBytes = enc.encode(nextText);
+        // Half the time the next parse shares the previous one's blocks, as the store's reload does.
+        const next = rnd() < 0.5 ? reparseMarkdown(ast, bytes, nextBytes, { file }) : parseMarkdown(nextBytes, { file });
+        const fresh = renderDocumentSafeHtml(next, DEFAULT_POLICY);
+        out.cases++;
+        const result = spliceRendered(record, next, page, { policy: DEFAULT_POLICY });
+        if (result.spliced) {
+          out.spliced++;
+          out.kept += result.value.kept;
+          out.replaced += result.value.replaced.new;
+          const got = markup(page);
+          const want = whole(fresh.html);
+          const removedGot = JSON.stringify(result.value.removed);
+          const removedWant = JSON.stringify(fresh.removed);
+          if (got !== want || removedGot !== removedWant) {
+            let i = 0;
+            while (i < got.length && got[i] === want[i]) i++;
+            out.mismatches.push({
+              name,
+              seed,
+              step,
+              markup: got === want ? 'same' : { at: i, got: got.slice(Math.max(0, i - 80), i + 120), want: want.slice(Math.max(0, i - 80), i + 120) },
+              removed: removedGot === removedWant ? 'same' : { got: removedGot.slice(0, 300), want: removedWant.slice(0, 300) },
+              edit: nextText.length - text.length,
+            });
+            if (out.mismatches.length >= 5) return out;
+          }
+          record = result.value.record;
+        } else {
+          out.declined[result.reason] = (out.declined[result.reason] ?? 0) + 1;
+          page = pageOf(rnd, fresh.html);
+          record = renderRecord(next, fresh.removed, false);
+        }
+        text = nextText;
+        bytes = nextBytes;
+        ast = next;
+        render = fresh;
+      }
+    }
+  }
+  return out;
+}
+
+test('random edits over the corpus: the blocks a reload replaces give the markup of a whole render, byte for byte (B-24)', async () => {
+  const { generateTranscript } = await import('../../../scripts/measure-reload.mjs');
+  const corpus = join(repoRoot, 'fixtures', 'corpus');
+  const docs = {};
+  for (const name of readdirSync(corpus)) {
+    // The long reference alone is most of the time and nothing here the others do not hold.
+    if (name.endsWith('.md') && name !== 'README.md' && name !== '32-long-reference.md') docs[name] = readFileSync(join(corpus, name), 'utf8');
+  }
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage();
+    await page.goto(`${await harnessBase()}app.html`);
+    await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+    const small = await page.evaluate(differential, { docs, core: repoRoot, seeds: 8 });
+    // A long transcript, where most of the blocks stay: fewer, larger cases.
+    const big = await page.evaluate(differential, { docs: { 'transcript.md': generateTranscript(160 * 1024).toString('utf8') }, core: repoRoot, seeds: 3, edits: 8 });
+    for (const result of [small, big]) {
+      assert.deepEqual(result.mismatches, [], `the replaced page differs from the whole render: ${JSON.stringify(result.mismatches).slice(0, 1200)}`);
+    }
+    // The check is not vacuous: most edits are replaced, and the rest are declined for a reason that names it.
+    assert.ok(small.spliced > small.cases / 3, `edits replaced: ${small.spliced} of ${small.cases}; declined ${JSON.stringify(small.declined)}`);
+    assert.ok(big.spliced > big.cases * 0.6, `edits replaced in the transcript: ${big.spliced} of ${big.cases}; declined ${JSON.stringify(big.declined)}`);
+    assert.ok(big.kept > big.replaced * 20, `most blocks are kept (${big.kept}) rather than replaced (${big.replaced})`);
   } finally {
     await browser.close();
   }

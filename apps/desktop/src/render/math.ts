@@ -64,8 +64,10 @@ function sourceLineCount(text: string): number {
  * snap block heights back onto the grid. Skips entirely when there is no math — no chunk fetch.
  */
 export async function applyMath(article: HTMLElement): Promise<void> {
-  const blocks = [...article.querySelectorAll<HTMLElement>('pre.marxy-math-block')];
-  const inlines = [...article.querySelectorAll<HTMLElement>('code.marxy-math')];
+  // Formulas already set stay as they are: a reload that kept blocks (B-24) runs this again over a page
+  // whose old blocks hold KaTeX's output, whose text is no longer the formula.
+  const blocks = [...article.querySelectorAll<HTMLElement>('pre.marxy-math-block:not([data-marxy-done="math"])')];
+  const inlines = [...article.querySelectorAll<HTMLElement>('code.marxy-math:not([data-marxy-done="math"])')];
   if (blocks.length === 0 && inlines.length === 0) return;
 
   const lineBox = parseFloat(getComputedStyle(article).lineHeight);
