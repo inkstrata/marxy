@@ -60,7 +60,7 @@ test('collection.toml sits beside config.toml', async () => {
 test('no collection.toml is an empty collection and no notice', async () => {
   const { shell, notify, notices } = harness(undefined);
   const { collection, warnings } = await loadCollection(shell, { notify });
-  assert.deepEqual(collection, { roots: [], denyGlobs: [] });
+  assert.deepEqual(collection, { roots: [], denyGlobs: [], queries: [] });
   assert.deepEqual(warnings, []);
   assert.deepEqual(notices, []);
 });

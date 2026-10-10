@@ -35,7 +35,7 @@ export async function collectionFile(shell: CollectionShell): Promise<string | u
   }
 }
 
-const EMPTY: Collection = { roots: [], denyGlobs: [] };
+const EMPTY: Collection = { roots: [], denyGlobs: [], queries: [] };
 
 /** parseCollection's warning for a file that is not TOML at all (core `collection.ts`). */
 export const UNPARSEABLE_WARNING = 'collection.toml could not be parsed; no extra folders';

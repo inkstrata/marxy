@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLLECTION_TEMPLATE, appendRoot, denyRulesFor, isIgnored, parseCollection } from './index.ts';
+import { COLLECTION_TEMPLATE, appendQuery, appendRoot, denyRulesFor, isIgnored, parseCollection } from './index.ts';
 
 const home = '/Users/ian';
 const ctx = { home };
@@ -78,13 +78,13 @@ test('more than 32 roots warn and the rest are dropped', () => {
 
 test('a malformed file gives an empty collection and exactly one warning', () => {
   const r = parseCollection(enc('[[root\npath = = \n'), ctx);
-  assert.deepEqual(r.collection, { roots: [], denyGlobs: [] });
+  assert.deepEqual(r.collection, { roots: [], denyGlobs: [], queries: [] });
   assert.deepEqual(r.warnings, ['collection.toml could not be parsed; no extra folders']);
 });
 
 test('an empty file is an empty collection with no warning', () => {
   const r = parseCollection(enc(''), ctx);
-  assert.deepEqual(r.collection, { roots: [], denyGlobs: [] });
+  assert.deepEqual(r.collection, { roots: [], denyGlobs: [], queries: [] });
   assert.deepEqual(r.warnings, []);
 });
 
@@ -229,4 +229,154 @@ test('appendRoot fuzz: random prefixes keep their bytes; a second append adds on
     assert.deepEqual(second.slice(0, first.length), first, JSON.stringify(text));
     assert.ok(second.length > first.length);
   }
+});
+
+// Saved queries (Q-01): [[query]] tables.
+const QEXAMPLE = `[[root]]
+path = "/a"
+
+[[query]]
+name = "Open plans"
+q = "kind:report has:tasks in:~/.claude/plans"
+description = "Plans with open tasks"   # optional
+
+[[query]]
+name = "Recent"
+q = "modified:<7d"
+`;
+
+const warnsOf = (text: string) => parseCollection(enc(text), ctx);
+
+test('queries parse in file order, with description optional', () => {
+  const r = warnsOf(QEXAMPLE);
+  assert.deepEqual(r.collection.queries, [
+    { name: 'Open plans', q: 'kind:report has:tasks in:~/.claude/plans', description: 'Plans with open tasks' },
+    { name: 'Recent', q: 'modified:<7d' },
+  ]);
+  assert.deepEqual(r.warnings, []);
+  assert.deepEqual(r.unknownKeys, []);
+});
+
+test('a query with no name warns and is skipped', () => {
+  for (const body of ['q = "x"', 'name = "  "\nq = "x"', 'name = 3\nq = "x"']) {
+    const r = warnsOf(`[[query]]\n${body}\n`);
+    assert.deepEqual(r.collection.queries, [], body);
+    assert.equal(r.warnings.length, 1, body);
+  }
+});
+
+test('a query with no q warns and is skipped', () => {
+  for (const body of ['name = "a"', 'name = "a"\nq = ""', 'name = "a"\nq = "  "', 'name = "a"\nq = 1']) {
+    const r = warnsOf(`[[query]]\n${body}\n`);
+    assert.deepEqual(r.collection.queries, [], body);
+    assert.equal(r.warnings.length, 1, body);
+  }
+});
+
+test('an over-long name or q warns and is skipped; the limit itself is kept', () => {
+  const long = warnsOf(`[[query]]\nname = "${'n'.repeat(81)}"\nq = "x"\n[[query]]\nname = "a"\nq = "${'q'.repeat(1001)}"\n`);
+  assert.deepEqual(long.collection.queries, []);
+  assert.equal(long.warnings.length, 2);
+  const ok = warnsOf(`[[query]]\nname = "${'n'.repeat(80)}"\nq = "${'q'.repeat(1000)}"\n`);
+  assert.equal(ok.collection.queries.length, 1);
+  assert.deepEqual(ok.warnings, []);
+});
+
+test('a duplicate name (case-insensitive) is dropped with a warning naming it', () => {
+  const r = warnsOf('[[query]]\nname = "Plans"\nq = "a"\n[[query]]\nname = "plans "\nq = "b"\n');
+  assert.deepEqual(r.collection.queries, [{ name: 'Plans', q: 'a' }]);
+  assert.equal(r.warnings.length, 1);
+  assert.match(r.warnings[0] ?? '', /plans /);
+});
+
+test('a query that is not an array of tables warns and yields no query', () => {
+  const a = warnsOf('query = 3\n');
+  assert.deepEqual(a.collection.queries, []);
+  assert.equal(a.warnings.length, 1);
+  const b = warnsOf('query = ["x", {name = "a", q = "b"}]\n');
+  assert.deepEqual(b.collection.queries, [{ name: 'a', q: 'b' }]);
+  assert.equal(b.warnings.length, 1);
+  const c = warnsOf('[query]\nname = "a"\nq = "b"\n');
+  assert.deepEqual(c.collection.queries, []);
+  assert.equal(c.warnings.length, 1);
+});
+
+test('more than 200 queries warn and the rest are dropped', () => {
+  const text = Array.from({ length: 205 }, (_, i) => `[[query]]\nname = "n${i}"\nq = "x"\n`).join('');
+  const r = warnsOf(text);
+  assert.equal(r.collection.queries.length, 200);
+  assert.equal(r.warnings.length, 5);
+});
+
+test('unknown query keys are reported, and query itself is not unknown', () => {
+  const r = warnsOf('[[query]]\nname = "a"\nq = "b"\nmodel = "x"\n');
+  assert.deepEqual(r.unknownKeys, ['query.model']);
+  assert.deepEqual(r.collection.queries, [{ name: 'a', q: 'b' }]);
+});
+
+test('a non-string description warns and is ignored', () => {
+  const r = warnsOf('[[query]]\nname = "a"\nq = "b"\ndescription = 3\n');
+  assert.deepEqual(r.collection.queries, [{ name: 'a', q: 'b' }]);
+  assert.equal(r.warnings.length, 1);
+});
+
+test('a file with only [[root]] and [deny] has no queries and no new warnings', () => {
+  const r = parseCollection(enc(EXAMPLE), ctx);
+  assert.deepEqual(r.collection.queries, []);
+  assert.deepEqual(r.warnings, []);
+});
+
+const QUERY = { name: 'Open plans', q: 'kind:report has:tasks', description: 'With tasks' };
+
+test('appendQuery on empty input writes the template then the table', () => {
+  const out = dec(appendQuery(new Uint8Array(), { name: 'A', q: 'b' }, ctx));
+  assert.equal(out, `${COLLECTION_TEMPLATE}[[query]]\nname = 'A'\nq = 'b'\n`);
+});
+
+test('appendQuery round-trips quotes, backslashes, control characters and non-ASCII exactly', () => {
+  const tricky = {
+    name: 'it\'s "q" \\ back\ttab \u0001 café 日本語 ☕',
+    q: 'text:"a \\ b" \'c\' \n line2 \u007f ✓',
+    description: 'd\\"\'\r\n é',
+  };
+  const out = appendQuery(enc('x = 1\n'), tricky, ctx);
+  assert.deepEqual(parseCollection(out, ctx).collection.queries, [tricky]);
+  const plain = appendQuery(enc(''), { name: 'a\\b', q: 'c' }, ctx);
+  assert.equal(parseCollection(plain, ctx).collection.queries[0]?.name, 'a\\b');
+});
+
+test('appendQuery refuses a duplicate name (case-insensitive), a blank or over-long field, and a broken file', () => {
+  const base = appendQuery(enc(''), QUERY, ctx);
+  assert.throws(() => appendQuery(base, { name: 'OPEN PLANS', q: 'z' }, ctx), /already exists/);
+  assert.throws(() => appendQuery(enc(''), { name: ' ', q: 'z' }, ctx), RangeError);
+  assert.throws(() => appendQuery(enc(''), { name: 'a', q: '' }, ctx), RangeError);
+  assert.throws(() => appendQuery(enc(''), { name: 'n'.repeat(81), q: 'z' }, ctx), RangeError);
+  assert.throws(() => appendQuery(enc(''), { name: 'a', q: 'q'.repeat(1001) }, ctx), RangeError);
+  assert.throws(() => appendQuery(enc('[[query\n= =\n'), QUERY, ctx), /cannot be read as TOML/);
+  assert.throws(() => appendQuery(enc('query = 3\n'), QUERY, ctx), /edit it by hand/);
+  assert.throws(() => appendQuery(enc('query = [{name="a", q="b"}]\n'), QUERY, ctx), /not a list of \[\[query\]\] tables/);
+});
+
+for (const [name, text] of Object.entries(FIXTURES)) {
+  test(`appendQuery keeps every input byte (${name}) and the query parses back equal`, () => {
+    const input = enc(text);
+    const out = appendQuery(input, QUERY, ctx);
+    assert.deepEqual(out.slice(0, input.length), input, 'input bytes are a prefix of the output');
+    const crlf = text.includes('\r\n');
+    const added = dec(out.slice(input.length));
+    if (text !== '' && !text.endsWith('\n')) assert.ok(added.startsWith(crlf ? '\r\n' : '\n'));
+    if (crlf) assert.ok(!/(^|[^\r])\n/.test(added), 'CRLF files get only CRLF additions');
+    assert.deepEqual(parseCollection(out, ctx).collection.queries.at(-1), QUERY);
+    const second = appendQuery(out, { name: 'Second', q: 'x' }, ctx);
+    assert.deepEqual(second.slice(0, out.length), out);
+  });
+}
+
+test('appendQuery after appendRoot keeps both, and a roots-only file is untouched in its roots', () => {
+  const withRoot = appendRoot(enc(EXAMPLE), '/z', ctx);
+  const out = appendQuery(withRoot, QUERY, ctx);
+  const r = parseCollection(out, ctx);
+  assert.equal(r.collection.roots.at(-1)?.path, '/z');
+  assert.deepEqual(r.collection.queries, [QUERY]);
+  assert.deepEqual(r.collection.roots, parseCollection(withRoot, ctx).collection.roots);
 });
