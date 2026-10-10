@@ -73,5 +73,6 @@ ADR-0063 (capture) and ADR-0065 (clipboard) are accepted.
 | [04-capture.md](04-capture.md) | Reading AI sessions in place; live files without agents; capture rules |
 | [05-plan.md](05-plan.md) | The ADRs, phases H, W, K, J, Q, V and P, order and milestones |
 | [06-reconciliation.md](06-reconciliation.md) | The rulings; where mock-v2 overrides these pages; where the commitments override mock-v2; how Phase E is redistributed |
+| [07-cards-wave-1.md](07-cards-wave-1.md) | Cards for the first wave: H-01, K-01, K-02, J-01, J-D1, Q-01, P-02 |
 | [galley/](galley/README.md) | Reference copies of Galley's tokens, typography spec and contrast audit |
 | `mock-v2/` | The mockup: Galley's prototype adapted to this direction |
