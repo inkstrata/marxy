@@ -201,6 +201,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       foldSource: async () => {
         if (current === open) await foldSource();
       },
+      holdsUnfoldedSource: () => current === open && view.sourceHasUnfoldedEdits(),
       onSaveAs: async (path) => {
         if (current !== open) return;
         await shell.allowAssetScope(dirname(path));

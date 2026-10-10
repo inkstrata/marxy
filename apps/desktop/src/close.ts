@@ -5,7 +5,7 @@
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { Shell } from '@marxy/shell-api';
 import type { DocumentStore } from './document/store.ts';
-import { ensureNoticesRegion } from './notices/index.ts';
+import { ensureNoticesRegion, notify, SOURCE_HELD_APART } from './notices/index.ts';
 import type { SaveResult } from './save.ts';
 
 /** What the guard reads of a pane (pane/index.ts's `Pane<AppPane>`, narrowed). */
@@ -82,7 +82,13 @@ function documentOf(pane: GuardPane, all: readonly GuardPane[]): DirtyDocument |
       for (const p of showing()) await p.content.foldSource();
     },
     async save() {
-      for (const p of showing()) if (p !== pane) await p.content.foldSource();
+      for (const p of showing()) await p.content.foldSource();
+      // A pane still holding Source text the store lacks (held apart from another pane's fold, D-11) would
+      // lose it to whatever is written: the save, and so the prompt's open or close, stops.
+      if (showing().some((p) => p.view.sourceHasUnfoldedEdits())) {
+        notify({ kind: 'info', text: SOURCE_HELD_APART });
+        return 'cancelled';
+      }
       return pane.content.save();
     },
   };

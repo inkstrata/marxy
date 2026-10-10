@@ -19,6 +19,8 @@ import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/post.ts';
 import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
 import type { RenderedSelection } from '../selection/view.ts';
+import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
+import { notify, SOURCE_HELD_APART } from '../notices/index.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
@@ -54,12 +56,14 @@ export interface OpenDocument {
 /**
  * Where a view draws. In the app the article is `#doc`, the scroller `document.documentElement`, the
  * Source mount `#marxy-source` and the mode host `document.body`, so the DOM is what it was before B-13.
+ * An article inside a `section.marxy-pane` carries its mode on that section instead (D-11; see
+ * `writeMode`).
  */
 export interface ViewHost {
   readonly article: HTMLElement;
   readonly scroller: HTMLElement;
   readonly sourceHost: HTMLElement;
-  /** Carries `data-marxy-mode`. */
+  /** Carries `data-marxy-mode` when the article is in no `section.marxy-pane` (a harness page). */
   readonly modeHost: HTMLElement;
 }
 
@@ -292,6 +296,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let lastReadingByteOffset = 0;
   let lastReadingFraction = 0;
   let modeToggleBusy = false;
+  /** This pane's Source text and the store went different ways under it (D-11; `holdApart`). */
+  let heldApart = false;
   /** The line on the reading line just after Source was shown; leaving from it with no edit is exact. */
   let sourceEntryPlace: number | null = null;
   /** Bumped each time Source is shown, so a late measurement of an earlier visit is dropped. */
@@ -379,16 +385,45 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   /**
    * The reader's place while Source shows (F-04): the line on the reading line. In Source the window
    * scrolls and the article is hidden, so neither its block list nor CodeMirror's scroller says where
-   * the reader is. Null in Rendered. A reader who has not scrolled (`scrollTop <= 0`) is at the top of
+   * the reader is. Null in Rendered. A reader who has not scrolled (no `scrollTop` above 0) is at the top of
    * the file, byte 0, as `positionAtScroll` reads it in Rendered (F-19.1): a line under the reading
    * line would put them below text written above.
    */
   function sourcePosition(path: string): ReadingPosition | null {
     const buffer = bufferNow();
     if (viewMode !== 'source' || !sourceEditor || !buffer || !sourceReadingPositionIn) return null;
-    if (scroller.scrollTop <= 0) return { path, byteOffset: 0, fraction: 0, mode: 'source' };
-    const place = sourceReadingPositionIn(buffer, sourceEditor.view as never, Math.round(window.innerHeight * 0.4));
+    // What scrolls in Source is the window, the mount (a pane's, or one pane's fixed overlay) or the
+    // editor's own scroller, depending on the page's rules: at the top only when none of them has moved.
+    const atTop = scroller.scrollTop <= 0 && sourceHost.scrollTop <= 0 && sourceEditor.view.scrollDOM.scrollTop <= 0;
+    if (atTop) return { path, byteOffset: 0, fraction: 0, mode: 'source' };
+    const place = sourceReadingPositionIn(buffer, sourceEditor.view as never, readingLinePx());
     return { path, byteOffset: place.byteOffset, fraction: place.fraction, mode: 'source' };
+  }
+
+  /**
+   * The reading line, in window coordinates: 40 % down this view's scroller. The window's own height
+   * while the window scrolls (as it always was); a pane's top and height while two are shown (D-11).
+   */
+  function readingLinePx(): number {
+    if (scroller === document.documentElement) return Math.round(window.innerHeight * 0.4);
+    return Math.round(scroller.getBoundingClientRect().top + scroller.clientHeight * 0.4);
+  }
+
+  /**
+   * The mode on the page (D-11). Each pane's section carries its own `data-marxy-mode`, and
+   * `document.body`'s mirrors the focused pane's: the CSS and the tests that read the body's (one pane
+   * is the window, so they were always reading the one pane's) keep working. The composition root
+   * writes the body's when focus moves; a view writes it here only while its pane has focus. An article
+   * in no pane (a harness page) writes its `modeHost`, as the one view always did.
+   */
+  function writeMode(mode: 'rendered' | 'source'): void {
+    const pane = doc.closest<HTMLElement>('section.marxy-pane');
+    if (!pane) {
+      modeHost.dataset.marxyMode = mode;
+      return;
+    }
+    pane.dataset.marxyMode = mode;
+    if (pane.hasAttribute('data-marxy-focus')) document.body.dataset.marxyMode = mode;
   }
 
   function setModeChrome(mode: 'rendered' | 'source'): void {
@@ -398,7 +433,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       (document.activeElement as HTMLElement).blur();
     }
     viewMode = mode;
-    modeHost.dataset.marxyMode = mode;
+    writeMode(mode);
     if (mode === 'source') {
       doc.hidden = true;
       sourceHost.hidden = false;
@@ -469,6 +504,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   async function leaveSourceForRendered(): Promise<void> {
     const open = store;
     if (!sourceEditor || !open) return;
+    // Held apart from the other pane's fold (D-11): leaving would fold this text over it. Stay, and say why.
+    if (stillHeldApart()) {
+      notify({ kind: 'info', text: SOURCE_HELD_APART });
+      return;
+    }
     // Leaving Source is one history entry (`commitSource`): Mod+Z in Rendered undoes what was typed there.
     // The page follows the store: its subscription sets the article from the new bytes, so nothing
     // resolves an operation through an AST, node map or block list built from the old ones.
@@ -830,6 +870,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     sourceEditor?.destroy();
     if (shared && shared !== sourceEditor) shared.destroy();
     sourceEditor = null;
+    heldApart = false;
     sourceHost.replaceChildren();
   }
 
@@ -879,13 +920,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function repaint(snapshot: DocumentSnapshot, position: ReadingPosition, landing: number | null = null, spanned = false): void {
     // Every path that changes the store while Source shows folds the editor's text first (undo, redo, save,
-    // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does, an
-    // invariant broke: say so, and replace the text as before rather than keep a copy that a later fold
-    // would write over the store's change (F-12).
-    if (sourceEditor && holdsUnfoldedText(sourceEditor, snapshot.buffer)) {
-      console.error('marxy: Source held unfolded text at a repaint; the editor is reset to the document');
+    // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does (another
+    // pane changed the store under it, D-11), the editor is held apart: its text is kept, not reset, and
+    // its folds are refused, so neither the reader's text nor the store's change is written over (F-12).
+    if (sourceEditor && !heldApart && holdsUnfoldedText(sourceEditor, snapshot.buffer)) {
+      console.error('marxy: Source held unfolded text at a repaint; the editor keeps it, held apart');
+      holdApart();
     }
-    if (sourceEditor) replaceSourceBuffer(sourceEditor, snapshot.buffer);
+    if (sourceEditor && !heldApart) replaceSourceBuffer(sourceEditor, snapshot.buffer);
     releaseAnchor();
     rerenderFromBuffer(landing ?? position.byteOffset);
     const typesetting = typesetDocument();
@@ -917,8 +959,75 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     settlePage(Promise.resolve());
   }
 
+  /**
+   * Text typed in this view's Source that the store did not have when another view's watch reloaded it
+   * from disk or followed a rename (two panes on one file, D-11): the store could not see it, so it moved
+   * on without it. The editor keeps it and it goes into the store on top, one history entry, as an
+   * unsaved edit the store kept would have: the page is set from the folded bytes. Never lost to a
+   * transition this view did not ask for.
+   */
+  function keepTypedText(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): boolean {
+    if (change.kind !== 'reload' && change.kind !== 'rename') return false;
+    // A reload that only adopted the bytes on disk (the buffer is the one it was) took nothing away.
+    if (snapshot.buffer === before.buffer) return false;
+    const open = store;
+    const editor = sourceEditor;
+    if (!open || !editor || viewMode !== 'source' || heldApart) return false;
+    const text = editor.docText();
+    if (!leaveSourceMode(before.buffer, text).changed) return false;
+    if (change.kind === 'reload') diskChangedEditsKeptNotice();
+    void open.commitSource(text).then(
+      (changed) => {
+        if (changed && sourceEditor === editor && store === open) editor.replaceBuffer(open.snapshot().buffer);
+      },
+      (e: unknown) => console.warn(`marxy: Source text could not be kept over a change on disk: ${String(e)}`),
+    );
+    return true;
+  }
+
+  /**
+   * A fold committed to the store this view shows, from this view or another (two panes on one file,
+   * D-11). Two safe cases only: the editor already reads as the store (this view's own fold), so it is
+   * re-pointed at the new bytes and the caret stays; or it holds no typing of its own, so it takes the
+   * new bytes, caret mapped. An editor still holding its own unfolded typing (no route should reach
+   * this: a pane opening a file another pane holds unfolded folds the holder first, app.ts) is held
+   * apart rather than merged: both texts are kept, neither written over the other.
+   */
+  function followFoldIn(editor: MountedSourceEditor, snapshot: DocumentSnapshot): void {
+    if (heldApart) return;
+    const text = editor.docText();
+    if (!leaveSourceMode(snapshot.buffer, text).changed) return editor.replaceBuffer(snapshot.buffer);
+    if (!leaveSourceMode(editor.buffer, text).changed) return replaceSourceBuffer(editor, snapshot.buffer);
+    holdApart();
+  }
+
+  /**
+   * This pane's Source text and the store went different ways under it (D-11): the editor keeps its text
+   * and the store keeps the other pane's, and the reader is told. Until the editor's text reads as the
+   * store's again, or this pane opens a document again, its folds are refused (on blur, before a save,
+   * an undo or a close) and so is leaving Source, which would fold: nothing of one pane is written over
+   * the other's. Its text still counts as unsaved, so a close, an open over it or quitting asks first.
+   */
+  function holdApart(): void {
+    if (!heldApart) notify({ kind: 'info', text: SOURCE_HELD_APART });
+    heldApart = true;
+  }
+
+  /** Whether the editor is still held apart; it is released once its text reads as the store's. */
+  function stillHeldApart(): boolean {
+    if (!heldApart) return false;
+    const buffer = bufferNow();
+    if (sourceEditor && buffer && !leaveSourceMode(buffer, sourceEditor.docText()).changed) {
+      heldApart = false;
+      sourceEditor.replaceBuffer(buffer);
+      return false;
+    }
+    return true;
+  }
+
   /** The page's side of a committed transition on the shown store. */
   function followTransition(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): void {
+    if (keepTypedText(before, snapshot, change)) return;
     switch (change.kind) {
       case 'open':
       case 'close':
@@ -931,7 +1040,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         settlePage(Promise.resolve());
         return;
       case 'commitSource':
-        // Leaving Source (or folding before a save or a rename): the caller restores the position.
+        // Leaving Source (or folding before a save or a rename): the caller restores the position. Another
+        // view's fold reaches this view's editor too, or its next fold would write the old text back (D-11).
+        if (sourceEditor) followFoldIn(sourceEditor, snapshot);
         try {
           rerenderFromBuffer();
         } catch (e) {
@@ -1229,7 +1340,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     showRenderedChrome: () => setModeChrome('rendered'),
     async foldSource() {
       const open = store;
-      if (!open || viewMode === 'rendered' || !sourceEditor) return false;
+      if (!open || viewMode === 'rendered' || !sourceEditor || stillHeldApart()) return false;
       if (!(await open.commitSource(sourceEditor.docText()))) return false;
       sourceEditor?.replaceBuffer(open.snapshot().buffer);
       return true;

@@ -1,5 +1,13 @@
 // One-line notices above the article (docs/design/09-app-shell.md §Notices). MARXY-138.
 
+/**
+ * What a pane says when its Source text and the other pane's fold of the same file meet (D-11), and when a
+ * save is refused for it. Opening the same file again does nothing over unsaved changes, so it names ways out
+ * that work.
+ */
+export const SOURCE_HELD_APART =
+  'Source in the other pane changed this file; your text here was not folded in. Undo your typing here until it matches the file, or open another document and discard it.';
+
 export type NoticeKind = 'blocked' | 'info';
 
 export interface NoticeInput {
