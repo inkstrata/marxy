@@ -501,7 +501,7 @@ so a rebase is mechanical.
 
 **Outcome.** One parser in core turns what a reader types in the library's query field (and, later, a saved
 query's `q`) into a typed query: field terms, plain words, phrases, exclusions, `OR` groups and any-of values,
-with each token's byte range in the input so the field can draw chips. Unknown keys and incomplete values are
+with each token's range in the input (UTF-16 code units, since the input is a string) so the field can draw chips. Unknown keys and incomplete values are
 kept as text and flagged, never dropped and never an error. A completion function suggests keys and values at a
 caret. Nothing evaluates a query yet (Q-03).
 
@@ -527,8 +527,9 @@ leading `-` excludes; commas inside a value mean any of; `"…"` is a phrase. Ke
    or `{ kind: 'unknown' | 'incomplete'; text; range }`. `range` is `[start, end)` in UTF-16 code units of the input.
 2. `parseQuery(input: string): Query` — a single left-to-right scan, no regex backtracking over the whole input;
    an unclosed quote runs to the end and is a phrase flagged incomplete; `-` alone is a word.
-3. Normalise comparisons to numbers (`2k` → 2000, `1mb` → 1,048,576 bytes, `<7d` → 7 days in ms) in the
-   term, keeping the written text.
+3. Normalise comparisons to numbers in the term, keeping the written text: counts (`words:`, `tasks:`) are
+   decimal (`2k` → 2,000); sizes (`size:`) are binary (`1kb` → 1,024, `1mb` → 1,048,576); ages in ms (`<7d`).
+   An unknown value of a known key (`is:foo`) is an `unknown` term kept as text, like an unknown key.
 4. `completeQuery(input, caret): { replace: [start, end); items: { label; insert; detail? }[] }` — keys after a
    space or at the start, values after a known key; `in:` values come from a caller-supplied list of
    collection names; `has:tasks` and `tasks:` parse but are not suggested (the mock's rule).
@@ -539,14 +540,15 @@ leading `-` excludes; commas inside a value mean any of; `"…"` is a phrase. Ke
 - Every row of the mock's syntax table parses to the expected terms (`query.test.ts`, one case per row).
 - `OR`, `-`, commas and quotes combine as the mock says (`is:unread OR is:changed`, `-kind:code`,
   `kind:report,transcript`, `"pg_upgrade --link"`).
-- An unknown key is an `unknown` term with its text; `words:>` is `incomplete`; neither throws.
+- An unknown key, and an unknown value of a known key (`is:foo`), is an `unknown` term with its text;
+  `words:>` is `incomplete`; none throws. `words:2k` is 2,000 and `size:1kb` is 1,024 (one test each).
 - `model:x`, `session:y`, `tag:z`, `is:ai`, `is:live` are `unknown` and never in a completion list (a test per
   name; it fails if any becomes a key).
 - Every term's `range` slices the input to exactly the token's text (a property test over random inputs:
   ranges are in order, non-overlapping, and inside the input).
 - `parseQuery` never throws on any string (the same property test, 10,000 random inputs including quotes,
   dashes, colons, unicode and lone surrogates) and runs in linear time (a 100 KB input parses in under 50 ms,
-  recorded, not asserted).
+  recorded) and scales linearly (10× the input parses in under 20× the time, asserted).
 - `completeQuery` suggests keys at the start, values after `is:`, and collection names after `in:`.
 - `pnpm precheck` and `pnpm check` green (core stays platform-free).
 

@@ -744,7 +744,7 @@ moves: measured byte 1914 restored instead of 2295. Note the scroll on window `r
 a split in the same task lands on byte 0: add a hook before the split in `pane-set.ts` (this story edits it) that
 notes the first pane's place. Also update the stale comment at `pane-set.ts:219`.
 
-**From the D-06 review (2026-10-10).** Mutation M10 (drop `if (!mod) return null` in `paneChordFor`) survives:
+**For D-07, from the D-06 review (2026-10-10; D-06 is merged, so this story closes the gap).** Mutation M10 (drop `if (!mod) return null` in `paneChordFor`) survives:
 the Alt+ArrowLeft test presses it with the left pane already focused. Press Alt+ArrowLeft and Alt+ArrowRight with the
 right pane focused and assert focus stays on pane 1, or unit-test `paneChordFor`. The palette-chord test cannot fail
 for the dialog hold (the registry skips the editable input); the outline test pins it.
