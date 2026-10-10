@@ -41,7 +41,7 @@ it before the first `[table]` header, with the file's own line ending), through 
 
 The folders the palette searches besides the repository of the open file. The reader's file: Marxy
 reads it, re-reads it when it changes, and writes to it in exactly one case, the command "Add this
-folder", which appends one `[[root]]` table and preserves every byte before it.
+folder", and saving a query (below); each appends one table and preserves every byte before it.
 
 ```toml
 # Folders Marxy searches. Edit freely; Marxy re-reads this file when it changes.
@@ -56,6 +56,11 @@ path = "~/Dev/marxy/docs"
 
 [deny]
 globs = ["**/drafts/**", "**/*.generated.md"]    # added to the built-in deny list
+
+[[query]]
+name = "Open plans"
+q = "kind:report has:tasks in:~/.claude/plans"
+description = "Plans with open tasks"   # optional
 ```
 
 - A `path` is absolute or `~`-prefixed and local; a URL is rejected. Each root is walked by the rules
@@ -64,6 +69,13 @@ globs = ["**/drafts/**", "**/*.generated.md"]    # added to the built-in deny li
 - Parsed with `smol-toml`, from bytes the shell hands over (`packages/core/src/index-model/`, shell-free).
   Unknown keys are reported once; an unparseable file falls back to no extra roots and says so, as
   `config.toml` does. Nothing in it is about a document's content.
+- A `[[query]]` is a saved query, a Smart collection in the sidebar (ADR-0062). `name` and `q` are
+  required, non-empty strings; `description` is optional. `q` is stored as the reader wrote it and
+  parsed by the query language, not here. A `name` is at most 80 characters and unique
+  (case-insensitive; a later duplicate is dropped with a warning), a `q` at most 1,000, and at most
+  200 queries are read. A bad entry is skipped with a warning; `query` that is not a list of tables is
+  ignored with one. Built-in smart collections (near-duplicates, broken paths) are code and are never
+  written here. Saving a query appends one `[[query]]` table, byte-faithfully like a folder.
 
 ## Data files
 

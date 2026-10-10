@@ -24,10 +24,12 @@ export { dirname, basename, joinPath, normalizePath, relativePath, pathUnder, is
 export {
   parseCollection,
   appendRoot,
+  appendQuery,
   denyRulesFor,
   COLLECTION_TEMPLATE,
   type Collection,
   type CollectionRoot,
+  type SavedQuery,
   type ParseCollectionResult,
 } from './collection.ts';
 export { planEvents, ignoreRulesFrom, type FileEvent, type EventPlan } from './apply-events.ts';
