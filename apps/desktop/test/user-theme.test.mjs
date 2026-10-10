@@ -180,7 +180,7 @@ test('opening theme.css lands in Source with Use this theme writing config', asy
   }
 });
 
-test('contract-2 theme shows a warning notice and still applies', async () => {
+test('a contract-2 theme applies; its notice names the unset roles and says the fallbacks are used (ADR-0059 item 9)', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -196,7 +196,11 @@ test('contract-2 theme shows a warning notice and still applies', async () => {
       notice: [...document.querySelectorAll('.marxy-notice-text')].map((el) => el.textContent ?? '').join(' '),
     }));
     assert.equal(result.hasTheme, true);
-    assert.match(result.notice, /contract 2/i);
+    // Contract 2 is spoken now: no "may not look as intended" mismatch, only the unset roles (the fixture sets none).
+    assert.match(result.notice, /Theme 'contract-2' leaves \d+ contract-2 colour roles unset in the dark variant/);
+    assert.match(result.notice, /--marxy-color-surface/);
+    assert.match(result.notice, /the fallbacks are used/);
+    assert.doesNotMatch(result.notice, /may not look as intended/);
   } finally {
     await browser.close();
   }
