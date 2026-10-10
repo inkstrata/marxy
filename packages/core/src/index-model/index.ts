@@ -39,3 +39,22 @@ export {
   CAPTURE_PRIVACY_LINE,
   type CaptureRule,
 } from './capture.ts';
+export {
+  parseQuery,
+  completeQuery,
+  QUERY_KEYS,
+  IS_VALUES,
+  HAS_VALUES,
+  type Query,
+  type Group,
+  type Term,
+  type FieldTerm,
+  type TextTerm,
+  type FlaggedTerm,
+  type QueryKey,
+  type CompareOp,
+  type QueryRange,
+  type Completion,
+  type CompletionItem,
+  type CompletionContext,
+} from './query.ts';
