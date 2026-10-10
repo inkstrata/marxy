@@ -465,7 +465,7 @@ Acceptance: one test per point, red on main; no golden moves.
 
 ### F-29 — The two-pane test harness finds the real body element
 
-**Model:** sonnet · **Size:** S · *From the D-08 fix (2026-10-10).* · **Paths:** `apps/desktop/test/support/two-pane.mjs`.
+**Model:** sonnet · **Size:** S · **Depends on:** none · *From the D-08 fix (2026-10-10).* · **Paths:** `apps/desktop/test/support/two-pane.mjs`.
 `shippedSkeleton()` finds the body with `/<body[^>]*>/`, which matched the literal text `<body>` in a CSS comment in
 `index.html` and booted a broken skeleton: every two-pane suite timed out at 120 s. Find the body element with a
 parser (or the first `<body` outside a comment and a `<style>` element). Acceptance: a skeleton whose `<style>`
