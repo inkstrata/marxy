@@ -113,11 +113,23 @@ whose `when` does not hold (one pane), does nothing.
 
 | Key | Action | Notes |
 | --- | --- | --- |
-| `Mod+\` | open beside (`view.open-beside`) | D-07 |
+| `Mod+\` | open beside (`view.open-beside`) | D-07: the palette in beside mode (below); works with the palette already open |
 | `Mod+Shift+\` | close the focused pane (`view.close-pane`) | D-08; never `Mod+W`, which is the native Close Window and quits |
 | `Mod+1` | focus the left pane (`view.focus-left`) | with two panes |
 | `Mod+2` | focus the right pane (`view.focus-right`) | with two panes |
 | `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane | the same two commands; `Alt+←`/`→` without `Mod` stays history |
+
+**Open beside.** `Mod+\` opens the palette in beside mode. With nothing typed it lists Recent alone, the
+most recently used documents without those already on screen (`recentExcluding`, `palette/session.ts`), the
+first row selected, so `Mod+\` then `Enter` is "split with recent". Typed, it finds what the palette finds.
+`Enter` opens the row in the other pane, made if there is one pane; `Mod+Enter` on any row, in either mode,
+does the same. The notice line says "Open beside". The other pane's unsaved document is asked about in that
+pane (`beforeReplace`, D-08) before it is replaced, and focus moves to the pane that opened once its document
+is on screen; `Esc` gives it back to the pane the palette came from. When the window cannot hold two
+columns at the typography floor (`pane/fit.ts`, 929 px at the default text size) no second pane is made: with
+one pane `Mod+\` shows the notice "Marxy needs a window at least 929 px wide to show two documents side by
+side." and opens no palette; with the palette already up, `Enter` keeps it open with that notice and then
+opens the document here. The number is worked out from the page's metrics, never typed.
 
 A press in a pane focuses it before anything in the pane sees the press, so a click in the other pane
 focuses it and then selects. The first wheel event over the other pane after 150 ms without one focuses it

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry } from '@marxy/core';
-import { emptySession, recordOpen, togglePin, goBack, goForward, OPENS_CAP } from './session.ts';
+import { emptySession, recentExcluding, recordOpen, togglePin, goBack, goForward, OPENS_CAP } from './session.ts';
 import { paletteResults, prepareIndex } from './search.ts';
 
 function entry(path: string, title = path): IndexEntry {
@@ -128,4 +128,15 @@ test('a hit opened in root /b moves the current root, and /b hits come before /a
   assert.equal(session.currentRoot, '/b');
   const hits = paletteResults('guide', entries, session);
   assert.deepEqual(hits.map((hit) => hit.entry.root), ['/b', '/a']);
+});
+
+test('recentExcluding is the MRU, newest first, without the documents on screen (D-07)', () => {
+  let session = emptySession('/repo');
+  for (const name of ['a', 'b', 'c', 'd']) session = recordOpen(session, `/repo/${name}.md`);
+  session = togglePin(session, '/repo/a.md');
+  // d is newest; the pin does not lift a: beside mode lists what was read last.
+  assert.deepEqual(recentExcluding(session, ['/repo/d.md']), ['/repo/c.md', '/repo/b.md', '/repo/a.md']);
+  assert.deepEqual(recentExcluding(session, ['/repo/d.md', '/repo/b.md']), ['/repo/c.md', '/repo/a.md']);
+  assert.deepEqual(recentExcluding(session, []), ['/repo/d.md', '/repo/c.md', '/repo/b.md', '/repo/a.md']);
+  assert.deepEqual(recentExcluding(emptySession('/repo'), ['/repo/a.md']), []);
 });
