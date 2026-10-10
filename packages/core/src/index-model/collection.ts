@@ -2,6 +2,7 @@
 // touching another byte. Shell-free: the host passes bytes and the home directory (ADR-0020).
 
 import { parse } from 'smol-toml';
+import { type CaptureRule, parseCaptures } from './capture.ts';
 import { type IgnoreRule, parseIgnore } from './ignore.ts';
 import { isWindowsPath, normalizePath } from './paths.ts';
 
@@ -22,6 +23,7 @@ export interface Collection {
   readonly roots: readonly CollectionRoot[];
   readonly denyGlobs: readonly string[];
   readonly queries: readonly SavedQuery[];
+  readonly captures: readonly CaptureRule[];
 }
 
 export interface ParseCollectionResult {
@@ -35,7 +37,7 @@ const MAX_ROOTS = 32;
 
 const ROOT_KEYS = new Set(['path', 'name', 'watch']);
 const QUERY_KEYS = new Set(['name', 'q', 'description']);
-const TOP_KEYS = new Set(['root', 'deny', 'query']);
+const TOP_KEYS = new Set(['root', 'deny', 'query', 'capture']);
 
 const MAX_QUERIES = 200;
 const MAX_QUERY_NAME = 80;
@@ -43,7 +45,7 @@ const MAX_QUERY_Q = 1000;
 
 const UNPARSEABLE = 'collection.toml could not be parsed; no extra folders';
 
-const EMPTY: Collection = { roots: [], denyGlobs: [], queries: [] };
+const EMPTY: Collection = { roots: [], denyGlobs: [], queries: [], captures: [] };
 
 /** Header comment of a fresh file (06 §4.2). Ends in a blank line. */
 export const COLLECTION_TEMPLATE: string = [
@@ -79,7 +81,7 @@ function resolveRootPath(raw: string, home: string): string | null {
 }
 
 /** Parses collection.toml bytes. Bad entries are skipped with a warning; a bad file is empty. */
-export function parseCollection(bytes: Uint8Array, ctx: { readonly home: string }): ParseCollectionResult {
+export function parseCollection(bytes: Uint8Array, ctx: { readonly home: string; readonly ownFolders?: readonly string[] }): ParseCollectionResult {
   const text = new TextDecoder().decode(bytes); // strips a leading BOM
   const warnings: string[] = [];
   const unknown = new Set<string>();
@@ -146,7 +148,10 @@ export function parseCollection(bytes: Uint8Array, ctx: { readonly home: string 
     }
   }
   const queries = parseQueries(raw.query, warnings, unknown);
-  return { collection: { roots, denyGlobs, queries }, warnings, unknownKeys: [...unknown] };
+  const cap = parseCaptures(raw.capture, { home: ctx.home, ownFolders: ctx.ownFolders ?? [], denyGlobs, resolvePath: resolveRootPath });
+  warnings.push(...cap.warnings);
+  for (const k of cap.unknownKeys) unknown.add(k);
+  return { collection: { roots, denyGlobs, queries, captures: cap.captures }, warnings, unknownKeys: [...unknown] };
 }
 
 /** Why a name/q pair cannot be a saved query, or null. Lengths count characters, not UTF-16 units. */

@@ -78,13 +78,13 @@ test('more than 32 roots warn and the rest are dropped', () => {
 
 test('a malformed file gives an empty collection and exactly one warning', () => {
   const r = parseCollection(enc('[[root\npath = = \n'), ctx);
-  assert.deepEqual(r.collection, { roots: [], denyGlobs: [], queries: [] });
+  assert.deepEqual(r.collection, { roots: [], denyGlobs: [], queries: [], captures: [] });
   assert.deepEqual(r.warnings, ['collection.toml could not be parsed; no extra folders']);
 });
 
 test('an empty file is an empty collection with no warning', () => {
   const r = parseCollection(enc(''), ctx);
-  assert.deepEqual(r.collection, { roots: [], denyGlobs: [], queries: [] });
+  assert.deepEqual(r.collection, { roots: [], denyGlobs: [], queries: [], captures: [] });
   assert.deepEqual(r.warnings, []);
 });
 
@@ -379,4 +379,15 @@ test('appendQuery after appendRoot keeps both, and a roots-only file is untouche
   assert.equal(r.collection.roots.at(-1)?.path, '/z');
   assert.deepEqual(r.collection.queries, [QUERY]);
   assert.deepEqual(r.collection.roots, parseCollection(withRoot, ctx).collection.roots);
+test('a file with roots and captures yields both; one without captures has none (P-02)', () => {
+  const r = parseCollection(
+    enc('[[root]]\npath = "~/notes"\n\n[[capture]]\nfrom = "~/.claude/plans/*.md"\nto = "~/Notes/plans"\n'),
+    ctx,
+  );
+  assert.deepEqual(r.collection.roots, [{ path: '/Users/ian/notes', watch: true }]);
+  assert.deepEqual(r.collection.captures, [
+    { from: '/Users/ian/.claude/plans/*.md', to: '/Users/ian/Notes/plans', fromBase: '/Users/ian/.claude/plans' },
+  ]);
+  assert.deepEqual([r.warnings, r.unknownKeys], [[], []]);
+  assert.deepEqual(parseCollection(enc('[[root]]\npath = "/a"\n'), ctx).collection.captures, []);
 });

@@ -77,6 +77,39 @@ description = "Plans with open tasks"   # optional
   ignored with one. Built-in smart collections (near-duplicates, broken paths) are code and are never
   written here. Saving a query appends one `[[query]]` table, byte-faithfully like a folder.
 
+### `[[capture]]` (ADR-0063)
+
+A rule is the reader's standing request that Marxy copy files out to a folder they own. Marxy ships
+none, and writes none: the reader edits the file by hand. This section is the parse and validation
+only; the copying is P-03.
+
+```toml
+[[capture]]
+from = "~/.claude/projects/**/*.jsonl"   # a glob; its first fixed folder is the base
+to   = "~/Notes/sessions"                # a folder
+```
+
+| Key | Meaning |
+| --- | --- |
+| `from` | An absolute or `~`-prefixed glob. `fromBase` is the folder part before its first glob character (`~/.claude/projects`), which P-03 keeps copies relative to. |
+| `to` | An absolute or `~`-prefixed folder. |
+
+A rule that fails any check is skipped with one warning that names it (`capture 2 (from "…" to "…") …`);
+the others stand. Refused:
+
+- a missing or non-string `from` or `to`;
+- a path that is not absolute and local (the rule the roots use);
+- a `from` with no fixed folder (`/**/*.md`);
+- a `to` that is `/` or the home folder itself;
+- a `to` inside `fromBase`, or a `fromBase` inside `to`, which would copy in a loop;
+- a `to` inside Marxy's own config or data folder (the host passes them as `ownFolders`, as it passes
+  `home`; the desktop shell takes them from `configPaths`, as the C-14 refusal of a root does);
+- a `to` matching a `[deny]` glob or the built-in deny list.
+
+Unknown keys are reported as `capture.<key>`. More than 32 rules warn and the rest are dropped. The
+Privacy page's sentence is the constant `CAPTURE_PRIVACY_LINE` (ADR-0063 item 6, verbatim, with a test
+that reads the ADR), and `capturePrivacyLines(rules)` fills in each rule's paths.
+
 ## Data files
 
 | File | Content | Cap | Owner |
