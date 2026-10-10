@@ -368,11 +368,58 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     return null;
   };
 
-  /** Runs `work`, which may change heights above the reading line, and keeps the point under it where it was. */
-  const keepPlace = (work: () => void): void => {
+  // The end of the scroller is held through a pass's writes (B-26.1). Setting a paragraph splits its
+  // text nodes (the breaks, the hang), and WebKit lays out a text node that was split as if the text
+  // moved into the new nodes were not there yet: inside the one layout that follows, the paragraph is
+  // as short as what its first node kept (one line, when every split is at a line's end). A scroller
+  // within that much of its end clamps its offset to the shorter content and keeps the clamped offset
+  // once the paragraph is whole again: a pane or window put at its end before its paragraphs were set
+  // jumped some 2,000 px back, the first time a batch of paragraphs far above was set. No script moves
+  // it, and it comes inside the quiet window after the reader's own scroll, so `keepPlace` does not
+  // put it right. So while a pass writes, the article keeps at least the height it had, and the
+  // transient shrink never reaches the scroller; a real change of height is the engine's again once
+  // the pass is done, the same layout as without the hold. Taken only when the scroller is nearer its
+  // end than the paragraphs the pass rewrites are tall, the most they can shrink: at the top, or
+  // mid-document, it costs one read of the offset. Replacing the split nodes with new ones instead
+  // also avoids the shrink, but moves the reader's selection out of a paragraph that is set again.
+  let holding = false;
+  const holdEnd = (root: HTMLElement, rewrites: readonly HTMLElement[]): (() => void) | null => {
+    if (holding || rewrites.length === 0) return null;
+    const top = root.scrollTop;
+    if (top <= 0) return null;
+    let most = 0;
+    for (const p of rewrites) most += p.getBoundingClientRect().height;
+    if (root.scrollHeight - root.clientHeight - top >= most) return null;
+    const style = article.style;
+    const value = style.getPropertyValue('min-height');
+    const priority = style.getPropertyPriority('min-height');
+    const cs = getComputedStyle(article);
+    let height = article.getBoundingClientRect().height;
+    if (cs.boxSizing !== 'border-box') {
+      for (const side of [cs.paddingTop, cs.paddingBottom, cs.borderTopWidth, cs.borderBottomWidth]) height -= parseFloat(side) || 0;
+    }
+    style.setProperty('min-height', `${height}px`, 'important');
+    holding = true;
+    return () => {
+      holding = false;
+      if (value === '') style.removeProperty('min-height');
+      else style.setProperty('min-height', value, priority);
+    };
+  };
+
+  /**
+   * Runs `work`, which may change heights above the reading line, and keeps the point under it where it
+   * was. `rewrites` are the paragraphs whose text it may split: the end of the scroller is held for them.
+   */
+  const keepPlace = (work: () => void, rewrites: readonly HTMLElement[]): void => {
     const root = scroller();
     const place = root === null || readerIsScrolling() ? null : placeAt(root);
-    work();
+    const release = root === null ? null : holdEnd(root, rewrites);
+    try {
+      work();
+    } finally {
+      release?.();
+    }
     if (root === null || place === null || readerIsScrolling() || !place.el.isConnected) return;
     const char = place.char === null ? null : charTopNow(place.el, place.char);
     // A character that paints no box after the pass (hidden, or gone) leaves the block's top to follow.
@@ -569,7 +616,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
       }
       if (far.length > 0) enqueue(far);
       if (near.length > 0) setBatch(near);
-    });
+    }, near);
     if (!reset || near.length === 0) return;
     // The grid pass runs again only when a paragraph's line count, and so its height, moved.
     if (near.some((p) => !p.classList.contains(SET) || breaksIn(p) !== before.get(p))) opts.onPass?.('visible');
@@ -626,7 +673,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     // puts right by position (B-02.5); at the top of the page this costs one read. At a relayout the
     // app's `relayoutKeepingReader` restores by position after `ready`, so this matters only where
     // nothing restores afterwards (an attach on a scrolled page, a relayout the caller does not restore after).
-    keepPlace(() => setBatch(first));
+    keepPlace(() => setBatch(first), first);
     stats.viewportMs = performance.now() - t0;
     if (first.length > 0) opts.onPass?.('viewport');
     resolveReady();
@@ -646,7 +693,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
           const now = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement).filter((p) => queue.includes(p));
           if (now.length === 0) return;
           queue = queue.filter((p) => !now.includes(p));
-          keepPlace(() => setBatch(now));
+          keepPlace(() => setBatch(now), now);
           opts.onPass?.('visible');
         },
         { rootMargin: '200% 0px' },
@@ -669,7 +716,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
         let moved = false;
         keepPlace(() => {
           moved = setBatch(batch);
-        });
+        }, batch);
         // Only a batch that moved something below it asks for the grid pass and new positions (B-25):
         // the caller's pass covers the whole article, and asked after every batch of a large document
         // it was most of the time to its last chunk, for nothing, since a set paragraph seldom changes height.
