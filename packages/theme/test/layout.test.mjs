@@ -156,3 +156,67 @@ test('at 1280px the markers still hang fully: item text on the column edge, the 
   assert.ok(Math.abs(m.colL - m.olMarker - 2.25 * m.em) <= 0.5, `the marker hangs ${m.colL - m.olMarker}px, not 2.25em (${2.25 * m.em}px)`);
   for (const left of m.checkboxes) assert.ok(left < m.colL, `a checkbox at ${left}px does not hang left of the column (${m.colL}px)`);
 });
+
+// F-22: the number comes from the list's own counter, so <ol start> is honoured, and the marker box
+// grows with its number so a long one never runs into the item's text.
+function measureOl() {
+  const items = [...document.querySelectorAll('#doc > ol > li')];
+  return items.map((li) => {
+    const before = getComputedStyle(li, '::before');
+    const range = document.createRange();
+    const walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT);
+    let textLeft = null;
+    for (let n = walker.nextNode(); n && textLeft === null; n = walker.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      range.selectNodeContents(n);
+      textLeft = range.getClientRects()[0].left;
+    }
+    const markerLeft = li.getBoundingClientRect().left + parseFloat(before.marginInlineStart);
+    return { markerLeft, markerRight: markerLeft + parseFloat(before.width), textLeft, em: parseFloat(getComputedStyle(li).fontSize) };
+  });
+}
+
+test('an ordered list that starts at 7 shows 7, 8, 9 (F-22)', async () => {
+  // A pseudo-element's counter cannot be read back, so the marker glyphs are compared as pixels with a
+  // reference list written with explicit item values (7, 8, 9), and against a list that starts at 1.
+  const page = await openPage(browser, renderMarkdown('7. seven\n8. eight\n9. nine\n\ntext\n\n1. same\n2. same\n3. same\n'), { width: 1280 });
+  const boxes = await page.evaluate(() => {
+    const ref = document.createElement('ol');
+    for (const [value, text] of [[7, 'seven'], [null, 'eight'], [null, 'nine']]) {
+      const li = document.createElement('li');
+      if (value) li.value = value;
+      li.textContent = text;
+      ref.append(li);
+    }
+    document.getElementById('doc').append(ref);
+    const lists = [...document.querySelectorAll('#doc > ol')];
+    return lists.map((ol) => [...ol.children].map((li) => {
+      const r = li.getBoundingClientRect();
+      const w = parseFloat(getComputedStyle(li, '::before').width);
+      return { x: r.left - w, y: r.top + window.scrollY, width: w, height: r.height };
+    }));
+  });
+  const shots = [];
+  for (const list of boxes) {
+    const row = [];
+    for (const b of list) row.push(await page.screenshot({ clip: b, fullPage: true }));
+    shots.push(row);
+  }
+  await page.close();
+  const [seven, one, ref] = shots;
+  seven.forEach((png, i) => assert.ok(png.equals(ref[i]), `marker ${i + 1} of the list that starts at 7 does not look like ${7 + i}`));
+  assert.ok(!seven[0].equals(one[0]), 'the markers of a list starting at 7 and one starting at 1 look the same');
+});
+
+for (const width of [320, 1280]) {
+  test(`a 1000-item list's markers never overlap their text at ${width}px (F-22)`, async () => {
+    const md = Array.from({ length: 1005 }, (_, i) => `${i + 1}. item ${i + 1}`).join('\n') + '\n';
+    const page = await openPage(browser, renderMarkdown(md), { width });
+    const items = await page.evaluate(measureOl);
+    await page.close();
+    assert.ok(items[999].markerRight - items[999].markerLeft > 2.25 * items[999].em, 'the "1000." box grew past the 2.25em of a short number');
+    for (const i of [99, 999, 1004]) {
+      assert.ok(items[i].markerRight <= items[i].textLeft + 0.5, `marker ${i + 1} ends at ${items[i].markerRight}px, past its text at ${items[i].textLeft}px`);
+    }
+  });
+}
