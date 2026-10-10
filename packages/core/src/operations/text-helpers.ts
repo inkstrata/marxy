@@ -3,14 +3,13 @@
 import type { Source } from '../contracts/ast.ts';
 
 /**
- * The line ending of `text`: `'\r\n'` if its first line ending is CRLF, else `'\n'` (also when `text` has
- * no line ending at all). An operation that emits a line break uses this, never a literal `'\n'`, because
- * `splice` converts nothing. A lone-CR file reads as `'\n'` here: the helper answers for CRLF versus LF,
- * the two endings an operation can be handed inside one block.
+ * The line ending of `text`: its first one (`'\r\n'`, `'\n'` or a lone `'\r'`), `'\n'` when there is none.
+ * An operation that emits a line break uses this, never a literal `'\n'`, because `splice` converts nothing.
+ * (The editor's own rule for a whole buffer is `lineSeparatorFor`, F-25, in apps/desktop, which core cannot import.)
  */
-export function eolOf(text: string): '\r\n' | '\n' {
-  const lf = text.indexOf('\n');
-  return lf > 0 && text.charCodeAt(lf - 1) === 0x0d ? '\r\n' : '\n';
+export function eolOf(text: string): '\r\n' | '\n' | '\r' {
+  const m = /\r\n|\n|\r/.exec(text);
+  return m ? (m[0] as '\r\n' | '\n' | '\r') : '\n';
 }
 
 export interface TextIndex {

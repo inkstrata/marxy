@@ -46,6 +46,12 @@ export function seededRandom(seed: number): () => number {
   };
 }
 
+/** Each line ending of `s` becomes LF, CRLF or a lone CR, chosen by the seeded generator: LF, CRLF and CR in one file. */
+export function mixedAllEndings(s: string, seed: number): string {
+  const next = seededRandom(seed);
+  return s.replace(/\r\n|\r|\n/g, () => ['\n', '\r\n', '\r'][Math.floor(next() * 3)]!);
+}
+
 /** Each line ending of `s` becomes LF or CRLF, chosen by the seeded generator: a mixed-separator file. */
 export function mixedEndings(s: string, seed: number): string {
   const next = seededRandom(seed);
@@ -196,7 +202,7 @@ export interface Row {
   readonly summary?: RegExp;
 }
 
-export type RowVariant = 'as written' | 'CRLF' | 'no trailing newline' | 'BOM';
+export type RowVariant = 'as written' | 'CRLF' | 'CR' | 'no trailing newline' | 'BOM';
 
 function parseText(text: string): { bytes: Uint8Array; doc: Document } {
   const bytes = enc.encode(text);
@@ -225,7 +231,7 @@ export function runRow(op: Operation, row: Row, source: string, expected: string
 
 /** The variants of a row, as `[label, source, expect]`. */
 export function rowVariants(row: Row, opts: { lfOnly?: boolean; bom?: boolean } = {}): [RowVariant, string, string][] {
-  const out: [RowVariant, string, string][] = [['as written', row.source, row.expect], ['CRLF', crlf(row.source), crlf(row.expect)]];
+  const out: [RowVariant, string, string][] = [['as written', row.source, row.expect], ['CRLF', crlf(row.source), crlf(row.expect)], ['CR', cr(row.source), cr(row.expect)]];
   if (!opts.lfOnly && row.source.endsWith('\n') && (row.expect.endsWith('\n') || row.expect === row.source)) {
     out.push(['no trailing newline', row.source.slice(0, -1), row.expect.slice(0, -1)]);
   }
@@ -234,7 +240,7 @@ export function rowVariants(row: Row, opts: { lfOnly?: boolean; bom?: boolean } 
 }
 
 /**
- * Register `node:test` cases for every row: as written, with every line ending CRLF, and (unless `lfOnly`)
+ * Register `node:test` cases for every row: as written, with every line ending CRLF, with every line ending a lone CR, and (unless `lfOnly`)
  * without the trailing newline when the source had one; `bom: true` adds a variant behind a byte-order mark.
  */
 export function tableTest(op: Operation, rows: readonly Row[], opts: { lfOnly?: boolean; bom?: boolean } = {}): void {
@@ -289,7 +295,7 @@ function applyAt(op: Operation, doc: Document, bytes: Uint8Array, node: Node): {
 }
 
 /**
- * Over every `fixtures/corpus/*.md` file (as is, CRLF, behind a BOM, and a seeded mixed-separator copy) and
+ * Over every `fixtures/corpus/*.md` file (as is, CRLF, lone CR, behind a BOM, and seeded mixed-separator copies (LF+CRLF, and LF+CRLF+CR)) and
  * every node `op.canApply` accepts: bytes outside the range are unchanged, line separators are preserved,
  * the result is a minimal diff against `targets`, and, when asked, `op` is idempotent or `inverse` undoes it.
  */
@@ -307,8 +313,10 @@ export function corpusProperties(op: Operation, opts: CorpusOptions): CorpusStat
     const forms: [string, string][] = [
       ['as is', text0],
       ['crlf', crlf(text0)],
+      ['cr', cr(text0)],
       ['bom', text0.startsWith('﻿') ? text0 : withBom(text0)],
       [`mixed(seed ${seed})`, mixedEndings(text0, seed)],
+      [`mixed-all(seed ${seed})`, mixedAllEndings(text0, seed)],
     ];
     for (const [label, text] of forms) {
       variants++;

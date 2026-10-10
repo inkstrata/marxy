@@ -13,6 +13,7 @@ import {
   corpusProperties,
   cr,
   crlf,
+  mixedAllEndings,
   mixedEndings,
   rowVariants,
   runRow,
@@ -58,8 +59,8 @@ const rows: Row[] = [
 tableTest(upper, rows);
 
 test('rowVariants: three ways, and lfOnly drops the trailing-newline one', () => {
-  assert.deepEqual(rowVariants(rows[0]!).map((v) => v[0]), ['as written', 'CRLF', 'no trailing newline']);
-  assert.deepEqual(rowVariants(rows[0]!, { lfOnly: true }).map((v) => v[0]), ['as written', 'CRLF']);
+  assert.deepEqual(rowVariants(rows[0]!).map((v) => v[0]), ['as written', 'CRLF', 'CR', 'no trailing newline']);
+  assert.deepEqual(rowVariants(rows[0]!, { lfOnly: true }).map((v) => v[0]), ['as written', 'CRLF', 'CR']);
   assert.deepEqual(rowVariants(rows[0]!, { bom: true }).map((v) => v[0]).pop(), 'BOM');
 });
 
@@ -177,12 +178,26 @@ test('corpusProperties visits every corpus file and passes a well-behaved operat
   const expected = readdirSync(new URL('../../../../fixtures/corpus/', import.meta.url)).filter((f) => f.endsWith('.md')).sort();
   assert.deepEqual([...stats.files], expected);
   assert.ok(stats.applied > 0);
-  assert.equal(stats.variants, expected.length * 4);
+  assert.equal(stats.variants, expected.length * 6);
 });
 
 test('corpusProperties fails when an operation rewrites a byte outside its targets', () => {
   const rewritesTheHashes = op('rewrites-hashes', (t) => t.replace(/^#/, '='));
   canFail(() => corpusProperties(rewritesTheHashes, { targets: headingTargets, accepts }));
+});
+
+/** Rewrites every CR line ending to LF. */
+const crNormaliser = op('cr-normaliser', (t) => t.replace(/\r(?!\n)/g, '\n'));
+
+test('kit rejects a CR-to-LF normaliser, in a table row and over the corpus', () => {
+  const row = rows[0]!;
+  const source = cr('# Title\n\nbody\n');
+  const whole: Row = { ...row, range: (d) => d.src, expect: cr('# TITLE\n\nBODY\n') };
+  const upperAll = op('upper-all', (t) => t.toUpperCase(), (i) => i.node?.type === 'heading' || i.node?.type === 'document');
+  runRow(upperAll, whole, source, whole.expect);
+  const bad = op('upper-all-cr-to-lf', (t) => crNormaliser.run({ document: undefined as never, range: undefined as never, text: t.toUpperCase() }).replacement, (i) => i.node?.type === 'document');
+  canFail(() => runRow(bad, whole, source, whole.expect));
+  canFail(() => corpusProperties(crNormaliser, { targets: headingTargets, accepts }));
 });
 
 test('corpusProperties fails an operation that normalises CRLF or emits LF', () => {
@@ -208,6 +223,9 @@ test('seeded generator: same seed, same variants; a different seed, different on
   assert.notEqual(mixedEndings(s, 3), mixedEndings(s, 4));
   assert.equal(mixedEndings(s, 3).replace(/\r\n/g, '\n'), s);
   assert.equal(cr('a\nb\r\nc'), 'a\rb\rc');
+  const all = mixedAllEndings(s, 5);
+  assert.equal(all, mixedAllEndings(s, 5));
+  assert.deepEqual([...new Set(all.match(/\r\n|\r|\n/g))].sort(), ['\n', '\r', '\r\n']);
 });
 
 // ---- text-helpers ----
@@ -215,6 +233,7 @@ test('seeded generator: same seed, same variants; a different seed, different on
 test('eolOf: the first line ending decides, LF when there is none', () => {
   assert.equal(eolOf('a\r\nb\n'), '\r\n');
   assert.equal(eolOf('a\nb\r\n'), '\n');
+  assert.equal(eolOf('a\rb\n'), '\r');
   assert.equal(eolOf('no ending'), '\n');
   assert.equal(eolOf(''), '\n');
 });
