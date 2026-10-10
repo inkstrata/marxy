@@ -1342,7 +1342,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   let deferredGeneration = 0;
   function deferAfterComplete(current: ProgressiveMount, file: string): void {
     const generation = ++deferredGeneration;
-    void afterComplete(current, () => (generation === deferredGeneration ? whenIdle(deferredStartup(file)) : undefined));
+    void afterComplete(current, () => (generation === deferredGeneration ? whenIdle(deferredStartup(file)) : Promise.resolve()));
   }
 
   /** The render half of an open (MARXY-183): the store's snapshot into the article through the `render` mark. */
