@@ -60,8 +60,10 @@ writes them down and decides what those rulings left open.
 
 *Reflows* answers ADR-0059 item 7's handoff: a kind that reflows is set to a measure, and the theme
 validator clamps its `--marxy-measure-chars` to 45–80 characters; a kind that does not reflow keeps
-its lines as authored, and only size and face may change in its scope (03 §Profiles, Galley's
-coupling rule). A JSONL transcript's bytes do not reflow; its derived view (ADR-0061, K-12) does.
+its lines as authored. For a kind that does not reflow, the reader's typesetting adjustments (the
+typography panel, K-15) change only size and face (03 §Profiles, Galley's coupling rule); what a
+theme's kind scope may set is ADR-0059 item 7's list, which this column does not narrow. A JSONL
+transcript's bytes do not reflow; its derived view (ADR-0061, K-12) does.
 
 ### Detection
 
@@ -72,34 +74,47 @@ coupling rule). A JSONL transcript's bytes do not reflow; its derived view (ADR-
    so the kind chip's menu and the inspector can say why. K-03 builds this in core, as a pure function
    of the path, a prefix of the bytes and the reader's rules.
 
+   **The text family** is what Marxy parses as Markdown: the extensions it renders today (`.md`,
+   `.markdown`, `.mdx`, `.txt`, `RENDERED_EXT` in `default-mode.ts`), plus an extension-less file
+   named `README`, `CONTRIBUTING`, `CHANGELOG`, `CHANGES` or `HISTORY`. Tier 2 applies only inside the
+   text family, and tier 3 only outside it, so a README with a format extension keeps its format's
+   kind: `README.rst` and `README.org` are `code`, and `README.html` is `html`, on the HTML trust path.
+
    | Tier | Signal | Points to |
    | --- | --- | --- |
    | 1. Reader | *Show as* chosen for this file (item 9) | Whatever it says |
    | 1. Reader | A `[[kind]]` rule in `config.toml` whose glob matches the path; first match in file order wins (K-04) | Whatever its `is` says |
-   | 2. Name | `README*`, `CONTRIBUTING*` | `readme` |
-   | 2. Name | `CHANGELOG*`, `CHANGES*`, `HISTORY*` | `changelog` |
+   | 2. Name (text family; case-insensitive) | `README*`, `CONTRIBUTING*` | `readme` |
+   | 2. Name (text family; case-insensitive) | `CHANGELOG*`, `CHANGES*`, `HISTORY*` | `changelog` |
    | 3. Format | `.diff`, `.patch` | `diff` |
    | 3. Format | `.html`, `.htm` | `html` |
    | 3. Format | `.log`, `.out` | `log` |
    | 3. Format | `.term`, `.session` | `terminal` |
-   | 3. Format | `.json`, `.jsonl`, `.yaml`, `.yml`, `.toml`, `.csv`, `.tsv` | `data` (JSONL may be refined in tier 4) |
+   | 3. Format | `.json`, `.jsonl`, `.yaml`, `.yml`, `.toml`, `.csv`, `.tsv` | `data` |
    | 3. Format | A source-language extension, a build-file name (`Makefile`, `Dockerfile`), a dotfile, or a `#!` shebang | `code` |
    | 3. Format | Any other extension | `code`, with no language |
-   | 3. Format | `.md`, `.markdown`, `.mdx`, `.txt`, or no extension and none of the above | the text family: go to tier 4 |
+   | 3. Format | No extension, outside the text family (`LICENSE`, `AUTHORS`) | `code`, with no language, unless a tier-4 signal names a kind |
+   | 3. Format | The text family | go to tier 2, then tier 4 |
    | 4. Shape | JSONL whose lines are objects with a role or message type | `transcript` |
-   | 4. Shape | Speaker headings (`## You` / `## Assistant`, `User` / `Assistant` and the like) | `transcript` |
+   | 4. Shape | Speaker headings that name a role (`## You` / `## Assistant`, `User`, `Agent`, `Tool`); a heading that names a product or a model is not a speaker signal | `transcript` |
    | 4. Shape | Most lines open with a timestamp and a level word; indented frames after an error | `log` |
    | 4. Shape | Prompt lines (`$ `, `user@host dir %`) each followed by output | `terminal` |
    | 4. Shape | A "Chapter" heading with long paragraphs, or chapter-numbered file names | `book` |
-   | 4. Shape | Admonitions or sections named Parameters, Returns, Errors, Example | `docs` |
-   | 4. Shape | Working headings: Summary, Context, Risks, Next steps, Open questions, Verified, Recommendation | `report` |
+   | 4. Shape | Several admonitions or sections named Parameters, Returns, Errors, Example | `docs` |
+   | 4. Shape | Several working headings: Summary, Context, Risks, Next steps, Open questions, Verified, Recommendation | `report` |
    | 5. Byline | Front matter with `author` and either `published` or `source` | `article` |
    | 6. Weak shape | Task lists without working headings | `report` |
    | 6. Weak shape | A dated file name, or a folder named `notes` or `journal` | `notes` |
    | 7. Default | Nothing above, in the text family | `article` (`DEFAULT_KIND`) |
 
-   Tiers 4 to 7 apply only to the text family and to JSONL; a file named in tier 2 or given a kind by
+   Tiers 4 to 7 apply to the text family, with two exceptions stated here once: tier 4's first row
+   may refine a `.jsonl` file from `data` to `transcript`, and a tier-4 signal may name the kind of an
+   extension-less file outside the text family. Otherwise a file named in tier 2 or given a kind by
    its format in tier 3 keeps that kind, and its shape signals are kept as reasons only.
+
+   *Several* is not one: a single Summary heading or a single Returns section does not make a report
+   or a docs page. K-03 sets the threshold for both rows (more than one heading or section of the
+   list) and records it with its goldens.
 
 4. **The byline outranks weak shape and yields to strong shape.** A byline names a text's form: an
    article has an author and a date or a source it was published at, as a printed piece has a byline.
@@ -111,14 +126,20 @@ coupling rule). A JSONL transcript's bytes do not reflow; its derived view (ADR-
    and of those only their presence. `model`, `session`, `generated_by`, and any key naming a tool, a
    model, an agent or who wrote the file are never read; neither is any value. Built-in detection
    matches no path that names a tool or vendor (`.claude/`, `.cursor/`, `.codex/` and the like): a
-   reader who wants those folders read a certain way writes a `[[kind]]` rule, which is theirs. As a
-   rule a test can hold (K-03's goldens): *for every corpus file, adding, removing or changing any
-   front-matter key other than those three, or changing the value of any key, leaves the detected
-   kind unchanged.*
+   reader who wants those folders read a certain way writes a `[[kind]]` rule, which is theirs. A
+   speaker heading that names a product or a model is not a speaker signal (tier 4). An `author` key
+   whose value is empty or null counts as absent. As rules a test can hold (K-03's goldens):
+   - *Front matter:* for every corpus file that has front matter, adding, removing or changing any key
+     other than those three, or changing the value of any key, leaves the detected kind unchanged. The
+     mutation is made on the parsed key and value map and written back, not on raw bytes, so a test
+     cannot break the front matter's syntax by accident.
+   - *Path:* moving any corpus file under a `.claude/`, `.cursor/` or `.codex/` folder leaves its
+     detected kind unchanged.
 
 6. **First text never waits for detection** (commitment 5). Tiers 1 to 3 need the path, and a shebang the first line. Tiers 4
-   to 6 read a bounded prefix of the file (K-03 sets the bound and records it; front matter and the
-   first screen of a JSONL file are inside it), never the whole file. A kind is decided once when a
+   to 6 read a bounded prefix of the file, never the whole file. K-03 sets the bound and records it;
+   it is measured from the end of the front matter, so a long front matter never pushes a shape signal
+   out of it, and the first screen of a JSONL file is inside it. A kind is decided once when a
    file opens and kept while it is open, through live reloads, until the reader chooses *show as* or
    opens the file again: a view that changes its kind under the reader is worse than a weaker guess.
 
@@ -132,30 +153,35 @@ coupling rule). A JSONL transcript's bytes do not reflow; its derived view (ADR-
    today.
 
 8. **A kind with no profile yet reads as today.** Until a kind's story lands, its default mode is
-   today's rule (Rendered for `.md`, `.markdown`, `.mdx` and `.txt`; Source otherwise), and in Rendered
+   today's rule (Rendered for `.md`, `.markdown`, `.mdx` and `.txt`; Source otherwise; from K-05,
+   Rendered for the whole text family), and in Rendered
    it is set by the default theme as prose is now. Its name is still detected, kept with its reasons
    and, once K-05 lands, written to `data-marxy-kind`, so a theme may style it early. The story that
    gives a kind its profile and Read treatment also switches its default mode to the table's, in the
    same pull request, with a test. So, today:
    - *Already open in Rendered, and stay there:* `article`, `report`, `book`, `readme`, `docs`, `notes`,
-     `changelog` and a Markdown `transcript`, whenever the file is Markdown or text, which is what
-     detects them.
+     `changelog` and a Markdown `transcript`, whenever the file has a text-family extension, which is
+     what detects them.
    - *Open in Source now and move to Rendered with their story:* `log` (K-08), `diff` (K-09) and
      `terminal` (K-17). A `.txt` that detects as a log or terminal session opens Rendered as prose
      today, as it does now.
    - *Open in Source and stay there:* `code`, `data`, `html` and a JSONL `transcript`. Their Read
      treatments (K-13's listing, K-10's lenses, K-12's derived view) are reached by `⌘E` or, for a
      JSONL transcript, by a rule with `read = true` (10-spec: Source stays the default for `.jsonl`).
-   K-03 and K-05 change no file's opening mode: K-05's three profiles (`article`, `readme`, `report`)
-   are kinds that already open in Rendered.
+   K-03 changes no file's opening mode. K-05 makes one intended change: an extension-less `README`,
+   `CONTRIBUTING`, `CHANGELOG`, `CHANGES` or `HISTORY`, which opens in Source today, opens Rendered
+   once K-05 lands (a README in its profile, a changelog set as prose until K-22). Every other file
+   opens as it does now: K-05's three profiles (`article`, `readme`, `report`) are kinds that already
+   open in Rendered, and every other extension-less file is `code`.
 
 ### Where the reader's choices live
 
 9. **A per-file choice is Marxy's data; a folder rule is the reader's file.** *Show as* (this file
    only) is a choice Marxy observes and keeps, like a reading position: it lives in a plain file of
    its own, `kinds.json`, in Marxy's data directory beside `positions.json`, keyed by path, with the
-   same version guard, size cap and quarantine of a corrupt file (K-04). It holds a kind and nothing
-   else; the reader who wants one file always in Read writes a rule whose glob is that file.
+   same version guard, size cap and quarantine of a corrupt file (K-04). Unlike positions, it is
+   never evicted: at its size cap a new *show as* is refused with a notice naming the cap, and no
+   earlier choice is dropped silently. It holds a kind and nothing else; the reader who wants one file always in Read writes a rule whose glob is that file.
    *Always open this folder as* writes a `[[kind]]` table to the reader's `config.toml`, appended
    without touching another byte, the way "Add this folder" appends to `collection.toml` (C-03), and
    the reader edits or deletes it in any editor. A per-file choice beats a folder rule, because it is
@@ -178,8 +204,11 @@ read = true          # open in Read, not Source
 - ADR-0005's line "Markdown opens Rendered; anything else opens Source" holds only for kinds without a
   profile; ADR-0005 carries an *Amended by* line.
 - `data-marxy-kind`'s values are exactly `KINDS`; a theme scope naming another value matches nothing.
-- An unknown extension is read verbatim as `code`, as it opens in Source today; `article` is the
-  default of the text family, not of every file.
+- An unknown extension, and an extension-less file outside the text family, is read verbatim as
+  `code`, as it opens in Source today; `article` is the default of the text family, not of every file.
+- 03 §Profiles gives `readme` a measure of 84 characters, beyond the 45–80 the validator clamps a
+  reflowing kind to. K-05 (which sets the profile) and H-03 (which writes the clamp) settle it: either
+  the README profile is 80, or the clamp's exception is written down where the clamp is.
 
 ## Rejected
 
@@ -206,5 +235,6 @@ read = true          # open in Read, not Source
   the same.
 - A reader's rule and detection disagree often on files nobody wrote a rule for, so the chip's *show
   as* is reached for routinely: the tiers or the signals are wrong.
-- A file opens in a different mode after K-03 or K-05 lands than before it.
+- A file opens in a different mode after K-03 or K-05 lands than before it, other than the
+  extension-less READMEs and changelogs item 8 names.
 - Detection needs more than a bounded prefix to be right on the corpus.
