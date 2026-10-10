@@ -30,47 +30,47 @@
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
 </svg>
-<div class="marxy-sd-page">
+<div class="page">
   <header>
     <h1>The ring (later)</h1>
     <nav aria-label="Studio pages"><a href="README.md">Studio</a><a href="ring.md">Spec</a><a href="history.html">History</a><a href="workbench.html">Workbench</a><a href="rules.html">Rules</a><a href="collect.html">Collect</a></nav>
-    <span class="marxy-sd-grow"></span>
-    <button class="marxy-sd-btn marxy-sd-sm" type="button" data-toggle-theme><svg class="marxy-sd-i"><use href="#i-sun"/></svg>Night / Paper</button>
+    <span class="grow"></span>
+    <button class="btn sm" type="button" data-toggle-theme><svg class="i"><use href="#i-sun"/></svg>Night / Paper</button>
   </header>
-  <p class="marxy-sd-lede">Not in v1. A floating panel over the app in front, opened by a global key the reader assigns (no default: the mock's <kbd>⌥⌘V</kbd> is Finder's Move Item Here). Without Accessibility permission it copies and the reader presses <kbd>⌘V</kbd>; with it, it pastes. Spec: <a href="ring.md">ring.md</a>.</p>
+  <p class="lede">Not in v1. A floating panel over the app in front, opened by a global key the reader assigns (no default: the mock's <kbd>⌥⌘V</kbd> is Finder's Move Item Here). Without Accessibility permission it copies and the reader presses <kbd>⌘V</kbd>; with it, it pastes. Spec: <a href="ring.md">ring.md</a>.</p>
 
-  <div class="marxy-sd-plates">
+  <div class="plates">
     <div>
-      <h2 class="marxy-sd-plate-h">1 · Without permission (the default)</h2>
-      <p class="marxy-sd-cap">The foot line says what <kbd>↵</kbd> will do before the reader presses it.</p>
-      <div class="marxy-sd-frame"><div class="marxy-sd-stage">
-        <div class="marxy-sd-behind">Another app, in front. Marxy does not read it.</div>
-        <div class="marxy-sd-hud" role="dialog" aria-label="Clipboard ring">
-          <div class="marxy-sd-q"><svg class="marxy-sd-i"><use href="#i-search"/></svg><span class="marxy-sd-faint">Filter</span></div>
-          <div class="marxy-sd-scopes"><span class="marxy-sd-chip" aria-pressed="true">History</span><span class="marxy-sd-chip">Pinned</span></div>
-          <div class="marxy-sd-rows" style="padding:4px 6px">
-            <div class="marxy-sd-clip marxy-sd-sel"><span class="marxy-sd-t">*Migration plan* · step 3 moves the index</span><span class="marxy-sd-k">⌘1</span><span class="marxy-sd-m">Slack · plan.md:42 · 2 min</span></div>
-            <div class="marxy-sd-clip"><span class="marxy-sd-t marxy-sd-mono">pnpm --filter @marxy/desktop test:lite</span><span class="marxy-sd-k">⌘2</span><span class="marxy-sd-m">Plain · build.log:1,204 · 18 min</span></div>
-            <div class="marxy-sd-clip"><span class="marxy-sd-t">name,size,modified</span><span class="marxy-sd-k">⌘3</span><span class="marxy-sd-m">CSV · inventory.md:8 · 1 h</span></div>
+      <h2 class="plate-h">1 · Without permission (the default)</h2>
+      <p class="cap">The foot line says what <kbd>↵</kbd> will do before the reader presses it.</p>
+      <div class="frame"><div class="stage">
+        <div class="behind">Another app, in front. Marxy does not read it.</div>
+        <div class="hud" role="dialog" aria-label="Clipboard ring">
+          <div class="q"><svg class="i"><use href="#i-search"/></svg><span class="faint">Filter</span></div>
+          <div class="scopes"><span class="chip" aria-pressed="true">History</span><span class="chip">Pinned</span></div>
+          <div class="rows" style="padding:4px 6px">
+            <div class="clip sel"><span class="t">*Migration plan* · step 3 moves the index</span><span class="k">⌘1</span><span class="m">Slack · plan.md:42 · 2 min</span></div>
+            <div class="clip"><span class="t mono">pnpm --filter @marxy/desktop test:lite</span><span class="k">⌘2</span><span class="m">Plain · build.log:1,204 · 18 min</span></div>
+            <div class="clip"><span class="t">name,size,modified</span><span class="k">⌘3</span><span class="m">CSV · inventory.md:8 · 1 h</span></div>
           </div>
-          <div class="marxy-sd-foot">Copies to the clipboard · press ⌘V to paste</div>
+          <div class="foot">Copies to the clipboard · press ⌘V to paste</div>
         </div>
       </div></div>
     </div>
     <div>
-      <h2 class="marxy-sd-plate-h">2 · Permission refused</h2>
-      <p class="marxy-sd-cap">The setting turns itself off; the ring falls back to copying. Marxy asks again only if the reader turns it on again.</p>
-      <div class="marxy-sd-frame"><div class="marxy-sd-set">
+      <h2 class="plate-h">2 · Permission refused</h2>
+      <p class="cap">The setting turns itself off; the ring falls back to copying. Marxy asks again only if the reader turns it on again.</p>
+      <div class="frame"><div class="set">
         <h3>Clipboard › Ring</h3>
-        <div class="marxy-sd-srow"><span class="marxy-sd-h">Ring key</span><span class="marxy-sd-num-f" style="width:auto">⌃⌥⌘V</span><span class="marxy-sd-s">Works while Marxy is running.</span></div>
-        <div class="marxy-sd-srow"><span class="marxy-sd-h">Paste into the front app</span><label class="marxy-sd-switch" aria-label="Paste into the front app"><input type="checkbox"><i></i></label><span class="marxy-sd-s">Needs Accessibility permission, asked only when you turn this on.</span></div>
-        <div class="marxy-sd-banner"><svg class="marxy-sd-i"><use href="#i-alert"/></svg><span class="marxy-sd-grow">macOS did not allow Marxy to paste into other apps. The ring copies, and you press ⌘V.</span><button class="marxy-sd-btn marxy-sd-sm" type="button">Open Privacy &amp; Security…</button></div>
+        <div class="srow"><span class="h">Ring key</span><span class="num-f" style="width:auto">⌃⌥⌘V</span><span class="s">Works while Marxy is running.</span></div>
+        <div class="srow"><span class="h">Paste into the front app</span><label class="switch" aria-label="Paste into the front app"><input type="checkbox"><i></i></label><span class="s">Needs Accessibility permission, asked only when you turn this on.</span></div>
+        <div class="banner"><svg class="i"><use href="#i-alert"/></svg><span class="grow">macOS did not allow Marxy to paste into other apps. The ring copies, and you press ⌘V.</span><button class="btn sm" type="button">Open Privacy &amp; Security…</button></div>
       </div></div>
     </div>
   </div>
 
-  <h2 class="marxy-sd-plate-h">On <kbd>↵</kbd></h2>
-  <table class="marxy-sd-spec" aria-label="Ring states">
+  <h2 class="plate-h">On <kbd>↵</kbd></h2>
+  <table class="spec" aria-label="Ring states">
     <thead><tr><th>Accessibility</th><th>What happens</th></tr></thead>
     <tbody>
       <tr><td>Not asked</td><td>The item is written to the clipboard; the panel hides; the reader pastes</td></tr>

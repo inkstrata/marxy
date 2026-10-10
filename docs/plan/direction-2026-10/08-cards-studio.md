@@ -16,9 +16,14 @@ J-13 is released. The ring has no card (`studio/ring.md`: later).
 The shared rules of [07](07-cards-wave-1.md#shared-rules-for-every-card) hold, and three more:
 
 - **History records at one place.** After J-08, every clipboard write in `apps/desktop/src` goes
-  through `apps/desktop/src/clipboard/write.ts`; a test fails on any other call to the shell's write.
+  through `writeCopy` in `apps/desktop/src/clipboard/write.ts`, native copies included (a `copy` event
+  handler); a test fails on any other call to the shell's write, on `execCommand('copy')`, and on a
+  copy path that bypasses the handler.
 - **Nothing reads the clipboard but a reader action** (ADR-0065 item 3). A card that adds a read names
-  the action, and its test asserts the memory shell saw no read without it.
+  the action, and its test asserts the memory shell saw no read without it. J-01's pasteboard commands
+  are not permission-gated, so this rule rests on the frontend and on these tests.
+- **A read refuses concealed, transient and auto-generated items** before reading data (J-01 refuses
+  concealed ones; the frontend the other two, by default pending the author).
 - **Plain files only** (commitment 3): no SQLite, no new dependency for storage, every data file a
   `"version": 1` envelope written through `writeFileAtomic`.
 
@@ -64,8 +69,10 @@ ever comes) shares one model, tested once.
    age (when `keepDays > 0`) and the 32 MB total, oldest first. Pinned items are never dropped.
 4. `pin`, `unpin`, `remove(ids)`, `search(state, query, limit)` (case-folded substring over text and
    source path; returns the matching line and the total count).
-5. `secrets.ts`: `looksLikeSecret(text)` over the list in ADR-0066 item 7, each a regular expression
-   with one positive and one near-miss fixture.
+5. `secrets.ts`: `looksLikeSecret(text)` over the table in ADR-0066 item 7 (prefix and length per
+   issuer, PEM blocks, three-segment `eyJ` JWTs, and `.env` lines whose key matches
+   `/(SECRET|PASSWORD|PASSWD|TOKEN|API_?KEY|PRIVATE_KEY)/i`), each a regular expression with one positive
+   and one near-miss fixture. A match anywhere in the text refuses the whole item.
 6. `privacy.ts`: `CLIPBOARD_HISTORY_PRIVACY_LINE` and `CLIPBOARD_WATCH_PRIVACY_LINE`.
 
 **Acceptance.**
@@ -74,7 +81,10 @@ ever comes) shares one model, tested once.
   `retain_by_age_only_when_days_positive`, `retain_total_bytes`, `search_returns_matching_line`,
   `search_reports_total_past_limit`. Each fails with its branch removed.
 - `secrets.test.ts`: every pattern matches its fixture and not its near miss
-  (`each_pattern_positive_and_near_miss`); prose with "key" or "token" in it is not a secret.
+  (`each_pattern_positive_and_near_miss`); prose with "key" or "token" in it is not a secret
+  (`prose_not_secret`); one secret line inside a long text refuses the whole text
+  (`match_anywhere_refuses_item`); `DB_PASSWORD=hunter2` matches and `PASSWORD=` (empty) does not
+  (`env_line_needs_value`).
 - `privacy.test.ts` reads `docs/adr/0066-clipboard-history.md` and asserts both constants appear in it
   verbatim, with the ADR's line breaks and list indent collapsed to single spaces (`privacy_lines_match_adr`), as P-02's test reads ADR-0063.
 - `pnpm precheck` green; `check-boundaries` passes (no DOM, no Node built-ins in core).
@@ -93,8 +103,9 @@ issuer's prefix and length, and test the near miss.
 
 **Model:** opus · **Size:** M · **Depends on:** J-02, J-04, J-07 · **Parallel with:** W-stories that do not touch `apps/desktop/src/clipboard/`
 
-**Outcome.** Every copy Marxy makes goes through one function that writes the clipboard and records
-the copy in history. `clipboard_history`, `clipboard_keep_items`, `clipboard_keep_days` and
+**Outcome.** Every copy Marxy makes goes through one function, `writeCopy`, that writes the clipboard
+and records the copy in history: the verbs, `runCopyShortcut`'s fallback, and native copies (Source's
+CodeMirror, the Edit menu's Copy, text fields) through a `copy` event handler. `clipboard_history`, `clipboard_keep_items`, `clipboard_keep_days` and
 `clipboard_skip_secrets` are parsed. In `session` history lives in memory; in `keep` it is the files
 ADR-0066 item 5 names. *Keep the clipboard*, *Pause* / *Resume* and the two clears are palette commands.
 
@@ -103,10 +114,15 @@ watching.
 
 **Paths.**
 - New: `apps/desktop/src/clipboard/write.ts` (the one write path), `write.test.ts`,
+  `apps/desktop/src/clipboard/copy-event.ts` (the `copy` handler), `copy-event.test.ts`,
   `apps/desktop/src/clipboard/history-store.ts` (memory and file stores), `history-store.test.ts`,
   `apps/desktop/src/commands/clipboard-history.ts` (the commands), `clipboard-history.test.ts`.
 - Edit: the clipboard write call sites (today `apps/desktop/src/commands/copy-text.ts:11` and
   `apps/desktop/src/selection/apply.ts:19`, plus any J-04 and J-06 added) to call `write.ts`;
+  `apps/desktop/src/selection/apply.ts:54` (`runCopyShortcut`'s `document.execCommand('copy')` becomes
+  `writeCopy`); the Source editor's setup in `apps/desktop/src/source/` only if CodeMirror's copy needs
+  the selection's byte range passed to the handler; `apps/desktop/src/theme/app-config.ts` and
+  `apps/desktop/src/theme/reader-config.ts` (the four keys reach the app);
   `apps/desktop/src/commands/index.ts` (register); `packages/theme/src/config.ts` and `config.test.ts`
   (the four keys); `docs/design/11-config-and-storage.md` (the keys, the `clipboard/` rows in *Data
   files*, the exception under *What is never stored*); `scripts/registry.json` (any new names).
@@ -114,15 +130,20 @@ watching.
 **Build order.**
 1. `write.ts`: `writeCopy(ctx, reps, meta: { format, source, origin, transient })` calls J-02's write,
    then, unless `transient`, `history.add` (J-07). A failed write records nothing.
-2. Point every call site at `writeCopy`; add a test that scans `apps/desktop/src` for any other call to
-   the shell's clipboard write and fails on one (`single_write_path`).
+2. Point every call site at `writeCopy`; replace the `execCommand('copy')` fallback; install the
+   `copy` handler on the document (capture phase): it cancels the webview's write and passes the
+   selection's text and HTML, with its source (document and byte range in Source, else `null`), to
+   `writeCopy`. Add a test that scans `apps/desktop/src` and fails on any other call to the shell's
+   clipboard write, on `execCommand('copy')`, and on a `copy` or `cut` listener outside `copy-event.ts`
+   (`single_write_path`).
 3. `history-store.ts`: a memory store for `off` (records nothing) and `session`; a file store for `keep`
-   under `<data>/clipboard/` from `shell.configPaths()`: item files first, then `history.json`, each
+   under `<data>/clipboard/` from `shell.configPaths()`: item files first, then `index.json`, each
    through `writeFileAtomic`; at load, reconcile (delete unnamed item files, drop entries with no
-   file), rename an unparseable index to `history.json.bad-<timestamp>` with one notice.
+   file), rename an unparseable index to `index.json.bad-<timestamp>` with one notice.
 4. Mode changes: `session` → `keep` asks to keep this session's items; `keep` → `session`/`off` asks and
    deletes `clipboard/`; `session` → `off` drops memory.
-5. Commands: `>Keep the clipboard` (J-02 read, types first; concealed refused with history.md's notice;
+5. Commands: `>Keep the clipboard` (J-02 read, types first; concealed, transient and auto-generated
+   items refused before any data is read, with history.md's notice;
    empty says so), `>Pause clipboard history` / `>Resume clipboard history` (session-only state),
    `>Clear unpinned clipboard history`, `>Clear all clipboard history` (each with a confirmation and a
    10-second Undo held in memory).
@@ -130,18 +151,23 @@ watching.
 **Acceptance.**
 - `write.test.ts`: `records_after_successful_write`, `transient_not_recorded`,
   `failed_write_records_nothing`, `single_write_path`.
+- `copy-event.test.ts`: `native_copy_recorded` (a `copy` event over a text selection writes once
+  through `writeCopy` and records it), `source_copy_carries_byte_range`, `edit_menu_copy_recorded`,
+  `webview_write_cancelled` (the event's default is prevented, so nothing reaches the pasteboard twice).
 - `history-store.test.ts` (memory shell): `session_writes_no_file` (the shell's file log is empty after
   ten copies), `keep_writes_items_then_index`, `keep_reconciles_orphans`, `corrupt_index_set_aside`,
   `keep_to_session_deletes_folder`, `clear_deletes_files_and_undo_restores`.
-- `clipboard-history.test.ts`: `keep_clipboard_reads_once_on_command`, `keep_clipboard_refuses_concealed`
-  (zero data reads, through J-02's fake), `no_read_without_command` (the shell saw no read across the
-  other tests).
+- `clipboard-history.test.ts`: `keep_clipboard_reads_once_on_command`, `keep_clipboard_refuses_concealed`,
+  `keep_clipboard_refuses_transient_and_autogenerated` (zero data reads, through J-02's fake),
+  `no_read_without_command` (the shell saw no read across the other tests; this test carries the
+  reader-action rule, which J-01's ungated commands leave to the frontend).
 - `config.test.ts`: each key's default, clamp and invalid fallback.
 - `pnpm precheck` and `pnpm check` green.
 
 **Tests.** The files above, one at a time. Gates: `pnpm precheck`, `pnpm check`.
 
-**Do not.** Read the clipboard outside *Keep the clipboard*. Poll anything. Write outside
+**Do not.** Read the clipboard outside *Keep the clipboard*. Leave `execCommand('copy')` or an unhandled
+native copy. Poll anything. Write outside
 `<data>/clipboard/`. Use SQLite or add a storage dependency. Touch `packages/shell-api` (J-02 owns it).
 
 **Risks.** J-04 and J-06 may add write sites after this card is cut; the `single_write_path` test finds
@@ -153,7 +179,8 @@ them. The 32 MB bound keeps a full scan cheap; record a 500-item search time in 
 
 **Model:** opus · **Size:** L · **Depends on:** J-08, W-02, W-04, W-19 · **Parallel with:** J-10
 
-**Outcome.** `⇧⌘V`, `>Clipboard history` and *Clipboard history…* in the Copy as menu open the
+**Outcome.** `⇧⌘V` (outside an editable field, if the author confirms the README's item 4),
+`>Clipboard history` and *Clipboard history…* in the Copy as menu open the
 Clipboard view in the workspace: history beside an empty workbench pane, or one column when folded or
 under 900 px. Every state, row action, key and the foot line of [studio/history.md](studio/history.md).
 
@@ -181,7 +208,8 @@ under 900 px. Every state, row action, key and the foot line of [studio/history.
 - `view.test.ts`: `enter_copies_item_back` (one write with the stored reps, tagged, not transient),
   `alt_enter_opens_workbench`, `copy_joined_oldest_first`, `delete_then_undo`, `states_render`
   (off, empty session, empty keep, paused, no match, error), `search_shows_matching_line`.
-- `clipboard-view.test.mjs` (WebKit, run alone): opens with `⇧⌘V`, `Esc` restores the reading
+- `clipboard-view.test.mjs` (WebKit, run alone): opens with `⇧⌘V` outside an editable field and does
+  not inside one (`shift_cmd_v_in_field_is_not_the_view`, coordinated with J-05's paste key), `Esc` restores the reading
   position; the folded one-column layout; W-01's at-rest check passes with the view closed.
 - The keys pass W-19's registry check (no collision with `⌘K`, `⌘P`, `⌘E`, `⌘/`, `/`).
 - A taste-review entry with the plates' states as screenshots is welcome, not required.
@@ -209,7 +237,9 @@ draws them.
 
 **Paths.**
 - New: the Clipboard section file under W-12's settings directory (named in W-12's PR), with its test.
-- Edit: W-12's Privacy page file and its test; `scripts/registry.json` if new names.
+- Edit: W-12's Privacy page file and its test; `apps/desktop/src/theme/app-config.ts` and
+  `apps/desktop/src/theme/reader-config.ts` (the keys the rows read and write); `scripts/registry.json`
+  if new names.
 
 **Build order.** The rows, written through `setTopLevelKey` only where they differ from the default;
 the mode-change questions from J-08; the Privacy line from `@marxy/core`, never retyped.
@@ -253,7 +283,7 @@ and preview; the output views with E-16's diff; Copy through `writeCopy` with `o
 **Acceptance.**
 - `chain.test.ts`: `runs_in_order`, `failing_step_keeps_input`, `skipped_step_passes_through`,
   `flags_empty_and_no_change`, `per_step_outputs`.
-- `workbench.test.ts`: `clipboard_read_only_on_choice`, `copy_records_workbench_origin`,
+- `workbench.test.ts`: `clipboard_read_only_on_choice`, `clipboard_input_refuses_concealed_transient_autogenerated`, `copy_records_workbench_origin`,
   `over_1mb_runs_nothing`, `never_writes_a_document` (the shell's file log holds no write after every
   action), `as_input_keeps_steps`.
 - `clipboard-workbench.test.mjs` (WebKit, alone): add, reorder (`⌥↑` `⌥↓`), skip and remove steps by
@@ -279,6 +309,8 @@ selection through the result sheet, or on the clipboard with Undo, as
 
 **Paths.**
 - Edit: `packages/theme/src/config.ts` and `config.test.ts` (parse and `appendPipeline`),
+  `apps/desktop/src/theme/app-config.ts` and `apps/desktop/src/theme/reader-config.ts` (pipelines reach
+  the app),
   `apps/desktop/src/clipboard/workbench.ts` (*Save as pipeline…*, *Load*),
   `docs/design/11-config-and-storage.md` (the `[[pipeline]]` section).
 - New: `apps/desktop/src/commands/pipelines.ts`, `pipelines.test.ts`.
@@ -292,6 +324,7 @@ table at the end with the file's own line ending; register `Run pipeline: <name>
   `over_64_dropped`, `taken_key_ignored`, `append_preserves_every_byte` (a fixture with comments,
   CRLF endings and tables).
 - `pipelines.test.ts`: `runs_on_selection_as_one_splice`, `runs_on_clipboard_only_on_command`,
+  `refuses_concealed_transient_autogenerated_clipboard`,
   `undo_restores_previous_clipboard`.
 
 **Tests.** As above. Gates: `pnpm precheck`, `pnpm check`, `pnpm gate:fidelity`.

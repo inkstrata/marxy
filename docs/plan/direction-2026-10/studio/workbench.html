@@ -30,122 +30,122 @@
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
 </svg>
-<div class="marxy-sd-page">
+<div class="page">
   <header>
     <h1>Workbench and pipelines</h1>
     <nav aria-label="Studio pages"><a href="README.md">Studio</a><a href="workbench.md">Spec</a><a href="history.html">History</a><a href="rules.html">Rules</a><a href="collect.html">Collect</a><a href="ring.html">Ring</a></nav>
-    <span class="marxy-sd-grow"></span>
-    <button class="marxy-sd-btn marxy-sd-sm" type="button" data-toggle-theme><svg class="marxy-sd-i"><use href="#i-sun"/></svg>Night / Paper</button>
+    <span class="grow"></span>
+    <button class="btn sm" type="button" data-toggle-theme><svg class="i"><use href="#i-sun"/></svg>Night / Paper</button>
   </header>
-  <p class="marxy-sd-lede">W-21's result sheet, given room: one input, a chain of transforms from J-03's library, the output as Before, After or Diff. The result is copied, copied as, chained, or opened as a scratch document; it never writes a document on disk. Spec: <a href="workbench.md">workbench.md</a>. Sample text only.</p>
+  <p class="lede">W-21's result sheet, given room: one input, a chain of transforms from J-03's library, the output as Before, After or Diff. The result is copied, copied as, chained, or opened as a scratch document; it never writes a document on disk. Spec: <a href="workbench.md">workbench.md</a>. Sample text only.</p>
 
-  <h2 class="marxy-sd-plate-h">1 · Normal: a history item through two steps</h2>
-  <p class="marxy-sd-cap">Input from history (<kbd>⌥↵</kbd> on a row). Two steps, each with its size change and a skip switch. After is shown; <kbd>⌘↵</kbd> copies it, recorded in history as a workbench result.</p>
-  <div class="marxy-sd-frame">
-    <div class="marxy-sd-chrome"><span class="marxy-sd-lights"><i></i><i></i><i></i></span><b>Clipboard</b><span>· workbench</span></div>
-    <section class="marxy-sd-bench" aria-label="Workbench">
-      <div class="marxy-sd-blk">
-        <div class="marxy-sd-phead"><b>Input</b><span class="marxy-sd-src-chip"><svg class="marxy-sd-i marxy-sd-sm"><use href="#i-file"/></svg>From history: plan.md:42<svg class="marxy-sd-i marxy-sd-sm"><use href="#i-chev"/></svg></span><span class="marxy-sd-grow"></span><span class="marxy-sd-stats">412 chars · 6 lines</span></div>
-<pre class="marxy-sd-ed"><span class="marxy-sd-tk-h">## Migration plan</span>
+  <h2 class="plate-h">1 · Normal: a history item through two steps</h2>
+  <p class="cap">Input from history (<kbd>⌥↵</kbd> on a row). Two steps, each with its size change and a skip switch. After is shown; <kbd>⌘↵</kbd> copies it, recorded in history as a workbench result.</p>
+  <div class="frame">
+    <div class="chrome"><span class="lights"><i></i><i></i><i></i></span><b>Clipboard</b><span>· workbench</span></div>
+    <section class="bench" aria-label="Workbench">
+      <div class="blk">
+        <div class="phead"><b>Input</b><span class="src-chip"><svg class="i sm"><use href="#i-file"/></svg>From history: plan.md:42<svg class="i sm"><use href="#i-chev"/></svg></span><span class="grow"></span><span class="stats">412 chars · 6 lines</span></div>
+<pre class="ed"><span class="tk-h">## Migration plan</span>
 
-<span class="marxy-sd-tk-m">-</span> step 3 moves the **index** to the new volume
-<span class="marxy-sd-tk-m">-</span> step 4 rebuilds **positions** from the index
-<span class="marxy-sd-tk-m">-</span> see <span class="marxy-sd-tk-l">[the runbook](runbook.md)</span></pre>
+<span class="tk-m">-</span> step 3 moves the **index** to the new volume
+<span class="tk-m">-</span> step 4 rebuilds **positions** from the index
+<span class="tk-m">-</span> see the runbook, *section 5*</pre>
       </div>
-      <div class="marxy-sd-blk">
-        <div class="marxy-sd-phead"><b>Pipeline: Unsaved</b><span class="marxy-sd-grow"></span><button class="marxy-sd-btn marxy-sd-sm" type="button"><svg class="marxy-sd-i"><use href="#i-plus"/></svg>Add step <kbd>⇧⌘A</kbd></button><button class="marxy-sd-btn marxy-sd-sm marxy-sd-ghost" type="button">Load<svg class="marxy-sd-i marxy-sd-sm"><use href="#i-chev"/></svg></button><button class="marxy-sd-btn marxy-sd-sm marxy-sd-ghost" type="button">Save as pipeline…</button></div>
-        <div class="marxy-sd-steps" role="list" aria-label="Steps">
-          <div class="marxy-sd-step" role="listitem"><svg class="marxy-sd-i marxy-sd-sm marxy-sd-grip"><use href="#i-grip"/></svg><span class="marxy-sd-n">1</span><span class="marxy-sd-name">Remove bold<span class="marxy-sd-g">Clean</span></span><span class="marxy-sd-d">−8 chars</span><label class="marxy-sd-switch marxy-sd-sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="marxy-sd-ib" type="button" aria-label="Remove step"><svg class="marxy-sd-i marxy-sd-sm"><use href="#i-x"/></svg></button></div>
-          <div class="marxy-sd-step marxy-sd-sel" role="listitem"><svg class="marxy-sd-i marxy-sd-sm marxy-sd-grip"><use href="#i-grip"/></svg><span class="marxy-sd-n">2</span><span class="marxy-sd-name">Markdown → Slack<span class="marxy-sd-g">Convert</span></span><span class="marxy-sd-d">−21 chars</span><label class="marxy-sd-switch marxy-sd-sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="marxy-sd-ib" type="button" aria-label="Remove step"><svg class="marxy-sd-i marxy-sd-sm"><use href="#i-x"/></svg></button></div>
+      <div class="blk">
+        <div class="phead"><b>Pipeline: Unsaved</b><span class="grow"></span><button class="btn sm" type="button"><svg class="i"><use href="#i-plus"/></svg>Add step <kbd>⇧⌘A</kbd></button><button class="btn sm ghost" type="button">Load<svg class="i sm"><use href="#i-chev"/></svg></button><button class="btn sm ghost" type="button">Save as pipeline…</button></div>
+        <div class="steps" role="list" aria-label="Steps">
+          <div class="step" role="listitem"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">1</span><span class="name">Remove bold<span class="g">Clean</span></span><span class="d">−8 chars</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="step sel" role="listitem"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">2</span><span class="name">Markdown → Slack<span class="g">Convert</span></span><span class="d">−21 chars</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
         </div>
       </div>
       <div>
-        <div class="marxy-sd-phead"><b>Output</b><span class="marxy-sd-seg"><button type="button">Before</button><button type="button" aria-pressed="true">After</button><button type="button">Diff</button></span><span class="marxy-sd-grow"></span><span class="marxy-sd-stats">412 → 383 chars · −7%</span></div>
-<pre class="marxy-sd-ed">*Migration plan*
+        <div class="phead"><b>Output</b><span class="seg"><button type="button">Before</button><button type="button" aria-pressed="true">After</button><button type="button">Diff</button></span><span class="grow"></span><span class="stats">412 → 383 chars · −7%</span></div>
+<pre class="ed">*Migration plan*
 
 • step 3 moves the index to the new volume
 • step 4 rebuilds positions from the index
-• see &lt;runbook.md|the runbook&gt;</pre>
-        <div class="marxy-sd-out-actions"><button class="marxy-sd-btn marxy-sd-sm marxy-sd-primary" type="button"><svg class="marxy-sd-i"><use href="#i-copy"/></svg>Copy <kbd>⌘↵</kbd></button><button class="marxy-sd-btn marxy-sd-sm" type="button">Copy as<svg class="marxy-sd-i marxy-sd-sm"><use href="#i-chev"/></svg></button><button class="marxy-sd-btn marxy-sd-sm marxy-sd-ghost" type="button">As input</button><button class="marxy-sd-btn marxy-sd-sm marxy-sd-ghost" type="button">Open as scratch document</button></div>
+• see the runbook, _section 5_</pre>
+        <div class="out-actions"><button class="btn sm primary" type="button"><svg class="i"><use href="#i-copy"/></svg>Copy <kbd>⌘↵</kbd></button><button class="btn sm" type="button">Copy as<svg class="i sm"><use href="#i-chev"/></svg></button><button class="btn sm ghost" type="button">As input</button><button class="btn sm ghost" type="button">Open as scratch document</button></div>
       </div>
     </section>
   </div>
 
-  <div class="marxy-sd-plates">
+  <div class="plates">
     <div>
-      <h2 class="marxy-sd-plate-h">2 · Diff</h2>
-      <p class="marxy-sd-cap">E-16's line diff, input against output; unchanged runs fold.</p>
-      <div class="marxy-sd-frame">
-        <div class="marxy-sd-phead"><b>Output</b><span class="marxy-sd-seg"><button type="button">Before</button><button type="button">After</button><button type="button" aria-pressed="true">Diff</button></span></div>
-        <div class="marxy-sd-diff">
-          <div class="marxy-sd-del">- ## Migration plan</div><div class="marxy-sd-add">+ *Migration plan*</div>
-          <div class="marxy-sd-fold">1 unchanged line</div>
-          <div class="marxy-sd-del">- - step 3 moves the **index** to the new volume</div><div class="marxy-sd-add">+ • step 3 moves the index to the new volume</div>
-          <div class="marxy-sd-del">- - see [the runbook](runbook.md)</div><div class="marxy-sd-add">+ • see &lt;runbook.md|the runbook&gt;</div>
+      <h2 class="plate-h">2 · Diff</h2>
+      <p class="cap">E-16's line diff, input against output; unchanged runs fold.</p>
+      <div class="frame">
+        <div class="phead"><b>Output</b><span class="seg"><button type="button">Before</button><button type="button">After</button><button type="button" aria-pressed="true">Diff</button></span></div>
+        <div class="diff">
+          <div class="del">- ## Migration plan</div><div class="add">+ *Migration plan*</div>
+          <div class="fold">1 unchanged line</div>
+          <div class="del">- - step 3 moves the **index** to the new volume</div><div class="add">+ • step 3 moves the index to the new volume</div>
+          <div class="del">- - see the runbook, *section 5*</div><div class="add">+ • see the runbook, _section 5_</div>
         </div>
       </div>
     </div>
     <div>
-      <h2 class="marxy-sd-plate-h">3 · Empty</h2>
-      <p class="marxy-sd-cap">No input yet: the three inputs, and three quick starts for the steps.</p>
-      <div class="marxy-sd-frame" style="min-height:260px">
-        <div class="marxy-sd-empty"><span>Choose an input: a history item, the clipboard, or the selection.</span>
-          <span style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap"><button class="marxy-sd-btn marxy-sd-sm" type="button">A history item</button><button class="marxy-sd-btn marxy-sd-sm" type="button">The clipboard</button><button class="marxy-sd-btn marxy-sd-sm" type="button">The selection</button></span>
-          <span class="marxy-sd-stats">Quick starts: Remove bold · Markdown → Slack · Markdown → Jira wiki</span></div>
+      <h2 class="plate-h">3 · Empty</h2>
+      <p class="cap">No input yet: the three inputs, and three quick starts for the steps.</p>
+      <div class="frame" style="min-height:260px">
+        <div class="empty"><span>Choose an input: a history item, the clipboard, or the selection.</span>
+          <span style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap"><button class="btn sm" type="button">A history item</button><button class="btn sm" type="button">The clipboard</button><button class="btn sm" type="button">The selection</button></span>
+          <span class="stats">Quick starts: Remove bold · Markdown → Slack · Markdown → Jira wiki</span></div>
       </div>
     </div>
     <div>
-      <h2 class="marxy-sd-plate-h">4 · A step that fails, a step that changes nothing</h2>
-      <p class="marxy-sd-cap">A failing step keeps its input and names the error; the chain goes on.</p>
-      <div class="marxy-sd-frame">
-        <div class="marxy-sd-steps">
-          <div class="marxy-sd-step"><svg class="marxy-sd-i marxy-sd-sm marxy-sd-grip"><use href="#i-grip"/></svg><span class="marxy-sd-n">1</span><span class="marxy-sd-name">Format JSON<span class="marxy-sd-g">Convert</span></span><span class="marxy-sd-d marxy-sd-flat">no change</span><label class="marxy-sd-switch marxy-sd-sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="marxy-sd-ib" type="button" aria-label="Remove step"><svg class="marxy-sd-i marxy-sd-sm"><use href="#i-x"/></svg></button></div>
-          <div class="marxy-sd-step"><svg class="marxy-sd-i marxy-sd-sm marxy-sd-grip"><use href="#i-grip"/></svg><span class="marxy-sd-n">2</span><span class="marxy-sd-name">Markdown table → JSON<span class="marxy-sd-g">Convert</span></span><span class="marxy-sd-d marxy-sd-err">error: no table</span><label class="marxy-sd-switch marxy-sd-sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="marxy-sd-ib" type="button" aria-label="Remove step"><svg class="marxy-sd-i marxy-sd-sm"><use href="#i-x"/></svg></button></div>
-          <div class="marxy-sd-step marxy-sd-off"><svg class="marxy-sd-i marxy-sd-sm marxy-sd-grip"><use href="#i-grip"/></svg><span class="marxy-sd-n">3</span><span class="marxy-sd-name">Sort lines<span class="marxy-sd-g">Lines</span></span><span class="marxy-sd-d marxy-sd-flat">skipped</span><label class="marxy-sd-switch marxy-sd-sm" aria-label="Run this step"><input type="checkbox"><i></i></label><button class="marxy-sd-ib" type="button" aria-label="Remove step"><svg class="marxy-sd-i marxy-sd-sm"><use href="#i-x"/></svg></button></div>
+      <h2 class="plate-h">4 · A step that fails, a step that changes nothing</h2>
+      <p class="cap">A failing step keeps its input and names the error; the chain goes on.</p>
+      <div class="frame">
+        <div class="steps">
+          <div class="step"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">1</span><span class="name">Format JSON<span class="g">Convert</span></span><span class="d flat">no change</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="step"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">2</span><span class="name">Markdown table → JSON<span class="g">Convert</span></span><span class="d err">error: no table</span><label class="switch sm" aria-label="Run this step"><input type="checkbox" checked><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+          <div class="step off"><svg class="i sm grip"><use href="#i-grip"/></svg><span class="n">3</span><span class="name">Sort lines<span class="g">Lines</span></span><span class="d flat">skipped</span><label class="switch sm" aria-label="Run this step"><input type="checkbox"><i></i></label><button class="ib" type="button" aria-label="Remove step"><svg class="i sm"><use href="#i-x"/></svg></button></div>
         </div>
       </div>
     </div>
     <div>
-      <h2 class="marxy-sd-plate-h">5 · Large input</h2>
-      <p class="marxy-sd-cap">Over 1 MB nothing runs; the reader is offered a scratch document instead.</p>
-      <div class="marxy-sd-frame" style="min-height:200px">
-        <div class="marxy-sd-banner"><svg class="marxy-sd-i"><use href="#i-alert"/></svg><span class="marxy-sd-grow">Too large for the workbench (3.4 MB); open it as a scratch document.</span><button class="marxy-sd-btn marxy-sd-sm" type="button">Open</button></div>
+      <h2 class="plate-h">5 · Large input</h2>
+      <p class="cap">Over 1 MB nothing runs; the reader is offered a scratch document instead.</p>
+      <div class="frame" style="min-height:200px">
+        <div class="banner"><svg class="i"><use href="#i-alert"/></svg><span class="grow">Too large for the workbench (3.4 MB); open it as a scratch document.</span><button class="btn sm" type="button">Open</button></div>
       </div>
     </div>
     <div>
-      <h2 class="marxy-sd-plate-h">6 · Save as pipeline</h2>
-      <p class="marxy-sd-cap">Appends one <code>[[pipeline]]</code> table to <code>config.toml</code>; every other byte stays. Skipped steps are left out, and the sheet says so.</p>
-      <div class="marxy-sd-stage" style="min-height:300px">
-        <div class="marxy-sd-sheet" role="dialog" aria-label="Save as pipeline">
-          <div class="marxy-sd-sh">Save as pipeline</div>
-          <div class="marxy-sd-sb">
-            <label style="display:grid;gap:4px">Name <span class="marxy-sd-field" style="display:flex;align-items:center">Slack, no bold</span></label>
+      <h2 class="plate-h">6 · Save as pipeline</h2>
+      <p class="cap">Appends one <code>[[pipeline]]</code> table to <code>config.toml</code>; every other byte stays. Skipped steps are left out, and the sheet says so.</p>
+      <div class="stage" style="min-height:300px">
+        <div class="sheet" role="dialog" aria-label="Save as pipeline">
+          <div class="sh">Save as pipeline</div>
+          <div class="sb">
+            <label style="display:grid;gap:4px">Name <span class="field" style="display:flex;align-items:center">Slack, no bold</span></label>
             <p style="margin:10px 0 0">Steps: Remove bold → Markdown → Slack. One skipped step is left out.</p>
-<pre class="marxy-sd-ed" style="margin-top:8px;border:1px solid var(--line);border-radius:7px;min-height:0">[[pipeline]]
+<pre class="ed" style="margin-top:8px;border:1px solid var(--line);border-radius:7px;min-height:0">[[pipeline]]
 name  = "Slack, no bold"
 steps = ["strip-bold", "to-slack"]</pre>
           </div>
-          <div class="marxy-sd-sf"><button class="marxy-sd-btn marxy-sd-sm" type="button">Cancel</button><button class="marxy-sd-btn marxy-sd-sm marxy-sd-primary" type="button">Save to config.toml</button></div>
+          <div class="sf"><button class="btn sm" type="button">Cancel</button><button class="btn sm primary" type="button">Save to config.toml</button></div>
         </div>
       </div>
     </div>
     <div>
-      <h2 class="marxy-sd-plate-h">7 · Running a pipeline from the palette</h2>
-      <p class="marxy-sd-cap">With no selection, <code>&gt;Run pipeline</code> reads the clipboard on that action, writes the result back, and shows the result sheet with Undo.</p>
-      <div class="marxy-sd-stage" style="min-height:300px">
-        <div class="marxy-sd-sheet" role="dialog" aria-label="Pipeline result">
-          <div class="marxy-sd-sh">Slack, no bold · on the clipboard</div>
-          <div class="marxy-sd-sb"><span class="marxy-sd-stats">412 → 383 chars · copied</span>
-<pre class="marxy-sd-ed" style="margin-top:8px;border:1px solid var(--line);border-radius:7px;min-height:0">*Migration plan*
+      <h2 class="plate-h">7 · Running a pipeline from the palette</h2>
+      <p class="cap">With no selection, <code>&gt;Run pipeline</code> reads the clipboard on that action, writes the result back, and shows the result sheet with Undo.</p>
+      <div class="stage" style="min-height:300px">
+        <div class="sheet" role="dialog" aria-label="Pipeline result">
+          <div class="sh">Slack, no bold · on the clipboard</div>
+          <div class="sb"><span class="stats">412 → 383 chars · copied</span>
+<pre class="ed" style="margin-top:8px;border:1px solid var(--line);border-radius:7px;min-height:0">*Migration plan*
 • step 3 moves the index to the new volume</pre></div>
-          <div class="marxy-sd-sf"><button class="marxy-sd-btn marxy-sd-sm" type="button">Undo</button><button class="marxy-sd-btn marxy-sd-sm" type="button">Open in the workbench</button><button class="marxy-sd-btn marxy-sd-sm marxy-sd-primary" type="button">Done</button></div>
+          <div class="sf"><button class="btn sm" type="button">Undo</button><button class="btn sm" type="button">Open in the workbench</button><button class="btn sm primary" type="button">Done</button></div>
         </div>
       </div>
     </div>
   </div>
 
-  <h2 class="marxy-sd-plate-h">Saved pipelines in <code>config.toml</code></h2>
-  <table class="marxy-sd-spec" aria-label="Pipeline keys">
+  <h2 class="plate-h">Saved pipelines in <code>config.toml</code></h2>
+  <table class="spec" aria-label="Pipeline keys">
     <thead><tr><th>Key</th><th>Rule</th></tr></thead>
     <tbody>
       <tr><td><code>name</code></td><td>Required; at most 80 characters; unique, case-insensitive (a later duplicate is dropped with a warning)</td></tr>

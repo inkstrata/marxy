@@ -60,13 +60,15 @@ the history list, with the workbench taking its place when an item is opened, an
 
 Taken and not reused: `⌘K`, `⌘P`, `⇧⌘P`, `⌘/`, `/`, `⌘E`, `⌘1` to `⌘3`, `⌘\`, `⌘F`, `⌘C`, `⇧⌘C`,
 `⇧⌘E`, `⌘S`, `⇧⌘S`, `⌘Z`, `⇧⌘Z`, `⇧⌘O`, `⌘N`, `⇧⌘N`, `⌘[`, `⌘]`, `⌘=`, `⌘-`, `⌘0`, `⌥⌘I`, `⌃⌘I`,
-`⌃⌘S`, `⌥⌘R`, `⌥⌘C`, `⌥⇧⌘V` (paste as plain text, mock 08). The mock's own studio keys that collide
+`⌃⌘S`, `⌥⌘R`, `⌥⌘C`, `⌥⇧⌘V` (paste as plain text, mock 08).
+`⇧⌘V` is *Paste and Match Style* in Chrome, Slack, Google Docs and Notion, so its use here is a
+question for the author (below). The mock's own studio keys that collide
 are dropped: `⌘E` (skip a step), `⌘1` to `⌘4` (focus a column), `⌘D` and `⌘R` (a step's view, run),
 `⌘?` (keyboard map).
 
 | Key | Scope | Action | Check |
 | --- | --- | --- | --- |
-| `⇧⌘V` | app | Open or close the Clipboard view | Free in the app and the plan; the mock's studio key. Some apps use it for paste-as-plain; Marxy uses `⌥⇧⌘V` for that |
+| `⇧⌘V` | app, outside editable fields | Open or close the Clipboard view | Proposed, pending the author: free in the app and the plan, and the mock's studio key; inside an editable field (Source, the workbench's input, any text field) it stays *Paste and Match Style* (paste as plain text), coordinated with J-05 |
 | `⌘F` | Clipboard view | Focus history's search | Find's own key, scoped to the surface in front, as in the library |
 | `↑` `↓` `Home` `End`, `⇧↑` `⇧↓`, `⌘A` | history list | Move, extend the selection, select all | List keys |
 | `↵` | history list | Copy the item back to the clipboard | — |
@@ -86,9 +88,9 @@ registry ([workbench](workbench.md#saved-pipelines)).
 
 | | |
 | --- | --- |
-| **Reads** | The history Marxy recorded; the clipboard once, on a reader action (*Keep the clipboard*, *Paste in*, *Run pipeline*), types first, concealed refused (J-02); the text of the open document or selection, when the reader loads it into the workbench; `config.toml` |
+| **Reads** | The history Marxy recorded; the clipboard once, on a reader action (*Keep the clipboard*, the workbench's input *The clipboard*, *Run pipeline*), types first; concealed, transient and auto-generated items refused before any data is read; the text of the open document or selection, when the reader loads it into the workbench; `config.toml` |
 | **Writes** | The clipboard, on a reader action; `<data>/clipboard/` in `keep` only; one appended `[[pipeline]]` table in `config.toml` when the reader saves a pipeline, every other byte unchanged |
-| **Never** | Watches the pasteboard (unless the author chooses ADR-0066's option B); writes a document; sends anything off the machine; uses SQLite; stores a model, session, tool or tag name; counts uses for anyone; records a concealed or transient item or a likely secret |
+| **Never** | Watches the pasteboard (unless the author chooses ADR-0066's option B); writes a document; sends anything off the machine; uses SQLite; stores a model, session, tool or tag name; counts uses for anyone; records a concealed, transient or auto-generated item or a likely secret; leaves a copy path that bypasses `writeCopy` |
 
 ## For the author
 
@@ -100,6 +102,17 @@ registry ([workbench](workbench.md#saved-pipelines)).
    resident Marxy, a native non-activating panel, and Accessibility only for *Paste into the front
    app*; without the permission the ring copies and the reader presses `⌘V` ([ring.md](ring.md)). Its
    mock key `⌥⌘V` is Finder's *Move Item Here*, so a global default would break Finder.
+4. **`⇧⌘V`.** It is *Paste and Match Style* in Chrome, Slack, Google Docs and Notion. Proposed: inside
+   an editable field it stays paste as plain text (with J-05); outside one it opens the Clipboard view.
+   The other option: `⇧⌘V` is paste as plain text everywhere, and the view has no key of its own
+   (palette and the Copy chevron's menu only).
+5. **Where "reads only on a reader action" is enforced.** J-01's pasteboard commands are not
+   permission-gated, so the rule rests on the frontend: every read goes through J-02 from a reader's
+   command, and tests (J-08's `no_read_without_command` and its successors) hold it. The alternative is
+   a shell-side gate (a read allowed only within a short window after a reader's command).
+6. **Transient and auto-generated items on a read.** *Keep the clipboard*, the workbench's input *The
+   clipboard* and *Run pipeline* refuse them by default, as well as concealed items. This is the same
+   open question as J-05's paste into a scratch file, and one ruling should cover both.
 
 ## Later
 

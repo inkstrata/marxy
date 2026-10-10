@@ -142,7 +142,7 @@ anything of it is built. J-01 to J-03 can start beside D.
 | J-06 | Transform the clipboard: run any transform on the clipboard from the palette and write the result back, with the result sheet | sonnet | M | J-02, J-03, W-21 |
 | J-D1 | **Design, not code:** the clipboard studio (history, workbench, compare, snippets, the ring, collect), carried from the mockup page to a buildable spec in the mock-v2 style, with history's privacy design and its ADR drafted | opus | L | — |
 | J-07 | The history model and the secret patterns in core; the two Privacy constants | sonnet | M | ADR-0066 ruled |
-| J-08 | Every copy through one write path that records it; the four `clipboard_*` keys; history in memory, or as plain files in `keep` | opus | M | J-02, J-04, J-07 |
+| J-08 | Every copy through one write path that records it, native copies included (a `copy` handler; no `execCommand`); the four `clipboard_*` keys; history in memory, or as plain files in `keep` | opus | M | J-02, J-04, J-07 |
 | J-09 | The Clipboard view's history pane: `⇧⌘V`, rows, states, keys, *Copy joined* | opus | L | J-08, W-02, W-04, W-19 |
 | J-10 | Settings › Clipboard and the Privacy line | sonnet | S | W-12, J-08 |
 | J-11 | The workbench: an input, a chain of transforms, Before/After/Diff, copy | opus | L | J-03, J-06, W-21, E-13, E-16, J-09 |

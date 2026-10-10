@@ -25,7 +25,8 @@ suggestion. The key works only while Marxy runs (with `resident = true`, or a wi
 
 **The panel.** 420 × at most 480 px, centred on the active screen, floating, on all Spaces, no title
 bar, the `--glass` surface. A filter field, focused; scopes *History* and *Pinned* (`⇥`, `⇧⇥`); up to
-60 rows, the first nine numbered for `⌘1` to `⌘9`; a preview of the selected row. `↵` uses the item,
+60 rows, the first nine numbered for `⌘1` to `⌘9` (these keys live only in the ring's own panel,
+while it has focus; they never reach Marxy's window, where `⌘1` to `⌘3` choose the mode); a preview of the selected row. `↵` uses the item,
 `⌥↵` uses it as plain text, `⌥P` pins, `Esc` clears the filter and then closes.
 
 **On `↵`, with and without permission.**

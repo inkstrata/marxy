@@ -17,7 +17,7 @@ document. It never writes to a document on disk. A chain worth keeping is saved 
 | --- | --- |
 | History | `⌥↵` on an item, or *Open in the workbench* in its menu |
 | Result sheet (W-21) | *Open in the workbench* carries the sheet's input and its step |
-| Palette | `>Open the workbench`, `>Transform the clipboard in the workbench` (reads the clipboard on that action), `>Open the selection in the workbench` |
+| Palette | `>Open the workbench`, `>Open the workbench on the clipboard` (the input *The clipboard*; reads the clipboard on that action), `>Open the selection in the workbench` |
 | Key | None of its own; `⇧⌘V` opens the view, and `⌘/` stays the transforms palette (ruled) |
 
 ## Layout
@@ -69,7 +69,7 @@ source line. *Copy* never replaces a history item; every result is a new item.
 | No steps | The output is the input, After equals Before, and *Copy* still works |
 | Normal | As laid out |
 | Large | Input over 1 MB refused (above); a diff over 5,000 changed lines folds unchanged runs and says "Diff shortened" |
-| Error | A failing step as above; a concealed clipboard on *The clipboard* is refused with the notice history uses; a pipeline with an unknown step (from a hand-edited `config.toml`) loads the known steps and lists the unknown ids |
+| Error | A failing step as above; on *The clipboard*, a concealed, transient or auto-generated item is refused before any data is read, with the notice history uses (transient and auto-generated pending the author); a pipeline with an unknown step (from a hand-edited `config.toml`) loads the known steps and lists the unknown ids |
 
 ## Saved pipelines
 
@@ -97,7 +97,8 @@ key   = "Ctrl+Alt+S"               # optional; works inside Marxy only
 - **Running.** Each pipeline is a palette command, `>Run pipeline: Slack, no bold`, and, if it has a
   `key`, that key inside Marxy. With a selection in Read or Source it opens W-21's result sheet with the
   chain, which applies as a splice through the transformation path (one undo step). With no selection
-  it runs on the clipboard, as J-06 runs one transform: it reads the clipboard on that action, writes
+  it runs on the clipboard, as J-06 runs one transform: it reads the clipboard on that action (refusing a
+  concealed, transient or auto-generated item before reading its data), writes
   the result back, records it in history and shows the result sheet with *Undo*, which writes the
   previous text back.
 - **Never.** A pipeline runs only from the reader's palette or key, never from a document, never at
@@ -108,6 +109,8 @@ key   = "Ctrl+Alt+S"               # optional; works inside Marxy only
 
 - write a document on disk (the scratch document is E-13's untitled buffer, which writes nothing
   until Save As);
-- read the clipboard except when the reader picks *The clipboard* or runs a pipeline on it;
+- read the clipboard except when the reader picks *The clipboard* or runs a pipeline on it (the rule
+  rests on the frontend: J-01's commands are not permission-gated);
+- copy except through `writeCopy`;
 - run anything but the library's pure transforms (ADR-0004); user commands are ADR-0049's, not this;
 - write `config.toml` except to append one `[[pipeline]]` table on *Save as pipeline*.
