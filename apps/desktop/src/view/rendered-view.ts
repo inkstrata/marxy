@@ -308,8 +308,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   scrollTarget(scroller).addEventListener('scroll', onScrollerScroll, { passive: true });
 
   /** Puts `p` on the reading line of this view's scroller, and notes where that left it. */
-  function restoreTo(blocks: BlockList, p: ReadingPosition): void {
-    restoreScrollToPosition(scroller, inScroller(blocks, contentOffset()), p);
+  function restoreTo(blocks: BlockList, p: ReadingPosition, offset: number = contentOffset()): void {
+    restoreScrollToPosition(scroller, inScroller(blocks, offset), p);
     noteScroll();
   }
 
@@ -678,12 +678,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const openPath = openPathNow();
     const blocks = shown?.blocks ?? null;
     if (!set || !openPath || !blocks) return;
-    const pos = currentPosition(scroller, blocks, openPath, 'rendered');
+    // The offset is read with the place and put back with it: what sits above the article (a notice that
+    // comes or goes while the page is set) is not the reader's place, and the page leaves it where it was.
+    const offset = contentOffset();
+    const pos = positionOf(scroller, inScroller(blocks, offset), openPath, 'rendered');
     set.relayout('theme');
     await set.ready;
-    // The block list the passes after the restyle built, measured when the offset below is: the old list's
-    // tops against a new padding would put the place off by the difference (F-27).
-    restoreTo(shown?.blocks ?? blocks, { ...pos, path: openPath, mode: 'rendered' });
+    restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' }, offset);
   }
 
   function snap(article: HTMLElement, from?: HTMLElement): void {
