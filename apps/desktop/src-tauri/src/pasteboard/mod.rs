@@ -9,6 +9,17 @@
 //! Marxy's own temporary writes carry `org.nspasteboard.TransientType` so clipboard managers skip
 //! them (nspasteboard.org).
 //!
+//! Every command takes one snapshot of the pasteboard's item array and decides and reads from that
+//! alone, so a copy that lands mid-command cannot be read, nor mixed with the copy that was checked.
+//! A write allows only text, HTML, RTF and URL types, and then adds the markers itself.
+//!
+//! Two limits, stated plainly. `CAP` bounds what a response carries, not memory: AppKit hands over a
+//! representation whole, so an oversized one is read and then dropped, not streamed. And a write is
+//! `clearContents` then `writeObjects`; if AppKit refuses the second, the clipboard is left empty
+//! (the item is built first, so only that refusal can do it), and the error says so.
+//! The commands are synchronous on purpose: Tauri runs those on the main thread, which AppKit's
+//! pasteboard needs. Do not make them `async`.
+//!
 //! The trait, the types and the logic compile on every platform, so the Linux job's clippy sees them
 //! used; only `macos.rs` is `cfg(target_os = "macos")`. Elsewhere the commands return `unsupported`
 //! and Linux keeps the clipboard plugin's write path (`clipboard_write` in `main.rs`, unchanged).
@@ -40,21 +51,29 @@ pub const TRANSIENT: &str = "org.nspasteboard.TransientType";
 /// Marks an item (a password, a one-time code) that must not be read or recorded.
 pub const CONCEALED: &str = "org.nspasteboard.ConcealedType";
 
-/// The marker types only the shell writes, so a caller cannot forge or drop them.
-const RESERVED: [&str; 3] = [SOURCE, TRANSIENT, CONCEALED];
+/// The representations `pasteboard_write` will write, mirroring `READABLE` minus PNG. Anything else,
+/// the marker types included, is refused; the shell adds `SOURCE` and `TRANSIENT` itself. The match
+/// is exact, so a case variant of a marker is simply not on the list.
+pub const WRITABLE: [&str; 4] = [TEXT, HTML, RTF, URL];
 
 /// Marxy's bundle identifier, `identifier` in `tauri.conf.json` (checked by a test).
 pub const BUNDLE_ID: &str = "dev.marxy.app";
 
-/// The largest representation `pasteboard_read` returns.
+/// The largest representation `pasteboard_read` returns. It limits the response, not memory.
 pub const CAP: usize = 16 * 1024 * 1024;
 
-/// One pasteboard, as the logic needs it. `types` is not a data read; `read` is, and is the only one.
-pub trait Pasteboard {
-    /// The types of the first item (and `CONCEALED` if any item carries it).
-    fn types(&self) -> Vec<String>;
-    /// The first item's bytes for `ty`, or `None` when it has none.
+/// The pasteboard's item array as it was when `snapshot` was called. Later copies do not show here.
+pub trait Snapshot {
+    /// The types of each item, in item order. Not a data read.
+    fn item_types(&self) -> Vec<Vec<String>>;
+    /// The first item's bytes for `ty`, or `None` when it has none. This is the data read.
     fn read(&self, ty: &str) -> Option<Vec<u8>>;
+}
+
+/// One pasteboard, as the logic needs it.
+pub trait Pasteboard {
+    /// Take the item array once; a command uses the result for its type list and every read.
+    fn snapshot(&self) -> Box<dyn Snapshot>;
     /// Clear the pasteboard once and write one item holding every `(type, bytes)` pair.
     fn write_item(&mut self, reps: &[(String, Vec<u8>)]) -> Result<(), PasteboardError>;
 }
@@ -63,17 +82,15 @@ pub trait Pasteboard {
 pub enum PasteboardError {
     /// The item is marked concealed; nothing of it was read.
     Concealed,
-    /// A representation is larger than `CAP`.
-    TooLarge { ty: String, len: usize },
-    /// A write named a marker type the shell owns.
-    Reserved(String),
+    /// A write named a type outside `WRITABLE`.
+    NotWritable(String),
     /// A write with no representations.
     Empty,
     /// Not macOS: the native pasteboard is not built here.
-    #[cfg_attr(target_os = "macos", allow(dead_code))]
+    #[cfg_attr(target_os = "macos", expect(dead_code))]
     Unsupported,
     /// AppKit refused the call.
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    #[cfg_attr(not(target_os = "macos"), expect(dead_code))]
     Native(String),
 }
 
@@ -84,13 +101,10 @@ impl From<PasteboardError> for ShellError {
                 "permission",
                 "the clipboard holds a concealed item; Marxy does not read it".to_string(),
             ),
-            PasteboardError::TooLarge { ty, len } => (
+            PasteboardError::NotWritable(ty) => (
                 "invalid",
-                format!("{ty} on the clipboard is {len} bytes, over the {CAP}-byte limit"),
+                format!("{ty} cannot be written; only text, HTML, RTF and URL can"),
             ),
-            PasteboardError::Reserved(ty) => {
-                ("invalid", format!("{ty} is written by the shell only"))
-            }
             PasteboardError::Empty => ("invalid", "nothing to write".to_string()),
             PasteboardError::Unsupported => (
                 "unsupported",
@@ -106,34 +120,60 @@ impl From<PasteboardError> for ShellError {
     }
 }
 
-/// The types on the pasteboard's first item. Reads no data.
+/// The types on the pasteboard's first item, plus `CONCEALED` when any item carries it. Reads no data.
 pub fn read_types(pb: &dyn Pasteboard) -> Vec<String> {
-    pb.types()
+    let items = pb.snapshot().item_types();
+    let mut types = items.first().cloned().unwrap_or_default();
+    if !types.iter().any(|t| t == CONCEALED) && is_concealed(&items) {
+        types.push(CONCEALED.to_string());
+    }
+    types
 }
 
-/// The requested representations that the first item holds, in `READABLE` order. A concealed item is
-/// refused before any data read; a type not in `READABLE`, or not requested, is never read.
-pub fn read_reps(
-    pb: &dyn Pasteboard,
-    wanted: &[String],
-) -> Result<Vec<(String, Vec<u8>)>, PasteboardError> {
-    let types = pb.types();
-    if types.iter().any(|t| t == CONCEALED) {
+/// A concealed marker on any item, not only the first, refuses the read.
+fn is_concealed(items: &[Vec<String>]) -> bool {
+    items.iter().flatten().any(|t| t == CONCEALED)
+}
+
+/// A representation that was held but not returned because it is over `CAP`.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Skipped {
+    #[serde(rename = "type")]
+    pub ty: String,
+    pub len: usize,
+}
+
+/// What a read returned: the representations, and those skipped for size.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Read {
+    pub reps: Vec<(String, Vec<u8>)>,
+    pub skipped: Vec<Skipped>,
+}
+
+/// The requested representations that the first item holds, in `READABLE` order, from one snapshot.
+/// A concealed item (on any item) is refused before any data read; a type not in `READABLE`, or not
+/// requested, is never read; one over `CAP` is skipped and reported while the rest is returned.
+pub fn read_reps(pb: &dyn Pasteboard, wanted: &[String]) -> Result<Read, PasteboardError> {
+    let snap = pb.snapshot();
+    let items = snap.item_types();
+    if is_concealed(&items) {
         return Err(PasteboardError::Concealed);
     }
-    let mut out = Vec::new();
+    let first = items.first().cloned().unwrap_or_default();
+    let mut out = Read::default();
     for ty in READABLE {
-        if !wanted.iter().any(|w| w == ty) || !types.iter().any(|t| t == ty) {
+        if !wanted.iter().any(|w| w == ty) || !first.iter().any(|t| t == ty) {
             continue;
         }
-        if let Some(bytes) = pb.read(ty) {
+        if let Some(bytes) = snap.read(ty) {
             if bytes.len() > CAP {
-                return Err(PasteboardError::TooLarge {
+                out.skipped.push(Skipped {
                     ty: ty.to_string(),
                     len: bytes.len(),
                 });
+            } else {
+                out.reps.push((ty.to_string(), bytes));
             }
-            out.push((ty.to_string(), bytes));
         }
     }
     Ok(out)
@@ -148,8 +188,8 @@ pub fn write_reps(
     if reps.is_empty() {
         return Err(PasteboardError::Empty);
     }
-    if let Some((ty, _)) = reps.iter().find(|(ty, _)| RESERVED.contains(&ty.as_str())) {
-        return Err(PasteboardError::Reserved(ty.clone()));
+    if let Some((ty, _)) = reps.iter().find(|(ty, _)| !WRITABLE.contains(&ty.as_str())) {
+        return Err(PasteboardError::NotWritable(ty.clone()));
     }
     let mut item = reps.to_vec();
     item.push((SOURCE.to_string(), BUNDLE_ID.as_bytes().to_vec()));
@@ -178,6 +218,8 @@ pub struct ReadRep {
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct PasteboardRead {
     pub reps: Vec<ReadRep>,
+    /// Representations over `CAP`, named but not returned.
+    pub skipped: Vec<Skipped>,
 }
 
 /// One representation to write; `data` is the text itself (text, HTML and RTF are text).
@@ -189,14 +231,17 @@ pub struct WriteRep {
 }
 
 /// Text-like types cross as UTF-8 when they are; PNG, and any bytes that are not UTF-8, as base64.
-fn encode_rep(ty: String, bytes: Vec<u8>) -> ReadRep {
+fn encode_rep(ty: String, mut bytes: Vec<u8>) -> ReadRep {
     if ty != PNG {
-        if let Ok(text) = String::from_utf8(bytes.clone()) {
-            return ReadRep {
-                ty,
-                encoding: Encoding::Utf8,
-                data: text,
-            };
+        match String::from_utf8(bytes) {
+            Ok(text) => {
+                return ReadRep {
+                    ty,
+                    encoding: Encoding::Utf8,
+                    data: text,
+                }
+            }
+            Err(e) => bytes = e.into_bytes(),
         }
     }
     ReadRep {
@@ -245,6 +290,8 @@ fn with_general<R>(
     }
 }
 
+// The three commands below stay synchronous: Tauri runs them on the main thread (AppKit needs it).
+
 /// The first item's types, read on a reader action only. Reads no data.
 #[tauri::command]
 pub fn pasteboard_types() -> Result<Vec<String>, ShellError> {
@@ -255,11 +302,13 @@ pub fn pasteboard_types() -> Result<Vec<String>, ShellError> {
 #[tauri::command]
 pub fn pasteboard_read(types: Vec<String>) -> Result<PasteboardRead, ShellError> {
     with_general(|pb| read_reps(pb, &types))
-        .map(|reps| PasteboardRead {
-            reps: reps
+        .map(|read| PasteboardRead {
+            reps: read
+                .reps
                 .into_iter()
                 .map(|(ty, bytes)| encode_rep(ty, bytes))
                 .collect(),
+            skipped: read.skipped,
         })
         .map_err(Into::into)
 }
@@ -346,39 +395,100 @@ mod tests {
             HTML.to_string(),
             URL.to_string(),
         ];
-        let got = read_reps(&pb, &wanted).unwrap();
+        let got = read_reps(&pb, &wanted).unwrap().reps;
         assert_eq!(pb.reads(), vec![HTML.to_string(), PNG.to_string()]);
         assert_eq!(types_of(&got), vec![HTML, PNG]);
         assert_eq!(got[0].1, b"<p>html</p>");
     }
 
     #[test]
-    fn cap() {
+    fn an_oversized_rep_is_skipped_and_reported_and_the_rest_returns() {
         let big = vec![b'a'; CAP + 1];
         let pb = FakePasteboard::holding(vec![vec![(HTML.to_string(), big), rep(TEXT, "small")]]);
         let wanted = vec![TEXT.to_string(), HTML.to_string()];
+        let got = read_reps(&pb, &wanted).unwrap();
+        assert_eq!(types_of(&got.reps), vec![TEXT]);
         assert_eq!(
-            read_reps(&pb, &wanted),
-            Err(PasteboardError::TooLarge {
+            got.skipped,
+            vec![Skipped {
                 ty: HTML.to_string(),
                 len: CAP + 1
-            })
+            }]
         );
         let at_cap = FakePasteboard::holding(vec![vec![(HTML.to_string(), vec![b'a'; CAP])]]);
-        assert_eq!(read_reps(&at_cap, &wanted).unwrap()[0].1.len(), CAP);
+        let got = read_reps(&at_cap, &wanted).unwrap();
+        assert_eq!(got.reps[0].1.len(), CAP);
+        assert!(got.skipped.is_empty());
     }
 
     #[test]
-    fn a_write_cannot_forge_or_drop_the_markers() {
+    fn a_read_uses_one_snapshot_so_a_later_copy_is_not_read() {
+        let pb = FakePasteboard::holding(vec![vec![rep(TEXT, "checked")]]);
+        *pb.lands_after_snapshot.borrow_mut() = Some(vec![vec![rep(TEXT, "landed later")]]);
+        let wanted = vec![TEXT.to_string()];
+        let got = read_reps(&pb, &wanted).unwrap();
+        assert_eq!(pb.snapshots(), 1, "one snapshot per command");
+        assert_eq!(got.reps, vec![rep(TEXT, "checked")]);
+        assert_eq!(pb.current()[0][0].1, b"landed later", "the copy did land");
+    }
+
+    #[test]
+    fn a_concealed_marker_on_any_item_refuses_the_read() {
+        let pb = FakePasteboard::holding(vec![
+            vec![rep(TEXT, "a")],
+            vec![rep(TEXT, "b"), rep(CONCEALED, "")],
+        ]);
+        let wanted = vec![TEXT.to_string()];
+        assert_eq!(read_reps(&pb, &wanted), Err(PasteboardError::Concealed));
+        assert_eq!(pb.data_reads(), 0);
+        assert!(read_types(&pb).contains(&CONCEALED.to_string()));
+    }
+
+    #[test]
+    fn only_text_html_rtf_and_url_can_be_written() {
         let mut pb = FakePasteboard::default();
-        for ty in RESERVED {
+        for ty in [TEXT, HTML, RTF, URL] {
+            write_reps(&mut pb, &[rep(ty, "x")], false).unwrap();
+        }
+        for ty in [PNG, "com.example.other"] {
             assert_eq!(
                 write_reps(&mut pb, &[rep(TEXT, "x"), rep(ty, "y")], false),
-                Err(PasteboardError::Reserved(ty.to_string()))
+                Err(PasteboardError::NotWritable(ty.to_string()))
             );
         }
         assert_eq!(write_reps(&mut pb, &[], false), Err(PasteboardError::Empty));
-        assert_eq!(pb.clears, 0, "a refused write leaves the pasteboard alone");
+        assert_eq!(pb.clears, 4, "a refused write leaves the pasteboard alone");
+    }
+
+    #[test]
+    fn a_write_cannot_forge_or_drop_the_markers_in_any_case() {
+        let mut pb = FakePasteboard::default();
+        for ty in [SOURCE, TRANSIENT, CONCEALED] {
+            for variant in [ty.to_string(), ty.to_uppercase(), ty.to_lowercase()] {
+                assert_eq!(
+                    write_reps(&mut pb, &[rep(TEXT, "x"), rep(&variant, "y")], false),
+                    Err(PasteboardError::NotWritable(variant.clone())),
+                    "{variant}"
+                );
+            }
+        }
+        assert_eq!(pb.clears, 0);
+        write_reps(&mut pb, &[rep(TEXT, "x")], false).unwrap();
+        assert!(
+            types_of(&pb.items[0]).contains(&SOURCE),
+            "the shell adds it"
+        );
+    }
+
+    #[test]
+    fn a_failed_write_leaves_the_clipboard_empty() {
+        let mut pb = FakePasteboard::holding(vec![vec![rep(TEXT, "kept?")]]);
+        pb.fail_write = true;
+        assert!(matches!(
+            write_reps(&mut pb, &[rep(TEXT, "x")], false),
+            Err(PasteboardError::Native(_))
+        ));
+        assert!(pb.items.is_empty(), "as the module doc says");
     }
 
     #[test]
