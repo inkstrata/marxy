@@ -114,14 +114,14 @@ width of the page, and scrolls inside beyond that (the symmetric overflow lane L
 
   | Theme directory | Dark | Light |
   | --- | --- | --- |
-  | `default` | Ink | Paper |
+  | `default` | Night | Paper |
+  | `ink` | Ink | — |
   | `warm` | Dusk | Sepia |
-  | `night` | Night (true black, for OLED) | — |
   | `fjord` | Fjord | — |
   | `high-contrast` | HC dark | HC light |
 
-  Today's warm near-black (`#151412`) becomes the reference that `warm` is checked against. Which
-  pair is the default is one of the author's decisions ([README](README.md#what-the-author-must-decide)).
+  Today's warm near-black (`#151412`) becomes the reference that `warm` is checked against. The author ruled Night
+  as the default dark theme, with Paper for light; Ink keeps its own directory.
 - **Type sets as roles:** a serif, a sans, a README sans and a mono, each a token a theme sets.
   Galley's *Classic* set (Literata, Source Serif 4, Atkinson Hyperlegible Next, Inter, JetBrains
   Mono) is the default. *Plex*, *Hyperlegible* and *System* are themes of a few lines each. All of
@@ -144,7 +144,7 @@ weight only, and Marxy's heading weights (560/580) unless a taste review overtur
 ### Token contract v2
 
 Galley's roles mapped onto `--marxy-*` names. *Exists* means the token is in contract v1 today;
-*new* needs the ADR that opens contract v2. Galley's window and sidebar grounds (`--win`, `--side`)
+*new* comes with contract v2 (ADR-0059). Galley's window and sidebar grounds (`--win`, `--side`)
 and its layout sizes (`--side-w`, `--tb-h`, `--sb-h`) have no counterpart, because Marxy has no
 window chrome to colour.
 
