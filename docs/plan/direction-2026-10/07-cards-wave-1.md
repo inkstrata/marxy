@@ -590,8 +590,8 @@ model: its pair list, its compositing, its "4.499 fails".
 - Edit: `scripts/check.mjs` (`CHECKS` gains `gate-contrast`), `docs/ci-contract.md` and `docs/hygiene.md`
   (the check's row; "eight hygiene checks" becomes nine wherever it is counted: `AGENTS.md`, `scripts/check.mjs`'s
   summary line, `docs/ci-contract.md`), `package.json` only if a `gate:contrast` script is wanted.
-- Read: ADR-0059 item 10 (the floors table), `packages/theme/src/tokens.css` and every theme under
-  `packages/theme/themes/` (or wherever bundled themes live), `scripts/check-tokens.mjs` (how tokens are parsed),
+- Read: ADR-0059 item 10 (the floors table), `packages/theme/src/tokens.css` and the bundled default theme in
+  `packages/theme/default/` (and any theme directory H-04 and H-05 add later; the gate finds them), `scripts/check-tokens.mjs` (how tokens are parsed),
   `docs/research/reader-typography/09-color-access.md`.
 
 **Build order.**
@@ -634,8 +634,8 @@ chip) all read this.
 **Paths.**
 - New: `packages/core/src/kind/detect.ts`, `packages/core/src/kind/detect.test.ts`,
   `packages/core/goldens/kinds.json` (one entry per `fixtures/corpus/` file: kind and reasons).
-- Edit: `packages/core/src/index.ts` (exports), the core golden script only to add `kinds.json` to its compare and
-  `--update` paths.
+- Edit: `packages/core/src/index.ts` (exports), `packages/core/scripts/golden.ts` (`pnpm --filter @marxy/core test:golden`) only to add
+  `kinds.json` to its compare and `--update` paths.
 - Read: ADR-0060 in full (the tier table, the text family, the never-a-signal rule, the thresholds K-03 sets),
   `packages/core/src/contracts/kinds.ts`, `apps/desktop/src/source/default-mode.ts` (today's rule, unchanged).
 
