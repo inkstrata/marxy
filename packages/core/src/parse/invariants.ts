@@ -45,6 +45,8 @@ export function checkInvariants(root: Node, bytes: Uint8Array): Violation[] {
           violations.push({ invariant: CODE_CONTENT, detail: `content of ${where(node)} includes the opening fence line` });
         } else if (!isJustTheCode(decoder.decode(bytes.subarray(content.start, content.end)), node.value)) {
           violations.push({ invariant: CODE_CONTENT, detail: `content of ${where(node)} is not the block's code alone` });
+        } else if (!endsTheCode(bytes, content.end, src.end, openingFenceEnds !== undefined)) {
+          violations.push({ invariant: CODE_CONTENT, detail: `content of ${where(node)} stops before the block's last code line` });
         }
       }
     }
@@ -144,6 +146,8 @@ function isJustTheCode(content: string, value: string): boolean {
     if (expected === undefined || !value.startsWith(expected, ending.start)) return false;
     at = ending.start + expected.length;
   }
+  // An empty value is no line or one empty line; the content says which.
+  if (value === '' && lines.length === 1) valueLines.push('');
   if (lines.length !== valueLines.length) return false;
   // A content line may still carry its container's markers (`> `) and the indentation micromark
   // stripped; what must match is the code after them. Stripping both sides means a content range that
@@ -152,6 +156,22 @@ function isJustTheCode(content: string, value: string): boolean {
   const strip = (line: string) => line.replace(/^[ \t>]*/, '');
   return valueLines.every((expected, index) => strip(lines[index]!) === strip(expected));
 }
+
+/**
+ * What follows a code block's content inside the block is its closing fence line and nothing else, or,
+ * for indented code, the blank lines micromark's range holds. A content range that stops a line short,
+ * or partway through a line, leaves code there: a line of spaces in a fence, which `isJustTheCode`
+ * reads as the value's empty last line, is caught only here (`- ~~~` then lines of spaces, F-20.2).
+ * Nor may content end between the CR and the LF of one line ending.
+ */
+function endsTheCode(bytes: Uint8Array, end: number, blockEnd: number, fenced: boolean): boolean {
+  if (bytes[end - 1] === 0x0d && bytes[end] === 0x0a) return false;
+  const rest = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false }).decode(bytes.subarray(end, blockEnd));
+  return fenced ? rest === '' || CLOSING_FENCE.test(rest) : /^[ \t>\r\n]*$/.test(rest);
+}
+
+// A closing fence line, after its container's markers: a fence and spaces, on one line.
+const CLOSING_FENCE = /^[ \t>]*(?:`{3,}|~{3,})[ \t]*$/;
 
 /**
  * "modulo escapes": the bytes of a text node are the markdown that produced its value, so backslash
