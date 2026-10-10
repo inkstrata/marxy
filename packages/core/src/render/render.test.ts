@@ -77,6 +77,33 @@ test('a diagram fence written in capitals still carries the lowercased language 
   }
 });
 
+test('a fence language that is not one plain token never becomes a class, so a document cannot borrow marxy-* classes (B-25.1)', () => {
+  const hostile = [
+    'x&#32;marxy-math-block',
+    'Mermaid&#x20;MARXY-LINE-OMITTED',
+    'x&#9;marxy-notice',
+    'x&#160;marxy-notice',
+    'x&#10;marxy-notice',
+    'x&#xFEFF;marxy-notice',
+    '\u212Aarxy-notice',
+  ];
+  for (const lang of hostile) {
+    const out = html(`\`\`\`${lang}\nA\n\`\`\`\n`);
+    assert.doesNotMatch(out, /marxy-/i, lang);
+    assert.doesNotMatch(out, /<pre class=/, lang);
+    assert.doesNotMatch(out, /<code class=/, lang);
+  }
+});
+
+test('ordinary language names still get their class on the pre and the code (B-25.1)', () => {
+  const long = 'a'.repeat(32);
+  for (const [written, pre] of [['c++', 'c++'], ['c#', 'c#'], ['f#', 'f#'], ['objective-c', 'objective-c'], [long, long], ['JavaScript', 'javascript']]) {
+    const out = html(`\`\`\`${written}\nA\n\`\`\`\n`);
+    assert.match(out, new RegExp(`<pre class="language-${pre.replace(/[+]/g, '\\$&')}"><code class="language-${written.replace(/[+]/g, '\\$&')}">`), written);
+  }
+  assert.doesNotMatch(html(`\`\`\`${'a'.repeat(33)}\nA\n\`\`\`\n`), /class=/);
+});
+
 test('a local image keeps its source; a remote one keeps only its alt text', () => {
   assert.equal(html('![a](diagram.png)\n'), '<p><img src="diagram.png" alt="a" /></p>');
   assert.equal(html('![a](https://example.com/p.png)\n'), '<p><img data-marxy-remote="https://example.com/p.png" alt="a" /></p>');

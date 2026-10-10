@@ -13,6 +13,14 @@ import { renderFrontmatterHead } from './frontmatter.ts';
 import { linkHostMismatchLabel } from './link-host.ts';
 import { smartenParagraphTextNode, type ParagraphTypo } from './typography.ts';
 
+/** One class-safe token: what the sanitiser's `language-*` class pattern allows, with no whitespace. */
+const LANGUAGE_TOKEN = /^[a-z0-9#+._-]{1,32}$/;
+
+/** Lowercase A to Z only; `toLowerCase` would fold U+212A KELVIN SIGN to `k`. */
+function asciiLower(value: string): string {
+  return value.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
+}
+
 const DIAGRAM_LANGUAGES = new Set(['mermaid', 'plantuml', 'dot', 'd2']);
 
 /** Paragraph widont metadata plus the paragraph's inline list for trailing-suffix checks. */
@@ -134,9 +142,13 @@ function block(node: Block, tight: boolean, ctx: Context): string {
       return `<blockquote${prov(node.src, ctx)}>\n${blocks(node.children, false, ctx)}\n</blockquote>`;
     }
     case 'codeBlock': {
-      const language = node.lang === undefined || node.lang === '' ? '' : ` class="language-${escapeAttribute(node.lang)}"`;
+      // A language is a class only when it is one plain token. Entity decoding can put whitespace
+      // in an info string (`&#32;`), and the sanitiser splits `class` on whitespace and trusts a
+      // `marxy-*` token, so a fence must not be able to add the renderer's own classes (B-25.1).
+      const lang = asciiLower(node.lang ?? '');
+      const safeLang = LANGUAGE_TOKEN.test(lang);
+      const language = safeLang ? ` class="language-${escapeAttribute(node.lang ?? '')}"` : '';
       const value = node.value.length > 0 ? `${escapeText(node.value)}\n` : '';
-      const lang = node.lang?.toLowerCase() ?? '';
       const caption =
         DIAGRAM_LANGUAGES.has(lang)
           ? `<p>${escapeText(lang)} · diagram source</p>\n`
@@ -144,7 +156,7 @@ function block(node: Block, tight: boolean, ctx: Context): string {
       // The `<pre>` carries the lowercased language too, so the theme's diagram-caption rule can
       // look one step past the caption (`p:has(+ pre.language-mermaid)`). A two-step `:has()` into
       // the `<code>` costs WebKit time in proportion to the article on every appended block (B-25.1).
-      const preLanguage = lang === '' ? '' : ` class="language-${escapeAttribute(lang)}"`;
+      const preLanguage = !safeLang ? '' : ` class="language-${escapeAttribute(lang)}"`;
       // The `<pre>` is the whole fence; the `<code>` is the content between the fence lines.
       return `${caption}<pre${preLanguage}${prov(node.src, ctx)}><code${language}${prov(node.content, ctx)}>${value}</code></pre>`;
     }
