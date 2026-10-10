@@ -2,6 +2,9 @@
 
 **Status:** accepted
 
+**Amended by:** [ADR-0061](0061-derived-views.md) (proposed): a file may also be read through a
+derived view, a read-only tree computed from the same buffer, beside the AST and never edited.
+
 ## Decision
 The source text buffer is the only truth. One parse produces one AST in which **every node
 carries `{ file, start, end }` byte offsets** (`packages/core/src/contracts/ast.ts`). Two
