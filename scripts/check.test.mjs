@@ -1,4 +1,4 @@
-// `pnpm check` (A-08): eight checks, one line each, a failing check exits 1 with its own fix line.
+// `pnpm check` (A-08, H-02): nine checks, one line each, a failing check exits 1 with its own fix line.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -10,10 +10,10 @@ import { CHECKS, runChecks } from './check.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
-test('A-08: pnpm check runs exactly the eight hygiene checks, each an existing script', () => {
+test('A-08: pnpm check runs exactly the nine hygiene checks, each an existing script', () => {
   assert.deepEqual(CHECKS.map(c => c.name), [
     'check-boundaries', 'check-registry', 'check-deps', 'check-deferrals',
-    'check-one-parse', 'check-tokens', 'gate-font-attrs', 'check-workflows',
+    'check-one-parse', 'check-tokens', 'gate-font-attrs', 'gate-contrast', 'check-workflows',
   ]);
   for (const c of CHECKS) assert.ok(existsSync(join(ROOT, 'scripts', c.script)), c.script);
 });
@@ -53,8 +53,8 @@ test('A-08: a failing check is reported as ✗ with the last six lines of its ou
 test('A-08: pnpm check is green on this tree', () => {
   const run = spawnSync(process.execPath, [join(ROOT, 'scripts/check.mjs')], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(run.status, 0, run.stdout + run.stderr);
-  assert.equal((run.stdout.match(/^✓ /gm) ?? []).length, 8);
-  assert.match(run.stdout, /check: 8\/8 passed/);
+  assert.equal((run.stdout.match(/^✓ /gm) ?? []).length, 9);
+  assert.match(run.stdout, /check: 9\/9 passed/);
 });
 
 test('A-08: a Node built-in imported into packages/core makes pnpm check exit 1 with the boundaries fix line', () => {
