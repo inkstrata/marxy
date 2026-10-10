@@ -63,6 +63,36 @@ average character (the mean advance of English prose, in em) and sets `--marxy-a
 column will not hold the character count. Never set a measure in `ch`: a `ch` is the digit zero,
 which in most faces is 13–58 % wider than an average character.
 
+## Contract v2 (ADR-0059): decided, not yet shipped
+
+ADR-0059 (proposed) decides the names below; none is in `tokens.css` yet. H-03 declares them, moves
+the loader to `contract = 2` and teaches the validator the kind scope; H-04 sets Night's and Paper's
+values. Until then a theme that sets them gets no effect, and `check-tokens` refuses them in
+`tokens.css`. No v1 name, kind or meaning changes. Each new name falls back to the v1 token in
+brackets, so a contract-1 theme keeps rendering as it does today (it loads with a warning that its
+contract-2 roles use their fallbacks).
+
+- **Colour** (`colour`): `--marxy-color-surface` (`-notice`), `-surface-glass` (`-surface`),
+  `-text-strong` (`-text`), `-text-faint` (`-text-secondary`), `-rule-strong` (`-rule`), `-edge`
+  (`-text-secondary`), `-accent-strong` (`-accent`), `-accent-fg` (`-bg`), `-accent-wash`
+  (`-selection`), `-status-ok`, `-status-warn`, `-status-err` (`-text`), `-status-info` (`-accent`),
+  `-status-ok-wash`, `-status-warn-wash`, `-status-err-wash` (`-notice`); `--marxy-tok-marker`
+  (`-tok-punctuation`), `--marxy-tok-heading` (`-color-code-text`), `--marxy-tok-link` (`-color-link`).
+- **Shadow** (`keyword`): `--marxy-shadow-surface` (`none`).
+- **Face roles** (`family`): `--marxy-face-book`, `-article`, `-sans`, `-readme` (`--marxy-font-text`),
+  `--marxy-face-mono` (`--marxy-font-mono`). The v1 families become the slots a kind points at a role.
+- **Chrome**: `--marxy-face-chrome` (`family`, `system-ui, sans-serif`), `--marxy-size-chrome`
+  (`length`, `13px`). The theme sets only the default; the reader's `chrome_size` (11–26 px) wins.
+- **The kind scope**: inside `[data-marxy-kind="<kind>"]` on the pane root a theme sets the same
+  `--marxy-*` names; there is no `--k-*` family. Surfaces, the shadow, chrome, dividers, the progress
+  rule and `--marxy-typeset` are global only. A kind sets sizes and line boxes only as multiples of
+  the reader's values (a unitless ratio or `em`, never px), so the reader's size wins; the line box is
+  rounded to an even whole pixel, the grid stays half of it, and the multiples stay Marxy's.
+- **Per language**: inside `[data-marxy-lang="<id>"]` a theme sets only `--marxy-tok-*`; Marxy owns
+  `--marxy-lang`.
+
+The meanings and the contrast floor each colour role must meet are in ADR-0059.
+
 ## Diff colours (ADR-0036)
 
 Four tokens tint added and deleted lines in diff fences. The `+`, `-` and space marker stays

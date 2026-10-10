@@ -2,6 +2,8 @@
 
 **Status:** accepted
 
+**Amended by:** ADR-0059 (contract version 2; a theme may scope tokens to a kind)
+
 ## Decision
 A theme is a directory: `theme.toml` (name, author, contract version, variants), `theme.css`,
 optional bundled `fonts/`, `LICENSE`. No JavaScript, no network, no conditional logic, no AST

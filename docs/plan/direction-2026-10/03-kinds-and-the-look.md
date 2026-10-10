@@ -167,7 +167,7 @@ window chrome to colour.
 | `--add-wash`, `--del-wash` | `--marxy-color-diff-*` | exist |
 | `--shadow`, `--glass` | `--marxy-shadow-surface`, `--marxy-color-surface-glass` | new |
 | `--text-wght`, `--strong-wght`, `--head-wght` | `--marxy-weight-body`, `-strong`, `-heading` | exist |
-| `--face-book`, `--face-sans`, `--face-readme`, `--face-code` | `--marxy-face-serif`, `--marxy-face-sans`, `--marxy-face-readme`, `--marxy-face-mono` (roles; `--marxy-font-text` and siblings point at one of them) | new |
+| `--face-book`, `--face-sans`, `--face-readme`, `--face-code` | `--marxy-face-book` (named `-serif` until ADR-0059), `--marxy-face-sans`, `--marxy-face-readme`, `--marxy-face-mono` (roles; `--marxy-font-text` and siblings point at one of them; ADR-0059 adds `--marxy-face-article`) | new |
 | `--face-chrome`, `--chrome-size` | `--marxy-face-chrome`, `--marxy-size-chrome` | new |
 | `--k-*` per-kind tokens | none: a kind re-scopes the existing tokens | — |
 

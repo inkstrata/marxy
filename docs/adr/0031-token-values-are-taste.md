@@ -3,6 +3,8 @@
 **Status:** accepted 2026-09-19 (MARXY-133) · **Source:** taste review #0 and #1 (`docs/taste-review/2026-09-review-0/decisions.md`,
 `2026-09-review-1/decisions.md`), ADR-0008, ADR-0014, ADR-0024
 
+**Amended by:** ADR-0059 (contract v2 adds 27 names, kinds and meanings, each with a v1 fallback)
+
 ## Context
 
 `packages/theme/src/tokens.css` is frozen byte-for-byte: `pnpm test:contracts-frozen` pins its blob
