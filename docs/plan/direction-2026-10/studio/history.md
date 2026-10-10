@@ -68,8 +68,10 @@ option A, and items 1 and 3). Today it is not one path, and J-08 makes it one:
 - `runCopyShortcut`'s fallback, `document.execCommand('copy')` (`apps/desktop/src/selection/apply.ts:54`),
   becomes a call to `writeCopy` with the selection's text;
 - a `copy` event handler on the document catches native copies (Source's CodeMirror, the Edit menu's
-  Copy, any text field): it cancels the webview's write and passes the selection's text and HTML, with
-  its source (the document and byte range for Source), to `writeCopy`.
+  Copy, any text field) when it has the full text (Source's from the editor's state, a text field's from
+  its selection range). It fills `event.clipboardData` synchronously, prevents the webview's write, then
+  passes the text and HTML, with its source (the document and byte range for Source), to `writeCopy`.
+  In any context it does not recognise it leaves the native copy alone, unrecorded. Cut is the same.
 
 Each copy then goes through these steps:
 

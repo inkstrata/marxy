@@ -131,9 +131,11 @@ watching.
 1. `write.ts`: `writeCopy(ctx, reps, meta: { format, source, origin, transient })` calls J-02's write,
    then, unless `transient`, `history.add` (J-07). A failed write records nothing.
 2. Point every call site at `writeCopy`; replace the `execCommand('copy')` fallback; install the
-   `copy` handler on the document (capture phase): it cancels the webview's write and passes the
-   selection's text and HTML, with its source (document and byte range in Source, else `null`), to
-   `writeCopy`. Add a test that scans `apps/desktop/src` and fails on any other call to the shell's
+   `copy` and `cut` handler on the document (capture phase). Only when it has the full text (Source's
+   from the editor's state, never the DOM; a text field's from its selection range) does it fill
+   `event.clipboardData` synchronously, prevent the webview's write, and pass the text and HTML, with
+   its source (document and byte range in Source, else `null`), to `writeCopy`; otherwise it leaves the
+   native copy alone, unrecorded. Add a test that scans `apps/desktop/src` and fails on any other call to the shell's
    clipboard write, on `execCommand('copy')`, and on a `copy` or `cut` listener outside `copy-event.ts`
    (`single_write_path`).
 3. `history-store.ts`: a memory store for `off` (records nothing) and `session`; a file store for `keep`
@@ -153,7 +155,11 @@ watching.
   `failed_write_records_nothing`, `single_write_path`.
 - `copy-event.test.ts`: `native_copy_recorded` (a `copy` event over a text selection writes once
   through `writeCopy` and records it), `source_copy_carries_byte_range`, `edit_menu_copy_recorded`,
-  `webview_write_cancelled` (the event's default is prevented, so nothing reaches the pasteboard twice).
+  `webview_write_cancelled` (the event's default is prevented, so nothing reaches the pasteboard twice),
+  `unrecognised_context_falls_back_native` (an image or an unforeseen element: no prevention, nothing
+  recorded), `failed_write_keeps_native_copy` (J-02's write rejects: `clipboardData` still holds the
+  text), `source_long_selection_full_text` (a Source selection longer than the viewport is copied
+  whole), `cut_recorded`.
 - `history-store.test.ts` (memory shell): `session_writes_no_file` (the shell's file log is empty after
   ten copies), `keep_writes_items_then_index`, `keep_reconciles_orphans`, `corrupt_index_set_aside`,
   `keep_to_session_deletes_folder`, `clear_deletes_files_and_undo_restores`.

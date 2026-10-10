@@ -38,8 +38,13 @@ three routes: the verbs call `shell.clipboardWrite`; `runCopyShortcut` falls bac
 Source (CodeMirror) and the Edit menu's Copy copy natively, through the webview. Option A makes the
 path single: one function, `writeCopy`, writes the clipboard (through J-02) and records the copy; the
 `execCommand('copy')` fallback becomes a call to it; and a `copy` event handler on the document
-catches every native copy (Source, the Edit menu, any text field), cancels the webview's own write,
-and hands the selection's text and HTML, with its source, to `writeCopy`. History records there,
+catches native copies (Source, the Edit menu, any text field). It takes over a copy only when it
+has the full text (Source's from the editor's state, never the DOM, whose lines are virtualised; a
+text field's from `selectionStart`/`selectionEnd`): it fills `event.clipboardData` synchronously,
+prevents the webview's own write, and then hands the text and HTML, with its source, to `writeCopy`,
+so a failed J-02 write still leaves the copy the reader made. In any other context it leaves the
+native copy alone, and that copy goes unrecorded: history may miss a copy, a copy is never lost.
+Cut (`⌘X`) is handled the same way. History records there,
 after the write succeeds. It needs no pasteboard read, no permission, no background thread and
 nothing platform-specific, so it works on Linux too.
 
@@ -161,8 +166,9 @@ history of Marxy's own copies costs no privacy that a copy did not already cost.
   (every read goes through J-02's capability, called only from a reader's command) and by tests (J-08's
   `no_read_without_command`, and each later card that adds a read), not by the shell. The author may
   want a shell-side gate instead (`studio/README.md`, *For the author*).
-- Every copy takes one path: `writeCopy`, with a `copy` event handler for native copies and no
-  `execCommand('copy')` left (J-08's `single_write_path` test holds it).
+- Every copy Marxy can see whole takes one path: `writeCopy`, with a `copy` and `cut` handler for
+  native copies and no `execCommand('copy')` left (J-08's `single_write_path` test holds it). A copy
+  the handler cannot see whole stays a native copy, unrecorded: history may miss a copy, never lose one.
 - The reader gets back anything they copied in Marxy this session, with no setting touched; a reader
   who wants it across launches chooses `keep` and sees where the files are.
 - `docs/design/11-config-and-storage.md` gains the `clipboard/` rows in *Data files*, the four keys,
