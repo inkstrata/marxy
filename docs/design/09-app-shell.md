@@ -68,7 +68,7 @@ The Rendered selection is the window's one and acts on the focused pane's articl
 every pane's article, each view tells it when its page is set, and focusing another pane clears it, so
 copy, the operations and `Mod+Z` reach the focused pane's document. Still bound to the first pane rather
 than the focused one, until the Phase D story named moves them: the window as scroller and the reading
-persistence (D-05, D-12), the mode attribute on `<body>` (D-11), notices other than a pane's own region
+persistence (D-05, D-12), notices other than a pane's own region
 (D-10). The close guard is per document, never the focused pane's alone (D-08, §Close). The window title
 is the focused pane's document: a document opened in the other pane does not take it, and focus moves
 it. Each pane's open path keeps its own live-reload
@@ -201,7 +201,24 @@ hover and focus-visible state.
 
 ## Source mode (D-A15)
 
-CodeMirror 6 in `#marxy-source`, created on first switch and kept:
+Source is a mode of a pane, not of the window (D-11, ADR-0005): each pane's section carries its own
+`data-marxy-mode`, `Mod+E` toggles the focused pane only, and `<body>`'s `data-marxy-mode` mirrors the
+focused pane's (written again whenever focus moves), so CSS and tests that read it still mean "the pane
+the reader is in". The editor mounts **in the pane**: one CodeMirror per pane's Source mount
+(`#marxy-source`, `#marxy-source-2`), with its own scroll and cursor; alone, the mount covers the window,
+and beside another pane it is `position: absolute` inside its own section. A file that opens in Source
+does so in whichever pane it opens in. Commands that mean "the editor" (line numbers, tab width, the
+external editor's line) take the focused pane's (`activeSourceEditor()`).
+
+Two panes on one file, one Rendered and one Source: what is typed in Source reaches the other view
+when focus leaves the editor (a click or `Mod+1`/`Mod+2` into the other pane, the palette), not per
+keystroke. It is folded into the store then, one history entry, exactly as leaving Source folds it; a
+Source pane that is the only view of its store folds only on leaving Source, as before. If another
+view's watch reloads the file from disk, or follows a rename, while a Source pane holds text not yet
+folded, that text is kept and folded on top, as an unsaved edit the store kept. Live mirroring per
+keystroke would need the store to take CodeMirror transactions (Phase E's block editing).
+
+CodeMirror 6 in each pane's Source mount, created on its first switch and kept:
 
 ```ts
 new EditorView({ state: EditorState.create({ doc: buffer.text /* without BOM */, extensions: [

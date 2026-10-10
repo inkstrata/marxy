@@ -19,6 +19,7 @@ import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/post.ts';
 import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
 import type { RenderedSelection } from '../selection/view.ts';
+import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
@@ -54,12 +55,14 @@ export interface OpenDocument {
 /**
  * Where a view draws. In the app the article is `#doc`, the scroller `document.documentElement`, the
  * Source mount `#marxy-source` and the mode host `document.body`, so the DOM is what it was before B-13.
+ * An article inside a `section.marxy-pane` carries its mode on that section instead (D-11; see
+ * `writeMode`).
  */
 export interface ViewHost {
   readonly article: HTMLElement;
   readonly scroller: HTMLElement;
   readonly sourceHost: HTMLElement;
-  /** Carries `data-marxy-mode`. */
+  /** Carries `data-marxy-mode` when the article is in no `section.marxy-pane` (a harness page). */
   readonly modeHost: HTMLElement;
 }
 
@@ -379,16 +382,45 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
   /**
    * The reader's place while Source shows (F-04): the line on the reading line. In Source the window
    * scrolls and the article is hidden, so neither its block list nor CodeMirror's scroller says where
-   * the reader is. Null in Rendered. A reader who has not scrolled (`scrollTop <= 0`) is at the top of
+   * the reader is. Null in Rendered. A reader who has not scrolled (no `scrollTop` above 0) is at the top of
    * the file, byte 0, as `positionAtScroll` reads it in Rendered (F-19.1): a line under the reading
    * line would put them below text written above.
    */
   function sourcePosition(path: string): ReadingPosition | null {
     const buffer = bufferNow();
     if (viewMode !== 'source' || !sourceEditor || !buffer || !sourceReadingPositionIn) return null;
-    if (scroller.scrollTop <= 0) return { path, byteOffset: 0, fraction: 0, mode: 'source' };
-    const place = sourceReadingPositionIn(buffer, sourceEditor.view as never, Math.round(window.innerHeight * 0.4));
+    // What scrolls in Source is the window, the mount (a pane's, or one pane's fixed overlay) or the
+    // editor's own scroller, depending on the page's rules: at the top only when none of them has moved.
+    const atTop = scroller.scrollTop <= 0 && sourceHost.scrollTop <= 0 && sourceEditor.view.scrollDOM.scrollTop <= 0;
+    if (atTop) return { path, byteOffset: 0, fraction: 0, mode: 'source' };
+    const place = sourceReadingPositionIn(buffer, sourceEditor.view as never, readingLinePx());
     return { path, byteOffset: place.byteOffset, fraction: place.fraction, mode: 'source' };
+  }
+
+  /**
+   * The reading line, in window coordinates: 40 % down this view's scroller. The window's own height
+   * while the window scrolls (as it always was); a pane's top and height while two are shown (D-11).
+   */
+  function readingLinePx(): number {
+    if (scroller === document.documentElement) return Math.round(window.innerHeight * 0.4);
+    return Math.round(scroller.getBoundingClientRect().top + scroller.clientHeight * 0.4);
+  }
+
+  /**
+   * The mode on the page (D-11). Each pane's section carries its own `data-marxy-mode`, and
+   * `document.body`'s mirrors the focused pane's: the CSS and the tests that read the body's (one pane
+   * is the window, so they were always reading the one pane's) keep working. The composition root
+   * writes the body's when focus moves; a view writes it here only while its pane has focus. An article
+   * in no pane (a harness page) writes its `modeHost`, as the one view always did.
+   */
+  function writeMode(mode: 'rendered' | 'source'): void {
+    const pane = doc.closest<HTMLElement>('section.marxy-pane');
+    if (!pane) {
+      modeHost.dataset.marxyMode = mode;
+      return;
+    }
+    pane.dataset.marxyMode = mode;
+    if (pane.hasAttribute('data-marxy-focus')) document.body.dataset.marxyMode = mode;
   }
 
   function setModeChrome(mode: 'rendered' | 'source'): void {
@@ -398,7 +430,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       (document.activeElement as HTMLElement).blur();
     }
     viewMode = mode;
-    modeHost.dataset.marxyMode = mode;
+    writeMode(mode);
     if (mode === 'source') {
       doc.hidden = true;
       sourceHost.hidden = false;
@@ -917,8 +949,35 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     settlePage(Promise.resolve());
   }
 
+  /**
+   * Text typed in this view's Source that the store did not have when another view's watch reloaded it
+   * from disk or followed a rename (two panes on one file, D-11): the store could not see it, so it moved
+   * on without it. The editor keeps it and it goes into the store on top, one history entry, as an
+   * unsaved edit the store kept would have: the page is set from the folded bytes. Never lost to a
+   * transition this view did not ask for.
+   */
+  function keepTypedText(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): boolean {
+    if (change.kind !== 'reload' && change.kind !== 'rename') return false;
+    // A reload that only adopted the bytes on disk (the buffer is the one it was) took nothing away.
+    if (snapshot.buffer === before.buffer) return false;
+    const open = store;
+    const editor = sourceEditor;
+    if (!open || !editor || viewMode !== 'source') return false;
+    const text = editor.docText();
+    if (!leaveSourceMode(before.buffer, text).changed) return false;
+    if (change.kind === 'reload') diskChangedEditsKeptNotice();
+    void open.commitSource(text).then(
+      (changed) => {
+        if (changed && sourceEditor === editor && store === open) editor.replaceBuffer(open.snapshot().buffer);
+      },
+      (e: unknown) => console.warn(`marxy: Source text could not be kept over a change on disk: ${String(e)}`),
+    );
+    return true;
+  }
+
   /** The page's side of a committed transition on the shown store. */
   function followTransition(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): void {
+    if (keepTypedText(before, snapshot, change)) return;
     switch (change.kind) {
       case 'open':
       case 'close':

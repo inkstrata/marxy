@@ -20,10 +20,40 @@ import { createReadingPersistence } from './position/reading-persistence.ts';
 import { pinDocumentOnPaletteSession } from './palette/history.ts';
 import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
-import { createPanes } from './pane/index.ts';
+import { createPanes, type AppPanes } from './pane/index.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
 
 export type { AppAction, AppHandle, AppShell, OpenDocument, OpenDocumentState } from './app-types.ts';
+
+/**
+ * Each pane has its own mode (D-11). `<body>`'s `data-marxy-mode` mirrors the focused pane's, so it is
+ * written again whenever focus moves (a view writes it itself only while its pane has focus). And Source
+ * text reaches the other view of the same document when focus leaves the editor it was typed in, not
+ * per keystroke: it is folded into the store then, one history entry, as leaving Source folds it. A
+ * Source pane that is the only view of its store keeps folding only on leaving Source. Returns what
+ * takes both off.
+ */
+function followPaneModes(panes: AppPanes): () => void {
+  const off = panes.onChange((e) => {
+    if (e.kind === 'focus' || e.kind === 'close') document.body.dataset.marxyMode = panes.focused.view.mode;
+  });
+  const left = (event: FocusEvent): void => {
+    const from = event.target instanceof Node ? event.target : null;
+    const to = event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    for (const pane of panes.panes) {
+      const mount = pane.parts.source;
+      if (!from || !mount.contains(from) || (to && mount.contains(to))) continue;
+      const store = pane.content.store();
+      const shared = panes.panes.some((other) => other !== pane && other.content.store() === store);
+      if (store && shared && pane.view.sourceHasUnfoldedEdits()) void pane.content.foldSource();
+    }
+  };
+  document.addEventListener('focusout', left, true);
+  return () => {
+    off();
+    document.removeEventListener('focusout', left, true);
+  };
+}
 
 /**
  * Everything main.ts used to do after it had a shell. `opts.argv` overrides `shell.args` so the
@@ -109,6 +139,7 @@ export async function startApp(
     imageRoot: imageRootFor,
   });
   selection = renderedSelection;
+  const offPaneMode = followPaneModes(panes);
   // The open document is the focused pane's; with one pane that is the first pane, as it always was.
   const handle: AppHandle = {
     get state() { return { document: focused().view.document() }; },
@@ -162,6 +193,7 @@ export async function startApp(
     panes: () => panes,
     destroy() {
       renderedSelection.destroy();
+      offPaneMode();
       panes.destroy();
       persistence.close();
       config.stop();
