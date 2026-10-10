@@ -538,20 +538,28 @@ const selectionNow = (page) =>
     const { anchor, head } = state.selection.main;
     return { anchor, head, text: state.sliceDoc(Math.min(anchor, head), Math.max(anchor, head)), line: state.doc.lineAt(head).text };
   });
-const bootSource = async (page) => {
-  await boot(page, { '/r/A.ts': b64(SOURCE_LINES.join('\n') + '\n') }, ['/r/A.ts']);
+const bootSource = async (page, { eol, bom }) => {
+  await boot(page, { '/r/A.ts': b64(bom + SOURCE_LINES.join(eol) + eol) }, ['/r/A.ts']);
   await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
   await page.waitForFunction(() => document.querySelector('#marxy-source .cm-line'));
 };
 
-test('a write above the caret leaves the Source caret on the same text (F-19.3)', async () => {
+// F-23: CodeMirror counts a line break as one position and leaves the BOM out; the buffer counts both.
+const FILE_SHAPES = [
+  { label: '', eol: '\n', bom: '' },
+  { label: ' in a CRLF file (F-23)', eol: '\r\n', bom: '' },
+  { label: ' in a file with a BOM (F-23)', eol: '\n', bom: '\uFEFF' },
+  { label: ' in a CRLF file with a BOM (F-23)', eol: '\r\n', bom: '\uFEFF' },
+];
+for (const { label, eol, bom } of FILE_SHAPES) {
+test(`a write above the caret leaves the Source caret on the same text (F-19.3)${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
-    await bootSource(page);
+    await bootSource(page, { eol, bom });
     const at = SOURCE_LINES.slice(0, 20).join('\n').length + 1 + 7;
     await withCaret(page, at);
-    await writeOutside(page, ['// Changed', '// Changed again', ...SOURCE_LINES].join('\n') + '\n');
+    await writeOutside(page, bom + ['// Changed', '// Changed again', ...SOURCE_LINES].join(eol) + eol);
     const now = await selectionNow(page);
     assert.equal(now.line, 'export const value20 = 20;');
     assert.equal(now.anchor, now.head);
@@ -561,14 +569,14 @@ test('a write above the caret leaves the Source caret on the same text (F-19.3)'
   }
 });
 
-test('a Source selection follows an insertion above it (F-19.3)', async () => {
+test(`a Source selection follows an insertion above it (F-19.3)${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
-    await bootSource(page);
+    await bootSource(page, { eol, bom });
     const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
     await withCaret(page, start + 13, start + 20);
-    await writeOutside(page, ['// Changed', ...SOURCE_LINES].join('\n') + '\n');
+    await writeOutside(page, bom + ['// Changed', ...SOURCE_LINES].join(eol) + eol);
     const now = await selectionNow(page);
     assert.equal(now.text, 'value20');
   } finally {
@@ -576,16 +584,16 @@ test('a Source selection follows an insertion above it (F-19.3)', async () => {
   }
 });
 
-test('a Source caret inside deleted text lands at the deletion point (F-19.3)', async () => {
+test(`a Source caret inside deleted text lands at the deletion point (F-19.3)${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
-    await bootSource(page);
+    await bootSource(page, { eol, bom });
     const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
     await withCaret(page, start + 10);
     // The next line starts differently, so the deleted run is unambiguous (a shared prefix would hold the caret).
     const kept = [...SOURCE_LINES.slice(0, 20), '// tail', ...SOURCE_LINES.slice(23)];
-    await writeOutside(page, kept.join('\n') + '\n');
+    await writeOutside(page, bom + kept.join(eol) + eol);
     const now = await selectionNow(page);
     assert.equal(now.anchor, start);
     assert.equal(now.head, start);
@@ -594,3 +602,4 @@ test('a Source caret inside deleted text lands at the deletion point (F-19.3)', 
     await browser.close();
   }
 });
+}
