@@ -51,6 +51,20 @@ export interface ContentSearchResult {
   readonly truncated: boolean;
 }
 
+/**
+ * The types on the pasteboard's first item (UTI strings, as the OS reports them), plus
+ * `org.nspasteboard.ConcealedType` when any item carries it (ADR-0065 §3). Listing reads no data.
+ */
+export type PasteboardTypes = readonly string[];
+
+/** One representation of a clipboard item: a type and its bytes (text types are UTF-8). */
+export interface ClipboardRep { readonly type: string; readonly bytes: Uint8Array; }
+
+export interface ClipboardMeta {
+  /** Mark the item `org.nspasteboard.TransientType` so clipboard managers skip it. Default false. */
+  readonly transient?: boolean;
+}
+
 export type ShellError = {
   readonly code: 'not-found' | 'permission' | 'io' | 'invalid' | 'unsupported';
   readonly message: string;
@@ -96,6 +110,26 @@ export interface Shell {
   openDialog(opts: { readonly directory?: boolean; readonly multiple?: boolean }): Promise<readonly string[]>;
   revealInExternalEditor(path: string, line?: number): Promise<void>;
   clipboardWrite(data: { readonly text: string; readonly html?: string }): Promise<void>;
+  /**
+   * The first pasteboard item's types; reads no data. Call only from a reader action (paste,
+   * transform the clipboard): nothing in the shell polls or observes the pasteboard (ADR-0065 §3).
+   * Rejects `unsupported` where there is no native pasteboard.
+   */
+  clipboardTypes(): Promise<PasteboardTypes>;
+  /**
+   * One representation of the first item, or `null` when it holds none of that type or the type
+   * is not readable (text, HTML, RTF, URL, PNG). A concealed item (a password manager's copy)
+   * rejects `permission` before any of it is read; a representation over 16 MB rejects `invalid`.
+   * Call only from a reader action (ADR-0065 §3).
+   */
+  clipboardRead(type: string): Promise<ClipboardRep | null>;
+  /**
+   * Replace the clipboard with ONE item holding every representation, tagged with Marxy as its
+   * source. Only text, HTML, RTF and URL types are accepted; any other type (the pasteboard marker
+   * types included), an empty list or a repeated type rejects `invalid` before the shell is called.
+   * Text types must be valid UTF-8.
+   */
+  clipboardWriteItem(reps: readonly ClipboardRep[], meta?: ClipboardMeta): Promise<void>;
   /** A URL the webview may load for a local file (asset protocol), scoped to the document's directory. */
   assetUrl(path: string): string;
   /** Files handed to a running instance by the OS or a second launch (single-instance). */
@@ -160,6 +194,9 @@ function stubShellImpl(): Shell {
     openDialog: async () => [],
     revealInExternalEditor: async () => {},
     clipboardWrite: async () => {},
+    clipboardTypes: async () => [],
+    clipboardRead: async () => null,
+    clipboardWriteItem: async () => {},
     assetUrl: () => '',
     onOpenFiles: () => {},
     platform: 'macos',

@@ -84,7 +84,9 @@ test('apps/desktop/src/shell exports only the shell object and the memory factor
   // `eventsForWatch` (C-05) and `refusalForWatch` (C-11.1) are pure filters over an `fs-watch`
   // payload; they take no IPC handle. So do `createEarlyBuffer`, its `EARLY_LIMIT` and `isNotWatching`
   // (C-11.2): the bounded buffer for what arrives before a watch knows its key, and a test of an error.
-  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch', 'refusalForWatch', 'createEarlyBuffer', 'EARLY_LIMIT', 'isNotWatching'];
+  // `clipboard` (J-02): the clipboard type names, the write check and the Tauri adapter, which takes
+  // `invoke` as an argument; it holds no IPC handle.
+  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch', 'refusalForWatch', 'createEarlyBuffer', 'EARLY_LIMIT', 'isNotWatching', 'clipboard'];
   const exported = files
     .filter(f => f.rel.startsWith(shellDir + sep))
     .flatMap(f => valueExports(f.text).map(name => ({ name, rel: f.rel })));

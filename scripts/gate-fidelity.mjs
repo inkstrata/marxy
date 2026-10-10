@@ -586,16 +586,40 @@ function checkAdr0020RecordsHowAGateMayTestShell() {
 // The shell never turns a document into text.
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * The one file allowed to encode: `clipboard.ts` (ADR-0065 §2, J-02). A clipboard representation is
+ * text the reader copied, never a document's bytes, and the native `pasteboard_write` and
+ * `pasteboard_read` commands carry it as a string. Every other shell file, tests included, reaches
+ * UTF-8 through that file. Adding a name here widens the gate; the self-check below pins it.
+ */
+const SHELL_ENCODING_EXEMPT = new Set(['clipboard.ts']);
+
 /** Converting bytes to a string and back is where every normalisation in this gate would enter. */
-function checkTheShellKeepsBytes() {
+function shellBytesViolations(files) {
   const forbidden = /\bTextDecoder\b|\bTextEncoder\b|\.normalize\s*\(|String\.fromCharCode|\btoString\s*\(\s*['"]/;
   const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-  for (const name of readdirSync(shellDir)) {
-    if (!/\.m?ts$/.test(name)) continue;
-    const source = stripComments(readFileSync(join(shellDir, name), 'utf8'));
-    const hit = forbidden.exec(source);
-    if (hit) {
-      fail(`shell: apps/desktop/src/shell/${name} converts document bytes to text (\`${hit[0]}\`); the shell passes bytes through`);
+  const out = [];
+  for (const { name, text } of files) {
+    if (SHELL_ENCODING_EXEMPT.has(name)) continue;
+    const hit = forbidden.exec(stripComments(text));
+    if (hit) out.push(`shell: apps/desktop/src/shell/${name} converts document bytes to text (\`${hit[0]}\`); the shell passes bytes through`);
+  }
+  return out;
+}
+
+function checkTheShellKeepsBytes() {
+  const files = readdirSync(shellDir)
+    .filter((name) => /\.m?ts$/.test(name))
+    .map((name) => ({ name, text: readFileSync(join(shellDir, name), 'utf8') }));
+  for (const message of shellBytesViolations(files)) fail(message);
+  // The exemption is one file wide: the same call anywhere else is still caught.
+  const probe = 'const b = new TextEncoder().encode(x);';
+  if (shellBytesViolations([{ name: 'clipboard.ts', text: probe }]).length !== 0) {
+    fail('shell: the clipboard.ts exemption no longer holds');
+  }
+  for (const name of ['memory.ts', 'tauri.ts', 'clipboard.test.ts', 'other.ts']) {
+    if (shellBytesViolations([{ name, text: probe }]).length !== 1) {
+      fail(`shell: a TextEncoder in ${name} is not caught; the exemption is wider than clipboard.ts`);
     }
   }
 }
