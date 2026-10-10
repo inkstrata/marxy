@@ -12,6 +12,7 @@
 // never lists the home folders macOS guards, and a recent one is served from its snapshot only.
 import type { IndexEntry } from '@marxy/core';
 import { INDEX_LIMITS } from '@marxy/core/src/contracts/index-entry.ts';
+import { KINDS as KIND_NAMES } from '@marxy/core/src/contracts/kinds.ts';
 import { planEvents, type FileEvent } from '@marxy/core/src/index-model/apply-events.ts';
 import { entryFromCandidate } from '@marxy/core/src/index-model/entry.ts';
 import { classify } from '@marxy/core/src/index-model/kinds.ts';
@@ -224,6 +225,7 @@ async function checkoutTable(
 }
 
 const KINDS = new Set(['markdown', 'text', 'source', 'theme']);
+const READER_KINDS = new Set<string>(KIND_NAMES);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
 
@@ -239,6 +241,7 @@ function isEntry(e: unknown): e is IndexEntry {
     isNum(v.size) &&
     isStr(v.kind) &&
     KINDS.has(v.kind) &&
+    (v.readerKind === undefined || (isStr(v.readerKind) && READER_KINDS.has(v.readerKind))) &&
     (v.lastReadMs === undefined || isNum(v.lastReadMs)) &&
     Array.isArray(v.headings) &&
     v.headings.every((h) => {
