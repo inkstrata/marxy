@@ -437,3 +437,25 @@ small integer for `start` and `value`; keep every other refusal (no expression, 
 cap). Acceptance: `<ol start="-3">` shows -3, -2; `<li value="10">` mid-list shows 1, 10, 11; `value="1e3"`,
 `value="10px"`, `start="--1"` and a 20-digit number are still dropped (a test each, red without the change); no
 golden moves.
+
+### F-27 — A resize or a divider move keeps the reader's block
+
+**Model:** opus · **Size:** M · **Depends on:** D-04, D-05 · *From the B-26 review (2026-10-10); true on main.* After a
+divider move by keyboard the narrowed pane lands 1,300 to 1,500 px off its block; through `setRatio`, about 104 px; a
+one-pane window resize, about 350 px. The cause is the resize restore (`relayoutKeepingReader` / `restoreTo` in the
+view), not the typesetter. **Paths:** `apps/desktop/src/view/rendered-view.ts` (the resize restore),
+`apps/desktop/src/layout/` or `pane/` only for the divider's resize hook, `apps/desktop/test/pane-scroll.test.mjs` and
+a resize test. **Acceptance:** after a window resize and after a divider move (keyboard and pointer), each pane's block
+under the reading line is within 1 px of where it was (a test each, red on main).
+
+### F-28 — The sanitiser decodes a number once, and `&hyphen;` is U+2010
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-26 · *From the F-26 review (2026-10-10); true on main.* ·
+**Code-owned:** the sanitiser; the author merges, and the author rules on point 2 first. · **Paths:**
+`packages/core/src/sanitize/escape.ts`, `packages/core/src/sanitize/policy.ts`, their tests. (1) The named-reference
+table maps `hyphen` to `-` (`escape.ts:39`); HTML maps it to U+2010, so `start="&hyphen;3"` shows -3 where a browser
+shows nothing. (2) `decodeReferences` decodes until nothing changes, so `start="&amp;#45;3"` becomes -3 where a browser
+reads the literal `&#45;3`; repeated decoding is deliberate for URLs, so whether numeric patterns decode once is the
+author's call. (3) `.trim()` strips NBSP, U+FEFF and U+2028, where HTML's integer parse skips only ASCII whitespace.
+Acceptance: one test per point, red on main; no golden moves.
+
