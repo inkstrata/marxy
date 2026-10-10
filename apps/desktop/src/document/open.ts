@@ -341,8 +341,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       });
     // Another document over unsaved edits asks first (save / discard / dismiss), as a close does. Moving
     // within the open document, or opening with nothing unsaved, goes straight through.
-    // Only this pane's unsaved edits ask (D-01): the guard's notice is about the document being left.
-    if (file !== currentPath() && hasUnsavedChanges() && confirmLeaveDocument(run)) return Promise.resolve();
+    // Only this pane's unsaved edits ask (D-01), and the notice names, sits in and saves this pane's
+    // document (D-08): the guard finds the pane by its view.
+    if (file !== currentPath() && hasUnsavedChanges() && confirmLeaveDocument(view, run)) return Promise.resolve();
     return run();
   }
 

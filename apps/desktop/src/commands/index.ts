@@ -9,6 +9,7 @@ import { navigationCommands } from './navigation.ts';
 import { outlineCommands } from './outline.ts';
 import { paneLayoutCommands } from './pane-layout.ts';
 import { paneFocusCommands } from './pane-focus.ts';
+import { paneCloseCommands } from './pane-close.ts';
 import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
 import { sourceViewCommands } from './source-view.ts';
@@ -28,6 +29,7 @@ export function commands(): readonly Command[] {
     ...appearanceCommands(),
     ...outlineCommands(),
     ...paneLayoutCommands(),
+    ...paneCloseCommands(),
     ...editorCommands(),
     ...collectionCommands(),
     ...copyTextCommands(),

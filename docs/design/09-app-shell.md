@@ -68,9 +68,10 @@ The Rendered selection is the window's one and acts on the focused pane's articl
 every pane's article, each view tells it when its page is set, and focusing another pane clears it, so
 copy, the operations and `Mod+Z` reach the focused pane's document. Still bound to the first pane rather
 than the focused one, until the Phase D story named moves them: the window as scroller and the reading
-persistence (D-05, D-12), the mode attribute on `<body>` (D-11), the close guard's prompt (D-08), notices other
-than a pane's own region (D-10). The window title is the focused pane's document: a document opened in
-the other pane does not take it, and focus moves it. Each pane's open path keeps its own live-reload
+persistence (D-05, D-12), the mode attribute on `<body>` (D-11), notices other than a pane's own region
+(D-10). The close guard is per document, never the focused pane's alone (D-08, §Close). The window title
+is the focused pane's document: a document opened in the other pane does not take it, and focus moves
+it. Each pane's open path keeps its own live-reload
 watch on the store it shows, closed when that pane lets the store go, even while the other pane still
 shows it; one watch per store, however many panes, is D-10's.
 
@@ -255,7 +256,35 @@ region (`role="status"`), the palette list is a `listbox` with `aria-activedesce
 
 ## Window title
 
-`<name> — marxy`, with ` •` appended while dirty. That is the only persistent indicator.
+`<name> — marxy`, with ` •` appended while dirty. That is the only persistent indicator. With two panes
+it names the **focused** pane's document, with the dot for that document only (`07` §4.4): focus moves
+it, a document opened in the other pane does not take it, and an unsaved document in the unfocused pane
+is caught by the quit guard rather than shown here. One writer: each pane's open path titles the window
+only while its pane has focus, and the focus change re-titles it (`title.ts`, `updateTitle`).
+
+## Close
+
+Unsaved edits live in memory until an explicit save, so closing or replacing a view is where they could
+be dropped. The guard (`close.ts`) is a notice, never a modal (§01), and it is **per document**: it
+names the document being left ("<name> has changes that are not saved."), it sits in the notices region
+of the pane that shows it, and its save writes that document. A document another pane still shows is not
+lost by closing or replacing one view, so that asks nothing (text typed in the closing view's Source
+goes into the store first).
+
+- **Close a pane:** `Mod+Shift+\` ("Close this pane", listed with two panes) closes the focused pane and
+  the other takes the window. Over unsaved changes the pane stays until the reader answers: Save and
+  close, Close without saving, or Dismiss. A close refused for any other reason (the other pane has no
+  document, or its Source text could not be kept) says so in the pane. `Mod+W` is unchanged: it closes
+  the window.
+- **Open over unsaved changes,** in either pane: Save and open, Open without saving, or Dismiss, in the
+  pane being replaced; nothing is replaced until the answer.
+- **Quit or close the window** with unsaved documents asks about each in turn, left to right, each in
+  its own pane. Either answer goes on to the next; Dismiss on any stops the quit. The next question is
+  worked out afresh each time, Source text in every pane folded in first: a document that became unsaved
+  during the walk, or was edited after its answer, is asked about before the window closes. One walk at a
+  time: a close request while a save is writing waits for it. A second close request while the last
+  document's notice is up quits.
+- **`Mod+S`** saves the focused pane's document only.
 
 ## Tests
 
