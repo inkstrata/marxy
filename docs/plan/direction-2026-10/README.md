@@ -75,6 +75,7 @@ ADR-0063 (capture) and ADR-0065 (clipboard) are accepted.
 | [06-reconciliation.md](06-reconciliation.md) | The rulings; where mock-v2 overrides these pages; where the commitments override mock-v2; how Phase E is redistributed |
 | [07-cards-wave-1.md](07-cards-wave-1.md) | Cards for the first wave: H-01, K-01, K-02, J-01, J-D1, Q-01, P-02 |
 | [08-cards-studio.md](08-cards-studio.md) | Cards for the clipboard studio: J-07 to J-12, and J-13 and J-14 held for the author |
+| [09-cards-wave-2.md](09-cards-wave-2.md) | Cards for the second wave: H-03, K-04, K-06, K-18, W-01, V-07, J-02, J-03 |
 | [studio/](studio/README.md) | The clipboard studio designed to build (J-D1): every mock surface with a verdict; history, the workbench, the rules; collect and the ring for the author |
 | [galley/](galley/README.md) | Reference copies of Galley's tokens, typography spec and contrast audit |
 | `mock-v2/` | The mockup: Galley's prototype adapted to this direction |
