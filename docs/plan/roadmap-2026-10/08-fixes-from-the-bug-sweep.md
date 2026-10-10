@@ -440,11 +440,11 @@ golden moves.
 
 ### F-27 — A resize or a divider move keeps the reader's block
 
-**Model:** opus · **Size:** M · **Depends on:** D-04, D-05 · *From the B-26 review (2026-10-10); true on main.* After a
+**Model:** opus · **Size:** M · **Depends on:** D-04, D-05, D-11 (same file) · *From the B-26 review (2026-10-10); true on main.* After a
 divider move by keyboard the narrowed pane lands 1,300 to 1,500 px off its block; through `setRatio`, about 104 px; a
 one-pane window resize, about 350 px. The cause is the resize restore (`relayoutKeepingReader` / `restoreTo` in the
 view), not the typesetter. **Paths:** `apps/desktop/src/view/rendered-view.ts` (the resize restore),
-`apps/desktop/src/layout/` or `pane/` only for the divider's resize hook, `apps/desktop/test/pane-scroll.test.mjs` and
+`apps/desktop/src/pane/` only for the divider's resize hook, `apps/desktop/test/pane-scroll.test.mjs` and
 a resize test. **Acceptance:** after a window resize and after a divider move (keyboard and pointer), each pane's block
 under the reading line is within 1 px of where it was (a test each, red on main).
 
@@ -458,4 +458,3 @@ shows nothing. (2) `decodeReferences` decodes until nothing changes, so `start="
 reads the literal `&#45;3`; repeated decoding is deliberate for URLs, so whether numeric patterns decode once is the
 author's call. (3) `.trim()` strips NBSP, U+FEFF and U+2028, where HTML's integer parse skips only ASCII whitespace.
 Acceptance: one test per point, red on main; no golden moves.
-
