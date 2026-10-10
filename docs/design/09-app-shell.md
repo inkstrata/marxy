@@ -152,25 +152,40 @@ into view. `Enter` on a heading selects its section (§03) and scrolls it to the
 `Esc` closes. Frontmatter `title:` shows as the first entry when there is no h1.
 
 While the outline is open, the current-heading mark follows scrolling (the same per-frame
-position sample §08 takes; no second scroll listener). Module: `apps/desktop/src/outline/`
+position sample §08 takes; no second scroll listener).
+
+**Per pane** (D-13). The outline is the focused pane's: opened with two panes it lists the headings of
+the pane focused when it opened, takes that pane's reading position, follows that pane's scroll through
+its view's own scroll subscription, sits against that pane's right edge (`inset-inline-end` from the
+pane's box; the dialog is modal and may cover text), lands a heading in that pane, and gives focus back
+to it (`focusOrigin`). `outline/pane.ts` makes that binding. Module: `apps/desktop/src/outline/`
 (`outline.ts` builds entries from the AST — pure, tested without a DOM; `view.ts` owns the
 dialog). Entries are plain text: inline markup in a heading is flattened with `textContent`
 semantics, smart typography applied as in the article.
 
 ## Find (D-A14)
 
+- **Per pane** (D-13). `Mod+F` opens find in the focused pane only: the field sits at that pane's
+  top right (its `.marxy-find-slot`, a zero-height sticky holder moved to the pane's top while
+  find is open), and matching, highlights, the count and the reading line are that pane's. Opening
+  find in one pane closes it in the other; each pane keeps its own last query. Nothing searches
+  both panes. `Esc` gives focus back to the pane find opened from (`focusOrigin`).
 - Input at top-right, no chrome until `Mod+F`. Case-insensitive, whole document, incremental.
-- Matching runs over a text index built at render: the concatenation of the article's text
-  nodes with a map from string offset to `(textNode, offset)`. Soft hyphens (U+00AD) and the
-  typesetter's `<br>` are invisible to it: the index is built *before* typesetting and kept in
-  sync by the typesetter's split records (each split maps a node to its two halves).
+- Matching runs over a text index of the article's text nodes, concatenated with no separator
+  (`text-index.ts`), walked afresh for every run (`walk.ts`). The typesetter's line breaks are
+  empty spans whose generated content is not text, so a pass never changes the index's text, only
+  where its pieces split; a range is therefore resolved from a fresh walk, never from stored node
+  references. A match ending on a piece boundary ends in the earlier piece, so it never reaches
+  into the next block.
 - Highlights: `CSS.highlights.set('marxy-find', new Highlight(...ranges))` with
   `::highlight(marxy-find)` styled by the theme; the current match in a second highlight.
   Fallback when `CSS.highlights` is undefined: wrap matches in `<mark class="marxy-find">`
   and unwrap on close (the fallback is exercised by a test that deletes `CSS.highlights`).
-- Navigation scrolls the current match to the reading line (40 % of the viewport), never to
-  the top edge. Count shown as `3 of 41` inside the input.
-- In Source mode, find is CodeMirror's `@codemirror/search` panel with the same key.
+- Navigation scrolls the current match to the reading line (40 % of the pane's height), never to
+  the top edge. Count shown as `3 of 41` inside the input. A new query starts at the first match
+  at or below the top of the pane's view.
+- In Source mode, find is CodeMirror's `@codemirror/search` panel with the same key, in that
+  pane's editor.
 - **Matching folds what the renderer changed.** The article shows smart typography (§02) but a
   reader types straight quotes and double hyphens. The query is compiled to a regular
   expression (flags `giu`) after escaping, with these substitutions applied to the query, never
@@ -180,10 +195,18 @@ semantics, smart typography applied as in the article.
 - **Scope.** Text inside `.katex` subtrees is excluded from the index (it is layout glyphs, not
   the source); the TeX source is not searchable in Rendered mode in v1. Code blocks, tables and
   footnotes are included. Alt text is not (it is not painted unless the image is missing).
+- **Nothing found where the reader cannot see it** (commitment 4). A subtree the page does not
+  draw (`[hidden]`, `<template>`) is not searched. A match inside a closed `<details>` is counted,
+  and the details element is opened when that match becomes current. An invisible character's
+  marker (§02) is searched by its byte, not its hex label: a zero-width or bidi control inside a
+  word splits it, so a query typed without it does not match (the marker shows why), and a match
+  that touches the byte is highlighted over the whole marker, never as a zero-width box. Folded
+  front-matter rows are not in the article and are found in Source.
 - **Budget.** Matching reruns one frame after the last keystroke; `find_first_match` is marked
   when the first highlight is set. < 50 ms for `01-long-technical.md` on the reference tier.
 - Module: `apps/desktop/src/find/` (`text-index.ts` pure over a list of text-node strings,
-  `query.ts` the compiler above, `view.ts` the input and highlights).
+  `query.ts` the compiler above, `walk.ts` the DOM walk and ranges, `view.ts` the input and
+  highlights; `commands/find.ts` is `view.find`).
 
 ## Notices (`#marxy-notices`)
 
