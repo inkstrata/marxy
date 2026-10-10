@@ -49,6 +49,8 @@ export function sourceEditChords(): readonly string[] {
 
 /** Whether the focused pane shows Source: these operations mean its editor and no other. */
 function inSource(): boolean {
+  // The find panel's field is editable too, and these chords are the editor's: leave it its own keys.
+  if (document.activeElement?.closest('.cm-panels')) return false;
   const panes = appHandle()?.panes?.();
   if (panes) return panes.focused.view.mode === 'source';
   return document.body.dataset.marxyMode === 'source';

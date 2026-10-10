@@ -28,7 +28,9 @@ function session(bytes, op, sel, path = '/t/a.md') {
   const buffer = createBuffer(path, bytes);
   let state = EditorState.create({
     doc: cmDocText(buffer),
-    selection: EditorSelection.single(sel.from, sel.to),
+    selection: Array.isArray(sel)
+      ? EditorSelection.create(sel.map((r) => EditorSelection.range(r.from, r.to)))
+      : EditorSelection.single(sel.from, sel.to),
     extensions: [history(), EditorState.allowMultipleSelections.of(true), EditorState.lineSeparator.of(lineSeparatorFor(buffer))],
   });
   const dispatch = (tr) => {
@@ -206,6 +208,43 @@ test('property: every line operation on random files is the same in CRLF and CR 
   assert.ok(checked > 1000, `the property ran (${checked})`);
 });
 
+test('property: several carets (adjacent, repeated, on one line) give the same bytes in LF, CRLF and CR, and the bytes of untouched lines stay', () => {
+  let seed = 4242;
+  const rnd = (n) => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed % n;
+  };
+  const words = ['alpha', 'Beta', '- item', '- [ ] todo', '> q', '', 'zeta', '1. one'];
+  const ops = ['joinLines', 'sortLines', 'toggleTask', 'toggleQuote', 'deleteLine', 'duplicateLineUp', 'duplicateLineDown'];
+  for (let trial = 0; trial < 80; trial++) {
+    const lines = Array.from({ length: 3 + rnd(6) }, () => words[rnd(words.length)]);
+    const lf = lines.join('\n') + (rnd(2) ? '\n' : '');
+    const carets = Array.from({ length: 2 + rnd(3) }, () => {
+      const a = rnd(lf.length + 1);
+      return { from: a, to: rnd(3) === 0 ? Math.min(lf.length, a + rnd(5)) : a };
+    });
+    for (const op of ops) {
+      const base = session(fileBytes(lf, '\n', false), op, carets);
+      for (const sep of ['\r\n', '\r']) {
+        const bytes = fileBytes(lf, sep, true);
+        const r = session(bytes, op, carets);
+        const msg = `${op} ${JSON.stringify(sep)} on ${JSON.stringify(lf)} ${JSON.stringify(carets)}`;
+        assert.equal(r.ran, base.ran, msg);
+        if (!base.ran) continue;
+        assert.equal(text(r.bytes), text(fileBytes(text(base.bytes), sep, true)), msg);
+        assert.equal(r.steps, 1, msg);
+        assert.deepEqual([...r.undo()], [...bytes], msg);
+      }
+    }
+  }
+});
+
+test('carets on neighbouring lines: join and delete line act once', () => {
+  const two = [{ from: 0, to: 0 }, { from: 2, to: 2 }];
+  assert.equal(text(session(encoder.encode('a\r\nb\r\nc\r\nd\r\n'), 'joinLines', two).bytes), 'a b\r\nc\r\nd\r\n');
+  assert.equal(text(session(encoder.encode('a\nb\nc\nd\n'), 'deleteLine', two).bytes), 'c\nd\n');
+});
+
 // Keys: one table, no collision.
 const MAC = true;
 
@@ -381,5 +420,20 @@ browserTest('in Rendered no Source key does anything, and Source gains no elemen
     assert.equal(await page.evaluate(() => document.querySelectorAll('#marxy-source [role=toolbar], #marxy-source [role=menu], #marxy-source button').length), 0);
     const after = await frame();
     assert.equal(after, before, 'the same kinds of element as before: nothing was added to the frame');
+  });
+});
+
+browserTest('the find panel\'s field keeps its own keys: the Source chords do nothing from it', async () => {
+  await withPanes(async (page) => {
+    await bothInSource(page);
+    await page.keyboard.press('Meta+1');
+    await caretAt(page, 0, 'alpha one');
+    await page.keyboard.press('Meta+f');
+    await page.waitForSelector('#marxy-source .cm-search input');
+    await page.focus('#marxy-source .cm-search input[name=search]');
+    const before = await editorText(page, 0);
+    for (const chord of ['Control+j', 'Meta+d', 'Meta+Shift+l', 'Meta+l']) await page.keyboard.press(chord);
+    assert.equal(await editorText(page, 0), before);
+    assert.equal(await page.evaluate(() => document.activeElement?.closest('.cm-panels') !== null), true, 'focus stays in the panel');
   });
 });

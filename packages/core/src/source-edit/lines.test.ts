@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { compareBytes, deleteLines, duplicateLines, joinLines, sortLines, toggleQuoteLines, toggleTaskLines, type LineEdit } from './lines.ts';
+import { compareBytes, deleteLines, duplicateLines, joinLines, lineSpan, lineSpans, sortLines, toggleQuoteLines, toggleTaskLines, type LineEdit } from './lines.ts';
 
 function apply(text: string, edit: LineEdit | null): string {
   if (!edit) return text;
@@ -133,6 +133,59 @@ test('seeded property: quoting twice and sorting twice change nothing more than 
       }
       if (op === toggleTaskLines || op === toggleQuoteLines) {
         assert.equal(apply(text, edit).split('\n').length, text.split('\n').length, `${op.name} adds no line`);
+      }
+    }
+  }
+});
+
+test('carets on neighbouring lines: join and delete act once on the lines together, never on overlapping splices', () => {
+  const text = 'a\nb\nc\nd\n';
+  const two = [{ from: 0, to: 0 }, { from: 2, to: 2 }];
+  assert.equal(apply(text, joinLines(text, two)), 'a b\nc\nd\n');
+  assert.equal(apply(text, deleteLines(text, two)), 'c\nd\n');
+  const items = '- a\n- b\n- c\n- d\n';
+  assert.equal(apply(items, joinLines(items, [{ from: 0, to: 0 }, { from: 4, to: 4 }, { from: 8, to: 8 }])), '- a - b - c\n- d\n');
+});
+
+test('join on the last line keeps the final break; toggle task reads a trailing CR as the end of the line', () => {
+  assert.equal(joinLines('a\nb\n', caret(2)), null);
+  assert.equal(apply('a\nb\n', joinLines('a\nb\n', caret(0))), 'a b\n');
+  assert.equal(apply('- [ ]\r\n- x\n', toggleTaskLines('- [ ]\r\n- x\n', sel(0, 11))), '- [x]\r\n- [ ] x\n');
+});
+
+test('seeded property: multi-caret operations equal one operation on the merged lines, and touch nothing outside them', () => {
+  let seed = 777;
+  const rnd = (n: number): number => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed % n;
+  };
+  const words = ['alpha', 'Beta', '- item', '- [ ] todo', '> q', '', '  indented', 'zeta', '1. one'];
+  const ops: Record<string, (t: string, r: { from: number; to: number }[]) => LineEdit | null> = {
+    join: joinLines,
+    sort: sortLines,
+    task: toggleTaskLines,
+    quote: toggleQuoteLines,
+    delete: deleteLines,
+    dupUp: (t, r) => duplicateLines(t, r, 'up'),
+    dupDown: (t, r) => duplicateLines(t, r, 'down'),
+  };
+  for (let trial = 0; trial < 400; trial++) {
+    const lines = Array.from({ length: 2 + rnd(8) }, () => words[rnd(words.length)]!);
+    const text = lines.join('\n') + (rnd(2) ? '\n' : '');
+    const ranges = Array.from({ length: 1 + rnd(4) }, () => {
+      const a = rnd(text.length + 1);
+      return { from: a, to: rnd(3) === 0 ? Math.min(text.length, a + rnd(6)) : a };
+    });
+    const merged = lineSpans(text, ranges);
+    for (const [name, op] of Object.entries(ops)) {
+      const once = op(text, merged);
+      const many = op(text, ranges);
+      const msg = `${name} on ${JSON.stringify(text)} ${JSON.stringify(ranges)}`;
+      // Sort ignores a caret (it has nothing to sort), so a merged span of carets is not the same request.
+      if (name !== "sort" || ranges.every((r) => r.from !== r.to)) assert.equal(apply(text, many), apply(text, once), msg);
+      for (const c of many?.changes ?? []) {
+        const inside = merged.some((m) => c.from >= m.from - 1 && c.to <= (m.to < text.length ? lineSpan(text, { from: m.to + 1, to: m.to + 1 }).to : m.to));
+        assert.ok(inside, `${msg}: splice ${c.from}-${c.to} stays within the touched lines`);
       }
     }
   }

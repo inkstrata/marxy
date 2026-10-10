@@ -30,13 +30,13 @@ export function lineSpan(text: string, range: TextRange): TextRange {
   return { from, to: next === -1 ? text.length : next };
 }
 
-/** The spans of every range, merged where they share a line, in order. */
+/** The spans of every range, merged where they share a line or sit on neighbouring lines, in order: one operation per block of lines, never two that overlap. */
 export function lineSpans(text: string, ranges: readonly TextRange[]): TextRange[] {
   const spans = ranges.map((r) => lineSpan(text, r)).sort((a, b) => a.from - b.from);
   const merged: TextRange[] = [];
   for (const span of spans) {
     const last = merged[merged.length - 1];
-    if (last && span.from <= last.to) merged[merged.length - 1] = { from: last.from, to: Math.max(last.to, span.to) };
+    if (last && span.from <= last.to + 1) merged[merged.length - 1] = { from: last.from, to: Math.max(last.to, span.to) };
     else merged.push(span);
   }
   return merged;
@@ -58,7 +58,8 @@ export function joinLines(text: string, ranges: readonly TextRange[]): LineEdit 
     let to = span.to;
     // One line: it joins with the one below. Several: they join into one.
     if (text.indexOf('\n', span.from) === -1 || text.indexOf('\n', span.from) >= span.to) {
-      if (text[span.to] !== '\n') continue;
+      // The last line has nothing below it to join; its break stays.
+      if (text[span.to] !== '\n' || span.to + 1 >= text.length) continue;
       const next = text.indexOf('\n', span.to + 1);
       to = next === -1 ? text.length : next;
     }
@@ -150,7 +151,7 @@ export function sortLines(text: string, ranges: readonly TextRange[]): LineEdit 
 }
 
 const LIST_MARKER = /^([ \t]*)((?:[-*+]|\d{1,9}[.)])[ \t]+)/;
-const TASK_BOX = /^\[([ xX])\](?=[ \t]|$)/;
+const TASK_BOX = /^\[([ xX])\](?=[ \t\r]|$)/;
 
 /** The lines of every selection, one `[from, to)` each; a caret is its own line. */
 function eachLine(text: string, ranges: readonly TextRange[]): TextRange[] {
