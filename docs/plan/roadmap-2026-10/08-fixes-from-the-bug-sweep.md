@@ -406,6 +406,9 @@ where CommonMark has one. Acceptance: each reproducer a fixed test against commo
 (`oracle.mjs`, kept in the F-20.1 reviewer's scratchpad; copy it to `packages/core/test/` if it is to last) shows 0
 introduced and these classes fixed; the invariant stress and `pnpm gate:fidelity` pass. Rendered draws a blank line
 the document does not have, and copy-code copies it (commitment 4).
+Also from the F-20.1 re-review: `"- ~~~\r    \n\r\n\r \n  \r\n~~~|<!--"` gives a value whose last separator is a
+CR where the source has an LF (copy-code would carry the wrong byte), and a content range that ends partway through
+the `"  "` line, which the checker accepts; tighten the checker for it.
 
 ### F-25 — An open Source editor keeps its line separator through a live reload
 

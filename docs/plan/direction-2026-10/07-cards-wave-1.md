@@ -490,3 +490,82 @@ lines above.
 
 **Risks.** Q-01 edits the same file; keep edits to `TOP_KEYS`, the `Collection` type and one call,
 so a rebase is mechanical.
+
+---
+
+## Added 2026-10-10, after the first merges
+
+### Q-02 — The query language in core: tokens, completion, unknown keys as text
+
+**Model:** sonnet · **Size:** M · **Depends on:** Q-01 (merged) · **Parallel with:** anything outside `packages/core/src/index-model/`
+
+**Outcome.** One parser in core turns what a reader types in the library's query field (and, later, a saved
+query's `q`) into a typed query: field terms, plain words, phrases, exclusions, `OR` groups and any-of values,
+with each token's byte range in the input so the field can draw chips. Unknown keys and incomplete values are
+kept as text and flagged, never dropped and never an error. A completion function suggests keys and values at a
+caret. Nothing evaluates a query yet (Q-03).
+
+**Why now.** ADR-0062 item 3; Q-03 (the library view), Q-07 (the sidebar's smart collections) and the palette's
+`@` sections (W-13) all read queries. The grammar is the mock's (`mock-v2/05-collections.md` §Query syntax),
+which wins over ADR-0062's shorter key list per 06; ADR-0062's exclusions hold.
+
+**Grammar.** Plain words search text; tokens combine with AND; `OR` (upper case) separates alternatives; a
+leading `-` excludes; commas inside a value mean any of; `"…"` is a phrase. Keys: `kind:`, `is:`, `has:`,
+`modified:`, `words:`, `tasks:`, `size:`, `path:`, `in:`. Values: `is:` takes `unread`, `read`, `changed`,
+`pinned`, `dup`, `broken`, `archived`, `recent`, `error`, `captured`; `has:` takes `code`, `paths`, `links`,
+`tasks`; `modified:` takes `today`, `yesterday`, or a comparison with a unit (`min`/`m`, `h`, `d`, `w`, `mo`, `y`);
+`words:`, `tasks:` and `size:` take comparisons (`>`, `<`, `>=`, `<=`, bare) with `k`, `kb`, `mb`.
+
+**Paths.**
+- New: `packages/core/src/index-model/query.ts`, `packages/core/src/index-model/query.test.ts`.
+- Edit: `packages/core/src/index-model/index.ts` (appended exports), `docs/design/07-index-and-palette.md`
+  (a short "Query syntax" section pointing at the mock's table).
+
+**Build order.**
+1. Types: `Query = { groups: Group[] }` (OR of groups), `Group = Term[]` (AND), `Term` is
+   `{ kind: 'field'; key; values: string[]; op?; negated; range }`, `{ kind: 'word' | 'phrase'; text; negated; range }`,
+   or `{ kind: 'unknown' | 'incomplete'; text; range }`. `range` is `[start, end)` in UTF-16 code units of the input.
+2. `parseQuery(input: string): Query` — a single left-to-right scan, no regex backtracking over the whole input;
+   an unclosed quote runs to the end and is a phrase flagged incomplete; `-` alone is a word.
+3. Normalise comparisons to numbers (`2k` → 2000, `1mb` → 1,048,576 bytes, `<7d` → 7 days in ms) in the
+   term, keeping the written text.
+4. `completeQuery(input, caret): { replace: [start, end); items: { label; insert; detail? }[] }` — keys after a
+   space or at the start, values after a known key; `in:` values come from a caller-supplied list of
+   collection names; `has:tasks` and `tasks:` parse but are not suggested (the mock's rule).
+5. **No authorship keys.** `model:`, `session:`, `tag:`, `is:ai` and `is:live` are not keys: they parse as
+   `unknown` (text), and are never suggested.
+
+**Acceptance.**
+- Every row of the mock's syntax table parses to the expected terms (`query.test.ts`, one case per row).
+- `OR`, `-`, commas and quotes combine as the mock says (`is:unread OR is:changed`, `-kind:code`,
+  `kind:report,transcript`, `"pg_upgrade --link"`).
+- An unknown key is an `unknown` term with its text; `words:>` is `incomplete`; neither throws.
+- `model:x`, `session:y`, `tag:z`, `is:ai`, `is:live` are `unknown` and never in a completion list (a test per
+  name; it fails if any becomes a key).
+- Every term's `range` slices the input to exactly the token's text (a property test over random inputs:
+  ranges are in order, non-overlapping, and inside the input).
+- `parseQuery` never throws on any string (the same property test, 10,000 random inputs including quotes,
+  dashes, colons, unicode and lone surrogates) and runs in linear time (a 100 KB input parses in under 50 ms,
+  recorded, not asserted).
+- `completeQuery` suggests keys at the start, values after `is:`, and collection names after `in:`.
+- `pnpm precheck` and `pnpm check` green (core stays platform-free).
+
+**Tests.** `packages/core/src/index-model/query.test.ts`. Gates: `pnpm precheck`, `pnpm check`.
+
+**Do not.** Evaluate a query against the index (Q-03). Add a persistent full-text index (ADR-0062 item 5).
+Add any key that names who or what wrote a file.
+
+**Risks.** `OR` precedence: the mock says groups; treat `a b OR c` as `(a AND b) OR c` and say so in the doc.
+
+## Notes for cards not yet written
+
+- **P-03 (capture copier), from the P-02 review.** At copy time: realpath `fromBase` and `to` and re-run the loop
+  and own-folder checks on the resolved paths; never follow a symlink out of `fromBase`; check each
+  destination's realpath stays under `to`; skip a source resolved under `to` or an own folder; and pass
+  `ownFolders` from `apps/desktop/src/collection/load.ts:67`, which does not yet. Fold `ς`/`Σ` (final sigma)
+  with `.toUpperCase().toLowerCase()`; add an uppercase deny-glob test.
+- **Q-01 follow-up tests.** The lone-surrogate refusal has no test and its message does not say why; no
+  astral-character test at the 80/81 limit; the `last.q` post-append check survives mutation.
+  `COLLECTION_TEMPLATE` still documents only `[[root]]` and `[deny]`.
+- **B-25.1, pre-existing.** ```` ```mermaid&#32;x ```` gets no caption while the paragraph before it is styled as
+  one; `"bash session"` in `languages.generated.ts` can never match a class.
