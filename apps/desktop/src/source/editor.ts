@@ -87,11 +87,16 @@ export function isLargeSourceFile(buffer: Buffer): boolean {
   return buffer.bytes.length > LARGE_FILE_BYTES;
 }
 
-/** Initial doc string and line separator for CM6. */
-export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' } {
+/**
+ * Initial doc string and line separator for CM6. The separator is the file's own when every ending is
+ * the same (CRLF, or a lone CR: a classic-Mac file). A mixed-ending file keeps `\n` as the separator:
+ * its `\r\n` lines keep the CR as a character at the end of the line, and a lone CR is a character
+ * inside a line (shown as a control mark), so no byte changes on an unchanged save (F-24).
+ */
+export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' | '\r' } {
   return {
     doc: cmDocText(buffer),
-    lineSeparator: buffer.eol === 'crlf' ? '\r\n' : '\n',
+    lineSeparator: buffer.eol === 'crlf' ? '\r\n' : buffer.eol === 'cr' ? '\r' : '\n',
   };
 }
 
