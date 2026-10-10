@@ -13,6 +13,7 @@ import { copySection } from './copy-section.ts';
 import { displayWidth } from './display-width.ts';
 import { CLIPBOARD_OPERATIONS, MUTATING_OPERATIONS, OPERATIONS } from './index.ts';
 import { assertOnlySpansChanged, corpusDocuments } from './testing/corpus.ts';
+import { assertBytesOutsideRangeUnchanged } from './testing/test-kit.ts';
 import { toggleTask } from './toggle-task.ts';
 
 function parse(source: string, file = 'test.md'): Document {
@@ -196,33 +197,6 @@ function taskMarkersOf(node: Node, out: Extract<Inline, { type: 'taskMarker' }>[
   for (const child of node.children ?? []) taskMarkersOf(child as Node, out);
 }
 
-function assertBytesOutsideRangeUnchanged(
-  bytes: Uint8Array,
-  range: { start: number; end: number },
-  replacement: string,
-  spliceFn: typeof splice = splice,
-): void {
-  const buffer = createBuffer('mutation-check', bytes);
-  const src: Source = { file: buffer.path, start: range.start, end: range.end };
-  const next = spliceFn(buffer, src, replacement);
-  const enc = new TextEncoder().encode(replacement);
-  assert.deepEqual(
-    [...next.bytes.subarray(range.start, range.start + enc.length)],
-    [...enc],
-    'the replacement must land exactly in the range',
-  );
-  assert.deepEqual(
-    [...next.bytes.subarray(0, range.start)],
-    [...bytes.subarray(0, range.start)],
-    'bytes before the range must be unchanged',
-  );
-  assert.deepEqual(
-    [...next.bytes.subarray(range.start + enc.length)],
-    [...bytes.subarray(range.end)],
-    'bytes after the range must be unchanged',
-  );
-}
-
 type ToggleCase = { name: string; source: string; pick: (doc: Document) => Extract<Inline, { type: 'taskMarker' }>; expect: string };
 
 const toggleTable: ToggleCase[] = [
@@ -391,7 +365,7 @@ test('fidelity: replacement === text for every clipboard operation at every node
 });
 
 test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, in palette order', () => {
-  assert.deepEqual(OPERATIONS.map((op) => op.id), ['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'copy-table-tsv', 'copy-table-csv', 'copy-table-json', 'copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links', 'toggle-task', 'align-table-pipes']);
+  assert.deepEqual(OPERATIONS.map((op) => op.id), ['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'copy-table-tsv', 'copy-table-csv', 'copy-table-json', 'copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links', 'toggle-task', 'align-table-pipes', 'promote-heading', 'demote-heading']);
   assert.deepEqual(OPERATIONS, [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS]);
   // C-07 to C-09 update the id list above as their packs land; the fidelity test holds the invariant.
 });
