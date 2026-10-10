@@ -1,6 +1,6 @@
 # ADR-0053 — Collection roots: a reader-owned list of folders, searched from the palette and never browsed
 
-- **Status:** proposed
+- **Status:** proposed; items 1 and 3 and the "library browsing" ruling amended by ADR-0062 (accepted 2026-10-10)
 - **Date:** 2026-10-07
 - **Amends:** ADR-0012 (the indexed root is the enclosing repository; "no settings surface for roots
   in v1" is lifted; the enclosing repository stays the implicit root) and ADR-0019 (its "Not in v1:

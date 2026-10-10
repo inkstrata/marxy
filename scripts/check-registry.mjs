@@ -88,7 +88,9 @@ if (isMain) {
 const reg = registry();
 const staged = process.argv.includes('--staged');
 const src = /\.(m?[jt]sx?|rs|css|html)$/;
-const files = (staged ? changedFiles({ staged: true }).map(f => join(ROOT, f)).filter(f => existsSync(f) && statSync(f).isFile()) : walk(ROOT, f => !/\/(marxy-spike|marxy-brainstorm)\//.test(f)))
+// Design prototypes kept under docs/plan/<round>/ (mock*, galley) are reference HTML, not the app.
+const prototype = /\/(marxy-spike|marxy-brainstorm)\/|\/docs\/plan\/[^/]+\/(mock[^/]*|galley)\//;
+const files = (staged ? changedFiles({ staged: true }).map(f => join(ROOT, f)).filter(f => existsSync(f) && statSync(f).isFile() && !prototype.test(f)) : walk(ROOT, f => !prototype.test(f)))
   .filter(f => src.test(f) && !/\/scripts\/registry\.json$/.test(f) && !/fixtures\/corpus\//.test(f));
 const problems = [];
 const marks = new Set(reg.marks), events = new Set(reg.events), attrs = new Set(reg.dataAttributes);
