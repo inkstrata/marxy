@@ -259,3 +259,31 @@ test('clipboardWrite is unchanged: one recorded call with its argument', async (
   assert.deepEqual(mem.calls, [{ method: 'clipboardWrite', args: [{ text: 'a', html: '<i>a</i>' }] }]);
   assert.equal(mem.pasteboardNativeWrites, 0, 'the old write does not touch the new pasteboard');
 });
+
+test('a leading BOM survives a write, byte for byte, in the adapter and the memory shell', async () => {
+  const bytes = Uint8Array.from([0xef, 0xbb, 0xbf, 0x61]);
+  const seen: { data?: string }[] = [];
+  const adapter = tauriClipboard(async (_c, args) => {
+    seen.push((args as { reps: { data: string }[] }).reps[0] ?? {});
+    return undefined as never;
+  });
+  await adapter.clipboardWriteItem([{ type: TEXT, bytes }]);
+  assert.deepEqual(Array.from(utf8(seen[0]?.data ?? '')), Array.from(bytes));
+  const mem = createMemoryShell({});
+  await mem.clipboardWriteItem([{ type: TEXT, bytes }]);
+  assert.deepEqual(Array.from(mem.lastPasteboardWrite?.[TEXT] ?? []), Array.from(bytes));
+  assert.deepEqual(Array.from((await mem.clipboardRead(TEXT))?.bytes ?? []), Array.from(bytes));
+  assert.deepEqual(Array.from(utf8(text(bytes))), Array.from(bytes));
+});
+
+test('invalid UTF-8 is rejected invalid, never replaced', async () => {
+  const bad = Uint8Array.from([0x61, 0xff]);
+  assert.throws(() => text(bad), (e: Error & { code?: string }) => e.code === 'invalid');
+  let called = 0;
+  const adapter = tauriClipboard(async () => {
+    called += 1;
+    return undefined as never;
+  });
+  await rejects(adapter.clipboardWriteItem([{ type: HTML, bytes: bad }]), 'invalid');
+  assert.equal(called, 0);
+});

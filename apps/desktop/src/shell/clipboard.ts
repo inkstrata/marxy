@@ -58,7 +58,14 @@ async function native<T>(call: Call, command: string, args?: Record<string, unkn
 
 /** UTF-8 helpers. This file is the shell's one exemption from the no-TextEncoder rule (gate:fidelity). */
 const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s);
-const text = (b: Uint8Array): string => new TextDecoder().decode(b);
+/** Strict: invalid UTF-8 throws `invalid` (never U+FFFD) and a leading BOM is kept, not stripped. */
+const text = (b: Uint8Array): string => {
+  try {
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(b);
+  } catch {
+    throw shellError('invalid', 'not valid UTF-8');
+  }
+};
 
 const decodeBase64 = (data: string): Uint8Array => Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
 
@@ -78,10 +85,9 @@ function tauriClipboard(call: Call) {
     },
     async clipboardWriteItem(reps: readonly ClipboardRep[], meta?: ClipboardMeta): Promise<void> {
       checkWrite(reps);
-      const decoder = new TextDecoder('utf-8', { fatal: true });
       const wire = reps.map((r) => {
         try {
-          return { type: r.type, data: decoder.decode(r.bytes) };
+          return { type: r.type, data: text(r.bytes) };
         } catch {
           throw shellError('invalid', `${r.type} is not valid UTF-8`);
         }
