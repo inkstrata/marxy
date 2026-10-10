@@ -1907,6 +1907,17 @@ outside `scroller()` when the scroller is not the page's; the page's own scrolle
 `apps/desktop/test/pane-scroll.test.mjs`. **Acceptance:** wheeling pane A while B sets leaves B's reading block within
 1 px (red on main); input inside B still counts as B's reader input; one pane unchanged (the B-02.8 and F-11 tests).
 
+### B-27 — A pane in Source does not rebuild its hidden Rendered page on every fold
+
+**Model:** opus · **Size:** M · **Depends on:** D-11 · *From the D-11 reviews (2026-10-10); true on main.* Every fold of
+Source text into the store re-renders the hidden Rendered article in every view (`rerenderFromBuffer`), 28 to 30 s
+per view for a 1 MB document in the dev harness; one fold across two panes took 95 s on main. A pane showing Source
+should mark its hidden article stale and rebuild it when it next shows Rendered (with B-23's incremental reparse and
+B-24's partial re-render where they apply). **Paths:** `apps/desktop/src/view/rendered-view.ts` (the fold
+transition and the mode switch), a desktop test. **Acceptance:** a fold in a 1 MB document with both panes in
+Source re-renders nothing until a pane shows Rendered (count renders; red on main); switching to Rendered then shows
+the folded text; 1 MB fold time recorded beside main's; one pane unchanged.
+
 ### B-25.1 — The diagram-caption rule without a two-step `:has()`
 
 **Model:** opus · **Size:** S · **Depends on:** B-25, L-03 (same file) · *Added 2026-10-08 by the lead, from B-25 and

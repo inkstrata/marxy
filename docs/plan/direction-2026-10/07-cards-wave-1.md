@@ -571,3 +571,121 @@ Add any key that names who or what wrote a file.
   `COLLECTION_TEMPLATE` still documents only `[[root]]` and `[deny]`.
 - **B-25.1, pre-existing.** ```` ```mermaid&#32;x ```` gets no caption while the paragraph before it is styled as
   one; `"bash session"` in `languages.generated.ts` can never match a class.
+
+### H-02 — The contrast gate: every theme, variant and kind scope against ADR-0059's floors
+
+**Model:** sonnet · **Size:** M · **Depends on:** H-01 (merged) · **Parallel with:** K-03, anything outside `scripts/` and `packages/theme/`
+
+**Outcome.** `scripts/gate-contrast.mjs` reads every bundled theme's `tokens.css` (light and dark variants,
+and any `[data-marxy-kind]` scope), composites translucent colours over their ground, and fails on any pair
+below ADR-0059 item 10's floor, unrounded. It runs in `pnpm check`. Roles that contract v2 adds but no theme
+declares yet (before H-03) are reported as "not yet declared", never as passes, and do not fail.
+
+**Why now.** ADR-0059 item 10: "H-02 gates these." H-03 and H-04 change colours; the gate must exist first so
+they cannot regress a floor. Galley's audit (`docs/plan/direction-2026-10/galley/audit_contrast.py`) is the
+model: its pair list, its compositing, its "4.499 fails".
+
+**Paths.**
+- New: `scripts/gate-contrast.mjs`, `scripts/gate-contrast.test.mjs`.
+- Edit: `scripts/check.mjs` (`CHECKS` gains `gate-contrast`), `docs/ci-contract.md` and `docs/hygiene.md`
+  (the check's row; "eight hygiene checks" becomes nine wherever it is counted: `AGENTS.md`, `scripts/check.mjs`'s
+  summary line, `docs/ci-contract.md`), `package.json` only if a `gate:contrast` script is wanted.
+- Read: ADR-0059 item 10 (the floors table), `packages/theme/src/tokens.css` and the bundled default theme in
+  `packages/theme/default/` (and any theme directory H-04 and H-05 add later; the gate finds them), `scripts/check-tokens.mjs` (how tokens are parsed),
+  `docs/research/reader-typography/09-color-access.md`.
+
+**Build order.**
+1. Parse colours (hex, `rgb()`, `hsl()`, `color-mix(in srgb …)` and `var()` chains) from each theme scope; an
+   unparseable value is a failure naming the token, never a skip.
+2. The pair table is ADR-0059 item 10 verbatim, as data in the script; each row names its floor and grounds.
+   Composite every translucent foreground or ground over the opaque ground beneath it (`-selection` over
+   `-code-bg` and so on) before measuring; the current-line ground is the selection mixed 40 % toward
+   transparent over `-code-bg`.
+3. WCAG 2.2 relative luminance, unrounded; `--md` prints the table for docs.
+4. Output: one line per failing pair (`theme · variant · scope: fg on ground = 4.49 < 4.5`), and a count of
+   roles not yet declared.
+
+**Acceptance.**
+- A fixture theme with a body text pair at 6.99:1 fails, at 7.00:1 passes (`gate-contrast.test.mjs`, unrounded).
+- A translucent selection over the code ground is composited first (a fixture that passes uncomposited and fails
+  composited, or the reverse).
+- An unparseable colour fails naming the token.
+- A v2 role absent from a theme is reported as not declared and does not fail; present, it is checked.
+- The gate runs in `pnpm check`, and the count of checks is right everywhere it is written.
+- Today's bundled themes: report the result. If a shipped pair fails a floor, **stop and report** (fixing a colour
+  is H-04's, taste); do not loosen a floor.
+
+**Tests.** `scripts/gate-contrast.test.mjs`. Gates: `pnpm check`, `pnpm precheck`.
+
+**Do not.** Change a colour. Round a ratio. Use the large-text allowance (ADR-0059 item 10 says no role does).
+
+### K-03 — Detect a file's kind in core, with reasons; goldens over the corpus
+
+**Model:** sonnet · **Size:** M · **Depends on:** K-01 (ADR-0060) · **Parallel with:** H-02
+
+**Outcome.** `detectKind(input)` in core returns `{ kind, reasons }` for a file's path, bytes prefix and front
+matter, by ADR-0060's tiers (reader rule, name, format, strong shape, byline, weak shape, default), inside a
+tier strongest-wins with ties to the earlier kind in `KINDS`. A golden lists every corpus file's kind and reasons.
+Nothing in the app uses it yet (K-05 does); no file's opening mode changes.
+
+**Why now.** ADR-0060 decides the tiers; K-04 (reader rules), K-05 (the profiles), K-06 (index kinds) and K-07 (the
+chip) all read this.
+
+**Paths.**
+- New: `packages/core/src/kind/detect.ts`, `packages/core/src/kind/detect.test.ts`,
+  `packages/core/goldens/kinds.json` (one entry per `fixtures/corpus/` file: kind and reasons).
+- Edit: `packages/core/src/index.ts` (exports), `packages/core/scripts/golden.ts` (`pnpm --filter @marxy/core test:golden`) only to add
+  `kinds.json` to its compare and `--update` paths.
+- Read: ADR-0060 in full (the tier table, the text family, the never-a-signal rule, the thresholds K-03 sets),
+  `packages/core/src/contracts/kinds.ts`, `apps/desktop/src/source/default-mode.ts` (today's rule, unchanged).
+
+**Build order.**
+1. `DetectInput = { path: string; head: Uint8Array; frontMatter?: Record<string, unknown>; rules?: KindRule[] }`;
+   the prefix bound (measured from the end of front matter, ADR-0060 item 6) is a constant here.
+2. The tiers, in order, each returning candidates with reasons; strongest wins inside a tier.
+3. Set and record the thresholds ADR-0060 leaves to K-03: how many working headings make `report` and `docs`
+   ("several", more than one), the JSONL role-object test, speaker headings (never a product or model name).
+4. `kinds.json` golden over the corpus, regenerated by the golden script's `--update`.
+
+**Acceptance.**
+- Each tier decides when it should (a test per tier) and a higher tier beats a lower one.
+- The never-a-signal rule: for every corpus file with front matter, mutating any key other than `author`,
+  `published`, `source`, or any value, leaves the kind unchanged; moving the file under `.claude/`, `.cursor/` or
+  `.codex/` leaves it unchanged (a property test over the corpus).
+- An unknown extension is `code`; an extension-less `LICENSE` is `code`; an extension-less `README` is `readme`;
+  `README.rst` is `code`; `README.html` is `html` (ADR-0060 item 3).
+- `kinds.json` matches; changing a tier's rule changes it (the golden can fail).
+- `default-mode.ts` is untouched and no file's opening mode changes (`pnpm precheck` green, goldens unchanged
+  apart from the new `kinds.json`).
+
+**Tests.** `packages/core/src/kind/detect.test.ts`, the golden. Gates: `pnpm precheck`, `pnpm check`.
+
+**Do not.** Read `model`, `session`, `generated_by` or any tool-naming field. Match a tool or vendor path. Touch
+`apps/desktop`. Change `KINDS`.
+
+### J-01.1 — The pasteboard reads one snapshot and writes only what it can read
+
+**Model:** opus · **Size:** S · **Depends on:** J-01 (merged) · **Before:** J-02 · *From the J-01 review (2026-10-10).*
+
+**Paths.** `apps/desktop/src-tauri/src/pasteboard/` (`mod.rs`, `macos.rs`, `fake.rs`), `docs/design/06-shell.md`.
+
+**Build order and acceptance.**
+1. Take the item array once per command and use it for the type list and every read, so a copy landing between
+   the concealed check and a read cannot be read (or combine representations from two copies); a fake test that
+   changes the pasteboard between `types()` and `read()` reads nothing new.
+2. Allow writes only of text, HTML, RTF and URL types (an allowlist mirroring `READABLE`); the reserved-marker check
+   becomes redundant, and a case variant of a marker cannot pass (a test each).
+3. Move the "concealed on any item" decision from `macos.rs` into the tested logic; a fake holding
+   `[[TEXT], [TEXT, CONCEALED]]` is refused (red when the check is removed).
+4. The 16 MB cap: document that it limits the response, not memory; an oversized representation is skipped and
+   reported, and the rest of the read returns (a test).
+5. A write that fails after `clearContents` leaves the clipboard empty: say so in the module doc, or build so it
+   cannot (a fake that fails `writeObjects`).
+6. `String::from_utf8(bytes)` without the clone; `cfg_attr(…, expect(dead_code))`; a one-line comment that the
+   commands must stay sync (main thread).
+`cargo test`, `cargo clippy -- -D warnings`; no new crate.
+
+**For the author (J-02, not this story):** what backs "reads only on a reader action" now that the commands are
+not permission-gated: native-started reads, a Rust check for a recent input event, or the frontend's promise
+written into ADR-0065 §3 beside `read_file`; and whether a pasted Transient, Concealed or AutoGenerated item may
+become a saved scratch file.

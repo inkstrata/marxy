@@ -440,13 +440,17 @@ golden moves.
 
 ### F-27 — A resize or a divider move keeps the reader's block
 
-**Model:** opus · **Size:** M · **Depends on:** D-04, D-05 · *From the B-26 review (2026-10-10); true on main.* After a
+**Model:** opus · **Size:** M · **Depends on:** D-04, D-05, D-11 (same file) · *From the B-26 review (2026-10-10); true on main.* After a
 divider move by keyboard the narrowed pane lands 1,300 to 1,500 px off its block; through `setRatio`, about 104 px; a
 one-pane window resize, about 350 px. The cause is the resize restore (`relayoutKeepingReader` / `restoreTo` in the
 view), not the typesetter. **Paths:** `apps/desktop/src/view/rendered-view.ts` (the resize restore),
-`apps/desktop/src/layout/` or `pane/` only for the divider's resize hook, `apps/desktop/test/pane-scroll.test.mjs` and
+`apps/desktop/src/pane/` only for the divider's resize hook, `apps/desktop/test/pane-scroll.test.mjs` and
 a resize test. **Acceptance:** after a window resize and after a divider move (keyboard and pointer), each pane's block
 under the reading line is within 1 px of where it was (a test each, red on main).
+
+**From the D-13 review (2026-10-10), for this story.** In a split, a scroll made in the first ~600 ms after the second
+pane opens is reset to 0 by a late `relayoutKeepingReader` (`restoreScrollToPosition` set −305); it happens with no
+find involved. Cover it here.
 
 ### F-28 — The sanitiser decodes a number once, and `&hyphen;` is U+2010
 
@@ -459,3 +463,10 @@ reads the literal `&#45;3`; repeated decoding is deliberate for URLs, so whether
 author's call. (3) `.trim()` strips NBSP, U+FEFF and U+2028, where HTML's integer parse skips only ASCII whitespace.
 Acceptance: one test per point, red on main; no golden moves.
 
+### F-29 — The two-pane test harness finds the real body element
+
+**Model:** sonnet · **Size:** S · **Depends on:** none · *From the D-08 fix (2026-10-10).* · **Paths:** `apps/desktop/test/support/two-pane.mjs`.
+`shippedSkeleton()` finds the body with `/<body[^>]*>/`, which matched the literal text `<body>` in a CSS comment in
+`index.html` and booted a broken skeleton: every two-pane suite timed out at 120 s. Find the body element with a
+parser (or the first `<body` outside a comment and a `<style>` element). Acceptance: a skeleton whose `<style>`
+comment contains `<body>` still boots (a test, red on main); every two-pane suite green.
