@@ -276,7 +276,7 @@ function injectPaletteStyles(doc: Document): void {
     #marxy-palette {
       margin: 2rem auto 0;
       padding: 0;
-      border: 1px solid var(--marxy-color-border, #444);
+      border: 1px solid var(--marxy-color-rule-strong);
       border-radius: 8px;
       width: min(640px, 90vw);
       background: var(--marxy-color-surface, #1a1a1a);
@@ -288,7 +288,7 @@ function injectPaletteStyles(doc: Document): void {
       box-sizing: border-box;
       width: 100%;
       border: 0;
-      border-bottom: 1px solid var(--marxy-color-border, #444);
+      border-bottom: 1px solid var(--marxy-color-edge);
       padding: 0.75rem 1rem;
       font: inherit;
       background: transparent;
@@ -361,7 +361,7 @@ function injectPaletteStyles(doc: Document): void {
       opacity: 0.75;
     }
     #marxy-palette .marxy-palette-row[aria-selected="true"] {
-      background: var(--marxy-color-accent-muted, rgb(255 255 255 / 8%));
+      background: var(--marxy-color-accent-wash);
     }
     #marxy-palette .marxy-palette-heading {
       opacity: 0.75;
@@ -398,7 +398,7 @@ function injectPaletteStyles(doc: Document): void {
       padding: 0.5rem 1rem;
       font-size: 0.9em;
       opacity: 0.8;
-      border-top: 1px solid var(--marxy-color-border, #444);
+      border-top: 1px solid var(--marxy-color-rule-strong);
     }
   `);
 }
