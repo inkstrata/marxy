@@ -56,6 +56,10 @@ async function native<T>(call: Call, command: string, args?: Record<string, unkn
   }
 }
 
+/** UTF-8 helpers. This file is the shell's one exemption from the no-TextEncoder rule (gate:fidelity). */
+const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s);
+const text = (b: Uint8Array): string => new TextDecoder().decode(b);
+
 const decodeBase64 = (data: string): Uint8Array => Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
 
 /** The three Shell clipboard methods over J-01's `pasteboard_*` commands. */
@@ -70,7 +74,7 @@ function tauriClipboard(call: Call) {
       }
       const rep = got.reps.find((r) => r.type === type);
       if (!rep) return null;
-      return { type, bytes: rep.encoding === 'base64' ? decodeBase64(rep.data) : new TextEncoder().encode(rep.data) };
+      return { type, bytes: rep.encoding === 'base64' ? decodeBase64(rep.data) : utf8(rep.data) };
     },
     async clipboardWriteItem(reps: readonly ClipboardRep[], meta?: ClipboardMeta): Promise<void> {
       checkWrite(reps);
@@ -96,5 +100,7 @@ export const clipboard = {
   TEXT, HTML, RTF, URL: URL_TYPE, PNG, SOURCE, TRANSIENT, CONCEALED, BUNDLE_ID, READABLE, WRITABLE,
   checkWrite,
   shellError,
+  utf8,
+  text,
   tauri: tauriClipboard,
 };

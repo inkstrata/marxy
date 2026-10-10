@@ -28,8 +28,7 @@ interface Rig {
   nativeCalls(): number;
 }
 
-const utf8 = (s: string) => new TextEncoder().encode(s);
-const text = (b: Uint8Array) => new TextDecoder().decode(b);
+const { utf8, text } = clipboard;
 const CAP = 16 * 1024 * 1024;
 
 function memoryRig(): Rig {
@@ -53,7 +52,7 @@ function tauriRig(): Rig {
   const err = (code: string, message: string) => Object.assign(new Error(message), { code, message });
   const READABLE = [TEXT, HTML, RTF, URL_TYPE, PNG];
   const WRITABLE = [TEXT, HTML, RTF, URL_TYPE];
-  const b64 = (b: Uint8Array) => Buffer.from(b).toString('base64');
+  const b64 = (b: Uint8Array) => (Buffer.from(b) as unknown as { base64Slice(): string }).base64Slice();
   const call: Call = async <T>(command: string, args: Record<string, unknown> = {}): Promise<T> => {
     calls += 1;
     const concealed = board.some((i) => CONCEALED in i);

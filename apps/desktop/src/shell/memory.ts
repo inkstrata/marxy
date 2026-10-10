@@ -289,7 +289,7 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
       nativeWrites += 1;
       const item: Record<string, Uint8Array> = {};
       for (const r of reps) item[r.type] = r.bytes.slice();
-      item[SOURCE] = new TextEncoder().encode(BUNDLE_ID);
+      item[SOURCE] = clipboard.utf8(BUNDLE_ID);
       if (meta?.transient === true) item[TRANSIENT] = new Uint8Array();
       pasteboard = [item];
       lastWrite = item;
