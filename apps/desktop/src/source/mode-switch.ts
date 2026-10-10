@@ -2,10 +2,11 @@
 
 import { type Buffer, byteToUtf16, utf16ToByte } from '@marxy/core';
 import { EditorView } from '@codemirror/view';
+import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from './cm-position.ts';
 
-/** UTF-16 offset in the CM doc for a reading-position byte offset. */
-export function renderedByteToCmPos(buffer: Buffer, byteOffset: number): number {
-  return byteToUtf16(buffer, byteOffset);
+/** The CodeMirror position for a reading-position byte offset. */
+export function renderedByteToCmPos(buffer: Buffer, state: CmStateLike, byteOffset: number): number {
+  return utf16ToCmPos(buffer, state, byteToUtf16(buffer, byteOffset));
 }
 
 /**
@@ -22,7 +23,7 @@ export function sourceReadingPosition(
   const height = readingLinePx - view.documentTop;
   const line = view.lineBlockAtHeight(height);
   const fraction = line.height > 0 ? Math.min(1, Math.max(0, (height - line.top) / line.height)) : 0;
-  return { byteOffset: utf16ToByte(buffer, line.from), fraction };
+  return { byteOffset: utf16ToByte(buffer, cmPosToUtf16(buffer, view.state, line.from)), fraction };
 }
 
 /** Byte offset of the start of the first line in the window (the Source harness's round trip). */
@@ -37,7 +38,7 @@ export function scrollSourceToByte(
   byteOffset: number,
   readingLinePx: number,
 ): void {
-  const pos = renderedByteToCmPos(buffer, byteOffset);
+  const pos = renderedByteToCmPos(buffer, view.state, byteOffset);
   view.dispatch({
     effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: readingLinePx }),
   });
@@ -46,22 +47,24 @@ export function scrollSourceToByte(
 /** Map a rendered node/section selection to a CM selection range (bytes → UTF-16). */
 export function selectionToCmRange(
   buffer: Buffer,
+  state: CmStateLike,
   range: { start: number; end: number },
 ): { anchor: number; head: number } {
   return {
-    anchor: byteToUtf16(buffer, range.start),
-    head: byteToUtf16(buffer, range.end),
+    anchor: renderedByteToCmPos(buffer, state, range.start),
+    head: renderedByteToCmPos(buffer, state, range.end),
   };
 }
 
 /** Map CM selection anchors to byte offsets. */
 export function cmSelectionToBytes(
   buffer: Buffer,
+  state: CmStateLike,
   anchor: number,
   head: number,
 ): { start: number; end: number } {
-  const a = utf16ToByte(buffer, anchor);
-  const h = utf16ToByte(buffer, head);
+  const a = utf16ToByte(buffer, cmPosToUtf16(buffer, state, anchor));
+  const h = utf16ToByte(buffer, cmPosToUtf16(buffer, state, head));
   return a <= h ? { start: a, end: h } : { start: h, end: a };
 }
 

@@ -20,6 +20,7 @@ import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/po
 import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
+import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
 import type { LaunchMeasure, RenderEvidence } from '../startup/measure.ts';
 import type { TrustController } from '../trust/controller.ts';
@@ -36,7 +37,7 @@ interface MountedSourceEditor {
   readonly view: {
     scrollDOM: HTMLElement;
     lineBlockAtHeight(height: number): { from: number };
-    readonly state: { readonly selection: { readonly main: { readonly anchor: number; readonly head: number } }; readonly doc: { readonly length: number } };
+    readonly state: CmStateLike & { readonly selection: { readonly main: { readonly anchor: number; readonly head: number } } };
     dispatch(spec: { selection: { anchor: number; head: number } }): void;
   };
 }
@@ -856,14 +857,18 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    */
   function replaceSourceBuffer(editor: MountedSourceEditor, next: Buffer): void {
     const old = editor.buffer;
-    const { anchor, head } = editor.view.state.selection.main;
-    const mapped = (pos: number): number =>
-      Math.min(byteToUtf16(next, offsetThroughEdit(utf16ToByte(old, pos), old.bytes, next.bytes)), next.text.length);
-    const target = old === next ? null : { anchor: mapped(anchor), head: mapped(head) };
+    const before = editor.view.state;
+    const { anchor, head } = before.selection.main;
+    // Positions through the old text's separator and BOM, back through the new text's (F-23).
+    const offsets = (pos: number): number =>
+      byteToUtf16(next, offsetThroughEdit(utf16ToByte(old, cmPosToUtf16(old, before, pos)), old.bytes, next.bytes));
+    const mapped = old === next ? null : { anchor: offsets(anchor), head: offsets(head) };
     editor.replaceBuffer(next);
-    if (target === null) return;
-    const length = editor.view.state.doc.length;
-    editor.view.dispatch({ selection: { anchor: Math.min(target.anchor, length), head: Math.min(target.head, length) } });
+    if (mapped === null) return;
+    const after = editor.view.state;
+    editor.view.dispatch({
+      selection: { anchor: utf16ToCmPos(next, after, mapped.anchor), head: utf16ToCmPos(next, after, mapped.head) },
+    });
   }
 
   /**
