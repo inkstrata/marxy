@@ -6,3 +6,4 @@ export {
   serializeLayoutFile,
 } from './storage.ts';
 export type { LayoutColumn, LayoutEnvelope, LoadLayoutResult } from './storage.ts';
+export { LAYOUT_DEBOUNCE_MS, LayoutPersistence } from './persistence.ts';

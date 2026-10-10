@@ -42,6 +42,11 @@ close. On open, if an entry exists and the file's byte length is ≥ `byteOffset
 otherwise start at the top. Positions are per path, not per content hash: a regenerated
 artifact keeps its place, which is the point.
 
+With two panes, one pane writes each path's place (D-12): the focused pane if it shows the path, else the
+lowest slot that does (`writerFor`, `apps/desktop/src/layout/restore.ts`). A second view of a file already
+shown is never written, so a pair of views of one file leaves one entry, the writer's. Which documents are
+open, in which modes, at which ratio, is `layout.json` (§11); positions stay per path.
+
 ## Mode switch (§09 has the keys)
 
 Rendered → Source: `pos = current()`; CodeMirror scrolls so that line containing

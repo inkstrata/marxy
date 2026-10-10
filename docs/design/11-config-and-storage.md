@@ -175,12 +175,29 @@ Unknown keys are reported as `capture.<key>`. More than 32 rules warn and the re
 Privacy page's sentence is the constant `CAPTURE_PRIVACY_LINE` (ADR-0063 item 6, verbatim, with a test
 that reads the ADR), and `capturePrivacyLines(rules)` fills in each rule's paths.
 
+## `layout.json` (ADR-0057, D-12), in the data directory beside `positions.json`
+
+The split the reader left: `{ "version": 1, "columns": [{ "path", "mode" }], "ratio", "focused" }`, at
+most two columns, `mode` `rendered` or `source`, `ratio` the left pane's share (0.2 to 0.8), `focused` the
+index of the focused column. Paths only, never contents and never a scroll coordinate: each document's
+place stays in `positions.json`, by path. Written debounced 500 ms after the layout or a pane's mode
+changes and at quit (`LayoutPersistence`, `packages/core/src/layout/persistence.ts`), with the same
+atomic-write, quarantine (`layout.json.bad-<ms>`) and newer-version rules as `positions.json`.
+
+Restored at launch, after the first pane's document, never before it is readable
+(`apps/desktop/src/layout/restore.ts`): with no file argument the saved first column is the launch's
+document and the second opens after first text; with one, the argument opens in the focused pane and the
+other pane keeps its document. A column whose file is gone or unreadable is left out with a notice. A
+window too narrow for two columns, or a layout with one column left, shows the focused column alone and
+leaves `layout.json` as it was until the reader changes the layout.
+
 ## Data files
 
 | File | Content | Cap | Owner |
 | --- | --- | --- | --- |
 | `index/<sha1(root)>.json` | §07 envelope, with an optional `baselineMs` (when Marxy first indexed the root; set once, never moved; `version` stays 1) | 50 000 entries; files older than 90 days unused are deleted at startup | shell |
 | `positions.json` | §08 | 5 000 paths, LRU | app |
+| `layout.json` | the split: two columns at most, ratio, focus (above) | 2 columns | app |
 | `history.json` | opens, pins, recent roots (§07) | 500 opens, 12 roots | app |
 | `trust.json` | per-document grants: HTML, image hosts ([§12](13-trust.md)) | 2 000 paths, LRU | app |
 

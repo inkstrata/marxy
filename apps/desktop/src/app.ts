@@ -16,6 +16,7 @@ import { createTrustController } from './trust/controller.ts';
 import { createAppConfig } from './theme/app-config.ts';
 import { createLaunchMeasure } from './startup/measure.ts';
 import { createIndexService, indexShellFor } from './index/service.ts';
+import { createLayoutKeeper, launch, writerFor } from './layout/restore.ts';
 import { createReadingPersistence } from './position/reading-persistence.ts';
 import { pinDocumentOnPaletteSession } from './palette/history.ts';
 import { emptySession, type PaletteSession } from './palette/session.ts';
@@ -143,7 +144,17 @@ export async function startApp(
   const first = panes.panes[0]!;
   const openPath = first.content;
   const view = first.view;
-  persistence.follow(view);
+  // Only the pane that writes a path's place keeps it: the focused pane if it shows the path, else the lowest slot (D-12).
+  const writes = (pane: typeof first) => (): boolean => {
+    const path = pane.path();
+    return path !== null && writerFor(panes, path) === pane;
+  };
+  persistence.follow(view, { writes: writes(first) });
+  panes.onSplit(() => persistence.follow(panes.panes[1]!.view, { writes: writes(panes.panes[1]!) }));
+  const layout = createLayoutKeeper(panes, persistence);
+  // Settles once the saved layout is back (the second pane opens after first text, never before).
+  let layoutSettled!: (done: Promise<void>) => void;
+  const layoutRestored = new Promise<void>((resolve) => { layoutSettled = resolve; });
   injected.onOpenFiles?.((paths) => {
     const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
     if (file) void panes.openIn('focused', file);
@@ -183,7 +194,7 @@ export async function startApp(
     },
     commands() { return appCommands(); },
     shell,
-    ready: measure.ready.then(() => {}),
+    ready: measure.ready.then(() => layoutRestored),
     async open(path, opts) {
       const { target, focus, ...rest } = opts ?? {};
       if (target !== 'other') {
@@ -232,6 +243,7 @@ export async function startApp(
     destroy() {
       renderedSelection.destroy();
       offPaneMode();
+      layout.stop();
       panes.destroy();
       persistence.close();
       config.stop();
@@ -247,8 +259,11 @@ export async function startApp(
   installCloseGuard({ shell, panes: () => panes.panes });
   guardPaneClose(panes);
   try {
-    await openPath.boot(argv);
+    // The launch opens the first pane's document first; the rest of the saved layout follows it (D-12).
+    const { rest } = await launch({ shell, panes, persistence, keeper: layout, boot: (a) => openPath.boot(a), argv });
+    layoutSettled(rest.catch((e: unknown) => console.warn(`marxy: the saved layout could not be restored: ${String(e)}`)));
   } catch (e) {
+    layoutSettled(Promise.resolve());
     first.article.textContent = String(e);
     await shell.mark('error', Date.now(), String(e));
     await measure.finish(1);
