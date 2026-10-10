@@ -367,7 +367,9 @@ gutter-floor test still passes.
 ### F-20.1 — A blank line between CR and LF inside a code block
 
 **Model:** opus · **Size:** S · **Depends on:** F-20 · *From the F-20 review (note 6); true on main.* · **Paths:**
-`packages/core/src/parse/from-mdast.ts`, `packages/core/src/parse/provenance.test.ts`. About 2 in 715k inputs: a code
+`packages/core/src/parse/from-mdast.ts`, `packages/core/src/parse/provenance.test.ts`, `packages/core/src/parse/invariants.ts`
+(added by the lead, 2026-10-10: the checker must split a code value on the content's own endings, or it cannot see
+this bug; the review confirmed the change is stricter, not looser). About 2 in 715k inputs: a code
 block whose value reads a lone CR followed by a whitespace-only line as one CRLF, so the content range stops early:
 `"    a\r  \n    b"`, `` "-   ```\r  \n\ta  " ``, `"   ~~~\r  \n===\n"`, `` "  ```js\n---\n\r  \n1. " ``. Map the value's line
 endings to the bytes one by one. Acceptance: each reproducer is a fixed test; the invariant stress passes at its seed
@@ -391,3 +393,31 @@ a CRLF case each for Jump to source, the mode-switch place, and the reload caret
 as a single line in Source, though Source must show the file exactly (commitment 3). Detect a CR-only file and set
 the editor's line separator to `\r` (as CRLF sets `\r\n`), without changing a byte. Acceptance: a CR-only file shows
 its lines in Source; saving it unchanged writes the same bytes; Jump to source lands on the right line.
+
+### F-20.2 — Indented code keeps the endings of its trailing blank lines, and list-item fences keep spaces past the indent
+
+**Model:** opus · **Size:** S · **Depends on:** F-20.1 · *From the F-20.1 review (2026-10-10, a commonmark.js 0.31.2
+oracle over 256k inputs); true on main.* · **Paths:** `packages/core/src/parse/from-mdast.ts`,
+`packages/core/src/parse/provenance.test.ts`. Three classes where Rendered's code value differs from CommonMark, none
+introduced by F-20.1: (1) indented code followed by whitespace-only lines keeps a trailing ending, LF too
+(`"    a\n \n    \nb"` gives `a\n`, CommonMark `a`); (2) a whitespace-only line inside a fenced block in a list item
+keeps spaces past the container's indent (`` "- ```\r  \n\t" ``); (3) `"\r>\n    x\r \n    y"` yields two code blocks
+where CommonMark has one. Acceptance: each reproducer a fixed test against commonmark.js's value; the review's oracle
+(`oracle.mjs`, kept in the F-20.1 reviewer's scratchpad; copy it to `packages/core/test/` if it is to last) shows 0
+introduced and these classes fixed; the invariant stress and `pnpm gate:fidelity` pass. Rendered draws a blank line
+the document does not have, and copy-code copies it (commitment 4).
+
+### F-25 — An open Source editor keeps its line separator through a live reload
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-24 · *From the F-24 review (2026-10-10); true on main for CRLF.*
+· **Paths:** `apps/desktop/src/source/editor-cm6.ts` (`replaceBuffer`), `apps/desktop/src/source/editor.ts`
+(`editorDocConfig`, export the separator rule as one pure function), `apps/desktop/src/source/mode-switch.test.mjs`
+(`stateFor` uses that function instead of a copy), a desktop test. `replaceBuffer` dispatches the new text but never
+reconfigures `EditorState.lineSeparator`, so an outside write that changes a file's line-ending class (CR to LF, LF to
+CR, CR to mixed) leaves Source showing one line with ␤ or ␍ marks, and Enter inserts the old class's newline
+(`alpha\rbravo\ncharlie\n`): a byte the reader did not ask for. Reconfigure the separator through a compartment (or
+recreate the editor) when the class changes. Acceptance: for each of the four transitions, Source shows the new
+file's lines and Enter inserts the new class's newline (one test per transition, red without the change); an unchanged
+save stays byte-exact; `mode-switch.test.mjs` covers CR-only through the shared function. Also from the F-23 review: a
+live-reload case whose BOM appears or disappears across the reload, since the BOM-only cases cancel today.
+
