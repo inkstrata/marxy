@@ -181,11 +181,23 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
     await d.boot(args);
     return { rest: Promise.resolve().then(() => keeper.start(true)) };
   }
-  const { alive, notices } = await survey(shell, saved.columns);
+  // Only the column that boots first is looked at before first text; the other is the rest's (never waited for).
   const narrow = saved.columns.length === 2 && !fits();
-  const whole = alive.length === 2 && !narrow;
-  // Both gone: the normal empty state, and what happened.
-  if (alive.length === 0) {
+  const order = saved.columns.map((_, i) => i);
+  if (narrow) order.sort((a, b) => Number(b === saved.focused) - Number(a === saved.focused));
+  const flags = args.filter((a) => a.startsWith('-'));
+  const notices: string[] = [];
+  let at = -1;
+  for (const [pos, index] of order.entries()) {
+    const probed = await survey(shell, [saved.columns[index]!]);
+    if (probed.alive.length === 1) {
+      at = pos;
+      break;
+    }
+    notices.push(...probed.notices);
+  }
+  // None can be read: the normal empty state, and what happened.
+  if (at < 0) {
     await d.boot(args);
     return {
       rest: Promise.resolve().then(() => {
@@ -194,12 +206,16 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
       }),
     };
   }
-  const first = whole ? alive[0]! : (alive.find((a) => a.index === saved.focused) ?? alive[0]!);
-  await d.boot([...args.filter((a) => a.startsWith('-')), first.column.path]);
+  const firstIndex = order[at]!;
+  const first = saved.columns[firstIndex]!;
+  await d.boot([...flags, first.path]);
   const rest = (async () => {
-    await inMode(panes.panes[0], first.column);
-    if (whole) {
-      const right = alive[1]!.column;
+    await inMode(panes.panes[0], first);
+    const others = order.slice(at + 1).map((i) => saved.columns[i]!);
+    const more = await survey(shell, others);
+    notices.push(...more.notices);
+    if (!narrow && firstIndex === 0 && more.alive.length === 1) {
+      const right = more.alive[0]!.column;
       await panes.openIn('other', right.path);
       await inMode(panes.panes[1], right);
       panes.setRatio(clampToMain(main, saved.ratio));

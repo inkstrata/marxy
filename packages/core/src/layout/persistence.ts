@@ -13,31 +13,44 @@ import {
 } from './storage.ts';
 
 export const LAYOUT_DEBOUNCE_MS = POSITIONS_DEBOUNCE_MS;
+/** A layout is two paths: a file over this is not one, and is never read whole (it waits before first text). */
+export const LAYOUT_MAX_BYTES = 64 * 1024;
+
+/** The shell's io, with an optional bounded read so a huge file is never read whole. */
+export interface LayoutPersistenceIo extends PositionPersistenceIo {
+  readHead?(path: string, maxBytes: number): Promise<Uint8Array>;
+}
 
 export class LayoutPersistence {
   private current: LayoutEnvelope;
   private readonly newerVersion: boolean;
   private readonly filePath: string;
-  private readonly io: PositionPersistenceIo;
+  private readonly io: LayoutPersistenceIo;
   private timer: ReturnType<typeof setTimeout> | undefined;
   /** Something was noted since the file was read: a flush with nothing noted leaves the file alone. */
   private dirty = false;
   private closed = false;
 
-  private constructor(io: PositionPersistenceIo, filePath: string, current: LayoutEnvelope, newerVersion: boolean) {
+  private constructor(io: LayoutPersistenceIo, filePath: string, current: LayoutEnvelope, newerVersion: boolean) {
     this.io = io;
     this.filePath = filePath;
     this.current = current;
     this.newerVersion = newerVersion;
   }
 
-  static async open(io: PositionPersistenceIo): Promise<LayoutPersistence> {
+  static async open(io: LayoutPersistenceIo): Promise<LayoutPersistence> {
     const filePath = `${(await io.dataDirectory()).replace(/\/$/, '')}/layout.json`;
     let bytes: Uint8Array;
     try {
-      bytes = await io.readFile(filePath);
+      bytes = io.readHead ? await io.readHead(filePath, LAYOUT_MAX_BYTES + 1) : await io.readFile(filePath);
     } catch {
       return new LayoutPersistence(io, filePath, emptyLayoutEnvelope(), false);
+    }
+    if (bytes.length > LAYOUT_MAX_BYTES) {
+      // Not a layout. The start of it is kept beside the file; the file itself is left exactly as it is
+      // and is never written, so nothing of it is lost, and the launch goes on as if there were no layout.
+      await io.writeFileAtomic(quarantinePathFor(filePath), bytes.slice(0, LAYOUT_MAX_BYTES));
+      return new LayoutPersistence(io, filePath, emptyLayoutEnvelope(), true);
     }
     const loaded = parseLayoutFile(bytes);
     if (loaded.kind === 'quarantined') {

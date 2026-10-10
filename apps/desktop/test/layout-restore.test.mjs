@@ -140,6 +140,13 @@ test('two documents, modes, ratio and focus come back, and first text came befor
     );
     assert.ok(marks.includes('first_text') && marks.includes('split_open'), `marks: ${marks}`);
     assert.ok(marks.indexOf('first_text') < marks.indexOf('split_open'), `first_text before split_open: ${marks}`);
+    // Nothing of the second document (not even a probe) is touched before first text.
+    const order = await second.evaluate(() =>
+      window.__marxyHandle.shell.calls.map((c) => (c.method === 'mark' ? `mark:${c.args[0]}` : `${c.method}:${c.args[0]}`)),
+    );
+    const firstText = order.indexOf('mark:first_text');
+    const secondTouched = order.findIndex((e) => /^(readFile|readHead|stat):\/r\/B\.md$/.test(e));
+    assert.ok(firstText >= 0 && secondTouched > firstText, `B.md was touched before first_text: ${order.slice(0, secondTouched + 1)}`);
   });
 });
 
@@ -285,5 +292,26 @@ test('the focused pane writes a file shown twice; the other does not; a second p
     await scrollPane(1);
     const positions = JSON.parse((await dataOf(page))['/data/positions.json']);
     assert.ok(positions.positions['/r/B.md'], 'the second pane did not keep the place of its own file');
+  });
+});
+
+test('a layout.json over 64 KB is not read whole: the launch goes on with no layout and the file is left alone', async () => {
+  await withBrowser(async (browser) => {
+    const big = JSON.stringify({ version: 1, columns: [rendered('/r/A.md')], ratio: 0.5, focused: 0, pad: 'x'.repeat(70 * 1024) });
+    const page = await boot(browser, { files: { ...files, '/data/layout.json': big }, argv: [] });
+    assert.deepEqual((await shown(page)).paths, [null]);
+    const seen = await page.evaluate(() => {
+      const calls = window.__marxyHandle.shell.calls;
+      return {
+        wholeReads: calls.filter((c) => c.method === 'readFile' && c.args[0] === '/data/layout.json').length,
+        head: calls.filter((c) => c.method === 'readHead' && c.args[0] === '/data/layout.json').map((c) => c.args[1]),
+        bad: calls.filter((c) => c.method === 'writeFileAtomic' && /layout\.json\.bad-/.test(c.args[0])).length,
+        overwrote: calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === '/data/layout.json').length,
+      };
+    });
+    assert.equal(seen.wholeReads, 0);
+    assert.deepEqual(seen.head, [64 * 1024 + 1]);
+    assert.equal(seen.bad, 1);
+    assert.equal(seen.overwrote, 0);
   });
 });

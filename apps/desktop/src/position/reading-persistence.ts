@@ -43,7 +43,7 @@ export interface ReadingPersistence {
   close(): void;
 }
 
-type PersistenceShell = Pick<AppShell, 'readFile' | 'writeFileAtomic' | 'configPaths'>;
+type PersistenceShell = Pick<AppShell, 'readFile' | 'readHead' | 'writeFileAtomic' | 'configPaths'>;
 
 /**
  * `paletteSession` is the mounted palette's session (main.ts passes it after mounting), merged into
@@ -150,11 +150,12 @@ export function createReadingPersistence(
   }
 
   /** The files Marxy keeps its own state in; null for a shell without configPaths (ADR-0026). */
-  function stateIo(): PositionPersistenceIo | null {
+  function stateIo(): (PositionPersistenceIo & { readHead(path: string, maxBytes: number): Promise<Uint8Array> }) | null {
     if (!shell.configPaths) return null;
     const configPaths = shell.configPaths;
     return {
       readFile: (path: string) => readOptionalState(path),
+      readHead: (path: string, max: number) => shell.readHead(path, max),
       writeFileAtomic: (path: string, bytes: Uint8Array) => shell.writeFileAtomic(path, bytes),
       dataDirectory: async () => (await configPaths()).data,
     };
