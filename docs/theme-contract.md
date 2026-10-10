@@ -82,11 +82,12 @@ contract-2 roles use their fallbacks).
 - **Face roles** (`family`): `--marxy-face-book`, `-article`, `-sans`, `-readme` (`--marxy-font-text`),
   `--marxy-face-mono` (`--marxy-font-mono`). The v1 families become the slots a kind points at a role.
 - **Chrome**: `--marxy-face-chrome` (`family`, `system-ui, sans-serif`), `--marxy-size-chrome`
-  (`length`, `13px`, clamped to 11–16 px).
+  (`length`, `13px`). The theme sets only the default; the reader's `chrome_size` (11–26 px) wins.
 - **The kind scope**: inside `[data-marxy-kind="<kind>"]` on the pane root a theme sets the same
   `--marxy-*` names; there is no `--k-*` family. Surfaces, the shadow, chrome, dividers, the progress
-  rule and `--marxy-typeset` are global only. A kind may set the line box (an even whole pixel); the
-  grid stays half of it, and the multiples stay Marxy's.
+  rule and `--marxy-typeset` are global only. A kind sets sizes and line boxes only as multiples of
+  the reader's values (a unitless ratio or `em`, never px), so the reader's size wins; the line box is
+  rounded to an even whole pixel, the grid stays half of it, and the multiples stay Marxy's.
 - **Per language**: inside `[data-marxy-lang="<id>"]` a theme sets only `--marxy-tok-*`; Marxy owns
   `--marxy-lang`.
 

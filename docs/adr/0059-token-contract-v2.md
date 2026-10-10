@@ -105,12 +105,19 @@ sets no value: values are taste (ADR-0031) and land in H-04.
 
 6. **Chrome**: `--marxy-face-chrome` (kind `family`; the face of controls on summoned surfaces;
    fallback `system-ui, sans-serif`) and `--marxy-size-chrome` (kind `length`, px; the size of control
-   text; fallback `13px`). Section labels and status text are derived from it by Marxy (11 and 11.5 px
-   at 13), not further names. *The platform face at 13 px* is the mock's and 03's rule. *They are
-   theme-settable, not constants*, because a high-contrast or low-vision theme needs larger controls;
-   the validator clamps the size to 11–16 px. *The reader's type set and text size never touch them*
-   (`TYPOGRAPHY.md`: reader choices style the text being read, not the controls). No v1 token carried
+   text; fallback `13px`). *The platform face at 13 px* is the mock's and 03's rule. No v1 token carried
    chrome (it inherited the text face), so both fall back to literals.
+   - *The other control sizes are ratios of the chrome size*, set by Marxy and not further names:
+     section labels `calc(var(--marxy-size-chrome) * 11 / 13)` and status text
+     `calc(var(--marxy-size-chrome) * 11.5 / 13)` (11 and 11.5 px at 13, as the mock draws them).
+   - *The reader owns the chrome size* (lead ruling for this proposed record; the author may overturn
+     it). A reader setting in `config.toml`, `chrome_size`, sets `--marxy-size-chrome` on `:root`,
+     within 11–26 px (200 % of 13, WCAG 1.4.4); unset, the theme's value stands, and a theme sets only
+     that default, clamped to the same range. The reader's type set and text size do not move it: they
+     style the text being read (`TYPOGRAPHY.md`), and the chrome size is its own setting.
+   - *The trade:* a chrome larger than the platform's 13 px no longer matches macOS controls and costs
+     the unfolded workspace room. Resolved toward the reader (ADR-0049, the reader owns their tools):
+     a reader who needs larger controls cannot wait on a theme author to ship one.
 
 7. **The kind scope.** K-05 sets `data-marxy-kind="<kind>"` on each pane root; the kinds are K-01's
    (ADR-0060). Inside `[data-marxy-kind="…"]`, alone or with `[data-marxy-variant="…"]`, a theme sets
@@ -118,26 +125,44 @@ sets no value: values are taste (ADR-0031) and land in H-04.
 
    | | Names |
    | --- | --- |
-   | **May be set per kind** | Every colour role except the surface three below; every `--marxy-tok-*`; the slots (`--marxy-font-text`, `-heading`, `-mono`) and the face roles; `--marxy-size-body`, `-code`, `-caption`; `--marxy-scale-ratio`; `--marxy-line-box`, `--marxy-line-box-code`, `--marxy-lh-h1`, `--marxy-lh-h2`; `--marxy-measure-chars`, `--marxy-avg-char`; the weights and `--marxy-tracking-heading`, `--marxy-opsz-auto`; `--marxy-justify`; the code and quote presentation knobs |
-   | **Global only** (`:root` and the variant) | `--marxy-color-surface`, `--marxy-color-surface-glass`, `--marxy-shadow-surface`; `--marxy-face-chrome`, `--marxy-size-chrome`; `--marxy-color-divider`, `--marxy-color-divider-focus`, `--marxy-divider-hit`; `--marxy-progress-rule`; `--marxy-typeset` |
-   | **Never set by a theme** | `--marxy-weight-offset`, `--marxy-measure` (computed), `--marxy-lang` (item 8), and every derived spacing (the half line, heading space above and below) |
+   | **May be set per kind** | Every colour role except the surface three below; every `--marxy-tok-*`; the slots (`--marxy-font-text`, `-heading`, `-mono`) and the face roles; `--marxy-size-body`, `-code`, `-caption`, `--marxy-line-box`, `--marxy-line-box-code`, `--marxy-lh-h1`, `--marxy-lh-h2`, **only as multiples of the reader's values** (below); `--marxy-scale-ratio`; `--marxy-measure-chars`, `--marxy-avg-char`; the weights and `--marxy-tracking-heading`, `--marxy-opsz-auto`; `--marxy-justify`; the code and quote presentation knobs |
+   | **Global only** (`:root` and the variant) | `--marxy-color-surface`, `--marxy-color-surface-glass`, `--marxy-shadow-surface`; `--marxy-face-chrome`, `--marxy-size-chrome` (the reader's setting wins, item 6); `--marxy-color-divider`, `--marxy-color-divider-focus`, `--marxy-divider-hit`; `--marxy-progress-rule`; `--marxy-typeset` |
+   | **Never set by a theme** | `--marxy-weight-offset`, `--marxy-measure` (computed), `--marxy-lang` (item 8), the root copies of the reader's sizes (below), and every derived spacing (the half line, heading space above and below) |
 
    - *Surfaces, chrome and dividers are global* because a summoned surface is one object wherever it is
      summoned, the palette sits above every pane, and a divider lies between two panes of different
      kinds.
+   - *The reader's size wins.* The reader's text size writes `--marxy-size-body`, `--marxy-line-box`,
+     `--marxy-size-code` and `--marxy-line-box-code` on `:root` (`applyReaderConfig`,
+     `apps/desktop/src/theme/reader-config.ts`). A kind scope that set them in px would override the
+     size the reader chose (ADR-0049, WCAG 1.4.4). So inside a kind scope these, and `-size-caption`,
+     `-lh-h1` and `-lh-h2`, are written only as a multiple of the reader's root value: a unitless ratio
+     (`--marxy-size-body: 0.85`) or the same ratio in `em`. Because a custom property cannot refer to
+     itself, H-03 compiles the ratio to `calc(<ratio> * var(<root copy>))`, where the root copies are
+     system-owned names the reader config writes beside the four it writes today (H-03 declares them).
+     The validator clamps the ratio to the range the root value is clamped to, and rejects an absolute
+     length in a kind scope with a warning naming the token and the kind.
    - *The line box may be set per kind; the grid may not.* A pane has one kind, so it has one line box
      and one grid: the unit is half of that pane's line box (ADR-0030), every vertical space is a
      multiple of it, and the multiples stay system-owned (03: "A kind scope can set the line box, never
-     the multiples"). A per-kind line box is an even whole pixel (06, row 9), so the unit is whole.
+     the multiples"). Two panes of different kinds have different grids, which is sound because each
+     pane scrolls on its own and a split shares no baselines (ADR-0057 item 4). A per-kind line box,
+     once multiplied, is rounded to an even whole pixel (ADR-0030; 06, row 9), so the unit is whole.
+   - *A kind's measure takes effect.* `--marxy-measure` is computed on `:root` today (`tokens.css`), so a
+     per-kind `--marxy-measure-chars` or `--marxy-avg-char` would change nothing below it. H-03 moves
+     the `--marxy-measure` computation to the article and pane scope, so it is evaluated where the
+     kind's values are; the two names stay per-kind.
    - *The validator clamps per kind exactly as at `:root`* (H-03): the measure to 45–80 characters in
      kinds that reflow (which kinds reflow is K-01's), the line box even and within its bounds, and a
      global-only name set inside a kind scope is dropped with a warning naming it.
    - *A derived default resolves where it is declared.* A kind scope that changes a v1 token does not
      move a v2 role derived from it on `:root`; the scope sets both. This bites no v1 theme, since
      v1 themes have no kind scopes.
-   - *A slot pointed at a role needs the role set.* `tokens.css` declares the roles as the slots, so a
-     theme that writes `--marxy-font-text: var(--marxy-face-sans)` without setting `--marxy-face-sans`
-     makes a cycle; the validator reports it as a theme error (H-03).
+   - *A slot pointed at a role needs the role set, on `:root`.* `tokens.css` declares the roles as the
+     slots, so a theme that writes `--marxy-font-text: var(--marxy-face-sans)` on `:root` without
+     setting `--marxy-face-sans` makes a cycle; the validator reports it as a theme error (H-03), on
+     `:root` only. Inside a kind scope the same line is valid: `--marxy-face-sans` there inherits the
+     value already resolved on `:root`, so nothing refers back to itself.
 
 8. **Per-language colour.** `data-marxy-lang="<id>"` (a lowercase language id from the Linguist-derived
    table K-19 ships) marks an element whose text is code in one language: a rendered code block, the
@@ -168,11 +193,11 @@ sets no value: values are taste (ADR-0031) and land in H-04.
     | `--marxy-color-text` | 7:1 | `-bg` |
     | `--marxy-color-text`, `-text-strong` | 4.5:1 | `-surface`, `-code-bg`, `-selection`, `-find`, `-find-current`, `-accent-wash`, each status wash, each diff tint |
     | `--marxy-color-text-strong` | 7:1 | `-bg` |
-    | `--marxy-color-text-secondary`, `-text-faint` | 4.5:1 | every ground they appear on: `-bg`, `-surface`, `-code-bg`, `-accent-wash` |
+    | `--marxy-color-text-secondary`, `-text-faint` | 4.5:1 | every ground they appear on: `-bg`, `-surface`, `-code-bg`, `-accent-wash`, `-selection`, `-find`, `-find-current` |
     | `--marxy-color-accent`, `-link`, `-accent-strong` | 4.5:1 | `-bg`, `-surface`, `-accent-wash` |
     | `--marxy-color-accent-fg` | 4.5:1 | `-accent`, `-accent-strong` |
     | each `--marxy-color-status-*` colour | 4.5:1 | `-bg`, `-surface`, its own wash |
-    | every `--marxy-tok-*`, `-code-text` | 4.5:1 | `-code-bg`, `-bg`, `-selection` composited over `-code-bg`, each diff tint |
+    | every `--marxy-tok-*`, `-code-text` | 4.5:1 | `-code-bg`, `-bg`, `-selection` composited over `-code-bg`, the current-line ground (Source's active line, today the selection mixed 40 % toward transparent over `-code-bg`; derived, not a token), each diff tint |
     | `--marxy-color-edge`, `-find-edge`, `-divider-focus` | 3:1 | `-bg`, `-surface`, `-code-bg` |
     | `--marxy-color-surface-glass` | as `-surface`, once composited over `-bg` | |
     | `--marxy-color-rule`, `-rule-strong`, `-divider`, `-quote-rule`; the washes, tints and fills themselves; the shadow | none (decorative, or a ground judged by what sits on it) | |
@@ -187,11 +212,15 @@ sets no value: values are taste (ADR-0031) and land in H-04.
   validator the kind scope (item 7). H-04 sets Night's and Paper's values. H-02 builds
   `scripts/gate-contrast.mjs` from item 10. K-05 sets `data-marxy-kind`; K-19 sets
   `data-marxy-lang` and declares `--marxy-lang`.
-- The three undeclared names the palette and outline use today are retired: `--marxy-color-surface`
-  becomes a declared role; `--marxy-color-border` becomes `--marxy-color-edge` where it bounds a control
-  and `--marxy-color-rule-strong` where it outlines a surface; `--marxy-color-accent-muted` becomes
-  `--marxy-color-accent-wash`. The story that declares the tokens, or the first to touch those views,
-  repoints them.
+- The three undeclared names the palette and outline use today are retired, and **H-03 repoints
+  them**: `--marxy-color-surface` becomes a declared role; `--marxy-color-border` becomes
+  `--marxy-color-edge` where it bounds a control and `--marxy-color-rule-strong` where it outlines a
+  surface; `--marxy-color-accent-muted` becomes `--marxy-color-accent-wash`. Declaring `-surface`
+  drops the `#1a1a1a` fallback the palette and outline paint today (`palette/view.ts`,
+  `outline/view.ts`), so their ground moves to `-notice`'s value. `-border` (`#444`) and
+  `-accent-muted` (white at 8 %) are wrong in the light variant today; H-03 fixes both by the repoint.
+- H-03 also adds the reader's `chrome_size` setting (item 6), the root copies of the reader's sizes
+  and the ratio compilation (item 7), and moves the measure computation to the pane scope (item 7).
 - Until H-03 lands, the names are reserved by this record, not by a machine: the registry holds only
   `tokenPrefix`, and `check-tokens` fails any name added to `tokens.css` without its snapshot.
 - `docs/theme-contract.md` lists the roles as decided and not yet shipped, and stops saying version 1
@@ -210,7 +239,10 @@ sets no value: values are taste (ADR-0031) and land in H-04.
   from the text colour, and Marxy does the same in its chrome stylesheet.
 - **Four face roles without `article`**, as 03's table had: the default kind would share a face with
   books or need a per-kind override in every type set.
-- **Chrome face and size as constants**: a theme for low vision could not enlarge the controls.
+- **Chrome face and size as constants**: a reader with low vision could not enlarge the controls.
+- **Chrome size owned by the theme alone** (this record's first draft): the reader would need a theme
+  author's help to read the controls.
+- **Absolute lengths for sizes in a kind scope**: they override the reader's chosen size.
 - **A global line box**: report, article and code are set at different leadings (`TYPOGRAPHY.md`), which
   is most of what a kind is for.
 - **Staying at contract 1**: legal under ADR-0024, but the loader and the gate could not tell a theme
@@ -223,8 +255,9 @@ sets no value: values are taste (ADR-0031) and land in H-04.
 
 - H-04 needs a name not here to make Night or Paper pass the gate (a fourth accent state, an info
   wash, a second surface), or needs a global-only name per kind.
-- A v1 theme fixture renders differently once H-03 lands, beyond the chrome face: the fallbacks were
-  meant to make that impossible.
+- A v1 theme fixture renders differently once H-03 lands, beyond the chrome face and the palette and
+  outline ground (which moves off its hard-coded `#1a1a1a`, as Consequences says): the fallbacks
+  were meant to make that impossible.
 - A fallback fails its floor in a v1 theme whose v1 tokens pass theirs.
 - Theme authors write kind scopes that set a token per kind and find it ignored, often enough that the
   global-only list reads as an obstacle rather than a guarantee.
