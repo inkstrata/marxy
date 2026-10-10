@@ -169,7 +169,10 @@ text. An unknown key, or an unknown value of a known key (`is:foo`), is an `unkn
 missing or malformed value (`words:>`) is an `incomplete` term that filters nothing. Every term carries its
 `[start, end)` range in UTF-16 code units of the input so the field can draw chips. Counts (`words:`,
 `tasks:`) are decimal (`2k` = 2,000); sizes are binary (`1kb` = 1,024, `1mb` = 1,048,576). `completeQuery`
-suggests keys and values at a caret. Evaluating a query against the index is Q-03.
+suggests keys and values at a caret. Ages: `mo` is 30 days and `y` is 365 days. A comparison key (`modified:`, `words:`, `tasks:`, `size:`) takes
+one value; a comma makes the term `incomplete`. Keys are case-insensitive while `OR` is case-sensitive
+(`or` is a word). `kind:` and `path:` values keep their case as written; how they match is Q-03's to decide.
+Completion replaces only up to the caret. Evaluating a query against the index is Q-03.
 
 ## Tests
 

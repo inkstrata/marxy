@@ -244,7 +244,7 @@ function matching(values: readonly string[], prefix: string): CompletionItem[] {
 
 /** Suggest keys at the start of a word and values after a known key, at `caret`. */
 export function completeQuery(input: string, caret: number, context: CompletionContext = {}): Completion {
-  const at = Math.max(0, Math.min(caret, input.length));
+  const at = Number.isNaN(caret) ? 0 : Math.max(0, Math.min(Math.trunc(caret), input.length));
   let start = at;
   while (start > 0 && !isSpace(input[start - 1]!)) start--;
   const none: Completion = { replace: [at, at], items: [] };

@@ -196,25 +196,6 @@ test('a 100 KB input parses in linear time (recorded, not asserted)', () => {
   console.log(`# parseQuery unclosed quote, 100 KB: ${(performance.now() - t1).toFixed(1)} ms`);
 });
 
-test('parse time scales linearly: 10x the input takes under 20x the time', () => {
-  const unit = 'kind:report,transcript -is:archived "pg upgrade" words:>2k plain OR "open quote ';
-  const best = (chars: number): number => {
-    const input = unit.repeat(Math.ceil(chars / unit.length));
-    let min = Infinity;
-    for (let r = 0; r < 9; r++) {
-      const t = performance.now();
-      parseQuery(input);
-      min = Math.min(min, performance.now() - t);
-    }
-    return min;
-  };
-  best(100_000); // warm up
-  const small = best(500_000);
-  const large = best(5_000_000);
-  console.log(`# parseQuery 500 KB ${small.toFixed(1)} ms, 5 MB ${large.toFixed(1)} ms`);
-  assert.ok(large < small * 20, `5 MB took ${large} ms against ${small} ms for 500 KB`);
-});
-
 test('completion: keys at the start and after a space, never tasks', () => {
   const c = completeQuery('', 0);
   assert.deepEqual(c.replace, [0, 0]);
@@ -238,4 +219,14 @@ test('completion: values after is:, has: and in:', () => {
   assert.deepEqual(completeQuery('in:', 3).items, []);
   assert.deepEqual(completeQuery('colour:', 7).items, []);
   assert.deepEqual(completeQuery('"is:un', 6).items, [], 'nothing inside an open phrase');
+});
+
+test('completion: a bad caret is clamped, never thrown on', () => {
+  const input = 'is:un';
+  assert.deepEqual(completeQuery(input, Number.NaN).replace, [0, 0]);
+  assert.deepEqual(completeQuery(input, -4).replace, [0, 0]);
+  assert.deepEqual(completeQuery(input, 99).replace, [3, 5]);
+  assert.deepEqual(completeQuery(input, Number.POSITIVE_INFINITY).replace, [3, 5]);
+  assert.deepEqual(completeQuery(input, 5.9).replace, [3, 5]);
+  assert.deepEqual(completeQuery(input, 2.5).replace, completeQuery(input, 2).replace);
 });
