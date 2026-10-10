@@ -33,8 +33,7 @@ disagree, 06 says which wins; these cards follow 06.
 | Wave | Cards | Why |
 | --- | --- | --- |
 | now | H-01, K-01, K-02 (Opus); Q-01, P-02 (Sonnet); J-01 (Opus); J-D1 (Opus) | No Phase D dependency. The ADRs are small and unblock H-02, H-03, K-03, K-04 |
-| — | Q-01 and P-02 both add a top-level key to `collection.ts` | Their edits there are append-only (`TOP_KEYS`, one field each on `Collection`); whichever merges second rebases and keeps both |
-| — | H-01 and K-01 both add a `dataAttributes` entry | Same rule: append-only, second rebases |
+| — | Q-01 and P-02 both add a required field to `Collection` in `collection.ts` | They touch the same lines (`TOP_KEYS`, the `Collection` interface, `EMPTY`, the unparseable early return, the final `return`) and the same two desktop lines (`apps/desktop/src/collection/load.ts:38`, `load.test.ts:63`) and C-03's `deepEqual` cases in `collection.test.ts` (`:81`, `:87`). Git reports textual conflicts; each is one added field, so the second to merge resolves by keeping both. Both cards own those lines |
 
 Models follow 00 §1: Opus for decisions, contracts and native code; Sonnet for the two parsers, which
 have a complete precedent in C-03.
@@ -62,7 +61,7 @@ K-19 all wait on this record (`05-plan.md`, Phase H).
 - Read: `docs/plan/direction-2026-10/03-kinds-and-the-look.md` §Token contract v2 and §Themes can
   restyle any kind; `mock-v2/shared/app.css`, `mock-v2/07-themes.md`, `mock-v2/TYPOGRAPHY.md`;
   `packages/theme/src/tokens.css`, `packages/theme/tokens.contract.json`, `scripts/check-tokens.mjs`
-  (its kinds `length|number|colour|family|ratio|keyword`); ADR-0030 (the line box), ADR-0055 (the
+  (its kinds `length|number|colour|family|ratio|keyword`); ADR-0030 (`0030-grid-unit-is-half-a-line.md`, the line box), ADR-0055 (the
   find edge, a recent token ADR to imitate).
 
 **Build order.**
@@ -76,7 +75,7 @@ K-19 all wait on this record (`05-plan.md`, Phase H).
    v1 token it falls back to when a v1 theme does not set it (a v1 theme must keep rendering).
 3. The kind scope: `data-marxy-kind="<kind>"` on the pane root (K-05 sets it); inside it a theme sets
    the same `--marxy-*` tokens, with no `--k-*` family (03, last row). Say which tokens a theme may
-   set per kind and which it may not (the line box and grid stay global: ADR-0030), and that the
+   set per kind and which it may not (the line box and grid stay global: ADR-0030, `0030-grid-unit-is-half-a-line.md`), and that the
    validator clamps per-kind values (H-03).
 4. `data-marxy-lang` for per-language colour (K-19), reserved now so the registry is touched once.
 5. The contract version: v1 themes still load, with what warning (ADR-0008's versioning).
@@ -207,8 +206,9 @@ what it amends.
 6. Write the record; the index row; the ADR-0003 and P10 lines.
 
 **Acceptance.**
-- `docs/adr/README.md` links the record; ADR-0003 and P10 name it; the coverage check passes if P10 is
-  tracked (`node docs/research/reader-artifacts/tools/check.mjs`).
+- `docs/adr/README.md` links the record; ADR-0003 and P10 name it. The coverage check
+  (`node docs/research/reader-artifacts/tools/check.mjs`) only catches a ledger mismatch; it passes without the
+  record and is not proof of it. The record itself is judged by the review list below.
 - `pnpm check` green.
 - *The record answers* (review): what a derived node is, its provenance, and the invariant that
   replaces `value === bytes` for it; separate tree or marked nodes, and why; selection, Copy and Jump
@@ -246,9 +246,11 @@ types, read HTML or tag the source. Today: `clipboard_write` at `apps/desktop/sr
   logic), `apps/desktop/src-tauri/src/pasteboard/macos.rs` (NSPasteboard through `objc2` and
   `objc2-app-kit`), `apps/desktop/src-tauri/src/pasteboard/fake.rs` (an in-memory pasteboard for tests,
   `#[cfg(test)]`).
-- Edit: `apps/desktop/src-tauri/src/main.rs` (`mod pasteboard;`, register the three commands),
-  `apps/desktop/src-tauri/Cargo.toml` and `Cargo.lock` (`objc2`, `objc2-app-kit`, `objc2-foundation`
-  under `[target.'cfg(target_os = "macos")'.dependencies]`), `apps/desktop/src-tauri/capabilities/default.json`
+- Edit: `apps/desktop/src-tauri/src/main.rs` (`mod pasteboard;`, register the three commands; the commands
+  live in `pasteboard/mod.rs`, as `clipboard_write` lives in `main.rs` today, not under `commands/`: fix the stale
+  line in `docs/design/06-shell.md` that says every command lives under `commands/`),
+  `apps/desktop/src-tauri/Cargo.toml` and `Cargo.lock` (`objc2` 0.6.4, `objc2-app-kit` 0.3.2 and the matching
+  `objc2-foundation`, the versions already in the lock, under a new `[target.'cfg(target_os = "macos")'.dependencies]`), `apps/desktop/src-tauri/capabilities/default.json`
   only if Tauri requires a permission entry for app commands (it does not by default; check
   `build.rs`), `docs/design/06-shell.md` (Commands table: three rows).
 - **Code-owned:** `capabilities/` is owned by the author (`.github/CODEOWNERS`); if the story touches
@@ -268,10 +270,12 @@ types, read HTML or tag the source. Today: `clipboard_write` at `apps/desktop/sr
    `org.nspasteboard.TransientType` when `transient`.
 4. `macos.rs` implements the trait over `NSPasteboard::generalPasteboard()`; all calls on the main
    thread (Tauri's `run_on_main_thread` or the command's main-thread attribute).
-5. Commands: `pasteboard_types() -> Vec<String>`, `pasteboard_read(types: Vec<String>) -> PasteboardRead`
+5. Only `macos.rs` is `cfg(target_os = "macos")`; the trait, the types, the logic and the fake compile everywhere,
+   so `cargo clippy -D warnings` on the Linux job finds no dead code.
+6. Commands: `pasteboard_types() -> Vec<String>`, `pasteboard_read(types: Vec<String>) -> PasteboardRead`
    (base64 for binary types), `pasteboard_write(reps, transient: bool)`. On other platforms they return
    a clear `Unsupported` error (Linux keeps the plugin path; ADR-0046 ships macOS).
-6. Leave `clipboard_write` and the plugin as they are.
+7. Leave `clipboard_write` and the plugin as they are.
 
 **Acceptance.**
 - Through the fake: a write of plain + HTML + RTF is one item holding all three plus the source type
@@ -341,9 +345,12 @@ a design. 06 row 5 keeps the collect stack dropped until this design.
 6. Add the rows to 05 and the README.
 
 **Acceptance.**
-- `pnpm check` green; every relative link in the new pages resolves (state the command you used).
-- The HTML pages load no new remote resource beyond what `mock-v2/shared/` already does (grep, quoted
-  in the PR).
+- Every relative link in the new pages resolves: a short Node script (kept in your scratchpad) walks each
+  new `.md` and `.html` file and resolves every relative `href`/`src` and Markdown link; its output, zero
+  unresolved, is quoted in the PR.
+- The new HTML pages load nothing remote: no Google Fonts and no unpkg (the `mock-v2/shared/` pages do;
+  the studio's pages use system faces and inline SVG, or link `mock-v2/shared/app.css` without its remote
+  imports). `grep -En 'https?://' studio/*.html` lists only sample text, quoted in the PR.
 - *The spec answers* (review): every mock surface with a build/change/leave verdict; history's options
   and the ADR's choice, with the Privacy page line verbatim; nothing that reads the clipboard without
   a reader action unless ADR-0066 (pending the author) allows it; no SQLite, no telemetry, no
@@ -386,9 +393,11 @@ broken paths) are code, not rows, and are never written here.
 **Paths.**
 - Edit: `packages/core/src/index-model/collection.ts` (`TOP_KEYS` gains `query`; `Collection` gains
   `queries: readonly SavedQuery[]`; a `QUERY_KEYS` set; `appendQuery(bytes, query, ctx)`),
-  `packages/core/src/index-model/collection.test.ts`, `docs/design/11-config-and-storage.md`
-  (§`collection.toml`: the table), `docs/design/07-index-and-palette.md` only if it says saved searches
-  are not built.
+  `packages/core/src/index-model/collection.test.ts` (including C-03's two `deepEqual` cases, which gain
+  `queries: []`), `apps/desktop/src/collection/load.ts:38` and `load.test.ts:63` (one `queries: []` each, the
+  required field's only consequence), `packages/core/src/index-model/index.ts` (appended exports),
+  `docs/design/11-config-and-storage.md` (§`collection.toml`: the table), `docs/design/07-index-and-palette.md`
+  only if it says saved searches are not built.
 - Read: ADR-0062, ADR-0053, `mock-v2/05-collections.md` §Smart collections.
 
 **Build order.**
@@ -412,12 +421,12 @@ broken paths) are code, not rows, and are never written here.
   equal (`collection.test.ts`); a name with quotes, backslashes, control characters and non-ASCII
   round-trips exactly.
 - An existing `collection.toml` with only `[[root]]` and `[deny]` parses exactly as before (C-03's
-  tests unchanged and green).
+  tests green; their two `deepEqual` expectations gain only `queries: []`).
 - `pnpm precheck` and `pnpm check` green.
 
 **Tests.** `packages/core/src/index-model/collection.test.ts`. Gates: `pnpm precheck`, `pnpm check`.
 
-**Do not.** Parse the query language (Q-02). Touch `apps/desktop` (the sidebar is Q-07). Store
+**Do not.** Parse the query language (Q-02). Touch `apps/desktop` beyond the two lines above (the sidebar is Q-07). Store
 anything but `name`, `q` and `description`. Add `model:`, `session:` or `tag:` anywhere.
 
 **Risks.** P-02 edits the same file; keep your edits to `TOP_KEYS`, the `Collection` type, and new
@@ -440,7 +449,9 @@ item 6 gives the Privacy line verbatim. P-03 (the copier) needs validated rules 
 - New: `packages/core/src/index-model/capture.ts`, `packages/core/src/index-model/capture.test.ts`.
 - Edit: `packages/core/src/index-model/collection.ts` (`TOP_KEYS` gains `capture`; `Collection` gains
   `captures: readonly CaptureRule[]`; `parseCollection` calls `parseCaptures` from `capture.ts`),
-  `packages/core/src/index-model/collection.test.ts` (one case: a file with roots and captures),
+  `packages/core/src/index-model/collection.test.ts` (one case: a file with roots and captures; C-03's two
+  `deepEqual` cases gain `captures: []`), `apps/desktop/src/collection/load.ts:38` and `load.test.ts:63` (one
+  `captures: []` each), `packages/core/src/index-model/index.ts` (appended exports for P-03),
   `docs/design/11-config-and-storage.md` (the table and its validation rules).
 - Read: ADR-0063, `docs/plan/direction-2026-10/04-capture.md` §Capture rules, `collection.ts`'s
   `resolveRootPath` and deny handling.
@@ -453,7 +464,8 @@ item 6 gives the Privacy line verbatim. P-03 (the copier) needs validated rules 
 2. Refuse, with a warning naming the rule: a missing or non-string `from` or `to`; a relative path; a
    `from` with no fixed folder (`**/*.md`); a `to` that is `/` or the home folder itself; a `to` inside
    `fromBase` or a `fromBase` inside `to` (a loop); a `to` inside Marxy's own config or data folder
-   (the C-14 rule; take the folders as a parameter, as `parseCollection` takes `home`); a `to` matching
+   (the C-14 rule; take the folders as an optional `ownFolders` on `parseCollection`'s context, default `[]`, so
+   no caller changes; wiring the desktop loader to pass them is P-03's); a `to` matching
    a deny glob. Unknown keys go to `unknownKeys`. Cap at 32 rules.
 3. `export const CAPTURE_PRIVACY_LINE = "Marxy copies files matching your capture rules from \`from\` to \`to\` on this disk, while it is running."`
    (ADR-0063 item 6, verbatim), and `capturePrivacyLines(rules)` that fills in each rule's paths for
@@ -464,16 +476,17 @@ item 6 gives the Privacy line verbatim. P-03 (the copier) needs validated rules 
 - Two valid rules parse in order with the right `fromBase` (`capture.test.ts`).
 - Each refusal in step 2 yields a warning naming the rule and no rule (`capture.test.ts`, one case
   each; each fails if its check is removed).
-- `CAPTURE_PRIVACY_LINE` equals ADR-0063's sentence; the test reads the ADR and compares, so the two
-  cannot drift.
-- A `collection.toml` without `[[capture]]` parses exactly as before (C-03's tests green), and one with
-  roots and captures yields both (`collection.test.ts`).
+- `CAPTURE_PRIVACY_LINE` equals ADR-0063's sentence; the test reads the ADR, joins its wrapped lines
+  (whitespace runs to one space) and compares, backticks included, so the two cannot drift.
+- A `collection.toml` without `[[capture]]` parses exactly as before (C-03's tests green; their `deepEqual`
+  expectations gain only `captures: []`), and one with roots and captures yields both (`collection.test.ts`).
 - `pnpm precheck` and `pnpm check` green.
 
 **Tests.** `capture.test.ts`, `collection.test.ts`. Gates: `pnpm precheck`, `pnpm check`.
 
 **Do not.** Copy, watch or write any file (P-03). Add a rule to any template or default. Add an
-`appendCapture` (the reader writes rules by hand until a story asks otherwise). Touch `apps/desktop`.
+`appendCapture` (the reader writes rules by hand until a story asks otherwise). Touch `apps/desktop` beyond the two
+lines above.
 
 **Risks.** Q-01 edits the same file; keep edits to `TOP_KEYS`, the `Collection` type and one call,
 so a rebase is mechanical.
