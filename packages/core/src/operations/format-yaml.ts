@@ -132,6 +132,7 @@ function analyse(body: string): Analysis {
     }
     if (line.indent === 0 && /^(---|\.\.\.)(\s|$)/.test(text)) {
       if (text.startsWith('...') || sawContent || sawStart) return { ok: false, why: 'more than one YAML document' };
+      if (BLOCK_SCALAR.test(text.slice(3))) return { ok: false, why: 'a block scalar (| or >)' };
       sawStart = true;
       resolveComments(stack, 0);
       stack = [];
