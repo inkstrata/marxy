@@ -30,6 +30,8 @@ const B = `# Bravo\n\n${body('Bravo', 20, [])}\n\n## Bravo two\n\n${body('Bravo'
 const files = {
   '/r/A.md': A,
   '/r/B.md': B,
+  '/r/hid.md': `# Hidden\n\nRead [the guide](https://xyzzyhost.example/deep/path) for details.\n\n\`\`\`text\n${'x'.repeat(300)} head ${'y'.repeat(900)} tailzebra\n\`\`\`\n`,
+  '/r/wide.md': `# Wide\n\n| ${Array.from({ length: 24 }, (_, i) => `column${i}_unbreakable_heading`).join(' | ')} |\n| ${Array(24).fill('---').join(' | ')} |\n| ${Array.from({ length: 24 }, (_, i) => (i === 23 ? 'farright' : `cell${i}_unbreakable_content`)).join(' | ')} |\n`,
   '/r/inv.md': `# Invisible\n\nThe word foo​bar hides a zero-width space, and so does nothing else here.\n`,
 };
 const LEFT_LANTERNS = 5;
@@ -156,7 +158,7 @@ test('Esc closes find, removes its highlights and gives focus back to the pane i
   });
 });
 
-test('without CSS.highlights the fallback wraps mark.marxy-find and unwrapping restores the article byte for byte', async () => {
+test('without CSS.highlights the fallback draws overlay rectangles and never writes the article', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
     await waitForTypeset(page);
     await page.evaluate(() => {
@@ -165,19 +167,143 @@ test('without CSS.highlights the fallback wraps mark.marxy-find and unwrapping r
     });
     assert.equal(await page.evaluate(() => CSS.highlights), undefined);
     const before = await page.evaluate(() => document.getElementById('doc-2').innerHTML);
+    await page.evaluate(() => {
+      window.__articleWrites = 0;
+      new MutationObserver((records) => { window.__articleWrites += records.length; }).observe(document.getElementById('doc-2'), { subtree: true, childList: true, characterData: true, attributes: true });
+    });
     await page.keyboard.press(`${mod}+2`);
     await page.keyboard.press(`${mod}+KeyF`);
     await typeQuery(page, 'lantern');
-    const wrapped = await page.evaluate(() => ({
-      right: [...document.querySelectorAll('#doc-2 mark.marxy-find')].map((m) => m.textContent),
-      left: document.querySelectorAll('#doc mark.marxy-find').length,
-      current: document.querySelectorAll('#doc-2 mark.marxy-find.marxy-find-current').length,
+    const drawn = await page.evaluate(() => ({
+      marks: document.querySelectorAll('mark').length,
+      rects: document.querySelectorAll('#marxy-main > section[data-marxy-pane="1"] .marxy-find-rects .marxy-find-rect').length,
+      current: document.querySelectorAll('.marxy-find-rect-current').length,
+      left: document.querySelectorAll('section[data-marxy-pane="0"] .marxy-find-rect').length,
     }));
-    assert.deepEqual(wrapped, { right: Array(RIGHT_LANTERNS).fill('lantern'), left: 0, current: 1 });
+    assert.equal(drawn.marks, 0);
+    assert.ok(drawn.rects >= 1, 'rectangles are drawn for the matches near the view');
+    assert.ok(drawn.current >= 1, 'the current match is drawn apart');
+    assert.equal(drawn.left, 0);
     await page.keyboard.press('Enter');
+    await settle(page);
+    // The current rectangle sits on the current match, at the reading line.
+    const placed = await page.evaluate(() => {
+      const host = document.querySelector('section[data-marxy-pane="1"]');
+      const rect = document.querySelector('.marxy-find-rect-current').getBoundingClientRect();
+      return { top: rect.top - host.getBoundingClientRect().top, line: 0.4 * host.clientHeight };
+    });
+    assert.ok(Math.abs(placed.top - placed.line) <= 24, `overlay top ${placed.top} vs reading line ${placed.line}`);
     await page.keyboard.press('Escape');
-    const restored = await page.evaluate(() => document.getElementById('doc-2').innerHTML);
-    assert.equal(restored, before);
+    const after = await page.evaluate(() => ({ html: document.getElementById('doc-2').innerHTML, writes: window.__articleWrites, rects: document.querySelectorAll('.marxy-find-rects').length }));
+    assert.equal(after.html, before);
+    assert.equal(after.writes, 0, 'find wrote nothing into the article');
+    assert.equal(after.rects, 0, 'the overlay is gone on close');
+  });
+});
+
+test('the fallback on a 1 MB document does not hang the typesetter: first match and typeset_done both arrive', async () => {
+  const unit = readFileSync(new URL('../../../fixtures/corpus/15-prose-volume.md', import.meta.url), 'utf8');
+  files['/r/big.md'] = Array.from({ length: Math.ceil(1_000_000 / unit.length) }, (_, i) => unit.replace(/^# .*$/m, `# Volume ${i}`)).join('\n\n');
+  assert.ok(files['/r/big.md'].length >= 1_000_000);
+  await withPanes(['/r/big.md'], async (page, mod) => {
+    await page.evaluate(() => {
+      delete CSS.highlights;
+      if (CSS.highlights !== undefined) Object.defineProperty(CSS, 'highlights', { value: undefined, configurable: true });
+    });
+    await page.keyboard.press(`${mod}+KeyF`);
+    const started = Date.now();
+    await page.keyboard.type('the');
+    await page.waitForFunction(() => /\d+ of \d{3,}/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30_000 });
+    const firstMatchMs = Date.now() - started;
+    // The page still answers, and the typesetter finishes while the find is open.
+    const answered = Date.now();
+    await page.evaluate(() => 1);
+    const responseMs = Date.now() - answered;
+    await page.waitForFunction(
+      () => window.__marxyHandle.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'typeset_done'),
+      null,
+      { timeout: 60_000 },
+    );
+    console.log(`find fallback, 1 MB: first match ${firstMatchMs} ms, page answers in ${responseMs} ms, typeset_done reached (${Date.now() - started} ms in all)`);
+    assert.ok(firstMatchMs < 20_000, `first match ${firstMatchMs} ms`);
+    assert.ok(responseMs < 2_000, `page answered in ${responseMs} ms`);
+    const rects = await page.evaluate(() => document.querySelectorAll('.marxy-find-rect').length);
+    assert.ok(rects > 0 && rects <= 2_000, `${rects} rectangles: bounded to the matches near the view`);
+  });
+});
+
+test('find matches only visible reading text: not a hidden link destination, elided code, aria-hidden text or Marxy labels', async () => {
+  await withPanes(['/r/hid.md'], async (page, mod) => {
+    await page.waitForSelector('#doc .marxy-elided', { timeout: 15_000 });
+    await page.evaluate(() => {
+      const doc = document.getElementById('doc');
+      const hidden = document.createElement('p');
+      hidden.setAttribute('aria-hidden', 'true');
+      hidden.textContent = 'quokka behind aria';
+      const note = document.createElement('p');
+      note.className = 'marxy-notice';
+      note.textContent = 'quokka in a Marxy notice';
+      const visible = document.createElement('p');
+      visible.textContent = 'a plain visible sentence';
+      doc.append(hidden, note, visible);
+    });
+    const hiddenText = await page.evaluate(() =>
+      [...document.querySelectorAll('#doc .marxy-link-dest, #doc .marxy-link-host-label')].map((el) => el.textContent).filter(Boolean));
+    assert.ok(hiddenText.length > 0, 'the document carries link labels to search for');
+    await page.keyboard.press(`${mod}+KeyF`);
+    const count = async (query) => {
+      await page.fill('.marxy-find input', query);
+      await settle(page);
+      await page.waitForFunction((q) => document.querySelector('.marxy-find input').value === q && /\d+ of \d+/.test(document.querySelector('.marxy-find-count').textContent), query);
+      return page.textContent('.marxy-find-count');
+    };
+    assert.equal(await count('guide'), '1 of 1', 'the link text is read');
+    assert.equal(await count('a plain visible'), '1 of 1');
+    for (const text of ['xyzzyhost', 'tailzebra', 'more characters', 'quokka', ...hiddenText]) {
+      assert.equal(await count(text), '0 of 0', `"${text}" is not reading text`);
+    }
+  });
+});
+
+test('a match in a horizontally scrolled table brings the table into view too', async () => {
+  await withPanes(['/r/wide.md'], async (page, mod) => {
+    const overflow = await page.evaluate(() => {
+      const t = document.querySelector('#doc table');
+      return t.scrollWidth - t.clientWidth;
+    });
+    assert.ok(overflow > 100, `the table scrolls (${overflow}px)`);
+    await page.keyboard.press(`${mod}+KeyF`);
+    await typeQuery(page, 'farright');
+    const seen = await page.evaluate(() => {
+      const t = document.querySelector('#doc table');
+      const box = [...CSS.highlights.get('marxy-find-current')][0].getBoundingClientRect();
+      const frame = t.getBoundingClientRect();
+      return { scrollLeft: t.scrollLeft, inside: box.left >= frame.left - 1 && box.right <= frame.right + 1 };
+    });
+    assert.ok(seen.scrollLeft > 0, 'the table was scrolled');
+    assert.equal(seen.inside, true, 'the match is inside the table box that shows it');
+  }, { width: 900, height: 700 });
+});
+
+test('find sits above the outline when both are open', async () => {
+  await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
+    await page.keyboard.press(`${mod}+1`);
+    await page.keyboard.press(`${mod}+Shift+KeyO`);
+    await page.waitForSelector('#marxy-outline[open]');
+    await page.evaluate(async () => {
+      await window.__marxyHandle.commands().find((c) => c.id === 'view.find').run({});
+    });
+    await page.waitForSelector('.marxy-find input');
+    const top = await page.evaluate(() => {
+      const field = document.querySelector('.marxy-find').getBoundingClientRect();
+      const outline = document.getElementById('marxy-outline').getBoundingClientRect();
+      const x = field.right - 8;
+      const y = field.top + field.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return { overlaps: field.right > outline.left, hitInField: hit?.closest('.marxy-find') !== null && hit !== null };
+    });
+    assert.equal(top.overlaps, true, 'the field and the outline share pixels, so stacking decides');
+    assert.equal(top.hitInField, true, 'the field is what is drawn there');
   });
 });
 

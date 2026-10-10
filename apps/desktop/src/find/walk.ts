@@ -2,10 +2,13 @@
 // nodes, in order, as the strings D-03's `buildTextIndex` concatenates, and the way back from an offset
 // pair in that text to a DOM Range.
 //
-// What is in the index is what the reader reads. Left out: KaTeX's layout glyphs (`.katex`, not the
-// TeX source), subtrees the page does not draw (`[hidden]`, `<template>`), and the hex label of an
-// invisible-character marker (`.marxy-invisible-glyph`, Marxy's own words about the byte, not the
-// document's). The byte itself (`.marxy-invisible-byte`) is in: a zero-width or bidi control splits
+// What is in the index is what the reader reads, by one rule: a subtree that is not the document's
+// visible reading text is skipped whole (`NON_CONTENT`). That is anything the page does not draw
+// (`[hidden]`, `<template>`, `aria-hidden`, which is how Marxy marks display-only text such as a link's
+// hidden destination), KaTeX's layout glyphs (`.katex`, not the TeX source), the part of a long code line
+// the page elides and the note about it (`.marxy-line-omitted`, `.marxy-elided`), Marxy's own labels
+// (a link's host label, an invisible-character marker's hex label `.marxy-invisible-glyph`), and the
+// typesetter's and the page's controls. The byte itself (`.marxy-invisible-byte`) is in: a zero-width or bidi control splits
 // what it sits in, so a query typed across it does not match, and the marker that shows it is there
 // is drawn beside the word. A match that touches such a byte is widened to the whole marker, so a
 // highlight never sits, zero-width, on a character the reader cannot see.
@@ -15,8 +18,13 @@
 
 import { buildTextIndex, type PieceOffset, type Span, type TextIndex } from './text-index.ts';
 
-/** Elements whose text is not in the index: their whole subtree is skipped. */
-const EXCLUDED = '.katex, [hidden], template, script, style, .marxy-invisible-glyph';
+/** Elements whose text is not the document's visible reading text: their whole subtree is skipped. */
+export const NON_CONTENT = [
+  '[hidden]', '[aria-hidden="true"]:not(.marxy-invisible-byte)', 'template', 'script', 'style', 'button', 'input', 'select', 'textarea',
+  '.katex',
+  '.marxy-elided', '.marxy-line-omitted', '.marxy-link-dest', '.marxy-link-host-label', '.marxy-invisible-glyph',
+  '.marxy-notices', '.marxy-notice', '.marxy-find-slot',
+].join(', ');
 /** The marker around an invisible character: a match touching its byte covers all of it. */
 const INVISIBLE = '.marxy-invisible';
 
@@ -31,7 +39,7 @@ export function collectText(article: HTMLElement): CollectedText {
   const walker = article.ownerDocument.createTreeWalker(article, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
-      return (node as Element).matches(EXCLUDED) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+      return (node as Element).matches(NON_CONTENT) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
     },
   });
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
@@ -100,25 +108,6 @@ export function rangesFor(walked: Walked, spans: readonly Span[]): Range[] {
   for (const span of spans) {
     const range = rangeIn(walked, span);
     if (range) out.push(range);
-  }
-  return out;
-}
-
-/**
- * The text-node pieces `span` covers, as `[node, from, to]` triples in document order: what the
- * `<mark>` fallback wraps, one element per node, so a match across two blocks never needs
- * `surroundContents` over a block boundary.
- */
-export function segmentsFor(walked: Walked, span: Span): [Text, number, number][] {
-  if (span.end <= span.start || walked.nodes.length === 0) return [];
-  const start = walked.index.locate(span.start);
-  const end = locateEnd(walked, span.end);
-  const out: [Text, number, number][] = [];
-  for (let piece = start.piece; piece <= end.piece; piece += 1) {
-    const node = walked.nodes[piece]!;
-    const from = piece === start.piece ? start.offset : 0;
-    const to = piece === end.piece ? end.offset : node.data.length;
-    if (to > from) out.push([node, from, to]);
   }
   return out;
 }

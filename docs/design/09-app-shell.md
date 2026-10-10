@@ -179,8 +179,10 @@ semantics, smart typography applied as in the article.
   into the next block.
 - Highlights: `CSS.highlights.set('marxy-find', new Highlight(...ranges))` with
   `::highlight(marxy-find)` styled by the theme; the current match in a second highlight.
-  Fallback when `CSS.highlights` is undefined: wrap matches in `<mark class="marxy-find">`
-  and unwrap on close (the fallback is exercised by a test that deletes `CSS.highlights`).
+  Fallback when `CSS.highlights` is undefined: the matches near the view are drawn as rectangles in
+  a `.marxy-find-rects` layer beside the article, repainted on scroll; the article's DOM is never
+  written, because the typesetter watches it (the fallback is exercised by a test that deletes
+  `CSS.highlights`, and one that runs it on a 1 MB document).
 - Navigation scrolls the current match to the reading line (40 % of the pane's height), never to
   the top edge. Count shown as `3 of 41` inside the input. A new query starts at the first match
   at or below the top of the pane's view.
@@ -195,8 +197,13 @@ semantics, smart typography applied as in the article.
 - **Scope.** Text inside `.katex` subtrees is excluded from the index (it is layout glyphs, not
   the source); the TeX source is not searchable in Rendered mode in v1. Code blocks, tables and
   footnotes are included. Alt text is not (it is not painted unless the image is missing).
-- **Nothing found where the reader cannot see it** (commitment 4). A subtree the page does not
-  draw (`[hidden]`, `<template>`) is not searched. A match inside a closed `<details>` is counted,
+- **Nothing found where the reader cannot see it** (commitment 4). One rule, `NON_CONTENT` in
+  `walk.ts`: a subtree that is not the document's visible reading text is skipped whole. That is
+  what the page does not draw (`[hidden]`, `<template>`, `aria-hidden`: a link's hidden
+  destination), KaTeX's glyphs, the elided tail of a long code line and its note, and Marxy's own
+  labels (a link's host label, notices, controls). A match inside a horizontally or vertically
+  scrolled inner scroller (a wide table, a code block) scrolls that scroller as well as the pane.
+  Find sits above the outline and the other summoned surfaces. A match inside a closed `<details>` is counted,
   and the details element is opened when that match becomes current. An invisible character's
   marker (§02) is searched by its byte, not its hex label: a zero-width or bidi control inside a
   word splits it, so a query typed without it does not match (the marker shows why), and a match
@@ -314,4 +321,4 @@ goes into the store first).
 - `state.test.ts`: the transition table; overlays exclusive; `Esc` semantics.
 - Playwright: at rest the only visible elements are inside `#marxy-main`; each key in the map
   does what the table says; find lands the current match at 40 % ± 2 px; the fallback path
-  wraps and unwraps `<mark>`; Source round-trip without edits leaves `buffer.bytes` identical.
+  draws overlay rectangles and leaves the article's markup untouched; Source round-trip without edits leaves `buffer.bytes` identical.

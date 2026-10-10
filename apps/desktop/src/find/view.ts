@@ -6,10 +6,12 @@
 // gives focus back to the pane find opened from.
 //
 // Highlights are `CSS.highlights` (`marxy-find`, `marxy-find-current`): nothing in the article changes.
-// Where the engine has none, matches are wrapped in `<mark class="marxy-find">`, one per text node, and
-// unwrapped on close, leaving the article's markup as it was. Find only reads: no byte of the document
-// changes, and the one thing it may change on the page is to open a closed `<details>` the current match
-// is inside, so a match is never counted somewhere the reader cannot see it.
+// Where the engine has none, the matches near the view are drawn as rectangles in an overlay layer that is
+// a sibling of the article inside the pane (`.marxy-find-rects`), repainted on scroll: the article's DOM is
+// never written, so the typesetter (which watches it) has nothing to answer and a long document is as
+// fast as with highlights. Find only reads the article: no byte of the document changes, and the things it
+// may change are a closed `<details>` the current match is inside (opened, so a match is never counted
+// somewhere the reader cannot see it) and the scroll position of the scrollers the match is inside.
 //
 // One find is open in the window at a time: opening it in one pane closes it in the other. Each pane
 // keeps its own last query for the next `Mod+F` there.
@@ -18,13 +20,14 @@ import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { Pane } from '../pane/pane-set.ts';
 import { compileQuery } from './query.ts';
 import { findAll, type Span } from './text-index.ts';
-import { rangesFor, segmentsFor, walkText } from './walk.ts';
+import { rangesFor, walkText } from './walk.ts';
 
 export const FIND_HIGHLIGHT = 'marxy-find';
 export const FIND_CURRENT_HIGHLIGHT = 'marxy-find-current';
-const MARK_CLASS = 'marxy-find';
-const MARK_CURRENT_CLASS = 'marxy-find-current';
-const INVISIBLE = '.marxy-invisible';
+const RECT_CLASS = 'marxy-find-rect';
+const RECT_CURRENT_CLASS = 'marxy-find-rect-current';
+/** Most rectangles painted at once in the overlay (matches within two screens of the view). */
+const MAX_RECTS = 600;
 
 export interface FindDeps {
   /** Records a timing mark (the `find_first_match` budget). */
@@ -40,8 +43,8 @@ export interface FindState {
   readonly count: number;
   /** The current match, 0-based; -1 with none. */
   readonly current: number;
-  /** Whether the matches are `CSS.highlights` or the `<mark>` fallback. */
-  readonly via: 'highlights' | 'marks';
+  /** Whether the matches are `CSS.highlights` or the overlay-rectangle fallback. */
+  readonly via: 'highlights' | 'overlay';
 }
 
 export interface FindController {
@@ -71,68 +74,19 @@ function highlightApi(): { registry: Highlights; make(ranges: Range[]): unknown 
   return { registry: css.highlights, make: (ranges) => new ctor(...ranges) };
 }
 
-/** Wraps each text-node piece of every span in a `<mark>`, last first so earlier offsets stay valid. */
-function wrapAll(walked: ReturnType<typeof walkText>, spans: readonly Span[]): HTMLElement[][] {
-  const groups: HTMLElement[][] = spans.map(() => []);
-  const wrapped = new Set<Element>();
-  for (let i = spans.length - 1; i >= 0; i -= 1) {
-    const segments = segmentsFor(walked, spans[i]!);
-    for (let s = segments.length - 1; s >= 0; s -= 1) {
-      const [node, from, to] = segments[s]!;
-      const doc = node.ownerDocument;
-      const mark = doc.createElement('mark');
-      mark.className = MARK_CLASS;
-      // An invisible character's byte is zero-width: the whole marker is wrapped instead, once.
-      const marker = node.parentElement?.closest(INVISIBLE);
-      if (marker) {
-        if (wrapped.has(marker)) continue;
-        wrapped.add(marker);
-        marker.parentNode!.insertBefore(mark, marker);
-        mark.append(marker);
-      } else {
-        const middle = from > 0 ? node.splitText(from) : node;
-        if (to - from < middle.data.length) middle.splitText(to - from);
-        middle.parentNode!.insertBefore(mark, middle);
-        mark.append(middle);
-      }
-      groups[i]!.unshift(mark);
-    }
-  }
-  return groups;
-}
-
-function unwrapAll(groups: readonly HTMLElement[][]): void {
-  const parents = new Set<Node>();
-  for (const group of groups) {
-    for (const mark of group) {
-      const parent = mark.parentNode;
-      if (!parent) continue;
-      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
-      mark.remove();
-      parents.add(parent);
-    }
-  }
-  // The text nodes the wrap split are one node again.
-  for (const parent of parents) parent.normalize();
+/** The boxes a match draws (empty ones left out). */
+function boxesOf(match: Range): DOMRect[] {
+  return [...match.getClientRects()].filter((rect) => rect.width > 0 || rect.height > 0);
 }
 
 /** The top of the first box the match draws, in viewport pixels; null when it draws none. */
-function topOf(match: Range | HTMLElement[]): number | null {
-  if (Array.isArray(match)) {
-    for (const el of match) {
-      const rect = el.getClientRects()[0];
-      if (rect) return rect.top;
-    }
-    return null;
-  }
+function topOf(match: Range): number | null {
   const rects = match.getClientRects();
   for (const rect of rects) if (rect.width > 0 || rect.height > 0) return rect.top;
   return rects[0]?.top ?? null;
 }
 
-function startNodeOf(match: Range | HTMLElement[]): Node | null {
-  return Array.isArray(match) ? (match[0] ?? null) : match.startContainer;
-}
+const SCROLLABLE = /auto|scroll/;
 
 const controllers = new WeakMap<HTMLElement, FindController>();
 let active: FindController | null = null;
@@ -157,8 +111,9 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   let countEl: HTMLElement | null = null;
   let query = '';
   let spans: Span[] = [];
-  let matches: (Range | HTMLElement[])[] = [];
-  let marks: HTMLElement[][] = [];
+  let matches: Range[] = [];
+  let layer: HTMLElement | null = null;
+  let paintFrame = 0;
   let current = -1;
   let via: FindState['via'] = 'highlights';
   let frame = 0;
@@ -175,8 +130,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       api.registry.delete(FIND_HIGHLIGHT);
       api.registry.delete(FIND_CURRENT_HIGHLIGHT);
     }
-    if (marks.length > 0) unwrapAll(marks);
-    marks = [];
+    layer?.replaceChildren();
     matches = [];
     spans = [];
   }
@@ -190,7 +144,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     const api = highlightApi();
     if (via === 'highlights' && api) {
       const now = matches[current];
-      if (now && !Array.isArray(now)) {
+      if (now) {
         const highlight = api.make([now]) as { priority: number };
         highlight.priority = 1;
         api.registry.set(FIND_CURRENT_HIGHLIGHT, highlight);
@@ -198,11 +152,79 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
         api.registry.delete(FIND_CURRENT_HIGHLIGHT);
       }
     } else {
-      marks.forEach((group, i) => {
-        for (const mark of group) mark.classList.toggle(MARK_CURRENT_CLASS, i === current);
-      });
+      paintOverlay();
     }
     paintCount();
+  }
+
+  /**
+   * The overlay fallback: a rectangle per box of every match within two screens of the pane's view,
+   * positioned against the layer's own corner (which scrolls with the content), so nothing here depends
+   * on which of the window and the pane scrolls.
+   */
+  function paintOverlay(): void {
+    if (via !== 'overlay' || !layer) return;
+    const el = scroller();
+    const height = el === el.ownerDocument.documentElement ? el.ownerDocument.defaultView!.innerHeight : el.clientHeight;
+    const top = viewTop();
+    const from = top - height;
+    const to = top + 2 * height;
+    let lo = 0;
+    let hi = matches.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      const at = topOf(matches[mid]!);
+      if (at !== null && at < from) lo = mid + 1;
+      else hi = mid;
+    }
+    const origin = layer.getBoundingClientRect();
+    const doc = layer.ownerDocument;
+    const frag = doc.createDocumentFragment();
+    let drawn = 0;
+    for (let i = lo; i < matches.length && drawn < MAX_RECTS; i += 1) {
+      const boxes = boxesOf(matches[i]!);
+      if (boxes.length === 0) continue;
+      if (boxes[0]!.top > to) break;
+      for (const box of boxes) {
+        const rect = doc.createElement('div');
+        rect.className = i === current ? `${RECT_CLASS} ${RECT_CURRENT_CLASS}` : RECT_CLASS;
+        rect.style.cssText = `left:${box.left - origin.left}px;top:${box.top - origin.top}px;width:${box.width}px;height:${box.height}px`;
+        frag.append(rect);
+        drawn += 1;
+      }
+    }
+    layer.replaceChildren(frag);
+  }
+
+  /** The overlay layer and the listeners that keep it on the matches (scroll anywhere in the page, resize). */
+  function ensureLayer(): void {
+    if (layer) return;
+    const doc = pane.host.ownerDocument;
+    layer = doc.createElement('div');
+    layer.className = 'marxy-find-rects';
+    layer.setAttribute('aria-hidden', 'true');
+    pane.host.append(layer);
+    doc.addEventListener('scroll', schedulePaint, { capture: true, passive: true });
+    doc.defaultView?.addEventListener('resize', schedulePaint);
+  }
+
+  function dropLayer(): void {
+    if (!layer) return;
+    const doc = layer.ownerDocument;
+    doc.removeEventListener('scroll', schedulePaint, { capture: true });
+    doc.defaultView?.removeEventListener('resize', schedulePaint);
+    if (paintFrame !== 0) cancelAnimationFrame(paintFrame);
+    paintFrame = 0;
+    layer.remove();
+    layer = null;
+  }
+
+  function schedulePaint(): void {
+    if (via !== 'overlay' || paintFrame !== 0) return;
+    paintFrame = requestAnimationFrame(() => {
+      paintFrame = 0;
+      paintOverlay();
+    });
   }
 
   /** The scroller's visible top, in viewport pixels. */
@@ -225,21 +247,54 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     return lo < matches.length ? lo : 0;
   }
 
+  /**
+   * Brings the match into view inside every scroller between it and the pane's article (a wide table, a
+   * long code block), nearest first, then the pane itself puts it on the reading line. An inner scroller
+   * moves only along an axis the match is outside of, and only as far as it must (a little margin in).
+   */
+  function revealInInnerScrollers(match: Range, from: Element | null): void {
+    const view = scroller();
+    for (let el = from; el && el !== pane.article && el !== view && pane.article.contains(el); el = el.parentElement) {
+      const style = getComputedStyle(el);
+      const x = SCROLLABLE.test(style.overflowX) && el.scrollWidth > el.clientWidth;
+      const y = SCROLLABLE.test(style.overflowY) && el.scrollHeight > el.clientHeight;
+      if (!x && !y) continue;
+      const box = boxesOf(match)[0];
+      if (!box) return;
+      const frame = el.getBoundingClientRect();
+      const margin = 16;
+      if (x) {
+        const left = frame.left + el.clientLeft;
+        const right = left + el.clientWidth;
+        if (box.left < left + margin) el.scrollLeft += box.left - left - margin;
+        else if (box.right > right - margin) el.scrollLeft += Math.min(box.right - right + margin, box.left - left - margin);
+      }
+      if (y) {
+        const topEdge = frame.top + el.clientTop;
+        const bottom = topEdge + el.clientHeight;
+        if (box.top < topEdge + margin) el.scrollTop += box.top - topEdge - margin;
+        else if (box.bottom > bottom - margin) el.scrollTop += Math.min(box.bottom - bottom + margin, box.top - topEdge - margin);
+      }
+    }
+  }
+
   /** Opens any closed `<details>` the current match is inside, then puts it on the reading line. */
   function land(): void {
     const match = matches[current];
     if (!match) return;
-    const start = startNodeOf(match);
-    const element = start instanceof Element ? start : start?.parentElement;
+    const start = match.startContainer;
+    const element = start instanceof Element ? start : start.parentElement;
     for (let d = element?.closest('details'); d; d = d.parentElement?.closest('details')) {
       const summary = d.querySelector(':scope > summary');
       if (!d.open && !(summary && summary.contains(element!))) d.open = true;
     }
+    revealInInnerScrollers(match, element);
     const top = topOf(match);
     if (top === null) return;
     const el = scroller();
     const delta = top - (viewTop() + readingLine(el.clientHeight));
     el.scrollTop = el.scrollTop + delta;
+    paintOverlay();
   }
 
   function run(opts: { keep: boolean }): void {
@@ -255,14 +310,10 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     const walked = walkText(pane.article);
     spans = findAll(walked.index, re);
     const api = highlightApi();
-    via = api ? 'highlights' : 'marks';
-    if (api) {
-      matches = rangesFor(walked, spans);
-      if (matches.length > 0) api.registry.set(FIND_HIGHLIGHT, api.make(matches as Range[]));
-    } else {
-      marks = wrapAll(walked, spans);
-      matches = marks;
-    }
+    via = api ? 'highlights' : 'overlay';
+    matches = rangesFor(walked, spans);
+    if (!api) ensureLayer();
+    if (api && matches.length > 0) api.registry.set(FIND_HIGHLIGHT, api.make(matches));
     if (matches.length > 0 && typedAt !== null) {
       deps.mark('find_first_match', `ms=${(performance.now() - typedAt).toFixed(1)} matches=${matches.length}`);
     }
@@ -329,6 +380,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   function unmount(): void {
     const slot = pane.parts.findSlot;
     slot.replaceChildren();
+    dropLayer();
     if (slot.parentNode === pane.host) pane.host.append(slot);
     field = null;
     input = null;
