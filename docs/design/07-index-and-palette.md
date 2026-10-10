@@ -157,6 +157,20 @@ Opening a heading hit navigates to the document and scrolls the heading to the r
 Back/forward is an in-memory stack of `{ path, position }` for the session; `⌘[` / `⌘]`.
 Pin/unpin is a palette operation on a document hit (`⌘.`).
 
+## Query syntax
+
+The library's query field is parsed by `parseQuery` in `packages/core/src/index-model/query.ts` (Q-02); the
+token table is in `docs/plan/direction-2026-10/mock-v2/05-collections.md`, section "Query syntax". In short:
+plain words and `"phrases"` search text, tokens combine with AND, `OR` (upper case) separates groups, a
+leading `-` excludes, commas inside a value mean any of. `a b OR c` is `(a AND b) OR c`: `OR` has the lowest
+precedence and there is no grouping. Keys are `kind`, `is`, `has`, `modified`, `words`, `tasks`, `size`,
+`path` and `in`; `model:`, `session:`, `tag:`, `is:ai` and `is:live` are not keys (ADR-0062) and parse as
+text. An unknown key, or an unknown value of a known key (`is:foo`), is an `unknown` term kept as text; a
+missing or malformed value (`words:>`) is an `incomplete` term that filters nothing. Every term carries its
+`[start, end)` range in UTF-16 code units of the input so the field can draw chips. Counts (`words:`,
+`tasks:`) are decimal (`2k` = 2,000); sizes are binary (`1kb` = 1,024, `1mb` = 1,048,576). `completeQuery`
+suggests keys and values at a caret. Evaluating a query against the index is Q-03.
+
 ## Tests
 
 - Core and app: the walker respects a temp repo's `.gitignore` and the deny list; headings scanner over the
