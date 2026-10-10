@@ -1,6 +1,6 @@
 // Summoned palette in the real document: input, list, keys, and ADR-0011 tab-bar checks (MARXY-87).
 
-import type { IndexEntry, IndexHit } from '@marxy/core';
+import { detectKind, type IndexEntry, type IndexHit } from '@marxy/core';
 import { invisibleHexLabel, invisibleSegments } from '@marxy/core/src/render/index.ts';
 import type { ContentHit, Shell } from '@marxy/shell-api';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
@@ -13,6 +13,7 @@ import { appendInvisibleSegments } from '../render/invisibles-dom.ts';
 import { focusOrigin } from '../pane/focus.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
+import { kindIconElement, langOfPath } from '../kind-icons/icons.ts';
 import { copyDefault, markdownCopy } from '../selection/verbs.ts';
 import {
   contentQuery,
@@ -320,6 +321,17 @@ function injectPaletteStyles(doc: Document): void {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    #marxy-palette .marxy-kind-glyph {
+      display: inline-block;
+      flex: none;
+      align-self: center;
+      inline-size: 1em;
+      block-size: 1em;
+      margin-inline-end: 0.6em;
+      vertical-align: -0.15em;
+      color: var(--marxy-lang, var(--marxy-color-text-secondary, #a39e94));
+    }
+    #marxy-palette .marxy-kind-glyph svg { display: block; inline-size: 100%; block-size: 100%; }
     #marxy-palette .marxy-palette-group { list-style: none; }
     #marxy-palette .marxy-palette-group > ol { list-style: none; margin: 0; padding: 0; }
     #marxy-palette .marxy-palette-section {
@@ -514,14 +526,17 @@ function documentRow(
     row.setAttribute('role', 'option');
   }
   const age = decor.age(hit);
+  // The kind icon leads every document row; the path alone decides the kind (no bytes are read).
+  const kind = detectKind({ path: hit.entry.path, head: new Uint8Array() }).kind;
+  const icon = kindIconElement(doc, kind, kind === 'code' ? langOfPath(hit.entry.path) : undefined);
   if (age === undefined) {
-    row.textContent = labelForHit(hit);
+    row.replaceChildren(icon, doc.createTextNode(labelForHit(hit)));
     row.removeAttribute('aria-label');
   } else {
     const title = doc.createElement('span') as HTMLSpanElement;
     title.className = 'marxy-palette-title';
     title.textContent = labelForHit(hit);
-    row.replaceChildren(title);
+    row.replaceChildren(icon, title);
     if (decor.changed(hit)) {
       const mark = doc.createElement('span') as HTMLSpanElement;
       mark.className = 'marxy-palette-changed';
