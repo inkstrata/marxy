@@ -12,3 +12,6 @@ export type { OutlineEntry } from './outline/outline.ts';
 export * from './buffer/index.ts';
 export * from './sourcemap/index.ts';
 export * from './layout/index.ts';
+export * from './contracts/kinds.ts';
+export { detectKind, KIND_PREFIX_BYTES, KIND_FRONT_MATTER_SCAN_BYTES, KIND_HEAD_BYTES } from './kind/detect.ts';
+export type { DetectInput, DetectResult, KindRule, Reason } from './kind/detect.ts';

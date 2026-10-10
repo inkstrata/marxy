@@ -11,6 +11,7 @@ import { checkInvariants } from '../src/parse/invariants.ts';
 import { parseMarkdown } from '../src/parse/parse.ts';
 import { renderDocumentSafeHtml } from '../src/render/pipeline.ts';
 import type { Node } from '../src/contracts/ast.ts';
+import { KIND_HEAD_BYTES, detectKind } from '../src/kind/detect.ts';
 
 const corpus = new URL('../../../fixtures/corpus/', import.meta.url);
 const goldens = new URL('../goldens/', import.meta.url);
@@ -94,6 +95,15 @@ function compare(name: string, file: URL, expected: string, what: string): boole
   return false;
 }
 
+// kinds.json (K-03): every file in the corpus, not only the Markdown ones, with the kind detection gives it and why.
+const kinds: Record<string, unknown> = {};
+for (const name of readdirSync(corpus).sort()) {
+  const bytes = new Uint8Array(readFileSync(new URL(name, corpus)));
+  const { kind, reasons } = detectKind({ path: name, head: bytes.subarray(0, KIND_HEAD_BYTES) });
+  kinds[name] = { kind, reasons };
+}
+if (!compare('the corpus', new URL('kinds.json', goldens), `${JSON.stringify(kinds, null, 2)}\n`, 'detected')) failed++;
+
 function firstDifference(actual: string, expected: string, what: string): string[] {
   const a = actual.split('\n');
   const b = expected.split('\n');
@@ -104,7 +114,7 @@ function firstDifference(actual: string, expected: string, what: string): string
 }
 
 if (failed > 0) {
-  console.error(`golden gate failed: ${failed} of ${fixtures.length} fixtures`);
+  console.error(`golden gate failed: ${failed} failures over ${fixtures.length} fixtures and kinds.json`);
   process.exit(1);
 }
-console.log(`golden: ${fixtures.length} corpus fixtures ${update ? 'written' : 'match their golden AST and HTML files'}, invariants hold`);
+console.log(`golden: ${fixtures.length} corpus fixtures ${update ? 'written' : 'match their golden AST and HTML files, and every file kind matches kinds.json'}, invariants hold`);

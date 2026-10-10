@@ -68,7 +68,7 @@ The Rendered selection is the window's one and acts on the focused pane's articl
 every pane's article, each view tells it when its page is set, and focusing another pane clears it, so
 copy, the operations and `Mod+Z` reach the focused pane's document. Still bound to the first pane rather
 than the focused one, until the Phase D story named moves them: the window as scroller and the reading
-persistence (D-05, D-12), the mode attribute on `<body>` (D-11), notices other than a pane's own region
+persistence (D-05, D-12), notices other than a pane's own region
 (D-10). The close guard is per document, never the focused pane's alone (D-08, §Close). The window title
 is the focused pane's document: a document opened in the other pane does not take it, and focus moves
 it. Each pane's open path keeps its own live-reload
@@ -164,25 +164,42 @@ into view. `Enter` on a heading selects its section (§03) and scrolls it to the
 `Esc` closes. Frontmatter `title:` shows as the first entry when there is no h1.
 
 While the outline is open, the current-heading mark follows scrolling (the same per-frame
-position sample §08 takes; no second scroll listener). Module: `apps/desktop/src/outline/`
+position sample §08 takes; no second scroll listener).
+
+**Per pane** (D-13). The outline is the focused pane's: opened with two panes it lists the headings of
+the pane focused when it opened, takes that pane's reading position, follows that pane's scroll through
+its view's own scroll subscription, sits against that pane's right edge (`inset-inline-end` from the
+pane's box; the dialog is modal and may cover text), lands a heading in that pane, and gives focus back
+to it (`focusOrigin`). `outline/pane.ts` makes that binding. Module: `apps/desktop/src/outline/`
 (`outline.ts` builds entries from the AST — pure, tested without a DOM; `view.ts` owns the
 dialog). Entries are plain text: inline markup in a heading is flattened with `textContent`
 semantics, smart typography applied as in the article.
 
 ## Find (D-A14)
 
+- **Per pane** (D-13). `Mod+F` opens find in the focused pane only: the field sits at that pane's
+  top right (its `.marxy-find-slot`, a zero-height sticky holder moved to the pane's top while
+  find is open), and matching, highlights, the count and the reading line are that pane's. Opening
+  find in one pane closes it in the other; each pane keeps its own last query. Nothing searches
+  both panes. `Esc` gives focus back to the pane find opened from (`focusOrigin`).
 - Input at top-right, no chrome until `Mod+F`. Case-insensitive, whole document, incremental.
-- Matching runs over a text index built at render: the concatenation of the article's text
-  nodes with a map from string offset to `(textNode, offset)`. Soft hyphens (U+00AD) and the
-  typesetter's `<br>` are invisible to it: the index is built *before* typesetting and kept in
-  sync by the typesetter's split records (each split maps a node to its two halves).
+- Matching runs over a text index of the article's text nodes, concatenated with no separator
+  (`text-index.ts`), walked afresh for every run (`walk.ts`). The typesetter's line breaks are
+  empty spans whose generated content is not text, so a pass never changes the index's text, only
+  where its pieces split; a range is therefore resolved from a fresh walk, never from stored node
+  references. A match ending on a piece boundary ends in the earlier piece, so it never reaches
+  into the next block.
 - Highlights: `CSS.highlights.set('marxy-find', new Highlight(...ranges))` with
   `::highlight(marxy-find)` styled by the theme; the current match in a second highlight.
-  Fallback when `CSS.highlights` is undefined: wrap matches in `<mark class="marxy-find">`
-  and unwrap on close (the fallback is exercised by a test that deletes `CSS.highlights`).
-- Navigation scrolls the current match to the reading line (40 % of the viewport), never to
-  the top edge. Count shown as `3 of 41` inside the input.
-- In Source mode, find is CodeMirror's `@codemirror/search` panel with the same key.
+  Fallback when `CSS.highlights` is undefined: the matches near the view are drawn as rectangles in
+  a `.marxy-find-rects` layer beside the article, repainted on scroll; the article's DOM is never
+  written, because the typesetter watches it (the fallback is exercised by a test that deletes
+  `CSS.highlights`, and one that runs it on a 1 MB document).
+- Navigation scrolls the current match to the reading line (40 % of the pane's height), never to
+  the top edge. Count shown as `3 of 41` inside the input. A new query starts at the first match
+  at or below the top of the pane's view.
+- In Source mode, find is CodeMirror's `@codemirror/search` panel with the same key, in that
+  pane's editor.
 - **Matching folds what the renderer changed.** The article shows smart typography (§02) but a
   reader types straight quotes and double hyphens. The query is compiled to a regular
   expression (flags `giu`) after escaping, with these substitutions applied to the query, never
@@ -192,10 +209,23 @@ semantics, smart typography applied as in the article.
 - **Scope.** Text inside `.katex` subtrees is excluded from the index (it is layout glyphs, not
   the source); the TeX source is not searchable in Rendered mode in v1. Code blocks, tables and
   footnotes are included. Alt text is not (it is not painted unless the image is missing).
+- **Nothing found where the reader cannot see it** (commitment 4). One rule, `NON_CONTENT` in
+  `walk.ts`: a subtree that is not the document's visible reading text is skipped whole. That is
+  what the page does not draw (`[hidden]`, `<template>`, `aria-hidden`: a link's hidden
+  destination), KaTeX's glyphs, the elided tail of a long code line and its note, and Marxy's own
+  labels (a link's host label, notices, controls). A match inside a horizontally or vertically
+  scrolled inner scroller (a wide table, a code block) scrolls that scroller as well as the pane.
+  Find sits above the outline and the other summoned surfaces. A match inside a closed `<details>` is counted,
+  and the details element is opened when that match becomes current. An invisible character's
+  marker (§02) is searched by its byte, not its hex label: a zero-width or bidi control inside a
+  word splits it, so a query typed without it does not match (the marker shows why), and a match
+  that touches the byte is highlighted over the whole marker, never as a zero-width box. Folded
+  front-matter rows are not in the article and are found in Source.
 - **Budget.** Matching reruns one frame after the last keystroke; `find_first_match` is marked
   when the first highlight is set. < 50 ms for `01-long-technical.md` on the reference tier.
 - Module: `apps/desktop/src/find/` (`text-index.ts` pure over a list of text-node strings,
-  `query.ts` the compiler above, `view.ts` the input and highlights).
+  `query.ts` the compiler above, `walk.ts` the DOM walk and ranges, `view.ts` the input and
+  highlights; `commands/find.ts` is `view.find`).
 
 ## Notices (`#marxy-notices`)
 
@@ -213,7 +243,34 @@ hover and focus-visible state.
 
 ## Source mode (D-A15)
 
-CodeMirror 6 in `#marxy-source`, created on first switch and kept:
+Source is a mode of a pane, not of the window (D-11, ADR-0005): each pane's section carries its own
+`data-marxy-mode`, `Mod+E` toggles the focused pane only, and `<body>`'s `data-marxy-mode` mirrors the
+focused pane's (written again whenever focus moves), so CSS and tests that read it still mean "the pane
+the reader is in". The editor mounts **in the pane**: one CodeMirror per pane's Source mount
+(`#marxy-source`, `#marxy-source-2`), with its own scroll and cursor; alone, the mount covers the window,
+and beside another pane it is `position: absolute` inside its own section. A file that opens in Source
+does so in whichever pane it opens in. Commands that mean "the editor" (line numbers, tab width, the
+external editor's line) take the focused pane's (`activeSourceEditor()`).
+
+Two panes on one file, one Rendered and one Source: what is typed in Source reaches the other view
+when focus leaves the editor (a click or `Mod+1`/`Mod+2` into the other pane, the palette), not per
+keystroke. It is folded into the store then, one history entry, exactly as leaving Source folds it; a
+Source pane that is the only view of its store folds only on leaving Source, as before. Two views of one
+store never both hold unfolded Source text: a pane that comes to show a document another pane holds
+unfolded in Source folds the holder first, so the newcomer starts from bytes that include it. With the
+file in Source in both panes, each fold reaches the other editor, which then holds no typing of its own
+and takes the new bytes (caret mapped), so neither pane's next fold writes the other's typing back
+out. Edits are never merged. Should an editor with its own typing still meet another pane's fold, it is
+held apart: it keeps its text, the store keeps the other pane's, a notice says "Source in the other pane
+changed this file; your text was not folded", and that editor's folds (on blur, before a save, an undo
+or a close) and leaving Source are refused until its text reads as the store's again or the pane opens
+the document again. Its text still counts as unsaved, so closing, opening over it or quitting asks. If another view's watch reloads the file
+from disk while a Source pane holds text not yet folded, that text is kept and folded on top, as an
+unsaved edit the store kept. A rename followed by the other pane's watch is not settled here: each
+pane still runs its own watch, and one watch per store is D-10's. Live mirroring per keystroke would
+need the store to take CodeMirror transactions (Phase E's block editing).
+
+CodeMirror 6 in each pane's Source mount, created on its first switch and kept:
 
 ```ts
 new EditorView({ state: EditorState.create({ doc: buffer.text /* without BOM */, extensions: [
@@ -303,4 +360,4 @@ goes into the store first).
 - `state.test.ts`: the transition table; overlays exclusive; `Esc` semantics.
 - Playwright: at rest the only visible elements are inside `#marxy-main`; each key in the map
   does what the table says; find lands the current match at 40 % ± 2 px; the fallback path
-  wraps and unwraps `<mark>`; Source round-trip without edits leaves `buffer.bytes` identical.
+  draws overlay rectangles and leaves the article's markup untouched; Source round-trip without edits leaves `buffer.bytes` identical.

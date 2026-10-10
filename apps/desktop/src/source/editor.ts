@@ -11,6 +11,7 @@ import { liveMarxyTheme } from './theme-bridge.ts';
 import { scrollSourceToByte } from './mode-switch.ts';
 import { save } from '../save.ts';
 import { tabSizeForFile } from './tab-width.ts';
+import { appHandle } from '../commands/app-handle.ts';
 
 export interface SourceEditorOptions {
   readonly parent: HTMLElement;
@@ -46,12 +47,19 @@ export async function loadCodeMirror(): Promise<typeof import('./editor-cm6.ts')
 }
 
 /**
- * The editor mounted in `parent`; without one, the one mounted last (one pane has one mount, so this
- * is the editor the window shows). Null when there is none.
+ * The editor mounted in `parent`; without one, the focused pane's (D-11): the running app's focused pane
+ * names its mount, and that mount's editor is the one keys and commands mean, or null when that pane has
+ * none (it shows Rendered). With no app in the page (the editor's own harness), the one mounted last.
  */
 export function activeSourceEditor(parent?: HTMLElement): SourceEditor | null {
-  if (parent) return editors.get(parent) ?? null;
+  const mount = parent ?? focusedSourceMount();
+  if (mount) return editors.get(mount) ?? null;
   return [...editors.values()].at(-1) ?? null;
+}
+
+/** The focused pane's Source mount, from the running app; null with none. */
+function focusedSourceMount(): HTMLElement | null {
+  return appHandle()?.panes?.().focused.parts.source ?? null;
 }
 
 /** Create a Source editor for `buffer` in `opts.parent`; the editor already there takes the buffer instead. */

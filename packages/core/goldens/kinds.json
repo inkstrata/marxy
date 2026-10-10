@@ -1,0 +1,476 @@
+{
+  "01-long-technical.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "01-long-technical.md",
+        "decisive": true
+      }
+    ]
+  },
+  "02-readme-real-world.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "02-readme-real-world.md",
+        "decisive": true
+      }
+    ]
+  },
+  "03-ai-plan.md": {
+    "kind": "report",
+    "reasons": [
+      {
+        "tier": 4,
+        "signal": "working headings",
+        "kind": "report",
+        "at": "line 5",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "03-ai-plan.md",
+        "decisive": false
+      }
+    ]
+  },
+  "04-source.css": {
+    "kind": "code",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .css",
+        "kind": "code",
+        "at": "04-source.css",
+        "decisive": true
+      }
+    ]
+  },
+  "04-source.py": {
+    "kind": "code",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .py",
+        "kind": "code",
+        "at": "04-source.py",
+        "decisive": true
+      }
+    ]
+  },
+  "04-source.rs": {
+    "kind": "code",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .rs",
+        "kind": "code",
+        "at": "04-source.rs",
+        "decisive": true
+      }
+    ]
+  },
+  "04-source.ts": {
+    "kind": "code",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .ts",
+        "kind": "code",
+        "at": "04-source.ts",
+        "decisive": true
+      }
+    ]
+  },
+  "05-pathological-table-and-nesting.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "05-pathological-table-and-nesting.md",
+        "decisive": true
+      }
+    ]
+  },
+  "06-math.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "06-math.md",
+        "decisive": true
+      }
+    ]
+  },
+  "07-cjk.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "07-cjk.md",
+        "decisive": true
+      }
+    ]
+  },
+  "08-rtl.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "08-rtl.md",
+        "decisive": true
+      }
+    ]
+  },
+  "09-gfm-everything.md": {
+    "kind": "report",
+    "reasons": [
+      {
+        "tier": 6,
+        "signal": "task list without working headings",
+        "kind": "report",
+        "at": "line 41",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "09-gfm-everything.md",
+        "decisive": false
+      }
+    ]
+  },
+  "10-hostile.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "10-hostile.md",
+        "decisive": true
+      }
+    ]
+  },
+  "11-empty.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "11-empty.md",
+        "decisive": true
+      }
+    ]
+  },
+  "12-crlf-and-bom.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "12-crlf-and-bom.md",
+        "decisive": true
+      }
+    ]
+  },
+  "13-no-trailing-newline.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "13-no-trailing-newline.md",
+        "decisive": true
+      }
+    ]
+  },
+  "14-marxy-plan.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "14-marxy-plan.md",
+        "decisive": true
+      }
+    ]
+  },
+  "15-prose-volume.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "15-prose-volume.md",
+        "decisive": true
+      }
+    ]
+  },
+  "16-api-reference.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "16-api-reference.md",
+        "decisive": true
+      }
+    ]
+  },
+  "17-changelog.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "17-changelog.md",
+        "decisive": true
+      }
+    ]
+  },
+  "18-agent-transcript.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "18-agent-transcript.md",
+        "decisive": true
+      }
+    ]
+  },
+  "19-source-file.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "19-source-file.md",
+        "decisive": true
+      }
+    ]
+  },
+  "23-task-openers.md": {
+    "kind": "report",
+    "reasons": [
+      {
+        "tier": 6,
+        "signal": "task list without working headings",
+        "kind": "report",
+        "at": "line 3",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "23-task-openers.md",
+        "decisive": false
+      }
+    ]
+  },
+  "24-issue-thread.md": {
+    "kind": "report",
+    "reasons": [
+      {
+        "tier": 6,
+        "signal": "task list without working headings",
+        "kind": "report",
+        "at": "line 68",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "24-issue-thread.md",
+        "decisive": false
+      }
+    ]
+  },
+  "26-skill-front-matter.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "26-skill-front-matter.md",
+        "decisive": true
+      }
+    ]
+  },
+  "27-alerts.md": {
+    "kind": "docs",
+    "reasons": [
+      {
+        "tier": 4,
+        "signal": "admonitions or Parameters, Returns, Errors, Example sections",
+        "kind": "docs",
+        "at": "line 3",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "27-alerts.md",
+        "decisive": false
+      }
+    ]
+  },
+  "28-artifact-fences.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "28-artifact-fences.md",
+        "decisive": true
+      }
+    ]
+  },
+  "28-llm-answer.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "28-llm-answer.md",
+        "decisive": true
+      }
+    ]
+  },
+  "29-hidden-characters.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "29-hidden-characters.md",
+        "decisive": true
+      }
+    ]
+  },
+  "30-notebook-export.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "30-notebook-export.md",
+        "decisive": true
+      }
+    ]
+  },
+  "31-essay.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "31-essay.md",
+        "decisive": true
+      }
+    ]
+  },
+  "32-long-reference.md": {
+    "kind": "article",
+    "reasons": [
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "32-long-reference.md",
+        "decisive": true
+      }
+    ]
+  },
+  "README.md": {
+    "kind": "readme",
+    "reasons": [
+      {
+        "tier": 2,
+        "signal": "file name",
+        "kind": "readme",
+        "at": "README.md",
+        "decisive": true
+      },
+      {
+        "tier": 7,
+        "signal": "nothing else fired",
+        "kind": "article",
+        "at": "README.md",
+        "decisive": false
+      }
+    ]
+  },
+  "check-prose-volume.mjs": {
+    "kind": "code",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .mjs",
+        "kind": "code",
+        "at": "check-prose-volume.mjs",
+        "decisive": true
+      }
+    ]
+  },
+  "gen-long-reference.mjs": {
+    "kind": "code",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .mjs",
+        "kind": "code",
+        "at": "gen-long-reference.mjs",
+        "decisive": true
+      }
+    ]
+  },
+  "image.png": {
+    "kind": "code",
+    "reasons": [
+      {
+        "tier": 3,
+        "signal": "extension .png",
+        "kind": "code",
+        "at": "image.png",
+        "decisive": true
+      }
+    ]
+  }
+}
