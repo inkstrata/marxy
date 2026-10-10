@@ -38,7 +38,7 @@ Two commands and two habits. If these are green, CI has only your judgement left
 
 ```bash
 pnpm precheck      # CI's `fast` job for what you touched: parallel, timed, under 90 s for a one-package change
-pnpm check         # the eight hygiene checks in one command (the first thing `fast` runs)
+pnpm check         # the nine hygiene checks in one command (the first thing `fast` runs)
 ```
 
 - A **Conventional Commits subject** (`docs/conventions.md`). It may end in a story id such as
@@ -155,7 +155,7 @@ holds the cases. You cannot skip a job by hand.
 ## Red CI, by cause
 
 Each row names the check, what it means and the command that reproduces it. `pnpm check` runs the
-eight hygiene checks together; each also runs alone as `node scripts/<name>.mjs`, or as
+nine hygiene checks together; each also runs alone as `node scripts/<name>.mjs`, or as
 `pnpm check --only=<name>`.
 
 ### `conventions`
@@ -187,6 +187,7 @@ them.
 | `check-one-parse` | a second markdown parser or sanitiser has returned, or a render path bypasses `@marxy/core` (ADR-0001, ADR-0021) | `node scripts/check-one-parse.mjs` |
 | `check-tokens` | a `--marxy-*` token whose name or unit kind moved (values are taste, ADR-0031) | `node scripts/check-tokens.mjs` |
 | `gate-font-attrs` | `.gitattributes` lost `binary` or gained `eol` on a font | font binaries are `binary -eol`; `node scripts/gate-font-attrs.mjs` |
+| `gate-contrast` | a bundled theme's colour pair is below its ADR-0059 item 10 floor (7:1 body text, 4.5:1 other text, 3:1 edges), measured unrounded after compositing; or a colour will not parse | change the colour in a taste story, never the floor; `node scripts/gate-contrast.mjs`, `--md` for every ratio |
 | `check-workflows` | an Action not on the accepted list or not pinned to an accepted major; a cargo or `tauri build` call without `--locked`; `continue-on-error` or `\|\| true` in a step; a job with no `timeout-minutes`; a Linux cargo job that does not probe `glib-2.0` and install `dbus`; the licence gate running before a build | `node scripts/check-workflows.mjs`; its own cases: add `--selftest` |
 | typecheck, lint | a type error, or a biome finding (`pnpm lint` is check-only and never writes a file) | `pnpm typecheck`, `pnpm lint` |
 | unit tests | any `*.test.*`; or a file under `packages/*/src/contracts/` changed | `pnpm test` runs every package's tests and `scripts/*.test.mjs`. WebKit tests skip in `fast`, which has no browser. A contract changes by an ordinary pull request (ADR-0045); regenerate the goldens it moves |
