@@ -3,10 +3,11 @@
 // after the first document and moved when the reader adopts a theme document. Nothing at module scope:
 // a second app instance in one page has its own.
 import { parseConfig, type Config } from '@marxy/theme';
+import { notify } from '../notices/index.ts';
 import type { AppShell } from '../app.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import { applyWeightOffset, platformOf } from './offset.ts';
-import { applyReaderConfig, readReaderConfig, takeConfigRead } from './reader-config.ts';
+import { applyReaderConfig, readReaderConfig, takeConfigNotices, takeConfigRead } from './reader-config.ts';
 import { adoptThemeDirectory, maybeThemeDocumentNotice } from './theme-document.ts';
 import { resolveThemeDir, startUserTheme, themeDirFromConfig, type UserThemeContext } from './user-theme.ts';
 
@@ -57,6 +58,7 @@ export function createAppConfig(shell: AppShell, views: () => readonly RenderedV
       }
     },
     async startUserTheme() {
+      for (const text of takeConfigNotices()) notify({ kind: 'info', text });
       const dir = await themeDir();
       userTheme?.stop();
       userTheme = await startUserTheme(context(), dir);

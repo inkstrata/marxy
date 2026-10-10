@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { launchWebkit as launchWebkitUntracked } from '../../../scripts/playwright-webkit.mjs';
 import { createServer } from 'vite';
 import { DISK_CHANGED_EDITS_KEPT, FILE_REMOVED_ON_DISK } from '../src/notices/disk.ts';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,26 @@ import { fileURLToPath } from 'node:url';
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
-const test = (name, fn) => nodeTest(name, { skip }, fn);
+// F-30: CI lost 15-minute jobs to a test of this file that never returned. `page.evaluate` has no timeout of
+// its own, so a page promise that never settles waits forever. Each test now has a deadline that fails it by
+// name, and the browsers it launched are closed when it ends so a stuck evaluate is cancelled and the
+// process can exit.
+const TEST_TIMEOUT_MS = 60_000;
+const launched = new Set();
+async function launchWebkit(...args) {
+  const browser = await launchWebkitUntracked(...args);
+  launched.add(browser);
+  return browser;
+}
+const closeLaunched = async () => {
+  await Promise.all([...launched].map((b) => b.close().catch(() => {})));
+  launched.clear();
+};
+const test = (name, fn) =>
+  nodeTest(name, { skip, timeout: TEST_TIMEOUT_MS }, async (t) => {
+    t.after(closeLaunched);
+    return fn(t);
+  });
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const mainRs = readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'src', 'main.rs'), 'utf8');
@@ -86,9 +105,12 @@ async function boot(page, files, argv, { lateWatch = null } = {}) {
       };
       const { startApp } = await import('/src/app.ts');
       const handle = await startApp(inner, { argv });
-      await handle.ready;
       window.__marxyHandle = handle;
       window.__watchCloses = watchCloses;
+      // `ready` settles only once the engine reports a paint after the render, and a headless page that
+      // never does leaves it pending forever (startup/measure.ts, by design). Bound it: every test goes on
+      // to wait for its own condition, which has its own deadline.
+      await Promise.race([handle.ready, new Promise((r) => setTimeout(r, 15_000))]);
     },
     { files, argv, lateWatch },
   );

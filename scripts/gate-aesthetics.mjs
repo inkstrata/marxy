@@ -762,14 +762,41 @@ async function checkCodeVoice(page, { xHeight = false } = {}) {
   }, xHeight);
 }
 
-/** §10 check 9. html/body and the main landmark itself are the page, not chrome. */
-async function checkChrome(page) {
-  return page.evaluate(() => {
+/**
+ * The unfolded window's vocabulary (ADR-0058, 02-fold-up-workspace.md). ADR-0058 lists the surfaces
+ * (sidebar, toolbar, tabs, the kind's tool strip, inspector, status bar) but names no attribute, so
+ * the spellings live here and in scripts/registry.json only. W-02 owns them: if it prefers other
+ * names it edits both in one change. This file runs on import, so the constant cannot be exported.
+ */
+const WORKSPACE = {
+  attribute: 'data-marxy-workspace', // on <html> or <body>: 'folded' | 'unfolded'
+  regionAttribute: 'data-marxy-workspace-region',
+  regions: ['sidebar', 'toolbar', 'tabs', 'strip', 'inspector', 'status-bar'],
+};
+
+/**
+ * §10 check 9. html/body and the main landmark itself are the page, not chrome.
+ * `state: 'folded'` (the default, and what the corpus run uses) is the at-rest window: nothing visible
+ * outside #marxy-main, whatever its name. `state: 'unfolded'` additionally allows the workspace's
+ * named regions and their contents; any other visible element outside #marxy-main, and any region
+ * with a name outside the list, still fails.
+ */
+async function checkChrome(page, { state = 'folded' } = {}) {
+  return page.evaluate(({ state, ws }) => {
     const main = document.getElementById('marxy-main');
     const out = [];
+    const regionSel = `[${ws.regionAttribute}]`;
     for (const el of document.querySelectorAll('*')) {
       if (el === document.documentElement || el === document.body || el === main) continue;
       if (main && main.contains(el)) continue;
+      if (state === 'unfolded') {
+        const region = el.closest(regionSel);
+        if (region) {
+          const name = region.getAttribute(ws.regionAttribute);
+          if (el === region && !ws.regions.includes(name)) out.push(`workspace region "${name}" is not one of ${ws.regions.join(', ')}`);
+          continue;
+        }
+      }
       const s = getComputedStyle(el);
       if (s.visibility === 'hidden' || s.display === 'none') continue;
       const r = el.getBoundingClientRect();
@@ -777,7 +804,7 @@ async function checkChrome(page) {
       out.push(`visible <${el.tagName.toLowerCase()}> outside #marxy-main`);
     }
     return out;
-  });
+  }, { state, ws: WORKSPACE });
 }
 
 function shotDir() {
@@ -973,7 +1000,7 @@ async function runPageChecks(page, result, ctx) {
   add(await checkHanging(page));
   add(await checkHierarchy(page));
   add(await checkCodeVoice(page));
-  add(await checkChrome(page));
+  add(await checkChrome(page, { state: 'folded' }));
   await checkGeometry(page, ctx.file, ctx);
   if (ctx.file === NOTICE_DOC) recordCases('noticeColumn', ctx.file, cellId(ctx), await checkNoticeColumn(page));
   if (ctx.rag) add(checkRag(ctx.rag.metrics, ctx.rag.baseline, ctx.file));
@@ -988,6 +1015,14 @@ html,body{margin:0;background:#fff;color:#111}
 .marxy-article{font:17px/28px serif;max-width:68ch;padding:0;color:#111;background:#fff}
 ${extraCss}
 </style></head><body><main id="marxy-main"><article id="doc" class="marxy-article">${body}</article></main></body></html>`;
+}
+
+/** A workspace skeleton around crafted(): one visible element per region, outside #marxy-main. */
+function craftedWorkspace(state, { stray = '', extraRegion = '' } = {}) {
+  const regions = WORKSPACE.regions
+    .map((r) => `<div ${WORKSPACE.regionAttribute}="${r}"><button>${r}</button></div>`)
+    .join('');
+  return crafted('<p>In</p>').replace('<body>', `<body ${WORKSPACE.attribute}="${state}">${regions}${extraRegion}${stray}`);
 }
 
 /** Image swap that moves a following block, using the app harness's own layout-shift geometry. */
@@ -1231,6 +1266,24 @@ async function selftest(browser, origin) {
       run: checkChrome,
     },
     {
+      name: 'chrome-folded-region',
+      html: craftedWorkspace('folded'),
+      ok: crafted('<p>In</p>'),
+      run: (page) => checkChrome(page, { state: 'folded' }),
+    },
+    {
+      name: 'chrome-unfolded-stray',
+      html: craftedWorkspace('unfolded', { stray: '<mark>out</mark>' }),
+      ok: craftedWorkspace('unfolded'),
+      run: (page) => checkChrome(page, { state: 'unfolded' }),
+    },
+    {
+      name: 'chrome-unfolded-unknown-region',
+      html: craftedWorkspace('unfolded', { extraRegion: `<div ${WORKSPACE.regionAttribute}="banner"><b>x</b></div>` }),
+      ok: craftedWorkspace('unfolded'),
+      run: (page) => checkChrome(page, { state: 'unfolded' }),
+    },
+    {
       name: 'hierarchy',
       html: crafted('<h2 style="color:red">Red</h2><p>Body</p>'),
       run: checkHierarchy,
@@ -1434,7 +1487,7 @@ async function main() {
       `selftest: optical ~5% protrusion (margin/width=${opticalSelftest.marginOverWidth.toFixed(3)}, rect.width=${opticalSelftest.rectWidth.toFixed(2)}px) fails pre-fix (${opticalSelftest.preFixProblems.join('; ')}) and passes head (${opticalSelftest.headProblems.length ? opticalSelftest.headProblems.join('; ') : '[]'})`,
     );
     notes.push(
-      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome, hierarchy, code-voice, hanging-quote, and the geometry checks (centred, blockEdges, room, marks, noClip, noticeColumn, textSpacing, text200) each fail on a crafted page and pass on its twin; optical protrusion passes; the expected-failure table is held both ways',
+      'selftest: grid, measure, contrast-link/kbd/th, cls, rag, chrome (folded, plus a region folded, a stray and an unknown region unfolded), hierarchy, code-voice, hanging-quote, and the geometry checks (centred, blockEdges, room, marks, noClip, noticeColumn, textSpacing, text200) each fail on a crafted page and pass on its twin; optical protrusion passes; the expected-failure table is held both ways',
     );
     const roomHead = await checkRoomInNarrowContainer(browser);
     if (roomHead.problems.length) throw new Error(`aesthetics gate: ${roomHead.problems.join('; ')}`);

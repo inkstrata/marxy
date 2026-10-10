@@ -557,6 +557,27 @@ test('the empty palette shows its three labels in order, arrows skip labels, and
     assert.deepEqual(decor['/docs/pin-doc.md:doc'], { age: '9d', mark: false });
     assert.deepEqual(decor['/docs/old-doc.md:doc'], { age: '2w', mark: false });
 
+    // K-18: every document row leads with its kind's icon, hidden from a screen reader, and the icon
+    // does not change the row's height (measured with the icon removed from layout).
+    const glyphs = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
+      els.map((el) => {
+        const g = el.querySelector('.marxy-kind-glyph');
+        const withIcon = el.getBoundingClientRect().height;
+        g.style.display = 'none';
+        const without = el.getBoundingClientRect().height;
+        g.style.display = '';
+        return {
+          hidden: g.getAttribute('aria-hidden'),
+          svg: g.querySelector('svg[viewBox="0 0 16 16"]') !== null,
+          kind: g.querySelector('svg').dataset.marxyKind,
+          first: el.firstElementChild === g,
+          delta: Math.abs(withIcon - without),
+        };
+      }),
+    );
+    assert.ok(glyphs.length > 0);
+    for (const g of glyphs) assert.deepEqual({ ...g, delta: g.delta < 0.5 }, { hidden: 'true', svg: true, kind: g.kind, first: true, delta: true });
+
     // ArrowDown from the last Pinned row lands on the first Changed row; ArrowUp goes back.
     assert.equal(await selectedKey(page), '/docs/pin-doc.md:doc');
     await page.keyboard.press('ArrowDown');

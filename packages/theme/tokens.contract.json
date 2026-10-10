@@ -265,6 +265,176 @@
     "comment": false
   },
   {
+    "name": "--marxy-color-surface",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-surface-glass",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-text-strong",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-text-faint",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-rule-strong",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-edge",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-accent-strong",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-accent-fg",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-accent-wash",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-status-ok",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-status-warn",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-status-err",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-status-info",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-status-ok-wash",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-status-warn-wash",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-status-err-wash",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-marker",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-heading",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-tok-link",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-shadow-surface",
+    "kind": "keyword",
+    "comment": true
+  },
+  {
+    "name": "--marxy-face-book",
+    "kind": "family",
+    "comment": true
+  },
+  {
+    "name": "--marxy-face-article",
+    "kind": "family",
+    "comment": true
+  },
+  {
+    "name": "--marxy-face-sans",
+    "kind": "family",
+    "comment": true
+  },
+  {
+    "name": "--marxy-face-readme",
+    "kind": "family",
+    "comment": true
+  },
+  {
+    "name": "--marxy-face-mono",
+    "kind": "family",
+    "comment": true
+  },
+  {
+    "name": "--marxy-face-chrome",
+    "kind": "family",
+    "comment": true
+  },
+  {
+    "name": "--marxy-size-chrome",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-root-size-body",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-root-size-code",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-root-size-caption",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-root-line-box",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-root-line-box-code",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-root-lh-h1",
+    "kind": "length",
+    "comment": true
+  },
+  {
+    "name": "--marxy-root-lh-h2",
+    "kind": "length",
+    "comment": true
+  },
+  {
     "name": "--marxy-code-radius",
     "kind": "length",
     "comment": false
