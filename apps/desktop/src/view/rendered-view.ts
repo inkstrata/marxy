@@ -4,7 +4,7 @@
 // store owns the bytes; the view subscribes to the store it shows and sets the page again when they
 // change. Nothing here is held at module scope, so a second view can be created beside the first.
 
-import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document } from '@marxy/core';
+import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document, type Edit } from '@marxy/core';
 import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
@@ -39,7 +39,10 @@ interface MountedSourceEditor {
     scrollDOM: HTMLElement;
     lineBlockAtHeight(height: number): { from: number };
     readonly state: CmStateLike & { readonly selection: { readonly main: { readonly anchor: number; readonly head: number } } };
-    dispatch(spec: { selection: { anchor: number; head: number } }): void;
+    dispatch(spec: {
+      selection: { anchor: number; head: number };
+      changes?: { from: number; to: number; insert: string };
+    }): void;
   };
 }
 
@@ -206,6 +209,50 @@ function mountedBytes(doc: HTMLElement): number {
 /** Sanitised (or empty-state) HTML into the article. `view/` is in registry.innerHtmlAllowedIn. */
 function assignHtml(doc: HTMLElement, html: string): void {
   doc.innerHTML = html;
+}
+
+/** The largest run (old bytes × new bytes) aligned byte by byte; a longer one maps to the run's end. */
+const MAX_ALIGNED_RUN = 4_000_000;
+
+/**
+ * Where the gap before byte `k` of `a` is in `b`, by their longest common subsequence: the bytes both
+ * keep are matched, so a place between kept bytes stays between them. A gap where `b` inserted bytes
+ * goes after them. Past `MAX_ALIGNED_RUN`, the end of `b` (after everything the run inserted).
+ */
+function gapThroughRun(a: Uint8Array, b: Uint8Array, k: number): number {
+  const n = a.length;
+  const m = b.length;
+  if (n * m > MAX_ALIGNED_RUN) return m;
+  // lcs[i * (m + 1) + j]: the common subsequence of a[i..] and b[j..].
+  const lcs = new Uint32Array((n + 1) * (m + 1));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      lcs[i * (m + 1) + j] =
+        a[i] === b[j] ? lcs[(i + 1) * (m + 1) + j + 1]! + 1 : Math.max(lcs[(i + 1) * (m + 1) + j]!, lcs[i * (m + 1) + j + 1]!);
+    }
+  }
+  let i = 0;
+  let j = 0;
+  for (;;) {
+    const at = (x: number, y: number): number => lcs[x * (m + 1) + y]!;
+    const match = i < n && j < m && a[i] === b[j] && at(i, j) === at(i + 1, j + 1) + 1;
+    const insert = j < m && !match && (i === n || at(i, j + 1) >= at(i + 1, j));
+    if (i === k && !insert) return j;
+    if (match) {
+      i++;
+      j++;
+    } else if (insert) {
+      j++;
+    } else {
+      i++;
+    }
+  }
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 /** True when the editor's text differs from both the buffer it last took and `next`: text only the editor has. */
@@ -975,6 +1022,47 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return true;
   }
 
+  /**
+   * A fold committed to the store this view shows, from this view or another (two panes on one file,
+   * D-11). The editor takes the new bytes. When it holds text of its own that the store does not have
+   * (typed here while the other pane's text was folded in), that edit is carried onto the new bytes
+   * rather than dropped or written back over them: both panes' typing stays, the other's in the store
+   * and this one's still to fold. Where the two edits overlap, this one replaces what the mapped range
+   * then holds; an insertion at the same place goes after the other's.
+   */
+  function followFoldIn(editor: MountedSourceEditor, before: DocumentSnapshot, snapshot: DocumentSnapshot, incoming: Edit): void {
+    const text = editor.docText();
+    // This view's own fold (or text that already reads as the store's): only the byte mapping changes,
+    // and the caret, already in the new text, stays where it is.
+    if (!leaveSourceMode(snapshot.buffer, text).changed) return editor.replaceBuffer(snapshot.buffer);
+    const own = leaveSourceMode(editor.buffer, text);
+    if (!own.changed || !own.edit) return replaceSourceBuffer(editor, snapshot.buffer);
+    if (!sameBytes(editor.buffer.bytes, before.buffer.bytes)) {
+      // The editor was set from other bytes than the fold was made against: nothing to map the edit
+      // through. Its text stays as it is, unfolded; nothing typed in either pane is lost (the other
+      // pane's is in the store and its history).
+      console.warn('marxy: a fold from another pane met Source text built on other bytes; the editor keeps its text');
+      return;
+    }
+    const { range, after } = own.edit;
+    const s = incoming.range.start;
+    const removed = incoming.before.length;
+    const inserted = incoming.after.length;
+    const map = (pos: number): number =>
+      pos < s ? pos : pos >= s + removed ? pos + inserted - removed : s + gapThroughRun(incoming.before, incoming.after, pos - s);
+    const start = map(range.start);
+    const end = Math.max(start, map(range.end));
+    const next = snapshot.buffer;
+    replaceSourceBuffer(editor, next);
+    const state = editor.view.state;
+    const cm = (byte: number): number => utf16ToCmPos(next, state, byteToUtf16(next, byte));
+    const caret = cm(start) + new TextDecoder().decode(after).length;
+    editor.view.dispatch({
+      changes: { from: cm(start), to: cm(end), insert: new TextDecoder().decode(after) },
+      selection: { anchor: caret, head: caret },
+    });
+  }
+
   /** The page's side of a committed transition on the shown store. */
   function followTransition(before: DocumentSnapshot, snapshot: DocumentSnapshot, change: Transition): void {
     if (keepTypedText(before, snapshot, change)) return;
@@ -990,7 +1078,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
         settlePage(Promise.resolve());
         return;
       case 'commitSource':
-        // Leaving Source (or folding before a save or a rename): the caller restores the position.
+        // Leaving Source (or folding before a save or a rename): the caller restores the position. Another
+        // view's fold reaches this view's editor too, or its next fold would write the old text back (D-11).
+        if (sourceEditor) followFoldIn(sourceEditor, before, snapshot, change.edit);
         try {
           rerenderFromBuffer();
         } catch (e) {

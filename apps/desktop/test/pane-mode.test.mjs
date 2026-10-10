@@ -319,3 +319,83 @@ test('with both panes in Source, line numbers toggle in the focused pane\'s edit
     assert.deepEqual(await gutters(), [before[0], !before[1]]);
   });
 });
+
+/** Types `typed` at the end of the first line of pane `slot`'s Source editor, through the keyboard. */
+async function typeAtFirstLineEnd(page, slot, typed) {
+  const mount = slot === 0 ? '#marxy-source' : '#marxy-source-2';
+  await page.focus(`${mount} .cm-content`);
+  await page.evaluate(async (mount) => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const view = activeSourceEditor(document.querySelector(mount)).view;
+    const end = view.state.doc.line(1).to;
+    view.dispatch({ selection: { anchor: end, head: end } });
+  }, mount);
+  await page.keyboard.type(typed);
+}
+
+/** Both panes on A.md, both in Source, the right one focused last. */
+async function bothInSource(page, mod) {
+  await page.keyboard.press(`${mod}+1`);
+  await page.keyboard.press(`${mod}+e`);
+  await page.waitForSelector('#marxy-source .cm-editor');
+  await page.keyboard.press(`${mod}+2`);
+  await page.keyboard.press(`${mod}+e`);
+  await page.waitForSelector('#marxy-source-2 .cm-editor');
+  assert.deepEqual(await modes(page), { panes: ['source', 'source'], body: 'source' });
+}
+
+const firstLines = async (page) => [
+  (await editorText(page, 0)).split('\n')[0],
+  (await editorText(page, 1)).split('\n')[0],
+  (await storeText(page, 0)).split('\n')[0],
+];
+
+test('the same file in Source in both panes: each pane\'s fold reaches the other editor, so neither writes the other\'s typing back out', async () => {
+  await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
+    await bothInSource(page, mod);
+    await page.keyboard.press(`${mod}+1`);
+    await typeAtFirstLineEnd(page, 0, 'X');
+    await page.keyboard.press(`${mod}+2`);
+    assert.deepEqual(await firstLines(page), ['# AlphaX', '# AlphaX', '# AlphaX']);
+    await typeAtFirstLineEnd(page, 1, 'Y');
+    await page.keyboard.press(`${mod}+1`);
+    assert.deepEqual(await firstLines(page), ['# AlphaXY', '# AlphaXY', '# AlphaXY']);
+    await typeAtFirstLineEnd(page, 0, 'Z');
+    await page.keyboard.press(`${mod}+2`);
+    assert.deepEqual(await firstLines(page), ['# AlphaXYZ', '# AlphaXYZ', '# AlphaXYZ']);
+    // Leaving Source in either pane writes nothing back over the other's.
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.mode === 'rendered');
+    assert.equal((await storeText(page, 0)).split('\n')[0], '# AlphaXYZ');
+    await page.waitForFunction(() => document.querySelector('#doc-2 h1')?.textContent.includes('AlphaXYZ'));
+  });
+});
+
+test('a fold from the other pane meets Source text of this pane\'s own not yet folded: both are kept', async () => {
+  await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
+    await bothInSource(page, mod);
+    // The right pane focused, with typing of its own still in its editor alone.
+    await typeAtFirstLineEnd(page, 1, 'Y');
+    assert.equal((await storeText(page, 0)).split('\n')[0], '# Alpha');
+    // The left editor takes an edit at the same place and at a later line, and is folded while the
+    // right pane keeps focus (as a fold before a save of the left document would).
+    await page.evaluate(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      const view = activeSourceEditor(document.getElementById('marxy-source')).view;
+      const end = view.state.doc.line(1).to;
+      const later = view.state.doc.line(3).from;
+      view.dispatch({ changes: [{ from: end, insert: 'X' }, { from: later, insert: 'Lx ' }] });
+      await window.__marxyHandle.panes().panes[0].content.foldSource();
+    });
+    const store = await storeText(page, 0);
+    assert.ok(store.startsWith('# AlphaX\n\nLx Alpha'), store.slice(0, 40));
+    const right = await editorText(page, 1);
+    assert.ok(right.startsWith('# AlphaXY\n\nLx Alpha'), right.slice(0, 40));
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.sourceHasUnfoldedEdits()), true);
+    // The right pane's own text folds when focus leaves it, on top of the left's: both in the store.
+    await page.keyboard.press(`${mod}+1`);
+    const both = await storeText(page, 0);
+    assert.ok(both.startsWith('# AlphaXY\n\nLx Alpha'), both.slice(0, 40));
+    assert.deepEqual(await firstLines(page), ['# AlphaXY', '# AlphaXY', '# AlphaXY']);
+  });
+});
