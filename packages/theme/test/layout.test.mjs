@@ -220,3 +220,26 @@ for (const width of [320, 1280]) {
     }
   });
 }
+
+// F-22: the marker box must not grow its line: a list's height stays a whole number of grid units
+// (half a line box), at the default size and at 28px (where the unit is 21px), so what follows it keeps the grid.
+for (const size of [20, 28]) {
+  test(`an ordered list is a whole number of grid units tall at ${size}px type (F-22)`, async () => {
+    const md = '1. one\n2. two\n3. three\n\n10. ten\n11. eleven\n\nafter\n';
+    const page = await openPage(browser, renderMarkdown(md), { width: 1280, extraCss: `:root { --marxy-size-body: ${size}px; }` });
+    const r = await page.evaluate(() => {
+      const unit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-half')) || 0;
+      const probe = document.createElement('div');
+      probe.style.height = 'var(--marxy-half)';
+      document.getElementById('doc').append(probe);
+      const half = probe.getBoundingClientRect().height;
+      probe.remove();
+      return { half, heights: [...document.querySelectorAll('#doc > ol')].map((ol) => ol.getBoundingClientRect().height), unit };
+    });
+    await page.close();
+    for (const h of r.heights) {
+      const units = h / r.half;
+      assert.ok(Math.abs(units - Math.round(units)) < 0.001, `an ordered list is ${h}px tall, ${units} grid units of ${r.half}px`);
+    }
+  });
+}

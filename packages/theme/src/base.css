@@ -236,6 +236,8 @@ li::marker { color: var(--marxy-color-text-secondary); font-variant-numeric: tab
   box-sizing: border-box;
   min-width: 2.25em;
   white-space: nowrap;
+  /* Top-aligned, so the box takes no part in baseline alignment and cannot grow its line (cf. B-22). */
+  vertical-align: top;
   /* The gap sits inside the hanging box: a margin outside it pushed each item's first line 0.35em
      right of its own continuation lines (found by the hang check, ADR-0033). */
   margin-inline: -2.25em 0;
