@@ -10,6 +10,8 @@ import { commands, type Command } from '../commands/index.ts';
 import { withPaletteListing } from '../commands/navigation.ts';
 import type { DocumentStore } from '../document/store.ts';
 import { appendInvisibleSegments } from '../render/invisibles-dom.ts';
+import { focusOrigin } from '../pane/focus.ts';
+import { splitRefusal } from '../pane/fit.ts';
 import { buildAppContext, setPaletteCloser, setPaletteOpener } from '../selection/bind.ts';
 import { copyDefault, markdownCopy } from '../selection/verbs.ts';
 import {
@@ -30,6 +32,7 @@ import {
   spokenAge,
   type EmptySection,
   type EmptySectionKind,
+  EMPTY_STATE_LIMIT,
 } from './empty-state.ts';
 import { setOpenListener } from './history.ts';
 import { createIndexFeed, type IndexFeed } from './index-feed.ts';
@@ -40,6 +43,7 @@ import {
   goBack,
   goForward,
   markRead,
+  recentExcluding,
   recordOpen,
   togglePin,
   type PaletteSession,
@@ -97,12 +101,30 @@ export interface PaletteDeps {
   readonly now?: () => number;
   /** Called each time the palette is summoned: the index re-walks folders it could not watch (C-11). */
   readonly onSummon?: () => void;
+  /**
+   * Open beside (D-07). Opens `path` in the other pane, making it when there is one pane, and moves focus
+   * there. Without it a document opens here (`openDocument`).
+   */
+  readonly openBeside?: (path: string, at?: number, onLanded?: () => void) => Promise<void>;
+  /** The documents the panes show now; "open beside" does not offer them again. */
+  readonly visiblePaths?: () => readonly string[];
+  /** Why a second pane cannot be made now (the window is too narrow), or null. */
+  readonly splitRefusal?: () => string | null;
+  /** The pane focused as the palette opens, to give focus back to on dismissal; null with one pane. */
+  readonly focusOrigin?: () => { restore(): void } | null;
 }
+
+/** Where a chosen document opens: in the focused pane (`'here'`) or the other one (`'split'`, D-07). */
+export type PaletteTarget = 'here' | 'split';
 
 export interface PaletteController {
   readonly session: PaletteSession;
-  /** Summons the palette; with `query` (such as `'>'`), opens it on that query (C-06, for C-13's menu). */
-  open(query?: string): void;
+  /**
+   * Summons the palette; with `query` (such as `'>'`), opens it on that query (C-06, for C-13's menu).
+   * With `target: 'split'` it is "open beside": the empty list is the recent documents not on screen, and
+   * Enter opens the chosen one in the other pane (D-07).
+   */
+  open(query?: string, opts?: { target?: PaletteTarget }): void;
   close(): void;
   setIndexEntries(entries: readonly IndexEntry[]): void;
   /** What the palette searches: the index in scope order (C-10). The collection sets its folders here. */
@@ -664,7 +686,37 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   // keystroke: clearing the query reuses it. Ages are those of the moment of the summons.
   let emptyNow = now();
   let emptyCache: { entries: readonly IndexEntry[]; session: PaletteSession; sections: readonly EmptySection[] } | undefined;
+  let target: PaletteTarget = 'here';
+  /** The paths the panes showed as the palette was summoned (beside mode leaves them out). */
+  let visible: readonly string[] = [];
+  /** Set when a second pane was refused: shown in place of the notice, until the next key. */
+  let refusal: string | undefined;
+  let origin: { restore(): void } | null = null;
+  /** Beside mode with nothing typed: Recent alone, the MRU without what is on screen. */
+  const besideSections = (): readonly EmptySection[] => {
+    const byPath = new Map<string, IndexEntry>();
+    for (const entry of feed.entries()) byPath.set(entry.path, entry);
+    const hits: IndexHit[] = [];
+    for (const path of recentExcluding(session, visible)) {
+      if (hits.length >= EMPTY_STATE_LIMIT) break;
+      const indexed = byPath.get(path);
+      const read = session.readAt[path];
+      // A document opened from outside the index still has a row: it was read, so it can be read again.
+      const entry: IndexEntry = indexed ?? {
+        path,
+        root: session.currentRoot,
+        title: path.slice(path.lastIndexOf('/') + 1),
+        headings: [],
+        mtimeMs: read ?? 0,
+        size: 0,
+        kind: 'markdown',
+      };
+      hits.push({ entry: read === undefined ? entry : { ...entry, lastReadMs: read }, score: 0 });
+    }
+    return hits.length === 0 ? [] : [{ kind: 'recent', hits }];
+  };
   const emptySections = (): readonly EmptySection[] => {
+    if (target === 'split') return besideSections();
     const entries = feed.entries();
     if (emptyCache !== undefined && emptyCache.entries === entries && emptyCache.session === session) {
       return emptyCache.sections;
@@ -754,8 +806,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     model = query(input.value);
     selected = Math.min(selected, Math.max(0, rowCountOf(model) - 1));
     paintModel();
-    if (model.notice) {
-      notice.textContent = model.notice;
+    const line = refusal ?? (target === 'split' ? (model.notice ? `Open beside. ${model.notice}` : 'Open beside') : model.notice);
+    if (line) {
+      notice.textContent = line;
       notice.hidden = false;
     } else {
       notice.hidden = true;
@@ -763,8 +816,13 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (markPerf !== undefined) recordKeystrokePaint(markPerf, deps.shell);
   };
 
-  const summon = (withQuery?: string) => {
+  const summon = (withQuery?: string, opts?: { target?: PaletteTarget }) => {
     open = true;
+    target = opts?.target ?? 'here';
+    refusal = undefined;
+    visible = target === 'split' ? (deps.visiblePaths?.() ?? []) : [];
+    // The pane focused now, once: a second summons (the beside chord pressed in the palette) keeps it.
+    origin ??= deps.focusOrigin?.() ?? null;
     chordCache = undefined;
     emptyNow = now();
     emptyCache = undefined;
@@ -784,6 +842,10 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     open = false;
     search?.cancel();
     if (deps.dialog.open) deps.dialog.close();
+    // With two panes, focus goes back to the one the palette was summoned from (D-06's focusOrigin); an
+    // open beside moves it on once the document is on screen.
+    origin?.restore();
+    origin = null;
   };
 
   // Every rebuild of what the palette searches repaints it: a new walk, a folder added or dropped.
@@ -796,8 +858,8 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   });
 
   list.addEventListener('click', (event) => {
-    const target = event.target as { closest?: (s: string) => Element | null } | null;
-    const row = target?.closest?.('.marxy-palette-row') as HTMLElement | null | undefined;
+    const eventTarget = event.target as { closest?: (s: string) => Element | null } | null;
+    const row = eventTarget?.closest?.('.marxy-palette-row') as HTMLElement | null | undefined;
     if (!row) return;
     // Section labels sit between rows in the empty phase: count rows only.
     const index = Array.prototype.indexOf.call(list.querySelectorAll('.marxy-palette-row'), row);
@@ -805,20 +867,39 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     if (model.phase === 'operations') {
       runPaletteCommand(model.operationCommands[index]);
     } else if (model.phase === 'content') {
-      void activateContentHit(model.contentHits?.[index]);
+      void activateContentHit(model.contentHits?.[index], target === 'split');
     } else {
-      void activateHit(model.hits[index]);
+      void activateHit(model.hits[index], target === 'split');
     }
   });
 
-  const activateHit = async (hit: IndexHit | undefined) => {
+  /**
+   * Whether this open goes beside and cannot: when a second pane cannot be made the palette stays up with
+   * the reason in its notice line, and Enter then opens the document here (the reader loses nothing).
+   */
+  const besideRefused = (beside: boolean): boolean => {
+    if (!beside) return false;
+    const reason = deps.splitRefusal?.() ?? null;
+    if (reason === null) return false;
+    refusal = `${reason} Enter opens it here.`;
+    target = 'here';
+    repaint();
+    return true;
+  };
+
+  const activateHit = async (hit: IndexHit | undefined, beside = false) => {
     if (hit === undefined) return;
+    if (besideRefused(beside)) return;
     const jump = jumpForHit(hit);
     session = recordOpen(session, jump.path, hit.entry.root);
     syncSession();
     dismiss();
     // After the palette is gone, and off this tick: the open never waits on a re-prepare.
     setTimeout(() => feed.refresh(), 0);
+    if (beside && deps.openBeside !== undefined) {
+      await deps.openBeside(jump.path, jump.byteOffset);
+      return;
+    }
     // The document on screen with no heading to land on: nothing to open.
     if (deps.getCurrentPath() === jump.path && jump.byteOffset === undefined) return;
     await renderPath(deps, jump.path, jump.byteOffset);
@@ -829,19 +910,26 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     return session.currentRoot;
   };
   /** Open the file at the match and select the block that holds it (C-17). */
-  const activateContentHit = async (hit: ContentHit | undefined) => {
+  const activateContentHit = async (hit: ContentHit | undefined, beside = false) => {
     if (hit === undefined) return;
+    if (besideRefused(beside)) return;
     session = recordOpen(session, hit.path, rootOf(hit.path));
     syncSession();
     dismiss();
     setTimeout(() => feed.refresh(), 0);
     // The block is selected once the hit's document is on screen: over unsaved edits that waits for "Save
     // and open" or "Open without saving", and "Dismiss" leaves the open document untouched.
-    await renderPath(deps, hit.path, hit.byteOffset, () => deps.selectBlockAtByte?.(hit.byteOffset));
+    const select = () => deps.selectBlockAtByte?.(hit.byteOffset);
+    if (beside && deps.openBeside !== undefined) {
+      await deps.openBeside(hit.path, hit.byteOffset, select);
+      return;
+    }
+    await renderPath(deps, hit.path, hit.byteOffset, select);
   };
 
   input.addEventListener('input', () => {
     selected = 0;
+    refusal = undefined;
     const started = performance.now();
     syncContent();
     repaint();
@@ -887,9 +975,9 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
       if (model.phase === 'operations') {
         runPaletteCommand(model.operationCommands[selected]);
       } else if (model.phase === 'content') {
-        void activateContentHit(model.contentHits?.[selected]);
+        void activateContentHit(model.contentHits?.[selected], target === 'split' || isMod(event));
       } else {
-        void activateHit(model.hits[selected]);
+        void activateHit(model.hits[selected], target === 'split' || isMod(event));
       }
     }
   });
@@ -965,11 +1053,14 @@ export function mountPaletteFromHandle(
   if (!(article instanceof HTMLElement) || !(dialog instanceof HTMLDialogElement)) {
     throw new Error('palette mount: expected #doc and dialog#marxy-palette in the document');
   }
-  const scroller = document.documentElement;
+  const panes = typeof handle.panes === 'function' ? handle.panes() : null;
   const controller = mountPaletteApp({
     shell: handle.shell,
     article,
-    scroller,
+    // The focused pane's scroller, asked each time: it moves with focus and with a split (D-05, D-07).
+    get scroller() {
+      return handle.panes().focused.view.host.scroller;
+    },
     dialog,
     // What is on screen is the app's to say. A copy kept here and moved to the history tip on every
     // session change named the document being opened as the one already shown, so it never opened.
@@ -983,6 +1074,10 @@ export function mountPaletteFromHandle(
     baselineMs: (root) => handle.index.baselineMs(root),
     checkoutKey: (path) => handle.index.checkoutKey(path),
     onSummon: () => handle.index.revalidate(),
+    openBeside: (path, at, onLanded) => handle.open(path, { at, onLanded, target: 'other' }),
+    visiblePaths: () => (panes?.panes ?? []).map((pane) => pane.path()).filter((path): path is string => path !== null),
+    splitRefusal: () => (panes ? splitRefusal(panes) : null),
+    focusOrigin: () => (panes && panes.panes.length > 1 ? focusOrigin(panes) : null),
   });
   setPaletteCloser(() => controller.close());
   setPaletteOpener((query) => controller.open(query));
