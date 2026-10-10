@@ -2,6 +2,9 @@
 
 **Status:** accepted
 
+**Amended by:** [ADR-0060](0060-kinds.md) (proposed): a file's kind, not its being Markdown, decides
+which mode it opens in; a kind with no profile yet still opens as this record says.
+
 ## Decision
 **Rendered**: typeset, no caret, selection and operations. **Source**: the raw text in
 CodeMirror 6 with caret, undo, multi-cursor; also the code viewer for files opened directly.
