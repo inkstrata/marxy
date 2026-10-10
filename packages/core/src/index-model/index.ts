@@ -33,3 +33,9 @@ export {
   type ParseCollectionResult,
 } from './collection.ts';
 export { planEvents, ignoreRulesFrom, type FileEvent, type EventPlan } from './apply-events.ts';
+export {
+  parseCaptures,
+  capturePrivacyLines,
+  CAPTURE_PRIVACY_LINE,
+  type CaptureRule,
+} from './capture.ts';
