@@ -5,6 +5,7 @@ import { collectionCommands } from './collection.ts';
 import { copyTextCommands } from './copy-text.ts';
 import { documentCommands } from './document.ts';
 import { editorCommands } from './editor.ts';
+import { findCommands } from './find.ts';
 import { navigationCommands } from './navigation.ts';
 import { outlineCommands } from './outline.ts';
 import { paneLayoutCommands } from './pane-layout.ts';
@@ -35,6 +36,7 @@ export function commands(): readonly Command[] {
     ...editorCommands(),
     ...collectionCommands(),
     ...copyTextCommands(),
+    ...findCommands(),
     ...OPERATIONS.map(fromOperation),
   ];
 }
