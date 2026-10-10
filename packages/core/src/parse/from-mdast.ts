@@ -131,16 +131,54 @@ function utf16Range(node: Positioned & { type: string }, ctx: Ctx): [number, num
 
 // --- blocks ------------------------------------------------------------------------------------
 
-function blocks(nodes: readonly md.RootContent[], ctx: Ctx): Block[] {
+/**
+ * What holds a run of blocks, as far as code cares: a list item eats the whole of a blank line, so a
+ * line of spaces alone in its code is an empty line (CommonMark's list-item continuation), while the
+ * document and a block quote leave a blank line's indentation to the code (F-20.2).
+ */
+type Container = 'root' | 'item' | 'other';
+
+function blocks(nodes: readonly md.RootContent[], ctx: Ctx, container: Container = 'root'): Block[] {
   const out: Block[] = [];
-  for (const node of nodes) {
-    const converted = block(node, ctx);
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index]!;
+    // micromark ends indented code at a blank line when the code follows a block quote's last line
+    // (`>`, then `    x`, a blank line, `    y`), though a blank line never ends indented code: the
+    // run is one block, as CommonMark reads it (F-20.2).
+    let last = index;
+    while (container !== 'other' && isIndentedCode(nodes[last]) && isIndentedCode(nodes[last + 1])
+      && blankBetween(nodes[last]!, nodes[last + 1]!, ctx) !== undefined) last++;
+    const converted = last > index
+      ? mergedCode(nodes.slice(index, last + 1) as md.Code[], ctx, container)
+      : block(node, ctx, container);
+    index = last;
     if (converted) out.push(converted);
   }
   return out;
 }
 
-function block(node: md.RootContent, ctx: Ctx): Block | undefined {
+const isIndentedCode = (node: md.RootContent | undefined): node is md.Code =>
+  node?.type === 'code' && !fencedCode.has(node);
+
+/**
+ * The lines between two blocks when only blank lines are there: their text and the line endings that
+ * end the first block's line and each of them. The text after the last ending is the next block's
+ * indentation, not a line.
+ */
+function blankBetween(before: md.RootContent, after: md.RootContent, ctx: Ctx): CodeLines | undefined {
+  const between = ctx.text.slice(utf16Range(before, ctx)[1], utf16Range(after, ctx)[0]);
+  if (!/^(?:\r\n|\r|\n)[ \t\r\n]*$/.test(between)) return undefined;
+  const lines: string[] = [];
+  const endings: string[] = [];
+  for (let at = 0, ending = nextLineEnding(between, 0); ending !== undefined; ending = nextLineEnding(between, at)) {
+    if (at > 0) lines.push(between.slice(at, ending.start));
+    endings.push(between.slice(ending.start, ending.end));
+    at = ending.end;
+  }
+  return { lines, endings };
+}
+
+function block(node: md.RootContent, ctx: Ctx, container: Container): Block | undefined {
   const src = range(node, ctx);
   // TOML frontmatter is a node type mdast-util-frontmatter adds without a type declaration.
   if ((node.type as string) === 'toml') return { type: 'frontmatter', src, value: (node as md.Yaml).value };
@@ -150,7 +188,7 @@ function block(node: md.RootContent, ctx: Ctx): Block | undefined {
     case 'heading':
       return { type: 'heading', src, level: node.depth as Heading['level'], children: inlines(node.children, ctx) };
     case 'blockquote':
-      return { type: 'blockquote', src, children: blocks(node.children, ctx) };
+      return { type: 'blockquote', src, children: blocks(node.children, ctx, 'other') };
     case 'thematicBreak':
       return { type: 'thematicBreak', src };
     case 'list':
@@ -158,7 +196,7 @@ function block(node: md.RootContent, ctx: Ctx): Block | undefined {
     case 'listItem':
       return listItem(node, src, ctx);
     case 'code':
-      return codeBlock(node, src, ctx);
+      return codeBlock(node, src, ctx, container);
     case 'html':
       return { type: 'htmlBlock', src, value: node.value };
     case 'math':
@@ -166,7 +204,7 @@ function block(node: md.RootContent, ctx: Ctx): Block | undefined {
     case 'yaml':
       return { type: 'frontmatter', src, value: node.value };
     case 'footnoteDefinition':
-      return { type: 'footnoteDefinition', src, label: node.label ?? node.identifier, children: blocks(node.children, ctx) };
+      return { type: 'footnoteDefinition', src, label: node.label ?? node.identifier, children: blocks(node.children, ctx, 'other') };
     case 'table':
       return {
         type: 'table', src,
@@ -198,7 +236,7 @@ function list(node: md.List, src: Source, ctx: Ctx): List {
 }
 
 function listItem(node: md.ListItem, src: Source, ctx: Ctx): ListItem {
-  const children = blocks(node.children, ctx);
+  const children = blocks(node.children, ctx, 'item');
   if (node.checked === null || node.checked === undefined) return { type: 'listItem', src, children };
   const task = node.checked ? 'checked' as const : 'unchecked' as const;
   const withMarker = attachTaskMarker(children, node, ctx);
@@ -253,10 +291,14 @@ const markedTrees = new WeakSet<object>();
 export const fencedCodeMarker: MdastExtension = {
   transforms: [(tree) => { markedTrees.add(tree); }],
   enter: {
-    // A token no other handler takes, and one only a fence has; the code node is on top of the stack.
+    // A token no other handler takes, and one only a fence has. At the opening fence the code node is
+    // on top of the stack; at the closing one, the buffer its value is read into is, above it.
     codeFencedFenceSequence(this: CompileContext) {
-      const node = this.stack[this.stack.length - 1];
-      if (node?.type === 'code') fencedCode.add(node);
+      const top = this.stack[this.stack.length - 1];
+      const node = top?.type === 'fragment' ? this.stack[this.stack.length - 2] : top;
+      if (node?.type !== 'code') return;
+      fencedCode.add(node);
+      fences.set(node, (fences.get(node) ?? 0) + 1);
     },
     // No other handler takes a line ending on entry; mdast appends it to the code's buffer on exit.
     lineEnding(this: CompileContext, token) {
@@ -265,60 +307,120 @@ export const fencedCodeMarker: MdastExtension = {
       if (top?.type !== 'fragment' || node?.type !== 'code') return;
       const tail = top.children[top.children.length - 1];
       const endings = codeEndings.get(node) ?? [];
-      endings.push({ at: tail?.type === 'text' ? tail.value.length : 0, text: this.sliceSerialize(token) });
+      const text = this.sliceSerialize(token);
+      // The token's own end can reach over the next line's indentation; the ending is its first characters.
+      endings.push({ at: tail?.type === 'text' ? tail.value.length : 0, text, end: token.start.offset + text.length });
       codeEndings.set(node, endings);
     },
   },
 };
 
-/**
- * Where each line ending of a code block sits in the text mdast builds its value from, recorded by
- * `fencedCodeMarker`. mdast trims that text with `/^(\r?\n|\r)|(\r?\n|\r)$/`, meaning to drop the
- * opening fence's line ending and the last line's. A CR, a line of indentation alone (which leaves no
- * text) and an LF read as one CRLF there, so the trim takes a blank line with it (F-20.1).
- */
-const codeEndings = new WeakMap<object, { at: number; text: string }[]>();
+/** How many fences each fenced code node has: two when it is closed, one when its container or the file ends it. */
+const fences = new WeakMap<object, number>();
 
 /**
- * A fenced code block's value with one line ending trimmed at each end, as CommonMark has it, whatever
- * mdast's trim took; an indented block's is mdast's own. `value` is mdast's; the text it came from is rebuilt from it and the endings.
+ * Where each line ending of a code block sits in the text mdast builds its value from (`at`), and
+ * where it ends in the document's text (`end`), recorded by `fencedCodeMarker`. That text is every
+ * line's code with the line endings between, the opening fence's ending first; mdast trims it with
+ * `/^(\r?\n|\r)|(\r?\n|\r)$/`, meaning to drop the opening fence's ending and the last line's.
  */
-function codeValue(node: md.Code, fenced: boolean): string {
-  // Indented code holds no opening ending, and its buffer also holds the endings of trailing blank
-  // lines, which CommonMark drops: an ending the trim took there is never put back (F-20.1 review).
-  if (!fenced) return node.value;
-  const endings = codeEndings.get(node);
-  // Without a lone CR the trim cannot take two endings for one.
-  if (!endings || !endings.some((ending) => ending.text === '\r')) return node.value;
+const codeEndings = new WeakMap<object, { at: number; text: string; end: number }[]>();
+
+/** A code block's value and how many lines it has, since an empty value can be no line or one empty line. */
+interface CodeText { readonly value: string; readonly lines: number }
+
+/** A code block's lines, and the line endings between them (one fewer). */
+interface CodeLines { readonly lines: string[]; readonly endings: string[] }
+
+/**
+ * The lines of a code node as micromark read them, before CommonMark's rules for the first and last
+ * are applied: the text mdast trimmed is rebuilt from its value and the recorded endings, then cut at
+ * those endings. Undefined when no ending was recorded (one line, or an mdast whose buffer this module
+ * cannot read).
+ *
+ * The value cannot simply be split: a CR, a line of indentation alone (which leaves no text) and an
+ * LF read as one CRLF there, so the trim takes a blank line with it (F-20.1), and the line count is lost.
+ */
+function readCodeLines(node: md.Code): CodeLines | undefined {
+  const recorded = codeEndings.get(node);
+  if (!recorded || recorded.length === 0) return undefined;
   const charAt = (index: number): string => {
-    const ending = endings.find((candidate) => index >= candidate.at && index < candidate.at + candidate.text.length);
+    const ending = recorded.find((candidate) => index >= candidate.at && index < candidate.at + candidate.text.length);
     return ending ? ending.text[index - ending.at]! : '';
   };
-  // What mdast's trim took from the front: the opening fence's line ending, when the text has one.
-  const opens = endings[0]!.at === 0;
-  const lead = !opens ? 0 : charAt(0) === '\r' && charAt(1) === '\n' ? 2 : 1;
-  const last = endings[endings.length - 1]!;
+  // What mdast's trim took from the front: an ending there, CR and LF together if both are there.
+  const lead = recorded[0]!.at !== 0 ? 0 : charAt(0) === '\r' && charAt(1) === '\n' ? 2 : 1;
+  const last = recorded[recorded.length - 1]!;
+  // The trim takes from the back only when the text ends in an ending, which then reaches past the value.
   const length = Math.max(lead + node.value.length, last.at + last.text.length);
-  let head = '';
-  for (let index = 0; index < lead; index++) head += charAt(index);
-  let tail = '';
-  for (let index = lead + node.value.length; index < length; index++) tail += charAt(index);
-  const start = opens ? endings[0]!.text.length : 0;
-  const end = last.at + last.text.length === length ? last.at : length;
-  return (head + node.value + tail).slice(start, Math.max(start, end));
+  let text = '';
+  for (let index = 0; index < lead; index++) text += charAt(index);
+  text += node.value;
+  for (let index = text.length; index < length; index++) text += charAt(index);
+  const lines: string[] = [];
+  let at = 0;
+  for (const ending of recorded) {
+    lines.push(text.slice(at, ending.at));
+    at = ending.at + ending.text.length;
+  }
+  lines.push(text.slice(at));
+  return { lines, endings: recorded.map((ending) => ending.text) };
 }
 
-function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
+const isBlank = (line: string): boolean => /^[ \t]*$/.test(line);
+
+/**
+ * The value CommonMark gives a code block from its lines, joined by the document's own endings. A
+ * blank line in a list item is empty, since the item's continuation takes all of its whitespace
+ * (`- ```` then `    ` keeps no spaces); indented code drops its trailing blank lines, endings and
+ * all, which micromark's range holds (`    a` then ` ` gives `a`, not `a\n`) (F-20.2).
+ */
+function joinCode({ lines, endings }: CodeLines, indented: boolean, container: Container): CodeText {
+  const kept = container === 'item' ? lines.map((line) => (isBlank(line) ? '' : line)) : [...lines];
+  let count = kept.length;
+  if (indented) while (count > 1 && isBlank(kept[count - 1]!)) count--;
+  let value = kept[0] ?? '';
+  for (let index = 1; index < count; index++) value += endings[index - 1]! + kept[index]!;
+  return { value, lines: count };
+}
+
+/**
+ * A code block's value: its lines between the fences, or all of an indented block's lines. A fence's
+ * text holds the opening fence's ending first, which is dropped with the empty line before it, and a
+ * closed block's last ending, after which nothing is left. A block its container or the file ends
+ * keeps its last line, empty or not, unless its range stops just past that line's ending (F-20.2:
+ * `- ~~~` then four lines of spaces alone has five lines; mdast's trim took the last one).
+ */
+function codeValue(node: md.Code, fenced: boolean, container: Container, end: number): CodeText {
+  const read = readCodeLines(node);
+  if (read === undefined) {
+    const value = container === 'item' && isBlank(node.value) ? '' : node.value;
+    return { value, lines: !fenced || value !== '' ? 1 : 0 };
+  }
+  const { lines, endings } = read;
+  if (fenced) {
+    lines.shift();
+    endings.shift();
+    const last = codeEndings.get(node)!.at(-1)!;
+    if ((fences.get(node) ?? 0) > 1 || last.end === end) {
+      lines.pop();
+      endings.pop();
+    }
+  }
+  return joinCode({ lines, endings }, !fenced, container);
+}
+
+function codeBlock(node: md.Code, src: Source, ctx: Ctx, container: Container): Block {
   const [start, end] = utf16Range(node, ctx);
   const raw = ctx.text.slice(start, end);
   if (!ctx.marked) {
     throw new Error(`parse: ${ctx.file} was built without fencedCodeMarker, so its code blocks cannot tell a fence from indentation`);
   }
   const fenced = fencedCode.has(node);
-  const value = codeValue(node, fenced);
+  const code = codeValue(node, fenced, container, end);
   const base = {
-    type: 'codeBlock' as const, src, value,
-    content: contentRange(raw, value, fenced, start, end, ctx),
+    type: 'codeBlock' as const, src, value: code.value,
+    content: contentRange(raw, code, fenced, start, end, ctx),
   };
   const info = fenced ? infoString(raw) : undefined;
   return {
@@ -326,6 +428,49 @@ function codeBlock(node: md.Code, src: Source, ctx: Ctx): Block {
     ...(node.lang ? { lang: node.lang } : {}),
     ...(info ? { info } : {}),
   };
+}
+
+/**
+ * Indented code blocks micromark split at a blank line, as one block: the lines of each, with the
+ * blank lines between, an indented block's four columns of indentation taken from each (F-20.2).
+ */
+function mergedCode(nodes: readonly md.Code[], ctx: Ctx, container: Container): Block {
+  if (!ctx.marked) {
+    throw new Error(`parse: ${ctx.file} was built without fencedCodeMarker, so its code blocks cannot tell a fence from indentation`);
+  }
+  const lines: string[] = [];
+  const endings: string[] = [];
+  nodes.forEach((node, index) => {
+    if (index > 0) {
+      const between = blankBetween(nodes[index - 1]!, node, ctx)!;
+      endings.push(between.endings[0]!);
+      between.lines.forEach((line, at) => {
+        lines.push(line.slice(indentEnd(line, 4)));
+        endings.push(between.endings[at + 1]!);
+      });
+    }
+    const read = readCodeLines(node) ?? { lines: [node.value], endings: [] };
+    lines.push(...read.lines);
+    endings.push(...read.endings);
+  });
+  const start = utf16Range(nodes[0]!, ctx)[0];
+  const end = utf16Range(nodes[nodes.length - 1]!, ctx)[1];
+  const code = joinCode({ lines, endings }, true, container);
+  return {
+    type: 'codeBlock', src: span(start, end, ctx), value: code.value,
+    content: contentRange(ctx.text.slice(start, end), code, false, start, end, ctx),
+  };
+}
+
+/** Where `columns` columns of a line's leading spaces and tabs end, a tab reaching the next stop of four. */
+function indentEnd(line: string, columns: number): number {
+  let column = 0;
+  let index = 0;
+  while (index < line.length && column < columns && (line[index] === ' ' || line[index] === '\t')) {
+    column = line[index] === '\t' ? column + 4 - (column % 4) : column + 1;
+    index++;
+  }
+  return column < columns ? line.length : index;
 }
 
 // Up to three *spaces* of indentation, per CommonMark: a leading tab is four columns. Used only on a
@@ -338,11 +483,12 @@ const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
  * because a fence may be indented by its container and an indented code block's source may trail
  * blank lines its value does not keep.
  */
-function contentRange(raw: string, value: string, fenced: boolean, start: number, end: number, ctx: Ctx): Source {
+function contentRange(raw: string, { value, lines }: CodeText, fenced: boolean, start: number, end: number, ctx: Ctx): Source {
   const openEnding = fenced ? nextLineEnding(raw, 0) : undefined;
   if (fenced && openEnding === undefined) return span(end, end, ctx); // An unterminated, empty fenced block.
   const offset = openEnding === undefined ? 0 : openEnding.end;
-  if (value.length === 0) return span(start + offset, start + offset, ctx);
+  // An empty value is no line at all (```` ``` ```` twice) or one empty line (with a blank line between).
+  if (lines === 0) return span(start + offset, start + offset, ctx);
   let cursor = offset;
   // value keeps the document's own endings (CR, CRLF or LF), one for each of the source's, so the two
   // are walked side by side. Counting on a bare LF would collapse a multi-line Classic Mac block to a

@@ -133,3 +133,12 @@ function touchMru(session: PaletteSession, path: string, now: number): PaletteSe
     mru: [path, ...session.mru.filter((item) => item !== path)].slice(0, OPENS_CAP),
   };
 }
+
+/**
+ * The documents "open beside" offers when nothing is typed: the MRU, newest first, without those already
+ * on screen (D-07). Pins do not lift a row here; the list is what was read last.
+ */
+export function recentExcluding(session: PaletteSession, paths: Iterable<string>): readonly string[] {
+  const shown = new Set(paths);
+  return session.mru.filter((path) => !shown.has(path));
+}
