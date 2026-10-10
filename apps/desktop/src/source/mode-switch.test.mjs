@@ -5,16 +5,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createBuffer } from '../../../../packages/core/src/buffer/buffer.ts';
 import { utf16ToByte } from '../../../../packages/core/src/buffer/index.ts';
-import { cmDocText, leaveSourceMode } from './buffer-commit.ts';
+import { cmDocText, leaveSourceMode, lineSeparatorFor } from './buffer-commit.ts';
 import { EditorState } from '@codemirror/state';
 import { cmPosToUtf16, utf16ToCmPos } from './cm-position.ts';
 import { renderedByteToCmPos, sourceReadingPosition } from './mode-switch.ts';
 
 /** The editor state the app builds for `buffer`: its doc and line separator. */
 function stateFor(buffer) {
-  // As `editorDocConfig` (source/editor.ts, which a node test cannot import) builds it.
-  const lineSeparator = buffer.eol === 'crlf' ? '\r\n' : '\n';
-  return EditorState.create({ doc: cmDocText(buffer), extensions: [EditorState.lineSeparator.of(lineSeparator)] });
+  // The one separator rule the editor itself uses (F-25), not a copy of it.
+  return EditorState.create({ doc: cmDocText(buffer), extensions: [EditorState.lineSeparator.of(lineSeparatorFor(buffer))] });
 }
 
 function byteOffsetRoundTrip(buffer, byteOffset) {
@@ -116,4 +115,16 @@ test('an LF file is unchanged by the conversion (F-23)', () => {
     assert.equal(cmPosToUtf16(buffer, state, pos), pos);
     assert.equal(utf16ToCmPos(buffer, state, pos), pos);
   }
+});
+
+test('a CR-only file: the shared separator rule splits on CR, and positions map as for CRLF (F-25)', () => {
+  const buffer = createBuffer('/tmp/x.ts', enc('ab\rcd\ref\r'));
+  assert.equal(lineSeparatorFor(buffer), '\r');
+  const state = stateFor(buffer);
+  assert.equal(state.lineBreak, '\r');
+  assert.equal(state.doc.lines, 4);
+  // CR is one character: positions equal buffer offsets.
+  for (let pos = 0; pos <= state.doc.length; pos++) assert.equal(cmPosToUtf16(buffer, state, pos), pos);
+  assert.equal(lineSeparatorFor(createBuffer('/tmp/x.ts', enc('a\r\nb\n'))), '\n', 'mixed keeps LF');
+  assert.equal(lineSeparatorFor(createBuffer('/tmp/x.ts', enc('a\r\nb\r\n'))), '\r\n');
 });

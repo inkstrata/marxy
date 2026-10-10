@@ -3,7 +3,7 @@
 import type { Buffer } from '@marxy/core';
 import type { EditorView } from '@codemirror/view';
 import { Compartment, type Extension } from '@codemirror/state';
-import { cmDocText } from './buffer-commit.ts';
+import { cmDocText, lineSeparatorFor } from './buffer-commit.ts';
 import { languageExtension, LARGE_FILE_BYTES } from './language.ts';
 import { setLineNumbersChoice } from './line-numbers.ts';
 import { marxyHighlighting } from './highlight-style.ts';
@@ -33,6 +33,7 @@ export interface SourceEditor {
 
 const lineNumbersCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
+const lineSeparatorCompartment = new Compartment();
 const themeCompartment = new Compartment();
 
 /**
@@ -70,7 +71,7 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
     return existing;
   }
   const cm = await loadCodeMirror();
-  const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment });
+  const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment, lineSeparatorCompartment });
   const rawDestroy = built.destroy.bind(built);
   // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built and
   // registered; comparing against `built` (the pre-wrap object) would never match the registered
@@ -95,16 +96,11 @@ export function isLargeSourceFile(buffer: Buffer): boolean {
   return buffer.bytes.length > LARGE_FILE_BYTES;
 }
 
-/**
- * Initial doc string and line separator for CM6. The separator is the file's own when every ending is
- * the same (CRLF, or a lone CR: a classic-Mac file). A mixed-ending file keeps `\n` as the separator:
- * its `\r\n` lines keep the CR as a character at the end of the line, and a lone CR is a character
- * inside a line (shown as a control mark), so no byte changes on an unchanged save (F-24).
- */
+/** Initial doc string and line separator for CM6 (the separator rule is `lineSeparatorFor`, F-24, F-25). */
 export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' | '\r' } {
   return {
     doc: cmDocText(buffer),
-    lineSeparator: buffer.eol === 'crlf' ? '\r\n' : buffer.eol === 'cr' ? '\r' : '\n',
+    lineSeparator: lineSeparatorFor(buffer),
   };
 }
 
@@ -132,7 +128,7 @@ async function gutterExtensions(folding: boolean): Promise<Extension[]> {
 export async function baseExtensions(
   buffer: Buffer,
   lineNumbers: boolean,
-  compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment },
+  compartments?: { lineNumbersCompartment: Compartment; tabSizeCompartment: Compartment; lineSeparatorCompartment?: Compartment },
 ): Promise<Extension[]> {
   const { history, defaultKeymap, historyKeymap } = await import('@codemirror/commands');
   const { EditorState } = await import('@codemirror/state');
@@ -145,6 +141,7 @@ export async function baseExtensions(
   const tabSize = await tabSizeForFile(buffer.path);
   const lnOn = lineNumbers;
   const lnComp = compartments?.lineNumbersCompartment ?? lineNumbersCompartment;
+  const sepComp = compartments?.lineSeparatorCompartment ?? lineSeparatorCompartment;
   const tabComp = compartments?.tabSizeCompartment ?? tabSizeCompartment;
 
   const exts: Extension[] = [
@@ -175,7 +172,8 @@ export async function baseExtensions(
       ...historyKeymap,
       ...searchKeymap,
     ]),
-    EditorState.lineSeparator.of(lineSeparator),
+    // A compartment: a reload that changes the file's line-ending class swaps it (F-25).
+    sepComp.of(EditorState.lineSeparator.of(lineSeparator)),
     tabComp.of(EditorState.tabSize.of(tabSize)),
     liveMarxyTheme(themeCompartment),
     marxyHighlighting(),
@@ -206,4 +204,4 @@ export function toggleLineNumbersInView(view: EditorView, on: boolean, compartme
   setLineNumbersChoice(on);
 }
 
-export { scrollSourceToByte, cmDocText };
+export { scrollSourceToByte, cmDocText, lineSeparatorFor };
