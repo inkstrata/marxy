@@ -13,7 +13,7 @@ is on screen, one step at a time, and Marxy always offers the column of text fir
 - Nothing else is on screen: no toolbar, tabs, sidebar, inspector or status bar. Window controls stay
   hidden until the pointer reaches them (ADR-0038).
 - Read and Source both fold. In Source, the editor alone shows, at the column's position.
-- The palette (`⌘P`), find, the outline and the verb menu are summoned and dismissed exactly as
+- The palette (`⌘K`, or today's `⌘P`), find, the outline and the verb menu are summoned and dismissed exactly as
   today. A reader who never unfolds has today's Marxy.
 - The window always opens folded.
 
@@ -71,8 +71,8 @@ beside the document.
 | `⌘\` | Fold or unfold the whole workspace |
 | `⌃⌘S` | Sidebar (from folded: unfolds with the sidebar) |
 | `⌥⌘I` | Inspector (from folded: unfolds with the inspector) |
-| `⌘1` `⌘2` `⌘3` | Read, Split, Source (`⌘E` keeps toggling Read and Source) |
-| `⌘P` | Palette, folded or not |
+| `⌘1` `⌘2` `⌘3` | Read, Split, Source (`⌘E` keeps toggling Read and Source, as today) |
+| `⌘K` | Palette, folded or not (`⌘P` stays as an alias; `⇧⌘P` opens it on commands; `⌘/` on transforms) |
 | `Esc` | Closes the topmost summoned thing; with nothing summoned, folds |
 
 Unfolding restores the panels the reader last had open. Folding never forgets them.
@@ -100,19 +100,19 @@ here*. Index status appears at the foot only when something is wrong.
 Galley's default toolbar has thirteen or more controls. Here it carries only what is not better as
 a key or a verb: a sidebar toggle at the far left (so a closed sidebar is always one click away),
 back and forward, the title and path, a **+** menu (*New file*, *New file in this folder*, *Fork
-this file*), the Read/Split/Source switch, the kind menu, Copy and Export, Find, and the inspector
-toggle. No theme switcher: themes are in the palette and on the themes page. Transform is in the
-palette and the verb menu. The customize sheet is kept, so a reader can put back what they use.
+this file*), the Read/Split/Source switch, the kind menu, Copy, Export and Transform (`⌘/`), Find,
+and the inspector toggle. No Extract button: Extract has no key and lives in the verb menu and the
+palette. No theme switcher: themes are in the palette and on the themes page. The customize sheet is kept, so a reader can put back what they use.
 
 ### Tabs
 
-Tabs return, in the unfolded workspace only (reversing ADR-0011 there). Folded, the palette's Recent
+Tabs return, in the unfolded workspace only (ADR-0058 reverses ADR-0011 there). Folded, the palette's Recent
 is still the switcher. Each tab shows the kind's icon, the name and an unsaved dot, and nothing else.
 
 ### Tool strip
 
 Each kind has its own strip of quick tools (Galley `03-content-modes.md`), shown only when unfolded:
-at most four per kind, for example Extract, Paths and Changes for a report; Wrap, Symbols and
+at most four per kind, for example Paths, Changes and Split by H2 for a report; Wrap, Symbols and
 Go to line for code; Filter and Table for data; Collapse tools for a transcript. AI tools (TL;DR, Summarise, Clean AI copy, Prose lint, Follow) are
 removed. Strips are customisable per kind in settings.
 
@@ -196,7 +196,8 @@ one place per surface plus keys, never a button on every block:
   has Copy with a chevron for Copy as.
 - **Source:** keys and the gutter's menu (*Copy line*, *Copy with path:line*); no copy button in
   the frame.
-- **Extract** has four items: code blocks, shell commands (prompts stripped), links, tables as CSV.
+- **Extract** has four items (code blocks, shell commands with prompts stripped, links, tables as
+  CSV), no key and no button: it is in the verb menu and the palette.
 - One quiet confirmation names what was copied and how ("Copied as Markdown · 412 chars · ≈108 tokens").
 
 The copy pack built in C-07 to C-09 supplies the formats.
@@ -242,10 +243,11 @@ them. In Source a selection always shows its bytes too, because there the bytes 
 
 ## The palette
 
-Galley's palette, minus Ask and Clipboard: everything mode, `>` commands, `#` headings here, `@`
-sections everywhere, `/` content search (Marxy's existing meaning of `/`, so Galley's transforms move
-under `>`), `~` collections and `:` line. It keeps Galley's preview pane, which shows a file's first
-lines in its kind, a section's text, or an operation's result before you commit.
+Galley's palette, minus Ask and Clipboard. `⌘K` opens it (`⌘P`, today's key, stays as an alias).
+Prefixes: everything (none), `>` commands, with the transforms grouped under them (`⌘/` opens the
+palette there, `⇧⌘P` on commands), `#` headings here, `@` sections everywhere, `/` content search
+(as shipped in C-17), `~` collections and `:` line. It keeps Galley's preview pane, which shows a
+file's first lines in its kind, a section's text, or a transform's result before you commit.
 
 ## The library
 

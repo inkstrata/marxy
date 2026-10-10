@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marxy Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/app.css">
+<link rel="stylesheet" href="shared/lang-colors.css">
+<style>
+  .findbar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--win); }
+  .findbar .field { height: 26px; width: 220px; }
+  .findbar .count { font-size: 11.5px; color: var(--fg-muted); min-width: 64px; }
+  ::highlight(find) { background-color: var(--mark); color: inherit; }
+  ::highlight(find-cur) { background-color: var(--accent); color: var(--accent-fg); }
+  .outline-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 12.5px; color: var(--fg); border: 0; background: none; width: 100%; text-align: left; }
+  .outline-row:hover { background: var(--hover); }
+  .outline-row.on { background: var(--accent-wash-strong); color: var(--fg-strong); }
+  .outline-row .meta { font-size: 11px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .outline-row.l3 { padding-left: 22px; } .outline-row.l4 { padding-left: 36px; }
+  .clip-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; padding: 6px 6px; border-radius: 6px; align-items: start; }
+  .clip-row:hover { background: var(--hover); }
+  .clip-row .t { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clip-row .s { font-size: 11px; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clip-row .acts { display: flex; gap: 1px; opacity: 0; }
+  .clip-row:hover .acts { opacity: 1; }
+  .clip-row .acts button { width: 22px; height: 22px; border: 0; background: none; border-radius: 5px; color: var(--fg-muted); display: grid; place-items: center; }
+  .clip-row .acts button:hover { background: var(--press); color: var(--fg); }
+  .ver-row { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; font-size: 12.5px; border: 0; background: none; width: 100%; text-align: left; color: var(--fg); }
+  .ver-row:hover { background: var(--hover); }
+  .ver-row.on { background: var(--accent-wash-strong); }
+  .ver-row .rail { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--edge); }
+  .ver-row.cur .rail { background: var(--ok); border-color: var(--ok); }
+  .diffview { font-family: var(--face-code); font-size: 12.5px; line-height: 1.6; padding: 0 0 40vh; }
+  .diffview .dl { display: grid; grid-template-columns: 3.2em 3.2em 1.4em 1fr; white-space: pre-wrap; }
+  .diffview .dl span:nth-child(-n+2) { color: var(--fg-faint); text-align: right; padding-right: 8px; user-select: none; }
+  .diffview .dl.add { background: var(--add-wash); } .diffview .dl.del { background: var(--del-wash); }
+  .diffview .dl.add span:nth-child(3) { color: var(--ok); font-weight: 700; } .diffview .dl.del span:nth-child(3) { color: var(--err); font-weight: 700; }
+  .diffview .hunk { color: var(--fg-muted); background: var(--inset); padding: 4px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-family: var(--face-chrome); font-size: 12px; }
+  .diff-head { display: flex; gap: 10px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--win); font-size: 12.5px; position: sticky; top: 0; z-index: 2; }
+  .sheet-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.22); display: flex; justify-content: center; align-items: flex-start; padding-top: 6vh; }
+  .sheet { width: min(980px, calc(100vw - 40px)); max-height: 84vh; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; animation: pop .14s var(--ease); }
+  .sheet-h { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .sheet-h b { font-size: 14px; }
+  .sheet-cols { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; flex: 1; }
+  .sheet-cols > div { overflow: auto; padding: 10px 14px; min-height: 0; }
+  .sheet-cols > div + div { border-left: 1px solid var(--line); }
+  .sheet-cols h5 { margin: 0 0 6px; font-size: 11px; color: var(--fg-faint); font-weight: 650; display: flex; gap: 8px; }
+  .sheet-cols pre { margin: 0; font: 12px/1.55 var(--face-code); white-space: pre-wrap; color: var(--fg); }
+  .sheet-f { display: flex; gap: 8px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); }
+  .reason { font-size: 11.5px; color: var(--fg-muted); display: flex; gap: 6px; align-items: center; padding: 2px 0; }
+</style>
+</head>
+<body>
+<div class="win" data-fold="folded" data-fold-keys>
+  <aside class="sidebar" data-slot="sidebar"></aside>
+  <div class="main">
+    <header class="toolbar" role="toolbar" aria-label="Document toolbar">
+      <div class="tb-group" style="margin-right:2px">
+        <button class="tb-btn" id="back" title="Back (⌘[)"><i data-lucide="chevron-left"></i></button>
+        <button class="tb-btn" id="fwd" title="Forward (⌘])"><i data-lucide="chevron-right"></i></button>
+      </div>
+      <div class="tb-title"><b id="t-title">Document</b><small id="t-path"></small></div>
+      <div class="seg" role="group" aria-label="View" id="viewseg">
+        <button data-view="render" title="Render only (⌘1)"><i data-lucide="book-open-text"></i>Read</button>
+        <button data-view="split" title="Render and source side by side (⌘2)"><i data-lucide="columns-2"></i>Split</button>
+        <button data-view="source" title="Source only (⌘3)"><i data-lucide="square-code"></i>Source</button>
+      </div>
+      <button class="kind-chip" id="kindchip" title="Content type: changes layout and typography"><i data-lucide="clipboard-list"></i><span id="kindname">Report</span><i data-lucide="chevron-down" class="chev"></i></button>
+      <div class="tb-space"></div>
+      <div class="tb-group">
+        <button class="tb-btn" id="b-new" title="New file, new file in this folder, fork this file (⌘N, ⇧⌘N)" aria-haspopup="menu"><i data-lucide="plus"></i><i data-lucide="chevron-down" class="chev"></i></button>
+      </div>
+      <div id="share-slot" style="display:contents"></div>
+      <div class="tb-group">
+        <button class="tb-btn" id="b-find" title="Find and replace (⌘F)"><i data-lucide="search"></i></button>
+        <button class="tb-btn" id="b-insp" title="Inspector (⌥⌘I)"><i data-lucide="panel-right"></i></button>
+      </div>
+    </header>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="workarea">
+      <div class="panes" id="panes" data-view="split">
+        <section class="pane pane-render" aria-label="Rendered document">
+          <div class="modebar" id="modebar" role="toolbar" aria-label="Tools for this content type"></div>
+          <div class="findbar" id="findbar" hidden>
+            <i data-lucide="search"></i><input class="field" id="find-q" placeholder="Find" aria-label="Find">
+            <button class="tb-btn" id="find-case" title="Match case" aria-pressed="false"><i data-lucide="case-sensitive"></i></button>
+            <button class="tb-btn" id="find-word" title="Whole word" aria-pressed="false"><i data-lucide="whole-word"></i></button>
+            <button class="tb-btn" id="find-re" title="Regular expression" aria-pressed="false"><i data-lucide="regex"></i></button>
+            <span class="count" id="find-count">No results</span>
+            <button class="tb-btn" id="find-prev" title="Previous (⇧⌘G)"><i data-lucide="arrow-up"></i></button>
+            <button class="tb-btn" id="find-next" title="Next (⌘G)"><i data-lucide="arrow-down"></i></button>
+            <span class="tb-div"></span>
+            <input class="field" id="find-r" placeholder="Replace in source" aria-label="Replace with" style="width:170px">
+            <button class="btn sm" id="find-rall">Replace all</button>
+            <span class="grow"></span>
+            <button class="tb-btn" id="find-x" title="Close (Esc)"><i data-lucide="x"></i></button>
+          </div>
+          <div class="pane-scroll" id="rscroll"><article class="doc" id="doc"></article><div id="diffhost" hidden></div></div>
+        </section>
+        <section class="pane pane-source" aria-label="Source">
+          <div id="edhost" style="flex:1;display:flex;min-height:0;min-width:0"></div>
+        </section>
+      </div>
+      <aside class="inspector" id="insp" aria-label="Inspector">
+        <div class="insp-tabs" role="tablist">
+          <button role="tab" data-it="outline" aria-selected="true"><i data-lucide="list-tree"></i>Outline</button>
+          <button role="tab" data-it="meta" aria-selected="false"><i data-lucide="info"></i>Metadata</button>
+          <button role="tab" data-it="versions" aria-selected="false"><i data-lucide="history"></i>Versions</button>
+          <button role="tab" data-it="links" aria-selected="false"><i data-lucide="link"></i>Links</button>
+        </div>
+        <div class="insp-body" id="insp-body"></div>
+      </aside>
+    </div>
+    <footer class="statusbar" id="status"></footer>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="shared/corpus.js"></script>
+<script src="shared/app.js"></script>
+<script src="shared/render.js"></script>
+<script>
+(function () {
+  const G = Marxy, { $, $$, esc, ic, fmt } = G;
+  const S = { doc: null, kind: null, view: G.prefs.view, res: null, tabs: ['pg16-plan', 'auth-handoff', 'indexer-rs', 'ragged-right'], hist: [], fwd: [], tool: {}, insp: 'outline', diffRev: null, lock: 0 };
+  const docEl = $('#doc'), rscroll = $('#rscroll');
+  let editor = null;
+
+  /* ----- Open and render ----- */
+  G.openDoc = (id, mods = {}) => {
+    const d = G.docById(id);
+    if (!d) { G.toast(`${esc(id)} is not in this prototype`, { icon: 'info' }); return; }
+    if (S.doc && S.doc.id !== id && !mods.noHist) { S.hist.push(S.doc.id); S.fwd = []; }
+    S.doc = d; S.kind = null; S.tool = {}; S.diffRev = null;
+    if (!S.tabs.includes(id)) S.tabs.push(id);
+    G.current = { id: d.id, title: d.title, path: d.path, lang: d.lang, src: d.src, collection: d.collection, kind: d.kind, headings: [] };
+    history.replaceState(null, '', '#doc=' + encodeURIComponent(id));
+    G.recent.push(id);
+    G.ui.mountSidebar({ active: '', reveal: true });
+    // Per-type default view: code, data, logs and terminal captures in Split would show the same text twice.
+    if (!mods.keepView) setView(['code', 'data', 'log', 'terminal'].includes(d.kind) ? 'render' : G.prefs.view);
+    buildEditor(); render(true); renderTabs(); renderModebar(); renderInspector(); G.icons();
+    if (mods.line) setTimeout(() => G.gotoLine(mods.line), 50);
+    if (d.scratch && !d.src) { setView(G.fold.isFolded() ? 'render' : 'split'); }
+  };
+  // Close a tab (and move to a neighbour when it was the one showing).
+  G.closeDoc = (id) => { const i = S.tabs.indexOf(id); S.tabs = S.tabs.filter((t) => t !== id); if (S.doc && S.doc.id === id) { const next = S.tabs[Math.min(i, S.tabs.length - 1)] || 'pg16-plan'; G.openDoc(next, { noHist: true }); } else renderTabs(); };
+  const docLang = (d) => G.langId(d && d.lang);
+  function kind() { return S.kind || S.doc.kind; }
+  function render(resetScroll) {
+    const keep = resetScroll ? 0 : rscroll.scrollTop;
+    S.res = G.renderDoc(docEl, S.doc, { kindTheme: true, kind: kind(), justify: S.tool.justify, focus: S.tool.focus, wrap: S.tool.wrap, literate: S.tool.literate, level: S.tool.level });
+    if (!S.doc.src.trim()) docEl.innerHTML = '<p class="faint" style="font:13px var(--face-chrome)">Empty document. Open Source (⌘3) and start writing; it writes nothing until you Save As.</p>';
+    G.current.headings = S.res.headings; G.current.src = S.doc.src; G.current.kind = kind();
+    if (S.tool.onlyPrompts) docEl.classList.add('only-prompts');
+    if (S.tool.onlyAnswers) docEl.classList.add('only-answers');
+    if (S.tool.collapse === false) $$('.toolcall', docEl).forEach((d) => (d.open = true));
+    if (S.tool.dropcap) docEl.classList.add('dropcap');
+    rscroll.scrollTop = keep;
+    const k = G.kinds[kind()];
+    $('#kindchip').innerHTML = `${ic(k.icon)}<span>${k.name}</span>${ic('chevron-down', 'chev')}`;
+    if (kind() === 'code' && docLang(S.doc)) $('#kindchip').dataset.lang = docLang(S.doc); else delete $('#kindchip').dataset.lang;
+    $('#t-title').textContent = S.doc.title; $('#t-path').textContent = S.doc.path || 'Unsaved · writes nothing until Save As';
+    document.title = S.doc.title + ' · Marxy';
+    renderStatus(); G.icons($('.toolbar'));
+    if (S.insp === 'outline' || S.insp === 'meta' || S.insp === 'links') renderInspector();
+    renderMetaMargin();
+  }
+  function buildEditor() {
+    $('#edhost').innerHTML = '';
+    const lang = S.doc.kind === 'code' ? (S.doc.lang || 'text') : S.doc.kind === 'data' ? (S.doc.lang && S.doc.lang !== 'csv' ? S.doc.lang : 'csv') : S.doc.kind === 'log' ? 'log' : S.doc.kind === 'terminal' ? 'term' : 'markdown';
+    editor = G.Editor($('#edhost'), { value: S.doc.src, lang, path: S.doc.path, kind: S.doc.kind, base: (G.prevVersions[S.doc.id] || {}).src != null ? G.prevVersions[S.doc.id].src : S.doc.src, wrap: G.prefs.edWrap, lint: lang === 'markdown', menuItems: () => [{ label: 'Sync scrolling with the reading pane', checked: G.prefs.syncScroll, run: () => { G.setPref('syncScroll', !G.prefs.syncScroll); } }, { label: 'Full source editor…', icon: 'maximize-2', run: () => (location.href = G.page('source')) }] });
+    G.editor = editor;
+    editor.on('change', (v) => { S.doc.src = v; render(); markChanged(); if (G.userDocs[S.doc.id]) { S.doc.unsaved = S.doc.unsaved || !!S.doc.path; G.saveUserDocs(); } });
+    editor.on('cursor', (n) => { markCursorBlock(n); renderStatus(); });
+    editor.on('scroll', (top) => { if (!G.prefs.syncScroll || S.view !== 'split' || Date.now() < S.lock) return; S.lock = Date.now() + 80; scrollRenderToLine(top); });
+  }
+  function markChanged() { const t = $(`.tab[data-id="${S.doc.id}"] .mod`); if (t) t.hidden = false; }
+  G.on('docs-changed', (o) => { if (o.removed) G.closeDoc(o.removed); G.ui.mountSidebar({ active: '' }); if (o.saved) { renderTabs(); $('#t-title').textContent = S.doc.title; $('#t-path').textContent = S.doc.path || ''; } });
+
+  /* ----- Scroll sync and block mapping ----- */
+  const blocks = () => $$('[data-line]', docEl).filter((b) => b.offsetParent && !b.closest('.blk-handle'));
+  function scrollRenderToLine(line) {
+    const bs = blocks(); let best = null, next = null;
+    for (const b of bs) { const l = +b.dataset.line; if (l <= line) best = b; else { next = b; break; } }
+    if (!best) { rscroll.scrollTop = 0; return; }
+    const a = +best.dataset.line, z = next ? +next.dataset.line : a + 1;
+    const frac = Math.min(1, (line - a) / Math.max(1, z - a));
+    const top = best.getBoundingClientRect().top - docEl.getBoundingClientRect().top;
+    const ntop = next ? next.getBoundingClientRect().top - docEl.getBoundingClientRect().top : top + best.offsetHeight;
+    rscroll.scrollTop = top + (ntop - top) * frac - 16;
+  }
+  rscroll.addEventListener('scroll', () => {
+    if (!G.prefs.syncScroll || S.view !== 'split' || Date.now() < S.lock || !editor) return;
+    S.lock = Date.now() + 80;
+    const y = rscroll.getBoundingClientRect().top + 20;
+    const b = blocks().find((x) => x.getBoundingClientRect().bottom > y);
+    if (b) { const r = b.getBoundingClientRect(); const a = +b.dataset.line, z = +(b.dataset.end || a); const frac = Math.max(0, Math.min(1, (y - r.top) / Math.max(1, r.height))); editor.scrollToLine(Math.round(a + (z - a) * frac)); }
+  }, { passive: true });
+  function markCursorBlock(n) {
+    $$('.src-cursor-block', docEl).forEach((x) => x.classList.remove('src-cursor-block'));
+    const b = blocks().filter((x) => +x.dataset.line <= n && +(x.dataset.end || x.dataset.line) >= n).pop();
+    if (b) { b.classList.add('src-cursor-block'); }
+  }
+  docEl.addEventListener('click', (e) => {
+    if (S.view !== 'split' || window.getSelection().toString() || e.target.closest('button, a, input, summary, code.path')) return;
+    const b = e.target.closest('[data-line]'); if (!b) return;
+    editor.reveal(+b.dataset.line, +(b.dataset.end || b.dataset.line));
+  });
+  G.on('reveal-line', (n) => { if (S.view === 'render') setView('split'); editor.reveal(n); editor.select(n, n); });
+  G.on('task-toggle', ({ line, done }) => {
+    const ls = S.doc.src.split('\n'); ls[line - 1] = ls[line - 1].replace(/\[[ xX]\]/, done ? '[x]' : '[ ]');
+    S.doc.src = ls.join('\n'); editor.setValue(S.doc.src, true); editor.flash(line); render(); markChanged();
+    G.toast(`Task ${done ? 'checked' : 'unchecked'} · written to line ${line}`, { icon: 'list-checks', action: { label: 'Undo', run: () => { editor.undo(); } } });
+  });
+  G.gotoLine = (n) => { if (S.view === 'render') scrollRenderToLine(n); else { editor.scrollToLine(n - 3); editor.select(n, n); } if (S.view === 'split') scrollRenderToLine(n); };
+  G.revealHeading = (h) => { const t = document.getElementById(h.id); if (t) { t.scrollIntoView({ block: 'start' }); t.classList.add('blk-flash'); setTimeout(() => t.classList.remove('blk-flash'), 1100); } if (S.view !== 'render') editor.scrollToLine(h.line - 1); };
+  G.replaceText = (out, sel) => { if (sel && editor.hasSelection()) editor.replaceSelection(out); else { editor.setValue(out); S.doc.src = out; render(); } markChanged(); };
+  G.undo = () => editor.undo();
+  G.insertText = (t) => { editor.insert(t); };
+
+  /* ----- View modes ----- */
+  function setView(v) {
+    S.view = v; $('#panes').dataset.view = v;
+    $$('#viewseg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+    if (v !== 'source') G.measureDoc(docEl);
+    if (typeof renderMetaMargin === 'function' && S.doc) setTimeout(renderMetaMargin, 30);
+  }
+  // Column width changes with the view, so re-check the 45-character justification rule.
+  $$('#viewseg button').forEach((b) => b.addEventListener('click', () => { setView(b.dataset.view); if (G.prefs.justify === 'on') render(); }));
+
+  /* ----- Tabs ----- */
+  function renderTabs() {
+    S.tabs = S.tabs.filter((id) => G.docById(id));
+    $('#tabs').innerHTML = S.tabs.map((id) => { const d = G.docById(id); return `<button class="tab${id === S.doc.id ? ' active' : ''}" role="tab" data-id="${esc(id)}" aria-selected="${id === S.doc.id}" title="${esc(d.path || 'Unsaved')}"${d.kind === 'code' && docLang(d) ? ` data-lang="${docLang(d)}"` : ''}>${ic(G.kinds[d.kind].icon)}<span>${esc(d.title)}</span><span class="mod"${d.unsaved ? '' : ' hidden'}></span><span class="x" data-close="${esc(id)}" title="Close (⌘W)">${ic('x', 'ic-sm')}</span></button>`; }).join('') + `<button class="tab" style="min-width:34px;max-width:34px;justify-content:center;padding:0" data-cmd="new-menu" title="New file, new file in this folder, fork (⌘N)" aria-haspopup="menu">${ic('plus')}</button>`;
+    G.icons($('#tabs'));
+  }
+  $('#tabs').addEventListener('click', (e) => {
+    const x = e.target.closest('[data-close]');
+    if (x) { e.stopPropagation(); const id = x.dataset.close; if (S.tabs.length > 1) G.closeDoc(id); return; }
+    const t = e.target.closest('.tab[data-id]'); if (t) G.openDoc(t.dataset.id);
+  });
+  $('#back').onclick = () => { if (S.hist.length) { S.fwd.push(S.doc.id); G.openDoc(S.hist.pop(), { noHist: true }); } };
+  $('#fwd').onclick = () => { if (S.fwd.length) { S.hist.push(S.doc.id); G.openDoc(S.fwd.pop(), { noHist: true }); } };
+
+  /* ----- Kind chip ----- */
+  $('#kindchip').onclick = (e) => {
+    const det = G.detect(S.doc);
+    G.menu(e.currentTarget, [
+      { html: `<div class="mdesc"><b>Detected: ${G.kinds[det.kind].name}</b><br>${det.reasons.map(esc).join(' · ')}</div>` },
+      { sep: true }, { header: 'Show as' }
+    ].concat(Object.entries(G.kinds).map(([k, v]) => ({ label: v.name, checked: kind() === k, desc: v.desc, run: () => { S.kind = k === S.doc.kind ? null : k; S.tool = {}; render(); renderModebar(); G.toast(`Showing as ${v.name}. Layout, typography and tools follow.`, { icon: v.icon }); } })))
+      .concat([{ sep: true }, { label: 'Always open this folder as…', icon: 'folder-cog', sub: Object.entries(G.kinds).slice(0, 6).map(([k, v]) => ({ label: v.name, run: () => G.toast(`Rule saved: ${esc(S.doc.path.split('/').slice(0, -1).join('/'))}/** opens as ${v.name}`, { icon: 'folder-cog' }) })) }, { label: 'Reset to detected', icon: 'rotate-ccw', run: () => { S.kind = null; render(); renderModebar(); } }, { label: 'Typography for this type…', icon: 'type', run: () => (location.href = G.page('kinds') + '#' + kind()) }]), { width: 280 });
+  };
+
+  /* ----- Mode bar (quick tools per kind) ----- */
+  function renderModebar() {
+    const all = G.kindTools[kind()] || [];
+    const tools = all.filter((t) => !G.kindOverflow.has(t[0])), more = all.filter((t) => G.kindOverflow.has(t[0]));
+    $('#modebar').innerHTML = `<span class="mb-label">${G.kinds[kind()].name.toUpperCase()}</span>` + tools.map(([id, label, icon, k]) => {
+      let extra = '';
+      if (id === 'level' && S.tool.level && S.tool.level !== 'all') extra = ` <span class="k">${esc(G.logLevels.find((l) => l[0] === S.tool.level)[1].split(' ')[0].toLowerCase())}</span>`;
+      if (id === 'diff') extra = G.prevVersions[S.doc.id] ? ' <span class="k">rev 3 → 5</span>' : '';
+      const on = S.tool[id] || (id === 'paged' && S.tool.paged) || (id === 'level' && S.tool.level && S.tool.level !== 'all') ? ' on' : '';
+      return `<button class="qbtn${on}" data-tool="${id}" title="${esc(label)}${k ? ' (' + k + ')' : ''}">${ic(icon)}${esc(label)}${extra}</button>`;
+    }).join('') + `<span class="grow"></span>${more.length ? `<button class="qbtn" data-tool="overflow" title="More tools for this kind" aria-haspopup="menu" aria-label="More tools">${ic('ellipsis')}</button>` : ''}<button class="qbtn" data-tool="customise" title="Customise this strip">${ic('settings-2')}</button>`;
+    G.icons($('#modebar'));
+  }
+  const toolOverflow = (anchor) => G.menu(anchor, (G.kindTools[kind()] || []).filter((t) => G.kindOverflow.has(t[0])).map(([id, label, icon, k]) => ({ label, icon, kbd: k, run: () => runTool(id, anchor) })), { width: 240, align: 'end' });
+  $('#modebar').addEventListener('click', (e) => { const b = e.target.closest('[data-tool]'); if (b) runTool(b.dataset.tool, b); });
+  function runTool(id, b) {
+    const src = S.doc.src;
+    const toggle = (k, rerender = true) => { S.tool[k] = !S.tool[k]; if (rerender) render(); renderModebar(); return S.tool[k]; };
+    switch (id) {
+      case 'overflow': return toolOverflow(b);
+      case 'copy-as': case 'copy-as-table': return G.copyMenu(b, () => (kind() === 'data' ? G.transform('tsv-to-table', src) : src));
+      case 'verify': { const p = $$('code.path', docEl); const miss = p.filter((x) => x.classList.contains('missing')).length; S.insp = 'links'; G.fold.dock('insp'); $$('.insp-tabs button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.it === 'links'))); renderInspector(); return G.toast(`${p.length} paths mentioned, ${miss} not found in ${esc(G.collections.find((c) => c.id === S.doc.collection).path)}. Listed under Links.`, { icon: 'folder-check', quiet: true }); }
+      case 'level': return G.menu(b, [{ header: 'Show lines at or above' }].concat(G.logLevels.map(([v, l]) => ({ label: l, checked: (S.tool.level || 'all') === v, run: () => { S.tool.level = v; render(); renderModebar(); } }))), { width: 240 });
+      case 'first-error': { const hit = $('.lg[data-lv="error"], .lg[data-lv="fatal"]', docEl); if (!hit) return G.toast('No errors in this log', { icon: 'circle-check' }); hit.scrollIntoView({ block: 'center' }); hit.classList.add('flash'); setTimeout(() => hit.classList.remove('flash'), 1500); return G.toast(`First error: line ${hit.dataset.line}`, { icon: 'circle-alert', quiet: true }); }
+      case 'tail': { const on = toggle('tail', false); renderModebar(); if (on) { rscroll.scrollTop = rscroll.scrollHeight; G.toast('Following the end of the file: new lines scroll into view as it grows', { icon: 'arrow-down-to-line', quiet: true }); } return; }
+      case 'copy-cmds': return G.copy(G.termParts(src).commands, { as: 'commands (prompts stripped)', clean: false });
+      case 'copy-out': return G.copy(G.termParts(src).output, { as: 'output only', clean: false });
+      case 'diff': return showDiff();
+      case 'split-h2': return G.toast(`Would split into ${S.res.headings.filter((h) => h.level === 2).length} files: 01-tl-dr.md, 02-context.md, 03-phases.md…`, { icon: 'split', action: { label: 'Split', run: () => G.toast('Split into 7 files in plans/pg16-upgrade-plan/', { icon: 'split' }) } });
+      case 'focus': return toggle('focus');
+      case 'justify': toggle('justify'); return G.toast(S.tool.justify ? 'Justified. The app breaks lines with a total-fit algorithm; CSS here is greedy.' : 'Ragged right (default)', { icon: 'align-justify' });
+      case 'dropcap': return toggle('dropcap');
+      case 'wrap': return toggle('wrap');
+      case 'literate': return toggle('literate');
+      case 'collapse-tools': S.tool.collapse = S.tool.collapse === false ? true : false; render(); return renderModebar();
+      case 'only-prompts': S.tool.onlyAnswers = false; return toggle('onlyPrompts');
+      case 'only-answers': S.tool.onlyPrompts = false; return toggle('onlyAnswers');
+      case 'x-final': { const turns = $$('.turn.assistant', docEl); const last = turns[turns.length - 1]; return last && G.copy(G.sourceSlice(src, +last.dataset.line + 2, src.split('\n').length).trim(), { as: 'final answer' }); }
+      case 'quote-link': return G.copyAs('quote', G.selectionText() || S.res.headings[0].text);
+      case 'copy-install': { const c = S.res.code.find((x) => x.lang === 'bash'); return c && G.copy(c.src, { as: 'Code', clean: false }); }
+      case 'x-commands': return G.copy(G.transform('x-commands', src), { as: 'script', clean: false });
+      case 'copy-fenced': return G.copyAs('codeblock', src);
+      case 'customise': return G.toast('Right-click any tool to hide or move it; Settings › Content types lists every tool per type', { icon: 'settings-2', ms: 4000 });
+      default: G.toast(`${esc(((G.kindTools[kind()] || []).find((t) => t[0] === id) || [id, id])[1])}: shown in the content modes prototype`, { icon: 'info', action: { label: 'Open', run: () => (location.href = G.page('kinds') + '#' + kind()) } });
+    }
+  }
+
+  /* ----- Toolbar actions ----- */
+  const docOrSel = () => G.selectionText() || S.doc.src;
+  $('#share-slot').appendChild(G.copyExport(() => ({ doc: S.doc, text: S.doc.src })));
+  // Right-click the title or path: Reveal in Finder, Open in external editor, Copy path.
+  [$('#t-title'), $('#t-path')].forEach((n) => n.addEventListener('contextmenu', (e) => { e.preventDefault(); G.titleMenu({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }, () => ({ doc: S.doc })); }));
+  $('#b-new').onclick = (e) => G.newMenu(e.currentTarget);
+  $('#b-insp').onclick = () => G.fold.toggle('insp');
+
+  /* ----- Result sheet: before/after with apply, copy, new doc ----- */
+  function resultSheet(title, before, after, o = {}) {
+    G.closeMenu();
+    const sc = G.el(`<div class="sheet-scrim" role="dialog" aria-label="${esc(title)}"><div class="sheet">
+      <div class="sheet-h">${ic('wand-sparkles')}<b>${esc(title)}</b><span class="grow"></span><span class="faint">${fmt(before.length)} → ${fmt(after.length)} chars</span><button class="tb-btn" data-x title="Close">${ic('x')}</button></div>
+      <div class="sheet-cols"><div><h5>BEFORE</h5><pre>${esc(before.slice(0, 6000))}</pre></div><div><h5>AFTER <span class="grow"></span></h5><pre>${esc(after)}</pre></div></div>
+      <div class="sheet-f"><button class="btn" data-a="newdoc">${ic('file-plus-2')}Open as new document</button><button class="btn" data-a="chain">${ic('workflow')}Add another step…</button><span class="grow"></span><button class="btn" data-a="copy">${ic('copy')}Copy result</button><button class="btn primary" data-a="apply">${ic('check')}Apply to ${G.editor.hasSelection() ? 'selection' : 'document'}</button></div>
+    </div></div>`);
+    document.body.appendChild(sc); G.icons(sc);
+    const close = () => sc.remove();
+    sc.addEventListener('mousedown', (e) => { if (e.target === sc) close(); });
+    sc.addEventListener('keydown', (e) => e.key === 'Escape' && close());
+    sc.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-a],[data-x]'); if (!a) return;
+      if (a.dataset.x !== undefined) return close();
+      if (a.dataset.a === 'copy') { G.copy(after, { as: title, clean: false }); close(); }
+      if (a.dataset.a === 'apply') { G.replaceText(after, G.editor.hasSelection()); close(); G.toast(`${esc(title)} applied`, { icon: 'check', action: { label: 'Undo', run: () => { editor.undo(); } } }); }
+      if (a.dataset.a === 'newdoc') { close(); G.toast('Opened "Untitled (from ' + esc(S.doc.title) + ')" in a new tab', { icon: 'file-plus-2' }); }
+      if (a.dataset.a === 'chain') G.transformMenu(a, () => after, (t, out) => { close(); resultSheet(title + ' → ' + t.name, before, out); });
+    });
+    sc.tabIndex = -1; sc.focus();
+  }
+
+  /* ----- Find (CSS Custom Highlight API: no DOM mutation) ----- */
+  const F = { hits: [], i: 0 };
+  function runFind() {
+    const q = $('#find-q').value; F.hits = []; F.i = 0;
+    if (window.CSS && CSS.highlights) { CSS.highlights.delete('find'); CSS.highlights.delete('find-cur'); }
+    if (!q) { $('#find-count').textContent = 'No results'; return; }
+    let re; try { const src = $('#find-re').getAttribute('aria-pressed') === 'true' ? q : q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); re = new RegExp($('#find-word').getAttribute('aria-pressed') === 'true' ? `\\b${src}\\b` : src, 'g' + ($('#find-case').getAttribute('aria-pressed') === 'true' ? '' : 'i')); } catch (e) { $('#find-count').textContent = 'Bad pattern'; return; }
+    const walker = document.createTreeWalker(docEl, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement.closest('.blk-handle, .cb-head') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+    let n; while ((n = walker.nextNode())) { let m; re.lastIndex = 0; while ((m = re.exec(n.data)) && m[0]) { const r = new Range(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); F.hits.push(r); } }
+    if (window.Highlight && CSS.highlights) CSS.highlights.set('find', new Highlight(...F.hits));
+    $('#find-count').textContent = F.hits.length ? `1 of ${F.hits.length}` : 'No results';
+    if (F.hits.length) goHit(0);
+  }
+  function goHit(i) {
+    if (!F.hits.length) return; F.i = (i + F.hits.length) % F.hits.length;
+    if (window.Highlight) CSS.highlights.set('find-cur', new Highlight(F.hits[F.i]));
+    const r = F.hits[F.i].getBoundingClientRect(); const pr = rscroll.getBoundingClientRect();
+    rscroll.scrollTop += r.top - pr.top - pr.height / 3;
+    $('#find-count').textContent = `${F.i + 1} of ${F.hits.length}`;
+  }
+  const openFind = () => { $('#findbar').hidden = false; G.icons($('#findbar')); $('#find-q').focus(); $('#find-q').select(); };
+  $('#b-find').onclick = openFind;
+  $('#find-q').addEventListener('input', runFind);
+  $('#find-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') goHit(F.i + (e.shiftKey ? -1 : 1)); if (e.key === 'Escape') $('#find-x').click(); });
+  ['find-case', 'find-word', 'find-re'].forEach((id) => $('#' + id).addEventListener('click', (e) => { const b = e.currentTarget; b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); b.classList.toggle('on'); runFind(); }));
+  $('#find-next').onclick = () => goHit(F.i + 1); $('#find-prev').onclick = () => goHit(F.i - 1);
+  $('#find-x').onclick = () => { $('#findbar').hidden = true; if (window.CSS && CSS.highlights) CSS.highlights.clear(); };
+  $('#find-rall').onclick = () => { const q = $('#find-q').value; if (!q) return; const n = S.doc.src.split(q).length - 1; S.doc.src = S.doc.src.split(q).join($('#find-r').value); editor.setValue(S.doc.src, true); render(); runFind(); G.toast(`Replaced ${n} occurrence${n === 1 ? '' : 's'} in the source`, { icon: 'replace-all', action: { label: 'Undo', run: () => editor.undo() } }); };
+
+  /* ----- Versions and diff ----- */
+  function lineDiff(a, b) {
+    const A = a.split('\n'), B = b.split('\n'); const n = A.length, m = B.length;
+    const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    const out = []; let i = 0, j = 0;
+    while (i < n && j < m) { if (A[i] === B[j]) { out.push([' ', A[i], i + 1, j + 1]); i++; j++; } else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push(['-', A[i], i + 1, null]); i++; } else { out.push(['+', B[j], null, j + 1]); j++; } }
+    while (i < n) { out.push(['-', A[i], i + 1, null]); i++; } while (j < m) { out.push(['+', B[j], null, j + 1]); j++; }
+    return out;
+  }
+  function showDiff() {
+    const prev = G.prevVersions[S.doc.id];
+    if (!prev) return G.toast('No earlier version: Marxy snapshots a file each time it changes on disk', { icon: 'history' });
+    S.diffRev = S.diffRev ? null : 'rev3';
+    if (!S.diffRev) { $('#diffhost').hidden = true; docEl.hidden = false; renderModebar(); return; }
+    const d = lineDiff(prev.src, S.doc.src); const adds = d.filter((x) => x[0] === '+').length, dels = d.filter((x) => x[0] === '-').length;
+    // Show changed lines with 2 lines of context, hunks separated.
+    const keep = new Set(); d.forEach((x, k) => { if (x[0] !== ' ') for (let c = k - 2; c <= k + 2; c++) keep.add(c); });
+    let html = `<div class="diff-head">${ic('git-compare')}<b>rev 3</b> (${esc(prev.label)}) → <b>current</b><span class="chip ok">+${adds}</span><span class="chip err">−${dels}</span><span class="grow"></span><button class="btn sm" id="d-copy">${ic('copy')}Copy diff</button><button class="btn sm" id="d-x">${ic('x')}Close</button></div><div class="diffview">`;
+    let gap = false;
+    d.forEach((x, k) => { if (!keep.has(k)) { if (!gap) { html += `<div class="hunk">${ic('fold-vertical', 'ic-sm')} unchanged lines</div>`; gap = true; } return; } gap = false; html += `<div class="dl ${x[0] === '+' ? 'add' : x[0] === '-' ? 'del' : ''}"><span>${x[2] || ''}</span><span>${x[3] || ''}</span><span>${x[0] === ' ' ? '' : x[0] === '-' ? '−' : '+'}</span><span>${esc(x[1]) || ' '}</span></div>`; });
+    $('#diffhost').innerHTML = html + '</div>'; $('#diffhost').hidden = false; docEl.hidden = true; G.icons($('#diffhost')); renderModebar();
+    $('#d-x').onclick = showDiff;
+    $('#d-copy').onclick = () => G.copy(d.filter((x, k) => keep.has(k)).map((x) => x[0] + ' ' + x[1]).join('\n'), { as: 'diff', clean: false });
+  }
+
+  /* ----- Metadata: the inspector tab, the margin block, and every edit ----- */
+  const fmtB = (n) => n.toLocaleString('en-US') + ' bytes';
+  const setSrc = (v) => { S.doc.src = v; G.current.src = v; editor.setValue(v, true); if (G.userDocs[S.doc.id]) G.saveUserDocs(); render(); markChanged(); };
+  const metaToast = (msg, undo) => G.toast(msg, { icon: 'check', quiet: true, ms: 4200, action: undo ? { label: 'Undo', run: undo } : null });
+  const fmEdit = (op, key, val, verb) => {
+    const before = S.doc.src; const r = G.fm[op](before, key, val); if (!r.changed) return;
+    setSrc(r.src); metaToast(`Front matter: ${esc(key)} ${verb} · ${r.changed} line${r.changed === 1 ? '' : 's'} changed`, () => setSrc(before));
+  };
+  function setKind(k) { S.kind = k === S.doc.kind ? null : k; S.tool = {}; render(); renderModebar(); }
+  function renameDoc(name) {
+    const d = S.doc; const old = { path: d.path, title: d.title }; if (!d.path || !name || name === d.path.split('/').pop()) return;
+    const apply = (path, title) => {
+      d.path = path; d.title = title; G.current.path = path; G.current.title = title;
+      const l = G.library.find((x) => x.id === d.id); if (l) { l.path = path; l.title = title; }
+      if (G.userDocs[d.id]) G.saveUserDocs(); else G.meta.setOv(d.id, { path, title });
+      $('#t-title').textContent = title; $('#t-path').textContent = path; editor.setPath(path); renderTabs(); G.ui.mountSidebar({ active: '', reveal: true }); renderInspector();
+    };
+    const oldName = old.path.split('/').pop(); apply(old.path.replace(/[^/]+$/, name), old.title === oldName ? name : old.title);
+    metaToast(`Renamed to ${esc(name)}`, () => apply(old.path, old.title));
+  }
+  // Edit a value where it stands: Enter commits, Escape leaves it as it was.
+  function inlineEdit(host, current, commit) {
+    const input = G.el(`<input class="field mi-in" value="${esc(current)}" spellcheck="false" aria-label="Value">`);
+    host.replaceChildren(input); input.focus(); input.select();
+    let done = false; const end = (ok) => { if (done) return; done = true; if (ok && input.value !== current) commit(input.value); else renderInspector(); };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') end(true); else if (e.key === 'Escape') { e.stopPropagation(); end(false); } });
+    input.addEventListener('blur', () => end(true));
+  }
+  const MSEC = ['file', 'git', 'fm', 'xattr', 'detect', 'measures', 'type', 'hidden', 'marxy'];
+  const openSecs = () => new Set(G.store.get('metaOpen', ['file', 'fm', 'detect', 'measures']));
+  const kvRow = (k, v, extra = '') => `<dt>${k}</dt><dd><span class="mv" data-copy="${esc(v)}" title="${esc(v)}">${esc(v)}</span>${extra}</dd>`;
+  function metaHtml() {
+    const d = S.doc; const m = G.meta.get(d); const open = openSecs(); const sec = (id, title, icon, html, note = '') => `<details class="msec" data-sec="${id}"${open.has(id) ? ' open' : ''}><summary>${ic('chevron-right', 'ic-sm')}${ic(icon, 'ic-sm')}<span>${title}</span>${note ? `<span class="faint msn">${esc(note)}</span>` : ''}</summary><div class="msb">${html}</div></details>`;
+    const det = G.detect(d); const info = G.srcInfo(d.src);
+    const file = `<dl class="kv mkv">${kvRow('Path', m.file.path || 'Unsaved')}<dt>Name</dt><dd><span class="mv" data-edit="name" title="Rename (writes nothing until you confirm; Undo restores)">${esc(m.file.name || d.title)}</span><button class="mcp ed" data-act="rename" title="Rename" aria-label="Rename">${ic('pencil', 'ic-sm')}</button></dd>${kvRow('Size', fmtB(m.file.size))}${kvRow('Created', m.file.created)}${kvRow('Modified', m.file.modified)}${kvRow('Permissions', m.file.perms + ' (' + m.file.mode + ')')}<dt>Executable</dt><dd><label class="switch sm"><input type="checkbox" data-act="exec"${m.file.exec ? ' checked' : ''} aria-label="Executable bit"><i></i></label></dd>${kvRow('Owner', m.file.owner)}${kvRow('Encoding', m.file.encoding)}${kvRow('Line endings', m.file.eol)}${kvRow('Final newline', m.file.finalNewline)}</dl>`;
+    const git = m.git ? `<dl class="kv mkv">${kvRow('Repository', m.git.repo)}${kvRow('Branch', m.git.branch)}${kvRow('Status', m.git.status)}${kvRow('Last commit', m.git.commit.hash + ' · ' + m.git.commit.date)}${kvRow('Subject', m.git.commit.subject)}${kvRow('Author', m.git.commit.author)}</dl>` : '<div class="faint msn2">Not in a Git repository.</div>';
+    const fm = m.front;
+    const fmH = (fm && fm.entries.length ? `<dl class="kv mkv fm">${fm.entries.map((e) => `<dt title="line ${e.line}">${esc(e.key)}</dt><dd><span class="mv" data-fm="${esc(e.key)}" title="Click to edit line ${e.line}">${esc(e.value) || '<i class="faint">empty</i>'}</span><button class="mcp ed" data-fmrm="${esc(e.key)}" title="Remove this key" aria-label="Remove ${esc(e.key)}">${ic('x', 'ic-sm')}</button></dd>`).join('')}</dl>` : '<div class="faint msn2">No front matter.</div>') + `<button class="btn sm" data-act="fm-add" style="margin-top:6px">${ic('plus')}Add key</button>`;
+    const x = m.xattr;
+    const xH = `<dl class="kv mkv"><dt>Finder tags</dt><dd class="tags">${x.tags.map((t) => `<span class="chip tg">${esc(t)}<button data-tagrm="${esc(t)}" aria-label="Remove tag ${esc(t)}">${ic('x', 'ic-sm')}</button></span>`).join('')}<button class="chip tg add" data-act="tag-add" aria-label="Add a tag">${ic('plus', 'ic-sm')}</button></dd>${x.whereFrom ? kvRow('Where from', x.whereFrom) : '<dt>Where from</dt><dd><span class="faint">none</span></dd>'}${x.quarantine ? kvRow('Quarantine', x.quarantine, `<button class="btn sm" data-act="unquarantine" style="margin-left:6px">Remove</button>`) : '<dt>Quarantine</dt><dd><span class="faint">none</span></dd>'}</dl>`;
+    const detH = `<dl class="kv mkv"><dt>Kind</dt><dd><select class="field" data-act="kind" aria-label="Show this file as">${Object.entries(G.kinds).map(([k, v]) => `<option value="${k}"${kind() === k ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</select></dd>${kvRow('Detected', G.kinds[det.kind].name + (S.kind ? ' (shown as ' + G.kinds[kind()].name + ')' : ''))}${kvRow('Language', G.langLabel(d.lang || (kind() === 'log' ? 'log' : kind() === 'terminal' ? 'term' : 'markdown')))}</dl>${det.reasons.map((r) => `<div class="reason">${ic('check', 'ic-sm')}${esc(r)}</div>`).join('')}<button class="btn sm" data-act="folder-rule" style="margin-top:6px">${ic('folder-cog')}Always open this folder as…</button>`;
+    const chosen = G.measureKeys(kind()); const order = chosen.concat(['lines', 'words', 'chars', 'tokens', 'bytes', 'readTime'].filter((k) => !chosen.includes(k)));
+    const parts = G.measureParts(d.src, { keys: order, bytes: info.bytes });
+    const mH = `<dl class="kv mkv">${parts.map((p) => `<dt>${esc(G.measureNames[p.key])}${chosen.includes(p.key) ? '' : ''}</dt><dd><span class="mv" data-copy="${esc(p.text)}"${chosen.includes(p.key) ? ' style="color:var(--fg)"' : ''}>${esc(p.text)}</span></dd>`).join('')}</dl>`;
+    const c = G.colophon(docEl);
+    const tH = `<dl class="kv mkv">${kvRow('Face', c.face)}${kvRow('Size', c.size.toFixed(1) + ' px')}${kvRow('Leading', c.leading)}${kvRow('Measure', c.cpl ? c.cpl + ' chars per line (live)' : '–')}</dl>`;
+    // Hidden and reshaped: what is in the bytes that Read does not show as text, and what Read set aside.
+    const inv = G.scanInvisible(d.src).slice(0, 30);
+    const comments = (d.src.match(/<!--[\s\S]*?-->/g) || []).length; const foot = (d.src.match(/^\[\^[^\]]+\]:/gm) || []).length;
+    const notes = editor ? editor.notes() : [];
+    const resh = [fm ? `Front matter folded: lines 1 to ${fm.endLine}, ${fm.entries.length} keys` : '', comments ? `${comments} HTML comment${comments === 1 ? '' : 's'} set aside` : '', foot ? `${foot} footnote${foot === 1 ? '' : 's'} moved to the end` : '', info.eol.mixed ? `Mixed line endings: ${info.eol.n.lf} LF, ${info.eol.n.crlf} CRLF` : ''].filter(Boolean);
+    const hH = (inv.length ? inv.map((v) => `<button class="hrow" data-jump="${v.line}:${v.col}"><code>${G.cpHex(v.cp)}</code><span>${esc(G.cpName(v.cp) || 'control')}</span><span class="faint">${v.line}:${v.col}</span></button>`).join('') : '<div class="faint msn2">No invisible or bidi characters.</div>') + `<h5>Read reshaped</h5>` + (resh.length ? resh.map((r) => `<div class="reason">${ic('corner-down-right', 'ic-sm')}${esc(r)}</div>`).join('') : '<div class="faint msn2">Read shows every line of this file.</div>') + `<h5>Notes</h5>` + (notes.length ? notes.map((n) => `<button class="hrow" data-jump="${n.line}:1"><code>${n.line}</code><span>${esc(n.msg)}</span><span></span></button>`).join('') : '<div class="faint msn2">None. Notes are marked on the right strip of Source, never on the text.</div>');
+    const mx = m.marxy;
+    const mxH = `<dl class="kv mkv">${kvRow('Last read', mx.lastRead)}<dt>Pinned</dt><dd><span class="mv">${mx.pinned ? 'yes' : 'no'}</span><button class="btn sm" data-act="pin" style="margin-left:6px">${mx.pinned ? 'Unpin' : 'Pin'}</button></dd><dt>Reading position</dt><dd><span class="mv">${mx.readPos ? `line ${mx.readPos.line} · ${mx.readPos.pct}%` : 'none'}</span>${mx.readPos ? `<button class="btn sm" data-act="forget" style="margin-left:6px">Forget</button>` : ''}</dd></dl>`;
+    return sec('file', 'File', 'file', file) + sec('git', 'Git', 'git-branch', git, m.git ? m.git.status : '') + sec('fm', 'Front matter', 'list', fmH, fm ? fm.entries.length + ' keys' : '') + sec('xattr', 'Extended attributes', 'tag', xH) + sec('detect', 'Detection', 'scan-search', detH, G.kinds[kind()].name) + sec('measures', 'Measures', 'ruler', mH) + sec('type', 'Typography in use', 'type', tH) + sec('hidden', 'Hidden and reshaped', 'eye-off', hH, inv.length ? inv.length + ' hidden' : '') + sec('marxy', 'Marxy', 'bookmark', mxH);
+  }
+  function bindMeta(body) {
+    $$('.msec', body).forEach((dt) => dt.addEventListener('toggle', () => { const o = openSecs(); dt.open ? o.add(dt.dataset.sec) : o.delete(dt.dataset.sec); G.store.set('metaOpen', Array.from(o)); }));
+    body.onclick = (e) => {
+      const t = e.target;
+      const fmv = t.closest('[data-fm]'); if (fmv) { const key = fmv.dataset.fm; const ent = G.fm.parse(S.doc.src).entries.find((x) => x.key === key); return inlineEdit(fmv.parentNode, ent.value, (v) => fmEdit('set', key, v, 'changed')); }
+      const rm = t.closest('[data-fmrm]'); if (rm) return fmEdit('remove', rm.dataset.fmrm, null, 'removed');
+      const tr = t.closest('[data-tagrm]'); if (tr) { const m = G.meta.get(S.doc); const prev = m.xattr.tags; const next = prev.filter((x) => x !== tr.dataset.tagrm); G.meta.setOv(S.doc.id, { tags: next }); renderInspector(); return metaToast(`Removed Finder tag ${esc(tr.dataset.tagrm)}`, () => { G.meta.setOv(S.doc.id, { tags: prev }); renderInspector(); }); }
+      const jump = t.closest('[data-jump]'); if (jump) { const [l, c] = jump.dataset.jump.split(':').map(Number); if (S.view === 'render') setView('split'); editor.reveal(l); editor.select(l, l); return; }
+      const act = t.closest('[data-act]'); if (!act) return; const a = act.dataset.act; const m = G.meta.get(S.doc);
+      if (a === 'rename') { const span = act.parentNode.querySelector('[data-edit="name"]'); return inlineEdit(span.parentNode, m.file.name, renameDoc); }
+      if (a === 'fm-add') { const row = G.el(`<div class="fm-new"><input class="field" placeholder="key" aria-label="Key"><input class="field" placeholder="value" aria-label="Value"><button class="btn sm primary">Add</button></div>`); act.replaceWith(row); const [k, v, b] = row.children; k.focus(); const go = () => { const key = k.value.trim(); if (!/^[A-Za-z0-9_-]+$/.test(key)) return k.focus(); fmEdit('add', key, v.value, 'added'); }; b.onclick = go; row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') go(); else if (ev.key === 'Escape') renderInspector(); }); return; }
+      if (a === 'tag-add') { const inp = G.el('<input class="field mi-in" placeholder="Tag" aria-label="New Finder tag" style="width:90px">'); act.replaceWith(inp); inp.focus(); const go = () => { const v = inp.value.trim(); if (v && !m.xattr.tags.includes(v)) { const prev = m.xattr.tags; G.meta.setOv(S.doc.id, { tags: prev.concat(v) }); metaToast(`Added Finder tag ${esc(v)}`, () => { G.meta.setOv(S.doc.id, { tags: prev }); renderInspector(); }); } renderInspector(); }; inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') go(); else if (ev.key === 'Escape') renderInspector(); }); inp.addEventListener('blur', go); return; }
+      if (a === 'unquarantine') { const prev = m.xattr.quarantine; G.meta.setOv(S.doc.id, { quarantine: null }); renderInspector(); return metaToast('Removed the quarantine attribute', () => { G.meta.setOv(S.doc.id, { quarantine: undefined }); renderInspector(); }); }
+      if (a === 'folder-rule') return G.menu(act, Object.entries(G.kinds).map(([k, v]) => ({ label: v.name, icon: v.icon, run: () => metaToast(`Rule saved: ${esc((S.doc.path || '').split('/').slice(0, -1).join('/'))}/** opens as ${v.name}`) })), { width: 230 });
+      if (a === 'pin') { const was = !!S.doc.status.pinned; const set = (v) => { S.doc.status = Object.assign({}, S.doc.status, { pinned: v }); const l = G.library.find((x) => x.id === S.doc.id); if (l) l.status = Object.assign({}, l.status, { pinned: v }); G.meta.setOv(S.doc.id, { pinned: v }); renderInspector(); }; set(!was); return metaToast(was ? 'Unpinned' : 'Pinned', () => set(was)); }
+      if (a === 'forget') { const prev = G.meta.ov(S.doc.id).readPos; G.meta.setOv(S.doc.id, { readPos: null }); renderInspector(); return metaToast('Forgot the reading position', () => { G.meta.setOv(S.doc.id, { readPos: prev }); renderInspector(); }); }
+    };
+    // Right-click a value to copy it; there are no per-value buttons.
+    body.oncontextmenu = (e) => { const v = e.target.closest('[data-copy]'); if (!v) return; e.preventDefault(); G.menu({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }, [{ label: 'Copy', icon: 'copy', run: () => G.copy(v.dataset.copy, { as: 'value', clean: false }) }], { width: 160 }); };
+    body.onchange = (e) => {
+      const t = e.target; const a = t.dataset && t.dataset.act;
+      if (a === 'exec') { const was = !t.checked; G.meta.setOv(S.doc.id, { exec: t.checked }); renderInspector(); metaToast(`Executable bit ${t.checked ? 'set' : 'cleared'} · mode ${t.checked ? '0755' : '0644'}`, () => { G.meta.setOv(S.doc.id, { exec: was }); renderInspector(); }); }
+      if (a === 'kind') { setKind(t.value); metaToast(`Showing as ${esc(G.kinds[t.value].name)}. Layout, typography and tools follow.`, () => { setKind(S.doc.kind); renderInspector(); }); renderInspector(); }
+    };
+  }
+  G.on('meta', () => { if (S.insp === 'meta') renderInspector(); renderMetaMargin(); });
+
+  // The margin block: front matter, then modified, size and Git state, aligned to the document's first line.
+  const metaBlock = (cls) => {
+    const { shown, more } = G.meta.rows(S.doc);
+    return `<div class="${cls}" role="complementary" aria-label="File metadata"><dl>${shown.map(([k, v]) => `<dt>${esc(k)}</dt><dd title="${esc(v)}">${esc(v)}</dd>`).join('')}</dl>${more ? `<div class="mm-more">+${more} more</div>` : ''}<button class="mm-link" data-act="meta-more">More…</button></div>`;
+  };
+  function renderMetaMargin() {
+    $$('.mm-wrap, .fm-marker, .mm-src').forEach((x) => x.remove());
+    if (!S.doc || S.view === 'source') return placeSourceMeta();
+    const fm = G.fm.parse(S.doc.src);
+    if (!G.prefs.showMetadata) {
+      if (fm && fm.entries.length && kind() !== 'code' && kind() !== 'data') { const b = G.el(`<button class="fm-marker" title="This file starts with front matter, folded here. Show metadata (⌃⌘I)">${ic('list', 'ic-sm')}Front matter · ${fm.entries.length} key${fm.entries.length === 1 ? '' : 's'}, folded</button>`); docEl.prepend(b); G.icons(b); }
+      return;
+    }
+    const margin = readMargin();
+    if (margin >= 230) {
+      const wrap = G.el(`<div class="mm-wrap">${metaBlock('mm')}</div>`); const mm = wrap.firstElementChild;
+      mm.style.left = '18px'; mm.style.width = (margin - 40) + 'px'; mm.style.top = parseFloat(getComputedStyle(docEl).paddingTop) + 'px'; rscroll.insertBefore(wrap, docEl);
+    }
+  }
+  // Room beside the text for the margin block. With none, ⌃⌘I opens the Metadata tab instead; nothing is ever drawn above the text.
+  function readMargin() { const first = docEl.firstElementChild && docEl.firstElementChild.getBoundingClientRect(); const dr = docEl.getBoundingClientRect(); return first && rscroll.offsetParent ? first.left - dr.left : 0; }
+  function metaRoom() { if (S.view === 'source') { const fr = $('.ed'), pane = $('.pane-source'); return fr && pane ? fr.getBoundingClientRect().left - pane.getBoundingClientRect().left : 0; } return readMargin(); }
+  G.metaToggle = () => { if (metaRoom() >= 230) G.setPref('showMetadata', !G.prefs.showMetadata); else openMeta(); };
+  // In Source the block sits outside the frame when the frame leaves room (folded, centred); otherwise nothing.
+  function placeSourceMeta() {
+    if (!G.prefs.showMetadata || S.view !== 'source') return;
+    const fr = $('.ed'); const pane = $('.pane-source'); if (!fr || !pane) return;
+    const r = fr.getBoundingClientRect(), pr = pane.getBoundingClientRect(); const room = r.left - pr.left;
+    if (room < 230) return;
+    const b = G.el(metaBlock('mm mm-src')); b.style.left = '18px'; b.style.width = (room - 40) + 'px'; b.style.top = (r.top - pr.top + 8) + 'px'; pane.appendChild(b);
+  }
+  const openMeta = () => { G.fold.dock('insp'); S.insp = 'meta'; $$('.insp-tabs button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.it === 'meta'))); renderInspector(); };
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-act="meta-more"]')) openMeta(); const fmk = e.target.closest('.fm-marker'); if (fmk) { if (metaRoom() >= 230) G.setPref('showMetadata', true); else openMeta(); } });
+  G.on('pref:showMetadata', () => renderMetaMargin());
+  G.on('pref', ({ key }) => { if (/^(measures|measuresMode|tokenizer|kindMeasures)$/.test(key)) { renderStatus(); renderInspector(); } });
+  window.addEventListener('resize', () => renderMetaMargin());
+  G.on('fold', () => setTimeout(renderMetaMargin, 260));
+
+  /* ----- Inspector ----- */
+  $$('.insp-tabs button').forEach((b) => b.addEventListener('click', () => { S.insp = b.dataset.it; $$('.insp-tabs button').forEach((x) => x.setAttribute('aria-selected', String(x === b))); renderInspector(); }));
+  function renderInspector() {
+    const body = $('#insp-body'); body.onclick = null; body.onchange = null; body.oncontextmenu = null; const st = G.stats(S.doc.src); const res = S.res || { headings: [], tasks: [] };
+    if (S.insp === 'outline') {
+      const lines = S.doc.src.split('\n');
+      const rows = res.headings.map((h, k) => {
+        const end = (res.headings[k + 1] || { line: lines.length + 1 }).line;
+        const sec = lines.slice(h.line, end - 1).join('\n'); const w = G.measureFirst(sec, { kind: kind() });
+        return `<button class="outline-row l${h.level}" data-line="${h.line}" data-id="${h.id}"><span class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.text)}</span><span class="meta">${esc(w)}</span></button>`;
+      }).join('');
+      body.innerHTML = `<div class="insp-sec"><h4>${ic('list-tree', 'ic-sm')}${kind() === 'log' ? 'Warnings and errors' : kind() === 'terminal' ? 'Commands' : 'Outline'}</h4>${rows || `<div class="faint" style="font-size:12px">${kind() === 'log' ? 'No warnings or errors' : kind() === 'terminal' ? 'No commands' : 'No headings'}</div>`}</div>
+`;
+      $$('.outline-row', body).forEach((r) => r.addEventListener('click', () => { r.dataset.id ? G.revealHeading(res.headings.find((h) => h.id === r.dataset.id)) : G.gotoLine(+r.dataset.line); }));
+    } else if (S.insp === 'meta') {
+      body.innerHTML = metaHtml(); bindMeta(body);
+    } else if (S.insp === 'versions') {
+      const has = !!G.prevVersions[S.doc.id];
+      const revs = has ? [['current', 'Now', '9 lines since rev 4', true], ['rev4', '2 min ago', '+2 lines · changed on disk'], ['rev3', '12 min ago', '+31 lines · changed on disk'], ['rev2', '18 min ago', '+44 lines · changed on disk'], ['rev1', '21 min ago', 'Created · 38 lines']] : [['current', 'Now', 'Saved', true], ['rev1', 'yesterday', 'Opened first']];
+      body.innerHTML = `<div class="insp-sec"><h4>${ic('history', 'ic-sm')}Snapshots on change</h4>${revs.map(([id, when, what, cur]) => `<button class="ver-row${cur ? ' cur' : ''}${S.diffRev && id === 'rev3' ? ' on' : ''}" data-rev="${id}"><span class="rail"></span><span><b style="font-weight:600">${when}</b><br><span class="faint" style="font-size:11.5px">${what}</span></span>${cur ? '' : ic('git-compare', 'ic-sm')}</button>`).join('')}</div><div class="faint" style="font-size:11.5px;line-height:1.5">Marxy keeps a snapshot each time a watched file changes on disk, for 30 days or 50 revisions. Compare any two; restore copies the old text into the file after confirmation.</div>`;
+      $$('[data-rev]', body).forEach((b) => (b.onclick = () => { if (b.dataset.rev !== 'current') { if (!S.diffRev) showDiff(); renderInspector(); } }));
+    } else if (S.insp === 'links') {
+      const paths = G.transform('x-paths', S.doc.src).split('\n').filter(Boolean);
+      const links = G.transform('x-links', S.doc.src).split('\n').filter(Boolean);
+      const back = G.docs.filter((d) => d.id !== S.doc.id && d.src.includes(S.doc.path));
+      body.innerHTML = `<div class="insp-sec"><h4>${ic('folder-tree', 'ic-sm')}Paths mentioned · ${paths.length}</h4>${paths.map((p) => { const ok = /^~/.test(p) ? G.library.some((d) => d.path === p) : G.fs.has(p); return `<div class="reason" style="font-family:var(--face-code);font-size:11.5px">${ic(ok ? 'circle-check' : 'circle-x', 'ic-sm')}<span class="faint">${ok ? 'found' : 'not found'}</span>${esc(p)}</div>`; }).join('') || '<div class="faint">None</div>'}</div>
+        <div class="insp-sec"><h4>${ic('link', 'ic-sm')}Links · ${links.length}</h4>${links.map((l) => `<div class="reason" style="font-size:11.5px">${ic('external-link', 'ic-sm')}${esc(l.replace(/^<|>$/g, ''))}</div>`).join('') || '<div class="faint">None</div>'}</div>
+        <div class="insp-sec"><h4>${ic('undo-2', 'ic-sm')}Backlinks · ${back.length}</h4>${back.map((d) => `<button class="outline-row" data-doc="${d.id}"><span>${esc(d.title)}</span><span class="meta">${esc(G.kinds[d.kind].name)}</span></button>`).join('') || '<div class="faint" style="font-size:12px">No document links here</div>'}</div>`;
+      $$('[data-doc]', body).forEach((b) => (b.onclick = () => G.openDoc(b.dataset.doc)));
+    }
+    G.icons(body);
+  }
+
+  /* ----- Status bar ----- */
+  function renderStatus() {
+    const st = G.stats(S.doc.src); const ln = editor ? (editor.selectionLines ? editor.selectionLines()[0] : 1) : 1;
+    $('#status').innerHTML = G.ui.statusbar([
+      { icon: G.kinds[kind()].icon, html: G.kinds[kind()].name },
+      { icon: 'book-open-text', html: esc(G.measure(S.doc.src, { kind: kind() })) },
+      { html: `Ln ${ln}` },
+      { html: 'UTF-8 · LF' },
+      { html: '<span class="grow"></span>' },
+      { cmd: 'theme-menu', icon: 'palette', html: G.themes.find((t) => t.id === G.resolvedTheme()).name + ' · ' + G.typesets.find((t) => t.id === G.prefs.typeset).name },
+      { cmd: 'scale-reset', html: Math.round(G.prefs.scale * 100) + '%', title: 'Text size (⌘0 resets)' }
+    ].filter(Boolean)).replace('<span class="sb-item"><span class="grow"></span></span>', '<span class="grow"></span>');
+    G.icons($('#status'));
+  }
+  G.command({ id: 'lint', name: 'Go to next note in the source', icon: 'info', group: 'Source', run: () => { if (S.view === 'render') setView('split'); editor.nextNote() || G.toast('No notes', { icon: 'circle-check', quiet: true }); } });
+  /* ----- Keyboard ----- */
+  document.addEventListener('keydown', (e) => {
+    const mod = e.metaKey || e.ctrlKey; const k = e.key.toLowerCase();
+    if (mod && e.code === 'BracketLeft') { e.preventDefault(); $('#back').click(); }
+    else if (mod && e.code === 'BracketRight') { e.preventDefault(); $('#fwd').click(); }
+    else if (mod && ['1', '2', '3'].includes(e.key)) { e.preventDefault(); setView(['render', 'split', 'source'][+e.key - 1]); }
+    else if (mod && k === 'f') { e.preventDefault(); openFind(); }
+    // ⌘E toggles Read and Source. Extract has no key: it is in the verb menu and the palette.
+    else if (mod && !e.shiftKey && !e.altKey && k === 'e') { e.preventDefault(); setView(S.view === 'source' ? 'render' : 'source'); }
+    else if (mod && !e.shiftKey && !e.altKey && k === 's') { e.preventDefault(); G.saveDoc(S.doc, () => { renderTabs(); $('#t-title').textContent = S.doc.title; $('#t-path').textContent = S.doc.path; editor.setPath(S.doc.path); G.ui.mountSidebar({ active: '', reveal: true }); }); }
+    else if (mod && !e.shiftKey && !e.altKey && k === 'c' && !window.getSelection().toString() && document.activeElement !== editor.ta) { e.preventDefault(); G.copy(S.doc.src, { as: 'Markdown' }); }
+    else if (mod && !e.shiftKey && !e.altKey && k === 'c' && window.getSelection().toString() && docEl.contains(window.getSelection().anchorNode)) {
+      const s = G.renderSelection(); if (s.md !== s.text) { e.preventDefault(); G.copy(s.md, { as: 'Markdown' }); }
+    }
+  });
+
+  /* ----- Boot ----- */
+  G.boot({});
+  G.attachSelectionToolbar(docEl, () => S.doc);
+  // The workspace starts folded (data-fold="folded"); the engine moves the panels, this keeps the toolbar button in step.
+  G.on('fold', ({ state }) => { $('#b-insp').classList.toggle('on', state.insp === 'docked'); });
+  $('#b-insp').classList.toggle('on', G.fold.state.insp === 'docked');
+  setView(S.view);
+  const hashDoc = () => { const m = location.hash.match(/doc=([^&]+)/); try { return m ? decodeURIComponent(m[1]) : null; } catch (e) { return null; } };
+  window.addEventListener('hashchange', () => { const id = hashDoc(); if (id && id !== S.doc.id) G.openDoc(id, { newTab: true }); });
+  const start = hashDoc() && G.docById(hashDoc()) ? hashDoc() : 'pg16-plan';
+  G.openDoc(start, { noHist: true, line: +((location.hash.match(/[&]line=(\d+)/) || [])[1]) || undefined });
+  G.on('theme', () => { renderStatus(); });
+  G.on('reading-prefs', () => render());
+  G.on('pref', ({ key }) => { if (['checkPaths', 'blockHandles', 'scale', 'typeset'].includes(key)) render(); });
+  if (document.fonts) document.fonts.ready.then(() => { G.measureAll(); if (S.insp === 'meta') renderInspector(); renderMetaMargin(); });
+})();
+</script>
+</body>
+</html>

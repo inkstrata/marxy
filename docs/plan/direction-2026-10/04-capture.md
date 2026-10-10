@@ -97,7 +97,7 @@ to = "~/Notes/plans"
 - Nothing leaves the machine. The privacy line (commitment 2) names the whole action: "Marxy copies
   files matching your capture rules from `from` to `to` on this disk, while it is running."
 
-**Why it needs an ADR.** Commitment 3 says Marxy changes only the bytes the reader asked to change
+**Why it needed an ADR** ([ADR-0063](../../adr/0063-capture-rules.md), accepted). Commitment 3 says Marxy changes only the bytes the reader asked to change
 and keeps its own state apart from the reader's documents. A capture rule writes reader documents
 with no action per write. The argument for it: the rule is the reader's explicit, standing request,
 written in their own file. The writes are append-only copies, never edits of an existing document,
@@ -122,4 +122,4 @@ file). The derived Read view follows `reader-artifacts/10-spec.md` and proposal 
   still exactly what Source shows, one key away.
 
 The derived view needs an AST decision (a node per line, with provenance to the line's bytes, and
-a derived text that is not a substring of the buffer). That is the first ADR of Phase K.
+a derived text that is not a substring of the buffer): ADR-0061, written in Phase K.
