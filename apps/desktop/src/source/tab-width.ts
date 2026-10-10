@@ -20,11 +20,10 @@ export async function updateTabWidthResolver(filePath: string, shell: Pick<Shell
       return new TextDecoder().decode(bytes);
     },
   };
-  const { reconfigureTabSize } = await import('./editor.ts');
-  const { EditorView } = await import('@codemirror/view');
-  const dom = document.querySelector<HTMLElement>('#marxy-source .cm-editor');
-  const view = dom ? EditorView.findFromDOM(dom) : null;
-  if (view) await reconfigureTabSize(view, filePath);
+  // The focused pane's editor (D-11), when it shows this file: another pane's is not this file's.
+  const { activeSourceEditor, reconfigureTabSize } = await import('./editor.ts');
+  const editor = activeSourceEditor();
+  if (editor && editor.buffer.path === filePath) await reconfigureTabSize(editor.view, filePath);
 }
 
 export async function tabSizeForFile(path: string): Promise<number> {

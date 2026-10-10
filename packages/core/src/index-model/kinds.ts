@@ -51,6 +51,11 @@ const SOURCE = new Set([
   'svelte',
   'css',
   'scss',
+  // Logs and data (K-06): listed so the palette finds them; ADR-0060 decides how each is read.
+  'log',
+  'csv',
+  'tsv',
+  'jsonl',
 ]);
 
 /** Lowercase extension without the dot, or `''` when the name has none. */

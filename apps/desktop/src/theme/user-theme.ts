@@ -1,9 +1,10 @@
 // User theme load, apply, watch, and config resolution (docs/design/05-theme.md §App side). MARXY-177.
 import { joinPath, normalizePath, dirname } from '@marxy/core/src/index-model/paths.ts';
-import { applyTheme, loadTheme, parseConfig } from '@marxy/theme';
+import { applyTheme, avgCharWarnings, loadTheme, parseConfig } from '@marxy/theme';
 import type { WatchEvent } from '@marxy/shell-api';
 import { notify } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
+import { afterFirstPaint, measureAverageAdvance } from './measure-face.ts';
 
 export interface UserThemeShell {
   readFile(path: string): Promise<Uint8Array>;
@@ -73,9 +74,25 @@ async function relayoutKeepingPosition(ctx: UserThemeContext): Promise<void> {
   for (const view of ctx.views()) await view.relayoutForTheme();
 }
 
+/**
+ * H-06: tells the reader when the theme's `--marxy-avg-char` is far from what its text face measures. Runs
+ * after first paint (commitment 5): measuring waits for the face to load, and nothing here is on the way to text.
+ */
+function checkAvgCharAfterPaint(css: string, themeName: string): void {
+  afterFirstPaint(() => {
+    const bodyPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-body'));
+    void avgCharWarnings(css, themeName, (family) =>
+      measureAverageAdvance({ family, sizePx: Number.isFinite(bodyPx) && bodyPx > 0 ? bodyPx : undefined }),
+    ).then((found) => {
+      const text = themeNoticeText(found);
+      if (text !== null) notify({ kind: 'info', text });
+    });
+  });
+}
+
 async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<void> {
   await ctx.shell.allowAssetScope(dir);
-  const { css, warnings } = await loadTheme(
+  const { manifest, css, warnings } = await loadTheme(
     dir,
     async (rel) => ctx.shell.readFile(joinPath(dir, rel)),
     (abs) => ctx.shell.assetUrl(abs),
@@ -83,6 +100,7 @@ async function applyLoadedTheme(ctx: UserThemeContext, dir: string): Promise<voi
   applyTheme(css);
   const notice = themeNoticeText(warnings);
   if (notice !== null) notify({ kind: 'info', text: notice });
+  checkAvgCharAfterPaint(css, manifest.name);
   await relayoutKeepingPosition(ctx);
   await ctx.shell.mark('user_theme', Date.now(), `dir=${dir}`);
 }

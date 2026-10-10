@@ -68,7 +68,7 @@ The Rendered selection is the window's one and acts on the focused pane's articl
 every pane's article, each view tells it when its page is set, and focusing another pane clears it, so
 copy, the operations and `Mod+Z` reach the focused pane's document. Still bound to the first pane rather
 than the focused one, until the Phase D story named moves them: the window as scroller and the reading
-persistence (D-05, D-12), the mode attribute on `<body>` (D-11), notices other than a pane's own region
+persistence (D-05, D-12), notices other than a pane's own region
 (D-10). The close guard is per document, never the focused pane's alone (D-08, §Close). The window title
 is the focused pane's document: a document opened in the other pane does not take it, and focus moves
 it. Each pane's open path keeps its own live-reload
@@ -105,6 +105,33 @@ chrome.
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
 
+**Source editing keys (V-01).** In a pane that shows Source, and only there (Rendered does nothing with them),
+the registry binds these from `apps/desktop/src/commands/source-edit.ts`; each is also a palette command. They
+are `global` commands, so they run from inside the editor, and the editor's own default on the same chord is
+removed so a press runs one thing. A literal `Ctrl` is a Mac's Control key; elsewhere those operations are in
+the palette.
+
+| Key | Action | Notes |
+| --- | --- | --- |
+| `Mod+L` | select line | the editor's own, on `⌘L` |
+| `Ctrl+Shift+B` | select block | the parse's innermost block at the caret; any file that is not Markdown: the paragraph |
+| `Ctrl+Shift+S` | select section | the heading's section, to the next heading of equal or higher rank; Markdown only |
+| `Ctrl+Shift+→` | expand selection | word, line, block, section, document; stops at the document |
+| `Mod+D` / `Mod+Shift+L` | add next occurrence / select all occurrences | the editor's search; several selections |
+| `Ctrl+J` | join lines | a caret joins its line to the next; a selection joins what it reaches |
+| `Mod+Shift+K` | delete line | with its break |
+| `Ctrl+Shift+T` | toggle task | `[ ]` and `[x]` on list lines; a plain item gains `[ ] `; a line with no list marker is left alone |
+| `Ctrl+Shift+Q` | toggle quote | `> ` on or off each line of the selection |
+| `Ctrl+Shift+C` | toggle comment | the language's own comment syntax; `Mod+/` is the transforms key and is not this |
+| `Alt+↑/↓`, `Alt+Shift+↑/↓` | move line, duplicate line | the editor's own; Rendered's `Alt+↑/↓` are the block moves and stay so |
+| palette only | sort lines (byte order) | UTF-8 byte-wise, not the locale's |
+
+One operation is one undo step, changes only the bytes it targets, and writes the file's own line separator
+(LF, CRLF or CR) and keeps its BOM and its last line's ending (`source/structure.ts`; the pure part is
+`packages/core/src/source-edit/`). Three of the defaults a Mac's editor had on these chords go (next
+occurrence, all occurrences and delete line are the registry's now; emacs `Ctrl+Shift+→` and `Ctrl+Shift+B`,
+which select by syntax and by character, give way to expand and select block).
+
 **Pane chords (Phase D).** One table, `apps/desktop/src/pane/keys.ts`, matched on physical keys
 (`event.code`: `Mod+Shift+\` arrives as `|` on a US layout), run from a `window` capture-phase listener so
 they work from inside a Source editor too, and run once (the registry's dispatcher does not see them).
@@ -113,11 +140,23 @@ whose `when` does not hold (one pane), does nothing.
 
 | Key | Action | Notes |
 | --- | --- | --- |
-| `Mod+\` | open beside (`view.open-beside`) | D-07 |
+| `Mod+\` | open beside (`view.open-beside`) | D-07: the palette in beside mode (below); works with the palette already open |
 | `Mod+Shift+\` | close the focused pane (`view.close-pane`) | D-08; never `Mod+W`, which is the native Close Window and quits |
 | `Mod+1` | focus the left pane (`view.focus-left`) | with two panes |
 | `Mod+2` | focus the right pane (`view.focus-right`) | with two panes |
 | `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane | the same two commands; `Alt+←`/`→` without `Mod` stays history |
+
+**Open beside.** `Mod+\` opens the palette in beside mode. With nothing typed it lists Recent alone, the
+most recently used documents without those already on screen (`recentExcluding`, `palette/session.ts`), the
+first row selected, so `Mod+\` then `Enter` is "split with recent". Typed, it finds what the palette finds.
+`Enter` opens the row in the other pane, made if there is one pane; `Mod+Enter` on any row, in either mode,
+does the same. The notice line says "Open beside". The other pane's unsaved document is asked about in that
+pane (`beforeReplace`, D-08) before it is replaced, and focus moves to the pane that opened once its document
+is on screen; `Esc` gives it back to the pane the palette came from. When the window cannot hold two
+columns at the typography floor (`pane/fit.ts`, 929 px at the default text size) no second pane is made: with
+one pane `Mod+\` shows the notice "Marxy needs a window at least 929 px wide to show two documents side by
+side." and opens no palette; with the palette already up, `Enter` keeps it open with that notice and then
+opens the document here. The number is worked out from the page's metrics, never typed.
 
 A press in a pane focuses it before anything in the pane sees the press, so a click in the other pane
 focuses it and then selects. The first wheel event over the other pane after 150 ms without one focuses it
@@ -143,6 +182,22 @@ implements it.
 `Mod+W` (Close Window) is native-menu-only too, and — since Marxy is single-window — exits
 through the same path as Quit (`docs/design/06-shell.md` §Capabilities).
 
+## Navigation
+
+A plain click on a relative link to a Markdown document replaces the document in the pane it was clicked in, and
+`Mod+[` / `Mod+]` walk that pane's link history, not the window's (each pane keeps its own).
+
+### Open a link beside (D-09)
+
+Cmd-click (Ctrl-click off a Mac) on a relative link opens the target in the other pane, made when there is only
+one and the window holds two columns at the typography floor (otherwise the fit notice, `splitFitNotice`, and
+nothing opens). The pane clicked in keeps its document, its place and its focus; the neighbour's history starts
+with the target, a fragment is landed in the neighbour, and unsaved edits in the neighbour go through the pane
+set's guard (`beforeReplace`, D-08) before it is replaced. Beside only, a link to a file that opens in Source
+(`defaultModeForPath`) is accepted when its first 8 KB hold no NUL byte, and opens there; otherwise the notice
+is "That file is not text." A plain click keeps refusing such files. A `#fragment` link scrolls the pane it is in,
+and an external link ignores the modifier. Links never leave the image root, beside or not.
+
 ## Outline
 
 Built from the AST's headings (`level`, text, `src.start`). Rendered as a `<dialog>` at the
@@ -152,25 +207,42 @@ into view. `Enter` on a heading selects its section (§03) and scrolls it to the
 `Esc` closes. Frontmatter `title:` shows as the first entry when there is no h1.
 
 While the outline is open, the current-heading mark follows scrolling (the same per-frame
-position sample §08 takes; no second scroll listener). Module: `apps/desktop/src/outline/`
+position sample §08 takes; no second scroll listener).
+
+**Per pane** (D-13). The outline is the focused pane's: opened with two panes it lists the headings of
+the pane focused when it opened, takes that pane's reading position, follows that pane's scroll through
+its view's own scroll subscription, sits against that pane's right edge (`inset-inline-end` from the
+pane's box; the dialog is modal and may cover text), lands a heading in that pane, and gives focus back
+to it (`focusOrigin`). `outline/pane.ts` makes that binding. Module: `apps/desktop/src/outline/`
 (`outline.ts` builds entries from the AST — pure, tested without a DOM; `view.ts` owns the
 dialog). Entries are plain text: inline markup in a heading is flattened with `textContent`
 semantics, smart typography applied as in the article.
 
 ## Find (D-A14)
 
+- **Per pane** (D-13). `Mod+F` opens find in the focused pane only: the field sits at that pane's
+  top right (its `.marxy-find-slot`, a zero-height sticky holder moved to the pane's top while
+  find is open), and matching, highlights, the count and the reading line are that pane's. Opening
+  find in one pane closes it in the other; each pane keeps its own last query. Nothing searches
+  both panes. `Esc` gives focus back to the pane find opened from (`focusOrigin`).
 - Input at top-right, no chrome until `Mod+F`. Case-insensitive, whole document, incremental.
-- Matching runs over a text index built at render: the concatenation of the article's text
-  nodes with a map from string offset to `(textNode, offset)`. Soft hyphens (U+00AD) and the
-  typesetter's `<br>` are invisible to it: the index is built *before* typesetting and kept in
-  sync by the typesetter's split records (each split maps a node to its two halves).
+- Matching runs over a text index of the article's text nodes, concatenated with no separator
+  (`text-index.ts`), walked afresh for every run (`walk.ts`). The typesetter's line breaks are
+  empty spans whose generated content is not text, so a pass never changes the index's text, only
+  where its pieces split; a range is therefore resolved from a fresh walk, never from stored node
+  references. A match ending on a piece boundary ends in the earlier piece, so it never reaches
+  into the next block.
 - Highlights: `CSS.highlights.set('marxy-find', new Highlight(...ranges))` with
   `::highlight(marxy-find)` styled by the theme; the current match in a second highlight.
-  Fallback when `CSS.highlights` is undefined: wrap matches in `<mark class="marxy-find">`
-  and unwrap on close (the fallback is exercised by a test that deletes `CSS.highlights`).
-- Navigation scrolls the current match to the reading line (40 % of the viewport), never to
-  the top edge. Count shown as `3 of 41` inside the input.
-- In Source mode, find is CodeMirror's `@codemirror/search` panel with the same key.
+  Fallback when `CSS.highlights` is undefined: the matches near the view are drawn as rectangles in
+  a `.marxy-find-rects` layer beside the article, repainted on scroll; the article's DOM is never
+  written, because the typesetter watches it (the fallback is exercised by a test that deletes
+  `CSS.highlights`, and one that runs it on a 1 MB document).
+- Navigation scrolls the current match to the reading line (40 % of the pane's height), never to
+  the top edge. Count shown as `3 of 41` inside the input. A new query starts at the first match
+  at or below the top of the pane's view.
+- In Source mode, find is CodeMirror's `@codemirror/search` panel with the same key, in that
+  pane's editor.
 - **Matching folds what the renderer changed.** The article shows smart typography (§02) but a
   reader types straight quotes and double hyphens. The query is compiled to a regular
   expression (flags `giu`) after escaping, with these substitutions applied to the query, never
@@ -180,10 +252,23 @@ semantics, smart typography applied as in the article.
 - **Scope.** Text inside `.katex` subtrees is excluded from the index (it is layout glyphs, not
   the source); the TeX source is not searchable in Rendered mode in v1. Code blocks, tables and
   footnotes are included. Alt text is not (it is not painted unless the image is missing).
+- **Nothing found where the reader cannot see it** (commitment 4). One rule, `NON_CONTENT` in
+  `walk.ts`: a subtree that is not the document's visible reading text is skipped whole. That is
+  what the page does not draw (`[hidden]`, `<template>`, `aria-hidden`: a link's hidden
+  destination), KaTeX's glyphs, the elided tail of a long code line and its note, and Marxy's own
+  labels (a link's host label, notices, controls). A match inside a horizontally or vertically
+  scrolled inner scroller (a wide table, a code block) scrolls that scroller as well as the pane.
+  Find sits above the outline and the other summoned surfaces. A match inside a closed `<details>` is counted,
+  and the details element is opened when that match becomes current. An invisible character's
+  marker (§02) is searched by its byte, not its hex label: a zero-width or bidi control inside a
+  word splits it, so a query typed without it does not match (the marker shows why), and a match
+  that touches the byte is highlighted over the whole marker, never as a zero-width box. Folded
+  front-matter rows are not in the article and are found in Source.
 - **Budget.** Matching reruns one frame after the last keystroke; `find_first_match` is marked
   when the first highlight is set. < 50 ms for `01-long-technical.md` on the reference tier.
 - Module: `apps/desktop/src/find/` (`text-index.ts` pure over a list of text-node strings,
-  `query.ts` the compiler above, `view.ts` the input and highlights).
+  `query.ts` the compiler above, `walk.ts` the DOM walk and ranges, `view.ts` the input and
+  highlights; `commands/find.ts` is `view.find`).
 
 ## Notices (`#marxy-notices`)
 
@@ -201,7 +286,34 @@ hover and focus-visible state.
 
 ## Source mode (D-A15)
 
-CodeMirror 6 in `#marxy-source`, created on first switch and kept:
+Source is a mode of a pane, not of the window (D-11, ADR-0005): each pane's section carries its own
+`data-marxy-mode`, `Mod+E` toggles the focused pane only, and `<body>`'s `data-marxy-mode` mirrors the
+focused pane's (written again whenever focus moves), so CSS and tests that read it still mean "the pane
+the reader is in". The editor mounts **in the pane**: one CodeMirror per pane's Source mount
+(`#marxy-source`, `#marxy-source-2`), with its own scroll and cursor; alone, the mount covers the window,
+and beside another pane it is `position: absolute` inside its own section. A file that opens in Source
+does so in whichever pane it opens in. Commands that mean "the editor" (line numbers, tab width, the
+external editor's line) take the focused pane's (`activeSourceEditor()`).
+
+Two panes on one file, one Rendered and one Source: what is typed in Source reaches the other view
+when focus leaves the editor (a click or `Mod+1`/`Mod+2` into the other pane, the palette), not per
+keystroke. It is folded into the store then, one history entry, exactly as leaving Source folds it; a
+Source pane that is the only view of its store folds only on leaving Source, as before. Two views of one
+store never both hold unfolded Source text: a pane that comes to show a document another pane holds
+unfolded in Source folds the holder first, so the newcomer starts from bytes that include it. With the
+file in Source in both panes, each fold reaches the other editor, which then holds no typing of its own
+and takes the new bytes (caret mapped), so neither pane's next fold writes the other's typing back
+out. Edits are never merged. Should an editor with its own typing still meet another pane's fold, it is
+held apart: it keeps its text, the store keeps the other pane's, a notice says "Source in the other pane
+changed this file; your text was not folded", and that editor's folds (on blur, before a save, an undo
+or a close) and leaving Source are refused until its text reads as the store's again or the pane opens
+the document again. Its text still counts as unsaved, so closing, opening over it or quitting asks. If another view's watch reloads the file
+from disk while a Source pane holds text not yet folded, that text is kept and folded on top, as an
+unsaved edit the store kept. A rename followed by the other pane's watch is not settled here: each
+pane still runs its own watch, and one watch per store is D-10's. Live mirroring per keystroke would
+need the store to take CodeMirror transactions (Phase E's block editing).
+
+CodeMirror 6 in each pane's Source mount, created on its first switch and kept:
 
 ```ts
 new EditorView({ state: EditorState.create({ doc: buffer.text /* without BOM */, extensions: [
@@ -291,4 +403,4 @@ goes into the store first).
 - `state.test.ts`: the transition table; overlays exclusive; `Esc` semantics.
 - Playwright: at rest the only visible elements are inside `#marxy-main`; each key in the map
   does what the table says; find lands the current match at 40 % ± 2 px; the fallback path
-  wraps and unwraps `<mark>`; Source round-trip without edits leaves `buffer.bytes` identical.
+  draws overlay rectangles and leaves the article's markup untouched; Source round-trip without edits leaves `buffer.bytes` identical.

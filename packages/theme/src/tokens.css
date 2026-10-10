@@ -1,4 +1,4 @@
-/* marxy theme token contract — version 1. Reviewed contract (ADR-0008, ADR-0045): token names and units still need an ADR to
+/* marxy theme token contract — version 2 (ADR-0059). Reviewed contract (ADR-0008, ADR-0045): token names and units still need an ADR to
    change (checked by scripts/check-tokens.mjs); values are taste. Values are the DARK variant's
    defaults (ADR-0024). Themes set these. marxy derives every vertical space from
    --marxy-line-box and never lets a theme set margins directly. Everything not listed here is
@@ -67,6 +67,52 @@
   --marxy-tok-constant: #c9a0dc;
   --marxy-tok-tag: #8fb4dd;
   --marxy-tok-attribute: var(--marxy-color-code-text);
+
+  /* contract 2 (ADR-0059). Each name is declared as its v1 fallback, as CSS, so a theme that sets only v1
+     tokens gets roles derived from its own values; Night and Paper set the real values (H-04). */
+
+  /* colour roles, set per variant */
+  --marxy-color-surface: var(--marxy-color-notice);                   /* ground of every summoned surface: palette, verb menu, notices, workspace panels */
+  --marxy-color-surface-glass: var(--marxy-color-surface);            /* translucent surface where the platform draws vibrancy; Reduce transparency uses the surface */
+  --marxy-color-text-strong: var(--marxy-color-text);                 /* headings and bold */
+  --marxy-color-text-faint: var(--marxy-color-text-secondary);        /* section labels, counts, line numbers; still text, never decoration */
+  --marxy-color-rule-strong: var(--marxy-color-rule);                 /* a stronger decorative line: keycaps, switch tracks, a surface's outline */
+  --marxy-color-edge: var(--marxy-color-text-secondary);              /* the boundary of a control: field, button, switch, focusable row (3:1) */
+  --marxy-color-accent-strong: var(--marxy-color-accent);             /* the accent pressed or emphasised */
+  --marxy-color-accent-fg: var(--marxy-color-bg);                     /* text and icons on an accent fill */
+  --marxy-color-accent-wash: var(--marxy-color-selection);            /* translucent accent fill: the active row, an on button, a chip */
+  --marxy-color-status-ok: var(--marxy-color-text);                   /* status text and marks for success; always with a word and an icon */
+  --marxy-color-status-warn: var(--marxy-color-text);                 /* status text and marks for a warning */
+  --marxy-color-status-err: var(--marxy-color-text);                  /* status text and marks for an error */
+  --marxy-color-status-info: var(--marxy-color-accent);               /* status text and marks for information */
+  --marxy-color-status-ok-wash: var(--marxy-color-notice);            /* fill behind a success notice or row */
+  --marxy-color-status-warn-wash: var(--marxy-color-notice);          /* fill behind a warning */
+  --marxy-color-status-err-wash: var(--marxy-color-notice);           /* fill behind an error */
+  --marxy-tok-marker: var(--marxy-tok-punctuation);                   /* Markdown syntax markers in Source (#, *, >, fences) */
+  --marxy-tok-heading: var(--marxy-color-code-text);                  /* Markdown heading text in Source */
+  --marxy-tok-link: var(--marxy-color-link);                          /* link text and destinations in Source */
+  --marxy-shadow-surface: none;                                       /* the elevation under a summoned surface; never a surface's only boundary */
+
+  /* face roles: the type set. The slots (--marxy-font-*) stay the face the text is set in; a kind scope points a slot at a role */
+  --marxy-face-book: var(--marxy-font-text);                          /* long-form serif for books */
+  --marxy-face-article: var(--marxy-font-text);                       /* editorial face for articles, the default kind */
+  --marxy-face-sans: var(--marxy-font-text);                          /* reports, docs, transcripts, notes, changelogs */
+  --marxy-face-readme: var(--marxy-font-text);                        /* READMEs */
+  --marxy-face-mono: var(--marxy-font-mono);                          /* code, data, logs, terminal output, and code inside prose */
+
+  /* chrome: the platform face at 13 px on summoned surfaces (the reader's chrome_size sets it on :root, H-07) */
+  --marxy-face-chrome: system-ui, sans-serif;                         /* the face of controls on summoned surfaces */
+  --marxy-size-chrome: 13px;                                          /* the size of control text; clamped to 11–26px */
+
+  /* system-owned copies of the reader's sizes as they stand on :root; a kind scope's ratio is compiled
+     to calc(<ratio> * var(<copy>)) because a custom property cannot refer to itself. A theme must not set them. */
+  --marxy-root-size-body: var(--marxy-size-body);                     /* root copy of the body size */
+  --marxy-root-size-code: var(--marxy-size-code);                     /* root copy of the code size */
+  --marxy-root-size-caption: var(--marxy-size-caption);               /* root copy of the caption size */
+  --marxy-root-line-box: var(--marxy-line-box);                       /* root copy of the line box */
+  --marxy-root-line-box-code: var(--marxy-line-box-code);             /* root copy of the code line box */
+  --marxy-root-lh-h1: var(--marxy-lh-h1);                             /* root copy of the h1 line box */
+  --marxy-root-lh-h2: var(--marxy-lh-h2);                             /* root copy of the h2 line box */
 
   /* presentation knobs (theme-owned) */
   --marxy-code-radius: 0px;

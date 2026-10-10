@@ -19,6 +19,11 @@
 }
 :root[data-marxy-variant="light"] { color-scheme: light; }
 
+/* A pane's kind scope may set its own measure (ADR-0059 item 7). --marxy-measure is computed on :root in
+   tokens.css, so a per-kind --marxy-measure-chars would change nothing below it: the same computation is
+   repeated where the kind's values apply. :root keeps its declaration, so a v1 theme renders as before. */
+[data-marxy-kind] { --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em); }
+
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }
 
@@ -569,6 +574,83 @@ a.marxy-link-mismatch::before {
 }
 a:hover .marxy-link-dest,
 a:focus .marxy-link-dest { display: inline; }
+
+/* Rendered find (D-13; docs/design/09-app-shell.md §Find). A match is a pale fill and a 2 px edge in
+   --marxy-color-find-edge (3:1 on the grounds, WCAG 1.4.11), as Source draws it after L-11; the current
+   match adds a line above as well as below, so it is told apart by shape and not by colour alone
+   (ADR-0033). The overlay rectangles below are the fallback where the engine has no CSS.highlights. */
+::highlight(marxy-find) {
+  background-color: var(--marxy-color-find);
+  text-decoration: underline 2px var(--marxy-color-find-edge);
+}
+::highlight(marxy-find-current) {
+  background-color: var(--marxy-color-find-current);
+  text-decoration: underline overline 2px var(--marxy-color-find-edge);
+}
+/* The fallback where the engine has no CSS.highlights: rectangles in `.marxy-find-rects`, a layer beside
+   the article (never inside it, so the typesetter is not disturbed), drawn over the text in the same two
+   tones, the fill translucent so the words show through. Lines, not colour alone, tell the current one. */
+.marxy-find-rects {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.marxy-find-rect {
+  position: absolute;
+  box-sizing: border-box;
+  background-color: color-mix(in srgb, var(--marxy-color-find) 55%, transparent);
+  box-shadow: inset 0 -2px 0 var(--marxy-color-find-edge);
+}
+.marxy-find-rect-current {
+  background-color: color-mix(in srgb, var(--marxy-color-find-current) 55%, transparent);
+  box-shadow: inset 0 -2px 0 var(--marxy-color-find-edge), inset 0 2px 0 var(--marxy-color-find-edge);
+}
+/* The field: summoned only, at the top right of its pane's view. Its slot is a zero-height sticky holder
+   at the pane's top while find is open, so the field stays put whether the window or the pane scrolls.
+   A sticky slot is its own stacking context, so the field's z-index counts only inside it: the slot's own
+   z-index is what puts find above the outline and the other summoned surfaces (z-index 10) that are
+   later in the document. */
+.marxy-find-slot { z-index: 11; }
+.marxy-find {
+  position: absolute;
+  top: 0.75rem;
+  inset-inline-end: 1rem;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  width: min(18rem, calc(100% - 2rem));
+  box-sizing: border-box;
+  border: 1px solid var(--marxy-color-rule);
+  border-radius: 6px;
+  background: var(--marxy-color-notice);
+  color: var(--marxy-color-text);
+  font-family: var(--marxy-font-text);
+  font-size: var(--marxy-size-caption);
+  line-height: 1.4;
+  box-shadow: 0 0.25rem 1.5rem rgb(0 0 0 / 25%);
+}
+.marxy-find-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0.4em 0.6em;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+.marxy-find:focus-within { border-color: var(--marxy-color-find-edge); }
+.marxy-find-count {
+  flex: none;
+  padding-inline-end: 0.6em;
+  color: var(--marxy-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.marxy-find-count:empty { display: none; }
 
 /* The divider between two panes (D-04; ADR-0057): drawn only while two panes are open, 1 px of
    --marxy-color-divider, zero layout width (the grid's columns are exactly the ratio). The hit area is

@@ -22,6 +22,16 @@ export function installScroll<C extends PaneContent>(panes: PaneSet<C>): void {
   /** The right pane's place as its split ended, for a close that keeps its document in the first pane. */
   let rightPlace: ReadingPosition | null = null;
 
+  // The first pane's place is read live and put back on its own scroller before the split lays out: its
+  // last scroll event may be older than a window resize or a script's scroll, and the split clamps the
+  // window's scroll to 0 before `onSplit` runs. Rebinding to the same scroller with the place given notes it.
+  panes.onBeforeSplit(() => {
+    const first = panes.panes[0];
+    if (first && first.path() !== null && first.view.mode === 'rendered' && first.view.document()) {
+      first.view.rebindScroller(first.view.scroller, first.view.position());
+    }
+  });
+
   panes.onSplit(() => {
     const [first, right] = panes.panes;
     first?.view.rebindScroller(first.host);

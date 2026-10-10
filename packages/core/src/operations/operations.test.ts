@@ -13,6 +13,7 @@ import { copySection } from './copy-section.ts';
 import { displayWidth } from './display-width.ts';
 import { CLIPBOARD_OPERATIONS, MUTATING_OPERATIONS, OPERATIONS } from './index.ts';
 import { assertOnlySpansChanged, corpusDocuments } from './testing/corpus.ts';
+import { assertBytesOutsideRangeUnchanged } from './testing/test-kit.ts';
 import { toggleTask } from './toggle-task.ts';
 
 function parse(source: string, file = 'test.md'): Document {
@@ -194,33 +195,6 @@ function tablesOf(node: Node, out: Extract<Block, { type: 'table' }>[]): void {
 function taskMarkersOf(node: Node, out: Extract<Inline, { type: 'taskMarker' }>[]): void {
   if (node.type === 'taskMarker') out.push(node);
   for (const child of node.children ?? []) taskMarkersOf(child as Node, out);
-}
-
-function assertBytesOutsideRangeUnchanged(
-  bytes: Uint8Array,
-  range: { start: number; end: number },
-  replacement: string,
-  spliceFn: typeof splice = splice,
-): void {
-  const buffer = createBuffer('mutation-check', bytes);
-  const src: Source = { file: buffer.path, start: range.start, end: range.end };
-  const next = spliceFn(buffer, src, replacement);
-  const enc = new TextEncoder().encode(replacement);
-  assert.deepEqual(
-    [...next.bytes.subarray(range.start, range.start + enc.length)],
-    [...enc],
-    'the replacement must land exactly in the range',
-  );
-  assert.deepEqual(
-    [...next.bytes.subarray(0, range.start)],
-    [...bytes.subarray(0, range.start)],
-    'bytes before the range must be unchanged',
-  );
-  assert.deepEqual(
-    [...next.bytes.subarray(range.start + enc.length)],
-    [...bytes.subarray(range.end)],
-    'bytes after the range must be unchanged',
-  );
 }
 
 type ToggleCase = { name: string; source: string; pick: (doc: Document) => Extract<Inline, { type: 'taskMarker' }>; expect: string };

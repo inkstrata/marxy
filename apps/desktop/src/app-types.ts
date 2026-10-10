@@ -62,6 +62,16 @@ export type AppAction =
   | { readonly type: 'undo' | 'redo' | 'toggle-mode' }
   | { readonly type: 'save'; readonly as?: boolean };
 
+/**
+ * `AppHandle.open`'s options. `target: 'other'` opens in the other pane (made when there is one pane and
+ * the window holds two columns, D-07); nothing opens when it cannot. Focus then moves to the opened pane
+ * once its document is on screen, unless `focus` is `'stay'` (a link followed beside keeps the origin).
+ */
+export interface AppOpenOptions extends OpenOptions {
+  readonly target?: 'here' | 'other';
+  readonly focus?: 'move' | 'stay';
+}
+
 export type AppHandle = {
   readonly state: { document: OpenDocument | null };
   /**
@@ -80,7 +90,7 @@ export type AppHandle = {
    * edits the promise settles as soon as the reader is asked, and `onLanded` waits for their choice
    * (never on "Dismiss").
    */
-  open(path: string, opts?: OpenOptions): Promise<void>;
+  open(path: string, opts?: AppOpenOptions): Promise<void>;
   /** The focused pane's document, or null before the first one. */
   currentPath(): string | null;
   /** The folder every image and link of the document at `path` must stay inside: its repository root, else its folder (ADR-0027 §5). */

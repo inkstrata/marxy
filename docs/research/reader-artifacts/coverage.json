@@ -810,7 +810,7 @@
       "spec": "P10",
       "disposition": "deferred",
       "bundle": "v1.1-transcript",
-      "note": "ADR-0036 clause 12."
+      "note": "ADR-0036 clause 12; decided by ADR-0061 (proposed), built by K-12."
     },
     {
       "id": "proposal.P11",
