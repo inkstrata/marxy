@@ -156,3 +156,113 @@ test('at 1280px the markers still hang fully: item text on the column edge, the 
   assert.ok(Math.abs(m.colL - m.olMarker - 2.25 * m.em) <= 0.5, `the marker hangs ${m.colL - m.olMarker}px, not 2.25em (${2.25 * m.em}px)`);
   for (const left of m.checkboxes) assert.ok(left < m.colL, `a checkbox at ${left}px does not hang left of the column (${m.colL}px)`);
 });
+
+// F-22: the number comes from the list's own counter, so <ol start> is honoured, and the marker box
+// grows with its number so a long one never runs into the item's text.
+function measureOl() {
+  const items = [...document.querySelectorAll('#doc > ol > li')];
+  return items.map((li) => {
+    const before = getComputedStyle(li, '::before');
+    const range = document.createRange();
+    const walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT);
+    let textLeft = null;
+    for (let n = walker.nextNode(); n && textLeft === null; n = walker.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      range.selectNodeContents(n);
+      textLeft = range.getClientRects()[0].left;
+    }
+    const markerLeft = li.getBoundingClientRect().left + parseFloat(before.marginInlineStart);
+    return { markerLeft, markerRight: markerLeft + parseFloat(before.width), textLeft, em: parseFloat(getComputedStyle(li).fontSize) };
+  });
+}
+
+test('an ordered list that starts at 7 shows 7, 8, 9 (F-22)', async () => {
+  // A pseudo-element's counter cannot be read back, so the marker glyphs are compared as pixels with a
+  // reference list written with explicit item values (7, 8, 9), and against a list that starts at 1.
+  const page = await openPage(browser, renderMarkdown('7. seven\n8. eight\n9. nine\n\ntext\n\n1. same\n2. same\n3. same\n'), { width: 1280 });
+  const boxes = await page.evaluate(() => {
+    const ref = document.createElement('ol');
+    for (const [value, text] of [[7, 'seven'], [null, 'eight'], [null, 'nine']]) {
+      const li = document.createElement('li');
+      if (value) li.value = value;
+      li.textContent = text;
+      ref.append(li);
+    }
+    document.getElementById('doc').append(ref);
+    const lists = [...document.querySelectorAll('#doc > ol')];
+    return lists.map((ol) => [...ol.children].map((li) => {
+      const r = li.getBoundingClientRect();
+      const w = parseFloat(getComputedStyle(li, '::before').width);
+      return { x: r.left - w, y: r.top + window.scrollY, width: w, height: r.height };
+    }));
+  });
+  const shots = [];
+  for (const list of boxes) {
+    const row = [];
+    for (const b of list) row.push(await page.screenshot({ clip: b, fullPage: true }));
+    shots.push(row);
+  }
+  await page.close();
+  const [seven, one, ref] = shots;
+  seven.forEach((png, i) => assert.ok(png.equals(ref[i]), `marker ${i + 1} of the list that starts at 7 does not look like ${7 + i}`));
+  assert.ok(!seven[0].equals(one[0]), 'the markers of a list starting at 7 and one starting at 1 look the same');
+});
+
+for (const width of [320, 1280]) {
+  test(`a 1000-item list's markers never overlap their text at ${width}px (F-22)`, async () => {
+    const md = Array.from({ length: 1005 }, (_, i) => `${i + 1}. item ${i + 1}`).join('\n') + '\n';
+    const page = await openPage(browser, renderMarkdown(md), { width });
+    const items = await page.evaluate(measureOl);
+    await page.close();
+    assert.ok(items[999].markerRight - items[999].markerLeft > 2.25 * items[999].em, 'the "1000." box grew past the 2.25em of a short number');
+    for (const i of [99, 999, 1004]) {
+      assert.ok(items[i].markerRight <= items[i].textLeft + 0.5, `marker ${i + 1} ends at ${items[i].markerRight}px, past its text at ${items[i].textLeft}px`);
+    }
+  });
+}
+
+// F-22: the marker box must not grow its line: a list's height stays a whole number of grid units
+// (half a line box), at the default size and at 28px (where the unit is 21px), so what follows it keeps the grid.
+for (const size of [20, 28]) {
+  test(`an ordered list is a whole number of grid units tall at ${size}px type (F-22)`, async () => {
+    const md = '1. one\n2. two\n3. three\n\n10. ten\n11. eleven\n\nafter\n';
+    const page = await openPage(browser, renderMarkdown(md), { width: 1280, extraCss: `:root { --marxy-size-body: ${size}px; --marxy-line-box: ${size * 1.5}px; --marxy-line-box-code: ${size * 1.5}px; }` });
+    const r = await page.evaluate(() => {
+      const unit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-half')) || 0;
+      const probe = document.createElement('div');
+      probe.style.height = 'var(--marxy-half)';
+      document.getElementById('doc').append(probe);
+      const half = probe.getBoundingClientRect().height;
+      probe.remove();
+      return { half, heights: [...document.querySelectorAll('#doc > ol')].map((ol) => ol.getBoundingClientRect().height), unit };
+    });
+    await page.close();
+    for (const h of r.heights) {
+      const units = h / r.half;
+      assert.ok(Math.abs(units - Math.round(units)) < 0.001, `an ordered list is ${h}px tall, ${units} grid units of ${r.half}px`);
+    }
+  });
+}
+
+// The same thing on the corpus page the gate judges (09-gfm-everything: `1. 2. 10.` and a `3) 4)` list), at the
+// gate's cell: 960px wide, 28px type (grid unit 21px). Every block after an ordered list must stay on the grid.
+test('09-gfm-everything keeps every top-level block on the grid at 960px and 28px type (F-22)', async () => {
+  const page = await openPage(browser, renderCorpus('09-gfm-everything.md'), { width: 960, extraCss: ':root { --marxy-size-body: 28px; --marxy-line-box: 42px; --marxy-line-box-code: 42px; }' });
+  const r = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.height = 'var(--marxy-half)';
+    document.getElementById('doc').append(probe);
+    const half = probe.getBoundingClientRect().height;
+    probe.remove();
+    const base = document.getElementById('doc').getBoundingClientRect().top + window.scrollY;
+    const off = [];
+    for (const el of document.querySelectorAll('#doc > ol ~ p, #doc > ol ~ ul, #doc > ol ~ ol')) {
+      const units = (el.getBoundingClientRect().top + window.scrollY - base) / half;
+      if (Math.abs(units - Math.round(units)) > 0.01) off.push(`${el.tagName} at ${units} units`);
+    }
+    return { half, off };
+  });
+  await page.close();
+  assert.equal(r.half, 21);
+  assert.deepEqual(r.off, []);
+});
