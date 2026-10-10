@@ -24,6 +24,13 @@ toml = "0.9"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# The native pasteboard (J-01, src/pasteboard/macos.rs): NSPasteboard for type listing, HTML and RTF
+# reads and one multi-representation item. MIT; the versions tauri's macOS stack already pulls in.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.4"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSPasteboard", "NSPasteboardItem"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSData", "NSString"] }
+
 [profile.release]
 codegen-units = 1
 lto = true
