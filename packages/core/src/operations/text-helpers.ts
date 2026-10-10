@@ -5,7 +5,7 @@ import type { Source } from '../contracts/ast.ts';
 /**
  * The line ending of `text`: its first one (`'\r\n'`, `'\n'` or a lone `'\r'`), `'\n'` when there is none.
  * An operation that emits a line break uses this, never a literal `'\n'`, because `splice` converts nothing.
- * (The editor's own rule for a whole buffer is `lineSeparatorFor`, F-25, in apps/desktop, which core cannot import.)
+ * (The editor's own rule for a whole buffer is `lineSeparatorFor` (F-25), which core cannot import.)
  */
 export function eolOf(text: string): '\r\n' | '\n' | '\r' {
   const m = /\r\n|\n|\r/.exec(text);
