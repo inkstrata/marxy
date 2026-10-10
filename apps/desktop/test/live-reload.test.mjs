@@ -322,6 +322,54 @@ test('formulas set before a reload are not set again, and a new one is set (B-24
   }
 });
 
+test('a reload while the first mount is still filling does not set a formula twice (B-24)', async () => {
+  const text = Array.from({ length: 2000 }, (_, i) => `## Section ${i + 1}\n\nInline $a_{${i}}$ here.\n\n`).join('');
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/F.md': b64(text) }, ['/r/F.md']);
+    const seen = await writeFromOutside(page, text.replace('## Section 2\n', () => 'One line an outside editor wrote.\n\n## Section 2\n'));
+    assert.equal(seen.repaint?.how, 'replaced', JSON.stringify(seen.repaint));
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    const unset = () => document.querySelectorAll('#doc code.marxy-math:not([data-marxy-done="math"])').length;
+    await page.waitForFunction(`(${unset})() === 0`, null, { timeout: 60000 });
+    await page.waitForTimeout(500);
+    const formulas = (p) => p.evaluate(() => [...document.querySelectorAll('#doc code.marxy-math')].map((el) => el.textContent));
+    const got = await formulas(page);
+    // The same document opened and left alone: what KaTeX makes of each formula once.
+    const quiet = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(quiet, { '/r/F.md': b64(text) }, ['/r/F.md']);
+    await quiet.evaluate(() => window.__marxyHandle.contentComplete());
+    await quiet.waitForFunction(`(${unset})() === 0`, null, { timeout: 60000 });
+    const want = await formulas(quiet);
+    const wrong = got.map((t, i) => (t === want[i] ? null : [i, t, want[i]])).filter(Boolean).slice(0, 3);
+    assert.deepEqual(wrong, [], 'every formula holds what KaTeX makes of it once');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('after Save as the open document still gives its HTML (B-24)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/Y.md': b64(BIG) }, ['/r/Y.md']);
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    await writeFromOutside(page, BIG.replace('## Turn 2\n', () => 'A line.\n\n## Turn 2\n'));
+    const seen = await page.evaluate(async () => {
+      const h = window.__marxyHandle;
+      h.shell.queueSaveDialog('/e/Y.md');
+      await h.save({ as: true });
+      const html = h.state.document.html;
+      return { type: typeof html, length: html.length, has: html.includes('A line.') };
+    });
+    assert.deepEqual(seen.type, 'string');
+    assert.equal(seen.has, true);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('a reload while the mount is still filling replaces blocks in what is pending as well (B-24)', async () => {
   const text = turns(1700);
   const browser = await launchWebkit();

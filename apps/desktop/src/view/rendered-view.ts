@@ -1145,7 +1145,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       case 'save':
         // A Save as moved the store to another name: the parse the page resolves through follows it.
         if (change.renamedFrom !== undefined && shown) {
-          shown = openDocumentOf(snapshot.ast, snapshot.nodeMap, shown.blocks, shown.render, () => shown?.html ?? '');
+          const was = shown;
+          shown = openDocumentOf(snapshot.ast, snapshot.nodeMap, was.blocks, was.render, () => was.html);
         }
         settlePage(Promise.resolve());
         return;
@@ -1337,8 +1338,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return () => runDeferredStartup(deferredStartupContext(file));
   }
 
+  /** Each call supersedes the ones before it on the same mount: a reload during the first mount must not run the passes twice. */
+  let deferredGeneration = 0;
   function deferAfterComplete(current: ProgressiveMount, file: string): void {
-    void afterComplete(current, () => whenIdle(deferredStartup(file)));
+    const generation = ++deferredGeneration;
+    void afterComplete(current, () => (generation === deferredGeneration ? whenIdle(deferredStartup(file)) : undefined));
   }
 
   /** The render half of an open (MARXY-183): the store's snapshot into the article through the `render` mark. */
