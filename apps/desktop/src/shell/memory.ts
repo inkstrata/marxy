@@ -3,7 +3,10 @@ import { imageSizeFromBytes, isInsideImageRoot } from '@marxy/core/src/render/im
 import { DENY_DIRECTORY_NAMES } from '@marxy/core/src/index-model/deny.ts';
 import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { searchContent, searchablePaths } from '@marxy/core/src/index-model/content-search.ts';
-import type { FileStat, Shell, WatchEvent } from '@marxy/shell-api';
+import type { ClipboardRep, FileStat, Shell, WatchEvent } from '@marxy/shell-api';
+import { clipboard } from './clipboard.ts';
+
+const { BUNDLE_ID, CONCEALED, READABLE, SOURCE, TRANSIENT, checkWrite, shellError } = clipboard;
 
 export type Call = {
   readonly method: string;
@@ -28,6 +31,9 @@ export type MemoryShell = Pick<
   | 'onCloseRequested'
   | 'confirmClose'
   | 'searchContent'
+  | 'clipboardTypes'
+  | 'clipboardRead'
+  | 'clipboardWriteItem'
 > & {
   args(): Promise<string[]>;
   mark(name: string, t: number, data?: string): Promise<void>;
@@ -44,6 +50,17 @@ export type MemoryShell = Pick<
   emitCloseRequested(): void;
   saveDialog(opts?: { defaultPath?: string }): Promise<string | null>;
   clipboardWrite(data: { readonly text: string; readonly html?: string }): Promise<void>;
+  /**
+   * The fake pasteboard (harness): the items on it, first item first, as `{ type: bytes }` maps.
+   * Set it as another app's copy would; `clipboardWriteItem` replaces it with the one item written.
+   */
+  setPasteboard(items: readonly Record<string, Uint8Array>[]): void;
+  /** What `clipboardWriteItem` last put on the pasteboard, markers included; null before any write. */
+  readonly lastPasteboardWrite: Readonly<Record<string, Uint8Array>> | null;
+  /** The types `clipboardRead` has taken bytes of, in order: the data reads, as the native side counts them. */
+  readonly pasteboardDataReads: readonly string[];
+  /** How many times the native write ran (one per `clipboardWriteItem` that was not refused first). */
+  readonly pasteboardNativeWrites: number;
   revealInExternalEditor(path: string, line?: number): Promise<void>;
   openExternal(url: string): Promise<void>;
   fetchRemoteImage(url: string): Promise<string>;
@@ -69,6 +86,9 @@ function notFound(path: string): Error & { code: 'not-found'; path: string } {
 /** The most the Rust shell's `read_head` returns. */
 const HEAD_CAP_BYTES = 256 * 1024;
 
+/** The most one pasteboard representation the Rust shell returns. */
+const PASTEBOARD_CAP = 16 * 1024 * 1024;
+
 const deniedDir = new Set<string>(DENY_DIRECTORY_NAMES);
 
 const platformOf = (): MemoryShell['platform'] => {
@@ -92,6 +112,12 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
   let queuedSave: string | null | undefined;
   let writeReject: 'permission' | 'io' | null = null;
   const assetScopes = new Set<string>();
+  // The fake pasteboard. Nothing below touches it except the three clipboard methods.
+  let pasteboard: Record<string, Uint8Array>[] = [];
+  const dataReads: string[] = [];
+  let nativeWrites = 0;
+  let lastWrite: Record<string, Uint8Array> | null = null;
+  const isConcealed = () => pasteboard.some((item) => CONCEALED in item);
 
   const assertAssetScope = (path: string): void => {
     for (const dir of assetScopes) {
@@ -228,6 +254,45 @@ export function createMemoryShell(files: Record<string, Uint8Array>): MemoryShel
     },
     async clipboardWrite(data) {
       record('clipboardWrite', [data]);
+    },
+    setPasteboard(items) {
+      pasteboard = items.map((item) => Object.fromEntries(Object.entries(item).map(([t, b]) => [t, b.slice()])));
+    },
+    get lastPasteboardWrite() {
+      return lastWrite;
+    },
+    get pasteboardDataReads() {
+      return dataReads;
+    },
+    get pasteboardNativeWrites() {
+      return nativeWrites;
+    },
+    async clipboardTypes() {
+      record('clipboardTypes');
+      const types = Object.keys(pasteboard[0] ?? {});
+      if (!types.includes(CONCEALED) && isConcealed()) types.push(CONCEALED);
+      return types;
+    },
+    async clipboardRead(type) {
+      record('clipboardRead', [type]);
+      if (isConcealed()) throw shellError('permission', 'the clipboard holds a concealed item; Marxy does not read it');
+      if (!READABLE.includes(type)) return null;
+      const bytes = pasteboard[0]?.[type];
+      if (!bytes) return null;
+      if (bytes.byteLength > PASTEBOARD_CAP) throw shellError('invalid', `${type} is over the 16 MB clipboard cap`);
+      dataReads.push(type);
+      return { type, bytes: bytes.slice() };
+    },
+    async clipboardWriteItem(reps: readonly ClipboardRep[], meta) {
+      checkWrite(reps);
+      record('clipboardWriteItem', [reps, meta]);
+      nativeWrites += 1;
+      const item: Record<string, Uint8Array> = {};
+      for (const r of reps) item[r.type] = r.bytes.slice();
+      item[SOURCE] = new TextEncoder().encode(BUNDLE_ID);
+      if (meta?.transient === true) item[TRANSIENT] = new Uint8Array();
+      pasteboard = [item];
+      lastWrite = item;
     },
     async revealInExternalEditor(path, line) {
       record('revealInExternalEditor', [path, line]);
