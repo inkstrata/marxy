@@ -273,8 +273,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * another was off by this much of every block's change in height (F-27).
    */
   const contentOffset = (): number => {
-    const box = scroller === document.documentElement ? 0 : scroller.getBoundingClientRect().top + scroller.clientTop;
-    const offset = doc.getBoundingClientRect().top - box + scroller.scrollTop;
+    // The window scroller (one pane) is left as it was: its blocks are measured as before.
+    if (scroller === document.documentElement) return 0;
+    const offset = doc.getBoundingClientRect().top - (scroller.getBoundingClientRect().top + scroller.clientTop) + scroller.scrollTop;
     return Number.isFinite(offset) ? offset : 0;
   };
   let seenOffset = contentOffset();
@@ -299,7 +300,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // reader's or a script's, and releases whatever this view is holding the place with, as the reader's
     // input does: a hold put back after it would undo it (F-27, from the D-13 review: a scroll made just
     // after a pane opened was reset to the top).
-    if (scroller.scrollTop !== seen.scrollTop) releaseAnchor();
+    if (scroller !== document.documentElement && scroller.scrollTop !== seen.scrollTop) releaseAnchor();
     noteScroll();
     for (const cb of [...scrollListeners]) cb();
   };
@@ -900,7 +901,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       const path = openPathNow();
       if (before === null && path && shown) {
         before = currentPosition(scroller, shown.blocks, path, 'rendered');
-        holdThroughResize(before);
+        if (scroller !== document.documentElement) holdThroughResize(before);
       }
       clearTimeout(pending);
       // A new width re-breaks every paragraph; the relayout's passes re-run the grid pass themselves.
