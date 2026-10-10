@@ -69,3 +69,4 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0063](0063-capture-rules.md) | Capture rules: a standing, declared request to copy files byte-exact into a reader folder | accepted (author, 2026-10-10) |
 | 0064 | File metadata capabilities in `shell-api` (reserved for W-18) | — |
 | [0065](0065-the-clipboard.md) | The clipboard is essential: Copy as targets, multi-format writes, paste, Transform; clipboard read on reader action only; the studio waits for a design; amends 0026 and 0054 | accepted (author, 2026-10-10) |
+| [0066](0066-clipboard-history.md) | Clipboard history: Marxy keeps its own copies, recorded where it writes, in memory by default or as plain files by choice; nothing watches the pasteboard; opt-in watching designed and deferred | proposed (J-D1) |

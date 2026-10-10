@@ -141,8 +141,19 @@ anything of it is built. J-01 to J-03 can start beside D.
 | J-05 | Paste: the clipboard's HTML to Markdown, paste as Markdown in Source, paste in Rendered opening a scratch document (Phase E's E-12, E-14, E-15, moved here) | opus | M | J-02, E-13 |
 | J-06 | Transform the clipboard: run any transform on the clipboard from the palette and write the result back, with the result sheet | sonnet | M | J-02, J-03, W-21 |
 | J-D1 | **Design, not code:** the clipboard studio (history, workbench, compare, snippets, the ring, collect), carried from the mockup page to a buildable spec in the mock-v2 style, with history's privacy design and its ADR drafted | opus | L | — |
+| J-07 | The history model and the secret patterns in core; the two Privacy constants | sonnet | M | ADR-0066 ruled |
+| J-08 | Every copy through one write path that records it, native copies included (a `copy` handler; no `execCommand`); the four `clipboard_*` keys; history in memory, or as plain files in `keep` | opus | M | J-02, J-04, J-07 |
+| J-09 | The Clipboard view's history pane: `⇧⌘V`, rows, states, keys, *Copy joined* | opus | L | J-08, W-02, W-04, W-19 |
+| J-10 | Settings › Clipboard and the Privacy line | sonnet | S | W-12, J-08 |
+| J-11 | The workbench: an input, a chain of transforms, Before/After/Diff, copy | opus | L | J-03, J-06, W-21, E-13, E-16, J-09 |
+| J-12 | Saved pipelines as `[[pipeline]]` in `config.toml`, run from the palette and an in-app key | sonnet | M | J-11, W-19 |
+| J-13 | *Held:* collect in Marxy, only if the author lifts 06 row 5 | sonnet | M | J-08, J-09 |
+| J-14 | *Held:* opt-in watching of other apps' copies, only if the author chooses ADR-0066 option B | opus | L | J-01, J-08, J-10 |
 
-The studio's build stories are written from J-D1's output.
+The studio's build stories, J-07 onward, are cards in [08-cards-studio.md](08-cards-studio.md), from
+J-D1's design in [studio/](studio/README.md); none starts before the author rules on
+[ADR-0066](../../adr/0066-clipboard-history.md). They go to v0.7.0; J-12 is the first to move to
+v0.8.0 if the milestone is full.
 
 ## Phase P — passive capture
 
