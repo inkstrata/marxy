@@ -6,7 +6,7 @@
 
 import { byteToUtf16, contentHash, utf16ToByte, type Buffer, type Document } from '@marxy/core';
 import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
-import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
+import { blockedImagesFrom, renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
 import { attach, snapToGrid, type TypesetController } from '@marxy/typeset';
 import type { AppShell } from '../app.ts';
@@ -15,6 +15,7 @@ import type { PieceSource } from '../frontispiece/pieces.ts';
 import { wireArticle } from '../commands/document.ts';
 import type { DocumentSnapshot, DocumentStore, Transition } from '../document/store.ts';
 import { currentPosition, restoreScrollToPosition } from '../position/index.ts';
+import { renderRecord, spliceRendered, type RenderRecord } from '../render/incremental.ts';
 import { resolveImageRoot, stripNonLocalImages } from '../render/images.ts';
 import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/post.ts';
 import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
@@ -46,11 +47,14 @@ interface MountedSourceEditor {
 
 export interface OpenDocument {
   readonly ast: Document;
+  /** The sanitised HTML of the whole document. After a reload that replaced only some blocks it is rendered when first read. */
   readonly html: string;
   /** Rendered element → AST node, through its byte range (ADR-0023). */
   readonly nodeMap: NodeMap;
   /** Refreshed whenever layout moves them; built once here for now (MARXY-38 reads them). */
   blocks: BlockList;
+  /** What the page was rendered from, for the next reload to replace only what it changed (B-24); null when none. */
+  readonly render: RenderRecord | null;
 }
 
 /**
@@ -192,6 +196,14 @@ const SNAP_INTERVAL_MS = 250;
 
 const ISLANDS = 'pre, table, img, .marxy-math-block, .marxy-math';
 
+/**
+ * A reload replaces only the blocks it changed (B-24) in a document of at least this many bytes. Under it a
+ * whole render costs a few milliseconds and is the one path with nothing to prove.
+ */
+const INCREMENTAL_MIN_BYTES = 64 * 1024;
+/** The grid pass below a replaced block runs at once when at most this many blocks follow it, else at idle. */
+const SYNC_SNAP_BLOCKS = 300;
+
 /** What a launch with no document and no Commonplace piece shows. */
 const EMPTY_HINT = '<p class="marxy-empty">Open a markdown file: <code>marxy README.md</code></p>';
 
@@ -248,6 +260,26 @@ function spliceOf(change: Transition): { start: number; removed: number; inserte
   const { edit } = change;
   const [removed, inserted] = change.kind === 'undo' ? [edit.after.length, edit.before.length] : [edit.before.length, edit.after.length];
   return { start: edit.range.start, removed, inserted };
+}
+
+/** An `OpenDocument` whose `html` is made when first read. */
+function openDocumentOf(
+  ast: Document,
+  nodeMap: NodeMap,
+  blocks: BlockList,
+  render: RenderRecord | null,
+  html: () => string,
+): OpenDocument {
+  let made: string | undefined;
+  return {
+    ast,
+    nodeMap,
+    blocks,
+    render,
+    get html() {
+      return (made ??= html());
+    },
+  };
 }
 
 export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): RenderedView {
@@ -918,7 +950,13 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * reload, a rename) and for `commitEdit` of unchanged bytes. `landing`, when given, is the anchor
    * the view held, mapped through the change: it is held again rather than released.
    */
-  function repaint(snapshot: DocumentSnapshot, position: ReadingPosition, landing: number | null = null, spanned = false): void {
+  function repaint(
+    snapshot: DocumentSnapshot,
+    position: ReadingPosition,
+    landing: number | null = null,
+    spanned = false,
+    reload = false,
+  ): void {
     // Every path that changes the store while Source shows folds the editor's text first (undo, redo, save,
     // rename) or refuses (commitEdit), so the editor holds nothing the store lacks here. If it does (another
     // pane changed the store under it, D-11), the editor is held apart: its text is kept, not reset, and
@@ -929,8 +967,12 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     }
     if (sourceEditor && !heldApart) replaceSourceBuffer(sourceEditor, snapshot.buffer);
     releaseAnchor();
-    rerenderFromBuffer(landing ?? position.byteOffset);
-    const typesetting = typesetDocument();
+    const t0 = performance.now();
+    // A reload replaces only the blocks it changed when it can show that the result is the whole render (B-24);
+    // anything else sets the page whole, as every other transition does.
+    const fell = reload ? splicePage(snapshot) : 'not a reload';
+    if (fell !== null) rerenderFromBuffer(landing ?? position.byteOffset);
+    const typesetting = fell === null ? (typeset?.ready ?? Promise.resolve()) : typesetDocument();
     if (viewMode === 'source' && sourceEditor) {
       // Source shows and the window is its scroller: the place goes back into the editor, not onto the
       // hidden article, whose block list has nothing measured to place it by (F-04).
@@ -942,7 +984,75 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     } else {
       holdPosition({ ...position, path: snapshot.path });
     }
+    recordRepaint(t0, fell);
     settlePage(typesetting);
+  }
+
+  /**
+   * What the last repaint did and how long it took, for a measurement or a test to read
+   * (`performance.getEntriesByName('marxy:repaint')`): nothing in the app reads it, and nothing leaves the page.
+   */
+  function recordRepaint(start: number, fell: string | null): void {
+    try {
+      performance.measure('marxy:repaint', {
+        start,
+        end: performance.now(),
+        detail: fell === null ? { how: 'replaced' } : { how: 'whole', reason: fell },
+      });
+    } catch {
+      // A page with no user-timing: nothing to read it.
+    }
+  }
+
+  /**
+   * The page after a reload, with only the blocks the change touched replaced (B-24, render/incremental.ts).
+   * Null when it was done; else why the page must be rendered whole, with nothing in it changed.
+   */
+  function splicePage(snapshot: DocumentSnapshot): string | null {
+    try {
+      return splicePageNow(snapshot);
+    } catch (e) {
+      // Whatever it did to the page, the whole render that follows replaces: the page is never left half done.
+      console.warn(`marxy: the blocks a reload changed could not be replaced; rendering the page whole: ${String(e)}`);
+      return `the replacement failed: ${String(e)}`;
+    }
+  }
+
+  function splicePageNow(snapshot: DocumentSnapshot): string | null {
+    const prior = shown;
+    const record = prior?.render ?? null;
+    if (!prior || !record || !mount) return 'the page was not set from a whole render';
+    if (viewMode !== 'rendered' || doc.hidden) return 'the page is not showing';
+    if (snapshot.buffer.bytes.length < INCREMENTAL_MIN_BYTES) return 'a small document';
+    const file = snapshot.path;
+    if (record.htmlGranted !== trust.grantsFor(file).html) return 'the trust grant changed';
+    const result = spliceRendered(
+      record,
+      snapshot.ast,
+      { live: doc, pending: mount.pending() },
+      { policy: trust.policyFor(file), prepare: (parsed) => stripNonLocalImages(parsed, file) },
+    );
+    if (!result.spliced) return result.reason;
+    const { record: next, added, from, removed } = result.value;
+    const { ast, nodeMap } = snapshot;
+    const policy = trust.policyFor(file);
+    shown = openDocumentOf(ast, nodeMap, prior.blocks, next, () => renderDocumentSafeHtml(ast, policy).html);
+    // The blocks that came in join what the page watches and sets; the rest of them are as they were.
+    watchIslands(doc, added);
+    typeset?.adopt(added);
+    afterRender();
+    trust.showNotices(removed, blockedImagesFrom(removed));
+    shown.blocks = buildBlocks(doc, nodeMap);
+    if (from !== null) {
+      // Under the change the grid is what it was, off by what the change added or removed. Near the end of the
+      // page that is a few blocks, set now; in the middle of a long one it is every block below, set at idle.
+      let below = 0;
+      for (let el = from.nextElementSibling; el !== null && below <= SYNC_SNAP_BLOCKS; el = el.nextElementSibling) below++;
+      if (below <= SYNC_SNAP_BLOCKS) snap(doc, from);
+      else scheduleSnap(doc, from);
+    }
+    deferAfterComplete(mount, file);
+    return null;
   }
 
   /**
@@ -1035,7 +1145,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       case 'save':
         // A Save as moved the store to another name: the parse the page resolves through follows it.
         if (change.renamedFrom !== undefined && shown) {
-          shown = { ...shown, ast: snapshot.ast, nodeMap: snapshot.nodeMap };
+          const was = shown;
+          shown = openDocumentOf(snapshot.ast, snapshot.nodeMap, was.blocks, was.render, () => was.html);
         }
         settlePage(Promise.resolve());
         return;
@@ -1077,7 +1188,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     // An anchor the edit removed lands on the edit's start: the block from there on is held, not the one above.
     const spanned = landing !== null && anchor !== null && removedBy(change, anchor);
     try {
-      repaint(snapshot, position, landing, spanned);
+      repaint(snapshot, position, landing, spanned, change.kind === 'reload');
     } catch (e) {
       showRenderFailure(e);
     }
@@ -1150,7 +1261,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const byteOffset = typeof at === 'number' ? at : at?.byteOffset;
     const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
     destroyTypeset();
-    shown = { ast, html, nodeMap, blocks: [] };
+    shown = { ast, html, nodeMap, blocks: [], render: renderRecord(ast, removed, trust.grantsFor(file).html) };
     const mounted = mountDocument(html, file, byteOffset);
     afterRender();
     trust.showNotices(removed, blockedImages);
@@ -1227,8 +1338,11 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     return () => runDeferredStartup(deferredStartupContext(file));
   }
 
+  /** Each call supersedes the ones before it on the same mount: a reload during the first mount must not run the passes twice. */
+  let deferredGeneration = 0;
   function deferAfterComplete(current: ProgressiveMount, file: string): void {
-    void afterComplete(current, () => whenIdle(deferredStartup(file)));
+    const generation = ++deferredGeneration;
+    void afterComplete(current, () => (generation === deferredGeneration ? whenIdle(deferredStartup(file)) : Promise.resolve()));
   }
 
   /** The render half of an open (MARXY-183): the store's snapshot into the article through the `render` mark. */
@@ -1242,7 +1356,7 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const { path: file, ast, nodeMap } = next.snapshot();
     const { html, removed, blockedImages } = renderDocumentSafeHtml(ast, trust.policyFor(file));
     console.info(`marxy: sanitiser removed ${removed.length}`);
-    shown = { ast, html, nodeMap, blocks: [] };
+    shown = { ast, html, nodeMap, blocks: [], render: renderRecord(ast, removed, trust.grantsFor(file).html) };
     // Only the first screens go in now (A-02); images are checked before any block reaches the page.
     mountDocument(html, file, opts?.at, opts?.start);
     afterRender();
