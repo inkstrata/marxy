@@ -51,15 +51,23 @@ export interface PaneKeysDeps {
 
 /**
  * Runs a pane chord's command: looked up by id in the registry, skipped when it is not registered (yet)
- * or its `when` does not hold, skipped while a dialog is open (the palette, the outline) except
- * `Mod+\`. An open verb menu (a `div[role=menu]`, not a dialog) is closed first, so focus lands in the
+ * or its `when` does not hold, and held (stopped, not run) while a dialog is open (the palette, the
+ * outline) except `Mod+\`. An open verb menu (a `div[role=menu]`, not a dialog) is closed first, so focus lands in the
  * target pane and not on `body`. Editable targets are not skipped. Returns what takes the listener off.
  */
 export function installPaneKeys(deps: PaneKeysDeps): () => void {
   const onKey = (event: KeyboardEvent): void => {
     const chord = paneChordFor(event, deps.mac());
     if (!chord) return;
-    if (chord.command !== 'view.open-beside' && document.querySelector('dialog[open]') !== null) return;
+    if (chord.command !== 'view.open-beside' && document.querySelector('dialog[open]') !== null) {
+      // An open dialog (the outline, the palette) owns the keyboard and is bound to the pane it opened
+      // from: moving focus under it would split the overlay from the selection. The chord is held here,
+      // at the key, and stopped so the registry's bubble-phase dispatcher does not run it by `event.key`;
+      // the commands' `when` stays true, so the palette still lists and runs them.
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const command = deps.commands().find((c) => c.id === chord.command);
     if (!command) return;
     const ctx = deps.context();

@@ -312,6 +312,31 @@ test('with the palette open, Mod+1, Mod+2 and Mod+Alt+Arrow leave focus, the mar
   });
 });
 
+test('with the palette open, >focus lists both focus commands and running "Focus right pane" focuses pane 1', async () => {
+  await withTwoPanes(async (page) => {
+    await page.evaluate(async () => {
+      const { mountPaletteFromHandle } = await import('/src/palette/view.ts');
+      const { openPalette } = await import('/src/selection/bind.ts');
+      mountPaletteFromHandle(window.__marxyHandle);
+      openPalette();
+    });
+    await page.waitForFunction(() => document.getElementById('marxy-palette')?.hasAttribute('open'));
+    await page.keyboard.type('>focus');
+    const titles = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('#marxy-palette .marxy-palette-row .marxy-palette-title')].map((t) => t.textContent),
+      );
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length > 0);
+    const listed = await titles();
+    assert.ok(listed.includes('Focus left pane') && listed.includes('Focus right pane'), JSON.stringify(listed));
+    const rows = page.locator('#marxy-palette .marxy-palette-row', { hasText: 'Focus right pane' });
+    await rows.first().click();
+    await page.waitForFunction(() => window.__marxyHandle.panes().focused.slot === 1);
+    assert.equal(await page.evaluate(() => document.getElementById('marxy-palette')?.hasAttribute('open')), false);
+    assert.deepEqual(await focusState(page), RIGHT);
+  });
+});
+
 test('a pane chord with the verb menu open closes the menu and lands focus inside the target pane', async () => {
   await withTwoPanes(async (page, mod) => {
     await clickOn(page, '#doc p:nth-of-type(2)');

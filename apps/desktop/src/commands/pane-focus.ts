@@ -1,6 +1,8 @@
 // "Focus left pane" and "Focus right pane" (D-06). Each holds only while its pane exists, so with one
-// document neither is listed. The `key` documents the chord for the palette; the chords themselves
-// (`Mod+1`/`Mod+2`, and `Mod+Alt+Left`/`Mod+Alt+Right`) are run by pane/keys.ts, on physical keys.
+// document neither is listed. `when` says only that: the palette, itself a dialog, lists and runs both
+// (P8, the fallback for every chord); holding a chord under an open dialog is pane/keys.ts's. The `key`
+// documents the chord for the palette; the chords themselves (`Mod+1`/`Mod+2`, and
+// `Mod+Alt+Left`/`Mod+Alt+Right`) are run by pane/keys.ts, on physical keys.
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 
@@ -14,9 +16,6 @@ function focusSlot(slot: 0 | 1): Command['run'] {
 
 /** Whether the window has a pane at `slot`, and so something to focus there. */
 function hasSlot(slot: 0 | 1): boolean {
-  // An open dialog (the outline, the palette) owns the keyboard and is bound to the pane it opened from:
-  // moving focus under it would split the overlay from the selection. One rule for every dispatch route.
-  if (document.querySelector('dialog[open]') !== null) return false;
   const panes = appHandle()?.panes();
   return (panes?.panes.length ?? 0) > 1 && panes?.panes[slot] !== undefined;
 }
