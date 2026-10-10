@@ -9,45 +9,36 @@ import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** The outputs, in the order the `changes` job declares them. Every one is always written. */
-export const OUTPUTS = ['docs_only', 'web', 'typography', 'rust', 'fleet', 'lockfile'];
+export const OUTPUTS = ['docs_only', 'web', 'rust', 'lockfile'];
 
-// Prose only. orchestration/*.mjs and *.json are the fleet's code and board, and docs/plan's CSV is
-// the board every gate reads: all used to count as docs, so a PR touching only them skipped `fast`
-// and no orchestration test or board check ran in CI — which is how a red needs-human test reached
-// main (MARXY-191).
-//
-// Some prose is also read by a test or gate, and a change to it can turn that test red: the loop
-// script, agent prompts and git hooks are code; task cards are checked by check-cards; AGENTS.md,
-// orchestration/README.md and the process docs are asserted by orchestration/docs.test.mjs and
-// friends. A PR touching only those used to skip every one of the checks that guard them (MARXY-246).
-const BOARD_OR_CODE = /^(orchestration\/.*\.(mjs|js|json|sh)$|orchestration\/prompts\/|orchestration\/README\.md$|\.githooks\/|docs\/plan\/jira-issues\.csv$|docs\/plan\/tasks\/|docs\/(sdlc|hygiene|plan|ci-contract)\.md$|AGENTS\.md$)/;
-const isDoc = f => !BOARD_OR_CODE.test(f) && (/^(docs\/|orchestration\/|\.cursor\/|\.githooks\/|README\.md$|CONTRIBUTING\.md$|CHANGELOG\.md$|AGENTS\.md$|LICENSE$|\.editorconfig$|\.gitattributes$|fonts\/.*\/(LICENSE|README)|docs\/.*\.png$)/.test(f) || (/\.md$/.test(f) && !f.startsWith('fixtures/')));
+// What a test or check that stays on the pull-request path reads, plus the fleet's code. G-03 took
+// `pnpm test:fleet` off the path (the fleet is paused, ADR-0051), so the orchestration prose that only
+// the fleet's tests asserted is plain documentation now: orchestration/README.md, orchestration/prompts/,
+// docs/plan/tasks/. What is left here is code, or prose that `fast` itself reads:
+//   - orchestration/*.mjs|js|json|sh is the fleet's code, which the conventions job and the scripts
+//     tests import (pr-mark, deps.json); a change to it still runs `fast`;
+//   - .githooks/ is shell that runs on every commit;
+//   - AGENTS.md, docs/{sdlc,hygiene,plan,ci-contract}.md and docs/plan/jira-issues.csv are read by
+//     tests that are in `pnpm test` or `pnpm check` (lib/no-ceiling, check-story, smoke-verdict,
+//     smoke-built-app, check-one-parse, lib/plan), so a documents-only change to them could turn `fast`
+//     red, and the next push to main with it. Widening docs_only over them would break the rule that a
+//     job skips only when the diff cannot fail it (docs/hygiene.md).
+const READ_BY_FAST = /^(orchestration\/.*\.(mjs|js|json|sh)$|\.githooks\/|docs\/plan\/jira-issues\.csv$|docs\/(sdlc|hygiene|plan|ci-contract)\.md$|AGENTS\.md$)/;
+const isDoc = f => !READ_BY_FAST.test(f) && (/^(docs\/|orchestration\/|\.cursor\/|\.claude\/|changelog\.d\/|README\.md$|CONTRIBUTING\.md$|CHANGELOG\.md$|LICENSE$|\.editorconfig$|\.gitattributes$|fonts\/.*\/(LICENSE|README)|docs\/.*\.png$)/.test(f) || (/\.md$/.test(f) && !f.startsWith('fixtures/')));
 
-// Anything the browser job's gates and the desktop suite can see (unchanged by A-09).
-const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|gate\.html|vite\.config|package\.json|scripts)|fixtures\/|scripts\/|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/;
+// Anything the browser job's gates and the desktop lite suite can see. Under scripts/ that is only what
+// the job runs or imports: the no-network gate, the WebKit launcher every browser test uses, the perf
+// harness's document generator that progressive.test.mjs imports, and the CSP check release-csp.test.mjs
+// imports with the two lib files it loads. tauri.conf.json is read by that check: the release CSP is the
+// privacy commitment's floor, so an edit to it must start the job that asserts it (before G-03 it did not,
+// unless `scripts/` changed too). ci-changes.test.mjs walks the imports of the gate and the lite files and
+// fails when one reaches a scripts/ file this set misses.
+const WEB = /^(packages\/|apps\/desktop\/(src\/|test\/|index\.html|app\.html|gate\.html|vite\.config|package\.json|scripts|src-tauri\/tauri\.conf\.json$)|fixtures\/|scripts\/(gate-no-network|playwright-webkit|perf-harness|check-csp)\.mjs$|scripts\/lib\/(repo|plan)\.mjs$|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|mise\.toml)/;
 
-// What gate:aesthetics and gate:specimen render: the theme, the typesetter, the corpus, the fonts and
-// the gates themselves, and everything gate-aesthetics.mjs loads into the page. Since B-02 that page is
-// the real app (apps/desktop/gate.html, entry src/harness/gate-entry.ts, which calls startApp), so the
-// whole desktop front end is in it, and through it most of core (parse, render, sanitise, operations,
-// position, index model) and the shell-api types. ci-changes.test.mjs walks that graph from the
-// harness entry and fails when it reaches a file this set misses. src-tauri is not under src/.
-const TYPOGRAPHY = new RegExp('^(' + [
-  'packages/theme/', 'packages/typeset/', 'packages/core/src/', 'packages/shell-api/', 'fixtures/', 'fonts/', 'scripts/specimen/',
-  'scripts/gate-aesthetics\\.mjs$', 'scripts/playwright-webkit\\.mjs$', 'apps/desktop/(index|gate)\\.html$',
-  'apps/desktop/src/', 'apps/desktop/vite\\.config\\.ts$',
-].join('|') + ')');
-
-// What the Rust job builds and runs: the Tauri crate (tauri.conf.json and Cargo.lock live in it), the
-// Vite config whose output the binary embeds, the command-line smoke, and the toolchain pins.
-const RUST = /^(apps\/desktop\/src-tauri\/|apps\/desktop\/vite\.config\.ts$|apps\/desktop\/scripts\/smoke|mise\.toml$)/;
-
-// What `pnpm test:fleet` runs or reads: the fleet's own code, the scripts it imports (open-pr,
-// check-pr, done, scripts/lib), the commit rules, and the board-or-code prose above, which
-// orchestration/docs.test.mjs and friends assert. orchestration/ alone would leave a pull request
-// that touches only AGENTS.md running `fast` without the one test that guards AGENTS.md. Prose that is
-// docs only (orchestration/needs-human.md) stays docs only: `fast` does not run at all.
-const FLEET = /^(orchestration\/|scripts\/|commitlint\.config\.mjs$)/;
+// What the Rust job runs on a pull request: fmt, clippy and `cargo test` over the Tauri crate
+// (tauri.conf.json and Cargo.lock live in it), and the toolchain pin, whose new clippy lints can fail
+// code nobody touched. The binary, the Vite config it embeds and the CLI smoke are built nightly.
+const RUST = /^(apps\/desktop\/src-tauri\/|mise\.toml$)/;
 
 // A dependency moved: the manifests and either lockfile, wherever they sit.
 const LOCKFILE = /(^|\/)(package\.json|pnpm-lock\.yaml|Cargo\.lock)$/;
@@ -59,15 +50,13 @@ const LOCKFILE = /(^|\/)(package\.json|pnpm-lock\.yaml|Cargo\.lock)$/;
  */
 export function classify(files) {
   if (files.some(f => f.startsWith('.github/') || f === '<unknown>')) {
-    return { docs_only: false, web: true, typography: true, rust: true, fleet: true, lockfile: true };
+    return { docs_only: false, web: true, rust: true, lockfile: true };
   }
   const any = re => files.some(f => re.test(f));
   return {
     docs_only: files.length > 0 && files.every(isDoc),
     web: any(WEB),
-    typography: files.some(f => !isDoc(f) && TYPOGRAPHY.test(f)),
     rust: any(RUST),
-    fleet: files.some(f => !isDoc(f) && (FLEET.test(f) || BOARD_OR_CODE.test(f))),
     lockfile: any(LOCKFILE),
   };
 }

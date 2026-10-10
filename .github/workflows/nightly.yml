@@ -5,6 +5,11 @@
 # every pull request. The aesthetics gate's CLS repeat pass was three more full corpus renders — 266s
 # of the browser job's 356s — to confirm that a font/image window the single pass already measures is
 # deterministic. It runs here instead, once a day, against main (MARXY-153).
+#
+# G-03 (ADR-0056) moved more here: the mechanical aesthetics gate's own run and the specimen gate, the
+# Linux build, the release-profile binary and the CLI smoke, the fleet's tests and the slower WebKit
+# files. A pull request holds the five commitments and nothing else. A red job here is a note for the
+# next session, never a blocked merge (ADR-0032, ADR-0047): read it, and open a story if it is real.
 name: nightly
 on:
   schedule:
@@ -56,6 +61,11 @@ jobs:
       - name: Aesthetics gate with the CLS repeat passes (MARXY-153)
         if: ${{ !inputs.update_baselines }}
         run: node scripts/gate-aesthetics.mjs --repeat 3
+      # The specimen gate left the pull-request path with the `typography` job (G-03, ADR-0056); it is two
+      # seconds, so it runs even when the aesthetics gate above is red and one night names both.
+      - name: Specimen gate
+        if: ${{ !inputs.update_baselines && !cancelled() }}
+        run: pnpm gate:specimen
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.update_baselines }}
         with:
@@ -161,10 +171,12 @@ jobs:
         with:
           path: ~/.pnpm-store
           key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+      # One shared key with the pull-request `rust` job of ci.yml: a pull request has no run on main to
+      # restore from, so this job's cache, written here after the steps at the end, is what warms it.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-          key: ci-profile
+          shared-key: macos-rust
           cache-on-failure: true
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
       - name: Build the frontend
@@ -190,6 +202,12 @@ jobs:
       # warm ones (cold_warm_ratio 0.77), which makes the record lie.
       - name: Rust unit tests
         run: cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet
+      # What the pull-request `rust` job runs (G-03), here to compile the dev-profile dependencies it needs
+      # into the cache saved below.
+      - name: Rust format and clippy, as a pull request runs them
+        run: pnpm lint:rust
+      - name: Rust unit tests, as a pull request runs them
+        run: cd apps/desktop/src-tauri && cargo test --locked --quiet
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -197,8 +215,12 @@ jobs:
           path: results/
           if-no-files-found: ignore
 
-  # The pull-request `rust` job of ci.yml, every night, whatever changed: a pull request runs it only
-  # when Rust, the Vite config, the CLI smoke, the toolchain or a dependency changed (A-09).
+  # The Linux build, which left the pull-request path in G-03 (ADR-0046 amended by ADR-0056: Linux builds
+  # nightly, not on pull requests): webview libraries, the thin-LTO ci-profile binary, its licence gate,
+  # the command-line smoke, the Rust tests with the custom protocol, and the bundle gate over the built
+  # dist. A pull request runs format, clippy, the Rust tests and the licence gate on macOS instead.
+  # Red here for a Linux-only reason is a note, and the cheapest answer is to delete the job until Linux
+  # is a release goal again (docs/plan/roadmap-2026-10/09-ci-and-precheck.md §4).
   rust-linux:
     if: ${{ !inputs.update_baselines }}
     runs-on: ubuntu-latest
@@ -246,8 +268,7 @@ jobs:
           path: results/
           if-no-files-found: ignore
 
-  # The fleet's tests, which a pull request runs only when orchestration/, scripts/ or the prose they
-  # assert changed (A-09).
+  # The fleet's tests. The fleet is paused (ADR-0051), so a pull request no longer runs them (G-03).
   fleet:
     if: ${{ !inputs.update_baselines }}
     runs-on: ubuntu-latest
@@ -285,9 +306,10 @@ jobs:
           path: ~/.pnpm-store
           key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
       - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      # One desktop test compiles a small Rust crate (images.test.mjs), and the Playwright image ships
-      # no C linker for cargo's build scripts.
-      - name: A C linker for the desktop suite's Rust test
+      # The core suite compiles the Rust watcher's tests with rustc (packages/core/src/position/
+      # watch-rust.test.ts), and the Playwright image ships no C linker. The desktop images test no
+      # longer needs one (G-04), and browser-lite in ci.yml runs without it.
+      - name: A C linker for the core suite's rustc test
         run: apt-get update -qq && apt-get install -y -qq build-essential
       - name: Desktop suite
         run: pnpm --filter @marxy/desktop test

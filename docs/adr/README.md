@@ -50,8 +50,8 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0043](0043-revert-first.md) | When main turns red, revert the first red commit and reopen its story with the work kept; amends ADR-0040 | proposed (MARXY-335) |
 | [0044](0044-remote-content-is-a-reader-setting.md) | Remote content is a reader setting: `remote_images` and `html` are three-value config, one notice per document, the Rust fetcher only under `hardened`; supersedes 0027's default path | accepted (author, 2026-10-02) |
 | [0045](0045-contracts-change-by-pull-request.md) | Contracts change by pull request; `test:contracts-frozen` is deleted and the invariants stay as tests | accepted (author, 2026-10-02) |
-| [0046](0046-linux-is-a-release-criterion.md) | Linux is a release criterion, not a pull-request gate; it builds in CI and ships as a pre-release | accepted (author, 2026-10-02) |
-| [0047](0047-visual-comparison-is-nightly.md) | Visual comparison is nightly; the mechanical typography checks stay on pull requests; amends 0014 tier 1 and 0016 | accepted (author, 2026-10-02) |
+| [0046](0046-linux-is-a-release-criterion.md) | Linux is a release criterion, not a pull-request gate; it builds in CI and ships as a pre-release | accepted (author, 2026-10-02); decision 1 amended by 0056 |
+| [0047](0047-visual-comparison-is-nightly.md) | Visual comparison is nightly; the mechanical typography checks stay on pull requests; amends 0014 tier 1 and 0016 | accepted (author, 2026-10-02); extended by 0056 |
 | [0048](0048-source-for-one-block.md) | Source may be summoned for one block and splices back through the transformation path; amends 0005 | accepted (author, 2026-10-02) |
 | [0049](0049-user-defined-operations-are-configuration.md) | User-defined operations are configuration, not plugins; recorded, not scheduled; amends 0004 | accepted (author, 2026-10-02); scheduled by 0052 |
 | [0050](0050-at-rest-defined.md) | "At rest" is defined: the column of text; summoned surfaces may be any shape; amends 0011 and design constraint 6 | accepted (author, 2026-10-02) |
@@ -60,6 +60,7 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0053](0053-collection-roots.md) | Collection roots: a reader-owned `collection.toml` of folders, searched from the palette and never browsed; scan on demand, no persistent index; amends 0012 | proposed |
 | [0054](0054-verb-menu-and-default-verbs.md) | One verb menu is the click surface; at most seven verbs per selection; `Mod+C` runs a default copy verb and never a splice; amends 0019's cap | proposed |
 | [0055](0055-find-edge-token.md) | `--marxy-color-find-edge`: a find match carries a 2 px edge in a token, because a pale fill cannot be 3:1; amends 0024 | proposed |
+| [0056](0056-the-pull-request-path-holds-the-commitments.md) | The pull-request path holds the five commitments and nothing else; Linux, the aesthetics and specimen gates and the fleet's tests run nightly; amends 0046 decision 1 and extends 0047 | accepted (author, 2026-10-08) |
 | [0057](0057-two-column-split.md) | Two documents side by side: at most two columns in one window, no tree and no OS windows, independent scroll, `#doc` the first pane; amends 0005 and 0011 | proposed (D-01) |
 | [0058](0058-the-fold-up-workspace.md) | The fold-up workspace: at rest is the folded window; unfolded, sidebar, tabs, toolbar, inspector and status bar may persist; windows open folded; reverses 0050 item 4 and 0011 inside the workspace | accepted (author, 2026-10-10) |
 | [0059](0059-token-contract-v2.md) | Token contract v2: 27 surface, status, accent, face and chrome roles with v1 fallbacks; a kind re-scopes `--marxy-*`, no `--k-*` family; contract 2; amends 0008 and 0031 | proposed (H-01) |

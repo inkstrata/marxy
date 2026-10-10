@@ -1,7 +1,9 @@
 # The CI contract — everything that can turn a pull request red
 
-In short: a pull request goes red for one of seven reasons, one per job in
-`.github/workflows/ci.yml`, and each has a command that reproduces it on your machine. Nothing
+In short: a pull request goes red for one of four reasons, one per job in
+`.github/workflows/ci.yml` (`conventions`, `fast`, `browser-lite`, `rust`), and each has a command that
+reproduces it on your machine. The path holds the five commitments of `AGENTS.md` and nothing else
+(ADR-0056); everything else runs nightly. Nothing
 else is required of a pull request. There is no board row, no Jira key, no enforced pull-request
 body and no result file (ADR-0051: the fleet is paused, `orchestration/PAUSED.md`). Read this
 before you push, not after. If CI fails on something that is not on this page, the page is wrong
@@ -15,13 +17,13 @@ machine it ran on is a coin flip. Timing numbers are recorded nightly and never 
 ## The one required check
 
 Branch protection requires exactly one status: **`ci`**. It is a summary job
-(`scripts/ci-verdict.mjs`) that fails if `changes` did not answer all six of its questions, or if
+(`scripts/ci-verdict.mjs`) that fails if `changes` did not answer all four of its questions, or if
 any other job it waits for ended in anything but `success` or `skipped`. A skipped job is fine,
 so a job can be renamed without touching repository settings. Run the same verdict locally
 against a hand-written `needs`:
 
 ```bash
-NEEDS='{"changes":{"result":"success","outputs":{"docs_only":"false","web":"true","typography":"false","rust":"false","fleet":"false","lockfile":"false"}},"fast":{"result":"failure"}}' node scripts/ci-verdict.mjs
+NEEDS='{"changes":{"result":"success","outputs":{"docs_only":"false","web":"true","rust":"false","lockfile":"false"}},"fast":{"result":"failure"}}' node scripts/ci-verdict.mjs
 ```
 
 The protection settings are a repository setting, not a file: `strict=false` (a pull request need
@@ -74,12 +76,15 @@ What it does **not** mirror from `fast`, so a green `precheck` is not a green `f
   change typechecks desktop; a `shell-api`, `theme` or `typeset` change does not).
 - `gate:licences`, `gate:bundle`, the golden and fidelity gates, and the `scripts/` tests run only on the
   paths `scripts/gates-by-path.json` maps to them (`scripts/` changes run the scripts tests, not the
-  packages), whereas `fast` runs them on every pull request.
-- `test:fleet` runs only for `orchestration/` changes; `fast` runs it when the fleet changed, and it
-  leaves the pull-request path in G-03.
+  packages), whereas `fast` runs them on every pull request that is not docs-only.
+- `test:fleet` runs only for `orchestration/` changes in `precheck`, and in no pull-request job: it left
+  the pull-request path in G-03 (the fleet is paused, ADR-0051) and runs nightly. Run `pnpm test:fleet`
+  by hand after touching `orchestration/`.
 - The CommonMark spec suite itself (the download-and-compare step); only the selftest runs.
 
 `pnpm precheck --all` closes most of that gap (it does not run the fleet tests or the CommonMark spec suite).
+It does not mirror `rust` either: that job runs on macOS, runs `cargo test` and the licence gate over the
+whole of `Cargo.lock`, and `precheck` runs only `cargo fmt --check` (and clippy under `--all`).
 
 It runs **no browser**: package tests run with `PLAYWRIGHT_BROWSERS_PATH` pointing at an empty
 directory, so the WebKit tests skip exactly as they do in `fast`, and the summary says so. CI runs those
@@ -100,57 +105,72 @@ the fleet era**. CI runs none of them.
 
 | Job | Runs when | What it does | Local command |
 | --- | --- | --- | --- |
-| `changes` | always | classifies the diff into `docs_only`, `web`, `typography`, `rust`, `fleet` and `lockfile`, and writes the six answers the other jobs read | `node scripts/ci-changes.mjs origin/main` |
+| `changes` | always | classifies the diff into `docs_only`, `web`, `rust` and `lockfile`, and writes the four answers the other jobs read | `node scripts/ci-changes.mjs origin/main` |
 | `conventions` | pull requests only | lints the pull-request **title** as a squash subject (a `[human]` or `(signed)` prefix from the paused fleet is stripped first) | `PR_TITLE='docs(ci): your title (A-11)' node orchestration/pr-mark.mjs --bare \| pnpm exec commitlint --verbose` |
-| `fast` | not docs-only | `pnpm check`, typecheck, lint, unit tests, the desktop palette mutation check, the import-graph half of the bundle gate, `pnpm test:fleet` when `fleet`, the CommonMark spec, goldens, fidelity, licences | `pnpm check && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @marxy/desktop test:mutations && pnpm gate:bundle && pnpm test:fleet && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
-| `browser-lite` | `web` changed, not a push to `main` | the no-network gate, then the desktop **lite** suite (the files named in `test:lite` in `apps/desktop/package.json`: the files that hold a commitment, which are save, explicit save, data loss, close guard, trust, live reload, operations edit, progressive rendering (its 1 MB first-text test), and the three that hold "nothing phones home": release CSP, remote images blocked, themes make no request) in WebKit, which is required, in the pinned Playwright container; the suite needs no C linker, because the Rust half of the images test is `#[test]`s run by `cargo test` (the `rust` job); about three minutes of test time. Every other desktop browser file, and `progressive-large.test.mjs` (the 1 MB reading-position tests), is in `test` and runs nightly in `browser-full` | `pnpm gate:no-network && MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite` |
-| `typography` | `typography` or `lockfile` changed, not a push to `main` | the **mechanical** half of the aesthetics gate, and the specimen gate, in the Playwright container | `node scripts/gate-aesthetics.mjs --mechanical && pnpm gate:specimen` |
-| `rust` | `rust` or `lockfile` changed, not a push to `main` | Ubuntu only: Rust format and clippy, the frontend, `cargo build --profile ci`, the licence gate over the populated cargo cache, the CLI smoke on the built binary, Rust unit tests, the bundle gate | the block below |
+| `fast` | not docs-only | `pnpm check`, typecheck, lint, unit tests, the desktop palette mutation check, the import-graph half of the bundle gate, the CommonMark spec, goldens, fidelity, licences | `pnpm check && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @marxy/desktop test:mutations && pnpm gate:bundle && pnpm gate:golden && pnpm gate:fidelity && pnpm gate:licences` |
+| `browser-lite` | `web` changed, not a push to `main` | **two shards** (`browser-lite (1)`, `browser-lite (2)`; `ci` waits for the pair as one job). Shard 1 runs the no-network gate first. Each shard runs half of the desktop **lite** suite (`--test-shard=i/2` over the files named in `test:lite` in `apps/desktop/package.json`: the files that hold a commitment, which are save, explicit save, data loss, close guard, trust, live reload, operations edit, progressive rendering (its 1 MB first-text test), and the three that hold "nothing phones home": release CSP, remote images blocked, themes make no request) in WebKit, which is required, in the pinned Playwright container. The suite needs no C linker, because the Rust half of the images test is `#[test]`s run by `cargo test` (the `rust` job). Every other desktop browser file, and `progressive-large.test.mjs` (the 1 MB reading-position tests), is in `test` and runs nightly in `browser-full` | `pnpm gate:no-network && MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite`; one shard: `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite --test-shard=1/2` |
+| `rust` | `rust` or `lockfile` changed, not a push to `main` | **macOS**: Rust format and clippy, the crate's unit tests (`cargo test --locked`, which needs no frontend build and no binary), then `cargo fetch --locked` and the licence gate over every crate in `Cargo.lock`. A lockfile-only change (an npm bump) runs only the last two | the block below |
 | `ci` | always | the required check, above | `scripts/ci-verdict.mjs`, above |
 
 A push to `main` runs `changes` and `fast` only: the pull request that produced it already ran the
-rest. `fast`, `browser-lite`, `typography` and `rust` all run `pnpm install --frozen-lockfile`. **A
-`pnpm-lock.yaml` that does not match `package.json` fails every one of them before a test runs.**
+rest. `fast` and `browser-lite` run `pnpm install --frozen-lockfile`; `rust` installs nothing from npm.
+**A `pnpm-lock.yaml` that does not match `package.json` fails `fast` and `browser-lite` before a test
+runs.**
 
-The `rust` job, step by step. It needs the Linux webview libraries (see the apt line in `ci.yml`),
-or a working Tauri toolchain on macOS:
+The `rust` job, step by step. It needs a working Rust toolchain; on macOS that is all:
 
 ```bash
 pnpm lint:rust
-pnpm --filter @marxy/desktop build:web
-(cd apps/desktop/src-tauri && cargo build --locked --profile ci --features tauri/custom-protocol)
+(cd apps/desktop/src-tauri && cargo test --locked --quiet)
+(cd apps/desktop/src-tauri && cargo fetch --locked)
 node scripts/gate-licences.mjs --require-registry
-MARXY_BIN="$PWD/apps/desktop/src-tauri/target/ci/marxy" pnpm --filter @marxy/desktop verify:cli
-(cd apps/desktop/src-tauri && cargo test --locked --profile ci --features tauri/custom-protocol --quiet)
-pnpm gate:bundle
 ```
 
-Without `--features tauri/custom-protocol` the binary loads the dev-server URL and the window
-never paints: CI calls cargo directly and must pass the flag that `tauri build` sets for you.
+`cargo test` here runs without `--features tauri/custom-protocol`, so it embeds no frontend and needs no
+`apps/desktop/dist`. The binary is built nightly (`startup-macos`, `rust-linux`), and a plain cargo build
+of the app must pass that flag or the window never loads a page.
+
+### What the pull-request path holds
+
+Every commitment keeps a gate on the path (ADR-0056 has the table with its evidence):
+
+| Commitment | Held on the pull-request path by |
+| --- | --- |
+| 1. Free | `gate:licences` and `check-deps` (`fast`); `gate-licences --require-registry` over `Cargo.lock` (`rust`) |
+| 2. Private | `gate:no-network`, and the lite files `release-csp`, `images`, `user-theme` (`browser-lite`); the theme sanitiser's unit tests (`fast`) |
+| 3. Faithful | `gate:fidelity`, `gate:golden`, the splice property (`fast`); the lite files `save`, `explicit-save`, `data-loss`, `save-trust-r4`, `save-close-r5`, `close-guard`, `operations-edit`, `live-reload` |
+| 4. Nothing hidden silently | core's unit tests for bidi, zero-width, link targets and folds (`fast`) |
+| 5. First text never waits | the 1 MB first-text test in `progressive.test.mjs` (`browser-lite`) |
+
+What left the path went to `.github/workflows/nightly.yml`. A red nightly is a note for the next session,
+not a blocked merge (ADR-0032, ADR-0047). The table in "Nightly" says what each one means.
 
 ## What decides which jobs run
 
 `scripts/ci-changes.mjs` classifies the diff against its merge base; `scripts/ci-changes.test.mjs`
 holds the cases. You cannot skip a job by hand.
 
-- **`docs_only`**: prose under `docs/`, `orchestration/`, `.cursor/`, markdown outside `fixtures/`,
-  and nothing else. Runs `changes`, `conventions` and `ci`; no product job. Some prose is read by a
-  test, so it is not docs-only: `AGENTS.md`, `docs/{sdlc,hygiene,plan,ci-contract}.md`,
-  `orchestration/README.md`, `orchestration/prompts/`, `.githooks/` and `docs/plan/tasks/` run
-  `fast` and `test:fleet`, which is how `orchestration/docs.test.mjs` can fail a documents-only
-  change. A markdown file under `.github/` is a workflow change.
-- **`web`**: `packages/`, `apps/desktop/{src/,test/,index.html,app.html,vite.config,package.json,scripts}`,
-  `fixtures/`, `scripts/`, the root manifests, `mise.toml`. Starts `browser-lite`.
-- **`typography`**: what the aesthetics and specimen gates render: the theme, the typesetter, the
-  parse, render and sanitise path in core, the render, font, theme and selection modules of the
-  app, `fixtures/`, `fonts/`, the gates' own scripts. Starts `typography`.
-- **`rust`**: `apps/desktop/src-tauri/`, the Vite config, the CLI smoke, `mise.toml`. Starts `rust`.
-- **`fleet`**: `orchestration/`, `scripts/`, `commitlint.config.mjs`, and the prose above. Adds
-  `pnpm test:fleet` to `fast`.
-- **`lockfile`**: any `package.json`, `pnpm-lock.yaml` or `Cargo.lock`. Also starts `typography`
-  and `rust`.
+- **`docs_only`**: prose under `docs/`, `orchestration/`, `.cursor/`, `.claude/` and `changelog.d/`, markdown
+  outside `fixtures/`, and nothing else. Runs `changes`, `conventions` and `ci`; no product job. Some
+  files are read by a test or check that `fast` runs, or are code, so they are not docs-only and run
+  `fast`: `AGENTS.md`, `docs/{sdlc,hygiene,plan,ci-contract}.md`, `docs/plan/jira-issues.csv`,
+  `.githooks/` and the fleet's code (`orchestration/*.mjs`, `*.js`, `*.json`, `*.sh`). The fleet's prose
+  (`orchestration/README.md`, `orchestration/prompts/`, `docs/plan/tasks/`) is docs-only now that
+  `test:fleet` no longer runs on a pull request. A markdown file under `.github/` is a workflow change.
+- **`web`**: `packages/`, `apps/desktop/{src/,test/,index.html,app.html,gate.html,vite.config,package.json,scripts}`,
+  `apps/desktop/src-tauri/tauri.conf.json` (the release CSP the privacy test reads), `fixtures/`, the root
+  manifests, `mise.toml`, and under `scripts/` only the files the job runs or imports:
+  `gate-no-network.mjs`, `playwright-webkit.mjs`, `perf-harness.mjs`, `check-csp.mjs` and
+  `lib/{repo,plan}.mjs`. A change to any other script starts `fast` and nothing else.
+  `ci-changes.test.mjs` walks the imports of the lite files and fails when one reaches a script this list misses.
+- **`rust`**: `apps/desktop/src-tauri/` and `mise.toml`. Starts `rust`.
+- **`lockfile`**: any `package.json`, `pnpm-lock.yaml` or `Cargo.lock`. Also starts `rust`, which then
+  runs only the licence gate unless `rust` is set too.
 - A change under **`.github/`** sets every category except `docs_only`, so a workflow change runs
   every job.
+
+There is no `typography` or `fleet` category any more (G-03): the aesthetics and specimen gates and
+`test:fleet` are nightly.
 
 ## Red CI, by cause
 
@@ -188,23 +208,33 @@ them.
 | `check-tokens` | a `--marxy-*` token whose name or unit kind moved (values are taste, ADR-0031) | `node scripts/check-tokens.mjs` |
 | `gate-font-attrs` | `.gitattributes` lost `binary` or gained `eol` on a font | font binaries are `binary -eol`; `node scripts/gate-font-attrs.mjs` |
 | `gate-contrast` | a bundled theme's colour pair is below its ADR-0059 item 10 floor (7:1 body text, 4.5:1 other text, 3:1 edges), measured unrounded after compositing; or a colour will not parse | change the colour in a taste story, never the floor; `node scripts/gate-contrast.mjs`, `--md` for every ratio |
-| `check-workflows` | an Action not on the accepted list or not pinned to an accepted major; a cargo or `tauri build` call without `--locked`; `continue-on-error` or `\|\| true` in a step; a job with no `timeout-minutes`; a Linux cargo job that does not probe `glib-2.0` and install `dbus`; the licence gate running before a build | `node scripts/check-workflows.mjs`; its own cases: add `--selftest` |
+| `check-workflows` | an Action not on the accepted list or not pinned to an accepted major; a cargo or `tauri build` call without `--locked`; `continue-on-error` or `\|\| true` in a step; a job with no `timeout-minutes`; a Linux cargo job that does not probe `glib-2.0` and install `dbus`; the licence gate running before a build or a `cargo fetch` | `node scripts/check-workflows.mjs`; its own cases: add `--selftest` |
 | typecheck, lint | a type error, or a biome finding (`pnpm lint` is check-only and never writes a file) | `pnpm typecheck`, `pnpm lint` |
 | unit tests | any `*.test.*`; or a file under `packages/*/src/contracts/` changed | `pnpm test` runs every package's tests and `scripts/*.test.mjs`. WebKit tests skip in `fast`, which has no browser. A contract changes by an ordinary pull request (ADR-0045); regenerate the goldens it moves |
 | `test:mutations` | a palette test that no longer fails with `searchPrepared` switched off | `pnpm --filter @marxy/desktop test:mutations` |
 | `gate:bundle` | the production JS reaches the memory shell or the harness (the import-graph half; the size half runs only in the release workflow) | `pnpm gate:bundle` |
-| `test:fleet` | the frozen orchestration code or a live document naming an orchestration file or `fleet.mjs` command that does not exist | `pnpm test:fleet`; fix the document in the same pull request; the live list is `LIVE_DOCS` in `orchestration/docs.test.mjs` |
 | CommonMark step | the spec suite failed, or left the tree dirty | `node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --selftest`; the full suite needs the cached spec file, see `ci.yml` |
 | `gate:golden` | AST or source-map output moved | regenerate the goldens deliberately; `pnpm gate:golden` |
 | `gate:fidelity` | a byte that was not asked to change, changed | fix the operation, never the test; `pnpm gate:fidelity` |
 | `gate:licences` | a copyleft or undeterminable licence (ADR-0006) | `pnpm gate:licences` |
 
-### `browser-lite`, `typography`, `rust`
+### `browser-lite`, `rust`
 
 | Symptom | Cause | Fix and local command |
 | --- | --- | --- |
 | `gate:no-network` | something reached off the machine, or unsanitised markup reached the DOM (ADR-0009) | `pnpm gate:no-network` (both engines, against live controls) |
-| desktop lite suite | a WebKit test failed, or WebKit was missing (`MARXY_BROWSER_TESTS_REQUIRED=1` turns a skip into a failure) | `pnpm exec playwright install webkit`, then `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite` |
+| desktop lite suite | a WebKit test failed, or WebKit was missing (`MARXY_BROWSER_TESTS_REQUIRED=1` turns a skip into a failure) | `pnpm exec playwright install webkit`, then `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test:lite` (add `--test-shard=1/2` for the shard that failed) |
+| `lint:rust` | `cargo fmt --check` or `clippy -D warnings`, on macOS | `pnpm lint:rust` |
+| `cargo test` | a compile error, or a failing `#[test]` in `apps/desktop/src-tauri` (the images test's asset-scope cases are there); `Cargo.toml` changed without `Cargo.lock` (`cannot update the lock file`) | `cd apps/desktop/src-tauri && cargo test --locked`; `cargo check` there, then commit `Cargo.lock` |
+| `gate:licences` over `Cargo.lock` | a crate with a copyleft or undeterminable licence (ADR-0006) | `cd apps/desktop/src-tauri && cargo fetch --locked`, then `node scripts/gate-licences.mjs --require-registry` |
+
+### Nightly `aesthetics-determinism` and `startup-macos`, by cause
+
+These no longer turn a pull request red (ADR-0056); a red one is a note for the next session. The causes and
+local commands are the same as when they ran on pull requests.
+
+| Symptom | Cause | Fix and local command |
+| --- | --- | --- |
 | `gate:aesthetics --mechanical` | a mechanical aesthetics check moved (`docs/aesthetics-acceptance.md`) | `node scripts/gate-aesthetics.mjs --mechanical`; never loosen a threshold; `--workers N` tunes speed |
 | `gate:aesthetics` centred | the column's axis is off the visible area's axis | `node scripts/gate-aesthetics.mjs --mechanical --files <doc>.md`; the case names the cell |
 | `gate:aesthetics` blockEdges | a top-level block's text does not start on the column's left edge | as above |
@@ -215,8 +245,6 @@ them.
 | `gate:aesthetics` textSpacing, text200 | something clipped, overlapping or scrolling sideways with 1.4.12 text spacing or at 40 px text | as above |
 | `gate:aesthetics` an expected failure | a case in `EXPECTED_FAILURES` now passes (delete its row), or a failing case has no row (fix the page, never add a row without the story that clears it) | `node scripts/gate-aesthetics.mjs --mechanical --emit-expected` |
 | `gate:specimen` | a specimen render moved or made a network request | `pnpm gate:specimen` |
-| `lint:rust` | `cargo fmt --check` or `clippy -D warnings` | `pnpm lint:rust` |
-| Rust build or `cargo test` | a compile error, or a failing `#[test]` in `apps/desktop/src-tauri`; `Cargo.toml` changed without `Cargo.lock` (`cannot update the lock file`) | the `rust` block above; `cargo check` in `src-tauri`, then commit `Cargo.lock` |
 | CLI smoke | shell, paint or CLI path regressed | `pnpm --filter @marxy/desktop verify:cli` (sets `MARXY_SMOKE_REQUIRED=1`; needs the built binary, so set `MARXY_BIN`) |
 | CLI smoke: `the launch never asked to quit; its last mark was …` | the webview reported its outcome, then stopped before it called `quit` (an IPC that never answered) | the named mark is where it stopped; the next awaited call after it in `app.ts` is the suspect. Each launch is its own process group and is killed whole, so one stall cannot poison the launches after it |
 | CLI smoke: `… the process teardown stalled` | the app printed `MARK quit code=n` and did not exit | harness launches leave through `_exit(2)` after Tauri's teardown (`harness_exit` in `main.rs`); a stall here is in that teardown |
@@ -227,8 +255,8 @@ The rules about how a workflow may be written live in one place: **`scripts/chec
 run by `pnpm check` and therefore by `fast`. Change `ci.yml` or `nightly.yml` and you meet it. Two
 tests guard the rest of CI's shape:
 
-- `scripts/ci-changes.test.mjs` asserts which paths set which of the six outputs, and that every
-  module the aesthetics render loads is covered by `typography`.
+- `scripts/ci-changes.test.mjs` asserts which paths set which of the four outputs, and that every
+  script the browser job runs or imports is covered by `web`.
 - `scripts/ci-verdict.test.mjs` asserts what turns the `ci` job red.
 
 Standing rules: every job carries `timeout-minutes`; the Playwright container tag equals the
@@ -240,18 +268,19 @@ fixed or deleted, never re-run until green.
 ## Nightly: monitoring, never a pull-request check
 
 `.github/workflows/nightly.yml` runs at 04:00 UTC and on `workflow_dispatch`. It is **monitoring**:
-it cannot turn a pull request red, and a red nightly is a note for the next person to read
-(ADR-0032, ADR-0046, ADR-0047). Local commands are given where they exist.
+it cannot turn a pull request red, and **a red nightly is a note for the next session, not a blocked
+merge** (ADR-0032, ADR-0046, ADR-0047, ADR-0056). Local commands are given where they exist. Everything
+that left the pull-request path in G-03 is here; the last column says what a red one means.
 
-| Job | What it watches | Local command |
-| --- | --- | --- |
-| `aesthetics-determinism` | the aesthetics gate with three CLS repeat passes against `main`. Dispatched with `update_baselines` (`gh workflow run nightly.yml --ref <branch> -f update_baselines=true`), it first regenerates the Linux screenshot and rag baselines in the Playwright container, runs the gate against them, uploads them as the `linux-baselines` artifact, and skips every other job | `node scripts/gate-aesthetics.mjs --repeat 3`; on a Mac, `--update` writes only `webkit-macos` |
-| `browser-full` | the full desktop suite, and the theme, typeset and core suites, all with WebKit required | `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test`, then each package's `test` |
-| `perf-harness` | the performance harness over the corpus and a 256 KB and a 1 MB document, recorded to `results/perf-nightly.json`; **numbers are recorded, not gated** (ADR-0032) | `pnpm --filter @marxy/desktop build:harness && pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --record results/perf-nightly.json` |
-| `startup-macos` | the macOS build, CLI smoke, Rust unit tests and the nine-launch start-up measurement | `node scripts/measure-startup.mjs --selftest`, then `node scripts/measure-startup.mjs` with `MARXY_BIN` set |
-| `rust-linux` | the Linux Rust job again, with nightly caches | the `rust` block above |
-| `built-app-smoke` | the release-built app through real IPC: `scripts/smoke-built-app.mjs` with `tauri-driver` and WebKitWebDriver on Ubuntu | below |
-| `fleet` | `pnpm test:fleet` over the frozen orchestration code | `pnpm test:fleet` |
+| Job | What it watches | Local command | A red means |
+| --- | --- | --- | --- |
+| `aesthetics-determinism` | the aesthetics gate, mechanical checks and the screenshot and rag comparison against the baselines, with three CLS repeat passes against `main`; then the **specimen gate** (`pnpm gate:specimen`), which runs even when the aesthetics gate is red. Dispatched with `update_baselines` (`gh workflow run nightly.yml --ref <branch> -f update_baselines=true`), it first regenerates the Linux screenshot and rag baselines in the Playwright container, runs the gate against them, uploads them as the `linux-baselines` artifact, and skips every other job | `node scripts/gate-aesthetics.mjs --repeat 3 && pnpm gate:specimen`; on a Mac, `--update` writes only `webkit-macos` | a typographic check moved (grid, measure, contrast, layout shift, overflow) or a specimen render moved or made a request: a change reached `main` that the pull request no longer checks. Open the `nightly-results` artifact, find the commit, fix forward or revert |
+| `browser-full` | the full desktop suite (including `progressive-large.test.mjs`, the 1 MB reading-position tests), and the theme, typeset and core suites, all with WebKit required | `MARXY_BROWSER_TESTS_REQUIRED=1 pnpm --filter @marxy/desktop test`, then each package's `test` | a WebKit test outside `test:lite` failed: selection, links, the index, persistence, open path, the 1 MB reading position. Behaviour worth fixing, not a commitment floor |
+| `perf-harness` | the performance harness over the corpus and a 256 KB and a 1 MB document, recorded to `results/perf-nightly.json`; **numbers are recorded, not gated** (ADR-0032) | `pnpm --filter @marxy/desktop build:harness && pnpm perf --files corpus --large 256k,1m --reload --open-second --palette --record results/perf-nightly.json` | a requested measurement produced no sample; a slow one is a trend, not a red |
+| `startup-macos` | the macOS build with the `ci` profile, its licence gate, the CLI smoke on the built binary, the Rust unit tests with the custom protocol, the nine-launch start-up measurement; then the pull-request `rust` job's own commands, whose purpose is to leave their compiled dependencies in the cache pull requests restore | `node scripts/measure-startup.mjs --selftest`, then `node scripts/measure-startup.mjs` with `MARXY_BIN` set | the shell, paint or CLI path regressed, or no launch printed a mark. This is where the CLI smoke lives now |
+| `rust-linux` | the Linux build that left the pull-request path: webview libraries, the thin-LTO `ci`-profile binary, the licence gate over the populated cache, the CLI smoke, the Rust tests, the bundle gate | the block above with the Linux webview libraries (see the apt line in `nightly.yml`) | a Linux-only compile, clippy or runtime fault. Linux is a pre-release platform (ADR-0046): if the cause is Linux-only, delete the job rather than fix it until Linux is a release goal again |
+| `built-app-smoke` | the release-built app through real IPC: `scripts/smoke-built-app.mjs` with `tauri-driver` and WebKitWebDriver on Ubuntu | below | the release binary does not start or answer IPC on Linux |
+| `fleet` | `pnpm test:fleet` over the frozen orchestration code and the documents that name it | `pnpm test:fleet` | a live document names an orchestration file or `fleet.mjs` command that does not exist, or the frozen code moved; fix the document (`LIVE_DOCS` in `orchestration/docs.test.mjs`) |
 
 Local repro for the built-app smoke, when the Linux stack is installed:
 

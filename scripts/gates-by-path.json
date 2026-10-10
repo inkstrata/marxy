@@ -1,5 +1,5 @@
 {
-  "_note": "Which node-only gates a change must run, by path prefix ('**/name' matches that file name anywhere). precheck.mjs unions the entries for every changed file; this is CI's `fast` job, for what you touched. 'always' runs for any change; 'all' is the extra slow gates only `pnpm precheck --all` adds. Not run by default, still runnable by name: gate:no-network, gate:aesthetics, clippy (lint:rust), check-cards and check:story (the paused fleet; nightly `fleet`).",
+  "_note": "Which node-only gates a change must run, by path prefix ('**/name' matches that file name anywhere). precheck.mjs unions the entries for every changed file; this is CI's `fast` job, for what you touched. 'always' runs for any change; 'all' is the extra slow gates only `pnpm precheck --all` adds. Not run by default, still runnable by name: gate:no-network, gate:aesthetics and clippy (lint:rust) are pnpm scripts; check:story is a pnpm script and check-cards is not (`node scripts/check-cards.mjs`), both the paused fleet's (nightly `fleet`).",
   "always": ["check"],
   "packages/core": ["gate:golden", "gate:fidelity"],
   "fixtures/corpus": ["gate:golden", "gate:fidelity"],
