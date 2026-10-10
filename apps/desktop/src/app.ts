@@ -7,8 +7,7 @@ import { appHandle, setAppHandle } from './commands/app-handle.ts';
 import { applyDocumentMutation, redoDocumentEdit, undoDocumentEdit } from './commands/edits.ts';
 import { buildAppContext, installCommandKeys } from './selection/bind.ts';
 import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
-import { basename } from '@marxy/core/src/index-model/paths.ts';
-import { installCloseGuard } from './close.ts';
+import { guardPaneClose, installCloseGuard } from './close.ts';
 import { pathsForDocument } from './render/images.ts';
 import { resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
@@ -173,15 +172,10 @@ export async function startApp(
   // here); the palette mount and the selection harness call the same idempotent install.
   setAppHandle(handle);
   installCommandKeys(handle);
-  installCloseGuard({
-    shell,
-    isDirty: () => focused().hasUnsavedChanges(),
-    documentName: () => {
-      const path = focused().currentPath();
-      return path ? basename(path) : null;
-    },
-    save: () => focused().save(),
-  });
+  // The close guard asks about each pane's document, in that pane: quitting walks every unsaved one,
+  // closing a pane asks about its own (D-08).
+  installCloseGuard({ shell, panes: () => panes.panes });
+  guardPaneClose(panes);
   try {
     await openPath.boot(argv);
   } catch (e) {
