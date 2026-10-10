@@ -137,9 +137,15 @@ sets no value: values are taste (ADR-0031) and land in H-04.
      `apps/desktop/src/theme/reader-config.ts`). A kind scope that set them in px would override the
      size the reader chose (ADR-0049, WCAG 1.4.4). So inside a kind scope these, and `-size-caption`,
      `-lh-h1` and `-lh-h2`, are written only as a multiple of the reader's root value: a unitless ratio
-     (`--marxy-size-body: 0.85`) or the same ratio in `em`. Because a custom property cannot refer to
-     itself, H-03 compiles the ratio to `calc(<ratio> * var(<root copy>))`, where the root copies are
-     system-owned names the reader config writes beside the four it writes today (H-03 declares them).
+     (`--marxy-size-body: 0.85`) or the same ratio in `em`; the theme loader compiles both forms, so
+     no raw `em` reaches the DOM (an `em` there would resolve against the element's own font size).
+     Because a custom property cannot refer to itself, H-03 compiles the ratio to
+     `calc(<ratio> * var(<root copy>))`. The root copies are declared in `tokens.css` on `:root` as
+     `var(<original>)`, for example `--marxy-root-size-body: var(--marxy-size-body)` (kind `length`),
+     so each holds whatever wins on `:root`: the reader's inline value, the theme's, or the default.
+     `applyReaderConfig` is unchanged (at the default size it writes nothing, so a copy it wrote would
+     not exist). The copies are system-owned, counted apart from the 27, and the validator drops a
+     theme that sets one, as it drops `--marxy-weight-offset`.
      The validator clamps the ratio to the range the root value is clamped to, and rejects an absolute
      length in a kind scope with a warning naming the token and the kind.
    - *The line box may be set per kind; the grid may not.* A pane has one kind, so it has one line box
@@ -219,8 +225,10 @@ sets no value: values are taste (ADR-0031) and land in H-04.
   drops the `#1a1a1a` fallback the palette and outline paint today (`palette/view.ts`,
   `outline/view.ts`), so their ground moves to `-notice`'s value. `-border` (`#444`) and
   `-accent-muted` (white at 8 %) are wrong in the light variant today; H-03 fixes both by the repoint.
-- H-03 also adds the reader's `chrome_size` setting (item 6), the root copies of the reader's sizes
-  and the ratio compilation (item 7), and moves the measure computation to the pane scope (item 7).
+- H-03 declares `--marxy-size-chrome` and the root copies of the reader's sizes, compiles the
+  ratios (item 7), and moves the measure computation to the pane scope (item 7). The reader's
+  `chrome_size` setting (item 6) reaches the `config.toml` parser, `reader-config.ts` and
+  `app-config.ts`, so it is its own story, H-07, with its control on W-12's settings page.
 - Until H-03 lands, the names are reserved by this record, not by a machine: the registry holds only
   `tokenPrefix`, and `check-tokens` fails any name added to `tokens.css` without its snapshot.
 - `docs/theme-contract.md` lists the roles as decided and not yet shipped, and stops saying version 1
