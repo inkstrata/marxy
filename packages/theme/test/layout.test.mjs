@@ -266,3 +266,43 @@ test('09-gfm-everything keeps every top-level block on the grid at 960px and 28p
   assert.equal(r.half, 21);
   assert.deepEqual(r.off, []);
 });
+
+// F-26: the sanitiser keeps `<ol start="-3">` and `<li value>`, so the list shows what the document wrote.
+// The reference list is built through the DOM (li.value), so it does not rely on the sanitiser either way.
+test('a sanitised <ol start="-3"> shows -3, -2, and a mid-list <li value="10"> shows 1, 10, 11 (F-26)', async () => {
+  const html = '<ol start="-3"><li>aa</li><li>bb</li></ol>\n\n<p>text</p>\n\n<ol><li>aa</li><li value="10">bb</li><li>cc</li></ol>\n';
+  const page = await openPage(browser, renderMarkdown(html), { width: 1280 });
+  const boxes = await page.evaluate(() => {
+    const doc = document.getElementById('doc');
+    const make = (values) => {
+      const ol = document.createElement('ol');
+      for (const value of values) {
+        const li = document.createElement('li');
+        if (value !== null) li.value = value;
+        li.textContent = 'aa';
+        ol.append(li);
+      }
+      doc.append(ol);
+    };
+    make([-3, null]);
+    make([null, 10, null]);
+    const lists = [...document.querySelectorAll('#doc > ol')];
+    return lists.map((ol) => [...ol.children].map((li) => {
+      const r = li.getBoundingClientRect();
+      const w = parseFloat(getComputedStyle(li, '::before').width);
+      return { x: r.left - w, y: r.top + window.scrollY, width: w, height: r.height };
+    }));
+  });
+  assert.equal(boxes.length, 4, 'the two sanitised lists and the two references are all there');
+  const shots = [];
+  for (const list of boxes) {
+    const row = [];
+    for (const b of list) row.push(await page.screenshot({ clip: b, fullPage: true }));
+    shots.push(row);
+  }
+  await page.close();
+  const [negative, valued, refNegative, refValued] = shots;
+  negative.forEach((png, i) => assert.ok(png.equals(refNegative[i]), `marker ${i + 1} of <ol start="-3"> does not look like ${-3 + i}`));
+  valued.forEach((png, i) => assert.ok(png.equals(refValued[i]), `marker ${i + 1} of the list with <li value="10"> does not look like ${[1, 10, 11][i]}`));
+  assert.ok(!negative[0].equals(valued[0]), '-3 and 1 look the same');
+});
