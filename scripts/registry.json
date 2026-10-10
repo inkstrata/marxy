@@ -78,6 +78,8 @@
     "apps/desktop/src/render/",
     "apps/desktop/src/notices/",
     "apps/desktop/src/outline/",
+    "apps/desktop/src/paste/",
+    "apps/desktop/test/paste-convert.test.mjs",
     "scripts/",
     "packages/core/scripts/",
     "packages/core/src/render/testing/",
