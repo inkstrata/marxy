@@ -9,7 +9,7 @@
 // here writes except `save`; `dirty` is derived as `buffer ≠ disk` (§5). Transitions run one at a time
 // on the store's own queue (§2).
 
-import { createBuffer, parseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
+import { createBuffer, parseMarkdown, reparseMarkdown, splice, type Buffer, type Document, type Edit } from '@marxy/core';
 import { buildNodeMap, type NodeMap } from '../render/post.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 
@@ -80,6 +80,9 @@ export interface DocumentStore {
    * watcher's echo of our own save, even if the buffer has been edited since: no conflict). 'kept'
    * only for a real external change while the buffer is dirty: nothing changes. Otherwise
    * 'reloaded', and history is cleared.
+   *
+   * The new bytes are reparsed from the store's own parse: only the blocks the change touched are
+   * parsed again (B-23, `reparseMarkdown`).
    */
   reload(bytes: Uint8Array): Promise<'reloaded' | 'unchanged' | 'kept'>;
   save(opts?: { to?: string }): Promise<{ result: 'saved' | 'unchanged' | 'failed'; error?: unknown }>;
@@ -297,7 +300,8 @@ export function openDocumentStore(io: StoreIo, path: string, bytes: Uint8Array):
         // A clean reload is a new document: undoing across it would splice bytes the reader never saw.
         // Phase B clears it rather than mapping it through the change (ADR-0037 §3; roadmap 02-phase-b.md).
         const buffer = createBuffer(state.path, bytes);
-        const next = parsed(state.path, buffer);
+        const ast = reparseMarkdown(state.ast, state.buffer.bytes, buffer.bytes, { file: state.path });
+        const next = { buffer, ast, nodeMap: buildNodeMap(ast) };
         io.recordRead?.(state.path, buffer.bytes);
         commit({ ...state, disk: buffer.bytes, ...next, past: [], future: [] }, { kind: 'reload' });
         return 'reloaded';

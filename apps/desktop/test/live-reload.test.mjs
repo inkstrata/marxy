@@ -148,6 +148,50 @@ test('modified on disk reloads appended text and keeps byteOffset', async () => 
   }
 });
 
+/** Many short turns, so a write above the reader leaves most of the file's blocks unchanged (B-23). */
+const T = Array.from({ length: 60 }, (_, i) =>
+  `## Turn ${i + 1}\n\n${para(`Turn ${i + 1}`)}\n\n- an item with \`code\`\n  - nested *a* b\n\n\`\`\`js\nconst n = ${i};\n\`\`\`\n\n`,
+).join('');
+
+test('a write above the reader in a long file reloads to the whole parse of the new bytes, at the same text (B-23)', async () => {
+  const { parseMarkdown } = await import('../../../packages/core/src/parse/parse.ts');
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/T.md': b64(T) }, ['/r/T.md']);
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 3));
+    await page.waitForFunction(() => window.scrollY > 1000);
+    const writes = [
+      // One line above the reader: everything after it moves.
+      (text) => text.replace('## Turn 2\n', 'One line an outside editor wrote.\n\n## Turn 2\n'),
+      // A fence opened above the reader and closed further down: the parse after it changes, then settles.
+      (text) => text.replace('## Turn 3\n', '```\nopened\n\n').replace('## Turn 5\n', '```\n\n## Turn 5\n'),
+    ];
+    let text = T;
+    for (const write of writes) {
+      const held = await page.evaluate(() => window.__marxyHandle.sourceHarness().byteOffset);
+      const heldText = Buffer.from(text).subarray(held, held + 24).toString();
+      const next = write(text);
+      const seen = await page.evaluate(async ({ next }) => {
+        const h = window.__marxyHandle;
+        const path = h.currentPath();
+        const count = () => h.shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'live_reload').length;
+        const before = count();
+        await h.shell.writeFileAtomic(path, new TextEncoder().encode(next));
+        h.shell.emit([{ kind: 'modified', path }]);
+        for (let i = 0; i < 500 && count() === before; i++) await new Promise((r) => setTimeout(r, 10));
+        return { reloaded: count() > before, ast: JSON.stringify(h.document().snapshot().ast), place: h.sourceHarness().byteOffset };
+      }, { next });
+      assert.equal(seen.reloaded, true);
+      assert.equal(seen.ast, JSON.stringify(parseMarkdown(new TextEncoder().encode(next), { file: '/r/T.md' })), 'the store holds the whole parse');
+      assert.equal(Buffer.from(next).subarray(seen.place, seen.place + 24).toString(), heldText, 'the reader is on the same text');
+      text = next;
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 test('Save as closes the old folder\'s watch and watches the new one', async () => {
   const browser = await launchWebkit();
   try {
@@ -465,3 +509,97 @@ test('a .md file toggled to Source, unscrolled, stays at the top when text is wr
     await browser.close();
   }
 });
+
+// F-19.3: an outside write to a file open in Source carries the caret and selection through the change.
+const SOURCE_LINES = Array.from({ length: 60 }, (_, i) => `export const value${i} = ${i};`);
+const withCaret = async (page, from, to = from) => {
+  await page.evaluate(async ({ from, to }) => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const ed = activeSourceEditor(document.querySelector('#marxy-source'));
+    ed.view.dispatch({ selection: { anchor: from, head: to } });
+  }, { from, to });
+};
+const writeOutside = async (page, text) => {
+  await page.evaluate(async (text) => {
+    const path = window.__marxyHandle.currentPath();
+    await window.__marxyHandle.shell.writeFileAtomic(path, new TextEncoder().encode(text));
+    window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
+  }, text);
+  await page.waitForFunction(() => {
+    const t = document.querySelector('#marxy-source')?.textContent ?? '';
+    return t.includes('Changed') || !t.includes('value20 = 20');
+  });
+  await new Promise((r) => setTimeout(r, 300));
+};
+const selectionNow = (page) =>
+  page.evaluate(async () => {
+    const { activeSourceEditor } = await import('/src/source/editor.ts');
+    const { state } = activeSourceEditor(document.querySelector('#marxy-source')).view;
+    const { anchor, head } = state.selection.main;
+    return { anchor, head, text: state.sliceDoc(Math.min(anchor, head), Math.max(anchor, head)), line: state.doc.lineAt(head).text };
+  });
+const bootSource = async (page, { eol, bom }) => {
+  await boot(page, { '/r/A.ts': b64(bom + SOURCE_LINES.join(eol) + eol) }, ['/r/A.ts']);
+  await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
+  await page.waitForFunction(() => document.querySelector('#marxy-source .cm-line'));
+};
+
+// F-23: CodeMirror counts a line break as one position and leaves the BOM out; the buffer counts both.
+const FILE_SHAPES = [
+  { label: '', eol: '\n', bom: '' },
+  { label: ' in a CRLF file (F-23)', eol: '\r\n', bom: '' },
+  { label: ' in a file with a BOM (F-23)', eol: '\n', bom: '\uFEFF' },
+  { label: ' in a CRLF file with a BOM (F-23)', eol: '\r\n', bom: '\uFEFF' },
+];
+for (const { label, eol, bom } of FILE_SHAPES) {
+test(`a write above the caret leaves the Source caret on the same text (F-19.3)${label}`, async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page, { eol, bom });
+    const at = SOURCE_LINES.slice(0, 20).join('\n').length + 1 + 7;
+    await withCaret(page, at);
+    await writeOutside(page, bom + ['// Changed', '// Changed again', ...SOURCE_LINES].join(eol) + eol);
+    const now = await selectionNow(page);
+    assert.equal(now.line, 'export const value20 = 20;');
+    assert.equal(now.anchor, now.head);
+    assert.equal(now.head, ['// Changed', '// Changed again', ...SOURCE_LINES.slice(0, 20)].join('\n').length + 1 + 7);
+  } finally {
+    await browser.close();
+  }
+});
+
+test(`a Source selection follows an insertion above it (F-19.3)${label}`, async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page, { eol, bom });
+    const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
+    await withCaret(page, start + 13, start + 20);
+    await writeOutside(page, bom + ['// Changed', ...SOURCE_LINES].join(eol) + eol);
+    const now = await selectionNow(page);
+    assert.equal(now.text, 'value20');
+  } finally {
+    await browser.close();
+  }
+});
+
+test(`a Source caret inside deleted text lands at the deletion point (F-19.3)${label}`, async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await bootSource(page, { eol, bom });
+    const start = SOURCE_LINES.slice(0, 20).join('\n').length + 1;
+    await withCaret(page, start + 10);
+    // The next line starts differently, so the deleted run is unambiguous (a shared prefix would hold the caret).
+    const kept = [...SOURCE_LINES.slice(0, 20), '// tail', ...SOURCE_LINES.slice(23)];
+    await writeOutside(page, bom + kept.join(eol) + eol);
+    const now = await selectionNow(page);
+    assert.equal(now.anchor, start);
+    assert.equal(now.head, start);
+    assert.equal(now.line, '// tail');
+  } finally {
+    await browser.close();
+  }
+});
+}

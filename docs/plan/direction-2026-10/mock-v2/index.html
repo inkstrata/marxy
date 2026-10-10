@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marxy mock v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/app.css">
+<link rel="stylesheet" href="shared/lang-colors.css">
+<style>
+  body { overflow: auto; background: var(--doc); }
+  .hub { max-width: 1040px; margin: 0 auto; padding: 40px 24px 80px; }
+  .hub header { display: flex; align-items: flex-end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 8px; }
+  .hub h1 { margin: 0; font: 600 34px/1.1 var(--face-article); color: var(--fg-strong); letter-spacing: -0.015em; }
+  .hub .sub { font: 400 17px/1.5 var(--face-article); color: var(--fg-muted); margin: 8px 0 0; max-width: 680px; }
+  .hub h2 { font-size: 11px; font-weight: 650; color: var(--fg-faint); margin: 28px 0 6px; letter-spacing: 0.04em; }
+  .prow { display: grid; grid-template-columns: 34px 28px minmax(0, 220px) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px 12px; border-radius: 9px; text-decoration: none; color: var(--fg); border-bottom: 1px solid var(--line); }
+  .prow:hover { background: var(--hover); }
+  .prow .n { font: 600 12px var(--face-code); color: var(--fg-faint); }
+  .prow svg { color: var(--accent); width: 18px; height: 18px; }
+  .prow b { font-weight: 650; font-size: 14px; }
+  .prow span.d { color: var(--fg-muted); font-size: 13px; line-height: 1.45; }
+  .prow .md { font-size: 12px; color: var(--accent); text-decoration: none; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; white-space: nowrap; }
+  .prow .md:hover { background: var(--accent-wash); }
+  .themes { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .themes button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); background: var(--raised); color: var(--fg); border-radius: 999px; height: 28px; padding: 0 10px 0 6px; font-size: 12px; }
+  .themes button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
+  .note { font-size: 13px; color: var(--fg-muted); line-height: 1.6; max-width: 760px; }
+  .note code { font: 12px var(--face-code); background: var(--inset); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<main class="hub">
+  <header>
+    <div>
+      <h1>Marxy mock v2</h1>
+      <p class="sub">Galley's design, kneaded for Marxy: source first, no session tracking or tagging, and a workspace that folds away to a single column while you read.</p>
+    </div>
+  </header>
+  <div class="row" style="margin-top:14px"><span class="faint" style="font-size:12px">Theme for every prototype</span><div class="themes" id="themes"></div></div>
+
+  <h2>PROTOTYPES</h2>
+  <nav id="protos" aria-label="Prototypes"></nav>
+
+  <h2>LATER, NOT IN THIS DIRECTION</h2>
+  <nav id="later" aria-label="Later, not in this direction"></nav>
+
+  <h2>DESCOPED FOR NOW</h2>
+  <p class="note" style="margin:0 0 6px 12px">Good ideas, too much scope; copying lives in the reading and source views instead.</p>
+  <nav id="descoped" aria-label="Descoped for now"></nav>
+
+  <h2>DOCUMENTS</h2>
+  <nav id="docs" aria-label="Documents"></nav>
+
+  <h2>HOW TO USE THESE</h2>
+  <p class="note">Every control is live: transforms and copy formats really run and write to the clipboard, the source editor really edits, settings persist across pages in this browser. Things that need the operating system (Finder, Services) are simulated and say so. Press <code>⌘K</code> (or <code>Ctrl K</code>) on any page for the palette, and <code>⌘\</code> (<code>Ctrl \</code>) to fold or unfold the workspace: the Workspace page starts folded, and moving the pointer to the left, right or top edge peeks the sidebar, inspector or toolbar. Served locally with <code>python3 tools/serve.py 8797</code> from this folder (a no-cache static server); the pages also open straight from disk.</p>
+</main>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="shared/corpus.js"></script>
+<script src="shared/app.js"></script>
+<script src="shared/render.js"></script>
+<script>
+(function () {
+  const G = Marxy, { $, esc, ic } = G;
+  const P = [
+    ['01', 'app-window', 'Workspace', '01-workspace.html', 'The main window. It starts folded to one column of text; one key unfolds the sidebar, toolbar, tool strip, panes, inspector and status bar.'],
+    ['02', 'square-code', 'Source editor', '02-source.html', 'A real editor for the source: structure panel, structural selection, line operations, table tools, find and replace with preview, problems.'],
+    ['03', 'shapes', 'Content modes', '03-content-modes.html', 'Twelve kinds of text, logs and terminal captures among them, each set with its own layout, tools and typography, and a panel that measures what you are getting.'],
+    ['04', 'search', 'Command palette', '04-palette.html', 'One field for files, headings, sections across the library, commands, transforms, collections and lines.'],
+    ['05', 'library', 'Library', '05-collections.html', 'Folders you point Marxy at: indexing, watching, query syntax, results and preview, bulk actions, near-duplicates and broken paths.'],
+    ['07', 'palette', 'Themes', '07-themes.html', 'Eight themes and five type sets, previewed across every content type, with a token inspector and a theme editor.'],
+    ['08', 'settings', 'Settings', '08-settings.html', 'Every setting, searchable and applied live, with the typography coupling rules enforced in the controls.']
+  ];
+  const LATER = [
+    ['09', 'command', 'macOS integration', '09-macos.html', 'Toolbar quick actions, menu bar, Finder Quick Actions, Services, Quick Look, Share and Shortcuts.']
+  ];
+  const DESCOPED = [
+    ['06', 'clipboard-list', 'Clipboard studio', '06-clipboard.html', 'Clipboard history, transform pipelines, copy formats, the collect stack and snippets.']
+  ];
+  const D = [
+    ['README.md', 'Start here: what this is, the files, how to run the pages'],
+    ['FEATURES.md', 'The complete feature set, by area, with release tiers'],
+    ['TYPOGRAPHY.md', 'Typography for each content type, coupling rules, faces and measured line lengths'],
+    ['ARCHITECTURE.md', 'How to build it with Tauri v2: processes, crates, data model, IPC'],
+    ['shared/README.md', 'The prototype engine shared by every page']
+  ];
+  const row = ([n, i, t, href, d]) => `<a class="prow" href="${href}"><span class="n">${n}</span>${ic(i)}<b>${esc(t)}</b><span class="d">${esc(d)}</span><span class="md" data-md="${href.replace('.html', '.md')}" role="link" tabindex="0">Read the spec</span></a>`;
+  $('#protos').innerHTML = P.map(row).join('');
+  $('#later').innerHTML = LATER.map(row).join('');
+  $('#descoped').innerHTML = DESCOPED.map(row).join('');
+  $('#docs').innerHTML = D.map(([f, d]) => `<a class="prow" href="${f}"><span class="n">md</span>${ic('file-text')}<b>${esc(f)}</b><span class="d">${esc(d)}</span><span></span></a>`).join('');
+  ['#protos', '#later', '#descoped'].forEach((id) => $(id).addEventListener('click', (e) => { const m = e.target.closest('[data-md]'); if (m) { e.preventDefault(); location.href = m.dataset.md; } }));
+  const paint = () => { $('#themes').innerHTML = [['system', 'System']].concat(G.themes.map((t) => [t.id, t.name])).map(([id, name]) => `<button data-t="${id}" aria-pressed="${G.prefs.theme === id}"><b class="swatch" data-theme="${id === 'system' ? G.resolvedTheme() : id}"><b></b></b>${esc(name)}</button>`).join(''); };
+  paint(); $('#themes').addEventListener('click', (e) => { const b = e.target.closest('[data-t]'); if (b) { G.setPref('theme', b.dataset.t); paint(); } });
+  G.icons();
+})();
+</script>
+</body>
+</html>

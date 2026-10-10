@@ -1213,6 +1213,19 @@ more apply; report if the author meant eight lines total. Confirm in the built a
 
 ---
 
+### C-13.1 — The verb menu's untested promises, and keys it swallows
+
+**Model:** sonnet · **Size:** S · **Depends on:** C-13 · *Added 2026-10-08 by the lead, from the C-13 review.*
+**Paths:** `apps/desktop/src/selection/verb-menu.ts`, `apps/desktop/test/verb-menu.test.mjs`, a unit test beside
+`verb-menu.ts`. Four gaps: the focus-return assertion cannot fail (the click leaves focus on `BODY`; give the block
+`tabindex=-1`, focus it, assert focus after Escape and after a verb runs); "All actions…" is never asserted (last row,
+opens the palette on `>`); the seven-row limit is untested (a unit test of `verbMenuRows` with eight commands pins
+the limit and "All actions…"); and while the menu is open its key listener stops every key, so Mod+P, Mod+S, Mod+Z
+and Mod+C do nothing — an unhandled key closes the menu and passes through. Acceptance: each of the four has a test
+that fails without the change. Questions for the author from the same review: a right-clicked link offers only
+"Jump to source" (design 09 says a link's default verb is "open link"); Enter on a Tab-focused link follows it while
+Enter on a selected link opens the menu; whether `preventDefault` hides WKWebView's own menu in the built app.
+
 ### C-14 — Two palette commands: Edit collection, and Add this folder
 
 **Model:** sonnet · **Size:** S · **Depends on:** C-03, C-10 · **Parallel with:** C-11, C-12

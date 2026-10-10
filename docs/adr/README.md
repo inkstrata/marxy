@@ -61,3 +61,13 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0054](0054-verb-menu-and-default-verbs.md) | One verb menu is the click surface; at most seven verbs per selection; `Mod+C` runs a default copy verb and never a splice; amends 0019's cap | proposed |
 | [0055](0055-find-edge-token.md) | `--marxy-color-find-edge`: a find match carries a 2 px edge in a token, because a pale fill cannot be 3:1; amends 0024 | proposed |
 | [0056](0056-the-pull-request-path-holds-the-commitments.md) | The pull-request path holds the five commitments and nothing else; Linux, the aesthetics and specimen gates and the fleet's tests run nightly; amends 0046 decision 1 and extends 0047 | accepted (author, 2026-10-08) |
+| [0057](0057-two-column-split.md) | Two documents side by side: at most two columns in one window, no tree and no OS windows, independent scroll, `#doc` the first pane; amends 0005 and 0011 | proposed (D-01) |
+| [0058](0058-the-fold-up-workspace.md) | The fold-up workspace: at rest is the folded window; unfolded, sidebar, tabs, toolbar, inspector and status bar may persist; windows open folded; reverses 0050 item 4 and 0011 inside the workspace | accepted (author, 2026-10-10) |
+| [0059](0059-token-contract-v2.md) | Token contract v2: 27 surface, status, accent, face and chrome roles with v1 fallbacks; a kind re-scopes `--marxy-*`, no `--k-*` family; contract 2; amends 0008 and 0031 | proposed (H-01) |
+| 0060 | Kinds (reserved for K-01) | — |
+| 0061 | Derived views (reserved for K-02) | — |
+| [0062](0062-the-library.md) | The library: the collection can be browsed in a sidebar tree and a library view, with saved queries; amends 0053 and 0012 | accepted (author, 2026-10-10) |
+| [0063](0063-capture-rules.md) | Capture rules: a standing, declared request to copy files byte-exact into a reader folder | accepted (author, 2026-10-10) |
+| 0064 | File metadata capabilities in `shell-api` (reserved for W-18) | — |
+| [0065](0065-the-clipboard.md) | The clipboard is essential: Copy as targets, multi-format writes, paste, Transform; clipboard read on reader action only; the studio waits for a design; amends 0026 and 0054 | accepted (author, 2026-10-10) |
+| [0066](0066-clipboard-history.md) | Clipboard history: Marxy keeps its own copies, recorded where it writes, in memory by default or as plain files by choice; nothing watches the pasteboard; opt-in watching designed and deferred | proposed (J-D1) |

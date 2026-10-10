@@ -130,6 +130,21 @@
     "comment": false
   },
   {
+    "name": "--marxy-color-divider",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-color-divider-focus",
+    "kind": "colour",
+    "comment": true
+  },
+  {
+    "name": "--marxy-divider-hit",
+    "kind": "length",
+    "comment": true
+  },
+  {
     "name": "--marxy-color-code-bg",
     "kind": "colour",
     "comment": false

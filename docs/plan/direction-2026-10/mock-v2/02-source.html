@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marxy Source Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/app.css">
+<link rel="stylesheet" href="shared/lang-colors.css">
+<style>
+  .center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--win); }
+  .stage { flex: 1; display: flex; min-height: 0; min-width: 0; }
+  .edwrap { flex: 1; display: flex; min-height: 0; min-width: 0; position: relative; }
+  .preview { border-left: 1px solid var(--line); overflow: auto; min-width: 0; display: none; background: var(--doc); }
+  .stage.with-preview .preview { display: block; flex: 0.8 1 0; }
+  .preview .doc { padding: 1.4em 1.6em 6em; font-size: calc(var(--k-size) * 0.9 * var(--user-scale)); }
+  .diskbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12px; background: var(--accent-wash); border-bottom: 1px solid var(--line); }
+  .diskbar b { color: var(--fg); }
+  /* Find and replace: a thin bar inside the frame's text area */
+  .fr { position: absolute; top: 74px; right: 22px; z-index: 12; display: grid; grid-template-columns: auto 1fr auto; gap: 6px 8px; align-items: center; padding: 6px 8px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); width: min(420px, calc(100% - 60px)); }
+  .fr .field { height: 24px; width: 100%; font-family: var(--face-code); font-size: 12px; }
+  .fr .opts { display: flex; gap: 2px; align-items: center; }
+  .fr .count { font-size: 11.5px; color: var(--fg-muted); min-width: 64px; text-align: right; }
+  .slash { position: absolute; z-index: 30; }
+</style>
+</head>
+<body>
+<div class="win">
+  <aside class="sidebar" data-slot="sidebar"></aside>
+  <div class="main">
+    <header class="toolbar">
+      <div class="tb-title"><b id="t-title">pg16-upgrade-plan.md</b><small id="t-path"></small></div>
+      <div class="seg" role="group" aria-label="Layout">
+        <button data-lay="source" aria-pressed="true" title="Source only">Source</button>
+        <button data-lay="preview" aria-pressed="false" title="Source beside the reading view">Source + reading view</button>
+      </div>
+      <div class="tb-space"></div>
+      <div class="tb-group">
+        <button class="tb-btn" id="b-new" title="New file, new file in this folder, fork this file (⌘N, ⇧⌘N)" aria-haspopup="menu"><i data-lucide="plus"></i><i data-lucide="chevron-down" class="chev"></i></button>
+        <button class="tb-btn" id="b-find" title="Find and replace (⌘F / ⌥⌘F)"><i data-lucide="search"></i></button>
+        <button class="tb-btn" id="b-save" title="Save (⌘S)"><i data-lucide="save"></i></button>
+      </div>
+    </header>
+    <div class="center">
+      <div id="diskbar"></div>
+      <div class="stage" id="stage">
+        <div class="edwrap" id="edwrap">
+          <div class="fr" id="fr" hidden>
+            <i data-lucide="search" class="ic-sm"></i><input class="field" id="f-q" placeholder="Find" aria-label="Find"><div class="opts"><button class="tb-btn" data-opt="case" title="Match case" aria-pressed="false"><i data-lucide="case-sensitive"></i></button><button class="tb-btn" data-opt="word" title="Whole word" aria-pressed="false"><i data-lucide="whole-word"></i></button><button class="tb-btn" data-opt="re" title="Regular expression" aria-pressed="false"><i data-lucide="regex"></i></button><button class="tb-btn" id="f-prev" title="Previous (⇧⌘G)"><i data-lucide="arrow-up"></i></button><button class="tb-btn" id="f-next" title="Next (⌘G)"><i data-lucide="arrow-down"></i></button><button class="tb-btn" id="f-x" title="Close (Esc)"><i data-lucide="x"></i></button></div>
+            <i data-lucide="replace" class="ic-sm"></i><input class="field" id="f-r" placeholder="Replace ($1 for groups)" aria-label="Replace"><div class="opts"><span class="count" id="f-count"></span><button class="btn sm" id="f-one">Replace</button><button class="btn sm" id="f-all">All</button></div>
+          </div>
+        </div>
+        <aside class="preview" id="preview" aria-label="Reading view"><article class="doc" id="pdoc"></article></aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="shared/corpus.js"></script>
+<script src="shared/app.js"></script>
+<script src="shared/render.js"></script>
+<script>
+(function () {
+  const G = Marxy, { $, $$, esc, ic, fmt } = G;
+  const hashId = (() => { const m = location.hash.match(/doc=([^&]+)/); try { return m ? decodeURIComponent(m[1]) : null; } catch (e) { return null; } })();
+  let doc = (hashId && G.docById(hashId)) || G.doc('pg16-plan');
+  let ed = null, ta = null;
+  const val = () => ta.value;
+  const S = { find: { case: false, word: false, re: false }, hits: [], hi: 0, hist: [], fwd: [] };
+  function setText(v, sel) { ed.setValue(v); if (sel) { ta.focus(); ta.setSelectionRange(sel[0], sel[1]); } changed(); }
+  function changed() { doc.src = val(); G.current.src = val(); preview(); if (!$('#fr').hidden) runFind(true); }
+
+  // The Source view is the frame alone: path, bytes, rulers, marks. Editing commands live in the palette and on keys.
+  // Opening a file (sidebar, Recent, palette, a link) loads it into this editor in place; the page never reloads.
+  function load(d, mods = {}) {
+    if (!d) return;
+    if (doc && ed && doc.id !== d.id && !mods.noHist) { S.hist.push(doc.id); S.fwd = []; }
+    doc = d; theirs = null; if (typeof diskbar === 'function') diskbar();
+    G.current = { id: d.id, title: d.title, path: d.path, lang: d.lang, src: d.src, collection: d.collection, kind: d.kind, headings: [] };
+    G.recent.push(d.id); history.replaceState(null, '', '#doc=' + encodeURIComponent(d.id));
+    $('#t-title').textContent = d.path ? d.path.split('/').pop() : d.title; $('#t-path').textContent = d.path ? d.path.replace(/\/[^/]+$/, '') : 'Unsaved';
+    document.title = (d.title || 'Source') + ' · Marxy';
+    const lang = d.kind === 'code' ? (d.lang || 'text') : d.kind === 'log' ? 'log' : d.kind === 'terminal' ? 'term' : d.kind === 'data' ? (d.lang || 'csv') : 'markdown';
+    const base = (G.prevVersions[d.id] || {}).src != null ? G.prevVersions[d.id].src : d.src;
+    $$('.ed', $('#edwrap')).forEach((x) => x.remove());
+    ed = G.Editor($('#edwrap'), { value: d.src, lang, path: d.path, kind: d.kind, base, wrap: G.prefs.edWrap, lint: lang === 'markdown' });
+    G.editor = ed; ta = ed.ta;
+    ed.on('change', () => changed());
+    ta.addEventListener('keydown', onTaKeydown); ta.addEventListener('keyup', onTaKeyup);
+    ed.on('cursor', onCursor);
+    if ($('#fr') && !$('#fr').hidden) runFind();
+    preview();
+    if (mods.line) setTimeout(() => G.gotoLine(mods.line), 30);
+  }
+  G.openDoc = (id, mods = {}) => load(G.docById(id), mods);
+  const histBack = () => { if (S.hist.length) { S.fwd.push(doc.id); load(G.docById(S.hist.pop()), { noHist: true }); } };
+  const histFwd = () => { if (S.fwd.length) { S.hist.push(doc.id); load(G.docById(S.fwd.pop()), { noHist: true }); } };
+
+  /* ----- External change: shown only when the reader simulates it ----- */
+  let theirs = null;
+  function diskbar() {
+    $('#diskbar').innerHTML = theirs != null ? `<div class="diskbar">${ic('file-diff')}<span><b>This file changed on disk.</b> Another program saved a new version while you were editing.</span><span class="grow"></span><button class="btn sm" id="keepmine">${ic('copy')}Keep mine as a copy</button><button class="btn sm" id="taketheirs">${ic('download')}Take theirs</button></div>` : '';
+    G.icons($('#diskbar'));
+    if (theirs == null) return;
+    $('#keepmine').onclick = () => { const mine = val(); const t = theirs; theirs = null; diskbar(); setText(t); G.toast('Your version is saved as a copy beside the file. The editor now shows the file on disk.', { icon: 'copy', ms: 4500, action: { label: 'Undo', run: () => { setText(mine); } } }); };
+    $('#taketheirs').onclick = () => { const mine = val(); const t = theirs; theirs = null; diskbar(); setText(t); G.toast('Took the version on disk', { icon: 'download', action: { label: 'Undo', run: () => { setText(mine); } } }); };
+  }
+  function simulateOutsideChange() {
+    if (theirs != null) return;
+    const v = val();
+    theirs = /under \*\*4 minutes\*\*/.test(v) ? v.replace(/under \*\*4 minutes\*\*/, 'under **6 minutes**') : v.replace(/\s*$/, '\n\nA note added by another program.\n');
+    diskbar();
+  }
+
+  /* ----- Editing commands: reachable from the palette and the keys only ----- */
+  function wrapSel(pre, post = pre, placeholder = 'text') {
+    const a = ta.selectionStart, b = ta.selectionEnd; const sel = val().slice(a, b) || placeholder;
+    const already = val().slice(a - pre.length, a) === pre && val().slice(b, b + post.length) === post;
+    if (already) { setText(val().slice(0, a - pre.length) + sel + val().slice(b + post.length), [a - pre.length, a - pre.length + sel.length]); return; }
+    setText(val().slice(0, a) + pre + sel + post + val().slice(b), [a + pre.length, a + pre.length + sel.length]);
+  }
+  function setHeading(n) { const ls = val().split('\n'); const i = ed.selectionLines()[0] - 1; ls[i] = (n ? '#'.repeat(n) + ' ' : '') + ls[i].replace(/^#{1,6}\s+/, ''); setText(ls.join('\n')); }
+  const INSERTS = [
+    ['Table', 'table', '| Column | Column |\n|---|---|\n| | |'], ['Code block', 'square-code', '```bash\n\n```'], ['Task list', 'list-checks', '- [ ] '],
+    ['Note admonition', 'info', '> [!NOTE]\n> '], ['Warning admonition', 'triangle-alert', '> [!WARNING]\n> '], ['Collapsible details', 'chevrons-up-down', '<details>\n<summary>Summary</summary>\n\n</details>'],
+    ['Footnote', 'superscript', '[^1]\n\n[^1]: '], ['Today’s date', 'calendar', new Date().toISOString().slice(0, 10)], ['Horizontal rule', 'separator-horizontal', '---'], ['Front matter', 'file-cog', '---\ntitle: \ntags: []\n---\n']
+  ];
+  const insertBlock = (text) => ed.insert(text);
+  const edAnchor = () => ({ left: ed.el.getBoundingClientRect().left + 120, right: ed.el.getBoundingClientRect().left + 120, top: ed.el.getBoundingClientRect().top + 60, bottom: ed.el.getBoundingClientRect().top + 60 });
+  function lineRange(a, b) { const ls = val().split('\n'); const s = ls.slice(0, a - 1).join('\n').length + (a > 1 ? 1 : 0); return [s, s + ls.slice(a - 1, b).join('\n').length]; }
+  function blockAt(n) { const ls = val().split('\n'); let a = n, b = n; if (!ls[n - 1].trim()) return [n, n]; while (a > 1 && ls[a - 2].trim()) a--; while (b < ls.length && ls[b].trim()) b++; return [a, b]; }
+  function selectLines(a, b) { const [s, e] = lineRange(a, b); ta.focus(); ta.setSelectionRange(s, e); }
+  function lineOp(kind) {
+    const ls = val().split('\n'); const [a, b] = ed.selectionLines(); const block = ls.slice(a - 1, b);
+    let out = ls, na = a, nb = b;
+    if (kind === 'up' && a > 1) { out = ls.slice(0, a - 2).concat(block, [ls[a - 2]], ls.slice(b)); na--; nb--; }
+    else if (kind === 'down' && b < ls.length) { out = ls.slice(0, a - 1).concat([ls[b]], block, ls.slice(b + 1)); na++; nb++; }
+    else if (kind === 'dup') { out = ls.slice(0, b).concat(block, ls.slice(b)); na = b + 1; nb = b + block.length; }
+    else if (kind === 'del') { out = ls.slice(0, a - 1).concat(ls.slice(b)); nb = na = Math.min(a, out.length); }
+    else if (kind === 'sort') out = ls.slice(0, a - 1).concat(block.slice().sort((x, y) => x.localeCompare(y, undefined, { numeric: true })), ls.slice(b));
+    else if (kind === 'join') { out = ls.slice(0, a - 1).concat([block.map((x) => x.trim()).join(' ')], ls.slice(b)); nb = na; }
+    else if (kind === 'task') out = ls.map((l, i) => (i >= a - 1 && i < b ? (/\[[ xX]\]/.test(l) ? l.replace(/\[([ xX])\]/, (m, c) => (c === ' ' ? '[x]' : '[ ]')) : l.replace(/^(\s*)([-*+]\s+)?/, '$1- [ ] ')) : l));
+    else if (kind === 'comment') out = ls.map((l, i) => (i >= a - 1 && i < b ? (/^<!-- .* -->$/.test(l) ? l.replace(/^<!-- (.*) -->$/, '$1') : `<!-- ${l} -->`) : l));
+    else if (kind === 'quote') out = ls.map((l, i) => (i >= a - 1 && i < b ? (/^>\s?/.test(l) ? l.replace(/^>\s?/, '') : '> ' + l) : l));
+    setText(out.join('\n')); selectLines(na, nb);
+  }
+  const selOne = () => { const n = ed.selectionLines()[0]; selectLines(n, n); };
+  const selBlock = () => { const [a, b] = blockAt(ed.selectionLines()[0]); selectLines(a, b); };
+  const nextOcc = () => { const t = ed.getSelection() || ''; if (!t) return; const i = val().indexOf(t, ta.selectionEnd); const j = i < 0 ? val().indexOf(t) : i; ta.setSelectionRange(j, j + t.length); ed.reveal(val().slice(0, j).split('\n').length); };
+  const onTaKeydown = (e) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (e.altKey && !mod && e.key === 'ArrowUp') { e.preventDefault(); lineOp(e.shiftKey ? 'dup' : 'up'); }
+    else if (e.altKey && !mod && e.key === 'ArrowDown') { e.preventDefault(); lineOp(e.shiftKey ? 'dup' : 'down'); }
+    else if (mod && e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); lineOp('del'); }
+    else if (mod && e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSel('**'); }
+    else if (mod && e.key.toLowerCase() === 'i' && !e.altKey) { e.preventDefault(); wrapSel('*'); }
+    else if (e.ctrlKey && !e.metaKey && e.code === 'Backquote') { e.preventDefault(); wrapSel('`', '`', 'code'); }
+    else if (mod && e.altKey && e.code === 'KeyL') { e.preventDefault(); wrapSel('[', '](https://)', 'link text'); }
+    else if (mod && e.key.toLowerCase() === 'l' && !e.shiftKey) { e.preventDefault(); selOne(); }
+    else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); nextOcc(); }
+    else if (mod && e.altKey && /^Digit[0-4]$/.test(e.code)) { e.preventDefault(); setHeading(+e.code.slice(5)); }
+    else if (e.ctrlKey && e.key.toLowerCase() === 'j') { e.preventDefault(); lineOp('join'); }
+    else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  };
+  // Slash menu at the start of an empty line
+  const onTaKeyup = (e) => {
+    if (e.key !== '/') return; const ls = val().split('\n'); const n = ed.selectionLines()[0]; if (ls[n - 1] !== '/') return;
+    const r = ed.el.querySelector('.ed-scroll').getBoundingClientRect(); const top = r.top + ed.lineTop(n) - ed.scroller.scrollTop + 40;
+    G.menu({ left: r.left + 80, right: r.left + 80, top, bottom: top }, [{ header: 'Insert' }].concat(INSERTS.map(([l, i, t]) => ({ label: l, icon: i, run: () => { const a = ta.selectionStart; setText(val().slice(0, a - 1) + val().slice(a), [a - 1, a - 1]); insertBlock(t); } }))), { width: 240 });
+  };
+  const cmd = (id, name, icon, kbd, run) => G.command({ id: 'src-' + id, name, icon, kbd, group: 'Source', run });
+  cmd('bold', 'Bold', 'bold', '⌘B', () => wrapSel('**')); cmd('italic', 'Italic', 'italic', '⌘I', () => wrapSel('*')); cmd('code', 'Inline code', 'code', '⌃`', () => wrapSel('`', '`', 'code')); cmd('link', 'Link', 'link', '⌥⌘L', () => wrapSel('[', '](https://)', 'link text'));
+  [1, 2, 3, 4].forEach((n) => cmd('h' + n, 'Heading ' + n, 'heading-' + n, '⌥⌘' + n, () => setHeading(n))); cmd('h0', 'Paragraph (remove heading)', 'pilcrow', '⌥⌘0', () => setHeading(0));
+  cmd('insert', 'Insert block…', 'plus', '/', () => G.menu(edAnchor(), INSERTS.map(([l, i, t]) => ({ label: l, icon: i, run: () => insertBlock(t) })), { width: 240 }));
+  [['up', 'Move line up', 'arrow-up', '⌥↑'], ['down', 'Move line down', 'arrow-down', '⌥↓'], ['dup', 'Duplicate line', 'copy-plus', '⇧⌥↓'], ['del', 'Delete line', 'trash-2', '⇧⌘K'], ['sort', 'Sort lines', 'arrow-down-a-z', ''], ['join', 'Join lines', 'between-horizontal-start', '⌃J'], ['task', 'Toggle task', 'square-check', '⌘↵'], ['quote', 'Toggle quote', 'text-quote', "⌘'"], ['comment', 'Toggle comment', 'message-square-off', '⌥⌘/']].forEach(([k, n, i, kb]) => cmd('line-' + k, n, i, kb, () => lineOp(k)));
+  cmd('select-line', 'Select line', 'minus', '⌘L', selOne); cmd('select-block', 'Select block (paragraph, list, table, fence)', 'square-dashed', '⌃⇧B', selBlock); cmd('next-occ', 'Select next occurrence', 'text-cursor-input', '⌘D', nextOcc);
+  cmd('outside-change', 'Simulate an outside change to this file', 'file-diff', '', simulateOutsideChange);
+  cmd('find', 'Find and replace in source', 'replace', '⌥⌘F', () => openFind());
+  cmd('next-note', 'Go to next note', 'info', '', () => ed.nextNote() || G.toast('No notes', { icon: 'circle-check', quiet: true }));
+  G.replaceText = (out) => { if (ta.selectionStart !== ta.selectionEnd) { const a = ta.selectionStart; ed.replaceSelection(out); ta.setSelectionRange(a, a + out.length); } else setText(out); G.toast('Transform applied', { icon: 'wand-sparkles', action: { label: 'Undo', run: () => ed.undo() } }); };
+  G.undo = () => ed.undo(); G.insertText = (t) => ed.insert(t);
+
+  /* ----- Find and replace in source ----- */
+  function openFind(q) { $('#fr').hidden = false; G.icons($('#fr')); if (q != null) $('#f-q').value = q; else if (ta.selectionStart !== ta.selectionEnd) $('#f-q').value = val().slice(ta.selectionStart, ta.selectionEnd); $('#f-q').focus(); $('#f-q').select(); runFind(); }
+  function rx() { const o = S.find; let src = $('#f-q').value; if (!src) return null; if (!o.re) src = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); if (o.word) src = `\\b${src}\\b`; try { return new RegExp(src, 'g' + (o.case ? '' : 'i')); } catch (e) { return 'bad'; } }
+  function runFind(keep) {
+    const re = rx(); S.hits = []; if (!keep) S.hi = 0;
+    if (re === 'bad') { $('#f-count').textContent = 'Bad pattern'; ed.setFindHits([]); return; } if (!re) { $('#f-count').textContent = ''; ed.setFindHits([]); return; }
+    let m; while ((m = re.exec(val())) && m[0]) S.hits.push([m.index, m.index + m[0].length]);
+    $('#f-count').textContent = S.hits.length ? `${S.hi + 1} of ${S.hits.length}` : 'No results'; ed.setFindHits(S.hits, S.hits.length ? S.hi : -1);
+  }
+  function goHit(d) { if (!S.hits.length) return; S.hi = (S.hi + d + S.hits.length) % S.hits.length; const [a, b] = S.hits[S.hi]; ed.setFindHits(S.hits, S.hi); ed.reveal(val().slice(0, a).split('\n').length); ta.setSelectionRange(a, b); $('#f-count').textContent = `${S.hi + 1} of ${S.hits.length}`; }
+  $('#b-find').onclick = () => openFind();
+  $('#f-q').addEventListener('input', () => runFind());
+  $('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') goHit(e.shiftKey ? -1 : 1); if (e.key === 'Escape') $('#f-x').click(); });
+  $$('[data-opt]').forEach((b) => (b.onclick = () => { S.find[b.dataset.opt] = !S.find[b.dataset.opt]; b.setAttribute('aria-pressed', String(S.find[b.dataset.opt])); b.classList.toggle('on', S.find[b.dataset.opt]); runFind(); }));
+  $('#f-next').onclick = () => goHit(1); $('#f-prev').onclick = () => goHit(-1); $('#f-x').onclick = () => { $('#fr').hidden = true; ed.setFindHits([]); ta.focus(); };
+  $('#f-one').onclick = () => { if (!S.hits.length) return; const re = rx(); const [a, b] = S.hits[S.hi]; const rep = val().slice(a, b).replace(new RegExp(re.source, re.flags.replace('g', '')), $('#f-r').value); setText(val().slice(0, a) + rep + val().slice(b)); runFind(); };
+  $('#f-all').onclick = () => { const re = rx(); if (!re || re === 'bad') return; const n = S.hits.length; setText(val().replace(re, $('#f-r').value)); runFind(); G.toast(`Replaced ${n} matches`, { icon: 'replace-all', quiet: true, action: { label: 'Undo', run: () => ed.undo() } }); };
+
+  function save() { G.saveDoc(doc, () => { $('#t-title').textContent = doc.title; ed.setPath(doc.path); }); }
+  $('#b-save').onclick = save;
+  $('#b-new').onclick = (e) => G.newMenu(e.currentTarget);
+
+  /* ----- Layout: Source alone, or beside the reading view ----- */
+  const lay = (v) => { $('#stage').classList.toggle('with-preview', v === 'preview'); $$('[data-lay]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lay === v))); preview(); };
+  $$('[data-lay]').forEach((b) => (b.onclick = () => lay(b.dataset.lay)));
+  function preview() { if (!$('#stage').classList.contains('with-preview')) return; G.renderDoc($('#pdoc'), doc, { handles: false, kind: doc.kind }); }
+  const onCursor = (n) => { if (!$('#stage').classList.contains('with-preview')) return; const b = $$('[data-line]', $('#pdoc')).filter((x) => +x.dataset.line <= n).pop(); $$('.src-cursor-block', $('#pdoc')).forEach((x) => x.classList.remove('src-cursor-block')); if (b) { b.classList.add('src-cursor-block'); const pv = $('#preview'); const r = b.getBoundingClientRect(), pr = pv.getBoundingClientRect(); if (r.top < pr.top || r.bottom > pr.bottom) pv.scrollTop += r.top - pr.top - 60; } };
+  G.gotoLine = (n) => { ed.scrollToLine(n - 3); selectLines(n, n); };
+  document.addEventListener('keydown', (e) => { const mod = e.metaKey || e.ctrlKey; if (mod && e.key.toLowerCase() === 'f' && !e.altKey) { e.preventDefault(); openFind(); } if (mod && e.altKey && e.code === 'KeyF') { e.preventDefault(); openFind(); } if (e.ctrlKey && e.key.toLowerCase() === 'g') { e.preventDefault(); G.palette.open(':'); } if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e') { e.preventDefault(); lay($('#stage').classList.contains('with-preview') ? 'source' : 'preview'); } if (mod && e.code === 'BracketLeft') { e.preventDefault(); histBack(); } if (mod && e.code === 'BracketRight') { e.preventDefault(); histFwd(); } });
+
+  load(doc, { noHist: true });
+  G.boot({});
+  diskbar();
+})();
+</script>
+</body>
+</html>

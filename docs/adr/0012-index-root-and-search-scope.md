@@ -1,6 +1,6 @@
 # ADR-0012 — The indexed root is the enclosing repository; search covers titles, headings and paths
 
-**Status:** accepted
+**Status:** accepted; amended by ADR-0053 and ADR-0062
 
 ## Decision
 - **Root:** the nearest ancestor directory of the opened file containing `.git`; otherwise

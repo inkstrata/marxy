@@ -158,11 +158,12 @@ test('after an edit, leaving Source keeps the paragraph on the reading line (S-0
   }
 });
 
-test('scrolled in Source with no edit, leaving it lands where Source was read, not where it was entered', async () => {
+for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file (F-23)', eol: '\r\n' }]) {
+test(`scrolled in Source with no edit, leaving it lands where Source was read, not where it was entered${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: VIEWPORT });
-    await boot(page, { '/d/wrapped.md': b64(wrappedMd) }, ['/d/wrapped.md']);
+    await boot(page, { '/d/wrapped.md': b64(wrappedMd.replaceAll('\n', eol)) }, ['/d/wrapped.md']);
     await settle(page);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight / 3));
     await settle(page);
@@ -181,6 +182,7 @@ test('scrolled in Source with no edit, leaving it lands where Source was read, n
     await browser.close();
   }
 });
+}
 
 for (const where of ['near the top', 'at the bottom']) {
   test(`Mod+E twice with no edit and no scroll, ${where}, lands where it started`, async () => {

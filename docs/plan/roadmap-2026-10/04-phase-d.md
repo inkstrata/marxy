@@ -737,6 +737,18 @@ so, report and choose the next free chord rather than overloading it.
 
 ---
 
+**From the D-05 review (2026-10-08).** Fix before a reader can open a split: D-05 remembers a scroller's last offset
+and height (`seen`) because `onSplit` fires after the window's scroll is clamped to 0, and a stale `seen` restores
+the wrong place. (1) A window resize without a scroll leaves `seen.clientHeight` old, so the reading line (0.4 × height)
+moves: measured byte 1914 restored instead of 2295. Note the scroll on window `resize` too. (2) A script scroll then
+a split in the same task lands on byte 0: add a hook before the split in `pane-set.ts` (this story edits it) that
+notes the first pane's place. Also update the stale comment at `pane-set.ts:219`.
+
+**For D-07, from the D-06 review (2026-10-10; D-06 is merged, so this story closes the gap).** Mutation M10 (drop `if (!mod) return null` in `paneChordFor`) survives:
+the Alt+ArrowLeft test presses it with the left pane already focused. Press Alt+ArrowLeft and Alt+ArrowRight with the
+right pane focused and assert focus stays on pane 1, or unit-test `paneChordFor`. The palette-chord test cannot fail
+for the dialog hold (the registry skips the editable input); the outline test pins it.
+
 ### D-08 — Close a pane, and make save, the title and quit know about two documents
 
 **Model:** opus · **Size:** M · **Depends on:** D-01 · **Parallel with:** D-04, D-05, D-06
@@ -817,6 +829,25 @@ the quit guard for the other. If P1's store has no `dirty`, derive it the way `c
 (`documentIsDirty`) does today and report.
 
 ---
+
+**From the D-01 review (2026-10-08).** D-01 asks the unsaved-edits guard only when the pane being replaced is dirty,
+but `confirmLeaveDocument` still reads the focused pane. Three ways to lose edits, unreachable from any UI until
+D-07: `openIn(1, …)` into a dirty pane while the focused one is clean replaces it without asking; with both panes
+dirty the prompt names and saves only the focused document; `close()` of a dirty pane discards without asking. This
+story makes the guard per pane and tests all three.
+
+**From the D-01 re-review (2026-10-08).** A refused close (`close()` returning `false` when the fold leaves text
+behind, or when the right pane is empty) shows nothing today; this story's close command must say so in the pane.
+D-01 added `ownsTitle` and a focus listener in `pane/index.ts` that re-titles the window: replace that listener with
+`updateTitle` and the dirty dot here, so there is one title writer. `09-app-shell.md` §State lists the close guard's
+prompt as bound to the first pane, but `app.ts` binds it to the focused pane; this story fixes the doc with the code.
+
+**From the D-08 review (2026-10-10), return 1.** Quitting snapshots `dirtyDocuments` once, so an edit made while a
+prompt is up is dropped without a question (A clean and B dirty, tick a task in A during B's prompt, discard B:
+`confirmClose` runs with A dirty), and a close request during a "Save and close" starts a second walk. Recompute before
+`confirmClose`, run one walk at a time, and test both, plus a failed "Save and close" and the dot for the focused
+document only. Left for whoever next owns `pane/index.ts` and `document/open.ts`: `document.title` is still written at
+`pane/index.ts:113` and `open.ts:147`, `:272` beside `updateTitle`, a second, DOM-only title.
 
 ### D-09 — Follow a link into the neighbour pane
 
@@ -981,6 +1012,22 @@ reimplementing the store. Canonical-path keying: `/r/A.md` and a symlink to it m
 (use whatever canonicalisation `openStore` has; the Rust side canonicalises roots, `main.rs:268`).
 
 ---
+
+**From the D-08 review (2026-10-10).** `clearNotices` (`document/open.ts:263`) empties the first pane's region, not the
+opening pane's: an open in the right pane wipes a close prompt in the left (the close is refused or the quit stops,
+silently; nothing is lost). Notices per pane are this story's.
+
+**From the D-11 review (2026-10-10).** Each pane's open path runs its own watch (`document/open.ts:141`); this story
+makes it one watch per store. D-11's `keepTypedText` keeps unfolded Source text across another view's reload, but (P4)
+after an outside write it folds on top of the reloaded store, re-arming the stale-write guard on the outside bytes, so
+Mod+S then overwrites the other program's write without a conflict prompt (with one pane the guard stays armed on the
+old read): ask every view of the store before it reloads. (P5) A rename on disk splits the panes onto two stores at one
+path; `keepTypedText`'s rename branch did not run in that order.
+
+**From the D-08 fix (2026-10-10).** In a split window a Source pane's CodeMirror mount covers its own notices region
+(`apps/desktop/index.html:27`, `#marxy-main[data-marxy-split] .marxy-source-mount:not([hidden]) { position: absolute;
+inset: 0 }`, with no split counterpart of line 23's fixed, `z-index: 10` notices rule), so the reader cannot click a
+guard's buttons there. Notices per pane are this story's; fix the stacking here.
 
 ### D-11 — Let each pane be Rendered or Source
 

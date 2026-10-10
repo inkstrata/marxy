@@ -3,6 +3,7 @@
 mod atomic_write;
 mod commands;
 mod error;
+mod pasteboard;
 mod watch;
 #[path = "watch/spawn_notify.rs"]
 mod watch_notify;
@@ -1129,6 +1130,9 @@ fn main() {
             commands::fs::stat_file,
             read_head,
             clipboard_write,
+            pasteboard::pasteboard_types,
+            pasteboard::pasteboard_read,
+            pasteboard::pasteboard_write,
             take_pending_opens,
             commands::os::open_external,
             commands::os::reveal_in_editor,

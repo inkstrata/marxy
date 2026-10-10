@@ -13,7 +13,9 @@
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "test:golden": "node --experimental-strip-types scripts/golden.ts",
     "test:fidelity": "node ../../scripts/gate-fidelity.mjs",
-    "test:spec": "node --experimental-strip-types scripts/commonmark-spec.ts"
+    "test:spec": "node --experimental-strip-types scripts/commonmark-spec.ts",
+    "test:reparse-stress": "REPARSE_SEEDS=1500 node --test --experimental-strip-types --test-name-pattern=structured src/parse/reparse.test.ts",
+    "test:invariant-stress": "INVARIANT_INPUTS=400000 node --test --experimental-strip-types --test-name-pattern=random src/parse/provenance.test.ts"
   },
   "devDependencies": {
     "@types/commonmark": "^0.27.10",

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marxy Palette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/app.css">
+<link rel="stylesheet" href="shared/lang-colors.css">
+<style>
+  .guide { flex: 1; overflow: auto; padding: 22px 28px 60px; }
+  .guide > * { max-width: 980px; }
+  .guide h2 { font-size: 15px; margin: 22px 0 8px; display: flex; gap: 8px; align-items: center; }
+  .guide p.lede { color: var(--fg-muted); font-size: 13px; line-height: 1.55; margin: 0 0 6px; max-width: 760px; }
+  .qrow { display: grid; grid-template-columns: 120px 260px 1fr auto; gap: 14px; align-items: center; padding: 7px 10px; border-radius: 7px; border: 0; background: none; width: 100%; text-align: left; color: var(--fg); font-size: 13px; }
+  .qrow:hover { background: var(--hover); }
+  .qrow code { font: 12.5px var(--face-code); background: var(--inset); border: 1px solid var(--line); padding: 2px 6px; border-radius: 5px; color: var(--fg-strong); }
+  .qrow .d { color: var(--fg-muted); font-size: 12.5px; }
+  .qrow .go { color: var(--fg-faint); }
+  .qrow:hover .go { color: var(--accent); }
+  .qrow b { font-weight: 600; }
+  .hdr { display: grid; grid-template-columns: 120px 260px 1fr auto; gap: 14px; padding: 0 10px 4px; font-size: 11px; color: var(--fg-faint); font-weight: 650; }
+  .keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 28px; font-size: 13px; }
+  .keys div { display: flex; justify-content: space-between; gap: 10px; padding: 5px 10px; border-bottom: 1px solid var(--line); }
+  .keys span:last-child { display: flex; gap: 3px; }
+  .rank { font-size: 13px; line-height: 1.6; color: var(--fg); padding-left: 18px; margin: 0; }
+  .rank li + li { margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="win">
+  <aside class="sidebar" data-slot="sidebar"></aside>
+  <div class="main">
+    <header class="toolbar">
+      <div class="tb-title"><b id="t-title">Command palette</b><small id="t-sub">One field for files, sections, commands and transforms</small></div>
+      <div class="tb-space"></div>
+      <button class="btn primary" data-cmd="palette"><i data-lucide="search"></i>Open palette <span class="kbd" style="margin-left:4px;background:transparent;color:inherit;border-color:currentColor">⌘K</span></button>
+    </header>
+    <div class="guide" id="guide"></div>
+    <div id="dv"></div>
+    <footer class="statusbar" id="status"></footer>
+  </div>
+</div>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="shared/corpus.js"></script>
+<script src="shared/app.js"></script>
+<script src="shared/render.js"></script>
+<script>
+(function () {
+  const G = Marxy, { $, $$, esc, ic } = G;
+  // The palette's "#" and "/" modes act on the current document; give this page one.
+  const d = G.doc('pg16-plan');
+  G.current = { id: d.id, title: d.title, path: d.path, src: d.src, collection: d.collection, kind: d.kind, headings: G.md.render(d.src).headings };
+
+  const MODES = [
+    ['', 'search', 'Everything', 'Recent files and suggested commands when empty; files then commands as you type. ⌘K opens it; ⌘P is an alias.', ['', 'pg16', 'handoff', 'readme']],
+    ['>', 'terminal', 'Commands', 'Every command in the app, with its shortcut, in groups: Navigate, File, View, Copy, Source, Extract and Transform. ⇧⌘P opens here. Transforms are the group "Transform": ⌘/ opens on it, and Enter copies the result while ⌘Enter replaces the text. Extract (code blocks, shell commands, links, tables) is the group "Extract".', ['>', '>transform', '>extract', '>new file', '>theme']],
+    ['#', 'hash', 'Headings here', 'Jump within the open document. Also ⇧⌘O.', ['#', '#risk', '#cutover']],
+    ['@', 'at-sign', 'Sections everywhere', 'Every heading in every indexed file; opens the file at that line.', ['@', '@usage', '@recommendation']],
+    ['/', 'text-search', 'Content search', 'Search the text inside files across the collection. Each result shows the matching line with the match marked; Enter opens the file at that line. (The prototype searches the documents it carries.)', ['/', '/pg_upgrade', '/regproc', '/debounce']],
+    ['~', 'library', 'Collections', 'Open a collection in the Library.', ['~', '~notes']],
+    [':', 'arrow-right-to-line', 'Line', 'Go to a line in the open document. Also ⌃G.', [':', ':62']]
+  ];
+  const FILTERS = [
+    ['kind:report', 'Only reports: plans, handoffs, audits'], ['kind:log', 'Only logs: build and application logs'], ['kind:terminal', 'Only terminal captures'], ['kind:transcript', 'Only chat transcripts'], ['in:notes', 'Only the Notes folder']
+  ];
+  $('#guide').innerHTML = `
+    <p class="lede">The palette is the fastest way to do anything in Marxy. A prefix picks the mode; filters narrow file results; results show a preview on the right, so a transform's output, a file's opening lines or the lines around a content match are visible before you commit. Click any example to open the palette with that query.</p>
+    <h2>${ic('keyboard')}Modes</h2>
+    <div class="hdr"><span>PREFIX</span><span>MODE</span><span>WHAT IT DOES</span><span>TRY</span></div>
+    ${MODES.map(([p, i, n, d, ex]) => `<div class="qrow" role="group">${p ? `<code>${esc(p)}</code>` : '<span class="faint">none</span>'}<b style="display:flex;gap:8px;align-items:center">${ic(i)}${esc(n)}</b><span class="d">${esc(d)}</span><span class="row" style="gap:4px;flex-wrap:wrap;justify-content:flex-end">${ex.map((q) => `<button class="chip" data-q="${esc(q)}" title="Open the palette with this query">${esc(q || '(empty)')}</button>`).join('')}</span></div>`).join('')}
+    <h2>${ic('list-filter')}File filters (combine with any text)</h2>
+    ${FILTERS.map(([f, d]) => `<button class="qrow" data-q="${esc(f + ' ')}"><code>${esc(f)}</code><span></span><span class="d">${esc(d)}</span><span class="go">${ic('arrow-right')}</span></button>`).join('')}
+    <h2>${ic('arrow-down-wide-narrow')}How results are ranked</h2>
+    <ol class="rank"><li>Exact prefix of a title or filename beats a match inside it; matches at word starts beat matches mid-word; consecutive characters beat scattered ones.</li><li>Recency and frequency of opening add a boost, capped so a fresh exact match still wins.</li><li>Commands rank by match first, then by how often you run them. Pinned commands stay at the top of the empty state.</li><li>Transform previews run on a short slice of the text so typing never stalls; Enter runs on all of it.</li></ol>
+    <h2>${ic('command')}Keys inside the palette</h2>
+    <div class="keys">
+      ${[['Move', ['↑', '↓']], ['Open or run', ['↵']], ['Open in split, or replace text', ['⌘', '↵']], ['Open in a new tab', ['⌥', '↵']], ['Copy path or result', ['⌘', 'C']], ['Switch mode', ['type a prefix']], ['Close', ['esc']], ['Palette (⌘P is an alias)', ['⌘', 'K']], ['Commands', ['⇧', '⌘', 'P']], ['Transforms (under >)', ['⌘', '/']], ['Content search', ['/']], ['Headings', ['⇧', '⌘', 'O']]].map(([l, k]) => `<div><span>${l}</span><span>${k.map((x) => `<span class="kbd">${x}</span>`).join('')}</span></div>`).join('')}
+    </div>`;
+  G.icons($('#guide'));
+  $('#guide').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; G.palette.open(''); const i = $('.pal-input input'); i.value = b.dataset.q; i.dispatchEvent(new Event('input')); i.focus(); });
+  $('#status').innerHTML = G.ui.statusbar([{ icon: 'search', html: 'Palette over: Postgres 14 → 16 upgrade plan' }, { icon: 'database', html: G.library.length + ' files in the prototype index' }, { icon: 'terminal', html: G.commands.length + ' commands' }, { icon: 'wand-sparkles', html: G.transforms.length + ' transforms' }]);
+  // A file chosen in the palette (or the sidebar) opens in place of the guide, with a way back.
+  const dv = G.docView($('#dv'), { backLabel: 'Guide', backTitle: 'Back to the guide (Esc)', onClose: () => { $('#guide').hidden = false; $('#t-title').textContent = 'Command palette'; $('#t-sub').textContent = 'One field for files, sections, commands and transforms'; } });
+  G.openDoc = (id, mods = {}) => { const d = dv.open(id, mods); if (d) { $('#guide').hidden = true; } return d; };
+  G.boot({});
+  setTimeout(() => G.palette.open(''), 300);
+})();
+</script>
+</body>
+</html>

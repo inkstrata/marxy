@@ -6,13 +6,13 @@
 <h3 id="steps-to-reproduce" data-marxy-s="754" data-marxy-e="776">Steps to reproduce</h3>
 <ol data-marxy-s="778" data-marxy-e="1176">
 <li data-marxy-s="778" data-marxy-e="889"><p data-marxy-s="781" data-marxy-e="820">Create a table with exactly 1,500 rows:</p>
-<pre data-marxy-s="825" data-marxy-e="889"><code class="language-sh" data-marxy-s="831" data-marxy-e="883">ledgerctl seed --rows 1500 --table demo_invoices
+<pre class="language-sh" data-marxy-s="825" data-marxy-e="889"><code class="language-sh" data-marxy-s="831" data-marxy-e="883">ledgerctl seed --rows 1500 --table demo_invoices
 </code></pre></li>
 <li data-marxy-s="891" data-marxy-e="1037"><p data-marxy-s="894" data-marxy-e="946">Export with a batch size that divides the row count:</p>
-<pre data-marxy-s="951" data-marxy-e="1037"><code class="language-sh" data-marxy-s="957" data-marxy-e="1031">ledgerctl export --table demo_invoices --batch-size 500 --out demo.csv
+<pre class="language-sh" data-marxy-s="951" data-marxy-e="1037"><code class="language-sh" data-marxy-s="957" data-marxy-e="1031">ledgerctl export --table demo_invoices --batch-size 500 --out demo.csv
 </code></pre></li>
 <li data-marxy-s="1039" data-marxy-e="1139"><p data-marxy-s="1042" data-marxy-e="1091">Count the data rows (the file has a header line):</p>
-<pre data-marxy-s="1096" data-marxy-e="1139"><code class="language-sh" data-marxy-s="1102" data-marxy-e="1133">tail -n +2 demo.csv | wc -l
+<pre class="language-sh" data-marxy-s="1096" data-marxy-e="1139"><code class="language-sh" data-marxy-s="1102" data-marxy-e="1133">tail -n +2 demo.csv | wc -l
 </code></pre></li>
 <li data-marxy-s="1141" data-marxy-e="1176"><p data-marxy-s="1144" data-marxy-e="1176">Observe <code data-marxy-s="1152" data-marxy-e="1158">1499</code>. Expected <code data-marxy-s="1169" data-marxy-e="1175">1500</code>.</p></li>
 </ol>
@@ -55,7 +55,7 @@
 </table>
 <h3 id="logs" data-marxy-s="1500" data-marxy-e="1508">Logs</h3>
 Logs
-<pre data-marxy-s="1544" data-marxy-e="2785"><code class="language-text" data-marxy-s="1552" data-marxy-e="2782">[2m2026-09-28T09:14:02Z[0m [32mINFO [0m export started table=demo_invoices batch_size=500
+<pre class="language-text" data-marxy-s="1544" data-marxy-e="2785"><code class="language-text" data-marxy-s="1552" data-marxy-e="2782">[2m2026-09-28T09:14:02Z[0m [32mINFO [0m export started table=demo_invoices batch_size=500
 [2m2026-09-28T09:14:02Z[0m [32mINFO [0m batch 1 rows=500 offset=0
 [2m2026-09-28T09:14:02Z[0m [32mINFO [0m batch 2 rows=500 offset=500
 [2m2026-09-28T09:14:03Z[0m [32mINFO [0m batch 3 rows=499 offset=1000
@@ -134,7 +134,7 @@ Logs
 <p data-marxy-s="6218" data-marxy-e="6291">Nice find. One small thing in <code data-marxy-s="6248" data-marxy-e="6260">batcher.go</code>, and one nit in the test name.</p>
 </blockquote>
 <p data-marxy-s="6293" data-marxy-e="6318">In <code data-marxy-s="6296" data-marxy-e="6308">batcher.go</code>, line 88:</p>
-<pre data-marxy-s="6320" data-marxy-e="6461"><code class="language-diff" data-marxy-s="6328" data-marxy-e="6458">-	b.cursor = row.ID
+<pre class="language-diff" data-marxy-s="6320" data-marxy-e="6461"><code class="language-diff" data-marxy-s="6328" data-marxy-e="6458">-	b.cursor = row.ID
 -	if err := b.flush(); err != nil {
 +	if err := b.flush(); err != nil {
  		return err
@@ -143,7 +143,7 @@ Logs
 </code></pre>
 <p data-marxy-s="6463" data-marxy-e="6515"><strong data-marxy-s="6463" data-marxy-e="6480">@priya-aldous</strong> commented on <code data-marxy-s="6494" data-marxy-e="6506">batcher.go</code> line 91:</p>
 <p data-marxy-s="6517" data-marxy-e="6599">This reads better as a single helper, and it keeps the ordering rule in one place:</p>
-<pre data-marxy-s="6601" data-marxy-e="6677"><code class="language-suggestion" data-marxy-s="6615" data-marxy-e="6674">	if err := b.advance(row.ID); err != nil {
+<pre class="language-suggestion" data-marxy-s="6601" data-marxy-e="6677"><code class="language-suggestion" data-marxy-s="6615" data-marxy-e="6674">	if err := b.advance(row.ID); err != nil {
 		return err
 	}
 </code></pre>

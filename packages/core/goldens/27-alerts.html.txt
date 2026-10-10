@@ -22,6 +22,6 @@
 Legacy callout.</p>
 </blockquote>
 <p>mermaid · diagram source</p>
-<pre data-marxy-s="237" data-marxy-e="274"><code class="language-mermaid" data-marxy-s="248" data-marxy-e="271">flowchart LR
+<pre class="language-mermaid" data-marxy-s="237" data-marxy-e="274"><code class="language-mermaid" data-marxy-s="248" data-marxy-e="271">flowchart LR
   A --&gt; B
 </code></pre>

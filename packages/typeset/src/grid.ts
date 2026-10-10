@@ -43,13 +43,17 @@ export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { reado
   const heights = measured.get(article) ?? new Map<HTMLElement, number>();
   measured.set(article, heights);
   let tail = tailFrom(article, opts?.from);
+  let after = tail === null ? null : childrenFrom(tail[0]!);
   // An island above `from` can change height after the pass that measured it, with nothing in its
   // style changing: WebKitGTK lays a wide table out again a layout later, and a layout forced by the
   // next chunk can be that one. Nothing would ask for it again before this pass reads the blocks
   // below it, so this pass starts from the first island that is no longer the height it was measured at.
-  if (tail !== null) {
-    const drifted = driftedAbove(article, tail[0]!, heights);
-    if (drifted !== null) tail = drifted === article.firstElementChild ? null : tailFrom(article, drifted);
+  if (after !== null) {
+    const drifted = driftedAbove(article, after, heights);
+    if (drifted !== null) {
+      tail = drifted === article.firstElementChild ? null : tailFrom(article, drifted);
+      after = tail === null ? null : childrenFrom(tail[0]!);
+    }
   }
   if (tail === null) heights.clear();
   // The pass writes padding and reads layout several times over; the engine's own scroll anchoring would
@@ -59,7 +63,12 @@ export function snapToGrid(article: HTMLElement, lineBox: number, opts?: { reado
   const mine = snapped.get(article) ?? new Set<HTMLElement>();
   snapped.set(article, mine);
   for (const el of mine) {
-    if (tail !== null && !atOrAfter(tail[0]!, el)) continue;
+    if (after !== null) {
+      const block = blockOf(article, el);
+      // Taken out of the article since: nothing to undo on the page, nothing to keep track of.
+      if (block === null && el !== article) mine.delete(el);
+      if (block === null || !after.has(block)) continue;
+    }
     el.style.removeProperty(el === article ? 'padding-top' : 'padding-bottom');
     mine.delete(el);
   }
@@ -138,33 +147,51 @@ function tailFrom(article: HTMLElement, from: HTMLElement | undefined): HTMLElem
 }
 
 /**
- * The top-level block holding the first island above `first` whose height, less the padding a pass
- * gave it, is not what a pass measured; null when every one is. Islands no longer in the article are
- * forgotten.
+ * The top-level block holding the first island above the blocks in `after` whose height, less the
+ * padding a pass gave it, is not what a pass measured; null when every one is. Islands no longer in
+ * the article are forgotten.
  */
-function driftedAbove(article: HTMLElement, first: HTMLElement, heights: Map<HTMLElement, number>): HTMLElement | null {
-  let earliest: HTMLElement | null = null;
+function driftedAbove(article: HTMLElement, after: ReadonlySet<Element>, heights: Map<HTMLElement, number>): HTMLElement | null {
+  const drifted = new Set<Element>();
   for (const [el, height] of heights) {
-    if (!article.contains(el)) {
+    const block = blockOf(article, el);
+    if (block === null) {
       heights.delete(el);
       continue;
     }
-    if (atOrAfter(first, el)) continue;
+    if (after.has(block)) continue;
     // Less only the padding passes added: the inline value also carries the theme's own (a `pre`'s).
     const inline = el.style.paddingBottom === '' ? 0 : parseFloat(el.style.paddingBottom) - (themePadding.get(el) ?? 0);
     const now = el.getBoundingClientRect().height - inline;
     if (Math.abs(now - height) < SETTLED) continue;
-    if (earliest === null || el.compareDocumentPosition(earliest) & Node.DOCUMENT_POSITION_FOLLOWING) earliest = el;
+    drifted.add(block);
   }
-  if (earliest === null) return null;
-  let block = earliest;
-  while (block.parentElement !== article) block = block.parentElement!;
-  return block;
+  if (drifted.size === 0) return null;
+  // The earliest of the few that drifted: one walk down the article's children, from its top.
+  for (let el = article.firstElementChild; el !== null; el = el.nextElementSibling) {
+    if (drifted.has(el)) return el as HTMLElement;
+  }
+  return null;
 }
 
-/** `el` is `first`, inside it, or after it in document order. */
-function atOrAfter(first: HTMLElement, el: HTMLElement): boolean {
-  return el === first || (first.compareDocumentPosition(el) & (Node.DOCUMENT_POSITION_FOLLOWING | Node.DOCUMENT_POSITION_CONTAINED_BY)) !== 0;
+/**
+ * The article's children from `first` on: "at or after `first`" is then one set lookup on the child
+ * an element is in (B-25). `compareDocumentPosition` answered it before, but WebKit walks the siblings
+ * between two children of one parent to order them, so a pass `from` the last chunk paid for every
+ * block above it once per element it asked about: quadratic per pass, cubic over a document mounted
+ * in chunks.
+ */
+function childrenFrom(first: Element): Set<Element> {
+  const after = new Set<Element>();
+  for (let el: Element | null = first; el !== null; el = el.nextElementSibling) after.add(el);
+  return after;
+}
+
+/** The child of `article` that holds `el` (or is it); null for the article itself and for anything outside it. */
+function blockOf(article: HTMLElement, el: Element): Element | null {
+  let at: Element | null = el;
+  while (at !== null && at.parentElement !== article) at = at.parentElement;
+  return at;
 }
 
 /** A push this close to the one already made is the same push: layout positions are 1/64 px apart. */

@@ -287,3 +287,175 @@ and widen the evidence selector so front matter counts as text. The `no_text` ma
 Acceptance: each of the five documents above opens with a watch; front matter alone reaches `first_text`; an empty
 file is unchanged.
 
+
+### F-19 — A reload keeps a held heading when text is inserted at its first byte
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-15 · *From the B-15 review (note 4); true on main before
+B-15.* · **Paths:** `packages/core/src/position/reload.ts`, its test, a desktop reload test.
+When another program inserts text exactly at a held heading's first byte, `restorePosition` keeps the old offset,
+so after the reload the page shows the inserted text instead of the heading the reader was at. Text inserted
+further up maps correctly. Map an anchor at an insertion point to the far side of the insertion when the anchor is
+a block start (the heading moved; the reader was reading it, not the gap before it). Acceptance: a core test
+inserting at a held heading's first byte lands on the heading; one inserting inside the heading's text keeps the
+current behaviour; a WebKit live-reload case through `startApp` shows the heading after an outside write.
+
+### F-19.1 — The top stays the top, and nested blocks follow too
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19 · *From the F-19 review.* · **Paths:**
+`packages/core/src/position/restore.ts`, `packages/core/src/position/reload.test.ts`.
+Three things. A reader held at offset 0 stays at the top when text is prepended (lead ruling, 2026-10-08: a reader
+who has not scrolled is reading the top, not the first heading); today F-19 moves them below the new text.
+`startsBlock` checks only top-level children, so a held list item, table cell or fence nested in a list keeps the
+old behaviour; use the same innermost blocks the desktop's `buildBlocks` uses (or the AST's block nodes at any
+depth). And say in a comment which way an appended duplicate of the rest of the file now breaks the tie (the reader
+follows to the copy; the bytes cannot tell). Acceptance: a core test for offset 0 (stays), one for a nested list item
+and one for a fence in a list (both follow).
+
+### F-19.2 — Source at the top stays at the top on reload
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.1 · *From the F-19.1 re-review.* · **Paths:**
+`apps/desktop/src/view/rendered-view.ts` (`sourcePosition` only), `apps/desktop/test/live-reload.test.mjs`.
+F-19.1 keeps an unscrolled Rendered reader at the top when text is prepended, but a reader in Source (every code
+file opens there) is still pushed below it: measured `scrollY` 43 for a `.ts` file and 103 for a `.md` file in
+Source, the first new line at −13. `sourcePosition` holds the line under the reading line; at `scrollTop <= 0` it
+should hold byte 0, as `positionAtScroll` now does. Acceptance: a WebKit case per mode-entry (a `.ts` file, and a
+`.md` file toggled to Source), unscrolled, text prepended by an outside write, ends at `scrollY === 0` with the new
+text on screen; fails without the change. Also fix the F-19.1 comments: "table cell" is never held (the reader is
+held on the table) in `startsAnyBlock`'s doc comment, and type `INLINE_TYPES` as `Set<InlineType>`
+(`packages/core/src/position/restore.ts`, comment and type only).
+
+### F-19.3 — A reload keeps the Source caret
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.2 · *From the F-19.2 review (note 4); true before F-19.2.*
+**Paths:** `apps/desktop/src/view/rendered-view.ts` (the Source reload), `apps/desktop/test/live-reload.test.mjs`.
+An outside write to a file open, unedited, in Source puts the caret back on line 1. Map the caret (and a
+selection) through the change the way the reading position is mapped (`offsetThroughEdit`), so a reader whose caret
+was on line 20 finds it on the same text after the write. Acceptance: a WebKit case with the caret on a line below
+an insertion keeps it on the same text; a caret inside deleted text lands at the deletion point.
+
+### F-20 — Text nodes whose value does not match their bytes
+
+**Model:** opus · **Size:** S · **Depends on:** — · *From the B-23 review (note 8); predates B-23.* · **Paths:**
+`packages/core/src/parse/` (the node builder), its tests, `packages/core/goldens/` only if a fixture moves.
+About 4 in 158k short random inputs break the parser's provenance invariants: ``1. [x] \r -` `` (a text node at
+[8,11) decodes to `` -` `` with a leading space but its value lacks it), `"- [x] \n    \uFEFF\t"`, ``">\t   ```\n"``
+(the code block's content), and the `11-empty.md` case B-23 met. Commitment 3 rests on provenance. Find the rule
+each breaks (task-list markers with CR, a BOM inside an indented line, a tab after a block-quote marker) and fix it.
+**Acceptance:** each reproducer is a fixed test; a property test over random short inputs checks every invariant the
+golden check asserts, at a seed count that found these.
+
+### F-21 — Following a link or a collection command over unsaved edits acts on the wrong document
+
+**Model:** sonnet · **Size:** S · **Depends on:** C-17 (its `onLanded` open option) · *From the C-17 fix.* · **Paths:**
+`apps/desktop/src/selection/view.ts` (link-follow: `landFragment` after `await opts.open`), the collection command
+that calls `jumpToSource(0)` after `await handle.open` (grep `commands/`), their tests. Over unsaved edits `open()`
+shows the Save / Open without saving / Dismiss notice and resolves at once, so both then act on the document still on
+screen. Use `open(path, { onLanded })` as C-17 does. Acceptance: for each, a browser test that dirties the current
+document and covers the three choices; nothing in the current document changes on Dismiss.
+
+### F-22 — Ordered lists keep their start number and their wide markers
+
+**Model:** sonnet · **Size:** S · **Depends on:** L-03 · *From the L-03 review (note 4); true on main before L-03.*
+**Paths:** `packages/theme/src/base.css` (the ordered-list counter and marker box), `packages/theme/test/layout.test.mjs`.
+`counter-reset: marxy-ol` ignores `<ol start="7">`, so a list that starts at 7 is numbered from 1; and a "1000."
+marker is about 2.66em wide while its box holds 1.9em, so it runs into the item's text ("100." clears by about 3 px).
+Honour `start` (e.g. `counter-reset: marxy-ol calc(attr(start) - 1)` where supported, or the renderer setting the
+reset as a style the sanitiser allows), and size the marker box to the widest number the list holds. Acceptance: a
+list starting at 7 shows 7, 8, 9; a 1000-item list's markers never overlap their text at 320 and 1280 px; L-03's
+gutter-floor test still passes.
+
+### F-20.1 — A blank line between CR and LF inside a code block
+
+**Model:** opus · **Size:** S · **Depends on:** F-20 · *From the F-20 review (note 6); true on main.* · **Paths:**
+`packages/core/src/parse/from-mdast.ts`, `packages/core/src/parse/provenance.test.ts`, `packages/core/src/parse/invariants.ts`
+(added by the lead, 2026-10-10: the checker must split a code value on the content's own endings, or it cannot see
+this bug; the review confirmed the change is stricter, not looser). About 2 in 715k inputs: a code
+block whose value reads a lone CR followed by a whitespace-only line as one CRLF, so the content range stops early:
+`"    a\r  \n    b"`, `` "-   ```\r  \n\ta  " ``, `"   ~~~\r  \n===\n"`, `` "  ```js\n---\n\r  \n1. " ``. Map the value's line
+endings to the bytes one by one. Acceptance: each reproducer is a fixed test; the invariant stress passes at its seed
+count with these shapes in the generator.
+
+### F-23 — Source positions in a CRLF file
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-19.3 · *From the F-19.3 review (comment 1); true on main.* · **Paths:**
+`apps/desktop/src/source/mode-switch.ts`, `apps/desktop/src/view/rendered-view.ts` (`replaceSourceBuffer`), a desktop
+test. `editorDocConfig` keeps `\r\n` as the editor's line separator, but CodeMirror counts each break as one position,
+so every place that treats a CodeMirror position as a buffer UTF-16 offset drifts one position per line above it:
+`renderedByteToCmPos`, `selectionToCmRange`, `cmSelectionToBytes`, `sourceReadingPosition` and F-19.3's reload caret
+(on main, Jump to source on `value20` in a CRLF file lands on `" const "`, 20 positions off). Add one pair of helpers,
+`cmPosToUtf16` / `utf16ToCmPos` (add the line count for CRLF, and 1 for a BOM), and use them everywhere. Acceptance:
+a CRLF case each for Jump to source, the mode-switch place, and the reload caret; a BOM case.
+
+### F-24 — A file with only CR line endings shows as one line in Source
+
+**Model:** sonnet · **Size:** S · **Depends on:** — · *From the F-19.3 review (note 3); true on main.* · **Paths:**
+`apps/desktop/src/source/` (the editor's line-separator config), a desktop test. A classic-Mac file (`\r` only) shows
+as a single line in Source, though Source must show the file exactly (commitment 3). Detect a CR-only file and set
+the editor's line separator to `\r` (as CRLF sets `\r\n`), without changing a byte. Acceptance: a CR-only file shows
+its lines in Source; saving it unchanged writes the same bytes; Jump to source lands on the right line.
+
+### F-20.2 — Indented code keeps the endings of its trailing blank lines, and list-item fences keep spaces past the indent
+
+**Model:** opus · **Size:** S · **Depends on:** F-20.1 · *From the F-20.1 review (2026-10-10, a commonmark.js 0.31.2
+oracle over 256k inputs); true on main.* · **Paths:** `packages/core/src/parse/from-mdast.ts`,
+`packages/core/src/parse/provenance.test.ts`. Three classes where Rendered's code value differs from CommonMark, none
+introduced by F-20.1: (1) indented code followed by whitespace-only lines keeps a trailing ending, LF too
+(`"    a\n \n    \nb"` gives `a\n`, CommonMark `a`); (2) a whitespace-only line inside a fenced block in a list item
+keeps spaces past the container's indent (`` "- ```\r  \n\t" ``); (3) `"\r>\n    x\r \n    y"` yields two code blocks
+where CommonMark has one. Acceptance: each reproducer a fixed test against commonmark.js's value; the review's oracle
+(`oracle.mjs`, kept in the F-20.1 reviewer's scratchpad; copy it to `packages/core/test/` if it is to last) shows 0
+introduced and these classes fixed; the invariant stress and `pnpm gate:fidelity` pass. Rendered draws a blank line
+the document does not have, and copy-code copies it (commitment 4).
+Also from the F-20.1 re-review: `"- ~~~\r    \n\r\n\r \n  \r\n~~~|<!--"` gives a value whose last separator is a
+CR where the source has an LF (copy-code would carry the wrong byte), and a content range that ends partway through
+the `"  "` line, which the checker accepts; tighten the checker for it.
+
+### F-25 — An open Source editor keeps its line separator through a live reload
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-24 · *From the F-24 review (2026-10-10); true on main for CRLF.*
+· **Paths:** `apps/desktop/src/source/editor-cm6.ts` (`replaceBuffer`), `apps/desktop/src/source/editor.ts`
+(`editorDocConfig`, export the separator rule as one pure function), `apps/desktop/src/source/mode-switch.test.mjs`
+(`stateFor` uses that function instead of a copy), a desktop test. `replaceBuffer` dispatches the new text but never
+reconfigures `EditorState.lineSeparator`, so an outside write that changes a file's line-ending class (CR to LF, LF to
+CR, CR to mixed) leaves Source showing one line with ␤ or ␍ marks, and Enter inserts the old class's newline
+(`alpha\rbravo\ncharlie\n`): a byte the reader did not ask for. Reconfigure the separator through a compartment (or
+recreate the editor) when the class changes. Acceptance: for each of the four transitions, Source shows the new
+file's lines and Enter inserts the new class's newline (one test per transition, red without the change); an unchanged
+save stays byte-exact; `mode-switch.test.mjs` covers CR-only through the shared function. Also from the F-23 review: a
+live-reload case whose BOM appears or disappears across the reload, since the BOM-only cases cancel today.
+
+
+### F-26 — The sanitiser keeps a list item's `value` and a negative `start`
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-22 · *From the F-22 review (2026-10-10); true on main.* ·
+**Code-owned:** the sanitiser (`.github/CODEOWNERS`); the author merges. · **Paths:**
+`packages/core/src/sanitize/policy.ts` (the `ol` and `li` entries, `SMALL_INTEGER`), the sanitiser's tests under
+`packages/core/src/sanitize/`, `packages/theme/test/layout.test.mjs` (one rendered case). `<li value="10">` loses
+`value` and `<ol start="-3">` becomes `<ol>`, so a list shows 1, 2, 3 where the document says otherwise, though F-22
+made the CSS honour both (commitment 3, the number shown is the number written). Allow `value` on `li` and a signed
+small integer for `start` and `value`; keep every other refusal (no expression, no unit, no leading `+`, a length
+cap). Acceptance: `<ol start="-3">` shows -3, -2; `<li value="10">` mid-list shows 1, 10, 11; `value="1e3"`,
+`value="10px"`, `start="--1"` and a 20-digit number are still dropped (a test each, red without the change); no
+golden moves.
+
+### F-27 — A resize or a divider move keeps the reader's block
+
+**Model:** opus · **Size:** M · **Depends on:** D-04, D-05 · *From the B-26 review (2026-10-10); true on main.* After a
+divider move by keyboard the narrowed pane lands 1,300 to 1,500 px off its block; through `setRatio`, about 104 px; a
+one-pane window resize, about 350 px. The cause is the resize restore (`relayoutKeepingReader` / `restoreTo` in the
+view), not the typesetter. **Paths:** `apps/desktop/src/view/rendered-view.ts` (the resize restore),
+`apps/desktop/src/layout/` or `pane/` only for the divider's resize hook, `apps/desktop/test/pane-scroll.test.mjs` and
+a resize test. **Acceptance:** after a window resize and after a divider move (keyboard and pointer), each pane's block
+under the reading line is within 1 px of where it was (a test each, red on main).
+
+### F-28 — The sanitiser decodes a number once, and `&hyphen;` is U+2010
+
+**Model:** sonnet · **Size:** S · **Depends on:** F-26 · *From the F-26 review (2026-10-10); true on main.* ·
+**Code-owned:** the sanitiser; the author merges, and the author rules on point 2 first. · **Paths:**
+`packages/core/src/sanitize/escape.ts`, `packages/core/src/sanitize/policy.ts`, their tests. (1) The named-reference
+table maps `hyphen` to `-` (`escape.ts:39`); HTML maps it to U+2010, so `start="&hyphen;3"` shows -3 where a browser
+shows nothing. (2) `decodeReferences` decodes until nothing changes, so `start="&amp;#45;3"` becomes -3 where a browser
+reads the literal `&#45;3`; repeated decoding is deliberate for URLs, so whether numeric patterns decode once is the
+author's call. (3) `.trim()` strips NBSP, U+FEFF and U+2028, where HTML's integer parse skips only ASCII whitespace.
+Acceptance: one test per point, red on main; no golden moves.
+

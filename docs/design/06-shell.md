@@ -9,7 +9,7 @@ is the only TypeScript that imports `@tauri-apps/*`.
 
 ```
 main.rs          builder, plugins, single-instance, startup marks (exists)
-commands/mod.rs  re-exports; every #[tauri::command] lives under commands/
+commands/mod.rs  re-exports; most #[tauri::command]s live under commands/ (main.rs and pasteboard/ hold the rest)
 commands/fs.rs   read_file, write_file_atomic, stat, image_size, repository_root
 commands/watch.rs   watch_start, watch_stop; emits "marxy:watch" events
 commands/index.rs   index_build, index_query, index_load, index_save; headings scanner
@@ -17,6 +17,9 @@ commands/search.rs  search_content, cancel_content_search: on-demand content sca
 commands/os.rs   open_external, reveal_in_editor, clipboard_write, open_dialog, webkit_version
 commands/app.rs  args, mark_from_webview, startup_marks, quit, config_paths, on second-instance forwarding
 commands/net.rs  fetch_remote_image and the marxy-remote: URI scheme handler (ADR-0027); the only socket in the app
+pasteboard/mod.rs  pasteboard_types, pasteboard_read, pasteboard_write: the Pasteboard trait and its logic (J-01)
+pasteboard/macos.rs  NSPasteboard through objc2-app-kit; the only cfg(target_os = "macos") file of the three
+pasteboard/fake.rs   an in-memory pasteboard that counts data reads (#[cfg(test)])
 error.rs         ShellError { code, message, path } ← std::io::ErrorKind mapping
 ```
 
@@ -43,6 +46,9 @@ one side and parsed on the other (MARXY-198).
 | `openExternal` → `open_external` | `url` | `()` | unsupported (scheme not http/https/mailto) | os (`open` crate) | MARXY-61 |
 | `revealInExternalEditor` → `reveal_in_editor` | `path, line?` | `()` | unsupported (no editor configured) | os | MARXY-48 |
 | `clipboardWrite` → `clipboard_write` | `{ text, html? }` | `()` | io | os (`tauri-plugin-clipboard-manager`) | MARXY-42 |
+| `pasteboard_types` | — | `string[]`: the first item's types (plus `org.nspasteboard.ConcealedType` if any item carries it); reads no data | unsupported (not macOS) | pasteboard (`objc2-app-kit` NSPasteboard; a synchronous command, so on the main thread). Called only on a reader action; nothing polls or reads `changeCount` (ADR-0065 §3) | J-01 |
+| `pasteboard_read` | `types[]` | `{ reps: { type, encoding: 'utf8' \| 'base64', data }[] }`: of the requested types, those of text (`public.utf8-plain-text`), HTML (`public.html`), RTF (`public.rtf`), URL (`public.url`) and PNG (`public.png`) the first item holds, in that order; PNG and non-UTF-8 bytes as base64. Any other type is never read | permission (a concealed item, refused before any data read), invalid (a representation over 16 MB), unsupported (not macOS) | pasteboard. The only path that reads clipboard data | J-01 |
+| `pasteboard_write` | `reps: { type, data }[], transient` | `()`: clears once and writes one item holding every representation plus `org.nspasteboard.source` = `dev.marxy.app`, and `org.nspasteboard.TransientType` when `transient` (ADR-0065 §2) | invalid (no representations, or a marker type the shell owns), io, unsupported (not macOS) | pasteboard | J-01 |
 | `openDialog` → `open_dialog` | `{ directory?, multiple? }` | `string[]` | — | os (`tauri-plugin-dialog`) | MARXY-49 |
 | `webkitVersion` → `webkit_version` | — | `{ major, minor, micro } \| null` (Linux only) | — | os (`webkit2gtk::{major,minor,micro}_version`) | MARXY-21 |
 | `configPaths` → `config_paths` | — | `{ config, data }` | — | app (`tauri::path` resolver) | MARXY-38 |
@@ -114,7 +120,9 @@ sanitiser's subresource rule admits only when the allow-list is widened (MARXY-4
 plus each custom command (Tauri 2 requires `allow-<command>` entries for commands defined in
 the app when using the permission system; generate them with the `tauri` CLI's permission
 autogen). Nothing else. `fs` plugin is **not** used; file access goes only through our commands
-so the audit surface is the table above.
+so the audit surface is the table above. The commands defined in the app itself (as opposed to a plugin's) need no entry while
+`build.rs` declares no `AppManifest`: Tauri's permission system then gates only plugin commands,
+which is why `pasteboard_*` (J-01) added none.
 
 **Native menu (macOS, MARXY-184).** `main.rs` builds and sets a `tauri::menu::Menu` from
 `.setup(...)`, entirely in Rust: no capability entry is added for it because a capability gates

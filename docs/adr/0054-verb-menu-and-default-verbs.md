@@ -1,6 +1,6 @@
 # ADR-0054 — One verb menu is the click surface for operations; `Mod+C` runs a default copy verb, never a splice
 
-- **Status:** proposed
+- **Status:** proposed; amended by ADR-0065 (copy verbs gain Copy as targets)
 - **Date:** 2026-10-07
 - **Amends:** ADR-0019 and `docs/roadmap.md` ("at most four new operations per release" is replaced by
   a per-selection limit). Builds on ADR-0004 (editing is transformation) and ADR-0050 ("at rest" is

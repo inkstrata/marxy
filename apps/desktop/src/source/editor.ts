@@ -34,34 +34,39 @@ const lineNumbersCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
 const themeCompartment = new Compartment();
 
-let sharedParent: HTMLElement | null = null;
-let sharedEditor: SourceEditor | null = null;
+/**
+ * The live editor in each Source mount, newest last (D-01). One per mount, not one per page: two panes
+ * each have a mount, and one view clearing its own editor must not destroy the other's (the B-13 review).
+ */
+const editors = new Map<HTMLElement, SourceEditor>();
 
 /** Dynamic import boundary: CM6 stays off the startup path (MARXY-33). */
 export async function loadCodeMirror(): Promise<typeof import('./editor-cm6.ts')> {
   return import('./editor-cm6.ts');
 }
 
-/** Active Source editor when mounted (one per `#marxy-source` parent). */
-export function activeSourceEditor(): SourceEditor | null {
-  return sharedEditor;
+/**
+ * The editor mounted in `parent`; without one, the one mounted last (one pane has one mount, so this
+ * is the editor the window shows). Null when there is none.
+ */
+export function activeSourceEditor(parent?: HTMLElement): SourceEditor | null {
+  if (parent) return editors.get(parent) ?? null;
+  return [...editors.values()].at(-1) ?? null;
 }
 
-/** Create a Source editor for `buffer`. */
+/** Create a Source editor for `buffer` in `opts.parent`; the editor already there takes the buffer instead. */
 export async function createSourceEditor(opts: SourceEditorOptions): Promise<SourceEditor> {
-  if (sharedEditor && sharedParent === opts.parent) {
-    sharedEditor.replaceBuffer(opts.buffer);
-    return sharedEditor;
+  const existing = editors.get(opts.parent);
+  if (existing) {
+    existing.replaceBuffer(opts.buffer);
+    return existing;
   }
-  sharedEditor?.destroy();
   const cm = await loadCodeMirror();
-  sharedParent = opts.parent;
   const built = await cm.createSourceEditor(opts, { lineNumbersCompartment, tabSizeCompartment });
   const rawDestroy = built.destroy.bind(built);
-  // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built
-  // and assigned to `sharedEditor`; comparing against `built` (the pre-wrap object) here would
-  // never match `sharedEditor` (always the wrapper), so destroy would never clear the shared
-  // reference and a torn-down editor would look reusable to the next mount (MARXY-239 fix).
+  // `wrapper` is only read inside its own `destroy`, which runs after this literal is fully built and
+  // registered; comparing against `built` (the pre-wrap object) would never match the registered
+  // wrapper, so a torn-down editor would look reusable to the next mount (MARXY-239 fix).
   const wrapper: SourceEditor = {
     ...built,
     // A spread copies a getter's value once; read through so `buffer` follows replaceBuffer.
@@ -70,14 +75,11 @@ export async function createSourceEditor(opts: SourceEditorOptions): Promise<Sou
     },
     destroy() {
       rawDestroy();
-      if (sharedEditor === wrapper) {
-        sharedEditor = null;
-        sharedParent = null;
-      }
+      if (editors.get(opts.parent) === wrapper) editors.delete(opts.parent);
     },
   };
-  sharedEditor = wrapper;
-  return sharedEditor;
+  editors.set(opts.parent, wrapper);
+  return wrapper;
 }
 
 /** Whether wrapping and grammar should be disabled for this buffer. */
@@ -85,11 +87,16 @@ export function isLargeSourceFile(buffer: Buffer): boolean {
   return buffer.bytes.length > LARGE_FILE_BYTES;
 }
 
-/** Initial doc string and line separator for CM6. */
-export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' } {
+/**
+ * Initial doc string and line separator for CM6. The separator is the file's own when every ending is
+ * the same (CRLF, or a lone CR: a classic-Mac file). A mixed-ending file keeps `\n` as the separator:
+ * its `\r\n` lines keep the CR as a character at the end of the line, and a lone CR is a character
+ * inside a line (shown as a control mark), so no byte changes on an unchanged save (F-24).
+ */
+export function editorDocConfig(buffer: Buffer): { doc: string; lineSeparator: '\n' | '\r\n' | '\r' } {
   return {
     doc: cmDocText(buffer),
-    lineSeparator: buffer.eol === 'crlf' ? '\r\n' : '\n',
+    lineSeparator: buffer.eol === 'crlf' ? '\r\n' : buffer.eol === 'cr' ? '\r' : '\n',
   };
 }
 

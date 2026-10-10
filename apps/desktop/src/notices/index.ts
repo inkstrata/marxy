@@ -11,8 +11,20 @@ export interface NoticeInput {
 let nextId = 0;
 const open = new Map<number, HTMLElement>();
 
-/** Ensures `#marxy-notices` exists in flow above `#doc`, empty and zero-height at rest. */
-export function ensureNoticesRegion(): HTMLElement {
+/**
+ * Ensures `#marxy-notices` exists in flow above `#doc`, empty and zero-height at rest. Given a pane
+ * (`section.marxy-pane`, D-01), that pane's own region instead: the `[role=status]` child it was built
+ * with, or one made at its top.
+ */
+export function ensureNoticesRegion(pane?: HTMLElement): HTMLElement {
+  if (pane) {
+    const own = pane.querySelector<HTMLElement>(':scope > [role="status"]');
+    if (own) return own;
+    const made = document.createElement('div');
+    made.setAttribute('role', 'status');
+    pane.insertBefore(made, pane.firstChild);
+    return made;
+  }
   let region = document.getElementById('marxy-notices');
   const doc = document.getElementById('doc');
   if (region === null) {

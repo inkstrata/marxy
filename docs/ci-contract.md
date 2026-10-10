@@ -227,6 +227,27 @@ them.
 | `cargo test` | a compile error, or a failing `#[test]` in `apps/desktop/src-tauri` (the images test's asset-scope cases are there); `Cargo.toml` changed without `Cargo.lock` (`cannot update the lock file`) | `cd apps/desktop/src-tauri && cargo test --locked`; `cargo check` there, then commit `Cargo.lock` |
 | `gate:licences` over `Cargo.lock` | a crate with a copyleft or undeterminable licence (ADR-0006) | `cd apps/desktop/src-tauri && cargo fetch --locked`, then `node scripts/gate-licences.mjs --require-registry` |
 
+### Nightly `aesthetics-determinism` and `startup-macos`, by cause
+
+These no longer turn a pull request red (ADR-0056); a red one is a note for the next session. The causes and
+local commands are the same as when they ran on pull requests.
+
+| Symptom | Cause | Fix and local command |
+| --- | --- | --- |
+| `gate:aesthetics --mechanical` | a mechanical aesthetics check moved (`docs/aesthetics-acceptance.md`) | `node scripts/gate-aesthetics.mjs --mechanical`; never loosen a threshold; `--workers N` tunes speed |
+| `gate:aesthetics` centred | the column's axis is off the visible area's axis | `node scripts/gate-aesthetics.mjs --mechanical --files <doc>.md`; the case names the cell |
+| `gate:aesthetics` blockEdges | a top-level block's text does not start on the column's left edge | as above |
+| `gate:aesthetics` room | a block box passes the column plus the room, or overhangs one side more than the other | as above |
+| `gate:aesthetics` marks | a list marker or checkbox sits left of the gutter floor | as above |
+| `gate:aesthetics` noClip | ink cut off by the window, a set line past its box after the relayout, or sideways scroll | as above |
+| `gate:aesthetics` noticeColumn | a notice is off the column, out of view when scrolled, not a whole number of grid units high, or over Source text | as above |
+| `gate:aesthetics` textSpacing, text200 | something clipped, overlapping or scrolling sideways with 1.4.12 text spacing or at 40 px text | as above |
+| `gate:aesthetics` an expected failure | a case in `EXPECTED_FAILURES` now passes (delete its row), or a failing case has no row (fix the page, never add a row without the story that clears it) | `node scripts/gate-aesthetics.mjs --mechanical --emit-expected` |
+| `gate:specimen` | a specimen render moved or made a network request | `pnpm gate:specimen` |
+| CLI smoke | shell, paint or CLI path regressed | `pnpm --filter @marxy/desktop verify:cli` (sets `MARXY_SMOKE_REQUIRED=1`; needs the built binary, so set `MARXY_BIN`) |
+| CLI smoke: `the launch never asked to quit; its last mark was …` | the webview reported its outcome, then stopped before it called `quit` (an IPC that never answered) | the named mark is where it stopped; the next awaited call after it in `app.ts` is the suspect. Each launch is its own process group and is killed whole, so one stall cannot poison the launches after it |
+| CLI smoke: `… the process teardown stalled` | the app printed `MARK quit code=n` and did not exit | harness launches leave through `_exit(2)` after Tauri's teardown (`harness_exit` in `main.rs`); a stall here is in that teardown |
+
 ## Editing CI itself
 
 The rules about how a workflow may be written live in one place: **`scripts/check-workflows.mjs`**,

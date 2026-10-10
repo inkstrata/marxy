@@ -69,13 +69,14 @@ test('jump-to-source opens Source at data-marxy-s of the selected block', async 
   }
 });
 
-test('jump-to-source on a block far down a long document holds it at the reading line', async () => {
+for (const { label, eol } of [{ label: '', eol: '\n' }, { label: ' in a CRLF file (F-23)', eol: '\r\n' }]) {
+test(`jump-to-source on a block far down a long document holds it at the reading line${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     const mdPath = '/doc/long.md';
     const paras = Array.from({ length: 120 }, (_, i) => `Paragraph number ${i + 1} of the long document.`);
-    const md = `# Long\n\n${paras.join('\n\n')}\n`;
+    const md = `# Long\n\n${paras.join('\n\n')}\n`.replaceAll('\n', eol);
     await page.goto(`${base}app.html`);
     await page.evaluate(async ({ mdPath, md }) => {
       const handle = await window.marxyApp.start({ [mdPath]: btoa(md) }, [mdPath]);
@@ -108,3 +109,4 @@ test('jump-to-source on a block far down a long document holds it at the reading
     await browser.close();
   }
 });
+}

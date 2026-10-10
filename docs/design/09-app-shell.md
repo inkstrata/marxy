@@ -8,10 +8,13 @@ visible else. Everything below is summoned and dismissed.
 ```html
 <body data-marxy-mode="rendered" data-marxy-variant="dark">   <!-- dark is primary (ADR-0024) -->
   <main id="marxy-main">
-    <div id="marxy-notices" role="status"></div>            <!-- empty at rest -->
-    <article class="marxy-article" data-marxy-s="0" data-marxy-e="…"></article>
+    <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus>   <!-- one pane per document shown (ADR-0057) -->
+      <div id="marxy-notices" role="status"></div>          <!-- empty at rest -->
+      <article id="doc" class="marxy-article" data-marxy-s="0" data-marxy-e="…"></article>
+      <div id="marxy-source" class="marxy-source-mount" hidden></div>   <!-- CodeMirror mounts here in Source mode -->
+      <div class="marxy-find-slot"></div>                   <!-- empty and not drawn at rest; Rendered find fills it -->
+    </section>
   </main>
-  <div id="marxy-source" hidden></div>                      <!-- CodeMirror mounts here in Source mode -->
   <dialog id="marxy-palette"></dialog>                      <!-- §07 -->
   <dialog id="marxy-outline"></dialog>
   <div id="marxy-find" hidden></div>
@@ -22,6 +25,16 @@ No element outside `#marxy-main` is visible unless its state is open. There is n
 tab bar, status bar or sidebar element in the DOM at all, so the "chrome at rest" gate is a DOM
 assertion, not a screenshot judgement.
 
+**Two documents side by side** (ADR-0057). `#marxy-main` takes `data-marxy-split` and becomes a grid of
+two columns (`ratio fr` and `1 − ratio fr`), and a second `section.marxy-pane[data-marxy-pane="1"]`
+follows the first with the same four children, whose ids end in `-2` (`doc-2`, `marxy-notices-2`,
+`marxy-source-2`). Each pane of a split scrolls on its own (`overflow-y: auto; height: 100vh`), and its
+Source mount covers only its pane. `data-marxy-focus` marks the focused pane's section and no other.
+The first pane is permanent: its elements keep their ids, and closing the left pane shows the right
+pane's document in it. Each pane is a size container, so an article's margins (`--marxy-room`) are
+measured against its own pane. With one document none of this is visible: one pane fills
+`#marxy-main`, and there is no divider element and no split attribute.
+
 ## State
 
 There is no `AppState` record and no `state.ts`. State lives in three places, each owned by one object
@@ -31,21 +44,36 @@ There is no `AppState` record and no `state.ts`. State lives in three places, ea
   `disk` (the bytes last read or written), `buffer`, the parse (`ast`, `nodeMap`), one undo history
   for both modes, and a `version`. `dirty` is derived (`buffer ≠ disk`). Every change is one of its
   transitions: `open`, `reload`, `apply`, `commitSource`, `undo`, `redo`, `save`, `rename`, `close`.
-  Readers call `snapshot()` or `subscribe()`.
-- **The view** (`apps/desktop/src/view/rendered-view.ts`): how one article shows a store. The mode
+  Readers call `snapshot()` or `subscribe()`. One store per open path, however many panes show it: the
+  registry (`document/registry.ts`) hands the open store to the next view of that path and closes it
+  when the last view lets go.
+- **The view** (`apps/desktop/src/view/rendered-view.ts`): how one article shows a store. The **mode**
   (Rendered or Source) and the Source editor, the anchor the reader is held at, the layout (the mount,
   the typesetter, the grid, the block list). It subscribes to the store it shows and sets the page
-  again after each transition, mapping its anchor through the edit (ADR-0037 §6).
-- **The app instance** (`apps/desktop/src/app.ts`, the composition root): which view has focus (one,
-  on `#doc`, until the split view) and the overlays. `startApp` builds the instance from a shell and
-  connects its parts: the open path (`document/open.ts`), live reload (`document/live-reload.ts`),
-  reading persistence (`position/reading-persistence.ts`), trust (`trust/controller.ts`), the launch
-  measurement (`startup/measure.ts`) and the selection.
+  again after each transition, mapping its anchor through the edit (ADR-0037 §6). One per pane.
+- **The app instance** (`apps/desktop/src/app.ts`, the composition root): the **layout** and the
+  **focused pane** (`pane/pane-set.ts`, `AppHandle.panes()`: one pane or two, their ratio, which one has
+  focus) and the overlays. `startApp` builds the instance from a shell and connects its parts: the
+  panes (`pane/index.ts`: for each, a view and an open path, `document/open.ts`), live reload
+  (`document/live-reload.ts`), reading persistence (`position/reading-persistence.ts`), trust
+  (`trust/controller.ts`), the launch measurement (`startup/measure.ts`) and the selection.
 
 No module keeps any of this at module scope (`apps/desktop/test/module-state.test.mjs`).
-`AppHandle.dispatch(action)` routes `apply`, `undo`, `redo` and `save` to the focused view's store and
-`toggle-mode` to the view. Overlays are exclusive: opening one closes another. `Esc` closes the open
-overlay, else clears the selection, else does nothing.
+`AppHandle.dispatch(action)` routes `apply`, `undo`, `redo` and `save` to the focused pane's store and
+`toggle-mode` to its view; `open`, `currentPath`, `document` and `save` are the focused pane's too.
+Overlays are exclusive: opening one closes another. `Esc` closes the open overlay, else clears the
+selection, else does nothing.
+
+The Rendered selection is the window's one and acts on the focused pane's article (D-06): it listens on
+every pane's article, each view tells it when its page is set, and focusing another pane clears it, so
+copy, the operations and `Mod+Z` reach the focused pane's document. Still bound to the first pane rather
+than the focused one, until the Phase D story named moves them: the window as scroller and the reading
+persistence (D-05, D-12), the mode attribute on `<body>` (D-11), notices other than a pane's own region
+(D-10). The close guard is per document, never the focused pane's alone (D-08, §Close). The window title
+is the focused pane's document: a document opened in the other pane does not take it, and focus moves
+it. Each pane's open path keeps its own live-reload
+watch on the store it shows, closed when that pane lets the store go, even while the other pane still
+shows it; one watch per store, however many panes, is D-10's.
 
 ## Keyboard map
 
@@ -76,6 +104,27 @@ chrome.
 | `ContextMenu` / `Shift+F10` | open the verb menu | same; right-click and Ctrl-click open it at the pointer |
 
 No single-letter bindings in v1 (a reader may be typing in find or the palette).
+
+**Pane chords (Phase D).** One table, `apps/desktop/src/pane/keys.ts`, matched on physical keys
+(`event.code`: `Mod+Shift+\` arrives as `|` on a US layout), run from a `window` capture-phase listener so
+they work from inside a Source editor too, and run once (the registry's dispatcher does not see them).
+They do nothing while a dialog is open, except `Mod+\`. A chord whose command is not registered yet, or
+whose `when` does not hold (one pane), does nothing.
+
+| Key | Action | Notes |
+| --- | --- | --- |
+| `Mod+\` | open beside (`view.open-beside`) | D-07 |
+| `Mod+Shift+\` | close the focused pane (`view.close-pane`) | D-08; never `Mod+W`, which is the native Close Window and quits |
+| `Mod+1` | focus the left pane (`view.focus-left`) | with two panes |
+| `Mod+2` | focus the right pane (`view.focus-right`) | with two panes |
+| `Mod+Alt+←` / `Mod+Alt+→` | focus the left / right pane | the same two commands; `Alt+←`/`→` without `Mod` stays history |
+
+A press in a pane focuses it before anything in the pane sees the press, so a click in the other pane
+focuses it and then selects. The first wheel event over the other pane after 150 ms without one focuses it
+too (`FOCUS_ON_WHEEL` in `pane/focus.ts`, one constant). Focus is shown by the window title naming the
+focused document and by the divider's fade, never by a ring or by dimming. A pane in Source passes focus
+to its editor. An overlay records the pane focused when it opened (`focusOrigin` in `pane/focus.ts`) and
+gives focus back to it on `Esc` or dismissal.
 
 **Guaranteed by the native menu, not only by this table (macOS, MARXY-184).** `Mod+Q`,
 `Mod+C`/`Mod+V`/`Mod+A`, and `Mod+Z`/`Mod+Shift+Z` also have a native macOS menu item behind
@@ -207,7 +256,35 @@ region (`role="status"`), the palette list is a `listbox` with `aria-activedesce
 
 ## Window title
 
-`<name> — marxy`, with ` •` appended while dirty. That is the only persistent indicator.
+`<name> — marxy`, with ` •` appended while dirty. That is the only persistent indicator. With two panes
+it names the **focused** pane's document, with the dot for that document only (`07` §4.4): focus moves
+it, a document opened in the other pane does not take it, and an unsaved document in the unfocused pane
+is caught by the quit guard rather than shown here. One writer: each pane's open path titles the window
+only while its pane has focus, and the focus change re-titles it (`title.ts`, `updateTitle`).
+
+## Close
+
+Unsaved edits live in memory until an explicit save, so closing or replacing a view is where they could
+be dropped. The guard (`close.ts`) is a notice, never a modal (§01), and it is **per document**: it
+names the document being left ("<name> has changes that are not saved."), it sits in the notices region
+of the pane that shows it, and its save writes that document. A document another pane still shows is not
+lost by closing or replacing one view, so that asks nothing (text typed in the closing view's Source
+goes into the store first).
+
+- **Close a pane:** `Mod+Shift+\` ("Close this pane", listed with two panes) closes the focused pane and
+  the other takes the window. Over unsaved changes the pane stays until the reader answers: Save and
+  close, Close without saving, or Dismiss. A close refused for any other reason (the other pane has no
+  document, or its Source text could not be kept) says so in the pane. `Mod+W` is unchanged: it closes
+  the window.
+- **Open over unsaved changes,** in either pane: Save and open, Open without saving, or Dismiss, in the
+  pane being replaced; nothing is replaced until the answer.
+- **Quit or close the window** with unsaved documents asks about each in turn, left to right, each in
+  its own pane. Either answer goes on to the next; Dismiss on any stops the quit. The next question is
+  worked out afresh each time, Source text in every pane folded in first: a document that became unsaved
+  during the walk, or was edited after its answer, is asked about before the window closes. One walk at a
+  time: a close request while a save is writing waits for it. A second close request while the last
+  document's notice is up quits.
+- **`Mod+S`** saves the focused pane's document only.
 
 ## Tests
 

@@ -24,10 +24,37 @@ export { dirname, basename, joinPath, normalizePath, relativePath, pathUnder, is
 export {
   parseCollection,
   appendRoot,
+  appendQuery,
   denyRulesFor,
   COLLECTION_TEMPLATE,
   type Collection,
   type CollectionRoot,
+  type SavedQuery,
   type ParseCollectionResult,
 } from './collection.ts';
 export { planEvents, ignoreRulesFrom, type FileEvent, type EventPlan } from './apply-events.ts';
+export {
+  parseCaptures,
+  capturePrivacyLines,
+  CAPTURE_PRIVACY_LINE,
+  type CaptureRule,
+} from './capture.ts';
+export {
+  parseQuery,
+  completeQuery,
+  QUERY_KEYS,
+  IS_VALUES,
+  HAS_VALUES,
+  type Query,
+  type Group,
+  type Term,
+  type FieldTerm,
+  type TextTerm,
+  type FlaggedTerm,
+  type QueryKey,
+  type CompareOp,
+  type QueryRange,
+  type Completion,
+  type CompletionItem,
+  type CompletionContext,
+} from './query.ts';

@@ -1,8 +1,8 @@
 // Live reload (ADR-0018): one watch per document store, following it through a rename and a Save as,
 // and closed with it (B-14, lifted from app.ts).
-import { contentHash } from '@marxy/core';
-import { applyWatchToOpenDocument } from '@marxy/core/src/position/reload.ts';
-import { restorePosition } from '@marxy/core/src/position/restore.ts';
+import { contentHash, reparseMarkdown } from '@marxy/core';
+import { followPath, restorePosition } from '@marxy/core/src/position/restore.ts';
+import { effectForOpenDocument } from '@marxy/core/src/position/watch-events.ts';
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
 import { classify } from '@marxy/core/src/index-model/kinds.ts';
 import type { ReadingPosition } from '@marxy/core/src/contracts/position.ts';
@@ -42,12 +42,15 @@ export interface DocumentWatch {
 /**
  * One watch per store, however often the open path asks (the B-14 review): asking again for the store
  * already watched returns its watch; asking for another starts one. The last store's watch closes
- * with that store, not here.
+ * with that store, not here; one this open path lets go while another pane still shows the store
+ * closes on `release`.
  */
 export function oneWatchPerStore(start: (store: DocumentStore) => Promise<DocumentWatch>): {
   watch(store: DocumentStore): Promise<DocumentWatch>;
   /** The watch started for `store`, or null when none was. */
   of(store: DocumentStore): Promise<DocumentWatch> | null;
+  /** Closes and forgets the watch for `store`, which stays open in another pane (D-01). */
+  release(store: DocumentStore): void;
 } {
   let last: { readonly store: DocumentStore; readonly watch: Promise<DocumentWatch> } | null = null;
   return {
@@ -56,7 +59,18 @@ export function oneWatchPerStore(start: (store: DocumentStore) => Promise<Docume
       return last.watch;
     },
     of: (store) => (last?.store === store ? last.watch : null),
+    release(store) {
+      if (last?.store !== store) return;
+      void last.watch.then((watch) => watch.close(), () => {});
+      last = null;
+    },
   };
+}
+
+/** `performance.now()` at the watch event and once the file was read, for the `live_reload` mark. */
+interface ReloadStages {
+  readonly start: number;
+  readonly read: number;
 }
 
 const isMarkdownPath = (path: string): boolean => classify(path) === 'markdown';
@@ -102,7 +116,11 @@ export async function watchDocument(
    * the stale-write guard) unless the buffer has unsaved edits, which it keeps. Each view is told its
    * place in the new bytes first, so its repaint holds that place, not a byte of the old bytes.
    */
-  async function reloadOpenFromDisk(bytes: Uint8Array, places: ReadonlyMap<RenderedView, ReadingPosition>): Promise<void> {
+  async function reloadOpenFromDisk(
+    bytes: Uint8Array,
+    places: ReadonlyMap<RenderedView, ReadingPosition>,
+    stages: ReloadStages,
+  ): Promise<void> {
     const t0 = performance.now();
     for (const [view, place] of places) view.expectReloadAt(place);
     let outcome: Awaited<ReturnType<DocumentStore['reload']>>;
@@ -115,10 +133,21 @@ export async function watchDocument(
       diskChangedEditsKeptNotice();
       return;
     }
+    const t1 = performance.now();
     for (const view of places.keys()) await view.settled();
     if (outcome !== 'reloaded') return;
-    const ms = performance.now() - t0;
-    await shell.mark('live_reload', Date.now(), `ms=${ms.toFixed(1)}`);
+    const t2 = performance.now();
+    // From the watch event to every view settled at its place (B-23): the read, the parse and the mapping
+    // of the place count, as the reader waits for them too. `store` is the store's transition, which sets the
+    // page synchronously (render, sanitise, the first screens); `settle` is the typeset viewport after it.
+    const detail = [
+      `ms=${(t2 - stages.start).toFixed(1)}`,
+      `read=${(stages.read - stages.start).toFixed(1)}`,
+      `map=${(t0 - stages.read).toFixed(1)}`,
+      `store=${(t1 - t0).toFixed(1)}`,
+      `settle=${(t2 - t1).toFixed(1)}`,
+    ];
+    await shell.mark('live_reload', Date.now(), detail.join(' '));
   }
 
   /**
@@ -141,42 +170,47 @@ export async function watchDocument(
   async function handleDocumentWatch(events: readonly WatchEvent[]): Promise<void> {
     const first = views()[0];
     if (closed || !first?.document()) return;
+    const start = performance.now();
     const path = store.snapshot().path;
     const position = first.position();
     const diskBytes = await readOpenFileWithRetry(path);
+    const read = performance.now();
     refreshIndexForWatch(events, path, diskBytes);
-    const buffer = store.snapshot().buffer;
-    const update = applyWatchToOpenDocument(events, position, diskBytes, buffer.bytes);
-    if (update.action === 'ignore') return;
-    if (update.action === 'gone') {
+    const effect = effectForOpenDocument(events, path);
+    if (effect.action === 'ignore') return;
+    if (effect.action === 'gone') {
       fileRemovedNotice();
       return;
     }
-    if (update.action === 'follow') {
+    if (effect.action === 'follow') {
       // Already inside `serially`: queuing the open would put it behind the task waiting for it, and
       // every open, mode switch and reload after it would wait forever.
-      if (hasUnsavedChanges()) await retarget(update.path);
-      else await deps.open(update.path, update.position.byteOffset);
+      if (hasUnsavedChanges()) await retarget(effect.path);
+      else await deps.open(effect.path, followPath(position, effect.path).byteOffset);
       return;
     }
     if (diskBytes === null) {
       fileRemovedNotice();
       return;
     }
+    const { buffer, ast } = store.snapshot();
     // Text typed in Source and not yet folded in is an unsaved edit the store cannot see: keep it, as the
     // store keeps a dirty buffer. Bytes equal to the buffer change nothing the reader could lose.
     if (views().some((view) => view.sourceHasUnfoldedEdits())) {
       if (!sameBytes(diskBytes, buffer.bytes)) diskChangedEditsKeptNotice();
       return;
     }
+    // The new bytes' parse, of only the blocks the change touched (B-23): the place is mapped through it.
+    // The store's reload reparses the same way from its own parse, which costs as little.
+    const document = reparseMarkdown(ast, buffer.bytes, diskBytes, { file: path });
     // A reload maps the place through the watch's own reading of the change (ADR-0037 §6), never
-    // through a splice: the first view's comes with the update, every other view's through the same edit.
+    // through a splice: every view's through the same edit.
     const places = new Map<RenderedView, ReadingPosition>();
     const edit = { before: buffer.bytes, after: diskBytes };
     for (const view of views()) {
-      places.set(view, view === first ? update.position : restorePosition(view.position(), update.document, edit));
+      places.set(view, restorePosition(view === first ? position : view.position(), document, edit));
     }
-    await reloadOpenFromDisk(diskBytes, places);
+    await reloadOpenFromDisk(diskBytes, places, { start, read });
   }
 
   /**

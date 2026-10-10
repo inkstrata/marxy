@@ -1,6 +1,7 @@
 // Rendered-mode clicks, `.marxy-selected`, and re-render restore (MARXY-41); keys are in the command registry.
-// One controller per article (B-12): it holds what the reader selected and where links have taken them,
-// and reads the open document from its store whenever it needs it, so nothing here can go stale.
+// One controller per window (B-12, D-06): it holds what the reader selected and where links have taken
+// them, and reads the open document from its store whenever it needs it, so nothing here can go stale.
+// It listens on every pane's article and acts on the focused one's: focusing another pane clears it.
 
 import {
   type Block,
@@ -82,17 +83,22 @@ export interface SelectionRuntime {
   readonly shell: SelectionShell;
 }
 
-export interface RenderedSelectionOptions {
+/** One pane's article as the selection reads it (D-06): its page, its scroller and its open path. */
+export interface SelectionTarget {
   readonly article: HTMLElement;
   readonly scroller: HTMLElement;
   /** The open document's store, or null when nothing is open. */
   store(): DocumentStore | null;
-  readonly shell: SelectionShell;
-  /** Opens a document through the app's one open path. */
+  /** Opens a document through this pane's open path. */
   open(path: string): Promise<void>;
   currentPath(): string | null;
   /** Mounts every block up to the one holding `byte` (a link to a heading not yet on the page). */
   mountThrough(byte: number): void;
+}
+
+/** The first pane's article, which the selection starts on, and what every pane shares. */
+export interface RenderedSelectionOptions extends SelectionTarget {
+  readonly shell: SelectionShell;
   /** The root a link from `path` may not leave: `AppHandle.imageRoot` (F-14). */
   imageRoot(path: string): string;
 }
@@ -110,12 +116,35 @@ export interface RenderedSelection {
    * menu's right-click, C-13). Synchronous for `'select'`.
    */
   selectAt(target: Element, opts: { readonly link: 'select' | 'follow' }): Promise<void>;
+  /**
+   * Select the innermost block whose `[data-marxy-s, data-marxy-e)` holds `byte` (a content-search hit,
+   * C-17). The caller has already mounted the page through `byte` (the open's `landOn`). Nothing is
+   * selected when no mounted block holds the byte (a gap between blocks, or a byte past the end).
+   */
+  selectBlockAtByte(byte: number): void;
   /** One step back in the link history; true when it moved (the caller then has nothing left to do). */
   back(): boolean;
   /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
   lastPointerCarrier(): Element | null;
-  /** The page was set again: re-resolve the selection on it, mark it, and land a pending fragment. */
+  /** The first pane's page was set again: re-resolve the selection on it, mark it, and land a pending fragment. */
   afterRender(): void;
+  /**
+   * Listens on another pane's article too (D-06): the selection acts on it once `focusArticle` names it.
+   * Returns what takes it off again; a selection on it goes with it.
+   */
+  attach(target: SelectionTarget): () => void;
+  /**
+   * The selection now acts on `article`'s pane, the focused one: whatever was selected in another pane is
+   * cleared, its highlight included. Nothing happens for the article already focused or one not attached.
+   */
+  focusArticle(article: HTMLElement): void;
+  /** The article the selection acts on: the focused pane's. */
+  article(): HTMLElement;
+  /**
+   * The selection as the view on `article` tells it (D-06): `afterRender` re-sets that article and
+   * `runtime` reads that pane's store, whichever pane is focused. Null for an article not attached.
+   */
+  forArticle(article: HTMLElement): RenderedSelection | null;
   destroy(): void;
 }
 
@@ -157,39 +186,64 @@ export function localLinkTarget(
   return { target, fragment };
 }
 
-/**
- * The selection controller for one article. Listeners attach to `article` here and come off in
- * `destroy`. Keyboard chords live in the command registry (MARXY-42); they reach this through
- * `AppHandle.selection`.
- */
-export function createRenderedSelection(opts: RenderedSelectionOptions): RenderedSelection {
-  const { article, scroller } = opts;
-  let state: SelectionState = { selection: { kind: 'none' } };
-  let lastClickTarget: Element | null = null;
+/** What the selection keeps for one pane's article (D-06): what was last pressed there and the page it shows. */
+interface PaneRecord {
+  readonly target: SelectionTarget;
+  lastClickTarget: Element | null;
   /** The block carrier last pressed on, which Jump to source starts from; cleared when the document changes. */
-  let pointerCarrier: Element | null = null;
+  pointerCarrier: Element | null;
+  /** The path of the document the page last showed: a different one starts with nothing selected. */
+  shownPath: string | null;
+  /** The store version the page was last set from (`afterRender`); null before the first. */
+  shownVersion: number | null;
+  /** Takes this article's listeners off. */
+  unlisten(): void;
+  /** The selection as this article's view tells it (`forArticle`), made once. */
+  facade?: RenderedSelection;
+}
+
+/**
+ * The selection controller for the window. Listeners attach to the first pane's article here, and to a
+ * second one's through `attach`, and come off in `destroy`; one selection state acts on the focused
+ * pane's article (`focusArticle`). Keyboard chords live in the command registry (MARXY-42); they reach
+ * this through `AppHandle.selection`.
+ */
+export function createRenderedSelection(first: RenderedSelectionOptions): RenderedSelection {
+  let state: SelectionState = { selection: { kind: 'none' } };
+  const records = new Map<HTMLElement, PaneRecord>();
+  /** The focused pane's record: everything below reads its article and its store. */
+  let active: PaneRecord;
   let pointerDrag = false;
   let downAt: { x: number; y: number } | null = null;
   let pointerDown = false;
   let navHistory: string[] = [];
   let navIndex = -1;
+  /** A followed link's fragment, landed when the focused pane's page is next set. */
   let pendingFragment: string | undefined;
-  /** The path of the document the page last showed: a different one starts with nothing selected. */
-  let shownPath: string | null = null;
-  /** The store version the page was last set from (`afterRender`); null before the first. */
-  let shownVersion: number | null = null;
 
-  const runtime = (): SelectionRuntime | null => {
-    const snap = opts.store()?.snapshot();
-    if (!snap) return null;
-    const version = shownVersion ?? snap.version;
-    return { article, nodeMap: snap.nodeMap, document: snap.ast, buffer: snap.buffer, version, shell: opts.shell };
+  /** The focused pane's open path, as link following and history read it. */
+  const opts = {
+    shell: first.shell,
+    imageRoot: (path: string) => first.imageRoot(path),
+    store: () => active.target.store(),
+    open: (path: string) => active.target.open(path),
+    currentPath: () => active.target.currentPath(),
+    mountThrough: (byte: number) => active.target.mountThrough(byte),
   };
 
-  const paint = (): void => paintSelected(article, state.selection);
+  const runtimeOf = (record: PaneRecord): SelectionRuntime | null => {
+    const snap = record.target.store()?.snapshot();
+    if (!snap) return null;
+    const version = record.shownVersion ?? snap.version;
+    return { article: record.target.article, nodeMap: snap.nodeMap, document: snap.ast, buffer: snap.buffer, version, shell: opts.shell };
+  };
+  const runtime = (): SelectionRuntime | null => runtimeOf(active);
+
+  const paint = (): void => paintSelected(active.target.article, state.selection);
 
   /** Scroll the heading `fragment` names to the reading line; false when it is not on the page (yet). */
   const scrollToFragment = (fragment: string): boolean => {
+    const { article, scroller } = active.target;
     const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
     if (!id || !opts.store()) return true;
     const target = article.querySelector(`#${CSS.escape(id)}`);
@@ -224,9 +278,9 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   };
 
   /** Nothing the reader clicked in the last document names anything in the next one (or in none). */
-  const forgetClick = (): void => {
-    lastClickTarget = null;
-    pointerCarrier = null;
+  const forgetClick = (record: PaneRecord): void => {
+    record.lastClickTarget = null;
+    record.pointerCarrier = null;
   };
 
   const recordNavOpen = (nextPath: string): void => {
@@ -285,13 +339,14 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     if (landing) landFragment(landing);
   };
 
+
   /** The selection's element again, by its byte range, after a move or a new page. */
   const move = (next: Selection): void => {
     const doc = opts.store()?.snapshot().ast;
     if (!doc) return;
     state = select(state, next);
     if (state.selection.kind === 'node') {
-      const el = elementForRange(article, state.selection.node.src.start, state.selection.node.src.end);
+      const el = elementForRange(active.target.article, state.selection.node.src.start, state.selection.node.src.end);
       if (el) state = select(state, { ...state.selection, el });
     }
     paint();
@@ -301,6 +356,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
   const reresolve = (): void => {
     const snap = opts.store()?.snapshot();
     if (!snap) return;
+    const { article } = active.target;
     const sel = state.selection;
     if (sel.kind === 'node') {
       const el = elementForRange(article, sel.node.src.start, sel.node.src.end);
@@ -318,6 +374,25 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     paint();
   };
 
+  /** The block carrier holding `byte`, the narrowest range winning; inline carriers are skipped. */
+  const blockCarrierAt = (byte: number): Element | null => {
+    const snap = opts.store()?.snapshot();
+    if (!snap) return null;
+    let best: Element | null = null;
+    let bestSpan = Infinity;
+    for (const el of active.target.article.querySelectorAll('[data-marxy-s][data-marxy-e]')) {
+      const start = Number(el.getAttribute('data-marxy-s'));
+      const end = Number(el.getAttribute('data-marxy-e'));
+      if (!(start <= byte && byte < end) || end - start >= bestSpan) continue;
+      const resolved = resolve(el, snap.nodeMap);
+      if (resolved && isBlock(resolved.node)) {
+        best = el;
+        bestSpan = end - start;
+      }
+    }
+    return best;
+  };
+
   const selectNone = (): void => {
     state = select(state, { kind: 'none' });
     paint();
@@ -327,12 +402,14 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
    * Select what a click on `raw` selects (C-13: a click and a right-click share it). A link is followed
    * (`link: 'follow'`, a plain click) or selected as its inline node (`'select'`: Alt+click, and the verb
    * menu, which never follows one). Resolves once a followed link has landed; a selection is made
-   * synchronously, before the returned promise is awaited.
+   * synchronously, before the returned promise is awaited. Only the focused pane's article selects.
    */
   const selectAt = (raw: Element, how: { readonly link: 'select' | 'follow' }, ev?: MouseEvent): Promise<void> => {
     const snap = opts.store()?.snapshot();
     if (!snap) return Promise.resolve();
     const { nodeMap } = snap;
+    const record = active;
+    const { article } = record.target;
     if (raw === article || !article.contains(raw)) {
       selectNone();
       return Promise.resolve();
@@ -352,23 +429,23 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
 
     if (link instanceof HTMLAnchorElement) {
       state = select(state, { kind: 'node', node: resolved.node as Inline, el: carrier });
-      lastClickTarget = carrier;
+      record.lastClickTarget = carrier;
       paint();
       return Promise.resolve();
     }
 
-    if (isInline(resolved.node) && resolved.node.type === 'code' && carrier === lastClickTarget) {
+    if (isInline(resolved.node) && resolved.node.type === 'code' && carrier === record.lastClickTarget) {
       const blockEl = carrier.parentElement?.closest('[data-marxy-s]') ?? carrier;
       const blockResolved = resolve(blockEl, nodeMap);
       if (blockResolved && isBlock(blockResolved.node)) {
         state = select(state, { kind: 'node', node: blockResolved.node, el: blockEl });
-        lastClickTarget = blockEl;
+        record.lastClickTarget = blockEl;
         paint();
         return Promise.resolve();
       }
     }
 
-    lastClickTarget = carrier;
+    record.lastClickTarget = carrier;
     state = select(state, { kind: 'node', node: resolved.node as Block | Inline, el: carrier });
     paint();
     return Promise.resolve();
@@ -394,12 +471,13 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
    * the palette whose input has taken the DOM selection away, reads this record.
    */
   const recordTextSelection = (): void => {
+    const { article } = active.target;
     const snap = opts.store()?.snapshot();
     const domSel = window.getSelection();
     if (!snap || !domSel || article.closest('[hidden]') !== null) return;
     const drag = recordDrag(article, domSel, snap.buffer.path, snap.ast.children.map((b) => b.src));
     if (!drag) return;
-    state = select(state, { kind: 'text', ...drag, version: shownVersion ?? snap.version });
+    state = select(state, { kind: 'text', ...drag, version: active.shownVersion ?? snap.version });
     clearSelectedClass(article);
   };
 
@@ -409,7 +487,7 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     if (pointerDown) return;
     const domSel = window.getSelection();
     if (!domSel || domSel.isCollapsed || domSel.rangeCount === 0) return;
-    if (!domSel.getRangeAt(0).intersectsNode(article)) return;
+    if (!domSel.getRangeAt(0).intersectsNode(active.target.article)) return;
     recordTextSelection();
   };
   // On the document, not the article: a drag that ends in the margin or outside the window's text column
@@ -437,35 +515,108 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
     }
   };
 
-  // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
-  const onMouseDown = (ev: MouseEvent): void => {
-    pointerDrag = false;
-    pointerDown = true;
-    downAt = { x: ev.clientX, y: ev.clientY };
+  /**
+   * One article's listeners. They act only while their pane is the focused one: a press in the other pane
+   * focuses it first (pane/focus.ts listens in the capture phase above the article), so by the time these
+   * run it is.
+   */
+  const listen = (record: PaneRecord): (() => void) => {
+    const { article } = record.target;
+    // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
+    const onMouseDown = (ev: MouseEvent): void => {
+      pointerDrag = false;
+      pointerDown = true;
+      downAt = { x: ev.clientX, y: ev.clientY };
+    };
+    const onMouseMove = (ev: MouseEvent): void => {
+      if (downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) >= DRAG_THRESHOLD_PX) pointerDrag = true;
+    };
+    const onArticleClick = (ev: MouseEvent): void => {
+      // Before anything that can return early (a drag, a text selection, no document yet): a link
+      // click that is not prevented navigates the window whether or not a handler follows it.
+      const link = ev.target instanceof Element ? ev.target.closest('a[href]') : null;
+      if (link) ev.preventDefault();
+      // Ctrl-click on a Mac is a secondary click: the verb menu's, never a link to follow (C-13).
+      if (isSecondaryClick(ev)) return;
+      if (record !== active) return;
+      void onClick(ev);
+    };
+    const onPointerDown = (ev: PointerEvent): void => {
+      const raw = ev.target;
+      const carrier = raw instanceof Element ? raw.closest('[data-marxy-s]') : null;
+      if (carrier) record.pointerCarrier = carrier;
+    };
+    article.addEventListener('pointerdown', onPointerDown, true);
+    article.addEventListener('mousedown', onMouseDown);
+    article.addEventListener('mousemove', onMouseMove);
+    article.addEventListener('click', onArticleClick);
+    return () => {
+      article.removeEventListener('pointerdown', onPointerDown, true);
+      article.removeEventListener('mousedown', onMouseDown);
+      article.removeEventListener('mousemove', onMouseMove);
+      article.removeEventListener('click', onArticleClick);
+    };
   };
-  const onMouseMove = (ev: MouseEvent): void => {
-    if (downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) >= DRAG_THRESHOLD_PX) pointerDrag = true;
+
+  const register = (target: SelectionTarget): PaneRecord => {
+    const record: PaneRecord = {
+      target,
+      lastClickTarget: null,
+      pointerCarrier: null,
+      shownPath: null,
+      shownVersion: null,
+      unlisten: () => {},
+    };
+    record.unlisten = listen(record);
+    records.set(target.article, record);
+    return record;
   };
-  const onArticleClick = (ev: MouseEvent): void => {
-    // Before anything that can return early (a drag, a text selection, no document yet): a link
-    // click that is not prevented navigates the window whether or not a handler follows it.
-    const link = ev.target instanceof Element ? ev.target.closest('a[href]') : null;
-    if (link) ev.preventDefault();
-    // Ctrl-click on a Mac is a secondary click: the verb menu's, never a link to follow (C-13).
-    if (isSecondaryClick(ev)) return;
-    void onClick(ev);
-  };
-  const onPointerDown = (ev: PointerEvent): void => {
-    const raw = ev.target;
-    const carrier = raw instanceof Element ? raw.closest('[data-marxy-s]') : null;
-    if (carrier) pointerCarrier = carrier;
-  };
-  article.addEventListener('pointerdown', onPointerDown, true);
-  article.addEventListener('mousedown', onMouseDown);
-  article.addEventListener('mousemove', onMouseMove);
-  article.addEventListener('click', onArticleClick);
+
+  const owner = register(first);
+  active = owner;
   document.addEventListener('selectionchange', onSelectionChange);
   document.addEventListener('mouseup', onDocumentMouseUp);
+
+  /** Nothing selected, on the focused pane's page or the browser's: a drag there is the reader's no longer. */
+  const dropSelectionOf = (record: PaneRecord): void => {
+    state = select(state, { kind: 'none' });
+    clearSelectedClass(record.target.article);
+    const live = window.getSelection();
+    if (live && live.rangeCount > 0 && live.getRangeAt(0).intersectsNode(record.target.article)) live.removeAllRanges();
+  };
+
+  /** `record`'s page was set again: re-resolve the selection on it if it is the focused one, and mark it. */
+  const afterRenderOf = (record: PaneRecord): void => {
+    const { article } = record.target;
+    const snap = record.target.store()?.snapshot();
+    const focused = record === active;
+    if (!snap) {
+      if (focused) state = select(state, { kind: 'none' });
+      record.shownPath = null;
+      record.shownVersion = null;
+      forgetClick(record);
+      return;
+    }
+    record.shownVersion = snap.version;
+    // A drag names bytes of the page it was made on: a page set from other bytes drops it.
+    if (focused && state.selection.kind === 'text' && state.selection.version !== snap.version) {
+      state = select(state, { kind: 'none' });
+    }
+    // Another document: nothing selected in the last one names anything in this one.
+    if (record.shownPath !== null && record.shownPath !== snap.path) {
+      if (focused) state = select(state, { kind: 'none' });
+      forgetClick(record);
+    }
+    record.shownPath = snap.path;
+    if (focused) reresolve();
+    applyInvisibleMarkers(article);
+    applyLinkDestinations(article);
+    if (focused && pendingFragment) {
+      const landing = pendingFragment;
+      pendingFragment = undefined;
+      requestAnimationFrame(() => landFragment(landing));
+    }
+  };
 
   const controller: RenderedSelection = {
     state: () => state,
@@ -493,43 +644,60 @@ export function createRenderedSelection(opts: RenderedSelectionOptions): Rendere
       void opts.open(navHistory[navIndex]!);
       return true;
     },
+    selectBlockAtByte(byte) {
+      const snap = opts.store()?.snapshot();
+      if (!snap) return;
+      const carrier = blockCarrierAt(byte);
+      if (carrier === null) return;
+      const resolved = resolve(carrier, snap.nodeMap);
+      if (!resolved || !isBlock(resolved.node)) return;
+      active.lastClickTarget = carrier;
+      state = select(state, { kind: 'node', node: resolved.node, el: carrier });
+      paint();
+    },
     lastPointerCarrier() {
-      return pointerCarrier;
+      return active.pointerCarrier;
     },
     afterRender() {
-      const snap = opts.store()?.snapshot();
-      if (!snap) {
-        state = select(state, { kind: 'none' });
-        shownPath = null;
-        shownVersion = null;
-        forgetClick();
-        return;
-      }
-      shownVersion = snap.version;
-      // A drag names bytes of the page it was made on: a page set from other bytes drops it.
-      if (state.selection.kind === 'text' && state.selection.version !== snap.version) {
-        state = select(state, { kind: 'none' });
-      }
-      // Another document: nothing selected in the last one names anything in this one.
-      if (shownPath !== null && shownPath !== snap.path) {
-        state = select(state, { kind: 'none' });
-        forgetClick();
-      }
-      shownPath = snap.path;
-      reresolve();
-      applyInvisibleMarkers(article);
-      applyLinkDestinations(article);
-      if (pendingFragment) {
-        const landing = pendingFragment;
-        pendingFragment = undefined;
-        requestAnimationFrame(() => landFragment(landing));
-      }
+      afterRenderOf(owner);
+    },
+    attach(target) {
+      if (records.has(target.article)) return () => {};
+      const record = register(target);
+      return () => {
+        if (records.get(target.article) !== record) return;
+        record.unlisten();
+        records.delete(target.article);
+        if (active === record) {
+          dropSelectionOf(record);
+          active = owner;
+        }
+      };
+    },
+    focusArticle(article) {
+      const record = records.get(article);
+      if (!record || record === active) return;
+      dropSelectionOf(active);
+      active = record;
+    },
+    article: () => active.target.article,
+    forArticle(article) {
+      const record = records.get(article);
+      if (!record) return null;
+      record.facade ??= {
+        ...controller,
+        runtime: () => runtimeOf(record),
+        afterRender: () => afterRenderOf(record),
+        clear() {
+          if (record === active) controller.clear();
+        },
+        lastPointerCarrier: () => record.pointerCarrier,
+      };
+      return record.facade;
     },
     destroy() {
-      article.removeEventListener('pointerdown', onPointerDown, true);
-      article.removeEventListener('mousedown', onMouseDown);
-      article.removeEventListener('mousemove', onMouseMove);
-      article.removeEventListener('click', onArticleClick);
+      for (const record of records.values()) record.unlisten();
+      records.clear();
       document.removeEventListener('selectionchange', onSelectionChange);
       document.removeEventListener('mouseup', onDocumentMouseUp);
     },
