@@ -43,6 +43,9 @@ export interface ReadingPersistence {
   close(): void;
 }
 
+/** How long a layout read may take before the launch goes on without one (it is on the way to first text). */
+export const LAYOUT_READ_BUDGET_MS = 1000;
+
 type PersistenceShell = Pick<AppShell, 'readFile' | 'readHead' | 'writeFileAtomic' | 'configPaths'>;
 
 /**
@@ -195,11 +198,14 @@ export function createReadingPersistence(
     async loadLayout() {
       layout ??= (async () => {
         const io = stateIo();
-        if (!io || closed) return null;
+        // A shell that cannot read a bounded head has no layout to offer.
+        if (!io || closed || typeof shell.readHead !== 'function') return null;
         const file = await LayoutPersistence.open(io);
         return file;
       })();
-      return (await layout)?.saved() ?? null;
+      // Never on the way to first text: a read that does not settle, or fails, is "no layout".
+      const bounded = Promise.race([layout.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), LAYOUT_READ_BUDGET_MS))]);
+      return (await bounded)?.saved() ?? null;
     },
     noteLayout(envelope) {
       void layout?.then((file) => file?.note(envelope));

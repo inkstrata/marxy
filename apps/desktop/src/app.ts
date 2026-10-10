@@ -194,7 +194,8 @@ export async function startApp(
     },
     commands() { return appCommands(); },
     shell,
-    ready: measure.ready.then(() => layoutRestored),
+    // The layout is waited for only briefly: `ready` is about the document, and never hangs on a stuck read.
+    ready: measure.ready.then(() => Promise.race([layoutRestored, new Promise<void>((r) => setTimeout(r, 5000))])),
     async open(path, opts) {
       const { target, focus, ...rest } = opts ?? {};
       if (target !== 'other') {

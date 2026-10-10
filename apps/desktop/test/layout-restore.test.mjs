@@ -39,7 +39,7 @@ async function withBrowser(fn) {
 }
 
 /** A page with the shipped skeleton, the app started on `files` (path to text) with `argv`. */
-async function boot(browser, { files: given, argv = [], viewport = WIDE }) {
+async function boot(browser, { files: given, argv = [], viewport = WIDE, stall = false }) {
   const page = await browser.newPage({ viewport });
   const base = await harnessBase();
   const { style, body } = shippedSkeleton();
@@ -55,7 +55,7 @@ async function boot(browser, { files: given, argv = [], viewport = WIDE }) {
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   const encoded = Object.fromEntries(Object.entries(given).map(([path, text]) => [path, b64(text)]));
   await page.evaluate(
-    async ({ encoded, argv }) => {
+    async ({ encoded, argv, stall }) => {
       const bytes = {};
       for (const [path, e] of Object.entries(encoded)) {
         const raw = atob(e);
@@ -66,11 +66,16 @@ async function boot(browser, { files: given, argv = [], viewport = WIDE }) {
       const { createMemoryShell } = await import('/src/shell/memory.ts');
       const { startApp } = await import('/src/app.ts');
       const shell = createMemoryShell(bytes);
+      // A shell whose layout read never settles.
+      if (stall) {
+        const head = shell.readHead.bind(shell);
+        shell.readHead = (path, max) => (path.endsWith('/layout.json') ? new Promise(() => {}) : head(path, max));
+      }
       const handle = await startApp(shell, { argv });
       await handle.ready;
       window.__marxyHandle = handle;
     },
-    { encoded, argv },
+    { encoded, argv, stall },
   );
   return page;
 }
@@ -324,5 +329,18 @@ test('a layout.json over 64 KB is not read whole: quarantined once, replaced, an
     const second = await again.evaluate(() =>
       window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && /layout\.json\.bad-/.test(c.args[0])).length);
     assert.equal(second, 0);
+  });
+});
+
+test('a layout read that never settles does not hold up first text, with or without a file argument', async () => {
+  await withBrowser(async (browser) => {
+    const saved = layout([rendered('/r/A.md'), rendered('/r/B.md')]);
+    const withFile = await boot(browser, { files: { ...files, '/data/layout.json': saved }, argv: ['/r/C.md'], stall: true });
+    assert.deepEqual((await shown(withFile)).paths, ['/r/C.md']);
+    const marks = await withFile.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]));
+    assert.ok(marks.includes('first_text'), `marks: ${marks}`);
+    // With no argument the read is waited for only within its budget; the launch then shows what it always did.
+    const none = await boot(browser, { files: { ...files, '/data/layout.json': saved }, argv: [], stall: true });
+    assert.deepEqual((await shown(none)).paths, [null]);
   });
 });
