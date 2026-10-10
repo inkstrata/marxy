@@ -681,7 +681,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     const pos = currentPosition(scroller, blocks, openPath, 'rendered');
     set.relayout('theme');
     await set.ready;
-    restoreTo(blocks, { ...pos, path: openPath, mode: 'rendered' });
+    // The block list the passes after the restyle built, measured when the offset below is: the old list's
+    // tops against a new padding would put the place off by the difference (F-27).
+    restoreTo(shown?.blocks ?? blocks, { ...pos, path: openPath, mode: 'rendered' });
   }
 
   function snap(article: HTMLElement, from?: HTMLElement): void {
