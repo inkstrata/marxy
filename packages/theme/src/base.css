@@ -19,6 +19,11 @@
 }
 :root[data-marxy-variant="light"] { color-scheme: light; }
 
+/* A pane's kind scope may set its own measure (ADR-0059 item 7). --marxy-measure is computed on :root in
+   tokens.css, so a per-kind --marxy-measure-chars would change nothing below it: the same computation is
+   repeated where the kind's values apply. :root keeps its declaration, so a v1 theme renders as before. */
+[data-marxy-kind] { --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em); }
+
 html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
 ::selection { background: var(--marxy-color-selection); }
 

@@ -23,8 +23,11 @@ export function marxyCodeMirrorTheme(): Extension {
   const bg = 'var(--marxy-color-code-bg, #1d1c19)';
   const accent = 'var(--marxy-color-accent, #8fb4dd)';
   const selection = 'var(--marxy-color-selection, #1f3651)';
-  const rule = 'var(--marxy-color-rule, #2a2825)';
+  // Contract-2 roles fall back, in tokens.css, to the v1 token they replace, so these read as before for a v1 theme.
+  const rule = 'var(--marxy-color-rule-strong, var(--marxy-color-rule, #2a2825))';
   const secondary = 'var(--marxy-color-text-secondary, #a39e94)';
+  const faint = 'var(--marxy-color-text-faint, var(--marxy-color-text-secondary, #a39e94))';
+  const surface = 'var(--marxy-color-surface, var(--marxy-color-notice, #1f1e1b))';
   const mono = 'var(--marxy-font-mono, "JetBrains Mono", ui-monospace, monospace)';
   const activeLine = `color-mix(in srgb, ${selection} 40%, transparent)`;
 
@@ -58,7 +61,7 @@ export function marxyCodeMirrorTheme(): Extension {
       '.cm-activeLineGutter': { backgroundColor: activeLine },
       '.cm-gutters': {
         backgroundColor: bg,
-        color: secondary,
+        color: faint,
         border: 'none',
       },
       '.cm-gutterElement': { lineHeight: 'var(--marxy-line-box-code, 30px)', padding: `0 ${UNIT}` },
@@ -74,7 +77,7 @@ export function marxyCodeMirrorTheme(): Extension {
         outline: '2px solid var(--marxy-color-code-text, #e3dfd6)',
       },
       '.cm-panels': {
-        backgroundColor: 'var(--marxy-color-notice, #1f1e1b)',
+        backgroundColor: surface,
         color: 'var(--marxy-color-text, #e8e4dc)',
         borderColor: rule,
         fontFamily: mono,

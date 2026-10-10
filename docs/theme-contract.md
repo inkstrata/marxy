@@ -4,7 +4,7 @@ A theme is a directory (ADR-0008):
 
 ```
 my-theme/
-  theme.toml      # name, author, contract = 1, variants = ["dark", "light"]   (dark first: it is primary, ADR-0024)
+  theme.toml      # name, author, contract = 2, variants = ["dark", "light"]   (dark first: it is primary, ADR-0024)
   theme.css       # declarative CSS; layout only through --marxy-* tokens
   fonts/          # optional, bundled, licences preserved
   LICENSE
@@ -29,7 +29,7 @@ line of the measure or becomes a seeker.
 
 ## Tokens
 
-The full list is `packages/theme/src/tokens.css` (version 1). ADR-0033 added
+The full list is `packages/theme/src/tokens.css` (version 2; the v1 names are unchanged). ADR-0033 added
 `--marxy-measure-chars` and `--marxy-avg-char`, with defaults. The token names, units and
 meanings are frozen and need an ADR; the default theme's values are taste and need a story
 with a taste-review queue row. That is the guarantee a theme author gets (ADR-0031): the
@@ -63,14 +63,13 @@ average character (the mean advance of English prose, in em) and sets `--marxy-a
 column will not hold the character count. Never set a measure in `ch`: a `ch` is the digit zero,
 which in most faces is 13–58 % wider than an average character.
 
-## Contract v2 (ADR-0059): decided, not yet shipped
+## Contract v2 (ADR-0059): shipped
 
-ADR-0059 (proposed) decides the names below; none is in `tokens.css` yet. H-03 declares them, moves
-the loader to `contract = 2` and teaches the validator the kind scope; H-04 sets Night's and Paper's
-values. Until then a theme that sets them gets no effect, and `check-tokens` refuses them in
-`tokens.css`. No v1 name, kind or meaning changes. Each new name falls back to the v1 token in
-brackets, so a contract-1 theme keeps rendering as it does today (it loads with a warning that its
-contract-2 roles use their fallbacks).
+`tokens.css` declares the names below and the loader speaks `contract = 2` (H-03). H-04 sets Night's and
+Paper's values. No v1 name, kind or meaning changed. Each new name is declared in `tokens.css` as `var()` of
+the v1 token in brackets, so a contract-1 theme keeps rendering as it does today and loads with a warning that
+its contract-2 roles use their fallbacks. A contract-2 theme that leaves a colour role unset in a variant also
+loads, with a warning naming each unset role. A contract above 2 keeps the old "may not look as intended" warning.
 
 - **Colour** (`colour`): `--marxy-color-surface` (`-notice`), `-surface-glass` (`-surface`),
   `-text-strong` (`-text`), `-text-faint` (`-text-secondary`), `-rule-strong` (`-rule`), `-edge`
@@ -88,6 +87,16 @@ contract-2 roles use their fallbacks).
   rule and `--marxy-typeset` are global only. A kind sets sizes and line boxes only as multiples of
   the reader's values (a unitless ratio or `em`, never px), so the reader's size wins; the line box is
   rounded to an even whole pixel, the grid stays half of it, and the multiples stay Marxy's.
+- **What the loader does in a kind scope**: clamps `--marxy-measure-chars` to 45–80 as on `:root`; drops
+  a global-only name, `--marxy-measure` and the system-owned names with a warning naming the name and the
+  kind; compiles a ratio for a size to `calc(<ratio> * var(--marxy-root-size-body))` (the root copies
+  `--marxy-root-size-*`, `--marxy-root-line-box*` and `--marxy-root-lh-*` are Marxy's, declared on `:root`;
+  a theme that sets one has it dropped), within the range the `:root` value is held to; rejects an absolute
+  length for a size, naming token and kind. A pane's own measure takes effect because the computation is
+  repeated on `[data-marxy-kind]` in `base.css`.
+- **Slots and roles**: `--marxy-font-text: var(--marxy-face-sans)` on `:root` without `--marxy-face-sans`
+  set there refers back to itself, so the loader refuses the theme and names the slot; inside a kind scope
+  it is valid.
 - **Per language**: inside `[data-marxy-lang="<id>"]` a theme sets only `--marxy-tok-*`; Marxy owns
   `--marxy-lang`.
 
