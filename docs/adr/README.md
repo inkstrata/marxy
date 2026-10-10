@@ -65,3 +65,8 @@ at handoff. Append-only: to change one, add a new ADR that supersedes it.
 | [0059](0059-token-contract-v2.md) | Token contract v2: 27 surface, status, accent, face and chrome roles with v1 fallbacks; a kind re-scopes `--marxy-*`, no `--k-*` family; contract 2; amends 0008 and 0031 | proposed (H-01) |
 | [0060](0060-kinds.md) | Kinds: fourteen ways a file is read, `article` the default, detected from the reader's rules, name, format, shape and byline, never from who wrote it; a kind sets the default mode; amends 0005 | proposed (K-01) |
 | [0061](0061-derived-views.md) | Derived views: a read-only tree beside the AST, derived from the bytes, with provenance to the lines it came from; no operation edits it; first deriver the JSONL transcript; amends 0003 | proposed (K-02) |
+| [0062](0062-the-library.md) | The library: the collection can be browsed in a sidebar tree and a library view, with saved queries; amends 0053 and 0012 | accepted (author, 2026-10-10) |
+| [0063](0063-capture-rules.md) | Capture rules: a standing, declared request to copy files byte-exact into a reader folder | accepted (author, 2026-10-10) |
+| 0064 | File metadata capabilities in `shell-api` (reserved for W-18) | — |
+| [0065](0065-the-clipboard.md) | The clipboard is essential: Copy as targets, multi-format writes, paste, Transform; clipboard read on reader action only; the studio waits for a design; amends 0026 and 0054 | accepted (author, 2026-10-10) |
+| [0066](0066-clipboard-history.md) | Clipboard history: Marxy keeps its own copies, recorded where it writes, in memory by default or as plain files by choice; nothing watches the pasteboard; opt-in watching designed and deferred | proposed (J-D1) |

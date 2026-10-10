@@ -13,6 +13,8 @@ export interface SaveDeps {
   readonly shell: Pick<Shell, 'saveDialog' | 'setTitle' | 'allowAssetScope'>;
   /** Folds unfolded Source text into the store first (`commitSource`), so a save from Source writes it. */
   foldSource(): Promise<void>;
+  /** Source text this pane's fold could not take (held apart from another pane's, D-11): a save would not write it. */
+  holdsUnfoldedSource?(): boolean;
   /** The save went to a new path and the store now answers to it: scope, watch and title follow. */
   onSaveAs(path: string): Promise<void>;
 }
@@ -80,6 +82,13 @@ export async function save(
   if (!deps) return 'failed';
   const { store } = deps;
   await deps.foldSource();
+  // Held apart (D-11): the store holds the other pane's text, not this pane's, so writing it would say "saved"
+  // while this pane's typing is still only in its editor. Refuse, and say why.
+  if (deps.holdsUnfoldedSource?.()) {
+    const { notify, SOURCE_HELD_APART } = await import('./notices/index.ts');
+    notify({ kind: 'info', text: SOURCE_HELD_APART });
+    return 'cancelled';
+  }
   const snap = store.snapshot();
   if (!snap.dirty && !opts?.as) return 'unchanged';
 
