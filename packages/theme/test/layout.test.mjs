@@ -226,7 +226,7 @@ for (const width of [320, 1280]) {
 for (const size of [20, 28]) {
   test(`an ordered list is a whole number of grid units tall at ${size}px type (F-22)`, async () => {
     const md = '1. one\n2. two\n3. three\n\n10. ten\n11. eleven\n\nafter\n';
-    const page = await openPage(browser, renderMarkdown(md), { width: 1280, extraCss: `:root { --marxy-size-body: ${size}px; }` });
+    const page = await openPage(browser, renderMarkdown(md), { width: 1280, extraCss: `:root { --marxy-size-body: ${size}px; --marxy-line-box: ${size * 1.5}px; --marxy-line-box-code: ${size * 1.5}px; }` });
     const r = await page.evaluate(() => {
       const unit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-half')) || 0;
       const probe = document.createElement('div');
@@ -243,3 +243,26 @@ for (const size of [20, 28]) {
     }
   });
 }
+
+// The same thing on the corpus page the gate judges (09-gfm-everything: `1. 2. 10.` and a `3) 4)` list), at the
+// gate's cell: 960px wide, 28px type (grid unit 21px). Every block after an ordered list must stay on the grid.
+test('09-gfm-everything keeps every top-level block on the grid at 960px and 28px type (F-22)', async () => {
+  const page = await openPage(browser, renderCorpus('09-gfm-everything.md'), { width: 960, extraCss: ':root { --marxy-size-body: 28px; --marxy-line-box: 42px; --marxy-line-box-code: 42px; }' });
+  const r = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.height = 'var(--marxy-half)';
+    document.getElementById('doc').append(probe);
+    const half = probe.getBoundingClientRect().height;
+    probe.remove();
+    const base = document.getElementById('doc').getBoundingClientRect().top + window.scrollY;
+    const off = [];
+    for (const el of document.querySelectorAll('#doc > ol ~ p, #doc > ol ~ ul, #doc > ol ~ ol')) {
+      const units = (el.getBoundingClientRect().top + window.scrollY - base) / half;
+      if (Math.abs(units - Math.round(units)) > 0.01) off.push(`${el.tagName} at ${units} units`);
+    }
+    return { half, off };
+  });
+  await page.close();
+  assert.equal(r.half, 21);
+  assert.deepEqual(r.off, []);
+});
