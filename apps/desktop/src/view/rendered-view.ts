@@ -989,6 +989,9 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
     typeset = attach(article, {
       lineBox,
       lastLineMinWidth: 0.33,
+      // The scroller the typesetter holds the reader's place on: read at each pass, so a rebind (one pane
+      // to two and back) is followed without a new typesetter (B-26).
+      scroller: () => scroller,
       onPass: (kind) => (kind === 'background' ? scheduleSnap(article) : snap(article)),
     });
     liveTypesetters.add(typeset);
@@ -1155,7 +1158,8 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
    * read from where the old scroller was last seen, is put back on it and held through the passes that
    * follow (the width changes with the scroller, so the typesetter re-breaks the page). A pending open's
    * anchor is kept instead, unless `given` names the place to hold (a pane closing on its left hands the
-   * survivor's place, fraction and all, to the first pane). Source keeps its own place (D-11).
+   * survivor's place, fraction and all, to the first pane). Source keeps its own place (D-11). The
+   * typesetter reads `scroller` at each pass, so it holds the reader's place on `next` from here (B-26).
    */
   function rebindScroller(next: HTMLElement, given?: ReadingPosition): void {
     const path = openPathNow();

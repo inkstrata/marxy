@@ -318,3 +318,118 @@ test("two panes: the first pane's scroll writes its place, and the second pane's
     assert.doesNotMatch(entries, /\/r\/B\.md/, 'the second pane does not write until D-12');
   });
 });
+
+// B-26: the typesetter holds the reader's place on the view's own scroller. A paragraph above a pane's
+// reading line that gains lines (text written into it, which the typesetter sets again, the way a
+// post-pass or a late re-set does) must leave the block under that pane's reading line where it was.
+// Before B-26 the typesetter read the window's scroller, at 0 while two panes are shown, so it held
+// nothing and the pane's reading block moved down by the growth.
+test('two panes: a paragraph above a pane\'s reading line that the typesetter sets again with more lines leaves its reading block in place', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await settle(page);
+    for (const [slot, other] of [[1, 0], [0, 1]]) {
+      await page.evaluate((slot) => {
+        const host = window.__marxyHandle.panes().panes[slot].host;
+        const article = host.querySelector('article');
+        const paras = [...article.querySelectorAll(':scope > p')];
+        // The 7th paragraph a little below the pane's top: everything above it is off the pane.
+        host.scrollTop = paras[6].getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop - 40;
+      }, slot);
+      // Past the typesetter's quiet window after a scroll (INPUT_QUIET_MS, 200 ms).
+      await page.waitForTimeout(500);
+      await scrollsSettled(page);
+      const before = await page.evaluate(({ slot, other }) => {
+        const panes = window.__marxyHandle.panes().panes;
+        const host = panes[slot].host;
+        const article = host.querySelector('article');
+        const top = host.getBoundingClientRect().top;
+        const el = [...article.children].find((c) => c.getBoundingClientRect().bottom > top + 100);
+        const above = [...article.querySelectorAll(':scope > p.marxy-set')].filter((p) => p.getBoundingClientRect().bottom < top);
+        const far = above[1];
+        window.__b26 = { el, top: el.getBoundingClientRect().top, far, height: far.getBoundingClientRect().height };
+        return { scrollTop: host.scrollTop, otherTop: panes[other].host.scrollTop, above: above.length, set: far.classList.contains('marxy-set') };
+      }, { slot, other });
+      assert.ok(before.scrollTop > 300, `pane ${slot} scrolled to ${before.scrollTop}`);
+      assert.ok(before.above >= 2 && before.set, `pane ${slot}: ${before.above} set paragraphs wholly above its top`);
+      // A line and more of text, written into a set paragraph above the reading line.
+      await page.evaluate(() => {
+        window.__b26.far.appendChild(document.createTextNode(' ' + 'further words that fill more lines of the measure '.repeat(4)));
+      });
+      await settle(page);
+      const r = await page.evaluate(({ slot, other }) => {
+        const panes = window.__marxyHandle.panes().panes;
+        const { el, top, far, height } = window.__b26;
+        return {
+          grew: far.getBoundingClientRect().height - height,
+          drift: el.getBoundingClientRect().top - top,
+          window: document.documentElement.scrollTop,
+          otherTop: panes[other].host.scrollTop,
+          set: far.classList.contains('marxy-set'),
+        };
+      }, { slot, other });
+      assert.ok(r.grew >= 20 && r.set, `pane ${slot}: the paragraph above was set again ${r.grew.toFixed(1)} px taller`);
+      assert.ok(Math.abs(r.drift) <= 1, `pane ${slot}: its reading block moved ${r.drift.toFixed(2)} px after a ${r.grew.toFixed(1)} px growth above`);
+      assert.equal(r.window, 0, 'the window does not scroll');
+      assert.equal(r.otherTop, before.otherTop, `pane ${other} did not move`);
+    }
+  });
+});
+
+// B-26, the card's case: a pane scrolled to its end, whose paragraphs above are then set again taller,
+// keeps its last paragraph where it was, in view. Before B-26 nothing compensated inside a pane, so the
+// growth pushed the last paragraph down and partly out of the pane.
+test('two panes: a pane scrolled to its end keeps its last paragraph in view when paragraphs above it are set again taller', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await settle(page);
+    for (const [slot, other] of [[1, 0], [0, 1]]) {
+      await page.evaluate((slot) => {
+        const host = window.__marxyHandle.panes().panes[slot].host;
+        host.scrollTop = host.scrollHeight;
+      }, slot);
+      await page.waitForTimeout(500);
+      await scrollsSettled(page);
+      const before = await page.evaluate(({ slot, other }) => {
+        const panes = window.__marxyHandle.panes().panes;
+        const host = panes[slot].host;
+        const box = host.getBoundingClientRect();
+        const article = host.querySelector('article');
+        const last = article.lastElementChild;
+        const above = [...article.querySelectorAll(':scope > p.marxy-set')].filter((p) => p.getBoundingClientRect().bottom < box.top);
+        window.__b26 = { last, bottom: last.getBoundingClientRect().bottom, grow: above.slice(-2) };
+        return {
+          atEnd: host.scrollHeight - host.clientHeight - host.scrollTop,
+          lastInView: last.getBoundingClientRect().bottom <= box.bottom && last.getBoundingClientRect().top >= box.top,
+          above: above.length,
+          otherTop: panes[other].host.scrollTop,
+        };
+      }, { slot, other });
+      assert.ok(before.atEnd <= 1, `pane ${slot} is at its end (${before.atEnd} px short)`);
+      assert.ok(before.lastInView, `pane ${slot}: its last paragraph is in view before`);
+      assert.ok(before.above >= 2, `pane ${slot}: ${before.above} set paragraphs wholly above its top`);
+      await page.evaluate(() => {
+        for (const p of window.__b26.grow) {
+          p.appendChild(document.createTextNode(' ' + 'further words that fill more lines of the measure '.repeat(4)));
+        }
+      });
+      await settle(page);
+      const r = await page.evaluate(({ slot, other }) => {
+        const panes = window.__marxyHandle.panes().panes;
+        const box = panes[slot].host.getBoundingClientRect();
+        const { last, bottom } = window.__b26;
+        const rect = last.getBoundingClientRect();
+        return {
+          drift: rect.bottom - bottom,
+          lastInView: rect.bottom <= box.bottom + 1 && rect.top >= box.top,
+          window: document.documentElement.scrollTop,
+          otherTop: panes[other].host.scrollTop,
+        };
+      }, { slot, other });
+      assert.ok(Math.abs(r.drift) <= 1, `pane ${slot}: its last paragraph moved ${r.drift.toFixed(2)} px`);
+      assert.ok(r.lastInView, `pane ${slot}: its last paragraph is in view after the set`);
+      assert.equal(r.window, 0, 'the window does not scroll');
+      assert.equal(r.otherTop, before.otherTop, `pane ${other} did not move`);
+    }
+  });
+});
