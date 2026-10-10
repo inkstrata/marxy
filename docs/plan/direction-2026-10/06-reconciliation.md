@@ -22,12 +22,16 @@ split, so the direction's records are 0058 to 0065 (table in [05](05-plan.md#dec
 
 ## Where the mockup changes the direction documents
 
+Rows 1 to 4 come from Galley's defaults rather than a ruling, and overturn shipped keys (`⌘E`, `/`)
+or the author's word that Extract is scope creep. They are open until the author answers; stories
+W-19 and W-21 are held with them.
+
 | # | Topic | 01 to 04 said | Now (from mock-v2) |
 | --- | --- | --- | --- |
-| 1 | Palette key | `⌘P` | `⌘K` opens the palette, `⇧⌘P` opens it on commands; `⌘P` stays as an alias so no reader loses a key |
-| 2 | `/` in the palette | Content search | **Transforms** (`⌘/` opens the palette there). Content matches move into Everything mode as their own section, landing at the match as C-17 does |
-| 3 | `⌘E` | Toggle Read and Source | **Extract**. Read, Split and Source are `⌘1` to `⌘3`; the old toggle stays in the palette |
-| 4 | Toolbar | No Transform button | **Transform** (`⌘/`) and **Extract** buttons join Copy and Export |
+| 1 | Palette key | `⌘P` | **Open, asked of the author:** `⌘K` opens the palette, `⇧⌘P` opens it on commands; `⌘P` stays as an alias so no reader loses a key |
+| 2 | `/` in the palette | Content search | **Open, asked of the author:** **Transforms** (`⌘/` opens the palette there). Content matches move into Everything mode as their own section, landing at the match as C-17 does |
+| 3 | `⌘E` | Toggle Read and Source | **Open, asked of the author:** **Extract**. Read, Split and Source are `⌘1` to `⌘3`; the old toggle stays in the palette |
+| 4 | Toolbar | No Transform button | **Open, asked of the author:** **Transform** (`⌘/`) and **Extract** buttons join Copy and Export |
 | 5 | Collect stack | Dropped | Still dropped until the studio design (J-D1); the mock's *add to stack* and Stack tab are not built |
 | 6 | Inspector tabs | Outline, Metadata, Versions, Links, Look | Outline, Metadata, Versions, Links. **No Look tab:** the typography panel lives on the Content types page in settings (mock 03 and 08) |
 | 7 | Kinds | Nine, with `prose` as the default | The mock's twelve at v1: **article** (the default, replacing `prose`), report, book (paged), readme, docs, code, transcript, data, notes, changelog, log, terminal. `diff` and `html` stay from 03. Verse, slides and drama are later |
