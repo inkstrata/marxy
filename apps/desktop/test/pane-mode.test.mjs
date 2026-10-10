@@ -407,6 +407,40 @@ test('a fold from the other pane meets Source text of this pane\'s own not yet f
   });
 });
 
+test('held apart, "Save and open" stops: it never writes the other pane\'s version and then lets the open drop this pane\'s typing', async () => {
+  await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
+    await bothInSource(page, mod);
+    await typeAtFirstLineEnd(page, 1, 'Y');
+    // The held-apart state, reached directly (no route of the app does this any more): the left editor's
+    // text is folded into the shared store while the right pane keeps its own typing.
+    await page.evaluate(async () => {
+      const { activeSourceEditor } = await import('/src/source/editor.ts');
+      const view = activeSourceEditor(document.getElementById('marxy-source')).view;
+      view.dispatch({ changes: { from: view.state.doc.line(1).to, insert: 'X' } });
+      await window.__marxyHandle.panes().panes[0].content.foldSource();
+    });
+    await page.waitForFunction(() => document.body.textContent.includes('Source in the other pane changed this file'));
+    const heldText = await editorText(page, 1);
+    assert.ok(heldText.startsWith('# AlphaY\n'), heldText.slice(0, 20));
+    const writes = () =>
+      page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === '/r/A.md').length);
+    // The right pane opens another document over its held text: the unsaved-changes prompt comes up.
+    await page.evaluate(() => void window.__marxyHandle.panes().openIn(1, '/r/B.md'));
+    const answer = page.locator('.marxy-notice button', { hasText: 'Save and open' });
+    await answer.waitFor();
+    await answer.click();
+    await page.waitForTimeout(400);
+    assert.equal(await writes(), 0, 'nothing was written: the store holds only the other pane\'s text');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].path()), '/r/A.md');
+    assert.equal(await editorText(page, 1), heldText);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.sourceHasUnfoldedEdits()), true);
+    // The notice names ways out that work: opening the file again is not one of them.
+    const text = await page.evaluate(() => document.body.textContent);
+    assert.ok(text.includes('Undo your typing here'), 'the notice says how to get out');
+    assert.ok(!text.includes('open the file again'));
+  });
+});
+
 /**
  * The route the review found: the right pane holds unfolded Source on `file`, which only it shows; the
  * left pane opens `file`, goes to Source and types; focus moves back to the right editor and then left.

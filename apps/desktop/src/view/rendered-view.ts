@@ -20,7 +20,7 @@ import { buildBlocks, nodeFor, type BlockList, type NodeMap } from '../render/po
 import { mountProgressively, type ProgressiveMount } from '../render/progressive.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
-import { notify } from '../notices/index.ts';
+import { notify, SOURCE_HELD_APART } from '../notices/index.ts';
 import { leaveSourceMode } from '../source/buffer-commit.ts';
 import { type CmStateLike, cmPosToUtf16, utf16ToCmPos } from '../source/cm-position.ts';
 import { type DeferredStartupContext, runDeferredStartup, whenIdle } from '../startup/idle-work.ts';
@@ -208,10 +208,6 @@ function mountedBytes(doc: HTMLElement): number {
 function assignHtml(doc: HTMLElement, html: string): void {
   doc.innerHTML = html;
 }
-
-/** What a pane says when its Source text and the other pane's fold of the same file meet (D-11). */
-export const SOURCE_HELD_APART =
-  'Source in the other pane changed this file; your text was not folded. It stays here until it matches the file or you open the file again.';
 
 /** True when the editor's text differs from both the buffer it last took and `next`: text only the editor has. */
 function holdsUnfoldedText(editor: MountedSourceEditor, next: Buffer): boolean {
