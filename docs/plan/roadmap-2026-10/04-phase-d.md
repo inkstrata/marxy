@@ -1017,6 +1017,18 @@ reimplementing the store. Canonical-path keying: `/r/A.md` and a symlink to it m
 opening pane's: an open in the right pane wipes a close prompt in the left (the close is refused or the quit stops,
 silently; nothing is lost). Notices per pane are this story's.
 
+**From the D-11 review (2026-10-10).** Each pane's open path runs its own watch (`document/open.ts:141`); this story
+makes it one watch per store. D-11's `keepTypedText` keeps unfolded Source text across another view's reload, but (P4)
+after an outside write it folds on top of the reloaded store, re-arming the stale-write guard on the outside bytes, so
+Mod+S then overwrites the other program's write without a conflict prompt (with one pane the guard stays armed on the
+old read): ask every view of the store before it reloads. (P5) A rename on disk splits the panes onto two stores at one
+path; `keepTypedText`'s rename branch did not run in that order.
+
+**From the D-08 fix (2026-10-10).** In a split window a Source pane's CodeMirror mount covers its own notices region
+(`apps/desktop/index.html:27`, `#marxy-main[data-marxy-split] .marxy-source-mount:not([hidden]) { position: absolute;
+inset: 0 }`, with no split counterpart of line 23's fixed, `z-index: 10` notices rule), so the reader cannot click a
+guard's buttons there. Notices per pane are this story's; fix the stacking here.
+
 ### D-11 — Let each pane be Rendered or Source
 
 **Model:** opus · **Size:** M · **Depends on:** D-01, D-05, D-06 · **Parallel with:** D-07, D-13

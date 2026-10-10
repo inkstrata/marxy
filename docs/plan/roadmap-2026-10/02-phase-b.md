@@ -1883,6 +1883,30 @@ read and the attach option), `apps/desktop/src/view/rendered-view.ts` (passing t
 pane test. **Acceptance:** with two panes, a pane scrolled to its end before typesetting keeps its last paragraph in
 view after the set; one pane unchanged (F-11's keep-place tests).
 
+### B-26.1 — A pane or window put at its end before it is set stays at its end
+
+**Model:** opus · **Size:** S · **Depends on:** B-26 · *From the B-26 review (2026-10-10); true on main.* In the
+first ~250 ms after a mount, a pane (or the one-pane window) put at its end before its paragraphs are set ends about
+2,300 px off: no script moves `scrollTop` (the setters were instrumented), the jump appears at the layout read in
+`setBatch`'s `changed()`, it vanishes with `--marxy-typeset: none`, and `overflow-anchor: none` does not help. Most
+likely the engine clamps `scrollTop` at the scroller's end during a short-lived shrink inside a batch; it falls in
+B-02.8's 200 ms window that counts as reader input, so `keepPlace` does not compensate. Find the shrink and remove it,
+or compensate a move the reader did not make inside the window. **Paths:** `packages/typeset/src/`, a typeset test,
+`apps/desktop/test/pane-scroll.test.mjs`. **Acceptance:** a pane and the window put at their end right after mount keep
+the last paragraph in view through the whole set (one test each, red on main); B-02.8's no-wheel-at-the-top and F-11's
+keep-place tests unchanged; 1 MB first_text and content_complete recorded beside main's. The review's drive script
+was `b26-drive.mjs` in the lead's scratchpad; copy what you need into the test.
+
+### B-26.2 — Input in one pane does not hold off the other pane's place
+
+**Model:** sonnet · **Size:** S · **Depends on:** B-26 · *From the B-26 review (2026-10-10).* The typesetter's input
+listeners are on the window, so a wheel or key in pane A suspends pane B's keep-place for the quiet window, and B is
+left jumped (−330 px while B finishes setting; main −570 px). In `onInput`/`onDown`, ignore an event whose target is
+outside `scroller()` when the scroller is not the page's; the page's own scroller keeps today's behaviour.
+**Paths:** `packages/typeset/src/index.ts` (the input handlers), `packages/typeset/test/keep-place.test.mjs`,
+`apps/desktop/test/pane-scroll.test.mjs`. **Acceptance:** wheeling pane A while B sets leaves B's reading block within
+1 px (red on main); input inside B still counts as B's reader input; one pane unchanged (the B-02.8 and F-11 tests).
+
 ### B-25.1 — The diagram-caption rule without a two-step `:has()`
 
 **Model:** opus · **Size:** S · **Depends on:** B-25, L-03 (same file) · *Added 2026-10-08 by the lead, from B-25 and
