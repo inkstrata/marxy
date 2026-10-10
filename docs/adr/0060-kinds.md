@@ -93,7 +93,7 @@ transcript's bytes do not reflow; its derived view (ADR-0061, K-12) does.
    | 3. Format | `.json`, `.jsonl`, `.yaml`, `.yml`, `.toml`, `.csv`, `.tsv` | `data` |
    | 3. Format | A source-language extension, a build-file name (`Makefile`, `Dockerfile`), a dotfile, or a `#!` shebang | `code` |
    | 3. Format | Any other extension | `code`, with no language |
-   | 3. Format | No extension, outside the text family (`LICENSE`, `AUTHORS`) | `code`, with no language, unless a tier-4 signal names a kind |
+   | 3. Format | No extension, outside the text family (`LICENSE`, `AUTHORS`) | `code`, with no language, unless a tier-4 signal names `log` or `terminal` |
    | 3. Format | The text family | go to tier 2, then tier 4 |
    | 4. Shape | JSONL whose lines are objects with a role or message type | `transcript` |
    | 4. Shape | Speaker headings that name a role (`## You` / `## Assistant`, `User`, `Agent`, `Tool`); a heading that names a product or a model is not a speaker signal | `transcript` |
@@ -108,8 +108,9 @@ transcript's bytes do not reflow; its derived view (ADR-0061, K-12) does.
    | 7. Default | Nothing above, in the text family | `article` (`DEFAULT_KIND`) |
 
    Tiers 4 to 7 apply to the text family, with two exceptions stated here once: tier 4's first row
-   may refine a `.jsonl` file from `data` to `transcript`, and a tier-4 signal may name the kind of an
-   extension-less file outside the text family. Otherwise a file named in tier 2 or given a kind by
+   may refine a `.jsonl` file from `data` to `transcript`, and a tier-4 signal may name `log` or `terminal` (kinds
+   that open in Source) for an extension-less file outside the text family; any other shape it shows is
+   a reason only, so such a file stays `code` and its opening mode does not change. Otherwise a file named in tier 2 or given a kind by
    its format in tier 3 keeps that kind, and its shape signals are kept as reasons only.
 
    *Several* is not one: a single Summary heading or a single Returns section does not make a report
@@ -160,7 +161,7 @@ transcript's bytes do not reflow; its derived view (ADR-0061, K-12) does.
    gives a kind its profile and Read treatment also switches its default mode to the table's, in the
    same pull request, with a test. So, today:
    - *Already open in Rendered, and stay there:* `article`, `report`, `book`, `readme`, `docs`, `notes`,
-     `changelog` and a Markdown `transcript`, whenever the file has a text-family extension, which is
+     `changelog` and a Markdown `transcript`, whenever the file is in the text family, which is
      what detects them.
    - *Open in Source now and move to Rendered with their story:* `log` (K-08), `diff` (K-09) and
      `terminal` (K-17). A `.txt` that detects as a log or terminal session opens Rendered as prose
@@ -181,7 +182,8 @@ transcript's bytes do not reflow; its derived view (ADR-0061, K-12) does.
    its own, `kinds.json`, in Marxy's data directory beside `positions.json`, keyed by path, with the
    same version guard, size cap and quarantine of a corrupt file (K-04). Unlike positions, it is
    never evicted: at its size cap a new *show as* is refused with a notice naming the cap, and no
-   earlier choice is dropped silently. It holds a kind and nothing else; the reader who wants one file always in Read writes a rule whose glob is that file.
+   earlier choice is dropped silently. It holds a kind and nothing else; the reader who wants one file
+   always in Read writes a rule whose glob is that file.
    *Always open this folder as* writes a `[[kind]]` table to the reader's `config.toml`, appended
    without touching another byte, the way "Add this folder" appends to `collection.toml` (C-03), and
    the reader edits or deletes it in any editor. A per-file choice beats a folder rule, because it is
@@ -206,6 +208,8 @@ read = true          # open in Read, not Source
 - `data-marxy-kind`'s values are exactly `KINDS`; a theme scope naming another value matches nothing.
 - An unknown extension, and an extension-less file outside the text family, is read verbatim as
   `code`, as it opens in Source today; `article` is the default of the text family, not of every file.
+  *For the author:* this is option A; option B would make them `article` (a `.conf` file typeset as
+  Markdown, its opening mode changed). The PR lists both.
 - 03 §Profiles gives `readme` a measure of 84 characters, beyond the 45–80 the validator clamps a
   reflowing kind to. K-05 (which sets the profile) and H-03 (which writes the clamp) settle it: either
   the README profile is 80, or the clamp's exception is written down where the clamp is.
