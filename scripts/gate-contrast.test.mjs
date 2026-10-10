@@ -160,13 +160,17 @@ test('H-02: the bundled themes are found, every variant is audited, and today no
   const all = auditAll();
   assert.ok(all.checks.some(c => c.variant === 'light') && all.checks.some(c => c.variant === 'dark'));
   assert.deepEqual(all.failures, []);
-  assert.ok(all.undeclared.every(u => u.roles.length > 0), 'a v1 theme lacks the v2 roles');
+  // H-03 declares every contract-2 role in tokens.css (as its v1 fallback), so the default theme has none undeclared.
+  assert.ok(all.undeclared.length > 0 && all.undeclared.every(u => u.roles.length === 0), JSON.stringify(all.undeclared));
+  assert.ok(all.checks.some(c => c.fg === 'text-strong') && all.checks.some(c => c.fg === 'accent-fg'), 'the v2 roles are now checked');
+  // the "not yet declared" path stays live for a theme that does not import tokens.css
+  assert.ok(audit(css(BASE)).undeclared[0].roles.includes('surface'));
 });
 
 test('H-02: the CLI exits 0 and prints the not-declared count; --md prints a table', () => {
   const run = a => spawnSync(process.execPath, [`${ROOT}scripts/gate-contrast.mjs`, ...a], { cwd: ROOT, encoding: 'utf8' });
   const cli = run([]);
   assert.equal(cli.status, 0, cli.stdout + cli.stderr);
-  assert.match(cli.stdout, /gate-contrast: \d+ pairs checked, 0 failing, \d+ roles not yet declared/);
+  assert.match(cli.stdout, /gate-contrast: \d+ pairs checked, 0 failing, 0 roles not yet declared/);
   assert.match(run(['--md']).stdout, /\| Role \| Against \| Floor \| dark \| light \|/);
 });
