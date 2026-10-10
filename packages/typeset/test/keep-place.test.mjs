@@ -610,3 +610,96 @@ test('in a pane, a wheel, key or scroll outside it leaves its reading block with
   assert.ok(Math.abs(r.wheelInside) > 1, `a wheel inside still holds the compensation off (moved ${r.wheelInside.toFixed(2)} px)`);
   await page.close();
 });
+
+// B-26.1: a scroller put at its end before its paragraphs are set. Inside a size container (the app's
+// pane, `container-type: inline-size`, D-01), WebKit lays a paragraph whose text node was split out,
+// for a moment inside one layout, as short as what that node kept; a scroller within that much of its
+// end clamped its offset to it and kept the clamp, some hundreds of px a batch, inside the quiet window
+// after the reader's scroll where nothing compensates. The batch runs in the same task as the scroll
+// here, so it is inside that window for certain. The hold is a style write on the article, taken only
+// near the end: at the top and mid-document it writes nothing.
+for (const where of ['pane', 'window']) {
+  test(`${where === 'pane' ? 'a pane' : 'the window'} put at its end, then a batch of paragraphs far above set at once: the last block stays where it was`, async () => {
+  const html = Array.from({ length: 4 }, () => renderCorpus('15-prose-volume.md')).join('\n');
+  {
+    const page = await harness.open(html);
+    const r = await page.evaluate(async (where) => {
+      const doc = document.getElementById('doc');
+      // The app's pane: a size container, which scrolls itself with two panes and leaves the window to with one.
+      const pane = document.createElement('section');
+      pane.style.containerType = 'inline-size';
+      doc.before(pane);
+      pane.append(doc);
+      let root = document.documentElement;
+      if (where === 'pane') {
+        pane.style.height = '100vh';
+        pane.style.overflowY = 'auto';
+        document.body.style.margin = '0';
+        document.body.style.overflow = 'hidden';
+        root = pane;
+      }
+      let step = null;
+      const writes = [];
+      new MutationObserver((records) => { for (const m of records) writes.push(m.attributeName); })
+        .observe(doc, { attributes: true, attributeFilter: ['style'] });
+      const controller = window.typeset.attach(doc, {
+        lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33,
+        scheduler: { schedule(fn) { step = fn; } },
+        ...(where === 'pane' ? { scroller: () => root } : {}),
+      });
+      await controller.ready;
+      const run = (n) => {
+        for (let i = 0; i < n && step !== null; i++) {
+          const s = step;
+          step = null;
+          s(() => 50);
+        }
+      };
+      // At the top: batches below the screen, no hold.
+      run(2);
+      await Promise.resolve();
+      const atTop = writes.length;
+      // Straight from the top to the end, as an open that lands there or the reader's first scroll does
+      // (it counts as the reader's input), and the next batches (paragraphs near the top, far above) set
+      // in the same task, inside the quiet window that follows.
+      root.scrollTop = root.scrollHeight;
+      const box = () => (root === document.documentElement ? { top: 0, bottom: innerHeight } : root.getBoundingClientRect());
+      const last = doc.lastElementChild;
+      const bottom = last.getBoundingClientRect().bottom;
+      const short = () => root.scrollHeight - root.clientHeight - root.scrollTop;
+      const startShort = short();
+      const set0 = doc.querySelectorAll('.marxy-set').length;
+      run(4);
+      const set = doc.querySelectorAll('.marxy-set').length - set0;
+      const r = last.getBoundingClientRect();
+      const endShort = short();
+      await Promise.resolve();
+      const atEnd = writes.length - atTop;
+      const minHeight = doc.style.minHeight;
+      // Mid-document, past the quiet window: no hold.
+      root.scrollTop = root.scrollHeight * 0.5;
+      await new Promise((res) => setTimeout(res, 400));
+      run(2);
+      await Promise.resolve();
+      const out = {
+        atTop, atEnd, midway: writes.length - atTop - atEnd, minHeight,
+        set, startShort, endShort, drift: r.bottom - bottom, inView: r.bottom <= box().bottom + 1 && r.bottom > box().top,
+        windowY: where === 'pane' ? window.scrollY : 0,
+      };
+      controller.destroy();
+      return out;
+    }, where);
+    console.log(where, JSON.stringify(r));
+    assert.ok(r.set >= 8, `${where}: ${r.set} paragraphs set at the end`);
+    assert.ok(r.startShort <= 1, `${where}: at its end (${r.startShort} px short)`);
+    assert.ok(Math.abs(r.drift) <= 1, `${where}: the last block moved ${r.drift.toFixed(2)} px as paragraphs far above were set (${r.endShort.toFixed(1)} px short of the end after)`);
+    assert.ok(r.inView, `${where}: the last block is in view`);
+    assert.equal(r.atTop, 0, `${where}: no write to the article's style at the top`);
+    assert.equal(r.midway, 0, `${where}: no write to the article's style mid-document`);
+    assert.ok(r.atEnd >= 2, `${where}: the hold was taken and given back at the end (${r.atEnd} style writes)`);
+    assert.equal(r.minHeight, '', `${where}: the article's min-height is its own again`);
+    assert.equal(r.windowY, 0, `${where}: the window did not scroll`);
+    await page.close();
+  }
+  });
+}
