@@ -15,6 +15,7 @@ import { paneCloseCommands } from './pane-close.ts';
 import { paneOpenCommands } from './pane-open.ts';
 import { fromOperation, type Command } from './registry.ts';
 import { selectionNavigationCommands } from './selection-nav.ts';
+import { sourceEditCommands } from './source-edit.ts';
 import { sourceViewCommands } from './source-view.ts';
 import { trustRevokeCommands } from './trust.ts';
 
@@ -26,6 +27,7 @@ export function commands(): readonly Command[] {
     ...selectionNavigationCommands(),
     ...documentCommands(),
     ...sourceViewCommands(),
+    ...sourceEditCommands(),
     ...trustRevokeCommands(),
     ...navigationCommands(),
     ...paneFocusCommands(),
