@@ -1,6 +1,6 @@
 # ADR-0011 — The palette is the tab manager; no tab bar
 
-**Status:** accepted, with a reversal criterion
+**Status:** accepted, with a reversal criterion; reversed inside the unfolded workspace by ADR-0058 (2026-10-10)
 
 ## Decision
 No persistent tab bar. Opening the palette with no query shows the most-recently-used stack,

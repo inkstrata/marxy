@@ -4,6 +4,10 @@
 `08-feature-text-operations.md` (catalogue, §5, §6, §7), `10-overfit-decisions.md` §4 and §5
 (ADR-0048, ADR-0049), `12-recommendation-codebase.md` §4 · **Stories:** E-01 to E-18
 
+> **Redistributed 2026-10-10** (`../direction-2026-10/06-reconciliation.md`): E-12, E-14 and E-15 move to
+> Phase J as J-05, after the clipboard capability; E-01 to E-11 feed the transform library (J-03); E-18
+> narrows to what stays here.
+
 **Abstract.** Phase E makes Marxy useful for the second half of "a reader first, but adept at
 both": it lets a reader fix what they read, without turning Marxy into a writing tool. Eighteen
 stories, in four waves. Wave 1 lays the shared foundations that do not depend on each other: the

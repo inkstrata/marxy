@@ -1,6 +1,6 @@
 # ADR-0057 — Two documents side by side: a two-column split inside one window
 
-- **Status:** proposed
+- **Status:** proposed; item 4 amended by ADR-0058 (one document as Read and Source scrolls linked)
 - **Date:** 2026-10-08
 - **Amends:** ADR-0005 (Rendered or Source is the mode of a pane, toggled in the focused one) and
   ADR-0011 (a summoned split is not a tab bar). Builds on ADR-0037 Amendment 1 (one store per document,

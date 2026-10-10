@@ -141,6 +141,13 @@ dispatched, opened, returned, merged, split or parked. States: `ready`, `running
 | D-05 | (Phase D) each pane its own scroller, reading position and anchor | opus | merged | [#476](https://github.com/inkstrata/marxy/pull/476) | ../marxy-wt/D-05 (feat/d-05-pane-scroller) | Dispatched 2026-10-08 after D-01; takes D-01's survivor-fraction deferral. Typesetter keep-place inside a pane is B-26. Opus review: merge (one pane unchanged over 16 suites; every mutation caught). Stale-`seen` restore on split noted on D-07. Merged by the lead |
 | D-06 | (Phase D) focus between panes; selection bound to the focused pane | opus | in review | [#475](https://github.com/inkstrata/marxy/pull/475) | ../marxy-wt/D-06 (feat/d-06-pane-focus) | Dispatched 2026-10-08 after D-01; F-21's refix follows (selection/view.ts). 3-line out-of-Paths `pane/index.ts` edit accepted. Opus review, return 1: `Mod+1/2` still run under an open outline (the registry dispatcher matches the chord); a chord with the verb menu open leaves focus on body. Selection rebind held under adversarial probes. Fixed (Sonnet): dialog `when`, verb menu closed before a chord, `aria-label` per pane. Re-review dispatched |
 | D-08 | (Phase D) close a pane; save, title and quit know about two documents | opus | running | — | ../marxy-wt/D-08 (feat/d-08-pane-close-save-title) | Next Opus slot; D-01 review notes on its card |
+| H-01 | (Direction) write ADR-0059, token contract v2; reserve names | opus | ready | — | — | `docs/plan/direction-2026-10/05-plan.md`; can start beside D |
+| K-01 | (Direction) write ADR-0060, kinds | opus | ready | — | — | Twelve kinds of mock-v2 plus diff and html (`06-reconciliation.md` row 7) |
+| K-02 | (Direction) write ADR-0061, derived views | opus | ready | — | — | From research proposal P10 |
+| J-01 | (Direction) the native pasteboard in Rust | opus | ready | — | — | ADR-0065; code-owned Tauri paths, the author merges |
+| J-D1 | (Direction) design the clipboard studio to a buildable spec | opus | ready | — | — | Design only; the mock-v2 page is not sufficient (author, 2026-10-10) |
+| Q-01 | (Direction) saved queries and smart collections in `collection.toml` | sonnet | ready | — | — | ADR-0062 |
+| P-02 | (Direction) capture rules in `collection.toml` | sonnet | ready | — | — | ADR-0063 |
 
 ## Handoff
 
