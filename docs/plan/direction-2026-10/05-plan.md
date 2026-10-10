@@ -40,8 +40,8 @@ accepted; the others are written by the story named, from the approved direction
 | H-01 | Write ADR-0059; reserve the token, attribute and class names in the registry | opus | S | — |
 | H-02 | Port Galley's contrast audit to `scripts/gate-contrast.mjs` over every theme, variant and kind scope; wire into `pnpm check` | sonnet | M | H-01 |
 | H-03 | Contract v2 tokens in `tokens.css` and the contract file; per-kind clamping in the validator; new roles in the CodeMirror theme bridge | opus | M | H-01 |
-| H-04 | The default theme becomes Ink and Paper; bundle the Classic type set with a licence audit per face; before-and-after artifact | opus | M | H-02, H-03 |
-| H-05 | Ship `warm` (Dusk, Sepia), `night`, `fjord`, `high-contrast` | sonnet | M | H-04 |
+| H-04 | The default theme becomes Night (dark) and Paper (light), with Ink as its own theme directory; bundle the Classic type set with a licence audit per face; before-and-after artifact | opus | M | H-02, H-03 |
+| H-05 | Ship `ink` (Ink), `warm` (Dusk, Sepia), `fjord`, `high-contrast` | sonnet | M | H-04 |
 | H-06 | Measure the average character width per face and size in the app, so a type-set change keeps the character count | opus | M | H-03 |
 
 ## Phase W — the fold-up workspace

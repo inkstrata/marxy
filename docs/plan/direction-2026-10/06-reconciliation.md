@@ -13,7 +13,7 @@ authoritative over 01 to 04 until they are rewritten to match it, and 05 is alre
 | 1. Reverse ADR-0050 and ADR-0011 | Yes: [ADR-0058](../../adr/0058-the-fold-up-workspace.md), accepted |
 | 2. Lift "library browsing" | Yes: [ADR-0062](../../adr/0062-the-library.md), accepted; `docs/brief.md` updated |
 | 3. Unfolded state on launch | The proposal stands: windows open folded, panels remembered (ADR-0058 item 4) |
-| 4. Default dark theme | The proposal stands: Ink, with Paper for light. Taste review may overturn it |
+| 4. Default dark theme | **Night** (the author, 2026-10-10), with Paper for light; Ink moves to its own theme directory |
 | 5. Capture rules | Yes: [ADR-0063](../../adr/0063-capture-rules.md), accepted |
 | New: the clipboard | **Clipboard-facing features are essential** (copy, Copy as targets, paste as Markdown or scratch, Transform, Extract, Export): [ADR-0065](../../adr/0065-the-clipboard.md), accepted; Phase J. **The studio page is not a sufficient design:** history, workbench, snippets, ring and stack wait for a design story (J-D1). This matches `02`'s descoping of the studio and the stack |
 
