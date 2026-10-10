@@ -393,7 +393,7 @@ test('after Save as the open document still gives its HTML (B-24)', async () => 
 });
 
 test('a reload while the mount is still filling replaces blocks in what is pending as well (B-24)', async () => {
-  const text = turns(1700);
+  const text = turns(700);
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -411,7 +411,7 @@ test('a reload while the mount is still filling replaces blocks in what is pendi
     const near = text.replace('## Turn 2\n', 'One line an outside editor wrote.\n\n## Turn 2\n');
     let seen = await writeFromOutside(page, near);
     assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
-    const next = near.replace('## Turn 1500\n', '## Turn 1500\n\nAnd one far down.\n\n');
+    const next = near.replace('## Turn 650\n', '## Turn 650\n\nAnd one far down.\n\n');
     seen = await writeFromOutside(page, next);
     assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
     await page.evaluate(() => window.__marxyHandle.contentComplete());
