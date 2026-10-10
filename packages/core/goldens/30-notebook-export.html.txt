@@ -6,12 +6,12 @@
 
 <h2 data-marxy-s="818" data-marxy-e="829">1. Setup</h2>
 <p data-marxy-s="831" data-marxy-e="917">Install the one package that is not in the base image, then import everything we need.</p>
-<pre data-marxy-s="920" data-marxy-e="970"><code class="language-python" data-marxy-s="930" data-marxy-e="967">!pip install --quiet tabulate==0.9.0
+<pre class="language-python" data-marxy-s="920" data-marxy-e="970"><code class="language-python" data-marxy-s="930" data-marxy-e="967">!pip install --quiet tabulate==0.9.0
 </code></pre>
 <pre data-marxy-s="972" data-marxy-e="1177"><code data-marxy-s="972" data-marxy-e="1177">WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager.
 Note: you may need to restart the kernel to use updated packages.
 </code></pre>
-<pre data-marxy-s="1181" data-marxy-e="1360"><code class="language-python" data-marxy-s="1191" data-marxy-e="1357">import math
+<pre class="language-python" data-marxy-s="1181" data-marxy-e="1360"><code class="language-python" data-marxy-s="1191" data-marxy-e="1357">import math
 import random
 import statistics
 import warnings
@@ -25,7 +25,7 @@ warnings.simplefilter("default")
 <pre data-marxy-s="1362" data-marxy-e="1620"><code data-marxy-s="1362" data-marxy-e="1620">/opt/conda/lib/python3.12/site-packages/pandas/core/computation/expressions.py:21: UserWarning: Pandas requires version '2.8.4' or newer of 'numexpr' (version '2.8.1' currently installed).
   from pandas.core.computation.check import NUMEXPR_INSTALLED
 </code></pre>
-<pre data-marxy-s="1624" data-marxy-e="1997"><code class="language-python" data-marxy-s="1634" data-marxy-e="1994">rng = np.random.default_rng(20260928)
+<pre class="language-python" data-marxy-s="1624" data-marxy-e="1997"><code class="language-python" data-marxy-s="1634" data-marxy-e="1994">rng = np.random.default_rng(20260928)
 days = pd.date_range("2026-06-01", periods=120, freq="D")
 south = 18 + 6 * np.sin(np.arange(120) / 19) + rng.normal(0, 0.8, 120)
 north = south + 0.02 * np.arange(120) / 7 + rng.normal(0, 0.3, 120)
@@ -37,7 +37,7 @@ df.shape
 </code></pre>
 <h2 data-marxy-s="2018" data-marxy-e="2037">2. The raw table</h2>
 <p data-marxy-s="2039" data-marxy-e="2094">The first few rows, as pandas draws them in a notebook:</p>
-<pre data-marxy-s="2097" data-marxy-e="2121"><code class="language-python" data-marxy-s="2107" data-marxy-e="2118">df.head(6)
+<pre class="language-python" data-marxy-s="2097" data-marxy-e="2121"><code class="language-python" data-marxy-s="2107" data-marxy-e="2118">df.head(6)
 </code></pre>
 
 
@@ -107,7 +107,7 @@ df.shape
 </table>
 
 <p data-marxy-s="3429" data-marxy-e="3517">A plain-text version of one column’s summary, using the <code data-marxy-s="3485" data-marxy-e="3497">text/plain</code> repr of a <code data-marxy-s="3508" data-marxy-e="3516">Series</code>:</p>
-<pre data-marxy-s="3520" data-marxy-e="3558"><code class="language-python" data-marxy-s="3530" data-marxy-e="3555">df["delta_c"].describe()
+<pre class="language-python" data-marxy-s="3520" data-marxy-e="3558"><code class="language-python" data-marxy-s="3530" data-marxy-e="3555">df["delta_c"].describe()
 </code></pre>
 <pre data-marxy-s="3563" data-marxy-e="3788"><code data-marxy-s="3563" data-marxy-e="3788">count    120.000000
 mean       0.080525
@@ -121,7 +121,7 @@ Name: delta_c, dtype: float64
 </code></pre>
 <h2 data-marxy-s="3792" data-marxy-e="3816">3. Timing a slow cell</h2>
 <p data-marxy-s="3818" data-marxy-e="3877">The magic below measures the whole cell, not a single line.</p>
-<pre data-marxy-s="3880" data-marxy-e="4082"><code class="language-python" data-marxy-s="3890" data-marxy-e="4079">%%time
+<pre class="language-python" data-marxy-s="3880" data-marxy-e="4082"><code class="language-python" data-marxy-s="3890" data-marxy-e="4079">%%time
 weekly = df.set_index("date").resample("W").mean(numeric_only=True)
 slope = np.polyfit(np.arange(len(weekly)), weekly["delta_c"], 1)[0]
 print(f"drift: {slope:.4f} degrees per week")
@@ -133,19 +133,19 @@ Wall time: 6.74 ms
 <p data-marxy-s="4202" data-marxy-e="4287">The estimate is close to the <code class="marxy-math" data-marxy-s="4231" data-marxy-e="4237">0.02</code> we built in, which is the sanity check we wanted.</p>
 <h2 data-marxy-s="4289" data-marxy-e="4300">4. Plots</h2>
 <p data-marxy-s="4302" data-marxy-e="4449">A line plot of the weekly difference. The first figure was saved next to the notebook and is referenced by file name; the export does not embed it.</p>
-<pre data-marxy-s="4452" data-marxy-e="4575"><code class="language-python" data-marxy-s="4462" data-marxy-e="4572">weekly["delta_c"].plot(title="Weekly mean difference (north minus south)")
+<pre class="language-python" data-marxy-s="4452" data-marxy-e="4575"><code class="language-python" data-marxy-s="4462" data-marxy-e="4572">weekly["delta_c"].plot(title="Weekly mean difference (north minus south)")
 plt.ylabel("degrees C")
 plt.show()
 </code></pre>
 <p data-marxy-s="4583" data-marxy-e="4605"><img src="output_7_0.png" alt="png" data-marxy-s="4583" data-marxy-e="4605" /></p>
 <p data-marxy-s="4613" data-marxy-e="4725">The second figure is a one-pixel placeholder that the export embedded as a data URI, so it needs no file at all:</p>
-<pre data-marxy-s="4728" data-marxy-e="4818"><code class="language-python" data-marxy-s="4738" data-marxy-e="4815">from IPython.display import Image
+<pre class="language-python" data-marxy-s="4728" data-marxy-e="4818"><code class="language-python" data-marxy-s="4738" data-marxy-e="4815">from IPython.display import Image
 Image(data=open("pixel.png", "rb").read())
 </code></pre>
 <p data-marxy-s="4828" data-marxy-e="4950"><img alt="png" data-marxy-s="4828" data-marxy-e="4950" /></p>
 <h2 data-marxy-s="4959" data-marxy-e="4984">5. Where it goes wrong</h2>
 <p data-marxy-s="4986" data-marxy-e="5025">A lookup with a misspelled column name.</p>
-<pre data-marxy-s="5028" data-marxy-e="5068"><code class="language-python" data-marxy-s="5038" data-marxy-e="5065">df["north_celsius"].mean()
+<pre class="language-python" data-marxy-s="5028" data-marxy-e="5068"><code class="language-python" data-marxy-s="5038" data-marxy-e="5065">df["north_celsius"].mean()
 </code></pre>
 <pre data-marxy-s="5071" data-marxy-e="6174"><code data-marxy-s="5071" data-marxy-e="6174">---------------------------------------------------------------------------
 
@@ -182,7 +182,7 @@ File /opt/conda/lib/python3.12/site-packages/pandas/core/frame.py:4102, in DataF
 KeyError: 'north_celsius'
 </code></pre>
 <p data-marxy-s="6177" data-marxy-e="6216">A slow loop that I interrupted by hand.</p>
-<pre data-marxy-s="6219" data-marxy-e="6292"><code class="language-python" data-marxy-s="6229" data-marxy-e="6289">total = 0
+<pre class="language-python" data-marxy-s="6219" data-marxy-e="6292"><code class="language-python" data-marxy-s="6229" data-marxy-e="6289">total = 0
 for i in range(10**12):
     total += math.sqrt(i)
 </code></pre>
@@ -200,7 +200,7 @@ KeyboardInterrupt:
 </code></pre>
 <h2 data-marxy-s="6609" data-marxy-e="6633">6. A very long output</h2>
 <p data-marxy-s="6635" data-marxy-e="6762">Printing a list is a common mistake. This one is the <code data-marxy-s="6688" data-marxy-e="6694">repr</code> of 2,000 characters on a single line, the way a notebook prints it:</p>
-<pre data-marxy-s="6765" data-marxy-e="6842"><code class="language-python" data-marxy-s="6775" data-marxy-e="6839">sample = [round(random.random(), 4) for _ in range(250)]
+<pre class="language-python" data-marxy-s="6765" data-marxy-e="6842"><code class="language-python" data-marxy-s="6775" data-marxy-e="6839">sample = [round(random.random(), 4) for _ in range(250)]
 sample
 </code></pre>
 <pre data-marxy-s="6847" data-marxy-e="8851"><code data-marxy-s="6847" data-marxy-e="8851">[0.4671, 0.7604, 0.8436, 0.6331, 0.3224, 0.6981, 0.6579, 0.8521, 0.2785, 0.4359, 0.5405, 0.8221, 0.8365, 0.2859, 0.4773, 0.3651, 0.2581, 0.7565, 0.6589, 0.2117, 0.2431, 0.1795, 0.7451, 0.6243, 0.8092, 0.8969, 0.1778, 0.5989, 0.4739, 0.2311, 0.9064, 0.9813, 0.9638, 0.2811, 0.6157, 0.6561, 0.6069, 0.6166, 0.7676, 0.3876, 0.3803, 0.2647, 0.8999, 0.3263, 0.9169, 0.5092, 0.3426, 0.8068, 0.4984, 0.2487, 0.8416, 0.1017, 0.6836, 0.1831, 0.2065, 0.1085, 0.3512, 0.8236, 0.6168, 0.5819, 0.5565, 0.2486, 0.5555, 0.5415, 0.5312, 0.4463, 0.7549, 0.5138, 0.4746, 0.7198, 0.7723, 0.3908, 0.9153, 0.9462, 0.8318, 0.5135, 0.3439, 0.8112, 0.3983, 0.3134, 0.2436, 0.2648, 0.4708, 0.7682, 0.7698, 0.3675, 0.6118, 0.9569, 0.2561, 0.3243, 0.8485, 0.8202, 0.2469, 0.2235, 0.8131, 0.8593, 0.8848, 0.3295, 0.4079, 0.5323, 0.5038, 0.5962, 0.2142, 0.9291, 0.9029, 0.6997, 0.9769, 0.4336, 0.2058, 0.2075, 0.8371, 0.2071, 0.4288, 0.5321, 0.8941, 0.5471, 0.4121, 0.6379, 0.2167, 0.9099, 0.7878, 0.2966, 0.3396, 0.3988, 0.1901, 0.6124, 0.8098, 0.2551, 0.8295, 0.7616, 0.8731, 0.2076, 0.3869, 0.9168, 0.1119, 0.5649, 0.5013, 0.8517, 0.9777, 0.5563, 0.2547, 0.1459, 0.1783, 0.7553, 0.8782, 0.7357, 0.2105, 0.5446, 0.4346, 0.1817, 0.5531, 0.7026, 0.6491, 0.2464, 0.2581, 0.7225, 0.5956, 0.7048, 0.7036, 0.4938, 0.7591, 0.7317, 0.2002, 0.9058, 0.7305, 0.7358, 0.2611, 0.8564, 0.1081, 0.4371, 0.3782, 0.9717, 0.7071, 0.9073, 0.6674, 0.2716, 0.3055, 0.5184, 0.4705, 0.1372, 0.7762, 0.1693, 0.1297, 0.4657, 0.5821, 0.9871, 0.7736, 0.1169, 0.3368, 0.4232, 0.7781, 0.4864, 0.8565, 0.9865, 0.3905, 0.4639, 0.3553, 0.1897, 0.1332, 0.9569, 0.3594, 0.6981, 0.4237, 0.4907, 0.4432, 0.7056, 0.1769, 0.5141, 0.8129, 0.3808, 0.4763, 0.5718, 0.4896, 0.1538, 0.7314, 0.6251, 0.6676, 0.1404, 0.1578, 0.1275, 0.5509, 0.3226, 0.5441, 0.7889, 0.1938, 0.4306, 0.1971, 0.3887, 0.7958, 0.4982, 0.6769, 0.3151, 0.3309, 0.5851, 0.4615, 0.2438, 0.6076, 0.1874, 0.3054, 0.3863, 0.6921, 0.7814, 0.2817, 0.4655, 0.4415, 0.7712, 0.2204, 0.1022, 0.3257, 0.2351]
@@ -243,7 +243,7 @@ sample
 
 <h2 id="appendix-the-weekly-table" data-marxy-s="9564" data-marxy-e="9593">Appendix: the weekly table</h2>
 <p data-marxy-s="9595" data-marxy-e="9824">The same resample, printed with <code data-marxy-s="9627" data-marxy-e="9652">to_html(justify="left")</code> so the header cells carry explicit alignment. This is the output of the last cell of the notebook; the export wrote it straight into the markdown, <code data-marxy-s="9800" data-marxy-e="9809">&lt;style&gt;</code> block and all.</p>
-<pre data-marxy-s="9827" data-marxy-e="9916"><code class="language-python" data-marxy-s="9837" data-marxy-e="9913">weekly.head(10).round(3).reset_index().to_html(justify="left", index=False)
+<pre class="language-python" data-marxy-s="9827" data-marxy-e="9916"><code class="language-python" data-marxy-s="9837" data-marxy-e="9913">weekly.head(10).round(3).reset_index().to_html(justify="left", index=False)
 </code></pre>
 
 
@@ -326,7 +326,7 @@ sample
 </table>
 
 <p data-marxy-s="12044" data-marxy-e="12180">A last stream, written to standard error by a library the notebook imports. It is a warning, not a failure, and the notebook carried on:</p>
-<pre data-marxy-s="12183" data-marxy-e="12278"><code class="language-python" data-marxy-s="12193" data-marxy-e="12275">import legacy_plotting  # hypothetical helper module
+<pre class="language-python" data-marxy-s="12183" data-marxy-e="12278"><code class="language-python" data-marxy-s="12193" data-marxy-e="12275">import legacy_plotting  # hypothetical helper module
 legacy_plotting.draw(weekly)
 </code></pre>
 <pre data-marxy-s="12280" data-marxy-e="12597"><code data-marxy-s="12280" data-marxy-e="12597">/home/analyst/notebooks/legacy_plotting.py:48: DeprecationWarning: `draw` is deprecated since 3.1 and will be removed in 4.0; use `render` instead.

@@ -11,5 +11,5 @@
 <pre class="marxy-math-block" data-marxy-s="722" data-marxy-e="827"><code>\sum_{k=1}^{n} k = \frac{n(n+1)}{2}, \qquad \prod_{p \text{ prime}} \frac{1}{1 - p^{-s}} = \zeta(s)
 </code></pre>
 <p data-marxy-s="829" data-marxy-e="947">Matrices: <code class="marxy-math" data-marxy-s="839" data-marxy-e="885">\begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix}</code> inline, and a fenced <code data-marxy-s="907" data-marxy-e="913">math</code> block that some renderers accept:</p>
-<pre data-marxy-s="949" data-marxy-e="1030"><code class="language-math" data-marxy-s="957" data-marxy-e="1027">f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}
+<pre class="language-math" data-marxy-s="949" data-marxy-e="1030"><code class="language-math" data-marxy-s="957" data-marxy-e="1027">f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}
 </code></pre>

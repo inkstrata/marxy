@@ -54,10 +54,10 @@ with a lazy continuation line</p>
 </ul>
 <pre data-marxy-s="1169" data-marxy-e="1196"><code data-marxy-s="1173" data-marxy-e="1193">fenced, no language
 </code></pre>
-<pre data-marxy-s="1198" data-marxy-e="1246"><code class="language-python" data-marxy-s="1208" data-marxy-e="1243">def tilde_fence():
+<pre class="language-python" data-marxy-s="1198" data-marxy-e="1246"><code class="language-python" data-marxy-s="1208" data-marxy-e="1243">def tilde_fence():
     return "ok"
 </code></pre>
-<pre data-marxy-s="1248" data-marxy-e="1280"><code class="language-md" data-marxy-s="1255" data-marxy-e="1276">```
+<pre class="language-md" data-marxy-s="1248" data-marxy-e="1280"><code class="language-md" data-marxy-s="1255" data-marxy-e="1276">```
 nested fence
 ```
 </code></pre>

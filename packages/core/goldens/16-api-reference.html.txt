@@ -3,7 +3,7 @@
 row per file, and answers prefix queries without leaving the machine. Nothing in
 this document is fetched; every path is local.</p>
 <h2 id="install" data-marxy-s="327" data-marxy-e="337">Install</h2>
-<pre data-marxy-s="339" data-marxy-e="363"><code class="language-sh" data-marxy-s="345" data-marxy-e="360">pnpm add shelf
+<pre class="language-sh" data-marxy-s="339" data-marxy-e="363"><code class="language-sh" data-marxy-s="345" data-marxy-e="360">pnpm add shelf
 </code></pre>
 <p data-marxy-s="365" data-marxy-e="494">The package exports three names: <code data-marxy-s="398" data-marxy-e="409">openShelf</code>, <code data-marxy-s="411" data-marxy-e="418">Shelf</code>, and <code data-marxy-s="424" data-marxy-e="436">ShelfError</code>. Types
 live next to the implementation in <code data-marxy-s="479" data-marxy-e="493">src/index.ts</code>.</p>
@@ -132,7 +132,7 @@ with <code data-marxy-s="2694" data-marxy-e="2710">code: 'closed'</code>.</p>
 <li data-marxy-s="2999" data-marxy-e="3043"><code data-marxy-s="3001" data-marxy-e="3008">mtime</code> — <code data-marxy-s="3013" data-marxy-e="3022">mtimeMs</code> from <code data-marxy-s="3028" data-marxy-e="3034">stat</code>, integer</li>
 <li data-marxy-s="3044" data-marxy-e="3104"><code data-marxy-s="3046" data-marxy-e="3052">hash</code> — lowercase hex, or <code data-marxy-s="3075" data-marxy-e="3079">''</code> when <code data-marxy-s="3085" data-marxy-e="3091">hash</code> was <code data-marxy-s="3096" data-marxy-e="3104">'none'</code></li>
 </ul>
-<pre data-marxy-s="3106" data-marxy-e="3439"><code class="language-ts" data-marxy-s="3112" data-marxy-e="3436">import { openShelf } from 'shelf';
+<pre class="language-ts" data-marxy-s="3106" data-marxy-e="3439"><code class="language-ts" data-marxy-s="3112" data-marxy-e="3436">import { openShelf } from 'shelf';
 
 const shelf = await openShelf('/Users/reader/notes', {
   ignore: ['node_modules', '.git', '.shelf'],

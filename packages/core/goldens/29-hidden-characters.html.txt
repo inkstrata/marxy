@@ -5,7 +5,7 @@
 <p data-marxy-s="178" data-marxy-e="190">󠁉󠁇󠁎</p>
 </blockquote>
 <p data-marxy-s="192" data-marxy-e="301">Never flagged: emoji ZWJ 👩‍💻, Persian ZWNJ می‌خواهم, LRM‎ and RLM‏, NBSP between words.</p>
-<pre data-marxy-s="303" data-marxy-e="369"><code class="language-javascript" data-marxy-s="317" data-marxy-e="366">// bidi override in a fence: ab‮gnp.exe‬ end
+<pre class="language-javascript" data-marxy-s="303" data-marxy-e="369"><code class="language-javascript" data-marxy-s="317" data-marxy-e="366">// bidi override in a fence: ab‮gnp.exe‬ end
 </code></pre>
 <p data-marxy-s="371" data-marxy-e="397">Mid-line BOM﻿ is marked.</p>
 <p data-marxy-s="399" data-marxy-e="446">Mismatched link: <a href="https://b.com/" class="marxy-external marxy-link-mismatch" title="b.com" data-marxy-s="416" data-marxy-e="446">https://a.com</a></p>
