@@ -376,3 +376,58 @@ test('the toggle changes only the value bytes of line_numbers: comments, CRLF an
     await browser.close();
   }
 });
+
+const chromeSizeOf = (page) => page.evaluate(() => ({
+  inline: document.documentElement.style.getPropertyValue('--marxy-size-chrome'),
+  computed: getComputedStyle(document.documentElement).getPropertyValue('--marxy-size-chrome').trim(),
+  notices: document.getElementById('marxy-notices')?.textContent ?? '',
+}));
+
+test('chrome_size unset leaves --marxy-size-chrome to the stylesheet (13px), with no notice (H-07)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page } = await boot(browser, CONFIG);
+    const r = await chromeSizeOf(page);
+    assert.equal(r.inline, '');
+    assert.equal(r.computed, '13px');
+    assert.doesNotMatch(r.notices, /chrome_size/);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('chrome_size = 18 sets --marxy-size-chrome on the root (H-07)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page } = await boot(browser, 'chrome_size = 18\n');
+    const r = await chromeSizeOf(page);
+    assert.equal(r.inline, '18px');
+    assert.equal(r.computed, '18px');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('chrome_size = 40 is clamped to 26px and a notice names the value (H-07)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page } = await boot(browser, 'chrome_size = 40\n');
+    const r = await chromeSizeOf(page);
+    assert.equal(r.computed, '26px');
+    assert.match(r.notices, /chrome_size 40/);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('chrome_size = "big" is refused: the stylesheet value stands and a notice names it (H-07)', async () => {
+  const browser = await launchWebkit();
+  try {
+    const { page } = await boot(browser, 'chrome_size = "big"\n');
+    const r = await chromeSizeOf(page);
+    assert.equal(r.computed, '13px');
+    assert.match(r.notices, /chrome_size big/);
+  } finally {
+    await browser.close();
+  }
+});

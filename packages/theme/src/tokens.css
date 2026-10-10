@@ -100,7 +100,7 @@
   --marxy-face-readme: var(--marxy-font-text);                        /* READMEs */
   --marxy-face-mono: var(--marxy-font-mono);                          /* code, data, logs, terminal output, and code inside prose */
 
-  /* chrome: the platform face at 13 px on summoned surfaces (the reader's chrome_size is H-07) */
+  /* chrome: the platform face at 13 px on summoned surfaces (the reader's chrome_size sets it on :root, H-07) */
   --marxy-face-chrome: system-ui, sans-serif;                         /* the face of controls on summoned surfaces */
   --marxy-size-chrome: 13px;                                          /* the size of control text; clamped to 11–26px */
 

@@ -6,6 +6,8 @@ export interface Config {
   readonly theme: string | null;
   readonly variant: 'dark' | 'light' | 'auto';
   readonly size: number;
+  /** The reader's chrome size in px (ADR-0059 item 6), 11–26; `null` when unset or refused: the theme's value stands. */
+  readonly chromeSize: number | null;
   readonly measure: number;
   readonly typeset: boolean;
   /** `undefined` when the key is absent or invalid: the per-path default stands (numbers on for code files). */
@@ -25,6 +27,7 @@ const DEFAULTS: Config = {
   theme: null,
   variant: 'dark',
   size: 20,
+  chromeSize: null,
   measure: 66,
   typeset: true,
   lineNumbers: undefined,
@@ -37,6 +40,7 @@ const KNOWN = new Set([
   'theme',
   'variant',
   'size',
+  'chrome_size',
   'measure',
   'typeset',
   'line_numbers',
@@ -44,6 +48,10 @@ const KNOWN = new Set([
   'resident',
   'linux',
 ]);
+
+/** The reader's chrome size range in px: 200 % of 13 at most (WCAG 1.4.4), ADR-0059 item 6. */
+export const CHROME_SIZE_MIN = 11;
+export const CHROME_SIZE_MAX = 26;
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
@@ -73,6 +81,16 @@ export function parseConfig(bytes: Uint8Array): ParseConfigResult {
   let size = DEFAULTS.size;
   if (typeof raw.size === 'number' && Number.isFinite(raw.size)) size = clamp(Math.round(raw.size), 15, 50);
   else if (raw.size !== undefined) warnings.push('size was invalid; using 20');
+
+  let chromeSize: number | null = DEFAULTS.chromeSize;
+  if (typeof raw.chrome_size === 'number' && Number.isFinite(raw.chrome_size)) {
+    chromeSize = clamp(raw.chrome_size, CHROME_SIZE_MIN, CHROME_SIZE_MAX);
+    if (chromeSize !== raw.chrome_size) {
+      warnings.push(`chrome_size ${raw.chrome_size} is outside ${CHROME_SIZE_MIN}–${CHROME_SIZE_MAX} px; using ${chromeSize}`);
+    }
+  } else if (raw.chrome_size !== undefined) {
+    warnings.push(`chrome_size ${String(raw.chrome_size)} was invalid; using the theme's chrome size`);
+  }
 
   let measure = DEFAULTS.measure;
   if (typeof raw.measure === 'number' && Number.isFinite(raw.measure)) measure = clamp(Math.round(raw.measure), 45, 80);
@@ -107,6 +125,7 @@ export function parseConfig(bytes: Uint8Array): ParseConfigResult {
       theme,
       variant,
       size,
+      chromeSize,
       measure,
       typeset,
       lineNumbers,

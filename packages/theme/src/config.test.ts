@@ -171,3 +171,34 @@ test('setTopLevelKey on line_numbers changes only the value bytes: comments, CRL
     '# top\r\nunknown = 1\r\nline_numbers = true\r\n[linux]\r\n',
   );
 });
+
+test('chrome_size: unset is null; 11 to 26 px is kept; outside is clamped with a warning naming the value (H-07)', () => {
+  const read = (toml: string) => parseConfig(new TextEncoder().encode(toml));
+  assert.equal(read('size = 20\n').config.chromeSize, null);
+  assert.deepEqual(read('size = 20\n').warnings, []);
+  for (const px of [11, 13, 18.5, 26]) {
+    const r = read(`chrome_size = ${px}\n`);
+    assert.equal(r.config.chromeSize, px);
+    assert.deepEqual(r.warnings, []);
+    assert.deepEqual(r.unknownKeys, []);
+  }
+  const high = read('chrome_size = 40\n');
+  assert.equal(high.config.chromeSize, 26);
+  assert.match(high.warnings[0]!, /chrome_size 40 .*11–26 px.*using 26/);
+  const low = read('chrome_size = 8\n');
+  assert.equal(low.config.chromeSize, 11);
+  assert.match(low.warnings[0]!, /chrome_size 8 .*using 11/);
+});
+
+test('chrome_size: a non-number or non-finite value is refused (null) with a warning naming it (H-07)', () => {
+  for (const [toml, shown] of [['chrome_size = "big"', 'big'], ['chrome_size = nan', 'NaN'], ['chrome_size = true', 'true']] as const) {
+    const r = parseConfig(new TextEncoder().encode(`${toml}\n`));
+    assert.equal(r.config.chromeSize, null, toml);
+    assert.match(r.warnings[0]!, new RegExp(`chrome_size ${shown} was invalid`), toml);
+  }
+});
+
+test('chrome_size is written with setTopLevelKey like the other reader keys (H-07)', () => {
+  const out = new TextDecoder().decode(setTopLevelKey(new TextEncoder().encode('size = 20 # body\n'), 'chrome_size', '16'));
+  assert.equal(out, 'size = 20 # body\nchrome_size = 16\n');
+});
