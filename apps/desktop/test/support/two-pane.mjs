@@ -9,13 +9,30 @@ import { createServer } from 'vite';
 
 const desktopRoot = fileURLToPath(new URL('../../', import.meta.url));
 
-/** `index.html`'s own inline <style> and its <body> without the script: the app's skeleton. */
-export function shippedSkeleton() {
-  const html = readFileSync(join(desktopRoot, 'index.html'), 'utf8');
+/** Same-length blanks over comments and the contents of <style>/<script>, so a tag-looking string in them is not found. */
+function maskInert(html) {
+  const blank = (m) => m.replace(/[^\n]/g, ' ');
+  return html
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, blank)
+    .replace(/(<(style|script)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi, (_m, open, _n, inner, close) => open + blank(inner) + close);
+}
+
+/** The skeleton in `html`: its default-theme inline <style> and its real <body> without scripts. */
+export function skeletonOf(html) {
   const style = html.match(/<!-- marxy:default-theme -->\s*<style>([\s\S]*?)<\/style>/)?.[1];
-  const body = html.match(/<body[^>]*>([\s\S]*?)<\/body>/)?.[1]?.replace(/<script[\s\S]*?<\/script>/g, '');
+  const masked = maskInert(html);
+  const open = /<body\b[^>]*>/i.exec(masked);
+  const end = open ? masked.indexOf('</body', open.index + open[0].length) : -1;
+  const body = open && end >= 0
+    ? html.slice(open.index + open[0].length, end).replace(/<script[\s\S]*?<\/script>/g, '')
+    : undefined;
   if (!style || !body) throw new Error('two-pane: index.html has no inline style or no body');
   return { style, body };
+}
+
+/** `index.html`'s own inline <style> and its <body> without the script: the app's skeleton. */
+export function shippedSkeleton() {
+  return skeletonOf(readFileSync(join(desktopRoot, 'index.html'), 'utf8'));
 }
 
 let serverPromise = null;
