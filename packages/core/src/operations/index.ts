@@ -4,6 +4,7 @@ import { alignTablePipes } from './align-table-pipes.ts';
 import { copyCodeClean } from './copy-code-clean.ts';
 import { copySection } from './copy-section.ts';
 import { demoteHeading, promoteHeading } from './heading-level.ts';
+import { LIST_MARKER_OPERATIONS } from './list-markers.ts';
 import { COPY_PACK } from './pack-copy.ts';
 import { EXTRACT_PACK } from './pack-extract.ts';
 import { TABLE_PACK } from './pack-table.ts';
@@ -19,7 +20,7 @@ export const CLIPBOARD_OPERATIONS: readonly Operation[] = [
 ];
 
 /** Operations that rewrite the bytes they were given, and only those. */
-export const MUTATING_OPERATIONS: readonly Operation[] = [toggleTask, alignTablePipes, promoteHeading, demoteHeading];
+export const MUTATING_OPERATIONS: readonly Operation[] = [toggleTask, alignTablePipes, promoteHeading, demoteHeading, ...LIST_MARKER_OPERATIONS];
 
 export const OPERATIONS: readonly Operation[] = [...CLIPBOARD_OPERATIONS, ...MUTATING_OPERATIONS];
 
