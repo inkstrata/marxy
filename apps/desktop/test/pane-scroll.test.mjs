@@ -433,3 +433,41 @@ test('two panes: a pane scrolled to its end keeps its last paragraph in view whe
     }
   });
 });
+
+test("two panes: wheeling one pane while the other is set again leaves the other's reading block in place (B-26.2)", async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await settle(page);
+    for (const [slot, other] of [[1, 0], [0, 1]]) {
+      await page.evaluate((slot) => {
+        const host = window.__marxyHandle.panes().panes[slot].host;
+        host.scrollTop = host.scrollHeight * 0.6;
+      }, slot);
+      await page.waitForTimeout(500);
+      await scrollsSettled(page);
+      const prep = await page.evaluate((slot) => {
+        const host = window.__marxyHandle.panes().panes[slot].host;
+        const box = host.getBoundingClientRect();
+        const article = host.querySelector('article');
+        const above = [...article.querySelectorAll(':scope > p.marxy-set')].filter((p) => p.getBoundingClientRect().bottom < box.top - 200);
+        const block = [...article.children].find((c) => c.getBoundingClientRect().bottom > box.top + 100);
+        window.__b262 = { block, top: block.getBoundingClientRect().top, grow: above.at(-1) };
+        return above.length;
+      }, slot);
+      assert.ok(prep >= 1, `pane ${slot}: a set paragraph above its top`);
+      const box = await page.evaluate((other) => {
+        const r = window.__marxyHandle.panes().panes[other].host.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }, other);
+      await page.mouse.move(box.x, box.y);
+      await page.mouse.wheel(0, 40);
+      await page.evaluate(() => {
+        window.__b262.grow.appendChild(document.createTextNode(' ' + 'further words that fill more lines of the measure '.repeat(4)));
+      });
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const drift = await page.evaluate(() => window.__b262.block.getBoundingClientRect().top - window.__b262.top);
+      assert.ok(Math.abs(drift) <= 1, `pane ${slot}: its reading block moved ${drift.toFixed(2)} px after a wheel over pane ${other}`);
+      await settle(page);
+    }
+  });
+});

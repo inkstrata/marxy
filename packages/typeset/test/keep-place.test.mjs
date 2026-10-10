@@ -550,3 +550,63 @@ test('in an element that scrolls on its own, below a band, a re-set above its re
   assert.equal(r.windowY, 0, 'the window did not scroll');
   await page.close();
 });
+
+// B-26.2: the listeners are on the window, so in a pane they also hear the other pane. Input outside
+// the scroller must not hold off this scroller's place; input inside it still does; the page's own
+// scroller takes every event, as before (the tests above).
+test('in a pane, a wheel, key or scroll outside it leaves its reading block within 1 px; the same inside it holds the compensation off', async () => {
+  const html = Array.from({ length: 6 }, () => renderCorpus('01-long-technical.md')).join('\n');
+  const page = await harness.open(html);
+  const r = await page.evaluate(async () => {
+    const frames = (n) => new Promise((res) => {
+      const tick = () => (n-- <= 0 ? res() : requestAnimationFrame(tick));
+      tick();
+    });
+    const doc = document.getElementById('doc');
+    const band = document.createElement('div');
+    band.style.cssText = 'height: 120px;';
+    const pane = document.createElement('section');
+    pane.style.cssText = 'height: calc(100vh - 120px); overflow-y: auto;';
+    const other = document.createElement('section');
+    other.style.cssText = 'height: 40px; overflow-y: auto;';
+    const filler = document.createElement('div');
+    filler.style.height = '400px';
+    other.append(filler);
+    document.body.style.margin = '0';
+    document.body.style.overflow = 'hidden';
+    doc.before(band, other, pane);
+    pane.append(doc);
+    const controller = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, scheduler: window.immediateScheduler(),
+      scroller: () => pane,
+    });
+    await controller.done;
+    pane.scrollTop = pane.scrollHeight * 0.6;
+    await new Promise((res) => setTimeout(res, 400));
+    await frames(2);
+    const grow = async (fire) => {
+      await new Promise((res) => setTimeout(res, 400));
+      const top = pane.getBoundingClientRect().top;
+      const el = [...doc.children].find((c) => c.getBoundingClientRect().bottom > top + 100);
+      const before = el.getBoundingClientRect().top;
+      const far = [...doc.querySelectorAll('p.marxy-set')].filter((p) => p.getBoundingClientRect().bottom < top - window.innerHeight).at(-1);
+      fire();
+      far.appendChild(document.createTextNode(' ' + 'further words that fill more lines of the measure '.repeat(4)));
+      await Promise.resolve();
+      await Promise.resolve();
+      return el.getBoundingClientRect().top - before;
+    };
+    const out = {};
+    out.wheelOutside = await grow(() => other.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 40 })));
+    out.keyOutside = await grow(() => other.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' })));
+    out.scrollOutside = await grow(() => { other.scrollTop = 20; other.dispatchEvent(new Event('scroll')); });
+    out.wheelInside = await grow(() => pane.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 40 })));
+    controller.destroy();
+    return out;
+  });
+  assert.ok(Math.abs(r.wheelOutside) <= 1, `a wheel outside moved the reading block ${r.wheelOutside.toFixed(2)} px`);
+  assert.ok(Math.abs(r.keyOutside) <= 1, `a key outside moved the reading block ${r.keyOutside.toFixed(2)} px`);
+  assert.ok(Math.abs(r.scrollOutside) <= 1, `a scroll outside moved the reading block ${r.scrollOutside.toFixed(2)} px`);
+  assert.ok(Math.abs(r.wheelInside) > 1, `a wheel inside still holds the compensation off (moved ${r.wheelInside.toFixed(2)} px)`);
+  await page.close();
+});

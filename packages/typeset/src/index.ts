@@ -196,10 +196,26 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   /** The block noted last, kept while it stays under the reading line, so most passes cost one rect read. */
   let noted: HTMLElement | null = null;
   let scrolled = true;
-  const onInput = (): void => {
+  // Inside a pane (B-26.2) the window-level listeners also hear the other pane's wheel, keys and
+  // scrolls. An event whose target lies outside this scroller is not this scroller's reader input:
+  // it would hold off the place here for the quiet window while the other pane was being read. The
+  // page's own scroller takes every event, as before. A target that belongs to no element (the
+  // document, `html`, `body`) is not told apart and counts.
+  const isMine = (event?: Event): boolean => {
+    const target = event?.target;
+    if (!(target instanceof Node)) return true;
+    const root = scroller();
+    if (root === null || root === pageScroller()) return true;
+    const doc = article.ownerDocument;
+    if (target === doc || target === doc.documentElement || target === doc.body) return true;
+    return root.contains(target);
+  };
+  const onInput = (event?: Event): void => {
+    if (!isMine(event)) return;
     lastInput = performance.now();
   };
-  const onDown = (): void => {
+  const onDown = (event?: Event): void => {
+    if (!isMine(event)) return;
     pressed = true;
     onInput();
   };
@@ -225,6 +241,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     win[on ? 'addEventListener' : 'removeEventListener']('wheel', onInput, { capture: true, passive: true });
   };
   const onScroll = (event?: Event): void => {
+    if (!isMine(event)) return;
     scrolled = true;
     const root = scroller();
     if (root === null) return;
