@@ -210,3 +210,29 @@ test('H-01: a source file using data-marxy-kind and data-marxy-lang passes the r
   assert.equal(without.status, 1, without.stdout);
   for (const name of names) assert.match(without.stderr + without.stdout, new RegExp(`attribute "${name}" is not in the registry`));
 });
+
+// Design plates under docs/plan/<round>/studio/ are reference HTML like mock* and galley (J-D1). The gate
+// runs from a copy of the scripts over one plate, once inside studio/ and once in a sibling folder.
+test('a design plate under docs/plan/<round>/studio/ is exempt; the same plate elsewhere is not', () => {
+  const repo = fileURLToPath(new URL('../', import.meta.url));
+  const run = (folder) => {
+    const dir = mkdtempSync(join(tmpdir(), 'marxy-studio-'));
+    try {
+      mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
+      for (const f of ['check-registry.mjs', 'registry.json', 'lib/repo.mjs', 'lib/plan.mjs', 'lib/imports.mjs']) {
+        copyFileSync(join(repo, 'scripts', f), join(dir, 'scripts', f));
+      }
+      symlinkSync(join(repo, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      mkdirSync(join(dir, 'docs/plan/direction-2026-10', folder), { recursive: true });
+      writeFileSync(join(dir, 'docs/plan/direction-2026-10', folder, 'plate.html'), '<div class="sd-plate"></div>\n');
+      return spawnSync(process.execPath, ['scripts/check-registry.mjs'], { encoding: 'utf8', cwd: dir });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const studio = run('studio');
+  assert.equal(studio.status, 0, studio.stderr || studio.stdout);
+  const elsewhere = run('plates');
+  assert.equal(elsewhere.status, 1, elsewhere.stdout);
+  assert.match(elsewhere.stderr + elsewhere.stdout, /sd-plate/);
+});
