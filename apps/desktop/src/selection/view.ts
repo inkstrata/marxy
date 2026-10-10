@@ -16,7 +16,10 @@ import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
 import type { AppShell } from '../app.ts';
 import type { DocumentStore } from '../document/store.ts';
+import { appHandle } from '../commands/app-handle.ts';
 import { notify } from '../notices/index.ts';
+import { splitRefusal } from '../pane/fit.ts';
+import { defaultModeForPath } from '../source/default-mode.ts';
 import { pathsForDocument } from '../render/images.ts';
 import type { NodeMap } from '../render/post.ts';
 import { moveSibling, parentOf, select, type Selection, type SelectionState } from './selection.ts';
@@ -171,6 +174,8 @@ export function localLinkTarget(
   path: string,
   href: string,
   imageRoot: string,
+  /** A link followed beside (D-09): a file that opens in Source is a target too; whether it is text is for the caller. */
+  opts?: { readonly allowSource?: boolean },
 ): { readonly target: string; readonly fragment: string | undefined } | { readonly refused: string } {
   const hash = href.indexOf('#');
   const pathPart = hash === -1 ? href : href.slice(0, hash);
@@ -182,12 +187,36 @@ export function localLinkTarget(
     const where = normalizePath(imageRoot) === normalizePath(documentDir) ? 'folder' : 'repository';
     return { refused: `That link points outside this ${where} and was not opened.` };
   }
-  if (!MARKDOWN_LINK.test(basename(target))) return { refused: 'Only markdown documents open inside Marxy.' };
+  if (!MARKDOWN_LINK.test(basename(target)) && !(opts?.allowSource && defaultModeForPath(target) === 'source')) {
+    return { refused: 'Only markdown documents open inside Marxy.' };
+  }
   return { target, fragment };
+}
+
+/** Where links have taken one pane (D-09): back walks this pane's, whichever pane the key is pressed in. */
+interface PaneNav {
+  history: string[];
+  index: number;
+  /** A followed link's fragment, landed when this pane's page is next set. */
+  pendingFragment?: string;
+}
+
+/** Whether a Cmd-click (Ctrl-click off a Mac) asks for the link to open in the other pane. */
+function opensBeside(ev: MouseEvent | undefined): boolean {
+  if (!ev) return false;
+  const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  return mac ? ev.metaKey : ev.ctrlKey;
+}
+
+/** A file is text when its first 8 KB hold no NUL byte. */
+function looksLikeText(bytes: Uint8Array): boolean {
+  return !bytes.subarray(0, 8192).includes(0);
 }
 
 /** What the selection keeps for one pane's article (D-06): what was last pressed there and the page it shows. */
 interface PaneRecord {
+  /** The links followed in this pane (D-09). */
+  readonly nav: PaneNav;
   readonly target: SelectionTarget;
   lastClickTarget: Element | null;
   /** The block carrier last pressed on, which Jump to source starts from; cleared when the document changes. */
@@ -216,10 +245,6 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
   let pointerDrag = false;
   let downAt: { x: number; y: number } | null = null;
   let pointerDown = false;
-  let navHistory: string[] = [];
-  let navIndex = -1;
-  /** A followed link's fragment, landed when the focused pane's page is next set. */
-  let pendingFragment: string | undefined;
 
   /** The focused pane's open path, as link following and history read it. */
   const opts = {
@@ -241,11 +266,19 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
 
   const paint = (): void => paintSelected(active.target.article, state.selection);
 
-  /** Scroll the heading `fragment` names to the reading line; false when it is not on the page (yet). */
-  const scrollToFragment = (fragment: string): boolean => {
-    const { article, scroller } = active.target;
+  /**
+   * What `record`'s pane scrolls now: its view's live scroller, which moves from the window to the pane's
+   * own section when a second pane appears (D-05); the one it was attached with is where it began.
+   */
+  const scrollerOf = (record: PaneRecord): HTMLElement =>
+    appHandle()?.panes().panes.find((pane) => pane.article === record.target.article)?.view.scroller ?? record.target.scroller;
+
+  /** Scroll the heading `fragment` names to the reading line of `record`'s pane; false when it is not on the page (yet). */
+  const scrollToFragment = (record: PaneRecord, fragment: string): boolean => {
+    const { article } = record.target;
+    const scroller = scrollerOf(record);
     const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
-    if (!id || !opts.store()) return true;
+    if (!id || !record.target.store()) return true;
     const target = article.querySelector(`#${CSS.escape(id)}`);
     if (!(target instanceof HTMLElement)) return false;
     const top = target.getBoundingClientRect().top + scroller.scrollTop - readingLine(scroller.clientHeight);
@@ -254,9 +287,9 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
   };
 
   /** The byte where the heading `fragment` names starts, from the parsed document, mounted or not. */
-  const headingByte = (fragment: string): number | undefined => {
+  const headingByte = (record: PaneRecord, fragment: string): number | undefined => {
     const id = fragment.startsWith('#') ? fragment.slice(1) : fragment;
-    const snap = opts.store()?.snapshot();
+    const snap = record.target.store()?.snapshot();
     if (!id || !snap) return undefined;
     for (const [range, headingId] of headingIdsForDocument(snap.ast)) {
       if (headingId === id) return Number(range.slice(0, range.indexOf('-')));
@@ -269,12 +302,12 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
    * yet: mount through it, at once, and land. An id the document has no heading for does nothing. It
    * never waits, so nothing can pull the page after the reader has moved on.
    */
-  const landFragment = (fragment: string): void => {
-    if (scrollToFragment(fragment)) return;
-    const byte = headingByte(fragment);
+  const landFragment = (record: PaneRecord, fragment: string): void => {
+    if (scrollToFragment(record, fragment)) return;
+    const byte = headingByte(record, fragment);
     if (byte === undefined) return;
-    opts.mountThrough(byte);
-    scrollToFragment(fragment);
+    record.target.mountThrough(byte);
+    scrollToFragment(record, fragment);
   };
 
   /** Nothing the reader clicked in the last document names anything in the next one (or in none). */
@@ -283,24 +316,52 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     record.pointerCarrier = null;
   };
 
-  const recordNavOpen = (nextPath: string): void => {
-    const current = opts.currentPath();
-    const kept = navIndex >= 0 ? navHistory.slice(0, navIndex + 1) : [];
+  /** `nextPath` joins `record`'s history after the document the pane shows now. */
+  const recordNavOpen = (record: PaneRecord, nextPath: string): void => {
+    const { nav } = record;
+    const current = record.target.currentPath();
+    const kept = nav.index >= 0 ? nav.history.slice(0, nav.index + 1) : [];
     if (current && kept[kept.length - 1] !== current) kept.push(current);
     if (kept[kept.length - 1] !== nextPath) kept.push(nextPath);
-    navHistory = kept;
-    navIndex = navHistory.length - 1;
+    nav.history = kept;
+    nav.index = kept.length - 1;
+  };
+
+  /**
+   * A link followed beside (D-09): `target` opens in the pane that is not `origin`, made when there is only
+   * one and two columns fit; the origin pane keeps its document, its place and its focus. The neighbour's
+   * history starts with the target. Unsaved edits in the neighbour go through the pane set's guard (D-08).
+   */
+  const openBesideOf = async (origin: PaneRecord, target: string, fragment: string | undefined): Promise<void> => {
+    const panes = appHandle()?.panes();
+    const from = panes?.panes.find((pane) => pane.article === origin.target.article);
+    if (!panes || !from) return;
+    const refusal = splitRefusal(panes);
+    if (refusal !== null) {
+      notify({ kind: 'info', text: refusal });
+      return;
+    }
+    const opened = await panes.openIn(from.slot === 0 ? 1 : 0, target);
+    if (!opened) return;
+    const landed = records.get(opened.article);
+    if (landed) {
+      landed.nav.history = [target];
+      landed.nav.index = 0;
+      if (fragment) landFragment(landed, fragment);
+    }
+    if (panes.focused !== from) panes.focus(from);
   };
 
   const followLink = async (anchor: HTMLAnchorElement, ev?: MouseEvent): Promise<void> => {
     const href = anchor.getAttribute('href');
-    const snap = opts.store()?.snapshot();
+    const record = active;
+    const snap = record.target.store()?.snapshot();
     if (!href || !snap) return;
-    const path = opts.currentPath() ?? snap.buffer.path;
+    const path = record.target.currentPath() ?? snap.buffer.path;
 
     if (href.startsWith('#')) {
       ev?.preventDefault();
-      landFragment(href);
+      landFragment(record, href);
       return;
     }
 
@@ -316,7 +377,8 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       return;
     }
 
-    const local = localLinkTarget(path, href, opts.imageRoot(path));
+    const beside = opensBeside(ev);
+    const local = localLinkTarget(path, href, opts.imageRoot(path), { allowSource: beside });
     ev?.preventDefault();
     if ('refused' in local) {
       notify({ kind: 'info', text: local.refused });
@@ -324,19 +386,29 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     }
     const { target, fragment } = local;
 
+    let bytes: Uint8Array;
     try {
-      await opts.shell.readFile(target);
+      bytes = await opts.shell.readFile(target);
     } catch {
       notify({ kind: 'info', text: 'That document could not be found.' });
       return;
     }
 
-    recordNavOpen(target);
-    pendingFragment = fragment;
-    await opts.open(target);
-    const landing = pendingFragment;
-    pendingFragment = undefined;
-    if (landing) landFragment(landing);
+    if (beside) {
+      if (defaultModeForPath(target) === 'source' && !looksLikeText(bytes)) {
+        notify({ kind: 'info', text: 'That file is not text.' });
+        return;
+      }
+      await openBesideOf(record, target, fragment);
+      return;
+    }
+
+    recordNavOpen(record, target);
+    record.nav.pendingFragment = fragment;
+    await record.target.open(target);
+    const landing = record.nav.pendingFragment;
+    record.nav.pendingFragment = undefined;
+    if (landing) landFragment(record, landing);
   };
 
 
@@ -563,6 +635,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       target,
       lastClickTarget: null,
       pointerCarrier: null,
+      nav: { history: [], index: -1 },
       shownPath: null,
       shownVersion: null,
       unlisten: () => {},
@@ -611,10 +684,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (focused) reresolve();
     applyInvisibleMarkers(article);
     applyLinkDestinations(article);
-    if (focused && pendingFragment) {
-      const landing = pendingFragment;
-      pendingFragment = undefined;
-      requestAnimationFrame(() => landFragment(landing));
+    if (record.nav.pendingFragment) {
+      const landing = record.nav.pendingFragment;
+      record.nav.pendingFragment = undefined;
+      requestAnimationFrame(() => landFragment(record, landing));
     }
   };
 
@@ -639,9 +712,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       if (doc) move(parentOf(doc, state.selection));
     },
     back() {
-      if (navIndex <= 0) return false;
-      navIndex -= 1;
-      void opts.open(navHistory[navIndex]!);
+      const { nav } = active;
+      if (nav.index <= 0) return false;
+      nav.index -= 1;
+      void active.target.open(nav.history[nav.index]!);
       return true;
     },
     selectBlockAtByte(byte) {

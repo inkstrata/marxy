@@ -155,6 +155,22 @@ implements it.
 `Mod+W` (Close Window) is native-menu-only too, and — since Marxy is single-window — exits
 through the same path as Quit (`docs/design/06-shell.md` §Capabilities).
 
+## Navigation
+
+A plain click on a relative link to a Markdown document replaces the document in the pane it was clicked in, and
+`Mod+[` / `Mod+]` walk that pane's link history, not the window's (each pane keeps its own).
+
+### Open a link beside (D-09)
+
+Cmd-click (Ctrl-click off a Mac) on a relative link opens the target in the other pane, made when there is only
+one and the window holds two columns at the typography floor (otherwise the fit notice, `splitFitNotice`, and
+nothing opens). The pane clicked in keeps its document, its place and its focus; the neighbour's history starts
+with the target, a fragment is landed in the neighbour, and unsaved edits in the neighbour go through the pane
+set's guard (`beforeReplace`, D-08) before it is replaced. Beside only, a link to a file that opens in Source
+(`defaultModeForPath`) is accepted when its first 8 KB hold no NUL byte, and opens there; otherwise the notice
+is "That file is not text." A plain click keeps refusing such files. A `#fragment` link scrolls the pane it is in,
+and an external link ignores the modifier. Links never leave the image root, beside or not.
+
 ## Outline
 
 Built from the AST's headings (`level`, text, `src.start`). Rendered as a `<dialog>` at the
