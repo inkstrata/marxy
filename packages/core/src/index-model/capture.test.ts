@@ -96,3 +96,55 @@ test('capturePrivacyLines fills each rule in', () => {
   const lines = capturePrivacyLines([{ from: '/a/*.md', to: '/n', fromBase: '/a' }]);
   assert.deepEqual(lines, ['Marxy copies files matching your capture rules from `/a/*.md` to `/n` on this disk, while it is running.']);
 });
+
+const rule = (from: string, to: string) => `[[capture]]\nfrom = '${from}'\nto = '${to}'\n`;
+
+test('dot segments, empty segments and case or Unicode form cannot slip past a check', () => {
+  const table: [string, string, string, RegExp][] = [
+    ['dot-dot loop', '~/Notes/*.md', '~/Notes/../Notes/cp', /loop/],
+    ['dot loop', '~/Notes/*.md', '~/Notes/./cp', /loop/],
+    ['empty-segment loop', '~/Notes/*.md', '~/Notes//cp', /loop/],
+    ['climbing loop', '~/a/**', '~/a/b/../../a/c', /loop/],
+    ['dots in from', '~/Notes/x/../**/*.md', '~/Notes/cp', /loop/],
+    ['escape into own folder', '~/a/*.md', '~/.config/marxy/../marxy/x', /own settings/],
+    ['double leading slash', '~/a/*.md', '//Users/ian/.config/marxy/x', /own settings/],
+    ['above the root', '~/a/*.md', '/..', /climbs above/],
+    ['up to the root', '~/a/*.md', '~/../..', /root or the home/],
+    ['windows dots', 'C:\\a\\*.md', 'C:\\x\\..\\a\\cp', /loop/],
+    ['macOS case', '~/notes/*.md', '~/Notes/cp', /loop.*case/],
+    ['unicode form', '/n/Caf\u00e9/*.md', '/n/Cafe\u0301/cp', /loop/],
+    ['own folder case', '~/a/*.md', '~/.config/Marxy/x', /own settings.*case/],
+    ['windows case', 'C:\\Notes\\*.md', 'c:\\notes\\cp', /loop/],
+    ['ancestor of own', '~/a/*.md', '~/.config', /holds/],
+    ['ancestor of own, app support', '~/a/*.md', '~/Library/Application Support', /holds/],
+    ['network share', '~/a/*.md', '\\\\host\\share\\x', /not an absolute/],
+    ['dots after a glob', '~/a/*/../b/*.md', '~/n', /climbs above its root or follows a glob/],
+  ];
+  for (const [name, from, to, needle] of table) {
+    const r = run(rule(from, to)).res;
+    assert.deepEqual(r.collection.captures, [], name);
+    assert.equal(r.warnings.length, 1, `${name}: ${r.warnings.join(' | ')}`);
+    assert.match(r.warnings[0]!, needle, name);
+  }
+});
+
+test('a deny glob is matched against the path as written and the folded path', () => {
+  refused(rule('/a/*.md', '/n/Drafts/x'), /deny glob/, ['**/drafts/**']);
+});
+
+test('clean dot segments resolve and the resolved form is stored', () => {
+  const r = run(rule('~/a/b/../c/*.md', '~/Notes/./cp//x')).res;
+  assert.deepEqual(r.collection.captures, [
+    { from: '/Users/ian/a/c/*.md', to: '/Users/ian/Notes/cp/x', fromBase: '/Users/ian/a/c' },
+  ]);
+  assert.deepEqual(r.warnings, []);
+});
+
+test('own folders given in ~ form are expanded and resolved', () => {
+  const r = parseCollection(new TextEncoder().encode(rule('/a/*.md', '~/.config/marxy/x')), {
+    home,
+    ownFolders: ['~/.config/./marxy'],
+  });
+  assert.deepEqual(r.collection.captures, []);
+  assert.match(r.warnings[0]!, /own settings/);
+});

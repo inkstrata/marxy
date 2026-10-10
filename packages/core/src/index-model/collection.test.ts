@@ -379,6 +379,8 @@ test('appendQuery after appendRoot keeps both, and a roots-only file is untouche
   assert.equal(r.collection.roots.at(-1)?.path, '/z');
   assert.deepEqual(r.collection.queries, [QUERY]);
   assert.deepEqual(r.collection.roots, parseCollection(withRoot, ctx).collection.roots);
+});
+
 test('a file with roots and captures yields both; one without captures has none (P-02)', () => {
   const r = parseCollection(
     enc('[[root]]\npath = "~/notes"\n\n[[capture]]\nfrom = "~/.claude/plans/*.md"\nto = "~/Notes/plans"\n'),
